@@ -1,4 +1,4 @@
-name: Hardening Preview Live E2E
+name: Production Live E2E Final
 
 on:
   push:
@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      LIVE_URL: https://dff59619.startak-real-estate.pages.dev/
+      LIVE_URL: https://startak-real-estate.pages.dev/
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -36,14 +36,14 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Run comprehensive live E2E against hardening preview
+      - name: Run comprehensive live E2E against production
         run: node tests/e2e/production_live_e2e.mjs
 
       - name: Upload evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: startak-hardening-preview-live-e2e-evidence
+          name: startak-production-live-e2e-final-evidence
           path: runtime-evidence/production-live/
           if-no-files-found: warn
           retention-days: 7
