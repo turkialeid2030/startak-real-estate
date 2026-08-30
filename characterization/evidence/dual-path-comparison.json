@@ -1,0 +1,26 @@
+[
+  {
+    "gold_id": "RE-GOLD-001-U",
+    "unexpected_mismatches": 0,
+    "expected_def001_divergences": 0,
+    "mismatches": []
+  },
+  {
+    "gold_id": "RE-GOLD-001-L",
+    "unexpected_mismatches": 0,
+    "expected_def001_divergences": 0,
+    "mismatches": []
+  },
+  {
+    "gold_id": "RE-GOLD-002-U",
+    "unexpected_mismatches": 0,
+    "expected_def001_divergences": 0,
+    "mismatches": []
+  },
+  {
+    "gold_id": "RE-GOLD-002-L",
+    "unexpected_mismatches": 0,
+    "expected_def001_divergences": 0,
+    "mismatches": []
+  }
+]

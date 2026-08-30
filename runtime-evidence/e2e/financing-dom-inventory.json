@@ -1,0 +1,78 @@
+[
+  {
+    "tag": "BUTTON",
+    "role": null,
+    "type": "button",
+    "text": "القسم السابعالتمويل العقاري (اختياري)",
+    "ariaLabel": null,
+    "ariaChecked": null,
+    "disabled": false,
+    "box": {
+      "x": 836.34375,
+      "y": 1576.078125,
+      "w": 490.65625,
+      "h": 59
+    },
+    "visible": true
+  },
+  {
+    "tag": "LABEL",
+    "role": null,
+    "type": null,
+    "text": "نمط الهيكل التمويليمرابحةإجارة منتهية بالتمليك",
+    "ariaLabel": null,
+    "ariaChecked": null,
+    "box": {
+      "x": 852.34375,
+      "y": 1711.078125,
+      "w": 458.65625,
+      "h": 56
+    },
+    "visible": true
+  },
+  {
+    "tag": "LABEL",
+    "role": null,
+    "type": null,
+    "text": "نسبة التمويل إلى قيمة الشراء (LTV)%",
+    "ariaLabel": null,
+    "ariaChecked": null,
+    "box": {
+      "x": 852.34375,
+      "y": 1779.078125,
+      "w": 458.65625,
+      "h": 58
+    },
+    "visible": true
+  },
+  {
+    "tag": "LABEL",
+    "role": null,
+    "type": null,
+    "text": "مدة التمويلسنةإن تجاوزت مدة الاستثمار، يُخصم الرصيد المتبقي من عائد البيع",
+    "ariaLabel": null,
+    "ariaChecked": null,
+    "box": {
+      "x": 852.34375,
+      "y": 1919.078125,
+      "w": 458.65625,
+      "h": 78.25
+    },
+    "visible": true
+  },
+  {
+    "tag": "LABEL",
+    "role": null,
+    "type": null,
+    "text": "الحد الأدنى لنسبة تغطية خدمة الدين (DSCR)%١٢٥٪ = مستوى معتاد في تمويل العقارات ا",
+    "ariaLabel": null,
+    "ariaChecked": null,
+    "box": {
+      "x": 852.34375,
+      "y": 2009.328125,
+      "w": 458.65625,
+      "h": 78.25
+    },
+    "visible": true
+  }
+]

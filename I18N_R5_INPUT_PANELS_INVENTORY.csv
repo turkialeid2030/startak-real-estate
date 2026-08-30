@@ -1,0 +1,129 @@
+id,wave_id,study_type,component,source_file,source_location,field_name,presentation_property,current_text,string_type,raw_semantic,unit,conditional,dictionary_key,ar-SA,en,implementation_status
+IN-B-001,R5-A,building,Section,App.jsx,903,-,eyebrow+title,القسم الأول / الأرض والمبنى,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-B-002,R5-A,building,Section,App.jsx,926,-,eyebrow+title,القسم الثاني / تكلفة الشراء,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-B-003,R5-A,building,Section,App.jsx,934,-,eyebrow+title,القسم الثالث / الدخل التأجيري,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-B-004,R5-A,building,Section,App.jsx,949,-,eyebrow+title,القسم الرابع / المصروفات التشغيلية,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-B-005,R5-A,building,Section,App.jsx,954,-,eyebrow+title,القسم الخامس / افتراضات التقييم والاستثمار,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-B-006,R5-A,building,Section,App.jsx,966,-,eyebrow+title,القسم السادس / معايير التوصية,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5A
+FIN-B-007,R5-D,building,Section,App.jsx,971,-,eyebrow+title,القسم السابع / التمويل العقاري (اختياري),STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5D
+IN-B-008,R5-A,building,Section,App.jsx,986,-,eyebrow+title,القسم الثامن / المخاطر التنظيمية والقانونية (نوعي),STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-L-009,R5-B,land,Section,App.jsx,1008,-,eyebrow+title,القسم الأول / الأرض,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5B
+IN-L-010,R5-B,land,Section,App.jsx,1014,-,eyebrow+title,القسم الثاني / مخطط التطوير,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5B
+IN-L-011,R5-B,land,Section,App.jsx,1022,-,eyebrow+title,القسم الثالث / تكلفة الإنشاء,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5B
+IN-L-012,R5-B,land,Section,App.jsx,1032,-,eyebrow+title,القسم الرابع / تكاليف الشراء الإضافية,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5B
+IN-L-013,R5-B,land,Section,App.jsx,1039,-,eyebrow+title,القسم الخامس / الإيرادات والتشغيل,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5B
+IN-L-014,R5-B,land,Section,App.jsx,1046,-,eyebrow+title,القسم السادس / التوقيت والعائد,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5B
+FIN-L-015,R5-D,land,Section,App.jsx,1065,-,eyebrow+title,القسم السابع / التمويل العقاري (اختياري),STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5D
+IN-L-016,R5-B,land,Section,App.jsx,1080,-,eyebrow+title,القسم الثامن / المخاطر التنظيمية والقانونية (نوعي),STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5B
+IN-B-017,R5-A,building,NumField,App.jsx,904,landLength,label,طول الأرض,STATIC_PRESENTATION,,متر طولي,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-B-018,R5-A,building,NumField,App.jsx,905,landWidth,label,عرض الأرض,STATIC_PRESENTATION,,متر طولي,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-B-019,R5-A,building,NumField,App.jsx,906,buildingAge,label,عمر المبنى الحالي,STATIC_PRESENTATION,,سنة,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-B-020,R5-A,building,NumField,App.jsx,908,basementCount,label,عدد الأقبية,STATIC_PRESENTATION,,قبو,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-B-021,R5-A,building,NumField,App.jsx,909,basementAreaEach,label,مساحة القبو الواحد,STATIC_PRESENTATION,,م²,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-B-022,R5-A,building,NumField,App.jsx,910,parkingAreaPerSpot,label,مساحة موقف السيارة الواحد,STATIC_PRESENTATION,,م²/موقف,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-B-023,R5-A,building,NumField,App.jsx,912,floorCount,label,عدد الأدوار المكتبية,STATIC_PRESENTATION,,دور,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-B-024,R5-A,building,NumField,App.jsx,913,floorAreaEach,label,المساحة الإجمالية للدور الواحد,STATIC_PRESENTATION,,م²,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-B-025,R5-A,building,NumField,App.jsx,915,netLeasableOverride,label,المساحة التأجيرية حسب العقود (اختياري),STATIC_PRESENTATION,,م²,False,TBD,TBD,TBD,LOCALIZED_R5A
+NOTE-026,R5-A,building,NumField,App.jsx,915,netLeasableOverride,note,اتركها صفراً لاحتسابها تلقائياً من نسبة الكفاءة,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-B-027,R5-A,building,NumField,App.jsx,923,serviceElevators,label,عدد مصاعد الخدمة,STATIC_PRESENTATION,,مصعد,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-B-028,R5-A,building,NumField,App.jsx,927,buildingPrice,label,قيمة شراء المبنى,STATIC_PRESENTATION,,ريال,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-B-029,R5-A,building,NumField,App.jsx,930,inspectionCost,label,الفحص الفني للمبنى,STATIC_PRESENTATION,,ريال,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-B-030,R5-A,building,NumField,App.jsx,931,valuationCost,label,تقييم العقار,STATIC_PRESENTATION,,ريال,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-B-031,R5-A,building,NumField,App.jsx,935,rentPerSqm,label,سعر المتر التأجيري,STATIC_PRESENTATION,,ريال/م²/سنة,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-B-032,R5-A,building,NumField,App.jsx,944,leaseYears,label,عدد سنوات عقد التأجير,STATIC_PRESENTATION,,سنة,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-B-033,R5-A,building,NumField,App.jsx,957,holdPeriod,label,مدة الاستثمار (سنة البيع),STATIC_PRESENTATION,,سنة,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-B-034,R5-A,building,NumField,App.jsx,960,basementConstructionCostPerSqm,label,سعر المتر الإنشائي للأقبية,STATIC_PRESENTATION,,ريال/م²,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-B-035,R5-A,building,NumField,App.jsx,961,floorConstructionCostPerSqm,label,سعر المتر الإنشائي للأدوار,STATIC_PRESENTATION,,ريال/م²,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-B-036,R5-A,building,NumField,App.jsx,962,currentLandPricePerSqm,label,سعر متر الأرض الحالي,STATIC_PRESENTATION,,ريال/م²,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-B-037,R5-A,building,NumField,App.jsx,963,buildingUsefulLife,label,العمر الافتراضي للمباني,STATIC_PRESENTATION,,سنة,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-B-038,R5-A,building,NumField,App.jsx,968,maxPaybackThreshold,label,الحد الأقصى لسنوات الاسترداد,STATIC_PRESENTATION,,سنة,False,TBD,TBD,TBD,LOCALIZED_R5A
+FIN-B-039,R5-D,building,NumField,App.jsx,981,loanTenor,label,مدة التمويل,STATIC_PRESENTATION,,سنة,True,TBD,TBD,TBD,LOCALIZED_R5D
+NOTE-040,R5-D,building,NumField,App.jsx,981,loanTenor,note,إن تجاوزت مدة الاستثمار، يُخصم الرصيد المتبقي من عائد البيع,STATIC_PRESENTATION,,,True,TBD,TBD,TBD,LOCALIZED_R5D
+IN-L-041,R5-B,land,NumField,App.jsx,1009,landLength,label,الطول,STATIC_PRESENTATION,,متر,False,TBD,TBD,TBD,LOCALIZED_R5B
+IN-L-042,R5-B,land,NumField,App.jsx,1010,landWidth,label,العرض,STATIC_PRESENTATION,,متر,False,TBD,TBD,TBD,LOCALIZED_R5B
+IN-L-043,R5-B,land,NumField,App.jsx,1011,landPricePerSqm,label,سعر المتر المربع (سعر السوق),STATIC_PRESENTATION,,ريال/م²,False,TBD,TBD,TBD,LOCALIZED_R5B
+IN-L-044,R5-B,land,NumField,App.jsx,1017,officeFloorCount,label,عدد الأدوار المكتبية,STATIC_PRESENTATION,,دور,False,TBD,TBD,TBD,LOCALIZED_R5B
+IN-L-045,R5-B,land,NumField,App.jsx,1019,basementFloorCount,label,عدد أدوار الأقبية (مواقف),STATIC_PRESENTATION,,دور,False,TBD,TBD,TBD,LOCALIZED_R5B
+IN-L-046,R5-B,land,NumField,App.jsx,1023,constructionCostPerSqm,label,سعر المتر الإنشائي الإجمالي,STATIC_PRESENTATION,,ريال/م²,False,TBD,TBD,TBD,LOCALIZED_R5B
+NOTE-047,R5-B,land,NumField,App.jsx,1023,constructionCostPerSqm,note,تقديري — يُحدَّث حسب عروض المقاولين الفعلية,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5B
+IN-L-048,R5-B,land,NumField,App.jsx,1035,engineeringCost,label,رسوم المكتب الهندسي والتراخيص,STATIC_PRESENTATION,,ريال,False,TBD,TBD,TBD,LOCALIZED_R5B
+IN-L-049,R5-B,land,NumField,App.jsx,1036,landValuationCost,label,تقييم الأرض,STATIC_PRESENTATION,,ريال,False,TBD,TBD,TBD,LOCALIZED_R5B
+IN-L-050,R5-B,land,NumField,App.jsx,1040,marketRentPerSqm,label,سعر المتر التأجيري السوقي,STATIC_PRESENTATION,,ريال/م²/سنة,False,TBD,TBD,TBD,LOCALIZED_R5B
+IN-L-051,R5-B,land,NumField,App.jsx,1047,constructionPeriod,label,فترة الإنشاء,STATIC_PRESENTATION,,سنة,False,TBD,TBD,TBD,LOCALIZED_R5B
+NOTE-052,R5-B,land,NumField,App.jsx,1047,constructionPeriod,note,تُوزَّع تكلفة الإنشاء بالتساوي على هذه المدة، وتبدأ سنوات التشغيل بعدها مباشرة,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5B
+IN-L-053,R5-B,land,NumField,App.jsx,1057,operatingPeriod,label,فترة التشغيل حتى البيع,STATIC_PRESENTATION,,سنة,False,TBD,TBD,TBD,LOCALIZED_R5B
+IN-L-054,R5-B,land,NumField,App.jsx,1062,maxPaybackThreshold,label,الحد الأقصى لسنوات الاسترداد,STATIC_PRESENTATION,,سنة,False,TBD,TBD,TBD,LOCALIZED_R5B
+FIN-L-055,R5-D,land,NumField,App.jsx,1075,loanTenor,label,مدة التمويل (من بداية التشغيل),STATIC_PRESENTATION,,سنة,True,TBD,TBD,TBD,LOCALIZED_R5D
+NOTE-056,R5-D,land,NumField,App.jsx,1075,loanTenor,note,إن تجاوزت فترة التشغيل، يُخصم الرصيد المتبقي من عائد الخروج,STATIC_PRESENTATION,,,True,TBD,TBD,TBD,LOCALIZED_R5D
+IN-B-057,R5-A,building,PercentField,App.jsx,914,efficiencyRatio,label,نسبة الكفاءة التأجيرية,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5A
+WARN-058,R5-A,building,PercentField,App.jsx,914,efficiencyRatio,warnText,نادراً ما تتجاوز الكفاءة التأجيرية ٩٥٪,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-B-059,R5-A,building,PercentField,App.jsx,928,commissionRate,label,نسبة السعي (العمولة),STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-B-060,R5-A,building,PercentField,App.jsx,929,transferFeeRate,label,نسبة رسوم التصرفات العقارية,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-B-061,R5-A,building,PercentField,App.jsx,936,occupancyRate,label,نسبة الإشغال المتوقعة,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5A
+WARN-062,R5-A,building,PercentField,App.jsx,936,occupancyRate,warnText,لا يمكن أن تتجاوز نسبة الإشغال ١٠٠٪,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-B-063,R5-A,building,PercentField,App.jsx,945,vatRate,label,ضريبة القيمة المضافة على التأجير,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-B-064,R5-A,building,PercentField,App.jsx,946,serviceIncomeRate,label,نسبة دخل الخدمات بعد التأجير,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-B-065,R5-A,building,PercentField,App.jsx,950,maintenanceRate,label,إدارة وصيانة وتشغيل وأمن ونظافة,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5A
+NOTE-066,R5-A,building,PercentField,App.jsx,950,maintenanceRate,note,نسبة من إجمالي الدخل السنوي,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-B-067,R5-A,building,PercentField,App.jsx,951,insuranceRate,label,التأمين على المبنى,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5A
+NOTE-068,R5-A,building,PercentField,App.jsx,951,insuranceRate,note,نسبة من إجمالي الدخل السنوي,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-B-069,R5-A,building,PercentField,App.jsx,955,marketCapRate,label,معدل الرسملة السوقي,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-B-070,R5-A,building,PercentField,App.jsx,956,discountRate,label,معدل الخصم (لحساب NPV),STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-B-071,R5-A,building,PercentField,App.jsx,958,rentGrowthRate,label,معدل نمو الإيجار السنوي,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5A
+NOTE-072,R5-A,building,PercentField,App.jsx,958,rentGrowthRate,note,صفر = يطابق افتراض الدراسة الأصلية (دخل ثابت),STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-B-073,R5-A,building,PercentField,App.jsx,967,minYieldThreshold,label,الحد الأدنى للعائد الصافي,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5A
+FIN-B-074,R5-D,building,PercentField,App.jsx,979,ltv,label,نسبة التمويل إلى قيمة الشراء (LTV),STATIC_PRESENTATION,,,True,TBD,TBD,TBD,LOCALIZED_R5D
+WARN-075,R5-D,building,PercentField,App.jsx,979,ltv,warnText,التمويل العقاري التجاري في السوق السعودي نادراً ما يتجاوز ٩٠٪,STATIC_PRESENTATION,,,True,TBD,TBD,TBD,LOCALIZED_R5D
+FIN-B-076,R5-D,building,PercentField,App.jsx,980,loanRate,label,معدل الربح السنوي,STATIC_PRESENTATION,,,True,TBD,TBD,TBD,LOCALIZED_R5D
+IN-B-077,R5-A,building,PercentField,App.jsx,982,minDscrThreshold,label,الحد الأدنى لنسبة تغطية خدمة الدين (DSCR),STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5A
+NOTE-078,R5-A,building,PercentField,App.jsx,982,minDscrThreshold,note,١٢٥٪ = مستوى معتاد في تمويل العقارات المدرّة للدخل,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5A
+WARN-079,R5-A,building,PercentField,App.jsx,982,minDscrThreshold,warnText,أقل من ١٠٠٪ يعني أن الدخل التشغيلي لا يغطي القسط — لن يقبله أي ممول,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-B-080,R5-A,building,PercentField,App.jsx,983,equityRiskSpread,label,علاوة مخاطرة حقوق الملكية بعد الرفع,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5A
+NOTE-081,R5-A,building,PercentField,App.jsx,983,equityRiskSpread,note,تُضاف إلى معدل الخصم عند احتساب صافي القيمة الحالية المرفوعة، لأن حقوق الملكية بعد الرفع أعلى مخاطرة,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-L-082,R5-B,land,PercentField,App.jsx,1015,buildableRatio,label,نسبة البناء المسموحة,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5B
+IN-L-083,R5-B,land,PercentField,App.jsx,1018,servicesRatioPerFloor,label,نسبة الخدمات من كل دور,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5B
+WARN-084,R5-B,land,PercentField,App.jsx,1018,servicesRatioPerFloor,warnText,نسبة خدمات أعلى من ٤٠٪ غير معتادة,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5B
+IN-L-085,R5-B,land,PercentField,App.jsx,1033,landCommissionRate,label,السعي (العمولة),STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5B
+IN-L-086,R5-B,land,PercentField,App.jsx,1034,landTransferFeeRate,label,رسوم التصرفات العقارية,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5B
+IN-L-087,R5-B,land,PercentField,App.jsx,1041,occupancyRate,label,نسبة الإشغال المتوقعة,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5B
+WARN-088,R5-B,land,PercentField,App.jsx,1041,occupancyRate,warnText,لا يمكن أن تتجاوز نسبة الإشغال ١٠٠٪,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5B
+IN-L-089,R5-B,land,PercentField,App.jsx,1042,serviceIncomeRate,label,نسبة دخل الخدمات من الإيجار,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5B
+IN-L-090,R5-B,land,PercentField,App.jsx,1043,opexRate,label,نسبة المصروفات التشغيلية,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5B
+IN-L-091,R5-B,land,PercentField,App.jsx,1056,rentGrowthRate,label,معدل نمو الإيجار السنوي,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5B
+IN-L-092,R5-B,land,PercentField,App.jsx,1058,marketCapRate,label,معدل الرسملة السوقي,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5B
+IN-L-093,R5-B,land,PercentField,App.jsx,1059,exitCapRate,label,معدل رسملة الخروج (Exit Cap Rate),STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5B
+IN-L-094,R5-B,land,PercentField,App.jsx,1060,exitTransferFeeRate,label,رسوم التصرفات عند البيع (الخروج),STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5B
+NOTE-095,R5-B,land,PercentField,App.jsx,1060,exitTransferFeeRate,note,إضافة موحّدة مع دراسة المبنى القائم — عدّلها لصفر لمطابقة الدراسة الأصلية تماماً,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5B
+IN-L-096,R5-B,land,PercentField,App.jsx,1061,hurdleRate,label,معدل العائد المطلوب (Hurdle Rate),STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5B
+FIN-L-097,R5-D,land,PercentField,App.jsx,1073,ltv,label,نسبة التمويل إلى التكلفة (LTC),STATIC_PRESENTATION,,,True,TBD,TBD,TBD,LOCALIZED_R5D
+WARN-098,R5-D,land,PercentField,App.jsx,1073,ltv,warnText,التمويل التطويري نادراً ما يتجاوز ٩٠٪ من التكلفة,STATIC_PRESENTATION,,,True,TBD,TBD,TBD,LOCALIZED_R5D
+FIN-L-099,R5-D,land,PercentField,App.jsx,1074,loanRate,label,معدل الربح السنوي,STATIC_PRESENTATION,,,True,TBD,TBD,TBD,LOCALIZED_R5D
+NOTE-100,R5-D,land,PercentField,App.jsx,1074,loanRate,note,يُحتسب مرسملاً (يُضاف لرصيد التمويل دون سداد نقدي) طوال فترة الإنشاء,STATIC_PRESENTATION,,,True,TBD,TBD,TBD,LOCALIZED_R5D
+IN-L-101,R5-B,land,PercentField,App.jsx,1076,minDscrThreshold,label,الحد الأدنى لنسبة تغطية خدمة الدين (DSCR),STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5B
+NOTE-102,R5-B,land,PercentField,App.jsx,1076,minDscrThreshold,note,١٢٥٪ = مستوى معتاد في تمويل العقارات المدرّة للدخل,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5B
+WARN-103,R5-B,land,PercentField,App.jsx,1076,minDscrThreshold,warnText,أقل من ١٠٠٪ يعني أن الدخل التشغيلي لا يغطي القسط,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5B
+IN-L-104,R5-B,land,PercentField,App.jsx,1077,equityRiskSpread,label,علاوة مخاطرة حقوق الملكية بعد الرفع,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5B
+NOTE-105,R5-B,land,PercentField,App.jsx,1077,equityRiskSpread,note,تُضاف إلى معدل العائد المطلوب عند احتساب صافي القيمة الحالية المرفوعة,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5B
+ENUM-106,R5-C,building,SelectField,App.jsx,937,leaseStatus,label,حالة التأجير,STATIC_PRESENTATION,DISPLAY_ONLY,,False,TBD,TBD,TBD,LOCALIZED_R5C
+NOTE-107,R5-C,building,SelectField,App.jsx,937,leaseStatus,note,مؤجر = دخل فوري بلا شاغر,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5C
+UNIT-108,R5-C,building,SelectField,App.jsx,937,leaseStatus,options,مؤجر | 3 أشهر | 6 أشهر | 9 أشهر | سنة,DISPLAY_ONLY_ENUM,DISPLAY_ONLY,,False,TBD,TBD,TBD,LOCALIZED_R5C
+FIN-B-109,R5-D,building,SelectField,App.jsx,978,financingStructureLabel,label,نمط الهيكل التمويلي,STATIC_PRESENTATION,DISPLAY_ONLY,,True,TBD,TBD,TBD,LOCALIZED_R5D
+UNIT-110,R5-D,building,SelectField,App.jsx,978,financingStructureLabel,options,مرابحة | إجارة منتهية بالتمليك,DISPLAY_ONLY_ENUM,DISPLAY_ONLY,,True,TBD,TBD,TBD,LOCALIZED_R5D
+ENUM-111,R5-C,land,SelectField,App.jsx,1016,buildingTypeLabel,label,نوع البناء,STATIC_PRESENTATION,DISPLAY_ONLY,,False,TBD,TBD,TBD,LOCALIZED_R5C
+UNIT-112,R5-C,land,SelectField,App.jsx,1016,buildingTypeLabel,options,برج مكتبي | برج سكني | مبنى تجاري | استخدام مختلط,DISPLAY_ONLY_ENUM,DISPLAY_ONLY,,False,TBD,TBD,TBD,LOCALIZED_R5C
+FIN-L-113,R5-D,land,SelectField,App.jsx,1072,financingStructureLabel,label,نمط الهيكل التمويلي,STATIC_PRESENTATION,DISPLAY_ONLY,,True,TBD,TBD,TBD,LOCALIZED_R5D
+UNIT-114,R5-D,land,SelectField,App.jsx,1072,financingStructureLabel,options,مرابحة | إجارة منتهية بالتمليك,DISPLAY_ONLY_ENUM,DISPLAY_ONLY,,True,TBD,TBD,TBD,LOCALIZED_R5D
+ENUM-115,R5-C,land,SelectField,App.jsx,1083,buildingPermitStatus,label,حالة رخصة البناء,STATIC_PRESENTATION,"SEMANTIC (=== ""صادر"")",,False,TBD,TBD,TBD,LOCALIZED_R5C
+UNIT-116,R5-C,land,SelectField,App.jsx,1083,buildingPermitStatus,options,لم يُستخرج | قيد الإجراء | صادر,RAW_SEMANTIC_ENUM,"SEMANTIC (=== ""صادر"")",,False,TBD,TBD,TBD,LOCALIZED_R5C
+FIN-B-117,R5-D,building,Toggle,App.jsx,972,leverageEnabled,label,,STATIC_PRESENTATION,,,True,TBD,TBD,TBD,LOCALIZED_R5D
+NOTE-118,R5-D,building,Toggle,App.jsx,972,leverageEnabled,note,عند الإيقاف تُعرض جميع المؤشرات على أساس التمويل الذاتي الكامل (١٠٠٪ حقوق ملكية)، كما في الدراسة الأصلية,STATIC_PRESENTATION,,,True,TBD,TBD,TBD,LOCALIZED_R5D
+IN-B-119,R5-A,building,Toggle,App.jsx,987,titleDeedVerified,label,صك الملكية تم التحقق منه,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-B-120,R5-A,building,Toggle,App.jsx,988,complianceCertified,label,شهادة السلامة والامتثال الفني سارية,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5A
+IN-B-121,R5-A,building,Toggle,App.jsx,989,rentFreezeChecked,label,تأكيد وضع العقود القائمة تجاه قرار تجميد الإيجارات,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5A
+NOTE-122,R5-A,building,Toggle,App.jsx,989,rentFreezeChecked,note,قرار سبتمبر ٢٠٢٥ يُجمّد عقود الإيجار القائمة في نطاق الرياض العمراني لمدة ٥ سنوات؛ العقود الجديدة وأول تأجير غير متأثرين. بما أن هذا المبنى مؤجر حالياً، يُنصح بتأكيد هذا البند قبل افتراض أي نمو إيجاري على العقود القائمة.,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5A
+FIN-L-123,R5-D,land,Toggle,App.jsx,1066,leverageEnabled,label,,STATIC_PRESENTATION,,,True,TBD,TBD,TBD,LOCALIZED_R5D
+NOTE-124,R5-D,land,Toggle,App.jsx,1066,leverageEnabled,note,عند الإيقاف تُعرض جميع المؤشرات على أساس التمويل الذاتي الكامل (١٠٠٪ حقوق ملكية)، كما في الدراسة الأصلية,STATIC_PRESENTATION,,,True,TBD,TBD,TBD,LOCALIZED_R5D
+IN-L-125,R5-B,land,Toggle,App.jsx,1081,titleDeedVerified,label,صك ملكية الأرض تم التحقق منه,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5B
+IN-L-126,R5-B,land,Toggle,App.jsx,1082,zoningConfirmed,label,المخطط التنظيمي وكثافة البناء مؤكدة من الأمانة,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5B
+IN-L-127,R5-B,land,Toggle,App.jsx,1084,soilStudyDone,label,دراسة التربة الجيوتقنية منجزة,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5B
+IN-L-128,R5-B,land,Toggle,App.jsx,1085,utilitiesConfirmed,label,توفر الخدمات (كهرباء/مياه/صرف) مؤكد من الجهات المختصة,STATIC_PRESENTATION,,,False,TBD,TBD,TBD,LOCALIZED_R5B

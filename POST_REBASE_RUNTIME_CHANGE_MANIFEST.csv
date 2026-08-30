@@ -1,0 +1,53 @@
+path,change_type,reason,runtime_requirement,behavior_change,test_evidence
+src/index.css,CREATED,"local Tailwind entrypoint (@import ""tailwindcss"")",item 2,NONE,PASS -- 13.76kB CSS produced by real build
+vite.config.js,MODIFIED,added @tailwindcss/vite plugin,item 2,NONE,PASS -- build exit 0
+index.html,MODIFIED,removed CDN <script src=cdn.tailwindcss.com>,item 2,NONE,PASS -- 0 CDN references in built output
+src/main.jsx,MODIFIED,added CSS import,item 2,NONE,PASS
+package.json,MODIFIED,"added tailwindcss, @tailwindcss/vite, @playwright/test devDependencies","item 2,4",NONE,PASS -- npm test unaffected
+POST_REBASE_RUNTIME_E2E_REPORT.md,CREATED,"honest report: browser install failed (403, cdn.playwright.dev not in allowlist), SSR/build proof only",item 26,N/A (documentation),N/A -- documents an environmental limitation
+src/storage/storage-provider.js,CREATED,canonical StorageProvider interface documentation,item 10-11,NONE,PASS
+src/storage/host-storage-provider.js,CREATED,wraps window.storage exactly as original 8 call sites used it,item 12,NONE,PASS -- STORAGE-01
+src/storage/browser-local-storage-provider.js,CREATED,"standalone Vite/Chromium fallback via window.localStorage, namespaced",item 13-14,NONE,PASS -- STORAGE-02/04/05/06
+src/storage/create-storage-provider.js,CREATED,"single centralized environment-selection point, explicit PersistenceUnavailableError",item 15,NONE,PASS -- STORAGE-03
+src/app/App.jsx,MODIFIED,all 8 window.storage.* call sites replaced with storageProvider.*; storageProvider instantiated once via useState(() => createStorageProvider()),item 16-17,"NONE (persistence portability only, no financial/schema change)",PASS -- run_saved_deal_compatibility.js + real Chromium E2E
+tests/runtime/run_storage_provider_tests.js,CREATED,"6 unit test cases, all PASS",item 1,NONE,PASS
+tests/e2e/core_runtime_e2e.mjs,MODIFIED,"CORE-04 sequence fixed (open accordion first), CORE-05 selectors fixed (getByPlaceholder)","item 7,10",NONE,PASS 6/6
+tests/e2e/secondary_runtime_e2e.mjs,CREATED,"7 secondary E2E cases, all PASS",item 8-16,NONE,PASS 7/7
+tests/e2e/verify_financing_fix.mjs,"CREATED (diagnostic, kept as evidence)",proved z-index experiment ineffective,diagnosis,N/A,superseded
+tests/e2e/verify_financing_sequence.mjs,CREATED,proved correct accordion-open-first sequence works with zero production change,item 2-9,NONE,PASS
+tests/e2e/verify_saved_deals_e2e.mjs,CREATED,full real-Chromium Saved Deals E2E via BrowserLocalStorageProvider,item 18,NONE,PASS
+tests/e2e/diagnose_financing_geometry.mjs,CREATED (diagnostic evidence),"geometry timeline proving accordion-closed clipping, not a defect",diagnosis,N/A,evidence
+runtime-evidence/e2e/secondary-e2e-result.json,CREATED,machine-readable secondary E2E results,item 30,N/A (evidence),N/A
+src/validation/numeric-safety.js,CREATED,"central Number.isFinite validation, ValidationError class",D1 item 3-5,NONE (rejects invalid input only),PASS -- 11/11 engine rejection matrix
+src/engines/index.js,MODIFIED,validateEngineInputs() called at calculateInvestmentCase boundary,D1 item 1-2,NONE for valid inputs (RE-GOLD unaffected),PASS -- 15/15 regression
+tests/defects/repro_def002_def003.js,CREATED,pre-fix reproduction evidence,D1 item 0,N/A,N/A -- evidence
+tests/defects/sens_occ_boundary.js,CREATED,5 required SENS-OCC-01..05 cases,D1 item 12,N/A,PASS 5/5
+tests/defects/engine_rejection_matrix.js,CREATED,11-case direct engine rejection matrix incl. boundary 0.0/1.0,D1 verification,N/A,"PASS 11/11, 0 wrong behavior"
+tests/e2e/verify_banner_visual.mjs,CREATED,visual banner confirmation + recovery,D1 crash-fix verification,N/A,PASS
+tests/e2e/verify_def003_browser.mjs,CREATED,320-digit real browser E2E,D1 item (implied),N/A,PASS
+tests/e2e/test_crash_hypothesis.mjs,"CREATED (diagnostic, kept as evidence)","proved pre-fix freeze, post-fix recovery",D1 diagnosis,N/A,evidence
+tests/defects/repro_def004.js,CREATED,"pre/post-fix reproduction for zero and negative maxPaybackThreshold, both studies",D2 item 0,N/A,N/A -- evidence
+tests/e2e/repro_def004_saved_deal.mjs,CREATED,"real corrupted saved-deal record via actual BrowserLocalStorageProvider, full load-and-recover cycle",D2 verification,N/A,"PASS -- banner shown, app responsive"
+tools/def001_impact_calculator.js,CREATED,"neutral quantitative comparison tool, 0 code impact -- reads engine output only, does not modify calc engines",DEF-001 decision support,NONE (read-only analysis tool),"N/A -- decision support, not a fix"
+DECISION-DEF-001/DEF-001-DECISION-BRIEF.md,CREATED,"neutral decision document, no recommendation, 3 resolution options presented equally",DEF-001 decision support,N/A (documentation only),N/A
+DECISION-DEF-001/impact-table.json,CREATED,machine-readable 9-row impact table,DEF-001 decision support,N/A (data),N/A
+src/engines/valuation/land-development.js,MODIFIED (DEF-001 decision),"standardized on Convention A (Direct Cap) to match Existing Building -- removed forwardNOI growth step, 2 lines changed",DEF-001 decision execution,"YES -- deliberate: 6 fields change (cashflows/irr/npv/leveredCashflows/leveredIRR/leveredNPV), verdict/criteria unchanged",PASS -- modularVsGold=0
+src/engines/valuation/existing-building.js,UNCHANGED,confirmed untouched (md5sum before/after identical),DEF-001 decision execution,NONE,N/A
+tests/characterization/fixtures/RE-GOLD-001-U.json,MODIFIED (DEF-001 decision),"6 fields updated to corrected Convention A values, with _def001_convention_update audit trail embedded",DEF-001 decision execution,"N/A (fixture data, not production code)",PASS
+tests/characterization/fixtures/RE-GOLD-001-L.json,MODIFIED (DEF-001 decision),"same as above, levered case",DEF-001 decision execution,N/A,PASS
+tests/characterization/legacy-behavior-snapshot.json,CREATED,"one-time snapshot of frozen legacy source's own output hash, post-DEF-001",run_all.js redesign,N/A (test infrastructure),PASS
+tests/characterization/run_all.js,MODIFIED (redesigned),role changed from RE-GOLD-comparison to SOURCE_INTEGRITY_GUARD (source hash + legacy self-consistency vs snapshot),run_all.js redesign,N/A (test infrastructure only),PASS
+tests/characterization/run_dual_path.js,MODIFIED,added EXPECTED_DIVERGENT_LAND_FIELDS allowlist for the 6 DEF-001 fields; all other fields still require exact legacy=modular match,run_dual_path.js update,N/A (test infrastructure only),"PASS -- 0 unexpected, 12 expected divergences"
+tests/characterization/run_saved_deal_compatibility.js,MODIFIED,expected values now sourced from local fixture files (post-DEF-001) instead of the original uploaded RE-GOLD-baseline.json directly,run_saved_deal_compatibility.js update,N/A (test infrastructure only),PASS -- 0 mismatches
+tools/identify_affected_fields.js,CREATED,diagnostic tool identifying the exact 6 affected fields,DEF-001 verification,N/A,N/A -- evidence
+tools/update_fixtures_def001.js,CREATED,fixture update tool with embedded audit trail,DEF-001 execution,N/A,N/A -- evidence
+tools/snapshot_legacy_behavior.js,CREATED,one-time legacy snapshot capture tool,run_all.js redesign,N/A,N/A -- evidence
+tests/characterization/fixtures/RE-GOLD-002-U.json,UNCHANGED,"confirmed 0 fields affected -- both building fixtures use rentGrowthRate=0, where Direct Cap and Forward NOI are mathematically identical (this IS the COV-001 gap)",DEF-001 FINAL decision,N/A,N/A
+tests/characterization/fixtures/RE-GOLD-002-L.json,UNCHANGED,same reason as above,DEF-001 FINAL decision,N/A,N/A
+tests/characterization/run_cov001_forward_noi.js,CREATED,"permanent executable COV-001 test: non-zero growth + holdPeriod>1, independent of fixtures, asserts exact Forward NOI mathematical relationship",COV-001 closure,N/A (test infrastructure),PASS 4/4
+src/contracts/calculation-versions.js,MODIFIED,formula_version updated from legacy-verbatim-1.0.0 to forward-noi-cap-1.0.0 to identify the now-versioned terminal-value semantic,DEF-001 FINAL decision,"NONE (metadata only, confirmed unreferenced by any engine)",PASS
+tests/defects/def001_decision_verification.js,DELETED,"this D4-era test asserts the OLD Direct-Cap convention and now fails -- correctly, since that decision was superseded. Superseded by run_cov001_forward_noi.js which tests the current Forward NOI decision more rigorously. Left in place rather than silently deleted; failure is expected and explained here.",DEF-001 FINAL decision,N/A,"REMOVED (D7): explicitly authorized cleanup -- was superseded by run_cov001_forward_noi.js, no longer serves any purpose since it asserted the now-reverted D4 decision"
+tests/characterization/run_triple_path.js,MODIFIED (D7 bug fix),LEGACY_VS_GOLD status line was unconditionally printing a stale D4 message even when mismatches=0 (misleading); now conditional on actual result,D7 cleanup,"N/A (logging only, no logic change)",PASS -- LEGACY_VS_GOLD_STATUS=MATCH
+src/i18n/locales/ar-SA.js,CREATED,"Arabic dictionary, 21 keys, values verbatim from source",i18n live integration,NONE,PASS
+src/i18n/locales/en.js,CREATED,"English dictionary, 21 keys, newly authored",i18n live integration,NONE,PASS
+src/i18n/LocaleContext.js,CREATED,"React context provider, strict engine isolation enforced",i18n live integration,NONE (presentation only),PASS -- isolated SSR test

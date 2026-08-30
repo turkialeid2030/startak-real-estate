@@ -1,0 +1,11 @@
+trace_id,requirement,implementation_path,test_evidence,status
+C3-01,Capability Registry,src/registries/capability-registry.json,"run_registry_schema.js + direct inspection: 29 rows, 0 duplicate ids, 8 VERIFIED_IMPLEMENTED (conservative)",PASS
+C3-02,Capability Inspector,src/components/CapabilityInspector.js,"tests/architecture/run_capability_inspector.js: 3/3 cases, 0 status mismatches, 0 false availability claims",PASS
+C3-03,Critical Gate Registry,src/registries/critical-gate-registry.json,"16 gates, all default NOT_EVALUATED, 0 duplicate ids",PASS
+C3-04,Critical Gate InvestmentCase Integration,src/contracts/executable-investment-case.js (freshCriticalGates),"run_critical_gate_path.js: 4 cases x 16 gates = 64 records, 0 fabricated decisions, 0 financial mismatches",PASS
+C3-05,Regulatory Disconnection,"REGULATORY_DECISION_BINDING_MATRIX.csv (Wave 2, unchanged)","8/8 fields still DISCONNECTED_DECISION_INPUT, 0 consumed by recommendation -- not touched this Wave",PASS
+C3-06,Rule Registry,src/registries/rule-registry.json,"1 rule (the only one actually evidenced in App.jsx), status=REFERENCE_RULE_NEEDS_VERIFICATION, verification_status=NOT_VERIFIED",PASS
+C3-07,Rule Source References,src/registries/rule-registry.json source_refs field,"source_refs=[] (honest -- no matching source-registry entry exists for this specific rule), 0 invalid references",PASS
+C3-08,Rule Version Isolation,src/contracts/calculation-versions.js + src/engines/**,grep confirms 0 references to rule_version anywhere in src/engines/,PASS
+C3-09,Registry QA,tests/characterization/run_registry_schema.js,"run_registry_schema.js EXTENDED this pass to cover all 6 registries (source/phase/terminology/capability/critical-gate/rule): 0 schema errors, 0 duplicate ids, 0 fabricated gate decisions, 0 false rule verification claims",PASS
+C3-10,False-claim QA,capability-registry.json review + this Wave's manual cross-check,0 VERIFIED_IMPLEMENTED capabilities lack evidence; 0 rules marked VERIFIED_REFERENCE without proof; 0 gates default non-NOT_EVALUATED,PASS

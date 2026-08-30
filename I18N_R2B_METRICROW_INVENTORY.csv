@@ -1,0 +1,70 @@
+stable_id,source_file,source_location,occurrence_type,is_executable_call,study_type,section,r2b_wave,label_current,value_expression,formatter,subtext,financing_dependency,requires_translation,implementation_status
+MR-B01,App.jsx,628,JSX_CALL_SITE,TRUE,building,areas,R2B-1,مساحة الأرض,fmtNum+م²,fmtNum+م²,none,FALSE,TRUE,LOCALIZED_R2B1
+MR-B02,App.jsx,629,JSX_CALL_SITE,TRUE,building,areas,R2B-1,إجمالي مساحة الأقبية,fmtNum+م²,fmtNum+م²,fmtNum+موقف سيارة,FALSE,TRUE,LOCALIZED_R2B1
+MR-B03,App.jsx,630,JSX_CALL_SITE,TRUE,building,areas,R2B-1,إجمالي المساحة الإنشائية للأدوار,fmtNum+م²,fmtNum+م²,none,FALSE,TRUE,LOCALIZED_R2B1
+MR-B04,App.jsx,631,JSX_CALL_SITE,TRUE,building,areas,R2B-1,المساحة التأجيرية الصافية المعتمدة,fmtNum+م²,fmtNum+م²,fmtNum+م²/دور بالمتوسط,FALSE,TRUE,LOCALIZED_R2B1
+MR-B05,App.jsx,632,JSX_CALL_SITE,TRUE,building,areas,R2B-1,معامل البناء إلى مساحة الأرض,fmtX,fmtX,none,FALSE,TRUE,LOCALIZED_R2B1
+MR-B06,App.jsx,633,JSX_CALL_SITE,TRUE,building,areas,R2B-1,الفحص المنطقي للمساحات,ternary سليم✓/تعارض✗,ternary سليم✓/تعارض✗,none,FALSE,TRUE,LOCALIZED_R2B1
+MR-B07,App.jsx,637,JSX_CALL_SITE,TRUE,building,purchase_cost,R2B-1,قيمة شراء المبنى,fmtSAR,fmtSAR,none,FALSE,TRUE,LOCALIZED_R2B1
+MR-B08,App.jsx,638,JSX_CALL_SITE,TRUE,building,purchase_cost,R2B-1,قيمة السعي (العمولة),fmtSAR,fmtSAR,none,FALSE,TRUE,LOCALIZED_R2B1
+MR-B09,App.jsx,639,JSX_CALL_SITE,TRUE,building,purchase_cost,R2B-1,رسوم التصرفات العقارية,fmtSAR,fmtSAR,none,FALSE,TRUE,LOCALIZED_R2B1
+MR-B10,App.jsx,640,JSX_CALL_SITE,TRUE,building,purchase_cost,R2B-1,الفحص الفني + التقييم,fmtSAR,fmtSAR,none,FALSE,TRUE,LOCALIZED_R2B1
+MR-B11,App.jsx,641,JSX_CALL_SITE,TRUE,building,purchase_cost,R2B-1,إجمالي تكلفة الشراء,fmtSAR,fmtSAR,none,FALSE,TRUE,LOCALIZED_R2B1
+MR-B12,App.jsx,642,JSX_CALL_SITE,TRUE,building,purchase_cost,R2B-1,تكلفة المتر على المساحة التأجيرية,fmtNum+ريال/م²,fmtNum+ريال/م²,none,FALSE,TRUE,LOCALIZED_R2B1
+MR-B13,App.jsx,646,JSX_CALL_SITE,TRUE,building,income,R2B-2,الدخل التأجيري السنوي (قبل الشاغر),fmtSAR,fmtSAR,none,FALSE,TRUE,LOCALIZED_R2B2
+MR-B14,App.jsx,647,JSX_CALL_SITE,TRUE,building,income,R2B-2,(يُخصم) دخل فترة الشاغر,fmtSAR,fmtSAR,none,FALSE,TRUE,LOCALIZED_R2B2
+MR-B15,App.jsx,648,JSX_CALL_SITE,TRUE,building,income,R2B-2,دخل الخدمات بعد التأجير,fmtSAR,fmtSAR,none,FALSE,TRUE,LOCALIZED_R2B2
+MR-B16,App.jsx,649,JSX_CALL_SITE,TRUE,building,income,R2B-2,إجمالي الدخل السنوي,fmtSAR,fmtSAR,none,FALSE,TRUE,LOCALIZED_R2B2
+MR-B17,App.jsx,650,JSX_CALL_SITE,TRUE,building,income,R2B-2,ضريبة القيمة المضافة المحصلة,fmtSAR,fmtSAR,تورَّد للهيئة — لا تدخل ضمن الدخل,FALSE,TRUE,LOCALIZED_R2B2
+MR-B18,App.jsx,654,JSX_CALL_SITE,TRUE,building,opex,R2B-2,إجمالي المصروفات التشغيلية,fmtSAR,fmtSAR,none,FALSE,TRUE,LOCALIZED_R2B2
+MR-B19,App.jsx,655,JSX_CALL_SITE,TRUE,building,opex,R2B-2,صافي الدخل التشغيلي (NOI),fmtSAR,fmtSAR,none,FALSE,TRUE,LOCALIZED_R2B2
+MR-B20,App.jsx,659,JSX_CALL_SITE,TRUE,building,valuation,R2B-2,العائد الصافي على إجمالي التكلفة,fmtPct,fmtPct,none,FALSE,TRUE,LOCALIZED_R2B2
+MR-B21,App.jsx,660,JSX_CALL_SITE,TRUE,building,valuation,R2B-2,العائد الإجمالي على إجمالي التكلفة,fmtPct,fmtPct,none,FALSE,TRUE,LOCALIZED_R2B2
+MR-B22,App.jsx,661,JSX_CALL_SITE,TRUE,building,valuation,R2B-2,العائد الصافي على سعر الشراء,fmtPct,fmtPct,none,FALSE,TRUE,LOCALIZED_R2B2
+MR-B23,App.jsx,662,JSX_CALL_SITE,TRUE,building,valuation,R2B-2,سنوات الاسترداد على سعر الشراء,fmtYears,fmtYears,none,FALSE,TRUE,LOCALIZED_R2B2
+MR-B24,App.jsx,663,JSX_CALL_SITE,TRUE,building,valuation,R2B-2,القيمة السوقية (رسملة الدخل),fmtSAR,fmtSAR,none,FALSE,TRUE,LOCALIZED_R2B2
+MR-B25,App.jsx,664,JSX_CALL_SITE,TRUE,building,valuation,R2B-2,الفرق عن إجمالي التكلفة,fmtSARSigned,fmtSARSigned,none,FALSE,TRUE,LOCALIZED_R2B2
+MR-B26,App.jsx,665,JSX_CALL_SITE,TRUE,building,valuation,R2B-2,أعلى سعر شراء يحقق المعايير,fmtSAR,fmtSAR,none,FALSE,TRUE,LOCALIZED_R2B2
+MR-B27,App.jsx,669,JSX_CALL_SITE,TRUE,building,appraisal,R2B-2,قيمة إنشاء المباني (استبدالية),fmtSAR,fmtSAR,none,FALSE,TRUE,LOCALIZED_R2B2
+MR-B28,App.jsx,670,JSX_CALL_SITE,TRUE,building,appraisal,R2B-2,قيمة الأرض الحالية,fmtSAR,fmtSAR,none,FALSE,TRUE,LOCALIZED_R2B2
+MR-B29,App.jsx,671,JSX_CALL_SITE,TRUE,building,appraisal,R2B-2,القيمة الإجمالية الحالية,fmtSAR,fmtSAR,none,FALSE,TRUE,LOCALIZED_R2B2
+MR-B30,App.jsx,672,JSX_CALL_SITE,TRUE,building,appraisal,R2B-2,مقابل إجمالي تكلفة الشراء,fmtSARSigned,fmtSARSigned,none,FALSE,TRUE,LOCALIZED_R2B2
+MR-B31,App.jsx,673,JSX_CALL_SITE,TRUE,building,appraisal,R2B-2,الإهلاك السنوي للمباني,fmtSAR,fmtSAR,بند محاسبي — لا يُخصم من التدفق النقدي,FALSE,TRUE,LOCALIZED_R2B2
+MR-B32,App.jsx,678,JSX_CALL_SITE,TRUE,building,financing,R2B-3,قيمة التمويل,fmtSAR,fmtSAR,none,TRUE,TRUE,LOCALIZED_R2B3
+MR-B33,App.jsx,679,JSX_CALL_SITE,TRUE,building,financing,R2B-3,حقوق الملكية المطلوبة,fmtSAR,fmtSAR,none,TRUE,TRUE,LOCALIZED_R2B3
+MR-B34,App.jsx,680,JSX_CALL_SITE,TRUE,building,financing,R2B-3,القسط السنوي,fmtSAR,fmtSAR,none,TRUE,TRUE,LOCALIZED_R2B3
+MR-B35,App.jsx,681,JSX_CALL_SITE,TRUE,building,financing,R2B-3,نسبة تغطية خدمة الدين (الأدنى),fmtX/—,fmtX/—,none,TRUE,TRUE,LOCALIZED_R2B3
+MR-B36,App.jsx,682,JSX_CALL_SITE,TRUE,building,financing,R2B-3,معدل العائد الداخلي على حقوق الملكية (مرفوع),fmtPct,fmtPct,none,TRUE,TRUE,LOCALIZED_R2B3
+MR-B37,App.jsx,683,JSX_CALL_SITE,TRUE,building,financing,R2B-3,صافي القيمة الحالية المرفوعة,fmtSAR,fmtSAR,dynamic template w/ fmtPct,TRUE,TRUE,LOCALIZED_R2B3
+MR-L01,App.jsx,718,JSX_CALL_SITE,TRUE,land,areas,R2B-1,مساحة الأرض,fmtNum+م²,fmtNum+م²,none,FALSE,TRUE,LOCALIZED_R2B1
+MR-L02,App.jsx,719,JSX_CALL_SITE,TRUE,land,areas,R2B-1,القيمة السوقية للأرض,fmtSAR,fmtSAR,none,FALSE,TRUE,LOCALIZED_R2B1
+MR-L03,App.jsx,720,JSX_CALL_SITE,TRUE,land,areas,R2B-1,مساحة البناء للدور الواحد,fmtNum+م²,fmtNum+م²,none,FALSE,TRUE,LOCALIZED_R2B1
+MR-L04,App.jsx,721,JSX_CALL_SITE,TRUE,land,areas,R2B-1,إجمالي المساحة الإنشائية للأدوار,fmtNum+م²,fmtNum+م²,none,FALSE,TRUE,LOCALIZED_R2B1
+MR-L05,App.jsx,722,JSX_CALL_SITE,TRUE,land,areas,R2B-1,إجمالي مساحة الأقبية,fmtNum+م²,fmtNum+م²,none,FALSE,TRUE,LOCALIZED_R2B1
+MR-L06,App.jsx,723,JSX_CALL_SITE,TRUE,land,areas,R2B-1,إجمالي المساحة التأجيرية الصافية,fmtNum+م²,fmtNum+م²,none,FALSE,TRUE,LOCALIZED_R2B1
+MR-L07,App.jsx,727,JSX_CALL_SITE,TRUE,land,cost,R2B-1,إجمالي تكلفة إنشاء البرج,fmtSAR,fmtSAR,none,FALSE,TRUE,LOCALIZED_R2B1
+MR-L08,App.jsx,728,JSX_CALL_SITE,TRUE,land,cost,R2B-1,السعي + رسوم التصرفات (الأرض),fmtSAR,fmtSAR,none,FALSE,TRUE,LOCALIZED_R2B1
+MR-L09,App.jsx,729,JSX_CALL_SITE,TRUE,land,cost,R2B-1,إجمالي تكلفة شراء الأرض,fmtSAR,fmtSAR,none,FALSE,TRUE,LOCALIZED_R2B1
+MR-L10,App.jsx,730,JSX_CALL_SITE,TRUE,land,cost,R2B-1,إجمالي تكلفة المشروع (أرض + إنشاء),fmtSAR,fmtSAR,none,FALSE,TRUE,LOCALIZED_R2B1
+MR-L11,App.jsx,731,JSX_CALL_SITE,TRUE,land,cost,R2B-1,تكلفة المتر على المساحة التأجيرية,fmtNum+ريال/م²,fmtNum+ريال/م²,none,FALSE,TRUE,LOCALIZED_R2B1
+MR-L12,App.jsx,735,JSX_CALL_SITE,TRUE,land,income,R2B-2,الدخل التأجيري (إشغال كامل),fmtSAR,fmtSAR,none,FALSE,TRUE,LOCALIZED_R2B2
+MR-L13,App.jsx,736,JSX_CALL_SITE,TRUE,land,income,R2B-2,الدخل التأجيري الفعلي,fmtSAR,fmtSAR,none,FALSE,TRUE,LOCALIZED_R2B2
+MR-L14,App.jsx,737,JSX_CALL_SITE,TRUE,land,income,R2B-2,دخل الخدمات,fmtSAR,fmtSAR,none,FALSE,TRUE,LOCALIZED_R2B2
+MR-L15,App.jsx,738,JSX_CALL_SITE,TRUE,land,income,R2B-2,إجمالي الإيرادات التشغيلية,fmtSAR,fmtSAR,none,FALSE,TRUE,LOCALIZED_R2B2
+MR-L16,App.jsx,739,JSX_CALL_SITE,TRUE,land,income,R2B-2,المصروفات التشغيلية,fmtSAR,fmtSAR,none,FALSE,TRUE,LOCALIZED_R2B2
+MR-L17,App.jsx,740,JSX_CALL_SITE,TRUE,land,income,R2B-2,صافي الدخل التشغيلي (NOI) المستقر,fmtSAR,fmtSAR,none,FALSE,TRUE,LOCALIZED_R2B2
+MR-L18,App.jsx,744,JSX_CALL_SITE,TRUE,land,valuation,R2B-2,معدل الرسملة على التكلفة,fmtPct,fmtPct,none,FALSE,TRUE,LOCALIZED_R2B2
+MR-L19,App.jsx,745,JSX_CALL_SITE,TRUE,land,valuation,R2B-2,القيمة السوقية بعد الإنشاء,fmtSAR,fmtSAR,none,FALSE,TRUE,LOCALIZED_R2B2
+MR-L20,App.jsx,746,JSX_CALL_SITE,TRUE,land,valuation,R2B-2,الفائض عن التكلفة,fmtSARSigned,fmtSARSigned,none,FALSE,TRUE,LOCALIZED_R2B2
+MR-L21,App.jsx,747,JSX_CALL_SITE,TRUE,land,valuation,R2B-2,فترة استرداد رأس المال,fmtYears,fmtYears,none,FALSE,TRUE,LOCALIZED_R2B2
+MR-L22,App.jsx,748-753,JSX_CALL_SITE,TRUE,land,valuation,R2B-2,أعلى سعر مبرر لمتر الأرض,fmtNum+ريال/م²,fmtNum+ريال/م²,dynamic: مقابل السعر الحالي fmtNum ريال/م2,FALSE,TRUE,LOCALIZED_R2B2
+MR-L23,App.jsx,758,JSX_CALL_SITE,TRUE,land,financing,R2B-3,قيمة التمويل (الأرض + الإنشاء),fmtSAR,fmtSAR,none,TRUE,TRUE,LOCALIZED_R2B3
+MR-L24,App.jsx,759,JSX_CALL_SITE,TRUE,land,financing,R2B-3,حقوق الملكية المطلوبة,fmtSAR,fmtSAR,none,TRUE,TRUE,LOCALIZED_R2B3
+MR-L25,App.jsx,760,JSX_CALL_SITE,TRUE,land,financing,R2B-3,رصيد التمويل عند بدء التشغيل (بعد رسملة فوائد الإنشاء),fmtSAR,fmtSAR,none,TRUE,TRUE,LOCALIZED_R2B3
+MR-L26,App.jsx,761,JSX_CALL_SITE,TRUE,land,financing,R2B-3,القسط السنوي,fmtSAR,fmtSAR,none,TRUE,TRUE,LOCALIZED_R2B3
+MR-L27,App.jsx,762,JSX_CALL_SITE,TRUE,land,financing,R2B-3,نسبة تغطية خدمة الدين (الأدنى),fmtX/—,fmtX/—,none,TRUE,TRUE,LOCALIZED_R2B3
+MR-L28,App.jsx,763,JSX_CALL_SITE,TRUE,land,financing,R2B-3,معدل العائد الداخلي على حقوق الملكية (مرفوع),fmtPct,fmtPct,none,TRUE,TRUE,LOCALIZED_R2B3
+MR-L29,App.jsx,764,JSX_CALL_SITE,TRUE,land,financing,R2B-3,صافي القيمة الحالية المرفوعة,fmtSAR,fmtSAR,dynamic template w/ fmtPct,TRUE,TRUE,LOCALIZED_R2B3
+MR-S01,App.jsx,863,JSX_CALL_SITE,TRUE,sensitivity,OUT_OF_SCOPE,R4,(dynamic d.label),fmtPct range,fmtPct range,اتساع النطاق dynamic,FALSE,OUT_OF_SCOPE_R3,DEFERRED_R4
+MR-000,App.jsx,358,DEFINITION,FALSE,N/A,N/A,NON_CALL,function MetricRow(...),N/A,N/A,,FALSE,FALSE,NOT_APPLICABLE
+MR-000B,App.jsx,620,COMMENT_OR_NON_EXECUTABLE,FALSE,N/A,N/A,NON_CALL,// comment referencing MetricRow,N/A,N/A,,FALSE,FALSE,NOT_APPLICABLE

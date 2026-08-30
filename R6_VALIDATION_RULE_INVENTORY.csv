@@ -1,0 +1,4 @@
+stable_code,producer_function,source_location,trigger_condition,domain,has_message_ar,has_message_en,has_stable_code,implementation_status
+FINITE_NUMBER_REQUIRED,requireFinite(),numeric-safety.js:19,any numeric field is NaN/Infinity/-Infinity,N/A - all numeric fields,YES,YES,YES (rule string),LOCALIZED (via R6 targeted disclosure fix)
+OUT_OF_RANGE,requireRange(),numeric-safety.js:29,"occupancyRate outside [0,1]",0..1,YES,YES,YES (rule string),LOCALIZED
+STRICTLY_POSITIVE_REQUIRED,validateEngineInputs(),numeric-safety.js:64,maxPaybackThreshold <= 0,"(0, +inf)",YES,YES,YES (rule string),LOCALIZED

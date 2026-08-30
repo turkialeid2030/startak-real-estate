@@ -1,0 +1,27 @@
+{
+  "locale": "ar-SA",
+  "direction": "RTL",
+  "terms": {
+    "OVERVIEW": "نظرة عامة",
+    "OPPORTUNITIES": "الفرص",
+    "INVESTMENT_CASES": "حالات الاستثمار",
+    "STUDY": "دراسة",
+    "EXISTING_BUILDING": "مبنى قائم",
+    "LAND_DEVELOPMENT": "أرض وتطوير",
+    "SCREENING": "فرز أولي",
+    "FULL_UNDERWRITING": "دراسة تحوّط كاملة",
+    "INVESTMENT_COMMITTEE": "لجنة الاستثمار",
+    "EVIDENCE": "أدلة",
+    "DUE_DILIGENCE": "الفحص النافي للجهالة",
+    "MAPS": "خرائط",
+    "SCENARIOS": "سيناريوهات",
+    "DECISION_ROOM": "غرفة القرار",
+    "PORTFOLIO": "المحفظة",
+    "SOURCES": "المصادر",
+    "RECOMMENDATION": "التوصية",
+    "NOI": "صافي الدخل التشغيلي",
+    "IRR": "معدل العائد الداخلي",
+    "NPV": "صافي القيمة الحالية",
+    "DSCR": "نسبة تغطية خدمة الدين"
+  }
+}

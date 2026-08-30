@@ -1,0 +1,27 @@
+{
+  "locale": "en",
+  "direction": "LTR",
+  "terms": {
+    "OVERVIEW": "Overview",
+    "OPPORTUNITIES": "Opportunities",
+    "INVESTMENT_CASES": "Investment Cases",
+    "STUDY": "Study",
+    "EXISTING_BUILDING": "Existing Building",
+    "LAND_DEVELOPMENT": "Land + Development",
+    "SCREENING": "Screening",
+    "FULL_UNDERWRITING": "Full Underwriting",
+    "INVESTMENT_COMMITTEE": "Investment Committee",
+    "EVIDENCE": "Evidence",
+    "DUE_DILIGENCE": "Due Diligence",
+    "MAPS": "Maps",
+    "SCENARIOS": "Scenarios",
+    "DECISION_ROOM": "Decision Room",
+    "PORTFOLIO": "Portfolio",
+    "SOURCES": "Sources",
+    "RECOMMENDATION": "Recommendation",
+    "NOI": "Net Operating Income",
+    "IRR": "Internal Rate of Return",
+    "NPV": "Net Present Value",
+    "DSCR": "Debt Service Coverage Ratio"
+  }
+}

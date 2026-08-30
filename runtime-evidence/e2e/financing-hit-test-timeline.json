@@ -1,0 +1,346 @@
+[
+  {
+    "label": "T0_before_scroll",
+    "scrollY": 0,
+    "buttonRect": {
+      "x": 852.34375,
+      "y": 1660.078125,
+      "w": 40,
+      "h": 22
+    },
+    "accordionBodyRect": {
+      "x": 836.34375,
+      "y": 1635.078125,
+      "w": 490.65625,
+      "h": 0
+    },
+    "accordionHeaderRect": {
+      "x": 836.34375,
+      "y": 1576.078125,
+      "w": 490.65625,
+      "h": 59
+    },
+    "gridTemplateRows": "0px",
+    "transitionProperty": "grid-template-rows",
+    "hitTestIsButtonItself": false,
+    "elementsFromPointStack": []
+  },
+  {
+    "label": "T1_immediately_after_scroll",
+    "scrollY": 1036,
+    "buttonRect": {
+      "x": 852.34375,
+      "y": 588.078125,
+      "w": 40,
+      "h": 22
+    },
+    "accordionBodyRect": {
+      "x": 836.34375,
+      "y": 599.078125,
+      "w": 490.65625,
+      "h": 0
+    },
+    "accordionHeaderRect": {
+      "x": 836.34375,
+      "y": 540.078125,
+      "w": 490.65625,
+      "h": 59
+    },
+    "gridTemplateRows": "0px",
+    "transitionProperty": "grid-template-rows",
+    "hitTestTag": "DIV",
+    "hitTestCls": "rounded-2xl mb-3 overflow-hidden",
+    "hitTestIsButtonItself": false,
+    "elementsFromPointStack": [
+      {
+        "tag": "DIV",
+        "cls": "rounded-2xl mb-3 overflow-hidden"
+      },
+      {
+        "tag": "DIV",
+        "cls": ""
+      },
+      {
+        "tag": "ASIDE",
+        "cls": "lg:col-span-5"
+      },
+      {
+        "tag": "DIV",
+        "cls": "grid grid-cols-1 lg:grid-cols-12 gap-6"
+      },
+      {
+        "tag": "DIV",
+        "cls": "max-w-7xl mx-auto px-4 py-6 md:px-8 md:py-8"
+      },
+      {
+        "tag": "DIV",
+        "cls": "rf-root min-h-screen"
+      }
+    ]
+  },
+  {
+    "label": "T2_+50ms",
+    "scrollY": 1036,
+    "buttonRect": {
+      "x": 852.34375,
+      "y": 588.078125,
+      "w": 40,
+      "h": 22
+    },
+    "accordionBodyRect": {
+      "x": 836.34375,
+      "y": 599.078125,
+      "w": 490.65625,
+      "h": 0
+    },
+    "accordionHeaderRect": {
+      "x": 836.34375,
+      "y": 540.078125,
+      "w": 490.65625,
+      "h": 59
+    },
+    "gridTemplateRows": "0px",
+    "transitionProperty": "grid-template-rows",
+    "hitTestTag": "DIV",
+    "hitTestCls": "rounded-2xl mb-3 overflow-hidden",
+    "hitTestIsButtonItself": false,
+    "elementsFromPointStack": [
+      {
+        "tag": "DIV",
+        "cls": "rounded-2xl mb-3 overflow-hidden"
+      },
+      {
+        "tag": "DIV",
+        "cls": ""
+      },
+      {
+        "tag": "ASIDE",
+        "cls": "lg:col-span-5"
+      },
+      {
+        "tag": "DIV",
+        "cls": "grid grid-cols-1 lg:grid-cols-12 gap-6"
+      },
+      {
+        "tag": "DIV",
+        "cls": "max-w-7xl mx-auto px-4 py-6 md:px-8 md:py-8"
+      },
+      {
+        "tag": "DIV",
+        "cls": "rf-root min-h-screen"
+      }
+    ]
+  },
+  {
+    "label": "T3_+100ms_total",
+    "scrollY": 1036,
+    "buttonRect": {
+      "x": 852.34375,
+      "y": 588.078125,
+      "w": 40,
+      "h": 22
+    },
+    "accordionBodyRect": {
+      "x": 836.34375,
+      "y": 599.078125,
+      "w": 490.65625,
+      "h": 0
+    },
+    "accordionHeaderRect": {
+      "x": 836.34375,
+      "y": 540.078125,
+      "w": 490.65625,
+      "h": 59
+    },
+    "gridTemplateRows": "0px",
+    "transitionProperty": "grid-template-rows",
+    "hitTestTag": "DIV",
+    "hitTestCls": "rounded-2xl mb-3 overflow-hidden",
+    "hitTestIsButtonItself": false,
+    "elementsFromPointStack": [
+      {
+        "tag": "DIV",
+        "cls": "rounded-2xl mb-3 overflow-hidden"
+      },
+      {
+        "tag": "DIV",
+        "cls": ""
+      },
+      {
+        "tag": "ASIDE",
+        "cls": "lg:col-span-5"
+      },
+      {
+        "tag": "DIV",
+        "cls": "grid grid-cols-1 lg:grid-cols-12 gap-6"
+      },
+      {
+        "tag": "DIV",
+        "cls": "max-w-7xl mx-auto px-4 py-6 md:px-8 md:py-8"
+      },
+      {
+        "tag": "DIV",
+        "cls": "rf-root min-h-screen"
+      }
+    ]
+  },
+  {
+    "label": "T4_+250ms_total",
+    "scrollY": 1036,
+    "buttonRect": {
+      "x": 852.34375,
+      "y": 588.078125,
+      "w": 40,
+      "h": 22
+    },
+    "accordionBodyRect": {
+      "x": 836.34375,
+      "y": 599.078125,
+      "w": 490.65625,
+      "h": 0
+    },
+    "accordionHeaderRect": {
+      "x": 836.34375,
+      "y": 540.078125,
+      "w": 490.65625,
+      "h": 59
+    },
+    "gridTemplateRows": "0px",
+    "transitionProperty": "grid-template-rows",
+    "hitTestTag": "DIV",
+    "hitTestCls": "rounded-2xl mb-3 overflow-hidden",
+    "hitTestIsButtonItself": false,
+    "elementsFromPointStack": [
+      {
+        "tag": "DIV",
+        "cls": "rounded-2xl mb-3 overflow-hidden"
+      },
+      {
+        "tag": "DIV",
+        "cls": ""
+      },
+      {
+        "tag": "ASIDE",
+        "cls": "lg:col-span-5"
+      },
+      {
+        "tag": "DIV",
+        "cls": "grid grid-cols-1 lg:grid-cols-12 gap-6"
+      },
+      {
+        "tag": "DIV",
+        "cls": "max-w-7xl mx-auto px-4 py-6 md:px-8 md:py-8"
+      },
+      {
+        "tag": "DIV",
+        "cls": "rf-root min-h-screen"
+      }
+    ]
+  },
+  {
+    "label": "T5_+400ms_total",
+    "scrollY": 1036,
+    "buttonRect": {
+      "x": 852.34375,
+      "y": 588.078125,
+      "w": 40,
+      "h": 22
+    },
+    "accordionBodyRect": {
+      "x": 836.34375,
+      "y": 599.078125,
+      "w": 490.65625,
+      "h": 0
+    },
+    "accordionHeaderRect": {
+      "x": 836.34375,
+      "y": 540.078125,
+      "w": 490.65625,
+      "h": 59
+    },
+    "gridTemplateRows": "0px",
+    "transitionProperty": "grid-template-rows",
+    "hitTestTag": "DIV",
+    "hitTestCls": "rounded-2xl mb-3 overflow-hidden",
+    "hitTestIsButtonItself": false,
+    "elementsFromPointStack": [
+      {
+        "tag": "DIV",
+        "cls": "rounded-2xl mb-3 overflow-hidden"
+      },
+      {
+        "tag": "DIV",
+        "cls": ""
+      },
+      {
+        "tag": "ASIDE",
+        "cls": "lg:col-span-5"
+      },
+      {
+        "tag": "DIV",
+        "cls": "grid grid-cols-1 lg:grid-cols-12 gap-6"
+      },
+      {
+        "tag": "DIV",
+        "cls": "max-w-7xl mx-auto px-4 py-6 md:px-8 md:py-8"
+      },
+      {
+        "tag": "DIV",
+        "cls": "rf-root min-h-screen"
+      }
+    ]
+  },
+  {
+    "label": "T6_+750ms_total",
+    "scrollY": 1036,
+    "buttonRect": {
+      "x": 852.34375,
+      "y": 588.078125,
+      "w": 40,
+      "h": 22
+    },
+    "accordionBodyRect": {
+      "x": 836.34375,
+      "y": 599.078125,
+      "w": 490.65625,
+      "h": 0
+    },
+    "accordionHeaderRect": {
+      "x": 836.34375,
+      "y": 540.078125,
+      "w": 490.65625,
+      "h": 59
+    },
+    "gridTemplateRows": "0px",
+    "transitionProperty": "grid-template-rows",
+    "hitTestTag": "DIV",
+    "hitTestCls": "rounded-2xl mb-3 overflow-hidden",
+    "hitTestIsButtonItself": false,
+    "elementsFromPointStack": [
+      {
+        "tag": "DIV",
+        "cls": "rounded-2xl mb-3 overflow-hidden"
+      },
+      {
+        "tag": "DIV",
+        "cls": ""
+      },
+      {
+        "tag": "ASIDE",
+        "cls": "lg:col-span-5"
+      },
+      {
+        "tag": "DIV",
+        "cls": "grid grid-cols-1 lg:grid-cols-12 gap-6"
+      },
+      {
+        "tag": "DIV",
+        "cls": "max-w-7xl mx-auto px-4 py-6 md:px-8 md:py-8"
+      },
+      {
+        "tag": "DIV",
+        "cls": "rf-root min-h-screen"
+      }
+    ]
+  }
+]

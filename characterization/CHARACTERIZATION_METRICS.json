@@ -1,0 +1,18 @@
+{
+  "canonical_source_sha256": "ac0767d3f13c463259f401a5d7af06c1140ee780a9f86489eb17ad9d7c72dc71",
+  "source_hash_before": "ac0767d3f13c463259f401a5d7af06c1140ee780a9f86489eb17ad9d7c72dc71",
+  "source_hash_after": "ac0767d3f13c463259f401a5d7af06c1140ee780a9f86489eb17ad9d7c72dc71",
+  "source_hash_unchanged": true,
+  "total_cases": 4,
+  "passed_cases": 4,
+  "failed_cases": 0,
+  "total_compared_fields": 204,
+  "field_mismatches": 0,
+  "max_absolute_error": 0,
+  "max_relative_error": 0,
+  "cash_flow_array_mismatches": 0,
+  "recommendation_mismatches": 0,
+  "fixture_hash_mismatches": 0,
+  "test_extraction_line_range": "1-423 of platform-source.jsx, verbatim",
+  "test_harness": "minimal Node.js, no test framework dependency, canonical command: npm test"
+}

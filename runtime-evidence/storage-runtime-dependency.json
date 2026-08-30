@@ -1,0 +1,79 @@
+{
+  "window_storage_call_sites_total": 8,
+  "saved_deals_call_sites": 8,
+  "other_feature_call_sites": 0,
+  "call_sites": [
+    {
+      "call_site": "App.jsx:1267",
+      "operation": "get",
+      "purpose": "load deals-index on mount",
+      "fallback_exists": false,
+      "failure_handling": "try/catch, sets dealsError",
+      "affects_saved_deals": true,
+      "affects_other_features": false
+    },
+    {
+      "call_site": "App.jsx:1288",
+      "operation": "get",
+      "purpose": "loadDeal -- fetch single deal record",
+      "fallback_exists": false,
+      "failure_handling": "try/catch, sets dealsError='تعذّر تحميل الصفقة'",
+      "affects_saved_deals": true,
+      "affects_other_features": false
+    },
+    {
+      "call_site": "App.jsx:1310",
+      "operation": "set",
+      "purpose": "saveCurrentAsNewDeal -- write deal record",
+      "fallback_exists": false,
+      "failure_handling": "try/catch (outer), sets dealsError",
+      "affects_saved_deals": true,
+      "affects_other_features": false
+    },
+    {
+      "call_site": "App.jsx:1312",
+      "operation": "set",
+      "purpose": "saveCurrentAsNewDeal -- write updated deals-index",
+      "fallback_exists": false,
+      "failure_handling": "try/catch (outer)",
+      "affects_saved_deals": true,
+      "affects_other_features": false
+    },
+    {
+      "call_site": "App.jsx:1330",
+      "operation": "set",
+      "purpose": "update existing deal record",
+      "fallback_exists": false,
+      "failure_handling": "try/catch",
+      "affects_saved_deals": true,
+      "affects_other_features": false
+    },
+    {
+      "call_site": "App.jsx:1332",
+      "operation": "set",
+      "purpose": "update deals-index after edit",
+      "fallback_exists": false,
+      "failure_handling": "try/catch",
+      "affects_saved_deals": true,
+      "affects_other_features": false
+    },
+    {
+      "call_site": "App.jsx:1344",
+      "operation": "delete",
+      "purpose": "deleteDeal -- remove single record",
+      "fallback_exists": false,
+      "failure_handling": "try/catch",
+      "affects_saved_deals": true,
+      "affects_other_features": false
+    },
+    {
+      "call_site": "App.jsx:1346",
+      "operation": "set",
+      "purpose": "update deals-index after delete",
+      "fallback_exists": false,
+      "failure_handling": "try/catch",
+      "affects_saved_deals": true,
+      "affects_other_features": false
+    }
+  ]
+}

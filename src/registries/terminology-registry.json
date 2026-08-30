@@ -1,0 +1,194 @@
+[
+  {
+    "term_id": "INVESTMENT_CASE",
+    "ar": "حالة استثمار",
+    "en": "Investment Case",
+    "category": "PRODUCT",
+    "canonical_key": "investmentCase",
+    "notes": ""
+  },
+  {
+    "term_id": "OPPORTUNITY",
+    "ar": "فرصة",
+    "en": "Opportunity",
+    "category": "PRODUCT",
+    "canonical_key": "opportunity",
+    "notes": ""
+  },
+  {
+    "term_id": "PROPERTY",
+    "ar": "عقار",
+    "en": "Property",
+    "category": "PRODUCT",
+    "canonical_key": "property",
+    "notes": ""
+  },
+  {
+    "term_id": "STUDY",
+    "ar": "دراسة",
+    "en": "Study",
+    "category": "PRODUCT",
+    "canonical_key": "study",
+    "notes": ""
+  },
+  {
+    "term_id": "EXISTING_BUILDING",
+    "ar": "مبنى قائم",
+    "en": "Existing Building",
+    "category": "STUDY_TYPE",
+    "canonical_key": "EXISTING_BUILDING",
+    "notes": ""
+  },
+  {
+    "term_id": "LAND_DEVELOPMENT",
+    "ar": "أرض وتطوير",
+    "en": "Land + Development",
+    "category": "STUDY_TYPE",
+    "canonical_key": "LAND_DEVELOPMENT",
+    "notes": ""
+  },
+  {
+    "term_id": "SCREENING",
+    "ar": "فرز أولي",
+    "en": "Screening",
+    "category": "STUDY_LEVEL",
+    "canonical_key": "SCREENING",
+    "notes": ""
+  },
+  {
+    "term_id": "FULL_UNDERWRITING",
+    "ar": "دراسة تحوّط كاملة",
+    "en": "Full Underwriting",
+    "category": "STUDY_LEVEL",
+    "canonical_key": "FULL_UNDERWRITING",
+    "notes": ""
+  },
+  {
+    "term_id": "INVESTMENT_COMMITTEE",
+    "ar": "لجنة الاستثمار",
+    "en": "Investment Committee",
+    "category": "STUDY_LEVEL",
+    "canonical_key": "INVESTMENT_COMMITTEE",
+    "notes": ""
+  },
+  {
+    "term_id": "EVIDENCE",
+    "ar": "أدلة",
+    "en": "Evidence",
+    "category": "PRODUCT",
+    "canonical_key": "evidence",
+    "notes": ""
+  },
+  {
+    "term_id": "DUE_DILIGENCE",
+    "ar": "الفحص النافي للجهالة",
+    "en": "Due Diligence",
+    "category": "PRODUCT",
+    "canonical_key": "dueDiligence",
+    "notes": ""
+  },
+  {
+    "term_id": "SCENARIO",
+    "ar": "سيناريو",
+    "en": "Scenario",
+    "category": "PRODUCT",
+    "canonical_key": "scenario",
+    "notes": ""
+  },
+  {
+    "term_id": "DECISION_ROOM",
+    "ar": "غرفة القرار",
+    "en": "Decision Room",
+    "category": "PRODUCT",
+    "canonical_key": "decisionRoom",
+    "notes": ""
+  },
+  {
+    "term_id": "PORTFOLIO",
+    "ar": "المحفظة",
+    "en": "Portfolio",
+    "category": "PRODUCT",
+    "canonical_key": "portfolio",
+    "notes": ""
+  },
+  {
+    "term_id": "SOURCE",
+    "ar": "مصدر",
+    "en": "Source",
+    "category": "PRODUCT",
+    "canonical_key": "source",
+    "notes": ""
+  },
+  {
+    "term_id": "CRITICAL_GATE",
+    "ar": "بوابة حرجة",
+    "en": "Critical Gate",
+    "category": "PRODUCT",
+    "canonical_key": "criticalGate",
+    "notes": ""
+  },
+  {
+    "term_id": "NOI",
+    "ar": "صافي الدخل التشغيلي",
+    "en": "Net Operating Income",
+    "category": "FINANCIAL_METRIC",
+    "canonical_key": "NOI",
+    "notes": "canonical_key maps to the ACTUAL src/engines output field 'NOI' -- this term registry only labels it, it does not redefine or recompute it (see DUPLICATE_FINANCIAL_SEMANTIC_DEFINITIONS check)"
+  },
+  {
+    "term_id": "IRR",
+    "ar": "معدل العائد الداخلي",
+    "en": "Internal Rate of Return",
+    "category": "FINANCIAL_METRIC",
+    "canonical_key": "irr",
+    "notes": "canonical_key maps to the ACTUAL src/engines output field 'irr' -- this term registry only labels it, it does not redefine or recompute it (see DUPLICATE_FINANCIAL_SEMANTIC_DEFINITIONS check)"
+  },
+  {
+    "term_id": "NPV",
+    "ar": "صافي القيمة الحالية",
+    "en": "Net Present Value",
+    "category": "FINANCIAL_METRIC",
+    "canonical_key": "npv",
+    "notes": "canonical_key maps to the ACTUAL src/engines output field 'npv' -- this term registry only labels it, it does not redefine or recompute it (see DUPLICATE_FINANCIAL_SEMANTIC_DEFINITIONS check)"
+  },
+  {
+    "term_id": "DSCR",
+    "ar": "نسبة تغطية خدمة الدين",
+    "en": "Debt Service Coverage Ratio",
+    "category": "FINANCIAL_METRIC",
+    "canonical_key": "dscrMin",
+    "notes": "canonical_key maps to the ACTUAL src/engines output field 'dscrMin' -- this term registry only labels it, it does not redefine or recompute it (see DUPLICATE_FINANCIAL_SEMANTIC_DEFINITIONS check)"
+  },
+  {
+    "term_id": "RECOMMENDATION",
+    "ar": "التوصية",
+    "en": "Recommendation",
+    "category": "FINANCIAL_METRIC",
+    "canonical_key": "verdict",
+    "notes": "canonical_key maps to the ACTUAL src/engines output field 'verdict' -- this term registry only labels it, it does not redefine or recompute it (see DUPLICATE_FINANCIAL_SEMANTIC_DEFINITIONS check)"
+  },
+  {
+    "term_id": "OVERVIEW",
+    "ar": "نظرة عامة",
+    "en": "Overview",
+    "category": "PRODUCT",
+    "canonical_key": "overview",
+    "notes": ""
+  },
+  {
+    "term_id": "OPPORTUNITIES",
+    "ar": "الفرص",
+    "en": "Opportunities",
+    "category": "PRODUCT",
+    "canonical_key": "opportunities",
+    "notes": ""
+  },
+  {
+    "term_id": "MAPS",
+    "ar": "خرائط",
+    "en": "Maps",
+    "category": "PRODUCT",
+    "canonical_key": "maps",
+    "notes": ""
+  }
+]

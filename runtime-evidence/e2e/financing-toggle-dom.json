@@ -1,0 +1,27 @@
+{
+  "outer_row_class": "flex items-center justify-between py-2 mb-2",
+  "button": {
+    "tag": "BUTTON",
+    "type": "button",
+    "boundingBox": {
+      "x": 852.34375,
+      "y": 1660.078125,
+      "w": 40,
+      "h": 22
+    },
+    "computed": {
+      "pointerEvents": "auto",
+      "zIndex": "auto",
+      "position": "relative",
+      "backgroundColor": "rgb(43, 59, 92)",
+      "visibility": "visible"
+    },
+    "checked_proxy_bgcolor": "rgb(43, 59, 92)"
+  },
+  "elementFromPointAtCenter": {
+    "tag": null,
+    "note": "elementFromPoint returned null -- center point outside current viewport bounds at capture time"
+  },
+  "interceptor": null,
+  "viewport_note": "center=(872,1671) vs viewport height 1200"
+}

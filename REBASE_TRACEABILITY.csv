@@ -1,0 +1,21 @@
+trace_id,requirement,implementation_path,test_evidence,status
+WB-01,Characterization protection,tests/characterization/run_all.js,"npm test: 4/4, 204 fields, 0 mismatches",PASS
+WB-02,Engine extraction,"src/engines/valuation/existing-building.js, land-development.js, financial/index.js, recommendation/index.js",run_dual_path.js: 0 mismatches vs legacy loader,PASS
+WB-03,Modular engine entrypoint,src/engines/index.js (calculateInvestmentCase),run_triple_path.js: 0/0/0 mismatches,PASS
+WB-04,Financial facade,src/engines/financial/selectors.js,field-identity verified (=== on values),PASS
+WB-05,Valuation facade,src/engines/valuation/index.js,field-identity verified,PASS
+WB-06,Financing facade,src/engines/financing/index.js,field-identity verified,PASS
+WB-07,Recommendation facade,src/engines/recommendation/selectors.js,field-identity verified,PASS
+WB-08,StudyType contract,src/contracts/study-type.js,object-identity check: engines/index.js STUDY_TYPE === contract STUDY_TYPE,PASS
+WB-09,StudyLevel contract,src/contracts/study-level.js,"loaded + truthful status values (SCREENING implemented, others PLANNED_NOT_IMPLEMENTED)",PASS
+WB-10,Version contract,src/contracts/calculation-versions.js,loaded; verified no engine file references any version field name,PASS
+WB-11,Result contracts,"src/contracts/{financial,valuation,financing,recommendation,cash-flow,criterion}-result.js","run_result_contract_path.js: 204 fields tested, 0 value mismatches, 77/77 engine fields mapped",PASS
+WB-12,ExecutableInvestmentCase,src/contracts/executable-investment-case.js,20/20 top-level fields; verdict verified against RE-GOLD directly,PASS
+WB-13,Existing Building StudyDefinition,src/modules/studies/existing-building/index.js,run_study_definition_path.js: 0 mismatches,PASS
+WB-14,Land Development StudyDefinition,src/modules/studies/land-development/index.js,run_study_definition_path.js: 0 mismatches,PASS
+WB-15,Production UI cutover,"src/app/App.jsx (6 function bodies removed, 3 call sites rewritten)",run_ui_path.js: 0/204 mismatches; bracket-balance verified; zero remaining references to deleted function names,PASS
+WB-16,Sensitivity cutover,src/app/App.jsx buildSensitivityData calc dispatcher rewritten to calculateInvestmentCase,"tests/characterization/run_sensitivity_path.js: 16 dimensions across 4 study/financing combos, 0 baseline mismatches, LEGACY_CALC_CALLS_IN_SENSITIVITY=0, SENSITIVITY_USES_MODULAR_ENGINE=true -- function body extracted programmatically from actual src/app/App.jsx, not hand-copied",PASS
+WB-17,Saved Deals compatibility,tests/characterization/run_saved_deal_compatibility.js,"2/2 cases (building+land), 0 mismatches, schema unchanged, no validation added",PASS
+WB-18,Model asymmetry protection,REBASE_MODEL_ASYMMETRY_CHECK.md,"REBASE_MODEL_ASYMMETRY_CHECK.md (refreshed): 8/8 asymmetries reviewed, 0 changed, DSCR real-divergence (1.4521 vs 1.1611) reconfirmed identical across all 4 paths, DEF-001 explicitly preserved unresolved",PASS
+WB-19,App differential control,(no REBASE_APP_DIFF_AUDIT.md file built this Wave),"REBASE_APP_DIFF_AUDIT.md: real `diff -u` output, exactly 3 hunks, all classified, 0 unclassified, 0 unexplained, 0 production-behavior hunks",PASS
+WB-20,Production path proof,(no REBASE_PRODUCTION_CALCULATION_GRAPH.md file built this Wave),REBASE_PRODUCTION_CALCULATION_GRAPH.md: 3 paths documented with real source line references; hidden-path grep across full src/+tests/ trees confirms ACTIVE_LEGACY_CALCULATION_CALLS=0,PASS

@@ -1,0 +1,90 @@
+[
+  {
+    "nav_id": "NAV-01",
+    "translation_key": "OVERVIEW",
+    "route_or_view": "overview (no route exists)",
+    "phase": "PHASE_0",
+    "implementation_status": "NOT_IMPLEMENTED",
+    "capability_id": null
+  },
+  {
+    "nav_id": "NAV-02",
+    "translation_key": "OPPORTUNITIES",
+    "route_or_view": "opportunities (no route exists)",
+    "phase": "PHASE_10",
+    "implementation_status": "NOT_IMPLEMENTED",
+    "capability_id": null
+  },
+  {
+    "nav_id": "NAV-03",
+    "translation_key": "INVESTMENT_CASE",
+    "route_or_view": "investment-cases (no route exists)",
+    "phase": "PHASE_1",
+    "implementation_status": "FOUNDATION_ONLY",
+    "capability_id": "CAP-INVESTMENT-CASE"
+  },
+  {
+    "nav_id": "NAV-04",
+    "translation_key": "STUDY",
+    "route_or_view": "study (CURRENT functional screen -- Existing Building/Land+Development tabs)",
+    "phase": "PHASE_4",
+    "implementation_status": "VERIFIED_IMPLEMENTED",
+    "capability_id": "CAP-STUDY-BUILDING"
+  },
+  {
+    "nav_id": "NAV-05",
+    "translation_key": "EVIDENCE",
+    "route_or_view": "evidence (no route exists)",
+    "phase": "PHASE_2",
+    "implementation_status": "NOT_IMPLEMENTED",
+    "capability_id": null
+  },
+  {
+    "nav_id": "NAV-06",
+    "translation_key": "DUE_DILIGENCE",
+    "route_or_view": "due-diligence (no route exists)",
+    "phase": "PHASE_6",
+    "implementation_status": "NOT_IMPLEMENTED",
+    "capability_id": "CAP-DUE-DILIGENCE"
+  },
+  {
+    "nav_id": "NAV-07",
+    "translation_key": "MAPS",
+    "route_or_view": "maps (no route exists)",
+    "phase": "PHASE_5",
+    "implementation_status": "NOT_IMPLEMENTED",
+    "capability_id": "CAP-GEO"
+  },
+  {
+    "nav_id": "NAV-08",
+    "translation_key": "SCENARIO",
+    "route_or_view": "scenarios (only single-point sensitivity tornado exists, not multi-scenario)",
+    "phase": "PHASE_7",
+    "implementation_status": "PARTIAL",
+    "capability_id": "CAP-SENSITIVITY"
+  },
+  {
+    "nav_id": "NAV-09",
+    "translation_key": "DECISION_ROOM",
+    "route_or_view": "decision-room (no route exists)",
+    "phase": "PHASE_11",
+    "implementation_status": "NOT_IMPLEMENTED",
+    "capability_id": "CAP-IC-WORKFLOW"
+  },
+  {
+    "nav_id": "NAV-10",
+    "translation_key": "PORTFOLIO",
+    "route_or_view": "portfolio (no route exists)",
+    "phase": "PHASE_10",
+    "implementation_status": "NOT_IMPLEMENTED",
+    "capability_id": "CAP-PORTFOLIO-INTEL"
+  },
+  {
+    "nav_id": "NAV-11",
+    "translation_key": "SOURCE",
+    "route_or_view": "sources (registry exists, no UI screen)",
+    "phase": "PHASE_3",
+    "implementation_status": "FOUNDATION_ONLY",
+    "capability_id": "CAP-SOURCE-REGISTRY"
+  }
+]

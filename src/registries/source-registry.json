@@ -1,0 +1,329 @@
+[
+  {
+    "source_id": "SRC-SA-REGA",
+    "name_ar": "الهيئة العامة للعقار",
+    "name_en": "Real Estate General Authority (REGA)",
+    "url": "https://rega.gov.sa/",
+    "category": "OFFICIAL_AUTHORITY",
+    "authority_class": "OFFICIAL_TRUTH",
+    "domains": [
+      "regulation",
+      "brokerage",
+      "real-estate-registration-oversight",
+      "sector-regulation"
+    ],
+    "phase": "PHASE_3",
+    "connector_status": "NOT_CONNECTED",
+    "license_status": "NOT_ASSESSED",
+    "live_access": false,
+    "fallback": "MANUAL_REFERENCE_ONLY",
+    "allowed_use": [
+      "regulatory truth",
+      "official guidance",
+      "registry oversight"
+    ],
+    "prohibited_use": [
+      "assume API availability",
+      "treat as live-connected",
+      "treat as licensed for automated ingestion without separate legal review"
+    ],
+    "last_verified": null
+  },
+  {
+    "source_id": "SRC-SA-RER",
+    "name_ar": "السجل العقاري",
+    "name_en": "Real Estate Registry (RER)",
+    "url": "https://www.rer.sa/",
+    "category": "OFFICIAL_PLATFORM",
+    "authority_class": "OFFICIAL_TRUTH",
+    "domains": [
+      "registered-property",
+      "ownership",
+      "rights",
+      "restrictions",
+      "transactions-on-registered-property"
+    ],
+    "phase": "PHASE_3",
+    "connector_status": "NOT_CONNECTED",
+    "license_status": "NOT_ASSESSED",
+    "live_access": false,
+    "fallback": "MANUAL_REFERENCE_ONLY",
+    "allowed_use": [
+      "registered ownership and rights where legally available"
+    ],
+    "prohibited_use": [
+      "treat unavailable records as absent",
+      "assume API access",
+      "treat as live-connected",
+      "treat as licensed for automated ingestion without separate legal review"
+    ],
+    "last_verified": null
+  },
+  {
+    "source_id": "SRC-SA-SBC",
+    "name_ar": "المركز السعودي لكود البناء",
+    "name_en": "Saudi Building Code Center",
+    "url": "https://sbc.gov.sa/",
+    "category": "OFFICIAL_AUTHORITY",
+    "authority_class": "OFFICIAL_TRUTH",
+    "domains": [
+      "building-code",
+      "technical-compliance"
+    ],
+    "phase": "PHASE_3",
+    "connector_status": "NOT_CONNECTED",
+    "license_status": "NOT_ASSESSED",
+    "live_access": false,
+    "fallback": "MANUAL_REFERENCE_ONLY",
+    "allowed_use": [
+      "building code requirements and official references"
+    ],
+    "prohibited_use": [
+      "engineering certification by AI",
+      "treat as live-connected",
+      "treat as licensed for automated ingestion without separate legal review"
+    ],
+    "last_verified": null
+  },
+  {
+    "source_id": "SRC-SA-SGS",
+    "name_ar": "هيئة المساحة الجيولوجية السعودية",
+    "name_en": "Saudi Geological Survey",
+    "url": "https://sgs.gov.sa/",
+    "category": "OFFICIAL_AUTHORITY",
+    "authority_class": "OFFICIAL_TRUTH",
+    "domains": [
+      "geology",
+      "geohazards",
+      "earth-science",
+      "spatial-geology"
+    ],
+    "phase": "PHASE_3",
+    "connector_status": "NOT_CONNECTED",
+    "license_status": "NOT_ASSESSED",
+    "live_access": false,
+    "fallback": "MANUAL_REFERENCE_ONLY",
+    "allowed_use": [
+      "geological context",
+      "geohazard context",
+      "official geological datasets where licensed/available"
+    ],
+    "prohibited_use": [
+      "replace project-specific geotechnical investigation",
+      "treat as live-connected",
+      "treat as licensed for automated ingestion without separate legal review"
+    ],
+    "last_verified": null
+  },
+  {
+    "source_id": "SRC-SA-INFATH",
+    "name_ar": "مركز الإسناد والتصفية (إنفاذ)",
+    "name_en": "Entrustment and Liquidation Center (Infath)",
+    "url": "https://infath.gov.sa/",
+    "category": "OFFICIAL_GOVERNMENT_SERVICE",
+    "authority_class": "OFFICIAL_TRUTH",
+    "domains": [
+      "liquidation",
+      "auctions",
+      "distressed-assets"
+    ],
+    "phase": "PHASE_3",
+    "connector_status": "NOT_CONNECTED",
+    "license_status": "NOT_ASSESSED",
+    "live_access": false,
+    "fallback": "MANUAL_REFERENCE_ONLY",
+    "allowed_use": [
+      "official liquidation/auction opportunity reference where publicly available"
+    ],
+    "prohibited_use": [
+      "assume auction data API availability",
+      "treat as live-connected",
+      "treat as licensed for automated ingestion without separate legal review"
+    ],
+    "last_verified": null
+  },
+  {
+    "source_id": "SRC-COM-SUHAIL",
+    "name_ar": "منصة سهيل",
+    "name_en": "Suhail",
+    "url": "https://www.suhail.ai/",
+    "category": "COMMERCIAL_ENRICHMENT",
+    "authority_class": "COMMERCIAL_ENRICHMENT",
+    "domains": [
+      "real-estate-market-data",
+      "urban-data",
+      "price-comparison"
+    ],
+    "phase": "PHASE_3",
+    "connector_status": "NOT_CONNECTED",
+    "license_status": "NOT_ASSESSED",
+    "live_access": false,
+    "fallback": "MANUAL_REFERENCE_ONLY",
+    "allowed_use": [
+      "market enrichment",
+      "benchmarking",
+      "cross-checking"
+    ],
+    "prohibited_use": [
+      "legal/title truth",
+      "automatic precedence over official sources",
+      "treat as live-connected",
+      "treat as licensed for automated ingestion without separate legal review"
+    ],
+    "last_verified": null
+  },
+  {
+    "source_id": "SRC-COM-EARTHAPP",
+    "name_ar": "تطبيق أرض",
+    "name_en": "Earth App",
+    "url": "https://earthapp.com.sa/",
+    "category": "COMMERCIAL_ENRICHMENT",
+    "authority_class": "COMMERCIAL_ENRICHMENT",
+    "domains": [
+      "land",
+      "plots",
+      "transactions",
+      "plans",
+      "market-indicators"
+    ],
+    "phase": "PHASE_3",
+    "connector_status": "NOT_CONNECTED",
+    "license_status": "NOT_ASSESSED",
+    "live_access": false,
+    "fallback": "MANUAL_REFERENCE_ONLY",
+    "allowed_use": [
+      "market enrichment",
+      "plot UX benchmark",
+      "transaction cross-check"
+    ],
+    "prohibited_use": [
+      "legal/title truth unless independently verified",
+      "treat as live-connected",
+      "treat as licensed for automated ingestion without separate legal review"
+    ],
+    "last_verified": null
+  },
+  {
+    "source_id": "SRC-COM-PASEET",
+    "name_ar": "بسيطة / Paseet",
+    "name_en": "Paseet / Paseetah",
+    "url": "https://paseet.ai/",
+    "category": "COMMERCIAL_ENRICHMENT",
+    "authority_class": "COMMERCIAL_ENRICHMENT",
+    "domains": [
+      "sales",
+      "rentals",
+      "parcels",
+      "demographics",
+      "poi",
+      "reit-data"
+    ],
+    "phase": "PHASE_3",
+    "connector_status": "NOT_CONNECTED",
+    "license_status": "NOT_ASSESSED",
+    "live_access": false,
+    "fallback": "MANUAL_REFERENCE_ONLY",
+    "allowed_use": [
+      "market enrichment",
+      "research acceleration",
+      "benchmarking"
+    ],
+    "prohibited_use": [
+      "official title/planning/legal truth without source-level verification",
+      "treat as live-connected",
+      "treat as licensed for automated ingestion without separate legal review"
+    ],
+    "last_verified": null
+  },
+  {
+    "source_id": "SRC-GEO-GEE",
+    "name_ar": "Google Earth Engine",
+    "name_en": "Google Earth Engine",
+    "url": "https://developers.google.com/earth-engine/",
+    "category": "GEO_PROCESSING_PROVIDER",
+    "authority_class": "SPECIALIZED_COMPUTE_ENRICHMENT",
+    "domains": [
+      "earth-observation",
+      "satellite",
+      "raster",
+      "change-detection",
+      "terrain-context"
+    ],
+    "phase": "PHASE_3",
+    "connector_status": "NOT_CONNECTED",
+    "license_status": "NOT_ASSESSED",
+    "live_access": false,
+    "fallback": "MANUAL_REFERENCE_ONLY",
+    "allowed_use": [
+      "geospatial processing",
+      "earth observation",
+      "change detection"
+    ],
+    "prohibited_use": [
+      "legal/cadastral truth",
+      "ignore dataset-specific licenses",
+      "treat as live-connected",
+      "treat as licensed for automated ingestion without separate legal review"
+    ],
+    "last_verified": null
+  },
+  {
+    "source_id": "SRC-REF-TAALMAI",
+    "name_ar": "فهرس الألف فكرة",
+    "name_en": "Taalmai Ideas Index",
+    "url": "https://idea.taalmai.com/",
+    "category": "RESEARCH_IDEAS",
+    "authority_class": "RESEARCH_REFERENCE",
+    "domains": [
+      "ideas",
+      "business-models",
+      "global-benchmarks"
+    ],
+    "phase": "PHASE_3",
+    "connector_status": "NOT_CONNECTED",
+    "license_status": "NOT_ASSESSED",
+    "live_access": false,
+    "fallback": "MANUAL_REFERENCE_ONLY",
+    "allowed_use": [
+      "ideation",
+      "business-model research",
+      "benchmark discovery"
+    ],
+    "prohibited_use": [
+      "official real-estate truth",
+      "regulatory truth",
+      "valuation evidence",
+      "treat as live-connected",
+      "treat as licensed for automated ingestion without separate legal review"
+    ],
+    "last_verified": null
+  },
+  {
+    "source_id": "SRC-BENCH-JOANNA-HAIL",
+    "name_ar": "مؤشر جوانا العقارية - حائل",
+    "name_en": "Joanna Real Estate Hail Indicator",
+    "url": "https://hail.joannaestate.com/",
+    "category": "BENCHMARK",
+    "authority_class": "BENCHMARK_ONLY",
+    "domains": [
+      "market-dashboard",
+      "ux-benchmark",
+      "hail-transactions"
+    ],
+    "phase": "PHASE_3",
+    "connector_status": "NOT_CONNECTED",
+    "license_status": "NOT_ASSESSED",
+    "live_access": false,
+    "fallback": "MANUAL_REFERENCE_ONLY",
+    "allowed_use": [
+      "UX benchmark",
+      "market dashboard comparison"
+    ],
+    "prohibited_use": [
+      "treat displayed aggregates as official truth without underlying official source verification",
+      "treat as live-connected",
+      "treat as licensed for automated ingestion without separate legal review"
+    ],
+    "last_verified": null
+  }
+]

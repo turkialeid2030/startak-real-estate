@@ -1,0 +1,10 @@
+producer_state,producer_function,state_holder,consumer_display,classification,reachability_notes
+PersistenceUnavailableError,createStorageProvider(),"thrown, uncaught in current App code",N/A,INTERNAL_ONLY,UNREACHABLE_CURRENT_UI: no try/catch around createStorageProvider() call site displays this to user
+ValidationError(FINITE_NUMBER_REQUIRED),requireFinite(),buildingResults/landResults useMemo catch,validation disclosure banner,DYNAMIC_BILINGUAL_PAYLOAD,"BROWSER_REACHABLE, already localized"
+ValidationError(OUT_OF_RANGE),requireRange(),buildingResults/landResults useMemo catch,validation disclosure banner,DYNAMIC_BILINGUAL_PAYLOAD,"BROWSER_REACHABLE, already localized"
+ValidationError(STRICTLY_POSITIVE_REQUIRED),validateEngineInputs(),buildingResults/landResults useMemo catch,validation disclosure banner,DYNAMIC_BILINGUAL_PAYLOAD,"BROWSER_REACHABLE, already localized"
+dealsError:DEAL_NOT_FOUND,onLoadDeal() line 1427,dealsError state,DealsPanel error div,HARDCODED_SINGLE_LOCALE,"BROWSER_REACHABLE, AR-only, not yet localized"
+dealsError:DEAL_LOAD_FAILED,onLoadDeal() line 1436,dealsError state,DealsPanel error div,HARDCODED_SINGLE_LOCALE,"BROWSER_REACHABLE (storage exception), AR-only"
+dealsError:DEAL_SAVE_FAILED,onSaveNew() line 1455,dealsError state,DealsPanel error div,HARDCODED_SINGLE_LOCALE,"BROWSER_REACHABLE (storage exception), AR-only"
+dealsError:DEAL_UPDATE_FAILED,onUpdateActive() line 1473,dealsError state,DealsPanel error div,HARDCODED_SINGLE_LOCALE,"BROWSER_REACHABLE (storage exception), AR-only"
+dealsError:DEAL_DELETE_FAILED,onDeleteDeal() line 1488,dealsError state,DealsPanel error div,HARDCODED_SINGLE_LOCALE,"BROWSER_REACHABLE (storage exception), AR-only"

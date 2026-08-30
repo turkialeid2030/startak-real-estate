@@ -1,0 +1,19 @@
+id,component,source_file,source_location,current_text,string_type,dynamic_parameters,raw_semantic,unit,conditional,dictionary_key,ar-SA,en,implementation_status
+CF-TAB-01,CashFlowTab,App.jsx,MetricGroup title,تحليل التدفقات النقدية,STATIC_PRESENTATION,,,,,cashFlow.sectionTitle,تحليل التدفقات النقدية,Cash Flow Analysis,LOCALIZED
+CF-TAB-02,CashFlowTab,App.jsx,description (building),السنة 0 = تدفق خارج...,STATIC_PRESENTATION,,,,mode===building,cashFlow.descBuilding,(long desc),(long desc),LOCALIZED
+CF-TAB-03,CashFlowTab,App.jsx,description (land),السنة 0 = شراء الأرض...,STATIC_PRESENTATION,,,,mode===land,cashFlow.descLand,(long desc),(long desc),LOCALIZED
+CF-TAB-04,CashFlowTab,App.jsx,view toggle button 1,التمويل الذاتي الكامل,STATIC_PRESENTATION,,,,,cashFlow.viewUnlevered,التمويل الذاتي الكامل,Full Equity Financing,LOCALIZED
+CF-TAB-05,CashFlowTab,App.jsx,view toggle button 2,بعد الرافعة المالية,STATIC_PRESENTATION,,,,,cashFlow.viewLevered,بعد الرافعة المالية,After Financial Leverage,LOCALIZED
+CF-TAB-06,CashFlowTab,App.jsx,KPIChip 1,معدل العائد الداخلي (IRR),STATIC_PRESENTATION,,,,,cashFlow.kpiIrr,معدل العائد الداخلي (IRR),Internal Rate of Return (IRR),LOCALIZED
+CF-TAB-07,CashFlowTab,App.jsx,KPIChip 2,صافي القيمة الحالية (NPV),STATIC_PRESENTATION,,,,,cashFlow.kpiNpv,صافي القيمة الحالية (NPV),Net Present Value (NPV),LOCALIZED
+CF-TAB-08,CashFlowTab,App.jsx,KPIChip 3 (conditional),نسبة تغطية خدمة الدين (الأدنى),STATIC_PRESENTATION,,,,leverageEnabled&&view===levered,cashFlow.kpiDscrMin,نسبة تغطية خدمة الدين (الأدنى),Minimum Debt Service Coverage Ratio,LOCALIZED
+CF-TAB-09,CashFlowTab,App.jsx,2nd MetricGroup eyebrow+title,جدول / التدفقات سنة بسنة,STATIC_PRESENTATION,,,,,cashFlow.tableEyebrow+tableTitle,جدول/التدفقات سنة بسنة,Table/Year-by-Year Cash Flows,LOCALIZED
+CF-TABLE-01,CashFlowTable,App.jsx,column header 1,السنة,STATIC_PRESENTATION,,,,,cashFlow.tableColYear,السنة,Year,LOCALIZED
+CF-TABLE-02,CashFlowTable,App.jsx,column header 2,التدفق النقدي,STATIC_PRESENTATION,,,,,cashFlow.tableColCashFlow,التدفق النقدي,Cash Flow,LOCALIZED
+CF-TABLE-03,CashFlowTable,App.jsx,column header 3,التدفق التراكمي,STATIC_PRESENTATION,,,,,cashFlow.tableColCumulative,التدفق التراكمي,Cumulative Cash Flow,LOCALIZED
+CF-TABLE-04,CashFlowTable,App.jsx,value cell (was fmtSARSigned),fmtSARSigned(r.value),PRESENTATION_UNIT,n:number,,ريال/SAR,,units.sar (via local formatSigned),ريال,SAR,LOCALIZED
+CF-TABLE-05,CashFlowTable,App.jsx,cumulative cell (was fmtSARSigned),fmtSARSigned(r.cum),PRESENTATION_UNIT,n:number,,ريال/SAR,,units.sar (via local formatSigned),ريال,SAR,LOCALIZED
+CF-CHART-01,CashFlowChart,App.jsx,X-axis tickFormatter,`س${y}`,DYNAMIC_PRESENTATION_TEMPLATE,"value:number(raw year, unchanged)",,سنة/year prefix,,cashFlow.chartYearTick,س{{value}},Y{{value}},LOCALIZED
+CF-CHART-02,CashFlowChart,App.jsx,Y-axis tickFormatter,`${(v/1e6).toFixed(0)}م`,DYNAMIC_PRESENTATION_TEMPLATE,"value:string(raw (v/1e6).toFixed(0), unchanged)",,مليون/million suffix,,cashFlow.chartMillionTick,{{value}}م,{{value}}M,LOCALIZED
+CF-TOOLTIP-01,CashFlowTooltip,App.jsx,year label,سنة {label},DYNAMIC_PRESENTATION_TEMPLATE,"value:number(raw label, unchanged)",,سنة/year,,cashFlow.tooltipYear,سنة {{value}},Year {{value}},LOCALIZED
+CF-TOOLTIP-02,CashFlowTooltip,App.jsx,value (was fmtSARSigned),fmtSARSigned(v),PRESENTATION_UNIT,n:number,,ريال/SAR,,units.sar (via local formatSigned),ريال,SAR,LOCALIZED

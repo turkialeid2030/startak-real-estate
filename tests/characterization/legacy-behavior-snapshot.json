@@ -1,0 +1,22 @@
+{
+  "RE-GOLD-001-U": {
+    "sha256": "557906b6a3123fa61815dc16070ae5e047370f0c5d2698e6138d5ed4b8e49e26",
+    "field_count": 48
+  },
+  "RE-GOLD-001-L": {
+    "sha256": "df4096a96cf00b8e9eddd8c34efc0cbca065bb3bef3758a2ba95ba2305577205",
+    "field_count": 48
+  },
+  "RE-GOLD-002-U": {
+    "sha256": "29128565ad0807f14d41e88b69b34b98bfbc673b3947aee2a1ad00ba8affe3d1",
+    "field_count": 54
+  },
+  "RE-GOLD-002-L": {
+    "sha256": "00429f3f4b9aa1f9d9278788225a06dbf6b7c5c384554d72c27bebd376417818",
+    "field_count": 54
+  },
+  "_meta": {
+    "created": "2026-08-25T04:32:25.503Z",
+    "reason": "Baseline snapshot of the frozen legacy source's own output, captured after the DEF-001 decision. From this point forward, run_all.js verifies legacy's output is self-consistent over time (has not silently changed), rather than comparing it against RE-GOLD (which may now differ deliberately per resolved defects like DEF-001)."
+  }
+}

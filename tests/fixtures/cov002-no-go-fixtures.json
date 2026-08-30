@@ -1,0 +1,30 @@
+{
+  "EXISTING_NO_GO_FIXTURE": {
+    "studyType": "EXISTING_BUILDING",
+    "description": "Existing Building baseline (RE-GOLD-002) with buildingPrice inflated 5x -- economically weak but valid-domain acquisition price relative to unchanged rental income",
+    "modification": "buildingPrice = RE-GOLD-002.buildingPrice * 5",
+    "expected": {
+      "metCount": 0,
+      "totalCriteria": 4,
+      "verdict": "لا يوصى بالشراء",
+      "criteria": {
+        "c1_netYieldVsMinThreshold": false,
+        "c3_irrVsDiscountRate": false,
+        "c4_marketValueVsCost": false
+      }
+    }
+  },
+  "LAND_NO_GO_FIXTURE": {
+    "studyType": "LAND_DEVELOPMENT",
+    "description": "Land Development baseline (RE-GOLD-001) with landPricePerSqm inflated 5x -- economically weak but valid-domain land acquisition cost relative to unchanged development economics",
+    "modification": "landPricePerSqm = RE-GOLD-001.landPricePerSqm * 5",
+    "expected": {
+      "metCount": 0,
+      "totalCriteria": 4,
+      "verdict": "لا يوصى بالشراء",
+      "criteria": {
+        "c3_irrVsHurdleRate": false
+      }
+    }
+  }
+}

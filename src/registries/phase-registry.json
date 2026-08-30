@@ -1,0 +1,106 @@
+[
+  {
+    "phase_id": "PHASE_0",
+    "phase_number": 0,
+    "name_en": "Architecture & Control Plane",
+    "name_ar": "معمارية النظام ومستوى التحكم",
+    "status": "PARTIAL",
+    "evidence": "engines/contracts/StudyDefinitions/tests exist (Wave A/B); no CI/build/lint pipeline exists yet (BUILD_STATUS=NOT_CONFIGURED per Wave B closing report)"
+  },
+  {
+    "phase_id": "PHASE_1",
+    "phase_number": 1,
+    "name_en": "Institutional Platform Core",
+    "name_ar": "النواة المؤسسية للمنصة",
+    "status": "FOUNDATION_ONLY",
+    "evidence": "ExecutableInvestmentCase contract exists; no multi-tenant/org/user-account layer exists"
+  },
+  {
+    "phase_id": "PHASE_2",
+    "phase_number": 2,
+    "name_en": "Evidence & Property Identity",
+    "name_ar": "الأدلة وهوية العقار",
+    "status": "NOT_IMPLEMENTED",
+    "evidence": "ExecutableInvestmentCase.evidence/property fields exist only as structured NOT_EVALUATED placeholders, zero real evidence/property-identity logic"
+  },
+  {
+    "phase_id": "PHASE_3",
+    "phase_number": 3,
+    "name_en": "Saudi Data Fabric",
+    "name_ar": "نسيج البيانات السعودي",
+    "status": "FOUNDATION_ONLY",
+    "evidence": "source-registry.json exists with 11 reference-only Saudi sources, LIVE_CONNECTED_SOURCES=0 -- registry exists, no actual data fabric/connector"
+  },
+  {
+    "phase_id": "PHASE_4",
+    "phase_number": 4,
+    "name_en": "Real Estate Domain Core",
+    "name_ar": "النواة العقارية",
+    "status": "PARTIAL",
+    "evidence": "the two study engines (Existing Building, Land+Development) ARE the real, working domain core -- this is the most-implemented phase, but still lacks StudyLevel beyond SCREENING and lacks CriticalGates"
+  },
+  {
+    "phase_id": "PHASE_5",
+    "phase_number": 5,
+    "name_en": "Geo & Earth Intelligence",
+    "name_ar": "الذكاء الجغرافي",
+    "status": "NOT_IMPLEMENTED",
+    "evidence": "zero geo/mapping code exists anywhere in the artifact"
+  },
+  {
+    "phase_id": "PHASE_6",
+    "phase_number": 6,
+    "name_en": "Due Diligence & Regulatory Intelligence",
+    "name_ar": "الفحص النافي للجهالة والذكاء التنظيمي",
+    "status": "NOT_IMPLEMENTED",
+    "evidence": "the 8 regulatory toggle fields exist but are confirmed DISCONNECTED_DECISION_INPUT -- display-only, no due-diligence workflow"
+  },
+  {
+    "phase_id": "PHASE_7",
+    "phase_number": 7,
+    "name_en": "Study Builder / Underwriting / Valuation / Finance",
+    "name_ar": "بناء الدراسات والتحوّط والتقييم والتمويل",
+    "status": "PARTIAL",
+    "evidence": "the underlying calculation engines are real and modularized; no visual Study Builder UI, no multi-level underwriting workflow"
+  },
+  {
+    "phase_id": "PHASE_8",
+    "phase_number": 8,
+    "name_en": "Development & Existing Asset Intelligence",
+    "name_ar": "ذكاء التطوير والأصول القائمة",
+    "status": "PARTIAL",
+    "evidence": "overlaps significantly with Phase 4 -- the two study types cover this at a calculation level only, no broader asset-intelligence layer"
+  },
+  {
+    "phase_id": "PHASE_9",
+    "phase_number": 9,
+    "name_en": "AI Decision Intelligence",
+    "name_ar": "ذكاء القرار بالذكاء الاصطناعي",
+    "status": "NOT_IMPLEMENTED",
+    "evidence": "zero AI/ML code exists anywhere"
+  },
+  {
+    "phase_id": "PHASE_10",
+    "phase_number": 10,
+    "name_en": "Portfolio & Opportunity Intelligence",
+    "name_ar": "ذكاء المحفظة والفرص",
+    "status": "NOT_IMPLEMENTED",
+    "evidence": "zero portfolio-level aggregation exists; each Saved Deal/InvestmentCase is independent"
+  },
+  {
+    "phase_id": "PHASE_11",
+    "phase_number": 11,
+    "name_en": "Product / IC Workflow",
+    "name_ar": "منتج / سير عمل لجنة الاستثمار",
+    "status": "NOT_IMPLEMENTED",
+    "evidence": "StudyLevel.INVESTMENT_COMMITTEE is defined in contract but explicitly PLANNED_NOT_IMPLEMENTED -- no workflow exists"
+  },
+  {
+    "phase_id": "PHASE_12",
+    "phase_number": 12,
+    "name_en": "Pilot / Outcomes / Learning",
+    "name_ar": "التجربة والنتائج والتعلّم",
+    "status": "NOT_IMPLEMENTED",
+    "evidence": "zero outcome-tracking exists (ExecutableInvestmentCase.outcomes is a PLANNED empty-array placeholder)"
+  }
+]

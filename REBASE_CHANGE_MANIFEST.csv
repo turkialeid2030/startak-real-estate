@@ -1,0 +1,58 @@
+path,change_type,reason,requirement_refs,behavior_change,test_status
+src/engines/financial/index.js,CREATED,extraction of shared NPV/IRR/amortization primitives (source lines 92-138),"item 7,item 8",NONE,PASS (dual-path 0 mismatches)
+src/engines/recommendation/index.js,CREATED,extraction of shared tierVerdict (source lines 140-145),"item 7,item 8",NONE,PASS (dual-path 0 mismatches)
+src/engines/valuation/existing-building.js,CREATED,verbatim extraction of calcExistingBuilding + VACANCY_MONTHS_MAP (source lines 147-259); require() wiring added to reach financial/recommendation modules,"item 7,item 8",NONE,PASS (dual-path 0 mismatches)
+src/engines/valuation/land-development.js,CREATED,verbatim extraction of calcLandDevelopment (source lines 264-383); require() wiring added,"item 7,item 8",NONE,PASS (dual-path 0 mismatches)
+tests/characterization/run_dual_path.js,CREATED,transitional equivalence test proving legacy line-extraction path and new modular engine path produce identical output before the legacy loader may ever be retired,"item 4/5 (test infra), Section 6",NONE,"PASS (this IS the equivalence proof, 0 mismatches across all 4 fixtures)"
+platform-source.jsx,UNCHANGED,canonical source untouched -- SHA256 verified identical before/after this pass,N/A,NONE,N/A -- not modified
+src/engines/index.js,CREATED,"unified production entrypoint (calculateInvestmentCase) -- pure dispatch, zero formula logic, verified against RE-GOLD directly (NOI match confirmed)","item 7,item 8,Section 11",NONE,PASS (triple-path 0 mismatches)
+src/engines/valuation/index.js,CREATED,"selector facade -- reshapes valuation fields from engine result, zero recalculation (verified: value-identity check, not just numeric equality)","Section 2,Section 10",NONE,PASS (field-identity verified)
+src/engines/financing/index.js,CREATED,"selector facade -- reshapes financing fields, zero recalculation","Section 2,Section 10",NONE,PASS (field-identity verified)
+src/engines/financial/selectors.js,CREATED,"selector facade -- cashflow/IRR/NPV view, zero recalculation",Section 10,NONE,PASS
+src/engines/recommendation/selectors.js,CREATED,"selector facade -- criteria/verdict view, zero recalculation",Section 10,NONE,PASS
+tests/characterization/run_triple_path.js,CREATED,"Section 12 requirement -- legacy vs gold, modular vs gold, legacy vs modular, all through the production entrypoint",Section 12,NONE,"PASS (0/0/0 mismatches, 204 fields)"
+src/contracts/study-type.js,CREATED,"canonical StudyType contract, moved from src/engines/index.js","item 3,WB-08",NONE,PASS
+src/contracts/study-level.js,CREATED,canonical StudyLevel contract,"item 4,WB-09",NONE,PASS
+src/contracts/calculation-versions.js,CREATED,"metadata-only version contract, verified unreferenced by any engine file","item 5,WB-10",NONE,PASS
+src/contracts/executable-investment-case.js,CREATED,"20-field ExecutableInvestmentCase factory, verdict verified against RE-GOLD","item 7,WB-12",NONE,PASS
+src/contracts/financial-result.js,CREATED,"result contract, 19 fields mapped","item 6,WB-11",NONE,PASS
+src/contracts/valuation-result.js,CREATED,"result contract, 37 fields mapped","item 6,WB-11",NONE,PASS
+src/contracts/financing-result.js,CREATED,"result contract, 9 fields mapped","item 6,WB-11",NONE,PASS
+src/contracts/recommendation-result.js,CREATED,"result contract, 8 fields mapped","item 6,WB-11",NONE,PASS
+src/contracts/cash-flow-result.js,CREATED,"result contract, structural (2 array fields)","item 6,WB-11",NONE,PASS
+src/contracts/criterion-result.js,CREATED,"metadata-only criterion semantics, no new logic","item 6,WB-11",NONE,PASS
+src/modules/studies/existing-building/index.js,CREATED,"ExistingBuildingStudyDefinition, calculate() routes exclusively through calculateInvestmentCase","item 8,WB-13",NONE,PASS
+src/modules/studies/land-development/index.js,CREATED,LandDevelopmentStudyDefinition,"item 8,WB-14",NONE,PASS
+tests/characterization/run_study_definition_path.js,CREATED,"StudyDefinition vs Gold, 0/204 mismatches","Section 9,WB-13,WB-14",NONE,PASS
+tests/characterization/run_result_contract_path.js,CREATED,"result contract value verification, 204 field-instances, 0 mismatches","Section 2,WB-11",NONE,PASS
+tests/characterization/run_saved_deal_compatibility.js,CREATED,"2 cases (building+land), 0 mismatches, schema unchanged","Section 5,WB-17",NONE,PASS
+tests/characterization/run_sensitivity_path.js,CREATED,"real extraction+execution of App.jsx's actual buildSensitivityData, 16 dimensions, 0 mismatches","Section 2,WB-16",NONE,PASS
+REBASE_APP_DIFF_AUDIT.md,CREATED,"real `diff -u` output, 3 hunks classified","Section 6-9,WB-19",N/A (documentation),PASS
+REBASE_PRODUCTION_CALCULATION_GRAPH.md,CREATED,3 production paths documented with source references,"Section 10-14,WB-20",N/A (documentation),PASS
+REBASE_TRACEABILITY.csv,CREATED/UPDATED,20/20 rows now PASS,"Section 12,18",N/A (documentation),PASS
+REBASE_MODEL_ASYMMETRY_CHECK.md,EVIDENCE_UPDATE,"refreshed with full 8-row asymmetry matrix (Legacy/Modular/UI/StudyDefinition columns) citing final Wave B execution evidence, no new calculation performed","Section 2-6,WB-18",NONE,PASS
+tests/characterization/run_investment_case_path.js,CREATED,"ExecutableInvestmentCase vs Gold, 40 sub-checks, 0 mismatches",Section 22,NONE,PASS
+src/registries/source-registry.json,CREATED,11 records from VERIFIED_SOURCE_REGISTRY.json + honest NOT_ASSESSED/null for unassessed fields,"Section 5,WAVE_C item 5",NONE,PASS
+src/i18n/ar-SA.json,CREATED,"21 terminology keys, direction=RTL","Section 2,WAVE_C2 item 2",NONE,PASS
+src/i18n/en.json,CREATED,"21 terminology keys, direction=LTR","Section 2,WAVE_C2 item 2",NONE,PASS
+src/i18n/index.js,CREATED,"minimal locale loader, verified locale never reaches calculateInvestmentCase","Section 2,WAVE_C2 item 6-7",NONE,PASS
+src/registries/terminology-registry.json,CREATED,"21 terms, 0 duplicates, 0 missing ar/en","Section 8,WAVE_C2 item 8",NONE,PASS
+src/registries/phase-registry.json,CREATED,"13 phases, conservative status (0 VERIFIED_IMPLEMENTED)","Section 10,WAVE_C2 item 10",NONE,PASS
+tests/characterization/run_registry_schema.js,CREATED,"automated QA for all 3 registries, 0 errors","Section 16,WAVE_C2 item 16",NONE,PASS
+tests/characterization/run_locale_invariance.js,CREATED,"locale/RTL-LTR + financial invariance, 0 mismatches","Section 6-7,WAVE_C2 item 6-7",NONE,PASS
+REBASE_I18N_INVENTORY.csv,CREATED,"6-row string inventory, conservative TEMPORARILY_LEGACY classification for behavior-sensitive strings","Section 5,WAVE_C2 item 5",N/A (documentation),PASS
+REBASE_PHASE_REFERENCE_MAPPING.md,CREATED,"before/after mapping for phase-reference canonicalization, honest timeline noting the fix occurred in Wave C2's own closing step, SOURCE_PHASE_REFERENCE_SEMANTIC_CHANGES=0",Section 7-8,N/A (documentation),PASS
+src/registries/capability-registry.json,CREATED,"29 capabilities, conservative status classification, 8 VERIFIED_IMPLEMENTED",WAVE_C3 item 2-4,NONE,PASS
+src/registries/critical-gate-registry.json,CREATED,"16 gates, all default NOT_EVALUATED",WAVE_C3 item 10-13,NONE,PASS
+tests/characterization/run_critical_gate_path.js,CREATED,"4 cases x 16 gates = 64 records tested, 0 fabricated decisions, 0 financial mismatches",WAVE_C3 item 15,NONE,PASS
+src/components/CapabilityInspector.js,CREATED,"reads directly from capability-registry.json, zero status transformation",WAVE_C3B item 2-4,NONE,PASS
+tests/architecture/run_capability_inspector.js,CREATED,"3 cases (VERIFIED_IMPLEMENTED/FOUNDATION_ONLY/NOT_IMPLEMENTED), 0 mismatches, 0 false availability claims",WAVE_C3B item 5,NONE,PASS
+src/registries/rule-registry.json,CREATED,"1 rule (only one actually evidenced -- rent-freeze notice), status=REFERENCE_RULE_NEEDS_VERIFICATION",WAVE_C3B item 7-11,NONE,PASS
+REBASE_C3_TRACEABILITY.csv,CREATED,"10 rows, all PASS after this pass's registry-QA extension",WAVE_C3B item 18,N/A (documentation),PASS
+src/migrations/legacy-saved-deal-adapter.js,CREATED,non-destructive legacy record -> ExecutableInvestmentCase adapter,C4 item 3-6,NONE,PASS
+tests/architecture/run_saved_deal_investment_case_migration.js,CREATED,"2 cases, 0 financial mismatches, 0 input changes",C4 item 7,NONE,PASS
+REBASE_SAVED_DEAL_SCHEMA.md,CREATED,documents exact legacy record shape,C4 item 2,N/A (documentation),PASS
+src/registries/navigation-registry.json,CREATED,"11 items, truthful per-item status (8 NOT_IMPLEMENTED, 1 PARTIAL, 1 FOUNDATION_ONLY, 1 VERIFIED_IMPLEMENTED)",C4 item 10-11,NONE,PASS
+tests/architecture/run_navigation_qa.js,CREATED,0 duplicate/invalid/missing/false-claim across 11 items,C4 item 14-15,NONE,PASS
+REBASE_REQUIREMENT_REGISTER.csv,REBUILT,"final reassessment: 25 PASS, 2 PARTIAL (documented, non-blocking), 3 N/A, 0 FAIL",C4 item 17-20,N/A (documentation),PASS
+REBASE_BUILD_READINESS.md,CREATED,truthful BUILD_STATUS=NOT_CONFIGURED report,C4 item 30,N/A (documentation),PASS

@@ -1,0 +1,17 @@
+[
+  {
+    "rule_id": "RULE-RENT-FREEZE-2025",
+    "name_ar": "قرار تجميد عقود الإيجار القائمة",
+    "name_en": "Existing Lease Rent-Freeze Decision",
+    "domain": "REGULATORY_RESIDENTIAL_COMMERCIAL_LEASING",
+    "phase": "PHASE_6",
+    "authority_class": "UNVERIFIED_REFERENCE",
+    "status": "REFERENCE_RULE_NEEDS_VERIFICATION",
+    "version": "1.0.0",
+    "source_refs": [],
+    "effective_from": "2025-09-01",
+    "effective_to": null,
+    "verification_status": "NOT_VERIFIED",
+    "notes": "Sourced entirely from static UI copy in src/app/App.jsx (line 652, rentFreezeChecked toggle note): freezes existing lease contracts in the 'نطاق الرياض العمراني' urban boundary for 5 years; new contracts and first-time leasing are explicitly excluded per the same note. This application has NOT independently verified this against any official regulatory source -- it is reproduced as informational UI copy only. Not connected to recommendation or financial calculation (confirmed: REGULATORY_FIELDS_CONSUMED_BY_RECOMMENDATION=0)."
+  }
+]

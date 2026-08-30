@@ -1,0 +1,6 @@
+field_name,classification,value_domain,translatable,notes
+id,RAW_DOMAIN,STRICTLY_POSITIVE stringified counter-based ID (deal_<timestamp>),No,"N/A - internal identifier, never displayed"
+name,USER_CONTENT,user-entered free text (default 'صفقة' if update-path finds no existing name -- see R6-DEAL-014 caution),No,displayed verbatim as d.name -- never translate
+mode,RAW_DOMAIN,'building' | 'land' -- same raw values used throughout the whole app (STUDY_TYPE),No,never displayed raw; drives icon choice only
+inputs,RAW_DOMAIN (nested object),"entire buildingInputs/landInputs object, including all R5 raw enum values (leaseStatus, buildingTypeLabel, buildingPermitStatus, financingStructureLabel) and numeric fields",No,already covered by R5's raw/display separation architecture -- Saved Deal persistence stores the SAME raw values R5 already protects
+savedAt,METADATA,ISO-8601 timestamp string,No,not currently displayed anywhere in DealsPanel UI (list only shows name + icon)

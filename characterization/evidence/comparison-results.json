@@ -1,0 +1,40 @@
+{
+  "TOTAL_CASES": 4,
+  "PASSED_CASES": 4,
+  "FAILED_CASES": 0,
+  "SOURCE_HASH_BEFORE": "ac0767d3f13c463259f401a5d7af06c1140ee780a9f86489eb17ad9d7c72dc71",
+  "SOURCE_HASH_AFTER": "ac0767d3f13c463259f401a5d7af06c1140ee780a9f86489eb17ad9d7c72dc71",
+  "SOURCE_HASH_UNCHANGED": true,
+  "LEGACY_SELF_CONSISTENT": true,
+  "role": "SOURCE_INTEGRITY_GUARD (redefined post-DEF-001 -- see comment header)",
+  "results": [
+    {
+      "gold_id": "RE-GOLD-001-U",
+      "status": "PASS",
+      "field_count": 48,
+      "hash": "557906b6a3123fa61815dc16070ae5e047370f0c5d2698e6138d5ed4b8e49e26",
+      "expectedHash": "557906b6a3123fa61815dc16070ae5e047370f0c5d2698e6138d5ed4b8e49e26"
+    },
+    {
+      "gold_id": "RE-GOLD-001-L",
+      "status": "PASS",
+      "field_count": 48,
+      "hash": "df4096a96cf00b8e9eddd8c34efc0cbca065bb3bef3758a2ba95ba2305577205",
+      "expectedHash": "df4096a96cf00b8e9eddd8c34efc0cbca065bb3bef3758a2ba95ba2305577205"
+    },
+    {
+      "gold_id": "RE-GOLD-002-U",
+      "status": "PASS",
+      "field_count": 54,
+      "hash": "29128565ad0807f14d41e88b69b34b98bfbc673b3947aee2a1ad00ba8affe3d1",
+      "expectedHash": "29128565ad0807f14d41e88b69b34b98bfbc673b3947aee2a1ad00ba8affe3d1"
+    },
+    {
+      "gold_id": "RE-GOLD-002-L",
+      "status": "PASS",
+      "field_count": 54,
+      "hash": "00429f3f4b9aa1f9d9278788225a06dbf6b7c5c384554d72c27bebd376417818",
+      "expectedHash": "00429f3f4b9aa1f9d9278788225a06dbf6b7c5c384554d72c27bebd376417818"
+    }
+  ]
+}

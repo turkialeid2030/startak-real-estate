@@ -1,0 +1,48 @@
+// src/contracts/valuation-result.js -- maps ALL actual current area/cost/valuation
+// output fields, verified against real engine output (0 unmapped, checked programmatically).
+const VALUATION_RESULT_FIELDS = Object.freeze({
+  marketValueByIncomeCap: { present: 'EXISTING_BUILDING_ONLY', type: 'number' },
+  marketValueAfterCompletion: { present: 'LAND_DEVELOPMENT_ONLY', type: 'number' },
+  totalAppraisedValue: { present: 'EXISTING_BUILDING_ONLY', type: 'number' },
+  valueGapVsCost: { present: 'EXISTING_BUILDING_ONLY', type: 'number' },
+  valueSurplusOverCost: { present: 'LAND_DEVELOPMENT_ONLY', type: 'number' },
+  maxJustifiedPrice: { present: 'EXISTING_BUILDING_ONLY', type: 'number' },
+  maxJustifiedLandPricePerSqm: { present: 'LAND_DEVELOPMENT_ONLY', type: 'number' },
+  costPerSqm: { present: 'BOTH', type: 'number' },
+  totalPurchaseCost: { present: 'EXISTING_BUILDING_ONLY', type: 'number' },
+  totalProjectCost: { present: 'LAND_DEVELOPMENT_ONLY', type: 'number' },
+  // Area/geometry fields (existing building)
+  landArea: { present: 'BOTH', type: 'number' },
+  totalBasementArea: { present: 'EXISTING_BUILDING_ONLY', type: 'number' },
+  totalParkingSpots: { present: 'EXISTING_BUILDING_ONLY', type: 'number' },
+  totalFloorArea: { present: 'EXISTING_BUILDING_ONLY', type: 'number' },
+  netLeasableArea: { present: 'EXISTING_BUILDING_ONLY', type: 'number' },
+  avgNetAreaPerFloor: { present: 'EXISTING_BUILDING_ONLY', type: 'number' },
+  totalBuiltArea: { present: 'EXISTING_BUILDING_ONLY', type: 'number' },
+  coverageRatio: { present: 'EXISTING_BUILDING_ONLY', type: 'number' },
+  areaCheckOk: { present: 'EXISTING_BUILDING_ONLY', type: 'boolean' },
+  // Cost buildup fields (existing building)
+  commissionAmount: { present: 'EXISTING_BUILDING_ONLY', type: 'number' },
+  transferFeeAmount: { present: 'EXISTING_BUILDING_ONLY', type: 'number' },
+  basementConstructionValue: { present: 'EXISTING_BUILDING_ONLY', type: 'number' },
+  floorConstructionValue: { present: 'EXISTING_BUILDING_ONLY', type: 'number' },
+  totalReplacementConstructionValue: { present: 'EXISTING_BUILDING_ONLY', type: 'number' },
+  currentLandValue: { present: 'EXISTING_BUILDING_ONLY', type: 'number' },
+  annualDepreciation: { present: 'EXISTING_BUILDING_ONLY', type: 'number' },
+  // Area/geometry + cost buildup fields (land development)
+  landMarketValue: { present: 'LAND_DEVELOPMENT_ONLY', type: 'number' },
+  floorPlateArea: { present: 'LAND_DEVELOPMENT_ONLY', type: 'number' },
+  serviceAreaPerFloor: { present: 'LAND_DEVELOPMENT_ONLY', type: 'number' },
+  netLeasableAreaPerFloor: { present: 'LAND_DEVELOPMENT_ONLY', type: 'number' },
+  totalNetLeasableArea: { present: 'LAND_DEVELOPMENT_ONLY', type: 'number' },
+  totalOfficeFloorArea: { present: 'LAND_DEVELOPMENT_ONLY', type: 'number' },
+  totalConstructionCost: { present: 'LAND_DEVELOPMENT_ONLY', type: 'number' },
+  landCommission: { present: 'LAND_DEVELOPMENT_ONLY', type: 'number' },
+  landTransferFee: { present: 'LAND_DEVELOPMENT_ONLY', type: 'number' },
+  totalLandAcquisitionCost: { present: 'LAND_DEVELOPMENT_ONLY', type: 'number' },
+  capRateOnCost: { present: 'LAND_DEVELOPMENT_ONLY', type: 'number' },
+  simplePaybackYears: { present: 'LAND_DEVELOPMENT_ONLY', type: 'number' },
+  constructionYears: { present: 'LAND_DEVELOPMENT_ONLY', type: 'number' },
+  operatingYears: { present: 'LAND_DEVELOPMENT_ONLY', type: 'number' },
+});
+module.exports = { VALUATION_RESULT_FIELDS };

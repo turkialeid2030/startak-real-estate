@@ -1,0 +1,74 @@
+[
+  {
+    "rentGrowthRate": -0.03,
+    "noiYearAtExit": 13155394.497860158,
+    "conventionA_directCap": 187934207.11228794,
+    "conventionB_forwardNOICap": 182296180.8989193,
+    "absoluteDifference": -5638026.213368624,
+    "percentDifference": -2.9999999999999925
+  },
+  {
+    "rentGrowthRate": -0.02,
+    "noiYearAtExit": 13706331.826037759,
+    "conventionA_directCap": 195804740.37196797,
+    "conventionB_forwardNOICap": 191888645.5645286,
+    "absoluteDifference": -3916094.807439357,
+    "percentDifference": -1.9999999999999987
+  },
+  {
+    "rentGrowthRate": -0.01,
+    "noiYearAtExit": 14274395.23045536,
+    "conventionA_directCap": 203919931.86364797,
+    "conventionB_forwardNOICap": 201880732.5450115,
+    "absoluteDifference": -2039199.318636477,
+    "percentDifference": -0.9999999999999987
+  },
+  {
+    "rentGrowthRate": 0,
+    "noiYearAtExit": 14859936,
+    "conventionA_directCap": 212284799.99999997,
+    "conventionB_forwardNOICap": 212284799.99999997,
+    "absoluteDifference": 0,
+    "percentDifference": 0
+  },
+  {
+    "rentGrowthRate": 0.01,
+    "noiYearAtExit": 15463308.98994336,
+    "conventionA_directCap": 220904414.142048,
+    "conventionB_forwardNOICap": 223113458.28346848,
+    "absoluteDifference": 2209044.1414204836,
+    "percentDifference": 1.0000000000000016
+  },
+  {
+    "rentGrowthRate": 0.02,
+    "noiYearAtExit": 16084872.621941762,
+    "conventionA_directCap": 229783894.599168,
+    "conventionB_forwardNOICap": 234379572.49115136,
+    "absoluteDifference": 4595677.89198336,
+    "percentDifference": 2
+  },
+  {
+    "rentGrowthRate": 0.03,
+    "noiYearAtExit": 16724988.884036163,
+    "conventionA_directCap": 238928412.629088,
+    "conventionB_forwardNOICap": 246096265.00796068,
+    "absoluteDifference": 7167852.378872663,
+    "percentDifference": 3.0000000000000093
+  },
+  {
+    "rentGrowthRate": 0.04,
+    "noiYearAtExit": 17384023.330652162,
+    "conventionA_directCap": 248343190.437888,
+    "conventionB_forwardNOICap": 258276918.05540353,
+    "absoluteDifference": 9933727.617515534,
+    "percentDifference": 4.000000000000005
+  },
+  {
+    "rentGrowthRate": 0.05,
+    "noiYearAtExit": 18062345.0826,
+    "conventionA_directCap": 258033501.18,
+    "conventionB_forwardNOICap": 270935176.239,
+    "absoluteDifference": 12901675.059000015,
+    "percentDifference": 5.000000000000006
+  }
+]

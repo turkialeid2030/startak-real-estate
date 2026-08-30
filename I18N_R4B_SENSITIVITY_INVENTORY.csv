@@ -1,0 +1,21 @@
+id,component,source_file,source_location,current_text,string_type,raw_semantic,dynamic_parameters,unit,conditional,dictionary_key,ar-SA,en,implementation_status
+SENS-TAB-01,SensitivityTab,App.jsx,MetricGroup1 eyebrow,تحليل,STATIC_PRESENTATION,,,,,sensitivity.sectionEyebrowAnalysis,تحليل,Analysis,LOCALIZED
+SENS-TAB-02,SensitivityTab,App.jsx,MetricGroup1 title,حساسية {irrKind} (± 10%...),DYNAMIC_PRESENTATION_TEMPLATE,irrKind:string,,,,sensitivity.sectionTitleAnalysis,...,...,LOCALIZED
+SENS-TAB-03,SensitivityTab,App.jsx,description line 1,يوضح الرسم أثر تغيّر...,DYNAMIC_PRESENTATION_TEMPLATE,irrKind:string,,,,sensitivity.descLine1,(long),(long),LOCALIZED
+SENS-TAB-04,SensitivityTab,App.jsx,description line 2 (conditional),التحليل هنا على أساس العائد بعد الرافعة...,STATIC_PRESENTATION,,,,leverageEnabled,sensitivity.descLine2Levered,(long),(long),LOCALIZED
+SENS-TAB-05,SensitivityTab,App.jsx,MetricGroup2 eyebrow,تفصيل,STATIC_PRESENTATION,,,,,sensitivity.sectionEyebrowDetail,تفصيل,Detail,LOCALIZED
+SENS-TAB-06,SensitivityTab,App.jsx,MetricGroup2 title,نطاق {irrKind} لكل متغير,DYNAMIC_PRESENTATION_TEMPLATE,irrKind:string,,,,sensitivity.sectionTitleDetail,...,...,LOCALIZED
+SENS-TAB-07,SensitivityTab,App.jsx,irrKindLabel (levered),العائد الداخلي على حقوق الملكية (مرفوع),STATIC_PRESENTATION,,,,leverageEnabled,kpi.irrLevered (reused from R2-A),...,...,LOCALIZED
+SENS-TAB-08,SensitivityTab,App.jsx,irrKindLabel (unlevered),معدل العائد الداخلي,STATIC_PRESENTATION,,,,!leverageEnabled,kpi.irrUnlevered (reused from R2-A),...,...,LOCALIZED
+MR-S01,SensitivityTab,App.jsx,MetricRow note (deferred from R2B-0),اتساع النطاق: {range},DYNAMIC_PRESENTATION_TEMPLATE,range:string(fmtPct output),%,,,sensitivity.rangeNote,...,...,LOCALIZED_R4B
+SENS-DATA-01,buildSensitivityData,App.jsx,"var label (building, rentPerSqm)",سعر المتر التأجيري,PRESENTATION_ONLY (d.label role discovered: sort()/logic never use it),,,,,sensitivity.varRentPerSqm,سعر المتر التأجيري,Rent per Square Meter,LOCALIZED
+SENS-DATA-02,buildSensitivityData,App.jsx,"var label (building, buildingPrice)",سعر شراء المبنى,PRESENTATION_ONLY,,,,,sensitivity.varBuildingPrice,...,...,LOCALIZED
+SENS-DATA-03,buildSensitivityData,App.jsx,"var label (building, marketCapRate)",معدل الرسملة السوقي,PRESENTATION_ONLY,,,,,sensitivity.varMarketCapRate,...,...,LOCALIZED
+SENS-DATA-04,buildSensitivityData,App.jsx,"var label (building, occupancyRate)",نسبة الإشغال,PRESENTATION_ONLY,,,,,sensitivity.varOccupancyRate,...,...,LOCALIZED
+SENS-DATA-05,buildSensitivityData,App.jsx,"var label (land, marketRentPerSqm)",سعر المتر التأجيري,PRESENTATION_ONLY,,,,,sensitivity.varRentPerSqm (shared key),...,...,LOCALIZED
+SENS-DATA-06,buildSensitivityData,App.jsx,"var label (land, constructionCostPerSqm)",تكلفة الإنشاء للمتر,PRESENTATION_ONLY,,,,,sensitivity.varConstructionCostPerSqm,...,...,LOCALIZED
+SENS-DATA-07,buildSensitivityData,App.jsx,"var label (land, landPricePerSqm)",سعر متر الأرض,PRESENTATION_ONLY,,,,,sensitivity.varLandPricePerSqm,...,...,LOCALIZED
+SENS-DATA-08,buildSensitivityData,App.jsx,"var label (land, exitCapRate)",معدل رسملة الخروج,PRESENTATION_ONLY,,,,,sensitivity.varExitCapRate,...,...,LOCALIZED
+SENS-CHART-01,SensitivityChart,App.jsx,X-axis tickFormatter,${(v*100).toFixed(0)}%,PRESENTATION_UNIT,v:number,%,,,N/A (approved invariant: universal % symbol),%,%,APPROVED_INVARIANT
+SENS-CHART-02,SensitivityChart,App.jsx,Y-axis dataKey,label,RAW_SEMANTIC_VALUE→bound to buildSensitivityData output,,,,,"N/A (structural binding, not a translatable string itself)",label,label,N/A
+SENS-TOOLTIP-01,SensitivityTooltip,App.jsx,range text,من {lo} إلى {hi},DYNAMIC_PRESENTATION_TEMPLATE,"lo,hi:string(fmtPct output)",%,,,sensitivity.tooltipRange,...,...,LOCALIZED
