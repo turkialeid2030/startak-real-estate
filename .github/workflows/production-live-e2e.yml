@@ -1,0 +1,44 @@
+name: Production Live E2E
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  production-live-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      LIVE_URL: https://startak-real-estate.pages.dev/
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run comprehensive live production E2E
+        run: node tests/e2e/production_live_e2e.mjs
+
+      - name: Upload production test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: startak-production-live-e2e-evidence
+          path: runtime-evidence/production-live/
+          if-no-files-found: warn
+          retention-days: 7
