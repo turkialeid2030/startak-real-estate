@@ -283,6 +283,9 @@ function Toggle({ label, note, checked, onChange }) {
       </div>
       <button
         type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
         onClick={() => onChange(!checked)}
         className="relative shrink-0"
         style={{
