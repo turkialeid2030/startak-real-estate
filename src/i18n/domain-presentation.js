@@ -1,11 +1,13 @@
 // src/i18n/domain-presentation.js -- centralized RAW-ENGINE-VALUE -> DISPLAY
 // mapping. Presentation only: this module must never drive calculation logic.
 //
-// COMPLIANCE_GUARD v1: legacy internal recommendation verdicts remain unchanged
-// for characterization/backward-compatibility purposes, but customer-facing
-// presentation is externalized into bounded decision-support language. This
-// keeps financial/recommendation formulas untouched while preventing the UI
-// from presenting an unlicensed BUY/SELL-style recommendation.
+// IMPORTANT CONTRACT:
+// getVerdictLabel() is the legacy characterization/i18n presentation contract.
+// It intentionally preserves the historical localized labels so existing
+// regression evidence remains valid. Customer-facing decision-support surfaces
+// MUST use getExternalDecisionSupportVerdictLabel(), which applies the
+// Compliance Guard vocabulary. This separation prevents regulated-style UI
+// claims without rewriting historical engine/i18n semantics.
 const {
   externalizeInternalVerdict,
   renderDecisionSupportLabel,
@@ -17,24 +19,30 @@ const VERDICT_PRESENTATION_KEYS = {
   "لا يوصى بالشراء": "recommendation.noBuy",
 };
 
-function getVerdictLabel(rawVerdict, t) {
+function assertKnownVerdict(rawVerdict) {
   const key = VERDICT_PRESENTATION_KEYS[rawVerdict];
   if (!key) {
     throw new Error(`Unmapped recommendation verdict: "${rawVerdict}" -- the engine returned a value not present in VERDICT_PRESENTATION_KEYS. This must be fixed in domain-presentation.js, not silently displayed.`);
   }
-  // Use the existing translated string solely to infer the active UI language
-  // without coupling this presentation module to React locale state.
+  return key;
+}
+
+// Backward-compatible localization contract used by characterization tests and
+// internal/legacy views. Do not use this function for new customer-facing
+// decision-support output.
+function getVerdictLabel(rawVerdict, t) {
+  return t(assertKnownVerdict(rawVerdict));
+}
+
+// Compliance-bounded external presentation for all new/customer-facing views.
+function getExternalDecisionSupportVerdictLabel(rawVerdict, t, options = {}) {
+  const key = assertKnownVerdict(rawVerdict);
   const translatedLegacyLabel = t(key);
   const locale = /[\u0600-\u06FF]/.test(translatedLegacyLabel) ? 'ar' : 'en';
-  const analyticalLabel = externalizeInternalVerdict(rawVerdict, { locale });
+  const analyticalLabel = externalizeInternalVerdict(rawVerdict, { locale, ...options });
   return renderDecisionSupportLabel(analyticalLabel, locale);
 }
 
-// R3V: same architecture, for the Land regulatory card's building-permit
-// status field. Discovered as a genuine CONTROLLED_ENUM (SelectField with
-// exactly 3 fixed options at src/app/App.jsx line 1069) -- not free text.
-// The raw value continues to drive `checked: inputs.buildingPermitStatus
-// === "صادر"` unchanged; only the DISPLAY label is localized.
 const BUILDING_PERMIT_STATUS_PRESENTATION_KEYS = {
   "لم يُستخرج": "dashboardR3.buildingPermitStatus.notIssued",
   "قيد الإجراء": "dashboardR3.buildingPermitStatus.inProgress",
@@ -49,10 +57,6 @@ function getBuildingPermitStatusLabel(rawStatus, t) {
   return t(key);
 }
 
-// R5-C: same architecture, for leaseStatus and buildingTypeLabel SelectField
-// options. Both are DISPLAY_ONLY (zero raw comparisons found anywhere in
-// source), but still use the raw-key mapping pattern for consistency and to
-// guard against future silent-fallback bugs if either ever becomes semantic.
 const LEASE_STATUS_PRESENTATION_KEYS = {
   "مؤجر": "dashboardR3.leaseStatus.leased",
   "3 أشهر": "dashboardR3.leaseStatus.months3",
@@ -62,9 +66,7 @@ const LEASE_STATUS_PRESENTATION_KEYS = {
 };
 function getLeaseStatusLabel(rawStatus, t) {
   const key = LEASE_STATUS_PRESENTATION_KEYS[rawStatus];
-  if (!key) {
-    throw new Error(`Unmapped lease status: "${rawStatus}" -- not present in LEASE_STATUS_PRESENTATION_KEYS.`);
-  }
+  if (!key) throw new Error(`Unmapped lease status: "${rawStatus}" -- not present in LEASE_STATUS_PRESENTATION_KEYS.`);
   return t(key);
 }
 
@@ -76,53 +78,43 @@ const BUILDING_TYPE_PRESENTATION_KEYS = {
 };
 function getBuildingTypeLabel(rawType, t) {
   const key = BUILDING_TYPE_PRESENTATION_KEYS[rawType];
-  if (!key) {
-    throw new Error(`Unmapped building type: "${rawType}" -- not present in BUILDING_TYPE_PRESENTATION_KEYS.`);
-  }
+  if (!key) throw new Error(`Unmapped building type: "${rawType}" -- not present in BUILDING_TYPE_PRESENTATION_KEYS.`);
   return t(key);
 }
 
-// R5-D: financingStructureLabel is DISPLAY_ONLY (zero raw === comparisons
-// found anywhere in source), but uses the same raw-key mapping pattern for
-// consistency with leaseStatus/buildingTypeLabel/buildingPermitStatus.
 const FINANCING_STRUCTURE_PRESENTATION_KEYS = {
   "مرابحة": "financingInput.structure.murabaha",
   "إجارة منتهية بالتمليك": "financingInput.structure.ijara",
 };
 function getFinancingStructureLabel(rawStructure, t) {
   const key = FINANCING_STRUCTURE_PRESENTATION_KEYS[rawStructure];
-  if (!key) {
-    throw new Error(`Unmapped financing structure: "${rawStructure}" -- not present in FINANCING_STRUCTURE_PRESENTATION_KEYS.`);
-  }
+  if (!key) throw new Error(`Unmapped financing structure: "${rawStructure}" -- not present in FINANCING_STRUCTURE_PRESENTATION_KEYS.`);
   return t(key);
 }
 
-// R6-A: "صفقة" is a SYSTEM_GENERATED_PERSISTED_LABEL, never user-entered --
-// confirmed by source review: the only write site for this exact literal is
-// updateActiveDeal()'s defensive fallback (`existing ? existing.name :
-// "صفقة"`), reachable only if activeDealId points to a deal no longer found
-// in savedDeals (a rare cross-tab/session race, not a normal user path). The
-// "Save New" button is disabled while saveNameInput is empty, so a user can
-// never directly create a deal named "صفقة" through the primary save flow.
-// Raw persisted value is NEVER touched; only the display for this one exact
-// literal is mapped. Any other name (real user content) passes through
-// unchanged via the `: deal.name` branch.
 function getDealDisplayName(deal, t) {
   if (deal.name === "صفقة") return t("savedDeals.systemDefaultDealName");
   return deal.name;
 }
 
-// I18N_FULL: same pattern -- projectTitle is a SYSTEM_GENERATED default long
-// descriptive string inside DEFAULT_BUILDING_INPUTS/DEFAULT_LAND_INPUTS,
-// displayed directly as the page header (App.jsx line ~1533). It is a free-
-// text user-editable field (not a controlled enum), so an edited value must
-// pass through unchanged; only the exact known default strings map to a
-// localized display, mirroring getDealDisplayName's exact-literal-match
-// approach. Raw persisted/state value is NEVER touched.
 function getProjectTitleDisplay(projectTitle, t) {
   if (projectTitle === "مبنى مكتبي قائم — طريق أبو بكر الصديق، حي الندى، الرياض") return t("globalApp.defaultProjectTitleBuilding");
   if (projectTitle === "أرض للتطوير — الدائري الشرقي، حي الوادي") return t("globalApp.defaultProjectTitleLand");
   return projectTitle;
 }
 
-module.exports = { getVerdictLabel, VERDICT_PRESENTATION_KEYS, getBuildingPermitStatusLabel, BUILDING_PERMIT_STATUS_PRESENTATION_KEYS, getLeaseStatusLabel, LEASE_STATUS_PRESENTATION_KEYS, getBuildingTypeLabel, BUILDING_TYPE_PRESENTATION_KEYS, getFinancingStructureLabel, FINANCING_STRUCTURE_PRESENTATION_KEYS, getDealDisplayName, getProjectTitleDisplay };
+module.exports = {
+  getVerdictLabel,
+  getExternalDecisionSupportVerdictLabel,
+  VERDICT_PRESENTATION_KEYS,
+  getBuildingPermitStatusLabel,
+  BUILDING_PERMIT_STATUS_PRESENTATION_KEYS,
+  getLeaseStatusLabel,
+  LEASE_STATUS_PRESENTATION_KEYS,
+  getBuildingTypeLabel,
+  BUILDING_TYPE_PRESENTATION_KEYS,
+  getFinancingStructureLabel,
+  FINANCING_STRUCTURE_PRESENTATION_KEYS,
+  getDealDisplayName,
+  getProjectTitleDisplay,
+};
