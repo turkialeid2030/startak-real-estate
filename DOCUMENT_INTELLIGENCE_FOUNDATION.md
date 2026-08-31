@@ -22,7 +22,7 @@ The current foundation implements the deterministic control-plane portions of th
    - SHA-256 content identity.
    - Case/document identifiers.
    - MIME/file metadata.
-   - Explicit duplicate-content detection.
+   - Explicit duplicate-content detection scoped to the same investment case.
    - Document-type classification from metadata only.
    - Authority is never inferred from filename or document type.
 
@@ -30,6 +30,7 @@ The current foundation implements the deterministic control-plane portions of th
    - Preserves raw value and normalized value separately.
    - Requires an explicit source locator (page/cell/slide/section/document metadata).
    - Carries extraction method and extraction confidence.
+   - Requires the evidence `caseId` to match the owning document `caseId`.
    - Defaults to `EXTRACTED_EVIDENCE` and `NOT_VERIFIED`.
    - No extracted value is automatically promoted to verified fact.
 
@@ -40,7 +41,8 @@ The current foundation implements the deterministic control-plane portions of th
    - Unit mismatches remain visible to reconciliation.
 
 4. **Cross-document reconciliation**
-   - Groups evidence by semantic key.
+   - Groups evidence by semantic key within one investment case only.
+   - Fails closed if facts from multiple cases are supplied together.
    - Returns `MISSING`, `SINGLE_SOURCE_UNCORROBORATED`, `AGREEMENT`, `CONFLICT`, or `UNIT_MISMATCH`.
    - Does not select a winner when sources conflict.
    - Preserves source traceability for every compared value.
@@ -52,6 +54,7 @@ The current foundation implements the deterministic control-plane portions of th
 6. **Evidence-to-underwriting readiness gate**
    - Required evidence policies specify minimum independent sources and conflict policy.
    - Missing evidence, unresolved material conflicts, unit mismatches, or insufficient corroboration hold the evidence packet.
+   - Mixed-case reconciliations are rejected rather than combined.
    - Passing this gate means only `READY_FOR_UNDERWRITING_INPUT`; it is **not** an investment recommendation or IC approval.
 
 ## Explicitly not implemented yet
@@ -70,6 +73,9 @@ The current foundation implements the deterministic control-plane portions of th
 ## Safety invariants
 
 - No document is authoritative merely because it was uploaded.
+- No evidence item may attach to a document owned by another investment case.
+- No duplicate-content link is created across investment cases.
+- No reconciliation or readiness assessment may mix cases.
 - No extracted value overwrites another source silently.
 - No conflict is auto-resolved by source ordering.
 - No unit conversion occurs unless an explicit future conversion rule is invoked.
