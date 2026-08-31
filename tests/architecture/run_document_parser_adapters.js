@@ -12,7 +12,7 @@ const {
   parseDocument,
   mapParsedAtomToEvidenceFact,
 } = require('../../src/document-intelligence');
-const { readZipEntries } = require('../../src/document-intelligence/parsers/zip-reader');
+const { readZipEntries, crc32 } = require('../../src/document-intelligence/parsers/zip-reader');
 
 function zipFixture(entries, compressionMethod = 8) {
   const locals = [];
@@ -23,6 +23,7 @@ function zipFixture(entries, compressionMethod = 8) {
     const nameBytes = Buffer.from(name, 'utf8');
     const raw = Buffer.from(value, 'utf8');
     const compressed = compressionMethod === 8 ? zlib.deflateRawSync(raw) : raw;
+    const crc = crc32(raw);
 
     const local = Buffer.alloc(30);
     local.writeUInt32LE(0x04034b50, 0);
@@ -30,7 +31,7 @@ function zipFixture(entries, compressionMethod = 8) {
     local.writeUInt16LE(0, 6);
     local.writeUInt16LE(compressionMethod, 8);
     local.writeUInt32LE(0, 10);
-    local.writeUInt32LE(0, 14);
+    local.writeUInt32LE(crc, 14);
     local.writeUInt32LE(compressed.length, 18);
     local.writeUInt32LE(raw.length, 22);
     local.writeUInt16LE(nameBytes.length, 26);
@@ -44,7 +45,7 @@ function zipFixture(entries, compressionMethod = 8) {
     central.writeUInt16LE(0, 8);
     central.writeUInt16LE(compressionMethod, 10);
     central.writeUInt32LE(0, 12);
-    central.writeUInt32LE(0, 16);
+    central.writeUInt32LE(crc, 16);
     central.writeUInt32LE(compressed.length, 20);
     central.writeUInt32LE(raw.length, 24);
     central.writeUInt16LE(nameBytes.length, 28);
@@ -181,6 +182,14 @@ async function main() {
 
   const unsafeZip = zipFixture({ '../evil.txt': 'bad' }, 0);
   await assert.rejects(() => readZipEntries(unsafeZip), /ZIP_UNSAFE_PATH/);
+  checks++;
+
+  const crcZip = zipFixture({ 'safe.txt': 'integrity-check' }, 0);
+  const corrupt = new Uint8Array(crcZip);
+  const safeNameLength = Buffer.byteLength('safe.txt');
+  const firstDataByte = 30 + safeNameLength;
+  corrupt[firstDataByte] ^= 0x01;
+  await assert.rejects(() => readZipEntries(corrupt), /ZIP_CRC_MISMATCH/);
   checks++;
 
   const limitedXlsx = await parseDocument({ document: xlsxDoc, content: xlsxBytes, options: { maxAtoms: 2 } });
