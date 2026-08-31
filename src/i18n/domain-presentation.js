@@ -1,10 +1,16 @@
 // src/i18n/domain-presentation.js -- centralized RAW-ENGINE-VALUE -> DISPLAY
-// mapping. This is the ONLY place that maps a raw recommendation verdict
-// string to a translation key. It must NEVER be imported by src/engines/**
-// or used to drive any decision logic -- presentation only.
+// mapping. Presentation only: this module must never drive calculation logic.
 //
-// Discovered directly from src/engines/recommendation/index.js's tierVerdict()
-// (verbatim-extracted, never modified): exactly 3 possible raw values.
+// COMPLIANCE_GUARD v1: legacy internal recommendation verdicts remain unchanged
+// for characterization/backward-compatibility purposes, but customer-facing
+// presentation is externalized into bounded decision-support language. This
+// keeps financial/recommendation formulas untouched while preventing the UI
+// from presenting an unlicensed BUY/SELL-style recommendation.
+const {
+  externalizeInternalVerdict,
+  renderDecisionSupportLabel,
+} = require('../compliance/decision-support.js');
+
 const VERDICT_PRESENTATION_KEYS = {
   "يوصى بالشراء": "recommendation.buy",
   "يوصى بالشراء بشروط": "recommendation.conditionalBuy",
@@ -16,7 +22,12 @@ function getVerdictLabel(rawVerdict, t) {
   if (!key) {
     throw new Error(`Unmapped recommendation verdict: "${rawVerdict}" -- the engine returned a value not present in VERDICT_PRESENTATION_KEYS. This must be fixed in domain-presentation.js, not silently displayed.`);
   }
-  return t(key);
+  // Use the existing translated string solely to infer the active UI language
+  // without coupling this presentation module to React locale state.
+  const translatedLegacyLabel = t(key);
+  const locale = /[\u0600-\u06FF]/.test(translatedLegacyLabel) ? 'ar' : 'en';
+  const analyticalLabel = externalizeInternalVerdict(rawVerdict, { locale });
+  return renderDecisionSupportLabel(analyticalLabel, locale);
 }
 
 // R3V: same architecture, for the Land regulatory card's building-permit
