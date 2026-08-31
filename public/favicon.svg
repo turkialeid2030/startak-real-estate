@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="STARTAK Real Estate">
+  <rect width="64" height="64" rx="12" fill="#111827"/>
+  <path d="M14 46V22l18-10 18 10v24H38V33H26v13H14Z" fill="#d4af6a"/>
+  <path d="M22 26h20" stroke="#f3ead7" stroke-width="3" stroke-linecap="round"/>
+</svg>
