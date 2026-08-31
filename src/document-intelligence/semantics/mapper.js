@@ -77,15 +77,24 @@ function buildCellIndex(atoms) {
   return bySheetRow;
 }
 
-function chooseValueToRight(rowCells, labelColumn, maxColumnDistance = 4) {
-  return rowCells.find((entry) => {
-    if (entry.column <= labelColumn || entry.column - labelColumn > maxColumnDistance) return false;
-    const raw = entry.atom.rawValue;
-    if (raw === null || raw === undefined || raw === '') return false;
-    if (typeof raw === 'number' || typeof raw === 'boolean') return true;
-    const text = String(raw).trim();
-    return /^[-+]?\s*[\d٠-٩۰-۹][\d٠-٩۰-۹,٬٫.\s]*(?:%|٪)?$/.test(text);
-  }) || null;
+function isNumericLike(raw) {
+  if (typeof raw === 'number' || typeof raw === 'boolean') return true;
+  const text = String(raw ?? '').trim();
+  return /^[-+]?\s*[\d٠-٩۰-۹][\d٠-٩۰-۹,٬٫.\s]*(?:%|٪)?$/.test(text);
+}
+
+function valueCompatibleWithRule(raw, rule) {
+  if (raw === null || raw === undefined || raw === '') return false;
+  if (rule.normalization === NORMALIZATION.STRING) return true;
+  return isNumericLike(raw);
+}
+
+function chooseValueToRight(rowCells, labelColumn, rule, maxColumnDistance = 4) {
+  return rowCells.find((entry) =>
+    entry.column > labelColumn
+    && entry.column - labelColumn <= maxColumnDistance
+    && valueCompatibleWithRule(entry.atom.rawValue, rule)
+  ) || null;
 }
 
 function sourceUnitToRight(rowCells, valueColumn, maxColumnDistance = 2) {
@@ -122,13 +131,16 @@ function mapXlsxSemantics({ document, parserResult, capturedAt }) {
       if (typeof labelEntry.atom.rawValue !== 'string') continue;
       const rules = RULES_BY_ALIAS.get(normalizeText(labelEntry.atom.rawValue));
       if (!rules || !rules.length) continue;
-      const valueEntry = chooseValueToRight(rowCells, labelEntry.column);
-      if (!valueEntry) {
-        warnings.push(`SEMANTIC_VALUE_NOT_FOUND_TO_RIGHT:${labelEntry.atom.location.sheet}:${labelEntry.atom.location.cell}`);
-        continue;
-      }
-      const sourceUnitText = sourceUnitToRight(rowCells, valueEntry.column);
+
       for (const rule of rules) {
+        const valueEntry = chooseValueToRight(rowCells, labelEntry.column, rule);
+        if (!valueEntry) {
+          warnings.push(`SEMANTIC_VALUE_NOT_FOUND_TO_RIGHT:${rule.id}:${labelEntry.atom.location.sheet}:${labelEntry.atom.location.cell}`);
+          continue;
+        }
+        const sourceUnitText = rule.normalization === NORMALIZATION.STRING
+          ? null
+          : sourceUnitToRight(rowCells, valueEntry.column);
         try {
           const normalizedValue = semanticNormalize(valueEntry.atom.rawValue, rule, { sourceUnitText });
           facts.push(makeEvidenceFact({
@@ -175,6 +187,9 @@ function mapPptxSemantics({ document, parserResult, capturedAt }) {
     if (!atom || atom.kind !== 'TEXT' || typeof atom.rawValue !== 'string') continue;
     const slideText = atom.rawValue;
     for (const rule of SEMANTIC_RULES) {
+      // Free-form PPTX text does not retain dependable label/value boundaries for strings.
+      // String-valued semantic facts therefore remain fail-closed unless a future layout-aware parser qualifies them.
+      if (rule.normalization === NORMALIZATION.STRING) continue;
       let mapped = false;
       const aliases = [...rule.aliases].sort((a, b) => b.length - a.length);
       for (const alias of aliases) {
