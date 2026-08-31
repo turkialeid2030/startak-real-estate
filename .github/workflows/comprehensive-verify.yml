@@ -34,7 +34,7 @@ jobs:
         run: node tests/e2e/run_runtime_e2e.mjs
 
       - name: Real-browser full UI E2E
-        run: node tests/e2e/run_full_e2e.mjs
+        run: node tests/e2e/run_full_e2e_ci.mjs
 
       - name: Strict E2E qualification
         run: node tools/comprehensive-verify.js
