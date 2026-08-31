@@ -114,7 +114,7 @@ async function parse({ document, content, maxAtoms = 20000 }) {
 
     const shared = sharedStrings(entries);
     const sheets = workbookSheetMap(entries);
-    const warnings = [];
+    const warnings = ['XLSX_FORMATTING_MERGES_TABLES_DEFINED_NAMES_NOT_SEMANTICALLY_INTERPRETED'];
     const atoms = [];
     let formulasSeen = 0;
 
