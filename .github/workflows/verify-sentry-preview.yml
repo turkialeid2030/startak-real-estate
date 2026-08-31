@@ -1,0 +1,110 @@
+name: Verify Sentry Preview Ingress
+
+on:
+  push:
+    branches:
+      - qa/sentry-preview-verification
+
+permissions:
+  contents: read
+
+jobs:
+  sentry-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PREVIEW_URL: https://dc82371a.startak-real-estate.pages.dev/
+      SENTRY_HOST: o4512003775004672.ingest.de.sentry.io
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Trigger sanitized runtime error and verify Sentry ingress
+        shell: bash
+        run: |
+          mkdir -p runtime-evidence/sentry
+          node <<'NODE'
+          const fs = require('fs');
+          const { chromium } = require('@playwright/test');
+
+          (async () => {
+            const preview = process.env.PREVIEW_URL;
+            const host = process.env.SENTRY_HOST;
+            const marker = 'STARTAK_PR11B_PREVIEW_VERIFICATION';
+            const browser = await chromium.launch({ headless: true });
+            const page = await browser.newPage();
+            const pageErrors = [];
+            const consoleErrors = [];
+            page.on('pageerror', e => pageErrors.push(String(e.message || e)));
+            page.on('console', m => { if (m.type() === 'error') consoleErrors.push(m.text()); });
+
+            const responsePromise = page.waitForResponse(
+              r => r.url().includes(host) && r.request().method() === 'POST',
+              { timeout: 15000 }
+            );
+
+            const nav = await page.goto(preview, { waitUntil: 'networkidle', timeout: 30000 });
+            if (!nav || !nav.ok()) throw new Error(`Preview navigation failed: ${nav && nav.status()}`);
+
+            await page.evaluate((message) => {
+              window.dispatchEvent(new ErrorEvent('error', { message }));
+            }, marker);
+
+            const response = await responsePromise;
+            const request = response.request();
+            const body = request.postData() || '';
+            const status = response.status();
+
+            if (status < 200 || status >= 300) throw new Error(`Sentry ingest returned ${status}`);
+            if (!body.includes(marker)) throw new Error('Verification marker missing from Sentry envelope');
+
+            const prohibited = [
+              'buildingPrice', 'landPrice', 'occupancy', 'annualRent', 'savedDeals',
+              'localStorage', 'projectTitle', '140000000', '14859936', '45950010'
+            ];
+            const leaked = prohibited.filter(x => body.toLowerCase().includes(x.toLowerCase()));
+            if (leaked.length) throw new Error(`Prohibited data found in envelope: ${leaked.join(', ')}`);
+
+            const evidence = {
+              preview,
+              sentryHost: host,
+              responseStatus: status,
+              requestMethod: request.method(),
+              contentType: request.headers()['content-type'] || null,
+              markerPresent: body.includes(marker),
+              prohibitedLeakage: leaked,
+              envelopeBytes: Buffer.byteLength(body),
+              pageErrors,
+              consoleErrors,
+              verifiedAt: new Date().toISOString(),
+              result: 'PASS'
+            };
+            fs.writeFileSync('runtime-evidence/sentry/preview-ingress.json', JSON.stringify(evidence, null, 2));
+            console.log(JSON.stringify(evidence, null, 2));
+            await browser.close();
+          })().catch(async (error) => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
+
+      - name: Upload verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: startak-sentry-preview-ingress-evidence
+          path: runtime-evidence/sentry/
+          if-no-files-found: warn
+          retention-days: 7
