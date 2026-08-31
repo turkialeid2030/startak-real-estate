@@ -171,7 +171,11 @@ function createEvidenceFact({
   assertNonEmptyString(caseId, 'caseId');
   if (!document || typeof document !== 'object') throw new TypeError('document is required');
   assertNonEmptyString(document.documentId, 'document.documentId');
+  assertNonEmptyString(document.caseId, 'document.caseId');
   assertNonEmptyString(document.contentHashSha256, 'document.contentHashSha256');
+  if (document.caseId !== caseId) {
+    throw new TypeError(`CASE_ISOLATION_VIOLATION: evidence caseId ${caseId} does not match document caseId ${document.caseId}`);
+  }
   assertNonEmptyString(key, 'key');
   assertNonEmptyString(valueType, 'valueType');
   assertNonEmptyString(extractionMethod, 'extractionMethod');
