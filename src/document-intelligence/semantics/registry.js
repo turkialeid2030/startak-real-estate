@@ -1,6 +1,7 @@
 'use strict';
 
 const { MATERIALITY, deepFreeze } = require('../contracts');
+const { CORE_DOMAIN_RULE_DEFINITIONS } = require('./core-domain-rules');
 
 const NORMALIZATION = Object.freeze({
   NUMBER: 'NUMBER',
@@ -38,6 +39,7 @@ const SEMANTIC_RULES = deepFreeze([
   rule({ id: 'DISCOUNT_RATE', key: 'financial.discount_rate', valueType: 'NUMBER', unit: 'ratio', normalization: NORMALIZATION.PERCENT_RATIO, aliases: ['معدل الخصم (لحساب NPV)', 'معدل الخصم'], numericTolerance: { absolute: 0.0002 } }),
   rule({ id: 'INVESTMENT_HORIZON', key: 'financial.investment_horizon_years', valueType: 'NUMBER', unit: 'year', normalization: NORMALIZATION.NUMBER, aliases: ['مدة الاستثمار (سنة البيع)', 'مدة الاستثمار'], numericTolerance: { absolute: 0 } }),
   rule({ id: 'BUILDING_AGE', key: 'property.building_age_years', valueType: 'NUMBER', unit: 'year', normalization: NORMALIZATION.NUMBER, aliases: ['عمر المبنى الحالي', 'عمر المبنى'], numericTolerance: { absolute: 0 } }),
+  ...CORE_DOMAIN_RULE_DEFINITIONS.map(rule),
 ]);
 
 const RULE_BY_ID = new Map(SEMANTIC_RULES.map((item) => [item.id, item]));
