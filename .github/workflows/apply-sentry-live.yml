@@ -1,0 +1,193 @@
+name: Apply Privacy-Minimized Sentry Integration
+
+on:
+  push:
+    branches:
+      - monitoring/sentry-live
+
+permissions:
+  contents: write
+
+jobs:
+  apply-sentry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install Sentry React SDK
+        run: npm install --save @sentry/react@latest
+
+      - name: Apply privacy-minimized provider wiring
+        shell: bash
+        run: |
+          cat > src/observability/report-runtime-error.js <<'EOF'
+          // src/observability/report-runtime-error.js -- PR-11B live provider
+          // Privacy-minimized Sentry transport. The application emits only a
+          // strict allowlisted envelope; no Saved Deal payloads, financial
+          // inputs, project/user content, cookies, request bodies, or raw
+          // exception stacks are sent by this module.
+
+          const ALLOWED_ENVELOPE_FIELDS = ['appVersion', 'buildHash', 'timestamp', 'category', 'message', 'surface', 'locale', 'userAgent'];
+          const SENTRY_DSN = 'https://bd62d30796feffcafda5b70c53c72604@o4512003775004672.ingest.de.sentry.io/4512003802005584';
+          const SENTRY_INGEST_HOST = 'o4512003775004672.ingest.de.sentry.io';
+
+          function sanitizeEnvelope(raw) {
+            const safe = {};
+            for (const key of ALLOWED_ENVELOPE_FIELDS) if (key in raw) safe[key] = raw[key];
+            return safe;
+          }
+
+          let reportInFlight = false;
+          let sentryClientPromise = null;
+
+          function loadSentryClient() {
+            if (!sentryClientPromise) {
+              sentryClientPromise = import('@sentry/react').then((Sentry) => {
+                Sentry.init({
+                  dsn: SENTRY_DSN,
+                  environment: 'production',
+                  sendDefaultPii: false,
+                  defaultIntegrations: false,
+                  attachStacktrace: false,
+                  beforeSend(event) {
+                    const safeTags = {};
+                    for (const key of ['appVersion', 'buildHash', 'category', 'surface', 'locale']) {
+                      const value = event?.tags?.[key];
+                      if (value != null) safeTags[key] = String(value).slice(0, 200);
+                    }
+                    const safeMessage = typeof event?.message === 'string'
+                      ? event.message.slice(0, 500)
+                      : 'STARTAK runtime error';
+                    return {
+                      event_id: event?.event_id,
+                      timestamp: event?.timestamp,
+                      platform: 'javascript',
+                      level: 'error',
+                      message: safeMessage,
+                      tags: safeTags,
+                      extra: event?.extra?.reportedAt ? { reportedAt: String(event.extra.reportedAt).slice(0, 64) } : undefined,
+                      environment: 'production',
+                    };
+                  },
+                });
+                return Sentry;
+              });
+            }
+            return sentryClientPromise;
+          }
+
+          function sendToProvider(envelope) {
+            loadSentryClient()
+              .then((Sentry) => {
+                Sentry.withScope((scope) => {
+                  for (const key of ['appVersion', 'buildHash', 'category', 'surface', 'locale']) {
+                    if (envelope?.[key] != null) scope.setTag(key, String(envelope[key]).slice(0, 200));
+                  }
+                  if (envelope?.timestamp) scope.setExtra('reportedAt', String(envelope.timestamp).slice(0, 64));
+                  Sentry.captureMessage((envelope?.message || 'STARTAK runtime error').slice(0, 500), 'error');
+                });
+              })
+              .catch(() => {
+                // Monitoring must never crash or block the application.
+              });
+          }
+
+          function reportRuntimeError(event) {
+            if (reportInFlight) return;
+            reportInFlight = true;
+            try {
+              const envelope = sanitizeEnvelope({
+                appVersion: typeof window !== 'undefined' ? window.__STARTAK_BUILD_ID__ : undefined,
+                timestamp: new Date().toISOString(),
+                category: event?.category || 'unknown',
+                message: (event?.message || '').slice(0, 500),
+                surface: event?.surface,
+                locale: event?.locale,
+                userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+              });
+              sendToProvider(envelope);
+            } catch (e) {
+              // Telemetry must never crash the app it is reporting about.
+            } finally {
+              reportInFlight = false;
+            }
+          }
+
+          function installGlobalHandlers() {
+            if (typeof window === 'undefined') return;
+            window.addEventListener('error', (e) => {
+              reportRuntimeError({ category: 'window_error', message: e?.message, surface: 'global' });
+            });
+            window.addEventListener('unhandledrejection', (e) => {
+              reportRuntimeError({ category: 'unhandled_rejection', message: String(e?.reason?.message || e?.reason || 'unknown'), surface: 'global' });
+            });
+          }
+
+          module.exports = {
+            reportRuntimeError,
+            installGlobalHandlers,
+            sanitizeEnvelope,
+            ALLOWED_ENVELOPE_FIELDS,
+            SENTRY_INGEST_HOST,
+          };
+          EOF
+
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/main.jsx')
+          text = p.read_text()
+          text = text.replace(
+              "installGlobalHandlers(); // PR-11: safe no-op provider until a real monitoring backend is configured",
+              "installGlobalHandlers(); // PR-11B: privacy-minimized live Sentry provider"
+          )
+          p.write_text(text)
+
+          h = Path('public/_headers')
+          text = h.read_text()
+          text = text.replace(
+              "connect-src 'self';",
+              "connect-src 'self' https://o4512003775004672.ingest.de.sentry.io;"
+          )
+          h.write_text(text)
+          PY
+
+      - name: Verify Sentry hardening invariants
+        shell: bash
+        run: |
+          node -e "const p=require('./package.json'); if(!p.dependencies['@sentry/react']) process.exit(1)"
+          grep -q "sendDefaultPii: false" src/observability/report-runtime-error.js
+          grep -q "defaultIntegrations: false" src/observability/report-runtime-error.js
+          grep -q "attachStacktrace: false" src/observability/report-runtime-error.js
+          grep -q "o4512003775004672.ingest.de.sentry.io" public/_headers
+          if grep -Eqi "saved.?deal|financial.?input|localStorage|cookie|document\.cookie" src/observability/report-runtime-error.js; then
+            # Documentation comments may mention prohibited categories; executable references must not.
+            node - <<'NODE'
+          const fs=require('fs');
+          const s=fs.readFileSync('src/observability/report-runtime-error.js','utf8')
+            .split('\n').filter(l=>!l.trim().startsWith('//')).join('\n');
+          if (/saved.?deal|financial.?input|localStorage|document\.cookie/i.test(s)) process.exit(1);
+          NODE
+          fi
+
+      - name: Run canonical release verification
+        run: npm run release:verify
+
+      - name: Commit integration and remove one-time workflow
+        shell: bash
+        run: |
+          rm .github/workflows/apply-sentry-live.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json src/observability/report-runtime-error.js src/main.jsx public/_headers .github/workflows/apply-sentry-live.yml
+          git commit -m "monitoring: add privacy-minimized Sentry error reporting"
+          git push origin HEAD:monitoring/sentry-live
