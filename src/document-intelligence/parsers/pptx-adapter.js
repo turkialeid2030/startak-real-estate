@@ -32,7 +32,11 @@ async function parse({ document, content, maxAtoms = 10000 }) {
       .filter((name) => /^ppt\/slides\/slide\d+\.xml$/i.test(name))
       .sort((a, b) => slideNumber(a) - slideNumber(b));
     const atoms = [];
-    const warnings = ['PPTX_TEXT_ONLY_SHAPES_TABLES_CHARTS_AND_IMAGES_NOT_SEMANTICALLY_INTERPRETED'];
+    const warnings = [
+      'PPTX_TEXT_ONLY_SHAPES_TABLES_CHARTS_AND_IMAGES_NOT_SEMANTICALLY_INTERPRETED',
+      'PPTX_SPEAKER_NOTES_NOT_PARSED',
+      'PPTX_TEXT_ORDER_IS_PACKAGE_ORDER_NOT_VISUAL_READING_ORDER',
+    ];
 
     for (const path of slidePaths) {
       const slide = slideNumber(path);
