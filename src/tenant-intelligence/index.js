@@ -14,6 +14,7 @@ const TENANT_RESULT_STATUS = Object.freeze({
   TENANT_ANALYTICAL_CONDITIONAL: 'TENANT_ANALYTICAL_CONDITIONAL',
   TENANT_HIGH_RISK: 'TENANT_HIGH_RISK',
   HOLD_EVIDENCE: 'HOLD_EVIDENCE',
+  HOLD_POLICY: 'HOLD_POLICY',
   LEGAL_REVIEW_REQUIRED: 'LEGAL_REVIEW_REQUIRED',
 });
 
@@ -25,10 +26,20 @@ const AXIS = Object.freeze({
   SECTOR_RISK: 'SECTOR_RISK',
 });
 
+const TENANT_CLASS = Object.freeze({
+  LARGE: 'LARGE',
+  MEDIUM: 'MEDIUM',
+  SMALL: 'SMALL',
+});
+
 const DEFAULT_REFERENCE_POLICY = Object.freeze({
   policyId: 'TENANT_POLICY_PROFILE_REFERENCE_V1',
   version: 1,
   sourceSemantics: 'Configurable reference profile derived from the supplied tenant-solvency qualification form. It is not a statute, credit rating methodology, or universal Saudi market rule.',
+  applicability: Object.freeze({
+    financialCapacityMinimumAnnualRent: 3000000,
+    belowThresholdFinancialMode: 'NOT_APPLICABLE_COMMITTEE_DISCRETION',
+  }),
   axes: Object.freeze({
     [AXIS.FINANCIAL_CAPACITY]: Object.freeze({
       weight: 40,
@@ -62,6 +73,7 @@ const DEFAULT_REFERENCE_POLICY = Object.freeze({
       items: Object.freeze([
         Object.freeze({ key: 'guaranteeStrength', weight: 15, required: true }),
       ]),
+      sourceNote: 'The supplied form labels the axis as 15 points while its listed guarantee sub-items total 12 points and explicitly notes that weights may need redistribution. The engine therefore keeps this axis configurable and does not encode the form sub-items as universal fixed weights.',
     }),
     [AXIS.SECTOR_RISK]: Object.freeze({
       weight: 10,
@@ -70,11 +82,27 @@ const DEFAULT_REFERENCE_POLICY = Object.freeze({
       ]),
     }),
   }),
-  thresholds: Object.freeze({ favourable: 80, conditional: 65 }),
-  rentAffordability: Object.freeze({
-    defaultMaxRentToRevenueRatio: 0.10,
-    classThresholds: Object.freeze({}),
+  referenceDecisionBands: Object.freeze({
+    financialCapacityExcluded60PointProfile: Object.freeze([
+      Object.freeze({ min: 40, max: 60, analyticalStatus: 'TENANT_ANALYTICAL_FAVOURABLE', sourceLabel: 'قبول مباشر' }),
+      Object.freeze({ min: 30, max: 39, analyticalStatus: 'TENANT_ANALYTICAL_CONDITIONAL', sourceLabel: 'قبول بضمان إضافي' }),
+      Object.freeze({ min: 29, max: 29, analyticalStatus: 'TENANT_ANALYTICAL_CONDITIONAL', sourceLabel: 'قبول مشروط' }),
+      Object.freeze({ min: 0, max: 28.999999, analyticalStatus: 'TENANT_HIGH_RISK', sourceLabel: 'رفض' }),
+    ]),
+    financialCapacityIncluded100PointProfile: null,
   }),
+  rentAffordability: Object.freeze({
+    classThresholds: Object.freeze({
+      [TENANT_CLASS.LARGE]: 0.15,
+      [TENANT_CLASS.MEDIUM]: 0.10,
+      [TENANT_CLASS.SMALL]: 0.08,
+    }),
+  }),
+  guaranteeRequirementBands: Object.freeze([
+    Object.freeze({ minAnnualContractValue: 500000, maxAnnualContractValue: 2000000, requirement: 'AS_POLICY', sourceLabel: 'حسب اللائحة' }),
+    Object.freeze({ minAnnualContractValueExclusive: 3000000, maxAnnualContractValue: 10000000, requirement: 'BANK_GUARANTEE', sourceLabel: 'ضمان بنكي' }),
+    Object.freeze({ minAnnualContractValueExclusive: 10000000, maxAnnualContractValue: null, requirement: 'BANK_GUARANTEE_PLUS_PARENT_GUARANTEE', sourceLabel: 'ضمان بنكي + كفالة شركة أم' }),
+  ]),
 });
 
 function freeze(value) {
@@ -100,17 +128,7 @@ function boundedScore(value, field) {
   return value;
 }
 
-function createTenantEvidenceFact({
-  tenantId,
-  key,
-  value = null,
-  score = null,
-  status,
-  sourceType,
-  sourceRef = null,
-  observedAt = null,
-  note = null,
-}) {
+function createTenantEvidenceFact({ tenantId, key, value = null, score = null, status, sourceType, sourceRef = null, observedAt = null, note = null }) {
   requiredString(tenantId, 'tenantId');
   requiredString(key, 'key');
   if (!Object.values(TENANT_EVIDENCE_STATUS).includes(status)) throw new TypeError(`invalid tenant evidence status: ${status}`);
@@ -119,18 +137,7 @@ function createTenantEvidenceFact({
   if (sourceRef !== null) requiredString(sourceRef, 'sourceRef');
   if (observedAt !== null) requiredString(observedAt, 'observedAt');
   if (note !== null && typeof note !== 'string') throw new TypeError('note must be a string or null');
-  return freeze({
-    schemaVersion: 1,
-    tenantId: tenantId.trim(),
-    key: key.trim(),
-    value,
-    score,
-    status,
-    sourceType: sourceType.trim(),
-    sourceRef: sourceRef ? sourceRef.trim() : null,
-    observedAt: observedAt ? observedAt.trim() : null,
-    note: note ? note.trim() : null,
-  });
+  return freeze({ schemaVersion: 1, tenantId: tenantId.trim(), key: key.trim(), value, score, status, sourceType: sourceType.trim(), sourceRef: sourceRef ? sourceRef.trim() : null, observedAt: observedAt ? observedAt.trim() : null, note: note ? note.trim() : null });
 }
 
 function validatePolicy(policy) {
@@ -153,10 +160,7 @@ function validatePolicy(policy) {
     axisTotal += axis.weight;
   }
   if (Math.abs(axisTotal - 100) > 1e-9) throw new Error('tenant policy axis weights must sum to 100');
-  if (!policy.thresholds || typeof policy.thresholds !== 'object') throw new TypeError('policy.thresholds is required');
-  finiteNumber(policy.thresholds.favourable, 'thresholds.favourable');
-  finiteNumber(policy.thresholds.conditional, 'thresholds.conditional');
-  if (policy.thresholds.favourable <= policy.thresholds.conditional) throw new Error('favourable threshold must exceed conditional threshold');
+  finiteNumber(policy.applicability.financialCapacityMinimumAnnualRent, 'financialCapacityMinimumAnnualRent');
   return policy;
 }
 
@@ -165,26 +169,17 @@ function createTenantPolicyProfile(overrides = {}) {
   const axes = {};
   for (const axisName of Object.values(AXIS)) {
     const source = (overrides.axes && overrides.axes[axisName]) || base.axes[axisName];
-    axes[axisName] = {
-      weight: source.weight,
-      items: source.items.map((item) => ({ ...item })),
-    };
+    axes[axisName] = { weight: source.weight, items: source.items.map((item) => ({ ...item })), sourceNote: source.sourceNote || null };
   }
   const profile = {
     policyId: overrides.policyId || base.policyId,
     version: overrides.version || base.version,
     sourceSemantics: overrides.sourceSemantics || base.sourceSemantics,
+    applicability: { ...base.applicability, ...(overrides.applicability || {}) },
     axes,
-    thresholds: { ...base.thresholds, ...(overrides.thresholds || {}) },
-    rentAffordability: {
-      defaultMaxRentToRevenueRatio: base.rentAffordability.defaultMaxRentToRevenueRatio,
-      classThresholds: { ...base.rentAffordability.classThresholds },
-      ...(overrides.rentAffordability || {}),
-      classThresholds: {
-        ...base.rentAffordability.classThresholds,
-        ...((overrides.rentAffordability && overrides.rentAffordability.classThresholds) || {}),
-      },
-    },
+    referenceDecisionBands: overrides.referenceDecisionBands || base.referenceDecisionBands,
+    rentAffordability: { classThresholds: { ...base.rentAffordability.classThresholds, ...((overrides.rentAffordability && overrides.rentAffordability.classThresholds) || {}) } },
+    guaranteeRequirementBands: overrides.guaranteeRequirementBands || base.guaranteeRequirementBands,
   };
   validatePolicy(profile);
   return freeze(profile);
@@ -202,7 +197,7 @@ function groupFactsByKey(facts, tenantId) {
   return byKey;
 }
 
-function resolveFactForScoring(key, factsForKey) {
+function resolveFactForScoring(factsForKey) {
   if (!factsForKey || factsForKey.length === 0) return { state: 'MISSING', fact: null };
   if (factsForKey.some((fact) => fact.status === TENANT_EVIDENCE_STATUS.CONFLICT)) return { state: 'CONFLICT', fact: null };
   const active = factsForKey.filter((fact) => fact.status !== TENANT_EVIDENCE_STATUS.NOT_APPLICABLE);
@@ -214,55 +209,62 @@ function resolveFactForScoring(key, factsForKey) {
   return { state: 'READY', fact: scored[0] };
 }
 
-function assessRentAffordability({ tenantId, annualRent, annualRevenue, tenantClass = null, policy, revenueEvidence = null }) {
+function assessRentAffordability({ tenantId, annualRent, annualRevenue, tenantClass, policy, revenueEvidence = null }) {
   requiredString(tenantId, 'tenantId');
   finiteNumber(annualRent, 'annualRent');
   finiteNumber(annualRevenue, 'annualRevenue');
   if (annualRent < 0) throw new RangeError('annualRent must be >= 0');
   if (annualRevenue <= 0) return freeze({ status: 'HOLD_EVIDENCE', ratio: null, threshold: null, reason: 'VALID_ANNUAL_REVENUE_REQUIRED' });
+  if (!tenantClass || !Object.values(TENANT_CLASS).includes(tenantClass)) return freeze({ status: 'HOLD_POLICY', ratio: null, threshold: null, reason: 'SUPPORTED_TENANT_CLASS_REQUIRED' });
   if (!revenueEvidence || revenueEvidence.tenantId !== tenantId) return freeze({ status: 'HOLD_EVIDENCE', ratio: null, threshold: null, reason: 'REVENUE_EVIDENCE_REQUIRED' });
-  if ([TENANT_EVIDENCE_STATUS.UNVERIFIED, TENANT_EVIDENCE_STATUS.ASSUMED, TENANT_EVIDENCE_STATUS.CONFLICT].includes(revenueEvidence.status)) {
-    return freeze({ status: 'HOLD_EVIDENCE', ratio: null, threshold: null, reason: 'QUALIFIED_REVENUE_EVIDENCE_REQUIRED' });
-  }
-  const classThreshold = tenantClass && policy.rentAffordability.classThresholds[tenantClass];
-  const threshold = classThreshold === undefined ? policy.rentAffordability.defaultMaxRentToRevenueRatio : classThreshold;
+  if ([TENANT_EVIDENCE_STATUS.UNVERIFIED, TENANT_EVIDENCE_STATUS.ASSUMED, TENANT_EVIDENCE_STATUS.CONFLICT].includes(revenueEvidence.status)) return freeze({ status: 'HOLD_EVIDENCE', ratio: null, threshold: null, reason: 'QUALIFIED_REVENUE_EVIDENCE_REQUIRED' });
+  const threshold = policy.rentAffordability.classThresholds[tenantClass];
   finiteNumber(threshold, 'rent affordability threshold');
   const ratio = annualRent / annualRevenue;
-  return freeze({
-    status: ratio <= threshold ? 'PASS' : 'FAIL',
-    ratio,
-    threshold,
-    tenantClass,
-    sourceKey: revenueEvidence.key,
-    semantics: 'Rent affordability is an internal analytical ratio, not a credit rating or legal conclusion.',
-  });
+  return freeze({ status: ratio <= threshold ? 'PASS' : 'FAIL', ratio, threshold, tenantClass, sourceKey: revenueEvidence.key, semantics: 'Rent affordability is an internal analytical ratio based on the supplied reference policy, not a credit rating or legal conclusion.' });
 }
 
-function assessTenant({
-  tenantId,
-  facts,
-  policy = createTenantPolicyProfile(),
-  annualRent = null,
-  annualRevenue = null,
-  tenantClass = null,
-  revenueEvidenceKey = 'annualRevenue',
-}) {
+function resolveGuaranteeRequirement(annualContractValue, policy) {
+  if (annualContractValue === null || annualContractValue === undefined) return freeze({ status: 'NOT_EVALUATED', requirement: null, reason: 'ANNUAL_CONTRACT_VALUE_NOT_PROVIDED' });
+  finiteNumber(annualContractValue, 'annualContractValue');
+  for (const band of policy.guaranteeRequirementBands) {
+    const minOk = band.minAnnualContractValueExclusive !== undefined ? annualContractValue > band.minAnnualContractValueExclusive : annualContractValue >= band.minAnnualContractValue;
+    const maxOk = band.maxAnnualContractValue === null || annualContractValue <= band.maxAnnualContractValue;
+    if (minOk && maxOk) return freeze({ status: 'MATCHED_REFERENCE_BAND', requirement: band.requirement, sourceLabel: band.sourceLabel });
+  }
+  return freeze({ status: 'HOLD_POLICY', requirement: null, reason: 'REFERENCE_FORM_DOES_NOT_DEFINE_THIS_VALUE_BAND' });
+}
+
+function decisionBandFor60PointReference(rawWeightedPoints, policy) {
+  const bands = policy.referenceDecisionBands.financialCapacityExcluded60PointProfile;
+  for (const band of bands) if (rawWeightedPoints >= band.min && rawWeightedPoints <= band.max) return band;
+  return null;
+}
+
+function assessTenant({ tenantId, facts, policy = createTenantPolicyProfile(), annualRent = null, annualRevenue = null, tenantClass = null, annualContractValue = null, revenueEvidenceKey = 'annualRevenue' }) {
   requiredString(tenantId, 'tenantId');
   validatePolicy(policy);
   const byKey = groupFactsByKey(facts, tenantId);
   const evidenceGaps = [];
+  const policyGaps = [];
   const conflicts = [];
   const legalReviewFlags = [];
   const axes = [];
   let weightedScore = 0;
   let assessedWeight = 0;
 
+  const financialExcluded = annualRent !== null && annualRent < policy.applicability.financialCapacityMinimumAnnualRent;
+
   for (const [axisName, axisPolicy] of Object.entries(policy.axes)) {
+    if (axisName === AXIS.FINANCIAL_CAPACITY && financialExcluded) {
+      axes.push({ axis: axisName, policyWeight: axisPolicy.weight, assessedWeight: 0, weightedPoints: 0, status: 'NOT_APPLICABLE_BY_REFERENCE_POLICY', reason: policy.applicability.belowThresholdFinancialMode, items: [] });
+      continue;
+    }
     let axisPoints = 0;
     let axisAssessedWeight = 0;
     const itemResults = [];
     for (const item of axisPolicy.items) {
-      const resolution = resolveFactForScoring(item.key, byKey.get(item.key));
+      const resolution = resolveFactForScoring(byKey.get(item.key));
       if (resolution.state === 'MISSING' || resolution.state === 'UNSCORED') {
         if (item.required) evidenceGaps.push({ key: item.key, code: resolution.state === 'MISSING' ? 'REQUIRED_EVIDENCE_MISSING' : 'SCORE_EVIDENCE_MISSING' });
         itemResults.push({ key: item.key, status: resolution.state, weightedPoints: null });
@@ -286,58 +288,45 @@ function assessTenant({
     }
     weightedScore += axisPoints;
     assessedWeight += axisAssessedWeight;
-    axes.push({ axis: axisName, policyWeight: axisPolicy.weight, assessedWeight: axisAssessedWeight, weightedPoints: axisPoints, items: itemResults });
+    axes.push({ axis: axisName, policyWeight: axisPolicy.weight, assessedWeight: axisAssessedWeight, weightedPoints: axisPoints, status: 'ASSESSED', items: itemResults });
   }
 
   let affordability = null;
   if (annualRent !== null || annualRevenue !== null) {
     if (annualRent === null || annualRevenue === null) {
       affordability = freeze({ status: 'HOLD_EVIDENCE', ratio: null, threshold: null, reason: 'ANNUAL_RENT_AND_REVENUE_REQUIRED_TOGETHER' });
-      evidenceGaps.push({ key: 'rentAffordability', code: 'ANNUAL_RENT_AND_REVENUE_REQUIRED_TOGETHER' });
+      evidenceGaps.push({ key: 'rentAffordability', code: affordability.reason });
     } else {
-      const revenueFactResolution = resolveFactForScoring(revenueEvidenceKey, byKey.get(revenueEvidenceKey));
-      const revenueEvidence = revenueFactResolution.state === 'READY' ? revenueFactResolution.fact : (byKey.get(revenueEvidenceKey) || [])[0] || null;
+      const revenueFacts = byKey.get(revenueEvidenceKey) || [];
+      const resolution = resolveFactForScoring(revenueFacts);
+      const revenueEvidence = resolution.state === 'READY' ? resolution.fact : revenueFacts[0] || null;
       affordability = assessRentAffordability({ tenantId, annualRent, annualRevenue, tenantClass, policy, revenueEvidence });
       if (affordability.status === 'HOLD_EVIDENCE') evidenceGaps.push({ key: 'rentAffordability', code: affordability.reason });
+      if (affordability.status === 'HOLD_POLICY') policyGaps.push({ key: 'rentAffordability', code: affordability.reason });
     }
   }
 
-  const hasHold = evidenceGaps.length > 0 || conflicts.length > 0;
-  const normalizedScore = assessedWeight > 0 ? (weightedScore / assessedWeight) * 100 : null;
-  let status;
-  if (legalReviewFlags.length > 0) status = TENANT_RESULT_STATUS.LEGAL_REVIEW_REQUIRED;
-  else if (hasHold) status = TENANT_RESULT_STATUS.HOLD_EVIDENCE;
-  else if (affordability && affordability.status === 'FAIL') status = TENANT_RESULT_STATUS.TENANT_HIGH_RISK;
-  else if (normalizedScore >= policy.thresholds.favourable) status = TENANT_RESULT_STATUS.TENANT_ANALYTICAL_FAVOURABLE;
-  else if (normalizedScore >= policy.thresholds.conditional) status = TENANT_RESULT_STATUS.TENANT_ANALYTICAL_CONDITIONAL;
-  else status = TENANT_RESULT_STATUS.TENANT_HIGH_RISK;
+  const guaranteeRequirement = resolveGuaranteeRequirement(annualContractValue, policy);
+  if (guaranteeRequirement.status === 'HOLD_POLICY') policyGaps.push({ key: 'guaranteeRequirement', code: guaranteeRequirement.reason });
 
-  return freeze({
-    schemaVersion: 1,
-    tenantId: tenantId.trim(),
-    policy: { policyId: policy.policyId, version: policy.version },
-    status,
-    score: normalizedScore,
-    rawWeightedPoints: weightedScore,
-    assessedWeight,
-    axes,
-    affordability,
-    evidenceGaps,
-    conflicts,
-    legalReviewFlags,
-    prohibitedClaims: ['CREDIT_RATING', 'LEGAL_CLEAR', 'APPROVE_TENANT', 'REJECT_TENANT'],
-    semantics: 'Internal tenant-risk analytical indication only. It is not a credit rating, legal opinion, or regulated tenant approval/rejection.',
-  });
+  const hasEvidenceHold = evidenceGaps.length > 0 || conflicts.length > 0;
+  const normalizedScore = assessedWeight > 0 ? (weightedScore / assessedWeight) * 100 : null;
+  let referenceDecisionBand = null;
+  let status;
+
+  if (legalReviewFlags.length > 0) status = TENANT_RESULT_STATUS.LEGAL_REVIEW_REQUIRED;
+  else if (hasEvidenceHold) status = TENANT_RESULT_STATUS.HOLD_EVIDENCE;
+  else if (policyGaps.length > 0) status = TENANT_RESULT_STATUS.HOLD_POLICY;
+  else if (affordability && affordability.status === 'FAIL') status = TENANT_RESULT_STATUS.TENANT_HIGH_RISK;
+  else if (financialExcluded && assessedWeight === 60) {
+    referenceDecisionBand = decisionBandFor60PointReference(weightedScore, policy);
+    status = referenceDecisionBand ? TENANT_RESULT_STATUS[referenceDecisionBand.analyticalStatus] : TENANT_RESULT_STATUS.HOLD_POLICY;
+  } else {
+    status = TENANT_RESULT_STATUS.HOLD_POLICY;
+    policyGaps.push({ key: 'decisionBand', code: 'REFERENCE_FORM_DOES_NOT_DEFINE_DECISION_BANDS_FOR_100_POINT_PROFILE' });
+  }
+
+  return freeze({ schemaVersion: 1, tenantId: tenantId.trim(), policy: { policyId: policy.policyId, version: policy.version }, financialCapacityApplicability: financialExcluded ? 'EXCLUDED_BY_REFERENCE_POLICY' : 'IN_SCOPE_OR_UNDETERMINED', status, score: normalizedScore, rawWeightedPoints: weightedScore, assessedWeight, referenceDecisionBand: referenceDecisionBand ? { min: referenceDecisionBand.min, max: referenceDecisionBand.max, sourceLabel: referenceDecisionBand.sourceLabel } : null, axes, affordability, guaranteeRequirement, evidenceGaps, policyGaps, conflicts, legalReviewFlags, prohibitedClaims: ['CREDIT_RATING', 'LEGAL_CLEAR', 'APPROVE_TENANT', 'REJECT_TENANT'], semantics: 'Internal tenant-risk analytical indication only. Source decision labels are retained only as provenance metadata and are not emitted as regulated approval/rejection claims.' });
 }
 
-module.exports = {
-  TENANT_EVIDENCE_STATUS,
-  TENANT_RESULT_STATUS,
-  AXIS,
-  DEFAULT_REFERENCE_POLICY,
-  createTenantEvidenceFact,
-  createTenantPolicyProfile,
-  validatePolicy,
-  assessRentAffordability,
-  assessTenant,
-};
+module.exports = { TENANT_EVIDENCE_STATUS, TENANT_RESULT_STATUS, AXIS, TENANT_CLASS, DEFAULT_REFERENCE_POLICY, createTenantEvidenceFact, createTenantPolicyProfile, validatePolicy, assessRentAffordability, resolveGuaranteeRequirement, assessTenant };
