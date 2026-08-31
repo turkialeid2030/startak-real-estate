@@ -26,8 +26,29 @@ function valuesEqual(a, b, valueType, tolerance) {
   return Object.is(a, b);
 }
 
+function assertCaseIsolation(facts, expectedCaseId = null) {
+  if (!Array.isArray(facts)) throw new TypeError('facts must be an array');
+  const caseIds = new Set();
+  for (const fact of facts) {
+    if (!fact) continue;
+    if (typeof fact.caseId !== 'string' || fact.caseId.trim() === '') {
+      throw new TypeError('CASE_ISOLATION_VIOLATION: every evidence fact must carry a caseId');
+    }
+    caseIds.add(fact.caseId);
+  }
+  if (caseIds.size > 1) {
+    throw new TypeError(`CASE_ISOLATION_VIOLATION: mixed evidence cases are not reconcilable (${[...caseIds].join(', ')})`);
+  }
+  const discoveredCaseId = caseIds.size === 1 ? [...caseIds][0] : null;
+  if (expectedCaseId && discoveredCaseId && discoveredCaseId !== expectedCaseId) {
+    throw new TypeError(`CASE_ISOLATION_VIOLATION: expected ${expectedCaseId}, received ${discoveredCaseId}`);
+  }
+  return expectedCaseId || discoveredCaseId;
+}
+
 function evidenceProjection(fact) {
   return {
+    caseId: fact.caseId,
     factId: fact.factId,
     documentId: fact.documentId,
     documentHashSha256: fact.documentHashSha256,
@@ -45,10 +66,12 @@ function evidenceProjection(fact) {
   };
 }
 
-function reconcileKey(key, facts, { numericTolerance = {} } = {}) {
+function reconcileKey(key, facts, { numericTolerance = {}, caseId = null } = {}) {
+  const isolatedCaseId = assertCaseIsolation(facts, caseId);
   const candidates = facts.filter((fact) => fact && fact.key === key);
   if (candidates.length === 0) {
     return deepFreeze({
+      caseId: isolatedCaseId,
       key,
       status: RECONCILIATION_STATUS.MISSING,
       factCount: 0,
@@ -70,6 +93,7 @@ function reconcileKey(key, facts, { numericTolerance = {} } = {}) {
   const units = [...new Set(candidates.map((fact) => normalizedUnit(fact.unit)))];
   if (units.length > 1) {
     return deepFreeze({
+      caseId: isolatedCaseId,
       key,
       status: RECONCILIATION_STATUS.UNIT_MISMATCH,
       factCount: candidates.length,
@@ -85,6 +109,7 @@ function reconcileKey(key, facts, { numericTolerance = {} } = {}) {
   const valueTypes = [...new Set(candidates.map((fact) => fact.valueType))];
   if (valueTypes.length > 1) {
     return deepFreeze({
+      caseId: isolatedCaseId,
       key,
       status: RECONCILIATION_STATUS.CONFLICT,
       factCount: candidates.length,
@@ -99,6 +124,7 @@ function reconcileKey(key, facts, { numericTolerance = {} } = {}) {
 
   if (candidates.length === 1) {
     return deepFreeze({
+      caseId: isolatedCaseId,
       key,
       status: RECONCILIATION_STATUS.SINGLE_SOURCE_UNCORROBORATED,
       factCount: 1,
@@ -118,6 +144,7 @@ function reconcileKey(key, facts, { numericTolerance = {} } = {}) {
 
   if (allAgree) {
     return deepFreeze({
+      caseId: isolatedCaseId,
       key,
       status: RECONCILIATION_STATUS.AGREEMENT,
       factCount: candidates.length,
@@ -133,6 +160,7 @@ function reconcileKey(key, facts, { numericTolerance = {} } = {}) {
   }
 
   return deepFreeze({
+    caseId: isolatedCaseId,
     key,
     status: RECONCILIATION_STATUS.CONFLICT,
     factCount: candidates.length,
@@ -145,19 +173,21 @@ function reconcileKey(key, facts, { numericTolerance = {} } = {}) {
   });
 }
 
-function reconcileEvidenceFacts(facts, { keys, numericToleranceByKey = {} } = {}) {
-  if (!Array.isArray(facts)) throw new TypeError('facts must be an array');
+function reconcileEvidenceFacts(facts, { caseId = null, keys, numericToleranceByKey = {} } = {}) {
+  const isolatedCaseId = assertCaseIsolation(facts, caseId);
   const targetKeys = Array.isArray(keys) && keys.length
     ? [...new Set(keys)]
     : [...new Set(facts.map((fact) => fact && fact.key).filter(Boolean))];
 
   return deepFreeze(targetKeys.map((key) => reconcileKey(key, facts, {
+    caseId: isolatedCaseId,
     numericTolerance: numericToleranceByKey[key] || {},
   })));
 }
 
 module.exports = {
   numberEqual,
+  assertCaseIsolation,
   reconcileKey,
   reconcileEvidenceFacts,
 };
