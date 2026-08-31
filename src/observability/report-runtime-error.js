@@ -1,29 +1,76 @@
-// src/observability/report-runtime-error.js -- PR-11: provider-agnostic
-// client error reporting boundary. Currently wired to a console-safe no-op
-// provider only -- no live monitoring backend is configured (none exists in
-// this environment; none is fabricated here). Swapping in a real provider
-// later means implementing sendToProvider() without touching call sites.
+// src/observability/report-runtime-error.js -- PR-11B live provider
+// Privacy-minimized Sentry transport. The application emits only a
+// strict allowlisted envelope; no Saved Deal payloads, financial
+// inputs, project/user content, cookies, request bodies, or raw
+// exception stacks are sent by this module.
 
 const ALLOWED_ENVELOPE_FIELDS = ['appVersion', 'buildHash', 'timestamp', 'category', 'message', 'surface', 'locale', 'userAgent'];
+const SENTRY_DSN = 'https://bd62d30796feffcafda5b70c53c72604@o4512003775004672.ingest.de.sentry.io/4512003802005584';
+const SENTRY_INGEST_HOST = 'o4512003775004672.ingest.de.sentry.io';
 
 function sanitizeEnvelope(raw) {
   const safe = {};
   for (const key of ALLOWED_ENVELOPE_FIELDS) if (key in raw) safe[key] = raw[key];
-  return safe; // never Saved Deal records, never financial inputs, never project titles/user content, never raw stack with local paths
+  return safe;
 }
 
-let reportInFlight = false; // guards against recursive/looping reports if the provider itself throws
+let reportInFlight = false;
+let sentryClientPromise = null;
+
+function loadSentryClient() {
+  if (!sentryClientPromise) {
+    sentryClientPromise = import('@sentry/react').then((Sentry) => {
+      Sentry.init({
+        dsn: SENTRY_DSN,
+        environment: 'production',
+        sendDefaultPii: false,
+        defaultIntegrations: false,
+        attachStacktrace: false,
+        beforeSend(event) {
+          const safeTags = {};
+          for (const key of ['appVersion', 'buildHash', 'category', 'surface', 'locale']) {
+            const value = event?.tags?.[key];
+            if (value != null) safeTags[key] = String(value).slice(0, 200);
+          }
+          const safeMessage = typeof event?.message === 'string'
+            ? event.message.slice(0, 500)
+            : 'STARTAK runtime error';
+          return {
+            event_id: event?.event_id,
+            timestamp: event?.timestamp,
+            platform: 'javascript',
+            level: 'error',
+            message: safeMessage,
+            tags: safeTags,
+            extra: event?.extra?.reportedAt ? { reportedAt: String(event.extra.reportedAt).slice(0, 64) } : undefined,
+            environment: 'production',
+          };
+        },
+      });
+      return Sentry;
+    });
+  }
+  return sentryClientPromise;
+}
 
 function sendToProvider(envelope) {
-  // NOOP / console-safe development provider. No live monitoring backend is
-  // configured in this environment -- this intentionally does not call any
-  // external endpoint. Swap this function's body when a real provider is
-  // authorized and configured.
-  try { console.info('[runtime-error-report]', envelope); } catch (e) { /* never let the provider itself crash the app */ }
+  loadSentryClient()
+    .then((Sentry) => {
+      Sentry.withScope((scope) => {
+        for (const key of ['appVersion', 'buildHash', 'category', 'surface', 'locale']) {
+          if (envelope?.[key] != null) scope.setTag(key, String(envelope[key]).slice(0, 200));
+        }
+        if (envelope?.timestamp) scope.setExtra('reportedAt', String(envelope.timestamp).slice(0, 64));
+        Sentry.captureMessage((envelope?.message || 'STARTAK runtime error').slice(0, 500), 'error');
+      });
+    })
+    .catch(() => {
+      // Monitoring must never crash or block the application.
+    });
 }
 
 function reportRuntimeError(event) {
-  if (reportInFlight) return; // avoid recursive reporting loops
+  if (reportInFlight) return;
   reportInFlight = true;
   try {
     const envelope = sanitizeEnvelope({
@@ -37,7 +84,7 @@ function reportRuntimeError(event) {
     });
     sendToProvider(envelope);
   } catch (e) {
-    // Telemetry must never crash the app it's trying to report about.
+    // Telemetry must never crash the app it is reporting about.
   } finally {
     reportInFlight = false;
   }
@@ -53,4 +100,10 @@ function installGlobalHandlers() {
   });
 }
 
-module.exports = { reportRuntimeError, installGlobalHandlers, sanitizeEnvelope, ALLOWED_ENVELOPE_FIELDS };
+module.exports = {
+  reportRuntimeError,
+  installGlobalHandlers,
+  sanitizeEnvelope,
+  ALLOWED_ENVELOPE_FIELDS,
+  SENTRY_INGEST_HOST,
+};
