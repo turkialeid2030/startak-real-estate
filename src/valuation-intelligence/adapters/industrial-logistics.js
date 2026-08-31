@@ -201,9 +201,18 @@ function calculateIndustrialLogisticsIncomeIndication({
   }
 
   let expenseTreatment;
-  if ([LEASE_STRUCTURE.NET, LEASE_STRUCTURE.TRIPLE_NET, LEASE_STRUCTURE.TENANT_BORNE_OPEX].includes(spec.leaseStructure)) {
+  if ([LEASE_STRUCTURE.TRIPLE_NET, LEASE_STRUCTURE.TENANT_BORNE_OPEX].includes(spec.leaseStructure)) {
     expenseTreatment = landlordOperatingExpenses === 0 ? EXPENSE_TREATMENT.TENANT_BORNE_CONFIRMED : EXPENSE_TREATMENT.ACTUAL_LANDLORD_OPEX;
-  } else if (spec.leaseStructure === LEASE_STRUCTURE.GROSS) {
+  } else if ([LEASE_STRUCTURE.GROSS, LEASE_STRUCTURE.NET].includes(spec.leaseStructure)) {
+    if (landlordOperatingExpenses === 0) {
+      return Object.freeze({
+        status: ADAPTER_STATUS.HOLD_ASSET_DATA,
+        valuation: null,
+        assetProfile,
+        quality,
+        reason: 'ZERO_LANDLORD_OPEX_REQUIRES_EXPLICIT_TENANT_BORNE_STRUCTURE',
+      });
+    }
     expenseTreatment = EXPENSE_TREATMENT.ACTUAL_LANDLORD_OPEX;
   } else {
     return Object.freeze({ status: ADAPTER_STATUS.HOLD_ASSET_DATA, valuation: null, assetProfile, quality, reason: 'LEASE_STRUCTURE_REQUIRED' });
