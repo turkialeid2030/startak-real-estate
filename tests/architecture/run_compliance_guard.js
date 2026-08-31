@@ -10,7 +10,10 @@ const {
   assertPermittedExternalOutput,
   createDecisionSupportEnvelope,
 } = require('../../src/compliance/decision-support');
-const { getVerdictLabel } = require('../../src/i18n/domain-presentation');
+const {
+  getVerdictLabel,
+  getExternalDecisionSupportVerdictLabel,
+} = require('../../src/i18n/domain-presentation');
 
 let checks = 0;
 function check(fn) { fn(); checks++; }
@@ -63,12 +66,21 @@ const enTranslator = (key) => ({
   'recommendation.noBuy': 'Not Recommended',
 }[key]);
 
-check(() => assert.strictEqual(getVerdictLabel('يوصى بالشراء', arTranslator), 'حالة تحليلية مواتية'));
-check(() => assert.strictEqual(getVerdictLabel('يوصى بالشراء بشروط', arTranslator), 'حالة تحليلية مشروطة'));
-check(() => assert.strictEqual(getVerdictLabel('لا يوصى بالشراء', arTranslator), 'مخاطر تحليلية مرتفعة'));
-check(() => assert.strictEqual(getVerdictLabel('يوصى بالشراء', enTranslator), 'Favourable Analytical Case'));
-check(() => assert.strictEqual(getVerdictLabel('يوصى بالشراء بشروط', enTranslator), 'Conditional Analytical Case'));
-check(() => assert.strictEqual(getVerdictLabel('لا يوصى بالشراء', enTranslator), 'High Analytical Risk'));
+// Historical localization remains intact for regression/characterization.
+check(() => assert.strictEqual(getVerdictLabel('يوصى بالشراء', arTranslator), 'يوصى بالشراء'));
+check(() => assert.strictEqual(getVerdictLabel('يوصى بالشراء بشروط', arTranslator), 'يوصى بالشراء بشروط'));
+check(() => assert.strictEqual(getVerdictLabel('لا يوصى بالشراء', arTranslator), 'لا يوصى بالشراء'));
+check(() => assert.strictEqual(getVerdictLabel('يوصى بالشراء', enTranslator), 'Recommended to Buy'));
+check(() => assert.strictEqual(getVerdictLabel('يوصى بالشراء بشروط', enTranslator), 'Conditionally Recommended'));
+check(() => assert.strictEqual(getVerdictLabel('لا يوصى بالشراء', enTranslator), 'Not Recommended'));
+
+// New/customer-facing decision-support presentation is compliance-bounded.
+check(() => assert.strictEqual(getExternalDecisionSupportVerdictLabel('يوصى بالشراء', arTranslator), 'حالة تحليلية مواتية'));
+check(() => assert.strictEqual(getExternalDecisionSupportVerdictLabel('يوصى بالشراء بشروط', arTranslator), 'حالة تحليلية مشروطة'));
+check(() => assert.strictEqual(getExternalDecisionSupportVerdictLabel('لا يوصى بالشراء', arTranslator), 'مخاطر تحليلية مرتفعة'));
+check(() => assert.strictEqual(getExternalDecisionSupportVerdictLabel('يوصى بالشراء', enTranslator), 'Favourable Analytical Case'));
+check(() => assert.strictEqual(getExternalDecisionSupportVerdictLabel('يوصى بالشراء بشروط', enTranslator), 'Conditional Analytical Case'));
+check(() => assert.strictEqual(getExternalDecisionSupportVerdictLabel('لا يوصى بالشراء', enTranslator), 'High Analytical Risk'));
 
 for (const label of Object.values(EXTERNAL_DECISION_LABEL)) {
   const ar = renderDecisionSupportLabel(label, 'ar');
