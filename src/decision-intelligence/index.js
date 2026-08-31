@@ -24,7 +24,32 @@ function requireObject(value, field) {
   return value;
 }
 
-function buildAiNarrativeContext({ evidenceFacts = [], analyticalMetrics = {}, scenarioResults = [], riskFlags = [] }) {
+function summarizeScenarioRisk({ scenarioResults = [], riskFlags = [], simulation = null, sensitivity = [] }) {
+  if (!Array.isArray(scenarioResults)) throw new TypeError('scenarioResults must be an array');
+  if (!Array.isArray(riskFlags)) throw new TypeError('riskFlags must be an array');
+  if (!Array.isArray(sensitivity)) throw new TypeError('sensitivity must be an array');
+  const severe = riskFlags.filter((item) => item && ['HIGH', 'CRITICAL'].includes(item.severity));
+  const critical = riskFlags.filter((item) => item && item.severity === 'CRITICAL');
+  const topSensitivityDrivers = sensitivity.slice(0, 3).map((item) => ({
+    variable: item.variable,
+    absoluteRange: item.absoluteRange,
+    downsideImpact: item.downsideImpact,
+    upsideImpact: item.upsideImpact,
+  }));
+  const downsideScenarios = scenarioResults.filter((item) => item && ['DOWNSIDE', 'SEVERE_DOWNSIDE'].includes(item.kind));
+  return freeze({
+    scenarioCount: scenarioResults.length,
+    downsideScenarioCount: downsideScenarios.length,
+    riskFlagCount: riskFlags.length,
+    highOrCriticalRiskCount: severe.length,
+    criticalRiskCount: critical.length,
+    topSensitivityDrivers,
+    simulation: simulation ? { ...simulation } : null,
+    semantics: 'Scenario/risk summary is conditional analytical stress testing. It is not a probability guarantee, market forecast, or investment instruction.',
+  });
+}
+
+function buildAiNarrativeContext({ evidenceFacts = [], analyticalMetrics = {}, scenarioResults = [], riskFlags = [], scenarioRiskSummary = null }) {
   if (!Array.isArray(evidenceFacts)) throw new TypeError('evidenceFacts must be an array');
   if (!analyticalMetrics || typeof analyticalMetrics !== 'object' || Array.isArray(analyticalMetrics)) throw new TypeError('analyticalMetrics must be an object');
   if (!Array.isArray(scenarioResults)) throw new TypeError('scenarioResults must be an array');
@@ -44,13 +69,16 @@ function buildAiNarrativeContext({ evidenceFacts = [], analyticalMetrics = {}, s
     analyticalMetrics: { ...analyticalMetrics },
     scenarioResults: scenarioResults.map((item) => ({ ...item })),
     riskFlags: riskFlags.map((item) => ({ ...item })),
+    scenarioRiskSummary: scenarioRiskSummary ? { ...scenarioRiskSummary } : null,
     narrativeRules: [
-      'Do not invent facts, prices, regulations, legal conclusions, or market data.',
+      'Do not invent facts, prices, regulations, legal conclusions, market data, or scenario probabilities.',
       'Every material factual statement must cite a supplied evidence ref or be explicitly labelled as an assumption/scenario.',
       'Do not convert analytical valuation indications into certified valuations.',
       'Do not produce BUY/SELL/APPROVE/REJECT instructions.',
       'Professional-review gates cannot be overridden by AI.',
       'State material uncertainty, evidence conflicts and missing inputs explicitly.',
+      'Describe Monte Carlo output as conditional on supplied distributions; never as a guaranteed forecast.',
+      'Identify the strongest downside drivers before describing upside.',
     ],
   });
 }
@@ -62,6 +90,8 @@ function createDecisionDossier({
   analyticalMetrics = {},
   scenarioResults = [],
   riskFlags = [],
+  simulation = null,
+  sensitivity = [],
   locale = 'ar',
 }) {
   requireObject(controlGate, 'controlGate');
@@ -97,7 +127,8 @@ function createDecisionDossier({
     licensedReviewRequired: professionalRequired,
   });
 
-  const aiNarrativeContext = buildAiNarrativeContext({ evidenceFacts, analyticalMetrics, scenarioResults, riskFlags });
+  const scenarioRiskSummary = summarizeScenarioRisk({ scenarioResults, riskFlags, simulation, sensitivity });
+  const aiNarrativeContext = buildAiNarrativeContext({ evidenceFacts, analyticalMetrics, scenarioResults, riskFlags, scenarioRiskSummary });
 
   return freeze({
     schemaVersion: 1,
@@ -109,6 +140,7 @@ function createDecisionDossier({
     analyticalMetrics: { ...analyticalMetrics },
     scenarioResults: scenarioResults.map((item) => ({ ...item })),
     riskFlags: riskFlags.map((item) => ({ ...item })),
+    scenarioRiskSummary,
     aiNarrativeContext,
     humanDecisionRequired: true,
     transactionAuthorized: false,
@@ -120,6 +152,7 @@ function createDecisionDossier({
 
 module.exports = {
   DOSSIER_STATUS,
+  summarizeScenarioRisk,
   buildAiNarrativeContext,
   createDecisionDossier,
 };
