@@ -67,15 +67,15 @@ try {
   const bodyAfterL = await page.locator('body').innerText();
   record('E2E-03-LAND', (await firstL.inputValue()) === '666666' && bodyAfterL !== bodyBeforeL && /يوصى بالشراء|لا يوصى بالشراء/.test(bodyAfterL));
 
-  // The production Toggle exposes role=switch + aria-checked. Use that semantic
-  // contract directly so the E2E verifies React state, not styling details.
+  // The production Toggle exposes role=switch, aria-checked, and aria-label=label.
+  // Target the leverage switch by its actual accessible name so unrelated
+  // regulatory switches cannot be selected accidentally.
   await page.getByText('مبنى قائم', { exact: true }).click();
   await page.waitForTimeout(250);
-  const switches = page.getByRole('switch');
-  const switchCount = await switches.count();
-  const leverageButton = switches.last();
+  const leverageButton = page.getByRole('switch', { name: 'تفعيل الرافعة المالية', exact: true });
+  const leverageCount = await leverageButton.count();
   const checkedBefore = await leverageButton.getAttribute('aria-checked');
-  await leverageButton.click();
+  await leverageButton.click({ force: true });
   await page.waitForTimeout(400);
   const checkedAfter = await leverageButton.getAttribute('aria-checked');
   const equityLabels = page.getByText('حقوق الملكية المطلوبة', { exact: true });
@@ -83,12 +83,12 @@ try {
   for (let i = 0; i < await equityLabels.count(); i++) {
     if (await equityLabels.nth(i).isVisible()) { visibleFinanceOutput = true; break; }
   }
-  await leverageButton.click();
+  await leverageButton.click({ force: true });
   await page.waitForTimeout(300);
   const checkedFinal = await leverageButton.getAttribute('aria-checked');
   const stateChanged = checkedBefore !== checkedAfter;
   const roundTrip = checkedFinal === checkedBefore;
-  record('E2E-04-FINANCING', switchCount > 0 && stateChanged && roundTrip && visibleFinanceOutput, `switches=${switchCount} ${checkedBefore}->${checkedAfter}->${checkedFinal} visibleOutput=${visibleFinanceOutput}`);
+  record('E2E-04-FINANCING', leverageCount === 1 && stateChanged && roundTrip && visibleFinanceOutput, `count=${leverageCount} ${checkedBefore}->${checkedAfter}->${checkedFinal} visibleOutput=${visibleFinanceOutput}`);
 
   await page.getByTitle('الصفقات المحفوظة').click();
   await page.waitForTimeout(250);
