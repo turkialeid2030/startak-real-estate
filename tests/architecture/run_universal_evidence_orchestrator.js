@@ -125,7 +125,7 @@ function main() {
   check(irr && irr.status === RECONCILIATION_STATUS.AGREEMENT && Math.abs(irr.consensusValue - 0.149) < 1e-12, 'IRR percentage normalization should reconcile 0.149 with 14.90%');
   check(office.readiness.status === READINESS_STATUS.READY_FOR_UNDERWRITING_INPUT, 'Explicit semantic requirements should be evidence-ready');
   check(office.engineRoute.status === ENGINE_ROUTE_STATUS.QUALIFIED, 'Qualified leased existing asset should receive an executable engine route');
-  check(office.semanticRuleCoverage.status === OVERALL_RULE_COVERAGE.REQUIRED_DOMAIN_RULE_GAPS, 'Registry coverage must disclose required domains that still have no deterministic semantic rules');
+  check(office.semanticRuleCoverage.status === OVERALL_RULE_COVERAGE.NO_REQUIRED_DOMAIN_RULE_GAPS, 'Core semantic expansion should provide at least one deterministic rule for every required office evidence domain');
 
   const hotelProfile = createProjectProfile({
     projectId: 'PROJECT-HOTEL-001',
@@ -142,7 +142,7 @@ function main() {
   });
   check(hotel.orchestrationStatus === ORCHESTRATION_STATUS.NO_SEMANTIC_EVIDENCE, 'Hotel with no parsed documents should remain a valid but evidence-empty case');
   check(hotel.engineRoute.status === ENGINE_ROUTE_STATUS.HOLD_NO_QUALIFIED_ENGINE && hotel.engineRoute.evidencePipelineSupported === true, 'Operating hotel should use universal evidence pipeline but fail closed for financial routing');
-  check(hotel.semanticRuleCoverage.gapDomains.includes('OPERATIONS'), 'Hotel semantic coverage must expose missing operations rules');
+  check(hotel.semanticRuleCoverage.status === OVERALL_RULE_COVERAGE.NO_REQUIRED_DOMAIN_RULE_GAPS, 'Core semantic expansion should provide rule presence for every required hotel evidence domain');
   check(hotel.readiness.status === READINESS_STATUS.HOLD_EVIDENCE, 'Missing hotel operating evidence must block readiness');
 
   const wrongCaseDoc = document({ documentId: 'DOC-WRONG', caseId: 'CASE-WRONG', type: DOCUMENT_TYPE.PRESENTATION, authority: AUTHORITY_CLASS.PRESENTATION, hashChar: 'c' });
