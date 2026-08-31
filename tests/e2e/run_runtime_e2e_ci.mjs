@@ -67,14 +67,20 @@ try {
   const bodyAfterL = await page.locator('body').innerText();
   record('E2E-03-LAND', (await firstL.inputValue()) === '666666' && bodyAfterL !== bodyBeforeL && /يوصى بالشراء|لا يوصى بالشراء/.test(bodyAfterL));
 
-  const leverageLabel = page.getByText('تفعيل الرافعة المالية', { exact: true });
-  const leverageRow = leverageLabel.locator('xpath=..').locator('xpath=..');
+  // Financing round-trip on the existing-building path. Target the real sibling
+  // button in the Toggle row, not the label text node.
+  await page.getByText('مبنى قائم', { exact: true }).click();
+  await page.waitForTimeout(250);
+  const labelDiv = page.locator('div', { hasText: 'تفعيل الرافعة المالية' }).last();
+  const leverageRow = labelDiv.locator('xpath=ancestor::div[contains(@class,"justify-between")][1]');
   const leverageButton = leverageRow.locator('button').first();
-  const financeVisibleBefore = await page.getByText(/قيمة التمويل/).count();
+  const bgBefore = await leverageButton.evaluate((el) => getComputedStyle(el).backgroundColor);
   await leverageButton.click({ force: true });
-  await page.waitForTimeout(350);
-  const financeVisibleAfter = await page.getByText(/قيمة التمويل/).count();
-  record('E2E-04-FINANCING', financeVisibleAfter > financeVisibleBefore, `before=${financeVisibleBefore} after=${financeVisibleAfter}`);
+  await page.waitForTimeout(400);
+  const bgAfter = await leverageButton.evaluate((el) => getComputedStyle(el).backgroundColor);
+  const financeBody = await page.locator('body').innerText();
+  const financeOutputsVisible = /حقوق الملكية المطلوبة|القسط السنوي|نسبة تغطية خدمة الدين/.test(financeBody);
+  record('E2E-04-FINANCING', bgAfter !== bgBefore && financeOutputsVisible, `stateChanged=${bgAfter !== bgBefore} outputs=${financeOutputsVisible}`);
 
   await page.getByTitle('الصفقات المحفوظة').click();
   await page.waitForTimeout(250);
@@ -95,7 +101,7 @@ try {
   await resetButton.click();
   await page.waitForTimeout(300);
   const resetBody = await page.locator('body').innerText();
-  record('E2E-06-RESET', !resetBody.includes('666666'));
+  record('E2E-06-RESET', !resetBody.includes('777777'));
 
   result.PAGE_ERRORS = pageErrors.length;
   result.FATAL_CONSOLE_ERRORS = consoleErrors.length;
