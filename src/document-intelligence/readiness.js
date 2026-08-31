@@ -27,9 +27,32 @@ function normalizeRequirement(requirement) {
   };
 }
 
-function assessDecisionReadiness({ reconciliations, requirements }) {
+function reconciliationCaseId(reconciliations, expectedCaseId = null) {
+  const caseIds = new Set();
+  for (const item of reconciliations) {
+    if (!item) continue;
+    if (typeof item.caseId !== 'string' || item.caseId.trim() === '') {
+      throw new TypeError('CASE_ISOLATION_VIOLATION: every reconciliation must carry a caseId');
+    }
+    caseIds.add(item.caseId);
+  }
+  if (caseIds.size > 1) {
+    throw new TypeError(`CASE_ISOLATION_VIOLATION: mixed reconciliation cases are not allowed (${[...caseIds].join(', ')})`);
+  }
+  const discovered = caseIds.size === 1 ? [...caseIds][0] : null;
+  if (expectedCaseId && discovered && expectedCaseId !== discovered) {
+    throw new TypeError(`CASE_ISOLATION_VIOLATION: expected ${expectedCaseId}, received ${discovered}`);
+  }
+  return expectedCaseId || discovered;
+}
+
+function assessDecisionReadiness({ caseId = null, reconciliations, requirements }) {
   if (!Array.isArray(reconciliations)) throw new TypeError('reconciliations must be an array');
   if (!Array.isArray(requirements)) throw new TypeError('requirements must be an array');
+  const isolatedCaseId = reconciliationCaseId(reconciliations, caseId);
+  if (!isolatedCaseId && requirements.length) {
+    throw new TypeError('caseId is required when assessing readiness without reconciliation records');
+  }
 
   const byKey = new Map(reconciliations.map((item) => [item.key, item]));
   const blockers = [];
@@ -38,6 +61,7 @@ function assessDecisionReadiness({ reconciliations, requirements }) {
   for (const rawRequirement of requirements) {
     const requirement = normalizeRequirement(rawRequirement);
     const reconciliation = byKey.get(requirement.key) || {
+      caseId: isolatedCaseId,
       key: requirement.key,
       status: RECONCILIATION_STATUS.MISSING,
       independentSourceCount: 0,
@@ -65,6 +89,7 @@ function assessDecisionReadiness({ reconciliations, requirements }) {
     const uniqueLocalBlockers = [...new Set(localBlockers)];
     for (const code of uniqueLocalBlockers) blockers.push({ key: requirement.key, code });
     checks.push({
+      caseId: isolatedCaseId,
       key: requirement.key,
       status: uniqueLocalBlockers.length ? 'BLOCKED' : 'SATISFIED',
       reconciliationStatus: reconciliation.status,
@@ -83,6 +108,7 @@ function assessDecisionReadiness({ reconciliations, requirements }) {
   }
 
   return deepFreeze({
+    caseId: isolatedCaseId,
     status: uniqueBlockers.length
       ? READINESS_STATUS.HOLD_EVIDENCE
       : READINESS_STATUS.READY_FOR_UNDERWRITING_INPUT,
@@ -92,4 +118,4 @@ function assessDecisionReadiness({ reconciliations, requirements }) {
   });
 }
 
-module.exports = { assessDecisionReadiness };
+module.exports = { assessDecisionReadiness, reconciliationCaseId };
