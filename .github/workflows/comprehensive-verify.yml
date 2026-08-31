@@ -31,7 +31,7 @@ jobs:
         run: npm run release:verify
 
       - name: Real-browser core runtime E2E
-        run: node tests/e2e/run_runtime_e2e.mjs
+        run: node tests/e2e/run_runtime_e2e_ci.mjs
 
       - name: Real-browser full UI E2E
         run: node tests/e2e/run_full_e2e_ci.mjs
