@@ -1,12 +1,8 @@
 'use strict';
 
-const {
-  BASIS_OF_VALUE,
-  EXPENSE_TREATMENT,
-  QUALITY_STATUS,
-  assessEvidenceQuality,
-  calculateDirectCapitalization,
-} = require('..');
+const { BASIS_OF_VALUE } = require('../contracts');
+const { EXPENSE_TREATMENT, calculateDirectCapitalization } = require('../income-capitalization');
+const { QUALITY_STATUS, assessEvidenceQuality } = require('../evidence-quality');
 
 const INDUSTRIAL_SUBTYPE = Object.freeze({
   WAREHOUSE: 'WAREHOUSE',
@@ -106,7 +102,7 @@ function createIndustrialLogisticsAssetSpec({
 }) {
   if (typeof assetId !== 'string' || assetId.trim() === '') throw new TypeError('assetId is required');
   if (!Object.values(INDUSTRIAL_SUBTYPE).includes(subtype)) throw new TypeError(`invalid subtype: ${subtype}`);
-  if (subtype === INDUSTRIAL_SUBTYPE.OTHER) optionalString(customSubtype, 'customSubtype') || (() => { throw new TypeError('customSubtype is required for OTHER'); })();
+  if (subtype === INDUSTRIAL_SUBTYPE.OTHER && !optionalString(customSubtype, 'customSubtype')) throw new TypeError('customSubtype is required for OTHER');
   positive(landAreaSqm, 'landAreaSqm');
   optionalNonNegative(builtAreaSqm, 'builtAreaSqm');
   optionalNonNegative(netLeasableAreaSqm, 'netLeasableAreaSqm');
