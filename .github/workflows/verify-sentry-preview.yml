@@ -1,4 +1,4 @@
-name: Verify Sentry Preview Ingress
+name: Verify Sentry Production Ingress
 
 on:
   push:
@@ -9,11 +9,11 @@ permissions:
   contents: read
 
 jobs:
-  sentry-preview:
+  sentry-production:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      PREVIEW_URL: https://dc82371a.startak-real-estate.pages.dev/
+      PRODUCTION_URL: https://startak-real-estate.pages.dev/
       SENTRY_HOST: o4512003775004672.ingest.de.sentry.io
     steps:
       - name: Checkout
@@ -31,7 +31,7 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Trigger sanitized runtime error and verify Sentry ingress
+      - name: Trigger sanitized runtime error and verify production Sentry ingress
         shell: bash
         run: |
           mkdir -p runtime-evidence/sentry
@@ -40,9 +40,9 @@ jobs:
           const { chromium } = require('@playwright/test');
 
           (async () => {
-            const preview = process.env.PREVIEW_URL;
+            const production = process.env.PRODUCTION_URL;
             const host = process.env.SENTRY_HOST;
-            const marker = 'STARTAK_PR11B_PREVIEW_VERIFICATION';
+            const marker = 'STARTAK_PR11B_PRODUCTION_VERIFICATION';
             const browser = await chromium.launch({ headless: true });
             const page = await browser.newPage();
             const pageErrors = [];
@@ -55,8 +55,8 @@ jobs:
               { timeout: 15000 }
             );
 
-            const nav = await page.goto(preview, { waitUntil: 'networkidle', timeout: 30000 });
-            if (!nav || !nav.ok()) throw new Error(`Preview navigation failed: ${nav && nav.status()}`);
+            const nav = await page.goto(production, { waitUntil: 'networkidle', timeout: 30000 });
+            if (!nav || !nav.ok()) throw new Error(`Production navigation failed: ${nav && nav.status()}`);
 
             await page.evaluate((message) => {
               window.dispatchEvent(new ErrorEvent('error', { message }));
@@ -68,7 +68,7 @@ jobs:
             const status = response.status();
 
             if (status < 200 || status >= 300) throw new Error(`Sentry ingest returned ${status}`);
-            if (!body.includes(marker)) throw new Error('Verification marker missing from Sentry envelope');
+            if (!body.includes(marker)) throw new Error('Production verification marker missing from Sentry envelope');
 
             const prohibited = [
               'buildingPrice', 'landPrice', 'occupancy', 'annualRent', 'savedDeals',
@@ -78,7 +78,7 @@ jobs:
             if (leaked.length) throw new Error(`Prohibited data found in envelope: ${leaked.join(', ')}`);
 
             const evidence = {
-              preview,
+              production,
               sentryHost: host,
               responseStatus: status,
               requestMethod: request.method(),
@@ -91,20 +91,20 @@ jobs:
               verifiedAt: new Date().toISOString(),
               result: 'PASS'
             };
-            fs.writeFileSync('runtime-evidence/sentry/preview-ingress.json', JSON.stringify(evidence, null, 2));
+            fs.writeFileSync('runtime-evidence/sentry/production-ingress.json', JSON.stringify(evidence, null, 2));
             console.log(JSON.stringify(evidence, null, 2));
             await browser.close();
-          })().catch(async (error) => {
+          })().catch((error) => {
             console.error(error);
             process.exit(1);
           });
           NODE
 
-      - name: Upload verification evidence
+      - name: Upload production verification evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: startak-sentry-preview-ingress-evidence
+          name: startak-sentry-production-ingress-evidence
           path: runtime-evidence/sentry/
           if-no-files-found: warn
           retention-days: 7
