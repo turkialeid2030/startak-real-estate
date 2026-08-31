@@ -136,7 +136,11 @@ async function ingestDocument({
 }) {
   const bytes = toBytes(content);
   const hash = await sha256Hex(bytes);
-  const duplicate = existingDocuments.find((doc) => doc && doc.contentHashSha256 === hash) || null;
+  // Deduplication is case-scoped. Identical content in another investment case
+  // must not reveal or create a cross-case document relationship.
+  const duplicate = existingDocuments.find((doc) =>
+    doc && doc.caseId === caseId && doc.contentHashSha256 === hash
+  ) || null;
 
   return createDocumentRecord({
     documentId,
