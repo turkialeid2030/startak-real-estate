@@ -9,4 +9,5 @@ module.exports = {
   ...require('./reconciliation'),
   ...require('./planner'),
   ...require('./evidence-quality'),
+  ...require('./adapters/industrial-logistics'),
 };
