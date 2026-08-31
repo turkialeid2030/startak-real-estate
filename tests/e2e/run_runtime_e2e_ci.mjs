@@ -67,20 +67,30 @@ try {
   const bodyAfterL = await page.locator('body').innerText();
   record('E2E-03-LAND', (await firstL.inputValue()) === '666666' && bodyAfterL !== bodyBeforeL && /يوصى بالشراء|لا يوصى بالشراء/.test(bodyAfterL));
 
-  // Financing round-trip on the existing-building path. Target the real sibling
-  // button in the Toggle row, not the label text node.
+  // Financing round-trip on the existing-building path. Verify the toggle's
+  // actual knob position plus visible financing output, rather than relying on
+  // a computed background color that can be normalized by the browser.
   await page.getByText('مبنى قائم', { exact: true }).click();
   await page.waitForTimeout(250);
   const labelDiv = page.locator('div', { hasText: 'تفعيل الرافعة المالية' }).last();
   const leverageRow = labelDiv.locator('xpath=ancestor::div[contains(@class,"justify-between")][1]');
   const leverageButton = leverageRow.locator('button').first();
-  const bgBefore = await leverageButton.evaluate((el) => getComputedStyle(el).backgroundColor);
+  const knob = leverageButton.locator('span').first();
+  const knobBefore = await knob.evaluate((el) => ({ left: el.style.left, right: el.style.right }));
   await leverageButton.click({ force: true });
   await page.waitForTimeout(400);
-  const bgAfter = await leverageButton.evaluate((el) => getComputedStyle(el).backgroundColor);
-  const financeBody = await page.locator('body').innerText();
-  const financeOutputsVisible = /حقوق الملكية المطلوبة|القسط السنوي|نسبة تغطية خدمة الدين/.test(financeBody);
-  record('E2E-04-FINANCING', bgAfter !== bgBefore && financeOutputsVisible, `stateChanged=${bgAfter !== bgBefore} outputs=${financeOutputsVisible}`);
+  const knobAfter = await knob.evaluate((el) => ({ left: el.style.left, right: el.style.right }));
+  const equityLabels = page.getByText('حقوق الملكية المطلوبة', { exact: true });
+  let visibleFinanceOutput = false;
+  for (let i = 0; i < await equityLabels.count(); i++) {
+    if (await equityLabels.nth(i).isVisible()) { visibleFinanceOutput = true; break; }
+  }
+  await leverageButton.click({ force: true });
+  await page.waitForTimeout(300);
+  const knobFinal = await knob.evaluate((el) => ({ left: el.style.left, right: el.style.right }));
+  const knobChanged = JSON.stringify(knobAfter) !== JSON.stringify(knobBefore);
+  const roundTrip = JSON.stringify(knobFinal) === JSON.stringify(knobBefore);
+  record('E2E-04-FINANCING', knobChanged && roundTrip && visibleFinanceOutput, `knobChanged=${knobChanged} roundTrip=${roundTrip} visibleOutput=${visibleFinanceOutput}`);
 
   await page.getByTitle('الصفقات المحفوظة').click();
   await page.waitForTimeout(250);
