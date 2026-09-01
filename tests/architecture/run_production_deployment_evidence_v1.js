@@ -183,10 +183,13 @@ check('deployment evidence pack integrates with production readiness audit', () 
       modelOrPromptVersionEvidencePresent: true,
     }),
     complianceReview: scoped({
+      status: 'EVIDENCE_PACK_COMPLETE',
+      readyForProductionReadinessAudit: true,
       classificationReviewCompleted: true,
       regulatedScopeResolved: true,
       legalCounselOrAuthorizedReviewerCompleted: true,
       softwareDoesNotSelfEstablishLegalApproval: true,
+      legalApprovalEstablished: false,
     }),
     reliabilityEvidence: scoped({
       releaseVerifyPassed: true,
