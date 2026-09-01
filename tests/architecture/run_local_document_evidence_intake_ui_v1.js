@@ -27,7 +27,9 @@ async function checkAsync(name, fn) {
   check('local document intake is mounted through the explicit composed application tree', () => {
     assert(main.includes("import LocalDocumentEvidenceWorkspace from './components/LocalDocumentEvidenceWorkspace.jsx';"));
     assert(main.includes('<LocalDocumentEvidenceWorkspace />'));
-    assert(workspace.includes('<LocalDocumentEvidenceIntakePanel onRecordChange={setIntakeRecord} />'));
+    assert(workspace.includes('<LocalDocumentEvidenceIntakePanel onRecordChange={handleIntakeChange} />'));
+    assert(workspace.includes('setCandidate(null)'));
+    assert(workspace.includes('setVerificationRecord(null)'));
     assert(!main.includes('window.__STARTAK_'));
   });
 
