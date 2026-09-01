@@ -13,11 +13,18 @@ let previewServer = null;
 let browser = null;
 let failed = false;
 
+const SAFE_ANALYTICAL_VERDICT_RE = /حالة تحليلية مواتية|حالة تحليلية مشروطة|مخاطر تحليلية مرتفعة|تعليق التحليل لحين استكمال الأدلة|يتطلب مراجعة مختص مرخص/;
+const LEGACY_INVESTMENT_VERDICT_RE = /يوصى بالشراء(?: بشروط)?|لا يوصى بالشراء/;
+
 function record(id, passed, detail = null) {
   result[id] = passed ? 'PASS' : 'FAIL';
   if (detail !== null) result[`${id}_DETAIL`] = detail;
   if (!passed) failed = true;
   console.log(`${id} ${result[id]}${detail ? ` -- ${detail}` : ''}`);
+}
+
+function hasComplianceSafeVerdict(bodyText) {
+  return SAFE_ANALYTICAL_VERDICT_RE.test(bodyText) && !LEGACY_INVESTMENT_VERDICT_RE.test(bodyText);
 }
 
 try {
@@ -55,7 +62,11 @@ try {
   await firstB.blur();
   await page.waitForTimeout(300);
   const bodyAfterB = await page.locator('body').innerText();
-  record('E2E-02-BUILDING', (await firstB.inputValue()) === '777777' && bodyAfterB !== bodyBeforeB && /يوصى بالشراء|لا يوصى بالشراء/.test(bodyAfterB));
+  record(
+    'E2E-02-BUILDING',
+    (await firstB.inputValue()) === '777777' && bodyAfterB !== bodyBeforeB && hasComplianceSafeVerdict(bodyAfterB),
+    `safeVerdict=${SAFE_ANALYTICAL_VERDICT_RE.test(bodyAfterB)} legacyVerdict=${LEGACY_INVESTMENT_VERDICT_RE.test(bodyAfterB)}`
+  );
 
   await page.getByText('أرض + تطوير', { exact: true }).click();
   await page.waitForTimeout(200);
@@ -65,7 +76,11 @@ try {
   await firstL.blur();
   await page.waitForTimeout(300);
   const bodyAfterL = await page.locator('body').innerText();
-  record('E2E-03-LAND', (await firstL.inputValue()) === '666666' && bodyAfterL !== bodyBeforeL && /يوصى بالشراء|لا يوصى بالشراء/.test(bodyAfterL));
+  record(
+    'E2E-03-LAND',
+    (await firstL.inputValue()) === '666666' && bodyAfterL !== bodyBeforeL && hasComplianceSafeVerdict(bodyAfterL),
+    `safeVerdict=${SAFE_ANALYTICAL_VERDICT_RE.test(bodyAfterL)} legacyVerdict=${LEGACY_INVESTMENT_VERDICT_RE.test(bodyAfterL)}`
+  );
 
   await page.getByText('مبنى قائم', { exact: true }).click();
   await page.waitForTimeout(250);

@@ -82,7 +82,9 @@ try {
   await page.getByText('لوحة المؤشرات', { exact: true }).click();
   await page.waitForTimeout(250);
   const dashboardText = await page.locator('body').innerText();
-  mark('RECOMMENDATION_RUNTIME_FLOW', /يوصى بالشراء|لا يوصى بالشراء/.test(dashboardText));
+  const safeVerdictVisible = /حالة تحليلية مواتية|حالة تحليلية مشروطة|مخاطر تحليلية مرتفعة|تعليق التحليل لحين استكمال الأدلة|يتطلب مراجعة مختص مرخص/.test(dashboardText);
+  const legacyVerdictVisible = /يوصى بالشراء|لا يوصى بالشراء/.test(dashboardText);
+  mark('RECOMMENDATION_RUNTIME_FLOW', safeVerdictVisible && !legacyVerdictVisible, `safeVerdict=${safeVerdictVisible} legacyVerdict=${legacyVerdictVisible}`);
 
   for (const [name, width, height] of [['MOBILE',390,844],['TABLET',768,1024],['DESKTOP',1440,900]]) {
     await page.setViewportSize({ width, height });
