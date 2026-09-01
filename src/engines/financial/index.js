@@ -1,39 +1,21 @@
+'use strict';
+
 // src/engines/financial/index.js -- canonical financial primitives.
+// Precision C1 routes NPV and IRR through fixed-point money/rate arithmetic.
+const precision = require('./precision');
+
 function computeNPV(rate, cashflows) {
-  return cashflows.reduce((acc, cf, t) => acc + cf / Math.pow(1 + rate, t), 0);
+  return precision.preciseNPV(rate, cashflows);
 }
 
-function computeIRR(cashflows, guess = 0.1) {
-  const npvFn = (r) => cashflows.reduce((acc, cf, t) => acc + cf / Math.pow(1 + r, t), 0);
-  const dnpvFn = (r) => cashflows.reduce((acc, cf, t) => acc - (t * cf) / Math.pow(1 + r, t + 1), 0);
-  let rate = guess;
-  let converged = false;
-  for (let i = 0; i < 100; i++) {
-    const val = npvFn(rate);
-    const d = dnpvFn(rate);
-    if (Math.abs(d) < 1e-10) break;
-    const newRate = rate - val / d;
-    if (!isFinite(newRate)) break;
-    if (Math.abs(newRate - rate) < 1e-9) { rate = newRate; converged = true; break; }
-    rate = newRate;
-  }
-  if (!converged || !isFinite(rate) || rate < -0.999) {
-    let lo = -0.99, hi = 10;
-    let nLo = npvFn(lo), nHi = npvFn(hi);
-    if (nLo * nHi > 0) return NaN;
-    for (let i = 0; i < 200; i++) {
-      const mid = (lo + hi) / 2;
-      const nMid = npvFn(mid);
-      if (Math.abs(nMid) < 1e-6) return mid;
-      if (nLo * nMid < 0) { hi = mid; nHi = nMid; } else { lo = mid; nLo = nMid; }
-    }
-    return (lo + hi) / 2;
-  }
-  return rate;
+function computeIRR(cashflows) {
+  return precision.preciseIRR(cashflows);
 }
 
 // Retained for frozen/raw-engine compatibility. Production leveraged cases are
 // remediated through the monthly financing overlay in src/engines/financing.
+// This annual schedule remains a compatibility path and is not the production
+// financing model introduced in Wave B.
 function amortizationSchedule(principal, rate, years) {
   const n = Math.max(1, Math.round(years));
   if (principal <= 0) return { payment: 0, schedule: [] };
@@ -56,6 +38,7 @@ module.exports = {
   computeNPV,
   computeIRR,
   amortizationSchedule,
+  precision,
   ...monthlyDebt,
   ...constructionDebt,
 };

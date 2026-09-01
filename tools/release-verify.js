@@ -22,6 +22,16 @@ function step(name, fn) {
   }
 }
 
+function printFailureDiagnostic(error) {
+  const stdout = error && error.stdout ? String(error.stdout) : '';
+  const stderr = error && error.stderr ? String(error.stderr) : '';
+  const combined = [stdout, stderr].filter(Boolean).join('\n').trim();
+  if (!combined) return;
+  const max = 3500;
+  const text = combined.length > max ? `${combined.slice(0, max)}\n... [diagnostic truncated]` : combined;
+  for (const line of text.split(/\r?\n/)) console.log(`    ${line}`);
+}
+
 step('TEST_DISCOVERY_AND_REGRESSION', () => {
   // Mirrors the exact glob pattern used throughout this program's manual
   // regression loop: run_*.js for characterization/architecture/i18n/
@@ -38,7 +48,10 @@ step('TEST_DISCOVERY_AND_REGRESSION', () => {
       if (!f.endsWith('.js') || !f.startsWith('run_')) continue;
       total++;
       try { execFileSync('node', [path.join(full, f)], { stdio: 'pipe' }); passed++; }
-      catch (e) { console.log(`  FAILING TEST: tests/${dir}/${f}`); }
+      catch (e) {
+        console.log(`  FAILING TEST: tests/${dir}/${f}`);
+        printFailureDiagnostic(e);
+      }
     }
   }
   for (const dir of allJsDirs) {
@@ -48,7 +61,10 @@ step('TEST_DISCOVERY_AND_REGRESSION', () => {
       if (!f.endsWith('.js')) continue;
       total++;
       try { execFileSync('node', [path.join(full, f)], { stdio: 'pipe' }); passed++; }
-      catch (e) { console.log(`  FAILING TEST: tests/${dir}/${f}`); }
+      catch (e) {
+        console.log(`  FAILING TEST: tests/${dir}/${f}`);
+        printFailureDiagnostic(e);
+      }
     }
   }
   console.log(`  REGRESSION_TOTAL=${total} PASSED=${passed}`);
