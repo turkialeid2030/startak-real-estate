@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import LocalDocumentEvidenceIntakePanel from './LocalDocumentEvidenceIntakePanel.jsx';
 import LocalEvidenceQualificationPanel from './LocalEvidenceQualificationPanel.jsx';
 import LocalEvidenceVerificationPanel from './LocalEvidenceVerificationPanel.jsx';
@@ -8,16 +8,16 @@ export default function LocalDocumentEvidenceWorkspace() {
   const [candidate, setCandidate] = useState(null);
   const [verificationRecord, setVerificationRecord] = useState(null);
 
-  const handleIntakeChange = (record) => {
+  const handleIntakeChange = useCallback((record) => {
     setIntakeRecord(record);
     setCandidate(null);
     setVerificationRecord(null);
-  };
+  }, []);
 
-  const handleCandidateChange = (nextCandidate) => {
+  const handleCandidateChange = useCallback((nextCandidate) => {
     setCandidate(nextCandidate);
     setVerificationRecord(null);
-  };
+  }, []);
 
   return (
     <div data-testid="local-document-evidence-workspace">
