@@ -8,13 +8,13 @@ const root = path.resolve(__dirname, '../..');
 const mainSource = fs.readFileSync(path.join(root, 'src/main.jsx'), 'utf8');
 const panelSource = fs.readFileSync(path.join(root, 'src/components/DecisionIntelligenceWorkspacePanel.jsx'), 'utf8');
 
-(function productionEntryPointUsesConditionalRuntimeWorkspace() {
-  assert(mainSource.includes("import DecisionIntelligenceWorkspacePanel from './components/DecisionIntelligenceWorkspacePanel.jsx';"));
-  assert(mainSource.includes('window.__STARTAK_DECISION_INTELLIGENCE_WORKSPACE__'));
-  assert(mainSource.includes('runtimeDecisionWorkspace ? <DecisionIntelligenceWorkspacePanel workspace={runtimeDecisionWorkspace} /> : null'));
+(function productionEntryPointRejectsAmbientRuntimeWorkspace() {
+  assert(!mainSource.includes('window.__STARTAK_DECISION_INTELLIGENCE_WORKSPACE__'));
+  assert(!mainSource.includes('runtimeDecisionWorkspace'));
+  assert(!mainSource.includes("import DecisionIntelligenceWorkspacePanel from './components/DecisionIntelligenceWorkspacePanel.jsx';"));
 })();
 
-(function panelFailsClosedWithoutWorkspace() {
+(function panelRemainsImplementedAndFailsClosedWithoutWorkspace() {
   assert(panelSource.includes("if (!workspace || typeof workspace !== 'object') return null;"));
 })();
 
