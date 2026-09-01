@@ -97,17 +97,40 @@ function calcExistingBuilding(inp) {
   const netYieldOnCost = totalPurchaseCost > 0 ? NOI / totalPurchaseCost : null;
   const grossYieldOnCost = totalPurchaseCost > 0 ? totalAnnualIncome / totalPurchaseCost : null;
   const netYieldOnPrice = inp.buildingPrice > 0 ? NOI / inp.buildingPrice : null;
-  const priceToNoiMultiple = NOI > 0 ? inp.buildingPrice / NOI : null;
+  const priceToNoiMultiple = NOI > 0 ? inp.buildingPrice / NOI : NaN;
 
   const marketValueByIncomeCap = inp.marketCapRate > 0 && NOI > 0 ? NOI / inp.marketCapRate : 0;
   const valueGapVsCost = marketValueByIncomeCap - totalPurchaseCost;
 
+  // Actual hold-period operating sequence used by IRR/NPV.
   const operatingNoiCashflows = [];
   for (let y = 1; y <= inp.holdPeriod; y += 1) {
     operatingNoiCashflows.push(yearEconomics(y - 1, y === 1 ? initialLeaseUpFactor : 1).NOI);
   }
-  const paybackOnCost = NOI > 0 ? computeCumulativePaybackYears([-totalPurchaseCost, ...operatingNoiCashflows]) : null;
-  const paybackOnPrice = NOI > 0 ? computeCumulativePaybackYears([-inp.buildingPrice, ...operatingNoiCashflows]) : null;
+
+  // Payback is an operating-recovery metric, not a synonym for the holding
+  // period. Evaluate it over the declared useful life so a 5-year hold does
+  // not automatically turn a 9-12 year payback into "unknown". Terminal sale
+  // proceeds are intentionally excluded from payback.
+  const paybackHorizonYears = Math.max(
+    Math.max(1, Math.round(inp.holdPeriod)),
+    Math.max(1, Math.round(inp.buildingUsefulLife || inp.holdPeriod)),
+  );
+  const paybackNoiCashflows = [];
+  for (let y = 1; y <= paybackHorizonYears; y += 1) {
+    paybackNoiCashflows.push(yearEconomics(y - 1, y === 1 ? initialLeaseUpFactor : 1).NOI);
+  }
+  const cumulativePaybackOnCost = NOI > 0
+    ? computeCumulativePaybackYears([-totalPurchaseCost, ...paybackNoiCashflows])
+    : null;
+  const cumulativePaybackOnPrice = NOI > 0
+    ? computeCumulativePaybackYears([-inp.buildingPrice, ...paybackNoiCashflows])
+    : null;
+  // Legacy UI fields historically assume a numeric/non-finite value and use
+  // global isFinite() before toFixed(). Preserve that rendering contract with
+  // NaN while exposing explicit nullable v2 fields above for machine consumers.
+  const paybackOnCost = cumulativePaybackOnCost === null ? NaN : cumulativePaybackOnCost;
+  const paybackOnPrice = cumulativePaybackOnPrice === null ? NaN : cumulativePaybackOnPrice;
 
   const cashflows = [-totalPurchaseCost];
   let terminalSaleValue = 0;
@@ -160,7 +183,7 @@ function calcExistingBuilding(inp) {
 
   const c0 = NOI > 0;
   const c1 = c0 && netYieldOnCost !== null && netYieldOnCost >= inp.minYieldThreshold;
-  const c2 = c0 && paybackOnCost !== null && paybackOnCost <= inp.maxPaybackThreshold;
+  const c2 = c0 && cumulativePaybackOnCost !== null && cumulativePaybackOnCost <= inp.maxPaybackThreshold;
   const c3 = c0 && Number.isFinite(irr) && irr >= inp.discountRate;
   const c4 = c0 && marketValueByIncomeCap >= totalPurchaseCost;
   const c5 = inp.leverageEnabled ? dscrMin !== null && dscrMin >= inp.minDscrThreshold : null;
@@ -196,7 +219,9 @@ function calcExistingBuilding(inp) {
     replacementReserveAmount: stabilizedEconomics.replacementReserveAmount,
     operatingExpensesBeforeReserve: stabilizedEconomics.operatingExpensesBeforeReserve,
     opexAmount, NOI, firstYearNOI, noiBeforeReserve: stabilizedEconomics.noiBeforeReserve,
-    netYieldOnCost, grossYieldOnCost, paybackOnCost, netYieldOnPrice, paybackOnPrice, priceToNoiMultiple,
+    netYieldOnCost, grossYieldOnCost,
+    cumulativePaybackOnCost, cumulativePaybackOnPrice, paybackHorizonYears, paybackNoiCashflows,
+    paybackOnCost, netYieldOnPrice, paybackOnPrice, priceToNoiMultiple,
     marketValueByIncomeCap, valueGapVsCost, exitCapRate, terminalSaleValue, terminalNetSaleProceeds,
     basementConstructionValue, floorConstructionValue, totalReplacementConstructionValue, currentLandValue,
     totalAppraisedValue, annualDepreciation,
