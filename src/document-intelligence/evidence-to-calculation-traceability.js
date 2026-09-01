@@ -49,7 +49,13 @@ function canonicalValue(value, seen = new WeakSet()) {
   if (value === undefined) return { $undefined: true };
   if (value === null || typeof value === 'string' || typeof value === 'boolean') return value;
   if (value instanceof Date) return { $date: value.toISOString() };
-  if (Array.isArray(value)) return value.map((item) => canonicalValue(item, seen));
+  if (Array.isArray(value)) {
+    if (seen.has(value)) throw new TypeError('CIRCULAR_VALUE_NOT_HASHABLE');
+    seen.add(value);
+    const out = value.map((item) => canonicalValue(item, seen));
+    seen.delete(value);
+    return out;
+  }
   if (typeof value === 'object') {
     if (seen.has(value)) throw new TypeError('CIRCULAR_VALUE_NOT_HASHABLE');
     seen.add(value);
@@ -65,7 +71,7 @@ function canonicalStringify(value) {
   return JSON.stringify(canonicalValue(value));
 }
 
-async function sha256Hex(value) {
+async function sha256CanonicalHex(value) {
   const subtle = globalThis.crypto && globalThis.crypto.subtle;
   if (!subtle) throw new Error('WEB_CRYPTO_SHA256_UNAVAILABLE');
   const bytes = new TextEncoder().encode(canonicalStringify(value));
@@ -94,9 +100,14 @@ function sameValue(a, b) {
   return canonicalStringify(a) === canonicalStringify(b);
 }
 
+function validObject(value) {
+  return value && typeof value === 'object' && !Array.isArray(value);
+}
+
 function validateScope({ adoptionPlan, adoptionDecision, materializedInputs }) {
-  const caseId = materializedInputs?.caseId || adoptionDecision?.caseId || adoptionPlan?.caseId || null;
-  const studyType = materializedInputs?.studyType || adoptionDecision?.studyType || adoptionPlan?.studyType || null;
+  if (!validObject(adoptionPlan) || !validObject(adoptionDecision) || !validObject(materializedInputs)) return null;
+  const caseId = materializedInputs.caseId || adoptionDecision.caseId || adoptionPlan.caseId || null;
+  const studyType = materializedInputs.studyType || adoptionDecision.studyType || adoptionPlan.studyType || null;
   if (!nonEmptyString(caseId) || !Object.values(STUDY_TYPE).includes(studyType)) return null;
   if (adoptionPlan.caseId !== caseId || adoptionDecision.caseId !== caseId || materializedInputs.caseId !== caseId) return null;
   if (adoptionPlan.studyType !== studyType || adoptionDecision.studyType !== studyType || materializedInputs.studyType !== studyType) return null;
@@ -158,16 +169,14 @@ async function executeEvidenceBackedCalculation({
   const scope = validateScope({ adoptionPlan, adoptionDecision, materializedInputs });
   if (!scope) return hold(EVIDENCE_CALCULATION_STATUS.HOLD_SCOPE, ['caseId/studyType scope must be valid and identical across plan, decision, and materialized inputs'], context);
 
-  const planValid = adoptionPlan
-    && adoptionPlan.status === UNDERWRITING_INPUT_ADOPTION_STATUS.READY_FOR_HUMAN_ADOPTION_DECISION
+  const planValid = adoptionPlan.status === UNDERWRITING_INPUT_ADOPTION_STATUS.READY_FOR_HUMAN_ADOPTION_DECISION
     && adoptionPlan.readyForHumanAdoptionDecision === true
     && adoptionPlan.financialEngineInputsWritten === false
     && adoptionPlan.calculationRunExecuted === false
     && adoptionPlan.transactionAuthorized === false;
   if (!planValid) return hold(EVIDENCE_CALCULATION_STATUS.HOLD_ADOPTION_PLAN, ['a bounded READY_FOR_HUMAN_ADOPTION_DECISION plan is required'], context);
 
-  const decisionValid = adoptionDecision
-    && adoptionDecision.status === UNDERWRITING_INPUT_ADOPTION_DECISION_STATUS.DECISION_RECORDED
+  const decisionValid = adoptionDecision.status === UNDERWRITING_INPUT_ADOPTION_DECISION_STATUS.DECISION_RECORDED
     && adoptionDecision.inputAdoptionApprovedByHuman === true
     && adoptionDecision.decision?.outcome === UNDERWRITING_INPUT_ADOPTION_OUTCOME.ADOPT_ALL
     && adoptionDecision.financialEngineInputsWritten === false
@@ -177,8 +186,7 @@ async function executeEvidenceBackedCalculation({
     && adoptionDecision.proposedInputVersionId === adoptionPlan.proposedInputVersionId;
   if (!decisionValid) return hold(EVIDENCE_CALCULATION_STATUS.HOLD_ADOPTION_DECISION, ['an approved human ADOPT_ALL decision matching the adoption plan is required'], context);
 
-  const materializedValid = materializedInputs
-    && materializedInputs.financialEngineInputsMaterialized === true
+  const materializedValid = materializedInputs.financialEngineInputsMaterialized === true
     && materializedInputs.calculationInvalidationRequired === true
     && materializedInputs.calculationRunExecuted === false
     && materializedInputs.transactionAuthorized === false
@@ -186,9 +194,7 @@ async function executeEvidenceBackedCalculation({
     && materializedInputs.inputVersionId === adoptionPlan.proposedInputVersionId
     && materializedInputs.sourceDecisionId === adoptionDecision.decision?.decisionId
     && materializedInputs.sourceDecisionEvidenceRef === adoptionDecision.decision?.decisionEvidenceRef
-    && materializedInputs.inputs
-    && typeof materializedInputs.inputs === 'object'
-    && !Array.isArray(materializedInputs.inputs);
+    && validObject(materializedInputs.inputs);
   if (!materializedValid) return hold(EVIDENCE_CALCULATION_STATUS.HOLD_MATERIALIZED_INPUTS, ['a new immutable materialized input version that invalidates prior calculations is required'], context);
 
   const fieldLineage = buildFieldLineage({ adoptionPlan, adoptionDecision, materializedInputs });
@@ -226,13 +232,13 @@ async function executeEvidenceBackedCalculation({
     return hold(EVIDENCE_CALCULATION_STATUS.HOLD_EXECUTION_TIME, ['executedAt must be valid and not precede the human adoption decision'], context);
   }
 
-  const inputHashSha256 = await sha256Hex(materializedInputs.inputs);
+  const inputHashSha256 = await sha256CanonicalHex(materializedInputs.inputs);
   const financialEngineResult = calculateInvestmentCase({
     studyType: scope.studyType,
     inputs: materializedInputs.inputs,
     leverageEnabled: materializedInputs.inputs.leverageEnabled,
   });
-  const calculationResultHashSha256 = await sha256Hex(financialEngineResult);
+  const calculationResultHashSha256 = await sha256CanonicalHex(financialEngineResult);
 
   return deepFreeze({
     schemaVersion: 1,
@@ -244,6 +250,13 @@ async function executeEvidenceBackedCalculation({
     inputVersionId: materializedInputs.inputVersionId,
     calculationRunId: runId,
     previousCalculationRunId: previousRunId,
+    versions: Object.freeze({
+      previous_input_version_id: materializedInputs.previousInputVersionId,
+      input_version_id: materializedInputs.inputVersionId,
+      previous_calculation_run_id: previousRunId,
+      calculation_run_id: runId,
+      financial_model_version: financialEngineResult.financialModelVersion || null,
+    }),
     executedAt: executionTime,
     executedByRef: executedByRef.trim(),
     executionEvidenceRef: executionEvidenceRef.trim(),
@@ -278,6 +291,6 @@ async function executeEvidenceBackedCalculation({
 module.exports = {
   EVIDENCE_CALCULATION_STATUS,
   canonicalStringify,
-  sha256Hex,
+  sha256CanonicalHex,
   executeEvidenceBackedCalculation,
 };
