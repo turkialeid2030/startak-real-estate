@@ -142,9 +142,15 @@ function buildProductionDeploymentEvidence({
   }
 
   const refs = cleanRefs(evidenceRefs);
-  const requiredRefs = [release.releaseRef, observability.evidenceRef, rollback.evidenceRef, recovery.restoreEvidenceRef];
-  if (refs.length === 0 || requiredRefs.some((ref) => !nonEmptyString(ref))) {
-    return hold(PRODUCTION_DEPLOYMENT_EVIDENCE_STATUS.HOLD_EVIDENCE_REFS, ['external evidence references are required'], context);
+  const requiredRefs = [
+    release.releaseRef.trim(),
+    observability.evidenceRef.trim(),
+    rollback.evidenceRef.trim(),
+    recovery.restoreEvidenceRef.trim(),
+  ];
+  const referenceChainComplete = requiredRefs.every((ref) => refs.includes(ref));
+  if (refs.length === 0 || !referenceChainComplete) {
+    return hold(PRODUCTION_DEPLOYMENT_EVIDENCE_STATUS.HOLD_EVIDENCE_REFS, ['evidenceRefs must include release, observability, rollback, and restore evidence references'], context);
   }
 
   return {
