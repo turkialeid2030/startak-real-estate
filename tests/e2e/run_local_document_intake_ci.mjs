@@ -42,7 +42,7 @@ try {
   const panel = page.getByTestId('local-document-evidence-intake');
   record('DOC-E2E-01-PANEL', await panel.isVisible(), `count=${await panel.count()}`);
   const bodyAr = await panel.innerText();
-  record('DOC-E2E-02-LOCAL-BOUNDARY', bodyAr.includes('المعالجة محلية') && bodyAr.includes('ليس دليلاً موثقًا'), 'Arabic local/evidence boundary visible');
+  record('DOC-E2E-02-LOCAL-PROCESSING-BOUNDARY', bodyAr.includes('المعالجة محلية في هذه الواجهة') && bodyAr.includes('لا تُرسل الملفات إلى جهة خارجية'), 'Arabic local-processing boundary visible before file selection');
 
   const requestCountBeforeUpload = requests.length;
   const pdfFixture = Buffer.from('%PDF-1.7\n% STARTAK local deterministic fixture\n', 'utf8');
@@ -58,6 +58,7 @@ try {
   const atomCount = (await page.getByTestId('local-document-atom-count').innerText()).trim();
   record('DOC-E2E-03-PDF-FAIL-CLOSED', panelAfterPdf.includes('UNSUPPORTED') && panelAfterPdf.includes('PDF_BINARY_PARSER_NOT_YET_VETTED') && atomCount === '0', `atoms=${atomCount}`);
   record('DOC-E2E-04-CONTENT-DIGEST', /^[a-f0-9]{64}$/i.test(digest), `digestLength=${digest.length}`);
+  record('DOC-E2E-04B-EVIDENCE-SEMANTIC-BOUNDARY', panelAfterPdf.includes('المحتوى المستخرج ليس دليلاً موثقًا') && panelAfterPdf.includes('لا يدخل المحرك المالي تلقائيًا'), 'Parsed-content/evidence boundary visible once a parser result exists');
 
   const newRequests = requests.slice(requestCountBeforeUpload);
   const externalAfterUpload = newRequests.filter((requestUrl) => {
