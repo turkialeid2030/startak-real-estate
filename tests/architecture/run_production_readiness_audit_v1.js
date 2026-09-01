@@ -19,7 +19,16 @@ function base() {
     },
     dataReadiness: { ...scope, caseIsolationVerified: true, tenantIsolationVerified: true, provenanceControlsVerified: true, retentionControlsVerified: true, privacyControlsVerified: true, noDataLeakageObserved: true },
     aiGovernance: { ...scope, humanFinalAuthority: true, noAutonomousTransaction: true, staleAiInvalidationVerified: true, boundedOutputsVerified: true, modelOrPromptVersionEvidencePresent: true },
-    complianceReview: { ...scope, classificationReviewCompleted: true, regulatedScopeResolved: true, legalCounselOrAuthorizedReviewerCompleted: true, softwareDoesNotSelfEstablishLegalApproval: true },
+    complianceReview: {
+      ...scope,
+      status: 'EVIDENCE_PACK_COMPLETE',
+      readyForProductionReadinessAudit: true,
+      classificationReviewCompleted: true,
+      regulatedScopeResolved: true,
+      legalCounselOrAuthorizedReviewerCompleted: true,
+      softwareDoesNotSelfEstablishLegalApproval: true,
+      legalApprovalEstablished: false,
+    },
     reliabilityEvidence: { ...scope, releaseVerifyPassed: true, comprehensiveVerifyPassed: true, deepPlatformVerifyPassed: true, realBrowserE2ePassed: true, fatalConsoleErrors: 0, pageErrors: 0, observabilityEvidencePresent: true },
     recoveryEvidence: { ...scope, backupEvidencePresent: true, restoreTestCompleted: true, rollbackExercised: true, restoreEvidenceRef: 'restore-test-1' },
     deploymentEvidence: {
@@ -54,6 +63,8 @@ const cases = [
   ['dataReadiness', 'noDataLeakageObserved', false, PRODUCTION_READINESS_STATUS.HOLD_DATA],
   ['aiGovernance', 'humanFinalAuthority', false, PRODUCTION_READINESS_STATUS.HOLD_AI_GOVERNANCE],
   ['complianceReview', 'regulatedScopeResolved', false, PRODUCTION_READINESS_STATUS.HOLD_COMPLIANCE],
+  ['complianceReview', 'readyForProductionReadinessAudit', false, PRODUCTION_READINESS_STATUS.HOLD_COMPLIANCE],
+  ['complianceReview', 'legalApprovalEstablished', true, PRODUCTION_READINESS_STATUS.HOLD_COMPLIANCE],
   ['reliabilityEvidence', 'deepPlatformVerifyPassed', false, PRODUCTION_READINESS_STATUS.HOLD_RELIABILITY],
   ['recoveryEvidence', 'restoreTestCompleted', false, PRODUCTION_READINESS_STATUS.HOLD_RECOVERY],
   ['deploymentEvidence', 'monitoringConfigured', false, PRODUCTION_READINESS_STATUS.HOLD_DEPLOYMENT_EVIDENCE],
@@ -82,4 +93,4 @@ const noRefs = base();
 noRefs.evidenceRefs = ['   '];
 assert.strictEqual(buildProductionReadinessAudit(noRefs).status, PRODUCTION_READINESS_STATUS.HOLD_DEPLOYMENT_EVIDENCE);
 
-console.log('PRODUCTION_READINESS_AUDIT_V1=PASS checks=15');
+console.log('PRODUCTION_READINESS_AUDIT_V1=PASS checks=17');
