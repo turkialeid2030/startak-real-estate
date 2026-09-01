@@ -2,16 +2,22 @@
 // mapping. Presentation only: this module must never drive calculation logic.
 //
 // IMPORTANT CONTRACT:
-// getVerdictLabel() is the legacy characterization/i18n presentation contract.
-// It intentionally preserves the historical localized labels so existing
-// regression evidence remains valid. Customer-facing decision-support surfaces
-// MUST use getExternalDecisionSupportVerdictLabel(), which applies the
-// Compliance Guard vocabulary. This separation prevents regulated-style UI
-// claims without rewriting historical engine/i18n semantics.
+// getVerdictLabel() defaults to the legacy characterization/i18n presentation
+// contract so historical regression evidence remains valid. The production UI
+// explicitly activates EXTERNAL_DECISION_SUPPORT mode before render, causing the
+// same presentation call site to route through Compliance Guard vocabulary.
+// Engine semantics and raw verdict values are never changed by this module.
 const {
   externalizeInternalVerdict,
   renderDecisionSupportLabel,
 } = require('../compliance/decision-support.js');
+
+const VERDICT_PRESENTATION_MODE = Object.freeze({
+  LEGACY_CHARACTERIZATION: 'LEGACY_CHARACTERIZATION',
+  EXTERNAL_DECISION_SUPPORT: 'EXTERNAL_DECISION_SUPPORT',
+});
+
+let activeVerdictPresentationMode = VERDICT_PRESENTATION_MODE.LEGACY_CHARACTERIZATION;
 
 const VERDICT_PRESENTATION_KEYS = {
   "يوصى بالشراء": "recommendation.buy",
@@ -27,14 +33,29 @@ function assertKnownVerdict(rawVerdict) {
   return key;
 }
 
-// Backward-compatible localization contract used by characterization tests and
-// internal/legacy views. Do not use this function for new customer-facing
-// decision-support output.
+function setVerdictPresentationMode(mode) {
+  if (!Object.values(VERDICT_PRESENTATION_MODE).includes(mode)) {
+    throw new Error(`Unsupported verdict presentation mode: ${mode}`);
+  }
+  activeVerdictPresentationMode = mode;
+  return activeVerdictPresentationMode;
+}
+
+function getVerdictPresentationMode() {
+  return activeVerdictPresentationMode;
+}
+
+// Backward-compatible localization contract by default. Once the production UI
+// explicitly activates EXTERNAL_DECISION_SUPPORT mode, this same call site is
+// compliance-bounded without changing calculation or raw recommendation fields.
 function getVerdictLabel(rawVerdict, t) {
+  if (activeVerdictPresentationMode === VERDICT_PRESENTATION_MODE.EXTERNAL_DECISION_SUPPORT) {
+    return getExternalDecisionSupportVerdictLabel(rawVerdict, t);
+  }
   return t(assertKnownVerdict(rawVerdict));
 }
 
-// Compliance-bounded external presentation for all new/customer-facing views.
+// Compliance-bounded external presentation for customer-facing views.
 function getExternalDecisionSupportVerdictLabel(rawVerdict, t, options = {}) {
   const key = assertKnownVerdict(rawVerdict);
   const translatedLegacyLabel = t(key);
@@ -106,6 +127,9 @@ function getProjectTitleDisplay(projectTitle, t) {
 module.exports = {
   getVerdictLabel,
   getExternalDecisionSupportVerdictLabel,
+  setVerdictPresentationMode,
+  getVerdictPresentationMode,
+  VERDICT_PRESENTATION_MODE,
   VERDICT_PRESENTATION_KEYS,
   getBuildingPermitStatusLabel,
   BUILDING_PERMIT_STATUS_PRESENTATION_KEYS,
