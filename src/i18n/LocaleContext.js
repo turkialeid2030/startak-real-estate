@@ -4,7 +4,7 @@
 // calculation engine's inputs/outputs are locale-invariant, confirmed by
 // tests/characterization/run_locale_invariance.js.
 const React = require('react');
-const { createContext, useContext, useState } = React;
+const { createContext, useContext, useState, useEffect } = React;
 const arSA = require('./locales/ar-SA.js');
 const en = require('./locales/en.js');
 
@@ -14,6 +14,16 @@ const LocaleContext = createContext(null);
 function LocaleProvider({ children, defaultLocale = 'ar-SA' }) {
   const [locale, setLocale] = useState(defaultLocale);
   const { dir, dict } = LOCALES[locale];
+
+  // Keep the document's semantic language and reading direction synchronized
+  // with the presentation locale. This is deliberately presentation-only and
+  // never affects financial calculations or persisted engine inputs.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    document.documentElement.setAttribute('lang', locale);
+    document.documentElement.setAttribute('dir', dir);
+  }, [locale, dir]);
+
   function t(path, params) {
     const parts = path.split('.');
     let cur = dict;
