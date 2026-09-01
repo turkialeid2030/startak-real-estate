@@ -1,21 +1,58 @@
 # PRODUCTION_RELEASE_EVIDENCE
 
-- **Regression**: 78/78 PASS (Core 6/6, Secondary 7/7, Storage Provider 6/6, 0 page errors)
-- **npm audit**: 0 critical, 0 high, 0 moderate, 0 low
-- **Secret scan**: 0 hardcoded secrets, 0 private keys
-- **External network**: 0 (Google Fonts removed this session; system-font stack substituted)
-- **Build size**: 644 KB total (632 KB JS + 12 KB CSS), no source maps
-- **Canonical original SHA-256**: `ac0767d3f13c463259f401a5d7af06c1140ee780a9f86489eb17ad9d7c72dc71` (unchanged since the program's first session)
-- **`App.jsx` MD5** (this session's final state): `a75b743d94e3842e12b0db7a9cf3ba36`
-- **Package**: `dist/` contains exactly 2 files, 0 unexpected content, 0 absolute-path leakage
-- **Package reproducibility**: expected given a deterministic bundler and unchanged source/lockfile; not independently re-diffed byte-for-byte twice in this exact session (stated honestly, not assumed)
-- **Backup/restore (PR-12)**: 15/15 permanent tests + live-browser export/import/reject-malformed evidence, all PASS
-- **Runtime monitoring (PR-11)**: application-side hooks implemented and tested (`PR-11A = PASS`); no live backend configured (`PR-11B = HOLD`)
-- **Deployment (PR-10)**: static `dist/` is deployment-capable to any static host (`PR-10A = PASS`); no actual host/domain/CI exists in this environment, none fabricated (`PR-10B = HOLD`, `CI_CD = NOT_CONFIGURED`, repository has no `.git`/remote)
+## Current repository evidence
 
-## Remaining HOLDs (require human/external authority, not code changes)
-1. Choose and configure an actual static-hosting target with HTTPS + the documented security-header policy.
-2. Initialize version control with a real remote, then add CI matching that provider (test/build/audit/canonical-hash gates, fail-closed).
-3. Choose and configure a real error-monitoring backend for `sendToProvider()`.
+This repository is under Git version control on GitHub and currently contains three automated verification workflows:
 
-No commits, deployments, external accounts, domains, or paid services were created or modified in this session, per explicit instruction.
+- Release Verify
+- Comprehensive Verify
+- Deep Platform Verify
+
+The canonical release gate performs regression discovery, production build, package verification, npm audit threshold checks, and optional canonical-source hash verification. Comprehensive and Deep verification add real-browser and deeper platform checks.
+
+The exact test count is intentionally **not hard-coded in this document** because the suite changes as the platform evolves. GitHub Actions execution evidence is authoritative for the exact count and result of a specific commit.
+
+## Build/source traceability
+
+Build & Release Traceability v1 embeds a build metadata object into the browser bundle and emits:
+
+`dist/release-manifest.json`
+
+The manifest contains:
+
+- application/package version;
+- build ID;
+- source commit SHA when supplied by the build environment (`STARTAK_SOURCE_COMMIT`, Cloudflare Pages commit SHA, Vercel commit SHA, or GitHub Actions SHA);
+- whether a valid source commit was bound to the artifact;
+- build environment label;
+- explicit negative claims that the build itself does **not** establish deployment verification or production authorization.
+
+Runtime observability uses the same immutable compile-time metadata. It no longer relies on a caller-editable `window.__STARTAK_BUILD_ID__` value as its source of truth.
+
+## Security-header artifact evidence
+
+`public/_headers` is part of the repository and the static build includes the configured CSP/HSTS/security-header policy for hosting providers that honor this file. Repository presence proves **configuration in the artifact**, not live-edge enforcement. Live response headers must be independently captured from the deployed URL before claiming they are enforced.
+
+## Monitoring evidence
+
+A privacy-minimized Sentry transport is configured in application source. Runtime events are tagged with source-bound build/release metadata when available. Source configuration does not by itself prove continuous delivery health or successful event ingestion; those require provider/runtime evidence.
+
+## Deployment evidence boundary
+
+A successful GitHub merge, CI workflow, build, Cloudflare/Vercel preview, or generated release manifest is **not** by itself production deployment authorization or proof that a particular URL is currently serving that commit.
+
+A production deployment evidence record must independently bind at minimum:
+
+1. deployed URL/environment;
+2. release-manifest build ID;
+3. source commit SHA;
+4. deployment provider evidence/timestamp;
+5. post-deploy smoke/E2E result;
+6. live security-header observation;
+7. monitoring/rollback evidence where required by policy.
+
+Until those external/runtime facts are supplied and reviewed, the repository must not self-assert `productionDeploymentAuthorized`, `deploymentVerified`, security certification, legal approval, or transaction authorization.
+
+## Historical note
+
+Earlier text in this file stated that no Git remote, CI/CD, monitoring provider, or security-header deployment configuration existed. Those statements described an earlier project state and are superseded by the repository evidence above. They are removed rather than preserved as current facts.
