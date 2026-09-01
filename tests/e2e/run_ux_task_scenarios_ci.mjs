@@ -116,6 +116,20 @@ try {
     await page.waitForTimeout(150);
     const toggle = page.getByRole('switch', { name: 'تفعيل الرافعة المالية' }).first();
     if ((await toggle.count()) === 0) throw new Error('financing toggle cannot be discovered by accessible name');
+
+    // The financing controls live inside a collapsed accordion. Model the real
+    // user journey: discover and open that section before interacting with the
+    // switch, instead of clicking an element hidden behind the collapsed panel.
+    const section = toggle.locator('xpath=ancestor::div[contains(@class,"rounded-2xl") and contains(@class,"overflow-hidden")][1]');
+    if ((await section.count()) === 0) throw new Error('financing section container could not be resolved');
+    const sectionBody = section.locator('.rf-accordion-body').first();
+    if ((await sectionBody.count()) === 0) throw new Error('financing accordion body could not be resolved');
+    if (!((await sectionBody.getAttribute('class')) || '').split(/\s+/).includes('open')) {
+      await act(() => section.locator(':scope > button').first().click());
+      await page.waitForTimeout(220);
+    }
+
+    await toggle.scrollIntoViewIfNeeded();
     const before = await toggle.getAttribute('aria-checked');
     await act(() => toggle.click());
     await page.waitForTimeout(180);
@@ -125,7 +139,7 @@ try {
     await page.waitForTimeout(120);
     const restored = await toggle.getAttribute('aria-checked');
     if (restored !== before) throw new Error('financing toggle was not reversible');
-    return { before, after, restored };
+    return { before, after, restored, sectionOpened: true };
   });
 
   await runTask('MOBILE_CRITICAL_PATH', page, async (act) => {
@@ -149,16 +163,23 @@ try {
     const en = page.getByRole('button', { name: 'EN' }).first();
     if ((await en.count()) === 0) throw new Error('English language control not discoverable');
     await act(() => en.click());
-    await page.waitForTimeout(180);
+    await page.waitForTimeout(220);
     const dirEn = await page.locator('html').getAttribute('dir');
+    const langEn = await page.locator('html').getAttribute('lang');
     if (dirEn !== 'ltr') throw new Error(`English mode should be LTR, got ${dirEn}`);
-    const ar = page.getByRole('button', { name: 'AR' }).first();
+    if (langEn !== 'en') throw new Error(`English mode should set html lang=en, got ${langEn}`);
+
+    // The visible control is Arabic letter "ع" after switching to English;
+    // its title is stable and explicit for accessibility/discovery.
+    const ar = page.getByTitle('التبديل إلى العربية').first();
     if ((await ar.count()) === 0) throw new Error('Arabic language control not discoverable after switching to English');
     await act(() => ar.click());
-    await page.waitForTimeout(180);
+    await page.waitForTimeout(220);
     const dirAr = await page.locator('html').getAttribute('dir');
+    const langAr = await page.locator('html').getAttribute('lang');
     if (dirAr !== 'rtl') throw new Error(`Arabic mode should restore RTL, got ${dirAr}`);
-    return { dirEn, dirAr };
+    if (langAr !== 'ar-SA') throw new Error(`Arabic mode should set html lang=ar-SA, got ${langAr}`);
+    return { dirEn, langEn, dirAr, langAr };
   });
 
   if (report.browserErrors.length) failed = true;
