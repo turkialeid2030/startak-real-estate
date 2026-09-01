@@ -1,1 +1,17 @@
 @import "tailwindcss";
+
+/* UX hardening: preserve the compact visual switch while meeting the 24px
+   minimum interactive target used by the real-browser usability gate. */
+.rf-root button[role="switch"] {
+  min-height: 24px;
+  touch-action: manipulation;
+  scroll-margin-block: 7rem;
+}
+
+/* The sticky KPI ribbon is informational only. It must never capture pointer
+   events from controls that scroll beneath it (for example the financing
+   switch inside an accordion). This removes an actual click-interception
+   failure observed in the task-based browser journey. */
+.rf-root div.sticky.top-2.z-20.rounded-2xl.p-3.mb-6 {
+  pointer-events: none;
+}
