@@ -67,12 +67,21 @@ function validateSource(source, asOfDate, index) {
     nonEmptyString(source.sourceRef) &&
     nonEmptyString(source.versionHash) &&
     isIsoDate(source.lastVerifiedDate) &&
-    isIsoDate(source.reviewAfterDate);
+    isIsoDate(source.reviewAfterDate) &&
+    (source.effectiveDate === undefined || source.effectiveDate === null || isIsoDate(source.effectiveDate));
   if (!complete) {
-    return { status: REGULATORY_CLOSURE_STATUS.HOLD_SOURCE_EVIDENCE, reason: `sources[${index}] authority/sourceRef/versionHash/verification dates required` };
+    return { status: REGULATORY_CLOSURE_STATUS.HOLD_SOURCE_EVIDENCE, reason: `sources[${index}] authority/sourceRef/versionHash/verification dates and any supplied effectiveDate must be valid` };
   }
-  if (Date.parse(source.lastVerifiedDate) > Date.parse(asOfDate) || Date.parse(source.reviewAfterDate) < Date.parse(asOfDate)) {
-    return { status: REGULATORY_CLOSURE_STATUS.HOLD_SOURCE_FRESHNESS, reason: `sources[${index}] is future-verified or outside review window` };
+
+  const asOf = Date.parse(asOfDate);
+  const lastVerified = Date.parse(source.lastVerifiedDate);
+  const reviewAfter = Date.parse(source.reviewAfterDate);
+  const effective = source.effectiveDate ? Date.parse(source.effectiveDate) : null;
+  if (lastVerified > asOf || reviewAfter < asOf || (effective !== null && effective > asOf)) {
+    return { status: REGULATORY_CLOSURE_STATUS.HOLD_SOURCE_FRESHNESS, reason: `sources[${index}] is future-verified, future-effective, or outside its review window` };
+  }
+  if (reviewAfter < lastVerified) {
+    return { status: REGULATORY_CLOSURE_STATUS.HOLD_SOURCE_FRESHNESS, reason: `sources[${index}] reviewAfterDate precedes lastVerifiedDate` };
   }
   return null;
 }
