@@ -47,13 +47,17 @@ function StatusPill({ status }) {
   return <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${className}`}>{status}</span>;
 }
 
-export default function LocalDocumentEvidenceIntakePanel() {
+export default function LocalDocumentEvidenceIntakePanel({ onRecordChange = null }) {
   const { locale, dir } = useLocale();
   const isAr = locale === 'ar-SA';
   const fileInputRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const [record, setRecord] = useState(null);
   const [error, setError] = useState(null);
+
+  const publishRecord = (nextRecord) => {
+    if (typeof onRecordChange === 'function') onRecordChange(nextRecord);
+  };
 
   const l = useMemo(() => isAr ? {
     eyebrow: 'DOCUMENT INTELLIGENCE · LOCAL INTAKE',
@@ -118,12 +122,14 @@ export default function LocalDocumentEvidenceIntakePanel() {
   const reset = () => {
     setRecord(null);
     setError(null);
+    publishRecord(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleFile = async (file) => {
     setError(null);
     setRecord(null);
+    publishRecord(null);
     if (!file) return;
     const extension = extensionOf(file.name);
     if (!ACCEPTED_EXTENSIONS.includes(extension)) {
@@ -147,21 +153,30 @@ export default function LocalDocumentEvidenceIntakePanel() {
 
       const documentId = `local-sha256:${digest}`;
       const caseId = `LOCAL_INTAKE:${digest.slice(0, 16)}`;
+      const mimeType = file.type || 'application/octet-stream';
+      const receivedAt = new Date().toISOString();
       const document = {
         documentId,
         caseId,
         fileName: file.name,
-        mimeType: file.type || 'application/octet-stream',
+        mimeType,
       };
       const result = await parseDocument({ document, content: buffer });
-      setRecord(Object.freeze({
+      const nextRecord = Object.freeze({
         fileName: file.name,
         size: file.size,
         digest,
+        mimeType,
+        documentId,
+        caseId,
+        receivedAt,
         result,
-      }));
+      });
+      setRecord(nextRecord);
+      publishRecord(nextRecord);
     } catch (_) {
       setError(l.readFailed);
+      publishRecord(null);
     } finally {
       setBusy(false);
     }

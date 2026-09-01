@@ -6,5 +6,16 @@ const reconciliation = require('./reconciliation');
 const readiness = require('./readiness');
 const parsers = require('./parsers');
 const semantics = require('./semantics');
+const parsedEvidenceQualification = require('./parsed-evidence-qualification');
 
-module.exports = Object.assign({}, contracts, pipeline, reconciliation, readiness, parsers, semantics, { parsers, semantics });
+module.exports = Object.assign(
+  {},
+  contracts,
+  pipeline,
+  reconciliation,
+  readiness,
+  parsers,
+  semantics,
+  parsedEvidenceQualification,
+  { parsers, semantics, parsedEvidenceQualification },
+);
