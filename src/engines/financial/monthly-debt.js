@@ -1,10 +1,18 @@
 'use strict';
 
-// Financial Engine Remediation Wave B.
-// Deterministic monthly debt mechanics. This module does not claim to reproduce
-// a bank term sheet or a Sharia board-approved structure. Murabaha/Ijarah labels
-// are classified as indicative rate-based proxies unless exact contract cash
-// flows are supplied by a caller in a future adapter.
+// Financial Engine Remediation Wave B + Precision C1.
+// Production debt cash flows are calculated in integer halalas with fixed-point
+// rates. Public inputs/outputs remain Number for API compatibility.
+const {
+  RATE_SCALE,
+  toMoney,
+  fromMoney,
+  toRate,
+  rateDivInt,
+  roundDiv,
+  moneyMulRate,
+  fixedPointAnnuityPayment,
+} = require('./precision');
 
 function requireFinite(name, value) {
   if (!Number.isFinite(value)) throw new TypeError(`${name} must be finite`);
@@ -60,8 +68,10 @@ function monthlyAmortizationSchedule(principal, annualRate, tenorYears, options 
   requireFinite('balloonPct', balloonPct);
   if (balloonPct < 0 || balloonPct > 1) throw new RangeError('balloonPct must be between 0 and 1');
 
-  if (principal === 0) {
+  const principalMoney = toMoney(principal);
+  if (principalMoney === 0n) {
     return {
+      precisionMode: 'FIXED_POINT_HALALA_RATE_1E12',
       tenorMonths: months,
       scheduledMonthlyPayment: 0,
       schedule: [],
@@ -71,15 +81,16 @@ function monthlyAmortizationSchedule(principal, annualRate, tenorYears, options 
     };
   }
 
-  const monthlyRate = annualRate / 12;
-  let balance = principal;
+  const monthlyRate = rateDivInt(annualRate, 12);
+  const balloonTarget = roundDiv(principalMoney * toRate(balloonPct), RATE_SCALE);
+  let balance = principalMoney;
   const schedule = [];
-  let totalInterest = 0;
-  let totalPayments = 0;
+  let totalInterest = 0n;
+  let totalPayments = 0n;
 
   for (let month = 1; month <= graceMonths; month += 1) {
-    const interest = balance * monthlyRate;
-    let totalPayment = 0;
+    const interest = roundDiv(balance * monthlyRate, RATE_SCALE);
+    let totalPayment = 0n;
     if (graceType === 'INTEREST_ONLY') {
       totalPayment = interest;
     } else {
@@ -90,79 +101,67 @@ function monthlyAmortizationSchedule(principal, annualRate, tenorYears, options 
     schedule.push({
       month,
       phase: 'GRACE',
-      scheduledPayment: totalPayment,
-      totalPayment,
-      interest,
+      scheduledPayment: fromMoney(totalPayment),
+      totalPayment: fromMoney(totalPayment),
+      interest: fromMoney(interest),
       principal: 0,
       balloon: 0,
-      balance,
+      balance: fromMoney(balance),
     });
   }
 
   const amortizingMonths = months - graceMonths;
-  const balloonTarget = principal * balloonPct;
-  let scheduledMonthlyPayment;
-  if (monthlyRate === 0) {
-    scheduledMonthlyPayment = Math.max(0, (balance - balloonTarget) / amortizingMonths);
-  } else {
-    const pvBalloon = balloonTarget / Math.pow(1 + monthlyRate, amortizingMonths);
-    scheduledMonthlyPayment = Math.max(
-      0,
-      ((balance - pvBalloon) * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -amortizingMonths)),
-    );
-  }
+  const scheduledMonthlyPaymentNumber = Math.max(0, fixedPointAnnuityPayment({
+    balance: fromMoney(balance),
+    annualRate,
+    months: amortizingMonths,
+    balloon: fromMoney(balloonTarget),
+  }));
+  const scheduledMonthlyPayment = toMoney(scheduledMonthlyPaymentNumber);
 
   for (let i = 1; i <= amortizingMonths; i += 1) {
     const month = graceMonths + i;
-    const interest = balance * monthlyRate;
-    let principalPortion = Math.max(0, scheduledMonthlyPayment - interest);
+    const interest = roundDiv(balance * monthlyRate, RATE_SCALE);
+    let principalPortion = scheduledMonthlyPayment > interest ? scheduledMonthlyPayment - interest : 0n;
+    const availablePrincipal = balance > balloonTarget ? balance - balloonTarget : 0n;
+    if (principalPortion > availablePrincipal) principalPortion = availablePrincipal;
     const isFinal = i === amortizingMonths;
 
-    if (!isFinal) {
-      principalPortion = Math.min(principalPortion, Math.max(0, balance - balloonTarget));
-      balance = Math.max(balloonTarget, balance - principalPortion);
-      const totalPayment = interest + principalPortion;
-      totalInterest += interest;
-      totalPayments += totalPayment;
-      schedule.push({
-        month,
-        phase: 'AMORTIZING',
-        scheduledPayment: totalPayment,
-        totalPayment,
-        interest,
-        principal: principalPortion,
-        balloon: 0,
-        balance,
-      });
-      continue;
+    balance -= principalPortion;
+    let balloon = 0n;
+    let totalPayment;
+    let phase = 'AMORTIZING';
+    if (isFinal) {
+      phase = 'MATURITY';
+      balloon = balance;
+      totalPayment = interest + principalPortion + balloon;
+      balance = 0n;
+    } else {
+      totalPayment = interest + principalPortion;
     }
 
-    principalPortion = Math.min(principalPortion, Math.max(0, balance - balloonTarget));
-    balance = Math.max(balloonTarget, balance - principalPortion);
-    const balloon = balance;
-    const totalPayment = interest + principalPortion + balloon;
     totalInterest += interest;
     totalPayments += totalPayment;
     schedule.push({
       month,
-      phase: 'MATURITY',
-      scheduledPayment: interest + principalPortion,
-      totalPayment,
-      interest,
-      principal: principalPortion,
-      balloon,
-      balance: 0,
+      phase,
+      scheduledPayment: fromMoney(interest + principalPortion),
+      totalPayment: fromMoney(totalPayment),
+      interest: fromMoney(interest),
+      principal: fromMoney(principalPortion),
+      balloon: fromMoney(balloon),
+      balance: fromMoney(balance),
     });
-    balance = 0;
   }
 
   return {
+    precisionMode: 'FIXED_POINT_HALALA_RATE_1E12',
     tenorMonths: months,
-    scheduledMonthlyPayment,
+    scheduledMonthlyPayment: fromMoney(scheduledMonthlyPayment),
     schedule,
-    totalInterest,
-    totalPayments,
-    balloonAmount: balloonTarget,
+    totalInterest: fromMoney(totalInterest),
+    totalPayments: fromMoney(totalPayments),
+    balloonAmount: fromMoney(balloonTarget),
   };
 }
 
@@ -171,16 +170,30 @@ function annualizeMonthlySchedule(monthlySchedule) {
   for (const row of monthlySchedule) {
     const year = Math.ceil(row.month / 12);
     if (!annual[year - 1]) {
-      annual[year - 1] = { year, payment: 0, interest: 0, principal: 0, balloon: 0, balance: row.balance };
+      annual[year - 1] = {
+        year,
+        paymentMoney: 0n,
+        interestMoney: 0n,
+        principalMoney: 0n,
+        balloonMoney: 0n,
+        balance: row.balance,
+      };
     }
     const out = annual[year - 1];
-    out.payment += row.totalPayment;
-    out.interest += row.interest;
-    out.principal += row.principal;
-    out.balloon += row.balloon;
+    out.paymentMoney += toMoney(row.totalPayment);
+    out.interestMoney += toMoney(row.interest);
+    out.principalMoney += toMoney(row.principal);
+    out.balloonMoney += toMoney(row.balloon);
     out.balance = row.balance;
   }
-  return annual;
+  return annual.map((row) => ({
+    year: row.year,
+    payment: fromMoney(row.paymentMoney),
+    interest: fromMoney(row.interestMoney),
+    principal: fromMoney(row.principalMoney),
+    balloon: fromMoney(row.balloonMoney),
+    balance: fromMoney(toMoney(row.balance)),
+  }));
 }
 
 function minimumDscr(annualNoi, annualDebtService) {
@@ -188,11 +201,12 @@ function minimumDscr(annualNoi, annualDebtService) {
   let evaluated = 0;
   const count = Math.min(annualNoi.length, annualDebtService.length);
   for (let i = 0; i < count; i += 1) {
-    const ds = annualDebtService[i] || 0;
+    const ds = fromMoney(toMoney(annualDebtService[i] || 0));
     if (ds <= 0) continue;
     const noi = annualNoi[i];
     if (!Number.isFinite(noi)) return null;
-    min = Math.min(min, noi / ds);
+    const normalizedNoi = fromMoney(toMoney(noi));
+    min = Math.min(min, normalizedNoi / ds);
     evaluated += 1;
   }
   return evaluated === 0 ? null : min;
@@ -226,7 +240,7 @@ function sizeDebtByLtvAndDscr({
   if (minDscrThreshold <= 0) throw new RangeError('minDscrThreshold must be > 0');
   if (!Array.isArray(annualNoi) || annualNoi.length === 0) throw new RangeError('annualNoi must be a non-empty array');
 
-  const ltvLimit = costBase * ltv;
+  const ltvLimit = moneyMulRate(costBase, ltv);
   if (ltvLimit <= 0 || annualNoi.some((noi) => !Number.isFinite(noi) || noi <= 0)) {
     return {
       ltvLimit,
@@ -239,9 +253,10 @@ function sizeDebtByLtvAndDscr({
   }
 
   const evaluate = (principal) => {
-    const plan = buildMonthlyDebtPlan(principal, annualRate, tenorYears, options);
+    const normalizedPrincipal = fromMoney(toMoney(principal));
+    const plan = buildMonthlyDebtPlan(normalizedPrincipal, annualRate, tenorYears, options);
     const dscr = minimumDscr(annualNoi, plan.annualDebtService);
-    return { plan, dscr };
+    return { principal: normalizedPrincipal, plan, dscr };
   };
 
   const atLtv = evaluate(ltvLimit);
@@ -256,26 +271,27 @@ function sizeDebtByLtvAndDscr({
     };
   }
 
-  let lo = 0;
-  let hi = ltvLimit;
-  let best = 0;
+  let lo = 0n;
+  let hi = toMoney(ltvLimit);
+  let best = 0n;
   let bestEval = evaluate(0);
-  for (let i = 0; i < 70; i += 1) {
-    const mid = (lo + hi) / 2;
-    const current = evaluate(mid);
+  while (lo <= hi) {
+    const mid = (lo + hi) / 2n;
+    const current = evaluate(fromMoney(mid));
     if (current.dscr !== null && current.dscr >= minDscrThreshold) {
       best = mid;
       bestEval = current;
-      lo = mid;
+      lo = mid + 1n;
     } else {
-      hi = mid;
+      hi = mid - 1n;
     }
   }
 
+  const dscrLimit = fromMoney(best);
   return {
     ltvLimit,
-    dscrLimit: best,
-    loanAmount: best,
+    dscrLimit,
+    loanAmount: dscrLimit,
     bindingConstraint: 'DSCR',
     dscrAtLoanAmount: bestEval.dscr,
     plan: bestEval.plan,
