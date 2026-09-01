@@ -6,11 +6,15 @@ import DecisionIntelligenceWorkspacePanel from './components/DecisionIntelligenc
 import InvestmentCommitteeDossierPanel from './components/InvestmentCommitteeDossierPanel.jsx';
 import OutcomeMonitoringPanel from './components/OutcomeMonitoringPanel.jsx';
 const { LocaleProvider } = require('./i18n/LocaleContext.js');
+const { installRuntimeBuildMetadata } = require('./runtime/build-metadata.js');
 const { installGlobalHandlers } = require('./observability/report-runtime-error.js');
 const { activateCustomerFacingVerdictPresentation } = require('./app/compliance-verdict-presentation.js');
 
+// Install source-bound, immutable diagnostic metadata before any observability
+// handlers. This does not authorize or certify a deployment.
+installRuntimeBuildMetadata();
 activateCustomerFacingVerdictPresentation();
-installGlobalHandlers(); // PR-11B: privacy-minimized live Sentry provider
+installGlobalHandlers(); // privacy-minimized live Sentry provider
 
 const runtimeDecisionWorkspace = typeof window !== 'undefined'
   && window.__STARTAK_DECISION_INTELLIGENCE_WORKSPACE__
