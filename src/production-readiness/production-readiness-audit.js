@@ -77,7 +77,12 @@ function buildProductionReadinessAudit({
       noBlockingFindings(securityReview),
     data: allTrue(dataReadiness, ['caseIsolationVerified', 'tenantIsolationVerified', 'provenanceControlsVerified', 'retentionControlsVerified', 'privacyControlsVerified', 'noDataLeakageObserved']),
     aiGovernance: allTrue(aiGovernance, ['humanFinalAuthority', 'noAutonomousTransaction', 'staleAiInvalidationVerified', 'boundedOutputsVerified', 'modelOrPromptVersionEvidencePresent']),
-    compliance: allTrue(complianceReview, ['classificationReviewCompleted', 'regulatedScopeResolved', 'legalCounselOrAuthorizedReviewerCompleted']) && complianceReview?.softwareDoesNotSelfEstablishLegalApproval === true,
+    compliance:
+      complianceReview?.status === 'EVIDENCE_PACK_COMPLETE' &&
+      complianceReview?.readyForProductionReadinessAudit === true &&
+      allTrue(complianceReview, ['classificationReviewCompleted', 'regulatedScopeResolved', 'legalCounselOrAuthorizedReviewerCompleted']) &&
+      complianceReview?.softwareDoesNotSelfEstablishLegalApproval === true &&
+      complianceReview?.legalApprovalEstablished === false,
     reliability: allTrue(reliabilityEvidence, ['releaseVerifyPassed', 'comprehensiveVerifyPassed', 'deepPlatformVerifyPassed', 'realBrowserE2ePassed']) && reliabilityEvidence?.fatalConsoleErrors === 0 && reliabilityEvidence?.pageErrors === 0 && reliabilityEvidence?.observabilityEvidencePresent === true,
     recovery: allTrue(recoveryEvidence, ['backupEvidencePresent', 'restoreTestCompleted', 'rollbackExercised']) && nonEmptyString(recoveryEvidence?.restoreEvidenceRef),
     deployment:
@@ -91,7 +96,7 @@ function buildProductionReadinessAudit({
   if (!domains.security) return hold(PRODUCTION_READINESS_STATUS.HOLD_SECURITY, ['structured independent/runtime security evidence incomplete or blocking findings remain'], domains);
   if (!domains.data) return hold(PRODUCTION_READINESS_STATUS.HOLD_DATA, ['data governance/isolation/privacy evidence incomplete'], domains);
   if (!domains.aiGovernance) return hold(PRODUCTION_READINESS_STATUS.HOLD_AI_GOVERNANCE, ['AI governance evidence incomplete'], domains);
-  if (!domains.compliance) return hold(PRODUCTION_READINESS_STATUS.HOLD_COMPLIANCE, ['compliance classification/review unresolved'], domains);
+  if (!domains.compliance) return hold(PRODUCTION_READINESS_STATUS.HOLD_COMPLIANCE, ['structured regulatory/legal classification evidence or operating-boundary review incomplete'], domains);
   if (!domains.reliability) return hold(PRODUCTION_READINESS_STATUS.HOLD_RELIABILITY, ['verification/observability evidence incomplete'], domains);
   if (!domains.recovery) return hold(PRODUCTION_READINESS_STATUS.HOLD_RECOVERY, ['backup/restore/rollback evidence incomplete'], domains);
   if (!domains.deployment || !Array.isArray(evidenceRefs) || evidenceRefs.filter(nonEmptyString).length === 0) {
