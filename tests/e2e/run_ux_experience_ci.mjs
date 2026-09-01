@@ -134,7 +134,10 @@ try {
       await locator.click();
       await page.waitForTimeout(200);
       const after = await page.locator('body').innerText();
-      record(`NAV_${label}_RESPONDS`, after.length > 0 && (after !== before || label === 'لوحة المؤشرات'));
+      // The application boots into Existing Building, so clicking that already-active
+      // view is intentionally idempotent. A no-op in that one state is not a UX failure.
+      const alreadyActiveDefault = label === 'مبنى قائم' && before === after;
+      record(`NAV_${label}_RESPONDS`, after.length > 0 && (after !== before || alreadyActiveDefault || label === 'لوحة المؤشرات'));
     }
   }
 
