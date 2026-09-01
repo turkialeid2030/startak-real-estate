@@ -2,7 +2,7 @@ import './index.css';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './app/App.jsx';
-import LocalDocumentEvidenceIntakePanel from './components/LocalDocumentEvidenceIntakePanel.jsx';
+import LocalDocumentEvidenceWorkspace from './components/LocalDocumentEvidenceWorkspace.jsx';
 const { LocaleProvider } = require('./i18n/LocaleContext.js');
 const { installRuntimeBuildMetadata } = require('./runtime/build-metadata.js');
 const { installGlobalHandlers } = require('./observability/report-runtime-error.js');
@@ -24,7 +24,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <LocaleProvider defaultLocale="ar-SA">
       <App />
-      <LocalDocumentEvidenceIntakePanel />
+      <LocalDocumentEvidenceWorkspace />
     </LocaleProvider>
   </React.StrictMode>
 );
