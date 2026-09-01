@@ -28,17 +28,21 @@ check('main entrypoint does not consume governance-grade payloads from ambient w
   for (const token of prohibitedAmbientGlobals) {
     assert.strictEqual(main.includes(token), false, `ambient governance global still present: ${token}`);
   }
+  assert.strictEqual(main.includes('window.__STARTAK_'), false);
 });
 
 check('main entrypoint no longer conditionally mounts advanced governance panels from ambient payloads', () => {
   assert.strictEqual(main.includes('runtimeDecisionWorkspace'), false);
   assert.strictEqual(main.includes('runtimeCommitteeDossier'), false);
   assert.strictEqual(main.includes('runtimeOutcomeFeedback'), false);
+  assert.strictEqual(main.includes('DecisionIntelligenceWorkspacePanel'), false);
+  assert.strictEqual(main.includes('InvestmentCommitteeDossierPanel'), false);
+  assert.strictEqual(main.includes('OutcomeMonitoringPanel'), false);
 });
 
 check('runtime build metadata installation remains intact and separate from governance payloads', () => {
+  assert.ok(main.includes("require('./runtime/build-metadata.js')"));
   assert.ok(main.includes('installRuntimeBuildMetadata()'));
-  assert.ok(main.includes('BUILD') === false || true); // no semantic dependency on mutable governance state
 });
 
 check('core application and locale provider remain mounted', () => {
