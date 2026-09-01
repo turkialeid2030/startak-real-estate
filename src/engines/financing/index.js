@@ -1,7 +1,6 @@
 'use strict';
 
 // src/engines/financing/index.js -- SELECTOR FACADE.
-// Selects financing-related fields from an already-computed canonical result.
 function selectFinancingResult(engineResult) {
   return {
     loanAmount: engineResult.loanAmount,
@@ -20,6 +19,8 @@ function selectFinancingResult(engineResult) {
     loanSizingConstraint: engineResult.loanSizingConstraint,
     ltvLoanLimit: engineResult.ltvLoanLimit,
     dscrLoanLimit: engineResult.dscrLoanLimit,
+    ltcPrincipalLimit: engineResult.ltcPrincipalLimit,
+    constructionDebtFraction: engineResult.constructionDebtFraction,
     tenorMonths: engineResult.tenorMonths,
     gracePeriodMonths: engineResult.gracePeriodMonths,
     graceType: engineResult.graceType,
@@ -30,6 +31,12 @@ function selectFinancingResult(engineResult) {
     annualDebtSchedule: engineResult.annualDebtSchedule,
     debtServiceBasis: engineResult.debtServiceBasis,
     debtServicePeak: engineResult.debtServicePeak,
+    initialEquityRequired: engineResult.initialEquityRequired,
+    totalConstructionEquity: engineResult.totalConstructionEquity,
+    termRefinanceBalance: engineResult.termRefinanceBalance,
+    capitalizedConstructionInterest: engineResult.capitalizedConstructionInterest,
+    constructionDebtSchedule: engineResult.constructionDebtSchedule,
+    annualConstructionDebtDraws: engineResult.annualConstructionDebtDraws,
   };
 }
 module.exports = { selectFinancingResult };

@@ -1,10 +1,18 @@
 'use strict';
 
-const { computeNPV, computeIRR, sizeDebtByLtvAndDscr, classifyFinancingModel } = require('../financial');
+const {
+  computeNPV,
+  computeIRR,
+  sizeDebtByLtvAndDscr,
+  classifyFinancingModel,
+  sizeConstructionFacilityByLtcAndDscr,
+  buildAnnualConstructionDebtDraws,
+} = require('../financial');
 const { tierVerdict } = require('../recommendation');
 const { STUDY_TYPE } = require('../../contracts/study-type');
 
-const FINANCING_ENGINE_VERSION = 'MONTHLY_DSCR_WAVE_B_1.0';
+const BUILDING_FINANCING_ENGINE_VERSION = 'MONTHLY_DSCR_WAVE_B_1.0';
+const LAND_FINANCING_ENGINE_VERSION = 'CONSTRUCTION_MONTHLY_DSCR_WAVE_B_2.0';
 
 function getRemainingBalanceAtYear(plan, year) {
   if (!plan || !Array.isArray(plan.annualSchedule) || year <= 0) return 0;
@@ -31,17 +39,39 @@ function updateDecisionForFinancing(baseResult, dscrMet, leveredNpvMet) {
     return { ...item };
   });
   const verdictResult = tierVerdict(criteria);
+  return { criteria, verdictResult };
+}
+
+function commonFinancingOptions(inputs) {
   return {
-    criteria,
-    verdictResult,
+    gracePeriodMonths: inputs.gracePeriodMonths == null ? 0 : inputs.gracePeriodMonths,
+    graceType: inputs.graceType || 'INTEREST_ONLY',
+    balloonPct: inputs.balloonPct == null ? 0 : inputs.balloonPct,
+  };
+}
+
+function commonFinancingEvidence(inputs, plan, classification) {
+  return {
+    financingModelType: classification.modelType,
+    financingModelBoundary: classification.boundary,
+    exactContractModel: classification.exactContractModel,
+    tenorMonths: plan.tenorMonths,
+    gracePeriodMonths: inputs.gracePeriodMonths == null ? 0 : inputs.gracePeriodMonths,
+    graceType: inputs.graceType || 'INTEREST_ONLY',
+    balloonPct: inputs.balloonPct == null ? 0 : inputs.balloonPct,
+    balloonAmount: plan.balloonAmount,
+    scheduledMonthlyPayment: plan.scheduledMonthlyPayment,
+    annualDebtService: plan.annualDebtService,
+    annualDebtSchedule: plan.annualSchedule,
+    debtService: plan.annualDebtService[0] || 0,
+    debtServiceBasis: 'YEAR_1_ACTUAL',
+    debtServicePeak: plan.annualDebtService.length ? Math.max(...plan.annualDebtService) : 0,
   };
 }
 
 function applyExistingBuildingFinancing(inputs, baseResult) {
   const annualNoi = buildAnnualNoiForDebtSizing(baseResult, inputs);
-  const gracePeriodMonths = inputs.gracePeriodMonths == null ? 0 : inputs.gracePeriodMonths;
-  const graceType = inputs.graceType || 'INTEREST_ONLY';
-  const balloonPct = inputs.balloonPct == null ? 0 : inputs.balloonPct;
+  const options = commonFinancingOptions(inputs);
   const financingClassification = classifyFinancingModel(inputs.financingStructureLabel);
 
   const sizing = sizeDebtByLtvAndDscr({
@@ -51,7 +81,7 @@ function applyExistingBuildingFinancing(inputs, baseResult) {
     minDscrThreshold: inputs.minDscrThreshold,
     annualRate: inputs.loanRate,
     tenorYears: inputs.loanTenor,
-    options: { gracePeriodMonths, graceType, balloonPct },
+    options,
   });
 
   const loanAmount = sizing.loanAmount;
@@ -78,33 +108,15 @@ function applyExistingBuildingFinancing(inputs, baseResult) {
   const c7 = Number.isFinite(leveredNPV) && leveredNPV >= 0;
   const { criteria, verdictResult } = updateDecisionForFinancing(baseResult, c5, c7);
 
-  const firstYearDebtService = sizing.plan.annualDebtService[0] || 0;
-  const debtServicePeak = sizing.plan.annualDebtService.length
-    ? Math.max(...sizing.plan.annualDebtService)
-    : 0;
-
   return {
     ...baseResult,
-    financingEngineVersion: FINANCING_ENGINE_VERSION,
-    financingModelType: financingClassification.modelType,
-    financingModelBoundary: financingClassification.boundary,
-    exactContractModel: financingClassification.exactContractModel,
+    financingEngineVersion: BUILDING_FINANCING_ENGINE_VERSION,
+    ...commonFinancingEvidence(inputs, sizing.plan, financingClassification),
     loanSizingConstraint: sizing.bindingConstraint,
     ltvLoanLimit: sizing.ltvLimit,
     dscrLoanLimit: sizing.dscrLimit,
     loanAmount,
     equityRequired,
-    tenorMonths: sizing.plan.tenorMonths,
-    gracePeriodMonths,
-    graceType,
-    balloonPct,
-    balloonAmount: sizing.plan.balloonAmount,
-    scheduledMonthlyPayment: sizing.plan.scheduledMonthlyPayment,
-    annualDebtService: sizing.plan.annualDebtService,
-    annualDebtSchedule: sizing.plan.annualSchedule,
-    debtService: firstYearDebtService,
-    debtServiceBasis: 'YEAR_1_ACTUAL',
-    debtServicePeak,
     dscrMin,
     leveredCashflows,
     leveredIRR,
@@ -122,21 +134,105 @@ function applyExistingBuildingFinancing(inputs, baseResult) {
   };
 }
 
+function applyLandDevelopmentFinancing(inputs, baseResult) {
+  const options = commonFinancingOptions(inputs);
+  const financingClassification = classifyFinancingModel(inputs.financingStructureLabel);
+  const sizing = sizeConstructionFacilityByLtcAndDscr({
+    landCost: baseResult.totalLandAcquisitionCost,
+    constructionCost: baseResult.totalConstructionCost,
+    maxDebtFraction: inputs.ltv,
+    annualRate: inputs.loanRate,
+    constructionYears: inputs.constructionPeriod,
+    termTenorYears: inputs.loanTenor,
+    annualNoi: baseResult.operatingNoiCashflows,
+    minDscrThreshold: inputs.minDscrThreshold,
+    termOptions: options,
+  });
+
+  const facility = sizing.facility;
+  const termPlan = sizing.termPlan;
+  const constructionYears = Math.max(1, Math.round(inputs.constructionPeriod));
+  const operatingYears = Math.max(1, Math.round(inputs.operatingPeriod));
+  const debtFraction = sizing.debtFraction;
+
+  const initialLandEquity = baseResult.totalLandAcquisitionCost * (1 - debtFraction);
+  const totalConstructionEquity = baseResult.totalConstructionCost * (1 - debtFraction);
+  const perYearConstructionEquity = totalConstructionEquity / constructionYears;
+  const equityRequired = initialLandEquity + totalConstructionEquity;
+  const leveredCashflows = [-initialLandEquity];
+  for (let year = 0; year < constructionYears; year += 1) {
+    leveredCashflows.push(-perYearConstructionEquity);
+  }
+
+  for (let year = 1; year <= operatingYears; year += 1) {
+    const noi = baseResult.operatingNoiCashflows[year - 1] ?? 0;
+    const debtService = termPlan.annualDebtService[year - 1] || 0;
+    if (year < operatingYears) {
+      leveredCashflows.push(noi - debtService);
+    } else {
+      const remainingBalance = getRemainingBalanceAtYear(termPlan, year);
+      leveredCashflows.push(noi - debtService + baseResult.terminalNetExitValue - remainingBalance);
+    }
+  }
+
+  const leveredIRR = computeIRR(leveredCashflows);
+  const equityDiscountRate = inputs.hurdleRate + inputs.equityRiskSpread;
+  const leveredNPV = computeNPV(equityDiscountRate, leveredCashflows);
+  const dscrMin = sizing.dscrAtDebtFraction;
+  const c5 = dscrMin !== null && dscrMin >= inputs.minDscrThreshold;
+  const c6 = Number.isFinite(leveredNPV) && leveredNPV >= 0;
+  const { criteria, verdictResult } = updateDecisionForFinancing(baseResult, c5, c6);
+
+  return {
+    ...baseResult,
+    financingEngineVersion: LAND_FINANCING_ENGINE_VERSION,
+    ...commonFinancingEvidence(inputs, termPlan, financingClassification),
+    loanSizingConstraint: sizing.bindingConstraint,
+    ltcPrincipalLimit: baseResult.totalProjectCost * inputs.ltv,
+    constructionDebtFraction: debtFraction,
+    loanAmount: facility.principalDebtDraws,
+    equityRequired,
+    initialEquityRequired: initialLandEquity,
+    totalConstructionEquity,
+    constructionLoanBalance: facility.completionBalance,
+    termRefinanceBalance: facility.completionBalance,
+    capitalizedConstructionInterest: facility.capitalizedInterest,
+    constructionDebtSchedule: facility.schedule,
+    annualConstructionDebtDraws: buildAnnualConstructionDebtDraws(facility),
+    dscrMin,
+    leveredCashflows,
+    leveredIRR,
+    leveredNPV,
+    equityDiscountRate,
+    c5,
+    c6,
+    criteriaDetail: criteria,
+    metCount: verdictResult.met,
+    totalCriteria: verdictResult.total,
+    verdict: verdictResult.verdict,
+    decisionStatus: verdictResult.decisionStatus,
+    failedHardGates: verdictResult.failedHardGates,
+    failedSoftCriteria: verdictResult.failedSoftCriteria,
+  };
+}
+
 function applyFinancingRemediation({ studyType, inputs, engineResult }) {
   if (!inputs.leverageEnabled) return engineResult;
   if (studyType === STUDY_TYPE.EXISTING_BUILDING) {
     return applyExistingBuildingFinancing(inputs, engineResult);
   }
-  // Land-development construction financing requires a drawdown/refinancing
-  // model and is intentionally not replaced by a false generic term-loan model
-  // in Wave B1. The raw construction financing remains until Wave B2.
+  if (studyType === STUDY_TYPE.LAND_DEVELOPMENT) {
+    return applyLandDevelopmentFinancing(inputs, engineResult);
+  }
   return engineResult;
 }
 
 module.exports = {
-  FINANCING_ENGINE_VERSION,
+  BUILDING_FINANCING_ENGINE_VERSION,
+  LAND_FINANCING_ENGINE_VERSION,
   getRemainingBalanceAtYear,
   buildAnnualNoiForDebtSizing,
   applyExistingBuildingFinancing,
+  applyLandDevelopmentFinancing,
   applyFinancingRemediation,
 };

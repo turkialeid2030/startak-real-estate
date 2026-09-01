@@ -50,10 +50,12 @@ function amortizationSchedule(principal, rate, years) {
 }
 
 const monthlyDebt = require('./monthly-debt');
+const constructionDebt = require('./construction-debt');
 
 module.exports = {
   computeNPV,
   computeIRR,
   amortizationSchedule,
   ...monthlyDebt,
+  ...constructionDebt,
 };
