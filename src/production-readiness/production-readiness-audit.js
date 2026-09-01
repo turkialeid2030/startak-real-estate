@@ -74,7 +74,11 @@ function buildProductionReadinessAudit({
     compliance: allTrue(complianceReview, ['classificationReviewCompleted', 'regulatedScopeResolved', 'legalCounselOrAuthorizedReviewerCompleted']) && complianceReview?.softwareDoesNotSelfEstablishLegalApproval === true,
     reliability: allTrue(reliabilityEvidence, ['releaseVerifyPassed', 'comprehensiveVerifyPassed', 'deepPlatformVerifyPassed', 'realBrowserE2ePassed']) && reliabilityEvidence?.fatalConsoleErrors === 0 && reliabilityEvidence?.pageErrors === 0 && reliabilityEvidence?.observabilityEvidencePresent === true,
     recovery: allTrue(recoveryEvidence, ['backupEvidencePresent', 'restoreTestCompleted', 'rollbackExercised']) && nonEmptyString(recoveryEvidence?.restoreEvidenceRef),
-    deployment: allTrue(deploymentEvidence, ['targetEnvironmentDeclared', 'releaseVersionDeclared', 'monitoringConfigured', 'alertingConfigured', 'deploymentProcedureDocumented', 'rollbackProcedureDocumented']) && nonEmptyString(deploymentEvidence?.releaseRef),
+    deployment:
+      deploymentEvidence?.status === 'EVIDENCE_PACK_COMPLETE' &&
+      deploymentEvidence?.readyForProductionReadinessAudit === true &&
+      allTrue(deploymentEvidence, ['targetEnvironmentDeclared', 'releaseVersionDeclared', 'monitoringConfigured', 'alertingConfigured', 'deploymentProcedureDocumented', 'rollbackProcedureDocumented']) &&
+      nonEmptyString(deploymentEvidence?.releaseRef),
   };
 
   if (!domains.pilot) return hold(PRODUCTION_READINESS_STATUS.HOLD_PILOT_EVIDENCE, ['pilot execution evidence incomplete'], domains);
@@ -85,7 +89,7 @@ function buildProductionReadinessAudit({
   if (!domains.reliability) return hold(PRODUCTION_READINESS_STATUS.HOLD_RELIABILITY, ['verification/observability evidence incomplete'], domains);
   if (!domains.recovery) return hold(PRODUCTION_READINESS_STATUS.HOLD_RECOVERY, ['backup/restore/rollback evidence incomplete'], domains);
   if (!domains.deployment || !Array.isArray(evidenceRefs) || evidenceRefs.filter(nonEmptyString).length === 0) {
-    return hold(PRODUCTION_READINESS_STATUS.HOLD_DEPLOYMENT_EVIDENCE, ['deployment/evidence references incomplete'], domains);
+    return hold(PRODUCTION_READINESS_STATUS.HOLD_DEPLOYMENT_EVIDENCE, ['structured deployment evidence pack/reference chain incomplete'], domains);
   }
 
   return {
