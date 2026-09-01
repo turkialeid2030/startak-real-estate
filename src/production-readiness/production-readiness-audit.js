@@ -68,7 +68,13 @@ function buildProductionReadinessAudit({
 
   const domains = {
     pilot: pilotEvidencePack?.status === 'EVIDENCE_PACK_COMPLETE' && pilotEvidencePack?.readyForProductionReadinessAudit === true,
-    security: securityReview?.independentReviewCompleted === true && securityReview?.runtimeIdentityEvidenceReferenced === true && securityReview?.runtimeRlsEvidenceReferenced === true && noBlockingFindings(securityReview),
+    security:
+      securityReview?.status === 'EVIDENCE_PACK_COMPLETE' &&
+      securityReview?.readyForProductionReadinessAudit === true &&
+      securityReview?.independentReviewCompleted === true &&
+      securityReview?.runtimeIdentityEvidenceReferenced === true &&
+      securityReview?.runtimeRlsEvidenceReferenced === true &&
+      noBlockingFindings(securityReview),
     data: allTrue(dataReadiness, ['caseIsolationVerified', 'tenantIsolationVerified', 'provenanceControlsVerified', 'retentionControlsVerified', 'privacyControlsVerified', 'noDataLeakageObserved']),
     aiGovernance: allTrue(aiGovernance, ['humanFinalAuthority', 'noAutonomousTransaction', 'staleAiInvalidationVerified', 'boundedOutputsVerified', 'modelOrPromptVersionEvidencePresent']),
     compliance: allTrue(complianceReview, ['classificationReviewCompleted', 'regulatedScopeResolved', 'legalCounselOrAuthorizedReviewerCompleted']) && complianceReview?.softwareDoesNotSelfEstablishLegalApproval === true,
@@ -82,7 +88,7 @@ function buildProductionReadinessAudit({
   };
 
   if (!domains.pilot) return hold(PRODUCTION_READINESS_STATUS.HOLD_PILOT_EVIDENCE, ['pilot execution evidence incomplete'], domains);
-  if (!domains.security) return hold(PRODUCTION_READINESS_STATUS.HOLD_SECURITY, ['independent/runtime security evidence incomplete or blocking findings remain'], domains);
+  if (!domains.security) return hold(PRODUCTION_READINESS_STATUS.HOLD_SECURITY, ['structured independent/runtime security evidence incomplete or blocking findings remain'], domains);
   if (!domains.data) return hold(PRODUCTION_READINESS_STATUS.HOLD_DATA, ['data governance/isolation/privacy evidence incomplete'], domains);
   if (!domains.aiGovernance) return hold(PRODUCTION_READINESS_STATUS.HOLD_AI_GOVERNANCE, ['AI governance evidence incomplete'], domains);
   if (!domains.compliance) return hold(PRODUCTION_READINESS_STATUS.HOLD_COMPLIANCE, ['compliance classification/review unresolved'], domains);

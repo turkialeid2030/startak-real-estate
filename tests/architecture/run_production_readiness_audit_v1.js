@@ -8,7 +8,15 @@ function base() {
   return {
     ...scope,
     pilotEvidencePack: { ...scope, status: 'EVIDENCE_PACK_COMPLETE', readyForProductionReadinessAudit: true },
-    securityReview: { ...scope, independentReviewCompleted: true, runtimeIdentityEvidenceReferenced: true, runtimeRlsEvidenceReferenced: true, findings: [] },
+    securityReview: {
+      ...scope,
+      status: 'EVIDENCE_PACK_COMPLETE',
+      readyForProductionReadinessAudit: true,
+      independentReviewCompleted: true,
+      runtimeIdentityEvidenceReferenced: true,
+      runtimeRlsEvidenceReferenced: true,
+      findings: [],
+    },
     dataReadiness: { ...scope, caseIsolationVerified: true, tenantIsolationVerified: true, provenanceControlsVerified: true, retentionControlsVerified: true, privacyControlsVerified: true, noDataLeakageObserved: true },
     aiGovernance: { ...scope, humanFinalAuthority: true, noAutonomousTransaction: true, staleAiInvalidationVerified: true, boundedOutputsVerified: true, modelOrPromptVersionEvidencePresent: true },
     complianceReview: { ...scope, classificationReviewCompleted: true, regulatedScopeResolved: true, legalCounselOrAuthorizedReviewerCompleted: true, softwareDoesNotSelfEstablishLegalApproval: true },
@@ -42,6 +50,7 @@ assert.strictEqual(ready.humanApprovalRequired, true);
 const cases = [
   ['pilotEvidencePack', 'readyForProductionReadinessAudit', false, PRODUCTION_READINESS_STATUS.HOLD_PILOT_EVIDENCE],
   ['securityReview', 'runtimeRlsEvidenceReferenced', false, PRODUCTION_READINESS_STATUS.HOLD_SECURITY],
+  ['securityReview', 'readyForProductionReadinessAudit', false, PRODUCTION_READINESS_STATUS.HOLD_SECURITY],
   ['dataReadiness', 'noDataLeakageObserved', false, PRODUCTION_READINESS_STATUS.HOLD_DATA],
   ['aiGovernance', 'humanFinalAuthority', false, PRODUCTION_READINESS_STATUS.HOLD_AI_GOVERNANCE],
   ['complianceReview', 'regulatedScopeResolved', false, PRODUCTION_READINESS_STATUS.HOLD_COMPLIANCE],
@@ -73,4 +82,4 @@ const noRefs = base();
 noRefs.evidenceRefs = ['   '];
 assert.strictEqual(buildProductionReadinessAudit(noRefs).status, PRODUCTION_READINESS_STATUS.HOLD_DEPLOYMENT_EVIDENCE);
 
-console.log('PRODUCTION_READINESS_AUDIT_V1=PASS checks=14');
+console.log('PRODUCTION_READINESS_AUDIT_V1=PASS checks=15');

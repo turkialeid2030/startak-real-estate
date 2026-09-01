@@ -160,6 +160,8 @@ check('deployment evidence pack integrates with production readiness audit', () 
     projectId,
     pilotEvidencePack: scoped({ status: 'EVIDENCE_PACK_COMPLETE', readyForProductionReadinessAudit: true }),
     securityReview: scoped({
+      status: 'EVIDENCE_PACK_COMPLETE',
+      readyForProductionReadinessAudit: true,
       independentReviewCompleted: true,
       runtimeIdentityEvidenceReferenced: true,
       runtimeRlsEvidenceReferenced: true,
