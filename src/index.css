@@ -1,1 +1,8 @@
 @import "tailwindcss";
+
+/* UX hardening: preserve the compact visual switch while meeting the 24px
+   minimum interactive target used by the real-browser usability gate. */
+.rf-root button[role="switch"] {
+  min-height: 24px;
+  touch-action: manipulation;
+}
