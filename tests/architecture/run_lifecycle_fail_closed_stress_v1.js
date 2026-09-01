@@ -97,10 +97,13 @@ function baseExecution(readiness) {
       learningReviewExercised: true, caseIsolationObserved: true, errorLoggingObserved: true,
       realBrowserPathObserved: true,
     },
-    users: [{ id: 'u1', verified: true, inviteOnly: true }, { id: 'u2', verified: true, inviteOnly: true }],
+    users: [
+      { userRef: 'u1', verified: true, inviteOnly: true },
+      { userRef: 'u2', verified: true, inviteOnly: true },
+    ],
     incidents: [],
     rollback: { documented: true, exercised: true, evidenceRef: 'rollback-1' },
-    evidenceRefs: ['pilot-run-1', 'browser-1', 'logs-1'],
+    evidenceRefs: ['pilot-run-1', 'browser-1', 'logs-1', 'rollback-1'],
   };
 }
 
@@ -116,7 +119,7 @@ record('pilot evidence pack complete path remains non-production', () => {
 const executionMutations = [
   ['execution incomplete', (x) => { x.execution.learningReviewExercised = false; }, PILOT_EXECUTION_STATUS.HOLD_EXECUTION_EVIDENCE],
   ['unverified user', (x) => { x.users[0].verified = false; }, PILOT_EXECUTION_STATUS.HOLD_USER_LIMIT],
-  ['too many users', (x) => { x.users = Array.from({ length: 6 }, (_, i) => ({ id: `u${i}`, verified: true, inviteOnly: true })); }, PILOT_EXECUTION_STATUS.HOLD_USER_LIMIT],
+  ['too many users', (x) => { x.users = Array.from({ length: 6 }, (_, i) => ({ userRef: `u${i}`, verified: true, inviteOnly: true })); }, PILOT_EXECUTION_STATUS.HOLD_USER_LIMIT],
   ['critical incident', (x) => { x.incidents = [{ severity: 'CRITICAL', resolved: false, type: 'RUNTIME' }]; }, PILOT_EXECUTION_STATUS.HOLD_INCIDENTS],
   ['data leakage incident', (x) => { x.incidents = [{ severity: 'LOW', resolved: true, type: 'DATA_LEAKAGE' }]; }, PILOT_EXECUTION_STATUS.HOLD_INCIDENTS],
   ['rollback not exercised', (x) => { x.rollback.exercised = false; }, PILOT_EXECUTION_STATUS.HOLD_ROLLBACK],
@@ -134,8 +137,8 @@ for (const [name, mutate, expected] of executionMutations) {
 }
 
 const summary = {
-  schemaVersion: 1,
-  dimensions: ['fail-closed-precedence', 'scope-isolation', 'pilot-controls', 'incident-safety', 'rollback', 'human-authority', 'non-production-boundary'],
+  schemaVersion: 2,
+  dimensions: ['fail-closed-precedence', 'scope-isolation', 'pilot-controls', 'incident-safety', 'rollback', 'human-authority', 'non-production-boundary', 'participant-identity', 'evidence-binding'],
   passed: results.filter((r) => r.status === 'PASS').length,
   failed: results.filter((r) => r.status === 'FAIL').length,
   results,
