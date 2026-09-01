@@ -26,12 +26,16 @@ function rollback(overrides = {}) {
   const result = buildPilotExecutionEvidencePack({
     caseId: 'case-1', projectId: 'project-1', readiness: readiness(), execution: execution(), users: users(),
     incidents: [{ id: 'i-1', severity: 'LOW', type: 'UI', resolved: true }], rollback: rollback(),
-    evidenceRefs: ['pilot-run-log', 'browser-run', 'case-isolation-check'],
+    evidenceRefs: ['pilot-run-log', 'browser-run', 'case-isolation-check', 'rollback-ev-1'],
   });
+  assert.strictEqual(result.schemaVersion, 2);
   assert.strictEqual(result.status, PILOT_EXECUTION_STATUS.EVIDENCE_PACK_COMPLETE);
   assert.strictEqual(result.readyForProductionReadinessAudit, true);
   assert.strictEqual(result.productionReady, false);
   assert.strictEqual(result.transactionAuthorized, false);
+  assert.strictEqual(result.pilotWindow.durationMs, 60 * 60 * 1000);
+  assert.strictEqual(result.evidenceIntegrity.chronologyValidated, true);
+  assert.strictEqual(result.evidenceIntegrity.rollbackEvidenceBound, true);
 })();
 
 (function readinessHold() {
