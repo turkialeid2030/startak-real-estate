@@ -1,18 +1,26 @@
 # CSP_POLICY
 
 SECURITY_HEADER_POLICY_DEFINED = TRUE
+ARTIFACT_HEADER_CONFIGURATION_PRESENT = TRUE
+LIVE_EDGE_HEADER_ENFORCEMENT_VERIFIED = FALSE
 CSP_UNSAFE_EVAL = FALSE
-SECURITY_HEADERS_DEPLOYED = FALSE (no live edge exists yet to deploy to)
 
-Recommended header set:
-```
-Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none'
+The repository currently ships `public/_headers` with the following policy for static hosts that support that convention:
+
+```text
+Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://o4512003775004672.ingest.de.sentry.io; font-src 'self' data:; frame-ancestors 'none'; form-action 'self'; upgrade-insecure-requests
+Permissions-Policy: geolocation=(), microphone=(), camera=()
+Strict-Transport-Security: max-age=31536000; includeSubDomains
 X-Content-Type-Options: nosniff
 Referrer-Policy: strict-origin-when-cross-origin
-Permissions-Policy: geolocation=(), microphone=(), camera=()
 ```
-`style-src 'unsafe-inline'` is required because the application uses inline `style={{...}}` React props extensively (not `unsafe-inline` for scripts). No `unsafe-eval` anywhere -- confirmed zero `eval`/`new Function` in production source.
 
-HSTS: to be added only at the actual HTTPS edge once a host is authorized -- not claimed here.
+`style-src 'unsafe-inline'` remains required because the application uses React inline `style={{...}}` properties. It does **not** permit inline scripts. `script-src` remains `'self'` and no `unsafe-eval` is configured.
 
-**Local compatibility test performed this session**: candidate CSP injected via `<meta>` tag against the real production build; exercised locale switch, Building↔Land navigation, and Saved Deals panel open -- **0 CSP violations**, app remained fully interactive. `CSP_APPLICATION_BREAKAGE = 0`. This is a local simulation only, not equivalent to live-edge header enforcement.
+## Evidence boundary
+
+The existence and successful packaging of `_headers` establishes that the security-header configuration is present in the deployment artifact. It does not prove that a live CDN/edge is honoring those headers.
+
+A live deployment may only be marked header-verified after capturing the actual HTTP response headers from the exact deployed URL/build and comparing them with the intended policy. HSTS effectiveness also depends on HTTPS edge behavior and therefore cannot be self-certified by this repository.
+
+The previous statement `SECURITY_HEADERS_DEPLOYED = FALSE (no live edge exists yet)` was historical and is no longer used as a current fact. The current distinction is **artifact configured** versus **live-edge enforcement independently verified**.
