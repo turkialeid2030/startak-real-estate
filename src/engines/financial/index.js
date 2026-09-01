@@ -1,5 +1,4 @@
-// src/engines/financial/index.js -- EXTRACTED VERBATIM from platform-source.jsx lines 92-138.
-// No formula changes. Extraction only. See REBASE_CHANGE_MANIFEST.csv.
+// src/engines/financial/index.js -- canonical financial primitives.
 function computeNPV(rate, cashflows) {
   return cashflows.reduce((acc, cf, t) => acc + cf / Math.pow(1 + rate, t), 0);
 }
@@ -33,6 +32,8 @@ function computeIRR(cashflows, guess = 0.1) {
   return rate;
 }
 
+// Retained for frozen/raw-engine compatibility. Production leveraged cases are
+// remediated through the monthly financing overlay in src/engines/financing.
 function amortizationSchedule(principal, rate, years) {
   const n = Math.max(1, Math.round(years));
   if (principal <= 0) return { payment: 0, schedule: [] };
@@ -48,4 +49,11 @@ function amortizationSchedule(principal, rate, years) {
   return { payment, schedule };
 }
 
-module.exports = { computeNPV, computeIRR, amortizationSchedule };
+const monthlyDebt = require('./monthly-debt');
+
+module.exports = {
+  computeNPV,
+  computeIRR,
+  amortizationSchedule,
+  ...monthlyDebt,
+};
