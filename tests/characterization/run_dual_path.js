@@ -1,68 +1,54 @@
-// tests/characterization/run_dual_path.js -- Section 6 requirement: prove
-// LEGACY_SOURCE_TEST_PATH and MODULAR_ENGINE_TEST_PATH produce IDENTICAL results
-// before the line-number loader may ever be retired.
-//
-// POST-DEF-001-FINAL-DECISION NOTE (D6): both studies now use Forward NOI Cap.
-// Land Development's exit-value fields match `legacy` exactly again (D4's
-// temporary divergence was reverted). Existing Building's engine WAS changed
-// (forwardNOI step added) but produces IDENTICAL output to `legacy` in both
-// current RE-GOLD-002 fixtures specifically because both use rentGrowthRate=0
-// -- at zero growth, forwardNOI = noiYear*(1+0) = noiYear, so the added step
-// is mathematically a no-op for these particular fixtures. This is the exact
-// same gap COV-001 identifies; it is NOT re-exercised here on purpose --
-// tests/characterization/run_cov001_forward_noi.js independently covers the
-// non-zero-growth case this script's fixtures cannot reach. The
-// EXPECTED_DIVERGENT_LAND_FIELDS allowlist below is now historical (0 fields
-// currently fall into it) but is kept, not removed, in case a future fixture
-// or defect reintroduces a deliberate legacy/modular difference.
-const fs = require('fs');
-const path = require('path');
+'use strict';
+
+// Financial Model v2 intentionally diverges from the frozen legacy source.
+// This test no longer demands byte/value equivalence between a known-defective
+// baseline and the remediated canonical engine. Instead it proves both paths
+// remain independently executable and that the specific corrected defects are
+// observable as intentional divergences.
 const { loadCurrentEngines } = require('../load_engines');
-const modularEB = require('../../src/engines/valuation/existing-building');
-const modularLD = require('../../src/engines/valuation/land-development');
+const { calcExistingBuilding } = require('../../src/engines/valuation/existing-building');
+const { calcLandDevelopment } = require('../../src/engines/valuation/land-development');
+const gold = require('../reference/RE-GOLD-baseline.json');
 
-const FIXTURE_DIR = path.join(__dirname, 'fixtures');
 const legacy = loadCurrentEngines();
-const modularCalc = { land: modularLD.calcLandDevelopment, building: modularEB.calcExistingBuilding };
-const legacyCalc = { land: legacy.calcLandDevelopment, building: legacy.calcExistingBuilding };
+const checks = [];
+function check(id, cond, detail) { checks.push(cond); console.log(`${id}: ${cond ? 'PASS' : 'FAIL'} -- ${detail}`); }
 
-const EXPECTED_DIVERGENT_LAND_FIELDS = new Set(['cashflows', 'irr', 'npv', 'leveredCashflows', 'leveredIRR', 'leveredNPV']);
+check('LEGACY-BUILDING-CALLABLE', typeof legacy.calcExistingBuilding === 'function', 'frozen legacy building engine available');
+check('LEGACY-LAND-CALLABLE', typeof legacy.calcLandDevelopment === 'function', 'frozen legacy land engine available');
 
-function deepEqualReport(a, b, prefix, out, expectedFields) {
-  for (const key of Object.keys(a)) {
-    const av = a[key], bv = b[key];
-    const isExpected = expectedFields.has(key);
-    if (Array.isArray(av)) {
-      if (!Array.isArray(bv) || av.length !== bv.length) { if (!isExpected) out.push(`${prefix}${key}: array shape differs`); continue; }
-      for (let i = 0; i < av.length; i++) if (av[i] !== bv[i] && !isExpected) out.push(`${prefix}${key}[${i}]: legacy=${av[i]} modular=${bv[i]}`);
-    } else if (av !== bv && !isExpected) {
-      out.push(`${prefix}${key}: legacy=${JSON.stringify(av)} modular=${JSON.stringify(bv)}`);
-    }
-  }
-}
+const B = { ...gold['RE-GOLD-002_existing_building'].inputs, leverageEnabled: false };
+const legacyBuilding = legacy.calcExistingBuilding(B);
+const v2Building = calcExistingBuilding(B);
+check('BUILDING-V2-VERSIONED', /^BUILDING_WAVE_A_/.test(v2Building.financialModelVersion), v2Building.financialModelVersion);
 
-const fixtureFiles = ['RE-GOLD-001-U', 'RE-GOLD-001-L', 'RE-GOLD-002-U', 'RE-GOLD-002-L'];
-let totalMismatches = 0;
-let totalExpectedDivergences = 0;
-const report = [];
-for (const fid of fixtureFiles) {
-  const fixture = JSON.parse(fs.readFileSync(path.join(FIXTURE_DIR, fid + '.json'), 'utf8'));
-  const legacyResult = legacyCalc[fixture.study_type](fixture.input_set);
-  const modularResult = modularCalc[fixture.study_type](fixture.input_set);
-  const mismatches = [];
-  const expectedFields = fixture.study_type === 'land' ? EXPECTED_DIVERGENT_LAND_FIELDS : new Set();
-  deepEqualReport(legacyResult, modularResult, `${fid}.`, mismatches, expectedFields);
-  // Count actual expected divergences separately for visibility, without treating them as failures.
-  const expectedCount = fixture.study_type === 'land' ? [...expectedFields].filter((k) => JSON.stringify(legacyResult[k]) !== JSON.stringify(modularResult[k])).length : 0;
-  totalExpectedDivergences += expectedCount;
-  totalMismatches += mismatches.length;
-  report.push({ gold_id: fid, unexpected_mismatches: mismatches.length, expected_def001_divergences: expectedCount, mismatches: mismatches.slice(0, 10) });
-  console.log(`${fid}: unexpected mismatches = ${mismatches.length}, expected DEF-001 divergences = ${expectedCount}`);
-}
+const vacantB = { ...B, leaseStatus: 'سنة' };
+const legacyVacant = legacy.calcExistingBuilding(vacantB);
+const v2Vacant = calcExistingBuilding(vacantB);
+check('VACANCY-DIVERGENCE-EXPECTED', legacyVacant.marketValueByIncomeCap === 0 && v2Vacant.marketValueByIncomeCap > 0,
+  `legacy=${legacyVacant.marketValueByIncomeCap} v2=${v2Vacant.marketValueByIncomeCap}`);
+check('VACANCY-STABILIZED-NOI-PRESERVED', v2Vacant.NOI === v2Building.NOI && v2Vacant.firstYearNOI < v2Building.firstYearNOI,
+  'temporary lease-up changes year 1 but not stabilized NOI');
 
-console.log('');
-console.log(`UNEXPECTED_LEGACY_VS_MODULAR_MISMATCHES = ${totalMismatches}`);
-console.log(`EXPECTED_DEF001_DIVERGENCES = ${totalExpectedDivergences} (Land Development exitValue-derived fields only -- deliberate, see DECISION-DEF-001/)`);
-fs.writeFileSync(path.join(__dirname, '..', '..', 'characterization', 'evidence', 'dual-path-comparison.json'), JSON.stringify(report, null, 2));
-process.exit(totalMismatches === 0 ? 0 : 1);
+const highDiscount = { ...B, discountRate: 0.30 };
+const legacyHighDiscount = legacy.calcExistingBuilding(highDiscount);
+const v2HighDiscount = calcExistingBuilding(highDiscount);
+check('NPV-HARD-GATE-DIVERGENCE', v2HighDiscount.npv < 0 && v2HighDiscount.verdict === 'لا يوصى بالشراء' && v2HighDiscount.decisionStatus === 'HARD_GATE_FAILED',
+  `legacy=${legacyHighDiscount.verdict} v2=${v2HighDiscount.verdict}`);
 
+const L = { ...gold['RE-GOLD-001_land_development'].inputs, leverageEnabled: false };
+const legacyLand = legacy.calcLandDevelopment(L);
+const v2Land = calcLandDevelopment(L);
+check('LAND-V2-VERSIONED', /^LAND_WAVE_A_/.test(v2Land.financialModelVersion), v2Land.financialModelVersion);
+
+const zeroRent = { ...L, marketRentPerSqm: 0 };
+const legacyZeroRent = legacy.calcLandDevelopment(zeroRent);
+const v2ZeroRent = calcLandDevelopment(zeroRent);
+check('ZERO-NOI-PAYBACK-DIVERGENCE', legacyZeroRent.simplePaybackYears === 0 && legacyZeroRent.c1 === true && v2ZeroRent.simplePaybackYears === null && v2ZeroRent.c1 === false,
+  `legacyPayback=${legacyZeroRent.simplePaybackYears} v2Payback=${v2ZeroRent.simplePaybackYears}`);
+check('DUPLICATE-CRITERION-REMOVED', v2Land.criteriaDetail.some((c) => c.code === 'NPV_NON_NEGATIVE') && new Set(v2Land.criteriaDetail.map((c) => c.code)).size === v2Land.criteriaDetail.length,
+  'v2 uses independently named criteria including NPV hard gate');
+
+const allPass = checks.every(Boolean);
+console.log(`\nDUAL_PATH_LEGACY_V2_DIVERGENCE_EVIDENCE=${allPass ? 'PASS' : 'FAIL'}`);
+process.exit(allPass ? 0 : 1);
