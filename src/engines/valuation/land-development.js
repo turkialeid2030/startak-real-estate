@@ -81,10 +81,8 @@ function calcLandDevelopment(inp) {
   const capRateOnCost = totalProjectCost > 0 ? stabilizedNOI / totalProjectCost : null;
   const marketValueAfterCompletion = inp.marketCapRate > 0 && stabilizedNOI > 0 ? stabilizedNOI / inp.marketCapRate : 0;
   const valueSurplusOverCost = marketValueAfterCompletion - totalProjectCost;
-  const projectCostToNoiMultiple = stabilizedNOI > 0 ? totalProjectCost / stabilizedNOI : null;
+  const projectCostToNoiMultiple = stabilizedNOI > 0 ? totalProjectCost / stabilizedNOI : NaN;
 
-  // Goal-seek remains a payback/yield boundary but now explicitly solves the
-  // full land acquisition load; it is not presented as an appraisal.
   const requiredYield = Math.max(1 / inp.maxPaybackThreshold, 0);
   const targetProjectCost = stabilizedNOI > 0 && requiredYield > 0 ? stabilizedNOI / requiredYield : 0;
   const targetLandAcquisitionCost = targetProjectCost - totalConstructionCost;
@@ -123,7 +121,10 @@ function calcLandDevelopment(inp) {
     }
   }
 
-  const simplePaybackYears = stabilizedNOI > 0 ? computeCumulativePaybackYears(paybackCashflows) : null;
+  const cumulativeProjectPaybackYears = stabilizedNOI > 0 ? computeCumulativePaybackYears(paybackCashflows) : null;
+  // Legacy UI formatter treats NaN as unavailable but crashes on null. The v2
+  // nullable field above is authoritative for machine consumers and decisions.
+  const simplePaybackYears = cumulativeProjectPaybackYears === null ? NaN : cumulativeProjectPaybackYears;
   const irr = computeIRR(cashflows);
   const npv = computeNPV(inp.hurdleRate, cashflows);
 
@@ -162,7 +163,7 @@ function calcLandDevelopment(inp) {
   const leveredNPV = computeNPV(equityDiscountRate, leveredCashflows);
 
   const c0 = stabilizedNOI > 0;
-  const c1 = c0 && simplePaybackYears !== null && simplePaybackYears <= inp.maxPaybackThreshold;
+  const c1 = c0 && cumulativeProjectPaybackYears !== null && cumulativeProjectPaybackYears <= inp.maxPaybackThreshold;
   const c2 = c0 && Number.isFinite(npv) && npv >= 0;
   const c3 = c0 && Number.isFinite(irr) && irr >= inp.hurdleRate;
   const c4 = c0 && marketValueAfterCompletion >= totalProjectCost;
@@ -197,7 +198,8 @@ function calcLandDevelopment(inp) {
     replacementReserveAmount: stabilizedEconomics.replacementReserveAmount,
     operatingExpensesBeforeReserve: stabilizedEconomics.operatingExpensesBeforeReserve,
     operatingExpenses, stabilizedNOI, firstOperatingYearNOI, noiBeforeReserve: stabilizedEconomics.noiBeforeReserve,
-    capRateOnCost, marketValueAfterCompletion, valueSurplusOverCost, simplePaybackYears, projectCostToNoiMultiple,
+    capRateOnCost, marketValueAfterCompletion, valueSurplusOverCost,
+    cumulativeProjectPaybackYears, simplePaybackYears, projectCostToNoiMultiple,
     maxJustifiedLandPricePerSqm,
     cashflows, paybackCashflows, operatingNoiCashflows, irr, npv, terminalExitValue, terminalNetExitValue,
     constructionYears, operatingYears,
