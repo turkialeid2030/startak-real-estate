@@ -16,9 +16,32 @@ const AI_STAGE_STATUS = Object.freeze({
   OUTPUT_REJECTED: 'OUTPUT_REJECTED',
 });
 
-const PROHIBITED_DECISION_TERMS = Object.freeze([
-  'BUY', 'SELL', 'APPROVE', 'REJECT',
-  'اشتر', 'شراء', 'بع', 'بيع', 'اعتمد', 'ارفض',
+// V2 guard targets imperative/final-decision language rather than raw noun
+// substrings. Descriptive analytical phrases such as "purchase price", "sale
+// value", "تكلفة الشراء", or "سعر البيع" are legitimate real-estate terms and
+// must not be rejected merely because they contain a decision-related noun.
+const ENGLISH_DECISION_PATTERNS = Object.freeze([
+  /(?:^|[.!?;:\n]\s*)(?:please\s+)?(?:buy|sell|approve|reject|acquire|dispose\s+of)\b/i,
+  /\b(?:should|must|shall|need\s+to|ought\s+to)\s+(?:buy|sell|approve|reject|acquire|dispose\s+of)\b/i,
+  /\b(?:recommend|recommends|recommended|recommendation\s*(?::|is\s+to)?)\s+(?:to\s+)?(?:buy|sell|approve|reject|acquire|dispose\s+of)\b/i,
+  /\b(?:decision|verdict)\s*:\s*(?:buy|sell|approve|reject)\b/i,
+  /\b(?:final\s+)?(?:approval|rejection)\s+(?:is|should\s+be)\s+(?:granted|issued|given|required)\b/i,
+]);
+
+const ARABIC_DECISION_PATTERNS = Object.freeze([
+  /(?:^|[\s،,:;.!؟\n])(?:اشتر|اشترِ|اشتروا|استحوذ|استحوذوا|اعتمد|اعتمدوا|ارفض|ارفضوا)(?:$|[\s،,:;.!؟\n])/,
+  /(?:^|[\s،,:;.!؟\n])(?:بِع|بع)(?:$|[\s،,:;.!؟\n])/,
+  /(?:يجب|ينبغي|يلزم)\s+(?:الشراء|البيع|الاستحواذ|التخارج|الموافقة|الرفض|اعتماد|رفض)/,
+  /(?:يوصى|نوصي|أوصي)\s+(?:ب|بال|بـ)?(?:الشراء|البيع|الاستحواذ|التخارج|الموافقة|الرفض)/,
+  /(?:التوصية|القرار|الحكم)\s*:\s*(?:شراء|بيع|استحواذ|تخارج|موافقة|رفض|اعتماد)/,
+  /(?:قم|قوموا)\s+ب(?:شراء|بيع|الشراء|البيع|الاستحواذ|الرفض|الموافقة)/,
+]);
+
+const GUARDED_TEXT_FIELDS = Object.freeze([
+  'narrative',
+  'uncertainties',
+  'disagreements',
+  'diligenceSuggestions',
 ]);
 
 function freeze(value) {
@@ -43,6 +66,18 @@ function normalizeEvidenceRefs(refs) {
   return Object.freeze([...new Set(out)]);
 }
 
+function normalizeTextArray(value, fieldName) {
+  if (value == null) return { values: [], invalid: false };
+  if (!Array.isArray(value)) return { values: [], invalid: true, fieldName };
+  const values = [];
+  for (const item of value) {
+    if (typeof item !== 'string') return { values: [], invalid: true, fieldName };
+    const text = item.trim();
+    if (text) values.push(text);
+  }
+  return { values, invalid: false };
+}
+
 function buildRoleInstructions(role) {
   const common = [
     'Use only the supplied analytical context, evidence references, assumptions, scenarios, and deterministic outputs.',
@@ -50,7 +85,7 @@ function buildRoleInstructions(role) {
     'Cite evidenceRefs for every material factual claim.',
     'Label assumptions and scenarios explicitly.',
     'Do not state or imply a certified valuation, legal opinion, regulated investment advice, or transaction authorization.',
-    'Do not use BUY/SELL/APPROVE/REJECT or equivalent imperative decision language.',
+    'Do not issue imperative or final transaction language such as instructions to buy, sell, acquire, approve, or reject. Descriptive terms such as purchase price or sale value are allowed when analytically necessary.',
     'Do not override decision-control gates, professional-review requirements, or deterministic financial outputs.',
     'State uncertainty, conflicts, missing inputs, and stale context explicitly.',
   ];
@@ -128,7 +163,7 @@ function buildAiExpertStage({
   const evidenceRefs = normalizeEvidenceRefs((dossier.aiNarrativeContext && dossier.aiNarrativeContext.factRefs || []).map((item) => item.ref));
 
   return freeze({
-    schemaVersion: 1,
+    schemaVersion: 2,
     role,
     status,
     holdReasons,
@@ -153,8 +188,30 @@ function buildAiExpertStage({
 }
 
 function containsProhibitedDecisionLanguage(text) {
-  const upper = String(text || '').toUpperCase();
-  return PROHIBITED_DECISION_TERMS.some((term) => upper.includes(term.toUpperCase()));
+  const value = String(text || '').trim();
+  if (!value) return false;
+  return ENGLISH_DECISION_PATTERNS.some((pattern) => pattern.test(value))
+    || ARABIC_DECISION_PATTERNS.some((pattern) => pattern.test(value));
+}
+
+function inspectGuardedOutputText(output) {
+  const fields = [];
+  const invalidShapeFields = [];
+
+  fields.push({ field: 'narrative', text: output.narrative });
+  for (const field of GUARDED_TEXT_FIELDS.slice(1)) {
+    const normalized = normalizeTextArray(output[field], field);
+    if (normalized.invalid) {
+      invalidShapeFields.push(field);
+      continue;
+    }
+    for (const text of normalized.values) fields.push({ field, text });
+  }
+
+  const prohibitedFields = [...new Set(
+    fields.filter((item) => containsProhibitedDecisionLanguage(item.text)).map((item) => item.field),
+  )];
+  return freeze({ prohibitedFields, invalidShapeFields });
 }
 
 function validateAiRoleOutput({ stage, output } = {}) {
@@ -176,9 +233,11 @@ function validateAiRoleOutput({ stage, output } = {}) {
   const citedEvidenceRefs = normalizeEvidenceRefs(output.citedEvidenceRefs || []);
   const allowedRefs = new Set(stage.evidenceRefs);
   const unknownRefs = citedEvidenceRefs.filter((ref) => !allowedRefs.has(ref));
+  const textInspection = inspectGuardedOutputText(output);
   const reasonCodes = [];
   if (unknownRefs.length) reasonCodes.push('UNKNOWN_EVIDENCE_REFERENCE');
-  if (containsProhibitedDecisionLanguage(output.narrative)) reasonCodes.push('PROHIBITED_DECISION_LANGUAGE');
+  if (textInspection.invalidShapeFields.length) reasonCodes.push('INVALID_TEXT_FIELD_SHAPE');
+  if (textInspection.prohibitedFields.length) reasonCodes.push('PROHIBITED_DECISION_LANGUAGE');
   if (output.certifiedValuationProduced === true) reasonCodes.push('CERTIFIED_VALUATION_NOT_ALLOWED');
   if (output.legalOpinionProduced === true) reasonCodes.push('LEGAL_OPINION_NOT_ALLOWED');
   if (output.transactionAuthorized === true) reasonCodes.push('TRANSACTION_AUTHORIZATION_NOT_ALLOWED');
@@ -190,9 +249,15 @@ function validateAiRoleOutput({ stage, output } = {}) {
       status: AI_STAGE_STATUS.OUTPUT_REJECTED,
       reasonCodes,
       unknownEvidenceRefs: unknownRefs,
+      prohibitedDecisionLanguageFields: textInspection.prohibitedFields,
+      invalidTextShapeFields: textInspection.invalidShapeFields,
       transactionAuthorized: false,
     });
   }
+
+  const uncertainties = normalizeTextArray(output.uncertainties, 'uncertainties').values;
+  const disagreements = normalizeTextArray(output.disagreements, 'disagreements').values;
+  const diligenceSuggestions = normalizeTextArray(output.diligenceSuggestions, 'diligenceSuggestions').values;
 
   return freeze({
     accepted: true,
@@ -202,11 +267,11 @@ function validateAiRoleOutput({ stage, output } = {}) {
     projectId: stage.projectId,
     contextVersionId: stage.contextVersionId,
     evidenceHash: stage.evidenceHash,
-    narrative: output.narrative,
+    narrative: output.narrative.trim(),
     citedEvidenceRefs,
-    uncertainties: Array.isArray(output.uncertainties) ? output.uncertainties.map(String) : [],
-    disagreements: Array.isArray(output.disagreements) ? output.disagreements.map(String) : [],
-    diligenceSuggestions: Array.isArray(output.diligenceSuggestions) ? output.diligenceSuggestions.map(String) : [],
+    uncertainties,
+    disagreements,
+    diligenceSuggestions,
     numericConfidence: null,
     humanDecisionRequired: true,
     transactionAuthorized: false,
@@ -218,7 +283,10 @@ function validateAiRoleOutput({ stage, output } = {}) {
 module.exports = {
   AI_ROLE,
   AI_STAGE_STATUS,
+  GUARDED_TEXT_FIELDS,
   buildRoleInstructions,
   buildAiExpertStage,
+  containsProhibitedDecisionLanguage,
+  inspectGuardedOutputText,
   validateAiRoleOutput,
 };
