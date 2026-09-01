@@ -1,0 +1,11 @@
+'use strict';
+const assert = require('assert');
+const { ACTION_TYPE, createDecisionAction } = require('../../src/decision-actions');
+const { buildActionReviewWorkflow } = require('../../src/decision-actions/review-workflow');
+const action = createDecisionAction({ actionId:'smoke-a1', caseId:'smoke-c1', projectId:'smoke-p1', type:ACTION_TYPE.EVIDENCE, description:'Smoke evidence action', ownerId:'owner-1', sourceDecisionRef:'dd-smoke', requiredEvidenceKeys:['ev'] });
+const hold = buildActionReviewWorkflow({ action, evidence:{} });
+assert.strictEqual(hold.status,'HOLD_EVIDENCE');
+const ready = buildActionReviewWorkflow({ action, evidence:{ev:true}, reviewerId:'reviewer-1', reviewedAt:'2026-09-01T10:00:00Z' });
+assert.strictEqual(ready.status,'READY_FOR_HUMAN_CLOSURE');
+assert.strictEqual(ready.transactionAuthorized,false);
+console.log('IC_DOSSIER_ACTION_WORKFLOW_UI_V1_SMOKE=PASS');
