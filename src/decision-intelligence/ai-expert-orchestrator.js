@@ -115,7 +115,8 @@ function buildAiExpertStage({
     status = AI_STAGE_STATUS.HOLD_DECISION_GATE;
     holdReasons.push(`DECISION_QUALITY_${decisionQuality.status}`);
   }
-  if (['LOW', 'INSUFFICIENT'].includes(reliability.overallLevel || reliability.level)) {
+  const reliabilityLevel = reliability.overallReliability || reliability.overallLevel || reliability.level;
+  if (['LOW', 'INSUFFICIENT'].includes(reliabilityLevel)) {
     status = AI_STAGE_STATUS.HOLD_RELIABILITY;
     holdReasons.push('RELIABILITY_BELOW_AI_SYNTHESIS_THRESHOLD');
   }
