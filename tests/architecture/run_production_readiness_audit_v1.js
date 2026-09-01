@@ -14,7 +14,18 @@ function base() {
     complianceReview: { ...scope, classificationReviewCompleted: true, regulatedScopeResolved: true, legalCounselOrAuthorizedReviewerCompleted: true, softwareDoesNotSelfEstablishLegalApproval: true },
     reliabilityEvidence: { ...scope, releaseVerifyPassed: true, comprehensiveVerifyPassed: true, deepPlatformVerifyPassed: true, realBrowserE2ePassed: true, fatalConsoleErrors: 0, pageErrors: 0, observabilityEvidencePresent: true },
     recoveryEvidence: { ...scope, backupEvidencePresent: true, restoreTestCompleted: true, rollbackExercised: true, restoreEvidenceRef: 'restore-test-1' },
-    deploymentEvidence: { ...scope, targetEnvironmentDeclared: true, releaseVersionDeclared: true, monitoringConfigured: true, alertingConfigured: true, deploymentProcedureDocumented: true, rollbackProcedureDocumented: true, releaseRef: 'release-candidate-1' },
+    deploymentEvidence: {
+      ...scope,
+      status: 'EVIDENCE_PACK_COMPLETE',
+      readyForProductionReadinessAudit: true,
+      targetEnvironmentDeclared: true,
+      releaseVersionDeclared: true,
+      monitoringConfigured: true,
+      alertingConfigured: true,
+      deploymentProcedureDocumented: true,
+      rollbackProcedureDocumented: true,
+      releaseRef: 'release-candidate-1',
+    },
     evidenceRefs: ['evidence-pack-1'],
   };
 }
@@ -37,6 +48,7 @@ const cases = [
   ['reliabilityEvidence', 'deepPlatformVerifyPassed', false, PRODUCTION_READINESS_STATUS.HOLD_RELIABILITY],
   ['recoveryEvidence', 'restoreTestCompleted', false, PRODUCTION_READINESS_STATUS.HOLD_RECOVERY],
   ['deploymentEvidence', 'monitoringConfigured', false, PRODUCTION_READINESS_STATUS.HOLD_DEPLOYMENT_EVIDENCE],
+  ['deploymentEvidence', 'readyForProductionReadinessAudit', false, PRODUCTION_READINESS_STATUS.HOLD_DEPLOYMENT_EVIDENCE],
 ];
 
 for (const [domain, key, value, expected] of cases) {
@@ -61,4 +73,4 @@ const noRefs = base();
 noRefs.evidenceRefs = ['   '];
 assert.strictEqual(buildProductionReadinessAudit(noRefs).status, PRODUCTION_READINESS_STATUS.HOLD_DEPLOYMENT_EVIDENCE);
 
-console.log('PRODUCTION_READINESS_AUDIT_V1=PASS checks=13');
+console.log('PRODUCTION_READINESS_AUDIT_V1=PASS checks=14');
