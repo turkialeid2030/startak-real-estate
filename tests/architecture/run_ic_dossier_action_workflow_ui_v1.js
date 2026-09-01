@@ -100,13 +100,13 @@ function baselineAction() {
   assert.strictEqual(result.allClosed, false);
 })();
 
-(function productionUiIsConditionallyWiredWithoutSyntheticPayloads() {
+(function productionUiPanelRemainsImplementedButAmbientInjectionIsRemoved() {
   const root = path.resolve(__dirname, '../..');
   const main = fs.readFileSync(path.join(root, 'src/main.jsx'), 'utf8');
   const panel = fs.readFileSync(path.join(root, 'src/components/InvestmentCommitteeDossierPanel.jsx'), 'utf8');
-  assert(main.includes('__STARTAK_INVESTMENT_COMMITTEE_DOSSIER__'));
-  assert(main.includes('__STARTAK_DECISION_ACTION_REVIEW_REGISTER__'));
-  assert(main.includes('InvestmentCommitteeDossierPanel'));
+  assert(!main.includes('__STARTAK_INVESTMENT_COMMITTEE_DOSSIER__'));
+  assert(!main.includes('__STARTAK_DECISION_ACTION_REVIEW_REGISTER__'));
+  assert(!main.includes('InvestmentCommitteeDossierPanel'));
   assert(panel.includes('ملف قرار لجنة الاستثمار'));
   assert(panel.includes('حدود الحوكمة'));
   assert(!main.includes('case-1'));

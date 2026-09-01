@@ -53,11 +53,11 @@ const baseFeedback = {
   assert.throws(() => buildDecisionLearningReview({ caseId: 'other-case', projectId: 'project-learning-1', outcomeFeedback: baseFeedback }), /LEARNING_SCOPE_MISMATCH/);
 })();
 
-(function productionUiIsConditionalAndBounded() {
+(function productionUiPanelRemainsBoundedButAmbientInjectionIsRemoved() {
   const main = fs.readFileSync('src/main.jsx', 'utf8');
   const panel = fs.readFileSync('src/components/OutcomeMonitoringPanel.jsx', 'utf8');
   for (const token of ['__STARTAK_OUTCOME_FEEDBACK__', '__STARTAK_DECISION_LEARNING_REVIEW__', '__STARTAK_HUMAN_COMMITTEE_DECISION_RECORD__', 'OutcomeMonitoringPanel']) {
-    assert.ok(main.includes(token), `missing runtime boundary: ${token}`);
+    assert.ok(!main.includes(token), `ambient runtime boundary must be absent: ${token}`);
   }
   for (const token of ['متابعة النتائج والتعلّم من القرار', 'المخطط مقابل الفعلي', 'إجراءات إعادة التحليل', 'حلقة التعلّم']) {
     assert.ok(panel.includes(token), `missing UI token: ${token}`);
