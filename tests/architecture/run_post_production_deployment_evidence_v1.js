@@ -220,7 +220,7 @@ check('unresolved high or critical incidents fail closed', () => {
     const out = buildPostProductionDeploymentEvidence(base({ incidents: [{ severity, type: 'RUNTIME', resolved: false }] }));
     assert.strictEqual(out.status, STATUS.HOLD_INCIDENTS);
   }
-})();
+});
 
 check('any recorded data leakage incident fails closed even if marked resolved', () => {
   const out = buildPostProductionDeploymentEvidence(base({ incidents: [{ severity: 'LOW', type: 'DATA_LEAKAGE', resolved: true }] }));
