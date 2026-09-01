@@ -60,10 +60,10 @@ check('one-time vacancy reduces first year only and does not zero stabilized/ter
 
   assert.strictEqual(vacant.initialLeaseUpFactor, 0);
   assert.ok(vacant.firstYearNOI < leased.firstYearNOI);
-  assert.ok(vacant.NOI > 0, 'stabilized NOI must remain positive');
-  assert.strictEqual(vacant.NOI, leased.NOI, 'lease-up must not alter stabilized NOI');
-  assert.strictEqual(vacant.marketValueByIncomeCap, leased.marketValueByIncomeCap, 'income-cap value must use stabilized NOI');
-  assert.strictEqual(vacant.terminalSaleValue, leased.terminalSaleValue, 'terminal value must use stabilized forward NOI');
+  assert.ok(vacant.NOI > 0);
+  assert.strictEqual(vacant.NOI, leased.NOI);
+  assert.strictEqual(vacant.marketValueByIncomeCap, leased.marketValueByIncomeCap);
+  assert.strictEqual(vacant.terminalSaleValue, leased.terminalSaleValue);
   assert.ok(vacant.terminalSaleValue > 0);
 });
 
@@ -83,8 +83,10 @@ check('non-positive stabilized NOI never becomes zero-year payback or passing cr
   b.rentPerSqm = 0;
   const br = calcExistingBuilding(b);
   assert.ok(br.NOI <= 0);
-  assert.strictEqual(br.paybackOnCost, null);
-  assert.strictEqual(br.paybackOnPrice, null);
+  assert.strictEqual(br.cumulativePaybackOnCost, null);
+  assert.strictEqual(br.cumulativePaybackOnPrice, null);
+  assert.ok(Number.isNaN(br.paybackOnCost));
+  assert.ok(Number.isNaN(br.paybackOnPrice));
   assert.strictEqual(br.c0, false);
   assert.strictEqual(br.c2, false);
   assert.strictEqual(br.financialModelStatus, 'INVALID_ECONOMIC_CASE');
@@ -94,7 +96,8 @@ check('non-positive stabilized NOI never becomes zero-year payback or passing cr
   l.marketRentPerSqm = 0;
   const lr = calcLandDevelopment(l);
   assert.ok(lr.stabilizedNOI <= 0);
-  assert.strictEqual(lr.simplePaybackYears, null);
+  assert.strictEqual(lr.cumulativeProjectPaybackYears, null);
+  assert.ok(Number.isNaN(lr.simplePaybackYears));
   assert.strictEqual(lr.c0, false);
   assert.strictEqual(lr.c1, false);
   assert.strictEqual(lr.financialModelStatus, 'INVALID_ECONOMIC_CASE');
@@ -108,7 +111,9 @@ check('land decision criteria are independent and no duplicate cap-rate/payback 
   assert.ok(codes.includes('NPV_NON_NEGATIVE'));
   assert.ok(codes.includes('IRR_MEETS_HURDLE'));
   assert.ok(!codes.includes('CAP_RATE_ON_COST_RECIPROCAL_PAYBACK'));
-  assert.notStrictEqual(result.simplePaybackYears, result.projectCostToNoiMultiple, 'true payback must not be the static reciprocal-yield multiple');
+  if (result.cumulativeProjectPaybackYears !== null) {
+    assert.notStrictEqual(result.cumulativeProjectPaybackYears, result.projectCostToNoiMultiple);
+  }
 });
 
 check('fixed expense component does not fall when rent falls', () => {
@@ -122,8 +127,7 @@ check('fixed expense component does not fall when rent falls', () => {
   assert.strictEqual(low.insuranceAmount, high.insuranceAmount);
   assert.strictEqual(low.replacementReserveAmount, high.replacementReserveAmount);
   assert.ok(low.variableOperatingExpense < high.variableOperatingExpense);
-  assert.ok(low.opexAmount / low.totalAnnualIncome > high.opexAmount / high.totalAnnualIncome,
-    'expense ratio should increase when revenue falls because fixed expenses remain');
+  assert.ok(low.opexAmount / low.totalAnnualIncome > high.opexAmount / high.totalAnnualIncome);
 });
 
 check('building exit cap is independent and higher exit cap lowers terminal value', () => {
@@ -153,8 +157,9 @@ check('land lease-up reduces first operating year but not stabilized NOI or term
 check('price-to-NOI multiple is distinct from cumulative cash-flow payback', () => {
   const result = calcExistingBuilding(buildingBase());
   assert.ok(Number.isFinite(result.priceToNoiMultiple));
-  if (result.paybackOnPrice !== null) {
-    assert.notStrictEqual(result.priceToNoiMultiple, result.paybackOnPrice);
+  assert.ok(result.paybackHorizonYears >= result.buildingUsefulLife || result.paybackHorizonYears >= 30);
+  if (result.cumulativePaybackOnPrice !== null) {
+    assert.notStrictEqual(result.priceToNoiMultiple, result.cumulativePaybackOnPrice);
   }
 });
 
