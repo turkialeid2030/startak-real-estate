@@ -7,6 +7,7 @@ const { pdf, xlsx, pptx } = require('../../src/document-intelligence/parsers');
 
 const root = path.resolve(__dirname, '../..');
 const main = fs.readFileSync(path.join(root, 'src/main.jsx'), 'utf8');
+const workspace = fs.readFileSync(path.join(root, 'src/components/LocalDocumentEvidenceWorkspace.jsx'), 'utf8');
 const panel = fs.readFileSync(path.join(root, 'src/components/LocalDocumentEvidenceIntakePanel.jsx'), 'utf8');
 
 let checks = 0;
@@ -23,9 +24,10 @@ async function checkAsync(name, fn) {
 }
 
 (async () => {
-  check('local document intake is mounted through the explicit application tree', () => {
-    assert(main.includes("import LocalDocumentEvidenceIntakePanel from './components/LocalDocumentEvidenceIntakePanel.jsx';"));
-    assert(main.includes('<LocalDocumentEvidenceIntakePanel />'));
+  check('local document intake is mounted through the explicit composed application tree', () => {
+    assert(main.includes("import LocalDocumentEvidenceWorkspace from './components/LocalDocumentEvidenceWorkspace.jsx';"));
+    assert(main.includes('<LocalDocumentEvidenceWorkspace />'));
+    assert(workspace.includes('<LocalDocumentEvidenceIntakePanel onRecordChange={setIntakeRecord} />'));
     assert(!main.includes('window.__STARTAK_'));
   });
 
