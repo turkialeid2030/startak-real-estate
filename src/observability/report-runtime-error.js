@@ -1,8 +1,9 @@
-// src/observability/report-runtime-error.js -- PR-11B live provider
-// Privacy-minimized Sentry transport. The application emits only a
-// strict allowlisted envelope; no Saved Deal payloads, financial
-// inputs, project/user content, cookies, request bodies, or raw
-// exception stacks are sent by this module.
+// src/observability/report-runtime-error.js -- privacy-minimized live provider
+// The application emits only a strict allowlisted envelope; no Saved Deal
+// payloads, financial inputs, project/user content, cookies, request bodies, or
+// raw exception stacks are sent by this module.
+
+const { getBuildMetadata } = require('../runtime/build-metadata.js');
 
 const ALLOWED_ENVELOPE_FIELDS = ['appVersion', 'buildHash', 'timestamp', 'category', 'message', 'surface', 'locale', 'userAgent'];
 const SENTRY_DSN = 'https://bd62d30796feffcafda5b70c53c72604@o4512003775004672.ingest.de.sentry.io/4512003802005584';
@@ -20,9 +21,11 @@ let sentryClientPromise = null;
 function loadSentryClient() {
   if (!sentryClientPromise) {
     sentryClientPromise = import('@sentry/react').then((Sentry) => {
+      const build = getBuildMetadata();
       Sentry.init({
         dsn: SENTRY_DSN,
-        environment: 'production',
+        environment: build.buildEnvironment,
+        release: build.buildId,
         sendDefaultPii: false,
         defaultIntegrations: false,
         attachStacktrace: false,
@@ -43,7 +46,8 @@ function loadSentryClient() {
             message: safeMessage,
             tags: safeTags,
             extra: event?.extra?.reportedAt ? { reportedAt: String(event.extra.reportedAt).slice(0, 64) } : undefined,
-            environment: 'production',
+            environment: build.buildEnvironment,
+            release: build.buildId,
           };
         },
       });
@@ -73,8 +77,10 @@ function reportRuntimeError(event) {
   if (reportInFlight) return;
   reportInFlight = true;
   try {
+    const build = getBuildMetadata();
     const envelope = sanitizeEnvelope({
-      appVersion: typeof window !== 'undefined' ? window.__STARTAK_BUILD_ID__ : undefined,
+      appVersion: build.appVersion,
+      buildHash: build.sourceCommit || build.buildId,
       timestamp: new Date().toISOString(),
       category: event?.category || 'unknown',
       message: (event?.message || '').slice(0, 500),
