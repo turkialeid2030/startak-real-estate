@@ -14,6 +14,7 @@ const MONEY_DIGITS = 2;
 const MONEY_SCALE = 100n;
 const RATE_DIGITS = 12;
 const RATE_SCALE = 1000000000000n;
+const IRR_NPV_DIGITS = 10;
 
 function pow10(n) {
   return 10n ** BigInt(n);
@@ -117,20 +118,40 @@ function powScaled(base, exponent, scale = RATE_SCALE) {
   return result;
 }
 
-function preciseNPV(rate, cashflows) {
+// Exact rational discount-factor accumulation. We deliberately do not keep a
+// repeatedly rounded fixed-scale discount factor: rates close to -1 can drive a
+// fixed-scale factor to zero after only a few periods. Instead we preserve
+// (1+r)^t as BigInt numerator/denominator powers and round only each discounted
+// monetary contribution.
+function npvScaled(rate, cashflows, moneyDigits = MONEY_DIGITS) {
   if (!Number.isFinite(rate) || rate <= -1) throw new RangeError('NPV rate must be finite and > -1');
   if (!Array.isArray(cashflows)) throw new TypeError('cashflows must be an array');
   const onePlusRate = RATE_SCALE + toRate(rate);
   if (onePlusRate <= 0n) throw new RangeError('NPV discount factor must be positive');
-  let discountFactor = RATE_SCALE;
-  let npvMoney = 0n;
+
+  let basePower = 1n;
+  let scalePower = 1n;
+  let npv = 0n;
   for (let t = 0; t < cashflows.length; t += 1) {
     const cf = cashflows[t];
     if (!Number.isFinite(cf)) throw new TypeError(`cashflow[${t}] must be finite`);
-    if (t > 0) discountFactor = mulScaled(discountFactor, onePlusRate);
-    npvMoney += roundDiv(toMoney(cf) * RATE_SCALE, discountFactor);
+    if (t > 0) {
+      basePower *= onePlusRate;
+      scalePower *= RATE_SCALE;
+    }
+    npv += roundDiv(decimalToScaled(cf, moneyDigits) * scalePower, basePower);
   }
-  return fromMoney(npvMoney);
+  return npv;
+}
+
+function preciseNPV(rate, cashflows) {
+  return scaledToNumber(npvScaled(rate, cashflows, MONEY_DIGITS), MONEY_DIGITS);
+}
+
+function signBigInt(value) {
+  if (value > 0n) return 1;
+  if (value < 0n) return -1;
+  return 0;
 }
 
 function preciseIRR(cashflows, options = {}) {
@@ -142,17 +163,17 @@ function preciseIRR(cashflows, options = {}) {
 
   let lo = options.lo == null ? -0.99 : options.lo;
   let hi = options.hi == null ? 10 : options.hi;
-  let nLo = preciseNPV(lo, cashflows);
-  let nHi = preciseNPV(hi, cashflows);
-  if (nLo === 0) return lo;
-  if (nHi === 0) return hi;
-  if (Math.sign(nLo) === Math.sign(nHi)) return NaN;
+  let nLo = npvScaled(lo, cashflows, IRR_NPV_DIGITS);
+  let nHi = npvScaled(hi, cashflows, IRR_NPV_DIGITS);
+  if (nLo === 0n) return lo;
+  if (nHi === 0n) return hi;
+  if (signBigInt(nLo) === signBigInt(nHi)) return NaN;
 
   for (let i = 0; i < 220; i += 1) {
     const mid = (lo + hi) / 2;
-    const nMid = preciseNPV(mid, cashflows);
-    if (nMid === 0 || Math.abs(hi - lo) < 1e-10) return mid;
-    if (Math.sign(nLo) !== Math.sign(nMid)) {
+    const nMid = npvScaled(mid, cashflows, IRR_NPV_DIGITS);
+    if (nMid === 0n || Math.abs(hi - lo) < 1e-12) return mid;
+    if (signBigInt(nLo) !== signBigInt(nMid)) {
       hi = mid;
       nHi = nMid;
     } else {
@@ -202,6 +223,7 @@ module.exports = {
   MONEY_SCALE,
   RATE_DIGITS,
   RATE_SCALE,
+  IRR_NPV_DIGITS,
   decimalToScaled,
   roundDiv,
   toMoney,
@@ -217,6 +239,7 @@ module.exports = {
   mulScaled,
   divScaled,
   powScaled,
+  npvScaled,
   preciseNPV,
   preciseIRR,
   allocateMoney,
