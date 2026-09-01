@@ -32,7 +32,8 @@ run('content_neutrality_reality', 'node', ['tests/architecture/run_content_neutr
 run('lifecycle_fail_closed_stress', 'node', ['tests/architecture/run_lifecycle_fail_closed_stress_v1.js']);
 run('real_browser_core_e2e', 'node', ['tests/e2e/run_runtime_e2e_ci.mjs']);
 run('real_browser_full_ui_e2e', 'node', ['tests/e2e/run_full_e2e_ci.mjs']);
-run('real_browser_ux_experience', 'node', ['tests/e2e/run_ux_experience_ci.mjs']);
+run('ux_experience_real_browser', 'node', ['tests/e2e/run_ux_experience_ci.mjs']);
+run('ux_task_based_scenarios', 'node', ['tests/e2e/run_ux_task_scenarios_ci.mjs']);
 run('strict_comprehensive_qualification', 'node', ['tools/comprehensive-verify.js']);
 
 const summary = {
@@ -44,6 +45,7 @@ const summary = {
     'scope-isolation', 'pilot-safety', 'real-browser-ui', 'responsive-runtime', 'package-integrity',
     'user-experience', 'keyboard-navigation', 'accessible-naming', 'touch-targets',
     'information-hierarchy', 'interaction-feedback', 'responsive-usability', 'decision-language-clarity',
+    'task-completion', 'discoverability', 'reversibility', 'mobile-critical-path', 'language-direction-switching',
   ],
   totalSteps: steps.length,
   passedSteps: steps.filter((x) => x.status === 'PASS').length,
@@ -54,7 +56,7 @@ const summary = {
     'Accuracy against real property facts still requires authoritative evidence for each study.',
     'Security contract tests are not independent penetration testing or production security certification.',
     'Neutrality tests guard output behavior and language; they do not prove absence of every possible model bias.',
-    'Automated UX checks validate observable heuristics and critical journeys; representative moderated user testing is still required for production-grade usability confidence.',
+    'Automated UX and task-path tests do not replace moderated sessions with representative real users or subjective usability measurement.',
   ],
   steps,
 };
