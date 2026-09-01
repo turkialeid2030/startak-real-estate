@@ -1,6 +1,17 @@
 'use strict';
 
 const { buildMonthlyDebtPlan, minimumDscr, normalizeTenorMonths } = require('./monthly-debt');
+const {
+  RATE_SCALE,
+  toMoney,
+  fromMoney,
+  toRate,
+  fromRate,
+  rateDivInt,
+  roundDiv,
+  moneyMulRate,
+  allocateMoney,
+} = require('./precision');
 
 function requireFinite(name, value) {
   if (!Number.isFinite(value)) throw new TypeError(`${name} must be finite`);
@@ -30,36 +41,39 @@ function simulateConstructionFacility({
   if (annualRate < 0) throw new RangeError('annualRate must be >= 0');
 
   const constructionMonths = normalizeConstructionMonths(constructionYears);
-  const monthlyRate = annualRate / 12;
-  const landDebtDraw = landCost * debtFraction;
-  const constructionDebtPrincipal = constructionCost * debtFraction;
-  const monthlyConstructionDraw = constructionMonths > 0 ? constructionDebtPrincipal / constructionMonths : 0;
-  let balance = landDebtDraw;
-  let capitalizedInterest = 0;
+  const monthlyRate = rateDivInt(annualRate, 12);
+  const landDebtDraw = moneyMulRate(landCost, debtFraction);
+  const constructionDebtPrincipal = moneyMulRate(constructionCost, debtFraction);
+  const monthlyDraws = allocateMoney(constructionDebtPrincipal, constructionMonths);
+  const monthlyConstructionDraw = constructionDebtPrincipal / constructionMonths;
+  let balance = toMoney(landDebtDraw);
+  let capitalizedInterest = 0n;
   const schedule = [];
 
   for (let month = 1; month <= constructionMonths; month += 1) {
-    balance += monthlyConstructionDraw;
-    const interest = balance * monthlyRate;
+    const draw = toMoney(monthlyDraws[month - 1]);
+    balance += draw;
+    const interest = roundDiv(balance * monthlyRate, RATE_SCALE);
     balance += interest;
     capitalizedInterest += interest;
     schedule.push({
       month,
-      constructionDebtDraw: monthlyConstructionDraw,
-      capitalizedInterest: interest,
-      balance,
+      constructionDebtDraw: fromMoney(draw),
+      capitalizedInterest: fromMoney(interest),
+      balance: fromMoney(balance),
     });
   }
 
-  const principalDebtDraws = landDebtDraw + constructionDebtPrincipal;
+  const principalDebtDraws = fromMoney(toMoney(landDebtDraw) + toMoney(constructionDebtPrincipal));
   return {
+    precisionMode: 'FIXED_POINT_HALALA_RATE_1E12',
     constructionMonths,
     landDebtDraw,
     constructionDebtPrincipal,
     monthlyConstructionDraw,
     principalDebtDraws,
-    capitalizedInterest,
-    completionBalance: balance,
+    capitalizedInterest: fromMoney(capitalizedInterest),
+    completionBalance: fromMoney(balance),
     schedule,
   };
 }
@@ -69,19 +83,29 @@ function buildAnnualConstructionDebtDraws(facility) {
   for (const row of facility.schedule) {
     const year = Math.ceil(row.month / 12);
     if (!annual[year - 1]) {
-      annual[year - 1] = { year, debtDraw: 0, capitalizedInterest: 0, endingBalance: row.balance };
+      annual[year - 1] = {
+        year,
+        debtDrawMoney: 0n,
+        capitalizedInterestMoney: 0n,
+        endingBalance: row.balance,
+      };
     }
-    annual[year - 1].debtDraw += row.constructionDebtDraw;
-    annual[year - 1].capitalizedInterest += row.capitalizedInterest;
+    annual[year - 1].debtDrawMoney += toMoney(row.constructionDebtDraw);
+    annual[year - 1].capitalizedInterestMoney += toMoney(row.capitalizedInterest);
     annual[year - 1].endingBalance = row.balance;
   }
-  return annual;
+  return annual.map((row) => ({
+    year: row.year,
+    debtDraw: fromMoney(row.debtDrawMoney),
+    capitalizedInterest: fromMoney(row.capitalizedInterestMoney),
+    endingBalance: fromMoney(toMoney(row.endingBalance)),
+  }));
 }
 
 function extendAnnualNoi(annualNoi, tenorYears) {
   if (!Array.isArray(annualNoi) || annualNoi.length === 0) return [];
   const years = Math.max(1, Math.ceil(tenorYears));
-  const out = annualNoi.slice(0, years);
+  const out = annualNoi.slice(0, years).map((noi) => fromMoney(toMoney(noi)));
   while (out.length < years) out.push(out[out.length - 1]);
   return out;
 }
@@ -119,17 +143,18 @@ function sizeConstructionFacilityByLtcAndDscr({
   }
 
   const evaluate = (debtFraction) => {
-    const facility = simulateConstructionFacility({ landCost, constructionCost, debtFraction, annualRate, constructionYears });
+    const normalizedFraction = fromRate(toRate(debtFraction));
+    const facility = simulateConstructionFacility({ landCost, constructionCost, debtFraction: normalizedFraction, annualRate, constructionYears });
     const termPlan = buildMonthlyDebtPlan(facility.completionBalance, annualRate, termTenorYears, termOptions);
     const dscr = minimumDscr(sizingNoi, termPlan.annualDebtService);
-    return { facility, termPlan, dscr };
+    return { debtFraction: normalizedFraction, facility, termPlan, dscr };
   };
 
   const maxEval = evaluate(maxDebtFraction);
   if (maxEval.dscr !== null && maxEval.dscr >= minDscrThreshold) {
     return {
       maxDebtFraction,
-      debtFraction: maxDebtFraction,
+      debtFraction: maxEval.debtFraction,
       bindingConstraint: 'LTC',
       dscrAtDebtFraction: maxEval.dscr,
       facility: maxEval.facility,
@@ -137,25 +162,25 @@ function sizeConstructionFacilityByLtcAndDscr({
     };
   }
 
-  let lo = 0;
-  let hi = maxDebtFraction;
-  let best = 0;
+  let lo = 0n;
+  let hi = toRate(maxDebtFraction);
+  let best = 0n;
   let bestEval = evaluate(0);
-  for (let i = 0; i < 70; i += 1) {
-    const mid = (lo + hi) / 2;
-    const current = evaluate(mid);
+  while (lo <= hi) {
+    const mid = (lo + hi) / 2n;
+    const current = evaluate(fromRate(mid));
     if (current.dscr !== null && current.dscr >= minDscrThreshold) {
       best = mid;
       bestEval = current;
-      lo = mid;
+      lo = mid + 1n;
     } else {
-      hi = mid;
+      hi = mid - 1n;
     }
   }
 
   return {
     maxDebtFraction,
-    debtFraction: best,
+    debtFraction: fromRate(best),
     bindingConstraint: 'DSCR',
     dscrAtDebtFraction: bestEval.dscr,
     facility: bestEval.facility,
