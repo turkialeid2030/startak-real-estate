@@ -9,6 +9,7 @@ const semantics = require('./semantics');
 const parsedEvidenceQualification = require('./parsed-evidence-qualification');
 const evidenceVerificationReadiness = require('./evidence-verification-readiness');
 const underwritingInputAdoption = require('./underwriting-input-adoption');
+const evidenceToCalculationTraceability = require('./evidence-to-calculation-traceability');
 
 module.exports = Object.assign(
   {},
@@ -21,5 +22,13 @@ module.exports = Object.assign(
   parsedEvidenceQualification,
   evidenceVerificationReadiness,
   underwritingInputAdoption,
-  { parsers, semantics, parsedEvidenceQualification, evidenceVerificationReadiness, underwritingInputAdoption },
+  evidenceToCalculationTraceability,
+  {
+    parsers,
+    semantics,
+    parsedEvidenceQualification,
+    evidenceVerificationReadiness,
+    underwritingInputAdoption,
+    evidenceToCalculationTraceability,
+  },
 );
