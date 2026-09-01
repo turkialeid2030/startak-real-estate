@@ -21,6 +21,8 @@ const B = { ...gold['RE-GOLD-002_existing_building'].inputs, leverageEnabled: fa
 const legacyBuilding = legacy.calcExistingBuilding(B);
 const v2Building = calcExistingBuilding(B);
 check('BUILDING-V2-VERSIONED', /^BUILDING_WAVE_A_/.test(v2Building.financialModelVersion), v2Building.financialModelVersion);
+check('BUILDING-BOTH-PATHS-FINITE-BASELINE', Number.isFinite(legacyBuilding.NOI) && Number.isFinite(v2Building.NOI),
+  `legacyNOI=${legacyBuilding.NOI} v2NOI=${v2Building.NOI}`);
 
 const vacantB = { ...B, leaseStatus: 'سنة' };
 const legacyVacant = legacy.calcExistingBuilding(vacantB);
@@ -40,12 +42,16 @@ const L = { ...gold['RE-GOLD-001_land_development'].inputs, leverageEnabled: fal
 const legacyLand = legacy.calcLandDevelopment(L);
 const v2Land = calcLandDevelopment(L);
 check('LAND-V2-VERSIONED', /^LAND_WAVE_A_/.test(v2Land.financialModelVersion), v2Land.financialModelVersion);
+check('LAND-BOTH-PATHS-FINITE-BASELINE', Number.isFinite(legacyLand.stabilizedNOI) && Number.isFinite(v2Land.stabilizedNOI),
+  `legacyNOI=${legacyLand.stabilizedNOI} v2NOI=${v2Land.stabilizedNOI}`);
 
 const zeroRent = { ...L, marketRentPerSqm: 0 };
 const legacyZeroRent = legacy.calcLandDevelopment(zeroRent);
 const v2ZeroRent = calcLandDevelopment(zeroRent);
-check('ZERO-NOI-PAYBACK-DIVERGENCE', legacyZeroRent.simplePaybackYears === 0 && legacyZeroRent.c1 === true && v2ZeroRent.simplePaybackYears === null && v2ZeroRent.c1 === false,
-  `legacyPayback=${legacyZeroRent.simplePaybackYears} v2Payback=${v2ZeroRent.simplePaybackYears}`);
+check('ZERO-NOI-PAYBACK-DIVERGENCE',
+  legacyZeroRent.simplePaybackYears === 0 && legacyZeroRent.c1 === true &&
+  v2ZeroRent.cumulativeProjectPaybackYears === null && Number.isNaN(v2ZeroRent.simplePaybackYears) && v2ZeroRent.c1 === false,
+  `legacyPayback=${legacyZeroRent.simplePaybackYears} v2Nullable=${v2ZeroRent.cumulativeProjectPaybackYears} v2LegacyDisplay=${v2ZeroRent.simplePaybackYears}`);
 check('DUPLICATE-CRITERION-REMOVED', v2Land.criteriaDetail.some((c) => c.code === 'NPV_NON_NEGATIVE') && new Set(v2Land.criteriaDetail.map((c) => c.code)).size === v2Land.criteriaDetail.length,
   'v2 uses independently named criteria including NPV hard gate');
 
