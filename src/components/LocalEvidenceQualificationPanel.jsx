@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
 const { MATERIALITY } = require('../document-intelligence/contracts');
 const {
@@ -14,7 +14,7 @@ function shortValue(value, max = 100) {
   return text.length > max ? `${text.slice(0, max)}…` : text;
 }
 
-export default function LocalEvidenceQualificationPanel({ intakeRecord }) {
+export default function LocalEvidenceQualificationPanel({ intakeRecord, onCandidateChange }) {
   const { locale, dir } = useLocale();
   const isAr = locale === 'ar-SA';
   const atoms = intakeRecord?.result?.status === 'PARSED' && Array.isArray(intakeRecord.result.atoms)
@@ -90,6 +90,11 @@ export default function LocalEvidenceQualificationPanel({ intakeRecord }) {
     boundary: 'Separate source/authority verification is required before VERIFIED_FACT or READY_FOR_UNDERWRITING_INPUT can be established.',
   }, [isAr]);
 
+  useEffect(() => {
+    setCandidate(null);
+    onCandidateChange?.(null);
+  }, [intakeRecord, atomId, semanticKey, valueType, unit, materiality, sourceReference, sourceDate, reviewerRef, reviewerNote, onCandidateChange]);
+
   const selectedAtom = atoms.find((atom) => atom.atomId === atomId) || null;
 
   const createCandidate = () => {
@@ -107,6 +112,7 @@ export default function LocalEvidenceQualificationPanel({ intakeRecord }) {
       capturedAt: new Date().toISOString(),
     });
     setCandidate(result);
+    onCandidateChange?.(result);
   };
 
   return (
@@ -123,7 +129,7 @@ export default function LocalEvidenceQualificationPanel({ intakeRecord }) {
             <div className="space-y-3">
               <label className="block text-xs text-slate-300">
                 <span className="mb-1 block text-[11px] text-slate-500">{l.atom}</span>
-                <select data-testid="evidence-atom-select" value={atomId} onChange={(e) => { setAtomId(e.target.value); setCandidate(null); }} className="w-full rounded-lg border border-slate-700 bg-slate-950/50 px-3 py-2 text-xs text-slate-200">
+                <select data-testid="evidence-atom-select" value={atomId} onChange={(e) => setAtomId(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-950/50 px-3 py-2 text-xs text-slate-200">
                   <option value="">—</option>
                   {atoms.map((atom) => <option key={atom.atomId} value={atom.atomId}>{shortValue(atom.rawValue)} · {atom.location?.kind || '—'}</option>)}
                 </select>
