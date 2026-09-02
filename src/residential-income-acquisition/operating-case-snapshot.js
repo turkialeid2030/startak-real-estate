@@ -12,6 +12,7 @@ const {
   createLease,
   createOperatingExpense,
   createCapexItem,
+  createExitStrategyScenario,
   createResidentialIncomeOperatingCase,
 } = require('./contracts');
 
@@ -25,6 +26,7 @@ const MAX_RECORDS = Object.freeze({
   tenants: 20000,
   operatingExpenses: 10000,
   capexItems: 10000,
+  exitScenarios: 100,
   additionalOperatingInputs: 10000,
   evidenceLineage: 50000,
 });
@@ -77,6 +79,11 @@ function arrayWithinLimit(snapshot, field) {
   if (!Array.isArray(value)) throw new OperatingCaseSnapshotError('ARRAY_REQUIRED', field);
   if (value.length > MAX_RECORDS[field]) throw new OperatingCaseSnapshotError('RECORD_LIMIT_EXCEEDED', field);
   return value;
+}
+
+function optionalArrayWithinLimit(snapshot, field) {
+  if (snapshot[field] === undefined) return [];
+  return arrayWithinLimit(snapshot, field);
 }
 
 function hydrateEvidenceAwareValue(value) {
@@ -134,7 +141,10 @@ function hydrateResidentialIncomeOperatingCaseSnapshot(snapshot) {
   if (snapshot.contractType !== 'RESIDENTIAL_INCOME_OPERATING_CASE_V1') {
     throw new OperatingCaseSnapshotError('UNSUPPORTED_CONTRACT_TYPE', 'operatingCase.contractType');
   }
-  for (const field of Object.keys(MAX_RECORDS)) arrayWithinLimit(snapshot, field);
+  for (const field of Object.keys(MAX_RECORDS)) {
+    if (field === 'exitScenarios') optionalArrayWithinLimit(snapshot, field);
+    else arrayWithinLimit(snapshot, field);
+  }
 
   try {
     const property = createProperty({
@@ -227,6 +237,15 @@ function hydrateResidentialIncomeOperatingCaseSnapshot(snapshot) {
       downtimeDays: record.downtimeDays,
       evidenceRefs: record.evidenceRefs,
     }));
+    const exitScenarios = optionalArrayWithinLimit(snapshot, 'exitScenarios').map((record) => createExitStrategyScenario({
+      caseId: record.caseId,
+      scenarioId: record.scenarioId,
+      strategyType: record.strategyType,
+      label: record.label,
+      isBenchmark: record.isBenchmark,
+      inputs: Object.fromEntries(Object.entries(record.inputs || {}).map(([key, value]) => [key, hydrateEvidenceAwareValue(value)])),
+      evidenceRefs: record.evidenceRefs,
+    }));
     const additionalOperatingInputs = snapshot.additionalOperatingInputs.map(hydrateEvidenceAwareValue);
     const evidenceLineage = snapshot.evidenceLineage.map((record) => createEvidenceLineageRecord({
       caseId: record.caseId,
@@ -251,6 +270,7 @@ function hydrateResidentialIncomeOperatingCaseSnapshot(snapshot) {
       tenants,
       operatingExpenses,
       capexItems,
+      exitScenarios,
       additionalOperatingInputs,
       evidenceLineage,
     });

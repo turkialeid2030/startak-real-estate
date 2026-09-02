@@ -69,6 +69,7 @@ export default function ResidentialIncomeAcquisitionPanel({
   const income = viewModel.incomeAnalysis;
   const acquisition = viewModel.acquisitionBasis;
   const reverse = viewModel.reverseUnderwriting;
+  const exit = viewModel.exitStrategyComparison;
   const locale = dir === 'rtl' ? 'ar-SA' : 'en-US';
 
   return (
@@ -246,6 +247,27 @@ export default function ResidentialIncomeAcquisitionPanel({
             ) : reverse ? (
               <div className="rounded-xl border border-amber-900/50 bg-amber-950/10 p-3 text-xs text-amber-200/80">
                 {t('riai.reverseUnderwritingNotCalculable')} ({reverse.issues.length})
+              </div>
+            ) : null}
+            {exit?.exitStrategyComparisonCalculated ? (
+              <section aria-labelledby="riai-exit-strategy" className="rounded-xl border border-slate-800 bg-slate-950/30 p-4">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <h3 id="riai-exit-strategy" className="text-sm font-semibold text-slate-100">{t('riai.exitStrategyComparison')}</h3>
+                  <span className="text-[11px] text-slate-500">{exit.status}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                  <CountCard label={t('riai.exitScenarioCount')} value={exit.scenarioResults.length} />
+                  <CountCard label={t('riai.exitBenchmark')} value={exit.benchmarkScenarioId} />
+                  <CountCard label={t('riai.highestModeledNpvScenario')} value={exit.highestModeledNpvScenario.scenarioId} />
+                  <CountCard label={t('riai.highestModeledNpv')} value={number(exit.highestModeledNpvScenario.npv, locale)} />
+                </div>
+                <div className="mt-3 text-[11px] leading-5 text-slate-500">
+                  {t('riai.valueCreationVsBenchmark')}: {number(exit.highestModeledNpvScenario.valueCreationVsBenchmarkNpv, locale)} · {t('riai.exitRankingBoundary')}
+                </div>
+              </section>
+            ) : exit ? (
+              <div className="rounded-xl border border-amber-900/50 bg-amber-950/10 p-3 text-xs text-amber-200/80">
+                {t('riai.exitStrategyNotCalculable')} ({exit.issues.length})
               </div>
             ) : null}
             <div className="grid gap-4 lg:grid-cols-3">
