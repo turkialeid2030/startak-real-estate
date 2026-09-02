@@ -272,6 +272,19 @@ function assessOperatingUnderwritingReadiness(operatingCase) {
     }
   }
 
+  for (const item of operatingCase.capexItems || []) {
+    const costUnknown = item.estimatedCost.verificationStatus === OPERATING_INPUT_STATUS.NOT_AVAILABLE
+      || item.estimatedCost.value === null
+      || item.estimatedCost.adoptedForUnderwriting !== true;
+    if (costUnknown && (item.lifeSafety || item.severity === 'CRITICAL')) {
+      addUnique(dueDiligence, {
+        code: 'CRITICAL_OR_LIFE_SAFETY_COST_DUE_DILIGENCE_REQUIRED',
+        field: `capexItem.${item.capexItemId}.estimatedCost`,
+        refId: item.estimatedCost.sourceRef,
+      });
+    }
+  }
+
   if (interest.expiryDate) {
     warnings.push({
       code: 'NO_FREEHOLD_TERMINAL_VALUE_INFERENCE',

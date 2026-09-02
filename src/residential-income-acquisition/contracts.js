@@ -91,6 +91,54 @@ const LINEAGE_KIND = Object.freeze({
   OTHER: 'OTHER',
 });
 
+const OPERATING_EXPENSE_BASIS = Object.freeze({
+  ACTUAL: 'ACTUAL',
+  BUDGET: 'BUDGET',
+  NORMALIZED: 'NORMALIZED',
+  BENCHMARK: 'BENCHMARK',
+});
+
+const OPERATING_EXPENSE_CATEGORY = Object.freeze({
+  MAINTENANCE: 'MAINTENANCE',
+  FACILITIES_MANAGEMENT: 'FACILITIES_MANAGEMENT',
+  UTILITIES: 'UTILITIES',
+  INSURANCE: 'INSURANCE',
+  SECURITY: 'SECURITY',
+  CLEANING: 'CLEANING',
+  COMMON_AREAS: 'COMMON_AREAS',
+  MANAGEMENT_FEE: 'MANAGEMENT_FEE',
+  MUNICIPAL_CHARGES: 'MUNICIPAL_CHARGES',
+  LEGAL: 'LEGAL',
+  COLLECTION: 'COLLECTION',
+  REPLACEMENT_RESERVE: 'REPLACEMENT_RESERVE',
+  OTHER: 'OTHER',
+});
+
+const CAPEX_CATEGORY = Object.freeze({
+  LIFE_SAFETY: 'LIFE_SAFETY',
+  FIRE_PROTECTION: 'FIRE_PROTECTION',
+  STRUCTURE: 'STRUCTURE',
+  ENVELOPE: 'ENVELOPE',
+  ROOF_WATERPROOFING: 'ROOF_WATERPROOFING',
+  MECHANICAL: 'MECHANICAL',
+  ELECTRICAL: 'ELECTRICAL',
+  PLUMBING_DRAINAGE: 'PLUMBING_DRAINAGE',
+  HVAC: 'HVAC',
+  LIFTS: 'LIFTS',
+  SECURITY_MONITORING: 'SECURITY_MONITORING',
+  ACCESSIBILITY: 'ACCESSIBILITY',
+  COSMETIC: 'COSMETIC',
+  OTHER: 'OTHER',
+});
+
+const CAPEX_SEVERITY = Object.freeze({
+  CRITICAL: 'CRITICAL',
+  HIGH: 'HIGH',
+  MEDIUM: 'MEDIUM',
+  LOW: 'LOW',
+  COSMETIC: 'COSMETIC',
+});
+
 function deepFreeze(value) {
   if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
   Object.freeze(value);
@@ -599,6 +647,90 @@ function createLease({
   });
 }
 
+function createOperatingExpense({
+  caseId,
+  expenseId,
+  propertyId,
+  buildingId = null,
+  category,
+  basis,
+  annualAmount,
+  evidenceRefs = [],
+}) {
+  requiredString(caseId, 'caseId');
+  requiredString(expenseId, 'expenseId');
+  requiredString(propertyId, 'propertyId');
+  enumValue(category, OPERATING_EXPENSE_CATEGORY, 'category');
+  enumValue(basis, OPERATING_EXPENSE_BASIS, 'basis');
+  assertEvidenceAwareValue(annualAmount, 'annualAmount');
+  if (annualAmount.value !== null) {
+    finiteNumber(annualAmount.value, 'annualAmount.value');
+    if (annualAmount.value < 0) throw new RangeError('annualAmount.value must be >= 0');
+  }
+  return deepFreeze({
+    schemaVersion: 1,
+    caseId: caseId.trim(),
+    expenseId: expenseId.trim(),
+    propertyId: propertyId.trim(),
+    buildingId: optionalString(buildingId, 'buildingId'),
+    category,
+    basis,
+    annualAmount,
+    evidenceRefs: uniqueStrings(evidenceRefs, 'evidenceRefs'),
+    semantics: 'An operating-expense record preserves the stated basis. Actual, budget, normalized, and benchmark amounts are never silently substituted for one another.',
+  });
+}
+
+function createCapexItem({
+  caseId,
+  capexItemId,
+  propertyId,
+  buildingId = null,
+  category,
+  severity,
+  estimatedCost,
+  lifeSafety = false,
+  complianceImpact = false,
+  immediate = false,
+  requiredByDate = null,
+  downtimeDays = null,
+  evidenceRefs = [],
+}) {
+  requiredString(caseId, 'caseId');
+  requiredString(capexItemId, 'capexItemId');
+  requiredString(propertyId, 'propertyId');
+  enumValue(category, CAPEX_CATEGORY, 'category');
+  enumValue(severity, CAPEX_SEVERITY, 'severity');
+  assertEvidenceAwareValue(estimatedCost, 'estimatedCost');
+  if (estimatedCost.value !== null) {
+    finiteNumber(estimatedCost.value, 'estimatedCost.value');
+    if (estimatedCost.value < 0) throw new RangeError('estimatedCost.value must be >= 0');
+  }
+  for (const [field, value] of Object.entries({ lifeSafety, complianceImpact, immediate })) {
+    if (typeof value !== 'boolean') throw new TypeError(`${field} must be a boolean`);
+  }
+  if (downtimeDays !== null && (!Number.isInteger(downtimeDays) || downtimeDays < 0)) {
+    throw new TypeError('downtimeDays must be an integer >= 0 or null');
+  }
+  return deepFreeze({
+    schemaVersion: 1,
+    caseId: caseId.trim(),
+    capexItemId: capexItemId.trim(),
+    propertyId: propertyId.trim(),
+    buildingId: optionalString(buildingId, 'buildingId'),
+    category,
+    severity,
+    estimatedCost,
+    lifeSafety,
+    complianceImpact,
+    immediate,
+    requiredByDate: optionalIsoDate(requiredByDate, 'requiredByDate'),
+    downtimeDays,
+    evidenceRefs: uniqueStrings(evidenceRefs, 'evidenceRefs'),
+    semantics: 'A technical CAPEX item records known cost and uncertainty separately. Missing or unpriced cost remains null and is never treated as zero.',
+  });
+}
+
 function assertUniqueBy(items, key, label) {
   const seen = new Set();
   for (const item of items) {
@@ -629,6 +761,8 @@ function createResidentialIncomeOperatingCase({
   units = [],
   leases = [],
   tenants = [],
+  operatingExpenses = [],
+  capexItems = [],
   additionalOperatingInputs = [],
   evidenceLineage = [],
 }) {
@@ -636,12 +770,12 @@ function createResidentialIncomeOperatingCase({
   const normalizedAsOfDate = isoDate(asOfDate, 'asOfDate');
   if (!propertyInterest || typeof propertyInterest !== 'object') throw new TypeError('propertyInterest is required');
   if (!property || typeof property !== 'object') throw new TypeError('property is required');
-  for (const [field, list] of Object.entries({ buildings, units, leases, tenants, additionalOperatingInputs, evidenceLineage })) {
+  for (const [field, list] of Object.entries({ buildings, units, leases, tenants, operatingExpenses, capexItems, additionalOperatingInputs, evidenceLineage })) {
     if (!Array.isArray(list)) throw new TypeError(`${field} must be an array`);
   }
   for (const input of additionalOperatingInputs) assertEvidenceAwareValue(input, 'additionalOperatingInputs item');
 
-  const scopedRecords = [propertyInterest, property, ...buildings, ...units, ...leases, ...tenants, ...evidenceLineage];
+  const scopedRecords = [propertyInterest, property, ...buildings, ...units, ...leases, ...tenants, ...operatingExpenses, ...capexItems, ...evidenceLineage];
   if (scopedRecords.some((record) => record.caseId !== normalizedCaseId)) {
     throw new TypeError('OPERATING_CASE_ISOLATION_VIOLATION');
   }
@@ -651,6 +785,8 @@ function createResidentialIncomeOperatingCase({
   const unitIds = assertUniqueBy(units, 'unitId', 'unit');
   const leaseIds = assertUniqueBy(leases, 'leaseId', 'lease');
   const tenantIds = assertUniqueBy(tenants, 'tenantId', 'tenant');
+  const operatingExpenseIds = assertUniqueBy(operatingExpenses, 'expenseId', 'operating_expense');
+  const capexItemIds = assertUniqueBy(capexItems, 'capexItemId', 'capex_item');
   const lineageRefs = assertUniqueBy(evidenceLineage, 'refId', 'evidence_lineage');
 
   assertExactReferenceSet(property.buildingIds, [...buildingIds], 'property.buildingIds');
@@ -675,6 +811,10 @@ function createResidentialIncomeOperatingCase({
     }
     if (lease.tenantId && !tenantIds.has(lease.tenantId)) throw new TypeError(`LEASE_TENANT_REFERENCE_MISSING: ${lease.leaseId}`);
   }
+  for (const item of [...operatingExpenses, ...capexItems]) {
+    if (item.propertyId !== property.propertyId) throw new TypeError('PROPERTY_COST_PROPERTY_ISOLATION_VIOLATION');
+    if (item.buildingId && !buildingIds.has(item.buildingId)) throw new TypeError(`PROPERTY_COST_BUILDING_REFERENCE_MISSING: ${item.buildingId}`);
+  }
 
   return deepFreeze({
     schemaVersion: 1,
@@ -687,6 +827,8 @@ function createResidentialIncomeOperatingCase({
     units: [...units],
     leases: [...leases],
     tenants: [...tenants],
+    operatingExpenses: [...operatingExpenses],
+    capexItems: [...capexItems],
     additionalOperatingInputs: [...additionalOperatingInputs],
     evidenceLineage: [...evidenceLineage],
     graphCounts: {
@@ -694,6 +836,8 @@ function createResidentialIncomeOperatingCase({
       units: unitIds.size,
       leases: leaseIds.size,
       tenants: tenantIds.size,
+      operatingExpenses: operatingExpenseIds.size,
+      capexItems: capexItemIds.size,
       evidenceLineageRefs: lineageRefs.size,
     },
     financialCalculationExecuted: false,
@@ -712,6 +856,8 @@ function evidenceAwareValuesForCase(operatingCase) {
     if (lease.escalation && lease.escalation.changeValue) values.push(lease.escalation.changeValue);
     for (const entry of (lease.escalation && lease.escalation.schedule) || []) values.push(entry.rent);
   }
+  for (const expense of operatingCase.operatingExpenses || []) values.push(expense.annualAmount);
+  for (const item of operatingCase.capexItems || []) values.push(item.estimatedCost);
   values.push(...(operatingCase.additionalOperatingInputs || []));
   return values;
 }
@@ -729,6 +875,8 @@ function collectOperatingCaseEvidenceRefs(operatingCase) {
     if (lease.escalation && lease.escalation.indexEvidenceRef) refs.push(lease.escalation.indexEvidenceRef);
   }
   for (const tenant of operatingCase.tenants || []) collect(tenant.evidenceRefs);
+  for (const expense of operatingCase.operatingExpenses || []) collect(expense.evidenceRefs);
+  for (const item of operatingCase.capexItems || []) collect(item.evidenceRefs);
   for (const value of evidenceAwareValuesForCase(operatingCase)) collect(value.lineageRefs);
   return distinctStrings(refs);
 }
@@ -744,6 +892,10 @@ module.exports = {
   RENT_ESCALATION_TYPE,
   OPERATING_INPUT_STATUS,
   LINEAGE_KIND,
+  OPERATING_EXPENSE_BASIS,
+  OPERATING_EXPENSE_CATEGORY,
+  CAPEX_CATEGORY,
+  CAPEX_SEVERITY,
   deepFreeze,
   createEvidenceLineageRecord,
   createEvidenceAwareValue,
@@ -754,6 +906,8 @@ module.exports = {
   createTenant,
   createRentEscalation,
   createLease,
+  createOperatingExpense,
+  createCapexItem,
   createResidentialIncomeOperatingCase,
   evidenceAwareValuesForCase,
   collectOperatingCaseEvidenceRefs,

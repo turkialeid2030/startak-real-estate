@@ -56,6 +56,7 @@ export default function ResidentialIncomeAcquisitionPanel({ viewModel, t, dir = 
   const loaded = viewModel.apiStatus === 'CASE_LOADED';
   const summary = viewModel.summary;
   const metrics = viewModel.operatingMetrics;
+  const costs = viewModel.propertyCosts;
   const locale = dir === 'rtl' ? 'ar-SA' : 'en-US';
 
   return (
@@ -104,6 +105,25 @@ export default function ResidentialIncomeAcquisitionPanel({ viewModel, t, dir = 
               <div className="rounded-xl border border-amber-900/50 bg-amber-950/10 p-3 text-xs text-amber-200/80">
                 {t('riai.metricsNotCalculable')} ({metrics.issues.length})
               </div>
+            ) : null}
+            {costs ? (
+              <section aria-labelledby="riai-property-costs" className="rounded-xl border border-slate-800 bg-slate-950/30 p-4">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <h3 id="riai-property-costs" className="text-sm font-semibold text-slate-100">{t('riai.propertyCosts')}</h3>
+                  <span className="text-[11px] text-slate-500">{costs.status}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                  <CountCard label={t('riai.normalizedOpex')} value={number(costs.operatingExpenses.totalsByBasis.normalizedAnnualOpex, locale)} />
+                  <CountCard label={t('riai.opexToRent')} value={percent(costs.operatingExpenses.normalizedMetrics.opexToContractRent, locale)} />
+                  <CountCard label={t('riai.knownImmediateCapex')} value={number(costs.capex.knownImmediateCapex, locale)} />
+                  <CountCard label={t('riai.unknownCapexItems')} value={costs.capex.unknownCostCount} />
+                </div>
+                {costs.capex.criticalUnknownCostCount > 0 || costs.capex.lifeSafetyUnknownCostCount > 0 ? (
+                  <div className="mt-3 rounded-lg border border-rose-900/50 bg-rose-950/20 p-3 text-xs text-rose-200">
+                    {t('riai.criticalUnknownCapex')}: {costs.capex.criticalOrLifeSafetyUnknownCostCount}
+                  </div>
+                ) : null}
+              </section>
             ) : null}
             <div className="grid gap-4 lg:grid-cols-3">
               <IssueList title={t('riai.blockers')} items={viewModel.blockers || []} emptyLabel={t('riai.noBlockers')} />
