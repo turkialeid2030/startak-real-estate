@@ -1,12 +1,20 @@
 // src/storage/saved-deals-backup.js -- PR-12: Saved Deal export/import
-// (backup/restore). Static client-only, no backend, no schema change to the
-// canonical Saved Deal record. Reuses SDI-001's validateSavedDealRecord --
+// (backup/restore). Static client-only, no backend. Version 2 adds an optional
+// validated Residential Income operating-case snapshot to the canonical Saved
+// Deal record while retaining full version-1 restore compatibility. Reuses
+// SDI-001's validateSavedDealRecord --
 // does NOT implement a second/duplicate schema validator.
 
 const { validateSavedDealRecord } = require('../validation/saved-deal-schema.js');
 
 const BACKUP_FORMAT = 'STARTAK_SAVED_DEALS_BACKUP';
-const BACKUP_VERSION = 1;
+const BACKUP_VERSION = 2;
+
+function projectDealRecord(parsed, id = parsed.id) {
+  const record = { id, name: parsed.name, mode: parsed.mode, inputs: parsed.inputs, savedAt: parsed.savedAt };
+  if (Object.prototype.hasOwnProperty.call(parsed, 'operatingCase')) record.operatingCase = parsed.operatingCase;
+  return record;
+}
 
 class BackupError extends Error {
   constructor(reasonCode, detail) {
@@ -34,8 +42,9 @@ async function buildExportPayload(dealIndexEntries, storageProvider) {
     let parsed;
     try { parsed = JSON.parse(raw); } catch (e) { throw new BackupError('CORRUPT_JSON_IN_STORAGE', `id=${entry.id}`); }
     validateSavedDealRecord(parsed); // throws SavedDealValidationError if structurally invalid -- propagates, aborting the whole export
-    // Preserve exactly id/name/mode/inputs/savedAt -- no derived/presentation fields.
-    deals.push({ id: parsed.id, name: parsed.name, mode: parsed.mode, inputs: parsed.inputs, savedAt: parsed.savedAt });
+    // Preserve the core deal plus the optional canonical operating-case snapshot.
+    // No calculated view-model or presentation fields are exported.
+    deals.push(projectDealRecord(parsed));
   }
   return { format: BACKUP_FORMAT, backupVersion: BACKUP_VERSION, exportedAt: new Date().toISOString(), deals };
 }
@@ -52,7 +61,7 @@ function validateBackupEnvelope(parsed) {
   if (parsed.format !== BACKUP_FORMAT) {
     throw new BackupError('UNKNOWN_FORMAT', `format=${JSON.stringify(parsed.format)}`);
   }
-  if (typeof parsed.backupVersion !== 'number' || parsed.backupVersion > BACKUP_VERSION) {
+  if (!Number.isInteger(parsed.backupVersion) || parsed.backupVersion < 1 || parsed.backupVersion > BACKUP_VERSION) {
     throw new BackupError('UNSUPPORTED_VERSION', `backupVersion=${JSON.stringify(parsed.backupVersion)}`);
   }
   if (!Array.isArray(parsed.deals)) {
@@ -87,13 +96,13 @@ function planRestore(backupPayload, existingIndexEntries, existingRecordsById) {
     if (existingIds.has(deal.id)) {
       const existingRaw = existingRecordsById.get(deal.id);
       const existingContent = existingRaw ? JSON.stringify(JSON.parse(existingRaw)) : null;
-      const incomingContent = JSON.stringify({ id: deal.id, name: deal.name, mode: deal.mode, inputs: deal.inputs, savedAt: deal.savedAt });
+      const incomingContent = JSON.stringify(projectDealRecord(deal));
       if (existingContent === incomingContent) {
         continue; // exact duplicate -- skip, not an error, not a write
       }
       targetId = 'deal_restored_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
     }
-    const record = { id: targetId, name: deal.name, mode: deal.mode, inputs: deal.inputs, savedAt: deal.savedAt };
+    const record = projectDealRecord(deal, targetId);
     toWrite.push({ id: targetId, record });
     newIndexEntries.push({ id: targetId, name: deal.name, mode: deal.mode, savedAt: deal.savedAt });
   }

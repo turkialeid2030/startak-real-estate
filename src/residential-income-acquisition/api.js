@@ -29,7 +29,7 @@ function createEmptyResidentialIncomeAcquisitionViewModel() {
   return deepFreeze({
     schemaVersion: 1,
     capability: 'RESIDENTIAL_INCOME_ACQUISITION_INTELLIGENCE',
-    capabilityStatus: 'PROPERTY_COSTS_V1',
+    capabilityStatus: 'OPERATING_CASE_PORTABILITY_V1',
     apiStatus: RESIDENTIAL_INCOME_ACQUISITION_API_STATUS.NOT_LOADED,
     caseId: null,
     asOfDate: null,
@@ -60,7 +60,7 @@ function createResidentialIncomeAcquisitionViewModel(operatingCase = null) {
   return deepFreeze({
     schemaVersion: 1,
     capability: 'RESIDENTIAL_INCOME_ACQUISITION_INTELLIGENCE',
-    capabilityStatus: 'PROPERTY_COSTS_V1',
+    capabilityStatus: 'OPERATING_CASE_PORTABILITY_V1',
     apiStatus: RESIDENTIAL_INCOME_ACQUISITION_API_STATUS.CASE_LOADED,
     caseId: operatingCase.caseId,
     asOfDate: operatingCase.asOfDate,

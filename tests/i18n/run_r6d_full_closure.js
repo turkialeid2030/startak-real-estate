@@ -14,11 +14,11 @@ function check(id, cond, detail) { console.log(`${id} ${cond?'PASS':'FAIL'} -- $
 function parseCsvLine(l){const f=[];let c='',q=false;for(const ch of l){if(ch==='"')q=!q;else if(ch===','&&!q){f.push(c);c='';}else c+=ch;}f.push(c);return f;}
 const schemaCsv = fs.readFileSync(path.join(__dirname,'../..','R6_SAVED_DEAL_SCHEMA_INVENTORY.csv'),'utf8').trim().split('\n');
 const schemaRows = schemaCsv.slice(1).map(parseCsvLine);
-check('SCHEMA-5-FIELDS', schemaRows.length === 5, `${schemaRows.length} persisted fields`);
+check('SCHEMA-6-FIELDS', schemaRows.length === 6, `${schemaRows.length} persisted fields including optional RIAI operatingCase`);
 check('SCHEMA-ZERO-TRANSLATABLE', schemaRows.every(r => r[3] !== 'Yes'), 'zero translatable persisted fields');
 
 const appSrc = fs.readFileSync(path.join(__dirname,'../..','src/app/App.jsx'), 'utf8');
-check('SCHEMA-RECORD-SHAPE-UNCHANGED', appSrc.includes('const record = { id, name, mode, inputs, savedAt: new Date().toISOString() };'), 'save-new record shape byte-identical since R6-A');
+check('SCHEMA-CORE-PRESERVED-WITH-OPTIONAL-RIAI', appSrc.includes('recordWithOperatingCase({ id, name, mode, inputs, savedAt: new Date().toISOString() })'), 'original five raw fields preserved with one validated optional Building-only operatingCase');
 check('STORAGE-KEY-PREFIX-UNCHANGED', appSrc.includes('"deal:" + id') && appSrc.includes('"deals-index"'), 'storage keys unchanged');
 
 // Live-browser evidence from this session (documented, not re-executed here --
