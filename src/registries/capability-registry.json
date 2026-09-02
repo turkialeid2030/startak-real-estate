@@ -12,6 +12,18 @@
     "limitations": ""
   },
   {
+    "capability_id": "CAP-RIAI-OPERATING-CONTRACT",
+    "name_ar": "عقد بيانات الاستحواذ السكني المدر للدخل",
+    "name_en": "Residential Income Operating Underwriting Contract",
+    "phase": "PHASE_4",
+    "module": "src/residential-income-acquisition",
+    "requirement_refs": "RIAI-01A",
+    "implementation_status": "FOUNDATION_ONLY",
+    "evidence": "Canonical PropertyInterest/Property/Building/Unit/Lease/Tenant graph, evidence-aware value lineage, fail-closed readiness assessment, deterministic immutable API projection, and safe Existing Building readiness UI",
+    "test_status": "run_residential_income_operating_contract_v1.js; run_residential_income_acquisition_ui_v1.js",
+    "limitations": "Foundation/readiness API/UI only; operating-case ingestion and persistence, Rent Roll calculations, occupancy metrics, lease timing, OPEX/CAPEX, mark-to-market, stabilized NOI, reverse underwriting v2, and exit strategy are not implemented in this capability"
+  },
+  {
     "capability_id": "CAP-STUDY-LAND",
     "name_ar": "دراسة الأرض والتطوير",
     "name_en": "Land + Development Study",

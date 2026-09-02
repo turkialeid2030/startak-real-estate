@@ -8,6 +8,7 @@ import {
   ChevronDown, Layers, Calendar, ArrowUpRight, Percent, Wallet,
   MapPin, AlertTriangle, Bookmark, Save, Trash2,
 } from "lucide-react";
+import ResidentialIncomeAcquisitionPanel from "../components/ResidentialIncomeAcquisitionPanel.jsx";
 
 // ============================================================
 // DESIGN TOKENS
@@ -116,6 +117,7 @@ const { buildExportPayload, planRestore, commitRestore } = require('../storage/s
 // business logic changes -- same get/set/delete semantics, same keys, same
 // {shared:false} scope. See RUNTIME_STORAGE_PORTABILITY_REMEDIATION.md.
 const { createStorageProvider } = require('../storage/create-storage-provider');
+const { createResidentialIncomeAcquisitionViewModel } = require('../residential-income-acquisition');
 
 // ============================================================
 
@@ -1371,6 +1373,10 @@ export default function App() {
     document.documentElement.dir = dir;
   }, [locale, dir]);
   const [mode, setMode] = useState("building");
+  const residentialIncomeAcquisitionView = useMemo(
+    () => createResidentialIncomeAcquisitionViewModel(null),
+    [],
+  );
   // RUNTIME REMEDIATION: single centralized storage provider instance for
   // this App instance. If neither host nor browser storage is available,
   // storageProvider stays null and every Saved Deals operation surfaces an
@@ -1705,6 +1711,14 @@ export default function App() {
             {activeTab === "sensitivity" && <SensitivityTab mode={mode} inputs={inputs} />}
           </main>
         </div>
+
+        {mode === "building" ? (
+          <ResidentialIncomeAcquisitionPanel
+            viewModel={residentialIncomeAcquisitionView}
+            t={t}
+            dir={dir}
+          />
+        ) : null}
 
         {/* FOOTER */}
         <footer className="mt-10 pt-6" style={{ borderTop: `1px solid ${COLORS.hairlineSoft}` }}>

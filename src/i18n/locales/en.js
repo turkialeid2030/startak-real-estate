@@ -336,4 +336,22 @@ module.exports = {
   financing: {
     toggle: "Enable Financial Leverage",
   },
+  riai: {
+    title: "Residential Income Acquisition Readiness",
+    description: "An operating gate that links the property interest, property, buildings, units, leases, and tenants to adopted evidence before financial analysis.",
+    notLoadedStatus: "No operating case loaded",
+    emptyState: "No operating case is linked to this study yet. The unit, lease, and tenant records must be created and linked to evidence and human verification before operating analysis can be enabled.",
+    units: "Units",
+    leases: "Leases",
+    tenants: "Tenants",
+    evidence: "Evidence records",
+    blockers: "Decision blockers",
+    evidenceGaps: "Evidence gaps",
+    dueDiligence: "Required diligence",
+    noBlockers: "No structural blockers recorded.",
+    noEvidenceGaps: "No evidence gaps recorded.",
+    noDueDiligence: "No diligence actions recorded.",
+    boundaryTitle: "Current-version boundary:",
+    boundary: "This gate does not calculate NOI, value, or returns, and it does not issue an investment decision, legal opinion, or transaction authorization.",
+  },
 };
