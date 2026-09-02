@@ -1,6 +1,6 @@
 // tests/saved-deals/run_pr12_backup_restore.js -- PR-12 permanent coverage:
 // export/import transactional logic + live browser evidence documentation.
-const { buildExportPayload, validateBackupEnvelope, planRestore, commitRestore, BackupError } = require('../../src/storage/saved-deals-backup');
+const { buildExportPayload, validateBackupEnvelope, planRestore, commitRestore, BackupError, BACKUP_VERSION } = require('../../src/storage/saved-deals-backup');
 const { SavedDealValidationError } = require('../../src/validation/saved-deal-schema');
 const results = [];
 function check(id, cond, detail) { console.log(`${id} ${cond?'PASS':'FAIL'} -- ${detail}`); results.push(cond); }
@@ -10,7 +10,7 @@ function mockProvider(store) { return { get: async (k) => store[k] || null, set:
 (async () => {
   const store1 = { 'deal:d1': JSON.stringify({ id: 'd1', name: 'مشروعي الأول', mode: 'building', inputs: { buildingPrice: 140000000 }, savedAt: '2026-01-01' }) };
   const payload = await buildExportPayload([{ id: 'd1' }], mockProvider(store1));
-  check('EXPORT-VALID', payload.format === 'STARTAK_SAVED_DEALS_BACKUP' && payload.backupVersion === 1 && payload.deals[0].name === 'مشروعي الأول', 'user content preserved, envelope correct');
+  check('EXPORT-VALID', payload.format === 'STARTAK_SAVED_DEALS_BACKUP' && payload.backupVersion === BACKUP_VERSION && payload.deals[0].name === 'مشروعي الأول', 'user content preserved, envelope correct');
 
   const store2 = { 'deal:d1': JSON.stringify({ id: 'd1' }) };
   try { await buildExportPayload([{ id: 'd1' }], mockProvider(store2)); check('EXPORT-ABORTS-ON-CORRUPT', false, 'no throw'); }

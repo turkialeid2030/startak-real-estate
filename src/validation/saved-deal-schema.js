@@ -13,10 +13,12 @@
 // - "Legacy" investigation finding: src/migrations/legacy-saved-deal-adapter.js
 //   exists but serves a completely different purpose (converting a record to
 //   an ExecutableInvestmentCase for a separate consumer) -- it expects the
-//   exact same {id, name, mode, inputs, savedAt} shape validated here, not
+//   same legacy {id, name, mode, inputs, savedAt} core validated here, not
 //   an alternate historical shape. There is no other/older record shape that
 //   loadDeal() has ever needed to support. SUPPORTED_LEGACY_RECORDS_IDENTIFIED
 //   = FALSE for this load path specifically.
+
+const { hydrateResidentialIncomeOperatingCaseSnapshot } = require('../residential-income-acquisition/operating-case-snapshot');
 
 class SavedDealValidationError extends Error {
   constructor(reasonCode, detail) {
@@ -59,6 +61,17 @@ function validateSavedDealRecord(parsed) {
   }
   if (parsed.name !== undefined && typeof parsed.name !== 'string') {
     throw new SavedDealValidationError('INVALID_NAME_TYPE', `typeof=${typeof parsed.name}`);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(parsed, 'operatingCase')) {
+    if (parsed.mode !== 'building') {
+      throw new SavedDealValidationError('OPERATING_CASE_REQUIRES_BUILDING_MODE', `mode=${parsed.mode}`);
+    }
+    try {
+      hydrateResidentialIncomeOperatingCaseSnapshot(parsed.operatingCase);
+    } catch (error) {
+      throw new SavedDealValidationError('INVALID_OPERATING_CASE', error.reasonCode || error.name || 'UNKNOWN');
+    }
   }
 
   return parsed; // unmodified -- non-destructive by construction

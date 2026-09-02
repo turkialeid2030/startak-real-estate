@@ -20,9 +20,10 @@ check('USER-NAME-PASSTHROUGH-AR', getDealDisplayName({name:'مشروعي الخ�
 check('USER-NAME-PASSTHROUGH-EN', getDealDisplayName({name:'مشروعي الخاص'}, tEn) === 'مشروعي الخاص', 'real user content NOT translated even in en mode -- critical: user content must never be translated');
 check('USER-NAME-ENGLISH-PASSTHROUGH', getDealDisplayName({name:'My Project'}, tAr) === 'My Project', 'user content in any script passes through unchanged');
 
-// Schema freeze proof
+// Schema preservation proof. RIAI-01P intentionally wraps the original five
+// fields and may append one validated optional operatingCase for Building.
 const appSrc = fs.readFileSync(path.join(__dirname,'../..','src/app/App.jsx'), 'utf8');
-check('SCHEMA-RECORD-UNCHANGED', appSrc.includes('const record = { id, name, mode, inputs, savedAt: new Date().toISOString() };'), 'save-new record shape byte-identical to before R6-A');
+check('SCHEMA-CORE-PRESERVED-WITH-OPTIONAL-RIAI', appSrc.includes('recordWithOperatingCase({ id, name, mode, inputs, savedAt: new Date().toISOString() })'), 'original five raw fields preserved; optional validated operatingCase is non-translatable and Building-only');
 check('SCHEMA-UPDATE-UNCHANGED', appSrc.includes('name: existing ? existing.name : "صفقة"'), 'update-active record shape byte-identical -- raw persisted literal "صفقة" untouched, only DISPLAY wrapped via getDealDisplayName');
 check('DNAME-CALL-SITE-USES-DISPLAY-FN', appSrc.includes('getDealDisplayName(d, t)'), 'list rendering uses the presentation function, not raw d.name directly');
 

@@ -117,7 +117,13 @@ const { buildExportPayload, planRestore, commitRestore } = require('../storage/s
 // business logic changes -- same get/set/delete semantics, same keys, same
 // {shared:false} scope. See RUNTIME_STORAGE_PORTABILITY_REMEDIATION.md.
 const { createStorageProvider } = require('../storage/create-storage-provider');
-const { createResidentialIncomeAcquisitionViewModel } = require('../residential-income-acquisition');
+const {
+  createResidentialIncomeAcquisitionViewModel,
+  hydrateResidentialIncomeOperatingCaseSnapshot,
+  buildResidentialIncomeOperatingCaseEnvelope,
+  parseResidentialIncomeOperatingCaseEnvelope,
+  MAX_OPERATING_CASE_JSON_BYTES,
+} = require('../residential-income-acquisition');
 
 // ============================================================
 
@@ -1373,9 +1379,11 @@ export default function App() {
     document.documentElement.dir = dir;
   }, [locale, dir]);
   const [mode, setMode] = useState("building");
+  const [residentialIncomeOperatingCase, setResidentialIncomeOperatingCase] = useState(null);
+  const [operatingCaseMessage, setOperatingCaseMessage] = useState(null);
   const residentialIncomeAcquisitionView = useMemo(
-    () => createResidentialIncomeAcquisitionViewModel(null),
-    [],
+    () => createResidentialIncomeAcquisitionViewModel(residentialIncomeOperatingCase),
+    [residentialIncomeOperatingCase],
   );
   // RUNTIME REMEDIATION: single centralized storage provider instance for
   // this App instance. If neither host nor browser storage is available,
@@ -1461,6 +1469,8 @@ export default function App() {
 
   const loadBuiltIn = (builtInMode) => {
     setMode(builtInMode);
+    setResidentialIncomeOperatingCase(null);
+    setOperatingCaseMessage(null);
     setActiveDealId(null);
     setActiveTab("dashboard");
     setDealsPanelOpen(false);
@@ -1476,12 +1486,59 @@ export default function App() {
       setMode(record.mode);
       if (record.mode === "building") setBuildingInputs({ ...DEFAULT_BUILDING_INPUTS, ...record.inputs });
       else setLandInputs({ ...DEFAULT_LAND_INPUTS, ...record.inputs });
+      setResidentialIncomeOperatingCase(record.operatingCase
+        ? hydrateResidentialIncomeOperatingCaseSnapshot(record.operatingCase)
+        : null);
+      setOperatingCaseMessage(null);
       setActiveDealId(id);
       setActiveTab("dashboard");
       setDealsPanelOpen(false);
     } catch (e) {
       setDealsError({ code: "DEAL_LOAD_FAILED", message_ar: "تعذّر تحميل الصفقة", message_en: "The deal could not be loaded" });
     }
+  };
+
+  const recordWithOperatingCase = (record) => {
+    if (record.mode === "building" && residentialIncomeOperatingCase) {
+      return { ...record, operatingCase: residentialIncomeOperatingCase };
+    }
+    return record;
+  };
+
+  const importResidentialIncomeOperatingCase = async (file) => {
+    if (!file) return;
+    if (file.size > MAX_OPERATING_CASE_JSON_BYTES) {
+      setOperatingCaseMessage({ ok: false, code: 'FILE_TOO_LARGE' });
+      return;
+    }
+    try {
+      const text = await file.text();
+      const operatingCase = parseResidentialIncomeOperatingCaseEnvelope(text);
+      setResidentialIncomeOperatingCase(operatingCase);
+      setOperatingCaseMessage({ ok: true, code: 'IMPORTED' });
+    } catch (error) {
+      setOperatingCaseMessage({ ok: false, code: error.reasonCode || 'INVALID_OPERATING_CASE' });
+    }
+  };
+
+  const exportResidentialIncomeOperatingCase = () => {
+    if (!residentialIncomeOperatingCase) return;
+    const envelope = buildResidentialIncomeOperatingCaseEnvelope(residentialIncomeOperatingCase);
+    const blob = new Blob([JSON.stringify(envelope, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `startak-operating-case-${residentialIncomeOperatingCase.caseId}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setOperatingCaseMessage({ ok: true, code: 'EXPORTED' });
+  };
+
+  const clearResidentialIncomeOperatingCase = () => {
+    setResidentialIncomeOperatingCase(null);
+    setOperatingCaseMessage({ ok: true, code: 'CLEARED' });
   };
 
   const saveCurrentAsNewDeal = async () => {
@@ -1502,7 +1559,7 @@ export default function App() {
     setDealsError(null);
     try {
       const id = "deal_" + Date.now();
-      const record = { id, name, mode, inputs, savedAt: new Date().toISOString() };
+      const record = recordWithOperatingCase({ id, name, mode, inputs, savedAt: new Date().toISOString() });
       await storageProvider.set("deal:" + id, JSON.stringify(record));
       const newIndex = [...savedDeals, { id, name, mode, savedAt: record.savedAt }];
       await storageProvider.set("deals-index", JSON.stringify(newIndex));
@@ -1525,7 +1582,7 @@ export default function App() {
     setDealsError(null);
     try {
       const existing = savedDeals.find((d) => d.id === activeDealId);
-      const record = { id: activeDealId, name: existing ? existing.name : "صفقة", mode, inputs, savedAt: new Date().toISOString() };
+      const record = recordWithOperatingCase({ id: activeDealId, name: existing ? existing.name : "صفقة", mode, inputs, savedAt: new Date().toISOString() });
       await storageProvider.set("deal:" + activeDealId, JSON.stringify(record));
       const newIndex = savedDeals.map((d) => (d.id === activeDealId ? { ...d, savedAt: record.savedAt } : d));
       await storageProvider.set("deals-index", JSON.stringify(newIndex));
@@ -1544,7 +1601,11 @@ export default function App() {
       const newIndex = savedDeals.filter((d) => d.id !== id);
       await storageProvider.set("deals-index", JSON.stringify(newIndex));
       setSavedDeals(newIndex);
-      if (activeDealId === id) setActiveDealId(null);
+      if (activeDealId === id) {
+        setActiveDealId(null);
+        setResidentialIncomeOperatingCase(null);
+        setOperatingCaseMessage(null);
+      }
     } catch (e) {
       setDealsError({ code: "DEAL_DELETE_FAILED", message_ar: "تعذّر الحذف", message_en: "Delete failed" });
     }
@@ -1597,6 +1658,8 @@ export default function App() {
       loadDeal(activeDealId);
     } else if (mode === "building") {
       setBuildingInputs(DEFAULT_BUILDING_INPUTS);
+      setResidentialIncomeOperatingCase(null);
+      setOperatingCaseMessage(null);
     } else {
       setLandInputs(DEFAULT_LAND_INPUTS);
     }
@@ -1630,7 +1693,13 @@ export default function App() {
             >
               {locale === "ar-SA" ? "EN" : "ع"}
             </button>
-            <ModeSwitch mode={mode} setMode={(m) => { setMode(m); setActiveDealId(null); setActiveTab("dashboard"); }} />
+            <ModeSwitch mode={mode} setMode={(m) => {
+              setMode(m);
+              setActiveDealId(null);
+              setResidentialIncomeOperatingCase(null);
+              setOperatingCaseMessage(null);
+              setActiveTab("dashboard");
+            }} />
             <button
               type="button"
               onClick={() => setDealsPanelOpen(true)}
@@ -1717,6 +1786,10 @@ export default function App() {
             viewModel={residentialIncomeAcquisitionView}
             t={t}
             dir={dir}
+            onImportOperatingCase={importResidentialIncomeOperatingCase}
+            onExportOperatingCase={exportResidentialIncomeOperatingCase}
+            onClearOperatingCase={clearResidentialIncomeOperatingCase}
+            operatingCaseMessage={operatingCaseMessage}
           />
         ) : null}
 

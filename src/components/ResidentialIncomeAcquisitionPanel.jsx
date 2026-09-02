@@ -51,7 +51,16 @@ function IssueList({ title, items, emptyLabel }) {
   );
 }
 
-export default function ResidentialIncomeAcquisitionPanel({ viewModel, t, dir = 'rtl' }) {
+export default function ResidentialIncomeAcquisitionPanel({
+  viewModel,
+  t,
+  dir = 'rtl',
+  onImportOperatingCase,
+  onExportOperatingCase,
+  onClearOperatingCase,
+  operatingCaseMessage = null,
+}) {
+  const fileInputRef = React.useRef(null);
   if (!viewModel || typeof viewModel !== 'object') return null;
   const loaded = viewModel.apiStatus === 'CASE_LOADED';
   const summary = viewModel.summary;
@@ -72,6 +81,57 @@ export default function ResidentialIncomeAcquisitionPanel({ viewModel, t, dir = 
             {viewModel.readinessStatus || t('riai.notLoadedStatus')}
           </div>
         </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            data-testid="riai-operating-case-file-input"
+            onChange={async (event) => {
+              const file = event.target.files?.[0] || null;
+              event.target.value = '';
+              if (file) await onImportOperatingCase?.(file);
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-200 hover:border-slate-500"
+          >
+            {t('riai.importOperatingCase')}
+          </button>
+          {loaded ? (
+            <>
+              <button
+                type="button"
+                onClick={() => onExportOperatingCase?.()}
+                className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300 hover:border-slate-500"
+              >
+                {t('riai.exportOperatingCase')}
+              </button>
+              <button
+                type="button"
+                onClick={() => onClearOperatingCase?.()}
+                className="rounded-lg border border-rose-900/70 px-3 py-2 text-xs text-rose-300 hover:border-rose-700"
+              >
+                {t('riai.clearOperatingCase')}
+              </button>
+            </>
+          ) : null}
+        </div>
+
+        {operatingCaseMessage ? (
+          <div
+            role="status"
+            className={`mt-3 rounded-lg border p-3 text-xs ${operatingCaseMessage.ok ? 'border-emerald-900/60 bg-emerald-950/20 text-emerald-200' : 'border-rose-900/60 bg-rose-950/20 text-rose-200'}`}
+          >
+            {operatingCaseMessage.ok
+              ? t(`riai.${operatingCaseMessage.code === 'EXPORTED' ? 'exportSuccess' : operatingCaseMessage.code === 'CLEARED' ? 'clearSuccess' : 'importSuccess'}`)
+              : `${t('riai.importFailed')} (${operatingCaseMessage.code})`}
+          </div>
+        ) : null}
 
         {!loaded ? (
           <div className="mt-4 rounded-xl border border-dashed border-slate-700 p-4 text-xs leading-6 text-slate-400" role="status">
