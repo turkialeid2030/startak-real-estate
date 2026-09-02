@@ -176,6 +176,87 @@ const EXIT_STRATEGY_INPUT_DEFINITION = Object.freeze({
   [EXIT_STRATEGY_INPUT_TYPE.DISCOUNT_RATE]: Object.freeze({ key: 'discountRate', unit: 'ratio' }),
 });
 
+const ASSET_LIFECYCLE_CLASSIFICATION = Object.freeze({
+  DEVELOPMENT: 'DEVELOPMENT',
+  UNDER_CONSTRUCTION: 'UNDER_CONSTRUCTION',
+  NEW_LEASE_UP: 'NEW_LEASE_UP',
+  STABILIZED: 'STABILIZED',
+  UNDER_RENTED: 'UNDER_RENTED',
+  OVER_RENTED: 'OVER_RENTED',
+  PARTIALLY_VACANT: 'PARTIALLY_VACANT',
+  OPERATIONALLY_DISTRESSED: 'OPERATIONALLY_DISTRESSED',
+  PHYSICALLY_DISTRESSED: 'PHYSICALLY_DISTRESSED',
+  REPOSITIONING_CANDIDATE: 'REPOSITIONING_CANDIDATE',
+  REDEVELOPMENT_CANDIDATE: 'REDEVELOPMENT_CANDIDATE',
+  HARVEST_EXIT_CANDIDATE: 'HARVEST_EXIT_CANDIDATE',
+  OBSOLETE: 'OBSOLETE',
+});
+
+const LOCATION_FACTOR_HORIZON = Object.freeze({
+  CURRENT: 'CURRENT',
+  FORWARD: 'FORWARD',
+});
+
+const LOCATION_FACTOR_DIMENSION = Object.freeze({
+  ACCESSIBILITY: 'ACCESSIBILITY',
+  EMPLOYMENT_PROXIMITY: 'EMPLOYMENT_PROXIMITY',
+  TRANSIT: 'TRANSIT',
+  RETAIL_SERVICES: 'RETAIL_SERVICES',
+  EDUCATION: 'EDUCATION',
+  HEALTHCARE: 'HEALTHCARE',
+  ROAD_HIERARCHY: 'ROAD_HIERARCHY',
+  FRONTAGE_VISIBILITY: 'FRONTAGE_VISIBILITY',
+  NEIGHBORHOOD_MATURITY: 'NEIGHBORHOOD_MATURITY',
+  CURRENT_DEMAND: 'CURRENT_DEMAND',
+  SUPPLY_PIPELINE: 'SUPPLY_PIPELINE',
+  FUTURE_PROJECTS: 'FUTURE_PROJECTS',
+  DEMOGRAPHIC_GROWTH: 'DEMOGRAPHIC_GROWTH',
+  REGULATORY_DIRECTION: 'REGULATORY_DIRECTION',
+});
+
+const UPSIDE_CATALYST_TYPE = Object.freeze({
+  LEASE_UP: 'LEASE_UP',
+  RENT_REVERSION: 'RENT_REVERSION',
+  OPEX_OPTIMIZATION: 'OPEX_OPTIMIZATION',
+  DEFERRED_MAINTENANCE_CURE: 'DEFERRED_MAINTENANCE_CURE',
+  AMENITY_UPGRADE: 'AMENITY_UPGRADE',
+  ACCESS_IMPROVEMENT: 'ACCESS_IMPROVEMENT',
+  INFRASTRUCTURE_PROJECT: 'INFRASTRUCTURE_PROJECT',
+  TRANSIT_PROJECT: 'TRANSIT_PROJECT',
+  REGULATORY_CHANGE: 'REGULATORY_CHANGE',
+  UNIT_SUBDIVISION: 'UNIT_SUBDIVISION',
+  USE_CONVERSION: 'USE_CONVERSION',
+  REDEVELOPMENT: 'REDEVELOPMENT',
+  LONG_LEASE_RESTRUCTURE: 'LONG_LEASE_RESTRUCTURE',
+  OTHER: 'OTHER',
+});
+
+const UPSIDE_CATALYST_STATUS = Object.freeze({
+  EVIDENCE_CONFIRMED: 'EVIDENCE_CONFIRMED',
+  UNDER_DUE_DILIGENCE: 'UNDER_DUE_DILIGENCE',
+  SPECULATIVE: 'SPECULATIVE',
+  BLOCKED: 'BLOCKED',
+});
+
+const SUBDIVISION_CHECK_TYPE = Object.freeze({
+  ZONING_PERMISSION: 'ZONING_PERMISSION',
+  TITLE_AND_WAQF_RESTRICTIONS: 'TITLE_AND_WAQF_RESTRICTIONS',
+  MUNICIPAL_APPROVAL_PATH: 'MUNICIPAL_APPROVAL_PATH',
+  BUILDING_CODE: 'BUILDING_CODE',
+  FIRE_LIFE_SAFETY: 'FIRE_LIFE_SAFETY',
+  STRUCTURAL_FEASIBILITY: 'STRUCTURAL_FEASIBILITY',
+  INDEPENDENT_ACCESS: 'INDEPENDENT_ACCESS',
+  UTILITY_SEPARATION: 'UTILITY_SEPARATION',
+  PARKING_COMPLIANCE: 'PARKING_COMPLIANCE',
+  MINIMUM_UNIT_AREA: 'MINIMUM_UNIT_AREA',
+  SURVEY_AND_UNITIZATION: 'SURVEY_AND_UNITIZATION',
+});
+
+const SUBDIVISION_CHECK_OUTCOME = Object.freeze({
+  PASS: 'PASS',
+  FAIL: 'FAIL',
+});
+
 function deepFreeze(value) {
   if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
   Object.freeze(value);
@@ -844,6 +925,159 @@ function createExitStrategyScenario({
   });
 }
 
+function assertStrategicInput(input, expectedField, field) {
+  assertEvidenceAwareValue(input, field);
+  if (input.field !== expectedField) throw new TypeError(`STRATEGIC_INPUT_FIELD_MISMATCH: ${expectedField}`);
+  return input;
+}
+
+function createAssetLifecycleAssessment({ caseId, propertyId, classification, evidenceRefs = [] }) {
+  requiredString(caseId, 'caseId');
+  requiredString(propertyId, 'propertyId');
+  assertStrategicInput(classification, 'strategic.lifecycle.classification', 'classification');
+  if (classification.value !== null) enumValue(classification.value, ASSET_LIFECYCLE_CLASSIFICATION, 'classification.value');
+  return deepFreeze({
+    schemaVersion: 1,
+    caseId: caseId.trim(),
+    propertyId: propertyId.trim(),
+    classification,
+    evidenceRefs: uniqueStrings(evidenceRefs, 'evidenceRefs'),
+    investmentDecision: null,
+    semantics: 'An adopted analytical lifecycle classification. It is not a certified condition survey, valuation, or investment recommendation.',
+  });
+}
+
+function createLocationFactor({ caseId, propertyId, factorId, horizon, dimension, score, weight, evidenceRefs = [] }) {
+  requiredString(caseId, 'caseId');
+  requiredString(propertyId, 'propertyId');
+  const normalizedFactorId = requiredString(factorId, 'factorId');
+  enumValue(horizon, LOCATION_FACTOR_HORIZON, 'horizon');
+  enumValue(dimension, LOCATION_FACTOR_DIMENSION, 'dimension');
+  assertStrategicInput(score, `strategic.location.${normalizedFactorId}.score`, 'score');
+  assertStrategicInput(weight, `strategic.location.${normalizedFactorId}.weight`, 'weight');
+  if (score.value !== null && (typeof score.value !== 'number' || !Number.isFinite(score.value) || score.value < 0 || score.value > 100)) {
+    throw new RangeError('score.value must be between 0 and 100 or null');
+  }
+  if (weight.value !== null && (typeof weight.value !== 'number' || !Number.isFinite(weight.value) || weight.value < 0 || weight.value > 1)) {
+    throw new RangeError('weight.value must be between 0 and 1 or null');
+  }
+  return deepFreeze({
+    schemaVersion: 1,
+    caseId: caseId.trim(),
+    propertyId: propertyId.trim(),
+    factorId: normalizedFactorId,
+    horizon,
+    dimension,
+    score,
+    weight,
+    evidenceRefs: uniqueStrings(evidenceRefs, 'evidenceRefs'),
+    semantics: 'A normalized, evidence-linked location assessment factor. Weight is explicit policy; score is not a forecast of financial performance.',
+  });
+}
+
+function createUpsideCatalyst({
+  caseId,
+  propertyId,
+  catalystId,
+  catalystType,
+  assessmentStatus,
+  impactScore,
+  executionReadinessScore,
+  dependsOnSubdivision = false,
+  evidenceRefs = [],
+}) {
+  requiredString(caseId, 'caseId');
+  requiredString(propertyId, 'propertyId');
+  const normalizedCatalystId = requiredString(catalystId, 'catalystId');
+  enumValue(catalystType, UPSIDE_CATALYST_TYPE, 'catalystType');
+  if (typeof dependsOnSubdivision !== 'boolean') throw new TypeError('dependsOnSubdivision must be a boolean');
+  assertStrategicInput(assessmentStatus, `strategic.catalyst.${normalizedCatalystId}.status`, 'assessmentStatus');
+  assertStrategicInput(impactScore, `strategic.catalyst.${normalizedCatalystId}.impactScore`, 'impactScore');
+  assertStrategicInput(executionReadinessScore, `strategic.catalyst.${normalizedCatalystId}.executionReadinessScore`, 'executionReadinessScore');
+  if (assessmentStatus.value !== null) enumValue(assessmentStatus.value, UPSIDE_CATALYST_STATUS, 'assessmentStatus.value');
+  for (const [field, input] of Object.entries({ impactScore, executionReadinessScore })) {
+    if (input.value !== null && (typeof input.value !== 'number' || !Number.isFinite(input.value) || input.value < 0 || input.value > 100)) {
+      throw new RangeError(`${field}.value must be between 0 and 100 or null`);
+    }
+  }
+  return deepFreeze({
+    schemaVersion: 1,
+    caseId: caseId.trim(),
+    propertyId: propertyId.trim(),
+    catalystId: normalizedCatalystId,
+    catalystType,
+    assessmentStatus,
+    impactScore,
+    executionReadinessScore,
+    dependsOnSubdivision,
+    evidenceRefs: uniqueStrings(evidenceRefs, 'evidenceRefs'),
+    financialValueCalculated: false,
+    semantics: 'A qualitative upside catalyst assessment only. It does not add rent, NOI, terminal value, or purchase-price headroom without a separate adopted financial scenario.',
+  });
+}
+
+function createSubdivisionCheck({ caseId, propertyId, checkId, checkType, outcome, mandatory = true, evidenceRefs = [] }) {
+  requiredString(caseId, 'caseId');
+  requiredString(propertyId, 'propertyId');
+  const normalizedCheckId = requiredString(checkId, 'checkId');
+  enumValue(checkType, SUBDIVISION_CHECK_TYPE, 'checkType');
+  if (typeof mandatory !== 'boolean') throw new TypeError('mandatory must be a boolean');
+  assertStrategicInput(outcome, `strategic.subdivision.${normalizedCheckId}.outcome`, 'outcome');
+  if (outcome.value !== null) enumValue(outcome.value, SUBDIVISION_CHECK_OUTCOME, 'outcome.value');
+  return deepFreeze({
+    schemaVersion: 1,
+    caseId: caseId.trim(),
+    propertyId: propertyId.trim(),
+    checkId: normalizedCheckId,
+    checkType,
+    outcome,
+    mandatory,
+    evidenceRefs: uniqueStrings(evidenceRefs, 'evidenceRefs'),
+    approvalGranted: false,
+    semantics: 'A due-diligence gate for scenario testing only. PASS does not constitute municipal, legal, title, fire-safety, structural, or unitization approval.',
+  });
+}
+
+function createStrategicAssetProfile({
+  caseId,
+  propertyId,
+  lifecycleAssessment,
+  locationFactors = [],
+  upsideCatalysts = [],
+  subdivisionChecks = [],
+  evidenceRefs = [],
+}) {
+  const normalizedCaseId = requiredString(caseId, 'caseId');
+  const normalizedPropertyId = requiredString(propertyId, 'propertyId');
+  if (!lifecycleAssessment || typeof lifecycleAssessment !== 'object') throw new TypeError('lifecycleAssessment is required');
+  for (const [field, items] of Object.entries({ locationFactors, upsideCatalysts, subdivisionChecks })) {
+    if (!Array.isArray(items)) throw new TypeError(`${field} must be an array`);
+  }
+  const scoped = [lifecycleAssessment, ...locationFactors, ...upsideCatalysts, ...subdivisionChecks];
+  if (scoped.some((record) => record.caseId !== normalizedCaseId || record.propertyId !== normalizedPropertyId)) {
+    throw new TypeError('STRATEGIC_ASSET_PROFILE_ISOLATION_VIOLATION');
+  }
+  assertUniqueBy(locationFactors, 'factorId', 'location_factor');
+  assertUniqueBy(upsideCatalysts, 'catalystId', 'upside_catalyst');
+  assertUniqueBy(subdivisionChecks, 'checkId', 'subdivision_check');
+  const checkTypes = subdivisionChecks.map((item) => item.checkType);
+  if (new Set(checkTypes).size !== checkTypes.length) throw new TypeError('DUPLICATE_SUBDIVISION_CHECK_TYPE');
+  return deepFreeze({
+    schemaVersion: 1,
+    caseId: normalizedCaseId,
+    propertyId: normalizedPropertyId,
+    lifecycleAssessment,
+    locationFactors: [...locationFactors],
+    upsideCatalysts: [...upsideCatalysts],
+    subdivisionChecks: [...subdivisionChecks],
+    evidenceRefs: uniqueStrings(evidenceRefs, 'evidenceRefs'),
+    financialCalculationExecuted: false,
+    investmentDecision: null,
+    transactionAuthorized: false,
+    semantics: 'Strategic asset evidence graph only. It does not write to financial models, certify approvals, recommend an investment, or authorize a transaction.',
+  });
+}
+
 function assertUniqueBy(items, key, label) {
   const seen = new Set();
   for (const item of items) {
@@ -877,6 +1111,7 @@ function createResidentialIncomeOperatingCase({
   operatingExpenses = [],
   capexItems = [],
   exitScenarios = [],
+  strategicAssetProfile = null,
   additionalOperatingInputs = [],
   evidenceLineage = [],
 }) {
@@ -888,6 +1123,13 @@ function createResidentialIncomeOperatingCase({
     if (!Array.isArray(list)) throw new TypeError(`${field} must be an array`);
   }
   for (const input of additionalOperatingInputs) assertEvidenceAwareValue(input, 'additionalOperatingInputs item');
+
+  if (strategicAssetProfile !== null) {
+    if (!strategicAssetProfile || typeof strategicAssetProfile !== 'object') throw new TypeError('strategicAssetProfile must be an object or null');
+    if (strategicAssetProfile.caseId !== normalizedCaseId || strategicAssetProfile.propertyId !== property.propertyId) {
+      throw new TypeError('STRATEGIC_ASSET_PROFILE_ISOLATION_VIOLATION');
+    }
+  }
 
   const scopedRecords = [propertyInterest, property, ...buildings, ...units, ...leases, ...tenants, ...operatingExpenses, ...capexItems, ...exitScenarios, ...evidenceLineage];
   if (scopedRecords.some((record) => record.caseId !== normalizedCaseId)) {
@@ -945,6 +1187,7 @@ function createResidentialIncomeOperatingCase({
     operatingExpenses: [...operatingExpenses],
     capexItems: [...capexItems],
     exitScenarios: [...exitScenarios],
+    strategicAssetProfile,
     additionalOperatingInputs: [...additionalOperatingInputs],
     evidenceLineage: [...evidenceLineage],
     graphCounts: {
@@ -955,6 +1198,9 @@ function createResidentialIncomeOperatingCase({
       operatingExpenses: operatingExpenseIds.size,
       capexItems: capexItemIds.size,
       exitScenarios: exitScenarioIds.size,
+      locationFactors: strategicAssetProfile ? strategicAssetProfile.locationFactors.length : 0,
+      upsideCatalysts: strategicAssetProfile ? strategicAssetProfile.upsideCatalysts.length : 0,
+      subdivisionChecks: strategicAssetProfile ? strategicAssetProfile.subdivisionChecks.length : 0,
       evidenceLineageRefs: lineageRefs.size,
     },
     financialCalculationExecuted: false,
@@ -996,6 +1242,14 @@ function collectOperatingCaseEvidenceRefs(operatingCase) {
   for (const expense of operatingCase.operatingExpenses || []) collect(expense.evidenceRefs);
   for (const item of operatingCase.capexItems || []) collect(item.evidenceRefs);
   for (const scenario of operatingCase.exitScenarios || []) collect(scenario.evidenceRefs);
+  const strategic = operatingCase.strategicAssetProfile;
+  if (strategic) {
+    collect(strategic.evidenceRefs);
+    collect(strategic.lifecycleAssessment.evidenceRefs);
+    for (const factor of strategic.locationFactors) collect(factor.evidenceRefs);
+    for (const catalyst of strategic.upsideCatalysts) collect(catalyst.evidenceRefs);
+    for (const check of strategic.subdivisionChecks) collect(check.evidenceRefs);
+  }
   for (const value of evidenceAwareValuesForCase(operatingCase)) collect(value.lineageRefs);
   return distinctStrings(refs);
 }
@@ -1018,6 +1272,13 @@ module.exports = {
   EXIT_STRATEGY_TYPE,
   EXIT_STRATEGY_INPUT_TYPE,
   EXIT_STRATEGY_INPUT_DEFINITION,
+  ASSET_LIFECYCLE_CLASSIFICATION,
+  LOCATION_FACTOR_HORIZON,
+  LOCATION_FACTOR_DIMENSION,
+  UPSIDE_CATALYST_TYPE,
+  UPSIDE_CATALYST_STATUS,
+  SUBDIVISION_CHECK_TYPE,
+  SUBDIVISION_CHECK_OUTCOME,
   deepFreeze,
   createEvidenceLineageRecord,
   createEvidenceAwareValue,
@@ -1032,6 +1293,11 @@ module.exports = {
   createCapexItem,
   createExitStrategyInput,
   createExitStrategyScenario,
+  createAssetLifecycleAssessment,
+  createLocationFactor,
+  createUpsideCatalyst,
+  createSubdivisionCheck,
+  createStrategicAssetProfile,
   createResidentialIncomeOperatingCase,
   evidenceAwareValuesForCase,
   collectOperatingCaseEvidenceRefs,

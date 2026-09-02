@@ -70,6 +70,7 @@ export default function ResidentialIncomeAcquisitionPanel({
   const acquisition = viewModel.acquisitionBasis;
   const reverse = viewModel.reverseUnderwriting;
   const exit = viewModel.exitStrategyComparison;
+  const strategic = viewModel.strategicAssetIntelligence;
   const locale = dir === 'rtl' ? 'ar-SA' : 'en-US';
 
   return (
@@ -268,6 +269,27 @@ export default function ResidentialIncomeAcquisitionPanel({
             ) : exit ? (
               <div className="rounded-xl border border-amber-900/50 bg-amber-950/10 p-3 text-xs text-amber-200/80">
                 {t('riai.exitStrategyNotCalculable')} ({exit.issues.length})
+              </div>
+            ) : null}
+            {strategic?.strategicAssetIntelligenceCalculated ? (
+              <section aria-labelledby="riai-strategic-asset" className="rounded-xl border border-slate-800 bg-slate-950/30 p-4">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <h3 id="riai-strategic-asset" className="text-sm font-semibold text-slate-100">{t('riai.strategicAssetIntelligence')}</h3>
+                  <span className="text-[11px] text-slate-500">{strategic.status}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                  <CountCard label={t('riai.assetLifecycle')} value={strategic.lifecycleClassification} />
+                  <CountCard label={t('riai.currentLocationScore')} value={number(strategic.currentLocation.score, locale, 1)} />
+                  <CountCard label={t('riai.forwardAttractionScore')} value={number(strategic.forwardAttraction.score, locale, 1)} />
+                  <CountCard label={t('riai.subdivisionGate')} value={strategic.subdivision.status} />
+                </div>
+                <div className="mt-3 text-[11px] leading-5 text-slate-500">
+                  {t('riai.confirmedUpsideCatalysts')}: {strategic.upsideCatalysts.countsByStatus.EVIDENCE_CONFIRMED} · {t('riai.strategicBoundary')}
+                </div>
+              </section>
+            ) : strategic ? (
+              <div className="rounded-xl border border-amber-900/50 bg-amber-950/10 p-3 text-xs text-amber-200/80">
+                {t('riai.strategicAssetNotCalculable')} ({strategic.issues.length})
               </div>
             ) : null}
             <div className="grid gap-4 lg:grid-cols-3">

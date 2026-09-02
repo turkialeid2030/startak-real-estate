@@ -13,6 +13,11 @@ const {
   createOperatingExpense,
   createCapexItem,
   createExitStrategyScenario,
+  createAssetLifecycleAssessment,
+  createLocationFactor,
+  createUpsideCatalyst,
+  createSubdivisionCheck,
+  createStrategicAssetProfile,
   createResidentialIncomeOperatingCase,
 } = require('./contracts');
 
@@ -30,6 +35,7 @@ const MAX_RECORDS = Object.freeze({
   additionalOperatingInputs: 10000,
   evidenceLineage: 50000,
 });
+const MAX_STRATEGIC_RECORDS = Object.freeze({ locationFactors: 100, upsideCatalysts: 100, subdivisionChecks: 100 });
 
 class OperatingCaseSnapshotError extends Error {
   constructor(reasonCode, detail = null) {
@@ -128,6 +134,57 @@ function hydratePropertyInterest(record) {
     titleAssessmentRef: record.titleAssessmentRef,
     interestAdoptionDecisionRef: record.interestAdoptionDecisionRef,
     legalReviewRef: record.legalReviewRef,
+    evidenceRefs: record.evidenceRefs,
+  });
+}
+
+function hydrateStrategicAssetProfile(record) {
+  if (record === null || record === undefined) return null;
+  plainObject(record, 'strategicAssetProfile');
+  for (const [field, limit] of Object.entries(MAX_STRATEGIC_RECORDS)) {
+    if (!Array.isArray(record[field])) throw new OperatingCaseSnapshotError('ARRAY_REQUIRED', `strategicAssetProfile.${field}`);
+    if (record[field].length > limit) throw new OperatingCaseSnapshotError('RECORD_LIMIT_EXCEEDED', `strategicAssetProfile.${field}`);
+  }
+  const lifecycle = plainObject(record.lifecycleAssessment, 'strategicAssetProfile.lifecycleAssessment');
+  return createStrategicAssetProfile({
+    caseId: record.caseId,
+    propertyId: record.propertyId,
+    lifecycleAssessment: createAssetLifecycleAssessment({
+      caseId: lifecycle.caseId,
+      propertyId: lifecycle.propertyId,
+      classification: hydrateEvidenceAwareValue(lifecycle.classification),
+      evidenceRefs: lifecycle.evidenceRefs,
+    }),
+    locationFactors: record.locationFactors.map((item) => createLocationFactor({
+      caseId: item.caseId,
+      propertyId: item.propertyId,
+      factorId: item.factorId,
+      horizon: item.horizon,
+      dimension: item.dimension,
+      score: hydrateEvidenceAwareValue(item.score),
+      weight: hydrateEvidenceAwareValue(item.weight),
+      evidenceRefs: item.evidenceRefs,
+    })),
+    upsideCatalysts: record.upsideCatalysts.map((item) => createUpsideCatalyst({
+      caseId: item.caseId,
+      propertyId: item.propertyId,
+      catalystId: item.catalystId,
+      catalystType: item.catalystType,
+      assessmentStatus: hydrateEvidenceAwareValue(item.assessmentStatus),
+      impactScore: hydrateEvidenceAwareValue(item.impactScore),
+      executionReadinessScore: hydrateEvidenceAwareValue(item.executionReadinessScore),
+      dependsOnSubdivision: item.dependsOnSubdivision,
+      evidenceRefs: item.evidenceRefs,
+    })),
+    subdivisionChecks: record.subdivisionChecks.map((item) => createSubdivisionCheck({
+      caseId: item.caseId,
+      propertyId: item.propertyId,
+      checkId: item.checkId,
+      checkType: item.checkType,
+      outcome: hydrateEvidenceAwareValue(item.outcome),
+      mandatory: item.mandatory,
+      evidenceRefs: item.evidenceRefs,
+    })),
     evidenceRefs: record.evidenceRefs,
   });
 }
@@ -271,6 +328,7 @@ function hydrateResidentialIncomeOperatingCaseSnapshot(snapshot) {
       operatingExpenses,
       capexItems,
       exitScenarios,
+      strategicAssetProfile: hydrateStrategicAssetProfile(snapshot.strategicAssetProfile),
       additionalOperatingInputs,
       evidenceLineage,
     });

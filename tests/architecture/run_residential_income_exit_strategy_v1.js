@@ -352,7 +352,7 @@ const weakerExit = calculateExitStrategyComparison(buildCase({
 assert.ok(weakerExit.scenarioResults.find((item) => item.scenarioId === 'REPOSITION').metrics.npv < baseRepositionNpv);
 
 const view = createResidentialIncomeAcquisitionViewModel(complete);
-assert.strictEqual(view.capabilityStatus, 'EXIT_STRATEGY_COMPARISON_V1');
+assert.strictEqual(view.capabilityStatus, 'STRATEGIC_ASSET_INTELLIGENCE_V1');
 assert.strictEqual(view.exitStrategyComparisonCalculated, true);
 assert.strictEqual(view.exitStrategyComparison.highestModeledNpvScenario.scenarioId, 'REPOSITION');
 assert.strictEqual(view.investmentDecision, null);

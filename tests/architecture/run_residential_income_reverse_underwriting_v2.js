@@ -299,7 +299,7 @@ assert.ok(equityCapLimit.policySourceRef);
 assert.match(result.semantics, /not a certified valuation/i);
 
 const view = createResidentialIncomeAcquisitionViewModel(completeCase);
-assert.strictEqual(view.capabilityStatus, 'EXIT_STRATEGY_COMPARISON_V1');
+assert.strictEqual(view.capabilityStatus, 'STRATEGIC_ASSET_INTELLIGENCE_V1');
 assert.strictEqual(view.reverseUnderwritingCalculated, true);
 assert.strictEqual(view.reverseUnderwriting.maximumJustifiedPurchasePrice, result.maximumJustifiedPurchasePrice);
 assert.strictEqual(view.investmentDecision, null);
