@@ -18,6 +18,7 @@
 - Adopted unit-level annual market rent, headline mark-to-market classification, and portfolio aggregation (`RIAI-01D`).
 - Evidence-gated stabilized income bridge from potential gross income through vacancy, credit loss, concessions, other operating income, normalized OPEX, and stabilized NOI.
 - Bilingual income-analysis surface that preserves the distinction between headline and realizable rent reversion.
+- Evidence-gated price-only, all-in, and initial-equity acquisition bases with complete immediate-CAPEX and debt-to-cost guards (`RIAI-02A`).
 
 ### Boundaries
 
@@ -25,5 +26,6 @@
 - OPEX completeness depends on a supplied expense inventory, while CAPEX completeness depends on a supplied technical assessment; no omitted item is inferred to be zero.
 - Operating-case portability currently uses a validated JSON contract; a user-facing Rent Roll/lease editor is not yet implemented.
 - Realizable mark-to-market remains unavailable until lease-expiry, downtime, tenant-improvement, commission, rent-free, and renewal inputs are adopted.
+- Purchase price remains an adopted input; maximum justified price is not calculated by the acquisition-basis layer.
 - This release does not implement reverse underwriting v2 or exit-strategy comparison.
 - The readiness panel does not calculate value, price, or returns, issue an investment/legal/credit conclusion, or authorize a transaction.
