@@ -21,6 +21,16 @@ function CountCard({ label, value }) {
   );
 }
 
+function number(value, locale, digits = 0) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
+  return value.toLocaleString(locale, { minimumFractionDigits: digits, maximumFractionDigits: digits });
+}
+
+function percent(value, locale) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
+  return `${number(value * 100, locale, 1)}%`;
+}
+
 function IssueList({ title, items, emptyLabel }) {
   return (
     <section className="rounded-xl border border-slate-800 bg-slate-950/30 p-4">
@@ -45,6 +55,8 @@ export default function ResidentialIncomeAcquisitionPanel({ viewModel, t, dir = 
   if (!viewModel || typeof viewModel !== 'object') return null;
   const loaded = viewModel.apiStatus === 'CASE_LOADED';
   const summary = viewModel.summary;
+  const metrics = viewModel.operatingMetrics;
+  const locale = dir === 'rtl' ? 'ar-SA' : 'en-US';
 
   return (
     <aside data-testid="residential-income-acquisition-panel" dir={dir} className="mt-6">
@@ -72,6 +84,27 @@ export default function ResidentialIncomeAcquisitionPanel({ viewModel, t, dir = 
               <CountCard label={t('riai.tenants')} value={summary.tenantCount} />
               <CountCard label={t('riai.evidence')} value={summary.evidenceLineageCount} />
             </div>
+            {metrics?.status === 'CALCULATED' ? (
+              <section aria-labelledby="riai-operating-metrics" className="rounded-xl border border-slate-800 bg-slate-950/30 p-4">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <h3 id="riai-operating-metrics" className="text-sm font-semibold text-slate-100">{t('riai.operatingMetrics')}</h3>
+                  <span className="text-[11px] text-slate-500">{t('riai.asOfDate')}: {viewModel.asOfDate}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                  <CountCard label={t('riai.annualContractRent')} value={number(metrics.rentRoll.totals.totalAnnualContractRent, locale)} />
+                  <CountCard label={t('riai.physicalOccupancyUnits')} value={percent(metrics.occupancy.physicalOccupancyByUnits, locale)} />
+                  <CountCard label={t('riai.physicalOccupancyArea')} value={percent(metrics.occupancy.physicalOccupancyByArea, locale)} />
+                  <CountCard label={t('riai.wale')} value={number(metrics.leaseTiming.waleYears, locale, 2)} />
+                </div>
+                <div className="mt-3 text-[11px] leading-5 text-slate-500">
+                  {t('riai.economicOccupancyUnavailable')} · {t('riai.leaseCliffs')}: {metrics.leaseTiming.leaseCliffs.length}
+                </div>
+              </section>
+            ) : metrics ? (
+              <div className="rounded-xl border border-amber-900/50 bg-amber-950/10 p-3 text-xs text-amber-200/80">
+                {t('riai.metricsNotCalculable')} ({metrics.issues.length})
+              </div>
+            ) : null}
             <div className="grid gap-4 lg:grid-cols-3">
               <IssueList title={t('riai.blockers')} items={viewModel.blockers || []} emptyLabel={t('riai.noBlockers')} />
               <IssueList title={t('riai.evidenceGaps')} items={viewModel.evidenceGaps || []} emptyLabel={t('riai.noEvidenceGaps')} />

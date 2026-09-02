@@ -1,6 +1,6 @@
 # Residential Income Acquisition Intelligence - Operating Contract v1
 
-Status: **RIAI-01A FOUNDATION + DETERMINISTIC READINESS API/UI IMPLEMENTED**
+Status: **RIAI-01A FOUNDATION IMPLEMENTED; RIAI-01B OPERATING METRICS IMPLEMENTED**
 
 ## Purpose
 
@@ -27,6 +27,7 @@ It extends the Existing Building study without replacing its financial engine. N
 - Deterministic, immutable UI projection through `createResidentialIncomeAcquisitionViewModel`.
 - A safe Existing Building surface that shows the not-loaded state or the operating-case readiness, record counts, blockers, evidence gaps, and required diligence.
 - An explicit production empty state: the application does not create or preload a synthetic operating case.
+- Deterministic Rent Roll, physical/contracted occupancy, WALE/WALT, expiry exposure, and lease-cliff metrics through `calculateOperatingMetrics`.
 
 ## Safety invariants
 
@@ -56,11 +57,17 @@ The API is a projection over the canonical contract and readiness assessment. It
 
 The Existing Building screen exposes this boundary as a readiness panel. It is intentionally not shown for Land + Development. The current production screen has no persistence or ingestion path for operating cases; attaching a validated case remains a later integration wave.
 
-## Explicitly not implemented in this foundation
+## Implemented in RIAI-01B
 
-- Rent Roll aggregation and reconciliation.
-- Physical, area, contracted, and economic occupancy calculations.
-- WALE/WALT, lease cliffs, rollover exposure, and renewal windows.
+- Rent Roll aggregation with internal reconciliation.
+- Physical occupancy by unit and area, plus contracted occupancy by area.
+- WALE/WALT, annual expiry buckets, 12/24/36-month exposure, and lease-cliff detection.
+
+## Explicitly not implemented
+
+- Economic occupancy until collection and potential-rent inputs exist.
+- Independent source-total Rent Roll reconciliation.
+- Renewal probability and renewal-window workflow.
 - OPEX normalization and market benchmarking.
 - Deferred-maintenance and technical CAPEX cost engine.
 - Mark-to-market and realizable reversion.
