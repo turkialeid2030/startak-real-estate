@@ -10,9 +10,13 @@
 - Safe, bilingual Existing Building readiness panel with an explicit no-case-loaded state.
 - Deterministic Rent Roll, current contractual-rent escalation, physical and contracted occupancy, WALE/WALT, 12/24/36-month expiry exposure, and lease-cliff detection (`RIAI-01B`).
 - Synthetic regression coverage for long step-rent leases, time-limited usufruct, conflicting occupancy evidence, omitted operating cost, waqf restrictions, and contradictory active leases.
+- Property-level OPEX analysis preserving Actual, Budget, Normalized, and Benchmark bases without implicit substitution (`RIAI-01C`).
+- Deferred-maintenance and technical CAPEX inventory with immediate/deferred totals, severity and life-safety routing, and fail-closed unknown-cost handling.
+- Bilingual RIAI cost summary for normalized OPEX, OPEX-to-contract-rent, known immediate CAPEX, and unpriced technical items.
 
 ### Boundaries
 
 - Economic occupancy is intentionally unavailable until collected-rent and potential-rent inputs exist; source-total Rent Roll reconciliation also remains unavailable without an adopted source total.
-- This release does not implement OPEX/CAPEX normalization, mark-to-market, stabilized NOI, reverse underwriting v2, exit-strategy comparison, or operating-case persistence.
+- OPEX completeness depends on a supplied expense inventory, while CAPEX completeness depends on a supplied technical assessment; no omitted item is inferred to be zero.
+- This release does not implement mark-to-market, stabilized NOI, reverse underwriting v2, exit-strategy comparison, or operating-case ingestion/persistence.
 - The readiness panel does not calculate value or returns, issue an investment/legal/credit conclusion, or authorize a transaction.

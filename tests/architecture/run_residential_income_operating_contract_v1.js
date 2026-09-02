@@ -12,6 +12,10 @@ const {
   RENT_ESCALATION_TYPE,
   OPERATING_INPUT_STATUS,
   LINEAGE_KIND,
+  OPERATING_EXPENSE_BASIS,
+  OPERATING_EXPENSE_CATEGORY,
+  CAPEX_CATEGORY,
+  CAPEX_SEVERITY,
   OPERATING_UNDERWRITING_STATUS,
   createEvidenceLineageRecord,
   createEvidenceAwareValue,
@@ -22,6 +26,8 @@ const {
   createTenant,
   createRentEscalation,
   createLease,
+  createOperatingExpense,
+  createCapexItem,
   createResidentialIncomeOperatingCase,
   assessOperatingUnderwritingReadiness,
   RESIDENTIAL_INCOME_ACQUISITION_API_STATUS,
@@ -29,6 +35,8 @@ const {
   OPERATING_METRICS_STATUS,
   annualizePeriodicRent,
   calculateOperatingMetrics,
+  PROPERTY_COST_STATUS,
+  calculatePropertyCosts,
 } = require('../../src/residential-income-acquisition');
 const {
   TITLE_FACT_STATUS,
@@ -80,6 +88,37 @@ function assumed(field, value, unit = null) {
       approvedAt: '2026-09-01T11:50:00Z',
       policyRef: 'policy://underwriting/1',
     },
+  });
+}
+
+function unavailable(field, sourceRef, unit) {
+  return createEvidenceAwareValue({
+    field,
+    value: null,
+    unit,
+    sourceRef,
+    evidenceType: 'REFERENCE_ITEM_NOT_PRICED',
+    verificationStatus: OPERATING_INPUT_STATUS.NOT_AVAILABLE,
+  });
+}
+
+function rebuildWithPropertyCosts(baseCase, operatingExpenses, capexItems, sourceRefs) {
+  return createResidentialIncomeOperatingCase({
+    caseId: baseCase.caseId,
+    asOfDate: baseCase.asOfDate,
+    propertyInterest: baseCase.propertyInterest,
+    property: baseCase.property,
+    buildings: baseCase.buildings,
+    units: baseCase.units,
+    leases: baseCase.leases,
+    tenants: baseCase.tenants,
+    operatingExpenses,
+    capexItems,
+    additionalOperatingInputs: baseCase.additionalOperatingInputs,
+    evidenceLineage: [
+      ...baseCase.evidenceLineage,
+      ...sourceRefs.map((refId) => lineage(baseCase.caseId, refId)),
+    ],
   });
 }
 
@@ -409,6 +448,149 @@ assert.strictEqual(missingCostReadiness.status, OPERATING_UNDERWRITING_STATUS.IN
 assert.ok(missingCostReadiness.evidenceGaps.some((item) => item.field === 'opex.managementFee' && item.code === 'MATERIAL_INPUT_NOT_AVAILABLE'));
 assert.strictEqual(missingCostCase.additionalOperatingInputs[0].value, null);
 
+// Property-level OPEX retains Actual/Budget/Normalized/Benchmark bases without substitution.
+const propertyCostsCaseId = 'CASE-RIAI-PROPERTY-COSTS';
+const propertyCostsBase = buildOperatingCase({ caseId: propertyCostsCaseId });
+const expenseRefs = {
+  actual: 'evidence://opex/actual',
+  budget: 'evidence://opex/budget',
+  normalized: 'evidence://opex/normalized',
+  benchmark: 'evidence://opex/benchmark',
+};
+const operatingExpenses = [
+  [OPERATING_EXPENSE_BASIS.ACTUAL, 600000, expenseRefs.actual],
+  [OPERATING_EXPENSE_BASIS.BUDGET, 650000, expenseRefs.budget],
+  [OPERATING_EXPENSE_BASIS.NORMALIZED, 500000, expenseRefs.normalized],
+  [OPERATING_EXPENSE_BASIS.BENCHMARK, 450000, expenseRefs.benchmark],
+].map(([basis, value, sourceRef]) => createOperatingExpense({
+  caseId: propertyCostsCaseId,
+  expenseId: `OPEX-${basis}`,
+  propertyId: 'PROPERTY-1',
+  buildingId: 'BUILDING-1',
+  category: OPERATING_EXPENSE_CATEGORY.MAINTENANCE,
+  basis,
+  annualAmount: adopted(`opex.${basis.toLowerCase()}`, value, sourceRef, 'SAR/year'),
+}));
+
+// Sanitized reference-derived technical items: roof and electrical costs are known;
+// a critical fire-protection item is explicitly unpriced and must never become zero.
+const capexRefs = {
+  roof: 'evidence://capex/roof',
+  electrical: 'evidence://capex/electrical',
+  fire: 'evidence://capex/fire-unpriced',
+};
+const knownCapexItems = [
+  createCapexItem({
+    caseId: propertyCostsCaseId,
+    capexItemId: 'CAPEX-ROOF',
+    propertyId: 'PROPERTY-1',
+    buildingId: 'BUILDING-1',
+    category: CAPEX_CATEGORY.ROOF_WATERPROOFING,
+    severity: CAPEX_SEVERITY.HIGH,
+    estimatedCost: adopted('capex.roof.estimatedCost', 120000, capexRefs.roof, 'SAR'),
+    immediate: true,
+  }),
+  createCapexItem({
+    caseId: propertyCostsCaseId,
+    capexItemId: 'CAPEX-ELECTRICAL',
+    propertyId: 'PROPERTY-1',
+    buildingId: 'BUILDING-1',
+    category: CAPEX_CATEGORY.ELECTRICAL,
+    severity: CAPEX_SEVERITY.MEDIUM,
+    estimatedCost: adopted('capex.electrical.estimatedCost', 80000, capexRefs.electrical, 'SAR'),
+    immediate: false,
+  }),
+];
+const unpricedFireItem = createCapexItem({
+  caseId: propertyCostsCaseId,
+  capexItemId: 'CAPEX-FIRE',
+  propertyId: 'PROPERTY-1',
+  buildingId: 'BUILDING-1',
+  category: CAPEX_CATEGORY.FIRE_PROTECTION,
+  severity: CAPEX_SEVERITY.CRITICAL,
+  estimatedCost: unavailable('capex.fire.estimatedCost', capexRefs.fire, 'SAR'),
+  lifeSafety: true,
+  complianceImpact: true,
+  immediate: true,
+});
+const propertyCostsCase = rebuildWithPropertyCosts(
+  propertyCostsBase,
+  operatingExpenses,
+  [...knownCapexItems, unpricedFireItem],
+  [...Object.values(expenseRefs), ...Object.values(capexRefs)],
+);
+const propertyCosts = calculatePropertyCosts(propertyCostsCase);
+const propertyCostsView = createResidentialIncomeAcquisitionViewModel(propertyCostsCase);
+const propertyCostsReadiness = assessOperatingUnderwritingReadiness(propertyCostsCase);
+assert.strictEqual(propertyCosts.status, PROPERTY_COST_STATUS.CALCULATED_WITH_GAPS);
+assert.strictEqual(propertyCosts.operatingExpenses.status, PROPERTY_COST_STATUS.CALCULATED);
+assert.strictEqual(propertyCosts.operatingExpenses.totalsByBasis.actualAnnualOpex, 600000);
+assert.strictEqual(propertyCosts.operatingExpenses.totalsByBasis.budgetAnnualOpex, 650000);
+assert.strictEqual(propertyCosts.operatingExpenses.totalsByBasis.normalizedAnnualOpex, 500000);
+assert.strictEqual(propertyCosts.operatingExpenses.totalsByBasis.benchmarkAnnualOpex, 450000);
+assert.strictEqual(propertyCosts.operatingExpenses.normalizedMetrics.opexToContractRent, 0.25);
+assert.strictEqual(propertyCosts.capex.knownImmediateCapex, 120000);
+assert.strictEqual(propertyCosts.capex.knownDeferredCapex, 80000);
+assert.strictEqual(propertyCosts.capex.knownTotalCapex, 200000);
+assert.strictEqual(propertyCosts.capex.completeTotalCapex, null);
+assert.strictEqual(propertyCosts.capex.acquisitionBasisAdjustment, null);
+assert.strictEqual(propertyCosts.capex.unknownCostCount, 1);
+assert.strictEqual(propertyCosts.capex.criticalUnknownCostCount, 1);
+assert.strictEqual(propertyCosts.capex.lifeSafetyUnknownCostCount, 1);
+assert.strictEqual(propertyCosts.capex.criticalOrLifeSafetyUnknownCostCount, 1);
+assert.ok(propertyCosts.issues.some((item) => item.code === 'CRITICAL_OR_LIFE_SAFETY_COST_DUE_DILIGENCE_REQUIRED'));
+assert.ok(propertyCostsReadiness.dueDiligence.some((item) => item.code === 'CRITICAL_OR_LIFE_SAFETY_COST_DUE_DILIGENCE_REQUIRED'));
+assert.strictEqual(propertyCosts.financialCalculationExecuted, false);
+assert.strictEqual(propertyCosts.stabilizedNoiCalculated, false);
+assert.strictEqual(propertyCostsView.propertyCosts.status, PROPERTY_COST_STATUS.CALCULATED_WITH_GAPS);
+
+// Once every technical item has an adopted cost, the complete total and immediate basis adjustment become calculable.
+const pricedFireRef = 'evidence://capex/fire-priced';
+const pricedFireItem = createCapexItem({
+  caseId: propertyCostsCaseId,
+  capexItemId: 'CAPEX-FIRE',
+  propertyId: 'PROPERTY-1',
+  buildingId: 'BUILDING-1',
+  category: CAPEX_CATEGORY.FIRE_PROTECTION,
+  severity: CAPEX_SEVERITY.CRITICAL,
+  estimatedCost: adopted('capex.fire.estimatedCost', 300000, pricedFireRef, 'SAR'),
+  lifeSafety: true,
+  complianceImpact: true,
+  immediate: true,
+});
+const completeCostsCase = rebuildWithPropertyCosts(
+  propertyCostsBase,
+  operatingExpenses,
+  [...knownCapexItems, pricedFireItem],
+  [...Object.values(expenseRefs), capexRefs.roof, capexRefs.electrical, pricedFireRef],
+);
+const completeCosts = calculatePropertyCosts(completeCostsCase);
+assert.strictEqual(completeCosts.status, PROPERTY_COST_STATUS.CALCULATED);
+assert.strictEqual(completeCosts.capex.completeTotalCapex, 500000);
+assert.strictEqual(completeCosts.capex.acquisitionBasisAdjustment, 420000);
+
+// An explicitly omitted normalized management fee invalidates the normalized OPEX total instead of adding zero.
+const missingManagementRef = 'evidence://opex/management-omitted';
+const missingManagementExpense = createOperatingExpense({
+  caseId: propertyCostsCaseId,
+  expenseId: 'OPEX-NORMALIZED-MANAGEMENT',
+  propertyId: 'PROPERTY-1',
+  category: OPERATING_EXPENSE_CATEGORY.MANAGEMENT_FEE,
+  basis: OPERATING_EXPENSE_BASIS.NORMALIZED,
+  annualAmount: unavailable('opex.managementFee', missingManagementRef, 'SAR/year'),
+});
+const incompleteOpexCase = rebuildWithPropertyCosts(
+  propertyCostsBase,
+  [...operatingExpenses, missingManagementExpense],
+  [...knownCapexItems, pricedFireItem],
+  [...Object.values(expenseRefs), missingManagementRef, capexRefs.roof, capexRefs.electrical, pricedFireRef],
+);
+const incompleteOpex = calculatePropertyCosts(incompleteOpexCase);
+assert.strictEqual(incompleteOpex.operatingExpenses.status, PROPERTY_COST_STATUS.CALCULATED_WITH_GAPS);
+assert.strictEqual(incompleteOpex.operatingExpenses.totalsByBasis.normalizedAnnualOpex, null);
+assert.strictEqual(incompleteOpex.operatingExpenses.normalizedMetrics.opexToContractRent, null);
+assert.ok(incompleteOpex.issues.some((item) => item.code === 'OPEX_AMOUNT_NOT_AVAILABLE'));
+
 // A waqf restriction is routed to legal review without creating a legal conclusion.
 const waqfCase = buildOperatingCase({ caseId: 'CASE-RIAI-WAQF', waqf: true });
 const waqfReadiness = assessOperatingUnderwritingReadiness(waqfCase);
@@ -462,6 +644,7 @@ assert.strictEqual(ExistingBuildingStudyDefinition.createOperatingUnderwritingCa
 assert.strictEqual(ExistingBuildingStudyDefinition.assessOperatingUnderwritingReadiness, assessOperatingUnderwritingReadiness);
 assert.strictEqual(ExistingBuildingStudyDefinition.projectOperatingUnderwritingReadiness, createResidentialIncomeAcquisitionViewModel);
 assert.strictEqual(ExistingBuildingStudyDefinition.calculateResidentialIncomeOperatingMetrics, calculateOperatingMetrics);
+assert.strictEqual(ExistingBuildingStudyDefinition.calculateResidentialIncomePropertyCosts, calculatePropertyCosts);
 assert.ok(!ExistingBuildingStudyDefinition.supportedSections.includes('operating-underwriting'));
 
 const emptyView = createResidentialIncomeAcquisitionViewModel(null);
@@ -488,3 +671,5 @@ console.log('WAQF_RESTRICTION_ROUTES_TO_LEGAL_REVIEW=PASS');
 console.log('NO_FINANCIAL_OR_LEGAL_OR_CREDIT_DECISION_CLAIM=PASS');
 console.log('DETERMINISTIC_API_PROJECTION_AND_EMPTY_STATE=PASS');
 console.log('RENT_ROLL_OCCUPANCY_LEASE_TIMING_V1=PASS');
+console.log('OPEX_DEFERRED_MAINTENANCE_CAPEX_V1=PASS');
+console.log('UNKNOWN_CRITICAL_CAPEX_IS_NOT_ZERO=PASS');

@@ -3,6 +3,7 @@
 const { deepFreeze } = require('./contracts');
 const { assessOperatingUnderwritingReadiness } = require('./readiness');
 const { calculateOperatingMetrics } = require('./operating-metrics');
+const { calculatePropertyCosts } = require('./property-costs');
 
 const RESIDENTIAL_INCOME_ACQUISITION_API_STATUS = Object.freeze({
   NOT_LOADED: 'NOT_LOADED',
@@ -17,6 +18,8 @@ function summarizeOperatingCase(operatingCase) {
     unitCount: operatingCase.units.length,
     leaseCount: operatingCase.leases.length,
     tenantCount: operatingCase.tenants.length,
+    operatingExpenseCount: operatingCase.operatingExpenses.length,
+    capexItemCount: operatingCase.capexItems.length,
     operatingInputCount: operatingCase.additionalOperatingInputs.length,
     evidenceLineageCount: operatingCase.evidenceLineage.length,
   });
@@ -26,7 +29,7 @@ function createEmptyResidentialIncomeAcquisitionViewModel() {
   return deepFreeze({
     schemaVersion: 1,
     capability: 'RESIDENTIAL_INCOME_ACQUISITION_INTELLIGENCE',
-    capabilityStatus: 'OPERATING_METRICS_V1',
+    capabilityStatus: 'PROPERTY_COSTS_V1',
     apiStatus: RESIDENTIAL_INCOME_ACQUISITION_API_STATUS.NOT_LOADED,
     caseId: null,
     asOfDate: null,
@@ -39,6 +42,7 @@ function createEmptyResidentialIncomeAcquisitionViewModel() {
     warnings: [],
     lineage: null,
     operatingMetrics: null,
+    propertyCosts: null,
     financialCalculationExecuted: false,
     investmentDecision: null,
     legalConclusion: null,
@@ -52,10 +56,11 @@ function createResidentialIncomeAcquisitionViewModel(operatingCase = null) {
 
   const readiness = assessOperatingUnderwritingReadiness(operatingCase);
   const operatingMetrics = calculateOperatingMetrics(operatingCase);
+  const propertyCosts = calculatePropertyCosts(operatingCase, operatingMetrics);
   return deepFreeze({
     schemaVersion: 1,
     capability: 'RESIDENTIAL_INCOME_ACQUISITION_INTELLIGENCE',
-    capabilityStatus: 'OPERATING_METRICS_V1',
+    capabilityStatus: 'PROPERTY_COSTS_V1',
     apiStatus: RESIDENTIAL_INCOME_ACQUISITION_API_STATUS.CASE_LOADED,
     caseId: operatingCase.caseId,
     asOfDate: operatingCase.asOfDate,
@@ -68,6 +73,7 @@ function createResidentialIncomeAcquisitionViewModel(operatingCase = null) {
     warnings: readiness.warnings,
     lineage: readiness.lineage,
     operatingMetrics,
+    propertyCosts,
     financialCalculationExecuted: false,
     investmentDecision: null,
     legalConclusion: null,
