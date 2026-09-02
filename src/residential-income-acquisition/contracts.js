@@ -139,6 +139,43 @@ const CAPEX_SEVERITY = Object.freeze({
   COSMETIC: 'COSMETIC',
 });
 
+const EXIT_STRATEGY_TYPE = Object.freeze({
+  HOLD_AS_IS: 'HOLD_AS_IS',
+  SELL_AS_IS: 'SELL_AS_IS',
+  STABILIZE_AND_SELL: 'STABILIZE_AND_SELL',
+  RE_LEASE_AND_HOLD: 'RE_LEASE_AND_HOLD',
+  RENOVATE_AND_REPOSITION: 'RENOVATE_AND_REPOSITION',
+  HOLD_TO_INTEREST_EXPIRY: 'HOLD_TO_INTEREST_EXPIRY',
+});
+
+const EXIT_STRATEGY_INPUT_TYPE = Object.freeze({
+  HOLD_PERIOD_YEARS: 'HOLD_PERIOD_YEARS',
+  STRATEGY_CAPEX: 'STRATEGY_CAPEX',
+  EXECUTION_PERIOD_YEARS: 'EXECUTION_PERIOD_YEARS',
+  YEAR_ONE_NOI_RETENTION_RATE: 'YEAR_ONE_NOI_RETENTION_RATE',
+  STABILIZED_NOI_DELTA: 'STABILIZED_NOI_DELTA',
+  ANNUAL_NOI_GROWTH_RATE: 'ANNUAL_NOI_GROWTH_RATE',
+  ANNUAL_HOLDING_COST: 'ANNUAL_HOLDING_COST',
+  EXIT_CAP_RATE: 'EXIT_CAP_RATE',
+  CONTRACTUAL_TERMINAL_VALUE: 'CONTRACTUAL_TERMINAL_VALUE',
+  SELLING_COST_RATE: 'SELLING_COST_RATE',
+  DISCOUNT_RATE: 'DISCOUNT_RATE',
+});
+
+const EXIT_STRATEGY_INPUT_DEFINITION = Object.freeze({
+  [EXIT_STRATEGY_INPUT_TYPE.HOLD_PERIOD_YEARS]: Object.freeze({ key: 'holdPeriodYears', unit: 'years' }),
+  [EXIT_STRATEGY_INPUT_TYPE.STRATEGY_CAPEX]: Object.freeze({ key: 'strategyCapex', unit: 'SAR' }),
+  [EXIT_STRATEGY_INPUT_TYPE.EXECUTION_PERIOD_YEARS]: Object.freeze({ key: 'executionPeriodYears', unit: 'years' }),
+  [EXIT_STRATEGY_INPUT_TYPE.YEAR_ONE_NOI_RETENTION_RATE]: Object.freeze({ key: 'yearOneNoiRetentionRate', unit: 'ratio' }),
+  [EXIT_STRATEGY_INPUT_TYPE.STABILIZED_NOI_DELTA]: Object.freeze({ key: 'stabilizedNoiDelta', unit: 'SAR/year' }),
+  [EXIT_STRATEGY_INPUT_TYPE.ANNUAL_NOI_GROWTH_RATE]: Object.freeze({ key: 'annualNoiGrowthRate', unit: 'ratio' }),
+  [EXIT_STRATEGY_INPUT_TYPE.ANNUAL_HOLDING_COST]: Object.freeze({ key: 'annualHoldingCost', unit: 'SAR/year' }),
+  [EXIT_STRATEGY_INPUT_TYPE.EXIT_CAP_RATE]: Object.freeze({ key: 'exitCapRate', unit: 'ratio' }),
+  [EXIT_STRATEGY_INPUT_TYPE.CONTRACTUAL_TERMINAL_VALUE]: Object.freeze({ key: 'contractualTerminalValue', unit: 'SAR' }),
+  [EXIT_STRATEGY_INPUT_TYPE.SELLING_COST_RATE]: Object.freeze({ key: 'sellingCostRate', unit: 'ratio' }),
+  [EXIT_STRATEGY_INPUT_TYPE.DISCOUNT_RATE]: Object.freeze({ key: 'discountRate', unit: 'ratio' }),
+});
+
 function deepFreeze(value) {
   if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
   Object.freeze(value);
@@ -731,6 +768,82 @@ function createCapexItem({
   });
 }
 
+function createExitStrategyInput({
+  scenarioId,
+  type,
+  value = null,
+  sourceRef = null,
+  evidenceType,
+  effectiveDate = null,
+  verificationStatus = OPERATING_INPUT_STATUS.UNVERIFIED,
+  confidence = null,
+  adoptedForUnderwriting = false,
+  adoptionDecisionRef = null,
+  assumptionOverride = null,
+  lineageRefs = [],
+}) {
+  const normalizedScenarioId = requiredString(scenarioId, 'scenarioId');
+  const definition = EXIT_STRATEGY_INPUT_DEFINITION[type];
+  if (!definition) throw new TypeError(`type is invalid: ${type}`);
+  return createEvidenceAwareValue({
+    field: `exit.${normalizedScenarioId}.${definition.key}`,
+    value,
+    unit: definition.unit,
+    sourceRef,
+    evidenceType,
+    effectiveDate,
+    verificationStatus,
+    confidence,
+    adoptedForUnderwriting,
+    adoptionDecisionRef,
+    assumptionOverride,
+    lineageRefs,
+  });
+}
+
+function createExitStrategyScenario({
+  caseId,
+  scenarioId,
+  strategyType,
+  label = null,
+  isBenchmark = false,
+  inputs,
+  evidenceRefs = [],
+}) {
+  requiredString(caseId, 'caseId');
+  const normalizedScenarioId = requiredString(scenarioId, 'scenarioId');
+  enumValue(strategyType, EXIT_STRATEGY_TYPE, 'strategyType');
+  if (typeof isBenchmark !== 'boolean') throw new TypeError('isBenchmark must be a boolean');
+  if (!inputs || typeof inputs !== 'object' || Array.isArray(inputs)) throw new TypeError('inputs must be an object');
+  const normalizedInputs = {};
+  for (const definition of Object.values(EXIT_STRATEGY_INPUT_DEFINITION)) {
+    const input = inputs[definition.key];
+    if (input !== null && input !== undefined) {
+      assertEvidenceAwareValue(input, `inputs.${definition.key}`);
+      if (input.field !== `exit.${normalizedScenarioId}.${definition.key}`) {
+        throw new TypeError(`EXIT_SCENARIO_INPUT_FIELD_MISMATCH: ${definition.key}`);
+      }
+      normalizedInputs[definition.key] = input;
+    }
+  }
+  const suppliedKeys = Object.keys(inputs);
+  const unknownKeys = suppliedKeys.filter((key) => !Object.values(EXIT_STRATEGY_INPUT_DEFINITION).some((definition) => definition.key === key));
+  if (unknownKeys.length) throw new TypeError(`UNKNOWN_EXIT_SCENARIO_INPUT: ${unknownKeys[0]}`);
+  return deepFreeze({
+    schemaVersion: 1,
+    caseId: caseId.trim(),
+    scenarioId: normalizedScenarioId,
+    strategyType,
+    label: optionalString(label, 'label'),
+    isBenchmark,
+    inputs: normalizedInputs,
+    evidenceRefs: uniqueStrings(evidenceRefs, 'evidenceRefs'),
+    investmentDecision: null,
+    transactionAuthorized: false,
+    semantics: 'An evidence-aware exit-strategy scenario for analytical comparison only. Creation does not calculate value, recommend a strategy, or authorize a transaction.',
+  });
+}
+
 function assertUniqueBy(items, key, label) {
   const seen = new Set();
   for (const item of items) {
@@ -763,6 +876,7 @@ function createResidentialIncomeOperatingCase({
   tenants = [],
   operatingExpenses = [],
   capexItems = [],
+  exitScenarios = [],
   additionalOperatingInputs = [],
   evidenceLineage = [],
 }) {
@@ -770,12 +884,12 @@ function createResidentialIncomeOperatingCase({
   const normalizedAsOfDate = isoDate(asOfDate, 'asOfDate');
   if (!propertyInterest || typeof propertyInterest !== 'object') throw new TypeError('propertyInterest is required');
   if (!property || typeof property !== 'object') throw new TypeError('property is required');
-  for (const [field, list] of Object.entries({ buildings, units, leases, tenants, operatingExpenses, capexItems, additionalOperatingInputs, evidenceLineage })) {
+  for (const [field, list] of Object.entries({ buildings, units, leases, tenants, operatingExpenses, capexItems, exitScenarios, additionalOperatingInputs, evidenceLineage })) {
     if (!Array.isArray(list)) throw new TypeError(`${field} must be an array`);
   }
   for (const input of additionalOperatingInputs) assertEvidenceAwareValue(input, 'additionalOperatingInputs item');
 
-  const scopedRecords = [propertyInterest, property, ...buildings, ...units, ...leases, ...tenants, ...operatingExpenses, ...capexItems, ...evidenceLineage];
+  const scopedRecords = [propertyInterest, property, ...buildings, ...units, ...leases, ...tenants, ...operatingExpenses, ...capexItems, ...exitScenarios, ...evidenceLineage];
   if (scopedRecords.some((record) => record.caseId !== normalizedCaseId)) {
     throw new TypeError('OPERATING_CASE_ISOLATION_VIOLATION');
   }
@@ -787,6 +901,7 @@ function createResidentialIncomeOperatingCase({
   const tenantIds = assertUniqueBy(tenants, 'tenantId', 'tenant');
   const operatingExpenseIds = assertUniqueBy(operatingExpenses, 'expenseId', 'operating_expense');
   const capexItemIds = assertUniqueBy(capexItems, 'capexItemId', 'capex_item');
+  const exitScenarioIds = assertUniqueBy(exitScenarios, 'scenarioId', 'exit_scenario');
   const lineageRefs = assertUniqueBy(evidenceLineage, 'refId', 'evidence_lineage');
 
   assertExactReferenceSet(property.buildingIds, [...buildingIds], 'property.buildingIds');
@@ -829,6 +944,7 @@ function createResidentialIncomeOperatingCase({
     tenants: [...tenants],
     operatingExpenses: [...operatingExpenses],
     capexItems: [...capexItems],
+    exitScenarios: [...exitScenarios],
     additionalOperatingInputs: [...additionalOperatingInputs],
     evidenceLineage: [...evidenceLineage],
     graphCounts: {
@@ -838,6 +954,7 @@ function createResidentialIncomeOperatingCase({
       tenants: tenantIds.size,
       operatingExpenses: operatingExpenseIds.size,
       capexItems: capexItemIds.size,
+      exitScenarios: exitScenarioIds.size,
       evidenceLineageRefs: lineageRefs.size,
     },
     financialCalculationExecuted: false,
@@ -858,6 +975,7 @@ function evidenceAwareValuesForCase(operatingCase) {
   }
   for (const expense of operatingCase.operatingExpenses || []) values.push(expense.annualAmount);
   for (const item of operatingCase.capexItems || []) values.push(item.estimatedCost);
+  for (const scenario of operatingCase.exitScenarios || []) values.push(...Object.values(scenario.inputs || {}));
   values.push(...(operatingCase.additionalOperatingInputs || []));
   return values;
 }
@@ -877,6 +995,7 @@ function collectOperatingCaseEvidenceRefs(operatingCase) {
   for (const tenant of operatingCase.tenants || []) collect(tenant.evidenceRefs);
   for (const expense of operatingCase.operatingExpenses || []) collect(expense.evidenceRefs);
   for (const item of operatingCase.capexItems || []) collect(item.evidenceRefs);
+  for (const scenario of operatingCase.exitScenarios || []) collect(scenario.evidenceRefs);
   for (const value of evidenceAwareValuesForCase(operatingCase)) collect(value.lineageRefs);
   return distinctStrings(refs);
 }
@@ -896,6 +1015,9 @@ module.exports = {
   OPERATING_EXPENSE_CATEGORY,
   CAPEX_CATEGORY,
   CAPEX_SEVERITY,
+  EXIT_STRATEGY_TYPE,
+  EXIT_STRATEGY_INPUT_TYPE,
+  EXIT_STRATEGY_INPUT_DEFINITION,
   deepFreeze,
   createEvidenceLineageRecord,
   createEvidenceAwareValue,
@@ -908,6 +1030,8 @@ module.exports = {
   createLease,
   createOperatingExpense,
   createCapexItem,
+  createExitStrategyInput,
+  createExitStrategyScenario,
   createResidentialIncomeOperatingCase,
   evidenceAwareValuesForCase,
   collectOperatingCaseEvidenceRefs,

@@ -7,6 +7,7 @@ const { calculatePropertyCosts } = require('./property-costs');
 const { calculateIncomeAnalysis } = require('./income-analysis');
 const { calculateAcquisitionBasis } = require('./acquisition-basis');
 const { calculateReverseUnderwriting } = require('./reverse-underwriting');
+const { calculateExitStrategyComparison } = require('./exit-strategy');
 
 const RESIDENTIAL_INCOME_ACQUISITION_API_STATUS = Object.freeze({
   NOT_LOADED: 'NOT_LOADED',
@@ -23,6 +24,7 @@ function summarizeOperatingCase(operatingCase) {
     tenantCount: operatingCase.tenants.length,
     operatingExpenseCount: operatingCase.operatingExpenses.length,
     capexItemCount: operatingCase.capexItems.length,
+    exitScenarioCount: (operatingCase.exitScenarios || []).length,
     operatingInputCount: operatingCase.additionalOperatingInputs.length,
     evidenceLineageCount: operatingCase.evidenceLineage.length,
   });
@@ -32,7 +34,7 @@ function createEmptyResidentialIncomeAcquisitionViewModel() {
   return deepFreeze({
     schemaVersion: 1,
     capability: 'RESIDENTIAL_INCOME_ACQUISITION_INTELLIGENCE',
-    capabilityStatus: 'REVERSE_UNDERWRITING_V2',
+    capabilityStatus: 'EXIT_STRATEGY_COMPARISON_V1',
     apiStatus: RESIDENTIAL_INCOME_ACQUISITION_API_STATUS.NOT_LOADED,
     caseId: null,
     asOfDate: null,
@@ -49,14 +51,16 @@ function createEmptyResidentialIncomeAcquisitionViewModel() {
     incomeAnalysis: null,
     acquisitionBasis: null,
     reverseUnderwriting: null,
+    exitStrategyComparison: null,
     financialCalculationExecuted: false,
     stabilizedNoiCalculated: false,
     acquisitionBasisCalculated: false,
     reverseUnderwritingCalculated: false,
+    exitStrategyComparisonCalculated: false,
     investmentDecision: null,
     legalConclusion: null,
     transactionAuthorized: false,
-    semantics: 'No operating case is loaded. This projection does not calculate NOI, analytical price limits, returns, make an investment decision, provide a legal conclusion, or authorize a transaction.',
+    semantics: 'No operating case is loaded. This projection does not calculate NOI, analytical price limits, exit-scenario comparisons, returns, make an investment decision, provide a legal conclusion, or authorize a transaction.',
   });
 }
 
@@ -69,10 +73,11 @@ function createResidentialIncomeAcquisitionViewModel(operatingCase = null) {
   const incomeAnalysis = calculateIncomeAnalysis(operatingCase, operatingMetrics, propertyCosts, readiness);
   const acquisitionBasis = calculateAcquisitionBasis(operatingCase, propertyCosts, readiness);
   const reverseUnderwriting = calculateReverseUnderwriting(operatingCase, incomeAnalysis, acquisitionBasis, readiness);
+  const exitStrategyComparison = calculateExitStrategyComparison(operatingCase, incomeAnalysis, acquisitionBasis, readiness);
   return deepFreeze({
     schemaVersion: 1,
     capability: 'RESIDENTIAL_INCOME_ACQUISITION_INTELLIGENCE',
-    capabilityStatus: 'REVERSE_UNDERWRITING_V2',
+    capabilityStatus: 'EXIT_STRATEGY_COMPARISON_V1',
     apiStatus: RESIDENTIAL_INCOME_ACQUISITION_API_STATUS.CASE_LOADED,
     caseId: operatingCase.caseId,
     asOfDate: operatingCase.asOfDate,
@@ -89,14 +94,16 @@ function createResidentialIncomeAcquisitionViewModel(operatingCase = null) {
     incomeAnalysis,
     acquisitionBasis,
     reverseUnderwriting,
+    exitStrategyComparison,
     financialCalculationExecuted: incomeAnalysis.financialCalculationExecuted || acquisitionBasis.financialCalculationExecuted,
     stabilizedNoiCalculated: incomeAnalysis.stabilizedNoiCalculated,
     acquisitionBasisCalculated: acquisitionBasis.acquisitionBasisCalculated,
     reverseUnderwritingCalculated: reverseUnderwriting.reverseUnderwritingCalculated,
+    exitStrategyComparisonCalculated: exitStrategyComparison.exitStrategyComparisonCalculated,
     investmentDecision: null,
     legalConclusion: null,
     transactionAuthorized: false,
-    semantics: 'Operating readiness, unit/lease metrics, property costs, evidence-gated income analysis, acquisition-basis reconciliation, and explicit-policy reverse underwriting. Any analytical price limit remains non-binding and is not a certified valuation, legal conclusion, investment recommendation, financing approval, or transaction authorization.',
+    semantics: 'Operating readiness, unit/lease metrics, property costs, evidence-gated income analysis, acquisition-basis reconciliation, explicit-policy reverse underwriting, and evidence-gated exit-scenario comparison. Analytical rankings and price limits remain non-binding and are not certified valuations, legal conclusions, investment recommendations, financing approvals, or transaction authorizations.',
   });
 }
 
