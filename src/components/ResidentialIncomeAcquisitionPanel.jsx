@@ -68,6 +68,7 @@ export default function ResidentialIncomeAcquisitionPanel({
   const costs = viewModel.propertyCosts;
   const income = viewModel.incomeAnalysis;
   const acquisition = viewModel.acquisitionBasis;
+  const reverse = viewModel.reverseUnderwriting;
   const locale = dir === 'rtl' ? 'ar-SA' : 'en-US';
 
   return (
@@ -224,6 +225,27 @@ export default function ResidentialIncomeAcquisitionPanel({
             ) : acquisition ? (
               <div className="rounded-xl border border-amber-900/50 bg-amber-950/10 p-3 text-xs text-amber-200/80">
                 {t('riai.acquisitionBasisNotCalculable')} ({acquisition.issues.length})
+              </div>
+            ) : null}
+            {reverse?.reverseUnderwritingCalculated ? (
+              <section aria-labelledby="riai-reverse-underwriting" className="rounded-xl border border-slate-800 bg-slate-950/30 p-4">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <h3 id="riai-reverse-underwriting" className="text-sm font-semibold text-slate-100">{t('riai.reverseUnderwriting')}</h3>
+                  <span className="text-[11px] text-slate-500">{reverse.status}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                  <CountCard label={t('riai.maximumJustifiedPrice')} value={number(reverse.maximumJustifiedPurchasePrice, locale)} />
+                  <CountCard label={t('riai.currentPurchasePrice')} value={number(reverse.currentPriceAnalysis.purchasePrice, locale)} />
+                  <CountCard label={t('riai.priceHeadroom')} value={number(reverse.currentPriceAnalysis.priceHeadroom, locale)} />
+                  <CountCard label={t('riai.bindingConstraint')} value={reverse.bindingConstraint.code} />
+                </div>
+                <div className="mt-3 text-[11px] leading-5 text-slate-500">
+                  {t('riai.reverseUnderwritingOutcome')}: {reverse.outcome} · {t('riai.nonBindingPriceBoundary')}
+                </div>
+              </section>
+            ) : reverse ? (
+              <div className="rounded-xl border border-amber-900/50 bg-amber-950/10 p-3 text-xs text-amber-200/80">
+                {t('riai.reverseUnderwritingNotCalculable')} ({reverse.issues.length})
               </div>
             ) : null}
             <div className="grid gap-4 lg:grid-cols-3">
