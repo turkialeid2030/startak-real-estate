@@ -67,6 +67,7 @@ export default function ResidentialIncomeAcquisitionPanel({
   const metrics = viewModel.operatingMetrics;
   const costs = viewModel.propertyCosts;
   const income = viewModel.incomeAnalysis;
+  const acquisition = viewModel.acquisitionBasis;
   const locale = dir === 'rtl' ? 'ar-SA' : 'en-US';
 
   return (
@@ -205,6 +206,24 @@ export default function ResidentialIncomeAcquisitionPanel({
             ) : income ? (
               <div className="rounded-xl border border-amber-900/50 bg-amber-950/10 p-3 text-xs text-amber-200/80">
                 {t('riai.incomeAnalysisNotCalculable')} ({income.issues.length})
+              </div>
+            ) : null}
+            {acquisition?.acquisitionBasisCalculated ? (
+              <section aria-labelledby="riai-acquisition-basis" className="rounded-xl border border-slate-800 bg-slate-950/30 p-4">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <h3 id="riai-acquisition-basis" className="text-sm font-semibold text-slate-100">{t('riai.acquisitionBasis')}</h3>
+                  <span className="text-[11px] text-slate-500">{acquisition.status}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                  <CountCard label={t('riai.priceOnlyBasis')} value={number(acquisition.bases.priceOnlyBasis, locale)} />
+                  <CountCard label={t('riai.allInBasis')} value={number(acquisition.bases.allInBasis, locale)} />
+                  <CountCard label={t('riai.equityBasis')} value={number(acquisition.bases.equityBasis, locale)} />
+                  <CountCard label={t('riai.nonPricePremium')} value={percent(acquisition.bases.nonPricePremiumRatio, locale)} />
+                </div>
+              </section>
+            ) : acquisition ? (
+              <div className="rounded-xl border border-amber-900/50 bg-amber-950/10 p-3 text-xs text-amber-200/80">
+                {t('riai.acquisitionBasisNotCalculable')} ({acquisition.issues.length})
               </div>
             ) : null}
             <div className="grid gap-4 lg:grid-cols-3">

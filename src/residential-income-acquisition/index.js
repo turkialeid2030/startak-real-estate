@@ -5,15 +5,17 @@ const readiness = require('./readiness');
 const operatingMetrics = require('./operating-metrics');
 const propertyCosts = require('./property-costs');
 const incomeAnalysis = require('./income-analysis');
+const acquisitionBasis = require('./acquisition-basis');
 const operatingCaseSnapshot = require('./operating-case-snapshot');
 const api = require('./api');
 
-module.exports = Object.assign({}, contracts, readiness, operatingMetrics, propertyCosts, incomeAnalysis, operatingCaseSnapshot, api, {
+module.exports = Object.assign({}, contracts, readiness, operatingMetrics, propertyCosts, incomeAnalysis, acquisitionBasis, operatingCaseSnapshot, api, {
   contracts,
   readiness,
   operatingMetrics,
   propertyCosts,
   incomeAnalysis,
+  acquisitionBasis,
   operatingCaseSnapshot,
   api,
 });

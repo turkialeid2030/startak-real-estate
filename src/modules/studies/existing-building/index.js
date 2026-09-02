@@ -13,6 +13,7 @@ const {
   calculateOperatingMetrics,
   calculatePropertyCosts,
   calculateIncomeAnalysis,
+  calculateAcquisitionBasis,
 } = require('../../../residential-income-acquisition');
 
 const ExistingBuildingStudyDefinition = {
@@ -30,6 +31,7 @@ const ExistingBuildingStudyDefinition = {
   calculateResidentialIncomeOperatingMetrics: calculateOperatingMetrics,
   calculateResidentialIncomePropertyCosts: calculatePropertyCosts,
   calculateResidentialIncomeMarkToMarketAndNoi: calculateIncomeAnalysis,
+  calculateResidentialIncomeAcquisitionBasis: calculateAcquisitionBasis,
   supportedSections: ['dashboard', 'cashflow', 'sensitivity', 'saved-deals'],
   knownLimitations: ['DEF-001 (exit-value growth timing)', 'DEF-002 (occupancy >100% unclamped)', 'DEF-003 (Infinity via 309+ digit input)', 'DEF-004 (unvalidated persisted zero denominator)', 'COV-001 (no positive-growth exit fixture)'],
 };

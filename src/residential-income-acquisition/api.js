@@ -5,6 +5,7 @@ const { assessOperatingUnderwritingReadiness } = require('./readiness');
 const { calculateOperatingMetrics } = require('./operating-metrics');
 const { calculatePropertyCosts } = require('./property-costs');
 const { calculateIncomeAnalysis } = require('./income-analysis');
+const { calculateAcquisitionBasis } = require('./acquisition-basis');
 
 const RESIDENTIAL_INCOME_ACQUISITION_API_STATUS = Object.freeze({
   NOT_LOADED: 'NOT_LOADED',
@@ -30,7 +31,7 @@ function createEmptyResidentialIncomeAcquisitionViewModel() {
   return deepFreeze({
     schemaVersion: 1,
     capability: 'RESIDENTIAL_INCOME_ACQUISITION_INTELLIGENCE',
-    capabilityStatus: 'MARK_TO_MARKET_STABILIZED_NOI_V1',
+    capabilityStatus: 'ACQUISITION_BASIS_V1',
     apiStatus: RESIDENTIAL_INCOME_ACQUISITION_API_STATUS.NOT_LOADED,
     caseId: null,
     asOfDate: null,
@@ -45,8 +46,10 @@ function createEmptyResidentialIncomeAcquisitionViewModel() {
     operatingMetrics: null,
     propertyCosts: null,
     incomeAnalysis: null,
+    acquisitionBasis: null,
     financialCalculationExecuted: false,
     stabilizedNoiCalculated: false,
+    acquisitionBasisCalculated: false,
     investmentDecision: null,
     legalConclusion: null,
     transactionAuthorized: false,
@@ -61,10 +64,11 @@ function createResidentialIncomeAcquisitionViewModel(operatingCase = null) {
   const operatingMetrics = calculateOperatingMetrics(operatingCase);
   const propertyCosts = calculatePropertyCosts(operatingCase, operatingMetrics);
   const incomeAnalysis = calculateIncomeAnalysis(operatingCase, operatingMetrics, propertyCosts, readiness);
+  const acquisitionBasis = calculateAcquisitionBasis(operatingCase, propertyCosts, readiness);
   return deepFreeze({
     schemaVersion: 1,
     capability: 'RESIDENTIAL_INCOME_ACQUISITION_INTELLIGENCE',
-    capabilityStatus: 'MARK_TO_MARKET_STABILIZED_NOI_V1',
+    capabilityStatus: 'ACQUISITION_BASIS_V1',
     apiStatus: RESIDENTIAL_INCOME_ACQUISITION_API_STATUS.CASE_LOADED,
     caseId: operatingCase.caseId,
     asOfDate: operatingCase.asOfDate,
@@ -79,12 +83,14 @@ function createResidentialIncomeAcquisitionViewModel(operatingCase = null) {
     operatingMetrics,
     propertyCosts,
     incomeAnalysis,
-    financialCalculationExecuted: incomeAnalysis.financialCalculationExecuted,
+    acquisitionBasis,
+    financialCalculationExecuted: incomeAnalysis.financialCalculationExecuted || acquisitionBasis.financialCalculationExecuted,
     stabilizedNoiCalculated: incomeAnalysis.stabilizedNoiCalculated,
+    acquisitionBasisCalculated: acquisitionBasis.acquisitionBasisCalculated,
     investmentDecision: null,
     legalConclusion: null,
     transactionAuthorized: false,
-    semantics: 'Operating readiness, unit/lease metrics, property costs, and evidence-gated income analysis. Any calculated NOI remains non-binding and does not imply value, returns, a legal conclusion, an investment decision, or transaction authorization.',
+    semantics: 'Operating readiness, unit/lease metrics, property costs, evidence-gated income analysis, and acquisition-basis reconciliation. Any calculated NOI or basis remains non-binding and does not imply value, maximum price, returns, a legal conclusion, an investment decision, or transaction authorization.',
   });
 }
 
