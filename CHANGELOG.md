@@ -15,11 +15,15 @@
 - Bilingual RIAI cost summary for normalized OPEX, OPEX-to-contract-rent, known immediate CAPEX, and unpriced technical items.
 - Versioned, local-only Residential Income operating-case JSON import/export with complete canonical rehydration and a 5 MB fail-closed limit (`RIAI-01P`).
 - Optional operating-case persistence inside building Saved Deals and backup format v2, with backward-compatible restore of version-1 backups.
+- Adopted unit-level annual market rent, headline mark-to-market classification, and portfolio aggregation (`RIAI-01D`).
+- Evidence-gated stabilized income bridge from potential gross income through vacancy, credit loss, concessions, other operating income, normalized OPEX, and stabilized NOI.
+- Bilingual income-analysis surface that preserves the distinction between headline and realizable rent reversion.
 
 ### Boundaries
 
 - Economic occupancy is intentionally unavailable until collected-rent and potential-rent inputs exist; source-total Rent Roll reconciliation also remains unavailable without an adopted source total.
 - OPEX completeness depends on a supplied expense inventory, while CAPEX completeness depends on a supplied technical assessment; no omitted item is inferred to be zero.
 - Operating-case portability currently uses a validated JSON contract; a user-facing Rent Roll/lease editor is not yet implemented.
-- This release does not implement mark-to-market, stabilized NOI, reverse underwriting v2, or exit-strategy comparison.
-- The readiness panel does not calculate value or returns, issue an investment/legal/credit conclusion, or authorize a transaction.
+- Realizable mark-to-market remains unavailable until lease-expiry, downtime, tenant-improvement, commission, rent-free, and renewal inputs are adopted.
+- This release does not implement reverse underwriting v2 or exit-strategy comparison.
+- The readiness panel does not calculate value, price, or returns, issue an investment/legal/credit conclusion, or authorize a transaction.
