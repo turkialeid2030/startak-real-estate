@@ -66,6 +66,7 @@ export default function ResidentialIncomeAcquisitionPanel({
   const summary = viewModel.summary;
   const metrics = viewModel.operatingMetrics;
   const costs = viewModel.propertyCosts;
+  const income = viewModel.incomeAnalysis;
   const locale = dir === 'rtl' ? 'ar-SA' : 'en-US';
 
   return (
@@ -184,6 +185,27 @@ export default function ResidentialIncomeAcquisitionPanel({
                   </div>
                 ) : null}
               </section>
+            ) : null}
+            {income?.stabilizedNoiCalculated ? (
+              <section aria-labelledby="riai-income-analysis" className="rounded-xl border border-slate-800 bg-slate-950/30 p-4">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <h3 id="riai-income-analysis" className="text-sm font-semibold text-slate-100">{t('riai.incomeAnalysis')}</h3>
+                  <span className="text-[11px] text-slate-500">{income.status}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                  <CountCard label={t('riai.annualMarketRent')} value={number(income.markToMarket.totals.totalAnnualMarketRent, locale)} />
+                  <CountCard label={t('riai.headlineMarkToMarket')} value={number(income.markToMarket.totals.headlineAnnualRentDelta, locale)} />
+                  <CountCard label={t('riai.stabilizedNoi')} value={number(income.stabilizedIncome.stabilizedNoi, locale)} />
+                  <CountCard label={t('riai.stabilizedNoiMargin')} value={percent(income.stabilizedIncome.stabilizedNoiMargin, locale)} />
+                </div>
+                <div className="mt-3 text-[11px] leading-5 text-slate-500">
+                  {t('riai.realizableMarkToMarketUnavailable')}
+                </div>
+              </section>
+            ) : income ? (
+              <div className="rounded-xl border border-amber-900/50 bg-amber-950/10 p-3 text-xs text-amber-200/80">
+                {t('riai.incomeAnalysisNotCalculable')} ({income.issues.length})
+              </div>
             ) : null}
             <div className="grid gap-4 lg:grid-cols-3">
               <IssueList title={t('riai.blockers')} items={viewModel.blockers || []} emptyLabel={t('riai.noBlockers')} />

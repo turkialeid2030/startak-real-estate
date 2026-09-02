@@ -4,6 +4,7 @@ const { deepFreeze } = require('./contracts');
 const { assessOperatingUnderwritingReadiness } = require('./readiness');
 const { calculateOperatingMetrics } = require('./operating-metrics');
 const { calculatePropertyCosts } = require('./property-costs');
+const { calculateIncomeAnalysis } = require('./income-analysis');
 
 const RESIDENTIAL_INCOME_ACQUISITION_API_STATUS = Object.freeze({
   NOT_LOADED: 'NOT_LOADED',
@@ -29,7 +30,7 @@ function createEmptyResidentialIncomeAcquisitionViewModel() {
   return deepFreeze({
     schemaVersion: 1,
     capability: 'RESIDENTIAL_INCOME_ACQUISITION_INTELLIGENCE',
-    capabilityStatus: 'OPERATING_CASE_PORTABILITY_V1',
+    capabilityStatus: 'MARK_TO_MARKET_STABILIZED_NOI_V1',
     apiStatus: RESIDENTIAL_INCOME_ACQUISITION_API_STATUS.NOT_LOADED,
     caseId: null,
     asOfDate: null,
@@ -43,7 +44,9 @@ function createEmptyResidentialIncomeAcquisitionViewModel() {
     lineage: null,
     operatingMetrics: null,
     propertyCosts: null,
+    incomeAnalysis: null,
     financialCalculationExecuted: false,
+    stabilizedNoiCalculated: false,
     investmentDecision: null,
     legalConclusion: null,
     transactionAuthorized: false,
@@ -57,10 +60,11 @@ function createResidentialIncomeAcquisitionViewModel(operatingCase = null) {
   const readiness = assessOperatingUnderwritingReadiness(operatingCase);
   const operatingMetrics = calculateOperatingMetrics(operatingCase);
   const propertyCosts = calculatePropertyCosts(operatingCase, operatingMetrics);
+  const incomeAnalysis = calculateIncomeAnalysis(operatingCase, operatingMetrics, propertyCosts, readiness);
   return deepFreeze({
     schemaVersion: 1,
     capability: 'RESIDENTIAL_INCOME_ACQUISITION_INTELLIGENCE',
-    capabilityStatus: 'OPERATING_CASE_PORTABILITY_V1',
+    capabilityStatus: 'MARK_TO_MARKET_STABILIZED_NOI_V1',
     apiStatus: RESIDENTIAL_INCOME_ACQUISITION_API_STATUS.CASE_LOADED,
     caseId: operatingCase.caseId,
     asOfDate: operatingCase.asOfDate,
@@ -74,11 +78,13 @@ function createResidentialIncomeAcquisitionViewModel(operatingCase = null) {
     lineage: readiness.lineage,
     operatingMetrics,
     propertyCosts,
-    financialCalculationExecuted: false,
+    incomeAnalysis,
+    financialCalculationExecuted: incomeAnalysis.financialCalculationExecuted,
+    stabilizedNoiCalculated: incomeAnalysis.stabilizedNoiCalculated,
     investmentDecision: null,
     legalConclusion: null,
     transactionAuthorized: false,
-    semantics: readiness.semantics,
+    semantics: 'Operating readiness, unit/lease metrics, property costs, and evidence-gated income analysis. Any calculated NOI remains non-binding and does not imply value, returns, a legal conclusion, an investment decision, or transaction authorization.',
   });
 }
 

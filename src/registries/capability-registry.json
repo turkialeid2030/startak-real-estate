@@ -17,11 +17,11 @@
     "name_en": "Residential Income Operating Underwriting Contract",
     "phase": "PHASE_4",
     "module": "src/residential-income-acquisition",
-    "requirement_refs": "RIAI-01A,RIAI-01B,RIAI-01C,RIAI-01P",
+    "requirement_refs": "RIAI-01A,RIAI-01B,RIAI-01C,RIAI-01D,RIAI-01P",
     "implementation_status": "PARTIALLY_IMPLEMENTED",
-    "evidence": "Canonical operating graph and lineage; deterministic Rent Roll, physical/contracted occupancy, WALE/WALT, expiry exposure, lease-cliff detection; separated Actual/Budget/Normalized/Benchmark OPEX; deferred-maintenance CAPEX with unknown-cost fail-closed gates; versioned local operating-case JSON import/export with full contract rehydration; saved-deal and backup persistence; API projection and Existing Building UI",
-    "test_status": "run_residential_income_operating_contract_v1.js; run_residential_income_acquisition_ui_v1.js",
-    "limitations": "Economic occupancy remains unavailable without collections and potential rent; source-total reconciliation, a user-facing Rent Roll/lease editor, mark-to-market, stabilized NOI, reverse underwriting v2, and exit strategy are not implemented. OPEX completeness still depends on the supplied expense inventory and CAPEX completeness on a supplied technical assessment."
+    "evidence": "Canonical operating graph and lineage; deterministic Rent Roll, physical/contracted occupancy, WALE/WALT, expiry exposure, lease-cliff detection; separated Actual/Budget/Normalized/Benchmark OPEX; deferred-maintenance CAPEX with unknown-cost fail-closed gates; adopted unit-level annual market rent, headline mark-to-market, and evidence-gated stabilized NOI; versioned local operating-case JSON import/export with full contract rehydration; saved-deal and backup persistence; API projection and Existing Building UI",
+    "test_status": "run_residential_income_operating_contract_v1.js; run_residential_income_mark_to_market_noi_v1.js; run_residential_income_acquisition_ui_v1.js",
+    "limitations": "Economic occupancy remains unavailable without collections and potential rent; source-total reconciliation, a user-facing Rent Roll/lease editor, realizable mark-to-market, reverse underwriting v2, and exit strategy are not implemented. OPEX completeness still depends on the supplied expense inventory and CAPEX completeness on a supplied technical assessment."
   },
   {
     "capability_id": "CAP-STUDY-LAND",
