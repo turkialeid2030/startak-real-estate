@@ -26,6 +26,9 @@ const {
   assessOperatingUnderwritingReadiness,
   RESIDENTIAL_INCOME_ACQUISITION_API_STATUS,
   createResidentialIncomeAcquisitionViewModel,
+  OPERATING_METRICS_STATUS,
+  annualizePeriodicRent,
+  calculateOperatingMetrics,
 } = require('../../src/residential-income-acquisition');
 const {
   TITLE_FACT_STATUS,
@@ -155,6 +158,9 @@ function buildOperatingCase({
   additionalLineage = [],
   omitLineageRef = null,
   secondActiveLease = false,
+  includeVacantUnit = false,
+  asOfDate = AS_OF_DATE,
+  leaseEndDate = '2046-01-01',
 }) {
   const propertyId = 'PROPERTY-1';
   const buildingId = 'BUILDING-1';
@@ -177,7 +183,8 @@ function buildOperatingCase({
     legalReviewRef,
   });
   const property = createProperty({ caseId, propertyId, buildingIds: [buildingId] });
-  const building = createBuilding({ caseId, propertyId, buildingId, unitIds: [unitId] });
+  const vacantUnitId = 'UNIT-2';
+  const building = createBuilding({ caseId, propertyId, buildingId, unitIds: includeVacantUnit ? [unitId, vacantUnitId] : [unitId] });
 
   const leaseIds = secondActiveLease ? ['LEASE-1', 'LEASE-2'] : ['LEASE-1'];
   const unit = createUnit({
@@ -212,7 +219,7 @@ function buildOperatingCase({
     tenantId,
     lifecycleStatus: LEASE_LIFECYCLE_STATUS.ACTIVE,
     startDate: '2026-01-01',
-    endDate: '2046-01-01',
+    endDate: leaseEndDate,
     baseRent: baseRentInput || adopted('lease.baseRent', 2000000, 'evidence://lease/base-rent', 'SAR/year', '2026-01-01'),
     rentFrequency: RENT_FREQUENCY.ANNUAL,
     escalation: rentEscalation,
@@ -220,6 +227,20 @@ function buildOperatingCase({
     termsAdoptionDecisionRef: ADOPTION_REF,
   });
   const leases = leaseIds.map(makeLease);
+  const units = [unit];
+  if (includeVacantUnit) {
+    units.push(createUnit({
+      caseId,
+      propertyInterestId: interest.propertyInterestId,
+      propertyId,
+      buildingId,
+      unitId: vacantUnitId,
+      unitType: UNIT_TYPE.RESIDENTIAL_APARTMENT,
+      operatingStatus: adopted('unit.2.operatingStatus', UNIT_OPERATING_STATUS.VACANT, 'evidence://unit/2/status'),
+      rentableArea: adopted('unit.2.rentableArea', 100, 'evidence://unit/2/area', 'm2'),
+      leaseIds: [],
+    }));
+  }
 
   const baseLineage = [
     lineage(caseId, 'evidence://interest/1', LINEAGE_KIND.SOURCE_DOCUMENT),
@@ -232,16 +253,20 @@ function buildOperatingCase({
     lineage(caseId, 'evidence://lease/contract', LINEAGE_KIND.SOURCE_DOCUMENT),
     lineage(caseId, ADOPTION_REF, LINEAGE_KIND.UNDERWRITING_ADOPTION),
   ];
+  if (includeVacantUnit) {
+    baseLineage.push(lineage(caseId, 'evidence://unit/2/status'));
+    baseLineage.push(lineage(caseId, 'evidence://unit/2/area'));
+  }
   if (legalReviewRef) baseLineage.push(lineage(caseId, legalReviewRef, LINEAGE_KIND.LEGAL_REVIEW));
   const evidenceLineage = [...baseLineage, ...additionalLineage].filter((item) => item.refId !== omitLineageRef);
 
   return createResidentialIncomeOperatingCase({
     caseId,
-    asOfDate: AS_OF_DATE,
+    asOfDate,
     propertyInterest: interest,
     property,
     buildings: [building],
-    units: [unit],
+    units,
     leases,
     tenants: [tenantRecord],
     additionalOperatingInputs,
@@ -253,6 +278,7 @@ function buildOperatingCase({
 const readyCase = buildOperatingCase({});
 const ready = assessOperatingUnderwritingReadiness(readyCase);
 const readyView = createResidentialIncomeAcquisitionViewModel(readyCase);
+const readyMetrics = calculateOperatingMetrics(readyCase);
 assert.strictEqual(ready.status, OPERATING_UNDERWRITING_STATUS.READY_FOR_OPERATING_UNDERWRITING);
 assert.strictEqual(readyView.apiStatus, RESIDENTIAL_INCOME_ACQUISITION_API_STATUS.CASE_LOADED);
 assert.strictEqual(readyView.readinessStatus, ready.status);
@@ -262,6 +288,15 @@ assert.strictEqual(readyView.financialCalculationExecuted, false);
 assert.strictEqual(readyView.investmentDecision, null);
 assert.strictEqual(readyView.transactionAuthorized, false);
 assert.ok(Object.isFrozen(readyView));
+assert.strictEqual(readyMetrics.status, OPERATING_METRICS_STATUS.CALCULATED);
+assert.strictEqual(readyMetrics.rentRoll.totals.totalAnnualContractRent, 2000000);
+assert.strictEqual(readyMetrics.occupancy.physicalOccupancyByUnits, 1);
+assert.strictEqual(readyMetrics.occupancy.economicOccupancy, null);
+assert.strictEqual(readyMetrics.leaseTiming.activeLeaseCount, 1);
+assert.ok(readyMetrics.leaseTiming.waleYears > 19 && readyMetrics.leaseTiming.waleYears < 20);
+assert.strictEqual(readyMetrics.financialCalculationExecuted, false);
+assert.strictEqual(readyMetrics.stabilizedNoiCalculated, false);
+assert.strictEqual(readyView.operatingMetrics.status, OPERATING_METRICS_STATUS.CALCULATED);
 assert.strictEqual(readyCase.leases[0].baseRent.value, 2000000);
 assert.strictEqual(readyCase.leases[0].escalation.type, RENT_ESCALATION_TYPE.FIXED_AMOUNT);
 assert.strictEqual(readyCase.leases[0].escalation.intervalYears, 5);
@@ -269,6 +304,39 @@ assert.strictEqual(readyCase.leases[0].escalation.changeValue.value, 100000);
 assert.strictEqual(readyCase.financialCalculationExecuted, false);
 assert.strictEqual(ready.financialCalculationExecuted, false);
 assert.strictEqual(ready.investmentDecision, null);
+
+// Rent frequency annualization is deterministic and never inferred for CUSTOM frequency.
+assert.strictEqual(annualizePeriodicRent(1000, RENT_FREQUENCY.MONTHLY), 12000);
+assert.strictEqual(annualizePeriodicRent(3000, RENT_FREQUENCY.QUARTERLY), 12000);
+assert.strictEqual(annualizePeriodicRent(6000, RENT_FREQUENCY.SEMI_ANNUAL), 12000);
+assert.strictEqual(annualizePeriodicRent(12000, RENT_FREQUENCY.ANNUAL), 12000);
+assert.throws(() => annualizePeriodicRent(1000, RENT_FREQUENCY.CUSTOM), /UNSUPPORTED_RENT_FREQUENCY/);
+
+// The reference step increases annual contract rent by SAR 100k after five completed years.
+const steppedCase = buildOperatingCase({ caseId: 'CASE-RIAI-STEPPED-2031', asOfDate: '2031-01-01' });
+const steppedMetrics = calculateOperatingMetrics(steppedCase);
+assert.strictEqual(steppedMetrics.status, OPERATING_METRICS_STATUS.CALCULATED);
+assert.strictEqual(steppedMetrics.rentRoll.totals.totalAnnualContractRent, 2100000);
+
+// Physical and contracted occupancy include vacant inventory; economic occupancy remains unavailable without collections.
+const mixedOccupancyCase = buildOperatingCase({ caseId: 'CASE-RIAI-MIXED-OCCUPANCY', includeVacantUnit: true });
+const mixedMetrics = calculateOperatingMetrics(mixedOccupancyCase);
+assert.strictEqual(mixedMetrics.rentRoll.totals.unitCount, 2);
+assert.strictEqual(mixedMetrics.rentRoll.totals.totalRentableAreaSqm, 300);
+assert.strictEqual(mixedMetrics.occupancy.physicalOccupancyByUnits, 0.5);
+assert.strictEqual(mixedMetrics.occupancy.physicalOccupancyByArea, 2 / 3);
+assert.strictEqual(mixedMetrics.occupancy.contractedOccupancyByArea, 2 / 3);
+assert.strictEqual(mixedMetrics.occupancy.economicOccupancy, null);
+assert.strictEqual(mixedMetrics.leaseTiming.expiryByYear[0].year, 2046);
+assert.strictEqual(mixedMetrics.leaseTiming.expiryByYear[0].rentExposureRatio, 1);
+assert.strictEqual(mixedMetrics.leaseTiming.leaseCliffs.length, 1);
+
+// Rent units must agree with payment frequency; the engine never guesses whether a value is monthly or annual.
+const mismatchedRentUnit = adopted('lease.baseRent', 2000000, 'evidence://lease/base-rent', 'SAR/month', '2026-01-01');
+const mismatchedUnitCase = buildOperatingCase({ caseId: 'CASE-RIAI-RENT-UNIT-MISMATCH', baseRentInput: mismatchedRentUnit });
+const mismatchedUnitMetrics = calculateOperatingMetrics(mismatchedUnitCase);
+assert.strictEqual(mismatchedUnitMetrics.status, OPERATING_METRICS_STATUS.NOT_CALCULABLE);
+assert.ok(mismatchedUnitMetrics.issues.some((item) => item.code === 'RENT_UNIT_FREQUENCY_MISMATCH'));
 
 // Explicit adopted assumptions are visible and never relabelled as verified facts.
 const assumptionCaseId = 'CASE-RIAI-ASSUMPTION';
@@ -358,8 +426,11 @@ assert.ok(missingLineageReadiness.evidenceGaps.some((item) => item.refId === 'ev
 // Contradictory unit/lease topology blocks the path even when every numeric value is verified.
 const duplicateActive = buildOperatingCase({ caseId: 'CASE-RIAI-DUPLICATE-ACTIVE', secondActiveLease: true });
 const duplicateActiveReadiness = assessOperatingUnderwritingReadiness(duplicateActive);
+const duplicateActiveMetrics = calculateOperatingMetrics(duplicateActive);
 assert.strictEqual(duplicateActiveReadiness.status, OPERATING_UNDERWRITING_STATUS.DECISION_BLOCKED);
 assert.ok(duplicateActiveReadiness.blockers.some((item) => item.code === 'MULTIPLE_ACTIVE_LEASES_ON_UNIT'));
+assert.strictEqual(duplicateActiveMetrics.status, OPERATING_METRICS_STATUS.NOT_CALCULABLE);
+assert.ok(duplicateActiveMetrics.issues.some((item) => item.code === 'MULTIPLE_ACTIVE_LEASES_ON_UNIT'));
 
 // Structural contradictions are rejected before readiness assessment.
 assert.throws(() => createPropertyInterest({
@@ -390,6 +461,7 @@ assert.throws(() => createResidentialIncomeOperatingCase({
 assert.strictEqual(ExistingBuildingStudyDefinition.createOperatingUnderwritingCase, createResidentialIncomeOperatingCase);
 assert.strictEqual(ExistingBuildingStudyDefinition.assessOperatingUnderwritingReadiness, assessOperatingUnderwritingReadiness);
 assert.strictEqual(ExistingBuildingStudyDefinition.projectOperatingUnderwritingReadiness, createResidentialIncomeAcquisitionViewModel);
+assert.strictEqual(ExistingBuildingStudyDefinition.calculateResidentialIncomeOperatingMetrics, calculateOperatingMetrics);
 assert.ok(!ExistingBuildingStudyDefinition.supportedSections.includes('operating-underwriting'));
 
 const emptyView = createResidentialIncomeAcquisitionViewModel(null);
@@ -401,8 +473,9 @@ assert.throws(() => createResidentialIncomeAcquisitionViewModel({}), /createResi
 
 const capability = capabilityRegistry.find((item) => item.capability_id === 'CAP-RIAI-OPERATING-CONTRACT');
 assert.ok(capability);
-assert.strictEqual(capability.implementation_status, 'FOUNDATION_ONLY');
-assert.ok(capability.limitations.includes('Rent Roll calculations'));
+assert.strictEqual(capability.implementation_status, 'PARTIALLY_IMPLEMENTED');
+assert.ok(capability.limitations.includes('Economic occupancy'));
+assert.ok(capability.limitations.includes('source-total reconciliation'));
 
 console.log('RESIDENTIAL_INCOME_OPERATING_CONTRACT_V1=PASS');
 console.log('PROPERTY_UNIT_LEASE_TENANT_GRAPH_ISOLATION=PASS');
@@ -414,3 +487,4 @@ console.log('UNKNOWN_MANAGEMENT_COST_IS_NOT_ZERO=PASS');
 console.log('WAQF_RESTRICTION_ROUTES_TO_LEGAL_REVIEW=PASS');
 console.log('NO_FINANCIAL_OR_LEGAL_OR_CREDIT_DECISION_CLAIM=PASS');
 console.log('DETERMINISTIC_API_PROJECTION_AND_EMPTY_STATE=PASS');
+console.log('RENT_ROLL_OCCUPANCY_LEASE_TIMING_V1=PASS');

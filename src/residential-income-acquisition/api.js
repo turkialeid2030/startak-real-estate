@@ -2,6 +2,7 @@
 
 const { deepFreeze } = require('./contracts');
 const { assessOperatingUnderwritingReadiness } = require('./readiness');
+const { calculateOperatingMetrics } = require('./operating-metrics');
 
 const RESIDENTIAL_INCOME_ACQUISITION_API_STATUS = Object.freeze({
   NOT_LOADED: 'NOT_LOADED',
@@ -25,7 +26,7 @@ function createEmptyResidentialIncomeAcquisitionViewModel() {
   return deepFreeze({
     schemaVersion: 1,
     capability: 'RESIDENTIAL_INCOME_ACQUISITION_INTELLIGENCE',
-    capabilityStatus: 'FOUNDATION_ONLY',
+    capabilityStatus: 'OPERATING_METRICS_V1',
     apiStatus: RESIDENTIAL_INCOME_ACQUISITION_API_STATUS.NOT_LOADED,
     caseId: null,
     asOfDate: null,
@@ -37,6 +38,7 @@ function createEmptyResidentialIncomeAcquisitionViewModel() {
     assumptions: [],
     warnings: [],
     lineage: null,
+    operatingMetrics: null,
     financialCalculationExecuted: false,
     investmentDecision: null,
     legalConclusion: null,
@@ -49,10 +51,11 @@ function createResidentialIncomeAcquisitionViewModel(operatingCase = null) {
   if (operatingCase == null) return createEmptyResidentialIncomeAcquisitionViewModel();
 
   const readiness = assessOperatingUnderwritingReadiness(operatingCase);
+  const operatingMetrics = calculateOperatingMetrics(operatingCase);
   return deepFreeze({
     schemaVersion: 1,
     capability: 'RESIDENTIAL_INCOME_ACQUISITION_INTELLIGENCE',
-    capabilityStatus: 'FOUNDATION_ONLY',
+    capabilityStatus: 'OPERATING_METRICS_V1',
     apiStatus: RESIDENTIAL_INCOME_ACQUISITION_API_STATUS.CASE_LOADED,
     caseId: operatingCase.caseId,
     asOfDate: operatingCase.asOfDate,
@@ -64,6 +67,7 @@ function createResidentialIncomeAcquisitionViewModel(operatingCase = null) {
     assumptions: readiness.assumptions,
     warnings: readiness.warnings,
     lineage: readiness.lineage,
+    operatingMetrics,
     financialCalculationExecuted: false,
     investmentDecision: null,
     legalConclusion: null,

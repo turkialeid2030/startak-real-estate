@@ -19,7 +19,8 @@ assert(panel.includes('data-testid="residential-income-acquisition-panel"'));
 assert(panel.includes("viewModel.apiStatus === 'CASE_LOADED'"));
 assert(panel.includes("if (!viewModel || typeof viewModel !== 'object') return null;"));
 
-assert(api.includes("capabilityStatus: 'FOUNDATION_ONLY'"));
+assert(api.includes("capabilityStatus: 'OPERATING_METRICS_V1'"));
+assert(api.includes('calculateOperatingMetrics(operatingCase)'));
 assert(api.includes('financialCalculationExecuted: false'));
 assert(api.includes('investmentDecision: null'));
 assert(api.includes('legalConclusion: null'));
@@ -29,6 +30,10 @@ assert(!api.includes('window.'));
 assert(!api.includes('calculateInvestmentCase'));
 assert(!panel.includes('fetch('));
 assert(!panel.includes('window.'));
+assert(panel.includes("metrics?.status === 'CALCULATED'"));
+assert(panel.includes("t('riai.annualContractRent')"));
+assert(panel.includes("t('riai.physicalOccupancyUnits')"));
+assert(panel.includes("t('riai.wale')"));
 
 for (const dictionary of [ar, en]) {
   assert(dictionary.includes('riai: {'));
