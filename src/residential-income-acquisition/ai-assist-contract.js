@@ -74,6 +74,16 @@ function buildResidentialIncomeAiDecisionSnapshot(viewModel) {
       blockers: (viewModel.blockers || []).slice(0, MAX_ITEMS).map(compactIssue).filter(Boolean),
       evidenceGaps: (viewModel.evidenceGaps || []).slice(0, MAX_ITEMS).map(compactIssue).filter(Boolean),
     },
+    strategicEvidence: bundle && bundle.evidenceGovernance ? {
+      status: bundle.evidenceGovernance.status || null,
+      strategicInputCount: finite(bundle.evidenceGovernance.strategicInputCount) ? bundle.evidenceGovernance.strategicInputCount : null,
+      adoptedInputCount: finite(bundle.evidenceGovernance.adoptedInputCount) ? bundle.evidenceGovernance.adoptedInputCount : null,
+      usableAdoptedInputCount: finite(bundle.evidenceGovernance.usableAdoptedInputCount) ? bundle.evidenceGovernance.usableAdoptedInputCount : null,
+      evidenceCoverage: finite(bundle.evidenceGovernance.evidenceCoverage) ? bundle.evidenceGovernance.evidenceCoverage : null,
+      issueCodes: Array.isArray(bundle.evidenceGovernance.issues)
+        ? bundle.evidenceGovernance.issues.slice(0, MAX_ITEMS).map((item) => trimText(item && item.code, 120)).filter(Boolean)
+        : [],
+    } : null,
     acquisitionScore: score ? {
       status: score.status || null,
       score: finite(score.score) ? score.score : null,

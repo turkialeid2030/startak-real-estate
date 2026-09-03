@@ -68,6 +68,8 @@ export default function ResidentialIncomeDecisionExtension({ viewModel, dir = 'r
   const ar = dir === 'rtl';
   const locale = ar ? 'ar-SA' : 'en-US';
   const intelligence = viewModel.lifecycleLocationUpside;
+  const evidenceGovernance = intelligence?.evidenceGovernance;
+  const subdivision = viewModel.subdivisionGate;
   const lifecycle = intelligence?.lifecycle;
   const location = intelligence?.location;
   const forward = intelligence?.forwardAttraction;
@@ -107,6 +109,31 @@ export default function ResidentialIncomeDecisionExtension({ viewModel, dir = 'r
           )}
         </p>
       </div>
+
+      {evidenceGovernance || subdivision ? (
+        <Section
+          id="riai-strategic-evidence-governance"
+          title={label('حوكمة الأدلة وأهلية التقسيم', 'Evidence Governance & Subdivision Eligibility')}
+          status={evidenceGovernance?.status || subdivision?.status}
+          notice={label(
+            'المدخلات الاستراتيجية غير المرتبطة بمصدر واعتماد صالحين تُستبعد من الحساب. اجتياز فحوص التقسيم يسمح باختبار السيناريو فقط ولا يمثل موافقة نظامية.',
+            'Strategic inputs without valid source and adoption lineage are excluded. Passing subdivision checks permits scenario testing only and is not authority approval.',
+          )}
+        >
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+            <Metric label={label('تغطية الأدلة الاستراتيجية', 'Strategic evidence coverage')} value={formatPercent(evidenceGovernance?.evidenceCoverage, locale, 0)} testId="riai-strategic-evidence-coverage" />
+            <Metric label={label('مدخلات صالحة', 'Usable adopted inputs')} value={formatNumber(evidenceGovernance?.usableAdoptedInputCount, locale)} />
+            <Metric label={label('حالة التقسيم', 'Subdivision status')} value={subdivision?.status || '—'} testId="riai-subdivision-gate-status" />
+            <Metric label={label('تغطية فحوص التقسيم', 'Subdivision check coverage')} value={formatPercent(subdivision?.evidenceCoverage, locale, 0)} />
+            <Metric label={label('مؤهل لاختبار السيناريو', 'Scenario testing eligible')} value={subdivision?.scenarioTestingEligible ? label('نعم', 'Yes') : label('لا', 'No')} />
+          </div>
+          {evidenceGovernance?.issues?.length ? (
+            <div className="mt-3">
+              <IssueRows issues={evidenceGovernance.issues} emptyLabel={label('لا توجد فجوات أدلة استراتيجية.', 'No strategic evidence gaps.')} />
+            </div>
+          ) : null}
+        </Section>
+      ) : null}
 
       {lifecycle ? (
         <Section

@@ -11,6 +11,8 @@ const {
   DIRECTION,
   UPSIDE_TYPE,
   REGULATORY_STATUS,
+  STRATEGIC_EVIDENCE_STATUS,
+  SUBDIVISION_ASSESSMENT_STATUS,
   calculateLifecycleLocationUpsideIntelligence,
   calculateAcquisitionAnalyticalScore,
   buildScenarioIntegration,
@@ -109,10 +111,20 @@ const operatingCase = {
   units: [{ unitId: 'U1' }],
   leases: [{ leaseId: 'L1' }],
   additionalOperatingInputs: inputs,
+  evidenceLineage: [
+    { refId: ADOPTION_REF, kind: 'UNDERWRITING_ADOPTION' },
+    ...inputs.map((input) => ({ refId: input.sourceRef, kind: 'SOURCE_DOCUMENT' })),
+  ],
 };
 
-const bundle = calculateLifecycleLocationUpsideIntelligence(operatingCase);
+const subdivisionGate = {
+  status: SUBDIVISION_ASSESSMENT_STATUS.FEASIBLE_FOR_SCENARIO_TESTING,
+  scenarioTestingEligible: true,
+};
+const bundle = calculateLifecycleLocationUpsideIntelligence(operatingCase, { subdivisionGate });
 assert.strictEqual(bundle.status, INTELLIGENCE_STATUS.CALCULATED);
+assert.strictEqual(bundle.evidenceGovernance.status, STRATEGIC_EVIDENCE_STATUS.COMPLIANT);
+assert.strictEqual(bundle.evidenceGovernance.evidenceCoverage, 1);
 assert.strictEqual(bundle.investmentDecision, null);
 assert.strictEqual(bundle.legalConclusion, null);
 assert.strictEqual(bundle.transactionAuthorized, false);
@@ -133,17 +145,30 @@ const split = bundle.upside.catalysts.find((item) => item.catalystId === 'split'
 const prohibited = bundle.upside.catalysts.find((item) => item.catalystId === 'prohibited');
 assert.strictEqual(split.regulatoryStatus, REGULATORY_STATUS.POTENTIALLY_FEASIBLE);
 assert.strictEqual(split.effectiveProbability, 0.5);
+assert.strictEqual(split.subdivisionScenarioTestingEligible, true);
 assert.strictEqual(split.requiresRegulatoryVerification, true);
 assert.strictEqual(prohibited.prohibited, true);
 assert.strictEqual(prohibited.effectiveProbability, 0);
 assert.strictEqual(bundle.upside.metrics.regulatoryVerificationRequiredCount, 2);
 assert.strictEqual(bundle.upside.legalConclusion, null);
 
+const blockedSubdivisionBundle = calculateLifecycleLocationUpsideIntelligence(operatingCase);
+const blockedSplit = blockedSubdivisionBundle.upside.catalysts.find((item) => item.catalystId === 'split');
+assert.strictEqual(blockedSplit.effectiveProbability, 0);
+assert.strictEqual(blockedSplit.subdivisionScenarioTestingEligible, false);
+assert.strictEqual(blockedSubdivisionBundle.upside.status, INTELLIGENCE_STATUS.CALCULATED_WITH_GAPS);
+assert(blockedSubdivisionBundle.upside.issues.some((item) => item.code === 'SUBDIVISION_GATE_REQUIRED_FOR_UPSIDE'));
+
 const partialLocationCase = {
   caseId: 'CASE-PARTIAL-LOCATION',
+  asOfDate: AS_OF,
   additionalOperatingInputs: [
     unverified('location.current.accessibilityScore', 100, 'score'),
     adopted('location.current.servicesScore', 80, 'score'),
+  ],
+  evidenceLineage: [
+    { refId: ADOPTION_REF, kind: 'UNDERWRITING_ADOPTION' },
+    { refId: 'evidence://location-current-servicesScore', kind: 'SOURCE_DOCUMENT' },
   ],
 };
 const partial = calculateLifecycleLocationUpsideIntelligence(partialLocationCase);

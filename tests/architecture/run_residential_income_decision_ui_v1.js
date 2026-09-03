@@ -17,6 +17,7 @@ assert(panel.includes('<ResidentialIncomeDecisionExtension viewModel={viewModel}
 for (const marker of [
   'data-testid="riai-decision-extension"',
   'riai-lifecycle-intelligence',
+  'riai-strategic-evidence-governance',
   'riai-location-intelligence',
   'riai-forward-attraction',
   'riai-upside-intelligence',
@@ -25,6 +26,8 @@ for (const marker of [
   'riai-investment-committee-pack',
   'riai-acquisition-score',
   'riai-regulatory-verification-count',
+  'riai-strategic-evidence-coverage',
+  'riai-subdivision-gate-status',
 ]) {
   assert(extension.includes(marker), `missing UI marker: ${marker}`);
 }
