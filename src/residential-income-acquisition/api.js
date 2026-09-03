@@ -48,6 +48,7 @@ function createEmptyResidentialIncomeAcquisitionViewModel() {
     capabilityStatus: 'EXIT_STRATEGY_COMPARISON_V1',
     intelligenceExtensionStatus: 'LIFECYCLE_LOCATION_UPSIDE_AND_IC_V1',
     subdivisionExtensionStatus: 'SUBDIVISION_DUE_DILIGENCE_GATE_V1',
+    strategicEvidenceExtensionStatus: 'STRATEGIC_EVIDENCE_GOVERNANCE_V1',
     apiStatus: RESIDENTIAL_INCOME_ACQUISITION_API_STATUS.NOT_LOADED,
     caseId: null,
     asOfDate: null,
@@ -77,6 +78,7 @@ function createEmptyResidentialIncomeAcquisitionViewModel() {
     exitStrategyComparisonCalculated: false,
     lifecycleLocationUpsideCalculated: false,
     subdivisionGateCalculated: false,
+    strategicEvidenceGovernanceCalculated: false,
     acquisitionAnalyticalScoreCalculated: false,
     investmentDecision: null,
     legalConclusion: null,
@@ -95,8 +97,8 @@ function createResidentialIncomeAcquisitionViewModel(operatingCase = null) {
   const acquisitionBasis = calculateAcquisitionBasis(operatingCase, propertyCosts, readiness);
   const reverseUnderwriting = calculateReverseUnderwriting(operatingCase, incomeAnalysis, acquisitionBasis, readiness);
   const exitStrategyComparison = calculateExitStrategyComparison(operatingCase, incomeAnalysis, acquisitionBasis, readiness);
-  const lifecycleLocationUpside = calculateLifecycleLocationUpsideIntelligence(operatingCase);
   const subdivisionGate = calculateSubdivisionDueDiligenceGate(operatingCase);
+  const lifecycleLocationUpside = calculateLifecycleLocationUpsideIntelligence(operatingCase, { subdivisionGate });
   const scenarioIntegration = buildScenarioIntegration({
     exitStrategyComparison,
     intelligenceBundle: lifecycleLocationUpside,
@@ -127,6 +129,7 @@ function createResidentialIncomeAcquisitionViewModel(operatingCase = null) {
     capabilityStatus: 'EXIT_STRATEGY_COMPARISON_V1',
     intelligenceExtensionStatus: 'LIFECYCLE_LOCATION_UPSIDE_AND_IC_V1',
     subdivisionExtensionStatus: 'SUBDIVISION_DUE_DILIGENCE_GATE_V1',
+    strategicEvidenceExtensionStatus: 'STRATEGIC_EVIDENCE_GOVERNANCE_V1',
     apiStatus: RESIDENTIAL_INCOME_ACQUISITION_API_STATUS.CASE_LOADED,
     caseId: operatingCase.caseId,
     asOfDate: operatingCase.asOfDate,
@@ -156,6 +159,7 @@ function createResidentialIncomeAcquisitionViewModel(operatingCase = null) {
     exitStrategyComparisonCalculated: exitStrategyComparison.exitStrategyComparisonCalculated,
     lifecycleLocationUpsideCalculated: lifecycleLocationUpside.status !== 'NOT_CALCULABLE',
     subdivisionGateCalculated: subdivisionGate.status !== SUBDIVISION_ASSESSMENT_STATUS.NOT_ASSESSED,
+    strategicEvidenceGovernanceCalculated: lifecycleLocationUpside.evidenceGovernance.status !== 'NOT_ASSESSED',
     acquisitionAnalyticalScoreCalculated: acquisitionAnalyticalScore.status !== DECISION_LAYER_STATUS.NOT_CALCULABLE,
     investmentDecision: null,
     legalConclusion: null,

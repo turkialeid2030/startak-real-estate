@@ -1,5 +1,14 @@
 'use strict';
 
+const {
+  SUBDIVISION_ASSESSMENT_STATUS,
+} = require('./subdivision-gate');
+const {
+  STRATEGIC_EVIDENCE_STATUS,
+  assessStrategicEvidenceGovernance,
+  createEvidenceGovernedStrategicCase,
+} = require('./strategic-evidence-governance');
+
 const INTELLIGENCE_STATUS = Object.freeze({
   CALCULATED: 'CALCULATED',
   CALCULATED_WITH_GAPS: 'CALCULATED_WITH_GAPS',
@@ -427,7 +436,7 @@ function calculateForwardAttractionIntelligence(operatingCase) {
   });
 }
 
-function upsideCatalyst(record, catalystId, issues) {
+function upsideCatalyst(record, catalystId, issues, subdivisionGate = null) {
   const missing = UPSIDE_REQUIRED.filter((attr) => !record[attr]);
   if (missing.length) {
     issues.push({ code: 'UPSIDE_CATALYST_FIELDS_MISSING', catalystId, fields: missing });
@@ -444,16 +453,32 @@ function upsideCatalyst(record, catalystId, issues) {
   if (!usableNumber(record.probability, 0, 1)) issues.push({ code: 'UPSIDE_PROBABILITY_INVALID', catalystId, field: record.probability.field });
   if (issues.some((item) => item.catalystId === catalystId && item.code !== 'UPSIDE_CATALYST_FIELDS_MISSING')) return null;
 
+  const type = record.type.value;
   const regulatoryStatus = record.regulatoryStatus.value;
   const regulatoryCap = REGULATORY_CAP[regulatoryStatus];
-  const effectiveProbability = Math.min(record.probability.value, regulatoryCap);
+  const subdivisionScenarioTestingEligible = type !== UPSIDE_TYPE.SUBDIVISION || Boolean(
+    subdivisionGate
+    && subdivisionGate.status === SUBDIVISION_ASSESSMENT_STATUS.FEASIBLE_FOR_SCENARIO_TESTING
+    && subdivisionGate.scenarioTestingEligible === true,
+  );
+  if (!subdivisionScenarioTestingEligible) {
+    issues.push({
+      code: 'SUBDIVISION_GATE_REQUIRED_FOR_UPSIDE',
+      catalystId,
+      field: record.type.field,
+      subdivisionGateStatus: subdivisionGate && subdivisionGate.status || SUBDIVISION_ASSESSMENT_STATUS.NOT_ASSESSED,
+    });
+  }
+  const effectiveProbability = subdivisionScenarioTestingEligible
+    ? Math.min(record.probability.value, regulatoryCap)
+    : 0;
   const capex = record.capex.value;
   const incrementalAnnualNoi = record.incrementalAnnualNoi.value;
   const profitOnCostProxy = capex > 0 ? incrementalAnnualNoi / capex : null;
   const simplePaybackYears = capex > 0 && incrementalAnnualNoi > 0 ? capex / incrementalAnnualNoi : null;
   return {
     catalystId,
-    type: record.type.value,
+    type,
     regulatoryStatus,
     regulatoryProbabilityCap: regulatoryCap,
     statedProbability: record.probability.value,
@@ -466,13 +491,17 @@ function upsideCatalyst(record, catalystId, issues) {
     probabilityAdjustedCapexForExpectedValueOnly: capex * effectiveProbability,
     profitOnCostProxy,
     simplePaybackYears,
-    requiresRegulatoryVerification: regulatoryStatus !== REGULATORY_STATUS.VERIFIED_FEASIBLE,
+    requiresRegulatoryVerification: regulatoryStatus !== REGULATORY_STATUS.VERIFIED_FEASIBLE || !subdivisionScenarioTestingEligible,
+    subdivisionScenarioTestingEligible,
+    subdivisionGateStatus: type === UPSIDE_TYPE.SUBDIVISION
+      ? subdivisionGate && subdivisionGate.status || SUBDIVISION_ASSESSMENT_STATUS.NOT_ASSESSED
+      : null,
     prohibited: regulatoryStatus === REGULATORY_STATUS.PROHIBITED,
     lineage: Object.fromEntries(Object.entries(record).map(([key, input]) => [key, projectedLineage(input)])),
   };
 }
 
-function calculateUpsideIntelligence(operatingCase) {
+function calculateUpsideIntelligence(operatingCase, { subdivisionGate = null } = {}) {
   const issues = [];
   const grouped = collectDynamic(operatingCase, /^upside\.catalyst\.([^.]+)\.([A-Za-z0-9_]+)$/);
   if (!grouped.size) {
@@ -489,7 +518,7 @@ function calculateUpsideIntelligence(operatingCase) {
   }
   const catalysts = [];
   for (const [catalystId, record] of grouped.entries()) {
-    const item = upsideCatalyst(record, catalystId, issues);
+    const item = upsideCatalyst(record, catalystId, issues, subdivisionGate);
     if (item) catalysts.push(item);
   }
   if (!catalysts.length) {
@@ -529,15 +558,19 @@ function calculateUpsideIntelligence(operatingCase) {
   });
 }
 
-function calculateLifecycleLocationUpsideIntelligence(operatingCase) {
+function calculateLifecycleLocationUpsideIntelligence(operatingCase, { subdivisionGate = null } = {}) {
   if (!operatingCase || typeof operatingCase !== 'object') throw new TypeError('operatingCase must be an object');
-  const lifecycle = calculateLifecycleIntelligence(operatingCase);
-  const location = calculateLocationIntelligence(operatingCase);
-  const forwardAttraction = calculateForwardAttractionIntelligence(operatingCase);
-  const upside = calculateUpsideIntelligence(operatingCase);
+  const evidenceGovernance = assessStrategicEvidenceGovernance(operatingCase);
+  const governedCase = createEvidenceGovernedStrategicCase(operatingCase, evidenceGovernance);
+  const lifecycle = calculateLifecycleIntelligence(governedCase);
+  const location = calculateLocationIntelligence(governedCase);
+  const forwardAttraction = calculateForwardAttractionIntelligence(governedCase);
+  const upside = calculateUpsideIntelligence(governedCase, { subdivisionGate });
   const statuses = [lifecycle.status, location.status, forwardAttraction.status, upside.status];
   const calculatedCount = statuses.filter((status) => status !== INTELLIGENCE_STATUS.NOT_CALCULABLE).length;
-  const status = calculatedCount === 4 && statuses.every((item) => item === INTELLIGENCE_STATUS.CALCULATED)
+  const status = calculatedCount === 4
+    && statuses.every((item) => item === INTELLIGENCE_STATUS.CALCULATED)
+    && evidenceGovernance.status === STRATEGIC_EVIDENCE_STATUS.COMPLIANT
     ? INTELLIGENCE_STATUS.CALCULATED
     : calculatedCount > 0
       ? INTELLIGENCE_STATUS.CALCULATED_WITH_GAPS
@@ -547,6 +580,7 @@ function calculateLifecycleLocationUpsideIntelligence(operatingCase) {
     caseId: operatingCase.caseId || null,
     asOfDate: operatingCase.asOfDate || null,
     status,
+    evidenceGovernance,
     lifecycle,
     location,
     forwardAttraction,
@@ -555,7 +589,7 @@ function calculateLifecycleLocationUpsideIntelligence(operatingCase) {
     investmentDecision: null,
     legalConclusion: null,
     transactionAuthorized: false,
-    semantics: 'This bundle separates current asset condition, current location quality, forward attraction, and upside catalysts. It does not convert announcements, potential subdivision, or analytical signals into an automatic investment recommendation or legal conclusion.',
+    semantics: 'This bundle separates current asset condition, current location quality, forward attraction, and upside catalysts. Strategic inputs fail closed when evidence or adoption lineage is invalid. Subdivision catalysts contribute no effective probability until the eleven-check subdivision gate permits scenario testing. No signal becomes an automatic investment recommendation or legal conclusion.',
   });
 }
 
