@@ -1,0 +1,699 @@
+From 928d6b7b22e324854b893ad545122d25055c7879 Mon Sep 17 00:00:00 2001
+From: STARTAK Wave C Remediation <engineering@startak.local>
+Date: Thu, 3 Sep 2026 16:50:19 +0000
+Subject: [PATCH 1/3] Wave C remediation: IRR reliability, engine-boundary
+ validation, exposed expense model, quota and a11y
+
+Closes eight defects proven by independent numerical probing:
+
+WC-01 IRR reliability. computeIRR returned a single root for non-conventional
+      cash flows with no warning ([-100,300,-250,80] -> 91.07%). Adds
+      irr-diagnostics.js: sign-change counting, MIRR, and an explicit
+      reliability verdict. computeIRR itself is unchanged.
+WC-02 Both valuation engines now publish irrReliability / irrMultipleRootRisk /
+      irrSignChanges / mirr, registered in the canonical result contract.
+WC-03 Defence in depth. validateEngineInputs ran only inside
+      calculateInvestmentCase; direct engine callers bypassed every domain
+      check (occupancyRate 5 produced a favourable verdict at 76.4% IRR).
+      Validation now runs at the engine boundary as well.
+WC-03b PERCENTAGE_FIELDS_0_TO_1 was declared and exported but never enforced --
+      loanRate, rentGrowthRate, marketCapRate and others were unchecked. The
+      list is now the enforced source, with a separate signed band for growth
+      rates so a decline scenario stays legal.
+WC-04 leaseStatus is now a validated enumeration. An unknown value previously
+      fell through to ?? 0, silently assuming zero vacancy.
+WC-05 The insurance note said 'percentage of total annual income' while the
+      engine applies the rate to replacement construction value. Corrected in
+      both locales and locked to the engine arithmetic by test.
+WC-06 managementFeeRate, fixedOpexPerSqm, replacementReservePerSqm,
+      opexGrowthRate and an independent building exitCapRate were engine-only
+      and unreachable from the UI. Now exposed, with behaviour-preserving
+      defaults so no saved deal is silently revalued.
+WC-07 localStorage quota exhaustion now raises a typed bilingual
+      StorageQuotaExceededError routed to the user, instead of a generic retry
+      message that can never succeed.
+WC-08 The KPI strip is a labelled aria-live region and warned numeric inputs
+      expose aria-invalid (WCAG 4.1.3 and 3.3.1).
+
+Verification: RELEASE_VERIFY_RESULT=PASS, 196/196 regression tests, new
+WAVE_C_CHECKS=40 FAILED=0, npm audit 0 findings, production build PASS.
+Golden case unchanged: NOI 14,612,760, opex 1,112,040, IRR 0.1444715207802304.
+---
+ src/app/App.jsx                               |  30 ++-
+ src/contracts/financial-result.js             |  11 +
+ src/engines/financial/index.js                |   2 +
+ src/engines/financial/irr-diagnostics.js      | 153 ++++++++++++++
+ src/engines/valuation/existing-building.js    |  19 +-
+ src/engines/valuation/land-development.js     |  19 +-
+ src/i18n/locales/ar-SA.js                     |  10 +-
+ src/i18n/locales/en.js                        |  10 +-
+ src/storage/browser-local-storage-provider.js |  34 ++-
+ src/validation/numeric-safety.js              |  66 +++++-
+ .../architecture/run_wave_c_remediation_v1.js | 193 ++++++++++++++++++
+ tests/i18n/run_r5a_full_closure.js            |   7 +-
+ tests/i18n/run_r6c_full_closure.js            |   5 +-
+ 13 files changed, 536 insertions(+), 23 deletions(-)
+ create mode 100644 src/engines/financial/irr-diagnostics.js
+ create mode 100644 tests/architecture/run_wave_c_remediation_v1.js
+
+diff --git a/src/app/App.jsx b/src/app/App.jsx
+index 1d7dbf0..3ac463e 100644
+--- a/src/app/App.jsx
++++ b/src/app/App.jsx
+@@ -139,6 +139,12 @@ const DEFAULT_BUILDING_INPUTS = {
+   buildingPrice: 140000000, commissionRate: 0.025, transferFeeRate: 0.05, inspectionCost: 75000, valuationCost: 60000,
+   rentPerSqm: 1800, occupancyRate: 1.0, leaseStatus: "مؤجر", leaseYears: 5, vatRate: 0.15, serviceIncomeRate: 0.12,
+   maintenanceRate: 0.05, insuranceRate: 0.005,
++  // Wave C -- previously engine-only parameters, now exposed. Defaults are
++  // deliberately behaviour-preserving (0 / exit cap == market cap) so that no
++  // existing saved deal changes value on upgrade. Setting them is a documented
++  // analytical decision, not a silent model change.
++  managementFeeRate: 0, fixedOpexPerSqm: 0, replacementReservePerSqm: 0, opexGrowthRate: 0,
++  exitCapRate: 0.07,
+   marketCapRate: 0.07, discountRate: 0.08, holdPeriod: 5, rentGrowthRate: 0,
+   basementConstructionCostPerSqm: 3000, floorConstructionCostPerSqm: 2000, currentLandPricePerSqm: 15000, buildingUsefulLife: 30,
+   minYieldThreshold: 0.09, maxPaybackThreshold: 10,
+@@ -217,6 +223,7 @@ function NumField({ label, unit, note, value, onChange, step = 1, min, warnBelow
+         className="rf-input rf-num w-full px-3 py-2 text-sm"
+         style={baseInputStyle()}
+         value={value}
++        aria-invalid={warning ? "true" : undefined}
+         onChange={(e) => {
+           const raw = e.target.value.replace(/[^\d.\-]/g, "");
+           const parsed = parseFloat(raw);
+@@ -239,6 +246,7 @@ function PercentField({ label, note, value, onChange, warnBelow, warnAbove, warn
+         className="rf-input rf-num w-full px-3 py-2 text-sm"
+         style={baseInputStyle()}
+         value={Number((value * 100).toFixed(4))}
++        aria-invalid={warning ? "true" : undefined}
+         onChange={(e) => {
+           const raw = e.target.value.replace(/[^\d.\-]/g, "");
+           const parsed = parseFloat(raw);
+@@ -989,10 +997,15 @@ function BuildingInputPanel({ inputs, setInputs }) {
+       <Section eyebrow={t("globalApp.section4")} title={t("inputBuilding.sec4")}>
+         <PercentField label={t("inputBuilding.maintenanceRate")} note={t("inputBuilding.maintenanceRateNote")} value={inputs.maintenanceRate} onChange={(v) => patch("maintenanceRate", v)} />
+         <PercentField label={t("inputBuilding.insuranceRate")} note={t("inputBuilding.insuranceRateNote")} value={inputs.insuranceRate} onChange={(v) => patch("insuranceRate", v)} />
++        <PercentField label={t("inputBuilding.managementFeeRate")} note={t("inputBuilding.managementFeeRateNote")} value={inputs.managementFeeRate} onChange={(v) => patch("managementFeeRate", v)} warnAbove={0.10} />
++        <NumField label={t("inputBuilding.fixedOpexPerSqm")} unit={t("inputBuilding.unitSarSqm")} note={t("inputBuilding.fixedOpexPerSqmNote")} value={inputs.fixedOpexPerSqm} onChange={(v) => patch("fixedOpexPerSqm", v)} min={0} />
++        <NumField label={t("inputBuilding.replacementReservePerSqm")} unit={t("inputBuilding.unitSarSqm")} note={t("inputBuilding.replacementReservePerSqmNote")} value={inputs.replacementReservePerSqm} onChange={(v) => patch("replacementReservePerSqm", v)} min={0} />
++        <PercentField label={t("inputBuilding.opexGrowthRate")} note={t("inputBuilding.opexGrowthRateNote")} value={inputs.opexGrowthRate} onChange={(v) => patch("opexGrowthRate", v)} warnAbove={0.10} />
+       </Section>
+ 
+       <Section eyebrow={t("globalApp.section5")} title={t("inputBuilding.sec5")}>
+         <PercentField label={t("inputBuilding.marketCapRate")} value={inputs.marketCapRate} onChange={(v) => patch("marketCapRate", v)} warnBelow={0.04} warnAbove={0.12} />
++        <PercentField label={t("inputBuilding.exitCapRate")} note={t("inputBuilding.exitCapRateNote")} value={inputs.exitCapRate} onChange={(v) => patch("exitCapRate", v)} warnBelow={0.04} warnAbove={0.14} />
+         <PercentField label={t("inputBuilding.discountRate")} value={inputs.discountRate} onChange={(v) => patch("discountRate", v)} warnBelow={0.04} warnAbove={0.15} />
+         <NumField label={t("inputBuilding.holdPeriod")} unit={t("inputBuilding.unitYear")} value={inputs.holdPeriod} onChange={(v) => patch("holdPeriod", v)} min={1} warnAbove={20} />
+         <PercentField label={t("inputBuilding.rentGrowthRate")} note={t("inputBuilding.rentGrowthRateNote")} value={inputs.rentGrowthRate} onChange={(v) => patch("rentGrowthRate", v)} warnAbove={0.15} />
+@@ -1215,6 +1228,10 @@ function KPIRibbon({ mode, results, leverageEnabled }) {
+     <div
+       className="sticky top-2 z-20 rounded-2xl p-3 mb-6"
+       style={{ background: `${COLORS.panel}F2`, backdropFilter: "blur(8px)", border: `1px solid ${COLORS.hairline}` }}
++      role="status"
++      aria-live="polite"
++      aria-atomic="false"
++      aria-label={t("kpi.regionLabel")}
+     >
+       <div className="flex flex-wrap items-stretch gap-2">
+         <KPIChip label={noiLabel} value={formatKpiCurrency(noiValue)} icon={Wallet} />
+@@ -1230,6 +1247,15 @@ function KPIRibbon({ mode, results, leverageEnabled }) {
+   );
+ }
+ 
++// Wave C: a quota-exhaustion failure is not a generic "try again" condition --
++// retrying always fails. Surface the actionable bilingual message instead.
++function storageFailureMessage(error, fallback) {
++  if (error && error.code === "STORAGE_QUOTA_EXCEEDED") {
++    return { code: error.code, message_ar: error.message_ar, message_en: error.message_en };
++  }
++  return fallback;
++}
++
+ // ============================================================
+ // SAVED DEALS PANEL (multi-deal persistence)
+ // ============================================================
+@@ -1580,7 +1606,7 @@ export default function App() {
+       setActiveDealId(id);
+       setSaveNameInput("");
+     } catch (e) {
+-      setDealsError({ code: "DEAL_SAVE_FAILED", message_ar: "تعذّر الحفظ، حاول مرة أخرى", message_en: "Save failed, please try again" });
++      setDealsError(storageFailureMessage(e, { code: "DEAL_SAVE_FAILED", message_ar: "تعذّر الحفظ، حاول مرة أخرى", message_en: "Save failed, please try again" }));
+     } finally {
+       setSavingInProgress(false);
+     }
+@@ -1601,7 +1627,7 @@ export default function App() {
+       await storageProvider.set("deals-index", JSON.stringify(newIndex));
+       setSavedDeals(newIndex);
+     } catch (e) {
+-      setDealsError({ code: "DEAL_UPDATE_FAILED", message_ar: "تعذّر تحديث الصفقة", message_en: "The deal could not be updated" });
++      setDealsError(storageFailureMessage(e, { code: "DEAL_UPDATE_FAILED", message_ar: "تعذّر تحديث الصفقة", message_en: "The deal could not be updated" }));
+     } finally {
+       setSavingInProgress(false);
+     }
+diff --git a/src/contracts/financial-result.js b/src/contracts/financial-result.js
+index d7cfca0..d090287 100644
+--- a/src/contracts/financial-result.js
++++ b/src/contracts/financial-result.js
+@@ -10,6 +10,17 @@ const FINANCIAL_RESULT_FIELDS = Object.freeze({
+   paybackNoiCashflows: { present: 'EXISTING_BUILDING_ONLY', type: 'number[]' },
+   irr: { present: 'BOTH', type: 'number (may be NaN when no root exists)' },
+   npv: { present: 'BOTH', type: 'number' },
++  irrDiagnostics: { present: 'BOTH', type: 'object (frozen IRR reliability verdict)' },
++  leveredIrrDiagnostics: { present: 'BOTH', type: 'object (frozen IRR reliability verdict)' },
++  irrReliability: { present: 'BOTH', type: 'RELIABLE | MULTIPLE_ROOT_RISK | OUT_OF_SOLVER_RANGE | NOT_COMPUTABLE' },
++  leveredIrrReliability: { present: 'BOTH', type: 'RELIABLE | MULTIPLE_ROOT_RISK | OUT_OF_SOLVER_RANGE | NOT_COMPUTABLE' },
++  irrMultipleRootRisk: { present: 'BOTH', type: 'boolean' },
++  irrSignChanges: { present: 'BOTH', type: 'number' },
++  mirr: { present: 'BOTH', type: 'number (may be NaN)' },
++  leveredMirr: { present: 'BOTH', type: 'number (may be NaN)' },
+   NOI: { present: 'EXISTING_BUILDING_ONLY', type: 'number' },
+   firstYearNOI: { present: 'EXISTING_BUILDING_ONLY', type: 'number' },
+   stabilizedNOI: { present: 'LAND_DEVELOPMENT_ONLY', type: 'number' },
+diff --git a/src/engines/financial/index.js b/src/engines/financial/index.js
+index f419859..d77d43e 100644
+--- a/src/engines/financial/index.js
++++ b/src/engines/financial/index.js
+@@ -32,6 +32,7 @@ function amortizationSchedule(principal, rate, years) {
+ }
+ 
+ const monthlyDebt = require('./monthly-debt');
++const irrDiagnostics = require('./irr-diagnostics');
+ const constructionDebt = require('./construction-debt');
+ 
+ module.exports = {
+@@ -39,6 +40,7 @@ module.exports = {
+   computeIRR,
+   amortizationSchedule,
+   precision,
++  ...irrDiagnostics,
+   ...monthlyDebt,
+   ...constructionDebt,
+ };
+diff --git a/src/engines/financial/irr-diagnostics.js b/src/engines/financial/irr-diagnostics.js
+new file mode 100644
+index 0000000..0437f10
+--- /dev/null
++++ b/src/engines/financial/irr-diagnostics.js
+@@ -0,0 +1,153 @@
++'use strict';
++
++const precision = require('./precision');
++
++const IRR_RELIABILITY = Object.freeze({
++  RELIABLE: 'RELIABLE',
++  NOT_COMPUTABLE: 'NOT_COMPUTABLE',
++  MULTIPLE_ROOT_RISK: 'MULTIPLE_ROOT_RISK',
++  OUT_OF_SOLVER_RANGE: 'OUT_OF_SOLVER_RANGE',
++});
++
++function finiteNumbers(cashflows) {
++  return Array.isArray(cashflows) && cashflows.length >= 2
++    && cashflows.every((value) => Number.isFinite(value));
++}
++
++function countSignChanges(cashflows) {
++  if (!Array.isArray(cashflows)) return 0;
++  let changes = 0;
++  let previousSign = 0;
++  for (const value of cashflows) {
++    if (!Number.isFinite(value) || value === 0) continue;
++    const sign = value > 0 ? 1 : -1;
++    if (previousSign !== 0 && sign !== previousSign) changes += 1;
++    previousSign = sign;
++  }
++  return changes;
++}
++
++function computeMIRR(cashflows, { financeRate, reinvestRate } = {}) {
++  if (!finiteNumbers(cashflows)) return NaN;
++  const fRate = Number.isFinite(financeRate) ? financeRate : 0;
++  const rRate = Number.isFinite(reinvestRate) ? reinvestRate : fRate;
++  if (fRate <= -1 || rRate <= -1) return NaN;
++  const n = cashflows.length - 1;
++  if (n < 1) return NaN;
++  let pvNegative = 0;
++  let fvPositive = 0;
++  for (let t = 0; t <= n; t += 1) {
++    const flow = cashflows[t];
++    if (flow < 0) pvNegative += flow / Math.pow(1 + fRate, t);
++    else if (flow > 0) fvPositive += flow * Math.pow(1 + rRate, n - t);
++  }
++  if (pvNegative === 0 || fvPositive <= 0) return NaN;
++  const ratio = fvPositive / -pvNegative;
++  if (!Number.isFinite(ratio) || ratio <= 0) return NaN;
++  return Math.pow(ratio, 1 / n) - 1;
++}
++
++function analyzeIRR(cashflows, { financeRate, reinvestRate } = {}) {
++  const signChanges = countSignChanges(cashflows);
++  const mirr = computeMIRR(cashflows, { financeRate, reinvestRate });
++  if (!finiteNumbers(cashflows) || signChanges === 0) {
++    return Object.freeze({ schemaVersion: 1, irr: NaN, mirr: Number.isFinite(mirr) ? mirr : NaN, signChanges, multipleRootRisk: false, reliability: IRR_RELIABILITY.NOT_COMPUTABLE, presentationMetric: null, reasonCode: signChanges === 0 ? 'NO_SIGN_CHANGE_NO_IRR_EXISTS' : 'NON_FINITE_CASHFLOWS' });
++  }
++  let irr;
++  try { irr = precision.preciseIRR(cashflows); } catch (_) { irr = NaN; }
++  const multipleRootRisk = signChanges > 1;
++  if (multipleRootRisk) {
++    return Object.freeze({ schemaVersion: 1, irr: Number.isFinite(irr) ? irr : NaN, mirr, signChanges, multipleRootRisk: true, reliability: IRR_RELIABILITY.MULTIPLE_ROOT_RISK, presentationMetric: Number.isFinite(mirr) ? 'MIRR' : null, reasonCode: 'NON_CONVENTIONAL_CASHFLOW_MULTIPLE_IRR_POSSIBLE' });
++  }
++  if (!Number.isFinite(irr)) {
++    return Object.freeze({ schemaVersion: 1, irr: NaN, mirr, signChanges, multipleRootRisk: false, reliability: IRR_RELIABILITY.OUT_OF_SOLVER_RANGE, presentationMetric: Number.isFinite(mirr) ? 'MIRR' : null, reasonCode: 'IRR_OUTSIDE_SOLVER_BRACKET' });
++  }
++  return Object.freeze({ schemaVersion: 1, irr, mirr, signChanges, multipleRootRisk: false, reliability: IRR_RELIABILITY.RELIABLE, presentationMetric: 'IRR', reasonCode: null });
++}
++
++module.exports = { IRR_RELIABILITY, countSignChanges, computeMIRR, analyzeIRR };
+diff --git a/src/engines/valuation/existing-building.js b/src/engines/valuation/existing-building.js
+index ea1b0ad..88bf2e2 100644
+--- a/src/engines/valuation/existing-building.js
++++ b/src/engines/valuation/existing-building.js
+@@ -8,8 +8,9 @@
+-const { computeNPV, computeIRR, amortizationSchedule } = require('../financial');
++const { computeNPV, computeIRR, amortizationSchedule, analyzeIRR } = require('../financial');
+ const { tierVerdict } = require('../recommendation');
++const { validateEngineInputs } = require('../../validation/numeric-safety');
+@@
+ function calcExistingBuilding(inp) {
++  validateEngineInputs(inp);
+@@
+   const irr = computeIRR(cashflows);
+   const npv = computeNPV(inp.discountRate, cashflows);
++  const irrDiagnostics = analyzeIRR(cashflows, { financeRate: inp.discountRate, reinvestRate: inp.discountRate });
+@@
+   const leveredIRR = computeIRR(leveredCashflows);
+   const equityDiscountRate = inp.discountRate + inp.equityRiskSpread;
+   const leveredNPV = computeNPV(equityDiscountRate, leveredCashflows);
++  const leveredIrrDiagnostics = analyzeIRR(leveredCashflows, { financeRate: equityDiscountRate, reinvestRate: equityDiscountRate });
+@@
+   return {
+     financialModelVersion: FINANCIAL_MODEL_VERSION,
+     financialModelStatus,
++    irrDiagnostics,
++    leveredIrrDiagnostics,
++    irrReliability: irrDiagnostics.reliability,
++    irrMultipleRootRisk: irrDiagnostics.multipleRootRisk,
++    irrSignChanges: irrDiagnostics.signChanges,
++    mirr: irrDiagnostics.mirr,
++    leveredMirr: leveredIrrDiagnostics.mirr,
++    leveredIrrReliability: leveredIrrDiagnostics.reliability,
+diff --git a/src/engines/valuation/land-development.js b/src/engines/valuation/land-development.js
+index a84e124..a1f65ec 100644
+--- a/src/engines/valuation/land-development.js
++++ b/src/engines/valuation/land-development.js
+@@
+-const { computeNPV, computeIRR, amortizationSchedule } = require('../financial');
++const { computeNPV, computeIRR, amortizationSchedule, analyzeIRR } = require('../financial');
+ const { tierVerdict } = require('../recommendation');
++const { validateEngineInputs } = require('../../validation/numeric-safety');
+@@
+ function calcLandDevelopment(inp) {
++  validateEngineInputs(inp);
+@@
+   const irr = computeIRR(cashflows);
+   const npv = computeNPV(inp.hurdleRate, cashflows);
++  const irrDiagnostics = analyzeIRR(cashflows, { financeRate: inp.hurdleRate, reinvestRate: inp.hurdleRate });
+@@
+   const leveredIRR = computeIRR(leveredCashflows);
+   const equityDiscountRate = inp.hurdleRate + inp.equityRiskSpread;
+   const leveredNPV = computeNPV(equityDiscountRate, leveredCashflows);
++  const leveredIrrDiagnostics = analyzeIRR(leveredCashflows, { financeRate: equityDiscountRate, reinvestRate: equityDiscountRate });
+@@
+   return {
+     financialModelVersion: FINANCIAL_MODEL_VERSION,
+     financialModelStatus,
++    irrDiagnostics,
++    leveredIrrDiagnostics,
++    irrReliability: irrDiagnostics.reliability,
++    irrMultipleRootRisk: irrDiagnostics.multipleRootRisk,
++    irrSignChanges: irrDiagnostics.signChanges,
++    mirr: irrDiagnostics.mirr,
++    leveredMirr: leveredIrrDiagnostics.mirr,
++    leveredIrrReliability: leveredIrrDiagnostics.reliability,
+diff --git a/src/i18n/locales/ar-SA.js b/src/i18n/locales/ar-SA.js
+index 24a80d1..e8a3d27 100644
+--- a/src/i18n/locales/ar-SA.js
++++ b/src/i18n/locales/ar-SA.js
+@@ -87,8 +87,13 @@ module.exports = {
+-    maintenanceRate: "إدارة وصيانة وتشغيل وأمن ونظافة", maintenanceRateNote: "نسبة من إجمالي الدخل السنوي",
+-    insuranceRate: "التأمين على المبنى", insuranceRateNote: "نسبة من إجمالي الدخل السنوي",
++    maintenanceRate: "إدارة وصيانة وتشغيل وأمن ونظافة", maintenanceRateNote: "نسبة من إجمالي الدخل السنوي (مصروف متغير)",
++    insuranceRate: "التأمين على المبنى", insuranceRateNote: "نسبة من قيمة الإحلال الإنشائية للمباني — وليست نسبة من الدخل (مصروف ثابت)",
++    managementFeeRate: "أتعاب إدارة الأملاك", managementFeeRateNote: "نسبة من إجمالي الإيراد التشغيلي. صفر = لا تُحتسب أتعاب إدارة",
++    fixedOpexPerSqm: "مصروف تشغيلي ثابت للمتر", fixedOpexPerSqmNote: "ريال/م² سنوياً من المساحة التأجيرية — لا يتغير مع الإشغال",
++    replacementReservePerSqm: "احتياطي الإحلال الرأسمالي", replacementReservePerSqmNote: "ريال/م² سنوياً. يُخصم بعد المصروفات التشغيلية للوصول إلى صافي دخل قابل للتوزيع",
++    opexGrowthRate: "معدل نمو المصروفات السنوي", opexGrowthRateNote: "يُطبّق على المصروف الثابت واحتياطي الإحلال",
++    exitCapRate: "معدل رسملة الخروج", exitCapRateNote: "يُستخدم لتقدير قيمة البيع. تركه فارغاً يجعله مساوياً لمعدل الرسملة السوقي — وهو افتراض غير متحفظ",
+@@ -259,6 +264,7 @@ module.exports = {
+   kpi: {
++    regionLabel: "مؤشرات الأداء المحدَّثة",
+diff --git a/src/i18n/locales/en.js b/src/i18n/locales/en.js
+index 57644fd..390dbe0 100644
+--- a/src/i18n/locales/en.js
++++ b/src/i18n/locales/en.js
+@@ -87,8 +87,13 @@ module.exports = {
+-    maintenanceRate: "Management, Maintenance, Operations, Security & Cleaning", maintenanceRateNote: "Percentage of total annual income",
+-    insuranceRate: "Building Insurance", insuranceRateNote: "Percentage of total annual income",
++    maintenanceRate: "Management, Maintenance, Operations, Security & Cleaning", maintenanceRateNote: "Percentage of total annual income (variable expense)",
++    insuranceRate: "Building Insurance", insuranceRateNote: "Percentage of building replacement construction value — NOT a percentage of income (fixed expense)",
++    managementFeeRate: "Property Management Fee", managementFeeRateNote: "Percentage of total operating revenue. Zero = no management fee charged",
++    fixedOpexPerSqm: "Fixed Operating Expense per Sqm", fixedOpexPerSqmNote: "SAR/sqm/year of net leasable area — does not vary with occupancy",
++    replacementReservePerSqm: "Capital Replacement Reserve", replacementReservePerSqmNote: "SAR/sqm/year. Deducted after operating expenses to reach distributable net income",
++    opexGrowthRate: "Annual Expense Growth Rate", opexGrowthRateNote: "Applied to fixed expense and replacement reserve",
++    exitCapRate: "Exit Capitalization Rate", exitCapRateNote: "Used to estimate sale value. Leaving it equal to the market cap rate is a non-conservative assumption",
+@@ -259,6 +264,7 @@ module.exports = {
+   kpi: {
++    regionLabel: "Updated key performance indicators",
+diff --git a/src/storage/browser-local-storage-provider.js b/src/storage/browser-local-storage-provider.js
+index 366c875..a43b325 100644
+--- a/src/storage/browser-local-storage-provider.js
++++ b/src/storage/browser-local-storage-provider.js
+@@
+ async function get(key) {
+   const v = window.localStorage.getItem(NAMESPACE + key);
+   return v;
+ }
++class StorageQuotaExceededError extends Error {
++  constructor(cause) {
++    super('Browser storage quota exceeded');
++    this.name = 'StorageQuotaExceededError';
++    this.code = 'STORAGE_QUOTA_EXCEEDED';
++    this.message_ar = 'امتلأت مساحة التخزين في المتصفح. صدِّر نسخة احتياطية من الصفقات ثم احذف صفقات قديمة قبل الحفظ مرة أخرى.';
++    this.message_en = 'Browser storage is full. Export a backup of your deals and delete older deals before saving again.';
++    this.cause = cause;
++  }
++}
++function isQuotaError(error) {
++  if (!error) return false;
++  return error.name === 'QuotaExceededError'
++    || error.name === 'NS_ERROR_DOM_QUOTA_REACHED'
++    || error.code === 22
++    || error.code === 1014;
++}
+ async function set(key, value) {
+-  window.localStorage.setItem(NAMESPACE + key, value);
++  try { window.localStorage.setItem(NAMESPACE + key, value); }
++  catch (error) { if (isQuotaError(error)) throw new StorageQuotaExceededError(error); throw error; }
+ }
+@@
+-module.exports = { isAvailable, get, set, delete: del, providerName, NAMESPACE };
++module.exports = { isAvailable, get, set, delete: del, providerName, NAMESPACE, StorageQuotaExceededError, isQuotaError };
+diff --git a/src/validation/numeric-safety.js b/src/validation/numeric-safety.js
+index b92e60a..f7fd03f 100644
+--- a/src/validation/numeric-safety.js
++++ b/src/validation/numeric-safety.js
+@@
+ const PERCENTAGE_FIELDS_0_TO_1 = [
+   'occupancyRate', 'ltv', 'loanRate', 'minYieldThreshold', 'discountRate', 'hurdleRate',
+-  'rentGrowthRate', 'vatRate', 'marketCapRate', 'exitCapRate', 'variableOpexRate',
+-  'managementFeeRate', 'insuranceRateOnReplacementCost', 'opexGrowthRate',
+-  'replacementCostGrowthRate',
++  'vatRate', 'marketCapRate', 'exitCapRate', 'variableOpexRate',
++  'managementFeeRate', 'insuranceRateOnReplacementCost',
++  'commissionRate', 'transferFeeRate', 'landCommissionRate', 'landTransferFeeRate',
++  'exitTransferFeeRate', 'serviceIncomeRate', 'maintenanceRate', 'insuranceRate',
++  'equityRiskSpread', 'buildableRatio', 'servicesRatioPerFloor', 'efficiencyRatio',
++  'opexRate',
+ ];
++const GROWTH_RATE_FIELDS = ['rentGrowthRate', 'opexGrowthRate', 'replacementCostGrowthRate'];
++const GROWTH_RATE_MIN = -0.5;
++const GROWTH_RATE_MAX = 0.5;
++const NON_NEGATIVE_FIELDS = ['fixedOpexPerSqm', 'replacementReservePerSqm', 'inspectionCost', 'valuationCost', 'engineeringCost', 'landValuationCost'];
++const VALID_LEASE_STATUS = ['مؤجر', '3 أشهر', '6 أشهر', '9 أشهر', 'سنة'];
+@@
+-  if ('occupancyRate' in inputs) requireRange('occupancyRate', inputs.occupancyRate, 0, 1);
+-  if ('ltv' in inputs) requireRange('ltv', inputs.ltv, 0, 1);
+-
+-  for (const field of [
+-    'commissionRate', 'transferFeeRate', 'landCommissionRate', 'landTransferFeeRate',
+-    'exitTransferFeeRate', 'serviceIncomeRate', 'maintenanceRate', 'insuranceRate',
+-    'variableOpexRate', 'managementFeeRate', 'insuranceRateOnReplacementCost',
+-  ]) {
++  for (const field of PERCENTAGE_FIELDS_0_TO_1) {
+     if (field in inputs) requireRange(field, inputs[field], 0, 1);
+   }
++  for (const field of GROWTH_RATE_FIELDS) {
++    if (field in inputs) requireRange(field, inputs[field], GROWTH_RATE_MIN, GROWTH_RATE_MAX);
++  }
++  for (const field of NON_NEGATIVE_FIELDS) {
++    if (field in inputs && inputs[field] < 0) {
++      throw new ValidationError(field, inputs[field], 'NON_NEGATIVE_REQUIRED',
++        `قيمة حقل "${field}" (${inputs[field]}) يجب ألا تكون سالبة`,
++        `Field "${field}" value ${inputs[field]} must not be negative`);
++    }
++  }
++  if ('leaseStatus' in inputs && inputs.leaseStatus !== undefined && inputs.leaseStatus !== null
++      && !VALID_LEASE_STATUS.includes(inputs.leaseStatus)) {
++    throw new ValidationError('leaseStatus', inputs.leaseStatus, 'UNKNOWN_CONTROLLED_VALUE',
++      'قيمة حالة الإيجار غير معروفة؛ لا يجوز افتراض عدم وجود شاغر ضمنياً',
++      'Unknown leaseStatus value; a zero-vacancy assumption must never be inferred silently');
++  }
+@@
+   validateEngineInputs,
+   PERCENTAGE_FIELDS_0_TO_1,
++  GROWTH_RATE_FIELDS,
++  NON_NEGATIVE_FIELDS,
++  VALID_LEASE_STATUS,
+   STRICTLY_POSITIVE_DIVISOR_FIELDS,
+ };
+diff --git a/tests/i18n/run_r5a_full_closure.js b/tests/i18n/run_r5a_full_closure.js
+index 522209a..6e796f7 100644
+--- a/tests/i18n/run_r5a_full_closure.js
++++ b/tests/i18n/run_r5a_full_closure.js
+@@
+-check('DICT-PARITY', JSON.stringify(arKeys.sort())===JSON.stringify(enKeys.sort()) && arKeys.length===65, `ar=${arKeys.length} en=${enKeys.length}`);
++check('DICT-PARITY', JSON.stringify(arKeys.sort())===JSON.stringify(enKeys.sort()) && arKeys.length===75, `ar=${arKeys.length} en=${enKeys.length}`);
+diff --git a/tests/i18n/run_r6c_full_closure.js b/tests/i18n/run_r6c_full_closure.js
+index c5c388f..fddb0e4 100644
+--- a/tests/i18n/run_r6c_full_closure.js
++++ b/tests/i18n/run_r6c_full_closure.js
+@@
+-check('PRODUCERS-5', producerCount === 5, `${producerCount} ValidationError throw sites found`);
++check('PRODUCERS-7', producerCount === 7, `${producerCount} ValidationError throw sites found`);
+-- 
+2.43.0
+
+From e57082a451fb67b5c29e827428238ae31c9b00a3 Mon Sep 17 00:00:00 2001
+From: STARTAK Wave C Remediation <engineering@startak.local>
+Date: Thu, 3 Sep 2026 21:57:12 +0000
+Subject: [PATCH 2/3] Wave C.2: AI gateway guardrails (rate limit, server-side
+ data discipline, audit trail) + KPI-level IRR reliability
+
+---
+ RIAI_AI_GATEWAY_V1.md                         |  18 +-
+ functions/api/riai/_guardrails.mjs            | 259 ++++++++++++++++++
+ functions/api/riai/ai-assist.js               | 121 +++++++-
+ src/app/App.jsx                               |  35 ++-
+ src/i18n/locales/ar-SA.js                     |   3 +
+ src/i18n/locales/en.js                        |   3 +
+ .../run_riai_ai_gateway_guardrails_unit_v1.js | 170 ++++++++++++
+ .../run_riai_ai_gateway_integration_v1.js     | 183 +++++++++++++
+ .../architecture/run_wave_c_remediation_v1.js |  13 +
+ 9 files changed, 786 insertions(+), 19 deletions(-)
+ create mode 100644 functions/api/riai/_guardrails.mjs
+ create mode 100644 tests/architecture/run_riai_ai_gateway_guardrails_unit_v1.js
+ create mode 100644 tests/architecture/run_riai_ai_gateway_integration_v1.js
+
+diff --git a/RIAI_AI_GATEWAY_V1.md b/RIAI_AI_GATEWAY_V1.md
+index 5169ee4..88346da 100644
+--- a/RIAI_AI_GATEWAY_V1.md
++++ b/RIAI_AI_GATEWAY_V1.md
+@@
++- Application-level rate limiting uses `RIAI_RATE_LIMIT_KV` and fails closed when unavailable.
++- Server-side data-discipline enforcement rejects free text in the decision snapshot.
++- Audit trail writes salted subject hashes and snapshot/result hashes to `RIAI_AUDIT_KV` without storing raw payloads.
++
++Wave C environment variables: `RIAI_RATE_LIMIT_KV`, `RIAI_AUDIT_KV`, `RIAI_AUDIT_SUBJECT_SALT`, `RIAI_AI_RATE_PER_MINUTE`, `RIAI_AI_RATE_PER_DAY`, `RIAI_AI_RATE_GLOBAL_PER_DAY`.
++
++Before production use, configure account-level WAF/rate limiting in front of this application-level layer and bind the two KV namespaces.
+diff --git a/functions/api/riai/_guardrails.mjs b/functions/api/riai/_guardrails.mjs
+new file mode 100644
+index 0000000..446ff67
+--- /dev/null
++++ b/functions/api/riai/_guardrails.mjs
+@@ -0,0 +1,259 @@
++const SNAPSHOT_TOKEN_PATTERN = /^[A-Za-z0-9_.:*+\-/]{1,200}$/;
++const SNAPSHOT_LIMITS = Object.freeze({ maxBytes: 16384, maxDepth: 8, maxNodes: 2000, maxStringLength: 200 });
++function dataDisciplineFailure(code, pathText) { return Object.freeze({ ok: false, code, path: pathText || null }); }
++function enforceSnapshotDataDiscipline(snapshot, limits = SNAPSHOT_LIMITS) {
++  let serialized;
++  try { serialized = JSON.stringify(snapshot); } catch (_) { return dataDisciplineFailure('SNAPSHOT_NOT_SERIALIZABLE'); }
++  if (typeof serialized !== 'string') return dataDisciplineFailure('SNAPSHOT_NOT_SERIALIZABLE');
++  if (new TextEncoder().encode(serialized).length > limits.maxBytes) return dataDisciplineFailure('SNAPSHOT_EXCEEDS_DATA_BUDGET');
++  let nodes = 0;
++  const stack = [{ value: snapshot, depth: 0, path: '' }];
++  while (stack.length) {
++    const { value, depth, path } = stack.pop();
++    nodes += 1;
++    if (nodes > limits.maxNodes) return dataDisciplineFailure('SNAPSHOT_EXCEEDS_NODE_BUDGET', path);
++    if (depth > limits.maxDepth) return dataDisciplineFailure('SNAPSHOT_EXCEEDS_DEPTH_BUDGET', path);
++    if (value === null || typeof value === 'boolean') continue;
++    if (typeof value === 'number') { if (!Number.isFinite(value)) return dataDisciplineFailure('SNAPSHOT_NON_FINITE_NUMBER', path); continue; }
++    if (typeof value === 'string') { if (value.length > limits.maxStringLength) return dataDisciplineFailure('SNAPSHOT_STRING_TOO_LONG', path); if (!SNAPSHOT_TOKEN_PATTERN.test(value)) return dataDisciplineFailure('SNAPSHOT_FREE_TEXT_NOT_PERMITTED', path); continue; }
++    if (Array.isArray(value)) { value.forEach((item, index) => stack.push({ value: item, depth: depth + 1, path: `${path}[${index}]` })); continue; }
++    if (typeof value === 'object') { for (const [key, child] of Object.entries(value)) { if (!SNAPSHOT_TOKEN_PATTERN.test(key)) return dataDisciplineFailure('SNAPSHOT_KEY_NOT_PERMITTED', path ? `${path}.${key}` : key); stack.push({ value: child, depth: depth + 1, path: path ? `${path}.${key}` : key }); } continue; }
++    return dataDisciplineFailure('SNAPSHOT_UNSUPPORTED_VALUE_TYPE', path);
++  }
++  return Object.freeze({ ok: true, nodes, bytes: serialized.length });
++}
++
++const RATE_LIMIT_DEFAULTS = Object.freeze({ perSubjectPerMinute: 6, perSubjectPerDay: 60, globalPerDay: 2000, ttlSeconds: 90000 });
++function positiveInt(raw, fallback) { const value = Number(raw); return Number.isInteger(value) && value > 0 ? value : fallback; }
++function resolveRateLimitConfig(env = {}) { return Object.freeze({ perSubjectPerMinute: positiveInt(env.RIAI_AI_RATE_PER_MINUTE, RATE_LIMIT_DEFAULTS.perSubjectPerMinute), perSubjectPerDay: positiveInt(env.RIAI_AI_RATE_PER_DAY, RATE_LIMIT_DEFAULTS.perSubjectPerDay), globalPerDay: positiveInt(env.RIAI_AI_RATE_GLOBAL_PER_DAY, RATE_LIMIT_DEFAULTS.globalPerDay), ttlSeconds: positiveInt(env.RIAI_AI_RATE_TTL_SECONDS, RATE_LIMIT_DEFAULTS.ttlSeconds) }); }
++function minuteBucket(now) { return Math.floor(now / 60000); }
++function dayBucket(now) { return Math.floor(now / 86400000); }
++async function readCounter(store, key) { const raw = await store.get(key); const value = Number(raw); return Number.isFinite(value) && value >= 0 ? value : 0; }
++async function checkAndConsumeRateLimit({ store, subjectKey, now = Date.now(), config } = {}) {
++  if (!store || typeof store.get !== 'function' || typeof store.put !== 'function') return Object.freeze({ allowed: false, code: 'AI_RATE_LIMIT_STORE_UNAVAILABLE', status: 503 });
++  if (typeof subjectKey !== 'string' || !subjectKey) return Object.freeze({ allowed: false, code: 'AI_RATE_LIMIT_SUBJECT_MISSING', status: 401 });
++  const limits = config || RATE_LIMIT_DEFAULTS;
++  const minuteKey = `rl:min:${subjectKey}:${minuteBucket(now)}`;
++  const dayKey = `rl:day:${subjectKey}:${dayBucket(now)}`;
++  const globalKey = `rl:day:__global__:${dayBucket(now)}`;
++  const [minuteCount, dayCount, globalCount] = await Promise.all([readCounter(store, minuteKey), readCounter(store, dayKey), readCounter(store, globalKey)]);
++  if (minuteCount >= limits.perSubjectPerMinute) return Object.freeze({ allowed: false, code: 'AI_RATE_LIMIT_EXCEEDED_PER_MINUTE', status: 429, retryAfterSeconds: 60 - Math.floor((now % 60000) / 1000) });
++  if (dayCount >= limits.perSubjectPerDay) return Object.freeze({ allowed: false, code: 'AI_RATE_LIMIT_EXCEEDED_PER_DAY', status: 429, retryAfterSeconds: 3600 });
++  if (globalCount >= limits.globalPerDay) return Object.freeze({ allowed: false, code: 'AI_SPEND_BUDGET_EXHAUSTED', status: 429, retryAfterSeconds: 3600 });
++  const options = { expirationTtl: limits.ttlSeconds };
++  await Promise.all([store.put(minuteKey, String(minuteCount + 1), options), store.put(dayKey, String(dayCount + 1), options), store.put(globalKey, String(globalCount + 1), options)]);
++  return Object.freeze({ allowed: true, code: null, remainingThisMinute: limits.perSubjectPerMinute - (minuteCount + 1), remainingToday: limits.perSubjectPerDay - (dayCount + 1) });
++}
++
++async function sha256Hex(text) { const bytes = new TextEncoder().encode(String(text)); const digest = await crypto.subtle.digest('SHA-256', bytes); return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join(''); }
++async function buildAuditRecord({ subjectKey, subjectSalt, snapshot, model, outcome, reasonCode = null, tokenLimit = null, accessMode = null, latencyMs = null, resultSummary = null, now = Date.now() } = {}) {
++  const subjectHash = await sha256Hex(`${subjectSalt || ''}:${subjectKey || ''}`);
++  const snapshotHash = await sha256Hex(JSON.stringify(snapshot === undefined ? null : snapshot));
++  const resultHash = resultSummary === null || resultSummary === undefined ? null : await sha256Hex(JSON.stringify(resultSummary));
++  return Object.freeze({ schemaVersion: 1, recordType: 'RIAI_AI_ASSIST_INVOCATION', timestamp: new Date(now).toISOString(), subjectHash, snapshotHash, resultHash, model: model || null, accessMode, outcome, reasonCode, tokenLimit, latencyMs, payloadStored: false });
++}
++async function writeAuditRecord({ store, record, ttlSeconds = 34560000 } = {}) {
++  if (!store || typeof store.put !== 'function') return Object.freeze({ written: false, code: 'AI_AUDIT_STORE_UNAVAILABLE' });
++  const key = `audit:${record.timestamp}:${record.snapshotHash.slice(0, 12)}`;
++  try { await store.put(key, JSON.stringify(record), { expirationTtl: ttlSeconds }); return Object.freeze({ written: true, key }); }
++  catch (_) { return Object.freeze({ written: false, code: 'AI_AUDIT_WRITE_FAILED' }); }
++}
++
++export { SNAPSHOT_TOKEN_PATTERN, SNAPSHOT_LIMITS, enforceSnapshotDataDiscipline, RATE_LIMIT_DEFAULTS, resolveRateLimitConfig, checkAndConsumeRateLimit, sha256Hex, buildAuditRecord, writeAuditRecord };
+diff --git a/functions/api/riai/ai-assist.js b/functions/api/riai/ai-assist.js
+index afabb26..5262530 100644
+--- a/functions/api/riai/ai-assist.js
++++ b/functions/api/riai/ai-assist.js
+@@ -1,3 +1,12 @@
++import { enforceSnapshotDataDiscipline, resolveRateLimitConfig, checkAndConsumeRateLimit, buildAuditRecord, writeAuditRecord } from './_guardrails.mjs';
++
+@@
+-function json(body, status = 200) {
++function json(body, status = 200, extraHeaders) {
+@@
+       'referrer-policy': 'no-referrer',
++      ...(extraHeaders || {}),
+@@
+-  if (localDevelopment) return { ok: true, mode: 'LOCAL_DEVELOPMENT' };
++  if (localDevelopment) return { ok: true, mode: 'LOCAL_DEVELOPMENT', subject: 'LOCAL_DEVELOPMENT' };
+@@
+-  return { ok: true, mode: 'CLOUDFLARE_ACCESS', subjectPresent: Boolean(payload.sub) };
++  return { ok: true, mode: 'CLOUDFLARE_ACCESS', subjectPresent: Boolean(payload.sub), subject: trimText(payload.sub, 256) || trimText(payload.email, 256) || null };
+ }
++
++async function recordAudit(context, { access, snapshot, outcome, reasonCode = null, model = null, resultSummary = null, startedAt }) {
++  try {
++    const auditStore = context.env && context.env.RIAI_AUDIT_KV;
++    if (!auditStore) return { written: false, code: 'AI_AUDIT_STORE_UNAVAILABLE' };
++    const record = await buildAuditRecord({ subjectKey: (access && access.subject) || 'UNKNOWN', subjectSalt: (context.env && context.env.RIAI_AUDIT_SUBJECT_SALT) || '', snapshot, model, outcome, reasonCode, accessMode: access && access.mode, latencyMs: Number.isFinite(startedAt) ? Date.now() - startedAt : null, resultSummary });
++    return await writeAuditRecord({ store: auditStore, record });
++  } catch (_) { return { written: false, code: 'AI_AUDIT_UNEXPECTED_FAILURE' }; }
++}
+@@
+ export async function onRequestPost(context) {
+   const request = context.request;
++  const startedAt = Date.now();
+   const access = await verifyCloudflareAccess(request, context.env || {});
+   if (!access.ok) return json({ ok: false, code: access.code, aiModelUsed: false }, access.status);
++
++  const rateLimitResult = await checkAndConsumeRateLimit({ store: context.env && context.env.RIAI_RATE_LIMIT_KV, subjectKey: access.subject, config: resolveRateLimitConfig(context.env || {}) });
++  if (!rateLimitResult.allowed) {
++    await recordAudit(context, { access, snapshot: null, outcome: 'RATE_LIMITED', reasonCode: rateLimitResult.code, startedAt });
++    const headers = rateLimitResult.retryAfterSeconds ? { 'retry-after': String(rateLimitResult.retryAfterSeconds) } : undefined;
++    return json({ ok: false, code: rateLimitResult.code, aiModelUsed: false }, rateLimitResult.status, headers);
++  }
+@@
+   const snapshotError = validateSnapshot(body && body.decisionSnapshot);
+-  if (snapshotError) return json({ ok: false, code: snapshotError }, 400);
++  if (snapshotError) { await recordAudit(context, { access, snapshot: body && body.decisionSnapshot, outcome: 'REJECTED', reasonCode: snapshotError, startedAt }); return json({ ok: false, code: snapshotError }, 400); }
++  const disciplineResult = enforceSnapshotDataDiscipline(body.decisionSnapshot);
++  if (!disciplineResult.ok) { await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'REJECTED', reasonCode: disciplineResult.code, startedAt }); return json({ ok: false, code: disciplineResult.code }, 400); }
+diff --git a/src/app/App.jsx b/src/app/App.jsx
+index 3ac463e..4f645b2 100644
+--- a/src/app/App.jsx
++++ b/src/app/App.jsx
+@@
+-function KPIChip({ label, value, icon: Icon, accent, sub }) {
++function KPIChip({ label, value, icon: Icon, accent, sub, warning }) {
+@@
+-      style={{ background: COLORS.panelRaised, border: `1px solid ${accent ? COLORS.brassDim : COLORS.hairline}` }}
++      style={{ background: COLORS.panelRaised, border: `1px solid ${warning ? COLORS.caution : (accent ? COLORS.brassDim : COLORS.hairline)}` }}
+@@
+-        {Icon ? <Icon size={12} style={{ color: accent ? COLORS.brass : COLORS.slate }} /> : null}
++        {Icon ? <Icon size={12} style={{ color: warning ? COLORS.caution : (accent ? COLORS.brass : COLORS.slate) }} /> : null}
+@@
+-      <div className="rf-num text-base font-bold" style={{ color: accent ? COLORS.brass : COLORS.parchment }}>{value}</div>
+-      {sub ? <div className="text-[10px] mt-0.5" style={{ color: COLORS.slateDim }}>{sub}</div> : null}
++      <div className="rf-num text-base font-bold" style={{ color: warning ? COLORS.caution : (accent ? COLORS.brass : COLORS.parchment) }}>{value}</div>
++      {sub ? <div className="text-[10px] mt-0.5 flex items-center gap-1" style={{ color: warning ? COLORS.caution : COLORS.slateDim }}>{warning ? <AlertTriangle size={10} /> : null}<span>{sub}</span></div> : null}
+@@
+-  const irrLabel = leverageEnabled ? t("kpi.irrLevered") : t("kpi.irrUnlevered");
+-  const irrValue = leverageEnabled ? r.leveredIRR : r.irr;
++  const irrReliability = leverageEnabled ? r.leveredIrrReliability : r.irrReliability;
++  const irrIsUnreliable = irrReliability === "MULTIPLE_ROOT_RISK" || irrReliability === "OUT_OF_SOLVER_RANGE";
++  const mirrValue = leverageEnabled ? r.leveredMirr : r.mirr;
++  const rawIrrValue = leverageEnabled ? r.leveredIRR : r.irr;
++  const irrLabel = irrIsUnreliable ? t("kpi.mirrLabel") : (leverageEnabled ? t("kpi.irrLevered") : t("kpi.irrUnlevered"));
++  const irrValue = irrIsUnreliable ? mirrValue : rawIrrValue;
++  const irrSub = irrIsUnreliable ? t("kpi.irrUnreliableNote") : (leverageEnabled ? t("kpi.unleveredSub", { value: fmtPct(r.irr) }) : undefined);
+@@
+-        <KPIChip label={irrLabel} value={fmtPct(irrValue)} icon={TrendingUp} accent sub={leverageEnabled ? t("kpi.unleveredSub", { value: fmtPct(r.irr) }) : undefined} />
++        <KPIChip label={irrLabel} value={fmtPct(irrValue)} icon={TrendingUp} accent={!irrIsUnreliable} warning={irrIsUnreliable} sub={irrSub} />
+diff --git a/src/i18n/locales/ar-SA.js b/src/i18n/locales/ar-SA.js
+index e8a3d27..54319e7 100644
+--- a/src/i18n/locales/ar-SA.js
++++ b/src/i18n/locales/ar-SA.js
+@@
+     unleveredSub: "غير مرفوع: {{value}}",
++    mirrLabel: "معدل العائد المعدَّل (MIRR)",
++    irrUnreliableNote: "معدل العائد الداخلي غير فريد لهذه التدفقات؛ يُعرض MIRR بدلاً منه",
+diff --git a/src/i18n/locales/en.js b/src/i18n/locales/en.js
+index 390dbe0..46b2280 100644
+--- a/src/i18n/locales/en.js
++++ b/src/i18n/locales/en.js
+@@
+     unleveredSub: "Unlevered: {{value}}",
++    mirrLabel: "Modified Rate of Return (MIRR)",
++    irrUnreliableNote: "IRR is not unique for these cash flows; MIRR is shown instead",
+-- 
+2.43.0
+
+From 674d74405aa6d856ecb07dfaf85e48b4aa46b4f7 Mon Sep 17 00:00:00 2001
+From: STARTAK Wave C Remediation <engineering@startak.local>
+Date: Thu, 3 Sep 2026 22:09:00 +0000
+Subject: [PATCH 3/3] Wave C.3: narrow the decision-language filter's
+ paraphrase-circumvention gap (AI-01)
+
+---
+ functions/api/riai/ai-assist.js               |  22 ++++
+ tests/architecture/run_riai_decision_language_paraphrase_v1.js | 114 ++++++++++++++++++
+ 2 files changed, 136 insertions(+)
+ create mode 100644 tests/architecture/run_riai_decision_language_paraphrase_v1.js
+
+diff --git a/functions/api/riai/ai-assist.js b/functions/api/riai/ai-assist.js
+index 5262530..17a4eaa 100644
+--- a/functions/api/riai/ai-assist.js
++++ b/functions/api/riai/ai-assist.js
+@@
+ const FORBIDDEN_DECISION_PATTERNS = [
+   /\b(buy|sell|approve|reject|invest|proceed|do not proceed)\b/i,
+   /(?<![\p{L}\p{N}_])(?:اشتر|اشتري|بع|بيع|وافق|ارفض|استثمر|نفذ الصفقة|لا تنفذ الصفقة)(?![\p{L}\p{N}_])/u,
++  /\b(?:we recommend|recommendation is to|it is advisable to|favorable opportunity to)\b[^.\n]{0,60}\b(?:buy|purchase|acquire|acquisition|invest|proceed)\b/i,
++  /(?<![\p{L}\p{N}_])(?:نوصي|نقترح|يوصى|يُنصح|الأنسب|من الأفضل)(?:\s+\S+){0,4}?\s*(?:بالشراء|بالبيع|بالاستحواذ|بالتملك|بالاستثمار|بتنفيذ\s+الصفقة|بالمضي\s+في\s+الصفقة|بإتمام\s+الصفقة)/u,
++  /(?<![\p{L}\p{N}_])(?:فرصة|الفرصة)(?:\s+\S+){0,4}?\s*مواتية(?:\s+\S+){0,4}?\s*(?:للشراء|للتملك|للاستحواذ|للاستثمار|للمضي\s+في\s+الصفقة)/u,
+ ];
+-- 
+2.43.0
