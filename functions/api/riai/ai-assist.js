@@ -11,7 +11,7 @@ const MAX_ITEMS = 8;
 const MAX_TEXT = 500;
 const FORBIDDEN_DECISION_PATTERNS = [
   /\b(buy|sell|approve|reject|invest|proceed|do not proceed)\b/i,
-  /\b(اشتر|اشتري|بع|بيع|وافق|ارفض|استثمر|نفذ الصفقة|لا تنفذ الصفقة)\b/u,
+  /(?<![\p{L}\p{N}_])(?:اشتر|اشتري|بع|بيع|وافق|ارفض|استثمر|نفذ الصفقة|لا تنفذ الصفقة)(?![\p{L}\p{N}_])/u,
 ];
 
 function json(body, status = 200) {
