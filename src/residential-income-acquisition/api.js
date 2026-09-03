@@ -10,6 +10,10 @@ const { calculateReverseUnderwriting } = require('./reverse-underwriting');
 const { calculateExitStrategyComparison } = require('./exit-strategy');
 const { calculateLifecycleLocationUpsideIntelligence } = require('./lifecycle-location-upside');
 const {
+  SUBDIVISION_ASSESSMENT_STATUS,
+  calculateSubdivisionDueDiligenceGate,
+} = require('./subdivision-gate');
+const {
   DECISION_LAYER_STATUS,
   calculateAcquisitionAnalyticalScore,
   buildScenarioIntegration,
@@ -42,7 +46,7 @@ function createEmptyResidentialIncomeAcquisitionViewModel() {
     schemaVersion: 1,
     capability: 'RESIDENTIAL_INCOME_ACQUISITION_INTELLIGENCE',
     capabilityStatus: 'EXIT_STRATEGY_COMPARISON_V1',
-    intelligenceExtensionStatus: 'LIFECYCLE_LOCATION_UPSIDE_AND_IC_V1',
+    intelligenceExtensionStatus: 'LIFECYCLE_LOCATION_UPSIDE_SUBDIVISION_AND_IC_V1',
     apiStatus: RESIDENTIAL_INCOME_ACQUISITION_API_STATUS.NOT_LOADED,
     caseId: null,
     asOfDate: null,
@@ -61,6 +65,7 @@ function createEmptyResidentialIncomeAcquisitionViewModel() {
     reverseUnderwriting: null,
     exitStrategyComparison: null,
     lifecycleLocationUpside: null,
+    subdivisionGate: null,
     scenarioIntegration: null,
     acquisitionAnalyticalScore: null,
     investmentCommitteePack: null,
@@ -70,11 +75,12 @@ function createEmptyResidentialIncomeAcquisitionViewModel() {
     reverseUnderwritingCalculated: false,
     exitStrategyComparisonCalculated: false,
     lifecycleLocationUpsideCalculated: false,
+    subdivisionGateCalculated: false,
     acquisitionAnalyticalScoreCalculated: false,
     investmentDecision: null,
     legalConclusion: null,
     transactionAuthorized: false,
-    semantics: 'No operating case is loaded. This projection does not calculate NOI, analytical price limits, exit-scenario comparisons, lifecycle/location/upside intelligence, acquisition analytical scores, returns, make an investment decision, provide a legal conclusion, or authorize a transaction.',
+    semantics: 'No operating case is loaded. This projection does not calculate NOI, analytical price limits, exit-scenario comparisons, lifecycle/location/upside intelligence, subdivision eligibility, acquisition analytical scores, returns, make an investment decision, provide a legal conclusion, or authorize a transaction.',
   });
 }
 
@@ -89,6 +95,7 @@ function createResidentialIncomeAcquisitionViewModel(operatingCase = null) {
   const reverseUnderwriting = calculateReverseUnderwriting(operatingCase, incomeAnalysis, acquisitionBasis, readiness);
   const exitStrategyComparison = calculateExitStrategyComparison(operatingCase, incomeAnalysis, acquisitionBasis, readiness);
   const lifecycleLocationUpside = calculateLifecycleLocationUpsideIntelligence(operatingCase);
+  const subdivisionGate = calculateSubdivisionDueDiligenceGate(operatingCase);
   const scenarioIntegration = buildScenarioIntegration({
     exitStrategyComparison,
     intelligenceBundle: lifecycleLocationUpside,
@@ -117,7 +124,7 @@ function createResidentialIncomeAcquisitionViewModel(operatingCase = null) {
     schemaVersion: 1,
     capability: 'RESIDENTIAL_INCOME_ACQUISITION_INTELLIGENCE',
     capabilityStatus: 'EXIT_STRATEGY_COMPARISON_V1',
-    intelligenceExtensionStatus: 'LIFECYCLE_LOCATION_UPSIDE_AND_IC_V1',
+    intelligenceExtensionStatus: 'LIFECYCLE_LOCATION_UPSIDE_SUBDIVISION_AND_IC_V1',
     apiStatus: RESIDENTIAL_INCOME_ACQUISITION_API_STATUS.CASE_LOADED,
     caseId: operatingCase.caseId,
     asOfDate: operatingCase.asOfDate,
@@ -136,6 +143,7 @@ function createResidentialIncomeAcquisitionViewModel(operatingCase = null) {
     reverseUnderwriting,
     exitStrategyComparison,
     lifecycleLocationUpside,
+    subdivisionGate,
     scenarioIntegration,
     acquisitionAnalyticalScore,
     investmentCommitteePack,
@@ -145,11 +153,12 @@ function createResidentialIncomeAcquisitionViewModel(operatingCase = null) {
     reverseUnderwritingCalculated: reverseUnderwriting.reverseUnderwritingCalculated,
     exitStrategyComparisonCalculated: exitStrategyComparison.exitStrategyComparisonCalculated,
     lifecycleLocationUpsideCalculated: lifecycleLocationUpside.status !== 'NOT_CALCULABLE',
+    subdivisionGateCalculated: subdivisionGate.status !== SUBDIVISION_ASSESSMENT_STATUS.NOT_ASSESSED,
     acquisitionAnalyticalScoreCalculated: acquisitionAnalyticalScore.status !== DECISION_LAYER_STATUS.NOT_CALCULABLE,
     investmentDecision: null,
     legalConclusion: null,
     transactionAuthorized: false,
-    semantics: 'Operating readiness, unit/lease metrics, property costs, evidence-gated income analysis, acquisition-basis reconciliation, explicit-policy reverse underwriting, evidence-gated exit-scenario comparison, lifecycle/location/forward-attraction/upside intelligence, scenario-attribution review, a deterministic non-binding acquisition analytical score, and an investment-committee data pack. Contextual signals are not automatically financialized and no output is a certified valuation, legal conclusion, regulated investment recommendation, financing approval, or transaction authorization.',
+    semantics: 'Operating readiness, unit/lease metrics, property costs, evidence-gated income analysis, acquisition-basis reconciliation, explicit-policy reverse underwriting, evidence-gated exit-scenario comparison, lifecycle/location/forward-attraction/upside intelligence, an eleven-check fail-closed subdivision due-diligence gate, scenario-attribution review, a deterministic non-binding acquisition analytical score, and an investment-committee data pack. Subdivision eligibility permits scenario testing only and is not authority approval. Contextual signals are not automatically financialized and no output is a certified valuation, legal conclusion, regulated investment recommendation, financing approval, or transaction authorization.',
   });
 }
 
