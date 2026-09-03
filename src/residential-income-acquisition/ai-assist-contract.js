@@ -12,7 +12,7 @@ const MAX_ITEMS = 8;
 const MAX_TEXT = 500;
 const FORBIDDEN_DECISION_PATTERNS = [
   /\b(buy|sell|approve|reject|invest|proceed|do not proceed)\b/i,
-  /\b(اشتر|اشتري|بع|بيع|وافق|ارفض|استثمر|نفذ الصفقة|لا تنفذ الصفقة)\b/u,
+  /(?<![\p{L}\p{N}_])(?:اشتر|اشتري|بع|بيع|وافق|ارفض|استثمر|نفذ الصفقة|لا تنفذ الصفقة)(?![\p{L}\p{N}_])/u,
 ];
 
 function finite(value) {
@@ -202,6 +202,9 @@ function validateResidentialIncomeAiAssistResponse(payload) {
 
   const decisionBoundary = trimText(payload.decisionBoundary, MAX_TEXT);
   if (!decisionBoundary) return Object.freeze({ status: AI_ASSIST_STATUS.INVALID, reasonCode: 'decisionBoundary_INVALID', value: null });
+  if (FORBIDDEN_DECISION_PATTERNS.some((pattern) => pattern.test(decisionBoundary))) {
+    return Object.freeze({ status: AI_ASSIST_STATUS.INVALID, reasonCode: 'AUTOMATIC_DECISION_LANGUAGE_PROHIBITED', value: null });
+  }
 
   const value = Object.freeze({
     schemaVersion: 1,
