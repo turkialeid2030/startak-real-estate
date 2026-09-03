@@ -1541,6 +1541,19 @@ export default function App() {
     setOperatingCaseMessage({ ok: true, code: 'CLEARED' });
   };
 
+  const replaceResidentialIncomeOperatingCase = (candidate, successCode = 'UPDATED') => {
+    try {
+      const operatingCase = hydrateResidentialIncomeOperatingCaseSnapshot(JSON.parse(JSON.stringify(candidate)));
+      setResidentialIncomeOperatingCase(operatingCase);
+      setOperatingCaseMessage({ ok: true, code: successCode });
+      return { ok: true, code: successCode };
+    } catch (error) {
+      const code = error.reasonCode || 'INVALID_OPERATING_CASE_UPDATE';
+      setOperatingCaseMessage({ ok: false, code });
+      return { ok: false, code };
+    }
+  };
+
   const saveCurrentAsNewDeal = async () => {
     const name = saveNameInput.trim();
     if (!name) return;
@@ -1789,6 +1802,7 @@ export default function App() {
             onImportOperatingCase={importResidentialIncomeOperatingCase}
             onExportOperatingCase={exportResidentialIncomeOperatingCase}
             onClearOperatingCase={clearResidentialIncomeOperatingCase}
+            onReplaceOperatingCase={replaceResidentialIncomeOperatingCase}
             operatingCaseMessage={operatingCaseMessage}
           />
         ) : null}

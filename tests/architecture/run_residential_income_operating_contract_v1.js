@@ -658,7 +658,8 @@ const capability = capabilityRegistry.find((item) => item.capability_id === 'CAP
 assert.ok(capability);
 assert.strictEqual(capability.implementation_status, 'PARTIALLY_IMPLEMENTED');
 assert.ok(capability.limitations.includes('Economic occupancy'));
-assert.ok(capability.limitations.includes('source-total reconciliation'));
+assert.ok(capability.evidence.includes('adopted source-total reconciliation'));
+assert.ok(capability.evidence.includes('guided verified lease and collection workspace'));
 
 console.log('RESIDENTIAL_INCOME_OPERATING_CONTRACT_V1=PASS');
 console.log('PROPERTY_UNIT_LEASE_TENANT_GRAPH_ISOLATION=PASS');

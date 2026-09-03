@@ -684,6 +684,69 @@ function createLease({
   });
 }
 
+function createRentCollectionRecord({
+  caseId,
+  collectionId,
+  propertyId,
+  buildingId,
+  unitId,
+  leaseId,
+  periodStart,
+  periodEnd,
+  contractualRentDue,
+  collectedRent,
+  potentialGrossRent,
+  concessions,
+  evidenceRefs = [],
+}) {
+  requiredString(caseId, 'caseId');
+  const normalizedCollectionId = requiredString(collectionId, 'collectionId');
+  requiredString(propertyId, 'propertyId');
+  requiredString(buildingId, 'buildingId');
+  requiredString(unitId, 'unitId');
+  const normalizedLeaseId = optionalString(leaseId, 'leaseId');
+  const normalizedPeriodStart = isoDate(periodStart, 'periodStart');
+  const normalizedPeriodEnd = isoDate(periodEnd, 'periodEnd');
+  if (new Date(normalizedPeriodEnd).getTime() <= new Date(normalizedPeriodStart).getTime()) {
+    throw new RangeError('collection periodEnd must be after periodStart');
+  }
+
+  const values = {
+    contractualRentDue,
+    collectedRent,
+    potentialGrossRent,
+    concessions,
+  };
+  for (const [key, value] of Object.entries(values)) {
+    assertEvidenceAwareValue(value, key);
+    const expectedField = `collection.${normalizedCollectionId}.${key}`;
+    if (value.field !== expectedField) throw new TypeError(`COLLECTION_INPUT_FIELD_MISMATCH: ${key}`);
+    if (value.unit !== 'SAR') throw new TypeError(`${expectedField}.unit must be SAR`);
+    if (value.value !== null) {
+      finiteNumber(value.value, `${expectedField}.value`);
+      if (value.value < 0) throw new RangeError(`${expectedField}.value must be >= 0`);
+    }
+  }
+
+  return deepFreeze({
+    schemaVersion: 1,
+    caseId: caseId.trim(),
+    collectionId: normalizedCollectionId,
+    propertyId: propertyId.trim(),
+    buildingId: buildingId.trim(),
+    unitId: unitId.trim(),
+    leaseId: normalizedLeaseId,
+    periodStart: normalizedPeriodStart,
+    periodEnd: normalizedPeriodEnd,
+    contractualRentDue,
+    collectedRent,
+    potentialGrossRent,
+    concessions,
+    evidenceRefs: uniqueStrings(evidenceRefs, 'evidenceRefs'),
+    semantics: 'A period-specific collection record. Contractual rent due, cash collected, potential gross rent, and concessions remain separate evidence-aware facts and are never inferred from one another.',
+  });
+}
+
 function createOperatingExpense({
   caseId,
   expenseId,
@@ -873,6 +936,7 @@ function createResidentialIncomeOperatingCase({
   buildings = [],
   units = [],
   leases = [],
+  rentCollections = [],
   tenants = [],
   operatingExpenses = [],
   capexItems = [],
@@ -884,12 +948,12 @@ function createResidentialIncomeOperatingCase({
   const normalizedAsOfDate = isoDate(asOfDate, 'asOfDate');
   if (!propertyInterest || typeof propertyInterest !== 'object') throw new TypeError('propertyInterest is required');
   if (!property || typeof property !== 'object') throw new TypeError('property is required');
-  for (const [field, list] of Object.entries({ buildings, units, leases, tenants, operatingExpenses, capexItems, exitScenarios, additionalOperatingInputs, evidenceLineage })) {
+  for (const [field, list] of Object.entries({ buildings, units, leases, rentCollections, tenants, operatingExpenses, capexItems, exitScenarios, additionalOperatingInputs, evidenceLineage })) {
     if (!Array.isArray(list)) throw new TypeError(`${field} must be an array`);
   }
   for (const input of additionalOperatingInputs) assertEvidenceAwareValue(input, 'additionalOperatingInputs item');
 
-  const scopedRecords = [propertyInterest, property, ...buildings, ...units, ...leases, ...tenants, ...operatingExpenses, ...capexItems, ...exitScenarios, ...evidenceLineage];
+  const scopedRecords = [propertyInterest, property, ...buildings, ...units, ...leases, ...rentCollections, ...tenants, ...operatingExpenses, ...capexItems, ...exitScenarios, ...evidenceLineage];
   if (scopedRecords.some((record) => record.caseId !== normalizedCaseId)) {
     throw new TypeError('OPERATING_CASE_ISOLATION_VIOLATION');
   }
@@ -898,6 +962,7 @@ function createResidentialIncomeOperatingCase({
   const buildingIds = assertUniqueBy(buildings, 'buildingId', 'building');
   const unitIds = assertUniqueBy(units, 'unitId', 'unit');
   const leaseIds = assertUniqueBy(leases, 'leaseId', 'lease');
+  const collectionIds = assertUniqueBy(rentCollections, 'collectionId', 'rent_collection');
   const tenantIds = assertUniqueBy(tenants, 'tenantId', 'tenant');
   const operatingExpenseIds = assertUniqueBy(operatingExpenses, 'expenseId', 'operating_expense');
   const capexItemIds = assertUniqueBy(capexItems, 'capexItemId', 'capex_item');
@@ -926,6 +991,38 @@ function createResidentialIncomeOperatingCase({
     }
     if (lease.tenantId && !tenantIds.has(lease.tenantId)) throw new TypeError(`LEASE_TENANT_REFERENCE_MISSING: ${lease.leaseId}`);
   }
+  for (const collection of rentCollections) {
+    if (!unitIds.has(collection.unitId)) throw new TypeError(`COLLECTION_UNIT_REFERENCE_MISSING: ${collection.collectionId}`);
+    const unit = units.find((candidate) => candidate.unitId === collection.unitId);
+    if (unit.buildingId !== collection.buildingId || collection.propertyId !== property.propertyId) {
+      throw new TypeError('COLLECTION_PROPERTY_GRAPH_ISOLATION_VIOLATION');
+    }
+    if (collection.leaseId) {
+      if (!leaseIds.has(collection.leaseId)) throw new TypeError(`COLLECTION_LEASE_REFERENCE_MISSING: ${collection.collectionId}`);
+      const lease = leases.find((candidate) => candidate.leaseId === collection.leaseId);
+      if (lease.unitId !== collection.unitId || lease.buildingId !== collection.buildingId) {
+        throw new TypeError('COLLECTION_PROPERTY_GRAPH_ISOLATION_VIOLATION');
+      }
+      if (lease.startDate && new Date(collection.periodStart).getTime() < new Date(lease.startDate).getTime()) {
+        throw new TypeError(`COLLECTION_PERIOD_PRECEDES_LEASE: ${collection.collectionId}`);
+      }
+      if (lease.endDate && new Date(collection.periodEnd).getTime() > new Date(lease.endDate).getTime()) {
+        throw new TypeError(`COLLECTION_PERIOD_EXCEEDS_LEASE: ${collection.collectionId}`);
+      }
+    } else if (unit.operatingStatus.value === UNIT_OPERATING_STATUS.OCCUPIED) {
+      throw new TypeError(`OCCUPIED_COLLECTION_RECORD_REQUIRES_LEASE: ${collection.collectionId}`);
+    }
+  }
+  for (const unitId of unitIds) {
+    const periods = rentCollections
+      .filter((collection) => collection.unitId === unitId)
+      .sort((a, b) => new Date(a.periodStart).getTime() - new Date(b.periodStart).getTime());
+    for (let index = 1; index < periods.length; index += 1) {
+      if (new Date(periods[index].periodStart).getTime() < new Date(periods[index - 1].periodEnd).getTime()) {
+        throw new TypeError(`OVERLAPPING_COLLECTION_PERIODS: ${unitId}`);
+      }
+    }
+  }
   for (const item of [...operatingExpenses, ...capexItems]) {
     if (item.propertyId !== property.propertyId) throw new TypeError('PROPERTY_COST_PROPERTY_ISOLATION_VIOLATION');
     if (item.buildingId && !buildingIds.has(item.buildingId)) throw new TypeError(`PROPERTY_COST_BUILDING_REFERENCE_MISSING: ${item.buildingId}`);
@@ -941,6 +1038,7 @@ function createResidentialIncomeOperatingCase({
     buildings: [...buildings],
     units: [...units],
     leases: [...leases],
+    rentCollections: [...rentCollections],
     tenants: [...tenants],
     operatingExpenses: [...operatingExpenses],
     capexItems: [...capexItems],
@@ -951,6 +1049,7 @@ function createResidentialIncomeOperatingCase({
       buildings: buildingIds.size,
       units: unitIds.size,
       leases: leaseIds.size,
+      rentCollections: collectionIds.size,
       tenants: tenantIds.size,
       operatingExpenses: operatingExpenseIds.size,
       capexItems: capexItemIds.size,
@@ -973,6 +1072,9 @@ function evidenceAwareValuesForCase(operatingCase) {
     if (lease.escalation && lease.escalation.changeValue) values.push(lease.escalation.changeValue);
     for (const entry of (lease.escalation && lease.escalation.schedule) || []) values.push(entry.rent);
   }
+  for (const collection of operatingCase.rentCollections || []) {
+    values.push(collection.contractualRentDue, collection.collectedRent, collection.potentialGrossRent, collection.concessions);
+  }
   for (const expense of operatingCase.operatingExpenses || []) values.push(expense.annualAmount);
   for (const item of operatingCase.capexItems || []) values.push(item.estimatedCost);
   for (const scenario of operatingCase.exitScenarios || []) values.push(...Object.values(scenario.inputs || {}));
@@ -992,6 +1094,7 @@ function collectOperatingCaseEvidenceRefs(operatingCase) {
     collect(lease.securityRefs);
     if (lease.escalation && lease.escalation.indexEvidenceRef) refs.push(lease.escalation.indexEvidenceRef);
   }
+  for (const collection of operatingCase.rentCollections || []) collect(collection.evidenceRefs);
   for (const tenant of operatingCase.tenants || []) collect(tenant.evidenceRefs);
   for (const expense of operatingCase.operatingExpenses || []) collect(expense.evidenceRefs);
   for (const item of operatingCase.capexItems || []) collect(item.evidenceRefs);
@@ -1028,6 +1131,7 @@ module.exports = {
   createTenant,
   createRentEscalation,
   createLease,
+  createRentCollectionRecord,
   createOperatingExpense,
   createCapexItem,
   createExitStrategyInput,

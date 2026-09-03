@@ -1,6 +1,6 @@
 # Residential Income Acquisition Intelligence - Operating Contract v1
 
-Status: **RIAI-01A FOUNDATION IMPLEMENTED; RIAI-01B OPERATING METRICS IMPLEMENTED**
+Status: **RIAI-01A FOUNDATION, RIAI-01B OPERATING METRICS, AND RIAI-01E COLLECTIONS RECONCILIATION IMPLEMENTED**
 
 ## Purpose
 
@@ -28,6 +28,9 @@ It extends the Existing Building study without replacing its financial engine. N
 - A safe Existing Building surface that shows the not-loaded state or the operating-case readiness, record counts, blockers, evidence gaps, and required diligence.
 - An explicit production empty state: the application does not create or preload a synthetic operating case.
 - Deterministic Rent Roll, physical/contracted occupancy, WALE/WALT, expiry exposure, and lease-cliff metrics through `calculateOperatingMetrics`.
+- Period-specific collection records linked to a unit and, when occupied, its lease; vacant/offline unit coverage is supported without inventing a lease.
+- Evidence-gated collection rate and economic occupancy with full-inventory, aligned-period coverage checks.
+- A guided Existing Building workspace for verified lease-rent/end-date updates and verified collection entry; every write is reconstructed through the canonical contract.
 
 ## Safety invariants
 
@@ -41,6 +44,9 @@ It extends the Existing Building study without replacing its financial engine. N
 8. Time-limited interests retain commencement and expiry boundaries and do not create an inferred freehold terminal value.
 9. Title flags route to legal review; the platform does not certify title or provide legal clearance.
 10. Tenant assessment outputs remain analytical indications; the platform does not issue a credit rating or tenant approval.
+11. Collection periods cannot overlap within a unit, future periods cannot enter a current calculation, and occupied collection records require a lease.
+12. Economic occupancy is calculated only when every unit, including vacant/offline units, has complete potential-rent coverage over an aligned reporting period.
+13. Collection metrics never write automatically into stabilized NOI.
 
 ## Reference-derived regression scenarios
 
@@ -55,26 +61,29 @@ Private source documents informed the synthetic regression scenarios, but privat
 
 The API is a projection over the canonical contract and readiness assessment. It does not call the financial engine, write financial inputs, access the network, read ambient browser globals, authorize a transaction, or infer missing facts. When no operating case is supplied it returns `NOT_LOADED`, not a synthetic example.
 
-The Existing Building screen exposes this boundary as a readiness panel. It is intentionally not shown for Land + Development. The current production screen has no persistence or ingestion path for operating cases; attaching a validated case remains a later integration wave.
+The Existing Building screen exposes this boundary as a readiness and operating workspace. It is intentionally not shown for Land + Development. Validated JSON import/export and Saved Deal persistence are supported, and guided updates are limited to verified lease rent/end-date terms and collection facts.
 
 ## Implemented in RIAI-01B
 
 - Rent Roll aggregation with internal reconciliation.
 - Physical occupancy by unit and area, plus contracted occupancy by area.
 - WALE/WALT, annual expiry buckets, 12/24/36-month exposure, and lease-cliff detection.
+- Optional independent source-total Rent Roll reconciliation through an adopted `rentRoll.sourceAnnualRentTotal` input.
+
+## Implemented in RIAI-01E
+
+- Collection rate from verified cash collected divided by verified contractual rent due.
+- Economic occupancy from verified cash collected divided by complete adopted potential gross rent.
+- Collection credit-loss and economic-loss disclosure without automatic NOI adoption.
+- Fail-closed full-unit-inventory and aligned-period coverage.
+- Guided lease and collection editing with explicit source and adoption references.
 
 ## Explicitly not implemented
 
-- Economic occupancy until collection and potential-rent inputs exist.
-- Independent source-total Rent Roll reconciliation.
 - Renewal probability and renewal-window workflow.
-- OPEX normalization and market benchmarking.
-- Deferred-maintenance and technical CAPEX cost engine.
-- Mark-to-market and realizable reversion.
-- Stabilized NOI and risk-adjusted NOI.
-- Acquisition basis, reverse underwriting v2, and exit-strategy comparison.
-- Operating-case ingestion and persistence.
-- Location, lifecycle, subdivision, upside catalysts, and AI acquisition score.
+- Realizable rent reversion and risk-adjusted NOI.
+- Guided authoring for units, tenants, escalation schedules, OPEX, CAPEX, and source documents.
+- Automated market/location data acquisition and unit-subdivision cash-flow authoring.
 
 These remain later RIAI waves. The presence of the v1 contract, readiness API, and safe UI surface must not be represented as completion of the broader Residential Income Acquisition Intelligence capability.
 
