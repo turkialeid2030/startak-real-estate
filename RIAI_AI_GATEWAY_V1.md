@@ -31,6 +31,34 @@ The gateway must not return or imply:
 
 Allowed output keys are constrained and the response is sanitized before it reaches the browser. `investmentRecommendation`, `investmentDecision`, and `legalConclusion` are always `null`; `transactionAuthorized` is always `false`.
 
+## Mandatory production access control
+
+The AI route is a quota-bearing server function and **must not be activated as an anonymous public endpoint**. Production activation requires Cloudflare Access in front of the application/route and cryptographic verification inside the Pages Function before any AI-provider request is made.
+
+Required server-side variables:
+
+- `RIAI_AI_ACCESS_ISSUER` — the HTTPS Cloudflare Access issuer/team domain, for example the tenant-specific `https://<team>.cloudflareaccess.com` issuer.
+- `RIAI_AI_ACCESS_AUD` — the expected Cloudflare Access application audience tag.
+
+The gateway requires `Cf-Access-Jwt-Assertion` and verifies:
+
+- JWT structure and `RS256` algorithm;
+- `kid` signing-key identifier;
+- token expiry (`exp`) and not-before (`nbf`) constraints;
+- exact configured issuer;
+- expected audience;
+- the issuer certificate set from `/cdn-cgi/access/certs`;
+- RSA PKCS#1 v1.5 SHA-256 signature with Web Crypto.
+
+It also rejects cross-origin `Origin` values and cross-site `Sec-Fetch-Site` requests. Missing or invalid Access configuration fails closed before provider configuration is evaluated.
+
+Local unauthenticated development is permitted only when **both** conditions are true:
+
+1. `RIAI_AI_ALLOW_LOCAL_UNAUTHENTICATED=true`; and
+2. the request hostname is `localhost`, `127.0.0.1`, or `::1`.
+
+This override must never be configured in Cloudflare production environments.
+
 ## Provider configuration
 
 The Cloudflare Pages Function is `POST /api/riai/ai-assist` and uses server-side environment variables only:
@@ -40,21 +68,39 @@ The Cloudflare Pages Function is `POST /api/riai/ai-assist` and uses server-side
 - `RIAI_AI_PROVIDER_KEY` — provider credential; never exposed to the browser or repository.
 - `RIAI_AI_MODEL` — explicit provider model identifier.
 
-If any required configuration is absent, the endpoint fails closed with `AI_PROVIDER_NOT_CONFIGURED` and `aiModelUsed=false`.
+If Access is valid but any required provider configuration is absent, the endpoint fails closed with `AI_PROVIDER_NOT_CONFIGURED` and `aiModelUsed=false`.
 
 ## Operational controls
 
-- HTTPS-only provider endpoint.
+- Cloudflare Access verification occurs before AI-provider invocation.
+- HTTPS-only Access issuer restricted to `cloudflareaccess.com` or its subdomains.
+- HTTPS-only AI-provider endpoint.
 - Explicit provider-host allowlist to prevent arbitrary outbound requests/SSRF.
+- Same-origin browser request controls.
 - 32 KiB request cap and 64 KiB provider-response cap.
-- 15 second provider timeout.
-- `Cache-Control: no-store` on gateway responses.
+- 15 second provider timeout and 5 second Access-certificate timeout.
+- `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, and `Referrer-Policy: no-referrer` on gateway responses.
 - No provider credential in frontend source or persisted deal records.
 - No raw chain-of-thought request or response; the provider is instructed to return concise structured conclusions only.
 - AI output cannot alter NPV, IRR, NOI, cap rates, terminal value, acquisition price limits, or the deterministic analytical score.
+- AI review is manually invoked by the user and the result remains ephemeral UI state.
+
+## Production activation sequence
+
+1. Create/configure the Cloudflare Access application and identity policy for the intended authorized users.
+2. Obtain the Access issuer and application audience tag.
+3. Set `RIAI_AI_ACCESS_ISSUER` and `RIAI_AI_ACCESS_AUD` as Cloudflare server-side environment variables.
+4. Configure `RIAI_AI_PROVIDER_URL` and the exact `RIAI_AI_ALLOWED_HOSTS` allowlist.
+5. Store `RIAI_AI_PROVIDER_KEY` as a secret and set `RIAI_AI_MODEL` explicitly.
+6. Confirm `RIAI_AI_ALLOW_LOCAL_UNAUTHENTICATED` is absent/false in production.
+7. Run an authenticated synthetic AI review and verify a structured response.
+8. Confirm an unauthenticated request returns `AI_ACCESS_REQUIRED` and does not invoke the provider.
+9. Confirm a wrong-audience or wrong-issuer token is rejected.
+10. Re-run the canonical release, comprehensive browser, and deep-platform gates before institutional activation.
 
 ## Activation status
 
 Code path: IMPLEMENTED.
+Cloudflare Access configuration: EXTERNAL CONFIGURATION REQUIRED.
 Provider credential/model activation: EXTERNAL CONFIGURATION REQUIRED.
 Automatic investment/legal decisioning: PROHIBITED.
