@@ -38,7 +38,7 @@ check('ZERO-SELECTFIELD', r5a.every(r => r.component !== 'SelectField'), 'zero S
 // Dictionary parity
 const arKeys = Object.keys(arSA.inputBuilding);
 const enKeys = Object.keys(en.inputBuilding);
-check('DICT-PARITY', JSON.stringify(arKeys.sort())===JSON.stringify(enKeys.sort()) && arKeys.length===65, `ar=${arKeys.length} en=${enKeys.length}`);
+check('DICT-PARITY', JSON.stringify(arKeys.sort())===JSON.stringify(enKeys.sort()) && arKeys.length===75, `ar=${arKeys.length} en=${enKeys.length}`);
 
 // Source purity: zero direct fmtSAR-style hardcoded label= remaining in R5-A scope (verified via known field list)
 const appSrc = fs.readFileSync(path.join(__dirname, '../..', 'src/app/App.jsx'), 'utf8');

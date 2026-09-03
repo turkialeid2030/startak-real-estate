@@ -20,7 +20,7 @@ check('DUP-0', new Set(r6c.map(r=>r.inventory_id)).size === r6c.length, 'zero du
 // finite/range/strict-positive/derived-project-cost throw sites.
 const vsSrc = fs.readFileSync(path.join(__dirname,'../..','src/validation/numeric-safety.js'), 'utf8');
 const producerCount = (vsSrc.match(/throw new ValidationError/g) || []).length;
-check('PRODUCERS-5', producerCount === 5, `${producerCount} ValidationError throw sites found`);
+check('PRODUCERS-7', producerCount === 7, `${producerCount} ValidationError throw sites found`);
 
 const boundaries = [
   ['occupancyRate', 0, true], ['occupancyRate', 1, true],

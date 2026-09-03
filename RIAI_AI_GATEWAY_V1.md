@@ -123,3 +123,15 @@ Cloudflare Access configuration: EXTERNAL CONFIGURATION REQUIRED.
 Provider credential/model activation: EXTERNAL CONFIGURATION REQUIRED.
 Account-level rate limiting/WAF quota: EXTERNAL CONFIGURATION REQUIRED.
 Automatic investment/legal decisioning: PROHIBITED.
+
+## Wave C application-level guardrails
+
+Wave C adds a fail-closed KV-backed rate limiter before provider invocation, an independent server-side token-shape privacy discipline over the decision snapshot, and a best-effort hash-only audit trail.
+
+Required Cloudflare bindings/secrets before production AI activation:
+- `RIAI_RATE_LIMIT_KV` — required; missing binding returns `503 AI_RATE_LIMIT_STORE_UNAVAILABLE`.
+- `RIAI_AUDIT_KV` — recommended; audit is best-effort and does not block the user response.
+- `RIAI_AUDIT_SUBJECT_SALT` — set as a real secret in production.
+- Optional limits: `RIAI_AI_RATE_PER_MINUTE` (default 6), `RIAI_AI_RATE_PER_DAY` (default 60), `RIAI_AI_RATE_GLOBAL_PER_DAY` (default 2000).
+
+Workers KV counters are eventually consistent and are a spend guard, not a strict security boundary. Keep account-level Cloudflare WAF/rate limiting in front of this endpoint; use a Durable Object if atomic counting becomes mandatory.
