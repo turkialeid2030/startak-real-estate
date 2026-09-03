@@ -8,10 +8,12 @@ const incomeAnalysis = require('./income-analysis');
 const acquisitionBasis = require('./acquisition-basis');
 const reverseUnderwriting = require('./reverse-underwriting');
 const exitStrategy = require('./exit-strategy');
+const lifecycleLocationUpside = require('./lifecycle-location-upside');
+const decisionLayer = require('./decision-layer');
 const operatingCaseSnapshot = require('./operating-case-snapshot');
 const api = require('./api');
 
-module.exports = Object.assign({}, contracts, readiness, operatingMetrics, propertyCosts, incomeAnalysis, acquisitionBasis, reverseUnderwriting, exitStrategy, operatingCaseSnapshot, api, {
+module.exports = Object.assign({}, contracts, readiness, operatingMetrics, propertyCosts, incomeAnalysis, acquisitionBasis, reverseUnderwriting, exitStrategy, lifecycleLocationUpside, decisionLayer, operatingCaseSnapshot, api, {
   contracts,
   readiness,
   operatingMetrics,
@@ -20,6 +22,8 @@ module.exports = Object.assign({}, contracts, readiness, operatingMetrics, prope
   acquisitionBasis,
   reverseUnderwriting,
   exitStrategy,
+  lifecycleLocationUpside,
+  decisionLayer,
   operatingCaseSnapshot,
   api,
 });
