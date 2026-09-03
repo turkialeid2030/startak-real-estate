@@ -114,7 +114,8 @@ assert(future.issues.some((issue) => issue.code === 'SUBDIVISION_FUTURE_EFFECTIV
 assert(apiSource.includes("require('./subdivision-gate')"));
 assert(apiSource.includes('const subdivisionGate = calculateSubdivisionDueDiligenceGate(operatingCase);'));
 assert(apiSource.includes('subdivisionGateCalculated'));
-assert(apiSource.includes('LIFECYCLE_LOCATION_UPSIDE_SUBDIVISION_AND_IC_V1'));
+assert(apiSource.includes("intelligenceExtensionStatus: 'LIFECYCLE_LOCATION_UPSIDE_AND_IC_V1'"));
+assert(apiSource.includes("subdivisionExtensionStatus: 'SUBDIVISION_DUE_DILIGENCE_GATE_V1'"));
 
 const snapshotResult = buildResidentialIncomeAiDecisionSnapshot({
   apiStatus: 'CASE_LOADED',
