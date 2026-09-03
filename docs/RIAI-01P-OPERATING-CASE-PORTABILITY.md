@@ -17,7 +17,7 @@ The accepted JSON envelope is versioned:
 }
 ```
 
-The payload is accepted only after every property interest, property, building, unit, tenant, lease, evidence-aware input, operating expense, CAPEX item, and evidence-lineage record is reconstructed through the canonical contract factories.
+The payload is accepted only after every property interest, property, building, unit, tenant, lease, rent-collection record, evidence-aware input, operating expense, CAPEX item, and evidence-lineage record is reconstructed through the canonical contract factories.
 
 ## Safety boundaries
 
@@ -35,4 +35,4 @@ Saved Deal backup format v2 preserves the optional operating-case snapshot. Vers
 
 ## Remaining boundary
 
-Users can import/export a validated canonical case, but a guided Rent Roll, lease, tenant, OPEX, and CAPEX editor is still required for non-technical case authoring inside the application.
+Users can import/export a validated canonical case and use a guided workspace for verified lease-rent/end-date updates and collection records. Guided authoring for unit inventory, tenants, escalation schedules, OPEX, CAPEX, and evidence documents remains outside this portability wave.

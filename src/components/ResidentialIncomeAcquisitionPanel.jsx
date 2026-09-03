@@ -1,6 +1,7 @@
 import React from 'react';
 import ResidentialIncomeDecisionExtension from './ResidentialIncomeDecisionExtension';
 import ResidentialIncomeAiAssistPanel from './ResidentialIncomeAiAssistPanel';
+import RentRollCollectionsWorkspace from './RentRollCollectionsWorkspace';
 
 const STATUS_TONE = Object.freeze({
   READY_FOR_OPERATING_UNDERWRITING: 'border-emerald-700/50 bg-emerald-950/20 text-emerald-200',
@@ -60,6 +61,7 @@ export default function ResidentialIncomeAcquisitionPanel({
   onImportOperatingCase,
   onExportOperatingCase,
   onClearOperatingCase,
+  onReplaceOperatingCase,
   operatingCaseMessage = null,
 }) {
   const fileInputRef = React.useRef(null);
@@ -134,7 +136,15 @@ export default function ResidentialIncomeAcquisitionPanel({
             className={`mt-3 rounded-lg border p-3 text-xs ${operatingCaseMessage.ok ? 'border-emerald-900/60 bg-emerald-950/20 text-emerald-200' : 'border-rose-900/60 bg-rose-950/20 text-rose-200'}`}
           >
             {operatingCaseMessage.ok
-              ? t(`riai.${operatingCaseMessage.code === 'EXPORTED' ? 'exportSuccess' : operatingCaseMessage.code === 'CLEARED' ? 'clearSuccess' : 'importSuccess'}`)
+              ? t(`riai.${operatingCaseMessage.code === 'EXPORTED'
+                ? 'exportSuccess'
+                : operatingCaseMessage.code === 'CLEARED'
+                  ? 'clearSuccess'
+                  : operatingCaseMessage.code === 'LEASE_UPDATED'
+                    ? 'leaseUpdateSuccess'
+                    : operatingCaseMessage.code === 'COLLECTION_ADDED'
+                      ? 'collectionAddSuccess'
+                      : 'importSuccess'}`)
               : `${t('riai.importFailed')} (${operatingCaseMessage.code})`}
           </div>
         ) : null}
@@ -152,6 +162,15 @@ export default function ResidentialIncomeAcquisitionPanel({
               <CountCard label={t('riai.evidence')} value={summary.evidenceLineageCount} />
             </div>
             {metrics?.status === 'CALCULATED' ? (
+              <RentRollCollectionsWorkspace
+                operatingCase={viewModel.operatingCase}
+                metrics={metrics}
+                t={t}
+                dir={dir}
+                onReplaceOperatingCase={onReplaceOperatingCase}
+              />
+            ) : null}
+            {metrics?.status === 'CALCULATED' ? (
               <section aria-labelledby="riai-operating-metrics" className="rounded-xl border border-slate-800 bg-slate-950/30 p-4">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                   <h3 id="riai-operating-metrics" className="text-sm font-semibold text-slate-100">{t('riai.operatingMetrics')}</h3>
@@ -164,7 +183,7 @@ export default function ResidentialIncomeAcquisitionPanel({
                   <CountCard label={t('riai.wale')} value={number(metrics.leaseTiming.waleYears, locale, 2)} />
                 </div>
                 <div className="mt-3 text-[11px] leading-5 text-slate-500">
-                  {t('riai.economicOccupancyUnavailable')} · {t('riai.leaseCliffs')}: {metrics.leaseTiming.leaseCliffs.length}
+                  {metrics.occupancy.economicOccupancy === null ? t('riai.economicOccupancyUnavailable') : `${t('riai.economicOccupancy')}: ${percent(metrics.occupancy.economicOccupancy, locale)}`} · {t('riai.leaseCliffs')}: {metrics.leaseTiming.leaseCliffs.length}
                 </div>
               </section>
             ) : metrics ? (

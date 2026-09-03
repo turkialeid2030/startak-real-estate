@@ -10,6 +10,7 @@ const {
   createTenant,
   createRentEscalation,
   createLease,
+  createRentCollectionRecord,
   createOperatingExpense,
   createCapexItem,
   createExitStrategyScenario,
@@ -23,6 +24,7 @@ const MAX_RECORDS = Object.freeze({
   buildings: 500,
   units: 10000,
   leases: 20000,
+  rentCollections: 50000,
   tenants: 20000,
   operatingExpenses: 10000,
   capexItems: 10000,
@@ -142,7 +144,7 @@ function hydrateResidentialIncomeOperatingCaseSnapshot(snapshot) {
     throw new OperatingCaseSnapshotError('UNSUPPORTED_CONTRACT_TYPE', 'operatingCase.contractType');
   }
   for (const field of Object.keys(MAX_RECORDS)) {
-    if (field === 'exitScenarios') optionalArrayWithinLimit(snapshot, field);
+    if (['exitScenarios', 'rentCollections'].includes(field)) optionalArrayWithinLimit(snapshot, field);
     else arrayWithinLimit(snapshot, field);
   }
 
@@ -212,6 +214,21 @@ function hydrateResidentialIncomeOperatingCaseSnapshot(snapshot) {
       termsAdoptionDecisionRef: record.termsAdoptionDecisionRef,
       evidenceRefs: record.evidenceRefs,
     }));
+    const rentCollections = optionalArrayWithinLimit(snapshot, 'rentCollections').map((record) => createRentCollectionRecord({
+      caseId: record.caseId,
+      collectionId: record.collectionId,
+      propertyId: record.propertyId,
+      buildingId: record.buildingId,
+      unitId: record.unitId,
+      leaseId: record.leaseId,
+      periodStart: record.periodStart,
+      periodEnd: record.periodEnd,
+      contractualRentDue: hydrateEvidenceAwareValue(record.contractualRentDue),
+      collectedRent: hydrateEvidenceAwareValue(record.collectedRent),
+      potentialGrossRent: hydrateEvidenceAwareValue(record.potentialGrossRent),
+      concessions: hydrateEvidenceAwareValue(record.concessions),
+      evidenceRefs: record.evidenceRefs,
+    }));
     const operatingExpenses = snapshot.operatingExpenses.map((record) => createOperatingExpense({
       caseId: record.caseId,
       expenseId: record.expenseId,
@@ -267,6 +284,7 @@ function hydrateResidentialIncomeOperatingCaseSnapshot(snapshot) {
       buildings,
       units,
       leases,
+      rentCollections,
       tenants,
       operatingExpenses,
       capexItems,

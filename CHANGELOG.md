@@ -19,13 +19,16 @@
 - Evidence-gated stabilized income bridge from potential gross income through vacancy, credit loss, concessions, other operating income, normalized OPEX, and stabilized NOI.
 - Bilingual income-analysis surface that preserves the distinction between headline and realizable rent reversion.
 - Evidence-gated price-only, all-in, and initial-equity acquisition bases with complete immediate-CAPEX and debt-to-cost guards (`RIAI-02A`).
+- First-class period-specific rent-collection records linked to property, building, unit, and optional active lease (`RIAI-01E`).
+- Evidence-gated collection rate and economic occupancy, with complete unit-inventory and aligned-period coverage required before economic occupancy is calculated.
+- Bilingual Rent Roll and Collections workspace with safe verified lease-term updates, collection entry, source/adoption references, and canonical revalidation.
 
 ### Boundaries
 
-- Economic occupancy is intentionally unavailable until collected-rent and potential-rent inputs exist; source-total Rent Roll reconciliation also remains unavailable without an adopted source total.
+- Economic occupancy remains unavailable unless verified collection facts and potential gross rent cover the complete unit inventory over aligned reporting periods; source-total Rent Roll reconciliation remains unavailable without an adopted source total.
 - OPEX completeness depends on a supplied expense inventory, while CAPEX completeness depends on a supplied technical assessment; no omitted item is inferred to be zero.
-- Operating-case portability currently uses a validated JSON contract; a user-facing Rent Roll/lease editor is not yet implemented.
+- The guided editor currently covers verified lease rent/end-date updates and collection facts; unit, tenant, OPEX, CAPEX, escalation-schedule, and evidence-document authoring remain JSON/import workflows.
 - Realizable mark-to-market remains unavailable until lease-expiry, downtime, tenant-improvement, commission, rent-free, and renewal inputs are adopted.
 - Purchase price remains an adopted input; maximum justified price is not calculated by the acquisition-basis layer.
-- This release does not implement reverse underwriting v2 or exit-strategy comparison.
-- The readiness panel does not calculate value, price, or returns, issue an investment/legal/credit conclusion, or authorize a transaction.
+- Collection and economic-occupancy metrics do not write automatically into stabilized NOI or any investment result.
+- The readiness panel does not issue an investment/legal/credit conclusion or authorize a transaction.

@@ -8,6 +8,7 @@ const {
   LEASE_LIFECYCLE_STATUS,
   deepFreeze,
 } = require('./contracts');
+const { calculateCollectionsReconciliation } = require('./collections-reconciliation');
 
 const OPERATING_METRICS_STATUS = Object.freeze({
   CALCULATED: 'CALCULATED',
@@ -197,6 +198,7 @@ function emptyResult(operatingCase, issues) {
     rentRoll: null,
     occupancy: null,
     leaseTiming: null,
+    collectionsReconciliation: calculateCollectionsReconciliation(operatingCase),
     financialCalculationExecuted: false,
     stabilizedNoiCalculated: false,
     investmentDecision: null,
@@ -229,6 +231,28 @@ function buildRentRoll(operatingCase, asOfDate) {
   });
   const totalAnnualContractRent = rows.reduce((sum, row) => sum + row.currentAnnualContractRent, 0);
   const totalRentableAreaSqm = rows.reduce((sum, row) => sum + row.rentableAreaSqm, 0);
+  const sourceTotals = (operatingCase.additionalOperatingInputs || [])
+    .filter((input) => input.field === 'rentRoll.sourceAnnualRentTotal');
+  let sourceTotalReconciliation = {
+    status: 'NOT_AVAILABLE',
+    sourceAnnualRentTotal: null,
+    difference: null,
+  };
+  if (sourceTotals.length > 1) {
+    sourceTotalReconciliation = { status: 'MULTIPLE_SOURCE_TOTALS', sourceAnnualRentTotal: null, difference: null };
+  } else if (sourceTotals.length === 1) {
+    const sourceTotal = sourceTotals[0];
+    if (!isAdoptedValue(sourceTotal) || sourceTotal.value < 0 || sourceTotal.unit !== 'SAR/year') {
+      sourceTotalReconciliation = { status: 'INVALID_SOURCE_TOTAL', sourceAnnualRentTotal: null, difference: null };
+    } else {
+      const difference = totalAnnualContractRent - sourceTotal.value;
+      sourceTotalReconciliation = {
+        status: Math.abs(difference) <= 0.01 ? 'RECONCILED' : 'MISMATCH',
+        sourceAnnualRentTotal: sourceTotal.value,
+        difference,
+      };
+    }
+  }
   return {
     rows,
     totals: {
@@ -242,15 +266,11 @@ function buildRentRoll(operatingCase, asOfDate) {
       rowAnnualRentSum: totalAnnualContractRent,
       difference: 0,
     },
-    sourceTotalReconciliation: {
-      status: 'NOT_AVAILABLE',
-      sourceAnnualRentTotal: null,
-      difference: null,
-    },
+    sourceTotalReconciliation,
   };
 }
 
-function buildOccupancy(rentRoll) {
+function buildOccupancy(rentRoll, collectionsReconciliation) {
   const rows = rentRoll.rows;
   const totalUnits = rows.length;
   const occupied = rows.filter((row) => row.operatingStatus === UNIT_OPERATING_STATUS.OCCUPIED);
@@ -273,8 +293,8 @@ function buildOccupancy(rentRoll) {
     physicalOccupancyByUnits: totalUnits > 0 ? occupied.length / totalUnits : null,
     physicalOccupancyByArea: totalArea > 0 ? occupiedArea / totalArea : null,
     contractedOccupancyByArea: totalArea > 0 ? contractedArea / totalArea : null,
-    economicOccupancy: null,
-    economicOccupancyStatus: 'NOT_CALCULABLE_WITHOUT_COLLECTION_AND_POTENTIAL_RENT',
+    economicOccupancy: collectionsReconciliation.economicOccupancy,
+    economicOccupancyStatus: collectionsReconciliation.economicOccupancyStatus,
     denominatorPolicy: 'Physical occupancy includes offline units in total inventory so deferred maintenance or downtime is not hidden from the acquisition view.',
   };
 }
@@ -353,7 +373,8 @@ function calculateOperatingMetrics(operatingCase, { leaseCliffThreshold = 0.25 }
   if (issues.length) return emptyResult(operatingCase, issues);
 
   const rentRoll = buildRentRoll(operatingCase, asOfDate);
-  const occupancy = buildOccupancy(rentRoll);
+  const collectionsReconciliation = calculateCollectionsReconciliation(operatingCase);
+  const occupancy = buildOccupancy(rentRoll, collectionsReconciliation);
   const leaseTiming = buildLeaseTiming(rentRoll, asOfDate, leaseCliffThreshold);
   return deepFreeze({
     schemaVersion: 1,
@@ -364,10 +385,11 @@ function calculateOperatingMetrics(operatingCase, { leaseCliffThreshold = 0.25 }
     rentRoll,
     occupancy,
     leaseTiming,
+    collectionsReconciliation,
     financialCalculationExecuted: false,
     stabilizedNoiCalculated: false,
     investmentDecision: null,
-    semantics: 'Deterministic unit/lease operating metrics only. Contract rent is not collected rent, physical occupancy is not economic occupancy, and these outputs do not calculate stabilized NOI, value, returns, or an investment decision.',
+    semantics: 'Deterministic unit/lease operating metrics with evidence-gated collection reconciliation. Contract rent is not collected rent, physical occupancy is not economic occupancy, and collection metrics do not automatically alter stabilized NOI, value, returns, or an investment decision.',
   });
 }
 
