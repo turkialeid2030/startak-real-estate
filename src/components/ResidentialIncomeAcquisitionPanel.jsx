@@ -1,5 +1,6 @@
 import React from 'react';
 import ResidentialIncomeDecisionExtension from './ResidentialIncomeDecisionExtension';
+import ResidentialIncomeAiAssistPanel from './ResidentialIncomeAiAssistPanel';
 
 const STATUS_TONE = Object.freeze({
   READY_FOR_OPERATING_UNDERWRITING: 'border-emerald-700/50 bg-emerald-950/20 text-emerald-200',
@@ -272,6 +273,7 @@ export default function ResidentialIncomeAcquisitionPanel({
               </div>
             ) : null}
             <ResidentialIncomeDecisionExtension viewModel={viewModel} dir={dir} />
+            <ResidentialIncomeAiAssistPanel viewModel={viewModel} dir={dir} />
             <div className="grid gap-4 lg:grid-cols-3">
               <IssueList title={t('riai.blockers')} items={viewModel.blockers || []} emptyLabel={t('riai.noBlockers')} />
               <IssueList title={t('riai.evidenceGaps')} items={viewModel.evidenceGaps || []} emptyLabel={t('riai.noEvidenceGaps')} />
