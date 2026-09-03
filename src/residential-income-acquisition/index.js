@@ -11,10 +11,11 @@ const exitStrategy = require('./exit-strategy');
 const lifecycleLocationUpside = require('./lifecycle-location-upside');
 const decisionLayer = require('./decision-layer');
 const aiAssistContract = require('./ai-assist-contract');
+const aiAssistClient = require('./ai-assist-client');
 const operatingCaseSnapshot = require('./operating-case-snapshot');
 const api = require('./api');
 
-module.exports = Object.assign({}, contracts, readiness, operatingMetrics, propertyCosts, incomeAnalysis, acquisitionBasis, reverseUnderwriting, exitStrategy, lifecycleLocationUpside, decisionLayer, aiAssistContract, operatingCaseSnapshot, api, {
+module.exports = Object.assign({}, contracts, readiness, operatingMetrics, propertyCosts, incomeAnalysis, acquisitionBasis, reverseUnderwriting, exitStrategy, lifecycleLocationUpside, decisionLayer, aiAssistContract, aiAssistClient, operatingCaseSnapshot, api, {
   contracts,
   readiness,
   operatingMetrics,
@@ -26,6 +27,7 @@ module.exports = Object.assign({}, contracts, readiness, operatingMetrics, prope
   lifecycleLocationUpside,
   decisionLayer,
   aiAssistContract,
+  aiAssistClient,
   operatingCaseSnapshot,
   api,
 });
