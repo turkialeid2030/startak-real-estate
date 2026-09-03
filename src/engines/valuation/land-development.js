@@ -5,8 +5,9 @@
 // missing post-construction lease-up, and all-variable OPEX. Exit cap remains
 // independently modeled and the decision layer now treats IRR/NPV/DSCR as
 // hard gates rather than votes in a simple count.
-const { computeNPV, computeIRR, amortizationSchedule } = require('../financial');
+const { computeNPV, computeIRR, amortizationSchedule, analyzeIRR } = require('../financial');
 const { tierVerdict } = require('../recommendation');
+const { validateEngineInputs } = require('../../validation/numeric-safety');
 const {
   finiteOr,
   leaseUpFactorFromMonths,
@@ -18,6 +19,7 @@ const {
 const FINANCIAL_MODEL_VERSION = 'LAND_WAVE_A_2.0';
 
 function calcLandDevelopment(inp) {
+  validateEngineInputs(inp);
   const landArea = inp.landLength * inp.landWidth;
   const landMarketValue = landArea * inp.landPricePerSqm;
 
@@ -127,6 +129,7 @@ function calcLandDevelopment(inp) {
   const simplePaybackYears = cumulativeProjectPaybackYears === null ? NaN : cumulativeProjectPaybackYears;
   const irr = computeIRR(cashflows);
   const npv = computeNPV(inp.hurdleRate, cashflows);
+  const irrDiagnostics = analyzeIRR(cashflows, { financeRate: inp.hurdleRate, reinvestRate: inp.hurdleRate });
 
   // Leverage remains annual in Wave A. Monthly amortization, grace/balloon,
   // Islamic structures, and DSCR-constrained debt sizing are Wave B.
@@ -161,6 +164,7 @@ function calcLandDevelopment(inp) {
   const leveredIRR = computeIRR(leveredCashflows);
   const equityDiscountRate = inp.hurdleRate + inp.equityRiskSpread;
   const leveredNPV = computeNPV(equityDiscountRate, leveredCashflows);
+  const leveredIrrDiagnostics = analyzeIRR(leveredCashflows, { financeRate: equityDiscountRate, reinvestRate: equityDiscountRate });
 
   const c0 = stabilizedNOI > 0;
   const c1 = c0 && cumulativeProjectPaybackYears !== null && cumulativeProjectPaybackYears <= inp.maxPaybackThreshold;
@@ -186,6 +190,14 @@ function calcLandDevelopment(inp) {
   return {
     financialModelVersion: FINANCIAL_MODEL_VERSION,
     financialModelStatus,
+    irrDiagnostics,
+    leveredIrrDiagnostics,
+    irrReliability: irrDiagnostics.reliability,
+    irrMultipleRootRisk: irrDiagnostics.multipleRootRisk,
+    irrSignChanges: irrDiagnostics.signChanges,
+    mirr: irrDiagnostics.mirr,
+    leveredMirr: leveredIrrDiagnostics.mirr,
+    leveredIrrReliability: leveredIrrDiagnostics.reliability,
     landArea, landMarketValue, floorPlateArea, serviceAreaPerFloor, netLeasableAreaPerFloor,
     totalNetLeasableArea, totalOfficeFloorArea, totalBasementArea, totalBuiltArea,
     totalConstructionCost, landCommission, landTransferFee, totalLandAcquisitionCost, totalProjectCost, costPerSqm,

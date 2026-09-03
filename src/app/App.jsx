@@ -139,6 +139,8 @@ const DEFAULT_BUILDING_INPUTS = {
   buildingPrice: 140000000, commissionRate: 0.025, transferFeeRate: 0.05, inspectionCost: 75000, valuationCost: 60000,
   rentPerSqm: 1800, occupancyRate: 1.0, leaseStatus: "مؤجر", leaseYears: 5, vatRate: 0.15, serviceIncomeRate: 0.12,
   maintenanceRate: 0.05, insuranceRate: 0.005,
+  managementFeeRate: 0, fixedOpexPerSqm: 0, replacementReservePerSqm: 0, opexGrowthRate: 0,
+  exitCapRate: 0.07,
   marketCapRate: 0.07, discountRate: 0.08, holdPeriod: 5, rentGrowthRate: 0,
   basementConstructionCostPerSqm: 3000, floorConstructionCostPerSqm: 2000, currentLandPricePerSqm: 15000, buildingUsefulLife: 30,
   minYieldThreshold: 0.09, maxPaybackThreshold: 10,
@@ -217,6 +219,7 @@ function NumField({ label, unit, note, value, onChange, step = 1, min, warnBelow
         className="rf-input rf-num w-full px-3 py-2 text-sm"
         style={baseInputStyle()}
         value={value}
+        aria-invalid={warning ? "true" : undefined}
         onChange={(e) => {
           const raw = e.target.value.replace(/[^\d.\-]/g, "");
           const parsed = parseFloat(raw);
@@ -239,6 +242,7 @@ function PercentField({ label, note, value, onChange, warnBelow, warnAbove, warn
         className="rf-input rf-num w-full px-3 py-2 text-sm"
         style={baseInputStyle()}
         value={Number((value * 100).toFixed(4))}
+        aria-invalid={warning ? "true" : undefined}
         onChange={(e) => {
           const raw = e.target.value.replace(/[^\d.\-]/g, "");
           const parsed = parseFloat(raw);
@@ -342,18 +346,18 @@ function Section({ eyebrow, title, defaultOpen = false, children }) {
   );
 }
 
-function KPIChip({ label, value, icon: Icon, accent, sub }) {
+function KPIChip({ label, value, icon: Icon, accent, sub, warning }) {
   return (
     <div
       className="rounded-xl px-3 py-2.5 flex-1 min-w-[120px]"
-      style={{ background: COLORS.panelRaised, border: `1px solid ${accent ? COLORS.brassDim : COLORS.hairline}` }}
+      style={{ background: COLORS.panelRaised, border: `1px solid ${warning ? COLORS.caution : (accent ? COLORS.brassDim : COLORS.hairline)}` }}
     >
       <div className="flex items-center gap-1.5 mb-1">
-        {Icon ? <Icon size={12} style={{ color: accent ? COLORS.brass : COLORS.slate }} /> : null}
+        {Icon ? <Icon size={12} style={{ color: warning ? COLORS.caution : (accent ? COLORS.brass : COLORS.slate) }} /> : null}
         <span className="text-[10px]" style={{ color: COLORS.slate }}>{label}</span>
       </div>
-      <div className="rf-num text-base font-bold" style={{ color: accent ? COLORS.brass : COLORS.parchment }}>{value}</div>
-      {sub ? <div className="text-[10px] mt-0.5" style={{ color: COLORS.slateDim }}>{sub}</div> : null}
+      <div className="rf-num text-base font-bold" style={{ color: warning ? COLORS.caution : (accent ? COLORS.brass : COLORS.parchment) }}>{value}</div>
+      {sub ? <div className="text-[10px] mt-0.5 flex items-center gap-1" style={{ color: warning ? COLORS.caution : COLORS.slateDim }}>{warning ? <AlertTriangle size={10} /> : null}<span>{sub}</span></div> : null}
     </div>
   );
 }
@@ -989,10 +993,15 @@ function BuildingInputPanel({ inputs, setInputs }) {
       <Section eyebrow={t("globalApp.section4")} title={t("inputBuilding.sec4")}>
         <PercentField label={t("inputBuilding.maintenanceRate")} note={t("inputBuilding.maintenanceRateNote")} value={inputs.maintenanceRate} onChange={(v) => patch("maintenanceRate", v)} />
         <PercentField label={t("inputBuilding.insuranceRate")} note={t("inputBuilding.insuranceRateNote")} value={inputs.insuranceRate} onChange={(v) => patch("insuranceRate", v)} />
+        <PercentField label={t("inputBuilding.managementFeeRate")} note={t("inputBuilding.managementFeeRateNote")} value={inputs.managementFeeRate} onChange={(v) => patch("managementFeeRate", v)} warnAbove={0.10} />
+        <NumField label={t("inputBuilding.fixedOpexPerSqm")} unit={t("inputBuilding.unitSarSqm")} note={t("inputBuilding.fixedOpexPerSqmNote")} value={inputs.fixedOpexPerSqm} onChange={(v) => patch("fixedOpexPerSqm", v)} min={0} />
+        <NumField label={t("inputBuilding.replacementReservePerSqm")} unit={t("inputBuilding.unitSarSqm")} note={t("inputBuilding.replacementReservePerSqmNote")} value={inputs.replacementReservePerSqm} onChange={(v) => patch("replacementReservePerSqm", v)} min={0} />
+        <PercentField label={t("inputBuilding.opexGrowthRate")} note={t("inputBuilding.opexGrowthRateNote")} value={inputs.opexGrowthRate} onChange={(v) => patch("opexGrowthRate", v)} warnAbove={0.10} />
       </Section>
 
       <Section eyebrow={t("globalApp.section5")} title={t("inputBuilding.sec5")}>
         <PercentField label={t("inputBuilding.marketCapRate")} value={inputs.marketCapRate} onChange={(v) => patch("marketCapRate", v)} warnBelow={0.04} warnAbove={0.12} />
+        <PercentField label={t("inputBuilding.exitCapRate")} note={t("inputBuilding.exitCapRateNote")} value={inputs.exitCapRate} onChange={(v) => patch("exitCapRate", v)} warnBelow={0.04} warnAbove={0.14} />
         <PercentField label={t("inputBuilding.discountRate")} value={inputs.discountRate} onChange={(v) => patch("discountRate", v)} warnBelow={0.04} warnAbove={0.15} />
         <NumField label={t("inputBuilding.holdPeriod")} unit={t("inputBuilding.unitYear")} value={inputs.holdPeriod} onChange={(v) => patch("holdPeriod", v)} min={1} warnAbove={20} />
         <PercentField label={t("inputBuilding.rentGrowthRate")} note={t("inputBuilding.rentGrowthRateNote")} value={inputs.rentGrowthRate} onChange={(v) => patch("rentGrowthRate", v)} warnAbove={0.15} />
@@ -1206,8 +1215,13 @@ function KPIRibbon({ mode, results, leverageEnabled }) {
   const yieldLabel = mode === "building" ? t("kpi.yieldOnPrice") : t("kpi.yieldOnCost");
   const yieldValue = mode === "building" ? r.netYieldOnPrice : r.capRateOnCost;
   const paybackValue = mode === "building" ? r.paybackOnPrice : r.simplePaybackYears;
-  const irrLabel = leverageEnabled ? t("kpi.irrLevered") : t("kpi.irrUnlevered");
-  const irrValue = leverageEnabled ? r.leveredIRR : r.irr;
+  const irrReliability = leverageEnabled ? r.leveredIrrReliability : r.irrReliability;
+  const irrIsUnreliable = irrReliability === "MULTIPLE_ROOT_RISK" || irrReliability === "OUT_OF_SOLVER_RANGE";
+  const mirrValue = leverageEnabled ? r.leveredMirr : r.mirr;
+  const rawIrrValue = leverageEnabled ? r.leveredIRR : r.irr;
+  const irrLabel = irrIsUnreliable ? t("kpi.mirrLabel") : (leverageEnabled ? t("kpi.irrLevered") : t("kpi.irrUnlevered"));
+  const irrValue = irrIsUnreliable ? mirrValue : rawIrrValue;
+  const irrSub = irrIsUnreliable ? t("kpi.irrUnreliableNote") : (leverageEnabled ? t("kpi.unleveredSub", { value: fmtPct(r.irr) }) : undefined);
   const npvLabel = leverageEnabled ? t("kpi.npvLevered") : t("kpi.npvUnlevered");
   const npvValue = leverageEnabled ? r.leveredNPV : r.npv;
 
@@ -1215,11 +1229,15 @@ function KPIRibbon({ mode, results, leverageEnabled }) {
     <div
       className="sticky top-2 z-20 rounded-2xl p-3 mb-6"
       style={{ background: `${COLORS.panel}F2`, backdropFilter: "blur(8px)", border: `1px solid ${COLORS.hairline}` }}
+      role="status"
+      aria-live="polite"
+      aria-atomic="false"
+      aria-label={t("kpi.regionLabel")}
     >
       <div className="flex flex-wrap items-stretch gap-2">
         <KPIChip label={noiLabel} value={formatKpiCurrency(noiValue)} icon={Wallet} />
         <KPIChip label={yieldLabel} value={fmtPct(yieldValue)} icon={Percent} />
-        <KPIChip label={irrLabel} value={fmtPct(irrValue)} icon={TrendingUp} accent sub={leverageEnabled ? t("kpi.unleveredSub", { value: fmtPct(r.irr) }) : undefined} />
+        <KPIChip label={irrLabel} value={fmtPct(irrValue)} icon={TrendingUp} accent={!irrIsUnreliable} warning={irrIsUnreliable} sub={irrSub} />
         <KPIChip label={npvLabel} value={formatKpiCurrency(npvValue)} icon={ArrowUpRight} />
         <KPIChip label={t("kpi.payback")} value={formatKpiYears(paybackValue)} icon={Calendar} />
         <div className="flex items-center justify-center px-2">
@@ -1228,6 +1246,13 @@ function KPIRibbon({ mode, results, leverageEnabled }) {
       </div>
     </div>
   );
+}
+
+function storageFailureMessage(error, fallback) {
+  if (error && error.code === "STORAGE_QUOTA_EXCEEDED") {
+    return { code: error.code, message_ar: error.message_ar, message_en: error.message_en };
+  }
+  return fallback;
 }
 
 // ============================================================
@@ -1580,7 +1605,7 @@ export default function App() {
       setActiveDealId(id);
       setSaveNameInput("");
     } catch (e) {
-      setDealsError({ code: "DEAL_SAVE_FAILED", message_ar: "تعذّر الحفظ، حاول مرة أخرى", message_en: "Save failed, please try again" });
+      setDealsError(storageFailureMessage(e, { code: "DEAL_SAVE_FAILED", message_ar: "تعذّر الحفظ، حاول مرة أخرى", message_en: "Save failed, please try again" }));
     } finally {
       setSavingInProgress(false);
     }
@@ -1601,7 +1626,7 @@ export default function App() {
       await storageProvider.set("deals-index", JSON.stringify(newIndex));
       setSavedDeals(newIndex);
     } catch (e) {
-      setDealsError({ code: "DEAL_UPDATE_FAILED", message_ar: "تعذّر تحديث الصفقة", message_en: "The deal could not be updated" });
+      setDealsError(storageFailureMessage(e, { code: "DEAL_UPDATE_FAILED", message_ar: "تعذّر تحديث الصفقة", message_en: "The deal could not be updated" }));
     } finally {
       setSavingInProgress(false);
     }

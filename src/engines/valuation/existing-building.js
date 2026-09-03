@@ -8,8 +8,9 @@
 // payback is derived from cumulative cash flow, OPEX is decomposed into fixed
 // and variable components, and hard economic gates cannot be overridden by a
 // simple criterion count.
-const { computeNPV, computeIRR, amortizationSchedule } = require('../financial');
+const { computeNPV, computeIRR, amortizationSchedule, analyzeIRR } = require('../financial');
 const { tierVerdict } = require('../recommendation');
+const { validateEngineInputs } = require('../../validation/numeric-safety');
 const {
   finiteOr,
   positiveOrNull,
@@ -23,6 +24,7 @@ const VACANCY_MONTHS_MAP = { 'مؤجر': 0, '3 أشهر': 3, '6 أشهر': 6, '9
 const FINANCIAL_MODEL_VERSION = 'BUILDING_WAVE_A_2.0';
 
 function calcExistingBuilding(inp) {
+  validateEngineInputs(inp);
   const landArea = inp.landLength * inp.landWidth;
   const totalBasementArea = inp.basementCount * inp.basementAreaEach;
   const totalParkingSpots = inp.parkingAreaPerSpot > 0 ? Math.floor(totalBasementArea / inp.parkingAreaPerSpot) : 0;
@@ -149,6 +151,7 @@ function calcExistingBuilding(inp) {
   }
   const irr = computeIRR(cashflows);
   const npv = computeNPV(inp.discountRate, cashflows);
+  const irrDiagnostics = analyzeIRR(cashflows, { financeRate: inp.discountRate, reinvestRate: inp.discountRate });
 
   const requiredYield = Math.max(inp.minYieldThreshold, 1 / inp.maxPaybackThreshold);
   const targetTotalAcquisitionCost = NOI > 0 && requiredYield > 0 ? NOI / requiredYield : 0;
@@ -180,6 +183,7 @@ function calcExistingBuilding(inp) {
   const leveredIRR = computeIRR(leveredCashflows);
   const equityDiscountRate = inp.discountRate + inp.equityRiskSpread;
   const leveredNPV = computeNPV(equityDiscountRate, leveredCashflows);
+  const leveredIrrDiagnostics = analyzeIRR(leveredCashflows, { financeRate: equityDiscountRate, reinvestRate: equityDiscountRate });
 
   const c0 = NOI > 0;
   const c1 = c0 && netYieldOnCost !== null && netYieldOnCost >= inp.minYieldThreshold;
@@ -207,6 +211,14 @@ function calcExistingBuilding(inp) {
   return {
     financialModelVersion: FINANCIAL_MODEL_VERSION,
     financialModelStatus,
+    irrDiagnostics,
+    leveredIrrDiagnostics,
+    irrReliability: irrDiagnostics.reliability,
+    irrMultipleRootRisk: irrDiagnostics.multipleRootRisk,
+    irrSignChanges: irrDiagnostics.signChanges,
+    mirr: irrDiagnostics.mirr,
+    leveredMirr: leveredIrrDiagnostics.mirr,
+    leveredIrrReliability: leveredIrrDiagnostics.reliability,
     landArea, totalBasementArea, totalParkingSpots, totalFloorArea, netLeasableArea, avgNetAreaPerFloor,
     totalBuiltArea, coverageRatio, areaCheckOk,
     commissionAmount, transferFeeAmount, totalPurchaseCost, costPerSqm,

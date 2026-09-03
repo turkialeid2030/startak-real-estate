@@ -32,6 +32,7 @@ function amortizationSchedule(principal, rate, years) {
 }
 
 const monthlyDebt = require('./monthly-debt');
+const irrDiagnostics = require('./irr-diagnostics');
 const constructionDebt = require('./construction-debt');
 
 module.exports = {
@@ -39,6 +40,7 @@ module.exports = {
   computeIRR,
   amortizationSchedule,
   precision,
+  ...irrDiagnostics,
   ...monthlyDebt,
   ...constructionDebt,
 };

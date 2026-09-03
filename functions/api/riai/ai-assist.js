@@ -1,3 +1,5 @@
+import { enforceSnapshotDataDiscipline, resolveRateLimitConfig, checkAndConsumeRateLimit, buildAuditRecord, writeAuditRecord } from './_guardrails.mjs';
+
 const MAX_REQUEST_BYTES = 32768;
 const MAX_PROVIDER_BYTES = 65536;
 const PROVIDER_TIMEOUT_MS = 15000;
@@ -12,9 +14,12 @@ const MAX_TEXT = 500;
 const FORBIDDEN_DECISION_PATTERNS = [
   /\b(buy|sell|approve|reject|invest|proceed|do not proceed)\b/i,
   /(?<![\p{L}\p{N}_])(?:اشتر|اشتري|بع|بيع|وافق|ارفض|استثمر|نفذ الصفقة|لا تنفذ الصفقة)(?![\p{L}\p{N}_])/u,
+  /\b(?:we recommend|recommendation is to|it is advisable to|favorable opportunity to)\b[^.\n]{0,60}\b(?:buy|purchase|acquire|acquisition|invest|proceed)\b/i,
+  /(?<![\p{L}\p{N}_])(?:نوصي|نقترح|يوصى|يُنصح|الأنسب|من الأفضل)(?:\s+\S+){0,4}?\s*(?:بالشراء|بالبيع|بالاستحواذ|بالتملك|بالاستثمار|بتنفيذ\s+الصفقة|بالمضي\s+في\s+الصفقة|بإتمام\s+الصفقة)/u,
+  /(?<![\p{L}\p{N}_])(?:فرصة|الفرصة)(?:\s+\S+){0,4}?\s*مواتية(?:\s+\S+){0,4}?\s*(?:للشراء|للتملك|للاستحواذ|للاستثمار|للمضي\s+في\s+الصفقة)/u,
 ];
 
-function json(body, status = 200) {
+function json(body, status = 200, extraHeaders) {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
@@ -22,8 +27,40 @@ function json(body, status = 200) {
       'cache-control': 'no-store',
       'x-content-type-options': 'nosniff',
       'referrer-policy': 'no-referrer',
+      ...(extraHeaders || {}),
     },
   });
+}
+
+async function recordAudit(context, { access, snapshot, outcome, reasonCode = null, model = null, resultSummary = null, startedAt }) {
+  try {
+    const store = context.env && context.env.RIAI_AUDIT_KV;
+    if (!store) return { written: false, code: 'AI_AUDIT_STORE_UNAVAILABLE' };
+    const record = await buildAuditRecord({
+      subjectKey: (access && access.subject) || 'UNKNOWN',
+      subjectSalt: (context.env && context.env.RIAI_AUDIT_SUBJECT_SALT) || '',
+      snapshot,
+      model,
+      outcome,
+      reasonCode,
+      accessMode: access && access.mode,
+      latencyMs: Number.isFinite(startedAt) ? Date.now() - startedAt : null,
+      resultSummary,
+    });
+    return await writeAuditRecord({ store, record });
+  } catch (_) {
+    return { written: false, code: 'AI_AUDIT_UNEXPECTED_FAILURE' };
+  }
+}
+
+function summarizeSeverity(result) {
+  const counts = { LOW: 0, MEDIUM: 0, HIGH: 0 };
+  for (const bucket of ['riskFlags']) {
+    for (const item of (result && Array.isArray(result[bucket]) ? result[bucket] : [])) {
+      if (item && ALLOWED_SEVERITY.has(item.severity)) counts[item.severity] += 1;
+    }
+  }
+  return counts;
 }
 
 function trimText(value, max = MAX_TEXT) {
@@ -194,7 +231,7 @@ async function verifyCloudflareAccess(request, env) {
   const requestUrl = new URL(request.url);
   const localDevelopment = env.RIAI_AI_ALLOW_LOCAL_UNAUTHENTICATED === 'true'
     && ['localhost', '127.0.0.1', '::1'].includes(requestUrl.hostname);
-  if (localDevelopment) return { ok: true, mode: 'LOCAL_DEVELOPMENT' };
+  if (localDevelopment) return { ok: true, mode: 'LOCAL_DEVELOPMENT', subject: 'LOCAL_DEVELOPMENT' };
 
   const issuerRaw = trimText(env.RIAI_AI_ACCESS_ISSUER, 2048);
   const expectedAud = trimText(env.RIAI_AI_ACCESS_AUD, 512);
@@ -273,13 +310,25 @@ async function verifyCloudflareAccess(request, env) {
   }
   if (!verified) return { ok: false, status: 401, code: 'AI_ACCESS_TOKEN_SIGNATURE_INVALID' };
 
-  return { ok: true, mode: 'CLOUDFLARE_ACCESS', subjectPresent: Boolean(payload.sub) };
+  return { ok: true, mode: 'CLOUDFLARE_ACCESS', subjectPresent: Boolean(payload.sub), subject: trimText(payload.sub, 256) || trimText(payload.email, 256) || null };
 }
 
 export async function onRequestPost(context) {
   const request = context.request;
+  const startedAt = Date.now();
   const access = await verifyCloudflareAccess(request, context.env || {});
   if (!access.ok) return json({ ok: false, code: access.code, aiModelUsed: false }, access.status);
+
+  const rateLimitResult = await checkAndConsumeRateLimit({
+    store: context.env && context.env.RIAI_RATE_LIMIT_KV,
+    subjectKey: access.subject,
+    config: resolveRateLimitConfig(context.env || {}),
+  });
+  if (!rateLimitResult.allowed) {
+    await recordAudit(context, { access, snapshot: null, outcome: 'RATE_LIMITED', reasonCode: rateLimitResult.code, startedAt });
+    const headers = rateLimitResult.retryAfterSeconds ? { 'retry-after': String(rateLimitResult.retryAfterSeconds) } : undefined;
+    return json({ ok: false, code: rateLimitResult.code, aiModelUsed: false }, rateLimitResult.status, headers);
+  }
 
   const contentType = request.headers.get('content-type') || '';
   if (!contentType.toLowerCase().includes('application/json')) return json({ ok: false, code: 'JSON_CONTENT_TYPE_REQUIRED' }, 415);
@@ -293,7 +342,15 @@ export async function onRequestPost(context) {
   let body;
   try { body = JSON.parse(text); } catch (_) { return json({ ok: false, code: 'INVALID_JSON' }, 400); }
   const snapshotError = validateSnapshot(body && body.decisionSnapshot);
-  if (snapshotError) return json({ ok: false, code: snapshotError }, 400);
+  if (snapshotError) {
+    await recordAudit(context, { access, snapshot: body && body.decisionSnapshot, outcome: 'REJECTED', reasonCode: snapshotError, startedAt });
+    return json({ ok: false, code: snapshotError }, 400);
+  }
+  const disciplineResult = enforceSnapshotDataDiscipline(body.decisionSnapshot);
+  if (!disciplineResult.ok) {
+    await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'REJECTED', reasonCode: disciplineResult.code, startedAt });
+    return json({ ok: false, code: disciplineResult.code }, 400);
+  }
 
   const provider = allowedProviderUrl(context.env || {});
   if (provider.error) return json({ ok: false, code: provider.error, aiModelUsed: false }, 503);
@@ -320,28 +377,51 @@ export async function onRequestPost(context) {
   try {
     providerResponse = await fetch(provider.url.toString(), {
       method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        authorization: `Bearer ${apiKey}`,
-      },
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
       body: JSON.stringify(providerRequest),
       signal: controller.signal,
     });
   } catch (error) {
     clearTimeout(timer);
-    return json({ ok: false, code: error && error.name === 'AbortError' ? 'AI_PROVIDER_TIMEOUT' : 'AI_PROVIDER_UNREACHABLE', aiModelUsed: false }, 502);
+    const code = error && error.name === 'AbortError' ? 'AI_PROVIDER_TIMEOUT' : 'AI_PROVIDER_UNREACHABLE';
+    await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'PROVIDER_FAILED', reasonCode: code, model, startedAt });
+    return json({ ok: false, code, aiModelUsed: false }, 502);
   }
   clearTimeout(timer);
 
-  if (!providerResponse.ok) return json({ ok: false, code: 'AI_PROVIDER_REJECTED_REQUEST', providerStatus: providerResponse.status, aiModelUsed: false }, 502);
+  if (!providerResponse.ok) {
+    await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'PROVIDER_FAILED', reasonCode: 'AI_PROVIDER_REJECTED_REQUEST', model, startedAt });
+    return json({ ok: false, code: 'AI_PROVIDER_REJECTED_REQUEST', providerStatus: providerResponse.status, aiModelUsed: false }, 502);
+  }
   const providerText = await providerResponse.text();
-  if (new TextEncoder().encode(providerText).length > MAX_PROVIDER_BYTES) return json({ ok: false, code: 'AI_PROVIDER_RESPONSE_TOO_LARGE', aiModelUsed: false }, 502);
+  if (new TextEncoder().encode(providerText).length > MAX_PROVIDER_BYTES) {
+    await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'PROVIDER_FAILED', reasonCode: 'AI_PROVIDER_RESPONSE_TOO_LARGE', model, startedAt });
+    return json({ ok: false, code: 'AI_PROVIDER_RESPONSE_TOO_LARGE', aiModelUsed: false }, 502);
+  }
   let providerPayload;
-  try { providerPayload = JSON.parse(providerText); } catch (_) { return json({ ok: false, code: 'AI_PROVIDER_RESPONSE_INVALID_JSON', aiModelUsed: false }, 502); }
+  try { providerPayload = JSON.parse(providerText); } catch (_) {
+    await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'PROVIDER_FAILED', reasonCode: 'AI_PROVIDER_RESPONSE_INVALID_JSON', model, startedAt });
+    return json({ ok: false, code: 'AI_PROVIDER_RESPONSE_INVALID_JSON', aiModelUsed: false }, 502);
+  }
   const extracted = extractProviderJson(providerPayload);
-  if (extracted.error) return json({ ok: false, code: extracted.error, aiModelUsed: false }, 502);
+  if (extracted.error) {
+    await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'PROVIDER_FAILED', reasonCode: extracted.error, model, startedAt });
+    return json({ ok: false, code: extracted.error, aiModelUsed: false }, 502);
+  }
   const sanitized = sanitizeProviderOutput(extracted.value);
-  if (sanitized.error) return json({ ok: false, code: sanitized.error, aiModelUsed: false }, 502);
+  if (sanitized.error) {
+    await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'OUTPUT_REJECTED', reasonCode: sanitized.error, model, startedAt });
+    return json({ ok: false, code: sanitized.error, aiModelUsed: false }, 502);
+  }
+
+  await recordAudit(context, {
+    access,
+    snapshot: body.decisionSnapshot,
+    outcome: 'SUCCESS',
+    model,
+    startedAt,
+    resultSummary: { severityCounts: summarizeSeverity(sanitized.value) },
+  });
 
   return json({
     ok: true,

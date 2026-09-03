@@ -34,10 +34,22 @@ function requireRange(field, value, min, max) {
 
 const PERCENTAGE_FIELDS_0_TO_1 = [
   'occupancyRate', 'ltv', 'loanRate', 'minYieldThreshold', 'discountRate', 'hurdleRate',
-  'rentGrowthRate', 'vatRate', 'marketCapRate', 'exitCapRate', 'variableOpexRate',
-  'managementFeeRate', 'insuranceRateOnReplacementCost', 'opexGrowthRate',
-  'replacementCostGrowthRate',
+  'vatRate', 'marketCapRate', 'exitCapRate', 'variableOpexRate',
+  'managementFeeRate', 'insuranceRateOnReplacementCost',
+  'commissionRate', 'transferFeeRate', 'landCommissionRate', 'landTransferFeeRate',
+  'exitTransferFeeRate', 'serviceIncomeRate', 'maintenanceRate', 'insuranceRate',
+  'equityRiskSpread', 'buildableRatio', 'servicesRatioPerFloor', 'efficiencyRatio',
+  'opexRate',
 ];
+
+const GROWTH_RATE_FIELDS = ['rentGrowthRate', 'opexGrowthRate', 'replacementCostGrowthRate'];
+const GROWTH_RATE_MIN = -0.5;
+const GROWTH_RATE_MAX = 0.5;
+const NON_NEGATIVE_FIELDS = [
+  'fixedOpexPerSqm', 'replacementReservePerSqm', 'inspectionCost', 'valuationCost',
+  'engineeringCost', 'landValuationCost',
+];
+const VALID_LEASE_STATUS = ['مؤجر', '3 أشهر', '6 أشهر', '9 أشهر', 'سنة'];
 
 // Economically load-bearing divisors must never silently fall back to zero.
 // exitCapRate is conditional because the Building UI did not historically
@@ -56,15 +68,27 @@ function validateEngineInputs(inputs) {
     requireFinite(key, value);
   }
 
-  if ('occupancyRate' in inputs) requireRange('occupancyRate', inputs.occupancyRate, 0, 1);
-  if ('ltv' in inputs) requireRange('ltv', inputs.ltv, 0, 1);
-
-  for (const field of [
-    'commissionRate', 'transferFeeRate', 'landCommissionRate', 'landTransferFeeRate',
-    'exitTransferFeeRate', 'serviceIncomeRate', 'maintenanceRate', 'insuranceRate',
-    'variableOpexRate', 'managementFeeRate', 'insuranceRateOnReplacementCost',
-  ]) {
+  for (const field of PERCENTAGE_FIELDS_0_TO_1) {
     if (field in inputs) requireRange(field, inputs[field], 0, 1);
+  }
+
+  for (const field of GROWTH_RATE_FIELDS) {
+    if (field in inputs) requireRange(field, inputs[field], GROWTH_RATE_MIN, GROWTH_RATE_MAX);
+  }
+
+  for (const field of NON_NEGATIVE_FIELDS) {
+    if (field in inputs && inputs[field] < 0) {
+      throw new ValidationError(field, inputs[field], 'NON_NEGATIVE_REQUIRED',
+        `قيمة حقل "${field}" (${inputs[field]}) يجب ألا تكون سالبة`,
+        `Field "${field}" value ${inputs[field]} must not be negative`);
+    }
+  }
+
+  if ('leaseStatus' in inputs && inputs.leaseStatus !== undefined && inputs.leaseStatus !== null
+      && !VALID_LEASE_STATUS.includes(inputs.leaseStatus)) {
+    throw new ValidationError('leaseStatus', inputs.leaseStatus, 'UNKNOWN_CONTROLLED_VALUE',
+      'قيمة حالة الإيجار غير معروفة؛ لا يجوز افتراض عدم وجود شاغر ضمنياً',
+      'Unknown leaseStatus value; a zero-vacancy assumption must never be inferred silently');
   }
 
   for (const field of STRICTLY_POSITIVE_DIVISOR_FIELDS) {
@@ -103,5 +127,8 @@ module.exports = {
   requireRange,
   validateEngineInputs,
   PERCENTAGE_FIELDS_0_TO_1,
+  GROWTH_RATE_FIELDS,
+  NON_NEGATIVE_FIELDS,
+  VALID_LEASE_STATUS,
   STRICTLY_POSITIVE_DIVISOR_FIELDS,
 };
