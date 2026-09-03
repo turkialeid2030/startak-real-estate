@@ -3,6 +3,12 @@ import aiAssistClient from '../residential-income-acquisition/ai-assist-client';
 
 const { requestResidentialIncomeAiAssist, AI_ASSIST_CLIENT_STATUS } = aiAssistClient;
 
+const ACTIVATION_INCOMPLETE_CODES = new Set([
+  'AI_ACCESS_NOT_CONFIGURED',
+  'AI_ACCESS_REQUIRED',
+  'AI_PROVIDER_NOT_CONFIGURED',
+]);
+
 function Tone({ severity }) {
   const cls = severity === 'HIGH'
     ? 'border-rose-900/60 bg-rose-950/20 text-rose-200'
@@ -62,7 +68,7 @@ export default function ResidentialIncomeAiAssistPanel({ viewModel, dir = 'rtl' 
     setState({ status: 'ERROR', payload: null, reasonCode: response.reasonCode || response.status });
   };
 
-  const providerNotConfigured = state.reasonCode === 'AI_PROVIDER_NOT_CONFIGURED';
+  const activationIncomplete = ACTIVATION_INCOMPLETE_CODES.has(state.reasonCode);
 
   return (
     <section data-testid="riai-ai-assist-panel" className="rounded-xl border border-indigo-900/50 bg-indigo-950/10 p-4">
@@ -103,10 +109,10 @@ export default function ResidentialIncomeAiAssistPanel({ viewModel, dir = 'rtl' 
 
       {state.status === 'ERROR' ? (
         <div role="status" className="mt-4 rounded-lg border border-amber-900/50 bg-amber-950/10 p-3 text-xs leading-6 text-amber-200/90">
-          {providerNotConfigured
+          {activationIncomplete
             ? label(
-                'مسار الذكاء الاصطناعي مُنفذ تقنياً، لكن مزود AI لم يُفعّل بعد في إعدادات Cloudflare. التحليل الحتمي الحالي يظل عاملاً بالكامل.',
-                'The AI path is technically implemented, but the AI provider has not yet been activated in Cloudflare configuration. The deterministic analytical engine remains fully operational.',
+                'مسار الذكاء الاصطناعي مُنفذ ومحمي تقنياً، لكن تفعيل الإنتاج لم يكتمل بعد: يلزم ضبط Cloudflare Access ومزود AI حسب إعدادات البيئة. التحليل الحتمي الحالي يظل عاملاً بالكامل.',
+                'The AI path is technically implemented and protected, but production activation is incomplete: Cloudflare Access and the AI provider must be configured in the environment. The deterministic analytical engine remains fully operational.',
               )
             : `${label('تعذر تنفيذ مراجعة AI في هذه المحاولة.', 'AI review could not be completed in this attempt.')} (${state.reasonCode})`}
         </div>
