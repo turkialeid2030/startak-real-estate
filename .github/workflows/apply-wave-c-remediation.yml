@@ -6,6 +6,7 @@ on:
       - feature/wave-c-remediation-v1
     paths:
       - scripts/apply-wave-c-remediation.py
+      - scripts/normalize-wave-c-generated-files.py
       - .github/workflows/apply-wave-c-remediation.yml
 
 permissions:
@@ -35,6 +36,10 @@ jobs:
       - name: Apply remediation
         if: steps.gate.outputs.already_applied != 'true'
         run: python3 scripts/apply-wave-c-remediation.py
+
+      - name: Normalize generated sources
+        if: steps.gate.outputs.already_applied != 'true'
+        run: python3 scripts/normalize-wave-c-generated-files.py
 
       - name: Setup Node.js
         if: steps.gate.outputs.already_applied != 'true'
