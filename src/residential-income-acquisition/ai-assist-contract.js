@@ -202,6 +202,9 @@ function validateResidentialIncomeAiAssistResponse(payload) {
 
   const decisionBoundary = trimText(payload.decisionBoundary, MAX_TEXT);
   if (!decisionBoundary) return Object.freeze({ status: AI_ASSIST_STATUS.INVALID, reasonCode: 'decisionBoundary_INVALID', value: null });
+  if (FORBIDDEN_DECISION_PATTERNS.some((pattern) => pattern.test(decisionBoundary))) {
+    return Object.freeze({ status: AI_ASSIST_STATUS.INVALID, reasonCode: 'AUTOMATIC_DECISION_LANGUAGE_PROHIBITED', value: null });
+  }
 
   const value = Object.freeze({
     schemaVersion: 1,
