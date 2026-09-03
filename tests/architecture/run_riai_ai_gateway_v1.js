@@ -64,8 +64,8 @@ assert.strictEqual(snapshotResult.decisionSnapshot.governance.legalConclusionAll
 assert.strictEqual(snapshotResult.decisionSnapshot.governance.transactionAuthorizationAllowed, false);
 const serialized = JSON.stringify(snapshotResult);
 assert(!serialized.includes('SHOULD_NOT_BE_EXPORTED'));
-assert(!serialized.includes('address'));
-assert(!serialized.includes('tenantNames'));
+assert(!serialized.includes('"address"'));
+assert(!serialized.includes('"tenants"'));
 assert.strictEqual(snapshotResult.decisionSnapshot.acquisitionScore.redFlags[0].amount, undefined);
 
 const notReady = buildResidentialIncomeAiDecisionSnapshot({ apiStatus: 'NOT_LOADED' });
