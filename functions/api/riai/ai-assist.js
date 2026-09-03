@@ -1,6 +1,7 @@
 const MAX_REQUEST_BYTES = 32768;
 const MAX_PROVIDER_BYTES = 65536;
 const PROVIDER_TIMEOUT_MS = 15000;
+const ACCESS_CERT_TIMEOUT_MS = 5000;
 const ALLOWED_SEVERITY = new Set(['LOW', 'MEDIUM', 'HIGH']);
 const MAX_ITEMS = 8;
 const MAX_TEXT = 500;
@@ -16,6 +17,7 @@ function json(body, status = 200) {
       'content-type': 'application/json; charset=utf-8',
       'cache-control': 'no-store',
       'x-content-type-options': 'nosniff',
+      'referrer-policy': 'no-referrer',
     },
   });
 }
@@ -123,8 +125,133 @@ function extractProviderJson(payload) {
   try { return { value: JSON.parse(content) }; } catch (_) { return { error: 'AI_PROVIDER_JSON_INVALID' }; }
 }
 
+function base64UrlToBytes(value) {
+  const normalized = String(value || '').replace(/-/g, '+').replace(/_/g, '/');
+  const padding = normalized.length % 4 ? '='.repeat(4 - (normalized.length % 4)) : '';
+  const binary = atob(`${normalized}${padding}`);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+function decodeJwtJson(segment) {
+  try {
+    return JSON.parse(new TextDecoder().decode(base64UrlToBytes(segment)));
+  } catch (_) {
+    return null;
+  }
+}
+
+function normalizeIssuer(value) {
+  return String(value || '').replace(/\/+$/, '');
+}
+
+function accessAudienceMatches(actual, expected) {
+  if (typeof actual === 'string') return actual === expected;
+  return Array.isArray(actual) && actual.includes(expected);
+}
+
+function validateAccessIssuer(rawIssuer) {
+  let issuer;
+  try { issuer = new URL(rawIssuer); } catch (_) { return { error: 'AI_ACCESS_ISSUER_INVALID' }; }
+  const host = issuer.hostname.toLowerCase();
+  if (issuer.protocol !== 'https:' || !(host === 'cloudflareaccess.com' || host.endsWith('.cloudflareaccess.com'))) {
+    return { error: 'AI_ACCESS_ISSUER_INVALID' };
+  }
+  return { issuer, normalized: normalizeIssuer(issuer.toString()) };
+}
+
+async function verifyCloudflareAccess(request, env) {
+  const requestUrl = new URL(request.url);
+  const localDevelopment = env.RIAI_AI_ALLOW_LOCAL_UNAUTHENTICATED === 'true'
+    && ['localhost', '127.0.0.1', '::1'].includes(requestUrl.hostname);
+  if (localDevelopment) return { ok: true, mode: 'LOCAL_DEVELOPMENT' };
+
+  const issuerRaw = trimText(env.RIAI_AI_ACCESS_ISSUER, 2048);
+  const expectedAud = trimText(env.RIAI_AI_ACCESS_AUD, 512);
+  if (!issuerRaw || !expectedAud) return { ok: false, status: 503, code: 'AI_ACCESS_NOT_CONFIGURED' };
+  const issuerResult = validateAccessIssuer(issuerRaw);
+  if (issuerResult.error) return { ok: false, status: 503, code: issuerResult.error };
+
+  const origin = request.headers.get('origin');
+  if (origin && origin !== requestUrl.origin) return { ok: false, status: 403, code: 'AI_CROSS_ORIGIN_REQUEST_BLOCKED' };
+  const fetchSite = request.headers.get('sec-fetch-site');
+  if (fetchSite && fetchSite !== 'same-origin' && fetchSite !== 'none') return { ok: false, status: 403, code: 'AI_CROSS_SITE_REQUEST_BLOCKED' };
+
+  const token = trimText(request.headers.get('cf-access-jwt-assertion'), 20000);
+  if (!token) return { ok: false, status: 401, code: 'AI_ACCESS_REQUIRED' };
+  const parts = token.split('.');
+  if (parts.length !== 3) return { ok: false, status: 401, code: 'AI_ACCESS_TOKEN_INVALID' };
+  const header = decodeJwtJson(parts[0]);
+  const payload = decodeJwtJson(parts[1]);
+  if (!header || !payload || header.alg !== 'RS256' || !trimText(header.kid, 512)) {
+    return { ok: false, status: 401, code: 'AI_ACCESS_TOKEN_INVALID' };
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  if (!Number.isFinite(payload.exp) || payload.exp <= now - 30) return { ok: false, status: 401, code: 'AI_ACCESS_TOKEN_EXPIRED' };
+  if (Number.isFinite(payload.nbf) && payload.nbf > now + 30) return { ok: false, status: 401, code: 'AI_ACCESS_TOKEN_NOT_YET_VALID' };
+  if (normalizeIssuer(payload.iss) !== issuerResult.normalized) return { ok: false, status: 401, code: 'AI_ACCESS_TOKEN_ISSUER_INVALID' };
+  if (!accessAudienceMatches(payload.aud, expectedAud)) return { ok: false, status: 401, code: 'AI_ACCESS_TOKEN_AUDIENCE_INVALID' };
+
+  const certUrl = new URL('/cdn-cgi/access/certs', issuerResult.issuer).toString();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ACCESS_CERT_TIMEOUT_MS);
+  let certResponse;
+  try {
+    certResponse = await fetch(certUrl, {
+      method: 'GET',
+      headers: { accept: 'application/json' },
+      signal: controller.signal,
+    });
+  } catch (_) {
+    clearTimeout(timer);
+    return { ok: false, status: 503, code: 'AI_ACCESS_CERTS_UNAVAILABLE' };
+  }
+  clearTimeout(timer);
+  if (!certResponse.ok) return { ok: false, status: 503, code: 'AI_ACCESS_CERTS_UNAVAILABLE' };
+
+  let certPayload;
+  try { certPayload = await certResponse.json(); } catch (_) { return { ok: false, status: 503, code: 'AI_ACCESS_CERTS_INVALID' }; }
+  const key = Array.isArray(certPayload && certPayload.keys)
+    ? certPayload.keys.find((candidate) => candidate && candidate.kid === header.kid)
+    : null;
+  if (!key) return { ok: false, status: 401, code: 'AI_ACCESS_SIGNING_KEY_NOT_FOUND' };
+
+  let cryptoKey;
+  try {
+    cryptoKey = await crypto.subtle.importKey(
+      'jwk',
+      key,
+      { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+      false,
+      ['verify'],
+    );
+  } catch (_) {
+    return { ok: false, status: 503, code: 'AI_ACCESS_SIGNING_KEY_INVALID' };
+  }
+
+  let verified = false;
+  try {
+    verified = await crypto.subtle.verify(
+      { name: 'RSASSA-PKCS1-v1_5' },
+      cryptoKey,
+      base64UrlToBytes(parts[2]),
+      new TextEncoder().encode(`${parts[0]}.${parts[1]}`),
+    );
+  } catch (_) {
+    verified = false;
+  }
+  if (!verified) return { ok: false, status: 401, code: 'AI_ACCESS_TOKEN_SIGNATURE_INVALID' };
+
+  return { ok: true, mode: 'CLOUDFLARE_ACCESS', subjectPresent: Boolean(payload.sub) };
+}
+
 export async function onRequestPost(context) {
   const request = context.request;
+  const access = await verifyCloudflareAccess(request, context.env || {});
+  if (!access.ok) return json({ ok: false, code: access.code, aiModelUsed: false }, access.status);
+
   const contentType = request.headers.get('content-type') || '';
   if (!contentType.toLowerCase().includes('application/json')) return json({ ok: false, code: 'JSON_CONTENT_TYPE_REQUIRED' }, 415);
   const lengthHeader = Number(request.headers.get('content-length'));
@@ -190,6 +317,7 @@ export async function onRequestPost(context) {
     generatedAt: new Date().toISOString(),
     advisoryOnly: true,
     deterministicScoreRemainsAuthoritative: true,
+    accessMode: access.mode,
     result: sanitized.value,
   });
 }
