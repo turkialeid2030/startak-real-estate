@@ -51,6 +51,7 @@ function buildResidentialIncomeAiDecisionSnapshot(viewModel) {
 
   const score = viewModel.acquisitionAnalyticalScore;
   const bundle = viewModel.lifecycleLocationUpside;
+  const subdivision = viewModel.subdivisionGate;
   const reverse = viewModel.reverseUnderwriting;
   const exit = viewModel.exitStrategyComparison;
   const scenarioIntegration = viewModel.scenarioIntegration;
@@ -90,8 +91,8 @@ function buildResidentialIncomeAiDecisionSnapshot(viewModel) {
       status: bundle.lifecycle.status || null,
       weightedConditionScore: bundle.lifecycle.metrics && finite(bundle.lifecycle.metrics.weightedConditionScore) ? bundle.lifecycle.metrics.weightedConditionScore : null,
       criticalComponentsDueWithin3y: bundle.lifecycle.metrics && finite(bundle.lifecycle.metrics.criticalComponentsDueWithin3y) ? bundle.lifecycle.metrics.criticalComponentsDueWithin3y : null,
-      replacementCapexWithin3y: bundle.lifecycle.metrics && finite(bundle.lifecycle.metrics.replacementCapexWithin3y) ? bundle.lifecycle.metrics.replacementCapexWithin3y : null,
-      replacementCapexWithin5y: bundle.lifecycle.metrics && finite(bundle.lifecycle.metrics.replacementCapexWithin5y) ? bundle.lifecycle.metrics.replacementCapexWithin5y : null,
+      replacementCapexWithin3y: bundle.lifecycle.metrics && finite(bundle.lifecycle.metrics.knownReplacementCapex3y) ? bundle.lifecycle.metrics.knownReplacementCapex3y : null,
+      replacementCapexWithin5y: bundle.lifecycle.metrics && finite(bundle.lifecycle.metrics.knownReplacementCapex5y) ? bundle.lifecycle.metrics.knownReplacementCapex5y : null,
     } : null,
     location: bundle && bundle.location ? {
       status: bundle.location.status || null,
@@ -110,6 +111,21 @@ function buildResidentialIncomeAiDecisionSnapshot(viewModel) {
       verifiedFeasibleCount: bundle.upside.metrics && finite(bundle.upside.metrics.verifiedFeasibleCount) ? bundle.upside.metrics.verifiedFeasibleCount : null,
       regulatoryVerificationRequiredCount: bundle.upside.metrics && finite(bundle.upside.metrics.regulatoryVerificationRequiredCount) ? bundle.upside.metrics.regulatoryVerificationRequiredCount : null,
       prohibitedCount: bundle.upside.metrics && finite(bundle.upside.metrics.prohibitedCount) ? bundle.upside.metrics.prohibitedCount : null,
+    } : null,
+    subdivision: subdivision ? {
+      status: subdivision.status || null,
+      scenarioTestingEligible: subdivision.scenarioTestingEligible === true,
+      checkCount: finite(subdivision.checkCount) ? subdivision.checkCount : null,
+      verifiedCheckCount: finite(subdivision.verifiedCheckCount) ? subdivision.verifiedCheckCount : null,
+      passCount: finite(subdivision.passCount) ? subdivision.passCount : null,
+      failCount: finite(subdivision.failCount) ? subdivision.failCount : null,
+      missingCount: finite(subdivision.missingCount) ? subdivision.missingCount : null,
+      evidenceCoverage: finite(subdivision.evidenceCoverage) ? subdivision.evidenceCoverage : null,
+      missingCheckTypes: Array.isArray(subdivision.missingCheckTypes) ? subdivision.missingCheckTypes.slice(0, MAX_ITEMS).map((item) => trimText(item, 120)).filter(Boolean) : [],
+      failedCheckTypes: Array.isArray(subdivision.failedCheckTypes) ? subdivision.failedCheckTypes.slice(0, MAX_ITEMS).map((item) => trimText(item, 120)).filter(Boolean) : [],
+      dueDiligenceCheckTypes: Array.isArray(subdivision.dueDiligenceCheckTypes) ? subdivision.dueDiligenceCheckTypes.slice(0, MAX_ITEMS).map((item) => trimText(item, 120)).filter(Boolean) : [],
+      authorityApprovalInferred: false,
+      automaticFinancializationAllowed: false,
     } : null,
     pricing: reverse && reverse.reverseUnderwritingCalculated === true ? {
       outcome: reverse.outcome || null,
