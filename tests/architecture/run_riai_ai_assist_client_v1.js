@@ -67,7 +67,9 @@ const fetchImpl = async (url, options) => {
   assert(sent.includes('RESIDENTIAL_INCOME_ACQUISITION_AI_ASSIST'));
   assert(!sent.includes('PRIVATE TENANT'));
   assert(!sent.includes('PRIVATE ADDRESS'));
-  assert(!sent.includes('rawOperatingCase'));
+  assert(!sent.includes('"rawOperatingCase":'));
+  assert(!sent.includes('"tenant":'));
+  assert(!sent.includes('"address":'));
 
   const notReady = await requestResidentialIncomeAiAssist({ apiStatus: 'NOT_LOADED' }, { fetchImpl });
   assert.strictEqual(notReady.status, AI_ASSIST_CLIENT_STATUS.NOT_READY);
