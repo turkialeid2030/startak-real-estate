@@ -136,7 +136,7 @@ assert.strictEqual(split.effectiveProbability, 0.5);
 assert.strictEqual(split.requiresRegulatoryVerification, true);
 assert.strictEqual(prohibited.prohibited, true);
 assert.strictEqual(prohibited.effectiveProbability, 0);
-assert.strictEqual(bundle.upside.metrics.regulatoryVerificationRequiredCount, 1);
+assert.strictEqual(bundle.upside.metrics.regulatoryVerificationRequiredCount, 2);
 assert.strictEqual(bundle.upside.legalConclusion, null);
 
 const partialLocationCase = {
@@ -237,7 +237,8 @@ const indexSource = fs.readFileSync(path.join(srcRoot, 'index.js'), 'utf8');
 assert.ok(apiSource.includes('calculateLifecycleLocationUpsideIntelligence'));
 assert.ok(apiSource.includes('calculateAcquisitionAnalyticalScore'));
 assert.ok(apiSource.includes('buildInvestmentCommitteePack'));
-assert.ok(apiSource.includes("capabilityStatus: 'LIFECYCLE_LOCATION_UPSIDE_AND_IC_V1'"));
+assert.ok(apiSource.includes("capabilityStatus: 'EXIT_STRATEGY_COMPARISON_V1'"));
+assert.ok(apiSource.includes("intelligenceExtensionStatus: 'LIFECYCLE_LOCATION_UPSIDE_AND_IC_V1'"));
 assert.ok(indexSource.includes("require('./lifecycle-location-upside')"));
 assert.ok(indexSource.includes("require('./decision-layer')"));
 
