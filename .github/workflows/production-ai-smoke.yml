@@ -1,0 +1,83 @@
+name: Production AI Smoke Verify
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'functions/api/riai/**'
+      - 'src/residential-income-acquisition/**'
+      - 'public/_headers'
+      - '.github/workflows/production-ai-smoke.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  production-ai-smoke:
+    name: production-ai-smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BASE_URL: https://startak-real-estate.pages.dev
+
+    steps:
+      - name: Verify public shell
+        shell: bash
+        run: |
+          set -euo pipefail
+          headers="$(mktemp)"
+          body="$(mktemp)"
+          status="$(curl -sS -D "$headers" -o "$body" -w '%{http_code}' "$BASE_URL/")"
+          test "$status" = '200' || { echo "Public shell returned HTTP $status"; exit 1; }
+          grep -Eqi '<!doctype html|<html' "$body" || { echo 'Public shell did not return HTML.'; exit 1; }
+          echo 'Public shell: PASS'
+
+      - name: Verify public AI runtime config
+        shell: bash
+        run: |
+          set -euo pipefail
+          body="$(mktemp)"
+          status="$(curl -sS -o "$body" -w '%{http_code}' "$BASE_URL/api/riai/public-config")"
+          test "$status" = '200' || { echo "Public config returned HTTP $status"; cat "$body"; exit 1; }
+          jq -e '.schemaVersion == 1 and .publicAiEnabled == true and (.turnstileSiteKey | type == "string" and length > 10)' "$body" >/dev/null
+          ! jq -e 'has("turnstileSecret") or has("providerKey") or has("providerUrl") or has("model")' "$body" >/dev/null || { echo 'Public config exposed restricted fields.'; exit 1; }
+          echo 'Public AI runtime config: PASS'
+
+      - name: Verify Turnstile fail-closed boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          body="$(mktemp)"
+          payload='{"decisionSnapshot":{"schemaVersion":1}}'
+          status="$(curl -sS -o "$body" -w '%{http_code}' -X POST "$BASE_URL/api/riai/ai-assist" -H 'content-type: application/json' -H 'origin: https://startak-real-estate.pages.dev' -H 'sec-fetch-site: same-origin' --data "$payload")"
+          test "$status" != '200' || { echo 'AI endpoint unexpectedly accepted request without Turnstile.'; exit 1; }
+          code="$(jq -r '.code // empty' "$body" 2>/dev/null || true)"
+          case "$code" in
+            TURNSTILE_TOKEN_REQUIRED|AI_SNAPSHOT_INVALID|AI_SNAPSHOT_NOT_READY) ;;
+            *) echo "Unexpected fail-closed code: ${code:-<none>} (HTTP $status)"; cat "$body"; exit 1 ;;
+          esac
+          echo "Turnstile fail-closed boundary: PASS ($code)"
+
+      - name: Verify browser security headers
+        shell: bash
+        run: |
+          set -euo pipefail
+          headers="$(mktemp)"
+          curl -sS -D "$headers" -o /dev/null "$BASE_URL/"
+          grep -Eqi '^content-security-policy:.*challenges\.cloudflare\.com' "$headers" || { echo 'CSP does not allow Cloudflare Turnstile.'; cat "$headers"; exit 1; }
+          echo 'Turnstile CSP: PASS'
+
+      - name: Publish summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## STARTAK Production AI Smoke'
+            echo
+            echo '- Public shell reachability checked.'
+            echo '- Public AI config checked for enabled Turnstile and secret non-disclosure.'
+            echo '- AI endpoint checked to fail closed without a valid Turnstile token.'
+            echo '- CSP checked for Turnstile browser support.'
+            echo '- This smoke test does not bypass Turnstile and therefore does not fabricate a valid human challenge token.'
+          } >> "$GITHUB_STEP_SUMMARY"
