@@ -8,25 +8,7 @@ const { createContext, useContext, useState, useEffect } = React;
 const arSA = require('./locales/ar-SA.js');
 const en = require('./locales/en.js');
 
-const VERDICT_TRANSLATIONS = Object.freeze({
-  'ar-SA': Object.freeze({ incompleteInputs: 'مدخل مطلوب مفقود' }),
-  en: Object.freeze({ incompleteInputs: 'Required input missing' }),
-});
-
-function withVerdictTranslations(baseDictionary, locale) {
-  return Object.freeze({
-    ...baseDictionary,
-    recommendation: Object.freeze({
-      ...(baseDictionary.recommendation || {}),
-      ...VERDICT_TRANSLATIONS[locale],
-    }),
-  });
-}
-
-const LOCALES = {
-  'ar-SA': { dir: 'rtl', dict: withVerdictTranslations(arSA, 'ar-SA') },
-  en: { dir: 'ltr', dict: withVerdictTranslations(en, 'en') },
-};
+const LOCALES = { 'ar-SA': { dir: 'rtl', dict: arSA }, en: { dir: 'ltr', dict: en } };
 const LocaleContext = createContext(null);
 
 function LocaleProvider({ children, defaultLocale = 'ar-SA' }) {
