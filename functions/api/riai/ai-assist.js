@@ -23,6 +23,11 @@ const DEFAULT_MAX_OUTPUT_TOKENS = 1200;
 const MIN_MAX_OUTPUT_TOKENS = 128;
 const MAX_MAX_OUTPUT_TOKENS = 4096;
 const ALLOWED_TOKEN_LIMIT_FIELDS = new Set(['max_tokens', 'max_completion_tokens']);
+const PROVIDER_PROTOCOL = Object.freeze({
+  CHAT_COMPLETIONS: 'CHAT_COMPLETIONS',
+  OPENAI_RESPONSES: 'OPENAI_RESPONSES',
+});
+const ALLOWED_PROVIDER_PROTOCOLS = new Set(Object.values(PROVIDER_PROTOCOL));
 const ALLOWED_SEVERITY = new Set(['LOW', 'MEDIUM', 'HIGH']);
 const MAX_ITEMS = 8;
 const MAX_TEXT = 500;
@@ -181,6 +186,12 @@ function allowedProviderUrl(env) {
   return { url };
 }
 
+function resolveProviderProtocol(env) {
+  const value = trimText(env.RIAI_AI_PROVIDER_PROTOCOL, 64) || PROVIDER_PROTOCOL.CHAT_COMPLETIONS;
+  if (!ALLOWED_PROVIDER_PROTOCOLS.has(value)) return { error: 'AI_PROVIDER_PROTOCOL_INVALID' };
+  return { value };
+}
+
 function providerOutputBudget(env) {
   const rawLimit = trimText(env.RIAI_AI_MAX_OUTPUT_TOKENS, 32);
   const value = rawLimit ? Number(rawLimit) : DEFAULT_MAX_OUTPUT_TOKENS;
@@ -208,8 +219,118 @@ function systemPrompt() {
   ].join(' ');
 }
 
+function providerResponseSchema() {
+  const shortText = { type: 'string', minLength: 1, maxLength: MAX_TEXT };
+  return {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'executiveObservations',
+      'riskFlags',
+      'evidenceGaps',
+      'dueDiligenceQuestions',
+      'scenarioChecks',
+      'earlyWarningIndicators',
+      'decisionBoundary',
+    ],
+    properties: {
+      executiveObservations: { type: 'array', maxItems: MAX_ITEMS, items: shortText },
+      riskFlags: {
+        type: 'array',
+        maxItems: MAX_ITEMS,
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['code', 'severity', 'rationale'],
+          properties: {
+            code: { type: 'string', minLength: 1, maxLength: 120 },
+            severity: { type: 'string', enum: ['LOW', 'MEDIUM', 'HIGH'] },
+            rationale: shortText,
+          },
+        },
+      },
+      evidenceGaps: { type: 'array', maxItems: MAX_ITEMS, items: shortText },
+      dueDiligenceQuestions: { type: 'array', maxItems: MAX_ITEMS, items: shortText },
+      scenarioChecks: { type: 'array', maxItems: MAX_ITEMS, items: shortText },
+      earlyWarningIndicators: {
+        type: 'array',
+        maxItems: MAX_ITEMS,
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['indicator', 'whyItMatters'],
+          properties: {
+            indicator: { type: 'string', minLength: 1, maxLength: 220 },
+            whyItMatters: shortText,
+          },
+        },
+      },
+      decisionBoundary: shortText,
+    },
+  };
+}
+
+function buildProviderRequest(protocol, model, snapshot, outputBudget) {
+  if (protocol === PROVIDER_PROTOCOL.OPENAI_RESPONSES) {
+    return {
+      model,
+      store: false,
+      instructions: systemPrompt(),
+      input: [{
+        role: 'user',
+        content: [{ type: 'input_text', text: JSON.stringify(snapshot) }],
+      }],
+      max_output_tokens: outputBudget.value,
+      text: {
+        format: {
+          type: 'json_schema',
+          name: 'riai_ai_review',
+          strict: true,
+          schema: providerResponseSchema(),
+        },
+      },
+    };
+  }
+
+  const providerRequest = {
+    model,
+    temperature: 0,
+    response_format: { type: 'json_object' },
+    messages: [
+      { role: 'system', content: systemPrompt() },
+      { role: 'user', content: JSON.stringify(snapshot) },
+    ],
+  };
+  providerRequest[outputBudget.field] = outputBudget.value;
+  return providerRequest;
+}
+
+function extractResponsesOutputText(payload) {
+  if (typeof payload?.output_text === 'string' && payload.output_text.trim()) return { value: payload.output_text };
+  let refusalSeen = false;
+  for (const item of (Array.isArray(payload?.output) ? payload.output : [])) {
+    if (!item || item.type !== 'message' || !Array.isArray(item.content)) continue;
+    for (const part of item.content) {
+      if (part && part.type === 'refusal') refusalSeen = true;
+      if (part && part.type === 'output_text' && typeof part.text === 'string' && part.text.trim()) return { value: part.text };
+    }
+  }
+  if (refusalSeen) return { error: 'AI_PROVIDER_REFUSAL' };
+  return { error: 'AI_PROVIDER_RESPONSE_UNSUPPORTED' };
+}
+
 function extractProviderJson(payload) {
-  const content = payload && payload.choices && payload.choices[0] && payload.choices[0].message && payload.choices[0].message.content;
+  const protocol = arguments.length > 1 ? arguments[1] : PROVIDER_PROTOCOL.CHAT_COMPLETIONS;
+  let content;
+  if (protocol === PROVIDER_PROTOCOL.OPENAI_RESPONSES) {
+    if (payload && payload.status === 'incomplete') return { error: 'AI_PROVIDER_RESPONSE_INCOMPLETE' };
+    if (payload && payload.status && payload.status !== 'completed') return { error: 'AI_PROVIDER_RESPONSE_UNSUPPORTED' };
+    const extractedText = extractResponsesOutputText(payload);
+    if (extractedText.error) return extractedText;
+    content = extractedText.value;
+  } else {
+    content = payload && payload.choices && payload.choices[0] && payload.choices[0].message && payload.choices[0].message.content;
+  }
   if (typeof content !== 'string' || !content.trim()) return { error: 'AI_PROVIDER_RESPONSE_UNSUPPORTED' };
   try { return { value: JSON.parse(content) }; } catch (_) { return { error: 'AI_PROVIDER_JSON_INVALID' }; }
 }
@@ -385,6 +506,8 @@ export async function onRequestPost(context) {
 
   const provider = allowedProviderUrl(env);
   if (provider.error) return json({ ok: false, code: provider.error, aiModelUsed: false }, 503);
+  const protocol = resolveProviderProtocol(env);
+  if (protocol.error) return json({ ok: false, code: protocol.error, aiModelUsed: false }, 503);
   const apiKey = trimText(env.RIAI_AI_PROVIDER_KEY, 4096);
   const model = trimText(env.RIAI_AI_MODEL, 200);
   if (!apiKey || !model) return json({ ok: false, code: 'AI_PROVIDER_NOT_CONFIGURED', aiModelUsed: false }, 503);
@@ -411,16 +534,7 @@ export async function onRequestPost(context) {
     return json({ ok: false, code: tokenBudget.code, aiModelUsed: false }, tokenBudget.status, headers);
   }
 
-  const providerRequest = {
-    model,
-    temperature: 0,
-    response_format: { type: 'json_object' },
-    messages: [
-      { role: 'system', content: systemPrompt() },
-      { role: 'user', content: JSON.stringify(body.decisionSnapshot) },
-    ],
-  };
-  providerRequest[outputBudget.field] = outputBudget.value;
+  const providerRequest = buildProviderRequest(protocol.value, model, body.decisionSnapshot, outputBudget);
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
@@ -456,7 +570,7 @@ export async function onRequestPost(context) {
     await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'PROVIDER_FAILED', reasonCode: 'AI_PROVIDER_RESPONSE_INVALID_JSON', model, tokenLimit: outputBudget.value, startedAt });
     return json({ ok: false, code: 'AI_PROVIDER_RESPONSE_INVALID_JSON', aiModelUsed: false }, 502);
   }
-  const extracted = extractProviderJson(providerPayload);
+  const extracted = extractProviderJson(providerPayload, protocol.value);
   if (extracted.error) {
     await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'PROVIDER_FAILED', reasonCode: extracted.error, model, tokenLimit: outputBudget.value, startedAt });
     return json({ ok: false, code: extracted.error, aiModelUsed: false }, 502);
@@ -482,6 +596,7 @@ export async function onRequestPost(context) {
     schemaVersion: 1,
     aiModelUsed: true,
     model,
+    providerProtocol: protocol.value,
     generatedAt: new Date().toISOString(),
     advisoryOnly: true,
     deterministicScoreRemainsAuthoritative: true,
