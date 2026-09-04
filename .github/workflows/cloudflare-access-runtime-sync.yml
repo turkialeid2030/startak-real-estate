@@ -88,26 +88,73 @@ jobs:
             exit 1
           }
 
+          # Prefer an existing tightly-scoped STARTAK pilot Access group when one exists.
+          # Candidate names are exact and intentionally narrow; names/rules are not printed.
+          groups_json="$(curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/access/groups?per_page=1000")"
+          jq -e '.success == true' <<<"$groups_json" >/dev/null
+          pilot_group_matches="$(jq '[
+            .result[]
+            | select(
+                ((.name // "") | ascii_downcase) == "startak controlled pilot"
+                or ((.name // "") | ascii_downcase) == "startak real estate controlled pilot"
+                or ((.name // "") | ascii_downcase) == "startak pilot"
+                or ((.name // "") | ascii_downcase) == "startak real estate pilot"
+              )
+          ] | length' <<<"$groups_json")"
+          [[ "$pilot_group_matches" -le 1 ]] || {
+            echo 'Multiple exact STARTAK pilot Access groups were found; refusing ambiguous policy selection.'
+            exit 1
+          }
+          pilot_group_id="$(jq -r '[
+            .result[]
+            | select(
+                ((.name // "") | ascii_downcase) == "startak controlled pilot"
+                or ((.name // "") | ascii_downcase) == "startak real estate controlled pilot"
+                or ((.name // "") | ascii_downcase) == "startak pilot"
+                or ((.name // "") | ascii_downcase) == "startak real estate pilot"
+              )
+          ] | if length == 1 then .[0].id else empty end' <<<"$groups_json")"
+
           allow_count="$(jq '[.result[] | select(.decision == "allow")] | length' <<<"$policies_json")"
           if [[ "$allow_count" -eq 0 ]]; then
-            test -n "${CF_ALLOWED_EMAIL:-}" || {
-              echo 'CLOUDFLARE_ACCESS_ALLOWED_EMAIL repository secret is required because the production Access application has no Allow policy.'
+            if [[ -n "${CF_ALLOWED_EMAIL:-}" ]]; then
+              policy_mode='email'
+            elif [[ -n "$pilot_group_id" ]]; then
+              policy_mode='group'
+            else
+              echo 'No production Allow policy exists, no exact STARTAK pilot Access group exists, and CLOUDFLARE_ACCESS_ALLOWED_EMAIL is not configured.'
+              echo 'Configure the repository secret or create an exact STARTAK pilot Access group; fail-closed activation remains enforced.'
               exit 1
-            }
+            fi
 
             if [[ "$GITHUB_EVENT_NAME" == 'pull_request' ]]; then
-              echo '::notice::No production Allow policy exists. A single-email controlled-pilot policy will be created after merge.'
+              if [[ "$policy_mode" == 'email' ]]; then
+                echo '::notice::No production Allow policy exists. A single-email controlled-pilot policy will be created after merge.'
+              else
+                echo '::notice::No production Allow policy exists. The exact existing STARTAK pilot Access group will be used after merge.'
+              fi
             else
-              payload="$(jq -n --arg email "$CF_ALLOWED_EMAIL" '{
-                name: "STARTAK Controlled Pilot - Email Allow",
-                decision: "allow",
-                precedence: 1,
-                include: [{email: {email: $email}}],
-                session_duration: "24h"
-              }')"
+              if [[ "$policy_mode" == 'email' ]]; then
+                payload="$(jq -n --arg email "$CF_ALLOWED_EMAIL" '{
+                  name: "STARTAK Controlled Pilot - Email Allow",
+                  decision: "allow",
+                  precedence: 1,
+                  include: [{email: {email: $email}}],
+                  session_duration: "24h"
+                }')"
+              else
+                payload="$(jq -n --arg group_id "$pilot_group_id" '{
+                  name: "STARTAK Controlled Pilot - Group Allow",
+                  decision: "allow",
+                  precedence: 1,
+                  include: [{group: {id: $group_id}}],
+                  session_duration: "24h"
+                }')"
+              fi
+
               create_json="$(curl -fsS -X POST "${auth[@]}" "$policies_url" --data "$payload")"
               jq -e '.success == true' <<<"$create_json" >/dev/null
-              echo 'Created single-email production Access Allow policy for the controlled pilot.'
+              echo 'Created a tightly-scoped production Access Allow policy for the controlled pilot.'
               policies_json="$(curl -fsS "${auth[@]}" "${policies_url}?per_page=1000")"
               jq -e '.success == true' <<<"$policies_json" >/dev/null
               allow_count="$(jq '[.result[] | select(.decision == "allow")] | length' <<<"$policies_json")"
@@ -259,7 +306,7 @@ jobs:
             echo "- Issuer: \`${CF_ACCESS_ISSUER}\`"
             echo "- Event: \`${GITHUB_EVENT_NAME}\`"
             echo '- AUD is discovered from the exact production Access application and is not hard-coded.'
-            echo '- Missing Allow policy is reconciled only to a single authorized email supplied as a repository secret.'
-            echo '- Include Everyone is prohibited.'
-            echo '- Cloudflare API token and allowed email are never printed.'
+            echo '- Missing Allow policy may use either a single authorized email secret or one exact pre-existing STARTAK pilot Access group.'
+            echo '- Include Everyone is prohibited and ambiguous group selection fails closed.'
+            echo '- Cloudflare API token, allowed email, group names, and group rule values are never printed.'
           } >> "$GITHUB_STEP_SUMMARY"
