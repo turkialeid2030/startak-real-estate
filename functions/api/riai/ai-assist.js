@@ -1,4 +1,19 @@
-import { enforceSnapshotDataDiscipline, resolveRateLimitConfig, checkAndConsumeRateLimit, buildAuditRecord, writeAuditRecord } from './_guardrails.mjs';
+import {
+  enforceSnapshotDataDiscipline,
+  resolveRateLimitConfig,
+  checkAndConsumeRateLimit,
+  buildAuditRecord,
+  writeAuditRecord,
+} from './_guardrails.mjs';
+import {
+  validateSameOriginRequest,
+  publicAiEnabled,
+  verifyTurnstile,
+  createPublicAccessIdentity,
+  resolveTokenBudgetConfig,
+  estimateProviderTokenReservation,
+  checkAndReserveGlobalTokenBudget,
+} from './_public-ai-security.mjs';
 
 const MAX_REQUEST_BYTES = 32768;
 const MAX_PROVIDER_BYTES = 65536;
@@ -32,7 +47,20 @@ function json(body, status = 200, extraHeaders) {
   });
 }
 
-async function recordAudit(context, { access, snapshot, outcome, reasonCode = null, model = null, resultSummary = null, startedAt }) {
+function trimText(value, max = MAX_TEXT) {
+  return typeof value === 'string' ? value.trim().slice(0, max) : '';
+}
+
+async function recordAudit(context, {
+  access,
+  snapshot,
+  outcome,
+  reasonCode = null,
+  model = null,
+  resultSummary = null,
+  tokenLimit = null,
+  startedAt,
+}) {
   try {
     const store = context.env && context.env.RIAI_AUDIT_KV;
     if (!store) return { written: false, code: 'AI_AUDIT_STORE_UNAVAILABLE' };
@@ -43,6 +71,7 @@ async function recordAudit(context, { access, snapshot, outcome, reasonCode = nu
       model,
       outcome,
       reasonCode,
+      tokenLimit,
       accessMode: access && access.mode,
       latencyMs: Number.isFinite(startedAt) ? Date.now() - startedAt : null,
       resultSummary,
@@ -55,16 +84,10 @@ async function recordAudit(context, { access, snapshot, outcome, reasonCode = nu
 
 function summarizeSeverity(result) {
   const counts = { LOW: 0, MEDIUM: 0, HIGH: 0 };
-  for (const bucket of ['riskFlags']) {
-    for (const item of (result && Array.isArray(result[bucket]) ? result[bucket] : [])) {
-      if (item && ALLOWED_SEVERITY.has(item.severity)) counts[item.severity] += 1;
-    }
+  for (const item of (result && Array.isArray(result.riskFlags) ? result.riskFlags : [])) {
+    if (item && ALLOWED_SEVERITY.has(item.severity)) counts[item.severity] += 1;
   }
   return counts;
-}
-
-function trimText(value, max = MAX_TEXT) {
-  return typeof value === 'string' ? value.trim().slice(0, max) : '';
 }
 
 function containsForbiddenDecisionLanguage(value) {
@@ -201,11 +224,8 @@ function base64UrlToBytes(value) {
 }
 
 function decodeJwtJson(segment) {
-  try {
-    return JSON.parse(new TextDecoder().decode(base64UrlToBytes(segment)));
-  } catch (_) {
-    return null;
-  }
+  try { return JSON.parse(new TextDecoder().decode(base64UrlToBytes(segment))); }
+  catch (_) { return null; }
 }
 
 function normalizeIssuer(value) {
@@ -227,22 +247,23 @@ function validateAccessIssuer(rawIssuer) {
   return { issuer, normalized: normalizeIssuer(issuer.toString()) };
 }
 
+function isLocalDevelopment(request, env) {
+  let hostname = '';
+  try { hostname = new URL(request.url).hostname; } catch (_) { return false; }
+  return env.RIAI_AI_ALLOW_LOCAL_UNAUTHENTICATED === 'true'
+    && ['localhost', '127.0.0.1', '::1'].includes(hostname);
+}
+
 async function verifyCloudflareAccess(request, env) {
-  const requestUrl = new URL(request.url);
-  const localDevelopment = env.RIAI_AI_ALLOW_LOCAL_UNAUTHENTICATED === 'true'
-    && ['localhost', '127.0.0.1', '::1'].includes(requestUrl.hostname);
-  if (localDevelopment) return { ok: true, mode: 'LOCAL_DEVELOPMENT', subject: 'LOCAL_DEVELOPMENT' };
+  if (isLocalDevelopment(request, env)) {
+    return { ok: true, mode: 'LOCAL_DEVELOPMENT', subject: 'LOCAL_DEVELOPMENT' };
+  }
 
   const issuerRaw = trimText(env.RIAI_AI_ACCESS_ISSUER, 2048);
   const expectedAud = trimText(env.RIAI_AI_ACCESS_AUD, 512);
   if (!issuerRaw || !expectedAud) return { ok: false, status: 503, code: 'AI_ACCESS_NOT_CONFIGURED' };
   const issuerResult = validateAccessIssuer(issuerRaw);
   if (issuerResult.error) return { ok: false, status: 503, code: issuerResult.error };
-
-  const origin = request.headers.get('origin');
-  if (origin && origin !== requestUrl.origin) return { ok: false, status: 403, code: 'AI_CROSS_ORIGIN_REQUEST_BLOCKED' };
-  const fetchSite = request.headers.get('sec-fetch-site');
-  if (fetchSite && fetchSite !== 'same-origin' && fetchSite !== 'none') return { ok: false, status: 403, code: 'AI_CROSS_SITE_REQUEST_BLOCKED' };
 
   const token = trimText(request.headers.get('cf-access-jwt-assertion'), 20000);
   if (!token) return { ok: false, status: 401, code: 'AI_ACCESS_REQUIRED' };
@@ -265,11 +286,7 @@ async function verifyCloudflareAccess(request, env) {
   const timer = setTimeout(() => controller.abort(), ACCESS_CERT_TIMEOUT_MS);
   let certResponse;
   try {
-    certResponse = await fetch(certUrl, {
-      method: 'GET',
-      headers: { accept: 'application/json' },
-      signal: controller.signal,
-    });
+    certResponse = await fetch(certUrl, { method: 'GET', headers: { accept: 'application/json' }, signal: controller.signal });
   } catch (_) {
     clearTimeout(timer);
     return { ok: false, status: 503, code: 'AI_ACCESS_CERTS_UNAVAILABLE' };
@@ -278,7 +295,8 @@ async function verifyCloudflareAccess(request, env) {
   if (!certResponse.ok) return { ok: false, status: 503, code: 'AI_ACCESS_CERTS_UNAVAILABLE' };
 
   let certPayload;
-  try { certPayload = await certResponse.json(); } catch (_) { return { ok: false, status: 503, code: 'AI_ACCESS_CERTS_INVALID' }; }
+  try { certPayload = await certResponse.json(); }
+  catch (_) { return { ok: false, status: 503, code: 'AI_ACCESS_CERTS_INVALID' }; }
   const key = Array.isArray(certPayload && certPayload.keys)
     ? certPayload.keys.find((candidate) => candidate && candidate.kid === header.kid)
     : null;
@@ -286,13 +304,7 @@ async function verifyCloudflareAccess(request, env) {
 
   let cryptoKey;
   try {
-    cryptoKey = await crypto.subtle.importKey(
-      'jwk',
-      key,
-      { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-      false,
-      ['verify'],
-    );
+    cryptoKey = await crypto.subtle.importKey('jwk', key, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
   } catch (_) {
     return { ok: false, status: 503, code: 'AI_ACCESS_SIGNING_KEY_INVALID' };
   }
@@ -310,55 +322,94 @@ async function verifyCloudflareAccess(request, env) {
   }
   if (!verified) return { ok: false, status: 401, code: 'AI_ACCESS_TOKEN_SIGNATURE_INVALID' };
 
-  return { ok: true, mode: 'CLOUDFLARE_ACCESS', subjectPresent: Boolean(payload.sub), subject: trimText(payload.sub, 256) || trimText(payload.email, 256) || null };
+  return {
+    ok: true,
+    mode: 'CLOUDFLARE_ACCESS',
+    subjectPresent: Boolean(payload.sub),
+    subject: trimText(payload.sub, 256) || trimText(payload.email, 256) || null,
+  };
+}
+
+async function resolveAccess(request, env, body) {
+  if (isLocalDevelopment(request, env)) return verifyCloudflareAccess(request, env);
+
+  const accessAssertion = trimText(request.headers.get('cf-access-jwt-assertion'), 20000);
+  if (accessAssertion) {
+    return verifyCloudflareAccess(request, env);
+  }
+
+  if (!publicAiEnabled(env)) return verifyCloudflareAccess(request, env);
+
+  const turnstile = await verifyTurnstile({ request, env, token: body && body.turnstileToken });
+  if (!turnstile.ok) return turnstile;
+  return createPublicAccessIdentity(request, env);
 }
 
 export async function onRequestPost(context) {
   const request = context.request;
+  const env = context.env || {};
   const startedAt = Date.now();
-  const access = await verifyCloudflareAccess(request, context.env || {});
+
+  const sameOrigin = validateSameOriginRequest(request);
+  if (!sameOrigin.ok) return json({ ok: false, code: sameOrigin.code, aiModelUsed: false }, sameOrigin.status);
+
+  const contentType = request.headers.get('content-type') || '';
+  if (!contentType.toLowerCase().includes('application/json')) return json({ ok: false, code: 'JSON_CONTENT_TYPE_REQUIRED', aiModelUsed: false }, 415);
+  const lengthHeader = Number(request.headers.get('content-length'));
+  if (Number.isFinite(lengthHeader) && lengthHeader > MAX_REQUEST_BYTES) return json({ ok: false, code: 'REQUEST_TOO_LARGE', aiModelUsed: false }, 413);
+
+  let text;
+  try { text = await request.text(); } catch (_) { return json({ ok: false, code: 'REQUEST_READ_FAILED', aiModelUsed: false }, 400); }
+  if (new TextEncoder().encode(text).length > MAX_REQUEST_BYTES) return json({ ok: false, code: 'REQUEST_TOO_LARGE', aiModelUsed: false }, 413);
+
+  let body;
+  try { body = JSON.parse(text); } catch (_) { return json({ ok: false, code: 'INVALID_JSON', aiModelUsed: false }, 400); }
+  const snapshotError = validateSnapshot(body && body.decisionSnapshot);
+  if (snapshotError) return json({ ok: false, code: snapshotError, aiModelUsed: false }, 400);
+  const disciplineResult = enforceSnapshotDataDiscipline(body.decisionSnapshot);
+  if (!disciplineResult.ok) return json({ ok: false, code: disciplineResult.code, aiModelUsed: false }, 400);
+
+  const access = await resolveAccess(request, env, body);
   if (!access.ok) return json({ ok: false, code: access.code, aiModelUsed: false }, access.status);
 
   const rateLimitResult = await checkAndConsumeRateLimit({
-    store: context.env && context.env.RIAI_RATE_LIMIT_KV,
+    store: env.RIAI_RATE_LIMIT_KV,
     subjectKey: access.subject,
-    config: resolveRateLimitConfig(context.env || {}),
+    config: resolveRateLimitConfig(env),
   });
   if (!rateLimitResult.allowed) {
-    await recordAudit(context, { access, snapshot: null, outcome: 'RATE_LIMITED', reasonCode: rateLimitResult.code, startedAt });
+    await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'RATE_LIMITED', reasonCode: rateLimitResult.code, startedAt });
     const headers = rateLimitResult.retryAfterSeconds ? { 'retry-after': String(rateLimitResult.retryAfterSeconds) } : undefined;
     return json({ ok: false, code: rateLimitResult.code, aiModelUsed: false }, rateLimitResult.status, headers);
   }
 
-  const contentType = request.headers.get('content-type') || '';
-  if (!contentType.toLowerCase().includes('application/json')) return json({ ok: false, code: 'JSON_CONTENT_TYPE_REQUIRED' }, 415);
-  const lengthHeader = Number(request.headers.get('content-length'));
-  if (Number.isFinite(lengthHeader) && lengthHeader > MAX_REQUEST_BYTES) return json({ ok: false, code: 'REQUEST_TOO_LARGE' }, 413);
-
-  let text;
-  try { text = await request.text(); } catch (_) { return json({ ok: false, code: 'REQUEST_READ_FAILED' }, 400); }
-  if (new TextEncoder().encode(text).length > MAX_REQUEST_BYTES) return json({ ok: false, code: 'REQUEST_TOO_LARGE' }, 413);
-
-  let body;
-  try { body = JSON.parse(text); } catch (_) { return json({ ok: false, code: 'INVALID_JSON' }, 400); }
-  const snapshotError = validateSnapshot(body && body.decisionSnapshot);
-  if (snapshotError) {
-    await recordAudit(context, { access, snapshot: body && body.decisionSnapshot, outcome: 'REJECTED', reasonCode: snapshotError, startedAt });
-    return json({ ok: false, code: snapshotError }, 400);
-  }
-  const disciplineResult = enforceSnapshotDataDiscipline(body.decisionSnapshot);
-  if (!disciplineResult.ok) {
-    await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'REJECTED', reasonCode: disciplineResult.code, startedAt });
-    return json({ ok: false, code: disciplineResult.code }, 400);
-  }
-
-  const provider = allowedProviderUrl(context.env || {});
+  const provider = allowedProviderUrl(env);
   if (provider.error) return json({ ok: false, code: provider.error, aiModelUsed: false }, 503);
-  const apiKey = trimText(context.env.RIAI_AI_PROVIDER_KEY, 4096);
-  const model = trimText(context.env.RIAI_AI_MODEL, 200);
+  const apiKey = trimText(env.RIAI_AI_PROVIDER_KEY, 4096);
+  const model = trimText(env.RIAI_AI_MODEL, 200);
   if (!apiKey || !model) return json({ ok: false, code: 'AI_PROVIDER_NOT_CONFIGURED', aiModelUsed: false }, 503);
-  const outputBudget = providerOutputBudget(context.env || {});
+  const outputBudget = providerOutputBudget(env);
   if (outputBudget.error) return json({ ok: false, code: outputBudget.error, aiModelUsed: false }, 503);
+
+  const tokenReservation = estimateProviderTokenReservation(body.decisionSnapshot, outputBudget.value);
+  const tokenBudget = await checkAndReserveGlobalTokenBudget({
+    store: env.RIAI_RATE_LIMIT_KV,
+    estimatedTokens: tokenReservation,
+    config: resolveTokenBudgetConfig(env),
+  });
+  if (!tokenBudget.allowed) {
+    await recordAudit(context, {
+      access,
+      snapshot: body.decisionSnapshot,
+      outcome: 'BUDGET_BLOCKED',
+      reasonCode: tokenBudget.code,
+      model,
+      tokenLimit: outputBudget.value,
+      startedAt,
+    });
+    const headers = tokenBudget.retryAfterSeconds ? { 'retry-after': String(tokenBudget.retryAfterSeconds) } : undefined;
+    return json({ ok: false, code: tokenBudget.code, aiModelUsed: false }, tokenBudget.status, headers);
+  }
 
   const providerRequest = {
     model,
@@ -384,33 +435,35 @@ export async function onRequestPost(context) {
   } catch (error) {
     clearTimeout(timer);
     const code = error && error.name === 'AbortError' ? 'AI_PROVIDER_TIMEOUT' : 'AI_PROVIDER_UNREACHABLE';
-    await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'PROVIDER_FAILED', reasonCode: code, model, startedAt });
+    await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'PROVIDER_FAILED', reasonCode: code, model, tokenLimit: outputBudget.value, startedAt });
     return json({ ok: false, code, aiModelUsed: false }, 502);
   }
   clearTimeout(timer);
 
   if (!providerResponse.ok) {
-    await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'PROVIDER_FAILED', reasonCode: 'AI_PROVIDER_REJECTED_REQUEST', model, startedAt });
+    await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'PROVIDER_FAILED', reasonCode: 'AI_PROVIDER_REJECTED_REQUEST', model, tokenLimit: outputBudget.value, startedAt });
     return json({ ok: false, code: 'AI_PROVIDER_REJECTED_REQUEST', providerStatus: providerResponse.status, aiModelUsed: false }, 502);
   }
   const providerText = await providerResponse.text();
   if (new TextEncoder().encode(providerText).length > MAX_PROVIDER_BYTES) {
-    await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'PROVIDER_FAILED', reasonCode: 'AI_PROVIDER_RESPONSE_TOO_LARGE', model, startedAt });
+    await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'PROVIDER_FAILED', reasonCode: 'AI_PROVIDER_RESPONSE_TOO_LARGE', model, tokenLimit: outputBudget.value, startedAt });
     return json({ ok: false, code: 'AI_PROVIDER_RESPONSE_TOO_LARGE', aiModelUsed: false }, 502);
   }
+
   let providerPayload;
-  try { providerPayload = JSON.parse(providerText); } catch (_) {
-    await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'PROVIDER_FAILED', reasonCode: 'AI_PROVIDER_RESPONSE_INVALID_JSON', model, startedAt });
+  try { providerPayload = JSON.parse(providerText); }
+  catch (_) {
+    await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'PROVIDER_FAILED', reasonCode: 'AI_PROVIDER_RESPONSE_INVALID_JSON', model, tokenLimit: outputBudget.value, startedAt });
     return json({ ok: false, code: 'AI_PROVIDER_RESPONSE_INVALID_JSON', aiModelUsed: false }, 502);
   }
   const extracted = extractProviderJson(providerPayload);
   if (extracted.error) {
-    await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'PROVIDER_FAILED', reasonCode: extracted.error, model, startedAt });
+    await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'PROVIDER_FAILED', reasonCode: extracted.error, model, tokenLimit: outputBudget.value, startedAt });
     return json({ ok: false, code: extracted.error, aiModelUsed: false }, 502);
   }
   const sanitized = sanitizeProviderOutput(extracted.value);
   if (sanitized.error) {
-    await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'OUTPUT_REJECTED', reasonCode: sanitized.error, model, startedAt });
+    await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'OUTPUT_REJECTED', reasonCode: sanitized.error, model, tokenLimit: outputBudget.value, startedAt });
     return json({ ok: false, code: sanitized.error, aiModelUsed: false }, 502);
   }
 
@@ -419,6 +472,7 @@ export async function onRequestPost(context) {
     snapshot: body.decisionSnapshot,
     outcome: 'SUCCESS',
     model,
+    tokenLimit: outputBudget.value,
     startedAt,
     resultSummary: { severityCounts: summarizeSeverity(sanitized.value) },
   });
