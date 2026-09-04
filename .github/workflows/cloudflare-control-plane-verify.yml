@@ -86,11 +86,18 @@ jobs:
             fi
           }
 
+          require_env RIAI_AI_PROVIDER_PROTOCOL
           require_env RIAI_AI_PROVIDER_URL
           require_env RIAI_AI_ALLOWED_HOSTS
           require_env RIAI_AI_PROVIDER_KEY
           require_env RIAI_AI_MODEL
           require_env RIAI_AI_GLOBAL_TOKEN_BUDGET_PER_DAY
+
+          provider_protocol="$(jq -r '.result.deployment_configs.production.env_vars.RIAI_AI_PROVIDER_PROTOCOL.value // empty' <<<"$project_json")"
+          if [[ -n "$provider_protocol" && "$provider_protocol" != 'CHAT_COMPLETIONS' && "$provider_protocol" != 'OPENAI_RESPONSES' ]]; then
+            echo 'Invalid RIAI_AI_PROVIDER_PROTOCOL; allowed values are CHAT_COMPLETIONS or OPENAI_RESPONSES.'
+            exit 1
+          fi
 
           public_enabled="$(jq -r '.result.deployment_configs.production.env_vars.RIAI_PUBLIC_AI_ENABLED.value // "false"' <<<"$project_json" | tr '[:upper:]' '[:lower:]')"
           if [[ "$public_enabled" == 'true' ]]; then
@@ -109,6 +116,7 @@ jobs:
             exit 1
           fi
 
+          echo "Provider protocol validated: ${provider_protocol}."
           echo 'Required governed AI activation variables are present; values and secrets were not printed.'
 
       - name: Verify KV namespaces
@@ -199,7 +207,7 @@ jobs:
             echo "- GitHub event: \`${GITHUB_EVENT_NAME}\`"
             echo "- Commit: \`${GITHUB_SHA}\`"
             echo '- Required Wave C KV bindings and audit secret are verified.'
-            echo '- Governed AI activation variables are verified by presence only; secret values are never printed.'
+            echo '- Governed AI activation variables and provider protocol are verified without printing secret values.'
             echo '- Production Access application must be an exact self-hosted match with an audience tag.'
             echo '- API token value is never printed.'
           } >> "$GITHUB_STEP_SUMMARY"
