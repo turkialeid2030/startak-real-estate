@@ -72,6 +72,45 @@ jobs:
 
           echo "Required Wave C Pages bindings are present."
 
+      - name: Verify governed AI activation variables
+        shell: bash
+        run: |
+          set -euo pipefail
+          project_json="$(cat /tmp/cf-project.json)"
+          missing=()
+
+          require_env() {
+            local key="$1"
+            if ! jq -e --arg key "$key" '.result.deployment_configs.production.env_vars[$key] != null' <<<"$project_json" >/dev/null; then
+              missing+=("$key")
+            fi
+          }
+
+          require_env RIAI_AI_PROVIDER_URL
+          require_env RIAI_AI_ALLOWED_HOSTS
+          require_env RIAI_AI_PROVIDER_KEY
+          require_env RIAI_AI_MODEL
+          require_env RIAI_AI_GLOBAL_TOKEN_BUDGET_PER_DAY
+
+          public_enabled="$(jq -r '.result.deployment_configs.production.env_vars.RIAI_PUBLIC_AI_ENABLED.value // "false"' <<<"$project_json" | tr '[:upper:]' '[:lower:]')"
+          if [[ "$public_enabled" == 'true' ]]; then
+            require_env RIAI_TURNSTILE_SITE_KEY
+            require_env RIAI_TURNSTILE_SECRET_KEY
+            echo 'AI activation mode detected: public Turnstile.'
+          else
+            require_env RIAI_AI_ACCESS_ISSUER
+            require_env RIAI_AI_ACCESS_AUD
+            echo 'AI activation mode detected: Cloudflare Access.'
+          fi
+
+          if (( ${#missing[@]} > 0 )); then
+            echo 'Missing production AI configuration keys:'
+            printf ' - %s\n' "${missing[@]}"
+            exit 1
+          fi
+
+          echo 'Required governed AI activation variables are present; values and secrets were not printed.'
+
       - name: Verify KV namespaces
         shell: bash
         run: |
@@ -160,6 +199,7 @@ jobs:
             echo "- GitHub event: \`${GITHUB_EVENT_NAME}\`"
             echo "- Commit: \`${GITHUB_SHA}\`"
             echo '- Required Wave C KV bindings and audit secret are verified.'
+            echo '- Governed AI activation variables are verified by presence only; secret values are never printed.'
             echo '- Production Access application must be an exact self-hosted match with an audience tag.'
             echo '- API token value is never printed.'
           } >> "$GITHUB_STEP_SUMMARY"
