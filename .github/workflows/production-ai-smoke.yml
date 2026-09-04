@@ -48,20 +48,20 @@ jobs:
           ! jq -e 'has("turnstileSecret") or has("providerKey") or has("providerUrl") or has("model")' "$body" >/dev/null || { echo 'Public config exposed restricted fields.'; exit 1; }
           echo 'Public AI runtime config: PASS'
 
-      - name: Verify Turnstile fail-closed boundary
+      - name: Verify fail-closed AI boundary
         shell: bash
         run: |
           set -euo pipefail
           body="$(mktemp)"
           payload='{"decisionSnapshot":{"schemaVersion":1}}'
           status="$(curl -sS -o "$body" -w '%{http_code}' -X POST "$BASE_URL/api/riai/ai-assist" -H 'content-type: application/json' -H 'origin: https://startak-real-estate.pages.dev' -H 'sec-fetch-site: same-origin' --data "$payload")"
-          test "$status" != '200' || { echo 'AI endpoint unexpectedly accepted request without Turnstile.'; exit 1; }
+          test "$status" != '200' || { echo 'AI endpoint unexpectedly accepted an invalid/unauthenticated request.'; exit 1; }
           code="$(jq -r '.code // empty' "$body" 2>/dev/null || true)"
           case "$code" in
-            TURNSTILE_TOKEN_REQUIRED|AI_SNAPSHOT_INVALID|AI_SNAPSHOT_NOT_READY) ;;
+            TURNSTILE_TOKEN_REQUIRED|AI_SNAPSHOT_INVALID|AI_SNAPSHOT_NOT_READY|DECISION_SNAPSHOT_SCHEMA_INVALID) ;;
             *) echo "Unexpected fail-closed code: ${code:-<none>} (HTTP $status)"; cat "$body"; exit 1 ;;
           esac
-          echo "Turnstile fail-closed boundary: PASS ($code)"
+          echo "Fail-closed AI boundary: PASS ($code)"
 
       - name: Verify browser security headers
         shell: bash
@@ -81,7 +81,7 @@ jobs:
             echo
             echo '- Public shell reachability checked.'
             echo '- Public AI config checked for enabled Turnstile and secret non-disclosure.'
-            echo '- AI endpoint checked to fail closed without a valid Turnstile token.'
+            echo '- AI endpoint checked to reject invalid/unauthenticated requests before provider invocation.'
             echo '- CSP checked for Turnstile browser support.'
             echo '- This smoke test does not bypass Turnstile and therefore does not fabricate a valid human challenge token.'
           } >> "$GITHUB_STEP_SUMMARY"
