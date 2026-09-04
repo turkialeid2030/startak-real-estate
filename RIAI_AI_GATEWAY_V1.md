@@ -41,14 +41,19 @@ No raw chain-of-thought, hidden policy, system instruction, credential, or secre
 
 ## Mandatory production access control
 
-The AI route is a quota-bearing server function and **must not be activated as an anonymous public endpoint**. Production activation requires Cloudflare Access in front of the application/route and cryptographic verification inside the Pages Function before any AI-provider request is made.
+The AI route is a quota-bearing server function and must never execute as an unprotected anonymous provider proxy. Production supports two explicit, fail-closed access modes:
 
-Required server-side variables:
+1. **Cloudflare Access mode** for authenticated/internal users. A presented `Cf-Access-Jwt-Assertion` is cryptographically verified and, if invalid, is rejected. An invalid Access assertion never falls back to the public path.
+2. **Public Turnstile mode** for intentionally enabled public use. This mode is disabled by default and is available only when `RIAI_PUBLIC_AI_ENABLED=true`. It requires a valid Cloudflare Turnstile token, exact hostname/action verification, same-origin request checks, application rate limits, and the global AI token-budget guard before provider invocation.
 
-- `RIAI_AI_ACCESS_ISSUER` — the HTTPS Cloudflare Access issuer/team domain, for example the tenant-specific `https://<team>.cloudflareaccess.com` issuer.
+If public AI is disabled and no valid Access assertion is supplied, the route remains governed by the Cloudflare Access configuration and fails closed when Access is absent or not configured.
+
+### Cloudflare Access variables
+
+- `RIAI_AI_ACCESS_ISSUER` — the HTTPS Cloudflare Access issuer/team domain, for example `https://<team>.cloudflareaccess.com`.
 - `RIAI_AI_ACCESS_AUD` — the expected Cloudflare Access application audience tag.
 
-The gateway requires `Cf-Access-Jwt-Assertion` and verifies:
+Cloudflare Access verification checks:
 
 - JWT structure and `RS256` algorithm;
 - `kid` signing-key identifier;
@@ -58,7 +63,17 @@ The gateway requires `Cf-Access-Jwt-Assertion` and verifies:
 - the issuer certificate set from `/cdn-cgi/access/certs`;
 - RSA PKCS#1 v1.5 SHA-256 signature with Web Crypto.
 
-It also rejects cross-origin `Origin` values and cross-site `Sec-Fetch-Site` requests. Missing or invalid Access configuration fails closed before provider configuration is evaluated.
+### Public Turnstile variables
+
+- `RIAI_PUBLIC_AI_ENABLED=true` — explicit public-mode activation switch.
+- `RIAI_TURNSTILE_SITE_KEY` — public browser site key returned only by the non-secret public config endpoint.
+- `RIAI_TURNSTILE_SECRET_KEY` — server-side secret used only for Siteverify.
+- `RIAI_AUDIT_SUBJECT_SALT` — server-side secret used to hash the Cloudflare connecting IP into a pseudonymous subject; the raw IP is not persisted.
+- `RIAI_AI_GLOBAL_TOKEN_BUDGET_PER_DAY` — required positive integer daily estimated-token budget.
+
+Turnstile verification requires the expected `riai_ai_assist` action and exact request hostname. Turnstile tokens are not sent to the AI provider and are not written to the audit store.
+
+The route rejects cross-origin `Origin` values and cross-site `Sec-Fetch-Site` requests before external verification/provider calls.
 
 Local unauthenticated development is permitted only when **both** conditions are true:
 
@@ -78,60 +93,70 @@ The Cloudflare Pages Function is `POST /api/riai/ai-assist` and uses server-side
 - `RIAI_AI_MAX_OUTPUT_TOKENS` — optional bounded output-token ceiling. Default `1200`; accepted range `128..4096`.
 - `RIAI_AI_TOKEN_LIMIT_FIELD` — optional provider-compatibility selector. Allowed values are only `max_tokens` or `max_completion_tokens`; default is `max_tokens`.
 
-Invalid token-budget configuration fails closed and does not invoke the provider. If Access is valid but any required provider configuration is absent, the endpoint fails closed with `AI_PROVIDER_NOT_CONFIGURED` and `aiModelUsed=false`.
+Invalid provider or token-budget configuration fails closed and does not invoke the provider.
 
 ## Operational controls
 
-- Cloudflare Access verification occurs before AI-provider invocation.
+- Same-origin enforcement occurs before Cloudflare Access, Turnstile, or AI-provider invocation.
+- Cloudflare Access verification occurs before AI-provider invocation whenever an Access assertion is present or public mode is disabled.
+- Presented invalid Access assertions never downgrade to Turnstile.
+- Public Turnstile verification occurs before provider invocation when public mode is explicitly enabled and no Access assertion is presented.
 - HTTPS-only Access issuer restricted to `cloudflareaccess.com` or its subdomains.
 - HTTPS-only AI-provider endpoint.
 - Explicit provider-host allowlist to prevent arbitrary outbound requests/SSRF.
-- Same-origin browser request controls.
 - 32 KiB request cap and 64 KiB provider-response cap.
 - 15 second provider timeout and 5 second Access-certificate timeout.
 - Bounded provider output-token budget with a fixed safe default and hard min/max limits.
+- Required global daily estimated-token reservation guard before provider invocation.
 - Provider token-limit field is selected from a two-value allowlist; arbitrary request-field injection is prohibited.
 - `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, and `Referrer-Policy: no-referrer` on gateway responses.
-- No provider credential in frontend source or persisted deal records.
+- No provider credential, Turnstile secret, raw connecting IP, or Turnstile token is persisted in client state or audit payloads.
 - No raw chain-of-thought request or response; the provider is instructed to return concise structured conclusions only.
 - AI output cannot alter NPV, IRR, NOI, cap rates, terminal value, acquisition price limits, or the deterministic analytical score.
 - AI review is manually invoked by the user and the result remains ephemeral UI state.
 
-Cloudflare Access is authentication/authorization, not a substitute for quota management. Before external or institutional use, configure Cloudflare Rate Limiting/WAF or an equivalent account-level quota control for `/api/riai/ai-assist`. This account-level control is intentionally not simulated with an in-memory application limiter.
+Cloudflare Access/Turnstile are access-control layers, not substitutes for quota management. Keep Cloudflare Rate Limiting/WAF or an equivalent account-level quota control for `/api/riai/ai-assist` in addition to the application KV rate and token-budget guards.
 
 ## Production activation sequence
 
-1. Create/configure the Cloudflare Access application and identity policy for the intended authorized users.
-2. Obtain the Access issuer and application audience tag.
-3. Set `RIAI_AI_ACCESS_ISSUER` and `RIAI_AI_ACCESS_AUD` as Cloudflare server-side environment variables.
-4. Configure `RIAI_AI_PROVIDER_URL` and the exact `RIAI_AI_ALLOWED_HOSTS` allowlist.
-5. Store `RIAI_AI_PROVIDER_KEY` as a secret and set `RIAI_AI_MODEL` explicitly.
-6. Set the provider-compatible token ceiling: normally `RIAI_AI_MAX_OUTPUT_TOKENS=1200`; set `RIAI_AI_TOKEN_LIMIT_FIELD=max_completion_tokens` only when the selected provider/model requires that field instead of `max_tokens`.
-7. Configure an account-level rate limit / WAF quota for `/api/riai/ai-assist` appropriate to the authorized pilot population and provider budget.
-8. Confirm `RIAI_AI_ALLOW_LOCAL_UNAUTHENTICATED` is absent/false in production.
-9. Run an authenticated synthetic AI review and verify a structured response.
-10. Confirm an unauthenticated request returns `AI_ACCESS_REQUIRED` and does not invoke the provider.
-11. Confirm a wrong-audience or wrong-issuer token is rejected.
-12. Submit adversarial snapshot text containing embedded instructions and confirm it cannot override the system/decision boundary.
-13. Confirm forbidden decision language in `decisionBoundary` is rejected.
-14. Re-run the canonical release, comprehensive browser, and deep-platform gates before institutional activation.
+1. Keep `RIAI_AI_ALLOW_LOCAL_UNAUTHENTICATED` absent/false in production.
+2. Confirm `RIAI_RATE_LIMIT_KV` and `RIAI_AUDIT_KV` bindings are present.
+3. Configure `RIAI_AUDIT_SUBJECT_SALT` as a server-side secret.
+4. Configure `RIAI_AI_PROVIDER_URL`, exact `RIAI_AI_ALLOWED_HOSTS`, `RIAI_AI_PROVIDER_KEY`, and `RIAI_AI_MODEL`.
+5. Set `RIAI_AI_MAX_OUTPUT_TOKENS` and, only if required by the selected provider, `RIAI_AI_TOKEN_LIMIT_FIELD`.
+6. Set `RIAI_AI_GLOBAL_TOKEN_BUDGET_PER_DAY` to a positive daily budget.
+7. For internal/authenticated operation, configure the Cloudflare Access application, `RIAI_AI_ACCESS_ISSUER`, and `RIAI_AI_ACCESS_AUD`.
+8. For intentional public operation, create a Turnstile widget, set `RIAI_TURNSTILE_SITE_KEY` and secret `RIAI_TURNSTILE_SECRET_KEY`, then set `RIAI_PUBLIC_AI_ENABLED=true` only after the remaining controls are verified.
+9. Configure account-level Cloudflare Rate Limiting/WAF for `/api/riai/ai-assist` appropriate to the authorized population and provider budget.
+10. Run an authenticated Access synthetic review and verify a structured response when Access mode is used.
+11. Run a Turnstile-protected synthetic review when public mode is enabled and verify a structured response.
+12. Confirm a missing/invalid Turnstile token fails closed and does not invoke the provider.
+13. Confirm a presented malformed/wrong-audience/wrong-issuer Access assertion is rejected and never falls back to Turnstile.
+14. Confirm a cross-origin or cross-site request is rejected before any external verification/provider call.
+15. Confirm a missing global token budget fails closed and an exhausted budget returns a quota response before provider invocation.
+16. Submit adversarial snapshot text containing embedded instructions and confirm it cannot override the system/decision boundary.
+17. Confirm forbidden decision language in `decisionBoundary` is rejected.
+18. Re-run the canonical release, comprehensive browser, and deep-platform gates before production activation.
 
 ## Activation status
 
 Code path: IMPLEMENTED.
-Cloudflare Access configuration: EXTERNAL CONFIGURATION REQUIRED.
+Cloudflare Access configuration: EXTERNAL CONFIGURATION REQUIRED FOR ACCESS MODE.
+Cloudflare Turnstile configuration: EXTERNAL CONFIGURATION REQUIRED FOR PUBLIC MODE.
 Provider credential/model activation: EXTERNAL CONFIGURATION REQUIRED.
 Account-level rate limiting/WAF quota: EXTERNAL CONFIGURATION REQUIRED.
 Automatic investment/legal decisioning: PROHIBITED.
 
-## Wave C application-level guardrails
+## Wave C/Wave D application-level guardrails
 
-Wave C adds a fail-closed KV-backed rate limiter before provider invocation, an independent server-side token-shape privacy discipline over the decision snapshot, and a best-effort hash-only audit trail.
+Wave C added a fail-closed KV-backed rate limiter, independent server-side snapshot privacy discipline, and a best-effort hash-only audit trail. Wave D adds explicit public-mode Turnstile verification and a global estimated-token reservation guard before provider invocation while retaining Access as the authenticated/internal path.
 
 Required Cloudflare bindings/secrets before production AI activation:
+
 - `RIAI_RATE_LIMIT_KV` — required; missing binding returns `503 AI_RATE_LIMIT_STORE_UNAVAILABLE`.
 - `RIAI_AUDIT_KV` — recommended; audit is best-effort and does not block the user response.
-- `RIAI_AUDIT_SUBJECT_SALT` — set as a real secret in production.
-- Optional limits: `RIAI_AI_RATE_PER_MINUTE` (default 6), `RIAI_AI_RATE_PER_DAY` (default 60), `RIAI_AI_RATE_GLOBAL_PER_DAY` (default 2000).
+- `RIAI_AUDIT_SUBJECT_SALT` — required for public subject hashing; configure as a real secret.
+- `RIAI_AI_GLOBAL_TOKEN_BUDGET_PER_DAY` — required positive integer.
+- Optional rate limits: `RIAI_AI_RATE_PER_MINUTE` (default 6), `RIAI_AI_RATE_PER_DAY` (default 60), `RIAI_AI_RATE_GLOBAL_PER_DAY` (default 2000).
 
-Workers KV counters are eventually consistent and are a spend guard, not a strict security boundary. Keep account-level Cloudflare WAF/rate limiting in front of this endpoint; use a Durable Object if atomic counting becomes mandatory.
+Workers KV counters are eventually consistent and are operational spend guards, not strict atomic billing caps. Keep account-level Cloudflare WAF/rate limiting in front of this endpoint; use a Durable Object if atomic counting becomes mandatory.
