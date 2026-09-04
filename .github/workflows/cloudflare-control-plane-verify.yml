@@ -43,14 +43,11 @@ jobs:
         run: |
           set -euo pipefail
           auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
-
           token_json="$(curl -fsS "${auth[@]}" https://api.cloudflare.com/client/v4/user/tokens/verify)"
           jq -e '.success == true and .result.status == "active"' <<<"$token_json" >/dev/null
-
           project_json="$(curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}")"
           jq -e '.success == true' <<<"$project_json" >/dev/null
           jq -e '.result.production_branch == "main"' <<<"$project_json" >/dev/null
-
           printf '%s' "$project_json" > /tmp/cf-project.json
           echo "Cloudflare API token is active and can read the STARTAK Pages project."
 
@@ -59,18 +56,52 @@ jobs:
         run: |
           set -euo pipefail
           project_json="$(cat /tmp/cf-project.json)"
-
-          jq -e '.result.deployment_configs.production.kv_namespaces.RIAI_RATE_LIMIT_KV != null' <<<"$project_json" >/dev/null || {
-            echo 'Missing production binding: RIAI_RATE_LIMIT_KV'; exit 1;
-          }
-          jq -e '.result.deployment_configs.production.kv_namespaces.RIAI_AUDIT_KV != null' <<<"$project_json" >/dev/null || {
-            echo 'Missing production binding: RIAI_AUDIT_KV'; exit 1;
-          }
-          jq -e '.result.deployment_configs.production.env_vars.RIAI_AUDIT_SUBJECT_SALT != null' <<<"$project_json" >/dev/null || {
-            echo 'Missing production secret: RIAI_AUDIT_SUBJECT_SALT'; exit 1;
-          }
-
+          jq -e '.result.deployment_configs.production.kv_namespaces.RIAI_RATE_LIMIT_KV != null' <<<"$project_json" >/dev/null || { echo 'Missing production binding: RIAI_RATE_LIMIT_KV'; exit 1; }
+          jq -e '.result.deployment_configs.production.kv_namespaces.RIAI_AUDIT_KV != null' <<<"$project_json" >/dev/null || { echo 'Missing production binding: RIAI_AUDIT_KV'; exit 1; }
+          jq -e '.result.deployment_configs.production.env_vars.RIAI_AUDIT_SUBJECT_SALT != null' <<<"$project_json" >/dev/null || { echo 'Missing production secret: RIAI_AUDIT_SUBJECT_SALT'; exit 1; }
           echo "Required Wave C Pages bindings are present."
+
+      - name: Verify governed AI activation variables
+        shell: bash
+        run: |
+          set -euo pipefail
+          project_json="$(cat /tmp/cf-project.json)"
+          missing=()
+          require_env() {
+            local key="$1"
+            if ! jq -e --arg key "$key" '.result.deployment_configs.production.env_vars[$key] != null' <<<"$project_json" >/dev/null; then missing+=("$key"); fi
+          }
+          require_env RIAI_AI_PROVIDER_PROTOCOL
+          require_env RIAI_AI_PROVIDER_URL
+          require_env RIAI_AI_ALLOWED_HOSTS
+          require_env RIAI_AI_PROVIDER_KEY
+          require_env RIAI_AI_MODEL
+          require_env RIAI_AI_GLOBAL_TOKEN_BUDGET_PER_DAY
+          provider_protocol="$(jq -r '.result.deployment_configs.production.env_vars.RIAI_AI_PROVIDER_PROTOCOL.value // empty' <<<"$project_json")"
+          if [[ -n "$provider_protocol" && "$provider_protocol" != 'CHAT_COMPLETIONS' && "$provider_protocol" != 'OPENAI_RESPONSES' ]]; then
+            echo 'Invalid RIAI_AI_PROVIDER_PROTOCOL; allowed values are CHAT_COMPLETIONS or OPENAI_RESPONSES.'; exit 1
+          fi
+          public_enabled="$(jq -r '.result.deployment_configs.production.env_vars.RIAI_PUBLIC_AI_ENABLED.value // "false"' <<<"$project_json" | tr '[:upper:]' '[:lower:]')"
+          if [[ "$public_enabled" == 'true' ]]; then
+            require_env RIAI_TURNSTILE_SITE_KEY
+            require_env RIAI_TURNSTILE_SECRET_KEY
+            echo 'AI activation mode detected: public Turnstile.'
+          else
+            require_env RIAI_AI_ACCESS_ISSUER
+            require_env RIAI_AI_ACCESS_AUD
+            echo 'AI activation mode detected: Cloudflare Access.'
+          fi
+          if (( ${#missing[@]} > 0 )); then
+            echo 'Missing production AI configuration keys:'
+            printf ' - %s\n' "${missing[@]}"
+            if [[ "$GITHUB_EVENT_NAME" == 'pull_request' ]]; then
+              echo '::notice::AI production activation is not complete yet; pull-request verification remains read-only/advisory until the activation workflow runs on main.'
+              exit 0
+            fi
+            exit 1
+          fi
+          echo "Provider protocol validated: ${provider_protocol}."
+          echo 'Required governed AI activation variables are present; values and secrets were not printed.'
 
       - name: Verify KV namespaces
         shell: bash
@@ -79,12 +110,8 @@ jobs:
           auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
           kv_json="$(curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces?per_page=1000")"
           jq -e '.success == true' <<<"$kv_json" >/dev/null
-          jq -e --arg n "$CF_RATE_KV_NAME" '.result | any(.title == $n)' <<<"$kv_json" >/dev/null || {
-            echo "KV namespace not found: $CF_RATE_KV_NAME"; exit 1;
-          }
-          jq -e --arg n "$CF_AUDIT_KV_NAME" '.result | any(.title == $n)' <<<"$kv_json" >/dev/null || {
-            echo "KV namespace not found: $CF_AUDIT_KV_NAME"; exit 1;
-          }
+          jq -e --arg n "$CF_RATE_KV_NAME" '.result | any(.title == $n)' <<<"$kv_json" >/dev/null || { echo "KV namespace not found: $CF_RATE_KV_NAME"; exit 1; }
+          jq -e --arg n "$CF_AUDIT_KV_NAME" '.result | any(.title == $n)' <<<"$kv_json" >/dev/null || { echo "KV namespace not found: $CF_AUDIT_KV_NAME"; exit 1; }
           echo "Required KV namespaces exist."
 
       - name: Verify exact production Access application and audience
@@ -94,26 +121,9 @@ jobs:
           auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
           access_json="$(curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/access/apps?per_page=1000")"
           jq -e '.success == true' <<<"$access_json" >/dev/null
-
-          access_app="$(jq -c --arg host "$CF_PRODUCTION_HOST" '
-            .result
-            | map(select(
-                (.domain? == $host)
-                or ((.destinations? // []) | any(
-                  ((.uri? // .hostname? // .host? // "") == $host)
-                  or ((.uri? // "") == ("https://" + $host))
-                  or ((.uri? // "") == ("https://" + $host + "/"))
-                ))
-              ))
-            | first // empty
-          ' <<<"$access_json")"
-
-          test -n "$access_app" || {
-            echo "Exact production Access application not found for ${CF_PRODUCTION_HOST}."; exit 1;
-          }
-          jq -e '(.type == "self_hosted") and ((.aud? // "") | length > 0)' <<<"$access_app" >/dev/null || {
-            echo "Production Access application is missing a self-hosted type or audience tag."; exit 1;
-          }
+          access_app="$(jq -c --arg host "$CF_PRODUCTION_HOST" '.result | map(select((.domain? == $host) or ((.destinations? // []) | any(((.uri? // .hostname? // .host? // "") == $host) or ((.uri? // "") == ("https://" + $host)) or ((.uri? // "") == ("https://" + $host + "/")))))) | first // empty' <<<"$access_json")"
+          test -n "$access_app" || { echo "Exact production Access application not found for ${CF_PRODUCTION_HOST}."; exit 1; }
+          jq -e '(.type == "self_hosted") and ((.aud? // "") | length > 0)' <<<"$access_app" >/dev/null || { echo "Production Access application is missing a self-hosted type or audience tag."; exit 1; }
           echo "Exact production Access application and audience tag are present."
 
       - name: Verify latest production deployment on main
@@ -122,30 +132,16 @@ jobs:
         run: |
           set -euo pipefail
           auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
-          expected="$GITHUB_SHA"
-          matched='false'
-
+          expected="$GITHUB_SHA"; matched='false'
           for attempt in $(seq 1 30); do
             deployments_json="$(curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}/deployments?env=production&per_page=1")"
             jq -e '.success == true' <<<"$deployments_json" >/dev/null
             deployed="$(jq -r '.result[0].source.config.commit_hash // .result[0].deployment_trigger.metadata.commit_hash // empty' <<<"$deployments_json")"
             stage="$(jq -r '.result[0].latest_stage.status // empty' <<<"$deployments_json")"
-
-            if [[ "$deployed" == "$expected" && "$stage" == 'success' ]]; then
-              matched='true'
-              break
-            fi
-
-            current_short="unknown"
-            [[ -n "$deployed" ]] && current_short="${deployed:0:12}"
-            current_stage="${stage:-unknown}"
-            echo "Waiting for production deployment of ${expected:0:12}; current=${current_short}, stage=${current_stage}, attempt=${attempt}/30"
+            if [[ "$deployed" == "$expected" && "$stage" == 'success' ]]; then matched='true'; break; fi
             sleep 10
           done
-
-          [[ "$matched" == 'true' ]] || {
-            echo "Production deployment did not reach success for commit $expected within the verification window."; exit 1;
-          }
+          [[ "$matched" == 'true' ]] || { echo "Production deployment did not reach success for commit $expected within the verification window."; exit 1; }
           echo "Production deployment matches ${expected:0:12} and is successful."
 
       - name: Publish verification summary
@@ -160,6 +156,7 @@ jobs:
             echo "- GitHub event: \`${GITHUB_EVENT_NAME}\`"
             echo "- Commit: \`${GITHUB_SHA}\`"
             echo '- Required Wave C KV bindings and audit secret are verified.'
-            echo '- Production Access application must be an exact self-hosted match with an audience tag.'
+            echo '- Governed AI activation variables and provider protocol are verified without printing secret values.'
+            echo '- Pull-request readiness is advisory; main-branch production verification remains fail-closed.'
             echo '- API token value is never printed.'
           } >> "$GITHUB_STEP_SUMMARY"
