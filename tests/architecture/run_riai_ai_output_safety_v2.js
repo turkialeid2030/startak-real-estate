@@ -61,12 +61,16 @@ assert(gateway.includes("AI_TOKEN_LIMIT_FIELD_INVALID"));
 assert(gateway.includes('providerRequest[outputBudget.field] = outputBudget.value;'));
 assert(gateway.includes('outputTokenLimit: outputBudget.value'));
 
-const accessIndex = gateway.indexOf('const access = await verifyCloudflareAccess(request, context.env || {});');
-const budgetIndex = gateway.indexOf('const outputBudget = providerOutputBudget(context.env || {});');
+const sameOriginIndex = gateway.indexOf('const sameOrigin = validateSameOriginRequest(request);');
+const accessIndex = gateway.indexOf('const access = await resolveAccess(request, env, body);');
+const budgetIndex = gateway.indexOf('const outputBudget = providerOutputBudget(env);');
+const tokenBudgetIndex = gateway.indexOf('const tokenBudget = await checkAndReserveGlobalTokenBudget({');
 const providerFetchIndex = gateway.indexOf('providerResponse = await fetch(provider.url.toString()');
-assert(accessIndex >= 0);
+assert(sameOriginIndex >= 0);
+assert(accessIndex > sameOriginIndex);
 assert(budgetIndex > accessIndex);
-assert(providerFetchIndex > budgetIndex);
+assert(tokenBudgetIndex > budgetIndex);
+assert(providerFetchIndex > tokenBudgetIndex);
 
 assert(docs.includes('Prompt-injection boundary'));
 assert(docs.includes('RIAI_AI_MAX_OUTPUT_TOKENS'));
