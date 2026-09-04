@@ -1,0 +1,157 @@
+name: Cloudflare AI Production Activation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/cloudflare-ai-production-activation.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-ai-production-activation
+  cancel-in-progress: false
+
+jobs:
+  activate-ai-production:
+    name: activate-ai-production
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CF_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      CF_PROJECT_NAME: startak-real-estate
+      CF_PRODUCTION_HOST: startak-real-estate.pages.dev
+      AI_PROVIDER_PROTOCOL: OPENAI_RESPONSES
+      AI_PROVIDER_URL: https://api.openai.com/v1/responses
+      AI_ALLOWED_HOSTS: api.openai.com
+      AI_MODEL: gpt-5.6-terra
+      AI_GLOBAL_TOKEN_BUDGET_PER_DAY: '100000'
+      TURNSTILE_WIDGET_NAME: STARTAK RIAI Public AI
+
+    steps:
+      - name: Preflight Cloudflare credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${CF_API_TOKEN:-}" || { echo 'CLOUDFLARE_API_TOKEN secret is missing'; exit 1; }
+          test -n "${CF_ACCOUNT_ID:-}" || { echo 'CLOUDFLARE_ACCOUNT_ID variable is missing'; exit 1; }
+          auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
+          token_json="$(curl -fsS "${auth[@]}" https://api.cloudflare.com/client/v4/user/tokens/verify)"
+          jq -e '.success == true and .result.status == "active"' <<<"$token_json" >/dev/null
+          echo 'Cloudflare API token is active.'
+
+      - name: Verify manually supplied OpenAI provider secret
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
+          project_json="$(curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}")"
+          jq -e '.success == true' <<<"$project_json" >/dev/null
+          jq -e '.result.deployment_configs.production.env_vars.RIAI_AI_PROVIDER_KEY != null' <<<"$project_json" >/dev/null || {
+            echo 'RIAI_AI_PROVIDER_KEY is not present in Cloudflare Production.'; exit 1;
+          }
+          echo 'OpenAI provider secret is present in Cloudflare Production; value was not read or printed.'
+
+      - name: Reconcile safe OpenAI production variables
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
+          payload="$(jq -n --arg protocol "$AI_PROVIDER_PROTOCOL" --arg url "$AI_PROVIDER_URL" --arg hosts "$AI_ALLOWED_HOSTS" --arg model "$AI_MODEL" --arg budget "$AI_GLOBAL_TOKEN_BUDGET_PER_DAY" '{deployment_configs:{production:{env_vars:{RIAI_AI_PROVIDER_PROTOCOL:{type:"plain_text",value:$protocol},RIAI_AI_PROVIDER_URL:{type:"plain_text",value:$url},RIAI_AI_ALLOWED_HOSTS:{type:"plain_text",value:$hosts},RIAI_AI_MODEL:{type:"plain_text",value:$model},RIAI_AI_GLOBAL_TOKEN_BUDGET_PER_DAY:{type:"plain_text",value:$budget}}}}}')"
+          response="$(curl -fsS -X PATCH "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}" --data "$payload")"
+          jq -e '.success == true' <<<"$response" >/dev/null
+          echo 'OpenAI production variables reconciled.'
+
+      - name: Reconcile Turnstile widget and public AI secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
+          widgets_url="https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/challenges/widgets"
+          widgets_json="$(curl -fsS "${auth[@]}" "${widgets_url}?per_page=1000")"
+          jq -e '.success == true' <<<"$widgets_json" >/dev/null
+          sitekey="$(jq -r --arg name "$TURNSTILE_WIDGET_NAME" --arg host "$CF_PRODUCTION_HOST" '.result | map(select(.name == $name and ((.domains // []) | index($host)))) | first.sitekey // empty' <<<"$widgets_json")"
+          secret=''
+          if [[ -z "$sitekey" ]]; then
+            create_payload="$(jq -n --arg name "$TURNSTILE_WIDGET_NAME" --arg host "$CF_PRODUCTION_HOST" '{name:$name,domains:[$host],mode:"managed"}')"
+            tmp_body="$(mktemp)"
+            status="$(curl -sS -o "$tmp_body" -w '%{http_code}' -X POST "${auth[@]}" "$widgets_url" --data "$create_payload")"
+            if [[ "$status" != '200' ]]; then
+              echo "Turnstile widget creation failed with HTTP ${status}. The Cloudflare API token requires Turnstile Sites Write or Account Settings Write."
+              exit 1
+            fi
+            create_json="$(cat "$tmp_body")"; rm -f "$tmp_body"
+            jq -e '.success == true' <<<"$create_json" >/dev/null
+            sitekey="$(jq -r '.result.sitekey // empty' <<<"$create_json")"
+            secret="$(jq -r '.result.secret // empty' <<<"$create_json")"
+            test -n "$sitekey" && test -n "$secret" || { echo 'Turnstile create response did not include required credentials.'; exit 1; }
+            echo 'Created STARTAK Turnstile widget; credentials were not printed.'
+          else
+            widget_json="$(curl -fsS "${auth[@]}" "${widgets_url}/${sitekey}")"
+            jq -e '.success == true' <<<"$widget_json" >/dev/null
+            secret="$(jq -r '.result.secret // empty' <<<"$widget_json")"
+            test -n "$secret" || { echo 'Existing Turnstile widget secret was not available to this API token.'; exit 1; }
+            echo 'Reusing existing STARTAK Turnstile widget; credentials were not printed.'
+          fi
+          runtime_payload="$(jq -n --arg sitekey "$sitekey" --arg secret "$secret" '{deployment_configs:{production:{env_vars:{RIAI_PUBLIC_AI_ENABLED:{type:"plain_text",value:"true"},RIAI_TURNSTILE_SITE_KEY:{type:"plain_text",value:$sitekey},RIAI_TURNSTILE_SECRET_KEY:{type:"secret_text",value:$secret}}}}}')"
+          response="$(curl -fsS -X PATCH "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}" --data "$runtime_payload")"
+          jq -e '.success == true' <<<"$response" >/dev/null
+          echo 'Public AI Turnstile runtime configuration reconciled.'
+
+      - name: Verify governed production configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
+          project_json="$(curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}")"
+          jq -e '.success == true' <<<"$project_json" >/dev/null
+          jq -e --arg protocol "$AI_PROVIDER_PROTOCOL" --arg url "$AI_PROVIDER_URL" --arg hosts "$AI_ALLOWED_HOSTS" --arg model "$AI_MODEL" --arg budget "$AI_GLOBAL_TOKEN_BUDGET_PER_DAY" '.result.deployment_configs.production.env_vars.RIAI_AI_PROVIDER_PROTOCOL.value == $protocol and .result.deployment_configs.production.env_vars.RIAI_AI_PROVIDER_URL.value == $url and .result.deployment_configs.production.env_vars.RIAI_AI_ALLOWED_HOSTS.value == $hosts and .result.deployment_configs.production.env_vars.RIAI_AI_MODEL.value == $model and .result.deployment_configs.production.env_vars.RIAI_AI_GLOBAL_TOKEN_BUDGET_PER_DAY.value == $budget and .result.deployment_configs.production.env_vars.RIAI_AI_PROVIDER_KEY != null and .result.deployment_configs.production.env_vars.RIAI_PUBLIC_AI_ENABLED.value == "true" and .result.deployment_configs.production.env_vars.RIAI_TURNSTILE_SITE_KEY != null and .result.deployment_configs.production.env_vars.RIAI_TURNSTILE_SECRET_KEY != null and .result.deployment_configs.production.kv_namespaces.RIAI_RATE_LIMIT_KV != null and .result.deployment_configs.production.kv_namespaces.RIAI_AUDIT_KV != null and .result.deployment_configs.production.env_vars.RIAI_AUDIT_SUBJECT_SALT != null' <<<"$project_json" >/dev/null
+          echo 'Governed AI production configuration is complete; secrets were not printed.'
+
+      - name: Retry latest production deployment with activated runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
+          deployments_json="$(curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}/deployments?env=production&per_page=10")"
+          jq -e '.success == true' <<<"$deployments_json" >/dev/null
+          deployment_id="$(jq -r '.result | map(select(.latest_stage.status == "success")) | first.id // empty' <<<"$deployments_json")"
+          test -n "$deployment_id" || { echo 'No successful production deployment available to retry.'; exit 1; }
+          retry_json="$(curl -fsS -X POST "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}/deployments/${deployment_id}/retry")"
+          jq -e '.success == true and (.result.id // "") != ""' <<<"$retry_json" >/dev/null
+          jq -r '.result.id' <<<"$retry_json" > /tmp/retry-id
+          echo 'Production deployment retry started.'
+
+      - name: Verify activated production deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
+          retry_id="$(cat /tmp/retry-id)"
+          for attempt in $(seq 1 60); do
+            deployment_json="$(curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}/deployments/${retry_id}")"
+            jq -e '.success == true' <<<"$deployment_json" >/dev/null
+            stage="$(jq -r '.result.latest_stage.status // empty' <<<"$deployment_json")"
+            if [[ "$stage" == 'success' ]]; then echo 'Activated production deployment completed successfully.'; exit 0; fi
+            if [[ "$stage" == 'failure' ]]; then echo 'Activated production deployment failed.'; exit 1; fi
+            sleep 10
+          done
+          echo 'Activated production deployment timed out.'; exit 1
+
+      - name: Publish activation summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## STARTAK AI Production Activation'
+            echo
+            echo "- Host: \`${CF_PRODUCTION_HOST}\`"
+            echo "- Provider protocol: \`${AI_PROVIDER_PROTOCOL}\`"
+            echo "- Provider model: \`${AI_MODEL}\`"
+            echo "- Daily estimated-token guard: \`${AI_GLOBAL_TOKEN_BUDGET_PER_DAY}\`"
+            echo '- OpenAI and Turnstile secret values are never printed.'
+            echo '- Public AI activation remains fail-closed if any required control cannot be verified.'
+          } >> "$GITHUB_STEP_SUMMARY"
