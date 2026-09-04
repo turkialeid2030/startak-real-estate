@@ -1,4 +1,4 @@
-name: Cloudflare Access Runtime Sync
+name: Cloudflare Public Shell + Runtime Sync
 
 on:
   workflow_dispatch:
@@ -26,7 +26,6 @@ jobs:
     env:
       CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CF_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-      CF_ALLOWED_EMAIL: ${{ secrets.CLOUDFLARE_ACCESS_ALLOWED_EMAIL }}
       CF_PROJECT_NAME: startak-real-estate
       CF_PRODUCTION_HOST: startak-real-estate.pages.dev
       CF_ACCESS_ISSUER: https://startak-real-estate-pages.cloudflareaccess.com
@@ -70,9 +69,9 @@ jobs:
           test -n "$app_id" || { echo 'Production Access application has no application ID.'; exit 1; }
           printf '%s' "$aud" > /tmp/cf-access-aud
           printf '%s' "$app_id" > /tmp/cf-access-app-id
-          echo "Exact production Access application and AUD discovered."
+          echo 'Exact production Access application and AUD discovered.'
 
-      - name: Reconcile and audit production Access policy scope
+      - name: Reconcile public website access without email login
         shell: bash
         run: |
           set -euo pipefail
@@ -82,104 +81,33 @@ jobs:
           policies_json="$(curl -fsS "${auth[@]}" "${policies_url}?per_page=1000")"
           jq -e '.success == true' <<<"$policies_json" >/dev/null
 
-          broad_everyone="$(jq '[.result[] | select(.decision == "allow") | .include[]? | select(has("everyone"))] | length' <<<"$policies_json")"
-          [[ "$broad_everyone" -eq 0 ]] || {
-            echo 'Production Access policy contains Include Everyone, which is not permitted for this controlled pilot.'
-            exit 1
-          }
+          bypass_count="$(jq '[
+            .result[]
+            | select(.decision == "bypass")
+            | .include[]?
+            | select(has("everyone"))
+          ] | length' <<<"$policies_json")"
 
-          # Optional fallback: reuse exactly one pre-existing narrowly named STARTAK pilot group.
-          # Group discovery is best-effort because the current API token may not have Access Groups read scope.
-          groups_json="$(curl -sS "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/access/groups?per_page=1000" || true)"
-          pilot_group_id=''
-          if jq -e '.success == true' <<<"$groups_json" >/dev/null 2>&1; then
-            pilot_group_matches="$(jq '[
-              .result[]
-              | select(
-                  ((.name // "") | ascii_downcase) == "startak controlled pilot"
-                  or ((.name // "") | ascii_downcase) == "startak real estate controlled pilot"
-                  or ((.name // "") | ascii_downcase) == "startak pilot"
-                  or ((.name // "") | ascii_downcase) == "startak real estate pilot"
-                )
-            ] | length' <<<"$groups_json")"
-            [[ "$pilot_group_matches" -le 1 ]] || {
-              echo 'Multiple exact STARTAK pilot Access groups were found; refusing ambiguous policy selection.'
-              exit 1
-            }
-            pilot_group_id="$(jq -r '[
-              .result[]
-              | select(
-                  ((.name // "") | ascii_downcase) == "startak controlled pilot"
-                  or ((.name // "") | ascii_downcase) == "startak real estate controlled pilot"
-                  or ((.name // "") | ascii_downcase) == "startak pilot"
-                  or ((.name // "") | ascii_downcase) == "startak real estate pilot"
-                )
-            ] | if length == 1 then .[0].id else empty end' <<<"$groups_json")"
-          else
-            echo '::notice::Access Groups discovery is unavailable to this API token; continuing with the explicit-email path.'
-          fi
-
-          allow_count="$(jq '[.result[] | select(.decision == "allow")] | length' <<<"$policies_json")"
-          policy_mode='existing'
-          if [[ "$allow_count" -eq 0 ]]; then
-            if [[ -n "${CF_ALLOWED_EMAIL:-}" ]]; then
-              policy_mode='email'
-            elif [[ -n "$pilot_group_id" ]]; then
-              policy_mode='group'
-            elif [[ "$GITHUB_EVENT_NAME" == 'pull_request' ]]; then
-              policy_mode='blocked-preview'
-              echo '::notice::Production activation is intentionally blocked: no Allow policy exists and CLOUDFLARE_ACCESS_ALLOWED_EMAIL is not configured. PR verification remains read-only.'
+          if [[ "$GITHUB_EVENT_NAME" == 'pull_request' ]]; then
+            if [[ "$bypass_count" -gt 0 ]]; then
+              echo 'Public website bypass is already present; PR run is read-only.'
             else
-              echo 'No production Allow policy exists and CLOUDFLARE_ACCESS_ALLOWED_EMAIL is not configured.'
-              echo 'Production activation remains fail-closed until a single authorized email is supplied as a repository secret.'
-              exit 1
+              echo '::notice::After merge, the production website will be made public without email login by creating a Bypass/Everyone policy.'
             fi
-
-            if [[ "$GITHUB_EVENT_NAME" == 'pull_request' ]]; then
-              if [[ "$policy_mode" == 'email' ]]; then
-                echo '::notice::A single-email controlled-pilot policy will be created after merge.'
-              elif [[ "$policy_mode" == 'group' ]]; then
-                echo '::notice::The exact existing STARTAK pilot Access group will be used after merge.'
-              fi
-            else
-              if [[ "$policy_mode" == 'email' ]]; then
-                payload="$(jq -n --arg email "$CF_ALLOWED_EMAIL" '{
-                  name: "STARTAK Controlled Pilot - Email Allow",
-                  decision: "allow",
-                  precedence: 1,
-                  include: [{email: {email: $email}}],
-                  session_duration: "24h"
-                }')"
-              else
-                payload="$(jq -n --arg group_id "$pilot_group_id" '{
-                  name: "STARTAK Controlled Pilot - Group Allow",
-                  decision: "allow",
-                  precedence: 1,
-                  include: [{group: {id: $group_id}}],
-                  session_duration: "24h"
-                }')"
-              fi
-
+          else
+            if [[ "$bypass_count" -eq 0 ]]; then
+              payload='{"name":"STARTAK Public Website - No Login","decision":"bypass","precedence":1,"include":[{"everyone":{}}]}'
               create_json="$(curl -fsS -X POST "${auth[@]}" "$policies_url" --data "$payload")"
               jq -e '.success == true' <<<"$create_json" >/dev/null
-              echo 'Created a tightly-scoped production Access Allow policy for the controlled pilot.'
-              policies_json="$(curl -fsS "${auth[@]}" "${policies_url}?per_page=1000")"
-              jq -e '.success == true' <<<"$policies_json" >/dev/null
-              allow_count="$(jq '[.result[] | select(.decision == "allow")] | length' <<<"$policies_json")"
-              [[ "$allow_count" -gt 0 ]] || { echo 'Allow policy creation did not become visible.'; exit 1; }
+              echo 'Created public website Bypass/Everyone policy; no email login is required.'
             fi
-          fi
 
-          login_only="$(jq '[.result[] | select(.decision == "allow") | select((.include // []) | length > 0) | select(all(.include[]; has("login_method")))] | length' <<<"$policies_json")"
-          if [[ "$login_only" -gt 0 ]]; then
-            echo '::warning::An Allow policy is scoped only by login method. Prefer explicit email/domain/group scope for the controlled pilot.'
+            policies_json="$(curl -fsS "${auth[@]}" "${policies_url}?per_page=1000")"
+            jq -e '.success == true' <<<"$policies_json" >/dev/null
+            bypass_count="$(jq '[.result[] | select(.decision == "bypass") | .include[]? | select(has("everyone"))] | length' <<<"$policies_json")"
+            [[ "$bypass_count" -gt 0 ]] || { echo 'Public website bypass policy is not active.'; exit 1; }
+            echo 'Production website access verified as public/no-login at the Access policy layer.'
           fi
-
-          if [[ "$GITHUB_EVENT_NAME" != 'pull_request' ]]; then
-            broad_everyone="$(jq '[.result[] | select(.decision == "allow") | .include[]? | select(has("everyone"))] | length' <<<"$policies_json")"
-            [[ "$broad_everyone" -eq 0 ]] || { echo 'Unsafe Include Everyone rule detected after policy reconciliation.'; exit 1; }
-          fi
-          echo 'Production Access policy scope is fail-closed against Include Everyone.'
 
       - name: Inspect current Pages Access runtime variables
         shell: bash
@@ -308,14 +236,13 @@ jobs:
         shell: bash
         run: |
           {
-            echo '## Cloudflare Access Runtime Sync'
+            echo '## Cloudflare Public Shell + Runtime Sync'
             echo
             echo "- Production host: \`${CF_PRODUCTION_HOST}\`"
-            echo "- Issuer: \`${CF_ACCESS_ISSUER}\`"
             echo "- Event: \`${GITHUB_EVENT_NAME}\`"
-            echo '- AUD is discovered from the exact production Access application and is not hard-coded.'
-            echo '- Pull requests remain read-only even when production activation is blocked by a missing Allow identity.'
-            echo '- Production requires either a single authorized email secret or one exact pre-existing STARTAK pilot Access group.'
-            echo '- Include Everyone is prohibited; ambiguity and missing production identity both fail closed.'
-            echo '- Cloudflare API token, allowed email, group names, and group rule values are never printed.'
+            echo '- The website itself is intended to be public and require no email login.'
+            echo '- Production uses a Cloudflare Access Bypass/Everyone policy for the website shell.'
+            echo '- The RIAI AI endpoint still enforces its own server-side Access JWT boundary and therefore remains fail-closed until a public-safe AI access design is implemented.'
+            echo '- Existing Wave C KV rate-limit/audit bindings are preserved.'
+            echo '- The Cloudflare API token is never printed.'
           } >> "$GITHUB_STEP_SUMMARY"
