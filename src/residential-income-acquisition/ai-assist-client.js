@@ -5,6 +5,7 @@ const {
   buildResidentialIncomeAiDecisionSnapshot,
   validateResidentialIncomeAiAssistResponse,
 } = require('./ai-assist-contract');
+const { prepareTurnstileToken } = require('./turnstile-client');
 
 const AI_ASSIST_ENDPOINT = '/api/riai/ai-assist';
 const CLIENT_TIMEOUT_MS = 20000;
@@ -32,9 +33,22 @@ async function requestResidentialIncomeAiAssist(viewModel, options = {}) {
     return Object.freeze({ status: AI_ASSIST_CLIENT_STATUS.UNAVAILABLE, reasonCode: 'FETCH_UNAVAILABLE', aiModelUsed: false, result: null });
   }
 
+  const turnstile = await prepareTurnstileToken(fetchImpl, options);
+  if (!turnstile.ok) {
+    return Object.freeze({
+      status: AI_ASSIST_CLIENT_STATUS.UNAVAILABLE,
+      reasonCode: turnstile.reasonCode,
+      aiModelUsed: false,
+      result: null,
+    });
+  }
+
   const controller = typeof AbortController === 'function' ? new AbortController() : null;
   const timeoutMs = Number.isFinite(options.timeoutMs) ? Math.max(1000, Math.min(options.timeoutMs, 30000)) : CLIENT_TIMEOUT_MS;
   const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+
+  const requestBody = { decisionSnapshot: snapshot.decisionSnapshot };
+  if (turnstile.token) requestBody.turnstileToken = turnstile.token;
 
   let response;
   try {
@@ -43,7 +57,7 @@ async function requestResidentialIncomeAiAssist(viewModel, options = {}) {
       headers: { 'content-type': 'application/json' },
       credentials: 'same-origin',
       cache: 'no-store',
-      body: JSON.stringify({ decisionSnapshot: snapshot.decisionSnapshot }),
+      body: JSON.stringify(requestBody),
       ...(controller ? { signal: controller.signal } : {}),
     });
   } catch (error) {
