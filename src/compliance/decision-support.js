@@ -10,6 +10,7 @@ const EXTERNAL_DECISION_LABEL = Object.freeze({
   CONDITIONAL: 'CONDITIONAL',
   HIGH_RISK: 'HIGH_RISK',
   HOLD_EVIDENCE: 'HOLD_EVIDENCE',
+  HOLD_INPUTS: 'HOLD_INPUTS',
   REQUIRES_LICENSED_REVIEW: 'REQUIRES_LICENSED_REVIEW',
 });
 
@@ -28,6 +29,7 @@ const INTERNAL_VERDICT_MAP = Object.freeze({
   'يوصى بالشراء': EXTERNAL_DECISION_LABEL.FAVOURABLE_ANALYTICAL_CASE,
   'يوصى بالشراء بشروط': EXTERNAL_DECISION_LABEL.CONDITIONAL,
   'لا يوصى بالشراء': EXTERNAL_DECISION_LABEL.HIGH_RISK,
+  INCOMPLETE_INPUTS: EXTERNAL_DECISION_LABEL.HOLD_INPUTS,
 });
 
 const DECISION_LABEL_TEXT = Object.freeze({
@@ -36,6 +38,7 @@ const DECISION_LABEL_TEXT = Object.freeze({
     [EXTERNAL_DECISION_LABEL.CONDITIONAL]: 'حالة تحليلية مشروطة',
     [EXTERNAL_DECISION_LABEL.HIGH_RISK]: 'مخاطر تحليلية مرتفعة',
     [EXTERNAL_DECISION_LABEL.HOLD_EVIDENCE]: 'تعليق التحليل لحين استكمال الأدلة',
+    [EXTERNAL_DECISION_LABEL.HOLD_INPUTS]: 'تعليق التحليل — مدخلات مطلوبة غير مكتملة',
     [EXTERNAL_DECISION_LABEL.REQUIRES_LICENSED_REVIEW]: 'يتطلب مراجعة مختص مرخص',
   }),
   en: Object.freeze({
@@ -43,6 +46,7 @@ const DECISION_LABEL_TEXT = Object.freeze({
     [EXTERNAL_DECISION_LABEL.CONDITIONAL]: 'Conditional Analytical Case',
     [EXTERNAL_DECISION_LABEL.HIGH_RISK]: 'High Analytical Risk',
     [EXTERNAL_DECISION_LABEL.HOLD_EVIDENCE]: 'Hold Pending Evidence',
+    [EXTERNAL_DECISION_LABEL.HOLD_INPUTS]: 'Analysis On Hold — Required Inputs Incomplete',
     [EXTERNAL_DECISION_LABEL.REQUIRES_LICENSED_REVIEW]: 'Requires Licensed Review',
   }),
 });
