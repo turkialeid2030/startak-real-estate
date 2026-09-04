@@ -1,0 +1,248 @@
+name: Cloudflare Public Shell + Runtime Sync
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/cloudflare-access-runtime-sync.yml'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/cloudflare-access-runtime-sync.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-access-runtime-sync-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sync-access-runtime:
+    name: cloudflare-access-runtime-sync
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CF_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      CF_PROJECT_NAME: startak-real-estate
+      CF_PRODUCTION_HOST: startak-real-estate.pages.dev
+      CF_ACCESS_ISSUER: https://startak-real-estate-pages.cloudflareaccess.com
+
+    steps:
+      - name: Preflight repository configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${CF_API_TOKEN:-}" || { echo 'CLOUDFLARE_API_TOKEN secret is missing'; exit 1; }
+          test -n "${CF_ACCOUNT_ID:-}" || { echo 'CLOUDFLARE_ACCOUNT_ID variable is missing'; exit 1; }
+
+      - name: Discover exact production Access application and AUD
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
+          access_json="$(curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/access/apps?per_page=1000")"
+          jq -e '.success == true' <<<"$access_json" >/dev/null
+
+          access_app="$(jq -c --arg host "$CF_PRODUCTION_HOST" '
+            .result
+            | map(select(
+                (.type? == "self_hosted")
+                and (
+                  (.domain? == $host)
+                  or ((.destinations? // []) | any(
+                    ((.uri? // .hostname? // .host? // "") == $host)
+                    or ((.uri? // "") == ("https://" + $host))
+                    or ((.uri? // "") == ("https://" + $host + "/"))
+                  ))
+                )
+              ))
+            | first // empty
+          ' <<<"$access_json")"
+
+          test -n "$access_app" || { echo "Exact self-hosted Access application not found for ${CF_PRODUCTION_HOST}."; exit 1; }
+          aud="$(jq -r '.aud // empty' <<<"$access_app")"
+          app_id="$(jq -r '.id // empty' <<<"$access_app")"
+          test -n "$aud" || { echo 'Production Access application has no audience tag.'; exit 1; }
+          test -n "$app_id" || { echo 'Production Access application has no application ID.'; exit 1; }
+          printf '%s' "$aud" > /tmp/cf-access-aud
+          printf '%s' "$app_id" > /tmp/cf-access-app-id
+          echo 'Exact production Access application and AUD discovered.'
+
+      - name: Reconcile public website access without email login
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
+          app_id="$(cat /tmp/cf-access-app-id)"
+          policies_url="https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/access/apps/${app_id}/policies"
+          policies_json="$(curl -fsS "${auth[@]}" "${policies_url}?per_page=1000")"
+          jq -e '.success == true' <<<"$policies_json" >/dev/null
+
+          bypass_count="$(jq '[
+            .result[]
+            | select(.decision == "bypass")
+            | .include[]?
+            | select(has("everyone"))
+          ] | length' <<<"$policies_json")"
+
+          if [[ "$GITHUB_EVENT_NAME" == 'pull_request' ]]; then
+            if [[ "$bypass_count" -gt 0 ]]; then
+              echo 'Public website bypass is already present; PR run is read-only.'
+            else
+              echo '::notice::After merge, the production website will be made public without email login by creating a Bypass/Everyone policy.'
+            fi
+          else
+            if [[ "$bypass_count" -eq 0 ]]; then
+              payload='{"name":"STARTAK Public Website - No Login","decision":"bypass","precedence":1,"include":[{"everyone":{}}]}'
+              create_json="$(curl -fsS -X POST "${auth[@]}" "$policies_url" --data "$payload")"
+              jq -e '.success == true' <<<"$create_json" >/dev/null
+              echo 'Created public website Bypass/Everyone policy; no email login is required.'
+            fi
+
+            policies_json="$(curl -fsS "${auth[@]}" "${policies_url}?per_page=1000")"
+            jq -e '.success == true' <<<"$policies_json" >/dev/null
+            bypass_count="$(jq '[.result[] | select(.decision == "bypass") | .include[]? | select(has("everyone"))] | length' <<<"$policies_json")"
+            [[ "$bypass_count" -gt 0 ]] || { echo 'Public website bypass policy is not active.'; exit 1; }
+            echo 'Production website access verified as public/no-login at the Access policy layer.'
+          fi
+
+      - name: Inspect current Pages Access runtime variables
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
+          project_json="$(curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}")"
+          jq -e '.success == true' <<<"$project_json" >/dev/null
+          printf '%s' "$project_json" > /tmp/cf-project-before.json
+
+          aud="$(cat /tmp/cf-access-aud)"
+          current_aud="$(jq -r '.result.deployment_configs.production.env_vars.RIAI_AI_ACCESS_AUD.value // empty' <<<"$project_json")"
+          current_issuer="$(jq -r '.result.deployment_configs.production.env_vars.RIAI_AI_ACCESS_ISSUER.value // empty' <<<"$project_json")"
+
+          if [[ "$current_aud" == "$aud" && "$current_issuer" == "$CF_ACCESS_ISSUER" ]]; then
+            echo 'Production Access runtime variables already match the Zero Trust application.'
+          elif [[ "$GITHUB_EVENT_NAME" == 'pull_request' ]]; then
+            echo '::notice::Production Access runtime variables require reconciliation; PR run is read-only.'
+          else
+            echo 'Production Access runtime variables require reconciliation.'
+          fi
+
+      - name: Reconcile Pages Access runtime variables
+        if: github.event_name != 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
+          aud="$(cat /tmp/cf-access-aud)"
+
+          payload="$(jq -n --arg aud "$aud" --arg issuer "$CF_ACCESS_ISSUER" '{
+            deployment_configs: {
+              production: {
+                env_vars: {
+                  RIAI_AI_ACCESS_AUD: {type: "plain_text", value: $aud},
+                  RIAI_AI_ACCESS_ISSUER: {type: "plain_text", value: $issuer}
+                }
+              }
+            }
+          }')"
+
+          response="$(curl -fsS -X PATCH "${auth[@]}" \
+            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}" \
+            --data "$payload")"
+          jq -e '.success == true' <<<"$response" >/dev/null
+          echo 'Pages production Access runtime variables reconciled.'
+
+      - name: Verify runtime variables and preserve Wave C bindings
+        if: github.event_name != 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
+          aud="$(cat /tmp/cf-access-aud)"
+          project_json="$(curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}")"
+          jq -e '.success == true' <<<"$project_json" >/dev/null
+          jq -e --arg aud "$aud" --arg issuer "$CF_ACCESS_ISSUER" '
+            .result.deployment_configs.production.env_vars.RIAI_AI_ACCESS_AUD.type == "plain_text"
+            and .result.deployment_configs.production.env_vars.RIAI_AI_ACCESS_AUD.value == $aud
+            and .result.deployment_configs.production.env_vars.RIAI_AI_ACCESS_ISSUER.type == "plain_text"
+            and .result.deployment_configs.production.env_vars.RIAI_AI_ACCESS_ISSUER.value == $issuer
+            and .result.deployment_configs.production.kv_namespaces.RIAI_RATE_LIMIT_KV != null
+            and .result.deployment_configs.production.kv_namespaces.RIAI_AUDIT_KV != null
+            and .result.deployment_configs.production.env_vars.RIAI_AUDIT_SUBJECT_SALT != null
+          ' <<<"$project_json" >/dev/null
+          echo 'Access runtime variables verified and existing Wave C bindings preserved.'
+
+      - name: Wait for current main deployment then retry with reconciled runtime config
+        if: github.event_name != 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
+          expected="$GITHUB_SHA"
+          deployment_id=''
+
+          for attempt in $(seq 1 60); do
+            deployments_json="$(curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}/deployments?env=production&per_page=10")"
+            jq -e '.success == true' <<<"$deployments_json" >/dev/null
+            deployment_id="$(jq -r --arg sha "$expected" '.result | map(select((.source.config.commit_hash // .deployment_trigger.metadata.commit_hash // "") == $sha and .latest_stage.status == "success")) | first.id // empty' <<<"$deployments_json")"
+            [[ -n "$deployment_id" ]] && break
+            echo "Waiting for successful production deployment of ${expected:0:12}; attempt=${attempt}/60"
+            sleep 10
+          done
+
+          test -n "$deployment_id" || { echo "No successful production deployment found for $expected within the wait window."; exit 1; }
+
+          retry_json="$(curl -fsS -X POST "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}/deployments/${deployment_id}/retry")"
+          jq -e '.success == true and (.result.id // "") != ""' <<<"$retry_json" >/dev/null
+          retry_id="$(jq -r '.result.id' <<<"$retry_json")"
+          printf '%s' "$retry_id" > /tmp/cf-retry-id
+          echo 'Production deployment retry started with reconciled runtime configuration.'
+
+      - name: Verify retried production deployment
+        if: github.event_name != 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
+          expected="$GITHUB_SHA"
+          retry_id="$(cat /tmp/cf-retry-id)"
+
+          for attempt in $(seq 1 60); do
+            deployment_json="$(curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}/deployments/${retry_id}")"
+            jq -e '.success == true' <<<"$deployment_json" >/dev/null
+            stage="$(jq -r '.result.latest_stage.status // empty' <<<"$deployment_json")"
+            deployed="$(jq -r '.result.source.config.commit_hash // .result.deployment_trigger.metadata.commit_hash // empty' <<<"$deployment_json")"
+
+            if [[ "$stage" == 'success' && "$deployed" == "$expected" ]]; then
+              echo "Retried production deployment is successful for ${expected:0:12}."
+              exit 0
+            fi
+            if [[ "$stage" == 'failure' ]]; then
+              echo "Retried production deployment failed for ${expected:0:12}."
+              exit 1
+            fi
+            echo "Waiting for retried production deployment; stage=${stage:-unknown}, attempt=${attempt}/60"
+            sleep 10
+          done
+
+          echo 'Retried production deployment did not complete within the verification window.'
+          exit 1
+
+      - name: Publish summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## Cloudflare Public Shell + Runtime Sync'
+            echo
+            echo "- Production host: \`${CF_PRODUCTION_HOST}\`"
+            echo "- Event: \`${GITHUB_EVENT_NAME}\`"
+            echo '- The website itself is intended to be public and require no email login.'
+            echo '- Production uses a Cloudflare Access Bypass/Everyone policy for the website shell.'
+            echo '- The RIAI AI endpoint still enforces its own server-side Access JWT boundary and therefore remains fail-closed until a public-safe AI access design is implemented.'
+            echo '- Existing Wave C KV rate-limit/audit bindings are preserved.'
+            echo '- The Cloudflare API token is never printed.'
+          } >> "$GITHUB_STEP_SUMMARY"
