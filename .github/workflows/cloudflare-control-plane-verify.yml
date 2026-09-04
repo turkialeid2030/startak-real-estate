@@ -87,25 +87,34 @@ jobs:
           }
           echo "Required KV namespaces exist."
 
-      - name: Verify production Access application is discoverable
+      - name: Verify exact production Access application and audience
         shell: bash
         run: |
           set -euo pipefail
           auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
-          access_json="$(curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/access/apps?per_page=100")"
+          access_json="$(curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/access/apps?per_page=1000")"
           jq -e '.success == true' <<<"$access_json" >/dev/null
 
-          if jq -e --arg host "$CF_PRODUCTION_HOST" '
-            .result | any(
-              (.domain? == $host)
-              or (.name? == $host)
-              or ((.destinations? // []) | any((.uri? // .hostname? // .host? // "") | contains($host)))
-            )
-          ' <<<"$access_json" >/dev/null; then
-            echo "Production Access application found for ${CF_PRODUCTION_HOST}."
-          else
-            echo "::warning::Production Access application was not discoverable by hostname. Review Access configuration before AI activation."
-          fi
+          access_app="$(jq -c --arg host "$CF_PRODUCTION_HOST" '
+            .result
+            | map(select(
+                (.domain? == $host)
+                or ((.destinations? // []) | any(
+                  ((.uri? // .hostname? // .host? // "") == $host)
+                  or ((.uri? // "") == ("https://" + $host))
+                  or ((.uri? // "") == ("https://" + $host + "/"))
+                ))
+              ))
+            | first // empty
+          ' <<<"$access_json")"
+
+          test -n "$access_app" || {
+            echo "Exact production Access application not found for ${CF_PRODUCTION_HOST}."; exit 1;
+          }
+          jq -e '(.type == "self_hosted") and ((.aud? // "") | length > 0)' <<<"$access_app" >/dev/null || {
+            echo "Production Access application is missing a self-hosted type or audience tag."; exit 1;
+          }
+          echo "Exact production Access application and audience tag are present."
 
       - name: Verify latest production deployment on main
         if: github.event_name != 'pull_request'
@@ -126,7 +135,11 @@ jobs:
               matched='true'
               break
             fi
-            echo "Waiting for production deployment of ${expected:0:12}; current=${deployed:0:12:-unknown}, stage=${stage:-unknown}, attempt=${attempt}/30"
+
+            current_short="unknown"
+            [[ -n "$deployed" ]] && current_short="${deployed:0:12}"
+            current_stage="${stage:-unknown}"
+            echo "Waiting for production deployment of ${expected:0:12}; current=${current_short}, stage=${current_stage}, attempt=${attempt}/30"
             sleep 10
           done
 
@@ -146,5 +159,7 @@ jobs:
             echo "- Production host: \`${CF_PRODUCTION_HOST}\`"
             echo "- GitHub event: \`${GITHUB_EVENT_NAME}\`"
             echo "- Commit: \`${GITHUB_SHA}\`"
+            echo '- Required Wave C KV bindings and audit secret are verified.'
+            echo '- Production Access application must be an exact self-hosted match with an audience tag.'
             echo '- API token value is never printed.'
           } >> "$GITHUB_STEP_SUMMARY"
