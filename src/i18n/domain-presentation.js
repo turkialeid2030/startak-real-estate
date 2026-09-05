@@ -34,6 +34,11 @@ function assertKnownVerdict(rawVerdict) {
   return key;
 }
 
+function detectPresentationLocale(t) {
+  const signal = t('app.title');
+  return /[\u0600-\u06FF]/.test(String(signal || '')) ? 'ar' : 'en';
+}
+
 function setVerdictPresentationMode(mode) {
   if (!Object.values(VERDICT_PRESENTATION_MODE).includes(mode)) {
     throw new Error(`Unsupported verdict presentation mode: ${mode}`);
@@ -50,17 +55,25 @@ function getVerdictPresentationMode() {
 // explicitly activates EXTERNAL_DECISION_SUPPORT mode, this same call site is
 // compliance-bounded without changing calculation or raw recommendation fields.
 function getVerdictLabel(rawVerdict, t) {
+  const key = assertKnownVerdict(rawVerdict);
+  // INCOMPLETE_INPUTS is a new Wave-2 fail-closed state and has no historical
+  // legacy translation contract. Render it through the compliance vocabulary in
+  // either presentation mode instead of leaking an untranslated key.
+  if (rawVerdict === 'INCOMPLETE_INPUTS') {
+    const locale = detectPresentationLocale(t);
+    const analyticalLabel = externalizeInternalVerdict(rawVerdict, { locale });
+    return renderDecisionSupportLabel(analyticalLabel, locale);
+  }
   if (activeVerdictPresentationMode === VERDICT_PRESENTATION_MODE.EXTERNAL_DECISION_SUPPORT) {
     return getExternalDecisionSupportVerdictLabel(rawVerdict, t);
   }
-  return t(assertKnownVerdict(rawVerdict));
+  return t(key);
 }
 
 // Compliance-bounded external presentation for customer-facing views.
 function getExternalDecisionSupportVerdictLabel(rawVerdict, t, options = {}) {
-  const key = assertKnownVerdict(rawVerdict);
-  const translatedLegacyLabel = t(key);
-  const locale = /[\u0600-\u06FF]/.test(translatedLegacyLabel) ? 'ar' : 'en';
+  assertKnownVerdict(rawVerdict);
+  const locale = detectPresentationLocale(t);
   const analyticalLabel = externalizeInternalVerdict(rawVerdict, { locale, ...options });
   return renderDecisionSupportLabel(analyticalLabel, locale);
 }
