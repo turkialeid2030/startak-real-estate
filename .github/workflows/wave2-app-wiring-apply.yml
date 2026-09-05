@@ -1,0 +1,52 @@
+name: Wave 2 App Wiring Apply
+
+on:
+  push:
+    branches:
+      - feat/wave2-assumption-version-exit-cap
+    paths:
+      - tools/wave2-app-wiring-transform.js
+      - tools/apply-wave2-app-wiring.js
+      - .github/workflows/wave2-app-wiring-apply.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Wave 2 branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/wave2-assumption-version-exit-cap
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Verify transform against current App source
+        run: node tests/architecture/run_wave2_app_wiring_transform.js
+
+      - name: Apply deterministic App wiring transform
+        run: node tools/apply-wave2-app-wiring.js
+
+      - name: Build transformed App before commit
+        run: |
+          npm ci
+          npm run build
+
+      - name: Commit App wiring if changed
+        shell: bash
+        run: |
+          if git diff --quiet -- src/app/App.jsx; then
+            echo "No App wiring change required"
+            exit 0
+          fi
+          git config user.name "startak-wave2-bot"
+          git config user.email "startak-wave2-bot@users.noreply.github.com"
+          git add src/app/App.jsx
+          git commit -m "Wave 2: wire production App to governed assumptions"
+          git push origin HEAD:feat/wave2-assumption-version-exit-cap
