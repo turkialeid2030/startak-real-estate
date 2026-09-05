@@ -1,7 +1,7 @@
 'use strict';
 
 const { VALUE_TYPE, sha256Hex } = require('../../../document-intelligence/pipeline');
-const { WORKBOOK_FORMAT } = require('../parser-contracts');
+const { WORKBOOK_FORMAT, createGovernedParserProfile } = require('../parser-contracts');
 
 const CSV_LITERAL_PARSER_ID = 'parser.csv-literal.v1';
 const CSV_LITERAL_PARSER_VERSION = '1.0.0';
@@ -182,6 +182,23 @@ function formulaSignal(rawValue) {
   return trimmed.startsWith('=') ? trimmed : null;
 }
 
+function normalizeRuntimeProfile(parserProfile) {
+  if (!parserProfile || typeof parserProfile !== 'object' || Array.isArray(parserProfile)) throw new TypeError('parserProfile must be an object');
+  if (parserProfile.format !== WORKBOOK_FORMAT.CSV_UTF8) {
+    const error = new Error(`Unsupported workbook format for CSV literal parser: ${parserProfile.format}`);
+    error.code = 'UNSUPPORTED_WORKBOOK_FORMAT';
+    throw error;
+  }
+  return createGovernedParserProfile({
+    profileId: parserProfile.profileId,
+    profileVersion: parserProfile.profileVersion,
+    format: parserProfile.format,
+    sheetName: parserProfile.sheetName,
+    delimiter: parserProfile.delimiter,
+    cellProfiles: parserProfile.cellProfiles,
+  });
+}
+
 async function parseCsvLiteralWorkbook({
   caseId,
   projectId,
@@ -194,12 +211,7 @@ async function parseCsvLiteralWorkbook({
   const normalizedProjectId = requireString(projectId, 'projectId');
   const normalizedWorkbookId = requireString(workbookId, 'workbookId');
   const normalizedWorkbookVersion = requireString(workbookVersion, 'workbookVersion');
-  if (!parserProfile || typeof parserProfile !== 'object' || Array.isArray(parserProfile)) throw new TypeError('parserProfile must be an object');
-  if (parserProfile.format !== WORKBOOK_FORMAT.CSV_UTF8) {
-    const error = new Error(`Unsupported workbook format for CSV literal parser: ${parserProfile.format}`);
-    error.code = 'UNSUPPORTED_WORKBOOK_FORMAT';
-    throw error;
-  }
+  const normalizedProfile = normalizeRuntimeProfile(parserProfile);
 
   const bytes = toBytes(content);
   if (bytes.byteLength > CSV_LIMITS.maxBytes) {
@@ -209,8 +221,8 @@ async function parseCsvLiteralWorkbook({
   }
   const contentHashSha256 = await sha256Hex(bytes);
   const text = decodeUtf8(bytes);
-  const rows = parseCsvRows(text, parserProfile.delimiter);
-  const profileByCell = new Map((parserProfile.cellProfiles || []).map((profile) => [profile.cell, profile]));
+  const rows = parseCsvRows(text, normalizedProfile.delimiter);
+  const profileByCell = new Map(normalizedProfile.cellProfiles.map((profile) => [profile.cell, profile]));
   const cells = {};
 
   for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
@@ -238,15 +250,15 @@ async function parseCsvLiteralWorkbook({
     projectId: normalizedProjectId,
     format: WORKBOOK_FORMAT.CSV_UTF8,
     sheets: {
-      [parserProfile.sheetName]: {
+      [normalizedProfile.sheetName]: {
         cells,
       },
     },
     parserAttestation: {
       parserId: CSV_LITERAL_PARSER_ID,
       parserVersion: CSV_LITERAL_PARSER_VERSION,
-      parserProfileId: parserProfile.profileId,
-      parserProfileVersion: parserProfile.profileVersion,
+      parserProfileId: normalizedProfile.profileId,
+      parserProfileVersion: normalizedProfile.profileVersion,
       inputContentHashSha256: contentHashSha256,
       outputContentHashSha256: contentHashSha256,
       formulaEvaluationPerformed: false,
@@ -259,7 +271,7 @@ async function parseCsvLiteralWorkbook({
     sourceAuthorityPromoted: false,
     canonicalMutationPerformed: false,
     transactionAuthorized: false,
-    semantics: 'Deterministic UTF-8 CSV literal parser. It hashes the exact source bytes, parses RFC-style quoted fields, applies only explicit cell profile metadata, flags equals-prefixed formula-like literals without evaluating them, and performs no unit/evidence/type inference, authority promotion, canonical mutation, or transaction authorization.',
+    semantics: 'Deterministic UTF-8 CSV literal parser. It hashes the exact source bytes, revalidates the parser profile, parses RFC-style quoted fields, applies only explicit cell profile metadata, flags equals-prefixed formula-like literals without evaluating them, and performs no unit/evidence/type inference, authority promotion, canonical mutation, or transaction authorization.',
   });
 }
 
