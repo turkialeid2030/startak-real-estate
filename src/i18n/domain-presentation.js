@@ -19,11 +19,14 @@ const VERDICT_PRESENTATION_MODE = Object.freeze({
 
 let activeVerdictPresentationMode = VERDICT_PRESENTATION_MODE.LEGACY_CHARACTERIZATION;
 
+// Historical engine recommendation vocabulary remains exactly three values.
+// Wave-2 INCOMPLETE_INPUTS is a fail-closed readiness state, not a fourth legacy
+// recommendation. It is handled explicitly below so characterization coverage
+// and existing recommendation-domain invariants remain unchanged.
 const VERDICT_PRESENTATION_KEYS = {
   "يوصى بالشراء": "recommendation.buy",
   "يوصى بالشراء بشروط": "recommendation.conditionalBuy",
   "لا يوصى بالشراء": "recommendation.noBuy",
-  INCOMPLETE_INPUTS: "recommendation.incompleteInputs",
 };
 
 function assertKnownVerdict(rawVerdict) {
@@ -35,8 +38,17 @@ function assertKnownVerdict(rawVerdict) {
 }
 
 function detectPresentationLocale(t) {
-  const signal = t('app.title');
+  // Use an established translated recommendation key rather than app.title.
+  // Existing characterization translators reliably provide this key even when
+  // they intentionally stub unrelated namespaces.
+  const signal = t('recommendation.buy');
   return /[\u0600-\u06FF]/.test(String(signal || '')) ? 'ar' : 'en';
+}
+
+function renderIncompleteInputsLabel(t) {
+  const locale = detectPresentationLocale(t);
+  const analyticalLabel = externalizeInternalVerdict('INCOMPLETE_INPUTS', { locale });
+  return renderDecisionSupportLabel(analyticalLabel, locale);
 }
 
 function setVerdictPresentationMode(mode) {
@@ -55,15 +67,8 @@ function getVerdictPresentationMode() {
 // explicitly activates EXTERNAL_DECISION_SUPPORT mode, this same call site is
 // compliance-bounded without changing calculation or raw recommendation fields.
 function getVerdictLabel(rawVerdict, t) {
+  if (rawVerdict === 'INCOMPLETE_INPUTS') return renderIncompleteInputsLabel(t);
   const key = assertKnownVerdict(rawVerdict);
-  // INCOMPLETE_INPUTS is a new Wave-2 fail-closed state and has no historical
-  // legacy translation contract. Render it through the compliance vocabulary in
-  // either presentation mode instead of leaking an untranslated key.
-  if (rawVerdict === 'INCOMPLETE_INPUTS') {
-    const locale = detectPresentationLocale(t);
-    const analyticalLabel = externalizeInternalVerdict(rawVerdict, { locale });
-    return renderDecisionSupportLabel(analyticalLabel, locale);
-  }
   if (activeVerdictPresentationMode === VERDICT_PRESENTATION_MODE.EXTERNAL_DECISION_SUPPORT) {
     return getExternalDecisionSupportVerdictLabel(rawVerdict, t);
   }
@@ -72,6 +77,7 @@ function getVerdictLabel(rawVerdict, t) {
 
 // Compliance-bounded external presentation for customer-facing views.
 function getExternalDecisionSupportVerdictLabel(rawVerdict, t, options = {}) {
+  if (rawVerdict === 'INCOMPLETE_INPUTS') return renderIncompleteInputsLabel(t);
   assertKnownVerdict(rawVerdict);
   const locale = detectPresentationLocale(t);
   const analyticalLabel = externalizeInternalVerdict(rawVerdict, { locale, ...options });
