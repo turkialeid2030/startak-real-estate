@@ -47,12 +47,31 @@ function normalizeReconciliationPolicy(policy) {
   };
 }
 
+function normalizeEvidencePolicy(policy) {
+  if (policy === null || policy === undefined) return null;
+  requireObject(policy, 'evidencePolicy');
+  return { ...policy };
+}
+
+function normalizeCriticalEvidenceRequirements(requirements) {
+  if (requirements === null || requirements === undefined) return {};
+  requireObject(requirements, 'criticalEvidenceRequirements');
+  const normalized = {};
+  for (const [method, items] of Object.entries(requirements)) {
+    if (!Array.isArray(items)) throw new TypeError(`criticalEvidenceRequirements.${method} must be an array`);
+    normalized[method] = items.map((item) => ({ ...item }));
+  }
+  return normalized;
+}
+
 function createValuationRequest({
   caseId,
   projectId,
   projectProfile,
   useComponents = [],
   methodInputs = {},
+  evidencePolicy = null,
+  criticalEvidenceRequirements = {},
   reconciliationPolicy = null,
 } = {}) {
   const normalizedCaseId = requiredString(caseId, 'caseId');
@@ -68,8 +87,10 @@ function createValuationRequest({
     projectProfile,
     useComponents: normalizeUseComponents(useComponents),
     methodInputs: { ...methodInputs },
+    evidencePolicy: normalizeEvidencePolicy(evidencePolicy),
+    criticalEvidenceRequirements: normalizeCriticalEvidenceRequirements(criticalEvidenceRequirements),
     reconciliationPolicy: normalizeReconciliationPolicy(reconciliationPolicy),
-    semantics: 'A valuation request carries explicit project classification, optional use components, engine-ready method inputs, and explicit reconciliation policy. It does not invent missing evidence or hidden valuation policy defaults.',
+    semantics: 'A valuation request carries explicit project classification, optional use components, engine-ready method inputs, explicit evidence-quality governance, and explicit reconciliation policy. It does not invent missing evidence or hidden valuation policy defaults.',
   });
 }
 
