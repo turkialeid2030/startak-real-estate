@@ -45,9 +45,18 @@ function createUiWorkspace({ mode, defaultInputs }) {
   assertMode(mode);
   assertPlainObject(defaultInputs, 'defaultInputs');
   const workspace = createFreshWorkspaceState(defaultInputs);
+  const inputs = { ...workspace.inputs };
+
+  // V2 existing-building work must start with an explicitly entered exit cap.
+  // Template/default datasets may contain a compatibility/sample value, but that
+  // value is not user evidence and must never be silently promoted into a fresh
+  // V2 deal. Land/development retains its existing input semantics.
+  if (mode === UI_MODE.BUILDING) delete inputs.exitCapRate;
+
   return Object.freeze({
     mode,
     ...workspace,
+    inputs,
     transactionAuthorized: false,
   });
 }
