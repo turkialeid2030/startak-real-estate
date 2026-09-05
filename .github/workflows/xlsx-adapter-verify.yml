@@ -1,0 +1,121 @@
+name: Governed XLSX Adapter Verify
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/xlsx-adapter-verify.yml'
+      - 'architecture/STARTAK_IA7_GOVERNED_XLSX_ADAPTER_V1.md'
+      - 'src/integration-governance/spreadsheet/parser-contracts.js'
+      - 'src/integration-governance/spreadsheet/xlsx/**'
+      - 'tests/architecture/run_governed_xlsx_adapter_contract_v1.js'
+      - 'tools/verification/xlsx/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: governed-xlsx-adapter-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract-and-real-sheetjs:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      SHEETJS_URL: https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
+      SHEETJS_SHA256: 8dc73fc3b00203e72d176e85b50938627c7b086e607c682e8d3c22c02bb99fe8
+      SHEETJS_SIZE_BYTES: '2409319'
+      SHEETJS_VERSION: 0.20.3
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.2'
+          cache: npm
+
+      - name: Install repository dependencies
+        run: npm ci
+
+      - name: Run dependency-free IA-7 contract regression
+        run: node tests/architecture/run_governed_xlsx_adapter_contract_v1.js
+
+      - name: Download exact reviewed SheetJS artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          ARTIFACT="$RUNNER_TEMP/xlsx-0.20.3.tgz"
+          curl --proto '=https' --tlsv1.2 --fail --location --retry 3 --retry-delay 2 \
+            --connect-timeout 20 --max-time 120 \
+            "$SHEETJS_URL" \
+            --output "$ARTIFACT"
+          test -s "$ARTIFACT"
+
+          ACTUAL_SHA256="$(sha256sum "$ARTIFACT" | awk '{print $1}')"
+          ACTUAL_SIZE="$(stat -c '%s' "$ARTIFACT")"
+          test "$ACTUAL_SHA256" = "$SHEETJS_SHA256"
+          test "$ACTUAL_SIZE" = "$SHEETJS_SIZE_BYTES"
+
+          echo "SHEETJS_ARTIFACT_SHA256=$ACTUAL_SHA256"
+          echo "SHEETJS_ARTIFACT_SIZE_BYTES=$ACTUAL_SIZE"
+
+      - name: Ephemerally install exact reviewed artifact without lifecycle scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install "$RUNNER_TEMP/xlsx-0.20.3.tgz" \
+            --no-save \
+            --package-lock=false \
+            --ignore-scripts \
+            --no-audit \
+            --no-fund
+
+      - name: Verify runtime package identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const xlsx = require('xlsx');
+          const pkg = require('xlsx/package.json');
+          const expectedVersion = process.env.SHEETJS_VERSION;
+          if (xlsx.version !== expectedVersion) {
+            throw new Error(`SheetJS runtime version mismatch: expected ${expectedVersion}, got ${xlsx.version}`);
+          }
+          if (pkg.name !== 'xlsx' || pkg.version !== expectedVersion || pkg.license !== 'Apache-2.0') {
+            throw new Error(`SheetJS package identity mismatch: ${JSON.stringify({ name: pkg.name, version: pkg.version, license: pkg.license })}`);
+          }
+          console.log(`SHEETJS_RUNTIME_VERSION=${xlsx.version}`);
+          console.log(`SHEETJS_PACKAGE_LICENSE=${pkg.license}`);
+          NODE
+
+      - name: Verify package manifests remain unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code -- package.json package-lock.json
+
+      - name: Run real SheetJS IA-7 adapter verification
+        run: node tools/verification/xlsx/run_sheetjs_real_adapter_v1.js
+
+      - name: Verify repository release baseline
+        run: npm run release:verify
+
+      - name: Publish IA-7 verification summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## STARTAK IA-7 — Governed XLSX Adapter v1'
+            echo
+            echo '- Dependency-free XLSX adapter contract regression executed.'
+            echo '- Exact reviewed SheetJS CE 0.20.3 artifact identity was SHA-256 and size pinned before install.'
+            echo '- Installation was ephemeral, no-save, lockfile-disabled, and lifecycle scripts were ignored.'
+            echo '- Runtime package name/version/license were checked.'
+            echo '- package.json and package-lock.json were required to remain unchanged.'
+            echo '- Real XLSX parse/import verification executed through the governed adapter.'
+            echo '- Repository release verification executed after the real adapter test.'
+            echo '- No parser result authorizes transaction execution or bypasses human approval.'
+          } >> "$GITHUB_STEP_SUMMARY"
