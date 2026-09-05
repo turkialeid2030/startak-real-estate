@@ -22,6 +22,14 @@ const SUPPORTED_EXISTING_BUILDING_ASSET_CLASSES = Object.freeze([
   ASSET_CLASS.RESIDENTIAL,
 ]);
 
+const DIRECT_CAP_SUPPORTED_BASIS = Object.freeze([
+  BASIS_OF_VALUE.MARKET_VALUE,
+  BASIS_OF_VALUE.FAIR_VALUE,
+  BASIS_OF_VALUE.INVESTMENT_VALUE,
+]);
+
+const COST_SUPPORTED_BASIS = DIRECT_CAP_SUPPORTED_BASIS;
+
 function requireObject(value, field) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError(`${field} must be an object`);
   return value;
@@ -35,6 +43,11 @@ function requireString(value, field) {
 function finiteNumber(value, field) {
   if (typeof value !== 'number' || !Number.isFinite(value)) throw new TypeError(`${field} must be a finite number`);
   return value;
+}
+
+function optionalString(value, field) {
+  if (value === null || value === undefined) return null;
+  return requireString(value, field);
 }
 
 function clone(value) {
@@ -61,6 +74,19 @@ function requireSupportedClassification(classification) {
   return classification;
 }
 
+function requireIncomePolicy(policy) {
+  requireObject(policy, 'incomePolicy');
+  if (!Object.values(EXPENSE_TREATMENT).includes(policy.expenseTreatment)) {
+    throw new TypeError(`incomePolicy.expenseTreatment is invalid: ${policy.expenseTreatment}`);
+  }
+  if (!DIRECT_CAP_SUPPORTED_BASIS.includes(policy.basis)) {
+    throw new TypeError(`incomePolicy.basis is unsupported: ${policy.basis}`);
+  }
+  requireString(policy.currency, 'incomePolicy.currency');
+  optionalString(policy.valuationDate, 'incomePolicy.valuationDate');
+  return policy;
+}
+
 function defaultUnverifiedDescriptor(sourceRef, note) {
   return {
     grade: EVIDENCE_GRADE.H_CLIENT_SUPPLIED_UNVERIFIED,
@@ -78,7 +104,8 @@ function evidenceDescriptor(overrides, sourceRef, note) {
   return clone(overrides);
 }
 
-function buildIncomeMethodInput({ legacyInput, legacyResult, evidence = {} }) {
+function buildIncomeMethodInput({ legacyInput, legacyResult, incomePolicy, evidence = {} }) {
+  requireIncomePolicy(incomePolicy);
   finiteNumber(legacyResult.totalAnnualIncome, 'legacyResult.totalAnnualIncome');
   finiteNumber(legacyResult.opexAmount, 'legacyResult.opexAmount');
   finiteNumber(legacyInput.marketCapRate, 'legacyInput.marketCapRate');
@@ -87,7 +114,7 @@ function buildIncomeMethodInput({ legacyInput, legacyResult, evidence = {} }) {
     effectiveGrossIncome: legacyResult.totalAnnualIncome,
     operatingExpenses: legacyResult.opexAmount,
     capitalizationRate: legacyInput.marketCapRate,
-    expenseTreatment: EXPENSE_TREATMENT.ACTUAL_LANDLORD_OPEX,
+    expenseTreatment: incomePolicy.expenseTreatment,
     incomeEvidence: evidenceDescriptor(
       evidence.income,
       'existing-building:totalAnnualIncome',
@@ -103,9 +130,9 @@ function buildIncomeMethodInput({ legacyInput, legacyResult, evidence = {} }) {
       'existing-building:marketCapRate',
       'Copied from the current STARTAK existing-building UI input; not independently verified by this adapter.',
     ),
-    basis: BASIS_OF_VALUE.MARKET_VALUE,
-    valuationDate: evidence.valuationDate || null,
-    currency: evidence.currency || 'SAR',
+    basis: incomePolicy.basis,
+    valuationDate: incomePolicy.valuationDate || null,
+    currency: incomePolicy.currency,
   };
 }
 
@@ -117,6 +144,9 @@ function buildCostMethodInput({ legacyResult, costPolicy, evidence = {} }) {
     throw new RangeError('costPolicy.depreciationRate must be in [0,1]');
   }
   if (!Array.isArray(costPolicy.indirectCosts)) throw new TypeError('costPolicy.indirectCosts must be an explicit array');
+  if (!COST_SUPPORTED_BASIS.includes(costPolicy.basis)) throw new TypeError(`costPolicy.basis is unsupported: ${costPolicy.basis}`);
+  requireString(costPolicy.currency, 'costPolicy.currency');
+  optionalString(costPolicy.valuationDate, 'costPolicy.valuationDate');
   finiteNumber(legacyResult.currentLandValue, 'legacyResult.currentLandValue');
   finiteNumber(legacyResult.totalReplacementConstructionValue, 'legacyResult.totalReplacementConstructionValue');
 
@@ -140,9 +170,9 @@ function buildCostMethodInput({ legacyResult, costPolicy, evidence = {} }) {
       'existing-building:depreciationRate',
       'Explicit cost-approach depreciation policy supplied to the adapter; no age-life depreciation default is inferred.',
     ),
-    basis: BASIS_OF_VALUE.MARKET_VALUE,
-    valuationDate: evidence.valuationDate || null,
-    currency: evidence.currency || 'SAR',
+    basis: costPolicy.basis,
+    valuationDate: costPolicy.valuationDate || null,
+    currency: costPolicy.currency,
   };
 }
 
@@ -152,6 +182,7 @@ function createExistingBuildingValuationRequest({
   classification,
   legacyInput,
   legacyResult,
+  incomePolicy,
   marketComparableInput = null,
   costPolicy = null,
   evidence = {},
@@ -165,6 +196,7 @@ function createExistingBuildingValuationRequest({
   requireObject(legacyResult, 'legacyResult');
   requireObject(evidence, 'evidence');
   requireSupportedClassification(classification);
+  requireIncomePolicy(incomePolicy);
 
   const projectProfile = createProjectProfile({
     projectId,
@@ -181,7 +213,7 @@ function createExistingBuildingValuationRequest({
   });
 
   const methodInputs = {
-    [VALUATION_METHOD.INCOME_DIRECT_CAPITALIZATION]: buildIncomeMethodInput({ legacyInput, legacyResult, evidence }),
+    [VALUATION_METHOD.INCOME_DIRECT_CAPITALIZATION]: buildIncomeMethodInput({ legacyInput, legacyResult, incomePolicy, evidence }),
   };
 
   if (marketComparableInput !== null && marketComparableInput !== undefined) {
