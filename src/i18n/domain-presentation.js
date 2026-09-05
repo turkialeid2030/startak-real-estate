@@ -38,11 +38,11 @@ function assertKnownVerdict(rawVerdict) {
 }
 
 function detectPresentationLocale(t) {
-  // Use an established translated recommendation key rather than app.title.
-  // Existing characterization translators reliably provide this key even when
-  // they intentionally stub unrelated namespaces.
-  const signal = t('recommendation.buy');
-  return /[\u0600-\u06FF]/.test(String(signal || '')) ? 'ar' : 'en';
+  // Use established translated signals. Some characterization translators stub
+  // recommendation keys while Wave-2 tests stub app.title, so accept either
+  // signal without weakening the strict raw-verdict mapping contract.
+  const signals = [t('recommendation.buy'), t('app.title')].map((value) => String(value || ''));
+  return signals.some((value) => /[\u0600-\u06FF]/.test(value)) ? 'ar' : 'en';
 }
 
 function renderIncompleteInputsLabel(t) {
