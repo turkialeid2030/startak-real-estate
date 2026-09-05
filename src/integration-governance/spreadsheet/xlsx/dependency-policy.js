@@ -13,8 +13,11 @@ const SHEETJS_CE_POLICY = Object.freeze({
   minimumSecurityVersion: '0.20.2',
   officialArtifactUrl: 'https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz',
   requiredLicense: 'Apache-2.0',
-  reviewApprovedSha256: null,
+  reviewApprovedSha256: '8dc73fc3b00203e72d176e85b50938627c7b086e607c682e8d3c22c02bb99fe8',
+  reviewApprovedSizeBytes: 2409319,
   provenance: 'SheetJS official CDN',
+  integrityReviewWorkflowRunId: 33976591390,
+  integrityReviewWorkflowJobId: 101334258811,
 });
 
 function deepFreeze(value) {
