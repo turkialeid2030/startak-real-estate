@@ -124,6 +124,7 @@ function explicitPolicy() {
   assert.strictEqual(stage.readyForDecisionControl, true);
   assert.strictEqual(stage.finalValue, 10250000);
   assert.strictEqual(stage.reconciliation.reconciledValue, 10250000);
+  assert.strictEqual(stage.singleMethodAcceptance, null);
   assert.deepStrictEqual(stage.reasonCodes, []);
   assert.strictEqual(stage.transactionAuthorized, false);
 
@@ -233,10 +234,72 @@ function explicitPolicy() {
   assert.deepStrictEqual(stage.reasonCodes, [VALUATION_REASON_CODE.SINGLE_METHOD_ACCEPTANCE_POLICY_REQUIRED]);
 })();
 
-(function testBasisMismatchFailsClosedAtReconciliation() {
+(function testSingleQualifiedMethodRequiresExplicitAcceptancePolicy() {
   const projectProfile = officeProfile('PROJECT-VAL-007');
+  const inputs = qualifiedMethodInputs();
+  delete inputs[VALUATION_METHOD.MARKET_COMPARABLE];
   const request = createValuationRequest({
     caseId: 'CASE-VAL-007',
+    projectId: projectProfile.projectId,
+    projectProfile,
+    methodInputs: inputs,
+    evidencePolicy: evidencePolicy(),
+  });
+  const stage = orchestrateValuationStage(request);
+  assert.strictEqual(stage.status, VALUATION_STAGE_STATUS.HOLD_POLICY);
+  assert.deepStrictEqual(stage.reasonCodes, [VALUATION_REASON_CODE.SINGLE_METHOD_ACCEPTANCE_POLICY_REQUIRED]);
+  assert.strictEqual(stage.finalValue, null);
+})();
+
+(function testExplicitSingleMethodAcceptanceCanAdvanceQualifiedIndication() {
+  const projectProfile = officeProfile('PROJECT-VAL-008');
+  const inputs = qualifiedMethodInputs();
+  delete inputs[VALUATION_METHOD.MARKET_COMPARABLE];
+  const request = createValuationRequest({
+    caseId: 'CASE-VAL-008',
+    projectId: projectProfile.projectId,
+    projectProfile,
+    methodInputs: inputs,
+    evidencePolicy: evidencePolicy(),
+    singleMethodPolicy: {
+      allowedMethod: VALUATION_METHOD.INCOME_DIRECT_CAPITALIZATION,
+      justification: 'Explicit governance acceptance for a single qualified income indication in this test scope.',
+    },
+  });
+  const stage = orchestrateValuationStage(request);
+  assert.strictEqual(stage.status, VALUATION_STAGE_STATUS.READY_FOR_DECISION_CONTROL);
+  assert.strictEqual(stage.readyForDecisionControl, true);
+  assert.strictEqual(stage.finalValue, 10000000);
+  assert.strictEqual(stage.reconciliation, null);
+  assert.strictEqual(stage.singleMethodAcceptance.method, VALUATION_METHOD.INCOME_DIRECT_CAPITALIZATION);
+  assert.match(stage.singleMethodAcceptance.justification, /Explicit governance acceptance/);
+})();
+
+(function testSingleMethodAcceptanceMustMatchActualQualifiedMethod() {
+  const projectProfile = officeProfile('PROJECT-VAL-009');
+  const inputs = qualifiedMethodInputs();
+  delete inputs[VALUATION_METHOD.MARKET_COMPARABLE];
+  const request = createValuationRequest({
+    caseId: 'CASE-VAL-009',
+    projectId: projectProfile.projectId,
+    projectProfile,
+    methodInputs: inputs,
+    evidencePolicy: evidencePolicy(),
+    singleMethodPolicy: {
+      allowedMethod: VALUATION_METHOD.MARKET_COMPARABLE,
+      justification: 'Deliberate mismatch for fail-closed coverage.',
+    },
+  });
+  const stage = orchestrateValuationStage(request);
+  assert.strictEqual(stage.status, VALUATION_STAGE_STATUS.HOLD_POLICY);
+  assert.deepStrictEqual(stage.reasonCodes, [VALUATION_REASON_CODE.SINGLE_METHOD_ACCEPTANCE_POLICY_MISMATCH]);
+  assert.strictEqual(stage.finalValue, null);
+})();
+
+(function testBasisMismatchFailsClosedAtReconciliation() {
+  const projectProfile = officeProfile('PROJECT-VAL-010');
+  const request = createValuationRequest({
+    caseId: 'CASE-VAL-010',
     projectId: projectProfile.projectId,
     projectProfile,
     methodInputs: qualifiedMethodInputs({ incomeBasis: BASIS_OF_VALUE.INVESTMENT_VALUE }),
@@ -251,14 +314,14 @@ function explicitPolicy() {
 
 (function testOperatingBusinessIncomeDoesNotSilentlyUseGenericCapitalization() {
   const projectProfile = createProjectProfile({
-    projectId: 'PROJECT-VAL-008',
+    projectId: 'PROJECT-VAL-011',
     assetClasses: [ASSET_CLASS.HOSPITALITY],
     lifecycleStage: LIFECYCLE_STAGE.EXISTING_OPERATING,
     investmentStrategy: INVESTMENT_STRATEGY.ACQUIRE_HOLD,
     incomeModel: INCOME_MODEL.OPERATING_BUSINESS,
   });
   const request = createValuationRequest({
-    caseId: 'CASE-VAL-008',
+    caseId: 'CASE-VAL-011',
     projectId: projectProfile.projectId,
     projectProfile,
     methodInputs: qualifiedMethodInputs(),
@@ -275,14 +338,14 @@ function explicitPolicy() {
 
 (function testMixedUseRequiresExplicitComponents() {
   const projectProfile = createProjectProfile({
-    projectId: 'PROJECT-VAL-009',
+    projectId: 'PROJECT-VAL-012',
     assetClasses: [ASSET_CLASS.MIXED_USE],
     lifecycleStage: LIFECYCLE_STAGE.STABILIZED,
     investmentStrategy: INVESTMENT_STRATEGY.CORE_INCOME,
     incomeModel: INCOME_MODEL.MIXED,
   });
   const request = createValuationRequest({
-    caseId: 'CASE-VAL-009',
+    caseId: 'CASE-VAL-012',
     projectId: projectProfile.projectId,
     projectProfile,
     methodInputs: qualifiedMethodInputs(),
@@ -296,9 +359,9 @@ function explicitPolicy() {
 })();
 
 (function testProjectScopeMismatchIsRejected() {
-  const projectProfile = officeProfile('PROJECT-VAL-010');
+  const projectProfile = officeProfile('PROJECT-VAL-013');
   assert.throws(() => createValuationRequest({
-    caseId: 'CASE-VAL-010',
+    caseId: 'CASE-VAL-013',
     projectId: 'OTHER-PROJECT',
     projectProfile,
   }), /VALUATION_REQUEST_PROJECT_SCOPE_MISMATCH/);
