@@ -35,6 +35,7 @@ assert(!panel.includes('fetch('));
 assert(!panel.includes('window.'));
 assert(draft.includes('AT_LEAST_ONE_REQUIRED'));
 assert(draft.includes('DUPLICATE_REQUIREMENT'));
+assert(draft.includes('INVALID_REQUIREMENT_ITEM'));
 assert(orchestrator.includes('criticalRequirements: request.criticalEvidenceRequirements?.[planned.method] || []'));
 
 const base = {
@@ -80,7 +81,21 @@ assert.throws(
   (error) => error instanceof CriticalEvidenceDraftError && error.reasonCode === 'DUPLICATE_REQUIREMENT',
 );
 
+const malformedRows = criticalEvidenceRowsFromValuationCase({
+  ...base,
+  criticalEvidenceRequirements: {
+    [VALUATION_METHOD.INCOME_DIRECT_CAPITALIZATION]: [null],
+  },
+});
+assert.strictEqual(malformedRows.length, 1);
+assert.strictEqual(malformedRows[0].hydrationError, 'INVALID_REQUIREMENT_ITEM');
+assert.throws(
+  () => applyCriticalEvidenceRowsToValuationCase(base, malformedRows),
+  (error) => error instanceof CriticalEvidenceDraftError && error.reasonCode === 'INVALID_REQUIREMENT_ITEM',
+);
+
 console.log('CRITICAL_EVIDENCE_REQUIREMENTS_UI_V1=PASS');
 console.log('CRITICAL_EVIDENCE_EXACT_FIELD_MATCHING=PASS');
+console.log('CRITICAL_EVIDENCE_MALFORMED_INPUT_FAILS_CLOSED=PASS');
 console.log('CRITICAL_EVIDENCE_NO_HIDDEN_DEFAULTS=PASS');
 console.log('CRITICAL_EVIDENCE_NO_NETWORK_PATH=PASS');
