@@ -7,7 +7,7 @@ const {
   createIntegrationEnvelope,
 } = require('../integration-envelope');
 const { createWriteProposal } = require('../write-lifecycle');
-const { SPREADSHEET_FIELD_DIRECTION } = require('./contracts');
+const { SPREADSHEET_FIELD_DIRECTION, createSpreadsheetSchema } = require('./contracts');
 
 const SPREADSHEET_IMPORT_STATUS = Object.freeze({
   READY_FOR_HUMAN_REVIEW: 'READY_FOR_HUMAN_REVIEW',
@@ -86,6 +86,18 @@ function comparableValue(value) {
   return JSON.stringify(value);
 }
 
+function normalizeRuntimeImportSchema(schema) {
+  requirePlainObject(schema, 'schema');
+  if (schema.direction !== SPREADSHEET_FIELD_DIRECTION.IMPORT) throw new TypeError('schema must be an IMPORT spreadsheet schema');
+  if (!Array.isArray(schema.mappings) || schema.mappings.length === 0) throw new TypeError('schema.mappings must be a non-empty array');
+  return createSpreadsheetSchema({
+    schemaId: schema.schemaId,
+    schemaVersion: schema.mappingSchemaVersion,
+    direction: schema.direction,
+    mappings: schema.mappings,
+  });
+}
+
 async function buildControlledSpreadsheetImport({
   schema,
   workbookSnapshot,
@@ -97,9 +109,7 @@ async function buildControlledSpreadsheetImport({
   requestedBy,
   correlationId,
 } = {}) {
-  requirePlainObject(schema, 'schema');
-  if (schema.direction !== SPREADSHEET_FIELD_DIRECTION.IMPORT) throw new TypeError('schema must be an IMPORT spreadsheet schema');
-  if (!Array.isArray(schema.mappings) || schema.mappings.length === 0) throw new TypeError('schema.mappings must be a non-empty array');
+  const normalizedSchema = normalizeRuntimeImportSchema(schema);
   requirePlainObject(workbookSnapshot, 'workbookSnapshot');
   requirePlainObject(canonicalSnapshot, 'canonicalSnapshot');
 
@@ -136,7 +146,7 @@ async function buildControlledSpreadsheetImport({
     });
   }
 
-  for (const mapping of schema.mappings) {
+  for (const mapping of normalizedSchema.mappings) {
     const cell = workbookCellAt(workbookSnapshot, mapping.sheetName, mapping.cell);
     if (!cell) {
       if (mapping.required) hold(mapping, SPREADSHEET_IMPORT_REASON.MISSING_REQUIRED_CELL);
@@ -264,8 +274,8 @@ async function buildControlledSpreadsheetImport({
     payload: {
       caseId,
       projectId,
-      schemaId: schema.schemaId,
-      mappingSchemaVersion: schema.mappingSchemaVersion,
+      schemaId: normalizedSchema.schemaId,
+      mappingSchemaVersion: normalizedSchema.mappingSchemaVersion,
       parserId: normalizedParserId,
       parserVersion: normalizedParserVersion,
       changes,
@@ -312,7 +322,7 @@ async function buildControlledSpreadsheetImport({
     humanApprovalRequired: true,
     directWriteAuthorized: false,
     transactionAuthorized: false,
-    semantics: 'A READY result is an import diff plus governed write proposals only. It does not mutate canonical state. Every proposal remains subject to explicit human approval and the separate governed write lifecycle.',
+    semantics: 'A READY result is an import diff plus governed write proposals only. Runtime schema revalidation prevents raw objects from bypassing canonical-input namespace controls. It does not mutate canonical state; every proposal remains subject to explicit human approval and the separate governed write lifecycle.',
   });
 }
 
