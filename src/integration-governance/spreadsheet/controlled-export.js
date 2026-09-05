@@ -173,6 +173,10 @@ async function buildControlledSpreadsheetExport({
       continue;
     }
 
+    const authoritativeForDecision = mapping.sourceKind === SPREADSHEET_SOURCE_KIND.AI_INTERPRETATION
+      ? false
+      : metadata.authoritativeForDecision === true;
+
     rows.push({
       mappingId: mapping.mappingId,
       sheetName: mapping.sheetName,
@@ -188,7 +192,9 @@ async function buildControlledSpreadsheetExport({
         derivationRef,
         engineVersionRef,
         contextHashSha256,
-        authoritative: mapping.sourceKind !== SPREADSHEET_SOURCE_KIND.AI_INTERPRETATION,
+        verificationStatus: metadata.verificationStatus == null ? null : String(metadata.verificationStatus),
+        dataQualityStatus: metadata.dataQualityStatus == null ? null : String(metadata.dataQualityStatus),
+        authoritativeForDecision,
       },
     });
   }
@@ -257,6 +263,7 @@ async function buildControlledSpreadsheetExport({
         sourcePath: row.provenance.sourcePath,
         sourceKind: row.provenance.sourceKind,
         sourceRef: row.provenance.sourceRef,
+        authoritativeForDecision: row.provenance.authoritativeForDecision,
       })),
     },
     contentHashSha256: projectionHashSha256,
@@ -277,7 +284,7 @@ async function buildControlledSpreadsheetExport({
     externalWritePerformed: false,
     authoritativeWorkbook: false,
     transactionAuthorized: false,
-    semantics: 'This produces a provenance-preserving export projection and audit envelope only. It does not create XLSX bytes, write to an external spreadsheet service, convert AI narrative into authoritative fact, or authorize a transaction.',
+    semantics: 'This produces a provenance-preserving export projection and audit envelope only. It does not create XLSX bytes, write to an external spreadsheet service, convert AI narrative into authoritative fact, upgrade source authority, or authorize a transaction.',
   });
 }
 
