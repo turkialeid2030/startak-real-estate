@@ -30,16 +30,13 @@ function run() {
   assert.strictEqual(fresh.legacyCompatibility, false);
   assert.strictEqual(fresh.transactionAuthorized, false);
   assert.notStrictEqual(fresh.inputs, defaults);
-
-  const blankExit = applyExitCapInputText({ inputs: fresh.inputs, rawText: '' });
-  assert.strictEqual(blankExit.exitCapPresent, false);
-  assert.strictEqual(Object.prototype.hasOwnProperty.call(blankExit.inputs, 'exitCapRate'), false);
-  assert.strictEqual(blankExit.displayValue, '');
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(fresh.inputs, 'exitCapRate'), false,
+    'fresh V2 building work must not inherit a template/default exit cap');
   assert.strictEqual(defaults.exitCapRate, 0.07, 'caller defaults must remain unmodified');
 
   const incomplete = calculateUiInvestmentState({
     mode: UI_MODE.BUILDING,
-    inputs: blankExit.inputs,
+    inputs: fresh.inputs,
     assumptionModelVersion: fresh.assumptionModelVersion,
   });
   assert.strictEqual(incomplete.results.financialModelStatus, 'INCOMPLETE_INPUTS');
@@ -48,6 +45,11 @@ function run() {
   assert.strictEqual(incomplete.sensitivityReady, false);
   assert.strictEqual(incomplete.sensitivityRenderPolicy, 'SHOW_CONTROLLED_UNAVAILABLE_STATE');
   assert.strictEqual(incomplete.transactionAuthorized, false);
+
+  const blankExit = applyExitCapInputText({ inputs: { ...fresh.inputs, exitCapRate: 0.08 }, rawText: '' });
+  assert.strictEqual(blankExit.exitCapPresent, false);
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(blankExit.inputs, 'exitCapRate'), false);
+  assert.strictEqual(blankExit.displayValue, '');
 
   const incompleteDisclosureAr = buildUiDisclosureViewModel({
     governance: incomplete.governance,
@@ -64,7 +66,7 @@ function run() {
   assert.strictEqual(incompleteDisclosureAr.exitCapInputRequired, true);
   assert.strictEqual(incompleteDisclosureAr.transactionAuthorized, false);
 
-  const explicitExit = applyExitCapInputText({ inputs: blankExit.inputs, rawText: '7.5' });
+  const explicitExit = applyExitCapInputText({ inputs: fresh.inputs, rawText: '7.5' });
   assert.strictEqual(explicitExit.exitCapPresent, true);
   assert.strictEqual(explicitExit.inputs.exitCapRate, 0.075);
   assert.strictEqual(explicitExit.displayValue, '7.5');
@@ -144,11 +146,19 @@ function run() {
     (error) => error && error.code === 'OPTIONAL_PERCENT_INVALID',
   );
 
-  console.log('WAVE2_UI_CONTROLLER_FRESH_V2=PASS');
+  const landFresh = createUiWorkspace({
+    mode: UI_MODE.LAND,
+    defaultInputs: { ...baseInputs, exitCapRate: 0.085 },
+  });
+  assert.strictEqual(landFresh.inputs.exitCapRate, 0.085,
+    'land/development input semantics are intentionally unchanged');
+
+  console.log('WAVE2_UI_CONTROLLER_FRESH_V2_EXPLICIT_EXIT_REQUIRED=PASS');
   console.log('WAVE2_UI_CONTROLLER_V2_FAIL_CLOSED=PASS');
   console.log('WAVE2_UI_CONTROLLER_LEGACY_COMPATIBILITY=PASS');
   console.log('WAVE2_UI_CONTROLLER_SAVE_VERSIONING=PASS');
   console.log('WAVE2_UI_CONTROLLER_DISCLOSURE_AND_SENSITIVITY=PASS');
+  console.log('WAVE2_UI_CONTROLLER_LAND_SCOPE_UNCHANGED=PASS');
   console.log('WAVE2_UI_CONTROLLER_NO_TRANSACTION_AUTHORITY=PASS');
 }
 
