@@ -20,11 +20,11 @@ check('USER-NAME-PASSTHROUGH-AR', getDealDisplayName({name:'مشروعي الخ�
 check('USER-NAME-PASSTHROUGH-EN', getDealDisplayName({name:'مشروعي الخاص'}, tEn) === 'مشروعي الخاص', 'real user content NOT translated even in en mode -- critical: user content must never be translated');
 check('USER-NAME-ENGLISH-PASSTHROUGH', getDealDisplayName({name:'My Project'}, tAr) === 'My Project', 'user content in any script passes through unchanged');
 
-// Schema preservation proof. RIAI-01P intentionally wraps the original five
-// fields and may append one validated optional operatingCase for Building.
+// Schema preservation proof. RIAI-01P and Valuation V1 intentionally wrap the
+// original five fields and may append validated optional Building-only extensions.
 const appSrc = fs.readFileSync(path.join(__dirname,'../..','src/app/App.jsx'), 'utf8');
-check('SCHEMA-CORE-PRESERVED-WITH-OPTIONAL-RIAI', appSrc.includes('recordWithOperatingCase({ id, name, mode, inputs, savedAt: new Date().toISOString() })'), 'original five raw fields preserved; optional validated operatingCase is non-translatable and Building-only');
-check('SCHEMA-UPDATE-UNCHANGED', appSrc.includes('name: existing ? existing.name : "صفقة"'), 'update-active record shape byte-identical -- raw persisted literal "صفقة" untouched, only DISPLAY wrapped via getDealDisplayName');
+check('SCHEMA-CORE-PRESERVED-WITH-OPTIONAL-RIAI', appSrc.includes('recordWithExtensions({ id, name, mode, inputs, savedAt: new Date().toISOString() })') && appSrc.includes('operatingCase: residentialIncomeOperatingCase') && appSrc.includes('withValuationCase(extended, valuationCase)'), 'original five raw fields preserved; optional operatingCase and valuationCase are validated, non-translatable Building-only extensions');
+check('SCHEMA-UPDATE-UNCHANGED', appSrc.includes('name: existing ? existing.name : "صفقة"'), 'update-active core record shape preserved -- raw persisted literal "صفقة" untouched, only DISPLAY wrapped via getDealDisplayName');
 check('DNAME-CALL-SITE-USES-DISPLAY-FN', appSrc.includes('getDealDisplayName(d, t)'), 'list rendering uses the presentation function, not raw d.name directly');
 
 // R6-B freeze: dealsError untouched

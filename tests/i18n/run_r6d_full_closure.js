@@ -10,15 +10,17 @@ const { calculateInvestmentCase, STUDY_TYPE } = require('../../src/engines');
 const results = [];
 function check(id, cond, detail) { console.log(`${id} ${cond?'PASS':'FAIL'} -- ${detail}`); results.push(cond); }
 
-// Schema re-confirmation (R6_SAVED_DEAL_SCHEMA_INVENTORY.csv authority)
+// Schema re-confirmation (R6_SAVED_DEAL_SCHEMA_INVENTORY.csv authority).
+// Valuation V1 adds one optional, validated, non-translatable Building-only
+// configuration extension; the original five raw fields remain unchanged.
 function parseCsvLine(l){const f=[];let c='',q=false;for(const ch of l){if(ch==='"')q=!q;else if(ch===','&&!q){f.push(c);c='';}else c+=ch;}f.push(c);return f;}
 const schemaCsv = fs.readFileSync(path.join(__dirname,'../..','R6_SAVED_DEAL_SCHEMA_INVENTORY.csv'),'utf8').trim().split('\n');
 const schemaRows = schemaCsv.slice(1).map(parseCsvLine);
-check('SCHEMA-6-FIELDS', schemaRows.length === 6, `${schemaRows.length} persisted fields including optional RIAI operatingCase`);
+check('SCHEMA-7-FIELDS', schemaRows.length === 7, `${schemaRows.length} persisted fields including optional RIAI operatingCase and Valuation V1 valuationCase`);
 check('SCHEMA-ZERO-TRANSLATABLE', schemaRows.every(r => r[3] !== 'Yes'), 'zero translatable persisted fields');
 
 const appSrc = fs.readFileSync(path.join(__dirname,'../..','src/app/App.jsx'), 'utf8');
-check('SCHEMA-CORE-PRESERVED-WITH-OPTIONAL-RIAI', appSrc.includes('recordWithOperatingCase({ id, name, mode, inputs, savedAt: new Date().toISOString() })'), 'original five raw fields preserved with one validated optional Building-only operatingCase');
+check('SCHEMA-CORE-PRESERVED-WITH-OPTIONAL-RIAI', appSrc.includes('recordWithExtensions({ id, name, mode, inputs, savedAt: new Date().toISOString() })') && appSrc.includes('operatingCase: residentialIncomeOperatingCase') && appSrc.includes('withValuationCase(extended, valuationCase)'), 'original five raw fields preserved with validated optional Building-only operatingCase and valuationCase extensions');
 check('STORAGE-KEY-PREFIX-UNCHANGED', appSrc.includes('"deal:" + id') && appSrc.includes('"deals-index"'), 'storage keys unchanged');
 
 // Live-browser evidence from this session (documented, not re-executed here --

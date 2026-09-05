@@ -15,7 +15,8 @@ assert(app.includes('import ResidentialIncomeAcquisitionPanel from "../component
 assert(app.includes('useState(null)'));
 assert(app.includes('createResidentialIncomeAcquisitionViewModel(residentialIncomeOperatingCase)'));
 assert(app.includes('parseResidentialIncomeOperatingCaseEnvelope(text)'));
-assert(app.includes('recordWithOperatingCase'));
+assert(app.includes('recordWithExtensions'));
+assert(app.includes('operatingCase: residentialIncomeOperatingCase'));
 assert(app.includes('{mode === "building" ? ('));
 assert(app.includes('<ResidentialIncomeAcquisitionPanel'));
 assert(panel.includes('data-testid="residential-income-acquisition-panel"'));

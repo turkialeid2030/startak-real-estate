@@ -9,5 +9,10 @@ module.exports = {
   ...require('./reconciliation'),
   ...require('./planner'),
   ...require('./evidence-quality'),
+  ...require('./reason-codes'),
+  ...require('./valuation-request'),
+  ...require('./orchestrator'),
+  ...require('./saved-deal-extension'),
   ...require('./adapters/industrial-logistics'),
+  ...require('./adapters/existing-building-ui'),
 };

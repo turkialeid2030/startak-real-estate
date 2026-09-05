@@ -9,6 +9,7 @@ import {
   MapPin, AlertTriangle, Bookmark, Save, Trash2,
 } from "lucide-react";
 import ResidentialIncomeAcquisitionPanel from "../components/ResidentialIncomeAcquisitionPanel.jsx";
+import ValuationIntelligencePanel from "../components/ValuationIntelligencePanel.jsx";
 
 // ============================================================
 // DESIGN TOKENS
@@ -124,6 +125,8 @@ const {
   parseResidentialIncomeOperatingCaseEnvelope,
   MAX_OPERATING_CASE_JSON_BYTES,
 } = require('../residential-income-acquisition');
+const { evaluateExistingBuildingValuation } = require('./existing-building-valuation-runtime');
+const { valuationCaseFromSavedDeal, withValuationCase } = require('./valuation-saved-deal-bridge');
 
 // ============================================================
 
@@ -845,7 +848,7 @@ function DashboardTab({ mode, inputs, results }) {
           { ok: r.c4, label: t("recommendation.criteria.ldMarketValueVsCost"), actual: formatRecommendationCurrency(r.marketValueAfterCompletion), target: formatRecommendationCurrency(r.totalProjectCost) },
           ...(inputs.leverageEnabled
             ? [{ ok: r.c5, label: t("recommendation.criteria.dscr", { value: fmtX(inputs.minDscrThreshold) }), actual: r.dscrMin !== null ? fmtX(r.dscrMin) : "—", target: fmtX(inputs.minDscrThreshold) }]
-            : []),
+              : []),
         ]}
       />
     </div>
@@ -1406,6 +1409,7 @@ export default function App() {
   const [mode, setMode] = useState("building");
   const [residentialIncomeOperatingCase, setResidentialIncomeOperatingCase] = useState(null);
   const [operatingCaseMessage, setOperatingCaseMessage] = useState(null);
+  const [valuationCase, setValuationCase] = useState(null);
   const residentialIncomeAcquisitionView = useMemo(
     () => createResidentialIncomeAcquisitionViewModel(residentialIncomeOperatingCase),
     [residentialIncomeOperatingCase],
@@ -1478,6 +1482,35 @@ export default function App() {
   const [dealsError, setDealsError] = useState(null);
   const activeDealName = activeDealId ? (savedDeals.find((d) => d.id === activeDealId) || {}).name : null;
 
+  const valuationRuntimeState = useMemo(() => {
+    if (mode !== "building") return { runtime: null, error: null };
+    if (valuationCase && buildingValidationError) {
+      return {
+        runtime: null,
+        error: { code: "LEGACY_INPUT_VALIDATION_HOLD", message: null },
+      };
+    }
+    try {
+      return {
+        runtime: evaluateExistingBuildingValuation({
+          caseId: activeDealId || "CURRENT-BUILDING",
+          legacyInput: buildingInputs,
+          legacyResult: buildingResults,
+          valuationCase,
+        }),
+        error: null,
+      };
+    } catch (error) {
+      return {
+        runtime: null,
+        error: {
+          code: error && (error.reasonCode || error.name) ? (error.reasonCode || error.name) : "VALUATION_RUNTIME_ERROR",
+          message: error && error.message ? error.message : null,
+        },
+      };
+    }
+  }, [mode, activeDealId, buildingInputs, buildingResults, valuationCase, buildingValidationError]);
+
   useEffect(() => {
     (async () => {
       try {
@@ -1496,6 +1529,7 @@ export default function App() {
     setMode(builtInMode);
     setResidentialIncomeOperatingCase(null);
     setOperatingCaseMessage(null);
+    setValuationCase(null);
     setActiveDealId(null);
     setActiveTab("dashboard");
     setDealsPanelOpen(false);
@@ -1514,6 +1548,7 @@ export default function App() {
       setResidentialIncomeOperatingCase(record.operatingCase
         ? hydrateResidentialIncomeOperatingCaseSnapshot(record.operatingCase)
         : null);
+      setValuationCase(valuationCaseFromSavedDeal(record));
       setOperatingCaseMessage(null);
       setActiveDealId(id);
       setActiveTab("dashboard");
@@ -1523,11 +1558,12 @@ export default function App() {
     }
   };
 
-  const recordWithOperatingCase = (record) => {
+  const recordWithExtensions = (record) => {
+    let extended = record;
     if (record.mode === "building" && residentialIncomeOperatingCase) {
-      return { ...record, operatingCase: residentialIncomeOperatingCase };
+      extended = { ...extended, operatingCase: residentialIncomeOperatingCase };
     }
-    return record;
+    return withValuationCase(extended, valuationCase);
   };
 
   const importResidentialIncomeOperatingCase = async (file) => {
@@ -1597,7 +1633,7 @@ export default function App() {
     setDealsError(null);
     try {
       const id = "deal_" + Date.now();
-      const record = recordWithOperatingCase({ id, name, mode, inputs, savedAt: new Date().toISOString() });
+      const record = recordWithExtensions({ id, name, mode, inputs, savedAt: new Date().toISOString() });
       await storageProvider.set("deal:" + id, JSON.stringify(record));
       const newIndex = [...savedDeals, { id, name, mode, savedAt: record.savedAt }];
       await storageProvider.set("deals-index", JSON.stringify(newIndex));
@@ -1620,7 +1656,7 @@ export default function App() {
     setDealsError(null);
     try {
       const existing = savedDeals.find((d) => d.id === activeDealId);
-      const record = recordWithOperatingCase({ id: activeDealId, name: existing ? existing.name : "صفقة", mode, inputs, savedAt: new Date().toISOString() });
+      const record = recordWithExtensions({ id: activeDealId, name: existing ? existing.name : "صفقة", mode, inputs, savedAt: new Date().toISOString() });
       await storageProvider.set("deal:" + activeDealId, JSON.stringify(record));
       const newIndex = savedDeals.map((d) => (d.id === activeDealId ? { ...d, savedAt: record.savedAt } : d));
       await storageProvider.set("deals-index", JSON.stringify(newIndex));
@@ -1643,6 +1679,7 @@ export default function App() {
         setActiveDealId(null);
         setResidentialIncomeOperatingCase(null);
         setOperatingCaseMessage(null);
+        setValuationCase(null);
       }
     } catch (e) {
       setDealsError({ code: "DEAL_DELETE_FAILED", message_ar: "تعذّر الحذف", message_en: "Delete failed" });
@@ -1698,8 +1735,10 @@ export default function App() {
       setBuildingInputs(DEFAULT_BUILDING_INPUTS);
       setResidentialIncomeOperatingCase(null);
       setOperatingCaseMessage(null);
+      setValuationCase(null);
     } else {
       setLandInputs(DEFAULT_LAND_INPUTS);
+      setValuationCase(null);
     }
   };
 
@@ -1736,6 +1775,7 @@ export default function App() {
               setActiveDealId(null);
               setResidentialIncomeOperatingCase(null);
               setOperatingCaseMessage(null);
+              setValuationCase(null);
               setActiveTab("dashboard");
             }} />
             <button
@@ -1818,6 +1858,16 @@ export default function App() {
             {activeTab === "sensitivity" && <SensitivityTab mode={mode} inputs={inputs} />}
           </main>
         </div>
+
+        {mode === "building" ? (
+          <ValuationIntelligencePanel
+            locale={locale}
+            valuationCase={valuationCase}
+            onChangeValuationCase={setValuationCase}
+            runtime={valuationRuntimeState.runtime}
+            runtimeError={valuationRuntimeState.error}
+          />
+        ) : null}
 
         {mode === "building" ? (
           <ResidentialIncomeAcquisitionPanel

@@ -1,18 +1,19 @@
 // src/storage/saved-deals-backup.js -- PR-12: Saved Deal export/import
-// (backup/restore). Static client-only, no backend. Version 2 adds an optional
-// validated Residential Income operating-case snapshot to the canonical Saved
-// Deal record while retaining full version-1 restore compatibility. Reuses
-// SDI-001's validateSavedDealRecord --
+// (backup/restore). Static client-only, no backend. Version 2 added an optional
+// validated Residential Income operating-case snapshot. Version 3 adds the
+// optional versioned valuationCase configuration while retaining full restore
+// compatibility with versions 1 and 2. Reuses SDI-001's canonical validator;
 // does NOT implement a second/duplicate schema validator.
 
 const { validateSavedDealRecord } = require('../validation/saved-deal-schema.js');
 
 const BACKUP_FORMAT = 'STARTAK_SAVED_DEALS_BACKUP';
-const BACKUP_VERSION = 2;
+const BACKUP_VERSION = 3;
 
 function projectDealRecord(parsed, id = parsed.id) {
   const record = { id, name: parsed.name, mode: parsed.mode, inputs: parsed.inputs, savedAt: parsed.savedAt };
   if (Object.prototype.hasOwnProperty.call(parsed, 'operatingCase')) record.operatingCase = parsed.operatingCase;
+  if (Object.prototype.hasOwnProperty.call(parsed, 'valuationCase')) record.valuationCase = parsed.valuationCase;
   return record;
 }
 
@@ -42,8 +43,8 @@ async function buildExportPayload(dealIndexEntries, storageProvider) {
     let parsed;
     try { parsed = JSON.parse(raw); } catch (e) { throw new BackupError('CORRUPT_JSON_IN_STORAGE', `id=${entry.id}`); }
     validateSavedDealRecord(parsed); // throws SavedDealValidationError if structurally invalid -- propagates, aborting the whole export
-    // Preserve the core deal plus the optional canonical operating-case snapshot.
-    // No calculated view-model or presentation fields are exported.
+    // Preserve the core deal plus optional canonical extensions. No calculated
+    // view-model, valuation result, or presentation field is exported here.
     deals.push(projectDealRecord(parsed));
   }
   return { format: BACKUP_FORMAT, backupVersion: BACKUP_VERSION, exportedAt: new Date().toISOString(), deals };
