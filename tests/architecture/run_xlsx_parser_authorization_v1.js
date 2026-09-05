@@ -4,6 +4,8 @@ const assert = require('assert');
 const { inspectXlsxOpcContainer } = require('../../src/integration-governance/spreadsheet/xlsx/opc-preflight');
 const { authorizeXlsxPassiveParserInvocation } = require('../../src/integration-governance/spreadsheet/xlsx/parser-authorization');
 
+const REVIEWED_SHA256 = '8dc73fc3b00203e72d176e85b50938627c7b086e607c682e8d3c22c02bb99fe8';
+
 function writeU16(buffer, offset, value) {
   buffer.writeUInt16LE(value >>> 0, offset);
 }
@@ -109,15 +111,43 @@ function run() {
     parserProfileVersion: '1.0.0',
   }), (error) => {
     assert.strictEqual(error.code, 'XLSX_DEPENDENCY_NOT_APPROVED');
-    assert.strictEqual(error.dependencyDecision, 'HOLD_REVIEW_INCOMPLETE');
-    assert.deepStrictEqual(error.reasonCodes, ['REVIEW_APPROVED_SHA256_NOT_PINNED']);
+    assert.strictEqual(error.dependencyDecision, 'REJECTED_DEPENDENCY');
+    assert.deepStrictEqual(error.reasonCodes, ['ARCHIVE_SHA256_MISMATCH']);
     return true;
   });
+
+  const authorized = authorizeXlsxPassiveParserInvocation({
+    dependencyCandidate: officialCandidate({ archiveSha256: REVIEWED_SHA256 }),
+    preflightResult: preflight,
+    caseId: 'CASE-XLSX-001',
+    projectId: 'PROJECT-XLSX-001',
+    sourceHashSha256: 'b'.repeat(64),
+    parserProfileId: 'XLSX-PASSIVE-V1',
+    parserProfileVersion: '1.0.0',
+  });
+
+  assert.strictEqual(authorized.status, 'PASSIVE_PARSER_INVOCATION_AUTHORIZED');
+  assert.strictEqual(authorized.caseId, 'CASE-XLSX-001');
+  assert.strictEqual(authorized.projectId, 'PROJECT-XLSX-001');
+  assert.strictEqual(authorized.sourceHashSha256, 'b'.repeat(64));
+  assert.strictEqual(authorized.parserProfileId, 'XLSX-PASSIVE-V1');
+  assert.strictEqual(authorized.parserProfileVersion, '1.0.0');
+  assert.strictEqual(authorized.dependencyReview.decision, 'APPROVED_WITH_GOVERNED_WRAPPER');
+  assert.strictEqual(authorized.parserInvocationAuthorized, true);
+  assert.strictEqual(authorized.formulaEvaluationAuthorized, false);
+  assert.strictEqual(authorized.macroExecutionAuthorized, false);
+  assert.strictEqual(authorized.externalLinkResolutionAuthorized, false);
+  assert.strictEqual(authorized.sourceAuthorityPromoted, false);
+  assert.strictEqual(authorized.evidenceVerified, false);
+  assert.strictEqual(authorized.canonicalMutationPerformed, false);
+  assert.strictEqual(authorized.transactionAuthorized, false);
+  assert.strictEqual(Object.isFrozen(authorized), true);
 
   assert.throws(() => authorizeXlsxPassiveParserInvocation({
     dependencyCandidate: officialCandidate({
       version: '0.18.5',
       sourceUrl: 'https://registry.npmjs.org/xlsx/-/xlsx-0.18.5.tgz',
+      archiveSha256: REVIEWED_SHA256,
     }),
     preflightResult: preflight,
     caseId: 'CASE-XLSX-001',
