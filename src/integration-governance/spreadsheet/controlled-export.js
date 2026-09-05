@@ -195,6 +195,7 @@ async function buildControlledSpreadsheetExport({
         verificationStatus: metadata.verificationStatus == null ? null : String(metadata.verificationStatus),
         dataQualityStatus: metadata.dataQualityStatus == null ? null : String(metadata.dataQualityStatus),
         authoritativeForDecision,
+        authoritative: authoritativeForDecision,
       },
     });
   }
