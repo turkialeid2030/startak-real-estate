@@ -1,7 +1,15 @@
 // tests/i18n/run_r6c_full_closure.js -- R6-C validation/i18n qualification.
 const fs = require('fs'), path = require('path');
 const { execFileSync } = require('child_process');
-const { validateEngineInputs } = require('../../src/validation/numeric-safety');
+const {
+  ValidationError,
+  requireFinite,
+  requireFiniteIntermediate,
+  requireFiniteArray,
+  requireRange,
+  validateEngineInputs,
+  validateRequiredFields,
+} = require('../../src/validation/numeric-safety');
 const { calculateInvestmentCase, STUDY_TYPE } = require('../../src/engines');
 const gold = require('../reference/RE-GOLD-baseline.json');
 const results = [];
@@ -16,11 +24,61 @@ const r6c = rows.filter(r => r.semantic_owner === 'R6-VALIDATION');
 check('INVENTORY-5', r6c.length === 5, `R6-VALIDATION rows = ${r6c.length}`);
 check('DUP-0', new Set(r6c.map(r=>r.inventory_id)).size === r6c.length, 'zero duplicate IDs');
 
-// Wave A added an explicit leaseUpMonths guard in addition to the existing
-// finite/range/strict-positive/derived-project-cost throw sites.
-const vsSrc = fs.readFileSync(path.join(__dirname,'../..','src/validation/numeric-safety.js'), 'utf8');
-const producerCount = (vsSrc.match(/throw new ValidationError/g) || []).length;
-check('PRODUCERS-7', producerCount === 7, `${producerCount} ValidationError throw sites found`);
+// The previous PRODUCERS-7 assertion counted the literal text
+// "throw new ValidationError". That was a brittle structural contract: adding
+// any legitimate validation guard changed the count even when bilingual error
+// behavior remained correct. The intended contract has always been behavioral:
+// every ValidationError producer in numeric-safety.js must emit non-empty Arabic
+// and English messages. Exercise each producer path directly instead of freezing
+// an implementation-detail count.
+function expectBilingualValidationError(id, trigger, expectedRule, expectedField) {
+  let error = null;
+  try { trigger(); } catch (caught) { error = caught; }
+  const valid = error instanceof ValidationError
+    && typeof error.message_ar === 'string' && error.message_ar.trim().length > 0
+    && typeof error.message_en === 'string' && error.message_en.trim().length > 0
+    && (!expectedRule || error.rule === expectedRule)
+    && (!expectedField || error.field === expectedField);
+  check(id, valid, error
+    ? `rule=${error.rule} field=${error.field} ar=${!!error.message_ar} en=${!!error.message_en}`
+    : 'no ValidationError thrown');
+}
+
+expectBilingualValidationError('PRODUCER-FINITE-BILINGUAL',
+  () => requireFinite('finiteProbe', NaN), 'FINITE_NUMBER_REQUIRED', 'finiteProbe');
+expectBilingualValidationError('PRODUCER-INTERMEDIATE-BILINGUAL',
+  () => requireFiniteIntermediate('intermediateProbe', Infinity), 'NON_FINITE_INTERMEDIATE', 'intermediateProbe');
+expectBilingualValidationError('PRODUCER-ARRAY-SHAPE-BILINGUAL',
+  () => requireFiniteArray('arrayProbe', null), 'NON_FINITE_INTERMEDIATE', 'arrayProbe');
+expectBilingualValidationError('PRODUCER-ARRAY-ELEMENT-BILINGUAL',
+  () => requireFiniteArray('arrayProbe', [1, NaN]), 'NON_FINITE_INTERMEDIATE', 'arrayProbe[1]');
+expectBilingualValidationError('PRODUCER-RANGE-BILINGUAL',
+  () => requireRange('rangeProbe', 2, 0, 1), 'OUT_OF_RANGE', 'rangeProbe');
+expectBilingualValidationError('PRODUCER-MISSING-FIELD-BILINGUAL',
+  () => validateRequiredFields({}, STUDY_TYPE.EXISTING_BUILDING), 'MISSING_REQUIRED_FIELD', 'landLength');
+expectBilingualValidationError('PRODUCER-INPUT-SHAPE-BILINGUAL',
+  () => validateEngineInputs(null), 'MISSING_REQUIRED_FIELD', 'inputs');
+expectBilingualValidationError('PRODUCER-NONNEGATIVE-BILINGUAL',
+  () => validateEngineInputs({ fixedOpexPerSqm: -1 }, { studyType: '__R6C_NO_REQUIRED_CONTRACT__' }), 'NON_NEGATIVE_REQUIRED', 'fixedOpexPerSqm');
+expectBilingualValidationError('PRODUCER-LEASE-STATUS-BILINGUAL',
+  () => validateEngineInputs({ leaseStatus: '__UNKNOWN__' }, { studyType: '__R6C_NO_REQUIRED_CONTRACT__' }), 'UNKNOWN_CONTROLLED_VALUE', 'leaseStatus');
+expectBilingualValidationError('PRODUCER-STRICT-POSITIVE-BILINGUAL',
+  () => validateEngineInputs({ maxPaybackThreshold: 0 }, { studyType: '__R6C_NO_REQUIRED_CONTRACT__' }), 'STRICTLY_POSITIVE_REQUIRED', 'maxPaybackThreshold');
+expectBilingualValidationError('PRODUCER-LEASEUP-BILINGUAL',
+  () => validateEngineInputs({ leaseUpMonths: -1 }, { studyType: '__R6C_NO_REQUIRED_CONTRACT__' }), 'NON_NEGATIVE_REQUIRED', 'leaseUpMonths');
+expectBilingualValidationError('PRODUCER-PROJECT-COST-BILINGUAL', () => validateEngineInputs({
+  buildableRatio: 0,
+  landLength: 0,
+  landWidth: 0,
+  landPricePerSqm: 0,
+  landCommissionRate: 0,
+  landTransferFeeRate: 0,
+  engineeringCost: 0,
+  landValuationCost: 0,
+  officeFloorCount: 0,
+  basementFloorCount: 0,
+  constructionCostPerSqm: 0,
+}, { studyType: '__R6C_NO_REQUIRED_CONTRACT__' }), 'STRICTLY_POSITIVE_REQUIRED', 'totalProjectCost');
 
 const boundaries = [
   ['occupancyRate', 0, true], ['occupancyRate', 1, true],
