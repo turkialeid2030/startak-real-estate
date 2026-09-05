@@ -13,4 +13,5 @@ module.exports = {
   ...require('./valuation-request'),
   ...require('./orchestrator'),
   ...require('./adapters/industrial-logistics'),
+  ...require('./adapters/existing-building-ui'),
 };
