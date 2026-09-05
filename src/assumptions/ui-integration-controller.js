@@ -1,7 +1,11 @@
 'use strict';
 
 const { calculateInvestmentCase, STUDY_TYPE } = require('../engines');
-const { normalizeAssumptionModelVersion } = require('./assumption-model');
+const {
+  ASSUMPTION_MODEL_VERSION,
+  V2_APPROVED_ASSUMPTIONS,
+  normalizeAssumptionModelVersion,
+} = require('./assumption-model');
 const {
   createFreshWorkspaceState,
   hydrateSavedDealForUi,
@@ -41,11 +45,21 @@ function studyTypeForMode(mode) {
     : STUDY_TYPE.LAND_DEVELOPMENT;
 }
 
+function materializeUiAssumptions(inputs, assumptionModelVersion) {
+  assertPlainObject(inputs, 'inputs');
+  const version = normalizeAssumptionModelVersion(assumptionModelVersion);
+  if (version !== ASSUMPTION_MODEL_VERSION.V2) return { ...inputs };
+  return {
+    ...inputs,
+    ...V2_APPROVED_ASSUMPTIONS,
+  };
+}
+
 function createUiWorkspace({ mode, defaultInputs }) {
   assertMode(mode);
   assertPlainObject(defaultInputs, 'defaultInputs');
   const workspace = createFreshWorkspaceState(defaultInputs);
-  const inputs = { ...workspace.inputs };
+  const inputs = materializeUiAssumptions(workspace.inputs, workspace.assumptionModelVersion);
 
   // V2 existing-building work must start with an explicitly entered exit cap.
   // Template/default datasets may contain a compatibility/sample value, but that
@@ -66,9 +80,11 @@ function hydrateUiDeal({ record, defaultInputs }) {
   assertPlainObject(defaultInputs, 'defaultInputs');
   const mode = assertMode(record.mode);
   const hydrated = hydrateSavedDealForUi(record, defaultInputs);
+  const inputs = materializeUiAssumptions(hydrated.inputs, hydrated.assumptionModelVersion);
   return Object.freeze({
     mode,
     ...hydrated,
+    inputs,
     transactionAuthorized: false,
   });
 }
@@ -157,6 +173,7 @@ function explicitlyUpgradeUiDealToV2(record) {
 module.exports = {
   UI_MODE,
   studyTypeForMode,
+  materializeUiAssumptions,
   createUiWorkspace,
   hydrateUiDeal,
   calculateUiInvestmentState,
