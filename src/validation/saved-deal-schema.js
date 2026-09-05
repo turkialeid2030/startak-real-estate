@@ -10,15 +10,12 @@
 //   duplicate that layer.
 // - Non-destructive: never mutates, repairs, or deletes anything. It only
 //   inspects and throws or returns.
-// - "Legacy" investigation finding: src/migrations/legacy-saved-deal-adapter.js
-//   exists but serves a completely different purpose (converting a record to
-//   an ExecutableInvestmentCase for a separate consumer) -- it expects the
-//   same legacy {id, name, mode, inputs, savedAt} core validated here, not
-//   an alternate historical shape. There is no other/older record shape that
-//   loadDeal() has ever needed to support. SUPPORTED_LEGACY_RECORDS_IDENTIFIED
-//   = FALSE for this load path specifically.
+// - The legacy {id, name, mode, inputs, savedAt} core remains valid exactly
+//   as before. Optional valuationCase is additive and versioned; its absence
+//   keeps the record on the legacy-only path with no automatic migration.
 
 const { hydrateResidentialIncomeOperatingCaseSnapshot } = require('../residential-income-acquisition/operating-case-snapshot');
+const { validateValuationCaseExtension } = require('../valuation-intelligence/saved-deal-extension');
 
 class SavedDealValidationError extends Error {
   constructor(reasonCode, detail) {
@@ -71,6 +68,17 @@ function validateSavedDealRecord(parsed) {
       hydrateResidentialIncomeOperatingCaseSnapshot(parsed.operatingCase);
     } catch (error) {
       throw new SavedDealValidationError('INVALID_OPERATING_CASE', error.reasonCode || error.name || 'UNKNOWN');
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(parsed, 'valuationCase')) {
+    if (parsed.mode !== 'building') {
+      throw new SavedDealValidationError('VALUATION_CASE_REQUIRES_BUILDING_MODE', `mode=${parsed.mode}`);
+    }
+    try {
+      validateValuationCaseExtension(parsed.valuationCase);
+    } catch (error) {
+      throw new SavedDealValidationError('INVALID_VALUATION_CASE', error.reasonCode || error.name || 'UNKNOWN');
     }
   }
 
