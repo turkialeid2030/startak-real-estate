@@ -38,6 +38,7 @@ function completeDraft() {
   assert.strictEqual(draft.incomePolicy.currency, '');
   assert.strictEqual(draft.evidencePolicy.enabled, false);
   assert.strictEqual(draft.singleMethodPolicy.enabled, false);
+  assert.deepStrictEqual(draft.preservedAdvanced, {});
 })();
 
 (function testIncompleteDraftFailsClosedAtFirstMissingExplicitField() {
@@ -99,7 +100,7 @@ function completeDraft() {
   );
 })();
 
-(function testDraftRoundTripPreservesExplicitPolicies() {
+(function testDraftRoundTripPreservesExplicitPoliciesAndAdvancedInputs() {
   const source = {
     schemaVersion: VALUATION_CASE_SCHEMA_VERSION,
     projectId: 'PROJECT-DRAFT-ROUNDTRIP',
@@ -124,10 +125,64 @@ function completeDraft() {
       allowedMethod: VALUATION_METHOD.INCOME_DIRECT_CAPITALIZATION,
       justification: 'Documented single-method policy.',
     },
+    marketComparableInput: {
+      subjectArea: 1200,
+      basis: 'MARKET_VALUE',
+      currency: 'SAR',
+      weightingPolicy: 'EQUAL',
+      comparables: [{ comparableId: 'ADV-1', unitValue: 10000 }],
+    },
+    costPolicy: {
+      depreciationRate: 0.1,
+      indirectCosts: [{ label: 'Professional fees', amount: 100000 }],
+      basis: 'MARKET_VALUE',
+      currency: 'SAR',
+    },
+    evidence: {
+      capRate: { grade: 'E_MARKET_OBSERVATION', status: 'OBSERVED', sourceType: 'TEST', sourceRef: 'CAP-R1' },
+    },
+    criticalEvidenceRequirements: {
+      INCOME_DIRECT_CAPITALIZATION: [{ field: 'capitalizationRate', minGrade: 'E_MARKET_OBSERVATION' }],
+    },
+    reconciliationPolicy: {
+      methodWeights: { MARKET_COMPARABLE: 0.5, INCOME_DIRECT_CAPITALIZATION: 0.5 },
+      dispersionThreshold: 0.2,
+    },
   };
 
   const rebuilt = buildValuationCaseFromDraft(draftFromValuationCase(source));
   assert.deepStrictEqual(rebuilt, source);
+})();
+
+(function testDisablingEditablePolicyRemovesOnlyThatPolicyAndPreservesAdvancedFields() {
+  const source = {
+    schemaVersion: VALUATION_CASE_SCHEMA_VERSION,
+    projectId: 'PROJECT-DRAFT-PRESERVE',
+    classification: {
+      assetClass: 'OFFICE',
+      lifecycleStage: 'STABILIZED',
+      investmentStrategy: 'CORE_INCOME',
+      incomeModel: 'LEASE_INCOME',
+    },
+    incomePolicy: {
+      expenseTreatment: 'MARKET_ESTIMATE',
+      basis: 'MARKET_VALUE',
+      currency: 'SAR',
+      valuationDate: null,
+    },
+    evidencePolicy: { minEvidenceCount: 3, maxAssumptionBurdenRatio: 1, maxLowGradeRatio: 1 },
+    singleMethodPolicy: {
+      allowedMethod: VALUATION_METHOD.INCOME_DIRECT_CAPITALIZATION,
+      justification: 'Initial policy.',
+    },
+    costPolicy: { depreciationRate: 0.2, indirectCosts: [], basis: 'MARKET_VALUE', currency: 'SAR' },
+  };
+  const draft = draftFromValuationCase(source);
+  draft.singleMethodPolicy.enabled = false;
+  const rebuilt = buildValuationCaseFromDraft(draft);
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(rebuilt, 'singleMethodPolicy'), false);
+  assert.deepStrictEqual(rebuilt.costPolicy, source.costPolicy);
+  assert.deepStrictEqual(rebuilt.evidencePolicy, source.evidencePolicy);
 })();
 
 (function testInvalidPolicyRatiosDoNotGetClampedSilently() {
