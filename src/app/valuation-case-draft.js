@@ -22,6 +22,14 @@ class ValuationCaseDraftError extends Error {
   }
 }
 
+const ADVANCED_PRESERVED_FIELDS = Object.freeze([
+  'marketComparableInput',
+  'costPolicy',
+  'evidence',
+  'criticalEvidenceRequirements',
+  'reconciliationPolicy',
+]);
+
 function emptyValuationCaseDraft() {
   return {
     projectId: '',
@@ -48,6 +56,7 @@ function emptyValuationCaseDraft() {
       allowedMethod: '',
       justification: '',
     },
+    preservedAdvanced: {},
   };
 }
 
@@ -78,6 +87,9 @@ function draftFromValuationCase(valuationCase) {
       allowedMethod: valuationCase.singleMethodPolicy.allowedMethod || '',
       justification: valuationCase.singleMethodPolicy.justification || '',
     };
+  }
+  for (const field of ADVANCED_PRESERVED_FIELDS) {
+    if (Object.prototype.hasOwnProperty.call(valuationCase, field)) draft.preservedAdvanced[field] = clone(valuationCase[field]);
   }
   return clone(draft);
 }
@@ -122,6 +134,16 @@ function validateSingleMethodPolicyDraft(policy) {
   };
 }
 
+function copyPreservedAdvanced(draft, valuationCase) {
+  if (draft.preservedAdvanced === undefined || draft.preservedAdvanced === null) return;
+  if (typeof draft.preservedAdvanced !== 'object' || Array.isArray(draft.preservedAdvanced)) throw new ValuationCaseDraftError('INVALID_DRAFT', 'preservedAdvanced');
+  for (const field of ADVANCED_PRESERVED_FIELDS) {
+    if (Object.prototype.hasOwnProperty.call(draft.preservedAdvanced, field)) {
+      valuationCase[field] = clone(draft.preservedAdvanced[field]);
+    }
+  }
+}
+
 function buildValuationCaseFromDraft(draft) {
   if (!draft || typeof draft !== 'object' || Array.isArray(draft)) throw new ValuationCaseDraftError('INVALID_DRAFT', 'draft');
   const classification = draft.classification || {};
@@ -144,15 +166,19 @@ function buildValuationCaseFromDraft(draft) {
     },
   };
 
+  copyPreservedAdvanced(draft, valuationCase);
   const evidencePolicy = validateEvidencePolicyDraft(draft.evidencePolicy);
   if (evidencePolicy) valuationCase.evidencePolicy = evidencePolicy;
+  else delete valuationCase.evidencePolicy;
   const singleMethodPolicy = validateSingleMethodPolicyDraft(draft.singleMethodPolicy);
   if (singleMethodPolicy) valuationCase.singleMethodPolicy = singleMethodPolicy;
+  else delete valuationCase.singleMethodPolicy;
 
   return valuationCase;
 }
 
 module.exports = {
+  ADVANCED_PRESERVED_FIELDS,
   ValuationCaseDraftError,
   emptyValuationCaseDraft,
   draftFromValuationCase,
