@@ -252,7 +252,7 @@ function baseStage(request, plan, methods, payload) {
     ...payload,
     humanDecisionRequired: true,
     transactionAuthorized: false,
-    semantics: 'The valuation stage orchestrates deterministic valuation indications, explicit evidence-quality governance, and explicit reconciliation policy. It does not invent missing evidence, silently select confidence thresholds or method weights, authorize an investment decision, or replace professional valuation review where required.',
+    semantics: 'The valuation stage orchestrates deterministic valuation indications, explicit evidence-quality governance, explicit single-method acceptance where used, and explicit multi-method reconciliation policy. It does not invent missing evidence, silently select confidence thresholds or method weights, authorize an investment decision, or replace professional valuation review where required.',
   });
 }
 
@@ -286,6 +286,7 @@ function orchestrateValuationStage(request) {
       evidenceGaps: [...new Set([...methods.flatMap((item) => item.evidenceGaps || []), 'useComponents'])],
       readyForDecisionControl: false,
       reconciliation: null,
+      singleMethodAcceptance: null,
       finalValue: null,
     });
   }
@@ -309,17 +310,44 @@ function orchestrateValuationStage(request) {
       reasonCodes: noQualifiedReasonCodes(holds),
       readyForDecisionControl: false,
       reconciliation: null,
+      singleMethodAcceptance: null,
       finalValue: null,
     });
   }
 
   if (available.length === 1) {
+    const indication = available[0];
+    const policy = request.singleMethodPolicy;
+    if (!policy) {
+      return baseStage(request, plan, methods, {
+        status: VALUATION_STAGE_STATUS.HOLD_POLICY,
+        reasonCodes: [VALUATION_REASON_CODE.SINGLE_METHOD_ACCEPTANCE_POLICY_REQUIRED],
+        readyForDecisionControl: false,
+        reconciliation: null,
+        singleMethodAcceptance: null,
+        finalValue: null,
+      });
+    }
+    if (policy.allowedMethod !== indication.method) {
+      return baseStage(request, plan, methods, {
+        status: VALUATION_STAGE_STATUS.HOLD_POLICY,
+        reasonCodes: [VALUATION_REASON_CODE.SINGLE_METHOD_ACCEPTANCE_POLICY_MISMATCH],
+        readyForDecisionControl: false,
+        reconciliation: null,
+        singleMethodAcceptance: null,
+        finalValue: null,
+      });
+    }
     return baseStage(request, plan, methods, {
-      status: VALUATION_STAGE_STATUS.HOLD_POLICY,
-      reasonCodes: [VALUATION_REASON_CODE.SINGLE_METHOD_ACCEPTANCE_POLICY_REQUIRED],
-      readyForDecisionControl: false,
+      status: VALUATION_STAGE_STATUS.READY_FOR_DECISION_CONTROL,
+      reasonCodes: [],
+      readyForDecisionControl: true,
       reconciliation: null,
-      finalValue: null,
+      singleMethodAcceptance: {
+        method: indication.method,
+        justification: policy.justification,
+      },
+      finalValue: indication.value,
     });
   }
 
@@ -330,6 +358,7 @@ function orchestrateValuationStage(request) {
       reasonCodes: [VALUATION_REASON_CODE.RECONCILIATION_POLICY_REQUIRED],
       readyForDecisionControl: false,
       reconciliation: null,
+      singleMethodAcceptance: null,
       finalValue: null,
     });
   }
@@ -340,6 +369,7 @@ function orchestrateValuationStage(request) {
       reasonCodes: [VALUATION_REASON_CODE.RECONCILIATION_METHOD_SET_MISMATCH],
       readyForDecisionControl: false,
       reconciliation: null,
+      singleMethodAcceptance: null,
       finalValue: null,
     });
   }
@@ -357,6 +387,7 @@ function orchestrateValuationStage(request) {
       reasonCodes: [VALUATION_REASON_CODE.RECONCILIATION_POLICY_REQUIRED],
       readyForDecisionControl: false,
       reconciliation: null,
+      singleMethodAcceptance: null,
       finalValue: null,
       reconciliationError: {
         name: error && error.name ? String(error.name) : 'Error',
@@ -375,6 +406,7 @@ function orchestrateValuationStage(request) {
       reasonCodes: [reasonCode],
       readyForDecisionControl: false,
       reconciliation,
+      singleMethodAcceptance: null,
       finalValue: null,
     });
   }
@@ -384,6 +416,7 @@ function orchestrateValuationStage(request) {
     reasonCodes: [],
     readyForDecisionControl: true,
     reconciliation,
+    singleMethodAcceptance: null,
     finalValue: reconciliation.reconciledValue,
   });
 }
