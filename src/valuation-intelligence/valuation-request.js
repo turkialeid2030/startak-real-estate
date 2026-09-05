@@ -34,6 +34,15 @@ function normalizeUseComponents(useComponents) {
   });
 }
 
+function normalizeSingleMethodPolicy(policy) {
+  if (policy === null || policy === undefined) return null;
+  requireObject(policy, 'singleMethodPolicy');
+  return {
+    allowedMethod: requiredString(policy.allowedMethod, 'singleMethodPolicy.allowedMethod'),
+    justification: requiredString(policy.justification, 'singleMethodPolicy.justification'),
+  };
+}
+
 function normalizeReconciliationPolicy(policy) {
   if (policy === null || policy === undefined) return null;
   requireObject(policy, 'reconciliationPolicy');
@@ -72,6 +81,7 @@ function createValuationRequest({
   methodInputs = {},
   evidencePolicy = null,
   criticalEvidenceRequirements = {},
+  singleMethodPolicy = null,
   reconciliationPolicy = null,
 } = {}) {
   const normalizedCaseId = requiredString(caseId, 'caseId');
@@ -89,8 +99,9 @@ function createValuationRequest({
     methodInputs: { ...methodInputs },
     evidencePolicy: normalizeEvidencePolicy(evidencePolicy),
     criticalEvidenceRequirements: normalizeCriticalEvidenceRequirements(criticalEvidenceRequirements),
+    singleMethodPolicy: normalizeSingleMethodPolicy(singleMethodPolicy),
     reconciliationPolicy: normalizeReconciliationPolicy(reconciliationPolicy),
-    semantics: 'A valuation request carries explicit project classification, optional use components, engine-ready method inputs, explicit evidence-quality governance, and explicit reconciliation policy. It does not invent missing evidence or hidden valuation policy defaults.',
+    semantics: 'A valuation request carries explicit project classification, optional use components, engine-ready method inputs, explicit evidence-quality governance, optional explicit single-method acceptance, and explicit multi-method reconciliation policy. It does not invent missing evidence or hidden valuation policy defaults.',
   });
 }
 
