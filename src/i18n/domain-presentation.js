@@ -23,6 +23,7 @@ const VERDICT_PRESENTATION_KEYS = {
   "يوصى بالشراء": "recommendation.buy",
   "يوصى بالشراء بشروط": "recommendation.conditionalBuy",
   "لا يوصى بالشراء": "recommendation.noBuy",
+  INCOMPLETE_INPUTS: "recommendation.incompleteInputs",
 };
 
 function assertKnownVerdict(rawVerdict) {
