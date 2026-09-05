@@ -12,6 +12,10 @@ const {
   RECONCILIATION_STATUS,
   reconcileValuationIndications,
 } = require('./reconciliation');
+const {
+  QUALITY_STATUS,
+  assessEvidenceQuality,
+} = require('./evidence-quality');
 const { calculateMarketComparableIndication } = require('./market-comparables');
 const { calculateDirectCapitalization } = require('./income-capitalization');
 const { calculateDepreciatedReplacementCost } = require('./cost-approach');
@@ -101,6 +105,7 @@ function unavailableMethod(planned, reasonCode, extra = {}) {
     reasonCode,
     evidenceGaps: [],
     indication: null,
+    evidenceQuality: null,
     ...extra,
   });
 }
@@ -114,7 +119,16 @@ function holdMethod(planned, reasonCode, evidenceGaps = [], extra = {}) {
     reasonCode,
     evidenceGaps: [...evidenceGaps],
     indication: null,
+    evidenceQuality: null,
     ...extra,
+  });
+}
+
+function evidenceQualityGaps(method, assessment) {
+  if (!assessment || !Array.isArray(assessment.failures)) return [];
+  return assessment.failures.map((failure) => {
+    if (failure.field) return `${method}.${failure.field}`;
+    return `${method}.evidence:${failure.reason || 'QUALITY_HOLD'}`;
   });
 }
 
@@ -135,26 +149,59 @@ function executePlannedMethod(planned, request) {
   const gaps = missingFields(input, requirements).map((field) => `${planned.method}.${field}`);
   if (gaps.length > 0) return holdMethod(planned, VALUATION_REASON_CODE.METHOD_INPUTS_REQUIRED, gaps);
 
+  let indication;
   try {
-    const indication = executor(input);
-    if (!indication || indication.status !== INDICATION_STATUS.QUALIFIED) {
-      return holdMethod(planned, VALUATION_REASON_CODE.METHOD_EVIDENCE_CONFLICT, [], { indication: indication || null });
-    }
-    return freeze({
-      method: planned.method,
-      plannerApplicability: planned.applicability,
-      plannerReason: planned.reason,
-      state: METHOD_STATE.AVAILABLE,
-      reasonCode: null,
-      evidenceGaps: [],
-      indication,
-    });
+    indication = executor(input);
   } catch (error) {
     return holdMethod(planned, VALUATION_REASON_CODE.METHOD_INPUT_INVALID, [], {
       errorName: error && error.name ? String(error.name) : 'Error',
       errorMessage: error && error.message ? String(error.message) : 'Unknown valuation engine error',
     });
   }
+
+  if (!indication || indication.status !== INDICATION_STATUS.QUALIFIED) {
+    return holdMethod(planned, VALUATION_REASON_CODE.METHOD_EVIDENCE_CONFLICT, [], { indication: indication || null });
+  }
+
+  let evidenceQuality;
+  try {
+    evidenceQuality = assessEvidenceQuality({
+      evidence: indication.evidence || [],
+      policy: request.evidencePolicy || null,
+      criticalRequirements: request.criticalEvidenceRequirements?.[planned.method] || [],
+    });
+  } catch (error) {
+    return holdMethod(planned, VALUATION_REASON_CODE.EVIDENCE_QUALITY_POLICY_REQUIRED, [], {
+      indication,
+      errorName: error && error.name ? String(error.name) : 'Error',
+      errorMessage: error && error.message ? String(error.message) : 'Invalid evidence-quality policy',
+    });
+  }
+
+  if (evidenceQuality.status === QUALITY_STATUS.UNRATED_POLICY_REQUIRED) {
+    return holdMethod(planned, VALUATION_REASON_CODE.EVIDENCE_QUALITY_POLICY_REQUIRED, [], {
+      indication,
+      evidenceQuality,
+    });
+  }
+
+  if (evidenceQuality.status !== QUALITY_STATUS.QUALIFIED) {
+    return holdMethod(planned, VALUATION_REASON_CODE.EVIDENCE_QUALITY_HOLD, evidenceQualityGaps(planned.method, evidenceQuality), {
+      indication,
+      evidenceQuality,
+    });
+  }
+
+  return freeze({
+    method: planned.method,
+    plannerApplicability: planned.applicability,
+    plannerReason: planned.reason,
+    state: METHOD_STATE.AVAILABLE,
+    reasonCode: null,
+    evidenceGaps: [],
+    indication,
+    evidenceQuality,
+  });
 }
 
 function reconciliationReason(status) {
@@ -182,12 +229,17 @@ function reconciliationMethodSetMatches(indications, policy) {
   return expected.length === actual.length && expected.every((method, index) => method === actual[index]);
 }
 
-function collectEvidenceRefs(indications) {
-  return [...new Set(indications.flatMap((item) => item.evidence || []).map((item) => item.sourceRef).filter(Boolean).map(String))];
+function collectEvidenceRefs(methods) {
+  return [...new Set(methods
+    .map((item) => item.indication)
+    .filter(Boolean)
+    .flatMap((item) => item.evidence || [])
+    .map((item) => item.sourceRef)
+    .filter(Boolean)
+    .map(String))];
 }
 
 function baseStage(request, plan, methods, payload) {
-  const indications = methods.filter((item) => item.state === METHOD_STATE.AVAILABLE).map((item) => item.indication);
   const evidenceGaps = [...new Set(methods.flatMap((item) => item.evidenceGaps || []))];
   return freeze({
     schemaVersion: 1,
@@ -196,11 +248,11 @@ function baseStage(request, plan, methods, payload) {
     requiredEvidence: [...plan.requiredEvidence],
     methods,
     evidenceGaps,
-    evidenceRefs: collectEvidenceRefs(indications),
+    evidenceRefs: collectEvidenceRefs(methods),
     ...payload,
     humanDecisionRequired: true,
     transactionAuthorized: false,
-    semantics: 'The valuation stage orchestrates deterministic valuation indications and explicit reconciliation policy. It does not invent missing evidence, silently select method weights, authorize an investment decision, or replace professional valuation review where required.',
+    semantics: 'The valuation stage orchestrates deterministic valuation indications, explicit evidence-quality governance, and explicit reconciliation policy. It does not invent missing evidence, silently select confidence thresholds or method weights, authorize an investment decision, or replace professional valuation review where required.',
   });
 }
 
@@ -213,12 +265,31 @@ function orchestrateValuationStage(request) {
   const available = methods.filter((item) => item.state === METHOD_STATE.AVAILABLE).map((item) => item.indication);
   const holds = methods.filter((item) => item.state === METHOD_STATE.HOLD);
 
+  if (request.projectProfile.traits?.multiAssetOrMixedUse && (!Array.isArray(request.useComponents) || request.useComponents.length === 0)) {
+    return baseStage(request, plan, methods, {
+      status: VALUATION_STAGE_STATUS.HOLD_INPUTS,
+      reasonCodes: [VALUATION_REASON_CODE.MIXED_USE_COMPONENTS_REQUIRED],
+      evidenceGaps: [...new Set([...methods.flatMap((item) => item.evidenceGaps || []), 'useComponents'])],
+      readyForDecisionControl: false,
+      reconciliation: null,
+      finalValue: null,
+    });
+  }
+
   if (available.length === 0) {
-    const status = holds.length > 0
-      ? (holds.some((item) => item.reasonCode === VALUATION_REASON_CODE.METHOD_EVIDENCE_CONFLICT)
-        ? VALUATION_STAGE_STATUS.HOLD_EVIDENCE
-        : VALUATION_STAGE_STATUS.HOLD_INPUTS)
-      : VALUATION_STAGE_STATUS.UNAVAILABLE;
+    let status = VALUATION_STAGE_STATUS.UNAVAILABLE;
+    if (holds.length > 0) {
+      if (holds.some((item) => item.reasonCode === VALUATION_REASON_CODE.EVIDENCE_QUALITY_POLICY_REQUIRED)) {
+        status = VALUATION_STAGE_STATUS.HOLD_POLICY;
+      } else if (holds.some((item) => [
+        VALUATION_REASON_CODE.METHOD_EVIDENCE_CONFLICT,
+        VALUATION_REASON_CODE.EVIDENCE_QUALITY_HOLD,
+      ].includes(item.reasonCode))) {
+        status = VALUATION_STAGE_STATUS.HOLD_EVIDENCE;
+      } else {
+        status = VALUATION_STAGE_STATUS.HOLD_INPUTS;
+      }
+    }
     return baseStage(request, plan, methods, {
       status,
       reasonCodes: [VALUATION_REASON_CODE.NO_QUALIFIED_VALUATION_METHOD],
