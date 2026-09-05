@@ -28,6 +28,31 @@ function deepFreeze(value) {
   return Object.freeze(value);
 }
 
+function clonePlainData(value, path = 'payload', seen = new Set()) {
+  if (value === null || ['string', 'number', 'boolean'].includes(typeof value)) return value;
+  if (value === undefined) return undefined;
+  if (typeof value !== 'object') throw new TypeError(`${path} must contain JSON-like data only`);
+  if (seen.has(value)) throw new TypeError(`${path} must not contain circular references`);
+  seen.add(value);
+
+  let clone;
+  if (Array.isArray(value)) {
+    clone = value.map((item, index) => clonePlainData(item, `${path}[${index}]`, seen));
+  } else {
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null) {
+      throw new TypeError(`${path} must contain plain objects only`);
+    }
+    clone = {};
+    for (const [key, child] of Object.entries(value)) {
+      clone[key] = clonePlainData(child, `${path}.${key}`, seen);
+    }
+  }
+
+  seen.delete(value);
+  return clone;
+}
+
 function requireString(value, field) {
   if (typeof value !== 'string' || value.trim() === '') {
     throw new TypeError(`${field} must be a non-empty string`);
@@ -128,9 +153,10 @@ function createIntegrationEnvelope({
   const normalizedOperation = requireEnum(operation, INTEGRATION_OPERATION, 'operation');
   const normalizedCaseId = requireString(caseId, 'caseId');
   const normalizedProjectId = requireString(projectId, 'projectId');
-  const normalizedPayload = requireObject(payload, 'payload');
+  const rawPayload = requireObject(payload, 'payload');
 
-  assertScopedPayload(normalizedPayload, normalizedCaseId, normalizedProjectId);
+  assertScopedPayload(rawPayload, normalizedCaseId, normalizedProjectId);
+  const normalizedPayload = clonePlainData(rawPayload);
 
   const normalizedWriteTarget = normalizeWriteTarget(normalizedOperation, writeTarget);
   const humanApprovalRequired = normalizedOperation === INTEGRATION_OPERATION.PROPOSE_WRITE;
