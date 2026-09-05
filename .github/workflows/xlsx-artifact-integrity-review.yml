@@ -1,0 +1,139 @@
+name: XLSX Artifact Integrity Review
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/xlsx-artifact-integrity-review.yml'
+      - 'architecture/STARTAK_IA6_XLSX_*'
+      - 'src/integration-governance/spreadsheet/xlsx/**'
+      - 'tests/architecture/run_xlsx_*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sheetjs-artifact-review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      SHEETJS_URL: https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
+      EXPECTED_NAME: xlsx
+      EXPECTED_VERSION: 0.20.3
+      EXPECTED_LICENSE: Apache-2.0
+    steps:
+      - name: Download exact official artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --proto '=https' --tlsv1.2 --fail --location --retry 3 --retry-delay 2 \
+            --connect-timeout 20 --max-time 120 \
+            "$SHEETJS_URL" \
+            --output "$RUNNER_TEMP/xlsx-0.20.3.tgz"
+          test -s "$RUNNER_TEMP/xlsx-0.20.3.tgz"
+
+      - name: Compute artifact identity
+        id: identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          ARTIFACT="$RUNNER_TEMP/xlsx-0.20.3.tgz"
+          SHA256="$(sha256sum "$ARTIFACT" | awk '{print $1}')"
+          SIZE_BYTES="$(stat -c '%s' "$ARTIFACT")"
+          echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
+          echo "size_bytes=$SIZE_BYTES" >> "$GITHUB_OUTPUT"
+          echo "SHEETJS_ARTIFACT_SHA256=$SHA256"
+          echo "SHEETJS_ARTIFACT_SIZE_BYTES=$SIZE_BYTES"
+          {
+            echo '## SheetJS CE 0.20.3 artifact identity'
+            echo
+            echo "- URL: \`$SHEETJS_URL\`"
+            echo "- SHA-256: \`$SHA256\`"
+            echo "- Size bytes: \`$SIZE_BYTES\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Inspect tarball paths and link types
+        shell: bash
+        run: |
+          set -euo pipefail
+          ARTIFACT="$RUNNER_TEMP/xlsx-0.20.3.tgz"
+          tar -tzf "$ARTIFACT" > "$RUNNER_TEMP/tar-paths.txt"
+          test -s "$RUNNER_TEMP/tar-paths.txt"
+          if grep -E '(^|/)(\.\.?)(/|$)' "$RUNNER_TEMP/tar-paths.txt"; then
+            echo 'Unsafe dot-segment path found in dependency tarball' >&2
+            exit 1
+          fi
+          if grep -E '^/' "$RUNNER_TEMP/tar-paths.txt"; then
+            echo 'Absolute path found in dependency tarball' >&2
+            exit 1
+          fi
+          if tar -tvzf "$ARTIFACT" | awk '$1 ~ /^l/ { found=1 } END { exit found ? 0 : 1 }'; then
+            echo 'Symlink found in dependency tarball' >&2
+            exit 1
+          fi
+          ENTRY_COUNT="$(wc -l < "$RUNNER_TEMP/tar-paths.txt" | tr -d ' ')"
+          echo "SHEETJS_TARBALL_ENTRY_COUNT=$ENTRY_COUNT"
+
+      - name: Verify package metadata and install-script posture
+        shell: bash
+        run: |
+          set -euo pipefail
+          ARTIFACT="$RUNNER_TEMP/xlsx-0.20.3.tgz"
+          EXTRACT_DIR="$RUNNER_TEMP/sheetjs-package"
+          mkdir -p "$EXTRACT_DIR"
+          tar -xzf "$ARTIFACT" -C "$EXTRACT_DIR"
+          PACKAGE_JSON="$EXTRACT_DIR/package/package.json"
+          test -f "$PACKAGE_JSON"
+          node - "$PACKAGE_JSON" <<'NODE'
+          const fs = require('fs');
+          const path = process.argv[2];
+          const pkg = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const expected = {
+            name: process.env.EXPECTED_NAME,
+            version: process.env.EXPECTED_VERSION,
+            license: process.env.EXPECTED_LICENSE,
+          };
+          for (const [field, value] of Object.entries(expected)) {
+            if (pkg[field] !== value) {
+              throw new Error(`SheetJS package ${field} mismatch: expected ${value}, got ${pkg[field]}`);
+            }
+          }
+          const scripts = pkg.scripts || {};
+          const prohibited = ['preinstall', 'install', 'postinstall'];
+          const present = prohibited.filter((name) => Object.prototype.hasOwnProperty.call(scripts, name));
+          if (present.length) {
+            throw new Error(`Prohibited install scripts present: ${present.join(', ')}`);
+          }
+          const dependencies = pkg.dependencies || {};
+          console.log(`SHEETJS_PACKAGE_NAME=${pkg.name}`);
+          console.log(`SHEETJS_PACKAGE_VERSION=${pkg.version}`);
+          console.log(`SHEETJS_PACKAGE_LICENSE=${pkg.license}`);
+          console.log(`SHEETJS_RUNTIME_DEPENDENCIES=${JSON.stringify(dependencies)}`);
+          console.log(`SHEETJS_INSTALL_SCRIPTS=none`);
+          NODE
+
+      - name: Verify license file presence
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXTRACT_DIR="$RUNNER_TEMP/sheetjs-package/package"
+          if ! find "$EXTRACT_DIR" -maxdepth 1 -type f \( -iname 'LICENSE*' -o -iname 'NOTICE*' \) -print -quit | grep -q .; then
+            echo 'No top-level license/notice file found in SheetJS package artifact' >&2
+            exit 1
+          fi
+
+      - name: Final review summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo
+            echo '### IA-6 result'
+            echo
+            echo '- Artifact downloaded from the exact reviewed official URL.'
+            echo '- SHA-256 was computed from the exact downloaded bytes.'
+            echo '- Package name/version/license matched the reviewed policy.'
+            echo '- No npm preinstall/install/postinstall script was present.'
+            echo '- Tarball path / symlink checks passed.'
+            echo '- This workflow does not install or execute the SheetJS package.'
+          } >> "$GITHUB_STEP_SUMMARY"
