@@ -130,10 +130,15 @@ function createSpreadsheetSchema({ schemaId, schemaVersion, direction, mappings 
   const normalizedDirection = requireEnum(direction, SPREADSHEET_FIELD_DIRECTION, 'direction');
   if (!Array.isArray(mappings) || mappings.length === 0) throw new TypeError('mappings must be a non-empty array');
 
+  // Re-run every mapping through the canonical mapping factory. Callers may
+  // pass raw JSON-loaded mapping objects; schema construction must not trust
+  // an object merely because it resembles a previously validated mapping.
   const normalizedMappings = mappings.map((mapping, index) => {
-    if (!mapping || typeof mapping !== 'object') throw new TypeError(`mappings[${index}] must be an object`);
+    if (!mapping || typeof mapping !== 'object' || Array.isArray(mapping)) {
+      throw new TypeError(`mappings[${index}] must be an object`);
+    }
     if (mapping.direction !== normalizedDirection) throw new TypeError(`mappings[${index}].direction must match schema direction`);
-    return { ...mapping };
+    return createSpreadsheetFieldMapping(mapping);
   });
 
   const ids = new Set();
