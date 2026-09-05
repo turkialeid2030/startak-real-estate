@@ -14,7 +14,10 @@ const {
   prepareUpdatedUiDealForSave,
   explicitlyUpgradeUiDealToV2,
 } = require('../../src/assumptions/ui-integration-controller');
-const { ASSUMPTION_MODEL_VERSION } = require('../../src/assumptions/assumption-model');
+const {
+  ASSUMPTION_MODEL_VERSION,
+  V2_APPROVED_ASSUMPTIONS,
+} = require('../../src/assumptions/assumption-model');
 const { EXIT_CAP_SOURCE } = require('../../src/engines/valuation/exit-cap-resolver');
 
 const fixture = JSON.parse(fs.readFileSync(
@@ -24,12 +27,19 @@ const fixture = JSON.parse(fs.readFileSync(
 const baseInputs = fixture.input_set;
 const defaults = { ...baseInputs, exitCapRate: 0.07 };
 
+function assertV2AssumptionsMaterialized(inputs) {
+  for (const [key, value] of Object.entries(V2_APPROVED_ASSUMPTIONS)) {
+    assert.strictEqual(inputs[key], value, `${key} must reflect the governed V2 assumption in UI state`);
+  }
+}
+
 function run() {
   const fresh = createUiWorkspace({ mode: UI_MODE.BUILDING, defaultInputs: defaults });
   assert.strictEqual(fresh.assumptionModelVersion, ASSUMPTION_MODEL_VERSION.V2);
   assert.strictEqual(fresh.legacyCompatibility, false);
   assert.strictEqual(fresh.transactionAuthorized, false);
   assert.notStrictEqual(fresh.inputs, defaults);
+  assertV2AssumptionsMaterialized(fresh.inputs);
   assert.strictEqual(Object.prototype.hasOwnProperty.call(fresh.inputs, 'exitCapRate'), false,
     'fresh V2 building work must not inherit a template/default exit cap');
   assert.strictEqual(defaults.exitCapRate, 0.07, 'caller defaults must remain unmodified');
@@ -94,6 +104,12 @@ function run() {
   assert.strictEqual(hydratedLegacy.explicitUpgradeRequired, true);
   assert.strictEqual(Object.prototype.hasOwnProperty.call(hydratedLegacy.inputs, 'exitCapRate'), false,
     'legacy hydration must not manufacture the default exit cap');
+  for (const [key, value] of Object.entries(V2_APPROVED_ASSUMPTIONS)) {
+    if (Object.prototype.hasOwnProperty.call(baseInputs, key)) {
+      assert.strictEqual(hydratedLegacy.inputs[key], baseInputs[key],
+        `${key} must retain persisted Legacy semantics during hydration`);
+    }
+  }
 
   const legacyState = calculateUiInvestmentState({
     mode: UI_MODE.BUILDING,
@@ -132,6 +148,7 @@ function run() {
     defaultInputs: defaults,
   });
   assert.strictEqual(hydratedV2Missing.assumptionModelVersion, ASSUMPTION_MODEL_VERSION.V2);
+  assertV2AssumptionsMaterialized(hydratedV2Missing.inputs);
   assert.strictEqual(Object.prototype.hasOwnProperty.call(hydratedV2Missing.inputs, 'exitCapRate'), false);
   const v2MissingState = calculateUiInvestmentState({
     mode: UI_MODE.BUILDING,
@@ -151,14 +168,16 @@ function run() {
     defaultInputs: { ...baseInputs, exitCapRate: 0.085 },
   });
   assert.strictEqual(landFresh.inputs.exitCapRate, 0.085,
-    'land/development input semantics are intentionally unchanged');
+    'land/development exit-cap semantics are intentionally unchanged');
+  assertV2AssumptionsMaterialized(landFresh.inputs);
 
   console.log('WAVE2_UI_CONTROLLER_FRESH_V2_EXPLICIT_EXIT_REQUIRED=PASS');
+  console.log('WAVE2_UI_CONTROLLER_V2_ASSUMPTIONS_MATERIALIZED=PASS');
   console.log('WAVE2_UI_CONTROLLER_V2_FAIL_CLOSED=PASS');
   console.log('WAVE2_UI_CONTROLLER_LEGACY_COMPATIBILITY=PASS');
   console.log('WAVE2_UI_CONTROLLER_SAVE_VERSIONING=PASS');
   console.log('WAVE2_UI_CONTROLLER_DISCLOSURE_AND_SENSITIVITY=PASS');
-  console.log('WAVE2_UI_CONTROLLER_LAND_SCOPE_UNCHANGED=PASS');
+  console.log('WAVE2_UI_CONTROLLER_LAND_EXIT_SCOPE_UNCHANGED=PASS');
   console.log('WAVE2_UI_CONTROLLER_NO_TRANSACTION_AUTHORITY=PASS');
 }
 
