@@ -56,6 +56,18 @@ function presentMethod(method, index) {
   });
 }
 
+function presentSingleMethodAcceptance(acceptance) {
+  if (acceptance === null || acceptance === undefined) return null;
+  requireObject(acceptance, 'stage.singleMethodAcceptance');
+  if (typeof acceptance.method !== 'string' || acceptance.method.trim() === '') throw new TypeError('stage.singleMethodAcceptance.method is required');
+  if (typeof acceptance.justification !== 'string' || acceptance.justification.trim() === '') throw new TypeError('stage.singleMethodAcceptance.justification is required');
+  return Object.freeze({
+    method: acceptance.method,
+    methodKey: methodKey(acceptance.method),
+    justification: acceptance.justification,
+  });
+}
+
 function createValuationPresentation(stage) {
   requireObject(stage, 'stage');
   if (!Object.prototype.hasOwnProperty.call(STAGE_STATUS_TO_PRESENTATION, stage.status)) {
@@ -78,6 +90,8 @@ function createValuationPresentation(stage) {
     reasons: Object.freeze(reasonCodes.map((code) => Object.freeze({ code, key: reasonKey(code) }))),
     evidenceGaps: Object.freeze(Array.isArray(stage.evidenceGaps) ? [...stage.evidenceGaps] : []),
     methods: Object.freeze(stage.methods.map(presentMethod)),
+    reconciliationUsed: Boolean(stage.reconciliation),
+    singleMethodAcceptance: presentSingleMethodAcceptance(stage.singleMethodAcceptance),
     humanDecisionRequired: stage.humanDecisionRequired !== false,
     transactionAuthorized: stage.transactionAuthorized === true,
     semantics: 'Presentation state mirrors the deterministic valuation-stage result. It does not recalculate values, upgrade evidence, or convert a HOLD/UNAVAILABLE result into an available result.',
