@@ -26,6 +26,11 @@ const {
       indication: { value: 10000000, weakestEvidenceGrade: 'D_OPERATING_ACTUAL' },
       evidenceQuality: { status: 'QUALIFIED' },
     }],
+    reconciliation: null,
+    singleMethodAcceptance: {
+      method: 'INCOME_DIRECT_CAPITALIZATION',
+      justification: 'Explicit professional governance acceptance for this single qualified method.',
+    },
     humanDecisionRequired: true,
     transactionAuthorized: false,
   };
@@ -37,6 +42,29 @@ const {
   assert.strictEqual(presentation.transactionAuthorized, false);
   assert.strictEqual(presentation.methods[0].state, METHOD_STATE.AVAILABLE);
   assert.strictEqual(presentation.methods[0].indicationValue, 10000000);
+  assert.strictEqual(presentation.reconciliationUsed, false);
+  assert.strictEqual(presentation.singleMethodAcceptance.method, 'INCOME_DIRECT_CAPITALIZATION');
+  assert.match(presentation.singleMethodAcceptance.justification, /Explicit professional governance acceptance/);
+})();
+
+(function testReconciledStageIdentifiesReconciliationWithoutSingleMethodAcceptance() {
+  const presentation = createValuationPresentation({
+    status: VALUATION_STAGE_STATUS.READY_FOR_DECISION_CONTROL,
+    readyForDecisionControl: true,
+    finalValue: 10500000,
+    reasonCodes: [],
+    evidenceGaps: [],
+    methods: [
+      { method: 'MARKET_COMPARABLE', state: METHOD_STATE.AVAILABLE, reasonCode: null, evidenceGaps: [], indication: { value: 11000000 }, evidenceQuality: { status: 'QUALIFIED' } },
+      { method: 'INCOME_DIRECT_CAPITALIZATION', state: METHOD_STATE.AVAILABLE, reasonCode: null, evidenceGaps: [], indication: { value: 10000000 }, evidenceQuality: { status: 'QUALIFIED' } },
+    ],
+    reconciliation: { status: 'QUALIFIED', reconciledValue: 10500000 },
+    singleMethodAcceptance: null,
+  });
+
+  assert.strictEqual(presentation.reconciliationUsed, true);
+  assert.strictEqual(presentation.singleMethodAcceptance, null);
+  assert.strictEqual(presentation.finalValue, 10500000);
 })();
 
 (function testHoldStageKeepsReasonAndEvidenceGapsVisible() {
@@ -88,6 +116,14 @@ const {
   assert.strictEqual(presentation.state, STAGE_PRESENTATION_STATE.UNAVAILABLE);
   assert.strictEqual(presentation.methods[0].state, METHOD_STATE.UNAVAILABLE);
   assert.strictEqual(presentation.methods[0].reasonKey, `valuation.presentation.reason.${VALUATION_REASON_CODE.ASSET_ADAPTER_REQUIRED}`);
+})();
+
+(function testPresentationRejectsMalformedSingleMethodAcceptance() {
+  assert.throws(() => createValuationPresentation({
+    status: VALUATION_STAGE_STATUS.READY_FOR_DECISION_CONTROL,
+    methods: [],
+    singleMethodAcceptance: { method: 'INCOME_DIRECT_CAPITALIZATION', justification: '' },
+  }), /stage.singleMethodAcceptance.justification is required/);
 })();
 
 (function testPresentationRejectsUnknownEngineStateRatherThanGuessing() {
