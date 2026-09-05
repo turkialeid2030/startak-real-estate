@@ -188,6 +188,7 @@ function createExistingBuildingValuationRequest({
   evidence = {},
   evidencePolicy = null,
   criticalEvidenceRequirements = {},
+  singleMethodPolicy = null,
   reconciliationPolicy = null,
 } = {}) {
   requireString(caseId, 'caseId');
@@ -231,6 +232,7 @@ function createExistingBuildingValuationRequest({
     methodInputs,
     evidencePolicy,
     criticalEvidenceRequirements,
+    singleMethodPolicy,
     reconciliationPolicy,
   });
 }
