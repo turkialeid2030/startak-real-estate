@@ -256,6 +256,20 @@ function baseStage(request, plan, methods, payload) {
   });
 }
 
+function noQualifiedReasonCodes(holds) {
+  const codes = [VALUATION_REASON_CODE.NO_QUALIFIED_VALUATION_METHOD];
+  if (holds.some((item) => item.reasonCode === VALUATION_REASON_CODE.EVIDENCE_QUALITY_POLICY_REQUIRED)) {
+    codes.push(VALUATION_REASON_CODE.EVIDENCE_QUALITY_POLICY_REQUIRED);
+  } else if (holds.some((item) => item.reasonCode === VALUATION_REASON_CODE.EVIDENCE_QUALITY_HOLD)) {
+    codes.push(VALUATION_REASON_CODE.EVIDENCE_QUALITY_HOLD);
+  } else if (holds.some((item) => item.reasonCode === VALUATION_REASON_CODE.METHOD_EVIDENCE_CONFLICT)) {
+    codes.push(VALUATION_REASON_CODE.METHOD_EVIDENCE_CONFLICT);
+  } else if (holds.some((item) => [VALUATION_REASON_CODE.METHOD_INPUTS_REQUIRED, VALUATION_REASON_CODE.METHOD_INPUT_INVALID].includes(item.reasonCode))) {
+    codes.push(VALUATION_REASON_CODE.METHOD_INPUTS_REQUIRED);
+  }
+  return codes;
+}
+
 function orchestrateValuationStage(request) {
   if (!request || typeof request !== 'object') throw new TypeError('valuation request is required');
   if (!request.projectProfile || request.projectProfile.projectId !== request.projectId) throw new Error('VALUATION_STAGE_PROJECT_SCOPE_MISMATCH');
@@ -292,7 +306,7 @@ function orchestrateValuationStage(request) {
     }
     return baseStage(request, plan, methods, {
       status,
-      reasonCodes: [VALUATION_REASON_CODE.NO_QUALIFIED_VALUATION_METHOD],
+      reasonCodes: noQualifiedReasonCodes(holds),
       readyForDecisionControl: false,
       reconciliation: null,
       finalValue: null,
