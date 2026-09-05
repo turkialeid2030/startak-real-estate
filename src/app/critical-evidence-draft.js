@@ -30,14 +30,31 @@ function emptyCriticalEvidenceRow() {
   };
 }
 
+function malformedRow(method, hydrationError) {
+  return {
+    ...emptyCriticalEvidenceRow(),
+    method: typeof method === 'string' ? method : '',
+    hydrationError,
+  };
+}
+
 function criticalEvidenceRowsFromValuationCase(valuationCase) {
   const requirements = valuationCase?.criticalEvidenceRequirements;
-  if (!requirements || typeof requirements !== 'object' || Array.isArray(requirements)) return [];
+  if (requirements === undefined || requirements === null) return [];
+  if (!requirements || typeof requirements !== 'object' || Array.isArray(requirements)) {
+    return [malformedRow('', 'INVALID_REQUIREMENTS_OBJECT')];
+  }
   const rows = [];
   for (const [method, items] of Object.entries(requirements)) {
-    if (!Array.isArray(items)) continue;
+    if (!Array.isArray(items)) {
+      rows.push(malformedRow(method, 'INVALID_METHOD_REQUIREMENTS'));
+      continue;
+    }
     for (const item of items) {
-      if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+      if (!item || typeof item !== 'object' || Array.isArray(item)) {
+        rows.push(malformedRow(method, 'INVALID_REQUIREMENT_ITEM'));
+        continue;
+      }
       rows.push({
         method,
         field: typeof item.field === 'string' ? item.field : '',
@@ -65,6 +82,7 @@ function normalizeCriticalEvidenceRows(rows) {
   if (!Array.isArray(rows)) throw new CriticalEvidenceDraftError('INVALID_DRAFT', 'rows');
   const normalized = rows.map((row, index) => {
     if (!row || typeof row !== 'object' || Array.isArray(row)) throw new CriticalEvidenceDraftError('INVALID_ROW', `rows[${index}]`);
+    if (row.hydrationError) throw new CriticalEvidenceDraftError(row.hydrationError, `rows[${index}]`);
     const method = requiredString(row.method, `rows[${index}].method`);
     if (!Object.values(VALUATION_METHOD).includes(method)) throw new CriticalEvidenceDraftError('INVALID_ENUM', `rows[${index}].method`);
     return {
