@@ -73,7 +73,8 @@ function run() {
   assert.strictEqual(v2Incomplete.cashflows[v2Incomplete.cashflows.length - 1], v2Incomplete.operatingNoiCashflows[v2Incomplete.operatingNoiCashflows.length - 1]);
 
   // Financing remediation is not allowed to manufacture levered returns for an
-  // otherwise incomplete deterministic case.
+  // otherwise incomplete deterministic case. Transaction authority is not an
+  // engine-result concern; it remains owned by the orchestration/decision layers.
   const v2IncompleteLevered = calculateInvestmentCase({
     studyType: STUDY_TYPE.EXISTING_BUILDING,
     inputs: { ...baseInputs, leverageEnabled: true },
@@ -87,7 +88,6 @@ function run() {
   assert.strictEqual(v2IncompleteLevered.leveredCashflows, null);
   assert.strictEqual(v2IncompleteLevered.leveredIRR, null);
   assert.strictEqual(v2IncompleteLevered.leveredNPV, null);
-  assert.strictEqual(v2IncompleteLevered.transactionAuthorized, false);
 
   // Once the V2 exit cap is explicit, the same engine path becomes complete and
   // exit-dependent analytics resume without changing marketCapRate semantics.
@@ -109,7 +109,6 @@ function run() {
   assertFinitePositive(v2Explicit.terminalNetSaleProceeds, 'v2Explicit.terminalNetSaleProceeds');
   assert.strictEqual(Number.isFinite(v2Explicit.irr), true);
   assert.strictEqual(Number.isFinite(v2Explicit.npv), true);
-  assert.strictEqual(v2Explicit.transactionAuthorized, false);
 
   console.log('WAVE2_ENGINE_LEGACY_EXIT_CAP_COMPATIBILITY=PASS');
   console.log('WAVE2_ENGINE_V2_MISSING_EXIT_CAP_FAIL_CLOSED=PASS');
