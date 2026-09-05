@@ -11,11 +11,13 @@
 // - Non-destructive: never mutates, repairs, or deletes anything. It only
 //   inspects and throws or returns.
 // - The legacy {id, name, mode, inputs, savedAt} core remains valid exactly
-//   as before. Optional valuationCase is additive and versioned; its absence
-//   keeps the record on the legacy-only path with no automatic migration.
+//   as before. Optional assumptionModelVersion and valuationCase are additive
+//   and versioned; absence of assumptionModelVersion is legacy compatibility,
+//   never an automatic migration.
 
 const { hydrateResidentialIncomeOperatingCaseSnapshot } = require('../residential-income-acquisition/operating-case-snapshot');
 const { validateValuationCaseExtension } = require('../valuation-intelligence/saved-deal-extension');
+const { ASSUMPTION_MODEL_VERSION } = require('../assumptions/assumption-model');
 
 class SavedDealValidationError extends Error {
   constructor(reasonCode, detail) {
@@ -48,6 +50,15 @@ function validateSavedDealRecord(parsed) {
   // Raw inputs payload: must be a plain object (not null/array/primitive).
   if (parsed.inputs === null || typeof parsed.inputs !== 'object' || Array.isArray(parsed.inputs)) {
     throw new SavedDealValidationError('INVALID_INPUTS_SHAPE', `typeof=${Array.isArray(parsed.inputs) ? 'array' : typeof parsed.inputs}`);
+  }
+
+  // assumptionModelVersion is envelope metadata, never an economic input.
+  // Missing remains valid for historical records and means LEGACY compatibility.
+  if (Object.prototype.hasOwnProperty.call(parsed, 'assumptionModelVersion')) {
+    if (typeof parsed.assumptionModelVersion !== 'string'
+        || !Object.values(ASSUMPTION_MODEL_VERSION).includes(parsed.assumptionModelVersion)) {
+      throw new SavedDealValidationError('INVALID_ASSUMPTION_MODEL_VERSION', `version=${JSON.stringify(parsed.assumptionModelVersion)}`);
+    }
   }
 
   // id/name: structurally required for list rendering and update/delete
