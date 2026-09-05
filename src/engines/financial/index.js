@@ -3,6 +3,7 @@
 // src/engines/financial/index.js -- canonical financial primitives.
 // Precision C1 routes NPV and IRR through fixed-point money/rate arithmetic.
 const precision = require('./precision');
+const irrDiagnostics = require('./irr-diagnostics');
 const { requireFiniteIntermediate, requireFiniteArray } = require('../../validation/numeric-safety');
 
 function computeNPV(rate, cashflows) {
@@ -14,9 +15,21 @@ function computeNPV(rate, cashflows) {
 
 function computeIRR(cashflows) {
   requireFiniteArray('irrCashflows', cashflows);
-  const result = precision.preciseIRR(cashflows);
-  if (result === null || result === undefined) return result;
-  return requireFiniteIntermediate('irr', result);
+
+  // A NaN IRR is not always numeric corruption. The existing diagnostic
+  // contract explicitly distinguishes the mathematically legitimate no-root
+  // case (no cash-flow sign change) from solver/non-finite failures. Preserve
+  // that semantic distinction rather than treating every NaN result alike.
+  const diagnostic = irrDiagnostics.analyzeIRR(cashflows);
+  if (
+    diagnostic.reliability === irrDiagnostics.IRR_RELIABILITY.NOT_COMPUTABLE
+    && diagnostic.reasonCode === 'NO_SIGN_CHANGE_NO_IRR_EXISTS'
+  ) {
+    return diagnostic.irr;
+  }
+
+  if (diagnostic.irr === null || diagnostic.irr === undefined) return diagnostic.irr;
+  return requireFiniteIntermediate('irr', diagnostic.irr);
 }
 
 // Retained for frozen/raw-engine compatibility. Production leveraged cases are
@@ -43,7 +56,6 @@ function amortizationSchedule(principal, rate, years) {
 }
 
 const monthlyDebt = require('./monthly-debt');
-const irrDiagnostics = require('./irr-diagnostics');
 const constructionDebt = require('./construction-debt');
 
 module.exports = {
