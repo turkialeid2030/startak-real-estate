@@ -1,6 +1,7 @@
 import React from 'react';
 import ValuationIntelligenceBasePanel from './ValuationIntelligenceBasePanel.jsx';
 import ValuationAdvancedPanel from './ValuationAdvancedPanel.jsx';
+import CriticalEvidenceRequirementsPanel from './CriticalEvidenceRequirementsPanel.jsx';
 
 export default function ValuationIntelligencePanel(props) {
   const {
@@ -13,11 +14,18 @@ export default function ValuationIntelligencePanel(props) {
     <>
       <ValuationIntelligenceBasePanel {...props} />
       {valuationCase ? (
-        <ValuationAdvancedPanel
-          locale={locale}
-          valuationCase={valuationCase}
-          onChangeValuationCase={onChangeValuationCase}
-        />
+        <>
+          <ValuationAdvancedPanel
+            locale={locale}
+            valuationCase={valuationCase}
+            onChangeValuationCase={onChangeValuationCase}
+          />
+          <CriticalEvidenceRequirementsPanel
+            locale={locale}
+            valuationCase={valuationCase}
+            onChangeValuationCase={onChangeValuationCase}
+          />
+        </>
       ) : null}
     </>
   );
