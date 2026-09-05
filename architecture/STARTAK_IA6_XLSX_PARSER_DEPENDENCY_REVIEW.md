@@ -1,14 +1,14 @@
 # STARTAK Real Estate — IA-6 Governed XLSX Parser Dependency Review
 
-Status: **ACTIVE REVIEW — PREFERRED CANDIDATE IDENTIFIED, NO XLSX DEPENDENCY INSTALLED**
+Status: **DEPENDENCY REVIEW COMPLETE — SHEETJS CE 0.20.3 APPROVED WITH GOVERNED WRAPPER; NO XLSX PARSER INSTALLED**
 
 Baseline main commit: `f4656bcffbcc950c5c0d6f34140d635762931f24`
 
 ## 1. Purpose
 
-IA-6 is a mandatory dependency and attack-surface review before STARTAK introduces any XLSX/XLS/XLSM parser package.
+IA-6 is the mandatory dependency and attack-surface review before STARTAK introduces an XLSX/XLS/XLSM parser package.
 
-The review exists to preserve the integration architecture established in IA-1 through IA-5:
+The review preserves the integration architecture established in IA-1 through IA-5:
 
 - spreadsheet content is not automatically authoritative;
 - parser success is not evidence verification;
@@ -21,14 +21,12 @@ No package is approved merely because it can read `.xlsx` files.
 
 ## 2. Required decision outcome
 
-Every candidate dependency must end in exactly one state:
+Every candidate dependency ends in exactly one state:
 
 - `APPROVED_DEPENDENCY`
 - `APPROVED_WITH_GOVERNED_WRAPPER`
 - `REJECTED_DEPENDENCY`
 - `HOLD_REVIEW_INCOMPLETE`
-
-`HOLD_REVIEW_INCOMPLETE` is the default until all mandatory review evidence is present.
 
 ## 3. Mandatory review dimensions
 
@@ -36,14 +34,15 @@ Every candidate dependency must end in exactly one state:
 
 - package provenance and publisher identity;
 - license compatibility with STARTAK;
-- release cadence and current maintenance status;
-- security advisory history and unresolved vulnerabilities;
-- transitive dependency graph and install-time scripts;
-- package integrity and lockfile reproducibility.
+- release/security posture;
+- exact artifact identity;
+- runtime dependency graph;
+- install-time scripts;
+- reproducible integrity pinning.
 
 ### 3.2 Parser semantics
 
-The selected parser must allow STARTAK to distinguish at minimum:
+The selected parser path must allow STARTAK to distinguish at minimum:
 
 - literal values;
 - formulas as formulas without evaluation;
@@ -73,30 +72,26 @@ Formula text may be preserved as metadata for review, but it must not be execute
 
 ### 3.4 Hostile-file controls
 
-The implementation must define deterministic limits for at least:
+The implementation defines deterministic container limits for:
 
 - source file size;
-- uncompressed archive size;
-- compression ratio / ZIP-bomb protection;
-- sheet count;
-- row count;
-- column count;
-- total parsed cells;
-- characters per cell;
-- shared-string table size;
-- relationship count;
-- XML nesting / parser resource constraints where exposed by the dependency.
+- aggregate declared uncompressed archive size;
+- per-entry uncompressed size;
+- compression ratio / ZIP-bomb signals;
+- ZIP entry count;
+- entry-path safety;
+- encryption;
+- active-content parts.
 
-Limit violations must produce a typed HOLD/error result and no downstream write proposals.
+Worksheet/cell/shared-string/XML semantic limits remain an IA-7 parser-wrapper responsibility.
 
 ### 3.5 Source identity and scope
 
 Before IA-4 import logic can run:
 
 - exact source bytes must be SHA-256 hashed;
-- the hash must match the existing STARTAK source-document identity;
-- `caseId` must match the owning source document;
-- project scope must remain consistent;
+- the hash must match the STARTAK source-document identity;
+- `caseId` and `projectId` remain explicitly bound;
 - parser ID/version and parsing profile ID/version must be attested;
 - parser output must preserve source hash and workbook identity.
 
@@ -106,7 +101,7 @@ Cross-case or cross-project contamination must fail closed.
 
 For identical source bytes, parser version and parsing profile, the normalized parser snapshot must be deterministic.
 
-The parser must not depend on locale-sensitive, timezone-sensitive, network-dependent or mutable external state unless that state is explicitly versioned and prohibited from changing the interpreted workbook content.
+The parser must not depend on locale-sensitive, timezone-sensitive, network-dependent or mutable external state to interpret workbook content.
 
 ### 3.7 IA-4 integration boundary
 
@@ -125,104 +120,126 @@ IA-4 remains responsible for:
 
 The XLSX parser itself must not create canonical commits.
 
-## 4. Candidate comparison — evidence review 2026-09-05
+## 4. Candidate comparison — final IA-6 decision
 
-### Candidate A — SheetJS Community Edition 0.20.3 from the official SheetJS distribution endpoint
+### Candidate A — SheetJS Community Edition 0.20.3, exact official artifact
 
-**Provisional state:** `HOLD_REVIEW_INCOMPLETE` — preferred candidate for the IA-7 proof only if the governed wrapper and hostile-file gates pass.
+**State: `APPROVED_WITH_GOVERNED_WRAPPER`.**
 
-Observed evidence:
+Reviewed artifact:
 
-- SheetJS documentation identifies its own CDN tarball as the authoritative current module source and states that the public npm `xlsx` package is stale at `0.18.5`.
-- Current documentation shows installation of `xlsx-0.20.3.tgz` from `cdn.sheetjs.com` and recommends vendoring for stability.
-- License: Apache-2.0.
-- SheetJS CE is data-oriented and supports reading formulas as metadata; formula evaluation is not a required CE parsing behavior for this path.
-- VBA payload extraction requires an explicit `bookVBA: true` option; the default does not expose the VBA blob.
-- Workbook metadata exposes hidden sheet state and exact sheet/cell structures needed for governed normalization.
-- Known older `xlsx` advisories are documented as fixed in later SheetJS releases; STARTAK must not use the stale npm `xlsx@0.18.5` line.
+- package: `xlsx`
+- version: `0.20.3`
+- URL: `https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz`
+- license: `Apache-2.0`
+- SHA-256: `8dc73fc3b00203e72d176e85b50938627c7b086e607c682e8d3c22c02bb99fe8`
+- size: `2,409,319` bytes
+- tar entries: `26`
+- runtime dependencies reported by package metadata: none
+- npm lifecycle install scripts (`preinstall`, `install`, `postinstall`): none
 
-Remaining blockers before approval:
+Trusted integrity review:
 
-- independently pin and verify the exact tarball digest/vendor copy before package introduction;
-- establish deterministic pre-parse ZIP/container limits outside the parser;
-- prove that the chosen parse options do not evaluate formulas or pull active content;
-- detect and quarantine external relationships before data reaches IA-4;
-- execute hostile workbook fixtures and deterministic-repeat tests;
-- run repository release/security gates after the exact dependency is introduced.
+- GitHub Actions workflow: `XLSX Artifact Integrity Review`
+- workflow run id: `33976591390`
+- job id: `101334258811`
+- result: `SUCCESS`
+
+The integrity workflow downloaded the exact reviewed URL, computed SHA-256 from the received bytes, checked package name/version/license, inspected tar paths and symlink posture, checked top-level license/notice presence, and did not install or execute the package.
+
+The approval is limited to this exact artifact identity. A different version, URL, digest or package requires a new review.
 
 ### Candidate B — `exceljs@4.4.0`
 
-**State:** `REJECTED_DEPENDENCY` for untrusted STARTAK workbook ingestion at the current version.
+**State: `REJECTED_DEPENDENCY` for untrusted STARTAK workbook ingestion at the reviewed version.**
 
-Reasons:
-
-- latest stable release remains 4.4.0;
-- its published package has multiple transitive dependencies and open 2026 issues concerning vulnerable/outdated transitive packages;
-- a 2026 high-severity advisory reports uncontrolled resource consumption in `Workbook.xlsx.load()` on crafted XLSX archives, with no patched upstream stable version identified in that advisory;
-- this directly conflicts with STARTAK G4 resource-safety requirements for user-supplied workbooks.
-
-This rejection is version-specific and may be revisited if upstream ships a patched release that satisfies IA-6.
+The current IA-6 decision does not authorize ExcelJS as an interchangeable substitute. Any later version requires a distinct dependency review.
 
 ### Candidate C — public npm `xlsx@0.18.5`
 
-**State:** `REJECTED_DEPENDENCY`.
+**State: `REJECTED_DEPENDENCY`.**
 
-Reasons:
-
-- the public npm line is stale relative to the current SheetJS CE distribution;
-- known prototype-pollution / ReDoS issues were fixed after that line;
-- using the stale registry artifact would fail STARTAK's supply-chain/security baseline.
+The stale registry line is below STARTAK's configured security floor and is not equivalent to the reviewed official SheetJS CE artifact.
 
 ### Candidate D — `xlsx-populate@1.21.0`
 
-**State:** `REJECTED_DEPENDENCY` for the STARTAK ingestion boundary.
-
-Reasons:
-
-- original npm package is materially stale, with its last publish years ago;
-- it brings additional dependency and maintenance risk without a security advantage over the preferred candidate;
-- recent namespace/fork publications are not treated as equivalent to original upstream provenance and would require a separate supply-chain review.
+**State: `REJECTED_DEPENDENCY` for the STARTAK ingestion boundary.**
 
 ### Candidate E — unofficial SheetJS/ExcelJS forks or republished packages
 
-**State:** `REJECTED_DEPENDENCY` by default unless separately reviewed as a distinct supplier.
+**State: `REJECTED_DEPENDENCY` by default unless separately reviewed as a distinct supplier.**
 
-STARTAK will not adopt an unofficial security fork solely because it advertises patched dependencies. Publisher identity, provenance, release process and long-term maintenance must independently pass G1.
+## 5. Machine-enforced dependency policy
 
-## 5. Current decision
+Implemented at:
 
-No XLSX package is installed by IA-6.
+`src/integration-governance/spreadsheet/xlsx/dependency-policy.js`
 
-The current preferred path is:
+The policy enforces:
 
-`SheetJS CE 0.20.3 official tarball/vendor candidate -> STARTAK governed preflight wrapper -> passive parse -> normalized workbook -> IA-4 controlled import`
+- package exactly `xlsx`;
+- reviewed version exactly `0.20.3`;
+- security floor `0.20.2`;
+- exact reviewed official URL;
+- license `Apache-2.0`;
+- valid SHA-256 format;
+- exact digest match against the pinned reviewed value;
+- governed wrapper required after approval.
 
-The candidate remains `HOLD_REVIEW_INCOMPLETE`, not approved, until G3, G4, G5, G8, G9 and G10 are proven end-to-end.
+Unreviewed newer versions resolve to `HOLD_REVIEW_INCOMPLETE` rather than being auto-accepted.
 
-## 6. Selected-candidate scorecard
+## 6. Passive parser authorization boundary
 
-| Gate | Requirement | SheetJS CE 0.20.3 current result |
+Implemented at:
+
+`src/integration-governance/spreadsheet/xlsx/parser-authorization.js`
+
+The authorization function independently re-evaluates dependency identity and requires a successful dependency-free OPC preflight.
+
+Only the combination:
+
+`exact approved artifact identity + READY_FOR_PASSIVE_PARSER OPC result`
+
+can produce:
+
+`PASSIVE_PARSER_INVOCATION_AUTHORIZED`
+
+Even then:
+
+- formula evaluation is unauthorized;
+- macro execution is unauthorized;
+- external-link resolution is unauthorized;
+- source-authority promotion is false;
+- evidence verification is false;
+- canonical mutation is false;
+- transaction authorization is false.
+
+## 7. Selected-candidate scorecard
+
+| Gate | Requirement | IA-6 result |
 |---|---|---|
-| G1 Supply Chain | provenance, license, maintenance, advisories, dependency graph | PASS WITH PINNING REQUIREMENT |
-| G2 Passive Parsing | literal/formula distinction without evaluation | PASS BY DOCUMENTED CAPABILITY; CODE PROOF PENDING |
-| G3 Active Content | macros/external links/DDE fail closed or quarantine | PARTIAL PASS — dependency-free OPC preflight rejects known macro/external-link/embedded parts; relationship-content proof still pending |
-| G4 Resource Safety | deterministic anti-bomb/resource limits | PARTIAL PASS — central-directory preflight enforces source, per-entry, aggregate, compression-ratio and entry-count limits before parser invocation |
-| G5 Determinism | repeatable normalized output | PARTIAL PASS — preflight output is deterministic; parser-normalization equality remains pending |
-| G6 Source Identity | exact hash + parser/profile attestation | PASS BY EXISTING IA-5 CONTRACT; XLSX BINDING PENDING |
-| G7 Scope Isolation | case/project mismatch fails closed | PASS BY EXISTING IA-4/IA-5 CONTRACT; XLSX BINDING PENDING |
-| G8 IA-4 Compatibility | parser output enters existing controlled import path only | HOLD — IA-7 ADAPTER PROOF REQUIRED |
-| G9 Regression Coverage | hostile + valid workbook fixtures covered | PARTIAL PASS — OPC preflight regressions added; real XLSX parser fixtures remain pending |
-| G10 Release Threshold | release verify + audit + deep/comprehensive gates green | IN CI ON CURRENT BRANCH HEAD |
+| G1 Supply Chain | provenance, license, exact artifact, dependency/install posture | PASS — exact artifact pinned and CI-reviewed |
+| G2 Passive Parsing Boundary | parser identity can only enter behind governed authorization | PASS AT AUTHORIZATION LAYER — physical parser behavior remains IA-7 |
+| G3 Active Content | macros/external links/embedded content fail closed before parser | PASS FOR CONTAINER-LEVEL SIGNALS — semantic relationship proof remains IA-7 |
+| G4 Resource Safety | deterministic anti-bomb/resource limits before parser | PASS FOR OPC CONTAINER PREFLIGHT; semantic parser limits remain IA-7 |
+| G5 Determinism | repeatable security/preflight and dependency-policy outputs | PASS FOR IA-6 CONTROL LAYERS; normalized XLSX parse equality remains IA-7 |
+| G6 Source Identity | exact dependency hash plus source/parser/profile binding | PASS AT IA-6 AUTHORIZATION CONTRACT; source-document binding remains IA-7 adapter integration |
+| G7 Scope Isolation | explicit case/project binding | PASS AT AUTHORIZATION CONTRACT; full adapter path remains IA-7 |
+| G8 IA-4 Compatibility | parser output enters existing controlled import path only | DEFERRED TO IA-7 PHYSICAL ADAPTER — no alternate write path authorized |
+| G9 Regression Coverage | hostile/control-path regression | PASS FOR IA-6 DEPENDENCY + OPC + AUTHORIZATION; real XLSX parser fixtures required in IA-7 |
+| G10 Release Threshold | repository CI green on final IA-6 head | REQUIRED BEFORE PR MERGE |
 
-Dependency decision: **`HOLD_REVIEW_INCOMPLETE`**.
+Dependency decision for the exact reviewed artifact: **`APPROVED_WITH_GOVERNED_WRAPPER`**.
 
-## 7. Governed preflight implementation added in IA-6
+This is dependency approval, not parser implementation approval.
 
-IA-6 now includes a dependency-free OPC/ZIP central-directory preflight at:
+## 8. Governed OPC preflight implementation
+
+IA-6 includes a dependency-free OPC/ZIP central-directory preflight at:
 
 `src/integration-governance/spreadsheet/xlsx/opc-preflight.js`
 
-It executes before any future XLSX parsing library and currently enforces:
+It executes before any future XLSX parsing library and enforces:
 
 - source byte cap;
 - ZIP EOCD and central-directory bounds;
@@ -236,7 +253,7 @@ It executes before any future XLSX parsing library and currently enforces:
 - path traversal/absolute-path rejection;
 - duplicate-entry rejection;
 - required XLSX OPC parts;
-- rejection of `xl/vbaProject.bin` and VBA signature part;
+- rejection of `xl/vbaProject.bin` and VBA signature parts;
 - rejection of `xl/externalLinks/` parts;
 - rejection of `xl/embeddings/` parts;
 - no source-authority promotion;
@@ -244,35 +261,9 @@ It executes before any future XLSX parsing library and currently enforces:
 - no canonical mutation;
 - no transaction authorization.
 
-The preflight does not decompress XML and therefore does not claim semantic relationship inspection. That remains an explicit IA-7 gate.
+The preflight does not decompress workbook XML and therefore does not claim semantic relationship inspection. That remains an IA-7 gate.
 
-## 8. Required governed wrapper design
-
-The IA-7 wrapper must remain split into two trust zones.
-
-### Zone A — container preflight before SheetJS
-
-The dependency-free preflight is the first implementation of this zone. IA-7 must extend it as needed without weakening current controls.
-
-### Zone B — passive SheetJS normalization
-
-Only a workbook that passes Zone A may be passed to the parser.
-
-The adapter must use an exact, versioned parse profile and normalize only:
-
-- sheet names/order;
-- hidden sheet metadata;
-- A1 coordinates;
-- literal values;
-- raw numeric/date representation;
-- formula text/flags without execution;
-- merged ranges;
-- explicit hyperlink/external-reference metadata where exposed;
-- source hash + parser/profile attestation.
-
-No automatic canonical field mapping, unit inference, evidence promotion or decision write is allowed.
-
-## 9. Initial resource-policy proposal implemented for preflight
+## 9. Initial resource policy
 
 - compressed source file: max 10 MiB;
 - total declared uncompressed OPC entries: max 100 MiB;
@@ -281,13 +272,17 @@ No automatic canonical field mapping, unit inference, evidence promotion or deci
 - ZIP entries: max 5,000;
 - entry name: max 4,096 UTF-8 bytes.
 
-The remaining worksheet/cell/shared-string/XML semantic limits belong to IA-7 after the selected parser is pinned.
+Crossing an implemented preflight limit produces a typed error and no parser invocation.
 
-Crossing any implemented preflight limit produces a typed error and no parser invocation.
+## 10. Regression coverage
 
-## 10. Regression coverage added
+IA-6 regression files:
 
-`tests/architecture/run_xlsx_opc_preflight_v1.js` covers:
+- `tests/architecture/run_xlsx_opc_preflight_v1.js`
+- `tests/architecture/run_xlsx_dependency_policy_v1.js`
+- `tests/architecture/run_xlsx_parser_authorization_v1.js`
+
+Coverage includes:
 
 - valid deterministic OPC preflight;
 - macro/VBA part rejection;
@@ -300,9 +295,15 @@ Crossing any implemented preflight limit produces a typed error and no parser in
 - compression-ratio rejection;
 - required-part rejection;
 - malformed/trailing-container rejection;
+- dependency package/version/source/license controls;
+- missing, malformed and mismatched digest controls;
+- exact reviewed digest approval;
+- unreviewed future-version HOLD;
+- stale public npm `xlsx@0.18.5` rejection;
+- passive parser invocation blocked unless dependency + preflight gates both pass;
 - immutable non-authoritative output invariants.
 
-Real SheetJS/XLSX fixtures are intentionally not added until the dependency is approved and pinned.
+Real XLSX parser fixtures remain intentionally an IA-7 requirement because IA-6 does not install the physical parser.
 
 ## 11. Forbidden outcomes
 
@@ -320,18 +321,32 @@ IA-6/IA-7 must not introduce any path that:
 
 ## 12. Review deliverables status
 
-1. candidate comparison matrix — **COMPLETE v1**;
-2. license/maintenance/security evidence — **COMPLETE FOR PRIMARY CANDIDATES, subject to final pin review**;
-3. dependency graph review — **COMPLETE AT PACKAGE-METADATA LEVEL; exact selected tarball review pending**;
-4. explicit parser threat model — **DEFINED + PARTIAL CODE ENFORCEMENT**;
-5. selected dependency or documented rejection — **PREFERRED CANDIDATE IDENTIFIED, final approval on HOLD**;
-6. governed wrapper design — **DEFINED v1 + Zone A preflight implemented**;
-7. no package-lock change until candidate passes review gate — **PRESERVED**.
+1. candidate comparison matrix — **COMPLETE**;
+2. license/security/provenance evidence — **COMPLETE FOR SELECTED ARTIFACT**;
+3. exact selected tarball identity + package metadata review — **COMPLETE**;
+4. dependency graph/install-script review — **COMPLETE AT SELECTED ARTIFACT PACKAGE-METADATA LEVEL**;
+5. explicit parser threat model — **DEFINED + CONTAINER/POLICY ENFORCEMENT IMPLEMENTED**;
+6. selected dependency decision — **APPROVED_WITH_GOVERNED_WRAPPER**;
+7. governed wrapper trust-zone design — **DEFINED; Zone A + authorization gate implemented**;
+8. no parser package installation before review completion — **PRESERVED**.
 
-## 13. Next implementation wave
+## 13. Next implementation wave — IA-7
 
-IA-7 should now add real XLSX fixtures and a passive-parser proof around a pinned SheetJS CE 0.20.3 artifact only after final digest/provenance verification.
+IA-7 may begin only from the exact reviewed SheetJS CE 0.20.3 identity above.
 
-The physical adapter must bind the parser behind the existing preflight, preserve exact source SHA-256 and parser/profile attribution, detect formula/relationship/hidden-sheet metadata without evaluation, emit the IA-4 normalized workbook shape, and preserve human-approved writes only.
+The physical adapter must:
 
-Until those gates pass, XLSX parsing remains intentionally unavailable rather than silently falling back to an ungoverned library.
+1. keep OPC preflight ahead of SheetJS invocation;
+2. pass the IA-6 dependency/parser-authorization gate;
+3. use a versioned passive parsing profile;
+4. preserve formulas only as metadata and never calculate them;
+5. detect/quarantine relationships and active-content semantics not already blocked by OPC preflight;
+6. preserve sheet order/name, hidden status, exact A1 coordinates, merges and typed literal representations;
+7. impose worksheet/cell/shared-string/XML semantic resource limits;
+8. preserve exact source SHA-256 and parser/profile attestation;
+9. emit only the normalized workbook shape expected by IA-4;
+10. preserve IA-4 full-batch validation, `PROPOSE_WRITE`, audit and human approval before canonical mutation;
+11. leave deterministic valuation/financial outputs engine-owned;
+12. keep final investment decisions human and `transactionAuthorized=false`.
+
+Until IA-7 proves those parser-level gates, production XLSX parsing remains intentionally unavailable.
