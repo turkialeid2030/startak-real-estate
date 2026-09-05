@@ -4,6 +4,7 @@ const { VALUE_TYPE } = require('../../document-intelligence/pipeline');
 
 const WORKBOOK_FORMAT = Object.freeze({
   CSV_UTF8: 'CSV_UTF8',
+  XLSX: 'XLSX',
 });
 
 const PARSER_STATUS = Object.freeze({
