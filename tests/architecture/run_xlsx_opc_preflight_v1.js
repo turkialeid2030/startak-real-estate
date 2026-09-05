@@ -161,7 +161,7 @@ function run() {
   );
 
   const withTrailingByte = Buffer.concat([validBytes, Buffer.from([0])]);
-  expectCode(() => inspectXlsxOpcContainer(withTrailingByte), 'XLSX_ZIP_EOCD_MISSING');
+  expectCode(() => inspectXlsxOpcContainer(withTrailingByte), 'XLSX_ZIP_TRAILING_DATA_NOT_ALLOWED');
 
   console.log('run_xlsx_opc_preflight_v1: PASS');
 }
