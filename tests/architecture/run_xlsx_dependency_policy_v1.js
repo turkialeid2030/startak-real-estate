@@ -8,6 +8,8 @@ const {
   evaluateXlsxDependencyCandidate,
 } = require('../../src/integration-governance/spreadsheet/xlsx/dependency-policy');
 
+const REVIEWED_SHA256 = '8dc73fc3b00203e72d176e85b50938627c7b086e607c682e8d3c22c02bb99fe8';
+
 function official(overrides = {}) {
   return {
     packageName: 'xlsx',
@@ -34,9 +36,20 @@ function run() {
   assert.strictEqual(missingHash.transactionAuthorized, false);
   assert.strictEqual(Object.isFrozen(missingHash), true);
 
-  const unpinnedHash = evaluateXlsxDependencyCandidate(official({ archiveSha256: 'a'.repeat(64) }));
-  assert.strictEqual(unpinnedHash.decision, XLSX_DEPENDENCY_DECISION.HOLD_REVIEW_INCOMPLETE);
-  assert.deepStrictEqual(unpinnedHash.reasonCodes, ['REVIEW_APPROVED_SHA256_NOT_PINNED']);
+  const wrongDigest = evaluateXlsxDependencyCandidate(official({ archiveSha256: 'a'.repeat(64) }));
+  assert.strictEqual(wrongDigest.decision, XLSX_DEPENDENCY_DECISION.REJECTED_DEPENDENCY);
+  assert.deepStrictEqual(wrongDigest.reasonCodes, ['ARCHIVE_SHA256_MISMATCH']);
+  assert.strictEqual(wrongDigest.parserInvocationAuthorized, false);
+
+  const approved = evaluateXlsxDependencyCandidate(official({ archiveSha256: REVIEWED_SHA256 }));
+  assert.strictEqual(approved.decision, XLSX_DEPENDENCY_DECISION.APPROVED_WITH_GOVERNED_WRAPPER);
+  assert.deepStrictEqual(approved.reasonCodes, ['EXACT_ARTIFACT_PIN_MATCH', 'GOVERNED_WRAPPER_REQUIRED']);
+  assert.strictEqual(approved.parserInvocationAuthorized, true);
+  assert.strictEqual(approved.sourceAuthorityPromoted, false);
+  assert.strictEqual(approved.evidenceVerified, false);
+  assert.strictEqual(approved.canonicalMutationPerformed, false);
+  assert.strictEqual(approved.transactionAuthorized, false);
+  assert.strictEqual(Object.isFrozen(approved), true);
 
   const oldVersion = evaluateXlsxDependencyCandidate(official({
     version: '0.20.1',
@@ -54,6 +67,7 @@ function run() {
 
   const wrongSource = evaluateXlsxDependencyCandidate(official({
     sourceUrl: 'https://example.invalid/xlsx-0.20.3.tgz',
+    archiveSha256: REVIEWED_SHA256,
   }));
   assert.strictEqual(wrongSource.decision, XLSX_DEPENDENCY_DECISION.REJECTED_DEPENDENCY);
   assert.deepStrictEqual(wrongSource.reasonCodes, ['UNAPPROVED_ARTIFACT_SOURCE']);
@@ -67,7 +81,10 @@ function run() {
   assert.strictEqual(exceljs.decision, XLSX_DEPENDENCY_DECISION.REJECTED_DEPENDENCY);
   assert.deepStrictEqual(exceljs.reasonCodes, ['PACKAGE_NOT_APPROVED']);
 
-  const wrongLicense = evaluateXlsxDependencyCandidate(official({ license: 'MIT' }));
+  const wrongLicense = evaluateXlsxDependencyCandidate(official({
+    license: 'MIT',
+    archiveSha256: REVIEWED_SHA256,
+  }));
   assert.strictEqual(wrongLicense.decision, XLSX_DEPENDENCY_DECISION.REJECTED_DEPENDENCY);
   assert.deepStrictEqual(wrongLicense.reasonCodes, ['LICENSE_MISMATCH']);
 
@@ -78,12 +95,16 @@ function run() {
   const otherVersion = evaluateXlsxDependencyCandidate(official({
     version: '0.20.4',
     sourceUrl: 'https://cdn.sheetjs.com/xlsx-0.20.4/xlsx-0.20.4.tgz',
+    archiveSha256: REVIEWED_SHA256,
   }));
   assert.strictEqual(otherVersion.decision, XLSX_DEPENDENCY_DECISION.HOLD_REVIEW_INCOMPLETE);
   assert.deepStrictEqual(otherVersion.reasonCodes, ['VERSION_NOT_REVIEWED']);
 
-  assert.strictEqual(SHEETJS_CE_POLICY.reviewApprovedSha256, null);
+  assert.strictEqual(SHEETJS_CE_POLICY.reviewApprovedSha256, REVIEWED_SHA256);
+  assert.strictEqual(SHEETJS_CE_POLICY.reviewApprovedSizeBytes, 2409319);
   assert.strictEqual(SHEETJS_CE_POLICY.minimumSecurityVersion, '0.20.2');
+  assert.strictEqual(SHEETJS_CE_POLICY.integrityReviewWorkflowRunId, 33976591390);
+  assert.strictEqual(SHEETJS_CE_POLICY.integrityReviewWorkflowJobId, 101334258811);
 
   console.log('run_xlsx_dependency_policy_v1: PASS');
 }
