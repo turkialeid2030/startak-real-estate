@@ -7,20 +7,46 @@ const fs = require('fs'), path = require('path');
 const { execFileSync } = require('child_process');
 const gold = require('../reference/RE-GOLD-baseline.json');
 const { calculateInvestmentCase, STUDY_TYPE } = require('../../src/engines');
+const {
+  prepareNewUiDealForSave,
+  prepareUpdatedUiDealForSave,
+} = require('../../src/assumptions/ui-integration-controller');
+const { ASSUMPTION_MODEL_VERSION } = require('../../src/assumptions/assumption-model');
 const results = [];
 function check(id, cond, detail) { console.log(`${id} ${cond?'PASS':'FAIL'} -- ${detail}`); results.push(cond); }
 
 // Schema re-confirmation (R6_SAVED_DEAL_SCHEMA_INVENTORY.csv authority).
-// Valuation V1 adds one optional, validated, non-translatable Building-only
-// configuration extension; the original five raw fields remain unchanged.
+// Wave 2 adds assumptionModelVersion as explicit non-translatable envelope
+// metadata. The original five raw fields and optional Building extensions remain
+// preserved; version metadata stays outside economic inputs.
 function parseCsvLine(l){const f=[];let c='',q=false;for(const ch of l){if(ch==='"')q=!q;else if(ch===','&&!q){f.push(c);c='';}else c+=ch;}f.push(c);return f;}
 const schemaCsv = fs.readFileSync(path.join(__dirname,'../..','R6_SAVED_DEAL_SCHEMA_INVENTORY.csv'),'utf8').trim().split('\n');
 const schemaRows = schemaCsv.slice(1).map(parseCsvLine);
-check('SCHEMA-7-FIELDS', schemaRows.length === 7, `${schemaRows.length} persisted fields including optional RIAI operatingCase and Valuation V1 valuationCase`);
+check('SCHEMA-8-FIELDS', schemaRows.length === 8 && schemaRows.some(r => r[0] === 'assumptionModelVersion'), `${schemaRows.length} persisted fields including Wave 2 assumptionModelVersion metadata`);
 check('SCHEMA-ZERO-TRANSLATABLE', schemaRows.every(r => r[3] !== 'Yes'), 'zero translatable persisted fields');
 
 const appSrc = fs.readFileSync(path.join(__dirname,'../..','src/app/App.jsx'), 'utf8');
-check('SCHEMA-CORE-PRESERVED-WITH-OPTIONAL-RIAI', appSrc.includes('recordWithExtensions({ id, name, mode, inputs, savedAt: new Date().toISOString() })') && appSrc.includes('operatingCase: residentialIncomeOperatingCase') && appSrc.includes('withValuationCase(extended, valuationCase)'), 'original five raw fields preserved with validated optional Building-only operatingCase and valuationCase extensions');
+const schemaProbe = {
+  id: 'R6D-SCHEMA-PROBE',
+  name: 'صفقة',
+  mode: 'building',
+  inputs: { buildingPrice: 7654321, marketCapRate: 0.08 },
+  savedAt: '2026-09-06T00:00:00.000Z',
+  operatingCase: { schemaVersion: 1, status: 'PROBE' },
+  valuationCase: { schemaVersion: 1, status: 'PROBE' },
+};
+const newRecord = prepareNewUiDealForSave(schemaProbe);
+const updatedLegacyRecord = prepareUpdatedUiDealForSave(schemaProbe, ASSUMPTION_MODEL_VERSION.LEGACY);
+const corePreserved = ['id','name','mode','savedAt'].every((key) => newRecord[key] === schemaProbe[key])
+  && JSON.stringify(newRecord.inputs) === JSON.stringify(schemaProbe.inputs)
+  && newRecord.operatingCase === schemaProbe.operatingCase
+  && newRecord.valuationCase === schemaProbe.valuationCase;
+const versionMetadataGoverned = newRecord.assumptionModelVersion === ASSUMPTION_MODEL_VERSION.V2
+  && updatedLegacyRecord.assumptionModelVersion === ASSUMPTION_MODEL_VERSION.LEGACY
+  && !Object.prototype.hasOwnProperty.call(newRecord.inputs, 'assumptionModelVersion');
+const appUsesGovernedPersistence = appSrc.includes('prepareNewUiDealForSave({')
+  && appSrc.includes('prepareUpdatedUiDealForSave({ id: activeDealId');
+check('SCHEMA-CORE-PRESERVED-WITH-OPTIONAL-RIAI', corePreserved && versionMetadataGoverned && appUsesGovernedPersistence, 'original five raw fields and optional Building operatingCase/valuationCase are preserved through governed persistence; Wave 2 version metadata is explicit and outside inputs');
 check('STORAGE-KEY-PREFIX-UNCHANGED', appSrc.includes('"deal:" + id') && appSrc.includes('"deals-index"'), 'storage keys unchanged');
 
 // Live-browser evidence from this session (documented, not re-executed here --
