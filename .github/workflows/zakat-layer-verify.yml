@@ -1,0 +1,42 @@
+name: Zakat Layer Verify
+
+on:
+  pull_request:
+    paths:
+      - 'src/zakat/**'
+      - 'src/components/ZakatLayerPanel.jsx'
+      - 'src/app/App.jsx'
+      - 'src/validation/saved-deal-schema.js'
+      - 'src/i18n/locales/**'
+      - 'tests/defects/zakat_user_entered_post_noi_layer.js'
+      - 'docs/ZAKAT_USER_ENTERED_LAYER_WAVE_B2.md'
+      - '.github/workflows/zakat-layer-verify.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/zakat/**'
+      - 'src/components/ZakatLayerPanel.jsx'
+      - 'src/app/App.jsx'
+      - 'src/validation/saved-deal-schema.js'
+      - 'src/i18n/locales/**'
+      - 'tests/defects/zakat_user_entered_post_noi_layer.js'
+      - 'docs/ZAKAT_USER_ENTERED_LAYER_WAVE_B2.md'
+      - '.github/workflows/zakat-layer-verify.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  zakat-layer-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Verify user-entered post-NOI Zakat layer
+        run: node tests/defects/zakat_user_entered_post_noi_layer.js
