@@ -39,6 +39,16 @@ const SEMANTIC_RULES = deepFreeze([
   rule({ id: 'DISCOUNT_RATE', key: 'financial.discount_rate', valueType: 'NUMBER', unit: 'ratio', normalization: NORMALIZATION.PERCENT_RATIO, aliases: ['معدل الخصم (لحساب NPV)', 'معدل الخصم'], numericTolerance: { absolute: 0.0002 } }),
   rule({ id: 'INVESTMENT_HORIZON', key: 'financial.investment_horizon_years', valueType: 'NUMBER', unit: 'year', normalization: NORMALIZATION.NUMBER, aliases: ['مدة الاستثمار (سنة البيع)', 'مدة الاستثمار'], numericTolerance: { absolute: 0 } }),
   rule({ id: 'BUILDING_AGE', key: 'property.building_age_years', valueType: 'NUMBER', unit: 'year', normalization: NORMALIZATION.NUMBER, aliases: ['عمر المبنى الحالي', 'عمر المبنى'], numericTolerance: { absolute: 0 } }),
+  rule({
+    id: 'TENANT_ANNUAL_REVENUE',
+    key: 'tenant.annual_revenue',
+    valueType: 'NUMBER',
+    unit: 'SAR/year',
+    normalization: NORMALIZATION.NUMBER,
+    materiality: MATERIALITY.MATERIAL,
+    aliases: ['الإيرادات السنوية للمستأجر', 'إيرادات المستأجر السنوية', 'Tenant annual revenue', 'Annual tenant revenue'],
+    numericTolerance: { absolute: 1, relative: 0.000001 },
+  }),
   ...CORE_DOMAIN_RULE_DEFINITIONS.map(rule),
 ]);
 
