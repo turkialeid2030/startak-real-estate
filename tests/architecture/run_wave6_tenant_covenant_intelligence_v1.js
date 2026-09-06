@@ -85,11 +85,28 @@ function full60Facts() {
   return required60Keys.map((key) => fact(key));
 }
 
+function defaultAnnualRevenueFact() {
+  return createTenantEvidenceFact({
+    tenantId: TENANT_ID,
+    key: 'annualRevenue',
+    value: 20000000,
+    score: null,
+    status: TENANT_EVIDENCE_STATUS.VERIFIED,
+    sourceType: 'SYNTHETIC_FINANCIAL_STATEMENT',
+    sourceRef: 'SYNTH:FS:BASELINE',
+    observedAt: OBSERVED_AT,
+  });
+}
+
 function assess60(facts = full60Facts(), extra = {}) {
+  const hasRevenueEvidence = facts.some((item) => item && item.key === 'annualRevenue');
+  const effectiveFacts = hasRevenueEvidence ? facts : [...facts, defaultAnnualRevenueFact()];
   return assessTenant({
     tenantId: TENANT_ID,
-    facts,
+    facts: effectiveFacts,
     annualRent: 2000000,
+    annualRevenue: 20000000,
+    tenantClass: TENANT_CLASS.LARGE,
     annualContractValue: 2000000,
     ...extra,
   });
