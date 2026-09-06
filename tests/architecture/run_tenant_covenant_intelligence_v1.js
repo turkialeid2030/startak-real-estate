@@ -92,10 +92,14 @@ assert.ok(!below3m.evidenceGaps.some((x) => x.key === 'auditedFinancialStatement
 
 // At/above SAR 3m the reference form brings financial capacity into scope, but the supplied
 // document does not define a 100-point final decision table. Complete evidence therefore
-// produces HOLD_POLICY rather than an invented approval threshold.
+// produces HOLD_POLICY rather than an invented approval threshold. Revenue evidence is kept
+// consistent with the affordability input so the test isolates the intended policy gap.
+const fullProfileFacts = facts.map((x) => x.key === 'annualRevenue'
+  ? fact(tenantId, 'annualRevenue', 1.0, 30000000)
+  : x);
 const fullProfile = assessTenant({
   tenantId,
-  facts,
+  facts: fullProfileFacts,
   policy,
   annualRent: 3000000,
   annualRevenue: 30000000,
