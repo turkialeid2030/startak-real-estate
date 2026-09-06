@@ -1,0 +1,97 @@
+name: Compliance Guard Verify
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/compliance/**'
+      - 'src/components/ComplianceBoundaryNotice.jsx'
+      - 'src/main.jsx'
+      - 'src/storage/saved-deals-backup.js'
+      - 'tests/architecture/run_wave5_saudi_compliance_engineering_v1.js'
+      - 'tests/architecture/run_compliance_guard.js'
+      - 'tests/architecture/run_compliance_safe_ui_cutover_v1.js'
+      - 'tests/architecture/run_compliance_safe_ui_verdict_v1.js'
+      - 'tests/architecture/run_regulatory_closure_evidence_v1.js'
+      - 'tests/architecture/run_professional_review_matrix_v1.js'
+      - 'tests/architecture/run_tenant_boundary_security_v1.js'
+      - 'tests/architecture/run_authorization_audit_security_v1.js'
+      - 'tests/architecture/run_runtime_rls_verification_v1.js'
+      - '.github/workflows/compliance-guard-verify.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/compliance/**'
+      - 'src/components/ComplianceBoundaryNotice.jsx'
+      - 'src/main.jsx'
+      - 'src/storage/saved-deals-backup.js'
+      - 'tests/architecture/run_wave5_saudi_compliance_engineering_v1.js'
+      - '.github/workflows/compliance-guard-verify.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: compliance-guard-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compliance-guard-engineering:
+    name: compliance-guard-engineering
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Wave 5 Saudi compliance engineering gate
+        run: node tests/architecture/run_wave5_saudi_compliance_engineering_v1.js
+
+      - name: Existing decision-support compliance guard
+        run: node tests/architecture/run_compliance_guard.js
+
+      - name: Existing production UI compliance cutover
+        run: node tests/architecture/run_compliance_safe_ui_cutover_v1.js
+
+      - name: Existing external verdict boundary
+        run: node tests/architecture/run_compliance_safe_ui_verdict_v1.js
+
+      - name: Existing regulatory evidence gate
+        run: node tests/architecture/run_regulatory_closure_evidence_v1.js
+
+      - name: Existing professional review matrix
+        run: node tests/architecture/run_professional_review_matrix_v1.js
+
+      - name: Existing tenant isolation evidence
+        run: node tests/architecture/run_tenant_boundary_security_v1.js
+
+      - name: Existing authorization audit evidence
+        run: node tests/architecture/run_authorization_audit_security_v1.js
+
+      - name: Existing runtime RLS evidence
+        run: node tests/architecture/run_runtime_rls_verification_v1.js
+
+      - name: Publish compliance boundary summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## STARTAK Saudi Compliance Engineering Gate'
+            echo
+            echo '- This workflow validates engineering guardrails only.'
+            echo '- It does not establish Saudi legal compliance, licensing status, accredited valuation status, or legal approval.'
+            echo '- Saudi legal/regulatory review remains required before commercial external launch.'
+            echo '- Commercial external launch remains HOLD until documented human legal/regulatory review is completed.'
+            echo '- No transaction authority is granted.'
+          } >> "$GITHUB_STEP_SUMMARY"
