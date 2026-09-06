@@ -63,7 +63,13 @@ try {
   const shellResponse = await api.get('/');
   const shellBody = await shellResponse.text();
   record('PROD_HTTP_200', shellResponse.status() === 200, `status=${shellResponse.status()}`);
-  record('PROD_HTML_SHELL', /<!doctype html|<html/i.test(shellBody) && shellBody.length > 500, `htmlLength=${shellBody.length}`);
+  const shellHasDocument = /<!doctype html|<html/i.test(shellBody);
+  const shellHasRoot = /id=["']root["']/i.test(shellBody);
+  record(
+    'PROD_HTML_SHELL',
+    shellHasDocument && shellHasRoot && shellBody.length > 200,
+    { htmlLength: shellBody.length, shellHasDocument, shellHasRoot }
+  );
 
   browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-gpu'] });
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, locale: 'ar-SA' });
