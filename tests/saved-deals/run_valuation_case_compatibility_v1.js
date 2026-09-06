@@ -105,8 +105,11 @@ function mockProvider(store) {
 
   const store = { 'deal:extended-1': JSON.stringify({ ...extended, id: 'extended-1' }) };
   const exported = await buildExportPayload([{ id: 'extended-1' }], mockProvider(store));
-  assert.strictEqual(BACKUP_VERSION, 3);
-  assert.strictEqual(exported.backupVersion, 3);
+  assert.strictEqual(BACKUP_VERSION, 4);
+  assert.strictEqual(exported.backupVersion, 4);
+  assert.strictEqual(exported.compliance.transactionAuthorized, false);
+  assert.strictEqual(exported.compliance.certifiedValuation, false);
+  assert.strictEqual(exported.evidenceProvenance.dealCount, 1);
   assert.deepStrictEqual(exported.deals[0].valuationCase, extended.valuationCase);
 
   const legacyV2Backup = {
@@ -118,6 +121,8 @@ function mockProvider(store) {
   assert.strictEqual(legacyPlan.toWrite.length, 1);
   assert.strictEqual(Object.prototype.hasOwnProperty.call(legacyPlan.toWrite[0].record, 'valuationCase'), false);
 
+  // Backward compatibility remains explicit: pre-Wave-5 version 3 backups do
+  // not need the new non-economic v4 compliance/provenance envelope to restore.
   const valuationV3Backup = {
     format: BACKUP_FORMAT,
     backupVersion: 3,
