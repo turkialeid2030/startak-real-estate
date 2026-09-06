@@ -1,14 +1,20 @@
 // src/storage/saved-deals-backup.js -- PR-12: Saved Deal export/import
 // (backup/restore). Static client-only, no backend. Version 2 added an optional
-// validated Residential Income operating-case snapshot. Version 3 adds the
-// optional versioned valuationCase configuration while retaining full restore
-// compatibility with versions 1 and 2. Reuses SDI-001's canonical validator;
+// validated Residential Income operating-case snapshot. Version 3 added the
+// optional versioned valuationCase configuration. Version 4 adds non-economic
+// compliance-boundary and export-provenance metadata while retaining restore
+// compatibility with versions 1-3. Reuses SDI-001's canonical validator;
 // does NOT implement a second/duplicate schema validator.
 
 const { validateSavedDealRecord } = require('../validation/saved-deal-schema.js');
+const {
+  OPERATING_MODE,
+  SHORT_SCOPE_NOTICE,
+  FULL_SCOPE_NOTICE,
+} = require('../compliance/decision-support.js');
 
 const BACKUP_FORMAT = 'STARTAK_SAVED_DEALS_BACKUP';
-const BACKUP_VERSION = 3;
+const BACKUP_VERSION = 4;
 
 function projectDealRecord(parsed, id = parsed.id) {
   const record = { id, name: parsed.name, mode: parsed.mode, inputs: parsed.inputs, savedAt: parsed.savedAt };
@@ -24,6 +30,32 @@ class BackupError extends Error {
     this.reasonCode = reasonCode; // safe enumerated code only
     this.detail = detail; // safe short string, never a raw payload dump
   }
+}
+
+function buildComplianceMetadata() {
+  return Object.freeze({
+    schemaVersion: 1,
+    operatingMode: OPERATING_MODE.UNLICENSED_DECISION_SUPPORT,
+    outputClassification: 'USER_MANAGED_DATA_BACKUP',
+    shortNotice: Object.freeze({ ar: SHORT_SCOPE_NOTICE.ar, en: SHORT_SCOPE_NOTICE.en }),
+    fullNotice: Object.freeze({ ar: FULL_SCOPE_NOTICE.ar, en: FULL_SCOPE_NOTICE.en }),
+    certifiedValuation: false,
+    legalOpinionEstablished: false,
+    transactionAuthorized: false,
+    legalReviewRequiredBeforeCommercialExternalLaunch: true,
+  });
+}
+
+function buildExportProvenance(exportedAt, dealCount) {
+  return Object.freeze({
+    schemaVersion: 1,
+    exportKind: 'USER_MANAGED_SAVED_DEALS_BACKUP',
+    source: 'CANONICALLY_VALIDATED_SAVED_DEAL_RECORDS',
+    exportedAt,
+    dealCount,
+    qualification: 'STRUCTURAL_VALIDATION_ONLY_NOT_PROFESSIONAL_CERTIFICATION',
+    evidenceScope: 'Stored user inputs and versioned optional case configuration only; no certified appraisal, legal opinion, or transaction instruction is created by this export.',
+  });
 }
 
 /**
@@ -47,7 +79,46 @@ async function buildExportPayload(dealIndexEntries, storageProvider) {
     // view-model, valuation result, or presentation field is exported here.
     deals.push(projectDealRecord(parsed));
   }
-  return { format: BACKUP_FORMAT, backupVersion: BACKUP_VERSION, exportedAt: new Date().toISOString(), deals };
+  const exportedAt = new Date().toISOString();
+  return {
+    format: BACKUP_FORMAT,
+    backupVersion: BACKUP_VERSION,
+    exportedAt,
+    compliance: buildComplianceMetadata(),
+    evidenceProvenance: buildExportProvenance(exportedAt, deals.length),
+    deals,
+  };
+}
+
+function validateV4ComplianceMetadata(parsed) {
+  const compliance = parsed.compliance;
+  const provenance = parsed.evidenceProvenance;
+  const validCompliance =
+    compliance && typeof compliance === 'object' && !Array.isArray(compliance) &&
+    compliance.operatingMode === OPERATING_MODE.UNLICENSED_DECISION_SUPPORT &&
+    compliance.certifiedValuation === false &&
+    compliance.legalOpinionEstablished === false &&
+    compliance.transactionAuthorized === false &&
+    compliance.legalReviewRequiredBeforeCommercialExternalLaunch === true &&
+    compliance.shortNotice?.ar === SHORT_SCOPE_NOTICE.ar &&
+    compliance.shortNotice?.en === SHORT_SCOPE_NOTICE.en &&
+    compliance.fullNotice?.ar === FULL_SCOPE_NOTICE.ar &&
+    compliance.fullNotice?.en === FULL_SCOPE_NOTICE.en;
+  if (!validCompliance) {
+    throw new BackupError('V4_COMPLIANCE_METADATA_INVALID', 'v4 exports require the immutable unlicensed decision-support boundary');
+  }
+
+  const validProvenance =
+    provenance && typeof provenance === 'object' && !Array.isArray(provenance) &&
+    provenance.exportKind === 'USER_MANAGED_SAVED_DEALS_BACKUP' &&
+    provenance.source === 'CANONICALLY_VALIDATED_SAVED_DEAL_RECORDS' &&
+    provenance.exportedAt === parsed.exportedAt &&
+    provenance.dealCount === parsed.deals.length &&
+    provenance.qualification === 'STRUCTURAL_VALIDATION_ONLY_NOT_PROFESSIONAL_CERTIFICATION' &&
+    typeof provenance.evidenceScope === 'string' && provenance.evidenceScope.length > 0;
+  if (!validProvenance) {
+    throw new BackupError('V4_EXPORT_PROVENANCE_INVALID', 'v4 exports require source-bound export provenance');
+  }
 }
 
 /**
@@ -68,6 +139,7 @@ function validateBackupEnvelope(parsed) {
   if (!Array.isArray(parsed.deals)) {
     throw new BackupError('MISSING_DEALS_ARRAY', `typeof=${typeof parsed.deals}`);
   }
+  if (parsed.backupVersion >= 4) validateV4ComplianceMetadata(parsed);
   return parsed;
 }
 
@@ -125,4 +197,14 @@ async function commitRestore(plan, storageProvider) {
   return plan.newIndexEntries;
 }
 
-module.exports = { buildExportPayload, validateBackupEnvelope, planRestore, commitRestore, BackupError, BACKUP_FORMAT, BACKUP_VERSION };
+module.exports = {
+  buildExportPayload,
+  validateBackupEnvelope,
+  planRestore,
+  commitRestore,
+  BackupError,
+  BACKUP_FORMAT,
+  BACKUP_VERSION,
+  buildComplianceMetadata,
+  buildExportProvenance,
+};
