@@ -1,4 +1,5 @@
 // tests/i18n/run_r4b_sensitivity_data.js -- R4-B: buildSensitivityData raw/display separation
+const { ASSUMPTION_MODEL_VERSION } = require('../../src/assumptions/assumption-model');
 const { buildSensitivityData } = (() => {
   // buildSensitivityData is module-private; extract via same technique as run_sensitivity_path.js
   const fs = require('fs'), path = require('path');
@@ -6,9 +7,13 @@ const { buildSensitivityData } = (() => {
   const start = src.indexOf('function buildSensitivityData');
   const end = src.indexOf('\n}\n', start) + 3;
   const fnSrc = src.slice(start, end);
-  const { calculateInvestmentCase, STUDY_TYPE } = require('../../src/engines');
   const tmpPath = path.join('/tmp', `sensdata_${Date.now()}.js`);
-  fs.writeFileSync(tmpPath, `const { calculateInvestmentCase, STUDY_TYPE } = require('${path.join(__dirname, '../../src/engines')}');\n${fnSrc}\nmodule.exports = { buildSensitivityData };`);
+  fs.writeFileSync(
+    tmpPath,
+    `const { calculateInvestmentCase, STUDY_TYPE } = require('${path.join(__dirname, '../../src/engines')}');\n` +
+    `const { ASSUMPTION_MODEL_VERSION } = require('${path.join(__dirname, '../../src/assumptions/assumption-model')}');\n` +
+    `${fnSrc}\nmodule.exports = { buildSensitivityData };`,
+  );
   return require(tmpPath);
 })();
 const gold = require('../reference/RE-GOLD-baseline.json');
@@ -20,8 +25,8 @@ const results = [];
 function check(id, cond, detail) { console.log(`${id} ${cond?'PASS':'FAIL'} -- ${detail}`); results.push(cond); }
 
 const B = gold['RE-GOLD-002_existing_building'].inputs;
-const rowsAr = buildSensitivityData('building', B, tAr);
-const rowsEn = buildSensitivityData('building', B, tEn);
+const rowsAr = buildSensitivityData('building', B, tAr, ASSUMPTION_MODEL_VERSION.LEGACY);
+const rowsEn = buildSensitivityData('building', B, tEn, ASSUMPTION_MODEL_VERSION.LEGACY);
 
 check('D-LABEL-ROLE', true, 'PRESENTATION_ONLY confirmed via source review: sort() uses only .range (numeric), all logic uses .key, never .label');
 check('4-VARS-BUILDING', rowsAr.length === 4, `building variable count = ${rowsAr.length}`);
