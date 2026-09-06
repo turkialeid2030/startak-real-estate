@@ -78,18 +78,18 @@ const GLOBAL_STYLE = `
 // FORMATTERS
 // ============================================================
 const fmtNum = (n) => {
-  if (!isFinite(n)) return "—";
+  if (!isFiniteNumber(n)) return "—";
   return Math.round(n).toLocaleString("en-US");
 };
-const fmtSAR = (n) => (isFinite(n) ? `${fmtNum(n)} ريال` : "—");
+const fmtSAR = (n) => (isFiniteNumber(n) ? `${fmtNum(n)} ريال` : "—");
 const fmtSARSigned = (n) => {
-  if (!isFinite(n)) return "—";
+  if (!isFiniteNumber(n)) return "—";
   const sign = n < 0 ? "-" : "";
   return `${sign}${Math.round(Math.abs(n)).toLocaleString("en-US")} ريال`;
 };
-const fmtPct = (n, d = 2) => (isFinite(n) ? `${(n * 100).toFixed(d)}%` : "—");
-const fmtYears = (n) => (isFinite(n) ? `${n.toFixed(1)} سنة` : "—");
-const fmtX = (n) => (isFinite(n) ? `${n.toFixed(2)}x` : "—");
+const fmtPct = (n, d = 2) => (isFiniteNumber(n) ? `${(n * 100).toFixed(d)}%` : "—");
+const fmtYears = (n) => (isFiniteNumber(n) ? `${n.toFixed(1)} سنة` : "—");
+const fmtX = (n) => (isFiniteNumber(n) ? `${n.toFixed(2)}x` : "—");
 
 // ============================================================
 // PRODUCTION UI CUTOVER (Wave B2): the local calculation function bodies below
@@ -127,6 +127,19 @@ const {
 } = require('../residential-income-acquisition');
 const { evaluateExistingBuildingValuation } = require('./existing-building-valuation-runtime');
 const { valuationCaseFromSavedDeal, withValuationCase } = require('./valuation-saved-deal-bridge');
+const {
+  UI_MODE,
+  createUiWorkspace,
+  hydrateUiDeal,
+  calculateUiInvestmentState,
+  applyExitCapInputText,
+  buildUiDisclosureViewModel,
+  prepareNewUiDealForSave,
+  prepareUpdatedUiDealForSave,
+} = require('../assumptions/ui-integration-controller');
+const { ASSUMPTION_MODEL_VERSION } = require('../assumptions/assumption-model');
+const { isFiniteNumber } = require('../assumptions/ui-safe-formatters');
+// WAVE2_PRODUCTION_UI_WIRING_V1
 
 // ============================================================
 
@@ -211,7 +224,7 @@ function FieldNote({ note, warning }) {
   return null;
 }
 
-function NumField({ label, unit, note, value, onChange, step = 1, min, warnBelow, warnAbove, warnText }) {
+function NumField({ label, unit, note, value, onChange, step = 1, min, warnBelow, warnAbove, warnText, disabled = false }) {
   const { t } = useLocale();
   const warning = rangeWarning(value, warnBelow, warnAbove, warnText, t);
   return (
@@ -220,10 +233,12 @@ function NumField({ label, unit, note, value, onChange, step = 1, min, warnBelow
         type="text"
         inputMode="decimal"
         className="rf-input rf-num w-full px-3 py-2 text-sm"
-        style={baseInputStyle()}
+        style={{ ...baseInputStyle(), opacity: disabled ? 0.65 : 1, cursor: disabled ? "not-allowed" : "text" }}
         value={value}
+        disabled={disabled}
         aria-invalid={warning ? "true" : undefined}
         onChange={(e) => {
+          if (disabled) return;
           const raw = e.target.value.replace(/[^\d.\-]/g, "");
           const parsed = parseFloat(raw);
           onChange(isNaN(parsed) ? 0 : (min !== undefined ? Math.max(min, parsed) : parsed));
@@ -234,7 +249,7 @@ function NumField({ label, unit, note, value, onChange, step = 1, min, warnBelow
   );
 }
 
-function PercentField({ label, note, value, onChange, warnBelow, warnAbove, warnText }) {
+function PercentField({ label, note, value, onChange, warnBelow, warnAbove, warnText, disabled = false }) {
   const { t } = useLocale();
   const warning = rangeWarning(value, warnBelow, warnAbove, warnText, t);
   return (
@@ -243,16 +258,75 @@ function PercentField({ label, note, value, onChange, warnBelow, warnAbove, warn
         type="text"
         inputMode="decimal"
         className="rf-input rf-num w-full px-3 py-2 text-sm"
-        style={baseInputStyle()}
+        style={{ ...baseInputStyle(), opacity: disabled ? 0.65 : 1, cursor: disabled ? "not-allowed" : "text" }}
         value={Number((value * 100).toFixed(4))}
+        disabled={disabled}
         aria-invalid={warning ? "true" : undefined}
         onChange={(e) => {
+          if (disabled) return;
           const raw = e.target.value.replace(/[^\d.\-]/g, "");
           const parsed = parseFloat(raw);
           onChange(isNaN(parsed) ? 0 : parsed / 100);
         }}
       />
       <FieldNote note={note} warning={warning} />
+    </Field>
+  );
+}
+
+function OptionalPercentField({ label, note, value, onCommit, min = 0, max = 1 }) {
+  const { locale } = useLocale();
+  const formatRaw = (candidate) => candidate === null || candidate === undefined || !isFiniteNumber(candidate)
+    ? ""
+    : String(Number((candidate * 100).toFixed(4)));
+  const [raw, setRaw] = useState(() => formatRaw(value));
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    setRaw(formatRaw(value));
+    setError(null);
+  }, [value]);
+
+  const commit = () => {
+    try {
+      const outcome = onCommit(raw);
+      if (outcome && outcome.ok === false) {
+        setError(outcome.code || 'OPTIONAL_PERCENT_INVALID');
+        return;
+      }
+      if (outcome && typeof outcome.displayValue === 'string') setRaw(outcome.displayValue);
+      setError(null);
+    } catch (commitError) {
+      setError(commitError && commitError.code ? commitError.code : 'OPTIONAL_PERCENT_INVALID');
+    }
+  };
+
+  return (
+    <Field label={label} unit="%">
+      <input
+        type="text"
+        inputMode="decimal"
+        className="rf-input rf-num w-full px-3 py-2 text-sm"
+        style={baseInputStyle()}
+        value={raw}
+        aria-invalid={error ? "true" : undefined}
+        onChange={(e) => {
+          setRaw(e.target.value.replace(/[^\d.\-]/g, ""));
+          if (error) setError(null);
+        }}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.currentTarget.blur();
+          if (e.key === 'Escape') {
+            setRaw(formatRaw(value));
+            setError(null);
+          }
+        }}
+      />
+      <FieldNote
+        note={note}
+        warning={error ? (locale === 'en' ? 'Enter a valid explicit exit cap within the permitted range.' : 'أدخل معدل خروج صريحاً وصحيحاً ضمن النطاق المسموح.') : null}
+      />
     </Field>
   );
 }
@@ -444,7 +518,7 @@ function CashFlowTooltip({ active, payload, label }) {
   if (!active || !payload || !payload.length) return null;
   const v = payload[0].value;
   const formatSigned = (n) => {
-    if (!isFinite(n)) return "—";
+    if (!isFiniteNumber(n)) return "—";
     const sign = n < 0 ? "-" : "";
     return `${sign}${Math.round(Math.abs(n)).toLocaleString("en-US")} ${t("units.sar")}`;
   };
@@ -494,14 +568,19 @@ function CashFlowChart({ cashflows }) {
 function CashFlowTable({ cashflows }) {
   const { t } = useLocale();
   const formatSigned = (n) => {
-    if (!isFinite(n)) return "—";
+    if (!isFiniteNumber(n)) return "—";
     const sign = n < 0 ? "-" : "";
     return `${sign}${Math.round(Math.abs(n)).toLocaleString("en-US")} ${t("units.sar")}`;
   };
   let cum = 0;
+  let cumulativeAvailable = true;
   const rows = cashflows.map((v, i) => {
-    cum += v;
-    return { year: i, value: v, cum };
+    if (!isFiniteNumber(v)) {
+      cumulativeAvailable = false;
+      return { year: i, value: v, cum: null };
+    }
+    if (cumulativeAvailable) cum += v;
+    return { year: i, value: v, cum: cumulativeAvailable ? cum : null };
   });
   return (
     <div className="overflow-x-auto rounded-xl" style={{ border: `1px solid ${COLORS.hairline}` }}>
@@ -530,12 +609,12 @@ function CashFlowTable({ cashflows }) {
 // ============================================================
 // SENSITIVITY (TORNADO) ANALYSIS
 // ============================================================
-function buildSensitivityData(mode, inputs, t) {
+function buildSensitivityData(mode, inputs, t, assumptionModelVersion) {
   const vars = mode === "building"
     ? [
         { key: "rentPerSqm", label: t("sensitivity.varRentPerSqm") },
         { key: "buildingPrice", label: t("sensitivity.varBuildingPrice") },
-        { key: "marketCapRate", label: t("sensitivity.varMarketCapRate") },
+        { key: assumptionModelVersion === ASSUMPTION_MODEL_VERSION.V2 ? "exitCapRate" : "marketCapRate", label: assumptionModelVersion === ASSUMPTION_MODEL_VERSION.V2 ? t("inputBuilding.exitCapRate") : t("sensitivity.varMarketCapRate") },
         { key: "occupancyRate", label: t("sensitivity.varOccupancyRate") },
       ]
     : [
@@ -544,7 +623,12 @@ function buildSensitivityData(mode, inputs, t) {
         { key: "landPricePerSqm", label: t("sensitivity.varLandPricePerSqm") },
         { key: "exitCapRate", label: t("sensitivity.varExitCapRate") },
       ];
-  const calc = (i) => calculateInvestmentCase({ studyType: mode === "building" ? STUDY_TYPE.EXISTING_BUILDING : STUDY_TYPE.LAND_DEVELOPMENT, inputs: i, leverageEnabled: i.leverageEnabled });
+  const calc = (i) => calculateInvestmentCase({
+    studyType: mode === "building" ? STUDY_TYPE.EXISTING_BUILDING : STUDY_TYPE.LAND_DEVELOPMENT,
+    inputs: i,
+    leverageEnabled: i.leverageEnabled,
+    assumptionModelVersion,
+  });
   const irrField = inputs.leverageEnabled ? "leveredIRR" : "irr";
   // DEFECT REMEDIATION D1 (DEF-002): scenario-generation logic, NOT generic
   // input clamping. occupancyRate is a physical-domain field (0..1); a
@@ -672,15 +756,15 @@ function DashboardTab({ mode, inputs, results }) {
   // criteria={[...]} arrays below. Global fmtSAR()/fmtYears() are
   // deliberately left untouched -- every other call site in this file
   // (MetricRow etc.) continues using them exactly as before.
-  const formatRecommendationCurrency = (n) => (isFinite(n) ? `${fmtNum(n)} ${t("units.sar")}` : "—");
-  const formatRecommendationYears = (n) => (isFinite(n) ? `${n.toFixed(1)} ${t("units.years")}` : "—");
+  const formatRecommendationCurrency = (n) => (isFiniteNumber(n) ? `${fmtNum(n)} ${t("units.sar")}` : "—");
+  const formatRecommendationYears = (n) => (isFiniteNumber(n) ? `${n.toFixed(1)} ${t("units.years")}` : "—");
   // R2B-1: presentation-only area/currency-per-area helpers, used EXCLUSIVELY
   // for the 23 authorized MetricRow call sites (MR-B01..B12, MR-L01..L11).
   const formatMetricArea = (n) => `${fmtNum(n)} ${t("units.squareMeters")}`;
   const formatMetricCurrencyPerArea = (n) => `${fmtNum(n)} ${t("units.sarPerSquareMeter")}`;
   // R2B-2: same pattern, for the signed-currency formatter.
   const formatMetricCurrencySigned = (n) => {
-    if (!isFinite(n)) return "—";
+    if (!isFiniteNumber(n)) return "—";
     const sign = n < 0 ? "-" : "";
     return `${sign}${Math.round(Math.abs(n)).toLocaleString("en-US")} ${t("units.sar")}`;
   };
@@ -867,7 +951,7 @@ function CashFlowTab({ mode, inputs, results }) {
   // theoretical caller and risking wider regression), a local formatter is
   // used here, matching the exact pattern already established for
   // formatSigned/formatMetricCurrencySigned elsewhere in R2B-2/R4-A.
-  const formatCurrencyLocalized = (n) => (isFinite(n) ? `${fmtNum(n)} ${t("units.sar")}` : "—");
+  const formatCurrencyLocalized = (n) => (isFiniteNumber(n) ? `${fmtNum(n)} ${t("units.sar")}` : "—");
   const [view, setView] = useState("unlevered");
   const showLevered = inputs.leverageEnabled;
   const activeCashflows = showLevered && view === "levered" ? results.leveredCashflows : results.cashflows;
@@ -917,10 +1001,25 @@ function CashFlowTab({ mode, inputs, results }) {
 // ============================================================
 // SENSITIVITY TAB
 // ============================================================
-function SensitivityTab({ mode, inputs }) {
+function SensitivityTab({ mode, inputs, assumptionModelVersion, sensitivityReady = true, sensitivityRenderPolicy, unavailableMessage }) {
   const { t } = useLocale();
-  const data = useMemo(() => buildSensitivityData(mode, inputs, t), [mode, inputs, t]);
+  const data = useMemo(
+    () => sensitivityReady ? buildSensitivityData(mode, inputs, t, assumptionModelVersion) : [],
+    [mode, inputs, t, assumptionModelVersion, sensitivityReady],
+  );
   const irrKindLabel = inputs.leverageEnabled ? t("kpi.irrLevered") : t("kpi.irrUnlevered");
+  if (!sensitivityReady || sensitivityRenderPolicy === 'SHOW_CONTROLLED_UNAVAILABLE_STATE') {
+    return (
+      <MetricGroup eyebrow={t("sensitivity.sectionEyebrowAnalysis")} title={t("sensitivity.sectionTitleAnalysis", { irrKind: irrKindLabel })}>
+        <div className="rounded-xl px-4 py-4" style={{ background: COLORS.cautionSoft, border: `1px solid ${COLORS.caution}66` }}>
+          <div className="text-sm font-semibold" style={{ color: COLORS.caution }}>—</div>
+          <div className="text-xs mt-1 leading-relaxed" style={{ color: COLORS.slate }}>
+            {unavailableMessage || (t("inputBuilding.exitCapRateNote"))}
+          </div>
+        </div>
+      </MetricGroup>
+    );
+  }
   return (
     <div>
       <MetricGroup eyebrow={t("sensitivity.sectionEyebrowAnalysis")} title={t("sensitivity.sectionTitleAnalysis", { irrKind: irrKindLabel })}>
@@ -939,12 +1038,31 @@ function SensitivityTab({ mode, inputs }) {
   );
 }
 
+function AssumptionDisclosureBanner({ disclosure }) {
+  if (!disclosure) return null;
+  const hold = !disclosure.sensitivityReady;
+  return (
+    <div className="rounded-2xl mb-4 px-4 py-3" style={{ background: hold ? COLORS.cautionSoft : COLORS.panel, border: `1px solid ${hold ? COLORS.caution : COLORS.hairline}` }}>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-semibold" style={{ color: COLORS.brass }}>{disclosure.badge}</span>
+        <span className="text-[10px] rf-num" style={{ color: COLORS.slate }}>{disclosure.exitCapSource || '—'}</span>
+        {disclosure.legacyCompatibility ? <span className="text-[10px]" style={{ color: COLORS.caution }}>LEGACY</span> : null}
+      </div>
+      {disclosure.exitCapNotice ? <div className="text-[11px] mt-1 leading-relaxed" style={{ color: hold ? COLORS.caution : COLORS.slate }}>{disclosure.exitCapNotice}</div> : null}
+    </div>
+  );
+}
+
 // ============================================================
 // INPUT PANEL — EXISTING BUILDING
 // ============================================================
-function BuildingInputPanel({ inputs, setInputs }) {
-  const { t } = useLocale();
+function BuildingInputPanel({ inputs, setInputs, assumptionModelVersion, onExitCapTextCommit }) {
+  const { t, locale } = useLocale();
   const patch = (key, value) => setInputs((prev) => ({ ...prev, [key]: value }));
+  const v2Governed = assumptionModelVersion === ASSUMPTION_MODEL_VERSION.V2;
+  const governedNote = v2Governed
+    ? (locale === 'en' ? 'Governed by Assumption Model V2.' : 'محكوم بواسطة نموذج الافتراضات V2.')
+    : null;
   return (
     <div>
       <Section eyebrow={t("globalApp.section1")} title={t("inputBuilding.sec1")} defaultOpen>
@@ -994,17 +1112,17 @@ function BuildingInputPanel({ inputs, setInputs }) {
       </Section>
 
       <Section eyebrow={t("globalApp.section4")} title={t("inputBuilding.sec4")}>
-        <PercentField label={t("inputBuilding.maintenanceRate")} note={t("inputBuilding.maintenanceRateNote")} value={inputs.maintenanceRate} onChange={(v) => patch("maintenanceRate", v)} />
+        <PercentField label={t("inputBuilding.maintenanceRate")} note={governedNote || t("inputBuilding.maintenanceRateNote")} value={inputs.maintenanceRate} onChange={(v) => patch("maintenanceRate", v)} disabled={v2Governed} />
         <PercentField label={t("inputBuilding.insuranceRate")} note={t("inputBuilding.insuranceRateNote")} value={inputs.insuranceRate} onChange={(v) => patch("insuranceRate", v)} />
-        <PercentField label={t("inputBuilding.managementFeeRate")} note={t("inputBuilding.managementFeeRateNote")} value={inputs.managementFeeRate} onChange={(v) => patch("managementFeeRate", v)} warnAbove={0.10} />
-        <NumField label={t("inputBuilding.fixedOpexPerSqm")} unit={t("inputBuilding.unitSarSqm")} note={t("inputBuilding.fixedOpexPerSqmNote")} value={inputs.fixedOpexPerSqm} onChange={(v) => patch("fixedOpexPerSqm", v)} min={0} />
-        <NumField label={t("inputBuilding.replacementReservePerSqm")} unit={t("inputBuilding.unitSarSqm")} note={t("inputBuilding.replacementReservePerSqmNote")} value={inputs.replacementReservePerSqm} onChange={(v) => patch("replacementReservePerSqm", v)} min={0} />
-        <PercentField label={t("inputBuilding.opexGrowthRate")} note={t("inputBuilding.opexGrowthRateNote")} value={inputs.opexGrowthRate} onChange={(v) => patch("opexGrowthRate", v)} warnAbove={0.10} />
+        <PercentField label={t("inputBuilding.managementFeeRate")} note={governedNote || t("inputBuilding.managementFeeRateNote")} value={inputs.managementFeeRate} onChange={(v) => patch("managementFeeRate", v)} warnAbove={0.10} disabled={v2Governed} />
+        <NumField label={t("inputBuilding.fixedOpexPerSqm")} unit={t("inputBuilding.unitSarSqm")} note={governedNote || t("inputBuilding.fixedOpexPerSqmNote")} value={inputs.fixedOpexPerSqm} onChange={(v) => patch("fixedOpexPerSqm", v)} min={0} disabled={v2Governed} />
+        <NumField label={t("inputBuilding.replacementReservePerSqm")} unit={t("inputBuilding.unitSarSqm")} note={governedNote || t("inputBuilding.replacementReservePerSqmNote")} value={inputs.replacementReservePerSqm} onChange={(v) => patch("replacementReservePerSqm", v)} min={0} disabled={v2Governed} />
+        <PercentField label={t("inputBuilding.opexGrowthRate")} note={governedNote || t("inputBuilding.opexGrowthRateNote")} value={inputs.opexGrowthRate} onChange={(v) => patch("opexGrowthRate", v)} warnAbove={0.10} disabled={v2Governed} />
       </Section>
 
       <Section eyebrow={t("globalApp.section5")} title={t("inputBuilding.sec5")}>
         <PercentField label={t("inputBuilding.marketCapRate")} value={inputs.marketCapRate} onChange={(v) => patch("marketCapRate", v)} warnBelow={0.04} warnAbove={0.12} />
-        <PercentField label={t("inputBuilding.exitCapRate")} note={t("inputBuilding.exitCapRateNote")} value={inputs.exitCapRate} onChange={(v) => patch("exitCapRate", v)} warnBelow={0.04} warnAbove={0.14} />
+        <OptionalPercentField label={t("inputBuilding.exitCapRate")} note={t("inputBuilding.exitCapRateNote")} value={inputs.exitCapRate} onCommit={onExitCapTextCommit} min={0.04} max={0.14} />
         <PercentField label={t("inputBuilding.discountRate")} value={inputs.discountRate} onChange={(v) => patch("discountRate", v)} warnBelow={0.04} warnAbove={0.15} />
         <NumField label={t("inputBuilding.holdPeriod")} unit={t("inputBuilding.unitYear")} value={inputs.holdPeriod} onChange={(v) => patch("holdPeriod", v)} min={1} warnAbove={20} />
         <PercentField label={t("inputBuilding.rentGrowthRate")} note={t("inputBuilding.rentGrowthRateNote")} value={inputs.rentGrowthRate} onChange={(v) => patch("rentGrowthRate", v)} warnAbove={0.15} />
@@ -1210,8 +1328,8 @@ function Tabs({ value, onChange }) {
 // ============================================================
 function KPIRibbon({ mode, results, leverageEnabled }) {
   const { t } = useLocale();
-  const formatKpiCurrency = (n) => (isFinite(n) ? `${fmtNum(n)} ${t("units.sar")}` : "—");
-  const formatKpiYears = (n) => (isFinite(n) ? `${n.toFixed(1)} ${t("units.years")}` : "—");
+  const formatKpiCurrency = (n) => (isFiniteNumber(n) ? `${fmtNum(n)} ${t("units.sar")}` : "—");
+  const formatKpiYears = (n) => (isFiniteNumber(n) ? `${n.toFixed(1)} ${t("units.years")}` : "—");
   const r = results;
   const noiLabel = mode === "building" ? t("kpi.noiExisting") : t("kpi.noiStabilized");
   const noiValue = mode === "building" ? r.NOI : r.stabilizedNOI;
@@ -1424,8 +1542,14 @@ export default function App() {
   });
 
   const [activeTab, setActiveTab] = useState("dashboard");
-  const [buildingInputs, setBuildingInputs] = useState(DEFAULT_BUILDING_INPUTS);
-  const [landInputs, setLandInputs] = useState(DEFAULT_LAND_INPUTS);
+  const [buildingInputs, setBuildingInputs] = useState(
+    () => createUiWorkspace({ mode: UI_MODE.BUILDING, defaultInputs: DEFAULT_BUILDING_INPUTS }).inputs,
+  );
+  const [buildingAssumptionModelVersion, setBuildingAssumptionModelVersion] = useState(ASSUMPTION_MODEL_VERSION.V2);
+  const [landInputs, setLandInputs] = useState(
+    () => createUiWorkspace({ mode: UI_MODE.LAND, defaultInputs: DEFAULT_LAND_INPUTS }).inputs,
+  );
+  const [landAssumptionModelVersion, setLandAssumptionModelVersion] = useState(ASSUMPTION_MODEL_VERSION.V2);
 
   // DEFECT REMEDIATION D1: validateEngineInputs() at the calculateInvestmentCase
   // boundary can now throw ValidationError for invalid input (DEF-002/DEF-003).
@@ -1434,43 +1558,63 @@ export default function App() {
   // escape freezes/crashes the app (confirmed empirically). We catch it here,
   // keep showing the LAST KNOWN VALID result (not a blank/broken screen), and
   // surface a clear validationError state the UI displays alongside it.
-  const lastValidBuildingResult = useRef(null);
-  const lastValidLandResult = useRef(null);
+  const lastValidBuildingUiState = useRef(null);
+  const lastValidLandUiState = useRef(null);
   const [buildingValidationError, setBuildingValidationError] = useState(null);
   const [landValidationError, setLandValidationError] = useState(null);
 
-  const buildingResults = useMemo(() => {
+  const buildingUiState = useMemo(() => {
     try {
-      const r = calculateInvestmentCase({ studyType: STUDY_TYPE.EXISTING_BUILDING, inputs: buildingInputs, leverageEnabled: buildingInputs.leverageEnabled });
-      lastValidBuildingResult.current = r;
+      const state = calculateUiInvestmentState({
+        mode: UI_MODE.BUILDING,
+        inputs: buildingInputs,
+        assumptionModelVersion: buildingAssumptionModelVersion,
+      });
+      lastValidBuildingUiState.current = state;
       if (buildingValidationError) setBuildingValidationError(null);
-      return r;
+      return state;
     } catch (e) {
       if (e.name === 'ValidationError') {
         if (!buildingValidationError || buildingValidationError.field !== e.field || buildingValidationError.value !== e.value) setBuildingValidationError({ field: e.field, value: e.value, rule: e.rule, message_ar: e.message_ar, message_en: e.message_en });
-        return lastValidBuildingResult.current || calculateInvestmentCase({ studyType: STUDY_TYPE.EXISTING_BUILDING, inputs: DEFAULT_BUILDING_INPUTS, leverageEnabled: false });
-      }
-      throw e; // non-validation errors are real bugs -- do not swallow those
-    }
-  }, [buildingInputs]);
-  const landResults = useMemo(() => {
-    try {
-      const r = calculateInvestmentCase({ studyType: STUDY_TYPE.LAND_DEVELOPMENT, inputs: landInputs, leverageEnabled: landInputs.leverageEnabled });
-      lastValidLandResult.current = r;
-      if (landValidationError) setLandValidationError(null);
-      return r;
-    } catch (e) {
-      if (e.name === 'ValidationError') {
-        if (!landValidationError || landValidationError.field !== e.field || landValidationError.value !== e.value) setLandValidationError({ field: e.field, value: e.value, rule: e.rule, message_ar: e.message_ar, message_en: e.message_en });
-        return lastValidLandResult.current || calculateInvestmentCase({ studyType: STUDY_TYPE.LAND_DEVELOPMENT, inputs: DEFAULT_LAND_INPUTS, leverageEnabled: false });
+        if (lastValidBuildingUiState.current) return lastValidBuildingUiState.current;
+        const fallback = createUiWorkspace({ mode: UI_MODE.BUILDING, defaultInputs: DEFAULT_BUILDING_INPUTS });
+        return calculateUiInvestmentState({ mode: UI_MODE.BUILDING, inputs: fallback.inputs, assumptionModelVersion: fallback.assumptionModelVersion });
       }
       throw e;
     }
-  }, [landInputs]);
+  }, [buildingInputs, buildingAssumptionModelVersion]);
 
+  const landUiState = useMemo(() => {
+    try {
+      const state = calculateUiInvestmentState({
+        mode: UI_MODE.LAND,
+        inputs: landInputs,
+        assumptionModelVersion: landAssumptionModelVersion,
+      });
+      lastValidLandUiState.current = state;
+      if (landValidationError) setLandValidationError(null);
+      return state;
+    } catch (e) {
+      if (e.name === 'ValidationError') {
+        if (!landValidationError || landValidationError.field !== e.field || landValidationError.value !== e.value) setLandValidationError({ field: e.field, value: e.value, rule: e.rule, message_ar: e.message_ar, message_en: e.message_en });
+        if (lastValidLandUiState.current) return lastValidLandUiState.current;
+        const fallback = createUiWorkspace({ mode: UI_MODE.LAND, defaultInputs: DEFAULT_LAND_INPUTS });
+        return calculateUiInvestmentState({ mode: UI_MODE.LAND, inputs: fallback.inputs, assumptionModelVersion: fallback.assumptionModelVersion });
+      }
+      throw e;
+    }
+  }, [landInputs, landAssumptionModelVersion]);
+
+  const buildingResults = buildingUiState.results;
+  const landResults = landUiState.results;
   const inputs = mode === "building" ? buildingInputs : landInputs;
   const results = mode === "building" ? buildingResults : landResults;
+  const assumptionModelVersion = mode === "building" ? buildingAssumptionModelVersion : landAssumptionModelVersion;
+  const activeUiState = mode === "building" ? buildingUiState : landUiState;
   const activeValidationError = mode === "building" ? buildingValidationError : landValidationError;
+  const assumptionDisclosure = mode === "building" && buildingUiState.governance
+    ? buildUiDisclosureViewModel({ governance: buildingUiState.governance, locale })
+    : null;
 
   // --- Saved deals (multi-deal persistence) ---
   const [savedDeals, setSavedDeals] = useState([]);
@@ -1527,6 +1671,15 @@ export default function App() {
 
   const loadBuiltIn = (builtInMode) => {
     setMode(builtInMode);
+    if (builtInMode === UI_MODE.BUILDING) {
+      const workspace = createUiWorkspace({ mode: UI_MODE.BUILDING, defaultInputs: DEFAULT_BUILDING_INPUTS });
+      setBuildingInputs(workspace.inputs);
+      setBuildingAssumptionModelVersion(workspace.assumptionModelVersion);
+    } else {
+      const workspace = createUiWorkspace({ mode: UI_MODE.LAND, defaultInputs: DEFAULT_LAND_INPUTS });
+      setLandInputs(workspace.inputs);
+      setLandAssumptionModelVersion(workspace.assumptionModelVersion);
+    }
     setResidentialIncomeOperatingCase(null);
     setOperatingCaseMessage(null);
     setValuationCase(null);
@@ -1542,9 +1695,18 @@ export default function App() {
       if (!value) { setDealsError({ code: "DEAL_NOT_FOUND", message_ar: "تعذّر العثور على الصفقة", message_en: "The deal could not be found" }); return; }
       const record = JSON.parse(value);
       validateSavedDealRecord(record); // SDI-001: structural validation boundary -- throws SavedDealValidationError on malformed shape; caught below, mapped to the existing DEAL_LOAD_FAILED public contract
-      setMode(record.mode);
-      if (record.mode === "building") setBuildingInputs({ ...DEFAULT_BUILDING_INPUTS, ...record.inputs });
-      else setLandInputs({ ...DEFAULT_LAND_INPUTS, ...record.inputs });
+      const hydrated = hydrateUiDeal({
+        record,
+        defaultInputs: record.mode === UI_MODE.BUILDING ? DEFAULT_BUILDING_INPUTS : DEFAULT_LAND_INPUTS,
+      });
+      setMode(hydrated.mode);
+      if (hydrated.mode === UI_MODE.BUILDING) {
+        setBuildingInputs(hydrated.inputs);
+        setBuildingAssumptionModelVersion(hydrated.assumptionModelVersion);
+      } else {
+        setLandInputs(hydrated.inputs);
+        setLandAssumptionModelVersion(hydrated.assumptionModelVersion);
+      }
       setResidentialIncomeOperatingCase(record.operatingCase
         ? hydrateResidentialIncomeOperatingCaseSnapshot(record.operatingCase)
         : null);
@@ -1633,7 +1795,7 @@ export default function App() {
     setDealsError(null);
     try {
       const id = "deal_" + Date.now();
-      const record = recordWithExtensions({ id, name, mode, inputs, savedAt: new Date().toISOString() });
+      const record = recordWithExtensions(prepareNewUiDealForSave({ id, name, mode, inputs, savedAt: new Date().toISOString() }));
       await storageProvider.set("deal:" + id, JSON.stringify(record));
       const newIndex = [...savedDeals, { id, name, mode, savedAt: record.savedAt }];
       await storageProvider.set("deals-index", JSON.stringify(newIndex));
@@ -1656,7 +1818,7 @@ export default function App() {
     setDealsError(null);
     try {
       const existing = savedDeals.find((d) => d.id === activeDealId);
-      const record = recordWithExtensions({ id: activeDealId, name: existing ? existing.name : "صفقة", mode, inputs, savedAt: new Date().toISOString() });
+      const record = recordWithExtensions(prepareUpdatedUiDealForSave({ id: activeDealId, name: existing ? existing.name : "صفقة", mode, inputs, savedAt: new Date().toISOString() }, assumptionModelVersion));
       await storageProvider.set("deal:" + activeDealId, JSON.stringify(record));
       const newIndex = savedDeals.map((d) => (d.id === activeDealId ? { ...d, savedAt: record.savedAt } : d));
       await storageProvider.set("deals-index", JSON.stringify(newIndex));
@@ -1732,12 +1894,16 @@ export default function App() {
     if (activeDealId) {
       loadDeal(activeDealId);
     } else if (mode === "building") {
-      setBuildingInputs(DEFAULT_BUILDING_INPUTS);
+      const workspace = createUiWorkspace({ mode: UI_MODE.BUILDING, defaultInputs: DEFAULT_BUILDING_INPUTS });
+      setBuildingInputs(workspace.inputs);
+      setBuildingAssumptionModelVersion(workspace.assumptionModelVersion);
       setResidentialIncomeOperatingCase(null);
       setOperatingCaseMessage(null);
       setValuationCase(null);
     } else {
-      setLandInputs(DEFAULT_LAND_INPUTS);
+      const workspace = createUiWorkspace({ mode: UI_MODE.LAND, defaultInputs: DEFAULT_LAND_INPUTS });
+      setLandInputs(workspace.inputs);
+      setLandAssumptionModelVersion(workspace.assumptionModelVersion);
       setValuationCase(null);
     }
   };
@@ -1829,6 +1995,7 @@ export default function App() {
         />
 
         <KPIRibbon mode={mode} results={results} leverageEnabled={inputs.leverageEnabled} />
+        {mode === UI_MODE.BUILDING ? <AssumptionDisclosureBanner disclosure={assumptionDisclosure} /> : null}
 
         {/* MAIN GRID */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -1839,7 +2006,20 @@ export default function App() {
               <span className="text-[10px]" style={{ color: COLORS.slateDim }}>— {t("globalApp.inputsNote")}</span>
             </div>
             {mode === "building" ? (
-              <BuildingInputPanel inputs={buildingInputs} setInputs={setBuildingInputs} />
+              <BuildingInputPanel
+                inputs={buildingInputs}
+                setInputs={setBuildingInputs}
+                assumptionModelVersion={buildingAssumptionModelVersion}
+                onExitCapTextCommit={(rawText) => {
+                  try {
+                    const next = applyExitCapInputText({ inputs: buildingInputs, rawText, min: 0.04, max: 0.14 });
+                    setBuildingInputs(next.inputs);
+                    return { ok: true, displayValue: next.displayValue };
+                  } catch (error) {
+                    return { ok: false, code: error && error.code ? error.code : 'OPTIONAL_PERCENT_INVALID' };
+                  }
+                }}
+              />
             ) : (
               <LandInputPanel inputs={landInputs} setInputs={setLandInputs} />
             )}
@@ -1855,7 +2035,14 @@ export default function App() {
             <Tabs value={activeTab} onChange={setActiveTab} />
             {activeTab === "dashboard" && <DashboardTab mode={mode} inputs={inputs} results={results} />}
             {activeTab === "cashflow" && <CashFlowTab mode={mode} inputs={inputs} results={results} />}
-            {activeTab === "sensitivity" && <SensitivityTab mode={mode} inputs={inputs} />}
+            {activeTab === "sensitivity" && <SensitivityTab
+              mode={mode}
+              inputs={inputs}
+              assumptionModelVersion={assumptionModelVersion}
+              sensitivityReady={mode === UI_MODE.BUILDING ? activeUiState.sensitivityReady : true}
+              sensitivityRenderPolicy={mode === UI_MODE.BUILDING ? activeUiState.sensitivityRenderPolicy : 'RENDER_SENSITIVITY_OUTPUTS'}
+              unavailableMessage={assumptionDisclosure ? assumptionDisclosure.exitCapNotice : null}
+            />}
           </main>
         </div>
 

@@ -19,6 +19,10 @@ const VERDICT_PRESENTATION_MODE = Object.freeze({
 
 let activeVerdictPresentationMode = VERDICT_PRESENTATION_MODE.LEGACY_CHARACTERIZATION;
 
+// Historical engine recommendation vocabulary remains exactly three values.
+// Wave-2 INCOMPLETE_INPUTS is a fail-closed readiness state, not a fourth legacy
+// recommendation. It is handled explicitly below so characterization coverage
+// and existing recommendation-domain invariants remain unchanged.
 const VERDICT_PRESENTATION_KEYS = {
   "يوصى بالشراء": "recommendation.buy",
   "يوصى بالشراء بشروط": "recommendation.conditionalBuy",
@@ -31,6 +35,20 @@ function assertKnownVerdict(rawVerdict) {
     throw new Error(`Unmapped recommendation verdict: "${rawVerdict}" -- the engine returned a value not present in VERDICT_PRESENTATION_KEYS. This must be fixed in domain-presentation.js, not silently displayed.`);
   }
   return key;
+}
+
+function detectPresentationLocale(t) {
+  // Use established translated signals. Some characterization translators stub
+  // recommendation keys while Wave-2 tests stub app.title, so accept either
+  // signal without weakening the strict raw-verdict mapping contract.
+  const signals = [t('recommendation.buy'), t('app.title')].map((value) => String(value || ''));
+  return signals.some((value) => /[\u0600-\u06FF]/.test(value)) ? 'ar' : 'en';
+}
+
+function renderIncompleteInputsLabel(t) {
+  const locale = detectPresentationLocale(t);
+  const analyticalLabel = externalizeInternalVerdict('INCOMPLETE_INPUTS', { locale });
+  return renderDecisionSupportLabel(analyticalLabel, locale);
 }
 
 function setVerdictPresentationMode(mode) {
@@ -49,17 +67,19 @@ function getVerdictPresentationMode() {
 // explicitly activates EXTERNAL_DECISION_SUPPORT mode, this same call site is
 // compliance-bounded without changing calculation or raw recommendation fields.
 function getVerdictLabel(rawVerdict, t) {
+  if (rawVerdict === 'INCOMPLETE_INPUTS') return renderIncompleteInputsLabel(t);
+  const key = assertKnownVerdict(rawVerdict);
   if (activeVerdictPresentationMode === VERDICT_PRESENTATION_MODE.EXTERNAL_DECISION_SUPPORT) {
     return getExternalDecisionSupportVerdictLabel(rawVerdict, t);
   }
-  return t(assertKnownVerdict(rawVerdict));
+  return t(key);
 }
 
 // Compliance-bounded external presentation for customer-facing views.
 function getExternalDecisionSupportVerdictLabel(rawVerdict, t, options = {}) {
-  const key = assertKnownVerdict(rawVerdict);
-  const translatedLegacyLabel = t(key);
-  const locale = /[\u0600-\u06FF]/.test(translatedLegacyLabel) ? 'ar' : 'en';
+  if (rawVerdict === 'INCOMPLETE_INPUTS') return renderIncompleteInputsLabel(t);
+  assertKnownVerdict(rawVerdict);
+  const locale = detectPresentationLocale(t);
   const analyticalLabel = externalizeInternalVerdict(rawVerdict, { locale, ...options });
   return renderDecisionSupportLabel(analyticalLabel, locale);
 }

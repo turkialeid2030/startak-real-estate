@@ -8,21 +8,26 @@ const { STUDY_TYPE, STUDY_TYPE_TO_LEGACY_MODE } = require('../contracts/study-ty
 const { validateEngineInputs } = require('../validation/numeric-safety');
 
 /**
- * calculateInvestmentCase({ studyType, inputs, leverageEnabled })
+ * calculateInvestmentCase({ studyType, inputs, leverageEnabled, assumptionModelVersion })
  * Validates inputs, executes the study engine, then applies any versioned
- * canonical financing remediation. Financial/valuation formulas remain owned by
- * their dedicated engine modules; this entrypoint only orchestrates the path.
+ * canonical financing remediation. assumptionModelVersion is deal-envelope
+ * metadata and is never injected into the economic inputs object.
  */
-function calculateInvestmentCase({ studyType, inputs, leverageEnabled }) {
+function calculateInvestmentCase({ studyType, inputs, leverageEnabled, assumptionModelVersion }) {
   if (studyType !== STUDY_TYPE.EXISTING_BUILDING && studyType !== STUDY_TYPE.LAND_DEVELOPMENT) {
     throw new Error(`calculateInvestmentCase: unknown studyType "${studyType}" -- must be one of ${Object.values(STUDY_TYPE).join(', ')}`);
   }
   const engineInputs = { ...inputs, leverageEnabled };
   validateEngineInputs(engineInputs, { studyType });
   const rawResult = studyType === STUDY_TYPE.EXISTING_BUILDING
-    ? calcExistingBuilding(engineInputs)
+    ? calcExistingBuilding(engineInputs, { assumptionModelVersion })
     : calcLandDevelopment(engineInputs);
-  return applyFinancingRemediation({ studyType, inputs: engineInputs, engineResult: rawResult });
+  return applyFinancingRemediation({
+    studyType,
+    inputs: engineInputs,
+    engineResult: rawResult,
+    assumptionModelVersion,
+  });
 }
 
 module.exports = { calculateInvestmentCase, STUDY_TYPE, STUDY_TYPE_TO_LEGACY_MODE, VACANCY_MONTHS_MAP };

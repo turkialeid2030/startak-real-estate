@@ -3,6 +3,11 @@
 // user-content non-mutation, R5/R6-validation preservation.
 const fs = require('fs'), path = require('path');
 const { getDealDisplayName } = require('../../src/i18n/domain-presentation.js');
+const {
+  prepareNewUiDealForSave,
+  prepareUpdatedUiDealForSave,
+} = require('../../src/assumptions/ui-integration-controller');
+const { ASSUMPTION_MODEL_VERSION } = require('../../src/assumptions/assumption-model');
 const arSA = require('../../src/i18n/locales/ar-SA.js');
 const en = require('../../src/i18n/locales/en.js');
 function tFactory(dict) { return p => p.split('.').reduce((o,k)=>o?.[k],dict) ?? p; }
@@ -20,10 +25,32 @@ check('USER-NAME-PASSTHROUGH-AR', getDealDisplayName({name:'مشروعي الخ�
 check('USER-NAME-PASSTHROUGH-EN', getDealDisplayName({name:'مشروعي الخاص'}, tEn) === 'مشروعي الخاص', 'real user content NOT translated even in en mode -- critical: user content must never be translated');
 check('USER-NAME-ENGLISH-PASSTHROUGH', getDealDisplayName({name:'My Project'}, tAr) === 'My Project', 'user content in any script passes through unchanged');
 
-// Schema preservation proof. RIAI-01P and Valuation V1 intentionally wrap the
-// original five fields and may append validated optional Building-only extensions.
+// Schema preservation proof. Wave 2 delegates persistence through the governed
+// UI controller rather than constructing the record inline in App.jsx. Prove
+// the five raw core fields and optional Building extensions survive unchanged,
+// while the assumption-model version is explicit metadata outside inputs.
 const appSrc = fs.readFileSync(path.join(__dirname,'../..','src/app/App.jsx'), 'utf8');
-check('SCHEMA-CORE-PRESERVED-WITH-OPTIONAL-RIAI', appSrc.includes('recordWithExtensions({ id, name, mode, inputs, savedAt: new Date().toISOString() })') && appSrc.includes('operatingCase: residentialIncomeOperatingCase') && appSrc.includes('withValuationCase(extended, valuationCase)'), 'original five raw fields preserved; optional operatingCase and valuationCase are validated, non-translatable Building-only extensions');
+const schemaProbe = {
+  id: 'R6A-SCHEMA-PROBE',
+  name: 'صفقة',
+  mode: 'building',
+  inputs: { buildingPrice: 7654321, marketCapRate: 0.08 },
+  savedAt: '2026-09-06T00:00:00.000Z',
+  operatingCase: { schemaVersion: 1, status: 'PROBE' },
+  valuationCase: { schemaVersion: 1, status: 'PROBE' },
+};
+const newRecord = prepareNewUiDealForSave(schemaProbe);
+const updatedRecord = prepareUpdatedUiDealForSave(schemaProbe, ASSUMPTION_MODEL_VERSION.LEGACY);
+const corePreserved = ['id','name','mode','savedAt'].every((key) => newRecord[key] === schemaProbe[key])
+  && JSON.stringify(newRecord.inputs) === JSON.stringify(schemaProbe.inputs)
+  && newRecord.operatingCase === schemaProbe.operatingCase
+  && newRecord.valuationCase === schemaProbe.valuationCase;
+const versionGoverned = newRecord.assumptionModelVersion === ASSUMPTION_MODEL_VERSION.V2
+  && updatedRecord.assumptionModelVersion === ASSUMPTION_MODEL_VERSION.LEGACY
+  && !Object.prototype.hasOwnProperty.call(newRecord.inputs, 'assumptionModelVersion');
+const appUsesGovernedPersistence = appSrc.includes('prepareNewUiDealForSave({')
+  && appSrc.includes('prepareUpdatedUiDealForSave({ id: activeDealId');
+check('SCHEMA-CORE-PRESERVED-WITH-OPTIONAL-RIAI', corePreserved && versionGoverned && appUsesGovernedPersistence, 'original five raw fields and optional operatingCase/valuationCase remain preserved through Wave 2 governed persistence; assumptionModelVersion is explicit envelope metadata, not an economic input');
 check('SCHEMA-UPDATE-UNCHANGED', appSrc.includes('name: existing ? existing.name : "صفقة"'), 'update-active core record shape preserved -- raw persisted literal "صفقة" untouched, only DISPLAY wrapped via getDealDisplayName');
 check('DNAME-CALL-SITE-USES-DISPLAY-FN', appSrc.includes('getDealDisplayName(d, t)'), 'list rendering uses the presentation function, not raw d.name directly');
 

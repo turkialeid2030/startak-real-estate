@@ -19,6 +19,25 @@ function record(name, passed, detail = null) {
   if (!passed) failed = true;
 }
 
+async function enterExplicitBuildingExitCap(page, value = '8.5') {
+  const sectionButton = page.getByRole('button', { name: /افتراضات التقييم والاستثمار/ }).first();
+  const section = sectionButton.locator('xpath=ancestor::div[contains(@class,"rounded-2xl") and contains(@class,"overflow-hidden")][1]');
+  const sectionBody = section.locator('.rf-accordion-body').first();
+  if (!((await sectionBody.getAttribute('class')) || '').split(/\s+/).includes('open')) {
+    await sectionButton.click();
+    await page.waitForTimeout(200);
+  }
+  const exitCap = page
+    .getByText('معدل رسملة الخروج', { exact: true })
+    .locator('xpath=ancestor::label[1]')
+    .locator('input')
+    .first();
+  await exitCap.fill(value);
+  await exitCap.blur();
+  await page.waitForTimeout(250);
+  return exitCap;
+}
+
 async function viewportAudit(page, name, width, height) {
   await page.setViewportSize({ width, height });
   await page.waitForTimeout(150);
@@ -159,6 +178,12 @@ try {
     record('INPUT_EDIT_IS_PERSISTED_VISIBLY', false, 'No editable numeric/text input found');
     record('INPUT_EDIT_PRODUCES_FEEDBACK', false, 'No editable numeric/text input found');
   }
+
+  // A fresh Wave 2 Building workspace is intentionally incomplete until an
+  // explicit exit cap is supplied. Complete that required V2 input before the
+  // UX check asserts the presence of a deterministic analytical state.
+  const exitCap = await enterExplicitBuildingExitCap(page, '8.5');
+  record('V2_EXPLICIT_EXIT_CAP_CAN_BE_ENTERED', (await exitCap.inputValue()) === '8.5', { value: await exitCap.inputValue() });
 
   await page.getByText('لوحة المؤشرات', { exact: true }).first().click();
   await page.waitForTimeout(200);

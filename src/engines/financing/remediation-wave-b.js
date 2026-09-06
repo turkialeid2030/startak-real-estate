@@ -217,6 +217,10 @@ function applyLandDevelopmentFinancing(inputs, baseResult) {
 }
 
 function applyFinancingRemediation({ studyType, inputs, engineResult }) {
+  // An incomplete V2 exit assumption is deliberately non-decisionable. Do not
+  // let the financing overlay manufacture a terminal cash flow, levered return,
+  // or recommendation from a case the underlying property engine has held.
+  if (engineResult && engineResult.decisionStatus === 'INCOMPLETE_INPUTS') return engineResult;
   if (!inputs.leverageEnabled) return engineResult;
   if (studyType === STUDY_TYPE.EXISTING_BUILDING) {
     return applyExistingBuildingFinancing(inputs, engineResult);

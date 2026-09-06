@@ -11,9 +11,10 @@
 const { computeNPV, computeIRR, amortizationSchedule, analyzeIRR } = require('../financial');
 const { tierVerdict } = require('../recommendation');
 const { validateEngineInputs } = require('../../validation/numeric-safety');
+const { applyAssumptionModel, buildAssumptionModelDisclosure } = require('../../assumptions/assumption-model');
+const { resolveExitCapRate, EXIT_CAP_SOURCE } = require('./exit-cap-resolver');
 const {
   finiteOr,
-  positiveOrNull,
   leaseUpFactorFromMonths,
   computeCumulativePaybackYears,
   buildExpenseModel,
@@ -23,8 +24,15 @@ const {
 const VACANCY_MONTHS_MAP = { 'مؤجر': 0, '3 أشهر': 3, '6 أشهر': 6, '9 أشهر': 9, 'سنة': 12 };
 const FINANCIAL_MODEL_VERSION = 'BUILDING_WAVE_A_2.0';
 
-function calcExistingBuilding(inp) {
+function calcExistingBuilding(rawInp, context = {}) {
+  const assumptionModelVersion = context.assumptionModelVersion;
+  const inp = applyAssumptionModel(rawInp, assumptionModelVersion);
   validateEngineInputs(inp);
+  const assumptionModelDisclosure = buildAssumptionModelDisclosure(assumptionModelVersion);
+  const exitCapResolution = resolveExitCapRate(inp, { assumptionModelVersion });
+  const exitAnalyticsReady = exitCapResolution.status !== EXIT_CAP_SOURCE.MISSING_REQUIRED;
+  const exitCapRate = exitCapResolution.value;
+
   const landArea = inp.landLength * inp.landWidth;
   const totalBasementArea = inp.basementCount * inp.basementAreaEach;
   const totalParkingSpots = inp.parkingAreaPerSpot > 0 ? Math.floor(totalBasementArea / inp.parkingAreaPerSpot) : 0;
@@ -58,7 +66,6 @@ function calcExistingBuilding(inp) {
   const replacementReservePerSqm = Math.max(0, finiteOr(inp.replacementReservePerSqm));
   const opexGrowthRate = finiteOr(inp.opexGrowthRate);
   const replacementCostGrowthRate = finiteOr(inp.replacementCostGrowthRate);
-  const exitCapRate = positiveOrNull(inp.exitCapRate) || positiveOrNull(inp.marketCapRate);
 
   const stabilizedGrossRentalIncome = netLeasableArea * inp.rentPerSqm * inp.occupancyRate;
   const stabilizedServiceIncome = stabilizedGrossRentalIncome * inp.serviceIncomeRate;
@@ -95,7 +102,9 @@ function calcExistingBuilding(inp) {
   const NOI = stabilizedEconomics.NOI;
   const firstYearNOI = firstYearEconomics.NOI;
 
-  const financialModelStatus = NOI > 0 ? 'VALID' : 'INVALID_ECONOMIC_CASE';
+  const financialModelStatus = exitAnalyticsReady
+    ? (NOI > 0 ? 'VALID' : 'INVALID_ECONOMIC_CASE')
+    : 'INCOMPLETE_INPUTS';
   const netYieldOnCost = totalPurchaseCost > 0 ? NOI / totalPurchaseCost : null;
   const grossYieldOnCost = totalPurchaseCost > 0 ? totalAnnualIncome / totalPurchaseCost : null;
   const netYieldOnPrice = inp.buildingPrice > 0 ? NOI / inp.buildingPrice : null;
@@ -104,7 +113,9 @@ function calcExistingBuilding(inp) {
   const marketValueByIncomeCap = inp.marketCapRate > 0 && NOI > 0 ? NOI / inp.marketCapRate : 0;
   const valueGapVsCost = marketValueByIncomeCap - totalPurchaseCost;
 
-  // Actual hold-period operating sequence used by IRR/NPV.
+  // Actual hold-period operating sequence used by IRR/NPV when exit analytics
+  // are ready. It remains useful as an operating-only disclosure when V2 is
+  // missing exitCapRate, but no return metric is derived from it in that state.
   const operatingNoiCashflows = [];
   for (let y = 1; y <= inp.holdPeriod; y += 1) {
     operatingNoiCashflows.push(yearEconomics(y - 1, y === 1 ? initialLeaseUpFactor : 1).NOI);
@@ -134,25 +145,6 @@ function calcExistingBuilding(inp) {
   const paybackOnCost = cumulativePaybackOnCost === null ? NaN : cumulativePaybackOnCost;
   const paybackOnPrice = cumulativePaybackOnPrice === null ? NaN : cumulativePaybackOnPrice;
 
-  const cashflows = [-totalPurchaseCost];
-  let terminalSaleValue = 0;
-  let terminalNetSaleProceeds = 0;
-  for (let y = 1; y <= inp.holdPeriod; y += 1) {
-    const yearNoi = operatingNoiCashflows[y - 1];
-    if (y < inp.holdPeriod) {
-      cashflows.push(yearNoi);
-    } else {
-      const forwardStabilizedNOI = yearEconomics(y, 1).NOI;
-      terminalSaleValue = exitCapRate && forwardStabilizedNOI > 0 ? forwardStabilizedNOI / exitCapRate : 0;
-      const saleTransferFee = terminalSaleValue * inp.transferFeeRate;
-      terminalNetSaleProceeds = terminalSaleValue - saleTransferFee;
-      cashflows.push(yearNoi + terminalNetSaleProceeds);
-    }
-  }
-  const irr = computeIRR(cashflows);
-  const npv = computeNPV(inp.discountRate, cashflows);
-  const irrDiagnostics = analyzeIRR(cashflows, { financeRate: inp.discountRate, reinvestRate: inp.discountRate });
-
   const requiredYield = Math.max(inp.minYieldThreshold, 1 / inp.maxPaybackThreshold);
   const targetTotalAcquisitionCost = NOI > 0 && requiredYield > 0 ? NOI / requiredYield : 0;
   const purchaseLoad = 1 + inp.commissionRate + inp.transferFeeRate;
@@ -160,65 +152,107 @@ function calcExistingBuilding(inp) {
     ? Math.max(0, (targetTotalAcquisitionCost - inp.inspectionCost - inp.valuationCost) / purchaseLoad)
     : 0;
 
+  const cashflows = [-totalPurchaseCost];
+  let terminalSaleValue = exitAnalyticsReady ? 0 : null;
+  let terminalNetSaleProceeds = exitAnalyticsReady ? 0 : null;
+  for (let y = 1; y <= inp.holdPeriod; y += 1) {
+    const yearNoi = operatingNoiCashflows[y - 1];
+    if (y < inp.holdPeriod) {
+      cashflows.push(yearNoi);
+    } else if (exitAnalyticsReady) {
+      const forwardStabilizedNOI = yearEconomics(y, 1).NOI;
+      terminalSaleValue = forwardStabilizedNOI > 0 ? forwardStabilizedNOI / exitCapRate : 0;
+      const saleTransferFee = terminalSaleValue * inp.transferFeeRate;
+      terminalNetSaleProceeds = terminalSaleValue - saleTransferFee;
+      cashflows.push(yearNoi + terminalNetSaleProceeds);
+    } else {
+      cashflows.push(yearNoi);
+    }
+  }
+  const irr = exitAnalyticsReady ? computeIRR(cashflows) : null;
+  const npv = exitAnalyticsReady ? computeNPV(inp.discountRate, cashflows) : null;
+  const irrDiagnostics = exitAnalyticsReady
+    ? analyzeIRR(cashflows, { financeRate: inp.discountRate, reinvestRate: inp.discountRate })
+    : null;
+
   // Leverage remains annual in Wave A; monthly amortization and DSCR-constrained
-  // sizing are explicitly Wave B. The corrected operating/terminal economics
-  // are nevertheless used here so leverage no longer inherits the lease-up bug.
+  // sizing are explicitly Wave B. For an incomplete V2 exit assumption, debt
+  // sizing/DSCR may still be observed from operating NOI, but no levered return
+  // metric or terminal cash flow is manufactured.
   const loanAmount = inp.ltv * totalPurchaseCost;
   const equityRequired = totalPurchaseCost - loanAmount;
   const { payment: debtService, schedule: loanSchedule } = amortizationSchedule(loanAmount, inp.loanRate, inp.loanTenor);
-  const leveredCashflows = [-equityRequired];
+  const leveredCashflows = exitAnalyticsReady ? [-equityRequired] : null;
   let dscrMin = Infinity;
   for (let y = 1; y <= inp.holdPeriod; y += 1) {
     const yearNoi = operatingNoiCashflows[y - 1];
     const ds = y <= loanSchedule.length ? debtService : 0;
     if (ds > 0) dscrMin = Math.min(dscrMin, yearNoi / ds);
-    const remBalance = y === inp.holdPeriod && y <= loanSchedule.length ? loanSchedule[y - 1].balance : 0;
-    if (y < inp.holdPeriod) {
-      leveredCashflows.push(yearNoi - ds);
-    } else {
-      leveredCashflows.push(yearNoi - ds + terminalNetSaleProceeds - remBalance);
+    if (exitAnalyticsReady) {
+      const remBalance = y === inp.holdPeriod && y <= loanSchedule.length ? loanSchedule[y - 1].balance : 0;
+      if (y < inp.holdPeriod) {
+        leveredCashflows.push(yearNoi - ds);
+      } else {
+        leveredCashflows.push(yearNoi - ds + terminalNetSaleProceeds - remBalance);
+      }
     }
   }
   if (dscrMin === Infinity) dscrMin = null;
-  const leveredIRR = computeIRR(leveredCashflows);
+  const leveredIRR = exitAnalyticsReady ? computeIRR(leveredCashflows) : null;
   const equityDiscountRate = inp.discountRate + inp.equityRiskSpread;
-  const leveredNPV = computeNPV(equityDiscountRate, leveredCashflows);
-  const leveredIrrDiagnostics = analyzeIRR(leveredCashflows, { financeRate: equityDiscountRate, reinvestRate: equityDiscountRate });
+  const leveredNPV = exitAnalyticsReady ? computeNPV(equityDiscountRate, leveredCashflows) : null;
+  const leveredIrrDiagnostics = exitAnalyticsReady
+    ? analyzeIRR(leveredCashflows, { financeRate: equityDiscountRate, reinvestRate: equityDiscountRate })
+    : null;
 
   const c0 = NOI > 0;
   const c1 = c0 && netYieldOnCost !== null && netYieldOnCost >= inp.minYieldThreshold;
   const c2 = c0 && cumulativePaybackOnCost !== null && cumulativePaybackOnCost <= inp.maxPaybackThreshold;
-  const c3 = c0 && Number.isFinite(irr) && irr >= inp.discountRate;
+  const c3 = exitAnalyticsReady ? c0 && Number.isFinite(irr) && irr >= inp.discountRate : null;
   const c4 = c0 && marketValueByIncomeCap >= totalPurchaseCost;
   const c5 = inp.leverageEnabled ? dscrMin !== null && dscrMin >= inp.minDscrThreshold : null;
-  const c6 = c0 && Number.isFinite(npv) && npv >= 0;
-  const c7 = inp.leverageEnabled ? Number.isFinite(leveredNPV) && leveredNPV >= 0 : null;
+  const c6 = exitAnalyticsReady ? c0 && Number.isFinite(npv) && npv >= 0 : null;
+  const c7 = inp.leverageEnabled && exitAnalyticsReady ? Number.isFinite(leveredNPV) && leveredNPV >= 0 : null;
 
-  const criteria = [
-    { code: 'STABILIZED_NOI_POSITIVE', met: c0, hardGate: true },
-    { code: 'NET_YIELD_ON_COST', met: c1, hardGate: false },
-    { code: 'CUMULATIVE_PAYBACK', met: c2, hardGate: false },
-    { code: 'IRR_MEETS_HURDLE', met: c3, hardGate: true },
-    { code: 'NPV_NON_NEGATIVE', met: c6, hardGate: true },
-    { code: 'INCOME_VALUE_COVERS_COST', met: c4, hardGate: false },
-  ];
-  if (inp.leverageEnabled) {
-    criteria.push({ code: 'DSCR_MINIMUM', met: c5, hardGate: true });
-    criteria.push({ code: 'LEVERED_NPV_NON_NEGATIVE', met: c7, hardGate: true });
+  let verdictResult = null;
+  if (exitAnalyticsReady) {
+    const criteria = [
+      { code: 'STABILIZED_NOI_POSITIVE', met: c0, hardGate: true },
+      { code: 'NET_YIELD_ON_COST', met: c1, hardGate: false },
+      { code: 'CUMULATIVE_PAYBACK', met: c2, hardGate: false },
+      { code: 'IRR_MEETS_HURDLE', met: c3, hardGate: true },
+      { code: 'NPV_NON_NEGATIVE', met: c6, hardGate: true },
+      { code: 'INCOME_VALUE_COVERS_COST', met: c4, hardGate: false },
+    ];
+    if (inp.leverageEnabled) {
+      criteria.push({ code: 'DSCR_MINIMUM', met: c5, hardGate: true });
+      criteria.push({ code: 'LEVERED_NPV_NON_NEGATIVE', met: c7, hardGate: true });
+    }
+    verdictResult = tierVerdict(criteria);
   }
-  const verdictResult = tierVerdict(criteria);
+
+  const incompleteInputs = exitAnalyticsReady ? [] : ['exitCapRate'];
+  const verdict = exitAnalyticsReady ? verdictResult.verdict : 'INCOMPLETE_INPUTS';
+  const decisionStatus = exitAnalyticsReady ? verdictResult.decisionStatus : 'INCOMPLETE_INPUTS';
 
   return {
     financialModelVersion: FINANCIAL_MODEL_VERSION,
     financialModelStatus,
+    assumptionModelVersion: assumptionModelDisclosure.version,
+    assumptionModelDisclosure,
+    exitCapSource: exitCapResolution.status,
+    exitCapRequiresVisibleDisclosure: exitCapResolution.requiresVisibleDisclosure,
+    exitDependentAnalyticsReady: exitAnalyticsReady,
+    incompleteInputs,
+    cashflowsIncludeTerminalValue: exitAnalyticsReady,
     irrDiagnostics,
     leveredIrrDiagnostics,
-    irrReliability: irrDiagnostics.reliability,
-    irrMultipleRootRisk: irrDiagnostics.multipleRootRisk,
-    irrSignChanges: irrDiagnostics.signChanges,
-    mirr: irrDiagnostics.mirr,
-    leveredMirr: leveredIrrDiagnostics.mirr,
-    leveredIrrReliability: leveredIrrDiagnostics.reliability,
+    irrReliability: irrDiagnostics ? irrDiagnostics.reliability : null,
+    irrMultipleRootRisk: irrDiagnostics ? irrDiagnostics.multipleRootRisk : null,
+    irrSignChanges: irrDiagnostics ? irrDiagnostics.signChanges : null,
+    mirr: irrDiagnostics ? irrDiagnostics.mirr : null,
+    leveredMirr: leveredIrrDiagnostics ? leveredIrrDiagnostics.mirr : null,
+    leveredIrrReliability: leveredIrrDiagnostics ? leveredIrrDiagnostics.reliability : null,
     landArea, totalBasementArea, totalParkingSpots, totalFloorArea, netLeasableArea, avgNetAreaPerFloor,
     totalBuiltArea, coverageRatio, areaCheckOk,
     commissionAmount, transferFeeAmount, totalPurchaseCost, costPerSqm,
@@ -240,13 +274,13 @@ function calcExistingBuilding(inp) {
     cashflows, operatingNoiCashflows, irr, npv, maxJustifiedPrice,
     loanAmount, equityRequired, debtService, dscrMin, leveredCashflows, leveredIRR, leveredNPV, equityDiscountRate,
     c0, c1, c2, c3, c4, c5, c6, c7,
-    metCount: verdictResult.met,
-    totalCriteria: verdictResult.total,
-    verdict: verdictResult.verdict,
-    decisionStatus: verdictResult.decisionStatus,
-    criteriaDetail: verdictResult.criteria,
-    failedHardGates: verdictResult.failedHardGates,
-    failedSoftCriteria: verdictResult.failedSoftCriteria,
+    metCount: exitAnalyticsReady ? verdictResult.met : null,
+    totalCriteria: exitAnalyticsReady ? verdictResult.total : null,
+    verdict,
+    decisionStatus,
+    criteriaDetail: exitAnalyticsReady ? verdictResult.criteria : null,
+    failedHardGates: exitAnalyticsReady ? verdictResult.failedHardGates : [],
+    failedSoftCriteria: exitAnalyticsReady ? verdictResult.failedSoftCriteria : null,
   };
 }
 

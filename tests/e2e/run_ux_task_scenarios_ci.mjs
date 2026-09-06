@@ -52,6 +52,26 @@ async function safeDecisionVisible(page) {
   return { safe, imperative };
 }
 
+async function enterExplicitBuildingExitCap(page, act, value = '8.5') {
+  const sectionButton = page.getByRole('button', { name: /افتراضات التقييم والاستثمار/ }).first();
+  const section = sectionButton.locator('xpath=ancestor::div[contains(@class,"rounded-2xl") and contains(@class,"overflow-hidden")][1]');
+  const sectionBody = section.locator('.rf-accordion-body').first();
+  if (!((await sectionBody.getAttribute('class')) || '').split(/\s+/).includes('open')) {
+    await act(() => sectionButton.click());
+    await page.waitForTimeout(180);
+  }
+  const exitCap = page
+    .getByText('معدل رسملة الخروج', { exact: true })
+    .locator('xpath=ancestor::label[1]')
+    .locator('input')
+    .first();
+  await act(() => exitCap.fill(value));
+  await act(() => exitCap.blur());
+  await page.waitForTimeout(220);
+  if ((await exitCap.inputValue()) !== value) throw new Error(`explicit exit cap did not persist visibly: ${await exitCap.inputValue()}`);
+  return exitCap;
+}
+
 try {
   previewServer = await preview({ preview: { host: '127.0.0.1', port: 4173, strictPort: false } });
   const addr = previewServer.httpServer.address();
@@ -75,6 +95,12 @@ try {
     await act(() => input.blur());
     await page.waitForTimeout(200);
     if ((await input.inputValue()) !== '120') throw new Error('edited building input did not persist visibly');
+
+    // Wave 2 requires a user-supplied exit cap for fresh Existing Building V2
+    // workspaces. Complete that governed input as part of the novice journey
+    // before asserting a deterministic analytical state.
+    const exitCap = await enterExplicitBuildingExitCap(page, act, '8.5');
+
     await act(() => page.getByText('لوحة المؤشرات', { exact: true }).first().click());
     await page.waitForTimeout(200);
     const decision = await safeDecisionVisible(page);
@@ -84,7 +110,7 @@ try {
     await act(() => page.getByText('مبنى قائم', { exact: true }).first().click());
     await input.fill(original || '100');
     await input.blur();
-    return { decision, taskGoal: 'edit assumptions, read analytical state, inspect cash flow' };
+    return { decision, exitCap: await exitCap.inputValue(), taskGoal: 'edit assumptions, enter explicit exit cap, read analytical state, inspect cash flow' };
   });
 
   await runTask('NOVICE_LAND_DEVELOPMENT_REVIEW', page, async (act) => {

@@ -12,6 +12,7 @@ const AI_STAGE_STATUS = Object.freeze({
   HOLD_DECISION_GATE: 'HOLD_DECISION_GATE',
   HOLD_RELIABILITY: 'HOLD_RELIABILITY',
   HOLD_PROFESSIONAL_REVIEW: 'HOLD_PROFESSIONAL_REVIEW',
+  HOLD_INCOMPLETE_INPUTS: 'HOLD_INCOMPLETE_INPUTS',
   OUTPUT_ACCEPTED: 'OUTPUT_ACCEPTED',
   OUTPUT_REJECTED: 'OUTPUT_REJECTED',
 });
@@ -122,6 +123,7 @@ function buildAiExpertStage({
   decisionQuality,
   dossier,
   priorRoleOutputs = [],
+  financialModelStatus = null,
 } = {}) {
   if (!Object.values(AI_ROLE).includes(role)) throw new Error(`UNSUPPORTED_AI_ROLE: ${role}`);
   assertNonEmpty(caseId, 'caseId');
@@ -131,6 +133,9 @@ function buildAiExpertStage({
   requireObject(decisionQuality, 'decisionQuality');
   requireObject(dossier, 'dossier');
   if (!Array.isArray(priorRoleOutputs)) throw new TypeError('priorRoleOutputs must be an array');
+  if (financialModelStatus != null && typeof financialModelStatus !== 'string') {
+    throw new TypeError('financialModelStatus must be a string when provided');
+  }
 
   if (decisionQuality.caseId !== caseId || dossier.caseId !== caseId) throw new Error('CASE_SCOPE_MISMATCH');
   if (decisionQuality.projectId !== projectId || dossier.projectId !== projectId) throw new Error('PROJECT_SCOPE_MISMATCH');
@@ -160,6 +165,15 @@ function buildAiExpertStage({
     holdReasons.push('LICENSED_OR_PROFESSIONAL_REVIEW_REQUIRED');
   }
 
+  // Wave 2 fail-closed boundary: a deterministic financial case with missing
+  // required assumptions is never eligible for a model call. This final
+  // priority override prevents other concurrent holds from accidentally
+  // restoring or obscuring model-call readiness.
+  if (financialModelStatus === 'INCOMPLETE_INPUTS') {
+    status = AI_STAGE_STATUS.HOLD_INCOMPLETE_INPUTS;
+    holdReasons.push('FINANCIAL_MODEL_INCOMPLETE_INPUTS');
+  }
+
   const evidenceRefs = normalizeEvidenceRefs((dossier.aiNarrativeContext && dossier.aiNarrativeContext.factRefs || []).map((item) => item.ref));
 
   return freeze({
@@ -172,18 +186,20 @@ function buildAiExpertStage({
     contextVersionId,
     evidenceHash,
     evidenceRefs,
+    financialModelStatus,
     instructions: buildRoleInstructions(role),
     context: {
       decisionQuality,
       dossier,
       priorRoleOutputs: priorRoleOutputs.map((item) => ({ ...item })),
       nextBestDueDiligence: nextBest.nextBestAction || null,
+      financialModelStatus,
     },
     modelCallExecuted: false,
     humanDecisionRequired: true,
     transactionAuthorized: false,
     mayOverrideDeterministicOutputs: false,
-    semantics: 'This object is a bounded context contract for a caller-supplied generative model. The module itself does not call an LLM and does not authorize a transaction.',
+    semantics: 'This object is a bounded context contract for a caller-supplied generative model. The module itself does not call an LLM and does not authorize a transaction. INCOMPLETE_INPUTS is a fail-closed state and is never model-call ready.',
   });
 }
 
