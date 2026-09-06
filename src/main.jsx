@@ -3,6 +3,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './app/App.jsx';
 import LocalDocumentEvidenceWorkspace from './components/LocalDocumentEvidenceWorkspace.jsx';
+import ComplianceBoundaryNotice from './components/ComplianceBoundaryNotice.jsx';
 const { LocaleProvider } = require('./i18n/LocaleContext.js');
 const { installRuntimeBuildMetadata } = require('./runtime/build-metadata.js');
 const { installGlobalHandlers } = require('./observability/report-runtime-error.js');
@@ -23,6 +24,7 @@ installGlobalHandlers(); // privacy-minimized live Sentry provider
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <LocaleProvider defaultLocale="ar-SA">
+      <ComplianceBoundaryNotice />
       <App />
       <LocalDocumentEvidenceWorkspace />
     </LocaleProvider>

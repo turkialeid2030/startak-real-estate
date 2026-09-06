@@ -1,0 +1,76 @@
+name: Compliance Production Verify
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ['Post-Release Production Verify']
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: compliance-production-${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compliance-production:
+    name: compliance-production
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BASE_URL: https://startak-real-estate.pages.dev
+      EXPECTED_DEPLOYED_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || '' }}
+      EVIDENCE_DIR: runtime-evidence/production-compliance
+
+    steps:
+      - name: Checkout exact deployed compliance contract
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Verify production compliance boundary
+        run: node tests/e2e/run_production_compliance_ci.mjs
+
+      - name: Upload production compliance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-compliance-evidence-${{ github.run_id }}
+          path: runtime-evidence/production-compliance
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Publish production compliance summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## STARTAK Production Compliance Boundary Verification'
+            echo
+            echo "- Production URL: \`${BASE_URL}\`"
+            if [[ -n "${EXPECTED_DEPLOYED_SHA:-}" ]]; then
+              echo "- Exact deployed SHA inherited from successful Post-Release Production Verify: \`${EXPECTED_DEPLOYED_SHA}\`"
+            else
+              echo '- Manual mode observes current production; exact-SHA correlation applies to the workflow-run path.'
+            fi
+            echo '- Validates persistent Arabic/English scope notices, customer-facing non-imperative decision language, and runtime health.'
+            echo '- Engineering verification only; it does not establish legal compliance or licensing status.'
+            echo '- Saudi legal/regulatory review remains PENDING.'
+            echo '- Commercial external launch remains HOLD.'
+            echo '- No transaction authority is granted.'
+          } >> "$GITHUB_STEP_SUMMARY"
