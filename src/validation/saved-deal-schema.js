@@ -18,6 +18,7 @@
 const { hydrateResidentialIncomeOperatingCaseSnapshot } = require('../residential-income-acquisition/operating-case-snapshot');
 const { validateValuationCaseExtension } = require('../valuation-intelligence/saved-deal-extension');
 const { ASSUMPTION_MODEL_VERSION } = require('../assumptions/assumption-model');
+const { validateUserEnteredZakatCase } = require('../zakat/user-entered-zakat');
 
 class SavedDealValidationError extends Error {
   constructor(reasonCode, detail) {
@@ -69,6 +70,14 @@ function validateSavedDealRecord(parsed) {
   }
   if (parsed.name !== undefined && typeof parsed.name !== 'string') {
     throw new SavedDealValidationError('INVALID_NAME_TYPE', `typeof=${typeof parsed.name}`);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(parsed, 'zakatCase')) {
+    try {
+      validateUserEnteredZakatCase(parsed.zakatCase);
+    } catch (error) {
+      throw new SavedDealValidationError('INVALID_ZAKAT_CASE', error.code || error.name || 'UNKNOWN');
+    }
   }
 
   if (Object.prototype.hasOwnProperty.call(parsed, 'operatingCase')) {

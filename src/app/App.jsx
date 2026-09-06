@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import ResidentialIncomeAcquisitionPanel from "../components/ResidentialIncomeAcquisitionPanel.jsx";
 import ValuationIntelligencePanel from "../components/ValuationIntelligencePanel.jsx";
+import { ZakatInputSection, ZakatCashFlowPanel } from "../components/ZakatLayerPanel.jsx";
 
 // ============================================================
 // DESIGN TOKENS
@@ -139,6 +140,7 @@ const {
 } = require('../assumptions/ui-integration-controller');
 const { ASSUMPTION_MODEL_VERSION } = require('../assumptions/assumption-model');
 const { isFiniteNumber } = require('../assumptions/ui-safe-formatters');
+const { validateUserEnteredZakatCase } = require('../zakat/user-entered-zakat');
 // WAVE2_PRODUCTION_UI_WIRING_V1
 
 // ============================================================
@@ -942,7 +944,7 @@ function DashboardTab({ mode, inputs, results }) {
 // ============================================================
 // CASH FLOW TAB
 // ============================================================
-function CashFlowTab({ mode, inputs, results }) {
+function CashFlowTab({ mode, inputs, results, zakatCase }) {
   const { t } = useLocale();
   // R7: fmtSAR() is the global formatter, hardcoded to "ريال" -- it has no
   // access to t()/locale since it's defined outside any component. This was
@@ -994,6 +996,13 @@ function CashFlowTab({ mode, inputs, results }) {
       <MetricGroup eyebrow={t("cashFlow.tableEyebrow")} title={t("cashFlow.tableTitle")}>
         <CashFlowTable cashflows={activeCashflows} />
       </MetricGroup>
+      <ZakatCashFlowPanel
+        mode={mode}
+        results={results}
+        zakatCase={zakatCase}
+        leverageView={showLevered && view === "levered"}
+        discountRate={showLevered && view === "levered" ? results.equityDiscountRate : (mode === "building" ? inputs.discountRate : inputs.hurdleRate)}
+      />
     </div>
   );
 }
@@ -1528,6 +1537,7 @@ export default function App() {
   const [residentialIncomeOperatingCase, setResidentialIncomeOperatingCase] = useState(null);
   const [operatingCaseMessage, setOperatingCaseMessage] = useState(null);
   const [valuationCase, setValuationCase] = useState(null);
+  const [zakatCase, setZakatCase] = useState(null);
   const residentialIncomeAcquisitionView = useMemo(
     () => createResidentialIncomeAcquisitionViewModel(residentialIncomeOperatingCase),
     [residentialIncomeOperatingCase],
@@ -1683,6 +1693,7 @@ export default function App() {
     setResidentialIncomeOperatingCase(null);
     setOperatingCaseMessage(null);
     setValuationCase(null);
+    setZakatCase(null);
     setActiveDealId(null);
     setActiveTab("dashboard");
     setDealsPanelOpen(false);
@@ -1711,6 +1722,7 @@ export default function App() {
         ? hydrateResidentialIncomeOperatingCaseSnapshot(record.operatingCase)
         : null);
       setValuationCase(valuationCaseFromSavedDeal(record));
+      setZakatCase(record.zakatCase ? validateUserEnteredZakatCase(record.zakatCase) : null);
       setOperatingCaseMessage(null);
       setActiveDealId(id);
       setActiveTab("dashboard");
@@ -1724,6 +1736,9 @@ export default function App() {
     let extended = record;
     if (record.mode === "building" && residentialIncomeOperatingCase) {
       extended = { ...extended, operatingCase: residentialIncomeOperatingCase };
+    }
+    if (zakatCase) {
+      extended = { ...extended, zakatCase: validateUserEnteredZakatCase(zakatCase) };
     }
     return withValuationCase(extended, valuationCase);
   };
@@ -1791,6 +1806,11 @@ export default function App() {
     // to conflate this with DEAL_SAVE_FAILED (a storage-infrastructure code).
     try { validateEngineInputs({ ...inputs, leverageEnabled: inputs.leverageEnabled }); }
     catch (e) { if (e.name === 'ValidationError') return; throw e; }
+    try { validateUserEnteredZakatCase(zakatCase); }
+    catch (e) {
+      setDealsError({ code: e.code || "ZAKAT_CASE_INVALID", message_ar: "أكمل مبلغ الزكاة ومصدره قبل الحفظ، أو امسح مبلغ الزكاة.", message_en: "Complete the Zakat amount and its source before saving, or clear the Zakat amount." });
+      return;
+    }
     setSavingInProgress(true);
     setDealsError(null);
     try {
@@ -1814,6 +1834,11 @@ export default function App() {
     // SDI-002: same persistence-safety boundary as saveCurrentAsNewDeal above.
     try { validateEngineInputs({ ...inputs, leverageEnabled: inputs.leverageEnabled }); }
     catch (e) { if (e.name === 'ValidationError') return; throw e; }
+    try { validateUserEnteredZakatCase(zakatCase); }
+    catch (e) {
+      setDealsError({ code: e.code || "ZAKAT_CASE_INVALID", message_ar: "أكمل مبلغ الزكاة ومصدره قبل الحفظ، أو امسح مبلغ الزكاة.", message_en: "Complete the Zakat amount and its source before saving, or clear the Zakat amount." });
+      return;
+    }
     setSavingInProgress(true);
     setDealsError(null);
     try {
@@ -1842,6 +1867,7 @@ export default function App() {
         setResidentialIncomeOperatingCase(null);
         setOperatingCaseMessage(null);
         setValuationCase(null);
+        setZakatCase(null);
       }
     } catch (e) {
       setDealsError({ code: "DEAL_DELETE_FAILED", message_ar: "تعذّر الحذف", message_en: "Delete failed" });
@@ -1891,6 +1917,7 @@ export default function App() {
   };
 
   const resetCurrent = () => {
+    setZakatCase(null);
     if (activeDealId) {
       loadDeal(activeDealId);
     } else if (mode === "building") {
@@ -1942,6 +1969,7 @@ export default function App() {
               setResidentialIncomeOperatingCase(null);
               setOperatingCaseMessage(null);
               setValuationCase(null);
+              setZakatCase(null);
               setActiveTab("dashboard");
             }} />
             <button
@@ -2023,6 +2051,7 @@ export default function App() {
             ) : (
               <LandInputPanel inputs={landInputs} setInputs={setLandInputs} />
             )}
+            <ZakatInputSection zakatCase={zakatCase} setZakatCase={setZakatCase} />
           </aside>
 
           <main className="lg:col-span-7">
@@ -2034,7 +2063,7 @@ export default function App() {
             ) : null}
             <Tabs value={activeTab} onChange={setActiveTab} />
             {activeTab === "dashboard" && <DashboardTab mode={mode} inputs={inputs} results={results} />}
-            {activeTab === "cashflow" && <CashFlowTab mode={mode} inputs={inputs} results={results} />}
+            {activeTab === "cashflow" && <CashFlowTab mode={mode} inputs={inputs} results={results} zakatCase={zakatCase} />}
             {activeTab === "sensitivity" && <SensitivityTab
               mode={mode}
               inputs={inputs}
