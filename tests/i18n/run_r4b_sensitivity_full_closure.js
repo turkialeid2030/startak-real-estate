@@ -11,7 +11,7 @@ const part2 = appSrc.slice(appSrc.indexOf('function SensitivityTab'), appSrc.ind
 const sensSection = part1 + part2; // CashFlowTab sits between these in the file's actual layout -- excluded deliberately, not part of R4-B
 check('SRC-NO-HARDCODED-ARABIC-IRRKIND', !sensSection.includes('"العائد الداخلي على حقوق الملكية'), 'irrKindLabel fully migrated to kpi.irrLevered/irrUnlevered');
 check('SRC-NO-SCATTERED-CONDITIONALS', !sensSection.includes('locale ==='), 'zero scattered locale conditionals');
-check('SRC-BUILD-SENSITIVITY-DATA-TAKES-T', sensSection.includes('function buildSensitivityData(mode, inputs, t)'), 'signature correctly includes t parameter');
+check('SRC-BUILD-SENSITIVITY-DATA-TAKES-T', sensSection.includes('function buildSensitivityData(mode, inputs, t, assumptionModelVersion)'), 'signature correctly includes t and governed assumptionModelVersion parameters');
 check('R4A_SCOPE_ISOLATED', !sensSection.includes('CashFlow'), 'zero CashFlow references within R4-B scope');
 
 const B = gold['RE-GOLD-002_existing_building'].inputs;
