@@ -1,0 +1,52 @@
+name: Tenant Covenant Verify
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/tenant-intelligence/**'
+      - 'src/document-intelligence/reconciliation.js'
+      - 'src/document-intelligence/semantics/**'
+      - 'src/project-model/universal-evidence-orchestrator.js'
+      - 'src/compliance/decision-support.js'
+      - 'tests/architecture/run_wave6_tenant_covenant_intelligence_v1.js'
+      - 'tests/architecture/run_compliance_guard.js'
+      - '.github/workflows/tenant-covenant-verify.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/tenant-intelligence/**'
+      - 'src/document-intelligence/reconciliation.js'
+      - 'src/document-intelligence/semantics/**'
+      - 'src/project-model/universal-evidence-orchestrator.js'
+      - 'src/compliance/decision-support.js'
+      - 'tests/architecture/run_wave6_tenant_covenant_intelligence_v1.js'
+      - 'tests/architecture/run_compliance_guard.js'
+      - '.github/workflows/tenant-covenant-verify.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tenant-covenant:
+    name: Deterministic tenant covenant intelligence
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run Wave 6 tenant covenant architecture gate
+        run: node tests/architecture/run_wave6_tenant_covenant_intelligence_v1.js
+
+      - name: Re-run Compliance Guard #13
+        run: node tests/architecture/run_compliance_guard.js
+
+      - name: Release gate marker
+        run: echo "TENANT_COVENANT_INTELLIGENCE = PASS"
