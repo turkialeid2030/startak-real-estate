@@ -1,0 +1,531 @@
+from pathlib import Path
+
+app_path = Path('src/app/App.jsx')
+app = app_path.read_text()
+import_anchor = 'import ValuationIntelligencePanel from "../components/ValuationIntelligencePanel.jsx";\n'
+import_replacement = import_anchor + 'import { ZakatInputSection, ZakatCashFlowPanel } from "../components/ZakatLayerPanel.jsx";\n'
+assert import_anchor in app
+app = app.replace(import_anchor, import_replacement, 1)
+
+cashflow_anchor = '''      <MetricGroup eyebrow={t("cashFlow.tableEyebrow")} title={t("cashFlow.tableTitle")}>
+        <CashFlowTable cashflows={activeCashflows} />
+      </MetricGroup>
+'''
+cashflow_replacement = cashflow_anchor + '''      <ZakatCashFlowPanel
+        mode={mode}
+        inputs={inputs}
+        results={results}
+        leverageView={showLevered && view === "levered"}
+      />
+'''
+assert cashflow_anchor in app
+app = app.replace(cashflow_anchor, cashflow_replacement, 1)
+
+input_anchor = '''            ) : (
+              <LandInputPanel inputs={landInputs} setInputs={setLandInputs} />
+            )}
+          </aside>
+'''
+input_replacement = '''            ) : (
+              <LandInputPanel inputs={landInputs} setInputs={setLandInputs} />
+            )}
+            <ZakatInputSection
+              inputs={inputs}
+              setInputs={mode === "building" ? setBuildingInputs : setLandInputs}
+            />
+          </aside>
+'''
+assert input_anchor in app
+app = app.replace(input_anchor, input_replacement, 1)
+app_path.write_text(app)
+
+zakat_module = r'''"use strict";
+
+const { computeIRR, computeNPV } = require('../engines/financial');
+
+const ZAKAT_INPUT_SOURCE = Object.freeze({
+  ACCOUNTANT: 'ACCOUNTANT',
+  ZAKAT_ADVISER: 'ZAKAT_ADVISER',
+  INTERNAL_ESTIMATE: 'INTERNAL_ESTIMATE',
+});
+
+const ZAKAT_LAYER_STATUS = Object.freeze({
+  NOT_PROVIDED: 'NOT_PROVIDED',
+  USER_ENTERED: 'USER_ENTERED',
+});
+
+class ZakatLayerError extends Error {
+  constructor(code, message) {
+    super(message);
+    this.name = 'ZakatLayerError';
+    this.code = code;
+  }
+}
+
+function hasAmount(value) {
+  return value !== undefined && value !== null && value !== '';
+}
+
+function validateCashflows(cashflows) {
+  if (!Array.isArray(cashflows) || cashflows.length === 0) {
+    throw new ZakatLayerError('ZAKAT_CASHFLOWS_REQUIRED', 'Cash flows are required for the optional Zakat layer.');
+  }
+  for (let i = 0; i < cashflows.length; i += 1) {
+    if (!Number.isFinite(cashflows[i])) {
+      throw new ZakatLayerError('ZAKAT_CASHFLOW_NON_FINITE', `Cash flow at index ${i} is not finite.`);
+    }
+  }
+}
+
+function buildUserEnteredZakatLayer({
+  mode,
+  cashflowsBeforeZakat,
+  annualZakatAmount,
+  annualZakatSource,
+  constructionYears = 0,
+  operatingYears = null,
+  discountRate = null,
+  returnsReady = true,
+}) {
+  validateCashflows(cashflowsBeforeZakat);
+  const before = [...cashflowsBeforeZakat];
+  const amountProvided = hasAmount(annualZakatAmount);
+  const sourceProvided = typeof annualZakatSource === 'string' && annualZakatSource.trim() !== '';
+
+  if (!amountProvided) {
+    if (sourceProvided) {
+      throw new ZakatLayerError('ZAKAT_AMOUNT_REQUIRED_FOR_SOURCE', 'A Zakat source cannot be supplied without an annual amount.');
+    }
+    return Object.freeze({
+      status: ZAKAT_LAYER_STATUS.NOT_PROVIDED,
+      platformCalculated: false,
+      annualZakatAmount: null,
+      annualZakatSource: null,
+      cashflowsBeforeZakat: before,
+      cashflowsAfterZakat: null,
+      afterZakatIRR: null,
+      afterZakatNPV: null,
+      disclosureCode: 'ZAKAT_EFFECT_NOT_CALCULATED',
+    });
+  }
+
+  if (!Number.isFinite(annualZakatAmount) || annualZakatAmount < 0) {
+    throw new ZakatLayerError('ZAKAT_ANNUAL_AMOUNT_INVALID', 'Annual Zakat amount must be a finite non-negative SAR amount.');
+  }
+  if (!sourceProvided || !Object.values(ZAKAT_INPUT_SOURCE).includes(annualZakatSource)) {
+    throw new ZakatLayerError('ZAKAT_SOURCE_REQUIRED', 'A recognized source is required when an annual Zakat amount is supplied.');
+  }
+
+  const isLand = mode === 'land';
+  const startIndex = isLand ? Math.max(0, Math.round(constructionYears)) + 1 : 1;
+  const availableOperatingPeriods = Math.max(0, before.length - startIndex);
+  const requestedOperatingPeriods = Number.isFinite(operatingYears)
+    ? Math.max(0, Math.round(operatingYears))
+    : availableOperatingPeriods;
+  const periods = Math.min(availableOperatingPeriods, requestedOperatingPeriods);
+  const after = [...before];
+  for (let offset = 0; offset < periods; offset += 1) {
+    const index = startIndex + offset;
+    after[index] = before[index] - annualZakatAmount;
+  }
+
+  const canCalculateReturns = returnsReady && Number.isFinite(discountRate);
+  return Object.freeze({
+    status: ZAKAT_LAYER_STATUS.USER_ENTERED,
+    platformCalculated: false,
+    annualZakatAmount,
+    annualZakatSource,
+    operatingStartIndex: startIndex,
+    operatingPeriodsAffected: periods,
+    cashflowsBeforeZakat: before,
+    cashflowsAfterZakat: after,
+    afterZakatIRR: canCalculateReturns ? computeIRR(after) : null,
+    afterZakatNPV: canCalculateReturns ? computeNPV(discountRate, after) : null,
+    disclosureCode: 'USER_ENTERED_ZAKAT_NOT_PLATFORM_CALCULATED',
+  });
+}
+
+module.exports = {
+  ZAKAT_INPUT_SOURCE,
+  ZAKAT_LAYER_STATUS,
+  ZakatLayerError,
+  buildUserEnteredZakatLayer,
+};
+'''
+Path('src/zakat').mkdir(parents=True, exist_ok=True)
+Path('src/zakat/user-entered-zakat.js').write_text(zakat_module)
+
+component = r'''import React, { useEffect, useMemo, useState } from "react";
+const { useLocale } = require('../i18n/LocaleContext.js');
+const {
+  ZAKAT_INPUT_SOURCE,
+  ZAKAT_LAYER_STATUS,
+  buildUserEnteredZakatLayer,
+} = require('../zakat/user-entered-zakat');
+
+const C = {
+  panel: '#141F35', panelRaised: '#1C2C4A', panelInput: '#18233C', hairline: '#2B3B5C',
+  brass: '#C9A24C', parchment: '#EDE6D6', slate: '#8C97AC', slateDim: '#647089', caution: '#D08A3E',
+};
+
+function formatSar(value, t) {
+  if (!Number.isFinite(value)) return '—';
+  const sign = value < 0 ? '-' : '';
+  return `${sign}${Math.round(Math.abs(value)).toLocaleString('en-US')} ${t('units.sar')}`;
+}
+
+function formatPct(value) {
+  return Number.isFinite(value) ? `${(value * 100).toFixed(2)}%` : '—';
+}
+
+export function ZakatInputSection({ inputs, setInputs }) {
+  const { t } = useLocale();
+  const [raw, setRaw] = useState(inputs.annualZakatAmount === undefined || inputs.annualZakatAmount === null ? '' : String(inputs.annualZakatAmount));
+
+  useEffect(() => {
+    setRaw(inputs.annualZakatAmount === undefined || inputs.annualZakatAmount === null ? '' : String(inputs.annualZakatAmount));
+  }, [inputs.annualZakatAmount]);
+
+  const amountProvided = inputs.annualZakatAmount !== undefined && inputs.annualZakatAmount !== null;
+  const sourceMissing = amountProvided && !inputs.annualZakatSource;
+
+  const commitAmount = () => {
+    const normalized = raw.trim();
+    if (normalized === '') {
+      setInputs((prev) => {
+        const next = { ...prev };
+        delete next.annualZakatAmount;
+        delete next.annualZakatSource;
+        return next;
+      });
+      return;
+    }
+    const parsed = Number(normalized);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      setRaw(amountProvided ? String(inputs.annualZakatAmount) : '');
+      return;
+    }
+    setInputs((prev) => ({ ...prev, annualZakatAmount: parsed }));
+  };
+
+  return (
+    <div className="rounded-2xl mb-3 overflow-hidden" style={{ background: C.panel, border: `1px solid ${C.hairline}` }}>
+      <div className="px-4 py-3">
+        <div className="text-[10px] tracking-widest" style={{ color: C.brass }}>{t('zakat.sectionEyebrow')}</div>
+        <div className="text-sm font-semibold mb-3" style={{ color: C.parchment }}>{t('zakat.sectionTitle')}</div>
+        <label className="block mb-3">
+          <div className="text-xs mb-1" style={{ color: C.slate }}>{t('zakat.annualAmountLabel')}</div>
+          <input
+            type="text"
+            inputMode="decimal"
+            value={raw}
+            onChange={(e) => setRaw(e.target.value.replace(/[^\d.]/g, ''))}
+            onBlur={commitAmount}
+            onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+            className="w-full px-3 py-2 text-sm rounded-lg"
+            style={{ background: C.panelInput, border: `1px solid ${C.hairline}`, color: C.parchment }}
+            placeholder={t('zakat.amountPlaceholder')}
+          />
+          <div className="text-[10px] mt-1 leading-relaxed" style={{ color: C.slateDim }}>{t('zakat.amountNote')}</div>
+        </label>
+        <label className="block mb-2">
+          <div className="text-xs mb-1" style={{ color: C.slate }}>{t('zakat.sourceLabel')}</div>
+          <select
+            value={inputs.annualZakatSource || ''}
+            disabled={!amountProvided}
+            onChange={(e) => setInputs((prev) => ({ ...prev, annualZakatSource: e.target.value || undefined }))}
+            className="w-full px-3 py-2 text-sm rounded-lg"
+            style={{ background: C.panelInput, border: `1px solid ${sourceMissing ? C.caution : C.hairline}`, color: C.parchment, opacity: amountProvided ? 1 : 0.6 }}
+          >
+            <option value="">{t('zakat.sourcePlaceholder')}</option>
+            <option value={ZAKAT_INPUT_SOURCE.ACCOUNTANT}>{t('zakat.sourceAccountant')}</option>
+            <option value={ZAKAT_INPUT_SOURCE.ZAKAT_ADVISER}>{t('zakat.sourceZakatAdviser')}</option>
+            <option value={ZAKAT_INPUT_SOURCE.INTERNAL_ESTIMATE}>{t('zakat.sourceInternalEstimate')}</option>
+          </select>
+          {sourceMissing ? <div className="text-[10px] mt-1" style={{ color: C.caution }}>{t('zakat.sourceRequired')}</div> : null}
+        </label>
+        <div className="text-[10px] leading-relaxed" style={{ color: C.slateDim }}>{t('zakat.platformBoundary')}</div>
+      </div>
+    </div>
+  );
+}
+
+export function ZakatCashFlowPanel({ mode, inputs, results, leverageView }) {
+  const { t } = useLocale();
+  const before = leverageView ? results.leveredCashflows : results.cashflows;
+  const discountRate = leverageView ? results.equityDiscountRate : (mode === 'building' ? inputs.discountRate : inputs.hurdleRate);
+  const returnsReady = Array.isArray(before) && (mode !== 'building' || results.exitDependentAnalyticsReady !== false);
+
+  const state = useMemo(() => {
+    if (!Array.isArray(before)) return { layer: null, error: null };
+    try {
+      return {
+        layer: buildUserEnteredZakatLayer({
+          mode,
+          cashflowsBeforeZakat: before,
+          annualZakatAmount: inputs.annualZakatAmount,
+          annualZakatSource: inputs.annualZakatSource,
+          constructionYears: mode === 'land' ? results.constructionYears : 0,
+          operatingYears: mode === 'land' ? results.operatingYears : Math.max(0, before.length - 1),
+          discountRate,
+          returnsReady,
+        }),
+        error: null,
+      };
+    } catch (error) {
+      return { layer: null, error };
+    }
+  }, [mode, before, inputs.annualZakatAmount, inputs.annualZakatSource, results.constructionYears, results.operatingYears, discountRate, returnsReady]);
+
+  if (!Array.isArray(before)) return null;
+
+  const sourceLabel = (source) => ({
+    [ZAKAT_INPUT_SOURCE.ACCOUNTANT]: t('zakat.sourceAccountant'),
+    [ZAKAT_INPUT_SOURCE.ZAKAT_ADVISER]: t('zakat.sourceZakatAdviser'),
+    [ZAKAT_INPUT_SOURCE.INTERNAL_ESTIMATE]: t('zakat.sourceInternalEstimate'),
+  })[source] || '—';
+
+  return (
+    <div className="rounded-2xl mb-4 p-4" style={{ background: C.panel, border: `1px solid ${C.hairline}` }}>
+      <div className="text-[10px] tracking-widest" style={{ color: C.brass }}>{t('zakat.cashFlowBeforeLabel')}</div>
+      <div className="text-xs mt-1 mb-3 leading-relaxed" style={{ color: C.slate }}>{t('zakat.beforeClarification')}</div>
+      {state.error ? (
+        <div className="rounded-xl px-3 py-2 text-xs" style={{ background: C.panelRaised, border: `1px solid ${C.caution}`, color: C.caution }}>{t('zakat.invalidInput')}</div>
+      ) : state.layer.status === ZAKAT_LAYER_STATUS.NOT_PROVIDED ? (
+        <div className="rounded-xl px-3 py-3 text-xs leading-relaxed" style={{ background: C.panelRaised, border: `1px solid ${C.hairline}`, color: C.slate }}>
+          <div className="font-semibold mb-1" style={{ color: C.parchment }}>{t('zakat.notCalculatedTitle')}</div>
+          {t('zakat.notCalculated')}
+        </div>
+      ) : (
+        <>
+          <div className="rounded-xl px-3 py-3 mb-3" style={{ background: C.panelRaised, border: `1px solid ${C.brass}` }}>
+            <div className="text-xs font-semibold" style={{ color: C.brass }}>{t('zakat.userEnteredBadge')}</div>
+            <div className="text-[11px] mt-1" style={{ color: C.slate }}>{t('zakat.annualAmount')}: {formatSar(state.layer.annualZakatAmount, t)}</div>
+            <div className="text-[11px]" style={{ color: C.slate }}>{t('zakat.source')}: {sourceLabel(state.layer.annualZakatSource)}</div>
+          </div>
+          <div className="flex flex-wrap gap-2 mb-3">
+            <div className="rounded-xl px-3 py-2 flex-1 min-w-[150px]" style={{ background: C.panelRaised, border: `1px solid ${C.hairline}` }}>
+              <div className="text-[10px]" style={{ color: C.slate }}>{t('zakat.afterIrr')}</div>
+              <div className="text-sm font-bold" style={{ color: C.parchment }}>{formatPct(state.layer.afterZakatIRR)}</div>
+              <div className="text-[9px] mt-1" style={{ color: C.slateDim }}>{t('zakat.userEnteredBadge')}</div>
+            </div>
+            <div className="rounded-xl px-3 py-2 flex-1 min-w-[150px]" style={{ background: C.panelRaised, border: `1px solid ${C.hairline}` }}>
+              <div className="text-[10px]" style={{ color: C.slate }}>{t('zakat.afterNpv')}</div>
+              <div className="text-sm font-bold" style={{ color: C.parchment }}>{formatSar(state.layer.afterZakatNPV, t)}</div>
+              <div className="text-[9px] mt-1" style={{ color: C.slateDim }}>{t('zakat.userEnteredBadge')}</div>
+            </div>
+          </div>
+          <div className="text-xs font-semibold mb-2" style={{ color: C.parchment }}>{t('zakat.afterTitle')}</div>
+          <div className="overflow-x-auto rounded-xl" style={{ border: `1px solid ${C.hairline}` }}>
+            <table className="w-full text-xs">
+              <thead><tr style={{ background: C.panelRaised }}>
+                <th className="px-3 py-2 text-right font-normal" style={{ color: C.slate }}>{t('zakat.tableYear')}</th>
+                <th className="px-3 py-2 text-right font-normal" style={{ color: C.slate }}>{t('zakat.tableBefore')}</th>
+                <th className="px-3 py-2 text-right font-normal" style={{ color: C.slate }}>{t('zakat.tableAfter')}</th>
+              </tr></thead>
+              <tbody>{state.layer.cashflowsAfterZakat.map((value, index) => (
+                <tr key={index} style={{ borderTop: `1px solid ${C.hairline}` }}>
+                  <td className="px-3 py-2" style={{ color: C.slate }}>{index}</td>
+                  <td className="px-3 py-2" style={{ color: C.parchment }}>{formatSar(state.layer.cashflowsBeforeZakat[index], t)}</td>
+                  <td className="px-3 py-2" style={{ color: C.parchment }}>{formatSar(value, t)}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+          <div className="text-[10px] mt-2 leading-relaxed" style={{ color: C.slateDim }}>{t('zakat.userEnteredBadge')}</div>
+        </>
+      )}
+    </div>
+  );
+}
+'''
+Path('src/components/ZakatLayerPanel.jsx').write_text(component)
+
+ar_insert = r'''  zakat: {
+    sectionEyebrow: "طبقة اختيارية بعد NOI",
+    sectionTitle: "الزكاة — إدخال مستخدم",
+    annualAmountLabel: "مبلغ الزكاة السنوي المخصص لهذا الأصل",
+    amountPlaceholder: "اتركه فارغاً إذا لم تُدخل الزكاة",
+    amountNote: "مبلغ سنوي بالريال فقط. لا تحوّل المنصة أي نسبة إلى مبلغ ولا تستنتج وعاءً زكوياً.",
+    sourceLabel: "مصدر/جهة اعتماد المبلغ",
+    sourcePlaceholder: "اختر المصدر",
+    sourceAccountant: "محاسب",
+    sourceZakatAdviser: "مستشار زكوي",
+    sourceInternalEstimate: "تقدير داخلي",
+    sourceRequired: "مصدر المبلغ إلزامي عند إدخال قيمة للزكاة.",
+    platformBoundary: "STARTAK لا تحتسب الزكاة النظامية. هذه طبقة اختيارية لعرض أثر مبلغ يقدمه المستخدم أو مستشاره بعد NOI.",
+    cashFlowBeforeLabel: "التدفق قبل الزكاة",
+    beforeClarification: "التدفقات والمقاييس الأساسية في المنصة قبل الزكاة، ولا تُدمج الزكاة في صافي الدخل التشغيلي (NOI).",
+    notCalculatedTitle: "الأثر الزكوي غير محتسب",
+    notCalculated: "لم يُدخل مبلغ زكاة. تُعرض التدفقات قبل الزكاة فقط؛ لا تفترض المنصة صفراً ولا تستنتج مبلغاً.",
+    userEnteredBadge: "زكاة مُدخَلة من المستخدم، غير محتسبة من المنصة",
+    annualAmount: "المبلغ السنوي المدخل",
+    source: "المصدر",
+    afterTitle: "التدفق بعد الزكاة المدخلة",
+    afterIrr: "IRR بعد الزكاة المدخلة",
+    afterNpv: "NPV بعد الزكاة المدخلة",
+    tableYear: "السنة",
+    tableBefore: "قبل الزكاة",
+    tableAfter: "بعد الزكاة المدخلة",
+    invalidInput: "تعذر إنشاء طبقة الزكاة: أدخل مبلغاً صالحاً وحدد مصدره المعتمد.",
+  },
+'''
+en_insert = r'''  zakat: {
+    sectionEyebrow: "Optional post-NOI layer",
+    sectionTitle: "Zakat — user-entered",
+    annualAmountLabel: "Annual Zakat amount allocated to this asset",
+    amountPlaceholder: "Leave blank if Zakat is not supplied",
+    amountNote: "Annual SAR amount only. The platform does not convert a rate into an amount or infer a Zakat base.",
+    sourceLabel: "Amount source / approver",
+    sourcePlaceholder: "Select source",
+    sourceAccountant: "Accountant",
+    sourceZakatAdviser: "Zakat adviser",
+    sourceInternalEstimate: "Internal estimate",
+    sourceRequired: "A source is required when a Zakat amount is entered.",
+    platformBoundary: "STARTAK does not calculate statutory Zakat. This optional layer shows the effect of an amount supplied by the user or adviser after NOI.",
+    cashFlowBeforeLabel: "Cash flow before Zakat",
+    beforeClarification: "Core platform cash flows and metrics are before Zakat; Zakat is never included in net operating income (NOI).",
+    notCalculatedTitle: "Zakat effect not calculated",
+    notCalculated: "No Zakat amount was entered. Only pre-Zakat cash flow is shown; the platform does not assume zero or infer an amount.",
+    userEnteredBadge: "User-entered Zakat, not calculated by the platform",
+    annualAmount: "Entered annual amount",
+    source: "Source",
+    afterTitle: "Cash flow after entered Zakat",
+    afterIrr: "IRR after entered Zakat",
+    afterNpv: "NPV after entered Zakat",
+    tableYear: "Year",
+    tableBefore: "Before Zakat",
+    tableAfter: "After entered Zakat",
+    invalidInput: "The Zakat layer could not be built: enter a valid amount and select its approved source.",
+  },
+'''
+for path, insert in [(Path('src/i18n/locales/ar-SA.js'), ar_insert), (Path('src/i18n/locales/en.js'), en_insert)]:
+    text = path.read_text()
+    anchor = '  financingInput: {\n'
+    assert anchor in text
+    path.write_text(text.replace(anchor, insert + anchor, 1))
+
+test = r'''"use strict";
+const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
+const { calculateInvestmentCase, STUDY_TYPE } = require('../../src/engines');
+const { ZAKAT_INPUT_SOURCE, ZAKAT_LAYER_STATUS, buildUserEnteredZakatLayer } = require('../../src/zakat/user-entered-zakat');
+const ar = require('../../src/i18n/locales/ar-SA');
+const en = require('../../src/i18n/locales/en');
+
+let checks = 0;
+const ok = (condition, message) => { assert.ok(condition, message); checks += 1; };
+const eq = (actual, expected, message) => { assert.deepStrictEqual(actual, expected, message); checks += 1; };
+const fixtureDir = path.join(__dirname, '..', 'characterization', 'fixtures');
+const fixtureNames = ['RE-GOLD-001-U.json', 'RE-GOLD-001-L.json', 'RE-GOLD-002-U.json', 'RE-GOLD-002-L.json'];
+for (const name of fixtureNames) {
+  const fixture = JSON.parse(fs.readFileSync(path.join(fixtureDir, name), 'utf8'));
+  const inputs = JSON.parse(JSON.stringify(fixture.input_set));
+  const studyType = fixture.study_type === 'building' ? STUDY_TYPE.EXISTING_BUILDING : STUDY_TYPE.LAND_DEVELOPMENT;
+  const engineResult = calculateInvestmentCase({ studyType, inputs, leverageEnabled: inputs.leverageEnabled, assumptionModelVersion: fixture.study_type === 'building' ? 'V2' : undefined });
+  const numericSnapshot = JSON.parse(JSON.stringify(engineResult));
+  const layer = buildUserEnteredZakatLayer({
+    mode: fixture.study_type,
+    cashflowsBeforeZakat: engineResult.cashflows,
+    constructionYears: engineResult.constructionYears || 0,
+    operatingYears: engineResult.operatingYears || (engineResult.cashflows.length - 1),
+    discountRate: fixture.study_type === 'building' ? inputs.discountRate : inputs.hurdleRate,
+    returnsReady: fixture.study_type !== 'building' || engineResult.exitDependentAnalyticsReady !== false,
+  });
+  eq(engineResult, numericSnapshot, `${name}: optional Zakat layer must not mutate any engine output`);
+  eq(layer.status, ZAKAT_LAYER_STATUS.NOT_PROVIDED, `${name}: no amount means NOT_PROVIDED`);
+  eq(layer.cashflowsAfterZakat, null, `${name}: no amount must not manufacture after-Zakat cash flows`);
+  eq(layer.annualZakatAmount, null, `${name}: no amount must remain null, never implicit zero`);
+}
+
+const buildingFixture = JSON.parse(fs.readFileSync(path.join(fixtureDir, 'RE-GOLD-002-U.json'), 'utf8'));
+const buildingInputs = buildingFixture.input_set;
+const buildingResult = calculateInvestmentCase({ studyType: STUDY_TYPE.EXISTING_BUILDING, inputs: buildingInputs, leverageEnabled: buildingInputs.leverageEnabled, assumptionModelVersion: 'V2' });
+const buildingNoiBefore = buildingResult.NOI;
+const buildingLayer = buildUserEnteredZakatLayer({
+  mode: 'building', cashflowsBeforeZakat: buildingResult.cashflows,
+  annualZakatAmount: 100000, annualZakatSource: ZAKAT_INPUT_SOURCE.ACCOUNTANT,
+  operatingYears: buildingResult.cashflows.length - 1,
+  discountRate: buildingInputs.discountRate,
+  returnsReady: buildingResult.exitDependentAnalyticsReady !== false,
+});
+eq(buildingResult.NOI, buildingNoiBefore, 'Zakat layer must never alter NOI');
+eq(buildingLayer.cashflowsAfterZakat[0], buildingResult.cashflows[0], 'Acquisition cash flow remains unchanged');
+eq(buildingLayer.cashflowsAfterZakat[1], buildingResult.cashflows[1] - 100000, 'Entered annual Zakat is deducted only after NOI in operating periods');
+ok(Number.isFinite(buildingLayer.afterZakatIRR), 'After-Zakat IRR is derived only from user-entered amount when returns are ready');
+ok(Number.isFinite(buildingLayer.afterZakatNPV), 'After-Zakat NPV is derived only from user-entered amount when returns are ready');
+eq(buildingLayer.platformCalculated, false, 'Platform must declare it did not calculate statutory Zakat');
+assert.throws(() => buildUserEnteredZakatLayer({ mode: 'building', cashflowsBeforeZakat: buildingResult.cashflows, annualZakatAmount: 100000 }), (error) => error && error.code === 'ZAKAT_SOURCE_REQUIRED');
+checks += 1;
+
+const landFixture = JSON.parse(fs.readFileSync(path.join(fixtureDir, 'RE-GOLD-001-U.json'), 'utf8'));
+const landInputs = landFixture.input_set;
+const landResult = calculateInvestmentCase({ studyType: STUDY_TYPE.LAND_DEVELOPMENT, inputs: landInputs, leverageEnabled: landInputs.leverageEnabled });
+const landLayer = buildUserEnteredZakatLayer({
+  mode: 'land', cashflowsBeforeZakat: landResult.cashflows,
+  annualZakatAmount: 50000, annualZakatSource: ZAKAT_INPUT_SOURCE.ZAKAT_ADVISER,
+  constructionYears: landResult.constructionYears, operatingYears: landResult.operatingYears, discountRate: landInputs.hurdleRate,
+});
+for (let i = 0; i <= landResult.constructionYears; i += 1) eq(landLayer.cashflowsAfterZakat[i], landResult.cashflows[i], `Land period ${i}: acquisition/construction unchanged`);
+eq(landLayer.cashflowsAfterZakat[landResult.constructionYears + 1], landResult.cashflows[landResult.constructionYears + 1] - 50000, 'Land Zakat begins in operating cash flow only');
+
+function flattenKeys(obj, prefix = '') {
+  return Object.keys(obj).flatMap((key) => {
+    const next = prefix ? `${prefix}.${key}` : key;
+    return obj[key] && typeof obj[key] === 'object' && !Array.isArray(obj[key]) ? flattenKeys(obj[key], next) : [next];
+  }).sort();
+}
+eq(flattenKeys(ar.zakat), flattenKeys(en.zakat), 'Arabic/English Zakat translation key parity');
+ok(!Object.keys(buildingLayer).some((key) => /rate|percent|base/i.test(key)), 'Zakat layer exposes no rate/percentage/base conversion field');
+console.log(`WAVE_B2_USER_ENTERED_ZAKAT_LAYER=PASS checks=${checks}`);
+'''
+Path('tests/zakat').mkdir(parents=True, exist_ok=True)
+Path('tests/zakat/run_user_entered_zakat_layer.js').write_text(test)
+
+docs = r'''# STARTAK Real Estate — User-entered Zakat Layer (Wave B2)
+
+STATUS: ENGINEERING_IMPLEMENTED_ON_FEATURE_BRANCH
+VALID_AS_OF: 2026-09-06
+SUPERSEDED_BY: none
+
+## Deliberate design boundary
+
+STARTAK Real Estate **does not calculate statutory Zakat**. This is intentional. Statutory Zakat base is an entity-level quantity and cannot be derived reliably from a single-property underwriting model.
+
+Wave B2 implements only an optional post-NOI layer: one annual SAR amount allocated to the asset and supplied by the user; a mandatory source classification (accountant, Zakat adviser, or internal estimate); explicit before-Zakat versus after-entered-Zakat cash flow; and no percentage-to-amount or amount-to-percentage conversion. Zakat is never included in NOI.
+
+If no amount is supplied, the platform shows only pre-Zakat cash flow. It does not assume zero and does not manufacture an after-Zakat result. Every after-Zakat output is marked **User-entered Zakat, not calculated by the platform**.
+
+The annual amount is deducted only from operating-period cash flows. Acquisition/construction-period cash flows are unchanged. For land development the deduction starts after construction. The terminal-value formula remains unchanged; only the operating-year cash flow in the terminal year carries the entered annual amount.
+
+## ZATCA source register used for the boundary
+
+Primary official source: Zakat, Tax and Customs Authority, **Implementing Regulation for Zakat Collection (1445H)**, Minister of Finance Decision No. 1007 dated 19/8/1445H, applicable to financial years starting on/after 1 January 2024.
+
+- Official regulation landing page: https://zatca.gov.sa/ar/RulesRegulations/Taxes/Pages/ZakatRegulations.aspx
+- Official Arabic PDF: https://www.zatca.gov.sa/ar/RulesRegulations/Taxes/Documents/ZakatRegulation_1445.pdf
+- ZATCA announcement dated 22 March 2024: https://zatca.gov.sa/ar/MediaCenter/News/Pages/news-1218.aspx
+- ZATCA general Zakat guideline: https://zatca.gov.sa/ar/HelpCenter/guidelines/Documents/Zakat_General_1445H.pdf
+
+### Verification status for citations raised in B-1
+
+Verified against currently published ZATCA material during this implementation pass:
+
+- Article 15 — the Zakat percentage is applied to the **Zakat base**, not NOI.
+- Articles 48 and 49 — official deduction rules address non-current assets/properties held for use rather than resale.
+- Article 73 — official real-estate/construction treatment. The current text records an amendment under Minister of Finance Decision No. 1248 dated 11/10/1446H (3 April 2025).
+- Decision No. 1007 dated 19/8/1445H — verified on ZATCA's regulation page and 22 March 2024 announcement.
+- Decision No. 1248 dated 11/10/1446H — verified from the amendment note attached to Article 73 in the current official regulation text.
+
+Not independently re-verified article-by-article in this implementation pass and therefore **not relied upon by code or UI**: Articles 19, 20, 21, 23, 25 and 52. They remain `SPECIALIST_VERIFICATION_REQUIRED` before citation in a formal accounting/legal deliverable.
+
+## Professional-review boundary
+
+This document and the software layer are engineering controls, not a Zakat opinion. Asset classification, deductibility, entity Zakat base, allocation of an entity-level Zakat charge to an asset, and the appropriateness of the entered amount require review by a qualified Saudi accountant/Zakat adviser where professional reliance is intended.
+'''
+Path('docs/ZAKAT_USER_ENTERED_LAYER_WAVE_B2.md').write_text(docs)
+
+for temp in [Path('.github/workflows/wave-b2-apply.yml'), Path('tools/wave-b2-apply.py')]:
+    if temp.exists():
+        temp.unlink()
