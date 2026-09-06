@@ -1,0 +1,78 @@
+name: Post-Release Production Verify
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/post-release-production-verify.yml'
+      - 'tests/e2e/run_production_post_release_ci.mjs'
+  workflow_run:
+    workflows: ['Cloudflare Control Plane Verify']
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: post-release-production-${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  post-release-production:
+    name: post-release-production
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BASE_URL: https://startak-real-estate.pages.dev
+      EXPECTED_DEPLOYED_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || '' }}
+
+    steps:
+      - name: Checkout validation contract
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Verify post-release production contract
+        run: node tests/e2e/run_production_post_release_ci.mjs
+
+      - name: Upload post-release evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: post-release-production-evidence-${{ github.run_id }}
+          path: runtime-evidence/post-release-production
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish verification summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## STARTAK Post-Release Production Verification'
+            echo
+            echo "- Production URL: \`${BASE_URL}\`"
+            echo "- Event: \`${GITHUB_EVENT_NAME}\`"
+            if [[ -n "${EXPECTED_DEPLOYED_SHA:-}" ]]; then
+              echo "- Expected deployed SHA established by preceding Cloudflare Control Plane Verify: \`${EXPECTED_DEPLOYED_SHA}\`"
+            else
+              echo '- Pull-request mode validates the currently deployed production contract; exact candidate deployment correlation is intentionally deferred until the post-merge workflow_run gate.'
+            fi
+            echo '- Validates public shell reachability, real-browser boot, Wave 2 explicit exit-cap fail-closed behavior, deterministic recovery after explicit input, bilingual directionality, responsive continuity, and runtime error absence.'
+            echo '- No transaction authorization is performed.'
+          } >> "$GITHUB_STEP_SUMMARY"
