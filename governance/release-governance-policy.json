@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "policyId": "STARTAK_RELEASE_GOVERNANCE_V1",
+  "productionHost": "https://startak-real-estate.pages.dev",
+  "releaseHealth": {
+    "samples": 5,
+    "intervalMs": 3000,
+    "requestTimeoutMs": 10000,
+    "requiredSuccessRate": 1,
+    "maxP95ResponseMs": 5000,
+    "requireHttp200": true,
+    "requireHtmlDocument": true,
+    "requireRootMount": true,
+    "allowHttp5xx": false
+  },
+  "rollbackReadiness": {
+    "historyDepth": 20,
+    "requireCurrentSuccessfulDeployment": true,
+    "requirePreviousDistinctSuccessfulDeployment": true,
+    "automaticRollback": false,
+    "rollbackAuthority": "HUMAN_EXPLICIT_AUTHORIZATION_REQUIRED",
+    "preferredStrategy": "REVERT_MAIN_OR_MANUAL_CLOUDFLARE_REDEPLOY"
+  },
+  "evidence": {
+    "retentionDays": 90,
+    "requireExpectedDeployedShaOnPostReleaseChain": true,
+    "includeSecrets": false
+  },
+  "transactionAuthorized": false
+}
