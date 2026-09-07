@@ -1,0 +1,31 @@
+name: Specialized Forecast Assumptions Verify
+
+on:
+  pull_request:
+    paths:
+      - 'src/specialized-assets/specialized-forecast-assumptions.js'
+      - 'tests/architecture/run_wave14e_specialized_forecast_assumptions.js'
+      - 'docs/WAVE_14E_SPECIALIZED_FORECAST_ASSUMPTIONS.md'
+      - '.github/workflows/specialized-forecast-assumptions-verify.yml'
+      - 'src/specialized-assets/specialized-asset-evidence.js'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Wave 14E specialized forecast assumptions
+        run: node tests/architecture/run_wave14e_specialized_forecast_assumptions.js
+      - name: Canonical release verification
+        run: npm run release:verify
