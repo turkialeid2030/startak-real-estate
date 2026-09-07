@@ -244,6 +244,7 @@ const unverifiedEvidence = [goodEvidence[0], reviewedEvidence({ id: 'UNVER', sou
 const heldEvidence = buildPropertyEvidencePacket({
   caseId: CASE_ID, propertyRef: PROPERTY_REF, assignmentRef: 'A', assignment: assignment(), inspection: goodInspection,
   evidenceRecords: unverifiedEvidence, measurementRecords: goodMeasurements, materialPropertyKeys: ['property.land_area'], materialMeasurementTypes: [MEASUREMENT_TYPE.LAND_AREA],
+  measurementToleranceByType: { LAND_AREA: { absoluteSqm: 2 } },
 });
 check(heldEvidence.status === PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_EVIDENCE, 'unverified evidence cannot enter professional property packet');
 
@@ -251,7 +252,7 @@ const conflictingEvidence = [goodEvidence[0], reviewedEvidence({ id: 'CONFLICT',
 const materialConflict = buildPropertyEvidencePacket({
   caseId: CASE_ID, propertyRef: PROPERTY_REF, assignmentRef: 'A', assignment: assignment(), inspection: goodInspection,
   evidenceRecords: conflictingEvidence, measurementRecords: goodMeasurements, materialPropertyKeys: ['property.land_area'], materialMeasurementTypes: [MEASUREMENT_TYPE.LAND_AREA],
-  evidenceToleranceByKey: { 'property.land_area': { absolute: 2 } },
+  evidenceToleranceByKey: { 'property.land_area': { absolute: 2 } }, measurementToleranceByType: { LAND_AREA: { absoluteSqm: 2 } },
 });
 check(materialConflict.status === PROPERTY_EVIDENCE_PACKET_STATUS.MATERIAL_PROPERTY_DATA_CONFLICT, 'deed/inspection material disagreement emits canonical property conflict');
 check(materialConflict.professionalValuationWorkflowReady === false, 'material property conflict blocks professional valuation workflow handoff');
