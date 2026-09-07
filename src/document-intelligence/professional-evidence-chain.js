@@ -257,12 +257,15 @@ function assessProfessionalEvidenceAdmissibility({ record, target = ADMISSIBILIT
   const verifiedFact = fact?.truthStatus === TRUTH_STATUS.VERIFIED_FACT
     && fact?.verification?.status === VERIFICATION_STATUS.VERIFIED;
   const humanApproved = record.professionalReview?.outcome === PROFESSIONAL_REVIEW_OUTCOME.APPROVED;
-  const requiresHumanApproval = record.sensitivityClass !== EVIDENCE_SENSITIVITY_CLASS.ROUTINE;
   const requiresVerifiedFact = target !== ADMISSIBILITY_TARGET.ANALYSIS_ONLY;
+  const requiresHumanApproval = requiresVerifiedFact
+    && record.sensitivityClass !== EVIDENCE_SENSITIVITY_CLASS.ROUTINE;
 
   if (requiresVerifiedFact && !verifiedFact) reasons.push('VERIFIED_FACT_REQUIRED');
   if (requiresHumanApproval && !humanApproved) reasons.push('PROFESSIONAL_HUMAN_REVIEW_REQUIRED');
-  if (record.sensitivityClass === EVIDENCE_SENSITIVITY_CLASS.CRITICAL && fact?.authorityVerified !== true) {
+  if (requiresVerifiedFact
+      && record.sensitivityClass === EVIDENCE_SENSITIVITY_CLASS.CRITICAL
+      && fact?.authorityVerified !== true) {
     reasons.push('CRITICAL_EVIDENCE_AUTHORITY_VERIFICATION_REQUIRED');
   }
 
