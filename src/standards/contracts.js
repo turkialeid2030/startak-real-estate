@@ -71,10 +71,16 @@ function assertEnum(value, allowed, field) {
   }
 }
 
+function isStrictIsoDate(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
 function assertOptionalIsoDate(value, field) {
   if (value === null || value === undefined || value === '') return;
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(`${value}T00:00:00Z`))) {
-    throw new TypeError(`${field} must be an ISO date YYYY-MM-DD or null`);
+  if (!isStrictIsoDate(value)) {
+    throw new TypeError(`${field} must be a real ISO date YYYY-MM-DD or null`);
   }
 }
 
@@ -192,6 +198,7 @@ module.exports = {
   REVIEW_STATUS,
   CONFLICT_STATE,
   deepFreeze,
+  isStrictIsoDate,
   normalizeStandardRecord,
   normalizeStandardRule,
   evaluateProductionEnforcementEligibility,
