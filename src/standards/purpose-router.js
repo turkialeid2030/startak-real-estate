@@ -8,7 +8,9 @@ const {
   normalizeStandardRecord,
   normalizeStandardRule,
   evaluateProductionEnforcementEligibility,
+  isStrictIsoDate,
 } = require('./contracts');
+const { evaluateStandardFreshness } = require('./registry');
 
 const ROUTER_VERSION = 'W7A_PURPOSE_ROUTER_V1';
 
@@ -60,9 +62,8 @@ function ruleScopeMatches(context, rule) {
 }
 
 function parseIsoDate(value) {
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
-  const ms = Date.parse(`${value}T00:00:00Z`);
-  return Number.isFinite(ms) ? ms : null;
+  if (!isStrictIsoDate(value)) return null;
+  return new Date(`${value}T00:00:00Z`).getTime();
 }
 
 function evaluateRuleTemporalApplicability(context, rule) {
@@ -102,6 +103,11 @@ function normalizeConflictRecord(input) {
   });
 }
 
+function resolveStandardsVerificationAsOfDate(context) {
+  const candidate = context?.standardsVerificationAsOfDate || context?.reportDate || context?.valuationDate;
+  return isStrictIsoDate(candidate) ? candidate : null;
+}
+
 function routeStandards({ context, standards = [], rules = [], conflicts = [], routerInputHash = null } = {}) {
   if (!context || typeof context !== 'object') throw new TypeError('context is required');
   if (!Array.isArray(standards) || !Array.isArray(rules) || !Array.isArray(conflicts)) {
@@ -116,6 +122,7 @@ function routeStandards({ context, standards = [], rules = [], conflicts = [], r
   const excludedRules = [];
   const blockers = new Set();
   const requiredReviews = new Set();
+  const standardsAsOfDate = resolveStandardsVerificationAsOfDate(context);
 
   for (const rule of normalizedRules) {
     if (!ruleScopeMatches(context, rule)) {
@@ -130,8 +137,8 @@ function routeStandards({ context, standards = [], rules = [], conflicts = [], r
       continue;
     }
 
-    // DRAFT/FUTURE/UNDER_REVIEW/etc. are bibliographic inputs only until an approved ACTIVE state exists.
-    // The current date never converts them to ACTIVE.
+    // DRAFT/FUTURE/UNDER_REVIEW/etc. remain bibliographic/future-readiness inputs.
+    // Neither the current date nor an AI process may promote them into production enforcement.
     if (standard.status !== STANDARD_STATUS.ACTIVE) {
       excludedRules.push({ ruleId: rule.ruleId, reason: `STANDARD_${standard.status}_NON_ENFORCING` });
       continue;
@@ -142,6 +149,21 @@ function routeStandards({ context, standards = [], rules = [], conflicts = [], r
       excludedRules.push({ ruleId: rule.ruleId, reason: enforcement.reasons.join('|') });
       if (enforcement.reasons.some((reason) => reason.includes('UNAPPROVED'))) blockers.add('STANDARD_RULE_UNAPPROVED');
       if (enforcement.reasons.includes('STANDARD_SOURCE_UNVERIFIED')) blockers.add('STANDARD_SOURCE_UNVERIFIED');
+      continue;
+    }
+
+    if (!standardsAsOfDate) {
+      excludedRules.push({ ruleId: rule.ruleId, reason: 'STANDARD_VERIFICATION_AS_OF_DATE_MISSING' });
+      blockers.add('STANDARD_VERIFICATION_STALE');
+      requiredReviews.add('STANDARDS_SOURCE_VERIFICATION_REVIEW');
+      continue;
+    }
+
+    const freshness = evaluateStandardFreshness(standard, standardsAsOfDate);
+    if (!freshness.fresh) {
+      excludedRules.push({ ruleId: rule.ruleId, reason: freshness.reasons.join('|') });
+      blockers.add('STANDARD_VERIFICATION_STALE');
+      requiredReviews.add('STANDARDS_SOURCE_VERIFICATION_REVIEW');
       continue;
     }
 
@@ -172,6 +194,7 @@ function routeStandards({ context, standards = [], rules = [], conflicts = [], r
     schemaVersion: 1,
     routerVersion: ROUTER_VERSION,
     routerInputHash,
+    standardsVerificationAsOfDate: standardsAsOfDate,
     productionIntegration: 'NON_ENFORCING_LIBRARY_ONLY',
     applicableStandardIds: [...applicableStandardIds].sort(),
     applicableRuleIds: [...applicableRuleIds].sort(),
@@ -192,5 +215,6 @@ module.exports = {
   matchesDeclarativeConditions,
   ruleScopeMatches,
   evaluateRuleTemporalApplicability,
+  resolveStandardsVerificationAsOfDate,
   routeStandards,
 };
