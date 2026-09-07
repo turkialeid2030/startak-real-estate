@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "owner": "@turkialeid2030",
+  "deploymentRules": [
+    {
+      "prefix": "src/",
+      "validation": ["TEST_DISCOVERY_AND_REGRESSION", "PRODUCTION_BUILD", "VERIFY_PACKAGE", "SECRETS_SCAN"]
+    },
+    {
+      "prefix": "functions/",
+      "validation": ["TEST_DISCOVERY_AND_REGRESSION", "PRODUCTION_BUILD", "VERIFY_PACKAGE", "SECRETS_SCAN"]
+    },
+    {
+      "prefix": "public/",
+      "validation": ["PRODUCTION_BUILD", "VERIFY_PACKAGE", "SECRETS_SCAN"]
+    },
+    {
+      "prefix": "tools/",
+      "validation": ["TEST_DISCOVERY_AND_REGRESSION", "SECRETS_SCAN"]
+    },
+    {
+      "prefix": ".github/workflows/",
+      "validation": ["RELEASE_WORKFLOW_REVIEW", "SECRETS_SCAN"]
+    }
+  ],
+  "deploymentExactPaths": {
+    "index.html": ["PRODUCTION_BUILD", "VERIFY_PACKAGE", "SECRETS_SCAN"],
+    "package.json": ["PRODUCTION_BUILD", "NPM_AUDIT_RELEASE_THRESHOLD", "SECRETS_SCAN"],
+    "package-lock.json": ["PRODUCTION_BUILD", "NPM_AUDIT_RELEASE_THRESHOLD", "SECRETS_SCAN"],
+    "vite.config.js": ["PRODUCTION_BUILD", "VERIFY_PACKAGE", "SECRETS_SCAN"],
+    "vite.config.mjs": ["PRODUCTION_BUILD", "VERIFY_PACKAGE", "SECRETS_SCAN"],
+    "_headers": ["PRODUCTION_BUILD", "VERIFY_PACKAGE", "SECRETS_SCAN"],
+    "_redirects": ["PRODUCTION_BUILD", "VERIFY_PACKAGE", "SECRETS_SCAN"]
+  },
+  "nonDeploymentPrefixes": [
+    "docs/",
+    "tests/",
+    "governance/",
+    "evidence/",
+    "DECISION-DEF-001/"
+  ],
+  "nonDeploymentExactPaths": [
+    ".gitignore",
+    "README.md",
+    "CHANGELOG.md",
+    "CI_RELEASE_POLICY.md",
+    "CSP_POLICY.md",
+    "LICENSE"
+  ],
+  "rootDocumentationExtensions": [".md", ".csv", ".txt"],
+  "requiredReleaseStages": [
+    "TEST_DISCOVERY_AND_REGRESSION",
+    "PRODUCTION_BUILD",
+    "VERIFY_PACKAGE",
+    "NPM_AUDIT_RELEASE_THRESHOLD",
+    "SECRETS_SCAN",
+    "RELEASE_PATH_COVERAGE"
+  ],
+  "transactionAuthorized": false
+}
