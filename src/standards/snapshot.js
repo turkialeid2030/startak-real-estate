@@ -18,6 +18,12 @@ function canonicalStringify(value) {
   return JSON.stringify(canonicalize(value));
 }
 
+function sortSemanticSet(values) {
+  return [...values]
+    .map(canonicalize)
+    .sort((a, b) => canonicalStringify(a).localeCompare(canonicalStringify(b)));
+}
+
 function buildSnapshotSemanticPayload({
   routerVersion,
   routerInputHash,
@@ -40,9 +46,9 @@ function buildSnapshotSemanticPayload({
     schemaVersion: 1,
     routerVersion,
     routerInputHash,
-    standardRefs,
-    ruleRefs,
-    activationApprovalRefs,
+    standardRefs: sortSemanticSet(standardRefs),
+    ruleRefs: sortSemanticSet(ruleRefs),
+    activationApprovalRefs: sortSemanticSet(activationApprovalRefs),
     valuationDate,
     reportDate,
     engagementDate,
@@ -104,6 +110,7 @@ function verifyStandardsSnapshot(snapshot, hashFn) {
 module.exports = {
   canonicalize,
   canonicalStringify,
+  sortSemanticSet,
   buildSnapshotSemanticPayload,
   computeSnapshotHash,
   createStandardsSnapshot,
