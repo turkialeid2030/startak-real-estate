@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 // tools/release-verify.js -- THE canonical, provider-neutral release
-// qualification gate. CI (whichever provider is eventually authorized)
-// MUST invoke this script rather than reinventing its own checks.
-// Fail-closed: any mandatory step failing exits non-zero immediately.
+// qualification gate. CI MUST invoke this script rather than reinventing its
+// own checks. Fail-closed: any mandatory step failing exits non-zero.
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -33,11 +32,6 @@ function printFailureDiagnostic(error) {
 }
 
 step('TEST_DISCOVERY_AND_REGRESSION', () => {
-  // Mirrors the exact glob pattern used throughout this program's manual
-  // regression loop: run_*.js for characterization/architecture/i18n/
-  // saved-deals, but ALL *.js for defects/ and runtime/ (those two
-  // directories contain permanent tests that don't all use the run_ prefix,
-  // e.g. tests/defects/engine_rejection_matrix.js).
   const runPrefixDirs = ['characterization', 'architecture', 'i18n', 'saved-deals'];
   const allJsDirs = ['defects', 'runtime'];
   let total = 0, passed = 0;
@@ -71,6 +65,22 @@ step('TEST_DISCOVERY_AND_REGRESSION', () => {
   if (passed !== total) throw new Error(`${total - passed} test(s) failed`);
 });
 
+step('RELEASE_PATH_COVERAGE', () => {
+  execFileSync('node', [path.join(ROOT, 'tools', 'verify-release-path-coverage.js')], {
+    cwd: ROOT,
+    stdio: 'pipe',
+    env: process.env,
+  });
+});
+
+step('SECRETS_SCAN', () => {
+  execFileSync('node', [path.join(ROOT, 'tests', 'security', 'run_secrets_scan_ci.mjs')], {
+    cwd: ROOT,
+    stdio: 'pipe',
+    env: process.env,
+  });
+});
+
 step('PRODUCTION_BUILD', () => {
   if (fs.existsSync(path.join(ROOT, 'dist'))) fs.rmSync(path.join(ROOT, 'dist'), { recursive: true });
   execFileSync('npm', ['run', 'build'], { cwd: ROOT, stdio: 'pipe' });
@@ -84,7 +94,7 @@ step('VERIFY_PACKAGE', () => {
 step('NPM_AUDIT_RELEASE_THRESHOLD', () => {
   let out;
   try { out = execFileSync('npm', ['audit', '--json'], { cwd: ROOT, encoding: 'utf8' }); }
-  catch (e) { out = e.stdout; } // npm audit exits non-zero when vulnerabilities exist; we parse regardless
+  catch (e) { out = e.stdout; }
   const data = JSON.parse(out);
   const v = data.metadata?.vulnerabilities || {};
   console.log(`  critical=${v.critical||0} high=${v.high||0} moderate=${v.moderate||0} low=${v.low||0}`);
@@ -92,17 +102,17 @@ step('NPM_AUDIT_RELEASE_THRESHOLD', () => {
 });
 
 step('CANONICAL_SOURCE_HASH_VERIFICATION', () => {
-  // Path to the canonical original is environment-specific (not part of the
-  // repository itself) -- read from an env var so this script contains zero
-  // machine/environment-specific absolute paths and works unmodified in any
-  // CI environment where that variable is set appropriately.
   const uploadPath = process.env.CANONICAL_ORIGINAL_PATH;
-  if (!uploadPath || !fs.existsSync(uploadPath)) { console.log('  (CANONICAL_ORIGINAL_PATH not set or not found in this environment -- skipping, not a failure)'); return; }
+  if (!uploadPath || !fs.existsSync(uploadPath)) {
+    console.log('  (CANONICAL_ORIGINAL_PATH not set or not found in this environment -- skipping, not a failure)');
+    return;
+  }
   const hash = require('crypto').createHash('sha256').update(fs.readFileSync(uploadPath)).digest('hex');
   console.log(`  computed=${hash}`);
   if (hash !== CANONICAL_HASH) throw new Error(`canonical hash mismatch: expected ${CANONICAL_HASH}, got ${hash}`);
 });
 
 console.log(`\n${'='.repeat(50)}`);
+console.log('TRANSACTION_AUTHORIZED=false');
 console.log('RELEASE_VERIFY_RESULT=' + (failed ? 'FAIL' : 'PASS'));
 process.exit(failed ? 1 : 0);
