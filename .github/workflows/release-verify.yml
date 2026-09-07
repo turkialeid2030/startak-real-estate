@@ -17,6 +17,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -26,6 +28,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Mandatory direct secret scan
+        run: node tests/security/run_secrets_scan_ci.mjs
 
       - name: Run canonical release verification
         run: npm run release:verify
