@@ -22,6 +22,13 @@ const SIMULATION_STATUS = Object.freeze({
   HOLD_EVALUATOR: 'HOLD_EVALUATOR',
 });
 
+const THRESHOLD_OPERATOR = Object.freeze({
+  BELOW: 'BELOW',
+  AT_OR_BELOW: 'AT_OR_BELOW',
+  ABOVE: 'ABOVE',
+  AT_OR_ABOVE: 'AT_OR_ABOVE',
+});
+
 function freeze(value) {
   if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
   Object.freeze(value);
@@ -136,11 +143,36 @@ function sampleTriangular(min, mode, max, rand) {
   return u < c ? min + Math.sqrt(u * (max - min) * (mode - min)) : max - Math.sqrt((1 - u) * (max - min) * (max - mode));
 }
 
-function runMonteCarlo({ baseInputs, distributions, iterations = 5000, seed = 20260831, evaluator, metricSelector }) {
+function normalizeSimulationThresholds(thresholds) {
+  if (thresholds === undefined || thresholds === null) return [];
+  if (!Array.isArray(thresholds)) throw new TypeError('thresholds must be an array');
+  const ids = new Set();
+  return thresholds.map((threshold, index) => {
+    requireObject(threshold, `thresholds[${index}]`);
+    const thresholdId = typeof threshold.thresholdId === 'string' ? threshold.thresholdId.trim() : '';
+    if (!thresholdId) throw new TypeError(`thresholds[${index}].thresholdId is required`);
+    if (ids.has(thresholdId)) throw new Error(`DUPLICATE_SIMULATION_THRESHOLD_ID:${thresholdId}`);
+    ids.add(thresholdId);
+    const operator = threshold.operator;
+    if (!Object.values(THRESHOLD_OPERATOR).includes(operator)) throw new TypeError(`thresholds[${index}].operator is invalid`);
+    return freeze({ thresholdId, operator, threshold: finite(threshold.threshold, `thresholds[${index}].threshold`) });
+  });
+}
+
+function thresholdCondition(value, threshold) {
+  if (threshold.operator === THRESHOLD_OPERATOR.BELOW) return value < threshold.threshold;
+  if (threshold.operator === THRESHOLD_OPERATOR.AT_OR_BELOW) return value <= threshold.threshold;
+  if (threshold.operator === THRESHOLD_OPERATOR.ABOVE) return value > threshold.threshold;
+  if (threshold.operator === THRESHOLD_OPERATOR.AT_OR_ABOVE) return value >= threshold.threshold;
+  throw new TypeError(`invalid threshold operator: ${threshold.operator}`);
+}
+
+function runMonteCarlo({ baseInputs, distributions, iterations = 5000, seed = 20260831, evaluator, metricSelector, thresholds = [] }) {
   requireObject(baseInputs, 'baseInputs');
   if (!Array.isArray(distributions) || distributions.length === 0) return freeze({ status: SIMULATION_STATUS.HOLD_DISTRIBUTIONS, reason: 'QUALIFIED_DISTRIBUTIONS_REQUIRED' });
   if (typeof evaluator !== 'function' || typeof metricSelector !== 'function') return freeze({ status: SIMULATION_STATUS.HOLD_EVALUATOR, reason: 'QUALIFIED_EVALUATOR_REQUIRED' });
   if (!Number.isInteger(iterations) || iterations < 100 || iterations > 100000) throw new RangeError('iterations must be integer between 100 and 100000');
+  const normalizedThresholds = normalizeSimulationThresholds(thresholds);
   const rand = mulberry32(seed);
   const values = [];
   for (let i = 0; i < iterations; i++) {
@@ -156,7 +188,13 @@ function runMonteCarlo({ baseInputs, distributions, iterations = 5000, seed = 20
   const percentile = (p) => values[Math.min(values.length - 1, Math.max(0, Math.floor((values.length - 1) * p)))];
   const mean = values.reduce((s, v) => s + v, 0) / values.length;
   const probabilityBelowZero = values.filter((v) => v < 0).length / values.length;
-  return freeze({ status: SIMULATION_STATUS.QUALIFIED, iterations, seed, mean, p05: percentile(0.05), p50: percentile(0.50), p95: percentile(0.95), min: values[0], max: values[values.length - 1], probabilityBelowZero, semantics: 'Monte Carlo output is conditional on the supplied distributions and deterministic evaluator. It is not a prediction or guarantee.' });
+  const thresholdProbabilities = normalizedThresholds.map((threshold) => {
+    const count = values.filter((value) => thresholdCondition(value, threshold)).length;
+    return freeze({ ...threshold, probabilityConditionMet: count / values.length });
+  });
+  const output = { status: SIMULATION_STATUS.QUALIFIED, iterations, seed, mean, p05: percentile(0.05), p50: percentile(0.50), p95: percentile(0.95), min: values[0], max: values[values.length - 1], probabilityBelowZero, semantics: 'Monte Carlo output is conditional on the supplied distributions and deterministic evaluator. It is not a prediction or guarantee.' };
+  if (thresholdProbabilities.length > 0) output.thresholdProbabilities = thresholdProbabilities;
+  return freeze(output);
 }
 
 function createRiskFlag({ code, severity, driver, rationale, evidenceRefs = [], mitigation = null }) {
@@ -173,11 +211,13 @@ module.exports = {
   SCENARIO_KIND,
   RISK_SEVERITY,
   SIMULATION_STATUS,
+  THRESHOLD_OPERATOR,
   createScenario,
   applyScenario,
   runScenarioSet,
   rankSensitivity,
   solveBreakEven,
+  normalizeSimulationThresholds,
   runMonteCarlo,
   createRiskFlag,
 };
