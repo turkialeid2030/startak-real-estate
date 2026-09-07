@@ -11,13 +11,15 @@
 // - Non-destructive: never mutates, repairs, or deletes anything. It only
 //   inspects and throws or returns.
 // - The legacy {id, name, mode, inputs, savedAt} core remains valid exactly
-//   as before. Optional assumptionModelVersion and valuationCase are additive
-//   and versioned; absence of assumptionModelVersion is legacy compatibility,
-//   never an automatic migration.
+//   as before. Optional assumptionModelVersion, valuationCase, zakatCase and
+//   standards-snapshot metadata are additive and versioned; absence remains
+//   valid for historical records and never triggers automatic migration.
 
 const { hydrateResidentialIncomeOperatingCaseSnapshot } = require('../residential-income-acquisition/operating-case-snapshot');
 const { validateValuationCaseExtension } = require('../valuation-intelligence/saved-deal-extension');
 const { ASSUMPTION_MODEL_VERSION } = require('../assumptions/assumption-model');
+const { validateUserEnteredZakatCase } = require('../zakat/user-entered-zakat');
+const { validateSavedDealStandardsMetadata, RESERVED_METADATA_KEYS } = require('../standards/saved-deal-standards-snapshot');
 
 class SavedDealValidationError extends Error {
   constructor(reasonCode, detail) {
@@ -52,6 +54,14 @@ function validateSavedDealRecord(parsed) {
     throw new SavedDealValidationError('INVALID_INPUTS_SHAPE', `typeof=${Array.isArray(parsed.inputs) ? 'array' : typeof parsed.inputs}`);
   }
 
+  // Standards/provenance metadata is envelope metadata only. A standards
+  // snapshot key nested inside economic inputs is structurally invalid because
+  // it would blur the economic-input and professional-governance boundaries.
+  const nestedStandardsKeys = RESERVED_METADATA_KEYS.filter((key) => Object.prototype.hasOwnProperty.call(parsed.inputs, key));
+  if (nestedStandardsKeys.length) {
+    throw new SavedDealValidationError('STANDARDS_METADATA_IN_ECONOMIC_INPUTS', nestedStandardsKeys.join(','));
+  }
+
   // assumptionModelVersion is envelope metadata, never an economic input.
   // Missing remains valid for historical records and means LEGACY compatibility.
   if (Object.prototype.hasOwnProperty.call(parsed, 'assumptionModelVersion')) {
@@ -69,6 +79,14 @@ function validateSavedDealRecord(parsed) {
   }
   if (parsed.name !== undefined && typeof parsed.name !== 'string') {
     throw new SavedDealValidationError('INVALID_NAME_TYPE', `typeof=${typeof parsed.name}`);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(parsed, 'zakatCase')) {
+    try {
+      validateUserEnteredZakatCase(parsed.zakatCase);
+    } catch (error) {
+      throw new SavedDealValidationError('INVALID_ZAKAT_CASE', error.code || error.name || 'UNKNOWN');
+    }
   }
 
   if (Object.prototype.hasOwnProperty.call(parsed, 'operatingCase')) {
@@ -90,6 +108,14 @@ function validateSavedDealRecord(parsed) {
       validateValuationCaseExtension(parsed.valuationCase);
     } catch (error) {
       throw new SavedDealValidationError('INVALID_VALUATION_CASE', error.reasonCode || error.name || 'UNKNOWN');
+    }
+  }
+
+  const hasAnyStandardsMetadata = RESERVED_METADATA_KEYS.some((key) => Object.prototype.hasOwnProperty.call(parsed, key));
+  if (hasAnyStandardsMetadata) {
+    const result = validateSavedDealStandardsMetadata(parsed);
+    if (!result.valid) {
+      throw new SavedDealValidationError('INVALID_STANDARDS_SNAPSHOT_METADATA', result.errors[0] || 'UNKNOWN');
     }
   }
 
