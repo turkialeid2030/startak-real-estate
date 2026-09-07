@@ -1,62 +1,66 @@
-# Wave 12D — Investment & Financing Metrics Separation
+# Wave 12D — Separated Investment & Financing Metrics
 
 Status: engineering candidate only. No merge to `main`; no production deployment authorization.
 
-Wave 12D creates a hard analytical boundary between professional property valuation and investment/financing analysis. It consumes qualified professional DCF and NOI outputs but never changes, reconciles or certifies the professional value indication.
+Wave 12D separates investment and financing analytics from the professional valuation indication. The professional DCF value indication remains unchanged and is treated as a read-only external reference for investment analysis only.
 
-## 1. Explicit investment basis
+## Boundaries
 
-Return analysis begins from a separately reviewed investment basis such as acquisition cost or total project cost. The system does not silently substitute the professional DCF value indication for acquisition/project cost. Each basis carries source, evidence, as-of date, preparer, reviewer and SHA-256 integrity.
+The professional valuation layer remains unlevered and produces only a method indication. Wave 12D may calculate investment, debt and equity metrics, but those metrics must not alter the professional property value indication, professional DCF cash flows, discount rate, exit cap, terminal NOI, or valuation conclusion.
 
-## 2. Unlevered investment metrics
+No automatic lending approval, credit decision, debt sizing authorization, legal opinion, certified valuation or transaction authority is produced.
 
-The canonical unlevered investment cash-flow vector is:
+## Metric families
 
-`[-Explicit Investment Basis, Explicit Property Cash Flows..., Net Terminal Proceeds]`
+### Unlevered investment metrics
 
-The engine computes NPV, IRR diagnostics, MIRR and Yield on Cost. Investment-analysis discount/MIRR rates are separately reviewed inputs and are not automatically copied from the professional valuation discount rate.
+- NPV
+- IRR with reliability diagnostics
+- MIRR
+- Yield on Cost
 
-`Yield on Cost = Stabilized Professional NOI / Explicit Investment Basis`
+These metrics are computed from explicit unlevered project cash flows and remain separate from professional valuation DCF arithmetic.
 
-## 3. Financing metrics
+### Debt metrics
 
-Financing is optional and must be enabled explicitly. When disabled, hidden debt, collateral-value or DSCR inputs are rejected.
+- LTV
+- LTC
+- DSCR
+- ICR
+- Debt Yield
+- explicit debt-service schedule
+- outstanding debt balance at exit
 
-When enabled, debt terms are explicit reviewed inputs. Debt is never automatically sized. The existing deterministic monthly debt engine is used to create the payment schedule from the explicit principal/rate/tenor/grace/balloon terms.
+Financing inputs must be explicit and reviewed. Generic amortizing debt, Murabaha-rate proxy, and Ijarah-rate proxy classifications are supported only as analytical financing models. Exact lender/contract economics require the executed term sheet.
 
-The financing layer computes:
+### Equity metrics
 
-- LTV = Explicit Debt Principal / Explicitly Selected Collateral Value Basis
-- LTC = Explicit Debt Principal / Explicit Investment Basis
-- Debt Yield = Stabilized Professional NOI / Explicit Debt Principal
-- DSCR using an explicit numerator convention (`PROFESSIONAL_NOI` or `UNLEVERED_PROPERTY_CASH_FLOW`)
-- ICR using Professional NOI / Interest Expense
-- remaining debt balance at exit
+- Equity NPV
+- Equity IRR with reliability diagnostics
+- Equity MIRR
+- Equity Multiple
 
-A DCF method indication may be selected explicitly as an LTV analysis basis only when its exact calculation hash and amount match the qualified DCF result. This does not convert the method indication into a certified valuation, lender value or credit approval.
+Equity cash flows are derived only after an explicit financing case exists.
 
-## 4. Equity metrics
+## Governance controls
 
-The equity cash-flow vector is built only after debt terms are explicit:
+- professional property value indication is immutable inside Wave 12D
+- financing cannot change the professional valuation indication
+- LTV requires an explicit value basis classification and exact supporting value/hash binding
+- LTC requires explicit cost basis
+- debt service cannot enter professional NOI or professional valuation DCF
+- income tax and Zakat are not calculated here
+- no automatic debt approval or lender decision
+- no automatic financing model selection
+- IRR diagnostics surface non-computable or multiple-root cases; MIRR is retained as the safer presentation metric where appropriate
+- financing model boundaries are disclosed explicitly
 
-`Initial Equity = Investment Basis + Financing Fees - Debt Proceeds`
+## Calculation integrity
 
-Operating equity cash flow is unlevered property cash flow less scheduled debt service. Final-period equity cash flow also includes net terminal proceeds less remaining debt balance.
+Canonical financial primitives remain under `src/engines/financial`. Wave 12D orchestration must use those canonical primitives instead of implementing independent UI/AI formulas.
 
-The engine computes Equity NPV, Equity IRR/MIRR diagnostics and Equity Multiple. These are investment metrics, not valuation outputs.
-
-## 5. Islamic/generic financing boundary
-
-Labels such as Murabaha or Ijarah remain rate-based analytical proxies unless the executed lender term sheet supplies the exact contractual sale price, profit/rental mechanics, fees and payment terms. The platform does not represent a generic amortization proxy as an exact Sharia financing contract model.
-
-## 6. Review flags vs credit decisions
-
-Low DSCR/ICR, LTV/LTC above 100%, zero initial equity, non-conventional IRR patterns or an upstream DCF review status create professional review flags only. The system does not approve/reject credit, make a lender decision or automatically resize debt.
-
-## 7. Safety boundaries
-
-Wave 12D does not change the professional property value indication, make regulated investment advice, calculate statutory tax/Zakat, approve credit, certify valuation, provide legal opinion, or authorize a transaction.
+The investment/financing packet and result are content-hashed for deterministic integrity and full provenance.
 
 Qualification marker: `WAVE_12D_INVESTMENT_FINANCING_METRICS=PASS`.
 
-Next controlled sub-wave: Wave 12E — reporting-framework and regulated-context routing (IFRS/SOCPA, CMA, SAMA) with explicit applicability boundaries and no silent crossover between valuation, financial reporting, fund regulation and lender credit processes.
+Next controlled sub-wave: Wave 12E — financial-reporting and regulated-context routers (IFRS/SOCPA, CMA, SAMA) as applicability and reporting gates only, without allowing those routers to silently modify valuation arithmetic or issue legal/regulatory conclusions.
