@@ -1,6 +1,8 @@
 'use strict';
 
 const { calculateInvestmentCase, STUDY_TYPE } = require('../engines');
+const { validateEngineInputs } = require('../validation/numeric-safety');
+const { validateSavedDealRecord } = require('../validation/saved-deal-schema');
 const {
   ASSUMPTION_MODEL_VERSION,
   V2_APPROVED_ASSUMPTIONS,
@@ -158,12 +160,26 @@ function buildUiDisclosureViewModel({ governance, locale = 'ar-SA' }) {
   });
 }
 
+// Persistence safety is enforced at this controller boundary in addition to
+// App.jsx's visible-validation guard. The builder functions below are pure;
+// therefore a failure here occurs before any storage provider mutation and an
+// invalid/stale editor state cannot be persisted even if a UI error state were
+// delayed by React scheduling.
+function assertPersistenceSafeSavedDeal(record) {
+  assertPlainObject(record, 'saved deal record');
+  const mode = assertMode(record.mode);
+  validateEngineInputs(record.inputs, { studyType: studyTypeForMode(mode) });
+  return validateSavedDealRecord(record);
+}
+
 function prepareNewUiDealForSave(record) {
-  return buildNewSavedDealRecord(record);
+  const candidate = buildNewSavedDealRecord(record);
+  return assertPersistenceSafeSavedDeal(candidate);
 }
 
 function prepareUpdatedUiDealForSave(record, assumptionModelVersion) {
-  return buildUpdatedSavedDealRecord(record, assumptionModelVersion);
+  const candidate = buildUpdatedSavedDealRecord(record, assumptionModelVersion);
+  return assertPersistenceSafeSavedDeal(candidate);
 }
 
 function explicitlyUpgradeUiDealToV2(record) {
@@ -179,6 +195,7 @@ module.exports = {
   calculateUiInvestmentState,
   applyExitCapInputText,
   buildUiDisclosureViewModel,
+  assertPersistenceSafeSavedDeal,
   prepareNewUiDealForSave,
   prepareUpdatedUiDealForSave,
   explicitlyUpgradeUiDealToV2,
