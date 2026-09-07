@@ -1,0 +1,23 @@
+# STARTAK Real Estate release/security ownership.
+# GitHub requires a real repository account/team; the repository owner is the
+# current accountable reviewer for governed paths.
+
+# Financial and decision engines
+/src/engines/ @turkialeid2030
+/src/validation/ @turkialeid2030
+/src/assumptions/ @turkialeid2030
+/tests/decision-engine/ @turkialeid2030
+
+# Production UI and runtime functions
+/src/app/ @turkialeid2030
+/src/components/ @turkialeid2030
+/functions/ @turkialeid2030
+/public/ @turkialeid2030
+
+# Release/security governance
+/.github/workflows/ @turkialeid2030
+/tools/release-verify.js @turkialeid2030
+/tools/verify-release-path-coverage.js @turkialeid2030
+/tests/security/ @turkialeid2030
+/governance/release-path-manifest.json @turkialeid2030
+/.github/CODEOWNERS @turkialeid2030
