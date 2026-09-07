@@ -5,4 +5,5 @@ module.exports = {
   ...require('./registry'),
   ...require('./purpose-router'),
   ...require('./snapshot'),
+  ...require('./lifecycle'),
 };
