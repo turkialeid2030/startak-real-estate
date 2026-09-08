@@ -1,0 +1,161 @@
+{
+  "manifestId": "STARTAK-SOURCE-EVIDENCE-CONVERGENCE-2026-09-08",
+  "createdAt": "2026-09-08T12:35:00+03:00",
+  "operatingMode": "UNLICENSED_DECISION_SUPPORT",
+  "status": "ENGINEERING_SOURCE_EVIDENCE_CONVERGED_WITH_EXTERNAL_AUTHORITY_BLOCKERS",
+  "purpose": "Converge the qualified official-source evidence packages into one auditable lineage without activating standards, resolving legal applicability, validating professional credentials, authorizing production, or merging to main.",
+  "convergenceCommit": "8734fc1e585f5775465ab90e86151d2aa40b1c7a",
+  "lineage": [
+    {
+      "pr": 188,
+      "package": "IVS_RICS_TAQEEM_PRIMARY_SOURCE_EVIDENCE",
+      "headSha": "e5bcf24af322e2eb1985d4e163c93e041b50fa67",
+      "relationship": "ROOT_EXTERNAL_SOURCE_INCREMENT",
+      "qualification": {
+        "sourceEvidenceVerify": "PASS",
+        "releaseVerifyRun": 567,
+        "releaseVerify": "PASS"
+      }
+    },
+    {
+      "pr": 189,
+      "package": "SAUDI_REGULATORY_SOURCE_EVIDENCE_PHASE_1",
+      "headSha": "0d949261b95a4087d23a840eedeb57f1ce208b3a",
+      "relationship": "PARALLEL_PHASE_1_A",
+      "qualification": {
+        "sourceEvidenceVerify": "PASS",
+        "sourceEvidenceChecks": 68,
+        "releaseVerifyRun": 568,
+        "releaseVerify": "PASS",
+        "regressionTotal": 295,
+        "regressionPassed": 295,
+        "productionBuild": "PASS",
+        "packageVerification": "PASS",
+        "npmAuditCritical": 0,
+        "npmAuditHigh": 0,
+        "npmAuditModerate": 0,
+        "npmAuditLow": 0
+      }
+    },
+    {
+      "pr": 190,
+      "package": "SAUDI_REGULATORY_CONTEXT_SOURCE_EVIDENCE",
+      "headSha": "ada06c7da26b79cb11f8bb38d1e7b0d0cb6cf094",
+      "relationship": "PARALLEL_PHASE_1_B_RECONCILED_NOT_SUPERSEDED",
+      "qualification": {
+        "sourceEvidenceVerify": "PASS",
+        "releaseVerifyRun": 569,
+        "releaseVerify": "PASS"
+      },
+      "uniqueContextCoverage": [
+        "TAQEEM_2026_REPORT_QUALITY_MODEL",
+        "REGA_REAL_ESTATE_CONTRIBUTIONS_CONTEXT",
+        "CMA_REAL_ESTATE_FUND_VALUATION_CONTEXT",
+        "SAMA_SUPERVISED_VALUATION_CLIENT_OBLIGATIONS",
+        "SAMA_2026_COLLATERAL_VALUATION_CONTEXT",
+        "SOCPA_IFRS13_FINANCIAL_REPORTING_CONTEXT",
+        "SDAIA_CROSS_BORDER_TRANSFER_CONTEXT",
+        "ZATCA_CURRENT_RETT_IMPLEMENTING_CONTEXT"
+      ]
+    },
+    {
+      "pr": 191,
+      "package": "STANDARDS_AND_LICENSING_SOURCE_EVIDENCE_PHASE_2",
+      "headSha": "90cc4c796545120f5524e31e34639ace6fbe4bf9",
+      "relationship": "PHASE_2_ON_PHASE_1_A",
+      "qualification": {
+        "sourceEvidenceVerify": "PASS",
+        "sourceEvidenceChecks": 81,
+        "releaseVerifyRun": 570,
+        "releaseVerify": "PASS",
+        "regressionTotal": 296,
+        "regressionPassed": 296,
+        "productionBuild": "PASS",
+        "packageVerification": "PASS",
+        "npmAuditCritical": 0,
+        "npmAuditHigh": 0,
+        "npmAuditModerate": 0,
+        "npmAuditLow": 0
+      }
+    }
+  ],
+  "convergenceRules": {
+    "pr189AndPr190AreParallelQualifiedEvidenceIncrements": true,
+    "pr190IsNotDiscarded": true,
+    "pr190IsNotSilentlySupersededByPr189": true,
+    "allUniqueEvidenceArtifactsPreserved": true,
+    "standardsAutoActivationProhibited": true,
+    "legalApplicabilityAutoDerivationProhibited": true,
+    "credentialValidityAutoDerivationProhibited": true,
+    "productionAuthorityAutoDerivationProhibited": true
+  },
+  "convergedEvidenceArtifacts": [
+    "governance/official-valuation-standards-source-evidence-2026-09-08.json",
+    "governance/official-saudi-regulatory-source-evidence-2026-09-08.json",
+    "governance/saudi-regulatory-context-source-evidence-2026-09-08.json",
+    "governance/official-standards-and-licensing-source-evidence-phase2-2026-09-08.json"
+  ],
+  "resolvedItems": [
+    "Waves 7-17 engineering implementation assembled on final engineering release candidate",
+    "Primary IVS/RICS/Taqeem source evidence internally qualified",
+    "Saudi regulatory source evidence phase 1 internally qualified",
+    "Parallel Saudi regulated-context evidence preserved and internally qualified",
+    "IPMS/ICMS/Appraisal Institute comparative source families recorded",
+    "Taqeem professional licensing and 2026 fellowship source context recorded",
+    "Direct Taqeem-hosted IVS text effective 2025-01-31 identified while catalog metadata mismatch remains documented"
+  ],
+  "externalBlockers": [
+    {
+      "id": "SAUDI_PROFESSIONAL_LEGAL_APPLICABILITY_REVIEW",
+      "closed": false
+    },
+    {
+      "id": "ACTUAL_VALUER_REVIEWER_CREDENTIAL_VERIFICATION",
+      "closed": false
+    },
+    {
+      "id": "PDPL_DEPLOYMENT_CONTROL_MAPPING_AND_LEGAL_REVIEW",
+      "closed": false
+    },
+    {
+      "id": "RETT_CMA_SAMA_SOCPA_PURPOSE_SPECIFIC_RULE_ACTIVATION_REVIEW",
+      "closed": false
+    },
+    {
+      "id": "INDEPENDENT_PRODUCTION_SECURITY_AND_PENETRATION_TEST",
+      "closed": false
+    },
+    {
+      "id": "INDEPENDENT_PRODUCTION_PERFORMANCE_RESILIENCE_VALIDATION",
+      "closed": false
+    },
+    {
+      "id": "EXTERNAL_CANONICAL_SOURCE_HASH_COMPARISON",
+      "closed": false,
+      "reason": "CANONICAL_ORIGINAL_PATH has not been supplied/found in recorded CI environments."
+    },
+    {
+      "id": "HUMAN_RELEASE_AUTHORITY_APPROVAL",
+      "closed": false
+    }
+  ],
+  "authorityState": {
+    "formalStandardsConformanceEstablished": false,
+    "officialSourceVerificationCompleteForAllPurposes": false,
+    "saudiProfessionalLicensingEstablished": false,
+    "saudiLegalReviewComplete": false,
+    "pdplComplianceEstablished": false,
+    "productionSecurityValidated": false,
+    "productionPerformanceValidated": false,
+    "productionResilienceValidated": false,
+    "reviewerCredentialsVerified": false,
+    "reviewerIndependenceVerified": false,
+    "certifiedValuationAuthorityEstablished": false,
+    "professionalReportExternalIssuanceAuthorized": false,
+    "releaseAuthorized": false,
+    "mergeAuthorized": false,
+    "deploymentAuthorized": false,
+    "transactionAuthorized": false
+  },
+  "nextControlledTrack": "E2_SAUDI_LEGAL_PROFESSIONAL_APPLICABILITY"
+}
