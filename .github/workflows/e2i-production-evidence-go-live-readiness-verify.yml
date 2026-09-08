@@ -1,0 +1,30 @@
+name: E2I Production Evidence Go Live Readiness Verify
+
+on:
+  pull_request:
+    paths:
+      - 'governance/e2i-production-evidence-go-live-readiness-policy-2026-09-08.json'
+      - 'src/standards/production-evidence-go-live-readiness.js'
+      - 'tests/architecture/run_e2i_production_evidence_go_live_readiness.js'
+      - 'docs/E2I_PRODUCTION_EVIDENCE_GO_LIVE_READINESS_2026-09-08.md'
+      - '.github/workflows/e2i-production-evidence-go-live-readiness-verify.yml'
+      - 'src/standards/execution-attestation-post-deployment-closeout.js'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify E2I production evidence and go-live readiness gate
+        run: node tests/architecture/run_e2i_production_evidence_go_live_readiness.js
+      - name: Re-verify E2H execution closeout gate
+        run: node tests/architecture/run_e2h_execution_attestation_post_deployment_closeout.js
+      - name: Canonical release verification
+        run: npm run release:verify
