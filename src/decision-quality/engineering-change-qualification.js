@@ -29,13 +29,20 @@ const INDEPENDENT_REVIEW_DECISION = Object.freeze({
   REJECT: 'REJECT',
 });
 
-const CALCULATION_SENSITIVE_KINDS = Object.freeze(new Set([
+// Export an immutable value list. Object.freeze(new Set(...)) is not safe:
+// Set.prototype.add/delete/clear can still mutate a frozen Set instance.
+const CALCULATION_SENSITIVE_KINDS = Object.freeze([
   CHANGE_KIND.MODEL_LOGIC,
   CHANGE_KIND.POLICY,
   CHANGE_KIND.STANDARD_OR_RULE,
   CHANGE_KIND.DECISION_THRESHOLD,
   CHANGE_KIND.ASSUMPTION_GUIDANCE,
-]));
+]);
+const CALCULATION_SENSITIVE_KIND_SET = new Set(CALCULATION_SENSITIVE_KINDS);
+
+function isCalculationSensitiveKind(kind) {
+  return CALCULATION_SENSITIVE_KIND_SET.has(kind);
+}
 
 function requiredString(value, field) {
   if (typeof value !== 'string' || value.trim() === '') throw new TypeError(`${field} must be a non-empty string`);
@@ -115,9 +122,8 @@ function assertRegistry(changeControlRegistry, projectId, caseId) {
   if (changeControlRegistry.projectId !== projectId || changeControlRegistry.caseId !== caseId) {
     throw new Error('ENGINEERING_CHANGE_REGISTRY_SCOPE_MISMATCH');
   }
-  if (changeControlRegistry.status !== LEARNING_CHANGE_CONTROL_STATUS.READY_FOR_ENGINEERING_PROPOSAL) return false;
-  if (!Array.isArray(changeControlRegistry.engineeringProposals)) return false;
-  return true;
+  return changeControlRegistry.status === LEARNING_CHANGE_CONTROL_STATUS.READY_FOR_ENGINEERING_PROPOSAL
+    && Array.isArray(changeControlRegistry.engineeringProposals);
 }
 
 function implementationRecord(value, proposal) {
@@ -162,7 +168,9 @@ function calculationRecord(value, proposal) {
     goldenCaseRefs: Object.freeze(goldenCaseRefs),
     result,
     unexplainedVarianceCount: Number.isInteger(value.unexplainedVarianceCount) ? value.unexplainedVarianceCount : 0,
-    approvedExpectedVarianceRef: value.approvedExpectedVarianceRef == null ? null : requiredString(value.approvedExpectedVarianceRef, `calculationEvidence:${proposal.proposalRef}.approvedExpectedVarianceRef`),
+    approvedExpectedVarianceRef: value.approvedExpectedVarianceRef == null
+      ? null
+      : requiredString(value.approvedExpectedVarianceRef, `calculationEvidence:${proposal.proposalRef}.approvedExpectedVarianceRef`),
   });
 }
 
@@ -226,7 +234,9 @@ function independentReviewRecord(value, proposal, implementation, approval) {
     reviewedAt: isoTimestamp(value.reviewedAt, `independentReview:${proposal.proposalRef}.reviewedAt`),
     evidenceSha256: sha256(value.evidenceSha256, `independentReview:${proposal.proposalRef}.evidenceSha256`),
     decision,
-    conditions: Object.freeze(Array.isArray(value.conditions) ? value.conditions.map((item, index) => requiredString(item, `conditions[${index}]`)) : []),
+    conditions: Object.freeze(Array.isArray(value.conditions)
+      ? value.conditions.map((item, index) => requiredString(item, `conditions[${index}]`))
+      : []),
     independenceConfirmed: true,
     authenticityExternallyVerified: false,
   });
@@ -311,7 +321,7 @@ function buildEngineeringChangeQualificationGate({
   }
   const implementationEvidence = proposals.map((proposal) => implementationRecord(implementationEvidenceByProposalRef[proposal.proposalRef], proposal));
 
-  const calcRequired = proposals.filter((proposal) => CALCULATION_SENSITIVE_KINDS.has(proposal.changeKind));
+  const calcRequired = proposals.filter((proposal) => isCalculationSensitiveKind(proposal.changeKind));
   const missingCalculation = calcRequired.filter((proposal) => !calculationEvidenceByProposalRef[proposal.proposalRef]);
   if (missingCalculation.length) {
     return holdEnvelope({
@@ -363,7 +373,7 @@ function buildEngineeringChangeQualificationGate({
     const impact = impactByRef.get(proposal.proposalRef);
     return impact?.independentReviewRequired === true
       || ['HIGH', 'CRITICAL'].includes(impact?.riskLevel)
-      || CALCULATION_SENSITIVE_KINDS.has(proposal.changeKind);
+      || isCalculationSensitiveKind(proposal.changeKind);
   };
   const reviewRequired = proposals.filter(requiresIndependentReview);
   const missingIndependentReview = reviewRequired.filter((proposal) => !independentReviewByProposalRef[proposal.proposalRef]);
@@ -376,6 +386,7 @@ function buildEngineeringChangeQualificationGate({
       records: { proposals, implementationEvidence, calculationEvidence, regressionEvidence, rollbackEvidence },
     });
   }
+
   const implementationByRef = new Map(implementationEvidence.map((item) => [item.proposalRef, item]));
   const independentReviews = reviewRequired.map((proposal) => independentReviewRecord(
     independentReviewByProposalRef[proposal.proposalRef],
@@ -402,7 +413,6 @@ function buildEngineeringChangeQualificationGate({
     independentByRef.get(proposal.proposalRef) || null,
   ));
   const qualified = qualificationDecisions.filter((item) => item.decision === QUALIFICATION_DECISION.QUALIFY_FOR_RELEASE_REVIEW);
-  const rejectedOrDeferred = qualificationDecisions.length - qualified.length;
 
   return deepFreeze({
     schemaVersion: 1,
@@ -419,7 +429,7 @@ function buildEngineeringChangeQualificationGate({
     qualificationDecisions,
     qualifiedForReleaseReviewProposalRefs: qualified.map((item) => item.proposalRef),
     qualifiedForReleaseReviewCount: qualified.length,
-    rejectedOrDeferredCount: rejectedOrDeferred,
+    rejectedOrDeferredCount: qualificationDecisions.length - qualified.length,
     authority: authorityBoundary(),
     humanReviewRequired: true,
     independentReviewEvidenceAuthenticityNotEstablishedByThisLayer: true,
@@ -437,5 +447,6 @@ module.exports = {
   QUALIFICATION_DECISION,
   INDEPENDENT_REVIEW_DECISION,
   CALCULATION_SENSITIVE_KINDS,
+  isCalculationSensitiveKind,
   buildEngineeringChangeQualificationGate,
 };
