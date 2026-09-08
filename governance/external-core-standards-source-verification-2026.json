@@ -1,0 +1,196 @@
+{
+  "schemaVersion": 1,
+  "verificationBatchId": "STARTAK-EXT-STANDARDS-2026-09-08-A",
+  "verifiedAt": "2026-09-08",
+  "candidateHeadSha": "f5cce13e9ac7bb7b5a2d55936f41b3151b8733d5",
+  "blockerId": "OFFICIAL_STANDARDS_SOURCE_VERIFICATION",
+  "blockerDisposition": "PARTIALLY_RESOLVED_CORE_VALUATION_SOURCES_VERIFIED",
+  "officialStandardsSourceVerificationComplete": false,
+  "productionStandardsActivationAuthorized": false,
+  "formalStandardsConformanceEstablished": false,
+  "professionalReviewRequired": true,
+  "legalApplicabilityReviewRequired": true,
+  "records": [
+    {
+      "sourceId": "IVSC-IVS-EFFECTIVE-2025-01-31",
+      "issuer": "International Valuation Standards Council",
+      "jurisdiction": "GLOBAL",
+      "sourceType": "INTERNATIONAL_VALUATION_STANDARD",
+      "title": "International Valuation Standards",
+      "sourceStatus": "CURRENT_EFFECTIVE",
+      "publicationDate": "2024-01-31",
+      "effectiveDate": "2025-01-31",
+      "sourceUrl": "https://ivsc.org/new-edition-of-the-international-valuation-standards-ivs-published/",
+      "officialDomain": "ivsc.org",
+      "verifiedFacts": [
+        "IVSC states the latest edition was published on 31 January 2024.",
+        "IVSC states the edition is effective from 31 January 2025 for valuations performed on or after that date.",
+        "IVSC permits early adoption from publication.",
+        "IVS compliance requires applicable General Standards, appendices and Asset Standards."
+      ],
+      "applicabilityConclusion": "SOURCE_AND_EFFECTIVE_DATE_VERIFIED_ONLY",
+      "productionEnforcementEligible": false
+    },
+    {
+      "sourceId": "TAQEEM-IVS-AR-EFFECTIVE-2025-01-31",
+      "issuer": "Saudi Authority for Accredited Valuers (TAQEEM)",
+      "jurisdiction": "SAUDI_ARABIA",
+      "sourceType": "OFFICIAL_SAUDI_STANDARDS_LIBRARY",
+      "title": "International Valuation Standards - Arabic official library source",
+      "sourceStatus": "CURRENT_EFFECTIVE_SOURCE_AVAILABLE",
+      "publicationDate": null,
+      "effectiveDate": "2025-01-31",
+      "sourceUrl": "https://www.taqeem.gov.sa/web/content/portal.library/131/attachment_ar?download=false",
+      "supportingSourceUrl": "https://taqeem.gov.sa/digital-lib",
+      "officialDomain": "taqeem.gov.sa",
+      "verifiedFacts": [
+        "TAQEEM official digital library provides the current International Valuation Standards Arabic source.",
+        "The official TAQEEM-hosted document states an effective date of 31 January 2025."
+      ],
+      "applicabilityConclusion": "OFFICIAL_SAUDI_SOURCE_AVAILABILITY_VERIFIED_NO_AUTOMATIC_LEGAL_APPLICABILITY_CONCLUSION",
+      "productionEnforcementEligible": false
+    },
+    {
+      "sourceId": "RICS-RED-BOOK-GLOBAL-2025",
+      "issuer": "Royal Institution of Chartered Surveyors",
+      "jurisdiction": "GLOBAL",
+      "sourceType": "PROFESSIONAL_VALUATION_STANDARD",
+      "title": "RICS Valuation - Global Standards (Red Book)",
+      "sourceStatus": "CURRENT_EFFECTIVE",
+      "publicationDate": "2024-12-01",
+      "effectiveDate": "2025-01-31",
+      "sourceUrl": "https://www.rics.org/profession-standards/rics-standards-and-guidance/sector-standards/valuation-standards/red-book/red-book-global",
+      "officialDomain": "rics.org",
+      "verifiedFacts": [
+        "RICS identifies the 2025 edition as the current Red Book Global Standards.",
+        "RICS states the edition is effective from 31 January 2025.",
+        "RICS states national legal requirements take precedence where requirements conflict.",
+        "RICS states the 2025 edition aligns with IVS effective from 31 January 2025."
+      ],
+      "applicabilityConclusion": "SOURCE_AND_EFFECTIVE_DATE_VERIFIED_RICS_MEMBER_OR_FIRM_APPLICABILITY_REQUIRES_CONTEXT_REVIEW",
+      "productionEnforcementEligible": false
+    },
+    {
+      "sourceId": "TAQEEM-RICS-RED-BOOK-2025-AR",
+      "issuer": "Saudi Authority for Accredited Valuers (TAQEEM)",
+      "jurisdiction": "SAUDI_ARABIA",
+      "sourceType": "OFFICIAL_SAUDI_STANDARDS_LIBRARY",
+      "title": "RICS Global Valuation Standards 2025 - Arabic library source",
+      "sourceStatus": "CURRENT_SOURCE_AVAILABLE",
+      "publicationDate": null,
+      "effectiveDate": "2025-01-31",
+      "sourceUrl": "https://taqeem.gov.sa/digital-lib/category/m-yyr-ltqyym-1",
+      "officialDomain": "taqeem.gov.sa",
+      "verifiedFacts": [
+        "TAQEEM official digital library lists the RICS Global Valuation Standards 2025 Arabic source."
+      ],
+      "applicabilityConclusion": "OFFICIAL_SAUDI_LIBRARY_AVAILABILITY_VERIFIED_NOT_A_MANDATORY_APPLICABILITY_FINDING",
+      "productionEnforcementEligible": false
+    },
+    {
+      "sourceId": "RICS-ESG-COMMERCIAL-VALUATION-4E-2026",
+      "issuer": "Royal Institution of Chartered Surveyors",
+      "jurisdiction": "GLOBAL",
+      "sourceType": "PROFESSIONAL_VALUATION_STANDARD",
+      "title": "ESG and sustainability in commercial property valuation, 4th edition",
+      "sourceStatus": "CURRENT_EFFECTIVE",
+      "publicationDate": "2026-01-28",
+      "effectiveDate": "2026-04-30",
+      "sourceUrl": "https://www.rics.org/profession-standards/rics-standards-and-guidance/sector-standards/valuation-standards/esg-and-sustainability-in-commercial-property-valuation",
+      "officialDomain": "rics.org",
+      "verifiedFacts": [
+        "RICS states the 4th edition was published on 28 January 2026.",
+        "RICS states the 4th edition is effective from 30 April 2026.",
+        "The standard distinguishes valuation from strategic ESG risk advice."
+      ],
+      "applicabilityConclusion": "CURRENT_SOURCE_VERIFIED_VALUE_IMPACT_MUST_REMAIN_EVIDENCE_AND_PROFESSIONAL_JUDGMENT_BASED",
+      "productionEnforcementEligible": false
+    },
+    {
+      "sourceId": "RICS-COMPARABLE-EVIDENCE-1E-CURRENT",
+      "issuer": "Royal Institution of Chartered Surveyors",
+      "jurisdiction": "GLOBAL",
+      "sourceType": "PROFESSIONAL_VALUATION_STANDARD",
+      "title": "Comparable evidence in real estate valuation, 1st edition",
+      "sourceStatus": "CURRENT_UNTIL_SUCCESSOR_FINAL",
+      "publicationDate": "2019-10-09",
+      "effectiveDate": null,
+      "reissuedDate": "2023-04-19",
+      "sourceUrl": "https://www.rics.org/profession-standards/rics-standards-and-guidance/sector-standards/valuation-standards/comparable-evidence-in-real-estate-valuation",
+      "officialDomain": "rics.org",
+      "verifiedFacts": [
+        "RICS states members and regulated firms should continue to adopt the 1st edition until the final 2nd edition is published.",
+        "RICS states the document was reissued in April 2023 as a professional standard with regulatory requirements unchanged."
+      ],
+      "applicabilityConclusion": "CURRENT_SOURCE_STATUS_VERIFIED",
+      "productionEnforcementEligible": false
+    },
+    {
+      "sourceId": "RICS-COMPARABLE-EVIDENCE-2E-DRAFT-2026",
+      "issuer": "Royal Institution of Chartered Surveyors",
+      "jurisdiction": "GLOBAL",
+      "sourceType": "DRAFT_PROFESSIONAL_GUIDANCE",
+      "title": "Comparable evidence in real estate valuation, 2nd edition - consultation draft",
+      "sourceStatus": "DRAFT_CONSULTATION",
+      "publicationDate": "2026-07-08",
+      "effectiveDate": null,
+      "consultationClosesDate": "2026-09-18",
+      "sourceUrl": "https://consultations.rics.org/comparableevidence2ndedition/consultationHome",
+      "officialDomain": "rics.org",
+      "verifiedFacts": [
+        "RICS consultation opened on 8 July 2026.",
+        "RICS consultation closes on 18 September 2026.",
+        "The 2nd edition is a consultation draft and is not the current final edition as of 8 September 2026."
+      ],
+      "applicabilityConclusion": "DRAFT_MUST_NOT_AFFECT_PRODUCTION",
+      "productionEnforcementEligible": false
+    },
+    {
+      "sourceId": "TAQEEM-ACCREDITED-VALUERS-LAW-CURRENT-SOURCE",
+      "issuer": "Saudi Authority for Accredited Valuers (TAQEEM)",
+      "jurisdiction": "SAUDI_ARABIA",
+      "sourceType": "SAUDI_LAW_REGULATORY_SOURCE",
+      "title": "Accredited Valuers Law and TAQEEM rules portal",
+      "sourceStatus": "CURRENT_OFFICIAL_SOURCE",
+      "publicationDate": null,
+      "effectiveDate": null,
+      "sourceUrl": "https://www.taqeem.gov.sa/rules",
+      "supportingSourceUrl": "https://taqeem.gov.sa/web/content/portal.rules/8/attachment_ar?download=false",
+      "officialDomain": "taqeem.gov.sa",
+      "verifiedFacts": [
+        "TAQEEM official rules portal lists the Accredited Valuers Law.",
+        "The official law document identifies Royal Decree M/43 dated 7/9/1433H and amendments."
+      ],
+      "applicabilityConclusion": "OFFICIAL_LEGAL_SOURCE_VERIFIED_DETAILED_LEGAL_APPLICABILITY_REVIEW_STILL_REQUIRED",
+      "productionEnforcementEligible": false
+    },
+    {
+      "sourceId": "REGA-REAL-ESTATE-CONSULTATION-ANALYSIS-REGULATION",
+      "issuer": "Real Estate General Authority",
+      "jurisdiction": "SAUDI_ARABIA",
+      "sourceType": "SAUDI_ACTIVE_REGULATION",
+      "title": "Regulations of Real Estate Consultation & Analysis Services",
+      "sourceStatus": "ACTIVE_REGULATION",
+      "publicationDate": null,
+      "effectiveDate": null,
+      "publicationReference": "1445/06/09H",
+      "sourceUrl": "https://rega.gov.sa/en/laws-and-decisions/regulations-and-by-laws/regulations/regulations-of-real-estate-consultation-analysis-services/",
+      "officialDomain": "rega.gov.sa",
+      "verifiedFacts": [
+        "REGA official source marks the regulation Active.",
+        "Article 4 requires an accredited valuer license when services involve real estate valuation.",
+        "The regulation requires consultation information to be accurate and not misleading or inconsistent with official or licensed data."
+      ],
+      "applicabilityConclusion": "ACTIVE_REGULATORY_SOURCE_VERIFIED_PLATFORM_LEGAL_SCOPE_REVIEW_STILL_REQUIRED",
+      "productionEnforcementEligible": false
+    }
+  ],
+  "remainingSourceVerificationWork": [
+    "Confirm the current final TAQEEM comprehensive real-estate valuation guide and its effective/approval status; the 2025 public survey source by itself is not a final authority source.",
+    "Map the current TAQEEM implementing regulation, ethics rules and financing-valuation rules provision-by-provision before production enforcement.",
+    "Verify and map ZATCA RETT sources only for transaction/tax contexts.",
+    "Verify and map PDPL and implementing-regulation sources through the separate privacy/legal blocker.",
+    "Verify CMA, SAMA, SOCPA/IFRS sources only when the purpose router places a case in those regulated contexts.",
+    "Obtain professional/legal approval before changing any registry item to ACTIVE or enabling production enforcement."
+  ]
+}
