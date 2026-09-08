@@ -5,6 +5,7 @@ import App from './app/App.jsx';
 import LocalDocumentEvidenceWorkspace from './components/LocalDocumentEvidenceWorkspace.jsx';
 import ComplianceBoundaryNotice from './components/ComplianceBoundaryNotice.jsx';
 import ExitCapGuidanceEnhancer from './components/ExitCapGuidanceEnhancer.jsx';
+import CanonicalCaseWorkspacePanel from './components/CanonicalCaseWorkspacePanel.jsx';
 const { LocaleProvider } = require('./i18n/LocaleContext.js');
 const { installRuntimeBuildMetadata } = require('./runtime/build-metadata.js');
 const { installGlobalHandlers } = require('./observability/report-runtime-error.js');
@@ -17,11 +18,12 @@ activateCustomerFacingVerdictPresentation();
 installGlobalHandlers(); // privacy-minimized live Sentry provider
 
 // SECURITY / INTEGRITY BOUNDARY:
-// Governance-grade Decision Intelligence, Investment Committee, action-review,
-// outcome-feedback and learning records are deliberately NOT read from ambient
-// window globals. Browser console/script mutation is not an authenticated data
-// boundary. Those panels may only be re-enabled through an explicit in-app data
-// path that provides scoped, validated and attributable records.
+// Governance-grade records are never read from ambient window globals. The
+// canonical workspace below is the first explicit in-app route from validated
+// Saved Deals + explicit project/case classification into a scoped canonical
+// ExecutableInvestmentCase. Decision Intelligence may render only from that
+// local canonical route. Investment Committee, action-review, outcome-feedback
+// and learning remain disabled until they receive an equivalent controlled path.
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <LocaleProvider defaultLocale="ar-SA">
@@ -29,6 +31,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <App />
       <ExitCapGuidanceEnhancer />
       <LocalDocumentEvidenceWorkspace />
+      <CanonicalCaseWorkspacePanel />
     </LocaleProvider>
   </React.StrictMode>
 );
