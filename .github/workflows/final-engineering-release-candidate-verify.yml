@@ -1,0 +1,28 @@
+name: Final Engineering Release Candidate Verify
+
+on:
+  pull_request:
+    paths:
+      - 'src/qualification/final-engineering-release-candidate.js'
+      - 'tests/architecture/run_final_engineering_release_candidate.js'
+      - '.github/workflows/final-engineering-release-candidate-verify.yml'
+      - 'docs/FINAL_ENGINEERING_RELEASE_CANDIDATE.md'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Final engineering release candidate manifest
+        run: node tests/architecture/run_final_engineering_release_candidate.js
+      - name: Wave 17 engineering closeout regression
+        run: node tests/architecture/run_wave17d_engineering_closeout.js
+      - name: Canonical release verification
+        run: npm run release:verify
