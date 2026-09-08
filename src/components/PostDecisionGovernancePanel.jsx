@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import OutcomeMonitoringPanel from './OutcomeMonitoringPanel.jsx';
+import LearningChangeControlPanel from './LearningChangeControlPanel.jsx';
 const { buildPostDecisionGovernanceWorkspace } = require('../runtime/post-decision-governance-workspace');
 
 function Badge({ children }) {
@@ -25,6 +26,9 @@ export default function PostDecisionGovernancePanel({
   professionalReviewByActionId = {},
   outcomeSnapshot = null,
   comparisonItems = [],
+  learningDispositions = [],
+  impactAssessmentsByProposalRef = {},
+  changeApprovalsByProposalRef = {},
 }) {
   const pipeline = useMemo(() => {
     if (!canonicalWorkspace) return null;
@@ -97,6 +101,17 @@ export default function PostDecisionGovernancePanel({
           outcomeFeedback={pipeline.outcomeFeedback}
           learningReview={pipeline.learningReview}
           decisionRecord={pipeline.decisionRecord}
+        />
+      ) : null}
+
+      {pipeline.learningReview ? (
+        <LearningChangeControlPanel
+          projectId={pipeline.projectId}
+          caseId={pipeline.caseId}
+          learningReview={pipeline.learningReview}
+          humanDispositions={learningDispositions}
+          impactAssessmentsByProposalRef={impactAssessmentsByProposalRef}
+          changeApprovalsByProposalRef={changeApprovalsByProposalRef}
         />
       ) : null}
     </>
