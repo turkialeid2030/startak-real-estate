@@ -127,10 +127,12 @@ function createAuthorityMetadata(candidate) {
  * into the canonical case contract. Missing lifecycle stages remain explicitly
  * NOT_EVALUATED / PLANNED; no professional or release authority is inferred.
  *
- * Backward compatibility: callers that only provide the original arguments keep
- * the original screening/financial/recommendation behavior.
+ * `projectId` and `projectProfile` are optional for backward compatibility. The
+ * canonical project-model orchestrator supplies both so cross-project identity
+ * is retained in the authoritative assembled case.
  */
 function createExecutableInvestmentCase({
+  projectId = null,
   caseId,
   studyType,
   inputs,
@@ -141,6 +143,9 @@ function createExecutableInvestmentCase({
 }) {
   if (!domainOutputs || typeof domainOutputs !== 'object' || Array.isArray(domainOutputs)) {
     throw new TypeError('domainOutputs must be an object');
+  }
+  if (projectId !== null && (typeof projectId !== 'string' || projectId.trim() === '')) {
+    throw new TypeError('projectId must be a non-empty string or null');
   }
 
   const lifecycleFallbacks = fallbackLifecycleSections();
@@ -199,9 +204,13 @@ function createExecutableInvestmentCase({
 
   return {
     schemaVersion: EXECUTABLE_CASE_SCHEMA_VERSION,
+    projectId: projectId === null ? null : projectId.trim(),
     caseId,
     studyType,
     studyLevel: domainOutputs.studyLevel || STUDY_LEVEL.SCREENING,
+    projectProfile: domainOutputs.projectProfile && typeof domainOutputs.projectProfile === 'object'
+      ? { ...domainOutputs.projectProfile }
+      : null,
     inputs,
     ...caseSections,
     analyticalPackage: domainOutputs.analyticalPackage || null,
