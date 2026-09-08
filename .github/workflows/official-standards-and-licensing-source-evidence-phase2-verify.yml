@@ -1,0 +1,26 @@
+name: Official Standards & Licensing Source Evidence Phase 2 Verify
+
+on:
+  pull_request:
+    paths:
+      - 'governance/official-standards-and-licensing-source-evidence-phase2-2026-09-08.json'
+      - 'tests/architecture/run_official_standards_and_licensing_source_evidence_phase2.js'
+      - '.github/workflows/official-standards-and-licensing-source-evidence-phase2-verify.yml'
+      - 'docs/OFFICIAL_STANDARDS_AND_LICENSING_SOURCE_VERIFICATION_PHASE2_2026-09-08.md'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify standards and licensing source evidence phase 2
+        run: node tests/architecture/run_official_standards_and_licensing_source_evidence_phase2.js
+      - name: Canonical release verification
+        run: npm run release:verify
