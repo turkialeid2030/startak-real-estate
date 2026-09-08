@@ -1,0 +1,199 @@
+{
+  "schemaVersion": 1,
+  "verificationBatchId": "STARTAK-EXT-SAUDI-REG-PRIVACY-2026-09-08-B",
+  "verifiedAt": "2026-09-08",
+  "candidateHeadSha": "12394a6968c33d5b1c4a34d553235b8f4c93fc3f",
+  "blockers": [
+    {
+      "blockerId": "SAUDI_PROFESSIONAL_LICENSING_AND_LEGAL_REVIEW",
+      "disposition": "PARTIALLY_RESOLVED_OFFICIAL_REGULATORY_SOURCES_VERIFIED",
+      "closed": false
+    },
+    {
+      "blockerId": "PDPL_AND_DATA_GOVERNANCE_EXTERNAL_REVIEW",
+      "disposition": "PARTIALLY_RESOLVED_PDPL_SOURCE_AND_CONTROL_BASELINE_VERIFIED",
+      "closed": false
+    }
+  ],
+  "legalApplicabilityReviewComplete": false,
+  "pdplComplianceEstablished": false,
+  "saudiProfessionalLicensingEstablished": false,
+  "productionControlImplementationVerified": false,
+  "externalLegalOpinionEstablished": false,
+  "mergeAuthorized": false,
+  "deploymentAuthorized": false,
+  "records": [
+    {
+      "sourceId": "SDAIA-PDPL-CURRENT",
+      "issuer": "Saudi Data & AI Authority / National Data Management Office",
+      "domain": "dgp.sdaia.gov.sa",
+      "sourceType": "SAUDI_LAW",
+      "title": "Personal Data Protection Law",
+      "sourceUrl": "https://dgp.sdaia.gov.sa/wps/portal/pdp/knowledgecenter/details/PDPL/",
+      "sourceStatus": "ACTIVE",
+      "effectiveDate": "2023-09-14",
+      "verifiedFacts": [
+        "The PDPL came into force on 14 September 2023.",
+        "The original one-year corrective period targeted compliance by 14 September 2024.",
+        "Personal Data includes information that directly or indirectly identifies an individual."
+      ],
+      "platformControlImplications": [
+        "DATA_INVENTORY_AND_CLASSIFICATION_REQUIRED",
+        "PROCESSING_PURPOSE_AND_LEGAL_BASIS_REQUIRED",
+        "DATA_SUBJECT_RIGHTS_WORKFLOW_REQUIRED"
+      ]
+    },
+    {
+      "sourceId": "SDAIA-PDPL-IMPLEMENTING-REGULATION",
+      "issuer": "Saudi Data & AI Authority / National Data Management Office",
+      "domain": "dgp.sdaia.gov.sa",
+      "sourceType": "SAUDI_IMPLEMENTING_REGULATION",
+      "title": "The Implementing Regulation of the Personal Data Protection Law",
+      "sourceUrl": "https://dgp.sdaia.gov.sa/wps/portal/pdp/knowledgecenter/details/PDPL2",
+      "sourceStatus": "ACTIVE",
+      "effectiveDate": "2023-09-14",
+      "verifiedFacts": [
+        "The Implementing Regulation comes into force from the date of the Law enforcement.",
+        "Before or when collecting Personal Data directly, the Controller must provide identity/contact details, applicable DPO contact, legal basis and explicit purpose, retention information, and Data Subject rights information.",
+        "Processor selection requires sufficient guarantees and a processing agreement covering purpose, data categories, duration, breach notification and subprocessors.",
+        "A documented impact assessment is required in specified higher-risk processing cases including Sensitive Data, dataset linking, certain large-scale/monitoring/new-technology or automated-decision processing, and services likely to cause serious privacy harm.",
+        "A qualifying Personal Data Breach must be notified to the Competent Authority within no more than 72 hours after awareness.",
+        "DPO appointment is required in specified cases including certain large-scale public processing, systematic monitoring, or core Sensitive Data processing.",
+        "Records of Personal Data Processing activities must be maintained during processing and up to five years after the end of a processing activity."
+      ],
+      "platformControlImplications": [
+        "PRIVACY_NOTICE_AND_RIGHT_TO_BE_INFORMED_GATE",
+        "PROCESSOR_AND_SUBPROCESSOR_REGISTER",
+        "DPIA_TRIGGER_AND_EVIDENCE_WORKFLOW",
+        "BREACH_72_HOUR_ESCALATION_WORKFLOW",
+        "DPO_APPLICABILITY_ASSESSMENT",
+        "ROPA_RETENTION_AND_AUDITABILITY"
+      ]
+    },
+    {
+      "sourceId": "SDAIA-PDPL-CROSS-BORDER-TRANSFER-REGULATION",
+      "issuer": "Saudi Data & AI Authority / National Data Management Office",
+      "domain": "dgp.sdaia.gov.sa",
+      "sourceType": "SAUDI_IMPLEMENTING_REGULATION",
+      "title": "Regulation on Personal Data Transfer Outside the Kingdom",
+      "sourceUrl": "https://dgp.sdaia.gov.sa/wps/portal/pdp/knowledgecenter/details/PDPL2/",
+      "sourceStatus": "ACTIVE",
+      "effectiveDate": "2023-09-14",
+      "verifiedFacts": [
+        "Appropriate safeguards may include approved Binding Common Rules, Standard Contractual Clauses, authorized compliance certifications, or approved binding codes of conduct where applicable.",
+        "Risk assessment is required for transfers under specified safeguard/exemption cases and for continuous or large-scale transfer of Sensitive Data.",
+        "Risk assessment includes purpose/legal basis, transfer nature/geographic scope, safeguards, data minimization, impact and mitigation measures."
+      ],
+      "platformControlImplications": [
+        "DATA_RESIDENCY_AND_TRANSFER_INVENTORY",
+        "CROSS_BORDER_TRANSFER_LEGAL_BASIS_AND_SAFEGUARD_EVIDENCE",
+        "TRANSFER_RISK_ASSESSMENT_GATE"
+      ]
+    },
+    {
+      "sourceId": "TAQEEM-IMPLEMENTING-REGULATION-CURRENT",
+      "issuer": "Saudi Authority for Accredited Valuers (TAQEEM)",
+      "domain": "taqeem.gov.sa",
+      "sourceType": "SAUDI_PROFESSIONAL_IMPLEMENTING_REGULATION",
+      "title": "Implementing Regulation of the Accredited Valuers Law",
+      "sourceUrl": "https://www.taqeem.gov.sa/web/content/portal.rules/10/attachment_ar?download=false",
+      "sourceStatus": "CURRENT_OFFICIAL_SOURCE",
+      "effectiveDate": null,
+      "verifiedFacts": [
+        "TAQEEM's current rules portal lists the Implementing Regulation of the Accredited Valuers Law.",
+        "The regulation defines the professional framework as including the Law, Implementing Regulation, Code of Conduct, adopted valuation standards, professional manuals, continuing education rules, and Authority decisions/instructions."
+      ],
+      "platformControlImplications": [
+        "PROFESSIONAL_SCOPE_ROUTER_REMAINS_FAIL_CLOSED",
+        "LICENSE_AND_MEMBERSHIP_CREDENTIALS_REQUIRE_EXTERNAL_VERIFICATION",
+        "TAQEEM_RULESET_REQUIRES_PROVISION_LEVEL_MAPPING_BEFORE_ENFORCEMENT"
+      ]
+    },
+    {
+      "sourceId": "TAQEEM-CODE-OF-CONDUCT-2023-CURRENT",
+      "issuer": "Saudi Authority for Accredited Valuers (TAQEEM)",
+      "domain": "taqeem.gov.sa",
+      "sourceType": "SAUDI_PROFESSIONAL_CONDUCT_RULES",
+      "title": "Code of Conduct and Ethics of the Valuation Profession",
+      "sourceUrl": "https://www.taqeem.gov.sa/web/content/portal.rules/9/attachment_ar?download=false",
+      "sourceStatus": "CURRENT_OFFICIAL_SOURCE",
+      "effectiveDate": null,
+      "verifiedFacts": [
+        "The current code was approved by TAQEEM's Board on 24 July 2023.",
+        "The rules apply to accredited valuers, Authority members and workers in the profession as applicable.",
+        "The code requires professional conduct, confidentiality and compliance with valuation rules and regulations."
+      ],
+      "platformControlImplications": [
+        "CONFLICT_INDEPENDENCE_COMPETENCE_AND_CONFIDENTIALITY_EVIDENCE",
+        "HUMAN_PROFESSIONAL_REVIEW_REQUIRED",
+        "NO_AI_OR_SYSTEM_SIGNATURE_AS_ACCREDITED_VALUER"
+      ]
+    },
+    {
+      "sourceId": "TAQEEM-FINANCING-VALUATION-RULES-CURRENT",
+      "issuer": "Saudi Authority for Accredited Valuers (TAQEEM)",
+      "domain": "taqeem.gov.sa",
+      "sourceType": "SAUDI_PURPOSE_SPECIFIC_PROFESSIONAL_RULES",
+      "title": "Rules Regulating Real Estate Valuation Services for Financing Entities",
+      "sourceUrl": "https://taqeem.gov.sa/web/content/portal.rules/27/attachment_ar?download=false",
+      "sourceStatus": "CURRENT_OFFICIAL_SOURCE",
+      "effectiveDate": null,
+      "verifiedFacts": [
+        "The rules regulate real estate valuation services for financing entities.",
+        "They reference the Implementing Regulation issued by Minister of Finance decision No. 107 dated 28/1/1445H and its amendments.",
+        "Financing entities include commercial banks and finance companies licensed and supervised by the Saudi Central Bank.",
+        "The rules define Qaym as the unified electronic platform for real estate valuation services supervised by TAQEEM."
+      ],
+      "platformControlImplications": [
+        "FINANCING_PURPOSE_ROUTER_MUST_NOT_REUSE_GENERAL_VALUATION_RULES_BLINDLY",
+        "QAYM_AND_FINANCING_WORKFLOW_REQUIRE_SEPARATE_OPERATIONAL_INTEGRATION_REVIEW",
+        "SAMA_CONTEXT_REMAINS_SEPARATE_PURPOSE_DEPENDENT_ROUTER"
+      ]
+    },
+    {
+      "sourceId": "TAQEEM-REAL-ESTATE-SECTOR-OBLIGATIONS-2026",
+      "issuer": "Saudi Authority for Accredited Valuers (TAQEEM)",
+      "domain": "taqeem.gov.sa",
+      "sourceType": "CURRENT_OFFICIAL_PROFESSIONAL_GUIDANCE_PAGE",
+      "title": "Real Estate Valuation Sector - Professional Obligations",
+      "sourceUrl": "https://taqeem.gov.sa/en/sector/realEstate",
+      "sourceStatus": "CURRENT_OFFICIAL_SOURCE",
+      "effectiveDate": null,
+      "verifiedFacts": [
+        "TAQEEM states valuation license holders must practice in accordance with the rules regulating the valuation profession.",
+        "Valuation reports must be signed by authorized participants in accordance with the Law and related requirements.",
+        "TAQEEM states reports are issued in Arabic, with another language permissible by agreement while an Arabic certified copy must be available to the Authority or competent official authority upon request.",
+        "A complete work file is required for each final valuation report including correspondence, documents, data, inspections, sources, methods, analysis, calculations and actions supporting the valuation conclusion."
+      ],
+      "platformControlImplications": [
+        "REPORT_LANGUAGE_AND_EXTERNAL_ISSUANCE_REQUIRES_PROFESSIONAL_REVIEW",
+        "WORKFILE_CHAIN_OF_CUSTODY_REQUIRED",
+        "REPORT_SIGNING_AND_CREDENTIAL_VALIDATION_EXTERNAL_GATE"
+      ]
+    },
+    {
+      "sourceId": "TAQEEM-APPROVED-MINIMUM-REPORT-TEMPLATE-LIBRARY-2026",
+      "issuer": "Saudi Authority for Accredited Valuers (TAQEEM)",
+      "domain": "taqeem.gov.sa",
+      "sourceType": "CURRENT_OFFICIAL_PROFESSIONAL_LIBRARY",
+      "title": "Approved report template containing minimum requirements",
+      "sourceUrl": "https://taqeem.gov.sa/digital-lib/category/dl-lmmrs-lmhny-2",
+      "sourceStatus": "CURRENT_OFFICIAL_SOURCE_AVAILABLE",
+      "effectiveDate": null,
+      "verifiedFacts": [
+        "TAQEEM's professional-practice digital library currently lists an approved report template containing minimum requirements for real-estate valuation reports and other valuation sectors."
+      ],
+      "platformControlImplications": [
+        "TAQEEM_REPORT_QA_REQUIRES_TEMPLATE_SECTION_LEVEL_MAPPING_BEFORE_FORMAL_CONFORMANCE",
+        "REPORT_CONFORMANCE_CANNOT_BE_CLAIMED_FROM_LIBRARY_LISTING_ALONE"
+      ]
+    }
+  ],
+  "remainingExternalReview": [
+    "Saudi counsel/professional reviewer must determine which TAQEEM/REGA provisions legally apply to STARTAK's actual operating model, users, report outputs and commercial launch model.",
+    "PDPL counsel/privacy officer must validate controller/processor roles, data inventory, lawful bases, notices, retention, Data Subject rights, DPIA triggers, breach workflow, subprocessors and international transfers against actual architecture and contracts.",
+    "Current TAQEEM minimum-report template must be fetched and mapped section-by-section before formal Taqeem report-conformance claims.",
+    "Financing-purpose deployment requires separate Qaym/SAMA operational and legal review.",
+    "No production control is considered implemented merely because its official legal source is recorded here."
+  ]
+}
