@@ -1,8 +1,8 @@
 'use strict';
 
 const crypto = require('crypto');
-const { SECURITY_QUALIFICATION_STATUS } = require('../security/security-qualification-envelope.js');
-const { PERFORMANCE_QUALIFICATION_STATUS } = require('./performance-resilience.js');
+const { SECURITY_QUALIFICATION_STATUS, verifySecurityQualificationEnvelope } = require('../security/security-qualification-envelope.js');
+const { PERFORMANCE_QUALIFICATION_STATUS, verifyPerformanceResilienceQualification } = require('./performance-resilience.js');
 
 const INDEPENDENT_RELEASE_STATUS = Object.freeze({
   READY_FOR_HUMAN_RELEASE_REVIEW: 'READY_FOR_HUMAN_RELEASE_REVIEW',
@@ -54,11 +54,18 @@ function buildIndependentReleaseQualification({qualificationId,exactCommitSha,se
   if(!performanceQualification||typeof performanceQualification!=='object')throw new TypeError('performanceQualification is required');
   if(!releaseEvidence||typeof releaseEvidence!=='object')throw new TypeError('releaseEvidence is required');
   let status=INDEPENDENT_RELEASE_STATUS.READY_FOR_HUMAN_RELEASE_REVIEW; const reasonCodes=[];
-  if(securityQualification.status!==SECURITY_QUALIFICATION_STATUS.READY_FOR_INDEPENDENT_SECURITY_VALIDATION){status=INDEPENDENT_RELEASE_STATUS.HOLD_SECURITY_QUALIFICATION;reasonCodes.push(`SECURITY:${String(securityQualification.status||'UNKNOWN')}`);}
-  else if(performanceQualification.status!==PERFORMANCE_QUALIFICATION_STATUS.READY_FOR_INDEPENDENT_RELEASE_QUALIFICATION){status=INDEPENDENT_RELEASE_STATUS.HOLD_PERFORMANCE_QUALIFICATION;reasonCodes.push(`PERFORMANCE:${String(performanceQualification.status||'UNKNOWN')}`);}
-  else if(!verifyCanonicalReleaseEvidence(releaseEvidence).valid){status=INDEPENDENT_RELEASE_STATUS.HOLD_INTEGRITY;reasonCodes.push('RELEASE_EVIDENCE_INTEGRITY');}
-  else if(securityQualification.exactCommitSha!==commit||performanceQualification.exactCommitSha!==commit||releaseEvidence.exactCommitSha!==commit){status=INDEPENDENT_RELEASE_STATUS.HOLD_SCOPE_MISMATCH;reasonCodes.push('EXACT_COMMIT_SCOPE_MISMATCH');}
-  else if(!(releaseEvidence.regressionPass&&releaseEvidence.productionBuildPass&&releaseEvidence.packageVerificationPass&&releaseEvidence.releaseVerifyPass&&Object.values(releaseEvidence.npmAudit).every(v=>v===0))){status=INDEPENDENT_RELEASE_STATUS.HOLD_RELEASE_EVIDENCE;reasonCodes.push('CANONICAL_RELEASE_GATES_NOT_ALL_PASS');}
+
+  if(!verifySecurityQualificationEnvelope(securityQualification).valid || !verifyPerformanceResilienceQualification(performanceQualification).valid || !verifyCanonicalReleaseEvidence(releaseEvidence).valid){
+    status=INDEPENDENT_RELEASE_STATUS.HOLD_INTEGRITY; reasonCodes.push('UPSTREAM_OR_RELEASE_EVIDENCE_INTEGRITY');
+  } else if(securityQualification.status!==SECURITY_QUALIFICATION_STATUS.READY_FOR_INDEPENDENT_SECURITY_VALIDATION){
+    status=INDEPENDENT_RELEASE_STATUS.HOLD_SECURITY_QUALIFICATION; reasonCodes.push(`SECURITY:${String(securityQualification.status||'UNKNOWN')}`);
+  } else if(performanceQualification.status!==PERFORMANCE_QUALIFICATION_STATUS.READY_FOR_INDEPENDENT_RELEASE_QUALIFICATION){
+    status=INDEPENDENT_RELEASE_STATUS.HOLD_PERFORMANCE_QUALIFICATION; reasonCodes.push(`PERFORMANCE:${String(performanceQualification.status||'UNKNOWN')}`);
+  } else if(securityQualification.exactCommitSha!==commit||performanceQualification.exactCommitSha!==commit||releaseEvidence.exactCommitSha!==commit){
+    status=INDEPENDENT_RELEASE_STATUS.HOLD_SCOPE_MISMATCH; reasonCodes.push('EXACT_COMMIT_SCOPE_MISMATCH');
+  } else if(!(releaseEvidence.regressionPass&&releaseEvidence.productionBuildPass&&releaseEvidence.packageVerificationPass&&releaseEvidence.releaseVerifyPass&&Object.values(releaseEvidence.npmAudit).every(v=>v===0))){
+    status=INDEPENDENT_RELEASE_STATUS.HOLD_RELEASE_EVIDENCE; reasonCodes.push('CANONICAL_RELEASE_GATES_NOT_ALL_PASS');
+  }
 
   const payload={
     qualificationId:req(qualificationId,'qualificationId'),status,reasonCodes,exactCommitSha:commit,
