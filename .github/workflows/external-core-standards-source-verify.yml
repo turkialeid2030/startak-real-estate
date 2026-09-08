@@ -1,0 +1,30 @@
+name: External Core Standards Source Verify
+
+on:
+  pull_request:
+    paths:
+      - 'governance/external-core-standards-source-verification-2026.json'
+      - 'src/standards/external-source-verification.js'
+      - 'tests/architecture/run_external_core_standards_source_verification.js'
+      - 'docs/EXTERNAL_CORE_STANDARDS_SOURCE_VERIFICATION_2026.md'
+      - '.github/workflows/external-core-standards-source-verify.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: External core standards source verification
+        run: node tests/architecture/run_external_core_standards_source_verification.js
+      - name: Canonical release verification
+        run: npm run release:verify
