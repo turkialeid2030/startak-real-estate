@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "evidenceSubmissionId": null,
+  "parentTrackerIssue": 202,
+  "workstreamIssue": null,
+  "evidenceType": null,
+  "result": null,
+  "submittedAt": null,
+  "reviewedAt": null,
+  "validUntil": null,
+  "reviewer": {
+    "name": null,
+    "organization": null,
+    "role": null,
+    "credentialOrAuthorityBasis": null,
+    "credentialVerificationSource": null,
+    "independenceStatement": null
+  },
+  "scope": {
+    "description": null,
+    "releaseCandidateId": null,
+    "sourceCommitSha": "f910a086039b0cbde93faa063b468bfd0c28a3f9",
+    "artifactSha256": null,
+    "environmentRef": null,
+    "environmentConfigSha256": null,
+    "reviewedUrlsOrInterfaces": [],
+    "exclusions": []
+  },
+  "artifact": {
+    "classification": "CONTROLLED_EXTERNAL_EVIDENCE",
+    "publicRepositoryCopyAllowed": false,
+    "controlledRepositoryReference": null,
+    "artifactFilenameOrIdentifier": null,
+    "artifactSha256": null,
+    "verificationSource": null
+  },
+  "findings": {
+    "critical": [],
+    "high": [],
+    "medium": [],
+    "low": [],
+    "observations": [],
+    "conditions": [],
+    "unresolvedItems": []
+  },
+  "remediation": {
+    "required": false,
+    "items": [],
+    "retestRequired": false,
+    "retestEvidenceReference": null
+  },
+  "acceptance": {
+    "acceptedBy": null,
+    "acceptanceAuthorityBasis": null,
+    "acceptedAt": null,
+    "acceptanceResult": null,
+    "acceptanceEvidenceReference": null,
+    "acceptanceEvidenceSha256": null
+  },
+  "authorityBoundary": {
+    "formalStandardsConformanceEstablished": false,
+    "standardsOrRulesActivated": false,
+    "saudiProfessionalLicensingEstablished": false,
+    "certifiedValuationAuthorityEstablished": false,
+    "externalProfessionalValuationIssuanceAuthorized": false,
+    "transactionAuthorized": false
+  },
+  "notes": "Template only. Null fields must be populated from real external evidence. Do not use internally generated or synthetic values to close Issues #203-#208."
+}
