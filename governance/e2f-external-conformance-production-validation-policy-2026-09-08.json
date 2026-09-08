@@ -1,0 +1,51 @@
+{
+  "policyId": "STARTAK-E2F-EXTERNAL-CONFORMANCE-PRODUCTION-VALIDATION-POLICY-2026-09-08",
+  "createdAt": "2026-09-08T14:40:00+03:00",
+  "operatingMode": "UNLICENSED_DECISION_SUPPORT",
+  "status": "ENGINEERING_VALIDATION_GATE_DEFINED_PRODUCTION_EXTERNAL_EVIDENCE_NOT_CONFIGURED",
+  "purpose": "Define a fail-closed cryptographic validation gate for independently authenticated E2E conformance evidence and production-specific security, performance and resilience validation. Completion of this gate does not establish formal professional standards conformance, platform licensing, certified valuation authority, external issuance authority, release approval, merge authority, deployment authority or transaction authority.",
+  "requiredUpstreamStatus": "RULE_IMPLEMENTATION_EVIDENCE_READY_FOR_EXTERNAL_CONFORMANCE_VALIDATION",
+  "trustedVerifierRegistryRequired": true,
+  "trustedRegistryHashPinnedOutOfBandRequired": true,
+  "callerDeclaredValidationAccepted": false,
+  "implementationActorMayValidate": false,
+  "signatureAlgorithmsAllowed": [
+    "RSA-SHA256"
+  ],
+  "requiredValidationTypes": [
+    "EXTERNAL_CONFORMANCE_AUTHENTICITY",
+    "PRODUCTION_SECURITY_VALIDATION",
+    "PRODUCTION_PERFORMANCE_VALIDATION",
+    "PRODUCTION_RESILIENCE_VALIDATION"
+  ],
+  "allowedValidationResults": [
+    "VERIFIED",
+    "REJECTED",
+    "INCONCLUSIVE"
+  ],
+  "productionTrustedVerifierRegistryConfigured": false,
+  "productionExternalConformanceEvidencePresent": false,
+  "productionSecurityValidationEvidencePresent": false,
+  "productionPerformanceValidationEvidencePresent": false,
+  "productionResilienceValidationEvidencePresent": false,
+  "formalStandardsConformanceAutoEstablished": false,
+  "automaticRuleActivationAllowed": false,
+  "automaticReleaseAllowed": false,
+  "automaticDeploymentAllowed": false,
+  "maximumEngineeringStatus": "EXTERNAL_CONFORMANCE_AND_PRODUCTION_VALIDATION_COMPLETE_PENDING_RELEASE_AUTHORITY",
+  "authorityBoundary": {
+    "externalConformanceEvidenceAuthenticityValidated": true,
+    "productionSecurityValidated": true,
+    "productionPerformanceValidated": true,
+    "productionResilienceValidated": true,
+    "formalStandardsConformanceEstablished": false,
+    "standardsOrRulesActivated": false,
+    "saudiProfessionalLicensingEstablished": false,
+    "certifiedValuationAuthorityEstablished": false,
+    "externalIssuanceAuthorized": false,
+    "releaseAuthorized": false,
+    "mergeAuthorized": false,
+    "deploymentAuthorized": false,
+    "transactionAuthorized": false
+  }
+}
