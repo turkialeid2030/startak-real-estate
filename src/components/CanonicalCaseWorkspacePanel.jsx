@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import DecisionIntelligenceWorkspacePanel from './DecisionIntelligenceWorkspacePanel.jsx';
+import InvestmentCommitteeDossierPanel from './InvestmentCommitteeDossierPanel.jsx';
 const { useLocale } = require('../i18n/LocaleContext.js');
 const { createStorageProvider } = require('../storage/create-storage-provider');
 const {
@@ -11,7 +12,8 @@ const {
 } = require('../project-model');
 const {
   createCanonicalWorkspaceFromSavedDeal,
-} = require('../runtime/saved-deal-canonical-workspace-bridge');
+  buildCanonicalCommitteePreparation,
+} = require('../runtime');
 
 const SELECT_STYLE = 'w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-200';
 const INPUT_STYLE = 'w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-200 placeholder:text-slate-600';
@@ -30,29 +32,6 @@ function Select({ value, onChange, options, ariaLabel }) {
       {options.map((option) => <option key={option} value={option}>{option}</option>)}
     </select>
   );
-}
-
-function buildDecisionWorkspace(canonicalWorkspace) {
-  const unresolved = canonicalWorkspace.orchestration?.unresolvedLifecycleSections || [];
-  const reasonCodes = canonicalWorkspace.orchestration?.reasonCodes || [];
-  return Object.freeze({
-    projectId: canonicalWorkspace.projectId,
-    caseId: canonicalWorkspace.caseId,
-    status: unresolved.length ? 'HOLD_STUDY' : 'READY_FOR_REVIEW',
-    reasonCodes,
-    evidence: Object.freeze([]),
-    assumptions: Object.freeze([]),
-    decisionQuality: Object.freeze({
-      status: unresolved.length ? 'HOLD_STUDY' : 'READY_FOR_REVIEW',
-      reliability: 'UNQUALIFIED_FOR_PROFESSIONAL_RELEASE',
-      nextBestDueDiligence: unresolved.length
-        ? Object.freeze({ id: `LIFECYCLE:${unresolved[0]}`, priority: 'HIGH' })
-        : null,
-    }),
-    ai: Object.freeze([]),
-    humanDecisionRequired: true,
-    transactionAuthorized: false,
-  });
 }
 
 export default function CanonicalCaseWorkspacePanel() {
@@ -95,9 +74,10 @@ export default function CanonicalCaseWorkspacePanel() {
     noDeals: 'No saved deals are available. Save a deal in the main workspace first.',
     required: 'Select a saved deal and enter Workspace ID, Project ID, Case ID and actor ID.',
     selfAsserted: 'Actor attribution is self-asserted local metadata; it is not authenticated identity.',
-    boundaries: 'No professional valuation, legal approval, release, deployment or transaction authority is granted by this workspace.',
+    boundaries: 'No professional valuation, legal approval, committee decision, release, deployment or transaction authority is granted by this workspace.',
     status: 'Workspace status',
     unresolved: 'Unresolved lifecycle sections',
+    governance: 'Governance projection',
   } : {
     eyebrow: 'المسار الداخلي للحالة المعيارية',
     title: 'مساحة الحالة الاستثمارية المعيارية',
@@ -117,9 +97,10 @@ export default function CanonicalCaseWorkspacePanel() {
     noDeals: 'لا توجد صفقات محفوظة. احفظ صفقة من مساحة العمل الرئيسية أولاً.',
     required: 'اختر صفقة محفوظة وأدخل معرّف مساحة العمل والمشروع والحالة والمحلل.',
     selfAsserted: 'هوية المحلل هنا بيانات محلية مُصرّح بها ذاتيًا وليست هوية موثقة بالمصادقة.',
-    boundaries: 'هذه المساحة لا تمنح تقييمًا مهنيًا معتمدًا أو موافقة قانونية أو صلاحية إصدار أو نشر أو تنفيذ معاملة.',
+    boundaries: 'هذه المساحة لا تمنح تقييمًا مهنيًا معتمدًا أو موافقة قانونية أو قرار لجنة أو صلاحية إصدار أو نشر أو تنفيذ معاملة.',
     status: 'حالة مساحة العمل',
     unresolved: 'مراحل دورة الحياة غير المكتملة',
+    governance: 'إسقاط الحوكمة',
   }, [en]);
 
   async function loadDeals() {
@@ -198,7 +179,12 @@ export default function CanonicalCaseWorkspacePanel() {
     }
   }
 
-  const decisionWorkspace = workspace ? buildDecisionWorkspace(workspace) : null;
+  const governanceProjection = useMemo(
+    () => workspace ? buildCanonicalCommitteePreparation(workspace) : null,
+    [workspace],
+  );
+  const decisionWorkspace = governanceProjection?.decisionWorkspace || null;
+  const committeeDossier = governanceProjection?.committeeDossier || null;
 
   return (
     <section data-testid="canonical-case-workspace-panel" dir={en ? 'ltr' : 'rtl'} className="mx-auto mt-6 w-full max-w-7xl px-4 pb-4">
@@ -222,56 +208,17 @@ export default function CanonicalCaseWorkspacePanel() {
               {deals.map((deal) => <option key={deal.id} value={deal.id}>{deal.name || deal.id} · {deal.mode}</option>)}
             </select>
           </div>
-          <div>
-            <Label>{copy.workspaceId}</Label>
-            <input className={`${INPUT_STYLE} mt-1`} value={workspaceId} onChange={(event) => setWorkspaceId(event.target.value)} placeholder="WS-..." />
-          </div>
-          <div>
-            <Label>{copy.projectId}</Label>
-            <input className={`${INPUT_STYLE} mt-1`} value={projectId} onChange={(event) => setProjectId(event.target.value)} placeholder="PROJECT-..." />
-          </div>
-          <div>
-            <Label>{copy.caseId}</Label>
-            <input className={`${INPUT_STYLE} mt-1`} value={caseId} onChange={(event) => setCaseId(event.target.value)} placeholder="CASE-..." />
-          </div>
-          <div>
-            <Label>{copy.actorId}</Label>
-            <input className={`${INPUT_STYLE} mt-1`} value={actorId} onChange={(event) => setActorId(event.target.value)} placeholder="ACTOR-..." />
-          </div>
-          <div>
-            <Label>{copy.assetClass}</Label>
-            <div className="mt-1"><Select value={assetClass} onChange={setAssetClass} options={values(ASSET_CLASS)} ariaLabel={copy.assetClass} /></div>
-          </div>
-          <div>
-            <Label>{copy.lifecycle}</Label>
-            <div className="mt-1"><Select value={lifecycleStage} onChange={setLifecycleStage} options={values(LIFECYCLE_STAGE)} ariaLabel={copy.lifecycle} /></div>
-          </div>
-          <div>
-            <Label>{copy.strategy}</Label>
-            <div className="mt-1"><Select value={investmentStrategy} onChange={setInvestmentStrategy} options={values(INVESTMENT_STRATEGY)} ariaLabel={copy.strategy} /></div>
-          </div>
-          <div>
-            <Label>{copy.incomeModel}</Label>
-            <div className="mt-1"><Select value={incomeModel} onChange={setIncomeModel} options={values(INCOME_MODEL)} ariaLabel={copy.incomeModel} /></div>
-          </div>
-          {assetClass === ASSET_CLASS.OTHER ? (
-            <div>
-              <Label>{copy.custom} · Asset</Label>
-              <input className={`${INPUT_STYLE} mt-1`} value={customAssetClass} onChange={(event) => setCustomAssetClass(event.target.value)} />
-            </div>
-          ) : null}
-          {lifecycleStage === LIFECYCLE_STAGE.OTHER ? (
-            <div>
-              <Label>{copy.custom} · Lifecycle</Label>
-              <input className={`${INPUT_STYLE} mt-1`} value={customLifecycleStage} onChange={(event) => setCustomLifecycleStage(event.target.value)} />
-            </div>
-          ) : null}
-          {investmentStrategy === INVESTMENT_STRATEGY.OTHER ? (
-            <div>
-              <Label>{copy.custom} · Strategy</Label>
-              <input className={`${INPUT_STYLE} mt-1`} value={customInvestmentStrategy} onChange={(event) => setCustomInvestmentStrategy(event.target.value)} />
-            </div>
-          ) : null}
+          <div><Label>{copy.workspaceId}</Label><input className={`${INPUT_STYLE} mt-1`} value={workspaceId} onChange={(event) => setWorkspaceId(event.target.value)} placeholder="WS-..." /></div>
+          <div><Label>{copy.projectId}</Label><input className={`${INPUT_STYLE} mt-1`} value={projectId} onChange={(event) => setProjectId(event.target.value)} placeholder="PROJECT-..." /></div>
+          <div><Label>{copy.caseId}</Label><input className={`${INPUT_STYLE} mt-1`} value={caseId} onChange={(event) => setCaseId(event.target.value)} placeholder="CASE-..." /></div>
+          <div><Label>{copy.actorId}</Label><input className={`${INPUT_STYLE} mt-1`} value={actorId} onChange={(event) => setActorId(event.target.value)} placeholder="ACTOR-..." /></div>
+          <div><Label>{copy.assetClass}</Label><div className="mt-1"><Select value={assetClass} onChange={setAssetClass} options={values(ASSET_CLASS)} ariaLabel={copy.assetClass} /></div></div>
+          <div><Label>{copy.lifecycle}</Label><div className="mt-1"><Select value={lifecycleStage} onChange={setLifecycleStage} options={values(LIFECYCLE_STAGE)} ariaLabel={copy.lifecycle} /></div></div>
+          <div><Label>{copy.strategy}</Label><div className="mt-1"><Select value={investmentStrategy} onChange={setInvestmentStrategy} options={values(INVESTMENT_STRATEGY)} ariaLabel={copy.strategy} /></div></div>
+          <div><Label>{copy.incomeModel}</Label><div className="mt-1"><Select value={incomeModel} onChange={setIncomeModel} options={values(INCOME_MODEL)} ariaLabel={copy.incomeModel} /></div></div>
+          {assetClass === ASSET_CLASS.OTHER ? <div><Label>{copy.custom} · Asset</Label><input className={`${INPUT_STYLE} mt-1`} value={customAssetClass} onChange={(event) => setCustomAssetClass(event.target.value)} /></div> : null}
+          {lifecycleStage === LIFECYCLE_STAGE.OTHER ? <div><Label>{copy.custom} · Lifecycle</Label><input className={`${INPUT_STYLE} mt-1`} value={customLifecycleStage} onChange={(event) => setCustomLifecycleStage(event.target.value)} /></div> : null}
+          {investmentStrategy === INVESTMENT_STRATEGY.OTHER ? <div><Label>{copy.custom} · Strategy</Label><input className={`${INPUT_STYLE} mt-1`} value={customInvestmentStrategy} onChange={(event) => setCustomInvestmentStrategy(event.target.value)} /></div> : null}
         </div>
 
         <div className="mt-4 rounded-lg border border-amber-900/50 bg-amber-950/20 p-3 text-[11px] leading-5 text-amber-200">
@@ -289,15 +236,17 @@ export default function CanonicalCaseWorkspacePanel() {
         </div>
 
         {workspace ? (
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <div className="mt-4 grid gap-3 md:grid-cols-4">
             <div className="rounded-lg border border-slate-800 p-3 text-xs text-slate-400">Project: <span className="text-slate-200">{workspace.projectId}</span></div>
             <div className="rounded-lg border border-slate-800 p-3 text-xs text-slate-400">Case: <span className="text-slate-200">{workspace.caseId}</span></div>
             <div className="rounded-lg border border-slate-800 p-3 text-xs text-slate-400">{copy.unresolved}: <span className="text-slate-200">{workspace.orchestration.unresolvedLifecycleSections.length}</span></div>
+            <div className="rounded-lg border border-slate-800 p-3 text-xs text-slate-400">{copy.governance}: <span className="text-slate-200">{committeeDossier?.status || '—'}</span></div>
           </div>
         ) : null}
       </div>
 
       {decisionWorkspace ? <DecisionIntelligenceWorkspacePanel workspace={decisionWorkspace} /> : null}
+      {committeeDossier ? <InvestmentCommitteeDossierPanel dossier={committeeDossier} actionReviewRegister={null} /> : null}
     </section>
   );
 }
