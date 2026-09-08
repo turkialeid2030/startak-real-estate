@@ -1,0 +1,30 @@
+name: External Saudi Regulatory Privacy Verify
+
+on:
+  pull_request:
+    paths:
+      - 'governance/external-saudi-regulatory-privacy-baseline-2026.json'
+      - 'src/compliance/saudi-regulatory-privacy-source-baseline.js'
+      - 'tests/architecture/run_external_saudi_regulatory_privacy_baseline.js'
+      - 'docs/EXTERNAL_SAUDI_REGULATORY_PRIVACY_BASELINE_2026.md'
+      - '.github/workflows/external-saudi-regulatory-privacy-verify.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Saudi regulatory and privacy source baseline
+        run: node tests/architecture/run_external_saudi_regulatory_privacy_baseline.js
+      - name: Canonical release verification
+        run: npm run release:verify
