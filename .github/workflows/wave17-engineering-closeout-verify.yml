@@ -1,0 +1,37 @@
+name: Wave 17 Engineering Closeout Verify
+
+on:
+  pull_request:
+    paths:
+      - 'src/security/security-qualification-envelope.js'
+      - 'src/qualification/performance-resilience.js'
+      - 'src/qualification/independent-release.js'
+      - 'tests/architecture/run_wave17a_security_qualification.js'
+      - 'tests/architecture/run_wave17b_performance_resilience.js'
+      - 'tests/architecture/run_wave17c_independent_release_qualification.js'
+      - 'tests/architecture/run_wave17d_engineering_closeout.js'
+      - '.github/workflows/wave17-engineering-closeout-verify.yml'
+      - 'docs/WAVE_17D_ENGINEERING_CLOSEOUT.md'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Wave 17A security qualification
+        run: node tests/architecture/run_wave17a_security_qualification.js
+      - name: Wave 17B performance resilience
+        run: node tests/architecture/run_wave17b_performance_resilience.js
+      - name: Wave 17C independent release qualification
+        run: node tests/architecture/run_wave17c_independent_release_qualification.js
+      - name: Wave 17 engineering closeout
+        run: node tests/architecture/run_wave17d_engineering_closeout.js
+      - name: Canonical release verification
+        run: npm run release:verify
