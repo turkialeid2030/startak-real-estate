@@ -1,0 +1,36 @@
+'use strict';
+const assert=require('assert');
+const crypto=require('crypto');
+const {SECURITY_EVIDENCE_TRUST_STATUS}=require('../../src/security/security-evidence-trust-gate.js');
+const {SECURITY_EVIDENCE_ENVIRONMENT,SECURITY_CONTROL_CLASS,createSecurityQualificationEvidence,buildSecurityQualificationEnvelope}=require('../../src/security/security-qualification-envelope.js');
+const {PERFORMANCE_EVIDENCE_CLASS,createPerformanceEvidence,buildPerformanceResilienceQualification}=require('../../src/qualification/performance-resilience.js');
+const {INDEPENDENT_RELEASE_STATUS,createCanonicalReleaseEvidence,verifyCanonicalReleaseEvidence,buildIndependentReleaseQualification,verifyIndependentReleaseQualification}=require('../../src/qualification/independent-release.js');
+let checks=0;const check=(fn)=>{fn();checks+=1;};const sha=(v)=>crypto.createHash('sha256').update(String(v)).digest('hex');
+const commit='d'.repeat(40);
+const secEv=createSecurityQualificationEvidence({evidenceId:'SEC-E1',controlRef:'CTRL-RLS',controlClass:SECURITY_CONTROL_CLASS.TENANT_ISOLATION_RLS,environmentClass:SECURITY_EVIDENCE_ENVIRONMENT.CI_TEST,environmentRef:'CI-W17C',exactCommitSha:commit,artifactId:'SEC-ART',artifactHashSha256:sha('sec'),evidenceRef:'ci://sec',result:'PASS',observedAt:'2026-09-08T09:00:00Z',reviewedAt:'2026-09-08T09:10:00Z',reviewerRef:'SEC-REVIEWER',issuerRef:'CI'});
+const secQ=buildSecurityQualificationEnvelope({qualificationId:'SEC-Q',upstreamSecurityTrustGate:{status:SECURITY_EVIDENCE_TRUST_STATUS.READY_FOR_INDEPENDENT_SECURITY_REVIEW},targetEnvironmentClass:SECURITY_EVIDENCE_ENVIRONMENT.CI_TEST,targetEnvironmentRef:'CI-W17C',exactCommitSha:commit,requiredControlRefs:['CTRL-RLS'],evidence:[secEv],maximumEvidenceAgeSeconds:86400,assessedAt:'2026-09-08T09:30:00Z',preparedBy:'SEC-P',reviewedBy:'SEC-R',preparedAt:'2026-09-08T09:15:00Z',reviewedAt:'2026-09-08T09:20:00Z'});
+const perfEv=createPerformanceEvidence({evidenceId:'PERF-E1',evidenceClass:PERFORMANCE_EVIDENCE_CLASS.LATENCY,environmentRef:'CI-W17C',exactCommitSha:commit,metricName:'p95',unit:'ms',observedValue:150,thresholdValue:250,thresholdDirection:'MAX',thresholdSourceRef:'PERF-POLICY',artifactId:'PERF-ART',artifactHashSha256:sha('perf'),observedAt:'2026-09-08T09:00:00Z',reviewedAt:'2026-09-08T09:10:00Z',reviewerRef:'PERF-R'});
+const perfQ=buildPerformanceResilienceQualification({qualificationId:'PERF-Q',environmentRef:'CI-W17C',exactCommitSha:commit,requiredEvidenceClasses:[PERFORMANCE_EVIDENCE_CLASS.LATENCY],evidence:[perfEv],maximumEvidenceAgeSeconds:86400,assessedAt:'2026-09-08T09:30:00Z',preparedBy:'PERF-P',reviewedBy:'PERF-R'});
+function release(o={}){return createCanonicalReleaseEvidence({evidenceId:'REL-E',exactCommitSha:commit,regressionTotal:290,regressionPassed:290,productionBuildPass:true,packageVerificationPass:true,releaseVerifyPass:true,npmAudit:{critical:0,high:0,moderate:0,low:0},workflowRunRef:'github-actions://release',artifactRef:'release-artifact',artifactHashSha256:sha('release'),reviewedBy:'REL-R',reviewedAt:'2026-09-08T09:40:00Z',...o});}
+const rel=release();
+function q(o={}){return buildIndependentReleaseQualification({qualificationId:'W17C-Q',exactCommitSha:commit,securityQualification:secQ,performanceQualification:perfQ,releaseEvidence:rel,preparedBy:'REL-P',reviewedBy:'REL-R',assessedAt:'2026-09-08T10:00:00Z',...o});}
+check(()=>assert.strictEqual(verifyCanonicalReleaseEvidence(rel).valid,true));
+const ready=q();
+check(()=>assert.strictEqual(ready.status,INDEPENDENT_RELEASE_STATUS.READY_FOR_HUMAN_RELEASE_REVIEW));
+check(()=>assert.strictEqual(verifyIndependentReleaseQualification(ready).valid,true));
+check(()=>assert.strictEqual(ready.humanReleaseReviewRequired,true));
+check(()=>assert.strictEqual(ready.releaseApproved,false));
+check(()=>assert.strictEqual(ready.mergeAuthorized,false));
+check(()=>assert.strictEqual(ready.deploymentAuthorized,false));
+check(()=>assert.strictEqual(ready.productionSecurityValidated,false));
+check(()=>assert.strictEqual(ready.productionCapacityEstablished,false));
+check(()=>assert.strictEqual(ready.regulatoryApprovalEstablished,false));
+check(()=>assert.strictEqual(ready.externalProfessionalApprovalEstablished,false));
+check(()=>assert.strictEqual(ready.transactionAuthorized,false));
+const tamperedRel={...rel,regressionPassed:1};check(()=>assert.strictEqual(q({releaseEvidence:tamperedRel}).status,INDEPENDENT_RELEASE_STATUS.HOLD_INTEGRITY));
+const badGate=release({productionBuildPass:false});check(()=>assert.strictEqual(q({releaseEvidence:badGate}).status,INDEPENDENT_RELEASE_STATUS.HOLD_RELEASE_EVIDENCE));
+const wrongCommitRel=release({exactCommitSha:'e'.repeat(40)});check(()=>assert.strictEqual(q({releaseEvidence:wrongCommitRel}).status,INDEPENDENT_RELEASE_STATUS.HOLD_SCOPE_MISMATCH));
+check(()=>assert.strictEqual(q({securityQualification:{...secQ,status:'HOLD'}}).status,INDEPENDENT_RELEASE_STATUS.HOLD_INTEGRITY));
+check(()=>assert.strictEqual(q({performanceQualification:{...perfQ,status:'HOLD'}}).status,INDEPENDENT_RELEASE_STATUS.HOLD_INTEGRITY));
+check(()=>assert.strictEqual(verifyIndependentReleaseQualification({...ready,reviewedBy:'tampered'}).valid,false));
+console.log(`WAVE_17C_INDEPENDENT_RELEASE_QUALIFICATION=PASS checks=${checks}`);
