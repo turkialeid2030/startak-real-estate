@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import DecisionIntelligenceWorkspacePanel from './DecisionIntelligenceWorkspacePanel.jsx';
 import InvestmentCommitteeDossierPanel from './InvestmentCommitteeDossierPanel.jsx';
+import PostDecisionGovernancePanel from './PostDecisionGovernancePanel.jsx';
 const { useLocale } = require('../i18n/LocaleContext.js');
 const { createStorageProvider } = require('../storage/create-storage-provider');
 const {
@@ -247,6 +248,7 @@ export default function CanonicalCaseWorkspacePanel() {
 
       {decisionWorkspace ? <DecisionIntelligenceWorkspacePanel workspace={decisionWorkspace} /> : null}
       {committeeDossier ? <InvestmentCommitteeDossierPanel dossier={committeeDossier} actionReviewRegister={null} /> : null}
+      {workspace ? <PostDecisionGovernancePanel canonicalWorkspace={workspace} /> : null}
     </section>
   );
 }
