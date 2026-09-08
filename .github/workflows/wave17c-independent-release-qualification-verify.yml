@@ -1,0 +1,26 @@
+name: Wave 17C Independent Release Qualification Verify
+
+on:
+  pull_request:
+    paths:
+      - 'src/qualification/independent-release-qualification.js'
+      - 'tests/architecture/run_wave17c_independent_release_qualification.js'
+      - '.github/workflows/wave17c-independent-release-qualification-verify.yml'
+      - 'docs/WAVE_17C_INDEPENDENT_RELEASE_QUALIFICATION.md'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Wave 17C independent release qualification
+        run: node tests/architecture/run_wave17c_independent_release_qualification.js
+      - name: Canonical release verification
+        run: npm run release:verify
