@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "mappingId": "STARTAK-TAQEEM-MINIMUM-REPORT-MAP-2026-09-08-C",
+  "verifiedAt": "2026-09-08",
+  "candidateHeadSha": "fc0cc7c67daa3c426e858062d42db712037f3799",
+  "source": {
+    "issuer": "Saudi Authority for Accredited Valuers (TAQEEM)",
+    "title": "Updated approved valuation report template - minimum requirements",
+    "sourceUrl": "https://taqeem.gov.sa/web/content/portal.rules/32/attachment_ar?download=false",
+    "officialDomain": "taqeem.gov.sa",
+    "sourceStatus": "CURRENT_OFFICIAL_TEMPLATE_SOURCE",
+    "verifiedFacts": [
+      "The official template states that the minimum requirements must be satisfied in valuation reports and do not replace other requirements arising from standards, professional rules, manuals, decisions, circulars or instructions.",
+      "The template references paragraph 16 of Article 28 of the Implementing Regulation as requiring adherence at minimum to the approved valuation-report and valuation-services-contract models.",
+      "The source requires the applicable edition of TAQEEM-adopted International Valuation Standards to be identified in the report.",
+      "The source separately identifies professional-content requirements and regulatory/identity/signature requirements."
+    ]
+  },
+  "sourceNumberingNote": "The official PDF text extraction shows the label 21 for both principal inputs and value conclusion/reconciliation. STARTAK uses distinct internal requirement IDs while preserving each extracted source label rather than silently renumbering the official source.",
+  "formalTaqeemReportConformanceEstablished": false,
+  "externalIssuanceAuthorized": false,
+  "credentialValidationPerformed": false,
+  "professionalSignatureCaptured": false,
+  "depositCodeValidated": false,
+  "requirements": [
+    {"requirementId":"TQ-RPT-P01","sourceLabel":"01","sourcePage":3,"category":"PROFESSIONAL_CONTENT","titleAr":"هوية المقيم","concept":"VALUER_IDENTITY","mappingStatus":"PARTIAL","mappedFields":["report.preparer.partyId","report.preparer.credentialRef","report.reviewer.partyId"],"gap":"Credential validity and the accredited valuer identity required for external issuance are not externally verified."},
+    {"requirementId":"TQ-RPT-P02","sourceLabel":"02","sourcePage":3,"category":"PROFESSIONAL_CONTENT","titleAr":"هوية العميل أو العملاء","concept":"CLIENT_IDENTITY","mappingStatus":"SOURCE_AVAILABLE_UPSTREAM_NOT_REPORT_BOUND","mappedFields":["assignment.clientPartyId"],"gap":"clientPartyId exists in the assignment but is not persisted into the current professional report contract."},
+    {"requirementId":"TQ-RPT-P03","sourceLabel":"03","sourcePage":3,"category":"PROFESSIONAL_CONTENT","titleAr":"هوية المستخدمين المستهدفين","concept":"INTENDED_USERS","mappingStatus":"SOURCE_AVAILABLE_UPSTREAM_NOT_REPORT_BOUND","mappedFields":["assignment.intendedUserPartyIds"],"gap":"Intended-user party IDs exist upstream but are not persisted into the current report contract."},
+    {"requirementId":"TQ-RPT-P04","sourceLabel":"04","sourcePage":3,"category":"PROFESSIONAL_CONTENT","titleAr":"تحديد الأصل محل التقييم","concept":"SUBJECT_ASSET","mappingStatus":"PARTIAL","mappedFields":["report.propertyRef","report.artifactReferences"],"gap":"Property reference and evidence exist, but a complete human-readable asset identification/description section is not enforced by the report contract."},
+    {"requirementId":"TQ-RPT-P05","sourceLabel":"05","sourcePage":3,"category":"PROFESSIONAL_CONTENT","titleAr":"عملة التقييم","concept":"VALUATION_CURRENCY","mappingStatus":"GAP","mappedFields":[],"gap":"No mandatory valuation-currency field exists in the professional report contract."},
+    {"requirementId":"TQ-RPT-P06","sourceLabel":"06","sourcePage":3,"category":"PROFESSIONAL_CONTENT","titleAr":"غرض التقييم","concept":"VALUATION_PURPOSE","mappingStatus":"COVERED","mappedFields":["report.purposeCode"],"gap":null},
+    {"requirementId":"TQ-RPT-P07","sourceLabel":"07","sourcePage":3,"category":"PROFESSIONAL_CONTENT","titleAr":"أساس القيمة المستخدم","concept":"BASIS_OF_VALUE","mappingStatus":"PARTIAL","mappedFields":["report.basisOfValueCode","report.standardsSnapshotId"],"gap":"Basis code is bound, but a human-readable definition and definition source are not enforced as a report section."},
+    {"requirementId":"TQ-RPT-P08","sourceLabel":"08","sourcePage":3,"category":"PROFESSIONAL_CONTENT","titleAr":"فرضية القيمة","concept":"PREMISE_OF_VALUE","mappingStatus":"GAP","mappedFields":[],"gap":"The report contract has assumptions and HBU evidence but no mandatory premise-of-value field."},
+    {"requirementId":"TQ-RPT-P09","sourceLabel":"09","sourcePage":4,"category":"PROFESSIONAL_CONTENT","titleAr":"تاريخ التقييم","concept":"VALUATION_DATE","mappingStatus":"COVERED","mappedFields":["report.valuationDate"],"gap":null},
+    {"requirementId":"TQ-RPT-P10","sourceLabel":"10","sourcePage":4,"category":"PROFESSIONAL_CONTENT","titleAr":"طبيعة عمل المقيم وأي قيود عليه","concept":"SCOPE_AND_LIMITATIONS","mappingStatus":"PARTIAL","mappedFields":["report.limitations","assignment.plannedInspectionScope","assignment.plannedDataScope"],"gap":"Limitations are report-bound, but the complete performed scope of inspection, inquiry and analysis is not mandatory as a dedicated report section."},
+    {"requirementId":"TQ-RPT-P11","sourceLabel":"11","sourcePage":4,"category":"PROFESSIONAL_CONTENT","titleAr":"طبيعة ومصدر المعلومات التي يعتمد عليها المقيم","concept":"INFORMATION_SOURCES_AND_VERIFICATION","mappingStatus":"PARTIAL","mappedFields":["report.artifactReferences","artifact.evidenceRefs"],"gap":"Evidence provenance exists, but the report contract does not require a narrative of verification procedures and actual research scope."},
+    {"requirementId":"TQ-RPT-P12","sourceLabel":"12","sourcePage":4,"category":"PROFESSIONAL_CONTENT","titleAr":"الاستعانة بأخصائي أو مؤسسة خدمات","concept":"SPECIALIST_OR_SERVICE_PROVIDER","mappingStatus":"SOURCE_AVAILABLE_UPSTREAM_NOT_REPORT_BOUND","mappedFields":["assignment.specialistPartyId","assignment.specialistAcceptanceEvidenceRef"],"gap":"Specialist evidence can exist in assignment governance but is not mandatory in the report contract."},
+    {"requirementId":"TQ-RPT-P13","sourceLabel":"13","sourcePage":4,"category":"PROFESSIONAL_CONTENT","titleAr":"العوامل البيئية والاجتماعية والحوكمة","concept":"ESG_FACTORS","mappingStatus":"PARTIAL","mappedFields":["report.artifactReferences[ESG_PACKET]"],"gap":"ESG evidence can be attached but report-level applicability/disclosure wording is not universally required."},
+    {"requirementId":"TQ-RPT-P14","sourceLabel":"14","sourcePage":4,"category":"PROFESSIONAL_CONTENT","titleAr":"الافتراضات المهمة والافتراضات الخاصة","concept":"ASSUMPTIONS_AND_SPECIAL_ASSUMPTIONS","mappingStatus":"COVERED","mappedFields":["report.assumptions","report.specialAssumptions"],"gap":null},
+    {"requirementId":"TQ-RPT-P15","sourceLabel":"15","sourcePage":4,"category":"PROFESSIONAL_CONTENT","titleAr":"نوع التقرير الذي يتم إعداده","concept":"REPORT_FORMAT_TYPE","mappingStatus":"PARTIAL","mappedFields":["report.reportType"],"gap":"Internal report type is explicit, but the presentation/delivery format required for a professional external report is not authorized or rendered."},
+    {"requirementId":"TQ-RPT-P16","sourceLabel":"16","sourcePage":5,"category":"PROFESSIONAL_CONTENT","titleAr":"القيود على الاستخدام أو التوزيع أو النشر","concept":"USE_DISTRIBUTION_PUBLICATION_RESTRICTIONS","mappingStatus":"SOURCE_AVAILABLE_UPSTREAM_NOT_REPORT_BOUND","mappedFields":["assignment.relianceRestrictions"],"gap":"Reliance restrictions exist upstream but are not persisted as a mandatory report field."},
+    {"requirementId":"TQ-RPT-P17","sourceLabel":"17","sourcePage":5,"category":"PROFESSIONAL_CONTENT","titleAr":"التأكيد على الإعداد وفق معايير التقييم الدولية وتحديد الإصدار","concept":"STANDARDS_EDITION_DISCLOSURE","mappingStatus":"PARTIAL","mappedFields":["report.standardsSnapshotId","report.standardsSnapshotHash"],"gap":"The exact standards snapshot is reproducible, but formal TAQEEM/IVS conformance remains explicitly unestablished pending official/professional verification."},
+    {"requirementId":"TQ-RPT-P18","sourceLabel":"18","sourcePage":5,"category":"PROFESSIONAL_CONTENT","titleAr":"الاستخدام المقصود","concept":"INTENDED_USE","mappingStatus":"COVERED","mappedFields":["report.intendedUseCode"],"gap":null},
+    {"requirementId":"TQ-RPT-P19","sourceLabel":"19","sourcePage":5,"category":"PROFESSIONAL_CONTENT","titleAr":"أسلوب أو أساليب التقييم المستخدمة","concept":"VALUATION_APPROACH_SELECTION_AND_RATIONALE","mappingStatus":"PARTIAL","mappedFields":["report.methodAssessments"],"gap":"Method disposition and rationale exist; a separate approach-level taxonomy/disclosure is not enforced in the report contract."},
+    {"requirementId":"TQ-RPT-P20","sourceLabel":"20","sourcePage":5,"category":"PROFESSIONAL_CONTENT","titleAr":"طرق التقييم المستخدمة","concept":"VALUATION_METHODS","mappingStatus":"COVERED","mappedFields":["report.methodAssessments.methodCode","report.methodAssessments.resultReferenceId"],"gap":null},
+    {"requirementId":"TQ-RPT-P21A","sourceLabel":"21","sourcePage":5,"category":"PROFESSIONAL_CONTENT","titleAr":"المدخلات الرئيسة المستخدمة","concept":"PRINCIPAL_INPUTS","mappingStatus":"PARTIAL","mappedFields":["report.artifactReferences","report.methodAssessments.resultReferenceId"],"gap":"Input provenance is available in upstream method packets/results, but a consolidated principal-input disclosure is not mandatory in the report contract."},
+    {"requirementId":"TQ-RPT-P21B","sourceLabel":"21","sourcePage":6,"category":"PROFESSIONAL_CONTENT","titleAr":"استنتاج القيمة والأسباب الرئيسة لأي نتيجة تم التوصل إليها","concept":"VALUE_CONCLUSION_AND_RECONCILIATION","mappingStatus":"GAP_BY_AUTHORITY_BOUNDARY","mappedFields":[],"gap":"The current report contract intentionally does not establish a final/certified valuation conclusion or external professional reconciliation."},
+    {"requirementId":"TQ-RPT-P22","sourceLabel":"22","sourcePage":6,"category":"PROFESSIONAL_CONTENT","titleAr":"تاريخ التقرير","concept":"REPORT_DATE","mappingStatus":"COVERED","mappedFields":["report.reportDate"],"gap":null},
+    {"requirementId":"TQ-RPT-S01","sourceLabel":"01","sourcePage":7,"category":"REGULATORY_IDENTITY_SIGNATURE","titleAr":"اسم المقيم ورقم وتاريخ ترخيصه","concept":"VALUER_LICENSE_ON_REPORT_PAGES","mappingStatus":"GAP_EXTERNAL_CREDENTIAL","mappedFields":["report.preparer.credentialRef"],"gap":"Credential reference exists but license number/date validity and page-level rendering are not externally validated."},
+    {"requirementId":"TQ-RPT-S02","sourceLabel":"02","sourcePage":7,"category":"REGULATORY_IDENTITY_SIGNATURE","titleAr":"توقيع المقيم","concept":"VALUER_SIGNATURE","mappingStatus":"GAP_EXTERNAL_AUTHORITY","mappedFields":[],"gap":"No accredited-valuer signature is captured or simulated; human licensed signature remains external."},
+    {"requirementId":"TQ-RPT-S03","sourceLabel":"03","sourcePage":7,"category":"REGULATORY_IDENTITY_SIGNATURE","titleAr":"رمز الإيداع","concept":"TAQEEM_DEPOSIT_CODE","mappingStatus":"GAP_EXTERNAL_INTEGRATION","mappedFields":[],"gap":"No TAQEEM electronic-services deposit code is obtained or validated."},
+    {"requirementId":"TQ-RPT-S04","sourceLabel":"04","sourcePage":7,"category":"REGULATORY_IDENTITY_SIGNATURE","titleAr":"فئة العضوية","concept":"MEMBERSHIP_CATEGORY","mappingStatus":"GAP_EXTERNAL_CREDENTIAL","mappedFields":[],"gap":"TAQEEM membership category is not externally verified or report-bound."},
+    {"requirementId":"TQ-RPT-S05","sourceLabel":"05","sourcePage":7,"category":"REGULATORY_IDENTITY_SIGNATURE","titleAr":"نوع الفرع الذي رخص له المقيم مزاولة المهنة فيه","concept":"LICENSED_VALUATION_BRANCH","mappingStatus":"GAP_EXTERNAL_CREDENTIAL","mappedFields":[],"gap":"Licensed valuation branch is not externally verified or report-bound."},
+    {"requirementId":"TQ-RPT-S06","sourceLabel":"06","sourcePage":7,"category":"REGULATORY_IDENTITY_SIGNATURE","titleAr":"المشاركون في إعداد التقرير","concept":"REPORT_PARTICIPANTS_AND_SIGNATURES","mappingStatus":"GAP_EXTERNAL_CREDENTIAL","mappedFields":["report.preparer","report.reviewer"],"gap":"Preparer/reviewer references exist but the complete participant roster, professional membership/certificate type, contribution description and signatures are not modeled for external issuance."},
+    {"requirementId":"TQ-RPT-S07","sourceLabel":"07","sourcePage":7,"category":"REGULATORY_IDENTITY_SIGNATURE","titleAr":"الاستقلالية","concept":"VALUER_INDEPENDENCE_DISCLOSURE","mappingStatus":"PARTIAL","mappedFields":["professionalReview.independenceAttestation"],"gap":"Independent-review governance exists, but a valuer-specific independence disclosure against the subject asset is not a mandatory report field."}
+  ],
+  "mappingSummary": {
+    "totalRequirements": 30,
+    "covered": 6,
+    "partialOrUpstreamOnly": 14,
+    "externalOrAuthorityGaps": 10,
+    "formalConformanceBlocked": true
+  },
+  "requiredNextActions": [
+    "Extend the professional report contract to preserve client identity, intended users, currency, premise of value, use/distribution restrictions, specialist disclosure and consolidated principal inputs where applicable.",
+    "Add a controlled professional conclusion/reconciliation record only behind licensed professional authority and credential gates; do not derive a certified conclusion automatically.",
+    "Add external credential evidence for TAQEEM license number/date, membership category and licensed branch.",
+    "Add external participant roster/signature evidence and valuer independence disclosure.",
+    "Add TAQEEM deposit-code integration evidence only if/when an authorized professional workflow is established.",
+    "Re-run section-level conformance review after official-source/legal/professional approval; do not change conformance flags automatically."
+  ]
+}
