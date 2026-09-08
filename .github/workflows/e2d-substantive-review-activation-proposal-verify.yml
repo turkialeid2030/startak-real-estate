@@ -1,0 +1,32 @@
+name: E2D Substantive Review Activation Proposal Verify
+
+on:
+  pull_request:
+    paths:
+      - 'governance/e2d-substantive-review-activation-proposal-policy-2026-09-08.json'
+      - 'src/standards/substantive-review-activation-proposal.js'
+      - 'tests/architecture/run_e2d_substantive_review_activation_proposal.js'
+      - 'docs/E2D_SUBSTANTIVE_REVIEW_ACTIVATION_PROPOSAL_2026-09-08.md'
+      - '.github/workflows/e2d-substantive-review-activation-proposal-verify.yml'
+      - 'src/standards/external-authority-validation.js'
+      - 'src/standards/external-review-credential-evidence.js'
+      - 'src/standards/saudi-legal-professional-applicability.js'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify E2D substantive review activation proposal gate
+        run: node tests/architecture/run_e2d_substantive_review_activation_proposal.js
+      - name: Re-verify E2C authority validation gate
+        run: node tests/architecture/run_e2c_external_authority_validation.js
+      - name: Canonical release verification
+        run: npm run release:verify
