@@ -1,0 +1,47 @@
+{
+  "policyId": "STARTAK-E2D-SUBSTANTIVE-REVIEW-ACTIVATION-PROPOSAL-POLICY-2026-09-08",
+  "createdAt": "2026-09-08T14:00:00+03:00",
+  "operatingMode": "UNLICENSED_DECISION_SUPPORT",
+  "status": "ENGINEERING_PROPOSAL_GATE_DEFINED_PRODUCTION_EXTERNAL_REVIEW_NOT_PRESENT",
+  "purpose": "Convert an integrity-verified E2 applicability disposition chain, a complete E2B evidence envelope, and a cryptographically validated E2C authority packet into a non-executing rule-implementation proposal. The proposal records what a validated human disposition would imply for implementation governance without activating standards/rules or establishing platform licensing, legal compliance, certified valuation authority, release, deployment or transaction authority.",
+  "requiredApplicabilityStatus": "HUMAN_REVIEW_DISPOSITIONS_RECORDED_PENDING_AUTHORITY_VALIDATION",
+  "requiredExternalEvidenceStatus": "READY_FOR_EXTERNAL_AUTHORITY_VALIDATION",
+  "requiredAuthorityValidationStatus": "AUTHORITY_VALIDATION_COMPLETE_PENDING_SUBSTANTIVE_REVIEW",
+  "productionSubstantiveReviewEvidencePresent": false,
+  "productionRuleActivationMappingApproved": false,
+  "automaticActivationAllowed": false,
+  "automaticLegalConclusionAllowed": false,
+  "automaticProfessionalConclusionAllowed": false,
+  "automaticComplianceConclusionAllowed": false,
+  "callerDeclaredActivationAuthorityAccepted": false,
+  "allowedDispositionActions": {
+    "APPLICABLE": "PROPOSE_RULE_IMPLEMENTATION",
+    "CONDITIONAL": "PROPOSE_CONDITIONAL_RULE_IMPLEMENTATION",
+    "NOT_APPLICABLE": "NO_ACTIVATION_PROPOSED",
+    "HOLD": "HOLD_SUBSTANTIVE_REVIEW"
+  },
+  "mappingRequiredForDispositions": [
+    "APPLICABLE",
+    "CONDITIONAL"
+  ],
+  "conditionalDispositionRequiresConditionsRef": true,
+  "maximumEngineeringStatus": "ACTIVATION_PROPOSAL_READY_FOR_IMPLEMENTATION_GOVERNANCE",
+  "authorityBoundary": {
+    "substantiveReviewDispositionChainValidated": true,
+    "activationProposalPrepared": true,
+    "standardsOrRulesActivated": false,
+    "legalConclusionEstablished": false,
+    "professionalApplicabilityEstablished": false,
+    "formalStandardsConformanceEstablished": false,
+    "saudiProfessionalLicensingEstablished": false,
+    "pdplComplianceEstablished": false,
+    "taxComplianceEstablished": false,
+    "financialReportingComplianceEstablished": false,
+    "certifiedValuationAuthorityEstablished": false,
+    "externalIssuanceAuthorized": false,
+    "releaseAuthorized": false,
+    "mergeAuthorized": false,
+    "deploymentAuthorized": false,
+    "transactionAuthorized": false
+  }
+}
