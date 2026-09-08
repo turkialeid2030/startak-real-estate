@@ -5,8 +5,6 @@ const {
 } = require('../project-model/executable-case-orchestrator');
 
 const WORKSPACE_STATUS = Object.freeze({
-  EMPTY: 'EMPTY',
-  READY: 'READY',
   CASE_ASSEMBLED: 'CASE_ASSEMBLED',
   CASE_ASSEMBLED_WITH_LIFECYCLE_GAPS: 'CASE_ASSEMBLED_WITH_LIFECYCLE_GAPS',
 });
@@ -41,6 +39,7 @@ function createCanonicalCaseWorkspace({
   engineResult,
   verdict,
   domainOutputs = {},
+  analyticalPackage = null,
   standardsContext = null,
   attribution = {},
 }) {
@@ -53,25 +52,25 @@ function createCanonicalCaseWorkspace({
   assertPlainObject(domainOutputs, 'domainOutputs');
   assertPlainObject(attribution, 'attribution');
 
-  if (projectProfile.projectId && projectProfile.projectId !== normalizedProjectId) {
+  if (projectProfile.projectId !== normalizedProjectId) {
     const error = new Error('Project profile does not belong to the requested workspace project');
     error.code = 'WORKSPACE_PROJECT_ISOLATION_VIOLATION';
     throw error;
   }
 
   const assembled = assembleExecutableInvestmentCase({
-    projectId: normalizedProjectId,
+    profile: projectProfile,
     caseId: normalizedCaseId,
-    projectProfile,
     studyType,
     inputs,
     engineResult,
     verdict,
     domainOutputs,
+    analyticalPackage,
     standardsContext,
   });
 
-  const status = assembled.orchestration && assembled.orchestration.status === 'CASE_ASSEMBLED'
+  const status = assembled.status === WORKSPACE_STATUS.CASE_ASSEMBLED
     ? WORKSPACE_STATUS.CASE_ASSEMBLED
     : WORKSPACE_STATUS.CASE_ASSEMBLED_WITH_LIFECYCLE_GAPS;
 
@@ -86,10 +85,17 @@ function createCanonicalCaseWorkspace({
       actorRole: attribution.actorRole || null,
       source: attribution.source || 'IN_APP',
     },
-    executableCase: assembled.case,
-    orchestration: assembled.orchestration,
+    executableCase: assembled.executableCase,
+    orchestration: {
+      status: assembled.status,
+      unresolvedLifecycleSections: assembled.unresolvedLifecycleSections,
+      reasonCodes: assembled.reasonCodes,
+      boundaries: assembled.boundaries,
+      humanDecisionRequired: assembled.humanDecisionRequired,
+      transactionAuthorized: false,
+    },
     authority: {
-      operatingMode: assembled.case.authority.operatingMode,
+      operatingMode: assembled.executableCase.authority.operatingMode,
       professionalReportExternalIssuanceAuthorized: false,
       releaseAuthorized: false,
       mergeAuthorized: false,
