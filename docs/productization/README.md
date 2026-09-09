@@ -44,4 +44,8 @@ These notes describe incremental productization slices and their explicit eviden
 
 - [`p17-controlled-dr-failover-qualification.md`](./p17-controlled-dr-failover-qualification.md) — staging-only, dry-run-by-default primary/standby failover and failback drill orchestration, producing caller-objective-bound `DATABASE_UNAVAILABLE` resilience evidence while keeping provider-specific mutation and credentials host-injected.
 
+## P18 — Controlled Observability and Incident Qualification
+
+- [`p18-controlled-observability-incident-qualification.md`](./p18-controlled-observability-incident-qualification.md) — staging-only, dry-run-by-default metrics freshness/signal coverage, synthetic alert delivery, incident acknowledgement and runbook-readiness qualification using host-injected adapters and hashed operational references.
+
 Authority remains fail-closed until the existing release-governance process explicitly changes it.
