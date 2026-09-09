@@ -28,4 +28,8 @@ These notes describe incremental productization slices and their explicit eviden
 
 - [`p13-controlled-postgres-migration-runner.md`](./p13-controlled-postgres-migration-runner.md) — dry-run-by-default, target-bound migration execution boundary limited to staging/preproduction, with preflight database/role identity matching and FORCE-RLS post-check.
 
+## P14 — Controlled Staging PostgreSQL Qualification
+
+- [`p14-controlled-staging-postgres-qualification.md`](./p14-controlled-staging-postgres-qualification.md) — composes controlled migration, live runtime RLS probing and the deterministic runtime-RLS evaluator; privileged-path evidence remains separately required and production certification remains explicitly false.
+
 Authority remains fail-closed until the existing release-governance process explicitly changes it.
