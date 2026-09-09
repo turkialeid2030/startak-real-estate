@@ -92,4 +92,8 @@ These notes describe incremental productization slices and their explicit eviden
 
 - [`p29-reviewer-designation-ledger.md`](./p29-reviewer-designation-ledger.md) — adds an append-only reviewer-designation history, strict replacement-chain validation and an owner operator for preparing future reviewer replacements without weakening the P27 independent-review trust boundary.
 
+## P30 — Reviewer Lifecycle Lock
+
+- [`p30-reviewer-lifecycle-lock.md`](./p30-reviewer-lifecycle-lock.md) — keeps reviewer replacement mutable while review is pending, then freezes replacement only when a P27 cryptographically verified response is bound to the exact P26 packet and current P29 designation; stale-review carryover fails closed.
+
 Authority remains fail-closed until the existing release-governance process explicitly changes it.
