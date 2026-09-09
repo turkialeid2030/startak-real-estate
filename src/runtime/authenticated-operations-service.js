@@ -77,7 +77,8 @@ function sanitizePersistenceCapabilities(value = {}) {
     atomicCompareAndSet: input.atomicCompareAndSet === true,
     tenantKeyIsolation: input.tenantKeyIsolation === true,
     structuredTenantScope: input.structuredTenantScope === true,
-    externalDatabaseDeploymentRequired: input.externalDatabaseDeploymentRequired !== false,
+    // Provider/config metadata is not production evidence and cannot clear this gate.
+    externalDatabaseDeploymentRequired: true,
     productionPersistenceValidated: false,
     evidenceState: EVIDENCE_STATE.EXTERNAL_EVIDENCE_REQUIRED,
   });
