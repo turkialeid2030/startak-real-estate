@@ -64,4 +64,8 @@ These notes describe incremental productization slices and their explicit eviden
 
 - [`p22-canonical-e2i-signing-package.md`](./p22-canonical-e2i-signing-package.md) — converts an already verified pinned canonical-source comparison into the exact unsigned `CANONICAL_SOURCE_HASH_COMPARISON` E2I signing payload, with deterministic signing bytes and compatibility tests against the existing E2I RSA signature verifier while keeping the external signer and trust root out of the repository.
 
+## P23 — External Canonical Evidence Operator
+
+- [`p23-external-canonical-evidence-operator.md`](./p23-external-canonical-evidence-operator.md) — operationalizes the strict P21 comparison and P22 unsigned E2I package into one fail-closed operator command for the real externally controlled source bytes, rejecting unknown/secret context fields and never accepting a private signing key or granting authority.
+
 Authority remains fail-closed until the existing release-governance process explicitly changes it.
