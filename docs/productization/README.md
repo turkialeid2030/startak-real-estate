@@ -96,4 +96,8 @@ These notes describe incremental productization slices and their explicit eviden
 
 - [`p30-reviewer-lifecycle-lock.md`](./p30-reviewer-lifecycle-lock.md) — keeps reviewer replacement mutable while review is pending, then freezes replacement only when a P27 cryptographically verified response is bound to the exact P26 packet and current P29 designation; stale-review carryover fails closed.
 
+## P31 — Canonical Re-baseline Activation Plan
+
+- [`p31-canonical-rebaseline-activation-plan.md`](./p31-canonical-rebaseline-activation-plan.md) — prepares a deterministic successor-baseline manifest and explicit activation-change contract only after P25 dual approval and a P30 cryptographically bound reviewer lifecycle lock; it does not apply the baseline switch or grant release authority.
+
 Authority remains fail-closed until the existing release-governance process explicitly changes it.
