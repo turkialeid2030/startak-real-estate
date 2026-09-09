@@ -5,7 +5,9 @@ const {
   createCanonicalBaselineReconstitutionProposal,
 } = require('../../src/qualification/canonical-baseline-reconstitution');
 const {
+  STATUS: P25_STATUS,
   DECISION_RESULT,
+  createCanonicalRebaselineGovernanceDecision,
 } = require('../../src/qualification/canonical-rebaseline-governance-decision');
 const {
   STATUS,
@@ -100,6 +102,15 @@ function packet() {
   assert.strictEqual(response.canonicalBaselineChanged, false);
   assert.strictEqual(response.mergeAuthorized, false);
   assert.match(response.reviewResponseHashSha256, /^[a-f0-9]{64}$/);
+
+  const reevaluated = createCanonicalRebaselineGovernanceDecision({
+    proposal: proposal(),
+    ownerDecision: ownerDecision(),
+    independentReview: response.independentReview,
+  });
+  assert.strictEqual(reevaluated.status, P25_STATUS.READY_FOR_EXPLICIT_BASELINE_ACTIVATION_CHANGE);
+  assert.strictEqual(reevaluated.canonicalBaselineChanged, false);
+  assert.strictEqual(reevaluated.releaseAuthorized, false);
 
   const wrongReviewer = createIndependentReviewResponse({
     packet: good,
