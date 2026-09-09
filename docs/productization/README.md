@@ -48,4 +48,8 @@ These notes describe incremental productization slices and their explicit eviden
 
 - [`p18-controlled-observability-incident-qualification.md`](./p18-controlled-observability-incident-qualification.md) — staging-only, dry-run-by-default metrics freshness/signal coverage, synthetic alert delivery, incident acknowledgement and runbook-readiness qualification using host-injected adapters and hashed operational references.
 
+## P19 — Independent Security / UAT Evidence Gate
+
+- [`p19-independent-security-uat-evidence-gate.md`](./p19-independent-security-uat-evidence-gate.md) — exact-commit staging gate for supplied independent penetration-test and UAT evidence, blocking open Critical/High findings, requiring retest of remediated Critical/High findings, enforcing UAT scenario completion and independent review separation, and hashing external references without granting release authority.
+
 Authority remains fail-closed until the existing release-governance process explicitly changes it.
