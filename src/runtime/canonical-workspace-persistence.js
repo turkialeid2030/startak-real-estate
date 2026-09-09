@@ -48,28 +48,74 @@ function parseEnvelope(raw, { tenantId, workspaceId }) {
 /**
  * Creates the durable-workspace persistence boundary used by authenticated runtime code.
  *
- * The backing provider MUST expose atomic compareAndSet(key, expectedRaw, nextRaw).
- * Existing browser/host key-value providers intentionally do not satisfy this contract;
- * they remain legacy/local persistence and cannot silently become the production store.
+ * Preferred providers expose getScoped()/compareAndSetScoped() so tenant/workspace scope
+ * is passed as structured values originating from verified identity rather than re-parsed
+ * from a storage key. Generic get()/compareAndSet() remains supported for local/test
+ * adapters, but browser/host key-value providers do not silently qualify as durable
+ * production persistence.
  */
 function createCanonicalWorkspacePersistence({
   storageProvider,
   namespace = 'startak:canonical-workspace:v1',
   now = () => new Date().toISOString(),
 } = {}) {
-  if (!storageProvider || typeof storageProvider.get !== 'function') throw new TypeError('storageProvider.get is required');
+  const hasScopedGet = Boolean(storageProvider && typeof storageProvider.getScoped === 'function');
+  const hasGenericGet = Boolean(storageProvider && typeof storageProvider.get === 'function');
+  if (!hasScopedGet && !hasGenericGet) throw new TypeError('storageProvider.get or storageProvider.getScoped is required');
   const normalizedNamespace = requiredString(namespace, 'namespace');
 
-  const hasAtomicCompareAndSet = typeof storageProvider.compareAndSet === 'function';
+  const hasScopedCompareAndSet = typeof storageProvider.compareAndSetScoped === 'function';
+  const hasGenericCompareAndSet = typeof storageProvider.compareAndSet === 'function';
+  const hasAtomicCompareAndSet = hasScopedCompareAndSet || hasGenericCompareAndSet;
   const providerName = typeof storageProvider.providerName === 'function'
     ? storageProvider.providerName()
     : 'UnknownStorageProvider';
+
+  async function providerGet({ key, tenantId, workspaceId }) {
+    if (hasScopedGet) {
+      return storageProvider.getScoped({
+        namespace: normalizedNamespace,
+        key,
+        tenantId,
+        workspaceId,
+      });
+    }
+    return storageProvider.get(key);
+  }
+
+  async function providerCompareAndSet({
+    key,
+    tenantId,
+    workspaceId,
+    expectedRaw,
+    nextRaw,
+    expectedVersion,
+    nextVersion,
+  }) {
+    if (hasScopedCompareAndSet) {
+      return storageProvider.compareAndSetScoped({
+        namespace: normalizedNamespace,
+        key,
+        tenantId,
+        workspaceId,
+        expectedRaw,
+        nextRaw,
+        expectedVersion,
+        nextVersion,
+      });
+    }
+    return storageProvider.compareAndSet(key, expectedRaw, nextRaw);
+  }
 
   async function load({ identityContext, workspaceId } = {}) {
     const identity = requireVerifiedIdentityContext(identityContext);
     const normalizedWorkspaceId = requiredString(workspaceId, 'workspaceId');
     const key = storageKey(normalizedNamespace, identity.tenantId, normalizedWorkspaceId);
-    const raw = await storageProvider.get(key);
+    const raw = await providerGet({
+      key,
+      tenantId: identity.tenantId,
+      workspaceId: normalizedWorkspaceId,
+    });
     if (raw == null) return null;
     return deepFreeze(parseEnvelope(String(raw), {
       tenantId: identity.tenantId,
@@ -92,7 +138,11 @@ function createCanonicalWorkspacePersistence({
     if (!hasAtomicCompareAndSet) fail('ATOMIC_PERSISTENCE_REQUIRED');
 
     const key = storageKey(normalizedNamespace, identity.tenantId, workspaceId);
-    const currentRawValue = await storageProvider.get(key);
+    const currentRawValue = await providerGet({
+      key,
+      tenantId: identity.tenantId,
+      workspaceId,
+    });
     const currentRaw = currentRawValue == null ? null : String(currentRawValue);
     const current = currentRaw == null
       ? null
@@ -138,7 +188,15 @@ function createCanonicalWorkspacePersistence({
       },
     };
     const nextRaw = JSON.stringify(next);
-    const stored = await storageProvider.compareAndSet(key, currentRaw, nextRaw);
+    const stored = await providerCompareAndSet({
+      key,
+      tenantId: identity.tenantId,
+      workspaceId,
+      expectedRaw: currentRaw,
+      nextRaw,
+      expectedVersion: currentVersion,
+      nextVersion: currentVersion + 1,
+    });
     if (stored !== true) fail('WORKSPACE_CONCURRENT_WRITE_CONFLICT');
 
     return deepFreeze(JSON.parse(nextRaw));
@@ -151,10 +209,11 @@ function createCanonicalWorkspacePersistence({
     capabilities: Object.freeze({
       atomicCompareAndSet: hasAtomicCompareAndSet,
       tenantKeyIsolation: true,
+      structuredTenantScope: hasScopedGet && hasScopedCompareAndSet,
       productionPersistenceValidated: false,
       externalDatabaseDeploymentRequired: true,
     }),
-    semantics: 'This runtime boundary requires atomic storage and scopes keys from a verified tenant identity. It does not prove that a production database, RLS policy, backup, restore, encryption, or disaster-recovery control has been deployed or independently validated.',
+    semantics: 'This runtime boundary requires atomic storage and scopes records from verified tenant identity. Structured tenant-aware providers are preferred for server/database persistence. The boundary does not prove that a production database, RLS policy, backup, restore, encryption, or disaster-recovery control has been deployed or independently validated.',
   });
 }
 
