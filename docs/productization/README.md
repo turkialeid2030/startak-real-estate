@@ -36,4 +36,8 @@ These notes describe incremental productization slices and their explicit eviden
 
 - [`p15-controlled-staging-api-security-qualification.md`](./p15-controlled-staging-api-security-qualification.md) — read-only API object-isolation/IDOR-BOLA qualification plus an authenticated ADMIN-only application inspection path, bound to completed P14 staging evidence and explicitly not a database-owner or production-security certification.
 
+## P16 — Controlled Backup / Restore Qualification
+
+- [`p16-controlled-backup-restore-qualification.md`](./p16-controlled-backup-restore-qualification.md) — staging-only, dry-run-by-default backup/isolated-restore/verification orchestration through host-injected adapters, producing caller-objective-bound `BACKUP_RESTORE` resilience evidence without embedding credentials or infrastructure commands.
+
 Authority remains fail-closed until the existing release-governance process explicitly changes it.
