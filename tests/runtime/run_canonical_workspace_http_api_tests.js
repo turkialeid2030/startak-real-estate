@@ -122,7 +122,10 @@ async function json(response) {
       assert.strictEqual(body.authority.productionAuthenticationValidated, false);
       assert.strictEqual(body.authority.productionPersistenceValidated, false);
       assert.ok(!JSON.stringify(body).includes('good-token'));
-      const call = service.calls.find((entry) => entry.method === 'load' && entry.workspaceId === 'workspace-1');
+      const call = service.calls.find((entry) => entry.method === 'load'
+        && entry.workspaceId === 'workspace-1'
+        && entry.authorizationHeader === 'Bearer good-token');
+      assert.ok(call);
       assert.strictEqual(call.authorizationHeader, 'Bearer good-token');
     });
 
