@@ -20,4 +20,8 @@ These notes describe incremental productization slices and their explicit eviden
 
 - [`p11-server-runtime-composition.md`](./p11-server-runtime-composition.md) — controlled server-side composition of HTTP, OIDC/JWKS authentication, verified tenant/RBAC workspace runtime, and PostgreSQL-compatible persistence with narrow external dependency reachability probes.
 
+## P12 — PostgreSQL Runtime RLS Probe
+
+- [`p12-postgres-runtime-rls-probe.md`](./p12-postgres-runtime-rls-probe.md) — executable staging/runtime probe for PostgreSQL runtime-role privilege, FORCE RLS, same-tenant CRUD, cross-tenant denial, missing tenant context, pool context reset, cleanup, and evidence hashing.
+
 Authority remains fail-closed until the existing release-governance process explicitly changes it.
