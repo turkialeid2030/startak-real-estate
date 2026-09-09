@@ -11,6 +11,10 @@ const {
   CANONICAL_SOURCE_STATUS,
   evaluateCanonicalSourceEvidence,
 } = require('./canonical-source-evidence');
+const {
+  STATUS: CANONICAL_BASELINE_REGISTRY_GATE_STATUS,
+  verifyCanonicalBaselineRegistryFile,
+} = require('./canonical-baseline-registry-gate');
 
 const ROOT = path.join(__dirname, '..');
 let failed = false;
@@ -96,6 +100,24 @@ step('NPM_AUDIT_RELEASE_THRESHOLD', () => {
   const v = data.metadata?.vulnerabilities || {};
   console.log(`  critical=${v.critical||0} high=${v.high||0} moderate=${v.moderate||0} low=${v.low||0}`);
   if ((v.critical || 0) > 0 || (v.high || 0) > 0) throw new Error('critical/high vulnerability present');
+});
+
+step('CANONICAL_BASELINE_REGISTRY_VERIFICATION', () => {
+  // P32 makes the active baseline mode an explicit repository artifact. The
+  // release gate must confirm that the registry still represents the approved
+  // legacy state. Any future switch to a governed composite baseline therefore
+  // requires an explicit reviewed change to both the registry and this gate.
+  const result = verifyCanonicalBaselineRegistryFile();
+  console.log(`  registry_status=${result.status}`);
+  if (result.activeMode) console.log(`  active_mode=${result.activeMode}`);
+  if (result.registryHashSha256) console.log(`  registry_sha256=${result.registryHashSha256}`);
+  if (result.status !== CANONICAL_BASELINE_REGISTRY_GATE_STATUS.VERIFIED || result.verified !== true) {
+    const blockers = Array.isArray(result.blockers) && result.blockers.length > 0
+      ? ` blockers=${result.blockers.join(',')}`
+      : '';
+    throw new Error(`${result.reasonCode || 'CANONICAL_BASELINE_REGISTRY_NOT_VERIFIED'}${blockers}`);
+  }
+  return { stepStatus: 'PASS' };
 });
 
 step('CANONICAL_SOURCE_HASH_VERIFICATION', () => {
