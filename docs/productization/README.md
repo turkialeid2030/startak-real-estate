@@ -76,4 +76,8 @@ These notes describe incremental productization slices and their explicit eviden
 
 - [`p25-canonical-rebaseline-governance-decision.md`](./p25-canonical-rebaseline-governance-decision.md) — records owner direction and requires a distinct independent review before the P24 proposal can become eligible for a separate explicit baseline-activation code change; no automatic baseline switch or release authority is granted.
 
+## P26 — Canonical Re-baseline Independent Review Handoff
+
+- [`p26-canonical-rebaseline-independent-review.md`](./p26-canonical-rebaseline-independent-review.md) — produces a deterministic review packet only from a valid P25 `WAITING_FOR_INDEPENDENT_REVIEW` state, normalizes a distinct reviewer response for P25 re-evaluation, and explicitly does not treat CI or automation as human review.
+
 Authority remains fail-closed until the existing release-governance process explicitly changes it.
