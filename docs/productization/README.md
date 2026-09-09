@@ -80,4 +80,8 @@ These notes describe incremental productization slices and their explicit eviden
 
 - [`p26-canonical-rebaseline-independent-review.md`](./p26-canonical-rebaseline-independent-review.md) — produces a deterministic review packet only from a valid P25 `WAITING_FOR_INDEPENDENT_REVIEW` state, normalizes a distinct reviewer response for P25 re-evaluation, and explicitly does not treat CI or automation as human review.
 
+## P27 — Canonical Re-baseline Review Attestation
+
+- [`p27-canonical-rebaseline-review-attestation.md`](./p27-canonical-rebaseline-review-attestation.md) — verifies RSA-SHA256 reviewer-decision attestations against an out-of-band pinned reviewer registry and binds the decision to the exact P26 packet, while leaving external review-artifact substance and all release authority outside the automated trust boundary.
+
 Authority remains fail-closed until the existing release-governance process explicitly changes it.
