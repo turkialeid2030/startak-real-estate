@@ -6,16 +6,23 @@
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const {
+  EXPECTED_CANONICAL_SHA256,
+  CANONICAL_SOURCE_STATUS,
+  evaluateCanonicalSourceEvidence,
+} = require('./canonical-source-evidence');
 
 const ROOT = path.join(__dirname, '..');
-const CANONICAL_HASH = 'ac0767d3f13c463259f401a5d7af06c1140ee780a9f86489eb17ad9d7c72dc71';
 let failed = false;
 
 function step(name, fn) {
   process.stdout.write(`\n=== ${name} ===\n`);
   try {
-    fn();
-    console.log(`${name}: PASS`);
+    const outcome = fn();
+    const displayStatus = outcome && typeof outcome.stepStatus === 'string'
+      ? outcome.stepStatus
+      : 'PASS';
+    console.log(`${name}: ${displayStatus}`);
   } catch (e) {
     console.log(`${name}: FAIL -- ${e.message}`);
     failed = true;
@@ -92,15 +99,32 @@ step('NPM_AUDIT_RELEASE_THRESHOLD', () => {
 });
 
 step('CANONICAL_SOURCE_HASH_VERIFICATION', () => {
-  // Path to the canonical original is environment-specific (not part of the
-  // repository itself) -- read from an env var so this script contains zero
-  // machine/environment-specific absolute paths and works unmodified in any
-  // CI environment where that variable is set appropriately.
-  const uploadPath = process.env.CANONICAL_ORIGINAL_PATH;
-  if (!uploadPath || !fs.existsSync(uploadPath)) { console.log('  (CANONICAL_ORIGINAL_PATH not set or not found in this environment -- skipping, not a failure)'); return; }
-  const hash = require('crypto').createHash('sha256').update(fs.readFileSync(uploadPath)).digest('hex');
-  console.log(`  computed=${hash}`);
-  if (hash !== CANONICAL_HASH) throw new Error(`canonical hash mismatch: expected ${CANONICAL_HASH}, got ${hash}`);
+  // The canonical original remains external to the repository. Engineering CI
+  // may run without it, but absence must never be printed as PASS. Release-
+  // authority or external-evidence jobs can set REQUIRE_CANONICAL_SOURCE_HASH=1
+  // to make absence fail closed.
+  const result = evaluateCanonicalSourceEvidence({
+    filePath: process.env.CANONICAL_ORIGINAL_PATH,
+    expectedSha256: EXPECTED_CANONICAL_SHA256,
+    requireEvidence: process.env.REQUIRE_CANONICAL_SOURCE_HASH === '1',
+  });
+
+  console.log(`  evidence_status=${result.status}`);
+  console.log(`  expected=${result.expectedSha256}`);
+  if (result.computedSha256) console.log(`  computed=${result.computedSha256}`);
+
+  if (result.status === CANONICAL_SOURCE_STATUS.MISSING_REQUIRED) {
+    throw new Error('canonical source evidence is required but CANONICAL_ORIGINAL_PATH is unavailable');
+  }
+  if (result.status === CANONICAL_SOURCE_STATUS.MISMATCH) {
+    throw new Error(`canonical hash mismatch: expected ${result.expectedSha256}, got ${result.computedSha256}`);
+  }
+  if (result.status === CANONICAL_SOURCE_STATUS.NOT_EVALUATED) {
+    console.log('  (external canonical source was not supplied; engineering checks continue, but canonical-source evidence remains open)');
+    return { stepStatus: 'NOT_EVALUATED' };
+  }
+
+  return { stepStatus: 'PASS' };
 });
 
 console.log(`\n${'='.repeat(50)}`);
