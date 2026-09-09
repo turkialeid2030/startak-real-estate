@@ -68,4 +68,8 @@ These notes describe incremental productization slices and their explicit eviden
 
 - [`p23-external-canonical-evidence-operator.md`](./p23-external-canonical-evidence-operator.md) — operationalizes the strict P21 comparison and P22 unsigned E2I package into one fail-closed operator command for the real externally controlled source bytes, rejecting unknown/secret context fields and never accepting a private signing key or granting authority.
 
+## P24 — Governed Canonical Baseline Reconstitution
+
+- [`p24-canonical-baseline-reconstitution.md`](./p24-canonical-baseline-reconstitution.md) — records the historical canonical original as unavailable and prepares a deterministic human-governance proposal to supersede the legacy file-hash baseline with an exact qualified Git commit plus release-artifact and environment-config digests; it does not switch the baseline or satisfy E2I automatically.
+
 Authority remains fail-closed until the existing release-governance process explicitly changes it.
