@@ -16,4 +16,8 @@ These notes describe incremental productization slices and their explicit eviden
 
 - [`p10-server-http-api-boundary.md`](./p10-server-http-api-boundary.md) — narrow authenticated Node HTTP interface for canonical workspace load/save, with bounded JSON input, exact-origin CORS, sanitized errors, security headers, and fail-closed authority semantics.
 
+## P11 — Server Runtime Composition
+
+- [`p11-server-runtime-composition.md`](./p11-server-runtime-composition.md) — controlled server-side composition of HTTP, OIDC/JWKS authentication, verified tenant/RBAC workspace runtime, and PostgreSQL-compatible persistence with narrow external dependency reachability probes.
+
 Authority remains fail-closed until the existing release-governance process explicitly changes it.
