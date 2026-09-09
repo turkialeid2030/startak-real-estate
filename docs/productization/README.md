@@ -32,4 +32,8 @@ These notes describe incremental productization slices and their explicit eviden
 
 - [`p14-controlled-staging-postgres-qualification.md`](./p14-controlled-staging-postgres-qualification.md) — composes controlled migration, live runtime RLS probing and the deterministic runtime-RLS evaluator; privileged-path evidence remains separately required and production certification remains explicitly false.
 
+## P15 — Controlled Staging API Security Qualification
+
+- [`p15-controlled-staging-api-security-qualification.md`](./p15-controlled-staging-api-security-qualification.md) — read-only API object-isolation/IDOR-BOLA qualification plus an authenticated ADMIN-only application inspection path, bound to completed P14 staging evidence and explicitly not a database-owner or production-security certification.
+
 Authority remains fail-closed until the existing release-governance process explicitly changes it.
