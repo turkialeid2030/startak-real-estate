@@ -309,16 +309,31 @@ async function runPostgresRuntimeRlsProbe({
   } finally {
     if (mutationStarted) {
       try {
-        let primaryDeleted = false;
+        let primaryDeleteObserved = false;
         for (const workspaceId of cleanupIds) {
           const result = await withTransaction(pool, setting, tenantA, (client) => client.query(
             `DELETE FROM ${qualified} WHERE tenant_id = $1 AND workspace_id = $2 RETURNING workspace_id`,
             [tenantA, workspaceId],
           ));
-          if (workspaceId === primaryId) primaryDeleted = result?.rowCount === 1;
+          if (workspaceId === primaryId) primaryDeleteObserved = result?.rowCount === 1;
         }
-        checks.cleanupComplete = primaryDeleted;
-        checks.sameTenantCrudAllowed = checks.sameTenantCrudAllowed && primaryDeleted;
+
+        let allProbeRowsGone = true;
+        for (const workspaceId of cleanupIds) {
+          const result = await withTransaction(pool, setting, tenantA, (client) => client.query(
+            `SELECT workspace_id FROM ${qualified} WHERE tenant_id = $1 AND workspace_id = $2`,
+            [tenantA, workspaceId],
+          ));
+          if (result?.rowCount !== 0) allProbeRowsGone = false;
+        }
+        checks.cleanupComplete = allProbeRowsGone;
+
+        // On the passing isolation path, cleanup of the primary row is also the same-tenant DELETE check.
+        // If a broken cross-tenant policy already deleted that row, preserve the more material cross-tenant
+        // failure instead of misclassifying the result as a cleanup failure.
+        if (checks.crossTenantCrudDenied) {
+          checks.sameTenantCrudAllowed = checks.sameTenantCrudAllowed && primaryDeleteObserved;
+        }
       } catch (_) {
         checks.cleanupComplete = false;
       }
