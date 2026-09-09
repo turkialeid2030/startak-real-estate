@@ -24,4 +24,8 @@ These notes describe incremental productization slices and their explicit eviden
 
 - [`p12-postgres-runtime-rls-probe.md`](./p12-postgres-runtime-rls-probe.md) — executable staging/runtime probe for PostgreSQL runtime-role privilege, FORCE RLS, same-tenant CRUD, cross-tenant denial, missing tenant context, pool context reset, cleanup, and evidence hashing.
 
+## P13 — Controlled PostgreSQL Migration Runner
+
+- [`p13-controlled-postgres-migration-runner.md`](./p13-controlled-postgres-migration-runner.md) — dry-run-by-default, target-bound migration execution boundary limited to staging/preproduction, with preflight database/role identity matching and FORCE-RLS post-check.
+
 Authority remains fail-closed until the existing release-governance process explicitly changes it.
