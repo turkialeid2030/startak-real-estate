@@ -60,4 +60,8 @@ These notes describe incremental productization slices and their explicit eviden
 
 - [`p21-canonical-source-evidence-hardening.md`](./p21-canonical-source-evidence-hardening.md) — corrects the canonical release verifier so missing external source evidence is reported as `NOT_EVALUATED`, adds strict fail-closed mode for authorized external-evidence runs, and reserves `PASS` for an actual matching SHA-256 comparison.
 
+## P22 — Canonical Source E2I Signing Package
+
+- [`p22-canonical-e2i-signing-package.md`](./p22-canonical-e2i-signing-package.md) — converts an already verified pinned canonical-source comparison into the exact unsigned `CANONICAL_SOURCE_HASH_COMPARISON` E2I signing payload, with deterministic signing bytes and compatibility tests against the existing E2I RSA signature verifier while keeping the external signer and trust root out of the repository.
+
 Authority remains fail-closed until the existing release-governance process explicitly changes it.
