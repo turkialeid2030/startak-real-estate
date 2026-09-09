@@ -88,4 +88,8 @@ These notes describe incremental productization slices and their explicit eviden
 
 - [`p28-owner-controlled-reviewer-designation.md`](./p28-owner-controlled-reviewer-designation.md) — gives the proposal owner the narrow governance capability to designate or replace the independent-review workflow assignee before an accepted review; the current mutable designation is `سعيد المراجع` (`reviewer:saeed-pending`), pending final identity/trust binding.
 
+## P29 — Reviewer Designation Ledger and Owner Operator
+
+- [`p29-reviewer-designation-ledger.md`](./p29-reviewer-designation-ledger.md) — adds an append-only reviewer-designation history, strict replacement-chain validation and an owner operator for preparing future reviewer replacements without weakening the P27 independent-review trust boundary.
+
 Authority remains fail-closed until the existing release-governance process explicitly changes it.
