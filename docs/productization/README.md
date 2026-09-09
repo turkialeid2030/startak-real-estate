@@ -56,4 +56,8 @@ These notes describe incremental productization slices and their explicit eviden
 
 - [`p20-release-candidate-evidence-bundle.md`](./p20-release-candidate-evidence-bundle.md) — deterministic handoff manifest that composes the existing P9 production-qualification result with exact-commit P19 security/UAT evidence, requires a complete explicit register of unresolved external blockers and separate review governance, and can only make the package eligible for the existing human release-governance review.
 
+## P21 — Canonical Source Evidence Hardening
+
+- [`p21-canonical-source-evidence-hardening.md`](./p21-canonical-source-evidence-hardening.md) — corrects the canonical release verifier so missing external source evidence is reported as `NOT_EVALUATED`, adds strict fail-closed mode for authorized external-evidence runs, and reserves `PASS` for an actual matching SHA-256 comparison.
+
 Authority remains fail-closed until the existing release-governance process explicitly changes it.
