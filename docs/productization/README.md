@@ -52,4 +52,8 @@ These notes describe incremental productization slices and their explicit eviden
 
 - [`p19-independent-security-uat-evidence-gate.md`](./p19-independent-security-uat-evidence-gate.md) — exact-commit staging gate for supplied independent penetration-test and UAT evidence, blocking open Critical/High findings, requiring retest of remediated Critical/High findings, enforcing UAT scenario completion and independent review separation, and hashing external references without granting release authority.
 
+## P20 — Release Candidate Evidence Bundle
+
+- [`p20-release-candidate-evidence-bundle.md`](./p20-release-candidate-evidence-bundle.md) — deterministic handoff manifest that composes the existing P9 production-qualification result with exact-commit P19 security/UAT evidence, requires a complete explicit register of unresolved external blockers and separate review governance, and can only make the package eligible for the existing human release-governance review.
+
 Authority remains fail-closed until the existing release-governance process explicitly changes it.
