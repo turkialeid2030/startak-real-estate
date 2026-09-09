@@ -4,6 +4,9 @@ const crypto = require('crypto');
 const {
   STATUS: P24_STATUS,
 } = require('./canonical-baseline-reconstitution');
+const {
+  verifyCanonicalRebaselineReviewerDesignation,
+} = require('./canonical-rebaseline-reviewer-designation');
 
 const STATUS = Object.freeze({
   HOLD_REBASELINE_PROPOSAL: 'HOLD_REBASELINE_PROPOSAL',
@@ -97,7 +100,27 @@ function proposalQualified(proposal) {
   );
 }
 
-function hold(status, proposal, blockers, ownerDecision = null, independentReview = null) {
+function resolveReviewer(proposal, ownerActorRef, reviewerDesignation) {
+  if (reviewerDesignation == null) {
+    return {
+      reviewerRef: proposal.independentReviewerRef,
+      reviewerDesignationHashSha256: null,
+      reviewerDisplayName: null,
+    };
+  }
+  const valid = verifyCanonicalRebaselineReviewerDesignation(reviewerDesignation, {
+    proposal,
+    ownerActorRef,
+  });
+  if (!valid) throw new TypeError('REVIEWER_DESIGNATION_INVALID');
+  return {
+    reviewerRef: reviewerDesignation.reviewerRef,
+    reviewerDesignationHashSha256: reviewerDesignation.designationHashSha256,
+    reviewerDisplayName: reviewerDesignation.reviewerDisplayName,
+  };
+}
+
+function hold(status, proposal, blockers, ownerDecision = null, independentReview = null, reviewer = null) {
   return deepFreeze({
     schemaVersion: 1,
     status,
@@ -106,6 +129,10 @@ function hold(status, proposal, blockers, ownerDecision = null, independentRevie
     blockers: Object.freeze([...blockers]),
     ownerDecision,
     independentReview,
+    effectiveIndependentReviewerRef: reviewer?.reviewerRef || proposal?.independentReviewerRef || null,
+    reviewerDesignationHashSha256: reviewer?.reviewerDesignationHashSha256 || null,
+    reviewerDisplayName: reviewer?.reviewerDisplayName || null,
+    ownerMayReplaceReviewerBeforeAcceptedReview: true,
     automaticBaselineSwitchAllowed: false,
     explicitReviewedCodeChangeRequired: true,
     postChangeReleaseVerifyRequired: true,
@@ -118,6 +145,7 @@ function createCanonicalRebaselineGovernanceDecision({
   proposal,
   ownerDecision,
   independentReview,
+  reviewerDesignation = null,
 } = {}) {
   if (!proposalQualified(proposal)) {
     return hold(STATUS.HOLD_REBASELINE_PROPOSAL, proposal, ['P24_REBASELINE_PROPOSAL_NOT_QUALIFIED']);
@@ -137,25 +165,32 @@ function createCanonicalRebaselineGovernanceDecision({
     return hold(STATUS.HOLD_OWNER_DIRECTION, proposal, [`OWNER_DIRECTION_${owner.result}`], owner);
   }
 
+  let reviewer;
+  try {
+    reviewer = resolveReviewer(proposal, owner.actorRef, reviewerDesignation);
+  } catch (error) {
+    return hold(STATUS.HOLD_INDEPENDENT_REVIEW, proposal, [error.message], owner);
+  }
+
   if (independentReview == null) {
-    return hold(STATUS.WAITING_FOR_INDEPENDENT_REVIEW, proposal, ['INDEPENDENT_REVIEW_REQUIRED'], owner);
+    return hold(STATUS.WAITING_FOR_INDEPENDENT_REVIEW, proposal, ['INDEPENDENT_REVIEW_REQUIRED'], owner, null, reviewer);
   }
 
   let review;
   try {
     review = normalizeDecision(independentReview, 'independentReview');
   } catch (error) {
-    return hold(STATUS.HOLD_INDEPENDENT_REVIEW, proposal, [error.message], owner);
+    return hold(STATUS.HOLD_INDEPENDENT_REVIEW, proposal, [error.message], owner, null, reviewer);
   }
 
-  if (review.actorRef !== proposal.independentReviewerRef) {
-    return hold(STATUS.HOLD_INDEPENDENT_REVIEW, proposal, ['INDEPENDENT_REVIEW_ACTOR_MUST_MATCH_PROPOSAL_REVIEWER'], owner, review);
+  if (review.actorRef !== reviewer.reviewerRef) {
+    return hold(STATUS.HOLD_INDEPENDENT_REVIEW, proposal, ['INDEPENDENT_REVIEW_ACTOR_MUST_MATCH_EFFECTIVE_REVIEWER'], owner, review, reviewer);
   }
   if (review.actorRef === owner.actorRef) {
-    return hold(STATUS.HOLD_INDEPENDENT_REVIEW, proposal, ['OWNER_AND_INDEPENDENT_REVIEWER_MUST_DIFFER'], owner, review);
+    return hold(STATUS.HOLD_INDEPENDENT_REVIEW, proposal, ['OWNER_AND_INDEPENDENT_REVIEWER_MUST_DIFFER'], owner, review, reviewer);
   }
   if (review.result !== DECISION_RESULT.APPROVE) {
-    return hold(STATUS.HOLD_INDEPENDENT_REVIEW, proposal, [`INDEPENDENT_REVIEW_${review.result}`], owner, review);
+    return hold(STATUS.HOLD_INDEPENDENT_REVIEW, proposal, [`INDEPENDENT_REVIEW_${review.result}`], owner, review, reviewer);
   }
 
   const core = {
@@ -166,6 +201,8 @@ function createCanonicalRebaselineGovernanceDecision({
     releaseArtifactSha256: proposal.releaseArtifactSha256,
     environmentConfigSha256: proposal.environmentConfigSha256,
     legacyCanonicalSha256: proposal.legacyCanonicalSha256,
+    effectiveIndependentReviewerRef: reviewer.reviewerRef,
+    reviewerDesignationHashSha256: reviewer.reviewerDesignationHashSha256,
     ownerDecision: owner,
     independentReview: review,
   };
@@ -175,12 +212,14 @@ function createCanonicalRebaselineGovernanceDecision({
     status: STATUS.READY_FOR_EXPLICIT_BASELINE_ACTIVATION_CHANGE,
     governanceDecisionHashSha256: sha256(core),
     blockers: Object.freeze([]),
+    reviewerDisplayName: reviewer.reviewerDisplayName,
+    ownerMayReplaceReviewerBeforeAcceptedReview: false,
     automaticBaselineSwitchAllowed: false,
     explicitReviewedCodeChangeRequired: true,
     postChangeReleaseVerifyRequired: true,
     e2iPolicyReviewRequired: true,
     ...AUTHORITY,
-    semantics: 'Owner direction and independent review may make the re-baseline proposal eligible for a separate explicit reviewed code change. This decision object does not itself change the canonical baseline, close the legacy evidence gap, satisfy E2I canonical evidence, or authorize release, merge, deployment, go-live, professional issuance, or transactions.',
+    semantics: 'Owner direction plus an approved review from the currently effective independent reviewer may make the re-baseline proposal eligible for a separate explicit reviewed code change. An owner reviewer-designation record may replace the original proposal reviewer before review acceptance, but this decision object never changes the canonical baseline or grants release authority.',
   });
 }
 

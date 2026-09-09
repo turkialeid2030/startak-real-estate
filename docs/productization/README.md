@@ -84,4 +84,8 @@ These notes describe incremental productization slices and their explicit eviden
 
 - [`p27-canonical-rebaseline-review-attestation.md`](./p27-canonical-rebaseline-review-attestation.md) — verifies RSA-SHA256 reviewer-decision attestations against an out-of-band pinned reviewer registry and binds the decision to the exact P26 packet, while leaving external review-artifact substance and all release authority outside the automated trust boundary.
 
+## P28 — Owner-Controlled Reviewer Designation
+
+- [`p28-owner-controlled-reviewer-designation.md`](./p28-owner-controlled-reviewer-designation.md) — gives the proposal owner the narrow governance capability to designate or replace the independent-review workflow assignee before an accepted review; the current mutable designation is `سعيد المراجع` (`reviewer:saeed-pending`), pending final identity/trust binding.
+
 Authority remains fail-closed until the existing release-governance process explicitly changes it.

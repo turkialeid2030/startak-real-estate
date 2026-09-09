@@ -82,12 +82,18 @@ function hold(status, blockers, packet = null) {
 function createCanonicalRebaselineIndependentReviewPacket({
   proposal,
   ownerDecision,
+  reviewerDesignation = null,
   reviewRequestId,
   requestedAt,
 } = {}) {
   let governance;
   try {
-    governance = createCanonicalRebaselineGovernanceDecision({ proposal, ownerDecision, independentReview: null });
+    governance = createCanonicalRebaselineGovernanceDecision({
+      proposal,
+      ownerDecision,
+      independentReview: null,
+      reviewerDesignation,
+    });
   } catch (error) {
     return hold(STATUS.HOLD_REVIEW_HANDOFF, [error.message]);
   }
@@ -117,7 +123,9 @@ function createCanonicalRebaselineIndependentReviewPacket({
     legacyCanonicalAvailability: proposal.legacyCanonicalAvailability,
     ownerActorRef: governance.ownerDecision.actorRef,
     ownerDecisionHashSha256: governance.ownerDecision.decisionHashSha256,
-    independentReviewerRef: proposal.independentReviewerRef,
+    independentReviewerRef: governance.effectiveIndependentReviewerRef,
+    reviewerDesignationHashSha256: governance.reviewerDesignationHashSha256,
+    reviewerDisplayName: governance.reviewerDisplayName,
     requestedAt: requestedAtIso,
     reviewChecklist: Object.freeze([
       'CONFIRM_LEGACY_CANONICAL_ORIGINAL_IS_RECORDED_AS_UNAVAILABLE',
@@ -146,8 +154,9 @@ function createCanonicalRebaselineIndependentReviewPacket({
         'rationaleRef',
       ]),
       allowedResults: Object.freeze(Object.values(DECISION_RESULT)),
-      actorRefMustEqual: proposal.independentReviewerRef,
+      actorRefMustEqual: governance.effectiveIndependentReviewerRef,
     }),
+    ownerMayReplaceReviewerBeforeAcceptedReview: true,
     reviewerIdentityCryptographicallyVerified: false,
     externalReviewEvidenceAuthenticityVerifiedHere: false,
     automaticBaselineSwitchAllowed: false,
@@ -155,7 +164,7 @@ function createCanonicalRebaselineIndependentReviewPacket({
     postChangeReleaseVerifyRequired: true,
     e2iPolicyReviewRequired: true,
     ...AUTHORITY,
-    semantics: 'This packet is an auditable handoff to the distinct independent reviewer named in the P24 proposal. It does not constitute the review itself, authenticate the reviewer, activate the successor baseline, satisfy E2I evidence, or grant any release authority.',
+    semantics: 'This packet is an auditable handoff to the currently effective independent reviewer. The owner may replace that reviewer through a new valid designation before an independent review is accepted; doing so requires a newly generated review packet. This packet is not the review itself and grants no release authority.',
   });
 }
 
@@ -218,7 +227,7 @@ function createIndependentReviewResponse({
     postChangeReleaseVerifyRequired: true,
     e2iPolicyReviewRequired: true,
     ...AUTHORITY,
-    semantics: 'This normalized response can be supplied back to P25 for governance re-evaluation. It does not by itself prove reviewer identity or evidence authenticity, and does not activate the baseline or grant release authority.',
+    semantics: 'This normalized response can be supplied back to P25 together with the same reviewer designation that produced the packet. It does not by itself prove reviewer identity or evidence authenticity, and does not activate the baseline or grant release authority.',
   });
 }
 
