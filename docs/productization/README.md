@@ -40,4 +40,8 @@ These notes describe incremental productization slices and their explicit eviden
 
 - [`p16-controlled-backup-restore-qualification.md`](./p16-controlled-backup-restore-qualification.md) — staging-only, dry-run-by-default backup/isolated-restore/verification orchestration through host-injected adapters, producing caller-objective-bound `BACKUP_RESTORE` resilience evidence without embedding credentials or infrastructure commands.
 
+## P17 — Controlled DR Failover Qualification
+
+- [`p17-controlled-dr-failover-qualification.md`](./p17-controlled-dr-failover-qualification.md) — staging-only, dry-run-by-default primary/standby failover and failback drill orchestration, producing caller-objective-bound `DATABASE_UNAVAILABLE` resilience evidence while keeping provider-specific mutation and credentials host-injected.
+
 Authority remains fail-closed until the existing release-governance process explicitly changes it.
