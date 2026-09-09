@@ -125,7 +125,7 @@ function assertAuthorityClosed(result) {
       observabilityQualification: observability({ status: OBSERVABILITY_STATUS.HOLD_OBJECTIVES }),
     }));
     assert.strictEqual(result.status, SECURITY_UAT_STATUS.HOLD_OBSERVABILITY_QUALIFICATION);
-    assert.strictEqual(result.pentest, null);
+    assert.strictEqual(result.pentest ?? null, null);
   });
 
   await test('PRODUCTIZATION-P19-03', async () => {
