@@ -72,4 +72,8 @@ These notes describe incremental productization slices and their explicit eviden
 
 - [`p24-canonical-baseline-reconstitution.md`](./p24-canonical-baseline-reconstitution.md) — records the historical canonical original as unavailable and prepares a deterministic human-governance proposal to supersede the legacy file-hash baseline with an exact qualified Git commit plus release-artifact and environment-config digests; it does not switch the baseline or satisfy E2I automatically.
 
+## P25 — Canonical Re-baseline Governance Decision
+
+- [`p25-canonical-rebaseline-governance-decision.md`](./p25-canonical-rebaseline-governance-decision.md) — records owner direction and requires a distinct independent review before the P24 proposal can become eligible for a separate explicit baseline-activation code change; no automatic baseline switch or release authority is granted.
+
 Authority remains fail-closed until the existing release-governance process explicitly changes it.
