@@ -124,4 +124,8 @@ These notes describe incremental productization slices and their explicit eviden
 
 - [`p37-composite-baseline-cutover-rehearsal.md`](./p37-composite-baseline-cutover-rehearsal.md) — deterministically rehearses `LEGACY_FILE_SHA256 -> GOVERNED_COMPOSITE_BASELINE -> LEGACY_FILE_SHA256` from a valid P36 shadow match, proves modeled rollback to the exact starting registry hash, and performs no active-registry, release-mode or deployment mutation.
 
+## P38 — Composite Baseline Cutover Safety Guard
+
+- [`p38-composite-baseline-cutover-safety-guard.md`](./p38-composite-baseline-cutover-safety-guard.md) — fail-closed safety prerequisite that binds a cryptographically locked P30 reviewer, P31 activation plan, P36 shadow match and P37 exact rollback rehearsal to the same still-authoritative legacy registry; it cannot authorize or apply cutover.
+
 Authority remains fail-closed until the existing release-governance process explicitly changes it.
