@@ -176,4 +176,8 @@ These notes describe incremental productization slices and their explicit eviden
 
 - [`p50-fresh-reactivation-activation-plan.md`](./p50-fresh-reactivation-activation-plan.md) — creates a deterministic successor-baseline plan only from the exact P49 fresh reviewer lock and P47 cycle packet, rejects prior-cycle authority reuse, and keeps activation/reactivation/release blocked pending fresh shadow, rehearsal, cutover-safety, owner-authorization and activation-contract evidence.
 
+## P51 — Fresh Composite Registry Candidate
+
+- [`p51-fresh-composite-registry-candidate.md`](./p51-fresh-composite-registry-candidate.md) — prepares a schema-v3 governed-composite candidate from the exact P50 plan while the authoritative registry remains legacy, binds logical/content hashes to the fresh cycle and deliberately requires a later fresh-mode verifier before any activation can be considered.
+
 Authority remains fail-closed until the existing release-governance process explicitly changes it.
