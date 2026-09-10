@@ -19,6 +19,10 @@ const {
   STATUS: COMPOSITE_BASELINE_SHADOW_GATE_STATUS,
   evaluateCompositeBaselineShadowFromEnvironment,
 } = require('./composite-baseline-shadow-release-gate');
+const {
+  STATUS: COMPOSITE_CUTOVER_SAFETY_GATE_STATUS,
+  evaluateCompositeBaselineCutoverSafetyFromEnvironment,
+} = require('./composite-baseline-cutover-safety-gate');
 
 const ROOT = path.join(__dirname, '..');
 let failed = false;
@@ -107,10 +111,6 @@ step('NPM_AUDIT_RELEASE_THRESHOLD', () => {
 });
 
 step('CANONICAL_BASELINE_REGISTRY_VERIFICATION', () => {
-  // P32 makes the active baseline mode an explicit repository artifact. The
-  // release gate must confirm that the registry still represents the approved
-  // legacy state. Any future switch to a governed composite baseline therefore
-  // requires an explicit reviewed change to both the registry and this gate.
   const result = verifyCanonicalBaselineRegistryFile();
   console.log(`  registry_status=${result.status}`);
   if (result.activeMode) console.log(`  active_mode=${result.activeMode}`);
@@ -125,10 +125,6 @@ step('CANONICAL_BASELINE_REGISTRY_VERIFICATION', () => {
 });
 
 step('COMPOSITE_BASELINE_SHADOW_VERIFICATION', () => {
-  // P36 may compare an externally prepared P32 candidate plus P34 evidence in
-  // shadow mode while LEGACY_FILE_SHA256 remains authoritative. Ordinary CI
-  // does not fabricate those external inputs, so absence is NOT_EVALUATED.
-  // An authorized evidence run may set REQUIRE_COMPOSITE_BASELINE_SHADOW=1.
   const result = evaluateCompositeBaselineShadowFromEnvironment();
   console.log(`  shadow_status=${result.status}`);
   console.log(`  authoritative_mode=${result.authoritativeMode}`);
@@ -151,11 +147,34 @@ step('COMPOSITE_BASELINE_SHADOW_VERIFICATION', () => {
   return { stepStatus: 'PASS' };
 });
 
+step('COMPOSITE_BASELINE_CUTOVER_SAFETY_GUARD', () => {
+  // P38 is an optional engineering evidence gate until real reviewer-locked
+  // P30/P31/P36/P37 artifacts are supplied. Strict controlled runs can require
+  // the complete set with REQUIRE_COMPOSITE_CUTOVER_SAFETY=1.
+  const result = evaluateCompositeBaselineCutoverSafetyFromEnvironment();
+  console.log(`  cutover_safety_status=${result.status}`);
+  console.log(`  authoritative_mode=${result.authoritativeMode}`);
+  console.log(`  proposed_mode=${result.proposedMode}`);
+  console.log(`  activation_authorization_granted=${result.activationAuthorizationGranted}`);
+  if (result.cutoverSafetyGuardHashSha256) console.log(`  cutover_safety_guard_sha256=${result.cutoverSafetyGuardHashSha256}`);
+  if (result.reasonCode) console.log(`  reason_code=${result.reasonCode}`);
+
+  if (result.status === COMPOSITE_CUTOVER_SAFETY_GATE_STATUS.HOLD) {
+    throw new Error(result.reasonCode || 'COMPOSITE_CUTOVER_SAFETY_HOLD');
+  }
+  if (result.status === COMPOSITE_CUTOVER_SAFETY_GATE_STATUS.MISSING_REQUIRED) {
+    throw new Error(result.reasonCode || 'COMPOSITE_CUTOVER_SAFETY_REQUIRED');
+  }
+  if (result.status === COMPOSITE_CUTOVER_SAFETY_GATE_STATUS.NOT_EVALUATED) {
+    return { stepStatus: 'NOT_EVALUATED' };
+  }
+  if (result.status !== COMPOSITE_CUTOVER_SAFETY_GATE_STATUS.VERIFIED || result.verified !== true) {
+    throw new Error('COMPOSITE_CUTOVER_SAFETY_UNEXPECTED_STATUS');
+  }
+  return { stepStatus: 'PASS' };
+});
+
 step('CANONICAL_SOURCE_HASH_VERIFICATION', () => {
-  // The canonical original remains external to the repository. Engineering CI
-  // may run without it, but absence must never be printed as PASS. Release-
-  // authority or external-evidence jobs can set REQUIRE_CANONICAL_SOURCE_HASH=1
-  // to make absence fail closed.
   const result = evaluateCanonicalSourceEvidence({
     filePath: process.env.CANONICAL_ORIGINAL_PATH,
     expectedSha256: EXPECTED_CANONICAL_SHA256,
