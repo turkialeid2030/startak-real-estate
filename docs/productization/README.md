@@ -116,4 +116,8 @@ These notes describe incremental productization slices and their explicit eviden
 
 - [`p35-governed-composite-baseline-evidence-operator.md`](./p35-governed-composite-baseline-evidence-operator.md) — provides a fail-closed CLI for supplying the P32 candidate, exact commit, release-artifact bytes and environment-config bytes to P34, emitting only hashed candidate evidence and never activating the baseline.
 
+## P36 — Composite Baseline Shadow Release Gate
+
+- [`p36-composite-baseline-shadow-release-gate.md`](./p36-composite-baseline-shadow-release-gate.md) — compares a P32 governed-composite candidate and P34 evidence beside the still-authoritative legacy baseline, reports absent external shadow inputs as `NOT_EVALUATED`, supports strict fail-closed shadow runs, and cannot activate the composite baseline or grant release authority.
+
 Authority remains fail-closed until the existing release-governance process explicitly changes it.
