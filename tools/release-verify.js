@@ -20,6 +20,10 @@ const {
   evaluateCompositeBaselineShadowFromEnvironment,
 } = require('./composite-baseline-shadow-release-gate');
 const {
+  STATUS: FRESH_COMPOSITE_SHADOW_GATE_STATUS,
+  evaluateFreshCompositeShadowFromEnvironment,
+} = require('./fresh-composite-shadow-release-gate');
+const {
   STATUS: COMPOSITE_CUTOVER_SAFETY_GATE_STATUS,
   evaluateCompositeBaselineCutoverSafetyFromEnvironment,
 } = require('./composite-baseline-cutover-safety-gate');
@@ -103,7 +107,7 @@ step('VERIFY_PACKAGE', () => {
 step('NPM_AUDIT_RELEASE_THRESHOLD', () => {
   let out;
   try { out = execFileSync('npm', ['audit', '--json'], { cwd: ROOT, encoding: 'utf8' }); }
-  catch (e) { out = e.stdout; } // npm audit exits non-zero when vulnerabilities exist; we parse regardless
+  catch (e) { out = e.stdout; }
   const data = JSON.parse(out);
   const v = data.metadata?.vulnerabilities || {};
   console.log(`  critical=${v.critical||0} high=${v.high||0} moderate=${v.moderate||0} low=${v.low||0}`);
@@ -147,10 +151,31 @@ step('COMPOSITE_BASELINE_SHADOW_VERIFICATION', () => {
   return { stepStatus: 'PASS' };
 });
 
+step('FRESH_COMPOSITE_SHADOW_VERIFICATION', () => {
+  const result = evaluateFreshCompositeShadowFromEnvironment();
+  console.log(`  fresh_shadow_status=${result.status}`);
+  console.log(`  authoritative_mode=${result.authoritativeMode}`);
+  console.log(`  shadow_mode=${result.shadowMode}`);
+  if (result.cycleId) console.log(`  cycle_id=${result.cycleId}`);
+  if (result.freshShadowEvaluationHashSha256) console.log(`  fresh_shadow_evaluation_sha256=${result.freshShadowEvaluationHashSha256}`);
+  if (result.reasonCode) console.log(`  reason_code=${result.reasonCode}`);
+
+  if (result.status === FRESH_COMPOSITE_SHADOW_GATE_STATUS.HOLD) {
+    throw new Error(result.reasonCode || 'FRESH_COMPOSITE_SHADOW_HOLD');
+  }
+  if (result.status === FRESH_COMPOSITE_SHADOW_GATE_STATUS.MISSING_REQUIRED) {
+    throw new Error(result.reasonCode || 'FRESH_COMPOSITE_SHADOW_REQUIRED');
+  }
+  if (result.status === FRESH_COMPOSITE_SHADOW_GATE_STATUS.NOT_EVALUATED) {
+    return { stepStatus: 'NOT_EVALUATED' };
+  }
+  if (result.status !== FRESH_COMPOSITE_SHADOW_GATE_STATUS.VERIFIED || result.verified !== true) {
+    throw new Error('FRESH_COMPOSITE_SHADOW_UNEXPECTED_STATUS');
+  }
+  return { stepStatus: 'PASS' };
+});
+
 step('COMPOSITE_BASELINE_CUTOVER_SAFETY_GUARD', () => {
-  // P38 is an optional engineering evidence gate until real reviewer-locked
-  // P30/P31/P36/P37 artifacts are supplied. Strict controlled runs can require
-  // the complete set with REQUIRE_COMPOSITE_CUTOVER_SAFETY=1.
   const result = evaluateCompositeBaselineCutoverSafetyFromEnvironment();
   console.log(`  cutover_safety_status=${result.status}`);
   console.log(`  authoritative_mode=${result.authoritativeMode}`);
