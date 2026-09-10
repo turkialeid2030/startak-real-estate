@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const { EXPECTED_CANONICAL_SHA256 } = require('../../tools/canonical-source-evidence');
 const {
   MODE,
   STATUS: P32_STATUS,
@@ -93,13 +94,27 @@ function verifyCandidate(candidate) {
   if (candidate.requestedMode !== MODE.GOVERNED_COMPOSITE_BASELINE || candidate.supersedesMode !== MODE.LEGACY_FILE_SHA256) {
     return 'P32_COMPOSITE_CANDIDATE_MODE_INVALID';
   }
-  if (!SHA256_RE.test(candidate.candidateRegistryHashSha256 || '') || !SHA256_RE.test(candidate.successorBaselineManifestHashSha256 || '')) {
-    return 'P32_COMPOSITE_CANDIDATE_HASH_INVALID';
-  }
+  if (
+    candidate.supersedesLegacyCanonicalSha256 !== EXPECTED_CANONICAL_SHA256
+    || !SHA256_RE.test(candidate.activationPlanHashSha256 || '')
+    || !SHA256_RE.test(candidate.candidateRegistryHashSha256 || '')
+    || !SHA256_RE.test(candidate.successorBaselineManifestHashSha256 || '')
+  ) return 'P32_COMPOSITE_CANDIDATE_HASH_INVALID';
   if (!candidate.successorBaselineManifest || typeof candidate.successorBaselineManifest !== 'object') {
     return 'P32_SUCCESSOR_BASELINE_MANIFEST_REQUIRED';
   }
-  if (sha256Object(candidate.successorBaselineManifest) !== candidate.successorBaselineManifestHashSha256) {
+  const manifest = candidate.successorBaselineManifest;
+  if (
+    manifest.schemaVersion !== 1
+    || manifest.baselineType !== 'QUALIFIED_GIT_COMMIT_AND_RELEASE_ARTIFACT'
+    || !COMMIT_RE.test(manifest.qualifiedSourceCommitSha || '')
+    || !SHA256_RE.test(manifest.releaseArtifactSha256 || '')
+    || !SHA256_RE.test(manifest.environmentConfigSha256 || '')
+    || !SHA256_RE.test(manifest.governanceDecisionHashSha256 || '')
+    || !SHA256_RE.test(manifest.reviewerLockHashSha256 || '')
+    || manifest.supersedesLegacyCanonicalSha256 !== candidate.supersedesLegacyCanonicalSha256
+  ) return 'P32_SUCCESSOR_BASELINE_MANIFEST_SCOPE_INVALID';
+  if (sha256Object(manifest) !== candidate.successorBaselineManifestHashSha256) {
     return 'P32_SUCCESSOR_BASELINE_MANIFEST_HASH_MISMATCH';
   }
   const candidateCore = {
@@ -107,7 +122,7 @@ function verifyCandidate(candidate) {
     requestedMode: candidate.requestedMode,
     supersedesMode: candidate.supersedesMode,
     supersedesLegacyCanonicalSha256: candidate.supersedesLegacyCanonicalSha256,
-    successorBaselineManifest: candidate.successorBaselineManifest,
+    successorBaselineManifest: manifest,
     successorBaselineManifestHashSha256: candidate.successorBaselineManifestHashSha256,
     activationPlanHashSha256: candidate.activationPlanHashSha256,
     targetPath: candidate.targetPath,
