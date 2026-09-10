@@ -260,4 +260,8 @@ These notes describe incremental productization slices and their explicit eviden
 
 - [`p71-successor-fresh-composite-shadow-release-gate.md`](./p71-successor-fresh-composite-shadow-release-gate.md) — compares the P69 schema-v4 candidate and P70 exact-byte evidence beside the exact still-authoritative legacy registry, adds an optional/strict successor-specific Release Verify gate and performs no cutover.
 
+## P72 — Successor Fresh Composite Cutover Rehearsal
+
+- [`p72-successor-fresh-composite-cutover-rehearsal.md`](./p72-successor-fresh-composite-cutover-rehearsal.md) — deterministically rehearses legacy -> schema-v4 successor composite -> exact legacy rollback across both logical and raw-content hashes without mutating the canonical registry, release state or deployment.
+
 Authority remains fail-closed until the existing release-governance process explicitly changes it.
