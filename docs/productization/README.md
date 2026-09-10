@@ -152,4 +152,8 @@ These notes describe incremental productization slices and their explicit eviden
 
 - [`p44-post-rollback-verification-incident-closeout.md`](./p44-post-rollback-verification-incident-closeout.md) — verifies the P43-triggered P42 rollback, exact restoration of the P39 legacy registry and supplied post-rollback Release Verify evidence, then prepares a deterministic human incident-closeout packet while keeping release and reactivation blocked.
 
+## P45 — Human Incident Closeout Attestation
+
+- [`p45-human-incident-closeout-attestation.md`](./p45-human-incident-closeout-attestation.md) — prepares/verifies a trusted RSA-SHA256 human incident-closeout decision bound to the exact P44 packet. Closing an incident never permits reactivation; a new governance cycle and existing release authority remain required.
+
 Authority remains fail-closed until the existing release-governance process explicitly changes it.
