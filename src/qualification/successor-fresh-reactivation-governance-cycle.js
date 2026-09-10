@@ -9,10 +9,8 @@ const {
   stableStringify,
 } = require('./canonical-baseline-registry');
 const {
-  validateP62CloseoutReady,
-} = require('./fresh-post-rollback-verification-incident-closeout');
-const {
   STATUS: P63_STATUS,
+  validateP62CloseoutReady,
   verifyFreshHumanIncidentCloseoutDecision,
 } = require('./fresh-human-incident-closeout-decision');
 
