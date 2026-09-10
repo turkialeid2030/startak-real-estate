@@ -1,20 +1,14 @@
 'use strict';
 
 const crypto = require('crypto');
-const {
-  STATUS: P44_STATUS,
-} = require('./post-rollback-canonical-baseline-verification');
-const {
-  stableStringify,
-} = require('./canonical-baseline-registry');
+const { STATUS: P44_STATUS } = require('./post-rollback-canonical-baseline-verification');
+const { stableStringify } = require('./canonical-baseline-registry');
 
 const PURPOSE = 'INCIDENT_CLOSEOUT_DECISION';
-
 const DECISION = Object.freeze({
   CLOSE_INCIDENT: 'CLOSE_INCIDENT',
   KEEP_INCIDENT_OPEN: 'KEEP_INCIDENT_OPEN',
 });
-
 const STATUS = Object.freeze({
   HOLD_P44_CLOSEOUT_PACKET: 'HOLD_P44_CLOSEOUT_PACKET',
   HOLD_INCIDENT_CLOSEOUT_TRUST_ROOT: 'HOLD_INCIDENT_CLOSEOUT_TRUST_ROOT',
@@ -23,7 +17,6 @@ const STATUS = Object.freeze({
   INCIDENT_REMAINS_OPEN_HUMAN_DECISION_VERIFIED: 'INCIDENT_REMAINS_OPEN_HUMAN_DECISION_VERIFIED',
   INCIDENT_CLOSED_BY_VERIFIED_HUMAN_DECISION_REACTIVATION_BLOCKED: 'INCIDENT_CLOSED_BY_VERIFIED_HUMAN_DECISION_REACTIVATION_BLOCKED',
 });
-
 const AUTHORITY = Object.freeze({
   releaseAuthorized: false,
   mergeAuthorized: false,
@@ -31,20 +24,18 @@ const AUTHORITY = Object.freeze({
   goLiveAuthorized: false,
   transactionAuthorized: false,
 });
-
 const REUSE_BOUNDARY = Object.freeze({
   reactivationAllowed: false,
   previousActivationAuthorizationReusable: false,
   previousReviewerApprovalReusable: false,
+  failedActivationCycleReusable: false,
+  historicalActivationCycleOnly: true,
   newGovernanceCycleRequired: true,
   newActivationPlanRequired: true,
   newOwnerAuthorizationRequired: true,
   newIndependentReviewRequired: true,
-  failedActivationCycleReusable: false,
-  historicalActivationCycleOnly: true,
   releaseStillBlocked: true,
 });
-
 const SHA256_RE = /^[a-f0-9]{64}$/i;
 const COMMIT_RE = /^[a-f0-9]{40}$/i;
 
@@ -52,38 +43,48 @@ function requiredString(value, field) {
   if (typeof value !== 'string' || value.trim() === '') throw new TypeError(`${field} must be a non-empty string`);
   return value.trim();
 }
-
 function requiredSha256(value, field) {
   const normalized = requiredString(value, field).toLowerCase();
   if (!SHA256_RE.test(normalized)) throw new TypeError(`${field} must be a SHA-256 hex digest`);
   return normalized;
 }
-
 function iso(value, field) {
   const raw = requiredString(value, field);
   const parsed = new Date(raw);
   if (Number.isNaN(parsed.getTime())) throw new TypeError(`${field} must be a valid date/time`);
   return parsed.toISOString();
 }
-
 function sha256Text(value) {
   return crypto.createHash('sha256').update(value, 'utf8').digest('hex');
 }
-
 function sha256Object(value) {
   return sha256Text(stableStringify(value));
 }
-
 function deepFreeze(value) {
   if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
   Object.values(value).forEach(deepFreeze);
   return Object.freeze(value);
 }
-
 function allAuthorityFalse(value) {
   return Boolean(value && typeof value === 'object' && Object.keys(AUTHORITY).every((field) => value[field] === false));
 }
-
+function callerAuthorityEscalation(input) {
+  if (!input || typeof input !== 'object') return false;
+  const forbidden = new Set([
+    ...Object.keys(AUTHORITY),
+    'reactivationAllowed',
+    'previousActivationAuthorizationReusable',
+    'previousReviewerApprovalReusable',
+    'failedActivationCycleReusable',
+  ]);
+  for (const [key, value] of Object.entries(input)) {
+    if (forbidden.has(key) && value !== false && value != null) return true;
+  }
+  return false;
+}
+function privateKeyInputPresent(input) {
+  return Boolean(input && typeof input === 'object' && Object.keys(input).some((key) => /private[-_]?key/i.test(key)));
+}
 function hold(status, blockers, extra = {}) {
   return deepFreeze({
     schemaVersion: 1,
@@ -156,9 +157,7 @@ function validateP44CloseoutReady(p44) {
     || !allAuthorityFalse(packet)
   ) blockers.push('P44_PACKET_BOUNDARY_INVALID');
 
-  let packetHash;
   try {
-    packetHash = requiredSha256(packet.incidentCloseoutPacketHashSha256, 'incidentCloseoutPacketHashSha256');
     requiredString(packet.incidentId, 'incidentId');
     requiredString(packet.incidentRef, 'incidentRef');
     requiredString(packet.closeoutPreparedByRef, 'closeoutPreparedByRef');
@@ -170,19 +169,16 @@ function validateP44CloseoutReady(p44) {
     requiredSha256(packet.restoredLegacyRegistryHashSha256, 'restoredLegacyRegistryHashSha256');
     requiredSha256(packet.postRollbackReleaseVerifyEvidenceHashSha256, 'postRollbackReleaseVerifyEvidenceHashSha256');
     requiredString(packet.postRollbackReleaseVerifyRunId, 'postRollbackReleaseVerifyRunId');
-    if (!COMMIT_RE.test(requiredString(packet.postRollbackReleaseVerifySourceCommitSha, 'postRollbackReleaseVerifySourceCommitSha'))) {
-      blockers.push('P44_POST_ROLLBACK_SOURCE_COMMIT_INVALID');
-    }
+    if (!COMMIT_RE.test(requiredString(packet.postRollbackReleaseVerifySourceCommitSha, 'postRollbackReleaseVerifySourceCommitSha'))) blockers.push('P44_POST_ROLLBACK_SOURCE_COMMIT_INVALID');
     iso(packet.postRollbackReleaseVerifyCompletedAt, 'postRollbackReleaseVerifyCompletedAt');
+    const packetHash = requiredSha256(packet.incidentCloseoutPacketHashSha256, 'incidentCloseoutPacketHashSha256');
+    const computed = sha256Object(p44PacketCore(packet));
+    if (computed !== packetHash) blockers.push('P44_INCIDENT_CLOSEOUT_PACKET_HASH_MISMATCH');
+    if (p44.incidentCloseoutPacketHashSha256 !== packetHash) blockers.push('P44_RESULT_PACKET_HASH_MISMATCH');
+    if (p44.postRollbackVerificationHashSha256 !== packetHash) blockers.push('P44_POST_ROLLBACK_VERIFICATION_HASH_MISMATCH');
   } catch (error) {
     blockers.push(error.message);
-    return blockers;
   }
-
-  const computed = sha256Object(p44PacketCore(packet));
-  if (computed !== packetHash) blockers.push('P44_INCIDENT_CLOSEOUT_PACKET_HASH_MISMATCH');
-  if (p44.incidentCloseoutPacketHashSha256 !== packetHash) blockers.push('P44_RESULT_PACKET_HASH_MISMATCH');
-  if (p44.postRollbackVerificationHashSha256 !== packetHash) blockers.push('P44_POST_ROLLBACK_VERIFICATION_HASH_MISMATCH');
   return blockers;
 }
 
@@ -219,12 +215,16 @@ function normalizeIncidentAuthorityRegistry(registry) {
 function normalizeDecisionInput({ p44, decision } = {}) {
   const packet = p44.incidentCloseoutPacket;
   if (!decision || typeof decision !== 'object' || Array.isArray(decision)) throw new TypeError('decision must be an object');
+  if (privateKeyInputPresent(decision)) throw new TypeError('PRIVATE_SIGNING_KEY_INPUT_REJECTED');
+  if (callerAuthorityEscalation(decision)) throw new TypeError('CALLER_AUTHORITY_ESCALATION_NOT_ALLOWED');
+  if (decision.incidentId != null && requiredString(decision.incidentId, 'decision.incidentId') !== packet.incidentId) throw new TypeError('INCIDENT_ID_MISMATCH');
+  if (decision.incidentRef != null && requiredString(decision.incidentRef, 'decision.incidentRef') !== packet.incidentRef) throw new TypeError('INCIDENT_REF_MISMATCH');
+  if (decision.incidentCloseoutPacketHashSha256 != null && requiredSha256(decision.incidentCloseoutPacketHashSha256, 'decision.incidentCloseoutPacketHashSha256') !== packet.incidentCloseoutPacketHashSha256) throw new TypeError('INCIDENT_CLOSEOUT_PACKET_SCOPE_MISMATCH');
+
   const result = requiredString(decision.decision, 'decision.decision');
   if (!Object.values(DECISION).includes(result)) throw new TypeError('decision.decision invalid');
-
   const decidedAt = iso(decision.decidedAt, 'decision.decidedAt');
   if (Date.parse(decidedAt) < Date.parse(packet.closeoutPreparedAt)) throw new TypeError('INCIDENT_CLOSEOUT_DECISION_PRECEDES_P44_PREPARATION');
-
   const actorRef = requiredString(decision.actorRef, 'decision.actorRef');
   if (actorRef === packet.closeoutPreparedByRef) throw new TypeError('CLOSEOUT_PREPARER_AND_APPROVING_ACTOR_MUST_DIFFER');
 
@@ -246,8 +246,10 @@ function normalizeDecisionInput({ p44, decision } = {}) {
 
   const signatureAlgorithm = requiredString(decision.signatureAlgorithm, 'decision.signatureAlgorithm');
   if (signatureAlgorithm !== 'RSA-SHA256') throw new TypeError('INCIDENT_CLOSEOUT_SIGNATURE_ALGORITHM_INVALID');
-
   return deepFreeze({
+    incidentId: packet.incidentId,
+    incidentRef: packet.incidentRef,
+    incidentCloseoutPacketHashSha256: packet.incidentCloseoutPacketHashSha256,
     decisionId: requiredString(decision.decisionId, 'decision.decisionId'),
     incidentAuthorityId: requiredString(decision.incidentAuthorityId, 'decision.incidentAuthorityId'),
     actorRef,
@@ -265,16 +267,16 @@ function normalizeDecisionInput({ p44, decision } = {}) {
 }
 
 function createIncidentCloseoutSigningPayload({ p44, decision } = {}) {
-  const p44Blockers = validateP44CloseoutReady(p44);
-  if (p44Blockers.length > 0) throw new TypeError(p44Blockers[0]);
+  const blockers = validateP44CloseoutReady(p44);
+  if (blockers.length > 0) throw new TypeError(blockers[0]);
   const normalized = normalizeDecisionInput({ p44, decision });
   const packet = p44.incidentCloseoutPacket;
   return deepFreeze({
     schemaVersion: 1,
     purpose: PURPOSE,
-    incidentId: packet.incidentId,
-    incidentRef: packet.incidentRef,
-    incidentCloseoutPacketHashSha256: packet.incidentCloseoutPacketHashSha256,
+    incidentId: normalized.incidentId,
+    incidentRef: normalized.incidentRef,
+    incidentCloseoutPacketHashSha256: normalized.incidentCloseoutPacketHashSha256,
     postRollbackVerificationHashSha256: p44.postRollbackVerificationHashSha256,
     activationChangeContractHashSha256: packet.activationChangeContractHashSha256,
     activationExecutionReceiptHashSha256: packet.activationExecutionReceiptHashSha256,
@@ -303,7 +305,6 @@ function createIncidentCloseoutSigningPayload({ p44, decision } = {}) {
 function validateRegistryAndDecision({ p44, incidentAuthorityRegistry, expectedIncidentAuthorityRegistryHashSha256, decision } = {}) {
   const p44Blockers = validateP44CloseoutReady(p44);
   if (p44Blockers.length > 0) return { error: hold(STATUS.HOLD_P44_CLOSEOUT_PACKET, p44Blockers) };
-
   let registry;
   let expectedHash;
   try {
@@ -312,36 +313,33 @@ function validateRegistryAndDecision({ p44, incidentAuthorityRegistry, expectedI
   } catch (error) {
     return { error: hold(STATUS.HOLD_INCIDENT_CLOSEOUT_TRUST_ROOT, [error.message], { incidentCloseoutPacketHashSha256: p44.incidentCloseoutPacketHashSha256 }) };
   }
-  if (registry.registryHashSha256 !== expectedHash) {
-    return { error: hold(STATUS.HOLD_INCIDENT_CLOSEOUT_TRUST_ROOT, ['INCIDENT_AUTHORITY_REGISTRY_HASH_MISMATCH'], { incidentCloseoutPacketHashSha256: p44.incidentCloseoutPacketHashSha256, incidentAuthorityRegistryHashSha256: registry.registryHashSha256 }) };
-  }
+  if (registry.registryHashSha256 !== expectedHash) return { error: hold(STATUS.HOLD_INCIDENT_CLOSEOUT_TRUST_ROOT, ['INCIDENT_AUTHORITY_REGISTRY_HASH_MISMATCH'], { incidentAuthorityRegistryHashSha256: registry.registryHashSha256 }) };
 
   let payload;
   try {
     payload = createIncidentCloseoutSigningPayload({ p44, decision });
   } catch (error) {
-    return { error: hold(STATUS.HOLD_INCIDENT_CLOSEOUT_ATTESTATION, [error.message], { incidentCloseoutPacketHashSha256: p44.incidentCloseoutPacketHashSha256, incidentAuthorityRegistryHashSha256: registry.registryHashSha256 }) };
+    return { error: hold(STATUS.HOLD_INCIDENT_CLOSEOUT_ATTESTATION, [error.message], { incidentAuthorityRegistryHashSha256: registry.registryHashSha256 }) };
   }
-
   const authority = registry.authorities.find((record) => record.incidentAuthorityId === payload.incidentAuthorityId);
   if (!authority) return { error: hold(STATUS.HOLD_INCIDENT_CLOSEOUT_ATTESTATION, ['INCIDENT_AUTHORITY_NOT_IN_TRUSTED_REGISTRY']) };
   if (authority.actorRef !== payload.actorRef) return { error: hold(STATUS.HOLD_INCIDENT_CLOSEOUT_ATTESTATION, ['INCIDENT_AUTHORITY_ACTOR_SCOPE_MISMATCH']) };
   if (authority.allowedPurpose !== PURPOSE) return { error: hold(STATUS.HOLD_INCIDENT_CLOSEOUT_ATTESTATION, ['INCIDENT_AUTHORITY_PURPOSE_NOT_ALLOWED']) };
   const decidedMs = Date.parse(payload.decidedAt);
-  if (decidedMs < Date.parse(authority.activeFrom) || (authority.activeUntil && decidedMs > Date.parse(authority.activeUntil))) {
-    return { error: hold(STATUS.HOLD_INCIDENT_CLOSEOUT_ATTESTATION, ['INCIDENT_AUTHORITY_OUTSIDE_ACTIVE_PERIOD']) };
-  }
+  if (decidedMs < Date.parse(authority.activeFrom) || (authority.activeUntil && decidedMs > Date.parse(authority.activeUntil))) return { error: hold(STATUS.HOLD_INCIDENT_CLOSEOUT_ATTESTATION, ['INCIDENT_AUTHORITY_OUTSIDE_ACTIVE_PERIOD']) };
   return { registry, authority, payload };
 }
 
 function prepareHumanIncidentCloseoutDecision(input = {}) {
-  if (Object.keys(input).some((key) => /private[-_]?key/i.test(key))) {
-    return hold(STATUS.HOLD_INCIDENT_CLOSEOUT_ATTESTATION, ['PRIVATE_SIGNING_KEY_INPUT_REJECTED']);
-  }
+  if (privateKeyInputPresent(input)) return hold(STATUS.HOLD_INCIDENT_CLOSEOUT_ATTESTATION, ['PRIVATE_SIGNING_KEY_INPUT_REJECTED']);
+  if (callerAuthorityEscalation(input)) return hold(STATUS.HOLD_INCIDENT_CLOSEOUT_ATTESTATION, ['CALLER_AUTHORITY_ESCALATION_NOT_ALLOWED']);
   const validated = validateRegistryAndDecision(input);
   if (validated.error) return validated.error;
   const { registry, authority, payload } = validated;
   const attestationWithoutSignature = deepFreeze({
+    incidentId: payload.incidentId,
+    incidentRef: payload.incidentRef,
+    incidentCloseoutPacketHashSha256: payload.incidentCloseoutPacketHashSha256,
     decisionId: payload.decisionId,
     incidentAuthorityId: payload.incidentAuthorityId,
     actorRef: payload.actorRef,
@@ -387,30 +385,23 @@ function prepareHumanIncidentCloseoutDecision(input = {}) {
 }
 
 function verifyHumanIncidentCloseoutDecision(input = {}) {
-  if (Object.keys(input).some((key) => /private[-_]?key/i.test(key))) {
-    return hold(STATUS.HOLD_INCIDENT_CLOSEOUT_ATTESTATION, ['PRIVATE_SIGNING_KEY_INPUT_REJECTED']);
-  }
+  if (privateKeyInputPresent(input)) return hold(STATUS.HOLD_INCIDENT_CLOSEOUT_ATTESTATION, ['PRIVATE_SIGNING_KEY_INPUT_REJECTED']);
+  if (callerAuthorityEscalation(input)) return hold(STATUS.HOLD_INCIDENT_CLOSEOUT_ATTESTATION, ['CALLER_AUTHORITY_ESCALATION_NOT_ALLOWED']);
   const validated = validateRegistryAndDecision({ ...input, decision: input.attestation });
   if (validated.error) return validated.error;
   const { registry, authority, payload } = validated;
   const signatureBase64 = typeof input.attestation?.signatureBase64 === 'string' ? input.attestation.signatureBase64.trim() : '';
   if (!signatureBase64) return hold(STATUS.HOLD_INCIDENT_CLOSEOUT_ATTESTATION, ['INCIDENT_CLOSEOUT_SIGNATURE_REQUIRED']);
-
   let signatureVerified = false;
   try {
-    signatureVerified = crypto.verify(
-      'RSA-SHA256',
-      Buffer.from(stableStringify(payload), 'utf8'),
-      authority.publicKeyPem,
-      Buffer.from(signatureBase64, 'base64'),
-    );
+    signatureVerified = crypto.verify('RSA-SHA256', Buffer.from(stableStringify(payload), 'utf8'), authority.publicKeyPem, Buffer.from(signatureBase64, 'base64'));
   } catch (_) {
     signatureVerified = false;
   }
   if (!signatureVerified) return hold(STATUS.HOLD_INCIDENT_CLOSEOUT_ATTESTATION, ['INCIDENT_CLOSEOUT_SIGNATURE_INVALID']);
 
   const packet = input.p44.incidentCloseoutPacket;
-  const decisionRecordCore = {
+  const decisionCore = {
     schemaVersion: 1,
     purpose: PURPOSE,
     incidentId: payload.incidentId,
@@ -433,16 +424,15 @@ function verifyHumanIncidentCloseoutDecision(input = {}) {
     signingPayloadHashSha256: sha256Object(payload),
   };
   const humanDecisionRecord = deepFreeze({
-    ...decisionRecordCore,
-    humanDecisionRecordHashSha256: sha256Object(decisionRecordCore),
+    ...decisionCore,
+    humanDecisionRecordHashSha256: sha256Object(decisionCore),
     signatureAlgorithm: 'RSA-SHA256',
     incidentAuthorityIdentityCryptographicallyVerified: true,
     incidentAuthorityTrustRootVerified: true,
     incidentCloseoutSignatureVerified: true,
   });
-
   const closed = payload.decision === DECISION.CLOSE_INCIDENT;
-  const closureCore = {
+  const resetCore = {
     schemaVersion: 1,
     incidentId: payload.incidentId,
     incidentRef: payload.incidentRef,
@@ -457,8 +447,8 @@ function verifyHumanIncidentCloseoutDecision(input = {}) {
     incidentClosed: closed,
   };
   const governanceResetRecord = deepFreeze({
-    ...closureCore,
-    governanceResetRecordHashSha256: sha256Object(closureCore),
+    ...resetCore,
+    governanceResetRecordHashSha256: sha256Object(resetCore),
     previousActivationCycleHistoricalOnly: true,
     previousActivationAuthorizationReusable: false,
     previousReviewerApprovalReusable: false,
@@ -471,12 +461,9 @@ function verifyHumanIncidentCloseoutDecision(input = {}) {
     releaseStillBlocked: true,
     ...AUTHORITY,
   });
-
   return deepFreeze({
     schemaVersion: 1,
-    status: closed
-      ? STATUS.INCIDENT_CLOSED_BY_VERIFIED_HUMAN_DECISION_REACTIVATION_BLOCKED
-      : STATUS.INCIDENT_REMAINS_OPEN_HUMAN_DECISION_VERIFIED,
+    status: closed ? STATUS.INCIDENT_CLOSED_BY_VERIFIED_HUMAN_DECISION_REACTIVATION_BLOCKED : STATUS.INCIDENT_REMAINS_OPEN_HUMAN_DECISION_VERIFIED,
     verified: true,
     blockers: Object.freeze([]),
     incidentId: payload.incidentId,
