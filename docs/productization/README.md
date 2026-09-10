@@ -100,4 +100,16 @@ These notes describe incremental productization slices and their explicit eviden
 
 - [`p31-canonical-rebaseline-activation-plan.md`](./p31-canonical-rebaseline-activation-plan.md) — prepares a deterministic successor-baseline manifest and explicit activation-change contract only after P25 dual approval and a P30 cryptographically bound reviewer lifecycle lock; it does not apply the baseline switch or grant release authority.
 
+## P32 — Canonical Baseline Registry Contract
+
+- [`p32-canonical-baseline-registry-contract.md`](./p32-canonical-baseline-registry-contract.md) — explicitly records the unchanged legacy baseline and provides a fail-closed contract for producing only a non-active governed-composite candidate from a valid P31 activation plan.
+
+## P33 — Canonical Baseline Registry Release Gate
+
+- [`p33-canonical-baseline-registry-release-gate.md`](./p33-canonical-baseline-registry-release-gate.md) — makes the P32 current baseline registry a mandatory Release Verify gate so silent mode drift, legacy-hash drift, fabricated evidence state or authority escalation fails CI before canonical-source verification.
+
+## P34 — Governed Composite Baseline Evidence Verifier
+
+- [`p34-governed-composite-baseline-evidence-verifier.md`](./p34-governed-composite-baseline-evidence-verifier.md) — verifies a future governed-composite candidate against exact commit, release-artifact bytes and environment-config bytes while the active baseline remains legacy; verification is candidate-only and cannot activate the baseline or grant release authority.
+
 Authority remains fail-closed until the existing release-governance process explicitly changes it.
