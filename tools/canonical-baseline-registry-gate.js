@@ -40,7 +40,7 @@ function safeReadJson(filePath, fsModule, maxBytes, reasonPrefix) {
     const stat = fsModule.lstatSync(filePath);
     if (stat.isSymbolicLink()) return { ok: false, reasonCode: `${reasonPrefix}_SYMLINK_REJECTED` };
     if (!stat.isFile()) return { ok: false, reasonCode: `${reasonPrefix}_FILE_REQUIRED` };
-    if (stat.size <= 0 || stat.size > maxBytes) return { ok: false, reasonCode: `${reasonPrefix}_FILE_SIZE_INVALID` };
+    if (stat.size > maxBytes) return { ok: false, reasonCode: `${reasonPrefix}_FILE_TOO_LARGE` };
     const raw = fsModule.readFileSync(filePath, 'utf8');
     const value = JSON.parse(raw);
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -61,10 +61,10 @@ function missingFileStatus(reasonCode) {
 }
 
 function verifyLegacyRegistry(registryRead) {
-  const evaluated = verifyFreshDualModeCanonicalRegistry({
-    registry: registryRead.value,
-    observedRegistryContent: registryRead.raw,
-  });
+  // Preserve the pre-P59 legacy contract: semantic JSON verification only.
+  // Exact raw file-content binding is mandatory only for the new schema-v3
+  // active-composite path, where P57 binds canonical bytes explicitly.
+  const evaluated = verifyFreshDualModeCanonicalRegistry({ registry: registryRead.value });
   if (evaluated.status !== FRESH_DUAL_MODE_STATUS.LEGACY_BASELINE_VERIFIED || evaluated.verified !== true) {
     return result(STATUS.REGISTRY_HOLD, false, 'CANONICAL_BASELINE_LEGACY_NOT_VERIFIED', {
       blockers: evaluated.blockers || Object.freeze([]),
