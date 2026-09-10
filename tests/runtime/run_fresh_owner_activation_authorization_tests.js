@@ -153,7 +153,7 @@ function safetyGuardFixture(plan, currentHash) {
       authorityId: 'owner-authority:p56',
       actorRef: plan.preparedByRef,
       publicKeyPem,
-      publicKeySha256: hashText(publicKeyPem),
+      publicKeySha256: hashText(String(publicKeyPem).trim()),
       governanceEvidenceRef: 'governance:owner:p56',
       activeFrom: '2026-09-10T00:00:00.000Z',
       activeUntil: '2026-09-11T00:00:00.000Z',
