@@ -54,7 +54,7 @@ function contractFixture() {
 
 function authorizationFixture(contract) {
   const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
-  const publicKeyPem = publicKey.export({ type: 'spki', format: 'pem' });
+  const publicKeyPem = publicKey.export({ type: 'spki', format: 'pem' }).trim();
   const authorityRegistry = {
     registryId: 'activation-authority-registry:p41-test',
     governanceArtifactSha256: '7'.repeat(64),
