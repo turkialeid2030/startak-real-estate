@@ -10,6 +10,10 @@ const {
   STATUS: FRESH_DUAL_MODE_STATUS,
   verifyFreshDualModeCanonicalRegistry,
 } = require('../src/qualification/fresh-dual-mode-canonical-registry-verifier');
+const {
+  STATUS: SUCCESSOR_FRESH_DUAL_MODE_STATUS,
+  verifySuccessorFreshDualModeCanonicalRegistry,
+} = require('../src/qualification/successor-fresh-dual-mode-canonical-registry-verifier');
 const { MODE } = require('../src/qualification/canonical-baseline-registry');
 
 const STATUS = Object.freeze({
@@ -27,6 +31,10 @@ const MAX_CANDIDATE_BYTES = 2 * 1024 * 1024;
 const MAX_SAFETY_GUARD_BYTES = 2 * 1024 * 1024;
 const MAX_AUTHORITY_REGISTRY_BYTES = 2 * 1024 * 1024;
 const MAX_ATTESTATION_BYTES = 512 * 1024;
+const MAX_REVIEW_PACKET_BYTES = 2 * 1024 * 1024;
+const MAX_REVIEWER_LIFECYCLE_BYTES = 2 * 1024 * 1024;
+const MAX_SHADOW_BYTES = 2 * 1024 * 1024;
+const MAX_REHEARSAL_BYTES = 2 * 1024 * 1024;
 
 function result(status, verified, reasonCode, extra = {}) {
   return Object.freeze({ status, verified, reasonCode, ...extra });
@@ -62,8 +70,8 @@ function missingFileStatus(reasonCode) {
 
 function verifyLegacyRegistry(registryRead) {
   // Preserve the pre-P59 legacy contract: semantic JSON verification only.
-  // Exact raw file-content binding is mandatory only for the new schema-v3
-  // active-composite path, where P57 binds canonical bytes explicitly.
+  // Exact raw file-content binding is mandatory only for governed-composite
+  // active paths whose activation contracts bind canonical/raw bytes.
   const evaluated = verifyFreshDualModeCanonicalRegistry({ registry: registryRead.value });
   if (evaluated.status !== FRESH_DUAL_MODE_STATUS.LEGACY_BASELINE_VERIFIED || evaluated.verified !== true) {
     return result(STATUS.REGISTRY_HOLD, false, 'CANONICAL_BASELINE_LEGACY_NOT_VERIFIED', {
@@ -84,7 +92,10 @@ function verifyLegacyRegistry(registryRead) {
     signedHumanActivationAuthorizationVerified: false,
     p57ActivationChangeContractVerified: false,
     freshOwnerAuthorizationReverified: false,
+    p75ActivationChangeContractVerified: false,
+    successorOwnerAuthorizationReverified: false,
     rollbackRegistryVerified: false,
+    rollbackRawContentVerified: false,
     activationAuthorizationGrantedByGate: false,
     activationApplied: false,
     canonicalBaselineChanged: false,
@@ -152,7 +163,10 @@ function verifyHistoricalSchemaV2Composite({ registry, env, fsModule }) {
     activationAuthorizationVerificationHashSha256: evaluated.activationAuthorizationVerificationHashSha256,
     p57ActivationChangeContractVerified: false,
     freshOwnerAuthorizationReverified: false,
+    p75ActivationChangeContractVerified: false,
+    successorOwnerAuthorizationReverified: false,
     rollbackRegistryVerified: false,
+    rollbackRawContentVerified: false,
     activationAuthorizationGrantedByGate: false,
     activationApplied: true,
     canonicalBaselineChanged: true,
@@ -241,10 +255,124 @@ function verifyFreshSchemaV3Composite({ registryRead, env, fsModule }) {
     signedHumanActivationAuthorizationVerified: false,
     p57ActivationChangeContractVerified: evaluated.p57ActivationChangeContractVerified,
     freshOwnerAuthorizationReverified: evaluated.freshOwnerAuthorizationReverified,
+    p75ActivationChangeContractVerified: false,
+    successorOwnerAuthorizationReverified: false,
     rollbackRegistryVerified: evaluated.rollbackRegistryVerified,
+    rollbackRawContentVerified: false,
     freshActivationChangeContractHashSha256: evaluated.freshActivationChangeContractHashSha256,
     verifiedFreshOwnerAuthorizationRecordHashSha256: evaluated.verifiedFreshOwnerAuthorizationRecordHashSha256,
     ownerAuthorityRegistryHashSha256: evaluated.ownerAuthorityRegistryHashSha256,
+    activationAuthorizationGrantedByGate: false,
+    activationApplied: true,
+    canonicalBaselineChanged: true,
+    activationAppliedObserved: true,
+    canonicalBaselineChangedObserved: true,
+    legacyCanonicalEvidenceClosed: false,
+    existingE2iCanonicalEvidenceSatisfied: false,
+    releaseAuthorized: false,
+    mergeAuthorized: false,
+    deploymentAuthorized: false,
+    goLiveAuthorized: false,
+    transactionAuthorized: false,
+  });
+}
+
+function verifySuccessorFreshSchemaV4Composite({ registryRead, env, fsModule }) {
+  const required = {
+    activationContract: env.SUCCESSOR_FRESH_CANONICAL_ACTIVATION_CONTRACT_PATH,
+    reviewPacket: env.SUCCESSOR_FRESH_CANONICAL_REVIEW_PACKET_PATH,
+    reviewerLifecycle: env.SUCCESSOR_FRESH_CANONICAL_REVIEWER_LIFECYCLE_PATH,
+    activationPlan: env.SUCCESSOR_FRESH_CANONICAL_ACTIVATION_PLAN_PATH,
+    candidate: env.SUCCESSOR_FRESH_CANONICAL_COMPOSITE_CANDIDATE_PATH,
+    shadow: env.SUCCESSOR_FRESH_CANONICAL_SHADOW_PATH,
+    rehearsal: env.SUCCESSOR_FRESH_CANONICAL_CUTOVER_REHEARSAL_PATH,
+    safetyGuard: env.SUCCESSOR_FRESH_CANONICAL_CUTOVER_SAFETY_GUARD_PATH,
+    ownerAuthorityRegistry: env.SUCCESSOR_FRESH_CANONICAL_OWNER_AUTHORITY_REGISTRY_PATH,
+    expectedOwnerAuthorityRegistryHash: env.EXPECTED_SUCCESSOR_FRESH_CANONICAL_OWNER_AUTHORITY_REGISTRY_SHA256,
+    signedOwnerDecision: env.SUCCESSOR_FRESH_CANONICAL_SIGNED_OWNER_DECISION_PATH,
+  };
+  const missingInputs = Object.entries(required)
+    .filter(([, value]) => typeof value !== 'string' || value.trim() === '')
+    .map(([key]) => key);
+  if (missingInputs.length > 0) {
+    return result(STATUS.REGISTRY_HOLD, false, 'SUCCESSOR_FRESH_COMPOSITE_BASELINE_ACTIVATION_EVIDENCE_REQUIRED', {
+      blockers: Object.freeze(missingInputs.map((key) => `MISSING_${key.toUpperCase()}`)),
+      activeMode: MODE.GOVERNED_COMPOSITE_BASELINE,
+      registrySchemaVersion: 4,
+      activationAuthorizationGrantedByGate: false,
+    });
+  }
+
+  const reads = {
+    activationChangeContract: safeReadJson(required.activationContract, fsModule, MAX_CONTRACT_BYTES, 'SUCCESSOR_FRESH_CANONICAL_ACTIVATION_CONTRACT'),
+    successorReviewPacket: safeReadJson(required.reviewPacket, fsModule, MAX_REVIEW_PACKET_BYTES, 'SUCCESSOR_FRESH_CANONICAL_REVIEW_PACKET'),
+    reviewerLifecycle: safeReadJson(required.reviewerLifecycle, fsModule, MAX_REVIEWER_LIFECYCLE_BYTES, 'SUCCESSOR_FRESH_CANONICAL_REVIEWER_LIFECYCLE'),
+    activationPlan: safeReadJson(required.activationPlan, fsModule, MAX_ACTIVATION_PLAN_BYTES, 'SUCCESSOR_FRESH_CANONICAL_ACTIVATION_PLAN'),
+    successorFreshCompositeCandidate: safeReadJson(required.candidate, fsModule, MAX_CANDIDATE_BYTES, 'SUCCESSOR_FRESH_CANONICAL_COMPOSITE_CANDIDATE'),
+    successorFreshShadowEvaluation: safeReadJson(required.shadow, fsModule, MAX_SHADOW_BYTES, 'SUCCESSOR_FRESH_CANONICAL_SHADOW'),
+    successorFreshRehearsalResult: safeReadJson(required.rehearsal, fsModule, MAX_REHEARSAL_BYTES, 'SUCCESSOR_FRESH_CANONICAL_CUTOVER_REHEARSAL'),
+    safetyGuard: safeReadJson(required.safetyGuard, fsModule, MAX_SAFETY_GUARD_BYTES, 'SUCCESSOR_FRESH_CANONICAL_CUTOVER_SAFETY_GUARD'),
+    successorFreshOwnerAuthorityRegistry: safeReadJson(required.ownerAuthorityRegistry, fsModule, MAX_AUTHORITY_REGISTRY_BYTES, 'SUCCESSOR_FRESH_CANONICAL_OWNER_AUTHORITY_REGISTRY'),
+    signedOwnerDecision: safeReadJson(required.signedOwnerDecision, fsModule, MAX_ATTESTATION_BYTES, 'SUCCESSOR_FRESH_CANONICAL_SIGNED_OWNER_DECISION'),
+  };
+  for (const [key, read] of Object.entries(reads)) {
+    if (!read.ok) {
+      return result(STATUS.REGISTRY_HOLD, false, read.reasonCode, {
+        blockers: Object.freeze([`${key.toUpperCase()}_NOT_READABLE`]),
+        activeMode: MODE.GOVERNED_COMPOSITE_BASELINE,
+        registrySchemaVersion: 4,
+        activationAuthorizationGrantedByGate: false,
+      });
+    }
+  }
+
+  const evaluated = verifySuccessorFreshDualModeCanonicalRegistry({
+    registry: registryRead.value,
+    observedRegistryContent: registryRead.raw,
+    activationChangeContract: reads.activationChangeContract.value,
+    successorReviewPacket: reads.successorReviewPacket.value,
+    reviewerLifecycle: reads.reviewerLifecycle.value,
+    activationPlan: reads.activationPlan.value,
+    successorFreshCompositeCandidate: reads.successorFreshCompositeCandidate.value,
+    successorFreshShadowEvaluation: reads.successorFreshShadowEvaluation.value,
+    successorFreshRehearsalResult: reads.successorFreshRehearsalResult.value,
+    safetyGuard: reads.safetyGuard.value,
+    successorFreshOwnerAuthorityRegistry: reads.successorFreshOwnerAuthorityRegistry.value,
+    expectedSuccessorFreshOwnerAuthorityRegistryHashSha256: required.expectedOwnerAuthorityRegistryHash,
+    signedOwnerDecision: reads.signedOwnerDecision.value,
+  });
+  if (
+    evaluated.status !== SUCCESSOR_FRESH_DUAL_MODE_STATUS.SUCCESSOR_FRESH_COMPOSITE_BASELINE_VERIFIED_WITH_SUCCESSOR_OWNER_AUTHORIZATION
+    || evaluated.verified !== true
+  ) {
+    return result(STATUS.REGISTRY_HOLD, false, 'SUCCESSOR_FRESH_COMPOSITE_BASELINE_ACTIVATION_EVIDENCE_NOT_VERIFIED', {
+      blockers: evaluated.blockers || Object.freeze([]),
+      activeMode: MODE.GOVERNED_COMPOSITE_BASELINE,
+      registrySchemaVersion: 4,
+      registryHashSha256: evaluated.registryHashSha256 || null,
+      registryContentSha256: evaluated.registryContentSha256 || null,
+      activationAuthorizationGrantedByGate: false,
+    });
+  }
+
+  return result(STATUS.VERIFIED, true, null, {
+    activeMode: evaluated.activeMode,
+    registrySchemaVersion: 4,
+    registryHashSha256: evaluated.registryHashSha256,
+    registryContentSha256: evaluated.registryContentSha256,
+    verificationMode: 'SUCCESSOR_FRESH_GOVERNED_COMPOSITE_WITH_REVERIFIED_OWNER_AUTHORIZATION',
+    p39ActivationChangeContractVerified: false,
+    signedHumanActivationAuthorizationVerified: false,
+    p57ActivationChangeContractVerified: false,
+    freshOwnerAuthorizationReverified: false,
+    p75ActivationChangeContractVerified: evaluated.p75ActivationChangeContractVerified,
+    successorOwnerAuthorizationReverified: evaluated.successorOwnerAuthorizationReverified,
+    rollbackRegistryVerified: evaluated.rollbackRegistryVerified,
+    rollbackRawContentVerified: evaluated.rollbackRawContentVerified,
+    successorFreshActivationChangeContractHashSha256: evaluated.successorFreshActivationChangeContractHashSha256,
+    verifiedSuccessorFreshOwnerAuthorizationRecordHashSha256: evaluated.verifiedSuccessorFreshOwnerAuthorizationRecordHashSha256,
+    successorOwnerAuthorityRegistryHashSha256: evaluated.successorOwnerAuthorityRegistryHashSha256,
+    successorFreshCutoverSafetyGuardHashSha256: evaluated.successorFreshCutoverSafetyGuardHashSha256,
     activationAuthorizationGrantedByGate: false,
     activationApplied: true,
     canonicalBaselineChanged: true,
@@ -284,6 +412,7 @@ function verifyCanonicalBaselineRegistryFile({
 
   if (registry.schemaVersion === 2) return verifyHistoricalSchemaV2Composite({ registry, env, fsModule });
   if (registry.schemaVersion === 3) return verifyFreshSchemaV3Composite({ registryRead, env, fsModule });
+  if (registry.schemaVersion === 4) return verifySuccessorFreshSchemaV4Composite({ registryRead, env, fsModule });
 
   return result(STATUS.REGISTRY_HOLD, false, 'CANONICAL_BASELINE_COMPOSITE_SCHEMA_UNSUPPORTED', {
     blockers: Object.freeze([`UNSUPPORTED_COMPOSITE_SCHEMA_VERSION:${String(registry.schemaVersion)}`]),
@@ -300,4 +429,5 @@ module.exports = {
   verifyLegacyRegistry,
   verifyHistoricalSchemaV2Composite,
   verifyFreshSchemaV3Composite,
+  verifySuccessorFreshSchemaV4Composite,
 };
