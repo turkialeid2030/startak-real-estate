@@ -135,7 +135,7 @@ function buildAuthorizationFixture(contract) {
       authorityId: 'owner-authority:test',
       actorRef: contract.preparedByRef,
       publicKeyPem,
-      publicKeySha256: sha256Text(publicKeyPem),
+      publicKeySha256: sha256Text(publicKeyPem.trim()),
       governanceEvidenceRef: 'governance:test-owner-authority',
       activeFrom: '2026-09-01T00:00:00.000Z',
       activeUntil: '2026-12-31T23:59:59.000Z',
