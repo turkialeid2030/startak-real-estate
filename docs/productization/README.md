@@ -172,4 +172,8 @@ These notes describe incremental productization slices and their explicit eviden
 
 - [`p49-fresh-reactivation-reviewer-lifecycle-lock.md`](./p49-fresh-reactivation-reviewer-lifecycle-lock.md) — freezes the fresh cycle-specific reviewer designation only after the exact P48 approval is cryptographically verified, binds the lock to the P46/P47/P48 evidence chain and preserves all release/reactivation authority as false while requiring a fresh activation plan next.
 
+## P50 — Fresh Reactivation Activation Plan
+
+- [`p50-fresh-reactivation-activation-plan.md`](./p50-fresh-reactivation-activation-plan.md) — creates a deterministic successor-baseline plan only from the exact P49 fresh reviewer lock and P47 cycle packet, rejects prior-cycle authority reuse, and keeps activation/reactivation/release blocked pending fresh shadow, rehearsal, cutover-safety, owner-authorization and activation-contract evidence.
+
 Authority remains fail-closed until the existing release-governance process explicitly changes it.
