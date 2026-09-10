@@ -15,6 +15,10 @@ const {
   STATUS: CANONICAL_BASELINE_REGISTRY_GATE_STATUS,
   verifyCanonicalBaselineRegistryFile,
 } = require('./canonical-baseline-registry-gate');
+const {
+  STATUS: COMPOSITE_BASELINE_SHADOW_GATE_STATUS,
+  evaluateCompositeBaselineShadowFromEnvironment,
+} = require('./composite-baseline-shadow-release-gate');
 
 const ROOT = path.join(__dirname, '..');
 let failed = false;
@@ -116,6 +120,33 @@ step('CANONICAL_BASELINE_REGISTRY_VERIFICATION', () => {
       ? ` blockers=${result.blockers.join(',')}`
       : '';
     throw new Error(`${result.reasonCode || 'CANONICAL_BASELINE_REGISTRY_NOT_VERIFIED'}${blockers}`);
+  }
+  return { stepStatus: 'PASS' };
+});
+
+step('COMPOSITE_BASELINE_SHADOW_VERIFICATION', () => {
+  // P36 may compare an externally prepared P32 candidate plus P34 evidence in
+  // shadow mode while LEGACY_FILE_SHA256 remains authoritative. Ordinary CI
+  // does not fabricate those external inputs, so absence is NOT_EVALUATED.
+  // An authorized evidence run may set REQUIRE_COMPOSITE_BASELINE_SHADOW=1.
+  const result = evaluateCompositeBaselineShadowFromEnvironment();
+  console.log(`  shadow_status=${result.status}`);
+  console.log(`  authoritative_mode=${result.authoritativeMode}`);
+  console.log(`  shadow_mode=${result.shadowMode}`);
+  if (result.shadowEvaluationHashSha256) console.log(`  shadow_evaluation_sha256=${result.shadowEvaluationHashSha256}`);
+  if (result.reasonCode) console.log(`  reason_code=${result.reasonCode}`);
+
+  if (result.status === COMPOSITE_BASELINE_SHADOW_GATE_STATUS.HOLD) {
+    throw new Error(result.reasonCode || 'COMPOSITE_BASELINE_SHADOW_HOLD');
+  }
+  if (result.status === COMPOSITE_BASELINE_SHADOW_GATE_STATUS.MISSING_REQUIRED) {
+    throw new Error(result.reasonCode || 'COMPOSITE_BASELINE_SHADOW_REQUIRED');
+  }
+  if (result.status === COMPOSITE_BASELINE_SHADOW_GATE_STATUS.NOT_EVALUATED) {
+    return { stepStatus: 'NOT_EVALUATED' };
+  }
+  if (result.status !== COMPOSITE_BASELINE_SHADOW_GATE_STATUS.VERIFIED || result.verified !== true) {
+    throw new Error('COMPOSITE_BASELINE_SHADOW_UNEXPECTED_STATUS');
   }
   return { stepStatus: 'PASS' };
 });
