@@ -24,6 +24,10 @@ const {
   evaluateFreshCompositeShadowFromEnvironment,
 } = require('./fresh-composite-shadow-release-gate');
 const {
+  STATUS: SUCCESSOR_FRESH_COMPOSITE_SHADOW_GATE_STATUS,
+  evaluateSuccessorFreshCompositeShadowFromEnvironment,
+} = require('./successor-fresh-composite-shadow-release-gate');
+const {
   STATUS: COMPOSITE_CUTOVER_SAFETY_GATE_STATUS,
   evaluateCompositeBaselineCutoverSafetyFromEnvironment,
 } = require('./composite-baseline-cutover-safety-gate');
@@ -56,11 +60,6 @@ function printFailureDiagnostic(error) {
 }
 
 step('TEST_DISCOVERY_AND_REGRESSION', () => {
-  // Mirrors the exact glob pattern used throughout this program's manual
-  // regression loop: run_*.js for characterization/architecture/i18n/
-  // saved-deals, but ALL *.js for defects/ and runtime/ (those two
-  // directories contain permanent tests that don't all use the run_ prefix,
-  // e.g. tests/defects/engine_rejection_matrix.js).
   const runPrefixDirs = ['characterization', 'architecture', 'i18n', 'saved-deals'];
   const allJsDirs = ['defects', 'runtime'];
   let total = 0, passed = 0;
@@ -175,6 +174,30 @@ step('FRESH_COMPOSITE_SHADOW_VERIFICATION', () => {
   return { stepStatus: 'PASS' };
 });
 
+step('SUCCESSOR_FRESH_COMPOSITE_SHADOW_VERIFICATION', () => {
+  const result = evaluateSuccessorFreshCompositeShadowFromEnvironment();
+  console.log(`  successor_fresh_shadow_status=${result.status}`);
+  console.log(`  authoritative_mode=${result.authoritativeMode}`);
+  console.log(`  shadow_mode=${result.shadowMode}`);
+  if (result.cycleId) console.log(`  cycle_id=${result.cycleId}`);
+  if (result.successorFreshShadowEvaluationHashSha256) console.log(`  successor_fresh_shadow_evaluation_sha256=${result.successorFreshShadowEvaluationHashSha256}`);
+  if (result.reasonCode) console.log(`  reason_code=${result.reasonCode}`);
+
+  if (result.status === SUCCESSOR_FRESH_COMPOSITE_SHADOW_GATE_STATUS.HOLD) {
+    throw new Error(result.reasonCode || 'SUCCESSOR_FRESH_COMPOSITE_SHADOW_HOLD');
+  }
+  if (result.status === SUCCESSOR_FRESH_COMPOSITE_SHADOW_GATE_STATUS.MISSING_REQUIRED) {
+    throw new Error(result.reasonCode || 'SUCCESSOR_FRESH_COMPOSITE_SHADOW_REQUIRED');
+  }
+  if (result.status === SUCCESSOR_FRESH_COMPOSITE_SHADOW_GATE_STATUS.NOT_EVALUATED) {
+    return { stepStatus: 'NOT_EVALUATED' };
+  }
+  if (result.status !== SUCCESSOR_FRESH_COMPOSITE_SHADOW_GATE_STATUS.VERIFIED || result.verified !== true) {
+    throw new Error('SUCCESSOR_FRESH_COMPOSITE_SHADOW_UNEXPECTED_STATUS');
+  }
+  return { stepStatus: 'PASS' };
+});
+
 step('COMPOSITE_BASELINE_CUTOVER_SAFETY_GUARD', () => {
   const result = evaluateCompositeBaselineCutoverSafetyFromEnvironment();
   console.log(`  cutover_safety_status=${result.status}`);
@@ -185,16 +208,16 @@ step('COMPOSITE_BASELINE_CUTOVER_SAFETY_GUARD', () => {
   if (result.reasonCode) console.log(`  reason_code=${result.reasonCode}`);
 
   if (result.status === COMPOSITE_CUTOVER_SAFETY_GATE_STATUS.HOLD) {
-    throw new Error(result.reasonCode || 'COMPOSITE_CUTOVER_SAFETY_HOLD');
+    throw new Error(result.reasonCode || 'COMPOSITE_BASELINE_CUTOVER_SAFETY_HOLD');
   }
   if (result.status === COMPOSITE_CUTOVER_SAFETY_GATE_STATUS.MISSING_REQUIRED) {
-    throw new Error(result.reasonCode || 'COMPOSITE_CUTOVER_SAFETY_REQUIRED');
+    throw new Error(result.reasonCode || 'COMPOSITE_BASELINE_CUTOVER_SAFETY_REQUIRED');
   }
   if (result.status === COMPOSITE_CUTOVER_SAFETY_GATE_STATUS.NOT_EVALUATED) {
     return { stepStatus: 'NOT_EVALUATED' };
   }
   if (result.status !== COMPOSITE_CUTOVER_SAFETY_GATE_STATUS.VERIFIED || result.verified !== true) {
-    throw new Error('COMPOSITE_CUTOVER_SAFETY_UNEXPECTED_STATUS');
+    throw new Error('COMPOSITE_BASELINE_CUTOVER_SAFETY_UNEXPECTED_STATUS');
   }
   return { stepStatus: 'PASS' };
 });

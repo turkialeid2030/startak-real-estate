@@ -224,4 +224,40 @@ These notes describe incremental productization slices and their explicit eviden
 
 - [`p62-fresh-post-rollback-verification-incident-closeout.md`](./p62-fresh-post-rollback-verification-incident-closeout.md) — verifies a P61-triggered applied P60 rollback, exact restoration of the P57 legacy registry and caller-pinned post-rollback Release Verify evidence before preparing a deterministic human incident-closeout packet; incident closure and reactivation remain separate governed actions.
 
+## P63 — Fresh Human Incident Closeout Decision
+
+- [`p63-fresh-human-incident-closeout-decision.md`](./p63-fresh-human-incident-closeout-decision.md) — binds a separate human incident authority to the exact P62 closeout packet, requires RCA/CAPA evidence for closure and marks the failed fresh activation cycle historical/non-reusable without granting reactivation or release authority.
+
+## P64 — Successor Fresh Reactivation Governance Cycle
+
+- [`p64-successor-fresh-reactivation-governance-cycle.md`](./p64-successor-fresh-reactivation-governance-cycle.md) — opens a successor fresh governance cycle only after re-verifying P63 closure/reset evidence and excludes predecessor reviewer, owner, plan, contract and rollback authority from the new cycle.
+
+## P65 — Successor Fresh Independent Review Handoff
+
+- [`p65-successor-fresh-independent-review-handoff.md`](./p65-successor-fresh-independent-review-handoff.md) — designates a new independent reviewer for the successor cycle and creates a deterministic review packet bound to P64, restored legacy hashes and predecessor incident-remediation evidence.
+
+## P66 — Successor Fresh Review Attestation
+
+- [`p66-successor-fresh-review-attestation.md`](./p66-successor-fresh-review-attestation.md) — verifies an externally signed RSA-SHA256 successor-review decision against the exact P65 packet and a separately pinned reviewer trust registry, with no activation authority.
+
+## P67 — Successor Fresh Reviewer Lifecycle Lock
+
+- [`p67-successor-fresh-reviewer-lifecycle-lock.md`](./p67-successor-fresh-reviewer-lifecycle-lock.md) — re-verifies P66 cryptographically from raw trust inputs before freezing the exact P65 reviewer designation for the successor cycle.
+
+## P68 — Successor Fresh Activation Plan
+
+- [`p68-successor-fresh-activation-plan.md`](./p68-successor-fresh-activation-plan.md) — creates a deterministic successor activation plan and baseline manifest from P67/P65 while rejecting predecessor-cycle authority reuse and keeping activation blocked.
+
+## P69 — Successor Fresh Composite Registry Candidate
+
+- [`p69-successor-fresh-composite-registry-candidate.md`](./p69-successor-fresh-composite-registry-candidate.md) — prepares a distinct schema-v4 governed-composite candidate from P68, bound to exact restored legacy logical and raw-content hashes and explicitly non-reusable with the failed P51 schema-v3 candidate.
+
+## P70 — Successor Fresh Composite Evidence Verifier
+
+- [`p70-successor-fresh-composite-evidence-verifier.md`](./p70-successor-fresh-composite-evidence-verifier.md) — recomputes P69 from P68 and exact current legacy bytes, then verifies exact commit, release-artifact and environment-config evidence while keeping the candidate non-active.
+
+## P71 — Successor Fresh Composite Shadow Release Gate
+
+- [`p71-successor-fresh-composite-shadow-release-gate.md`](./p71-successor-fresh-composite-shadow-release-gate.md) — compares the P69 schema-v4 candidate and P70 exact-byte evidence beside the exact still-authoritative legacy registry, adds an optional/strict successor-specific Release Verify gate and performs no cutover.
+
 Authority remains fail-closed until the existing release-governance process explicitly changes it.
