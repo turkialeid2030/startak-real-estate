@@ -299,9 +299,9 @@ function writeJson(filePath, value) {
 
     const schema4 = { ...fixture.contract.proposedRegistry, schemaVersion: 4 };
     writeJson(paths.registry, schema4);
-    const unsupported = verifyCanonicalBaselineRegistryFile({ filePath: paths.registry, env });
-    assert.strictEqual(unsupported.status, GATE_STATUS.REGISTRY_HOLD);
-    assert.strictEqual(unsupported.reasonCode, 'CANONICAL_BASELINE_COMPOSITE_SCHEMA_UNSUPPORTED');
+    const successorRoute = verifyCanonicalBaselineRegistryFile({ filePath: paths.registry, env });
+    assert.strictEqual(successorRoute.status, GATE_STATUS.REGISTRY_HOLD);
+    assert.strictEqual(successorRoute.reasonCode, 'SUCCESSOR_FRESH_COMPOSITE_BASELINE_ACTIVATION_EVIDENCE_REQUIRED');
 
     writeJson(paths.registry, fixture.contract.proposedRegistry);
     const symlinkPath = path.join(tempDir, 'registry-link.json');
