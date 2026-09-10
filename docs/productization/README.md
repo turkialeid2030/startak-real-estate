@@ -146,7 +146,7 @@ These notes describe incremental productization slices and their explicit eviden
 
 ## P43 — Post-Activation Verification & Rollback Trigger
 
-- [`p43-post-activation-verification-rollback-trigger.md`](./p43-post-activation-verification-rollback-trigger.md) — binds an applied P42 activation receipt to the observed P40-verified composite registry and supplied post-change Release Verify evidence; failures generate only a deterministic P39-prebound rollback trigger and never mutate the registry automatically.
+- [`p43-post-activation-verification-rollback-trigger.md`](./p43-post-activation-verification-rollback-trigger.md) — binds an applied P42 activation receipt to the observed P40-verified composite registry and supplied post-change Release Verify evidence; failures generate only a deterministic P39-prebound legacy rollback trigger and never mutate the registry automatically.
 
 ## P44 — Post-Rollback Verification & Incident Closeout Gate
 
@@ -167,5 +167,9 @@ These notes describe incremental productization slices and their explicit eviden
 ## P48 — Fresh Reactivation Review Attestation
 
 - [`p48-fresh-reactivation-review-attestation.md`](./p48-fresh-reactivation-review-attestation.md) — verifies an externally signed RSA-SHA256 independent-review decision against the exact P47 packet and a pinned fresh-reviewer trust registry; approval remains review evidence only and rejection blocks the cycle, with no reactivation or release authority in either case.
+
+## P49 — Fresh Reactivation Reviewer Lifecycle Lock
+
+- [`p49-fresh-reactivation-reviewer-lifecycle-lock.md`](./p49-fresh-reactivation-reviewer-lifecycle-lock.md) — freezes the fresh cycle-specific reviewer designation only after the exact P48 approval is cryptographically verified, binds the lock to the P46/P47/P48 evidence chain and preserves all release/reactivation authority as false while requiring a fresh activation plan next.
 
 Authority remains fail-closed until the existing release-governance process explicitly changes it.
