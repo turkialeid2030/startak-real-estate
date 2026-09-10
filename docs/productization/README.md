@@ -120,4 +120,8 @@ These notes describe incremental productization slices and their explicit eviden
 
 - [`p36-composite-baseline-shadow-release-gate.md`](./p36-composite-baseline-shadow-release-gate.md) — compares a P32 governed-composite candidate and P34 evidence beside the still-authoritative legacy baseline, reports absent external shadow inputs as `NOT_EVALUATED`, supports strict fail-closed shadow runs, and cannot activate the composite baseline or grant release authority.
 
+## P37 — Composite Baseline Cutover Rehearsal
+
+- [`p37-composite-baseline-cutover-rehearsal.md`](./p37-composite-baseline-cutover-rehearsal.md) — deterministically rehearses `LEGACY_FILE_SHA256 -> GOVERNED_COMPOSITE_BASELINE -> LEGACY_FILE_SHA256` from a valid P36 shadow match, proves modeled rollback to the exact starting registry hash, and performs no active-registry, release-mode or deployment mutation.
+
 Authority remains fail-closed until the existing release-governance process explicitly changes it.
