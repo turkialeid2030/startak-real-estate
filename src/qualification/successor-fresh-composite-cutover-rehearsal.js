@@ -113,7 +113,7 @@ function p71ShadowCore(shadow) {
   };
 }
 
-function validateP71Shadow(shadow, current, currentRegistryContent) {
+function validateP71Shadow(shadow, current, currentRegistry, currentRegistryContent) {
   const blockers = [];
   if (!shadow || shadow.status !== P71_STATUS.SUCCESSOR_FRESH_SHADOW_COMPOSITE_MATCH_NOT_ACTIVE) {
     return ['P71_SUCCESSOR_FRESH_SHADOW_MATCH_REQUIRED'];
@@ -150,9 +150,7 @@ function validateP71Shadow(shadow, current, currentRegistryContent) {
       if (sha256Text(currentRegistryContent) !== shadow.currentRegistryContentSha256) blockers.push('P71_SUCCESSOR_FRESH_SHADOW_CURRENT_REGISTRY_CONTENT_HASH_MISMATCH');
       try {
         const parsed = JSON.parse(currentRegistryContent);
-        if (stableStringify(parsed) !== stableStringify(current.inputRegistry || parsed)) {
-          blockers.push('CURRENT_REGISTRY_OBJECT_AND_RAW_CONTENT_MISMATCH');
-        }
+        if (stableStringify(parsed) !== stableStringify(currentRegistry)) blockers.push('CURRENT_REGISTRY_OBJECT_AND_RAW_CONTENT_MISMATCH');
       } catch (_) {
         blockers.push('CURRENT_REGISTRY_RAW_CONTENT_NOT_JSON');
       }
@@ -193,11 +191,10 @@ function runSuccessorFreshCompositeCutoverRehearsal({
   if (callerAuthorityEscalated(callerOverrides)) return hold(['CALLER_AUTHORITY_ESCALATION_NOT_ALLOWED']);
 
   const current = evaluateCurrentCanonicalBaselineRegistry(currentRegistry);
-  current.inputRegistry = currentRegistry;
   if (current.status !== REGISTRY_STATUS.LEGACY_BASELINE_REGISTRY_CONFIRMED) {
     return hold(['CURRENT_LEGACY_BASELINE_REGISTRY_NOT_CONFIRMED'], current, successorFreshShadowEvaluation);
   }
-  const shadowBlockers = validateP71Shadow(successorFreshShadowEvaluation, current, currentRegistryContent);
+  const shadowBlockers = validateP71Shadow(successorFreshShadowEvaluation, current, currentRegistry, currentRegistryContent);
   if (shadowBlockers.length > 0) return hold(shadowBlockers, current, successorFreshShadowEvaluation);
 
   let id;
