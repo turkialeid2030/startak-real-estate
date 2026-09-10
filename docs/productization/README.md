@@ -140,4 +140,16 @@ These notes describe incremental productization slices and their explicit eviden
 
 - [`p41-canonical-baseline-activation-authorization-operator.md`](./p41-canonical-baseline-activation-authorization-operator.md) — prepares the exact P40 owner signing bytes and verifies the externally signed RSA-SHA256 authorization without accepting private keys, mutating the registry or granting release authority.
 
+## P42 — Controlled Canonical Baseline Activation Executor
+
+- [`p42-controlled-canonical-baseline-activation-executor.md`](./p42-controlled-canonical-baseline-activation-executor.md) — dry-run-by-default activation/rollback executor that re-verifies P39/P40/P41, limits rollback to the exact P39 legacy state, and keeps release blocked after any confirmed mutation until a new Release Verify succeeds.
+
+## P43 — Post-Activation Verification & Rollback Trigger
+
+- [`p43-post-activation-verification-rollback-trigger.md`](./p43-post-activation-verification-rollback-trigger.md) — binds an applied P42 activation receipt to the observed P40-verified composite registry and supplied post-change Release Verify evidence; failures generate only a deterministic P39-prebound rollback trigger and never mutate the registry automatically.
+
+## P44 — Post-Rollback Verification & Incident Closeout Gate
+
+- [`p44-post-rollback-verification-incident-closeout.md`](./p44-post-rollback-verification-incident-closeout.md) — verifies the P43-triggered P42 rollback, exact restoration of the P39 legacy registry and supplied post-rollback Release Verify evidence, then prepares a deterministic human incident-closeout packet while keeping release and reactivation blocked.
+
 Authority remains fail-closed until the existing release-governance process explicitly changes it.
