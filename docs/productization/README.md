@@ -112,4 +112,8 @@ These notes describe incremental productization slices and their explicit eviden
 
 - [`p34-governed-composite-baseline-evidence-verifier.md`](./p34-governed-composite-baseline-evidence-verifier.md) — verifies a future governed-composite candidate against exact commit, release-artifact bytes and environment-config bytes while the active baseline remains legacy; verification is candidate-only and cannot activate the baseline or grant release authority.
 
+## P35 — Governed Composite Baseline Evidence Operator
+
+- [`p35-governed-composite-baseline-evidence-operator.md`](./p35-governed-composite-baseline-evidence-operator.md) — provides a fail-closed CLI for supplying the P32 candidate, exact commit, release-artifact bytes and environment-config bytes to P34, emitting only hashed candidate evidence and never activating the baseline.
+
 Authority remains fail-closed until the existing release-governance process explicitly changes it.
