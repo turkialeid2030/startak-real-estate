@@ -128,4 +128,16 @@ These notes describe incremental productization slices and their explicit eviden
 
 - [`p38-composite-baseline-cutover-safety-guard.md`](./p38-composite-baseline-cutover-safety-guard.md) — fail-closed safety prerequisite that binds a cryptographically locked P30 reviewer, P31 activation plan, P36 shadow match and P37 exact rollback rehearsal to the same still-authoritative legacy registry; it cannot authorize or apply cutover.
 
+## P39 — Explicit Composite Baseline Activation Change Contract
+
+- [`p39-composite-baseline-activation-change-contract.md`](./p39-composite-baseline-activation-change-contract.md) — prepares the exact future schema-v2 composite registry content and exact rollback content after P38, but performs no activation and grants no authority.
+
+## P40 — Dual-Mode Canonical Registry Verifier
+
+- [`p40-dual-mode-canonical-registry-verifier.md`](./p40-dual-mode-canonical-registry-verifier.md) — preserves strict legacy verification and adds fail-closed verification of a future active composite registry only when it exactly matches P39 and has a cryptographically verified human-owner activation authorization.
+
+## P41 — Canonical Baseline Activation Authorization Operator
+
+- [`p41-canonical-baseline-activation-authorization-operator.md`](./p41-canonical-baseline-activation-authorization-operator.md) — prepares the exact P40 owner signing bytes and verifies the externally signed RSA-SHA256 authorization without accepting private keys, mutating the registry or granting release authority.
+
 Authority remains fail-closed until the existing release-governance process explicitly changes it.
