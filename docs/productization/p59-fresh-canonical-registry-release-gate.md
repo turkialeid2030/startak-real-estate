@@ -8,7 +8,9 @@ P59 integrates the P58 fresh schema-v3 canonical-registry verifier into the prov
 
 ### Legacy schema-v1
 
-`LEGACY_FILE_SHA256` continues to use strict legacy verification. P59 now routes that path through P58 and binds the parsed registry to the exact canonical raw file content read by the gate.
+`LEGACY_FILE_SHA256` continues to use strict semantic legacy verification and is routed through P58 without changing the pre-P59 acceptance contract for equivalent JSON serialization. This preserves existing release-gate compatibility while continuing to enforce the pinned legacy hash, exact legacy object shape and false authority flags.
+
+Exact raw canonical-file byte binding is intentionally **not** introduced retroactively for schema-v1 legacy mode. That stronger byte-level requirement applies to the fresh schema-v3 path because P57 explicitly binds the future active registry content hash.
 
 No fresh activation evidence is required in legacy mode.
 
