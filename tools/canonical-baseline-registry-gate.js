@@ -275,6 +275,7 @@ function verifyCanonicalBaselineRegistryFile({
 
   if (registry.activeMode !== MODE.GOVERNED_COMPOSITE_BASELINE) {
     return result(STATUS.REGISTRY_HOLD, false, 'CANONICAL_BASELINE_ACTIVE_MODE_UNSUPPORTED', {
+      blockers: Object.freeze(['CANONICAL_BASELINE_ACTIVE_MODE_UNSUPPORTED']),
       activeMode: registry.activeMode || null,
       registryHashSha256: null,
       activationAuthorizationGrantedByGate: false,
@@ -285,6 +286,7 @@ function verifyCanonicalBaselineRegistryFile({
   if (registry.schemaVersion === 3) return verifyFreshSchemaV3Composite({ registryRead, env, fsModule });
 
   return result(STATUS.REGISTRY_HOLD, false, 'CANONICAL_BASELINE_COMPOSITE_SCHEMA_UNSUPPORTED', {
+    blockers: Object.freeze([`UNSUPPORTED_COMPOSITE_SCHEMA_VERSION:${String(registry.schemaVersion)}`]),
     activeMode: MODE.GOVERNED_COMPOSITE_BASELINE,
     registrySchemaVersion: registry.schemaVersion || null,
     activationAuthorizationGrantedByGate: false,
