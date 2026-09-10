@@ -180,4 +180,44 @@ These notes describe incremental productization slices and their explicit eviden
 
 - [`p51-fresh-composite-registry-candidate.md`](./p51-fresh-composite-registry-candidate.md) — prepares a schema-v3 governed-composite candidate from the exact P50 plan while the authoritative registry remains legacy, binds logical/content hashes to the fresh cycle and deliberately requires a later fresh-mode verifier before any activation can be considered.
 
+## P52 — Fresh Composite Evidence Verifier
+
+- [`p52-fresh-composite-evidence-verifier.md`](./p52-fresh-composite-evidence-verifier.md) — verifies exact source-commit identity plus release-artifact and environment-config bytes against the P51 schema-v3 candidate while preserving the active legacy baseline and granting no activation authority.
+
+## P53 — Fresh Composite Shadow Release Gate
+
+- [`p53-fresh-composite-shadow-release-gate.md`](./p53-fresh-composite-shadow-release-gate.md) — compares the P51 candidate and P52 exact-byte evidence beside the authoritative legacy registry, supports optional/strict fail-closed Release Verify integration, and performs no cutover.
+
+## P54 — Fresh Composite Cutover Rehearsal
+
+- [`p54-fresh-composite-cutover-rehearsal.md`](./p54-fresh-composite-cutover-rehearsal.md) — rehearses the fresh legacy-to-schema-v3 transition and exact rollback without mutating the canonical registry or release state.
+
+## P55 — Fresh Composite Cutover Safety Guard
+
+- [`p55-fresh-composite-cutover-safety-guard.md`](./p55-fresh-composite-cutover-safety-guard.md) — composes the fresh reviewer lock, activation plan, shadow match and rollback rehearsal into a fail-closed safety prerequisite while keeping activation authority false.
+
+## P56 — Fresh Owner Activation Authorization
+
+- [`p56-fresh-owner-activation-authorization.md`](./p56-fresh-owner-activation-authorization.md) — prepares and verifies an externally signed RSA-SHA256 fresh-owner decision against a pinned owner trust registry after P55, without accepting private keys or applying activation.
+
+## P57 — Fresh Activation Change Contract
+
+- [`p57-fresh-activation-change-contract.md`](./p57-fresh-activation-change-contract.md) — binds the re-verified P56 owner decision to the exact P51 schema-v3 target and exact legacy rollback image, producing a deterministic non-applied activation contract.
+
+## P58 — Fresh Dual-Mode Canonical Registry Verifier
+
+- [`p58-fresh-dual-mode-canonical-registry-verifier.md`](./p58-fresh-dual-mode-canonical-registry-verifier.md) — preserves legacy verification and verifies a future observed schema-v3 registry only by re-checking exact raw content, P51/P57 bindings and the P56 cryptographic owner authorization chain.
+
+## P59 — Fresh Canonical Registry Release Gate
+
+- [`p59-fresh-canonical-registry-release-gate.md`](./p59-fresh-canonical-registry-release-gate.md) — integrates P58 into the canonical-registry Release Verify gate with separate legacy, historical schema-v2 and fresh schema-v3 evidence paths while granting no activation or release authority.
+
+## P60 — Fresh Controlled Canonical Baseline Activation Executor
+
+- [`p60-fresh-controlled-canonical-baseline-activation-executor.md`](./p60-fresh-controlled-canonical-baseline-activation-executor.md) — provides a dry-run-by-default ACTIVATE/ROLLBACK executor that re-verifies P57/P58, uses exact-hash-bound host-injected writes, verifies post-write state, and keeps release blocked until post-change Release Verify evidence is evaluated.
+
+## P61 — Fresh Post-Activation Verification & Rollback Trigger
+
+- [`p61-fresh-post-activation-verification-rollback-trigger.md`](./p61-fresh-post-activation-verification-rollback-trigger.md) — binds an applied P60 fresh activation receipt to the exact observed schema-v3 registry and P59-style post-change Release Verify evidence; detected failures emit only a deterministic P57-prebound legacy rollback trigger and never mutate the registry automatically.
+
 Authority remains fail-closed until the existing release-governance process explicitly changes it.
