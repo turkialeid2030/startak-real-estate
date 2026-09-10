@@ -220,4 +220,8 @@ These notes describe incremental productization slices and their explicit eviden
 
 - [`p61-fresh-post-activation-verification-rollback-trigger.md`](./p61-fresh-post-activation-verification-rollback-trigger.md) — binds an applied P60 fresh activation receipt to the exact observed schema-v3 registry and P59-style post-change Release Verify evidence; detected failures emit only a deterministic P57-prebound legacy rollback trigger and never mutate the registry automatically.
 
+## P62 — Fresh Post-Rollback Verification & Incident Closeout Gate
+
+- [`p62-fresh-post-rollback-verification-incident-closeout.md`](./p62-fresh-post-rollback-verification-incident-closeout.md) — verifies a P61-triggered applied P60 rollback, exact restoration of the P57 legacy registry and caller-pinned post-rollback Release Verify evidence before preparing a deterministic human incident-closeout packet; incident closure and reactivation remain separate governed actions.
+
 Authority remains fail-closed until the existing release-governance process explicitly changes it.
