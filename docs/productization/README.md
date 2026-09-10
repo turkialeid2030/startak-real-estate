@@ -164,4 +164,8 @@ These notes describe incremental productization slices and their explicit eviden
 
 - [`p47-fresh-reactivation-independent-review-handoff.md`](./p47-fresh-reactivation-independent-review-handoff.md) — binds a newly designated independent reviewer to the exact P46 cycle and produces a deterministic review packet while rejecting carry-forward of prior reviewer/activation artifacts; reviewer trust and approval remain pending a separate cryptographic attestation step.
 
+## P48 — Fresh Reactivation Review Attestation
+
+- [`p48-fresh-reactivation-review-attestation.md`](./p48-fresh-reactivation-review-attestation.md) — verifies an externally signed RSA-SHA256 independent-review decision against the exact P47 packet and a pinned fresh-reviewer trust registry; approval remains review evidence only and rejection blocks the cycle, with no reactivation or release authority in either case.
+
 Authority remains fail-closed until the existing release-governance process explicitly changes it.
