@@ -54,9 +54,6 @@ function verifyCanonicalBaselineRegistryFile({
   }
   const registry = registryRead.value;
 
-  // Legacy remains the zero-extra-evidence path. This preserves the P32/P33
-  // behavior while P40 adds a future composite mode that is fail-closed unless
-  // the exact P39 contract and a signed human-owner authorization are supplied.
   if (registry?.activeMode === MODE.LEGACY_FILE_SHA256) {
     const evaluated = evaluateDualModeCanonicalBaselineRegistry({ registry });
     if (evaluated.status !== DUAL_MODE_STATUS.LEGACY_BASELINE_VERIFIED || evaluated.verified !== true) {
@@ -73,6 +70,8 @@ function verifyCanonicalBaselineRegistryFile({
       p39ActivationChangeContractVerified: false,
       signedHumanActivationAuthorizationVerified: false,
       activationAuthorizationGrantedByGate: false,
+      activationApplied: false,
+      canonicalBaselineChanged: false,
       activationAppliedObserved: false,
       canonicalBaselineChangedObserved: false,
     });
@@ -136,6 +135,8 @@ function verifyCanonicalBaselineRegistryFile({
     signedHumanActivationAuthorizationVerified: evaluated.signedHumanActivationAuthorizationVerified,
     activationAuthorizationVerificationHashSha256: evaluated.activationAuthorizationVerificationHashSha256,
     activationAuthorizationGrantedByGate: false,
+    activationApplied: true,
+    canonicalBaselineChanged: true,
     activationAppliedObserved: true,
     canonicalBaselineChangedObserved: true,
     legacyCanonicalEvidenceClosed: false,
