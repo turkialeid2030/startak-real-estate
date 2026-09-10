@@ -156,4 +156,8 @@ These notes describe incremental productization slices and their explicit eviden
 
 - [`p45-human-incident-closeout-decision.md`](./p45-human-incident-closeout-decision.md) — cryptographically binds a separate human incident authority to the exact P44 closeout packet, supports only close/keep-open decisions, requires RCA/CAPA evidence for closure, and marks the failed activation cycle historical and non-reusable while keeping release and reactivation blocked.
 
+## P46 — Fresh Reactivation Governance Cycle
+
+- [`p46-fresh-reactivation-governance-cycle.md`](./p46-fresh-reactivation-governance-cycle.md) — opens a clean post-incident reactivation governance envelope only after verified P45 closure, re-hashes the P45 decision/reset records, requires the restored legacy baseline to remain authoritative, rejects reuse of old reviewer/plan/authorization/contract evidence and grants no reactivation or release authority.
+
 Authority remains fail-closed until the existing release-governance process explicitly changes it.
