@@ -160,4 +160,8 @@ These notes describe incremental productization slices and their explicit eviden
 
 - [`p46-fresh-reactivation-governance-cycle.md`](./p46-fresh-reactivation-governance-cycle.md) — opens a clean post-incident reactivation governance envelope only after verified P45 closure, re-hashes the P45 decision/reset records, requires the restored legacy baseline to remain authoritative, rejects reuse of old reviewer/plan/authorization/contract evidence and grants no reactivation or release authority.
 
+## P47 — Fresh Reactivation Independent Review Handoff
+
+- [`p47-fresh-reactivation-independent-review-handoff.md`](./p47-fresh-reactivation-independent-review-handoff.md) — binds a newly designated independent reviewer to the exact P46 cycle and produces a deterministic review packet while rejecting carry-forward of prior reviewer/activation artifacts; reviewer trust and approval remain pending a separate cryptographic attestation step.
+
 Authority remains fail-closed until the existing release-governance process explicitly changes it.
