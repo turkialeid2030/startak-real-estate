@@ -1,1 +1,0 @@
-P44 is verification/closeout-readiness only. No merge, deploy, go-live, release or transaction authority is granted.
