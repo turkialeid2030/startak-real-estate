@@ -1,16 +1,20 @@
 {
   "templateId": "STARTAK-PRODUCTION-GO-LIVE-HANDOFF-TEMPLATE-2026-09-11",
-  "templateVersion": 1,
+  "templateVersion": 3,
   "evidenceStatus": "NOT_EVIDENCE",
   "purpose": "Coordination template for the real E2F to E2I production handoff. Populating this file does not establish trust, authority, execution, legal approval, professional approval, or go-live readiness.",
-  "qualifiedEngineeringReference": {
-    "branch": "productization/production-go-live-runbook",
-    "commitSha": "ea1e395e1ec1027a8ab852f2787b8fbcf805e1c1",
-    "releaseVerifyRunNumber": 807,
-    "regressionPassed": 407,
-    "regressionTotal": 407,
+  "minimumStrictEngineeringReference": {
+    "branch": "productization/production-derived-state-integrity-hardening",
+    "commitSha": "c0de43014e79e1554ed3259a977561922d7b6e62",
+    "releaseVerifyRunNumber": 818,
+    "regressionPassed": 410,
+    "regressionTotal": 410,
     "canonicalMode": "LEGACY_FILE_SHA256",
-    "canonicalRegistrySha256": "20664dcc406d01de485f9abd8031cbe74d5d677c01bb355e44b70f2fd4f5a343"
+    "canonicalRegistrySha256": "20664dcc406d01de485f9abd8031cbe74d5d677c01bb355e44b70f2fd4f5a343",
+    "requiredProductionRunbook": "tools/production-go-live-runbook-strict.js",
+    "legacyStructuralRunbookIsCompleteProductionTrustBoundary": false,
+    "topLevelPacketContractVerificationRequired": true,
+    "derivedStateIntegrityVerificationRequired": true
   },
   "releaseCandidate": {
     "releaseCandidateId": null,
@@ -25,6 +29,8 @@
     "validationPacketHashSha256": null,
     "independentlyPinnedExpectedPacketHashSha256": null,
     "independentPinSourceRef": null,
+    "topLevelPacketContractVerified": false,
+    "derivedStateIntegrityVerified": false,
     "realExternalValidationPresent": false
   },
   "e2g": {
@@ -43,6 +49,8 @@
     "decisionPacketHashSha256": null,
     "independentlyPinnedExpectedPacketHashSha256": null,
     "packetPinSourceRef": null,
+    "topLevelPacketContractVerified": false,
+    "derivedStateIntegrityVerified": false,
     "realHumanAuthorityDecisionsPresent": false
   },
   "externalExecution": {
@@ -83,6 +91,8 @@
     "closeoutPacketHashSha256": null,
     "independentlyPinnedExpectedPacketHashSha256": null,
     "packetPinSourceRef": null,
+    "topLevelPacketContractVerified": false,
+    "derivedStateIntegrityVerified": false,
     "realExecutionCloseoutPresent": false
   },
   "e2i": {
@@ -105,11 +115,21 @@
     "readinessPacketHashSha256": null,
     "independentlyPinnedExpectedPacketHashSha256": null,
     "packetPinSourceRef": null,
+    "topLevelPacketContractVerified": false,
+    "derivedStateIntegrityVerified": false,
     "allRequiredEvidenceVerified": false,
     "goLiveReadyForUnlicensedDecisionSupport": false
   },
   "finalRunbook": {
-    "tool": "tools/production-go-live-runbook.js",
+    "tool": "tools/production-go-live-runbook-strict.js",
+    "requiredChecks": [
+      "TOP_LEVEL_PACKET_CONTRACT",
+      "STRUCTURAL_PACKET_HASH_INTEGRITY",
+      "INDEPENDENT_PACKET_HASH_PIN",
+      "DERIVED_STATE_INTEGRITY",
+      "CROSS_STAGE_UPSTREAM_BINDING",
+      "RELEASE_CANDIDATE_CONTINUITY"
+    ],
     "expectedHighestStatus": "GO_LIVE_READINESS_CONFIRMED_UNLICENSED_DECISION_SUPPORT",
     "statusOutputPath": null,
     "status": null,
