@@ -7,6 +7,9 @@ const {
   verifyE2hDerivedStateIntegrity,
   verifyE2iDerivedStateIntegrity,
 } = require('./production-stage-derived-state-integrity');
+const {
+  verifyStageTopLevelContract,
+} = require('./production-packet-top-level-contract');
 
 function deepFreeze(value) {
   if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
@@ -14,7 +17,7 @@ function deepFreeze(value) {
   return Object.freeze(value);
 }
 
-function strictHold(stage, message, packet = null) {
+function strictHold(stage, message, packet = null, blocker = `${stage}_DERIVED_STATE_INTEGRITY_INVALID`) {
   const hashFieldByStage = {
     E2F: 'validationPacketHashSha256',
     E2G: 'decisionPacketHashSha256',
@@ -24,7 +27,7 @@ function strictHold(stage, message, packet = null) {
   return deepFreeze({
     schemaVersion: 1,
     status: base.STATUS.HOLD_PRODUCTION_CHAIN_INTEGRITY,
-    blockers: Object.freeze([`${stage}_DERIVED_STATE_INTEGRITY_INVALID`]),
+    blockers: Object.freeze([blocker]),
     lastVerifiedStage: null,
     releaseCandidate: packet?.releaseCandidate || null,
     releaseCandidateHashSha256: packet?.releaseCandidate ? base.releaseCandidateHash(packet.releaseCandidate) : null,
@@ -41,7 +44,7 @@ function strictHold(stage, message, packet = null) {
   });
 }
 
-function verifyStage(stage, packet) {
+function verifyStageDerivedState(stage, packet) {
   if (stage === 'E2F') return verifyE2fDerivedStateIntegrity(packet);
   if (stage === 'E2G') return verifyE2gDerivedStateIntegrity(packet);
   if (stage === 'E2H') return verifyE2hDerivedStateIntegrity(packet);
@@ -49,23 +52,36 @@ function verifyStage(stage, packet) {
   return false;
 }
 
+function stageIntegrityProblem(stage, packet) {
+  if (!verifyStageTopLevelContract(stage, packet)) return `${stage}_TOP_LEVEL_CONTRACT_INVALID`;
+  if (!verifyStageDerivedState(stage, packet)) return `${stage}_DERIVED_STATE_INTEGRITY_INVALID`;
+  return null;
+}
+
+function verifyStage(stage, packet) {
+  return stageIntegrityProblem(stage, packet) === null;
+}
+
 function preparePinnedE2gDecisionSigningRequest(input = {}) {
-  if (!verifyStage('E2F', input.upstreamValidationPacket)) {
-    return strictHold('E2F', 'Reject the signing request and recreate the E2F packet through the governed E2F factory; status/authority flags must be derivable from the hashed validation records.', input.upstreamValidationPacket);
+  const problem = stageIntegrityProblem('E2F', input.upstreamValidationPacket);
+  if (problem) {
+    return strictHold('E2F', 'Reject the signing request and recreate the E2F packet through the governed E2F factory; the top-level schema, semantics and derived status/authority fields must match the governed packet contract.', input.upstreamValidationPacket, problem);
   }
   return base.preparePinnedE2gDecisionSigningRequest(input);
 }
 
 function preparePinnedE2hAttestationSigningRequest(input = {}) {
-  if (!verifyStage('E2G', input.upstreamDecisionPacket)) {
-    return strictHold('E2G', 'Reject the attestation request and recreate the E2G packet through the governed E2G factory; authorization flags must be derivable from the hashed human decisions.', input.upstreamDecisionPacket);
+  const problem = stageIntegrityProblem('E2G', input.upstreamDecisionPacket);
+  if (problem) {
+    return strictHold('E2G', 'Reject the attestation request and recreate the E2G packet through the governed E2G factory; no extra top-level claims or derived authorization escalation is permitted.', input.upstreamDecisionPacket, problem);
   }
   return base.preparePinnedE2hAttestationSigningRequest(input);
 }
 
 function preparePinnedE2iEvidenceSigningRequest(input = {}) {
-  if (!verifyStage('E2H', input.upstreamCloseoutPacket)) {
-    return strictHold('E2H', 'Reject the readiness-evidence request and recreate the E2H packet through the governed E2H factory; execution flags must be derivable from the hashed attestations.', input.upstreamCloseoutPacket);
+  const problem = stageIntegrityProblem('E2H', input.upstreamCloseoutPacket);
+  if (problem) {
+    return strictHold('E2H', 'Reject the readiness-evidence request and recreate the E2H packet through the governed E2H factory; no extra top-level claims or derived execution escalation is permitted.', input.upstreamCloseoutPacket, problem);
   }
   return base.preparePinnedE2iEvidenceSigningRequest(input);
 }
@@ -79,8 +95,11 @@ function evaluateProductionGoLiveRunbook(input = {}) {
   ];
   for (const [stage, field] of stages) {
     const packet = input[field];
-    if (packet && !verifyStage(stage, packet)) {
-      return strictHold(stage, `Reject ${stage} packet: mutable derived status/authority fields are inconsistent with the records covered by the packet hash. Recreate the packet from governed source evidence before continuing.`, packet);
+    if (packet) {
+      const problem = stageIntegrityProblem(stage, packet);
+      if (problem) {
+        return strictHold(stage, `Reject ${stage} packet: its top-level contract, semantics, or mutable derived status/authority fields are inconsistent with the governed packet shape. Recreate the packet from governed source evidence before continuing.`, packet, problem);
+      }
     }
   }
   return base.evaluateProductionGoLiveRunbook(input);
@@ -93,6 +112,7 @@ module.exports = {
   releaseCandidateHash: base.releaseCandidateHash,
   pinCheck: base.pinCheck,
   verifyStage,
+  stageIntegrityProblem,
   preparePinnedE2gDecisionSigningRequest,
   preparePinnedE2hAttestationSigningRequest,
   preparePinnedE2iEvidenceSigningRequest,
