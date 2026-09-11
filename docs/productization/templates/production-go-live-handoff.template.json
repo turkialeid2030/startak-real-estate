@@ -1,18 +1,19 @@
 {
   "templateId": "STARTAK-PRODUCTION-GO-LIVE-HANDOFF-TEMPLATE-2026-09-11",
-  "templateVersion": 2,
+  "templateVersion": 3,
   "evidenceStatus": "NOT_EVIDENCE",
   "purpose": "Coordination template for the real E2F to E2I production handoff. Populating this file does not establish trust, authority, execution, legal approval, professional approval, or go-live readiness.",
   "minimumStrictEngineeringReference": {
     "branch": "productization/production-derived-state-integrity-hardening",
-    "commitSha": "5d6ee418d29dd341062ae1368bfb830b1d9867b5",
-    "releaseVerifyRunNumber": 811,
-    "regressionPassed": 408,
-    "regressionTotal": 408,
+    "commitSha": "c0de43014e79e1554ed3259a977561922d7b6e62",
+    "releaseVerifyRunNumber": 818,
+    "regressionPassed": 410,
+    "regressionTotal": 410,
     "canonicalMode": "LEGACY_FILE_SHA256",
     "canonicalRegistrySha256": "20664dcc406d01de485f9abd8031cbe74d5d677c01bb355e44b70f2fd4f5a343",
     "requiredProductionRunbook": "tools/production-go-live-runbook-strict.js",
     "legacyStructuralRunbookIsCompleteProductionTrustBoundary": false,
+    "topLevelPacketContractVerificationRequired": true,
     "derivedStateIntegrityVerificationRequired": true
   },
   "releaseCandidate": {
@@ -28,6 +29,7 @@
     "validationPacketHashSha256": null,
     "independentlyPinnedExpectedPacketHashSha256": null,
     "independentPinSourceRef": null,
+    "topLevelPacketContractVerified": false,
     "derivedStateIntegrityVerified": false,
     "realExternalValidationPresent": false
   },
@@ -47,6 +49,7 @@
     "decisionPacketHashSha256": null,
     "independentlyPinnedExpectedPacketHashSha256": null,
     "packetPinSourceRef": null,
+    "topLevelPacketContractVerified": false,
     "derivedStateIntegrityVerified": false,
     "realHumanAuthorityDecisionsPresent": false
   },
@@ -88,6 +91,7 @@
     "closeoutPacketHashSha256": null,
     "independentlyPinnedExpectedPacketHashSha256": null,
     "packetPinSourceRef": null,
+    "topLevelPacketContractVerified": false,
     "derivedStateIntegrityVerified": false,
     "realExecutionCloseoutPresent": false
   },
@@ -111,6 +115,7 @@
     "readinessPacketHashSha256": null,
     "independentlyPinnedExpectedPacketHashSha256": null,
     "packetPinSourceRef": null,
+    "topLevelPacketContractVerified": false,
     "derivedStateIntegrityVerified": false,
     "allRequiredEvidenceVerified": false,
     "goLiveReadyForUnlicensedDecisionSupport": false
@@ -118,6 +123,7 @@
   "finalRunbook": {
     "tool": "tools/production-go-live-runbook-strict.js",
     "requiredChecks": [
+      "TOP_LEVEL_PACKET_CONTRACT",
       "STRUCTURAL_PACKET_HASH_INTEGRITY",
       "INDEPENDENT_PACKET_HASH_PIN",
       "DERIVED_STATE_INTEGRITY",
