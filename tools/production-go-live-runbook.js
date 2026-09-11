@@ -139,6 +139,26 @@ function execute(args) {
   });
 }
 
+function shouldExitHold(args, result) {
+  if (args.mode === 'status') {
+    return [
+      STATUS.HOLD_PRODUCTION_CHAIN_PROVENANCE_PIN,
+      STATUS.HOLD_PRODUCTION_CHAIN_INTEGRITY,
+      STATUS.HOLD_PRODUCTION_CHAIN_STAGE_GAP,
+      STATUS.HOLD_RELEASE_CANDIDATE_DRIFT,
+    ].includes(result.status);
+  }
+  const expectedReadyStatus = {
+    e2g: 'READY_FOR_EXTERNAL_HUMAN_RSA_SHA256_SIGNATURE',
+    e2h: 'READY_FOR_EXTERNAL_EXECUTION_RSA_SHA256_SIGNATURE',
+    e2i: 'READY_FOR_EXTERNAL_READINESS_RSA_SHA256_SIGNATURE',
+  }[args.mode];
+  return result.upstreamPacketProvenancePinned !== true
+    || result.status !== expectedReadyStatus
+    || !result.lowerLevelResult
+    || (Array.isArray(result.blockers) && result.blockers.length > 0);
+}
+
 function main() {
   let args;
   try {
@@ -157,10 +177,7 @@ function main() {
     const result = execute(args);
     if (args.out) writePrivateJson(args.out, result);
     else process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
-    if (result.status === STATUS.HOLD_PRODUCTION_CHAIN_PROVENANCE_PIN
-      || result.status === STATUS.HOLD_PRODUCTION_CHAIN_INTEGRITY
-      || result.status === STATUS.HOLD_PRODUCTION_CHAIN_STAGE_GAP
-      || result.status === STATUS.HOLD_RELEASE_CANDIDATE_DRIFT) process.exit(2);
+    if (shouldExitHold(args, result)) process.exit(2);
   } catch (error) {
     console.error(`PRODUCTION_GO_LIVE_RUNBOOK_ERROR: ${error.message}`);
     process.exit(65);
@@ -176,5 +193,6 @@ module.exports = {
   readBoundedRegularJson,
   writePrivateJson,
   execute,
+  shouldExitHold,
   main,
 };
