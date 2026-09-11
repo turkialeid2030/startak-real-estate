@@ -6,26 +6,46 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/production-ai-smoke.yml'
-  push:
+      - 'tests/runtime/run_production_ai_smoke_commit_correlation_tests.js'
+  workflow_run:
+    workflows: ['Cloudflare Control Plane Verify']
+    types: [completed]
     branches: [main]
-    paths:
-      - 'functions/api/riai/**'
-      - 'src/residential-income-acquisition/**'
-      - 'public/_headers'
-      - '.github/workflows/production-ai-smoke.yml'
 
 permissions:
   contents: read
 
+concurrency:
+  group: production-ai-smoke-${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   production-ai-smoke:
     name: production-ai-smoke
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
       BASE_URL: https://startak-real-estate.pages.dev
+      EXPECTED_DEPLOYED_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || '' }}
+      UPSTREAM_CONTROL_PLANE_RUN_ID: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || '' }}
+      UPSTREAM_CONTROL_PLANE_RUN_URL: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.html_url || '' }}
+      CORRELATION_MODE: ${{ github.event_name == 'workflow_run' && 'EXACT_DEPLOYMENT_CORRELATED' || 'DIAGNOSTIC_UNCORRELATED' }}
 
     steps:
+      - name: Establish production deployment correlation
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == 'workflow_run' ]]; then
+            [[ "${EXPECTED_DEPLOYED_SHA:-}" =~ ^[0-9a-fA-F]{40}$ ]] || { echo 'workflow_run did not provide an exact deployed candidate SHA.'; exit 1; }
+            [[ "${{ github.event.workflow_run.head_branch }}" == 'main' ]] || { echo 'Commit-correlated production smoke requires the upstream control-plane run to target main.'; exit 1; }
+            [[ "${{ github.event.workflow_run.conclusion }}" == 'success' ]] || { echo 'Upstream control-plane verification was not successful.'; exit 1; }
+            echo "Production smoke is correlated to control-plane verified deployment ${EXPECTED_DEPLOYED_SHA:0:12}."
+          else
+            echo 'Diagnostic smoke mode: no exact deployment correlation is claimed for pull_request/workflow_dispatch runs.'
+          fi
+
       - name: Verify public shell
         shell: bash
         run: |
@@ -35,6 +55,7 @@ jobs:
           status="$(curl -sS -D "$headers" -o "$body" -w '%{http_code}' "$BASE_URL/")"
           test "$status" = '200' || { echo "Public shell returned HTTP $status"; exit 1; }
           grep -Eqi '<!doctype html|<html' "$body" || { echo 'Public shell did not return HTML.'; exit 1; }
+          rm -f "$headers" "$body"
           echo 'Public shell: PASS'
 
       - name: Verify public AI runtime config
@@ -43,9 +64,10 @@ jobs:
           set -euo pipefail
           body="$(mktemp)"
           status="$(curl -sS -o "$body" -w '%{http_code}' "$BASE_URL/api/riai/public-config")"
-          test "$status" = '200' || { echo "Public config returned HTTP $status"; cat "$body"; exit 1; }
+          test "$status" = '200' || { echo "Public config returned HTTP $status"; cat "$body"; rm -f "$body"; exit 1; }
           jq -e '.schemaVersion == 1 and .publicAiEnabled == true and (.turnstileSiteKey | type == "string" and length > 10)' "$body" >/dev/null
-          ! jq -e 'has("turnstileSecret") or has("providerKey") or has("providerUrl") or has("model")' "$body" >/dev/null || { echo 'Public config exposed restricted fields.'; exit 1; }
+          ! jq -e 'has("turnstileSecret") or has("providerKey") or has("providerUrl") or has("model")' "$body" >/dev/null || { echo 'Public config exposed restricted fields.'; rm -f "$body"; exit 1; }
+          rm -f "$body"
           echo 'Public AI runtime config: PASS'
 
       - name: Verify fail-closed AI boundary
@@ -55,12 +77,13 @@ jobs:
           body="$(mktemp)"
           payload='{"decisionSnapshot":{"schemaVersion":1}}'
           status="$(curl -sS -o "$body" -w '%{http_code}' -X POST "$BASE_URL/api/riai/ai-assist" -H 'content-type: application/json' -H 'origin: https://startak-real-estate.pages.dev' -H 'sec-fetch-site: same-origin' --data "$payload")"
-          test "$status" != '200' || { echo 'AI endpoint unexpectedly accepted an invalid/unauthenticated request.'; exit 1; }
+          test "$status" != '200' || { echo 'AI endpoint unexpectedly accepted an invalid/unauthenticated request.'; rm -f "$body"; exit 1; }
           code="$(jq -r '.code // empty' "$body" 2>/dev/null || true)"
           case "$code" in
             TURNSTILE_TOKEN_REQUIRED|AI_SNAPSHOT_INVALID|AI_SNAPSHOT_NOT_READY|DECISION_SNAPSHOT_SCHEMA_INVALID) ;;
-            *) echo "Unexpected fail-closed code: ${code:-<none>} (HTTP $status)"; cat "$body"; exit 1 ;;
+            *) echo "Unexpected fail-closed code: ${code:-<none>} (HTTP $status)"; cat "$body"; rm -f "$body"; exit 1 ;;
           esac
+          rm -f "$body"
           echo "Fail-closed AI boundary: PASS ($code)"
 
       - name: Verify browser security headers
@@ -69,8 +92,47 @@ jobs:
           set -euo pipefail
           headers="$(mktemp)"
           curl -sS -D "$headers" -o /dev/null "$BASE_URL/"
-          grep -Eqi '^content-security-policy:.*challenges\.cloudflare\.com' "$headers" || { echo 'CSP does not allow Cloudflare Turnstile.'; cat "$headers"; exit 1; }
+          grep -Eqi '^content-security-policy:.*challenges\.cloudflare\.com' "$headers" || { echo 'CSP does not allow Cloudflare Turnstile.'; cat "$headers"; rm -f "$headers"; exit 1; }
+          rm -f "$headers"
           echo 'Turnstile CSP: PASS'
+
+      - name: Write production AI smoke evidence envelope
+        if: always()
+        shell: bash
+        env:
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          set -euo pipefail
+          mkdir -p runtime-evidence/production-ai-smoke
+          correlated=false
+          qualified=false
+          if [[ "$CORRELATION_MODE" == 'EXACT_DEPLOYMENT_CORRELATED' ]]; then correlated=true; fi
+          if [[ "$correlated" == 'true' && "$JOB_STATUS" == 'success' ]]; then qualified=true; fi
+          jq -n \
+            --arg schemaVersion '1' \
+            --arg suite 'PRODUCTION_AI_SMOKE_V2' \
+            --arg baseUrl "$BASE_URL" \
+            --arg event "$GITHUB_EVENT_NAME" \
+            --arg expectedDeployedSha "${EXPECTED_DEPLOYED_SHA:-}" \
+            --arg upstreamControlPlaneRunId "${UPSTREAM_CONTROL_PLANE_RUN_ID:-}" \
+            --arg upstreamControlPlaneRunUrl "${UPSTREAM_CONTROL_PLANE_RUN_URL:-}" \
+            --arg correlationMode "$CORRELATION_MODE" \
+            --arg jobStatus "$JOB_STATUS" \
+            --arg completedAt "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+            --argjson deploymentCorrelationEstablished "$correlated" \
+            --argjson qualifiesAsCommitCorrelatedSmokeEvidence "$qualified" \
+            '{schemaVersion:($schemaVersion|tonumber),suite:$suite,baseUrl:$baseUrl,event:$event,expectedDeployedSha:(if $expectedDeployedSha=="" then null else $expectedDeployedSha end),upstreamControlPlaneRunId:(if $upstreamControlPlaneRunId=="" then null else $upstreamControlPlaneRunId end),upstreamControlPlaneRunUrl:(if $upstreamControlPlaneRunUrl=="" then null else $upstreamControlPlaneRunUrl end),correlationMode:$correlationMode,deploymentCorrelationEstablished:$deploymentCorrelationEstablished,jobStatus:$jobStatus,qualifiesAsCommitCorrelatedSmokeEvidence:$qualifiesAsCommitCorrelatedSmokeEvidence,completedAt:$completedAt,authority:{releaseAuthorized:false,mergeAuthorized:false,deploymentAuthorized:false,goLiveAuthorized:false,transactionAuthorized:false}}' \
+            > runtime-evidence/production-ai-smoke/result.json
+          cat runtime-evidence/production-ai-smoke/result.json
+
+      - name: Upload production AI smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-ai-smoke-evidence-${{ github.run_id }}
+          path: runtime-evidence/production-ai-smoke/result.json
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Publish summary
         if: always()
@@ -79,9 +141,18 @@ jobs:
           {
             echo '## STARTAK Production AI Smoke'
             echo
+            echo "- Event: \`${GITHUB_EVENT_NAME}\`"
+            echo "- Correlation mode: \`${CORRELATION_MODE}\`"
+            if [[ -n "${EXPECTED_DEPLOYED_SHA:-}" ]]; then
+              echo "- Expected deployed SHA inherited from successful Cloudflare Control Plane Verify: \`${EXPECTED_DEPLOYED_SHA}\`"
+              echo "- Upstream control-plane run: \`${UPSTREAM_CONTROL_PLANE_RUN_ID}\`"
+            else
+              echo '- No exact deployment SHA is claimed in diagnostic mode.'
+            fi
             echo '- Public shell reachability checked.'
             echo '- Public AI config checked for enabled Turnstile and secret non-disclosure.'
             echo '- AI endpoint checked to reject invalid/unauthenticated requests before provider invocation.'
             echo '- CSP checked for Turnstile browser support.'
             echo '- This smoke test does not bypass Turnstile and therefore does not fabricate a valid human challenge token.'
+            echo '- This workflow is read-only and grants no release, deployment, go-live or transaction authority.'
           } >> "$GITHUB_STEP_SUMMARY"
