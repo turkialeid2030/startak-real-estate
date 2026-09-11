@@ -43,7 +43,7 @@ function containsForbiddenSecretMaterial(value, path = 'registry') {
     return null;
   }
   for (const [key, child] of Object.entries(value)) {
-    if (/(^|_)(private.?key|secret|password|token|credential)(_|$)/i.test(key)) return `${path}.${key}`;
+    if (/(private.?key|secret|password|token|credential)/i.test(key)) return `${path}.${key}`;
     const hit = containsForbiddenSecretMaterial(child, `${path}.${key}`);
     if (hit) return hit;
   }
