@@ -11,14 +11,14 @@ It does not authorize merge, deployment, go-live, canonical-registry mutation, p
 The minimum strict production-trust implementation is:
 
 - branch: `productization/production-derived-state-integrity-hardening`
-- commit: `5d6ee418d29dd341062ae1368bfb830b1d9867b5`
-- Release Verify: `#811` — PASS
-- regression: `408 / 408`
+- code-qualified commit: `c0de43014e79e1554ed3259a977561922d7b6e62`
+- Release Verify: `#818` — PASS
+- regression: `410 / 410`
 - production build: PASS
 - package verification: PASS
 - npm audit: `0 critical / 0 high / 0 moderate / 0 low`
 
-This reference supersedes the earlier structural-only production runbook as the minimum operator trust boundary. Documentation-only commits may advance after this reference; that does not reduce the requirement to use the strict runbook and its derived-state checks.
+This reference includes both derived-state integrity and the closed top-level packet contract. Later documentation-only commits may advance after this code-qualified reference; they do not reduce the requirement to use the strict runbook.
 
 The checked-in canonical baseline remains unchanged:
 
@@ -35,7 +35,7 @@ The only valid production sequence from this point is:
    - obtain the real external-conformance/security/performance/resilience packet;
    - retain its exact `validationPacketHashSha256` in an independently governed location;
    - the packet hash presented with the JSON packet is not, by itself, an independent trust root;
-   - require strict derived-state verification before E2F may drive E2G.
+   - require the exact governed top-level packet contract and strict derived-state verification before E2F may drive E2G.
 
 2. **E2G human release authority**
    - prepare a real release-authority registry containing only public RSA material;
@@ -43,13 +43,13 @@ The only valid production sequence from this point is:
    - obtain separate signed `RELEASE_APPROVAL`, `MERGE_APPROVAL`, and `DEPLOYMENT_APPROVAL` decisions;
    - preserve merge/deployment authority-subject separation;
    - independently pin the resulting E2G decision-packet SHA-256;
-   - require strict derived-state verification before any authorization field is relied upon.
+   - require the exact governed top-level contract and strict derived-state verification before any authorization field is relied upon.
 
 3. **Authorized external execution**
    - merge only the exact authorized source commit through the approved GitHub path;
    - deploy only the exact authorized artifact/environment/configuration tuple through the approved provider path;
    - retain immutable provider-side IDs, timestamps, logs and artifact references;
-   - do not infer execution from CI success, a signing request, or an unverified packet boolean.
+   - do not infer execution from CI success, a signing request, an unknown JSON field, or an unverified packet boolean.
 
 4. **E2H execution closeout**
    - prepare the real execution-attestor registry using public RSA material only;
@@ -57,7 +57,7 @@ The only valid production sequence from this point is:
    - collect signed attestations for merge execution, deployment execution, post-deployment smoke, and rollback readiness;
    - deployment and smoke must be attested by different subjects;
    - independently pin the final E2H closeout-packet SHA-256;
-   - require strict derived-state verification before execution flags are accepted.
+   - require the exact governed top-level contract and strict derived-state verification before execution flags are accepted.
 
 5. **E2I external production readiness**
    - prepare the real readiness-verifier registry and pin its normalized SHA-256 outside the consuming workflow;
@@ -71,11 +71,11 @@ The only valid production sequence from this point is:
    - use at least two distinct verifier subjects across the complete evidence set;
    - every evidence record must bind to the exact E2H closeout hash and exact release candidate;
    - independently pin the final E2I readiness-packet SHA-256;
-   - require strict derived-state verification before `goLiveReady` is relied upon.
+   - require the exact governed top-level contract and strict derived-state verification before `goLiveReady` is relied upon.
 
 6. **Final read-only strict runbook evaluation**
    - supply E2F/E2G/E2H/E2I packets together with their independent packet-hash pins to `tools/production-go-live-runbook-strict.js status`;
-   - require all five trust conditions: structural packet hash integrity, independent packet-hash pin, derived-state integrity, exact upstream packet binding, and release-candidate continuity;
+   - require all six trust conditions: exact top-level packet contract, structural packet-hash integrity, independent packet-hash pin, derived-state integrity, exact upstream packet binding, and release-candidate continuity;
    - the earlier `tools/production-go-live-runbook.js` is retained only for structural/pinning compatibility and must not be used as the complete production trust boundary;
    - the highest permitted engineering result is `GO_LIVE_READINESS_CONFIRMED_UNLICENSED_DECISION_SUPPORT`;
    - that result still does not itself perform or authorize the operational go-live action.
@@ -100,7 +100,13 @@ Acceptable governance patterns include an approved immutable release record, con
 
 A JSON file plus a hash calculated from that same JSON by the same untrusted step is not an independent provenance control.
 
-Independent pinning is necessary but is not sufficient by itself. The strict runbook must also verify that every derived status/authorization/execution/readiness field is consistent with the records already covered by the packet core hash.
+Independent pinning is necessary but is not sufficient by itself. The strict runbook must also enforce the exact top-level packet contract and verify that every derived status/authorization/execution/readiness field is consistent with records covered by the packet core hash.
+
+## Top-level claim boundary
+
+The strict production path treats each E2F/E2G/E2H/E2I packet as a closed top-level contract. Unknown injected fields are prohibited even when the legacy structural packet hash still validates.
+
+Production packet `semantics` text is also part of the strict operator contract. It must not be removed or changed. A producer must recreate the packet through the governed factory rather than manually adding, deleting or rewriting top-level claims.
 
 ## Private-key boundary
 
@@ -130,6 +136,7 @@ The following cannot be manufactured by the repository or CI:
 
 Stop the production sequence immediately if any of the following occurs:
 
+- a packet contains an unknown top-level field or modified/missing production semantics;
 - a packet or registry SHA-256 does not match its independent pin;
 - a packet fails its structural integrity verifier;
 - a packet fails strict derived-state integrity verification;
@@ -144,7 +151,7 @@ Stop the production sequence immediately if any of the following occurs:
 - the operating mode differs from `UNLICENSED_DECISION_SUPPORT`;
 - a required real external artifact is replaced by a synthetic test fixture.
 
-If strict derived-state integrity fails, do not repair the JSON by editing booleans or status fields. Recreate the packet using the governed factory from trusted upstream inputs, pinned registries, signatures and evidence.
+If `<STAGE>_TOP_LEVEL_CONTRACT_INVALID` or `<STAGE>_DERIVED_STATE_INTEGRITY_INVALID` occurs, do not repair the JSON manually. Recreate the packet using the governed factory from trusted upstream inputs, pinned registries, signatures and evidence.
 
 ## Merge/deploy boundary
 
@@ -158,4 +165,4 @@ Use:
 
 `docs/productization/templates/production-go-live-handoff.template.json`
 
-Template version 2 points explicitly to `tools/production-go-live-runbook-strict.js` and records a per-stage `derivedStateIntegrityVerified` field. It remains intentionally unpopulated and has `evidenceStatus=NOT_EVIDENCE`. Filling fields does not make them trusted; every packet/registry still requires the applicable cryptographic verification, independent pinning and strict derived-state verification described above.
+Template version 3 points explicitly to `tools/production-go-live-runbook-strict.js`, records per-stage `topLevelPacketContractVerified` and `derivedStateIntegrityVerified`, and identifies the code-qualified strict reference at Release Verify #818. It remains intentionally unpopulated and has `evidenceStatus=NOT_EVIDENCE`. Filling fields does not make them trusted; every packet/registry still requires cryptographic verification, independent pinning, top-level contract verification and strict derived-state verification.
