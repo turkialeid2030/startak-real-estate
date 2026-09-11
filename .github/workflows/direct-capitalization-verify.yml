@@ -1,0 +1,32 @@
+name: Direct Capitalization Verify
+
+on:
+  pull_request:
+    paths:
+      - 'src/valuation/direct-capitalization-input.js'
+      - 'src/engines/valuation/direct-capitalization.js'
+      - 'tests/architecture/run_wave12b_direct_capitalization.js'
+      - 'docs/WAVE_12B_DIRECT_CAPITALIZATION.md'
+      - '.github/workflows/direct-capitalization-verify.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Wave 12B governed Direct Capitalization
+        run: node tests/architecture/run_wave12b_direct_capitalization.js
+      - name: Canonical release verification
+        run: npm run release:verify

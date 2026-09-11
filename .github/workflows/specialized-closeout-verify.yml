@@ -1,0 +1,30 @@
+name: Specialized Qualification Closeout Verify
+
+on:
+  pull_request:
+    paths:
+      - 'governance/wave14-specialized-qualification-manifest.json'
+      - 'tests/architecture/run_wave14h_specialized_closeout.js'
+      - 'docs/WAVE_14H_SPECIALIZED_CLOSEOUT.md'
+      - '.github/workflows/specialized-closeout-verify.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Wave 14H specialized closeout
+        run: node tests/architecture/run_wave14h_specialized_closeout.js
+      - name: Canonical release verification
+        run: npm run release:verify

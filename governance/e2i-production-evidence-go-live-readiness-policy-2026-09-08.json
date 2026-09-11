@@ -1,0 +1,61 @@
+{
+  "policyId": "STARTAK-E2I-PRODUCTION-EVIDENCE-GO-LIVE-READINESS-POLICY-2026-09-08",
+  "createdAt": "2026-09-08T16:35:00+03:00",
+  "operatingMode": "UNLICENSED_DECISION_SUPPORT",
+  "status": "FINAL_ENGINEERING_READINESS_GATE_DEFINED_REAL_EXTERNAL_EVIDENCE_NOT_CONFIGURED",
+  "purpose": "Define the final fail-closed engineering readiness aggregator. E2I accepts only an integrity-valid completed E2H execution closeout packet and independently signed real-production readiness evidence. Internal tests validate structure only. No further internal engineering gate may substitute for missing external evidence.",
+  "requiredUpstreamStatus": "EXECUTION_AND_POST_DEPLOYMENT_CLOSEOUT_COMPLETE",
+  "requiredUpstreamFlags": [
+    "releaseAuthorized",
+    "mergeAuthorized",
+    "deploymentAuthorized",
+    "mergeExecuted",
+    "deploymentExecuted",
+    "postDeploymentSmokePassed",
+    "rollbackReadinessValidated",
+    "executionCloseoutComplete"
+  ],
+  "readinessVerifierRegistryRequired": true,
+  "readinessVerifierRegistryHashPinnedOutOfBandRequired": true,
+  "callerDeclaredReadinessAccepted": false,
+  "signatureAlgorithmsAllowed": [
+    "RSA-SHA256"
+  ],
+  "requiredEvidenceTypes": [
+    "CANONICAL_SOURCE_HASH_COMPARISON",
+    "SAUDI_LEGAL_OPERATING_MODE_REVIEW",
+    "PDPL_DATA_GOVERNANCE_REVIEW",
+    "PROFESSIONAL_STANDARDS_SCOPE_REVIEW",
+    "PRODUCTION_EXECUTION_CHAIN_CONFIRMATION",
+    "OPERATING_MODE_CLAIMS_RESTRICTION_CONFIRMATION"
+  ],
+  "allowedEvidenceResults": [
+    "VERIFIED",
+    "REJECTED",
+    "INCONCLUSIVE"
+  ],
+  "allRequiredEvidenceMustBeVerifiedForGoLive": true,
+  "sameVerifierMayVerifyAllEvidenceTypes": false,
+  "automaticGoLiveApprovalAllowed": false,
+  "automaticProfessionalAuthorityPromotionAllowed": false,
+  "automaticRuleActivationAllowed": false,
+  "productionReadinessVerifierRegistryConfigured": false,
+  "productionCanonicalSourceComparisonEvidencePresent": false,
+  "productionSaudiLegalOperatingModeEvidencePresent": false,
+  "productionPdplReviewEvidencePresent": false,
+  "productionProfessionalStandardsScopeEvidencePresent": false,
+  "productionExecutionChainConfirmationPresent": false,
+  "productionOperatingModeClaimsRestrictionEvidencePresent": false,
+  "maximumEngineeringStatus": "GO_LIVE_READY_FOR_UNLICENSED_DECISION_SUPPORT",
+  "architecturalStop": true,
+  "authorityBoundary": {
+    "goLiveReady": true,
+    "goLiveOperatingMode": "UNLICENSED_DECISION_SUPPORT",
+    "formalStandardsConformanceEstablished": false,
+    "standardsOrRulesActivated": false,
+    "saudiProfessionalLicensingEstablished": false,
+    "certifiedValuationAuthorityEstablished": false,
+    "externalProfessionalValuationIssuanceAuthorized": false,
+    "transactionAuthorized": false
+  }
+}

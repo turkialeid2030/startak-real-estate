@@ -205,4 +205,5 @@ module.exports = {
   createCommitteeCase,
   validateAttendance,
   recordHumanCommitteeDecision,
+  ...require('./ic-governance'),
 };

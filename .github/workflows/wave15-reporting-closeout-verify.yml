@@ -1,0 +1,35 @@
+name: Wave 15 Reporting Review Closeout Verify
+
+on:
+  pull_request:
+    paths:
+      - 'src/reporting/**'
+      - 'src/standards/**'
+      - 'tests/architecture/run_wave15*.js'
+      - '.github/workflows/*report*verify.yml'
+      - '.github/workflows/wave15-reporting-closeout-verify.yml'
+      - 'docs/WAVE_15*.md'
+      - 'architecture/STARTAK_WAVE15_REPORTING_REVIEW_CLOSEOUT_2026.md'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Wave 15A report contract
+        run: node tests/architecture/run_wave15a_professional_report_contract.js
+      - name: Wave 15B professional review
+        run: node tests/architecture/run_wave15b_professional_review.js
+      - name: Wave 15C report conformance QA
+        run: node tests/architecture/run_wave15c_report_conformance_qa.js
+      - name: Wave 15 closeout
+        run: node tests/architecture/run_wave15d_reporting_closeout.js
+      - name: Canonical release verification
+        run: npm run release:verify

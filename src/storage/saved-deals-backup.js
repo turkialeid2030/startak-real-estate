@@ -3,8 +3,9 @@
 // validated Residential Income operating-case snapshot. Version 3 added the
 // optional versioned valuationCase configuration. Version 4 adds non-economic
 // compliance-boundary and export-provenance metadata while retaining restore
-// compatibility with versions 1-3. Reuses SDI-001's canonical validator;
-// does NOT implement a second/duplicate schema validator.
+// compatibility with versions 1-3. Per-deal optional non-economic extensions
+// remain additive and are preserved by projectDealRecord(). Reuses SDI-001's
+// canonical validator; does NOT implement a second/duplicate schema validator.
 
 const { validateSavedDealRecord } = require('../validation/saved-deal-schema.js');
 const {
@@ -15,11 +16,21 @@ const {
 
 const BACKUP_FORMAT = 'STARTAK_SAVED_DEALS_BACKUP';
 const BACKUP_VERSION = 4;
+const OPTIONAL_DEAL_EXTENSION_KEYS = Object.freeze([
+  'assumptionModelVersion',
+  'zakatCase',
+  'operatingCase',
+  'valuationCase',
+  'standardsSnapshotVersion',
+  'standardsSnapshot',
+  'valuationStandardsContext',
+]);
 
 function projectDealRecord(parsed, id = parsed.id) {
   const record = { id, name: parsed.name, mode: parsed.mode, inputs: parsed.inputs, savedAt: parsed.savedAt };
-  if (Object.prototype.hasOwnProperty.call(parsed, 'operatingCase')) record.operatingCase = parsed.operatingCase;
-  if (Object.prototype.hasOwnProperty.call(parsed, 'valuationCase')) record.valuationCase = parsed.valuationCase;
+  for (const key of OPTIONAL_DEAL_EXTENSION_KEYS) {
+    if (Object.prototype.hasOwnProperty.call(parsed, key)) record[key] = parsed[key];
+  }
   return record;
 }
 
@@ -54,7 +65,7 @@ function buildExportProvenance(exportedAt, dealCount) {
     exportedAt,
     dealCount,
     qualification: 'STRUCTURAL_VALIDATION_ONLY_NOT_PROFESSIONAL_CERTIFICATION',
-    evidenceScope: 'Stored user inputs and versioned optional case configuration only; no certified appraisal, legal opinion, or transaction instruction is created by this export.',
+    evidenceScope: 'Stored user inputs and versioned optional case/provenance configuration only; no certified appraisal, legal opinion, or transaction instruction is created by this export.',
   });
 }
 
@@ -75,8 +86,9 @@ async function buildExportPayload(dealIndexEntries, storageProvider) {
     let parsed;
     try { parsed = JSON.parse(raw); } catch (e) { throw new BackupError('CORRUPT_JSON_IN_STORAGE', `id=${entry.id}`); }
     validateSavedDealRecord(parsed); // throws SavedDealValidationError if structurally invalid -- propagates, aborting the whole export
-    // Preserve the core deal plus optional canonical extensions. No calculated
-    // view-model, valuation result, or presentation field is exported here.
+    // Preserve the core deal plus optional canonical non-economic extensions.
+    // No calculated view-model, valuation result, or presentation field is
+    // exported here.
     deals.push(projectDealRecord(parsed));
   }
   const exportedAt = new Date().toISOString();
@@ -205,6 +217,8 @@ module.exports = {
   BackupError,
   BACKUP_FORMAT,
   BACKUP_VERSION,
+  OPTIONAL_DEAL_EXTENSION_KEYS,
+  projectDealRecord,
   buildComplianceMetadata,
   buildExportProvenance,
 };

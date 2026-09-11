@@ -1,0 +1,39 @@
+{
+  "policyId": "STARTAK-E2E-RULE-IMPLEMENTATION-CONFORMANCE-EVIDENCE-POLICY-2026-09-08",
+  "createdAt": "2026-09-08T14:20:00+03:00",
+  "operatingMode": "UNLICENSED_DECISION_SUPPORT",
+  "status": "ENGINEERING_EVIDENCE_GATE_DEFINED_PRODUCTION_IMPLEMENTATION_NOT_AUTHORIZED",
+  "purpose": "Define the fail-closed evidence gate for implementation and conformance evidence associated with an E2D rule-implementation proposal. E2E validates exact proposal coverage, chronology, separation of implementation and verification roles, and content-addressed evidence. It does not authenticate external conformance evidence, activate rules, establish formal standards conformance, authorize professional issuance or authorize release/deployment/transactions.",
+  "requiredUpstreamStatus": "ACTIVATION_PROPOSAL_READY_FOR_IMPLEMENTATION_GOVERNANCE",
+  "productionImplementationEvidencePresent": false,
+  "productionIndependentConformanceEvidencePresent": false,
+  "implementationSelfVerificationAllowed": false,
+  "callerDeclaredConformanceAcceptedAsFormalConformance": false,
+  "automaticRuleActivationAllowed": false,
+  "automaticReleaseAllowed": false,
+  "allowedConformanceResults": [
+    "PASS",
+    "FAIL",
+    "INCONCLUSIVE"
+  ],
+  "exactRuleCoverageRequired": true,
+  "sourceCommitShaRequired": true,
+  "artifactSha256Required": true,
+  "maximumEngineeringStatus": "RULE_IMPLEMENTATION_EVIDENCE_READY_FOR_EXTERNAL_CONFORMANCE_VALIDATION",
+  "authorityBoundary": {
+    "implementationEvidenceComplete": true,
+    "conformanceEvidenceComplete": true,
+    "independentConformanceEvidenceRecorded": true,
+    "formalStandardsConformanceEstablished": false,
+    "standardsOrRulesActivated": false,
+    "legalConclusionEstablished": false,
+    "professionalApplicabilityEstablished": false,
+    "saudiProfessionalLicensingEstablished": false,
+    "certifiedValuationAuthorityEstablished": false,
+    "externalIssuanceAuthorized": false,
+    "releaseAuthorized": false,
+    "mergeAuthorized": false,
+    "deploymentAuthorized": false,
+    "transactionAuthorized": false
+  }
+}

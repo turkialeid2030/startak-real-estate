@@ -1,0 +1,267 @@
+# Productization Evidence Notes
+
+These notes describe incremental productization slices and their explicit evidence boundaries. They do not confer release, merge, deployment, go-live, legal, professional, or transaction authority.
+
+## P8 — Admin / Operations Runtime
+
+- [`p8-admin-operations-runtime.md`](./p8-admin-operations-runtime.md) — authenticated ADMIN-only read-only operational inspection contract and non-claims.
+- [`p8-admin-operations-checklist.md`](./p8-admin-operations-checklist.md) — external production qualification evidence still required.
+
+## P9 — Production Qualification Evidence Gate
+
+- [`p9-production-qualification-gate.md`](./p9-production-qualification-gate.md) — deterministic composition of existing readiness, independent release qualification, and institutional go-live review outputs.
+- [`p9-external-evidence-checklist.md`](./p9-external-evidence-checklist.md) — external production, legal, professional, security, resilience, and human-approval evidence that P9 does not establish.
+
+## P10 — Server HTTP API Boundary
+
+- [`p10-server-http-api-boundary.md`](./p10-server-http-api-boundary.md) — narrow authenticated Node HTTP interface for canonical workspace load/save, with bounded JSON input, exact-origin CORS, sanitized errors, security headers, and fail-closed authority semantics.
+
+## P11 — Server Runtime Composition
+
+- [`p11-server-runtime-composition.md`](./p11-server-runtime-composition.md) — controlled server-side composition of HTTP, OIDC/JWKS authentication, verified tenant/RBAC workspace runtime, and PostgreSQL-compatible persistence with narrow external dependency reachability probes.
+
+## P12 — PostgreSQL Runtime RLS Probe
+
+- [`p12-postgres-runtime-rls-probe.md`](./p12-postgres-runtime-rls-probe.md) — executable staging/runtime probe for PostgreSQL runtime-role privilege, FORCE RLS, same-tenant CRUD, cross-tenant denial, missing tenant context, pool context reset, cleanup, and evidence hashing.
+
+## P13 — Controlled PostgreSQL Migration Runner
+
+- [`p13-controlled-postgres-migration-runner.md`](./p13-controlled-postgres-migration-runner.md) — dry-run-by-default, target-bound migration execution boundary limited to staging/preproduction, with preflight database/role identity matching and FORCE-RLS post-check.
+
+## P14 — Controlled Staging PostgreSQL Qualification
+
+- [`p14-controlled-staging-postgres-qualification.md`](./p14-controlled-staging-postgres-qualification.md) — composes controlled migration, live runtime RLS probing and the deterministic runtime-RLS evaluator; privileged-path evidence remains separately required and production certification remains explicitly false.
+
+## P15 — Controlled Staging API Security Qualification
+
+- [`p15-controlled-staging-api-security-qualification.md`](./p15-controlled-staging-api-security-qualification.md) — read-only API object-isolation/IDOR-BOLA qualification plus an authenticated ADMIN-only application inspection path, bound to completed P14 staging evidence and explicitly not a database-owner or production-security certification.
+
+## P16 — Controlled Backup / Restore Qualification
+
+- [`p16-controlled-backup-restore-qualification.md`](./p16-controlled-backup-restore-qualification.md) — staging-only, dry-run-by-default backup/isolated-restore/verification orchestration through host-injected adapters, producing caller-objective-bound `BACKUP_RESTORE` resilience evidence without embedding credentials or infrastructure commands.
+
+## P17 — Controlled DR Failover Qualification
+
+- [`p17-controlled-dr-failover-qualification.md`](./p17-controlled-dr-failover-qualification.md) — staging-only, dry-run-by-default primary/standby failover and failback drill orchestration, producing caller-objective-bound `DATABASE_UNAVAILABLE` resilience evidence while keeping provider-specific mutation and credentials host-injected.
+
+## P18 — Controlled Observability and Incident Qualification
+
+- [`p18-controlled-observability-incident-qualification.md`](./p18-controlled-observability-incident-qualification.md) — staging-only, dry-run-by-default metrics freshness/signal coverage, synthetic alert delivery, incident acknowledgement and runbook-readiness qualification using host-injected adapters and hashed operational references.
+
+## P19 — Independent Security / UAT Evidence Gate
+
+- [`p19-independent-security-uat-evidence-gate.md`](./p19-independent-security-uat-evidence-gate.md) — exact-commit staging gate for supplied independent penetration-test and UAT evidence, blocking open Critical/High findings, requiring retest of remediated Critical/High findings, enforcing UAT scenario completion and independent review separation, and hashing external references without granting release authority.
+
+## P20 — Release Candidate Evidence Bundle
+
+- [`p20-release-candidate-evidence-bundle.md`](./p20-release-candidate-evidence-bundle.md) — deterministic handoff manifest that composes the existing P9 production-qualification result with exact-commit P19 security/UAT evidence, requires a complete explicit register of unresolved external blockers and separate review governance, and can only make the package eligible for the existing human release-governance review.
+
+## P21 — Canonical Source Evidence Hardening
+
+- [`p21-canonical-source-evidence-hardening.md`](./p21-canonical-source-evidence-hardening.md) — corrects the canonical release verifier so missing external source evidence is reported as `NOT_EVALUATED`, adds strict fail-closed mode for authorized external-evidence runs, and reserves `PASS` for an actual matching SHA-256 comparison.
+
+## P22 — Canonical Source E2I Signing Package
+
+- [`p22-canonical-e2i-signing-package.md`](./p22-canonical-e2i-signing-package.md) — converts an already verified pinned canonical-source comparison into the exact unsigned `CANONICAL_SOURCE_HASH_COMPARISON` E2I signing payload, with deterministic signing bytes and compatibility tests against the existing E2I RSA signature verifier while keeping the external signer and trust root out of the repository.
+
+## P23 — External Canonical Evidence Operator
+
+- [`p23-external-canonical-evidence-operator.md`](./p23-external-canonical-evidence-operator.md) — operationalizes the strict P21 comparison and P22 unsigned E2I package into one fail-closed operator command for the real externally controlled source bytes, rejecting unknown/secret context fields and never accepting a private signing key or granting authority.
+
+## P24 — Governed Canonical Baseline Reconstitution
+
+- [`p24-canonical-baseline-reconstitution.md`](./p24-canonical-baseline-reconstitution.md) — records the historical canonical original as unavailable and prepares a deterministic human-governance proposal to supersede the legacy file-hash baseline with an exact qualified Git commit plus release-artifact and environment-config digests; it does not switch the baseline or satisfy E2I automatically.
+
+## P25 — Canonical Re-baseline Governance Decision
+
+- [`p25-canonical-rebaseline-governance-decision.md`](./p25-canonical-rebaseline-governance-decision.md) — records owner direction and requires a distinct independent review before the P24 proposal can become eligible for a separate explicit baseline-activation code change; no automatic baseline switch or release authority is granted.
+
+## P26 — Canonical Re-baseline Independent Review Handoff
+
+- [`p26-canonical-rebaseline-independent-review.md`](./p26-canonical-rebaseline-independent-review.md) — produces a deterministic review packet only from a valid P25 `WAITING_FOR_INDEPENDENT_REVIEW` state, normalizes a distinct reviewer response for P25 re-evaluation, and explicitly does not treat CI or automation as human review.
+
+## P27 — Canonical Re-baseline Review Attestation
+
+- [`p27-canonical-rebaseline-review-attestation.md`](./p27-canonical-rebaseline-review-attestation.md) — verifies RSA-SHA256 reviewer-decision attestations against an out-of-band pinned reviewer registry and binds the decision to the exact P26 packet, while leaving external review-artifact substance and all release authority outside the automated trust boundary.
+
+## P28 — Owner-Controlled Reviewer Designation
+
+- [`p28-owner-controlled-reviewer-designation.md`](./p28-owner-controlled-reviewer-designation.md) — gives the proposal owner the narrow governance capability to designate or replace the independent-review workflow assignee before an accepted review; the current mutable designation is `سعيد المراجع` (`reviewer:saeed-pending`), pending final identity/trust binding.
+
+## P29 — Reviewer Designation Ledger and Owner Operator
+
+- [`p29-reviewer-designation-ledger.md`](./p29-reviewer-designation-ledger.md) — adds an append-only reviewer-designation history, strict replacement-chain validation and an owner operator for preparing future reviewer replacements without weakening the P27 independent-review trust boundary.
+
+## P30 — Reviewer Lifecycle Lock
+
+- [`p30-reviewer-lifecycle-lock.md`](./p30-reviewer-lifecycle-lock.md) — keeps reviewer replacement mutable while review is pending, then freezes replacement only when a P27 cryptographically verified response is bound to the exact P26 packet and current P29 designation; stale-review carryover fails closed.
+
+## P31 — Canonical Re-baseline Activation Plan
+
+- [`p31-canonical-rebaseline-activation-plan.md`](./p31-canonical-rebaseline-activation-plan.md) — prepares a deterministic successor-baseline manifest and explicit activation-change contract only after P25 dual approval and a P30 cryptographically bound reviewer lifecycle lock; it does not apply the baseline switch or grant release authority.
+
+## P32 — Canonical Baseline Registry Contract
+
+- [`p32-canonical-baseline-registry-contract.md`](./p32-canonical-baseline-registry-contract.md) — explicitly records the unchanged legacy baseline and provides a fail-closed contract for producing only a non-active governed-composite candidate from a valid P31 activation plan.
+
+## P33 — Canonical Baseline Registry Release Gate
+
+- [`p33-canonical-baseline-registry-release-gate.md`](./p33-canonical-baseline-registry-release-gate.md) — makes the P32 current baseline registry a mandatory Release Verify gate so silent mode drift, legacy-hash drift, fabricated evidence state or authority escalation fails CI before canonical-source verification.
+
+## P34 — Governed Composite Baseline Evidence Verifier
+
+- [`p34-governed-composite-baseline-evidence-verifier.md`](./p34-governed-composite-baseline-evidence-verifier.md) — verifies a future governed-composite candidate against exact commit, release-artifact bytes and environment-config bytes while the active baseline remains legacy; verification is candidate-only and cannot activate the baseline or grant release authority.
+
+## P35 — Governed Composite Baseline Evidence Operator
+
+- [`p35-governed-composite-baseline-evidence-operator.md`](./p35-governed-composite-baseline-evidence-operator.md) — provides a fail-closed CLI for supplying the P32 candidate, exact commit, release-artifact bytes and environment-config bytes to P34, emitting only hashed candidate evidence and never activating the baseline.
+
+## P36 — Composite Baseline Shadow Release Gate
+
+- [`p36-composite-baseline-shadow-release-gate.md`](./p36-composite-baseline-shadow-release-gate.md) — compares a P32 governed-composite candidate and P34 evidence beside the still-authoritative legacy baseline, reports absent external shadow inputs as `NOT_EVALUATED`, supports strict fail-closed shadow runs, and cannot activate the composite baseline or grant release authority.
+
+## P37 — Composite Baseline Cutover Rehearsal
+
+- [`p37-composite-baseline-cutover-rehearsal.md`](./p37-composite-baseline-cutover-rehearsal.md) — deterministically rehearses `LEGACY_FILE_SHA256 -> GOVERNED_COMPOSITE_BASELINE -> LEGACY_FILE_SHA256` from a valid P36 shadow match, proves modeled rollback to the exact starting registry hash, and performs no active-registry, release-mode or deployment mutation.
+
+## P38 — Composite Baseline Cutover Safety Guard
+
+- [`p38-composite-baseline-cutover-safety-guard.md`](./p38-composite-baseline-cutover-safety-guard.md) — fail-closed safety prerequisite that binds a cryptographically locked P30 reviewer, P31 activation plan, P36 shadow match and P37 exact rollback rehearsal to the same still-authoritative legacy registry; it cannot authorize or apply cutover.
+
+## P39 — Explicit Composite Baseline Activation Change Contract
+
+- [`p39-composite-baseline-activation-change-contract.md`](./p39-composite-baseline-activation-change-contract.md) — prepares the exact future schema-v2 composite registry content and exact rollback content after P38, but performs no activation and grants no authority.
+
+## P40 — Dual-Mode Canonical Registry Verifier
+
+- [`p40-dual-mode-canonical-registry-verifier.md`](./p40-dual-mode-canonical-registry-verifier.md) — preserves strict legacy verification and adds fail-closed verification of a future active composite registry only when it exactly matches P39 and has a cryptographically verified human-owner activation authorization.
+
+## P41 — Canonical Baseline Activation Authorization Operator
+
+- [`p41-canonical-baseline-activation-authorization-operator.md`](./p41-canonical-baseline-activation-authorization-operator.md) — prepares the exact P40 owner signing bytes and verifies the externally signed RSA-SHA256 authorization without accepting private keys, mutating the registry or granting release authority.
+
+## P42 — Controlled Canonical Baseline Activation Executor
+
+- [`p42-controlled-canonical-baseline-activation-executor.md`](./p42-controlled-canonical-baseline-activation-executor.md) — dry-run-by-default activation/rollback executor that re-verifies P39/P40/P41, limits rollback to the exact P39 legacy state, and keeps release blocked after any confirmed mutation until a new Release Verify succeeds.
+
+## P43 — Post-Activation Verification & Rollback Trigger
+
+- [`p43-post-activation-verification-rollback-trigger.md`](./p43-post-activation-verification-rollback-trigger.md) — binds an applied P42 activation receipt to the observed P40-verified composite registry and supplied post-change Release Verify evidence; failures generate only a deterministic P39-prebound legacy rollback trigger and never mutate the registry automatically.
+
+## P44 — Post-Rollback Verification & Incident Closeout Gate
+
+- [`p44-post-rollback-verification-incident-closeout.md`](./p44-post-rollback-verification-incident-closeout.md) — verifies the P43-triggered P42 rollback, exact restoration of the P39 legacy registry and supplied post-rollback Release Verify evidence, then prepares a deterministic human incident-closeout packet while keeping release and reactivation blocked.
+
+## P45 — Human Incident Closeout Decision & Governance Reset
+
+- [`p45-human-incident-closeout-decision.md`](./p45-human-incident-closeout-decision.md) — cryptographically binds a separate human incident authority to the exact P44 closeout packet, supports only close/keep-open decisions, requires RCA/CAPA evidence for closure, and marks the failed activation cycle historical and non-reusable while keeping release and reactivation blocked.
+
+## P46 — Fresh Reactivation Governance Cycle
+
+- [`p46-fresh-reactivation-governance-cycle.md`](./p46-fresh-reactivation-governance-cycle.md) — opens a clean post-incident reactivation governance envelope only after verified P45 closure, re-hashes the P45 decision/reset records, requires the restored legacy baseline to remain authoritative, rejects reuse of old reviewer/plan/authorization/contract evidence and grants no reactivation or release authority.
+
+## P47 — Fresh Reactivation Independent Review Handoff
+
+- [`p47-fresh-reactivation-independent-review-handoff.md`](./p47-fresh-reactivation-independent-review-handoff.md) — binds a newly designated independent reviewer to the exact P46 cycle and produces a deterministic review packet while rejecting carry-forward of prior reviewer/activation artifacts; reviewer trust and approval remain pending a separate cryptographic attestation step.
+
+## P48 — Fresh Reactivation Review Attestation
+
+- [`p48-fresh-reactivation-review-attestation.md`](./p48-fresh-reactivation-review-attestation.md) — verifies an externally signed RSA-SHA256 independent-review decision against the exact P47 packet and a pinned fresh-reviewer trust registry; approval remains review evidence only and rejection blocks the cycle, with no reactivation or release authority in either case.
+
+## P49 — Fresh Reactivation Reviewer Lifecycle Lock
+
+- [`p49-fresh-reactivation-reviewer-lifecycle-lock.md`](./p49-fresh-reactivation-reviewer-lifecycle-lock.md) — freezes the fresh cycle-specific reviewer designation only after the exact P48 approval is cryptographically verified, binds the lock to the P46/P47/P48 evidence chain and preserves all release/reactivation authority as false while requiring a fresh activation plan next.
+
+## P50 — Fresh Reactivation Activation Plan
+
+- [`p50-fresh-reactivation-activation-plan.md`](./p50-fresh-reactivation-activation-plan.md) — creates a deterministic successor-baseline plan only from the exact P49 fresh reviewer lock and P47 cycle packet, rejects prior-cycle authority reuse, and keeps activation/reactivation/release blocked pending fresh shadow, rehearsal, cutover-safety, owner-authorization and activation-contract evidence.
+
+## P51 — Fresh Composite Registry Candidate
+
+- [`p51-fresh-composite-registry-candidate.md`](./p51-fresh-composite-registry-candidate.md) — prepares a schema-v3 governed-composite candidate from the exact P50 plan while the authoritative registry remains legacy, binds logical/content hashes to the fresh cycle and deliberately requires a later fresh-mode verifier before any activation can be considered.
+
+## P52 — Fresh Composite Evidence Verifier
+
+- [`p52-fresh-composite-evidence-verifier.md`](./p52-fresh-composite-evidence-verifier.md) — verifies exact source-commit identity plus release-artifact and environment-config bytes against the P51 schema-v3 candidate while preserving the active legacy baseline and granting no activation authority.
+
+## P53 — Fresh Composite Shadow Release Gate
+
+- [`p53-fresh-composite-shadow-release-gate.md`](./p53-fresh-composite-shadow-release-gate.md) — compares the P51 candidate and P52 exact-byte evidence beside the authoritative legacy registry, supports optional/strict fail-closed Release Verify integration, and performs no cutover.
+
+## P54 — Fresh Composite Cutover Rehearsal
+
+- [`p54-fresh-composite-cutover-rehearsal.md`](./p54-fresh-composite-cutover-rehearsal.md) — rehearses the fresh legacy-to-schema-v3 transition and exact rollback without mutating the canonical registry or release state.
+
+## P55 — Fresh Composite Cutover Safety Guard
+
+- [`p55-fresh-composite-cutover-safety-guard.md`](./p55-fresh-composite-cutover-safety-guard.md) — composes the fresh reviewer lock, activation plan, shadow match and rollback rehearsal into a fail-closed safety prerequisite while keeping activation authority false.
+
+## P56 — Fresh Owner Activation Authorization
+
+- [`p56-fresh-owner-activation-authorization.md`](./p56-fresh-owner-activation-authorization.md) — prepares and verifies an externally signed RSA-SHA256 fresh-owner decision against a pinned owner trust registry after P55, without accepting private keys or applying activation.
+
+## P57 — Fresh Activation Change Contract
+
+- [`p57-fresh-activation-change-contract.md`](./p57-fresh-activation-change-contract.md) — binds the re-verified P56 owner decision to the exact P51 schema-v3 target and exact legacy rollback image, producing a deterministic non-applied activation contract.
+
+## P58 — Fresh Dual-Mode Canonical Registry Verifier
+
+- [`p58-fresh-dual-mode-canonical-registry-verifier.md`](./p58-fresh-dual-mode-canonical-registry-verifier.md) — preserves legacy verification and verifies a future observed schema-v3 registry only by re-checking exact raw content, P51/P57 bindings and the P56 cryptographic owner authorization chain.
+
+## P59 — Fresh Canonical Registry Release Gate
+
+- [`p59-fresh-canonical-registry-release-gate.md`](./p59-fresh-canonical-registry-release-gate.md) — integrates P58 into the canonical-registry Release Verify gate with separate legacy, historical schema-v2 and fresh schema-v3 evidence paths while granting no activation or release authority.
+
+## P60 — Fresh Controlled Canonical Baseline Activation Executor
+
+- [`p60-fresh-controlled-canonical-baseline-activation-executor.md`](./p60-fresh-controlled-canonical-baseline-activation-executor.md) — provides a dry-run-by-default ACTIVATE/ROLLBACK executor that re-verifies P57/P58, uses exact-hash-bound host-injected writes, verifies post-write state, and keeps release blocked until post-change Release Verify evidence is evaluated.
+
+## P61 — Fresh Post-Activation Verification & Rollback Trigger
+
+- [`p61-fresh-post-activation-verification-rollback-trigger.md`](./p61-fresh-post-activation-verification-rollback-trigger.md) — binds an applied P60 fresh activation receipt to the exact observed schema-v3 registry and P59-style post-change Release Verify evidence; detected failures emit only a deterministic P57-prebound legacy rollback trigger and never mutate the registry automatically.
+
+## P62 — Fresh Post-Rollback Verification & Incident Closeout Gate
+
+- [`p62-fresh-post-rollback-verification-incident-closeout.md`](./p62-fresh-post-rollback-verification-incident-closeout.md) — verifies a P61-triggered applied P60 rollback, exact restoration of the P57 legacy registry and caller-pinned post-rollback Release Verify evidence before preparing a deterministic human incident-closeout packet; incident closure and reactivation remain separate governed actions.
+
+## P63 — Fresh Human Incident Closeout Decision
+
+- [`p63-fresh-human-incident-closeout-decision.md`](./p63-fresh-human-incident-closeout-decision.md) — binds a separate human incident authority to the exact P62 closeout packet, requires RCA/CAPA evidence for closure and marks the failed fresh activation cycle historical/non-reusable without granting reactivation or release authority.
+
+## P64 — Successor Fresh Reactivation Governance Cycle
+
+- [`p64-successor-fresh-reactivation-governance-cycle.md`](./p64-successor-fresh-reactivation-governance-cycle.md) — opens a successor fresh governance cycle only after re-verifying P63 closure/reset evidence and excludes predecessor reviewer, owner, plan, contract and rollback authority from the new cycle.
+
+## P65 — Successor Fresh Independent Review Handoff
+
+- [`p65-successor-fresh-independent-review-handoff.md`](./p65-successor-fresh-independent-review-handoff.md) — designates a new independent reviewer for the successor cycle and creates a deterministic review packet bound to P64, restored legacy hashes and predecessor incident-remediation evidence.
+
+## P66 — Successor Fresh Review Attestation
+
+- [`p66-successor-fresh-review-attestation.md`](./p66-successor-fresh-review-attestation.md) — verifies an externally signed RSA-SHA256 successor-review decision against the exact P65 packet and a separately pinned reviewer trust registry, with no activation authority.
+
+## P67 — Successor Fresh Reviewer Lifecycle Lock
+
+- [`p67-successor-fresh-reviewer-lifecycle-lock.md`](./p67-successor-fresh-reviewer-lifecycle-lock.md) — re-verifies P66 cryptographically from raw trust inputs before freezing the exact P65 reviewer designation for the successor cycle.
+
+## P68 — Successor Fresh Activation Plan
+
+- [`p68-successor-fresh-activation-plan.md`](./p68-successor-fresh-activation-plan.md) — creates a deterministic successor activation plan and baseline manifest from P67/P65 while rejecting predecessor-cycle authority reuse and keeping activation blocked.
+
+## P69 — Successor Fresh Composite Registry Candidate
+
+- [`p69-successor-fresh-composite-registry-candidate.md`](./p69-successor-fresh-composite-registry-candidate.md) — prepares a distinct schema-v4 governed-composite candidate from P68, bound to exact restored legacy logical and raw-content hashes and explicitly non-reusable with the failed P51 schema-v3 candidate.
+
+## P70 — Successor Fresh Composite Evidence Verifier
+
+- [`p70-successor-fresh-composite-evidence-verifier.md`](./p70-successor-fresh-composite-evidence-verifier.md) — recomputes P69 from P68 and exact current legacy bytes, then verifies exact commit, release-artifact and environment-config evidence while keeping the candidate non-active.
+
+## P71 — Successor Fresh Composite Shadow Release Gate
+
+- [`p71-successor-fresh-composite-shadow-release-gate.md`](./p71-successor-fresh-composite-shadow-release-gate.md) — compares the P69 schema-v4 candidate and P70 exact-byte evidence beside the exact still-authoritative legacy registry, adds an optional/strict successor-specific Release Verify gate and performs no cutover.
+
+## P72 — Successor Fresh Composite Cutover Rehearsal
+
+- [`p72-successor-fresh-composite-cutover-rehearsal.md`](./p72-successor-fresh-composite-cutover-rehearsal.md) — deterministically rehearses legacy -> schema-v4 successor composite -> exact legacy rollback across both logical and raw-content hashes without mutating the canonical registry, release state or deployment.
+
+Authority remains fail-closed until the existing release-governance process explicitly changes it.

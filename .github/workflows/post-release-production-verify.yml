@@ -28,8 +28,68 @@ jobs:
     env:
       BASE_URL: https://startak-real-estate.pages.dev
       EXPECTED_DEPLOYED_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || '' }}
+      UPSTREAM_CONTROL_PLANE_EVENT: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.event || '' }}
+      UPSTREAM_CONTROL_PLANE_BRANCH: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || '' }}
+      UPSTREAM_CONTROL_PLANE_RUN_ID: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || '' }}
+      UPSTREAM_CONTROL_PLANE_RUN_URL: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.html_url || '' }}
+      EVIDENCE_DIR: runtime-evidence/post-release-production
 
     steps:
+      - name: Verify upstream control-plane provenance
+        if: github.event_name == 'workflow_run'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          [[ "$UPSTREAM_CONTROL_PLANE_BRANCH" == 'main' ]] || { echo "Upstream Control Plane run was not on main: ${UPSTREAM_CONTROL_PLANE_BRANCH:-<none>}"; exit 1; }
+          [[ "$EXPECTED_DEPLOYED_SHA" =~ ^[a-f0-9]{40}$ ]] || { echo 'Upstream exact deployed SHA is missing or invalid.'; exit 1; }
+          case "$UPSTREAM_CONTROL_PLANE_EVENT" in
+            push|workflow_dispatch) ;;
+            *) echo "Untrusted upstream Control Plane trigger event: ${UPSTREAM_CONTROL_PLANE_EVENT:-<none>}"; exit 1 ;;
+          esac
+          [[ "$UPSTREAM_CONTROL_PLANE_RUN_ID" =~ ^[0-9]+$ ]] || { echo 'Upstream Control Plane run ID is missing or invalid.'; exit 1; }
+          [[ "$UPSTREAM_CONTROL_PLANE_RUN_URL" == https://github.com/*/actions/runs/* ]] || { echo 'Upstream Control Plane run URL is missing or invalid.'; exit 1; }
+          jq -n \
+            --arg upstreamEvent "$UPSTREAM_CONTROL_PLANE_EVENT" \
+            --arg upstreamBranch "$UPSTREAM_CONTROL_PLANE_BRANCH" \
+            --arg expectedSha "$EXPECTED_DEPLOYED_SHA" \
+            --arg upstreamRunId "$UPSTREAM_CONTROL_PLANE_RUN_ID" \
+            --arg upstreamRunUrl "$UPSTREAM_CONTROL_PLANE_RUN_URL" \
+            '{
+              schemaVersion: 1,
+              suite: "STARTAK_POST_RELEASE_UPSTREAM_PROVENANCE_V1",
+              upstreamWorkflow: "Cloudflare Control Plane Verify",
+              upstreamEvent: $upstreamEvent,
+              upstreamBranch: $upstreamBranch,
+              expectedDeployedSha: $expectedSha,
+              upstreamRunId: $upstreamRunId,
+              upstreamRunUrl: $upstreamRunUrl,
+              correlationMode: "COMMIT_CORRELATED_FROM_CONTROL_PLANE",
+              productionMutationAuthorized: false,
+              transactionAuthorized: false,
+              result: "PASS"
+            }' > "$EVIDENCE_DIR/upstream-control-plane-provenance.json"
+          echo "POST_RELEASE_UPSTREAM_PROVENANCE=PASS -- sha=${EXPECTED_DEPLOYED_SHA:0:12} event=${UPSTREAM_CONTROL_PLANE_EVENT}"
+
+      - name: Mark direct runs diagnostic only
+        if: github.event_name != 'workflow_run'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          jq -n --arg event "$GITHUB_EVENT_NAME" '{
+            schemaVersion: 1,
+            suite: "STARTAK_POST_RELEASE_UPSTREAM_PROVENANCE_V1",
+            directEvent: $event,
+            expectedDeployedSha: null,
+            correlationMode: "DIAGNOSTIC_UNCORRELATED",
+            qualifiesAsCommitCorrelatedProductionEvidence: false,
+            productionMutationAuthorized: false,
+            transactionAuthorized: false,
+            result: "DIAGNOSTIC_ONLY"
+          }' > "$EVIDENCE_DIR/upstream-control-plane-provenance.json"
+          echo 'Direct PR/manual post-release run is diagnostic only and cannot establish commit-correlated production evidence.'
+
       - name: Checkout validation contract
         uses: actions/checkout@v4
         with:
@@ -69,10 +129,13 @@ jobs:
             echo "- Production URL: \`${BASE_URL}\`"
             echo "- Event: \`${GITHUB_EVENT_NAME}\`"
             if [[ -n "${EXPECTED_DEPLOYED_SHA:-}" ]]; then
-              echo "- Expected deployed SHA established by preceding Cloudflare Control Plane Verify: \`${EXPECTED_DEPLOYED_SHA}\`"
+              echo "- Exact deployed SHA inherited from successful Cloudflare Control Plane Verify: \`${EXPECTED_DEPLOYED_SHA}\`"
+              echo "- Upstream Control Plane trigger: \`${UPSTREAM_CONTROL_PLANE_EVENT}\` on \`${UPSTREAM_CONTROL_PLANE_BRANCH}\`"
+              echo "- Upstream Control Plane run: \`${UPSTREAM_CONTROL_PLANE_RUN_ID}\`"
+              echo '- Correlation mode: `COMMIT_CORRELATED_FROM_CONTROL_PLANE`.'
             else
-              echo '- Pull-request mode validates the currently deployed production contract; exact candidate deployment correlation is intentionally deferred until the post-merge workflow_run gate.'
+              echo '- Direct PR/manual mode is `DIAGNOSTIC_UNCORRELATED` and does not qualify as commit-correlated production evidence.'
             fi
             echo '- Validates public shell reachability, real-browser boot, Wave 2 explicit exit-cap fail-closed behavior, deterministic recovery after explicit input, bilingual directionality, responsive continuity, and runtime error absence.'
-            echo '- No transaction authorization is performed.'
+            echo '- No production mutation or transaction authorization is performed.'
           } >> "$GITHUB_STEP_SUMMARY"

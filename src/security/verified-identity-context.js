@@ -19,10 +19,36 @@ function freeze(value) {
   return value;
 }
 
+function isVerifiedIdentityContext(context) {
+  if (!context || typeof context !== 'object') return false;
+  if (context.status !== IDENTITY_STATUS.VERIFIED_CONTEXT || context.authorizationReady !== true) return false;
+  const identity = context.identity;
+  if (!identity || typeof identity !== 'object') return false;
+  const actorId = String(identity.actorId || '').trim();
+  const subject = String(identity.subject || '').trim();
+  const tenantId = String(identity.tenantId || '').trim();
+  const roles = Array.isArray(identity.roles) ? identity.roles : [];
+  if (!actorId || !subject || actorId !== subject || !tenantId || roles.length === 0) return false;
+  return roles.every((role) => nonEmpty(role));
+}
+
+function requireVerifiedIdentityContext(context) {
+  if (!isVerifiedIdentityContext(context)) {
+    const error = new Error('VERIFIED_IDENTITY_CONTEXT_REQUIRED');
+    error.code = 'VERIFIED_IDENTITY_CONTEXT_REQUIRED';
+    throw error;
+  }
+  return context.identity;
+}
+
 /**
  * Builds an application identity context only from claims that an external/server-side
  * verifier has already cryptographically validated. This module does not verify JWTs,
  * signatures, issuers, JWKS, revocation, MFA, or sessions itself.
+ *
+ * The verified `sub` claim is the single principal source of truth. It is exposed as
+ * both `subject` (OIDC terminology) and `actorId` (application authorization/audit
+ * terminology) so downstream security code never needs caller-supplied actor metadata.
  */
 function createVerifiedIdentityContext({
   claims,
@@ -95,8 +121,10 @@ function createVerifiedIdentityContext({
     });
   }
 
+  const canonicalActorId = subject.trim();
   const identity = freeze({
-    subject: subject.trim(),
+    actorId: canonicalActorId,
+    subject: canonicalActorId,
     tenantId: tenantId.trim(),
     roles: [...new Set(roles.map((role) => role.trim()))].sort(),
     issuer: issuer.trim(),
@@ -119,11 +147,13 @@ function createVerifiedIdentityContext({
       mfaCheckedHere: false,
       requiresTrustedServerVerifier: true,
     },
-    semantics: 'This module only converts externally verified identity claims into an application context. Production OIDC/JWT validation, issuer/audience/JWKS/revocation/session/MFA controls must be implemented and evidenced by the trusted server identity layer.',
+    semantics: 'This module only converts externally verified identity claims into an application context. The verified sub claim is the canonical actorId. Production OIDC/JWT validation, issuer/audience/JWKS/revocation/session/MFA controls must be implemented and evidenced by the trusted server identity layer.',
   });
 }
 
 module.exports = {
   IDENTITY_STATUS,
   createVerifiedIdentityContext,
+  isVerifiedIdentityContext,
+  requireVerifiedIdentityContext,
 };

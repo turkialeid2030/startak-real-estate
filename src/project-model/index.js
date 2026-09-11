@@ -6,5 +6,15 @@ const engineRouter = require('./engine-router');
 const semanticCoverage = require('./semantic-coverage');
 const orchestrator = require('./universal-evidence-orchestrator');
 const decisionControl = require('./decision-control-orchestrator');
+const executableCase = require('./executable-case-orchestrator');
 
-module.exports = Object.assign({}, profile, evidencePlan, engineRouter, semanticCoverage, orchestrator, decisionControl);
+module.exports = Object.assign(
+  {},
+  profile,
+  evidencePlan,
+  engineRouter,
+  semanticCoverage,
+  orchestrator,
+  decisionControl,
+  executableCase,
+);
