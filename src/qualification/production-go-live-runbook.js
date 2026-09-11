@@ -252,6 +252,13 @@ function evaluateProductionGoLiveRunbook({
   });
   if (!e2g.ok) return runbookResult(e2g.status, { blockers: [e2g.blocker], lastVerifiedStage: 'E2F', releaseCandidate: release, verifiedPins, nextRequiredAction: 'Resolve E2G packet provenance before execution.' });
   verifiedPins.e2gDecisionPacketHashSha256 = e2g.actual;
+  if (e2gDecisionPacket.upstreamValidationPacketId !== e2fValidationPacket.validationPacketId
+    || e2gDecisionPacket.upstreamValidationPacketHashSha256 !== e2fValidationPacket.validationPacketHashSha256) {
+    return runbookResult(STATUS.HOLD_PRODUCTION_CHAIN_INTEGRITY, {
+      blockers: ['E2G_UPSTREAM_E2F_BINDING_MISMATCH'], lastVerifiedStage: 'E2F', releaseCandidate: release, verifiedPins,
+      nextRequiredAction: 'Recreate E2G from the exact independently pinned E2F validation packet.',
+    });
+  }
   if (!sameReleaseCandidate(release, e2gDecisionPacket.releaseCandidate)) {
     return runbookResult(STATUS.HOLD_RELEASE_CANDIDATE_DRIFT, {
       blockers: ['E2F_E2G_RELEASE_CANDIDATE_MISMATCH'], lastVerifiedStage: 'E2F', releaseCandidate: release, verifiedPins,
@@ -294,6 +301,13 @@ function evaluateProductionGoLiveRunbook({
   });
   if (!e2h.ok) return runbookResult(e2h.status, { blockers: [e2h.blocker], lastVerifiedStage: 'E2G', releaseCandidate: release, verifiedPins, nextRequiredAction: 'Resolve E2H packet provenance before E2I evidence collection.' });
   verifiedPins.e2hCloseoutPacketHashSha256 = e2h.actual;
+  if (e2hCloseoutPacket.upstreamDecisionPacketId !== e2gDecisionPacket.decisionPacketId
+    || e2hCloseoutPacket.upstreamDecisionPacketHashSha256 !== e2gDecisionPacket.decisionPacketHashSha256) {
+    return runbookResult(STATUS.HOLD_PRODUCTION_CHAIN_INTEGRITY, {
+      blockers: ['E2H_UPSTREAM_E2G_BINDING_MISMATCH'], lastVerifiedStage: 'E2G', releaseCandidate: release, verifiedPins,
+      nextRequiredAction: 'Recreate E2H from the exact independently pinned E2G decision packet.',
+    });
+  }
   if (!sameReleaseCandidate(release, e2hCloseoutPacket.releaseCandidate)) {
     return runbookResult(STATUS.HOLD_RELEASE_CANDIDATE_DRIFT, {
       blockers: ['E2F_E2H_RELEASE_CANDIDATE_MISMATCH'], lastVerifiedStage: 'E2G', releaseCandidate: release, verifiedPins,
@@ -338,6 +352,13 @@ function evaluateProductionGoLiveRunbook({
   });
   if (!e2i.ok) return runbookResult(e2i.status, { blockers: [e2i.blocker], lastVerifiedStage: 'E2H', releaseCandidate: release, verifiedPins, nextRequiredAction: 'Resolve E2I packet provenance before treating readiness as confirmed.' });
   verifiedPins.e2iReadinessPacketHashSha256 = e2i.actual;
+  if (e2iReadinessPacket.upstreamCloseoutPacketId !== e2hCloseoutPacket.closeoutPacketId
+    || e2iReadinessPacket.upstreamCloseoutPacketHashSha256 !== e2hCloseoutPacket.closeoutPacketHashSha256) {
+    return runbookResult(STATUS.HOLD_PRODUCTION_CHAIN_INTEGRITY, {
+      blockers: ['E2I_UPSTREAM_E2H_BINDING_MISMATCH'], lastVerifiedStage: 'E2H', releaseCandidate: release, verifiedPins,
+      nextRequiredAction: 'Recreate E2I from the exact independently pinned E2H closeout packet.',
+    });
+  }
   if (!sameReleaseCandidate(release, e2iReadinessPacket.releaseCandidate)) {
     return runbookResult(STATUS.HOLD_RELEASE_CANDIDATE_DRIFT, {
       blockers: ['E2F_E2I_RELEASE_CANDIDATE_MISMATCH'], lastVerifiedStage: 'E2H', releaseCandidate: release, verifiedPins,
