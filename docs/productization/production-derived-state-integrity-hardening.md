@@ -13,6 +13,19 @@ Examples of non-core fields include E2F validation-completion flags, E2G authori
 
 Independent packet SHA-256 pinning remains mandatory, but a pin over the current core hash cannot detect a mutation that leaves that core unchanged.
 
+## Qualified implementation reference
+
+The strict code path including top-level contract enforcement and the expanded adversarial tests is qualified at:
+
+- code commit: `c0de43014e79e1554ed3259a977561922d7b6e62`
+- Release Verify: `#818` — PASS
+- regression: `410 / 410`
+- Production Build: PASS
+- Verify Package: PASS
+- npm audit: `0 critical / 0 high / 0 moderate / 0 low`
+
+The final operator documentation/template was subsequently re-qualified on the same code with Release Verify `#822` — PASS, again at `410 / 410`.
+
 ## Derived-state hardening
 
 `src/qualification/production-stage-derived-state-integrity.js` recomputes the expected derived state from records already covered by the packet hash and requires the declared mutable state to match exactly.
