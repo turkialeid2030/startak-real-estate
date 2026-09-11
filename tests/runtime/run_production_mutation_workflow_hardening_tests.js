@@ -64,9 +64,9 @@ test('PRODUCTION-MUTATION-HARDENING-04', () => {
 
 test('PRODUCTION-MUTATION-HARDENING-05', () => {
   assert.match(ai, /if: failure\(\)/);
-  assert.match(ai, /RIAI_PUBLIC_AI_ENABLED/);
-  assert.match(ai, /value\\?[:=].*false|value[\\\"]*:[\\\"]false/i);
   assert.match(ai, /Fail-closed disable public AI after activation failure/);
+  assert.ok(ai.includes('RIAI_PUBLIC_AI_ENABLED'));
+  assert.ok(ai.includes('"value":"false"'), 'failure path must set RIAI_PUBLIC_AI_ENABLED=false');
 });
 
 test('PRODUCTION-MUTATION-HARDENING-06', () => {
