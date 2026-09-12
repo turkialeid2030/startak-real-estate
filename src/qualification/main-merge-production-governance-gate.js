@@ -8,8 +8,12 @@ const {
 } = require('../standards/human-release-authority-deployment-decision');
 const {
   E2F_STATUS,
+  createExternalConformanceProductionValidationPacket,
   verifyExternalConformanceProductionValidationPacketIntegrity,
 } = require('../standards/external-conformance-production-validation');
+const {
+  verifyRuleImplementationConformanceEvidencePacketIntegrity,
+} = require('../standards/rule-implementation-conformance-evidence');
 const {
   verifyE2fDerivedStateIntegrity,
   verifyE2gDerivedStateIntegrity,
@@ -73,9 +77,13 @@ function stableEqual(left, right) {
 }
 
 function evaluateMainMergeProductionGovernance({
+  e2eEvidencePacket,
+  expectedE2eEvidencePacketHashSha256,
   e2fValidationPacket,
   expectedE2fValidationPacketHashSha256,
+  trustedE2fVerifierRegistry,
   expectedE2fVerifierRegistryHashSha256,
+  e2fPolicy,
   e2gDecisionPacket,
   expectedE2gDecisionPacketHashSha256,
   releaseAuthorityRegistry,
@@ -86,12 +94,14 @@ function evaluateMainMergeProductionGovernance({
   const blockers = [];
   const observed = {};
 
+  let e2ePin;
   let e2fPin;
   let e2fRegistryPin;
   let e2gPin;
   let authorityRegistryPin;
   let expectedCommit;
   try {
+    e2ePin = digest(expectedE2eEvidencePacketHashSha256, 'expectedE2eEvidencePacketHashSha256');
     e2fPin = digest(expectedE2fValidationPacketHashSha256, 'expectedE2fValidationPacketHashSha256');
     e2fRegistryPin = digest(expectedE2fVerifierRegistryHashSha256, 'expectedE2fVerifierRegistryHashSha256');
     e2gPin = digest(expectedE2gDecisionPacketHashSha256, 'expectedE2gDecisionPacketHashSha256');
@@ -99,6 +109,14 @@ function evaluateMainMergeProductionGovernance({
     expectedCommit = commitSha(expectedReleaseSourceCommitSha, 'expectedReleaseSourceCommitSha');
   } catch (error) {
     return hold([error.message]);
+  }
+
+  if (!e2eEvidencePacket || typeof e2eEvidencePacket !== 'object') {
+    blockers.push('E2E_EVIDENCE_PACKET_REQUIRED');
+  } else {
+    observed.e2eEvidencePacketHashSha256 = e2eEvidencePacket.evidencePacketHashSha256 || null;
+    if (!verifyRuleImplementationConformanceEvidencePacketIntegrity(e2eEvidencePacket)) blockers.push('E2E_PACKET_INTEGRITY_INVALID');
+    if (String(e2eEvidencePacket.evidencePacketHashSha256 || '').toLowerCase() !== e2ePin) blockers.push('E2E_PACKET_PIN_MISMATCH');
   }
 
   if (!e2fValidationPacket || typeof e2fValidationPacket !== 'object') {
@@ -117,6 +135,11 @@ function evaluateMainMergeProductionGovernance({
     }
     if (String(e2fValidationPacket.releaseCandidate?.sourceCommitSha || '').toLowerCase() !== expectedCommit) {
       blockers.push('E2F_RELEASE_SOURCE_COMMIT_MISMATCH');
+    }
+    if (e2eEvidencePacket && (e2fValidationPacket.upstreamEvidencePacketId !== e2eEvidencePacket.evidencePacketId
+      || e2fValidationPacket.upstreamEvidencePacketHashSha256 !== e2eEvidencePacket.evidencePacketHashSha256
+      || e2fValidationPacket.releaseCandidate?.upstreamEvidencePacketHashSha256 !== e2eEvidencePacket.evidencePacketHashSha256)) {
+      blockers.push('E2F_UPSTREAM_E2E_BINDING_MISMATCH');
     }
   }
 
@@ -145,11 +168,44 @@ function evaluateMainMergeProductionGovernance({
 
   if (blockers.length > 0) return hold(blockers, observed);
 
-  let rebuilt;
+  let rebuiltE2f;
   try {
-    rebuilt = createHumanReleaseAuthorityDecisionPacket({
+    rebuiltE2f = createExternalConformanceProductionValidationPacket({
+      validationPacketId: e2fValidationPacket.validationPacketId,
+      upstreamEvidencePacket: e2eEvidencePacket,
+      policy: e2fPolicy,
+      releaseCandidate: e2fValidationPacket.releaseCandidate,
+      trustedVerifierRegistry: trustedE2fVerifierRegistry,
+      expectedTrustedRegistryHashSha256: e2fRegistryPin,
+      validations: e2fValidationPacket.validations,
+      preparedByRef: e2fValidationPacket.preparedByRef,
+      preparedAt: e2fValidationPacket.preparedAt,
+    });
+  } catch (error) {
+    return hold([`E2F_CRYPTOGRAPHIC_REBUILD_FAILED:${error.message}`], observed);
+  }
+
+  observed.rebuiltE2fStatus = rebuiltE2f.status || null;
+  if (rebuiltE2f.status !== E2F_STATUS.EXTERNAL_CONFORMANCE_AND_PRODUCTION_VALIDATION_COMPLETE_PENDING_RELEASE_AUTHORITY
+    || rebuiltE2f.productionValidationComplete !== true
+    || rebuiltE2f.externalConformanceEvidenceAuthenticityValidated !== true
+    || rebuiltE2f.productionSecurityValidated !== true
+    || rebuiltE2f.productionPerformanceValidated !== true
+    || rebuiltE2f.productionResilienceValidated !== true) {
+    return hold(['E2F_CRYPTOGRAPHIC_VALIDATION_NOT_COMPLETE'], observed);
+  }
+  if (rebuiltE2f.validationPacketHashSha256 !== e2fPin) {
+    return hold(['E2F_REBUILT_PACKET_HASH_MISMATCH'], observed);
+  }
+  if (!stableEqual(rebuiltE2f, e2fValidationPacket)) {
+    return hold(['E2F_SUPPLIED_PACKET_DIFFERS_FROM_CRYPTOGRAPHIC_REBUILD'], observed);
+  }
+
+  let rebuiltE2g;
+  try {
+    rebuiltE2g = createHumanReleaseAuthorityDecisionPacket({
       decisionPacketId: e2gDecisionPacket.decisionPacketId,
-      upstreamValidationPacket: e2fValidationPacket,
+      upstreamValidationPacket: rebuiltE2f,
       policy: e2gPolicy,
       releaseAuthorityRegistry,
       expectedReleaseAuthorityRegistryHashSha256: authorityRegistryPin,
@@ -161,24 +217,24 @@ function evaluateMainMergeProductionGovernance({
     return hold([`E2G_CRYPTOGRAPHIC_REBUILD_FAILED:${error.message}`], observed);
   }
 
-  if (rebuilt.status !== E2G_STATUS.HUMAN_RELEASE_DECISIONS_COMPLETE_PENDING_EXECUTION
-    || rebuilt.releaseAuthorized !== true
-    || rebuilt.mergeAuthorized !== true
-    || rebuilt.deploymentAuthorized !== true) {
+  if (rebuiltE2g.status !== E2G_STATUS.HUMAN_RELEASE_DECISIONS_COMPLETE_PENDING_EXECUTION
+    || rebuiltE2g.releaseAuthorized !== true
+    || rebuiltE2g.mergeAuthorized !== true
+    || rebuiltE2g.deploymentAuthorized !== true) {
     return hold(['E2G_HUMAN_RELEASE_DECISIONS_NOT_COMPLETE'], observed);
   }
-  if (rebuilt.decisionPacketHashSha256 !== e2gPin) {
+  if (rebuiltE2g.decisionPacketHashSha256 !== e2gPin) {
     return hold(['E2G_REBUILT_PACKET_HASH_MISMATCH'], observed);
   }
-  if (!stableEqual(rebuilt, e2gDecisionPacket)) {
+  if (!stableEqual(rebuiltE2g, e2gDecisionPacket)) {
     return hold(['E2G_SUPPLIED_PACKET_DIFFERS_FROM_CRYPTOGRAPHIC_REBUILD'], observed);
   }
 
-  observed.releaseCandidateId = rebuilt.releaseCandidate.releaseCandidateId;
-  observed.sourceCommitSha = rebuilt.releaseCandidate.sourceCommitSha;
-  observed.artifactSha256 = rebuilt.releaseCandidate.artifactSha256;
-  observed.environmentRef = rebuilt.releaseCandidate.environmentRef;
-  observed.environmentConfigSha256 = rebuilt.releaseCandidate.environmentConfigSha256;
+  observed.releaseCandidateId = rebuiltE2g.releaseCandidate.releaseCandidateId;
+  observed.sourceCommitSha = rebuiltE2g.releaseCandidate.sourceCommitSha;
+  observed.artifactSha256 = rebuiltE2g.releaseCandidate.artifactSha256;
+  observed.environmentRef = rebuiltE2g.releaseCandidate.environmentRef;
+  observed.environmentConfigSha256 = rebuiltE2g.releaseCandidate.environmentConfigSha256;
   observed.releaseAuthorized = true;
   observed.mergeAuthorized = true;
   observed.deploymentAuthorized = true;
@@ -194,7 +250,7 @@ function evaluateMainMergeProductionGovernance({
     e2hExecutionEvidenceStillRequiredAfterDeployment: true,
     e2iExternalReadinessEvidenceStillRequiredAfterDeployment: true,
     authority: AUTHORITY,
-    semantics: 'This gate proves that the exact pull-request source commit is bound to a completed independently pinned E2F validation packet and a cryptographically rebuilt E2G packet containing separate valid human RELEASE, MERGE and DEPLOYMENT approvals. It does not itself merge, deploy, activate production, establish professional authority, authorize transactions, or establish go-live readiness.',
+    semantics: 'This gate independently verifies the exact upstream E2E packet pin, cryptographically rebuilds E2F from the full externally governed verifier registry and RSA-SHA256 validation signatures, then cryptographically rebuilds E2G from the full release-authority registry and separate valid human RELEASE, MERGE and DEPLOYMENT approvals, all bound to the exact pull-request source commit. It does not itself merge, deploy, activate production, establish professional authority, authorize transactions, or establish go-live readiness.',
   });
 }
 
