@@ -18,6 +18,7 @@ jobs:
     name: release-governance
     if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+    environment: production
     timeout-minutes: 15
     env:
       BASE_URL: https://startak-real-estate.pages.dev
@@ -47,21 +48,7 @@ jobs:
             --arg expectedSha "$EXPECTED_DEPLOYED_SHA" \
             --arg upstreamRunId "$UPSTREAM_POST_RELEASE_RUN_ID" \
             --arg upstreamRunUrl "$UPSTREAM_POST_RELEASE_RUN_URL" \
-            '{
-              schemaVersion: 1,
-              suite: "STARTAK_RELEASE_GOVERNANCE_UPSTREAM_PROVENANCE_V1",
-              upstreamWorkflow: "Post-Release Production Verify",
-              upstreamEvent: $upstreamEvent,
-              upstreamBranch: $upstreamBranch,
-              expectedDeployedSha: $expectedSha,
-              upstreamRunId: $upstreamRunId,
-              upstreamRunUrl: $upstreamRunUrl,
-              correlationMode: "COMMIT_CORRELATED_POST_RELEASE_CHAIN",
-              releaseAuthorized: false,
-              deploymentAuthorized: false,
-              transactionAuthorized: false,
-              result: "PASS"
-            }' > "$EVIDENCE_DIR/upstream-post-release-provenance.json"
+            '{schemaVersion:1,suite:"STARTAK_RELEASE_GOVERNANCE_UPSTREAM_PROVENANCE_V1",upstreamWorkflow:"Post-Release Production Verify",upstreamEvent:$upstreamEvent,upstreamBranch:$upstreamBranch,expectedDeployedSha:$expectedSha,upstreamRunId:$upstreamRunId,upstreamRunUrl:$upstreamRunUrl,correlationMode:"COMMIT_CORRELATED_POST_RELEASE_CHAIN",releaseAuthorized:false,deploymentAuthorized:false,transactionAuthorized:false,result:"PASS"}' > "$EVIDENCE_DIR/upstream-post-release-provenance.json"
           echo "RELEASE_GOVERNANCE_UPSTREAM_PROVENANCE=PASS -- sha=${EXPECTED_DEPLOYED_SHA:0:12}"
 
       - name: Checkout governance contract
@@ -97,30 +84,20 @@ jobs:
           test -n "${EXPECTED_DEPLOYED_SHA:-}" || { echo 'Expected deployed SHA is required in post-release chained mode.'; exit 1; }
           test -n "${CF_API_TOKEN:-}" || { echo 'CLOUDFLARE_API_TOKEN secret is missing.'; exit 1; }
           test -n "${CF_ACCOUNT_ID:-}" || { echo 'CLOUDFLARE_ACCOUNT_ID variable is missing.'; exit 1; }
-
           history_depth="$(jq -r '.rollbackReadiness.historyDepth' "$POLICY_PATH")"
           require_current="$(jq -r '.rollbackReadiness.requireCurrentSuccessfulDeployment' "$POLICY_PATH")"
           require_previous="$(jq -r '.rollbackReadiness.requirePreviousDistinctSuccessfulDeployment' "$POLICY_PATH")"
           automatic_rollback="$(jq -r '.rollbackReadiness.automaticRollback' "$POLICY_PATH")"
           rollback_authority="$(jq -r '.rollbackReadiness.rollbackAuthority' "$POLICY_PATH")"
           preferred_strategy="$(jq -r '.rollbackReadiness.preferredStrategy' "$POLICY_PATH")"
-
           [[ "$automatic_rollback" == 'false' ]] || { echo 'Policy forbids automatic rollback authority.'; exit 1; }
-
           auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
           deployments_json="$(curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}/deployments?env=production&per_page=${history_depth}")"
           jq -e '.success == true' <<<"$deployments_json" >/dev/null
-
           current="$(jq -c --arg sha "$EXPECTED_DEPLOYED_SHA" '[.result[] | select(((.source.config.commit_hash // .deployment_trigger.metadata.commit_hash // "") == $sha) and (.latest_stage.status == "success"))][0] // empty' <<<"$deployments_json")"
           previous="$(jq -c --arg sha "$EXPECTED_DEPLOYED_SHA" '[.result[] | select(((.source.config.commit_hash // .deployment_trigger.metadata.commit_hash // "") != $sha) and (.latest_stage.status == "success"))][0] // empty' <<<"$deployments_json")"
-
-          if [[ "$require_current" == 'true' ]]; then
-            test -n "$current" || { echo "No successful current production deployment found for ${EXPECTED_DEPLOYED_SHA}."; exit 1; }
-          fi
-          if [[ "$require_previous" == 'true' ]]; then
-            test -n "$previous" || { echo 'No previous distinct successful production deployment found for rollback readiness.'; exit 1; }
-          fi
-
+          if [[ "$require_current" == 'true' ]]; then test -n "$current" || { echo "No successful current production deployment found for ${EXPECTED_DEPLOYED_SHA}."; exit 1; }; fi
+          if [[ "$require_previous" == 'true' ]]; then test -n "$previous" || { echo 'No previous distinct successful production deployment found for rollback readiness.'; exit 1; }; fi
           current_id="$(jq -r '.id // empty' <<<"$current")"
           current_url="$(jq -r '.url // empty' <<<"$current")"
           current_created="$(jq -r '.created_on // empty' <<<"$current")"
@@ -128,38 +105,11 @@ jobs:
           previous_sha="$(jq -r '.source.config.commit_hash // .deployment_trigger.metadata.commit_hash // empty' <<<"$previous")"
           previous_url="$(jq -r '.url // empty' <<<"$previous")"
           previous_created="$(jq -r '.created_on // empty' <<<"$previous")"
-
           test -n "$current_id" || { echo 'Current deployment ID is missing.'; exit 1; }
           test -n "$previous_id" || { echo 'Previous rollback-candidate deployment ID is missing.'; exit 1; }
           test -n "$previous_sha" || { echo 'Previous rollback-candidate commit SHA is missing.'; exit 1; }
           [[ "$previous_sha" != "$EXPECTED_DEPLOYED_SHA" ]] || { echo 'Rollback candidate must be a distinct commit.'; exit 1; }
-
-          jq -n \
-            --arg policyId "$(jq -r '.policyId' "$POLICY_PATH")" \
-            --arg expectedSha "$EXPECTED_DEPLOYED_SHA" \
-            --arg currentId "$current_id" \
-            --arg currentUrl "$current_url" \
-            --arg currentCreated "$current_created" \
-            --arg previousId "$previous_id" \
-            --arg previousSha "$previous_sha" \
-            --arg previousUrl "$previous_url" \
-            --arg previousCreated "$previous_created" \
-            --arg rollbackAuthority "$rollback_authority" \
-            --arg preferredStrategy "$preferred_strategy" \
-            '{
-              schemaVersion: 1,
-              suite: "STARTAK_ROLLBACK_READINESS_V1",
-              policyId: $policyId,
-              expectedDeployedSha: $expectedSha,
-              currentProduction: { deploymentId: $currentId, commitSha: $expectedSha, url: $currentUrl, createdOn: $currentCreated, status: "success" },
-              rollbackCandidate: { deploymentId: $previousId, commitSha: $previousSha, url: $previousUrl, createdOn: $previousCreated, status: "success" },
-              automaticRollback: false,
-              rollbackAuthority: $rollbackAuthority,
-              preferredStrategy: $preferredStrategy,
-              transactionAuthorized: false,
-              result: "PASS"
-            }' > "$EVIDENCE_DIR/rollback-readiness.json"
-
+          jq -n --arg policyId "$(jq -r '.policyId' "$POLICY_PATH")" --arg expectedSha "$EXPECTED_DEPLOYED_SHA" --arg currentId "$current_id" --arg currentUrl "$current_url" --arg currentCreated "$current_created" --arg previousId "$previous_id" --arg previousSha "$previous_sha" --arg previousUrl "$previous_url" --arg previousCreated "$previous_created" --arg rollbackAuthority "$rollback_authority" --arg preferredStrategy "$preferred_strategy" '{schemaVersion:1,suite:"STARTAK_ROLLBACK_READINESS_V1",policyId:$policyId,expectedDeployedSha:$expectedSha,currentProduction:{deploymentId:$currentId,commitSha:$expectedSha,url:$currentUrl,createdOn:$currentCreated,status:"success"},rollbackCandidate:{deploymentId:$previousId,commitSha:$previousSha,url:$previousUrl,createdOn:$previousCreated,status:"success"},automaticRollback:false,rollbackAuthority:$rollbackAuthority,preferredStrategy:$preferredStrategy,transactionAuthorized:false,result:"PASS"}' > "$EVIDENCE_DIR/rollback-readiness.json"
           echo "ROLLBACK_READINESS=PASS -- current=${EXPECTED_DEPLOYED_SHA:0:12} previous=${previous_sha:0:12}"
 
       - name: Build unified release evidence record
@@ -179,9 +129,7 @@ jobs:
           const health = read('production-release-health.json');
           const rollback = read('rollback-readiness.json');
           const exactShaChainRequired = true;
-          const exactShaChainEstablished = provenance?.result === 'PASS'
-            && provenance?.correlationMode === 'COMMIT_CORRELATED_POST_RELEASE_CHAIN'
-            && provenance?.expectedDeployedSha === process.env.EXPECTED_DEPLOYED_SHA;
+          const exactShaChainEstablished = provenance?.result === 'PASS' && provenance?.correlationMode === 'COMMIT_CORRELATED_POST_RELEASE_CHAIN' && provenance?.expectedDeployedSha === process.env.EXPECTED_DEPLOYED_SHA;
           const evidence = {
             schemaVersion: 1,
             suite: 'STARTAK_RELEASE_GOVERNANCE_EVIDENCE_V1',
@@ -231,7 +179,6 @@ jobs:
             fi
             echo '- Release-health policy: 5 samples, 100% success required, zero HTTP 5xx, p95 response time <= 5000 ms.'
             echo '- Automatic rollback is prohibited. Any production rollback requires explicit human authorization.'
-            echo '- A failing workflow check is the primary release-health alert surface.'
             echo '- Cloudflare production credentials are exposed only to the exact-SHA rollback-readiness step in this trusted workflow_run chain.'
             echo '- No release, deployment, go-live, or transaction authority is granted.'
           } >> "$GITHUB_STEP_SUMMARY"
