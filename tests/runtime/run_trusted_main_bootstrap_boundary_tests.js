@@ -16,6 +16,10 @@ function hasTopLevelTrigger(text, trigger) {
   return new RegExp(`^  ${escaped}:\\s*$`, 'm').test(text);
 }
 
+function hasProductionEnvironmentBinding(text) {
+  return /^    environment:\s*production\s*$/m.test(text);
+}
+
 const access = read('cloudflare-access-runtime-sync.yml');
 const control = read('cloudflare-control-plane-verify.yml');
 const releaseGovernance = read('release-governance-verify.yml');
@@ -27,6 +31,7 @@ for (const name of fs.readdirSync(workflowsDir).filter((x) => /\.ya?ml$/i.test(x
   assert.ok(!hasTopLevelTrigger(text, 'pull_request'), `${name} must not expose CLOUDFLARE_API_TOKEN to pull_request`);
   assert.ok(!hasTopLevelTrigger(text, 'pull_request_target'), `${name} must not expose CLOUDFLARE_API_TOKEN to pull_request_target`);
   assert.ok(!hasTopLevelTrigger(text, 'push'), `${name} must not expose CLOUDFLARE_API_TOKEN to automatic push execution`);
+  assert.ok(hasProductionEnvironmentBinding(text), `${name} must bind every CLOUDFLARE_API_TOKEN-bearing job to the protected production environment`);
 }
 
 assert.ok(hasTopLevelTrigger(access, 'workflow_dispatch'));
