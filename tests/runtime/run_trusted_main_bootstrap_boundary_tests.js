@@ -57,7 +57,7 @@ assert.strictEqual(cfRefs.length, 1, 'release governance must scope Cloudflare t
 assert.ok(hasTopLevelTrigger(trusted, 'pull_request_target'));
 assert.ok(!hasTopLevelTrigger(trusted, 'pull_request'));
 assert.ok(!hasTopLevelTrigger(trusted, 'push'));
-assert.match(trusted, /TRUSTED_VERIFIER_COMMIT_SHA: 593a417317ce6f4752e885f81da802da37ca6ea1/);
+assert.match(trusted, /TRUSTED_VERIFIER_COMMIT_SHA: 952c1d33ae2e86887cd13a8186d39ad10dea0113/);
 assert.match(trusted, /ref: \$\{\{ env\.TRUSTED_VERIFIER_COMMIT_SHA \}\}/);
 assert.match(trusted, /path: \.trusted-verifier/);
 assert.match(trusted, /persist-credentials: false/);
@@ -67,5 +67,27 @@ assert.doesNotMatch(trusted, /ref: \$\{\{ github\.event\.pull_request\.head\.sha
 assert.match(trusted, /HEAD_REPO/);
 assert.match(trusted, /BASE_REPO/);
 assert.match(trusted, /BASE_REF/);
+
+const requiredGovernanceSecrets = [
+  'STARTAK_E2E_PACKET_B64',
+  'STARTAK_E2E_PACKET_PIN_SHA256',
+  'STARTAK_E2F_PACKET_B64',
+  'STARTAK_E2F_PACKET_PIN_SHA256',
+  'STARTAK_E2F_VERIFIER_REGISTRY_B64',
+  'STARTAK_E2F_VERIFIER_REGISTRY_PIN_SHA256',
+  'STARTAK_E2G_PACKET_B64',
+  'STARTAK_E2G_PACKET_PIN_SHA256',
+  'STARTAK_E2G_RELEASE_AUTHORITY_REGISTRY_B64',
+  'STARTAK_E2G_RELEASE_AUTHORITY_REGISTRY_PIN_SHA256',
+];
+
+for (const secret of requiredGovernanceSecrets) {
+  const escaped = secret.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  assert.match(
+    trusted,
+    new RegExp(`${escaped}: \\$\\{\\{ secrets\\.${escaped} \\}\\}`),
+    `trusted main governance must consume protected secret ${secret}`,
+  );
+}
 
 console.log('TRUSTED_MAIN_BOOTSTRAP_BOUNDARY=PASS');
