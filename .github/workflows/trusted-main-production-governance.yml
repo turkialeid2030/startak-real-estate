@@ -13,6 +13,9 @@ concurrency:
   group: trusted-main-production-governance-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
+env:
+  TRUSTED_VERIFIER_COMMIT_SHA: 593a417317ce6f4752e885f81da802da37ca6ea1
+
 jobs:
   trusted-main-production-governance:
     name: trusted-main-production-governance
@@ -20,25 +23,49 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - name: Reject non-repository release branches
+      - name: Reject untrusted pull-request provenance
         shell: bash
         env:
           HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
           BASE_REPO: ${{ github.repository }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
           set -euo pipefail
           [[ "$HEAD_REPO" == "$BASE_REPO" ]] || {
             echo 'Production-governed main integration is restricted to same-repository release branches.'
             exit 1
           }
+          [[ "$BASE_REF" == 'main' ]] || {
+            echo "Trusted production governance only accepts pull requests targeting main; got ${BASE_REF:-<none>}."
+            exit 1
+          }
 
-      - name: Checkout trusted base implementation only
+      - name: Checkout immutable trusted verifier implementation
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ env.TRUSTED_VERIFIER_COMMIT_SHA }}
+          path: .trusted-verifier
+          fetch-depth: 1
           persist-credentials: false
 
+      - name: Verify immutable verifier identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git -C .trusted-verifier rev-parse HEAD | tr '[:upper:]' '[:lower:]')"
+          expected="$(printf '%s' "$TRUSTED_VERIFIER_COMMIT_SHA" | tr '[:upper:]' '[:lower:]')"
+          [[ "$actual" == "$expected" ]] || {
+            echo "Trusted verifier checkout mismatch. expected=$expected actual=$actual"
+            exit 1
+          }
+          [[ "$expected" =~ ^[a-f0-9]{40}$ ]] || {
+            echo 'Pinned trusted verifier commit is malformed.'
+            exit 1
+          }
+          echo "Trusted verifier identity confirmed at ${expected:0:12}."
+
       - name: Verify real E2F and E2G production governance for exact PR head
+        working-directory: .trusted-verifier
         env:
           STARTAK_E2F_PACKET_B64: ${{ secrets.STARTAK_E2F_PACKET_B64 }}
           STARTAK_E2F_PACKET_PIN_SHA256: ${{ secrets.STARTAK_E2F_PACKET_PIN_SHA256 }}
@@ -63,9 +90,11 @@ jobs:
             echo
             echo "- PR: #${PR_NUMBER}"
             echo "- Authorized source commit: \`${PR_HEAD_SHA}\`"
-            echo "- Trusted verifier implementation from base: \`${PR_BASE_SHA}\`"
+            echo "- Main base commit: \`${PR_BASE_SHA}\`"
+            echo "- Immutable verifier commit: \`${TRUSTED_VERIFIER_COMMIT_SHA}\`"
             echo '- Real E2F packet and verifier-registry pins: verified.'
             echo '- Real E2G packet and release-authority-registry pin: verified.'
             echo '- Human RELEASE / MERGE / DEPLOYMENT RSA-SHA256 decisions: cryptographically rebuilt and verified.'
+            echo '- PR-head code was not checked out or executed in the secret-bearing verifier step.'
             echo '- This check does not merge or deploy.'
           } >> "$GITHUB_STEP_SUMMARY"
