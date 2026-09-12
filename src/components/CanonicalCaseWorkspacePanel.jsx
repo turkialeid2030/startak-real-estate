@@ -204,22 +204,22 @@ export default function CanonicalCaseWorkspacePanel() {
         <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <div>
             <Label>{copy.deal}</Label>
-            <select className={`${SELECT_STYLE} mt-1`} value={selectedDealId} onChange={(event) => setSelectedDealId(event.target.value)} disabled={loading || deals.length === 0}>
+            <select aria-label={copy.deal} className={`${SELECT_STYLE} mt-1`} value={selectedDealId} onChange={(event) => setSelectedDealId(event.target.value)} disabled={loading || deals.length === 0}>
               {deals.length === 0 ? <option value="">{copy.noDeals}</option> : null}
               {deals.map((deal) => <option key={deal.id} value={deal.id}>{deal.name || deal.id} · {deal.mode}</option>)}
             </select>
           </div>
-          <div><Label>{copy.workspaceId}</Label><input className={`${INPUT_STYLE} mt-1`} value={workspaceId} onChange={(event) => setWorkspaceId(event.target.value)} placeholder="WS-..." /></div>
-          <div><Label>{copy.projectId}</Label><input className={`${INPUT_STYLE} mt-1`} value={projectId} onChange={(event) => setProjectId(event.target.value)} placeholder="PROJECT-..." /></div>
-          <div><Label>{copy.caseId}</Label><input className={`${INPUT_STYLE} mt-1`} value={caseId} onChange={(event) => setCaseId(event.target.value)} placeholder="CASE-..." /></div>
-          <div><Label>{copy.actorId}</Label><input className={`${INPUT_STYLE} mt-1`} value={actorId} onChange={(event) => setActorId(event.target.value)} placeholder="ACTOR-..." /></div>
+          <div><Label>{copy.workspaceId}</Label><input aria-label={copy.workspaceId} className={`${INPUT_STYLE} mt-1`} value={workspaceId} onChange={(event) => setWorkspaceId(event.target.value)} placeholder="WS-..." /></div>
+          <div><Label>{copy.projectId}</Label><input aria-label={copy.projectId} className={`${INPUT_STYLE} mt-1`} value={projectId} onChange={(event) => setProjectId(event.target.value)} placeholder="PROJECT-..." /></div>
+          <div><Label>{copy.caseId}</Label><input aria-label={copy.caseId} className={`${INPUT_STYLE} mt-1`} value={caseId} onChange={(event) => setCaseId(event.target.value)} placeholder="CASE-..." /></div>
+          <div><Label>{copy.actorId}</Label><input aria-label={copy.actorId} className={`${INPUT_STYLE} mt-1`} value={actorId} onChange={(event) => setActorId(event.target.value)} placeholder="ACTOR-..." /></div>
           <div><Label>{copy.assetClass}</Label><div className="mt-1"><Select value={assetClass} onChange={setAssetClass} options={values(ASSET_CLASS)} ariaLabel={copy.assetClass} /></div></div>
           <div><Label>{copy.lifecycle}</Label><div className="mt-1"><Select value={lifecycleStage} onChange={setLifecycleStage} options={values(LIFECYCLE_STAGE)} ariaLabel={copy.lifecycle} /></div></div>
           <div><Label>{copy.strategy}</Label><div className="mt-1"><Select value={investmentStrategy} onChange={setInvestmentStrategy} options={values(INVESTMENT_STRATEGY)} ariaLabel={copy.strategy} /></div></div>
           <div><Label>{copy.incomeModel}</Label><div className="mt-1"><Select value={incomeModel} onChange={setIncomeModel} options={values(INCOME_MODEL)} ariaLabel={copy.incomeModel} /></div></div>
-          {assetClass === ASSET_CLASS.OTHER ? <div><Label>{copy.custom} · Asset</Label><input className={`${INPUT_STYLE} mt-1`} value={customAssetClass} onChange={(event) => setCustomAssetClass(event.target.value)} /></div> : null}
-          {lifecycleStage === LIFECYCLE_STAGE.OTHER ? <div><Label>{copy.custom} · Lifecycle</Label><input className={`${INPUT_STYLE} mt-1`} value={customLifecycleStage} onChange={(event) => setCustomLifecycleStage(event.target.value)} /></div> : null}
-          {investmentStrategy === INVESTMENT_STRATEGY.OTHER ? <div><Label>{copy.custom} · Strategy</Label><input className={`${INPUT_STYLE} mt-1`} value={customInvestmentStrategy} onChange={(event) => setCustomInvestmentStrategy(event.target.value)} /></div> : null}
+          {assetClass === ASSET_CLASS.OTHER ? <div><Label>{copy.custom} · Asset</Label><input aria-label={`${copy.custom} · Asset`} className={`${INPUT_STYLE} mt-1`} value={customAssetClass} onChange={(event) => setCustomAssetClass(event.target.value)} /></div> : null}
+          {lifecycleStage === LIFECYCLE_STAGE.OTHER ? <div><Label>{copy.custom} · Lifecycle</Label><input aria-label={`${copy.custom} · Lifecycle`} className={`${INPUT_STYLE} mt-1`} value={customLifecycleStage} onChange={(event) => setCustomLifecycleStage(event.target.value)} /></div> : null}
+          {investmentStrategy === INVESTMENT_STRATEGY.OTHER ? <div><Label>{copy.custom} · Strategy</Label><input aria-label={`${copy.custom} · Strategy`} className={`${INPUT_STYLE} mt-1`} value={customInvestmentStrategy} onChange={(event) => setCustomInvestmentStrategy(event.target.value)} /></div> : null}
         </div>
 
         <div className="mt-4 rounded-lg border border-amber-900/50 bg-amber-950/20 p-3 text-[11px] leading-5 text-amber-200">
