@@ -1,0 +1,71 @@
+name: Trusted Main Production Governance
+
+on:
+  pull_request_target:
+    branches:
+      - main
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: trusted-main-production-governance-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  trusted-main-production-governance:
+    name: trusted-main-production-governance
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Reject non-repository release branches
+        shell: bash
+        env:
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          [[ "$HEAD_REPO" == "$BASE_REPO" ]] || {
+            echo 'Production-governed main integration is restricted to same-repository release branches.'
+            exit 1
+          }
+
+      - name: Checkout trusted base implementation only
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+
+      - name: Verify real E2F and E2G production governance for exact PR head
+        env:
+          STARTAK_E2F_PACKET_B64: ${{ secrets.STARTAK_E2F_PACKET_B64 }}
+          STARTAK_E2F_PACKET_PIN_SHA256: ${{ secrets.STARTAK_E2F_PACKET_PIN_SHA256 }}
+          STARTAK_E2F_VERIFIER_REGISTRY_PIN_SHA256: ${{ secrets.STARTAK_E2F_VERIFIER_REGISTRY_PIN_SHA256 }}
+          STARTAK_E2G_PACKET_B64: ${{ secrets.STARTAK_E2G_PACKET_B64 }}
+          STARTAK_E2G_PACKET_PIN_SHA256: ${{ secrets.STARTAK_E2G_PACKET_PIN_SHA256 }}
+          STARTAK_E2G_RELEASE_AUTHORITY_REGISTRY_B64: ${{ secrets.STARTAK_E2G_RELEASE_AUTHORITY_REGISTRY_B64 }}
+          STARTAK_E2G_RELEASE_AUTHORITY_REGISTRY_PIN_SHA256: ${{ secrets.STARTAK_E2G_RELEASE_AUTHORITY_REGISTRY_PIN_SHA256 }}
+          STARTAK_EXPECTED_RELEASE_SOURCE_COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node tools/main-merge-production-governance-gate.js
+
+      - name: Record trusted governance result
+        if: success()
+        shell: bash
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          {
+            echo '## Trusted Main Production Governance'
+            echo
+            echo "- PR: #${PR_NUMBER}"
+            echo "- Authorized source commit: \`${PR_HEAD_SHA}\`"
+            echo "- Trusted verifier implementation from base: \`${PR_BASE_SHA}\`"
+            echo '- Real E2F packet and verifier-registry pins: verified.'
+            echo '- Real E2G packet and release-authority-registry pin: verified.'
+            echo '- Human RELEASE / MERGE / DEPLOYMENT RSA-SHA256 decisions: cryptographically rebuilt and verified.'
+            echo '- This check does not merge or deploy.'
+          } >> "$GITHUB_STEP_SUMMARY"
