@@ -27,5 +27,18 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify governed main merge authority
+        if: ${{ github.event_name == 'pull_request' && github.base_ref == 'main' }}
+        env:
+          STARTAK_E2F_PACKET_B64: ${{ secrets.STARTAK_E2F_PACKET_B64 }}
+          STARTAK_E2F_PACKET_PIN_SHA256: ${{ secrets.STARTAK_E2F_PACKET_PIN_SHA256 }}
+          STARTAK_E2F_VERIFIER_REGISTRY_PIN_SHA256: ${{ secrets.STARTAK_E2F_VERIFIER_REGISTRY_PIN_SHA256 }}
+          STARTAK_E2G_PACKET_B64: ${{ secrets.STARTAK_E2G_PACKET_B64 }}
+          STARTAK_E2G_PACKET_PIN_SHA256: ${{ secrets.STARTAK_E2G_PACKET_PIN_SHA256 }}
+          STARTAK_E2G_RELEASE_AUTHORITY_REGISTRY_B64: ${{ secrets.STARTAK_E2G_RELEASE_AUTHORITY_REGISTRY_B64 }}
+          STARTAK_E2G_RELEASE_AUTHORITY_REGISTRY_PIN_SHA256: ${{ secrets.STARTAK_E2G_RELEASE_AUTHORITY_REGISTRY_PIN_SHA256 }}
+          STARTAK_EXPECTED_RELEASE_SOURCE_COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node tools/main-merge-production-governance-gate.js
+
       - name: Run canonical release verification
         run: npm run release:verify
