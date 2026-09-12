@@ -47,7 +47,7 @@ if (hasTopLevelTrigger(runtimeSync, 'push')) fail('runtime sync must not auto-ru
 if (!/expected_commit_sha:/.test(runtimeSync)) fail('runtime sync must require an exact authorized commit SHA');
 if (!/I_AUTHORIZE_STARTAK_PRODUCTION_MUTATION/.test(runtimeSync)) fail('runtime sync must retain explicit production mutation acknowledgement');
 if (!/\[\[ "\$GITHUB_REF" == 'refs\/heads\/main' \]\]/.test(runtimeSync)) fail('runtime sync must be restricted to main');
-if (!/\$\{GITHUB_SHA,,\}/.test(runtimeSync) && !/GITHUB_SHA/.test(runtimeSync)) fail('runtime sync must bind authorization to the workflow SHA');
+if (!/GITHUB_SHA/.test(runtimeSync)) fail('runtime sync must bind authorization to the workflow SHA');
 
 const controlPlane = readWorkflow('cloudflare-control-plane-verify.yml');
 if (!hasTopLevelTrigger(controlPlane, 'workflow_dispatch')) fail('control-plane verification must remain manual-dispatch capable');
@@ -61,5 +61,19 @@ if (hasTopLevelTrigger(activation, 'pull_request') || hasTopLevelTrigger(activat
   fail('AI production activation must remain manual-dispatch only');
 }
 if (!/I_AUTHORIZE_STARTAK_PRODUCTION_MUTATION/.test(activation)) fail('AI production activation must retain explicit mutation acknowledgement');
+
+const releaseGovernance = readWorkflow('release-governance-verify.yml');
+if (!hasTopLevelTrigger(releaseGovernance, 'workflow_run')) fail('release governance must execute only from the trusted post-release workflow_run chain');
+if (hasTopLevelTrigger(releaseGovernance, 'workflow_dispatch')) fail('release governance must not expose production Cloudflare credentials to arbitrary branch dispatch');
+if (hasTopLevelTrigger(releaseGovernance, 'push')) fail('release governance must not run directly from push');
+if (!/workflows: \['Post-Release Production Verify'\]/.test(releaseGovernance)) fail('release governance must be chained from Post-Release Production Verify');
+if (!/github\.event\.workflow_run\.head_sha/.test(releaseGovernance)) fail('release governance must correlate to the upstream exact SHA');
+if (!/persist-credentials: false/.test(releaseGovernance)) fail('release governance checkout must not persist repository credentials');
+
+const tokenRefs = releaseGovernance.match(/secrets\.CLOUDFLARE_API_TOKEN/g) || [];
+if (tokenRefs.length !== 1) fail(`release governance must reference the Cloudflare token exactly once at the rollback-readiness step; found=${tokenRefs.length}`);
+const rollbackStepIndex = releaseGovernance.indexOf('- name: Verify exact-SHA rollback readiness from Cloudflare deployment history');
+const tokenIndex = releaseGovernance.indexOf('secrets.CLOUDFLARE_API_TOKEN');
+if (rollbackStepIndex < 0 || tokenIndex < rollbackStepIndex) fail('release governance Cloudflare token must be scoped to the rollback-readiness step');
 
 console.log(`CLOUDFLARE_PRODUCTION_SECRET_BOUNDARY=PASS -- scanned=${workflowFiles.length}`);
