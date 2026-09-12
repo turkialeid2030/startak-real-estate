@@ -61,9 +61,12 @@ test('RELEASE-CHAIN-PROVENANCE-04', () => {
 });
 
 test('RELEASE-CHAIN-PROVENANCE-05', () => {
-  assert.match(releaseGovernance, /Mark direct runs diagnostic only/);
-  assert.match(releaseGovernance, /DIAGNOSTIC_UNCORRELATED/);
-  assert.match(releaseGovernance, /qualifiesAsCommitCorrelatedReleaseEvidence: false/);
+  assert.doesNotMatch(releaseGovernance, /^  workflow_dispatch:\s*$/m);
+  assert.doesNotMatch(releaseGovernance, /^  pull_request:\s*$/m);
+  assert.doesNotMatch(releaseGovernance, /^  pull_request_target:\s*$/m);
+  assert.doesNotMatch(releaseGovernance, /Mark direct runs diagnostic only/);
+  assert.doesNotMatch(releaseGovernance, /DIAGNOSTIC_UNCORRELATED/);
+  assert.match(releaseGovernance, /const exactShaChainRequired = true/);
   assert.match(releaseGovernance, /releaseAuthorized: false/);
   assert.match(releaseGovernance, /deploymentAuthorized: false/);
   assert.match(releaseGovernance, /transactionAuthorized: false/);
