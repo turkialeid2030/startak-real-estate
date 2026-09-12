@@ -1,15 +1,6 @@
 name: Release Governance Verify
 
 on:
-  workflow_dispatch:
-  pull_request:
-    branches: [main]
-    paths:
-      - '.github/workflows/release-governance-verify.yml'
-      - 'governance/release-governance-policy.json'
-      - 'tests/release/run_production_release_health_ci.mjs'
-      - 'tests/release/run_release_governance_contract_ci.mjs'
-      - 'docs/RELEASE_GOVERNANCE_WAVE4.md'
   workflow_run:
     workflows: ['Post-Release Production Verify']
     types: [completed]
@@ -19,32 +10,68 @@ permissions:
   contents: read
 
 concurrency:
-  group: release-governance-${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
+  group: release-governance-${{ github.event.workflow_run.head_sha }}
   cancel-in-progress: true
 
 jobs:
   release-governance:
     name: release-governance
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
       BASE_URL: https://startak-real-estate.pages.dev
-      EXPECTED_DEPLOYED_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || '' }}
-      CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CF_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-      CF_PROJECT_NAME: startak-real-estate
+      EXPECTED_DEPLOYED_SHA: ${{ github.event.workflow_run.head_sha }}
+      UPSTREAM_POST_RELEASE_EVENT: ${{ github.event.workflow_run.event }}
+      UPSTREAM_POST_RELEASE_BRANCH: ${{ github.event.workflow_run.head_branch }}
+      UPSTREAM_POST_RELEASE_RUN_ID: ${{ github.event.workflow_run.id }}
+      UPSTREAM_POST_RELEASE_RUN_URL: ${{ github.event.workflow_run.html_url }}
       POLICY_PATH: governance/release-governance-policy.json
       EVIDENCE_DIR: runtime-evidence/release-governance
 
     steps:
+      - name: Verify upstream post-release provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          [[ "$GITHUB_EVENT_NAME" == 'workflow_run' ]] || { echo "Release Governance only accepts workflow_run execution; got ${GITHUB_EVENT_NAME:-<none>}."; exit 1; }
+          [[ "$UPSTREAM_POST_RELEASE_EVENT" == 'workflow_run' ]] || { echo "Release Governance only accepts Post-Release evidence produced by the correlated workflow_run path; got ${UPSTREAM_POST_RELEASE_EVENT:-<none>}."; exit 1; }
+          [[ "$UPSTREAM_POST_RELEASE_BRANCH" == 'main' ]] || { echo "Upstream Post-Release run was not on main: ${UPSTREAM_POST_RELEASE_BRANCH:-<none>}"; exit 1; }
+          [[ "$EXPECTED_DEPLOYED_SHA" =~ ^[a-f0-9]{40}$ ]] || { echo 'Expected deployed SHA inherited from Post-Release is missing or invalid.'; exit 1; }
+          [[ "$UPSTREAM_POST_RELEASE_RUN_ID" =~ ^[0-9]+$ ]] || { echo 'Upstream Post-Release run ID is missing or invalid.'; exit 1; }
+          [[ "$UPSTREAM_POST_RELEASE_RUN_URL" == https://github.com/*/actions/runs/* ]] || { echo 'Upstream Post-Release run URL is missing or invalid.'; exit 1; }
+          jq -n \
+            --arg upstreamEvent "$UPSTREAM_POST_RELEASE_EVENT" \
+            --arg upstreamBranch "$UPSTREAM_POST_RELEASE_BRANCH" \
+            --arg expectedSha "$EXPECTED_DEPLOYED_SHA" \
+            --arg upstreamRunId "$UPSTREAM_POST_RELEASE_RUN_ID" \
+            --arg upstreamRunUrl "$UPSTREAM_POST_RELEASE_RUN_URL" \
+            '{
+              schemaVersion: 1,
+              suite: "STARTAK_RELEASE_GOVERNANCE_UPSTREAM_PROVENANCE_V1",
+              upstreamWorkflow: "Post-Release Production Verify",
+              upstreamEvent: $upstreamEvent,
+              upstreamBranch: $upstreamBranch,
+              expectedDeployedSha: $expectedSha,
+              upstreamRunId: $upstreamRunId,
+              upstreamRunUrl: $upstreamRunUrl,
+              correlationMode: "COMMIT_CORRELATED_POST_RELEASE_CHAIN",
+              releaseAuthorized: false,
+              deploymentAuthorized: false,
+              transactionAuthorized: false,
+              result: "PASS"
+            }' > "$EVIDENCE_DIR/upstream-post-release-provenance.json"
+          echo "RELEASE_GOVERNANCE_UPSTREAM_PROVENANCE=PASS -- sha=${EXPECTED_DEPLOYED_SHA:0:12}"
+
       - name: Checkout governance contract
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '22'
           cache: npm
@@ -59,8 +86,11 @@ jobs:
         run: node tests/release/run_production_release_health_ci.mjs
 
       - name: Verify exact-SHA rollback readiness from Cloudflare deployment history
-        if: github.event_name == 'workflow_run'
         shell: bash
+        env:
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CF_PROJECT_NAME: startak-real-estate
         run: |
           set -euo pipefail
           mkdir -p "$EVIDENCE_DIR"
@@ -145,8 +175,13 @@ jobs:
             const path = `${dir}/${name}`;
             return fs.existsSync(path) ? JSON.parse(fs.readFileSync(path, 'utf8')) : null;
           };
+          const provenance = read('upstream-post-release-provenance.json');
           const health = read('production-release-health.json');
           const rollback = read('rollback-readiness.json');
+          const exactShaChainRequired = true;
+          const exactShaChainEstablished = provenance?.result === 'PASS'
+            && provenance?.correlationMode === 'COMMIT_CORRELATED_POST_RELEASE_CHAIN'
+            && provenance?.expectedDeployedSha === process.env.EXPECTED_DEPLOYED_SHA;
           const evidence = {
             schemaVersion: 1,
             suite: 'STARTAK_RELEASE_GOVERNANCE_EVIDENCE_V1',
@@ -154,10 +189,15 @@ jobs:
             eventName: process.env.GITHUB_EVENT_NAME,
             expectedDeployedSha: process.env.EXPECTED_DEPLOYED_SHA || null,
             githubRunId: process.env.GITHUB_RUN_ID,
+            provenance,
             health,
             rollback,
-            exactShaChainRequired: process.env.GITHUB_EVENT_NAME === 'workflow_run',
+            exactShaChainRequired,
+            exactShaChainEstablished,
+            qualifiesAsCommitCorrelatedReleaseEvidence: exactShaChainEstablished && health?.result === 'PASS' && rollback?.result === 'PASS',
             automaticRollback: false,
+            releaseAuthorized: false,
+            deploymentAuthorized: false,
             transactionAuthorized: false,
             generatedAt: new Date().toISOString(),
           };
@@ -182,17 +222,16 @@ jobs:
             echo
             echo "- Production URL: \`${BASE_URL}\`"
             echo "- Event: \`${GITHUB_EVENT_NAME}\`"
-            if [[ -n "${EXPECTED_DEPLOYED_SHA:-}" ]]; then
-              echo "- Exact deployed SHA inherited from successful Post-Release Production Verify: \`${EXPECTED_DEPLOYED_SHA}\`"
-              if [[ -f "$EVIDENCE_DIR/rollback-readiness.json" ]]; then
-                previous_sha="$(jq -r '.rollbackCandidate.commitSha' "$EVIDENCE_DIR/rollback-readiness.json")"
-                echo "- Verified previous successful rollback candidate: \`${previous_sha}\`"
-              fi
-            else
-              echo '- Pull-request/manual mode observes current production health; exact-SHA rollback readiness is intentionally deferred to the post-merge chained run.'
+            echo "- Exact deployed SHA inherited from correlated Post-Release Production Verify: \`${EXPECTED_DEPLOYED_SHA}\`"
+            echo "- Upstream Post-Release run: \`${UPSTREAM_POST_RELEASE_RUN_ID}\`"
+            echo '- Correlation mode: `COMMIT_CORRELATED_POST_RELEASE_CHAIN`.'
+            if [[ -f "$EVIDENCE_DIR/rollback-readiness.json" ]]; then
+              previous_sha="$(jq -r '.rollbackCandidate.commitSha' "$EVIDENCE_DIR/rollback-readiness.json")"
+              echo "- Verified previous successful rollback candidate: \`${previous_sha}\`"
             fi
             echo '- Release-health policy: 5 samples, 100% success required, zero HTTP 5xx, p95 response time <= 5000 ms.'
             echo '- Automatic rollback is prohibited. Any production rollback requires explicit human authorization.'
             echo '- A failing workflow check is the primary release-health alert surface.'
-            echo '- No transaction authority is granted.'
+            echo '- Cloudflare production credentials are exposed only to the exact-SHA rollback-readiness step in this trusted workflow_run chain.'
+            echo '- No release, deployment, go-live, or transaction authority is granted.'
           } >> "$GITHUB_STEP_SUMMARY"

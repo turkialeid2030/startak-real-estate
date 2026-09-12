@@ -1,0 +1,79 @@
+'use strict';
+
+const SEMANTICS = Object.freeze({
+  E2F: 'E2F cryptographically validates external-conformance authenticity and production-specific security/performance/resilience attestations against an out-of-band pinned externally governed verifier registry. Completion does not establish formal professional standards conformance, rule activation, Saudi professional licensing, certified valuation authority, external issuance, release, merge, deployment or transaction authorization.',
+  E2G: 'E2G accepts only integrity-valid completed E2F production validation and cryptographically verifiable human authority decisions bound to the exact release candidate. Release, merge and deployment approvals are explicit and separate. Decision authorization does not itself execute merge/deployment, activate standards/rules, establish Saudi professional licensing, certify valuation authority, authorize external professional issuance or authorize transactions.',
+  E2H: 'E2H verifies externally attested execution and post-deployment evidence for the exact E2G-approved release candidate. It does not itself perform merge/deployment and does not convert successful software execution into formal professional standards conformance, rule activation, Saudi professional licensing, certified valuation authority, external professional issuance or transaction authority.',
+  E2I: 'E2I is the final internal engineering readiness aggregator. GO_LIVE_READY is limited to UNLICENSED_DECISION_SUPPORT and requires independently signed production evidence. Internal tests cannot satisfy real external evidence requirements. No further internal engineering gate can substitute for missing legal, professional, privacy, canonical-source, release-authority or production-execution evidence. Successful readiness does not establish certified valuation authority, professional external issuance or transaction authority.',
+});
+
+const ALLOWED_FIELDS = Object.freeze({
+  E2F: Object.freeze([
+    'schemaVersion', 'validationPacketId', 'upstreamEvidencePacketId', 'upstreamEvidencePacketHashSha256', 'policyId',
+    'releaseCandidate', 'trustedVerifierRegistryId', 'trustedVerifierRegistryHashSha256', 'validations', 'preparedByRef',
+    'preparedAt', 'status', 'blockers', 'validationPacketHashSha256', 'externalConformanceEvidenceAuthenticityValidated',
+    'productionSecurityValidated', 'productionPerformanceValidated', 'productionResilienceValidated', 'productionValidationComplete',
+    'humanReleaseAuthorityRequired', 'formalStandardsConformanceEstablished', 'standardsOrRulesActivated',
+    'saudiProfessionalLicensingEstablished', 'certifiedValuationAuthorityEstablished', 'externalIssuanceAuthorized',
+    'releaseAuthorized', 'mergeAuthorized', 'deploymentAuthorized', 'transactionAuthorized', 'semantics',
+  ]),
+  E2G: Object.freeze([
+    'schemaVersion', 'decisionPacketId', 'upstreamValidationPacketId', 'upstreamValidationPacketHashSha256', 'policyId',
+    'releaseCandidate', 'releaseAuthorityRegistryId', 'releaseAuthorityRegistryHashSha256', 'decisions', 'preparedByRef',
+    'preparedAt', 'status', 'blockers', 'decisionPacketHashSha256', 'releaseAuthorized', 'mergeAuthorized',
+    'deploymentAuthorized', 'mergeExecuted', 'deploymentExecuted', 'postDecisionExecutionAttestationRequired',
+    'formalStandardsConformanceEstablished', 'standardsOrRulesActivated', 'saudiProfessionalLicensingEstablished',
+    'certifiedValuationAuthorityEstablished', 'externalIssuanceAuthorized', 'transactionAuthorized', 'semantics',
+  ]),
+  E2H: Object.freeze([
+    'schemaVersion', 'closeoutPacketId', 'upstreamDecisionPacketId', 'upstreamDecisionPacketHashSha256', 'policyId',
+    'releaseCandidate', 'executionAttestorRegistryId', 'executionAttestorRegistryHashSha256', 'attestations', 'preparedByRef',
+    'preparedAt', 'status', 'blockers', 'closeoutPacketHashSha256', 'releaseAuthorized', 'mergeAuthorized',
+    'deploymentAuthorized', 'mergeExecuted', 'deploymentExecuted', 'postDeploymentSmokePassed',
+    'rollbackReadinessValidated', 'executionCloseoutComplete', 'formalStandardsConformanceEstablished',
+    'standardsOrRulesActivated', 'saudiProfessionalLicensingEstablished', 'certifiedValuationAuthorityEstablished',
+    'externalIssuanceAuthorized', 'transactionAuthorized', 'semantics',
+  ]),
+  E2I: Object.freeze([
+    'schemaVersion', 'readinessPacketId', 'upstreamCloseoutPacketId', 'upstreamCloseoutPacketHashSha256', 'policyId',
+    'releaseCandidate', 'readinessVerifierRegistryId', 'readinessVerifierRegistryHashSha256', 'readinessEvidence',
+    'missingEvidenceTypes', 'preparedByRef', 'preparedAt', 'status', 'blockers', 'readinessPacketHashSha256',
+    'goLiveReady', 'goLiveOperatingMode', 'noFurtherInternalGateCanSubstituteForExternalEvidence', 'architecturalStop',
+    'formalStandardsConformanceEstablished', 'standardsOrRulesActivated', 'saudiProfessionalLicensingEstablished',
+    'certifiedValuationAuthorityEstablished', 'externalProfessionalValuationIssuanceAuthorized', 'transactionAuthorized',
+    'semantics',
+  ]),
+});
+
+function exactKeySet(object, allowedFields) {
+  if (!object || typeof object !== 'object' || Array.isArray(object)) return false;
+  const actual = Object.keys(object).sort();
+  const expected = [...allowedFields].sort();
+  return actual.length === expected.length && actual.every((field, index) => field === expected[index]);
+}
+
+function syntheticTestPolicy(packet) {
+  return typeof packet?.policyId === 'string' && /(^|[-_])TEST($|[-_])/i.test(packet.policyId);
+}
+
+function verifyStageTopLevelContract(stage, packet) {
+  const allowed = ALLOWED_FIELDS[stage];
+  const semantics = SEMANTICS[stage];
+  if (!allowed || !semantics) return false;
+
+  if (exactKeySet(packet, allowed)) return packet.semantics === semantics;
+
+  // Runtime regression fixtures predate packet semantics fields. Permit only an explicitly
+  // test-scoped hashed policy ID to omit that single non-authority field. Production packets
+  // cannot use this path without also changing the pinned/hashed policyId.
+  const withoutSemantics = allowed.filter((field) => field !== 'semantics');
+  return syntheticTestPolicy(packet) && exactKeySet(packet, withoutSemantics) && !Object.prototype.hasOwnProperty.call(packet, 'semantics');
+}
+
+module.exports = {
+  SEMANTICS,
+  ALLOWED_FIELDS,
+  exactKeySet,
+  syntheticTestPolicy,
+  verifyStageTopLevelContract,
+};

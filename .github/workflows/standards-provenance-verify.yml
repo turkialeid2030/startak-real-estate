@@ -1,0 +1,38 @@
+name: Standards Provenance Verify
+
+on:
+  pull_request:
+    paths:
+      - 'src/standards/saved-deal-standards-snapshot.js'
+      - 'src/validation/saved-deal-schema.js'
+      - 'src/storage/saved-deals-backup.js'
+      - 'tests/saved-deals/run_standards_snapshot_persistence_v1.js'
+      - 'docs/WAVE_7D_STANDARDS_PROVENANCE.md'
+      - '.github/workflows/standards-provenance-verify.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Wave 7D standards provenance
+        run: node tests/saved-deals/run_standards_snapshot_persistence_v1.js
+
+      - name: Canonical release verification
+        run: npm run release:verify

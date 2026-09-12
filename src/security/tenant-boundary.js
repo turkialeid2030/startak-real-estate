@@ -8,10 +8,24 @@ const TENANT_SECURITY_STATUS = Object.freeze({
 
 function normalizeIdentity(identity) {
   if (!identity || typeof identity !== 'object') return null;
-  const actorId = String(identity.actorId || '').trim();
+  const explicitActorId = String(identity.actorId || '').trim();
+  const subject = String(identity.subject || '').trim();
+  if (explicitActorId && subject && explicitActorId !== subject) return null;
+
+  const actorId = explicitActorId || subject;
   const tenantId = String(identity.tenantId || '').trim();
   if (!actorId || !tenantId) return null;
-  return Object.freeze({ actorId, tenantId, roles: Object.freeze(Array.isArray(identity.roles) ? [...new Set(identity.roles.map(String))] : []) });
+
+  const roles = Array.isArray(identity.roles)
+    ? [...new Set(identity.roles.map((role) => String(role).trim()).filter(Boolean))]
+    : [];
+
+  return Object.freeze({
+    actorId,
+    subject: subject || actorId,
+    tenantId,
+    roles: Object.freeze(roles),
+  });
 }
 
 function assertTenantScopedAccess({ identity, resourceTenantId, action = 'READ' } = {}) {
@@ -25,6 +39,7 @@ function assertTenantScopedAccess({ identity, resourceTenantId, action = 'READ' 
       status: TENANT_SECURITY_STATUS.DENIED,
       allowed: false,
       reason: 'CROSS_TENANT_ACCESS_DENIED',
+      actorId: normalized.actorId,
       actorTenantId: normalized.tenantId,
       resourceTenantId: targetTenant,
       action: String(action),
@@ -34,6 +49,7 @@ function assertTenantScopedAccess({ identity, resourceTenantId, action = 'READ' 
     status: TENANT_SECURITY_STATUS.AUTHORIZED,
     allowed: true,
     reason: 'TENANT_MATCH',
+    actorId: normalized.actorId,
     actorTenantId: normalized.tenantId,
     resourceTenantId: targetTenant,
     action: String(action),

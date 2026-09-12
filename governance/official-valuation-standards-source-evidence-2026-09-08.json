@@ -1,0 +1,138 @@
+{
+  "evidenceRegisterId": "STARTAK-OFFICIAL-VALUATION-STANDARDS-SOURCE-EVIDENCE-2026-09-08",
+  "capturedAt": "2026-09-08T10:50:00+03:00",
+  "scope": "Primary valuation-standard source/version/effective-date verification only; no legal/professional applicability conclusion and no standards activation.",
+  "operatingMode": "UNLICENSED_DECISION_SUPPORT",
+  "overallStatus": "PRIMARY_SOURCES_VERIFIED_WITH_OPEN_APPLICABILITY_AND_CATALOG_REVIEW",
+  "officialStandardsSourceVerificationBlockerClosed": false,
+  "standardsActivationAuthorized": false,
+  "professionalLegalReviewRequired": true,
+  "records": [
+    {
+      "recordId": "IVSC-IVS-2025-EFFECTIVE",
+      "standardFamily": "IVS",
+      "sourceAuthority": "International Valuation Standards Council (IVSC)",
+      "sourceAuthorityClass": "OFFICIAL_STANDARD_SETTER",
+      "sourceUrl": "https://ivsc.org/new-edition-of-the-international-valuation-standards-ivs-published/",
+      "sourceObservedDate": "2026-09-08",
+      "observedFacts": {
+        "latestEditionPublishedDate": "2024-01-31",
+        "effectiveDate": "2025-01-31",
+        "effectiveForValuationsOnOrAfter": "2025-01-31",
+        "earlyAdoptionPermittedFromPublication": true,
+        "historicalValuationRequiresEditionDocumentation": true
+      },
+      "sourceVerified": true,
+      "registryRecommendation": "UNDER_REVIEW",
+      "activationAuthorized": false,
+      "reviewNotes": "Official IVSC source verifies edition/effective-date facts. Applicability within Saudi regulated practice remains subject to Saudi/Taqeem authority evidence and professional/legal review."
+    },
+    {
+      "recordId": "IVSC-SAUDI-IVS-ADOPTION",
+      "standardFamily": "IVS",
+      "sourceAuthority": "International Valuation Standards Council (IVSC) — Middle East & Africa",
+      "sourceAuthorityClass": "OFFICIAL_STANDARD_SETTER",
+      "sourceUrl": "https://ivsc.org/ivsc-mea/",
+      "sourceObservedDate": "2026-09-08",
+      "observedFacts": {
+        "jurisdiction": "Saudi Arabia",
+        "taqeemDescribedAsStatutoryRegulator": true,
+        "ivscStatesTaqeemAdoptedIvsAsFoundation": true,
+        "ivscStatesLatestEditionEffectiveDate": "2025-01-31",
+        "ivscStatesLatestEditionAdoptedInKingdom": true
+      },
+      "sourceVerified": true,
+      "registryRecommendation": "UNDER_REVIEW",
+      "activationAuthorized": false,
+      "reviewNotes": "Strong official standard-setter evidence of Saudi adoption, but it is not substituted for Saudi legal/professional applicability review or Taqeem rule-by-rule verification."
+    },
+    {
+      "recordId": "TAQEEM-IVS-BASIS-CONCLUSIONS-2025",
+      "standardFamily": "IVS",
+      "sourceAuthority": "Saudi Authority for Accredited Valuers (Taqeem)",
+      "sourceAuthorityClass": "SAUDI_GOVERNMENT_PROFESSIONAL_REGULATOR",
+      "sourceUrl": "https://www.taqeem.gov.sa/web/content/portal.library/118/attachment_ar?download=false",
+      "sourceObservedDate": "2026-09-08",
+      "observedFacts": {
+        "documentTitle": "أساس الاستنتاجات",
+        "documentReferencesIvsEffectiveDate": "2025-01-31",
+        "taqeemBrandingPresent": true,
+        "ivscBrandingPresent": true
+      },
+      "sourceVerified": true,
+      "registryRecommendation": "UNDER_REVIEW",
+      "activationAuthorized": false,
+      "reviewNotes": "Saudi regulator-hosted primary evidence supports IVS effective 31 January 2025."
+    },
+    {
+      "recordId": "TAQEEM-DIGITAL-LIBRARY-2026-07-29",
+      "standardFamily": "TAQEEM_STANDARD_LIBRARY",
+      "sourceAuthority": "Saudi Authority for Accredited Valuers (Taqeem)",
+      "sourceAuthorityClass": "SAUDI_GOVERNMENT_PROFESSIONAL_REGULATOR",
+      "sourceUrl": "https://www.taqeem.gov.sa/digital-lib",
+      "sourceObservedDate": "2026-09-08",
+      "observedFacts": {
+        "pageLastModifiedSaudiDate": "2026-07-29",
+        "listsRicsGlobalValuationStandards2025": true,
+        "listsInternationalValuationStandards2022": true,
+        "listsIvsBasisForConclusions": true
+      },
+      "sourceVerified": true,
+      "catalogAmbiguityFlag": true,
+      "registryRecommendation": "UNDER_REVIEW",
+      "activationAuthorized": false,
+      "reviewNotes": "Current Taqeem library page visibly lists a 2025 RICS item but labels the directly listed IVS download as 2022, while other Taqeem/IVSC primary evidence references IVS effective 31 January 2025. This catalog/version-label discrepancy must be resolved before treating a specific Taqeem-hosted IVS document as the canonical production text."
+    },
+    {
+      "recordId": "RICS-RED-BOOK-2025-EFFECTIVE",
+      "standardFamily": "RICS_RED_BOOK_GLOBAL",
+      "sourceAuthority": "Royal Institution of Chartered Surveyors (RICS)",
+      "sourceAuthorityClass": "OFFICIAL_STANDARD_SETTER",
+      "sourceUrl": "https://www.rics.org/profession-standards/rics-standards-and-guidance/sector-standards/valuation-standards/red-book/red-book-global",
+      "sourceObservedDate": "2026-09-08",
+      "observedFacts": {
+        "currentEdition": "RICS Valuation – Global Standards 2025",
+        "effectiveDate": "2025-01-31",
+        "incorporatesIvsEffective2025": true,
+        "latestEditionRequiredForCurrentRicsUse": true
+      },
+      "sourceVerified": true,
+      "registryRecommendation": "UNDER_REVIEW",
+      "activationAuthorized": false,
+      "reviewNotes": "Official RICS source verifies the current Red Book edition/effective date. Applicability is purpose/member/regulatory dependent and must be routed rather than globally forced."
+    },
+    {
+      "recordId": "TAQEEM-RICS-ARABIC-2025",
+      "standardFamily": "RICS_RED_BOOK_GLOBAL",
+      "sourceAuthority": "Saudi Authority for Accredited Valuers (Taqeem) hosting RICS publication",
+      "sourceAuthorityClass": "SAUDI_GOVERNMENT_PROFESSIONAL_REGULATOR",
+      "sourceUrl": "https://taqeem.gov.sa/web/content/portal.library/244/attachment_ar?download=false",
+      "sourceObservedDate": "2026-09-08",
+      "observedFacts": {
+        "publicationDate": "2024-12",
+        "effectiveDate": "2025-01-31",
+        "documentStatesGlobalApplication": true,
+        "documentStatesNationalLegalRequirementsTakePriorityOnConflict": true,
+        "documentStatesRicsOfficialArabicVersionIsFinalRegulatoryReferenceForRicsText": true
+      },
+      "sourceVerified": true,
+      "registryRecommendation": "UNDER_REVIEW",
+      "activationAuthorized": false,
+      "reviewNotes": "Saudi regulator-hosted Arabic RICS 2025 source confirms effective date and explicit national-law precedence. It does not by itself make RICS mandatory for every Saudi valuation purpose."
+    }
+  ],
+  "verifiedConclusions": [
+    "IVS edition currently effective for valuation dates on or after 2025-01-31 is verified from IVSC official sources.",
+    "Official IVSC evidence states that the latest IVS effective 2025-01-31 is adopted in Saudi Arabia through Taqeem's framework.",
+    "Taqeem-hosted official material independently references IVS as effective from 2025-01-31.",
+    "RICS Red Book Global Standards current edition is effective from 2025-01-31.",
+    "Taqeem hosts the Arabic RICS 2025 text and the text expressly preserves national legal precedence."
+  ],
+  "openIssues": [
+    "Resolve the Taqeem digital-library catalog/version-label ambiguity between the visible IVS 2022 listing and Taqeem/IVSC references to IVS effective 2025-01-31.",
+    "Perform Saudi professional/legal review of purpose-specific applicability and precedence before changing any Standards Registry record to ACTIVE.",
+    "Verify remaining master-directive authorities and standards individually, including REGA/regulatory rules, SOCPA/IFRS context, CMA/SAMA context, ZATCA/RETT, PDPL/SDAIA, IPMS/ICMS and any Appraisal Institute references before claiming complete official-source verification.",
+    "Do not treat ESG guidance as an automatic value adjustment; value linkage remains evidence-and-professional-judgement dependent.",
+    "Do not activate a standard solely because its calendar effective date has arrived."
+  ]
+}

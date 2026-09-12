@@ -1,0 +1,30 @@
+name: Market Comparable Evidence Verify
+
+on:
+  pull_request:
+    paths:
+      - 'src/market/**'
+      - 'tests/architecture/run_wave9a_market_comparable_evidence.js'
+      - '.github/workflows/market-comparable-evidence-verify.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Wave 9A market comparable evidence
+        run: node tests/architecture/run_wave9a_market_comparable_evidence.js
+      - name: Canonical release verification
+        run: npm run release:verify

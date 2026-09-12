@@ -1,0 +1,251 @@
+{
+  "matrixId": "STARTAK-E2-SAUDI-LEGAL-PROFESSIONAL-APPLICABILITY-CANDIDATES-2026-09-08",
+  "createdAt": "2026-09-08T12:45:00+03:00",
+  "operatingMode": "UNLICENSED_DECISION_SUPPORT",
+  "status": "CANDIDATE_MATRIX_READY_FOR_SAUDI_LEGAL_PROFESSIONAL_REVIEW",
+  "purpose": "Create deterministic source-backed applicability candidates for human Saudi legal/professional review without converting source evidence into legal conclusions, professional authority, compliance claims or production rules.",
+  "sourceConvergenceHead": "b8601d14c8acb914839f7cc293d8be14f81bd592",
+  "defaultCandidateState": "UNDER_REVIEW",
+  "automaticApplicabilityConclusionAllowed": false,
+  "automaticLegalConclusionAllowed": false,
+  "automaticProfessionalConclusionAllowed": false,
+  "automaticRuleActivationAllowed": false,
+  "candidates": [
+    {
+      "candidateId": "E2-REGA-SERVICE-LICENSING-001",
+      "domain": "REGA_REAL_ESTATE_SERVICES",
+      "reviewClass": "SAUDI_LEGAL_REVIEW",
+      "candidateState": "UNDER_REVIEW",
+      "trigger": {"all": [{"field": "serviceModel", "in": ["REAL_ESTATE_SERVICE", "BROKERAGE"]}]},
+      "sourceEvidenceRefs": [
+        {"registerId": "STARTAK-OFFICIAL-SAUDI-REGULATORY-SOURCE-EVIDENCE-2026-09-08", "recordId": "REGA-REAL-ESTATE-BROKERAGE-LAW-ACTIVE"},
+        {"registerId": "STARTAK-OFFICIAL-SAUDI-REGULATORY-SOURCE-EVIDENCE-2026-09-08", "recordId": "REGA-BROKERAGE-IMPLEMENTING-REGULATIONS-ACTIVE"}
+      ],
+      "questionForReviewer": "Does the actual STARTAK workflow/service/contractual role fall within a REGA-licensed real-estate service or brokerage activity, and if so what license/control boundary applies?",
+      "nonConclusion": "The system does not infer that STARTAK is licensed, unlicensed, exempt, or required to hold a particular REGA license.",
+      "activationAuthorized": false
+    },
+    {
+      "candidateId": "E2-TAQEEM-PROFESSIONAL-VALUATION-002",
+      "domain": "TAQEEM_PROFESSIONAL_VALUATION",
+      "reviewClass": "SAUDI_LEGAL_AND_PROFESSIONAL_REVIEW",
+      "candidateState": "UNDER_REVIEW",
+      "trigger": {"all": [{"field": "professionalValuationRequested", "equals": true}]},
+      "sourceEvidenceRefs": [
+        {"registerId": "STARTAK-OFFICIAL-STANDARDS-LICENSING-SOURCE-EVIDENCE-PHASE2-2026-09-08", "recordId": "TAQEEM-PROFESSIONAL-LICENSE-ISSUANCE-CURRENT"},
+        {"registerId": "STARTAK-OFFICIAL-STANDARDS-LICENSING-SOURCE-EVIDENCE-PHASE2-2026-09-08", "recordId": "TAQEEM-RULES-LIBRARY-CURRENT-2026-08-03"},
+        {"registerId": "STARTAK-OFFICIAL-STANDARDS-LICENSING-SOURCE-EVIDENCE-PHASE2-2026-09-08", "recordId": "TAQEEM-FELLOWSHIP-POLICY-UPDATE-2026-08-06"}
+      ],
+      "questionForReviewer": "What Taqeem membership, branch, professional-register, license, fellowship, signing/review and entity requirements apply to this assignment and intended issuance?",
+      "nonConclusion": "The system does not validate any person's Taqeem credentials or authorize professional/certified valuation.",
+      "activationAuthorized": false
+    },
+    {
+      "candidateId": "E2-IVS-TAQEEM-STANDARDS-003",
+      "domain": "IVS_TAQEEM_STANDARDS",
+      "reviewClass": "PROFESSIONAL_STANDARDS_REVIEW",
+      "candidateState": "UNDER_REVIEW",
+      "trigger": {"all": [{"field": "professionalValuationRequested", "equals": true}]},
+      "sourceEvidenceRefs": [
+        {"registerId": "STARTAK-OFFICIAL-VALUATION-STANDARDS-SOURCE-EVIDENCE-2026-09-08", "recordId": "IVSC-IVS-2025-EFFECTIVE"},
+        {"registerId": "STARTAK-OFFICIAL-VALUATION-STANDARDS-SOURCE-EVIDENCE-2026-09-08", "recordId": "IVSC-SAUDI-IVS-ADOPTION"},
+        {"registerId": "STARTAK-OFFICIAL-STANDARDS-LICENSING-SOURCE-EVIDENCE-PHASE2-2026-09-08", "recordId": "TAQEEM-IVS-2025-CANONICAL-DIRECT-ATTACHMENT"}
+      ],
+      "questionForReviewer": "Which IVS/Taqeem requirements are applicable to the assignment purpose, valuation date, valued interest and intended use, and which rule-level requirements must be implemented before a conformance claim?",
+      "nonConclusion": "Official/effective source evidence does not itself establish formal conformance or activate the standard in production.",
+      "activationAuthorized": false
+    },
+    {
+      "candidateId": "E2-TAQEEM-REPORT-QA-004",
+      "domain": "TAQEEM_PROFESSIONAL_REPORT_QA",
+      "reviewClass": "PROFESSIONAL_REVIEW",
+      "candidateState": "UNDER_REVIEW",
+      "trigger": {"all": [{"field": "professionalReportRequested", "equals": true}]},
+      "sourceEvidenceRefs": [
+        {"registerId": "STARTAK-SAUDI-REGULATORY-CONTEXT-SOURCE-EVIDENCE-2026-09-08", "recordId": "TAQEEM-REAL-ESTATE-REPORT-QUALITY-MODEL-2026-04-01"}
+      ],
+      "questionForReviewer": "What parts of the current Taqeem real-estate report-quality model are mandatory or appropriate for this report type, and is the complete scoring/control text available for implementation?",
+      "nonConclusion": "The existence of a report-quality model does not establish report approval or Taqeem conformance.",
+      "activationAuthorized": false
+    },
+    {
+      "candidateId": "E2-CMA-REAL-ESTATE-FUND-005",
+      "domain": "CMA_REAL_ESTATE_INVESTMENT_FUNDS",
+      "reviewClass": "SAUDI_LEGAL_AND_PROFESSIONAL_REVIEW",
+      "candidateState": "UNDER_REVIEW",
+      "trigger": {"all": [{"field": "capitalMarketsContext", "equals": "CMA_REAL_ESTATE_FUND"}]},
+      "sourceEvidenceRefs": [
+        {"registerId": "STARTAK-SAUDI-REGULATORY-CONTEXT-SOURCE-EVIDENCE-2026-09-08", "recordId": "CMA-REAL-ESTATE-INVESTMENT-FUNDS-VALUATION-2025"}
+      ],
+      "questionForReviewer": "Does this assignment fall within the CMA real-estate fund regime and which valuation, independence, fellowship, report-age, disclosure and multi-valuer requirements apply?",
+      "nonConclusion": "CMA fund rules are not generalized to non-fund assignments and no regulated investment advice is authorized.",
+      "activationAuthorized": false
+    },
+    {
+      "candidateId": "E2-SAMA-SUPERVISED-VALUATION-006",
+      "domain": "SAMA_SUPERVISED_VALUATION",
+      "reviewClass": "SAUDI_LEGAL_AND_PROFESSIONAL_REVIEW",
+      "candidateState": "UNDER_REVIEW",
+      "trigger": {"all": [{"field": "financingRegulatoryContext", "equals": "SAMA_SUPERVISED_ENTITY"}]},
+      "sourceEvidenceRefs": [
+        {"registerId": "STARTAK-SAUDI-REGULATORY-CONTEXT-SOURCE-EVIDENCE-2026-09-08", "recordId": "SAMA-REAL-ESTATE-VALUATION-CLIENT-OBLIGATIONS"}
+      ],
+      "questionForReviewer": "Which SAMA supervised-client valuation governance requirements apply, including licensed valuer use, independence, information provision and separation from financing/insurance processes?",
+      "nonConclusion": "The system does not authorize credit, financing, insurance or legal-soundness decisions.",
+      "activationAuthorized": false
+    },
+    {
+      "candidateId": "E2-SAMA-COLLATERAL-007",
+      "domain": "SAMA_COLLATERAL_VALUATION",
+      "reviewClass": "SAUDI_LEGAL_AND_PROFESSIONAL_REVIEW",
+      "candidateState": "UNDER_REVIEW",
+      "trigger": {"all": [{"field": "collateralValuationContext", "equals": true}]},
+      "sourceEvidenceRefs": [
+        {"registerId": "STARTAK-SAUDI-REGULATORY-CONTEXT-SOURCE-EVIDENCE-2026-09-08", "recordId": "SAMA-COLLATERAL-VALUATION-2026-01-11"}
+      ],
+      "questionForReviewer": "Does the current SAMA collateral rule apply to this financing context and what valuation/revaluation/legal-soundness evidence must be obtained externally?",
+      "nonConclusion": "STARTAK does not establish collateral enforceability, legal soundness or credit approval.",
+      "activationAuthorized": false
+    },
+    {
+      "candidateId": "E2-SOCPA-IFRS13-008",
+      "domain": "FINANCIAL_REPORTING_FAIR_VALUE",
+      "reviewClass": "ACCOUNTING_AND_PROFESSIONAL_REVIEW",
+      "candidateState": "UNDER_REVIEW",
+      "trigger": {"all": [{"field": "financialReportingPurpose", "equals": true}, {"field": "reportingFramework", "equals": "IFRS_13"}]},
+      "sourceEvidenceRefs": [
+        {"registerId": "STARTAK-SAUDI-REGULATORY-CONTEXT-SOURCE-EVIDENCE-2026-09-08", "recordId": "SOCPA-IFRS13-FAIR-VALUE-2025"},
+        {"registerId": "STARTAK-OFFICIAL-SAUDI-REGULATORY-SOURCE-EVIDENCE-2026-09-08", "recordId": "SOCPA-INTERNATIONAL-STANDARDS-ENDORSEMENT-2026"}
+      ],
+      "questionForReviewer": "Is IFRS 13 under the Saudi-endorsed financial-reporting framework the correct accounting context for this assignment, and what accountant/auditor review is required?",
+      "nonConclusion": "The system does not classify accounting treatment or establish financial-reporting compliance.",
+      "activationAuthorized": false
+    },
+    {
+      "candidateId": "E2-ZATCA-RETT-009",
+      "domain": "REAL_ESTATE_TRANSACTION_TAX",
+      "reviewClass": "SAUDI_TAX_LEGAL_REVIEW",
+      "candidateState": "UNDER_REVIEW",
+      "trigger": {"all": [{"field": "transactionContext", "equals": "REAL_ESTATE_TRANSFER"}]},
+      "sourceEvidenceRefs": [
+        {"registerId": "STARTAK-SAUDI-REGULATORY-CONTEXT-SOURCE-EVIDENCE-2026-09-08", "recordId": "ZATCA-RETT-LAW-2025-CURRENT-2026"},
+        {"registerId": "STARTAK-SAUDI-REGULATORY-CONTEXT-SOURCE-EVIDENCE-2026-09-08", "recordId": "ZATCA-RETT-EXECUTIVE-REGULATION-2025-CURRENT"}
+      ],
+      "questionForReviewer": "What RETT taxable-event, exemption, consideration, liability, filing and payment rules apply to this specific transaction?",
+      "nonConclusion": "A 5% statutory rate is not converted into an automatic payable tax amount without transaction-specific review.",
+      "activationAuthorized": false
+    },
+    {
+      "candidateId": "E2-SDAIA-PDPL-010",
+      "domain": "PERSONAL_DATA_PROTECTION",
+      "reviewClass": "SAUDI_DATA_LEGAL_REVIEW",
+      "candidateState": "UNDER_REVIEW",
+      "trigger": {"all": [{"field": "personalDataProcessed", "equals": true}]},
+      "sourceEvidenceRefs": [
+        {"registerId": "STARTAK-SAUDI-REGULATORY-CONTEXT-SOURCE-EVIDENCE-2026-09-08", "recordId": "SDAIA-PDPL-CURRENT"},
+        {"registerId": "STARTAK-OFFICIAL-SAUDI-REGULATORY-SOURCE-EVIDENCE-2026-09-08", "recordId": "SDAIA-PDPL-EXECUTIVE-REGULATIONS-CURRENT"}
+      ],
+      "questionForReviewer": "What controller/processor role, lawful basis, notice, minimization, retention, rights, security, processor and incident controls apply to the actual deployment data flows?",
+      "nonConclusion": "Source mapping does not establish PDPL compliance.",
+      "activationAuthorized": false
+    },
+    {
+      "candidateId": "E2-SDAIA-CROSS-BORDER-011",
+      "domain": "PERSONAL_DATA_CROSS_BORDER_TRANSFER",
+      "reviewClass": "SAUDI_DATA_LEGAL_REVIEW",
+      "candidateState": "UNDER_REVIEW",
+      "trigger": {"all": [{"field": "crossBorderPersonalDataProcessing", "equals": true}]},
+      "sourceEvidenceRefs": [
+        {"registerId": "STARTAK-SAUDI-REGULATORY-CONTEXT-SOURCE-EVIDENCE-2026-09-08", "recordId": "SDAIA-PDPL-CROSS-BORDER-TRANSFER-REGULATION"}
+      ],
+      "questionForReviewer": "What cross-border transfer basis, safeguards, assessment and minimum-necessary controls apply to the actual cloud/connector/data-flow architecture?",
+      "nonConclusion": "No cross-border transfer authorization is inferred by the system.",
+      "activationAuthorized": false
+    },
+    {
+      "candidateId": "E2-REGA-CONTRIBUTIONS-012",
+      "domain": "REAL_ESTATE_CONTRIBUTIONS",
+      "reviewClass": "SAUDI_LEGAL_AND_PROFESSIONAL_REVIEW",
+      "candidateState": "UNDER_REVIEW",
+      "trigger": {"all": [{"field": "realEstateContributionContext", "equals": true}]},
+      "sourceEvidenceRefs": [
+        {"registerId": "STARTAK-SAUDI-REGULATORY-CONTEXT-SOURCE-EVIDENCE-2026-09-08", "recordId": "REGA-REAL-ESTATE-CONTRIBUTIONS-VALUATION-RULE"}
+      ],
+      "questionForReviewer": "Is this assignment governed by the real-estate contributions regulation and, if so, what multi-report reconciliation/exclusion controls apply?",
+      "nonConclusion": "The contributions reconciliation rule is never generalized to ordinary valuations.",
+      "activationAuthorized": false
+    },
+    {
+      "candidateId": "E2-IPMS-MEASUREMENT-013",
+      "domain": "PROPERTY_MEASUREMENT",
+      "reviewClass": "PROFESSIONAL_METHODOLOGY_REVIEW",
+      "candidateState": "UNDER_REVIEW",
+      "trigger": {"all": [{"field": "measurementStandardRequested", "equals": "IPMS_ALL_BUILDINGS"}]},
+      "sourceEvidenceRefs": [
+        {"registerId": "STARTAK-OFFICIAL-STANDARDS-LICENSING-SOURCE-EVIDENCE-PHASE2-2026-09-08", "recordId": "IPMSC-IPMS-ALL-BUILDINGS-CURRENT"},
+        {"registerId": "STARTAK-OFFICIAL-STANDARDS-LICENSING-SOURCE-EVIDENCE-PHASE2-2026-09-08", "recordId": "RICS-IPMS-ALL-BUILDINGS-2023"}
+      ],
+      "questionForReviewer": "Is IPMS the appropriate measurement convention for the assignment and how must it be reconciled with Saudi title/cadastral/planning definitions?",
+      "nonConclusion": "IPMS is not globally forced and does not override Saudi legal/property definitions.",
+      "activationAuthorized": false
+    },
+    {
+      "candidateId": "E2-ICMS-COST-014",
+      "domain": "COST_AND_CARBON_REPORTING",
+      "reviewClass": "PROFESSIONAL_METHODOLOGY_REVIEW",
+      "candidateState": "UNDER_REVIEW",
+      "trigger": {"all": [{"field": "costFrameworkRequested", "equals": "ICMS_3"}]},
+      "sourceEvidenceRefs": [
+        {"registerId": "STARTAK-OFFICIAL-STANDARDS-LICENSING-SOURCE-EVIDENCE-PHASE2-2026-09-08", "recordId": "ICMSC-ICMS3-CURRENT"},
+        {"registerId": "STARTAK-OFFICIAL-STANDARDS-LICENSING-SOURCE-EVIDENCE-PHASE2-2026-09-08", "recordId": "RICS-ICMS3-PUBLICATION"}
+      ],
+      "questionForReviewer": "Is ICMS 3 appropriate for this cost/carbon reporting context and what local/project-specific cost evidence and QS review remain required?",
+      "nonConclusion": "ICMS does not create a property value or replace local project cost evidence.",
+      "activationAuthorized": false
+    },
+    {
+      "candidateId": "E2-APPRAISAL-INSTITUTE-REFERENCE-015",
+      "domain": "COMPARATIVE_PROFESSIONAL_REFERENCE",
+      "reviewClass": "REFERENCE_ONLY",
+      "candidateState": "UNDER_REVIEW",
+      "trigger": {"all": [{"field": "comparativeProfessionalReference", "equals": "APPRAISAL_INSTITUTE"}]},
+      "sourceEvidenceRefs": [
+        {"registerId": "STARTAK-OFFICIAL-STANDARDS-LICENSING-SOURCE-EVIDENCE-PHASE2-2026-09-08", "recordId": "APPRAISAL-INSTITUTE-STANDARDS-OF-PROFESSIONAL-PRACTICE-CURRENT"},
+        {"registerId": "STARTAK-OFFICIAL-STANDARDS-LICENSING-SOURCE-EVIDENCE-PHASE2-2026-09-08", "recordId": "APPRAISAL-INSTITUTE-SVP-EFFECTIVE-2021-11-12"}
+      ],
+      "questionForReviewer": "Is this reference being used only as comparative professional guidance, or does a specific engagement/member requirement make it applicable?",
+      "nonConclusion": "Appraisal Institute references are not treated as Saudi mandatory standards by default.",
+      "activationAuthorized": false
+    },
+    {
+      "candidateId": "E2-RICS-REFERENCE-016",
+      "domain": "RICS_PROFESSIONAL_STANDARDS",
+      "reviewClass": "PROFESSIONAL_STANDARDS_REVIEW",
+      "candidateState": "UNDER_REVIEW",
+      "trigger": {"all": [{"field": "ricsContextRequested", "equals": true}]},
+      "sourceEvidenceRefs": [
+        {"registerId": "STARTAK-OFFICIAL-VALUATION-STANDARDS-SOURCE-EVIDENCE-2026-09-08", "recordId": "RICS-RED-BOOK-2025-EFFECTIVE"},
+        {"registerId": "STARTAK-OFFICIAL-VALUATION-STANDARDS-SOURCE-EVIDENCE-2026-09-08", "recordId": "TAQEEM-RICS-ARABIC-2025"}
+      ],
+      "questionForReviewer": "Does the engagement, valuer membership, client instruction or reporting context require RICS Red Book application, subject to Saudi legal precedence?",
+      "nonConclusion": "RICS is not assumed mandatory for every Saudi valuation purpose.",
+      "activationAuthorized": false
+    }
+  ],
+  "authorityBoundary": {
+    "legalConclusionEstablished": false,
+    "professionalApplicabilityEstablished": false,
+    "formalStandardsConformanceEstablished": false,
+    "saudiProfessionalLicensingEstablished": false,
+    "reviewerCredentialsVerified": false,
+    "pdplComplianceEstablished": false,
+    "taxComplianceEstablished": false,
+    "financialReportingComplianceEstablished": false,
+    "certifiedValuationAuthorityEstablished": false,
+    "externalIssuanceAuthorized": false,
+    "releaseAuthorized": false,
+    "mergeAuthorized": false,
+    "deploymentAuthorized": false,
+    "transactionAuthorized": false
+  }
+}

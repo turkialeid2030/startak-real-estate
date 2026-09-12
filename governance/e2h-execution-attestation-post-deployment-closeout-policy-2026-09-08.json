@@ -1,0 +1,55 @@
+{
+  "policyId": "STARTAK-E2H-EXECUTION-ATTESTATION-POST-DEPLOYMENT-CLOSEOUT-POLICY-2026-09-08",
+  "createdAt": "2026-09-08T16:20:00+03:00",
+  "operatingMode": "UNLICENSED_DECISION_SUPPORT",
+  "status": "ENGINEERING_EXECUTION_CLOSEOUT_GATE_DEFINED_PRODUCTION_EXECUTION_EVIDENCE_NOT_CONFIGURED",
+  "purpose": "Define a fail-closed attestation and closeout gate for execution after a qualified E2G human release decision packet. The gate verifies externally attested merge execution, deployment execution, post-deployment smoke validation and rollback readiness for the exact approved release candidate. It does not itself perform merge/deployment or establish professional valuation, external issuance or transaction authority.",
+  "requiredUpstreamStatus": "HUMAN_RELEASE_DECISIONS_COMPLETE_PENDING_EXECUTION",
+  "requiredUpstreamAuthorizationFlags": [
+    "releaseAuthorized",
+    "mergeAuthorized",
+    "deploymentAuthorized"
+  ],
+  "trustedExecutionAttestorRegistryRequired": true,
+  "trustedExecutionAttestorRegistryHashPinnedOutOfBandRequired": true,
+  "callerDeclaredExecutionAccepted": false,
+  "signatureAlgorithmsAllowed": [
+    "RSA-SHA256"
+  ],
+  "requiredAttestationTypes": [
+    "MERGE_EXECUTION_ATTESTATION",
+    "DEPLOYMENT_EXECUTION_ATTESTATION",
+    "POST_DEPLOYMENT_SMOKE_VALIDATION",
+    "ROLLBACK_READINESS_VALIDATION"
+  ],
+  "allowedAttestationResults": [
+    "VERIFIED",
+    "REJECTED",
+    "INCONCLUSIVE"
+  ],
+  "deploymentRequiresVerifiedMergeExecution": true,
+  "postDeploymentSmokeRequiresVerifiedDeployment": true,
+  "rollbackReadinessRequiredForCloseout": true,
+  "sameActorMayAttestDeploymentAndSmoke": false,
+  "automaticMergeExecutionAllowed": false,
+  "automaticDeploymentExecutionAllowed": false,
+  "automaticProfessionalAuthorityPromotionAllowed": false,
+  "productionExecutionAttestorRegistryConfigured": false,
+  "productionMergeExecutionEvidencePresent": false,
+  "productionDeploymentExecutionEvidencePresent": false,
+  "productionPostDeploymentSmokeEvidencePresent": false,
+  "productionRollbackReadinessEvidencePresent": false,
+  "maximumEngineeringStatus": "EXECUTION_AND_POST_DEPLOYMENT_CLOSEOUT_COMPLETE",
+  "authorityBoundary": {
+    "mergeExecuted": true,
+    "deploymentExecuted": true,
+    "postDeploymentSmokePassed": true,
+    "rollbackReadinessValidated": true,
+    "formalStandardsConformanceEstablished": false,
+    "standardsOrRulesActivated": false,
+    "saudiProfessionalLicensingEstablished": false,
+    "certifiedValuationAuthorityEstablished": false,
+    "externalIssuanceAuthorized": false,
+    "transactionAuthorized": false
+  }
+}

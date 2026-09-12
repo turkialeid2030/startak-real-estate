@@ -1,0 +1,36 @@
+name: Source Evidence Convergence Verify
+
+on:
+  pull_request:
+    paths:
+      - 'governance/source-evidence-convergence-manifest-2026-09-08.json'
+      - 'governance/official-valuation-standards-source-evidence-2026-09-08.json'
+      - 'governance/official-saudi-regulatory-source-evidence-2026-09-08.json'
+      - 'governance/saudi-regulatory-context-source-evidence-2026-09-08.json'
+      - 'governance/official-standards-and-licensing-source-evidence-phase2-2026-09-08.json'
+      - 'tests/architecture/run_source_evidence_convergence.js'
+      - '.github/workflows/source-evidence-convergence-verify.yml'
+      - 'docs/SOURCE_EVIDENCE_CONVERGENCE_2026-09-08.md'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify converged source evidence lineage and authority boundaries
+        run: node tests/architecture/run_source_evidence_convergence.js
+      - name: Re-verify Saudi regulated-context evidence preserved from parallel PR 190
+        run: node tests/architecture/run_saudi_regulatory_context_source_evidence.js
+      - name: Re-verify phase 1 Saudi source evidence
+        run: node tests/architecture/run_official_saudi_regulatory_source_evidence.js
+      - name: Re-verify phase 2 standards and licensing source evidence
+        run: node tests/architecture/run_official_standards_and_licensing_source_evidence_phase2.js
+      - name: Canonical release verification
+        run: npm run release:verify
