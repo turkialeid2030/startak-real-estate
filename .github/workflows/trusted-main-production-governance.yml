@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  TRUSTED_VERIFIER_COMMIT_SHA: 593a417317ce6f4752e885f81da802da37ca6ea1
+  TRUSTED_VERIFIER_COMMIT_SHA: 952c1d33ae2e86887cd13a8186d39ad10dea0113
 
 jobs:
   trusted-main-production-governance:
@@ -64,11 +64,14 @@ jobs:
           }
           echo "Trusted verifier identity confirmed at ${expected:0:12}."
 
-      - name: Verify real E2F and E2G production governance for exact PR head
+      - name: Verify real E2E, E2F and E2G production governance for exact PR head
         working-directory: .trusted-verifier
         env:
+          STARTAK_E2E_PACKET_B64: ${{ secrets.STARTAK_E2E_PACKET_B64 }}
+          STARTAK_E2E_PACKET_PIN_SHA256: ${{ secrets.STARTAK_E2E_PACKET_PIN_SHA256 }}
           STARTAK_E2F_PACKET_B64: ${{ secrets.STARTAK_E2F_PACKET_B64 }}
           STARTAK_E2F_PACKET_PIN_SHA256: ${{ secrets.STARTAK_E2F_PACKET_PIN_SHA256 }}
+          STARTAK_E2F_VERIFIER_REGISTRY_B64: ${{ secrets.STARTAK_E2F_VERIFIER_REGISTRY_B64 }}
           STARTAK_E2F_VERIFIER_REGISTRY_PIN_SHA256: ${{ secrets.STARTAK_E2F_VERIFIER_REGISTRY_PIN_SHA256 }}
           STARTAK_E2G_PACKET_B64: ${{ secrets.STARTAK_E2G_PACKET_B64 }}
           STARTAK_E2G_PACKET_PIN_SHA256: ${{ secrets.STARTAK_E2G_PACKET_PIN_SHA256 }}
@@ -92,8 +95,9 @@ jobs:
             echo "- Authorized source commit: \`${PR_HEAD_SHA}\`"
             echo "- Main base commit: \`${PR_BASE_SHA}\`"
             echo "- Immutable verifier commit: \`${TRUSTED_VERIFIER_COMMIT_SHA}\`"
-            echo '- Real E2F packet and verifier-registry pins: verified.'
-            echo '- Real E2G packet and release-authority-registry pin: verified.'
+            echo '- Upstream E2E packet and out-of-band packet pin: verified.'
+            echo '- Real E2F packet, full externally governed verifier registry, registry pin and RSA-SHA256 validation signatures: cryptographically rebuilt and verified.'
+            echo '- Real E2G packet and release-authority registry: cryptographically rebuilt and verified.'
             echo '- Human RELEASE / MERGE / DEPLOYMENT RSA-SHA256 decisions: cryptographically rebuilt and verified.'
             echo '- PR-head code was not checked out or executed in the secret-bearing verifier step.'
             echo '- This check does not merge or deploy.'
