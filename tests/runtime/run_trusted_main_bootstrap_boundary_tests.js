@@ -85,7 +85,7 @@ for (const secret of requiredGovernanceSecrets) {
   const escaped = secret.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   assert.match(
     trusted,
-    new RegExp(`${escaped}: \\$\\{\\{ secrets\\.${escaped} \\$\\}\\}`),
+    new RegExp(`${escaped}: \\$\\{\\{ secrets\\.${escaped} \\}\\}`),
     `trusted main governance must consume protected secret ${secret}`,
   );
 }
