@@ -170,5 +170,4 @@ export default function StrictArabicSurfaceGuard() {
   return null;
 }
 
-module.exports.translateArabicSurfaceText = translateArabicSurfaceText;
-module.exports.translateAttribute = translateAttribute;
+export { translateArabicSurfaceText, translateAttribute };
