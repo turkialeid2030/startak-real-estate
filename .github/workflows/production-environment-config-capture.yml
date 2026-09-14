@@ -1,0 +1,307 @@
+name: Production Environment Config Capture
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main_sha:
+        description: 'Exact trusted main commit SHA from which this read-only capture is authorized to run'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-environment-config-capture
+  cancel-in-progress: false
+
+env:
+  FROZEN_CANDIDATE_SOURCE_SHA: 21f51ad5b4c6787c556aa3b8528d9c3ec17f12c3
+  SELECTED_RELEASE_ARTIFACT_SHA256: 6d0a43021a7758e9e83c026ada2c43b274b109146e5d078015505dfb3fea5bea
+  CF_PROJECT_NAME: startak-real-estate
+  CF_PRODUCTION_HOST: startak-real-estate.pages.dev
+  ENVIRONMENT_REF: cloudflare-pages:startak-real-estate:production
+  EVIDENCE_DIR: runtime-evidence/production-environment-config
+
+jobs:
+  capture:
+    name: production-environment-config-capture
+    runs-on: ubuntu-24.04
+    environment: production
+    timeout-minutes: 10
+    env:
+      CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CF_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+
+    steps:
+      - name: Bind capture to trusted main and frozen release identity
+        shell: bash
+        env:
+          EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == 'refs/heads/main' ]] || {
+            echo "Environment capture must execute from trusted main; got ${GITHUB_REF:-<none>}."
+            exit 1
+          }
+          [[ "$EXPECTED_MAIN_SHA" =~ ^[0-9a-fA-F]{40}$ ]] || {
+            echo 'expected_main_sha must be an exact 40-character commit SHA.'
+            exit 1
+          }
+          [[ "${EXPECTED_MAIN_SHA,,}" == "${GITHUB_SHA,,}" ]] || {
+            echo "Expected trusted main SHA does not match workflow SHA. expected=$EXPECTED_MAIN_SHA workflow=$GITHUB_SHA"
+            exit 1
+          }
+          [[ "$FROZEN_CANDIDATE_SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]] || exit 1
+          [[ "$SELECTED_RELEASE_ARTIFACT_SHA256" =~ ^[0-9a-f]{64}$ ]] || exit 1
+          echo "Trusted collector commit: ${GITHUB_SHA}"
+          echo "Frozen candidate source: ${FROZEN_CANDIDATE_SOURCE_SHA}"
+          echo "Selected release artifact: ${SELECTED_RELEASE_ARTIFACT_SHA256}"
+
+      - name: Preflight protected provider access
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${CF_API_TOKEN:-}" || { echo 'CLOUDFLARE_API_TOKEN Environment secret is missing'; exit 1; }
+          test -n "${CF_ACCOUNT_ID:-}" || { echo 'CLOUDFLARE_ACCOUNT_ID Environment/repository variable is missing'; exit 1; }
+          echo 'Protected Cloudflare read credentials are available after Environment approval.'
+
+      - name: Read Cloudflare production configuration without mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
+
+          token_json="$(curl --fail-with-body --silent --show-error "${auth[@]}" \
+            https://api.cloudflare.com/client/v4/user/tokens/verify)"
+          jq -e '.success == true and .result.status == "active"' <<<"$token_json" >/dev/null
+
+          project_json="$(curl --fail-with-body --silent --show-error "${auth[@]}" \
+            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}")"
+          jq -e '.success == true' <<<"$project_json" >/dev/null
+          jq -e --arg name "$CF_PROJECT_NAME" '.result.name == $name' <<<"$project_json" >/dev/null
+          jq -e '.result.production_branch == "main"' <<<"$project_json" >/dev/null
+
+          access_json="$(curl --fail-with-body --silent --show-error "${auth[@]}" \
+            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/access/apps?per_page=1000")"
+          jq -e '.success == true' <<<"$access_json" >/dev/null
+
+          kv_json="$(curl --fail-with-body --silent --show-error "${auth[@]}" \
+            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces?per_page=1000")"
+          jq -e '.success == true' <<<"$kv_json" >/dev/null
+
+          printf '%s' "$project_json" > /tmp/cf-project.json
+          printf '%s' "$access_json" > /tmp/cf-access.json
+          printf '%s' "$kv_json" > /tmp/cf-kv.json
+          printf '%s' "$CF_ACCOUNT_ID" | sha256sum | awk '{print $1}' > /tmp/cf-account-id.sha256
+
+          echo 'Cloudflare production configuration read completed using GET-only provider calls.'
+
+      - name: Build normalized secret-free production configuration manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          account_sha="$(cat /tmp/cf-account-id.sha256)"
+
+          jq -S -n \
+            --arg provider 'cloudflare' \
+            --arg environmentRef "$ENVIRONMENT_REF" \
+            --arg projectName "$CF_PROJECT_NAME" \
+            --arg productionHost "$CF_PRODUCTION_HOST" \
+            --arg accountIdSha256 "$account_sha" \
+            --slurpfile project /tmp/cf-project.json \
+            --slurpfile access /tmp/cf-access.json \
+            --slurpfile kv /tmp/cf-kv.json \
+            '
+            def env_vars($cfg):
+              (($cfg.env_vars // {}) | to_entries | map(
+                .key as $name
+                | (.value.type // "unknown") as $type
+                | {
+                    name: $name,
+                    type: $type,
+                    value: (
+                      if ($type == "secret_text")
+                         or ($name | test("(KEY|TOKEN|SECRET|PASSWORD|PASSCODE|SALT|CREDENTIAL|AUTH)"; "i"))
+                      then "<REDACTED_SENSITIVE_VALUE>"
+                      else (.value.value // null)
+                      end
+                    )
+                  }
+              ) | sort_by(.name));
+
+            def kv_bindings($cfg; $allKv):
+              (($cfg.kv_namespaces // {}) | to_entries | map(
+                {
+                  binding: .key,
+                  namespaceId: (.value.namespace_id // .value.id // null)
+                } as $binding
+                | $binding + {
+                    title: (
+                      $allKv
+                      | map(select(.id == $binding.namespaceId))
+                      | first
+                      | .title // null
+                    )
+                  }
+              ) | sort_by(.binding));
+
+            def d1_bindings($cfg):
+              (($cfg.d1_databases // {}) | to_entries | map({
+                binding: .key,
+                databaseId: (.value.id // .value.database_id // null)
+              }) | sort_by(.binding));
+
+            def r2_bindings($cfg):
+              (($cfg.r2_buckets // {}) | to_entries | map({
+                binding: .key,
+                bucketName: (.value.name // .value.bucket_name // null)
+              }) | sort_by(.binding));
+
+            ($project[0].result.deployment_configs.production // {}) as $prod
+            | ($kv[0].result // []) as $allKv
+            | ($access[0].result
+                | map(select(
+                    (.domain? == $productionHost)
+                    or ((.destinations? // []) | any(
+                      ((.uri? // .hostname? // .host? // "") == $productionHost)
+                      or ((.uri? // "") == ("https://" + $productionHost))
+                      or ((.uri? // "") == ("https://" + $productionHost + "/"))
+                    ))
+                  ))
+                | map({
+                    id: .id,
+                    name: .name,
+                    type: .type,
+                    domain: (.domain // null),
+                    aud: (.aud // null),
+                    sessionDuration: (.session_duration // null)
+                  })
+                | sort_by(.id)) as $productionAccessApps
+            | {
+                schemaVersion: 1,
+                manifestType: "GOVERNED_PRODUCTION_ENVIRONMENT_CONFIG_SNAPSHOT",
+                provider: $provider,
+                environmentRef: $environmentRef,
+                accountIdSha256: $accountIdSha256,
+                pagesProject: {
+                  name: $projectName,
+                  productionHost: $productionHost,
+                  productionBranch: ($project[0].result.production_branch // null),
+                  subdomain: ($project[0].result.subdomain // null),
+                  source: {
+                    type: ($project[0].result.source.type // null),
+                    owner: ($project[0].result.source.config.owner // null),
+                    repositoryName: ($project[0].result.source.config.repo_name // null),
+                    productionBranch: ($project[0].result.source.config.production_branch // null)
+                  },
+                  buildConfig: {
+                    buildCommand: ($project[0].result.build_config.build_command // null),
+                    destinationDir: ($project[0].result.build_config.destination_dir // null),
+                    rootDir: ($project[0].result.build_config.root_dir // null),
+                    webAnalyticsTokenPresent: (($project[0].result.deployment_configs.production.env_vars.CF_WEB_ANALYTICS_TOKEN // null) != null)
+                  }
+                },
+                productionRuntime: {
+                  compatibilityDate: ($prod.compatibility_date // null),
+                  compatibilityFlags: (($prod.compatibility_flags // []) | sort),
+                  failOpen: $prod.fail_open,
+                  envVars: env_vars($prod),
+                  kvNamespaces: kv_bindings($prod; $allKv),
+                  d1Databases: d1_bindings($prod),
+                  r2Buckets: r2_bindings($prod)
+                },
+                productionAccessApplications: $productionAccessApps,
+                secretHandling: {
+                  plaintextSecretsIncluded: false,
+                  secretTextValuesRedacted: true,
+                  sensitiveNamePatternRedactionApplied: true,
+                  accountIdentifierStoredAsSha256Only: true,
+                  unrelatedAccountKvNamespacesExcluded: true
+                }
+              }
+            ' > "$EVIDENCE_DIR/environment-config-manifest.json"
+
+          jq -e '.secretHandling.plaintextSecretsIncluded == false' \
+            "$EVIDENCE_DIR/environment-config-manifest.json" >/dev/null
+
+          if grep -Fq "$CF_API_TOKEN" "$EVIDENCE_DIR/environment-config-manifest.json"; then
+            echo 'Secret-leak guard failed: API token appeared in normalized manifest.'
+            exit 1
+          fi
+
+          environment_config_sha="$(sha256sum "$EVIDENCE_DIR/environment-config-manifest.json" | awk '{print $1}')"
+          printf '%s  %s\n' "$environment_config_sha" 'environment-config-manifest.json' \
+            > "$EVIDENCE_DIR/environment-config.sha256"
+
+          echo "ENVIRONMENT_CONFIG_SHA256=$environment_config_sha"
+          echo "ENVIRONMENT_REF=$ENVIRONMENT_REF"
+
+      - name: Record traceable non-authorizing capture evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          environment_config_sha="$(awk '{print $1}' "$EVIDENCE_DIR/environment-config.sha256")"
+          generated_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+
+          jq -S -n \
+            --arg frozenCandidateSourceSha "$FROZEN_CANDIDATE_SOURCE_SHA" \
+            --arg selectedReleaseArtifactSha256 "$SELECTED_RELEASE_ARTIFACT_SHA256" \
+            --arg environmentRef "$ENVIRONMENT_REF" \
+            --arg environmentConfigSha256 "$environment_config_sha" \
+            --arg trustedCollectorMainSha "$GITHUB_SHA" \
+            --arg githubRunId "$GITHUB_RUN_ID" \
+            --arg githubRunAttempt "$GITHUB_RUN_ATTEMPT" \
+            --arg generatedAt "$generated_at" \
+            '{
+              schemaVersion: 1,
+              evidenceType: "PRODUCTION_ENVIRONMENT_CONFIG_CAPTURE",
+              frozenCandidateSourceSha: $frozenCandidateSourceSha,
+              selectedReleaseArtifactSha256: $selectedReleaseArtifactSha256,
+              environmentRef: $environmentRef,
+              environmentConfigSha256: $environmentConfigSha256,
+              trustedCollectorMainSha: $trustedCollectorMainSha,
+              githubRunId: $githubRunId,
+              githubRunAttempt: $githubRunAttempt,
+              providerReadOnlyCapture: true,
+              environmentRefSelectionPerformed: false,
+              releaseCandidateIdSelectionPerformed: false,
+              deploymentPerformed: false,
+              releaseAuthorized: false,
+              mergeAuthorized: false,
+              transactionAuthorized: false,
+              canonicalBaselineActivated: false,
+              evidenceBoundary: "READ_ONLY_PROVIDER_CONFIG_CAPTURE_NOT_DEPLOYMENT_OR_AUTHORIZATION_PROOF",
+              generatedAt: $generatedAt
+            }' > "$EVIDENCE_DIR/environment-config-capture-evidence.json"
+
+      - name: Upload production environment configuration evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: production-environment-config-capture
+          path: runtime-evidence/production-environment-config
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+      - name: Publish non-authorizing summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## Production Environment Config Capture'
+            echo
+            echo "- Frozen candidate source: \`${FROZEN_CANDIDATE_SOURCE_SHA}\`"
+            echo "- Selected release artifact SHA-256: \`${SELECTED_RELEASE_ARTIFACT_SHA256}\`"
+            echo "- Candidate environment ref: \`${ENVIRONMENT_REF}\`"
+            if [[ -f "$EVIDENCE_DIR/environment-config.sha256" ]]; then
+              digest="$(awk '{print $1}' "$EVIDENCE_DIR/environment-config.sha256")"
+              echo "- Normalized environment-config SHA-256: \`${digest}\`"
+            fi
+            echo '- Capture used GET-only Cloudflare provider calls.'
+            echo '- Secret-text and sensitive-name environment values are redacted from retained evidence.'
+            echo '- Unrelated account KV namespaces are excluded from the retained manifest.'
+            echo '- Environment-ref selection and release-candidate-id selection remain separate governed decisions.'
+            echo '- No deployment, release, merge, canonical activation, Go-Live, or transaction authority is granted.'
+          } >> "$GITHUB_STEP_SUMMARY"
