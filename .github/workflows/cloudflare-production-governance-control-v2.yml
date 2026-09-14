@@ -1,0 +1,410 @@
+name: Cloudflare Production Governance Control V2
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main_sha:
+        description: 'Exact trusted main SHA authorized for the control-plane mutation'
+        required: true
+        type: string
+      confirm_control_plane_mutation:
+        description: 'Type I_AUTHORIZE_GOVERNANCE_CONTROL_PLANE_MUTATION'
+        required: true
+        type: string
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-production-governance-control
+  cancel-in-progress: false
+
+env:
+  FROZEN_CANDIDATE_SOURCE_SHA: 21f51ad5b4c6787c556aa3b8528d9c3ec17f12c3
+  SELECTED_RELEASE_ARTIFACT_SHA256: 6d0a43021a7758e9e83c026ada2c43b274b109146e5d078015505dfb3fea5bea
+  CF_PROJECT_NAME: startak-real-estate
+  CF_PRODUCTION_HOST: startak-real-estate.pages.dev
+  ENVIRONMENT_REF: cloudflare-pages:startak-real-estate:production
+  EVIDENCE_DIR: runtime-evidence/cloudflare-production-governance-control-v2
+
+jobs:
+  control:
+    name: cloudflare-production-governance-control-v2
+    if: >-
+      ${{
+        github.event_name == 'workflow_dispatch' ||
+        (
+          github.event_name == 'issue_comment' &&
+          github.event.issue.number == 341 &&
+          github.event.comment.author_association == 'OWNER' &&
+          github.event.comment.user.login == github.repository_owner &&
+          startsWith(github.event.comment.body, '/startak remediate-production-governance-v2 ')
+        )
+      }}
+    runs-on: ubuntu-24.04
+    environment: production
+    timeout-minutes: 15
+    env:
+      CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CF_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+
+    steps:
+      - name: Bind mutation to trusted main and explicit owner authorization
+        shell: bash
+        env:
+          DISPATCH_EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha || '' }}
+          DISPATCH_CONFIRMATION: ${{ inputs.confirm_control_plane_mutation || '' }}
+          OWNER_COMMAND_BODY: ${{ github.event.comment.body || '' }}
+        run: |
+          set -euo pipefail
+          case "$GITHUB_EVENT_NAME" in
+            workflow_dispatch)
+              expected="$DISPATCH_EXPECTED_MAIN_SHA"
+              [[ "$DISPATCH_CONFIRMATION" == 'I_AUTHORIZE_GOVERNANCE_CONTROL_PLANE_MUTATION' ]] || {
+                echo 'Explicit control-plane mutation confirmation is missing or incorrect.'
+                exit 1
+              }
+              ;;
+            issue_comment)
+              if [[ ! "$OWNER_COMMAND_BODY" =~ ^/startak[[:space:]]remediate-production-governance-v2[[:space:]]([0-9a-fA-F]{40})$ ]]; then
+                echo 'Owner command must be exactly: /startak remediate-production-governance-v2 <40-char-main-sha>'
+                exit 1
+              fi
+              expected="${BASH_REMATCH[1]}"
+              ;;
+            *)
+              echo "Unsupported event: $GITHUB_EVENT_NAME"
+              exit 1
+              ;;
+          esac
+          [[ "$GITHUB_REF" == 'refs/heads/main' ]] || { echo "Mutation must run from main; got ${GITHUB_REF:-<none>}."; exit 1; }
+          [[ "$expected" =~ ^[0-9a-fA-F]{40}$ ]] || { echo 'Expected SHA must be 40 hex characters.'; exit 1; }
+          [[ "${expected,,}" == "${GITHUB_SHA,,}" ]] || { echo "Expected main SHA mismatch: expected=$expected workflow=$GITHUB_SHA"; exit 1; }
+          echo "Trusted governance-control main SHA: $GITHUB_SHA"
+
+      - name: Preflight protected Cloudflare access and capture stable pre-state
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          test -n "${CF_API_TOKEN:-}" || { echo 'CLOUDFLARE_API_TOKEN is missing'; exit 1; }
+          test -n "${CF_ACCOUNT_ID:-}" || { echo 'CLOUDFLARE_ACCOUNT_ID is missing'; exit 1; }
+          auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
+          token_json="$(curl --fail-with-body --silent --show-error "${auth[@]}" https://api.cloudflare.com/client/v4/user/tokens/verify)"
+          jq -e '.success == true and .result.status == "active"' <<<"$token_json" >/dev/null
+
+          project_json="$(curl --fail-with-body --silent --show-error "${auth[@]}" \
+            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}")"
+          jq -e '.success == true' <<<"$project_json" >/dev/null
+          jq -e --arg name "$CF_PROJECT_NAME" '.result.name == $name and .result.production_branch == "main" and .result.source.type == "github"' <<<"$project_json" >/dev/null
+          printf '%s' "$project_json" > /tmp/cf-project-before-v2.json
+
+          deployments_json="$(curl --fail-with-body --silent --show-error "${auth[@]}" \
+            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}/deployments?env=production&per_page=20")"
+          jq -e '.success == true' <<<"$deployments_json" >/dev/null
+          printf '%s' "$deployments_json" > /tmp/cf-deployments-before-v2.json
+
+          before_auto="$(jq -r '.result.source.config.production_deployments_enabled | if . == true then "true" elif . == false then "false" else "null" end' /tmp/cf-project-before-v2.json)"
+          before_fail_open="$(jq -r '.result.deployment_configs.production.fail_open | if . == true then "true" elif . == false then "false" else "null" end' /tmp/cf-project-before-v2.json)"
+          before_public_ai="$(jq -r '.result.deployment_configs.production.env_vars.RIAI_PUBLIC_AI_ENABLED.value // "<missing>"' /tmp/cf-project-before-v2.json)"
+          before_deployment_id="$(jq -r '(.result | map(select((.environment // "") == "production" and (.latest_stage.status // "") == "success")) | first.id) // empty' /tmp/cf-deployments-before-v2.json)"
+          before_deployed_sha="$(jq -r '(.result | map(select((.environment // "") == "production" and (.latest_stage.status // "") == "success")) | first | (.source.config.commit_hash // .deployment_trigger.metadata.commit_hash)) // empty' /tmp/cf-deployments-before-v2.json | tr '[:upper:]' '[:lower:]')"
+          test -n "$before_deployment_id" || { echo 'Could not identify current successful production deployment.'; exit 1; }
+          [[ "$before_deployed_sha" =~ ^[0-9a-f]{40}$ ]] || { echo 'Current production deployed SHA is missing/non-canonical.'; exit 1; }
+          [[ "$before_auto" != 'null' ]] || { echo 'Cloudflare did not expose production_deployments_enabled; fail closed.'; exit 1; }
+
+          printf '%s' "$before_auto" > /tmp/before-auto-v2
+          printf '%s' "$before_fail_open" > /tmp/before-fail-open-v2
+          printf '%s' "$before_public_ai" > /tmp/before-public-ai-v2
+          printf '%s' "$before_deployment_id" > /tmp/before-deployment-id-v2
+          printf '%s' "$before_deployed_sha" > /tmp/before-deployed-sha-v2
+          echo "Pre-state: auto=$before_auto fail_open=$before_fail_open public_ai=$before_public_ai deployment=$before_deployment_id sha=$before_deployed_sha"
+
+      - name: Disable automatic production deployments only
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
+          endpoint="https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}"
+
+          minimal_payload='{"source":{"type":"github","config":{"production_deployments_enabled":false}}}'
+          status="$(curl -sS -o /tmp/source-patch-minimal.json -w '%{http_code}' -X PATCH "${auth[@]}" "$endpoint" --data "$minimal_payload")"
+          if [[ "$status" =~ ^2 ]]; then
+            jq -e '.success == true' /tmp/source-patch-minimal.json >/dev/null
+            echo 'Minimal source-control PATCH accepted.'
+          else
+            echo "Minimal source-control PATCH returned HTTP $status; retrying once with the current full supported source configuration."
+            jq -c '{success,errors:((.errors // []) | map({code,message}))}' /tmp/source-patch-minimal.json 2>/dev/null || true
+
+            source_payload="$(jq -c '
+              .result.source as $s
+              | {
+                  source: {
+                    type: $s.type,
+                    config: ({
+                      deployments_enabled: $s.config.deployments_enabled,
+                      owner: $s.config.owner,
+                      owner_id: $s.config.owner_id,
+                      path_excludes: ($s.config.path_excludes // []),
+                      path_includes: ($s.config.path_includes // []),
+                      pr_comments_enabled: $s.config.pr_comments_enabled,
+                      preview_branch_excludes: ($s.config.preview_branch_excludes // []),
+                      preview_branch_includes: ($s.config.preview_branch_includes // []),
+                      preview_deployment_setting: $s.config.preview_deployment_setting,
+                      production_branch: $s.config.production_branch,
+                      production_deployments_enabled: false,
+                      repo_id: $s.config.repo_id,
+                      repo_name: $s.config.repo_name
+                    } | with_entries(select(.value != null)))
+                  }
+                }
+            ' /tmp/cf-project-before-v2.json)"
+            status2="$(curl -sS -o /tmp/source-patch-full.json -w '%{http_code}' -X PATCH "${auth[@]}" "$endpoint" --data "$source_payload")"
+            if [[ ! "$status2" =~ ^2 ]]; then
+              echo "Full source-control PATCH failed with HTTP $status2. Safe Cloudflare errors follow:"
+              jq -c '{success,errors:((.errors // []) | map({code,message}))}' /tmp/source-patch-full.json 2>/dev/null || true
+              exit 1
+            fi
+            jq -e '.success == true' /tmp/source-patch-full.json >/dev/null
+            echo 'Full source-control PATCH accepted.'
+          fi
+
+          verify_json="$(curl --fail-with-body --silent --show-error "${auth[@]}" "$endpoint")"
+          jq -e '.success == true and .result.source.config.production_deployments_enabled == false' <<<"$verify_json" >/dev/null || {
+            echo 'Automatic production deployments are not disabled after PATCH.'; exit 1;
+          }
+          echo 'Automatic production deployments are disabled.'
+
+      - name: Set configured public AI off without deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
+          endpoint="https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}"
+          payload='{"deployment_configs":{"production":{"env_vars":{"RIAI_PUBLIC_AI_ENABLED":{"type":"plain_text","value":"false"}}}}}'
+          status="$(curl -sS -o /tmp/public-ai-patch.json -w '%{http_code}' -X PATCH "${auth[@]}" "$endpoint" --data "$payload")"
+          if [[ ! "$status" =~ ^2 ]]; then
+            echo "Public-AI configuration PATCH failed with HTTP $status. Safe Cloudflare errors follow:"
+            jq -c '{success,errors:((.errors // []) | map({code,message}))}' /tmp/public-ai-patch.json 2>/dev/null || true
+            exit 1
+          fi
+          jq -e '.success == true' /tmp/public-ai-patch.json >/dev/null
+          verify_json="$(curl --fail-with-body --silent --show-error "${auth[@]}" "$endpoint")"
+          jq -e '.result.deployment_configs.production.env_vars.RIAI_PUBLIC_AI_ENABLED.value == "false"' <<<"$verify_json" >/dev/null || {
+            echo 'RIAI_PUBLIC_AI_ENABLED was not persisted as false.'; exit 1;
+          }
+          echo 'Provider configuration now has RIAI_PUBLIC_AI_ENABLED=false.'
+
+      - name: Set production fail_open false separately
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
+          endpoint="https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}"
+          payload='{"deployment_configs":{"production":{"fail_open":false}}}'
+          status="$(curl -sS -o /tmp/fail-open-patch.json -w '%{http_code}' -X PATCH "${auth[@]}" "$endpoint" --data "$payload")"
+          if [[ ! "$status" =~ ^2 ]]; then
+            echo "fail_open PATCH failed with HTTP $status. Safe Cloudflare errors follow:"
+            jq -c '{success,errors:((.errors // []) | map({code,message}))}' /tmp/fail-open-patch.json 2>/dev/null || true
+            exit 1
+          fi
+          jq -e '.success == true' /tmp/fail-open-patch.json >/dev/null
+          verify_json="$(curl --fail-with-body --silent --show-error "${auth[@]}" "$endpoint")"
+          jq -e '.result.deployment_configs.production.fail_open == false' <<<"$verify_json" >/dev/null || {
+            echo 'production fail_open was not persisted as false.'; exit 1;
+          }
+          echo 'Provider configuration now has production fail_open=false.'
+
+      - name: Verify final provider state and no deployment caused by remediation
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
+          endpoint="https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}"
+          sleep 3
+          project_json="$(curl --fail-with-body --silent --show-error "${auth[@]}" "$endpoint")"
+          jq -e '.success == true' <<<"$project_json" >/dev/null
+          printf '%s' "$project_json" > /tmp/cf-project-after-v2.json
+
+          jq -e '.result.source.config.production_deployments_enabled == false' /tmp/cf-project-after-v2.json >/dev/null || exit 1
+          jq -e '.result.deployment_configs.production.fail_open == false' /tmp/cf-project-after-v2.json >/dev/null || exit 1
+          jq -e '.result.deployment_configs.production.env_vars.RIAI_PUBLIC_AI_ENABLED.value == "false"' /tmp/cf-project-after-v2.json >/dev/null || exit 1
+
+          jq -S '.result.source | {
+            type,
+            config: {
+              deployments_enabled: .config.deployments_enabled,
+              owner: .config.owner,
+              owner_id: .config.owner_id,
+              repo_name: .config.repo_name,
+              repo_id: .config.repo_id,
+              production_branch: .config.production_branch,
+              preview_deployment_setting: .config.preview_deployment_setting,
+              preview_branch_includes: (.config.preview_branch_includes // []),
+              preview_branch_excludes: (.config.preview_branch_excludes // []),
+              path_includes: (.config.path_includes // []),
+              path_excludes: (.config.path_excludes // []),
+              pr_comments_enabled: .config.pr_comments_enabled
+            }
+          }' /tmp/cf-project-before-v2.json > /tmp/source-stable-before-v2.json
+          jq -S '.result.source | {
+            type,
+            config: {
+              deployments_enabled: .config.deployments_enabled,
+              owner: .config.owner,
+              owner_id: .config.owner_id,
+              repo_name: .config.repo_name,
+              repo_id: .config.repo_id,
+              production_branch: .config.production_branch,
+              preview_deployment_setting: .config.preview_deployment_setting,
+              preview_branch_includes: (.config.preview_branch_includes // []),
+              preview_branch_excludes: (.config.preview_branch_excludes // []),
+              path_includes: (.config.path_includes // []),
+              path_excludes: (.config.path_excludes // []),
+              pr_comments_enabled: .config.pr_comments_enabled
+            }
+          }' /tmp/cf-project-after-v2.json > /tmp/source-stable-after-v2.json
+          cmp -s /tmp/source-stable-before-v2.json /tmp/source-stable-after-v2.json || {
+            echo 'Unexpected source-control field changed outside production_deployments_enabled.'
+            diff -u /tmp/source-stable-before-v2.json /tmp/source-stable-after-v2.json || true
+            exit 1
+          }
+
+          deployments_json="$(curl --fail-with-body --silent --show-error "${auth[@]}" \
+            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}/deployments?env=production&per_page=20")"
+          jq -e '.success == true' <<<"$deployments_json" >/dev/null
+          after_deployment_id="$(jq -r '(.result | map(select((.environment // "") == "production" and (.latest_stage.status // "") == "success")) | first.id) // empty' <<<"$deployments_json")"
+          after_deployed_sha="$(jq -r '(.result | map(select((.environment // "") == "production" and (.latest_stage.status // "") == "success")) | first | (.source.config.commit_hash // .deployment_trigger.metadata.commit_hash)) // empty' <<<"$deployments_json" | tr '[:upper:]' '[:lower:]')"
+          before_deployment_id="$(cat /tmp/before-deployment-id-v2)"
+          before_deployed_sha="$(cat /tmp/before-deployed-sha-v2)"
+          [[ "$after_deployment_id" == "$before_deployment_id" && "$after_deployed_sha" == "$before_deployed_sha" ]] || {
+            echo "Unexpected production deployment changed during remediation: before=$before_deployment_id/$before_deployed_sha after=$after_deployment_id/$after_deployed_sha"
+            exit 1
+          }
+          printf '%s' "$after_deployment_id" > /tmp/after-deployment-id-v2
+          printf '%s' "$after_deployed_sha" > /tmp/after-deployed-sha-v2
+          echo 'Verified fail-closed provider configuration with no remediation-triggered production deployment.'
+
+      - name: Probe current public runtime without treating it as provider-config authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="https://${CF_PRODUCTION_HOST}"
+          body="$(mktemp)"
+          status="$(curl -sS -o "$body" -w '%{http_code}' "$base/api/riai/public-config")"
+          test "$status" = '200' || { echo "Public config returned HTTP $status"; rm -f "$body"; exit 1; }
+          runtime_public_ai="$(jq -r 'if .publicAiEnabled == true then "true" else "false" end' "$body")"
+          restricted="$(jq -r 'if has("turnstileSecret") or has("providerKey") or has("providerUrl") or has("model") then "true" else "false" end' "$body")"
+          turnstile="$(jq -r 'if (.turnstileSiteKey | type == "string" and length > 10) then "true" else "false" end' "$body")"
+          rm -f "$body"
+          [[ "$restricted" == 'false' ]] || { echo 'Restricted public fields are exposed.'; exit 1; }
+          printf '%s' "$runtime_public_ai" > /tmp/runtime-public-ai-v2
+          printf '%s' "$turnstile" > /tmp/runtime-turnstile-v2
+          echo "Observed currently deployed runtime public AI enabled: $runtime_public_ai"
+
+      - name: Build auditable governance-control evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          account_sha="$(printf '%s' "$CF_ACCOUNT_ID" | sha256sum | awk '{print $1}')"
+          generated_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          before_auto="$(cat /tmp/before-auto-v2)"
+          before_fail_open="$(cat /tmp/before-fail-open-v2)"
+          before_public_ai="$(cat /tmp/before-public-ai-v2)"
+          runtime_public_ai="$(cat /tmp/runtime-public-ai-v2)"
+          before_deployment_id="$(cat /tmp/before-deployment-id-v2)"
+          after_deployment_id="$(cat /tmp/after-deployment-id-v2)"
+          deployed_sha="$(cat /tmp/after-deployed-sha-v2)"
+
+          jq -S -n \
+            --arg frozenCandidateSourceSha "$FROZEN_CANDIDATE_SOURCE_SHA" \
+            --arg selectedReleaseArtifactSha256 "$SELECTED_RELEASE_ARTIFACT_SHA256" \
+            --arg environmentRef "$ENVIRONMENT_REF" \
+            --arg accountIdSha256 "$account_sha" \
+            --arg trustedControlMainSha "$GITHUB_SHA" \
+            --arg triggerEvent "$GITHUB_EVENT_NAME" \
+            --arg triggerActor "$GITHUB_ACTOR" \
+            --arg beforeAuto "$before_auto" \
+            --arg beforeFailOpen "$before_fail_open" \
+            --arg beforePublicAi "$before_public_ai" \
+            --arg runtimePublicAi "$runtime_public_ai" \
+            --arg beforeDeploymentId "$before_deployment_id" \
+            --arg afterDeploymentId "$after_deployment_id" \
+            --arg deployedCommitSha "$deployed_sha" \
+            --arg generatedAt "$generated_at" \
+            '{
+              schemaVersion: 2,
+              evidenceType: "CLOUDFLARE_PRODUCTION_GOVERNANCE_CONTROL_REMEDIATION_V2",
+              frozenReleaseContext: {
+                candidateSourceSha: $frozenCandidateSourceSha,
+                selectedArtifactSha256: $selectedReleaseArtifactSha256,
+                environmentRef: $environmentRef
+              },
+              providerAccountIdSha256: $accountIdSha256,
+              before: {
+                productionDeploymentsEnabled: ($beforeAuto == "true"),
+                failOpen: (if $beforeFailOpen == "null" then null else ($beforeFailOpen == "true") end),
+                publicAiConfiguredValue: $beforePublicAi,
+                productionDeploymentId: $beforeDeploymentId
+              },
+              after: {
+                productionDeploymentsEnabled: false,
+                failOpen: false,
+                publicAiConfiguredValue: "false",
+                productionDeploymentId: $afterDeploymentId,
+                deployedCommitSha: $deployedCommitSha,
+                deploymentIdUnchangedDuringRemediation: ($beforeDeploymentId == $afterDeploymentId),
+                observedCurrentlyDeployedRuntimePublicAiEnabled: ($runtimePublicAi == "true"),
+                futureAuthorizedDeploymentRequiredToGuaranteeRuntimeMatchesProviderConfig: ($runtimePublicAi == "true")
+              },
+              provenance: {
+                trustedControlMainSha: $trustedControlMainSha,
+                triggerEvent: $triggerEvent,
+                triggerActor: $triggerActor,
+                protectedEnvironment: "production",
+                providerMutationPerformed: true
+              },
+              authority: {
+                controlPlaneRemediationAuthorized: true,
+                releaseAuthorized: false,
+                applicationMergeAuthorized: false,
+                applicationDeploymentAuthorized: false,
+                goLiveAuthorized: false,
+                transactionAuthorized: false,
+                canonicalBaselineActivated: false
+              },
+              evidenceBoundary: "AUTHORIZED_CONTROL_PLANE_REMEDIATION_V2_NOT_APPLICATION_DEPLOYMENT_OR_GO_LIVE_AUTHORITY",
+              generatedAt: $generatedAt
+            }' > "$EVIDENCE_DIR/governance-control-remediation-v2.json"
+
+          evidence_sha="$(sha256sum "$EVIDENCE_DIR/governance-control-remediation-v2.json" | awk '{print $1}')"
+          printf '%s  %s\n' "$evidence_sha" 'governance-control-remediation-v2.json' > "$EVIDENCE_DIR/governance-control-remediation-v2.sha256"
+          echo "GOVERNANCE_CONTROL_V2_EVIDENCE_SHA256=$evidence_sha"
+
+      - name: Upload governance-control evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: cloudflare-production-governance-control-v2
+          path: runtime-evidence/cloudflare-production-governance-control-v2
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+      - name: Publish safety summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## Cloudflare Production Governance Control V2'
+            echo
+            if [[ -f /tmp/before-auto-v2 ]]; then echo "- Automatic production deployments before: \`$(cat /tmp/before-auto-v2)\`"; fi
+            if [[ -f /tmp/after-deployment-id-v2 ]]; then echo '- Automatic production deployments after: `false`'; fi
+            if [[ -f /tmp/before-deployment-id-v2 && -f /tmp/after-deployment-id-v2 ]]; then
+              echo "- Production deployment ID before: \`$(cat /tmp/before-deployment-id-v2)\`"
+              echo "- Production deployment ID after:  \`$(cat /tmp/after-deployment-id-v2)\`"
+            fi
+            if [[ -f /tmp/runtime-public-ai-v2 ]]; then echo "- Currently deployed runtime public AI enabled: \`$(cat /tmp/runtime-public-ai-v2)\`"; fi
+            echo '- No application deployment, release authorization, canonical activation, Go-Live, or transaction authority is granted.'
+          } >> "$GITHUB_STEP_SUMMARY"
