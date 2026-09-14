@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
+import re
 
 original = Path(__file__).with_name('apply-decision-integrity-remediation.py')
 source = original.read_text(encoding='utf-8')
@@ -13,6 +14,13 @@ new = '''def replace_once(text, old, new, label):
     count = text.count(old)
     if count == 1:
         return text.replace(old, new, 1)
+    if count == 0:
+        # Translation text may differ only by capitalization. Keep structural
+        # matching exact while tolerating presentation-only case drift.
+        matches = list(re.finditer(re.escape(old), text, flags=re.IGNORECASE))
+        if len(matches) == 1:
+            match = matches[0]
+            return text[:match.start()] + new + text[match.end():]
     if count == 0 and label in {"building criteria semantic parity", "land criteria semantic parity"}:
         lines = [line for line in old.splitlines() if line.strip()]
         first = lines[0].strip()
