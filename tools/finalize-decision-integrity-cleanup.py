@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Final deterministic cleanup for the decision-integrity successor candidate.
 from pathlib import Path
 import csv
 import io
