@@ -59,6 +59,8 @@ function requireRange(field, value, min, max) {
   return value;
 }
 
+// Validation registries are deliberately de-duplicated so every field/rule pair
+// has one canonical owner and cannot be evaluated twice by accidental aliasing.
 const PERCENTAGE_FIELDS_0_TO_1 = [
   'occupancyRate', 'ltv', 'loanRate', 'minYieldThreshold', 'discountRate', 'hurdleRate',
   'vatRate', 'marketCapRate', 'exitCapRate', 'variableOpexRate',
