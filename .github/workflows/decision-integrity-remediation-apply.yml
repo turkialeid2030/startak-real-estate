@@ -5,7 +5,7 @@ on:
     branches:
       - remediation/decision-integrity-wave-2026-09-14
     paths:
-      - tools/apply-decision-integrity-remediation.py
+      - tools/apply-decision-integrity-remediation-v2.py
 
 permissions:
   contents: write
@@ -27,7 +27,7 @@ jobs:
           cache: npm
 
       - name: Apply deterministic remediation
-        run: python3 tools/apply-decision-integrity-remediation.py
+        run: python3 tools/apply-decision-integrity-remediation-v2.py
 
       - name: Install dependencies
         run: npm ci
