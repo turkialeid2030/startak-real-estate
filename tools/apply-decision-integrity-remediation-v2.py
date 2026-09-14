@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Wrapper revision 3: tolerant presentation-only matching; structural edits remain fail-closed.
 from pathlib import Path
 import re
 
