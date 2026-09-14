@@ -6,6 +6,7 @@ import LocalDocumentEvidenceWorkspace from './components/LocalDocumentEvidenceWo
 import ComplianceBoundaryNotice from './components/ComplianceBoundaryNotice.jsx';
 import ExitCapGuidanceEnhancer from './components/ExitCapGuidanceEnhancer.jsx';
 import CanonicalCaseWorkspacePanel from './components/CanonicalCaseWorkspacePanel.jsx';
+import StrictArabicSurfaceGuard from './components/StrictArabicSurfaceGuard.jsx';
 const { LocaleProvider } = require('./i18n/LocaleContext.js');
 const { installRuntimeBuildMetadata } = require('./runtime/build-metadata.js');
 const { installGlobalHandlers } = require('./observability/report-runtime-error.js');
@@ -32,6 +33,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <ExitCapGuidanceEnhancer />
       <LocalDocumentEvidenceWorkspace />
       <CanonicalCaseWorkspacePanel />
+      <StrictArabicSurfaceGuard />
     </LocaleProvider>
   </React.StrictMode>
 );
