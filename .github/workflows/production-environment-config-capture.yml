@@ -115,22 +115,37 @@ jobs:
             --slurpfile kv /tmp/cf-kv.json \
             '
             def env_vars($cfg):
-              (($cfg.env_vars // {}) | to_entries | map({
-                name: .key,
-                type: (.value.type // "unknown"),
-                value: (
-                  if ((.value.type // "") == "secret_text")
-                  then "<REDACTED_SECRET>"
-                  else (.value.value // null)
-                  end
-                )
-              }) | sort_by(.name));
+              (($cfg.env_vars // {}) | to_entries | map(
+                .key as $name
+                | (.value.type // "unknown") as $type
+                | {
+                    name: $name,
+                    type: $type,
+                    value: (
+                      if ($type == "secret_text")
+                         or ($name | test("(KEY|TOKEN|SECRET|PASSWORD|PASSCODE|SALT|CREDENTIAL|AUTH)"; "i"))
+                      then "<REDACTED_SENSITIVE_VALUE>"
+                      else (.value.value // null)
+                      end
+                    )
+                  }
+              ) | sort_by(.name));
 
-            def kv_bindings($cfg):
-              (($cfg.kv_namespaces // {}) | to_entries | map({
-                binding: .key,
-                namespaceId: (.value.namespace_id // .value.id // null)
-              }) | sort_by(.binding));
+            def kv_bindings($cfg; $allKv):
+              (($cfg.kv_namespaces // {}) | to_entries | map(
+                {
+                  binding: .key,
+                  namespaceId: (.value.namespace_id // .value.id // null)
+                } as $binding
+                | $binding + {
+                    title: (
+                      $allKv
+                      | map(select(.id == $binding.namespaceId))
+                      | first
+                      | .title // null
+                    )
+                  }
+              ) | sort_by(.binding));
 
             def d1_bindings($cfg):
               (($cfg.d1_databases // {}) | to_entries | map({
@@ -145,6 +160,7 @@ jobs:
               }) | sort_by(.binding));
 
             ($project[0].result.deployment_configs.production // {}) as $prod
+            | ($kv[0].result // []) as $allKv
             | ($access[0].result
                 | map(select(
                     (.domain? == $productionHost)
@@ -192,20 +208,17 @@ jobs:
                   compatibilityFlags: (($prod.compatibility_flags // []) | sort),
                   failOpen: ($prod.fail_open // null),
                   envVars: env_vars($prod),
-                  kvNamespaces: kv_bindings($prod),
+                  kvNamespaces: kv_bindings($prod; $allKv),
                   d1Databases: d1_bindings($prod),
                   r2Buckets: r2_bindings($prod)
                 },
                 productionAccessApplications: $productionAccessApps,
-                accountKvNamespaces: (
-                  $kv[0].result
-                  | map({id: .id, title: .title})
-                  | sort_by(.title, .id)
-                ),
                 secretHandling: {
                   plaintextSecretsIncluded: false,
-                  secretTextValuesReplacedWith: "<REDACTED_SECRET>",
-                  accountIdentifierStoredAsSha256Only: true
+                  secretTextValuesRedacted: true,
+                  sensitiveNamePatternRedactionApplied: true,
+                  accountIdentifierStoredAsSha256Only: true,
+                  unrelatedAccountKvNamespacesExcluded: true
                 }
               }
             ' > "$EVIDENCE_DIR/environment-config-manifest.json"
@@ -287,7 +300,8 @@ jobs:
               echo "- Normalized environment-config SHA-256: \`${digest}\`"
             fi
             echo '- Capture used GET-only Cloudflare provider calls.'
-            echo '- Plaintext secret values are not retained in the manifest.'
+            echo '- Secret-text and sensitive-name environment values are redacted from retained evidence.'
+            echo '- Unrelated account KV namespaces are excluded from the retained manifest.'
             echo '- Environment-ref selection and release-candidate-id selection remain separate governed decisions.'
             echo '- No deployment, release, merge, canonical activation, Go-Live, or transaction authority is granted.'
           } >> "$GITHUB_STEP_SUMMARY"
