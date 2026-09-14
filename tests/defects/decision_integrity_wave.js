@@ -68,6 +68,13 @@ for (const needle of [
   'recommendation.analyticalSectionHeading',
 ]) assert.ok(app.includes(needle), `missing UI parity marker: ${needle}`);
 assert.ok(!app.includes('onChange(isNaN(parsed) ? 0'), 'blank numeric input must not silently become zero');
+assert.ok(!app.includes('AuditMetricRow'), 'all dashboard audit rows must use canonical MetricRow');
+assert.ok(!app.includes('locale === \"en\" ? \"Governed by Assumption Model V2.'), 'governed assumption note must be localized through i18n');
+const enLocale = require('../../src/i18n/locales/en.js');
+const arLocale = require('../../src/i18n/locales/ar-SA.js');
+assert.ok(enLocale.globalApp.governedAssumptionV2Note && arLocale.globalApp.governedAssumptionV2Note, 'governed assumption note must exist in both locales');
+const metricRowCalls = app.split('\n').filter((line) => line.includes('<MetricRow')).length;
+assert.strictEqual(metricRowCalls, 78, 'canonical MetricRow source inventory must include 77 dashboard rows plus sensitivity');
 
 validateEngineInputs({ ...land, leverageEnabled: false }, { studyType: STUDY_TYPE.LAND_DEVELOPMENT });
 validateEngineInputs({ ...building, leverageEnabled: false }, { studyType: STUDY_TYPE.EXISTING_BUILDING });

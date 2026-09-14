@@ -62,7 +62,7 @@ function requireRange(field, value, min, max) {
 const PERCENTAGE_FIELDS_0_TO_1 = [
   'occupancyRate', 'ltv', 'loanRate', 'minYieldThreshold', 'discountRate', 'hurdleRate',
   'vatRate', 'marketCapRate', 'exitCapRate', 'variableOpexRate',
-  'managementFeeRate', 'insuranceRateOnReplacementCost', 'maintenanceRate', 'insuranceRate',
+  'managementFeeRate', 'insuranceRateOnReplacementCost',
   'commissionRate', 'transferFeeRate', 'landCommissionRate', 'landTransferFeeRate',
   'exitTransferFeeRate', 'serviceIncomeRate', 'maintenanceRate', 'insuranceRate',
   'equityRiskSpread', 'buildableRatio', 'servicesRatioPerFloor', 'efficiencyRatio',

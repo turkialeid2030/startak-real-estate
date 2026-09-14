@@ -361,6 +361,7 @@ module.exports = {
     methodologyNote: "Methodology note: recommendation logic has been unified between the two models around four equally-weighted criteria, and the linkage between the construction and operating periods in the land model has been corrected so they actually drive the cash-flow timeline.",
     genericWarnBelow: "Value below typical range — please verify",
     genericWarnAbove: "Value above typical range — please verify",
+    governedAssumptionV2Note: "Governed by Assumption Model V2.",
     closePanel: "Close",
     deleteDeal: "Delete",
     section1: "Section One", section2: "Section Two", section3: "Section Three", section4: "Section Four",

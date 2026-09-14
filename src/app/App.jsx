@@ -493,8 +493,6 @@ function MetricRow({ label, value, note, strong, positiveNegative }) {
   );
 }
 
-const AuditMetricRow = MetricRow;
-
 function MetricGroup({ eyebrow, title, children }) {
   return (
     <div className="rounded-2xl mb-4 p-4" style={{ background: COLORS.panel, border: `1px solid ${COLORS.hairline}` }}>
@@ -808,9 +806,9 @@ function DashboardTab({ mode, inputs, results }) {
         <MetricGroup eyebrow={t("globalApp.section3")} title={t("dashboardR3.sectionOperatingIncome")}>
           <MetricRow label={t("metricRowR2B2.grossRentalIncomeStabilized")} value={formatRecommendationCurrency(r.stabilizedGrossRentalIncome)} />
           <MetricRow label={t("metricRowR2B2.vacancyDeductionFirstYear")} value={formatRecommendationCurrency(r.vacancyDeduction)} />
-          <AuditMetricRow label={t("metricRowR2B2.rentalIncomeFirstYear")} value={formatRecommendationCurrency(r.rentalIncomeAfterVacancy)} />
-          <AuditMetricRow label={t("metricRowR2B2.serviceIncomeFirstYear")} value={formatRecommendationCurrency(r.firstYearServiceIncome)} />
-          <AuditMetricRow label={t("metricRowR2B2.totalIncomeFirstYear")} value={formatRecommendationCurrency(r.firstYearTotalAnnualIncome)} strong />
+          <MetricRow label={t("metricRowR2B2.rentalIncomeFirstYear")} value={formatRecommendationCurrency(r.rentalIncomeAfterVacancy)} />
+          <MetricRow label={t("metricRowR2B2.serviceIncomeFirstYear")} value={formatRecommendationCurrency(r.firstYearServiceIncome)} />
+          <MetricRow label={t("metricRowR2B2.totalIncomeFirstYear")} value={formatRecommendationCurrency(r.firstYearTotalAnnualIncome)} strong />
           <MetricRow label={t("metricRowR2B2.serviceIncomeStabilized")} value={formatRecommendationCurrency(r.serviceIncome)} />
           <MetricRow label={t("metricRowR2B2.totalIncomeStabilized")} value={formatRecommendationCurrency(r.totalAnnualIncome)} strong />
           <MetricRow label={t("metricRowR2B2.vatCollectedFirstYear")} value={formatRecommendationCurrency(r.vatCollected)} note={t("metricRowR2B2.vatCollectedNote")} />
@@ -818,7 +816,7 @@ function DashboardTab({ mode, inputs, results }) {
 
         <MetricGroup eyebrow={t("globalApp.section4")} title={t("dashboardR3.sectionOpexAndNoi")}>
           <MetricRow label={t("metricRowR2B2.totalOpexStabilized")} value={formatRecommendationCurrency(r.opexAmount)} />
-          <AuditMetricRow label={t("metricRowR2B2.firstYearNoiBuilding")} value={formatRecommendationCurrency(r.firstYearNOI)} />
+          <MetricRow label={t("metricRowR2B2.firstYearNoiBuilding")} value={formatRecommendationCurrency(r.firstYearNOI)} />
           <MetricRow label={t("metricRowR2B2.noiBuildingStabilized")} value={formatRecommendationCurrency(r.NOI)} strong />
         </MetricGroup>
 
@@ -909,14 +907,14 @@ function DashboardTab({ mode, inputs, results }) {
         <MetricRow label={t("metricRowR2B2.actualRentalIncome")} value={formatRecommendationCurrency(r.actualRentalIncome)} />
         <MetricRow label={t("metricRowR2B2.serviceIncome")} value={formatRecommendationCurrency(r.serviceIncome)} />
         <MetricRow label={t("metricRowR2B2.totalOperatingRevenue")} value={formatRecommendationCurrency(r.totalOperatingRevenue)} />
-        <AuditMetricRow label={t("metricRowR2B2.variableOperatingExpense")} value={formatRecommendationCurrency(r.variableOperatingExpense)} />
-        <AuditMetricRow label={t("metricRowR2B2.fixedOperatingExpense")} value={formatRecommendationCurrency(r.fixedOperatingExpense)} />
-        <AuditMetricRow label={t("metricRowR2B2.managementFeeAmount")} value={formatRecommendationCurrency(r.managementFeeAmount)} />
-        <AuditMetricRow label={t("metricRowR2B2.insuranceAmount")} value={formatRecommendationCurrency(r.insuranceAmount)} />
-        <AuditMetricRow label={t("metricRowR2B2.operatingExpensesBeforeReserve")} value={formatRecommendationCurrency(r.operatingExpensesBeforeReserve)} />
-        <AuditMetricRow label={t("metricRowR2B2.replacementReserveAmount")} value={formatRecommendationCurrency(r.replacementReserveAmount)} />
+        <MetricRow label={t("metricRowR2B2.variableOperatingExpense")} value={formatRecommendationCurrency(r.variableOperatingExpense)} />
+        <MetricRow label={t("metricRowR2B2.fixedOperatingExpense")} value={formatRecommendationCurrency(r.fixedOperatingExpense)} />
+        <MetricRow label={t("metricRowR2B2.managementFeeAmount")} value={formatRecommendationCurrency(r.managementFeeAmount)} />
+        <MetricRow label={t("metricRowR2B2.insuranceAmount")} value={formatRecommendationCurrency(r.insuranceAmount)} />
+        <MetricRow label={t("metricRowR2B2.operatingExpensesBeforeReserve")} value={formatRecommendationCurrency(r.operatingExpensesBeforeReserve)} />
+        <MetricRow label={t("metricRowR2B2.replacementReserveAmount")} value={formatRecommendationCurrency(r.replacementReserveAmount)} />
         <MetricRow label={t("metricRowR2B2.operatingExpenses")} value={formatRecommendationCurrency(r.operatingExpenses)} strong />
-        <AuditMetricRow label={t("metricRowR2B2.firstOperatingYearNoi")} value={formatRecommendationCurrency(r.firstOperatingYearNOI)} />
+        <MetricRow label={t("metricRowR2B2.firstOperatingYearNoi")} value={formatRecommendationCurrency(r.firstOperatingYearNOI)} />
         <MetricRow label={t("metricRowR2B2.stabilizedNoi")} value={formatRecommendationCurrency(r.stabilizedNOI)} strong />
       </MetricGroup>
 
@@ -1215,10 +1213,10 @@ function BuildingInputPanel({ inputs, setInputs, assumptionModelVersion, onExitC
 // INPUT PANEL — LAND + DEVELOPMENT
 // ============================================================
 function LandInputPanel({ inputs, setInputs, assumptionModelVersion }) {
-  const { t, locale } = useLocale();
+  const { t } = useLocale();
   const patch = (key, value) => setInputs((prev) => ({ ...prev, [key]: value }));
   const v2Governed = assumptionModelVersion === ASSUMPTION_MODEL_VERSION.V2;
-  const governedNote = v2Governed ? (locale === "en" ? "Governed by Assumption Model V2." : "محكوم بواسطة نموذج الافتراضات V2.") : null;
+  const governedNote = v2Governed ? t("globalApp.governedAssumptionV2Note") : null;
   return (
     <div>
       <Section eyebrow={t("globalApp.section1")} title={t("inputLand.sec1")} defaultOpen>
