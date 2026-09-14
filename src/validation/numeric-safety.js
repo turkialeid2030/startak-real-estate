@@ -62,7 +62,7 @@ function requireRange(field, value, min, max) {
 const PERCENTAGE_FIELDS_0_TO_1 = [
   'occupancyRate', 'ltv', 'loanRate', 'minYieldThreshold', 'discountRate', 'hurdleRate',
   'vatRate', 'marketCapRate', 'exitCapRate', 'variableOpexRate',
-  'managementFeeRate', 'insuranceRateOnReplacementCost',
+  'managementFeeRate', 'insuranceRateOnReplacementCost', 'maintenanceRate', 'insuranceRate',
   'commissionRate', 'transferFeeRate', 'landCommissionRate', 'landTransferFeeRate',
   'exitTransferFeeRate', 'serviceIncomeRate', 'maintenanceRate', 'insuranceRate',
   'equityRiskSpread', 'buildableRatio', 'servicesRatioPerFloor', 'efficiencyRatio',
@@ -74,7 +74,12 @@ const GROWTH_RATE_MIN = -0.5;
 const GROWTH_RATE_MAX = 0.5;
 const NON_NEGATIVE_FIELDS = [
   'fixedOpexPerSqm', 'replacementReservePerSqm', 'inspectionCost', 'valuationCost',
-  'engineeringCost', 'landValuationCost',
+  'engineeringCost', 'landValuationCost', 'buildingAge', 'basementCount',
+  'basementAreaEach', 'netLeasableOverride', 'serviceElevators',
+  'basementConstructionCostPerSqm', 'floorConstructionCostPerSqm',
+  'currentLandPricePerSqm', 'marketRentPerSqm', 'rentPerSqm',
+  'basementFloorCount', 'leaseUpMonths', 'landLength', 'landWidth',
+  'landPricePerSqm', 'constructionCostPerSqm', 'officeFloorCount',
 ];
 const VALID_LEASE_STATUS = ['مؤجر', '3 أشهر', '6 أشهر', '9 أشهر', 'سنة'];
 
@@ -86,6 +91,20 @@ const STRICTLY_POSITIVE_DIVISOR_FIELDS = [
   'buildingPrice',
   'marketCapRate',
   'exitCapRate',
+  'parkingAreaPerSpot',
+  'floorCount',
+  'floorAreaEach',
+  'holdPeriod',
+  'buildingUsefulLife',
+  'constructionPeriod',
+  'operatingPeriod',
+  'loanTenor',
+  'minDscrThreshold',
+];
+
+const INTEGER_PERIOD_OR_COUNT_FIELDS = [
+  'basementCount', 'floorCount', 'serviceElevators', 'officeFloorCount',
+  'basementFloorCount', 'gracePeriodMonths',
 ];
 
 const REQUIRED_ENGINE_FIELDS = Object.freeze({
@@ -200,7 +219,46 @@ function validateEngineInputs(inputs, options = {}) {
     if (field in inputs && inputs[field] <= 0) {
       throw new ValidationError(field, inputs[field], 'STRICTLY_POSITIVE_REQUIRED',
         `قيمة حقل "${field}" (${inputs[field]}) يجب أن تكون أكبر من صفر`,
-        `Field "${field}" value ${inputs[field]} must be strictly positive (it is used as a divisor)`);
+        `Field "${field}" value ${inputs[field]} must be strictly positive`);
+    }
+  }
+
+  for (const field of INTEGER_PERIOD_OR_COUNT_FIELDS) {
+    if (field in inputs && !Number.isInteger(inputs[field])) {
+      throw new ValidationError(field, inputs[field], 'INTEGER_REQUIRED',
+        `قيمة حقل "${field}" (${inputs[field]}) يجب أن تكون عدداً صحيحاً`,
+        `Field "${field}" value ${inputs[field]} must be an integer`);
+    }
+  }
+
+  if ('leverageEnabled' in inputs && typeof inputs.leverageEnabled !== 'boolean') {
+    throw new ValidationError('leverageEnabled', inputs.leverageEnabled, 'BOOLEAN_REQUIRED',
+      'حقل تفعيل التمويل يجب أن يكون قيمة منطقية صحيحة',
+      'leverageEnabled must be a boolean');
+  }
+
+  if ('servicesRatioPerFloor' in inputs && inputs.servicesRatioPerFloor >= 1) {
+    throw new ValidationError('servicesRatioPerFloor', inputs.servicesRatioPerFloor, 'STRICTLY_LESS_THAN_ONE_REQUIRED',
+      'نسبة الخدمات لكل دور يجب أن تكون أقل من 100٪ حتى تبقى مساحة تأجيرية موجبة',
+      'servicesRatioPerFloor must be below 1 so net leasable area remains positive');
+  }
+
+  if ('efficiencyRatio' in inputs) {
+    const hasPositiveOverride = Number.isFinite(inputs.netLeasableOverride) && inputs.netLeasableOverride > 0;
+    if (!hasPositiveOverride && inputs.efficiencyRatio <= 0) {
+      throw new ValidationError('efficiencyRatio', inputs.efficiencyRatio, 'STRICTLY_POSITIVE_REQUIRED',
+        'نسبة الكفاءة التأجيرية يجب أن تكون أكبر من صفر عند عدم إدخال مساحة تأجيرية صريحة',
+        'efficiencyRatio must be positive when no explicit net leasable area override is supplied');
+    }
+  }
+
+  if ('netLeasableOverride' in inputs && Number.isFinite(inputs.netLeasableOverride) && inputs.netLeasableOverride > 0
+      && Number.isFinite(inputs.floorCount) && Number.isFinite(inputs.floorAreaEach)) {
+    const totalFloorArea = inputs.floorCount * inputs.floorAreaEach;
+    if (inputs.netLeasableOverride > totalFloorArea) {
+      throw new ValidationError('netLeasableOverride', inputs.netLeasableOverride, 'AREA_CONSTRAINT_VIOLATION',
+        'المساحة التأجيرية الصريحة لا يجوز أن تتجاوز إجمالي مساحة الأدوار',
+        'netLeasableOverride cannot exceed total floor area');
     }
   }
 
@@ -243,4 +301,5 @@ module.exports = {
   NON_NEGATIVE_FIELDS,
   VALID_LEASE_STATUS,
   STRICTLY_POSITIVE_DIVISOR_FIELDS,
+  INTEGER_PERIOD_OR_COUNT_FIELDS,
 };
