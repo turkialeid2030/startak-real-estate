@@ -206,7 +206,7 @@ jobs:
                 productionRuntime: {
                   compatibilityDate: ($prod.compatibility_date // null),
                   compatibilityFlags: (($prod.compatibility_flags // []) | sort),
-                  failOpen: ($prod.fail_open // null),
+                  failOpen: $prod.fail_open,
                   envVars: env_vars($prod),
                   kvNamespaces: kv_bindings($prod; $allKv),
                   d1Databases: d1_bindings($prod),
