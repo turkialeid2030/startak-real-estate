@@ -56,7 +56,16 @@ try {
   const panelAfterPdf = await panel.innerText();
   const digest = (await page.getByTestId('local-document-digest').innerText()).trim();
   const atomCount = (await page.getByTestId('local-document-atom-count').innerText()).trim();
-  record('DOC-E2E-03-PDF-FAIL-CLOSED', panelAfterPdf.includes('UNSUPPORTED') && panelAfterPdf.includes('PDF_BINARY_PARSER_NOT_YET_VETTED') && atomCount === '0', `atoms=${atomCount}`);
+  // Machine parser semantics are asserted through stable data attributes so the
+  // strict Arabic presentation layer may translate/mask raw codes without
+  // weakening this fail-closed verification.
+  const parserStatus = await page.getByTestId('local-document-parser-status').getAttribute('data-parser-status');
+  const parserReason = await page.getByTestId('local-document-parser-reason').getAttribute('data-parser-reason');
+  record(
+    'DOC-E2E-03-PDF-FAIL-CLOSED',
+    parserStatus === 'UNSUPPORTED' && parserReason === 'PDF_BINARY_PARSER_NOT_YET_VETTED' && atomCount === '0',
+    `status=${parserStatus} reason=${parserReason} atoms=${atomCount}`,
+  );
   record('DOC-E2E-04-CONTENT-DIGEST', /^[a-f0-9]{64}$/i.test(digest), `digestLength=${digest.length}`);
   record('DOC-E2E-04B-EVIDENCE-SEMANTIC-BOUNDARY', panelAfterPdf.includes('المحتوى المستخرج ليس دليلاً موثقًا') && panelAfterPdf.includes('لا يدخل المحرك المالي تلقائيًا'), 'Parsed-content/evidence boundary visible once a parser result exists');
 
