@@ -1,0 +1,311 @@
+name: Production Environment Config Capture V3
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main_sha:
+        description: 'Exact trusted main SHA for read-only environment capture'
+        required: true
+        type: string
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-environment-config-capture-v3
+  cancel-in-progress: false
+
+env:
+  FROZEN_CANDIDATE_SOURCE_SHA: 21f51ad5b4c6787c556aa3b8528d9c3ec17f12c3
+  SELECTED_RELEASE_ARTIFACT_SHA256: 6d0a43021a7758e9e83c026ada2c43b274b109146e5d078015505dfb3fea5bea
+  SUPERSEDED_V2_ENVIRONMENT_CONFIG_SHA256: fbf5fd6b43a5bf76f9e0b410a49a53789472e9758ad2c1d7f5118835fb01e3e6
+  CF_PROJECT_NAME: startak-real-estate
+  CF_PRODUCTION_HOST: startak-real-estate.pages.dev
+  ENVIRONMENT_REF: cloudflare-pages:startak-real-estate:production
+  EVIDENCE_DIR: runtime-evidence/production-environment-config-v3
+
+jobs:
+  capture:
+    name: production-environment-config-capture-v3
+    if: >-
+      ${{
+        github.event_name == 'workflow_dispatch' ||
+        (
+          github.event_name == 'issue_comment' &&
+          github.event.issue.number == 330 &&
+          github.event.comment.author_association == 'OWNER' &&
+          github.event.comment.user.login == github.repository_owner &&
+          startsWith(github.event.comment.body, '/startak capture-production-environment-v3 ')
+        )
+      }}
+    runs-on: ubuntu-24.04
+    environment: production
+    timeout-minutes: 12
+    env:
+      CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CF_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+
+    steps:
+      - name: Bind capture to trusted main
+        shell: bash
+        env:
+          DISPATCH_EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha || '' }}
+          OWNER_COMMAND_BODY: ${{ github.event.comment.body || '' }}
+        run: |
+          set -euo pipefail
+          case "$GITHUB_EVENT_NAME" in
+            workflow_dispatch)
+              expected="$DISPATCH_EXPECTED_MAIN_SHA"
+              ;;
+            issue_comment)
+              if [[ ! "$OWNER_COMMAND_BODY" =~ ^/startak[[:space:]]capture-production-environment-v3[[:space:]]([0-9a-fA-F]{40})$ ]]; then
+                echo 'Owner command must be exactly: /startak capture-production-environment-v3 <40-char-main-sha>'
+                exit 1
+              fi
+              expected="${BASH_REMATCH[1]}"
+              ;;
+            *) exit 1 ;;
+          esac
+          [[ "$GITHUB_REF" == 'refs/heads/main' ]] || { echo 'Capture must execute from main.'; exit 1; }
+          [[ "$expected" =~ ^[0-9a-fA-F]{40}$ ]] || { echo 'Expected SHA must be 40 hex characters.'; exit 1; }
+          [[ "${expected,,}" == "${GITHUB_SHA,,}" ]] || { echo "Expected main SHA mismatch: expected=$expected workflow=$GITHUB_SHA"; exit 1; }
+          echo "Trusted environment capture V3 main SHA: $GITHUB_SHA"
+
+      - name: Preflight protected provider access
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${CF_API_TOKEN:-}" || { echo 'CLOUDFLARE_API_TOKEN is missing'; exit 1; }
+          test -n "${CF_ACCOUNT_ID:-}" || { echo 'CLOUDFLARE_ACCOUNT_ID is missing'; exit 1; }
+          auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
+          token_json="$(curl --fail-with-body --silent --show-error "${auth[@]}" https://api.cloudflare.com/client/v4/user/tokens/verify)"
+          jq -e '.success == true and .result.status == "active"' <<<"$token_json" >/dev/null
+
+      - name: Read provider configuration without mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
+
+          project_json="$(curl --fail-with-body --silent --show-error "${auth[@]}" \
+            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}")"
+          jq -e '.success == true' <<<"$project_json" >/dev/null
+          printf '%s' "$project_json" > /tmp/cf-project-v3.json
+
+          access_json="$(curl --fail-with-body --silent --show-error "${auth[@]}" \
+            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/access/apps?per_page=1000")"
+          jq -e '.success == true' <<<"$access_json" >/dev/null
+          printf '%s' "$access_json" > /tmp/cf-access-v3.json
+
+          kv_json="$(curl --fail-with-body --silent --show-error "${auth[@]}" \
+            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces?per_page=1000")"
+          jq -e '.success == true' <<<"$kv_json" >/dev/null
+          printf '%s' "$kv_json" > /tmp/cf-kv-v3.json
+
+          printf '%s' "$CF_ACCOUNT_ID" | sha256sum | awk '{print $1}' > /tmp/cf-account-v3.sha256
+
+      - name: Build normalized false-preserving secret-free manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          account_sha="$(cat /tmp/cf-account-v3.sha256)"
+
+          jq -S -n \
+            --arg provider 'cloudflare' \
+            --arg environmentRef "$ENVIRONMENT_REF" \
+            --arg projectName "$CF_PROJECT_NAME" \
+            --arg productionHost "$CF_PRODUCTION_HOST" \
+            --arg accountIdSha256 "$account_sha" \
+            --slurpfile project /tmp/cf-project-v3.json \
+            --slurpfile access /tmp/cf-access-v3.json \
+            --slurpfile kv /tmp/cf-kv-v3.json \
+            '
+            def redact_env($cfg):
+              (($cfg.env_vars // {}) | to_entries | map(
+                .key as $name
+                | (.value.type // "unknown") as $type
+                | {
+                    name: $name,
+                    type: $type,
+                    value: (
+                      if ($type == "secret_text") or ($name | test("(KEY|TOKEN|SECRET|PASSWORD|PASSCODE|SALT|CREDENTIAL|AUTH)"; "i"))
+                      then "<REDACTED_SENSITIVE_VALUE>"
+                      else (.value.value // null)
+                      end
+                    )
+                  }
+              ) | sort_by(.name));
+
+            def kv_bindings($cfg; $allKv):
+              (($cfg.kv_namespaces // {}) | to_entries | map(
+                {binding: .key, namespaceId: (.value.namespace_id // .value.id // null)} as $b
+                | $b + {title: (($allKv | map(select(.id == $b.namespaceId)) | first | .title) // null)}
+              ) | sort_by(.binding));
+
+            ($project[0].result.deployment_configs.production // {}) as $prod
+            | ($project[0].result.deployment_configs.preview // {}) as $preview
+            | ($kv[0].result // []) as $allKv
+            | ($project[0].result.source.config // {}) as $src
+            | ($access[0].result
+                | map(select((.domain? // "") == $productionHost))
+                | map({id, name, type, domain: (.domain // null), aud: (.aud // null), sessionDuration: (.session_duration // null)})
+                | sort_by(.id)) as $productionAccessApps
+            | {
+                schemaVersion: 3,
+                manifestType: "GOVERNED_PRODUCTION_ENVIRONMENT_CONFIG_SNAPSHOT_V3_FALSE_PRESERVING",
+                provider: $provider,
+                environmentRef: $environmentRef,
+                accountIdSha256: $accountIdSha256,
+                pagesProject: {
+                  name: $projectName,
+                  productionHost: $productionHost,
+                  productionBranch: ($project[0].result.production_branch // null),
+                  subdomain: ($project[0].result.subdomain // null),
+                  source: {
+                    type: ($project[0].result.source.type // null),
+                    owner: ($src.owner // null),
+                    repositoryName: ($src.repo_name // null),
+                    repositoryIdPresent: (($src.repo_id // null) != null),
+                    productionBranch: ($src.production_branch // null),
+                    productionDeploymentsEnabled: $src.production_deployments_enabled,
+                    previewDeploymentSetting: ($src.preview_deployment_setting // null),
+                    previewBranchIncludes: (($src.preview_branch_includes // []) | sort),
+                    previewBranchExcludes: (($src.preview_branch_excludes // []) | sort),
+                    pathIncludes: (($src.path_includes // []) | sort),
+                    pathExcludes: (($src.path_excludes // []) | sort),
+                    prCommentsEnabled: $src.pr_comments_enabled,
+                    deprecatedDeploymentsEnabled: $src.deployments_enabled
+                  },
+                  buildConfig: {
+                    buildCommand: ($project[0].result.build_config.build_command // null),
+                    destinationDir: ($project[0].result.build_config.destination_dir // null),
+                    rootDir: ($project[0].result.build_config.root_dir // null),
+                    buildCaching: $project[0].result.build_config.build_caching
+                  }
+                },
+                productionRuntime: {
+                  compatibilityDate: ($prod.compatibility_date // null),
+                  compatibilityFlags: (($prod.compatibility_flags // []) | sort),
+                  failOpen: $prod.fail_open,
+                  envVars: redact_env($prod),
+                  kvNamespaces: kv_bindings($prod; $allKv),
+                  d1Databases: (($prod.d1_databases // {}) | to_entries | map({binding: .key, idPresent: ((.value.id // .value.database_id // null) != null)}) | sort_by(.binding)),
+                  r2Buckets: (($prod.r2_buckets // {}) | to_entries | map({binding: .key, bucketName: (.value.name // .value.bucket_name // null)}) | sort_by(.binding))
+                },
+                linkedPreviewControl: {
+                  failOpen: $preview.fail_open
+                },
+                productionAccessApplications: $productionAccessApps,
+                secretHandling: {
+                  plaintextSecretsIncluded: false,
+                  secretTextValuesRedacted: true,
+                  sensitiveNamePatternRedactionApplied: true,
+                  accountIdentifierStoredAsSha256Only: true,
+                  unrelatedAccountKvNamespacesExcluded: true
+                }
+              }
+            ' > "$EVIDENCE_DIR/environment-config-manifest-v3.json"
+
+          # Fail closed if the normalized manifest loses boolean false values or
+          # no longer represents the provider posture established by governance remediation.
+          jq -e '
+            .pagesProject.source.productionDeploymentsEnabled == false and
+            .productionRuntime.failOpen == false and
+            .linkedPreviewControl.failOpen == false and
+            (.productionRuntime.envVars | any(.name == "RIAI_PUBLIC_AI_ENABLED" and .value == "false"))
+          ' "$EVIDENCE_DIR/environment-config-manifest-v3.json" >/dev/null
+
+          jq -e '
+            all(.productionRuntime.envVars[];
+              if (.type == "secret_text") or (.name | test("(KEY|TOKEN|SECRET|PASSWORD|PASSCODE|SALT|CREDENTIAL|AUTH)"; "i"))
+              then .value == "<REDACTED_SENSITIVE_VALUE>"
+              else true
+              end
+            )
+          ' "$EVIDENCE_DIR/environment-config-manifest-v3.json" >/dev/null
+
+          if grep -Fq "$CF_API_TOKEN" "$EVIDENCE_DIR/environment-config-manifest-v3.json"; then
+            echo 'Secret-leak guard failed: API token appeared in normalized manifest.'
+            exit 1
+          fi
+          if grep -Fq "$CF_ACCOUNT_ID" "$EVIDENCE_DIR/environment-config-manifest-v3.json"; then
+            echo 'Identifier-leak guard failed: raw account ID appeared in normalized manifest.'
+            exit 1
+          fi
+
+          environment_sha="$(sha256sum "$EVIDENCE_DIR/environment-config-manifest-v3.json" | awk '{print $1}')"
+          printf '%s  %s\n' "$environment_sha" 'environment-config-manifest-v3.json' > "$EVIDENCE_DIR/environment-config-v3.sha256"
+          echo "ENVIRONMENT_CONFIG_V3_SHA256=$environment_sha"
+
+      - name: Record non-authorizing evidence envelope
+        shell: bash
+        run: |
+          set -euo pipefail
+          environment_sha="$(awk '{print $1}' "$EVIDENCE_DIR/environment-config-v3.sha256")"
+          generated_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+
+          jq -S -n \
+            --arg frozenCandidateSourceSha "$FROZEN_CANDIDATE_SOURCE_SHA" \
+            --arg selectedReleaseArtifactSha256 "$SELECTED_RELEASE_ARTIFACT_SHA256" \
+            --arg environmentRef "$ENVIRONMENT_REF" \
+            --arg environmentConfigSha256 "$environment_sha" \
+            --arg supersededV2EnvironmentConfigSha256 "$SUPERSEDED_V2_ENVIRONMENT_CONFIG_SHA256" \
+            --arg trustedCollectorMainSha "$GITHUB_SHA" \
+            --arg githubRunId "$GITHUB_RUN_ID" \
+            --arg triggerActor "$GITHUB_ACTOR" \
+            --arg generatedAt "$generated_at" \
+            '{
+              schemaVersion: 3,
+              evidenceType: "PRODUCTION_ENVIRONMENT_CONFIG_CAPTURE_V3",
+              frozenCandidateSourceSha: $frozenCandidateSourceSha,
+              selectedReleaseArtifactSha256: $selectedReleaseArtifactSha256,
+              environmentRef: $environmentRef,
+              environmentConfigSha256: $environmentConfigSha256,
+              supersedes: {
+                environmentConfigSha256: $supersededV2EnvironmentConfigSha256,
+                reason: "V2 normalization used jq // null on boolean fields, which converts false to null; V3 preserves false explicitly and fails closed on required provider posture."
+              },
+              trustedCollectorMainSha: $trustedCollectorMainSha,
+              githubRunId: $githubRunId,
+              triggerActor: $triggerActor,
+              providerReadOnlyCapture: true,
+              environmentRefSelectionPerformed: false,
+              releaseCandidateIdSelectionPerformed: false,
+              deploymentPerformed: false,
+              releaseAuthorized: false,
+              mergeAuthorized: false,
+              transactionAuthorized: false,
+              canonicalBaselineActivated: false,
+              evidenceBoundary: "READ_ONLY_PROVIDER_CONFIG_CAPTURE_V3_FALSE_PRESERVING_NOT_DEPLOYMENT_OR_AUTHORIZATION_PROOF",
+              generatedAt: $generatedAt
+            }' > "$EVIDENCE_DIR/environment-config-capture-evidence-v3.json"
+
+      - name: Upload environment configuration evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: production-environment-config-capture-v3
+          path: runtime-evidence/production-environment-config-v3
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+      - name: Publish summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## Production Environment Config Capture V3'
+            echo
+            echo "- Frozen candidate source: \`${FROZEN_CANDIDATE_SOURCE_SHA}\`"
+            echo "- Selected release artifact SHA-256: \`${SELECTED_RELEASE_ARTIFACT_SHA256}\`"
+            echo "- Environment ref: \`${ENVIRONMENT_REF}\`"
+            if [[ -f "$EVIDENCE_DIR/environment-config-v3.sha256" ]]; then
+              echo "- Environment config V3 SHA-256: \`$(awk '{print $1}' "$EVIDENCE_DIR/environment-config-v3.sha256")\`"
+            fi
+            echo "- Superseded V2 environment hash: \`${SUPERSEDED_V2_ENVIRONMENT_CONFIG_SHA256}\` (boolean false-normalization defect)."
+            echo '- V3 preserves false booleans and fails closed unless automatic production deployments=false, production fail_open=false, preview fail_open=false, and configured production public AI=false.'
+            echo '- Secrets and sensitive-name values are redacted. No provider mutation, deployment, release authorization, candidate merge, or Go-Live authority is performed.'
+          } >> "$GITHUB_STEP_SUMMARY"
