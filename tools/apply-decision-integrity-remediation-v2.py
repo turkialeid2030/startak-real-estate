@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Wrapper revision 4: apply remediation, then preserve established compatibility
+# Wrapper revision 5: apply remediation, then preserve established compatibility
 # contracts while retaining the new fail-closed integrity controls.
 from pathlib import Path
 import re
@@ -51,15 +51,18 @@ ROOT = Path(__file__).resolve().parents[1]
 
 # Preserve legitimate fractional year periods used by the monthly financing
 # engine. Structural counts stay integer-only. Zero-valued economic components
-# may be legitimate scenario inputs, while negatives remain rejected.
+# may be legitimate scenario inputs, while negatives remain rejected. The
+# historical aggregate totalProjectCost zero guard remains authoritative for the
+# all-zero land packet, so zero individual land components are not rejected early.
 validation_path = ROOT / 'src/validation/numeric-safety.js'
 v = validation_path.read_text(encoding='utf-8')
 v = v.replace(
     "  'currentLandPricePerSqm', 'marketRentPerSqm', 'rentPerSqm',\n  'basementFloorCount', 'leaseUpMonths',\n",
-    "  'currentLandPricePerSqm', 'marketRentPerSqm', 'rentPerSqm',\n  'basementFloorCount', 'leaseUpMonths', 'landLength', 'landWidth',\n  'landPricePerSqm', 'constructionCostPerSqm',\n",
+    "  'currentLandPricePerSqm', 'marketRentPerSqm', 'rentPerSqm',\n  'basementFloorCount', 'leaseUpMonths', 'landLength', 'landWidth',\n  'landPricePerSqm', 'constructionCostPerSqm', 'officeFloorCount',\n",
 )
 v = v.replace("  'landLength',\n  'landWidth',\n", "")
 v = v.replace("  'landPricePerSqm',\n", "")
+v = v.replace("  'officeFloorCount',\n", "")
 v = v.replace("  'constructionCostPerSqm',\n", "")
 v = v.replace(
     "  'basementCount', 'floorCount', 'serviceElevators', 'officeFloorCount',\n  'basementFloorCount', 'constructionPeriod', 'operatingPeriod', 'holdPeriod',\n  'buildingUsefulLife', 'leaseYears', 'gracePeriodMonths',\n",
