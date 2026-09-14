@@ -1,0 +1,244 @@
+name: Production Deployment Posture Capture V2
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main_sha:
+        description: 'Exact trusted main SHA for read-only posture capture'
+        required: true
+        type: string
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deployment-posture-capture-v2
+  cancel-in-progress: false
+
+env:
+  FROZEN_CANDIDATE_SOURCE_SHA: 21f51ad5b4c6787c556aa3b8528d9c3ec17f12c3
+  SELECTED_RELEASE_ARTIFACT_SHA256: 6d0a43021a7758e9e83c026ada2c43b274b109146e5d078015505dfb3fea5bea
+  CF_PROJECT_NAME: startak-real-estate
+  CF_PRODUCTION_HOST: startak-real-estate.pages.dev
+  ENVIRONMENT_REF: cloudflare-pages:startak-real-estate:production
+  EVIDENCE_DIR: runtime-evidence/production-posture-v2
+
+jobs:
+  capture:
+    name: production-deployment-posture-capture-v2
+    if: >-
+      ${{
+        github.event_name == 'workflow_dispatch' ||
+        (
+          github.event_name == 'issue_comment' &&
+          github.event.issue.number == 341 &&
+          github.event.comment.author_association == 'OWNER' &&
+          github.event.comment.user.login == github.repository_owner &&
+          startsWith(github.event.comment.body, '/startak capture-production-posture-v2 ')
+        )
+      }}
+    runs-on: ubuntu-24.04
+    environment: production
+    timeout-minutes: 10
+    env:
+      CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CF_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+
+    steps:
+      - name: Bind capture to trusted main
+        shell: bash
+        env:
+          DISPATCH_EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha || '' }}
+          OWNER_COMMAND_BODY: ${{ github.event.comment.body || '' }}
+        run: |
+          set -euo pipefail
+          case "$GITHUB_EVENT_NAME" in
+            workflow_dispatch) expected="$DISPATCH_EXPECTED_MAIN_SHA" ;;
+            issue_comment)
+              if [[ ! "$OWNER_COMMAND_BODY" =~ ^/startak[[:space:]]capture-production-posture-v2[[:space:]]([0-9a-fA-F]{40})$ ]]; then
+                echo 'Owner command must be exactly: /startak capture-production-posture-v2 <40-char-main-sha>'
+                exit 1
+              fi
+              expected="${BASH_REMATCH[1]}"
+              ;;
+            *) exit 1 ;;
+          esac
+          [[ "$GITHUB_REF" == 'refs/heads/main' ]] || { echo 'Capture must execute from main.'; exit 1; }
+          [[ "$expected" =~ ^[0-9a-fA-F]{40}$ ]] || exit 1
+          [[ "${expected,,}" == "${GITHUB_SHA,,}" ]] || { echo "Expected main SHA mismatch: expected=$expected workflow=$GITHUB_SHA"; exit 1; }
+
+      - name: Read provider and production deployment identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
+          token_json="$(curl --fail-with-body --silent --show-error "${auth[@]}" https://api.cloudflare.com/client/v4/user/tokens/verify)"
+          jq -e '.success == true and .result.status == "active"' <<<"$token_json" >/dev/null
+
+          project_json="$(curl --fail-with-body --silent --show-error "${auth[@]}" \
+            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}")"
+          jq -e '.success == true' <<<"$project_json" >/dev/null
+          printf '%s' "$project_json" > /tmp/cf-posture-v2-project.json
+
+          deployments_json="$(curl --fail-with-body --silent --show-error "${auth[@]}" \
+            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}/deployments?env=production&per_page=20")"
+          jq -e '.success == true' <<<"$deployments_json" >/dev/null
+          printf '%s' "$deployments_json" > /tmp/cf-posture-v2-deployments.json
+
+          deployment_id="$(jq -r '(.result | map(select((.environment // "") == "production" and (.latest_stage.status // "") == "success")) | first.id) // empty' /tmp/cf-posture-v2-deployments.json)"
+          deployed_sha="$(jq -r '(.result | map(select((.environment // "") == "production" and (.latest_stage.status // "") == "success")) | first | (.source.config.commit_hash // .deployment_trigger.metadata.commit_hash)) // empty' /tmp/cf-posture-v2-deployments.json | tr '[:upper:]' '[:lower:]')"
+          [[ "$deployed_sha" =~ ^[0-9a-f]{40}$ ]] || { echo 'Production deployed SHA missing/non-canonical.'; exit 1; }
+          test -n "$deployment_id" || exit 1
+          printf '%s' "$deployment_id" > /tmp/posture-deployment-id
+          printf '%s' "$deployed_sha" > /tmp/posture-deployed-sha
+
+      - name: Probe public runtime fail-closed boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="https://${CF_PRODUCTION_HOST}"
+          root_headers="$(mktemp)"
+          root_body="$(mktemp)"
+          root_status="$(curl -sS -D "$root_headers" -o "$root_body" -w '%{http_code}' "$base/")"
+          test "$root_status" = '200' || exit 1
+          csp_turnstile=false
+          if grep -Eqi '^content-security-policy:.*challenges\.cloudflare\.com' "$root_headers"; then csp_turnstile=true; fi
+
+          config_body="$(mktemp)"
+          config_status="$(curl -sS -o "$config_body" -w '%{http_code}' "$base/api/riai/public-config")"
+          test "$config_status" = '200' || exit 1
+          public_ai_enabled="$(jq -r 'if .publicAiEnabled == true then "true" else "false" end' "$config_body")"
+          turnstile_present="$(jq -r 'if (.turnstileSiteKey | type == "string" and length > 10) then "true" else "false" end' "$config_body")"
+          restricted_exposed="$(jq -r 'if has("turnstileSecret") or has("providerKey") or has("providerUrl") or has("model") then "true" else "false" end' "$config_body")"
+
+          ai_body="$(mktemp)"
+          payload='{"decisionSnapshot":{"schemaVersion":1}}'
+          ai_status="$(curl -sS -o "$ai_body" -w '%{http_code}' -X POST "$base/api/riai/ai-assist" \
+            -H 'content-type: application/json' -H "origin: $base" -H 'sec-fetch-site: same-origin' --data "$payload")"
+          ai_code="$(jq -r '.code // empty' "$ai_body" 2>/dev/null || true)"
+          [[ "$ai_status" != '200' ]] || { echo 'Invalid/unauthenticated AI request unexpectedly succeeded.'; exit 1; }
+          case "$ai_code" in
+            TURNSTILE_TOKEN_REQUIRED|AI_SNAPSHOT_INVALID|AI_SNAPSHOT_NOT_READY|DECISION_SNAPSHOT_SCHEMA_INVALID) ;;
+            *) echo "Unexpected fail-closed code: ${ai_code:-<none>}"; exit 1 ;;
+          esac
+
+          printf '%s' "$root_status" > /tmp/posture-root-status
+          printf '%s' "$config_status" > /tmp/posture-config-status
+          printf '%s' "$public_ai_enabled" > /tmp/posture-public-ai
+          printf '%s' "$turnstile_present" > /tmp/posture-turnstile
+          printf '%s' "$restricted_exposed" > /tmp/posture-restricted
+          printf '%s' "$ai_status" > /tmp/posture-ai-status
+          printf '%s' "$ai_code" > /tmp/posture-ai-code
+          printf '%s' "$csp_turnstile" > /tmp/posture-csp-turnstile
+          rm -f "$root_headers" "$root_body" "$config_body" "$ai_body"
+
+      - name: Build secret-free posture evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          project=/tmp/cf-posture-v2-project.json
+          generated_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          account_sha="$(printf '%s' "$CF_ACCOUNT_ID" | sha256sum | awk '{print $1}')"
+          deployment_id="$(cat /tmp/posture-deployment-id)"
+          deployed_sha="$(cat /tmp/posture-deployed-sha)"
+          provider_auto="$(jq -r '.result.source.config.production_deployments_enabled | if . == true then "true" elif . == false then "false" else "null" end' "$project")"
+          provider_fail_open="$(jq -r '.result.deployment_configs.production.fail_open | if . == true then "true" elif . == false then "false" else "null" end' "$project")"
+          provider_public_ai="$(jq -r '.result.deployment_configs.production.env_vars.RIAI_PUBLIC_AI_ENABLED.value // "<missing>"' "$project")"
+
+          jq -S -n \
+            --arg frozenCandidateSourceSha "$FROZEN_CANDIDATE_SOURCE_SHA" \
+            --arg selectedReleaseArtifactSha256 "$SELECTED_RELEASE_ARTIFACT_SHA256" \
+            --arg environmentRef "$ENVIRONMENT_REF" \
+            --arg accountIdSha256 "$account_sha" \
+            --arg trustedCollectorMainSha "$GITHUB_SHA" \
+            --arg deploymentId "$deployment_id" \
+            --arg deployedCommitSha "$deployed_sha" \
+            --arg providerAuto "$provider_auto" \
+            --arg providerFailOpen "$provider_fail_open" \
+            --arg providerPublicAi "$provider_public_ai" \
+            --arg rootStatus "$(cat /tmp/posture-root-status)" \
+            --arg configStatus "$(cat /tmp/posture-config-status)" \
+            --arg runtimePublicAi "$(cat /tmp/posture-public-ai)" \
+            --arg turnstile "$(cat /tmp/posture-turnstile)" \
+            --arg restricted "$(cat /tmp/posture-restricted)" \
+            --arg aiStatus "$(cat /tmp/posture-ai-status)" \
+            --arg aiCode "$(cat /tmp/posture-ai-code)" \
+            --arg cspTurnstile "$(cat /tmp/posture-csp-turnstile)" \
+            --arg generatedAt "$generated_at" \
+            '{
+              schemaVersion: 2,
+              evidenceType: "PRODUCTION_DEPLOYMENT_POSTURE_CAPTURE_V2",
+              frozenReleaseContext: {
+                candidateSourceSha: $frozenCandidateSourceSha,
+                selectedArtifactSha256: $selectedReleaseArtifactSha256,
+                environmentRef: $environmentRef
+              },
+              providerAccountIdSha256: $accountIdSha256,
+              observedProviderControls: {
+                productionDeploymentsEnabled: (if $providerAuto == "null" then null else ($providerAuto == "true") end),
+                failOpen: (if $providerFailOpen == "null" then null else ($providerFailOpen == "true") end),
+                configuredPublicAiValue: $providerPublicAi
+              },
+              observedProductionDeployment: {
+                id: $deploymentId,
+                deployedCommitSha: $deployedCommitSha,
+                candidateCommitCurrentlyDeployed: ($deployedCommitSha == $frozenCandidateSourceSha)
+              },
+              observedPublicRuntime: {
+                rootHttpStatus: ($rootStatus | tonumber),
+                publicConfigHttpStatus: ($configStatus | tonumber),
+                publicAiEnabled: ($runtimePublicAi == "true"),
+                turnstileSiteKeyPresent: ($turnstile == "true"),
+                restrictedPublicFieldsExposed: ($restricted == "true"),
+                invalidUnauthenticatedAiRequestHttpStatus: ($aiStatus | tonumber),
+                invalidUnauthenticatedAiRequestCode: $aiCode,
+                turnstileCspPresent: ($cspTurnstile == "true")
+              },
+              provenance: {
+                trustedCollectorMainSha: $trustedCollectorMainSha,
+                githubRunId: env.GITHUB_RUN_ID,
+                triggerActor: env.GITHUB_ACTOR,
+                providerReadOnlyCapture: true,
+                publicReadOnlyProbe: true
+              },
+              authority: {
+                releaseAuthorized: false,
+                mergeAuthorized: false,
+                deploymentAuthorized: false,
+                goLiveAuthorized: false,
+                transactionAuthorized: false,
+                canonicalBaselineActivated: false
+              },
+              evidenceBoundary: "READ_ONLY_PRODUCTION_POSTURE_V2_NOT_RELEASE_OR_DEPLOYMENT_AUTHORITY",
+              generatedAt: $generatedAt
+            }' > "$EVIDENCE_DIR/production-posture-v2.json"
+
+          posture_sha="$(sha256sum "$EVIDENCE_DIR/production-posture-v2.json" | awk '{print $1}')"
+          printf '%s  %s\n' "$posture_sha" 'production-posture-v2.json' > "$EVIDENCE_DIR/production-posture-v2.sha256"
+          echo "PRODUCTION_POSTURE_V2_SHA256=$posture_sha"
+
+      - name: Upload posture evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: production-deployment-posture-capture-v2
+          path: runtime-evidence/production-posture-v2
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+      - name: Publish summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## Production Deployment Posture Capture V2'
+            echo
+            echo "- Frozen candidate: \`${FROZEN_CANDIDATE_SOURCE_SHA}\`"
+            if [[ -f /tmp/posture-deployed-sha ]]; then echo "- Observed production SHA: \`$(cat /tmp/posture-deployed-sha)\`"; fi
+            if [[ -f /tmp/posture-public-ai ]]; then echo "- Observed runtime public AI: \`$(cat /tmp/posture-public-ai)\`"; fi
+            if [[ -f "$EVIDENCE_DIR/production-posture-v2.sha256" ]]; then echo "- Evidence SHA-256: \`$(awk '{print $1}' "$EVIDENCE_DIR/production-posture-v2.sha256")\`"; fi
+            echo '- No release, deployment, Go-Live, canonical activation, or transaction authority is granted.'
+          } >> "$GITHUB_STEP_SUMMARY"
