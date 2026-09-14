@@ -1,0 +1,197 @@
+name: Exact Release Candidate Artifact Capture
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/exact-release-candidate-artifact-capture.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: exact-release-candidate-artifact-capture-21f51ad5b4c6
+  cancel-in-progress: false
+
+env:
+  SOURCE_COMMIT_SHA: 21f51ad5b4c6787c556aa3b8528d9c3ec17f12c3
+  STARTAK_SOURCE_COMMIT: 21f51ad5b4c6787c556aa3b8528d9c3ec17f12c3
+  STARTAK_BUILD_ENVIRONMENT: github-actions:exact-candidate-artifact-capture
+  EVIDENCE_DIR: runtime-evidence/exact-release-candidate-artifact
+
+jobs:
+  capture:
+    name: exact-release-candidate-artifact-capture
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    steps:
+      - name: Verify trusted collector provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == 'refs/heads/main' ]] || {
+            echo "Collector workflow must execute from trusted main; got ${GITHUB_REF:-<none>}."
+            exit 1
+          }
+          [[ "$SOURCE_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] || {
+            echo 'Pinned candidate source SHA is invalid.'
+            exit 1
+          }
+          echo "Collector workflow ref: ${GITHUB_SHA}"
+          echo "Frozen candidate source: ${SOURCE_COMMIT_SHA}"
+
+      - name: Checkout exact frozen candidate source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: 21f51ad5b4c6787c556aa3b8528d9c3ec17f12c3
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify exact checkout identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD | tr '[:upper:]' '[:lower:]')"
+          expected="$(printf '%s' "$SOURCE_COMMIT_SHA" | tr '[:upper:]' '[:lower:]')"
+          [[ "$actual" == "$expected" ]] || {
+            echo "Exact candidate checkout mismatch: expected=$expected actual=$actual"
+            exit 1
+          }
+          echo "EXACT_CANDIDATE_CHECKOUT=PASS sha=$actual"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run canonical release verification on exact source
+        run: npm run release:verify
+
+      - name: Verify source-bound release manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f dist/release-manifest.json || {
+            echo 'dist/release-manifest.json is missing.'
+            exit 1
+          }
+          jq -e --arg sha "$SOURCE_COMMIT_SHA" '
+            .schemaVersion == 1
+            and .sourceCommit == $sha
+            and .sourceCommitBound == true
+            and .deploymentVerified == false
+            and .productionDeploymentAuthorized == false
+            and .evidenceBoundary == "BUILD_TRACE_ONLY_NOT_DEPLOYMENT_PROOF"
+          ' dist/release-manifest.json >/dev/null
+          echo "SOURCE_BOUND_RELEASE_MANIFEST=PASS sha=${SOURCE_COMMIT_SHA}"
+
+      - name: Create deterministic deployable archive and evidence record
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+
+          artifact_name="startak-release-candidate-${SOURCE_COMMIT_SHA}.tar"
+          artifact_path="$EVIDENCE_DIR/$artifact_name"
+
+          find dist -type f -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            > "$EVIDENCE_DIR/dist-files.sha256"
+
+          tar \
+            --sort=name \
+            --mtime='UTC 1970-01-01' \
+            --owner=0 \
+            --group=0 \
+            --numeric-owner \
+            --format=gnu \
+            --mode='u+rwX,go+rX,go-w' \
+            -cf "$artifact_path" \
+            dist
+
+          artifact_sha="$(sha256sum "$artifact_path" | awk '{print $1}')"
+          tree_manifest_sha="$(sha256sum "$EVIDENCE_DIR/dist-files.sha256" | awk '{print $1}')"
+          release_manifest_sha="$(sha256sum dist/release-manifest.json | awk '{print $1}')"
+          file_count="$(find dist -type f | wc -l | tr -d ' ')"
+          generated_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+
+          jq -n \
+            --arg sourceCommitSha "$SOURCE_COMMIT_SHA" \
+            --arg collectorWorkflowCommitSha "$GITHUB_SHA" \
+            --arg githubRunId "$GITHUB_RUN_ID" \
+            --arg githubRunAttempt "$GITHUB_RUN_ATTEMPT" \
+            --arg artifactFile "$artifact_name" \
+            --arg artifactSha256 "$artifact_sha" \
+            --arg distTreeManifestSha256 "$tree_manifest_sha" \
+            --arg releaseManifestSha256 "$release_manifest_sha" \
+            --arg buildEnvironment "$STARTAK_BUILD_ENVIRONMENT" \
+            --arg generatedAt "$generated_at" \
+            --argjson distFileCount "$file_count" \
+            '{
+              schemaVersion: 1,
+              evidenceType: "EXACT_RELEASE_CANDIDATE_BUILD_ARTIFACT_CAPTURE",
+              sourceCommitSha: $sourceCommitSha,
+              collectorWorkflowCommitSha: $collectorWorkflowCommitSha,
+              githubRunId: $githubRunId,
+              githubRunAttempt: $githubRunAttempt,
+              buildEnvironment: $buildEnvironment,
+              artifactFile: $artifactFile,
+              artifactDigestScope: "SHA256_OF_DETERMINISTIC_TAR_BYTES_CONTAINING_DIST_DIRECTORY",
+              artifactSha256: $artifactSha256,
+              distTreeManifestSha256: $distTreeManifestSha256,
+              releaseManifestSha256: $releaseManifestSha256,
+              distFileCount: $distFileCount,
+              sourceCommitBound: true,
+              releaseArtifactSelectionPerformed: false,
+              deploymentVerified: false,
+              productionDeploymentAuthorized: false,
+              releaseAuthorized: false,
+              mergeAuthorized: false,
+              transactionAuthorized: false,
+              evidenceBoundary: "EXACT_SOURCE_BUILD_ARTIFACT_CAPTURE_NOT_DEPLOYMENT_OR_AUTHORIZATION_PROOF",
+              generatedAt: $generatedAt
+            }' > "$EVIDENCE_DIR/artifact-capture-evidence.json"
+
+          printf '%s  %s\n' "$artifact_sha" "$artifact_name" > "$EVIDENCE_DIR/artifact.sha256"
+
+          echo "EXACT_RELEASE_CANDIDATE_ARTIFACT_CAPTURE=PASS"
+          echo "ARTIFACT_SHA256=$artifact_sha"
+          echo "DIST_TREE_MANIFEST_SHA256=$tree_manifest_sha"
+          echo "RELEASE_MANIFEST_SHA256=$release_manifest_sha"
+          echo "RELEASE_ARTIFACT_SELECTION_PERFORMED=false"
+          echo "PRODUCTION_DEPLOYMENT_AUTHORIZED=false"
+
+      - name: Upload exact candidate artifact capture
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: exact-release-candidate-artifact-21f51ad5b4c6
+          path: runtime-evidence/exact-release-candidate-artifact
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+      - name: Publish non-authorizing summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## Exact Release Candidate Artifact Capture'
+            echo
+            echo "- Frozen source commit: \`${SOURCE_COMMIT_SHA}\`"
+            echo "- Collector workflow commit: \`${GITHUB_SHA}\`"
+            if [[ -f "$EVIDENCE_DIR/artifact.sha256" ]]; then
+              digest="$(awk '{print $1}' "$EVIDENCE_DIR/artifact.sha256")"
+              echo "- Deterministic candidate archive SHA-256: \`${digest}\`"
+            fi
+            echo '- The captured archive is source-bound build evidence only.'
+            echo '- Release-artifact selection has not been performed.'
+            echo '- No production deployment, release authority, merge authority, canonical switch, go-live, or transaction authority is granted.'
+          } >> "$GITHUB_STEP_SUMMARY"
