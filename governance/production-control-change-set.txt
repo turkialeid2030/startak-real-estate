@@ -1,0 +1,1 @@
+Governance-only change set: Cloudflare production control-plane remediation workflow; environment config capture V2; posture capture V2; evidence correction and owner-selected safety decision. No application source change, no candidate SHA change, no release/deployment/Go-Live authority.
