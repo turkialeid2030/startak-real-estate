@@ -75,7 +75,7 @@ try {
   const invalidAlert = await panel.getByRole('alert').innerText();
   record('DOC-E2E-06-INVALID-TYPE', invalidAlert.includes('نوع الملف غير مدعوم'), invalidAlert);
 
-  await page.getByTitle('Switch to English').click();
+  await page.getByTitle('التبديل إلى الإنجليزية').click();
   await page.waitForTimeout(200);
   const htmlDir = await page.locator('html').getAttribute('dir');
   const bodyEn = await panel.innerText();
