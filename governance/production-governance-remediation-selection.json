@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "decisionType": "OWNER_SELECTED_PRODUCTION_GOVERNANCE_REMEDIATION",
+  "decisionDate": "2026-09-14",
+  "decisionBasis": "Owner delegated expert selection of the appropriate safety remediation after read-only evidence proved automatic production deployment from governance-only main merges.",
+  "selectedActions": {
+    "disableAutomaticProductionDeployments": true,
+    "setProductionFailOpenFalse": true,
+    "setConfiguredPublicAiFalse": true,
+    "performApplicationDeployment": false,
+    "mergeFrozenCandidate": false,
+    "authorizeGoLive": false,
+    "authorizeTransactions": false,
+    "activateCanonicalBaseline": false
+  },
+  "frozenCandidateSourceSha": "21f51ad5b4c6787c556aa3b8528d9c3ec17f12c3",
+  "selectedReleaseArtifactSha256": "6d0a43021a7758e9e83c026ada2c43b274b109146e5d078015505dfb3fea5bea",
+  "authoritativeV1EnvironmentConfigSha256": "59928738bf41ead1408d836d7c558a92af4607fbb59ba58ae5c34216d3fce93f",
+  "v1EnvironmentConfigSupersededByMutation": true,
+  "freshV2CaptureRequired": true,
+  "authorityBoundary": "CONTROL_PLANE_SAFETY_REMEDIATION_ONLY_NOT_APPLICATION_RELEASE_DEPLOYMENT_OR_GO_LIVE_AUTHORITY"
+}

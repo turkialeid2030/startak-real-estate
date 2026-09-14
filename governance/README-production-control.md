@@ -1,0 +1,1 @@
+This branch contains governance-only control-plane instrumentation. It must not modify the frozen application candidate. After merge, execute the owner-authorized remediation command on issue #341, then perform fresh V2 provider configuration and posture captures before any release-tuple selection or downstream signatures.
