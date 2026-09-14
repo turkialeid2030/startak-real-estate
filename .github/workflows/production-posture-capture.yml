@@ -1,0 +1,301 @@
+name: Production Deployment Posture Capture
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main_sha:
+        description: 'Exact trusted main SHA authorized for read-only posture capture'
+        required: true
+        type: string
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deployment-posture-capture
+  cancel-in-progress: false
+
+env:
+  FROZEN_CANDIDATE_SOURCE_SHA: 21f51ad5b4c6787c556aa3b8528d9c3ec17f12c3
+  SELECTED_RELEASE_ARTIFACT_SHA256: 6d0a43021a7758e9e83c026ada2c43b274b109146e5d078015505dfb3fea5bea
+  CAPTURED_ENVIRONMENT_CONFIG_SHA256: 26ffd781122ec32eafd3e11166c864463657557eee4766897c31c30a25f687ea
+  CF_PROJECT_NAME: startak-real-estate
+  CF_PRODUCTION_HOST: startak-real-estate.pages.dev
+  ENVIRONMENT_REF: cloudflare-pages:startak-real-estate:production
+  EVIDENCE_DIR: runtime-evidence/production-posture
+
+jobs:
+  capture:
+    name: production-deployment-posture-capture
+    if: >-
+      ${{
+        github.event_name == 'workflow_dispatch' ||
+        (
+          github.event_name == 'issue_comment' &&
+          github.event.issue.number == 341 &&
+          github.event.comment.author_association == 'OWNER' &&
+          github.event.comment.user.login == github.repository_owner &&
+          startsWith(github.event.comment.body, '/startak capture-production-posture ')
+        )
+      }}
+    runs-on: ubuntu-24.04
+    environment: production
+    timeout-minutes: 10
+    env:
+      CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CF_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+
+    steps:
+      - name: Bind capture to trusted main
+        shell: bash
+        env:
+          DISPATCH_EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha || '' }}
+          OWNER_COMMAND_BODY: ${{ github.event.comment.body || '' }}
+        run: |
+          set -euo pipefail
+          case "$GITHUB_EVENT_NAME" in
+            workflow_dispatch)
+              expected="$DISPATCH_EXPECTED_MAIN_SHA"
+              ;;
+            issue_comment)
+              if [[ ! "$OWNER_COMMAND_BODY" =~ ^/startak[[:space:]]capture-production-posture[[:space:]]([0-9a-fA-F]{40})$ ]]; then
+                echo 'Owner command must be exactly: /startak capture-production-posture <40-char-main-sha>'
+                exit 1
+              fi
+              expected="${BASH_REMATCH[1]}"
+              ;;
+            *)
+              echo "Unsupported event: $GITHUB_EVENT_NAME"
+              exit 1
+              ;;
+          esac
+          [[ "$GITHUB_REF" == 'refs/heads/main' ]] || { echo "Capture must run from main; got ${GITHUB_REF:-<none>}."; exit 1; }
+          [[ "$expected" =~ ^[0-9a-fA-F]{40}$ ]] || { echo 'Expected SHA must be 40 hex characters.'; exit 1; }
+          [[ "${expected,,}" == "${GITHUB_SHA,,}" ]] || { echo "Expected main SHA mismatch: expected=$expected workflow=$GITHUB_SHA"; exit 1; }
+          echo "Trusted posture collector main SHA: $GITHUB_SHA"
+
+      - name: Preflight protected provider access
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${CF_API_TOKEN:-}" || { echo 'CLOUDFLARE_API_TOKEN is missing'; exit 1; }
+          test -n "${CF_ACCOUNT_ID:-}" || { echo 'CLOUDFLARE_ACCOUNT_ID is missing'; exit 1; }
+          auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
+          token_json="$(curl --fail-with-body --silent --show-error "${auth[@]}" https://api.cloudflare.com/client/v4/user/tokens/verify)"
+          jq -e '.success == true and .result.status == "active"' <<<"$token_json" >/dev/null
+          echo 'Protected Cloudflare read credential is active.'
+
+      - name: Read current Cloudflare production deployment identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
+          project_json="$(curl --fail-with-body --silent --show-error "${auth[@]}" \
+            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}")"
+          jq -e '.success == true' <<<"$project_json" >/dev/null
+          jq -e --arg name "$CF_PROJECT_NAME" '.result.name == $name and .result.production_branch == "main"' <<<"$project_json" >/dev/null
+
+          deployments_json="$(curl --fail-with-body --silent --show-error "${auth[@]}" \
+            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}/deployments?env=production&per_page=20")"
+          jq -e '.success == true' <<<"$deployments_json" >/dev/null
+
+          printf '%s' "$project_json" > /tmp/cf-project-posture.json
+          printf '%s' "$deployments_json" > /tmp/cf-production-deployments.json
+
+          deployment_json="$(jq -c '
+            (.result.canonical_deployment // empty) as $canonical
+            | if ($canonical | type) == "object" and (($canonical.id // "") != "") then $canonical else empty end
+          ' /tmp/cf-project-posture.json)"
+
+          if [[ -z "$deployment_json" ]]; then
+            deployment_json="$(jq -c '.result | map(select((.environment // "") == "production" and (.latest_stage.status // "") == "success")) | first // empty' /tmp/cf-production-deployments.json)"
+          fi
+          test -n "$deployment_json" || { echo 'No canonical/successful production deployment was returned by Cloudflare.'; exit 1; }
+
+          deployment_id="$(jq -r '.id // empty' <<<"$deployment_json")"
+          deployed_sha="$(jq -r '.source.config.commit_hash // .deployment_trigger.metadata.commit_hash // empty' <<<"$deployment_json" | tr '[:upper:]' '[:lower:]')"
+          deployment_status="$(jq -r '.latest_stage.status // empty' <<<"$deployment_json")"
+          deployment_environment="$(jq -r '.environment // "production"' <<<"$deployment_json")"
+          deployment_url="$(jq -r '.url // empty' <<<"$deployment_json")"
+          created_on="$(jq -r '.created_on // empty' <<<"$deployment_json")"
+
+          test -n "$deployment_id" || { echo 'Production deployment ID is missing.'; exit 1; }
+          [[ "$deployed_sha" =~ ^[0-9a-f]{40}$ ]] || { echo "Production deployment commit SHA is missing/non-canonical: ${deployed_sha:-<none>}"; exit 1; }
+
+          printf '%s' "$deployment_id" > /tmp/current-production-deployment-id
+          printf '%s' "$deployed_sha" > /tmp/current-production-deployed-sha
+          printf '%s' "$deployment_status" > /tmp/current-production-deployment-status
+          printf '%s' "$deployment_environment" > /tmp/current-production-deployment-environment
+          printf '%s' "$deployment_url" > /tmp/current-production-deployment-url
+          printf '%s' "$created_on" > /tmp/current-production-deployment-created-on
+
+          echo "Current production deployment ID: $deployment_id"
+          echo "Current production deployed SHA: $deployed_sha"
+          echo "Current production deployment status: ${deployment_status:-<unknown>}"
+
+      - name: Probe current public production posture without mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="https://${CF_PRODUCTION_HOST}"
+
+          root_headers="$(mktemp)"
+          root_body="$(mktemp)"
+          root_status="$(curl -sS -D "$root_headers" -o "$root_body" -w '%{http_code}' "$base/")"
+          test "$root_status" = '200' || { echo "Public shell returned HTTP $root_status"; exit 1; }
+          grep -Eqi '<!doctype html|<html' "$root_body" || { echo 'Public shell did not return HTML.'; exit 1; }
+          csp_turnstile=false
+          if grep -Eqi '^content-security-policy:.*challenges\.cloudflare\.com' "$root_headers"; then csp_turnstile=true; fi
+
+          config_body="$(mktemp)"
+          config_status="$(curl -sS -o "$config_body" -w '%{http_code}' "$base/api/riai/public-config")"
+          test "$config_status" = '200' || { echo "Public config returned HTTP $config_status"; cat "$config_body"; exit 1; }
+          public_ai_enabled="$(jq -r 'if .publicAiEnabled == true then "true" else "false" end' "$config_body")"
+          turnstile_present="$(jq -r 'if (.turnstileSiteKey | type == "string" and length > 10) then "true" else "false" end' "$config_body")"
+          restricted_exposed="$(jq -r 'if has("turnstileSecret") or has("providerKey") or has("providerUrl") or has("model") then "true" else "false" end' "$config_body")"
+
+          ai_body="$(mktemp)"
+          payload='{"decisionSnapshot":{"schemaVersion":1}}'
+          ai_status="$(curl -sS -o "$ai_body" -w '%{http_code}' -X POST "$base/api/riai/ai-assist" \
+            -H 'content-type: application/json' -H "origin: $base" -H 'sec-fetch-site: same-origin' --data "$payload")"
+          ai_code="$(jq -r '.code // empty' "$ai_body" 2>/dev/null || true)"
+          [[ "$ai_status" != '200' ]] || { echo 'Invalid/unauthenticated AI request unexpectedly returned 200.'; exit 1; }
+          case "$ai_code" in
+            TURNSTILE_TOKEN_REQUIRED|AI_SNAPSHOT_INVALID|AI_SNAPSHOT_NOT_READY|DECISION_SNAPSHOT_SCHEMA_INVALID) ;;
+            *) echo "Unexpected fail-closed boundary code: ${ai_code:-<none>} (HTTP $ai_status)"; exit 1 ;;
+          esac
+
+          printf '%s' "$root_status" > /tmp/public-root-status
+          printf '%s' "$config_status" > /tmp/public-config-status
+          printf '%s' "$public_ai_enabled" > /tmp/public-ai-enabled
+          printf '%s' "$turnstile_present" > /tmp/public-turnstile-present
+          printf '%s' "$restricted_exposed" > /tmp/public-restricted-exposed
+          printf '%s' "$ai_status" > /tmp/public-ai-request-status
+          printf '%s' "$ai_code" > /tmp/public-ai-request-code
+          printf '%s' "$csp_turnstile" > /tmp/public-csp-turnstile
+
+          rm -f "$root_headers" "$root_body" "$config_body" "$ai_body"
+          echo "Public AI enabled: $public_ai_enabled"
+          echo "Invalid/unauthenticated request boundary: HTTP $ai_status / $ai_code"
+
+      - name: Build secret-free production posture evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          deployment_id="$(cat /tmp/current-production-deployment-id)"
+          deployed_sha="$(cat /tmp/current-production-deployed-sha)"
+          deployment_status="$(cat /tmp/current-production-deployment-status)"
+          deployment_environment="$(cat /tmp/current-production-deployment-environment)"
+          deployment_url="$(cat /tmp/current-production-deployment-url)"
+          deployment_created_on="$(cat /tmp/current-production-deployment-created-on)"
+          generated_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+
+          jq -S -n \
+            --arg frozenCandidateSourceSha "$FROZEN_CANDIDATE_SOURCE_SHA" \
+            --arg selectedReleaseArtifactSha256 "$SELECTED_RELEASE_ARTIFACT_SHA256" \
+            --arg capturedEnvironmentConfigSha256 "$CAPTURED_ENVIRONMENT_CONFIG_SHA256" \
+            --arg environmentRef "$ENVIRONMENT_REF" \
+            --arg trustedCollectorMainSha "$GITHUB_SHA" \
+            --arg deploymentId "$deployment_id" \
+            --arg deployedCommitSha "$deployed_sha" \
+            --arg deploymentStatus "$deployment_status" \
+            --arg deploymentEnvironment "$deployment_environment" \
+            --arg deploymentUrl "$deployment_url" \
+            --arg deploymentCreatedOn "$deployment_created_on" \
+            --arg publicRootHttpStatus "$(cat /tmp/public-root-status)" \
+            --arg publicConfigHttpStatus "$(cat /tmp/public-config-status)" \
+            --arg publicAiEnabled "$(cat /tmp/public-ai-enabled)" \
+            --arg turnstileSiteKeyPresent "$(cat /tmp/public-turnstile-present)" \
+            --arg restrictedPublicFieldsExposed "$(cat /tmp/public-restricted-exposed)" \
+            --arg invalidAiRequestHttpStatus "$(cat /tmp/public-ai-request-status)" \
+            --arg invalidAiRequestCode "$(cat /tmp/public-ai-request-code)" \
+            --arg turnstileCspPresent "$(cat /tmp/public-csp-turnstile)" \
+            --arg githubRunId "$GITHUB_RUN_ID" \
+            --arg triggerEvent "$GITHUB_EVENT_NAME" \
+            --arg triggerActor "$GITHUB_ACTOR" \
+            --arg generatedAt "$generated_at" \
+            '{
+              schemaVersion: 1,
+              evidenceType: "PRODUCTION_DEPLOYMENT_POSTURE_CAPTURE",
+              frozenReleaseContext: {
+                candidateSourceSha: $frozenCandidateSourceSha,
+                selectedArtifactSha256: $selectedReleaseArtifactSha256,
+                capturedEnvironmentConfigSha256: $capturedEnvironmentConfigSha256,
+                environmentRef: $environmentRef
+              },
+              observedProductionDeployment: {
+                id: $deploymentId,
+                deployedCommitSha: $deployedCommitSha,
+                status: $deploymentStatus,
+                environment: $deploymentEnvironment,
+                url: (if $deploymentUrl == "" then null else $deploymentUrl end),
+                createdOn: (if $deploymentCreatedOn == "" then null else $deploymentCreatedOn end),
+                candidateCommitCurrentlyDeployed: ($deployedCommitSha == $frozenCandidateSourceSha)
+              },
+              observedPublicPosture: {
+                rootHttpStatus: ($publicRootHttpStatus | tonumber),
+                publicConfigHttpStatus: ($publicConfigHttpStatus | tonumber),
+                publicAiEnabled: ($publicAiEnabled == "true"),
+                turnstileSiteKeyPresent: ($turnstileSiteKeyPresent == "true"),
+                restrictedPublicFieldsExposed: ($restrictedPublicFieldsExposed == "true"),
+                invalidUnauthenticatedAiRequestHttpStatus: ($invalidAiRequestHttpStatus | tonumber),
+                invalidUnauthenticatedAiRequestCode: $invalidAiRequestCode,
+                turnstileCspPresent: ($turnstileCspPresent == "true")
+              },
+              provenance: {
+                trustedCollectorMainSha: $trustedCollectorMainSha,
+                githubRunId: $githubRunId,
+                triggerEvent: $triggerEvent,
+                triggerActor: $triggerActor,
+                providerReadOnlyCapture: true,
+                publicReadOnlyProbe: true
+              },
+              authority: {
+                releaseAuthorized: false,
+                mergeAuthorized: false,
+                deploymentAuthorized: false,
+                goLiveAuthorized: false,
+                transactionAuthorized: false,
+                canonicalBaselineActivated: false
+              },
+              evidenceBoundary: "READ_ONLY_PRODUCTION_POSTURE_OBSERVATION_NOT_RELEASE_OR_DEPLOYMENT_AUTHORITY",
+              generatedAt: $generatedAt
+            }' > "$EVIDENCE_DIR/production-posture.json"
+
+          posture_sha="$(sha256sum "$EVIDENCE_DIR/production-posture.json" | awk '{print $1}')"
+          printf '%s  %s\n' "$posture_sha" 'production-posture.json' > "$EVIDENCE_DIR/production-posture.sha256"
+          echo "PRODUCTION_POSTURE_SHA256=$posture_sha"
+          echo "OBSERVED_DEPLOYED_COMMIT_SHA=$deployed_sha"
+
+      - name: Upload production posture evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: production-deployment-posture-capture
+          path: runtime-evidence/production-posture
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+      - name: Publish non-authorizing summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## Production Deployment Posture Capture'
+            echo
+            echo "- Frozen candidate source: \`${FROZEN_CANDIDATE_SOURCE_SHA}\`"
+            if [[ -f /tmp/current-production-deployed-sha ]]; then
+              echo "- Observed production deployed SHA: \`$(cat /tmp/current-production-deployed-sha)\`"
+            fi
+            if [[ -f /tmp/public-ai-enabled ]]; then
+              echo "- Observed public AI enabled: \`$(cat /tmp/public-ai-enabled)\`"
+            fi
+            if [[ -f "$EVIDENCE_DIR/production-posture.sha256" ]]; then
+              echo "- Posture evidence SHA-256: \`$(awk '{print $1}' "$EVIDENCE_DIR/production-posture.sha256")\`"
+            fi
+            echo '- Provider and public probes are read-only.'
+            echo '- No release, merge, deployment, canonical activation, Go-Live, or transaction authority is granted.'
+          } >> "$GITHUB_STEP_SUMMARY"
