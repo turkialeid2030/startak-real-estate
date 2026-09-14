@@ -38,23 +38,20 @@ function detectBrowserLocale() {
   const candidates = Array.isArray(navigator.languages) && navigator.languages.length
     ? navigator.languages
     : [navigator.language];
+  // Arabic browsers opt into ar-SA automatically. A non-Arabic browser does
+  // not silently override the product's Arabic default; English remains an
+  // explicit user choice and is persisted by safeWriteStoredLocale().
   for (const candidate of candidates) {
     const normalized = normalizeLocale(candidate);
-    if (normalized) return normalized;
+    if (normalized === 'ar-SA') return 'ar-SA';
   }
   return null;
 }
 
 function resolveInitialLocale(defaultLocale = 'ar-SA') {
-  // Product contract: Arabic is the default presentation unless the user has
-  // explicitly saved another supported choice. An Arabic browser also resolves
-  // to ar-SA automatically. A generic English browser must not silently override
-  // the product's Arabic default; English remains available through the explicit
-  // language control and is then persisted as the user's choice.
-  const stored = safeReadStoredLocale();
-  if (stored) return stored;
-  if (detectBrowserLocale() === 'ar-SA') return 'ar-SA';
-  return normalizeLocale(defaultLocale) || 'ar-SA';
+  // Explicit saved choice always wins. Otherwise an Arabic browser selects
+  // ar-SA; non-Arabic browsers retain the supplied product default.
+  return safeReadStoredLocale() || detectBrowserLocale() || normalizeLocale(defaultLocale) || 'ar-SA';
 }
 
 function LocaleProvider({ children, defaultLocale = 'ar-SA' }) {
