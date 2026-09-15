@@ -1,77 +1,65 @@
-# Decision Governance, Saudi Alignment & Release Hardening Wave — CI Evidence
+# Decision Governance, Saudi Alignment & Release Hardening Wave — Final CI Evidence
 
 Date: 2026-09-15
-
-## Evidence baseline
-
-Evaluated branch head before this evidence-only commit:
-
-`e697c1c571a0fbb89d8b163c43bc464c221cddbf`
-
 PR: #359
 
-## Workflow results
+## Qualified branch head
+
+`d80960e606d82aefb7bdd32816e189b65236ffc2`
+
+This is the branch head that independently cleared every required verification workflow before this evidence-only documentation commit.
+
+## Final workflow results
 
 | Workflow | Run | Result |
 |---|---:|---|
-| Zakat Layer Verify | #86 | PASS |
-| Release Verify | #986 | FAIL |
-| Comprehensive Verify | #401 | FAIL |
-| Deep Platform Verify | #356 | FAIL |
-| Standards Provenance Verify | #76 | FAIL |
+| Zakat Layer Verify | #99 | PASS |
+| Release Verify | #999 | PASS |
+| Comprehensive Verify | #414 | PASS |
+| Deep Platform Verify | #369 | PASS |
+| Standards Provenance Verify | #89 | PASS |
 
-## Canonical Release Verify #986
+## Canonical verification summary
 
-- Regression total: 438
-- Regression passed: 437
-- Regression failed: 1
-- Production build: PASS
-- Package verification: PASS
-- npm audit: 0 critical / 0 high / 0 moderate / 0 low
-- Canonical baseline registry: VERIFIED / PASS
-- Composite baseline shadow verification: NOT_EVALUATED — inputs not supplied
-- Fresh composite shadow verification: NOT_EVALUATED — inputs not supplied
-- Successor fresh composite shadow verification: NOT_EVALUATED — inputs not supplied
-- Composite cutover safety guard: NOT_EVALUATED — inputs not supplied
-- External canonical source hash evidence: NOT_EVALUATED — external canonical source not supplied
-- RELEASE_VERIFY_RESULT: FAIL
+- Regression: 438 / 438 PASS.
+- Production build: PASS.
+- Package verification: PASS.
+- npm audit: 0 critical / 0 high / 0 moderate / 0 low.
+- Core runtime browser E2E: PASS.
+- Full browser E2E: PASS.
+- Task-based UX scenarios: PASS.
+- Deep Platform Verify: PASS.
+- Standards provenance verification: PASS.
+- Zakat layer verification: PASS.
 
-## Blocking regression
+## P1-07 final status
 
-`tests/decision-governance/app-cutover-source-contract.test.js`
+`PASS`
 
-Failure:
+Verified runtime cutover behavior:
 
-`App must import the governed workspace cutover boundary`
+- `src/app/App.jsx` is wired to the governed workspace cutover boundary.
+- Fresh New Deal initialization is blank/fail-closed rather than hydrated with Demo financial defaults.
+- Validation failure in a fresh New Deal does not fall back to Demo calculations.
+- Built-in sample studies are routed through the explicit Demo workspace.
+- Saved/legacy deals are hydrated through the explicit legacy boundary.
+- Reset of an unsaved real deal returns to a blank New Deal workspace.
+- Browser E2E explicitly verifies New Deal fail-closed behavior.
+- Deterministic financial/UX journeys use explicit reference/demo fixtures rather than silently treating a blank New Deal as a complete investment case.
 
-Classification: `CODE_DEFECT` / incomplete runtime cutover, not a test defect.
+## Decision-governance disposition
 
-The guard is intentionally fail-closed. It must not be weakened or removed to qualify the release.
+`READY_FOR_RELEASE_GOVERNANCE_REVIEW`
 
-## P1-07 status
+All required automated technical gates for this corrective wave are green on the qualified head above. This status means the branch is technically qualified for the repository's release-governance review process.
 
-`PARTIAL`
+It does **not** by itself grant:
 
-Completed:
+- production deployment;
+- commercial Go-Live;
+- transaction authority;
+- investment approval;
+- formal valuation authority;
+- permission to bypass any repository branch-protection, human review, or deployment control.
 
-- governed New Deal workspace boundary;
-- explicit Demo workspace boundary;
-- explicit legacy hydration boundary;
-- calculation-readiness boundary;
-- regression guard preventing Demo defaults from silently returning as New Deal defaults.
-
-Still required before PASS:
-
-- wire `src/app/App.jsx` to the governed workspace boundary;
-- remove Demo defaults from fresh New Deal initialization;
-- remove Demo calculation fallback after validation failure;
-- route built-in sample studies through explicit Demo workspace;
-- route old saved deals through explicit legacy hydration defaults;
-- make Reset return an unsaved real deal to a blank New Deal workspace;
-- prove the resulting runtime with regression and browser E2E.
-
-## Release disposition
-
-`NOT_READY`
-
-No merge or deployment is authorized by this evidence record.
+Merge and deployment remain separate governed actions.
