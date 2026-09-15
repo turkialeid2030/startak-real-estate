@@ -12,14 +12,32 @@ r = adaptGovernedAcquisitionCosts({ buildingPrice: 1000000, commissionRate: 0.02
 assert.strictEqual(r.legacyCompatibility, false);
 assert.strictEqual(r.inputs.governedAcquisitionRettAmount, 0);
 assert.strictEqual(r.inputs.governedAcquisitionBrokerageAmount, 0);
+assert.strictEqual(r.inputs.governedAcquisitionRettBasisType, 'RATE');
+assert.strictEqual(r.inputs.governedAcquisitionBrokerageBasisType, 'RATE');
+assert.strictEqual(r.inputs.governedAcquisitionRettEffectiveRate, 0);
+assert.strictEqual(r.inputs.governedAcquisitionBrokerageEffectiveRate, 0);
 assert.strictEqual(r.inputs.transferFeeRate, 0.05, 'Building governed acquisition RETT must not mutate legacy disposition-coupled rate');
 assert.strictEqual(r.inputs.commissionRate, 0.025);
 
 r = adaptGovernedAcquisitionCosts({ buildingPrice: 1000000, commissionRate: 0.01, transferFeeRate: 0.02, rettRate: 0.05, rettEconomicBearer: 'BUYER', brokerageRate: 0.025, brokeragePayer: 'BUYER' });
 assert.strictEqual(r.inputs.governedAcquisitionRettAmount, 50000);
 assert.strictEqual(r.inputs.governedAcquisitionBrokerageAmount, 25000);
+assert.strictEqual(r.inputs.governedAcquisitionRettBasisType, 'RATE');
+assert.strictEqual(r.inputs.governedAcquisitionBrokerageBasisType, 'RATE');
+assert.strictEqual(r.inputs.governedAcquisitionRettEffectiveRate, 0.05);
+assert.strictEqual(r.inputs.governedAcquisitionBrokerageEffectiveRate, 0.025);
 assert.strictEqual(r.inputs.transferFeeRate, 0.02);
 assert.strictEqual(r.inputs.commissionRate, 0.01);
+
+// Explicit contractual amounts remain fixed amounts. They must never be
+// converted into a percentage for max-price or other price-sensitive KPIs.
+r = adaptGovernedAcquisitionCosts({ buildingPrice: 1000000, rettAmount: 42000, rettEconomicBearer: 'BUYER', brokerageAmount: 17000, brokeragePayer: 'BUYER' });
+assert.strictEqual(r.inputs.governedAcquisitionRettAmount, 42000);
+assert.strictEqual(r.inputs.governedAcquisitionBrokerageAmount, 17000);
+assert.strictEqual(r.inputs.governedAcquisitionRettBasisType, 'FIXED_AMOUNT');
+assert.strictEqual(r.inputs.governedAcquisitionBrokerageBasisType, 'FIXED_AMOUNT');
+assert.strictEqual(r.inputs.governedAcquisitionRettEffectiveRate, 0);
+assert.strictEqual(r.inputs.governedAcquisitionBrokerageEffectiveRate, 0);
 
 r = adaptGovernedAcquisitionCosts({ buildingPrice: 1000000, commissionRate: 0.01, transferFeeRate: 0.02, rettRate: 0.05, rettEconomicBearer: 'UNKNOWN', brokerageRate: 0.025, brokeragePayer: 'UNKNOWN' });
 assert.strictEqual(r.inputs.governedAcquisitionRettAmount, 0);
@@ -49,6 +67,15 @@ assert.strictEqual(r.inputs.governedAcquisitionRettAmount, 500000);
 assert.strictEqual(r.inputs.governedAcquisitionBrokerageAmount, 250000);
 assert.strictEqual(r.inputs.landTransferFeeRate, 0.05);
 assert.strictEqual(r.inputs.landCommissionRate, 0.025);
+assert.strictEqual(r.inputs.exitTransferFeeRate, 0.03);
+
+// Fixed land acquisition amounts are not representable as acquisition rates;
+// leave legacy rate fields at zero and carry the amounts explicitly.
+r = adaptGovernedAcquisitionCosts({ ...landBase, rettAmount: 420000, rettEconomicBearer: 'BUYER', brokerageAmount: 170000, brokeragePayer: 'BUYER' }, { asset: 'LAND' });
+assert.strictEqual(r.inputs.governedAcquisitionRettBasisType, 'FIXED_AMOUNT');
+assert.strictEqual(r.inputs.governedAcquisitionBrokerageBasisType, 'FIXED_AMOUNT');
+assert.strictEqual(r.inputs.landTransferFeeRate, 0);
+assert.strictEqual(r.inputs.landCommissionRate, 0);
 assert.strictEqual(r.inputs.exitTransferFeeRate, 0.03);
 
 r = adaptGovernedAcquisitionCosts({ ...landBase, rettRate: 0.05, rettEconomicBearer: 'UNKNOWN', brokerageRate: 0.025, brokeragePayer: 'UNKNOWN' }, { asset: 'LAND' });
