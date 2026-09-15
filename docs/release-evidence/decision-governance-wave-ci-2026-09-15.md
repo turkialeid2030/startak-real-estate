@@ -7,7 +7,7 @@ PR: #359
 
 `d80960e606d82aefb7bdd32816e189b65236ffc2`
 
-This implementation head independently cleared every required verification workflow. The current evidence update is documentation-only; the resulting final PR head must re-clear the required CI gates before the PR is moved out of Draft.
+This implementation head independently cleared every required verification workflow. This file is evidence-only; any later PR head must independently re-clear the required CI gates before the PR is moved out of Draft.
 
 ## Final workflow results on qualified implementation head
 
@@ -49,8 +49,8 @@ Verified runtime cutover behavior:
 
 ## Decision-governance disposition
 
-`READY_FOR_RELEASE_GOVERNANCE_REVIEW` — subject to the final PR head re-clearing the required CI gates after this evidence-only update.
+`READY_FOR_RELEASE_GOVERNANCE_REVIEW`
 
-This status does **not** by itself grant production deployment, commercial Go-Live, transaction authority, investment approval, formal valuation authority, or permission to bypass repository branch-protection, human review, or deployment controls.
+The qualified implementation head cleared the required automated technical gates. This status does **not** by itself grant production deployment, commercial Go-Live, transaction authority, investment approval, formal valuation authority, or permission to bypass repository branch-protection, human review, or deployment controls.
 
 Merge and deployment remain separate governed actions.
