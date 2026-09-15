@@ -1,0 +1,457 @@
+name: Governed Release Evidence Collector V1
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_main_sha:
+        description: 'Exact trusted main SHA running the collector'
+        required: true
+        type: string
+      candidate_sha:
+        description: 'Exact 40-character synchronized release-candidate SHA'
+        required: true
+        type: string
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: governed-release-evidence-collector-v1
+  cancel-in-progress: false
+
+env:
+  CF_PROJECT_NAME: startak-real-estate
+  CF_PRODUCTION_HOST: startak-real-estate.pages.dev
+  ENVIRONMENT_REF: cloudflare-pages:startak-real-estate:production
+  EVIDENCE_DIR: runtime-evidence/governed-release-evidence-v1
+
+jobs:
+  capture:
+    name: governed-release-evidence-collector-v1
+    if: >-
+      ${{
+        github.event_name == 'workflow_dispatch' ||
+        (
+          github.event_name == 'issue_comment' &&
+          github.event.issue.number == 351 &&
+          github.event.comment.author_association == 'OWNER' &&
+          github.event.comment.user.login == github.repository_owner &&
+          startsWith(github.event.comment.body, '/startak capture-release-evidence ')
+        )
+      }}
+    runs-on: ubuntu-24.04
+    environment: production
+    timeout-minutes: 30
+    env:
+      CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CF_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+
+    steps:
+      - name: Bind collector to trusted main and exact candidate
+        id: bind
+        shell: bash
+        env:
+          DISPATCH_EXPECTED_MAIN_SHA: ${{ inputs.expected_main_sha || '' }}
+          DISPATCH_CANDIDATE_SHA: ${{ inputs.candidate_sha || '' }}
+          OWNER_COMMAND_BODY: ${{ github.event.comment.body || '' }}
+        run: |
+          set -euo pipefail
+
+          case "$GITHUB_EVENT_NAME" in
+            workflow_dispatch)
+              expected_main="$DISPATCH_EXPECTED_MAIN_SHA"
+              candidate="$DISPATCH_CANDIDATE_SHA"
+              ;;
+            issue_comment)
+              if [[ ! "$OWNER_COMMAND_BODY" =~ ^/startak[[:space:]]capture-release-evidence[[:space:]]([0-9a-fA-F]{40})$ ]]; then
+                echo 'Owner command must be exactly: /startak capture-release-evidence <40-char-candidate-sha>'
+                exit 1
+              fi
+              expected_main="$GITHUB_SHA"
+              candidate="${BASH_REMATCH[1]}"
+              ;;
+            *)
+              echo "Unsupported event: $GITHUB_EVENT_NAME"
+              exit 1
+              ;;
+          esac
+
+          [[ "$GITHUB_REF" == 'refs/heads/main' ]] || {
+            echo "Collector must execute from trusted main; got ${GITHUB_REF:-<none>}."
+            exit 1
+          }
+          [[ "$expected_main" =~ ^[0-9a-fA-F]{40}$ ]] || {
+            echo 'Expected main SHA must be exactly 40 hex characters.'
+            exit 1
+          }
+          [[ "$candidate" =~ ^[0-9a-fA-F]{40}$ ]] || {
+            echo 'Candidate SHA must be exactly 40 hex characters.'
+            exit 1
+          }
+          expected_main="${expected_main,,}"
+          candidate="${candidate,,}"
+          [[ "$expected_main" == "${GITHUB_SHA,,}" ]] || {
+            echo "Trusted-main mismatch: expected=$expected_main workflow=${GITHUB_SHA,,}"
+            exit 1
+          }
+
+          echo "candidate_sha=$candidate" >> "$GITHUB_OUTPUT"
+          echo "collector_main_sha=${GITHUB_SHA,,}" >> "$GITHUB_OUTPUT"
+          echo "Trusted collector main: ${GITHUB_SHA,,}"
+          echo "Requested candidate: $candidate"
+
+      - name: Checkout exact candidate with full ancestry
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ steps.bind.outputs.candidate_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify candidate identity and current-main ancestry
+        shell: bash
+        env:
+          CANDIDATE_SHA: ${{ steps.bind.outputs.candidate_sha }}
+          COLLECTOR_MAIN_SHA: ${{ steps.bind.outputs.collector_main_sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD | tr '[:upper:]' '[:lower:]')"
+          [[ "$actual" == "$CANDIDATE_SHA" ]] || {
+            echo "Candidate checkout mismatch: expected=$CANDIDATE_SHA actual=$actual"
+            exit 1
+          }
+          git cat-file -e "${COLLECTOR_MAIN_SHA}^{commit}" || {
+            echo 'Trusted collector main commit is not present in candidate history.'
+            exit 1
+          }
+          git merge-base --is-ancestor "$COLLECTOR_MAIN_SHA" "$CANDIDATE_SHA" || {
+            echo "Candidate is stale: trusted collector main $COLLECTOR_MAIN_SHA is not an ancestor of $CANDIDATE_SHA. Re-synchronize the application candidate from current main before evidence capture."
+            exit 1
+          }
+          echo "CANDIDATE_CURRENT_MAIN_ANCESTRY=PASS candidate=$CANDIDATE_SHA collector_main=$COLLECTOR_MAIN_SHA"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run canonical release verification on exact candidate
+        env:
+          STARTAK_SOURCE_COMMIT: ${{ steps.bind.outputs.candidate_sha }}
+          STARTAK_BUILD_ENVIRONMENT: github-actions:governed-release-evidence-collector-v1
+        run: npm run release:verify
+
+      - name: Verify source-bound release manifest
+        shell: bash
+        env:
+          CANDIDATE_SHA: ${{ steps.bind.outputs.candidate_sha }}
+        run: |
+          set -euo pipefail
+          test -f dist/release-manifest.json || {
+            echo 'dist/release-manifest.json is missing.'
+            exit 1
+          }
+          jq -e --arg sha "$CANDIDATE_SHA" '
+            .schemaVersion == 1
+            and .sourceCommit == $sha
+            and .sourceCommitBound == true
+            and .deploymentVerified == false
+            and .productionDeploymentAuthorized == false
+            and .evidenceBoundary == "BUILD_TRACE_ONLY_NOT_DEPLOYMENT_PROOF"
+          ' dist/release-manifest.json >/dev/null
+          echo "SOURCE_BOUND_RELEASE_MANIFEST=PASS sha=$CANDIDATE_SHA"
+
+      - name: Build deterministic candidate artifact
+        shell: bash
+        env:
+          CANDIDATE_SHA: ${{ steps.bind.outputs.candidate_sha }}
+          COLLECTOR_MAIN_SHA: ${{ steps.bind.outputs.collector_main_sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+
+          artifact_name="startak-release-candidate-${CANDIDATE_SHA}.tar"
+          artifact_path="$EVIDENCE_DIR/$artifact_name"
+
+          find dist -type f -print0 | sort -z | xargs -0 sha256sum > "$EVIDENCE_DIR/dist-files.sha256"
+          tar \
+            --sort=name \
+            --mtime='UTC 1970-01-01' \
+            --owner=0 \
+            --group=0 \
+            --numeric-owner \
+            --format=gnu \
+            --mode='u+rwX,go+rX,go-w' \
+            -cf "$artifact_path" \
+            dist
+
+          artifact_sha="$(sha256sum "$artifact_path" | awk '{print $1}')"
+          tree_manifest_sha="$(sha256sum "$EVIDENCE_DIR/dist-files.sha256" | awk '{print $1}')"
+          release_manifest_sha="$(sha256sum dist/release-manifest.json | awk '{print $1}')"
+          file_count="$(find dist -type f | wc -l | tr -d ' ')"
+
+          printf '%s' "$artifact_sha" > /tmp/release-artifact.sha256
+          printf '%s  %s\n' "$artifact_sha" "$artifact_name" > "$EVIDENCE_DIR/release-artifact.sha256"
+          printf '%s' "$tree_manifest_sha" > /tmp/dist-tree-manifest.sha256
+          printf '%s' "$release_manifest_sha" > /tmp/release-manifest.sha256
+          printf '%s' "$file_count" > /tmp/dist-file-count
+
+          echo "DETERMINISTIC_RELEASE_ARTIFACT_SHA256=$artifact_sha"
+          echo "DIST_TREE_MANIFEST_SHA256=$tree_manifest_sha"
+          echo "RELEASE_MANIFEST_SHA256=$release_manifest_sha"
+
+      - name: Preflight protected Cloudflare read access
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${CF_API_TOKEN:-}" || { echo 'CLOUDFLARE_API_TOKEN is missing'; exit 1; }
+          test -n "${CF_ACCOUNT_ID:-}" || { echo 'CLOUDFLARE_ACCOUNT_ID is missing'; exit 1; }
+          auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
+          token_json="$(curl --fail-with-body --silent --show-error "${auth[@]}" https://api.cloudflare.com/client/v4/user/tokens/verify)"
+          jq -e '.success == true and .result.status == "active"' <<<"$token_json" >/dev/null
+          echo 'Cloudflare credential verified for read-only evidence collection.'
+
+      - name: Read production provider configuration without mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
+
+          project_json="$(curl --fail-with-body --silent --show-error "${auth[@]}" \
+            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}")"
+          jq -e '.success == true' <<<"$project_json" >/dev/null
+          printf '%s' "$project_json" > /tmp/cf-project-governed-release-evidence.json
+
+          access_json="$(curl --fail-with-body --silent --show-error "${auth[@]}" \
+            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/access/apps?per_page=1000")"
+          jq -e '.success == true' <<<"$access_json" >/dev/null
+          printf '%s' "$access_json" > /tmp/cf-access-governed-release-evidence.json
+
+          kv_json="$(curl --fail-with-body --silent --show-error "${auth[@]}" \
+            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces?per_page=1000")"
+          jq -e '.success == true' <<<"$kv_json" >/dev/null
+          printf '%s' "$kv_json" > /tmp/cf-kv-governed-release-evidence.json
+
+          printf '%s' "$CF_ACCOUNT_ID" | sha256sum | awk '{print $1}' > /tmp/cf-account-governed-release-evidence.sha256
+
+      - name: Build normalized false-preserving secret-free production manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          account_sha="$(cat /tmp/cf-account-governed-release-evidence.sha256)"
+
+          jq -S -n \
+            --arg provider 'cloudflare' \
+            --arg environmentRef "$ENVIRONMENT_REF" \
+            --arg projectName "$CF_PROJECT_NAME" \
+            --arg productionHost "$CF_PRODUCTION_HOST" \
+            --arg accountIdSha256 "$account_sha" \
+            --slurpfile project /tmp/cf-project-governed-release-evidence.json \
+            --slurpfile access /tmp/cf-access-governed-release-evidence.json \
+            --slurpfile kv /tmp/cf-kv-governed-release-evidence.json \
+            '
+            def redact_env($cfg):
+              (($cfg.env_vars // {}) | to_entries | map(
+                .key as $name
+                | (.value.type // "unknown") as $type
+                | {
+                    name:$name,
+                    type:$type,
+                    value:(
+                      if ($type == "secret_text") or ($name | test("(KEY|TOKEN|SECRET|PASSWORD|PASSCODE|SALT|CREDENTIAL|AUTH)"; "i"))
+                      then "<REDACTED_SENSITIVE_VALUE>"
+                      else (.value.value // null)
+                      end
+                    )
+                  }
+              ) | sort_by(.name));
+            def kv_bindings($cfg; $allKv):
+              (($cfg.kv_namespaces // {}) | to_entries | map(
+                {binding:.key,namespaceId:(.value.namespace_id // .value.id // null)} as $b
+                | $b + {title:(($allKv | map(select(.id == $b.namespaceId)) | first | .title) // null)}
+              ) | sort_by(.binding));
+            ($project[0].result.deployment_configs.production // {}) as $prod
+            | ($project[0].result.deployment_configs.preview // {}) as $preview
+            | ($kv[0].result // []) as $allKv
+            | ($project[0].result.source.config // {}) as $src
+            | ($access[0].result
+                | map(select((.domain? // "") == $productionHost))
+                | map({id,name,type,domain:(.domain // null),aud:(.aud // null),sessionDuration:(.session_duration // null)})
+                | sort_by(.id)) as $productionAccessApps
+            | {
+                schemaVersion:1,
+                manifestType:"GOVERNED_PRODUCTION_ENVIRONMENT_SNAPSHOT_FALSE_PRESERVING",
+                provider:$provider,
+                environmentRef:$environmentRef,
+                accountIdSha256:$accountIdSha256,
+                pagesProject:{
+                  name:$projectName,
+                  productionHost:$productionHost,
+                  productionBranch:($project[0].result.production_branch // null),
+                  subdomain:($project[0].result.subdomain // null),
+                  source:{
+                    type:($project[0].result.source.type // null),
+                    owner:($src.owner // null),
+                    repositoryName:($src.repo_name // null),
+                    repositoryIdPresent:(($src.repo_id // null) != null),
+                    productionBranch:($src.production_branch // null),
+                    productionDeploymentsEnabled:$src.production_deployments_enabled,
+                    previewDeploymentSetting:($src.preview_deployment_setting // null),
+                    previewBranchIncludes:(($src.preview_branch_includes // []) | sort),
+                    previewBranchExcludes:(($src.preview_branch_excludes // []) | sort),
+                    pathIncludes:(($src.path_includes // []) | sort),
+                    pathExcludes:(($src.path_excludes // []) | sort),
+                    prCommentsEnabled:$src.pr_comments_enabled,
+                    deprecatedDeploymentsEnabled:$src.deployments_enabled
+                  },
+                  buildConfig:{
+                    buildCommand:($project[0].result.build_config.build_command // null),
+                    destinationDir:($project[0].result.build_config.destination_dir // null),
+                    rootDir:($project[0].result.build_config.root_dir // null),
+                    buildCaching:$project[0].result.build_config.build_caching
+                  }
+                },
+                productionRuntime:{
+                  compatibilityDate:($prod.compatibility_date // null),
+                  compatibilityFlags:(($prod.compatibility_flags // []) | sort),
+                  failOpen:$prod.fail_open,
+                  envVars:redact_env($prod),
+                  kvNamespaces:kv_bindings($prod;$allKv),
+                  d1Databases:(($prod.d1_databases // {}) | to_entries | map({binding:.key,idPresent:((.value.id // .value.database_id // null) != null)}) | sort_by(.binding)),
+                  r2Buckets:(($prod.r2_buckets // {}) | to_entries | map({binding:.key,bucketName:(.value.name // .value.bucket_name // null)}) | sort_by(.binding))
+                },
+                linkedPreviewControl:{failOpen:$preview.fail_open},
+                productionAccessApplications:$productionAccessApps,
+                secretHandling:{
+                  plaintextSecretsIncluded:false,
+                  secretTextValuesRedacted:true,
+                  sensitiveNamePatternRedactionApplied:true,
+                  accountIdentifierStoredAsSha256Only:true,
+                  unrelatedAccountKvNamespacesExcluded:true
+                }
+              }
+            ' > "$EVIDENCE_DIR/production-environment-manifest.json"
+
+          jq -e '
+            .pagesProject.source.productionDeploymentsEnabled == false
+            and .productionRuntime.failOpen == false
+            and .linkedPreviewControl.failOpen == false
+            and (.productionRuntime.envVars | any(.name == "RIAI_PUBLIC_AI_ENABLED" and .value == "false"))
+            and (.productionAccessApplications | length > 0)
+          ' "$EVIDENCE_DIR/production-environment-manifest.json" >/dev/null
+
+          jq -e '
+            all(.productionRuntime.envVars[];
+              if (.type == "secret_text") or (.name | test("(KEY|TOKEN|SECRET|PASSWORD|PASSCODE|SALT|CREDENTIAL|AUTH)"; "i"))
+              then .value == "<REDACTED_SENSITIVE_VALUE>"
+              else true
+              end
+            )
+          ' "$EVIDENCE_DIR/production-environment-manifest.json" >/dev/null
+
+          if grep -Fq "$CF_API_TOKEN" "$EVIDENCE_DIR/production-environment-manifest.json"; then
+            echo 'Secret-leak guard failed: API token appeared in normalized manifest.'
+            exit 1
+          fi
+          if grep -Fq "$CF_ACCOUNT_ID" "$EVIDENCE_DIR/production-environment-manifest.json"; then
+            echo 'Identifier-leak guard failed: raw account ID appeared in normalized manifest.'
+            exit 1
+          fi
+
+          environment_sha="$(sha256sum "$EVIDENCE_DIR/production-environment-manifest.json" | awk '{print $1}')"
+          printf '%s' "$environment_sha" > /tmp/production-environment.sha256
+          printf '%s  %s\n' "$environment_sha" 'production-environment-manifest.json' > "$EVIDENCE_DIR/production-environment.sha256"
+          echo "PRODUCTION_ENVIRONMENT_CONFIG_SHA256=$environment_sha"
+
+      - name: Record unified non-authorizing evidence envelope
+        shell: bash
+        env:
+          CANDIDATE_SHA: ${{ steps.bind.outputs.candidate_sha }}
+          COLLECTOR_MAIN_SHA: ${{ steps.bind.outputs.collector_main_sha }}
+        run: |
+          set -euo pipefail
+          artifact_sha="$(cat /tmp/release-artifact.sha256)"
+          environment_sha="$(cat /tmp/production-environment.sha256)"
+          tree_manifest_sha="$(cat /tmp/dist-tree-manifest.sha256)"
+          release_manifest_sha="$(cat /tmp/release-manifest.sha256)"
+          file_count="$(cat /tmp/dist-file-count)"
+          generated_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+
+          jq -S -n \
+            --arg candidateSourceSha "$CANDIDATE_SHA" \
+            --arg releaseArtifactSha256 "$artifact_sha" \
+            --arg environmentRef "$ENVIRONMENT_REF" \
+            --arg environmentConfigSha256 "$environment_sha" \
+            --arg distTreeManifestSha256 "$tree_manifest_sha" \
+            --arg releaseManifestSha256 "$release_manifest_sha" \
+            --arg trustedCollectorMainSha "$COLLECTOR_MAIN_SHA" \
+            --arg githubRunId "$GITHUB_RUN_ID" \
+            --arg githubRunAttempt "$GITHUB_RUN_ATTEMPT" \
+            --arg triggerActor "$GITHUB_ACTOR" \
+            --arg generatedAt "$generated_at" \
+            --argjson distFileCount "$file_count" \
+            '{
+              schemaVersion:1,
+              evidenceType:"GOVERNED_RELEASE_ARTIFACT_AND_PRODUCTION_ENVIRONMENT_CAPTURE",
+              candidateSourceSha:$candidateSourceSha,
+              releaseArtifactSha256:$releaseArtifactSha256,
+              environmentRef:$environmentRef,
+              environmentConfigSha256:$environmentConfigSha256,
+              distTreeManifestSha256:$distTreeManifestSha256,
+              releaseManifestSha256:$releaseManifestSha256,
+              distFileCount:$distFileCount,
+              trustedCollectorMainSha:$trustedCollectorMainSha,
+              githubRunId:$githubRunId,
+              githubRunAttempt:$githubRunAttempt,
+              triggerActor:$triggerActor,
+              trustedCollectorMainIsAncestorOfCandidate:true,
+              sourceCommitBound:true,
+              providerReadOnlyCapture:true,
+              deploymentPerformed:false,
+              releaseAuthorized:false,
+              mergeAuthorized:false,
+              transactionAuthorized:false,
+              canonicalBaselineActivated:false,
+              goLiveAuthorized:false,
+              evidenceBoundary:"READ_ONLY_UNIFIED_RELEASE_EVIDENCE_CAPTURE_NOT_DEPLOYMENT_OR_AUTHORIZATION_PROOF",
+              generatedAt:$generatedAt
+            }' > "$EVIDENCE_DIR/governed-release-evidence-envelope.json"
+
+          echo "GOVERNED_RELEASE_EVIDENCE_CAPTURE=PASS"
+          echo "CANDIDATE_SOURCE_SHA=$CANDIDATE_SHA"
+          echo "RELEASE_ARTIFACT_SHA256=$artifact_sha"
+          echo "PRODUCTION_ENVIRONMENT_CONFIG_SHA256=$environment_sha"
+          echo "TRUSTED_COLLECTOR_MAIN_SHA=$COLLECTOR_MAIN_SHA"
+
+      - name: Upload governed release evidence bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: governed-release-evidence-${{ steps.bind.outputs.candidate_sha }}
+          path: runtime-evidence/governed-release-evidence-v1
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+      - name: Publish non-authorizing summary
+        if: always()
+        shell: bash
+        env:
+          CANDIDATE_SHA: ${{ steps.bind.outputs.candidate_sha }}
+          COLLECTOR_MAIN_SHA: ${{ steps.bind.outputs.collector_main_sha }}
+        run: |
+          {
+            echo '## Governed Release Evidence Collector V1'
+            echo
+            echo "- Candidate source: \`${CANDIDATE_SHA:-<unbound>}\`"
+            echo "- Trusted collector main: \`${COLLECTOR_MAIN_SHA:-<unbound>}\`"
+            if [[ -f /tmp/release-artifact.sha256 ]]; then echo "- Deterministic release artifact SHA-256: \`$(cat /tmp/release-artifact.sha256)\`"; fi
+            if [[ -f /tmp/production-environment.sha256 ]]; then echo "- Production environment config SHA-256: \`$(cat /tmp/production-environment.sha256)\`"; fi
+            echo '- Candidate must contain the current trusted-main collector commit; stale candidates fail closed.'
+            echo '- Production provider access is read-only; no mutation or deployment is performed.'
+            echo '- This evidence does not authorize merge, deployment, canonical activation, transactions, or Go-Live.'
+          } >> "$GITHUB_STEP_SUMMARY"
