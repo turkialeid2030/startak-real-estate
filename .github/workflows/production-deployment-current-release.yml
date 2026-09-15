@@ -1,0 +1,129 @@
+name: Current Release Production Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_production_deployment:
+        description: 'Type I_AUTHORIZE_CURRENT_RELEASE_PRODUCTION_DEPLOYMENT'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_MAIN_SHA: c1a1035cd27b76a8cb7f249808e83ba950a2efcf
+  QUALIFIED_CANDIDATE_SHA: bca14e1ace3be59a7e51f43132657c636639116d
+  QUALIFIED_ARTIFACT_SHA256: 5524256a7308c22739bf0fd5c706c07306aac1cb114dbc53d746132cd2f62c2b
+  CF_PROJECT_NAME: startak-real-estate
+  CF_PRODUCTION_HOST: startak-real-estate.pages.dev
+
+jobs:
+  deploy:
+    name: deploy-current-release-production
+    runs-on: ubuntu-24.04
+    environment: production
+    timeout-minutes: 30
+    env:
+      CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CF_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Bind deployment to exact trusted main and owner authorization
+        shell: bash
+        env:
+          CONFIRMATION: ${{ inputs.confirm_production_deployment }}
+        run: |
+          set -euo pipefail
+          [[ "$CONFIRMATION" == 'I_AUTHORIZE_CURRENT_RELEASE_PRODUCTION_DEPLOYMENT' ]] || { echo 'Explicit production deployment authorization missing.'; exit 1; }
+          [[ "$GITHUB_REF" == 'refs/heads/main' ]] || { echo "Production deployment must run from main; got $GITHUB_REF"; exit 1; }
+          [[ "${GITHUB_SHA,,}" == "$EXPECTED_MAIN_SHA" ]] || { echo "Trusted main changed: expected=$EXPECTED_MAIN_SHA actual=${GITHUB_SHA,,}"; exit 1; }
+
+      - name: Checkout exact trusted main
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.EXPECTED_MAIN_SHA }}
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Canonical release verification
+        env:
+          STARTAK_SOURCE_COMMIT: ${{ env.EXPECTED_MAIN_SHA }}
+          STARTAK_BUILD_ENVIRONMENT: github-actions:production-deployment
+        run: npm run release:verify
+
+      - name: Verify Cloudflare credentials and fail-closed production posture
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${CF_API_TOKEN:-}" || { echo 'CLOUDFLARE_API_TOKEN missing'; exit 1; }
+          test -n "${CF_ACCOUNT_ID:-}" || { echo 'CLOUDFLARE_ACCOUNT_ID missing'; exit 1; }
+          auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
+          token_json="$(curl --fail-with-body --silent --show-error "${auth[@]}" https://api.cloudflare.com/client/v4/user/tokens/verify)"
+          jq -e '.success == true and .result.status == "active"' <<<"$token_json" >/dev/null
+          project_json="$(curl --fail-with-body --silent --show-error "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}")"
+          jq -e '.success == true' <<<"$project_json" >/dev/null
+          jq -e '.result.production_branch == "main"' <<<"$project_json" >/dev/null
+          jq -e '.result.deployment_configs.production.fail_open == false' <<<"$project_json" >/dev/null
+          jq -e '.result.deployment_configs.production.env_vars.RIAI_PUBLIC_AI_ENABLED.value == "false"' <<<"$project_json" >/dev/null
+
+      - name: Deploy verified dist to Cloudflare Pages production
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler pages deploy dist --project-name "$CF_PROJECT_NAME" --branch main --commit-hash "$EXPECTED_MAIN_SHA"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ env.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ env.CF_ACCOUNT_ID }}
+
+      - name: Verify provider deployment identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
+          for attempt in $(seq 1 12); do
+            deployments="$(curl --fail-with-body --silent --show-error "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}/deployments?env=production&per_page=10")"
+            deployed_sha="$(jq -r '(.result | map(select((.environment // "") == "production" and (.latest_stage.status // "") == "success")) | first | (.source.config.commit_hash // .deployment_trigger.metadata.commit_hash // ""))' <<<"$deployments" | tr '[:upper:]' '[:lower:]')"
+            if [[ "$deployed_sha" == "$EXPECTED_MAIN_SHA" ]]; then
+              echo "PRODUCTION_DEPLOYMENT_IDENTITY=PASS sha=$deployed_sha"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo 'Production did not converge to expected main SHA.'
+          exit 1
+
+      - name: Production HTTP smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://${CF_PRODUCTION_HOST}/"
+          for attempt in $(seq 1 12); do
+            code="$(curl -L -sS -o /tmp/startak-production.html -w '%{http_code}' "$url" || true)"
+            if [[ "$code" =~ ^2|3 ]]; then
+              test -s /tmp/startak-production.html
+              echo "PRODUCTION_HTTP_SMOKE=PASS status=$code"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo 'Production HTTP smoke test failed.'
+          exit 1
+
+      - name: Publish deployment boundary
+        shell: bash
+        run: |
+          echo 'Production deployment completed for exact trusted main.' >> "$GITHUB_STEP_SUMMARY"
+          echo "- deployedMainSha: $EXPECTED_MAIN_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo "- qualifiedCandidateSha: $QUALIFIED_CANDIDATE_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo "- predecessorQualifiedArtifactSha256: $QUALIFIED_ARTIFACT_SHA256" >> "$GITHUB_STEP_SUMMARY"
+          echo '- publicAIActivated: false' >> "$GITHUB_STEP_SUMMARY"
+          echo '- transactionAuthority: false' >> "$GITHUB_STEP_SUMMARY"
+          echo '- canonicalBaselineActivation: not granted by this workflow' >> "$GITHUB_STEP_SUMMARY"
