@@ -34,25 +34,26 @@ assert.notStrictEqual(d.status, 'READY_FOR_IC');
 d = evaluateOverallDecisionGate({ ...base, financingStatus: 'FAIL' });
 assert.strictEqual(d.status, 'DUE_DILIGENCE_REQUIRED');
 
-// CASE-06 RETT seller borne => no buyer acquisition basis.
+// CASE-06 RETT seller borne => no buyer acquisition basis addition.
 let c = calculateSaudiAcquisitionCosts({ purchasePrice: 1000000, rettRate: 0.05, rettEconomicBearer: 'SELLER', rettIncludedInAcquisitionBasis: true });
 assert.strictEqual(c.rett.buyerEconomicAmount, 0);
-assert.strictEqual(c.acquisitionBasisAdditions, 0);
+assert.strictEqual(c.acquisitionBasis, 1000000);
 
 // CASE-07 RETT buyer borne => included in buyer basis.
 c = calculateSaudiAcquisitionCosts({ purchasePrice: 1000000, rettRate: 0.05, rettEconomicBearer: 'BUYER', rettIncludedInAcquisitionBasis: true });
 assert.strictEqual(c.rett.buyerEconomicAmount, 50000);
-assert.strictEqual(c.acquisitionBasisAdditions, 50000);
+assert.strictEqual(c.acquisitionBasis, 1050000);
 
-// CASE-08 brokerage seller borne => no buyer acquisition basis.
+// CASE-08 brokerage seller borne => no buyer acquisition basis addition.
 c = calculateSaudiAcquisitionCosts({ purchasePrice: 1000000, brokerageRate: 0.025, brokeragePayer: 'SELLER', brokerageIncludedInAcquisitionBasis: true });
 assert.strictEqual(c.brokerage.buyerEconomicAmount, 0);
-assert.strictEqual(c.acquisitionBasisAdditions, 0);
+assert.strictEqual(c.acquisitionBasis, 1000000);
 
 // CASE-09 brokerage unknown => warning + no automatic buyer charge.
 c = calculateSaudiAcquisitionCosts({ purchasePrice: 1000000, brokerageRate: 0.025, brokeragePayer: 'UNKNOWN', brokerageIncludedInAcquisitionBasis: true });
 assert.strictEqual(c.brokerage.buyerEconomicAmount, 0);
-assert.ok(c.warnings.includes('BROKERAGE_ECONOMIC_BEARER_UNKNOWN_NO_BUYER_ASSUMPTION'));
+assert.strictEqual(c.acquisitionBasis, 1000000);
+assert.ok(c.warnings.includes('BROKERAGE_PAYER_UNKNOWN_NO_BUYER_CHARGE_ASSUMED'));
 
 // CASE-10 missing Exit Cap is fail-closed at the overall gate when valuation readiness is incomplete.
 d = evaluateOverallDecisionGate({ ...base, valuationReadiness: 'INCOMPLETE' });
