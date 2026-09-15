@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import ResidentialIncomeAcquisitionPanel from "../components/ResidentialIncomeAcquisitionPanel.jsx";
 import ValuationIntelligencePanel from "../components/ValuationIntelligencePanel.jsx";
+import { ZakatInputSection, ZakatCashFlowPanel } from "../components/ZakatLayerPanel.jsx";
 
 // ============================================================
 // DESIGN TOKENS
@@ -139,6 +140,7 @@ const {
 } = require('../assumptions/ui-integration-controller');
 const { ASSUMPTION_MODEL_VERSION } = require('../assumptions/assumption-model');
 const { isFiniteNumber } = require('../assumptions/ui-safe-formatters');
+const { validateUserEnteredZakatCase } = require('../zakat/user-entered-zakat');
 // WAVE2_PRODUCTION_UI_WIRING_V1
 
 // ============================================================
@@ -171,7 +173,7 @@ const DEFAULT_LAND_INPUTS = {
   buildableRatio: 0.6, buildingTypeLabel: "برج مكتبي", officeFloorCount: 7, servicesRatioPerFloor: 0.15, basementFloorCount: 2,
   constructionCostPerSqm: 5500,
   landCommissionRate: 0.025, landTransferFeeRate: 0.05, engineeringCost: 200000, landValuationCost: 60000,
-  marketRentPerSqm: 1800, occupancyRate: 1.0, serviceIncomeRate: 0.12, opexRate: 0.05,
+  marketRentPerSqm: 1800, occupancyRate: 1.0, serviceIncomeRate: 0.12, opexRate: 0.05, leaseUpMonths: 0,
   marketCapRate: 0.08,
   constructionPeriod: 2, rentGrowthRate: 0.03, operatingPeriod: 10, exitCapRate: 0.085, hurdleRate: 0.12,
   exitTransferFeeRate: 0.05,
@@ -240,8 +242,10 @@ function NumField({ label, unit, note, value, onChange, step = 1, min, warnBelow
         onChange={(e) => {
           if (disabled) return;
           const raw = e.target.value.replace(/[^\d.\-]/g, "");
-          const parsed = parseFloat(raw);
-          onChange(isNaN(parsed) ? 0 : (min !== undefined ? Math.max(min, parsed) : parsed));
+          if (raw === "" || raw === "-" || raw === "." || raw === "-.") return;
+          const parsed = Number(raw);
+          if (!Number.isFinite(parsed)) return;
+          onChange(min !== undefined ? Math.max(min, parsed) : parsed);
         }}
       />
       <FieldNote note={note} warning={warning} />
@@ -265,8 +269,10 @@ function PercentField({ label, note, value, onChange, warnBelow, warnAbove, warn
         onChange={(e) => {
           if (disabled) return;
           const raw = e.target.value.replace(/[^\d.\-]/g, "");
-          const parsed = parseFloat(raw);
-          onChange(isNaN(parsed) ? 0 : parsed / 100);
+          if (raw === "" || raw === "-" || raw === "." || raw === "-.") return;
+          const parsed = Number(raw);
+          if (!Number.isFinite(parsed)) return;
+          onChange(parsed / 100);
         }}
       />
       <FieldNote note={note} warning={warning} />
@@ -441,11 +447,12 @@ function KPIChip({ label, value, icon: Icon, accent, sub, warning }) {
 
 function VerdictSeal({ verdict, metCount, totalCriteria = 4, size = "large" }) {
   const { t } = useLocale();
+  const isIncomplete = verdict === "INCOMPLETE_INPUTS";
   const isGo = verdict === "يوصى بالشراء";
   const isConditional = verdict === "يوصى بالشراء بشروط";
-  const color = isGo ? COLORS.positive : isConditional ? COLORS.caution : COLORS.negative;
+  const color = isIncomplete ? COLORS.caution : isGo ? COLORS.positive : isConditional ? COLORS.caution : COLORS.negative;
   const dim = size === "large" ? 132 : 64;
-  const Icon = isGo ? CheckCircle2 : isConditional ? AlertTriangle : XCircle;
+  const Icon = isIncomplete ? AlertTriangle : isGo ? CheckCircle2 : isConditional ? AlertTriangle : XCircle;
   return (
     <div className="rf-seal-anim flex flex-col items-center justify-center" style={{ width: dim, height: dim }} key={verdict + metCount + totalCriteria}>
       <svg width={dim} height={dim} viewBox="0 0 132 132">
@@ -460,7 +467,9 @@ function VerdictSeal({ verdict, metCount, totalCriteria = 4, size = "large" }) {
             <div className="rf-display text-xs font-bold mt-2 text-center px-2" style={{ color: COLORS.parchment, maxWidth: 110 }}>
               {getVerdictLabel(verdict, t)}
             </div>
-            <div className="text-[10px] mt-1 rf-num" style={{ color: COLORS.slate }}>{metCount}/{totalCriteria} {t("recommendation.criteriaMet")}</div>
+            {Number.isInteger(metCount) && Number.isInteger(totalCriteria)
+              ? <div className="text-[10px] mt-1 rf-num" style={{ color: COLORS.slate }}>{metCount}/{totalCriteria} {t("recommendation.criteriaMet")}</div>
+              : <div className="text-[10px] mt-1" style={{ color: COLORS.caution }}>{t("recommendation.pendingCriteria")}</div>}
           </>
         ) : null}
       </div>
@@ -496,11 +505,14 @@ function MetricGroup({ eyebrow, title, children }) {
 
 function CriteriaRow({ ok, label, actual, target }) {
   const { t } = useLocale();
+  const unavailable = ok === null || ok === undefined;
+  const background = unavailable ? COLORS.cautionSoft : ok ? COLORS.positiveSoft : COLORS.negativeSoft;
+  const borderColor = unavailable ? COLORS.caution : ok ? COLORS.positive : COLORS.negative;
   return (
     <div className="flex items-center justify-between py-2.5 px-3 rounded-lg mb-2"
-      style={{ background: ok ? COLORS.positiveSoft : COLORS.negativeSoft, border: `1px solid ${ok ? COLORS.positive : COLORS.negative}33` }}>
+      style={{ background, border: `1px solid ${borderColor}33` }}>
       <div className="flex items-center gap-2">
-        {ok ? <CheckCircle2 size={16} style={{ color: COLORS.positive }} /> : <XCircle size={16} style={{ color: COLORS.negative }} />}
+        {unavailable ? <AlertTriangle size={16} style={{ color: COLORS.caution }} /> : ok ? <CheckCircle2 size={16} style={{ color: COLORS.positive }} /> : <XCircle size={16} style={{ color: COLORS.negative }} />}
         <span className="text-xs" style={{ color: COLORS.parchment }}>{label}</span>
       </div>
       <div className="text-[11px] rf-num" style={{ color: COLORS.slate }}>
@@ -738,7 +750,8 @@ function RecommendationCard({ results, criteria }) {
     >
       <VerdictSeal verdict={results.verdict} metCount={results.metCount} totalCriteria={results.totalCriteria} size="large" />
       <div className="flex-1 w-full">
-        <div className="text-[10px] tracking-widest mb-2" style={{ color: COLORS.brass }}>{t("recommendation.finalSectionHeading")}</div>
+        <div className="text-[10px] tracking-widest mb-1" style={{ color: COLORS.brass }}>{t("recommendation.analyticalSectionHeading")}</div>
+        <div className="text-[10px] mb-3 leading-relaxed" style={{ color: COLORS.slateDim }}>{t("recommendation.scopeNote")}</div>
         {criteria.map((c, i) => (
           <CriteriaRow key={i} ok={c.ok} label={c.label} actual={c.actual} target={c.target} />
         ))}
@@ -791,16 +804,20 @@ function DashboardTab({ mode, inputs, results }) {
         </MetricGroup>
 
         <MetricGroup eyebrow={t("globalApp.section3")} title={t("dashboardR3.sectionOperatingIncome")}>
-          <MetricRow label={t("metricRowR2B2.grossRentalIncome")} value={formatRecommendationCurrency(r.grossRentalIncome)} />
-          <MetricRow label={t("metricRowR2B2.vacancyDeduction")} value={formatRecommendationCurrency(r.vacancyDeduction)} />
-          <MetricRow label={t("metricRowR2B2.serviceIncomeAfterLease")} value={formatRecommendationCurrency(r.serviceIncome)} />
-          <MetricRow label={t("metricRowR2B2.totalAnnualIncome")} value={formatRecommendationCurrency(r.totalAnnualIncome)} strong />
-          <MetricRow label={t("metricRowR2B2.vatCollected")} value={formatRecommendationCurrency(r.vatCollected)} note={t("metricRowR2B2.vatCollectedNote")} />
+          <MetricRow label={t("metricRowR2B2.grossRentalIncomeStabilized")} value={formatRecommendationCurrency(r.stabilizedGrossRentalIncome)} />
+          <MetricRow label={t("metricRowR2B2.vacancyDeductionFirstYear")} value={formatRecommendationCurrency(r.vacancyDeduction)} />
+          <MetricRow label={t("metricRowR2B2.rentalIncomeFirstYear")} value={formatRecommendationCurrency(r.rentalIncomeAfterVacancy)} />
+          <MetricRow label={t("metricRowR2B2.serviceIncomeFirstYear")} value={formatRecommendationCurrency(r.firstYearServiceIncome)} />
+          <MetricRow label={t("metricRowR2B2.totalIncomeFirstYear")} value={formatRecommendationCurrency(r.firstYearTotalAnnualIncome)} strong />
+          <MetricRow label={t("metricRowR2B2.serviceIncomeStabilized")} value={formatRecommendationCurrency(r.serviceIncome)} />
+          <MetricRow label={t("metricRowR2B2.totalIncomeStabilized")} value={formatRecommendationCurrency(r.totalAnnualIncome)} strong />
+          <MetricRow label={t("metricRowR2B2.vatCollectedFirstYear")} value={formatRecommendationCurrency(r.vatCollected)} note={t("metricRowR2B2.vatCollectedNote")} />
         </MetricGroup>
 
         <MetricGroup eyebrow={t("globalApp.section4")} title={t("dashboardR3.sectionOpexAndNoi")}>
-          <MetricRow label={t("metricRowR2B2.totalOpex")} value={formatRecommendationCurrency(r.opexAmount)} />
-          <MetricRow label={t("metricRowR2B2.noiBuilding")} value={formatRecommendationCurrency(r.NOI)} strong />
+          <MetricRow label={t("metricRowR2B2.totalOpexStabilized")} value={formatRecommendationCurrency(r.opexAmount)} />
+          <MetricRow label={t("metricRowR2B2.firstYearNoiBuilding")} value={formatRecommendationCurrency(r.firstYearNOI)} />
+          <MetricRow label={t("metricRowR2B2.noiBuildingStabilized")} value={formatRecommendationCurrency(r.NOI)} strong />
         </MetricGroup>
 
         <MetricGroup eyebrow={t("globalApp.section5")} title={t("dashboardR3.sectionYieldValuation")}>
@@ -829,6 +846,7 @@ function DashboardTab({ mode, inputs, results }) {
             <MetricRow label={t("metricRowR2B3.dscrMinLabel")} value={r.dscrMin !== null ? fmtX(r.dscrMin) : "—"} positiveNegative={r.dscrMin !== null ? r.dscrMin >= inputs.minDscrThreshold : undefined} />
             <MetricRow label={t("metricRowR2B3.leveredIrr")} value={fmtPct(r.leveredIRR)} strong />
             <MetricRow label={t("metricRowR2B3.leveredNpv")} value={formatRecommendationCurrency(r.leveredNPV)} note={t("metricRowR2B3.leveredNpvNoteBuilding", { rate: fmtPct(r.equityDiscountRate) })} />
+            <div className="text-[10px] mt-2 leading-relaxed" style={{ color: COLORS.caution }}>{t("financingInput.proxyBoundaryNote")}</div>
           </MetricGroup>
         ) : null}
 
@@ -847,12 +865,17 @@ function DashboardTab({ mode, inputs, results }) {
         <RecommendationCard
           results={r}
           criteria={[
-            { ok: r.c1, label: t("recommendation.criteria.ebNetYield", { value: fmtPct(inputs.minYieldThreshold, 1) }), actual: fmtPct(r.netYieldOnPrice), target: fmtPct(inputs.minYieldThreshold, 1) },
-            { ok: r.c2, label: t("recommendation.criteria.ebPayback", { years: inputs.maxPaybackThreshold }), actual: formatRecommendationYears(r.paybackOnPrice), target: `${inputs.maxPaybackThreshold} ${t("units.years")}` },
-            { ok: r.c3, label: t("recommendation.criteria.ebIrrVsDiscount"), actual: fmtPct(r.irr), target: fmtPct(inputs.discountRate) },
-            { ok: r.c4, label: t("recommendation.criteria.ebMarketValueVsCost"), actual: formatRecommendationCurrency(r.marketValueByIncomeCap), target: formatRecommendationCurrency(r.totalPurchaseCost) },
-            ...(inputs.leverageEnabled
-              ? [{ ok: r.c5, label: t("recommendation.criteria.dscr", { value: fmtX(inputs.minDscrThreshold) }), actual: r.dscrMin !== null ? fmtX(r.dscrMin) : "—", target: fmtX(inputs.minDscrThreshold) }]
+          { ok: r.c0, label: t("recommendation.criteria.noiPositive"), actual: formatRecommendationCurrency(r.NOI), target: `> 0 ${t("units.sar")}` },
+          { ok: r.c1, label: t("recommendation.criteria.ebNetYieldOnCost", { value: fmtPct(inputs.minYieldThreshold, 1) }), actual: fmtPct(r.netYieldOnCost), target: fmtPct(inputs.minYieldThreshold, 1) },
+          { ok: r.c2, label: t("recommendation.criteria.ebPaybackOnCost", { years: inputs.maxPaybackThreshold }), actual: formatRecommendationYears(r.paybackOnCost), target: `${inputs.maxPaybackThreshold} ${t("units.years")}` },
+          { ok: r.c3, label: t("recommendation.criteria.ebIrrVsDiscount"), actual: fmtPct(r.irr), target: fmtPct(inputs.discountRate) },
+          { ok: r.c6, label: t("recommendation.criteria.npvNonNegative"), actual: formatRecommendationCurrency(r.npv), target: `≥ 0 ${t("units.sar")}` },
+          { ok: r.c4, label: t("recommendation.criteria.ebMarketValueVsCost"), actual: formatRecommendationCurrency(r.marketValueByIncomeCap), target: formatRecommendationCurrency(r.totalPurchaseCost) },
+          ...(inputs.leverageEnabled
+            ? [
+                { ok: r.c5, label: t("recommendation.criteria.dscr", { value: fmtX(inputs.minDscrThreshold) }), actual: r.dscrMin !== null ? fmtX(r.dscrMin) : "—", target: fmtX(inputs.minDscrThreshold) },
+                { ok: r.c7, label: t("recommendation.criteria.leveredNpvNonNegative"), actual: formatRecommendationCurrency(r.leveredNPV), target: `≥ 0 ${t("units.sar")}` },
+              ]
               : []),
           ]}
         />
@@ -884,7 +907,14 @@ function DashboardTab({ mode, inputs, results }) {
         <MetricRow label={t("metricRowR2B2.actualRentalIncome")} value={formatRecommendationCurrency(r.actualRentalIncome)} />
         <MetricRow label={t("metricRowR2B2.serviceIncome")} value={formatRecommendationCurrency(r.serviceIncome)} />
         <MetricRow label={t("metricRowR2B2.totalOperatingRevenue")} value={formatRecommendationCurrency(r.totalOperatingRevenue)} />
-        <MetricRow label={t("metricRowR2B2.operatingExpenses")} value={formatRecommendationCurrency(r.operatingExpenses)} />
+        <MetricRow label={t("metricRowR2B2.variableOperatingExpense")} value={formatRecommendationCurrency(r.variableOperatingExpense)} />
+        <MetricRow label={t("metricRowR2B2.fixedOperatingExpense")} value={formatRecommendationCurrency(r.fixedOperatingExpense)} />
+        <MetricRow label={t("metricRowR2B2.managementFeeAmount")} value={formatRecommendationCurrency(r.managementFeeAmount)} />
+        <MetricRow label={t("metricRowR2B2.insuranceAmount")} value={formatRecommendationCurrency(r.insuranceAmount)} />
+        <MetricRow label={t("metricRowR2B2.operatingExpensesBeforeReserve")} value={formatRecommendationCurrency(r.operatingExpensesBeforeReserve)} />
+        <MetricRow label={t("metricRowR2B2.replacementReserveAmount")} value={formatRecommendationCurrency(r.replacementReserveAmount)} />
+        <MetricRow label={t("metricRowR2B2.operatingExpenses")} value={formatRecommendationCurrency(r.operatingExpenses)} strong />
+        <MetricRow label={t("metricRowR2B2.firstOperatingYearNoi")} value={formatRecommendationCurrency(r.firstOperatingYearNOI)} />
         <MetricRow label={t("metricRowR2B2.stabilizedNoi")} value={formatRecommendationCurrency(r.stabilizedNOI)} strong />
       </MetricGroup>
 
@@ -910,6 +940,7 @@ function DashboardTab({ mode, inputs, results }) {
           <MetricRow label={t("metricRowR2B3.dscrMinLabel")} value={r.dscrMin !== null ? fmtX(r.dscrMin) : "—"} positiveNegative={r.dscrMin !== null ? r.dscrMin >= inputs.minDscrThreshold : undefined} />
           <MetricRow label={t("metricRowR2B3.leveredIrr")} value={fmtPct(r.leveredIRR)} strong />
           <MetricRow label={t("metricRowR2B3.leveredNpv")} value={formatRecommendationCurrency(r.leveredNPV)} note={t("metricRowR2B3.leveredNpvNoteLand", { rate: fmtPct(r.equityDiscountRate) })} />
+          <div className="text-[10px] mt-2 leading-relaxed" style={{ color: COLORS.caution }}>{t("financingInput.proxyBoundaryNote")}</div>
         </MetricGroup>
       ) : null}
 
@@ -926,12 +957,16 @@ function DashboardTab({ mode, inputs, results }) {
       <RecommendationCard
         results={r}
         criteria={[
+          { ok: r.c0, label: t("recommendation.criteria.noiPositive"), actual: formatRecommendationCurrency(r.stabilizedNOI), target: `> 0 ${t("units.sar")}` },
           { ok: r.c1, label: t("recommendation.criteria.ldPayback", { years: inputs.maxPaybackThreshold }), actual: formatRecommendationYears(r.simplePaybackYears), target: `${inputs.maxPaybackThreshold} ${t("units.years")}` },
-          { ok: r.c2, label: t("recommendation.criteria.ldReturnOnCost"), actual: fmtPct(r.capRateOnCost), target: fmtPct(1 / inputs.maxPaybackThreshold) },
+          { ok: r.c2, label: t("recommendation.criteria.npvNonNegative"), actual: formatRecommendationCurrency(r.npv), target: `≥ 0 ${t("units.sar")}` },
           { ok: r.c3, label: t("recommendation.criteria.ldIrrVsHurdle"), actual: fmtPct(r.irr), target: fmtPct(inputs.hurdleRate) },
           { ok: r.c4, label: t("recommendation.criteria.ldMarketValueVsCost"), actual: formatRecommendationCurrency(r.marketValueAfterCompletion), target: formatRecommendationCurrency(r.totalProjectCost) },
           ...(inputs.leverageEnabled
-            ? [{ ok: r.c5, label: t("recommendation.criteria.dscr", { value: fmtX(inputs.minDscrThreshold) }), actual: r.dscrMin !== null ? fmtX(r.dscrMin) : "—", target: fmtX(inputs.minDscrThreshold) }]
+            ? [
+                { ok: r.c5, label: t("recommendation.criteria.dscr", { value: fmtX(inputs.minDscrThreshold) }), actual: r.dscrMin !== null ? fmtX(r.dscrMin) : "—", target: fmtX(inputs.minDscrThreshold) },
+                { ok: r.c6, label: t("recommendation.criteria.leveredNpvNonNegative"), actual: formatRecommendationCurrency(r.leveredNPV), target: `≥ 0 ${t("units.sar")}` },
+              ]
               : []),
         ]}
       />
@@ -942,7 +977,7 @@ function DashboardTab({ mode, inputs, results }) {
 // ============================================================
 // CASH FLOW TAB
 // ============================================================
-function CashFlowTab({ mode, inputs, results }) {
+function CashFlowTab({ mode, inputs, results, zakatCase }) {
   const { t } = useLocale();
   // R7: fmtSAR() is the global formatter, hardcoded to "ريال" -- it has no
   // access to t()/locale since it's defined outside any component. This was
@@ -994,6 +1029,13 @@ function CashFlowTab({ mode, inputs, results }) {
       <MetricGroup eyebrow={t("cashFlow.tableEyebrow")} title={t("cashFlow.tableTitle")}>
         <CashFlowTable cashflows={activeCashflows} />
       </MetricGroup>
+      <ZakatCashFlowPanel
+        mode={mode}
+        results={results}
+        zakatCase={zakatCase}
+        leverageView={showLevered && view === "levered"}
+        discountRate={showLevered && view === "levered" ? results.equityDiscountRate : (mode === "building" ? inputs.discountRate : inputs.hurdleRate)}
+      />
     </div>
   );
 }
@@ -1066,16 +1108,16 @@ function BuildingInputPanel({ inputs, setInputs, assumptionModelVersion, onExitC
   return (
     <div>
       <Section eyebrow={t("globalApp.section1")} title={t("inputBuilding.sec1")} defaultOpen>
-        <NumField label={t("inputBuilding.landLength")} unit={t("inputBuilding.unitMeterLinear")} value={inputs.landLength} onChange={(v) => patch("landLength", v)} />
-        <NumField label={t("inputBuilding.landWidth")} unit={t("inputBuilding.unitMeterLinear")} value={inputs.landWidth} onChange={(v) => patch("landWidth", v)} />
+        <NumField label={t("inputBuilding.landLength")} unit={t("inputBuilding.unitMeterLinear")} value={inputs.landLength} onChange={(v) => patch("landLength", v)} min={0.01} />
+        <NumField label={t("inputBuilding.landWidth")} unit={t("inputBuilding.unitMeterLinear")} value={inputs.landWidth} onChange={(v) => patch("landWidth", v)} min={0.01} />
         <NumField label={t("inputBuilding.buildingAge")} unit={t("inputBuilding.unitYear")} value={inputs.buildingAge} onChange={(v) => patch("buildingAge", v)} min={0} />
         <Divider />
         <NumField label={t("inputBuilding.basementCount")} unit={t("inputBuilding.unitBasement")} value={inputs.basementCount} onChange={(v) => patch("basementCount", v)} min={0} />
-        <NumField label={t("inputBuilding.basementAreaEach")} unit={t("inputBuilding.unitSqm")} value={inputs.basementAreaEach} onChange={(v) => patch("basementAreaEach", v)} />
-        <NumField label={t("inputBuilding.parkingAreaPerSpot")} unit={t("inputBuilding.unitSqmSpot")} value={inputs.parkingAreaPerSpot} onChange={(v) => patch("parkingAreaPerSpot", v)} />
+        <NumField label={t("inputBuilding.basementAreaEach")} unit={t("inputBuilding.unitSqm")} value={inputs.basementAreaEach} onChange={(v) => patch("basementAreaEach", v)} min={0} />
+        <NumField label={t("inputBuilding.parkingAreaPerSpot")} unit={t("inputBuilding.unitSqmSpot")} value={inputs.parkingAreaPerSpot} onChange={(v) => patch("parkingAreaPerSpot", v)} min={0.01} />
         <Divider />
         <NumField label={t("inputBuilding.floorCount")} unit={t("inputBuilding.unitFloor")} value={inputs.floorCount} onChange={(v) => patch("floorCount", v)} min={1} />
-        <NumField label={t("inputBuilding.floorAreaEach")} unit={t("inputBuilding.unitSqm")} value={inputs.floorAreaEach} onChange={(v) => patch("floorAreaEach", v)} />
+        <NumField label={t("inputBuilding.floorAreaEach")} unit={t("inputBuilding.unitSqm")} value={inputs.floorAreaEach} onChange={(v) => patch("floorAreaEach", v)} min={0.01} />
         <PercentField label={t("inputBuilding.efficiencyRatio")} value={inputs.efficiencyRatio} onChange={(v) => patch("efficiencyRatio", v)} warnAbove={0.95} warnText={t("inputBuilding.efficiencyRatioWarn")} />
         <NumField
           label={t("inputBuilding.netLeasableOverride")}
@@ -1089,15 +1131,15 @@ function BuildingInputPanel({ inputs, setInputs, assumptionModelVersion, onExitC
       </Section>
 
       <Section eyebrow={t("globalApp.section2")} title={t("inputBuilding.sec2")}>
-        <NumField label={t("inputBuilding.buildingPrice")} unit={t("inputBuilding.unitSar")} value={inputs.buildingPrice} onChange={(v) => patch("buildingPrice", v)} />
+        <NumField label={t("inputBuilding.buildingPrice")} unit={t("inputBuilding.unitSar")} value={inputs.buildingPrice} onChange={(v) => patch("buildingPrice", v)} min={0.01} />
         <PercentField label={t("inputBuilding.commissionRate")} value={inputs.commissionRate} onChange={(v) => patch("commissionRate", v)} />
         <PercentField label={t("inputBuilding.transferFeeRate")} value={inputs.transferFeeRate} onChange={(v) => patch("transferFeeRate", v)} />
-        <NumField label={t("inputBuilding.inspectionCost")} unit={t("inputBuilding.unitSar")} value={inputs.inspectionCost} onChange={(v) => patch("inspectionCost", v)} />
-        <NumField label={t("inputBuilding.valuationCost")} unit={t("inputBuilding.unitSar")} value={inputs.valuationCost} onChange={(v) => patch("valuationCost", v)} />
+        <NumField label={t("inputBuilding.inspectionCost")} unit={t("inputBuilding.unitSar")} value={inputs.inspectionCost} onChange={(v) => patch("inspectionCost", v)} min={0} />
+        <NumField label={t("inputBuilding.valuationCost")} unit={t("inputBuilding.unitSar")} value={inputs.valuationCost} onChange={(v) => patch("valuationCost", v)} min={0} />
       </Section>
 
       <Section eyebrow={t("globalApp.section3")} title={t("inputBuilding.sec3")}>
-        <NumField label={t("inputBuilding.rentPerSqm")} unit={t("inputBuilding.unitSarSqmYear")} value={inputs.rentPerSqm} onChange={(v) => patch("rentPerSqm", v)} />
+        <NumField label={t("inputBuilding.rentPerSqm")} unit={t("inputBuilding.unitSarSqmYear")} value={inputs.rentPerSqm} onChange={(v) => patch("rentPerSqm", v)} min={0} />
         <PercentField label={t("inputBuilding.occupancyRate")} value={inputs.occupancyRate} onChange={(v) => patch("occupancyRate", v)} warnAbove={1} warnText={t("inputBuilding.occupancyRateWarn")} />
         <SelectField
           label={t("dashboardR3.selectLeaseStatus")}
@@ -1127,9 +1169,9 @@ function BuildingInputPanel({ inputs, setInputs, assumptionModelVersion, onExitC
         <NumField label={t("inputBuilding.holdPeriod")} unit={t("inputBuilding.unitYear")} value={inputs.holdPeriod} onChange={(v) => patch("holdPeriod", v)} min={1} warnAbove={20} />
         <PercentField label={t("inputBuilding.rentGrowthRate")} note={t("inputBuilding.rentGrowthRateNote")} value={inputs.rentGrowthRate} onChange={(v) => patch("rentGrowthRate", v)} warnAbove={0.15} />
         <Divider />
-        <NumField label={t("inputBuilding.basementConstructionCostPerSqm")} unit={t("inputBuilding.unitSarSqm")} value={inputs.basementConstructionCostPerSqm} onChange={(v) => patch("basementConstructionCostPerSqm", v)} />
-        <NumField label={t("inputBuilding.floorConstructionCostPerSqm")} unit={t("inputBuilding.unitSarSqm")} value={inputs.floorConstructionCostPerSqm} onChange={(v) => patch("floorConstructionCostPerSqm", v)} />
-        <NumField label={t("inputBuilding.currentLandPricePerSqm")} unit={t("inputBuilding.unitSarSqm")} value={inputs.currentLandPricePerSqm} onChange={(v) => patch("currentLandPricePerSqm", v)} />
+        <NumField label={t("inputBuilding.basementConstructionCostPerSqm")} unit={t("inputBuilding.unitSarSqm")} value={inputs.basementConstructionCostPerSqm} onChange={(v) => patch("basementConstructionCostPerSqm", v)} min={0} />
+        <NumField label={t("inputBuilding.floorConstructionCostPerSqm")} unit={t("inputBuilding.unitSarSqm")} value={inputs.floorConstructionCostPerSqm} onChange={(v) => patch("floorConstructionCostPerSqm", v)} min={0} />
+        <NumField label={t("inputBuilding.currentLandPricePerSqm")} unit={t("inputBuilding.unitSarSqm")} value={inputs.currentLandPricePerSqm} onChange={(v) => patch("currentLandPricePerSqm", v)} min={0} />
         <NumField label={t("inputBuilding.buildingUsefulLife")} unit={t("inputBuilding.unitYear")} value={inputs.buildingUsefulLife} onChange={(v) => patch("buildingUsefulLife", v)} min={1} />
       </Section>
 
@@ -1170,15 +1212,17 @@ function BuildingInputPanel({ inputs, setInputs, assumptionModelVersion, onExitC
 // ============================================================
 // INPUT PANEL — LAND + DEVELOPMENT
 // ============================================================
-function LandInputPanel({ inputs, setInputs }) {
+function LandInputPanel({ inputs, setInputs, assumptionModelVersion }) {
   const { t } = useLocale();
   const patch = (key, value) => setInputs((prev) => ({ ...prev, [key]: value }));
+  const v2Governed = assumptionModelVersion === ASSUMPTION_MODEL_VERSION.V2;
+  const governedNote = v2Governed ? t("globalApp.governedAssumptionV2Note") : null;
   return (
     <div>
       <Section eyebrow={t("globalApp.section1")} title={t("inputLand.sec1")} defaultOpen>
-        <NumField label={t("inputLand.landLength")} unit={t("inputLand.unitMeter")} value={inputs.landLength} onChange={(v) => patch("landLength", v)} />
-        <NumField label={t("inputLand.landWidth")} unit={t("inputLand.unitMeter")} value={inputs.landWidth} onChange={(v) => patch("landWidth", v)} />
-        <NumField label={t("inputLand.landPricePerSqm")} unit={t("inputLand.unitSarSqm")} value={inputs.landPricePerSqm} onChange={(v) => patch("landPricePerSqm", v)} />
+        <NumField label={t("inputLand.landLength")} unit={t("inputLand.unitMeter")} value={inputs.landLength} onChange={(v) => patch("landLength", v)} min={0.01} />
+        <NumField label={t("inputLand.landWidth")} unit={t("inputLand.unitMeter")} value={inputs.landWidth} onChange={(v) => patch("landWidth", v)} min={0.01} />
+        <NumField label={t("inputLand.landPricePerSqm")} unit={t("inputLand.unitSarSqm")} value={inputs.landPricePerSqm} onChange={(v) => patch("landPricePerSqm", v)} min={0.01} />
       </Section>
 
       <Section eyebrow={t("globalApp.section2")} title={t("inputLand.sec2")}>
@@ -1195,6 +1239,7 @@ function LandInputPanel({ inputs, setInputs }) {
           unit={t("inputLand.unitSarSqm")}
           value={inputs.constructionCostPerSqm}
           onChange={(v) => patch("constructionCostPerSqm", v)}
+          min={0.01}
           note={t("inputLand.constructionCostPerSqmNote")}
         />
       </Section>
@@ -1202,15 +1247,19 @@ function LandInputPanel({ inputs, setInputs }) {
       <Section eyebrow={t("globalApp.section4")} title={t("inputLand.sec4")}>
         <PercentField label={t("inputLand.landCommissionRate")} value={inputs.landCommissionRate} onChange={(v) => patch("landCommissionRate", v)} />
         <PercentField label={t("inputLand.landTransferFeeRate")} value={inputs.landTransferFeeRate} onChange={(v) => patch("landTransferFeeRate", v)} />
-        <NumField label={t("inputLand.engineeringCost")} unit={t("inputLand.unitSar")} value={inputs.engineeringCost} onChange={(v) => patch("engineeringCost", v)} />
-        <NumField label={t("inputLand.landValuationCost")} unit={t("inputLand.unitSar")} value={inputs.landValuationCost} onChange={(v) => patch("landValuationCost", v)} />
+        <NumField label={t("inputLand.engineeringCost")} unit={t("inputLand.unitSar")} value={inputs.engineeringCost} onChange={(v) => patch("engineeringCost", v)} min={0} />
+        <NumField label={t("inputLand.landValuationCost")} unit={t("inputLand.unitSar")} value={inputs.landValuationCost} onChange={(v) => patch("landValuationCost", v)} min={0} />
       </Section>
 
       <Section eyebrow={t("globalApp.section5")} title={t("inputLand.sec5")}>
-        <NumField label={t("inputLand.marketRentPerSqm")} unit={t("inputBuilding.unitSarSqmYear")} value={inputs.marketRentPerSqm} onChange={(v) => patch("marketRentPerSqm", v)} />
+        <NumField label={t("inputLand.marketRentPerSqm")} unit={t("inputBuilding.unitSarSqmYear")} value={inputs.marketRentPerSqm} onChange={(v) => patch("marketRentPerSqm", v)} min={0} />
         <PercentField label={t("inputLand.occupancyRate")} value={inputs.occupancyRate} onChange={(v) => patch("occupancyRate", v)} warnAbove={1} warnText={t("inputLand.occupancyRateWarn")} />
         <PercentField label={t("inputLand.serviceIncomeRate")} value={inputs.serviceIncomeRate} onChange={(v) => patch("serviceIncomeRate", v)} />
         <PercentField label={t("inputLand.opexRate")} value={inputs.opexRate} onChange={(v) => patch("opexRate", v)} />
+        <PercentField label={t("inputBuilding.managementFeeRate")} note={governedNote} value={inputs.managementFeeRate} onChange={(v) => patch("managementFeeRate", v)} disabled={v2Governed} />
+        <NumField label={t("inputBuilding.fixedOpexPerSqm")} unit={t("inputLand.unitSarSqm")} note={governedNote} value={inputs.fixedOpexPerSqm} onChange={(v) => patch("fixedOpexPerSqm", v)} min={0} disabled={v2Governed} />
+        <NumField label={t("inputBuilding.replacementReservePerSqm")} unit={t("inputLand.unitSarSqm")} note={governedNote} value={inputs.replacementReservePerSqm} onChange={(v) => patch("replacementReservePerSqm", v)} min={0} disabled={v2Governed} />
+        <PercentField label={t("inputBuilding.opexGrowthRate")} note={governedNote} value={inputs.opexGrowthRate} onChange={(v) => patch("opexGrowthRate", v)} disabled={v2Governed} />
       </Section>
 
       <Section eyebrow={t("globalApp.section6")} title={t("inputLand.sec6")}>
@@ -1333,9 +1382,9 @@ function KPIRibbon({ mode, results, leverageEnabled }) {
   const r = results;
   const noiLabel = mode === "building" ? t("kpi.noiExisting") : t("kpi.noiStabilized");
   const noiValue = mode === "building" ? r.NOI : r.stabilizedNOI;
-  const yieldLabel = mode === "building" ? t("kpi.yieldOnPrice") : t("kpi.yieldOnCost");
-  const yieldValue = mode === "building" ? r.netYieldOnPrice : r.capRateOnCost;
-  const paybackValue = mode === "building" ? r.paybackOnPrice : r.simplePaybackYears;
+  const yieldLabel = t("kpi.yieldOnCost");
+  const yieldValue = mode === "building" ? r.netYieldOnCost : r.capRateOnCost;
+  const paybackValue = mode === "building" ? r.paybackOnCost : r.simplePaybackYears;
   const irrReliability = leverageEnabled ? r.leveredIrrReliability : r.irrReliability;
   const irrIsUnreliable = irrReliability === "MULTIPLE_ROOT_RISK" || irrReliability === "OUT_OF_SOLVER_RANGE";
   const mirrValue = leverageEnabled ? r.leveredMirr : r.mirr;
@@ -1528,6 +1577,7 @@ export default function App() {
   const [residentialIncomeOperatingCase, setResidentialIncomeOperatingCase] = useState(null);
   const [operatingCaseMessage, setOperatingCaseMessage] = useState(null);
   const [valuationCase, setValuationCase] = useState(null);
+  const [zakatCase, setZakatCase] = useState(null);
   const residentialIncomeAcquisitionView = useMemo(
     () => createResidentialIncomeAcquisitionViewModel(residentialIncomeOperatingCase),
     [residentialIncomeOperatingCase],
@@ -1683,6 +1733,7 @@ export default function App() {
     setResidentialIncomeOperatingCase(null);
     setOperatingCaseMessage(null);
     setValuationCase(null);
+    setZakatCase(null);
     setActiveDealId(null);
     setActiveTab("dashboard");
     setDealsPanelOpen(false);
@@ -1711,6 +1762,7 @@ export default function App() {
         ? hydrateResidentialIncomeOperatingCaseSnapshot(record.operatingCase)
         : null);
       setValuationCase(valuationCaseFromSavedDeal(record));
+      setZakatCase(record.zakatCase ? validateUserEnteredZakatCase(record.zakatCase) : null);
       setOperatingCaseMessage(null);
       setActiveDealId(id);
       setActiveTab("dashboard");
@@ -1724,6 +1776,9 @@ export default function App() {
     let extended = record;
     if (record.mode === "building" && residentialIncomeOperatingCase) {
       extended = { ...extended, operatingCase: residentialIncomeOperatingCase };
+    }
+    if (zakatCase) {
+      extended = { ...extended, zakatCase: validateUserEnteredZakatCase(zakatCase) };
     }
     return withValuationCase(extended, valuationCase);
   };
@@ -1791,6 +1846,11 @@ export default function App() {
     // to conflate this with DEAL_SAVE_FAILED (a storage-infrastructure code).
     try { validateEngineInputs({ ...inputs, leverageEnabled: inputs.leverageEnabled }); }
     catch (e) { if (e.name === 'ValidationError') return; throw e; }
+    try { validateUserEnteredZakatCase(zakatCase); }
+    catch (e) {
+      setDealsError({ code: e.code || "ZAKAT_CASE_INVALID", message_ar: "أكمل مبلغ الزكاة ومصدره قبل الحفظ، أو امسح مبلغ الزكاة.", message_en: "Complete the Zakat amount and its source before saving, or clear the Zakat amount." });
+      return;
+    }
     setSavingInProgress(true);
     setDealsError(null);
     try {
@@ -1814,6 +1874,11 @@ export default function App() {
     // SDI-002: same persistence-safety boundary as saveCurrentAsNewDeal above.
     try { validateEngineInputs({ ...inputs, leverageEnabled: inputs.leverageEnabled }); }
     catch (e) { if (e.name === 'ValidationError') return; throw e; }
+    try { validateUserEnteredZakatCase(zakatCase); }
+    catch (e) {
+      setDealsError({ code: e.code || "ZAKAT_CASE_INVALID", message_ar: "أكمل مبلغ الزكاة ومصدره قبل الحفظ، أو امسح مبلغ الزكاة.", message_en: "Complete the Zakat amount and its source before saving, or clear the Zakat amount." });
+      return;
+    }
     setSavingInProgress(true);
     setDealsError(null);
     try {
@@ -1842,6 +1907,7 @@ export default function App() {
         setResidentialIncomeOperatingCase(null);
         setOperatingCaseMessage(null);
         setValuationCase(null);
+        setZakatCase(null);
       }
     } catch (e) {
       setDealsError({ code: "DEAL_DELETE_FAILED", message_ar: "تعذّر الحذف", message_en: "Delete failed" });
@@ -1891,6 +1957,7 @@ export default function App() {
   };
 
   const resetCurrent = () => {
+    setZakatCase(null);
     if (activeDealId) {
       loadDeal(activeDealId);
     } else if (mode === "building") {
@@ -1942,6 +2009,7 @@ export default function App() {
               setResidentialIncomeOperatingCase(null);
               setOperatingCaseMessage(null);
               setValuationCase(null);
+              setZakatCase(null);
               setActiveTab("dashboard");
             }} />
             <button
@@ -2021,8 +2089,9 @@ export default function App() {
                 }}
               />
             ) : (
-              <LandInputPanel inputs={landInputs} setInputs={setLandInputs} />
+              <LandInputPanel inputs={landInputs} setInputs={setLandInputs} assumptionModelVersion={landAssumptionModelVersion} />
             )}
+            <ZakatInputSection zakatCase={zakatCase} setZakatCase={setZakatCase} />
           </aside>
 
           <main className="lg:col-span-7">
@@ -2034,7 +2103,7 @@ export default function App() {
             ) : null}
             <Tabs value={activeTab} onChange={setActiveTab} />
             {activeTab === "dashboard" && <DashboardTab mode={mode} inputs={inputs} results={results} />}
-            {activeTab === "cashflow" && <CashFlowTab mode={mode} inputs={inputs} results={results} />}
+            {activeTab === "cashflow" && <CashFlowTab mode={mode} inputs={inputs} results={results} zakatCase={zakatCase} />}
             {activeTab === "sensitivity" && <SensitivityTab
               mode={mode}
               inputs={inputs}

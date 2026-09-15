@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "activeMode": "LEGACY_FILE_SHA256",
+  "legacyBaseline": {
+    "expectedSha256": "ac0767d3f13c463259f401a5d7af06c1140ee780a9f86489eb17ad9d7c72dc71",
+    "sourceAvailability": "UNAVAILABLE",
+    "evidenceStatus": "NOT_EVALUATED"
+  },
+  "governedCompositeBaseline": null,
+  "activationPlanHashSha256": null,
+  "activationApplied": false,
+  "canonicalBaselineChanged": false,
+  "legacyCanonicalEvidenceClosed": false,
+  "existingE2iCanonicalEvidenceSatisfied": false,
+  "releaseAuthorized": false,
+  "mergeAuthorized": false,
+  "deploymentAuthorized": false,
+  "goLiveAuthorized": false,
+  "transactionAuthorized": false
+}

@@ -65,6 +65,17 @@ MR-L26,App.jsx,761,JSX_CALL_SITE,TRUE,land,financing,R2B-3,القسط السنو
 MR-L27,App.jsx,762,JSX_CALL_SITE,TRUE,land,financing,R2B-3,نسبة تغطية خدمة الدين (الأدنى),fmtX/—,fmtX/—,none,TRUE,TRUE,LOCALIZED_R2B3
 MR-L28,App.jsx,763,JSX_CALL_SITE,TRUE,land,financing,R2B-3,معدل العائد الداخلي على حقوق الملكية (مرفوع),fmtPct,fmtPct,none,TRUE,TRUE,LOCALIZED_R2B3
 MR-L29,App.jsx,764,JSX_CALL_SITE,TRUE,land,financing,R2B-3,صافي القيمة الحالية المرفوعة,fmtSAR,fmtSAR,dynamic template w/ fmtPct,TRUE,TRUE,LOCALIZED_R2B3
+MR-B38,App.jsx,809,JSX_CALL_SITE,TRUE,building,income,R2B-2,الدخل التأجيري الفعلي — السنة الأولى,r.rentalIncomeAfterVacancy,formatRecommendationCurrency,none,FALSE,TRUE,LOCALIZED_R2B2
+MR-B39,App.jsx,810,JSX_CALL_SITE,TRUE,building,income,R2B-2,دخل الخدمات — السنة الأولى,r.firstYearServiceIncome,formatRecommendationCurrency,none,FALSE,TRUE,LOCALIZED_R2B2
+MR-B40,App.jsx,811,JSX_CALL_SITE,TRUE,building,income,R2B-2,إجمالي الدخل — السنة الأولى,r.firstYearTotalAnnualIncome,formatRecommendationCurrency,none,FALSE,TRUE,LOCALIZED_R2B2
+MR-B41,App.jsx,819,JSX_CALL_SITE,TRUE,building,opex,R2B-2,صافي الدخل التشغيلي — السنة الأولى,r.firstYearNOI,formatRecommendationCurrency,none,FALSE,TRUE,LOCALIZED_R2B2
+MR-L30,App.jsx,910,JSX_CALL_SITE,TRUE,land,income,R2B-2,المصروف التشغيلي المتغير,r.variableOperatingExpense,formatRecommendationCurrency,none,FALSE,TRUE,LOCALIZED_R2B2
+MR-L31,App.jsx,911,JSX_CALL_SITE,TRUE,land,income,R2B-2,المصروف التشغيلي الثابت,r.fixedOperatingExpense,formatRecommendationCurrency,none,FALSE,TRUE,LOCALIZED_R2B2
+MR-L32,App.jsx,912,JSX_CALL_SITE,TRUE,land,income,R2B-2,رسوم الإدارة,r.managementFeeAmount,formatRecommendationCurrency,none,FALSE,TRUE,LOCALIZED_R2B2
+MR-L33,App.jsx,913,JSX_CALL_SITE,TRUE,land,income,R2B-2,التأمين,r.insuranceAmount,formatRecommendationCurrency,none,FALSE,TRUE,LOCALIZED_R2B2
+MR-L34,App.jsx,914,JSX_CALL_SITE,TRUE,land,income,R2B-2,المصروفات التشغيلية قبل احتياطي الإحلال,r.operatingExpensesBeforeReserve,formatRecommendationCurrency,none,FALSE,TRUE,LOCALIZED_R2B2
+MR-L35,App.jsx,915,JSX_CALL_SITE,TRUE,land,income,R2B-2,احتياطي الإحلال,r.replacementReserveAmount,formatRecommendationCurrency,none,FALSE,TRUE,LOCALIZED_R2B2
+MR-L36,App.jsx,917,JSX_CALL_SITE,TRUE,land,income,R2B-2,صافي الدخل التشغيلي — أول سنة تشغيل,r.firstOperatingYearNOI,formatRecommendationCurrency,none,FALSE,TRUE,LOCALIZED_R2B2
 MR-S01,App.jsx,863,JSX_CALL_SITE,TRUE,sensitivity,OUT_OF_SCOPE,R4,(dynamic d.label),fmtPct range,fmtPct range,اتساع النطاق dynamic,FALSE,OUT_OF_SCOPE_R3,DEFERRED_R4
 MR-000,App.jsx,358,DEFINITION,FALSE,N/A,N/A,NON_CALL,function MetricRow(...),N/A,N/A,,FALSE,FALSE,NOT_APPLICABLE
 MR-000B,App.jsx,620,COMMENT_OR_NON_EXECUTABLE,FALSE,N/A,N/A,NON_CALL,// comment referencing MetricRow,N/A,N/A,,FALSE,FALSE,NOT_APPLICABLE

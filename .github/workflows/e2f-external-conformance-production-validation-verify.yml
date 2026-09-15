@@ -1,0 +1,31 @@
+name: E2F External Conformance Production Validation Verify
+
+on:
+  pull_request:
+    paths:
+      - 'governance/e2f-external-conformance-production-validation-policy-2026-09-08.json'
+      - 'src/standards/external-conformance-production-validation.js'
+      - 'tests/architecture/run_e2f_external_conformance_production_validation.js'
+      - 'docs/E2F_EXTERNAL_CONFORMANCE_PRODUCTION_VALIDATION_2026-09-08.md'
+      - '.github/workflows/e2f-external-conformance-production-validation-verify.yml'
+      - 'src/standards/rule-implementation-conformance-evidence.js'
+      - 'src/standards/external-authority-validation.js'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify E2F external conformance and production validation gate
+        run: node tests/architecture/run_e2f_external_conformance_production_validation.js
+      - name: Re-verify E2E implementation conformance evidence gate
+        run: node tests/architecture/run_e2e_rule_implementation_conformance_evidence.js
+      - name: Canonical release verification
+        run: npm run release:verify

@@ -1,0 +1,175 @@
+{
+  "matrixId": "STARTAK-E2I-EXTERNAL-EVIDENCE-REQUEST-MATRIX-2026-09-11",
+  "preparedAt": "2026-09-11T05:30:00+03:00",
+  "purpose": "Operational request matrix for obtaining the six real external/production evidence classes required by the existing E2I architectural-stop contract. This matrix does not constitute any evidence result, legal opinion, professional approval, verifier trust decision, release authorization, deployment authorization, or go-live authorization.",
+  "operatingModeUnderReview": "UNLICENSED_DECISION_SUPPORT",
+  "signatureAlgorithmRequired": "RSA-SHA256",
+  "outOfBandReadinessVerifierRegistryHashRequired": true,
+  "sameVerifierSubjectMayVerifyAllEvidenceTypes": false,
+  "evidenceRequests": [
+    {
+      "evidenceType": "CANONICAL_SOURCE_HASH_COMPARISON",
+      "requestedVerifierRole": "Independent canonical-source custodian or evidence verifier authorized for canonical-source comparison",
+      "scopeQuestions": [
+        "Does the supplied external canonical source artifact hash exactly match the repository-pinned expected SHA-256?",
+        "Is the source artifact provenance independently documented and attributable to the intended canonical source?",
+        "Is the verification tied to the exact E2H closeout packet, release candidate, source commit, artifact hash, environment reference, and environment configuration hash?"
+      ],
+      "minimumDeliverable": "Signed E2I evidence record with VERIFIED, REJECTED, or INCONCLUSIVE result, evidence artifact SHA-256, source reference, verification timestamp, scope reference, verifier identity, and RSA-SHA256 signature.",
+      "existingRepositoryPath": "src/qualification/external-canonical-evidence-operator.js",
+      "publicSourceRefs": [],
+      "realExternalArtifactRequired": true
+    },
+    {
+      "evidenceType": "SAUDI_LEGAL_OPERATING_MODE_REVIEW",
+      "requestedVerifierRole": "Independent Saudi-qualified legal reviewer with authority to assess the platform operating model",
+      "scopeQuestions": [
+        "Does the proposed operating mode remain outside licensed real-estate brokerage, licensed real-estate consultation/analysis, and licensed valuation activities, or does any platform function require a relevant Saudi license?",
+        "Do recommendations, written outputs, public-facing analyses, user workflows, or commercial claims cause the service to fall within regulated real-estate services under the Real Estate General Authority framework?",
+        "Does any output constitute valuation practice that requires an accredited valuer or a licensed valuation establishment?",
+        "What mandatory product, workflow, contracting, disclosure, or claim restrictions are required before production use?"
+      ],
+      "minimumDeliverable": "Signed legal review evidence artifact identifying reviewed functions, applicable rules, assumptions, required restrictions, unresolved issues, and final VERIFIED/REJECTED/INCONCLUSIVE result for the exact release scope.",
+      "publicSourceRefs": [
+        {
+          "issuer": "Real Estate General Authority",
+          "title": "Real Estate Brokerage Law",
+          "url": "https://rega.gov.sa/%D8%A7%D9%84%D8%A3%D9%86%D8%B8%D9%85%D8%A9-%D9%88%D8%A7%D9%84%D9%82%D8%B1%D8%A7%D8%B1%D8%A7%D8%AA/%D8%A7%D9%84%D8%A3%D9%86%D8%B8%D9%85%D8%A9-%D9%88%D8%A7%D9%84%D9%84%D9%88%D8%A7%D8%A6%D8%AD-%D9%88%D8%A7%D9%84%D8%A3%D8%AF%D9%84%D8%A9/%D8%A7%D9%84%D8%A3%D9%86%D8%B8%D9%85%D8%A9/%D9%86%D8%B8%D8%A7%D9%85-%D8%A7%D9%84%D9%88%D8%B3%D8%A7%D8%B7%D8%A9-%D8%A7%D9%84%D8%B9%D9%82%D8%A7%D8%B1%D9%8A%D8%A9/",
+          "officialSource": true
+        },
+        {
+          "issuer": "Real Estate General Authority",
+          "title": "Regulation of Real Estate Consultations and Analyses",
+          "url": "https://rega.gov.sa/%D8%A7%D9%84%D8%A3%D9%86%D8%B8%D9%85%D8%A9-%D9%88%D8%A7%D9%84%D9%82%D8%B1%D8%A7%D8%B1%D8%A7%D8%AA/%D8%A7%D9%84%D8%A3%D9%86%D8%B8%D9%85%D8%A9-%D9%88%D8%A7%D9%84%D9%84%D9%88%D8%A7%D8%A6%D8%AD-%D9%88%D8%A7%D9%84%D8%A3%D8%AF%D9%84%D8%A9/%D8%A7%D9%84%D9%84%D9%88%D8%A7%D8%A6%D8%AD/%D8%A7%D9%84%D9%84%D8%A7%D8%A6%D8%AD%D8%A9-%D8%A7%D9%84%D8%AA%D9%86%D8%B8%D9%8A%D9%85%D9%8A%D8%A9-%D9%84%D9%84%D8%A7%D8%B3%D8%AA%D8%B4%D8%A7%D8%B1%D8%A7%D8%AA-%D9%88%D8%A7%D9%84%D8%AA%D8%AD%D9%84%D9%8A%D9%84%D8%A7%D8%AA-%D8%A7%D9%84%D8%B9%D9%82%D8%A7%D8%B1%D9%8A%D8%A9/",
+          "officialSource": true
+        },
+        {
+          "issuer": "Saudi Authority for Accredited Valuers",
+          "title": "Accredited Valuers Law",
+          "url": "https://taqeem.gov.sa/web/content/portal.rules/8/attachment_ar?download=false",
+          "officialSource": true
+        }
+      ],
+      "realExternalArtifactRequired": true
+    },
+    {
+      "evidenceType": "PDPL_DATA_GOVERNANCE_REVIEW",
+      "requestedVerifierRole": "Independent Saudi privacy/data-governance reviewer",
+      "scopeQuestions": [
+        "What personal data is processed by each production workflow and for what purpose and legal basis?",
+        "Are notices, consent where applicable, data-subject rights, retention, deletion, access controls, processor arrangements, breach handling, and records of processing adequate for the exact production scope?",
+        "Are any cross-border transfers, cloud-processing arrangements, logs, analytics, uploaded documents, or generated reports subject to additional controls?",
+        "Do production configuration and operational procedures implement the required controls rather than merely documenting them?"
+      ],
+      "minimumDeliverable": "Signed PDPL/data-governance review evidence artifact with system scope, data-flow assumptions, control findings, required remediation, residual risks, and VERIFIED/REJECTED/INCONCLUSIVE result.",
+      "publicSourceRefs": [
+        {
+          "issuer": "Saudi Data & AI Authority",
+          "title": "Personal Data Protection Law",
+          "url": "https://dgp.sdaia.gov.sa/wps/portal/pdp/knowledgecenter/details/PDPL",
+          "officialSource": true
+        },
+        {
+          "issuer": "Saudi Data & AI Authority",
+          "title": "Implementing Regulations of the Personal Data Protection Law",
+          "url": "https://dgp.sdaia.gov.sa/wps/portal/pdp/knowledgecenter/details/PDPL2",
+          "officialSource": true
+        }
+      ],
+      "realExternalArtifactRequired": true
+    },
+    {
+      "evidenceType": "PROFESSIONAL_STANDARDS_SCOPE_REVIEW",
+      "requestedVerifierRole": "Independent Saudi valuation/professional-standards reviewer competent in the relevant real-estate scope",
+      "scopeQuestions": [
+        "Which platform outputs, calculations, labels, reports, and workflows could reasonably be understood as valuation, appraisal, professional valuation advice, or regulated real-estate consultation/analysis?",
+        "Which functions must remain decision-support only and which must be disabled, relabeled, constrained, or routed through licensed professionals?",
+        "Does the product avoid implying that an automated model or unlicensed user is issuing an accredited valuation report?",
+        "If professional valuation standards are referenced, are the applicable edition, intended use, limitations, and professional-authority boundary explicit?"
+      ],
+      "minimumDeliverable": "Signed professional-scope review artifact mapping platform functions and claims to the applicable professional boundary, with required restrictions and VERIFIED/REJECTED/INCONCLUSIVE result.",
+      "publicSourceRefs": [
+        {
+          "issuer": "Saudi Authority for Accredited Valuers",
+          "title": "Accredited Valuers Law",
+          "url": "https://taqeem.gov.sa/web/content/portal.rules/8/attachment_ar?download=false",
+          "officialSource": true
+        },
+        {
+          "issuer": "Saudi Authority for Accredited Valuers",
+          "title": "Regulations and Rules",
+          "url": "https://taqeem.gov.sa/rules/category/llyh-ltnfydhy-wlqw-d-4",
+          "officialSource": true
+        },
+        {
+          "issuer": "Saudi Authority for Accredited Valuers",
+          "title": "Valuation Standards Digital Library",
+          "url": "https://taqeem.gov.sa/digital-lib/category/m-yyr-ltqyym-1",
+          "officialSource": true
+        }
+      ],
+      "realExternalArtifactRequired": true
+    },
+    {
+      "evidenceType": "PRODUCTION_EXECUTION_CHAIN_CONFIRMATION",
+      "requestedVerifierRole": "Independent production/release assurance verifier",
+      "scopeQuestions": [
+        "Does the production deployment correspond exactly to the authorized release candidate, source commit, artifact SHA-256, environment reference, and environment configuration SHA-256?",
+        "Are merge execution, deployment execution, post-deployment smoke results, rollback readiness, and E2H closeout independently evidenced?",
+        "Are provider-side deployment identifiers, timestamps, logs, and immutable artifacts sufficient to establish provenance?",
+        "Is there any divergence between the qualified build and the actually deployed production runtime?"
+      ],
+      "minimumDeliverable": "Signed production execution-chain confirmation tied exactly to the E2H closeout packet and release identifiers, with evidence artifact SHA-256 and VERIFIED/REJECTED/INCONCLUSIVE result.",
+      "internalPrerequisites": [
+        ".github/workflows/e2g-human-release-authority-deployment-decision-verify.yml",
+        ".github/workflows/e2h-execution-attestation-post-deployment-closeout-verify.yml",
+        "src/standards/execution-attestation-post-deployment-closeout.js"
+      ],
+      "publicSourceRefs": [],
+      "realExternalArtifactRequired": true
+    },
+    {
+      "evidenceType": "OPERATING_MODE_CLAIMS_RESTRICTION_CONFIRMATION",
+      "requestedVerifierRole": "Independent legal/compliance reviewer of production UI, reports, marketing and contractual claims",
+      "scopeQuestions": [
+        "Do all production-facing labels, reports, disclaimers, onboarding flows, marketing pages, API descriptions and contractual statements remain consistent with the approved operating mode?",
+        "Does the product avoid claiming accredited valuation, licensed real-estate consultation/analysis, brokerage, professional certification, regulatory approval, guaranteed investment outcome, or transaction authority unless separately established?",
+        "Are user-visible limitations prominent at the point of decision and in exported reports, not only in internal documentation?",
+        "Are any automated outputs likely to be mistaken for regulated professional opinions or official valuation reports?"
+      ],
+      "minimumDeliverable": "Signed production claims-restriction confirmation referencing the reviewed UI/report/marketing build and exact release artifact, with exceptions/remediation and VERIFIED/REJECTED/INCONCLUSIVE result.",
+      "publicSourceRefs": [
+        {
+          "issuer": "Real Estate General Authority",
+          "title": "Regulation of Real Estate Consultations and Analyses",
+          "url": "https://rega.gov.sa/%D8%A7%D9%84%D8%A3%D9%86%D8%B8%D9%85%D8%A9-%D9%88%D8%A7%D9%84%D9%82%D8%B1%D8%A7%D8%B1%D8%A7%D8%AA/%D8%A7%D9%84%D8%A3%D9%86%D8%B8%D9%85%D8%A9-%D9%88%D8%A7%D9%84%D9%84%D9%88%D8%A7%D8%A6%D8%AD-%D9%88%D8%A7%D9%84%D8%A3%D8%AF%D9%84%D8%A9/%D8%A7%D9%84%D9%84%D9%88%D8%A7%D8%A6%D8%AD/%D8%A7%D9%84%D9%84%D8%A7%D8%A6%D8%AD%D8%A9-%D8%A7%D9%84%D8%AA%D9%86%D8%B8%D9%8A%D9%85%D9%8A%D8%A9-%D9%84%D9%84%D8%A7%D8%B3%D8%AA%D8%B4%D8%A7%D8%B1%D8%A7%D8%AA-%D9%88%D8%A7%D9%84%D8%AA%D8%AD%D9%84%D9%8A%D9%84%D8%A7%D8%AA-%D8%A7%D9%84%D8%B9%D9%82%D8%A7%D8%B1%D9%8A%D8%A9/",
+          "officialSource": true
+        },
+        {
+          "issuer": "Saudi Authority for Accredited Valuers",
+          "title": "Accredited Valuers Law",
+          "url": "https://taqeem.gov.sa/web/content/portal.rules/8/attachment_ar?download=false",
+          "officialSource": true
+        },
+        {
+          "issuer": "Real Estate General Authority",
+          "title": "Regulation of Real Estate Marketing and Advertising",
+          "url": "https://rega.gov.sa/%D8%A7%D9%84%D8%A3%D9%86%D8%B8%D9%85%D8%A9-%D9%88%D8%A7%D9%84%D9%82%D8%B1%D8%A7%D8%B1%D8%A7%D8%AA/%D8%A7%D9%84%D8%A3%D9%86%D8%B8%D9%85%D8%A9-%D9%88%D8%A7%D9%84%D9%84%D9%88%D8%A7%D8%A6%D8%AD-%D9%88%D8%A7%D9%84%D8%A3%D8%AF%D9%84%D8%A9/%D8%A7%D9%84%D9%84%D9%88%D8%A7%D8%A6%D8%AD/%D8%A7%D9%84%D9%84%D8%A7%D8%A6%D8%AD%D8%A9-%D8%A7%D9%84%D8%AA%D9%86%D8%B8%D9%8A%D9%85%D9%8A%D8%A9-%D9%84%D9%84%D8%AA%D8%B3%D9%88%D9%8A%D9%82-%D9%88%D8%A7%D9%84%D8%A5%D8%B9%D9%84%D8%A7%D9%86%D8%A7%D8%AA-%D8%A7%D9%84%D8%B9%D9%82%D8%A7%D8%B1%D9%8A%D8%A9/",
+          "officialSource": true
+        }
+      ],
+      "realExternalArtifactRequired": true
+    }
+  ],
+  "authorityBoundary": {
+    "releaseAuthorized": false,
+    "mergeAuthorized": false,
+    "deploymentAuthorized": false,
+    "goLiveAuthorized": false,
+    "transactionAuthorized": false,
+    "legalApprovalEstablished": false,
+    "professionalAuthorityEstablished": false,
+    "externalEvidenceAccepted": false,
+    "readinessVerifierTrustEstablished": false
+  }
+}

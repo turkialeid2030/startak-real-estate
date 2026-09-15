@@ -1,0 +1,31 @@
+name: Hospitality Operating Metrics Verify
+
+on:
+  pull_request:
+    paths:
+      - 'src/specialized-assets/hospitality-operating-metrics.js'
+      - 'tests/architecture/run_wave14b_hospitality_operating_metrics.js'
+      - 'docs/WAVE_14B_HOSPITALITY_OPERATING_METRICS.md'
+      - '.github/workflows/hospitality-operating-metrics-verify.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Wave 14B hospitality operating metrics
+        run: node tests/architecture/run_wave14b_hospitality_operating_metrics.js
+      - name: Canonical release verification
+        run: npm run release:verify

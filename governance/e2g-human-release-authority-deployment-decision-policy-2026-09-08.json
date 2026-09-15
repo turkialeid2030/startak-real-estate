@@ -1,0 +1,56 @@
+{
+  "policyId": "STARTAK-E2G-HUMAN-RELEASE-AUTHORITY-DEPLOYMENT-DECISION-POLICY-2026-09-08",
+  "createdAt": "2026-09-08T16:05:00+03:00",
+  "operatingMode": "UNLICENSED_DECISION_SUPPORT",
+  "status": "ENGINEERING_RELEASE_AUTHORITY_GATE_DEFINED_PRODUCTION_HUMAN_AUTHORITY_NOT_CONFIGURED",
+  "purpose": "Define a fail-closed cryptographically verifiable human release-authority gate for one exact E2F-qualified release candidate. Release, merge and deployment decisions are separate explicit human decisions. Completion authorizes only the exact bound software release actions; it does not establish professional valuation authority, external report issuance, transaction authority, formal standards conformance or rule activation by itself.",
+  "requiredUpstreamStatus": "EXTERNAL_CONFORMANCE_AND_PRODUCTION_VALIDATION_COMPLETE_PENDING_RELEASE_AUTHORITY",
+  "requiredUpstreamValidationFlags": [
+    "externalConformanceEvidenceAuthenticityValidated",
+    "productionSecurityValidated",
+    "productionPerformanceValidated",
+    "productionResilienceValidated",
+    "productionValidationComplete"
+  ],
+  "releaseAuthorityRegistryRequired": true,
+  "releaseAuthorityRegistryHashPinnedOutOfBandRequired": true,
+  "callerDeclaredDecisionAccepted": false,
+  "signatureAlgorithmsAllowed": [
+    "RSA-SHA256"
+  ],
+  "requiredDecisionTypes": [
+    "RELEASE_APPROVAL",
+    "MERGE_APPROVAL",
+    "DEPLOYMENT_APPROVAL"
+  ],
+  "allowedDecisionResults": [
+    "APPROVE",
+    "REJECT",
+    "HOLD"
+  ],
+  "mergeRequiresReleaseApproval": true,
+  "deploymentRequiresMergeApproval": true,
+  "sameActorMayAuthorizeMergeAndDeployment": false,
+  "sameActorMayAuthorizeAllThreeDecisions": false,
+  "automaticReleaseAllowed": false,
+  "automaticMergeAllowed": false,
+  "automaticDeploymentAllowed": false,
+  "automaticRuleActivationAllowed": false,
+  "productionHumanReleaseAuthorityRegistryConfigured": false,
+  "productionHumanReleaseDecisionsPresent": false,
+  "maximumEngineeringStatus": "HUMAN_RELEASE_DECISIONS_COMPLETE_PENDING_EXECUTION",
+  "postDecisionExecutionAttestationRequired": true,
+  "authorityBoundary": {
+    "releaseAuthorizedByDecision": true,
+    "mergeAuthorizedByDecision": true,
+    "deploymentAuthorizedByDecision": true,
+    "mergeExecuted": false,
+    "deploymentExecuted": false,
+    "formalStandardsConformanceEstablished": false,
+    "standardsOrRulesActivated": false,
+    "saudiProfessionalLicensingEstablished": false,
+    "certifiedValuationAuthorityEstablished": false,
+    "externalIssuanceAuthorized": false,
+    "transactionAuthorized": false
+  }
+}

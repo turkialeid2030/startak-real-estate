@@ -1,0 +1,33 @@
+name: Wave 14 Standards Convergence Verify
+
+on:
+  pull_request:
+    paths:
+      - 'architecture/STARTAK_WAVE7_*'
+      - 'src/standards/**'
+      - 'src/valuation-assignment/**'
+      - 'governance/wave14-standards-convergence.json'
+      - 'tests/architecture/run_wave14_standards_convergence_v1.js'
+      - 'docs/WAVE_14_STANDARDS_CONVERGENCE.md'
+      - '.github/workflows/wave14-standards-convergence-verify.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Wave 14 and standards convergence
+        run: node tests/architecture/run_wave14_standards_convergence_v1.js
+      - name: Canonical release verification
+        run: npm run release:verify

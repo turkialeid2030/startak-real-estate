@@ -1,0 +1,26 @@
+name: Official Saudi Regulatory Source Evidence Verify
+
+on:
+  pull_request:
+    paths:
+      - 'governance/official-saudi-regulatory-source-evidence-2026-09-08.json'
+      - 'tests/architecture/run_official_saudi_regulatory_source_evidence.js'
+      - '.github/workflows/official-saudi-regulatory-source-evidence-verify.yml'
+      - 'docs/OFFICIAL_SAUDI_REGULATORY_SOURCE_VERIFICATION_2026-09-08.md'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify recorded Saudi regulatory source evidence
+        run: node tests/architecture/run_official_saudi_regulatory_source_evidence.js
+      - name: Canonical release verification
+        run: npm run release:verify

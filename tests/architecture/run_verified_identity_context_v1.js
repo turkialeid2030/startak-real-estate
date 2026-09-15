@@ -4,6 +4,8 @@ const assert = require('assert');
 const {
   IDENTITY_STATUS,
   createVerifiedIdentityContext,
+  isVerifiedIdentityContext,
+  requireVerifiedIdentityContext,
 } = require('../../src/security/verified-identity-context');
 
 let checks = 0;
@@ -31,13 +33,24 @@ const verified = createVerifiedIdentityContext({
 });
 check(() => assert.strictEqual(verified.status, IDENTITY_STATUS.VERIFIED_CONTEXT));
 check(() => assert.strictEqual(verified.authorizationReady, true));
+check(() => assert.strictEqual(verified.identity.actorId, 'user-1'));
 check(() => assert.strictEqual(verified.identity.subject, 'user-1'));
+check(() => assert.strictEqual(verified.identity.actorId, verified.identity.subject));
 check(() => assert.strictEqual(verified.identity.tenantId, 'tenant-a'));
 check(() => assert.deepStrictEqual(verified.identity.roles, ['ANALYST', 'IC_MEMBER']));
 check(() => assert.strictEqual(verified.identity.verificationRef, 'VERIFY-1'));
 check(() => assert.strictEqual(verified.productionIdentityVerifiedByThisModule, false));
 check(() => assert.strictEqual(verified.claimBoundary.cryptographicVerificationPerformedHere, false));
 check(() => assert.strictEqual(verified.claimBoundary.requiresTrustedServerVerifier, true));
+check(() => assert.strictEqual(isVerifiedIdentityContext(verified), true));
+check(() => assert.strictEqual(requireVerifiedIdentityContext(verified), verified.identity));
+
+const forgedMismatch = {
+  ...verified,
+  identity: { ...verified.identity, actorId: 'forged-user', subject: 'user-1' },
+};
+check(() => assert.strictEqual(isVerifiedIdentityContext(forgedMismatch), false));
+check(() => assert.throws(() => requireVerifiedIdentityContext(forgedMismatch), (e) => e.code === 'VERIFIED_IDENTITY_CONTEXT_REQUIRED'));
 
 const expired = createVerifiedIdentityContext({
   claims: { ...claims, exp: now },

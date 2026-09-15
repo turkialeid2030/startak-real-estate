@@ -135,7 +135,9 @@ try {
 
   await page.getByTitle('الصفقات المحفوظة').click();
   await page.waitForTimeout(250);
-  const dealName = `E2E-TEST-DEAL-${Date.now()}`;
+  // Use an Arabic customer-facing test name so the persistence assertion tests
+  // Saved Deals without conflicting with the strict Arabic surface policy.
+  const dealName = `صفقة-اختبار-${Date.now()}`;
   await page.getByPlaceholder('اسم الصفقة...').fill(dealName);
   await page.getByRole('button', { name: /^حفظ$/ }).click();
   await page.waitForTimeout(500);

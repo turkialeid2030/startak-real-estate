@@ -1,0 +1,149 @@
+{
+  "templateId": "STARTAK-PRODUCTION-GO-LIVE-HANDOFF-TEMPLATE-2026-09-11",
+  "templateVersion": 3,
+  "evidenceStatus": "NOT_EVIDENCE",
+  "purpose": "Coordination template for the real E2F to E2I production handoff. Populating this file does not establish trust, authority, execution, legal approval, professional approval, or go-live readiness.",
+  "minimumStrictEngineeringReference": {
+    "branch": "productization/production-derived-state-integrity-hardening",
+    "commitSha": "c0de43014e79e1554ed3259a977561922d7b6e62",
+    "releaseVerifyRunNumber": 818,
+    "regressionPassed": 410,
+    "regressionTotal": 410,
+    "canonicalMode": "LEGACY_FILE_SHA256",
+    "canonicalRegistrySha256": "20664dcc406d01de485f9abd8031cbe74d5d677c01bb355e44b70f2fd4f5a343",
+    "requiredProductionRunbook": "tools/production-go-live-runbook-strict.js",
+    "legacyStructuralRunbookIsCompleteProductionTrustBoundary": false,
+    "topLevelPacketContractVerificationRequired": true,
+    "derivedStateIntegrityVerificationRequired": true
+  },
+  "releaseCandidate": {
+    "releaseCandidateId": null,
+    "sourceCommitSha": null,
+    "artifactSha256": null,
+    "environmentRef": null,
+    "environmentConfigSha256": null
+  },
+  "e2f": {
+    "validationPacketPath": null,
+    "validationPacketId": null,
+    "validationPacketHashSha256": null,
+    "independentlyPinnedExpectedPacketHashSha256": null,
+    "independentPinSourceRef": null,
+    "topLevelPacketContractVerified": false,
+    "derivedStateIntegrityVerified": false,
+    "realExternalValidationPresent": false
+  },
+  "e2g": {
+    "releaseAuthorityRegistryPath": null,
+    "releaseAuthorityRegistrySha256": null,
+    "independentlyPinnedExpectedRegistrySha256": null,
+    "registryPinSourceRef": null,
+    "requiredDecisionTypes": [
+      "RELEASE_APPROVAL",
+      "MERGE_APPROVAL",
+      "DEPLOYMENT_APPROVAL"
+    ],
+    "signedDecisionRecordsPath": null,
+    "decisionPacketPath": null,
+    "decisionPacketId": null,
+    "decisionPacketHashSha256": null,
+    "independentlyPinnedExpectedPacketHashSha256": null,
+    "packetPinSourceRef": null,
+    "topLevelPacketContractVerified": false,
+    "derivedStateIntegrityVerified": false,
+    "realHumanAuthorityDecisionsPresent": false
+  },
+  "externalExecution": {
+    "merge": {
+      "executed": false,
+      "provider": "GitHub",
+      "sourceCommitSha": null,
+      "resultingMergeCommitSha": null,
+      "providerExecutionRef": null,
+      "executedAt": null
+    },
+    "deployment": {
+      "executed": false,
+      "provider": null,
+      "deploymentId": null,
+      "artifactSha256": null,
+      "environmentRef": null,
+      "environmentConfigSha256": null,
+      "providerExecutionRef": null,
+      "executedAt": null
+    }
+  },
+  "e2h": {
+    "executionAttestorRegistryPath": null,
+    "executionAttestorRegistrySha256": null,
+    "independentlyPinnedExpectedRegistrySha256": null,
+    "registryPinSourceRef": null,
+    "requiredAttestationTypes": [
+      "MERGE_EXECUTION_ATTESTATION",
+      "DEPLOYMENT_EXECUTION_ATTESTATION",
+      "POST_DEPLOYMENT_SMOKE_VALIDATION",
+      "ROLLBACK_READINESS_VALIDATION"
+    ],
+    "deploymentAndSmokeSubjectsAreDistinct": false,
+    "signedAttestationRecordsPath": null,
+    "closeoutPacketPath": null,
+    "closeoutPacketId": null,
+    "closeoutPacketHashSha256": null,
+    "independentlyPinnedExpectedPacketHashSha256": null,
+    "packetPinSourceRef": null,
+    "topLevelPacketContractVerified": false,
+    "derivedStateIntegrityVerified": false,
+    "realExecutionCloseoutPresent": false
+  },
+  "e2i": {
+    "readinessVerifierRegistryPath": null,
+    "readinessVerifierRegistrySha256": null,
+    "independentlyPinnedExpectedRegistrySha256": null,
+    "registryPinSourceRef": null,
+    "requiredEvidenceTypes": [
+      "CANONICAL_SOURCE_HASH_COMPARISON",
+      "SAUDI_LEGAL_OPERATING_MODE_REVIEW",
+      "PDPL_DATA_GOVERNANCE_REVIEW",
+      "PROFESSIONAL_STANDARDS_SCOPE_REVIEW",
+      "PRODUCTION_EXECUTION_CHAIN_CONFIRMATION",
+      "OPERATING_MODE_CLAIMS_RESTRICTION_CONFIRMATION"
+    ],
+    "minimumDistinctVerifierSubjects": 2,
+    "signedEvidenceRecordsPath": null,
+    "readinessPacketPath": null,
+    "readinessPacketId": null,
+    "readinessPacketHashSha256": null,
+    "independentlyPinnedExpectedPacketHashSha256": null,
+    "packetPinSourceRef": null,
+    "topLevelPacketContractVerified": false,
+    "derivedStateIntegrityVerified": false,
+    "allRequiredEvidenceVerified": false,
+    "goLiveReadyForUnlicensedDecisionSupport": false
+  },
+  "finalRunbook": {
+    "tool": "tools/production-go-live-runbook-strict.js",
+    "requiredChecks": [
+      "TOP_LEVEL_PACKET_CONTRACT",
+      "STRUCTURAL_PACKET_HASH_INTEGRITY",
+      "INDEPENDENT_PACKET_HASH_PIN",
+      "DERIVED_STATE_INTEGRITY",
+      "CROSS_STAGE_UPSTREAM_BINDING",
+      "RELEASE_CANDIDATE_CONTINUITY"
+    ],
+    "expectedHighestStatus": "GO_LIVE_READINESS_CONFIRMED_UNLICENSED_DECISION_SUPPORT",
+    "statusOutputPath": null,
+    "status": null,
+    "productionMutationPerformedByRunbook": false
+  },
+  "authorityBoundary": {
+    "releaseAuthorizedByTemplate": false,
+    "mergeAuthorizedByTemplate": false,
+    "deploymentAuthorizedByTemplate": false,
+    "goLiveAuthorizedByTemplate": false,
+    "professionalAuthorityEstablishedByTemplate": false,
+    "transactionAuthorizedByTemplate": false,
+    "privateSigningKeyAccepted": false,
+    "secretCredentialAccepted": false
+  },
+  "operatorNotes": null
+}

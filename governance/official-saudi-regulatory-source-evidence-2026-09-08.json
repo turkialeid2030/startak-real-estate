@@ -1,0 +1,222 @@
+{
+  "evidenceRegisterId": "STARTAK-OFFICIAL-SAUDI-REGULATORY-SOURCE-EVIDENCE-2026-09-08",
+  "capturedAt": "2026-09-08T11:10:00+03:00",
+  "scope": "Primary Saudi regulatory, accounting, finance, tax and data-protection source verification phase 1 only; no legal opinion, no professional applicability conclusion and no production activation.",
+  "operatingMode": "UNLICENSED_DECISION_SUPPORT",
+  "overallStatus": "PRIMARY_SAUDI_REGULATORY_SOURCES_VERIFIED_PHASE_1_WITH_OPEN_APPLICABILITY_REVIEW",
+  "officialRegulatorySourceVerificationBlockerClosed": false,
+  "regulatoryActivationAuthorized": false,
+  "professionalLegalReviewRequired": true,
+  "records": [
+    {
+      "recordId": "REGA-REAL-ESTATE-BROKERAGE-LAW-ACTIVE",
+      "domain": "REAL_ESTATE_SERVICES",
+      "sourceAuthority": "Real Estate General Authority (REGA)",
+      "sourceAuthorityClass": "SAUDI_GOVERNMENT_REGULATOR",
+      "sourceUrl": "https://rega.gov.sa/en/laws-and-decisions/regulations-and-by-laws/rules/real-estate-brokerage-law/",
+      "sourceObservedDate": "2026-09-08",
+      "observedFacts": {
+        "legislationTitle": "Real Estate Brokerage Law",
+        "status": "Active",
+        "regulatesRealEstateBrokerageAndServices": true,
+        "realEstateServicesIncludeAnalysisAndConsultancy": true,
+        "licenseRequiredForCoveredBrokerageOrServices": true,
+        "dueDiligenceAndNonMisleadingInformationObligationsPresent": true
+      },
+      "sourceVerified": true,
+      "registryRecommendation": "UNDER_REVIEW",
+      "activationAuthorized": false,
+      "reviewNotes": "Official REGA source verifies active brokerage/services regulation. STARTAK applicability depends on the actual service offered and licensing/legal characterization; this record does not conclude that the platform itself requires a REGA license."
+    },
+    {
+      "recordId": "REGA-BROKERAGE-IMPLEMENTING-REGULATIONS-ACTIVE",
+      "domain": "REAL_ESTATE_SERVICES",
+      "sourceAuthority": "Real Estate General Authority (REGA)",
+      "sourceAuthorityClass": "SAUDI_GOVERNMENT_REGULATOR",
+      "sourceUrl": "https://rega.gov.sa/en/laws-and-decisions/regulations-and-by-laws/regulations/implementing-regulations-of-real-estate-brokerage-law/",
+      "sourceObservedDate": "2026-09-08",
+      "observedFacts": {
+        "legislationTitle": "Implementing Regulations of Real Estate Brokerage Law",
+        "status": "Active",
+        "licenseScopeLimitedToIssuedLicense": true,
+        "qualificationProgramRequiredForCoveredActivities": true,
+        "conflictDisclosureRequirementsPresent": true,
+        "confidentialityRequirementsPresent": true,
+        "materialPropertyInformationDisclosureRequirementsPresent": true
+      },
+      "sourceVerified": true,
+      "registryRecommendation": "UNDER_REVIEW",
+      "activationAuthorized": false,
+      "reviewNotes": "Official implementing regulation source. Product/service routing must distinguish internal decision-support analytics from regulated brokerage/services activity before any compliance claim is made."
+    },
+    {
+      "recordId": "CMA-REAL-ESTATE-INVESTMENT-FUNDS-VALUATION-2025",
+      "domain": "CAPITAL_MARKETS_REAL_ESTATE_FUNDS",
+      "sourceAuthority": "Capital Market Authority (CMA)",
+      "sourceAuthorityClass": "SAUDI_GOVERNMENT_FINANCIAL_REGULATOR",
+      "sourceUrl": "https://cma.org.sa/en/RulesRegulations/Regulations/Documents/Real_Estate_Investment_Funds_Regulations_2025_EN.pdf",
+      "sourceObservedDate": "2026-09-08",
+      "observedFacts": {
+        "regulationContext": "Real Estate Investment Funds Regulations 2025",
+        "article36ValuationRequirementsObserved": true,
+        "twoAccreditedValuersRequiredForPurchaseOrSale": true,
+        "valuerIndependenceRequired": true,
+        "taqeemFellowshipRequired": true,
+        "minimumReportElementsIncludeMethodAssumptionsMarketAnalysisPropertyDetailsAndRisks": true,
+        "purchaseSaleValuationAgeLimitMonths": 3
+      },
+      "sourceVerified": true,
+      "registryRecommendation": "UNDER_REVIEW",
+      "activationAuthorized": false,
+      "reviewNotes": "Official CMA regulation establishes purpose-specific valuation controls for real-estate investment funds. It must be routed only when the case falls within the relevant CMA fund context."
+    },
+    {
+      "recordId": "ZATCA-RETT-LAW-EFFECTIVE-2025-04-10",
+      "domain": "TAX_REAL_ESTATE_TRANSACTION",
+      "sourceAuthority": "Zakat, Tax and Customs Authority (ZATCA)",
+      "sourceAuthorityClass": "SAUDI_GOVERNMENT_TAX_AUTHORITY",
+      "sourceUrl": "https://www.zatca.gov.sa/en/RulesRegulations/Taxes/Pages/RETTRegulation.aspx",
+      "sourceObservedDate": "2026-09-08",
+      "observedFacts": {
+        "taxName": "Real Estate Transaction Tax",
+        "taxRatePercent": 5,
+        "lawRoyalDecree": "M/84",
+        "lawEffectiveDate": "2025-04-10",
+        "officialPageLastUpdate": "2026-08-26",
+        "currentLawReplacedPriorExecutiveRegulationBasis": true
+      },
+      "sourceVerified": true,
+      "registryRecommendation": "UNDER_REVIEW",
+      "activationAuthorized": false,
+      "reviewNotes": "Official ZATCA source verifies current RETT law and rate. Tax treatment remains transaction- and exemption-specific and must not be hard-coded as universally payable without routing the actual transaction facts."
+    },
+    {
+      "recordId": "ZATCA-RETT-EXECUTIVE-RULES-CURRENT-PAGE",
+      "domain": "TAX_REAL_ESTATE_TRANSACTION",
+      "sourceAuthority": "Zakat, Tax and Customs Authority (ZATCA)",
+      "sourceAuthorityClass": "SAUDI_GOVERNMENT_TAX_AUTHORITY",
+      "sourceUrl": "https://www.zatca.gov.sa/en/RulesRegulations/Taxes/Pages/RETT.aspx",
+      "sourceObservedDate": "2026-09-08",
+      "observedFacts": {
+        "pageTitle": "Real Estate Tax Executive Rules",
+        "reitRatePercentDisplayed": 5,
+        "officialPageLastUpdate": "2026-08-26",
+        "updatedExecutiveRulesLinkProvided": true
+      },
+      "sourceVerified": true,
+      "registryRecommendation": "UNDER_REVIEW",
+      "activationAuthorized": false,
+      "reviewNotes": "Use the current official implementing-rule text for rule extraction before coding exemption, timing or liability logic. This evidence record verifies the authority page, not every detailed tax rule."
+    },
+    {
+      "recordId": "SOCPA-INTERNATIONAL-STANDARDS-ENDORSEMENT-2026",
+      "domain": "FINANCIAL_REPORTING",
+      "sourceAuthority": "Saudi Organization for Chartered and Professional Accountants (SOCPA)",
+      "sourceAuthorityClass": "SAUDI_PROFESSIONAL_ACCOUNTING_AUTHORITY",
+      "sourceUrl": "https://socpa.org.sa/Socpa/Pages/Knowledge-Center/101.aspx?lang=en-us",
+      "sourceObservedDate": "2026-09-08",
+      "observedFacts": {
+        "pageTitle": "Documents of Endorsement of International Standards in Saudi Arabia",
+        "internationalAccountingStandardsEndorsementDocumentProvided": true,
+        "internationalAuditingStandardsEndorsementDocumentProvided": true,
+        "officialPageLastUpdate": "2026-01-25"
+      },
+      "sourceVerified": true,
+      "registryRecommendation": "UNDER_REVIEW",
+      "activationAuthorized": false,
+      "reviewNotes": "Official SOCPA source verifies that Saudi adoption/endorsement is controlled through Saudi endorsement documents. Financial-reporting valuation routing must therefore use Saudi-endorsed requirements rather than assuming unmodified global IFRS text applies automatically."
+    },
+    {
+      "recordId": "SOCPA-IFRS-FOR-SMES-2025-FUTURE-EFFECTIVE",
+      "domain": "FINANCIAL_REPORTING",
+      "sourceAuthority": "Saudi Organization for Chartered and Professional Accountants (SOCPA)",
+      "sourceAuthorityClass": "SAUDI_PROFESSIONAL_ACCOUNTING_AUTHORITY",
+      "sourceUrl": "https://www.socpa.org.sa/Socpa/Professional-standards/Accounting-standards/Auditing-Standards-Endorsed.aspx",
+      "sourceObservedDate": "2026-09-08",
+      "observedFacts": {
+        "currentSmEsReferenceObserved": "IFRS for SMEs 2015",
+        "futureReplacementObserved": "IFRS for SMEs 2025",
+        "futureEffectiveForAnnualPeriodsBeginningOnOrAfter": "2027-01-01",
+        "earlyApplicationPermitted": true,
+        "saudiEndorsementMayContainModificationsOrAdditionalRequirements": true
+      },
+      "sourceVerified": true,
+      "registryRecommendation": "UNDER_REVIEW",
+      "activationAuthorized": false,
+      "reviewNotes": "This source demonstrates why accounting-standard effective-date routing must distinguish ACTIVE from FUTURE and preserve Saudi modifications. It is not a valuation-standard activation record."
+    },
+    {
+      "recordId": "SDAIA-PDPL-LAW-CURRENT",
+      "domain": "PERSONAL_DATA_PROTECTION",
+      "sourceAuthority": "Saudi Data & AI Authority (SDAIA) / National Data Governance Platform",
+      "sourceAuthorityClass": "SAUDI_GOVERNMENT_DATA_AUTHORITY",
+      "sourceUrl": "https://dgp.sdaia.gov.sa/wps/portal/pdp/knowledgecenter/details/PDPL",
+      "sourceObservedDate": "2026-09-08",
+      "observedFacts": {
+        "lawTitle": "Personal Data Protection Law",
+        "royalDecree": "M/19",
+        "personalDataDefinitionIncludesDirectAndIndirectIdentification": true,
+        "propertyAndContactIdentifiersMayConstitutePersonalData": true
+      },
+      "sourceVerified": true,
+      "registryRecommendation": "UNDER_REVIEW",
+      "activationAuthorized": false,
+      "reviewNotes": "Official SDAIA source verifies the governing PDPL text. Platform compliance requires system/data-flow mapping, lawful-basis analysis, retention, rights handling and processor/controller role review; source verification alone is not PDPL compliance."
+    },
+    {
+      "recordId": "SDAIA-PDPL-EXECUTIVE-REGULATIONS-CURRENT",
+      "domain": "PERSONAL_DATA_PROTECTION",
+      "sourceAuthority": "Saudi Data & AI Authority (SDAIA) / National Data Governance Platform",
+      "sourceAuthorityClass": "SAUDI_GOVERNMENT_DATA_AUTHORITY",
+      "sourceUrl": "https://dgp.sdaia.gov.sa/wps/portal/pdp/knowledgecenter/details/PDPL2",
+      "sourceObservedDate": "2026-09-08",
+      "observedFacts": {
+        "documentTitle": "Executive Regulations of the Personal Data Protection Law",
+        "lawReferenceRoyalDecree": "M/19",
+        "lawAmendmentRoyalDecree": "M/148",
+        "executiveRegulationsVerifiedOnOfficialPlatform": true
+      },
+      "sourceVerified": true,
+      "registryRecommendation": "UNDER_REVIEW",
+      "activationAuthorized": false,
+      "reviewNotes": "Official executive-regulations source. A separate legal/data-governance control mapping is still required before pdplComplianceEstablished may become true."
+    },
+    {
+      "recordId": "SAMA-REAL-ESTATE-FINANCE-LAW-IN-FORCE",
+      "domain": "REAL_ESTATE_FINANCE",
+      "sourceAuthority": "Saudi Central Bank (SAMA)",
+      "sourceAuthorityClass": "SAUDI_GOVERNMENT_FINANCIAL_REGULATOR",
+      "sourceUrl": "https://www.rulebook.sama.gov.sa/en/article-2-17",
+      "sourceObservedDate": "2026-09-08",
+      "observedFacts": {
+        "lawContext": "Real Estate Finance Law",
+        "articleStatus": "In-Force",
+        "samaRegulatesRealEstateFinanceSector": true,
+        "samaIssuesRealEstateFinanceStandardsAndProcedures": true,
+        "financeCostDisclosurePrinciplesWithinSamaMandate": true
+      },
+      "sourceVerified": true,
+      "registryRecommendation": "UNDER_REVIEW",
+      "activationAuthorized": false,
+      "reviewNotes": "Official SAMA Rulebook verifies regulatory authority for real-estate finance. Applicability is limited to financing contexts and does not make SAMA rules a universal valuation methodology source."
+    }
+  ],
+  "verifiedConclusions": [
+    "REGA maintains active primary legislation and implementing regulations for real-estate brokerage and covered real-estate services.",
+    "CMA real-estate investment-fund regulations contain purpose-specific accredited-valuer, independence, report-content and report-age requirements.",
+    "ZATCA's current official RETT law source states a 5% tax rate and an effective date of 2025-04-10 for the current law.",
+    "SOCPA provides Saudi endorsement documents for international accounting/auditing standards and Saudi endorsement may include local modifications or additional requirements.",
+    "SDAIA publishes the PDPL and its executive regulations on the official National Data Governance Platform.",
+    "SAMA's rulebook confirms SAMA's statutory regulation of the real-estate finance sector and its authority to issue sector standards/procedures."
+  ],
+  "openIssues": [
+    "Perform legal characterization of STARTAK's actual service boundaries before asserting whether REGA licensing is or is not required for any specific workflow.",
+    "Extract and test purpose-specific CMA rules only for cases that fall within the relevant capital-market/fund context.",
+    "Map RETT exemptions, liability, timing and transaction-specific conditions from the current implementing rules before using tax logic in production calculations.",
+    "Complete Saudi financial-reporting rule routing for full IFRS, IFRS for SMEs, non-profit and other purpose-specific SOCPA frameworks before financial-reporting valuation claims.",
+    "Perform a complete PDPL data inventory, controller/processor analysis, lawful-basis review, retention/rights/transfer control mapping and external/legal review.",
+    "Verify remaining official-source families including IPMS, ICMS, Appraisal Institute references and any other master-directive authorities before closing the broader source-verification blocker.",
+    "Do not convert any source-evidence record to ACTIVE production rules solely because the source is official or currently effective.",
+    "Do not set mergeAuthorized, deploymentAuthorized, certifiedValuationAuthorityEstablished or transactionAuthorized from this evidence-only phase."
+  ]
+}

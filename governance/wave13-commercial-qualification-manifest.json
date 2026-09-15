@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "program": "STARTAK Real Estate",
+  "wave": "13",
+  "scope": "COMMERCIAL_REAL_ESTATE_SPECIALIZATION",
+  "mainBaselineSha": "ca3c24ad83a7d3d777b7f10d1435ef231383dfdf",
+  "qualificationMode": "STACKED_DRAFT_NON_PRODUCTION",
+  "components": [
+    {
+      "wave": "13A",
+      "pr": 150,
+      "title": "Commercial Real Estate Specialization",
+      "headSha": "7d340f3ca67e98e6f7611a454ec1269d5cbeab09",
+      "qualificationMarker": "WAVE_13A_COMMERCIAL_SPECIALIZATION=PASS",
+      "dedicatedChecks": 37,
+      "regressionTotal": 261,
+      "releaseVerifyRun": 525,
+      "releaseVerifyResult": "PASS",
+      "draft": true,
+      "merged": false,
+      "productionDeployed": false
+    },
+    {
+      "wave": "13B",
+      "pr": 151,
+      "title": "Commercial Method Readiness Governance",
+      "headSha": "7d49a58dcef8f6a7c6ee28877fea3186ef53f15e",
+      "qualificationMarker": "WAVE_13B_COMMERCIAL_METHOD_READINESS=PASS",
+      "dedicatedChecks": 30,
+      "regressionTotal": 262,
+      "releaseVerifyRun": 527,
+      "releaseVerifyResult": "PASS",
+      "draft": true,
+      "merged": false,
+      "productionDeployed": false
+    },
+    {
+      "wave": "13C",
+      "pr": 152,
+      "title": "Commercial Operating Metrics and Lease Concentration",
+      "headSha": "65b0d473d90b3fa52a09fc6c7822102b2b3839c6",
+      "qualificationMarker": "WAVE_13C_COMMERCIAL_OPERATING_METRICS=PASS",
+      "dedicatedChecks": 50,
+      "regressionTotal": 263,
+      "releaseVerifyRun": 529,
+      "releaseVerifyResult": "PASS",
+      "draft": true,
+      "merged": false,
+      "productionDeployed": false
+    },
+    {
+      "wave": "13D",
+      "pr": 153,
+      "title": "Governed Commercial Operating Stress Scenarios",
+      "headSha": "cea70813fa6565695bf0ca989aa9476d9f945d4e",
+      "qualificationMarker": "WAVE_13D_COMMERCIAL_OPERATING_STRESS=PASS",
+      "dedicatedChecks": 62,
+      "regressionTotal": 264,
+      "releaseVerifyRun": 530,
+      "releaseVerifyResult": "PASS",
+      "draft": true,
+      "merged": false,
+      "productionDeployed": false
+    }
+  ],
+  "safetyBoundary": {
+    "automaticMethodSelection": false,
+    "automaticValuationInputAdoption": false,
+    "tenantCreditRatingProduced": false,
+    "defaultProbabilityEstimated": false,
+    "legalLeaseInterpretationPerformed": false,
+    "certifiedValuationEstablished": false,
+    "transactionAuthorized": false,
+    "productionDeploymentAuthorized": false
+  },
+  "transition": {
+    "wave13EngineeringArchitectureQualified": true,
+    "nextWave": "14",
+    "nextScope": "HOTELS_LEISURE_AND_SPECIALIZED_ASSETS",
+    "requiresSeparateWave14Qualification": true
+  }
+}

@@ -1,0 +1,32 @@
+name: Investment Financing Metrics Verify
+
+on:
+  pull_request:
+    paths:
+      - 'src/investment/**'
+      - 'src/engines/financial/investment-financing-metrics.js'
+      - 'tests/architecture/run_wave12d_investment_financing_metrics.js'
+      - 'docs/WAVE_12D_INVESTMENT_FINANCING_METRICS.md'
+      - '.github/workflows/investment-financing-metrics-verify.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Wave 12D investment and financing metrics
+        run: node tests/architecture/run_wave12d_investment_financing_metrics.js
+      - name: Canonical release verification
+        run: npm run release:verify

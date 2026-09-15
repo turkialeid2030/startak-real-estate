@@ -1,0 +1,31 @@
+name: ESG Evidence Verify
+
+on:
+  pull_request:
+    paths:
+      - 'src/esg/**'
+      - 'tests/architecture/run_wave10b_esg_evidence.js'
+      - 'docs/WAVE_10B_ESG_EVIDENCE.md'
+      - '.github/workflows/esg-evidence-verify.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Wave 10B ESG evidence
+        run: node tests/architecture/run_wave10b_esg_evidence.js
+      - name: Canonical release verification
+        run: npm run release:verify

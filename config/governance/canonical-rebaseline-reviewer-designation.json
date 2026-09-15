@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "purpose": "CANONICAL_REBASELINE_INDEPENDENT_REVIEW",
+  "reviewerRef": "reviewer:saeed-pending",
+  "reviewerDisplayName": "سعيد المراجع",
+  "designationState": "DESIGNATED_PENDING_FINAL_IDENTITY_BINDING",
+  "ownerMayReplaceReviewerBeforeAcceptedReview": true,
+  "replacementRequiresNewDesignationRecord": true,
+  "reviewerIdentityTrustBindingRequiredBeforeAcceptedReview": true,
+  "independentReviewCompleted": false,
+  "canonicalBaselineChanged": false,
+  "releaseAuthorized": false,
+  "mergeAuthorized": false,
+  "deploymentAuthorized": false,
+  "goLiveAuthorized": false,
+  "transactionAuthorized": false
+}

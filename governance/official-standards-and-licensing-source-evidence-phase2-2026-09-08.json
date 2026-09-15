@@ -1,0 +1,223 @@
+{
+  "evidenceRegisterId": "STARTAK-OFFICIAL-STANDARDS-LICENSING-SOURCE-EVIDENCE-PHASE2-2026-09-08",
+  "capturedAt": "2026-09-08T12:20:00+03:00",
+  "scope": "Primary-source verification for remaining measurement/cost/appraisal references and Saudi professional licensing/fellowship context; no standards activation, legal opinion or professional authorization.",
+  "operatingMode": "UNLICENSED_DECISION_SUPPORT",
+  "overallStatus": "PRIMARY_SOURCES_VERIFIED_PHASE_2_WITH_OPEN_APPLICABILITY_AND_EXTERNAL_AUTHORITY_REVIEW",
+  "officialSourceVerificationBlockerClosed": false,
+  "standardsActivationAuthorized": false,
+  "professionalLicensingEstablished": false,
+  "professionalLegalReviewRequired": true,
+  "taqeemIvsCatalogAmbiguityResolvedForCanonicalTextIdentification": true,
+  "records": [
+    {
+      "recordId": "TAQEEM-IVS-2025-CANONICAL-DIRECT-ATTACHMENT",
+      "standardFamily": "IVS",
+      "sourceAuthority": "Saudi Authority for Accredited Valuers (Taqeem)",
+      "sourceAuthorityClass": "SAUDI_GOVERNMENT_PROFESSIONAL_REGULATOR",
+      "sourceUrl": "https://www.taqeem.gov.sa/web/content/portal.library/131/attachment_ar?download=false",
+      "sourceObservedDate": "2026-09-08",
+      "observedFacts": {
+        "documentTitle": "معايير التقييم الدولية",
+        "documentStatesEffectiveDate": "2025-01-31",
+        "directTaqeemHostedDocument": true,
+        "canonicalTextIdentified": true,
+        "digitalLibraryVisibleLabelStillSays2022": true,
+        "catalogMetadataMismatchPersists": true
+      },
+      "sourceVerified": true,
+      "registryRecommendation": "UNDER_REVIEW",
+      "activationAuthorized": false,
+      "reviewNotes": "The direct Taqeem-hosted attachment itself identifies the IVS text as effective 31 January 2025. This resolves the earlier production-text identification ambiguity, while the digital-library catalog label remains inconsistent and should be treated as a metadata defect rather than evidence that the attachment text is a 2022 edition."
+    },
+    {
+      "recordId": "IPMSC-IPMS-ALL-BUILDINGS-CURRENT",
+      "standardFamily": "IPMS",
+      "sourceAuthority": "International Property Measurement Standards Coalition (IPMSC)",
+      "sourceAuthorityClass": "INTERNATIONAL_STANDARDS_COALITION",
+      "sourceUrl": "https://ipmsc.org/",
+      "sourceObservedDate": "2026-09-08",
+      "observedFacts": {
+        "currentStandardName": "IPMS All Buildings",
+        "globalMeasurementStandard": true,
+        "coalitionOrganizationsCount": 88,
+        "uniformBuildingMeasurementPurpose": true,
+        "openSourceStandard": true
+      },
+      "sourceVerified": true,
+      "registryRecommendation": "UNDER_REVIEW",
+      "activationAuthorized": false,
+      "reviewNotes": "IPMS provides an international building measurement convention. It must be routed only where measurement methodology is relevant and must not silently override Saudi cadastral/title/planning definitions or assignment-specific measurement requirements."
+    },
+    {
+      "recordId": "RICS-IPMS-ALL-BUILDINGS-2023",
+      "standardFamily": "IPMS",
+      "sourceAuthority": "Royal Institution of Chartered Surveyors (RICS)",
+      "sourceAuthorityClass": "OFFICIAL_PROFESSIONAL_STANDARDS_BODY",
+      "sourceUrl": "https://www.rics.org/profession-standards/rics-standards-and-guidance/sector-standards/real-estate-standards/international-property-measurement-standards",
+      "sourceObservedDate": "2026-09-08",
+      "observedFacts": {
+        "downloadName": "International Property Measurement Standards: All Buildings",
+        "publishedDate": "2023-01-12",
+        "coversIndustrialOfficeResidentialRetail": true,
+        "consistentMeasurementMethodologyPurpose": true
+      },
+      "sourceVerified": true,
+      "registryRecommendation": "UNDER_REVIEW",
+      "activationAuthorized": false,
+      "reviewNotes": "RICS independently hosts the IPMS All Buildings publication and identifies its publication date. Applicability remains assignment-specific."
+    },
+    {
+      "recordId": "ICMSC-ICMS3-CURRENT",
+      "standardFamily": "ICMS",
+      "sourceAuthority": "International Cost Management Standard Coalition (ICMSC)",
+      "sourceAuthorityClass": "INTERNATIONAL_STANDARDS_COALITION",
+      "sourceUrl": "https://icms-coalition.org/the-standard/",
+      "sourceObservedDate": "2026-09-08",
+      "observedFacts": {
+        "currentStandard": "ICMS 3",
+        "thirdEditionDevelopedYear": 2021,
+        "commonReportingFrameworkForCostAndCarbon": true,
+        "lifeCycleCostCoverage": true,
+        "constructionAndConstructedAssetsCoverage": true
+      },
+      "sourceVerified": true,
+      "registryRecommendation": "UNDER_REVIEW",
+      "activationAuthorized": false,
+      "reviewNotes": "ICMS 3 is a global classification/reporting framework for life-cycle cost and carbon. It is not itself a valuation conclusion and must not replace local cost evidence, quantity-surveying judgment or project-specific cost sources."
+    },
+    {
+      "recordId": "RICS-ICMS3-PUBLICATION",
+      "standardFamily": "ICMS",
+      "sourceAuthority": "Royal Institution of Chartered Surveyors (RICS)",
+      "sourceAuthorityClass": "OFFICIAL_PROFESSIONAL_STANDARDS_BODY",
+      "sourceUrl": "https://www.rics.org/profession-standards/rics-standards-and-guidance/sector-standards/construction-standards/icms-international-cost-management-standards",
+      "sourceObservedDate": "2026-09-08",
+      "observedFacts": {
+        "standard": "ICMS 3",
+        "downloadPublishedDate": "2022-06-01",
+        "thirdEditionAddsCarbonEmissionsFramework": true,
+        "secondEditionAddedLifeCycleCosts": true
+      },
+      "sourceVerified": true,
+      "registryRecommendation": "UNDER_REVIEW",
+      "activationAuthorized": false,
+      "reviewNotes": "RICS corroborates the current ICMS 3 publication and its cost/carbon scope."
+    },
+    {
+      "recordId": "APPRAISAL-INSTITUTE-STANDARDS-OF-PROFESSIONAL-PRACTICE-CURRENT",
+      "standardFamily": "APPRAISAL_INSTITUTE_SPP",
+      "sourceAuthority": "Appraisal Institute",
+      "sourceAuthorityClass": "PROFESSIONAL_VALUATION_BODY",
+      "sourceUrl": "https://www.appraisalinstitute.org/insights-and-resources/resources/standards-of-professional-practice",
+      "sourceObservedDate": "2026-09-08",
+      "observedFacts": {
+        "sppIncludesSvpAndCertificationStandardOrApplicableNationalInternationalStandards": true,
+        "svpMayBeUsedWhereOtherValuationStandardsAreNotRequiredOrDoNotApply": true,
+        "svpStandardADevelopment": true,
+        "svpStandardBReview": true,
+        "svpStandardCReporting": true,
+        "ivSRecognizedAsExampleOfInternationalStandard": true
+      },
+      "sourceVerified": true,
+      "registryRecommendation": "UNDER_REVIEW",
+      "activationAuthorized": false,
+      "reviewNotes": "Appraisal Institute material is a professional reference family, not a Saudi mandatory standard by default. STARTAK must never infer Saudi applicability merely because the reference is authoritative in another professional context."
+    },
+    {
+      "recordId": "APPRAISAL-INSTITUTE-SVP-EFFECTIVE-2021-11-12",
+      "standardFamily": "APPRAISAL_INSTITUTE_SVP",
+      "sourceAuthority": "Appraisal Institute",
+      "sourceAuthorityClass": "PROFESSIONAL_VALUATION_BODY",
+      "sourceUrl": "https://www.appraisalinstitute.org/insights-and-resources/resources/standards-of-professional-practice/pro-practices-pdf-library/standards-of-valuation-practice",
+      "sourceObservedDate": "2026-09-08",
+      "observedFacts": {
+        "documentTitle": "Standards of Valuation Practice",
+        "effectiveDate": "2021-11-12",
+        "ethicalAndCompetentPracticeRequirements": true
+      },
+      "sourceVerified": true,
+      "registryRecommendation": "UNDER_REVIEW",
+      "activationAuthorized": false,
+      "reviewNotes": "SVP is retained as a comparative/professional reference only unless assignment-specific authority requires it."
+    },
+    {
+      "recordId": "TAQEEM-PROFESSIONAL-LICENSE-ISSUANCE-CURRENT",
+      "standardFamily": "SAUDI_PROFESSIONAL_LICENSING",
+      "sourceAuthority": "Saudi Authority for Accredited Valuers (Taqeem)",
+      "sourceAuthorityClass": "SAUDI_GOVERNMENT_PROFESSIONAL_REGULATOR",
+      "sourceUrl": "https://taqeem.gov.sa/service-guide/1355",
+      "sourceObservedDate": "2026-09-08",
+      "observedFacts": {
+        "serviceTitle": "إصدار ترخيص مزاولة مهنة التقييم",
+        "activeBasicMembershipRequired": true,
+        "registrationInProfessionalRegisterRequired": true,
+        "requiredDocumentsAndFormsMayBeRequested": true,
+        "licenseFeeRequired": true,
+        "licenseIsBranchSpecific": true
+      },
+      "sourceVerified": true,
+      "registryRecommendation": "UNDER_REVIEW",
+      "activationAuthorized": false,
+      "reviewNotes": "This verifies current individual professional-license prerequisites at source level. It does not establish that any STARTAK user/reviewer holds a valid license and does not itself validate credentials."
+    },
+    {
+      "recordId": "TAQEEM-FELLOWSHIP-POLICY-UPDATE-2026-08-06",
+      "standardFamily": "SAUDI_PROFESSIONAL_QUALIFICATION",
+      "sourceAuthority": "Saudi Authority for Accredited Valuers (Taqeem)",
+      "sourceAuthorityClass": "SAUDI_GOVERNMENT_PROFESSIONAL_REGULATOR",
+      "sourceUrl": "https://taqeem.gov.sa/news/details/tqyym-t-tmd-thdyth-sys-lqw-d-l-m-lshhd-lzml-lt-zyz-jwd-lthyl-lmhny-1383",
+      "sourceObservedDate": "2026-09-08",
+      "observedFacts": {
+        "policyUpdateDate": "2026-08-06",
+        "updatedPracticalExperienceRequirements": true,
+        "updatedExperienceDocumentationAndApprovalMechanism": true,
+        "branchSpecificDiscussionRequirements": true,
+        "membershipsObtainedOnOrAfter2026_06_29SubjectToUpdatedPolicy": true
+      },
+      "sourceVerified": true,
+      "registryRecommendation": "UNDER_REVIEW",
+      "activationAuthorized": false,
+      "reviewNotes": "Professional qualification requirements changed in 2026. Credential validation must therefore be effective-date aware and must not rely on pre-2026 static assumptions."
+    },
+    {
+      "recordId": "TAQEEM-RULES-LIBRARY-CURRENT-2026-08-03",
+      "standardFamily": "SAUDI_VALUATION_REGULATORY_RULES",
+      "sourceAuthority": "Saudi Authority for Accredited Valuers (Taqeem)",
+      "sourceAuthorityClass": "SAUDI_GOVERNMENT_PROFESSIONAL_REGULATOR",
+      "sourceUrl": "https://www.taqeem.gov.sa/rules/category/llyh-ltnfydhy-wlqw-d-4",
+      "sourceObservedDate": "2026-09-08",
+      "observedFacts": {
+        "pageLastModifiedDate": "2026-08-03",
+        "listsExecutiveRegulationOfAccreditedValuersLaw": true,
+        "listsProfessionalConductAndEthicsRules": true,
+        "listsRulesForRealEstateValuationServicesToFinancingEntities": true,
+        "listsProfessionalCertificatesRules": true
+      },
+      "sourceVerified": true,
+      "registryRecommendation": "UNDER_REVIEW",
+      "activationAuthorized": false,
+      "reviewNotes": "The official Taqeem rules library is the authority index for Saudi professional rule extraction. Each relevant rule document still requires rule-level extraction, effective-date review and conformance testing before production activation."
+    }
+  ],
+  "verifiedConclusions": [
+    "A direct Taqeem-hosted IVS attachment identifies the standards text as effective from 2025-01-31, resolving the earlier canonical production-text identification ambiguity even though the digital-library catalog label remains inconsistent.",
+    "IPMS All Buildings is the current international property-measurement standard family identified by IPMSC and corroborated by RICS, with the RICS publication dated 2023-01-12.",
+    "ICMS 3 is the current international cost-management standard family for life-cycle cost and carbon reporting, corroborated by both ICMSC and RICS.",
+    "Appraisal Institute SVP/SPP is a professional reference family and is not evidence of automatic Saudi applicability.",
+    "Taqeem's current professional-license issuance service requires active basic membership, registration in the professional register, required supporting information and payment of the license fee.",
+    "Taqeem updated fellowship policy/experience requirements in 2026, requiring credential validation to be version- and effective-date-aware."
+  ],
+  "openIssues": [
+    "The Taqeem digital-library metadata label for IVS remains inconsistent even though the direct hosted 2025-effective text has been identified; retain the metadata defect in source QA.",
+    "Perform rule-level extraction and legal/professional applicability review for the Taqeem executive regulation, professional conduct rules and real-estate valuation rules relevant to actual STARTAK workflows.",
+    "Validate actual reviewer/valuer credentials, membership class, branch, license status, fellowship status and effective dates through an authorized external or regulator-supported process before professional authorization.",
+    "Determine assignment-specific applicability of IPMS, ICMS and Appraisal Institute references; do not activate them globally.",
+    "Complete PDPL control mapping and Saudi legal review from phase 1.",
+    "Complete transaction-specific RETT rule/exemption mapping and purpose-specific CMA/SAMA/SOCPA routing from phase 1.",
+    "Complete independent production security and performance/resilience validation.",
+    "Complete external canonical-source hash comparison using an independently supplied canonical original.",
+    "Obtain human release-authority approval before any merge/deployment decision.",
+    "Do not set formalStandardsConformanceEstablished, certifiedValuationAuthorityEstablished, externalIssuanceAuthorized, mergeAuthorized, deploymentAuthorized or transactionAuthorized from source verification alone."
+  ]
+}

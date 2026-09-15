@@ -1,0 +1,54 @@
+{
+  "policyId": "STARTAK-E2C-EXTERNAL-AUTHORITY-VALIDATION-POLICY-2026-09-08",
+  "createdAt": "2026-09-08T13:40:00+03:00",
+  "operatingMode": "UNLICENSED_DECISION_SUPPORT",
+  "status": "ENGINEERING_GATE_DEFINED_PRODUCTION_TRUST_ROOT_NOT_CONFIGURED",
+  "purpose": "Define the fail-closed trust and attestation requirements for E2C. The gate may verify cryptographic attestations against an externally governed, out-of-band pinned verifier registry, but it must not accept caller-declared verification labels as authority and must not convert authority validation into substantive legal, professional, accounting, tax, data-protection or valuation conclusions.",
+  "requiredUpstreamStatus": "READY_FOR_EXTERNAL_AUTHORITY_VALIDATION",
+  "trustedVerifierRegistryRequired": true,
+  "trustedRegistryHashPinnedOutOfBandRequired": true,
+  "callerDeclaredVerificationAccepted": false,
+  "selfValidationAllowed": false,
+  "signatureAlgorithmsAllowed": [
+    "RSA-SHA256"
+  ],
+  "requiredValidationTypes": [
+    "REVIEW_EVIDENCE_AUTHENTICITY",
+    "CREDENTIAL_AUTHENTICITY",
+    "REVIEWER_AUTHORITY",
+    "REVIEWER_INDEPENDENCE"
+  ],
+  "allowedAttestationResults": [
+    "VERIFIED",
+    "REJECTED",
+    "INCONCLUSIVE"
+  ],
+  "productionTrustedVerifierRegistryConfigured": false,
+  "productionExternalAttestationEvidencePresent": false,
+  "automaticRuleActivationAllowed": false,
+  "automaticLegalConclusionAllowed": false,
+  "automaticProfessionalConclusionAllowed": false,
+  "automaticComplianceConclusionAllowed": false,
+  "maximumEngineeringStatus": "AUTHORITY_VALIDATION_COMPLETE_PENDING_SUBSTANTIVE_REVIEW",
+  "authorityBoundaryAfterSuccessfulValidation": {
+    "externalReviewAuthenticityValidated": true,
+    "credentialAuthenticityValidated": true,
+    "reviewerAuthorityValidated": true,
+    "reviewerCredentialsVerified": true,
+    "reviewerIndependenceVerified": true,
+    "legalConclusionEstablished": false,
+    "professionalApplicabilityEstablished": false,
+    "formalStandardsConformanceEstablished": false,
+    "saudiProfessionalLicensingEstablished": false,
+    "pdplComplianceEstablished": false,
+    "taxComplianceEstablished": false,
+    "financialReportingComplianceEstablished": false,
+    "certifiedValuationAuthorityEstablished": false,
+    "standardsOrRulesActivated": false,
+    "externalIssuanceAuthorized": false,
+    "releaseAuthorized": false,
+    "mergeAuthorized": false,
+    "deploymentAuthorized": false,
+    "transactionAuthorized": false
+  }
+}
