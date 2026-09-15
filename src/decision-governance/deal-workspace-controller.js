@@ -4,6 +4,7 @@ const { createNewDealInputs, evaluateNewDealReadiness } = require('./new-deal-wo
 const {
   provenanceForNewDeal,
   provenanceForDemoDeal,
+  provenanceForSavedDeal,
   provenanceForLoadedRecord,
   assertWorkspaceSaveAllowed,
   withDealProvenance,
@@ -46,13 +47,11 @@ function evaluateWorkspace(mode, inputs, provenance) {
 
 function prepareWorkspaceRecordForSave(record, provenance, { confirmedDemoConversion = false } = {}) {
   assertWorkspaceSaveAllowed({ provenance, confirmedDemoConversion });
-  // Once a Demo is explicitly converted and saved as a real deal, do not persist
-  // DEMO provenance. The saved record is a real saved deal and must not silently
-  // retain a sample-data identity.
-  const persistedProvenance = provenance && provenance.kind === WORKSPACE_KIND.DEMO
-    ? provenanceForLoadedRecord({})
-    : provenance;
-  return withDealProvenance(record, persistedProvenance || provenanceForLoadedRecord({}));
+  // Persisted records are SAVED regardless of whether they originated as NEW,
+  // DUPLICATED, or an explicitly converted DEMO. Origin provenance belongs in
+  // the local audit/history event; the current persisted lifecycle state must
+  // not remain NEW/DEMO after a successful save.
+  return withDealProvenance(record, provenanceForSavedDeal());
 }
 
 module.exports = {
