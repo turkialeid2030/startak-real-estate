@@ -34,6 +34,18 @@ function run() {
   r = evaluateOverallDecisionGate({ ...base, modelVersion: null });
   assert.strictEqual(r.status, 'INCOMPLETE');
 
+  // Invalid or invented authority values fail closed and cannot be reflected as authorization.
+  r = evaluateOverallDecisionGate({ ...base, transactionAuthority: 'FINANCIAL_PASS' });
+  assert.strictEqual(r.status, 'INCOMPLETE');
+  assert.ok(r.reasonCodes.includes('TRANSACTION_AUTHORITY_INVALID'));
+  assert.strictEqual(r.transactionAuthority, TRANSACTION_AUTHORITY.ANALYSIS_ONLY);
+  assert.strictEqual(r.transactionAuthorized, false);
+
+  r = evaluateOverallDecisionGate({ ...base, transactionAuthority: TRANSACTION_AUTHORITY.EXECUTION_AUTHORIZED });
+  assert.strictEqual(r.status, 'READY_FOR_IC');
+  assert.strictEqual(r.financialPassIsInvestmentApproval, false);
+  assert.strictEqual(r.transactionAuthorized, true);
+
   console.log('OVERALL_DECISION_GATE_TESTS=PASS');
 }
 run();
