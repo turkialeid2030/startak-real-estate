@@ -69,18 +69,18 @@ try {
   record('E2E-01B-NEW-DEAL-FAIL-CLOSED', !LEGACY_INVESTMENT_VERDICT_RE.test(blankBuildingBody), `legacyVerdict=${LEGACY_INVESTMENT_VERDICT_RE.test(blankBuildingBody)}`);
 
   // Deterministic calculation journeys use explicit reference/demo fixtures.
-  await loadReferenceDeal(page, /دراسة المبنى المرجعية/);
+  await loadReferenceDeal(page, /مبنى أبو بكر الصديق/);
   const firstB = page.locator('input[type="text"], input[inputmode="decimal"]').first();
   const bodyBeforeB = await page.locator('body').innerText(); await firstB.fill('777777'); await firstB.blur(); await page.waitForTimeout(200);
   const exitCapB = await enterExplicitBuildingExitCap(page, '8.5'); const bodyAfterB = await page.locator('body').innerText();
   record('E2E-02-BUILDING', (await firstB.inputValue()) === '777777' && (await exitCapB.inputValue()) === '8.5' && bodyAfterB !== bodyBeforeB && hasComplianceSafeVerdict(bodyAfterB), `exitCap=${await exitCapB.inputValue()} safeVerdict=${SAFE_ANALYTICAL_VERDICT_RE.test(bodyAfterB)} legacyVerdict=${LEGACY_INVESTMENT_VERDICT_RE.test(bodyAfterB)}`);
 
-  await loadReferenceDeal(page, /دراسة الأرض المرجعية/);
+  await loadReferenceDeal(page, /أرض الوادي/);
   const firstL = page.locator('input[type="text"], input[inputmode="decimal"]').first(); const bodyBeforeL = await page.locator('body').innerText();
   await firstL.fill('666666'); await firstL.blur(); await page.waitForTimeout(300); const bodyAfterL = await page.locator('body').innerText();
   record('E2E-03-LAND', (await firstL.inputValue()) === '666666' && bodyAfterL !== bodyBeforeL && hasComplianceSafeVerdict(bodyAfterL), `safeVerdict=${SAFE_ANALYTICAL_VERDICT_RE.test(bodyAfterL)} legacyVerdict=${LEGACY_INVESTMENT_VERDICT_RE.test(bodyAfterL)}`);
 
-  await loadReferenceDeal(page, /دراسة المبنى المرجعية/);
+  await loadReferenceDeal(page, /مبنى أبو بكر الصديق/);
   const leverageButton = page.getByRole('switch', { name: 'تفعيل الرافعة المالية', exact: true }); const leverageCount = await leverageButton.count();
   const financingSection = leverageButton.locator('xpath=ancestor::div[contains(@class,"rounded-2xl")][1]'); const sectionHeader = financingSection.locator(':scope > button').first();
   await sectionHeader.click(); await page.waitForTimeout(300); const checkedBefore = await leverageButton.getAttribute('aria-checked'); await leverageButton.click(); await page.waitForTimeout(400);
