@@ -3,16 +3,21 @@ name: Current Release Production Deployment
 on:
   workflow_dispatch:
     inputs:
+      expected_main_sha:
+        description: 'Exact trusted main SHA to deploy'
+        required: true
+        type: string
       confirm_production_deployment:
         description: 'Type I_AUTHORIZE_CURRENT_RELEASE_PRODUCTION_DEPLOYMENT'
         required: true
         type: string
+  issue_comment:
+    types: [created]
 
 permissions:
   contents: read
 
 env:
-  EXPECTED_MAIN_SHA: c1a1035cd27b76a8cb7f249808e83ba950a2efcf
   QUALIFIED_CANDIDATE_SHA: bca14e1ace3be59a7e51f43132657c636639116d
   QUALIFIED_ARTIFACT_SHA256: 5524256a7308c22739bf0fd5c706c07306aac1cb114dbc53d746132cd2f62c2b
   CF_PROJECT_NAME: startak-real-estate
@@ -20,6 +25,12 @@ env:
 
 jobs:
   deploy:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.number == 351 &&
+       github.event.comment.user.login == github.repository_owner &&
+       startsWith(github.event.comment.body, '/startak deploy-production '))
     name: deploy-current-release-production
     runs-on: ubuntu-24.04
     environment: production
@@ -29,19 +40,35 @@ jobs:
       CF_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - name: Bind deployment to exact trusted main and owner authorization
+        id: bind
         shell: bash
         env:
-          CONFIRMATION: ${{ inputs.confirm_production_deployment }}
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_EXPECTED_SHA: ${{ inputs.expected_main_sha }}
+          DISPATCH_CONFIRMATION: ${{ inputs.confirm_production_deployment }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          COMMENT_ACTOR: ${{ github.event.comment.user.login }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
         run: |
           set -euo pipefail
-          [[ "$CONFIRMATION" == 'I_AUTHORIZE_CURRENT_RELEASE_PRODUCTION_DEPLOYMENT' ]] || { echo 'Explicit production deployment authorization missing.'; exit 1; }
-          [[ "$GITHUB_REF" == 'refs/heads/main' ]] || { echo "Production deployment must run from main; got $GITHUB_REF"; exit 1; }
-          [[ "${GITHUB_SHA,,}" == "$EXPECTED_MAIN_SHA" ]] || { echo "Trusted main changed: expected=$EXPECTED_MAIN_SHA actual=${GITHUB_SHA,,}"; exit 1; }
+          if [[ "$EVENT_NAME" == 'workflow_dispatch' ]]; then
+            [[ "$DISPATCH_CONFIRMATION" == 'I_AUTHORIZE_CURRENT_RELEASE_PRODUCTION_DEPLOYMENT' ]] || { echo 'Explicit production deployment authorization missing.'; exit 1; }
+            requested="$(printf '%s' "$DISPATCH_EXPECTED_SHA" | tr '[:upper:]' '[:lower:]')"
+          else
+            [[ "$COMMENT_ACTOR" == "$REPOSITORY_OWNER" ]] || { echo 'Owner-only production command.'; exit 1; }
+            [[ "$COMMENT_BODY" =~ ^/startak[[:space:]]deploy-production[[:space:]]([a-fA-F0-9]{40})[[:space:]]*$ ]] || { echo 'Malformed production command.'; exit 1; }
+            requested="$(printf '%s' "${BASH_REMATCH[1]}" | tr '[:upper:]' '[:lower:]')"
+          fi
+          [[ "$requested" =~ ^[a-f0-9]{40}$ ]] || { echo 'Expected main SHA malformed.'; exit 1; }
+          current_main="$(git ls-remote "https://github.com/${GITHUB_REPOSITORY}.git" refs/heads/main | awk '{print $1}' | tr '[:upper:]' '[:lower:]')"
+          [[ "$current_main" == "$requested" ]] || { echo "Trusted main changed: requested=$requested current=$current_main"; exit 1; }
+          echo "expected_main_sha=$requested" >> "$GITHUB_OUTPUT"
+          echo "EXPECTED_MAIN_SHA=$requested" >> "$GITHUB_ENV"
 
       - name: Checkout exact trusted main
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          ref: ${{ env.EXPECTED_MAIN_SHA }}
+          ref: ${{ steps.bind.outputs.expected_main_sha }}
           persist-credentials: false
 
       - name: Setup Node.js
@@ -55,7 +82,7 @@ jobs:
 
       - name: Canonical release verification
         env:
-          STARTAK_SOURCE_COMMIT: ${{ env.EXPECTED_MAIN_SHA }}
+          STARTAK_SOURCE_COMMIT: ${{ steps.bind.outputs.expected_main_sha }}
           STARTAK_BUILD_ENVIRONMENT: github-actions:production-deployment
         run: npm run release:verify
 
@@ -107,7 +134,7 @@ jobs:
           url="https://${CF_PRODUCTION_HOST}/"
           for attempt in $(seq 1 12); do
             code="$(curl -L -sS -o /tmp/startak-production.html -w '%{http_code}' "$url" || true)"
-            if [[ "$code" =~ ^2|3 ]]; then
+            if [[ "$code" =~ ^[23] ]]; then
               test -s /tmp/startak-production.html
               echo "PRODUCTION_HTTP_SMOKE=PASS status=$code"
               exit 0
