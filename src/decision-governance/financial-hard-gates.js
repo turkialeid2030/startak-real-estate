@@ -24,14 +24,18 @@ function evaluateFinancialHardGates(input = {}) {
     requireFinite('dscr', 'DSCR');
     requireFinite('minDscrThreshold', 'DSCR_THRESHOLD');
     if (finite(input.dscr) && finite(input.minDscrThreshold) && input.dscr < input.minDscrThreshold) failures.push('DSCR_BELOW_THRESHOLD');
-    if (!positive(input.loanAmount)) failures.push('LOAN_AMOUNT_INVALID');
+    if (input.loanAmount == null) incomplete.push('LOAN_AMOUNT_MISSING');
+    else if (!positive(input.loanAmount)) failures.push('LOAN_AMOUNT_INVALID');
   }
 
-  if (input.irrReliability === 'MULTIPLE_ROOT_RISK' || input.irrReliability === 'OUT_OF_SOLVER_RANGE' || input.irrReliability === 'INVALID') {
+  if (input.irrReliability == null || input.irrReliability === '') {
+    incomplete.push('IRR_RELIABILITY_MISSING');
+  } else if (input.irrReliability === 'MULTIPLE_ROOT_RISK' || input.irrReliability === 'OUT_OF_SOLVER_RANGE' || input.irrReliability === 'INVALID') {
     failures.push('IRR_UNRELIABLE');
-  } else {
-    requireFinite('irr', 'IRR');
+  } else if (input.irrReliability !== 'RELIABLE') {
+    failures.push('IRR_RELIABILITY_INVALID');
   }
+  requireFinite('irr', 'IRR');
   requireFinite('requiredReturn', 'REQUIRED_RETURN');
   if (finite(input.irr) && finite(input.requiredReturn) && input.irr < input.requiredReturn) failures.push('IRR_BELOW_REQUIRED_RETURN');
 
@@ -41,13 +45,16 @@ function evaluateFinancialHardGates(input = {}) {
   requireFinite('noi', 'NOI');
   if (finite(input.noi) && input.noi <= 0) failures.push('NOI_NON_POSITIVE');
 
-  if (!positive(input.exitCapRate)) incomplete.push('EXIT_CAP_RATE_MISSING_OR_INVALID');
+  if (input.exitCapRate == null) incomplete.push('EXIT_CAP_RATE_MISSING_OR_INVALID');
+  else if (!positive(input.exitCapRate)) failures.push('EXIT_CAP_RATE_INVALID');
   if (input.terminalValue == null) incomplete.push('TERMINAL_VALUE_MISSING');
   else if (!finite(input.terminalValue)) failures.push('TERMINAL_VALUE_NON_FINITE');
   else if (input.terminalValue < 0) failures.push('TERMINAL_VALUE_NEGATIVE');
 
-  if (!positive(input.acquisitionBasis)) failures.push('ACQUISITION_BASIS_INVALID');
-  if (!positive(input.holdingPeriod)) failures.push('HOLDING_PERIOD_INVALID');
+  if (input.acquisitionBasis == null) incomplete.push('ACQUISITION_BASIS_MISSING');
+  else if (!positive(input.acquisitionBasis)) failures.push('ACQUISITION_BASIS_INVALID');
+  if (input.holdingPeriod == null) incomplete.push('HOLDING_PERIOD_MISSING');
+  else if (!positive(input.holdingPeriod)) failures.push('HOLDING_PERIOD_INVALID');
   if (input.rentableArea != null && !nonNegative(input.rentableArea)) failures.push('RENTABLE_AREA_INVALID');
   if (input.leasedArea != null && !nonNegative(input.leasedArea)) failures.push('LEASED_AREA_INVALID');
   if (finite(input.leasedArea) && finite(input.rentableArea) && input.leasedArea > input.rentableArea) failures.push('LEASED_AREA_EXCEEDS_RENTABLE_AREA');
