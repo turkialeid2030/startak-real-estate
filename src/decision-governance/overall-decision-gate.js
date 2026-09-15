@@ -32,6 +32,7 @@ const EVIDENCE_READINESS = Object.freeze({
 const COMPLETE_DD = new Set(['PASS', 'COMPLETE', 'CLEARED', 'NOT_APPLICABLE']);
 const FINANCIAL_FAIL = new Set(['FAIL', 'REJECT', 'FAILED', 'FINANCIALLY_UNATTRACTIVE']);
 const FINANCIAL_PASS = new Set(['PASS', 'PASSED', 'FINANCIAL_PASS', 'FINANCIALLY_ATTRACTIVE']);
+const VALID_TRANSACTION_AUTHORITIES = new Set(Object.values(TRANSACTION_AUTHORITY));
 
 function normalize(value) {
   return typeof value === 'string' ? value.trim().toUpperCase() : '';
@@ -49,6 +50,10 @@ function evaluateOverallDecisionGate(input = {}) {
   const financing = normalize(input.financingStatus || 'NOT_APPLICABLE');
   const valuation = normalize(input.valuationReadiness);
 
+  if (!VALID_TRANSACTION_AUTHORITIES.has(authority)) {
+    reasons.push('TRANSACTION_AUTHORITY_INVALID');
+    return result(OVERALL_DECISION_STATUS.INCOMPLETE, reasons, TRANSACTION_AUTHORITY.ANALYSIS_ONLY, input.modelVersion);
+  }
   if (!input.modelVersion || !financial || !evidence || !valuation || dd.some((x) => !x)) {
     reasons.push('CRITICAL_GATE_INPUT_INCOMPLETE');
     return result(OVERALL_DECISION_STATUS.INCOMPLETE, reasons, authority, input.modelVersion);
@@ -83,10 +88,6 @@ function evaluateOverallDecisionGate(input = {}) {
   if (outstanding.length) {
     reasons.push('REQUIRED_APPROVALS_OUTSTANDING');
     return result(OVERALL_DECISION_STATUS.HOLD, reasons, authority, input.modelVersion);
-  }
-  if (authority === TRANSACTION_AUTHORITY.EXECUTION_AUTHORIZED) {
-    reasons.push('READY_FOR_IC_TRANSACTION_AUTHORITY_SEPARATE');
-    return result(OVERALL_DECISION_STATUS.READY_FOR_IC, reasons, authority, input.modelVersion);
   }
   reasons.push('READY_FOR_INVESTMENT_COMMITTEE_REVIEW');
   return result(OVERALL_DECISION_STATUS.READY_FOR_IC, reasons, authority, input.modelVersion);
