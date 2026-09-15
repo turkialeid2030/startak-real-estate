@@ -4,28 +4,25 @@ const assert = require('assert');
 const { calculateInvestmentCase, STUDY_TYPE } = require('../../src/engines');
 const { calculateGovernedInvestmentCase } = require('../../src/decision-governance/investment-case-orchestrator');
 
-// Use the repository's characterized fixture inputs to prove that the wrapper
-// does not mutate the canonical financial result contract for legacy deals.
-const fixtures = require('../fixtures/golden-fixtures.json');
-const buildingFixture = fixtures.find((fixture) => fixture.studyType === STUDY_TYPE.EXISTING_BUILDING || fixture.studyType === 'EXISTING_BUILDING');
-
-assert(buildingFixture, 'Expected an existing-building golden fixture');
-const inputs = buildingFixture.inputs || buildingFixture.input;
-assert(inputs, 'Golden fixture must expose inputs');
+// Reuse the repository's existing characterized building fixture rather than
+// inventing a parallel fixture. This proves legacy-equivalence against the same
+// source inputs used by the canonical characterization suite.
+const buildingFixture = require('../characterization/fixtures/RE-GOLD-002-U.json');
+const inputs = buildingFixture.input_set;
+assert.strictEqual(buildingFixture.study_type, 'building');
+assert(inputs, 'Characterized building fixture must expose input_set');
 
 const direct = calculateInvestmentCase({
   studyType: STUDY_TYPE.EXISTING_BUILDING,
   inputs,
   leverageEnabled: inputs.leverageEnabled,
-  assumptionModelVersion: buildingFixture.assumptionModelVersion,
 });
 const governedLegacy = calculateGovernedInvestmentCase({
   studyType: STUDY_TYPE.EXISTING_BUILDING,
   inputs,
   leverageEnabled: inputs.leverageEnabled,
-  assumptionModelVersion: buildingFixture.assumptionModelVersion,
 });
-assert.deepStrictEqual(governedLegacy.financialResult, direct, 'Legacy financial output contract must remain byte-for-byte equivalent at object level');
+assert.deepStrictEqual(governedLegacy.financialResult, direct, 'Legacy financial output contract must remain object-equivalent');
 assert.strictEqual(governedLegacy.acquisitionCostGovernance.legacyCompatibility, true);
 assert.strictEqual(Object.prototype.hasOwnProperty.call(governedLegacy.financialResult, 'acquisitionCostGovernance'), false);
 
@@ -40,7 +37,6 @@ assert.throws(() => calculateGovernedInvestmentCase({
     brokeragePayer: 'UNKNOWN',
   },
   leverageEnabled: inputs.leverageEnabled,
-  assumptionModelVersion: buildingFixture.assumptionModelVersion,
 }), (error) => error && error.code === 'BUILDING_RETT_DISPOSITION_SEMANTICS_NOT_SEPARATED');
 
 console.log('INVESTMENT_CASE_ORCHESTRATOR_TESTS=PASS');
