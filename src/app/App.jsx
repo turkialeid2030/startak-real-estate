@@ -139,6 +139,13 @@ const {
   prepareUpdatedUiDealForSave,
 } = require('../assumptions/ui-integration-controller');
 const { ASSUMPTION_MODEL_VERSION } = require('../assumptions/assumption-model');
+const {
+  APP_WORKSPACE_KIND,
+  createAppNewWorkspace,
+  createAppDemoWorkspace,
+  legacyHydrationDefaults,
+  evaluateAppCalculationReadiness,
+} = require('../decision-governance/app-workspace-cutover');
 const { isFiniteNumber } = require('../assumptions/ui-safe-formatters');
 const { validateUserEnteredZakatCase } = require('../zakat/user-entered-zakat');
 // WAVE2_PRODUCTION_UI_WIRING_V1
@@ -1592,13 +1599,10 @@ export default function App() {
   });
 
   const [activeTab, setActiveTab] = useState("dashboard");
-  const [buildingInputs, setBuildingInputs] = useState(
-    () => createUiWorkspace({ mode: UI_MODE.BUILDING, defaultInputs: DEFAULT_BUILDING_INPUTS }).inputs,
-  );
+  const [workspaceKind, setWorkspaceKind] = useState(APP_WORKSPACE_KIND.NEW);
+  const [buildingInputs, setBuildingInputs] = useState(() => createAppNewWorkspace(UI_MODE.BUILDING).inputs);
   const [buildingAssumptionModelVersion, setBuildingAssumptionModelVersion] = useState(ASSUMPTION_MODEL_VERSION.V2);
-  const [landInputs, setLandInputs] = useState(
-    () => createUiWorkspace({ mode: UI_MODE.LAND, defaultInputs: DEFAULT_LAND_INPUTS }).inputs,
-  );
+  const [landInputs, setLandInputs] = useState(() => createAppNewWorkspace(UI_MODE.LAND).inputs);
   const [landAssumptionModelVersion, setLandAssumptionModelVersion] = useState(ASSUMPTION_MODEL_VERSION.V2);
 
   // DEFECT REMEDIATION D1: validateEngineInputs() at the calculateInvestmentCase
@@ -1614,6 +1618,8 @@ export default function App() {
   const [landValidationError, setLandValidationError] = useState(null);
 
   const buildingUiState = useMemo(() => {
+    const readiness = evaluateAppCalculationReadiness({ kind: workspaceKind, mode: UI_MODE.BUILDING, inputs: buildingInputs });
+    if (!readiness.calculationAllowed) return { results: null, governance: null, sensitivityReady: false, sensitivityRenderPolicy: 'HOLD_INCOMPLETE_INPUTS', readiness };
     try {
       const state = calculateUiInvestmentState({
         mode: UI_MODE.BUILDING,
@@ -1626,15 +1632,16 @@ export default function App() {
     } catch (e) {
       if (e.name === 'ValidationError') {
         if (!buildingValidationError || buildingValidationError.field !== e.field || buildingValidationError.value !== e.value) setBuildingValidationError({ field: e.field, value: e.value, rule: e.rule, message_ar: e.message_ar, message_en: e.message_en });
-        if (lastValidBuildingUiState.current) return lastValidBuildingUiState.current;
-        const fallback = createUiWorkspace({ mode: UI_MODE.BUILDING, defaultInputs: DEFAULT_BUILDING_INPUTS });
-        return calculateUiInvestmentState({ mode: UI_MODE.BUILDING, inputs: fallback.inputs, assumptionModelVersion: fallback.assumptionModelVersion });
+        if (lastValidBuildingUiState.current && workspaceKind !== APP_WORKSPACE_KIND.NEW) return lastValidBuildingUiState.current;
+        return { results: null, governance: null, sensitivityReady: false, sensitivityRenderPolicy: 'HOLD_INVALID_INPUTS', readiness };
       }
       throw e;
     }
-  }, [buildingInputs, buildingAssumptionModelVersion]);
+  }, [buildingInputs, buildingAssumptionModelVersion, workspaceKind]);
 
   const landUiState = useMemo(() => {
+    const readiness = evaluateAppCalculationReadiness({ kind: workspaceKind, mode: UI_MODE.LAND, inputs: landInputs });
+    if (!readiness.calculationAllowed) return { results: null, governance: null, sensitivityReady: false, sensitivityRenderPolicy: 'HOLD_INCOMPLETE_INPUTS', readiness };
     try {
       const state = calculateUiInvestmentState({
         mode: UI_MODE.LAND,
@@ -1647,13 +1654,12 @@ export default function App() {
     } catch (e) {
       if (e.name === 'ValidationError') {
         if (!landValidationError || landValidationError.field !== e.field || landValidationError.value !== e.value) setLandValidationError({ field: e.field, value: e.value, rule: e.rule, message_ar: e.message_ar, message_en: e.message_en });
-        if (lastValidLandUiState.current) return lastValidLandUiState.current;
-        const fallback = createUiWorkspace({ mode: UI_MODE.LAND, defaultInputs: DEFAULT_LAND_INPUTS });
-        return calculateUiInvestmentState({ mode: UI_MODE.LAND, inputs: fallback.inputs, assumptionModelVersion: fallback.assumptionModelVersion });
+        if (lastValidLandUiState.current && workspaceKind !== APP_WORKSPACE_KIND.NEW) return lastValidLandUiState.current;
+        return { results: null, governance: null, sensitivityReady: false, sensitivityRenderPolicy: 'HOLD_INVALID_INPUTS', readiness };
       }
       throw e;
     }
-  }, [landInputs, landAssumptionModelVersion]);
+  }, [landInputs, landAssumptionModelVersion, workspaceKind]);
 
   const buildingResults = buildingUiState.results;
   const landResults = landUiState.results;
@@ -1721,14 +1727,14 @@ export default function App() {
 
   const loadBuiltIn = (builtInMode) => {
     setMode(builtInMode);
+    setWorkspaceKind(APP_WORKSPACE_KIND.DEMO);
+    const workspace = createAppDemoWorkspace(builtInMode);
     if (builtInMode === UI_MODE.BUILDING) {
-      const workspace = createUiWorkspace({ mode: UI_MODE.BUILDING, defaultInputs: DEFAULT_BUILDING_INPUTS });
       setBuildingInputs(workspace.inputs);
-      setBuildingAssumptionModelVersion(workspace.assumptionModelVersion);
+      setBuildingAssumptionModelVersion(ASSUMPTION_MODEL_VERSION.V2);
     } else {
-      const workspace = createUiWorkspace({ mode: UI_MODE.LAND, defaultInputs: DEFAULT_LAND_INPUTS });
       setLandInputs(workspace.inputs);
-      setLandAssumptionModelVersion(workspace.assumptionModelVersion);
+      setLandAssumptionModelVersion(ASSUMPTION_MODEL_VERSION.V2);
     }
     setResidentialIncomeOperatingCase(null);
     setOperatingCaseMessage(null);
@@ -1748,9 +1754,10 @@ export default function App() {
       validateSavedDealRecord(record); // SDI-001: structural validation boundary -- throws SavedDealValidationError on malformed shape; caught below, mapped to the existing DEAL_LOAD_FAILED public contract
       const hydrated = hydrateUiDeal({
         record,
-        defaultInputs: record.mode === UI_MODE.BUILDING ? DEFAULT_BUILDING_INPUTS : DEFAULT_LAND_INPUTS,
+        defaultInputs: legacyHydrationDefaults(record.mode),
       });
       setMode(hydrated.mode);
+      setWorkspaceKind(APP_WORKSPACE_KIND.SAVED);
       if (hydrated.mode === UI_MODE.BUILDING) {
         setBuildingInputs(hydrated.inputs);
         setBuildingAssumptionModelVersion(hydrated.assumptionModelVersion);
@@ -1961,16 +1968,18 @@ export default function App() {
     if (activeDealId) {
       loadDeal(activeDealId);
     } else if (mode === "building") {
-      const workspace = createUiWorkspace({ mode: UI_MODE.BUILDING, defaultInputs: DEFAULT_BUILDING_INPUTS });
+      const workspace = createAppNewWorkspace(UI_MODE.BUILDING);
+      setWorkspaceKind(APP_WORKSPACE_KIND.NEW);
       setBuildingInputs(workspace.inputs);
-      setBuildingAssumptionModelVersion(workspace.assumptionModelVersion);
+      setBuildingAssumptionModelVersion(ASSUMPTION_MODEL_VERSION.V2);
       setResidentialIncomeOperatingCase(null);
       setOperatingCaseMessage(null);
       setValuationCase(null);
     } else {
-      const workspace = createUiWorkspace({ mode: UI_MODE.LAND, defaultInputs: DEFAULT_LAND_INPUTS });
+      const workspace = createAppNewWorkspace(UI_MODE.LAND);
+      setWorkspaceKind(APP_WORKSPACE_KIND.NEW);
       setLandInputs(workspace.inputs);
-      setLandAssumptionModelVersion(workspace.assumptionModelVersion);
+      setLandAssumptionModelVersion(ASSUMPTION_MODEL_VERSION.V2);
       setValuationCase(null);
     }
   };
@@ -2005,6 +2014,9 @@ export default function App() {
             </button>
             <ModeSwitch mode={mode} setMode={(m) => {
               setMode(m);
+              setWorkspaceKind(APP_WORKSPACE_KIND.NEW);
+              const workspace = createAppNewWorkspace(m);
+              if (m === UI_MODE.BUILDING) setBuildingInputs(workspace.inputs); else setLandInputs(workspace.inputs);
               setActiveDealId(null);
               setResidentialIncomeOperatingCase(null);
               setOperatingCaseMessage(null);
@@ -2062,7 +2074,11 @@ export default function App() {
           backupMessage={backupMessage}
         />
 
-        <KPIRibbon mode={mode} results={results} leverageEnabled={inputs.leverageEnabled} />
+        {results ? <KPIRibbon mode={mode} results={results} leverageEnabled={inputs.leverageEnabled} /> : (
+          <div data-testid="analysis-incomplete" className="rounded-2xl mb-4 px-4 py-3" style={{ background: COLORS.panelRaised, border: `1px solid ${COLORS.hairline}`, color: COLORS.slate }}>
+            {locale === 'en' ? 'Complete the required deal inputs to run financial analysis.' : 'أكمل بيانات الصفقة الأساسية المطلوبة لتشغيل التحليل المالي.'}
+          </div>
+        )}
         {mode === UI_MODE.BUILDING ? <AssumptionDisclosureBanner disclosure={assumptionDisclosure} /> : null}
 
         {/* MAIN GRID */}
@@ -2102,9 +2118,9 @@ export default function App() {
               </div>
             ) : null}
             <Tabs value={activeTab} onChange={setActiveTab} />
-            {activeTab === "dashboard" && <DashboardTab mode={mode} inputs={inputs} results={results} />}
-            {activeTab === "cashflow" && <CashFlowTab mode={mode} inputs={inputs} results={results} zakatCase={zakatCase} />}
-            {activeTab === "sensitivity" && <SensitivityTab
+            {results && activeTab === "dashboard" && <DashboardTab mode={mode} inputs={inputs} results={results} />}
+            {results && activeTab === "cashflow" && <CashFlowTab mode={mode} inputs={inputs} results={results} zakatCase={zakatCase} />}
+            {results && activeTab === "sensitivity" && <SensitivityTab
               mode={mode}
               inputs={inputs}
               assumptionModelVersion={assumptionModelVersion}
@@ -2115,7 +2131,7 @@ export default function App() {
           </main>
         </div>
 
-        {mode === "building" ? (
+        {mode === "building" && results ? (
           <ValuationIntelligencePanel
             locale={locale}
             valuationCase={valuationCase}

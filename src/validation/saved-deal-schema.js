@@ -4,66 +4,49 @@
 //
 // Scope discipline (per SDI-001 mandate):
 // - STRUCTURE only (shape/type of required fields) -- NOT economic-domain
-//   validation. Economic rules (e.g. OBS-001's buildingPrice>0) remain
-//   exclusively in numeric-safety.js's validateEngineInputs(), invoked
-//   separately by calculateInvestmentCase(). This validator does not
-//   duplicate that layer.
-// - Non-destructive: never mutates, repairs, or deletes anything. It only
-//   inspects and throws or returns.
-// - The legacy {id, name, mode, inputs, savedAt} core remains valid exactly
-//   as before. Optional assumptionModelVersion, valuationCase, zakatCase and
-//   standards-snapshot metadata are additive and versioned; absence remains
-//   valid for historical records and never triggers automatic migration.
+//   validation. Economic rules remain exclusively in numeric-safety.js.
+// - Non-destructive: never mutates, repairs, or deletes anything.
+// - Legacy records without additive metadata remain valid.
 
 const { hydrateResidentialIncomeOperatingCaseSnapshot } = require('../residential-income-acquisition/operating-case-snapshot');
 const { validateValuationCaseExtension } = require('../valuation-intelligence/saved-deal-extension');
 const { ASSUMPTION_MODEL_VERSION } = require('../assumptions/assumption-model');
 const { validateUserEnteredZakatCase } = require('../zakat/user-entered-zakat');
 const { validateSavedDealStandardsMetadata, RESERVED_METADATA_KEYS } = require('../standards/saved-deal-standards-snapshot');
+const { DEAL_PROVENANCE } = require('../decision-governance/deal-provenance');
 
 class SavedDealValidationError extends Error {
   constructor(reasonCode, detail) {
     super(`Saved Deal structural validation failed: ${reasonCode}`);
     this.name = 'SavedDealValidationError';
-    this.reasonCode = reasonCode; // safe, internal, enumerated -- never a raw value dump
-    this.detail = detail; // safe short string only, never raw record/stack
+    this.reasonCode = reasonCode;
+    this.detail = detail;
   }
 }
 
 const VALID_MODES = ['building', 'land'];
 
-/**
- * validateSavedDealRecord(parsed)
- * Input: already-JSON.parsed value (any type -- caller does JSON.parse first).
- * Throws SavedDealValidationError on any structural defect.
- * Returns the same object, byte-for-byte, unmodified, on success.
- */
 function validateSavedDealRecord(parsed) {
-  // Envelope: must be a plain object, not null/array/string/number.
   if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
     throw new SavedDealValidationError('ENVELOPE_NOT_OBJECT', `typeof=${Array.isArray(parsed) ? 'array' : typeof parsed}`);
   }
 
-  // Study mode/type: must be exactly one of the two known values.
   if (typeof parsed.mode !== 'string' || !VALID_MODES.includes(parsed.mode)) {
     throw new SavedDealValidationError('INVALID_MODE', `mode=${JSON.stringify(parsed.mode)}`);
   }
 
-  // Raw inputs payload: must be a plain object (not null/array/primitive).
   if (parsed.inputs === null || typeof parsed.inputs !== 'object' || Array.isArray(parsed.inputs)) {
     throw new SavedDealValidationError('INVALID_INPUTS_SHAPE', `typeof=${Array.isArray(parsed.inputs) ? 'array' : typeof parsed.inputs}`);
   }
 
-  // Standards/provenance metadata is envelope metadata only. A standards
-  // snapshot key nested inside economic inputs is structurally invalid because
-  // it would blur the economic-input and professional-governance boundaries.
   const nestedStandardsKeys = RESERVED_METADATA_KEYS.filter((key) => Object.prototype.hasOwnProperty.call(parsed.inputs, key));
   if (nestedStandardsKeys.length) {
     throw new SavedDealValidationError('STANDARDS_METADATA_IN_ECONOMIC_INPUTS', nestedStandardsKeys.join(','));
   }
+  if (Object.prototype.hasOwnProperty.call(parsed.inputs, 'provenance')) {
+    throw new SavedDealValidationError('DEAL_PROVENANCE_IN_ECONOMIC_INPUTS', 'provenance');
+  }
 
-  // assumptionModelVersion is envelope metadata, never an economic input.
-  // Missing remains valid for historical records and means LEGACY compatibility.
   if (Object.prototype.hasOwnProperty.call(parsed, 'assumptionModelVersion')) {
     if (typeof parsed.assumptionModelVersion !== 'string'
         || !Object.values(ASSUMPTION_MODEL_VERSION).includes(parsed.assumptionModelVersion)) {
@@ -71,9 +54,23 @@ function validateSavedDealRecord(parsed) {
     }
   }
 
-  // id/name: structurally required for list rendering and update/delete
-  // targeting; must be strings if present (do not require non-empty --
-  // that would be a content rule, not a structural one).
+  if (Object.prototype.hasOwnProperty.call(parsed, 'provenance')) {
+    const provenance = parsed.provenance;
+    if (provenance === null || typeof provenance !== 'object' || Array.isArray(provenance)) {
+      throw new SavedDealValidationError('INVALID_DEAL_PROVENANCE', 'not_object');
+    }
+    if (!Object.values(DEAL_PROVENANCE).includes(provenance.kind)) {
+      throw new SavedDealValidationError('INVALID_DEAL_PROVENANCE_KIND', `kind=${JSON.stringify(provenance.kind)}`);
+    }
+    if (Object.prototype.hasOwnProperty.call(provenance, 'isDemo') && typeof provenance.isDemo !== 'boolean') {
+      throw new SavedDealValidationError('INVALID_DEAL_PROVENANCE_IS_DEMO', `typeof=${typeof provenance.isDemo}`);
+    }
+    if (Object.prototype.hasOwnProperty.call(provenance, 'requiresRealDealConfirmation')
+        && typeof provenance.requiresRealDealConfirmation !== 'boolean') {
+      throw new SavedDealValidationError('INVALID_DEAL_PROVENANCE_CONFIRMATION_FLAG', `typeof=${typeof provenance.requiresRealDealConfirmation}`);
+    }
+  }
+
   if (parsed.id !== undefined && typeof parsed.id !== 'string') {
     throw new SavedDealValidationError('INVALID_ID_TYPE', `typeof=${typeof parsed.id}`);
   }
@@ -119,7 +116,7 @@ function validateSavedDealRecord(parsed) {
     }
   }
 
-  return parsed; // unmodified -- non-destructive by construction
+  return parsed;
 }
 
 module.exports = { validateSavedDealRecord, SavedDealValidationError, VALID_MODES };

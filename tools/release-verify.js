@@ -61,7 +61,7 @@ function printFailureDiagnostic(error) {
 
 step('TEST_DISCOVERY_AND_REGRESSION', () => {
   const runPrefixDirs = ['characterization', 'architecture', 'i18n', 'saved-deals'];
-  const allJsDirs = ['defects', 'runtime'];
+  const allJsDirs = ['defects', 'runtime', 'decision-governance'];
   let total = 0, passed = 0;
   for (const dir of runPrefixDirs) {
     const full = path.join(ROOT, 'tests', dir);
