@@ -61,10 +61,6 @@ function printFailureDiagnostic(error) {
 
 step('TEST_DISCOVERY_AND_REGRESSION', () => {
   const runPrefixDirs = ['characterization', 'architecture', 'i18n', 'saved-deals'];
-  // Every .js file in these directories is an executable release-gate test.
-  // decision-governance is intentionally included so governance, Saudi
-  // acquisition-cost, evidence, audit and provenance tests cannot exist
-  // outside canonical release qualification.
   const allJsDirs = ['defects', 'runtime', 'decision-governance'];
   let total = 0, passed = 0;
   for (const dir of runPrefixDirs) {
@@ -138,10 +134,19 @@ step('COMPOSITE_BASELINE_SHADOW_VERIFICATION', () => {
   console.log(`  shadow_mode=${result.shadowMode}`);
   if (result.shadowEvaluationHashSha256) console.log(`  shadow_evaluation_sha256=${result.shadowEvaluationHashSha256}`);
   if (result.reasonCode) console.log(`  reason_code=${result.reasonCode}`);
-  if (result.status === COMPOSITE_BASELINE_SHADOW_GATE_STATUS.HOLD) throw new Error(result.reasonCode || 'COMPOSITE_BASELINE_SHADOW_HOLD');
-  if (result.status === COMPOSITE_BASELINE_SHADOW_GATE_STATUS.MISSING_REQUIRED) throw new Error(result.reasonCode || 'COMPOSITE_BASELINE_SHADOW_REQUIRED');
-  if (result.status === COMPOSITE_BASELINE_SHADOW_GATE_STATUS.NOT_EVALUATED) return { stepStatus: 'NOT_EVALUATED' };
-  if (result.status !== COMPOSITE_BASELINE_SHADOW_GATE_STATUS.VERIFIED || result.verified !== true) throw new Error('COMPOSITE_BASELINE_SHADOW_UNEXPECTED_STATUS');
+
+  if (result.status === COMPOSITE_BASELINE_SHADOW_GATE_STATUS.HOLD) {
+    throw new Error(result.reasonCode || 'COMPOSITE_BASELINE_SHADOW_HOLD');
+  }
+  if (result.status === COMPOSITE_BASELINE_SHADOW_GATE_STATUS.MISSING_REQUIRED) {
+    throw new Error(result.reasonCode || 'COMPOSITE_BASELINE_SHADOW_REQUIRED');
+  }
+  if (result.status === COMPOSITE_BASELINE_SHADOW_GATE_STATUS.NOT_EVALUATED) {
+    return { stepStatus: 'NOT_EVALUATED' };
+  }
+  if (result.status !== COMPOSITE_BASELINE_SHADOW_GATE_STATUS.VERIFIED || result.verified !== true) {
+    throw new Error('COMPOSITE_BASELINE_SHADOW_UNEXPECTED_STATUS');
+  }
   return { stepStatus: 'PASS' };
 });
 
@@ -153,10 +158,19 @@ step('FRESH_COMPOSITE_SHADOW_VERIFICATION', () => {
   if (result.cycleId) console.log(`  cycle_id=${result.cycleId}`);
   if (result.freshShadowEvaluationHashSha256) console.log(`  fresh_shadow_evaluation_sha256=${result.freshShadowEvaluationHashSha256}`);
   if (result.reasonCode) console.log(`  reason_code=${result.reasonCode}`);
-  if (result.status === FRESH_COMPOSITE_SHADOW_GATE_STATUS.HOLD) throw new Error(result.reasonCode || 'FRESH_COMPOSITE_SHADOW_HOLD');
-  if (result.status === FRESH_COMPOSITE_SHADOW_GATE_STATUS.MISSING_REQUIRED) throw new Error(result.reasonCode || 'FRESH_COMPOSITE_SHADOW_REQUIRED');
-  if (result.status === FRESH_COMPOSITE_SHADOW_GATE_STATUS.NOT_EVALUATED) return { stepStatus: 'NOT_EVALUATED' };
-  if (result.status !== FRESH_COMPOSITE_SHADOW_GATE_STATUS.VERIFIED || result.verified !== true) throw new Error('FRESH_COMPOSITE_SHADOW_UNEXPECTED_STATUS');
+
+  if (result.status === FRESH_COMPOSITE_SHADOW_GATE_STATUS.HOLD) {
+    throw new Error(result.reasonCode || 'FRESH_COMPOSITE_SHADOW_HOLD');
+  }
+  if (result.status === FRESH_COMPOSITE_SHADOW_GATE_STATUS.MISSING_REQUIRED) {
+    throw new Error(result.reasonCode || 'FRESH_COMPOSITE_SHADOW_REQUIRED');
+  }
+  if (result.status === FRESH_COMPOSITE_SHADOW_GATE_STATUS.NOT_EVALUATED) {
+    return { stepStatus: 'NOT_EVALUATED' };
+  }
+  if (result.status !== FRESH_COMPOSITE_SHADOW_GATE_STATUS.VERIFIED || result.verified !== true) {
+    throw new Error('FRESH_COMPOSITE_SHADOW_UNEXPECTED_STATUS');
+  }
   return { stepStatus: 'PASS' };
 });
 
@@ -168,10 +182,19 @@ step('SUCCESSOR_FRESH_COMPOSITE_SHADOW_VERIFICATION', () => {
   if (result.cycleId) console.log(`  cycle_id=${result.cycleId}`);
   if (result.successorFreshShadowEvaluationHashSha256) console.log(`  successor_fresh_shadow_evaluation_sha256=${result.successorFreshShadowEvaluationHashSha256}`);
   if (result.reasonCode) console.log(`  reason_code=${result.reasonCode}`);
-  if (result.status === SUCCESSOR_FRESH_COMPOSITE_SHADOW_GATE_STATUS.HOLD) throw new Error(result.reasonCode || 'SUCCESSOR_FRESH_COMPOSITE_SHADOW_HOLD');
-  if (result.status === SUCCESSOR_FRESH_COMPOSITE_SHADOW_GATE_STATUS.MISSING_REQUIRED) throw new Error(result.reasonCode || 'SUCCESSOR_FRESH_COMPOSITE_SHADOW_REQUIRED');
-  if (result.status === SUCCESSOR_FRESH_COMPOSITE_SHADOW_GATE_STATUS.NOT_EVALUATED) return { stepStatus: 'NOT_EVALUATED' };
-  if (result.status !== SUCCESSOR_FRESH_COMPOSITE_SHADOW_GATE_STATUS.VERIFIED || result.verified !== true) throw new Error('SUCCESSOR_FRESH_COMPOSITE_SHADOW_UNEXPECTED_STATUS');
+
+  if (result.status === SUCCESSOR_FRESH_COMPOSITE_SHADOW_GATE_STATUS.HOLD) {
+    throw new Error(result.reasonCode || 'SUCCESSOR_FRESH_COMPOSITE_SHADOW_HOLD');
+  }
+  if (result.status === SUCCESSOR_FRESH_COMPOSITE_SHADOW_GATE_STATUS.MISSING_REQUIRED) {
+    throw new Error(result.reasonCode || 'SUCCESSOR_FRESH_COMPOSITE_SHADOW_REQUIRED');
+  }
+  if (result.status === SUCCESSOR_FRESH_COMPOSITE_SHADOW_GATE_STATUS.NOT_EVALUATED) {
+    return { stepStatus: 'NOT_EVALUATED' };
+  }
+  if (result.status !== SUCCESSOR_FRESH_COMPOSITE_SHADOW_GATE_STATUS.VERIFIED || result.verified !== true) {
+    throw new Error('SUCCESSOR_FRESH_COMPOSITE_SHADOW_UNEXPECTED_STATUS');
+  }
   return { stepStatus: 'PASS' };
 });
 
@@ -183,10 +206,19 @@ step('COMPOSITE_BASELINE_CUTOVER_SAFETY_GUARD', () => {
   console.log(`  activation_authorization_granted=${result.activationAuthorizationGranted}`);
   if (result.cutoverSafetyGuardHashSha256) console.log(`  cutover_safety_guard_sha256=${result.cutoverSafetyGuardHashSha256}`);
   if (result.reasonCode) console.log(`  reason_code=${result.reasonCode}`);
-  if (result.status === COMPOSITE_CUTOVER_SAFETY_GATE_STATUS.HOLD) throw new Error(result.reasonCode || 'COMPOSITE_BASELINE_CUTOVER_SAFETY_HOLD');
-  if (result.status === COMPOSITE_CUTOVER_SAFETY_GATE_STATUS.MISSING_REQUIRED) throw new Error(result.reasonCode || 'COMPOSITE_BASELINE_CUTOVER_SAFETY_REQUIRED');
-  if (result.status === COMPOSITE_CUTOVER_SAFETY_GATE_STATUS.NOT_EVALUATED) return { stepStatus: 'NOT_EVALUATED' };
-  if (result.status !== COMPOSITE_BASELINE_CUTOVER_SAFETY_GATE_STATUS.VERIFIED || result.verified !== true) throw new Error('COMPOSITE_BASELINE_CUTOVER_SAFETY_UNEXPECTED_STATUS');
+
+  if (result.status === COMPOSITE_CUTOVER_SAFETY_GATE_STATUS.HOLD) {
+    throw new Error(result.reasonCode || 'COMPOSITE_BASELINE_CUTOVER_SAFETY_HOLD');
+  }
+  if (result.status === COMPOSITE_CUTOVER_SAFETY_GATE_STATUS.MISSING_REQUIRED) {
+    throw new Error(result.reasonCode || 'COMPOSITE_BASELINE_CUTOVER_SAFETY_REQUIRED');
+  }
+  if (result.status === COMPOSITE_CUTOVER_SAFETY_GATE_STATUS.NOT_EVALUATED) {
+    return { stepStatus: 'NOT_EVALUATED' };
+  }
+  if (result.status !== COMPOSITE_CUTOVER_SAFETY_GATE_STATUS.VERIFIED || result.verified !== true) {
+    throw new Error('COMPOSITE_BASELINE_CUTOVER_SAFETY_UNEXPECTED_STATUS');
+  }
   return { stepStatus: 'PASS' };
 });
 
@@ -196,15 +228,22 @@ step('CANONICAL_SOURCE_HASH_VERIFICATION', () => {
     expectedSha256: EXPECTED_CANONICAL_SHA256,
     requireEvidence: process.env.REQUIRE_CANONICAL_SOURCE_HASH === '1',
   });
+
   console.log(`  evidence_status=${result.status}`);
   console.log(`  expected=${result.expectedSha256}`);
   if (result.computedSha256) console.log(`  computed=${result.computedSha256}`);
-  if (result.status === CANONICAL_SOURCE_STATUS.MISSING_REQUIRED) throw new Error('canonical source evidence is required but CANONICAL_ORIGINAL_PATH is unavailable');
-  if (result.status === CANONICAL_SOURCE_STATUS.MISMATCH) throw new Error(`canonical hash mismatch: expected ${result.expectedSha256}, got ${result.computedSha256}`);
+
+  if (result.status === CANONICAL_SOURCE_STATUS.MISSING_REQUIRED) {
+    throw new Error('canonical source evidence is required but CANONICAL_ORIGINAL_PATH is unavailable');
+  }
+  if (result.status === CANONICAL_SOURCE_STATUS.MISMATCH) {
+    throw new Error(`canonical hash mismatch: expected ${result.expectedSha256}, got ${result.computedSha256}`);
+  }
   if (result.status === CANONICAL_SOURCE_STATUS.NOT_EVALUATED) {
     console.log('  (external canonical source was not supplied; engineering checks continue, but canonical-source evidence remains open)');
     return { stepStatus: 'NOT_EVALUATED' };
   }
+
   return { stepStatus: 'PASS' };
 });
 
