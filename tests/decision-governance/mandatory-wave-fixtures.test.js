@@ -65,8 +65,20 @@ assert.strictEqual(demo.provenance.isDemo, true);
 assert.throws(() => prepareWorkspaceRecordForSave({ id: 'demo', mode: 'building', inputs: demo.inputs }, demo.provenance),
   (error) => error && error.code === 'DEMO_REAL_DEAL_CONFIRMATION_REQUIRED');
 
-// CASE-12 stale evidence downgrades readiness.
-const e = evaluateEvidenceReadiness({ sources: [{ source: 'registry', sourceDate: '2025-01-01' }], freshnessStatus: 'STALE' });
+// CASE-12 stale evidence => readiness is downgraded by source age, not by an injected status flag.
+const e = evaluateEvidenceReadiness({
+  asOf: '2026-09-15T00:00:00.000Z',
+  items: [{
+    required: true,
+    sourceName: 'Official registry',
+    sourceDate: '2025-01-01',
+    maxAgeDays: 90,
+    evidenceGrade: 'A',
+  }],
+  comparableCount: 1,
+  minimumComparableCount: 1,
+});
 assert.strictEqual(e.status, 'STALE');
+assert.ok(e.reasonCodes.includes('STALE_OR_UNDATED_EVIDENCE'));
 
 console.log('MANDATORY_WAVE_FIXTURES_CASE_01_TO_12=PASS');
