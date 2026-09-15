@@ -1,0 +1,4 @@
+'use strict';
+const assert=require('assert');const {evaluateEvidenceReadiness}=require('../../src/decision-governance/evidence-readiness');
+const good={sourceName:'Official',sourceDate:'2026-09-01',required:true,evidenceGrade:'A',maxAgeDays:90};
+function run(){let r=evaluateEvidenceReadiness({items:[]});assert.strictEqual(r.status,'NOT_STARTED');r=evaluateEvidenceReadiness({items:[good],asOf:'2026-09-15',comparableCount:3,minimumComparableCount:3});assert.strictEqual(r.status,'SUFFICIENT_FOR_IC');r=evaluateEvidenceReadiness({items:[{...good,sourceDate:'2025-01-01'}],asOf:'2026-09-15'});assert.strictEqual(r.status,'STALE');r=evaluateEvidenceReadiness({items:[{...good,conflicted:true}],asOf:'2026-09-15'});assert.strictEqual(r.status,'CONFLICTED');r=evaluateEvidenceReadiness({items:[{...good,sourceDate:null}]});assert.strictEqual(r.status,'INSUFFICIENT');console.log('EVIDENCE_READINESS_TESTS=PASS');}run();
