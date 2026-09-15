@@ -44,7 +44,15 @@ function StatusPill({ status }) {
     : status === 'REJECTED'
       ? 'border-rose-700/60 bg-rose-950/30 text-rose-200'
       : 'border-amber-700/60 bg-amber-950/30 text-amber-200';
-  return <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${className}`}>{status}</span>;
+  return (
+    <span
+      data-testid="local-document-parser-status"
+      data-parser-status={status || ''}
+      className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${className}`}
+    >
+      {status}
+    </span>
+  );
 }
 
 export default function LocalDocumentEvidenceIntakePanel({ onRecordChange = null }) {
@@ -239,7 +247,16 @@ export default function LocalDocumentEvidenceIntakePanel({ onRecordChange = null
             <div className="grid gap-3 md:grid-cols-3">
               <div className="rounded-lg border border-slate-800 p-3"><div className="text-[10px] text-slate-500">{l.adapter}</div><div className="mt-1 text-xs text-slate-200">{record.result.adapterId}</div></div>
               <div className="rounded-lg border border-slate-800 p-3"><div className="text-[10px] text-slate-500">{l.atoms}</div><div data-testid="local-document-atom-count" className="mt-1 text-xs text-slate-200">{record.result.atoms?.length || 0}</div></div>
-              <div className="rounded-lg border border-slate-800 p-3"><div className="text-[10px] text-slate-500">{l.reason}</div><div className="mt-1 text-xs text-slate-200">{record.result.reason || '—'}</div></div>
+              <div className="rounded-lg border border-slate-800 p-3">
+                <div className="text-[10px] text-slate-500">{l.reason}</div>
+                <div
+                  data-testid="local-document-parser-reason"
+                  data-parser-reason={record.result.reason || ''}
+                  className="mt-1 text-xs text-slate-200"
+                >
+                  {record.result.reason || '—'}
+                </div>
+              </div>
             </div>
 
             {record.result.warnings?.length ? (

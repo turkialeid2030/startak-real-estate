@@ -1,0 +1,233 @@
+{
+  "evidenceRegisterId": "STARTAK-SAUDI-REGULATORY-CONTEXT-SOURCE-EVIDENCE-2026-09-08",
+  "capturedAt": "2026-09-08T11:00:00+03:00",
+  "scope": "Primary Saudi regulatory/accounting/tax/data-protection context evidence for purpose-based routing only. No legal opinion, no universal applicability conclusion, no tax calculation, no credit decision and no standards activation.",
+  "operatingMode": "UNLICENSED_DECISION_SUPPORT",
+  "overallStatus": "PRIMARY_SAUDI_CONTEXT_SOURCES_VERIFIED_WITH_PURPOSE_SPECIFIC_APPLICABILITY_REVIEW_REQUIRED",
+  "saudiLegalReviewComplete": false,
+  "pdplComplianceEstablished": false,
+  "taxComplianceEstablished": false,
+  "financialReportingComplianceEstablished": false,
+  "regulatedContextActivationAuthorized": false,
+  "records": [
+    {
+      "recordId": "TAQEEM-RULES-CURRENT-2026-08-03",
+      "context": "SAUDI_PROFESSIONAL_VALUATION",
+      "sourceAuthority": "Saudi Authority for Accredited Valuers (Taqeem)",
+      "sourceAuthorityClass": "SAUDI_GOVERNMENT_PROFESSIONAL_REGULATOR",
+      "sourceUrl": "https://taqeem.gov.sa/rules/category/llyh-ltnfydhy-wlqw-d-4",
+      "sourceObservedDate": "2026-09-08",
+      "observedFacts": {
+        "pageLastModifiedSaudiDate": "2026-08-03",
+        "listsAccreditedValuersExecutiveRegulations": true,
+        "listsValuationProfessionEthicsRules": true,
+        "listsRealEstateValuationServicesForFinancingEntitiesRules": true,
+        "listsProfessionalCertificateRules": true
+      },
+      "sourceVerified": true,
+      "applicability": "PURPOSE_AND_PROFESSIONAL_STATUS_DEPENDENT",
+      "productionRuleRecommendation": "UNDER_REVIEW",
+      "reviewNotes": "The current regulator rules catalogue is verified. Individual rule text, effective dates and scope must be resolved before production enforcement."
+    },
+    {
+      "recordId": "TAQEEM-REAL-ESTATE-REPORT-QUALITY-MODEL-2026-04-01",
+      "context": "PROFESSIONAL_REPORT_QA",
+      "sourceAuthority": "Saudi Authority for Accredited Valuers (Taqeem)",
+      "sourceAuthorityClass": "SAUDI_GOVERNMENT_PROFESSIONAL_REGULATOR",
+      "sourceUrl": "https://taqeem.gov.sa/news/details/tqyym-ttlq-nmwdhj-qys-jwd-tqryr-tqyym-l-qrt-1347",
+      "sourceObservedDate": "2026-09-08",
+      "observedFacts": {
+        "publicationDate": "2026-04-01",
+        "realEstateReportQualityModelLaunched": true,
+        "purposeIncludesProfessionalSelfReviewBeforeFinalApproval": true,
+        "qualityThemesIncludeCompletenessClarityAndProfessionalStandards": true
+      },
+      "sourceVerified": true,
+      "applicability": "REPORT_QA_CONTEXT",
+      "productionRuleRecommendation": "UNDER_REVIEW",
+      "reviewNotes": "Supports report-QA requirements but does not by itself provide the complete scoring model or authorize a compliance claim."
+    },
+    {
+      "recordId": "REGA-REAL-ESTATE-CONTRIBUTIONS-VALUATION-RULE",
+      "context": "REAL_ESTATE_CONTRIBUTIONS",
+      "sourceAuthority": "Real Estate General Authority (REGA)",
+      "sourceAuthorityClass": "SAUDI_GOVERNMENT_REAL_ESTATE_REGULATOR",
+      "sourceUrl": "https://rega.gov.sa/%D8%A7%D9%84%D8%A3%D9%86%D8%B8%D9%85%D8%A9-%D9%88%D8%A7%D9%84%D9%82%D8%B1%D8%A7%D8%B1%D8%A7%D8%AA/%D8%A7%D9%84%D8%A3%D9%86%D8%B8%D9%85%D8%A9-%D9%88%D8%A7%D9%84%D9%84%D9%88%D8%A7%D8%A6%D8%AD-%D9%88%D8%A7%D9%84%D8%A3%D8%AF%D9%84%D8%A9/%D8%A7%D9%84%D9%84%D9%88%D8%A7%D8%A6%D8%AD/%D8%A7%D9%84%D9%84%D8%A7%D8%A6%D8%AD%D8%A9-%D8%A7%D9%84%D8%AA%D9%86%D9%81%D9%8A%D8%B0%D9%8A%D8%A9-%D9%84%D9%86%D8%B8%D8%A7%D9%85-%D8%A7%D9%84%D9%85%D8%B3%D8%A7%D9%87%D9%85%D8%A7%D8%AA-%D8%A7%D9%84%D8%B9%D9%82%D8%A7%D8%B1%D9%8A%D8%A9/",
+      "sourceObservedDate": "2026-09-08",
+      "observedFacts": {
+        "authorityUsesAverageBetweenAccreditedValuationReportsInThisContext": true,
+        "valuationOutsideOtherTwoByMoreThanTenPercentIsExcludedAndReplaced": true
+      },
+      "sourceVerified": true,
+      "applicability": "REAL_ESTATE_CONTRIBUTIONS_ONLY",
+      "productionRuleRecommendation": "UNDER_REVIEW",
+      "reviewNotes": "This is a context-specific REGA rule. It must never be generalized into automatic valuation reconciliation for ordinary assignments."
+    },
+    {
+      "recordId": "CMA-REAL-ESTATE-INVESTMENT-FUNDS-VALUATION-2025",
+      "context": "CMA_REAL_ESTATE_INVESTMENT_FUNDS",
+      "sourceAuthority": "Capital Market Authority (CMA)",
+      "sourceAuthorityClass": "SAUDI_CAPITAL_MARKET_REGULATOR",
+      "sourceUrl": "https://cma.org.sa/RulesRegulations/Regulations/Documents/Real_Estate_Investment_Funds_Regulations_2025_AR.pdf",
+      "sourceObservedDate": "2026-09-08",
+      "observedFacts": {
+        "accreditedValuerFellowshipRequired": true,
+        "minimumReportContentIncludesMethodAssumptionsMarketAnalysisPropertyDetailsAndRisks": true,
+        "purchaseSaleValuationReportMaximumAgeMonths": 3,
+        "publicOfferingRequiresTwoAccreditedValuationReportsWhereApplicable": true,
+        "valuerDeclarationOfTaqeemRuleComplianceRequired": true,
+        "marketRentDisclosureRequiredWhenDifferentFromContractRentForIncomeProperty": true
+      },
+      "sourceVerified": true,
+      "applicability": "CMA_REAL_ESTATE_FUND_CONTEXT_ONLY",
+      "productionRuleRecommendation": "UNDER_REVIEW",
+      "reviewNotes": "CMA fund-specific valuation requirements are verified from the official regulation PDF; they must be activated only when the assignment purpose/entity context routes into the CMA fund regime."
+    },
+    {
+      "recordId": "SAMA-REAL-ESTATE-VALUATION-CLIENT-OBLIGATIONS",
+      "context": "SAMA_SUPERVISED_FINANCING_INSURANCE",
+      "sourceAuthority": "Saudi Central Bank (SAMA) Rulebook",
+      "sourceAuthorityClass": "SAUDI_CENTRAL_BANK_REGULATOR",
+      "sourceUrl": "https://rulebook.sama.gov.sa/ar/%D8%A7%D9%84%D8%AA%D8%B2%D8%A7%D9%85%D8%A7%D8%AA-%D8%B9%D9%85%D9%84%D8%A7%D8%A1-%D8%A7%D9%84%D8%AA%D9%82%D9%8A%D9%8A%D9%85-%D8%A7%D9%84%D8%B9%D9%82%D8%A7%D8%B1%D9%8A-%D8%A7%D9%84%D8%AE%D8%A7%D8%B6%D8%B9%D9%8A%D9%86-%D9%84%D8%A5%D8%B4%D8%B1%D8%A7%D9%81-%D9%88%D8%B1%D9%82%D8%A7%D8%A8%D8%A9-%D8%A7%D9%84%D8%A8%D9%86%D9%83-%D8%A7%D9%84%D9%85%D8%B1%D9%83%D8%B2%D9%8A",
+      "sourceObservedDate": "2026-09-08",
+      "observedFacts": {
+        "rulebookStatus": "ACTIVE",
+        "supervisedEntitiesMustUseLicensedAccreditedRealEstateValuers": true,
+        "valuationGovernanceMustSeparateFinancingInsuranceFromValuationProcess": true,
+        "valuerInfluenceMustBePrevented": true,
+        "sufficientPropertyInformationMustBeProvided": true,
+        "clientMustNotForceSpecificValuationMethods": true
+      },
+      "sourceVerified": true,
+      "applicability": "SAMA_SUPERVISED_ENTITY_CONTEXT_ONLY",
+      "productionRuleRecommendation": "UNDER_REVIEW",
+      "reviewNotes": "The official SAMA Rulebook marks the instruction active. STARTAK must still route it only to supervised entities/assignments and must not infer credit approval authority."
+    },
+    {
+      "recordId": "SAMA-COLLATERAL-VALUATION-2026-01-11",
+      "context": "SAMA_FINANCE_COLLATERAL",
+      "sourceAuthority": "Saudi Central Bank (SAMA) Rulebook",
+      "sourceAuthorityClass": "SAUDI_CENTRAL_BANK_REGULATOR",
+      "sourceUrl": "https://rulebook.sama.gov.sa/ar/%D8%A7%D9%84%D9%85%D8%A7%D8%AF%D8%A9-%D8%A7%D9%84%D8%B1%D8%A7%D8%A8%D8%B9%D8%A9-%D9%88%D8%A7%D9%84%D8%B3%D8%AA%D9%88%D9%86-3",
+      "sourceObservedDate": "2026-09-08",
+      "observedFacts": {
+        "effectiveRuleDate": "2026-01-11",
+        "rulebookStatus": "ACTIVE",
+        "collateralMustBeValuableAndEnforceable": true,
+        "collateralMustBeValuedAndLegalSoundnessCheckedBeforeFinancing": true,
+        "marketSensitiveCollateralMustBePeriodicallyRevalued": true
+      },
+      "sourceVerified": true,
+      "applicability": "SAMA_FINANCE_COLLATERAL_CONTEXT_ONLY",
+      "productionRuleRecommendation": "UNDER_REVIEW",
+      "reviewNotes": "Supports a SAMA collateral context router but does not authorize STARTAK to make legal-soundness or credit decisions."
+    },
+    {
+      "recordId": "SOCPA-IFRS13-FAIR-VALUE-2025",
+      "context": "FINANCIAL_REPORTING_FAIR_VALUE",
+      "sourceAuthority": "Saudi Organization for Chartered and Professional Accountants (SOCPA)",
+      "sourceAuthorityClass": "SAUDI_ACCOUNTING_STANDARD_AUTHORITY",
+      "sourceUrl": "https://socpa.org.sa/getattachment/Socpa/Professional-standards/Accounting-standards/Endorsed/12-IFRS-13-2025.pdf.aspx?lang=ar-SA",
+      "sourceObservedDate": "2026-09-08",
+      "observedFacts": {
+        "standard": "IFRS 13 Fair Value Measurement",
+        "socpaAdoptedStandard": true,
+        "adoptedWithoutModification": true
+      },
+      "sourceVerified": true,
+      "applicability": "FINANCIAL_REPORTING_PURPOSE_ONLY",
+      "productionRuleRecommendation": "UNDER_REVIEW",
+      "reviewNotes": "IFRS 13 context is verified; it must not be mixed with investment analysis or assumed to apply to every valuation assignment. Accounting/auditor review remains external."
+    },
+    {
+      "recordId": "SDAIA-PDPL-CURRENT",
+      "context": "PERSONAL_DATA_PROTECTION",
+      "sourceAuthority": "Saudi Data & AI Authority (SDAIA) / National Data Governance Platform",
+      "sourceAuthorityClass": "SAUDI_DATA_PROTECTION_AUTHORITY",
+      "sourceUrl": "https://dgp.sdaia.gov.sa/wps/portal/pdp/knowledgecenter/details/PDPL",
+      "sourceObservedDate": "2026-09-08",
+      "observedFacts": {
+        "lawRoyalDecree": "M/19 dated 09/02/1443H",
+        "lawHasAmendments": true,
+        "crossBorderTransferConditionsExist": true,
+        "appropriateProtectionOutsideKingdomRequiredSubjectToRegulation": true,
+        "minimumNecessaryDataPrincipleAppliesToTransfer": true
+      },
+      "sourceVerified": true,
+      "applicability": "PERSONAL_DATA_PROCESSING_CONTEXT",
+      "productionRuleRecommendation": "UNDER_REVIEW",
+      "reviewNotes": "Records core PDPL source context only. It does not establish STARTAK PDPL compliance, lawful basis, retention, transfer mechanism or controller/processor classification for a deployment."
+    },
+    {
+      "recordId": "SDAIA-PDPL-CROSS-BORDER-TRANSFER-REGULATION",
+      "context": "PERSONAL_DATA_CROSS_BORDER_TRANSFER",
+      "sourceAuthority": "Saudi Data & AI Authority (SDAIA) / National Data Governance Platform",
+      "sourceAuthorityClass": "SAUDI_DATA_PROTECTION_AUTHORITY",
+      "sourceUrl": "https://dgp.sdaia.gov.sa/wps/portal/pdp/knowledgecenter/details/RegulationonPersonalDataTransferOutsidetheKingdom",
+      "sourceObservedDate": "2026-09-08",
+      "observedFacts": {
+        "dedicatedCrossBorderTransferRegulationExists": true,
+        "appropriateSafeguardsConceptDefined": true,
+        "regulationTiedToPdplAndExecutiveRules": true
+      },
+      "sourceVerified": true,
+      "applicability": "CROSS_BORDER_PROCESSING_CONTEXT",
+      "productionRuleRecommendation": "UNDER_REVIEW",
+      "reviewNotes": "Any cloud/connector architecture involving cross-border processing requires deployment-specific legal/data-governance review; no transfer authorization is inferred."
+    },
+    {
+      "recordId": "ZATCA-RETT-LAW-2025-CURRENT-2026",
+      "context": "REAL_ESTATE_TRANSACTION_TAX",
+      "sourceAuthority": "Zakat, Tax and Customs Authority (ZATCA)",
+      "sourceAuthorityClass": "SAUDI_TAX_AUTHORITY",
+      "sourceUrl": "https://zatca.gov.sa/ar/RulesRegulations/Taxes/Pages/RETTRegulation.aspx",
+      "sourceObservedDate": "2026-09-08",
+      "observedFacts": {
+        "rettRatePct": 5,
+        "currentLawRoyalDecree": "M/84 dated 19/03/1446H",
+        "lawEffectiveDateGregorian": "2025-04-10",
+        "replacedPriorExecutiveRegulationFramework": true,
+        "pageLastUpdated": "2026-08-31"
+      },
+      "sourceVerified": true,
+      "applicability": "TRANSACTION_TAX_CONTEXT_ONLY",
+      "productionRuleRecommendation": "UNDER_REVIEW",
+      "reviewNotes": "The current RETT law context is verified. Exemptions, taxable event, consideration, filing and payment treatment remain transaction-specific and must not be inferred from valuation alone."
+    },
+    {
+      "recordId": "ZATCA-RETT-EXECUTIVE-REGULATION-2025-CURRENT",
+      "context": "REAL_ESTATE_TRANSACTION_TAX",
+      "sourceAuthority": "Zakat, Tax and Customs Authority (ZATCA)",
+      "sourceAuthorityClass": "SAUDI_TAX_AUTHORITY",
+      "sourceUrl": "https://zatca.gov.sa/ar/RulesRegulations/Taxes/Pages/New-RETT.aspx",
+      "sourceObservedDate": "2026-09-08",
+      "observedFacts": {
+        "boardDecision": "01-03-25",
+        "decisionDateGregorian": "2025-03-24",
+        "implementsCurrentRettLaw": true,
+        "pageLastUpdated": "2026-08-31"
+      },
+      "sourceVerified": true,
+      "applicability": "TRANSACTION_TAX_CONTEXT_ONLY",
+      "productionRuleRecommendation": "UNDER_REVIEW",
+      "reviewNotes": "Evidence for the current implementing regulation; STARTAK must not calculate statutory RETT liability without transaction facts and tax-review authority."
+    }
+  ],
+  "verifiedRoutingConclusions": [
+    "Taqeem professional rules, CMA fund valuation requirements, SAMA supervised-entity rules, SOCPA IFRS 13, PDPL and ZATCA RETT are context-specific authorities and must be purpose-routed rather than globally applied.",
+    "CMA and SAMA sources independently reinforce valuer qualification, independence, evidence and governance controls in their regulated contexts.",
+    "IFRS 13 belongs to financial-reporting fair-value context and must remain separated from investment-return analysis.",
+    "PDPL source verification does not equal deployment compliance or lawful cross-border processing.",
+    "RETT source verification does not authorize tax calculation from property value alone.",
+    "REGA real-estate-contribution reconciliation rules are specific to that regulatory context and must not become a universal valuation reconciliation formula."
+  ],
+  "openIssues": [
+    "Obtain and review the full current Taqeem executive regulation, professional ethics and financing-valuation rule texts at rule level before production activation.",
+    "Complete Saudi legal/professional applicability review across Taqeem, REGA, CMA and SAMA contexts.",
+    "Complete deployment-specific PDPL role, lawful-basis, retention, data-location, cross-border transfer and processor/subprocessor review.",
+    "Complete transaction-specific ZATCA RETT legal/tax review before any statutory tax output is enabled.",
+    "Complete accounting/auditor review before financial-reporting outputs are represented as IFRS/SOCPA compliant.",
+    "Verify IPMS/ICMS, Appraisal Institute and other remaining master-directive professional references separately.",
+    "No context record may be marked ACTIVE solely from this evidence register."
+  ]
+}

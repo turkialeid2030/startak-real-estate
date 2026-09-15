@@ -1,0 +1,30 @@
+name: E2G Human Release Authority Deployment Decision Verify
+
+on:
+  pull_request:
+    paths:
+      - 'governance/e2g-human-release-authority-deployment-decision-policy-2026-09-08.json'
+      - 'src/standards/human-release-authority-deployment-decision.js'
+      - 'tests/architecture/run_e2g_human_release_authority_deployment_decision.js'
+      - 'docs/E2G_HUMAN_RELEASE_AUTHORITY_DEPLOYMENT_DECISION_2026-09-08.md'
+      - '.github/workflows/e2g-human-release-authority-deployment-decision-verify.yml'
+      - 'src/standards/external-conformance-production-validation.js'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify E2G human release authority and deployment decision gate
+        run: node tests/architecture/run_e2g_human_release_authority_deployment_decision.js
+      - name: Re-verify E2F external conformance and production validation gate
+        run: node tests/architecture/run_e2f_external_conformance_production_validation.js
+      - name: Canonical release verification
+        run: npm run release:verify

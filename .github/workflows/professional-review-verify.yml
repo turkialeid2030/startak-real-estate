@@ -1,0 +1,30 @@
+name: Professional Review Verify
+
+on:
+  pull_request:
+    paths:
+      - 'src/reporting/**'
+      - 'tests/architecture/run_wave15b_professional_review.js'
+      - 'docs/WAVE_15B_PROFESSIONAL_REVIEW.md'
+      - '.github/workflows/professional-review-verify.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Wave 15B professional review regression
+        run: node tests/architecture/run_wave15b_professional_review.js
+      - name: Canonical release verification
+        run: npm run release:verify

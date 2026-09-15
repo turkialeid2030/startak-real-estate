@@ -1,0 +1,31 @@
+name: Regulated Context Routers Verify
+
+on:
+  pull_request:
+    paths:
+      - 'src/standards/regulated-context-router.js'
+      - 'tests/architecture/run_wave12e_regulated_context_routers.js'
+      - 'docs/WAVE_12E_REGULATED_CONTEXT_ROUTERS.md'
+      - '.github/workflows/regulated-context-routers-verify.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Wave 12E regulated context routers
+        run: node tests/architecture/run_wave12e_regulated_context_routers.js
+      - name: Canonical release verification
+        run: npm run release:verify

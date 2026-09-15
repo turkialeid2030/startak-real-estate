@@ -17,7 +17,7 @@ function calculateInvestmentCase({ studyType, inputs, leverageEnabled, assumptio
   if (studyType !== STUDY_TYPE.EXISTING_BUILDING && studyType !== STUDY_TYPE.LAND_DEVELOPMENT) {
     throw new Error(`calculateInvestmentCase: unknown studyType "${studyType}" -- must be one of ${Object.values(STUDY_TYPE).join(', ')}`);
   }
-  const engineInputs = { ...inputs, leverageEnabled };
+  const engineInputs = leverageEnabled === undefined ? { ...inputs } : { ...inputs, leverageEnabled };
   validateEngineInputs(engineInputs, { studyType });
   const rawResult = studyType === STUDY_TYPE.EXISTING_BUILDING
     ? calcExistingBuilding(engineInputs, { assumptionModelVersion })

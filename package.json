@@ -10,7 +10,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "verify:package": "node tests/verify_package.js",
-    "release:verify": "node tools/release-verify.js"
+    "release:verify": "node tools/release-verify.js",
+    "test:decision-integrity": "node tests/defects/decision_integrity_wave.js"
   },
   "dependencies": {
     "@sentry/react": "^10.72.0",

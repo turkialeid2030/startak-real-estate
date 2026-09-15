@@ -1,0 +1,61 @@
+'use strict';
+const fs = require('fs');
+const path = require('path');
+const arSA = require('../../src/i18n/locales/ar-SA.js');
+const {
+  sanitizeArabicUiText,
+  hasVisibleLatinText,
+  presentCode,
+} = require('../../src/i18n/strict-arabic-presentation.js');
+
+const results = [];
+function check(id, condition, detail) {
+  console.log(`${id} ${condition ? 'PASS' : 'FAIL'} -- ${detail}`);
+  results.push(Boolean(condition));
+}
+
+function flattenStrings(value, prefix = '', output = []) {
+  if (typeof value === 'string') output.push([prefix, value]);
+  else if (value && typeof value === 'object') {
+    for (const [key, child] of Object.entries(value)) flattenStrings(child, prefix ? `${prefix}.${key}` : key, output);
+  }
+  return output;
+}
+
+const leaks = flattenStrings(arSA)
+  .map(([key, value]) => [key, sanitizeArabicUiText(value)])
+  .filter(([, value]) => hasVisibleLatinText(value));
+if (leaks.length) {
+  console.log('STRICT_ARABIC_DICTIONARY_LEAKS:');
+  for (const [key, value] of leaks.slice(0, 100)) console.log(`  ${key}: ${value}`);
+}
+check('STRICT-AR-DICTIONARY-RUNTIME-SURFACE', leaks.length === 0, `remaining Latin-bearing Arabic dictionary values after presentation sanitization=${leaks.length}`);
+
+const codeCases = {
+  READY_FOR_REVIEW: 'جاهز للمراجعة',
+  HOLD_EVIDENCE: 'معلّق لاستكمال الأدلة',
+  ANALYST: 'المحلل',
+  INDUSTRIAL_LOGISTICS: 'صناعي ولوجستي',
+  ACQUIRE_HOLD: 'استحواذ واحتفاظ',
+  LEASE_INCOME: 'دخل إيجاري',
+};
+for (const [raw, expected] of Object.entries(codeCases)) {
+  check(`STRICT-AR-CODE-${raw}`, presentCode(raw, 'ar-SA') === expected, `${raw} => ${expected}`);
+}
+
+const contextSource = fs.readFileSync(path.join(__dirname, '../../src/i18n/LocaleContext.js'), 'utf8');
+check('STRICT-AR-STORED-PREFERENCE-FIRST', contextSource.includes('safeReadStoredLocale() || detectBrowserLocale()'), 'saved explicit choice precedes browser-language fallback');
+check('STRICT-AR-BROWSER-FALLBACK', contextSource.includes("detectBrowserLocale() || normalizeLocale(defaultLocale)"), 'browser language precedes supplied default');
+check('STRICT-AR-HTML-LANG-DIR', contextSource.includes("setAttribute('lang', locale)") && contextSource.includes("setAttribute('dir', dir)"), 'document language and direction synchronized');
+check('STRICT-AR-MISSING-KEY-FAIL-CLOSED', contextSource.includes("locale === 'ar-SA' ? 'نص واجهة غير متاح' : path"), 'missing Arabic key never leaks internal translation path');
+
+const mainSource = fs.readFileSync(path.join(__dirname, '../../src/main.jsx'), 'utf8');
+const guardSource = fs.readFileSync(path.join(__dirname, '../../src/components/StrictArabicSurfaceGuard.jsx'), 'utf8');
+check('STRICT-AR-GUARD-INSTALLED', mainSource.includes('<StrictArabicSurfaceGuard />'), 'strict Arabic surface guard installed under LocaleProvider');
+check('STRICT-AR-GUARD-FAIL-CLOSED', guardSource.includes("return original.replace(trimmed, 'محتوى واجهة غير معرّب');"), 'unmapped English prose is not exposed in Arabic mode');
+check('STRICT-AR-TECHNICAL-REF-BOUNDARY', guardSource.includes('TECHNICAL_REFERENCE.test(trimmed)'), 'immutable technical references remain exact');
+
+const passed = results.filter(Boolean).length;
+console.log(`STRICT_ARABIC_TOTAL=${results.length} PASSED=${passed} FAILED=${results.length - passed}`);
+console.log('STRICT_ARABIC_SURFACE=' + (passed === results.length ? 'PASS' : 'FAIL'));
+process.exit(passed === results.length ? 0 : 1);

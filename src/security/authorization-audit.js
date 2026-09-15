@@ -1,5 +1,7 @@
 'use strict';
 
+const { normalizeIdentity } = require('./tenant-boundary');
+
 const AUTHZ_STATUS = Object.freeze({
   ALLOW: 'ALLOW',
   DENY: 'DENY',
@@ -11,16 +13,17 @@ function normalizePolicy(policy) {
   const normalized = {};
   for (const [action, roles] of Object.entries(policy)) {
     if (!Array.isArray(roles) || roles.length === 0) throw new TypeError(`policy action ${action} must list at least one role`);
-    normalized[String(action)] = Object.freeze([...new Set(roles.map(String))]);
+    normalized[String(action)] = Object.freeze([...new Set(roles.map((role) => String(role).trim()).filter(Boolean))]);
+    if (normalized[String(action)].length === 0) throw new TypeError(`policy action ${action} must list at least one role`);
   }
   return Object.freeze(normalized);
 }
 
 function authorizeAction({ identity, action, policy } = {}) {
-  const actorId = String(identity?.actorId || '').trim();
-  const tenantId = String(identity?.tenantId || '').trim();
-  const roles = Array.isArray(identity?.roles) ? [...new Set(identity.roles.map(String))] : [];
-  if (!actorId || !tenantId) return Object.freeze({ status: AUTHZ_STATUS.HOLD_IDENTITY, allowed: false, reason: 'IDENTITY_MISSING' });
+  const normalizedIdentity = normalizeIdentity(identity);
+  if (!normalizedIdentity) return Object.freeze({ status: AUTHZ_STATUS.HOLD_IDENTITY, allowed: false, reason: 'IDENTITY_MISSING' });
+
+  const { actorId, tenantId, roles } = normalizedIdentity;
   const rules = normalizePolicy(policy);
   const requiredRoles = rules[String(action)];
   if (!requiredRoles) return Object.freeze({ status: AUTHZ_STATUS.DENY, allowed: false, reason: 'ACTION_NOT_IN_POLICY', actorId, tenantId, action: String(action) });
@@ -43,8 +46,9 @@ function requireAuthorizedAction(args) {
 function createSecurityAuditEvent({ eventId, occurredAt, identity, action, resourceType, resourceId, decision, reason, metadata = {} } = {}) {
   const id = String(eventId || '').trim();
   const timestamp = String(occurredAt || '').trim();
-  const actorId = String(identity?.actorId || '').trim();
-  const tenantId = String(identity?.tenantId || '').trim();
+  const normalizedIdentity = normalizeIdentity(identity);
+  const actorId = normalizedIdentity?.actorId || '';
+  const tenantId = normalizedIdentity?.tenantId || '';
   if (!id || !timestamp || !action || !resourceType || !resourceId || !decision || !reason) throw new TypeError('security audit event missing required fields');
   if (!['ALLOW', 'DENY', 'HOLD_IDENTITY'].includes(String(decision))) throw new TypeError('invalid security audit decision');
   const safeMetadata = {};

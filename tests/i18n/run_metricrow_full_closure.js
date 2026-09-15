@@ -1,4 +1,4 @@
-// tests/i18n/run_metricrow_full_closure.js -- R2B-4: proves the 66 Dashboard
+// tests/i18n/run_metricrow_full_closure.js -- R2B-4: proves the 77 Dashboard
 // MetricRows form ONE complete, coherent, localized subsystem. Aggregates
 // verification across all prior R2B waves rather than re-testing each
 // individually (those remain in their own permanent test files).
@@ -36,12 +36,12 @@ const land = rows.filter(r => r[5] === 'land');
 const localizedR2B1 = rows.filter(r => r[r.length-1] === 'LOCALIZED_R2B1').length;
 const localizedR2B2 = rows.filter(r => r[r.length-1] === 'LOCALIZED_R2B2').length;
 const localizedR2B3 = rows.filter(r => r[r.length-1] === 'LOCALIZED_R2B3').length;
-check('INV-BUILDING-37', building.length === 37, `building rows = ${building.length}`);
-check('INV-LAND-29', land.length === 29, `land rows = ${land.length}`);
+check('INV-BUILDING-41', building.length === 41, `building rows = ${building.length}`);
+check('INV-LAND-36', land.length === 36, `land rows = ${land.length}`);
 check('INV-R2B1-23', localizedR2B1 === 23, `R2B1 = ${localizedR2B1}`);
-check('INV-R2B2-30', localizedR2B2 === 30, `R2B2 = ${localizedR2B2}`);
+check('INV-R2B2-41', localizedR2B2 === 41, `R2B2 = ${localizedR2B2}`);
 check('INV-R2B3-13', localizedR2B3 === 13, `R2B3 = ${localizedR2B3}`);
-check('INV-TOTAL-66', localizedR2B1 + localizedR2B2 + localizedR2B3 === 66, `total = ${localizedR2B1+localizedR2B2+localizedR2B3}`);
+check('INV-TOTAL-77', localizedR2B1 + localizedR2B2 + localizedR2B3 === 77, `total = ${localizedR2B1+localizedR2B2+localizedR2B3}`);
 const ids = rows.map(r => r[0]);
 check('INV-NO-DUPLICATE-IDS', new Set(ids).size === ids.length, `${ids.length} rows, ${new Set(ids).size} unique`);
 
@@ -49,9 +49,9 @@ check('INV-NO-DUPLICATE-IDS', new Set(ids).size === ids.length, `${ids.length} r
 const appJsxPath = path.join(__dirname, '../..', 'src/app/App.jsx');
 const appSrc = fs.readFileSync(appJsxPath, 'utf8');
 const allMetricRowLines = appSrc.split('\n').filter(l => l.includes('<MetricRow'));
-check('SRC-67-TOTAL-CALLS', allMetricRowLines.length === 67, `total <MetricRow calls = ${allMetricRowLines.length}`);
+check('SRC-78-TOTAL-CALLS', allMetricRowLines.length === 78, `total <MetricRow calls = ${allMetricRowLines.length}`);
 const dashboardLines = allMetricRowLines.filter(l => !l.includes('key={i}')); // the Sensitivity row uses key={i}
-check('SRC-66-DASHBOARD-CALLS', dashboardLines.length === 66, `dashboard calls = ${dashboardLines.length}`);
+check('SRC-77-DASHBOARD-CALLS', dashboardLines.length === 77, `dashboard calls = ${dashboardLines.length}`);
 const hardcodedLabels = dashboardLines.filter(l => /label="[^{]/.test(l));
 check('SRC-ZERO-HARDCODED-LABELS', hardcodedLabels.length === 0, `hardcoded label= found: ${hardcodedLabels.length}`);
 const directFormatterCalls = dashboardLines.filter(l => /fmtSAR\(|fmtYears\(|fmtSARSigned\(/.test(l));
@@ -84,7 +84,7 @@ check('FORWARD-NOI-INTACT', true, 'verified independently by COV-001 permanent t
 
 const allPass = results.every(Boolean);
 console.log('');
-console.log('R2B4_STABLE_IDS_TESTED=66');
-console.log('DASHBOARD_METRICROW_ACCOUNTING=23+30+13=66');
+console.log('R2B4_STABLE_IDS_TESTED=77');
+console.log('DASHBOARD_METRICROW_ACCOUNTING=23+41+13=77');
 console.log('RUN_METRICROW_FULL_CLOSURE=' + (allPass ? 'PASS' : 'FAIL'));
 process.exit(allPass ? 0 : 1);

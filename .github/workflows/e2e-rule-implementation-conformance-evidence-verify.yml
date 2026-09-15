@@ -1,0 +1,30 @@
+name: E2E Rule Implementation Conformance Evidence Verify
+
+on:
+  pull_request:
+    paths:
+      - 'governance/e2e-rule-implementation-conformance-evidence-policy-2026-09-08.json'
+      - 'src/standards/rule-implementation-conformance-evidence.js'
+      - 'tests/architecture/run_e2e_rule_implementation_conformance_evidence.js'
+      - 'docs/E2E_RULE_IMPLEMENTATION_CONFORMANCE_EVIDENCE_2026-09-08.md'
+      - '.github/workflows/e2e-rule-implementation-conformance-evidence-verify.yml'
+      - 'src/standards/substantive-review-activation-proposal.js'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify E2E rule implementation and conformance evidence gate
+        run: node tests/architecture/run_e2e_rule_implementation_conformance_evidence.js
+      - name: Re-verify E2D substantive review activation proposal gate
+        run: node tests/architecture/run_e2d_substantive_review_activation_proposal.js
+      - name: Canonical release verification
+        run: npm run release:verify

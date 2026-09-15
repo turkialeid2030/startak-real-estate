@@ -96,9 +96,6 @@ try {
     await page.waitForTimeout(200);
     if ((await input.inputValue()) !== '120') throw new Error('edited building input did not persist visibly');
 
-    // Wave 2 requires a user-supplied exit cap for fresh Existing Building V2
-    // workspaces. Complete that governed input as part of the novice journey
-    // before asserting a deterministic analytical state.
     const exitCap = await enterExplicitBuildingExitCap(page, act, '8.5');
 
     await act(() => page.getByText('لوحة المؤشرات', { exact: true }).first().click());
@@ -143,9 +140,6 @@ try {
     const toggle = page.getByRole('switch', { name: 'تفعيل الرافعة المالية' }).first();
     if ((await toggle.count()) === 0) throw new Error('financing toggle cannot be discovered by accessible name');
 
-    // The financing controls live inside a collapsed accordion. Model the real
-    // user journey: discover and open that section before interacting with the
-    // switch, instead of clicking an element hidden behind the collapsed panel.
     const section = toggle.locator('xpath=ancestor::div[contains(@class,"rounded-2xl") and contains(@class,"overflow-hidden")][1]');
     if ((await section.count()) === 0) throw new Error('financing section container could not be resolved');
     const sectionBody = section.locator('.rf-accordion-body').first();
@@ -186,8 +180,8 @@ try {
 
   await runTask('LANGUAGE_DIRECTION_SWITCH', page, async (act) => {
     await act(() => page.setViewportSize({ width: 1440, height: 900 }));
-    const en = page.getByRole('button', { name: 'EN' }).first();
-    if ((await en.count()) === 0) throw new Error('English language control not discoverable');
+    const en = page.getByRole('button', { name: 'الإنجليزية' }).first();
+    if ((await en.count()) === 0) throw new Error('English language control not discoverable through Arabic presentation label');
     await act(() => en.click());
     await page.waitForTimeout(220);
     const dirEn = await page.locator('html').getAttribute('dir');
@@ -195,8 +189,6 @@ try {
     if (dirEn !== 'ltr') throw new Error(`English mode should be LTR, got ${dirEn}`);
     if (langEn !== 'en') throw new Error(`English mode should set html lang=en, got ${langEn}`);
 
-    // The visible control is Arabic letter "ع" after switching to English;
-    // its title is stable and explicit for accessibility/discovery.
     const ar = page.getByTitle('التبديل إلى العربية').first();
     if ((await ar.count()) === 0) throw new Error('Arabic language control not discoverable after switching to English');
     await act(() => ar.click());

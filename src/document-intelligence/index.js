@@ -10,6 +10,8 @@ const parsedEvidenceQualification = require('./parsed-evidence-qualification');
 const evidenceVerificationReadiness = require('./evidence-verification-readiness');
 const underwritingInputAdoption = require('./underwriting-input-adoption');
 const evidenceToCalculationTraceability = require('./evidence-to-calculation-traceability');
+const professionalEvidenceChain = require('./professional-evidence-chain');
+const propertyDataConflictGate = require('./property-data-conflict-gate');
 
 module.exports = Object.assign(
   {},
@@ -23,6 +25,8 @@ module.exports = Object.assign(
   evidenceVerificationReadiness,
   underwritingInputAdoption,
   evidenceToCalculationTraceability,
+  professionalEvidenceChain,
+  propertyDataConflictGate,
   {
     parsers,
     semantics,
@@ -30,5 +34,7 @@ module.exports = Object.assign(
     evidenceVerificationReadiness,
     underwritingInputAdoption,
     evidenceToCalculationTraceability,
+    professionalEvidenceChain,
+    propertyDataConflictGate,
   },
 );

@@ -1,0 +1,33 @@
+name: Portfolio Concentration Verify
+
+on:
+  pull_request:
+    paths:
+      - 'src/portfolio/**'
+      - 'src/uncertainty/**'
+      - 'src/scenario-risk/**'
+      - 'tests/architecture/run_wave16a_monte_carlo_governance.js'
+      - 'tests/architecture/run_wave16b_tail_risk_thresholds.js'
+      - 'tests/architecture/run_wave16c_portfolio_concentration.js'
+      - '.github/workflows/portfolio-concentration-verify.yml'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Wave 16A Monte Carlo governance regression
+        run: node tests/architecture/run_wave16a_monte_carlo_governance.js
+      - name: Wave 16B tail risk threshold regression
+        run: node tests/architecture/run_wave16b_tail_risk_thresholds.js
+      - name: Wave 16C portfolio concentration regression
+        run: node tests/architecture/run_wave16c_portfolio_concentration.js
+      - name: Canonical release verification
+        run: npm run release:verify
