@@ -22,7 +22,13 @@ function hasExplicitValue(value) {
 function acquisitionBasisType({ explicitAmount, rate, buyerAmount, included }) {
   if (!included || buyerAmount === 0) return ACQUISITION_COST_BASIS.NONE;
   if (hasExplicitValue(explicitAmount)) return ACQUISITION_COST_BASIS.FIXED_AMOUNT;
-  if (rate !== null) return ACQUISITION_COST_BASIS.RATE;
+  if (rate !== null && rate !== undefined) return ACQUISITION_COST_BASIS.RATE;
+  return ACQUISITION_COST_BASIS.NONE;
+}
+
+function requestedBasisType({ explicitAmount, rate }) {
+  if (hasExplicitValue(explicitAmount)) return ACQUISITION_COST_BASIS.FIXED_AMOUNT;
+  if (rate !== null && rate !== undefined) return ACQUISITION_COST_BASIS.RATE;
   return ACQUISITION_COST_BASIS.NONE;
 }
 
@@ -62,6 +68,19 @@ function adaptGovernedAcquisitionCosts(inputs = {}, { asset = 'BUILDING' } = {})
   const governedAcquisitionBrokerageAmount = governed.brokerage.includedInAcquisitionBasis
     ? governed.brokerage.buyerEconomicAmount
     : 0;
+
+  // BasisType describes how the source obligation was expressed (rate/fixed),
+  // even when the buyer economic burden is zero (e.g. seller-borne). The
+  // effective buyer rate remains zero in those cases. This preserves source
+  // provenance without charging the investor.
+  const governedAcquisitionRettBasisType = requestedBasisType({
+    explicitAmount: inputs.rettAmount,
+    rate: governed.rett.rate,
+  });
+  const governedAcquisitionBrokerageBasisType = requestedBasisType({
+    explicitAmount: inputs.brokerageAmount,
+    rate: governed.brokerage.rate,
+  });
   const governedAcquisitionRettBasis = acquisitionBasisType({
     explicitAmount: inputs.rettAmount,
     rate: governed.rett.rate,
@@ -85,6 +104,8 @@ function adaptGovernedAcquisitionCosts(inputs = {}, { asset = 'BUILDING' } = {})
     ...inputs,
     governedAcquisitionRettAmount,
     governedAcquisitionBrokerageAmount,
+    governedAcquisitionRettBasisType,
+    governedAcquisitionBrokerageBasisType,
     governedAcquisitionRettBasis,
     governedAcquisitionBrokerageBasis,
     governedAcquisitionRettEffectiveRate,
