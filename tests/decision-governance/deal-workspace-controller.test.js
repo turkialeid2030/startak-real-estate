@@ -51,7 +51,8 @@ const newSaved = prepareWorkspaceRecordForSave(
   { id: 'n1', mode: 'building', inputs: completeBuilding },
   fresh.provenance,
 );
-assert.strictEqual(newSaved.provenance.kind, DEAL_PROVENANCE.NEW);
+assert.strictEqual(newSaved.provenance.kind, DEAL_PROVENANCE.SAVED);
 assert.strictEqual(newSaved.provenance.isDemo, false);
+assert.strictEqual(newSaved.provenance.requiresRealDealConfirmation, false);
 
 console.log('DEAL_WORKSPACE_CONTROLLER_TESTS=PASS');
