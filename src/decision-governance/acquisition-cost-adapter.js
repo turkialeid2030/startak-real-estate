@@ -49,17 +49,27 @@ function adaptGovernedAcquisitionCosts(inputs = {}, { asset = 'BUILDING' } = {})
   const governedAcquisitionBrokerageAmount = governed.brokerage.includedInAcquisitionBasis
     ? governed.brokerage.buyerEconomicAmount
     : 0;
+  const governedAcquisitionRettEffectiveRate = purchasePrice > 0 ? governedAcquisitionRettAmount / purchasePrice : 0;
+  const governedAcquisitionBrokerageEffectiveRate = purchasePrice > 0 ? governedAcquisitionBrokerageAmount / purchasePrice : 0;
 
-  // Effective acquisition rates are explicit and independent from historical
-  // transfer/commission fields. They allow price-threshold calculations to
-  // remain proportional without reusing disposition semantics.
   const next = {
     ...inputs,
     governedAcquisitionRettAmount,
     governedAcquisitionBrokerageAmount,
-    governedAcquisitionRettEffectiveRate: purchasePrice > 0 ? governedAcquisitionRettAmount / purchasePrice : 0,
-    governedAcquisitionBrokerageEffectiveRate: purchasePrice > 0 ? governedAcquisitionBrokerageAmount / purchasePrice : 0,
+    governedAcquisitionRettEffectiveRate,
+    governedAcquisitionBrokerageEffectiveRate,
   };
+
+  // Land has distinct acquisition and exit transfer fields in the canonical
+  // engine: landTransferFeeRate/landCommissionRate are acquisition-only while
+  // exitTransferFeeRate is disposition-only. Therefore governed buyer burden
+  // can safely replace only the two acquisition rates. Existing-building does
+  // not yet have that separation, so its legacy rates remain untouched.
+  if (asset === 'LAND') {
+    next.landTransferFeeRate = governedAcquisitionRettEffectiveRate;
+    next.landCommissionRate = governedAcquisitionBrokerageEffectiveRate;
+  }
+
   return Object.freeze({ inputs: next, governed, legacyCompatibility: false, warnings: governed.warnings });
 }
 
