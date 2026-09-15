@@ -12,11 +12,18 @@ fs.mkdirSync(EVIDENCE_DIR, { recursive: true });
 const results = {};
 let previewServer = null;
 let browser = null;
+const LEGACY_VERDICT_RE = /يوصى بالشراء|لا يوصى بالشراء/;
 
 function mark(key, passed, detail = null) {
   results[key] = passed ? 'PASS' : 'FAIL';
   if (detail !== null) results[`${key}_DETAIL`] = detail;
   if (!passed) throw new Error(`${key}_FAILED${detail ? `: ${detail}` : ''}`);
+}
+async function loadReferenceDeal(page, nameRe) {
+  await page.getByTitle('الصفقات المحفوظة').click();
+  await page.waitForTimeout(200);
+  await page.getByRole('button', { name: nameRe }).first().click();
+  await page.waitForTimeout(300);
 }
 
 try {
@@ -47,8 +54,14 @@ try {
   mark('BROWSER_APP_BOOT', rootHtml.length > 100, `htmlLength=${rootHtml.length}`);
   mark('AR_SA_RUNTIME', (await page.locator('html').getAttribute('dir')) === 'rtl');
 
+  // P1-07: a fresh New Deal must remain blank/fail-closed and must not synthesize an investment verdict.
   await page.getByText('مبنى قائم', { exact: true }).click();
   await page.waitForTimeout(250);
+  const newDealBody = await page.locator('body').innerText();
+  mark('NEW_DEAL_FAIL_CLOSED', !LEGACY_VERDICT_RE.test(newDealBody), `legacyVerdict=${LEGACY_VERDICT_RE.test(newDealBody)}`);
+
+  // Full deterministic financial UI flows use explicit reference/demo fixtures.
+  await loadReferenceDeal(page, /مبنى أبو بكر الصديق/);
   const buildingBodyBefore = await page.locator('body').innerText();
   const buildingInput = page.locator('input[type="text"], input[inputmode="decimal"]').first();
   const buildingBefore = await buildingInput.inputValue();
@@ -59,8 +72,7 @@ try {
   const buildingBodyAfter = await page.locator('body').innerText();
   mark('EXISTING_BUILDING_E2E', buildingAfter !== buildingBefore && buildingBodyAfter !== buildingBodyBefore);
 
-  await page.getByText('أرض + تطوير', { exact: true }).click();
-  await page.waitForTimeout(250);
+  await loadReferenceDeal(page, /أرض الوادي/);
   const landBodyBefore = await page.locator('body').innerText();
   const landInput = page.locator('input[type="text"], input[inputmode="decimal"]').first();
   const landBefore = await landInput.inputValue();
@@ -83,7 +95,7 @@ try {
   await page.waitForTimeout(250);
   const dashboardText = await page.locator('body').innerText();
   const safeVerdictVisible = /حالة تحليلية مواتية|حالة تحليلية مشروطة|مخاطر تحليلية مرتفعة|تعليق التحليل لحين استكمال الأدلة|يتطلب مراجعة مختص مرخص/.test(dashboardText);
-  const legacyVerdictVisible = /يوصى بالشراء|لا يوصى بالشراء/.test(dashboardText);
+  const legacyVerdictVisible = LEGACY_VERDICT_RE.test(dashboardText);
   mark('RECOMMENDATION_RUNTIME_FLOW', safeVerdictVisible && !legacyVerdictVisible, `safeVerdict=${safeVerdictVisible} legacyVerdict=${legacyVerdictVisible}`);
 
   for (const [name, width, height] of [['MOBILE',390,844],['TABLET',768,1024],['DESKTOP',1440,900]]) {
