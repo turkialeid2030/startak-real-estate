@@ -26,17 +26,55 @@ assert.deepStrictEqual(governedLegacy.financialResult, direct, 'Legacy financial
 assert.strictEqual(governedLegacy.acquisitionCostGovernance.legacyCompatibility, true);
 assert.strictEqual(Object.prototype.hasOwnProperty.call(governedLegacy.financialResult, 'acquisitionCostGovernance'), false);
 
-// Governed building RETT that would overwrite the legacy transferFeeRate must
-// fail closed because that field also controls terminal-sale cost today.
-assert.throws(() => calculateGovernedInvestmentCase({
+// Governed acquisition burden must be carried independently from the legacy
+// rates. Those legacy rates may still drive disposition/compatibility behavior
+// and therefore must not be rewritten by RETT/brokerage governance.
+const sellerBorne = calculateGovernedInvestmentCase({
   studyType: STUDY_TYPE.EXISTING_BUILDING,
   inputs: {
     ...inputs,
     rettRate: 0.05,
     rettEconomicBearer: 'SELLER',
+    brokerageRate: 0.025,
+    brokeragePayer: 'SELLER',
+  },
+  leverageEnabled: inputs.leverageEnabled,
+});
+assert.strictEqual(sellerBorne.acquisitionCostGovernance.legacyCompatibility, false);
+assert.strictEqual(sellerBorne.acquisitionCostGovernance.governed.rett.buyerEconomicAmount, 0);
+assert.strictEqual(sellerBorne.acquisitionCostGovernance.governed.brokerage.buyerEconomicAmount, 0);
+
+const unknownBorne = calculateGovernedInvestmentCase({
+  studyType: STUDY_TYPE.EXISTING_BUILDING,
+  inputs: {
+    ...inputs,
+    rettRate: 0.05,
+    rettEconomicBearer: 'UNKNOWN',
+    brokerageRate: 0.025,
     brokeragePayer: 'UNKNOWN',
   },
   leverageEnabled: inputs.leverageEnabled,
-}), (error) => error && error.code === 'BUILDING_RETT_DISPOSITION_SEMANTICS_NOT_SEPARATED');
+});
+assert.strictEqual(unknownBorne.acquisitionCostGovernance.governed.rett.buyerEconomicAmount, 0);
+assert.strictEqual(unknownBorne.acquisitionCostGovernance.governed.brokerage.buyerEconomicAmount, 0);
+assert.strictEqual(unknownBorne.acquisitionCostGovernance.warnings.length, 2);
+
+const buyerBorne = calculateGovernedInvestmentCase({
+  studyType: STUDY_TYPE.EXISTING_BUILDING,
+  inputs: {
+    ...inputs,
+    rettRate: 0.05,
+    rettEconomicBearer: 'BUYER',
+    brokerageRate: 0.025,
+    brokeragePayer: 'BUYER',
+  },
+  leverageEnabled: inputs.leverageEnabled,
+});
+assert.strictEqual(buyerBorne.acquisitionCostGovernance.governed.rett.buyerEconomicAmount, inputs.buildingPrice * 0.05);
+assert.strictEqual(buyerBorne.acquisitionCostGovernance.governed.brokerage.buyerEconomicAmount, inputs.buildingPrice * 0.025);
+
+// Governance metadata must remain outside the characterized financial contract.
+assert.strictEqual(Object.prototype.hasOwnProperty.call(sellerBorne.financialResult, 'acquisitionCostGovernance'), false);
+assert.strictEqual(Object.prototype.hasOwnProperty.call(buyerBorne.financialResult, 'acquisitionCostGovernance'), false);
 
 console.log('INVESTMENT_CASE_ORCHESTRATOR_TESTS=PASS');
