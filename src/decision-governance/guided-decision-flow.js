@@ -33,8 +33,12 @@ function evaluateGuidedDecisionFlow(input = {}) {
   const firstIncompleteIndex = GUIDED_SEQUENCE.findIndex((step) => !readiness[step]);
   const nextStep = firstIncompleteIndex === -1 ? null : GUIDED_SEQUENCE[firstIncompleteIndex];
   const basicInputsComplete = GUIDED_SEQUENCE.slice(0, 6).every((step) => readiness[step]);
-  const financialResultAllowed = GUIDED_SEQUENCE.slice(0, 6).every((step) => readiness[step]);
+  const financialResultAllowed = basicInputsComplete;
   const overallDecisionAllowed = GUIDED_SEQUENCE.slice(0, 11).every((step) => readiness[step]);
+  // A final buy/reject decision is displayable only after an actual governed
+  // overall decision exists. Readiness to ENTER the final step is not itself
+  // permission to display a final investment decision.
+  const buyRejectDecisionAllowed = overallDecisionAllowed && readiness[GUIDED_STEP.OVERALL_DECISION];
   return Object.freeze({
     sequence: GUIDED_SEQUENCE,
     readiness: Object.freeze(readiness),
@@ -42,7 +46,7 @@ function evaluateGuidedDecisionFlow(input = {}) {
     basicInputsComplete,
     financialResultAllowed,
     overallDecisionAllowed,
-    buyRejectDecisionAllowed: overallDecisionAllowed,
+    buyRejectDecisionAllowed,
   });
 }
 
