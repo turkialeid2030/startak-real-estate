@@ -3,8 +3,6 @@ const { calculateSaudiAcquisitionCosts, PARTY } = require('./saudi-acquisition-c
 
 function adaptGovernedAcquisitionCosts(inputs = {}, { asset = 'BUILDING' } = {}) {
   const priceKey = asset === 'LAND' ? 'landMarketValue' : 'buildingPrice';
-  const legacyBrokerageKey = asset === 'LAND' ? 'landCommissionRate' : 'commissionRate';
-  const legacyRettKey = asset === 'LAND' ? 'landTransferFeeRate' : 'transferFeeRate';
   const purchasePrice = Number(inputs[priceKey] ?? inputs.buildingPrice ?? 0);
 
   const hasGovernedRett = Object.prototype.hasOwnProperty.call(inputs, 'rettEconomicBearer');
@@ -34,9 +32,19 @@ function adaptGovernedAcquisitionCosts(inputs = {}, { asset = 'BUILDING' } = {})
     brokerageBuyerShare: inputs.brokerageBuyerShare,
   });
 
-  const next = { ...inputs };
-  next[legacyRettKey] = purchasePrice > 0 ? governed.rett.buyerEconomicAmount / purchasePrice : 0;
-  next[legacyBrokerageKey] = purchasePrice > 0 ? governed.brokerage.buyerEconomicAmount / purchasePrice : 0;
+  // Do not overwrite legacy rate fields. In the existing-building engine the
+  // historical transferFeeRate also drives terminal-sale cost, so mutating it
+  // with acquisition RETT burden would conflate acquisition and disposition.
+  // Governed acquisition economics travel through explicit amount fields.
+  const next = {
+    ...inputs,
+    governedAcquisitionRettAmount: governed.rett.includedInAcquisitionBasis
+      ? governed.rett.buyerEconomicAmount
+      : 0,
+    governedAcquisitionBrokerageAmount: governed.brokerage.includedInAcquisitionBasis
+      ? governed.brokerage.buyerEconomicAmount
+      : 0,
+  };
   return Object.freeze({ inputs: next, governed, legacyCompatibility: false, warnings: governed.warnings });
 }
 
