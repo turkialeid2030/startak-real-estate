@@ -1,9 +1,20 @@
 'use strict';
 const { calculateSaudiAcquisitionCosts, PARTY } = require('./saudi-acquisition-costs');
 
+function resolvePurchasePrice(inputs, asset) {
+  if (asset === 'LAND') {
+    if (Number.isFinite(Number(inputs.landMarketValue))) return Number(inputs.landMarketValue);
+    const length = Number(inputs.landLength);
+    const width = Number(inputs.landWidth);
+    const pricePerSqm = Number(inputs.landPricePerSqm);
+    if ([length, width, pricePerSqm].every(Number.isFinite)) return length * width * pricePerSqm;
+    return 0;
+  }
+  return Number(inputs.buildingPrice ?? 0);
+}
+
 function adaptGovernedAcquisitionCosts(inputs = {}, { asset = 'BUILDING' } = {}) {
-  const priceKey = asset === 'LAND' ? 'landMarketValue' : 'buildingPrice';
-  const purchasePrice = Number(inputs[priceKey] ?? inputs.buildingPrice ?? 0);
+  const purchasePrice = resolvePurchasePrice(inputs, asset);
 
   const hasGovernedRett = Object.prototype.hasOwnProperty.call(inputs, 'rettEconomicBearer');
   const hasGovernedBrokerage = Object.prototype.hasOwnProperty.call(inputs, 'brokeragePayer');
@@ -32,18 +43,22 @@ function adaptGovernedAcquisitionCosts(inputs = {}, { asset = 'BUILDING' } = {})
     brokerageBuyerShare: inputs.brokerageBuyerShare,
   });
 
-  // Do not overwrite legacy rate fields. In the existing-building engine the
-  // historical transferFeeRate also drives terminal-sale cost, so mutating it
-  // with acquisition RETT burden would conflate acquisition and disposition.
-  // Governed acquisition economics travel through explicit amount fields.
+  const governedAcquisitionRettAmount = governed.rett.includedInAcquisitionBasis
+    ? governed.rett.buyerEconomicAmount
+    : 0;
+  const governedAcquisitionBrokerageAmount = governed.brokerage.includedInAcquisitionBasis
+    ? governed.brokerage.buyerEconomicAmount
+    : 0;
+
+  // Effective acquisition rates are explicit and independent from historical
+  // transfer/commission fields. They allow price-threshold calculations to
+  // remain proportional without reusing disposition semantics.
   const next = {
     ...inputs,
-    governedAcquisitionRettAmount: governed.rett.includedInAcquisitionBasis
-      ? governed.rett.buyerEconomicAmount
-      : 0,
-    governedAcquisitionBrokerageAmount: governed.brokerage.includedInAcquisitionBasis
-      ? governed.brokerage.buyerEconomicAmount
-      : 0,
+    governedAcquisitionRettAmount,
+    governedAcquisitionBrokerageAmount,
+    governedAcquisitionRettEffectiveRate: purchasePrice > 0 ? governedAcquisitionRettAmount / purchasePrice : 0,
+    governedAcquisitionBrokerageEffectiveRate: purchasePrice > 0 ? governedAcquisitionBrokerageAmount / purchasePrice : 0,
   };
   return Object.freeze({ inputs: next, governed, legacyCompatibility: false, warnings: governed.warnings });
 }
