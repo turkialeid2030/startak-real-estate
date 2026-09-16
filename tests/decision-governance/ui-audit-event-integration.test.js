@@ -5,7 +5,7 @@ const {
   prepareNewUiDealForSave,
   prepareUpdatedUiDealForSave,
 } = require('../../src/assumptions/ui-integration-controller');
-const { validateSavedDealRecord } = require('../../src/validation/saved-deal-schema');
+const { validateSavedDealRecord, SavedDealValidationError } = require('../../src/validation/saved-deal-schema');
 
 const savedAt = '2026-09-16T11:15:00.000Z';
 const base = {
@@ -33,5 +33,23 @@ assert.strictEqual(updated.localAuditEvent.trailType, 'LOCAL_HISTORY');
 assert.strictEqual(updated.localAuditEvent.enterpriseAuditTrail, false);
 assert.strictEqual(updated.localAuditEvent.modelVersion, created.assumptionModelVersion);
 assert.doesNotThrow(() => validateSavedDealRecord(updated));
+
+const tampered = {
+  ...created,
+  localAuditEvent: { ...created.localAuditEvent, enterpriseAuditTrail: true },
+};
+assert.throws(
+  () => validateSavedDealRecord(tampered),
+  (error) => error instanceof SavedDealValidationError && error.reasonCode === 'INVALID_LOCAL_AUDIT_EVENT',
+);
+
+const nested = {
+  ...base,
+  inputs: { ...base.inputs, localAuditEvent: created.localAuditEvent },
+};
+assert.throws(
+  () => validateSavedDealRecord(nested),
+  (error) => error instanceof SavedDealValidationError && error.reasonCode === 'LOCAL_AUDIT_EVENT_IN_ECONOMIC_INPUTS',
+);
 
 console.log('UI_AUDIT_EVENT_INTEGRATION_TESTS=PASS');
