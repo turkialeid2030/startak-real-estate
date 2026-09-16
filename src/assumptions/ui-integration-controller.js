@@ -3,6 +3,7 @@
 const { STUDY_TYPE } = require('../engines');
 const { calculateGovernedInvestmentCase } = require('../decision-governance/investment-case-orchestrator');
 const { TRANSACTION_AUTHORITY } = require('../decision-governance/overall-decision-gate');
+const { AUDIT_ACTION, createAuditEvent } = require('../decision-governance/audit-trail');
 const {
   ASSUMPTION_MODEL_VERSION,
   V2_APPROVED_ASSUMPTIONS,
@@ -132,8 +133,42 @@ function buildUiDisclosureViewModel({ governance, locale = 'ar-SA' }) {
   });
 }
 
-function prepareNewUiDealForSave(record) { return buildNewSavedDealRecord(record); }
-function prepareUpdatedUiDealForSave(record, assumptionModelVersion) { return buildUpdatedSavedDealRecord(record, assumptionModelVersion); }
+function auditVersionId(record) {
+  const id = record && record.id ? String(record.id) : 'unsaved-deal';
+  const stamp = record && record.savedAt ? String(record.savedAt) : new Date().toISOString();
+  return `${id}:${stamp}`;
+}
+
+function attachLocalAuditEvent(record, { actionType, modelVersion }) {
+  assertPlainObject(record, 'record');
+  const event = createAuditEvent({
+    dealId: record.id || 'unsaved-deal',
+    versionId: auditVersionId(record),
+    timestamp: record.savedAt || new Date().toISOString(),
+    actionType,
+    changedFields: record.inputs && typeof record.inputs === 'object' ? Object.keys(record.inputs) : [],
+    modelVersion,
+    assumptionVersion: modelVersion,
+  });
+  return Object.freeze({ ...record, localAuditEvent: event });
+}
+
+function prepareNewUiDealForSave(record) {
+  const prepared = buildNewSavedDealRecord(record);
+  return attachLocalAuditEvent(prepared, {
+    actionType: AUDIT_ACTION.DEAL_CREATED,
+    modelVersion: prepared.assumptionModelVersion || ASSUMPTION_MODEL_VERSION.V2,
+  });
+}
+
+function prepareUpdatedUiDealForSave(record, assumptionModelVersion) {
+  const prepared = buildUpdatedSavedDealRecord(record, assumptionModelVersion);
+  return attachLocalAuditEvent(prepared, {
+    actionType: AUDIT_ACTION.VERSION_SAVED,
+    modelVersion: prepared.assumptionModelVersion,
+  });
+}
+
 function explicitlyUpgradeUiDealToV2(record) { return explicitlyUpgradeUiDeal(record); }
 
 module.exports = {
@@ -147,6 +182,8 @@ module.exports = {
   calculateUiInvestmentState,
   applyExitCapInputText,
   buildUiDisclosureViewModel,
+  auditVersionId,
+  attachLocalAuditEvent,
   prepareNewUiDealForSave,
   prepareUpdatedUiDealForSave,
   explicitlyUpgradeUiDealToV2,
