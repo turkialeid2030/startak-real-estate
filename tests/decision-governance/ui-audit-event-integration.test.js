@@ -23,7 +23,7 @@ assert.strictEqual(created.localAuditEvent.actionType, 'DEAL_CREATED');
 assert.strictEqual(created.localAuditEvent.dealId, base.id);
 assert.strictEqual(created.localAuditEvent.versionId, `${base.id}:${savedAt}`);
 assert.strictEqual(created.localAuditEvent.modelVersion, created.assumptionModelVersion);
-assert.deepStrictEqual(created.localAuditEvent.changedFields.sort(), Object.keys(base.inputs).sort());
+assert.deepStrictEqual([...created.localAuditEvent.changedFields].sort(), Object.keys(base.inputs).sort());
 assert.doesNotThrow(() => validateSavedDealRecord(created));
 assert.strictEqual(Object.prototype.hasOwnProperty.call(created.inputs, 'localAuditEvent'), false);
 
