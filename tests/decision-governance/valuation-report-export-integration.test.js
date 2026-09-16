@@ -62,6 +62,12 @@ assert.strictEqual(report.technicalStatus, 'NOT_EVALUATED');
 assert.strictEqual(report.dataSources.length, 2);
 assert.ok(report.disclaimerScope.ar.includes('لا تمثل اعتمادًا قانونيًا'));
 assert.ok(report.disclaimerScope.en.includes('not legal or regulatory approval'));
+assert.strictEqual(report.localAuditEvent.actionType, 'EXPORT_CREATED');
+assert.strictEqual(report.localAuditEvent.trailType, 'LOCAL_HISTORY');
+assert.strictEqual(report.localAuditEvent.enterpriseAuditTrail, false);
+assert.strictEqual(report.localAuditEvent.dealId, runtime.caseId);
+assert.strictEqual(report.localAuditEvent.versionId, report.versionId);
+assert.strictEqual(report.localAuditEvent.modelVersion, report.modelVersion);
 
 const missingDateCase = {
   ...valuationCase,
