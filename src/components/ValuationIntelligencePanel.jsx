@@ -3,12 +3,14 @@ import ValuationIntelligenceBasePanel from './ValuationIntelligenceBasePanel.jsx
 import ValuationAdvancedPanel from './ValuationAdvancedPanel.jsx';
 import CriticalEvidenceRequirementsPanel from './CriticalEvidenceRequirementsPanel.jsx';
 import DataFreshnessPanel from './DataFreshnessPanel.jsx';
+import GovernedReportExportPanel from './GovernedReportExportPanel.jsx';
 
 export default function ValuationIntelligencePanel(props) {
   const {
     locale = 'ar-SA',
     valuationCase = null,
     onChangeValuationCase,
+    runtime = null,
   } = props;
 
   return (
@@ -23,6 +25,11 @@ export default function ValuationIntelligencePanel(props) {
           />
           <DataFreshnessPanel
             locale={locale}
+            valuationCase={valuationCase}
+          />
+          <GovernedReportExportPanel
+            locale={locale}
+            runtime={runtime}
             valuationCase={valuationCase}
           />
           <CriticalEvidenceRequirementsPanel
