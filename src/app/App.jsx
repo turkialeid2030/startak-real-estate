@@ -233,9 +233,37 @@ function FieldNote({ note, warning }) {
   return null;
 }
 
+// NUMERIC_TEMP_EMPTY_EDITING_V1
+function numericRawValue(value) {
+  return isFiniteNumber(Number(value)) ? String(value) : "";
+}
+
 function NumField({ label, unit, note, value, onChange, step = 1, min, warnBelow, warnAbove, warnText, disabled = false }) {
   const { t } = useLocale();
   const warning = rangeWarning(value, warnBelow, warnAbove, warnText, t);
+  const [raw, setRaw] = useState(() => numericRawValue(value));
+  const [editing, setEditing] = useState(false);
+
+  useEffect(() => {
+    if (!editing) setRaw(numericRawValue(value));
+  }, [value, editing]);
+
+  const commit = () => {
+    const candidate = raw.trim();
+    if (candidate === "" || candidate === "-" || candidate === "." || candidate === "-.") {
+      setRaw(numericRawValue(value));
+      return;
+    }
+    const parsed = Number(candidate);
+    if (!Number.isFinite(parsed)) {
+      setRaw(numericRawValue(value));
+      return;
+    }
+    const normalized = min !== undefined ? Math.max(min, parsed) : parsed;
+    onChange(normalized);
+    setRaw(String(normalized));
+  };
+
   return (
     <Field label={label} unit={unit}>
       <input
@@ -243,16 +271,30 @@ function NumField({ label, unit, note, value, onChange, step = 1, min, warnBelow
         inputMode="decimal"
         className="rf-input rf-num w-full px-3 py-2 text-sm"
         style={{ ...baseInputStyle(), opacity: disabled ? 0.65 : 1, cursor: disabled ? "not-allowed" : "text" }}
-        value={value}
+        value={raw}
         disabled={disabled}
         aria-invalid={warning ? "true" : undefined}
+        onFocus={() => setEditing(true)}
         onChange={(e) => {
           if (disabled) return;
-          const raw = e.target.value.replace(/[^\d.\-]/g, "");
-          if (raw === "" || raw === "-" || raw === "." || raw === "-.") return;
-          const parsed = Number(raw);
+          const nextRaw = e.target.value.replace(/[^\d.\-]/g, "");
+          setRaw(nextRaw);
+          if (nextRaw === "" || nextRaw === "-" || nextRaw === "." || nextRaw === "-.") return;
+          const parsed = Number(nextRaw);
           if (!Number.isFinite(parsed)) return;
           onChange(min !== undefined ? Math.max(min, parsed) : parsed);
+        }}
+        onBlur={() => {
+          commit();
+          setEditing(false);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.currentTarget.blur();
+          if (e.key === 'Escape') {
+            setRaw(numericRawValue(value));
+            setEditing(false);
+            e.currentTarget.blur();
+          }
         }}
       />
       <FieldNote note={note} warning={warning} />
@@ -263,6 +305,29 @@ function NumField({ label, unit, note, value, onChange, step = 1, min, warnBelow
 function PercentField({ label, note, value, onChange, warnBelow, warnAbove, warnText, disabled = false }) {
   const { t } = useLocale();
   const warning = rangeWarning(value, warnBelow, warnAbove, warnText, t);
+  const formatPercentRaw = (candidate) => isFiniteNumber(candidate) ? String(Number((candidate * 100).toFixed(4))) : "";
+  const [raw, setRaw] = useState(() => formatPercentRaw(value));
+  const [editing, setEditing] = useState(false);
+
+  useEffect(() => {
+    if (!editing) setRaw(formatPercentRaw(value));
+  }, [value, editing]);
+
+  const commit = () => {
+    const candidate = raw.trim();
+    if (candidate === "" || candidate === "-" || candidate === "." || candidate === "-.") {
+      setRaw(formatPercentRaw(value));
+      return;
+    }
+    const parsed = Number(candidate);
+    if (!Number.isFinite(parsed)) {
+      setRaw(formatPercentRaw(value));
+      return;
+    }
+    onChange(parsed / 100);
+    setRaw(String(parsed));
+  };
+
   return (
     <Field label={label} unit="%">
       <input
@@ -270,16 +335,30 @@ function PercentField({ label, note, value, onChange, warnBelow, warnAbove, warn
         inputMode="decimal"
         className="rf-input rf-num w-full px-3 py-2 text-sm"
         style={{ ...baseInputStyle(), opacity: disabled ? 0.65 : 1, cursor: disabled ? "not-allowed" : "text" }}
-        value={Number((value * 100).toFixed(4))}
+        value={raw}
         disabled={disabled}
         aria-invalid={warning ? "true" : undefined}
+        onFocus={() => setEditing(true)}
         onChange={(e) => {
           if (disabled) return;
-          const raw = e.target.value.replace(/[^\d.\-]/g, "");
-          if (raw === "" || raw === "-" || raw === "." || raw === "-.") return;
-          const parsed = Number(raw);
+          const nextRaw = e.target.value.replace(/[^\d.\-]/g, "");
+          setRaw(nextRaw);
+          if (nextRaw === "" || nextRaw === "-" || nextRaw === "." || nextRaw === "-.") return;
+          const parsed = Number(nextRaw);
           if (!Number.isFinite(parsed)) return;
           onChange(parsed / 100);
+        }}
+        onBlur={() => {
+          commit();
+          setEditing(false);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.currentTarget.blur();
+          if (e.key === 'Escape') {
+            setRaw(formatPercentRaw(value));
+            setEditing(false);
+            e.currentTarget.blur();
+          }
         }}
       />
       <FieldNote note={note} warning={warning} />
