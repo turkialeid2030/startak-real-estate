@@ -54,6 +54,13 @@ try {
   mark('BROWSER_APP_BOOT', rootHtml.length > 100, `htmlLength=${rootHtml.length}`);
   mark('AR_SA_RUNTIME', (await page.locator('html').getAttribute('dir')) === 'rtl');
 
+  // Canonical methodology/model-card notice must be visible through the live footer.
+  const initialBody = await page.locator('body').innerText();
+  mark(
+    'GOVERNED_METHODOLOGY_NOTICE_VISIBLE',
+    initialBody.includes('هذه النتيجة تحليل مالي داعم للقرار') && initialBody.includes('لا تمثل اعتمادًا قانونيًا أو نظاميًا'),
+  );
+
   // P1-07: a fresh New Deal must remain blank/fail-closed and must not synthesize an investment verdict.
   await page.getByText('مبنى قائم', { exact: true }).click();
   await page.waitForTimeout(250);
@@ -65,6 +72,18 @@ try {
   const buildingBodyBefore = await page.locator('body').innerText();
   const buildingInput = page.locator('input[type="text"], input[inputmode="decimal"]').first();
   const buildingBefore = await buildingInput.inputValue();
+
+  // P2-02: ordinary numeric inputs must permit a temporary empty editing state
+  // without silently committing an invalid economic value. Blur restores the
+  // previous governed value when the raw edit is incomplete.
+  await buildingInput.focus();
+  await buildingInput.fill('');
+  await page.waitForTimeout(80);
+  mark('NUMERIC_TEMP_EMPTY_VISIBLE_WHILE_EDITING', (await buildingInput.inputValue()) === '');
+  await buildingInput.blur();
+  await page.waitForTimeout(100);
+  mark('NUMERIC_TEMP_EMPTY_RESTORES_ON_BLUR', (await buildingInput.inputValue()) === buildingBefore, `before=${buildingBefore} after=${await buildingInput.inputValue()}`);
+
   await buildingInput.fill('999999');
   await buildingInput.blur();
   await page.waitForTimeout(300);
