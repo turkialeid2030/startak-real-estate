@@ -1,0 +1,55 @@
+name: Stacked Follow-up Qualification
+
+on:
+  pull_request:
+    branches:
+      - wave/decision-governance-saudi-release-hardening-2026-09-15
+
+permissions:
+  contents: read
+
+jobs:
+  qualify-stacked-followup:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'wave/decision-governance-ui-integration-followup-2026-09-16'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Canonical release verification
+        run: npm run release:verify
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Real-browser core runtime E2E
+        run: node tests/e2e/run_runtime_e2e_ci.mjs
+
+      - name: Real-browser full UI E2E
+        run: node tests/e2e/run_full_e2e_ci.mjs
+
+      - name: Strict comprehensive verification
+        run: node tools/comprehensive-verify.js
+
+      - name: Deep platform verification
+        run: node tools/deep-platform-verify.js
+
+      - name: Upload stacked qualification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stacked-followup-qualification-evidence
+          path: |
+            runtime-evidence/e2e
+            runtime-evidence/deep-platform
+          if-no-files-found: warn
