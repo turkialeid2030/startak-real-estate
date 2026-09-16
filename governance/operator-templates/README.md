@@ -1,8 +1,8 @@
 # External Governance Operator Templates — RC #363
 
-هذه الحزمة مساعدة تشغيلية فقط ولا تغيّر المرشح المجمد ولا تمنح أي صلاحية Release/Merge/Deployment.
+هذه الحزمة تشغيلية فقط، ولا تغيّر المرشح المجمد ولا تمنح أي صلاحية إصدار أو دمج أو نشر.
 
-## Frozen release tuple
+## المرشح المجمد
 
 - `releaseCandidateId`: `startak-real-estate-rc-2026-09-16-e876208c19ff`
 - `sourceCommitSha`: `e876208c19ffbddd0dacd2bf8fce24aba1e52b55`
@@ -10,77 +10,83 @@
 - `environmentRef`: `cloudflare-pages:startak-real-estate:production`
 - `environmentConfigSha256`: `819183fb9f4fb09017c636d2d1d841dd086ac4ba4bbccd103dffbc4c5980bc73`
 
-## Files
+## المالك الحالي
 
-### Independent review / #254
+- الاسم: `تركي العيد`
+- GitHub subject: `github:turkialeid2030`
+- الصفة: `OWNER / current accountable operator`
+- مرجع الإعلان: `https://github.com/turkialeid2030/startak-real-estate/issues/365#issuecomment-5703765871`
+- أدوار E2G المهيأة: `RELEASE_APPROVAL` و`MERGE_APPROVAL`، وكلاهما ما يزال معلقًا حتى اكتمال E2F وتسجيل المفتاح العام والتوقيع الخارجي.
+- لا يُستخدم المالك الحالي بدل المراجع المستقل أو مدققي E2F أو سلطة `DEPLOYMENT_APPROVAL`.
 
-- `INDEPENDENT-REVIEW-RUNBOOK.md`: مسار التشغيل الكامل للمراجع المستقل على الـRC الحالي.
-- `independent-reviewer-registry.template.json`: سجل ثقة المراجع المستقل بالمفتاح العام فقط.
-- `independent-review-attestation.template.json`: قالب قرار المراجع المرتبط بمذكرة/أثر مراجعة حقيقي.
+## الملفات
 
-### GitHub administrator / #326 + #327
+### المراجعة المستقلة / #254
+- `INDEPENDENT-REVIEW-RUNBOOK.md`
+- `independent-reviewer-registry.template.json`
+- `independent-review-attestation.template.json`
 
-- `github-ruleset-admin-evidence.template.md`: نموذج إثبات تعديل Ruleset `21861129` بعد إضافة البوابة الموثوقة.
-- `github-production-environment-admin-evidence.template.md`: نموذج إثبات ضوابط Environment `production` دون كشف الأسرار.
+### مسؤول GitHub / #326 + #327
+- `github-ruleset-admin-evidence.template.md`
+- `github-production-environment-admin-evidence.template.md`
 
-### Human authority / RACI
-
-- `HUMAN-AUTHORITY-INTAKE.template.md`: نموذج موحد لجمع بيانات السلطات العامة وغير السرية للمراجع والمدققين وسلطات E2G والمسؤول الإداري.
-- `RELEASE-GATE-RACI.md`: مصفوفة مسؤوليات وفصل صلاحيات لكل بوابة إصدار.
-- `FINAL-RC-CUTOVER-CHECKLIST.md`: قائمة القطع النهائي من RC المجمد إلى `main` ثم، بشكل مستقل، إلى النشر الإنتاجي.
+### السلطات البشرية / RACI
+- `HUMAN-AUTHORITY-INTAKE.template.md`
+- `HUMAN-AUTHORITY-INTAKE.current.md`
+- `CURRENT-OWNER-AUTHORITY-DESIGNATION.md`
+- `RELEASE-GATE-RACI.md`
+- `FINAL-RC-CUTOVER-CHECKLIST.md`
 
 ### E2F / #364
-
-- `e2f-verifier-registry.template.json`: سجل المدققين الخارجيين بالمفاتيح العامة فقط.
-- `e2f-validation.template.json`: قالب سجل تحقق واحد؛ يكرر لكل نوع من أنواع E2F الأربعة.
+- `e2f-verifier-registry.template.json`
+- `e2f-validation.template.json`
 
 ### E2G / #364
+- `e2g-release-authority-registry.template.json`
+- `e2g-release-authority-registry.current.template.json`
+- `e2g-release-approval.template.json`
+- `e2g-merge-approval.template.json`
+- `e2g-deployment-approval.template.json`
+- `EXTERNAL-SIGNING-INSTRUCTIONS.md`
 
-- `e2g-release-authority-registry.template.json`: سجل سلطات القرار البشري بالمفاتيح العامة فقط.
-- `e2g-release-approval.template.json`: قرار `RELEASE_APPROVAL` غير موقع.
-- `e2g-merge-approval.template.json`: قرار `MERGE_APPROVAL` غير موقع.
-- `e2g-deployment-approval.template.json`: قرار `DEPLOYMENT_APPROVAL` غير موقع.
-- `EXTERNAL-SIGNING-INSTRUCTIONS.md`: ضوابط التوقيع الخارجي RSA-SHA256 ومنع تسريب المفاتيح الخاصة.
-
-## Required E2F validation types
+## متطلبات E2F
 
 1. `EXTERNAL_CONFORMANCE_AUTHENTICITY`
 2. `PRODUCTION_SECURITY_VALIDATION`
 3. `PRODUCTION_PERFORMANCE_VALIDATION`
 4. `PRODUCTION_RESILIENCE_VALIDATION`
 
-`result` المقبول للإكمال هو `VERIFIED` لكل الأنواع الأربعة.
+كلها يجب أن تصل إلى `VERIFIED` من مدققين خارجيين صالحين.
 
-## Required E2G decision types
+## متطلبات E2G
 
 1. `RELEASE_APPROVAL`
 2. `MERGE_APPROVAL`
 3. `DEPLOYMENT_APPROVAL`
 
-لا يجوز أن يكون `authoritySubjectRef` الذي يملك MERGE هو نفسه الذي يملك DEPLOYMENT.
+المتحقق الحالي يسمح بأن يكون صاحب RELEASE هو نفسه صاحب MERGE، لكنه يفرض وجود subjectين مختلفين على الأقل، ويمنع أن يكون صاحب MERGE هو نفسه صاحب DEPLOYMENT.
 
-## Safety boundary
+## الحدود الأمنية
 
-- لا تضع أي private key أو token أو password أو credential في هذه الملفات أو GitHub أو CI أو chat.
-- القوالب غير قابلة للتنفيذ قبل استبدال جميع قيم `REPLACE_...`.
-- SHA-256 للمفتاح العام يجب أن يطابق النص الفعلي لـPEM وفق verifier الحالي.
-- التوقيع يتم خارج المستودع على canonical signing payload الذي تولده أدوات المشروع؛ لا توقع JSON يدويًا من القالب.
-- يعاد فقط `signatureBase64` بعد التوقيع.
-- لا تستخدم fixture/test key/self-approval.
-- لا تستخدم أي حزمة أو توقيع من tuple تاريخي.
-- `سعيد المراجع` / `reviewer:saeed-pending` placeholder تاريخي وليس إثبات هوية مراجع حقيقي.
+- لا مفاتيح خاصة أو tokens أو passwords أو credentials في المستودع أو GitHub أو CI أو المحادثة.
+- القوالب غير قابلة للتنفيذ قبل استبدال قيم `REPLACE_...`.
+- التوقيع يتم خارج المستودع على canonical signing payload الذي تولده أدوات المشروع.
+- يعاد فقط `signatureBase64`.
+- لا fixtures أو test keys أو self-approval بديلًا عن الأدلة المستقلة.
+- لا إعادة استخدام لأي tuple تاريخي.
 
-## Execution order
+## ترتيب التنفيذ
 
-1. أكمل #326 بواسطة Repository Admin ثم أثبت النتيجة بـlive read.
-2. أكمل #327 بواسطة Environment Admin مع أدلة غير حساسة.
-3. عيّن مراجعًا مستقلاً حقيقيًا لـ#254 وأنشئ review packet جديدًا ثم canonical signing payload وتحقق من التوقيع الخارجي.
-4. أكمل E2E الحقيقي للـtuple الحالي.
-5. أنشئ E2F verifier registry وأثبت hash خارج القناة.
-6. أنشئ سجلات E2F الأربعة ووقع canonical payloads خارج المستودع، ثم ابنِ `e2f-final.json`.
-7. أنشئ E2G release-authority registry وأثبت hash خارج القناة.
-8. مرر القرارات غير الموقعة عبر `tools/e2g-release-authority-decision-intake.js decision` للحصول على canonical signing payload لكل قرار.
-9. يوقع أصحاب السلطات البشرية payloads خارج المستودع.
-10. ابنِ E2G final packet وتحقق من `HUMAN_RELEASE_DECISIONS_COMPLETE_PENDING_EXECUTION`.
-11. حمّل القيم العشر إلى GitHub Actions secrets فقط بعد تحقق الحزم.
-12. لا تفتح **PR الإصدار النهائي من RC المجمد إلى `main`** قبل إغلاق #326 و#327 و#254 و#364. يمكن إبقاء PRs توثيق/حوكمة مساعدة منفصلة بحالة Draft دون Merge، مثل PR #366.
+1. إغلاق #326 بواسطة المالك الحالي بصفته Repository Admin ثم إثبات الحالة بقراءة حية.
+2. إغلاق #327 بواسطة المالك الحالي بصفته Repository/Environment Admin مع أدلة غير حساسة.
+3. تعيين مراجع مستقل حقيقي لـ#254 منفصل عن `github:turkialeid2030`.
+4. إكمال E2E الحقيقي للـtuple الحالي.
+5. إكمال E2F والتوقيعات الخارجية.
+6. إكمال سجل E2G بالمفتاح العام للمالك وسلطة Deployment مختلفة.
+7. توليد canonical signing payloads وتوقيعها خارج المستودع.
+8. الوصول إلى `HUMAN_RELEASE_DECISIONS_COMPLETE_PENDING_EXECUTION`.
+9. تحميل الأسرار العشرة في GitHub Actions secrets فقط بعد اكتمال الحزم.
+10. فتح PR الإصدار النهائي من RC المجمد إلى `main` فقط بعد إغلاق #326 و#327 و#254 و#364.
+11. يبقى Deployment قرارًا منفصلًا حتى بعد Merge.
+
+PR #366 هو PR توثيق/حوكمة مساعد ويظل Draft دون Merge حتى يقرر المالك خلاف ذلك ضمن الضوابط.
