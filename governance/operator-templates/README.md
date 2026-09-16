@@ -23,6 +23,12 @@
 - `github-ruleset-admin-evidence.template.md`: نموذج إثبات تعديل Ruleset `21861129` بعد إضافة البوابة الموثوقة.
 - `github-production-environment-admin-evidence.template.md`: نموذج إثبات ضوابط Environment `production` دون كشف الأسرار.
 
+### Human authority / RACI
+
+- `HUMAN-AUTHORITY-INTAKE.template.md`: نموذج موحد لجمع بيانات السلطات العامة وغير السرية للمراجع والمدققين وسلطات E2G والمسؤول الإداري.
+- `RELEASE-GATE-RACI.md`: مصفوفة مسؤوليات وفصل صلاحيات لكل بوابة إصدار.
+- `FINAL-RC-CUTOVER-CHECKLIST.md`: قائمة القطع النهائي من RC المجمد إلى `main` ثم، بشكل مستقل، إلى النشر الإنتاجي.
+
 ### E2F / #364
 
 - `e2f-verifier-registry.template.json`: سجل المدققين الخارجيين بالمفاتيح العامة فقط.
@@ -77,4 +83,4 @@
 9. يوقع أصحاب السلطات البشرية payloads خارج المستودع.
 10. ابنِ E2G final packet وتحقق من `HUMAN_RELEASE_DECISIONS_COMPLETE_PENDING_EXECUTION`.
 11. حمّل القيم العشر إلى GitHub Actions secrets فقط بعد تحقق الحزم.
-12. لا تفتح PR إلى `main` قبل إغلاق #326 و#327 و#254 و#364.
+12. لا تفتح **PR الإصدار النهائي من RC المجمد إلى `main`** قبل إغلاق #326 و#327 و#254 و#364. يمكن إبقاء PRs توثيق/حوكمة مساعدة منفصلة بحالة Draft دون Merge، مثل PR #366.
