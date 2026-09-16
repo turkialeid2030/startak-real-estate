@@ -1,10 +1,11 @@
 name: Follow-up App Patch
 
 on:
-  push:
+  pull_request:
     branches:
-      - wave/decision-governance-ui-integration-followup-2026-09-16
+      - wave/decision-governance-saudi-release-hardening-2026-09-15
     paths:
+      - .github/workflows/followup-app-patch.yml
       - tools/apply-followup-app-patch.js
 
 permissions:
@@ -12,9 +13,10 @@ permissions:
 
 jobs:
   patch-app:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'wave/decision-governance-ui-integration-followup-2026-09-16'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout branch
+      - name: Checkout follow-up branch
         uses: actions/checkout@v4
         with:
           ref: wave/decision-governance-ui-integration-followup-2026-09-16
