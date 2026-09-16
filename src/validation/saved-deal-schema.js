@@ -14,6 +14,7 @@ const { ASSUMPTION_MODEL_VERSION } = require('../assumptions/assumption-model');
 const { validateUserEnteredZakatCase } = require('../zakat/user-entered-zakat');
 const { validateSavedDealStandardsMetadata, RESERVED_METADATA_KEYS } = require('../standards/saved-deal-standards-snapshot');
 const { DEAL_PROVENANCE } = require('../decision-governance/deal-provenance');
+const { validateAuditEvent } = require('../decision-governance/audit-trail');
 
 class SavedDealValidationError extends Error {
   constructor(reasonCode, detail) {
@@ -46,6 +47,9 @@ function validateSavedDealRecord(parsed) {
   if (Object.prototype.hasOwnProperty.call(parsed.inputs, 'provenance')) {
     throw new SavedDealValidationError('DEAL_PROVENANCE_IN_ECONOMIC_INPUTS', 'provenance');
   }
+  if (Object.prototype.hasOwnProperty.call(parsed.inputs, 'localAuditEvent')) {
+    throw new SavedDealValidationError('LOCAL_AUDIT_EVENT_IN_ECONOMIC_INPUTS', 'localAuditEvent');
+  }
 
   if (Object.prototype.hasOwnProperty.call(parsed, 'assumptionModelVersion')) {
     if (typeof parsed.assumptionModelVersion !== 'string'
@@ -68,6 +72,14 @@ function validateSavedDealRecord(parsed) {
     if (Object.prototype.hasOwnProperty.call(provenance, 'requiresRealDealConfirmation')
         && typeof provenance.requiresRealDealConfirmation !== 'boolean') {
       throw new SavedDealValidationError('INVALID_DEAL_PROVENANCE_CONFIRMATION_FLAG', `typeof=${typeof provenance.requiresRealDealConfirmation}`);
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(parsed, 'localAuditEvent')) {
+    try {
+      validateAuditEvent(parsed.localAuditEvent);
+    } catch (error) {
+      throw new SavedDealValidationError('INVALID_LOCAL_AUDIT_EVENT', error.message || error.name || 'UNKNOWN');
     }
   }
 
