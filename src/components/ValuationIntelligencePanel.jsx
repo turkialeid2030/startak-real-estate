@@ -4,6 +4,7 @@ import ValuationAdvancedPanel from './ValuationAdvancedPanel.jsx';
 import CriticalEvidenceRequirementsPanel from './CriticalEvidenceRequirementsPanel.jsx';
 import DataFreshnessPanel from './DataFreshnessPanel.jsx';
 import GovernedReportExportPanel from './GovernedReportExportPanel.jsx';
+import GuidedDecisionStatusPanel from './GuidedDecisionStatusPanel.jsx';
 
 export default function ValuationIntelligencePanel(props) {
   const {
@@ -18,6 +19,11 @@ export default function ValuationIntelligencePanel(props) {
       <ValuationIntelligenceBasePanel {...props} />
       {valuationCase ? (
         <>
+          <GuidedDecisionStatusPanel
+            locale={locale}
+            runtime={runtime}
+            valuationCase={valuationCase}
+          />
           <ValuationAdvancedPanel
             locale={locale}
             valuationCase={valuationCase}
