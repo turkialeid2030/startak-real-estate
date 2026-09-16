@@ -12,6 +12,7 @@ fs.mkdirSync(EVIDENCE_DIR, { recursive: true });
 const results = {};
 let previewServer = null;
 let browser = null;
+let activePage = null;
 const LEGACY_VERDICT_RE = /يوصى بالشراء|لا يوصى بالشراء/;
 
 function mark(key, passed, detail = null) {
@@ -27,6 +28,15 @@ async function loadReferenceDeal(page, nameRe) {
 }
 
 async function configureMinimalBuildingValuation(page) {
+  const titleCount = await page.getByText('ذكاء التقييم العقاري', { exact: true }).count();
+  const configureTextCount = await page.getByText('تهيئة Valuation V1', { exact: true }).count();
+  const incompleteCount = await page.getByTestId('analysis-incomplete').count();
+  const configRoleCount = await page.getByRole('button', { name: 'تهيئة Valuation V1' }).count();
+  mark(
+    'VALUATION_CONFIGURATION_DISCOVERABLE',
+    titleCount === 1 && configureTextCount === 1 && configRoleCount === 1 && incompleteCount === 0,
+    JSON.stringify({ titleCount, configureTextCount, configRoleCount, incompleteCount }),
+  );
   await page.getByRole('button', { name: 'تهيئة Valuation V1' }).click();
   await page.getByLabel('معرّف المشروع').fill('E2E-VALUATION-1');
   await page.getByLabel('فئة الأصل').selectOption({ label: 'مكاتب' });
@@ -54,6 +64,7 @@ try {
 
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   const page = await context.newPage();
+  activePage = page;
   page.setDefaultTimeout(5000);
   const consoleErrors = [];
   const pageErrors = [];
@@ -68,25 +79,19 @@ try {
   mark('BROWSER_APP_BOOT', rootHtml.length > 100, `htmlLength=${rootHtml.length}`);
   mark('AR_SA_RUNTIME', (await page.locator('html').getAttribute('dir')) === 'rtl');
 
-  // Canonical methodology/model-card notice must be visible through the live footer.
   const initialBody = await page.locator('body').innerText();
   mark(
     'GOVERNED_METHODOLOGY_NOTICE_VISIBLE',
     initialBody.includes('هذه النتيجة تحليل مالي داعم للقرار') && initialBody.includes('لا تمثل اعتمادًا قانونيًا أو نظاميًا'),
   );
 
-  // P1-07: a fresh New Deal must remain blank/fail-closed and must not synthesize an investment verdict.
   await page.getByText('مبنى قائم', { exact: true }).click();
   await page.waitForTimeout(250);
   const newDealBody = await page.locator('body').innerText();
   mark('NEW_DEAL_FAIL_CLOSED', !LEGACY_VERDICT_RE.test(newDealBody), `legacyVerdict=${LEGACY_VERDICT_RE.test(newDealBody)}`);
 
-  // Full deterministic financial UI flows use explicit reference/demo fixtures.
   await loadReferenceDeal(page, /مبنى أبو بكر الصديق/);
 
-  // Configure Valuation V1 from the untouched deterministic reference case.
-  // This proves the governance controls are discoverable on the normal live path
-  // independently of later numeric-edit stress in the same browser session.
   await configureMinimalBuildingValuation(page);
   const guidedPanel = page.getByTestId('guided-decision-status');
   const freshnessPanel = page.getByTestId('valuation-data-freshness');
@@ -102,10 +107,6 @@ try {
   const buildingBodyBefore = await page.locator('body').innerText();
   const buildingInput = page.locator('input[type="text"], input[inputmode="decimal"]').first();
   const buildingBefore = await buildingInput.inputValue();
-
-  // P2-02: ordinary numeric inputs must permit a temporary empty editing state
-  // without silently committing an invalid economic value. Blur restores the
-  // previous governed value when the raw edit is incomplete.
   await buildingInput.focus();
   await buildingInput.fill('');
   await page.waitForTimeout(80);
@@ -114,8 +115,6 @@ try {
   await page.waitForTimeout(100);
   mark('NUMERIC_TEMP_EMPTY_RESTORES_ON_BLUR', (await buildingInput.inputValue()) === buildingBefore, `before=${buildingBefore} after=${await buildingInput.inputValue()}`);
 
-  // Use a realistic in-domain edit so the test verifies recalculation rather
-  // than intentionally crossing numeric-safety bounds and suppressing results.
   await buildingInput.fill('120');
   await buildingInput.blur();
   await page.waitForTimeout(300);
@@ -165,6 +164,16 @@ try {
   mark('NO_TAILWIND_EXTERNAL_REQUESTS', results.TAILWIND_EXTERNAL_REQUESTS === 0);
 } catch (error) {
   results.FATAL_ERROR = error.message;
+  if (activePage) {
+    try {
+      const bodyText = await activePage.locator('body').innerText();
+      results.FAILURE_BODY_SAMPLE = bodyText.slice(0, 8000);
+      results.FAILURE_BUTTON_TEXTS = (await activePage.locator('button').allTextContents()).slice(-40);
+      await activePage.screenshot({ path: `${EVIDENCE_DIR}/full-e2e-failure.png`, fullPage: true });
+    } catch (diagnosticError) {
+      results.FAILURE_DIAGNOSTIC_ERROR = diagnosticError.message;
+    }
+  }
   process.exitCode = 1;
 } finally {
   if (browser) await browser.close();
