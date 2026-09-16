@@ -26,6 +26,20 @@ async function loadReferenceDeal(page, nameRe) {
   await page.waitForTimeout(300);
 }
 
+async function configureMinimalBuildingValuation(page) {
+  await page.getByRole('button', { name: 'تهيئة Valuation V1' }).click();
+  await page.getByLabel('معرّف المشروع').fill('E2E-VALUATION-1');
+  await page.getByLabel('فئة الأصل').selectOption({ label: 'مكاتب' });
+  await page.getByLabel('مرحلة دورة الحياة').selectOption({ label: 'قائم ومشغّل' });
+  await page.getByLabel('الاستراتيجية الاستثمارية').selectOption({ label: 'استحواذ واحتفاظ' });
+  await page.getByLabel('نموذج الدخل').selectOption({ label: 'دخل إيجاري' });
+  await page.getByLabel('معالجة المصروفات التشغيلية').selectOption({ label: 'مصروفات فعلية على المالك' });
+  await page.getByLabel('أساس القيمة').selectOption({ label: 'القيمة السوقية' });
+  await page.getByLabel('العملة').fill('SAR');
+  await page.getByRole('button', { name: 'تطبيق الإعدادات' }).click();
+  await page.waitForTimeout(350);
+}
+
 try {
   previewServer = await preview({ preview: { host: '127.0.0.1', port: 4173, strictPort: false } });
   const addr = previewServer.httpServer.address();
@@ -91,6 +105,20 @@ try {
   const buildingBodyAfter = await page.locator('body').innerText();
   mark('EXISTING_BUILDING_E2E', buildingAfter !== buildingBefore && buildingBodyAfter !== buildingBodyBefore);
 
+  // Configure a minimal Valuation V1 case. The new governance panels must be
+  // visible on the live application path and remain fail-closed without source evidence.
+  await configureMinimalBuildingValuation(page);
+  const guidedPanel = page.getByTestId('guided-decision-status');
+  const freshnessPanel = page.getByTestId('valuation-data-freshness');
+  const reportPanel = page.getByTestId('governed-report-export');
+  mark('GUIDED_DECISION_PANEL_LIVE', (await guidedPanel.count()) === 1 && (await guidedPanel.innerText()).includes('لا يُعرض قرار شراء/رفض'));
+  mark('DATA_FRESHNESS_PANEL_LIVE', (await freshnessPanel.count()) === 1 && (await freshnessPanel.innerText()).includes('لا توجد أدلة مصدرية مؤرخة'));
+  const governedExportButton = reportPanel.getByRole('button', { name: 'تصدير التقرير المحكوم' });
+  mark(
+    'GOVERNED_REPORT_EXPORT_FAIL_CLOSED',
+    (await reportPanel.count()) === 1 && (await governedExportButton.isDisabled()) && (await reportPanel.innerText()).includes('يلزم إدخال أدلة مصدرية قبل التصدير'),
+  );
+
   await loadReferenceDeal(page, /أرض الوادي/);
   const landBodyBefore = await page.locator('body').innerText();
   const landInput = page.locator('input[type="text"], input[inputmode="decimal"]').first();
@@ -127,7 +155,7 @@ try {
 
   results.FATAL_CONSOLE_ERRORS = consoleErrors.length;
   results.PAGE_ERRORS = pageErrors.length;
-  results.TAILWIND_EXTERNAL_REQUESTS = failedRequests.filter((url) => url.includes('tailwindcss.com')).length;
+  results.TAILWIND_EXTERNAL_REQUESTS = failedRequests.filter((requestUrl) => requestUrl.includes('tailwindcss.com')).length;
   mark('NO_PAGE_ERRORS', pageErrors.length === 0, JSON.stringify(pageErrors.slice(0, 3)));
   mark('NO_FATAL_CONSOLE_ERRORS', consoleErrors.length === 0, JSON.stringify(consoleErrors.slice(0, 3)));
   mark('NO_TAILWIND_EXTERNAL_REQUESTS', results.TAILWIND_EXTERNAL_REQUESTS === 0);
