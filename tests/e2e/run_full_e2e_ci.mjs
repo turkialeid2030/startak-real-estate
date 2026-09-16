@@ -98,7 +98,9 @@ try {
   await page.waitForTimeout(100);
   mark('NUMERIC_TEMP_EMPTY_RESTORES_ON_BLUR', (await buildingInput.inputValue()) === buildingBefore, `before=${buildingBefore} after=${await buildingInput.inputValue()}`);
 
-  await buildingInput.fill('999999');
+  // Use a realistic in-domain edit so the test verifies recalculation rather
+  // than intentionally crossing numeric-safety bounds and suppressing results.
+  await buildingInput.fill('120');
   await buildingInput.blur();
   await page.waitForTimeout(300);
   const buildingAfter = await buildingInput.inputValue();
@@ -123,7 +125,7 @@ try {
   const landBodyBefore = await page.locator('body').innerText();
   const landInput = page.locator('input[type="text"], input[inputmode="decimal"]').first();
   const landBefore = await landInput.inputValue();
-  await landInput.fill('888888');
+  await landInput.fill('35');
   await landInput.blur();
   await page.waitForTimeout(300);
   const landAfter = await landInput.inputValue();
