@@ -28,25 +28,27 @@ async function loadReferenceDeal(page, nameRe) {
 }
 
 async function configureMinimalBuildingValuation(page) {
-  const titleCount = await page.getByText('ذكاء التقييم العقاري', { exact: true }).count();
-  const configureTextCount = await page.getByText('تهيئة التقييم — الإصدار الأول', { exact: true }).count();
+  const title = page.getByText('ذكاء التقييم العقاري', { exact: true });
+  const titleCount = await title.count();
+  const valuationPanel = title.locator('xpath=ancestor::section[1]');
+  const configureTextCount = await valuationPanel.getByText('تهيئة التقييم — الإصدار الأول', { exact: true }).count();
   const incompleteCount = await page.getByTestId('analysis-incomplete').count();
-  const configRoleCount = await page.getByRole('button', { name: 'تهيئة التقييم — الإصدار الأول' }).count();
+  const configRoleCount = await valuationPanel.getByRole('button', { name: 'تهيئة التقييم — الإصدار الأول' }).count();
   mark(
     'VALUATION_CONFIGURATION_DISCOVERABLE',
     titleCount === 1 && configureTextCount === 1 && configRoleCount === 1 && incompleteCount === 0,
     JSON.stringify({ titleCount, configureTextCount, configRoleCount, incompleteCount }),
   );
-  await page.getByRole('button', { name: 'تهيئة التقييم — الإصدار الأول' }).click();
-  await page.getByLabel('معرّف المشروع').fill('E2E-VALUATION-1');
-  await page.getByLabel('فئة الأصل').selectOption({ label: 'مكاتب' });
-  await page.getByLabel('مرحلة دورة الحياة').selectOption({ label: 'قائم ومشغّل' });
-  await page.getByLabel('الاستراتيجية الاستثمارية').selectOption({ label: 'استحواذ واحتفاظ' });
-  await page.getByLabel('نموذج الدخل').selectOption({ label: 'دخل إيجاري' });
-  await page.getByLabel('معالجة المصروفات التشغيلية').selectOption({ label: 'مصروفات فعلية على المالك' });
-  await page.getByLabel('أساس القيمة').selectOption({ label: 'القيمة السوقية' });
-  await page.getByLabel('العملة').fill('SAR');
-  await page.getByRole('button', { name: 'تطبيق الإعدادات' }).click();
+  await valuationPanel.getByRole('button', { name: 'تهيئة التقييم — الإصدار الأول' }).click();
+  await valuationPanel.getByLabel('معرّف المشروع').fill('E2E-VALUATION-1');
+  await valuationPanel.getByLabel('فئة الأصل').selectOption({ label: 'مكاتب' });
+  await valuationPanel.getByLabel('مرحلة دورة الحياة').selectOption({ label: 'قائم ومشغّل' });
+  await valuationPanel.getByLabel('الاستراتيجية الاستثمارية').selectOption({ label: 'استحواذ واحتفاظ' });
+  await valuationPanel.getByLabel('نموذج الدخل').selectOption({ label: 'دخل إيجاري' });
+  await valuationPanel.getByLabel('معالجة المصروفات التشغيلية').selectOption({ label: 'مصروفات فعلية على المالك' });
+  await valuationPanel.getByLabel('أساس القيمة').selectOption({ label: 'القيمة السوقية' });
+  await valuationPanel.getByLabel('العملة').fill('SAR');
+  await valuationPanel.getByRole('button', { name: 'تطبيق الإعدادات' }).click();
   await page.waitForTimeout(350);
 }
 
