@@ -21,49 +21,34 @@ This file records only public/non-secret authority metadata for the current exec
 
 Completed administrative control:
 
-- #326: ruleset `21861129` now requires both `release-verify` and `trusted-main-production-governance`, preserves strict required-status enforcement, and has no bypass actors.
+- #326: ruleset `21861129` requires both `release-verify` and `trusted-main-production-governance`, with strict enforcement and no bypass actors.
 
 Administrative work still required:
 
-- #327: complete `production` Environment protection configuration and evidence without exposing any secret value.
+- #327: complete `production` Environment hardening/evidence without exposing any secret value.
 
-## B. Two-person operating model
+## B. Current owner-operated model
 
-The owner states that the currently available human operating set is limited to:
+The current operational model is owner-operated by `تركي العيد` only.
 
-1. `تركي العيد`
-2. `سعيد`
-
-This is recorded as an operating constraint only. It does not by itself prove identity, independence, key ownership, or any signed decision.
-
-### تركي العيد
-
-Intended roles:
+Current intended roles:
 
 - Repository Owner / Administrator
 - Release Governance Accountable
 - `RELEASE_APPROVAL` authority
 - `MERGE_APPROVAL` authority
 
-### سعيد
+No other named person is currently designated in this intake.
 
-Intended distinct-human roles, pending identity/trust/public-key evidence:
-
-- Production Environment Required Reviewer
-- Independent Reviewer candidate for #254
-- `DEPLOYMENT_APPROVAL` authority candidate
-- E2F verifier candidate only if the implemented verifier permits the assigned validation coverage and independence requirements are actually met
-
-The same person must not be represented as independent evidence where the underlying verifier/policy requires a different actor or authority class.
+This owner-operated constraint does not waive any independent-human requirement already enforced by the current governance contracts.
 
 ## C. Independent Reviewer — #254
 
-Status: `CANDIDATE_SAEED_PENDING_IDENTITY_TRUST_KEY_AND_REVIEW_EVIDENCE`
+Status: `UNASSIGNED_EXTERNAL_HUMAN_REQUIRED`
 
-- reviewerId: `<REPLACE_WITH_REAL_SAEED_REVIEWER_ID>`
-- reviewerSubjectRef: `<REPLACE_WITH_REAL_SAEED_SUBJECT_REF>`
-- reviewerDisplayName: `سعيد`
-- independenceRequirement: `MUST_DIFFER_FROM_github:turkialeid2030`
+- reviewerId: `<REPLACE_REAL_INDEPENDENT_REVIEWER_ID>`
+- reviewerSubjectRef: `<MUST_DIFFER_FROM_github:turkialeid2030>`
+- reviewerDisplayName: `<REPLACE>`
 - independenceEvidenceRef: `<REPLACE>`
 - governanceEvidenceRef: `<REPLACE>`
 - publicKeyPemRef: `<PUBLIC_ONLY>`
@@ -72,11 +57,11 @@ Status: `CANDIDATE_SAEED_PENDING_IDENTITY_TRUST_KEY_AND_REVIEW_EVIDENCE`
 - activeUntil: `<ISO-8601_OR_NULL>`
 - allowedPurpose: `CANONICAL_REBASELINE_INDEPENDENT_REVIEW`
 
-No historical `سعيد المراجع` placeholder or stale reviewer record is accepted as identity evidence. A fresh real identity/trust record remains required.
+The owner cannot satisfy this independent-review role under the current gate because the reviewer must be distinct from the release owner/operator.
 
 ## D. E2F External Verifiers — #364
 
-Status: `CANDIDATE_SAEED_PENDING_VERIFIER_CONTRACT_CHECK_AND_INDEPENDENCE_EVIDENCE`
+Status: `UNASSIGNED_EXTERNAL_VALIDATORS_REQUIRED`
 
 Required validation coverage:
 
@@ -85,7 +70,7 @@ Required validation coverage:
 3. `PRODUCTION_PERFORMANCE_VALIDATION`
 4. `PRODUCTION_RESILIENCE_VALIDATION`
 
-Before assigning all or any of these classes to سعيد, verify the implemented E2F registry/validation contract allows the proposed coverage and that سعيد is not the implementation actor or otherwise disqualified by the independence rules. Public key material and genuine signed validation evidence remain required.
+External verifier identity, governance evidence, public key material and genuine signed validation evidence remain required by the current E2F contract.
 
 ## E. E2G Human Release Authorities — #364
 
@@ -109,39 +94,36 @@ Before assigning all or any of these classes to سعيد, verify the implemented
 
 ### DEPLOYMENT_APPROVAL authority
 
-Status: `CANDIDATE_SAEED_PENDING_IDENTITY_KEY_AND_SIGNATURE`
+Status: `UNASSIGNED_DISTINCT_HUMAN_REQUIRED`
 
-- authorityId: `<REPLACE_WITH_SAEED_DEPLOYMENT_AUTHORITY_ID>`
-- authoritySubjectRef: `<REPLACE_WITH_REAL_SAEED_SUBJECT_REF>`
-- authorityDisplayName: `سعيد`
+- authorityId: `<REPLACE_DEPLOYMENT_AUTHORITY_ID>`
+- authoritySubjectRef: `<MUST_NOT_EQUAL_github:turkialeid2030>`
 - governanceEvidenceRef: `<REPLACE>`
 - publicKeyPem: `<PUBLIC_ONLY>`
 - publicKeySha256: `<REPLACE>`
 
-Mandatory separation remains satisfied only when the real سعيد subject is verified to differ from `github:turkialeid2030`.
+The current verifier requires Merge and Deployment to be held by different human subjects.
 
 ## F. Immediate Environment target state — #327
 
-Given the current two-person operating model, the intended `production` Environment configuration is:
+While the repository remains owner-operated and no second production reviewer is designated, use the strongest valid single-owner configuration that does not create fake separation:
 
-- Required Reviewers: `ON`
-- Required Reviewer: `سعيد` using his real GitHub identity/collaborator record
-- Prevent self review: use the strongest available setting if exposed by the repository plan/UI
+- Required Reviewers: `OFF` temporarily
 - Administrator bypass: `OFF`
 - Deployment branches/tags: `main` only
-- `CLOUDFLARE_API_TOKEN`: scoped as an Environment secret for `production` rather than a broad repository production credential where possible
+- `CLOUDFLARE_API_TOKEN`: Environment secret for `production` rather than a broad repository production credential where possible
 
-Do not select `تركي العيد` as the only Required Reviewer for the production environment, because that would collapse the intended two-person production separation.
+This is an interim environment-hardening state only. It does not satisfy independent review, external validation, or distinct Deployment authority requirements elsewhere in the release chain.
 
 ## G. Remaining human inputs
 
-The unresolved human inputs are now reduced to:
+The unresolved human inputs are:
 
-1. سعيد's real GitHub/authority identity;
-2. public RSA key material for تركي and سعيد;
-3. fresh #254 independent-review evidence from سعيد if he is confirmed eligible;
-4. E2F verifier eligibility/coverage check and genuine signed validations;
-5. signed E2G decisions for Release, Merge, and Deployment;
+1. one real independent reviewer for #254;
+2. externally governed verifier coverage for the four E2F validation types;
+3. one distinct Deployment authority;
+4. public RSA key material for designated E2G authorities;
+5. signed E2G decisions after upstream qualification;
 6. completion/evidence of #327 production Environment controls.
 
 ## Prohibited data
