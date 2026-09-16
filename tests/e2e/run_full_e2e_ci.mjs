@@ -83,6 +83,22 @@ try {
 
   // Full deterministic financial UI flows use explicit reference/demo fixtures.
   await loadReferenceDeal(page, /مبنى أبو بكر الصديق/);
+
+  // Configure Valuation V1 from the untouched deterministic reference case.
+  // This proves the governance controls are discoverable on the normal live path
+  // independently of later numeric-edit stress in the same browser session.
+  await configureMinimalBuildingValuation(page);
+  const guidedPanel = page.getByTestId('guided-decision-status');
+  const freshnessPanel = page.getByTestId('valuation-data-freshness');
+  const reportPanel = page.getByTestId('governed-report-export');
+  mark('GUIDED_DECISION_PANEL_LIVE', (await guidedPanel.count()) === 1 && (await guidedPanel.innerText()).includes('لا يُعرض قرار شراء/رفض'));
+  mark('DATA_FRESHNESS_PANEL_LIVE', (await freshnessPanel.count()) === 1 && (await freshnessPanel.innerText()).includes('لا توجد أدلة مصدرية مؤرخة'));
+  const governedExportButton = reportPanel.getByRole('button', { name: 'تصدير التقرير المحكوم' });
+  mark(
+    'GOVERNED_REPORT_EXPORT_FAIL_CLOSED',
+    (await reportPanel.count()) === 1 && (await governedExportButton.isDisabled()) && (await reportPanel.innerText()).includes('يلزم إدخال أدلة مصدرية قبل التصدير'),
+  );
+
   const buildingBodyBefore = await page.locator('body').innerText();
   const buildingInput = page.locator('input[type="text"], input[inputmode="decimal"]').first();
   const buildingBefore = await buildingInput.inputValue();
@@ -106,20 +122,6 @@ try {
   const buildingAfter = await buildingInput.inputValue();
   const buildingBodyAfter = await page.locator('body').innerText();
   mark('EXISTING_BUILDING_E2E', buildingAfter !== buildingBefore && buildingBodyAfter !== buildingBodyBefore);
-
-  // Configure a minimal Valuation V1 case. The new governance panels must be
-  // visible on the live application path and remain fail-closed without source evidence.
-  await configureMinimalBuildingValuation(page);
-  const guidedPanel = page.getByTestId('guided-decision-status');
-  const freshnessPanel = page.getByTestId('valuation-data-freshness');
-  const reportPanel = page.getByTestId('governed-report-export');
-  mark('GUIDED_DECISION_PANEL_LIVE', (await guidedPanel.count()) === 1 && (await guidedPanel.innerText()).includes('لا يُعرض قرار شراء/رفض'));
-  mark('DATA_FRESHNESS_PANEL_LIVE', (await freshnessPanel.count()) === 1 && (await freshnessPanel.innerText()).includes('لا توجد أدلة مصدرية مؤرخة'));
-  const governedExportButton = reportPanel.getByRole('button', { name: 'تصدير التقرير المحكوم' });
-  mark(
-    'GOVERNED_REPORT_EXPORT_FAIL_CLOSED',
-    (await reportPanel.count()) === 1 && (await governedExportButton.isDisabled()) && (await reportPanel.innerText()).includes('يلزم إدخال أدلة مصدرية قبل التصدير'),
-  );
 
   await loadReferenceDeal(page, /أرض الوادي/);
   const landBodyBefore = await page.locator('body').innerText();
