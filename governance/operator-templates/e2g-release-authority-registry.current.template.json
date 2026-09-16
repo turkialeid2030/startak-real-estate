@@ -1,0 +1,39 @@
+{
+  "registryId": "e2g-release-authority-registry-rc-2026-09-16",
+  "governanceArtifactSha256": "<REPLACE_64_HEX_SHA256_OF_FINAL_GOVERNANCE_ARTIFACT>",
+  "authorities": [
+    {
+      "authorityId": "release-authority-turki-al-eid-2026-09-16",
+      "authoritySubjectRef": "github:turkialeid2030",
+      "allowedDecisionTypes": [
+        "RELEASE_APPROVAL"
+      ],
+      "publicKeyPem": "<REPLACE_WITH_OWNER_RSA_PUBLIC_KEY_PEM_ONLY>",
+      "publicKeySha256": "<REPLACE_64_HEX_SHA256_OF_OWNER_PUBLIC_KEY_PEM>",
+      "governanceEvidenceRef": "https://github.com/turkialeid2030/startak-real-estate/issues/365#issuecomment-5703765871",
+      "activeFrom": "<REPLACE_ISO_8601_AFTER_PUBLIC_KEY_REGISTRATION>"
+    },
+    {
+      "authorityId": "merge-authority-turki-al-eid-2026-09-16",
+      "authoritySubjectRef": "github:turkialeid2030",
+      "allowedDecisionTypes": [
+        "MERGE_APPROVAL"
+      ],
+      "publicKeyPem": "<REPLACE_WITH_OWNER_RSA_PUBLIC_KEY_PEM_ONLY>",
+      "publicKeySha256": "<REPLACE_64_HEX_SHA256_OF_OWNER_PUBLIC_KEY_PEM>",
+      "governanceEvidenceRef": "https://github.com/turkialeid2030/startak-real-estate/issues/365#issuecomment-5703765871",
+      "activeFrom": "<REPLACE_ISO_8601_AFTER_PUBLIC_KEY_REGISTRATION>"
+    },
+    {
+      "authorityId": "<REPLACE_DEPLOYMENT_AUTHORITY_ID>",
+      "authoritySubjectRef": "<REPLACE_DISTINCT_DEPLOYMENT_SUBJECT_NOT_github:turkialeid2030>",
+      "allowedDecisionTypes": [
+        "DEPLOYMENT_APPROVAL"
+      ],
+      "publicKeyPem": "<REPLACE_DEPLOYMENT_AUTHORITY_RSA_PUBLIC_KEY_PEM_ONLY>",
+      "publicKeySha256": "<REPLACE_64_HEX_SHA256_OF_DEPLOYMENT_PUBLIC_KEY_PEM>",
+      "governanceEvidenceRef": "<REPLACE_DEPLOYMENT_AUTHORITY_GOVERNANCE_EVIDENCE_REF>",
+      "activeFrom": "<REPLACE_ISO_8601_AFTER_PUBLIC_KEY_REGISTRATION>"
+    }
+  ]
+}
