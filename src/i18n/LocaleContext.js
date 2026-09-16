@@ -8,6 +8,7 @@ const { createContext, useContext, useState, useEffect, useCallback } = React;
 const arSA = require('./locales/ar-SA.js');
 const en = require('./locales/en.js');
 const { normalizeLocale, sanitizeArabicUiText } = require('./strict-arabic-presentation.js');
+const { getAboutMethodology } = require('../decision-governance/model-card');
 
 const LOCALES = { 'ar-SA': { dir: 'rtl', dict: arSA }, en: { dir: 'ltr', dict: en } };
 const LOCALE_STORAGE_KEY = 'startak.presentation.locale';
@@ -54,6 +55,15 @@ function resolveInitialLocale(defaultLocale = 'ar-SA') {
   return safeReadStoredLocale() || detectBrowserLocale() || normalizeLocale(defaultLocale) || 'ar-SA';
 }
 
+// Governance-owned presentation strings must come from their canonical module
+// rather than a copied locale literal. App.jsx already renders
+// globalApp.methodologyNote in the production footer, so this resolver live-wires
+// the Model Card / methodology scope notice without duplicating policy text.
+function resolveGovernedPresentationText(path, locale = 'ar-SA') {
+  if (path !== 'globalApp.methodologyNote') return null;
+  return getAboutMethodology(locale === 'en' ? 'en' : 'ar').notice;
+}
+
 function LocaleProvider({ children, defaultLocale = 'ar-SA' }) {
   const [locale, setLocaleState] = useState(() => resolveInitialLocale(defaultLocale));
   const { dir, dict } = LOCALES[locale] || LOCALES['ar-SA'];
@@ -79,6 +89,18 @@ function LocaleProvider({ children, defaultLocale = 'ar-SA' }) {
   }, [locale, dir]);
 
   function t(path, params) {
+    const governedText = resolveGovernedPresentationText(path, locale);
+    if (governedText !== null) {
+      let rendered = locale === 'ar-SA' ? sanitizeArabicUiText(governedText) : governedText;
+      if (params) {
+        rendered = rendered.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+          if (!(key in params)) return locale === 'ar-SA' ? 'قيمة غير متاحة' : match;
+          return String(params[key]);
+        });
+      }
+      return rendered;
+    }
+
     const parts = path.split('.');
     let cur = dict;
     for (const p of parts) {
@@ -120,4 +142,5 @@ module.exports = {
   normalizeLocale,
   detectBrowserLocale,
   resolveInitialLocale,
+  resolveGovernedPresentationText,
 };
