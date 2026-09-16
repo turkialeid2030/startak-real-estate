@@ -29,15 +29,15 @@ async function loadReferenceDeal(page, nameRe) {
 
 async function configureMinimalBuildingValuation(page) {
   const titleCount = await page.getByText('ذكاء التقييم العقاري', { exact: true }).count();
-  const configureTextCount = await page.getByText('تهيئة Valuation V1', { exact: true }).count();
+  const configureTextCount = await page.getByText('تهيئة التقييم — الإصدار الأول', { exact: true }).count();
   const incompleteCount = await page.getByTestId('analysis-incomplete').count();
-  const configRoleCount = await page.getByRole('button', { name: 'تهيئة Valuation V1' }).count();
+  const configRoleCount = await page.getByRole('button', { name: 'تهيئة التقييم — الإصدار الأول' }).count();
   mark(
     'VALUATION_CONFIGURATION_DISCOVERABLE',
     titleCount === 1 && configureTextCount === 1 && configRoleCount === 1 && incompleteCount === 0,
     JSON.stringify({ titleCount, configureTextCount, configRoleCount, incompleteCount }),
   );
-  await page.getByRole('button', { name: 'تهيئة Valuation V1' }).click();
+  await page.getByRole('button', { name: 'تهيئة التقييم — الإصدار الأول' }).click();
   await page.getByLabel('معرّف المشروع').fill('E2E-VALUATION-1');
   await page.getByLabel('فئة الأصل').selectOption({ label: 'مكاتب' });
   await page.getByLabel('مرحلة دورة الحياة').selectOption({ label: 'قائم ومشغّل' });

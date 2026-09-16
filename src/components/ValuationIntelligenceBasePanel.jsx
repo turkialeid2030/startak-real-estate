@@ -48,13 +48,13 @@ const COPY = Object.freeze({
     title: 'ذكاء التقييم العقاري',
     subtitle: 'طبقة تقييم إضافية لا تستبدل محرك الدراسة الحالي ولا تعيد حساب الصفقات القديمة تلقائياً.',
     legacyTitle: 'المسار الحالي فقط',
-    legacyBody: 'لم يتم تفعيل Valuation V1 لهذه الحالة. تستمر نتائج الدراسة الحالية كما هي دون ترحيل أو افتراضات تلقائية.',
-    configure: 'تهيئة Valuation V1',
+    legacyBody: 'لم يتم تفعيل طبقة التقييم — الإصدار الأول لهذه الحالة. تستمر نتائج الدراسة الحالية كما هي دون ترحيل أو افتراضات تلقائية.',
+    configure: 'تهيئة التقييم — الإصدار الأول',
     editConfiguration: 'تعديل الإعدادات',
     closeConfiguration: 'إغلاق الإعدادات',
     applyConfiguration: 'تطبيق الإعدادات',
     disable: 'العودة للمسار الحالي فقط',
-    disableConfirm: 'سيتم إلغاء تفعيل Valuation V1 للحالة الحالية فقط. لن يتم حذف نتائج المحرك الحالي. هل تريد المتابعة؟',
+    disableConfirm: 'سيتم إلغاء تفعيل طبقة التقييم — الإصدار الأول للحالة الحالية فقط. لن يتم حذف نتائج المحرك الحالي. هل تريد المتابعة؟',
     configuration: 'إعدادات التقييم',
     configurationNote: 'لا توجد قيم اقتصادية افتراضية مخفية. الحقول المطلوبة يجب تحديدها صراحة.',
     projectId: 'معرّف المشروع',
@@ -74,8 +74,8 @@ const COPY = Object.freeze({
     allowedMethod: 'المنهج المسموح',
     justification: 'مبرر الاعتماد المهني',
     requiredPlaceholder: 'اختر صراحة',
-    currencyPlaceholder: 'مثال: SAR',
-    projectPlaceholder: 'مثال: PROJECT-001',
+    currencyPlaceholder: 'مثال: رمز العملة بالصيغة المعتمدة',
+    projectPlaceholder: 'مثال: مشروع-٠٠١',
     justificationPlaceholder: 'اكتب مبرراً مهنياً واضحاً لقبول منهج واحد فقط',
     configError: 'تعذر تطبيق إعدادات التقييم',
     runtimeError: 'تعذر تشغيل طبقة التقييم لهذه الحالة. بقيت الدراسة الأساسية دون تغيير.',
@@ -95,8 +95,8 @@ const COPY = Object.freeze({
     singleMethodAccepted: 'تم استخدام سياسة قبول منهج واحد',
     singleMethodJustification: 'المبرر',
     governanceNote: 'جاهزية التقييم لا تعني اعتماد الصفقة أو تفويض أي معاملة. يبقى القرار البشري والحوكمة المطلوبة إلزاميين.',
-    legacyOnlyBadge: 'Legacy Only',
-    valuationV1Badge: 'Valuation V1',
+    legacyOnlyBadge: 'المسار الحالي فقط',
+    valuationV1Badge: 'التقييم — الإصدار الأول',
     available: 'متاح',
     hold: 'معلّق',
     unavailable: 'غير متاح',
@@ -501,6 +501,7 @@ export default function ValuationIntelligencePanel({
       <div className="mt-4 flex flex-wrap gap-2">
         <button
           type="button"
+          aria-label={expanded ? text.closeConfiguration : valuationCase ? text.editConfiguration : text.configure}
           onClick={() => setExpanded((value) => !value)}
           className="px-3 py-2 rounded-lg text-xs font-medium flex items-center gap-1.5"
           style={{ background: COLORS.panelRaised, border: `1px solid ${COLORS.hairline}`, color: COLORS.parchment }}
