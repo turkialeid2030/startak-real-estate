@@ -29,6 +29,7 @@
 ### مسؤول GitHub / #326 + #327
 - `github-ruleset-admin-evidence.template.md`
 - `github-production-environment-admin-evidence.template.md`
+- `OWNER-ADMIN-ACTIONS-NOW.md`: خطوات المالك المباشرة لإغلاق قواعد `main` وEnvironment `production`.
 
 ### السلطات البشرية / RACI
 - `HUMAN-AUTHORITY-INTAKE.template.md`
@@ -47,6 +48,9 @@
 - `e2g-release-approval.template.json`
 - `e2g-merge-approval.template.json`
 - `e2g-deployment-approval.template.json`
+- `e2g-release-approval.current.template.json`: قالب قرار RELEASE مرتبط بسلطة المالك الحالية دون افتراض النتيجة.
+- `e2g-merge-approval.current.template.json`: قالب قرار MERGE مرتبط بسلطة المالك الحالية دون افتراض النتيجة.
+- `OWNER-RSA-PUBLIC-KEY-SETUP.md`: تعليمات إنشاء وإدارة المفتاح محليًا واستخراج public-key hash المتوافق مع verifier.
 - `EXTERNAL-SIGNING-INSTRUCTIONS.md`
 
 ## متطلبات E2F
@@ -78,7 +82,7 @@
 ## ترتيب التنفيذ
 
 1. إغلاق #326 بواسطة المالك الحالي بصفته Repository Admin ثم إثبات الحالة بقراءة حية.
-2. إغلاق #327 بواسطة المالك الحالي بصفته Repository/Environment Admin مع أدلة غير حساسة.
+2. تقدم #327 بواسطة المالك الحالي بصفته Repository/Environment Admin، مع بقاء Required Reviewer/Deployment authority شخصًا مختلفًا عن صاحب MERGE.
 3. تعيين مراجع مستقل حقيقي لـ#254 منفصل عن `github:turkialeid2030`.
 4. إكمال E2E الحقيقي للـtuple الحالي.
 5. إكمال E2F والتوقيعات الخارجية.
