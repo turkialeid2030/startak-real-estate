@@ -3,6 +3,7 @@
 const { createGovernedReportPayload } = require('./report-governance');
 const { recommendationMethodologyMetadata } = require('./methodology-metadata');
 const { evaluateValuationEvidenceFreshness } = require('./valuation-data-freshness');
+const { AUDIT_ACTION, createAuditEvent } = require('./audit-trail');
 
 function requireObject(value, field) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError(`${field} must be an object`);
@@ -56,7 +57,7 @@ function buildGovernedValuationReport({ runtime, valuationCase, generatedAt = ne
 
   const stage = runtime.stage;
   const dataSources = valuationDataSources(valuationCase);
-  return createGovernedReportPayload({
+  const report = createGovernedReportPayload({
     dealId: runtime.caseId,
     versionId: `${runtime.caseId}:${generatedAt}`,
     generatedAt,
@@ -82,6 +83,19 @@ function buildGovernedValuationReport({ runtime, valuationCase, generatedAt = ne
     },
     transactionAuthority: 'ANALYSIS_ONLY',
   });
+
+  const localAuditEvent = createAuditEvent({
+    dealId: report.dealId,
+    versionId: report.versionId,
+    timestamp: generatedAt,
+    actionType: AUDIT_ACTION.EXPORT_CREATED,
+    changedFields: [],
+    modelVersion: report.modelVersion,
+    assumptionVersion: report.modelVersion,
+    reason: 'GOVERNED_VALUATION_REPORT_EXPORT',
+  });
+
+  return Object.freeze({ ...report, localAuditEvent });
 }
 
 module.exports = {
