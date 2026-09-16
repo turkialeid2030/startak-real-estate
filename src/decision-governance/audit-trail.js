@@ -34,4 +34,25 @@ function createAuditEvent(input = {}) {
   });
 }
 
-module.exports = { AUDIT_ACTION, createAuditEvent };
+function validateAuditEvent(event) {
+  if (!event || typeof event !== 'object' || Array.isArray(event)) throw new TypeError('audit event must be an object');
+  if (event.trailType !== 'LOCAL_HISTORY') throw new TypeError('trailType must equal LOCAL_HISTORY');
+  if (event.enterpriseAuditTrail !== false) throw new TypeError('enterpriseAuditTrail must be false for local history');
+  if (typeof event.dealId !== 'string' || !event.dealId.trim()) throw new TypeError('dealId is required');
+  if (typeof event.versionId !== 'string' || !event.versionId.trim()) throw new TypeError('versionId is required');
+  if (!Object.values(AUDIT_ACTION).includes(event.actionType)) throw new TypeError('valid actionType is required');
+  if (typeof event.modelVersion !== 'string' || !event.modelVersion.trim()) throw new TypeError('modelVersion is required');
+  if (!Number.isFinite(new Date(event.timestamp).getTime())) throw new TypeError('timestamp must be valid');
+  if (!Array.isArray(event.changedFields) || event.changedFields.some((field) => typeof field !== 'string')) {
+    throw new TypeError('changedFields must be an array of strings');
+  }
+  if (!event.previousValues || typeof event.previousValues !== 'object' || Array.isArray(event.previousValues)) {
+    throw new TypeError('previousValues must be an object');
+  }
+  if (!event.newValues || typeof event.newValues !== 'object' || Array.isArray(event.newValues)) {
+    throw new TypeError('newValues must be an object');
+  }
+  return event;
+}
+
+module.exports = { AUDIT_ACTION, createAuditEvent, validateAuditEvent };
