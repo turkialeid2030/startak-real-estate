@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "artifactId": "canonical-rebaseline-independent-review-governance-rc-2026-09-16",
+  "releaseCandidateId": "startak-real-estate-rc-2026-09-16-e876208c19ff",
+  "sourceCommitSha": "e876208c19ffbddd0dacd2bf8fce24aba1e52b55",
+  "releaseArtifactSha256": "c3ddcd7b4a66fd58c271fb08b9e5a3efb5e4237f0015d3771e7ab9818412017f",
+  "environmentRef": "cloudflare-pages:startak-real-estate:production",
+  "environmentConfigSha256": "819183fb9f4fb09017c636d2d1d841dd086ac4ba4bbccd103dffbc4c5980bc73",
+  "ownerSubjectRef": "github:turkialeid2030",
+  "reviewerSubjectRef": "human:said",
+  "reviewerId": "reviewer-said-2026-09-17",
+  "reviewerPublicKeySha256": "fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1",
+  "allowedPurpose": "CANONICAL_REBASELINE_INDEPENDENT_REVIEW",
+  "governanceEvidenceRef": "https://github.com/turkialeid2030/startak-real-estate/issues/367",
+  "effectiveFrom": "2026-09-17T12:47:00+03:00",
+  "boundary": "TRUST_REGISTRATION_ONLY_GENUINE_REVIEW_ARTIFACT_AND_RSA_SHA256_SIGNATURE_STILL_REQUIRED"
+}
