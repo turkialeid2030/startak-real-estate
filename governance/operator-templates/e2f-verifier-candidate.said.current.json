@@ -8,12 +8,12 @@
     "E2F_EXTERNAL_VERIFIER_CANDIDATE",
     "DEPLOYMENT_APPROVAL_CANDIDATE"
   ],
-  "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEArXkEgBdcb65jsFVe6Ts5\no09CalFwc7SGLNdQVmWbk3qQ1mCLW5olbH9qOUHj8RAB4ps/UCLvyEuYqsrbVfxy\n6Nm6y16GZ4OKfH6JDlF1fj6LHK2V4n8gPBytd3xvLvsmtKjUwHuAmPflHrctUwhQ\njJmEgA8LrKZv9sSxGcwsLZEbeaKdzH5cqQC2KOVeidD/o/MvwY8NZjtpKvYM7alr\nCnuj+OsK3V7m+dt0MVmIZoCIL2jR15zo3tpoFbdisII4t8faMNCkPtG0DzevMJLi\nNe22/EVJ16Y2hy/cbWUK8y96yJAAcWR0N865vqa1yikPvi2U27Dn7f+3/1yqUmR3\nzfdT08kGM774kSa4i9P9pZys9eHJi888fxBkdJ0inZwvdlCan+jpUqcuNe8UWT6Y\nLUPfppzQqxfThhnWPQ/bE0kMbSwZ8MXlb+4bBrh14nZ92hcDPwj+zxRUD5tI3TAY\n0HCZm79MKlh69ahiTfz3rhKZJUukW536k4Oz0HqlmBWHAgMBAAE=\n-----END PUBLIC KEY-----",
-  "publicKeySha256": "924cff36221c486f285d969ad8fcdd927b3f868e76c5726efcef49bbb0305999",
+  "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAxlFrSlS8ONirRt32B68W\nKgbzrrKTVl9XwWV1SsepOrK4Eyd4GiGTpdreRcRiA2fxIVs+PySrGr1w3AcKTFvT\nrrPECkuRu3AHMk/x68z+FTMILke6GUfn+qsukewTwfbHBVz+EmuC2+0wn6Sf+S76\nSDr8ZczP2bQij71ywIv0QPMxvrS3qkCBr1I3NOMzc7joOXv4OU7syWclzIYEJYSW\nrX06Q2nvqYdureWGXPvHo/4U9Zajw/UAnM7DkusfOhNGL8tt4UyaigxatsLPpPPY\nA58n/cbF1uYbxD60llMM6F4ic6dKGg6/IP0aHLnX2cg7TcX2jxPw3XD/z4GAdsg2\nPSBlOEu/nAdZGnZpohmtGEZx6ALzsE7E4f1dfDNnSY6FKcLlktuQKKX+6X950G/D\nEepT5VgUxbtqzvokiq+V3x7JLY8p6S2vkiPmEW4krEY7R+8OO75yn/3SoQRvV/cM\nbTjo/m3ZjdbXEctkwHhi0Kb1EpnLpf/v51D6PCsacl91AgMBAAE=\n-----END PUBLIC KEY-----",
+  "publicKeySha256": "fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1",
   "keyGeneratedOnOwnerControlledWindowsProfile": true,
-  "privateKeyPassphraseConfigured": false,
-  "custodyStatus": "OWNER_CONTROLLED_KEY_MATERIAL_DOES_NOT_ESTABLISH_INDEPENDENT_HUMAN_CUSTODY",
-  "e2fTrustStatus": "NOT_TRUSTED_NOT_EXTERNALLY_GOVERNED",
-  "deploymentAuthorityStatus": "NOT_ACTIVE_DISTINCT_HUMAN_CUSTODY_NOT_ESTABLISHED",
-  "notes": "Public key is recorded as candidate material only. It MUST NOT be placed into the active EXTERNALLY_GOVERNED E2F trusted verifier registry, used as proof of #254 independence, or activated for DEPLOYMENT_APPROVAL unless genuine independent private-key custody by سعيد is established and evidenced. No private key is stored in this repository."
+  "privateKeyPassphraseConfigured": true,
+  "custodyStatus": "PASSPHRASE_PROTECTED_ON_OWNER_CONTROLLED_PROFILE_PENDING_PROOF_OF_SAID_SOLE_CUSTODY",
+  "e2fTrustStatus": "CANDIDATE_NOT_YET_EXTERNALLY_GOVERNED",
+  "deploymentAuthorityStatus": "CANDIDATE_NOT_ACTIVE_PENDING_DISTINCT_HUMAN_CUSTODY_AND_GOVERNANCE_EVIDENCE",
+  "notes": "This record supersedes the earlier unprotected candidate key. The public key and SHA-256 are recorded as candidate material only. Passphrase protection is present, but because the key material resides on an owner-controlled Windows profile, this alone does not prove sole independent custody by سعيد. Do not activate this key in the EXTERNALLY_GOVERNED E2F registry, use it as proof of #254 independence, or enable DEPLOYMENT_APPROVAL until genuine custody and governance evidence are established. No private key or passphrase is stored in this repository."
 }
