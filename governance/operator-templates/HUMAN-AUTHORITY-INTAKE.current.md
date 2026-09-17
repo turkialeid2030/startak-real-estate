@@ -28,50 +28,56 @@ Administrative work still required:
 
 - #327 remains open because Required Reviewers are currently OFF under the owner-operated interim model.
 
-## B. Current owner-operated model
+## B. Current operating model
 
-The current operational model is owner-operated by `تركي العيد` only.
+Repository and GitHub administration remain owner-operated by `تركي العيد`.
 
-Current intended roles:
+Current intended owner roles:
 
 - Repository Owner / Administrator
 - Release Governance Accountable
 - `RELEASE_APPROVAL` authority
 - `MERGE_APPROVAL` authority
 
-No other named person is currently designated in this intake.
+`سعيد` has now been nominated as a human candidate for independent review, E2F external verification and Deployment approval, without requiring a GitHub account. However, the currently generated سعيد RSA key pair was created under the owner-controlled Windows profile and without a private-key passphrase. Therefore the public key is recorded only as candidate material and does not, by itself, establish independent private-key custody or satisfy any current independence gate.
 
-This owner-operated constraint does not waive any independent-human requirement already enforced by the current governance contracts.
+This operating model does not waive any independent-human requirement already enforced by the current governance contracts.
 
 ## C. Independent Reviewer — #254
 
-Status: `UNASSIGNED_EXTERNAL_HUMAN_REQUIRED`
+Status: `SAID_NOMINATED_CANDIDATE_NOT_YET_INDEPENDENCE_QUALIFIED`
 
-- reviewerId: `<REPLACE_REAL_INDEPENDENT_REVIEWER_ID>`
-- reviewerSubjectRef: `<MUST_DIFFER_FROM_github:turkialeid2030>`
-- reviewerDisplayName: `<REPLACE>`
-- independenceEvidenceRef: `<REPLACE>`
-- governanceEvidenceRef: `<REPLACE>`
-- publicKeyPemRef: `<PUBLIC_ONLY>`
-- publicKeySha256: `<REPLACE>`
-- activeFrom: `<ISO-8601>`
-- activeUntil: `<ISO-8601_OR_NULL>`
+- reviewerId: `reviewer-candidate-said-2026-09-17`
+- reviewerSubjectRef: `human:said`
+- reviewerDisplayName: `سعيد`
+- candidatePublicKeySha256: `924cff36221c486f285d969ad8fcdd927b3f868e76c5726efcef49bbb0305999`
+- candidateRegistryPath: `governance/operator-templates/e2f-verifier-candidate.said.current.json`
+- independenceEvidenceRef: `<REQUIRED_BEFORE_ACTIVATION>`
+- governanceEvidenceRef: `<REQUIRED_BEFORE_ACTIVATION>`
+- activeFrom: `<NOT_ACTIVE>`
 - allowedPurpose: `CANONICAL_REBASELINE_INDEPENDENT_REVIEW`
 
-The owner cannot satisfy this independent-review role under the current gate because the reviewer must be distinct from the release owner/operator.
+The owner cannot satisfy this independent-review role. سعيد may become the independent reviewer only after genuine independent control/custody of his signing private key and the required independence evidence are established.
 
 ## D. E2F External Verifiers — #364
 
-Status: `UNASSIGNED_EXTERNAL_VALIDATORS_REQUIRED`
+Status: `SAID_NOMINATED_CANDIDATE_NOT_TRUSTED_NOT_EXTERNALLY_GOVERNED`
 
-Required validation coverage:
+Candidate:
+
+- verifierSubjectRef: `human:said`
+- publicKeySha256: `924cff36221c486f285d969ad8fcdd927b3f868e76c5726efcef49bbb0305999`
+- candidateRegistryPath: `governance/operator-templates/e2f-verifier-candidate.said.current.json`
+- keyCustodyStatus: `OWNER_CONTROLLED_KEY_MATERIAL_DOES_NOT_ESTABLISH_INDEPENDENT_HUMAN_CUSTODY`
+
+Required validation coverage remains:
 
 1. `EXTERNAL_CONFORMANCE_AUTHENTICITY`
 2. `PRODUCTION_SECURITY_VALIDATION`
 3. `PRODUCTION_PERFORMANCE_VALIDATION`
 4. `PRODUCTION_RESILIENCE_VALIDATION`
 
-External verifier identity, governance evidence, public key material and genuine signed validation evidence remain required by the current E2F contract.
+The candidate public key MUST NOT be inserted into the active `EXTERNALLY_GOVERNED` trusted E2F verifier registry or used to sign E2F evidence as independent until genuine independent private-key custody by سعيد is established and evidenced.
 
 ## E. E2G Human Release Authorities — #364
 
@@ -99,15 +105,15 @@ The same owner RSA public key is intentionally registered for both RELEASE and M
 
 ### DEPLOYMENT_APPROVAL authority
 
-Status: `UNASSIGNED_DISTINCT_HUMAN_REQUIRED`
+Status: `SAID_NOMINATED_CANDIDATE_NOT_ACTIVE`
 
-- authorityId: `<REPLACE_DEPLOYMENT_AUTHORITY_ID>`
-- authoritySubjectRef: `<MUST_NOT_EQUAL_github:turkialeid2030>`
-- governanceEvidenceRef: `<REPLACE>`
-- publicKeyPem: `<PUBLIC_ONLY>`
-- publicKeySha256: `<REPLACE>`
+- authorityId: `deployment-authority-candidate-said-2026-09-17`
+- authoritySubjectRef: `human:said`
+- candidatePublicKeySha256: `924cff36221c486f285d969ad8fcdd927b3f868e76c5726efcef49bbb0305999`
+- candidateRegistryPath: `governance/operator-templates/e2f-verifier-candidate.said.current.json`
+- governanceEvidenceRef: `<REQUIRED_BEFORE_ACTIVATION>`
 
-The current verifier requires Merge and Deployment to be held by different human subjects.
+Although `human:said` is distinct from `github:turkialeid2030`, the current generated key material is under owner-controlled custody and therefore is not activated as the distinct Deployment authority key. Independent key custody must be established first.
 
 ## F. Immediate Environment target state — #327
 
@@ -126,11 +132,12 @@ This is an interim environment-hardening state only. It does not satisfy indepen
 
 The unresolved human inputs are:
 
-1. one real independent reviewer for #254;
-2. externally governed verifier coverage for the four E2F validation types;
-3. one distinct Deployment authority with its own public RSA key;
-4. signed E2G decisions after upstream E2F qualification;
-5. final resolution of #327 Required Reviewer separation, or an explicit governed policy change if the owner-operated model is to replace that control.
+1. establish and evidence genuine independent private-key custody for سعيد before using him as #254 independent reviewer;
+2. establish and evidence externally governed E2F verifier authority/custody for سعيد before activating his candidate key;
+3. complete the four genuine E2F validation results and RSA-SHA256 signatures after verifier qualification;
+4. establish distinct Deployment authority custody for سعيد before activation;
+5. signed E2G decisions after upstream E2F qualification;
+6. final resolution of #327 Required Reviewer separation, or an explicit governed policy change if the owner-operated model is to replace that control.
 
 ## Prohibited data
 
