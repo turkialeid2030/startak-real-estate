@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "candidateId": "e2f-verifier-candidate-said-2026-09-17",
+  "displayName": "سعيد",
+  "subjectRef": "human:said",
+  "intendedRoles": [
+    "INDEPENDENT_REVIEWER_CANDIDATE_254",
+    "E2F_EXTERNAL_VERIFIER_CANDIDATE",
+    "DEPLOYMENT_APPROVAL_CANDIDATE"
+  ],
+  "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEArXkEgBdcb65jsFVe6Ts5\no09CalFwc7SGLNdQVmWbk3qQ1mCLW5olbH9qOUHj8RAB4ps/UCLvyEuYqsrbVfxy\n6Nm6y16GZ4OKfH6JDlF1fj6LHK2V4n8gPBytd3xvLvsmtKjUwHuAmPflHrctUwhQ\njJmEgA8LrKZv9sSxGcwsLZEbeaKdzH5cqQC2KOVeidD/o/MvwY8NZjtpKvYM7alr\nCnuj+OsK3V7m+dt0MVmIZoCIL2jR15zo3tpoFbdisII4t8faMNCkPtG0DzevMJLi\nNe22/EVJ16Y2hy/cbWUK8y96yJAAcWR0N865vqa1yikPvi2U27Dn7f+3/1yqUmR3\nzfdT08kGM774kSa4i9P9pZys9eHJi888fxBkdJ0inZwvdlCan+jpUqcuNe8UWT6Y\nLUPfppzQqxfThhnWPQ/bE0kMbSwZ8MXlb+4bBrh14nZ92hcDPwj+zxRUD5tI3TAY\n0HCZm79MKlh69ahiTfz3rhKZJUukW536k4Oz0HqlmBWHAgMBAAE=\n-----END PUBLIC KEY-----",
+  "publicKeySha256": "924cff36221c486f285d969ad8fcdd927b3f868e76c5726efcef49bbb0305999",
+  "keyGeneratedOnOwnerControlledWindowsProfile": true,
+  "privateKeyPassphraseConfigured": false,
+  "custodyStatus": "OWNER_CONTROLLED_KEY_MATERIAL_DOES_NOT_ESTABLISH_INDEPENDENT_HUMAN_CUSTODY",
+  "e2fTrustStatus": "NOT_TRUSTED_NOT_EXTERNALLY_GOVERNED",
+  "deploymentAuthorityStatus": "NOT_ACTIVE_DISTINCT_HUMAN_CUSTODY_NOT_ESTABLISHED",
+  "notes": "Public key is recorded as candidate material only. It MUST NOT be placed into the active EXTERNALLY_GOVERNED E2F trusted verifier registry, used as proof of #254 independence, or activated for DEPLOYMENT_APPROVAL unless genuine independent private-key custody by سعيد is established and evidenced. No private key is stored in this repository."
+}
