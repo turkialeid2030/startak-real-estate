@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "recordType": "RELAYED_HUMAN_REVIEW_DECISION",
+  "releaseCandidateId": "startak-real-estate-rc-2026-09-16-e876208c19ff",
+  "sourceCommitSha": "e876208c19ffbddd0dacd2bf8fce24aba1e52b55",
+  "artifactSha256": "c3ddcd7b4a66fd58c271fb08b9e5a3efb5e4237f0015d3771e7ab9818412017f",
+  "environmentRef": "cloudflare-pages:startak-real-estate:production",
+  "environmentConfigSha256": "819183fb9f4fb09017c636d2d1d841dd086ac4ba4bbccd103dffbc4c5980bc73",
+  "reviewerId": "reviewer-said-2026-09-17",
+  "reviewerSubjectRef": "human:said",
+  "reportedStatementArabic": "اعتمد",
+  "interpretedDecision": "APPROVE",
+  "reportedVia": "owner-relay-in-chat",
+  "reportedBy": "github:turkialeid2030",
+  "reportedAt": "2026-09-17T13:17:59+03:00",
+  "cryptographicSignatureStatus": "PENDING",
+  "reviewArtifactStatus": "PENDING",
+  "evidenceAndRationaleStatus": "PENDING",
+  "cryptographicVerificationStatus": "PENDING",
+  "authorityEffect": "NONE_UNTIL_VERIFIED",
+  "notes": [
+    "This record preserves the owner's relay that Said stated 'اعتمد'.",
+    "It records an APPROVE decision report only; it is not a signed attestation.",
+    "Issue #254 remains open until a genuine review artifact/memo, sufficient evidence/rationale, canonical signing payload, RSA-SHA256 signature, and verifier acceptance are present."
+  ]
+}
