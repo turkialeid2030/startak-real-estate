@@ -1,6 +1,6 @@
 {
   "registryId": "e2g-release-authority-registry-rc-2026-09-16",
-  "governanceArtifactSha256": "<REPLACE_64_HEX_SHA256_OF_FINAL_GOVERNANCE_ARTIFACT>",
+  "governanceArtifactSha256": "c08fb5bad0d98dabf897af2401af0b6f8abec8f0d3d1bacf3f471c17035630ac",
   "authorities": [
     {
       "authorityId": "release-authority-turki-al-eid-2026-09-16",
