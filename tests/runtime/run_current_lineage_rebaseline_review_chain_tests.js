@@ -72,8 +72,13 @@ assert.strictEqual(regeneratedPacket.ownerActorRef, 'github:turkialeid2030');
 assert.strictEqual(regeneratedPacket.independentReviewerRef, 'human:said');
 assert.strictEqual(regeneratedPacket.expectedResponseContract.actorRefMustEqual, 'human:said');
 
+assert.strictEqual(summary.reviewerRegistryStatus, 'READY_TECHNICALLY_OUT_OF_BAND_PIN_REQUIRED');
+assert.strictEqual(summary.reviewerRegistryHashSha256, '62c76efae99b3cf07a2f2fe7182b9c76932b39e9b72bd1eb48ea625dc620b5ca');
+assert.strictEqual(summary.reviewerPublicKeySha256, 'fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1');
+assert.strictEqual(summary.canonicalReviewVerifier, 'tools/verify-canonical-rebaseline-review-attestation.js');
 assert.strictEqual(summary.saidDecision, 'APPROVE_REPORTED');
 assert.strictEqual(summary.reviewMemo, 'REQUIRED');
+assert.strictEqual(summary.canonicalSigningPayload, 'BLOCKED_UNTIL_REVIEW_ARTIFACT_FIELDS_EXIST');
 assert.strictEqual(summary.signedReview, 'NOT_YET');
 assert.strictEqual(summary.independentReviewGate254, 'HOLD');
 assert.strictEqual(summary.e2f, 'HOLD');
