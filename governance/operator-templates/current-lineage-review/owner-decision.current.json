@@ -1,0 +1,9 @@
+{
+  "decisionId": "p25-owner-startak-real-estate-rc-2026-09-16-e876208c19ff",
+  "actorRef": "github:turkialeid2030",
+  "result": "APPROVE",
+  "decisionSourceRef": "https://github.com/turkialeid2030/startak-real-estate/issues/254#issuecomment-5713241384",
+  "decisionArtifactSha256": "441eb31f274d3479e099eb5f2d4df5c3ccc35404b9a0f3dc29cb4874f2cc96a1",
+  "decidedAt": "2026-09-17T11:00:09.000Z",
+  "rationaleRef": "https://github.com/turkialeid2030/startak-real-estate/issues/254#issuecomment-5713241384"
+}
