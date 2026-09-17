@@ -22,10 +22,11 @@ This file records only public/non-secret authority metadata for the current exec
 Completed administrative control:
 
 - #326: ruleset `21861129` requires both `release-verify` and `trusted-main-production-governance`, with strict enforcement and no bypass actors.
+- #327 partial hardening: administrator bypass is OFF, deployment branches/tags are restricted to `main`, `CLOUDFLARE_API_TOKEN` is scoped as a `production` Environment secret, `CLOUDFLARE_ACCOUNT_ID` is a `production` Environment variable, and the broader repository-level `CLOUDFLARE_API_TOKEN` secret has been removed.
 
 Administrative work still required:
 
-- #327: complete `production` Environment hardening/evidence without exposing any secret value.
+- #327 remains open because Required Reviewers are currently OFF under the owner-operated interim model.
 
 ## B. Current owner-operated model
 
@@ -79,18 +80,22 @@ External verifier identity, governance evidence, public key material and genuine
 - authorityId: `release-authority-turki-al-eid-2026-09-16`
 - authoritySubjectRef: `github:turkialeid2030`
 - governanceEvidenceRef: `https://github.com/turkialeid2030/startak-real-estate/issues/365#issuecomment-5703765871`
-- publicKeyPem: `<REPLACE_WITH_OWNER_RSA_PUBLIC_KEY_ONLY>`
-- publicKeySha256: `<REPLACE_64_HEX_SHA256_OF_PUBLIC_KEY_PEM>`
-- status: `DESIGNATED_PENDING_KEY_E2F_AND_SIGNATURE`
+- publicKeySha256: `194f78b203841fbefebd9c360e591748b1f787be5f1b310a620ea91589aefccf`
+- publicKeyRegisteredAt: `2026-09-17T09:56:48+03:00`
+- publicKeyRegistryPath: `governance/operator-templates/e2g-release-authority-registry.current.template.json`
+- status: `KEY_REGISTERED_PENDING_E2F_AND_SIGNATURE`
 
 ### MERGE_APPROVAL authority
 
 - authorityId: `merge-authority-turki-al-eid-2026-09-16`
 - authoritySubjectRef: `github:turkialeid2030`
 - governanceEvidenceRef: `https://github.com/turkialeid2030/startak-real-estate/issues/365#issuecomment-5703765871`
-- publicKeyPem: `<REPLACE_WITH_OWNER_RSA_PUBLIC_KEY_ONLY>`
-- publicKeySha256: `<REPLACE_64_HEX_SHA256_OF_PUBLIC_KEY_PEM>`
-- status: `DESIGNATED_PENDING_KEY_E2F_AND_SIGNATURE`
+- publicKeySha256: `194f78b203841fbefebd9c360e591748b1f787be5f1b310a620ea91589aefccf`
+- publicKeyRegisteredAt: `2026-09-17T09:56:48+03:00`
+- publicKeyRegistryPath: `governance/operator-templates/e2g-release-authority-registry.current.template.json`
+- status: `KEY_REGISTERED_PENDING_E2F_AND_SIGNATURE`
+
+The same owner RSA public key is intentionally registered for both RELEASE and MERGE authority records. The current validator permits this because both records belong to the same owner subject; Deployment authority must remain a different human subject.
 
 ### DEPLOYMENT_APPROVAL authority
 
@@ -106,12 +111,14 @@ The current verifier requires Merge and Deployment to be held by different human
 
 ## F. Immediate Environment target state — #327
 
-While the repository remains owner-operated and no second production reviewer is designated, use the strongest valid single-owner configuration that does not create fake separation:
+Current administrator-confirmed interim state:
 
 - Required Reviewers: `OFF` temporarily
 - Administrator bypass: `OFF`
 - Deployment branches/tags: `main` only
-- `CLOUDFLARE_API_TOKEN`: Environment secret for `production` rather than a broad repository production credential where possible
+- `CLOUDFLARE_API_TOKEN`: scoped as an Environment secret for `production`
+- `CLOUDFLARE_ACCOUNT_ID`: scoped as an Environment variable for `production`
+- repository-level `CLOUDFLARE_API_TOKEN`: removed
 
 This is an interim environment-hardening state only. It does not satisfy independent review, external validation, or distinct Deployment authority requirements elsewhere in the release chain.
 
@@ -121,10 +128,9 @@ The unresolved human inputs are:
 
 1. one real independent reviewer for #254;
 2. externally governed verifier coverage for the four E2F validation types;
-3. one distinct Deployment authority;
-4. public RSA key material for designated E2G authorities;
-5. signed E2G decisions after upstream qualification;
-6. completion/evidence of #327 production Environment controls.
+3. one distinct Deployment authority with its own public RSA key;
+4. signed E2G decisions after upstream E2F qualification;
+5. final resolution of #327 Required Reviewer separation, or an explicit governed policy change if the owner-operated model is to replace that control.
 
 ## Prohibited data
 
