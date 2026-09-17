@@ -30,6 +30,7 @@ $reviewerId = 'reviewer-said-2026-09-17'
 $actorRef = 'human:said'
 $purpose = 'CANONICAL_REBASELINE_INDEPENDENT_REVIEW'
 $signatureAlgorithm = 'RSA-SHA256'
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 
 function Assert-RealFile([string]$PathValue, [string]$Label) {
   if (-not (Test-Path -LiteralPath $PathValue -PathType Leaf)) {
@@ -57,6 +58,10 @@ function J([string]$Value) {
   return ($Value | ConvertTo-Json -Compress)
 }
 
+function Write-Utf8NoBom([string]$PathValue, [string]$Text) {
+  [System.IO.File]::WriteAllText($PathValue, $Text, $utf8NoBom)
+}
+
 Assert-RealFile $MemoPath 'Completed review memo'
 $memoRaw = Get-Content -LiteralPath $MemoPath -Raw
 
@@ -80,6 +85,7 @@ $decisionSourceRef = 'review-memo-sha256:' + $memoHash
 $rationaleRef = $decisionSourceRef + '#section-6'
 
 New-Item -ItemType Directory -Path $OutDir -Force | Out-Null
+$outResolved = (Resolve-Path $OutDir).Path
 
 $unsignedAttestation = [ordered]@{
   decisionId = $decisionId
@@ -100,8 +106,8 @@ $unsignedAttestation = [ordered]@{
   signatureBase64 = ''
 }
 
-$unsignedPath = Join-Path $OutDir 'said-review-attestation.unsigned.json'
-$unsignedAttestation | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $unsignedPath -Encoding UTF8
+$unsignedPath = Join-Path $outResolved 'said-review-attestation.unsigned.json'
+Write-Utf8NoBom $unsignedPath (($unsignedAttestation | ConvertTo-Json -Depth 8) + "`n")
 
 # IMPORTANT: this is the exact flat payload shape produced by
 # src/qualification/canonical-rebaseline-review-attestation.js::createIndependentReviewSigningPayload.
@@ -127,11 +133,11 @@ $canonical = '{' +
   '"signatureAlgorithm":' + (J $signatureAlgorithm) +
 '}'
 
-$payloadPath = Join-Path $OutDir 'said-review-signing-payload.canonical.txt'
-[System.IO.File]::WriteAllText((Resolve-Path $OutDir).Path + [System.IO.Path]::DirectorySeparatorChar + 'said-review-signing-payload.canonical.txt', $canonical, (New-Object System.Text.UTF8Encoding($false)))
+$payloadPath = Join-Path $outResolved 'said-review-signing-payload.canonical.txt'
+Write-Utf8NoBom $payloadPath $canonical
 $payloadHash = Sha256-Utf8 $canonical
-Set-Content -LiteralPath (Join-Path $OutDir 'said-review-signing-payload.sha256.txt') -Value $payloadHash -Encoding ASCII
-Set-Content -LiteralPath (Join-Path $OutDir 'said-review-signing-payload.base64.txt') -Value ([Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($canonical))) -Encoding ASCII
+[System.IO.File]::WriteAllText((Join-Path $outResolved 'said-review-signing-payload.sha256.txt'), $payloadHash + "`n", [System.Text.Encoding]::ASCII)
+[System.IO.File]::WriteAllText((Join-Path $outResolved 'said-review-signing-payload.base64.txt'), ([Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($canonical))) + "`n", [System.Text.Encoding]::ASCII)
 
 $manifest = [ordered]@{
   schemaVersion = 1
@@ -176,7 +182,7 @@ if ($Sign) {
     throw 'OpenSSL was not found. Preparation completed, but signing was not attempted. Install/use a trusted OpenSSL client locally and sign the canonical payload with RSA-SHA256; do not upload the private key.'
   }
 
-  $sigBin = Join-Path $OutDir 'said-review-signature.bin'
+  $sigBin = Join-Path $outResolved 'said-review-signature.bin'
   Write-Host 'OpenSSL will now ask Said for the private-key passphrase locally. Do not paste or share that passphrase.'
   & $openssl dgst -sha256 -sign $PrivateKeyPath -out $sigBin $payloadPath
   if ($LASTEXITCODE -ne 0) { throw "OpenSSL signing failed with exit code $LASTEXITCODE" }
@@ -185,27 +191,27 @@ if ($Sign) {
   if ($LASTEXITCODE -ne 0) { throw 'Local RSA-SHA256 verification failed; refusing to produce a signed attestation.' }
 
   $sigBase64 = [Convert]::ToBase64String([System.IO.File]::ReadAllBytes($sigBin))
-  Set-Content -LiteralPath (Join-Path $OutDir 'said-review-signature.base64.txt') -Value $sigBase64 -Encoding ASCII
+  [System.IO.File]::WriteAllText((Join-Path $outResolved 'said-review-signature.base64.txt'), $sigBase64 + "`n", [System.Text.Encoding]::ASCII)
 
   $signedAttestation = [ordered]@{}
   foreach ($key in $unsignedAttestation.Keys) { $signedAttestation[$key] = $unsignedAttestation[$key] }
   $signedAttestation.signatureBase64 = $sigBase64
-  $signedPath = Join-Path $OutDir 'said-review-attestation.signed.json'
-  $signedAttestation | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $signedPath -Encoding UTF8
+  $signedPath = Join-Path $outResolved 'said-review-attestation.signed.json'
+  Write-Utf8NoBom $signedPath (($signedAttestation | ConvertTo-Json -Depth 8) + "`n")
 
   $manifest.signed = $true
   $manifest.localPreparationOnly = $false
   $manifest.signatureBase64Sha256 = Sha256-Utf8 $sigBase64
 }
 
-$manifestPath = Join-Path $OutDir 'said-review-signing-manifest.json'
-$manifest | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $manifestPath -Encoding UTF8
+$manifestPath = Join-Path $outResolved 'said-review-signing-manifest.json'
+Write-Utf8NoBom $manifestPath (($manifest | ConvertTo-Json -Depth 8) + "`n")
 
 Write-Host ''
 Write-Host 'STARTAK Said review signing package prepared.'
 Write-Host "Memo SHA-256: $memoHash"
 Write-Host "Canonical payload SHA-256: $payloadHash"
-Write-Host "Output directory: $((Resolve-Path $OutDir).Path)"
+Write-Host "Output directory: $outResolved"
 if ($Sign) {
   Write-Host 'Local signature verification: PASS'
   Write-Host 'Share only the completed memo, signed attestation, manifest, and signatureBase64 if requested. Never share the private key or passphrase.'
