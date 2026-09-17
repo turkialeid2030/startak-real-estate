@@ -39,19 +39,22 @@ Current intended owner roles:
 - `RELEASE_APPROVAL` authority
 - `MERGE_APPROVAL` authority
 
-`سعيد` has now been nominated as a human candidate for independent review, E2F external verification and Deployment approval, without requiring a GitHub account. However, the currently generated سعيد RSA key pair was created under the owner-controlled Windows profile and without a private-key passphrase. Therefore the public key is recorded only as candidate material and does not, by itself, establish independent private-key custody or satisfy any current independence gate.
+`سعيد` is nominated as a human candidate for independent review, E2F external verification and Deployment approval, without requiring a GitHub account.
+
+A superseding 3072-bit RSA key pair for سعيد has now been generated with passphrase protection. The public key is recorded and its SHA-256 has been verified. The key material still resides under the owner-controlled Windows profile, so passphrase protection alone does not prove sole independent custody by سعيد. Activation remains blocked until genuine custody/governance evidence is established.
 
 This operating model does not waive any independent-human requirement already enforced by the current governance contracts.
 
 ## C. Independent Reviewer — #254
 
-Status: `SAID_NOMINATED_CANDIDATE_NOT_YET_INDEPENDENCE_QUALIFIED`
+Status: `SAID_NOMINATED_CANDIDATE_PASSPHRASE_PROTECTED_PENDING_INDEPENDENCE_EVIDENCE`
 
 - reviewerId: `reviewer-candidate-said-2026-09-17`
 - reviewerSubjectRef: `human:said`
 - reviewerDisplayName: `سعيد`
-- candidatePublicKeySha256: `924cff36221c486f285d969ad8fcdd927b3f868e76c5726efcef49bbb0305999`
+- candidatePublicKeySha256: `fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1`
 - candidateRegistryPath: `governance/operator-templates/e2f-verifier-candidate.said.current.json`
+- privateKeyPassphraseConfigured: `true`
 - independenceEvidenceRef: `<REQUIRED_BEFORE_ACTIVATION>`
 - governanceEvidenceRef: `<REQUIRED_BEFORE_ACTIVATION>`
 - activeFrom: `<NOT_ACTIVE>`
@@ -61,14 +64,15 @@ The owner cannot satisfy this independent-review role. سعيد may become the i
 
 ## D. E2F External Verifiers — #364
 
-Status: `SAID_NOMINATED_CANDIDATE_NOT_TRUSTED_NOT_EXTERNALLY_GOVERNED`
+Status: `SAID_NOMINATED_CANDIDATE_PASSPHRASE_PROTECTED_NOT_YET_EXTERNALLY_GOVERNED`
 
 Candidate:
 
 - verifierSubjectRef: `human:said`
-- publicKeySha256: `924cff36221c486f285d969ad8fcdd927b3f868e76c5726efcef49bbb0305999`
+- publicKeySha256: `fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1`
 - candidateRegistryPath: `governance/operator-templates/e2f-verifier-candidate.said.current.json`
-- keyCustodyStatus: `OWNER_CONTROLLED_KEY_MATERIAL_DOES_NOT_ESTABLISH_INDEPENDENT_HUMAN_CUSTODY`
+- privateKeyPassphraseConfigured: `true`
+- keyCustodyStatus: `PASSPHRASE_PROTECTED_ON_OWNER_CONTROLLED_PROFILE_PENDING_PROOF_OF_SAID_SOLE_CUSTODY`
 
 Required validation coverage remains:
 
@@ -105,15 +109,16 @@ The same owner RSA public key is intentionally registered for both RELEASE and M
 
 ### DEPLOYMENT_APPROVAL authority
 
-Status: `SAID_NOMINATED_CANDIDATE_NOT_ACTIVE`
+Status: `SAID_NOMINATED_CANDIDATE_PASSPHRASE_PROTECTED_NOT_ACTIVE`
 
 - authorityId: `deployment-authority-candidate-said-2026-09-17`
 - authoritySubjectRef: `human:said`
-- candidatePublicKeySha256: `924cff36221c486f285d969ad8fcdd927b3f868e76c5726efcef49bbb0305999`
+- candidatePublicKeySha256: `fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1`
 - candidateRegistryPath: `governance/operator-templates/e2f-verifier-candidate.said.current.json`
+- privateKeyPassphraseConfigured: `true`
 - governanceEvidenceRef: `<REQUIRED_BEFORE_ACTIVATION>`
 
-Although `human:said` is distinct from `github:turkialeid2030`, the current generated key material is under owner-controlled custody and therefore is not activated as the distinct Deployment authority key. Independent key custody must be established first.
+Although `human:said` is distinct from `github:turkialeid2030`, the private key is still stored under an owner-controlled Windows profile. Passphrase protection improves separation but does not by itself prove sole custody. Independent key custody must be established before activation as Deployment authority.
 
 ## F. Immediate Environment target state — #327
 
