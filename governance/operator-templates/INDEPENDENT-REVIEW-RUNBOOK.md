@@ -12,95 +12,116 @@ This runbook is for Issue #254 and the current integrated RC only.
 
 Historical #348/#359 material is not valid for this tuple.
 
-## 1. Designate the real independent reviewer
+## Current exact P24/P25/P26 chain
 
-Do not use the default placeholder `reviewer:saeed-pending` / `سعيد المراجع` as proof of a real reviewer.
+The current-lineage chain is already generated and must be used unchanged unless the frozen tuple changes:
 
-Once a real reviewer is selected and the current qualified rebaseline proposal is available:
+- P24 proposal: `governance/operator-templates/current-lineage-review/proposal.current.json`
+- proposal hash: `b6575cb5c7c5ebd2a84ae71b2b31f1cb25a2562dc01d6e82608045e9d4d0557b`
+- P25 owner decision: `governance/operator-templates/current-lineage-review/owner-decision.current.json`
+- owner-decision hash: `2633792a0dabb50abf9caaef5a0b01ff55d9b2dc992f931c8708c9139dc0feb2`
+- P26 review packet: `governance/operator-templates/current-lineage-review/review-packet.current.json`
+- review-packet hash: `ed8a0ffb242081d308f89b1e177920d6bf2d6e058bceb5047ddedaf4f0eed107`
+- owner actor: `github:turkialeid2030`
+- independent reviewer actor: `human:said`
 
-```bash
-node tools/prepare-canonical-rebaseline-reviewer-designation.js \
-  --proposal proposal.json \
-  --owner-ref <EXACT_PROPOSAL_OWNER_REF> \
-  --reviewer-ref <REAL_REVIEWER_SUBJECT_REF> \
-  --reviewer-name '<REAL_REVIEWER_DISPLAY_NAME>' \
-  --designation-id <DESIGNATION_ID> \
-  --source-ref <DESIGNATION_SOURCE_REF> \
-  --artifact-sha256 <DESIGNATION_ARTIFACT_SHA256> \
-  --designated-at <ISO_TIMESTAMP> \
-  --output reviewer-designation.json
-```
+Do not regenerate or edit these artifacts merely to accommodate a review response. A tuple change requires a new governed lineage.
 
-The owner and reviewer references must differ.
+## 1. Reviewer trust record
 
-## 2. Generate a new current-lineage review packet
+The current reviewer trust material is registered at:
 
-The review packet must be generated from the current qualified proposal and owner decision; do not rebind an old packet by editing hashes.
+`governance/operator-templates/canonical-rebaseline-reviewer-registry.current.json`
 
-```bash
-node tools/prepare-canonical-rebaseline-review-packet.js \
-  --proposal proposal.json \
-  --owner-decision owner-decision.json \
-  --request-id <CURRENT_REVIEW_REQUEST_ID> \
-  --requested-at <ISO_TIMESTAMP> \
-  --output review-packet.json
-```
+Current reviewer:
 
-Expected status:
+- reviewer ID: `reviewer-said-2026-09-17`
+- reviewer subject: `human:said`
+- allowed purpose: `CANONICAL_REBASELINE_INDEPENDENT_REVIEW`
+- public-key SHA-256: `fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1`
+- governance artifact SHA-256: `284b5995b9d964481c42aa9ef3820206ef1db12c4b7aadf68f44ca6e50695e68`
+- deterministic verifier registry hash: `62c76efae99b3cf07a2f2fe7182b9c76932b39e9b72bd1eb48ea625dc620b5ca`
 
-`READY_FOR_INDEPENDENT_REVIEW`
+The registry hash must still be pinned independently/out-of-band before relying on it as the verifier trust root. Recording the same value in this repository is a reproducibility aid, not a substitute for independent pinning.
 
-The resulting packet binds the qualified source commit, release artifact, environment config, owner actor and independent reviewer.
+Never place the private key, passphrase, token, secret, or recovery material in GitHub, CI, this branch, an issue, or chat.
 
-## 3. Prepare reviewer registry
+## 2. Genuine review artifact is still required
 
-Start from `independent-reviewer-registry.template.json`.
+The relayed decision from Said is recorded as `APPROVE_REPORTED`, but it is not yet a verified independent review.
 
-Requirements:
+Said must complete a genuine review artifact/memo containing the evidence actually reviewed, findings, exceptions/risks, decision, rationale and decision time. Use:
 
-- RSA public key only, minimum suitable strength under the verifier.
-- `publicKeySha256` must match the trimmed public-key PEM exactly under the repository hashing contract.
-- `allowedPurpose` must be exactly `CANONICAL_REBASELINE_INDEPENDENT_REVIEW`.
-- reviewer subject must match the assigned independent reviewer.
-- pin the deterministic registry hash independently/out-of-band.
+`governance/operator-templates/SAID-INDEPENDENT-REVIEW-MEMO.template.md`
 
-Never place the private key in GitHub, CI, this branch, an issue, or chat.
+After the completed memo is fixed, calculate its actual SHA-256. That value becomes `decisionArtifactSha256`.
 
-## 4. Prepare unsigned attestation metadata
+Do not hash the blank template and do not infer review substance from the relayed word `اعتمد`.
 
-Start from `independent-review-attestation.template.json` but leave `signatureBase64` empty or placeholder until after the canonical signing payload has been generated.
+## 3. Prepare unsigned attestation metadata
 
-The decision artifact must be the real review memo/artifact for this RC. `result` may be `APPROVE`, `REJECT`, or `HOLD` based on the reviewer’s actual conclusion.
+Start from:
 
-## 5. Generate exact canonical signing bytes
+`governance/operator-templates/canonical-rebaseline-review-attestation.said.template.json`
+
+Fill only genuine values produced by the completed review:
+
+- `decisionId`
+- `reviewerId`
+- `actorRef`
+- `result`
+- `decisionSourceRef`
+- `decisionArtifactSha256`
+- `decidedAt`
+- `rationaleRef`
+- `signatureAlgorithm = RSA-SHA256`
+
+Leave `signatureBase64` empty until the canonical payload is generated and actually signed.
+
+## 4. Generate exact canonical signing bytes
+
+For this P26 packet, use the repository-defined canonical rebaseline signing-payload tool:
 
 ```bash
 node tools/prepare-canonical-rebaseline-review-signing-payload.js \
-  --packet review-packet.json \
-  --attestation independent-review-attestation.json \
+  --packet governance/operator-templates/current-lineage-review/review-packet.current.json \
+  --attestation unsigned-independent-review-attestation.json \
   --output review-signing-payload.json
 ```
 
-The reviewer signs the exact `signingBytesUtf8` / canonical payload **outside** the repository with the independently controlled RSA private key using RSA-SHA256.
+The reviewer signs the exact `signingBytesUtf8` bytes outside the repository using the RSA private key corresponding to the registered public key and algorithm `RSA-SHA256`.
 
-Return only the Base64 signature plus the public trust material already approved for disclosure.
+Return only `signatureBase64` plus public trust material already approved for disclosure.
 
-## 6. Verify the signed review through the current verifier path
+## 5. Verify the signed P26 review through the correct verifier
 
-Use the current successor review-attestation verifier where the current lineage requires it:
+The current P24/P25/P26 packet is verified by the canonical-rebaseline verifier path, not by the later successor-fresh P65/P66 verifier.
+
+Use:
 
 ```bash
-node tools/successor-fresh-review-attestation.js \
-  --mode verify \
-  --packet <CURRENT_SUCCESSOR_REVIEW_PACKET.json> \
-  --reviewer-registry independent-reviewer-registry.json \
-  --expected-reviewer-registry-hash <OUT_OF_BAND_REGISTRY_SHA256> \
+node tools/verify-canonical-rebaseline-review-attestation.js \
+  --packet governance/operator-templates/current-lineage-review/review-packet.current.json \
+  --reviewer-registry governance/operator-templates/canonical-rebaseline-reviewer-registry.current.json \
+  --expected-reviewer-registry-hash 62c76efae99b3cf07a2f2fe7182b9c76932b39e9b72bd1eb48ea625dc620b5ca \
   --attestation signed-independent-review-attestation.json \
   --output verified-independent-review.json
 ```
 
-Accept only a cryptographically verified current-lineage result produced by the applicable current verifier. Do not infer approval merely from a GitHub comment or uploaded PDF.
+Accepted status for the current P26 path:
+
+`VERIFIED_REVIEW_RESPONSE_READY_FOR_P25_REEVALUATION`
+
+The verifier checks the exact review packet, pinned reviewer registry hash, reviewer subject/purpose, public-key scope and the RSA-SHA256 signature. It does not independently validate the substantive truth of the external memo; the genuine review artifact remains a separate evidence obligation.
+
+The `tools/successor-fresh-review-attestation.js` path is reserved for a later successor-fresh P65/P66 governance cycle and must not be substituted for this P26 verifier.
+
+## 6. P25 re-evaluation remains separate
+
+A cryptographically verified review response is still only an input to the governed P25 re-evaluation. It does not itself activate a baseline or grant release authority.
+
+Only after the verified review exists may the next governed re-evaluation step be executed against the same proposal/owner/reviewer lineage.
 
 ## Safety boundary
 
-A valid independent review does not by itself authorize release, merge, deployment, transaction execution, canonical activation, professional issuance, or commercial Go-Live. The E2E/E2F/E2G and administrator gates remain separate.
+A valid independent review does not by itself authorize release, merge, deployment, transaction execution, canonical activation, professional issuance, legal approval, PDPL approval, or commercial Go-Live. The E2E/E2F/E2G and administrator gates remain separate.
