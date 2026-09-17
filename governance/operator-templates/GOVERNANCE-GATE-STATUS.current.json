@@ -10,7 +10,7 @@
   "supportPackageOwnerAdopted": true,
   "ruleset326": "PASS_CLOSED",
   "productionEnvironment327": "PARTIAL_PASS_OPEN",
-  "independentReview254": "PENDING_EXTERNAL_HUMAN_REVIEW_AND_SIGNATURE",
+  "independentReview254": "DECISION_REPORTED_APPROVE_PENDING_SIGNED_REVIEW_ARTIFACT_AND_VERIFICATION",
   "e2f364": "PENDING_EXTERNAL_VALIDATION",
   "e2gReleaseApproval": "PENDING_AFTER_E2F",
   "e2gMergeApproval": "PENDING_AFTER_E2F",
@@ -22,7 +22,9 @@
   "commercialGoLive": "HOLD",
   "notes": [
     "This snapshot records governance state only and grants no authority.",
-    "No external reviewer result, E2F result, or E2G decision is inferred by this file.",
+    "Said's APPROVE decision was relayed by the owner and recorded in SAID-REPORTED-APPROVAL.current.json.",
+    "The relayed decision is not a cryptographically verified attestation; the real review artifact/memo, evidence/rationale, canonical RSA-SHA256 signature, and verifier acceptance remain required for #254.",
+    "No E2F result or E2G decision is inferred by this file.",
     "The frozen RC tuple must remain unchanged while these gates are pending."
   ]
 }
