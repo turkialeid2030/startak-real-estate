@@ -15,7 +15,6 @@ This file records only public/non-secret authority metadata for the current exec
 - displayName: `تركي العيد`
 - administratorSubjectRef: `github:turkialeid2030`
 - repositoryRole: `OWNER`
-- authorityEvidenceRef: `https://github.com/turkialeid2030/startak-real-estate/issues/365#issuecomment-5703765871`
 - rulesetEvidenceCompleted: `true`
 - productionEnvironmentEvidenceCompleted: `false`
 
@@ -28,51 +27,41 @@ Administrative work still required:
 
 - #327 remains open because Required Reviewers are currently OFF under the owner-operated interim model.
 
-## B. Current operating model
+## B. Owner-directed custody exception — #367
 
-Repository and GitHub administration remain owner-operated by `تركي العيد`.
+The owner explicitly directed that separate-device / sole-private-key-custody evidence for `human:said` be waived for the current governance path.
 
-Current intended owner roles:
+- governanceEvidenceRef: `https://github.com/turkialeid2030/startak-real-estate/issues/367`
+- سعيد publicKeySha256: `fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1`
+- privateKeyPassphraseConfigured: `true`
+- custody model: `OWNER_RISK_ACCEPTED_PASSPHRASE_PROTECTED_OWNER_HOSTED_KEY`
 
-- Repository Owner / Administrator
-- Release Governance Accountable
-- `RELEASE_APPROVAL` authority
-- `MERGE_APPROVAL` authority
-
-`سعيد` is nominated as a human candidate for independent review, E2F external verification and Deployment approval, without requiring a GitHub account.
-
-A superseding 3072-bit RSA key pair for سعيد has now been generated with passphrase protection. The public key is recorded and its SHA-256 has been verified. The key material still resides under the owner-controlled Windows profile, so passphrase protection alone does not prove sole independent custody by سعيد. Activation remains blocked until genuine custody/governance evidence is established.
-
-This operating model does not waive any independent-human requirement already enforced by the current governance contracts.
+This exception removes the project-level custody-evidence blocker only. It does not fabricate a review, validation result, RSA signature, release approval, merge approval, deployment approval, transaction authority or Go-Live.
 
 ## C. Independent Reviewer — #254
 
-Status: `SAID_NOMINATED_CANDIDATE_PASSPHRASE_PROTECTED_PENDING_INDEPENDENCE_EVIDENCE`
+Status: `SAID_DESIGNATED_PENDING_GENUINE_REVIEW_AND_SIGNATURE`
 
-- reviewerId: `reviewer-candidate-said-2026-09-17`
+- reviewerId: `reviewer-said-2026-09-17`
 - reviewerSubjectRef: `human:said`
 - reviewerDisplayName: `سعيد`
-- candidatePublicKeySha256: `fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1`
-- candidateRegistryPath: `governance/operator-templates/e2f-verifier-candidate.said.current.json`
-- privateKeyPassphraseConfigured: `true`
-- independenceEvidenceRef: `<REQUIRED_BEFORE_ACTIVATION>`
-- governanceEvidenceRef: `<REQUIRED_BEFORE_ACTIVATION>`
-- activeFrom: `<NOT_ACTIVE>`
+- publicKeySha256: `fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1`
+- governanceEvidenceRef: `https://github.com/turkialeid2030/startak-real-estate/issues/367`
 - allowedPurpose: `CANONICAL_REBASELINE_INDEPENDENT_REVIEW`
 
-The owner cannot satisfy this independent-review role. سعيد may become the independent reviewer only after genuine independent control/custody of his signing private key and the required independence evidence are established.
+A genuine review artifact for the exact frozen tuple and a genuine RSA-SHA256 signature are still required before #254 can be closed.
 
-## D. E2F External Verifiers — #364
+## D. E2F External Verifier — #364
 
-Status: `SAID_NOMINATED_CANDIDATE_PASSPHRASE_PROTECTED_NOT_YET_EXTERNALLY_GOVERNED`
+Status: `TRUST_RECORD_REGISTERED_PENDING_GENUINE_VALIDATIONS_AND_SIGNATURES`
 
-Candidate:
-
+- verifierId: `e2f-verifier-said-2026-09-17`
 - verifierSubjectRef: `human:said`
+- authorityClass: `OWNER_RISK_ACCEPTED_EXTERNAL_HUMAN_VERIFIER`
 - publicKeySha256: `fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1`
-- candidateRegistryPath: `governance/operator-templates/e2f-verifier-candidate.said.current.json`
-- privateKeyPassphraseConfigured: `true`
-- keyCustodyStatus: `PASSPHRASE_PROTECTED_ON_OWNER_CONTROLLED_PROFILE_PENDING_PROOF_OF_SAID_SOLE_CUSTODY`
+- governanceEvidenceRef: `https://github.com/turkialeid2030/startak-real-estate/issues/367`
+- registryPath: `governance/operator-templates/e2f-verifier-registry.current.json`
+- registryHashSha256: `5fb498b50c8e8f5f3cdc6383f6ba4b3871eb26e41bdef6d8a09f791c6605ee75`
 
 Required validation coverage remains:
 
@@ -81,71 +70,58 @@ Required validation coverage remains:
 3. `PRODUCTION_PERFORMANCE_VALIDATION`
 4. `PRODUCTION_RESILIENCE_VALIDATION`
 
-The candidate public key MUST NOT be inserted into the active `EXTERNALLY_GOVERNED` trusted E2F verifier registry or used to sign E2F evidence as independent until genuine independent private-key custody by سعيد is established and evidenced.
+Each required E2F validation still needs genuine evidence plus a genuine `RSA-SHA256` signature over the canonical payload. No such validation result is created by this intake.
 
 ## E. E2G Human Release Authorities — #364
 
-### RELEASE_APPROVAL authority
+### RELEASE_APPROVAL
 
 - authorityId: `release-authority-turki-al-eid-2026-09-16`
 - authoritySubjectRef: `github:turkialeid2030`
-- governanceEvidenceRef: `https://github.com/turkialeid2030/startak-real-estate/issues/365#issuecomment-5703765871`
 - publicKeySha256: `194f78b203841fbefebd9c360e591748b1f787be5f1b310a620ea91589aefccf`
-- publicKeyRegisteredAt: `2026-09-17T09:56:48+03:00`
-- publicKeyRegistryPath: `governance/operator-templates/e2g-release-authority-registry.current.template.json`
 - status: `KEY_REGISTERED_PENDING_E2F_AND_SIGNATURE`
 
-### MERGE_APPROVAL authority
+### MERGE_APPROVAL
 
 - authorityId: `merge-authority-turki-al-eid-2026-09-16`
 - authoritySubjectRef: `github:turkialeid2030`
-- governanceEvidenceRef: `https://github.com/turkialeid2030/startak-real-estate/issues/365#issuecomment-5703765871`
 - publicKeySha256: `194f78b203841fbefebd9c360e591748b1f787be5f1b310a620ea91589aefccf`
-- publicKeyRegisteredAt: `2026-09-17T09:56:48+03:00`
-- publicKeyRegistryPath: `governance/operator-templates/e2g-release-authority-registry.current.template.json`
 - status: `KEY_REGISTERED_PENDING_E2F_AND_SIGNATURE`
 
-The same owner RSA public key is intentionally registered for both RELEASE and MERGE authority records. The current validator permits this because both records belong to the same owner subject; Deployment authority must remain a different human subject.
+### DEPLOYMENT_APPROVAL
 
-### DEPLOYMENT_APPROVAL authority
-
-Status: `SAID_NOMINATED_CANDIDATE_PASSPHRASE_PROTECTED_NOT_ACTIVE`
-
-- authorityId: `deployment-authority-candidate-said-2026-09-17`
+- authorityId: `deployment-authority-said-2026-09-17`
 - authoritySubjectRef: `human:said`
-- candidatePublicKeySha256: `fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1`
-- candidateRegistryPath: `governance/operator-templates/e2f-verifier-candidate.said.current.json`
-- privateKeyPassphraseConfigured: `true`
-- governanceEvidenceRef: `<REQUIRED_BEFORE_ACTIVATION>`
+- publicKeySha256: `fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1`
+- governanceEvidenceRef: `https://github.com/turkialeid2030/startak-real-estate/issues/367`
+- status: `KEY_REGISTERED_PENDING_E2F_AND_GENUINE_DECISION_SIGNATURE`
 
-Although `human:said` is distinct from `github:turkialeid2030`, the private key is still stored under an owner-controlled Windows profile. Passphrase protection improves separation but does not by itself prove sole custody. Independent key custody must be established before activation as Deployment authority.
+Release authority governance artifact:
 
-## F. Immediate Environment target state — #327
+- path: `governance/operator-templates/release-authority-governance-artifact.current.json`
+- SHA-256: `c08fb5bad0d98dabf897af2401af0b6f8abec8f0d3d1bacf3f471c17035630ac`
 
-Current administrator-confirmed interim state:
+Release authority registry:
 
-- Required Reviewers: `OFF` temporarily
-- Administrator bypass: `OFF`
-- Deployment branches/tags: `main` only
-- `CLOUDFLARE_API_TOKEN`: scoped as an Environment secret for `production`
-- `CLOUDFLARE_ACCOUNT_ID`: scoped as an Environment variable for `production`
-- repository-level `CLOUDFLARE_API_TOKEN`: removed
+- path: `governance/operator-templates/e2g-release-authority-registry.current.template.json`
+- deterministic registry hash: `5125ae7c55541f37fee2ed571107cd846bfb5d91b2a1399633e20eacc67a0d3e`
 
-This is an interim environment-hardening state only. It does not satisfy independent review, external validation, or distinct Deployment authority requirements elsewhere in the release chain.
+The Merge and Deployment authorities are distinct subjects as required. Actual decisions are not yet signed and no release/merge/deployment authority is exercised by registration alone.
 
-## G. Remaining human inputs
+## F. Current holds
 
-The unresolved human inputs are:
-
-1. establish and evidence genuine independent private-key custody for سعيد before using him as #254 independent reviewer;
-2. establish and evidence externally governed E2F verifier authority/custody for سعيد before activating his candidate key;
-3. complete the four genuine E2F validation results and RSA-SHA256 signatures after verifier qualification;
-4. establish distinct Deployment authority custody for سعيد before activation;
-5. signed E2G decisions after upstream E2F qualification;
-6. final resolution of #327 Required Reviewer separation, or an explicit governed policy change if the owner-operated model is to replace that control.
+- #254: `HOLD_GENUINE_SIGNED_REVIEW_REQUIRED`
+- E2F: `HOLD_FOUR_GENUINE_SIGNED_VALIDATIONS_REQUIRED`
+- E2G decisions: `HOLD_UPSTREAM_E2F_AND_GENUINE_SIGNATURES_REQUIRED`
+- #327: `PARTIAL_PASS_REQUIRED_REVIEWER_SEPARATION_UNRESOLVED`
+- Final RC → main PR: `HOLD`
+- Merge: `HOLD`
+- Deployment: `HOLD`
+- Transaction authority: `false`
+- Commercial Go-Live: `HOLD`
 
 ## Prohibited data
 
-Do not record private keys, tokens, passwords, Cloudflare credentials, GitHub secrets, recovery codes, signing secrets, or connection strings.
+Do not record private keys, passphrases, tokens, passwords, Cloudflare credentials, GitHub secrets, recovery codes, signing secrets, or connection strings.
 
-This intake grants no release, merge, deployment, transaction, professional, or commercial authority by itself.
+This intake records designations and public trust material only; it does not itself create any cryptographic signature or substantive approval.
