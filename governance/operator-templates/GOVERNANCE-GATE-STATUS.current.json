@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "asOfDate": "2026-09-17",
+  "releaseCandidateId": "startak-real-estate-rc-2026-09-16-e876208c19ff",
+  "sourceCommitSha": "e876208c19ffbddd0dacd2bf8fce24aba1e52b55",
+  "artifactSha256": "c3ddcd7b4a66fd58c271fb08b9e5a3efb5e4237f0015d3771e7ab9818412017f",
+  "environmentRef": "cloudflare-pages:startak-real-estate:production",
+  "environmentConfigSha256": "819183fb9f4fb09017c636d2d1d841dd086ac4ba4bbccd103dffbc4c5980bc73",
+  "ownerSubjectRef": "github:turkialeid2030",
+  "supportPackageOwnerAdopted": true,
+  "ruleset326": "PASS_CLOSED",
+  "productionEnvironment327": "PARTIAL_PASS_OPEN",
+  "independentReview254": "PENDING_EXTERNAL_HUMAN_REVIEW_AND_SIGNATURE",
+  "e2f364": "PENDING_EXTERNAL_VALIDATION",
+  "e2gReleaseApproval": "PENDING_AFTER_E2F",
+  "e2gMergeApproval": "PENDING_AFTER_E2F",
+  "e2gDeploymentApproval": "PENDING_DISTINCT_HUMAN_AFTER_E2F",
+  "finalRcToMainPullRequest": "HOLD",
+  "merge": "HOLD",
+  "deployment": "HOLD",
+  "transactionAuthority": false,
+  "commercialGoLive": "HOLD",
+  "notes": [
+    "This snapshot records governance state only and grants no authority.",
+    "No external reviewer result, E2F result, or E2G decision is inferred by this file.",
+    "The frozen RC tuple must remain unchanged while these gates are pending."
+  ]
+}
