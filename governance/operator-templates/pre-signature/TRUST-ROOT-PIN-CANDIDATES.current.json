@@ -40,6 +40,8 @@
     "canonicalReviewImplementationReference": "src/qualification/canonical-rebaseline-review-attestation.js::normalizeRegistry",
     "e2fImplementationReference": "src/standards/external-authority-validation.js::normalizeTrustedVerifierRegistry",
     "e2gImplementationReference": "src/standards/human-release-authority-deployment-decision.js::normalizeReleaseAuthorityRegistry",
+    "independentSemanticRecomputationCompleted": true,
+    "semanticRecomputationEvidencePath": "governance/operator-templates/pre-signature/TRUST-ROOT-HASH-VERIFICATION.current.json",
     "finalRepositoryToolReverificationRequired": true
   },
   "boundary": {
