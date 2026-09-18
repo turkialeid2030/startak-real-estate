@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "recordType": "OWNER_RELAYED_HUMAN_REVIEW_COMPLETION",
+  "recordedAt": "2026-09-18T20:27:00+03:00",
+  "releaseCandidateId": "startak-real-estate-rc-2026-09-16-e876208c19ff",
+  "sourceCommitSha": "e876208c19ffbddd0dacd2bf8fce24aba1e52b55",
+  "artifactSha256": "c3ddcd7b4a66fd58c271fb08b9e5a3efb5e4237f0015d3771e7ab9818412017f",
+  "environmentRef": "cloudflare-pages:startak-real-estate:production",
+  "environmentConfigSha256": "819183fb9f4fb09017c636d2d1d841dd086ac4ba4bbccd103dffbc4c5980bc73",
+  "reviewPacketHashSha256": "ed8a0ffb242081d308f89b1e177920d6bf2d6e058bceb5047ddedaf4f0eed107",
+  "reviewerSubjectRef": "human:said",
+  "reviewerId": "reviewer-said-2026-09-17",
+  "reviewReportedComplete": true,
+  "decisionReported": "APPROVE",
+  "relaySource": "OWNER_RELAY",
+  "reviewEvidenceListCaptured": false,
+  "reviewRationaleCaptured": false,
+  "completedReviewArtifactSuppliedToRepository": false,
+  "canonicalSigningPayloadGenerated": false,
+  "rsaSha256SignaturePresent": false,
+  "cryptographicVerificationPassed": false,
+  "authorityEffect": "NONE",
+  "remainingRequirements": [
+    "GENUINE_COMPLETED_REVIEW_ARTIFACT_OR_MEMO",
+    "EVIDENCE_AND_RATIONALE_CAPTURED_FROM_REVIEWER",
+    "DECISION_ARTIFACT_SHA256",
+    "CANONICAL_SIGNING_PAYLOAD",
+    "GENUINE_RSA_SHA256_SIGNATURE_BY_REVIEWER",
+    "REPOSITORY_VERIFIER_PASS",
+    "P25_GOVERNED_REEVALUATION"
+  ],
+  "boundary": "THIS_RECORD_PRESERVES_THE_OWNER_RELAY_ONLY_AND_MUST_NOT_BE_TREATED_AS_THE_REVIEW_ARTIFACT_OR_SIGNATURE"
+}

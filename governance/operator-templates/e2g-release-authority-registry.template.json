@@ -1,0 +1,42 @@
+{
+  "registryId": "<REPLACE_E2G_REGISTRY_ID>",
+  "governanceArtifactSha256": "<REPLACE_64_HEX_SHA256_OF_GOVERNANCE_ARTIFACT>",
+  "authorities": [
+    {
+      "authorityId": "<REPLACE_RELEASE_AUTHORITY_ID>",
+      "authoritySubjectRef": "<REPLACE_RELEASE_AUTHORITY_SUBJECT_REF>",
+      "allowedDecisionTypes": [
+        "RELEASE_APPROVAL"
+      ],
+      "publicKeyPem": "<REPLACE_RSA_PUBLIC_KEY_PEM_ONLY>",
+      "publicKeySha256": "<REPLACE_64_HEX_SHA256_OF_PUBLIC_KEY_PEM>",
+      "governanceEvidenceRef": "<REPLACE_GOVERNANCE_EVIDENCE_REF>",
+      "activeFrom": "<REPLACE_ISO_8601_TIME>",
+      "activeUntil": "<OPTIONAL_ISO_8601_TIME_OR_REMOVE_FIELD>"
+    },
+    {
+      "authorityId": "<REPLACE_MERGE_AUTHORITY_ID>",
+      "authoritySubjectRef": "<REPLACE_MERGE_AUTHORITY_SUBJECT_REF>",
+      "allowedDecisionTypes": [
+        "MERGE_APPROVAL"
+      ],
+      "publicKeyPem": "<REPLACE_RSA_PUBLIC_KEY_PEM_ONLY>",
+      "publicKeySha256": "<REPLACE_64_HEX_SHA256_OF_PUBLIC_KEY_PEM>",
+      "governanceEvidenceRef": "<REPLACE_GOVERNANCE_EVIDENCE_REF>",
+      "activeFrom": "<REPLACE_ISO_8601_TIME>",
+      "activeUntil": "<OPTIONAL_ISO_8601_TIME_OR_REMOVE_FIELD>"
+    },
+    {
+      "authorityId": "<REPLACE_DEPLOYMENT_AUTHORITY_ID>",
+      "authoritySubjectRef": "<REPLACE_DEPLOYMENT_AUTHORITY_SUBJECT_REF_DISTINCT_FROM_MERGE_SUBJECT>",
+      "allowedDecisionTypes": [
+        "DEPLOYMENT_APPROVAL"
+      ],
+      "publicKeyPem": "<REPLACE_RSA_PUBLIC_KEY_PEM_ONLY>",
+      "publicKeySha256": "<REPLACE_64_HEX_SHA256_OF_PUBLIC_KEY_PEM>",
+      "governanceEvidenceRef": "<REPLACE_GOVERNANCE_EVIDENCE_REF>",
+      "activeFrom": "<REPLACE_ISO_8601_TIME>",
+      "activeUntil": "<OPTIONAL_ISO_8601_TIME_OR_REMOVE_FIELD>"
+    }
+  ]
+}

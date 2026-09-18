@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "asOfDate": "2026-09-18",
+  "purpose": "DETERMINISTIC_PUBLIC_REGISTRY_HASH_VALUES_VERIFIED_PENDING_OUT_OF_BAND_PINNING",
+  "canonicalReviewRegistry": {
+    "path": "governance/operator-templates/canonical-rebaseline-reviewer-registry.current.json",
+    "registryId": "canonical-rebaseline-reviewer-registry-rc-2026-09-16",
+    "governanceArtifactPath": "governance/operator-templates/canonical-rebaseline-review-governance-artifact.current.json",
+    "governanceArtifactSha256": "284b5995b9d964481c42aa9ef3820206ef1db12c4b7aadf68f44ca6e50695e68",
+    "normalizedRegistryHashSha256": "62c76efae99b3cf07a2f2fe7182b9c76932b39e9b72bd1eb48ea625dc620b5ca",
+    "reviewerPublicKeySha256Rechecked": "fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1",
+    "allowedPurpose": "CANONICAL_REBASELINE_INDEPENDENT_REVIEW",
+    "repositoryImplementationHashVerified": true,
+    "outOfBandTrustEstablishedByThisFile": false
+  },
+  "e2fVerifierRegistry": {
+    "path": "governance/operator-templates/e2f-verifier-registry.current.json",
+    "registryId": "e2f-trusted-verifier-registry-rc-2026-09-16",
+    "normalizedRegistryHashSha256": "fb544ff5555be8f71fb9afbda1f5f2edc60aa8465bd7d91ea392c6865873fbaa",
+    "publicKeySha256Rechecked": "fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1",
+    "repositoryImplementationHashVerified": true,
+    "outOfBandTrustEstablishedByThisFile": false
+  },
+  "e2gReleaseAuthorityRegistry": {
+    "path": "governance/operator-templates/e2g-release-authority-registry.current.template.json",
+    "registryId": "e2g-release-authority-registry-rc-2026-09-16",
+    "normalizedRegistryHashSha256": "5125ae7c55541f37fee2ed571107cd846bfb5d91b2a1399633e20eacc67a0d3e",
+    "ownerPublicKeySha256Rechecked": "194f78b203841fbefebd9c360e591748b1f787be5f1b310a620ea91589aefccf",
+    "saidPublicKeySha256Rechecked": "fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1",
+    "requiredDecisionCoverageStaged": [
+      "RELEASE_APPROVAL",
+      "MERGE_APPROVAL",
+      "DEPLOYMENT_APPROVAL"
+    ],
+    "mergeSubjectRef": "github:turkialeid2030",
+    "deploymentSubjectRef": "human:said",
+    "mergeDeploymentSubjectSeparationStaged": true,
+    "repositoryImplementationHashVerified": true,
+    "outOfBandTrustEstablishedByThisFile": false
+  },
+  "calculationContract": {
+    "canonicalization": "repository normalization and stableStringify semantics with normalized ISO timestamps and trimmed public material",
+    "canonicalReviewImplementationReference": "src/qualification/canonical-rebaseline-review-attestation.js::normalizeRegistry",
+    "e2fImplementationReference": "src/standards/external-authority-validation.js::normalizeTrustedVerifierRegistry",
+    "e2gImplementationReference": "src/standards/human-release-authority-deployment-decision.js::normalizeReleaseAuthorityRegistry",
+    "repositoryImplementationVerificationCompleted": true,
+    "verificationTestPath": "tests/runtime/run_current_trust_root_registry_hash_tests.js",
+    "verificationEvidencePath": "governance/operator-templates/pre-signature/TRUST-ROOT-HASH-VERIFICATION.current.json",
+    "finalRepositoryHashReverificationRequired": false,
+    "finalOutOfBandPinningRequired": true
+  },
+  "boundary": {
+    "hashValuesVerifiedOnly": true,
+    "outOfBandPinningStillRequired": true,
+    "signatureCreated": false,
+    "reviewAccepted": false,
+    "releaseAuthorized": false,
+    "mergeAuthorized": false,
+    "deploymentAuthorized": false,
+    "transactionAuthorized": false
+  }
+}

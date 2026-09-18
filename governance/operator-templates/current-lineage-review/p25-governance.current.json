@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "status": "WAITING_FOR_INDEPENDENT_REVIEW",
+  "proposalId": "p24-startak-real-estate-rc-2026-09-16-e876208c19ff",
+  "proposalHashSha256": "b6575cb5c7c5ebd2a84ae71b2b31f1cb25a2562dc01d6e82608045e9d4d0557b",
+  "blockers": [
+    "INDEPENDENT_REVIEW_REQUIRED"
+  ],
+  "ownerDecision": {
+    "decisionId": "p25-owner-startak-real-estate-rc-2026-09-16-e876208c19ff",
+    "actorRef": "github:turkialeid2030",
+    "result": "APPROVE",
+    "decisionSourceRef": "https://github.com/turkialeid2030/startak-real-estate/issues/254#issuecomment-5713241384",
+    "decisionArtifactSha256": "441eb31f274d3479e099eb5f2d4df5c3ccc35404b9a0f3dc29cb4874f2cc96a1",
+    "decidedAt": "2026-09-17T11:00:09.000Z",
+    "rationaleRef": "https://github.com/turkialeid2030/startak-real-estate/issues/254#issuecomment-5713241384",
+    "decisionHashSha256": "2633792a0dabb50abf9caaef5a0b01ff55d9b2dc992f931c8708c9139dc0feb2"
+  },
+  "independentReview": null,
+  "effectiveIndependentReviewerRef": "human:said",
+  "reviewerDesignationHashSha256": null,
+  "reviewerDisplayName": null,
+  "ownerMayReplaceReviewerBeforeAcceptedReview": true,
+  "automaticBaselineSwitchAllowed": false,
+  "explicitReviewedCodeChangeRequired": true,
+  "postChangeReleaseVerifyRequired": true,
+  "e2iPolicyReviewRequired": true,
+  "canonicalBaselineChanged": false,
+  "legacyCanonicalEvidenceClosed": false,
+  "existingE2iCanonicalEvidenceSatisfied": false,
+  "releaseAuthorized": false,
+  "mergeAuthorized": false,
+  "deploymentAuthorized": false,
+  "goLiveAuthorized": false,
+  "transactionAuthorized": false
+}

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "registryId": "e2f-trusted-verifier-registry-rc-2026-09-16",
+  "status": "EXTERNALLY_GOVERNED",
+  "governanceOwnerRef": "github:turkialeid2030",
+  "verifiers": [
+    {
+      "verifierId": "e2f-verifier-said-2026-09-17",
+      "verifierSubjectRef": "human:said",
+      "authorityClass": "OWNER_RISK_ACCEPTED_EXTERNAL_HUMAN_VERIFIER",
+      "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAxlFrSlS8ONirRt32B68W\nKgbzrrKTVl9XwWV1SsepOrK4Eyd4GiGTpdreRcRiA2fxIVs+PySrGr1w3AcKTFvT\nrrPECkuRu3AHMk/x68z+FTMILke6GUfn+qsukewTwfbHBVz+EmuC2+0wn6Sf+S76\nSDr8ZczP2bQij71ywIv0QPMxvrS3qkCBr1I3NOMzc7joOXv4OU7syWclzIYEJYSW\nrX06Q2nvqYdureWGXPvHo/4U9Zajw/UAnM7DkusfOhNGL8tt4UyaigxatsLPpPPY\nA58n/cbF1uYbxD60llMM6F4ic6dKGg6/IP0aHLnX2cg7TcX2jxPw3XD/z4GAdsg2\nPSBlOEu/nAdZGnZpohmtGEZx6ALzsE7E4f1dfDNnSY6FKcLlktuQKKX+6X950G/D\nEepT5VgUxbtqzvokiq+V3x7JLY8p6S2vkiPmEW4krEY7R+8OO75yn/3SoQRvV/cM\nbTjo/m3ZjdbXEctkwHhi0Kb1EpnLpf/v51D6PCsacl91AgMBAAE=\n-----END PUBLIC KEY-----",
+      "publicKeySha256": "fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1",
+      "governanceEvidenceRef": "https://github.com/turkialeid2030/startak-real-estate/issues/364#issuecomment-5712335483",
+      "activeFrom": "2026-09-17T12:47:00+03:00"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "decisionId": "REPLACE_WITH_DECISION_ID",
+  "reviewerId": "REPLACE_WITH_REVIEWER_ID",
+  "actorRef": "REPLACE_WITH_REVIEWER_SUBJECT_REF",
+  "result": "APPROVE",
+  "decisionSourceRef": "REPLACE_WITH_EXTERNAL_REVIEW_MEMO_REF",
+  "decisionArtifactSha256": "REPLACE_WITH_64_HEX_SHA256_OF_REVIEW_ARTIFACT",
+  "decidedAt": "2026-09-16T00:00:00.000Z",
+  "rationaleRef": "REPLACE_WITH_RATIONALE_REF",
+  "signatureAlgorithm": "RSA-SHA256",
+  "signatureBase64": "REPLACE_ONLY_AFTER_EXTERNAL_SIGNATURE"
+}

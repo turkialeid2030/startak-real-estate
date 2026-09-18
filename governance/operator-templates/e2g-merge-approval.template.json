@@ -1,0 +1,18 @@
+{
+  "decisionId": "<REPLACE_MERGE_DECISION_ID>",
+  "decisionType": "MERGE_APPROVAL",
+  "releaseCandidateId": "startak-real-estate-rc-2026-09-16-e876208c19ff",
+  "validationPacketHashSha256": "<REPLACE_FINAL_E2F_VALIDATION_PACKET_HASH_SHA256>",
+  "sourceCommitSha": "e876208c19ffbddd0dacd2bf8fce24aba1e52b55",
+  "artifactSha256": "c3ddcd7b4a66fd58c271fb08b9e5a3efb5e4237f0015d3771e7ab9818412017f",
+  "environmentRef": "cloudflare-pages:startak-real-estate:production",
+  "environmentConfigSha256": "819183fb9f4fb09017c636d2d1d841dd086ac4ba4bbccd103dffbc4c5980bc73",
+  "authorityId": "<REPLACE_MERGE_AUTHORITY_ID_FROM_REGISTRY>",
+  "decisionSourceRef": "<REPLACE_HUMAN_DECISION_SOURCE_REF>",
+  "decisionArtifactSha256": "<REPLACE_64_HEX_SHA256_OF_HUMAN_DECISION_ARTIFACT>",
+  "decidedAt": "<REPLACE_ISO_8601_TIME>",
+  "expiresAt": "<OPTIONAL_ISO_8601_TIME_OR_REMOVE_FIELD>",
+  "result": "APPROVE",
+  "rationaleRef": "<REPLACE_RATIONALE_OR_MINUTES_REF>",
+  "signatureAlgorithm": "RSA-SHA256"
+}

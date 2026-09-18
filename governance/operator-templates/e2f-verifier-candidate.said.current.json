@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "candidateId": "e2f-verifier-candidate-said-2026-09-17",
+  "displayName": "سعيد",
+  "subjectRef": "human:said",
+  "intendedRoles": [
+    "INDEPENDENT_REVIEWER_254",
+    "E2F_EXTERNAL_VERIFIER",
+    "DEPLOYMENT_APPROVAL"
+  ],
+  "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAxlFrSlS8ONirRt32B68W\nKgbzrrKTVl9XwWV1SsepOrK4Eyd4GiGTpdreRcRiA2fxIVs+PySrGr1w3AcKTFvT\nrrPECkuRu3AHMk/x68z+FTMILke6GUfn+qsukewTwfbHBVz+EmuC2+0wn6Sf+S76\nSDr8ZczP2bQij71ywIv0QPMxvrS3qkCBr1I3NOMzc7joOXv4OU7syWclzIYEJYSW\nrX06Q2nvqYdureWGXPvHo/4U9Zajw/UAnM7DkusfOhNGL8tt4UyaigxatsLPpPPY\nA58n/cbF1uYbxD60llMM6F4ic6dKGg6/IP0aHLnX2cg7TcX2jxPw3XD/z4GAdsg2\nPSBlOEu/nAdZGnZpohmtGEZx6ALzsE7E4f1dfDNnSY6FKcLlktuQKKX+6X950G/D\nEepT5VgUxbtqzvokiq+V3x7JLY8p6S2vkiPmEW4krEY7R+8OO75yn/3SoQRvV/cM\nbTjo/m3ZjdbXEctkwHhi0Kb1EpnLpf/v51D6PCsacl91AgMBAAE=\n-----END PUBLIC KEY-----",
+  "publicKeySha256": "fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1",
+  "privateKeyPassphraseConfigured": true,
+  "keyGeneratedOnOwnerControlledWindowsProfile": true,
+  "custodyEvidenceWaivedByOwner": true,
+  "ownerRiskAcceptanceRef": "https://github.com/turkialeid2030/startak-real-estate/issues/367",
+  "custodyStatus": "OWNER_RISK_ACCEPTED_PASSPHRASE_PROTECTED_OWNER_HOSTED_KEY",
+  "e2fTrustStatus": "ACTIVE_REGISTRY_ENTRY_PENDING_GENUINE_VALIDATIONS_AND_SIGNATURES",
+  "e2fRegistryPath": "governance/operator-templates/e2f-verifier-registry.current.json",
+  "e2fRegistryHashSha256": "5fb498b50c8e8f5f3cdc6383f6ba4b3871eb26e41bdef6d8a09f791c6605ee75",
+  "deploymentAuthorityStatus": "REGISTERED_PENDING_GENUINE_E2G_DECISION_SIGNATURE",
+  "releaseAuthorityRegistryPath": "governance/operator-templates/e2g-release-authority-registry.current.template.json",
+  "releaseAuthorityRegistryHashSha256": "5125ae7c55541f37fee2ed571107cd846bfb5d91b2a1399633e20eacc67a0d3e",
+  "notes": "Owner explicitly accepted the custody-model risk in issue #367. This removes the project-level custody-evidence blocker only. It does not create a review result, E2F validation result, RSA signature, release approval, merge approval, deployment approval, transaction authority, or Go-Live. Actual canonical payloads still require genuine signatures using the corresponding private key. No private key or passphrase is stored in this repository."
+}

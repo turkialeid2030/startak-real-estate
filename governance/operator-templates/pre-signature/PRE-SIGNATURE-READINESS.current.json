@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "asOfDate": "2026-09-18",
+  "releaseCandidateId": "startak-real-estate-rc-2026-09-16-e876208c19ff",
+  "sourceCommitSha": "e876208c19ffbddd0dacd2bf8fce24aba1e52b55",
+  "artifactSha256": "c3ddcd7b4a66fd58c271fb08b9e5a3efb5e4237f0015d3771e7ab9818412017f",
+  "environmentRef": "cloudflare-pages:startak-real-estate:production",
+  "environmentConfigSha256": "819183fb9f4fb09017c636d2d1d841dd086ac4ba4bbccd103dffbc4c5980bc73",
+  "ownerDirection": {
+    "cryptographicSignaturePhaseDeferredUntilFinalStep": true,
+    "continueAllNonSignatureTechnicalPreparation": true,
+    "directionDate": "2026-09-18"
+  },
+  "completedWithoutCryptographicSignature": {
+    "frozenRcHeadReverified": true,
+    "exactArtifactEvidenceIndexed": true,
+    "exactEnvironmentEvidenceIndexed": true,
+    "exactSourceReleaseVerifyEvidenceIndexed": true,
+    "mainRulesetReverified": true,
+    "currentLineageP24P25P26Prepared": true,
+    "saidReviewerPublicMaterialRegistered": true,
+    "saidReviewActivityReportedComplete": true,
+    "saidDecisionReported": "APPROVE",
+    "saidSigningHelperPrepared": true,
+    "e2fFourClassInputTemplatePrepared": true,
+    "e2fTechnicalEvidenceIndexPrepared": true,
+    "e2gReleaseAndMergeOwnerPublicMaterialPrepared": true,
+    "e2gDeploymentSaidPublicMaterialPrepared": true,
+    "e2gActorSeparationPlanned": true,
+    "protectedSecretNameMappingPrepared": true,
+    "finalRcToMainPrTemplatePrepared": true,
+    "postSignatureExecutionSequencePrepared": true
+  },
+  "intentionallyDeferredToSignaturePhase": {
+    "saidCompletedReviewMemoArtifactInRepository": false,
+    "saidCanonicalReviewSignature": false,
+    "saidReviewSignatureVerification": false,
+    "e2fExternalConformanceSignature": false,
+    "e2fProductionSecuritySignature": false,
+    "e2fProductionPerformanceSignature": false,
+    "e2fProductionResilienceSignature": false,
+    "e2fFinalPacket": false,
+    "e2gReleaseApprovalSignature": false,
+    "e2gMergeApprovalSignature": false,
+    "e2gDeploymentApprovalSignature": false,
+    "e2gFinalPacket": false,
+    "finalProtectedSecretValuesProvisioned": false
+  },
+  "otherOpenGovernanceBoundary": {
+    "issue327ProductionEnvironment": "PARTIAL_PASS_OPEN",
+    "requiredReviewerOrEquivalentIndependentApprovalBoundary": "UNRESOLVED"
+  },
+  "executionHolds": {
+    "closeIssue254": true,
+    "closeIssue364": true,
+    "openFinalRcToMainPullRequest": true,
+    "merge": true,
+    "deployment": true,
+    "transactionAuthority": true,
+    "commercialGoLive": true
+  },
+  "nextPhaseEntryCondition": "BEGIN_SIGNATURE_PHASE_ONLY_AFTER_ALL_NON_SIGNATURE_PREPARATION_AND_CURRENT_SUPPORT_BRANCH_CI_ARE_COMPLETE",
+  "authorityBoundary": {
+    "releaseAuthorized": false,
+    "mergeAuthorized": false,
+    "deploymentAuthorized": false,
+    "transactionAuthorized": false,
+    "commercialGoLiveAuthorized": false
+  }
+}
