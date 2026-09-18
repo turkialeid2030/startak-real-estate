@@ -72,9 +72,13 @@ function main() {
   );
 
   const evidence = readJson(path.join(OPERATOR, 'pre-signature', 'TRUST-ROOT-HASH-VERIFICATION.current.json'));
-  assert.strictEqual(evidence.canonicalReviewRegistry.normalizedRegistryHashSha256Recomputed, canonicalReview.registryHashSha256);
-  assert.strictEqual(evidence.e2fVerifierRegistry.normalizedRegistryHashSha256Recomputed, e2f.registryHashSha256);
-  assert.strictEqual(evidence.e2gReleaseAuthorityRegistry.normalizedRegistryHashSha256Recomputed, e2g.registryHashSha256);
+  assert.strictEqual(evidence.canonicalReviewRegistry.normalizedRegistryHashSha256Verified, canonicalReview.registryHashSha256);
+  assert.strictEqual(evidence.e2fVerifierRegistry.normalizedRegistryHashSha256Verified, e2f.registryHashSha256);
+  assert.strictEqual(evidence.e2gReleaseAuthorityRegistry.normalizedRegistryHashSha256Verified, e2g.registryHashSha256);
+  assert.strictEqual(evidence.canonicalReviewRegistry.repositoryImplementationVerificationPassed, true);
+  assert.strictEqual(evidence.e2fVerifierRegistry.repositoryImplementationVerificationPassed, true);
+  assert.strictEqual(evidence.e2gReleaseAuthorityRegistry.repositoryImplementationVerificationPassed, true);
+  assert.strictEqual(evidence.boundary.outOfBandPinningStillRequired, true);
 
   const staged = readJson(path.join(OPERATOR, 'pre-signature', 'TRUST-ROOT-PIN-CANDIDATES.current.json'));
   assert.strictEqual(staged.canonicalReviewRegistry.normalizedRegistryHashSha256, canonicalReview.registryHashSha256);
