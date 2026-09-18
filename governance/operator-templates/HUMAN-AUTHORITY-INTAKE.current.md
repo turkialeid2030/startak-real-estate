@@ -29,9 +29,9 @@ Administrative work still required:
 
 ## B. Owner-directed custody exception — #367 / #364
 
-The owner explicitly directed that separate-device / sole-private-key-custody evidence for `human:said` be waived for the current governance path.
+The owner explicitly directed that separate-device / sole-private-key-custody evidence for `human:said` be waived for the current governance path. Issue #367 is closed/completed as the repository record of that owner risk acceptance.
 
-- governanceEvidenceRef: `https://github.com/turkialeid2030/startak-real-estate/issues/364#issuecomment-5712335483`
+- governanceEvidenceRef: `https://github.com/turkialeid2030/startak-real-estate/issues/367`
 - سعيد publicKeySha256: `fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1`
 - privateKeyPassphraseConfigured: `true`
 - custody model: `OWNER_RISK_ACCEPTED_PASSPHRASE_PROTECTED_OWNER_HOSTED_KEY`
@@ -46,10 +46,15 @@ Status: `SAID_DESIGNATED_PENDING_GENUINE_REVIEW_AND_SIGNATURE`
 - reviewerSubjectRef: `human:said`
 - reviewerDisplayName: `سعيد`
 - publicKeySha256: `fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1`
-- governanceEvidenceRef: `https://github.com/turkialeid2030/startak-real-estate/issues/364#issuecomment-5712335483`
+- governanceEvidenceRef: `https://github.com/turkialeid2030/startak-real-estate/issues/367`
 - allowedPurpose: `CANONICAL_REBASELINE_INDEPENDENT_REVIEW`
+- governanceArtifactPath: `governance/operator-templates/canonical-rebaseline-review-governance-artifact.current.json`
+- governanceArtifactSha256: `284b5995b9d964481c42aa9ef3820206ef1db12c4b7aadf68f44ca6e50695e68`
+- reviewerRegistryPath: `governance/operator-templates/canonical-rebaseline-reviewer-registry.current.json`
+- normalizedReviewerRegistryHashSha256: `62c76efae99b3cf07a2f2fe7182b9c76932b39e9b72bd1eb48ea625dc620b5ca`
+- reviewerRegistryOutOfBandPinStatus: `STAGED_NOT_ESTABLISHED_BY_REPOSITORY_FILE`
 
-A genuine review artifact for the exact frozen tuple and a genuine RSA-SHA256 signature are still required before #254 can be closed.
+The owner-relayed سعيد decision is preserved as `APPROVE_REPORTED` only. A genuine completed review artifact for the exact frozen tuple, evidence/rationale, and a genuine RSA-SHA256 signature over the repository canonical payload are still required before #254 can be closed.
 
 ## D. E2F External Verifier — #364
 
@@ -59,9 +64,10 @@ Status: `TRUST_RECORD_REGISTERED_PENDING_GENUINE_VALIDATIONS_AND_SIGNATURES`
 - verifierSubjectRef: `human:said`
 - authorityClass: `OWNER_RISK_ACCEPTED_EXTERNAL_HUMAN_VERIFIER`
 - publicKeySha256: `fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1`
-- governanceEvidenceRef: `https://github.com/turkialeid2030/startak-real-estate/issues/364#issuecomment-5712335483`
+- governanceEvidenceRef: `https://github.com/turkialeid2030/startak-real-estate/issues/367`
 - registryPath: `governance/operator-templates/e2f-verifier-registry.current.json`
 - registryHashSha256: `fb544ff5555be8f71fb9afbda1f5f2edc60aa8465bd7d91ea392c6865873fbaa`
+- registryOutOfBandPinStatus: `STAGED_NOT_ESTABLISHED_BY_REPOSITORY_FILE`
 
 Required validation coverage remains:
 
@@ -73,6 +79,14 @@ Required validation coverage remains:
 Each required E2F validation still needs genuine evidence plus a genuine `RSA-SHA256` signature over the canonical payload. No such validation result is created by this intake.
 
 ## E. E2G Human Release Authorities — #364
+
+Public release-authority registry staging:
+
+- governanceArtifactPath: `governance/operator-templates/release-authority-governance-artifact.current.json`
+- governanceArtifactSha256: `c08fb5bad0d98dabf897af2401af0b6f8abec8f0d3d1bacf3f471c17035630ac`
+- registryPath: `governance/operator-templates/e2g-release-authority-registry.current.template.json`
+- normalizedRegistryHashSha256: `5125ae7c55541f37fee2ed571107cd846bfb5d91b2a1399633e20eacc67a0d3e`
+- registryOutOfBandPinStatus: `STAGED_NOT_ESTABLISHED_BY_REPOSITORY_FILE`
 
 ### RELEASE_APPROVAL
 
@@ -93,7 +107,7 @@ Each required E2F validation still needs genuine evidence plus a genuine `RSA-SH
 - authorityId: `deployment-authority-said-2026-09-17`
 - authoritySubjectRef: `human:said`
 - publicKeySha256: `fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1`
-- governanceEvidenceRef: `https://github.com/turkialeid2030/startak-real-estate/issues/364#issuecomment-5712335483`
+- governanceEvidenceRef: `https://github.com/turkialeid2030/startak-real-estate/issues/367`
 - status: `KEY_REGISTERED_PENDING_E2F_AND_GENUINE_DECISION_SIGNATURE`
 
 The Merge and Deployment authorities are distinct subjects as required. Actual decisions are not yet signed and no release/merge/deployment authority is exercised by registration alone.
