@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "asOfDate": "2026-09-18",
-  "purpose": "DETERMINISTIC_PUBLIC_REGISTRY_HASH_STAGING_ONLY",
+  "purpose": "DETERMINISTIC_PUBLIC_REGISTRY_HASH_VALUES_VERIFIED_PENDING_OUT_OF_BAND_PINNING",
   "canonicalReviewRegistry": {
     "path": "governance/operator-templates/canonical-rebaseline-reviewer-registry.current.json",
     "registryId": "canonical-rebaseline-reviewer-registry-rc-2026-09-16",
@@ -10,6 +10,7 @@
     "normalizedRegistryHashSha256": "62c76efae99b3cf07a2f2fe7182b9c76932b39e9b72bd1eb48ea625dc620b5ca",
     "reviewerPublicKeySha256Rechecked": "fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1",
     "allowedPurpose": "CANONICAL_REBASELINE_INDEPENDENT_REVIEW",
+    "repositoryImplementationHashVerified": true,
     "outOfBandTrustEstablishedByThisFile": false
   },
   "e2fVerifierRegistry": {
@@ -17,6 +18,7 @@
     "registryId": "e2f-trusted-verifier-registry-rc-2026-09-16",
     "normalizedRegistryHashSha256": "fb544ff5555be8f71fb9afbda1f5f2edc60aa8465bd7d91ea392c6865873fbaa",
     "publicKeySha256Rechecked": "fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1",
+    "repositoryImplementationHashVerified": true,
     "outOfBandTrustEstablishedByThisFile": false
   },
   "e2gReleaseAuthorityRegistry": {
@@ -33,19 +35,22 @@
     "mergeSubjectRef": "github:turkialeid2030",
     "deploymentSubjectRef": "human:said",
     "mergeDeploymentSubjectSeparationStaged": true,
+    "repositoryImplementationHashVerified": true,
     "outOfBandTrustEstablishedByThisFile": false
   },
   "calculationContract": {
-    "canonicalization": "repository stableStringify semantics with normalized ISO timestamps and trimmed public material",
+    "canonicalization": "repository normalization and stableStringify semantics with normalized ISO timestamps and trimmed public material",
     "canonicalReviewImplementationReference": "src/qualification/canonical-rebaseline-review-attestation.js::normalizeRegistry",
     "e2fImplementationReference": "src/standards/external-authority-validation.js::normalizeTrustedVerifierRegistry",
     "e2gImplementationReference": "src/standards/human-release-authority-deployment-decision.js::normalizeReleaseAuthorityRegistry",
-    "independentSemanticRecomputationCompleted": true,
-    "semanticRecomputationEvidencePath": "governance/operator-templates/pre-signature/TRUST-ROOT-HASH-VERIFICATION.current.json",
-    "finalRepositoryToolReverificationRequired": true
+    "repositoryImplementationVerificationCompleted": true,
+    "verificationTestPath": "tests/runtime/run_current_trust_root_registry_hash_tests.js",
+    "verificationEvidencePath": "governance/operator-templates/pre-signature/TRUST-ROOT-HASH-VERIFICATION.current.json",
+    "finalRepositoryHashReverificationRequired": false,
+    "finalOutOfBandPinningRequired": true
   },
   "boundary": {
-    "candidateHashesOnly": true,
+    "hashValuesVerifiedOnly": true,
     "outOfBandPinningStillRequired": true,
     "signatureCreated": false,
     "reviewAccepted": false,
