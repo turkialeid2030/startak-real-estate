@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "asOfDate": "2026-09-18",
+  "purpose": "DETERMINISTIC_PUBLIC_REGISTRY_HASH_STAGING_ONLY",
+  "e2fVerifierRegistry": {
+    "path": "governance/operator-templates/e2f-verifier-registry.current.json",
+    "registryId": "e2f-trusted-verifier-registry-rc-2026-09-16",
+    "normalizedRegistryHashSha256": "fb544ff5555be8f71fb9afbda1f5f2edc60aa8465bd7d91ea392c6865873fbaa",
+    "publicKeySha256Rechecked": "fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1",
+    "outOfBandTrustEstablishedByThisFile": false
+  },
+  "e2gReleaseAuthorityRegistry": {
+    "path": "governance/operator-templates/e2g-release-authority-registry.current.template.json",
+    "registryId": "e2g-release-authority-registry-rc-2026-09-16",
+    "normalizedRegistryHashSha256": "5125ae7c55541f37fee2ed571107cd846bfb5d91b2a1399633e20eacc67a0d3e",
+    "ownerPublicKeySha256Rechecked": "194f78b203841fbefebd9c360e591748b1f787be5f1b310a620ea91589aefccf",
+    "saidPublicKeySha256Rechecked": "fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1",
+    "requiredDecisionCoverageStaged": [
+      "RELEASE_APPROVAL",
+      "MERGE_APPROVAL",
+      "DEPLOYMENT_APPROVAL"
+    ],
+    "mergeSubjectRef": "github:turkialeid2030",
+    "deploymentSubjectRef": "human:said",
+    "mergeDeploymentSubjectSeparationStaged": true,
+    "outOfBandTrustEstablishedByThisFile": false
+  },
+  "calculationContract": {
+    "canonicalization": "repository stableStringify semantics with normalized ISO timestamps and trimmed public material",
+    "e2fImplementationReference": "src/standards/external-authority-validation.js::normalizeTrustedVerifierRegistry",
+    "e2gImplementationReference": "src/standards/human-release-authority-deployment-decision.js::normalizeReleaseAuthorityRegistry",
+    "finalRepositoryToolReverificationRequired": true
+  },
+  "boundary": {
+    "candidateHashesOnly": true,
+    "outOfBandPinningStillRequired": true,
+    "signatureCreated": false,
+    "releaseAuthorized": false,
+    "mergeAuthorized": false,
+    "deploymentAuthorized": false,
+    "transactionAuthorized": false
+  }
+}
