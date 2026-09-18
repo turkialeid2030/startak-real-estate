@@ -1,10 +1,21 @@
 {
   "schemaVersion": 1,
   "asOfDate": "2026-09-18",
-  "purpose": "NON_SECRET_DETERMINISTIC_TRUST_ROOT_HASH_RECOMPUTATION_EVIDENCE",
+  "purpose": "NON_SECRET_DETERMINISTIC_TRUST_ROOT_HASH_VERIFICATION_EVIDENCE",
   "verificationMethod": {
-    "type": "INDEPENDENT_RECOMPUTATION_AGAINST_REPOSITORY_IMPLEMENTATION_SEMANTICS",
-    "canonicalization": "repository stableStringify semantics; object keys sorted recursively, array order preserved, normalized ISO timestamps, trimmed public material",
+    "type": "EXACT_REPOSITORY_IMPLEMENTATION_EXECUTION_IN_RELEASE_VERIFY",
+    "testPath": "tests/runtime/run_current_trust_root_registry_hash_tests.js",
+    "canonicalization": "repository normalization and stableStringify implementations executed directly",
+    "verifiedSourceHead": "1953268579b364208b7f7c2cbe63c74bb0eee822",
+    "releaseVerifyRunId": 35336065143,
+    "releaseVerifyRunNumber": 1123,
+    "releaseVerifyConclusion": "success",
+    "comprehensiveVerifyRunId": 35336065178,
+    "comprehensiveVerifyRunNumber": 497,
+    "comprehensiveVerifyConclusion": "success",
+    "deepPlatformVerifyRunId": 35336065212,
+    "deepPlatformVerifyRunNumber": 452,
+    "deepPlatformVerifyConclusion": "success",
     "privateKeysUsed": false,
     "signaturesCreated": false,
     "outOfBandTrustEstablished": false
@@ -14,28 +25,27 @@
     "registryPath": "governance/operator-templates/canonical-rebaseline-reviewer-registry.current.json",
     "governanceArtifactPath": "governance/operator-templates/canonical-rebaseline-review-governance-artifact.current.json",
     "governanceArtifactRawFileSha256": "284b5995b9d964481c42aa9ef3820206ef1db12c4b7aadf68f44ca6e50695e68",
-    "publicKeySha256Recomputed": "fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1",
-    "normalizedRegistryHashSha256Recomputed": "62c76efae99b3cf07a2f2fe7182b9c76932b39e9b72bd1eb48ea625dc620b5ca",
-    "matchesStagedValue": true
+    "publicKeySha256Verified": "fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1",
+    "normalizedRegistryHashSha256Verified": "62c76efae99b3cf07a2f2fe7182b9c76932b39e9b72bd1eb48ea625dc620b5ca",
+    "repositoryImplementationVerificationPassed": true
   },
   "e2fVerifierRegistry": {
     "implementationReference": "src/standards/external-authority-validation.js::normalizeTrustedVerifierRegistry",
     "registryPath": "governance/operator-templates/e2f-verifier-registry.current.json",
-    "publicKeySha256Recomputed": "fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1",
-    "normalizedRegistryHashSha256Recomputed": "fb544ff5555be8f71fb9afbda1f5f2edc60aa8465bd7d91ea392c6865873fbaa",
-    "matchesStagedValue": true
+    "publicKeySha256Verified": "fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1",
+    "normalizedRegistryHashSha256Verified": "fb544ff5555be8f71fb9afbda1f5f2edc60aa8465bd7d91ea392c6865873fbaa",
+    "repositoryImplementationVerificationPassed": true
   },
   "e2gReleaseAuthorityRegistry": {
     "implementationReference": "src/standards/human-release-authority-deployment-decision.js::normalizeReleaseAuthorityRegistry",
     "registryPath": "governance/operator-templates/e2g-release-authority-registry.current.template.json",
-    "ownerPublicKeySha256Recomputed": "194f78b203841fbefebd9c360e591748b1f787be5f1b310a620ea91589aefccf",
-    "saidPublicKeySha256Recomputed": "fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1",
-    "normalizedRegistryHashSha256Recomputed": "5125ae7c55541f37fee2ed571107cd846bfb5d91b2a1399633e20eacc67a0d3e",
-    "matchesStagedValue": true
+    "ownerPublicKeySha256Verified": "194f78b203841fbefebd9c360e591748b1f787be5f1b310a620ea91589aefccf",
+    "saidPublicKeySha256Verified": "fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1",
+    "normalizedRegistryHashSha256Verified": "5125ae7c55541f37fee2ed571107cd846bfb5d91b2a1399633e20eacc67a0d3e",
+    "repositoryImplementationVerificationPassed": true
   },
   "boundary": {
-    "hashRecomputationOnly": true,
-    "repositorySigningToolExecuted": false,
+    "publicRegistryHashVerificationOnly": true,
     "outOfBandPinningStillRequired": true,
     "humanReviewAccepted": false,
     "e2fValidated": false,
