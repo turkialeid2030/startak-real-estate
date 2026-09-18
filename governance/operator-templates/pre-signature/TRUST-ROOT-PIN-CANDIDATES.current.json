@@ -2,6 +2,16 @@
   "schemaVersion": 1,
   "asOfDate": "2026-09-18",
   "purpose": "DETERMINISTIC_PUBLIC_REGISTRY_HASH_STAGING_ONLY",
+  "canonicalReviewRegistry": {
+    "path": "governance/operator-templates/canonical-rebaseline-reviewer-registry.current.json",
+    "registryId": "canonical-rebaseline-reviewer-registry-rc-2026-09-16",
+    "governanceArtifactPath": "governance/operator-templates/canonical-rebaseline-review-governance-artifact.current.json",
+    "governanceArtifactSha256": "284b5995b9d964481c42aa9ef3820206ef1db12c4b7aadf68f44ca6e50695e68",
+    "normalizedRegistryHashSha256": "62c76efae99b3cf07a2f2fe7182b9c76932b39e9b72bd1eb48ea625dc620b5ca",
+    "reviewerPublicKeySha256Rechecked": "fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1",
+    "allowedPurpose": "CANONICAL_REBASELINE_INDEPENDENT_REVIEW",
+    "outOfBandTrustEstablishedByThisFile": false
+  },
   "e2fVerifierRegistry": {
     "path": "governance/operator-templates/e2f-verifier-registry.current.json",
     "registryId": "e2f-trusted-verifier-registry-rc-2026-09-16",
@@ -27,6 +37,7 @@
   },
   "calculationContract": {
     "canonicalization": "repository stableStringify semantics with normalized ISO timestamps and trimmed public material",
+    "canonicalReviewImplementationReference": "src/qualification/canonical-rebaseline-review-attestation.js::normalizeRegistry",
     "e2fImplementationReference": "src/standards/external-authority-validation.js::normalizeTrustedVerifierRegistry",
     "e2gImplementationReference": "src/standards/human-release-authority-deployment-decision.js::normalizeReleaseAuthorityRegistry",
     "finalRepositoryToolReverificationRequired": true
@@ -35,6 +46,7 @@
     "candidateHashesOnly": true,
     "outOfBandPinningStillRequired": true,
     "signatureCreated": false,
+    "reviewAccepted": false,
     "releaseAuthorized": false,
     "mergeAuthorized": false,
     "deploymentAuthorized": false,
