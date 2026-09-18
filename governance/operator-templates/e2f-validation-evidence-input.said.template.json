@@ -9,7 +9,8 @@
     "sourceCommitSha": "e876208c19ffbddd0dacd2bf8fce24aba1e52b55",
     "artifactSha256": "c3ddcd7b4a66fd58c271fb08b9e5a3efb5e4237f0015d3771e7ab9818412017f",
     "environmentRef": "cloudflare-pages:startak-real-estate:production",
-    "environmentConfigSha256": "819183fb9f4fb09017c636d2d1d841dd086ac4ba4bbccd103dffbc4c5980bc73"
+    "environmentConfigSha256": "819183fb9f4fb09017c636d2d1d841dd086ac4ba4bbccd103dffbc4c5980bc73",
+    "upstreamEvidencePacketHashSha256": "<QUALIFIED_E2E_EVIDENCE_PACKET_HASH_SHA256>"
   },
   "validations": [
     {
@@ -20,6 +21,7 @@
       "environmentRef": null,
       "environmentConfigSha256": null,
       "releaseCandidateCommitSha": null,
+      "verifierId": "e2f-verifier-said-2026-09-17",
       "verificationSourceRef": "<GENUINE_CONFORMANCE_VERIFICATION_EVIDENCE_REF>",
       "verificationArtifactSha256": "<64_HEX_SHA256_OF_GENUINE_VERIFICATION_ARTIFACT>",
       "verifiedAt": "<ISO_8601>",
@@ -36,6 +38,7 @@
       "environmentRef": "cloudflare-pages:startak-real-estate:production",
       "environmentConfigSha256": "819183fb9f4fb09017c636d2d1d841dd086ac4ba4bbccd103dffbc4c5980bc73",
       "releaseCandidateCommitSha": "e876208c19ffbddd0dacd2bf8fce24aba1e52b55",
+      "verifierId": "e2f-verifier-said-2026-09-17",
       "verificationSourceRef": "<GENUINE_SECURITY_VALIDATION_EVIDENCE_REF>",
       "verificationArtifactSha256": "<64_HEX_SHA256_OF_GENUINE_SECURITY_ARTIFACT>",
       "verifiedAt": "<ISO_8601>",
@@ -52,6 +55,7 @@
       "environmentRef": "cloudflare-pages:startak-real-estate:production",
       "environmentConfigSha256": "819183fb9f4fb09017c636d2d1d841dd086ac4ba4bbccd103dffbc4c5980bc73",
       "releaseCandidateCommitSha": "e876208c19ffbddd0dacd2bf8fce24aba1e52b55",
+      "verifierId": "e2f-verifier-said-2026-09-17",
       "verificationSourceRef": "<GENUINE_PERFORMANCE_VALIDATION_EVIDENCE_REF>",
       "verificationArtifactSha256": "<64_HEX_SHA256_OF_GENUINE_PERFORMANCE_ARTIFACT>",
       "verifiedAt": "<ISO_8601>",
@@ -68,6 +72,7 @@
       "environmentRef": "cloudflare-pages:startak-real-estate:production",
       "environmentConfigSha256": "819183fb9f4fb09017c636d2d1d841dd086ac4ba4bbccd103dffbc4c5980bc73",
       "releaseCandidateCommitSha": "e876208c19ffbddd0dacd2bf8fce24aba1e52b55",
+      "verifierId": "e2f-verifier-said-2026-09-17",
       "verificationSourceRef": "<GENUINE_RESILIENCE_VALIDATION_EVIDENCE_REF>",
       "verificationArtifactSha256": "<64_HEX_SHA256_OF_GENUINE_RESILIENCE_ARTIFACT>",
       "verifiedAt": "<ISO_8601>",
