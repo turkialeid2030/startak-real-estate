@@ -6,6 +6,8 @@ param(
   [ValidateSet('APPROVE','REJECT','HOLD')]
   [string]$Result,
 
+  [string]$PacketPath = '.\governance\operator-templates\current-lineage-review\review-packet.current.json',
+
   [string]$OutDir = '.\startak-said-review-output',
 
   [switch]$Sign,
@@ -19,10 +21,6 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 # Single-use constants for the frozen integrated RC. Do not reuse this script for another tuple.
-$reviewRequestId = 'p26-review-startak-real-estate-rc-2026-09-16-e876208c19ff-said-1'
-$reviewPacketHashSha256 = 'ed8a0ffb242081d308f89b1e177920d6bf2d6e058bceb5047ddedaf4f0eed107'
-$proposalId = 'p24-startak-real-estate-rc-2026-09-16-e876208c19ff'
-$proposalHashSha256 = 'b6575cb5c7c5ebd2a84ae71b2b31f1cb25a2562dc01d6e82608045e9d4d0557b'
 $qualifiedSourceCommitSha = 'e876208c19ffbddd0dacd2bf8fce24aba1e52b55'
 $releaseArtifactSha256 = 'c3ddcd7b4a66fd58c271fb08b9e5a3efb5e4237f0015d3771e7ab9818412017f'
 $environmentConfigSha256 = '819183fb9f4fb09017c636d2d1d841dd086ac4ba4bbccd103dffbc4c5980bc73'
@@ -53,16 +51,12 @@ function Sha256-Utf8([string]$Text) {
   }
 }
 
-function J([string]$Value) {
-  # ConvertTo-Json is used only for scalar string quoting. All payload values are ASCII.
-  return ($Value | ConvertTo-Json -Compress)
-}
-
 function Write-Utf8NoBom([string]$PathValue, [string]$Text) {
   [System.IO.File]::WriteAllText($PathValue, $Text, $utf8NoBom)
 }
 
 Assert-RealFile $MemoPath 'Completed review memo'
+Assert-RealFile $PacketPath 'Current-lineage P26 review packet'
 $memoRaw = Get-Content -LiteralPath $MemoPath -Raw
 
 $forbiddenMarkers = @(
@@ -109,29 +103,20 @@ $unsignedAttestation = [ordered]@{
 $unsignedPath = Join-Path $outResolved 'said-review-attestation.unsigned.json'
 Write-Utf8NoBom $unsignedPath (($unsignedAttestation | ConvertTo-Json -Depth 8) + "`n")
 
-# IMPORTANT: this is the exact flat payload shape produced by
-# src/qualification/canonical-rebaseline-review-attestation.js::createIndependentReviewSigningPayload.
-# Keys are emitted in the same lexical order used by stableStringify().
-$canonical = '{' +
-  '"actorRef":' + (J $actorRef) + ',' +
-  '"decidedAt":' + (J $decidedAt) + ',' +
-  '"decisionArtifactSha256":' + (J $memoHash) + ',' +
-  '"decisionId":' + (J $decisionId) + ',' +
-  '"decisionSourceRef":' + (J $decisionSourceRef) + ',' +
-  '"environmentConfigSha256":' + (J $environmentConfigSha256) + ',' +
-  '"proposalHashSha256":' + (J $proposalHashSha256) + ',' +
-  '"proposalId":' + (J $proposalId) + ',' +
-  '"purpose":' + (J $purpose) + ',' +
-  '"qualifiedSourceCommitSha":' + (J $qualifiedSourceCommitSha) + ',' +
-  '"rationaleRef":' + (J $rationaleRef) + ',' +
-  '"releaseArtifactSha256":' + (J $releaseArtifactSha256) + ',' +
-  '"result":' + (J $Result) + ',' +
-  '"reviewPacketHashSha256":' + (J $reviewPacketHashSha256) + ',' +
-  '"reviewRequestId":' + (J $reviewRequestId) + ',' +
-  '"reviewerId":' + (J $reviewerId) + ',' +
-  '"schemaVersion":1,' +
-  '"signatureAlgorithm":' + (J $signatureAlgorithm) +
-'}'
+# Canonical payload MUST come from the repository implementation; this helper must not reimplement its shape.
+$node = Get-Command node -ErrorAction SilentlyContinue
+if (-not $node) { throw 'Node.js was not found; cannot invoke the repository canonical payload tool.' }
+$payloadTool = '.\tools\prepare-canonical-rebaseline-review-signing-payload.js'
+Assert-RealFile $payloadTool 'Repository canonical payload tool'
+
+$toolOutputPath = Join-Path $outResolved 'said-review-signing-payload.tool-output.json'
+& $node.Source $payloadTool --packet $PacketPath --attestation $unsignedPath --output $toolOutputPath
+if ($LASTEXITCODE -ne 0) { throw "Canonical payload preparation failed with exit code $LASTEXITCODE" }
+Assert-RealFile $toolOutputPath 'Canonical payload tool output'
+
+$toolOutput = Get-Content -LiteralPath $toolOutputPath -Raw | ConvertFrom-Json
+if (-not $toolOutput.signingBytesUtf8) { throw 'Canonical payload tool output did not contain signingBytesUtf8.' }
+$canonical = [string]$toolOutput.signingBytesUtf8
 
 $payloadPath = Join-Path $outResolved 'said-review-signing-payload.canonical.txt'
 Write-Utf8NoBom $payloadPath $canonical
@@ -145,17 +130,15 @@ $manifest = [ordered]@{
   sourceCommitSha = $qualifiedSourceCommitSha
   releaseArtifactSha256 = $releaseArtifactSha256
   environmentConfigSha256 = $environmentConfigSha256
-  reviewRequestId = $reviewRequestId
-  reviewPacketHashSha256 = $reviewPacketHashSha256
-  proposalId = $proposalId
-  proposalHashSha256 = $proposalHashSha256
   reviewerId = $reviewerId
   actorRef = $actorRef
   result = $Result
+  packetPath = (Resolve-Path -LiteralPath $PacketPath).Path
   memoPath = (Resolve-Path -LiteralPath $MemoPath).Path
   memoSha256 = $memoHash
   decidedAt = $decidedAt
   signingPayloadSha256 = $payloadHash
+  canonicalPayloadSource = 'tools/prepare-canonical-rebaseline-review-signing-payload.js'
   signatureAlgorithm = $signatureAlgorithm
   signed = $false
   localPreparationOnly = $true
@@ -211,6 +194,7 @@ Write-Host ''
 Write-Host 'STARTAK Said review signing package prepared.'
 Write-Host "Memo SHA-256: $memoHash"
 Write-Host "Canonical payload SHA-256: $payloadHash"
+Write-Host "Canonical payload source: tools/prepare-canonical-rebaseline-review-signing-payload.js"
 Write-Host "Output directory: $outResolved"
 if ($Sign) {
   Write-Host 'Local signature verification: PASS'
