@@ -87,17 +87,14 @@ jobs:
         run: |
           set -euo pipefail
           body="$(mktemp)"
-          payload='{"decisionSnapshot":{"schemaVersion":1}}'
+          payload='{"decisionSnapshot":{"schemaVersion":1,"capability":"RESIDENTIAL_INCOME_ACQUISITION_AI_ASSIST","governance":{"rawOperatingCaseIncluded":false,"tenantNamesIncluded":false,"evidenceDocumentTextIncluded":false,"automaticInvestmentRecommendationAllowed":false,"legalConclusionAllowed":false,"transactionAuthorizationAllowed":false}}}'
           status="$(curl -sS -o "$body" -w '%{http_code}' -X POST "$BASE_URL/api/riai/ai-assist" -H 'content-type: application/json' -H 'origin: https://startak-real-estate.pages.dev' -H 'sec-fetch-site: same-origin' --data "$payload")"
-          test "$status" != '200' || { echo 'AI endpoint unexpectedly accepted an invalid/unauthenticated request.'; rm -f "$body"; exit 1; }
+          test "$status" != '200' || { echo 'AI endpoint unexpectedly accepted an unauthenticated request.'; rm -f "$body"; exit 1; }
           code="$(jq -r '.code // empty' "$body" 2>/dev/null || true)"
           rm -f "$body"
 
           if [[ "${PUBLIC_AI_ENABLED:-false}" == 'true' ]]; then
-            case "$code" in
-              TURNSTILE_TOKEN_REQUIRED|AI_SNAPSHOT_INVALID|AI_SNAPSHOT_NOT_READY|DECISION_SNAPSHOT_SCHEMA_INVALID) ;;
-              *) echo "Unexpected public-Turnstile fail-closed code: ${code:-<none>} (HTTP $status)"; exit 1 ;;
-            esac
+            [[ "$code" == 'TURNSTILE_TOKEN_REQUIRED' ]] || { echo "Unexpected public-Turnstile fail-closed code: ${code:-<none>} (HTTP $status)"; exit 1; }
           else
             [[ "$code" == 'AI_ACCESS_REQUIRED' ]] || { echo "Unexpected Cloudflare Access fail-closed code: ${code:-<none>} (HTTP $status)"; exit 1; }
           fi
@@ -179,7 +176,7 @@ jobs:
             fi
             echo '- Public shell reachability checked.'
             echo '- Public AI config checked for governed dual-mode behavior and secret non-disclosure.'
-            echo '- AI endpoint checked to reject invalid/unauthenticated requests before provider invocation.'
+            echo '- AI endpoint checked to reject a schema-valid but unauthenticated request before provider invocation.'
             echo '- CSP checked according to the active governed AI runtime mode.'
             echo '- This smoke test does not bypass Turnstile or Cloudflare Access and does not fabricate a valid human/access token.'
             echo '- This workflow is read-only and grants no release, deployment, go-live or transaction authority.'
