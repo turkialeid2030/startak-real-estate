@@ -50,18 +50,25 @@ jobs:
           test -n "${CF_ACCOUNT_ID:-}" || { echo 'CLOUDFLARE_ACCOUNT_ID variable is missing'; exit 1; }
           echo 'Repository Cloudflare credentials are configured.'
 
-      - name: Verify API token and account access
+      - name: Verify project-scoped API access
         shell: bash
         run: |
           set -euo pipefail
           auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
-          token_json="$(curl -fsS "${auth[@]}" https://api.cloudflare.com/client/v4/user/tokens/verify)"
-          jq -e '.success == true and .result.status == "active"' <<<"$token_json" >/dev/null
-          project_json="$(curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}")"
+          body="$(mktemp)"
+          status="$(curl --silent --show-error -o "$body" -w '%{http_code}' "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}" || true)"
+          if [[ "$status" != '200' ]]; then
+            error_code="$(jq -r '.errors[0].code // empty' "$body" 2>/dev/null || true)"
+            echo "Cloudflare Pages project access failed: HTTP ${status}${error_code:+ code=${error_code}}"
+            rm -f "$body"
+            exit 1
+          fi
+          project_json="$(cat "$body")"
+          rm -f "$body"
           jq -e '.success == true' <<<"$project_json" >/dev/null
           jq -e '.result.production_branch == "main"' <<<"$project_json" >/dev/null
           printf '%s' "$project_json" > /tmp/cf-project.json
-          echo 'Cloudflare API token is active and can read the STARTAK Pages project.'
+          echo 'Cloudflare project-scoped bearer access is valid for the STARTAK Pages project.'
 
       - name: Verify production bindings and secret presence
         shell: bash
@@ -166,5 +173,6 @@ jobs:
             echo '- Verification is manual-dispatch only from trusted main and exact-SHA bound.'
             echo '- No pull_request, pull_request_target, or automatic push path receives the production Cloudflare credential.'
             echo '- Required Wave C bindings and governed AI activation configuration are verified fail-closed.'
+            echo '- Project-scoped bearer access is used as the authoritative credential preflight.'
             echo '- API token value is never printed.'
           } >> "$GITHUB_STEP_SUMMARY"
