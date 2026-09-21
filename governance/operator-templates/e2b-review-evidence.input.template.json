@@ -8,6 +8,7 @@
       "issuerOrFirmRef": "<REAL_ISSUER_OR_FIRM_REF>",
       "artifactId": "<REAL_REVIEW_ARTIFACT_ID>",
       "artifactSha256": "<REAL_REVIEW_ARTIFACT_SHA256>",
+      "artifactRelativePath": "<LOCAL_RELATIVE_PATH_TO_RECEIVED_REVIEW_ARTIFACT>",
       "scopeRef": "<REAL_REVIEW_SCOPE_REF>",
       "issuedAt": "<REAL_ISO_8601_ISSUED_AT>",
       "receivedAt": "<REAL_ISO_8601_RECEIVED_AT>",
