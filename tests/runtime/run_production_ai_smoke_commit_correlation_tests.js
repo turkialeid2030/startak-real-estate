@@ -63,6 +63,24 @@ test('PRODUCTION-AI-SMOKE-CORRELATION-06', () => {
   assert.match(workflow, /This workflow is read-only/);
 });
 
+test('PRODUCTION-AI-SMOKE-CORRELATION-07', () => {
+  assert.match(workflow, /Governed AI runtime config/);
+  assert.match(workflow, /PUBLIC_TURNSTILE/);
+  assert.match(workflow, /CLOUDFLARE_ACCESS/);
+  assert.match(workflow, /\.publicAiEnabled \| type == "boolean"/);
+  assert.match(workflow, /\.turnstileSiteKey == null/);
+  assert.doesNotMatch(workflow, /\.publicAiEnabled == true and \(\.turnstileSiteKey \| type == "string" and length > 10\)/, 'smoke must not force public Turnstile mode when governed Access mode is valid');
+});
+
+test('PRODUCTION-AI-SMOKE-CORRELATION-08', () => {
+  assert.match(workflow, /AI_ACCESS_REQUIRED/);
+  assert.match(workflow, /TURNSTILE_TOKEN_REQUIRED/);
+  assert.match(workflow, /AI_RUNTIME_MODE/);
+  assert.match(workflow, /publicAiEnabled:\$publicAiEnabled/);
+  assert.match(workflow, /PRODUCTION_AI_SMOKE_V3/);
+  assert.match(workflow, /does not bypass Turnstile or Cloudflare Access/);
+});
+
 const failed = results.filter((entry) => entry[1] !== 'PASS');
 console.log(`PRODUCTION_AI_SMOKE_COMMIT_CORRELATION_RESULT=${failed.length === 0 ? 'PASS' : 'FAIL'} ${results.length - failed.length}/${results.length}`);
 if (failed.length > 0) process.exit(1);

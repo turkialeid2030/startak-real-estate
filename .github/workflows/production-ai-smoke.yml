@@ -58,33 +58,47 @@ jobs:
           rm -f "$headers" "$body"
           echo 'Public shell: PASS'
 
-      - name: Verify public AI runtime config
+      - name: Verify governed AI runtime config
         shell: bash
         run: |
           set -euo pipefail
           body="$(mktemp)"
           status="$(curl -sS -o "$body" -w '%{http_code}' "$BASE_URL/api/riai/public-config")"
           test "$status" = '200' || { echo "Public config returned HTTP $status"; cat "$body"; rm -f "$body"; exit 1; }
-          jq -e '.schemaVersion == 1 and .publicAiEnabled == true and (.turnstileSiteKey | type == "string" and length > 10)' "$body" >/dev/null
+          jq -e '.schemaVersion == 1 and (.publicAiEnabled | type == "boolean") and has("turnstileSiteKey")' "$body" >/dev/null
           ! jq -e 'has("turnstileSecret") or has("providerKey") or has("providerUrl") or has("model")' "$body" >/dev/null || { echo 'Public config exposed restricted fields.'; rm -f "$body"; exit 1; }
+
+          public_enabled="$(jq -r '.publicAiEnabled' "$body")"
+          if [[ "$public_enabled" == 'true' ]]; then
+            jq -e '(.turnstileSiteKey | type == "string" and length > 10)' "$body" >/dev/null || { echo 'Public Turnstile mode is enabled without a valid site key.'; rm -f "$body"; exit 1; }
+            runtime_mode='PUBLIC_TURNSTILE'
+          else
+            jq -e '.turnstileSiteKey == null' "$body" >/dev/null || { echo 'Access/fail-closed mode must not expose a Turnstile site key.'; rm -f "$body"; exit 1; }
+            runtime_mode='CLOUDFLARE_ACCESS'
+          fi
+
+          echo "PUBLIC_AI_ENABLED=$public_enabled" >> "$GITHUB_ENV"
+          echo "AI_RUNTIME_MODE=$runtime_mode" >> "$GITHUB_ENV"
           rm -f "$body"
-          echo 'Public AI runtime config: PASS'
+          echo "Governed AI runtime config: PASS ($runtime_mode)"
 
       - name: Verify fail-closed AI boundary
         shell: bash
         run: |
           set -euo pipefail
           body="$(mktemp)"
-          payload='{"decisionSnapshot":{"schemaVersion":1}}'
+          payload='{"decisionSnapshot":{"schemaVersion":1,"capability":"RESIDENTIAL_INCOME_ACQUISITION_AI_ASSIST","governance":{"rawOperatingCaseIncluded":false,"tenantNamesIncluded":false,"evidenceDocumentTextIncluded":false,"automaticInvestmentRecommendationAllowed":false,"legalConclusionAllowed":false,"transactionAuthorizationAllowed":false}}}'
           status="$(curl -sS -o "$body" -w '%{http_code}' -X POST "$BASE_URL/api/riai/ai-assist" -H 'content-type: application/json' -H 'origin: https://startak-real-estate.pages.dev' -H 'sec-fetch-site: same-origin' --data "$payload")"
-          test "$status" != '200' || { echo 'AI endpoint unexpectedly accepted an invalid/unauthenticated request.'; rm -f "$body"; exit 1; }
+          test "$status" != '200' || { echo 'AI endpoint unexpectedly accepted an unauthenticated request.'; rm -f "$body"; exit 1; }
           code="$(jq -r '.code // empty' "$body" 2>/dev/null || true)"
-          case "$code" in
-            TURNSTILE_TOKEN_REQUIRED|AI_SNAPSHOT_INVALID|AI_SNAPSHOT_NOT_READY|DECISION_SNAPSHOT_SCHEMA_INVALID) ;;
-            *) echo "Unexpected fail-closed code: ${code:-<none>} (HTTP $status)"; cat "$body"; rm -f "$body"; exit 1 ;;
-          esac
           rm -f "$body"
-          echo "Fail-closed AI boundary: PASS ($code)"
+
+          if [[ "${PUBLIC_AI_ENABLED:-false}" == 'true' ]]; then
+            [[ "$code" == 'TURNSTILE_TOKEN_REQUIRED' ]] || { echo "Unexpected public-Turnstile fail-closed code: ${code:-<none>} (HTTP $status)"; exit 1; }
+          else
+            [[ "$code" == 'AI_ACCESS_REQUIRED' ]] || { echo "Unexpected Cloudflare Access fail-closed code: ${code:-<none>} (HTTP $status)"; exit 1; }
+          fi
+          echo "Fail-closed AI boundary: PASS ($AI_RUNTIME_MODE / $code)"
 
       - name: Verify browser security headers
         shell: bash
@@ -92,9 +106,14 @@ jobs:
           set -euo pipefail
           headers="$(mktemp)"
           curl -sS -D "$headers" -o /dev/null "$BASE_URL/"
-          grep -Eqi '^content-security-policy:.*challenges\.cloudflare\.com' "$headers" || { echo 'CSP does not allow Cloudflare Turnstile.'; cat "$headers"; rm -f "$headers"; exit 1; }
+          if [[ "${PUBLIC_AI_ENABLED:-false}" == 'true' ]]; then
+            grep -Eqi '^content-security-policy:.*challenges\.cloudflare\.com' "$headers" || { echo 'CSP does not allow Cloudflare Turnstile in public AI mode.'; cat "$headers"; rm -f "$headers"; exit 1; }
+            echo 'Turnstile CSP: PASS'
+          else
+            grep -Eqi '^content-security-policy:' "$headers" || { echo 'Content-Security-Policy header missing in Cloudflare Access mode.'; cat "$headers"; rm -f "$headers"; exit 1; }
+            echo 'Cloudflare Access CSP boundary: PASS'
+          fi
           rm -f "$headers"
-          echo 'Turnstile CSP: PASS'
 
       - name: Write production AI smoke evidence envelope
         if: always()
@@ -106,22 +125,26 @@ jobs:
           mkdir -p runtime-evidence/production-ai-smoke
           correlated=false
           qualified=false
+          public_enabled=false
+          if [[ "${PUBLIC_AI_ENABLED:-false}" == 'true' ]]; then public_enabled=true; fi
           if [[ "$CORRELATION_MODE" == 'EXACT_DEPLOYMENT_CORRELATED' ]]; then correlated=true; fi
           if [[ "$correlated" == 'true' && "$JOB_STATUS" == 'success' ]]; then qualified=true; fi
           jq -n \
             --arg schemaVersion '1' \
-            --arg suite 'PRODUCTION_AI_SMOKE_V2' \
+            --arg suite 'PRODUCTION_AI_SMOKE_V3' \
             --arg baseUrl "$BASE_URL" \
             --arg event "$GITHUB_EVENT_NAME" \
             --arg expectedDeployedSha "${EXPECTED_DEPLOYED_SHA:-}" \
             --arg upstreamControlPlaneRunId "${UPSTREAM_CONTROL_PLANE_RUN_ID:-}" \
             --arg upstreamControlPlaneRunUrl "${UPSTREAM_CONTROL_PLANE_RUN_URL:-}" \
             --arg correlationMode "$CORRELATION_MODE" \
+            --arg runtimeMode "${AI_RUNTIME_MODE:-UNKNOWN}" \
             --arg jobStatus "$JOB_STATUS" \
             --arg completedAt "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+            --argjson publicAiEnabled "$public_enabled" \
             --argjson deploymentCorrelationEstablished "$correlated" \
             --argjson qualifiesAsCommitCorrelatedSmokeEvidence "$qualified" \
-            '{schemaVersion:($schemaVersion|tonumber),suite:$suite,baseUrl:$baseUrl,event:$event,expectedDeployedSha:(if $expectedDeployedSha=="" then null else $expectedDeployedSha end),upstreamControlPlaneRunId:(if $upstreamControlPlaneRunId=="" then null else $upstreamControlPlaneRunId end),upstreamControlPlaneRunUrl:(if $upstreamControlPlaneRunUrl=="" then null else $upstreamControlPlaneRunUrl end),correlationMode:$correlationMode,deploymentCorrelationEstablished:$deploymentCorrelationEstablished,jobStatus:$jobStatus,qualifiesAsCommitCorrelatedSmokeEvidence:$qualifiesAsCommitCorrelatedSmokeEvidence,completedAt:$completedAt,authority:{releaseAuthorized:false,mergeAuthorized:false,deploymentAuthorized:false,goLiveAuthorized:false,transactionAuthorized:false}}' \
+            '{schemaVersion:($schemaVersion|tonumber),suite:$suite,baseUrl:$baseUrl,event:$event,expectedDeployedSha:(if $expectedDeployedSha=="" then null else $expectedDeployedSha end),upstreamControlPlaneRunId:(if $upstreamControlPlaneRunId=="" then null else $upstreamControlPlaneRunId end),upstreamControlPlaneRunUrl:(if $upstreamControlPlaneRunUrl=="" then null else $upstreamControlPlaneRunUrl end),correlationMode:$correlationMode,runtimeMode:$runtimeMode,publicAiEnabled:$publicAiEnabled,deploymentCorrelationEstablished:$deploymentCorrelationEstablished,jobStatus:$jobStatus,qualifiesAsCommitCorrelatedSmokeEvidence:$qualifiesAsCommitCorrelatedSmokeEvidence,completedAt:$completedAt,authority:{releaseAuthorized:false,mergeAuthorized:false,deploymentAuthorized:false,goLiveAuthorized:false,transactionAuthorized:false}}' \
             > runtime-evidence/production-ai-smoke/result.json
           cat runtime-evidence/production-ai-smoke/result.json
 
@@ -143,6 +166,8 @@ jobs:
             echo
             echo "- Event: \`${GITHUB_EVENT_NAME}\`"
             echo "- Correlation mode: \`${CORRELATION_MODE}\`"
+            echo "- Runtime mode: \`${AI_RUNTIME_MODE:-UNKNOWN}\`"
+            echo "- Public AI enabled: \`${PUBLIC_AI_ENABLED:-unknown}\`"
             if [[ -n "${EXPECTED_DEPLOYED_SHA:-}" ]]; then
               echo "- Expected deployed SHA inherited from successful Cloudflare Control Plane Verify: \`${EXPECTED_DEPLOYED_SHA}\`"
               echo "- Upstream control-plane run: \`${UPSTREAM_CONTROL_PLANE_RUN_ID}\`"
@@ -150,9 +175,9 @@ jobs:
               echo '- No exact deployment SHA is claimed in diagnostic mode.'
             fi
             echo '- Public shell reachability checked.'
-            echo '- Public AI config checked for enabled Turnstile and secret non-disclosure.'
-            echo '- AI endpoint checked to reject invalid/unauthenticated requests before provider invocation.'
-            echo '- CSP checked for Turnstile browser support.'
-            echo '- This smoke test does not bypass Turnstile and therefore does not fabricate a valid human challenge token.'
+            echo '- Public AI config checked for governed dual-mode behavior and secret non-disclosure.'
+            echo '- AI endpoint checked to reject a schema-valid but unauthenticated request before provider invocation.'
+            echo '- CSP checked according to the active governed AI runtime mode.'
+            echo '- This smoke test does not bypass Turnstile or Cloudflare Access and does not fabricate a valid human/access token.'
             echo '- This workflow is read-only and grants no release, deployment, go-live or transaction authority.'
           } >> "$GITHUB_STEP_SUMMARY"
