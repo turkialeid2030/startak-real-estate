@@ -8,6 +8,7 @@
   "environmentConfigSha256": "819183fb9f4fb09017c636d2d1d841dd086ac4ba4bbccd103dffbc4c5980bc73",
   "ownerSubjectRef": "github:turkialeid2030",
   "riskAcceptanceEvidenceRef": "https://github.com/turkialeid2030/startak-real-estate/issues/367",
+  "keyRotationEvidenceRef": "https://github.com/turkialeid2030/startak-real-estate/issues/367#issuecomment-5756532755",
   "authorities": [
     {
       "subjectRef": "github:turkialeid2030",
@@ -22,11 +23,13 @@
       "decisionTypes": [
         "DEPLOYMENT_APPROVAL"
       ],
-      "publicKeySha256": "fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1",
+      "publicKeySha256": "0af393bd7c091106c3b16e493b4f99d39570c77675c9c5dee175d5a7727ebbc1",
+      "previousPublicKeySha256": "fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1",
       "custodyModel": "OWNER_RISK_ACCEPTED_PASSPHRASE_PROTECTED_OWNER_HOSTED_KEY"
     }
   ],
-  "effectiveFrom": "2026-09-17T11:55:34+03:00",
+  "keyRotatedAt": "2026-09-21T09:51:34+03:00",
+  "effectiveFrom": "2026-09-21T09:51:34+03:00",
   "boundaries": {
     "signaturesRequired": true,
     "automaticRelease": false,
