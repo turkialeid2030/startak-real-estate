@@ -1,0 +1,11 @@
+{
+  "reviewerSubjects": [
+    "<REAL_E2_REVIEWER_SUBJECT_REF_1>"
+  ],
+  "templateOnly": true,
+  "instructions": [
+    "TEMPLATE_ONLY: populate with the actual reviewer subject refs present in the genuine E2B review evidence before normalizing the E2C trust-root candidate.",
+    "The E2C trust-root designation intake rejects a verifier subject that collides directly with any listed reviewer subject.",
+    "This reviewer-subject list is separation-of-duties input only; it is not review evidence, authority evidence, a signature, an out-of-band pin, or a production approval."
+  ]
+}
