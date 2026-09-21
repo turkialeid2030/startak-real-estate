@@ -1,0 +1,17 @@
+{
+  "environmentName": "production",
+  "ownerSubjectRef": "github:turkialeid2030",
+  "reviewerGitHubLogin": "<REAL_DISTINCT_GITHUB_LOGIN>",
+  "reviewerSubjectRef": "<REAL_DISTINCT_REVIEWER_SUBJECT_REF>",
+  "designationEvidenceRef": "<REAL_OWNER_OR_GOVERNANCE_DESIGNATION_EVIDENCE_REF>",
+  "effectiveFrom": "<REAL_ISO_8601_EFFECTIVE_FROM>",
+  "independentFromOwner": true,
+  "requiredReviewerProtectionIntended": true,
+  "templateOnly": true,
+  "instructions": [
+    "TEMPLATE_ONLY: no reviewer is designated by this file.",
+    "The reviewer must be a genuine distinct GitHub identity capable of being configured as a Required Reviewer for Environment production.",
+    "Do not place passwords, private keys, passphrases, tokens, secret values, or recovery data in this file.",
+    "Completion requires administrator-side GitHub Environment configuration and evidence; repository code cannot substitute for that control."
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "decisionId": "<TO_BE_ASSIGNED_AFTER_GENUINE_REVIEW>",
+  "reviewerId": "reviewer-said-2026-09-17",
+  "actorRef": "human:said",
+  "purpose": "CANONICAL_REBASELINE_INDEPENDENT_REVIEW",
+  "releaseCandidateId": "startak-real-estate-rc-2026-09-16-e876208c19ff",
+  "sourceCommitSha": "e876208c19ffbddd0dacd2bf8fce24aba1e52b55",
+  "artifactSha256": "c3ddcd7b4a66fd58c271fb08b9e5a3efb5e4237f0015d3771e7ab9818412017f",
+  "environmentRef": "cloudflare-pages:startak-real-estate:production",
+  "environmentConfigSha256": "819183fb9f4fb09017c636d2d1d841dd086ac4ba4bbccd103dffbc4c5980bc73",
+  "result": "<APPROVE|REJECT|HOLD>",
+  "decisionSourceRef": "<GENUINE_REVIEW_MEMO_REF>",
+  "decisionArtifactSha256": "<64_HEX_SHA256_OF_GENUINE_REVIEW_ARTIFACT>",
+  "decidedAt": "<ISO_8601_AFTER_REVIEW>",
+  "rationaleRef": "<GENUINE_RATIONALE_REF>",
+  "signatureAlgorithm": "RSA-SHA256",
+  "signatureBase64": "<ONLY_AFTER_SAID_SIGNS_CANONICAL_PAYLOAD>"
+}

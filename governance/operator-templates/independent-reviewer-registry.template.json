@@ -1,0 +1,16 @@
+{
+  "registryId": "REPLACE_WITH_REVIEWER_REGISTRY_ID",
+  "governanceArtifactSha256": "REPLACE_WITH_64_HEX_SHA256",
+  "reviewers": [
+    {
+      "reviewerId": "REPLACE_WITH_REVIEWER_ID",
+      "reviewerSubjectRef": "REPLACE_WITH_REVIEWER_SUBJECT_REF",
+      "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nREPLACE_WITH_RSA_PUBLIC_KEY_ONLY\n-----END PUBLIC KEY-----",
+      "publicKeySha256": "REPLACE_WITH_64_HEX_SHA256_OF_TRIMMED_PUBLIC_KEY_PEM",
+      "governanceEvidenceRef": "REPLACE_WITH_GOVERNANCE_EVIDENCE_REF",
+      "activeFrom": "2026-09-16T00:00:00.000Z",
+      "activeUntil": null,
+      "allowedPurpose": "CANONICAL_REBASELINE_INDEPENDENT_REVIEW"
+    }
+  ]
+}

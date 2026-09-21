@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "effectiveDate": "2026-09-21",
+  "ownerDirection": "INTERNAL_USE_EVALUATION_AND_CONTINUOUS_DEVELOPMENT",
+  "operatingMode": "INTERNAL_EVALUATION_AND_CONTINUOUS_DEVELOPMENT",
+  "externalReviewRequiredForCurrentMode": false,
+  "e2bDispositionForCurrentMode": "NOT_APPLICABLE_INTERNAL_USE",
+  "e2cDispositionForCurrentMode": "NOT_APPLICABLE_INTERNAL_USE",
+  "externalProductionGovernanceChainDisposition": "NOT_APPLICABLE_UNTIL_EXTERNAL_OR_REGULATED_USE",
+  "internalEngineeringContinuation": true,
+  "internalTestingAllowed": true,
+  "internalEvaluationAllowed": true,
+  "continuousDevelopmentAllowed": true,
+  "externalProfessionalCertification": false,
+  "transactionAuthority": false,
+  "externalCommercialGoLive": false,
+  "reentryTriggers": [
+    "EXTERNAL_CLIENT_RELIANCE",
+    "PROFESSIONAL_OR_CERTIFIED_OUTPUT_CLAIM",
+    "TRANSACTION_AUTHORIZATION_OR_EXECUTION",
+    "BINDING_LEGAL_REGULATORY_CONTRACTUAL_LENDER_AUDITOR_OR_COURT_REQUIREMENT",
+    "OWNER_CHANGES_OPERATING_MODE"
+  ],
+  "boundary": "This mode removes external-review gating only from the current internal evaluation, testing and development lifecycle. It does not represent an external review PASS, professional certification, transaction authority or external commercial authorization."
+}

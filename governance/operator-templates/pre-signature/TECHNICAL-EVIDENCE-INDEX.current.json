@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 1,
+  "asOfDate": "2026-09-18",
+  "purpose": "PRE_SIGNATURE_TECHNICAL_EVIDENCE_STAGING_ONLY",
+  "releaseCandidate": {
+    "releaseCandidateId": "startak-real-estate-rc-2026-09-16-e876208c19ff",
+    "branch": "release/decision-governance-integrated-rc-2026-09-16",
+    "sourceCommitSha": "e876208c19ffbddd0dacd2bf8fce24aba1e52b55",
+    "artifactSha256": "c3ddcd7b4a66fd58c271fb08b9e5a3efb5e4237f0015d3771e7ab9818412017f",
+    "environmentRef": "cloudflare-pages:startak-real-estate:production",
+    "environmentConfigSha256": "819183fb9f4fb09017c636d2d1d841dd086ac4ba4bbccd103dffbc4c5980bc73",
+    "rcHeadReverifiedOn2026_09_18": true,
+    "rcHeadObservedSha": "e876208c19ffbddd0dacd2bf8fce24aba1e52b55"
+  },
+  "mainProtectionEvidence": {
+    "rulesetId": 21861129,
+    "rulesetName": "STARTAK Main Production Governance",
+    "enforcement": "active",
+    "strictRequiredStatusChecks": true,
+    "requiredChecks": [
+      "release-verify",
+      "trusted-main-production-governance"
+    ],
+    "bypassActors": [],
+    "currentUserCanBypass": "never",
+    "observedOn2026_09_18": true
+  },
+  "governedReleaseEvidence": {
+    "workflowRunId": 35127270331,
+    "artifactId": 10460380584,
+    "artifactArchiveSha256": "6f2c9b31932a9179db75cd3dfd3421211dfdc1b8b53d93dca78523a31edc3027",
+    "files": [
+      {
+        "name": "governed-release-evidence-envelope.json",
+        "sha256": "f844c59c56e752a900ee2c80aced0e62efe7a08c3dd439122f4a797c64a1bb43"
+      },
+      {
+        "name": "production-environment-manifest.json",
+        "sha256": "819183fb9f4fb09017c636d2d1d841dd086ac4ba4bbccd103dffbc4c5980bc73"
+      },
+      {
+        "name": "production-environment.sha256",
+        "sha256": "799975d0078912976c37c2995ca1a7ced47228a8ad86f9585badcedc52822d2d"
+      },
+      {
+        "name": "release-artifact.sha256",
+        "sha256": "4107c55cda354fe8b0ff9071d7c50e8d56398589e154dea29988acd37096814f"
+      },
+      {
+        "name": "dist-files.sha256",
+        "sha256": "3c6c621723df9b9f6633a3f2c4a55dee6736efcce7dff994462242f1523cf7d6"
+      },
+      {
+        "name": "startak-release-candidate-e876208c19ffbddd0dacd2bf8fce24aba1e52b55.tar",
+        "sha256": "c3ddcd7b4a66fd58c271fb08b9e5a3efb5e4237f0015d3771e7ab9818412017f"
+      }
+    ],
+    "observedProviderPosture": {
+      "productionFailOpen": false,
+      "linkedPreviewFailOpen": false,
+      "productionAutoDeployDisabled": true,
+      "publicAiEnabled": false,
+      "cloudflareAccessApplicationObserved": true,
+      "noMutationPerformedByCollector": true
+    }
+  },
+  "exactSourceReleaseVerification": {
+    "sourceCommitSha": "e876208c19ffbddd0dacd2bf8fce24aba1e52b55",
+    "latestVerifiedRun": {
+      "workflow": "Release Verify",
+      "runId": 35095503897,
+      "runNumber": 1099,
+      "jobId": 104791717508,
+      "conclusion": "success"
+    },
+    "additionalSuccessfulRuns": [
+      35094760859,
+      35094509067
+    ]
+  },
+  "e2fTechnicalEvidenceMapping": {
+    "EXTERNAL_CONFORMANCE_AUTHENTICITY": {
+      "technicalInputsStaged": true,
+      "externalHumanValidation": "PENDING_SIGNATURE_PHASE"
+    },
+    "PRODUCTION_SECURITY_VALIDATION": {
+      "technicalInputsStaged": true,
+      "candidateEvidenceRefs": [
+        "github-actions:run/35127270331:artifact/10460380584:governed-release-evidence-envelope.json",
+        "github-actions:run/35127270331:artifact/10460380584:production-environment-manifest.json"
+      ],
+      "externalHumanValidation": "PENDING_SIGNATURE_PHASE"
+    },
+    "PRODUCTION_PERFORMANCE_VALIDATION": {
+      "technicalInputsStaged": true,
+      "candidateEvidenceRefs": [
+        "github-actions:run/35095503897:job/104791717508"
+      ],
+      "externalHumanValidation": "PENDING_SIGNATURE_PHASE"
+    },
+    "PRODUCTION_RESILIENCE_VALIDATION": {
+      "technicalInputsStaged": true,
+      "candidateEvidenceRefs": [
+        "github-actions:run/35095503897:job/104791717508",
+        "github-actions:run/35127270331:artifact/10460380584:production-environment-manifest.json"
+      ],
+      "externalHumanValidation": "PENDING_SIGNATURE_PHASE"
+    }
+  },
+  "boundaries": {
+    "thisFileIsExternalValidation": false,
+    "thisFileIsHumanReview": false,
+    "thisFileIsSignature": false,
+    "releaseAuthorized": false,
+    "mergeAuthorized": false,
+    "deploymentAuthorized": false,
+    "transactionAuthority": false,
+    "commercialGoLive": false
+  }
+}

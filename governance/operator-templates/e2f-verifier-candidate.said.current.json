@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "candidateId": "e2f-verifier-candidate-said-2026-09-17",
+  "displayName": "سعيد",
+  "subjectRef": "human:said",
+  "intendedRoles": [
+    "INDEPENDENT_REVIEWER_254",
+    "E2F_EXTERNAL_VERIFIER",
+    "DEPLOYMENT_APPROVAL"
+  ],
+  "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAwflQOU5wbcZDk4TXCc3I\nSsEzRVrBr2WhGtOgZk1zHgFApFv30TPpm/uFaPMEJDUDvvJskhaEAU6tFvp2TuKI\nWvC2uc9YLS8J6Rgrm9gue6+RRnL6ltnhPoY9C9LtWclFBWZHCtyRfUH6ZgoCb/cv\nN9To6ZrQAOnDFXzOJ1woS8oZzrAfcQBB8MepGWXR5QqdpywhCbF8FMeyGswbLfay\nEO8wQNR/Ie27Ba3vwq584vNcQLwc5POXonOyiDma0QB4B5Zbyc6s1GMdysMwHWHi\na9onLykYsRkFmB0/Li9NKtMVFeKwRB+n8IWK+8QdEPqgFGxet+02KFztUNgBAd9B\niCVeqGML5ednmjy0dnpmikT6M/PthrFIuzTRJmU4IICx02uGRMptTo4J2gQ298sU\nauIBwIPMxKAnKO7Eq9aGtXV0xLCCtYi79NHGGfL4/P+QWZJwIzV8s/lRf3ZofXKg\nb67mPBjQFv42G2WR7uU3cPmQQcVa2WPy899pIXAuNxKpAgMBAAE=\n-----END PUBLIC KEY-----",
+  "publicKeySha256": "0af393bd7c091106c3b16e493b4f99d39570c77675c9c5dee175d5a7727ebbc1",
+  "previousPublicKeySha256": "fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1",
+  "keyRotationEvidenceRef": "https://github.com/turkialeid2030/startak-real-estate/issues/367#issuecomment-5756532755",
+  "keyRotatedAt": "2026-09-21T09:51:34+03:00",
+  "ownerRiskAcceptanceRef": "https://github.com/turkialeid2030/startak-real-estate/issues/367",
+  "custodyStatus": "OWNER_RISK_ACCEPTED_EXTERNAL_KEY_CUSTODY",
+  "e2fTrustStatus": "ACTIVE_REGISTRY_ENTRY_PENDING_GENUINE_VALIDATIONS_AND_SIGNATURES",
+  "e2fRegistryPath": "governance/operator-templates/e2f-verifier-registry.current.json",
+  "e2fRegistryHashSha256": "59de1600dd145c7504c2eb907cb19c4c0df3e98fd85e8aa2331a31a0b14386a9",
+  "deploymentAuthorityStatus": "REGISTERED_PENDING_GENUINE_E2G_DECISION_SIGNATURE",
+  "releaseAuthorityRegistryPath": "governance/operator-templates/e2g-release-authority-registry.current.template.json",
+  "releaseAuthorityRegistryHashSha256": "35c28e89061a69e6c001f2db512261f8a67180a08fe7a07cc90d839537cbb781",
+  "notes": "Owner explicitly approved Said public-key rotation for E2F verification and E2G deployment authority in issue #367. This changes public trust roots only and grants no validation or release authority. Genuine downstream evidence and RSA-SHA256 signatures remain required."
+}

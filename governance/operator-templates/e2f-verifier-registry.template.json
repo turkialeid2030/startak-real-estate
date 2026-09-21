@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "registryId": "<REPLACE_E2F_REGISTRY_ID>",
+  "status": "EXTERNALLY_GOVERNED",
+  "governanceOwnerRef": "<REPLACE_EXTERNAL_GOVERNANCE_OWNER_REF>",
+  "verifiers": [
+    {
+      "verifierId": "<REPLACE_VERIFIER_ID_1>",
+      "verifierSubjectRef": "<REPLACE_DISTINCT_HUMAN_OR_ORG_SUBJECT_REF>",
+      "authorityClass": "<REPLACE_AUTHORITY_CLASS>",
+      "publicKeyPem": "<REPLACE_RSA_PUBLIC_KEY_PEM_ONLY>",
+      "publicKeySha256": "<REPLACE_64_HEX_SHA256_OF_PUBLIC_KEY_PEM>",
+      "governanceEvidenceRef": "<REPLACE_GOVERNANCE_EVIDENCE_REF>",
+      "activeFrom": "<REPLACE_ISO_8601_TIME>",
+      "activeUntil": "<OPTIONAL_ISO_8601_TIME_OR_REMOVE_FIELD>"
+    }
+  ]
+}

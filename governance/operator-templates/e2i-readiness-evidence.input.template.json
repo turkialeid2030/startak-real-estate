@@ -1,0 +1,18 @@
+{
+  "evidenceId": "<UNIQUE_E2I_EVIDENCE_ID>",
+  "evidenceType": "<ONE_OF_THE_SIX_REQUIRED_EVIDENCE_TYPES>",
+  "upstreamCloseoutPacketHashSha256": "<EXACT_E2H_CLOSEOUT_PACKET_SHA256>",
+  "releaseCandidateId": "startak-real-estate-rc-2026-09-16-e876208c19ff",
+  "sourceCommitSha": "e876208c19ffbddd0dacd2bf8fce24aba1e52b55",
+  "artifactSha256": "c3ddcd7b4a66fd58c271fb08b9e5a3efb5e4237f0015d3771e7ab9818412017f",
+  "environmentRef": "cloudflare-pages:startak-real-estate:production",
+  "environmentConfigSha256": "819183fb9f4fb09017c636d2d1d841dd086ac4ba4bbccd103dffbc4c5980bc73",
+  "verifierId": "<TRUSTED_VERIFIER_ID_ALLOWED_FOR_THIS_EVIDENCE_TYPE>",
+  "sourceRef": "<REAL_EXTERNAL_SOURCE_OR_ARTIFACT_REF>",
+  "evidenceArtifactSha256": "<SHA256_OF_REAL_EXTERNAL_EVIDENCE_ARTIFACT>",
+  "verifiedAt": "<ISO8601_VERIFIED_AT_AFTER_E2H_CLOSEOUT>",
+  "expiresAt": null,
+  "result": "VERIFIED",
+  "scopeRef": "<EXACT_REVIEW_SCOPE_REF>",
+  "signatureAlgorithm": "RSA-SHA256"
+}

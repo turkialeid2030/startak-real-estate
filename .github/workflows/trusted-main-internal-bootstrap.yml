@@ -1,0 +1,121 @@
+name: Trusted Main Internal Bootstrap
+
+on:
+  pull_request:
+    branches:
+      - main
+      - bootstrap/internal-main-governance-base
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: trusted-main-internal-bootstrap-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  trusted-main-production-governance:
+    name: trusted-main-production-governance
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout pull-request merge candidate with read-only token
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify internal-use declaration and production re-entry boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('fs');
+
+          const modePath = 'governance/operator-templates/INTERNAL_USE_MODE.current.json';
+          const trustedPath = '.github/workflows/trusted-main-production-governance.yml';
+
+          if (!fs.existsSync(modePath)) {
+            throw new Error('Internal-use declaration is missing. Bootstrap check is not applicable.');
+          }
+          if (!fs.existsSync(trustedPath)) {
+            throw new Error('Trusted production governance workflow is missing.');
+          }
+
+          const x = JSON.parse(fs.readFileSync(modePath, 'utf8'));
+          const required = {
+            schemaVersion: 1,
+            ownerDirection: 'INTERNAL_USE_EVALUATION_AND_CONTINUOUS_DEVELOPMENT',
+            operatingMode: 'INTERNAL_EVALUATION_AND_CONTINUOUS_DEVELOPMENT',
+            externalReviewRequiredForCurrentMode: false,
+            e2bDispositionForCurrentMode: 'NOT_APPLICABLE_INTERNAL_USE',
+            e2cDispositionForCurrentMode: 'NOT_APPLICABLE_INTERNAL_USE',
+            externalProductionGovernanceChainDisposition: 'NOT_APPLICABLE_UNTIL_EXTERNAL_OR_REGULATED_USE',
+            internalEngineeringContinuation: true,
+            internalTestingAllowed: true,
+            internalEvaluationAllowed: true,
+            continuousDevelopmentAllowed: true,
+            externalProfessionalCertification: false,
+            transactionAuthority: false,
+            externalCommercialGoLive: false
+          };
+          for (const [k, v] of Object.entries(required)) {
+            if (x[k] !== v) throw new Error(`Unsafe or malformed internal-use declaration: ${k}`);
+          }
+
+          const triggers = new Set(x.reentryTriggers || []);
+          for (const t of [
+            'EXTERNAL_CLIENT_RELIANCE',
+            'PROFESSIONAL_OR_CERTIFIED_OUTPUT_CLAIM',
+            'TRANSACTION_AUTHORIZATION_OR_EXECUTION',
+            'BINDING_LEGAL_REGULATORY_CONTRACTUAL_LENDER_AUDITOR_OR_COURT_REQUIREMENT',
+            'OWNER_CHANGES_OPERATING_MODE'
+          ]) {
+            if (!triggers.has(t)) throw new Error(`Missing mandatory re-entry trigger: ${t}`);
+          }
+
+          const trusted = fs.readFileSync(trustedPath, 'utf8');
+          const requiredFragments = [
+            'TRUSTED_VERIFIER_COMMIT_SHA: 952c1d33ae2e86887cd13a8186d39ad10dea0113',
+            'Classify operating mode as inert data from exact PR head',
+            "if: steps.mode.outputs.mode != 'internal'",
+            'STARTAK_E2E_PACKET_B64',
+            'STARTAK_E2F_PACKET_B64',
+            'STARTAK_E2G_PACKET_B64',
+            'Production governance automatically re-enters when internal mode is absent or no longer satisfies the fail-closed declaration.'
+          ];
+          for (const fragment of requiredFragments) {
+            if (!trusted.includes(fragment)) throw new Error(`Trusted workflow is missing required fail-closed production boundary: ${fragment}`);
+          }
+
+          const prHeadExpression = '$' + '{{ github.event.pull_request.head.sha ' + '}}';
+          const sourceBinding = 'STARTAK_EXPECTED_RELEASE_SOURCE_COMMIT_SHA: ' + prHeadExpression;
+          if (!trusted.includes(sourceBinding)) {
+            throw new Error('Trusted workflow is missing exact PR-head source SHA binding.');
+          }
+
+          if (/ref:\s*\$\{\{\s*github\.event\.pull_request\.head\.sha\s*\}\}/.test(trusted)) {
+            throw new Error('Trusted pull_request_target workflow must not checkout PR-head code.');
+          }
+
+          console.log('INTERNAL_MODE_BOOTSTRAP_GOVERNANCE=PASS');
+          console.log('EXTERNAL_PROFESSIONAL_CERTIFICATION=false');
+          console.log('TRANSACTION_AUTHORITY=false');
+          console.log('EXTERNAL_COMMERCIAL_GO_LIVE=false');
+          NODE
+
+      - name: Record bootstrap boundary
+        if: success()
+        shell: bash
+        run: |
+          {
+            echo '## Internal-mode trusted-main bootstrap'
+            echo
+            echo '- This check runs on `pull_request` with read-only repository access and no protected governance secrets.'
+            echo '- Internal-use declaration validated fail-closed.'
+            echo '- Production E2E/E2F/E2G path remains present and re-enters automatically outside internal mode.'
+            echo '- No professional certification, transaction authority, deployment authority, or external commercial Go-Live is granted.'
+            echo '- Purpose: safely break the one-time ruleset bootstrap deadlock while preserving the required check name and production controls.'
+          } >> "$GITHUB_STEP_SUMMARY"

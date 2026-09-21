@@ -1,0 +1,18 @@
+{
+    "decisionId":  "said-independent-review-20260921T062515Z",
+    "reviewerId":  "reviewer-said-2026-09-17",
+    "actorRef":  "human:said",
+    "purpose":  "CANONICAL_REBASELINE_INDEPENDENT_REVIEW",
+    "releaseCandidateId":  "startak-real-estate-rc-2026-09-16-e876208c19ff",
+    "sourceCommitSha":  "e876208c19ffbddd0dacd2bf8fce24aba1e52b55",
+    "artifactSha256":  "c3ddcd7b4a66fd58c271fb08b9e5a3efb5e4237f0015d3771e7ab9818412017f",
+    "environmentRef":  "cloudflare-pages:startak-real-estate:production",
+    "environmentConfigSha256":  "819183fb9f4fb09017c636d2d1d841dd086ac4ba4bbccd103dffbc4c5980bc73",
+    "result":  "APPROVE",
+    "decisionSourceRef":  "review-memo-sha256:3e992e93dd701283215d95d3d3cf2ab0fe1d7ccda605866ab829f4e743a16aec",
+    "decisionArtifactSha256":  "3e992e93dd701283215d95d3d3cf2ab0fe1d7ccda605866ab829f4e743a16aec",
+    "decidedAt":  "2026-09-21T06:25:15.675Z",
+    "rationaleRef":  "review-memo-sha256:3e992e93dd701283215d95d3d3cf2ab0fe1d7ccda605866ab829f4e743a16aec#section-6",
+    "signatureAlgorithm":  "RSA-SHA256",
+    "signatureBase64":  "ItbHqijGwJUpULqULFhnEaPE/jfDoGrf5kqA4we5wXHEmdlQFY2GyZ6Wxb932xDq4sfva2anYCTs/ULt9+fdJPmJZEmXVHG+oPy7ybEkWbHUKyl0eRxIo3eFPlImyM7Gdw22JA6ClqXLP7aBiVGkJ/wDaDFDz+GujUj9T4kKc0g84PK2shQyD65f0PXXc5woBTPqhciaTLHVN+6mXHTcJLmiRa7HlppUrv/gkRVd1okc7jo1I1yzDk/3dIXU7kLXmsntyGsxMGtB5hcVGOIqdEgFVUlkeqJtePBtLZJYgTQqH2f+BjN5ePu6mn0Bunh0lhztm9HhLYp9uUGKBrKhrkYDDxSScUnRaFrRDBA9m6Eiiii2MfwjuOfomuMfpXyaen4mBevKkSBdf7sbCunrBKpFOOmWTqNrleoiCCO0BSDPhqlYDxjzr+FxFYpuOhnswC6A9kbxnkUVGK3uyUzO46fqMUeNGgiMgCi71HUh38Obhs7ZszrNXxc2qXbXREuA"
+}

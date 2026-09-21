@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "asOfDate": "2026-09-21",
+  "purpose": "NON_SECRET_DETERMINISTIC_TRUST_ROOT_HASH_VERIFICATION_EVIDENCE",
+  "verificationMethod": {
+    "type": "EXACT_REPOSITORY_IMPLEMENTATION_EXECUTION_IN_RELEASE_VERIFY",
+    "testPath": "tests/runtime/run_current_trust_root_registry_hash_tests.js",
+    "canonicalization": "repository normalization and stableStringify implementations executed directly",
+    "verifiedSourceHead": null,
+    "releaseVerifyRunId": null,
+    "releaseVerifyRunNumber": null,
+    "releaseVerifyConclusion": null,
+    "comprehensiveVerifyRunId": null,
+    "comprehensiveVerifyRunNumber": null,
+    "comprehensiveVerifyConclusion": null,
+    "deepPlatformVerifyRunId": null,
+    "deepPlatformVerifyRunNumber": null,
+    "deepPlatformVerifyConclusion": null,
+    "freshExactHeadCiRequired": true,
+    "signaturesCreated": false,
+    "outOfBandTrustEstablished": false
+  },
+  "canonicalReviewRegistry": {
+    "implementationReference": "src/qualification/canonical-rebaseline-review-attestation.js::normalizeRegistry",
+    "registryPath": "governance/operator-templates/canonical-rebaseline-reviewer-registry.current.json",
+    "governanceArtifactPath": "governance/operator-templates/canonical-rebaseline-review-governance-artifact.current.json",
+    "governanceArtifactRawFileSha256": "26ca3a5370e427c40a195c1e7609c8f3f69c8d330ca9f8e8aad3b4b5ebcb7e07",
+    "previousPublicKeySha256": "fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1",
+    "publicKeySha256Verified": "0af393bd7c091106c3b16e493b4f99d39570c77675c9c5dee175d5a7727ebbc1",
+    "normalizedRegistryHashSha256Verified": "2cd45d81863afb8d41a30404d5b1cf2113c216abf6ae13e51d6f41e0962d0f53",
+    "keyRotationEvidenceRef": "https://github.com/turkialeid2030/startak-real-estate/issues/367#issuecomment-5756079007",
+    "repositoryImplementationVerificationPassed": true
+  },
+  "e2fVerifierRegistry": {
+    "implementationReference": "src/standards/external-authority-validation.js::normalizeTrustedVerifierRegistry",
+    "registryPath": "governance/operator-templates/e2f-verifier-registry.current.json",
+    "previousPublicKeySha256": "fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1",
+    "publicKeySha256Verified": "0af393bd7c091106c3b16e493b4f99d39570c77675c9c5dee175d5a7727ebbc1",
+    "normalizedRegistryHashSha256Verified": "59de1600dd145c7504c2eb907cb19c4c0df3e98fd85e8aa2331a31a0b14386a9",
+    "keyRotationEvidenceRef": "https://github.com/turkialeid2030/startak-real-estate/issues/367#issuecomment-5756532755",
+    "repositoryImplementationVerificationPassed": false
+  },
+  "e2gReleaseAuthorityRegistry": {
+    "implementationReference": "src/standards/human-release-authority-deployment-decision.js::normalizeReleaseAuthorityRegistry",
+    "registryPath": "governance/operator-templates/e2g-release-authority-registry.current.template.json",
+    "governanceArtifactPath": "governance/operator-templates/release-authority-governance-artifact.current.json",
+    "governanceArtifactRawFileSha256": "bf8191a4f13021ca7b18abb9857d58770ce9546ad01c2439fc544e61fe74c0c1",
+    "ownerPublicKeySha256Verified": "194f78b203841fbefebd9c360e591748b1f787be5f1b310a620ea91589aefccf",
+    "previousSaidPublicKeySha256": "fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1",
+    "saidPublicKeySha256Verified": "0af393bd7c091106c3b16e493b4f99d39570c77675c9c5dee175d5a7727ebbc1",
+    "normalizedRegistryHashSha256Verified": "35c28e89061a69e6c001f2db512261f8a67180a08fe7a07cc90d839537cbb781",
+    "keyRotationEvidenceRef": "https://github.com/turkialeid2030/startak-real-estate/issues/367#issuecomment-5756532755",
+    "repositoryImplementationVerificationPassed": false
+  },
+  "boundary": {
+    "publicRegistryHashVerificationOnly": true,
+    "outOfBandPinningStillRequired": true,
+    "humanReviewAccepted": true,
+    "e2fValidated": false,
+    "e2gAuthorized": false,
+    "releaseAuthorized": false,
+    "mergeAuthorized": false,
+    "deploymentAuthorized": false,
+    "transactionAuthorized": false,
+    "commercialGoLiveAuthorized": false
+  }
+}

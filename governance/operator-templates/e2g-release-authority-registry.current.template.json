@@ -1,0 +1,41 @@
+{
+  "registryId": "e2g-release-authority-registry-rc-2026-09-16",
+  "governanceArtifactSha256": "bf8191a4f13021ca7b18abb9857d58770ce9546ad01c2439fc544e61fe74c0c1",
+  "keyRotationEvidenceRef": "https://github.com/turkialeid2030/startak-real-estate/issues/367#issuecomment-5756532755",
+  "authorities": [
+    {
+      "authorityId": "release-authority-turki-al-eid-2026-09-16",
+      "authoritySubjectRef": "github:turkialeid2030",
+      "allowedDecisionTypes": [
+        "RELEASE_APPROVAL"
+      ],
+      "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAr5PbR4O5qe6QS9TQ2BCz\nbrCCIXcY82qNxlbooLMr2WzlYP4CEGupybJwYeN55AQRdbXkkSdl3XhaMSdToPOg\nioSm9xPpBLB7zxDO2UOmhCm6wyIxD+dTXxCaCfXdqp9GJd+yJHVzlKqSnRL1LLvU\nFssRqRsp4KpOVJS+fZNebInPnHkvYmkv5sDDvtnxy7Ka93bkU9y18ZuZVD2snVu1\noZSA6BCGznUexzLXmB5uS8ro9oK6oDzeufs4IiiRfX7btXGEaW6B7eu6ApsmfRkM\nHqSaOl/88UgSa3HKfESiPrLuv3EFidoKWI+uH1f9/FsWSNDTx18TO1q4n5t8XOqu\nmy9Tu9CmRDcaIf0WlEvFyZcjy8uSMjRyA4wTrFIMu17JOZzo92/LORzhUFLc+0zI\nA60d8eOC/RIvxe/gXTDSTakb5SkuDseMNeo7SitjLKsvbMEy+53lrkXfqvmWMIOY\nGiDLJmh5c9rf88jR5Ytk1l9ZX8X4IjKOqapFtbzsrHx/AgMBAAE=\n-----END PUBLIC KEY-----",
+      "publicKeySha256": "194f78b203841fbefebd9c360e591748b1f787be5f1b310a620ea91589aefccf",
+      "governanceEvidenceRef": "https://github.com/turkialeid2030/startak-real-estate/issues/365#issuecomment-5703765871",
+      "activeFrom": "2026-09-17T09:56:48+03:00"
+    },
+    {
+      "authorityId": "merge-authority-turki-al-eid-2026-09-16",
+      "authoritySubjectRef": "github:turkialeid2030",
+      "allowedDecisionTypes": [
+        "MERGE_APPROVAL"
+      ],
+      "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAr5PbR4O5qe6QS9TQ2BCz\nbrCCIXcY82qNxlbooLMr2WzlYP4CEGupybJwYeN55AQRdbXkkSdl3XhaMSdToPOg\nioSm9xPpBLB7zxDO2UOmhCm6wyIxD+dTXxCaCfXdqp9GJd+yJHVzlKqSnRL1LLvU\nFssRqRsp4KpOVJS+fZNebInPnHkvYmkv5sDDvtnxy7Ka93bkU9y18ZuZVD2snVu1\noZSA6BCGznUexzLXmB5uS8ro9oK6oDzeufs4IiiRfX7btXGEaW6B7eu6ApsmfRkM\nHqSaOl/88UgSa3HKfESiPrLuv3EFidoKWI+uH1f9/FsWSNDTx18TO1q4n5t8XOqu\nmy9Tu9CmRDcaIf0WlEvFyZcjy8uSMjRyA4wTrFIMu17JOZzo92/LORzhUFLc+0zI\nA60d8eOC/RIvxe/gXTDSTakb5SkuDseMNeo7SitjLKsvbMEy+53lrkXfqvmWMIOY\nGiDLJmh5c9rf88jR5Ytk1l9ZX8X4IjKOqapFtbzsrHx/AgMBAAE=\n-----END PUBLIC KEY-----",
+      "publicKeySha256": "194f78b203841fbefebd9c360e591748b1f787be5f1b310a620ea91589aefccf",
+      "governanceEvidenceRef": "https://github.com/turkialeid2030/startak-real-estate/issues/365#issuecomment-5703765871",
+      "activeFrom": "2026-09-17T09:56:48+03:00"
+    },
+    {
+      "authorityId": "deployment-authority-said-2026-09-17",
+      "authoritySubjectRef": "human:said",
+      "allowedDecisionTypes": [
+        "DEPLOYMENT_APPROVAL"
+      ],
+      "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAwflQOU5wbcZDk4TXCc3I\nSsEzRVrBr2WhGtOgZk1zHgFApFv30TPpm/uFaPMEJDUDvvJskhaEAU6tFvp2TuKI\nWvC2uc9YLS8J6Rgrm9gue6+RRnL6ltnhPoY9C9LtWclFBWZHCtyRfUH6ZgoCb/cv\nN9To6ZrQAOnDFXzOJ1woS8oZzrAfcQBB8MepGWXR5QqdpywhCbF8FMeyGswbLfay\nEO8wQNR/Ie27Ba3vwq584vNcQLwc5POXonOyiDma0QB4B5Zbyc6s1GMdysMwHWHi\na9onLykYsRkFmB0/Li9NKtMVFeKwRB+n8IWK+8QdEPqgFGxet+02KFztUNgBAd9B\niCVeqGML5ednmjy0dnpmikT6M/PthrFIuzTRJmU4IICx02uGRMptTo4J2gQ298sU\nauIBwIPMxKAnKO7Eq9aGtXV0xLCCtYi79NHGGfL4/P+QWZJwIzV8s/lRf3ZofXKg\nb67mPBjQFv42G2WR7uU3cPmQQcVa2WPy899pIXAuNxKpAgMBAAE=\n-----END PUBLIC KEY-----",
+      "publicKeySha256": "0af393bd7c091106c3b16e493b4f99d39570c77675c9c5dee175d5a7727ebbc1",
+      "previousPublicKeySha256": "fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1",
+      "governanceEvidenceRef": "https://github.com/turkialeid2030/startak-real-estate/issues/367#issuecomment-5756532755",
+      "activeFrom": "2026-09-21T09:51:34+03:00"
+    }
+  ]
+}

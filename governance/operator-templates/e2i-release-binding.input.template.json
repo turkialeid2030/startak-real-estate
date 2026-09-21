@@ -1,0 +1,10 @@
+{
+  "templateOnly": true,
+  "upstreamCloseoutPacketHashSha256": "<EXACT_E2H_CLOSEOUT_PACKET_SHA256>",
+  "releaseCandidateId": "startak-real-estate-rc-2026-09-16-e876208c19ff",
+  "sourceCommitSha": "e876208c19ffbddd0dacd2bf8fce24aba1e52b55",
+  "artifactSha256": "c3ddcd7b4a66fd58c271fb08b9e5a3efb5e4237f0015d3771e7ab9818412017f",
+  "environmentRef": "cloudflare-pages:startak-real-estate:production",
+  "environmentConfigSha256": "819183fb9f4fb09017c636d2d1d841dd086ac4ba4bbccd103dffbc4c5980bc73",
+  "upstreamCloseoutPreparedAt": "<EXACT_E2H_CLOSEOUT_PREPARED_AT_ISO8601>"
+}

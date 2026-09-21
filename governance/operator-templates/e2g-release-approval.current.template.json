@@ -1,0 +1,17 @@
+{
+  "decisionId": "release-decision-turki-al-eid-rc-2026-09-16",
+  "decisionType": "RELEASE_APPROVAL",
+  "releaseCandidateId": "startak-real-estate-rc-2026-09-16-e876208c19ff",
+  "validationPacketHashSha256": "<REPLACE_FINAL_E2F_VALIDATION_PACKET_HASH_SHA256>",
+  "sourceCommitSha": "e876208c19ffbddd0dacd2bf8fce24aba1e52b55",
+  "artifactSha256": "c3ddcd7b4a66fd58c271fb08b9e5a3efb5e4237f0015d3771e7ab9818412017f",
+  "environmentRef": "cloudflare-pages:startak-real-estate:production",
+  "environmentConfigSha256": "819183fb9f4fb09017c636d2d1d841dd086ac4ba4bbccd103dffbc4c5980bc73",
+  "authorityId": "release-authority-turki-al-eid-2026-09-16",
+  "decisionSourceRef": "<REPLACE_OWNER_HUMAN_DECISION_SOURCE_REF_AT_DECISION_TIME>",
+  "decisionArtifactSha256": "<REPLACE_64_HEX_SHA256_OF_OWNER_DECISION_ARTIFACT>",
+  "decidedAt": "<REPLACE_ISO_8601_DECISION_TIME>",
+  "result": "<REPLACE_WITH_APPROVE_REJECT_OR_HOLD_AT_DECISION_TIME>",
+  "rationaleRef": "<REPLACE_RATIONALE_OR_MINUTES_REF>",
+  "signatureAlgorithm": "RSA-SHA256"
+}

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "requestId": "e2c-pin-request-startak-e2c-production-verifiers-2026-09-21-1",
+  "registryId": "startak-e2c-production-verifiers-2026-09-21",
+  "registryHashSha256": "52d9d9e14e7b2e7667bc85fa9f3a8b3f2a77482eb0cdc7e9ffa879c27b12d1e0",
+  "governanceOwnerRef": "github:turkialeid2030",
+  "verifierSubjectRef": "human:said",
+  "requiredPinnerConstraint": "PINNER_SUBJECT_MUST_DIFFER_FROM_GOVERNANCE_OWNER",
+  "attestedOutOfBand": false,
+  "pinnerSubjectRef": null,
+  "pinEvidenceRef": null,
+  "pinStatus": "PENDING_GENUINE_INDEPENDENT_OUT_OF_BAND_PIN",
+  "authorityEffect": "NONE",
+  "instructions": [
+    "This is a pin request only; it is not a pin receipt and must not be used as production E2C evidence.",
+    "The genuine pinner must independently receive and verify the exact registry hash out of band and must be distinct from github:turkialeid2030.",
+    "Do not place private keys, passphrases, tokens, or secret values in this record."
+  ]
+}

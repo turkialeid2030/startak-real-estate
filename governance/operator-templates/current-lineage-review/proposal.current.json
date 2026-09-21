@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "proposalId": "p24-startak-real-estate-rc-2026-09-16-e876208c19ff",
+  "legacyCanonicalSha256": "ac0767d3f13c463259f401a5d7af06c1140ee780a9f86489eb17ad9d7c72dc71",
+  "legacyCanonicalAvailability": "UNAVAILABLE",
+  "rationaleCode": "LEGACY_CANONICAL_ORIGINAL_NOT_AVAILABLE_TO_OWNER",
+  "proposedBaselineType": "QUALIFIED_GIT_COMMIT_AND_RELEASE_ARTIFACT",
+  "qualifiedSourceCommitSha": "e876208c19ffbddd0dacd2bf8fce24aba1e52b55",
+  "releaseArtifactSha256": "c3ddcd7b4a66fd58c271fb08b9e5a3efb5e4237f0015d3771e7ab9818412017f",
+  "environmentConfigSha256": "819183fb9f4fb09017c636d2d1d841dd086ac4ba4bbccd103dffbc4c5980bc73",
+  "preparedByRef": "github:turkialeid2030",
+  "independentReviewerRef": "human:said",
+  "preparedAt": "2026-09-17T11:00:09.000Z",
+  "status": "READY_FOR_HUMAN_REBASELINE_GOVERNANCE",
+  "proposalHashSha256": "b6575cb5c7c5ebd2a84ae71b2b31f1cb25a2562dc01d6e82608045e9d4d0557b",
+  "requiredHumanActions": [
+    "AUTHORITATIVE_OWNER_APPROVAL",
+    "INDEPENDENT_REVIEW_APPROVAL",
+    "GOVERNANCE_DECISION_TO_SUPERSEDE_LEGACY_FILE_HASH_BASELINE",
+    "EXPLICIT_CODE_CHANGE_TO_ACTIVATE_NEW_BASELINE",
+    "POST_CHANGE_RELEASE_VERIFY"
+  ],
+  "automaticBaselineSwitchAllowed": false,
+  "existingE2iCanonicalEvidenceSatisfied": false,
+  "legacyCanonicalEvidenceClosed": false,
+  "canonicalBaselineChanged": false,
+  "releaseAuthorized": false,
+  "mergeAuthorized": false,
+  "deploymentAuthorized": false,
+  "goLiveAuthorized": false,
+  "transactionAuthorized": false,
+  "semantics": "The historical canonical original is unavailable. This object is only a re-baseline proposal bound to an exact qualified Git commit, release artifact digest and environment-config digest. It does not prove the legacy file hash, change the active canonical baseline, satisfy E2I canonical-source evidence, or grant release authority. A separate human governance decision and explicit reviewed code change are required before any new canonical baseline becomes active."
+}

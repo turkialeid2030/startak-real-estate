@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "templateOnly": true,
+  "purpose": "E2D_ACTIVATION_MAPPING_INPUT_ONLY",
+  "activationMappings": [
+    {
+      "candidateId": "<TRIGGERED_CANDIDATE_ID_FROM_GENUINE_E2_PACKET>",
+      "ruleSetId": "<REAL_RULE_SET_ID>",
+      "proposedRuleRefs": [
+        "<REAL_RULE_REF_FROM_REVIEWED_SCOPE>"
+      ],
+      "implementationScopeRef": "<REAL_IMPLEMENTATION_SCOPE_REF>",
+      "mappingEvidenceRef": "<REAL_MAPPING_EVIDENCE_REF>",
+      "mappingArtifactSha256": "<64_HEX_SHA256_OF_REAL_MAPPING_ARTIFACT>",
+      "conditionsRef": null,
+      "mappedByRef": "<REAL_MAPPING_ACTOR_REF>",
+      "mappedAt": "<REAL_ISO_8601_TIME>"
+    }
+  ],
+  "instructions": [
+    "Use one mapping only for a genuinely triggered candidate whose human review disposition requires mapping under the E2D policy.",
+    "For CONDITIONAL dispositions, conditionsRef must reference the real conditions adopted by the human review.",
+    "Do not infer rule references, mapping evidence, actor identity, timestamps, or hashes.",
+    "The E2D intake rejects unresolved template placeholders.",
+    "This template is not evidence and creates no activation, release, merge, deployment, transaction, professional, legal, or commercial authority."
+  ],
+  "boundary": {
+    "productionEvidence": false,
+    "substantiveReviewCreated": false,
+    "authorityValidationCreated": false,
+    "standardsOrRulesActivated": false,
+    "releaseAuthorized": false,
+    "mergeAuthorized": false,
+    "deploymentAuthorized": false,
+    "transactionAuthorized": false
+  }
+}
