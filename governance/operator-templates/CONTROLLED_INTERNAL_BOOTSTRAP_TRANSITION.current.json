@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "transitionId": "startak-internal-main-bootstrap-2026-09-21",
+  "effectiveDate": "2026-09-21",
+  "purpose": "Resolve the protected-main workflow bootstrap deadlock while preserving fail-closed production governance and the owner's internal-use operating mode.",
+  "temporaryBaseRef": "bootstrap/internal-main-governance-base",
+  "targetFinalBaseRef": "main",
+  "operatingMode": "INTERNAL_EVALUATION_AND_CONTINUOUS_DEVELOPMENT",
+  "controls": {
+    "exactHeadInternalModeValidation": true,
+    "prHeadCodeExecutedByTemporaryTrustedTargetWorkflow": false,
+    "protectedProductionSecretsConsumedByTemporaryTrustedTargetWorkflow": false,
+    "finalProductionGovernanceReentryRequiredOutsideInternalMode": true,
+    "externalProfessionalCertification": false,
+    "transactionAuthority": false,
+    "externalCommercialGoLive": false
+  },
+  "cleanupRequired": true,
+  "cleanupAction": "Remove temporary bootstrap-only workflow/branch after corrected trusted-main governance is established on main.",
+  "authorityBoundary": "This transition record is engineering/governance metadata only. It does not create professional certification, external review evidence, transaction authority, deployment authority, or external commercial authorization."
+}
