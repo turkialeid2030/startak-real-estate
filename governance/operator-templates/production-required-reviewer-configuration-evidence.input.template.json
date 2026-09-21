@@ -1,0 +1,19 @@
+{
+  "environmentName": "production",
+  "configuredReviewerGitHubLogin": "<REAL_CONFIGURED_GITHUB_LOGIN>",
+  "configuredReviewerSubjectRef": "<REAL_CONFIGURED_REVIEWER_SUBJECT_REF>",
+  "configurationEvidenceRef": "<REAL_NON_SECRET_ADMIN_EVIDENCE_REF>",
+  "configuredAt": "<REAL_ISO_8601_CONFIGURATION_TIME>",
+  "requiredReviewerEnabled": true,
+  "productionBranchScopeMainOnly": true,
+  "adminBypassDisabled": true,
+  "cloudflareTokenEnvironmentScoped": true,
+  "repositoryLevelCloudflareTokenRemoved": true,
+  "templateOnly": true,
+  "instructions": [
+    "TEMPLATE_ONLY: this record does not prove GitHub Environment configuration.",
+    "Populate only from genuine administrator-side evidence after the reviewer is actually configured in Environment production.",
+    "Do not expose CLOUDFLARE_API_TOKEN or any other secret value in evidence or this file.",
+    "Ordinary green CI is not sufficient evidence of Required Reviewer enforcement."
+  ]
+}
