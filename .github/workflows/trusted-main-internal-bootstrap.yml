@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - main
+      - bootstrap/internal-main-governance-base
     types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
@@ -89,8 +90,6 @@ jobs:
             if (!trusted.includes(fragment)) throw new Error(`Trusted workflow is missing required fail-closed production boundary: ${fragment}`);
           }
 
-          // Construct the GitHub expression from separate pieces so this bootstrap
-          // workflow does not interpolate it while validating the trusted workflow as text.
           const prHeadExpression = '$' + '{{ github.event.pull_request.head.sha ' + '}}';
           const sourceBinding = 'STARTAK_EXPECTED_RELEASE_SOURCE_COMMIT_SHA: ' + prHeadExpression;
           if (!trusted.includes(sourceBinding)) {
