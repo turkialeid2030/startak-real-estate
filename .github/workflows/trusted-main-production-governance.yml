@@ -118,7 +118,7 @@ jobs:
           for (const t of ['EXTERNAL_CLIENT_RELIANCE','PROFESSIONAL_OR_CERTIFIED_OUTPUT_CLAIM','TRANSACTION_AUTHORIZATION_OR_EXECUTION','BINDING_LEGAL_REGULATORY_CONTRACTUAL_LENDER_AUDITOR_OR_COURT_REQUIREMENT','OWNER_CHANGES_OPERATING_MODE']) {
             if (!triggers.has(t)) throw new Error(`Missing mandatory re-entry trigger: ${t}`);
           }
-NODE
+          NODE
           echo 'mode=internal' >> "$GITHUB_OUTPUT"
 
       - name: Verify internal-use safety boundary
