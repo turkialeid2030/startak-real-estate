@@ -77,17 +77,24 @@ jobs:
 
           const trusted = fs.readFileSync(trustedPath, 'utf8');
           const requiredFragments = [
-            "TRUSTED_VERIFIER_COMMIT_SHA: 952c1d33ae2e86887cd13a8186d39ad10dea0113",
-            "Classify operating mode as inert data from exact PR head",
+            'TRUSTED_VERIFIER_COMMIT_SHA: 952c1d33ae2e86887cd13a8186d39ad10dea0113',
+            'Classify operating mode as inert data from exact PR head',
             "if: steps.mode.outputs.mode != 'internal'",
             'STARTAK_E2E_PACKET_B64',
             'STARTAK_E2F_PACKET_B64',
             'STARTAK_E2G_PACKET_B64',
-            'STARTAK_EXPECTED_RELEASE_SOURCE_COMMIT_SHA: ${{ github.event.pull_request.head.sha }}',
             'Production governance automatically re-enters when internal mode is absent or no longer satisfies the fail-closed declaration.'
           ];
           for (const fragment of requiredFragments) {
             if (!trusted.includes(fragment)) throw new Error(`Trusted workflow is missing required fail-closed production boundary: ${fragment}`);
+          }
+
+          // Construct the GitHub expression from separate pieces so this bootstrap
+          // workflow does not interpolate it while validating the trusted workflow as text.
+          const prHeadExpression = '$' + '{{ github.event.pull_request.head.sha ' + '}}';
+          const sourceBinding = 'STARTAK_EXPECTED_RELEASE_SOURCE_COMMIT_SHA: ' + prHeadExpression;
+          if (!trusted.includes(sourceBinding)) {
+            throw new Error('Trusted workflow is missing exact PR-head source SHA binding.');
           }
 
           if (/ref:\s*\$\{\{\s*github\.event\.pull_request\.head\.sha\s*\}\}/.test(trusted)) {
