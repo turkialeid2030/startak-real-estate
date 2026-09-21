@@ -17,6 +17,12 @@ const critical = new Set([
   '.github/workflows/commercial-operating-metrics-verify.yml',
   '.github/workflows/commercial-operating-stress-verify.yml',
   '.github/workflows/commercial-specialization-verify.yml',
+  '.github/workflows/professional-assignment-verify.yml',
+  '.github/workflows/professional-dcf-verify.yml',
+  '.github/workflows/professional-evidence-chain-verify.yml',
+  '.github/workflows/professional-income-noi-verify.yml',
+  '.github/workflows/professional-report-contract-verify.yml',
+  '.github/workflows/professional-review-verify.yml',
 ]);
 
 assert.ok(report.workflowCount > 0, 'workflow inventory must not be empty');
