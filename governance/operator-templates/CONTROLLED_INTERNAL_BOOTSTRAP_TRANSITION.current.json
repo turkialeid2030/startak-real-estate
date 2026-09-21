@@ -5,6 +5,7 @@
   "purpose": "Resolve the protected-main workflow bootstrap deadlock while preserving fail-closed production governance and the owner's internal-use operating mode.",
   "temporaryBaseRef": "bootstrap/internal-main-governance-base",
   "targetFinalBaseRef": "main",
+  "mergedMainCommitSha": "b02d378335330292e17b2f9424a4ea25cbabf543",
   "operatingMode": "INTERNAL_EVALUATION_AND_CONTINUOUS_DEVELOPMENT",
   "controls": {
     "exactHeadInternalModeValidation": true,
@@ -15,7 +16,15 @@
     "transactionAuthority": false,
     "externalCommercialGoLive": false
   },
-  "cleanupRequired": true,
-  "cleanupAction": "Remove temporary bootstrap-only workflow/branch after corrected trusted-main governance is established on main.",
+  "bootstrapOutcome": "CORRECTED_TRUSTED_MAIN_GOVERNANCE_MERGED_TO_MAIN",
+  "cleanupStatus": "COMPLETE_ON_THIS_CLEANUP_CHANGE_MERGING_TO_MAIN",
+  "cleanup": {
+    "bootstrapOnlyWorkflowRemoved": true,
+    "canonicalTrustedMainWorkflowRetained": true,
+    "temporaryBaseBranchDisposition": "RETAINED_NON_PROTECTED_AUDIT_REF_NO_MAIN_EFFECT",
+    "additionalRulesetBypassCreated": false,
+    "productionSecretsModified": false
+  },
+  "cleanupRequired": false,
   "authorityBoundary": "This transition record is engineering/governance metadata only. It does not create professional certification, external review evidence, transaction authority, deployment authority, or external commercial authorization."
 }
