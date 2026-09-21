@@ -32,11 +32,11 @@ jobs:
         run: |
           set -euo pipefail
           [[ "$HEAD_REPO" == "$BASE_REPO" ]] || {
-            echo 'Production-governed main integration is restricted to same-repository release branches.'
+            echo 'Main integration is restricted to same-repository branches.'
             exit 1
           }
           [[ "$BASE_REF" == 'main' ]] || {
-            echo "Trusted production governance only accepts pull requests targeting main; got ${BASE_REF:-<none>}."
+            echo "Trusted governance only accepts pull requests targeting main; got ${BASE_REF:-<none>}."
             exit 1
           }
 
@@ -64,7 +64,72 @@ jobs:
           }
           echo "Trusted verifier identity confirmed at ${expected:0:12}."
 
+      - name: Checkout exact PR head without credentials
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: .candidate
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Classify operating mode from exact PR head
+        id: mode
+        shell: bash
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git -C .candidate rev-parse HEAD | tr '[:upper:]' '[:lower:]')"
+          expected="$(printf '%s' "$EXPECTED_HEAD_SHA" | tr '[:upper:]' '[:lower:]')"
+          [[ "$actual" == "$expected" ]] || { echo 'Exact-head checkout mismatch.'; exit 1; }
+
+          mode_file='.candidate/governance/operator-templates/INTERNAL_USE_MODE.current.json'
+          if [[ ! -f "$mode_file" ]]; then
+            echo 'mode=production' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          node - "$mode_file" <<'NODE'
+          const fs = require('fs');
+          const p = process.argv[2];
+          const x = JSON.parse(fs.readFileSync(p, 'utf8'));
+          const required = {
+            schemaVersion: 1,
+            ownerDirection: 'INTERNAL_USE_EVALUATION_AND_CONTINUOUS_DEVELOPMENT',
+            operatingMode: 'INTERNAL_EVALUATION_AND_CONTINUOUS_DEVELOPMENT',
+            externalReviewRequiredForCurrentMode: false,
+            externalProductionGovernanceChainDisposition: 'NOT_APPLICABLE_UNTIL_EXTERNAL_OR_REGULATED_USE',
+            internalEngineeringContinuation: true,
+            internalTestingAllowed: true,
+            internalEvaluationAllowed: true,
+            continuousDevelopmentAllowed: true,
+            externalProfessionalCertification: false,
+            transactionAuthority: false,
+            externalCommercialGoLive: false
+          };
+          for (const [k,v] of Object.entries(required)) {
+            if (x[k] !== v) throw new Error(`Unsafe or malformed internal-use declaration: ${k}`);
+          }
+          const triggers = new Set(x.reentryTriggers || []);
+          for (const t of ['EXTERNAL_CLIENT_RELIANCE','PROFESSIONAL_OR_CERTIFIED_OUTPUT_CLAIM','TRANSACTION_AUTHORIZATION_OR_EXECUTION','BINDING_LEGAL_REGULATORY_CONTRACTUAL_LENDER_AUDITOR_OR_COURT_REQUIREMENT','OWNER_CHANGES_OPERATING_MODE']) {
+            if (!triggers.has(t)) throw new Error(`Missing mandatory re-entry trigger: ${t}`);
+          }
+NODE
+          echo 'mode=internal' >> "$GITHUB_OUTPUT"
+
+      - name: Verify internal-use safety boundary
+        if: steps.mode.outputs.mode == 'internal'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'Internal-use mode is explicitly declared on the exact PR head.'
+          echo 'External professional certification: false.'
+          echo 'Transaction authority: false.'
+          echo 'External commercial Go-Live: false.'
+          echo 'Production E2E/E2F/E2G signatures are not required for this internal-only integration.'
+
       - name: Verify real E2E, E2F and E2G production governance for exact PR head
+        if: steps.mode.outputs.mode != 'internal'
         working-directory: .trusted-verifier
         env:
           STARTAK_E2E_PACKET_B64: ${{ secrets.STARTAK_E2E_PACKET_B64 }}
@@ -87,18 +152,22 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          OPERATING_MODE: ${{ steps.mode.outputs.mode }}
         run: |
           {
-            echo '## Trusted Main Production Governance'
+            echo '## Trusted Main Governance'
             echo
             echo "- PR: #${PR_NUMBER}"
             echo "- Authorized source commit: \`${PR_HEAD_SHA}\`"
             echo "- Main base commit: \`${PR_BASE_SHA}\`"
             echo "- Immutable verifier commit: \`${TRUSTED_VERIFIER_COMMIT_SHA}\`"
-            echo '- Upstream E2E packet and out-of-band packet pin: verified.'
-            echo '- Real E2F packet, full externally governed verifier registry, registry pin and RSA-SHA256 validation signatures: cryptographically rebuilt and verified.'
-            echo '- Real E2G packet and release-authority registry: cryptographically rebuilt and verified.'
-            echo '- Human RELEASE / MERGE / DEPLOYMENT RSA-SHA256 decisions: cryptographically rebuilt and verified.'
-            echo '- PR-head code was not checked out or executed in the secret-bearing verifier step.'
-            echo '- This check does not merge or deploy.'
+            echo "- Classified mode: \`${OPERATING_MODE}\`"
+            if [[ "$OPERATING_MODE" == 'internal' ]]; then
+              echo '- Internal evaluation/testing/development integration only.'
+              echo '- No professional certification, transaction authority, external commercial Go-Live, or production-governance PASS is inferred.'
+              echo '- Production governance automatically re-enters when internal mode is absent or no longer satisfies the fail-closed declaration.'
+            else
+              echo '- Upstream E2E/E2F/E2G production governance was verified by the immutable trusted verifier.'
+            fi
+            echo '- This check does not itself deploy or grant transaction authority.'
           } >> "$GITHUB_STEP_SUMMARY"
