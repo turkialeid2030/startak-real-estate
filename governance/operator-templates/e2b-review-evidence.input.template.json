@@ -1,0 +1,18 @@
+{
+  "reviewEvidence": [
+    {
+      "evidenceId": "<REAL_REVIEW_EVIDENCE_ID>",
+      "candidateId": "<TRIGGERED_E2_CANDIDATE_ID>",
+      "evidenceClass": "<LEGAL_REVIEW_OR_PROFESSIONAL_REVIEW_OR_ACCOUNTING_REVIEW_OR_TAX_REVIEW_OR_DATA_GOVERNANCE_REVIEW_OR_REFERENCE_CONFIRMATION>",
+      "reviewerRef": "<REAL_REVIEWER_SUBJECT_REF>",
+      "issuerOrFirmRef": "<REAL_ISSUER_OR_FIRM_REF>",
+      "artifactId": "<REAL_REVIEW_ARTIFACT_ID>",
+      "artifactSha256": "<REAL_REVIEW_ARTIFACT_SHA256>",
+      "scopeRef": "<REAL_REVIEW_SCOPE_REF>",
+      "issuedAt": "<REAL_ISO_8601_ISSUED_AT>",
+      "receivedAt": "<REAL_ISO_8601_RECEIVED_AT>",
+      "sourceReference": "<REAL_SOURCE_REFERENCE_IF_AVAILABLE>",
+      "reviewerIndependenceClaim": false
+    }
+  ]
+}
