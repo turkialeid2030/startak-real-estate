@@ -9,9 +9,12 @@
   "ownerSubjectRef": "github:turkialeid2030",
   "reviewerSubjectRef": "human:said",
   "reviewerId": "reviewer-said-2026-09-17",
-  "reviewerPublicKeySha256": "fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1",
+  "reviewerPublicKeySha256": "0af393bd7c091106c3b16e493b4f99d39570c77675c9c5dee175d5a7727ebbc1",
+  "previousReviewerPublicKeySha256": "fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1",
   "allowedPurpose": "CANONICAL_REBASELINE_INDEPENDENT_REVIEW",
   "governanceEvidenceRef": "https://github.com/turkialeid2030/startak-real-estate/issues/367",
-  "effectiveFrom": "2026-09-17T12:47:00+03:00",
+  "keyRotationEvidenceRef": "https://github.com/turkialeid2030/startak-real-estate/issues/367#issuecomment-5756079007",
+  "keyRotatedAt": "2026-09-21T09:01:00+03:00",
+  "effectiveFrom": "2026-09-21T09:01:00+03:00",
   "boundary": "TRUST_REGISTRATION_ONLY_GENUINE_REVIEW_ARTIFACT_AND_RSA_SHA256_SIGNATURE_STILL_REQUIRED"
 }
