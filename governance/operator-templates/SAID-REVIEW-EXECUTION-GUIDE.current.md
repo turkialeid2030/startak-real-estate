@@ -21,26 +21,28 @@
 
 `governance/operator-templates/current-lineage-review/SAID-INDEPENDENT-REVIEW-MEMO.template.md`
 
-يجب توثيق ما يلي فعليًا:
-
-1. الأدلة التي تمت مراجعتها.
-2. نتيجة كل بند في قائمة المراجعة.
-3. الملاحظات والاستثناءات والمخاطر المتبقية.
-4. المراجع الفنية الإضافية، إن وجدت.
-5. المبررات.
-6. قرار واحد فقط: `APPROVE` أو `REJECT` أو `HOLD`.
-
-لا يجوز لأي طرف آخر إنشاء رأي سعيد أو مبرراته أو وضع علامة اكتمال نيابة عنه.
+يجب توثيق الأدلة التي تمت مراجعتها، نتائج البنود الثمانية، الملاحظات والاستثناءات، المبررات، وقرار واحد فقط من `APPROVE|REJECT|HOLD`.
 
 ## 3) تثبيت المذكرة المكتملة
 
-بعد اكتمال المذكرة الحقيقية، تحفظ كملف مستقل ثابت ثم يحسب SHA-256 للنسخة المكتملة. هذه القيمة تصبح:
+بعد اكتمال المذكرة الحقيقية، تحفظ كملف مستقل ثابت ثم يحسب SHA-256 للنسخة المكتملة. النسخة الحالية التي قدّمها المراجع في مسار التشغيل لها SHA-256:
 
-`decisionArtifactSha256`
+`3e992e93dd701283215d95d3d3cf2ab0fe1d7ccda605866ab829f4e743a16aec`
 
-لا يجوز استخدام SHA لقالب أو ملف غير مكتمل.
+هذه القيمة تصبح `decisionArtifactSha256` عند إعادة إنشاء حزمة التوقيع بعد تدوير المفتاح.
 
-## 4) إنشاء الـattestation غير الموقعة
+## 4) حالة مفتاح المراجع بعد التدوير
+
+تمت موافقة المالك على تدوير مفتاح `human:said` للمسار `CANONICAL_REBASELINE_INDEPENDENT_REVIEW`.
+
+- المفتاح السابق SHA-256: `fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1`
+- المفتاح الحالي SHA-256: `0af393bd7c091106c3b16e493b4f99d39570c77675c9c5dee175d5a7727ebbc1`
+- effectiveFrom: `2026-09-21T09:01:00+03:00`
+- owner rotation evidence: `https://github.com/turkialeid2030/startak-real-estate/issues/367#issuecomment-5756079007`
+
+أي unsigned attestation أو canonical payload تم إنشاؤه بوقت قرار يسبق `effectiveFrom` يجب التخلص منه وإعادة إنشائه. لا يجوز إعادة استخدام payload السابق بعد التدوير.
+
+## 5) إنشاء الـattestation غير الموقعة
 
 تعبأ القيم الفعلية فقط:
 
@@ -57,47 +59,35 @@
 
 ويبقى `signatureBase64` فارغًا حتى التوقيع الحقيقي.
 
-## 5) المصدر الوحيد المعتمد للـcanonical signing payload
+## 6) المصدر الوحيد المعتمد للـcanonical signing payload
 
 الأداة المرجعية الوحيدة لإنتاج bytes التوقيع هي:
 
 `tools/prepare-canonical-rebaseline-review-signing-payload.js`
 
-التشغيل من جذر المستودع:
-
-```bash
-node tools/prepare-canonical-rebaseline-review-signing-payload.js \
-  --packet governance/operator-templates/current-lineage-review/review-packet.current.json \
-  --attestation <PATH_TO_UNSIGNED_ATTESTATION_JSON> \
-  --output <PATH_TO_SIGNING_REQUEST_JSON>
-```
-
-القيمة `signingBytesUtf8` الناتجة من هذه الأداة هي bytes المرجعية التي يوقعها سعيد. يمنع بناء payload بديل يدويًا أو إعادة ترتيب الحقول أو إعادة stringify بأداة أخرى قبل التوقيع.
-
 الأداة المحلية:
 
 `governance/operator-templates/local-tools/prepare-said-review-signing.ps1`
 
-أصبحت تستدعي أداة المستودع الرسمية أعلاه بدل إعادة تنفيذ شكل الـpayload يدويًا. يمكن استخدامها لتجهيز الملفات المحلية غير الموقعة، لكنها لا تنشئ مراجعة أو قرارًا من تلقاء نفسها.
+يجب إعادة تشغيلها بعد key rotation حتى يكون `decidedAt` داخل فترة صلاحية المفتاح الحالي.
 
-## 6) التوقيع الحقيقي
+## 7) التوقيع الحقيقي
 
 - الخوارزمية: `RSA-SHA256`.
-- المفتاح الخاص يبقى لدى سعيد فقط.
-- لا يدخل المفتاح الخاص أو passphrase إلى GitHub أو CI أو ChatGPT أو artifacts.
+- المفتاح الخاص يبقى محليًا ولا يدخل GitHub أو CI أو ChatGPT أو artifacts.
 - يوقّع سعيد `signingBytesUtf8` نفسها دون تعديل.
-- المفتاح العام المسجل يجب أن يطابق البصمة المعتمدة:
-  `fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1`.
+- المفتاح العام المسجل يجب أن يطابق البصمة الحالية:
+  `0af393bd7c091106c3b16e493b4f99d39570c77675c9c5dee175d5a7727ebbc1`.
 
-## 7) التحقق الرسمي بعد التوقيع
+## 8) التحقق الرسمي بعد التوقيع
 
 سجل المراجع الحالي:
 
 `governance/operator-templates/canonical-rebaseline-reviewer-registry.current.json`
 
-البصمة الحاكمة المحسوبة بواسطة تنفيذ المستودع:
+البصمة الحاكمة المحسوبة بواسطة تنفيذ المستودع بعد تدوير المفتاح:
 
-`62c76efae99b3cf07a2f2fe7182b9c76932b39e9b72bd1eb48ea625dc620b5ca`
+`2cd45d81863afb8d41a30404d5b1cf2113c216abf6ae13e51d6f41e0962d0f53`
 
 أداة التحقق الرسمية:
 
@@ -105,7 +95,7 @@ node tools/prepare-canonical-rebaseline-review-signing-payload.js \
 node tools/verify-canonical-rebaseline-review-attestation.js \
   --packet governance/operator-templates/current-lineage-review/review-packet.current.json \
   --reviewer-registry governance/operator-templates/canonical-rebaseline-reviewer-registry.current.json \
-  --expected-reviewer-registry-hash 62c76efae99b3cf07a2f2fe7182b9c76932b39e9b72bd1eb48ea625dc620b5ca \
+  --expected-reviewer-registry-hash 2cd45d81863afb8d41a30404d5b1cf2113c216abf6ae13e51d6f41e0962d0f53 \
   --attestation <PATH_TO_SIGNED_ATTESTATION_JSON> \
   --output <PATH_TO_VERIFIED_RESPONSE_JSON>
 ```
@@ -116,41 +106,16 @@ node tools/verify-canonical-rebaseline-review-attestation.js \
 
 أي حالة أخرى تبقي #254 على HOLD.
 
-## 8) حدود ما يتحقق منه verifier
+## 9) حدود ما يتحقق منه verifier
 
-الـverifier يثبت تشفيريًا:
+الـverifier يثبت تشفيريًا ربط القرار بنفس P26 packet، وجود المراجع في trust registry، تطابق subject والغرض والفترة الزمنية، فصل المالك عن المراجع، وصحة توقيع RSA-SHA256. لا يثبت آليًا جودة المحتوى المهني للمذكرة.
 
-- أن القرار مربوط بنفس P26 packet؛
-- أن المراجع موجود في trust registry المربوط بالبصمة المتوقعة؛
-- أن subject والغرض والفترة الزمنية متطابقة؛
-- أن المالك والمراجع المستقل مختلفان؛
-- أن توقيع RSA-SHA256 صالح.
+## 10) إعادة تقييم P25 وما بعده
 
-لكنه لا يدّعي أنه تحقق آليًا من جودة المحتوى المهني للمذكرة نفسها. لذلك تبقى المذكرة الفعلية والأدلة والمبررات جزءًا من سجل الحوكمة البشري.
+نجاح verifier لا يغلق #254 تلقائيًا. يجب تمرير الـverified response إلى مسار P25 الحاكم. ولا ينتج عن نجاح #254 وحده أي Canonical activation أو Release/Merge/Deployment/Go-Live/Transaction Authority.
 
-## 9) إعادة تقييم P25
-
-نجاح verifier لا يغلق #254 تلقائيًا. يجب تمرير الـverified response إلى مسار P25 الحاكم وقبول الانتقال المحدد في المستودع. لا يترتب على نجاح #254 وحده:
-
-- Canonical activation تلقائي؛
-- Release Approval؛
-- Merge Approval؛
-- Deployment Approval؛
-- Go-Live؛
-- Transaction Authority.
-
-## 10) ما بعد #254
-
-بعد نجاح #254 ينتقل المسار إلى #364 بالترتيب:
-
-1. E2E genuine conformance packet.
-2. E2F: أربع validations حقيقية وموقعة.
-3. E2G: Release ثم Merge ثم Deployment decisions موقعة وفق الفصل بين السلطات.
-4. تحديث القيم المحمية العشر من artifacts النهائية فقط.
-5. إغلاق #327.
-6. Final RC→main PR ثم الفحوصات الحاكمة ثم Merge ثم Deployment ثم E2H/E2I.
-
-`#254=HOLD_UNTIL_GENUINE_MEMO_AND_SIGNATURE`
+`#254=HOLD_UNTIL_GENUINE_RSA_SIGNATURE_AND_P25_REEVALUATION`
+`CANONICAL_PAYLOAD_MUST_BE_REGENERATED_AFTER_KEY_ROTATION=true`
 `CANONICAL_PAYLOAD_SOURCE=REPOSITORY_TOOL_ONLY`
 `MERGE=HOLD`
 `DEPLOYMENT=HOLD`
