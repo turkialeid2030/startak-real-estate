@@ -1,6 +1,20 @@
 # Final RC Cutover Checklist
 
-This checklist governs the final transition from the frozen RC to `main` and then, separately, to production deployment.
+## Current applicability
+
+Current operating mode is:
+
+`INTERNAL_EVALUATION_AND_CONTINUOUS_DEVELOPMENT`
+
+Accordingly, this checklist is **not an active blocking checklist for the current internal evaluation/testing/development lifecycle**. It is preserved as the fail-closed external-production cutover checklist and becomes active again only when an external-governance re-entry trigger applies, including external client reliance, professional/certified-output claims, transaction authorization/execution, a binding legal/regulatory/contractual/lender/auditor/court requirement, or an owner-directed operating-mode change.
+
+Current internal mode does not imply that any unchecked external-production gate below has passed. It also does not grant professional certification, production deployment authority, transaction authority or external commercial Go-Live.
+
+Canonical current-mode record:
+
+`governance/operator-templates/INTERNAL_USE_MODE.current.json`
+
+This checklist governs the final transition from the preserved frozen external RC to `main` and then, separately, to production deployment **only after external-governance re-entry**.
 
 ## Frozen release tuple
 
@@ -121,7 +135,7 @@ Merge completion does **not** authorize production deployment.
 - [ ] production deployment success is not automatically treated as transaction authority.
 - [ ] any separate commercial, legal, valuation-professional, PDPL, or transaction-authority gates are completed before enabling governed transactional use.
 
-Until explicitly satisfied:
+Until explicitly satisfied after external-governance re-entry:
 
 `TRANSACTION_AUTHORITY=false`
 
