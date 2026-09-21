@@ -1,0 +1,143 @@
+name: Controlled Internal Bootstrap Base
+
+on:
+  pull_request_target:
+    branches:
+      - bootstrap/internal-main-governance-base
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: controlled-internal-bootstrap-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  trusted-main-production-governance:
+    name: trusted-main-production-governance
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Reject untrusted bootstrap provenance
+        shell: bash
+        env:
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPO: ${{ github.repository }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          set -euo pipefail
+          [[ "$HEAD_REPO" == "$BASE_REPO" ]] || { echo 'Bootstrap is restricted to same-repository branches.'; exit 1; }
+          [[ "$BASE_REF" == 'bootstrap/internal-main-governance-base' ]] || { echo 'Unexpected bootstrap base.'; exit 1; }
+
+      - name: Validate exact-head internal mode and final trusted workflow as inert data
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_HEAD_SHA" =~ ^[a-f0-9]{40}$ ]] || { echo 'Malformed PR head SHA.'; exit 1; }
+
+          fetch_file() {
+            local path="$1"
+            local out="$2"
+            local api="https://api.github.com/repos/${REPOSITORY}/contents/${path}?ref=${EXPECTED_HEAD_SHA}"
+            local status
+            status="$(curl --silent --show-error --location --output "$out" --write-out '%{http_code}' \
+              --header 'Accept: application/vnd.github+json' \
+              --header "Authorization: Bearer ${GH_TOKEN}" \
+              --header 'X-GitHub-Api-Version: 2022-11-28' \
+              "$api")"
+            [[ "$status" == '200' ]] || { echo "Failed to fetch ${path} from exact PR head: HTTP ${status}."; exit 1; }
+          }
+
+          fetch_file 'governance/operator-templates/INTERNAL_USE_MODE.current.json' /tmp/mode.json
+          fetch_file '.github/workflows/trusted-main-production-governance.yml' /tmp/trusted.json
+
+          node <<'NODE'
+          const fs = require('fs');
+
+          function decode(path) {
+            const response = JSON.parse(fs.readFileSync(path, 'utf8'));
+            if (response.type !== 'file' || response.encoding !== 'base64' || typeof response.content !== 'string') {
+              throw new Error(`Unexpected GitHub content response for ${path}`);
+            }
+            return Buffer.from(response.content.replace(/\s/g, ''), 'base64').toString('utf8');
+          }
+
+          const mode = JSON.parse(decode('/tmp/mode.json'));
+          const required = {
+            schemaVersion: 1,
+            ownerDirection: 'INTERNAL_USE_EVALUATION_AND_CONTINUOUS_DEVELOPMENT',
+            operatingMode: 'INTERNAL_EVALUATION_AND_CONTINUOUS_DEVELOPMENT',
+            externalReviewRequiredForCurrentMode: false,
+            e2bDispositionForCurrentMode: 'NOT_APPLICABLE_INTERNAL_USE',
+            e2cDispositionForCurrentMode: 'NOT_APPLICABLE_INTERNAL_USE',
+            externalProductionGovernanceChainDisposition: 'NOT_APPLICABLE_UNTIL_EXTERNAL_OR_REGULATED_USE',
+            internalEngineeringContinuation: true,
+            internalTestingAllowed: true,
+            internalEvaluationAllowed: true,
+            continuousDevelopmentAllowed: true,
+            externalProfessionalCertification: false,
+            transactionAuthority: false,
+            externalCommercialGoLive: false
+          };
+          for (const [k, v] of Object.entries(required)) {
+            if (mode[k] !== v) throw new Error(`Unsafe or malformed internal-use declaration: ${k}`);
+          }
+
+          const triggers = new Set(mode.reentryTriggers || []);
+          for (const t of [
+            'EXTERNAL_CLIENT_RELIANCE',
+            'PROFESSIONAL_OR_CERTIFIED_OUTPUT_CLAIM',
+            'TRANSACTION_AUTHORIZATION_OR_EXECUTION',
+            'BINDING_LEGAL_REGULATORY_CONTRACTUAL_LENDER_AUDITOR_OR_COURT_REQUIREMENT',
+            'OWNER_CHANGES_OPERATING_MODE'
+          ]) {
+            if (!triggers.has(t)) throw new Error(`Missing mandatory re-entry trigger: ${t}`);
+          }
+
+          const trusted = decode('/tmp/trusted.json');
+          for (const fragment of [
+            'TRUSTED_VERIFIER_COMMIT_SHA: 952c1d33ae2e86887cd13a8186d39ad10dea0113',
+            'pull_request_target:',
+            'Classify operating mode as inert data from exact PR head',
+            "if: steps.mode.outputs.mode != 'internal'",
+            'STARTAK_E2E_PACKET_B64',
+            'STARTAK_E2F_PACKET_B64',
+            'STARTAK_E2G_PACKET_B64',
+            'Production governance automatically re-enters when internal mode is absent or no longer satisfies the fail-closed declaration.'
+          ]) {
+            if (!trusted.includes(fragment)) throw new Error(`Final trusted workflow missing required boundary: ${fragment}`);
+          }
+
+          const expr = '$' + '{{ github.event.pull_request.head.sha ' + '}}';
+          if (!trusted.includes('STARTAK_EXPECTED_RELEASE_SOURCE_COMMIT_SHA: ' + expr)) {
+            throw new Error('Final trusted workflow is missing exact PR-head source SHA binding.');
+          }
+          if (/ref:\s*\$\{\{\s*github\.event\.pull_request\.head\.sha\s*\}\}/.test(trusted)) {
+            throw new Error('Final trusted pull_request_target workflow must not checkout PR-head code.');
+          }
+
+          console.log('CONTROLLED_INTERNAL_BOOTSTRAP=PASS');
+          console.log('PRODUCTION_REENTRY_PRESERVED=true');
+          console.log('EXTERNAL_PROFESSIONAL_CERTIFICATION=false');
+          console.log('TRANSACTION_AUTHORITY=false');
+          console.log('EXTERNAL_COMMERCIAL_GO_LIVE=false');
+          NODE
+
+      - name: Record controlled bootstrap result
+        if: success()
+        run: |
+          {
+            echo '## Controlled internal-mode bootstrap'
+            echo
+            echo '- Exact PR-head governance files were consumed as inert data only.'
+            echo '- No PR-head code was checked out or executed.'
+            echo '- No protected E2E/E2F/E2G secrets were consumed by this temporary bootstrap base.'
+            echo '- Final main workflow preserves fail-closed production governance re-entry.'
+            echo '- No certification, transaction authority, deployment authority, or external commercial Go-Live is granted.'
+          } >> "$GITHUB_STEP_SUMMARY"
