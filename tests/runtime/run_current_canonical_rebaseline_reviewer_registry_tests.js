@@ -19,22 +19,23 @@ const governanceArtifactBytes = fs.readFileSync(governanceArtifactPath);
 const governanceArtifactSha256 = crypto.createHash('sha256').update(governanceArtifactBytes).digest('hex');
 const normalized = normalizeRegistry(registry);
 
-assert.strictEqual(governanceArtifactSha256, '284b5995b9d964481c42aa9ef3820206ef1db12c4b7aadf68f44ca6e50695e68');
+assert.strictEqual(governanceArtifactSha256, '26ca3a5370e427c40a195c1e7609c8f3f69c8d330ca9f8e8aad3b4b5ebcb7e07');
 assert.strictEqual(registry.governanceArtifactSha256, governanceArtifactSha256);
-assert.strictEqual(normalized.registryHashSha256, '62c76efae99b3cf07a2f2fe7182b9c76932b39e9b72bd1eb48ea625dc620b5ca');
+assert.strictEqual(normalized.registryHashSha256, '2cd45d81863afb8d41a30404d5b1cf2113c216abf6ae13e51d6f41e0962d0f53');
 assert.strictEqual(normalized.reviewers.length, 1);
 
 const reviewer = normalized.reviewers[0];
 assert.strictEqual(reviewer.reviewerId, 'reviewer-said-2026-09-17');
 assert.strictEqual(reviewer.reviewerSubjectRef, 'human:said');
 assert.strictEqual(reviewer.reviewerSubjectRef, packet.independentReviewerRef);
-assert.strictEqual(reviewer.publicKeySha256, 'fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1');
+assert.strictEqual(reviewer.publicKeySha256, '0af393bd7c091106c3b16e493b4f99d39570c77675c9c5dee175d5a7727ebbc1');
 assert.strictEqual(reviewer.allowedPurpose, 'CANONICAL_REBASELINE_INDEPENDENT_REVIEW');
-assert.strictEqual(reviewer.governanceEvidenceRef, 'https://github.com/turkialeid2030/startak-real-estate/issues/367');
+assert.strictEqual(reviewer.governanceEvidenceRef, 'https://github.com/turkialeid2030/startak-real-estate/issues/367#issuecomment-5756079007');
+assert.strictEqual(reviewer.activeFrom, '2026-09-21T06:01:00.000Z');
 
 assert.strictEqual(packet.status, 'READY_FOR_INDEPENDENT_REVIEW');
 assert.strictEqual(packet.reviewPacketHashSha256, 'ed8a0ffb242081d308f89b1e177920d6bf2d6e058bceb5047ddedaf4f0eed107');
 assert.strictEqual(packet.ownerActorRef, 'github:turkialeid2030');
 assert.notStrictEqual(packet.ownerActorRef, reviewer.reviewerSubjectRef);
 
-console.log('current canonical rebaseline reviewer registry: PASS');
+console.log('current canonical rebaseline reviewer registry after Said key rotation: PASS');
