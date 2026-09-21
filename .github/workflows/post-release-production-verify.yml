@@ -91,12 +91,13 @@ jobs:
           echo 'Direct PR/manual post-release run is diagnostic only and cannot establish commit-correlated production evidence.'
 
       - name: Checkout validation contract
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d59647bc483b1cbe45d44c2a0567dd986ca8b9
         with:
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+          persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '22'
           cache: npm
@@ -112,7 +113,7 @@ jobs:
 
       - name: Upload post-release evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: post-release-production-evidence-${{ github.run_id }}
           path: runtime-evidence/post-release-production
