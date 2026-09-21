@@ -1,4 +1,4 @@
-# E2E → E2F Execution Handoff — frozen RC #363
+# E2D → E2E → E2F Execution Handoff — frozen RC #363
 
 > تشغيل/استلام حوكمي فقط. لا ينشئ هذا الملف أي evidence خارجي أو نتيجة تحقق أو توقيع أو سلطة إطلاق.
 
@@ -25,22 +25,65 @@
 
 هذا لا يفعّل canonical baseline تلقائياً ولا يمنح Release/Merge/Deployment/Go-Live/Transaction Authority.
 
-## 3. نقطة التوقف الحقيقية قبل E2E
+## 3. نقطة التوقف الحقيقية — E2D production upstream
 
-الـrepository يملك محرك E2E واختبارات هندسية، لكن لا يوجد production E2E evidence صالح للاستعاضة به عن السلسلة الخارجية الحقيقية.
+محرك E2D في المستودع لا يحول مجرد ملفات أو تصريحات إلى proposal مؤهل. يلزم أولاً وصول سلسلة خارجية حقيقية وسليمة:
 
-المطلوب قبل بناء E2E النهائي:
+1. E2 applicability packet بحالة `HUMAN_REVIEW_DISPOSITIONS_RECORDED_PENDING_AUTHORITY_VALIDATION` وبـhuman review dispositions وأدلتها الفعلية؛
+2. E2B external evidence envelope بحالة `READY_FOR_EXTERNAL_AUTHORITY_VALIDATION` ومربوط cryptographically/hash-wise بنفس E2 packet؛
+3. E2C external authority validation packet بحالة `AUTHORITY_VALIDATION_COMPLETE_PENDING_SUBSTANTIVE_REVIEW` مع جميع authority gates المطلوبة = true؛
+4. activation mappings حقيقية فقط للـcandidates التي تتطلب mapping حسب disposition؛
+5. mapping evidence/hash/actor/time حقيقية، و`conditionsRef` حقيقي عند `CONDITIONAL`.
 
-1. E2D activation proposal packet حقيقي وسليم؛
-2. حالته حرفياً `ACTIVATION_PROPOSAL_READY_FOR_IMPLEMENTATION_GOVERNANCE`؛
-3. implementation evidence حقيقي لكل activation proposal؛
-4. independent conformance evidence حقيقي من actor مختلف عن implementer؛
-5. rule coverage مطابق للـproposal؛
-6. implementation `sourceCommitSha` يطابق `e876208c19ffbddd0dacd2bf8fce24aba1e52b55`.
+لا توجد حزمة production E2D يجوز اختلاقها أو استنتاجها من CI أو fixtures.
+
+### أداة E2D fail-closed
+
+الأداة التشغيلية:
+
+`tools/e2d-substantive-review-activation-intake.js`
+
+قالب mapping غير التنفيذي:
+
+`governance/operator-templates/e2d-activation-mappings.input.template.json`
+
+بعد وصول المدخلات الحقيقية فقط:
+
+```bash
+node tools/e2d-substantive-review-activation-intake.js \
+  --policy governance/e2d-substantive-review-activation-proposal-policy-2026-09-08.json \
+  --applicability <QUALIFIED_GENUINE_E2_PACKET.json> \
+  --evidence-envelope <QUALIFIED_GENUINE_E2B_ENVELOPE.json> \
+  --authority-validation <QUALIFIED_GENUINE_E2C_PACKET.json> \
+  --mappings <GENUINE_ACTIVATION_MAPPINGS.json> \
+  --proposal-id <CURRENT_RC_E2D_PROPOSAL_ID> \
+  --prepared-by <REAL_PREPARER_REF> \
+  --prepared-at <REAL_ISO_8601_TIME> \
+  --out <E2D_FINAL.json>
+```
+
+الأداة تستدعي تنفيذ المستودع الرسمي `createSubstantiveReviewActivationProposal`، ترفض template placeholders، وتتحقق من integrity عند وجود `proposalPacketHashSha256`.
+
+القبول downstream يكون فقط إذا كانت الحالة حرفياً:
+
+`ACTIVATION_PROPOSAL_READY_FOR_IMPLEMENTATION_GOVERNANCE`
+
+أي `HOLD_*` أو `WAITING_FOR_ACTIVATION_MAPPING` أو `NO_ACTIVATION_PROPOSED` لا يؤهل E2E.
+
+اختبارات runtime لهذه الأداة تستخدم fixtures اصطناعية لإثبات fail-closed behavior فقط؛ لا تمثل production evidence ولا external review.
+
+## 4. نقطة الانتقال من E2D إلى E2E
+
+بعد وجود E2D packet حقيقي مؤهل فقط، يلزم:
+
+1. implementation evidence حقيقي لكل activation proposal؛
+2. independent conformance evidence حقيقي من actor مختلف عن implementer؛
+3. rule coverage مطابق للـproposal؛
+4. implementation `sourceCommitSha` يطابق `e876208c19ffbddd0dacd2bf8fce24aba1e52b55`.
 
 بدون هذه المدخلات تبقى E2E على HOLD.
 
-## 4. أداة E2E fail-closed
+## 5. أداة E2E fail-closed
 
 الأداة:
 
@@ -67,7 +110,7 @@ node tools/e2e-rule-implementation-conformance-intake.js \
 
 والـpin اللاحق يجب أن يساوي `evidencePacketHashSha256` الحقيقي للـpacket النهائي.
 
-## 5. الانتقال إلى E2F
+## 6. الانتقال إلى E2F
 
 لا يبدأ `EXTERNAL_CONFORMANCE_AUTHENTICITY` قبل وجود E2E packet حقيقي مؤهل. أما technical references للأمن/الأداء/المرونة فهي staged فقط ولا تتحول إلى external validation تلقائياً.
 
@@ -84,7 +127,7 @@ node tools/e2e-rule-implementation-conformance-intake.js \
 
 التدوير يغيّر public trust material فقط؛ لا ينشئ validation أو signature.
 
-## 6. أداة E2F signing-request / packet intake
+## 7. أداة E2F signing-request / packet intake
 
 الأداة:
 
@@ -130,21 +173,23 @@ node tools/e2f-validation-intake.js packet \
 
 `EXTERNAL_CONFORMANCE_AND_PRODUCTION_VALIDATION_COMPLETE_PENDING_RELEASE_AUTHORITY`
 
-## 7. ترتيب التنفيذ الحالي
+## 8. ترتيب التنفيذ الحالي
 
-1. استكمال upstream E2D الحقيقي المطلوب للإصدار الحالي.
-2. تشغيل E2E intake على implementation + independent conformance evidence الحقيقيين.
-3. تثبيت E2E packet hash out-of-band حسب السياسة.
-4. إكمال أربع E2F validations الحقيقية وإنشاء canonical signing requests.
-5. سعيد يوقع كل canonical payload فعلياً بالمفتاح الحالي خارج المستودع/المحادثة.
-6. بناء E2F final packet والتحقق منه.
-7. الانتقال إلى E2G فقط بعد E2F PASS.
-8. إغلاق #327 قبل final RC→main release sequence.
+1. استلام E2/E2B/E2C external chain الحقيقي وactivation mappings الحقيقية.
+2. تشغيل E2D intake والوصول حرفياً إلى `ACTIVATION_PROPOSAL_READY_FOR_IMPLEMENTATION_GOVERNANCE`.
+3. تشغيل E2E intake على implementation + independent conformance evidence الحقيقيين.
+4. تثبيت E2E packet hash out-of-band حسب السياسة.
+5. إكمال أربع E2F validations الحقيقية وإنشاء canonical signing requests.
+6. سعيد يوقع كل canonical payload فعلياً بالمفتاح الحالي خارج المستودع/المحادثة.
+7. بناء E2F final packet والتحقق منه.
+8. الانتقال إلى E2G فقط بعد E2F PASS.
+9. إغلاق #327 قبل final RC→main release sequence.
 
 نجاح runtime fixtures أو CI لا يساوي production evidence ولا يمنح authority.
 
 `RC=FROZEN_UNCHANGED`
 `#254=PASS_CLOSED`
+`E2D_OPERATOR_INTAKE=IMPLEMENTED_FAIL_CLOSED_PENDING_CURRENT_HEAD_CI`
 `E2D_PRODUCTION_UPSTREAM=MISSING_GENUINE_EXTERNAL_CHAIN`
 `E2E=HOLD_UNTIL_GENUINE_UPSTREAM_AND_EVIDENCE`
 `E2F=HOLD_UNTIL_GENUINE_E2E_AND_FOUR_SIGNED_VALIDATIONS`
