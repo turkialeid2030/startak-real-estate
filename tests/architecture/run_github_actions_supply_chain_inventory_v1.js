@@ -10,6 +10,8 @@ const critical = new Set([
   '.github/workflows/comprehensive-verify.yml',
   '.github/workflows/deep-platform-verify.yml',
   '.github/workflows/trusted-main-production-governance.yml',
+  '.github/workflows/compliance-guard-verify.yml',
+  '.github/workflows/compliance-production-verify.yml',
 ]);
 
 assert.ok(report.workflowCount > 0, 'workflow inventory must not be empty');
