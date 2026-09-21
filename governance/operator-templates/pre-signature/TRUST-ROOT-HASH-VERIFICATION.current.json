@@ -17,7 +17,6 @@
     "deepPlatformVerifyRunNumber": null,
     "deepPlatformVerifyConclusion": null,
     "freshExactHeadCiRequired": true,
-    "privateKeysUsed": false,
     "signaturesCreated": false,
     "outOfBandTrustEstablished": false
   },
@@ -35,22 +34,28 @@
   "e2fVerifierRegistry": {
     "implementationReference": "src/standards/external-authority-validation.js::normalizeTrustedVerifierRegistry",
     "registryPath": "governance/operator-templates/e2f-verifier-registry.current.json",
-    "publicKeySha256Verified": "fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1",
-    "normalizedRegistryHashSha256Verified": "fb544ff5555be8f71fb9afbda1f5f2edc60aa8465bd7d91ea392c6865873fbaa",
-    "repositoryImplementationVerificationPassed": true
+    "previousPublicKeySha256": "fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1",
+    "publicKeySha256Verified": "0af393bd7c091106c3b16e493b4f99d39570c77675c9c5dee175d5a7727ebbc1",
+    "normalizedRegistryHashSha256Verified": "59de1600dd145c7504c2eb907cb19c4c0df3e98fd85e8aa2331a31a0b14386a9",
+    "keyRotationEvidenceRef": "https://github.com/turkialeid2030/startak-real-estate/issues/367#issuecomment-5756532755",
+    "repositoryImplementationVerificationPassed": false
   },
   "e2gReleaseAuthorityRegistry": {
     "implementationReference": "src/standards/human-release-authority-deployment-decision.js::normalizeReleaseAuthorityRegistry",
     "registryPath": "governance/operator-templates/e2g-release-authority-registry.current.template.json",
+    "governanceArtifactPath": "governance/operator-templates/release-authority-governance-artifact.current.json",
+    "governanceArtifactRawFileSha256": "bf8191a4f13021ca7b18abb9857d58770ce9546ad01c2439fc544e61fe74c0c1",
     "ownerPublicKeySha256Verified": "194f78b203841fbefebd9c360e591748b1f787be5f1b310a620ea91589aefccf",
-    "saidPublicKeySha256Verified": "fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1",
-    "normalizedRegistryHashSha256Verified": "5125ae7c55541f37fee2ed571107cd846bfb5d91b2a1399633e20eacc67a0d3e",
-    "repositoryImplementationVerificationPassed": true
+    "previousSaidPublicKeySha256": "fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1",
+    "saidPublicKeySha256Verified": "0af393bd7c091106c3b16e493b4f99d39570c77675c9c5dee175d5a7727ebbc1",
+    "normalizedRegistryHashSha256Verified": "35c28e89061a69e6c001f2db512261f8a67180a08fe7a07cc90d839537cbb781",
+    "keyRotationEvidenceRef": "https://github.com/turkialeid2030/startak-real-estate/issues/367#issuecomment-5756532755",
+    "repositoryImplementationVerificationPassed": false
   },
   "boundary": {
     "publicRegistryHashVerificationOnly": true,
     "outOfBandPinningStillRequired": true,
-    "humanReviewAccepted": false,
+    "humanReviewAccepted": true,
     "e2fValidated": false,
     "e2gAuthorized": false,
     "releaseAuthorized": false,
