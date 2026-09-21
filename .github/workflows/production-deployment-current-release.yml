@@ -86,20 +86,28 @@ jobs:
           STARTAK_BUILD_ENVIRONMENT: github-actions:production-deployment
         run: npm run release:verify
 
-      - name: Verify Cloudflare credentials and fail-closed production posture
+      - name: Verify Cloudflare project access and fail-closed production posture
         shell: bash
         run: |
           set -euo pipefail
           test -n "${CF_API_TOKEN:-}" || { echo 'CLOUDFLARE_API_TOKEN missing'; exit 1; }
           test -n "${CF_ACCOUNT_ID:-}" || { echo 'CLOUDFLARE_ACCOUNT_ID missing'; exit 1; }
           auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
-          token_json="$(curl --fail-with-body --silent --show-error "${auth[@]}" https://api.cloudflare.com/client/v4/user/tokens/verify)"
-          jq -e '.success == true and .result.status == "active"' <<<"$token_json" >/dev/null
-          project_json="$(curl --fail-with-body --silent --show-error "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}")"
+          body="$(mktemp)"
+          status="$(curl --silent --show-error -o "$body" -w '%{http_code}' "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}" || true)"
+          if [[ "$status" != '200' ]]; then
+            error_code="$(jq -r '.errors[0].code // empty' "$body" 2>/dev/null || true)"
+            echo "Cloudflare Pages project preflight failed: HTTP ${status}${error_code:+ code=${error_code}}"
+            rm -f "$body"
+            exit 1
+          fi
+          project_json="$(cat "$body")"
+          rm -f "$body"
           jq -e '.success == true' <<<"$project_json" >/dev/null
           jq -e '.result.production_branch == "main"' <<<"$project_json" >/dev/null
           jq -e '.result.deployment_configs.production.fail_open == false' <<<"$project_json" >/dev/null
           jq -e '.result.deployment_configs.production.env_vars.RIAI_PUBLIC_AI_ENABLED.value == "false"' <<<"$project_json" >/dev/null
+          echo 'Cloudflare project-scoped bearer access and fail-closed production posture: PASS'
 
       - name: Deploy verified dist to Cloudflare Pages production
         shell: bash
