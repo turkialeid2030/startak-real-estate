@@ -1,0 +1,25 @@
+{
+  "registryId": "<OWNER_APPROVED_E2C_REGISTRY_ID>",
+  "status": "EXTERNALLY_GOVERNED",
+  "governanceOwnerRef": "github:turkialeid2030",
+  "verifiers": [
+    {
+      "verifierId": "<OWNER_APPROVED_VERIFIER_ID>",
+      "verifierSubjectRef": "<OWNER_APPROVED_VERIFIER_SUBJECT_REF>",
+      "authorityClass": "<OWNER_APPROVED_AUTHORITY_CLASS>",
+      "publicKeyPem": "<OWNER_APPROVED_PUBLIC_KEY_PEM>",
+      "publicKeySha256": "<OWNER_APPROVED_PUBLIC_KEY_SHA256>",
+      "governanceEvidenceRef": "<OWNER_APPROVAL_OR_EXTERNAL_GOVERNANCE_EVIDENCE_REF>",
+      "activeFrom": "<ACTUAL_ISO_8601_ACTIVE_FROM>",
+      "activeUntil": null
+    }
+  ],
+  "templateOnly": true,
+  "instructions": [
+    "TEMPLATE_ONLY: this file is not a production trust root and must not be passed to E2C until all placeholders are replaced with genuine owner-approved or externally governed values.",
+    "The repository E2C implementation recomputes the verifier-registry hash from normalized registry content; the expected hash must then be pinned independently out-of-band.",
+    "Do not reuse the E2F verifier registry implicitly. E2C requires its own explicit governance designation and trust-root pinning.",
+    "A verifier must not self-validate a reviewer whose evidence/credential/authority/independence is being attested.",
+    "Private keys and passphrases must remain outside GitHub, CI and chat. Only approved public-key material belongs in the registry."
+  ]
+}
