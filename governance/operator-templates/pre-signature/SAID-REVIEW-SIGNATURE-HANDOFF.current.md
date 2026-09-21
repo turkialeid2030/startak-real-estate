@@ -12,60 +12,35 @@
 - P26 Review Packet SHA-256: `ed8a0ffb242081d308f89b1e177920d6bf2d6e058bceb5047ddedaf4f0eed107`
 - Reviewer: `human:said`
 - Reviewer ID: `reviewer-said-2026-09-17`
-- Reviewer public-key SHA-256: `fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1`
-- Reviewer registry deterministic hash: `62c76efae99b3cf07a2f2fe7182b9c76932b39e9b72bd1eb48ea625dc620b5ca`
+- Reviewer current public-key SHA-256: `0af393bd7c091106c3b16e493b4f99d39570c77675c9c5dee175d5a7727ebbc1`
+- Reviewer previous public-key SHA-256: `fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1`
+- Reviewer current registry deterministic hash: `2cd45d81863afb8d41a30404d5b1cf2113c216abf6ae13e51d6f41e0962d0f53`
+- Current key effectiveFrom: `2026-09-21T09:01:00+03:00`
+- Owner key-rotation evidence: `https://github.com/turkialeid2030/startak-real-estate/issues/367#issuecomment-5756079007`
 
-## ما هو جاهز
+## حالة المذكرة
 
-1. مذكرة المراجعة القالبية:
-   `governance/operator-templates/current-lineage-review/SAID-INDEPENDENT-REVIEW-MEMO.template.md`
-2. سجل المراجع:
-   `governance/operator-templates/canonical-rebaseline-reviewer-registry.current.json`
-3. حزمة P26 الحالية:
-   `governance/operator-templates/current-lineage-review/review-packet.current.json`
-4. أداة إعداد canonical signing payload:
-   `tools/prepare-canonical-rebaseline-review-signing-payload.js`
-5. أداة التحقق بعد التوقيع:
-   `tools/verify-canonical-rebaseline-review-attestation.js`
-6. أداة التشغيل المحلية المساعدة:
-   `governance/operator-templates/local-tools/prepare-said-review-signing.ps1`
+المذكرة المكتملة المقدمة في مسار التشغيل الحالي لها SHA-256:
 
-## نقطة التوقف الحقيقية
+`3e992e93dd701283215d95d3d3cf2ab0fe1d7ccda605866ab829f4e743a16aec`
 
-لا يمكن إنشاء **حزمة توقيع نهائية غير موقعة صالحة** الآن؛ لأن الأداة المحلية تتطلب ملف مذكرة مراجعة مكتملًا ونتيجة فعلية من `APPROVE|REJECT|HOLD`، وترفض صراحةً أي مذكرة تحتوي على علامات القالب غير المكتمل مثل:
+تم تقديم قرار `APPROVE` من المراجع، لكن التحقق التشفيري من هوية الموقّع لم يحدث بعد. لذلك #254 ما زال HOLD.
 
-- `يستكملها سعيد`
-- `يكتب سعيد`
-- `TEMPLATE_ONLY=true`
-- `- [ ]`
+## أثر تدوير المفتاح
 
-هذا القيد مقصود لمنع تحويل القالب أو القرار المنقول إلى مراجعة بشرية مصطنعة.
+حزمة التوقيع غير الموقعة التي أُنشئت قبل تدوير المفتاح لا تستخدم للتوقيع النهائي إذا كان `decidedAt` فيها يسبق `effectiveFrom` للمفتاح الحالي. يجب إعادة تشغيل أداة الإعداد بعد تدوير المفتاح للحصول على attestation وcanonical payload جديدين.
 
-## المدخل البشري المطلوب مرة واحدة
+## إعادة إنشاء الحزمة غير الموقعة
 
-على سعيد استكمال النسخة الفعلية من مذكرة المراجعة، متضمنة:
-
-- الأدلة التي راجعها فعليًا؛
-- نتيجة البنود الثمانية؛
-- الملاحظات/التحفظات؛
-- المبررات؛
-- نتيجة واحدة فقط من `APPROVE|REJECT|HOLD`.
-
-القرار المنقول سابقًا `APPROVE_REPORTED` محفوظ كسجل فقط ولا يكفي وحده.
-
-## التشغيل بعد استلام المذكرة
-
-من جذر المستودع على جهاز سعيد/المشغل الموثوق:
+من جذر المستودع على الجهاز الموثوق:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\governance\operator-templates\local-tools\prepare-said-review-signing.ps1 `
-  -MemoPath "<PATH_TO_COMPLETED_SAID_REVIEW_MEMO>" `
+  -MemoPath "$HOME\Desktop\SAID-INDEPENDENT-REVIEW-MEMO.completed.md" `
   -Result APPROVE
 ```
 
-> يجب استبدال `APPROVE` بالنتيجة الحقيقية إذا كانت `REJECT` أو `HOLD`.
-
-هذا التشغيل بدون `-Sign` ينشئ محليًا فقط:
+هذا التشغيل بدون `-Sign` ينشئ محليًا:
 
 - `said-review-attestation.unsigned.json`
 - `said-review-signing-payload.tool-output.json`
@@ -74,13 +49,25 @@ powershell -ExecutionPolicy Bypass -File .\governance\operator-templates\local-t
 - `said-review-signing-payload.base64.txt`
 - `said-review-signing-manifest.json`
 
-ويحسب `decisionArtifactSha256` من bytes المذكرة المكتملة، ثم يستدعي أداة المستودع الرسمية لإنتاج الـcanonical signing payload. لا يعاد بناء الـpayload يدويًا.
+## التوقيع بالمفتاح الحالي
 
-## التوقيع
+التوقيع يتم بواسطة سعيد فقط محليًا. لا يُرفع المفتاح الخاص أو العبارة السرية أو أي credential إلى المستودع أو المحادثة.
 
-التوقيع يتم بواسطة سعيد فقط وخارج GitHub/CI/chat. يمكنه إعادة التشغيل محليًا مع `-Sign` عندما يكون هو من ينفذ خطوة التوقيع ويكون المفتاح الخاص تحت سيطرته.
+استخدم المفتاحين المحليين الحاليين:
 
-لا يُرفع المفتاح الخاص أو العبارة السرية أو أي credential إلى المستودع أو المحادثة.
+- private: `$HOME\Documents\STARTAK-SAID-KEYS\startak-said-review-private.pem`
+- public: `$HOME\Documents\STARTAK-SAID-KEYS\startak-said-review-public.pem`
+
+مع الأداة:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\governance\operator-templates\local-tools\prepare-said-review-signing.ps1 `
+  -MemoPath "$HOME\Desktop\SAID-INDEPENDENT-REVIEW-MEMO.completed.md" `
+  -Result APPROVE `
+  -Sign `
+  -PrivateKeyPath "$HOME\Documents\STARTAK-SAID-KEYS\startak-said-review-private.pem" `
+  -PublicKeyPath "$HOME\Documents\STARTAK-SAID-KEYS\startak-said-review-public.pem"
+```
 
 ## التحقق الرسمي بعد التوقيع
 
@@ -88,7 +75,7 @@ powershell -ExecutionPolicy Bypass -File .\governance\operator-templates\local-t
 node tools/verify-canonical-rebaseline-review-attestation.js \
   --packet governance/operator-templates/current-lineage-review/review-packet.current.json \
   --reviewer-registry governance/operator-templates/canonical-rebaseline-reviewer-registry.current.json \
-  --expected-reviewer-registry-hash 62c76efae99b3cf07a2f2fe7182b9c76932b39e9b72bd1eb48ea625dc620b5ca \
+  --expected-reviewer-registry-hash 2cd45d81863afb8d41a30404d5b1cf2113c216abf6ae13e51d6f41e0962d0f53 \
   --attestation <PATH_TO_SIGNED_ATTESTATION_JSON> \
   --output <PATH_TO_VERIFIED_RESPONSE_JSON>
 ```
@@ -99,21 +86,9 @@ node tools/verify-canonical-rebaseline-review-attestation.js \
 
 ثم يجب تنفيذ P25 re-evaluation الحاكم. نجاح التوقيع وحده لا يمنح Release/Merge/Deployment/Go-Live/Transaction Authority.
 
-## التسلسل التالي مباشرة بعد #254
-
-1. P25 governed re-evaluation.
-2. E2E genuine implementation-conformance packet + pin.
-3. E2F أربع validations حقيقية وموقعة.
-4. E2G ثلاث قرارات بشرية موقعة مع الفصل بين السلطات.
-5. Provision للقيم الحقيقية للأسرار العشرة.
-6. إغلاق #327 بعد إثبات approval boundary.
-7. Final RC→main PR على SHA المجمد فقط.
-8. `release-verify` + `trusted-main-production-governance`.
-9. Merge ثم Deployment كخطوتين مستقلتين.
-10. E2H / E2I وإثباتات ما بعد النشر.
-
-`#254=BLOCKED_ON_GENUINE_HUMAN_MEMO`
-`UNSIGNED_SIGNING_PACKAGE=READY_TO_GENERATE_ONCE_MEMO_EXISTS`
+`#254=HOLD_SIGNATURE_AND_P25_REEVALUATION`
+`KEY_ROTATION=OWNER_APPROVED`
+`CANONICAL_PAYLOAD_REGENERATION_REQUIRED=true`
 `RC=FROZEN_UNCHANGED`
 `MERGE=HOLD`
 `DEPLOY=HOLD`
