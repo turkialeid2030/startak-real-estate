@@ -51,7 +51,7 @@ test('PRODUCTION-AI-SMOKE-CORRELATION-04', () => {
 });
 
 test('PRODUCTION-AI-SMOKE-CORRELATION-05', () => {
-  assert.match(workflow, /actions\/upload-artifact@v4/);
+  assert.match(workflow, /actions\/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02/);
   assert.match(workflow, /production-ai-smoke-evidence-/);
   assert.match(workflow, /retention-days:\s*30/);
 });
