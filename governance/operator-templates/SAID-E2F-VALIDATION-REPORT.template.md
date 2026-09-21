@@ -6,7 +6,10 @@
 
 - verifierId: `e2f-verifier-said-2026-09-17`
 - verifierSubjectRef: `human:said`
-- publicKeySha256: `fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1`
+- publicKeySha256: `0af393bd7c091106c3b16e493b4f99d39570c77675c9c5dee175d5a7727ebbc1`
+- previousPublicKeySha256: `fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1`
+- keyRotationEvidenceRef: `https://github.com/turkialeid2030/startak-real-estate/issues/367#issuecomment-5756532755`
+- verifierRegistryHashSha256: `59de1600dd145c7504c2eb907cb19c4c0df3e98fd85e8aa2331a31a0b14386a9`
 
 ## المرشح الإنتاجي
 
@@ -59,7 +62,8 @@
 
 ## ضوابط
 
-- لا يجوز تحويل أي نتيجة إلى VERIFIED دون evidence حقيقي يراجعه سعيد.
+- لا يجوز تحويل أي نتيجة إلى `VERIFIED` دون evidence حقيقي يراجعه سعيد.
 - كل validation له canonical payload وتوقيع RSA-SHA256 حقيقي مستقل.
+- يجب أن يُنشأ أي signing payload بعد تدوير المفتاح وبالـtrust root الحالي أعلاه؛ لا يُعاد استخدام payload أو توقيع مرتبط بالمفتاح السابق.
 - لا تُستخدم مفاتيح خاصة داخل GitHub أو CI أو المحادثة.
 - لا ينتج عن تعبئة هذا القالب وحدها Release/Merge/Deployment authority.
