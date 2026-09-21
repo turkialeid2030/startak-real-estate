@@ -18,8 +18,8 @@ const ROOT = path.join(__dirname, '..', '..');
 const OPERATOR = path.join(ROOT, 'governance', 'operator-templates');
 
 const EXPECTED = Object.freeze({
-  canonicalReviewRegistry: '62c76efae99b3cf07a2f2fe7182b9c76932b39e9b72bd1eb48ea625dc620b5ca',
-  canonicalReviewGovernanceArtifact: '284b5995b9d964481c42aa9ef3820206ef1db12c4b7aadf68f44ca6e50695e68',
+  canonicalReviewRegistry: '2cd45d81863afb8d41a30404d5b1cf2113c216abf6ae13e51d6f41e0962d0f53',
+  canonicalReviewGovernanceArtifact: '26ca3a5370e427c40a195c1e7609c8f3f69c8d330ca9f8e8aad3b4b5ebcb7e07',
   e2fVerifierRegistry: 'fb544ff5555be8f71fb9afbda1f5f2edc60aa8465bd7d91ea392c6865873fbaa',
   e2gReleaseAuthorityRegistry: '5125ae7c55541f37fee2ed571107cd846bfb5d91b2a1399633e20eacc67a0d3e',
 });
