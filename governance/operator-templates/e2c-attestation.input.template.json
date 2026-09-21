@@ -1,0 +1,15 @@
+{
+  "attestationId": "<REAL_ATTESTATION_ID>",
+  "validationType": "<REVIEW_EVIDENCE_AUTHENTICITY_OR_CREDENTIAL_AUTHENTICITY_OR_REVIEWER_AUTHORITY_OR_REVIEWER_INDEPENDENCE>",
+  "targetRef": "<REAL_TARGET_REF>",
+  "linkedCredentialEvidenceId": "<REAL_LINKED_CREDENTIAL_EVIDENCE_ID_IF_REQUIRED>",
+  "subjectArtifactSha256": "<REAL_SUBJECT_ARTIFACT_SHA256>",
+  "result": "<VERIFIED_OR_REJECTED_OR_INCONCLUSIVE>",
+  "verifierId": "<OWNER_APPROVED_E2C_VERIFIER_ID>",
+  "verificationSourceRef": "<REAL_VERIFICATION_SOURCE_REF>",
+  "verificationArtifactSha256": "<REAL_VERIFICATION_ARTIFACT_SHA256>",
+  "verifiedAt": "<REAL_ISO_8601_VERIFIED_AT>",
+  "expiresAt": "<REAL_ISO_8601_EXPIRY_IF_APPLICABLE>",
+  "signatureAlgorithm": "RSA-SHA256",
+  "signatureBase64": ""
+}
