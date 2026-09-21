@@ -33,6 +33,11 @@ const critical = new Set([
   '.github/workflows/purpose-standards-router-verify.yml',
   '.github/workflows/regulated-context-routers-verify.yml',
   '.github/workflows/wave14-standards-convergence-verify.yml',
+  '.github/workflows/comparable-adjustments-verify.yml',
+  '.github/workflows/cost-approach-verify.yml',
+  '.github/workflows/development-residual-verify.yml',
+  '.github/workflows/development-sensitivity-verify.yml',
+  '.github/workflows/direct-capitalization-verify.yml',
 ]);
 
 assert.ok(report.workflowCount > 0, 'workflow inventory must not be empty');
