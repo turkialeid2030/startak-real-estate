@@ -1,0 +1,20 @@
+{
+    "schemaVersion":  1,
+    "releaseCandidateId":  "startak-real-estate-rc-2026-09-16-e876208c19ff",
+    "sourceCommitSha":  "e876208c19ffbddd0dacd2bf8fce24aba1e52b55",
+    "releaseArtifactSha256":  "c3ddcd7b4a66fd58c271fb08b9e5a3efb5e4237f0015d3771e7ab9818412017f",
+    "environmentConfigSha256":  "819183fb9f4fb09017c636d2d1d841dd086ac4ba4bbccd103dffbc4c5980bc73",
+    "reviewerId":  "reviewer-said-2026-09-17",
+    "actorRef":  "human:said",
+    "result":  "APPROVE",
+    "packetPath":  "C:\\Users\\T.ALEID\\Desktop\\startak-real-estate\\governance\\operator-templates\\current-lineage-review\\review-packet.current.json",
+    "memoPath":  "C:\\Users\\T.ALEID\\Desktop\\SAID-INDEPENDENT-REVIEW-MEMO.completed.md",
+    "memoSha256":  "3e992e93dd701283215d95d3d3cf2ab0fe1d7ccda605866ab829f4e743a16aec",
+    "decidedAt":  "2026-09-21T06:25:15.675Z",
+    "signingPayloadSha256":  "dee47f558252e49a7b3e6e80aec80c8f7b0767382e244cf57116756cbcd0a22d",
+    "canonicalPayloadSource":  "tools/prepare-canonical-rebaseline-review-signing-payload.js",
+    "signatureAlgorithm":  "RSA-SHA256",
+    "signed":  true,
+    "localPreparationOnly":  false,
+    "signatureBase64Sha256":  "b571251f4df3a8d01a5ab6cb5b0836777d5de770bdac0b8520bac1a8711bc629"
+}
