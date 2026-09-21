@@ -20,8 +20,8 @@ const OPERATOR = path.join(ROOT, 'governance', 'operator-templates');
 const EXPECTED = Object.freeze({
   canonicalReviewRegistry: '2cd45d81863afb8d41a30404d5b1cf2113c216abf6ae13e51d6f41e0962d0f53',
   canonicalReviewGovernanceArtifact: '26ca3a5370e427c40a195c1e7609c8f3f69c8d330ca9f8e8aad3b4b5ebcb7e07',
-  e2fVerifierRegistry: 'fb544ff5555be8f71fb9afbda1f5f2edc60aa8465bd7d91ea392c6865873fbaa',
-  e2gReleaseAuthorityRegistry: '5125ae7c55541f37fee2ed571107cd846bfb5d91b2a1399633e20eacc67a0d3e',
+  e2fVerifierRegistry: '59de1600dd145c7504c2eb907cb19c4c0df3e98fd85e8aa2331a31a0b14386a9',
+  e2gReleaseAuthorityRegistry: '35c28e89061a69e6c001f2db512261f8a67180a08fe7a07cc90d839537cbb781',
 });
 
 function readJson(file) {
@@ -76,14 +76,19 @@ function main() {
   assert.strictEqual(evidence.e2fVerifierRegistry.normalizedRegistryHashSha256Verified, e2f.registryHashSha256);
   assert.strictEqual(evidence.e2gReleaseAuthorityRegistry.normalizedRegistryHashSha256Verified, e2g.registryHashSha256);
   assert.strictEqual(evidence.canonicalReviewRegistry.repositoryImplementationVerificationPassed, true);
-  assert.strictEqual(evidence.e2fVerifierRegistry.repositoryImplementationVerificationPassed, true);
-  assert.strictEqual(evidence.e2gReleaseAuthorityRegistry.repositoryImplementationVerificationPassed, true);
+  assert.strictEqual(evidence.e2fVerifierRegistry.repositoryImplementationVerificationPassed, false);
+  assert.strictEqual(evidence.e2gReleaseAuthorityRegistry.repositoryImplementationVerificationPassed, false);
+  assert.strictEqual(evidence.verificationMethod.freshExactHeadCiRequired, true);
   assert.strictEqual(evidence.boundary.outOfBandPinningStillRequired, true);
 
   const staged = readJson(path.join(OPERATOR, 'pre-signature', 'TRUST-ROOT-PIN-CANDIDATES.current.json'));
   assert.strictEqual(staged.canonicalReviewRegistry.normalizedRegistryHashSha256, canonicalReview.registryHashSha256);
   assert.strictEqual(staged.e2fVerifierRegistry.normalizedRegistryHashSha256, e2f.registryHashSha256);
   assert.strictEqual(staged.e2gReleaseAuthorityRegistry.normalizedRegistryHashSha256, e2g.registryHashSha256);
+  assert.strictEqual(staged.e2fVerifierRegistry.repositoryImplementationHashVerified, false);
+  assert.strictEqual(staged.e2gReleaseAuthorityRegistry.repositoryImplementationHashVerified, false);
+  assert.strictEqual(staged.calculationContract.repositoryImplementationVerificationCompleted, false);
+  assert.strictEqual(staged.calculationContract.freshExactHeadCiRequiredAfterKeyRotation, true);
   assert.strictEqual(staged.boundary.outOfBandPinningStillRequired, true);
   assert.strictEqual(staged.boundary.signatureCreated, false);
   assert.strictEqual(staged.boundary.reviewAccepted, false);
@@ -96,6 +101,7 @@ function main() {
   console.log(`CANONICAL_REVIEW_REGISTRY_SHA256=${canonicalReview.registryHashSha256}`);
   console.log(`E2F_VERIFIER_REGISTRY_SHA256=${e2f.registryHashSha256}`);
   console.log(`E2G_RELEASE_AUTHORITY_REGISTRY_SHA256=${e2g.registryHashSha256}`);
+  console.log('ROTATED_E2F_E2G_TRUST_ROOTS_REQUIRE_FRESH_EXACT_HEAD_CI=true');
   console.log('OUT_OF_BAND_PINNING_STILL_REQUIRED=true');
   console.log('AUTHORITY_EFFECT=NONE');
 }
