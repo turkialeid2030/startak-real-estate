@@ -1,0 +1,17 @@
+{
+  "registryId": "<REAL_E2C_REGISTRY_ID>",
+  "registryHashSha256": "<REAL_NORMALIZED_E2C_REGISTRY_SHA256>",
+  "pinnedBySubjectRef": "<REAL_INDEPENDENT_PINNER_SUBJECT_REF>",
+  "pinnedAt": "<REAL_ISO_8601_PIN_TIME>",
+  "pinChannelRef": "<REAL_OUT_OF_BAND_CHANNEL_REFERENCE>",
+  "pinEvidenceRef": "<REAL_PIN_EVIDENCE_REFERENCE>",
+  "attestedOutOfBand": true,
+  "independentFromGovernanceOwner": true,
+  "templateOnly": true,
+  "instructions": [
+    "TEMPLATE_ONLY: this file does not create or prove an out-of-band pin.",
+    "The registry hash must come from the repository-normalized E2C trust-root candidate and must be independently retained/supplied through a genuine out-of-band channel.",
+    "The pinner must be distinct from the governance owner for the qualified intake path.",
+    "Do not include private keys, passphrases, passwords, tokens, secret values, or recovery data."
+  ]
+}
