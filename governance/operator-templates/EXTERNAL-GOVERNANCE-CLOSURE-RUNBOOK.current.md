@@ -25,8 +25,22 @@ node tools/production-required-reviewer-designation-intake.js \
 
 6. Administrator configures that genuine identity under repository Settings → Environments → `production` as Required Reviewer.
 7. Retain non-secret administrator evidence. Do not capture any secret value.
-8. Populate a working copy of `production-required-reviewer-configuration-evidence.input.template.json` from actual administrator evidence.
-9. #327 remains open until the configured identity and protection boundary are genuinely evidenced.
+8. Populate a working copy of `production-required-reviewer-configuration-evidence.input.template.json` from actual administrator evidence, remove `templateOnly` or set it to `false`, then run:
+
+```bash
+node tools/production-required-reviewer-evidence-intake.js \
+  --designation-candidate <normalized-designation.json> \
+  --configuration-evidence <working-configuration-evidence.json> \
+  --out <qualified-admin-evidence-record.json>
+```
+
+9. Accept only:
+
+`STRUCTURALLY_READY_FOR_327_ADMIN_EVIDENCE_REVIEW`
+
+This status proves only internal consistency of the supplied designation and evidence metadata. It does not authenticate GitHub administrator state or close #327 by itself.
+
+10. A human/administrator reviews the real non-secret Environment evidence and closes #327 only when the actual Required Reviewer boundary is confirmed effective.
 
 ## Gate B — #371 E2C production verifier trust root
 
@@ -80,6 +94,7 @@ After genuine external review evidence, credential evidence, trust-root designat
 - Never commit private keys or passphrases.
 - Never paste protected production secret values into GitHub issues, PRs, CI logs, or chat.
 - Never treat templates, CI, owner statements, or repository presence as proof of external review or administrator configuration.
+- Never treat `STRUCTURALLY_READY_FOR_327_ADMIN_EVIDENCE_REVIEW` as proof of actual GitHub Environment state.
 - Never treat `STRUCTURALLY_QUALIFIED_OUT_OF_BAND_PIN_RECEIPT` as authentication of the out-of-band channel by itself.
 - The frozen RC source/artifact/environment tuple remains unchanged.
 
