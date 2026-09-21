@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "registryId": "startak-e2c-production-verifiers-2026-09-21",
+  "registryHashSha256": "52d9d9e14e7b2e7667bc85fa9f3a8b3f2a77482eb0cdc7e9ffa879c27b12d1e0",
+  "pinnedBySubjectRef": "human:said",
+  "pinnedAt": "2026-09-21T15:05:10+03:00",
+  "pinChannelRef": "direct-human-declaration:chatgpt-current-conversation",
+  "pinEvidenceRef": "https://github.com/turkialeid2030/startak-real-estate/issues/371#issuecomment-5760217857",
+  "attestedOutOfBand": true,
+  "independentFromGovernanceOwner": true,
+  "channelIdentityAuthenticatedByRepository": false,
+  "authorityEffect": "NONE"
+}
