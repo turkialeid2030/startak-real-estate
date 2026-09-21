@@ -1,6 +1,6 @@
 # Final human closure actions — frozen RC
 
-This runbook consolidates only the remaining human/external actions after completion of the non-signature technical preparation. It does not create review substance, validation results, signatures, trust pins, release authority, merge authority, deployment authority, transaction authority or commercial Go-Live.
+This runbook records only the remaining genuine human/external actions. It does not create external evidence, validation results, signatures, release authority, merge authority, deployment authority, transaction authority or commercial Go-Live.
 
 ## Frozen tuple
 
@@ -9,40 +9,53 @@ This runbook consolidates only the remaining human/external actions after comple
 - Artifact SHA-256: `c3ddcd7b4a66fd58c271fb08b9e5a3efb5e4237f0015d3771e7ab9818412017f`
 - Environment: `cloudflare-pages:startak-real-estate:production`
 - Environment-config SHA-256: `819183fb9f4fb09017c636d2d1d841dd086ac4ba4bbccd103dffbc4c5980bc73`
-- P26 review packet SHA-256: `ed8a0ffb242081d308f89b1e177920d6bf2d6e058bceb5047ddedaf4f0eed107`
 
-Any tuple drift invalidates this closure runbook.
+Any tuple drift invalidates the release-governance sequence.
 
-## Phase 1 — #254 independent-review closure
+## Phase 0 — #254 independent-review closure: COMPLETE
 
-Owner relay now records that Said's review activity is complete and the relayed decision is `APPROVE`. This remains non-authoritative until the current verifier accepts a genuine signed review record.
+Current governed state:
 
-Required human inputs:
+- `#254=PASS_CLOSED`
+- completed review memo SHA-256: `3e992e93dd701283215d95d3d3cf2ab0fe1d7ccda605866ab829f4e743a16aec`
+- reviewer: `human:said`
+- decision: `APPROVE`
+- current Said public-key SHA-256: `0af393bd7c091106c3b16e493b4f99d39570c77675c9c5dee175d5a7727ebbc1`
+- canonical reviewer registry SHA-256: `2cd45d81863afb8d41a30404d5b1cf2113c216abf6ae13e51d6f41e0962d0f53`
+- RSA-SHA256 verification: `PASS`
+- verifier state: `VERIFIED_REVIEW_RESPONSE_READY_FOR_P25_REEVALUATION`
+- P25 state: `READY_FOR_EXPLICIT_BASELINE_ACTIVATION_CHANGE`
+- P25 governance decision SHA-256: `a933ef596c623c9e2a732b2685236682174be2263a418ae0a91c037e2c36983b`
 
-1. Said supplies the completed review memo/artifact for this exact tuple.
-2. Said supplies the evidence/references actually reviewed and the rationale/conditions actually adopted.
-3. Calculate SHA-256 of that completed artifact.
-4. Populate a real attestation with:
-   - `decisionId`
-   - `reviewerId=reviewer-said-2026-09-17`
-   - `actorRef=human:said`
-   - `purpose=CANONICAL_REBASELINE_INDEPENDENT_REVIEW`
-   - `result=APPROVE` only if this remains Said's actual decision
-   - `decisionSourceRef`
-   - `decisionArtifactSha256`
-   - actual `decidedAt`
-   - actual `rationaleRef`
-   - `signatureAlgorithm=RSA-SHA256`
-5. Generate canonical bytes using the repository payload-preparation tool.
-6. Said signs those bytes outside GitHub/chat using the registered private key.
-7. Verify the signature using the repository verifier and accept only `VERIFIED_REVIEW_RESPONSE_READY_FOR_P25_REEVALUATION`.
-8. Re-evaluate P25 through the repository governed transition; close #254 only if accepted.
+This closure does **not** automatically activate the canonical baseline and grants no release/merge/deployment/go-live/transaction authority.
 
-No private key or passphrase is to be placed in GitHub, CI, logs, artifacts or chat.
+## Phase 1 — genuine E2D / E2E production evidence
 
-## Phase 2 — E2F external conformance / production validation closure
+Before E2F, the current RC still requires the genuine upstream external chain:
 
-After #254 is accepted, create final genuine validation records for all four required classes:
+1. qualified E2D activation-proposal packet for the exact frozen tuple;
+2. genuine implementation evidence for every governed activation proposal;
+3. genuine independent conformance evidence from an actor distinct from the implementer;
+4. E2E packet built by repository tooling;
+5. final E2E status exactly `RULE_IMPLEMENTATION_EVIDENCE_READY_FOR_EXTERNAL_CONFORMANCE_VALIDATION`;
+6. final E2E packet hash pinned according to policy.
+
+Repository fixtures or CI results are not substitutes for these external production inputs.
+
+## Phase 2 — E2F external conformance / production validation
+
+Owner-approved Said key rotation for E2F is recorded in issue #367 comment `5756532755`.
+
+Current E2F public trust root:
+
+- verifier: `human:said`
+- verifierId: `e2f-verifier-said-2026-09-17`
+- current public-key SHA-256: `0af393bd7c091106c3b16e493b4f99d39570c77675c9c5dee175d5a7727ebbc1`
+- previous public-key SHA-256: `fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1`
+- E2F verifier-registry SHA-256 candidate: `59de1600dd145c7504c2eb907cb19c4c0df3e98fd85e8aa2331a31a0b14386a9`
+- out-of-band pinning: `STILL_REQUIRED`
+
+After E2E qualifies, create genuine validation records for all four required classes:
 
 1. `EXTERNAL_CONFORMANCE_AUTHENTICITY`
 2. `PRODUCTION_SECURITY_VALIDATION`
@@ -50,67 +63,76 @@ After #254 is accepted, create final genuine validation records for all four req
 4. `PRODUCTION_RESILIENCE_VALIDATION`
 
 For each record:
-- cite the actual evidence used;
+- cite the actual evidence reviewed;
 - record the actual result `VERIFIED|REJECTED|INCONCLUSIVE`;
-- record actual verification source/hash/time;
-- generate repository canonical signing bytes;
-- obtain genuine RSA-SHA256 signature from the designated trusted verifier;
-- verify the signature and trust-registry binding.
+- record genuine source/hash/time;
+- generate canonical signing bytes using repository tooling;
+- obtain the genuine RSA-SHA256 signature outside GitHub/CI/chat;
+- verify the signature against the current verifier registry.
 
-Build the final E2F packet only after all four are genuine and verified. Required downstream state is the repository-defined complete validation status pending release authority.
+Required final E2F state:
 
-Verified public E2F verifier-registry hash:
-`fb544ff5555be8f71fb9afbda1f5f2edc60aa8465bd7d91ea392c6865873fbaa`
+`EXTERNAL_CONFORMANCE_AND_PRODUCTION_VALIDATION_COMPLETE_PENDING_RELEASE_AUTHORITY`
 
-Out-of-band trust/pinning remains a separate requirement.
+No payload or signature bound to Said's previous key may be reused after the rotation.
 
 ## Phase 3 — E2G human release decisions
 
-Only after a qualified final E2F packet exists:
+E2G starts only after a qualified final E2F packet exists.
 
-- Owner `github:turkialeid2030` signs `RELEASE_APPROVAL` using the registered owner key.
-- Owner `github:turkialeid2030` signs `MERGE_APPROVAL` using the registered owner key.
-- Distinct authority `human:said` signs `DEPLOYMENT_APPROVAL` using Said's registered key.
+Current public authority design:
 
-The repository must verify:
-- all signatures;
-- exact release-candidate binding;
-- Release before Merge;
-- Merge before Deployment;
-- Merge and Deployment subjects are different.
+- `RELEASE_APPROVAL`: `github:turkialeid2030`
+- `MERGE_APPROVAL`: `github:turkialeid2030`
+- `DEPLOYMENT_APPROVAL`: `human:said`
+- owner public-key SHA-256: `194f78b203841fbefebd9c360e591748b1f787be5f1b310a620ea91589aefccf`
+- Said deployment public-key SHA-256: `0af393bd7c091106c3b16e493b4f99d39570c77675c9c5dee175d5a7727ebbc1`
+- previous Said deployment key SHA-256: `fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1`
+- E2G release-authority registry SHA-256 candidate: `35c28e89061a69e6c001f2db512261f8a67180a08fe7a07cc90d839537cbb781`
+- E2G release-authority governance artifact raw SHA-256: `bf8191a4f13021ca7b18abb9857d58770ce9546ad01c2439fc544e61fe74c0c1`
+- rotation evidence: issue #367 comment `5756532755`
 
-Verified public E2G release-authority registry hash:
-`5125ae7c55541f37fee2ed571107cd846bfb5d91b2a1399633e20eacc67a0d3e`
+Required genuine decisions:
+
+1. Owner signs `RELEASE_APPROVAL` over the repository canonical payload.
+2. Owner signs `MERGE_APPROVAL` over the repository canonical payload.
+3. Said signs `DEPLOYMENT_APPROVAL` over the repository canonical payload with his current key.
+4. Repository verifies exact tuple binding, signatures and Merge/Deployment actor separation.
+
+Required final E2G state:
+
+`HUMAN_RELEASE_DECISIONS_COMPLETE_PENDING_EXECUTION`
 
 ## Phase 4 — #327 production approval boundary
 
-Before deployment execution, #327 must be resolved by administrator-side evidence for Environment `production`, including the required-reviewer/equivalent independent approval boundary and the remaining six closure controls in issue #327.
+#327 remains `PARTIAL_PASS_OPEN`.
 
-The connected integration cannot legitimately alter or attest the sensitive Environment/secrets administration settings from this chat.
+Before deployment execution, administrator-side evidence must establish the required-reviewer or equivalent independent production approval boundary for Environment `production`. No signature elsewhere substitutes for this Environment control.
 
 ## Phase 5 — protected inputs and final release execution
 
-After Phases 1–4 are all satisfied:
+Only after Phases 1–4 are genuinely satisfied:
 
-1. Provision the ten protected E2E/E2F/E2G packet/registry values from final verified artifacts only.
-2. Re-check frozen RC head equals `e876208c19ffbddd0dacd2bf8fce24aba1e52b55`.
-3. Open the final RC branch → `main` pull request using the prepared final PR template.
-4. Require `release-verify` PASS on the exact head.
-5. Require `trusted-main-production-governance` PASS on the exact head.
-6. Confirm no tuple drift.
-7. Execute merge only under the verified Merge approval.
-8. Re-confirm Deployment approval and #327 boundary.
-9. Deploy the exact approved merged source.
-10. Verify deployment identity and production smoke checks.
-11. Keep transaction/commercial authority false/HOLD unless separately granted.
+1. provision the ten protected E2E/E2F/E2G packet/registry values from final verified artifacts only;
+2. re-check frozen RC head equals `e876208c19ffbddd0dacd2bf8fce24aba1e52b55`;
+3. open the final RC branch → `main` pull request using the prepared template;
+4. require `release-verify` PASS on the exact RC head;
+5. require `trusted-main-production-governance` PASS on the same exact head;
+6. confirm no tuple drift;
+7. merge only under verified `MERGE_APPROVAL`;
+8. re-confirm valid `DEPLOYMENT_APPROVAL` and #327 boundary;
+9. deploy the exact approved merged source;
+10. capture provider deployment identity and production smoke evidence;
+11. preserve transaction/commercial authority as false/HOLD unless separately and explicitly granted.
 
-## Current boundary
+No private key, passphrase, token or protected production secret belongs in GitHub issues, PRs, commits, CI logs or chat.
 
-`REVIEW_ACTIVITY=REPORTED_COMPLETE`
-`REVIEW_DECISION=APPROVE_REPORTED`
-`SIGNED_REVIEW=NOT_YET`
-`E2F=HOLD_SIGNATURE_PHASE`
-`E2G=HOLD_SIGNATURE_PHASE`
+`#254=PASS_CLOSED`
+`P25=READY_FOR_EXPLICIT_BASELINE_ACTIVATION_CHANGE`
+`E2D=HOLD_GENUINE_EXTERNAL_CHAIN_REQUIRED`
+`E2E=HOLD_GENUINE_EVIDENCE_REQUIRED`
+`E2F=HOLD_GENUINE_VALIDATIONS_AND_SIGNATURES_REQUIRED`
+`E2G=HOLD_PENDING_QUALIFIED_E2F_AND_GENUINE_DECISIONS`
 `#327=PARTIAL_PASS_OPEN`
 `FINAL_RELEASE_PR=HOLD`
 `MERGE=HOLD`
