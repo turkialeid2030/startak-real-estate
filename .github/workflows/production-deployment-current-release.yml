@@ -36,7 +36,7 @@ jobs:
     environment: production
     timeout-minutes: 30
     env:
-      CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CF_API_TOKEN_RAW: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CF_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - name: Bind deployment to exact trusted main and owner authorization
@@ -86,12 +86,54 @@ jobs:
           STARTAK_BUILD_ENVIRONMENT: github-actions:production-deployment
         run: npm run release:verify
 
+      - name: Normalize Cloudflare API token formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          raw="${CF_API_TOKEN_RAW:-}"
+          test -n "$raw" || { echo 'CLOUDFLARE_API_TOKEN missing'; exit 1; }
+          test -n "${CF_ACCOUNT_ID:-}" || { echo 'CLOUDFLARE_ACCOUNT_ID missing'; exit 1; }
+
+          token="${raw//$'\r'/}"
+          token="${token//$'\n'/}"
+          token="${token#"${token%%[![:space:]]*}"}"
+          token="${token%"${token##*[![:space:]]}"}"
+
+          case "$token" in
+            Bearer\ *) token="${token#Bearer }" ;;
+            bearer\ *) token="${token#bearer }" ;;
+          esac
+
+          token="${token#"${token%%[![:space:]]*}"}"
+          token="${token%"${token##*[![:space:]]}"}"
+
+          if [[ ${#token} -ge 2 && "${token:0:1}" == '"' && "${token: -1}" == '"' ]]; then
+            token="${token:1:${#token}-2}"
+          elif [[ ${#token} -ge 2 && "${token:0:1}" == "'" && "${token: -1}" == "'" ]]; then
+            token="${token:1:${#token}-2}"
+          fi
+
+          token="${token#"${token%%[![:space:]]*}"}"
+          token="${token%"${token##*[![:space:]]}"}"
+
+          test -n "$token" || { echo 'CLOUDFLARE_API_TOKEN became empty after safe formatting normalization'; exit 1; }
+          [[ "$token" != *[[:space:]]* ]] || { echo 'CLOUDFLARE_API_TOKEN contains internal whitespace and is malformed'; exit 1; }
+
+          echo "::add-mask::$token"
+          if [[ "$token" != "$raw" ]]; then
+            echo 'Cloudflare API token formatting normalized without disclosure.'
+          else
+            echo 'Cloudflare API token formatting already canonical.'
+          fi
+          printf 'CF_API_TOKEN=%s\n' "$token" >> "$GITHUB_ENV"
+          printf 'CLOUDFLARE_API_TOKEN=%s\n' "$token" >> "$GITHUB_ENV"
+          printf 'CLOUDFLARE_ACCOUNT_ID=%s\n' "$CF_ACCOUNT_ID" >> "$GITHUB_ENV"
+
       - name: Verify Cloudflare project access and fail-closed production posture
         shell: bash
         run: |
           set -euo pipefail
-          test -n "${CF_API_TOKEN:-}" || { echo 'CLOUDFLARE_API_TOKEN missing'; exit 1; }
-          test -n "${CF_ACCOUNT_ID:-}" || { echo 'CLOUDFLARE_ACCOUNT_ID missing'; exit 1; }
+          test -n "${CF_API_TOKEN:-}" || { echo 'Normalized Cloudflare API token missing'; exit 1; }
           auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
           body="$(mktemp)"
           status="$(curl --silent --show-error -o "$body" -w '%{http_code}' "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}" || true)"
@@ -114,9 +156,6 @@ jobs:
         run: |
           set -euo pipefail
           npx wrangler pages deploy dist --project-name "$CF_PROJECT_NAME" --branch main --commit-hash "$EXPECTED_MAIN_SHA"
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ env.CF_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ env.CF_ACCOUNT_ID }}
 
       - name: Verify provider deployment identity
         shell: bash
