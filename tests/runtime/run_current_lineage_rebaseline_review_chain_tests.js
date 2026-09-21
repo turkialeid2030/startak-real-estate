@@ -72,13 +72,14 @@ assert.strictEqual(regeneratedPacket.ownerActorRef, 'github:turkialeid2030');
 assert.strictEqual(regeneratedPacket.independentReviewerRef, 'human:said');
 assert.strictEqual(regeneratedPacket.expectedResponseContract.actorRefMustEqual, 'human:said');
 
-assert.strictEqual(summary.reviewerRegistryStatus, 'READY_TECHNICALLY_OUT_OF_BAND_PIN_REQUIRED');
-assert.strictEqual(summary.reviewerRegistryHashSha256, '62c76efae99b3cf07a2f2fe7182b9c76932b39e9b72bd1eb48ea625dc620b5ca');
-assert.strictEqual(summary.reviewerPublicKeySha256, 'fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1');
+assert.strictEqual(summary.reviewerRegistryStatus, 'KEY_ROTATED_PENDING_FRESH_EXACT_HEAD_CI_AND_OUT_OF_BAND_PIN');
+assert.strictEqual(summary.reviewerRegistryHashSha256, '2cd45d81863afb8d41a30404d5b1cf2113c216abf6ae13e51d6f41e0962d0f53');
+assert.strictEqual(summary.reviewerPublicKeySha256, '0af393bd7c091106c3b16e493b4f99d39570c77675c9c5dee175d5a7727ebbc1');
+assert.strictEqual(summary.previousReviewerPublicKeySha256, 'fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1');
 assert.strictEqual(summary.canonicalReviewVerifier, 'tools/verify-canonical-rebaseline-review-attestation.js');
-assert.strictEqual(summary.saidDecision, 'APPROVE_REPORTED');
-assert.strictEqual(summary.reviewMemo, 'REQUIRED');
-assert.strictEqual(summary.canonicalSigningPayload, 'BLOCKED_UNTIL_REVIEW_ARTIFACT_FIELDS_EXIST');
+assert.strictEqual(summary.saidDecision, 'APPROVE_PRESENTED_PENDING_CRYPTOGRAPHIC_IDENTITY_VERIFICATION');
+assert.strictEqual(summary.reviewMemo, 'COMPLETED_OUTSIDE_REPOSITORY_SHA256_3e992e93dd701283215d95d3d3cf2ab0fe1d7ccda605866ab829f4e743a16aec');
+assert.strictEqual(summary.canonicalSigningPayload, 'MUST_REGENERATE_AFTER_KEY_ROTATION_ACTIVE_FROM_2026_09_21T09_01_PLUS03');
 assert.strictEqual(summary.signedReview, 'NOT_YET');
 assert.strictEqual(summary.independentReviewGate254, 'HOLD');
 assert.strictEqual(summary.e2f, 'HOLD');
@@ -86,4 +87,4 @@ assert.strictEqual(summary.e2g, 'HOLD');
 assert.strictEqual(summary.merge, 'HOLD');
 assert.strictEqual(summary.deploy, 'HOLD');
 
-console.log('current-lineage P24/P25/P26 review chain: PASS');
+console.log('current-lineage P24/P25/P26 review chain after Said key rotation: PASS');
