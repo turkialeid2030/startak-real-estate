@@ -1,15 +1,17 @@
 {
   "schemaVersion": 1,
-  "asOfDate": "2026-09-18",
+  "asOfDate": "2026-09-21",
   "purpose": "DETERMINISTIC_PUBLIC_REGISTRY_HASH_VALUES_VERIFIED_PENDING_OUT_OF_BAND_PINNING",
   "canonicalReviewRegistry": {
     "path": "governance/operator-templates/canonical-rebaseline-reviewer-registry.current.json",
     "registryId": "canonical-rebaseline-reviewer-registry-rc-2026-09-16",
     "governanceArtifactPath": "governance/operator-templates/canonical-rebaseline-review-governance-artifact.current.json",
-    "governanceArtifactSha256": "284b5995b9d964481c42aa9ef3820206ef1db12c4b7aadf68f44ca6e50695e68",
-    "normalizedRegistryHashSha256": "62c76efae99b3cf07a2f2fe7182b9c76932b39e9b72bd1eb48ea625dc620b5ca",
-    "reviewerPublicKeySha256Rechecked": "fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1",
+    "governanceArtifactSha256": "26ca3a5370e427c40a195c1e7609c8f3f69c8d330ca9f8e8aad3b4b5ebcb7e07",
+    "normalizedRegistryHashSha256": "2cd45d81863afb8d41a30404d5b1cf2113c216abf6ae13e51d6f41e0962d0f53",
+    "previousReviewerPublicKeySha256": "fbd4b0eee65ba6a08dfd6f673a80eb538149549f6bfcef26ade26ddacab14af1",
+    "reviewerPublicKeySha256Rechecked": "0af393bd7c091106c3b16e493b4f99d39570c77675c9c5dee175d5a7727ebbc1",
     "allowedPurpose": "CANONICAL_REBASELINE_INDEPENDENT_REVIEW",
+    "keyRotationEvidenceRef": "https://github.com/turkialeid2030/startak-real-estate/issues/367#issuecomment-5756079007",
     "repositoryImplementationHashVerified": true,
     "outOfBandTrustEstablishedByThisFile": false
   },
@@ -46,6 +48,7 @@
     "repositoryImplementationVerificationCompleted": true,
     "verificationTestPath": "tests/runtime/run_current_trust_root_registry_hash_tests.js",
     "verificationEvidencePath": "governance/operator-templates/pre-signature/TRUST-ROOT-HASH-VERIFICATION.current.json",
+    "freshExactHeadCiRequiredAfterKeyRotation": true,
     "finalRepositoryHashReverificationRequired": false,
     "finalOutOfBandPinningRequired": true
   },
