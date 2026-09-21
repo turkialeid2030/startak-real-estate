@@ -3,7 +3,9 @@
   "verifierId": "e2f-verifier-said-2026-09-17",
   "verifierSubjectRef": "human:said",
   "verifierRegistryPath": "governance/operator-templates/e2f-verifier-registry.current.json",
-  "verifierRegistryHashSha256": "fb544ff5555be8f71fb9afbda1f5f2edc60aa8465bd7d91ea392c6865873fbaa",
+  "verifierRegistryHashSha256": "59de1600dd145c7504c2eb907cb19c4c0df3e98fd85e8aa2331a31a0b14386a9",
+  "verifierPublicKeySha256": "0af393bd7c091106c3b16e493b4f99d39570c77675c9c5dee175d5a7727ebbc1",
+  "keyRotationEvidenceRef": "https://github.com/turkialeid2030/startak-real-estate/issues/367#issuecomment-5756532755",
   "releaseCandidate": {
     "releaseCandidateId": "startak-real-estate-rc-2026-09-16-e876208c19ff",
     "sourceCommitSha": "e876208c19ffbddd0dacd2bf8fce24aba1e52b55",
