@@ -107,17 +107,22 @@ test('E2I signed response-set template requires exactly the six evidence classes
   }
 });
 
-test('E2I operator runbook preserves fail-closed status boundaries and authority limits', () => {
+test('E2I operator runbook preserves fail-closed status boundaries, final aggregation and authority limits', () => {
   const runbook = readText('E2I-EXTERNAL-EVIDENCE-HANDOFF.current.md');
   for (const required of [
     'READY_FOR_E2I_READINESS_VERIFIER_TRUST_ROOT_PINNING',
     'READY_FOR_EXTERNAL_READINESS_RSA_SHA256_SIGNATURE',
     'READY_FOR_E2I_AGGREGATION_NOT_ACCEPTED',
     'EXECUTION_AND_POST_DEPLOYMENT_CLOSEOUT_COMPLETE',
+    'GO_LIVE_READY_FOR_UNLICENSED_DECISION_SUPPORT',
+    'UNLICENSED_DECISION_SUPPORT',
     'tools/e2i-readiness-evidence-intake.js',
     'tools/e2i-external-evidence-response-preflight.js',
+    'tools/e2i-production-readiness-aggregate.js',
+    'architectural stop',
     'Never fabricate',
     'private keys',
+    'E2I_FINAL_AGGREGATOR=TOOLING_PREPARED_EXTERNAL_INPUTS_REQUIRED',
     'E2I_ACCEPTANCE=NOT_ESTABLISHED',
     'GO_LIVE_AUTHORITY=false',
     'TRANSACTION_AUTHORITY=false',

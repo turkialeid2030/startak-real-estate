@@ -117,16 +117,47 @@ Accept only:
 
 That status means the signed responses are structurally and cryptographically ready for E2I aggregation. It explicitly does **not** mean E2I acceptance, legal approval, professional authority, transaction authority, or Go-Live authorization.
 
+## Gate 5 — final E2I readiness aggregation
+
+Only after Gates 1–4 are supported by genuine external inputs and a genuine completed E2H packet, run the existing E2I readiness standard through the fail-closed operator wrapper:
+
+```bash
+node tools/e2i-production-readiness-aggregate.js \
+  --packet-id <READINESS_PACKET_ID> \
+  --policy governance/e2i-production-evidence-go-live-readiness-policy-2026-09-08.json \
+  --upstream <genuine-e2h-closeout.json> \
+  --registry <working-readiness-verifier-registry.json> \
+  --expected-registry-sha256 <independently-pinned-registry-sha256> \
+  --evidence <working-signed-evidence-set.json> \
+  --prepared-by <PREPARER_REF> \
+  --prepared-at <ISO8601_TIME> \
+  --output <e2i-readiness-packet.json>
+```
+
+The wrapper rejects template-only inputs and input objects containing private-key, secret, password, token or credential fields. It does not sign, call an external service or mutate production.
+
+Accept the final engineering-readiness result only when the exact status is:
+
+`GO_LIVE_READY_FOR_UNLICENSED_DECISION_SUPPORT`
+
+This is the maximum E2I engineering status defined by the current policy. It means only that the exact release lineage has satisfied the E2I evidence gate for the operating mode `UNLICENSED_DECISION_SUPPORT`. The E2I architectural stop remains in force.
+
+Do **not** interpret `GO_LIVE_READY_FOR_UNLICENSED_DECISION_SUPPORT` as licensed valuation authority, certified professional authority, permission for external professional valuation issuance, transaction authority, rule activation, or any broader commercial authority. Those boundaries remain separately governed.
+
+Any other E2I status is a HOLD/wait state and must not be promoted manually.
+
 ## Hard boundaries
 
-- Never fabricate verifier identity, external review, evidence artifacts, signatures, or administrator/production facts.
+- Never fabricate verifier identity, external review, evidence artifacts, signatures, administrator state or production facts.
 - Never commit or paste private keys, passphrases, protected tokens, passwords, credentials, or production secret values.
-- Never treat a template, CI result, signing request, repository commit, or preflight status as genuine external evidence by itself.
+- Never treat a template, CI result, signing request, repository commit, preflight status, or synthetic test as genuine external evidence by itself.
 - Never treat the emitted registry hash as independently pinned merely because the repository computed it.
 - Never treat `READY_FOR_E2I_AGGREGATION_NOT_ACCEPTED` as final E2I acceptance.
-- Do not alter the frozen RC to prepare this handoff.
+- Never interpret `GO_LIVE_READY_FOR_UNLICENSED_DECISION_SUPPORT` as licensed/professional/transaction authority.
+- Do not alter the frozen RC to prepare or execute this handoff.
 
 `E2I_OPERATOR_HANDOFF=PREPARED_NON_AUTHORITATIVE`
+`E2I_FINAL_AGGREGATOR=TOOLING_PREPARED_EXTERNAL_INPUTS_REQUIRED`
 `E2I_READINESS_VERIFIER_TRUST=EXTERNAL_INPUT_REQUIRED`
 `E2I_EXTERNAL_EVIDENCE=EXTERNAL_INPUT_REQUIRED`
 `E2I_ACCEPTANCE=NOT_ESTABLISHED`
