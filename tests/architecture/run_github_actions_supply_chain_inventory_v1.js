@@ -48,6 +48,11 @@ const critical = new Set([
   '.github/workflows/land-valuation-verify.yml',
   '.github/workflows/lease-income-evidence-verify.yml',
   '.github/workflows/leisure-operating-metrics-verify.yml',
+  '.github/workflows/market-comparable-evidence-verify.yml',
+  '.github/workflows/method-input-provenance-verify.yml',
+  '.github/workflows/property-evidence-bridge-verify.yml',
+  '.github/workflows/tenant-covenant-verify.yml',
+  '.github/workflows/xlsx-adapter-verify.yml',
 ]);
 
 assert.ok(report.workflowCount > 0, 'workflow inventory must not be empty');
