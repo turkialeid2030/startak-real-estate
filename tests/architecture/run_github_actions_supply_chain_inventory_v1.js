@@ -28,6 +28,11 @@ const critical = new Set([
   '.github/workflows/specialized-forecast-assumptions-verify.yml',
   '.github/workflows/specialized-interest-separation-verify.yml',
   '.github/workflows/specialized-operating-forecast-verify.yml',
+  '.github/workflows/standards-foundation-verify.yml',
+  '.github/workflows/standards-provenance-verify.yml',
+  '.github/workflows/purpose-standards-router-verify.yml',
+  '.github/workflows/regulated-context-routers-verify.yml',
+  '.github/workflows/wave14-standards-convergence-verify.yml',
 ]);
 
 assert.ok(report.workflowCount > 0, 'workflow inventory must not be empty');
