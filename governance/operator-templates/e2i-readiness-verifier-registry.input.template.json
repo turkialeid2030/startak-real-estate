@@ -1,0 +1,35 @@
+{
+  "templateOnly": true,
+  "registryId": "<E2I_READINESS_VERIFIER_REGISTRY_ID>",
+  "governanceArtifactSha256": "<SHA256_OF_REAL_GOVERNANCE_ARTIFACT>",
+  "verifiers": [
+    {
+      "verifierId": "<COMPLIANCE_VERIFIER_ID>",
+      "verifierSubjectRef": "<DISTINCT_EXTERNAL_COMPLIANCE_SUBJECT_REF>",
+      "allowedEvidenceTypes": [
+        "SAUDI_LEGAL_OPERATING_MODE_REVIEW",
+        "PDPL_DATA_GOVERNANCE_REVIEW",
+        "PROFESSIONAL_STANDARDS_SCOPE_REVIEW",
+        "OPERATING_MODE_CLAIMS_RESTRICTION_CONFIRMATION"
+      ],
+      "publicKeyPem": "<RSA_PUBLIC_KEY_PEM_ONLY>",
+      "publicKeySha256": "<SHA256_OF_NORMALIZED_PUBLIC_KEY_PEM>",
+      "governanceEvidenceRef": "<REAL_EXTERNAL_GOVERNANCE_EVIDENCE_REF>",
+      "activeFrom": "<ISO8601_ACTIVE_FROM>",
+      "activeUntil": null
+    },
+    {
+      "verifierId": "<PRODUCTION_ASSURANCE_VERIFIER_ID>",
+      "verifierSubjectRef": "<DISTINCT_EXTERNAL_PRODUCTION_ASSURANCE_SUBJECT_REF>",
+      "allowedEvidenceTypes": [
+        "CANONICAL_SOURCE_HASH_COMPARISON",
+        "PRODUCTION_EXECUTION_CHAIN_CONFIRMATION"
+      ],
+      "publicKeyPem": "<RSA_PUBLIC_KEY_PEM_ONLY>",
+      "publicKeySha256": "<SHA256_OF_NORMALIZED_PUBLIC_KEY_PEM>",
+      "governanceEvidenceRef": "<REAL_EXTERNAL_GOVERNANCE_EVIDENCE_REF>",
+      "activeFrom": "<ISO8601_ACTIVE_FROM>",
+      "activeUntil": null
+    }
+  ]
+}
