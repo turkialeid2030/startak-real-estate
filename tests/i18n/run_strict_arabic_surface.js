@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const arSA = require('../../src/i18n/locales/ar-SA.js');
 const {
+  GOVERNED_PRESENTATION_TOKENS,
   sanitizeArabicUiText,
   hasVisibleLatinText,
   presentCode,
@@ -43,6 +44,37 @@ for (const [raw, expected] of Object.entries(codeCases)) {
   check(`STRICT-AR-CODE-${raw}`, presentCode(raw, 'ar-SA') === expected, `${raw} => ${expected}`);
 }
 
+const governedWave2Tokens = ['EN', 'V2', 'MISSING_REQUIRED', 'EXPLICIT'];
+const missingExitCapAr = 'معدل رسملة الخروج مطلوب في إصدار الافتراضات V2. لا تُحتسب مؤشرات العائد المعتمدة على الخروج حتى إدخاله صراحةً.';
+const governedSanitizerCases = [
+  ['STRICT-AR-SANITIZER-V2-BADGE', 'إصدار الافتراضات V2'],
+  ['STRICT-AR-SANITIZER-V2-NOTICE', missingExitCapAr],
+  ['STRICT-AR-SANITIZER-GOVERNED-TOKENS', 'EN V2 MISSING_REQUIRED EXPLICIT'],
+];
+for (const [id, text] of governedSanitizerCases) {
+  check(id, sanitizeArabicUiText(text) === text, 'governed production-contract tokens remain byte-stable through Arabic sanitization');
+}
+check(
+  'STRICT-AR-SANITIZER-GOVERNED-TOKEN-INVENTORY',
+  governedWave2Tokens.every((token) => GOVERNED_PRESENTATION_TOKENS.has(token)),
+  'sanitizer-level governed token inventory covers the complete Wave 2 production contract',
+);
+check(
+  'STRICT-AR-GOVERNED-TOKENS-NOT-LATIN-LEAKS',
+  !hasVisibleLatinText('إصدار الافتراضات V2 — MISSING_REQUIRED — EXPLICIT — EN'),
+  'approved governed tokens are excluded from generic Latin-leak detection',
+);
+check(
+  'STRICT-AR-UNAPPROVED-LATIN-STILL-DETECTED',
+  hasVisibleLatinText('نص غير معتمد TEST'),
+  'unapproved Latin prose still fails the strict Arabic boundary',
+);
+check(
+  'STRICT-AR-NON-GOVERNED-TERM-STILL-LOCALIZED',
+  sanitizeArabicUiText('Production NPV') === 'الإنتاج صافي القيمة الحالية',
+  'governed-token protection does not disable ordinary Arabic term localization',
+);
+
 const contextSource = fs.readFileSync(path.join(__dirname, '../../src/i18n/LocaleContext.js'), 'utf8');
 check('STRICT-AR-STORED-PREFERENCE-FIRST', contextSource.includes('safeReadStoredLocale() || detectBrowserLocale()'), 'saved explicit choice precedes browser-language fallback');
 check('STRICT-AR-BROWSER-FALLBACK', contextSource.includes("detectBrowserLocale() || normalizeLocale(defaultLocale)"), 'browser language precedes supplied default');
@@ -55,7 +87,6 @@ check('STRICT-AR-GUARD-INSTALLED', mainSource.includes('<StrictArabicSurfaceGuar
 check('STRICT-AR-GUARD-FAIL-CLOSED', guardSource.includes("return original.replace(trimmed, 'محتوى واجهة غير معرّب');"), 'unmapped English prose is not exposed in Arabic mode');
 check('STRICT-AR-TECHNICAL-REF-BOUNDARY', guardSource.includes('TECHNICAL_REFERENCE.test(trimmed)'), 'immutable technical references remain exact');
 
-const governedWave2Tokens = ['EN', 'V2', 'MISSING_REQUIRED', 'EXPLICIT'];
 check(
   'STRICT-AR-WAVE2-GOVERNED-TOKENS',
   governedWave2Tokens.every((token) => guardSource.includes(`'${token}'`))
