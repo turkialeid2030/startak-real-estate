@@ -2,21 +2,19 @@ import React, { useEffect } from 'react';
 const { useLocale } = require('../i18n/LocaleContext.js');
 const {
   ARABIC_VALUE_LABELS,
+  GOVERNED_PRESENTATION_TOKENS,
+  GOVERNED_PRESENTATION_TOKEN_PATTERN,
+  protectGovernedPresentationTokens,
   presentCode,
   sanitizeArabicUiText,
 } = require('../i18n/strict-arabic-presentation.js');
 
 // Narrow technical-reference boundary for customer-visible controls and Wave 2
-// governance provenance. These tokens are part of the governed production
-// contract and must remain byte-stable even in Arabic mode. The surrounding
-// prose is still translated/fail-closed; this is not a general English bypass.
-const APPROVED_TECHNICAL_TOKENS = Object.freeze(new Set([
-  'EN',
-  'V2',
-  'MISSING_REQUIRED',
-  'EXPLICIT',
-]));
-const APPROVED_TECHNICAL_TOKEN_PATTERN = /\b(?:MISSING_REQUIRED|EXPLICIT|V2|EN)\b/g;
+// governance provenance. Reuse the shared governed-token inventory and the same
+// collision-resistant protection helper used by the lower Arabic sanitizer so
+// nested presentation passes cannot consume each other's sentinels.
+const APPROVED_TECHNICAL_TOKENS = GOVERNED_PRESENTATION_TOKENS;
+const APPROVED_TECHNICAL_TOKEN_PATTERN = GOVERNED_PRESENTATION_TOKEN_PATTERN;
 
 const EXACT_TEXT = Object.freeze({
   'Decision Intelligence Workspace': 'مساحة ذكاء القرار',
@@ -87,20 +85,6 @@ function translateCodeTokens(text) {
   });
 }
 
-function protectApprovedTechnicalTokens(value) {
-  const tokens = [];
-  const protectedText = String(value).replace(APPROVED_TECHNICAL_TOKEN_PATTERN, (token) => {
-    const index = tokens.push(token) - 1;
-    return `§§${index}§§`;
-  });
-  return {
-    protectedText,
-    restore(text) {
-      return String(text).replace(/§§(\d+)§§/g, (_, index) => tokens[Number(index)] || '');
-    },
-  };
-}
-
 function translateArabicSurfaceText(value) {
   if (value === null || value === undefined) return value;
   const original = String(value);
@@ -111,7 +95,7 @@ function translateArabicSurfaceText(value) {
   if (EXACT_TEXT[trimmed]) return original.replace(trimmed, EXACT_TEXT[trimmed]);
   if (ALL_CAPS_CODE.test(trimmed)) return original.replace(trimmed, presentCode(trimmed, 'ar-SA'));
 
-  const protectedTokens = protectApprovedTechnicalTokens(original);
+  const protectedTokens = protectGovernedPresentationTokens(original);
   let translated = sanitizeArabicUiText(protectedTokens.protectedText);
   for (const [pattern, replacement] of INLINE_TERMS) translated = translated.replace(pattern, replacement);
   translated = translateCodeTokens(translated);
