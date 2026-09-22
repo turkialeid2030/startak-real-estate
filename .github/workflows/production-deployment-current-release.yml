@@ -65,34 +65,13 @@ jobs:
           echo "expected_main_sha=$requested" >> "$GITHUB_OUTPUT"
           echo "EXPECTED_MAIN_SHA=$requested" >> "$GITHUB_ENV"
 
-      - name: Checkout exact trusted main
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-        with:
-          ref: ${{ steps.bind.outputs.expected_main_sha }}
-          persist-credentials: false
-
-      - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
-        with:
-          node-version: '22'
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Canonical release verification
-        env:
-          STARTAK_SOURCE_COMMIT: ${{ steps.bind.outputs.expected_main_sha }}
-          STARTAK_BUILD_ENVIRONMENT: github-actions:production-deployment
-        run: npm run release:verify
-
       - name: Normalize Cloudflare API token formatting
         shell: bash
         run: |
           set -euo pipefail
           raw="${CF_API_TOKEN_RAW:-}"
-          test -n "$raw" || { echo 'CLOUDFLARE_API_TOKEN missing'; exit 1; }
-          test -n "${CF_ACCOUNT_ID:-}" || { echo 'CLOUDFLARE_ACCOUNT_ID missing'; exit 1; }
+          test -n "$raw" || { echo 'CLOUDFLARE_CREDENTIAL_STATUS=MISSING'; echo 'CLOUDFLARE_API_TOKEN missing'; exit 1; }
+          test -n "${CF_ACCOUNT_ID:-}" || { echo 'CLOUDFLARE_ACCOUNT_STATUS=MISSING'; echo 'CLOUDFLARE_ACCOUNT_ID missing'; exit 1; }
 
           token="${raw//$'\r'/}"
           token="${token//$'\n'/}"
@@ -116,8 +95,8 @@ jobs:
           token="${token#"${token%%[![:space:]]*}"}"
           token="${token%"${token##*[![:space:]]}"}"
 
-          test -n "$token" || { echo 'CLOUDFLARE_API_TOKEN became empty after safe formatting normalization'; exit 1; }
-          [[ "$token" != *[[:space:]]* ]] || { echo 'CLOUDFLARE_API_TOKEN contains internal whitespace and is malformed'; exit 1; }
+          test -n "$token" || { echo 'CLOUDFLARE_CREDENTIAL_STATUS=EMPTY_AFTER_NORMALIZATION'; echo 'CLOUDFLARE_API_TOKEN became empty after safe formatting normalization'; exit 1; }
+          [[ "$token" != *[[:space:]]* ]] || { echo 'CLOUDFLARE_CREDENTIAL_STATUS=MALFORMED_INTERNAL_WHITESPACE'; echo 'CLOUDFLARE_API_TOKEN contains internal whitespace and is malformed'; exit 1; }
 
           echo "::add-mask::$token"
           if [[ "$token" != "$raw" ]]; then
@@ -133,13 +112,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -n "${CF_API_TOKEN:-}" || { echo 'Normalized Cloudflare API token missing'; exit 1; }
+          test -n "${CF_API_TOKEN:-}" || { echo 'CLOUDFLARE_CREDENTIAL_STATUS=NORMALIZED_TOKEN_MISSING'; echo 'Normalized Cloudflare API token missing'; exit 1; }
           auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
           body="$(mktemp)"
           status="$(curl --silent --show-error -o "$body" -w '%{http_code}' "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}" || true)"
           if [[ "$status" != '200' ]]; then
             error_code="$(jq -r '.errors[0].code // empty' "$body" 2>/dev/null || true)"
-            echo "Cloudflare Pages project preflight failed: HTTP ${status}${error_code:+ code=${error_code}}"
+            if [[ "$status" == '400' && "$error_code" == '9106' ]]; then
+              echo 'CLOUDFLARE_CREDENTIAL_STATUS=REJECTED_9106'
+              echo 'Cloudflare rejected the configured production credential (HTTP 400 code=9106). Rotate/replace the production environment secret CLOUDFLARE_API_TOKEN with a valid raw Cloudflare API Token authorized for this account/project; do not weaken authentication or bypass this gate.'
+            else
+              echo "CLOUDFLARE_CREDENTIAL_STATUS=PROJECT_PREFLIGHT_FAILED_HTTP_${status}${error_code:+_CODE_${error_code}}"
+              echo "Cloudflare Pages project preflight failed: HTTP ${status}${error_code:+ code=${error_code}}"
+            fi
             rm -f "$body"
             exit 1
           fi
@@ -149,7 +134,29 @@ jobs:
           jq -e '.result.production_branch == "main"' <<<"$project_json" >/dev/null
           jq -e '.result.deployment_configs.production.fail_open == false' <<<"$project_json" >/dev/null
           jq -e '.result.deployment_configs.production.env_vars.RIAI_PUBLIC_AI_ENABLED.value == "false"' <<<"$project_json" >/dev/null
+          echo 'CLOUDFLARE_CREDENTIAL_STATUS=PROJECT_ACCESS_PASS'
           echo 'Cloudflare project-scoped bearer access and fail-closed production posture: PASS'
+
+      - name: Checkout exact trusted main
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ steps.bind.outputs.expected_main_sha }}
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Canonical release verification
+        env:
+          STARTAK_SOURCE_COMMIT: ${{ steps.bind.outputs.expected_main_sha }}
+          STARTAK_BUILD_ENVIRONMENT: github-actions:production-deployment
+        run: npm run release:verify
 
       - name: Deploy verified dist to Cloudflare Pages production
         shell: bash
