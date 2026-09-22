@@ -76,10 +76,8 @@ check(
   'governed-token protection does not disable ordinary Arabic term localization',
 );
 
-// Regression for #378: the DOM guard must protect governed tokens with a
-// sentinel that the lower sanitizer's interpolation-placeholder pass cannot
-// consume. This composes the same shared helper and sanitizer in the order used
-// by StrictArabicSurfaceGuard and requires byte-stable restoration.
+// Regression for #378: the DOM guard must protect governed tokens through the
+// lower sanitizer without the old section-sign sentinel collision.
 const nestedProtectedNotice = protectGovernedPresentationTokens(missingExitCapAr);
 const nestedRoundTripNotice = nestedProtectedNotice.restore(
   sanitizeArabicUiText(nestedProtectedNotice.protectedText),
@@ -118,13 +116,25 @@ check(
     && guardSource.includes('APPROVED_TECHNICAL_TOKEN_PATTERN = GOVERNED_PRESENTATION_TOKEN_PATTERN')
     && guardSource.includes('protectGovernedPresentationTokens(original)')
     && guardSource.includes("translated.replace(APPROVED_TECHNICAL_TOKEN_PATTERN, '')"),
-  'Wave 2 provenance and language-control tokens share the collision-resistant governed-token boundary',
+  'Wave 2 provenance and language-control tokens share the governed-token boundary',
 );
 check(
   'STRICT-AR-NO-SECTION-SIGN-SENTINEL-COLLISION',
   !guardSource.includes('§§${index}§§')
     && !guardSource.includes('protectApprovedTechnicalTokens'),
   'DOM guard no longer defines the section-sign sentinel consumed by the lower sanitizer placeholder regex',
+);
+check(
+  'STRICT-AR-RESTORE-BEFORE-GENERIC-CODE-TRANSLATION',
+  guardSource.indexOf('translated = protectedTokens.restore(translated);') >= 0
+    && guardSource.indexOf('translated = translateCodeTokens(translated);') >= 0
+    && guardSource.indexOf('translated = protectedTokens.restore(translated);') < guardSource.indexOf('translated = translateCodeTokens(translated);'),
+  'shared sanitizer sentinel is restored before generic all-caps/code translation can inspect it',
+);
+check(
+  'STRICT-AR-GENERIC-CODE-TRANSLATOR-EXEMPTS-GOVERNED-TOKENS',
+  guardSource.includes('if (APPROVED_TECHNICAL_TOKENS.has(token)) return token;'),
+  'V2, EN, MISSING_REQUIRED and EXPLICIT remain exact after restoration from the lower sanitizer',
 );
 check(
   'STRICT-AR-NO-GENERAL-ENGLISH-BYPASS',
