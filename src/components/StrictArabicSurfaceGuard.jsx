@@ -6,6 +6,18 @@ const {
   sanitizeArabicUiText,
 } = require('../i18n/strict-arabic-presentation.js');
 
+// Narrow technical-reference boundary for customer-visible controls and Wave 2
+// governance provenance. These tokens are part of the governed production
+// contract and must remain byte-stable even in Arabic mode. The surrounding
+// prose is still translated/fail-closed; this is not a general English bypass.
+const APPROVED_TECHNICAL_TOKENS = Object.freeze(new Set([
+  'EN',
+  'V2',
+  'MISSING_REQUIRED',
+  'EXPLICIT',
+]));
+const APPROVED_TECHNICAL_TOKEN_PATTERN = /\b(?:MISSING_REQUIRED|EXPLICIT|V2|EN)\b/g;
+
 const EXACT_TEXT = Object.freeze({
   'Decision Intelligence Workspace': 'مساحة ذكاء القرار',
   'Investment Committee Decision Dossier': 'ملف قرار لجنة الاستثمار',
@@ -24,7 +36,6 @@ const EXACT_TEXT = Object.freeze({
   'Case ID': 'معرّف الحالة',
   'Actor ID': 'معرّف المستخدم',
   'Switch to English': 'التبديل إلى الإنجليزية',
-  EN: 'الإنجليزية',
   MB: 'ميغابايت',
   XLSX: 'جدول بيانات',
   PPTX: 'عرض تقديمي',
@@ -76,22 +87,41 @@ function translateCodeTokens(text) {
   });
 }
 
+function protectApprovedTechnicalTokens(value) {
+  const tokens = [];
+  const protectedText = String(value).replace(APPROVED_TECHNICAL_TOKEN_PATTERN, (token) => {
+    const index = tokens.push(token) - 1;
+    return `§§${index}§§`;
+  });
+  return {
+    protectedText,
+    restore(text) {
+      return String(text).replace(/§§(\d+)§§/g, (_, index) => tokens[Number(index)] || '');
+    },
+  };
+}
+
 function translateArabicSurfaceText(value) {
   if (value === null || value === undefined) return value;
   const original = String(value);
   const trimmed = original.trim();
   if (!trimmed) return original;
   if (TECHNICAL_REFERENCE.test(trimmed)) return original;
+  if (APPROVED_TECHNICAL_TOKENS.has(trimmed)) return original;
   if (EXACT_TEXT[trimmed]) return original.replace(trimmed, EXACT_TEXT[trimmed]);
   if (ALL_CAPS_CODE.test(trimmed)) return original.replace(trimmed, presentCode(trimmed, 'ar-SA'));
 
-  let translated = sanitizeArabicUiText(original);
+  const protectedTokens = protectApprovedTechnicalTokens(original);
+  let translated = sanitizeArabicUiText(protectedTokens.protectedText);
   for (const [pattern, replacement] of INLINE_TERMS) translated = translated.replace(pattern, replacement);
   translated = translateCodeTokens(translated);
+  translated = protectedTokens.restore(translated);
 
   // Strict fail-closed customer surface: an unmapped English prose fragment is
-  // never exposed in Arabic mode. Technical references are preserved above.
-  if (/[A-Za-z]/.test(translated)) {
+  // never exposed in Arabic mode. Approved technical tokens above are excluded
+  // from the prose check but remain exact for governed production diagnostics.
+  const proseForLatinCheck = translated.replace(APPROVED_TECHNICAL_TOKEN_PATTERN, '');
+  if (/[A-Za-z]/.test(proseForLatinCheck)) {
     return original.replace(trimmed, 'محتوى واجهة غير معرّب');
   }
   return translated;
