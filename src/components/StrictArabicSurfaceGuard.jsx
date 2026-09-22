@@ -80,6 +80,10 @@ const ALL_CAPS_CODE = /^[A-Z][A-Z0-9_:-]{1,}$/;
 
 function translateCodeTokens(text) {
   return text.replace(/\b[A-Z][A-Z0-9_]{1,}\b/g, (token) => {
+    // Governed production-contract tokens are provenance/status markers, not
+    // generic enums. They must remain exact after the lower sanitizer has
+    // restored them and before generic code-token presentation runs.
+    if (APPROVED_TECHNICAL_TOKENS.has(token)) return token;
     if (ARABIC_VALUE_LABELS[token]) return ARABIC_VALUE_LABELS[token];
     return presentCode(token, 'ar-SA', 'حالة نظامية');
   });
@@ -98,8 +102,13 @@ function translateArabicSurfaceText(value) {
   const protectedTokens = protectGovernedPresentationTokens(original);
   let translated = sanitizeArabicUiText(protectedTokens.protectedText);
   for (const [pattern, replacement] of INLINE_TERMS) translated = translated.replace(pattern, replacement);
-  translated = translateCodeTokens(translated);
+
+  // Restore before generic code-token translation. The shared PUA sentinel is
+  // intentionally an implementation detail of the sanitizer and includes an
+  // internal marker that a later generic code regex must never inspect. Once
+  // restored, translateCodeTokens explicitly exempts the governed token set.
   translated = protectedTokens.restore(translated);
+  translated = translateCodeTokens(translated);
 
   // Strict fail-closed customer surface: an unmapped English prose fragment is
   // never exposed in Arabic mode. Approved technical tokens above are excluded
