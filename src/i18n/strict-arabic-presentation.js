@@ -118,6 +118,32 @@ const ARABIC_VALUE_LABELS = Object.freeze({
   NEUTRAL: 'محايد',
 });
 
+// These four tokens are part of the governed production contract. They must
+// remain byte-stable on Arabic surfaces so runtime verification can distinguish
+// provenance/status semantics from translated prose. This is deliberately a
+// narrow allow-list, not a general English-text bypass.
+const GOVERNED_PRESENTATION_TOKENS = Object.freeze(new Set([
+  'EN',
+  'V2',
+  'MISSING_REQUIRED',
+  'EXPLICIT',
+]));
+const GOVERNED_PRESENTATION_TOKEN_PATTERN = /\b(?:MISSING_REQUIRED|EXPLICIT|V2|EN)\b/g;
+
+function protectGovernedPresentationTokens(value) {
+  const tokens = [];
+  const protectedText = String(value).replace(GOVERNED_PRESENTATION_TOKEN_PATTERN, (token) => {
+    const index = tokens.push(token) - 1;
+    return `\uE000G${index}\uE001`;
+  });
+  return Object.freeze({
+    protectedText,
+    restore(text) {
+      return String(text).replace(/\uE000G(\d+)\uE001/g, (_, index) => tokens[Number(index)] || '');
+    },
+  });
+}
+
 // Long/specific phrases must precede their shorter component acronyms.
 const ARABIC_TERM_REPLACEMENTS = Object.freeze([
   [/\bExit Cap Rate\b/gi, 'معدل رسملة التخارج'],
@@ -212,26 +238,36 @@ function presentReasonCode(value, locale = 'ar-SA') {
 
 function sanitizeArabicUiText(value) {
   if (typeof value !== 'string') return value;
+
+  // Preserve the governed production-contract tokens before generic Arabic term
+  // replacement. In particular, the generic V2 -> "الإصدار ٢" presentation rule
+  // must never rewrite the Wave 2 provenance token used by production contracts.
+  const governedTokens = protectGovernedPresentationTokens(value);
+
   // Protect interpolation placeholders; their parameter names are implementation
   // identifiers and are never rendered after a successful t(path, params) call.
   const placeholders = [];
-  let text = value.replace(/\{\{\w+\}\}/g, (match) => {
+  let text = governedTokens.protectedText.replace(/\{\{\w+\}\}/g, (match) => {
     const index = placeholders.push(match) - 1;
     return `§${index}§`;
   });
   for (const [pattern, replacement] of ARABIC_TERM_REPLACEMENTS) text = text.replace(pattern, replacement);
   text = text.replace(/§(\d+)§/g, (_, index) => placeholders[Number(index)] || '');
-  return text;
+  return governedTokens.restore(text);
 }
 
 function hasVisibleLatinText(value) {
   if (typeof value !== 'string') return false;
   const withoutPlaceholders = value.replace(/\{\{\w+\}\}/g, '');
-  return /[A-Za-z]/.test(withoutPlaceholders);
+  const withoutGovernedTokens = withoutPlaceholders.replace(GOVERNED_PRESENTATION_TOKEN_PATTERN, '');
+  return /[A-Za-z]/.test(withoutGovernedTokens);
 }
 
 module.exports = {
   ARABIC_VALUE_LABELS,
+  GOVERNED_PRESENTATION_TOKENS,
+  GOVERNED_PRESENTATION_TOKEN_PATTERN,
+  protectGovernedPresentationTokens,
   normalizeLocale,
   isArabicLocale,
   presentCode,
