@@ -4,7 +4,6 @@ const path = require('path');
 const arSA = require('../../src/i18n/locales/ar-SA.js');
 const {
   GOVERNED_PRESENTATION_TOKENS,
-  protectGovernedPresentationTokens,
   sanitizeArabicUiText,
   hasVisibleLatinText,
   presentCode,
@@ -76,28 +75,6 @@ check(
   'governed-token protection does not disable ordinary Arabic term localization',
 );
 
-// Regression for #378: the DOM guard must protect governed tokens through the
-// lower sanitizer without the old section-sign sentinel collision.
-const nestedProtectedNotice = protectGovernedPresentationTokens(missingExitCapAr);
-const nestedRoundTripNotice = nestedProtectedNotice.restore(
-  sanitizeArabicUiText(nestedProtectedNotice.protectedText),
-);
-check(
-  'STRICT-AR-GOVERNED-TOKEN-NESTED-SANITIZER-ROUNDTRIP',
-  nestedRoundTripNotice === missingExitCapAr,
-  'guard-level governed token protection survives the lower sanitizer placeholder pass',
-);
-
-const nestedProtectedBadge = protectGovernedPresentationTokens('إصدار الافتراضات V2');
-const nestedRoundTripBadge = nestedProtectedBadge.restore(
-  sanitizeArabicUiText(nestedProtectedBadge.protectedText),
-);
-check(
-  'STRICT-AR-V2-BADGE-NESTED-SANITIZER-ROUNDTRIP',
-  nestedRoundTripBadge === 'إصدار الافتراضات V2',
-  'V2 badge remains byte-stable through nested Arabic presentation passes',
-);
-
 const contextSource = fs.readFileSync(path.join(__dirname, '../../src/i18n/LocaleContext.js'), 'utf8');
 check('STRICT-AR-STORED-PREFERENCE-FIRST', contextSource.includes('safeReadStoredLocale() || detectBrowserLocale()'), 'saved explicit choice precedes browser-language fallback');
 check('STRICT-AR-BROWSER-FALLBACK', contextSource.includes("detectBrowserLocale() || normalizeLocale(defaultLocale)"), 'browser language precedes supplied default');
@@ -114,27 +91,21 @@ check(
   'STRICT-AR-WAVE2-GOVERNED-TOKENS',
   guardSource.includes('APPROVED_TECHNICAL_TOKENS = GOVERNED_PRESENTATION_TOKENS')
     && guardSource.includes('APPROVED_TECHNICAL_TOKEN_PATTERN = GOVERNED_PRESENTATION_TOKEN_PATTERN')
-    && guardSource.includes('protectGovernedPresentationTokens(original)')
     && guardSource.includes("translated.replace(APPROVED_TECHNICAL_TOKEN_PATTERN, '')"),
   'Wave 2 provenance and language-control tokens share the governed-token boundary',
 );
 check(
-  'STRICT-AR-NO-SECTION-SIGN-SENTINEL-COLLISION',
-  !guardSource.includes('§§${index}§§')
-    && !guardSource.includes('protectApprovedTechnicalTokens'),
-  'DOM guard no longer defines the section-sign sentinel consumed by the lower sanitizer placeholder regex',
-);
-check(
-  'STRICT-AR-RESTORE-BEFORE-GENERIC-CODE-TRANSLATION',
-  guardSource.indexOf('translated = protectedTokens.restore(translated);') >= 0
-    && guardSource.indexOf('translated = translateCodeTokens(translated);') >= 0
-    && guardSource.indexOf('translated = protectedTokens.restore(translated);') < guardSource.indexOf('translated = translateCodeTokens(translated);'),
-  'shared sanitizer sentinel is restored before generic all-caps/code translation can inspect it',
+  'STRICT-AR-SINGLE-GOVERNED-TOKEN-PROTECTION-OWNER',
+  guardSource.includes('let translated = sanitizeArabicUiText(original);')
+    && !guardSource.includes('protectGovernedPresentationTokens')
+    && !guardSource.includes('protectApprovedTechnicalTokens')
+    && !guardSource.includes('§§${index}§§'),
+  'DOM guard delegates token protection exactly once to the lower sanitizer and defines no competing sentinel namespace',
 );
 check(
   'STRICT-AR-GENERIC-CODE-TRANSLATOR-EXEMPTS-GOVERNED-TOKENS',
   guardSource.includes('if (APPROVED_TECHNICAL_TOKENS.has(token)) return token;'),
-  'V2, EN, MISSING_REQUIRED and EXPLICIT remain exact after restoration from the lower sanitizer',
+  'V2, EN, MISSING_REQUIRED and EXPLICIT remain exact after lower-sanitizer restoration',
 );
 check(
   'STRICT-AR-NO-GENERAL-ENGLISH-BYPASS',
