@@ -4,15 +4,14 @@ const {
   ARABIC_VALUE_LABELS,
   GOVERNED_PRESENTATION_TOKENS,
   GOVERNED_PRESENTATION_TOKEN_PATTERN,
-  protectGovernedPresentationTokens,
   presentCode,
   sanitizeArabicUiText,
 } = require('../i18n/strict-arabic-presentation.js');
 
 // Narrow technical-reference boundary for customer-visible controls and Wave 2
-// governance provenance. Reuse the shared governed-token inventory and the same
-// collision-resistant protection helper used by the lower Arabic sanitizer so
-// nested presentation passes cannot consume each other's sentinels.
+// governance provenance. The lower Arabic sanitizer is the single owner of
+// governed-token protection; this DOM guard must not wrap those tokens in a
+// second sentinel namespace before invoking it.
 const APPROVED_TECHNICAL_TOKENS = GOVERNED_PRESENTATION_TOKENS;
 const APPROVED_TECHNICAL_TOKEN_PATTERN = GOVERNED_PRESENTATION_TOKEN_PATTERN;
 
@@ -81,8 +80,7 @@ const ALL_CAPS_CODE = /^[A-Z][A-Z0-9_:-]{1,}$/;
 function translateCodeTokens(text) {
   return text.replace(/\b[A-Z][A-Z0-9_]{1,}\b/g, (token) => {
     // Governed production-contract tokens are provenance/status markers, not
-    // generic enums. They must remain exact after the lower sanitizer has
-    // restored them and before generic code-token presentation runs.
+    // generic enums. The lower sanitizer has already restored them here.
     if (APPROVED_TECHNICAL_TOKENS.has(token)) return token;
     if (ARABIC_VALUE_LABELS[token]) return ARABIC_VALUE_LABELS[token];
     return presentCode(token, 'ar-SA', 'حالة نظامية');
@@ -99,15 +97,13 @@ function translateArabicSurfaceText(value) {
   if (EXACT_TEXT[trimmed]) return original.replace(trimmed, EXACT_TEXT[trimmed]);
   if (ALL_CAPS_CODE.test(trimmed)) return original.replace(trimmed, presentCode(trimmed, 'ar-SA'));
 
-  const protectedTokens = protectGovernedPresentationTokens(original);
-  let translated = sanitizeArabicUiText(protectedTokens.protectedText);
+  // sanitizeArabicUiText is the sole governed-token protector. It preserves V2,
+  // EN, MISSING_REQUIRED and EXPLICIT byte-for-byte while translating ordinary
+  // customer-facing terms. A second guard-level sentinel would be consumed by
+  // the lower sanitizer's own restore phase and is therefore intentionally
+  // forbidden here.
+  let translated = sanitizeArabicUiText(original);
   for (const [pattern, replacement] of INLINE_TERMS) translated = translated.replace(pattern, replacement);
-
-  // Restore before generic code-token translation. The shared PUA sentinel is
-  // intentionally an implementation detail of the sanitizer and includes an
-  // internal marker that a later generic code regex must never inspect. Once
-  // restored, translateCodeTokens explicitly exempts the governed token set.
-  translated = protectedTokens.restore(translated);
   translated = translateCodeTokens(translated);
 
   // Strict fail-closed customer surface: an unmapped English prose fragment is
