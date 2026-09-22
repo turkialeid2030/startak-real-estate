@@ -180,8 +180,8 @@ try {
 
   await runTask('LANGUAGE_DIRECTION_SWITCH', page, async (act) => {
     await act(() => page.setViewportSize({ width: 1440, height: 900 }));
-    const en = page.getByRole('button', { name: 'الإنجليزية' }).first();
-    if ((await en.count()) === 0) throw new Error('English language control not discoverable through Arabic presentation label');
+    const en = page.getByRole('button', { name: 'EN', exact: true }).first();
+    if ((await en.count()) === 0) throw new Error('English language control not discoverable through governed EN label');
     await act(() => en.click());
     await page.waitForTimeout(220);
     const dirEn = await page.locator('html').getAttribute('dir');
