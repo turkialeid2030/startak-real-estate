@@ -55,6 +55,22 @@ check('STRICT-AR-GUARD-INSTALLED', mainSource.includes('<StrictArabicSurfaceGuar
 check('STRICT-AR-GUARD-FAIL-CLOSED', guardSource.includes("return original.replace(trimmed, 'محتوى واجهة غير معرّب');"), 'unmapped English prose is not exposed in Arabic mode');
 check('STRICT-AR-TECHNICAL-REF-BOUNDARY', guardSource.includes('TECHNICAL_REFERENCE.test(trimmed)'), 'immutable technical references remain exact');
 
+const governedWave2Tokens = ['EN', 'V2', 'MISSING_REQUIRED', 'EXPLICIT'];
+check(
+  'STRICT-AR-WAVE2-GOVERNED-TOKENS',
+  governedWave2Tokens.every((token) => guardSource.includes(`'${token}'`))
+    && guardSource.includes('APPROVED_TECHNICAL_TOKENS.has(trimmed)')
+    && guardSource.includes('protectApprovedTechnicalTokens(original)')
+    && guardSource.includes("translated.replace(APPROVED_TECHNICAL_TOKEN_PATTERN, '')"),
+  'Wave 2 provenance and language-control tokens remain exact while surrounding prose stays fail-closed',
+);
+check(
+  'STRICT-AR-NO-GENERAL-ENGLISH-BYPASS',
+  guardSource.includes("if (/[A-Za-z]/.test(proseForLatinCheck))")
+    && !guardSource.includes("EN: 'الإنجليزية'"),
+  'approved tokens do not disable the unmapped-English fail-closed boundary and EN remains discoverable',
+);
+
 const passed = results.filter(Boolean).length;
 console.log(`STRICT_ARABIC_TOTAL=${results.length} PASSED=${passed} FAILED=${results.length - passed}`);
 console.log('STRICT_ARABIC_SURFACE=' + (passed === results.length ? 'PASS' : 'FAIL'));
