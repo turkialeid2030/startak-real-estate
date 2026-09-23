@@ -89,11 +89,23 @@ check('STRICT-AR-TECHNICAL-REF-BOUNDARY', guardSource.includes('TECHNICAL_REFERE
 
 check(
   'STRICT-AR-WAVE2-GOVERNED-TOKENS',
-  governedWave2Tokens.every((token) => guardSource.includes(`'${token}'`))
-    && guardSource.includes('APPROVED_TECHNICAL_TOKENS.has(trimmed)')
-    && guardSource.includes('protectApprovedTechnicalTokens(original)')
+  guardSource.includes('APPROVED_TECHNICAL_TOKENS = GOVERNED_PRESENTATION_TOKENS')
+    && guardSource.includes('APPROVED_TECHNICAL_TOKEN_PATTERN = GOVERNED_PRESENTATION_TOKEN_PATTERN')
     && guardSource.includes("translated.replace(APPROVED_TECHNICAL_TOKEN_PATTERN, '')"),
-  'Wave 2 provenance and language-control tokens remain exact while surrounding prose stays fail-closed',
+  'Wave 2 provenance and language-control tokens share the governed-token boundary',
+);
+check(
+  'STRICT-AR-SINGLE-GOVERNED-TOKEN-PROTECTION-OWNER',
+  guardSource.includes('let translated = sanitizeArabicUiText(original);')
+    && !guardSource.includes('protectGovernedPresentationTokens')
+    && !guardSource.includes('protectApprovedTechnicalTokens')
+    && !guardSource.includes('§§${index}§§'),
+  'DOM guard delegates token protection exactly once to the lower sanitizer and defines no competing sentinel namespace',
+);
+check(
+  'STRICT-AR-GENERIC-CODE-TRANSLATOR-EXEMPTS-GOVERNED-TOKENS',
+  guardSource.includes('if (APPROVED_TECHNICAL_TOKENS.has(token)) return token;'),
+  'V2, EN, MISSING_REQUIRED and EXPLICIT remain exact after lower-sanitizer restoration',
 );
 check(
   'STRICT-AR-NO-GENERAL-ENGLISH-BYPASS',

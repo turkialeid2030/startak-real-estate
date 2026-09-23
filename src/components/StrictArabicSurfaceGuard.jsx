@@ -2,21 +2,18 @@ import React, { useEffect } from 'react';
 const { useLocale } = require('../i18n/LocaleContext.js');
 const {
   ARABIC_VALUE_LABELS,
+  GOVERNED_PRESENTATION_TOKENS,
+  GOVERNED_PRESENTATION_TOKEN_PATTERN,
   presentCode,
   sanitizeArabicUiText,
 } = require('../i18n/strict-arabic-presentation.js');
 
 // Narrow technical-reference boundary for customer-visible controls and Wave 2
-// governance provenance. These tokens are part of the governed production
-// contract and must remain byte-stable even in Arabic mode. The surrounding
-// prose is still translated/fail-closed; this is not a general English bypass.
-const APPROVED_TECHNICAL_TOKENS = Object.freeze(new Set([
-  'EN',
-  'V2',
-  'MISSING_REQUIRED',
-  'EXPLICIT',
-]));
-const APPROVED_TECHNICAL_TOKEN_PATTERN = /\b(?:MISSING_REQUIRED|EXPLICIT|V2|EN)\b/g;
+// governance provenance. The lower Arabic sanitizer is the single owner of
+// governed-token protection; this DOM guard must not wrap those tokens in a
+// second sentinel namespace before invoking it.
+const APPROVED_TECHNICAL_TOKENS = GOVERNED_PRESENTATION_TOKENS;
+const APPROVED_TECHNICAL_TOKEN_PATTERN = GOVERNED_PRESENTATION_TOKEN_PATTERN;
 
 const EXACT_TEXT = Object.freeze({
   'Decision Intelligence Workspace': 'مساحة ذكاء القرار',
@@ -82,23 +79,12 @@ const ALL_CAPS_CODE = /^[A-Z][A-Z0-9_:-]{1,}$/;
 
 function translateCodeTokens(text) {
   return text.replace(/\b[A-Z][A-Z0-9_]{1,}\b/g, (token) => {
+    // Governed production-contract tokens are provenance/status markers, not
+    // generic enums. The lower sanitizer has already restored them here.
+    if (APPROVED_TECHNICAL_TOKENS.has(token)) return token;
     if (ARABIC_VALUE_LABELS[token]) return ARABIC_VALUE_LABELS[token];
     return presentCode(token, 'ar-SA', 'حالة نظامية');
   });
-}
-
-function protectApprovedTechnicalTokens(value) {
-  const tokens = [];
-  const protectedText = String(value).replace(APPROVED_TECHNICAL_TOKEN_PATTERN, (token) => {
-    const index = tokens.push(token) - 1;
-    return `§§${index}§§`;
-  });
-  return {
-    protectedText,
-    restore(text) {
-      return String(text).replace(/§§(\d+)§§/g, (_, index) => tokens[Number(index)] || '');
-    },
-  };
 }
 
 function translateArabicSurfaceText(value) {
@@ -111,11 +97,14 @@ function translateArabicSurfaceText(value) {
   if (EXACT_TEXT[trimmed]) return original.replace(trimmed, EXACT_TEXT[trimmed]);
   if (ALL_CAPS_CODE.test(trimmed)) return original.replace(trimmed, presentCode(trimmed, 'ar-SA'));
 
-  const protectedTokens = protectApprovedTechnicalTokens(original);
-  let translated = sanitizeArabicUiText(protectedTokens.protectedText);
+  // sanitizeArabicUiText is the sole governed-token protector. It preserves V2,
+  // EN, MISSING_REQUIRED and EXPLICIT byte-for-byte while translating ordinary
+  // customer-facing terms. A second guard-level sentinel would be consumed by
+  // the lower sanitizer's own restore phase and is therefore intentionally
+  // forbidden here.
+  let translated = sanitizeArabicUiText(original);
   for (const [pattern, replacement] of INLINE_TERMS) translated = translated.replace(pattern, replacement);
   translated = translateCodeTokens(translated);
-  translated = protectedTokens.restore(translated);
 
   // Strict fail-closed customer surface: an unmapped English prose fragment is
   // never exposed in Arabic mode. Approved technical tokens above are excluded
