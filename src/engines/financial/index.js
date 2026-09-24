@@ -4,6 +4,8 @@
 // Precision C1 routes NPV and IRR through fixed-point money/rate arithmetic.
 const precision = require('./precision');
 const irrDiagnostics = require('./irr-diagnostics');
+const financialIntegrity = require('./financial-integrity');
+const formulaRegistry = require('./formula-registry');
 const { requireFiniteIntermediate, requireFiniteArray } = require('../../validation/numeric-safety');
 
 function computeNPV(rate, cashflows) {
@@ -66,4 +68,6 @@ module.exports = {
   ...irrDiagnostics,
   ...monthlyDebt,
   ...constructionDebt,
+  ...financialIntegrity,
+  ...formulaRegistry,
 };
