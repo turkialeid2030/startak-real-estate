@@ -6,6 +6,7 @@ const { calcLandDevelopment } = require('./valuation/land-development');
 const { applyFinancingRemediation } = require('./financing/remediation-wave-b');
 const { STUDY_TYPE, STUDY_TYPE_TO_LEGACY_MODE } = require('../contracts/study-type');
 const { validateEngineInputs } = require('../validation/numeric-safety');
+const { validateSupportedFinancialHorizons } = require('../validation/financial-horizon-support');
 
 /**
  * calculateInvestmentCase({ studyType, inputs, leverageEnabled, assumptionModelVersion })
@@ -19,6 +20,7 @@ function calculateInvestmentCase({ studyType, inputs, leverageEnabled, assumptio
   }
   const engineInputs = leverageEnabled === undefined ? { ...inputs } : { ...inputs, leverageEnabled };
   validateEngineInputs(engineInputs, { studyType });
+  validateSupportedFinancialHorizons(engineInputs, { studyType });
   const rawResult = studyType === STUDY_TYPE.EXISTING_BUILDING
     ? calcExistingBuilding(engineInputs, { assumptionModelVersion })
     : calcLandDevelopment(engineInputs);
