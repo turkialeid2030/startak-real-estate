@@ -1,18 +1,29 @@
 'use strict';
 
-// #397 — valuation cash-flow horizons are currently annual. Until the
-// canonical valuation engines implement date-aware/fractional-period cash
-// flows (XNPV/XIRR or equivalent), annual horizons must fail closed rather
-// than be silently floored/rounded by loop semantics.
+// #397 — fail closed only where the current valuation timeline is demonstrably
+// unable to represent the accepted input without losing economics.
 //
-// Fractional loanTenor remains supported because the production Wave-B debt
+// Existing Building holdPeriod is an annual terminal-value horizon. Fractional
+// values can skip the terminal-sale branch entirely and are therefore rejected.
+// Land operatingPeriod is represented only through annual operating cash-flow
+// buckets and is rejected when fractional until a dated/fractional operating
+// timeline is implemented.
+//
+// Land constructionPeriod is intentionally NOT rejected here. Wave-B
+// construction financing explicitly supports fractional years by normalizing
+// them to exact calendar months (for example 2.5 years -> 30 months), and the
+// canonical architecture suite relies on that behavior. Its mixed monthly-debt
+// / annual-project timing basis is governed separately as a methodology
+// transparency item rather than being silently disabled by this validator.
+//
+// Fractional loanTenor also remains supported because the production debt
 // engine normalizes tenor years to calendar months.
 const { ValidationError } = require('./numeric-safety');
 const { STUDY_TYPE } = require('../contracts/study-type');
 
 const ANNUAL_HORIZON_FIELDS = Object.freeze({
   [STUDY_TYPE.EXISTING_BUILDING]: Object.freeze(['holdPeriod']),
-  [STUDY_TYPE.LAND_DEVELOPMENT]: Object.freeze(['constructionPeriod', 'operatingPeriod']),
+  [STUDY_TYPE.LAND_DEVELOPMENT]: Object.freeze(['operatingPeriod']),
 });
 
 function rejectUnsupportedFractionalHorizon(field, value) {
