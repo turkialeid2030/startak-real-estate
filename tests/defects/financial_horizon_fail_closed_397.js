@@ -4,6 +4,7 @@ const assert = require('assert');
 const { calculateInvestmentCase, STUDY_TYPE } = require('../../src/engines');
 const { ValidationError } = require('../../src/validation/numeric-safety');
 const { normalizeTenorMonths } = require('../../src/engines/financial/monthly-debt');
+const { normalizeConstructionMonths } = require('../../src/engines/financial/construction-debt');
 const gold = require(require('../config/paths').getGoldBaselinePath());
 
 const building = gold['RE-GOLD-002_existing_building'].inputs;
@@ -26,15 +27,19 @@ expectValidation(
   STUDY_TYPE.EXISTING_BUILDING,
 );
 
-// #397: Land unlevered cash flows previously rounded these annual horizons,
-// while the debt layer could normalize construction time independently to
-// months. Reject the unsupported mixed timing basis instead of silently
-// coercing the user's economic horizon.
-expectValidation(
-  'constructionPeriod',
-  { ...land, constructionPeriod: 1.5 },
-  STUDY_TYPE.LAND_DEVELOPMENT,
-);
+// Land construction time is an intentional exception: Wave-B financing models
+// construction monthly, so a fractional construction horizon remains supported.
+assert.strictEqual(normalizeConstructionMonths(2.5), 30);
+const fractionalConstruction = calculateInvestmentCase({
+  studyType: STUDY_TYPE.LAND_DEVELOPMENT,
+  inputs: { ...land, constructionPeriod: 2.5, loanTenor: 7.5, leverageEnabled: true },
+  leverageEnabled: true,
+});
+assert.strictEqual(fractionalConstruction.constructionDebtSchedule.length, 30);
+assert.strictEqual(fractionalConstruction.tenorMonths, 90);
+
+// Land operating cash flows are annual-only today. Do not silently round an
+// unsupported fractional operating horizon.
 expectValidation(
   'operatingPeriod',
   { ...land, operatingPeriod: 10.5 },
