@@ -27,17 +27,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Capture target and release diagnostics
+      - name: Capture target, package and release diagnostics
         shell: bash
         run: |
           mkdir -p diagnostic-397
           set +e
           node tests/defects/financial_horizon_fail_closed_397.js > diagnostic-397/target.log 2>&1
           echo $? > diagnostic-397/target.exit
+          npm run build > diagnostic-397/build.log 2>&1
+          echo $? > diagnostic-397/build.exit
+          node tests/verify_package.js > diagnostic-397/package.log 2>&1
+          echo $? > diagnostic-397/package.exit
           npm run release:verify > diagnostic-397/release.log 2>&1
           echo $? > diagnostic-397/release.exit
           set -e
           cat diagnostic-397/target.log
+          cat diagnostic-397/package.log
           tail -n 250 diagnostic-397/release.log
 
       - name: Upload diagnostics
