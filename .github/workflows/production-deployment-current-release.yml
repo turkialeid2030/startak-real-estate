@@ -18,17 +18,17 @@ permissions:
   contents: read
 
 env:
-  QUALIFIED_CANDIDATE_SHA: bca14e1ace3be59a7e51f43132657c636639116d
-  QUALIFIED_ARTIFACT_SHA256: 5524256a7308c22739bf0fd5c706c07306aac1cb114dbc53d746132cd2f62c2b
   CF_PROJECT_NAME: startak-real-estate
   CF_PRODUCTION_HOST: startak-real-estate.pages.dev
+  CURRENT_PRODUCTION_TRACKER: '396'
 
 jobs:
   deploy:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'issue_comment' &&
-       github.event.issue.number == 351 &&
+       github.event.issue.number == 396 &&
+       github.event.comment.author_association == 'OWNER' &&
        github.event.comment.user.login == github.repository_owner &&
        startsWith(github.event.comment.body, '/startak deploy-production '))
     name: deploy-current-release-production
@@ -203,8 +203,7 @@ jobs:
         run: |
           echo 'Production deployment completed for exact trusted main.' >> "$GITHUB_STEP_SUMMARY"
           echo "- deployedMainSha: $EXPECTED_MAIN_SHA" >> "$GITHUB_STEP_SUMMARY"
-          echo "- qualifiedCandidateSha: $QUALIFIED_CANDIDATE_SHA" >> "$GITHUB_STEP_SUMMARY"
-          echo "- predecessorQualifiedArtifactSha256: $QUALIFIED_ARTIFACT_SHA256" >> "$GITHUB_STEP_SUMMARY"
+          echo "- productionTracker: #$CURRENT_PRODUCTION_TRACKER" >> "$GITHUB_STEP_SUMMARY"
           echo '- publicAIActivated: false' >> "$GITHUB_STEP_SUMMARY"
           echo '- transactionAuthority: false' >> "$GITHUB_STEP_SUMMARY"
           echo '- canonicalBaselineActivation: not granted by this workflow' >> "$GITHUB_STEP_SUMMARY"
