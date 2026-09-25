@@ -109,18 +109,21 @@ check('P2-DIRECT-CAP-REQUIRES-NOI-RECONCILIATION',
 
 const serviceChargeSource = baseIncomeAnalysis();
 serviceChargeSource.stabilizedIncome.effectiveGrossIncomeSar += 50000;
-serviceChargeSource.stabilizedIncome.stabilizedNoiSar += 50000;
+serviceChargeSource.stabilizedIncome.normalizedAnnualOpexSar += 50000;
+// A matched recovery and matched recoverable expense must not inflate NOI.
 const serviceChargeReconciled = reconcileIncomeAnalysisToCanonicalNoi(serviceChargeSource, {
   serviceChargeRecoveriesSar: 50000,
   opexAllocation: {
     recoverableOperatingExpensesSar: 50000,
-    nonRecoverableOperatingExpensesSar: 250000,
+    nonRecoverableOperatingExpensesSar: 300000,
     otherOperatingExpensesSar: 29200,
   },
 });
 check('P2-SERVICE-CHARGE-NET-ZERO-ECONOMICS',
-  serviceChargeReconciled.status === 'HOLD',
-  'source economics that add recovery without matched source OPEX fail reconciliation rather than inflate NOI');
+  serviceChargeReconciled.status === 'PASS'
+    && serviceChargeReconciled.canonicalNoi.netServiceChargeContributionSar === 0
+    && serviceChargeReconciled.canonicalNoi.noiSar === 800000,
+  `status=${serviceChargeReconciled.status}, NOI=${serviceChargeReconciled.canonicalNoi && serviceChargeReconciled.canonicalNoi.noiSar}`);
 
 const allPass = results.every(Boolean);
 console.log(`\nFINANCIAL_INTEGRITY_P2_NOI_RECONCILIATION=${allPass ? 'PASS' : 'FAIL'}`);
