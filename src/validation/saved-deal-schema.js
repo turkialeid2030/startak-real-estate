@@ -11,13 +11,18 @@
 // - Non-destructive: never mutates, repairs, or deletes anything. It only
 //   inspects and throws or returns.
 // - The legacy {id, name, mode, inputs, savedAt} core remains valid exactly
-//   as before. Optional assumptionModelVersion, valuationCase, zakatCase and
-//   standards-snapshot metadata are additive and versioned; absence remains
-//   valid for historical records and never triggers automatic migration.
+//   as before. Optional assumptionModelVersion, assumptionRegistry,
+//   valuationCase, zakatCase and standards-snapshot metadata are additive and
+//   versioned; absence remains valid for historical records and never triggers
+//   automatic migration.
 
 const { hydrateResidentialIncomeOperatingCaseSnapshot } = require('../residential-income-acquisition/operating-case-snapshot');
 const { validateValuationCaseExtension } = require('../valuation-intelligence/saved-deal-extension');
 const { ASSUMPTION_MODEL_VERSION } = require('../assumptions/assumption-model');
+const {
+  SAVED_DEAL_ASSUMPTION_REGISTRY_VERSION,
+  validatePersistedAssumptionRegistry,
+} = require('../assumptions/saved-deal-assumption-registry');
 const { validateUserEnteredZakatCase } = require('../zakat/user-entered-zakat');
 const { validateSavedDealStandardsMetadata, RESERVED_METADATA_KEYS } = require('../standards/saved-deal-standards-snapshot');
 
@@ -54,12 +59,16 @@ function validateSavedDealRecord(parsed) {
     throw new SavedDealValidationError('INVALID_INPUTS_SHAPE', `typeof=${Array.isArray(parsed.inputs) ? 'array' : typeof parsed.inputs}`);
   }
 
-  // Standards/provenance metadata is envelope metadata only. A standards
-  // snapshot key nested inside economic inputs is structurally invalid because
-  // it would blur the economic-input and professional-governance boundaries.
+  // Governance/provenance metadata is envelope metadata only. Nested copies
+  // inside economic inputs are structurally invalid because they would blur
+  // the economic-input and governance boundaries.
   const nestedStandardsKeys = RESERVED_METADATA_KEYS.filter((key) => Object.prototype.hasOwnProperty.call(parsed.inputs, key));
   if (nestedStandardsKeys.length) {
     throw new SavedDealValidationError('STANDARDS_METADATA_IN_ECONOMIC_INPUTS', nestedStandardsKeys.join(','));
+  }
+  if (Object.prototype.hasOwnProperty.call(parsed.inputs, 'assumptionRegistry')
+      || Object.prototype.hasOwnProperty.call(parsed.inputs, 'assumptionRegistryVersion')) {
+    throw new SavedDealValidationError('ASSUMPTION_REGISTRY_IN_ECONOMIC_INPUTS', 'assumptionRegistry');
   }
 
   // assumptionModelVersion is envelope metadata, never an economic input.
@@ -69,6 +78,25 @@ function validateSavedDealRecord(parsed) {
         || !Object.values(ASSUMPTION_MODEL_VERSION).includes(parsed.assumptionModelVersion)) {
       throw new SavedDealValidationError('INVALID_ASSUMPTION_MODEL_VERSION', `version=${JSON.stringify(parsed.assumptionModelVersion)}`);
     }
+  }
+
+  // Assumption Registry is persisted as governance metadata. Persistence
+  // validation checks deterministic shape/types/uniqueness only. Evidence
+  // freshness and support are evaluated later and may validly produce HOLD;
+  // stale historical records must remain loadable for audit and remediation.
+  if (Object.prototype.hasOwnProperty.call(parsed, 'assumptionRegistry')) {
+    try {
+      validatePersistedAssumptionRegistry(parsed.assumptionRegistry);
+    } catch (error) {
+      throw new SavedDealValidationError('INVALID_ASSUMPTION_REGISTRY', error.reasonCode || error.name || 'UNKNOWN');
+    }
+    if (Object.prototype.hasOwnProperty.call(parsed, 'assumptionRegistryVersion')) {
+      if (parsed.assumptionRegistryVersion !== SAVED_DEAL_ASSUMPTION_REGISTRY_VERSION) {
+        throw new SavedDealValidationError('INVALID_ASSUMPTION_REGISTRY_VERSION', String(parsed.assumptionRegistryVersion));
+      }
+    }
+  } else if (Object.prototype.hasOwnProperty.call(parsed, 'assumptionRegistryVersion')) {
+    throw new SavedDealValidationError('ASSUMPTION_REGISTRY_VERSION_WITHOUT_REGISTRY', String(parsed.assumptionRegistryVersion));
   }
 
   // id/name: structurally required for list rendering and update/delete
