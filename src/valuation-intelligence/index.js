@@ -13,6 +13,9 @@ module.exports = {
   ...require('./valuation-request'),
   ...require('./orchestrator'),
   ...require('./saved-deal-extension'),
+  ...require('./cap-rate-governance'),
+  ...require('./reconciled-direct-capitalization'),
+  ...require('./governed-dcf'),
   ...require('./adapters/industrial-logistics'),
   ...require('./adapters/existing-building-ui'),
 };
