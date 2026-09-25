@@ -61,6 +61,42 @@ function validateEvidenceDescriptor(field, descriptor) {
   }
 }
 
+function evidenceGate(evidence, blockers, warnings) {
+  if (evidence.some((item) => item.status === INPUT_STATUS.CONFLICT)) blockers.push('CAP_RATE_EVIDENCE_CONFLICT');
+  if (evidence.some((item) => [INPUT_STATUS.ASSUMED, INPUT_STATUS.UNVERIFIED].includes(item.status))) {
+    warnings.push('CAP_RATE_EVIDENCE_REQUIRES_REVIEW');
+  }
+}
+
+function governedStatus(blockers, warnings) {
+  return blockers.length
+    ? CAP_RATE_GOVERNANCE_STATUS.HOLD
+    : warnings.length
+      ? CAP_RATE_GOVERNANCE_STATUS.REVIEW_REQUIRED
+      : CAP_RATE_GOVERNANCE_STATUS.PASS;
+}
+
+function evaluateExitCapRateGovernance({ exitCapRate, exitEvidence } = {}) {
+  const blockers = [];
+  const warnings = [];
+  if (!validCapRate(exitCapRate)) blockers.push('EXIT_CAP_RATE_INVALID');
+
+  const exitResult = validateEvidenceDescriptor('exitCapRate', exitEvidence);
+  if (exitResult.blocker) blockers.push(exitResult.blocker);
+  const evidence = [exitResult.evidence].filter(Boolean);
+  evidenceGate(evidence, blockers, warnings);
+
+  return deepFreeze({
+    version: CAP_RATE_GOVERNANCE_VERSION,
+    status: governedStatus(blockers, warnings),
+    exitCapRate: validCapRate(exitCapRate) ? exitCapRate : null,
+    evidence,
+    blockers,
+    warnings,
+    semantics: 'Exit capitalization rate is a standalone governed terminal-value assumption and requires explicit provenance. It is never inferred from an entry cap rate.',
+  });
+}
+
 function evaluateEntryExitCapRateGovernance({
   entryCapRate,
   entryEvidence,
@@ -90,10 +126,7 @@ function evaluateEntryExitCapRateGovernance({
   }
 
   const evidence = [entryResult.evidence, exitResult.evidence].filter(Boolean);
-  if (evidence.some((item) => item.status === INPUT_STATUS.CONFLICT)) blockers.push('CAP_RATE_EVIDENCE_CONFLICT');
-  if (evidence.some((item) => [INPUT_STATUS.ASSUMED, INPUT_STATUS.UNVERIFIED].includes(item.status))) {
-    warnings.push('CAP_RATE_EVIDENCE_REQUIRES_REVIEW');
-  }
+  evidenceGate(evidence, blockers, warnings);
 
   let spreadBps = null;
   if (validCapRate(entryCapRate) && validCapRate(exitCapRate)) {
@@ -121,15 +154,9 @@ function evaluateEntryExitCapRateGovernance({
     }
   }
 
-  const status = blockers.length
-    ? CAP_RATE_GOVERNANCE_STATUS.HOLD
-    : warnings.length
-      ? CAP_RATE_GOVERNANCE_STATUS.REVIEW_REQUIRED
-      : CAP_RATE_GOVERNANCE_STATUS.PASS;
-
   return deepFreeze({
     version: CAP_RATE_GOVERNANCE_VERSION,
-    status,
+    status: governedStatus(blockers, warnings),
     entryCapRate: validCapRate(entryCapRate) ? entryCapRate : null,
     exitCapRate: validCapRate(exitCapRate) ? exitCapRate : null,
     spreadBps,
@@ -146,5 +173,6 @@ function evaluateEntryExitCapRateGovernance({
 module.exports = {
   CAP_RATE_GOVERNANCE_VERSION,
   CAP_RATE_GOVERNANCE_STATUS,
+  evaluateExitCapRateGovernance,
   evaluateEntryExitCapRateGovernance,
 };
