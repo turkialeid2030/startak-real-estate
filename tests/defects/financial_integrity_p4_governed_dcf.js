@@ -4,7 +4,7 @@ const assert = require('assert');
 const { calculateGovernedDcf, GOVERNED_DCF_STATUS } = require('../../src/valuation-intelligence/governed-dcf');
 const { EVIDENCE_GRADE, INPUT_STATUS } = require('../../src/valuation-intelligence/contracts');
 
-const observed = (sourceRef) => ({ grade: EVIDENCE_GRADE.B, status: INPUT_STATUS.OBSERVED, sourceType: 'MARKET_RESEARCH', sourceRef, observedAt: '2026-09-25' });
+const observed = (sourceRef) => ({ grade: EVIDENCE_GRADE.E_MARKET_OBSERVATION, status: INPUT_STATUS.OBSERVED, sourceType: 'MARKET_RESEARCH', sourceRef, observedAt: '2026-09-25' });
 const cashflows = [
   { date: '2026-09-25', amount: -10000000 },
   { date: '2027-09-25', amount: 900000 },
