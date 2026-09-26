@@ -7,6 +7,8 @@ on:
         description: 'Exact 40-character main commit SHA whose production control plane is being verified'
         required: true
         type: string
+  issue_comment:
+    types: [created]
 
 permissions:
   contents: read
@@ -15,8 +17,18 @@ concurrency:
   group: cloudflare-control-plane-verify
   cancel-in-progress: false
 
+env:
+  CURRENT_PRODUCTION_TRACKER: '396'
+
 jobs:
   verify-cloudflare:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.number == 396 &&
+       github.event.comment.author_association == 'OWNER' &&
+       github.event.comment.user.login == github.repository_owner &&
+       startsWith(github.event.comment.body, '/startak verify-control-plane '))
     name: cloudflare-control-plane
     runs-on: ubuntu-latest
     environment: production
@@ -33,14 +45,27 @@ jobs:
       - name: Bind verification to exact trusted main commit
         shell: bash
         env:
-          EXPECTED_COMMIT_SHA: ${{ inputs.expected_commit_sha }}
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_EXPECTED_SHA: ${{ inputs.expected_commit_sha }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          COMMENT_ACTOR: ${{ github.event.comment.user.login }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
         run: |
           set -euo pipefail
-          [[ "$GITHUB_REF" == 'refs/heads/main' ]] || { echo 'Production control-plane verification may only be dispatched from main.'; exit 1; }
-          [[ "$EXPECTED_COMMIT_SHA" =~ ^[0-9a-fA-F]{40}$ ]] || { echo 'expected_commit_sha must be an exact 40-character commit SHA.'; exit 1; }
-          [[ "${EXPECTED_COMMIT_SHA,,}" == "${GITHUB_SHA,,}" ]] || { echo "Expected SHA does not match trusted workflow SHA. expected=$EXPECTED_COMMIT_SHA workflow=$GITHUB_SHA"; exit 1; }
-          printf '%s' "${GITHUB_SHA,,}" > /tmp/verified-main-sha
-          echo "Control-plane verification bound to trusted main commit ${GITHUB_SHA:0:12}."
+          [[ "$GITHUB_REF" == 'refs/heads/main' ]] || { echo 'Production control-plane verification may only run from main.'; exit 1; }
+          if [[ "$EVENT_NAME" == 'workflow_dispatch' ]]; then
+            requested="$(printf '%s' "$DISPATCH_EXPECTED_SHA" | tr '[:upper:]' '[:lower:]')"
+          else
+            [[ "$COMMENT_ACTOR" == "$REPOSITORY_OWNER" ]] || { echo 'Owner-only control-plane verification command.'; exit 1; }
+            [[ "$COMMENT_BODY" =~ ^/startak[[:space:]]verify-control-plane[[:space:]]([a-fA-F0-9]{40})[[:space:]]*$ ]] || { echo 'Malformed control-plane verification command.'; exit 1; }
+            requested="$(printf '%s' "${BASH_REMATCH[1]}" | tr '[:upper:]' '[:lower:]')"
+          fi
+          [[ "$requested" =~ ^[a-f0-9]{40}$ ]] || { echo 'Expected commit SHA must be an exact 40-character SHA.'; exit 1; }
+          current_main="$(git ls-remote "https://github.com/${GITHUB_REPOSITORY}.git" refs/heads/main | awk '{print $1}' | tr '[:upper:]' '[:lower:]')"
+          [[ "$requested" == "$current_main" ]] || { echo "Trusted main changed: requested=$requested current=$current_main"; exit 1; }
+          [[ "$requested" == "${GITHUB_SHA,,}" ]] || { echo "Expected SHA does not match trusted workflow SHA. expected=$requested workflow=$GITHUB_SHA"; exit 1; }
+          printf '%s' "$requested" > /tmp/verified-main-sha
+          echo "Control-plane verification bound to trusted main commit ${requested:0:12}."
 
       - name: Preflight repository configuration
         shell: bash
@@ -209,7 +234,8 @@ jobs:
             echo "- Production host: \`${CF_PRODUCTION_HOST}\`"
             echo "- GitHub event: \`${GITHUB_EVENT_NAME}\`"
             echo "- Commit: \`${GITHUB_SHA}\`"
-            echo '- Verification is manual-dispatch only from trusted main and exact-SHA bound.'
+            echo "- Production tracker: \`#${CURRENT_PRODUCTION_TRACKER}\`"
+            echo '- Verification is exact-SHA bound and may be initiated only by trusted main workflow_dispatch or an owner-only command on the production tracker.'
             echo '- No pull_request, pull_request_target, or automatic push path receives the production Cloudflare credential.'
             echo '- Required Wave C bindings and governed AI activation configuration are verified fail-closed.'
             echo '- Cloudflare token formatting is normalized without disclosure before API access.'
