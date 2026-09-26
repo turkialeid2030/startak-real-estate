@@ -14,6 +14,7 @@ assert.strictEqual(qualified.metrics.totalValueSar,10000000);
 assert.strictEqual(qualified.metrics.totalNoiSar,860000);
 assert.strictEqual(qualified.metrics.totalDebtServiceSar,430000);
 assert.ok(Math.abs(qualified.metrics.portfolioDscr-2)<1e-12);
+assert.strictEqual(qualified.metrics.debtServiceCoverageScope,'PORTFOLIO_AGGREGATE');
 assert.strictEqual(qualified.transactionAuthorized,false);
 assert.strictEqual(qualified.humanDecisionRequired,true);
 
@@ -36,6 +37,16 @@ assert.ok(dscr.warnings.includes('PORTFOLIO_DSCR_BREACH'));
 assert.strictEqual(evaluatePortfolioDecision({assets:[],limits}).status,PORTFOLIO_STATUS.HOLD);
 assert.strictEqual(evaluatePortfolioDecision({assets,limits:{...limits,maxSingleAssetWeight:1.1}}).status,PORTFOLIO_STATUS.HOLD);
 assert.strictEqual(evaluatePortfolioDecision({assets:[assets[0],{...assets[1],id:'A'}],limits}).status,PORTFOLIO_STATUS.HOLD);
+assert.strictEqual(evaluatePortfolioDecision({assets:[assets[0],{...assets[1],id:' A '}],limits}).status,PORTFOLIO_STATUS.HOLD);
 assert.strictEqual(evaluatePortfolioDecision({assets:[{...assets[0],annualDebtServiceSar:-1}],limits}).status,PORTFOLIO_STATUS.HOLD);
+assert.strictEqual(evaluatePortfolioDecision({assets:[{...assets[0],city:'   '}],limits}).status,PORTFOLIO_STATUS.HOLD);
+assert.strictEqual(evaluatePortfolioDecision({assets:[{...assets[0],assetType:'   '}],limits}).status,PORTFOLIO_STATUS.HOLD);
+
+// Special property names must remain safe classifications rather than mutating object prototypes.
+const safeKeys=evaluatePortfolioDecision({assets:[{...assets[0],city:'__proto__',assetType:'constructor'}],limits});
+assert.ok([PORTFOLIO_STATUS.QUALIFIED,PORTFOLIO_STATUS.REVIEW_REQUIRED].includes(safeKeys.status));
+assert.strictEqual(safeKeys.metrics.cityWeights.__proto__,Object.prototype);
+assert.strictEqual(safeKeys.metrics.cityWeights['__proto__'],undefined);
+assert.strictEqual(safeKeys.metrics.assetTypeWeights.constructor,1);
 
 console.log('financial_integrity_p9_portfolio_cockpit: PASS');
