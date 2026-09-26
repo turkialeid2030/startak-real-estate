@@ -42,11 +42,11 @@ assert.strictEqual(evaluatePortfolioDecision({assets:[{...assets[0],annualDebtSe
 assert.strictEqual(evaluatePortfolioDecision({assets:[{...assets[0],city:'   '}],limits}).status,PORTFOLIO_STATUS.HOLD);
 assert.strictEqual(evaluatePortfolioDecision({assets:[{...assets[0],assetType:'   '}],limits}).status,PORTFOLIO_STATUS.HOLD);
 
-// Special property names must remain safe classifications rather than mutating object prototypes.
+// Special property names must remain ordinary own keys without mutating prototypes.
 const safeKeys=evaluatePortfolioDecision({assets:[{...assets[0],city:'__proto__',assetType:'constructor'}],limits});
 assert.ok([PORTFOLIO_STATUS.QUALIFIED,PORTFOLIO_STATUS.REVIEW_REQUIRED].includes(safeKeys.status));
-assert.strictEqual(safeKeys.metrics.cityWeights.__proto__,Object.prototype);
-assert.strictEqual(safeKeys.metrics.cityWeights['__proto__'],undefined);
+assert.strictEqual(Object.getPrototypeOf(safeKeys.metrics.cityWeights),Object.prototype);
+assert.strictEqual(safeKeys.metrics.cityWeights['__proto__'],1);
 assert.strictEqual(safeKeys.metrics.assetTypeWeights.constructor,1);
 
 console.log('financial_integrity_p9_portfolio_cockpit: PASS');
