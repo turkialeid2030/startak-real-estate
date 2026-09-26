@@ -17,6 +17,8 @@ module.exports = {
   ...require('./reconciled-direct-capitalization'),
   ...require('./governed-dcf'),
   ...require('./workflow-reconciliation'),
+  ...require('./golden-validation'),
+  ...require('./stress-testing'),
   ...require('./adapters/industrial-logistics'),
   ...require('./adapters/existing-building-ui'),
 };
