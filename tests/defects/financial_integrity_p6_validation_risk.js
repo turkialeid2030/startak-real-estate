@@ -20,6 +20,14 @@ assert.strictEqual(runDeterministicStressTest({base:{...base,annualDebtServiceSa
 assert.strictEqual(runDeterministicStressTest({base,scenarios:[{id:'BAD',rentShock:-1}],thresholds}).status,STRESS_STATUS.HOLD);
 assert.strictEqual(runDeterministicStressTest({base,scenarios:[{id:'BAD_CAP',capRateShock:-.09}],thresholds}).status,STRESS_STATUS.HOLD);
 assert.strictEqual(runDeterministicStressTest({base,scenarios:[{id:'X'}],thresholds:{...thresholds,maxValueDecline:1.1}}).status,STRESS_STATUS.HOLD);
+const inconsistent=runDeterministicStressTest({base:{...base,noiSar:700000},scenarios:[{id:'X'}],thresholds});
+assert.strictEqual(inconsistent.status,STRESS_STATUS.HOLD);assert.ok(inconsistent.blockers.includes('BASE_NOI_RECONCILIATION_FAILED'));
+const collapse=runDeterministicStressTest({base,scenarios:[{id:'COLLAPSE',rentShock:-.70,occupancyShock:-.50,opexShock:.50,capRateShock:.02,debtServiceShock:.20}],thresholds});
+assert.strictEqual(collapse.status,STRESS_STATUS.REVIEW_REQUIRED);
+assert.ok(collapse.results[0].stressedNoiSar<0);
+assert.strictEqual(collapse.results[0].stressedValueSar,0);
+assert.strictEqual(collapse.results[0].valueDecline,1);
+assert.ok(collapse.results[0].breached.includes('NON_POSITIVE_NOI'));
 
 const goldenPass=validateGoldenCorpus({cases:[
  {id:'CASE1',assetType:'INCOME',sourceRef:'independent-report-1',independentValueSar:10000000,modelValueSar:10200000},
