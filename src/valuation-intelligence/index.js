@@ -16,6 +16,7 @@ module.exports = {
   ...require('./cap-rate-governance'),
   ...require('./reconciled-direct-capitalization'),
   ...require('./governed-dcf'),
+  ...require('./workflow-reconciliation'),
   ...require('./adapters/industrial-logistics'),
   ...require('./adapters/existing-building-ui'),
 };
