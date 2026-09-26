@@ -44,7 +44,7 @@ jobs:
           [[ "$UPSTREAM_CONTROL_PLANE_BRANCH" == 'main' ]] || { echo "Upstream Control Plane run was not on main: ${UPSTREAM_CONTROL_PLANE_BRANCH:-<none>}"; exit 1; }
           [[ "$EXPECTED_DEPLOYED_SHA" =~ ^[a-f0-9]{40}$ ]] || { echo 'Upstream exact deployed SHA is missing or invalid.'; exit 1; }
           case "$UPSTREAM_CONTROL_PLANE_EVENT" in
-            push|workflow_dispatch) ;;
+            push|workflow_dispatch|issue_comment) ;;
             *) echo "Untrusted upstream Control Plane trigger event: ${UPSTREAM_CONTROL_PLANE_EVENT:-<none>}"; exit 1 ;;
           esac
           [[ "$UPSTREAM_CONTROL_PLANE_RUN_ID" =~ ^[0-9]+$ ]] || { echo 'Upstream Control Plane run ID is missing or invalid.'; exit 1; }
