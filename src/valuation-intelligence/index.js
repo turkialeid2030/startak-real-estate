@@ -22,6 +22,7 @@ module.exports = {
   ...require('./monte-carlo-risk'),
   ...require('./hbu-land-bid'),
   ...require('./portfolio-decision-cockpit'),
+  ...require('./dated-returns'),
   ...require('./adapters/industrial-logistics'),
   ...require('./adapters/existing-building-ui'),
 };
