@@ -1,6 +1,6 @@
 'use strict';
 
-const MONTE_CARLO_VERSION = 'MONTE_CARLO_RISK_V3';
+const MONTE_CARLO_VERSION = 'MONTE_CARLO_RISK_V4';
 const MONTE_CARLO_STATUS = Object.freeze({ QUALIFIED: 'QUALIFIED', REVIEW_REQUIRED: 'REVIEW_REQUIRED', HOLD: 'HOLD' });
 function freeze(v){if(v&&typeof v==='object'&&!Object.isFrozen(v)){Object.freeze(v);Object.values(v).forEach(freeze);}return v;}
 function finite(v){return typeof v==='number'&&Number.isFinite(v);}
@@ -11,9 +11,9 @@ function sample(rng,d){if(!d||!d.type)return NaN;if(d.type==='fixed')return d.va
 function validDistribution(d){if(!d||typeof d!=='object')return false;if(d.type==='fixed')return finite(d.value);if(d.type==='uniform')return finite(d.min)&&finite(d.max)&&d.max>=d.min;if(d.type==='normal')return finite(d.mean)&&finite(d.sd)&&d.sd>=0;if(d.type==='triangular')return finite(d.min)&&finite(d.mode)&&finite(d.max)&&d.min<=d.mode&&d.mode<=d.max&&d.max>d.min;return false;}
 function percentile(sorted,p){if(!sorted.length)return null;const i=(sorted.length-1)*p,lo=Math.floor(i),hi=Math.ceil(i);return lo===hi?sorted[lo]:sorted[lo]+(sorted[hi]-sorted[lo])*(i-lo);}
 function periodicNpv(rate,cashflows){if(!finite(rate)||rate<=-1||!Array.isArray(cashflows)||!cashflows.length)return NaN;return cashflows.reduce((sum,amount,t)=>sum+amount/Math.pow(1+rate,t),0);}
-function solvePeriodicIrr(cashflows,{rateTolerance=1e-12,npvTolerance=null,maxIterations=300}={}){
+function solvePeriodicIrr(cashflows,{rateTolerance=1e-14,npvTolerance=null,maxIterations=400}={}){
   if(!Array.isArray(cashflows)||cashflows.length<2||cashflows.some(v=>!finite(v))||!cashflows.some(v=>v<0)||!cashflows.some(v=>v>0))return null;
-  const scale=cashflows.reduce((s,v)=>s+Math.abs(v),0),effectiveNpvTolerance=npvTolerance===null?Math.max(.01,scale*1e-10):npvTolerance;
+  const scale=cashflows.reduce((s,v)=>s+Math.abs(v),0),effectiveNpvTolerance=npvTolerance===null?Math.max(1e-8,scale*1e-12):npvTolerance;
   if(!finite(rateTolerance)||rateTolerance<=0||!finite(effectiveNpvTolerance)||effectiveNpvTolerance<=0||!Number.isInteger(maxIterations)||maxIterations<1)return null;
   let lo=-0.9999,hi=1,flo=periodicNpv(lo,cashflows),fhi=periodicNpv(hi,cashflows);
   if(!finite(flo)||!finite(fhi))return null;
