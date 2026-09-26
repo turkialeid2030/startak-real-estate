@@ -19,6 +19,7 @@ module.exports = {
   ...require('./workflow-reconciliation'),
   ...require('./golden-validation'),
   ...require('./stress-testing'),
+  ...require('./monte-carlo-risk'),
   ...require('./adapters/industrial-logistics'),
   ...require('./adapters/existing-building-ui'),
 };
