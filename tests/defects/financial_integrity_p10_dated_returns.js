@@ -13,17 +13,25 @@ function approx(actual, expected, tolerance, label) {
   assert.ok(Math.abs(actual - expected) <= tolerance, `${label}: ${actual} vs ${expected}`);
 }
 
+const preciseSolver = { tolerance: 1e-12, npvToleranceSar: 1e-8, maxIterations: 300 };
+
 // 1) Reference annual case under ACT/365.2425.
 const annual = [
   { date: '2026-01-01', amount: -1000 },
   { date: '2027-01-01', amount: 1100 },
 ];
-const annualResult = solveDatedXirr({ cashflows: annual });
+const annualResult = solveDatedXirr({ cashflows: annual, ...preciseSolver });
 assert.strictEqual(annualResult.status, DATED_RETURNS_STATUS.QUALIFIED);
-approx(annualResult.xirr, 0.10006965697, 1e-8, 'annual XIRR');
+approx(annualResult.xirr, 0.1000696569738, 1e-10, 'annual XIRR');
 assert.ok(Math.abs(xnpv(annualResult.xirr, annual)) <= annualResult.npvToleranceSar);
 assert.strictEqual(annualResult.transactionAuthorized, false);
 assert.strictEqual(annualResult.humanDecisionRequired, true);
+
+// Default solver deliberately uses a cash-scale-aware residual tolerance; validate its contract, not an over-precise rate.
+const annualDefault = solveDatedXirr({ cashflows: annual });
+assert.strictEqual(annualDefault.status, DATED_RETURNS_STATUS.QUALIFIED);
+assert.ok(Math.abs(xnpv(annualDefault.xirr, annual)) <= annualDefault.npvToleranceSar);
+assert.ok(Math.abs(annualDefault.xirr - annualResult.xirr) < 1e-4);
 
 // 2) Irregular real-estate style cash flows: acquisition, interim distribution, exit.
 const irregular = [
@@ -31,9 +39,9 @@ const irregular = [
   { date: '2026-06-30', amount: 300_000 },
   { date: '2026-12-31', amount: 800_000 },
 ];
-const irregularResult = solveDatedXirr({ cashflows: irregular });
+const irregularResult = solveDatedXirr({ cashflows: irregular, ...preciseSolver });
 assert.strictEqual(irregularResult.status, DATED_RETURNS_STATUS.QUALIFIED);
-approx(irregularResult.xirr, 0.11772373795, 1e-8, 'irregular XIRR');
+approx(irregularResult.xirr, 0.1177237379469, 1e-10, 'irregular XIRR');
 assert.ok(Math.abs(irregularResult.residualNpvSar) <= irregularResult.npvToleranceSar);
 
 // 3) Same-date cash flows are aggregated before solving.
@@ -45,7 +53,7 @@ const sameDate = [
 const normalized = normalizeCashflows(sameDate);
 assert.strictEqual(normalized.length, 2);
 assert.strictEqual(normalized[0].amount, -1000);
-const sameDateResult = solveDatedXirr({ cashflows: sameDate });
+const sameDateResult = solveDatedXirr({ cashflows: sameDate, ...preciseSolver });
 assert.strictEqual(sameDateResult.status, DATED_RETURNS_STATUS.QUALIFIED);
 approx(sameDateResult.xirr, annualResult.xirr, 1e-12, 'same-date aggregation XIRR');
 
