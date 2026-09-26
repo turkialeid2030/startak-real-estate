@@ -21,6 +21,7 @@ module.exports = {
   ...require('./stress-testing'),
   ...require('./monte-carlo-risk'),
   ...require('./hbu-land-bid'),
+  ...require('./portfolio-decision-cockpit'),
   ...require('./adapters/industrial-logistics'),
   ...require('./adapters/existing-building-ui'),
 };
