@@ -1,0 +1,10 @@
+'use strict';
+const assert=require('assert');
+const {evaluatePortfolioDecision,PORTFOLIO_STATUS}=require('../../src/valuation-intelligence/portfolio-decision-cockpit');
+const assets=[{id:'A',valueSar:6000000,noiSar:500000,annualDebtServiceSar:250000,city:'Riyadh',assetType:'OFFICE'},{id:'B',valueSar:4000000,noiSar:360000,annualDebtServiceSar:180000,city:'Jeddah',assetType:'LOGISTICS'}];
+const qualified=evaluatePortfolioDecision({assets,limits:{maxSingleAssetWeight:.7,maxCityWeight:.7,maxAssetTypeWeight:.7,minPortfolioDscr:1.5}});
+assert.strictEqual(qualified.status,PORTFOLIO_STATUS.QUALIFIED);assert.strictEqual(qualified.metrics.totalValueSar,10000000);assert.strictEqual(qualified.transactionAuthorized,false);assert.strictEqual(qualified.humanDecisionRequired,true);
+const concentration=evaluatePortfolioDecision({assets,limits:{maxSingleAssetWeight:.5,maxCityWeight:.7,maxAssetTypeWeight:.7,minPortfolioDscr:1.5}});
+assert.strictEqual(concentration.status,PORTFOLIO_STATUS.REVIEW_REQUIRED);assert.ok(concentration.warnings.includes('SINGLE_ASSET_CONCENTRATION_BREACH'));
+assert.strictEqual(evaluatePortfolioDecision({assets:[],limits:{}}).status,PORTFOLIO_STATUS.HOLD);
+console.log('financial_integrity_p9_portfolio_cockpit: PASS');
