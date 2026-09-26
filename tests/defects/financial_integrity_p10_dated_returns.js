@@ -6,4 +6,10 @@ const r=solveDatedXirr({cashflows:cf});assert.strictEqual(r.status,DATED_RETURNS
 const irregular=solveDatedXirr({cashflows:[{date:'2026-01-01',amount:-1000000},{date:'2026-07-01',amount:300000},{date:'2027-10-01',amount:900000}]});assert.strictEqual(irregular.status,DATED_RETURNS_STATUS.QUALIFIED);assert.ok(Number.isFinite(irregular.xirr));
 assert.strictEqual(solveDatedXirr({cashflows:[{date:'2026-01-01',amount:1},{date:'2027-01-01',amount:2}]}).status,DATED_RETURNS_STATUS.HOLD);
 assert.strictEqual(solveDatedXirr({cashflows:[{date:'bad',amount:-1},{date:'2027-01-01',amount:2}]}).status,DATED_RETURNS_STATUS.HOLD);
+assert.strictEqual(solveDatedXirr({cashflows:[{date:'2026-02-30',amount:-100},{date:'2027-01-01',amount:120}]}).status,DATED_RETURNS_STATUS.HOLD);
+assert.ok(Number.isNaN(xnpv(.1,[{date:'2026-02-30',amount:-100},{date:'2027-01-01',amount:120}])));
+const ambiguous=solveDatedXirr({cashflows:[{date:'2026-01-01',amount:-100},{date:'2027-01-01',amount:230},{date:'2028-01-01',amount:-132}]});
+assert.strictEqual(ambiguous.status,DATED_RETURNS_STATUS.HOLD);assert.ok(ambiguous.blockers.includes('MULTIPLE_IRR_AMBIGUITY'));
+assert.strictEqual(solveDatedXirr({cashflows:cf,lowerBound:-1}).status,DATED_RETURNS_STATUS.HOLD);
+assert.strictEqual(solveDatedXirr({cashflows:cf,lowerBound:.2,upperBound:.1}).status,DATED_RETURNS_STATUS.HOLD);
 console.log('financial_integrity_p10_dated_returns: PASS');
