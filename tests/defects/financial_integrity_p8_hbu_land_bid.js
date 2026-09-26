@@ -8,9 +8,10 @@ const base={landAreaSqm:10000,requiredDeveloperMarginRate:.2,acquisitionCostsRat
 ]};
 const result=evaluateHighestAndBestUse(base);
 assert.ok([HBU_STATUS.QUALIFIED,HBU_STATUS.REVIEW_REQUIRED].includes(result.status));
-assert.strictEqual(result.selected.id,'MIXED_USE');
-assert.ok(result.selected.maximumLandBidSar>0);
-assert.ok(result.selected.bidPerSqmSar>0);
+// Residential residual = (100-65-20)/1.05 = 14.2857m; Mixed-use = (120-82-24)/1.05 = 13.3333m.
+assert.strictEqual(result.selected.id,'RESIDENTIAL');
+assert.ok(Math.abs(result.selected.maximumLandBidSar-14285714.285714285)<.01);
+assert.ok(Math.abs(result.selected.bidPerSqmSar-1428.5714285714284)<.001);
 assert.ok(Number.isFinite(result.selected.residualBeforeAcquisitionSar));
 assert.strictEqual(result.transactionAuthorized,false);
 assert.strictEqual(result.humanDecisionRequired,true);
