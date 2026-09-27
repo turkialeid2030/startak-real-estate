@@ -8,6 +8,49 @@ const { STUDY_TYPE, STUDY_TYPE_TO_LEGACY_MODE } = require('../contracts/study-ty
 const { validateEngineInputs } = require('../validation/numeric-safety');
 const { validateSupportedFinancialHorizons } = require('../validation/financial-horizon-support');
 
+const PRICE_BASIS_VERSION = 'PRICE_BASIS_V1';
+
+function buildPriceBasis(studyType) {
+  if (studyType === STUDY_TYPE.EXISTING_BUILDING) {
+    return Object.freeze({
+      version: PRICE_BASIS_VERSION,
+      metric: 'maxJustifiedPrice',
+      outputBasis: 'BASE_BUILDING_PURCHASE_PRICE_SAR',
+      thresholdBasis: Object.freeze(['MIN_NET_YIELD_THRESHOLD', 'MAX_PAYBACK_THRESHOLD']),
+      bindingRateFormula: 'MAX_MIN_YIELD_OR_RECIPROCAL_MAX_PAYBACK',
+      acquisitionLoadsIncludedInSolver: true,
+      fixedCostsIncludedInSolver: Object.freeze(['inspectionCost', 'valuationCost']),
+      solvesAllFinancialHardGates: false,
+      excludedDecisionGates: Object.freeze([
+        'IRR_MEETS_HURDLE',
+        'NPV_NON_NEGATIVE',
+        'INCOME_VALUE_COVERS_COST',
+        'DSCR_MINIMUM_WHEN_FINANCED',
+        'LEVERED_NPV_NON_NEGATIVE_WHEN_FINANCED',
+      ]),
+    });
+  }
+
+  return Object.freeze({
+    version: PRICE_BASIS_VERSION,
+    metric: 'maxJustifiedLandPricePerSqm',
+    outputBasis: 'RAW_LAND_MARKET_PRICE_PER_SQM_SAR',
+    thresholdBasis: Object.freeze(['MAX_PAYBACK_THRESHOLD']),
+    bindingRateFormula: 'RECIPROCAL_MAX_PAYBACK',
+    acquisitionLoadsIncludedInSolver: true,
+    fixedCostsIncludedInSolver: Object.freeze(['engineeringCost', 'landValuationCost']),
+    constructionCostIncludedInSolver: true,
+    solvesAllFinancialHardGates: false,
+    excludedDecisionGates: Object.freeze([
+      'IRR_MEETS_HURDLE',
+      'NPV_NON_NEGATIVE',
+      'COMPLETION_VALUE_COVERS_COST',
+      'DSCR_MINIMUM_WHEN_FINANCED',
+      'LEVERED_NPV_NON_NEGATIVE_WHEN_FINANCED',
+    ]),
+  });
+}
+
 /**
  * calculateInvestmentCase({ studyType, inputs, leverageEnabled, assumptionModelVersion })
  * Validates inputs, executes the study engine, then applies any versioned
@@ -24,12 +67,27 @@ function calculateInvestmentCase({ studyType, inputs, leverageEnabled, assumptio
   const rawResult = studyType === STUDY_TYPE.EXISTING_BUILDING
     ? calcExistingBuilding(engineInputs, { assumptionModelVersion })
     : calcLandDevelopment(engineInputs);
-  return applyFinancingRemediation({
+  const remediatedResult = applyFinancingRemediation({
     studyType,
     inputs: engineInputs,
     engineResult: rawResult,
     assumptionModelVersion,
   });
+
+  // #398: This metadata discloses the exact accounting/threshold basis of the
+  // legacy "max justified price" metrics. It is intentionally descriptive and
+  // does not recalculate the metric or imply that all financial hard gates have
+  // been solved at the returned price.
+  return {
+    ...remediatedResult,
+    priceBasis: buildPriceBasis(studyType),
+  };
 }
 
-module.exports = { calculateInvestmentCase, STUDY_TYPE, STUDY_TYPE_TO_LEGACY_MODE, VACANCY_MONTHS_MAP };
+module.exports = {
+  calculateInvestmentCase,
+  STUDY_TYPE,
+  STUDY_TYPE_TO_LEGACY_MODE,
+  VACANCY_MONTHS_MAP,
+  PRICE_BASIS_VERSION,
+};
