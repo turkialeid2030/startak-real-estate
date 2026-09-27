@@ -32,6 +32,7 @@ function close(actual, expected, tolerance, label) {
 //   final cash flow = 168,585,141.04071426
 const buildingBase = {
   ...gold['RE-GOLD-002_existing_building'].inputs,
+  floorAreaEach: 4_000,
   netLeasableOverride: 10_000,
   rentPerSqm: 1_000,
   occupancyRate: 1,
