@@ -1,10 +1,15 @@
 'use strict';
 
 const { EVIDENCE_GRADE, INPUT_STATUS, createEvidenceRecord } = require('./contracts');
-const { xnpv, xirr } = require('../engines/financial/financial-integrity');
+const {
+  DATED_RETURNS_STATUS,
+  normalizeCashflows,
+  xnpv,
+  solveDatedXirr,
+} = require('./dated-returns');
 const { CAP_RATE_GOVERNANCE_STATUS, evaluateEntryExitCapRateGovernance } = require('./cap-rate-governance');
 
-const GOVERNED_DCF_VERSION = 'GOVERNED_DCF_V1';
+const GOVERNED_DCF_VERSION = 'GOVERNED_DCF_V2';
 const GOVERNED_DCF_STATUS = Object.freeze({ QUALIFIED: 'QUALIFIED', REVIEW_REQUIRED: 'REVIEW_REQUIRED', HOLD: 'HOLD' });
 
 function deepFreeze(value) {
@@ -16,6 +21,13 @@ function deepFreeze(value) {
 
 function validRate(value) { return typeof value === 'number' && Number.isFinite(value) && value > -1; }
 function nonEmpty(value) { return typeof value === 'string' && value.trim() !== ''; }
+function strictIsoDate(value) {
+  if (typeof value !== 'string' || !/^(\d{4})-(\d{2})-(\d{2})$/.test(value)) return null;
+  const [year, month, day] = value.split('-').map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (parsed.getUTCFullYear() !== year || parsed.getUTCMonth() !== month - 1 || parsed.getUTCDate() !== day) return null;
+  return value;
+}
 
 function evidence(field, descriptor) {
   if (!descriptor || typeof descriptor !== 'object') return { record: null, blocker: `${field.toUpperCase()}_EVIDENCE_REQUIRED` };
@@ -49,8 +61,15 @@ function calculateGovernedDcf({
   if (!validRate(discountRate) || discountRate <= 0) blockers.push('DISCOUNT_RATE_INVALID');
   if (typeof terminalNoiSar !== 'number' || !Number.isFinite(terminalNoiSar) || terminalNoiSar <= 0) blockers.push('TERMINAL_NOI_INVALID');
   if (typeof terminalSellingCostsRate !== 'number' || !Number.isFinite(terminalSellingCostsRate) || terminalSellingCostsRate < 0 || terminalSellingCostsRate >= 1) blockers.push('TERMINAL_SELLING_COST_RATE_INVALID');
-  const terminal = new Date(terminalDate);
-  if (!Number.isFinite(terminal.getTime())) blockers.push('TERMINAL_DATE_INVALID');
+
+  const terminalDateIso = strictIsoDate(terminalDate);
+  if (!terminalDateIso) blockers.push('TERMINAL_DATE_INVALID');
+
+  const normalizedOperatingCashflows = Array.isArray(cashflows) ? normalizeCashflows(cashflows) : null;
+  if (Array.isArray(cashflows) && cashflows.length >= 2 && !normalizedOperatingCashflows) blockers.push('DATED_CASHFLOWS_INVALID');
+  if (terminalDateIso && normalizedOperatingCashflows && normalizedOperatingCashflows.some((row) => row.date > terminalDateIso)) {
+    blockers.push('TERMINAL_DATE_PRECEDES_OPERATING_CASHFLOW');
+  }
 
   const discountEvidence = evidence('discountRate', discountRateEvidence);
   if (discountEvidence.blocker) blockers.push(discountEvidence.blocker);
@@ -61,24 +80,25 @@ function calculateGovernedDcf({
   if (capRateGovernance.status === CAP_RATE_GOVERNANCE_STATUS.HOLD) blockers.push('EXIT_CAP_RATE_GOVERNANCE_REQUIRED', ...capRateGovernance.blockers);
   if (capRateGovernance.status === CAP_RATE_GOVERNANCE_STATUS.REVIEW_REQUIRED) warnings.push(...capRateGovernance.warnings);
 
-  if (blockers.length) return deepFreeze({ version: GOVERNED_DCF_VERSION, status: GOVERNED_DCF_STATUS.HOLD, valuationIndicationSar: null, terminalValueSar: null, netTerminalValueSar: null, xirr: null, capRateGovernance, blockers, warnings });
+  if (blockers.length) return deepFreeze({ version: GOVERNED_DCF_VERSION, status: GOVERNED_DCF_STATUS.HOLD, valuationIndicationSar: null, terminalValueSar: null, netTerminalValueSar: null, xirr: null, xirrDiagnostics: null, capRateGovernance, blockers, warnings });
 
   const terminalValueSar = terminalNoiSar / exitCapRate;
   const netTerminalValueSar = terminalValueSar * (1 - terminalSellingCostsRate);
-  const dated = cashflows.map((row) => ({ amount: row.amount, date: row.date }));
-  dated.push({ amount: netTerminalValueSar, date: terminal.toISOString() });
-
-  let valuationIndicationSar;
-  let returnRate;
-  try {
-    valuationIndicationSar = xnpv(discountRate, dated);
-    returnRate = xirr(dated);
-  } catch (error) {
-    return deepFreeze({ version: GOVERNED_DCF_VERSION, status: GOVERNED_DCF_STATUS.HOLD, valuationIndicationSar: null, terminalValueSar: null, netTerminalValueSar: null, xirr: null, capRateGovernance, blockers: [`DCF_CALCULATION_FAILED:${error.message}`], warnings });
+  const dated = [...normalizedOperatingCashflows, { amount: netTerminalValueSar, date: terminalDateIso }];
+  const normalizedDated = normalizeCashflows(dated);
+  if (!normalizedDated) {
+    return deepFreeze({ version: GOVERNED_DCF_VERSION, status: GOVERNED_DCF_STATUS.HOLD, valuationIndicationSar: null, terminalValueSar, netTerminalValueSar, xirr: null, xirrDiagnostics: null, capRateGovernance, blockers: ['DATED_CASHFLOWS_INVALID'], warnings });
   }
 
+  const valuationIndicationSar = xnpv(discountRate, normalizedDated);
   if (!Number.isFinite(valuationIndicationSar)) blockers.push('DCF_VALUE_NON_FINITE');
-  if (returnRate === null) warnings.push('XIRR_NOT_BRACKETED');
+
+  const xirrDiagnostics = solveDatedXirr({ cashflows: normalizedDated });
+  const returnRate = xirrDiagnostics.status === DATED_RETURNS_STATUS.QUALIFIED ? xirrDiagnostics.xirr : null;
+  if (xirrDiagnostics.status !== DATED_RETURNS_STATUS.QUALIFIED) {
+    for (const blocker of xirrDiagnostics.blockers || []) warnings.push(`XIRR_${blocker}`);
+  }
+
   const status = blockers.length ? GOVERNED_DCF_STATUS.HOLD : warnings.length ? GOVERNED_DCF_STATUS.REVIEW_REQUIRED : GOVERNED_DCF_STATUS.QUALIFIED;
   return deepFreeze({
     version: GOVERNED_DCF_VERSION,
@@ -91,10 +111,11 @@ function calculateGovernedDcf({
     discountRate,
     discountRateEvidence: discountEvidence.record,
     xirr: returnRate,
+    xirrDiagnostics,
     capRateGovernance,
     blockers,
     warnings,
-    semantics: 'DCF uses dated cash flows, an independently evidenced discount rate, and an independently evidenced exit capitalization rate. QUALIFIED is an engineering/evidence status, not a certified valuation or investment approval.',
+    semantics: 'DCF uses strict YYYY-MM-DD dated cash flows under ACT/365.2425, an independently evidenced discount rate, and an independently evidenced exit capitalization rate. XIRR is supplementary and fails closed on ambiguity without invalidating a finite DCF indication. QUALIFIED is an engineering/evidence status, not a certified valuation or investment approval.',
   });
 }
 
