@@ -158,9 +158,18 @@ function run() {
   assert.strictEqual(v2MissingState.results.financialModelStatus, 'INCOMPLETE_INPUTS');
   assert.strictEqual(v2MissingState.sensitivityReady, false);
 
+  const invalidExit = applyExitCapInputText({ inputs: fresh.inputs, rawText: 'not-a-number' });
+  assert.strictEqual(invalidExit.inputValid, false);
+  assert.strictEqual(invalidExit.errorCode, 'OPTIONAL_PERCENT_INVALID');
+  assert.ok(Number.isNaN(invalidExit.inputs.exitCapRate));
   assert.throws(
-    () => applyExitCapInputText({ inputs: fresh.inputs, rawText: 'not-a-number' }),
-    (error) => error && error.code === 'OPTIONAL_PERCENT_INVALID',
+    () => calculateUiInvestmentState({
+      mode: UI_MODE.BUILDING,
+      inputs: invalidExit.inputs,
+      assumptionModelVersion: fresh.assumptionModelVersion,
+    }),
+    (error) => error && error.name === 'ValidationError' && error.field === 'exitCapRate',
+    'invalid exit-cap drafts must propagate to canonical parent validation rather than preserve stale prior economics',
   );
 
   const landFresh = createUiWorkspace({
