@@ -36,11 +36,26 @@ function assertZeroDebtNeutrality({ studyType, inputs, baseDiscountRate, label }
   assert.equal(result.financingEngineVersion, undefined, `${label}: Wave-B financing overlay must not be applied to zero requested debt`);
 }
 
+function assertMissingLeverageStillFailsClosed({ studyType, inputs, label }) {
+  const incomplete = { ...inputs };
+  delete incomplete.leverageEnabled;
+  assert.throws(
+    () => calculateInvestmentCase({ studyType, inputs: incomplete }),
+    (error) => error && error.name === 'ValidationError' && error.field === 'leverageEnabled',
+    `${label}: P13 must not manufacture leverageEnabled=false when the required input is missing`,
+  );
+}
+
 const buildingInputs = gold['RE-GOLD-002_existing_building'].inputs;
 assertZeroDebtNeutrality({
   studyType: STUDY_TYPE.EXISTING_BUILDING,
   inputs: buildingInputs,
   baseDiscountRate: buildingInputs.discountRate,
+  label: 'existing building',
+});
+assertMissingLeverageStillFailsClosed({
+  studyType: STUDY_TYPE.EXISTING_BUILDING,
+  inputs: buildingInputs,
   label: 'existing building',
 });
 
@@ -49,6 +64,11 @@ assertZeroDebtNeutrality({
   studyType: STUDY_TYPE.LAND_DEVELOPMENT,
   inputs: landInputs,
   baseDiscountRate: landInputs.hurdleRate,
+  label: 'land development',
+});
+assertMissingLeverageStillFailsClosed({
+  studyType: STUDY_TYPE.LAND_DEVELOPMENT,
+  inputs: landInputs,
   label: 'land development',
 });
 
