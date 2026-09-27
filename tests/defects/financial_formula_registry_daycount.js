@@ -12,8 +12,8 @@ const {
   DATED_RETURNS_STATUS,
 } = require('../../src/valuation-intelligence/dated-returns');
 
-assert.strictEqual(FORMULA_REGISTRY_VERSION, 'REAL_ESTATE_FORMULA_REGISTRY_1.1');
-assert.strictEqual(DATED_RETURNS_VERSION, 'DATED_RETURNS_V4');
+assert.strictEqual(FORMULA_REGISTRY_VERSION, 'REAL_ESTATE_FORMULA_REGISTRY_1.2');
+assert.strictEqual(DATED_RETURNS_VERSION, 'DATED_RETURNS_V5');
 
 const xnpvFormula = getFormula('XNPV');
 assert.ok(xnpvFormula, 'XNPV formula must exist');
@@ -27,9 +27,8 @@ assert.ok(xirrFormula, 'XIRR formula must exist');
 assert.strictEqual(xirrFormula.dayCount, 'ACT/365.2425');
 assert.strictEqual(xirrFormula.dateFormat, 'YYYY-MM-DD');
 assert.ok(xirrFormula.expression.includes('ACT/365.2425'), 'XIRR registry expression must identify the engine day-count basis');
+assert.ok(xirrFormula.note.includes('rate-bracket convergence'), 'XIRR registry must disclose convergence qualification');
 
-// Numeric guard: a one-year-like interval spanning the 2028 leap year must use ACT/365.2425,
-// not a hard-coded 365 denominator.
 const flows = [
   { date: '2028-01-01', amount: -1000 },
   { date: '2029-01-01', amount: 1100 },
@@ -46,5 +45,17 @@ const xirrResult = solveDatedXirr({ cashflows: flows, npvToleranceSar: 1e-8, tol
 assert.strictEqual(xirrResult.status, DATED_RETURNS_STATUS.QUALIFIED);
 assert.strictEqual(xirrResult.dayCount, 'ACT/365.2425');
 assert.ok(Number.isFinite(xirrResult.xirr));
+assert.ok(Math.abs(xirrResult.residualNpvSar) <= xirrResult.npvToleranceSar);
+
+// Default solver must now converge the rate itself, not stop merely because a loose residual threshold was reached.
+const annual = [
+  { date: '2026-01-01', amount: -100 },
+  { date: '2027-01-01', amount: 110 },
+];
+const exactAnnualXirr = Math.pow(1.10, 365.2425 / 365) - 1;
+const annualDefault = solveDatedXirr({ cashflows: annual });
+assert.strictEqual(annualDefault.status, DATED_RETURNS_STATUS.QUALIFIED);
+assert.ok(Math.abs(annualDefault.xirr - exactAnnualXirr) <= 1e-9, `default XIRR rate error too large: ${annualDefault.xirr} vs ${exactAnnualXirr}`);
+assert.ok(Math.abs(annualDefault.residualNpvSar) <= annualDefault.npvToleranceSar);
 
 console.log('financial_formula_registry_daycount: PASS');
