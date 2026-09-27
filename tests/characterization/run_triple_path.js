@@ -1,13 +1,14 @@
 'use strict';
 
-// Triple-path contract after Financial Remediation Wave B2:
-// frozen legacy remains historical evidence, direct Wave-A valuation engines
-// remain the raw layer, and the canonical production entrypoint intentionally
-// overlays versioned monthly financing for leveraged cases in both study types.
+// Triple-path contract after Financial Remediation Wave B2 and price-basis
+// disclosure #398: frozen legacy remains historical evidence, direct Wave-A
+// valuation engines remain the raw numerical layer, and the canonical production
+// entrypoint intentionally overlays versioned financing (when leveraged) plus
+// non-numerical price-basis metadata for both study types.
 const fs = require('fs');
 const path = require('path');
 const { loadCurrentEngines } = require('../load_engines');
-const { calculateInvestmentCase, STUDY_TYPE } = require('../../src/engines');
+const { calculateInvestmentCase, STUDY_TYPE, PRICE_BASIS_VERSION } = require('../../src/engines');
 const { calcExistingBuilding } = require('../../src/engines/valuation/existing-building');
 const { calcLandDevelopment } = require('../../src/engines/valuation/land-development');
 
@@ -23,8 +24,26 @@ const invariantFields = [
   'terminalSaleValue', 'terminalExitValue', 'totalPurchaseCost', 'totalProjectCost',
 ];
 
+function withoutCanonicalMetadata(result) {
+  const copy = { ...result };
+  delete copy.priceBasis;
+  return copy;
+}
+
+function validPriceBasis(result, studyType) {
+  if (!result || !result.priceBasis || result.priceBasis.version !== PRICE_BASIS_VERSION) return false;
+  if (result.priceBasis.solvesAllFinancialHardGates !== false) return false;
+  if (studyType === 'building') {
+    return result.priceBasis.metric === 'maxJustifiedPrice'
+      && JSON.stringify(result.priceBasis.thresholdBasis) === JSON.stringify(['MIN_NET_YIELD_THRESHOLD', 'MAX_PAYBACK_THRESHOLD']);
+  }
+  return result.priceBasis.metric === 'maxJustifiedLandPricePerSqm'
+    && JSON.stringify(result.priceBasis.thresholdBasis) === JSON.stringify(['MAX_PAYBACK_THRESHOLD']);
+}
+
 let unexpectedMismatches = 0;
 let intentionalFinancingOverlays = 0;
+let intentionalPriceBasisOverlays = 0;
 let legacyVsV2DifferentFixtures = 0;
 
 for (const fid of fixtureFiles) {
@@ -36,6 +55,13 @@ for (const fid of fixtureFiles) {
     inputs: fixture.input_set,
     leverageEnabled: fixture.input_set.leverageEnabled,
   });
+
+  if (validPriceBasis(productionV2, fixture.study_type)) {
+    intentionalPriceBasisOverlays += 1;
+  } else {
+    unexpectedMismatches += 1;
+    console.log(`${fid}: price_basis_metadata=INVALID`);
+  }
 
   const isFinancingOverlayCase = fixture.input_set.leverageEnabled === true;
   if (isFinancingOverlayCase) {
@@ -52,12 +78,12 @@ for (const fid of fixtureFiles) {
         console.log(`${fid}: unexpected non-financing divergence field=${field}`);
       }
     }
-    console.log(`${fid}: production financing overlay=EXPECTED version=${productionV2.financingEngineVersion} constraint=${productionV2.loanSizingConstraint}`);
-  } else if (JSON.stringify(directV2) !== JSON.stringify(productionV2)) {
+    console.log(`${fid}: production financing overlay=EXPECTED version=${productionV2.financingEngineVersion} constraint=${productionV2.loanSizingConstraint}; price_basis=EXPECTED`);
+  } else if (JSON.stringify(directV2) !== JSON.stringify(withoutCanonicalMetadata(productionV2))) {
     unexpectedMismatches += 1;
     console.log(`${fid}: production_vs_direct=UNEXPECTED_DIFF`);
   } else {
-    console.log(`${fid}: production_vs_direct=MATCH`);
+    console.log(`${fid}: production_vs_direct=MATCH_AFTER_CANONICAL_METADATA; price_basis=EXPECTED`);
   }
 
   if (JSON.stringify(legacyResult) !== JSON.stringify(directV2)) legacyVsV2DifferentFixtures += 1;
@@ -69,5 +95,13 @@ for (const fid of fixtureFiles) {
 
 console.log(`\nTRIPLE_PATH_UNEXPECTED_MISMATCHES=${unexpectedMismatches}`);
 console.log(`INTENTIONAL_FINANCING_OVERLAYS=${intentionalFinancingOverlays}`);
+console.log(`INTENTIONAL_PRICE_BASIS_OVERLAYS=${intentionalPriceBasisOverlays}`);
 console.log(`LEGACY_VS_V2_DIFFERENT_FIXTURES=${legacyVsV2DifferentFixtures}`);
-process.exit(unexpectedMismatches === 0 && intentionalFinancingOverlays >= 2 && legacyVsV2DifferentFixtures > 0 ? 0 : 1);
+process.exit(
+  unexpectedMismatches === 0
+  && intentionalFinancingOverlays >= 2
+  && intentionalPriceBasisOverlays === fixtureFiles.length
+  && legacyVsV2DifferentFixtures > 0
+    ? 0
+    : 1,
+);
