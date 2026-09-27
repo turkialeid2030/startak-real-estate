@@ -13,6 +13,9 @@ const { STUDY_TYPE } = require('../../contracts/study-type');
 
 const BUILDING_FINANCING_ENGINE_VERSION = 'MONTHLY_DSCR_WAVE_B_1.0';
 const LAND_FINANCING_ENGINE_VERSION = 'CONSTRUCTION_MONTHLY_DSCR_WAVE_B_2.0';
+const CAPITALIZED_INTEREST_TREATMENT = Object.freeze({
+  EXCLUDED_FROM_PRINCIPAL_LTC_CAP: 'EXCLUDED_FROM_PRINCIPAL_LTC_CAP',
+});
 
 function getRemainingBalanceAtYear(plan, year) {
   if (!plan || !Array.isArray(plan.annualSchedule) || year <= 0) return 0;
@@ -209,6 +212,9 @@ function applyLandDevelopmentFinancing(inputs, baseResult) {
   const actualDebtToBasisRatio = financingRatioDenominatorSar > 0
     ? facility.principalDebtDraws / financingRatioDenominatorSar
     : 0;
+  const effectiveCompletionDebtToCost = financingRatioDenominatorSar > 0
+    ? facility.completionBalance / financingRatioDenominatorSar
+    : 0;
 
   return {
     ...baseResult,
@@ -223,6 +229,17 @@ function applyLandDevelopmentFinancing(inputs, baseResult) {
     loanSizingConstraint: sizing.bindingConstraint,
     ltcPrincipalLimit: baseResult.totalProjectCost * inputs.ltv,
     constructionDebtFraction: debtFraction,
+
+    // P20 / #399: make the construction-financing convention explicit. The
+    // user-entered LTC limits PRINCIPAL draws against project cost. Construction
+    // interest is capitalized on top of those draws, so completion debt may be
+    // higher than principal LTC. This is a methodology disclosure, not a lender
+    // term sheet and not an all-in LTC covenant.
+    principalLtc: actualDebtToBasisRatio,
+    effectiveCompletionDebtToCost,
+    capitalizedInterestTreatment: CAPITALIZED_INTEREST_TREATMENT.EXCLUDED_FROM_PRINCIPAL_LTC_CAP,
+    allInCompletionDebtExceedsPrincipalLtcCap: facility.completionBalance > (financingRatioDenominatorSar * inputs.ltv),
+
     loanAmount: facility.principalDebtDraws,
     equityRequired,
     initialEquityRequired: initialLandEquity,
@@ -267,6 +284,7 @@ function applyFinancingRemediation({ studyType, inputs, engineResult }) {
 module.exports = {
   BUILDING_FINANCING_ENGINE_VERSION,
   LAND_FINANCING_ENGINE_VERSION,
+  CAPITALIZED_INTEREST_TREATMENT,
   getRemainingBalanceAtYear,
   buildAnnualNoiForDebtSizing,
   applyExistingBuildingFinancing,
