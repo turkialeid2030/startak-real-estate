@@ -8,6 +8,7 @@ const { createContext, useContext, useState, useEffect, useCallback } = React;
 const arSA = require('./locales/ar-SA.js');
 const en = require('./locales/en.js');
 const { normalizeLocale, sanitizeArabicUiText } = require('./strict-arabic-presentation.js');
+const { getDecisionMetricLabelOverride } = require('./decision-metric-semantics.js');
 
 const LOCALES = { 'ar-SA': { dir: 'rtl', dict: arSA }, en: { dir: 'ltr', dict: en } };
 const LOCALE_STORAGE_KEY = 'startak.presentation.locale';
@@ -79,6 +80,11 @@ function LocaleProvider({ children, defaultLocale = 'ar-SA' }) {
   }, [locale, dir]);
 
   function t(path, params) {
+    const semanticOverride = getDecisionMetricLabelOverride(locale, path);
+    if (semanticOverride !== null) {
+      return locale === 'ar-SA' ? sanitizeArabicUiText(semanticOverride) : semanticOverride;
+    }
+
     const parts = path.split('.');
     let cur = dict;
     for (const p of parts) {
