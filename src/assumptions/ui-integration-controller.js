@@ -120,15 +120,48 @@ function calculateUiInvestmentState({ mode, inputs, assumptionModelVersion }) {
   });
 }
 
+function buildInvalidOptionalPercentDraft(inputs, key, rawText, error) {
+  const text = String(rawText ?? '').trim();
+  const numericPercent = Number(text);
+  const invalidValue = text !== '' && Number.isFinite(numericPercent)
+    ? numericPercent / 100
+    : NaN;
+  const nextInputs = { ...inputs, [key]: invalidValue };
+  return Object.freeze({
+    inputs: nextInputs,
+    parsed: Object.freeze({ present: true, value: invalidValue, valid: false }),
+    displayValue: text,
+    inputValid: false,
+    errorCode: error && error.code ? error.code : 'OPTIONAL_PERCENT_INVALID',
+    transactionAuthorized: false,
+  });
+}
+
 function applyExitCapInputText({ inputs, rawText, min = 0, max = 1 }) {
   assertPlainObject(inputs, 'inputs');
-  const parsed = parseOptionalPercentInput(rawText, { min, max });
+  let parsed;
+  try {
+    parsed = parseOptionalPercentInput(rawText, { min, max });
+  } catch (error) {
+    // P15 / F-003: fail closed across the parent calculation state. Previously
+    // an invalid draft (for example 0% after a valid 8% exit cap) only raised a
+    // local field error and left the prior valid exitCapRate in `inputs`, so the
+    // rest of the UI could still present/save/export stale results as though
+    // they represented the current draft. Materialize the invalid draft into
+    // the canonical parent inputs instead. The financial validator then rejects
+    // the current draft, the existing top-level validation disclosure marks the
+    // displayed calculations as last-known-valid/stale, and persistence paths
+    // using the canonical validator cannot accept the stale result as current.
+    return buildInvalidOptionalPercentDraft(inputs, 'exitCapRate', rawText, error);
+  }
   const nextInputs = applyOptionalPercentToInputs(inputs, 'exitCapRate', parsed);
   return Object.freeze({
     inputs: nextInputs,
     parsed,
     displayValue: formatOptionalPercentInput(nextInputs.exitCapRate),
     exitCapPresent: parsed.present,
+    inputValid: true,
+    errorCode: null,
     transactionAuthorized: false,
   });
 }
