@@ -87,18 +87,27 @@ function calculateInvestmentCase({ studyType, inputs, leverageEnabled, assumptio
     throw new Error(`calculateInvestmentCase: unknown studyType "${studyType}" -- must be one of ${Object.values(STUDY_TYPE).join(', ')}`);
   }
 
-  const requestedLeverageEnabled = leverageEnabled === undefined
-    ? inputs.leverageEnabled === true
-    : leverageEnabled === true;
-  const zeroDebtRequest = requestedLeverageEnabled && Number(inputs.ltv) === 0;
+  const leverageOverrideProvided = leverageEnabled !== undefined;
+  const requestedLeverageEnabled = leverageOverrideProvided
+    ? leverageEnabled === true
+    : inputs.leverageEnabled;
+  const zeroDebtRequest = requestedLeverageEnabled === true && Number(inputs.ltv) === 0;
 
-  // A zero debt ratio is not effective leverage. Feed the valuation layer an
-  // unlevered decision contract so it does not add DSCR/levered-NPV gates. The
-  // zero-valued debt fields are normalized below for transparent reporting.
-  const engineInputs = {
-    ...inputs,
-    leverageEnabled: zeroDebtRequest ? false : requestedLeverageEnabled,
-  };
+  // Preserve the existing fail-closed contract for missing required inputs.
+  // Only replace leverageEnabled when an explicit zero-debt request is present
+  // (or when the caller explicitly supplied the leverage override). A missing
+  // leverageEnabled field therefore remains missing and validation still rejects it.
+  let engineInputs;
+  if (leverageOverrideProvided) {
+    engineInputs = {
+      ...inputs,
+      leverageEnabled: zeroDebtRequest ? false : requestedLeverageEnabled,
+    };
+  } else if (zeroDebtRequest) {
+    engineInputs = { ...inputs, leverageEnabled: false };
+  } else {
+    engineInputs = { ...inputs };
+  }
 
   validateEngineInputs(engineInputs, { studyType });
   validateSupportedFinancialHorizons(engineInputs, { studyType });
