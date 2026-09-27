@@ -15,6 +15,12 @@ const MONEY_SCALE = 100n;
 const RATE_DIGITS = 12;
 const RATE_SCALE = 1000000000000n;
 const IRR_NPV_DIGITS = 10;
+const DEFAULT_IRR_LO = -0.99;
+const DEFAULT_IRR_HI = 10;
+// P19: automatic positive-bracket expansion is deliberately bounded. A rate of
+// 1,000,000 means 100,000,000%; anything still outside that ceiling remains a
+// governed OUT_OF_SOLVER_RANGE state rather than an unbounded search.
+const MAX_AUTO_IRR_HI = 1_000_000;
 
 function pow10(n) {
   return 10n ** BigInt(n);
@@ -154,6 +160,18 @@ function signBigInt(value) {
   return 0;
 }
 
+function countCashflowSignChanges(cashflows) {
+  let previous = 0;
+  let changes = 0;
+  for (const value of cashflows) {
+    if (!Number.isFinite(value) || value === 0) continue;
+    const sign = value > 0 ? 1 : -1;
+    if (previous !== 0 && sign !== previous) changes += 1;
+    previous = sign;
+  }
+  return changes;
+}
+
 function preciseIRR(cashflows, options = {}) {
   if (!Array.isArray(cashflows) || cashflows.length < 2) return NaN;
   if (cashflows.some((cf) => !Number.isFinite(cf))) return NaN;
@@ -161,12 +179,30 @@ function preciseIRR(cashflows, options = {}) {
   const hasNegative = cashflows.some((cf) => cf < 0);
   if (!hasPositive || !hasNegative) return NaN;
 
-  let lo = options.lo == null ? -0.99 : options.lo;
-  let hi = options.hi == null ? 10 : options.hi;
+  let lo = options.lo == null ? DEFAULT_IRR_LO : options.lo;
+  let hi = options.hi == null ? DEFAULT_IRR_HI : options.hi;
   let nLo = npvScaled(lo, cashflows, IRR_NPV_DIGITS);
   let nHi = npvScaled(hi, cashflows, IRR_NPV_DIGITS);
   if (nLo === 0n) return lo;
   if (nHi === 0n) return hi;
+
+  // P19 / #400: for a conventional one-sign-change stream, the economically
+  // relevant IRR is unique. If the default +1000% bracket is too small, expand
+  // only the positive endpoint until a sign bracket appears or the governed
+  // ceiling is reached. Explicit caller-supplied `hi` remains authoritative and
+  // is never silently overridden; non-conventional cash flows preserve the
+  // prior bounded behavior because multiple roots require separate diagnostics.
+  const canAutoExpand = options.hi == null
+    && countCashflowSignChanges(cashflows) === 1
+    && hi > 0;
+  while (signBigInt(nLo) === signBigInt(nHi) && canAutoExpand && hi < MAX_AUTO_IRR_HI) {
+    const nextHi = Math.min(MAX_AUTO_IRR_HI, hi * 2);
+    if (!(nextHi > hi)) break;
+    hi = nextHi;
+    nHi = npvScaled(hi, cashflows, IRR_NPV_DIGITS);
+    if (nHi === 0n) return hi;
+  }
+
   if (signBigInt(nLo) === signBigInt(nHi)) return NaN;
 
   for (let i = 0; i < 220; i += 1) {
@@ -224,6 +260,9 @@ module.exports = {
   RATE_DIGITS,
   RATE_SCALE,
   IRR_NPV_DIGITS,
+  DEFAULT_IRR_LO,
+  DEFAULT_IRR_HI,
+  MAX_AUTO_IRR_HI,
   decimalToScaled,
   roundDiv,
   toMoney,
