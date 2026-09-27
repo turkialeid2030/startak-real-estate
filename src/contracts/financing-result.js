@@ -16,8 +16,19 @@ const FINANCING_RESULT_FIELDS = Object.freeze({
   financingModelType: { present: 'BOTH_WHEN_LEVERED', type: 'string' },
   financingModelBoundary: { present: 'BOTH_WHEN_LEVERED', type: 'string' },
   exactContractModel: { present: 'BOTH_WHEN_LEVERED', type: 'boolean' },
-  loanSizingConstraint: { present: 'BOTH_WHEN_LEVERED', type: 'LTV | LTC | DSCR' },
-  ltvLoanLimit: { present: 'EXISTING_BUILDING_ONLY_WHEN_LEVERED', type: 'number' },
+
+  // P16 / F-002: ratio semantics must identify the actual denominator used by
+  // the debt-sizing engine rather than rely on the legacy input name `ltv`.
+  financingRatioBasis: { present: 'BOTH_WHEN_LEVERED', type: 'TOTAL_ACQUISITION_COST | TOTAL_PROJECT_COST' },
+  financingRatioDenominatorSar: { present: 'BOTH_WHEN_LEVERED', type: 'number' },
+  requestedDebtRatio: { present: 'BOTH_WHEN_LEVERED', type: 'number 0..1' },
+  requestedDebtLimitSar: { present: 'BOTH_WHEN_LEVERED', type: 'number' },
+  actualDebtToBasisRatio: { present: 'BOTH_WHEN_LEVERED', type: 'number 0..1' },
+  actualDebtToBasePurchasePriceRatio: { present: 'EXISTING_BUILDING_ONLY_WHEN_LEVERED', type: 'number | null' },
+  legacyLoanSizingConstraint: { present: 'BOTH_WHEN_LEVERED', type: 'LTV | LTC | DSCR' },
+  loanSizingConstraint: { present: 'BOTH_WHEN_LEVERED', type: 'LTC | DSCR' },
+
+  ltvLoanLimit: { present: 'EXISTING_BUILDING_ONLY_WHEN_LEVERED', type: 'number (legacy field name; acquisition-cost based)' },
   dscrLoanLimit: { present: 'EXISTING_BUILDING_ONLY_WHEN_LEVERED', type: 'number' },
   ltcPrincipalLimit: { present: 'LAND_DEVELOPMENT_ONLY_WHEN_LEVERED', type: 'number' },
   constructionDebtFraction: { present: 'LAND_DEVELOPMENT_ONLY_WHEN_LEVERED', type: 'number 0..1' },
