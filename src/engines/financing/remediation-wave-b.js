@@ -74,8 +74,13 @@ function applyExistingBuildingFinancing(inputs, baseResult) {
   const options = commonFinancingOptions(inputs);
   const financingClassification = classifyFinancingModel(inputs.financingStructureLabel);
 
+  // P16 / F-002: the historical input is named `ltv`, but this path sizes the
+  // requested debt ratio against TOTAL acquisition cost, not raw purchase price
+  // and not an independently appraised market value. Preserve the numerical
+  // method while exposing the true denominator and canonical LTC semantics.
+  const financingRatioDenominatorSar = baseResult.totalPurchaseCost;
   const sizing = sizeDebtByLtvAndDscr({
-    costBase: baseResult.totalPurchaseCost,
+    costBase: financingRatioDenominatorSar,
     ltv: inputs.ltv,
     annualNoi,
     minDscrThreshold: inputs.minDscrThreshold,
@@ -108,11 +113,28 @@ function applyExistingBuildingFinancing(inputs, baseResult) {
   const c7 = Number.isFinite(leveredNPV) && leveredNPV >= 0;
   const { criteria, verdictResult } = updateDecisionForFinancing(baseResult, c5, c7);
 
+  const canonicalBindingConstraint = sizing.bindingConstraint === 'LTV' ? 'LTC' : sizing.bindingConstraint;
+  const actualDebtToBasisRatio = financingRatioDenominatorSar > 0
+    ? loanAmount / financingRatioDenominatorSar
+    : 0;
+  const actualDebtToBasePurchasePriceRatio = Number.isFinite(inputs.buildingPrice) && inputs.buildingPrice > 0
+    ? loanAmount / inputs.buildingPrice
+    : null;
+
   return {
     ...baseResult,
     financingEngineVersion: BUILDING_FINANCING_ENGINE_VERSION,
     ...commonFinancingEvidence(inputs, sizing.plan, financingClassification),
-    loanSizingConstraint: sizing.bindingConstraint,
+    financingRatioBasis: 'TOTAL_ACQUISITION_COST',
+    financingRatioDenominatorSar,
+    requestedDebtRatio: inputs.ltv,
+    requestedDebtLimitSar: sizing.ltvLimit,
+    actualDebtToBasisRatio,
+    actualDebtToBasePurchasePriceRatio,
+    legacyLoanSizingConstraint: sizing.bindingConstraint,
+    loanSizingConstraint: canonicalBindingConstraint,
+    // Retained for API compatibility. The field name is historical; the
+    // denominator is documented by financingRatioBasis/DenominatorSar above.
     ltvLoanLimit: sizing.ltvLimit,
     dscrLoanLimit: sizing.dscrLimit,
     loanAmount,
@@ -137,6 +159,7 @@ function applyExistingBuildingFinancing(inputs, baseResult) {
 function applyLandDevelopmentFinancing(inputs, baseResult) {
   const options = commonFinancingOptions(inputs);
   const financingClassification = classifyFinancingModel(inputs.financingStructureLabel);
+  const financingRatioDenominatorSar = baseResult.totalProjectCost;
   const sizing = sizeConstructionFacilityByLtcAndDscr({
     landCost: baseResult.totalLandAcquisitionCost,
     constructionCost: baseResult.totalConstructionCost,
@@ -183,10 +206,20 @@ function applyLandDevelopmentFinancing(inputs, baseResult) {
   const c6 = Number.isFinite(leveredNPV) && leveredNPV >= 0;
   const { criteria, verdictResult } = updateDecisionForFinancing(baseResult, c5, c6);
 
+  const actualDebtToBasisRatio = financingRatioDenominatorSar > 0
+    ? facility.principalDebtDraws / financingRatioDenominatorSar
+    : 0;
+
   return {
     ...baseResult,
     financingEngineVersion: LAND_FINANCING_ENGINE_VERSION,
     ...commonFinancingEvidence(inputs, termPlan, financingClassification),
+    financingRatioBasis: 'TOTAL_PROJECT_COST',
+    financingRatioDenominatorSar,
+    requestedDebtRatio: inputs.ltv,
+    requestedDebtLimitSar: financingRatioDenominatorSar * inputs.ltv,
+    actualDebtToBasisRatio,
+    legacyLoanSizingConstraint: sizing.bindingConstraint,
     loanSizingConstraint: sizing.bindingConstraint,
     ltcPrincipalLimit: baseResult.totalProjectCost * inputs.ltv,
     constructionDebtFraction: debtFraction,
