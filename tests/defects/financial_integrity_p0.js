@@ -60,13 +60,35 @@ close(financial.breakEvenOccupancy({
   grossPotentialRentSar: 10_000_000,
 }), 0.60);
 
-// Date-aware returns: -100 today and +110 exactly one 365-day year later = 10% XIRR.
+// Date-aware returns use the same ACT/365.2425 convention as the governed DATED_RETURNS engine.
 const datedCashflows = [
   { date: '2026-01-01', amount: -100 },
   { date: '2027-01-01', amount: 110 },
 ];
-close(financial.xnpv(0.10, datedCashflows), 0, 1e-8);
-close(financial.xirr(datedCashflows), 0.10, 1e-7);
+const expectedXirr = Math.pow(1.10, 365.2425 / 365) - 1;
+close(financial.xirr(datedCashflows), expectedXirr, 1e-7);
+close(financial.xnpv(expectedXirr, datedCashflows), 0, 1e-8);
+
+// Leap-year guard proves the core financial export does not silently fall back to ACT/365.
+const leapFlows = [
+  { date: '2028-01-01', amount: -1000 },
+  { date: '2029-01-01', amount: 1100 },
+];
+const expectedLeapXnpv = -1000 + 1100 / Math.pow(1.10, 366 / 365.2425);
+const obsoleteAct365 = -1000 + 1100 / Math.pow(1.10, 366 / 365);
+close(financial.xnpv(0.10, leapFlows), expectedLeapXnpv, 1e-10);
+assert.ok(Math.abs(financial.xnpv(0.10, leapFlows) - obsoleteAct365) > 1e-4);
+
+// Impossible calendar dates and ambiguous multiple-IRR streams fail closed at the canonical financial export.
+assert.throws(() => financial.xnpv(0.10, [
+  { date: '2026-02-30', amount: -100 },
+  { date: '2027-01-01', amount: 110 },
+]), /real calendar date/);
+assert.equal(financial.xirr([
+  { date: '2026-01-01', amount: -100 },
+  { date: '2027-01-01', amount: 230 },
+  { date: '2028-01-01', amount: -132 },
+]), null);
 
 // Critical assumptions are fail-closed when unsupported or stale.
 const unsupported = evaluateAssumptionRegistry([{
