@@ -22,9 +22,11 @@ assert.equal(highDiag.reasonCode, null);
 close(highDiag.irr, 20, 1e-10, 'diagnostic 2000% IRR');
 
 // A much larger but still governed conventional return remains computable.
-// -1 + 100001/(1+r) = 0  =>  r = 100000.
+// -1 + 100001/(1+r) = 0  =>  r = 100000. The 5e-6 absolute tolerance is
+// intentionally tied to the solver's fixed 10-decimal NPV lattice at this
+// extreme scale; it is not a relaxation of the financial formula.
 const extremeButSupported = [-1, 100001];
-close(precision.preciseIRR(extremeButSupported), 100000, 1e-6, '100000x one-period IRR');
+close(precision.preciseIRR(extremeButSupported), 100000, 5e-6, '100000x one-period IRR');
 const extremeDiag = financial.analyzeIRR(extremeButSupported);
 assert.equal(extremeDiag.reliability, financial.IRR_RELIABILITY.RELIABLE);
 
