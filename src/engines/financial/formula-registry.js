@@ -1,6 +1,6 @@
 'use strict';
 
-const FORMULA_REGISTRY_VERSION = 'REAL_ESTATE_FORMULA_REGISTRY_1.1';
+const FORMULA_REGISTRY_VERSION = 'REAL_ESTATE_FORMULA_REGISTRY_1.2';
 
 const FORMULAS = Object.freeze({
   GPI: Object.freeze({
@@ -62,30 +62,9 @@ const FORMULAS = Object.freeze({
     semantic: 'Financing',
     note: 'The required covenant is lender/deal specific; 1.25x is not a universal Saudi rule.',
   }),
-  LTV: Object.freeze({
-    id: 'LTV',
-    nameAr: 'نسبة القرض إلى القيمة',
-    nameEn: 'Loan to Value',
-    expression: 'LoanAmount / CollateralValue',
-    unit: 'ratio',
-    semantic: 'Financing',
-  }),
-  LTC: Object.freeze({
-    id: 'LTC',
-    nameAr: 'نسبة القرض إلى التكلفة',
-    nameEn: 'Loan to Cost',
-    expression: 'LoanAmount / TotalDevelopmentCost',
-    unit: 'ratio',
-    semantic: 'Financing',
-  }),
-  DEBT_YIELD: Object.freeze({
-    id: 'DEBT_YIELD',
-    nameAr: 'عائد الدين',
-    nameEn: 'Debt Yield',
-    expression: 'StabilizedNOI / LoanBalance',
-    unit: 'ratio',
-    semantic: 'Financing',
-  }),
+  LTV: Object.freeze({ id: 'LTV', nameAr: 'نسبة القرض إلى القيمة', nameEn: 'Loan to Value', expression: 'LoanAmount / CollateralValue', unit: 'ratio', semantic: 'Financing' }),
+  LTC: Object.freeze({ id: 'LTC', nameAr: 'نسبة القرض إلى التكلفة', nameEn: 'Loan to Cost', expression: 'LoanAmount / TotalDevelopmentCost', unit: 'ratio', semantic: 'Financing' }),
+  DEBT_YIELD: Object.freeze({ id: 'DEBT_YIELD', nameAr: 'عائد الدين', nameEn: 'Debt Yield', expression: 'StabilizedNOI / LoanBalance', unit: 'ratio', semantic: 'Financing' }),
   XNPV: Object.freeze({
     id: 'XNPV',
     nameAr: 'صافي القيمة الحالية بتواريخ فعلية',
@@ -95,7 +74,7 @@ const FORMULAS = Object.freeze({
     semantic: 'Returns',
     dayCount: 'ACT/365.2425',
     dateFormat: 'YYYY-MM-DD',
-    note: 'Same-date cash flows are aggregated before discounting. This registry expression is aligned with DATED_RETURNS_V4.',
+    note: 'Same-date cash flows are aggregated before discounting. This registry expression is aligned with DATED_RETURNS_V5.',
   }),
   XIRR: Object.freeze({
     id: 'XIRR',
@@ -106,7 +85,7 @@ const FORMULAS = Object.freeze({
     semantic: 'Returns',
     dayCount: 'ACT/365.2425',
     dateFormat: 'YYYY-MM-DD',
-    note: 'Multiple net cash-flow sign changes are treated as ambiguous; no arbitrary XIRR is asserted.',
+    note: 'Multiple net cash-flow sign changes are treated as ambiguous; no arbitrary XIRR is asserted. Solver qualification requires both rate-bracket convergence and residual-NPV acceptance.',
   }),
   BREAK_EVEN_OCCUPANCY: Object.freeze({
     id: 'BREAK_EVEN_OCCUPANCY',
@@ -118,17 +97,7 @@ const FORMULAS = Object.freeze({
   }),
 });
 
-function getFormula(id) {
-  return FORMULAS[id] || null;
-}
+function getFormula(id) { return FORMULAS[id] || null; }
+function listFormulas() { return Object.values(FORMULAS); }
 
-function listFormulas() {
-  return Object.values(FORMULAS);
-}
-
-module.exports = {
-  FORMULA_REGISTRY_VERSION,
-  FORMULAS,
-  getFormula,
-  listFormulas,
-};
+module.exports = { FORMULA_REGISTRY_VERSION, FORMULAS, getFormula, listFormulas };

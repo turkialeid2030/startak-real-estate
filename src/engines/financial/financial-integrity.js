@@ -1,6 +1,12 @@
 'use strict';
 
-const FINANCIAL_INTEGRITY_VERSION = 'FINANCIAL_INTEGRITY_P0_1.0';
+const {
+  xnpv: governedXnpv,
+  solveDatedXirr,
+  DATED_RETURNS_STATUS,
+} = require('../../valuation-intelligence/dated-returns');
+
+const FINANCIAL_INTEGRITY_VERSION = 'FINANCIAL_INTEGRITY_P0_1.1';
 
 function finite(value, name) {
   if (typeof value !== 'number' || !Number.isFinite(value)) throw new TypeError(`${name} must be a finite number`);
@@ -113,15 +119,27 @@ function breakEvenOccupancy({ operatingExpensesSar, debtServiceSar = 0, otherInc
   return (operatingExpensesSar + debtServiceSar - otherIncomeSar) / grossPotentialRentSar;
 }
 
+function strictIsoDate(value, field) {
+  if (typeof value !== 'string' || !/^(\d{4})-(\d{2})-(\d{2})$/.test(value)) {
+    throw new TypeError(`${field} must be YYYY-MM-DD`);
+  }
+  const [year, month, day] = value.split('-').map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (parsed.getUTCFullYear() !== year || parsed.getUTCMonth() !== month - 1 || parsed.getUTCDate() !== day) {
+    throw new TypeError(`${field} is not a real calendar date`);
+  }
+  return value;
+}
+
 function normalizeDatedCashflows(cashflows) {
   if (!Array.isArray(cashflows) || cashflows.length < 2) throw new TypeError('dated cashflows must contain at least two entries');
   const rows = cashflows.map((row, index) => {
     if (!row || typeof row !== 'object') throw new TypeError(`cashflow[${index}] must be an object`);
-    const amount = finite(row.amount, `cashflow[${index}].amount`);
-    const date = new Date(row.date);
-    if (!Number.isFinite(date.getTime())) throw new TypeError(`cashflow[${index}].date is invalid`);
-    return { amount, date };
-  }).sort((a, b) => a.date - b.date);
+    return {
+      amount: finite(row.amount, `cashflow[${index}].amount`),
+      date: strictIsoDate(row.date, `cashflow[${index}].date`),
+    };
+  }).sort((a, b) => a.date.localeCompare(b.date));
   if (!rows.some((row) => row.amount < 0) || !rows.some((row) => row.amount > 0)) throw new RangeError('dated cashflows require at least one negative and one positive cashflow');
   return rows;
 }
@@ -130,42 +148,22 @@ function xnpv(rate, cashflows) {
   finite(rate, 'rate');
   if (rate <= -1) throw new RangeError('rate must be > -1');
   const rows = normalizeDatedCashflows(cashflows);
-  const base = rows[0].date.getTime();
-  const dayMs = 24 * 60 * 60 * 1000;
-  return rows.reduce((sum, row) => {
-    const years = (row.date.getTime() - base) / dayMs / 365;
-    return sum + row.amount / Math.pow(1 + rate, years);
-  }, 0);
+  const value = governedXnpv(rate, rows);
+  if (!Number.isFinite(value)) throw new RangeError('xnpv produced a non-finite result');
+  return value;
 }
 
 function xirr(cashflows, options = {}) {
   const rows = normalizeDatedCashflows(cashflows);
-  const tolerance = options.tolerance ?? 1e-9;
-  const maxIterations = options.maxIterations ?? 250;
-  let low = options.low ?? -0.999999;
-  let high = options.high ?? 10;
-  let fLow = xnpv(low, rows);
-  let fHigh = xnpv(high, rows);
-
-  for (let expansion = 0; fLow * fHigh > 0 && expansion < 20; expansion += 1) {
-    high *= 2;
-    fHigh = xnpv(high, rows);
-  }
-  if (fLow * fHigh > 0) return null;
-
-  for (let i = 0; i < maxIterations; i += 1) {
-    const mid = (low + high) / 2;
-    const fMid = xnpv(mid, rows);
-    if (Math.abs(fMid) <= tolerance || Math.abs(high - low) <= tolerance) return mid;
-    if (fLow * fMid <= 0) {
-      high = mid;
-      fHigh = fMid;
-    } else {
-      low = mid;
-      fLow = fMid;
-    }
-  }
-  return (low + high) / 2;
+  const result = solveDatedXirr({
+    cashflows: rows,
+    tolerance: options.tolerance ?? 1e-10,
+    npvToleranceSar: options.npvToleranceSar ?? null,
+    maxIterations: options.maxIterations ?? 300,
+    lowerBound: options.low ?? -0.9999,
+    upperBound: options.high ?? 100,
+  });
+  return result.status === DATED_RETURNS_STATUS.QUALIFIED ? result.xirr : null;
 }
 
 module.exports = {
