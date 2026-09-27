@@ -32,6 +32,16 @@ const FINANCING_RESULT_FIELDS = Object.freeze({
   dscrLoanLimit: { present: 'EXISTING_BUILDING_ONLY_WHEN_LEVERED', type: 'number' },
   ltcPrincipalLimit: { present: 'LAND_DEVELOPMENT_ONLY_WHEN_LEVERED', type: 'number' },
   constructionDebtFraction: { present: 'LAND_DEVELOPMENT_ONLY_WHEN_LEVERED', type: 'number 0..1' },
+
+  // P20 / #399: principal LTC and all-in completion debt are separate concepts.
+  // The current model treats capitalized construction interest as outside the
+  // principal LTC cap. These fields disclose that convention without claiming
+  // it matches any lender term sheet or an all-in LTC covenant.
+  principalLtc: { present: 'LAND_DEVELOPMENT_ONLY_WHEN_LEVERED', type: 'number 0..1' },
+  effectiveCompletionDebtToCost: { present: 'LAND_DEVELOPMENT_ONLY_WHEN_LEVERED', type: 'number >= 0' },
+  capitalizedInterestTreatment: { present: 'LAND_DEVELOPMENT_ONLY_WHEN_LEVERED', type: 'EXCLUDED_FROM_PRINCIPAL_LTC_CAP' },
+  allInCompletionDebtExceedsPrincipalLtcCap: { present: 'LAND_DEVELOPMENT_ONLY_WHEN_LEVERED', type: 'boolean' },
+
   tenorMonths: { present: 'BOTH_WHEN_LEVERED', type: 'number' },
   gracePeriodMonths: { present: 'BOTH_WHEN_LEVERED', type: 'number' },
   graceType: { present: 'BOTH_WHEN_LEVERED', type: 'INTEREST_ONLY | CAPITALIZED' },
