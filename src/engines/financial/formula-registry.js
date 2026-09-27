@@ -1,6 +1,6 @@
 'use strict';
 
-const FORMULA_REGISTRY_VERSION = 'REAL_ESTATE_FORMULA_REGISTRY_1.0';
+const FORMULA_REGISTRY_VERSION = 'REAL_ESTATE_FORMULA_REGISTRY_1.1';
 
 const FORMULAS = Object.freeze({
   GPI: Object.freeze({
@@ -90,17 +90,23 @@ const FORMULAS = Object.freeze({
     id: 'XNPV',
     nameAr: 'صافي القيمة الحالية بتواريخ فعلية',
     nameEn: 'Date-aware Net Present Value',
-    expression: 'SUM(CashFlow_i / (1 + Rate) ^ (Days_i / 365))',
+    expression: 'SUM(CashFlow_i / (1 + Rate) ^ (ActualDays_i / 365.2425))',
     unit: 'SAR',
     semantic: 'Returns',
+    dayCount: 'ACT/365.2425',
+    dateFormat: 'YYYY-MM-DD',
+    note: 'Same-date cash flows are aggregated before discounting. This registry expression is aligned with DATED_RETURNS_V4.',
   }),
   XIRR: Object.freeze({
     id: 'XIRR',
     nameAr: 'معدل العائد الداخلي بتواريخ فعلية',
     nameEn: 'Date-aware Internal Rate of Return',
-    expression: 'Rate where XNPV = 0',
+    expression: 'Rate where XNPV under ACT/365.2425 = 0',
     unit: 'ratio',
     semantic: 'Returns',
+    dayCount: 'ACT/365.2425',
+    dateFormat: 'YYYY-MM-DD',
+    note: 'Multiple net cash-flow sign changes are treated as ambiguous; no arbitrary XIRR is asserted.',
   }),
   BREAK_EVEN_OCCUPANCY: Object.freeze({
     id: 'BREAK_EVEN_OCCUPANCY',
