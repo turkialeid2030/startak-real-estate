@@ -4,6 +4,7 @@ const { normalizeAssumptionModelVersion } = require('./assumption-model');
 const { buildAssumptionDisclosureEnvelope } = require('./assumption-disclosure');
 const { assessSensitivityReadiness } = require('../sensitivity/readiness');
 const { EXIT_CAP_SOURCE } = require('../engines/valuation/exit-cap-resolver');
+const { EXIT_TRANSACTION_COST_SOURCE } = require('../engines/valuation/exit-transaction-cost-resolver');
 
 function formatOptionalPercentInput(value) {
   if (value === undefined || value === null || value === '') return '';
@@ -55,9 +56,11 @@ function buildUiAssumptionGovernance({ assumptionModelVersion, financialResults 
   }
   const version = normalizeAssumptionModelVersion(assumptionModelVersion);
   const exitCapSource = financialResults.exitCapSource || null;
+  const exitTransactionCostSource = financialResults.exitTransactionCostSource || null;
   const disclosure = buildAssumptionDisclosureEnvelope({
     assumptionModelVersion: version,
     exitCapSource,
+    exitTransactionCostSource,
   });
   const sensitivity = assessSensitivityReadiness({
     financialModelStatus: financialResults.financialModelStatus,
@@ -65,13 +68,18 @@ function buildUiAssumptionGovernance({ assumptionModelVersion, financialResults 
   });
   const exitCapInputRequired = disclosure.requiresExplicitExitCap
     && exitCapSource === EXIT_CAP_SOURCE.MISSING_REQUIRED;
+  const exitTransactionCostInputRequired = disclosure.requiresExplicitExitTransactionCost
+    && exitTransactionCostSource === EXIT_TRANSACTION_COST_SOURCE.MISSING_REQUIRED;
 
   return Object.freeze({
     assumptionModelVersion: version,
     disclosure,
     sensitivity,
     exitCapInputRequired,
-    sensitivityReady: sensitivity.status === 'READY',
+    exitTransactionCostInputRequired,
+    sensitivityReady: sensitivity.status === 'READY'
+      && !exitCapInputRequired
+      && !exitTransactionCostInputRequired,
     transactionAuthorized: false,
   });
 }
