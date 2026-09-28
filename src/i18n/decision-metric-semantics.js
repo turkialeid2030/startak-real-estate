@@ -38,10 +38,6 @@ const SAUDI_RETT_EVIDENCE = Object.freeze({
   ]),
 });
 
-// P21 / #401: the legacy `coverageRatio` metric is total built area divided by
-// land area. Because total built area includes every floor and basements, it is
-// a gross built-area multiple. It is not conventional site/footprint coverage
-// and it is not a zoning/FAR-compliance determination.
 const GROSS_BUILT_AREA_RATIO_SEMANTICS = Object.freeze({
   legacyField: 'coverageRatio',
   numerator: 'TOTAL_BUILT_AREA_INCLUDING_BASEMENTS',
@@ -60,7 +56,9 @@ const DECISION_METRIC_LABEL_OVERRIDES = Object.freeze({
     'financingInput.ltvLabelBuilding': 'نسبة التمويل المطلوبة إلى إجمالي تكلفة الاستحواذ (LTC)',
     'financingInput.ltvWarnBuilding': 'النسبة في هذا المسار تُطبّق على إجمالي تكلفة الاستحواذ، وليست نسبة قرض إلى سعر الشراء أو إلى قيمة تقييم مستقلة',
     'metricRowR2B3.loanAmountBuilding': 'مبلغ التمويل الفعلي بعد قيود التكلفة وتغطية خدمة الدين',
-    'inputBuilding.transferFeeRate': 'افتراض نسبة تكلفة التصرف المستخدمة عند الاستحواذ والخروج — سيناريو اقتصادي',
+    'inputBuilding.transferFeeRate': 'افتراض نسبة تكلفة التصرف المحمّلة اقتصاديًا عند الاستحواذ',
+    'inputBuilding.exitTransferFeeRate': 'افتراض نسبة تكلفة الخروج المحمّلة اقتصاديًا على البائع',
+    'inputBuilding.exitTransferFeeRateNote': 'إدخال اقتصادي مستقل للخروج ولا يحدد المكلّف نظامًا. أدخل 0% صراحةً إذا لم تفترض تكلفة خروج على البائع. تحقّق من انطباق ضريبة التصرفات العقارية والإعفاءات والعقد والطرف المتحمل اقتصاديًا قبل اعتماد النتيجة.',
     'inputLand.landTransferFeeRate': 'افتراض نسبة تكلفة التصرف المحمّلة اقتصاديًا على المشتري عند الاستحواذ',
     'inputLand.exitTransferFeeRate': 'افتراض نسبة تكلفة الخروج المحمّلة اقتصاديًا على البائع',
     'inputLand.exitTransferFeeRateNote': 'هذا إدخال اقتصادي لنموذج الخروج وليس تحديدًا تلقائيًا للمكلّف نظامًا. نظام ضريبة التصرفات العقارية الحالي يفرض 5% كقاعدة عامة ويجعل المتصرف مسؤولًا عن الضريبة المستحقة، مع وجود إعفاءات وحالات مسؤولية تضامنية. تحقّق من انطباق الضريبة والعقد والطرف المتحمل اقتصاديًا قبل اعتماد النتيجة.',
@@ -76,7 +74,9 @@ const DECISION_METRIC_LABEL_OVERRIDES = Object.freeze({
     'financingInput.ltvLabelBuilding': 'Requested Loan-to-Total-Acquisition-Cost Ratio (LTC)',
     'financingInput.ltvWarnBuilding': 'This ratio is applied to total acquisition cost, not raw purchase price and not an independently appraised value.',
     'metricRowR2B3.loanAmountBuilding': 'Actual Debt Amount after Cost and DSCR Constraints',
-    'inputBuilding.transferFeeRate': 'Transaction-Cost Rate Assumption Used at Acquisition and Exit — Economic Scenario',
+    'inputBuilding.transferFeeRate': 'Buyer-Borne Acquisition Transaction-Cost Rate Assumption',
+    'inputBuilding.exitTransferFeeRate': 'Seller-Borne Exit Transaction-Cost Rate Assumption',
+    'inputBuilding.exitTransferFeeRateNote': 'Independent economic exit input; it does not determine the statutory taxpayer. Enter 0% explicitly if no seller-borne exit cost is assumed. Verify RETT applicability, exemptions, contract terms, and economic incidence before relying on the result.',
     'inputLand.landTransferFeeRate': 'Buyer-Borne Acquisition Transaction-Cost Rate Assumption',
     'inputLand.exitTransferFeeRate': 'Seller-Borne Exit Transaction-Cost Rate Assumption',
     'inputLand.exitTransferFeeRateNote': 'This is an economic exit-model input, not an automatic statement of the statutory taxpayer. The current Saudi RETT system generally applies a 5% rate and makes the disposer/transferor responsible for the tax due, subject to exemptions and specified joint-liability cases. Verify applicability, contract terms, and economic incidence before relying on the result.',
