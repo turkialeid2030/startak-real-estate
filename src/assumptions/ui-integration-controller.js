@@ -61,11 +61,14 @@ function createUiWorkspace({ mode, defaultInputs }) {
   const workspace = createFreshWorkspaceState(defaultInputs);
   const inputs = materializeUiAssumptions(workspace.inputs, workspace.assumptionModelVersion);
 
-  // V2 existing-building work must start with an explicitly entered exit cap.
-  // Template/default datasets may contain a compatibility/sample value, but that
-  // value is not user evidence and must never be silently promoted into a fresh
-  // V2 deal. Land/development retains its existing input semantics.
-  if (mode === UI_MODE.BUILDING) delete inputs.exitCapRate;
+  // V2 existing-building work must start with explicit exit assumptions.
+  // Template/default datasets may contain compatibility/sample values, but they
+  // are not user/deal evidence and must not be silently promoted into a fresh V2
+  // deal. Land/development retains its existing input semantics.
+  if (mode === UI_MODE.BUILDING) {
+    delete inputs.exitCapRate;
+    delete inputs.exitTransferFeeRate;
+  }
 
   return Object.freeze({
     mode,
@@ -116,6 +119,7 @@ function calculateUiInvestmentState({ mode, inputs, assumptionModelVersion }) {
       ? governance.sensitivity.renderPolicy
       : 'RENDER_SENSITIVITY_OUTPUTS',
     exitCapInputRequired: governance ? governance.exitCapInputRequired : false,
+    exitTransactionCostInputRequired: governance ? governance.exitTransactionCostInputRequired : false,
     transactionAuthorized: false,
   });
 }
@@ -137,32 +141,51 @@ function buildInvalidOptionalPercentDraft(inputs, key, rawText, error) {
   });
 }
 
-function applyExitCapInputText({ inputs, rawText, min = 0, max = 1 }) {
+function applyOptionalPercentInputText({ inputs, key, rawText, min = 0, max = 1 }) {
   assertPlainObject(inputs, 'inputs');
   let parsed;
   try {
     parsed = parseOptionalPercentInput(rawText, { min, max });
   } catch (error) {
-    // P15 / F-003: fail closed across the parent calculation state. Previously
-    // an invalid draft (for example 0% after a valid 8% exit cap) only raised a
-    // local field error and left the prior valid exitCapRate in `inputs`, so the
-    // rest of the UI could still present/save/export stale results as though
-    // they represented the current draft. Materialize the invalid draft into
-    // the canonical parent inputs instead. The financial validator then rejects
-    // the current draft, the existing top-level validation disclosure marks the
-    // displayed calculations as last-known-valid/stale, and persistence paths
-    // using the canonical validator cannot accept the stale result as current.
-    return buildInvalidOptionalPercentDraft(inputs, 'exitCapRate', rawText, error);
+    return buildInvalidOptionalPercentDraft(inputs, key, rawText, error);
   }
-  const nextInputs = applyOptionalPercentToInputs(inputs, 'exitCapRate', parsed);
+  const nextInputs = applyOptionalPercentToInputs(inputs, key, parsed);
   return Object.freeze({
     inputs: nextInputs,
     parsed,
-    displayValue: formatOptionalPercentInput(nextInputs.exitCapRate),
-    exitCapPresent: parsed.present,
+    displayValue: formatOptionalPercentInput(nextInputs[key]),
+    inputPresent: parsed.present,
     inputValid: true,
     errorCode: null,
     transactionAuthorized: false,
+  });
+}
+
+function applyExitCapInputText({ inputs, rawText, min = 0, max = 1 }) {
+  const result = applyOptionalPercentInputText({
+    inputs,
+    key: 'exitCapRate',
+    rawText,
+    min,
+    max,
+  });
+  return Object.freeze({
+    ...result,
+    exitCapPresent: result.inputPresent,
+  });
+}
+
+function applyExitTransactionCostInputText({ inputs, rawText, min = 0, max = 1 }) {
+  const result = applyOptionalPercentInputText({
+    inputs,
+    key: 'exitTransferFeeRate',
+    rawText,
+    min,
+    max,
+  });
+  return Object.freeze({
+    ...result,
+    exitTransactionCostPresent: result.inputPresent,
   });
 }
 
@@ -175,6 +198,9 @@ function buildUiDisclosureViewModel({ governance, locale = 'ar-SA' }) {
   const exitCapNotice = disclosure.exitCapNotice
     ? disclosure.exitCapNotice[language]
     : null;
+  const exitTransactionCostNotice = disclosure.exitTransactionCostNotice
+    ? disclosure.exitTransactionCostNotice[language]
+    : null;
 
   return Object.freeze({
     badge: disclosure.badge[language],
@@ -184,6 +210,9 @@ function buildUiDisclosureViewModel({ governance, locale = 'ar-SA' }) {
     exitCapSource: disclosure.exitCapSource,
     exitCapNotice,
     exitCapInputRequired: governance.exitCapInputRequired,
+    exitTransactionCostSource: disclosure.exitTransactionCostSource,
+    exitTransactionCostNotice,
+    exitTransactionCostInputRequired: governance.exitTransactionCostInputRequired,
     sensitivityStatus: governance.sensitivity.status,
     sensitivityReady: governance.sensitivityReady,
     sensitivityRenderPolicy: governance.sensitivity.renderPolicy,
@@ -211,6 +240,7 @@ module.exports = {
   hydrateUiDeal,
   calculateUiInvestmentState,
   applyExitCapInputText,
+  applyExitTransactionCostInputText,
   buildUiDisclosureViewModel,
   prepareNewUiDealForSave,
   prepareUpdatedUiDealForSave,

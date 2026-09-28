@@ -38,6 +38,25 @@ async function enterExplicitBuildingExitCap(page, value = '8.5') {
   return exitCap;
 }
 
+async function enterExplicitBuildingExitTransactionCost(page, value = '5') {
+  const sectionButton = page.getByRole('button', { name: /افتراضات التقييم والاستثمار/ }).first();
+  const section = sectionButton.locator('xpath=ancestor::div[contains(@class,"rounded-2xl") and contains(@class,"overflow-hidden")][1]');
+  const sectionBody = section.locator('.rf-accordion-body').first();
+  if (!((await sectionBody.getAttribute('class')) || '').split(/\s+/).includes('open')) {
+    await sectionButton.click();
+    await page.waitForTimeout(200);
+  }
+  const exitCost = page
+    .getByText('تكلفة معاملة الخروج المحمّلة اقتصاديًا على البائع', { exact: true })
+    .locator('xpath=ancestor::label[1]')
+    .locator('input')
+    .first();
+  await exitCost.fill(value);
+  await exitCost.blur();
+  await page.waitForTimeout(250);
+  return exitCost;
+}
+
 async function viewportAudit(page, name, width, height) {
   await page.setViewportSize({ width, height });
   await page.waitForTimeout(150);
@@ -153,8 +172,6 @@ try {
       await locator.click();
       await page.waitForTimeout(200);
       const after = await page.locator('body').innerText();
-      // The application boots into Existing Building, so clicking that already-active
-      // view is intentionally idempotent. A no-op in that one state is not a UX failure.
       const alreadyActiveDefault = label === 'مبنى قائم' && before === after;
       record(`NAV_${label}_RESPONDS`, after.length > 0 && (after !== before || alreadyActiveDefault || label === 'لوحة المؤشرات'));
     }
@@ -179,11 +196,12 @@ try {
     record('INPUT_EDIT_PRODUCES_FEEDBACK', false, 'No editable numeric/text input found');
   }
 
-  // A fresh Wave 2 Building workspace is intentionally incomplete until an
-  // explicit exit cap is supplied. Complete that required V2 input before the
-  // UX check asserts the presence of a deterministic analytical state.
+  // Fresh V2 Building work is fail-closed until BOTH deterministic exit
+  // assumptions are supplied: exit cap and seller-borne exit transaction cost.
   const exitCap = await enterExplicitBuildingExitCap(page, '8.5');
   record('V2_EXPLICIT_EXIT_CAP_CAN_BE_ENTERED', (await exitCap.inputValue()) === '8.5', { value: await exitCap.inputValue() });
+  const exitCost = await enterExplicitBuildingExitTransactionCost(page, '5');
+  record('V2_EXPLICIT_EXIT_TRANSACTION_COST_CAN_BE_ENTERED', (await exitCost.inputValue()) === '5', { value: await exitCost.inputValue() });
 
   await page.getByText('لوحة المؤشرات', { exact: true }).first().click();
   await page.waitForTimeout(200);

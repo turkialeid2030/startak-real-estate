@@ -3,6 +3,7 @@
 // canonical post-calculation financing remediation where implemented.
 const { calcExistingBuilding, VACANCY_MONTHS_MAP } = require('./valuation/existing-building');
 const { calcLandDevelopment } = require('./valuation/land-development');
+const { applyExistingBuildingExitCostGovernance } = require('./valuation/existing-building-exit-cost-governance');
 const { applyFinancingRemediation } = require('./financing/remediation-wave-b');
 const { STUDY_TYPE, STUDY_TYPE_TO_LEGACY_MODE } = require('../contracts/study-type');
 const { validateEngineInputs } = require('../validation/numeric-safety');
@@ -111,13 +112,27 @@ function calculateInvestmentCase({ studyType, inputs, leverageEnabled, assumptio
 
   validateEngineInputs(engineInputs, { studyType });
   validateSupportedFinancialHorizons(engineInputs, { studyType });
-  const rawResult = studyType === STUDY_TYPE.EXISTING_BUILDING
+  const baseResult = studyType === STUDY_TYPE.EXISTING_BUILDING
     ? calcExistingBuilding(engineInputs, { assumptionModelVersion })
     : calcLandDevelopment(engineInputs);
+
+  // P22 / #402: acquisition transfer-cost economics and seller-borne exit-cost
+  // economics are separate assumptions for Existing Building. Apply the exit
+  // governance layer before financing so both unlevered and Wave-B levered cash
+  // flows use the same governed terminal proceeds. LEGACY may preserve the old
+  // acquisition-rate fallback; V2 fails closed without an explicit exit rate.
+  const governedResult = studyType === STUDY_TYPE.EXISTING_BUILDING
+    ? applyExistingBuildingExitCostGovernance({
+        inputs: engineInputs,
+        engineResult: baseResult,
+        assumptionModelVersion,
+      })
+    : baseResult;
+
   const remediatedResult = applyFinancingRemediation({
     studyType,
     inputs: engineInputs,
-    engineResult: rawResult,
+    engineResult: governedResult,
     assumptionModelVersion,
   });
   const economicResult = zeroDebtRequest

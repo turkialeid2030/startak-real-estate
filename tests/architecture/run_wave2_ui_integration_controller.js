@@ -9,6 +9,7 @@ const {
   hydrateUiDeal,
   calculateUiInvestmentState,
   applyExitCapInputText,
+  applyExitTransactionCostInputText,
   buildUiDisclosureViewModel,
   prepareNewUiDealForSave,
   prepareUpdatedUiDealForSave,
@@ -19,13 +20,14 @@ const {
   V2_APPROVED_ASSUMPTIONS,
 } = require('../../src/assumptions/assumption-model');
 const { EXIT_CAP_SOURCE } = require('../../src/engines/valuation/exit-cap-resolver');
+const { EXIT_TRANSACTION_COST_SOURCE } = require('../../src/engines/valuation/exit-transaction-cost-resolver');
 
 const fixture = JSON.parse(fs.readFileSync(
   path.join(__dirname, '..', 'characterization', 'fixtures', 'RE-GOLD-002-U.json'),
   'utf8',
 ));
 const baseInputs = fixture.input_set;
-const defaults = { ...baseInputs, exitCapRate: 0.07 };
+const defaults = { ...baseInputs, exitCapRate: 0.07, exitTransferFeeRate: 0.05 };
 
 function assertV2AssumptionsMaterialized(inputs) {
   for (const [key, value] of Object.entries(V2_APPROVED_ASSUMPTIONS)) {
@@ -42,7 +44,10 @@ function run() {
   assertV2AssumptionsMaterialized(fresh.inputs);
   assert.strictEqual(Object.prototype.hasOwnProperty.call(fresh.inputs, 'exitCapRate'), false,
     'fresh V2 building work must not inherit a template/default exit cap');
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(fresh.inputs, 'exitTransferFeeRate'), false,
+    'fresh V2 building work must not inherit a template/default exit transaction cost');
   assert.strictEqual(defaults.exitCapRate, 0.07, 'caller defaults must remain unmodified');
+  assert.strictEqual(defaults.exitTransferFeeRate, 0.05, 'caller exit-cost defaults must remain unmodified');
 
   const incomplete = calculateUiInvestmentState({
     mode: UI_MODE.BUILDING,
@@ -51,7 +56,9 @@ function run() {
   });
   assert.strictEqual(incomplete.results.financialModelStatus, 'INCOMPLETE_INPUTS');
   assert.strictEqual(incomplete.results.exitCapSource, EXIT_CAP_SOURCE.MISSING_REQUIRED);
+  assert.strictEqual(incomplete.results.exitTransactionCostSource, EXIT_TRANSACTION_COST_SOURCE.MISSING_REQUIRED);
   assert.strictEqual(incomplete.exitCapInputRequired, true);
+  assert.strictEqual(incomplete.exitTransactionCostInputRequired, true);
   assert.strictEqual(incomplete.sensitivityReady, false);
   assert.strictEqual(incomplete.sensitivityRenderPolicy, 'SHOW_CONTROLLED_UNAVAILABLE_STATE');
   assert.strictEqual(incomplete.transactionAuthorized, false);
@@ -60,6 +67,12 @@ function run() {
   assert.strictEqual(blankExit.exitCapPresent, false);
   assert.strictEqual(Object.prototype.hasOwnProperty.call(blankExit.inputs, 'exitCapRate'), false);
   assert.strictEqual(blankExit.displayValue, '');
+  const blankExitCost = applyExitTransactionCostInputText({
+    inputs: { ...fresh.inputs, exitTransferFeeRate: 0.02 },
+    rawText: '',
+  });
+  assert.strictEqual(blankExitCost.exitTransactionCostPresent, false);
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(blankExitCost.inputs, 'exitTransferFeeRate'), false);
 
   const incompleteDisclosureAr = buildUiDisclosureViewModel({
     governance: incomplete.governance,
@@ -73,23 +86,35 @@ function run() {
   assert.ok(incompleteDisclosureEn.badge.includes('V2'));
   assert.strictEqual(typeof incompleteDisclosureAr.exitCapNotice, 'string');
   assert.strictEqual(typeof incompleteDisclosureEn.exitCapNotice, 'string');
+  assert.strictEqual(typeof incompleteDisclosureAr.exitTransactionCostNotice, 'string');
+  assert.strictEqual(typeof incompleteDisclosureEn.exitTransactionCostNotice, 'string');
   assert.strictEqual(incompleteDisclosureAr.exitCapInputRequired, true);
+  assert.strictEqual(incompleteDisclosureAr.exitTransactionCostInputRequired, true);
   assert.strictEqual(incompleteDisclosureAr.transactionAuthorized, false);
 
   const explicitExit = applyExitCapInputText({ inputs: fresh.inputs, rawText: '7.5' });
   assert.strictEqual(explicitExit.exitCapPresent, true);
   assert.strictEqual(explicitExit.inputs.exitCapRate, 0.075);
   assert.strictEqual(explicitExit.displayValue, '7.5');
+  const explicitExitCost = applyExitTransactionCostInputText({
+    inputs: explicitExit.inputs,
+    rawText: '2',
+  });
+  assert.strictEqual(explicitExitCost.exitTransactionCostPresent, true);
+  assert.strictEqual(explicitExitCost.inputs.exitTransferFeeRate, 0.02);
+  assert.strictEqual(explicitExitCost.displayValue, '2');
 
   const complete = calculateUiInvestmentState({
     mode: UI_MODE.BUILDING,
-    inputs: explicitExit.inputs,
+    inputs: explicitExitCost.inputs,
     assumptionModelVersion: fresh.assumptionModelVersion,
   });
   assert.notStrictEqual(complete.results.financialModelStatus, 'INCOMPLETE_INPUTS');
   assert.strictEqual(complete.results.exitCapSource, EXIT_CAP_SOURCE.EXPLICIT);
+  assert.strictEqual(complete.results.exitTransactionCostSource, EXIT_TRANSACTION_COST_SOURCE.EXPLICIT);
   assert.strictEqual(complete.sensitivityReady, true);
   assert.strictEqual(complete.exitCapInputRequired, false);
+  assert.strictEqual(complete.exitTransactionCostInputRequired, false);
 
   const legacyRecord = {
     id: 'deal_legacy_1',
@@ -104,6 +129,8 @@ function run() {
   assert.strictEqual(hydratedLegacy.explicitUpgradeRequired, true);
   assert.strictEqual(Object.prototype.hasOwnProperty.call(hydratedLegacy.inputs, 'exitCapRate'), false,
     'legacy hydration must not manufacture the default exit cap');
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(hydratedLegacy.inputs, 'exitTransferFeeRate'), false,
+    'legacy hydration must not manufacture a dedicated exit transaction cost');
   for (const [key, value] of Object.entries(V2_APPROVED_ASSUMPTIONS)) {
     if (Object.prototype.hasOwnProperty.call(baseInputs, key)) {
       assert.strictEqual(hydratedLegacy.inputs[key], baseInputs[key],
@@ -118,25 +145,31 @@ function run() {
   });
   assert.strictEqual(legacyState.results.financialModelStatus, 'VALID');
   assert.strictEqual(legacyState.results.exitCapSource, EXIT_CAP_SOURCE.LEGACY_DERIVED);
+  assert.strictEqual(legacyState.results.exitTransactionCostSource,
+    EXIT_TRANSACTION_COST_SOURCE.LEGACY_ACQUISITION_RATE_FALLBACK);
   assert.strictEqual(legacyState.sensitivityReady, true);
 
   const newSaved = prepareNewUiDealForSave({
     id: 'deal_new_1',
     name: 'New Building',
     mode: 'building',
-    inputs: { ...explicitExit.inputs },
+    inputs: { ...explicitExitCost.inputs },
     savedAt: '2026-09-05T00:00:00.000Z',
   });
   assert.strictEqual(newSaved.assumptionModelVersion, ASSUMPTION_MODEL_VERSION.V2);
+  assert.strictEqual(newSaved.inputs.exitTransferFeeRate, 0.02);
 
   const updatedLegacy = prepareUpdatedUiDealForSave(legacyRecord, hydratedLegacy.assumptionModelVersion);
   assert.strictEqual(updatedLegacy.assumptionModelVersion, ASSUMPTION_MODEL_VERSION.LEGACY);
   assert.strictEqual(Object.prototype.hasOwnProperty.call(updatedLegacy.inputs, 'exitCapRate'), false);
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(updatedLegacy.inputs, 'exitTransferFeeRate'), false);
 
   const upgraded = explicitlyUpgradeUiDealToV2(legacyRecord);
   assert.strictEqual(upgraded.assumptionModelVersion, ASSUMPTION_MODEL_VERSION.V2);
   assert.strictEqual(Object.prototype.hasOwnProperty.call(upgraded.inputs, 'exitCapRate'), false,
     'explicit upgrade must not derive or invent an exit cap');
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(upgraded.inputs, 'exitTransferFeeRate'), false,
+    'explicit upgrade must not derive or invent an exit transaction cost');
   assert.strictEqual(upgraded.transactionAuthorized, false);
 
   const hydratedV2Missing = hydrateUiDeal({
@@ -150,6 +183,7 @@ function run() {
   assert.strictEqual(hydratedV2Missing.assumptionModelVersion, ASSUMPTION_MODEL_VERSION.V2);
   assertV2AssumptionsMaterialized(hydratedV2Missing.inputs);
   assert.strictEqual(Object.prototype.hasOwnProperty.call(hydratedV2Missing.inputs, 'exitCapRate'), false);
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(hydratedV2Missing.inputs, 'exitTransferFeeRate'), false);
   const v2MissingState = calculateUiInvestmentState({
     mode: UI_MODE.BUILDING,
     inputs: hydratedV2Missing.inputs,
@@ -174,13 +208,16 @@ function run() {
 
   const landFresh = createUiWorkspace({
     mode: UI_MODE.LAND,
-    defaultInputs: { ...baseInputs, exitCapRate: 0.085 },
+    defaultInputs: { ...baseInputs, exitCapRate: 0.085, exitTransferFeeRate: 0.05 },
   });
   assert.strictEqual(landFresh.inputs.exitCapRate, 0.085,
     'land/development exit-cap semantics are intentionally unchanged');
+  assert.strictEqual(landFresh.inputs.exitTransferFeeRate, 0.05,
+    'land/development exit-cost semantics are intentionally unchanged');
   assertV2AssumptionsMaterialized(landFresh.inputs);
 
   console.log('WAVE2_UI_CONTROLLER_FRESH_V2_EXPLICIT_EXIT_REQUIRED=PASS');
+  console.log('WAVE2_UI_CONTROLLER_V2_EXPLICIT_EXIT_COST_REQUIRED=PASS');
   console.log('WAVE2_UI_CONTROLLER_V2_ASSUMPTIONS_MATERIALIZED=PASS');
   console.log('WAVE2_UI_CONTROLLER_V2_FAIL_CLOSED=PASS');
   console.log('WAVE2_UI_CONTROLLER_LEGACY_COMPATIBILITY=PASS');

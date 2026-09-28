@@ -52,7 +52,7 @@ async function safeDecisionVisible(page) {
   return { safe, imperative };
 }
 
-async function enterExplicitBuildingExitCap(page, act, value = '8.5') {
+async function ensureBuildingInvestmentSectionOpen(page, act) {
   const sectionButton = page.getByRole('button', { name: /افتراضات التقييم والاستثمار/ }).first();
   const section = sectionButton.locator('xpath=ancestor::div[contains(@class,"rounded-2xl") and contains(@class,"overflow-hidden")][1]');
   const sectionBody = section.locator('.rf-accordion-body').first();
@@ -60,6 +60,10 @@ async function enterExplicitBuildingExitCap(page, act, value = '8.5') {
     await act(() => sectionButton.click());
     await page.waitForTimeout(180);
   }
+}
+
+async function enterExplicitBuildingExitCap(page, act, value = '8.5') {
+  await ensureBuildingInvestmentSectionOpen(page, act);
   const exitCap = page
     .getByText('معدل رسملة الخروج', { exact: true })
     .locator('xpath=ancestor::label[1]')
@@ -70,6 +74,20 @@ async function enterExplicitBuildingExitCap(page, act, value = '8.5') {
   await page.waitForTimeout(220);
   if ((await exitCap.inputValue()) !== value) throw new Error(`explicit exit cap did not persist visibly: ${await exitCap.inputValue()}`);
   return exitCap;
+}
+
+async function enterExplicitBuildingExitTransactionCost(page, act, value = '5') {
+  await ensureBuildingInvestmentSectionOpen(page, act);
+  const exitCost = page
+    .getByText('تكلفة معاملة الخروج المحمّلة اقتصاديًا على البائع', { exact: true })
+    .locator('xpath=ancestor::label[1]')
+    .locator('input')
+    .first();
+  await act(() => exitCost.fill(value));
+  await act(() => exitCost.blur());
+  await page.waitForTimeout(220);
+  if ((await exitCost.inputValue()) !== value) throw new Error(`explicit exit transaction cost did not persist visibly: ${await exitCost.inputValue()}`);
+  return exitCost;
 }
 
 try {
@@ -96,7 +114,10 @@ try {
     await page.waitForTimeout(200);
     if ((await input.inputValue()) !== '120') throw new Error('edited building input did not persist visibly');
 
+    // Fresh V2 Building work is intentionally incomplete until both exit
+    // assumptions are explicit. Complete both before asking for a decision state.
     const exitCap = await enterExplicitBuildingExitCap(page, act, '8.5');
+    const exitCost = await enterExplicitBuildingExitTransactionCost(page, act, '5');
 
     await act(() => page.getByText('لوحة المؤشرات', { exact: true }).first().click());
     await page.waitForTimeout(200);
@@ -107,7 +128,12 @@ try {
     await act(() => page.getByText('مبنى قائم', { exact: true }).first().click());
     await input.fill(original || '100');
     await input.blur();
-    return { decision, exitCap: await exitCap.inputValue(), taskGoal: 'edit assumptions, enter explicit exit cap, read analytical state, inspect cash flow' };
+    return {
+      decision,
+      exitCap: await exitCap.inputValue(),
+      exitTransactionCost: await exitCost.inputValue(),
+      taskGoal: 'edit assumptions, enter explicit exit cap and exit transaction cost, read analytical state, inspect cash flow',
+    };
   });
 
   await runTask('NOVICE_LAND_DEVELOPMENT_REVIEW', page, async (act) => {

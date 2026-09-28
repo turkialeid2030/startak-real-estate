@@ -134,6 +134,7 @@ const {
   hydrateUiDeal,
   calculateUiInvestmentState,
   applyExitCapInputText,
+  applyExitTransactionCostInputText,
   buildUiDisclosureViewModel,
   prepareNewUiDealForSave,
   prepareUpdatedUiDealForSave,
@@ -159,6 +160,7 @@ const DEFAULT_BUILDING_INPUTS = {
   maintenanceRate: 0.05, insuranceRate: 0.005,
   managementFeeRate: 0, fixedOpexPerSqm: 0, replacementReservePerSqm: 0, opexGrowthRate: 0,
   exitCapRate: 0.07,
+  exitTransferFeeRate: 0.05,
   marketCapRate: 0.07, discountRate: 0.08, holdPeriod: 5, rentGrowthRate: 0,
   basementConstructionCostPerSqm: 3000, floorConstructionCostPerSqm: 2000, currentLandPricePerSqm: 15000, buildingUsefulLife: 30,
   minYieldThreshold: 0.09, maxPaybackThreshold: 10,
@@ -280,7 +282,7 @@ function PercentField({ label, note, value, onChange, warnBelow, warnAbove, warn
   );
 }
 
-function OptionalPercentField({ label, note, value, onCommit, min = 0, max = 1 }) {
+function OptionalPercentField({ label, note, value, onCommit, min = 0, max = 1, invalidMessage = null }) {
   const { locale } = useLocale();
   const formatRaw = (candidate) => candidate === null || candidate === undefined || !isFiniteNumber(candidate)
     ? ""
@@ -331,7 +333,7 @@ function OptionalPercentField({ label, note, value, onCommit, min = 0, max = 1 }
       />
       <FieldNote
         note={note}
-        warning={error ? (locale === 'en' ? 'Enter a valid explicit exit cap within the permitted range.' : 'أدخل معدل خروج صريحاً وصحيحاً ضمن النطاق المسموح.') : null}
+        warning={error ? (invalidMessage || (locale === 'en' ? 'Enter a valid explicit percentage within the permitted range.' : 'أدخل نسبة صريحة وصحيحة ضمن النطاق المسموح.')) : null}
       />
     </Field>
   );
@@ -1088,9 +1090,11 @@ function AssumptionDisclosureBanner({ disclosure }) {
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs font-semibold" style={{ color: COLORS.brass }}>{disclosure.badge}</span>
         <span className="text-[10px] rf-num" style={{ color: COLORS.slate }}>{disclosure.exitCapSource || '—'}</span>
+        <span className="text-[10px] rf-num" style={{ color: COLORS.slate }}>{disclosure.exitTransactionCostSource || '—'}</span>
         {disclosure.legacyCompatibility ? <span className="text-[10px]" style={{ color: COLORS.caution }}>LEGACY</span> : null}
       </div>
       {disclosure.exitCapNotice ? <div className="text-[11px] mt-1 leading-relaxed" style={{ color: hold ? COLORS.caution : COLORS.slate }}>{disclosure.exitCapNotice}</div> : null}
+      {disclosure.exitTransactionCostNotice ? <div className="text-[11px] mt-1 leading-relaxed" style={{ color: hold ? COLORS.caution : COLORS.slate }}>{disclosure.exitTransactionCostNotice}</div> : null}
     </div>
   );
 }
@@ -1098,7 +1102,7 @@ function AssumptionDisclosureBanner({ disclosure }) {
 // ============================================================
 // INPUT PANEL — EXISTING BUILDING
 // ============================================================
-function BuildingInputPanel({ inputs, setInputs, assumptionModelVersion, onExitCapTextCommit }) {
+function BuildingInputPanel({ inputs, setInputs, assumptionModelVersion, onExitCapTextCommit, onExitTransactionCostTextCommit }) {
   const { t, locale } = useLocale();
   const patch = (key, value) => setInputs((prev) => ({ ...prev, [key]: value }));
   const v2Governed = assumptionModelVersion === ASSUMPTION_MODEL_VERSION.V2;
@@ -1165,6 +1169,17 @@ function BuildingInputPanel({ inputs, setInputs, assumptionModelVersion, onExitC
       <Section eyebrow={t("globalApp.section5")} title={t("inputBuilding.sec5")}>
         <PercentField label={t("inputBuilding.marketCapRate")} value={inputs.marketCapRate} onChange={(v) => patch("marketCapRate", v)} warnBelow={0.04} warnAbove={0.12} />
         <OptionalPercentField label={t("inputBuilding.exitCapRate")} note={t("inputBuilding.exitCapRateNote")} value={inputs.exitCapRate} onCommit={onExitCapTextCommit} min={0.04} max={0.14} />
+        <OptionalPercentField
+          label={locale === 'en' ? 'Seller-borne exit transaction cost' : 'تكلفة معاملة الخروج المحمّلة اقتصاديًا على البائع'}
+          note={locale === 'en'
+            ? 'Deal-specific economic assumption deducted from exit proceeds. This does not determine the statutory RETT taxpayer or any exemption.'
+            : 'افتراض اقتصادي خاص بالصفقة يُخصم من متحصلات الخروج. لا يحدد هذا الحقل المكلف النظامي بضريبة التصرفات العقارية ولا يقرر وجود إعفاء.'}
+          value={inputs.exitTransferFeeRate}
+          onCommit={onExitTransactionCostTextCommit}
+          min={0}
+          max={1}
+          invalidMessage={locale === 'en' ? 'Enter a valid seller-borne exit transaction-cost percentage from 0% to 100%.' : 'أدخل نسبة صحيحة لتكلفة معاملة الخروج التي يتحملها البائع اقتصاديًا من 0% إلى 100%.'}
+        />
         <PercentField label={t("inputBuilding.discountRate")} value={inputs.discountRate} onChange={(v) => patch("discountRate", v)} warnBelow={0.04} warnAbove={0.15} />
         <NumField label={t("inputBuilding.holdPeriod")} unit={t("inputBuilding.unitYear")} value={inputs.holdPeriod} onChange={(v) => patch("holdPeriod", v)} min={1} warnAbove={20} />
         <PercentField label={t("inputBuilding.rentGrowthRate")} note={t("inputBuilding.rentGrowthRateNote")} value={inputs.rentGrowthRate} onChange={(v) => patch("rentGrowthRate", v)} warnAbove={0.15} />
@@ -2082,7 +2097,16 @@ export default function App() {
                   try {
                     const next = applyExitCapInputText({ inputs: buildingInputs, rawText, min: 0.04, max: 0.14 });
                     setBuildingInputs(next.inputs);
-                    return { ok: true, displayValue: next.displayValue };
+                    return { ok: next.inputValid !== false, displayValue: next.displayValue, code: next.errorCode };
+                  } catch (error) {
+                    return { ok: false, code: error && error.code ? error.code : 'OPTIONAL_PERCENT_INVALID' };
+                  }
+                }}
+                onExitTransactionCostTextCommit={(rawText) => {
+                  try {
+                    const next = applyExitTransactionCostInputText({ inputs: buildingInputs, rawText, min: 0, max: 1 });
+                    setBuildingInputs(next.inputs);
+                    return { ok: next.inputValid !== false, displayValue: next.displayValue, code: next.errorCode };
                   } catch (error) {
                     return { ok: false, code: error && error.code ? error.code : 'OPTIONAL_PERCENT_INVALID' };
                   }
@@ -2110,7 +2134,7 @@ export default function App() {
               assumptionModelVersion={assumptionModelVersion}
               sensitivityReady={mode === UI_MODE.BUILDING ? activeUiState.sensitivityReady : true}
               sensitivityRenderPolicy={mode === UI_MODE.BUILDING ? activeUiState.sensitivityRenderPolicy : 'RENDER_SENSITIVITY_OUTPUTS'}
-              unavailableMessage={assumptionDisclosure ? assumptionDisclosure.exitCapNotice : null}
+              unavailableMessage={assumptionDisclosure ? [assumptionDisclosure.exitCapNotice, assumptionDisclosure.exitTransactionCostNotice].filter(Boolean).join(' ') : null}
             />}
           </main>
         </div>

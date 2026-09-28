@@ -46,11 +46,15 @@ function hydrateSavedDealForUi(record, defaultInputs) {
   const assumptionModelVersion = readDealAssumptionVersion(record);
   const inputs = { ...defaultInputs, ...recordInputs };
 
-  // Provenance must survive hydration. A default UI exit cap must never be
-  // injected into a Saved Deal that did not persist one, regardless of model
-  // version. Legacy then remains LEGACY_DERIVED; V2 remains MISSING_REQUIRED.
+  // Provenance must survive hydration. Default UI exit assumptions must never be
+  // injected into a Saved Deal that did not persist them, regardless of model
+  // version. LEGACY then remains compatibility-derived; V2 remains missing and
+  // fail-closed until the user explicitly enters the assumption.
   if (!Object.prototype.hasOwnProperty.call(recordInputs, 'exitCapRate')) {
     delete inputs.exitCapRate;
+  }
+  if (!Object.prototype.hasOwnProperty.call(recordInputs, 'exitTransferFeeRate')) {
+    delete inputs.exitTransferFeeRate;
   }
 
   return {
@@ -74,6 +78,9 @@ function buildUpdatedSavedDealRecord(record, assumptionModelVersion) {
 
 function explicitlyUpgradeUiDeal(record) {
   const upgraded = upgradeDealToV2(cloneDealRecord(record));
+  // Upgrading changes the governing model version but must never invent new
+  // deal evidence. If the legacy record did not persist exit assumptions, V2
+  // remains incomplete until they are explicitly supplied.
   return {
     ...upgraded,
     transactionAuthorized: false,
