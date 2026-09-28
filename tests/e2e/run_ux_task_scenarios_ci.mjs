@@ -90,6 +90,24 @@ async function enterExplicitBuildingExitTransactionCost(page, act, value = '5') 
   return exitCost;
 }
 
+async function enterBuildingLeaseYears(page, act, value = '6') {
+  const label = page
+    .getByText('مدة التغطية التعاقدية المتبقية من تاريخ الدراسة', { exact: true })
+    .locator('xpath=ancestor::label[1]');
+  const section = label.locator('xpath=ancestor::div[contains(@class,"rounded-2xl") and contains(@class,"overflow-hidden")][1]');
+  const sectionBody = section.locator('.rf-accordion-body').first();
+  if (!((await sectionBody.getAttribute('class')) || '').split(/\s+/).includes('open')) {
+    await act(() => section.locator(':scope > button').first().click());
+    await page.waitForTimeout(180);
+  }
+  const leaseYears = label.locator('input').first();
+  await act(() => leaseYears.fill(value));
+  await act(() => leaseYears.blur());
+  await page.waitForTimeout(220);
+  if ((await leaseYears.inputValue()) !== value) throw new Error(`remaining lease coverage did not persist visibly: ${await leaseYears.inputValue()}`);
+  return leaseYears;
+}
+
 try {
   previewServer = await preview({ preview: { host: '127.0.0.1', port: 4173, strictPort: false } });
   const addr = previewServer.httpServer.address();
@@ -114,6 +132,11 @@ try {
     await page.waitForTimeout(200);
     if ((await input.inputValue()) !== '120') throw new Error('edited building input did not persist visibly');
 
+    // P23 requires contractual coverage through the forward Year-(N+1) NOI
+    // used for terminal value. The default hold is 5 years, so this decision-
+    // ready task supplies 6 remaining contractual years rather than weakening the gate.
+    const leaseYears = await enterBuildingLeaseYears(page, act, '6');
+
     // Fresh V2 Building work is intentionally incomplete until both exit
     // assumptions are explicit. Complete both before asking for a decision state.
     const exitCap = await enterExplicitBuildingExitCap(page, act, '8.5');
@@ -130,9 +153,10 @@ try {
     await input.blur();
     return {
       decision,
+      leaseYears: await leaseYears.inputValue(),
       exitCap: await exitCap.inputValue(),
       exitTransactionCost: await exitCost.inputValue(),
-      taskGoal: 'edit assumptions, enter explicit exit cap and exit transaction cost, read analytical state, inspect cash flow',
+      taskGoal: 'edit assumptions, provide forward-NOI remaining lease coverage, enter explicit exit assumptions, read analytical state, inspect cash flow',
     };
   });
 

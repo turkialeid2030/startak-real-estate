@@ -1,11 +1,10 @@
 'use strict';
 
 // Triple-path contract after Financial Remediation Wave B2, price-basis
-// disclosure #398, and P22 exit-cost governance: frozen legacy remains
-// historical evidence, direct Wave-A valuation engines remain the raw numerical
-// layer, and the canonical production entrypoint intentionally overlays
-// versioned financing (when leveraged) plus governed metadata that does not
-// change raw Legacy economics.
+// disclosure #398, P22 exit-cost governance, and P23 lease-horizon governance:
+// frozen legacy remains historical evidence, direct Wave-A valuation engines
+// remain the raw numerical layer, and the canonical production entrypoint
+// intentionally overlays versioned financing plus governed metadata.
 const fs = require('fs');
 const path = require('path');
 const { loadCurrentEngines } = require('../load_engines');
@@ -13,6 +12,7 @@ const { calculateInvestmentCase, STUDY_TYPE, PRICE_BASIS_VERSION } = require('..
 const { calcExistingBuilding } = require('../../src/engines/valuation/existing-building');
 const { calcLandDevelopment } = require('../../src/engines/valuation/land-development');
 const { EXIT_TRANSACTION_COST_SOURCE } = require('../../src/engines/valuation/exit-transaction-cost-resolver');
+const { LEASE_ROLL_FORWARD_STATUS } = require('../../src/engines/valuation/existing-building-lease-roll-forward-governance');
 
 const FIXTURE_DIR = path.join(__dirname, 'fixtures');
 const legacy = loadCurrentEngines();
@@ -32,6 +32,15 @@ const CANONICAL_METADATA_FIELDS = [
   'exitTransactionCostRate',
   'exitTransactionCostRequiresVisibleDisclosure',
   'statutoryExitTaxpayerDetermined',
+  'leaseRollForwardStatus',
+  'contractCoversHoldPeriod',
+  'contractCoversForwardTerminalNoi',
+  'forwardTerminalNoiYear',
+  'contractualCoverageThroughYear',
+  'leaseSupportedThroughYear',
+  'leaseRollForwardModeled',
+  'leaseDependentAnalyticsReady',
+  'leaseRollForwardRequiresVisibleDisclosure',
 ];
 
 function withoutCanonicalMetadata(result) {
@@ -64,10 +73,46 @@ function validLegacyExitCostMetadata(result, fixture) {
     && result.statutoryExitTaxpayerDetermined === false;
 }
 
+function validLegacyLeaseMetadata(result, fixture) {
+  if (fixture.study_type !== 'building') {
+    return result.leaseRollForwardStatus === undefined
+      && result.contractCoversHoldPeriod === undefined
+      && result.contractCoversForwardTerminalNoi === undefined
+      && result.forwardTerminalNoiYear === undefined
+      && result.contractualCoverageThroughYear === undefined
+      && result.leaseSupportedThroughYear === undefined
+      && result.leaseRollForwardModeled === undefined
+      && result.leaseDependentAnalyticsReady === undefined
+      && result.leaseRollForwardRequiresVisibleDisclosure === undefined;
+  }
+
+  const leaseYears = fixture.input_set.leaseYears;
+  const holdPeriod = fixture.input_set.holdPeriod;
+  const coversHold = leaseYears >= holdPeriod;
+  const coversForwardNoi = leaseYears >= holdPeriod + 1;
+  const common = result.contractCoversHoldPeriod === coversHold
+    && result.contractCoversForwardTerminalNoi === coversForwardNoi
+    && result.forwardTerminalNoiYear === holdPeriod + 1
+    && result.contractualCoverageThroughYear === leaseYears
+    && result.leaseSupportedThroughYear === Math.min(leaseYears, holdPeriod)
+    && result.leaseRollForwardModeled === false;
+  if (!common) return false;
+
+  if (coversForwardNoi) {
+    return result.leaseRollForwardStatus === LEASE_ROLL_FORWARD_STATUS.CONTRACT_COVERS_HOLD_AND_FORWARD_NOI
+      && result.leaseDependentAnalyticsReady === true
+      && result.leaseRollForwardRequiresVisibleDisclosure === false;
+  }
+  return result.leaseRollForwardStatus === LEASE_ROLL_FORWARD_STATUS.LEGACY_UNMODELED_ROLLOVER
+    && result.leaseDependentAnalyticsReady === false
+    && result.leaseRollForwardRequiresVisibleDisclosure === true;
+}
+
 let unexpectedMismatches = 0;
 let intentionalFinancingOverlays = 0;
 let intentionalPriceBasisOverlays = 0;
 let intentionalExitCostMetadataOverlays = 0;
+let intentionalLeaseMetadataOverlays = 0;
 let legacyVsV2DifferentFixtures = 0;
 
 for (const fid of fixtureFiles) {
@@ -80,19 +125,16 @@ for (const fid of fixtureFiles) {
     leverageEnabled: fixture.input_set.leverageEnabled,
   });
 
-  if (validPriceBasis(productionV2, fixture.study_type)) {
-    intentionalPriceBasisOverlays += 1;
-  } else {
-    unexpectedMismatches += 1;
-    console.log(`${fid}: price_basis_metadata=INVALID`);
-  }
+  if (validPriceBasis(productionV2, fixture.study_type)) intentionalPriceBasisOverlays += 1;
+  else { unexpectedMismatches += 1; console.log(`${fid}: price_basis_metadata=INVALID`); }
 
   if (validLegacyExitCostMetadata(productionV2, fixture)) {
     if (fixture.study_type === 'building') intentionalExitCostMetadataOverlays += 1;
-  } else {
-    unexpectedMismatches += 1;
-    console.log(`${fid}: exit_cost_metadata=INVALID`);
-  }
+  } else { unexpectedMismatches += 1; console.log(`${fid}: exit_cost_metadata=INVALID`); }
+
+  if (validLegacyLeaseMetadata(productionV2, fixture)) {
+    if (fixture.study_type === 'building') intentionalLeaseMetadataOverlays += 1;
+  } else { unexpectedMismatches += 1; console.log(`${fid}: lease_roll_forward_metadata=INVALID`); }
 
   const isFinancingOverlayCase = fixture.input_set.leverageEnabled === true;
   if (isFinancingOverlayCase) {
@@ -128,12 +170,14 @@ console.log(`\nTRIPLE_PATH_UNEXPECTED_MISMATCHES=${unexpectedMismatches}`);
 console.log(`INTENTIONAL_FINANCING_OVERLAYS=${intentionalFinancingOverlays}`);
 console.log(`INTENTIONAL_PRICE_BASIS_OVERLAYS=${intentionalPriceBasisOverlays}`);
 console.log(`INTENTIONAL_EXIT_COST_METADATA_OVERLAYS=${intentionalExitCostMetadataOverlays}`);
+console.log(`INTENTIONAL_LEASE_METADATA_OVERLAYS=${intentionalLeaseMetadataOverlays}`);
 console.log(`LEGACY_VS_V2_DIFFERENT_FIXTURES=${legacyVsV2DifferentFixtures}`);
 process.exit(
   unexpectedMismatches === 0
   && intentionalFinancingOverlays >= 2
   && intentionalPriceBasisOverlays === fixtureFiles.length
   && intentionalExitCostMetadataOverlays === 2
+  && intentionalLeaseMetadataOverlays === 2
   && legacyVsV2DifferentFixtures > 0
     ? 0
     : 1,

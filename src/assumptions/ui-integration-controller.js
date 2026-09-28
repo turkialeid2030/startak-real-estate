@@ -120,6 +120,7 @@ function calculateUiInvestmentState({ mode, inputs, assumptionModelVersion }) {
       : 'RENDER_SENSITIVITY_OUTPUTS',
     exitCapInputRequired: governance ? governance.exitCapInputRequired : false,
     exitTransactionCostInputRequired: governance ? governance.exitTransactionCostInputRequired : false,
+    leaseRollForwardRequired: governance ? governance.leaseRollForwardRequired : false,
     transactionAuthorized: false,
   });
 }
@@ -198,9 +199,21 @@ function buildUiDisclosureViewModel({ governance, locale = 'ar-SA' }) {
   const exitCapNotice = disclosure.exitCapNotice
     ? disclosure.exitCapNotice[language]
     : null;
-  const exitTransactionCostNotice = disclosure.exitTransactionCostNotice
+  const rawExitTransactionCostNotice = disclosure.exitTransactionCostNotice
     ? disclosure.exitTransactionCostNotice[language]
     : null;
+  const leaseRollForwardNotice = disclosure.leaseRollForwardNotice
+    ? disclosure.leaseRollForwardNotice[language]
+    : null;
+
+  // Presentation compatibility: the production banner currently has dedicated
+  // rows for exit-cap and exit-transaction-cost notices. Until that component
+  // receives a dedicated lease row, append the lease notice to the second
+  // governed notice slot so the P23 hold is visible rather than silently hidden.
+  const exitTransactionCostNotice = [rawExitTransactionCostNotice, leaseRollForwardNotice]
+    .filter(Boolean)
+    .join(' ')
+    || null;
 
   return Object.freeze({
     badge: disclosure.badge[language],
@@ -213,6 +226,9 @@ function buildUiDisclosureViewModel({ governance, locale = 'ar-SA' }) {
     exitTransactionCostSource: disclosure.exitTransactionCostSource,
     exitTransactionCostNotice,
     exitTransactionCostInputRequired: governance.exitTransactionCostInputRequired,
+    leaseRollForwardStatus: disclosure.leaseRollForwardStatus,
+    leaseRollForwardNotice,
+    leaseRollForwardRequired: governance.leaseRollForwardRequired,
     sensitivityStatus: governance.sensitivity.status,
     sensitivityReady: governance.sensitivityReady,
     sensitivityRenderPolicy: governance.sensitivity.renderPolicy,

@@ -4,6 +4,7 @@
 const { calcExistingBuilding, VACANCY_MONTHS_MAP } = require('./valuation/existing-building');
 const { calcLandDevelopment } = require('./valuation/land-development');
 const { applyExistingBuildingExitCostGovernance } = require('./valuation/existing-building-exit-cost-governance');
+const { applyExistingBuildingLeaseRollForwardGovernance } = require('./valuation/existing-building-lease-roll-forward-governance');
 const { applyFinancingRemediation } = require('./financing/remediation-wave-b');
 const { STUDY_TYPE, STUDY_TYPE_TO_LEGACY_MODE } = require('../contracts/study-type');
 const { validateEngineInputs } = require('../validation/numeric-safety');
@@ -60,8 +61,28 @@ function normalizeZeroDebtEconomics(studyType, inputs, result) {
   const baseDiscountRate = studyType === STUDY_TYPE.EXISTING_BUILDING
     ? inputs.discountRate
     : inputs.hurdleRate;
-  const neutralCashflows = Array.isArray(result.cashflows) ? [...result.cashflows] : result.cashflows;
 
+  // An upstream governed hold (for example missing V2 exit evidence or P23
+  // lease rollover) remains non-decisionable even when requested debt is 0%.
+  // Zero-debt normalization must not re-materialize a levered cash-flow series
+  // from an incomplete case merely because economics are otherwise unlevered.
+  if (result && result.decisionStatus === 'INCOMPLETE_INPUTS') {
+    return {
+      ...result,
+      loanAmount: 0,
+      debtService: 0,
+      dscrMin: null,
+      leveredCashflows: null,
+      leveredIRR: null,
+      leveredNPV: null,
+      equityDiscountRate: baseDiscountRate,
+      leveredIrrDiagnostics: null,
+      leveredMirr: null,
+      leveredIrrReliability: null,
+    };
+  }
+
+  const neutralCashflows = Array.isArray(result.cashflows) ? [...result.cashflows] : result.cashflows;
   return {
     ...result,
     loanAmount: 0,
@@ -121,13 +142,26 @@ function calculateInvestmentCase({ studyType, inputs, leverageEnabled, assumptio
   // governance layer before financing so both unlevered and Wave-B levered cash
   // flows use the same governed terminal proceeds. LEGACY may preserve the old
   // acquisition-rate fallback; V2 fails closed without an explicit exit rate.
-  const governedResult = studyType === STUDY_TYPE.EXISTING_BUILDING
+  const exitGovernedResult = studyType === STUDY_TYPE.EXISTING_BUILDING
     ? applyExistingBuildingExitCostGovernance({
         inputs: engineInputs,
         engineResult: baseResult,
         assumptionModelVersion,
       })
     : baseResult;
+
+  // P23 / #456: the raw Existing Building engine does not model contractual
+  // lease rollover after leaseYears. Apply lease-horizon governance before any
+  // financing overlay so an unsupported V2 post-expiry case cannot manufacture
+  // levered NPV/IRR or a recommendation. Legacy economics remain compatibility
+  // evidence and carry an explicit rollover disclosure status.
+  const governedResult = studyType === STUDY_TYPE.EXISTING_BUILDING
+    ? applyExistingBuildingLeaseRollForwardGovernance({
+        inputs: engineInputs,
+        engineResult: exitGovernedResult,
+        assumptionModelVersion,
+      })
+    : exitGovernedResult;
 
   const remediatedResult = applyFinancingRemediation({
     studyType,

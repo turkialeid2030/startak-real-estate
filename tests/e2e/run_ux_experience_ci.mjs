@@ -57,6 +57,23 @@ async function enterExplicitBuildingExitTransactionCost(page, value = '5') {
   return exitCost;
 }
 
+async function enterBuildingLeaseYears(page, value = '6') {
+  const label = page
+    .getByText('مدة التغطية التعاقدية المتبقية من تاريخ الدراسة', { exact: true })
+    .locator('xpath=ancestor::label[1]');
+  const section = label.locator('xpath=ancestor::div[contains(@class,"rounded-2xl") and contains(@class,"overflow-hidden")][1]');
+  const sectionBody = section.locator('.rf-accordion-body').first();
+  if (!((await sectionBody.getAttribute('class')) || '').split(/\s+/).includes('open')) {
+    await section.locator(':scope > button').first().click();
+    await page.waitForTimeout(200);
+  }
+  const leaseYears = label.locator('input').first();
+  await leaseYears.fill(value);
+  await leaseYears.blur();
+  await page.waitForTimeout(250);
+  return leaseYears;
+}
+
 async function viewportAudit(page, name, width, height) {
   await page.setViewportSize({ width, height });
   await page.waitForTimeout(150);
@@ -195,6 +212,13 @@ try {
     record('INPUT_EDIT_IS_PERSISTED_VISIBLY', false, 'No editable numeric/text input found');
     record('INPUT_EDIT_PRODUCES_FEEDBACK', false, 'No editable numeric/text input found');
   }
+
+  // P23 keeps V2 fail-closed unless the lease contract covers the hold period
+  // and the forward Year-(N+1) NOI used for terminal value. Default hold is 5,
+  // so use 6 contractual years in this decision-ready UX journey. This test
+  // supplies evidence; it does not weaken or bypass the lease-roll-forward gate.
+  const leaseYears = await enterBuildingLeaseYears(page, '6');
+  record('V2_LEASE_COVERS_FORWARD_TERMINAL_NOI', (await leaseYears.inputValue()) === '6', { value: await leaseYears.inputValue() });
 
   // Fresh V2 Building work is fail-closed until BOTH deterministic exit
   // assumptions are supplied: exit cap and seller-borne exit transaction cost.

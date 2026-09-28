@@ -27,14 +27,19 @@ function hasComplianceSafeVerdict(bodyText) {
   return SAFE_ANALYTICAL_VERDICT_RE.test(bodyText) && !LEGACY_INVESTMENT_VERDICT_RE.test(bodyText);
 }
 
-async function enterExplicitBuildingExitCap(page, value = '8.5') {
-  const sectionButton = page.getByRole('button', { name: /افتراضات التقييم والاستثمار/ }).first();
+async function ensureAccordionOpen(page, sectionName) {
+  const sectionButton = page.getByRole('button', { name: new RegExp(sectionName) }).first();
   const section = sectionButton.locator('xpath=ancestor::div[contains(@class,"rounded-2xl") and contains(@class,"overflow-hidden")][1]');
   const sectionBody = section.locator('.rf-accordion-body').first();
   if (!((await sectionBody.getAttribute('class')) || '').split(/\s+/).includes('open')) {
     await sectionButton.click();
     await page.waitForTimeout(200);
   }
+  return section;
+}
+
+async function enterExplicitBuildingExitCap(page, value = '8.5') {
+  await ensureAccordionOpen(page, 'افتراضات التقييم والاستثمار');
   const exitCap = page
     .getByText('معدل رسملة الخروج', { exact: true })
     .locator('xpath=ancestor::label[1]')
@@ -47,13 +52,7 @@ async function enterExplicitBuildingExitCap(page, value = '8.5') {
 }
 
 async function enterExplicitBuildingExitTransactionCost(page, value = '5') {
-  const sectionButton = page.getByRole('button', { name: /افتراضات التقييم والاستثمار/ }).first();
-  const section = sectionButton.locator('xpath=ancestor::div[contains(@class,"rounded-2xl") and contains(@class,"overflow-hidden")][1]');
-  const sectionBody = section.locator('.rf-accordion-body').first();
-  if (!((await sectionBody.getAttribute('class')) || '').split(/\s+/).includes('open')) {
-    await sectionButton.click();
-    await page.waitForTimeout(200);
-  }
+  await ensureAccordionOpen(page, 'افتراضات التقييم والاستثمار');
   const exitCost = page
     .getByText('تكلفة معاملة الخروج المحمّلة اقتصاديًا على البائع', { exact: true })
     .locator('xpath=ancestor::label[1]')
@@ -63,6 +62,19 @@ async function enterExplicitBuildingExitTransactionCost(page, value = '5') {
   await exitCost.blur();
   await page.waitForTimeout(300);
   return exitCost;
+}
+
+async function enterBuildingLeaseYears(page, value = '6') {
+  await ensureAccordionOpen(page, 'الدخل التأجيري');
+  const leaseYears = page
+    .getByText('مدة التغطية التعاقدية المتبقية من تاريخ الدراسة', { exact: true })
+    .locator('xpath=ancestor::label[1]')
+    .locator('input')
+    .first();
+  await leaseYears.fill(value);
+  await leaseYears.blur();
+  await page.waitForTimeout(300);
+  return leaseYears;
 }
 
 try {
@@ -99,21 +111,24 @@ try {
   await firstB.fill('777777');
   await firstB.blur();
   await page.waitForTimeout(200);
-  // Wave 2 fresh Building workspaces are V2 and intentionally have no implicit
-  // exit cap. The E2E journey must satisfy that governed required input before
-  // expecting a deterministic analytical verdict; the product contract remains
-  // fail-closed when the field is absent.
+  // Fresh Building workspaces are V2 and intentionally have no implicit exit
+  // assumptions. P23 also requires contractual coverage through the forward
+  // Year-(N+1) NOI used by terminal value. This journey is intended to test a
+  // decision-ready case, so it supplies all three governed preconditions
+  // explicitly rather than weakening the fail-closed product contract.
+  const leaseYearsB = await enterBuildingLeaseYears(page, '6');
   const exitCapB = await enterExplicitBuildingExitCap(page, '8.5');
   const exitCostB = await enterExplicitBuildingExitTransactionCost(page, '5');
   const bodyAfterB = await page.locator('body').innerText();
   record(
     'E2E-02-BUILDING',
     (await firstB.inputValue()) === '777777'
+      && (await leaseYearsB.inputValue()) === '6'
       && (await exitCapB.inputValue()) === '8.5'
       && (await exitCostB.inputValue()) === '5'
       && bodyAfterB !== bodyBeforeB
       && hasComplianceSafeVerdict(bodyAfterB),
-    `exitCap=${await exitCapB.inputValue()} exitCost=${await exitCostB.inputValue()} safeVerdict=${SAFE_ANALYTICAL_VERDICT_RE.test(bodyAfterB)} legacyVerdict=${LEGACY_INVESTMENT_VERDICT_RE.test(bodyAfterB)}`
+    `leaseYears=${await leaseYearsB.inputValue()} exitCap=${await exitCapB.inputValue()} exitCost=${await exitCostB.inputValue()} safeVerdict=${SAFE_ANALYTICAL_VERDICT_RE.test(bodyAfterB)} legacyVerdict=${LEGACY_INVESTMENT_VERDICT_RE.test(bodyAfterB)}`
   );
 
   await page.getByText('أرض + تطوير', { exact: true }).click();
@@ -156,8 +171,6 @@ try {
 
   await page.getByTitle('الصفقات المحفوظة').click();
   await page.waitForTimeout(250);
-  // Use an Arabic customer-facing test name so the persistence assertion tests
-  // Saved Deals without conflicting with the strict Arabic surface policy.
   const dealName = `صفقة-اختبار-${Date.now()}`;
   await page.getByPlaceholder('اسم الصفقة...').fill(dealName);
   await page.getByRole('button', { name: /^حفظ$/ }).click();
