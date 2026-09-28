@@ -1,14 +1,20 @@
 'use strict';
 
 // Triple-path contract after Financial Remediation Wave B2, price-basis
-// disclosure #398, P22 exit-cost governance, and P23 lease-horizon governance:
-// frozen legacy remains historical evidence, direct Wave-A valuation engines
-// remain the raw numerical layer, and the canonical production entrypoint
-// intentionally overlays versioned financing plus governed metadata.
+// disclosure #398, P22 exit-cost governance, P23 lease-horizon governance,
+// and P24 cost-approach semantics: frozen legacy remains historical evidence,
+// direct Wave-A valuation engines remain the raw numerical layer, and the
+// canonical production entrypoint intentionally overlays versioned financing
+// plus governed metadata.
 const fs = require('fs');
 const path = require('path');
 const { loadCurrentEngines } = require('../load_engines');
-const { calculateInvestmentCase, STUDY_TYPE, PRICE_BASIS_VERSION } = require('../../src/engines');
+const {
+  calculateInvestmentCase,
+  STUDY_TYPE,
+  PRICE_BASIS_VERSION,
+  COST_APPROACH_INDICATION_BASIS,
+} = require('../../src/engines');
 const { calcExistingBuilding } = require('../../src/engines/valuation/existing-building');
 const { calcLandDevelopment } = require('../../src/engines/valuation/land-development');
 const { EXIT_TRANSACTION_COST_SOURCE } = require('../../src/engines/valuation/exit-transaction-cost-resolver');
@@ -41,6 +47,12 @@ const CANONICAL_METADATA_FIELDS = [
   'leaseRollForwardModeled',
   'leaseDependentAnalyticsReady',
   'leaseRollForwardRequiresVisibleDisclosure',
+  'costApproachIndicationBasis',
+  'costApproachIndication',
+  'costApproachUsesBuildingAge',
+  'costApproachAccreditedValuation',
+  'costApproachMarketValueDetermined',
+  'totalAppraisedValueLegacyAlias',
 ];
 
 function withoutCanonicalMetadata(result) {
@@ -108,11 +120,29 @@ function validLegacyLeaseMetadata(result, fixture) {
     && result.leaseRollForwardRequiresVisibleDisclosure === true;
 }
 
+function validCostApproachMetadata(result, fixture) {
+  if (fixture.study_type !== 'building') {
+    return result.costApproachIndicationBasis === undefined
+      && result.costApproachIndication === undefined
+      && result.costApproachUsesBuildingAge === undefined
+      && result.costApproachAccreditedValuation === undefined
+      && result.costApproachMarketValueDetermined === undefined
+      && result.totalAppraisedValueLegacyAlias === undefined;
+  }
+  return result.costApproachIndicationBasis === COST_APPROACH_INDICATION_BASIS
+    && result.costApproachIndication === result.totalAppraisedValue
+    && result.costApproachUsesBuildingAge === false
+    && result.costApproachAccreditedValuation === false
+    && result.costApproachMarketValueDetermined === false
+    && result.totalAppraisedValueLegacyAlias === true;
+}
+
 let unexpectedMismatches = 0;
 let intentionalFinancingOverlays = 0;
 let intentionalPriceBasisOverlays = 0;
 let intentionalExitCostMetadataOverlays = 0;
 let intentionalLeaseMetadataOverlays = 0;
+let intentionalCostApproachMetadataOverlays = 0;
 let legacyVsV2DifferentFixtures = 0;
 
 for (const fid of fixtureFiles) {
@@ -135,6 +165,10 @@ for (const fid of fixtureFiles) {
   if (validLegacyLeaseMetadata(productionV2, fixture)) {
     if (fixture.study_type === 'building') intentionalLeaseMetadataOverlays += 1;
   } else { unexpectedMismatches += 1; console.log(`${fid}: lease_roll_forward_metadata=INVALID`); }
+
+  if (validCostApproachMetadata(productionV2, fixture)) {
+    if (fixture.study_type === 'building') intentionalCostApproachMetadataOverlays += 1;
+  } else { unexpectedMismatches += 1; console.log(`${fid}: cost_approach_metadata=INVALID`); }
 
   const isFinancingOverlayCase = fixture.input_set.leverageEnabled === true;
   if (isFinancingOverlayCase) {
@@ -171,6 +205,7 @@ console.log(`INTENTIONAL_FINANCING_OVERLAYS=${intentionalFinancingOverlays}`);
 console.log(`INTENTIONAL_PRICE_BASIS_OVERLAYS=${intentionalPriceBasisOverlays}`);
 console.log(`INTENTIONAL_EXIT_COST_METADATA_OVERLAYS=${intentionalExitCostMetadataOverlays}`);
 console.log(`INTENTIONAL_LEASE_METADATA_OVERLAYS=${intentionalLeaseMetadataOverlays}`);
+console.log(`INTENTIONAL_COST_APPROACH_METADATA_OVERLAYS=${intentionalCostApproachMetadataOverlays}`);
 console.log(`LEGACY_VS_V2_DIFFERENT_FIXTURES=${legacyVsV2DifferentFixtures}`);
 process.exit(
   unexpectedMismatches === 0
@@ -178,6 +213,7 @@ process.exit(
   && intentionalPriceBasisOverlays === fixtureFiles.length
   && intentionalExitCostMetadataOverlays === 2
   && intentionalLeaseMetadataOverlays === 2
+  && intentionalCostApproachMetadataOverlays === 2
   && legacyVsV2DifferentFixtures > 0
     ? 0
     : 1,
