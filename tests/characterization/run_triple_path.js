@@ -40,6 +40,11 @@ function withoutCanonicalMetadata(result) {
   return copy;
 }
 
+function topLevelDiffFields(left, right) {
+  const fields = new Set([...Object.keys(left || {}), ...Object.keys(right || {})]);
+  return [...fields].filter((field) => JSON.stringify(left && left[field]) !== JSON.stringify(right && right[field]));
+}
+
 function validPriceBasis(result, studyType) {
   if (!result || !result.priceBasis || result.priceBasis.version !== PRICE_BASIS_VERSION) return false;
   if (result.priceBasis.solvesAllFinancialHardGates !== false) return false;
@@ -110,11 +115,19 @@ for (const fid of fixtureFiles) {
       }
     }
     console.log(`${fid}: production financing overlay=EXPECTED version=${productionV2.financingEngineVersion} constraint=${productionV2.loanSizingConstraint}; canonical_metadata=EXPECTED`);
-  } else if (JSON.stringify(directV2) !== JSON.stringify(withoutCanonicalMetadata(productionV2))) {
-    unexpectedMismatches += 1;
-    console.log(`${fid}: production_vs_direct=UNEXPECTED_DIFF`);
   } else {
-    console.log(`${fid}: production_vs_direct=MATCH_AFTER_CANONICAL_METADATA; canonical_metadata=EXPECTED`);
+    const productionEconomic = withoutCanonicalMetadata(productionV2);
+    const diffFields = topLevelDiffFields(directV2, productionEconomic);
+    if (diffFields.length > 0) {
+      unexpectedMismatches += 1;
+      console.log(`${fid}: production_vs_direct=UNEXPECTED_DIFF fields=${diffFields.join(',')}`);
+      for (const field of diffFields) {
+        console.log(`${fid}: direct.${field}=${JSON.stringify(directV2[field])}`);
+        console.log(`${fid}: production.${field}=${JSON.stringify(productionEconomic[field])}`);
+      }
+    } else {
+      console.log(`${fid}: production_vs_direct=MATCH_AFTER_CANONICAL_METADATA; canonical_metadata=EXPECTED`);
+    }
   }
 
   if (JSON.stringify(legacyResult) !== JSON.stringify(directV2)) legacyVsV2DifferentFixtures += 1;
