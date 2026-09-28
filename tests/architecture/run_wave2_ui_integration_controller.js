@@ -26,7 +26,12 @@ const fixture = JSON.parse(fs.readFileSync(
   path.join(__dirname, '..', 'characterization', 'fixtures', 'RE-GOLD-002-U.json'),
   'utf8',
 ));
-const baseInputs = fixture.input_set;
+// This test isolates UI assumption/exit governance. P23 separately tests lease
+// rollover, so use a contract horizon that covers the forward Year-(N+1) NOI.
+const baseInputs = {
+  ...fixture.input_set,
+  leaseYears: fixture.input_set.holdPeriod + 1,
+};
 const defaults = { ...baseInputs, exitCapRate: 0.07, exitTransferFeeRate: 0.05 };
 
 function assertV2AssumptionsMaterialized(inputs) {
@@ -59,6 +64,7 @@ function run() {
   assert.strictEqual(incomplete.results.exitTransactionCostSource, EXIT_TRANSACTION_COST_SOURCE.MISSING_REQUIRED);
   assert.strictEqual(incomplete.exitCapInputRequired, true);
   assert.strictEqual(incomplete.exitTransactionCostInputRequired, true);
+  assert.strictEqual(incomplete.leaseRollForwardRequired, false);
   assert.strictEqual(incomplete.sensitivityReady, false);
   assert.strictEqual(incomplete.sensitivityRenderPolicy, 'SHOW_CONTROLLED_UNAVAILABLE_STATE');
   assert.strictEqual(incomplete.transactionAuthorized, false);
@@ -90,6 +96,7 @@ function run() {
   assert.strictEqual(typeof incompleteDisclosureEn.exitTransactionCostNotice, 'string');
   assert.strictEqual(incompleteDisclosureAr.exitCapInputRequired, true);
   assert.strictEqual(incompleteDisclosureAr.exitTransactionCostInputRequired, true);
+  assert.strictEqual(incompleteDisclosureAr.leaseRollForwardRequired, false);
   assert.strictEqual(incompleteDisclosureAr.transactionAuthorized, false);
 
   const explicitExit = applyExitCapInputText({ inputs: fresh.inputs, rawText: '7.5' });
@@ -115,6 +122,7 @@ function run() {
   assert.strictEqual(complete.sensitivityReady, true);
   assert.strictEqual(complete.exitCapInputRequired, false);
   assert.strictEqual(complete.exitTransactionCostInputRequired, false);
+  assert.strictEqual(complete.leaseRollForwardRequired, false);
 
   const legacyRecord = {
     id: 'deal_legacy_1',
