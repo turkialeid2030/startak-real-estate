@@ -24,8 +24,13 @@ function close(actual, expected, tolerance, label) {
     `${label}: ${actual} != ${expected} within ${tolerance}`);
 }
 
+// P22 tests exit-cost independence, not contractual lease rollover. P23 requires
+// coverage through the forward Year-(N+1) NOI used by terminal value, so make
+// that independent precondition explicit in this fixture.
+const goldInputs = gold['RE-GOLD-002_existing_building'].inputs;
 const base = {
-  ...gold['RE-GOLD-002_existing_building'].inputs,
+  ...goldInputs,
+  leaseYears: goldInputs.holdPeriod + 1,
   exitCapRate: 0.07,
   leverageEnabled: false,
 };
@@ -156,6 +161,7 @@ const uiIncomplete = calculateUiInvestmentState({
   assumptionModelVersion: ASSUMPTION_MODEL_VERSION.V2,
 });
 assert.equal(uiIncomplete.exitTransactionCostInputRequired, true);
+assert.equal(uiIncomplete.leaseRollForwardRequired, false);
 assert.equal(uiIncomplete.sensitivityReady, false);
 
 const enteredZero = applyExitTransactionCostInputText({
@@ -174,6 +180,7 @@ const uiComplete = calculateUiInvestmentState({
   assumptionModelVersion: ASSUMPTION_MODEL_VERSION.V2,
 });
 assert.equal(uiComplete.exitTransactionCostInputRequired, false);
+assert.equal(uiComplete.leaseRollForwardRequired, false);
 assert.notEqual(uiComplete.results.financialModelStatus, 'INCOMPLETE_INPUTS');
 
 const hydratedV2Missing = hydrateUiDeal({
