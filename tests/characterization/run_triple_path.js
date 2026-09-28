@@ -34,6 +34,9 @@ const CANONICAL_METADATA_FIELDS = [
   'statutoryExitTaxpayerDetermined',
   'leaseRollForwardStatus',
   'contractCoversHoldPeriod',
+  'contractCoversForwardTerminalNoi',
+  'forwardTerminalNoiYear',
+  'contractualCoverageThroughYear',
   'leaseSupportedThroughYear',
   'leaseRollForwardModeled',
   'leaseDependentAnalyticsReady',
@@ -74,24 +77,33 @@ function validLegacyLeaseMetadata(result, fixture) {
   if (fixture.study_type !== 'building') {
     return result.leaseRollForwardStatus === undefined
       && result.contractCoversHoldPeriod === undefined
+      && result.contractCoversForwardTerminalNoi === undefined
+      && result.forwardTerminalNoiYear === undefined
+      && result.contractualCoverageThroughYear === undefined
       && result.leaseSupportedThroughYear === undefined
       && result.leaseRollForwardModeled === undefined
       && result.leaseDependentAnalyticsReady === undefined
       && result.leaseRollForwardRequiresVisibleDisclosure === undefined;
   }
-  const coversHold = fixture.input_set.leaseYears >= fixture.input_set.holdPeriod;
-  if (coversHold) {
-    return result.leaseRollForwardStatus === LEASE_ROLL_FORWARD_STATUS.CONTRACT_COVERS_HOLD
-      && result.contractCoversHoldPeriod === true
-      && result.leaseSupportedThroughYear === fixture.input_set.holdPeriod
-      && result.leaseRollForwardModeled === false
+
+  const leaseYears = fixture.input_set.leaseYears;
+  const holdPeriod = fixture.input_set.holdPeriod;
+  const coversHold = leaseYears >= holdPeriod;
+  const coversForwardNoi = leaseYears >= holdPeriod + 1;
+  const common = result.contractCoversHoldPeriod === coversHold
+    && result.contractCoversForwardTerminalNoi === coversForwardNoi
+    && result.forwardTerminalNoiYear === holdPeriod + 1
+    && result.contractualCoverageThroughYear === leaseYears
+    && result.leaseSupportedThroughYear === Math.min(leaseYears, holdPeriod)
+    && result.leaseRollForwardModeled === false;
+  if (!common) return false;
+
+  if (coversForwardNoi) {
+    return result.leaseRollForwardStatus === LEASE_ROLL_FORWARD_STATUS.CONTRACT_COVERS_HOLD_AND_FORWARD_NOI
       && result.leaseDependentAnalyticsReady === true
       && result.leaseRollForwardRequiresVisibleDisclosure === false;
   }
   return result.leaseRollForwardStatus === LEASE_ROLL_FORWARD_STATUS.LEGACY_UNMODELED_ROLLOVER
-    && result.contractCoversHoldPeriod === false
-    && result.leaseSupportedThroughYear === fixture.input_set.leaseYears
-    && result.leaseRollForwardModeled === false
     && result.leaseDependentAnalyticsReady === false
     && result.leaseRollForwardRequiresVisibleDisclosure === true;
 }
@@ -113,26 +125,16 @@ for (const fid of fixtureFiles) {
     leverageEnabled: fixture.input_set.leverageEnabled,
   });
 
-  if (validPriceBasis(productionV2, fixture.study_type)) {
-    intentionalPriceBasisOverlays += 1;
-  } else {
-    unexpectedMismatches += 1;
-    console.log(`${fid}: price_basis_metadata=INVALID`);
-  }
+  if (validPriceBasis(productionV2, fixture.study_type)) intentionalPriceBasisOverlays += 1;
+  else { unexpectedMismatches += 1; console.log(`${fid}: price_basis_metadata=INVALID`); }
 
   if (validLegacyExitCostMetadata(productionV2, fixture)) {
     if (fixture.study_type === 'building') intentionalExitCostMetadataOverlays += 1;
-  } else {
-    unexpectedMismatches += 1;
-    console.log(`${fid}: exit_cost_metadata=INVALID`);
-  }
+  } else { unexpectedMismatches += 1; console.log(`${fid}: exit_cost_metadata=INVALID`); }
 
   if (validLegacyLeaseMetadata(productionV2, fixture)) {
     if (fixture.study_type === 'building') intentionalLeaseMetadataOverlays += 1;
-  } else {
-    unexpectedMismatches += 1;
-    console.log(`${fid}: lease_roll_forward_metadata=INVALID`);
-  }
+  } else { unexpectedMismatches += 1; console.log(`${fid}: lease_roll_forward_metadata=INVALID`); }
 
   const isFinancingOverlayCase = fixture.input_set.leverageEnabled === true;
   if (isFinancingOverlayCase) {
