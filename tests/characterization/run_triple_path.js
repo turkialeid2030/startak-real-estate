@@ -1,16 +1,18 @@
 'use strict';
 
-// Triple-path contract after Financial Remediation Wave B2 and price-basis
-// disclosure #398: frozen legacy remains historical evidence, direct Wave-A
-// valuation engines remain the raw numerical layer, and the canonical production
-// entrypoint intentionally overlays versioned financing (when leveraged) plus
-// non-numerical price-basis metadata for both study types.
+// Triple-path contract after Financial Remediation Wave B2, price-basis
+// disclosure #398, and P22 exit-cost governance: frozen legacy remains
+// historical evidence, direct Wave-A valuation engines remain the raw numerical
+// layer, and the canonical production entrypoint intentionally overlays
+// versioned financing (when leveraged) plus governed metadata that does not
+// change raw Legacy economics.
 const fs = require('fs');
 const path = require('path');
 const { loadCurrentEngines } = require('../load_engines');
 const { calculateInvestmentCase, STUDY_TYPE, PRICE_BASIS_VERSION } = require('../../src/engines');
 const { calcExistingBuilding } = require('../../src/engines/valuation/existing-building');
 const { calcLandDevelopment } = require('../../src/engines/valuation/land-development');
+const { EXIT_TRANSACTION_COST_SOURCE } = require('../../src/engines/valuation/exit-transaction-cost-resolver');
 
 const FIXTURE_DIR = path.join(__dirname, 'fixtures');
 const legacy = loadCurrentEngines();
@@ -21,12 +23,20 @@ const fixtureFiles = ['RE-GOLD-001-U', 'RE-GOLD-001-L', 'RE-GOLD-002-U', 'RE-GOL
 const invariantFields = [
   'financialModelVersion', 'financialModelStatus', 'irr', 'npv', 'cashflows',
   'NOI', 'stabilizedNOI', 'marketValueByIncomeCap', 'marketValueAfterCompletion',
-  'terminalSaleValue', 'terminalExitValue', 'totalPurchaseCost', 'totalProjectCost',
+  'terminalSaleValue', 'terminalNetSaleProceeds', 'terminalExitValue', 'totalPurchaseCost', 'totalProjectCost',
+];
+
+const CANONICAL_METADATA_FIELDS = [
+  'priceBasis',
+  'exitTransactionCostSource',
+  'exitTransactionCostRate',
+  'exitTransactionCostRequiresVisibleDisclosure',
+  'statutoryExitTaxpayerDetermined',
 ];
 
 function withoutCanonicalMetadata(result) {
   const copy = { ...result };
-  delete copy.priceBasis;
+  for (const field of CANONICAL_METADATA_FIELDS) delete copy[field];
   return copy;
 }
 
@@ -41,9 +51,23 @@ function validPriceBasis(result, studyType) {
     && JSON.stringify(result.priceBasis.thresholdBasis) === JSON.stringify(['MAX_PAYBACK_THRESHOLD']);
 }
 
+function validLegacyExitCostMetadata(result, fixture) {
+  if (fixture.study_type !== 'building') {
+    return result.exitTransactionCostSource === undefined
+      && result.exitTransactionCostRate === undefined
+      && result.exitTransactionCostRequiresVisibleDisclosure === undefined
+      && result.statutoryExitTaxpayerDetermined === undefined;
+  }
+  return result.exitTransactionCostSource === EXIT_TRANSACTION_COST_SOURCE.LEGACY_ACQUISITION_RATE_FALLBACK
+    && result.exitTransactionCostRate === fixture.input_set.transferFeeRate
+    && result.exitTransactionCostRequiresVisibleDisclosure === true
+    && result.statutoryExitTaxpayerDetermined === false;
+}
+
 let unexpectedMismatches = 0;
 let intentionalFinancingOverlays = 0;
 let intentionalPriceBasisOverlays = 0;
+let intentionalExitCostMetadataOverlays = 0;
 let legacyVsV2DifferentFixtures = 0;
 
 for (const fid of fixtureFiles) {
@@ -63,6 +87,13 @@ for (const fid of fixtureFiles) {
     console.log(`${fid}: price_basis_metadata=INVALID`);
   }
 
+  if (validLegacyExitCostMetadata(productionV2, fixture)) {
+    if (fixture.study_type === 'building') intentionalExitCostMetadataOverlays += 1;
+  } else {
+    unexpectedMismatches += 1;
+    console.log(`${fid}: exit_cost_metadata=INVALID`);
+  }
+
   const isFinancingOverlayCase = fixture.input_set.leverageEnabled === true;
   if (isFinancingOverlayCase) {
     intentionalFinancingOverlays += 1;
@@ -78,12 +109,12 @@ for (const fid of fixtureFiles) {
         console.log(`${fid}: unexpected non-financing divergence field=${field}`);
       }
     }
-    console.log(`${fid}: production financing overlay=EXPECTED version=${productionV2.financingEngineVersion} constraint=${productionV2.loanSizingConstraint}; price_basis=EXPECTED`);
+    console.log(`${fid}: production financing overlay=EXPECTED version=${productionV2.financingEngineVersion} constraint=${productionV2.loanSizingConstraint}; canonical_metadata=EXPECTED`);
   } else if (JSON.stringify(directV2) !== JSON.stringify(withoutCanonicalMetadata(productionV2))) {
     unexpectedMismatches += 1;
     console.log(`${fid}: production_vs_direct=UNEXPECTED_DIFF`);
   } else {
-    console.log(`${fid}: production_vs_direct=MATCH_AFTER_CANONICAL_METADATA; price_basis=EXPECTED`);
+    console.log(`${fid}: production_vs_direct=MATCH_AFTER_CANONICAL_METADATA; canonical_metadata=EXPECTED`);
   }
 
   if (JSON.stringify(legacyResult) !== JSON.stringify(directV2)) legacyVsV2DifferentFixtures += 1;
@@ -96,11 +127,13 @@ for (const fid of fixtureFiles) {
 console.log(`\nTRIPLE_PATH_UNEXPECTED_MISMATCHES=${unexpectedMismatches}`);
 console.log(`INTENTIONAL_FINANCING_OVERLAYS=${intentionalFinancingOverlays}`);
 console.log(`INTENTIONAL_PRICE_BASIS_OVERLAYS=${intentionalPriceBasisOverlays}`);
+console.log(`INTENTIONAL_EXIT_COST_METADATA_OVERLAYS=${intentionalExitCostMetadataOverlays}`);
 console.log(`LEGACY_VS_V2_DIFFERENT_FIXTURES=${legacyVsV2DifferentFixtures}`);
 process.exit(
   unexpectedMismatches === 0
   && intentionalFinancingOverlays >= 2
   && intentionalPriceBasisOverlays === fixtureFiles.length
+  && intentionalExitCostMetadataOverlays === 2
   && legacyVsV2DifferentFixtures > 0
     ? 0
     : 1,
