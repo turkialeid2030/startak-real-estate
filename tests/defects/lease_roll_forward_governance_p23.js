@@ -18,18 +18,19 @@ const fixture = JSON.parse(fs.readFileSync(
   'utf8',
 ));
 
-const supportedInputs = {
+const equalHorizonInputs = {
   ...fixture.input_set,
   leaseYears: 5,
   holdPeriod: 5,
   exitCapRate: 0.07,
   exitTransferFeeRate: 0.05,
 };
-const expiredInputs = { ...supportedInputs, leaseYears: 1 };
+const expiredInputs = { ...equalHorizonInputs, leaseYears: 1 };
+const supportedInputs = { ...equalHorizonInputs, leaseYears: 6 };
 
 // 1) Document the raw Wave-A coverage gap independently: leaseYears is accepted
 // but does not change the raw hold-period economics at all.
-const rawFiveYearLease = calcExistingBuilding(supportedInputs, { assumptionModelVersion: ASSUMPTION_MODEL_VERSION.V2 });
+const rawFiveYearLease = calcExistingBuilding(equalHorizonInputs, { assumptionModelVersion: ASSUMPTION_MODEL_VERSION.V2 });
 const rawOneYearLease = calcExistingBuilding(expiredInputs, { assumptionModelVersion: ASSUMPTION_MODEL_VERSION.V2 });
 assert.deepEqual(rawOneYearLease.cashflows, rawFiveYearLease.cashflows);
 assert.equal(rawOneYearLease.npv, rawFiveYearLease.npv);
@@ -47,6 +48,9 @@ const legacy = calculateInvestmentCase({
 });
 assert.equal(legacy.leaseRollForwardStatus, LEASE_ROLL_FORWARD_STATUS.LEGACY_UNMODELED_ROLLOVER);
 assert.equal(legacy.contractCoversHoldPeriod, false);
+assert.equal(legacy.contractCoversForwardTerminalNoi, false);
+assert.equal(legacy.forwardTerminalNoiYear, 6);
+assert.equal(legacy.contractualCoverageThroughYear, 1);
 assert.equal(legacy.leaseSupportedThroughYear, 1);
 assert.equal(legacy.leaseRollForwardModeled, false);
 assert.equal(legacy.leaseDependentAnalyticsReady, false);
@@ -79,23 +83,51 @@ assert.deepEqual(v2Incomplete.cashflows, [-v2Incomplete.totalPurchaseCost, v2Inc
 assert.equal(v2Incomplete.cashflowsIncludeTerminalValue, false);
 console.log('P23_V2_POST_EXPIRY_FAIL_CLOSED=PASS');
 
-// 4) If the contractual lease covers the entire hold period, P23 must not alter
-// the supported economics.
+// 4) Equality is NOT enough for a terminal-value decision. With leaseYears=5
+// and holdPeriod=5, all five operating years are contract-covered, but terminal
+// value capitalizes Year-6 NOI, which is outside the contract. V2 must therefore
+// hold NPV/IRR/terminal value while retaining only the five supported operating
+// cash flows.
+const v2EqualHorizon = calculateInvestmentCase({
+  studyType: STUDY_TYPE.EXISTING_BUILDING,
+  inputs: equalHorizonInputs,
+  leverageEnabled: false,
+  assumptionModelVersion: ASSUMPTION_MODEL_VERSION.V2,
+});
+assert.equal(v2EqualHorizon.leaseRollForwardStatus, LEASE_ROLL_FORWARD_STATUS.MISSING_REQUIRED);
+assert.equal(v2EqualHorizon.contractCoversHoldPeriod, true);
+assert.equal(v2EqualHorizon.contractCoversForwardTerminalNoi, false);
+assert.equal(v2EqualHorizon.forwardTerminalNoiYear, 6);
+assert.equal(v2EqualHorizon.contractualCoverageThroughYear, 5);
+assert.equal(v2EqualHorizon.leaseSupportedThroughYear, 5);
+assert.equal(v2EqualHorizon.npv, null);
+assert.equal(v2EqualHorizon.irr, null);
+assert.equal(v2EqualHorizon.terminalSaleValue, null);
+assert.equal(v2EqualHorizon.cashflows.length, 6);
+assert.deepEqual(v2EqualHorizon.cashflows.slice(1), v2EqualHorizon.operatingNoiCashflows.slice(0, 5));
+console.log('P23_FORWARD_TERMINAL_NOI_HORIZON_GUARD=PASS');
+
+// 5) Once the contractual horizon also covers forward Year-(N+1) NOI, P23 does
+// not alter the supported economics.
 const v2Supported = calculateInvestmentCase({
   studyType: STUDY_TYPE.EXISTING_BUILDING,
   inputs: supportedInputs,
   leverageEnabled: false,
   assumptionModelVersion: ASSUMPTION_MODEL_VERSION.V2,
 });
-assert.equal(v2Supported.leaseRollForwardStatus, LEASE_ROLL_FORWARD_STATUS.CONTRACT_COVERS_HOLD);
+assert.equal(v2Supported.leaseRollForwardStatus, LEASE_ROLL_FORWARD_STATUS.CONTRACT_COVERS_HOLD_AND_FORWARD_NOI);
 assert.equal(v2Supported.contractCoversHoldPeriod, true);
+assert.equal(v2Supported.contractCoversForwardTerminalNoi, true);
+assert.equal(v2Supported.forwardTerminalNoiYear, 6);
+assert.equal(v2Supported.contractualCoverageThroughYear, 6);
+assert.equal(v2Supported.leaseSupportedThroughYear, 5);
 assert.equal(v2Supported.leaseDependentAnalyticsReady, true);
 assert.equal(v2Supported.leaseRollForwardRequiresVisibleDisclosure, false);
 assert.equal(Number.isFinite(v2Supported.npv), true);
 assert.equal(Number.isFinite(v2Supported.irr), true);
-console.log('P23_CONTRACT_COVERS_HOLD_UNCHANGED=PASS');
+console.log('P23_FORWARD_NOI_CONTRACT_COVERAGE_UNCHANGED=PASS');
 
-// 5) Financing is downstream of governance and must not manufacture a levered
+// 6) Financing is downstream of governance and must not manufacture a levered
 // decision from the incomplete V2 case.
 const financedIncomplete = calculateInvestmentCase({
   studyType: STUDY_TYPE.EXISTING_BUILDING,
@@ -110,11 +142,11 @@ assert.equal(financedIncomplete.leveredNPV, null);
 assert.equal(financedIncomplete.leveredCashflows, null);
 console.log('P23_FINANCING_CANNOT_BYPASS_LEASE_HOLD=PASS');
 
-// 6) The UI governance path must carry a visible bilingual lease notice and
-// suppress sensitivity outputs while the post-expiry model is unsupported.
+// 7) The UI governance path must carry a visible bilingual lease notice and
+// suppress sensitivity outputs while the forward NOI / post-expiry model is unsupported.
 const uiState = calculateUiInvestmentState({
   mode: UI_MODE.BUILDING,
-  inputs: expiredInputs,
+  inputs: equalHorizonInputs,
   assumptionModelVersion: ASSUMPTION_MODEL_VERSION.V2,
 });
 assert.equal(uiState.leaseRollForwardRequired, true);
@@ -122,9 +154,9 @@ assert.equal(uiState.sensitivityReady, false);
 const arDisclosure = buildUiDisclosureViewModel({ governance: uiState.governance, locale: 'ar-SA' });
 const enDisclosure = buildUiDisclosureViewModel({ governance: uiState.governance, locale: 'en' });
 assert.equal(arDisclosure.leaseRollForwardStatus, LEASE_ROLL_FORWARD_STATUS.MISSING_REQUIRED);
-assert.ok(arDisclosure.leaseRollForwardNotice.includes('ينتهي عقد الإيجار قبل نهاية فترة الاحتفاظ'));
-assert.ok(arDisclosure.exitTransactionCostNotice.includes('ينتهي عقد الإيجار قبل نهاية فترة الاحتفاظ'));
-assert.ok(enDisclosure.leaseRollForwardNotice.includes('lease expires before the hold period ends'));
+assert.ok(arDisclosure.leaseRollForwardNotice.includes('ينتهي عقد الإيجار قبل نهاية فترة الاحتفاظ') || arDisclosure.leaseRollForwardNotice.includes('قيمة الخروج'));
+assert.ok(arDisclosure.exitTransactionCostNotice.includes('قيمة الخروج') || arDisclosure.exitTransactionCostNotice.includes('ينتهي عقد الإيجار'));
+assert.ok(enDisclosure.leaseRollForwardNotice.includes('lease expires before the hold period ends') || enDisclosure.leaseRollForwardNotice.includes('terminal'));
 assert.equal(arDisclosure.sensitivityReady, false);
 console.log('P23_UI_DISCLOSURE_AND_SENSITIVITY_HOLD=PASS');
 
