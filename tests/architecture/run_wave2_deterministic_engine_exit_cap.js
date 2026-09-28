@@ -12,7 +12,14 @@ const fixture = JSON.parse(fs.readFileSync(
   path.join(__dirname, '..', 'characterization', 'fixtures', 'RE-GOLD-002-U.json'),
   'utf8',
 ));
-const baseInputs = fixture.input_set;
+// This architecture test isolates exit-assumption governance. P23 requires the
+// lease to cover the forward Year-(N+1) NOI used by terminal value, so give this
+// fixture explicit contractual coverage through that year rather than letting
+// lease-roll-forward governance become an unrelated second hold condition.
+const baseInputs = {
+  ...fixture.input_set,
+  leaseYears: fixture.input_set.holdPeriod + 1,
+};
 
 function assertFinitePositive(value, name) {
   assert.strictEqual(Number.isFinite(value), true, `${name} must be finite`);
