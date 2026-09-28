@@ -94,6 +94,8 @@ function holdUnsupportedPostExpiryAnalytics(result, assessment) {
     incompleteInputs,
     cashflowsIncludeTerminalValue: false,
     cashflows: supportedCashflows,
+    operatingNoiCashflows: supportedOperatingNoi,
+    paybackNoiCashflows: supportedOperatingNoi,
     terminalSaleValue: null,
     terminalNetSaleProceeds: null,
     irr: null,
