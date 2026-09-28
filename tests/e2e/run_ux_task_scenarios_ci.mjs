@@ -92,7 +92,7 @@ async function enterExplicitBuildingExitTransactionCost(page, act, value = '5') 
 
 async function enterBuildingLeaseYears(page, act, value = '6') {
   const label = page
-    .getByText('عدد سنوات عقد التأجير', { exact: true })
+    .getByText('مدة التغطية التعاقدية المتبقية من تاريخ الدراسة', { exact: true })
     .locator('xpath=ancestor::label[1]');
   const section = label.locator('xpath=ancestor::div[contains(@class,"rounded-2xl") and contains(@class,"overflow-hidden")][1]');
   const sectionBody = section.locator('.rf-accordion-body').first();
@@ -104,7 +104,7 @@ async function enterBuildingLeaseYears(page, act, value = '6') {
   await act(() => leaseYears.fill(value));
   await act(() => leaseYears.blur());
   await page.waitForTimeout(220);
-  if ((await leaseYears.inputValue()) !== value) throw new Error(`lease years did not persist visibly: ${await leaseYears.inputValue()}`);
+  if ((await leaseYears.inputValue()) !== value) throw new Error(`remaining lease coverage did not persist visibly: ${await leaseYears.inputValue()}`);
   return leaseYears;
 }
 
@@ -134,7 +134,7 @@ try {
 
     // P23 requires contractual coverage through the forward Year-(N+1) NOI
     // used for terminal value. The default hold is 5 years, so this decision-
-    // ready task supplies a 6-year contract rather than weakening the gate.
+    // ready task supplies 6 remaining contractual years rather than weakening the gate.
     const leaseYears = await enterBuildingLeaseYears(page, act, '6');
 
     // Fresh V2 Building work is intentionally incomplete until both exit
@@ -156,7 +156,7 @@ try {
       leaseYears: await leaseYears.inputValue(),
       exitCap: await exitCap.inputValue(),
       exitTransactionCost: await exitCost.inputValue(),
-      taskGoal: 'edit assumptions, provide forward-NOI lease coverage, enter explicit exit assumptions, read analytical state, inspect cash flow',
+      taskGoal: 'edit assumptions, provide forward-NOI remaining lease coverage, enter explicit exit assumptions, read analytical state, inspect cash flow',
     };
   });
 
