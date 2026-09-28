@@ -10,8 +10,12 @@ const LEASE_ROLL_FORWARD_STATUS = Object.freeze({
 
 function assessLeaseRollForward(inputs, { assumptionModelVersion } = {}) {
   const version = normalizeAssumptionModelVersion(assumptionModelVersion);
-  const leaseYears = Number(inputs && inputs.leaseYears);
-  const holdPeriod = Number(inputs && inputs.holdPeriod);
+  // Contract coverage is decision evidence, so do not coerce strings or other
+  // weakly typed values into a valid horizon. Only a finite numeric value can
+  // satisfy the V2 coverage gate. This keeps API callers under the same
+  // fail-closed contract as the UI.
+  const leaseYears = inputs && Number.isFinite(inputs.leaseYears) ? inputs.leaseYears : null;
+  const holdPeriod = inputs && Number.isFinite(inputs.holdPeriod) ? inputs.holdPeriod : null;
   const forwardTerminalNoiYear = Number.isFinite(holdPeriod) ? holdPeriod + 1 : null;
   const contractCoversHoldPeriod = Number.isFinite(leaseYears)
     && Number.isFinite(holdPeriod)
