@@ -61,8 +61,28 @@ function normalizeZeroDebtEconomics(studyType, inputs, result) {
   const baseDiscountRate = studyType === STUDY_TYPE.EXISTING_BUILDING
     ? inputs.discountRate
     : inputs.hurdleRate;
-  const neutralCashflows = Array.isArray(result.cashflows) ? [...result.cashflows] : result.cashflows;
 
+  // An upstream governed hold (for example missing V2 exit evidence or P23
+  // lease rollover) remains non-decisionable even when requested debt is 0%.
+  // Zero-debt normalization must not re-materialize a levered cash-flow series
+  // from an incomplete case merely because economics are otherwise unlevered.
+  if (result && result.decisionStatus === 'INCOMPLETE_INPUTS') {
+    return {
+      ...result,
+      loanAmount: 0,
+      debtService: 0,
+      dscrMin: null,
+      leveredCashflows: null,
+      leveredIRR: null,
+      leveredNPV: null,
+      equityDiscountRate: baseDiscountRate,
+      leveredIrrDiagnostics: null,
+      leveredMirr: null,
+      leveredIrrReliability: null,
+    };
+  }
+
+  const neutralCashflows = Array.isArray(result.cashflows) ? [...result.cashflows] : result.cashflows;
   return {
     ...result,
     loanAmount: 0,
