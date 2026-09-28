@@ -67,7 +67,7 @@ async function enterExplicitBuildingExitTransactionCost(page, value = '5') {
 async function enterBuildingLeaseYears(page, value = '6') {
   await ensureAccordionOpen(page, 'الدخل التأجيري');
   const leaseYears = page
-    .getByText('عدد سنوات عقد التأجير', { exact: true })
+    .getByText('مدة التغطية التعاقدية المتبقية من تاريخ الدراسة', { exact: true })
     .locator('xpath=ancestor::label[1]')
     .locator('input')
     .first();
