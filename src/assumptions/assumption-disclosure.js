@@ -34,12 +34,12 @@ const EXIT_TRANSACTION_COST_DISCLOSURE = Object.freeze({
 
 const LEASE_ROLL_FORWARD_DISCLOSURE = Object.freeze({
   LEGACY_UNMODELED_ROLLOVER: Object.freeze({
-    ar: 'توافق قديم: مدة عقد الإيجار أقصر من فترة الاحتفاظ، لكن الدراسة القديمة تستمر في إسقاط الدخل بعد انتهاء العقد دون نموذج تجديد أو شغور أو إعادة تسعير تعاقدي. النتائج محفوظة للتوافق ولا تمثل نموذج ترحيل عقد مكتمل.',
-    en: 'Legacy compatibility: the lease term is shorter than the hold period, but the legacy study continues post-expiry income without a contractual renewal, downtime, or rent-reset model. Results are preserved for compatibility and are not a complete lease-roll-forward model.',
+    ar: 'توافق قديم: التغطية التعاقدية لا تمتد حتى سنة صافي الدخل التشغيلي المستقبلية المستخدمة في قيمة الخروج. تستمر الدراسة القديمة في إسقاط الدخل دون نموذج تجديد أو شغور أو إعادة تسعير تعاقدي. النتائج محفوظة للتوافق ولا تمثل نموذج ترحيل عقد مكتمل.',
+    en: 'Legacy compatibility: contractual coverage does not extend through the forward-NOI year used for terminal value. The legacy study continues income without a contractual renewal, downtime, or rent-reset model. Results are preserved for compatibility and are not a complete lease-roll-forward model.',
   }),
   MISSING_REQUIRED: Object.freeze({
-    ar: 'ينتهي عقد الإيجار قبل نهاية فترة الاحتفاظ ولا يوجد نموذج ترحيل عقد معتمد. أوقفت مؤشرات NPV وIRR وقيمة الخروج وفترة الاسترداد بعد انتهاء العقد بدل افتراض التجديد أو الشغور أو إعادة التسعير أو الحوافز تلقائيًا.',
-    en: 'The lease expires before the hold period ends and no governed lease-roll-forward model is available. NPV, IRR, terminal value, and post-expiry payback are held instead of inventing renewal, downtime, rent reset, or leasing incentives.',
+    ar: 'التغطية التعاقدية لا تمتد حتى سنة صافي الدخل التشغيلي المستقبلية N+1 اللازمة لقيمة الخروج، ولا يوجد نموذج ترحيل عقد معتمد. أوقفت مؤشرات NPV وIRR وقيمة الخروج وفترة الاسترداد بدل افتراض التجديد أو الشغور أو إعادة التسعير أو الحوافز تلقائيًا.',
+    en: 'Contractual coverage does not extend through the forward Year-(N+1) NOI required for terminal value, and no governed lease-roll-forward model is available. NPV, IRR, terminal value, and post-expiry payback are held instead of inventing renewal, downtime, rent reset, or leasing incentives.',
   }),
 });
 
