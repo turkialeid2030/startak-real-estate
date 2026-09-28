@@ -7,6 +7,11 @@ const { calculateInvestmentCase, STUDY_TYPE } = require('../../src/engines');
 const { calcExistingBuilding } = require('../../src/engines/valuation/existing-building');
 const { ASSUMPTION_MODEL_VERSION } = require('../../src/assumptions/assumption-model');
 const { LEASE_ROLL_FORWARD_STATUS } = require('../../src/engines/valuation/existing-building-lease-roll-forward-governance');
+const {
+  UI_MODE,
+  calculateUiInvestmentState,
+  buildUiDisclosureViewModel,
+} = require('../../src/assumptions/ui-integration-controller');
 
 const fixture = JSON.parse(fs.readFileSync(
   path.join(__dirname, '..', 'characterization', 'fixtures', 'RE-GOLD-002-U.json'),
@@ -104,5 +109,23 @@ assert.equal(financedIncomplete.leveredIRR, null);
 assert.equal(financedIncomplete.leveredNPV, null);
 assert.equal(financedIncomplete.leveredCashflows, null);
 console.log('P23_FINANCING_CANNOT_BYPASS_LEASE_HOLD=PASS');
+
+// 6) The UI governance path must carry a visible bilingual lease notice and
+// suppress sensitivity outputs while the post-expiry model is unsupported.
+const uiState = calculateUiInvestmentState({
+  mode: UI_MODE.BUILDING,
+  inputs: expiredInputs,
+  assumptionModelVersion: ASSUMPTION_MODEL_VERSION.V2,
+});
+assert.equal(uiState.leaseRollForwardRequired, true);
+assert.equal(uiState.sensitivityReady, false);
+const arDisclosure = buildUiDisclosureViewModel({ governance: uiState.governance, locale: 'ar-SA' });
+const enDisclosure = buildUiDisclosureViewModel({ governance: uiState.governance, locale: 'en' });
+assert.equal(arDisclosure.leaseRollForwardStatus, LEASE_ROLL_FORWARD_STATUS.MISSING_REQUIRED);
+assert.ok(arDisclosure.leaseRollForwardNotice.includes('ينتهي عقد الإيجار قبل نهاية فترة الاحتفاظ'));
+assert.ok(arDisclosure.exitTransactionCostNotice.includes('ينتهي عقد الإيجار قبل نهاية فترة الاحتفاظ'));
+assert.ok(enDisclosure.leaseRollForwardNotice.includes('lease expires before the hold period ends'));
+assert.equal(arDisclosure.sensitivityReady, false);
+console.log('P23_UI_DISCLOSURE_AND_SENSITIVITY_HOLD=PASS');
 
 console.log('LEASE_ROLL_FORWARD_GOVERNANCE_P23=PASS');
