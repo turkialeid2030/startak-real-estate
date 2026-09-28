@@ -59,7 +59,7 @@ async function enterExplicitBuildingExitTransactionCost(page, value = '5') {
 
 async function enterBuildingLeaseYears(page, value = '6') {
   const label = page
-    .getByText('عدد سنوات عقد التأجير', { exact: true })
+    .getByText('مدة التغطية التعاقدية المتبقية من تاريخ الدراسة', { exact: true })
     .locator('xpath=ancestor::label[1]');
   const section = label.locator('xpath=ancestor::div[contains(@class,"rounded-2xl") and contains(@class,"overflow-hidden")][1]');
   const sectionBody = section.locator('.rf-accordion-body').first();
