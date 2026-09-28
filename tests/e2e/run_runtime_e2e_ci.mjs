@@ -46,6 +46,25 @@ async function enterExplicitBuildingExitCap(page, value = '8.5') {
   return exitCap;
 }
 
+async function enterExplicitBuildingExitTransactionCost(page, value = '5') {
+  const sectionButton = page.getByRole('button', { name: /افتراضات التقييم والاستثمار/ }).first();
+  const section = sectionButton.locator('xpath=ancestor::div[contains(@class,"rounded-2xl") and contains(@class,"overflow-hidden")][1]');
+  const sectionBody = section.locator('.rf-accordion-body').first();
+  if (!((await sectionBody.getAttribute('class')) || '').split(/\s+/).includes('open')) {
+    await sectionButton.click();
+    await page.waitForTimeout(200);
+  }
+  const exitCost = page
+    .getByText('تكلفة معاملة الخروج المحمّلة اقتصاديًا على البائع', { exact: true })
+    .locator('xpath=ancestor::label[1]')
+    .locator('input')
+    .first();
+  await exitCost.fill(value);
+  await exitCost.blur();
+  await page.waitForTimeout(300);
+  return exitCost;
+}
+
 try {
   previewServer = await preview({ preview: { host: '127.0.0.1', port: 4173, strictPort: false } });
   const addr = previewServer.httpServer.address();
@@ -85,14 +104,16 @@ try {
   // expecting a deterministic analytical verdict; the product contract remains
   // fail-closed when the field is absent.
   const exitCapB = await enterExplicitBuildingExitCap(page, '8.5');
+  const exitCostB = await enterExplicitBuildingExitTransactionCost(page, '5');
   const bodyAfterB = await page.locator('body').innerText();
   record(
     'E2E-02-BUILDING',
     (await firstB.inputValue()) === '777777'
       && (await exitCapB.inputValue()) === '8.5'
+      && (await exitCostB.inputValue()) === '5'
       && bodyAfterB !== bodyBeforeB
       && hasComplianceSafeVerdict(bodyAfterB),
-    `exitCap=${await exitCapB.inputValue()} safeVerdict=${SAFE_ANALYTICAL_VERDICT_RE.test(bodyAfterB)} legacyVerdict=${LEGACY_INVESTMENT_VERDICT_RE.test(bodyAfterB)}`
+    `exitCap=${await exitCapB.inputValue()} exitCost=${await exitCostB.inputValue()} safeVerdict=${SAFE_ANALYTICAL_VERDICT_RE.test(bodyAfterB)} legacyVerdict=${LEGACY_INVESTMENT_VERDICT_RE.test(bodyAfterB)}`
   );
 
   await page.getByText('أرض + تطوير', { exact: true }).click();
