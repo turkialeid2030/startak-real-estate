@@ -5,6 +5,7 @@ const { buildAssumptionDisclosureEnvelope } = require('./assumption-disclosure')
 const { assessSensitivityReadiness } = require('../sensitivity/readiness');
 const { EXIT_CAP_SOURCE } = require('../engines/valuation/exit-cap-resolver');
 const { EXIT_TRANSACTION_COST_SOURCE } = require('../engines/valuation/exit-transaction-cost-resolver');
+const { LEASE_ROLL_FORWARD_STATUS } = require('../engines/valuation/existing-building-lease-roll-forward-governance');
 
 function formatOptionalPercentInput(value) {
   if (value === undefined || value === null || value === '') return '';
@@ -57,10 +58,12 @@ function buildUiAssumptionGovernance({ assumptionModelVersion, financialResults 
   const version = normalizeAssumptionModelVersion(assumptionModelVersion);
   const exitCapSource = financialResults.exitCapSource || null;
   const exitTransactionCostSource = financialResults.exitTransactionCostSource || null;
+  const leaseRollForwardStatus = financialResults.leaseRollForwardStatus || null;
   const disclosure = buildAssumptionDisclosureEnvelope({
     assumptionModelVersion: version,
     exitCapSource,
     exitTransactionCostSource,
+    leaseRollForwardStatus,
   });
   const sensitivity = assessSensitivityReadiness({
     financialModelStatus: financialResults.financialModelStatus,
@@ -70,6 +73,8 @@ function buildUiAssumptionGovernance({ assumptionModelVersion, financialResults 
     && exitCapSource === EXIT_CAP_SOURCE.MISSING_REQUIRED;
   const exitTransactionCostInputRequired = disclosure.requiresExplicitExitTransactionCost
     && exitTransactionCostSource === EXIT_TRANSACTION_COST_SOURCE.MISSING_REQUIRED;
+  const leaseRollForwardRequired = disclosure.requiresLeaseRollForward
+    && leaseRollForwardStatus === LEASE_ROLL_FORWARD_STATUS.MISSING_REQUIRED;
 
   return Object.freeze({
     assumptionModelVersion: version,
@@ -77,9 +82,11 @@ function buildUiAssumptionGovernance({ assumptionModelVersion, financialResults 
     sensitivity,
     exitCapInputRequired,
     exitTransactionCostInputRequired,
+    leaseRollForwardRequired,
     sensitivityReady: sensitivity.status === 'READY'
       && !exitCapInputRequired
-      && !exitTransactionCostInputRequired,
+      && !exitTransactionCostInputRequired
+      && !leaseRollForwardRequired,
     transactionAuthorized: false,
   });
 }
