@@ -79,6 +79,16 @@ function holdExitDependentAnalytics(result, resolution) {
   };
 }
 
+function withProvenance(result, resolution) {
+  return {
+    ...result,
+    exitTransactionCostSource: resolution.status,
+    exitTransactionCostRate: resolution.value,
+    exitTransactionCostRequiresVisibleDisclosure: resolution.requiresVisibleDisclosure,
+    statutoryExitTaxpayerDetermined: false,
+  };
+}
+
 /**
  * Apply a dedicated seller-borne exit transaction-cost assumption to the
  * existing-building result without changing acquisition economics.
@@ -97,16 +107,17 @@ function applyExistingBuildingExitCostGovernance({ inputs, engineResult, assumpt
     return holdExitDependentAnalytics(engineResult, resolution);
   }
 
+  // Preserve historical calculations bit-for-bit. The underlying engine already
+  // used transferFeeRate at exit, so the LEGACY compatibility path should add
+  // provenance metadata only, not re-run floating-point cash-flow arithmetic.
+  if (resolution.status === EXIT_TRANSACTION_COST_SOURCE.LEGACY_ACQUISITION_RATE_FALLBACK) {
+    return withProvenance(engineResult, resolution);
+  }
+
   // If exit-cap governance is already incomplete, preserve its hold while still
   // publishing exit-cost provenance metadata.
   if (engineResult.decisionStatus === 'INCOMPLETE_INPUTS') {
-    return {
-      ...engineResult,
-      exitTransactionCostSource: resolution.status,
-      exitTransactionCostRate: resolution.value,
-      exitTransactionCostRequiresVisibleDisclosure: resolution.requiresVisibleDisclosure,
-      statutoryExitTaxpayerDetermined: false,
-    };
+    return withProvenance(engineResult, resolution);
   }
 
   const terminalSaleValue = Number(engineResult.terminalSaleValue);
@@ -122,9 +133,6 @@ function applyExistingBuildingExitCostGovernance({ inputs, engineResult, assumpt
     reinvestRate: inputs.discountRate,
   });
 
-  // Wave-B financing will recalculate levered economics later when leverage is
-  // active. Updating the Wave-A compatibility fields here keeps the unlevered
-  // path internally coherent and avoids stale legacy disclosures.
   let leveredCashflows = engineResult.leveredCashflows;
   let leveredIRR = engineResult.leveredIRR;
   let leveredNPV = engineResult.leveredNPV;
