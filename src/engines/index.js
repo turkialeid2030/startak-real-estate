@@ -6,6 +6,7 @@ const { calcLandDevelopment } = require('./valuation/land-development');
 const { applyExistingBuildingExitCostGovernance } = require('./valuation/existing-building-exit-cost-governance');
 const { applyExistingBuildingLeaseRollForwardGovernance } = require('./valuation/existing-building-lease-roll-forward-governance');
 const { applyFinancingRemediation } = require('./financing/remediation-wave-b');
+const { buildCashflowTimingConvention, CASHFLOW_TIMING_VERSION } = require('./financial/timing-conventions');
 const { STUDY_TYPE, STUDY_TYPE_TO_LEGACY_MODE } = require('../contracts/study-type');
 const { validateEngineInputs } = require('../validation/numeric-safety');
 const { validateSupportedFinancialHorizons } = require('../validation/financial-horizon-support');
@@ -176,9 +177,15 @@ function calculateInvestmentCase({ studyType, inputs, leverageEnabled, assumptio
   // #398 / P12: disclose the exact threshold basis of the legacy maximum-price
   // metrics. This metadata is descriptive only: it does not recalculate the
   // numeric metric and must not imply that all financial hard gates are solved.
+  //
+  // #404 / P24: timing metadata is also descriptive only. It records the
+  // executable periodic-annual valuation convention and, where financing is
+  // actually applied, the distinct monthly debt convention. It must never be
+  // interpreted as changing cash-flow amounts, discounting, IRR, or NPV.
   return {
     ...economicResult,
     priceBasis: buildPriceBasis(studyType),
+    cashflowTiming: buildCashflowTimingConvention({ studyType, result: economicResult }),
   };
 }
 
@@ -188,4 +195,5 @@ module.exports = {
   STUDY_TYPE_TO_LEGACY_MODE,
   VACANCY_MONTHS_MAP,
   PRICE_BASIS_VERSION,
+  CASHFLOW_TIMING_VERSION,
 };
