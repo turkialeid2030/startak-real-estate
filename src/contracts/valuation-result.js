@@ -9,6 +9,7 @@ const VALUATION_RESULT_FIELDS = Object.freeze({
   maxJustifiedPrice: { present: 'EXISTING_BUILDING_ONLY', type: 'number | null' },
   maxJustifiedLandPricePerSqm: { present: 'LAND_DEVELOPMENT_ONLY', type: 'number' },
   priceBasis: { present: 'BOTH', type: 'object' },
+  cashflowTiming: { present: 'BOTH', type: 'object' },
   costPerSqm: { present: 'BOTH', type: 'number' },
   totalPurchaseCost: { present: 'EXISTING_BUILDING_ONLY', type: 'number' },
   totalProjectCost: { present: 'LAND_DEVELOPMENT_ONLY', type: 'number' },
