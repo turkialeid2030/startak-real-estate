@@ -42,7 +42,7 @@ The allowed vocabulary is intentionally explicit and finite:
 
 `LAND_AREA_SQM` is deliberately excluded. Land-area comparison remains the responsibility of the existing land-only method.
 
-All selected comparables and the subject must use one identical governed unit of comparison.
+All selected comparables and the subject must use one identical governed unit of comparison. Count-based denominators (`ROOM_KEY`, `RESIDENTIAL_UNIT`) must be positive integers.
 
 ## Subject evidence
 
@@ -53,7 +53,9 @@ C3M verifies the property-evidence packet hash over its canonical packet core be
 - the expected measurement type;
 - the expected unit (`sqm` or `count`);
 - a finite positive value;
-- a measurement hash reference.
+- an integer value for count-based denominators;
+- a measurement hash reference;
+- a non-future measurement timestamp.
 
 The subject property evidence case, property reference, valuation date and asset type must remain consistent with the C3M case and C2 market context.
 
@@ -66,6 +68,12 @@ Only `CLOSED_SALE_TRANSACTION` authoritative evidence is eligible for the method
 For whole-property sales comparison, C3M requires an explicit positive `amountSar` in the C2 normalized transaction value. A price-per-square-metre value alone is insufficient because the denominator basis may not be the same physical measure used by C3M.
 
 Asking/listing evidence cannot enter the method as a closed sale.
+
+### Valuation-date anti-look-ahead rule
+
+C3M fails closed when a selected closed-sale transaction has an `effectiveAt` later than the valuation timestamp. Future transactions cannot be used to value the property retrospectively.
+
+Phase 0 compares exact timestamps rather than silently converting them to calendar dates. A later timestamp on the same calendar day is therefore treated conservatively as post-valuation evidence until a governed day-level convention is explicitly adopted.
 
 ## Property-to-market-context binding
 
@@ -93,9 +101,15 @@ Each comparable requires:
 - unit of comparison;
 - denominator quantity;
 - measurement source reference;
+- measurement `effectiveAt`;
+- measurement `validUntil`;
 - trusted verifier;
 - verification reference;
 - verification timestamp.
+
+Measurement evidence must be non-stale as of the C3M evaluation, verified no earlier than its effective timestamp, and non-future.
+
+The governed policy also defines `maxMeasurementTransactionDateGapDays`. If the comparable denominator describes a materially different date than the bound transaction beyond that governed tolerance, C3M fails closed rather than assuming the physical basis was unchanged.
 
 The base unit value is derived only as:
 
@@ -109,7 +123,8 @@ C3M never auto-selects comparables.
 
 The selected-comparable instruction requires:
 
-- explicit selected IDs;
+- explicit non-empty selected IDs;
+- no duplicate selected IDs;
 - rationale per selected comparable;
 - trusted selector identity;
 - selection reference;
@@ -117,11 +132,13 @@ The selected-comparable instruction requires:
 
 The governed policy defines the minimum number of selected comparables.
 
-## Professional adjustments
+## Professional adjustment disposition
 
-C3M never estimates adjustment magnitudes automatically.
+C3M never estimates adjustment magnitudes automatically and does not accept a caller-written plain-text “no adjustment needed” statement as professional review evidence.
 
-Adjustment records support:
+Every selected comparable must have at least one trusted reviewed adjustment-disposition record.
+
+A material adjustment record contains:
 
 - factor;
 - direction;
@@ -132,7 +149,12 @@ Adjustment records support:
 - trusted reviewer;
 - review reference and timestamp.
 
-If no adjustment is required for a selected comparable, the governed policy may require an explicit no-adjustment rationale.
+When professional review concludes that no material adjustment is required, the disposition is still represented as a trusted reviewed record with:
+
+- `direction = NONE`;
+- `magnitude = 0`;
+- explicit rationale and evidence references;
+- trusted reviewer, review reference and timestamp.
 
 The policy controls hard limits for:
 
@@ -148,13 +170,15 @@ C3M does not generate comparable weights.
 
 The governed reconciliation requires:
 
-- explicit weight per selected comparable;
+- explicit positive weight per selected comparable;
 - rationale per weight;
 - trusted reconciler identity;
 - reconciliation reference;
 - reconciliation timestamp.
 
-The policy controls maximum weight concentration and maximum adjusted-unit-value dispersion.
+Weights must sum to 1. The policy controls maximum weight concentration and maximum adjusted-unit-value dispersion.
+
+Phase-0 safety flags `requireAllSelectedWeighted` and `requireAdjustmentDisposition` are mandatory `true`; a policy cannot weaken either control. The policy is also rejected if its minimum comparable count and maximum single-comparable weight make a total weight of 1 mathematically impossible.
 
 ## Canonical calculation
 
@@ -164,10 +188,11 @@ The canonical model version is:
 
 After a governed input packet passes, the canonical engine performs only deterministic arithmetic:
 
-1. adjusted unit value for each professionally selected comparable;
-2. weighted reconciled unit value;
-3. subject basis quantity × reconciled unit value;
-4. adjusted comparable range and spread diagnostics.
+1. derive each base unit value from the C2 closed-sale amount and separately verified denominator;
+2. apply only professionally reviewed adjustment dispositions;
+3. reconcile adjusted unit values using explicit professional weights;
+4. multiply the reconciled unit value by the governed subject denominator;
+5. expose adjusted comparable range and spread diagnostics.
 
 The result declares:
 
@@ -176,6 +201,23 @@ The result declares:
 - `indicationType = WHOLE_PROPERTY_SALES_COMPARISON_VALUE_INDICATION`
 
 It remains only a method indication.
+
+## Integrity controls
+
+C3M creates a deterministic governed-input packet hash. The canonical engine recalculates the packet hash before performing arithmetic and rejects a mutated/tampered packet.
+
+The packet binds, among other items:
+
+- property-evidence packet hash;
+- subject measurement;
+- C2 market-evaluation hash;
+- property-to-market-context binding;
+- selected comparables and selection rationales;
+- transaction/measurement evidence hashes;
+- adjustment dispositions;
+- weights and professional reconciliation metadata.
+
+Duplicate comparable IDs, duplicate transaction keys and duplicate adjustment factors for the same comparable are fail-closed.
 
 ## Sandbox boundary
 
@@ -188,6 +230,8 @@ The C3M Sandbox can capture draft comparable denominator data and proposed recon
 - reconciliation authority;
 - certification;
 - transaction approval.
+
+It also rejects `LAND_AREA_SQM` as a whole-property denominator.
 
 ## Trust boundary
 
@@ -221,4 +265,6 @@ Current governance remains:
 
 ## Required next integration step after C3M qualification
 
-C3 must be updated and independently requalified before it may recognize `WHOLE_PROPERTY_SALES_COMPARISON_1.0` as a MARKET / WHOLE_PROPERTY input. C3M qualification alone does not modify the already-qualified C3 model registry.
+C3 must be updated and independently requalified before it may recognize `WHOLE_PROPERTY_SALES_COMPARISON_1.0` as a MARKET / WHOLE_PROPERTY input.
+
+C3M qualification alone does not modify the already-qualified C3 model registry, does not create three-approach reconciliation authority, and does not authorize a merge or production deployment.
