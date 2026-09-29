@@ -9,6 +9,11 @@ const { applyFinancingRemediation } = require('./financing/remediation-wave-b');
 const { STUDY_TYPE, STUDY_TYPE_TO_LEGACY_MODE } = require('../contracts/study-type');
 const { validateEngineInputs } = require('../validation/numeric-safety');
 const { validateSupportedFinancialHorizons } = require('../validation/financial-horizon-support');
+const { INTERNAL_CRITICAL_OVERRIDE_KEY } = require('../assumptions/assumption-model');
+const {
+  buildCriticalAssumptionOverrideGovernance,
+  applyCriticalAssumptionOverrideDecisionGovernance,
+} = require('../assumptions/critical-assumption-override-governance');
 
 const PRICE_BASIS_VERSION = 'PRICE_BASIS_V1';
 const COST_APPROACH_INDICATION_BASIS = 'UNDEPRECIATED_REPLACEMENT_COST_NEW_PLUS_LAND_INPUT';
@@ -111,12 +116,14 @@ function normalizeZeroDebtEconomics(studyType, inputs, result) {
 }
 
 /**
- * calculateInvestmentCase({ studyType, inputs, leverageEnabled, assumptionModelVersion })
+ * calculateInvestmentCase({ studyType, inputs, leverageEnabled,
+ *   assumptionModelVersion, assumptionRegistry })
  * Validates inputs, executes the study engine, then applies any versioned
- * canonical financing remediation. assumptionModelVersion is deal-envelope
- * metadata and is never injected into the economic inputs object.
+ * canonical financing remediation. assumptionModelVersion and
+ * assumptionRegistry are deal-envelope governance metadata and are never
+ * persisted as ordinary economic inputs.
  */
-function calculateInvestmentCase({ studyType, inputs, leverageEnabled, assumptionModelVersion }) {
+function calculateInvestmentCase({ studyType, inputs, leverageEnabled, assumptionModelVersion, assumptionRegistry }) {
   if (studyType !== STUDY_TYPE.EXISTING_BUILDING && studyType !== STUDY_TYPE.LAND_DEVELOPMENT) {
     throw new Error(`calculateInvestmentCase: unknown studyType "${studyType}" -- must be one of ${Object.values(STUDY_TYPE).join(', ')}`);
   }
@@ -145,8 +152,24 @@ function calculateInvestmentCase({ studyType, inputs, leverageEnabled, assumptio
 
   validateEngineInputs(engineInputs, { studyType });
   validateSupportedFinancialHorizons(engineInputs, { studyType });
+
+  // P25: resolve explicit V2 critical assumption overrides from governance
+  // metadata before the analytical run. A finite override value may be used to
+  // preview its economic delta even while provenance/approval documentation is
+  // incomplete; decisionability is then blocked after all calculations.
+  const criticalOverrideGovernance = studyType === STUDY_TYPE.EXISTING_BUILDING
+    ? buildCriticalAssumptionOverrideGovernance({ assumptionRegistry, assumptionModelVersion })
+    : null;
+  const executionInputs = criticalOverrideGovernance
+      && Object.keys(criticalOverrideGovernance.resolvedOverrides || {}).length > 0
+    ? {
+        ...engineInputs,
+        [INTERNAL_CRITICAL_OVERRIDE_KEY]: criticalOverrideGovernance.resolvedOverrides,
+      }
+    : engineInputs;
+
   const baseResult = studyType === STUDY_TYPE.EXISTING_BUILDING
-    ? calcExistingBuilding(engineInputs, { assumptionModelVersion })
+    ? calcExistingBuilding(executionInputs, { assumptionModelVersion })
     : calcLandDevelopment(engineInputs);
 
   // P22 / #402: acquisition transfer-cost economics and seller-borne exit-cost
@@ -196,11 +219,21 @@ function calculateInvestmentCase({ studyType, inputs, leverageEnabled, assumptio
   // Its arithmetic is replacement cost new plus the user-entered land-value
   // indication; it does not use building age, determine market value, or create
   // an accredited valuation. Do not invent depreciation/obsolescence economics.
-  return {
+  const canonicalResult = {
     ...economicResult,
     ...canonicalMetadata,
     priceBasis: buildPriceBasis(studyType),
   };
+
+  // P25 is deliberately post-calculation. Missing source/approval evidence on
+  // a critical override must never invent or erase the analytical numbers; it
+  // only removes decision readiness and exposes auditable blockers.
+  return studyType === STUDY_TYPE.EXISTING_BUILDING
+    ? applyCriticalAssumptionOverrideDecisionGovernance({
+        engineResult: canonicalResult,
+        governance: criticalOverrideGovernance,
+      })
+    : canonicalResult;
 }
 
 module.exports = {
