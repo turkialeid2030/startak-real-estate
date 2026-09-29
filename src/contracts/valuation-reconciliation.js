@@ -37,6 +37,15 @@ const RECOGNIZED_METHOD_MODELS = Object.freeze({
     indicationTypeField: 'indicationType',
     expectedIndicationType: 'LAND_SALES_COMPARISON_VALUE_INDICATION',
   }),
+  WHOLE_PROPERTY_SALES_COMPARISON_1_0: Object.freeze({
+    modelVersion: 'WHOLE_PROPERTY_SALES_COMPARISON_1.0',
+    approachFamily: VALUATION_APPROACH_FAMILY.MARKET,
+    valueScope: VALUATION_VALUE_SCOPE.WHOLE_PROPERTY,
+    acceptedStatuses: Object.freeze(['WHOLE_PROPERTY_MARKET_VALUE_INDICATION_READY']),
+    valueField: 'valueIndicationSar',
+    indicationTypeField: 'indicationType',
+    expectedIndicationType: 'WHOLE_PROPERTY_SALES_COMPARISON_VALUE_INDICATION',
+  }),
   DIRECT_CAPITALIZATION_1_0: Object.freeze({
     modelVersion: 'DIRECT_CAPITALIZATION_1.0',
     approachFamily: VALUATION_APPROACH_FAMILY.INCOME,
