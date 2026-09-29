@@ -8,6 +8,12 @@ const VALUATION_APPROACH_FAMILY = Object.freeze({
   COST: 'COST',
 });
 
+const VALUATION_VALUE_SCOPE = Object.freeze({
+  WHOLE_PROPERTY: 'WHOLE_PROPERTY',
+  LAND_ONLY: 'LAND_ONLY',
+  IMPROVEMENTS_ONLY: 'IMPROVEMENTS_ONLY',
+});
+
 const RECONCILIATION_GATE_STATUS = Object.freeze({
   READY: 'READY',
   HOLD_EVIDENCE: 'HOLD_EVIDENCE',
@@ -25,6 +31,7 @@ const RECOGNIZED_METHOD_MODELS = Object.freeze({
   LAND_SALES_COMPARISON_1_0: Object.freeze({
     modelVersion: 'LAND_SALES_COMPARISON_1.0',
     approachFamily: VALUATION_APPROACH_FAMILY.MARKET,
+    valueScope: VALUATION_VALUE_SCOPE.LAND_ONLY,
     acceptedStatuses: Object.freeze(['LAND_VALUE_INDICATION_READY']),
     valueField: 'landValueIndicationSar',
     indicationTypeField: 'indicationType',
@@ -33,6 +40,7 @@ const RECOGNIZED_METHOD_MODELS = Object.freeze({
   DIRECT_CAPITALIZATION_1_0: Object.freeze({
     modelVersion: 'DIRECT_CAPITALIZATION_1.0',
     approachFamily: VALUATION_APPROACH_FAMILY.INCOME,
+    valueScope: VALUATION_VALUE_SCOPE.WHOLE_PROPERTY,
     acceptedStatuses: Object.freeze(['DIRECT_CAPITALIZATION_VALUE_INDICATION_READY']),
     valueField: 'valueIndicationSar',
     indicationTypeField: 'indicationType',
@@ -41,6 +49,7 @@ const RECOGNIZED_METHOD_MODELS = Object.freeze({
   PROFESSIONAL_DCF_1_0: Object.freeze({
     modelVersion: 'PROFESSIONAL_DCF_1.0',
     approachFamily: VALUATION_APPROACH_FAMILY.INCOME,
+    valueScope: VALUATION_VALUE_SCOPE.WHOLE_PROPERTY,
     acceptedStatuses: Object.freeze(['DCF_VALUE_INDICATION_READY']),
     valueField: 'valueIndicationSar',
     indicationTypeField: 'indicationType',
@@ -49,6 +58,7 @@ const RECOGNIZED_METHOD_MODELS = Object.freeze({
   COST_APPROACH_1_0: Object.freeze({
     modelVersion: 'COST_APPROACH_1.0',
     approachFamily: VALUATION_APPROACH_FAMILY.COST,
+    valueScope: VALUATION_VALUE_SCOPE.WHOLE_PROPERTY,
     acceptedStatuses: Object.freeze(['VALUE_INDICATION_READY_FOR_RECONCILIATION']),
     valueField: 'costApproachValueIndicationSar',
     indicationTypeField: 'valueIndicationType',
@@ -66,6 +76,7 @@ const RECOGNIZED_METHOD_MODELS_BY_VERSION = Object.freeze(
 module.exports = {
   C3_VALUATION_RECONCILIATION_SCHEMA_VERSION,
   VALUATION_APPROACH_FAMILY,
+  VALUATION_VALUE_SCOPE,
   RECONCILIATION_GATE_STATUS,
   RECONCILIATION_CONFIDENCE_CLASS,
   RECOGNIZED_METHOD_MODELS,
