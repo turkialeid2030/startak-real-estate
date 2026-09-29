@@ -7,6 +7,8 @@ const EVIDENCE_DIR = 'runtime-evidence/post-release-production';
 fs.mkdirSync(EVIDENCE_DIR, { recursive: true });
 
 const MISSING_EXIT_CAP_AR = 'معدل رسملة الخروج مطلوب في إصدار الافتراضات V2. لا تُحتسب مؤشرات العائد المعتمدة على الخروج حتى إدخاله صراحةً.';
+const MISSING_EXIT_TRANSACTION_COST_AR = 'يلزم إدخال نسبة تكلفة الخروج الاقتصادية صراحةً في إصدار V2، بما في ذلك 0% إذا لم تُفترض تكلفة على البائع. لا تُحتسب مؤشرات الخروج حتى إدخالها.';
+const MISSING_LEASE_ROLL_FORWARD_AR = 'التغطية التعاقدية لا تمتد حتى سنة صافي الدخل التشغيلي المستقبلية N+1 اللازمة لقيمة الخروج، ولا يوجد نموذج ترحيل عقد معتمد. أوقفت مؤشرات NPV وIRR وقيمة الخروج وفترة الاسترداد بدل افتراض التجديد أو الشغور أو إعادة التسعير أو الحوافز تلقائيًا.';
 const SAFE_ANALYTICAL_VERDICT_RE = /حالة تحليلية مواتية|حالة تحليلية مشروطة|مخاطر تحليلية مرتفعة|تعليق التحليل لحين استكمال الأدلة|يتطلب مراجعة مختص مرخص/;
 const LEGACY_IMPERATIVE_VERDICT_RE = /يوصى بالشراء|لا يوصى بالشراء/;
 
@@ -29,12 +31,12 @@ function record(name, passed, detail = null) {
   console.log(`${name}=${passed ? 'PASS' : 'FAIL'}${detail ? ` -- ${typeof detail === 'string' ? detail : JSON.stringify(detail)}` : ''}`);
 }
 
-async function openValuationAssumptions(page) {
-  const sectionButton = page.getByRole('button', { name: /افتراضات التقييم والاستثمار/ }).first();
-  if ((await sectionButton.count()) === 0) throw new Error('valuation assumptions section was not discoverable');
+async function openSection(page, sectionName) {
+  const sectionButton = page.getByRole('button', { name: new RegExp(sectionName) }).first();
+  if ((await sectionButton.count()) === 0) throw new Error(`${sectionName} section was not discoverable`);
   const section = sectionButton.locator('xpath=ancestor::div[contains(@class,"rounded-2xl") and contains(@class,"overflow-hidden")][1]');
   const sectionBody = section.locator('.rf-accordion-body').first();
-  if ((await sectionBody.count()) === 0) throw new Error('valuation assumptions accordion body was not discoverable');
+  if ((await sectionBody.count()) === 0) throw new Error(`${sectionName} accordion body was not discoverable`);
   const classes = ((await sectionBody.getAttribute('class')) || '').split(/\s+/);
   if (!classes.includes('open')) {
     await sectionButton.click();
@@ -43,12 +45,34 @@ async function openValuationAssumptions(page) {
   return section;
 }
 
+async function openValuationAssumptions(page) {
+  return openSection(page, 'افتراضات التقييم والاستثمار');
+}
+
 async function resolveExitCapInput(page) {
   await openValuationAssumptions(page);
   const label = page.getByText('معدل رسملة الخروج', { exact: true }).first();
   if ((await label.count()) === 0) throw new Error('explicit exit-cap label was not discoverable');
   const input = label.locator('xpath=ancestor::label[1]').locator('input').first();
   if ((await input.count()) === 0) throw new Error('explicit exit-cap input was not discoverable');
+  return input;
+}
+
+async function resolveExitTransactionCostInput(page) {
+  await openValuationAssumptions(page);
+  const label = page.getByText('تكلفة معاملة الخروج المحمّلة اقتصاديًا على البائع', { exact: true }).first();
+  if ((await label.count()) === 0) throw new Error('explicit exit-transaction-cost label was not discoverable');
+  const input = label.locator('xpath=ancestor::label[1]').locator('input').first();
+  if ((await input.count()) === 0) throw new Error('explicit exit-transaction-cost input was not discoverable');
+  return input;
+}
+
+async function resolveLeaseYearsInput(page) {
+  await openSection(page, 'الدخل التأجيري');
+  const label = page.getByText('مدة التغطية التعاقدية المتبقية من تاريخ الدراسة', { exact: true }).first();
+  if ((await label.count()) === 0) throw new Error('remaining contractual lease-coverage label was not discoverable');
+  const input = label.locator('xpath=ancestor::label[1]').locator('input').first();
+  if ((await input.count()) === 0) throw new Error('remaining contractual lease-coverage input was not discoverable');
   return input;
 }
 
@@ -118,15 +142,45 @@ try {
 
   await page.getByText('مبنى قائم', { exact: true }).first().click();
   await page.waitForTimeout(220);
+
+  // P22 + P23 + fresh V2 require three explicit governed preconditions before
+  // this production journey may expect a decision-ready analytical verdict:
+  // contractual coverage through Year-(N+1), exit cap, and seller-borne exit cost.
+  // Supply all three instead of weakening fail-closed behavior.
+  const leaseYearsInput = await resolveLeaseYearsInput(page);
+  await leaseYearsInput.fill('6');
+  await leaseYearsInput.blur();
+  await page.waitForTimeout(250);
+
   const exitCapInputAfterReturn = await resolveExitCapInput(page);
   await exitCapInputAfterReturn.fill('8.5');
   await exitCapInputAfterReturn.blur();
+  await page.waitForTimeout(250);
+
+  const exitTransactionCostInput = await resolveExitTransactionCostInput(page);
+  await exitTransactionCostInput.fill('5');
+  await exitTransactionCostInput.blur();
   await page.waitForTimeout(400);
 
   const explicitBody = await page.locator('body').innerText();
-  record('PROD_WAVE2_EXPLICIT_EXIT_CAP_PERSISTS', (await exitCapInputAfterReturn.inputValue()) === '8.5', `value=${await exitCapInputAfterReturn.inputValue()}`);
+  record(
+    'PROD_WAVE2_EXPLICIT_EXIT_CAP_PERSISTS',
+    (await exitCapInputAfterReturn.inputValue()) === '8.5'
+      && (await exitTransactionCostInput.inputValue()) === '5'
+      && (await leaseYearsInput.inputValue()) === '6',
+    {
+      exitCap: await exitCapInputAfterReturn.inputValue(),
+      exitTransactionCost: await exitTransactionCostInput.inputValue(),
+      leaseYears: await leaseYearsInput.inputValue(),
+    }
+  );
   record('PROD_WAVE2_EXIT_CAP_EXPLICIT_SOURCE', explicitBody.includes('EXPLICIT'));
-  record('PROD_WAVE2_MISSING_NOTICE_CLEARS', !explicitBody.includes(MISSING_EXIT_CAP_AR));
+  record(
+    'PROD_WAVE2_MISSING_NOTICE_CLEARS',
+    !explicitBody.includes(MISSING_EXIT_CAP_AR)
+      && !explicitBody.includes(MISSING_EXIT_TRANSACTION_COST_AR)
+      && !explicitBody.includes(MISSING_LEASE_ROLL_FORWARD_AR)
+  );
 
   await page.getByText('لوحة المؤشرات', { exact: true }).first().click();
   await page.waitForTimeout(300);
@@ -139,7 +193,13 @@ try {
   await page.getByText('تحليل الحساسية', { exact: true }).first().click();
   await page.waitForTimeout(350);
   const sensitivityReady = await page.locator('body').innerText();
-  record('PROD_WAVE2_SENSITIVITY_RECOVERS', !sensitivityReady.includes(MISSING_EXIT_CAP_AR) && !/NaN|undefined/.test(sensitivityReady));
+  record(
+    'PROD_WAVE2_SENSITIVITY_RECOVERS',
+    !sensitivityReady.includes(MISSING_EXIT_CAP_AR)
+      && !sensitivityReady.includes(MISSING_EXIT_TRANSACTION_COST_AR)
+      && !sensitivityReady.includes(MISSING_LEASE_ROLL_FORWARD_AR)
+      && !/NaN|undefined/.test(sensitivityReady)
+  );
 
   const englishButton = page.getByRole('button', { name: 'EN' }).first();
   record('PROD_LANGUAGE_SWITCH_DISCOVERABLE', (await englishButton.count()) > 0);
