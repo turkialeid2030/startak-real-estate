@@ -4,6 +4,7 @@ const assert = require('assert/strict');
 const {
   GEOSPATIAL_EVIDENCE_TYPE,
   GEOSPATIAL_VERIFICATION_STATUS,
+  GEOSPATIAL_RESOLUTION_METHOD,
   GEOSPATIAL_GATE_STATUS,
 } = require('../../src/contracts/geospatial-evidence');
 const {
@@ -31,6 +32,7 @@ const draft = createSandboxGeospatialEvidenceDraft(raw);
 assert.equal(draft.verificationStatus, GEOSPATIAL_VERIFICATION_STATUS.UNVERIFIED);
 assert.equal(draft.verifiedBy, null);
 assert.equal(draft.verificationReference, null);
+assert.equal(draft.resolutionMethod, GEOSPATIAL_RESOLUTION_METHOD.USER_SUPPLIED);
 assert.equal(draft.sandboxOnly, true);
 assert.equal(draft.productionConnectorUsed, false);
 assert.equal(draft.decisionReady, false);
@@ -38,8 +40,6 @@ assert.equal(draft.transactionAuthorized, false);
 assert.equal(draft.publicAiAuthorized, false);
 assert.equal(draft.professionalValuationOpinion, false);
 
-// Even if the caller supplies a trusted verifier policy to the evaluator, the
-// sandbox draft itself remains unverified and cannot become decision-ready.
 const evaluated = evaluateGeospatialEvidenceBundle({
   subjectId: 'deal-001',
   evidenceRecords: [draft],
@@ -51,17 +51,23 @@ const evaluated = evaluateGeospatialEvidenceBundle({
 assert.equal(evaluated.status, GEOSPATIAL_GATE_STATUS.HOLD_EVIDENCE);
 assert.equal(evaluated.decisionReady, false);
 assert.ok(evaluated.blockers.includes('C1_VERIFIED_EVIDENCE_REQUIRED:PARCEL_IDENTITY'));
+assert.ok(evaluated.blockers.includes('C1_OFFICIAL_RESOLUTION_REQUIRED:PARCEL_IDENTITY'));
 assert.ok(evaluated.blockers.includes('C1_REQUIRED_EVIDENCE_MISSING:PARCEL_IDENTITY'));
 assert.equal(evaluated.transactionAuthorized, false);
 
-// Sandbox ingestion must reject any attempt by raw input to manufacture trust
-// or authority fields.
 assert.throws(
   () => createSandboxGeospatialEvidenceDraft({ ...raw, verificationStatus: 'VERIFIED' }),
   /cannot set trust\/authority fields/,
 );
 assert.throws(
   () => createSandboxGeospatialEvidenceDraft({ ...raw, verifiedBy: 'TRUSTED-C1-VERIFIER' }),
+  /cannot set trust\/authority fields/,
+);
+assert.throws(
+  () => createSandboxGeospatialEvidenceDraft({
+    ...raw,
+    resolutionMethod: GEOSPATIAL_RESOLUTION_METHOD.OFFICIAL_MAP_QUERY,
+  }),
   /cannot set trust\/authority fields/,
 );
 assert.throws(
@@ -73,8 +79,6 @@ assert.throws(
   /cannot set trust\/authority fields/,
 );
 
-// A sandbox draft cannot use an unregistered source, a source outside its
-// registered evidence scope, or a non-official domain.
 assert.throws(
   () => createSandboxGeospatialEvidenceDraft({ ...raw, sourceId: 'UNKNOWN_SOURCE' }),
   /unregistered official geospatial source/,
