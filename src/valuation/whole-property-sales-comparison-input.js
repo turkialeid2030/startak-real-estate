@@ -24,6 +24,10 @@ const {
 
 const C3M_WHOLE_PROPERTY_SALES_INPUT_VERSION = 'C3M_WHOLE_PROPERTY_SALES_INPUT_V1';
 const HASH_RE = /^[a-f0-9]{64}$/i;
+const COUNT_BASES = Object.freeze([
+  WHOLE_PROPERTY_UNIT_OF_COMPARISON.ROOM_KEY,
+  WHOLE_PROPERTY_UNIT_OF_COMPARISON.RESIDENTIAL_UNIT,
+]);
 
 function cleanString(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -49,6 +53,11 @@ function isPositiveFinite(value) {
 
 function isNonNegativeFinite(value) {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
+
+function isValidBasisQuantity(value, unitOfComparison) {
+  if (!isPositiveFinite(value)) return false;
+  return !COUNT_BASES.includes(unitOfComparison) || Number.isInteger(value);
 }
 
 function isJsonSafe(value, seen = new Set()) {
@@ -95,6 +104,10 @@ function deepFreeze(value) {
 
 function unique(values) {
   return [...new Set(values)];
+}
+
+function daysApart(aMs, bMs) {
+  return Math.abs(aMs - bMs) / 86400000;
 }
 
 function verifyPropertyEvidencePacketIntegrity(packet) {
@@ -175,9 +188,9 @@ function validatePolicy(policyId, registry, unitOfComparison, assetType) {
   if (!allowedAssetTypes.length) blockers.push('C3M_POLICY_ALLOWED_ASSET_TYPES_REQUIRED');
   if (!allowedAssetTypes.includes(assetType)) blockers.push(`C3M_ASSET_TYPE_NOT_ALLOWED_BY_POLICY:${assetType || 'MISSING'}`);
 
-  const integerFields = ['minimumComparableCount'];
-  for (const field of integerFields) {
-    if (!Number.isInteger(raw[field]) || raw[field] < 1) blockers.push(`C3M_POLICY_${field.toUpperCase()}_INVALID`);
+  if (!Number.isInteger(raw.minimumComparableCount) || raw.minimumComparableCount < 1) blockers.push('C3M_POLICY_MINIMUM_COMPARABLE_COUNT_INVALID');
+  if (!Number.isInteger(raw.maxMeasurementTransactionDateGapDays) || raw.maxMeasurementTransactionDateGapDays < 0) {
+    blockers.push('C3M_POLICY_MAX_MEASUREMENT_TRANSACTION_DATE_GAP_DAYS_INVALID');
   }
   const ratioFields = [
     'maxSingleComparableWeight',
@@ -192,8 +205,8 @@ function validatePolicy(policyId, registry, unitOfComparison, assetType) {
       blockers.push(`C3M_POLICY_${field.toUpperCase()}_INVALID`);
     }
   }
-  if (typeof raw.requireAllSelectedWeighted !== 'boolean') blockers.push('C3M_POLICY_REQUIRE_ALL_SELECTED_WEIGHTED_FLAG_REQUIRED');
-  if (typeof raw.requireAdjustmentDisposition !== 'boolean') blockers.push('C3M_POLICY_REQUIRE_ADJUSTMENT_DISPOSITION_FLAG_REQUIRED');
+  if (raw.requireAllSelectedWeighted !== true) blockers.push('C3M_POLICY_REQUIRE_ALL_SELECTED_WEIGHTED_MUST_BE_TRUE');
+  if (raw.requireAdjustmentDisposition !== true) blockers.push('C3M_POLICY_REQUIRE_ADJUSTMENT_DISPOSITION_MUST_BE_TRUE');
 
   return {
     policyId: id || null,
@@ -201,6 +214,7 @@ function validatePolicy(policyId, registry, unitOfComparison, assetType) {
       allowedUnitsOfComparison: Object.freeze(allowedUnits),
       allowedAssetTypes: Object.freeze(allowedAssetTypes),
       minimumComparableCount: raw.minimumComparableCount,
+      maxMeasurementTransactionDateGapDays: raw.maxMeasurementTransactionDateGapDays,
       maxSingleComparableWeight: raw.maxSingleComparableWeight,
       maxSingleAdjustmentPercent: raw.maxSingleAdjustmentPercent,
       maxNetAdjustmentPercent: raw.maxNetAdjustmentPercent,
@@ -265,7 +279,6 @@ function evaluateMarketContextBinding(binding, {
 function normalizeComparableMeasurement(record, {
   assetType,
   unitOfComparison,
-  valuationDateMs,
   asOfMs,
   trustedMeasurementVerifierIds,
 }) {
@@ -280,6 +293,8 @@ function normalizeComparableMeasurement(record, {
   const basis = cleanString(record.unitOfComparison);
   const basisQuantity = record.basisQuantity;
   const sourceRef = cleanString(record.sourceRef);
+  const effectiveAtMs = toTimestamp(record.effectiveAt);
+  const validUntilMs = toTimestamp(record.validUntil);
   const verifiedBy = cleanString(record.verifiedBy);
   const verificationReference = cleanString(record.verificationReference);
   const verifiedAtMs = toTimestamp(record.verifiedAt);
@@ -289,16 +304,21 @@ function normalizeComparableMeasurement(record, {
   if (!sourcePropertyRef) blockers.push(`C3M_SOURCE_PROPERTY_REF_REQUIRED:${comparableId || 'UNKNOWN'}`);
   if (recordAssetType !== assetType) blockers.push(`C3M_COMPARABLE_ASSET_TYPE_MISMATCH:${comparableId || 'UNKNOWN'}`);
   if (basis !== unitOfComparison) blockers.push(`C3M_COMPARABLE_UNIT_BASIS_MISMATCH:${comparableId || 'UNKNOWN'}`);
-  if (!isPositiveFinite(basisQuantity)) blockers.push(`C3M_COMPARABLE_BASIS_QUANTITY_INVALID:${comparableId || 'UNKNOWN'}`);
+  if (!isValidBasisQuantity(basisQuantity, unitOfComparison)) blockers.push(`C3M_COMPARABLE_BASIS_QUANTITY_INVALID:${comparableId || 'UNKNOWN'}`);
   if (!sourceRef) blockers.push(`C3M_COMPARABLE_MEASUREMENT_SOURCE_REQUIRED:${comparableId || 'UNKNOWN'}`);
+  if (effectiveAtMs === null) blockers.push(`C3M_COMPARABLE_MEASUREMENT_EFFECTIVE_AT_REQUIRED:${comparableId || 'UNKNOWN'}`);
+  else if (effectiveAtMs > asOfMs) blockers.push(`C3M_COMPARABLE_MEASUREMENT_EFFECTIVE_AT_FUTURE:${comparableId || 'UNKNOWN'}`);
+  if (validUntilMs === null) blockers.push(`C3M_COMPARABLE_MEASUREMENT_VALID_UNTIL_REQUIRED:${comparableId || 'UNKNOWN'}`);
+  else if (validUntilMs < asOfMs) blockers.push(`C3M_COMPARABLE_MEASUREMENT_STALE:${comparableId || 'UNKNOWN'}`);
   if (!verifiedBy) blockers.push(`C3M_COMPARABLE_MEASUREMENT_VERIFIER_REQUIRED:${comparableId || 'UNKNOWN'}`);
   else if (!trustedMeasurementVerifierIds.includes(verifiedBy)) blockers.push(`C3M_COMPARABLE_MEASUREMENT_VERIFIER_UNTRUSTED:${comparableId || 'UNKNOWN'}`);
   if (!verificationReference) blockers.push(`C3M_COMPARABLE_MEASUREMENT_VERIFICATION_REFERENCE_REQUIRED:${comparableId || 'UNKNOWN'}`);
   if (verifiedAtMs === null) blockers.push(`C3M_COMPARABLE_MEASUREMENT_VERIFIED_AT_REQUIRED:${comparableId || 'UNKNOWN'}`);
   else {
     if (verifiedAtMs > asOfMs) blockers.push(`C3M_COMPARABLE_MEASUREMENT_VERIFIED_AT_FUTURE:${comparableId || 'UNKNOWN'}`);
-    if (valuationDateMs !== null && verifiedAtMs < valuationDateMs) blockers.push(`C3M_COMPARABLE_MEASUREMENT_VERIFIED_BEFORE_VALUATION_DATE:${comparableId || 'UNKNOWN'}`);
+    if (effectiveAtMs !== null && verifiedAtMs < effectiveAtMs) blockers.push(`C3M_COMPARABLE_MEASUREMENT_VERIFIED_BEFORE_EFFECTIVE_AT:${comparableId || 'UNKNOWN'}`);
   }
+  if (effectiveAtMs !== null && validUntilMs !== null && validUntilMs < effectiveAtMs) blockers.push(`C3M_COMPARABLE_MEASUREMENT_VALIDITY_WINDOW_INVALID:${comparableId || 'UNKNOWN'}`);
 
   const core = {
     comparableId: comparableId || null,
@@ -306,8 +326,10 @@ function normalizeComparableMeasurement(record, {
     sourcePropertyRef: sourcePropertyRef || null,
     assetType: recordAssetType || null,
     unitOfComparison: basis || null,
-    basisQuantity: isPositiveFinite(basisQuantity) ? basisQuantity : null,
+    basisQuantity: isValidBasisQuantity(basisQuantity, unitOfComparison) ? basisQuantity : null,
     sourceRef: sourceRef || null,
+    effectiveAt: effectiveAtMs === null ? null : new Date(effectiveAtMs).toISOString(),
+    validUntil: validUntilMs === null ? null : new Date(validUntilMs).toISOString(),
     verifiedBy: verifiedBy || null,
     verificationReference: verificationReference || null,
     verifiedAt: verifiedAtMs === null ? null : new Date(verifiedAtMs).toISOString(),
@@ -489,8 +511,11 @@ function buildWholePropertySalesComparisonInputPacket({
   else {
     if (cleanString(subjectMeasurement.type) !== expectedMeasurementType) subjectBlockers.push(`C3M_SUBJECT_MEASUREMENT_TYPE_MISMATCH:${cleanString(subjectMeasurement.type)}/${expectedMeasurementType}`);
     if (cleanString(subjectMeasurement.unit) !== expectedMeasurementUnit) subjectBlockers.push(`C3M_SUBJECT_MEASUREMENT_UNIT_MISMATCH:${cleanString(subjectMeasurement.unit)}/${expectedMeasurementUnit}`);
-    if (!isPositiveFinite(subjectMeasurement.value)) subjectBlockers.push('C3M_SUBJECT_MEASUREMENT_VALUE_INVALID');
+    if (!isValidBasisQuantity(subjectMeasurement.value, comparisonUnit)) subjectBlockers.push('C3M_SUBJECT_MEASUREMENT_VALUE_INVALID');
     if (!HASH_RE.test(cleanString(subjectMeasurement.measurementHashSha256))) subjectBlockers.push('C3M_SUBJECT_MEASUREMENT_HASH_REQUIRED');
+    const measuredAtMs = toTimestamp(subjectMeasurement.measuredAt);
+    if (measuredAtMs === null) subjectBlockers.push('C3M_SUBJECT_MEASUREMENT_MEASURED_AT_REQUIRED');
+    else if (measuredAtMs > asOfMs) subjectBlockers.push('C3M_SUBJECT_MEASUREMENT_MEASURED_AT_FUTURE');
   }
   if (subjectBlockers.length) return hold(WHOLE_PROPERTY_SALES_INPUT_STATUS.HOLD_SUBJECT_MEASUREMENT, subjectBlockers, context);
 
@@ -499,7 +524,6 @@ function buildWholePropertySalesComparisonInputPacket({
   const measurementFindings = comparableMeasurements.map((record) => normalizeComparableMeasurement(record, {
     assetType: marketAssetType,
     unitOfComparison: comparisonUnit,
-    valuationDateMs,
     asOfMs,
     trustedMeasurementVerifierIds: measurementVerifiers,
   }));
@@ -554,6 +578,14 @@ function buildWholePropertySalesComparisonInputPacket({
       saleBindingBlockers.push(`C3M_C2_CLOSED_SALE_NOT_FOUND:${id}:${measurement.transactionKey}`);
       continue;
     }
+    const saleEffectiveAtMs = toTimestamp(c2Sale.effectiveAt);
+    if (saleEffectiveAtMs === null) saleBindingBlockers.push(`C3M_C2_SALE_EFFECTIVE_AT_REQUIRED:${id}:${measurement.transactionKey}`);
+    else if (saleEffectiveAtMs > valuationDateMs) saleBindingBlockers.push(`C3M_POST_VALUATION_DATE_SALE_NOT_ELIGIBLE:${id}:${measurement.transactionKey}`);
+    const measurementEffectiveAtMs = toTimestamp(measurement.effectiveAt);
+    if (saleEffectiveAtMs !== null && measurementEffectiveAtMs !== null
+        && daysApart(saleEffectiveAtMs, measurementEffectiveAtMs) > policy.maxMeasurementTransactionDateGapDays) {
+      saleBindingBlockers.push(`C3M_MEASUREMENT_TRANSACTION_DATE_GAP_EXCEEDS_POLICY:${id}`);
+    }
     const amountSar = c2Sale.normalizedValue && c2Sale.normalizedValue.amountSar;
     if (!isPositiveFinite(amountSar)) {
       saleBindingBlockers.push(`C3M_C2_TOTAL_SALE_AMOUNT_REQUIRED:${id}:${measurement.transactionKey}`);
@@ -567,8 +599,10 @@ function buildWholePropertySalesComparisonInputPacket({
     baseComparableById.set(id, Object.freeze({
       comparableId: id,
       transactionKey: measurement.transactionKey,
+      transactionEffectiveAt: saleEffectiveAtMs === null ? null : new Date(saleEffectiveAtMs).toISOString(),
       sourcePropertyRef: measurement.sourcePropertyRef,
       measurementEvidenceHashSha256: measurement.measurementEvidenceHashSha256,
+      measurementEffectiveAt: measurement.effectiveAt,
       c2EvidenceId: c2Sale.id,
       c2NormalizedValueHash: c2Sale.normalizedValueHash,
       saleAmountSar: amountSar,
@@ -604,9 +638,7 @@ function buildWholePropertySalesComparisonInputPacket({
   for (const id of selectedIds) {
     const base = baseComparableById.get(id);
     const records = byComparable.get(id) || [];
-    if (policy.requireAdjustmentDisposition && records.length === 0 && !cleanString(noAdjustmentMap[id])) {
-      adjustmentBlockers.push(`C3M_ADJUSTMENT_DISPOSITION_REQUIRED:${id}`);
-    }
+    if (records.length === 0 && !cleanString(noAdjustmentMap[id])) adjustmentBlockers.push(`C3M_ADJUSTMENT_DISPOSITION_REQUIRED:${id}`);
     const seenFactors = new Set();
     let netDelta = 0;
     let grossDelta = 0;
@@ -688,7 +720,7 @@ function buildWholePropertySalesComparisonInputPacket({
       if (!selectedSet.has(key)) reconciliationBlockers.push(`C3M_WEIGHT_TARGET_NOT_SELECTED:${key}`);
     }
   }
-  if (policy.requireAllSelectedWeighted && Math.abs(weightSum - 1) > 1e-9) reconciliationBlockers.push(`C3M_WEIGHTS_SUM_INVALID:${weightSum}`);
+  if (Math.abs(weightSum - 1) > 1e-9) reconciliationBlockers.push(`C3M_WEIGHTS_SUM_INVALID:${weightSum}`);
 
   if (!reconciliationBlockers.length) {
     const candidateWeightedUnitValue = weightedIndications.reduce((sum, item) => sum + item.adjustedUnitValueSar * item.weight, 0);
@@ -701,8 +733,8 @@ function buildWholePropertySalesComparisonInputPacket({
   }
   if (reconciliationBlockers.length) return hold(WHOLE_PROPERTY_SALES_INPUT_STATUS.HOLD_RECONCILIATION, reconciliationBlockers, context);
 
-  const marketEvaluationHashSha256 = sha256(marketEvaluation);
-  if (!marketEvaluationHashSha256) return hold(WHOLE_PROPERTY_SALES_INPUT_STATUS.HOLD_INTEGRITY, ['C3M_MARKET_EVALUATION_HASH_FAILED'], context);
+  const marketEvidenceEvaluationHashSha256 = sha256(marketEvaluation);
+  if (!marketEvidenceEvaluationHashSha256) return hold(WHOLE_PROPERTY_SALES_INPUT_STATUS.HOLD_INTEGRITY, ['C3M_MARKET_EVALUATION_HASH_FAILED'], context);
 
   const core = {
     schemaVersion: C3M_WHOLE_PROPERTY_SALES_COMPARISON_SCHEMA_VERSION,
@@ -725,6 +757,7 @@ function buildWholePropertySalesComparisonInputPacket({
       sourceEvidenceRef: subjectMeasurement.sourceEvidenceRef,
       measurementStandardRef: subjectMeasurement.measurementStandardRef,
       measurementMethod: subjectMeasurement.measurementMethod,
+      measuredAt: subjectMeasurement.measuredAt,
       measurementHashSha256: subjectMeasurement.measurementHashSha256,
     },
     marketEvidenceEvaluationHashSha256,
@@ -752,6 +785,8 @@ function buildWholePropertySalesComparisonInputPacket({
     c2MarketEvidenceReevaluatedInternally: true,
     propertyToMarketContextBindingRequired: true,
     explicitUnitOfComparisonRequired: true,
+    transactionDateLookAheadBlocked: true,
+    comparableMeasurementTemporalGovernanceRequired: true,
     professionalComparableSelectionRecorded: true,
     professionalAdjustmentDispositionRecorded: true,
     professionalWeightsExplicit: true,
@@ -763,7 +798,7 @@ function buildWholePropertySalesComparisonInputPacket({
     certifiedValuationEstablished: false,
     transactionAuthorized: false,
     publicAiAuthorized: false,
-    semantics: 'C3M input governance binds a verified WHOLE_PROPERTY subject measurement to C2-qualified closed-sale transactions through separately verified comparable property denominators, an explicit common unit of comparison, trusted professional selection, reviewed adjustment dispositions and explicit professional weights. It never infers a denominator from generic transaction area, uses asking evidence as a sale, invents adjustments/weights, certifies a valuation or authorizes a transaction.',
+    semantics: 'C3M input governance binds a verified WHOLE_PROPERTY subject measurement to C2-qualified pre-valuation-date closed-sale transactions through separately verified, temporally governed comparable property denominators, an explicit common unit of comparison, trusted professional selection, reviewed adjustment dispositions and explicit professional weights. It never infers a denominator from generic transaction area, uses asking evidence as a sale, looks ahead to post-valuation-date sales, invents adjustments/weights, certifies a valuation or authorizes a transaction.',
   });
 }
 
