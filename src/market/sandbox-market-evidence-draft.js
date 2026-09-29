@@ -16,6 +16,8 @@ const C2_SANDBOX_MARKET_EVIDENCE_DRAFT_VERSION = 'C2_SANDBOX_MARKET_EVIDENCE_DRA
 const AUTHORITATIVE_TYPES = Object.freeze([
   MARKET_EVIDENCE_TYPE.CLOSED_SALE_TRANSACTION,
   MARKET_EVIDENCE_TYPE.CLOSED_RENT_TRANSACTION,
+  MARKET_EVIDENCE_TYPE.SALE_MARKET_AGGREGATE,
+  MARKET_EVIDENCE_TYPE.RENT_MARKET_AGGREGATE,
   MARKET_EVIDENCE_TYPE.SALE_PRICE_INDEX,
   MARKET_EVIDENCE_TYPE.RENT_INDEX,
   MARKET_EVIDENCE_TYPE.MARKET_LIQUIDITY_INDICATOR,
@@ -80,6 +82,8 @@ function createSandboxMarketEvidenceDraft(raw = {}) {
     sourceUrl: cleanString(raw.sourceUrl) || null,
     transactionKey: cleanString(raw.transactionKey) || null,
     seriesKey: cleanString(raw.seriesKey) || null,
+    periodKey: cleanString(raw.periodKey) || null,
+    effectiveAt: cleanString(raw.effectiveAt) || null,
     observedAt: cleanString(raw.observedAt) || null,
     validUntil: cleanString(raw.validUntil) || null,
     freshnessPolicyId: cleanString(raw.freshnessPolicyId) || null,
@@ -93,7 +97,7 @@ function createSandboxMarketEvidenceDraft(raw = {}) {
     professionalValuationOpinion: false,
     transactionAuthorized: false,
     publicAiAuthorized: false,
-    semantics: 'Sandbox draft only. Source labels, market context and normalized values are captured for later review. A sandbox capture cannot create official transaction resolution, trusted verification, comparable sufficiency, valuation authority or transaction authority.',
+    semantics: 'Sandbox draft only. Source labels, market context, effective period and normalized values are captured for later review. A sandbox capture cannot create official transaction/aggregate resolution, trusted verification, comparable sufficiency, valuation authority or transaction authority.',
   });
 }
 
