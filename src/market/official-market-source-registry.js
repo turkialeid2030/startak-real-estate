@@ -28,7 +28,8 @@ const OFFICIAL_MARKET_SOURCE_REGISTRY = Object.freeze({
     productionAdapterEnabled: false,
     supportedEvidenceTypes: Object.freeze([
       MARKET_EVIDENCE_TYPE.CLOSED_SALE_TRANSACTION,
-      MARKET_EVIDENCE_TYPE.CLOSED_RENT_TRANSACTION,
+      MARKET_EVIDENCE_TYPE.SALE_MARKET_AGGREGATE,
+      MARKET_EVIDENCE_TYPE.RENT_MARKET_AGGREGATE,
       MARKET_EVIDENCE_TYPE.SALE_PRICE_INDEX,
       MARKET_EVIDENCE_TYPE.RENT_INDEX,
       MARKET_EVIDENCE_TYPE.MARKET_LIQUIDITY_INDICATOR,
@@ -39,7 +40,7 @@ const OFFICIAL_MARKET_SOURCE_REGISTRY = Object.freeze({
       'EJAR_REGISTERED_RENT_CONTRACTS',
       'GASTAT_REAL_ESTATE_INDICES',
     ]),
-    notes: 'Official REGA platform publishes sale/rent market indicators and historical deal views. Public web access is not treated as an API, bulk-download, licensing or production machine-access grant.',
+    notes: 'Official REGA platform publishes sale/rent market indicators and historical sale-deal views. C2 does not infer row-level closed-rent transaction authority from aggregate rental indicators. Public web access is not treated as an API, bulk-download, licensing or production machine-access grant.',
   }),
 
   MINISTRY_OF_JUSTICE_REAL_ESTATE_TRANSACTIONS: Object.freeze({
@@ -87,7 +88,7 @@ const OFFICIAL_MARKET_SOURCE_REGISTRY = Object.freeze({
       MARKET_EVIDENCE_TYPE.CLOSED_RENT_TRANSACTION,
     ]),
     declaredUpstreamSources: Object.freeze([]),
-    notes: 'REGA identifies Ejar as the source for rental transaction indicators. Direct production access and reuse rights are not assumed.',
+    notes: 'REGA identifies Ejar as the source for rental transaction indicators. Direct production access, row-level field semantics and reuse rights are not assumed.',
   }),
 
   GASTAT_REAL_ESTATE_INDICES: Object.freeze({
@@ -121,8 +122,9 @@ function officialMarketUrlMatchesSource(sourceId, urlText) {
   const source = getOfficialMarketSource(sourceId);
   if (!source || typeof urlText !== 'string' || !urlText.trim()) return false;
   try {
-    const hostname = new URL(urlText.trim()).hostname.toLowerCase();
-    return source.officialDomains.includes(hostname);
+    const parsed = new URL(urlText.trim());
+    const hostname = parsed.hostname.toLowerCase();
+    return parsed.protocol === 'https:' && source.officialDomains.includes(hostname);
   } catch (_) {
     return false;
   }
