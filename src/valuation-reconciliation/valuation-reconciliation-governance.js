@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const {
   C3_VALUATION_RECONCILIATION_SCHEMA_VERSION,
   VALUATION_APPROACH_FAMILY,
+  VALUATION_VALUE_SCOPE,
   RECONCILIATION_GATE_STATUS,
   RECONCILIATION_CONFIDENCE_CLASS,
   RECOGNIZED_METHOD_MODELS_BY_VERSION,
@@ -23,6 +24,7 @@ const {
 
 const C3_VALUATION_RECONCILIATION_GOVERNANCE_VERSION = 'C3_VALUATION_RECONCILIATION_GOVERNANCE_V1';
 const APPROACH_FAMILIES = Object.freeze(Object.values(VALUATION_APPROACH_FAMILY));
+const VALUE_SCOPES = Object.freeze(Object.values(VALUATION_VALUE_SCOPE));
 const HASH_RE = /^[a-f0-9]{64}$/i;
 
 function cleanString(value) {
@@ -106,12 +108,17 @@ function validatePolicy(policyId, registry) {
     return { policyId: id || null, policy: null, blockers };
   }
 
+  const valuationScope = cleanString(policy.valuationScope);
+  if (!VALUE_SCOPES.includes(valuationScope)) blockers.push(`C3_POLICY_VALUATION_SCOPE_INVALID:${valuationScope || 'MISSING'}`);
+
   const allowedModelVersions = Array.isArray(policy.allowedModelVersions)
     ? unique(policy.allowedModelVersions.map(cleanString).filter(Boolean))
     : [];
   if (!allowedModelVersions.length) blockers.push('C3_POLICY_ALLOWED_MODELS_REQUIRED');
   for (const modelVersion of allowedModelVersions) {
-    if (!RECOGNIZED_METHOD_MODELS_BY_VERSION[modelVersion]) blockers.push(`C3_POLICY_MODEL_UNSUPPORTED:${modelVersion}`);
+    const model = RECOGNIZED_METHOD_MODELS_BY_VERSION[modelVersion];
+    if (!model) blockers.push(`C3_POLICY_MODEL_UNSUPPORTED:${modelVersion}`);
+    else if (valuationScope && model.valueScope !== valuationScope) blockers.push(`C3_POLICY_MODEL_SCOPE_MISMATCH:${modelVersion}:${model.valueScope}/${valuationScope}`);
   }
 
   const requiredApproachFamilies = Array.isArray(policy.requiredApproachFamilies)
@@ -164,6 +171,7 @@ function validatePolicy(policyId, registry) {
   return {
     policyId: id || null,
     policy: Object.freeze({
+      valuationScope: VALUE_SCOPES.includes(valuationScope) ? valuationScope : null,
       allowedModelVersions: Object.freeze(allowedModelVersions),
       requiredApproachFamilies: Object.freeze(requiredApproachFamilies),
       minimumMethodIndications,
@@ -178,9 +186,61 @@ function validatePolicy(policyId, registry) {
   };
 }
 
+function evaluateMarketContextBinding(binding, {
+  propertyRef,
+  marketInput,
+  valuationDateMs,
+  asOfMs,
+  trustedMarketContextBinderIds,
+}) {
+  const blockers = [];
+  if (!binding || typeof binding !== 'object' || Array.isArray(binding)) {
+    return { blockers: ['C3_MARKET_CONTEXT_BINDING_REQUIRED'], normalized: null };
+  }
+
+  const bindingId = cleanString(binding.bindingId);
+  const boundPropertyRef = cleanString(binding.propertyRef);
+  const marketContextId = cleanString(binding.marketContextId);
+  const geographyKey = cleanString(binding.geographyKey);
+  const assetType = cleanString(binding.assetType);
+  const boundBy = cleanString(binding.boundBy);
+  const bindingReference = cleanString(binding.bindingReference);
+  const boundAtMs = toTimestamp(binding.boundAt);
+
+  if (!bindingId) blockers.push('C3_MARKET_CONTEXT_BINDING_ID_REQUIRED');
+  if (boundPropertyRef !== propertyRef) blockers.push('C3_MARKET_CONTEXT_PROPERTY_MISMATCH');
+  if (!marketContextId || marketContextId !== cleanString(marketInput.marketContextId)) blockers.push('C3_MARKET_CONTEXT_ID_MISMATCH');
+  if (!geographyKey || geographyKey !== cleanString(marketInput.geographyKey)) blockers.push('C3_MARKET_CONTEXT_GEOGRAPHY_MISMATCH');
+  if (!assetType || assetType !== cleanString(marketInput.assetType)) blockers.push('C3_MARKET_CONTEXT_ASSET_TYPE_MISMATCH');
+  if (!boundBy) blockers.push('C3_MARKET_CONTEXT_BINDER_REQUIRED');
+  else if (!trustedMarketContextBinderIds.includes(boundBy)) blockers.push(`C3_MARKET_CONTEXT_BINDER_UNTRUSTED:${boundBy}`);
+  if (!bindingReference) blockers.push('C3_MARKET_CONTEXT_BINDING_REFERENCE_REQUIRED');
+  if (boundAtMs === null) blockers.push('C3_MARKET_CONTEXT_BOUND_AT_REQUIRED');
+  else {
+    if (boundAtMs > asOfMs) blockers.push('C3_MARKET_CONTEXT_BOUND_AT_FUTURE');
+    if (valuationDateMs !== null && boundAtMs < valuationDateMs) blockers.push('C3_MARKET_CONTEXT_BOUND_BEFORE_VALUATION_DATE');
+  }
+
+  return {
+    blockers,
+    normalized: Object.freeze({
+      bindingId: bindingId || null,
+      propertyRef: boundPropertyRef || null,
+      marketContextId: marketContextId || null,
+      geographyKey: geographyKey || null,
+      assetType: assetType || null,
+      boundBy: boundBy || null,
+      bindingReference: bindingReference || null,
+      boundAt: boundAtMs === null ? null : new Date(boundAtMs).toISOString(),
+    }),
+  };
+}
+
 function evaluateMethodIndication(item, {
   propertyRef,
   valuationDate,
+  valuationDateMs,
+  valuationScope,
   asOfMs,
   trustedMethodVerifierIds,
   allowedModelVersions,
@@ -201,7 +261,10 @@ function evaluateMethodIndication(item, {
   const modelVersion = cleanString(sourceResult && sourceResult.modelVersion);
   const model = RECOGNIZED_METHOD_MODELS_BY_VERSION[modelVersion] || null;
   if (!model) blockers.push(`C3_METHOD_MODEL_UNSUPPORTED:${modelVersion || 'MISSING'}`);
-  else if (!allowedModelVersions.includes(modelVersion)) blockers.push(`C3_METHOD_MODEL_NOT_ALLOWED_BY_POLICY:${modelVersion}`);
+  else {
+    if (!allowedModelVersions.includes(modelVersion)) blockers.push(`C3_METHOD_MODEL_NOT_ALLOWED_BY_POLICY:${modelVersion}`);
+    if (model.valueScope !== valuationScope) blockers.push(`C3_METHOD_VALUE_SCOPE_MISMATCH:${id || 'UNKNOWN'}:${model.valueScope}/${valuationScope || 'MISSING'}`);
+  }
 
   const sourceStatus = cleanString(sourceResult && sourceResult.status);
   if (model && !model.acceptedStatuses.includes(sourceStatus)) blockers.push(`C3_METHOD_STATUS_NOT_RECONCILABLE:${modelVersion}:${sourceStatus || 'MISSING'}`);
@@ -225,7 +288,10 @@ function evaluateMethodIndication(item, {
   else if (!trustedMethodVerifierIds.includes(verifiedBy)) blockers.push(`C3_METHOD_VERIFIER_UNTRUSTED:${id || 'UNKNOWN'}`);
   if (!verificationReference) blockers.push(`C3_METHOD_VERIFICATION_REFERENCE_REQUIRED:${id || 'UNKNOWN'}`);
   if (verifiedAtMs === null) blockers.push(`C3_METHOD_VERIFIED_AT_REQUIRED:${id || 'UNKNOWN'}`);
-  else if (verifiedAtMs > asOfMs) blockers.push(`C3_METHOD_VERIFIED_AT_FUTURE:${id || 'UNKNOWN'}`);
+  else {
+    if (verifiedAtMs > asOfMs) blockers.push(`C3_METHOD_VERIFIED_AT_FUTURE:${id || 'UNKNOWN'}`);
+    if (valuationDateMs !== null && verifiedAtMs < valuationDateMs) blockers.push(`C3_METHOD_VERIFIED_BEFORE_VALUATION_DATE:${id || 'UNKNOWN'}`);
+  }
 
   const valueSar = model && sourceResult ? sourceResult[model.valueField] : null;
   if (!isPositiveFinite(valueSar)) blockers.push(`C3_METHOD_VALUE_INVALID:${id || 'UNKNOWN'}`);
@@ -243,6 +309,7 @@ function evaluateMethodIndication(item, {
     normalized: Object.freeze({
       id: id || null,
       approachFamily: model ? model.approachFamily : null,
+      valueScope: model ? model.valueScope : null,
       modelVersion: modelVersion || null,
       sourceStatus: sourceStatus || null,
       propertyRef: sourcePropertyRef || null,
@@ -359,9 +426,12 @@ function classifyConfidence(spreadRatio, thresholds) {
 function evaluateValuationReconciliation({
   propertyRef,
   valuationDate,
+  valuationScope,
   asOf = new Date(),
   geospatialEvidence,
   marketEvidence,
+  marketContextBinding,
+  trustedMarketContextBinderIds = [],
   methodIndications,
   trustedMethodVerifierIds = [],
   trustedReconcilerIds = [],
@@ -371,6 +441,7 @@ function evaluateValuationReconciliation({
 } = {}) {
   const property = cleanString(propertyRef);
   const valuationDateText = cleanString(valuationDate);
+  const scope = cleanString(valuationScope);
   const valuationDateMs = toTimestamp(valuationDateText);
   const asOfMs = new Date(asOf).getTime();
   if (!Number.isFinite(asOfMs)) throw new TypeError('asOf must be a valid date');
@@ -380,12 +451,15 @@ function evaluateValuationReconciliation({
   if (!property) blockers.push('C3_PROPERTY_REF_REQUIRED');
   if (valuationDateMs === null) blockers.push('C3_VALUATION_DATE_REQUIRED');
   else if (valuationDateMs > asOfMs) blockers.push('C3_VALUATION_DATE_FUTURE');
+  if (!VALUE_SCOPES.includes(scope)) blockers.push(`C3_VALUATION_SCOPE_INVALID:${scope || 'MISSING'}`);
 
   const methodVerifiers = cleanStringArray(trustedMethodVerifierIds, 'trustedMethodVerifierIds');
   const reconcilers = cleanStringArray(trustedReconcilerIds, 'trustedReconcilerIds');
+  const marketContextBinders = cleanStringArray(trustedMarketContextBinderIds, 'trustedMarketContextBinderIds');
   const policyEvaluation = validatePolicy(reconciliationPolicyId, governedReconciliationPolicies);
   blockers.push(...policyEvaluation.blockers);
   const policy = policyEvaluation.policy;
+  if (policy && scope && policy.valuationScope !== scope) blockers.push(`C3_POLICY_VALUATION_SCOPE_MISMATCH:${policy.valuationScope}/${scope}`);
 
   const c1Input = geospatialEvidence && typeof geospatialEvidence === 'object' && !Array.isArray(geospatialEvidence)
     ? geospatialEvidence
@@ -418,11 +492,22 @@ function evaluateValuationReconciliation({
     blockers.push('C3_C2_EVIDENCE_NOT_READY');
   }
 
+  const contextBindingEvaluation = evaluateMarketContextBinding(marketContextBinding, {
+    propertyRef: property,
+    marketInput: c2Input,
+    valuationDateMs,
+    asOfMs,
+    trustedMarketContextBinderIds: marketContextBinders,
+  });
+  blockers.push(...contextBindingEvaluation.blockers);
+
   if (!Array.isArray(methodIndications)) blockers.push('C3_METHOD_INDICATIONS_ARRAY_REQUIRED');
   const rawMethods = Array.isArray(methodIndications) ? methodIndications : [];
   const methodFindings = rawMethods.map((item) => evaluateMethodIndication(item, {
     propertyRef: property,
     valuationDate: valuationDateText,
+    valuationDateMs,
+    valuationScope: scope,
     asOfMs,
     trustedMethodVerifierIds: methodVerifiers,
     allowedModelVersions: policy ? policy.allowedModelVersions : [],
@@ -485,6 +570,7 @@ function evaluateValuationReconciliation({
       return Object.freeze({
         indicationId: indication.id,
         approachFamily: indication.approachFamily,
+        valueScope: indication.valueScope,
         modelVersion: indication.modelVersion,
         valueSar: indication.valueSar,
         weight,
@@ -505,7 +591,11 @@ function evaluateValuationReconciliation({
     }
   }
 
-  const evidenceBlockers = blockers.filter((code) => code.startsWith('C3_C1_') || code.startsWith('C3_C2_'));
+  const evidenceBlockers = blockers.filter((code) => (
+    code.startsWith('C3_C1_')
+    || code.startsWith('C3_C2_')
+    || code.startsWith('C3_MARKET_CONTEXT_')
+  ));
   const uniqueBlockers = unique(blockers);
   const status = uniqueBlockers.length === 0
     ? RECONCILIATION_GATE_STATUS.READY
@@ -525,6 +615,7 @@ function evaluateValuationReconciliation({
     schemaVersion: C3_VALUATION_RECONCILIATION_SCHEMA_VERSION,
     propertyRef: property || null,
     valuationDate: valuationDateMs === null ? null : new Date(valuationDateMs).toISOString(),
+    valuationScope: VALUE_SCOPES.includes(scope) ? scope : null,
     asOf: new Date(asOfMs).toISOString(),
     status,
     decisionReady,
@@ -533,6 +624,7 @@ function evaluateValuationReconciliation({
       c1: c1Evaluation ? c1Evaluation.status : null,
       c2: c2Evaluation ? c2Evaluation.status : null,
     },
+    marketContextBinding: contextBindingEvaluation.normalized,
     methodCoverage: {
       eligibleMethodCount: eligible.length,
       eligibleApproachFamilies: methodFamilies,
@@ -557,6 +649,8 @@ function evaluateValuationReconciliation({
     resultHashSha256: sha256(resultCore),
     c1ReevaluatedInternally: true,
     c2ReevaluatedInternally: true,
+    marketContextBindingRequired: true,
+    valuationScopeEnforced: true,
     professionalReconciliationInstructionUsed: !!instructionEvaluation.normalized,
     automaticMethodSelection: false,
     automaticReconciliationWeightsGenerated: false,
@@ -565,7 +659,7 @@ function evaluateValuationReconciliation({
     certifiedValuationEstablished: false,
     transactionAuthorized: false,
     publicAiAuthorized: false,
-    semantics: 'C3 re-evaluates C1 geospatial and C2 market evidence dependencies, validates recognized upstream method indications, and performs deterministic arithmetic only over an explicit professionally reviewed reconciliation instruction governed by an external policy registry. The output is an analytical reconciliation indication/range, not a licensed or certified valuation opinion, statistical confidence statement, transaction approval or production authority.',
+    semantics: 'C3 re-evaluates C1 geospatial and C2 market evidence dependencies, requires an explicit property-to-market-context binding, enforces common valuation scope across method indications, validates recognized upstream method results, and performs deterministic arithmetic only over an explicit professionally reviewed reconciliation instruction governed by an external policy registry. The output is an analytical reconciliation indication/range, not a licensed or certified valuation opinion, statistical confidence statement, transaction approval or production authority.',
   });
 }
 
