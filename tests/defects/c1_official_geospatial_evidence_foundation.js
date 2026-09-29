@@ -18,12 +18,16 @@ const {
 
 const AS_OF = '2026-09-29T12:00:00.000Z';
 const SUBJECT_ID = 'deal-001';
+const TRUSTED_VERIFIER = 'C1-TEST-VERIFIER';
+const GOVERNED_FRESHNESS_POLICY = 'C1-TEST-FRESHNESS-POLICY';
 
 function evaluate(evidenceRecords, options = {}) {
   return evaluateGeospatialEvidenceBundle({
     subjectId: SUBJECT_ID,
     evidenceRecords,
     asOf: AS_OF,
+    trustedVerifierIds: [TRUSTED_VERIFIER],
+    governedFreshnessPolicyIds: [GOVERNED_FRESHNESS_POLICY],
     ...options,
   });
 }
@@ -38,10 +42,12 @@ function baseRecord(overrides = {}) {
     sourceReference: 'REGA-GEO-QUERY-001',
     sourceUrl: 'https://rega.gov.sa/rega-services/platforms/geospatial-real-estate-portal/',
     verificationStatus: GEOSPATIAL_VERIFICATION_STATUS.VERIFIED,
+    verifiedBy: TRUSTED_VERIFIER,
+    verificationReference: 'C1-TEST-VERIFY-001',
     resolutionMethod: GEOSPATIAL_RESOLUTION_METHOD.OFFICIAL_MAP_QUERY,
     observedAt: '2026-09-29T08:00:00.000Z',
     validUntil: '2026-10-29T08:00:00.000Z',
-    freshnessPolicyId: 'C1-TEST-FRESHNESS-POLICY',
+    freshnessPolicyId: GOVERNED_FRESHNESS_POLICY,
     critical: true,
     ...overrides,
   };
@@ -57,6 +63,7 @@ function completeRequiredEvidence() {
       sourceId: 'BALADY_URBAN_MAPS',
       sourceReference: 'BALADY-URBAN-QUERY-001',
       sourceUrl: 'https://www.balady.gov.sa/',
+      verificationReference: 'C1-TEST-VERIFY-002',
       resolutionMethod: GEOSPATIAL_RESOLUTION_METHOD.OFFICIAL_MAP_QUERY,
     }),
     baseRecord({
@@ -66,6 +73,7 @@ function completeRequiredEvidence() {
       sourceId: 'BALADY_URBAN_MAPS',
       sourceReference: 'BALADY-URBAN-QUERY-002',
       sourceUrl: 'https://www.balady.gov.sa/',
+      verificationReference: 'C1-TEST-VERIFY-003',
       resolutionMethod: GEOSPATIAL_RESOLUTION_METHOD.OFFICIAL_MAP_QUERY,
     }),
   ];
@@ -79,7 +87,21 @@ for (const source of Object.values(OFFICIAL_SOURCE_REGISTRY)) {
   assert.equal(source.productionAdapterEnabled, false, `${source.id}: live production adapter must remain disabled in C1 foundation`);
 }
 
-const missingSubject = evaluateGeospatialEvidenceBundle({ evidenceRecords: completeRequiredEvidence(), asOf: AS_OF });
+const noTrustPolicy = evaluateGeospatialEvidenceBundle({
+  subjectId: SUBJECT_ID,
+  evidenceRecords: completeRequiredEvidence(),
+  asOf: AS_OF,
+});
+assert.equal(noTrustPolicy.status, GEOSPATIAL_GATE_STATUS.HOLD_EVIDENCE);
+assert.ok(noTrustPolicy.blockers.includes('C1_UNTRUSTED_VERIFIER:PARCEL_IDENTITY'));
+assert.ok(noTrustPolicy.blockers.includes('C1_FRESHNESS_POLICY_NOT_GOVERNED:PARCEL_IDENTITY'));
+
+const missingSubject = evaluateGeospatialEvidenceBundle({
+  evidenceRecords: completeRequiredEvidence(),
+  asOf: AS_OF,
+  trustedVerifierIds: [TRUSTED_VERIFIER],
+  governedFreshnessPolicyIds: [GOVERNED_FRESHNESS_POLICY],
+});
 assert.equal(missingSubject.status, GEOSPATIAL_GATE_STATUS.HOLD_EVIDENCE);
 assert.ok(missingSubject.blockers.includes('C1_SUBJECT_ID_REQUIRED'));
 
@@ -101,12 +123,25 @@ assert.equal(ready.subjectId, SUBJECT_ID);
 assert.equal(ready.resolvedEvidence.PARCEL_IDENTITY.subjectId, SUBJECT_ID);
 assert.equal(ready.resolvedEvidence.PARCEL_IDENTITY.normalizedValue.parcelNumber, '101');
 assert.equal(ready.resolvedEvidence.ZONING_BUILDABILITY.normalizedValue.maxFloors, 4);
+assert.deepEqual(ready.resolvedEvidence.PARCEL_IDENTITY.verifierIds, [TRUSTED_VERIFIER]);
 assert.equal(ready.transactionAuthorized, false);
 assert.equal(ready.publicAiAuthorized, false);
 assert.equal(ready.professionalValuationOpinion, false);
 assert.equal(ready.bindingZoningDetermination, false);
 
-// Required evidence from another property cannot be mixed into this decision.
+const selfAsserted = completeRequiredEvidence();
+selfAsserted[0] = { ...selfAsserted[0], verifiedBy: 'UNTRUSTED-CALLER' };
+const selfAssertedHeld = evaluate(selfAsserted);
+assert.equal(selfAssertedHeld.status, GEOSPATIAL_GATE_STATUS.HOLD_EVIDENCE);
+assert.ok(selfAssertedHeld.blockers.includes('C1_UNTRUSTED_VERIFIER:PARCEL_IDENTITY'));
+assert.ok(selfAssertedHeld.blockers.includes('C1_REQUIRED_EVIDENCE_MISSING:PARCEL_IDENTITY'));
+
+const ungovernedFreshness = completeRequiredEvidence();
+ungovernedFreshness[0] = { ...ungovernedFreshness[0], freshnessPolicyId: 'CALLER-INVENTED-POLICY' };
+const ungovernedHeld = evaluate(ungovernedFreshness);
+assert.equal(ungovernedHeld.status, GEOSPATIAL_GATE_STATUS.HOLD_EVIDENCE);
+assert.ok(ungovernedHeld.blockers.includes('C1_FRESHNESS_POLICY_NOT_GOVERNED:PARCEL_IDENTITY'));
+
 const crossSubject = completeRequiredEvidence();
 crossSubject[1] = { ...crossSubject[1], subjectId: 'deal-OTHER' };
 const crossSubjectHeld = evaluate(crossSubject);
@@ -171,6 +206,7 @@ conflict.push({
   id: 'c1-evidence-4',
   normalizedValue: { zoningCode: 'Z-CONFLICT', maxFloors: 8 },
   sourceReference: 'BALADY-URBAN-QUERY-003',
+  verificationReference: 'C1-TEST-VERIFY-004',
 });
 const conflictHeld = evaluate(conflict);
 assert.equal(conflictHeld.status, GEOSPATIAL_GATE_STATUS.HOLD_EVIDENCE);
@@ -186,6 +222,7 @@ corroborated.push(baseRecord({
   sourceId: 'GEOSA_NATIONAL_GEOSPATIAL_PLATFORM',
   sourceReference: 'GEOSA-ROAD-001',
   sourceUrl: 'https://geoportal.geosa.gov.sa/geoportal/',
+  verificationReference: 'C1-TEST-VERIFY-ROAD-1',
   resolutionMethod: GEOSPATIAL_RESOLUTION_METHOD.OFFICIAL_SPATIAL_MATCH,
   critical: true,
 }));
@@ -196,6 +233,7 @@ corroborated.push(baseRecord({
   sourceId: 'BALADY_URBAN_MAPS',
   sourceReference: 'BALADY-ROAD-001',
   sourceUrl: 'https://www.balady.gov.sa/',
+  verificationReference: 'C1-TEST-VERIFY-ROAD-2',
   resolutionMethod: GEOSPATIAL_RESOLUTION_METHOD.OFFICIAL_MAP_QUERY,
   critical: true,
 }));

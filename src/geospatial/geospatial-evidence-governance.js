@@ -23,6 +23,13 @@ function cleanString(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function cleanStringArray(value, name) {
+  if (!Array.isArray(value)) throw new TypeError(`${name} must be an array`);
+  const cleaned = value.map(cleanString);
+  if (cleaned.some((item) => !item)) throw new TypeError(`${name} must contain only non-empty strings`);
+  return [...new Set(cleaned)];
+}
+
 function toTimestamp(value) {
   const text = cleanString(value);
   if (!text) return null;
@@ -60,8 +67,8 @@ function canonicalize(value) {
 }
 
 function valueHash(value) {
-  if (!isJsonSafe(value)) return null;
   try {
+    if (!isJsonSafe(value)) return null;
     const serialized = JSON.stringify(canonicalize(value));
     if (typeof serialized !== 'string') return null;
     return crypto.createHash('sha256').update(serialized).digest('hex');
@@ -74,7 +81,13 @@ function unique(values) {
   return [...new Set(values)];
 }
 
-function evaluateRecord(record, { asOfMs, requiredEvidenceTypes, expectedSubjectId }) {
+function evaluateRecord(record, {
+  asOfMs,
+  requiredEvidenceTypes,
+  expectedSubjectId,
+  trustedVerifierIds,
+  governedFreshnessPolicyIds,
+}) {
   const evidenceType = cleanString(record && record.evidenceType);
   const critical = !!(record && record.critical === true) || requiredEvidenceTypes.includes(evidenceType);
   const blockers = [];
@@ -92,6 +105,8 @@ function evaluateRecord(record, { asOfMs, requiredEvidenceTypes, expectedSubject
   const freshnessPolicyId = cleanString(record.freshnessPolicyId);
   const resolutionMethod = cleanString(record.resolutionMethod);
   const verificationStatus = cleanString(record.verificationStatus);
+  const verifiedBy = cleanString(record.verifiedBy);
+  const verificationReference = cleanString(record.verificationReference);
   const observedAtMs = toTimestamp(record.observedAt);
   const validUntilMs = toTimestamp(record.validUntil);
 
@@ -110,6 +125,10 @@ function evaluateRecord(record, { asOfMs, requiredEvidenceTypes, expectedSubject
 
   if (verificationStatus !== GEOSPATIAL_VERIFICATION_STATUS.VERIFIED) {
     blockers.push(`C1_VERIFIED_EVIDENCE_REQUIRED:${evidenceType || 'UNKNOWN'}`);
+  } else {
+    if (!verifiedBy) blockers.push(`C1_VERIFIER_REQUIRED:${evidenceType || 'UNKNOWN'}`);
+    else if (!trustedVerifierIds.includes(verifiedBy)) blockers.push(`C1_UNTRUSTED_VERIFIER:${evidenceType || 'UNKNOWN'}`);
+    if (!verificationReference) blockers.push(`C1_VERIFICATION_REFERENCE_REQUIRED:${evidenceType || 'UNKNOWN'}`);
   }
 
   if (!Object.values(GEOSPATIAL_RESOLUTION_METHOD).includes(resolutionMethod)) {
@@ -123,6 +142,7 @@ function evaluateRecord(record, { asOfMs, requiredEvidenceTypes, expectedSubject
 
   if (critical) {
     if (!freshnessPolicyId) blockers.push(`C1_FRESHNESS_POLICY_REQUIRED:${evidenceType || 'UNKNOWN'}`);
+    else if (!governedFreshnessPolicyIds.includes(freshnessPolicyId)) blockers.push(`C1_FRESHNESS_POLICY_NOT_GOVERNED:${evidenceType || 'UNKNOWN'}`);
     if (validUntilMs === null) blockers.push(`C1_VALID_UNTIL_REQUIRED:${evidenceType || 'UNKNOWN'}`);
     else {
       if (observedAtMs !== null && validUntilMs < observedAtMs) blockers.push(`C1_INVALID_VALIDITY_WINDOW:${evidenceType || 'UNKNOWN'}`);
@@ -154,6 +174,8 @@ function evaluateRecord(record, { asOfMs, requiredEvidenceTypes, expectedSubject
     freshnessPolicyId: freshnessPolicyId || null,
     resolutionMethod: resolutionMethod || null,
     verificationStatus: verificationStatus || null,
+    verifiedBy: verifiedBy || null,
+    verificationReference: verificationReference || null,
     critical,
     blockers: Object.freeze(blockers),
     warnings: Object.freeze(warnings),
@@ -174,6 +196,8 @@ function evaluateGeospatialEvidenceBundle({
   evidenceRecords,
   asOf = new Date(),
   requiredEvidenceTypes = C1_DEFAULT_REQUIRED_DECISION_EVIDENCE,
+  trustedVerifierIds = [],
+  governedFreshnessPolicyIds = [],
 } = {}) {
   const expectedSubjectId = cleanString(subjectId);
   const asOfMs = new Date(asOf).getTime();
@@ -181,9 +205,17 @@ function evaluateGeospatialEvidenceBundle({
   if (!Array.isArray(requiredEvidenceTypes) || requiredEvidenceTypes.some((type) => !KNOWN_EVIDENCE_TYPES.includes(type))) {
     throw new TypeError('requiredEvidenceTypes must contain only supported geospatial evidence types');
   }
+  const trustedVerifiers = cleanStringArray(trustedVerifierIds, 'trustedVerifierIds');
+  const governedFreshnessPolicies = cleanStringArray(governedFreshnessPolicyIds, 'governedFreshnessPolicyIds');
 
   const records = Array.isArray(evidenceRecords) ? evidenceRecords : [];
-  const findings = records.map((record) => evaluateRecord(record, { asOfMs, requiredEvidenceTypes, expectedSubjectId }));
+  const findings = records.map((record) => evaluateRecord(record, {
+    asOfMs,
+    requiredEvidenceTypes,
+    expectedSubjectId,
+    trustedVerifierIds: trustedVerifiers,
+    governedFreshnessPolicyIds: governedFreshnessPolicies,
+  }));
   const decisionBlockers = [];
   const warnings = [];
 
@@ -222,6 +254,7 @@ function evaluateGeospatialEvidenceBundle({
         sourceCount: eligible.length,
         sourceIds: Object.freeze(unique(eligible.map((item) => item.normalized.sourceId))),
         evidenceIds: Object.freeze(eligible.map((item) => item.normalized.id)),
+        verifierIds: Object.freeze(unique(eligible.map((item) => item.normalized.verifiedBy))),
         crossSourceConfirmed: unique(eligible.map((item) => item.normalized.sourceId)).length > 1,
       });
     }
@@ -239,6 +272,8 @@ function evaluateGeospatialEvidenceBundle({
     status,
     decisionReady: status === GEOSPATIAL_GATE_STATUS.READY,
     requiredEvidenceTypes: Object.freeze([...requiredEvidenceTypes]),
+    trustedVerifierIds: Object.freeze(trustedVerifiers),
+    governedFreshnessPolicyIds: Object.freeze(governedFreshnessPolicies),
     resolvedEvidence: Object.freeze(resolvedEvidence),
     records: Object.freeze(findings.map((item) => item.normalized).filter(Boolean)),
     blockers: Object.freeze(blockers),
@@ -248,7 +283,7 @@ function evaluateGeospatialEvidenceBundle({
     professionalValuationOpinion: false,
     transactionAuthorized: false,
     publicAiAuthorized: false,
-    semantics: 'C1 evaluates subject-bound provenance, source scope, temporal validity and conflicts for official geospatial evidence. It does not mix evidence across properties, infer missing parcel/zoning facts, create a legal or professional determination, or authorize a transaction.',
+    semantics: 'C1 evaluates subject-bound provenance, registered-source scope, trusted verification authority, governed freshness policy, temporal validity and conflicts. Raw evidence cannot self-assert trust. C1 does not mix properties, infer missing parcel/zoning facts, create a legal/professional determination, or authorize a transaction.',
   });
 }
 
