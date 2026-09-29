@@ -127,6 +127,28 @@ const rawInputAttempt = calculateInvestmentCase({
 assert.equal(rawInputAttempt.NOI, baseline.NOI,
   'top-level raw economic input cannot masquerade as an approved V2 critical override');
 
+// P25 hardening: a serialized payload must not be able to forge the former
+// string transport key used internally for resolved overrides. The canonical
+// entry point must either reject the unknown field or ignore it economically.
+let serializedTransportSpoofBlocked = false;
+try {
+  const serializedTransportSpoof = calculateInvestmentCase({
+    studyType: STUDY_TYPE.EXISTING_BUILDING,
+    inputs: {
+      ...baseInputs,
+      __p25CriticalAssumptionOverrides: { maintenanceRate: 0.99 },
+    },
+    leverageEnabled: false,
+    assumptionModelVersion: ASSUMPTION_MODEL_VERSION.V2,
+  });
+  serializedTransportSpoofBlocked = serializedTransportSpoof.NOI === baseline.NOI
+    && serializedTransportSpoof.criticalAssumptionOverrideGovernance.status === 'NO_OVERRIDES';
+} catch (error) {
+  serializedTransportSpoofBlocked = true;
+}
+assert.equal(serializedTransportSpoofBlocked, true,
+  'serialized/raw payload must not forge the internal critical-override transport capability');
+
 // Duplicate critical overrides are ambiguous: do not choose one silently.
 const duplicateGovernance = buildCriticalAssumptionOverrideGovernance({
   assumptionModelVersion: ASSUMPTION_MODEL_VERSION.V2,
