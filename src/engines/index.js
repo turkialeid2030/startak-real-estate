@@ -11,6 +11,7 @@ const { validateEngineInputs } = require('../validation/numeric-safety');
 const { validateSupportedFinancialHorizons } = require('../validation/financial-horizon-support');
 
 const PRICE_BASIS_VERSION = 'PRICE_BASIS_V1';
+const COST_APPROACH_INDICATION_BASIS = 'UNDEPRECIATED_REPLACEMENT_COST_NEW_PLUS_LAND_INPUT';
 
 function buildPriceBasis(studyType) {
   if (studyType === STUDY_TYPE.EXISTING_BUILDING) {
@@ -50,6 +51,17 @@ function buildPriceBasis(studyType) {
       'DSCR_MINIMUM_WHEN_FINANCED',
       'LEVERED_NPV_NON_NEGATIVE_WHEN_FINANCED',
     ]),
+  });
+}
+
+function buildExistingBuildingCostApproachSemantics(result) {
+  return Object.freeze({
+    costApproachIndicationBasis: COST_APPROACH_INDICATION_BASIS,
+    costApproachIndication: result.totalAppraisedValue,
+    costApproachUsesBuildingAge: false,
+    costApproachAccreditedValuation: false,
+    costApproachMarketValueDetermined: false,
+    totalAppraisedValueLegacyAlias: true,
   });
 }
 
@@ -176,8 +188,17 @@ function calculateInvestmentCase({ studyType, inputs, leverageEnabled, assumptio
   // #398 / P12: disclose the exact threshold basis of the legacy maximum-price
   // metrics. This metadata is descriptive only: it does not recalculate the
   // numeric metric and must not imply that all financial hard gates are solved.
+  const canonicalMetadata = studyType === STUDY_TYPE.EXISTING_BUILDING
+    ? buildExistingBuildingCostApproachSemantics(economicResult)
+    : {};
+
+  // P24 / #458: totalAppraisedValue is retained as a legacy numeric alias only.
+  // Its arithmetic is replacement cost new plus the user-entered land-value
+  // indication; it does not use building age, determine market value, or create
+  // an accredited valuation. Do not invent depreciation/obsolescence economics.
   return {
     ...economicResult,
+    ...canonicalMetadata,
     priceBasis: buildPriceBasis(studyType),
   };
 }
@@ -188,4 +209,5 @@ module.exports = {
   STUDY_TYPE_TO_LEGACY_MODE,
   VACANCY_MONTHS_MAP,
   PRICE_BASIS_VERSION,
+  COST_APPROACH_INDICATION_BASIS,
 };

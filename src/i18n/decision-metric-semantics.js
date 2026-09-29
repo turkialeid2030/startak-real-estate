@@ -48,6 +48,15 @@ const GROSS_BUILT_AREA_RATIO_SEMANTICS = Object.freeze({
   isZoningComplianceMetric: false,
 });
 
+const COST_APPROACH_INDICATION_SEMANTICS = Object.freeze({
+  legacyField: 'totalAppraisedValue',
+  basis: 'UNDEPRECIATED_REPLACEMENT_COST_NEW_PLUS_LAND_INPUT',
+  buildingAgeUsed: false,
+  accreditedValuation: false,
+  marketValueDetermined: false,
+  depreciationOrObsolescenceModeled: false,
+});
+
 const DECISION_METRIC_LABEL_OVERRIDES = Object.freeze({
   'ar-SA': Object.freeze({
     'metricRowR2B2.maxJustifiedPrice': 'أقصى سعر شراء للمبنى وفق حدّي العائد الصافي والاسترداد فقط',
@@ -67,6 +76,13 @@ const DECISION_METRIC_LABEL_OVERRIDES = Object.freeze({
     'inputBuilding.rentFreezeCheckedNote': 'في مدينة الرياض، تسري أحكام ضبط الأجرة على العقود القائمة عند النفاذ والعقود التي تُبرم بعده لمدة خمس سنوات بدءًا من 25 سبتمبر 2025. إذا كان العقار لم يسبق تأجيره فتحدد الأجرة الإجمالية الأولى بالاتفاق؛ ولا يعني ذلك إعفاء الزيادات اللاحقة. يجب التحقق من الموقع وتاريخ العقد وسجل التأجير وأي حالة اعتراض أو استثناء معتمدة قبل افتراض نمو الإيجار.',
     'dashboardR3.regRentFreezeConfirmed': 'التحقق من انطباق أحكام ضبط الأجرة على العقار والعقد',
     'dashboardR3.regRentFreezeNote': 'تشمل أحكام ضبط الأجرة في مدينة الرياض العقود القائمة عند النفاذ والعقود التي تُبرم بعده. للعقار الذي لم يسبق تأجيره تُحدد الأجرة الأولى بالاتفاق، مع بقاء الانطباق اللاحق بحاجة إلى تحقق مؤرخ من الوقائع والأحكام السارية.',
+    'dashboardR3.sectionAppraisal': 'مؤشر التكلفة الاستبدالية والأرض — غير تقييم معتمد',
+    'metricRowR2B2.replacementConstructionValue': 'تكلفة استبدال المباني الجديدة — قبل أي إهلاك أو تقادم',
+    'metricRowR2B2.currentLandValue': 'مؤشر قيمة الأرض من إدخال سعر المتر',
+    'metricRowR2B2.totalAppraisedValue': 'مؤشر تكلفة الاستبدال الجديدة + قيمة الأرض — غير تقييم معتمد',
+    'metricRowR2B2.appraisedVsPurchaseCost': 'مقارنة مؤشر التكلفة مع إجمالي تكلفة الشراء',
+    'metricRowR2B2.annualDepreciation': 'إهلاك سنوي حسابي للمباني — ليس تعديل قيمة سوقية',
+    'metricRowR2B2.annualDepreciationNote': 'بند حسابي منفصل لا يدخل في مؤشر تكلفة الاستبدال + الأرض، ولا يمثل إهلاكًا سوقيًا أو تقادمًا وظيفيًا/اقتصاديًا أو تقييمًا معتمدًا.',
   }),
   en: Object.freeze({
     'metricRowR2B2.maxJustifiedPrice': 'Maximum Building Purchase Price — Yield/Payback Thresholds Only',
@@ -86,6 +102,13 @@ const DECISION_METRIC_LABEL_OVERRIDES = Object.freeze({
     'inputBuilding.rentFreezeCheckedNote': 'Within Riyadh city, the rent-control provisions apply to leases existing at effectiveness and leases concluded afterwards for the five-year statutory period beginning 25 September 2025. For a property never previously leased, the first aggregate rent is agreed by the parties; this does not mean later increases are exempt. Verify location, lease date, leasing history, and any approved objection or exception before assuming rent growth.',
     'dashboardR3.regRentFreezeConfirmed': 'Rent-control applicability verified for the property and lease',
     'dashboardR3.regRentFreezeNote': 'Riyadh rent-control provisions cover leases existing at effectiveness and leases concluded afterwards. First rent for a property never previously leased is agreed by the parties; subsequent applicability still requires dated verification of the facts and rules in force.',
+    'dashboardR3.sectionAppraisal': 'Replacement-Cost and Land Indication — not accredited valuation',
+    'metricRowR2B2.replacementConstructionValue': 'Replacement Cost New — before depreciation or obsolescence',
+    'metricRowR2B2.currentLandValue': 'Land-Value Indication from Entered Price per Sqm',
+    'metricRowR2B2.totalAppraisedValue': 'Replacement Cost New + Land-Value Indication — not accredited valuation',
+    'metricRowR2B2.appraisedVsPurchaseCost': 'Cost-Indication Comparison with Total Acquisition Cost',
+    'metricRowR2B2.annualDepreciation': 'Annual Arithmetic Building Depreciation — not a market-value adjustment',
+    'metricRowR2B2.annualDepreciationNote': 'Separate arithmetic item; it is not applied to the replacement-cost-plus-land indication and does not represent market depreciation, functional/economic obsolescence, or accredited valuation.',
   }),
 });
 
@@ -101,6 +124,7 @@ module.exports = {
   RIYADH_RENT_CONTROL_EVIDENCE,
   SAUDI_RETT_EVIDENCE,
   GROSS_BUILT_AREA_RATIO_SEMANTICS,
+  COST_APPROACH_INDICATION_SEMANTICS,
   DECISION_METRIC_LABEL_OVERRIDES,
   getDecisionMetricLabelOverride,
 };
