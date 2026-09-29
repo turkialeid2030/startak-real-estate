@@ -229,6 +229,6 @@ assert.equal(corroboratedReady.status, MARKET_GATE_STATUS.READY);
 assert.equal(corroboratedReady.authoritativeEvidence.length, 3);
 const sale1 = corroboratedReady.authoritativeEvidence.find((record) => record.transactionKey === 'SALE-1');
 assert.equal(sale1.sourceCount, 2);
-assert.deepEqual(sale1.corroboratingSourceIds.sort(), ['REAL_ESTATE_REGISTRY_MARKET_RECORDS', 'REGA_REAL_ESTATE_INDICATORS'].sort());
+assert.deepEqual([...sale1.corroboratingSourceIds].sort(), ['REAL_ESTATE_REGISTRY_MARKET_RECORDS', 'REGA_REAL_ESTATE_INDICATORS'].sort());
 
 console.log('C2_OFFICIAL_MARKET_EVIDENCE_COMPARABLES_FOUNDATION=PASS');
