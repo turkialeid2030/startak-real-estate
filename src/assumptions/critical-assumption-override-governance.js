@@ -3,6 +3,7 @@
 const {
   ASSUMPTION_MODEL_VERSION,
   V2_CANONICAL_ASSUMPTIONS,
+  buildAssumptionModelDisclosure,
 } = require('./assumption-model');
 
 const CRITICAL_ASSUMPTION_OVERRIDE_GOVERNANCE_VERSION = 'CRITICAL_ASSUMPTION_OVERRIDE_GOVERNANCE_V1';
@@ -180,8 +181,12 @@ function applyCriticalAssumptionOverrideDecisionGovernance({ engineResult, gover
     throw new TypeError('engineResult must be an object');
   }
   const governed = governance || emptyGovernance(ASSUMPTION_MODEL_VERSION.LEGACY, 'NOT_EVALUATED');
+  const modelVersion = governed.modelVersion || engineResult.assumptionModelVersion || ASSUMPTION_MODEL_VERSION.LEGACY;
   const base = {
     ...engineResult,
+    assumptionModelDisclosure: buildAssumptionModelDisclosure(modelVersion, {
+      criticalAssumptionOverrideGovernance: governed,
+    }),
     criticalAssumptionOverrideGovernance: governed,
   };
 
