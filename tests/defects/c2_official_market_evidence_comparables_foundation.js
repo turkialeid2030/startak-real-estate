@@ -262,11 +262,22 @@ const cyclicHeld = evaluate(cyclic);
 assert.equal(cyclicHeld.status, MARKET_GATE_STATUS.HOLD_EVIDENCE);
 assert.ok(cyclicHeld.records[0].blockers.includes('C2_NORMALIZED_VALUE_JSON_REQUIRED:CLOSED_SALE_TRANSACTION'));
 
+const nullPrototypeValue = Object.create(null);
+nullPrototypeValue.amountSar = 1000000;
+nullPrototypeValue.areaSqm = 100;
+nullPrototypeValue.__proto__ = 'literal-key';
+const nullPrototype = threeSales();
+nullPrototype[0] = { ...nullPrototype[0], normalizedValue: nullPrototypeValue };
+const nullPrototypeReady = evaluate(nullPrototype);
+assert.equal(nullPrototypeReady.status, MARKET_GATE_STATUS.READY);
+assert.equal(typeof nullPrototypeReady.records[0].normalizedValueHash, 'string');
+
 const conflict = threeSales();
 conflict.push(saleRecord(4, {
   id: 'c2-sale-conflict',
   transactionKey: 'SALE-1',
   normalizedValue: { amountSar: 1500000, areaSqm: 100 },
+  effectiveAt: '2026-09-21T10:00:00.000Z',
   sourceReference: 'REGA-SALE-CONFLICT',
   verificationReference: 'C2-VERIFY-CONFLICT',
 }));
@@ -275,11 +286,28 @@ assert.equal(conflictHeld.status, MARKET_GATE_STATUS.HOLD_EVIDENCE);
 assert.ok(conflictHeld.blockers.includes('C2_EVIDENCE_CONFLICT:TX:CLOSED_SALE_TRANSACTION:SALE-1'));
 assert.ok(conflictHeld.blockers.includes('C2_MINIMUM_COMPARABLES_NOT_MET:CLOSED_SALE_TRANSACTION:2/3'));
 
+const dateConflict = threeSales();
+dateConflict.push(saleRecord(4, {
+  id: 'c2-sale-date-conflict',
+  transactionKey: 'SALE-1',
+  normalizedValue: { amountSar: 1000000, areaSqm: 100 },
+  effectiveAt: '2026-09-22T10:00:00.000Z',
+  sourceId: 'REAL_ESTATE_REGISTRY_MARKET_RECORDS',
+  sourceReference: 'RER-SALE-1-DATE-CONFLICT',
+  sourceUrl: 'https://www.rer.sa/',
+  verificationReference: 'C2-VERIFY-RER-1-DATE-CONFLICT',
+}));
+const dateConflictHeld = evaluate(dateConflict);
+assert.equal(dateConflictHeld.status, MARKET_GATE_STATUS.HOLD_EVIDENCE);
+assert.ok(dateConflictHeld.blockers.includes('C2_EVIDENCE_CONFLICT:TX:CLOSED_SALE_TRANSACTION:SALE-1'));
+assert.ok(dateConflictHeld.blockers.includes('C2_MINIMUM_COMPARABLES_NOT_MET:CLOSED_SALE_TRANSACTION:2/3'));
+
 const corroborated = threeSales();
 corroborated.push(saleRecord(4, {
   id: 'c2-sale-corroboration',
   transactionKey: 'SALE-1',
   normalizedValue: { amountSar: 1000000, areaSqm: 100 },
+  effectiveAt: '2026-09-21T10:00:00.000Z',
   sourceId: 'REAL_ESTATE_REGISTRY_MARKET_RECORDS',
   sourceReference: 'RER-SALE-1',
   sourceUrl: 'https://www.rer.sa/',
