@@ -15,6 +15,12 @@ const ASSUMPTION_GATE_STATUS = Object.freeze({
   HOLD: 'HOLD',
 });
 
+const ASSUMPTION_APPROVAL_STATUS = Object.freeze({
+  PENDING: 'PENDING',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+});
+
 const CONFIDENCE = Object.freeze({
   HIGH: 'HIGH',
   MEDIUM: 'MEDIUM',
@@ -59,6 +65,7 @@ function normalizeAssumption(raw, options = {}) {
   const asOf = toDate(options.asOf || new Date());
   const sourceDate = toDate(raw.sourceDate);
   const expiresAt = toDate(raw.expiresAt);
+  const approvedAt = toDate(raw.approvedAt);
   const evidenceCount = Number.isInteger(raw.evidenceCount) && raw.evidenceCount >= 0 ? raw.evidenceCount : 0;
   const critical = raw.critical === true;
   const confidence = Object.values(CONFIDENCE).includes(raw.confidence) ? raw.confidence : CONFIDENCE.UNSUPPORTED;
@@ -66,6 +73,9 @@ function normalizeAssumption(raw, options = {}) {
   const sourceType = typeof raw.sourceType === 'string' ? raw.sourceType.trim() : '';
   const owner = typeof raw.owner === 'string' ? raw.owner.trim() : '';
   const reviewer = typeof raw.reviewer === 'string' ? raw.reviewer.trim() : '';
+  const approver = typeof raw.approver === 'string' ? raw.approver.trim() : '';
+  const approvalReference = typeof raw.approvalReference === 'string' ? raw.approvalReference.trim() : '';
+  const approvalStatus = typeof raw.approvalStatus === 'string' ? raw.approvalStatus.trim() : '';
   const id = typeof raw.id === 'string' ? raw.id.trim() : '';
 
   const blockers = [];
@@ -74,6 +84,16 @@ function normalizeAssumption(raw, options = {}) {
   if (!sourceReference || !sourceType || !sourceDate) blockers.push('SOURCE_EVIDENCE_REQUIRED');
   if (!owner) blockers.push('ASSUMPTION_OWNER_REQUIRED');
   if (raw.override === true && (!raw.overrideReason || !String(raw.overrideReason).trim())) blockers.push('OVERRIDE_REASON_REQUIRED');
+
+  // P25: a critical override is not decision-supporting merely because a value
+  // exists. Approval provenance must be explicit; no approver/reference/date or
+  // approval status is inferred from owner/reviewer/source metadata.
+  if (critical && raw.override === true) {
+    if (!approver) blockers.push('CRITICAL_OVERRIDE_APPROVER_REQUIRED');
+    if (!approvalReference) blockers.push('CRITICAL_OVERRIDE_APPROVAL_REFERENCE_REQUIRED');
+    if (!approvedAt) blockers.push('CRITICAL_OVERRIDE_APPROVAL_DATE_REQUIRED');
+    if (approvalStatus !== ASSUMPTION_APPROVAL_STATUS.APPROVED) blockers.push('CRITICAL_OVERRIDE_APPROVAL_STATUS_REQUIRED');
+  }
 
   let status = ASSUMPTION_SUPPORT_STATUS.SUPPORTED;
   if (blockers.length) status = ASSUMPTION_SUPPORT_STATUS.UNSUPPORTED;
@@ -97,6 +117,10 @@ function normalizeAssumption(raw, options = {}) {
     expiresAt: expiresAt ? expiresAt.toISOString() : null,
     override: raw.override === true,
     overrideReason: raw.override === true ? String(raw.overrideReason || '').trim() || null : null,
+    approver: approver || null,
+    approvalReference: approvalReference || null,
+    approvedAt: approvedAt ? approvedAt.toISOString() : null,
+    approvalStatus: approvalStatus || null,
     status,
     blockers,
   };
@@ -146,6 +170,7 @@ function evaluateAssumptionRegistry(assumptions, options = {}) {
 module.exports = {
   ASSUMPTION_SUPPORT_STATUS,
   ASSUMPTION_GATE_STATUS,
+  ASSUMPTION_APPROVAL_STATUS,
   CONFIDENCE,
   normalizeAssumption,
   evaluateAssumptionRegistry,

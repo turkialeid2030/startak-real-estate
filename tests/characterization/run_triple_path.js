@@ -2,10 +2,10 @@
 
 // Triple-path contract after Financial Remediation Wave B2, price-basis
 // disclosure #398, P22 exit-cost governance, P23 lease-horizon governance,
-// and P24 cost-approach semantics: frozen legacy remains historical evidence,
-// direct Wave-A valuation engines remain the raw numerical layer, and the
-// canonical production entrypoint intentionally overlays versioned financing
-// plus governed metadata.
+// P24 cost-approach semantics, and P25 critical-assumption override governance:
+// frozen legacy remains historical evidence, direct Wave-A valuation engines
+// remain the raw numerical layer, and the canonical production entrypoint
+// intentionally overlays versioned financing plus governed metadata.
 const fs = require('fs');
 const path = require('path');
 const { loadCurrentEngines } = require('../load_engines');
@@ -53,6 +53,7 @@ const CANONICAL_METADATA_FIELDS = [
   'costApproachAccreditedValuation',
   'costApproachMarketValueDetermined',
   'totalAppraisedValueLegacyAlias',
+  'criticalAssumptionOverrideGovernance',
 ];
 
 function withoutCanonicalMetadata(result) {
@@ -137,12 +138,26 @@ function validCostApproachMetadata(result, fixture) {
     && result.totalAppraisedValueLegacyAlias === true;
 }
 
+function validCriticalOverrideGovernanceMetadata(result, fixture) {
+  if (fixture.study_type !== 'building') return result.criticalAssumptionOverrideGovernance === undefined;
+  const governance = result.criticalAssumptionOverrideGovernance;
+  return !!governance
+    && governance.modelVersion === 'LEGACY'
+    && governance.status === 'NOT_APPLICABLE'
+    && governance.decisionReady === true
+    && governance.hasCriticalOverrides === false
+    && governance.hasIncompleteCriticalOverrides === false
+    && Array.isArray(governance.blockers)
+    && governance.blockers.length === 0;
+}
+
 let unexpectedMismatches = 0;
 let intentionalFinancingOverlays = 0;
 let intentionalPriceBasisOverlays = 0;
 let intentionalExitCostMetadataOverlays = 0;
 let intentionalLeaseMetadataOverlays = 0;
 let intentionalCostApproachMetadataOverlays = 0;
+let intentionalCriticalOverrideMetadataOverlays = 0;
 let legacyVsV2DifferentFixtures = 0;
 
 for (const fid of fixtureFiles) {
@@ -169,6 +184,10 @@ for (const fid of fixtureFiles) {
   if (validCostApproachMetadata(productionV2, fixture)) {
     if (fixture.study_type === 'building') intentionalCostApproachMetadataOverlays += 1;
   } else { unexpectedMismatches += 1; console.log(`${fid}: cost_approach_metadata=INVALID`); }
+
+  if (validCriticalOverrideGovernanceMetadata(productionV2, fixture)) {
+    if (fixture.study_type === 'building') intentionalCriticalOverrideMetadataOverlays += 1;
+  } else { unexpectedMismatches += 1; console.log(`${fid}: critical_override_governance_metadata=INVALID`); }
 
   const isFinancingOverlayCase = fixture.input_set.leverageEnabled === true;
   if (isFinancingOverlayCase) {
@@ -206,6 +225,7 @@ console.log(`INTENTIONAL_PRICE_BASIS_OVERLAYS=${intentionalPriceBasisOverlays}`)
 console.log(`INTENTIONAL_EXIT_COST_METADATA_OVERLAYS=${intentionalExitCostMetadataOverlays}`);
 console.log(`INTENTIONAL_LEASE_METADATA_OVERLAYS=${intentionalLeaseMetadataOverlays}`);
 console.log(`INTENTIONAL_COST_APPROACH_METADATA_OVERLAYS=${intentionalCostApproachMetadataOverlays}`);
+console.log(`INTENTIONAL_CRITICAL_OVERRIDE_METADATA_OVERLAYS=${intentionalCriticalOverrideMetadataOverlays}`);
 console.log(`LEGACY_VS_V2_DIFFERENT_FIXTURES=${legacyVsV2DifferentFixtures}`);
 process.exit(
   unexpectedMismatches === 0
@@ -214,6 +234,7 @@ process.exit(
   && intentionalExitCostMetadataOverlays === 2
   && intentionalLeaseMetadataOverlays === 2
   && intentionalCostApproachMetadataOverlays === 2
+  && intentionalCriticalOverrideMetadataOverlays === 2
   && legacyVsV2DifferentFixtures > 0
     ? 0
     : 1,

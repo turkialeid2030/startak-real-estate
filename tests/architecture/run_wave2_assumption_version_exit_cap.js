@@ -3,6 +3,7 @@
 const assert = require('assert');
 const {
   ASSUMPTION_MODEL_VERSION,
+  V2_CANONICAL_ASSUMPTIONS,
   V2_APPROVED_ASSUMPTIONS,
   applyAssumptionModel,
   normalizeAssumptionModelVersion,
@@ -44,13 +45,15 @@ const {
 
 function run() {
   assert.strictEqual(normalizeAssumptionModelVersion(undefined), ASSUMPTION_MODEL_VERSION.LEGACY);
-  assert.deepStrictEqual(V2_APPROVED_ASSUMPTIONS, {
+  assert.deepStrictEqual(V2_CANONICAL_ASSUMPTIONS, {
     maintenanceRate: 0.05,
     managementFeeRate: 0.035,
     fixedOpexPerSqm: 40,
     replacementReservePerSqm: 20,
     opexGrowthRate: 0.02,
   });
+  assert.strictEqual(V2_APPROVED_ASSUMPTIONS, V2_CANONICAL_ASSUMPTIONS,
+    'deprecated alias must remain numerically compatible without implying approval evidence');
   const baseInputs = { maintenanceRate: 0.01, marketCapRate: 0.07 };
   const appliedV2 = applyAssumptionModel(baseInputs, ASSUMPTION_MODEL_VERSION.V2);
   assert.strictEqual(baseInputs.maintenanceRate, 0.01);
@@ -181,7 +184,10 @@ function run() {
   assert.strictEqual(v2Disclosure.badge.ar, 'إصدار الافتراضات V2');
   assert.strictEqual(v2Disclosure.badge.en, 'Assumption Model V2');
   assert.strictEqual(v2Disclosure.transactionAuthorized, false);
-  assert.deepStrictEqual(v2Disclosure.approvedAssumptionKeys, Object.keys(V2_APPROVED_ASSUMPTIONS));
+  assert.strictEqual(v2Disclosure.userApprovedAssumptions, false);
+  assert.strictEqual(v2Disclosure.canonicalBaselineIsApprovalEvidence, false);
+  assert.deepStrictEqual(v2Disclosure.canonicalAssumptionKeys, Object.keys(V2_CANONICAL_ASSUMPTIONS));
+  assert.deepStrictEqual(v2Disclosure.approvedAssumptionKeys, []);
 
   const legacyDisclosure = buildAssumptionDisclosureEnvelope({
     assumptionModelVersion: ASSUMPTION_MODEL_VERSION.LEGACY,

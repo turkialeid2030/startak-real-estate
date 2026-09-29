@@ -2,6 +2,7 @@
 
 const {
   CONFIDENCE,
+  ASSUMPTION_APPROVAL_STATUS,
   evaluateAssumptionRegistry,
 } = require('./assumption-registry');
 
@@ -64,14 +65,21 @@ function validatePersistedAssumptionRegistry(value) {
     if (item.override !== undefined && typeof item.override !== 'boolean') {
       throw new AssumptionRegistryPersistenceError('INVALID_OVERRIDE_FLAG', `id=${item.id}`);
     }
-    if (item.override === true && (typeof item.overrideReason !== 'string' || item.overrideReason.trim() === '')) {
-      throw new AssumptionRegistryPersistenceError('OVERRIDE_REASON_REQUIRED', `id=${item.id}`);
+    if (item.approvalStatus !== undefined && item.approvalStatus !== null
+        && !Object.values(ASSUMPTION_APPROVAL_STATUS).includes(item.approvalStatus)) {
+      throw new AssumptionRegistryPersistenceError('INVALID_APPROVAL_STATUS', `id=${item.id}`);
     }
 
     [
       'label', 'unit', 'sourceType', 'sourceReference', 'sourceDate', 'geography',
-      'assetType', 'owner', 'reviewer', 'expiresAt', 'overrideReason',
+      'assetType', 'owner', 'reviewer', 'expiresAt', 'overrideReason', 'approver',
+      'approvalReference', 'approvedAt', 'approvalStatus',
     ].forEach((field) => validateOptionalString(item[field], field, index));
+
+    // P25 intentionally does not require override reason/source/approval fields
+    // at the persistence boundary. Incomplete historical or in-progress
+    // governance evidence must remain loadable so the evaluation layer can
+    // fail closed and surface exactly what is missing instead of deleting it.
   });
 
   return value;

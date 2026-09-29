@@ -59,11 +59,17 @@ function buildUiAssumptionGovernance({ assumptionModelVersion, financialResults 
   const exitCapSource = financialResults.exitCapSource || null;
   const exitTransactionCostSource = financialResults.exitTransactionCostSource || null;
   const leaseRollForwardStatus = financialResults.leaseRollForwardStatus || null;
+  const criticalAssumptionOverrideGovernance = financialResults.criticalAssumptionOverrideGovernance || null;
+  const criticalOverrideHold = !!(
+    criticalAssumptionOverrideGovernance
+    && criticalAssumptionOverrideGovernance.hasIncompleteCriticalOverrides === true
+  );
   const disclosure = buildAssumptionDisclosureEnvelope({
     assumptionModelVersion: version,
     exitCapSource,
     exitTransactionCostSource,
     leaseRollForwardStatus,
+    criticalAssumptionOverrideGovernance,
   });
   const sensitivity = assessSensitivityReadiness({
     financialModelStatus: financialResults.financialModelStatus,
@@ -75,6 +81,16 @@ function buildUiAssumptionGovernance({ assumptionModelVersion, financialResults 
     && exitTransactionCostSource === EXIT_TRANSACTION_COST_SOURCE.MISSING_REQUIRED;
   const leaseRollForwardRequired = disclosure.requiresLeaseRollForward
     && leaseRollForwardStatus === LEASE_ROLL_FORWARD_STATUS.MISSING_REQUIRED;
+  const decisionReady = !exitCapInputRequired
+    && !exitTransactionCostInputRequired
+    && !leaseRollForwardRequired
+    && !criticalOverrideHold
+    && financialResults.decisionStatus !== 'INCOMPLETE_INPUTS';
+  const sensitivityReady = sensitivity.status === 'READY'
+    && !exitCapInputRequired
+    && !exitTransactionCostInputRequired
+    && !leaseRollForwardRequired
+    && !criticalOverrideHold;
 
   return Object.freeze({
     assumptionModelVersion: version,
@@ -83,10 +99,13 @@ function buildUiAssumptionGovernance({ assumptionModelVersion, financialResults 
     exitCapInputRequired,
     exitTransactionCostInputRequired,
     leaseRollForwardRequired,
-    sensitivityReady: sensitivity.status === 'READY'
-      && !exitCapInputRequired
-      && !exitTransactionCostInputRequired
-      && !leaseRollForwardRequired,
+    criticalAssumptionOverrideGovernance,
+    criticalOverrideDocumentationRequired: criticalOverrideHold,
+    criticalOverrideNotice: disclosure.criticalOverrideNotice,
+    decisionReady,
+    investmentGradeEligible: decisionReady,
+    recommendationAllowed: decisionReady,
+    sensitivityReady,
     transactionAuthorized: false,
   });
 }
