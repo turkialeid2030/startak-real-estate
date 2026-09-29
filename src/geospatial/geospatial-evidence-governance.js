@@ -74,7 +74,7 @@ function unique(values) {
   return [...new Set(values)];
 }
 
-function evaluateRecord(record, { asOfMs, requiredEvidenceTypes }) {
+function evaluateRecord(record, { asOfMs, requiredEvidenceTypes, expectedSubjectId }) {
   const evidenceType = cleanString(record && record.evidenceType);
   const critical = !!(record && record.critical === true) || requiredEvidenceTypes.includes(evidenceType);
   const blockers = [];
@@ -97,6 +97,7 @@ function evaluateRecord(record, { asOfMs, requiredEvidenceTypes }) {
 
   if (!id) blockers.push('C1_EVIDENCE_ID_REQUIRED');
   if (!subjectId) blockers.push('C1_EVIDENCE_SUBJECT_REQUIRED');
+  else if (expectedSubjectId && subjectId !== expectedSubjectId) blockers.push(`C1_EVIDENCE_SUBJECT_MISMATCH:${evidenceType || 'UNKNOWN'}`);
   if (!KNOWN_EVIDENCE_TYPES.includes(evidenceType)) blockers.push(`C1_EVIDENCE_TYPE_UNSUPPORTED:${evidenceType || 'MISSING'}`);
 
   const source = getOfficialSource(sourceId);
@@ -169,10 +170,12 @@ function evaluateRecord(record, { asOfMs, requiredEvidenceTypes }) {
 }
 
 function evaluateGeospatialEvidenceBundle({
+  subjectId,
   evidenceRecords,
   asOf = new Date(),
   requiredEvidenceTypes = C1_DEFAULT_REQUIRED_DECISION_EVIDENCE,
 } = {}) {
+  const expectedSubjectId = cleanString(subjectId);
   const asOfMs = new Date(asOf).getTime();
   if (!Number.isFinite(asOfMs)) throw new TypeError('asOf must be a valid date');
   if (!Array.isArray(requiredEvidenceTypes) || requiredEvidenceTypes.some((type) => !KNOWN_EVIDENCE_TYPES.includes(type))) {
@@ -180,10 +183,11 @@ function evaluateGeospatialEvidenceBundle({
   }
 
   const records = Array.isArray(evidenceRecords) ? evidenceRecords : [];
-  const findings = records.map((record) => evaluateRecord(record, { asOfMs, requiredEvidenceTypes }));
+  const findings = records.map((record) => evaluateRecord(record, { asOfMs, requiredEvidenceTypes, expectedSubjectId }));
   const decisionBlockers = [];
   const warnings = [];
 
+  if (!expectedSubjectId) decisionBlockers.push('C1_SUBJECT_ID_REQUIRED');
   if (!Array.isArray(evidenceRecords)) decisionBlockers.push('C1_EVIDENCE_RECORDS_ARRAY_REQUIRED');
 
   findings.forEach((finding) => {
@@ -212,6 +216,7 @@ function evaluateGeospatialEvidenceBundle({
     if (eligible.length > 0) {
       resolvedEvidence[evidenceType] = Object.freeze({
         evidenceType,
+        subjectId: expectedSubjectId || eligible[0].normalized.subjectId,
         normalizedValue: eligible[0].normalized.normalizedValue,
         normalizedValueHash: hashes[0],
         sourceCount: eligible.length,
@@ -229,6 +234,7 @@ function evaluateGeospatialEvidenceBundle({
     version: C1_GEOSPATIAL_EVIDENCE_GOVERNANCE_VERSION,
     schemaVersion: C1_GEOSPATIAL_EVIDENCE_SCHEMA_VERSION,
     sourceRegistryVersion: OFFICIAL_GEOSPATIAL_SOURCE_REGISTRY_VERSION,
+    subjectId: expectedSubjectId || null,
     asOf: new Date(asOfMs).toISOString(),
     status,
     decisionReady: status === GEOSPATIAL_GATE_STATUS.READY,
@@ -242,7 +248,7 @@ function evaluateGeospatialEvidenceBundle({
     professionalValuationOpinion: false,
     transactionAuthorized: false,
     publicAiAuthorized: false,
-    semantics: 'C1 evaluates provenance, source scope, temporal validity and conflicts for official geospatial evidence. It does not infer missing parcel/zoning facts, create a legal or professional determination, or authorize a transaction.',
+    semantics: 'C1 evaluates subject-bound provenance, source scope, temporal validity and conflicts for official geospatial evidence. It does not mix evidence across properties, infer missing parcel/zoning facts, create a legal or professional determination, or authorize a transaction.',
   });
 }
 
