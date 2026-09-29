@@ -4,7 +4,6 @@ const crypto = require('crypto');
 const {
   C2_MARKET_EVIDENCE_SCHEMA_VERSION,
   MARKET_EVIDENCE_TYPE,
-  MARKET_EVIDENCE_CLASS,
   MARKET_VERIFICATION_STATUS,
   MARKET_RESOLUTION_METHOD,
   MARKET_GATE_STATUS,
@@ -20,13 +19,18 @@ const {
 
 const C2_MARKET_EVIDENCE_GOVERNANCE_VERSION = 'C2_MARKET_EVIDENCE_GOVERNANCE_V1';
 const KNOWN_TYPES = Object.freeze(Object.values(MARKET_EVIDENCE_TYPE));
-const AUTHORITATIVE_TYPES = Object.freeze([
+const TRANSACTION_TYPES = Object.freeze([
   MARKET_EVIDENCE_TYPE.CLOSED_SALE_TRANSACTION,
   MARKET_EVIDENCE_TYPE.CLOSED_RENT_TRANSACTION,
+]);
+const AGGREGATE_TYPES = Object.freeze([
+  MARKET_EVIDENCE_TYPE.SALE_MARKET_AGGREGATE,
+  MARKET_EVIDENCE_TYPE.RENT_MARKET_AGGREGATE,
   MARKET_EVIDENCE_TYPE.SALE_PRICE_INDEX,
   MARKET_EVIDENCE_TYPE.RENT_INDEX,
   MARKET_EVIDENCE_TYPE.MARKET_LIQUIDITY_INDICATOR,
 ]);
+const AUTHORITATIVE_TYPES = Object.freeze([...TRANSACTION_TYPES, ...AGGREGATE_TYPES]);
 const ASKING_TYPES = Object.freeze([
   MARKET_EVIDENCE_TYPE.ASKING_SALE_LISTING,
   MARKET_EVIDENCE_TYPE.ASKING_RENT_LISTING,
@@ -92,6 +96,17 @@ function isPositiveFinite(value) {
   return Number.isFinite(value) && value > 0;
 }
 
+function isHttpUrl(value) {
+  const text = cleanString(value);
+  if (!text) return false;
+  try {
+    const parsed = new URL(text);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch (_) {
+    return false;
+  }
+}
+
 function median(values) {
   if (!values.length) return null;
   const sorted = [...values].sort((a, b) => a - b);
@@ -116,22 +131,32 @@ function deriveComparableMetric(evidenceType, normalizedValue) {
   return null;
 }
 
-function validateMinimumPolicy(requiredEvidenceTypes, minimumCountPolicy, governedMinimumCountPolicyIds) {
+function validateMinimumPolicy(requiredEvidenceTypes, minimumCountPolicyId, governedMinimumCountPolicies) {
   const blockers = [];
-  const policyId = cleanString(minimumCountPolicy && minimumCountPolicy.policyId);
-  const minimumByEvidenceType = minimumCountPolicy && minimumCountPolicy.minimumByEvidenceType;
+  const policyId = cleanString(minimumCountPolicyId);
+  const registryValid = governedMinimumCountPolicies
+    && typeof governedMinimumCountPolicies === 'object'
+    && !Array.isArray(governedMinimumCountPolicies);
+
+  if (!registryValid) blockers.push('C2_MINIMUM_COUNT_POLICY_REGISTRY_REQUIRED');
   if (!policyId) blockers.push('C2_MINIMUM_COUNT_POLICY_ID_REQUIRED');
-  else if (!governedMinimumCountPolicyIds.includes(policyId)) blockers.push(`C2_MINIMUM_COUNT_POLICY_NOT_GOVERNED:${policyId}`);
-  if (!minimumByEvidenceType || typeof minimumByEvidenceType !== 'object' || Array.isArray(minimumByEvidenceType)) {
-    blockers.push('C2_MINIMUM_COUNT_POLICY_MAP_REQUIRED');
-    return { policyId: policyId || null, minimumByEvidenceType: {}, blockers };
+
+  const policy = registryValid && policyId && Object.prototype.hasOwnProperty.call(governedMinimumCountPolicies, policyId)
+    ? governedMinimumCountPolicies[policyId]
+    : null;
+  if (policyId && !policy) blockers.push(`C2_MINIMUM_COUNT_POLICY_NOT_GOVERNED:${policyId}`);
+
+  if (policy && (typeof policy !== 'object' || Array.isArray(policy))) {
+    blockers.push(`C2_MINIMUM_COUNT_POLICY_INVALID:${policyId}`);
   }
+
   const normalized = {};
   for (const type of requiredEvidenceTypes) {
-    const count = minimumByEvidenceType[type];
+    const count = policy && typeof policy === 'object' && !Array.isArray(policy) ? policy[type] : undefined;
     if (!Number.isInteger(count) || count < 1) blockers.push(`C2_MINIMUM_COUNT_REQUIRED:${type}`);
     else normalized[type] = count;
   }
+
   return { policyId: policyId || null, minimumByEvidenceType: normalized, blockers };
 }
 
@@ -155,11 +180,13 @@ function evaluateRecord(record, context) {
   const sourceUrl = cleanString(record.sourceUrl);
   const transactionKey = cleanString(record.transactionKey);
   const seriesKey = cleanString(record.seriesKey);
+  const periodKey = cleanString(record.periodKey);
   const verificationStatus = cleanString(record.verificationStatus);
   const verifiedBy = cleanString(record.verifiedBy);
   const verificationReference = cleanString(record.verificationReference);
   const resolutionMethod = cleanString(record.resolutionMethod);
   const freshnessPolicyId = cleanString(record.freshnessPolicyId);
+  const effectiveAtMs = toTimestamp(record.effectiveAt);
   const observedAtMs = toTimestamp(record.observedAt);
   const validUntilMs = toTimestamp(record.validUntil);
 
@@ -196,15 +223,24 @@ function evaluateRecord(record, context) {
     if (!verificationReference) blockers.push(`C2_VERIFICATION_REFERENCE_REQUIRED:${evidenceType || 'UNKNOWN'}`);
     if (!freshnessPolicyId) blockers.push(`C2_FRESHNESS_POLICY_REQUIRED:${evidenceType || 'UNKNOWN'}`);
     else if (!context.governedFreshnessPolicyIds.includes(freshnessPolicyId)) blockers.push(`C2_FRESHNESS_POLICY_NOT_GOVERNED:${evidenceType || 'UNKNOWN'}`);
+
+    if (effectiveAtMs === null) blockers.push(`C2_EFFECTIVE_AT_REQUIRED:${evidenceType || 'UNKNOWN'}`);
+    else if (effectiveAtMs > context.asOfMs) blockers.push(`C2_FUTURE_EFFECTIVE_TIMESTAMP:${evidenceType || 'UNKNOWN'}`);
+
     if (observedAtMs === null) blockers.push(`C2_OBSERVED_AT_REQUIRED:${evidenceType || 'UNKNOWN'}`);
     else if (observedAtMs > context.asOfMs) blockers.push(`C2_FUTURE_EVIDENCE_TIMESTAMP:${evidenceType || 'UNKNOWN'}`);
+
+    if (effectiveAtMs !== null && observedAtMs !== null && effectiveAtMs > observedAtMs) {
+      blockers.push(`C2_EFFECTIVE_AFTER_OBSERVATION:${evidenceType || 'UNKNOWN'}`);
+    }
+
     if (validUntilMs === null) blockers.push(`C2_VALID_UNTIL_REQUIRED:${evidenceType || 'UNKNOWN'}`);
     else {
       if (observedAtMs !== null && validUntilMs < observedAtMs) blockers.push(`C2_INVALID_VALIDITY_WINDOW:${evidenceType || 'UNKNOWN'}`);
       if (validUntilMs < context.asOfMs) blockers.push(`C2_EVIDENCE_STALE:${evidenceType || 'UNKNOWN'}`);
     }
 
-    if ([MARKET_EVIDENCE_TYPE.CLOSED_SALE_TRANSACTION, MARKET_EVIDENCE_TYPE.CLOSED_RENT_TRANSACTION].includes(evidenceType)) {
+    if (TRANSACTION_TYPES.includes(evidenceType)) {
       if (!transactionKey) blockers.push(`C2_TRANSACTION_KEY_REQUIRED:${evidenceType}`);
       if (![MARKET_RESOLUTION_METHOD.OFFICIAL_TRANSACTION_RECORD, MARKET_RESOLUTION_METHOD.OFFICIAL_REGISTERED_CONTRACT].includes(resolutionMethod)) {
         blockers.push(`C2_CLOSED_TRANSACTION_RESOLUTION_REQUIRED:${evidenceType}`);
@@ -212,8 +248,9 @@ function evaluateRecord(record, context) {
       if (hasNormalizedValue && normalizedValueHash && deriveComparableMetric(evidenceType, record.normalizedValue) === null) {
         blockers.push(`C2_COMPARABLE_METRIC_REQUIRED:${evidenceType}`);
       }
-    } else {
+    } else if (AGGREGATE_TYPES.includes(evidenceType)) {
       if (!seriesKey) blockers.push(`C2_SERIES_KEY_REQUIRED:${evidenceType}`);
+      if (!periodKey) blockers.push(`C2_PERIOD_KEY_REQUIRED:${evidenceType}`);
       if (![MARKET_RESOLUTION_METHOD.OFFICIAL_PUBLISHED_INDICATOR, MARKET_RESOLUTION_METHOD.OFFICIAL_AGGREGATED_MARKET_DATA].includes(resolutionMethod)) {
         blockers.push(`C2_OFFICIAL_AGGREGATE_RESOLUTION_REQUIRED:${evidenceType}`);
       }
@@ -221,6 +258,7 @@ function evaluateRecord(record, context) {
   } else if (asking) {
     if (!sourceReference) warnings.push(`C2_SUPPLEMENTAL_SOURCE_REFERENCE_MISSING:${evidenceType}`);
     if (!sourceUrl) warnings.push(`C2_SUPPLEMENTAL_SOURCE_URL_MISSING:${evidenceType}`);
+    else if (!isHttpUrl(sourceUrl)) blockers.push(`C2_SUPPLEMENTAL_SOURCE_URL_INVALID:${evidenceType}`);
     if (![MARKET_RESOLUTION_METHOD.COMMERCIAL_LISTING, MARKET_RESOLUTION_METHOD.USER_SUPPLIED].includes(resolutionMethod)) {
       blockers.push(`C2_ASKING_RESOLUTION_REQUIRED:${evidenceType}`);
     }
@@ -246,11 +284,13 @@ function evaluateRecord(record, context) {
       sourceUrl: sourceUrl || null,
       transactionKey: transactionKey || null,
       seriesKey: seriesKey || null,
+      periodKey: periodKey || null,
       resolutionMethod: resolutionMethod || null,
       verificationStatus: verificationStatus || null,
       verifiedBy: verifiedBy || null,
       verificationReference: verificationReference || null,
       freshnessPolicyId: freshnessPolicyId || null,
+      effectiveAt: effectiveAtMs === null ? null : new Date(effectiveAtMs).toISOString(),
       observedAt: observedAtMs === null ? null : new Date(observedAtMs).toISOString(),
       validUntil: validUntilMs === null ? null : new Date(validUntilMs).toISOString(),
       comparableMetricSarSqm: authoritative ? deriveComparableMetric(evidenceType, record.normalizedValue) : null,
@@ -269,8 +309,8 @@ function evaluateMarketEvidenceBundle({
   requiredEvidenceTypes = DEFAULT_REQUIRED_MARKET_EVIDENCE_TYPES,
   trustedVerifierIds = [],
   governedFreshnessPolicyIds = [],
-  governedMinimumCountPolicyIds = [],
-  minimumCountPolicy,
+  minimumCountPolicyId,
+  governedMinimumCountPolicies = {},
 } = {}) {
   const contextId = cleanString(marketContextId);
   const geography = cleanString(geographyKey);
@@ -282,8 +322,7 @@ function evaluateMarketEvidenceBundle({
   }
   const trustedVerifiers = cleanStringArray(trustedVerifierIds, 'trustedVerifierIds');
   const freshnessPolicies = cleanStringArray(governedFreshnessPolicyIds, 'governedFreshnessPolicyIds');
-  const minimumPolicyIds = cleanStringArray(governedMinimumCountPolicyIds, 'governedMinimumCountPolicyIds');
-  const policy = validateMinimumPolicy(requiredEvidenceTypes, minimumCountPolicy, minimumPolicyIds);
+  const policy = validateMinimumPolicy(requiredEvidenceTypes, minimumCountPolicyId, governedMinimumCountPolicies);
 
   const decisionBlockers = [...policy.blockers];
   const warnings = [];
@@ -310,7 +349,9 @@ function evaluateMarketEvidenceBundle({
   const groups = new Map();
   for (const finding of authoritativeEligible) {
     const r = finding.normalized;
-    const key = r.transactionKey ? `TX:${r.evidenceType}:${r.transactionKey}` : `SERIES:${r.evidenceType}:${r.seriesKey}`;
+    const key = r.transactionKey
+      ? `TX:${r.evidenceType}:${r.transactionKey}`
+      : `SERIES:${r.evidenceType}:${r.seriesKey}:${r.periodKey}`;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(r);
   }
@@ -378,7 +419,7 @@ function evaluateMarketEvidenceBundle({
     professionalValuationOpinion: false,
     transactionAuthorized: false,
     publicAiAuthorized: false,
-    semantics: 'C2 keeps authoritative closed transactions and official aggregates separate from asking/listing evidence; requires governed provenance, trust, freshness, market-context matching and a governed minimum-comparable policy; deduplicates exact corroboration and fails closed on same-key conflicts. It does not create a certified valuation, infer licensing rights, or authorize a transaction.',
+    semantics: 'C2 keeps authoritative closed transactions and official market aggregates separate from asking/listing evidence; requires evaluator-supplied governed policy registries, provenance, trust, freshness, effective dates and exact market-context matching; deduplicates exact corroboration and fails closed on same-key conflicts. It does not create a certified valuation, infer machine-access or licensing rights, or authorize a transaction.',
   });
 }
 
