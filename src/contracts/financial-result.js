@@ -4,6 +4,7 @@
 const FINANCIAL_RESULT_FIELDS = Object.freeze({
   financialModelVersion: { present: 'BOTH', type: 'string' },
   financialModelStatus: { present: 'BOTH', type: 'VALID | INVALID_ECONOMIC_CASE | INCOMPLETE_INPUTS' },
+  timingBasis: { present: 'BOTH', type: 'object', note: 'P26 machine-readable periodic cash-flow, terminal-value, NPV/IRR, and construction-debt timing methodology; disclosure only, no arithmetic or authority change' },
   assumptionModelVersion: { present: 'EXISTING_BUILDING_ONLY', type: 'LEGACY | V2', note: 'Wave-2 assumption-envelope version carried into deterministic result metadata' },
   assumptionModelDisclosure: { present: 'EXISTING_BUILDING_ONLY', type: 'object', note: 'non-authorizing disclosure metadata for the active assumption model' },
   criticalAssumptionOverrideGovernance: { present: 'EXISTING_BUILDING_ONLY', type: 'object', note: 'P25 provenance/approval evidence and decision-readiness metadata; never an authority grant' },
