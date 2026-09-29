@@ -5,13 +5,19 @@ const ASSUMPTION_MODEL_VERSION = Object.freeze({
   V2: 'V2',
 });
 
-const V2_APPROVED_ASSUMPTIONS = Object.freeze({
+// P25: these are canonical analytical baseline assumptions for V2. They are
+// not, by their presence in code, evidence of user/committee approval.
+const V2_CANONICAL_ASSUMPTIONS = Object.freeze({
   maintenanceRate: 0.05,
   managementFeeRate: 0.035,
   fixedOpexPerSqm: 40,
   replacementReservePerSqm: 20,
   opexGrowthRate: 0.02,
 });
+
+// Backward-compatible export only. The historical symbol name must not be read
+// as approval evidence. New code should use V2_CANONICAL_ASSUMPTIONS.
+const V2_APPROVED_ASSUMPTIONS = V2_CANONICAL_ASSUMPTIONS;
 
 const V2_ASSUMPTION_LABELS = Object.freeze({
   maintenanceRate: Object.freeze({
@@ -44,27 +50,51 @@ function normalizeAssumptionModelVersion(value) {
   throw error;
 }
 
-function applyAssumptionModel(inputs, version) {
+function applyAssumptionModel(inputs, version, context = {}) {
   if (!inputs || typeof inputs !== 'object' || Array.isArray(inputs)) {
     throw new TypeError('inputs must be an object');
   }
   const normalizedVersion = normalizeAssumptionModelVersion(version);
   if (normalizedVersion === ASSUMPTION_MODEL_VERSION.LEGACY) return { ...inputs };
+
+  const requestedOverrides = context && context.criticalOverrides && typeof context.criticalOverrides === 'object'
+    ? context.criticalOverrides
+    : {};
+  const criticalOverrides = {};
+  for (const key of Object.keys(V2_CANONICAL_ASSUMPTIONS)) {
+    if (Object.prototype.hasOwnProperty.call(requestedOverrides, key)
+        && typeof requestedOverrides[key] === 'number'
+        && Number.isFinite(requestedOverrides[key])) {
+      criticalOverrides[key] = requestedOverrides[key];
+    }
+  }
+
   return {
     ...inputs,
-    ...V2_APPROVED_ASSUMPTIONS,
+    ...V2_CANONICAL_ASSUMPTIONS,
+    ...criticalOverrides,
   };
 }
 
-function buildAssumptionModelDisclosure(version) {
+function buildAssumptionModelDisclosure(version, context = {}) {
   const normalizedVersion = normalizeAssumptionModelVersion(version);
   if (normalizedVersion === ASSUMPTION_MODEL_VERSION.V2) {
+    const governance = context && context.criticalAssumptionOverrideGovernance;
+    const hasCriticalOverrides = governance && governance.hasCriticalOverrides === true;
+    const documentationComplete = hasCriticalOverrides && governance.hasIncompleteCriticalOverrides !== true;
     return Object.freeze({
       version: normalizedVersion,
       label_ar: 'إصدار الافتراضات V2',
       label_en: 'Assumption Model V2',
       legacyCompatibility: false,
-      userApprovedAssumptions: true,
+      // Deprecated compatibility field. A code default is not approval evidence.
+      userApprovedAssumptions: false,
+      canonicalBaselineIsApprovalEvidence: false,
+      criticalOverridesPresent: hasCriticalOverrides,
+      criticalOverridesDocumentationComplete: hasCriticalOverrides ? documentationComplete : null,
+      criticalOverrideApprovalEvidenceStatus: !hasCriticalOverrides
+        ? 'NOT_APPLICABLE'
+        : (documentationComplete ? 'EXPLICIT_EVIDENCE_PRESENT' : 'INCOMPLETE'),
     });
   }
   return Object.freeze({
@@ -73,11 +103,16 @@ function buildAssumptionModelDisclosure(version) {
     label_en: 'Legacy Assumption Model (Compatibility)',
     legacyCompatibility: true,
     userApprovedAssumptions: false,
+    canonicalBaselineIsApprovalEvidence: false,
+    criticalOverridesPresent: false,
+    criticalOverridesDocumentationComplete: null,
+    criticalOverrideApprovalEvidenceStatus: 'NOT_APPLICABLE',
   });
 }
 
 module.exports = {
   ASSUMPTION_MODEL_VERSION,
+  V2_CANONICAL_ASSUMPTIONS,
   V2_APPROVED_ASSUMPTIONS,
   V2_ASSUMPTION_LABELS,
   normalizeAssumptionModelVersion,
