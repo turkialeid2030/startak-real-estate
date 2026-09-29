@@ -48,25 +48,53 @@ The code registry explicitly constrains which evidence types each source may sup
 
 Decision-critical C1 evidence requires:
 
+- explicit evaluation `subjectId`;
+- each record bound to the same subject/property;
 - registered official source;
 - evidence type within that source's declared authority scope;
 - source reference;
 - official-domain URL;
 - explicit `VERIFIED` status;
+- explicit verifier identity and verification reference;
+- verifier identity present in the evaluator's trusted verifier list;
 - official resolution method (not merely user supplied);
 - observation timestamp that is not future-dated;
 - explicit freshness policy identifier;
+- freshness policy present in the evaluator's governed policy list;
 - explicit validity end date;
 - non-stale evidence at evaluation time;
-- normalized value used for deterministic conflict detection.
+- JSON-safe normalized value used for deterministic conflict detection.
 
-Default C1 decision-readiness requires:
+Default C1 decision-readiness requires, for the **same subject**:
 
 1. `PARCEL_IDENTITY`
 2. `LAND_USE`
 3. `ZONING_BUILDABILITY`
 
 A use case may supply a different explicit required-evidence set, but the evaluator never invents missing evidence.
+
+## Trust boundary
+
+Raw evidence cannot make itself trusted by writing `verificationStatus=VERIFIED`.
+
+The evaluator separately receives:
+
+- `trustedVerifierIds`
+- `governedFreshnessPolicyIds`
+
+If these trust-policy inputs are absent or do not contain the record's verifier/policy, critical evidence remains `HOLD_EVIDENCE`.
+
+This separates evidence payload content from the authority that decides who may verify it and which freshness policies are governed.
+
+## Subject-isolation rule
+
+Evidence for one property/deal cannot satisfy a required evidence type for another property/deal.
+
+A record whose `subjectId` differs from the evaluator's requested subject is ineligible and produces a subject-mismatch blocker. This prevents cross-property evidence mixing.
+
+## Normalized-value safety
+
+Normalized evidence must be JSON-safe and deterministic. Cyclic values, non-finite numbers and unsupported runtime objects are rejected from critical readiness rather than being silently stringified into ambiguous hashes.
 
 ## Conflict rule
 
@@ -100,8 +128,9 @@ C1 may be developed and tested on an isolated branch now. Integration into the m
 1. governed disposition of the current P25→P26→P27 remediation stack;
 2. source/API/licensing evidence for any live adapter;
 3. privacy/security review where location/property data can identify a person or private asset;
-4. regression + decision-integrity qualification;
-5. no weakening of existing fail-closed controls.
+4. explicit trust-policy ownership for verifier and freshness registries;
+5. regression + decision-integrity qualification;
+6. no weakening of existing fail-closed controls.
 
 Current authority boundaries remain:
 
