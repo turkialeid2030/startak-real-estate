@@ -3,7 +3,7 @@
 const { calculateInvestmentCase, STUDY_TYPE } = require('../engines');
 const {
   ASSUMPTION_MODEL_VERSION,
-  V2_APPROVED_ASSUMPTIONS,
+  V2_CANONICAL_ASSUMPTIONS,
   normalizeAssumptionModelVersion,
 } = require('./assumption-model');
 const {
@@ -51,7 +51,9 @@ function materializeUiAssumptions(inputs, assumptionModelVersion) {
   if (version !== ASSUMPTION_MODEL_VERSION.V2) return { ...inputs };
   return {
     ...inputs,
-    ...V2_APPROVED_ASSUMPTIONS,
+    // Canonical analytical baseline only. P25 approval evidence lives in the
+    // assumption registry and must never be inferred from these code defaults.
+    ...V2_CANONICAL_ASSUMPTIONS,
   };
 }
 
@@ -92,7 +94,7 @@ function hydrateUiDeal({ record, defaultInputs }) {
   });
 }
 
-function calculateUiInvestmentState({ mode, inputs, assumptionModelVersion }) {
+function calculateUiInvestmentState({ mode, inputs, assumptionModelVersion, assumptionRegistry = null }) {
   assertMode(mode);
   assertPlainObject(inputs, 'inputs');
   const version = normalizeAssumptionModelVersion(assumptionModelVersion);
@@ -101,6 +103,7 @@ function calculateUiInvestmentState({ mode, inputs, assumptionModelVersion }) {
     inputs,
     leverageEnabled: Boolean(inputs.leverageEnabled),
     assumptionModelVersion: version,
+    assumptionRegistry,
   });
   const governance = mode === UI_MODE.BUILDING
     ? buildUiAssumptionGovernance({
@@ -112,8 +115,12 @@ function calculateUiInvestmentState({ mode, inputs, assumptionModelVersion }) {
   return Object.freeze({
     mode,
     assumptionModelVersion: version,
+    assumptionRegistry,
     results,
     governance,
+    decisionReady: governance ? governance.decisionReady : true,
+    recommendationAllowed: governance ? governance.recommendationAllowed : true,
+    investmentGradeEligible: governance ? governance.investmentGradeEligible : true,
     sensitivityReady: governance ? governance.sensitivityReady : true,
     sensitivityRenderPolicy: governance
       ? governance.sensitivity.renderPolicy
@@ -121,7 +128,20 @@ function calculateUiInvestmentState({ mode, inputs, assumptionModelVersion }) {
     exitCapInputRequired: governance ? governance.exitCapInputRequired : false,
     exitTransactionCostInputRequired: governance ? governance.exitTransactionCostInputRequired : false,
     leaseRollForwardRequired: governance ? governance.leaseRollForwardRequired : false,
+    criticalOverrideDocumentationRequired: governance
+      ? governance.criticalOverrideDocumentationRequired
+      : false,
     transactionAuthorized: false,
+  });
+}
+
+function calculateWorkspaceState(workspace) {
+  assertPlainObject(workspace, 'workspace');
+  return calculateUiInvestmentState({
+    mode: workspace.mode,
+    inputs: workspace.inputs,
+    assumptionModelVersion: workspace.assumptionModelVersion,
+    assumptionRegistry: workspace.assumptionRegistry || null,
   });
 }
 
@@ -205,21 +225,36 @@ function buildUiDisclosureViewModel({ governance, locale = 'ar-SA' }) {
   const leaseRollForwardNotice = disclosure.leaseRollForwardNotice
     ? disclosure.leaseRollForwardNotice[language]
     : null;
+  const criticalOverrideNotice = disclosure.criticalOverrideNotice
+    ? disclosure.criticalOverrideNotice[language]
+    : null;
 
   // Presentation compatibility: the production banner currently has dedicated
-  // rows for exit-cap and exit-transaction-cost notices. Until that component
-  // receives a dedicated lease row, append the lease notice to the second
-  // governed notice slot so the P23 hold is visible rather than silently hidden.
-  const exitTransactionCostNotice = [rawExitTransactionCostNotice, leaseRollForwardNotice]
-    .filter(Boolean)
-    .join(' ')
-    || null;
+  // rows for exit-cap and exit-transaction-cost notices. Until it receives
+  // dedicated rows for lease and P25 override governance, append those governed
+  // notices to the second slot so no fail-closed condition is silently hidden.
+  const exitTransactionCostNotice = [
+    rawExitTransactionCostNotice,
+    leaseRollForwardNotice,
+    criticalOverrideNotice,
+  ].filter(Boolean).join(' ') || null;
 
   return Object.freeze({
     badge: disclosure.badge[language],
     assumptionModelVersion: disclosure.assumptionModelVersion,
     legacyCompatibility: disclosure.legacyCompatibility,
+    userApprovedAssumptions: false,
+    canonicalBaselineIsApprovalEvidence: false,
+    canonicalAssumptionKeys: disclosure.canonicalAssumptionKeys,
     approvedAssumptionKeys: disclosure.approvedAssumptionKeys,
+    criticalOverridesPresent: disclosure.criticalOverridesPresent,
+    criticalOverridesDocumentationComplete: disclosure.criticalOverridesDocumentationComplete,
+    criticalOverrideApprovalEvidenceStatus: disclosure.criticalOverrideApprovalEvidenceStatus,
+    criticalOverrideNotice,
+    criticalOverrideDocumentationRequired: governance.criticalOverrideDocumentationRequired,
+    decisionReady: governance.decisionReady,
+    recommendationAllowed: governance.recommendationAllowed,
+    investmentGradeEligible: governance.investmentGradeEligible,
     exitCapSource: disclosure.exitCapSource,
     exitCapNotice,
     exitCapInputRequired: governance.exitCapInputRequired,
@@ -255,6 +290,7 @@ module.exports = {
   createUiWorkspace,
   hydrateUiDeal,
   calculateUiInvestmentState,
+  calculateWorkspaceState,
   applyExitCapInputText,
   applyExitTransactionCostInputText,
   buildUiDisclosureViewModel,
