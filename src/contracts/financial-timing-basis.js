@@ -9,7 +9,6 @@ const FINANCIAL_TIMING_CONVENTION = Object.freeze({
   ANNUAL_END_OF_PERIOD: 'ANNUAL_END_OF_PERIOD',
   END_OF_FINAL_HOLD_YEAR: 'END_OF_FINAL_HOLD_YEAR',
   END_OF_FINAL_OPERATING_YEAR: 'END_OF_FINAL_OPERATING_YEAR',
-  MONTHLY_BEGINNING_OF_PERIOD: 'MONTHLY_BEGINNING_OF_PERIOD',
   PERIODIC_ANNUAL_NPV: 'PERIODIC_ANNUAL_NPV',
   PERIODIC_ANNUAL_IRR: 'PERIODIC_ANNUAL_IRR',
   NOT_APPLICABLE: 'NOT_APPLICABLE',
@@ -20,11 +19,15 @@ function buildFinancialTimingBasis(studyType) {
     throw new TypeError(`Unsupported studyType for financial timing basis: ${studyType}`);
   }
 
+  const isLandDevelopment = studyType === STUDY_TYPE.LAND_DEVELOPMENT;
   const terminalValueTiming = studyType === STUDY_TYPE.EXISTING_BUILDING
     ? FINANCIAL_TIMING_CONVENTION.END_OF_FINAL_HOLD_YEAR
     : FINANCIAL_TIMING_CONVENTION.END_OF_FINAL_OPERATING_YEAR;
-  const constructionDebtDrawTiming = studyType === STUDY_TYPE.LAND_DEVELOPMENT
-    ? FINANCIAL_TIMING_CONVENTION.MONTHLY_BEGINNING_OF_PERIOD
+  const constructionCashflowTiming = isLandDevelopment
+    ? FINANCIAL_TIMING_CONVENTION.ANNUAL_END_OF_PERIOD
+    : FINANCIAL_TIMING_CONVENTION.NOT_APPLICABLE;
+  const constructionDebtDrawTiming = isLandDevelopment
+    ? FINANCIAL_TIMING_CONVENTION.ANNUAL_END_OF_PERIOD
     : FINANCIAL_TIMING_CONVENTION.NOT_APPLICABLE;
 
   return Object.freeze({
@@ -32,6 +35,7 @@ function buildFinancialTimingBasis(studyType) {
     initialInvestmentTiming: FINANCIAL_TIMING_CONVENTION.INITIAL_INVESTMENT_TIME_ZERO,
     unleveredCashflowTiming: FINANCIAL_TIMING_CONVENTION.ANNUAL_END_OF_PERIOD,
     operatingCashflowTiming: FINANCIAL_TIMING_CONVENTION.ANNUAL_END_OF_PERIOD,
+    constructionCashflowTiming,
     terminalValueTiming,
     constructionDebtDrawTiming,
     npvConvention: FINANCIAL_TIMING_CONVENTION.PERIODIC_ANNUAL_NPV,
@@ -41,7 +45,7 @@ function buildFinancialTimingBasis(studyType) {
     xirrUsed: false,
     periodsPerYear: 1,
     transactionAuthorized: false,
-    semantics: 'Methodology disclosure only. Unlevered operating and terminal cash flows are modeled as periodic annual entries rather than date-specific cash flows. Land-development construction debt uses monthly beginning-of-period draws for its internal debt schedule. This metadata does not alter any financial calculation, constitute a valuation opinion, or authorize a transaction.',
+    semantics: 'Methodology disclosure only. Initial investment is represented at time zero; subsequent modeled cash-flow entries are periodic annual end-of-period amounts. For land development, construction equity/cost cash flows and construction debt draws are modeled on the same annual end-of-period grid used by the current engine; no monthly draw convention is claimed. Terminal value is included in the final hold or operating-year cash-flow entry. NPV and IRR use equally spaced annual periods rather than date-specific cash flows. This metadata does not alter any financial calculation, constitute a valuation opinion, or authorize a transaction.',
   });
 }
 
