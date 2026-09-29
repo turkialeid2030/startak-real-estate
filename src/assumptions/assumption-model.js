@@ -18,7 +18,11 @@ const V2_CANONICAL_ASSUMPTIONS = Object.freeze({
 // Backward-compatible export only. The historical symbol name must not be read
 // as approval evidence. New code should use V2_CANONICAL_ASSUMPTIONS.
 const V2_APPROVED_ASSUMPTIONS = V2_CANONICAL_ASSUMPTIONS;
-const INTERNAL_CRITICAL_OVERRIDE_KEY = '__p25CriticalAssumptionOverrides';
+
+// P25 hardening: use a Symbol capability instead of a string property so a
+// serialized/raw deal payload cannot forge the internal override transport key.
+// Only in-process governed code holding this Symbol can attach resolved values.
+const INTERNAL_CRITICAL_OVERRIDE_KEY = Symbol('p25CriticalAssumptionOverrides');
 
 const V2_ASSUMPTION_LABELS = Object.freeze({
   maintenanceRate: Object.freeze({
