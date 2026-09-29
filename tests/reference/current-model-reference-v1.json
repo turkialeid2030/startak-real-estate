@@ -1,0 +1,171 @@
+{
+  "schemaVersion": 1,
+  "referenceVersion": "CURRENT_MODEL_REFERENCE_V1",
+  "status": "VALIDATION_REFERENCE_ONLY",
+  "purpose": "Versioned current-model validation corpus. It is separate from immutable historical RE-GOLD characterization evidence and does not activate or replace any canonical baseline.",
+  "engineLineageBaseSha": "b824aa9ea28cf0b76e4eecf5c11b86e9bc89e6ab",
+  "legacyReference": {
+    "path": "tests/reference/RE-GOLD-baseline.json",
+    "status": "IMMUTABLE_HISTORICAL_CHARACTERIZATION",
+    "overwritten": false
+  },
+  "authority": {
+    "commercialGoLive": "HOLD",
+    "transactionAuthorized": false,
+    "publicAi": false,
+    "canonicalBaselineActivationAuthorized": false
+  },
+  "numericTolerance": {
+    "currencySar": 0.02,
+    "ratio": 1e-10,
+    "irr": 1e-10
+  },
+  "cases": [
+    {
+      "id": "BUILDING_V2_UNLEVERED",
+      "studyType": "EXISTING_BUILDING",
+      "sourceFixture": "tests/characterization/fixtures/RE-GOLD-002-U.json",
+      "sourceFixtureGitBlobSha1": "00b836047494869fa3ed61a38cda2ba9553206f5",
+      "inputOverrides": {
+        "leaseYears": 6,
+        "exitCapRate": 0.07,
+        "exitTransferFeeRate": 0.05,
+        "leverageEnabled": false
+      },
+      "assumptionModelVersion": "V2",
+      "expected": {
+        "financialModelVersion": "BUILDING_WAVE_A_2.0",
+        "financialModelStatus": "VALID",
+        "decisionStatus": "SOFT_CONDITION_REQUIRED",
+        "verdict": "يوصى بالشراء بشروط",
+        "metCount": 5,
+        "totalCriteria": 6,
+        "failedHardGates": [],
+        "failedSoftCriteria": ["CUMULATIVE_PAYBACK"],
+        "npv": 28687627.84,
+        "irr": 0.12451779555130454,
+        "NOI": 13594392,
+        "totalPurchaseCost": 150635000,
+        "cashflowLength": 6,
+        "financingEngineVersion": null,
+        "priceBasisMetric": "maxJustifiedPrice",
+        "priceBasisOutputBasis": "BASE_BUILDING_PURCHASE_PRICE_SAR",
+        "timingBasisVersion": "FINANCIAL_TIMING_BASIS_V1",
+        "criticalOverrideGovernanceStatus": "NO_OVERRIDES"
+      }
+    },
+    {
+      "id": "BUILDING_V2_WAVEB",
+      "studyType": "EXISTING_BUILDING",
+      "sourceFixture": "tests/characterization/fixtures/RE-GOLD-002-L.json",
+      "sourceFixtureGitBlobSha1": "b4b26e0a9d522ed5d56ca0fc9206d194f61f26d3",
+      "inputOverrides": {
+        "leaseYears": 6,
+        "exitCapRate": 0.07,
+        "exitTransferFeeRate": 0.05,
+        "leverageEnabled": true
+      },
+      "assumptionModelVersion": "V2",
+      "expected": {
+        "financialModelVersion": "BUILDING_WAVE_A_2.0",
+        "financialModelStatus": "VALID",
+        "decisionStatus": "SOFT_CONDITION_REQUIRED",
+        "verdict": "يوصى بالشراء بشروط",
+        "metCount": 7,
+        "totalCriteria": 8,
+        "failedHardGates": [],
+        "failedSoftCriteria": ["CUMULATIVE_PAYBACK"],
+        "npv": 28687627.84,
+        "irr": 0.12451779555130454,
+        "NOI": 13594392,
+        "totalPurchaseCost": 150635000,
+        "cashflowLength": 6,
+        "financingEngineVersion": "MONTHLY_DSCR_WAVE_B_1.0",
+        "financingRatioBasis": "TOTAL_ACQUISITION_COST",
+        "financingRatioDenominatorSar": 150635000,
+        "requestedDebtRatio": 0.5,
+        "loanAmount": 75317500,
+        "debtService": 10034144.04,
+        "dscrMin": 1.3457141490807982,
+        "leveredNPV": 25403820.57,
+        "leveredIRR": 0.17047605535663835,
+        "equityDiscountRate": 0.1,
+        "loanSizingConstraint": "LTC",
+        "priceBasisMetric": "maxJustifiedPrice",
+        "priceBasisOutputBasis": "BASE_BUILDING_PURCHASE_PRICE_SAR",
+        "timingBasisVersion": "FINANCIAL_TIMING_BASIS_V1",
+        "criticalOverrideGovernanceStatus": "NO_OVERRIDES"
+      }
+    },
+    {
+      "id": "LAND_CURRENT_UNLEVERED",
+      "studyType": "LAND_DEVELOPMENT",
+      "sourceFixture": "tests/characterization/fixtures/RE-GOLD-001-U.json",
+      "sourceFixtureGitBlobSha1": "ee1b6b4f5fc7e5dcf288fadd243795e5c0cf65b7",
+      "inputOverrides": {
+        "leverageEnabled": false
+      },
+      "assumptionModelVersion": null,
+      "expected": {
+        "financialModelVersion": "LAND_WAVE_A_2.0",
+        "financialModelStatus": "VALID",
+        "decisionStatus": "SOFT_CONDITION_REQUIRED",
+        "verdict": "يوصى بالشراء بشروط",
+        "metCount": 4,
+        "totalCriteria": 5,
+        "failedHardGates": [],
+        "failedSoftCriteria": ["CUMULATIVE_PROJECT_PAYBACK"],
+        "npv": 18462306.34,
+        "irr": 0.145861780688248,
+        "stabilizedNOI": 12307075.2,
+        "totalProjectCost": 100340000,
+        "cashflowLength": 13,
+        "financingEngineVersion": null,
+        "priceBasisMetric": "maxJustifiedLandPricePerSqm",
+        "priceBasisOutputBasis": "RAW_LAND_MARKET_PRICE_PER_SQM_SAR",
+        "timingBasisVersion": "FINANCIAL_TIMING_BASIS_V1"
+      }
+    },
+    {
+      "id": "LAND_CURRENT_WAVEB",
+      "studyType": "LAND_DEVELOPMENT",
+      "sourceFixture": "tests/characterization/fixtures/RE-GOLD-001-L.json",
+      "sourceFixtureGitBlobSha1": "5170e52c26829372058a38d88826b765ee8b5832",
+      "inputOverrides": {
+        "leverageEnabled": true
+      },
+      "assumptionModelVersion": null,
+      "expected": {
+        "financialModelVersion": "LAND_WAVE_A_2.0",
+        "financialModelStatus": "VALID",
+        "decisionStatus": "SOFT_CONDITION_REQUIRED",
+        "verdict": "يوصى بالشراء بشروط",
+        "metCount": 6,
+        "totalCriteria": 7,
+        "failedHardGates": [],
+        "failedSoftCriteria": ["CUMULATIVE_PROJECT_PAYBACK"],
+        "npv": 18462306.34,
+        "irr": 0.145861780688248,
+        "stabilizedNOI": 12307075.2,
+        "totalProjectCost": 100340000,
+        "cashflowLength": 13,
+        "financingEngineVersion": "CONSTRUCTION_MONTHLY_DSCR_WAVE_B_2.0",
+        "financingRatioBasis": "TOTAL_PROJECT_COST",
+        "financingRatioDenominatorSar": 100340000,
+        "requestedDebtRatio": 0.6,
+        "loanAmount": 55875611.76,
+        "debtService": 9845660.16,
+        "dscrMin": 1.25,
+        "leveredNPV": 18446948.13,
+        "leveredIRR": 0.18550566465667906,
+        "equityDiscountRate": 0.13999999999999999,
+        "loanSizingConstraint": "DSCR",
+        "constructionDebtScheduleLength": 24,
+        "annualConstructionDebtDrawsLength": 2,
+        "priceBasisMetric": "maxJustifiedLandPricePerSqm",
+        "priceBasisOutputBasis": "RAW_LAND_MARKET_PRICE_PER_SQM_SAR",
+        "timingBasisVersion": "FINANCIAL_TIMING_BASIS_V1"
+      }
+    }
+  ]
+}
