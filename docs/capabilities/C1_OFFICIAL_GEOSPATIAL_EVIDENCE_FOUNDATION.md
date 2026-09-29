@@ -86,6 +86,29 @@ If these trust-policy inputs are absent or do not contain the record's verifier/
 
 This separates evidence payload content from the authority that decides who may verify it and which freshness policies are governed.
 
+## Sandbox ingestion boundary
+
+`src/geospatial/sandbox-evidence-draft.js` provides a non-authorizing draft adapter for Phase 0.
+
+It may capture a proposed evidence value only when:
+- the source is already present in the official-source registry;
+- the source is registered for that evidence type;
+- the supplied URL belongs to the registered official domain.
+
+The adapter always outputs:
+- `verificationStatus = UNVERIFIED`;
+- `verifiedBy = null`;
+- `verificationReference = null`;
+- `sandboxOnly = true`;
+- `productionConnectorUsed = false`;
+- `decisionReady = false`;
+- `transactionAuthorized = false`;
+- `publicAiAuthorized = false`.
+
+Raw sandbox input is forbidden from setting trust/authority fields such as `verificationStatus`, `verifiedBy`, `decisionReady` or `transactionAuthorized`.
+
+Therefore Sandbox ingestion can prepare material for later governed verification, but cannot create trust or decision readiness by itself.
+
 ## Subject-isolation rule
 
 Evidence for one property/deal cannot satisfy a required evidence type for another property/deal.
