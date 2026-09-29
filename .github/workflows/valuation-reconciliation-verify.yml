@@ -1,0 +1,36 @@
+name: Valuation Reconciliation Verify
+
+on:
+  pull_request:
+    paths:
+      - 'src/contracts/valuation-reconciliation.js'
+      - 'src/valuation-reconciliation/**'
+      - 'tests/defects/c3_governed_valuation_reconciliation_foundation.js'
+      - 'tests/defects/c3_sandbox_valuation_reconciliation_draft.js'
+      - '.github/workflows/valuation-reconciliation-verify.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: C3 governed valuation reconciliation foundation
+        run: node tests/defects/c3_governed_valuation_reconciliation_foundation.js
+      - name: C3 sandbox valuation reconciliation draft
+        run: node tests/defects/c3_sandbox_valuation_reconciliation_draft.js
+      - name: Canonical release verification
+        run: npm run release:verify
