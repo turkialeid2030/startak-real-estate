@@ -76,7 +76,7 @@ function canonicalize(value) {
     return Object.keys(value).sort().reduce((acc, key) => {
       acc[key] = canonicalize(value[key]);
       return acc;
-    }, {});
+    }, Object.create(null));
   }
   return value;
 }
@@ -265,6 +265,11 @@ function evaluateRecord(record, context) {
     if (verificationStatus === MARKET_VERIFICATION_STATUS.VERIFIED) warnings.push(`C2_ASKING_VERIFIED_DOES_NOT_CREATE_AUTHORITY:${evidenceType}`);
   }
 
+  const effectiveAtIso = effectiveAtMs === null ? null : new Date(effectiveAtMs).toISOString();
+  const semanticValueHash = authoritative && normalizedValueHash && effectiveAtIso
+    ? hashValue({ normalizedValue: record.normalizedValue, effectiveAt: effectiveAtIso })
+    : null;
+
   return {
     authoritative,
     asking,
@@ -279,6 +284,7 @@ function evaluateRecord(record, context) {
       evidenceClass: evidenceClass || null,
       normalizedValue: hasNormalizedValue ? record.normalizedValue : null,
       normalizedValueHash,
+      semanticValueHash,
       sourceId: sourceId || null,
       sourceReference: sourceReference || null,
       sourceUrl: sourceUrl || null,
@@ -290,7 +296,7 @@ function evaluateRecord(record, context) {
       verifiedBy: verifiedBy || null,
       verificationReference: verificationReference || null,
       freshnessPolicyId: freshnessPolicyId || null,
-      effectiveAt: effectiveAtMs === null ? null : new Date(effectiveAtMs).toISOString(),
+      effectiveAt: effectiveAtIso,
       observedAt: observedAtMs === null ? null : new Date(observedAtMs).toISOString(),
       validUntil: validUntilMs === null ? null : new Date(validUntilMs).toISOString(),
       comparableMetricSarSqm: authoritative ? deriveComparableMetric(evidenceType, record.normalizedValue) : null,
@@ -358,7 +364,7 @@ function evaluateMarketEvidenceBundle({
 
   const deduped = [];
   for (const [key, group] of groups.entries()) {
-    const hashes = [...new Set(group.map((r) => r.normalizedValueHash))];
+    const hashes = [...new Set(group.map((r) => r.semanticValueHash))];
     if (hashes.length > 1) {
       conflictKeys.add(key);
       decisionBlockers.push(`C2_EVIDENCE_CONFLICT:${key}`);
@@ -419,7 +425,7 @@ function evaluateMarketEvidenceBundle({
     professionalValuationOpinion: false,
     transactionAuthorized: false,
     publicAiAuthorized: false,
-    semantics: 'C2 keeps authoritative closed transactions and official market aggregates separate from asking/listing evidence; requires evaluator-supplied governed policy registries, provenance, trust, freshness, effective dates and exact market-context matching; deduplicates exact corroboration and fails closed on same-key conflicts. It does not create a certified valuation, infer machine-access or licensing rights, or authorize a transaction.',
+    semantics: 'C2 keeps authoritative closed transactions and official market aggregates separate from asking/listing evidence; requires evaluator-supplied governed policy registries, provenance, trust, freshness, effective dates and exact market-context matching; duplicate corroboration requires both normalized economic content and effective date to agree; same-key disagreement fails closed. It does not create a certified valuation, infer machine-access or licensing rights, or authorize a transaction.',
   });
 }
 
