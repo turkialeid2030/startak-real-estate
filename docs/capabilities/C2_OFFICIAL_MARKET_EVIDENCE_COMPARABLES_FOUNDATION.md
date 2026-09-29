@@ -16,7 +16,8 @@ C2 creates a versioned, fail-closed evidence foundation for Saudi real-estate ma
 5. collapsing multiple periods of one official index series into a false conflict;
 6. treating a public web page as proof of API/licensing/production machine-access rights;
 7. allowing a caller to lower a minimum-comparable threshold while reusing a governed policy identifier;
-8. converting a market-data calculation into a professional/certified valuation opinion.
+8. accepting duplicate transaction evidence as corroboration when the economic content agrees but the effective transaction date does not;
+9. converting a market-data calculation into a professional/certified valuation opinion.
 
 ## Public-source research basis — 29 Sep 2026
 
@@ -75,6 +76,7 @@ Authoritative evidence requires:
 - `effectiveAt <= observedAt <= asOf`;
 - non-stale validity window;
 - JSON-safe deterministic normalized value;
+- prototype-safe canonical hashing of normalized evidence;
 - official resolution method appropriate to the evidence type.
 
 Closed transactions additionally require a stable `transactionKey` and a usable price/rent-per-square-metre metric, supplied directly or deterministically derived from total amount and area.
@@ -103,14 +105,14 @@ The latter remains an external governance responsibility.
 
 For closed transactions:
 
-- same transaction key + same normalized value may be corroborated across official sources and is deduplicated;
-- same transaction key + different normalized value is a hard conflict and returns `HOLD_EVIDENCE`.
+- same transaction key + same normalized economic value + same `effectiveAt` may be corroborated across official sources and is deduplicated;
+- same transaction key with a different normalized value **or a different effective date** is a hard conflict and returns `HOLD_EVIDENCE`.
 
 For official aggregates/indices:
 
 - identity is `evidenceType + seriesKey + periodKey`;
 - different periods in the same series remain distinct valid observations;
-- same series and same period with different normalized values returns `HOLD_EVIDENCE`.
+- same series and same period with different normalized value or effective date returns `HOLD_EVIDENCE`.
 
 Supplemental asking evidence never resolves an authoritative conflict.
 
@@ -168,6 +170,6 @@ Current governance remains:
 4. establish governed minimum-comparable policy definitions by decision/use case;
 5. verify row-level field semantics for each transaction source independently from aggregate indicators;
 6. privacy/security review for location and transaction evidence;
-7. review source-specific transformation and deduplication rules;
+7. review source-specific transformation, canonical transaction-key and deduplication rules;
 8. human review and explicit integration authorization;
 9. regression, provenance, security and decision-integrity qualification on the eventual integration head.
