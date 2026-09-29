@@ -22,6 +22,11 @@ const AS_OF = '2026-09-29T18:00:00.000Z';
 const TRUSTED_VERIFIER = 'C2-TEST-VERIFIER';
 const FRESHNESS_POLICY = 'C2-TEST-FRESHNESS';
 const MINIMUM_POLICY = 'C2-TEST-MINIMUM-COMPS';
+const GOVERNED_MINIMUM_POLICIES = Object.freeze({
+  [MINIMUM_POLICY]: Object.freeze({
+    [MARKET_EVIDENCE_TYPE.CLOSED_SALE_TRANSACTION]: 3,
+  }),
+});
 
 function verifiedSale(index) {
   return {
@@ -41,6 +46,7 @@ function verifiedSale(index) {
     verifiedBy: TRUSTED_VERIFIER,
     verificationReference: `VERIFY-${index}`,
     freshnessPolicyId: FRESHNESS_POLICY,
+    effectiveAt: `2026-09-${20 + index}T10:00:00.000Z`,
     observedAt: '2026-09-29T12:00:00.000Z',
     validUntil: '2026-10-29T12:00:00.000Z',
   };
@@ -55,13 +61,8 @@ function evaluate(records) {
     asOf: AS_OF,
     trustedVerifierIds: [TRUSTED_VERIFIER],
     governedFreshnessPolicyIds: [FRESHNESS_POLICY],
-    governedMinimumCountPolicyIds: [MINIMUM_POLICY],
-    minimumCountPolicy: {
-      policyId: MINIMUM_POLICY,
-      minimumByEvidenceType: {
-        [MARKET_EVIDENCE_TYPE.CLOSED_SALE_TRANSACTION]: 3,
-      },
-    },
+    minimumCountPolicyId: MINIMUM_POLICY,
+    governedMinimumCountPolicies: GOVERNED_MINIMUM_POLICIES,
   });
 }
 
@@ -76,6 +77,7 @@ const draft = createSandboxMarketEvidenceDraft({
   sourceReference: 'REGA-SANDBOX-1',
   sourceUrl: 'https://rei.rega.gov.sa/ar/advanced-search/deals',
   transactionKey: 'TX-SANDBOX-1',
+  effectiveAt: '2026-09-25T10:00:00.000Z',
   observedAt: '2026-09-29T12:00:00.000Z',
   validUntil: '2026-10-29T12:00:00.000Z',
   freshnessPolicyId: FRESHNESS_POLICY,
@@ -86,6 +88,7 @@ assert.equal(draft.verificationStatus, MARKET_VERIFICATION_STATUS.UNVERIFIED);
 assert.equal(draft.resolutionMethod, MARKET_RESOLUTION_METHOD.USER_SUPPLIED);
 assert.equal(draft.verifiedBy, null);
 assert.equal(draft.verificationReference, null);
+assert.equal(draft.effectiveAt, '2026-09-25T10:00:00.000Z');
 assert.equal(draft.sandboxOnly, true);
 assert.equal(draft.productionConnectorUsed, false);
 assert.equal(draft.decisionReady, false);
@@ -100,7 +103,15 @@ assert.ok(held.records[2].blockers.includes('C2_CLOSED_TRANSACTION_RESOLUTION_RE
 assert.ok(held.blockers.includes('C2_MINIMUM_COMPARABLES_NOT_MET:CLOSED_SALE_TRANSACTION:2/3'));
 
 assert.throws(() => createSandboxMarketEvidenceDraft({
-  ...draft,
+  id: 'sandbox-trust-injection',
+  marketContextId: MARKET_CONTEXT_ID,
+  geographyKey: GEOGRAPHY_KEY,
+  assetType: ASSET_TYPE,
+  evidenceType: MARKET_EVIDENCE_TYPE.CLOSED_SALE_TRANSACTION,
+  normalizedValue: { amountSar: 950000, areaSqm: 100 },
+  sourceId: 'REGA_REAL_ESTATE_INDICATORS',
+  sourceReference: 'REGA-SANDBOX-TRUST',
+  sourceUrl: 'https://rei.rega.gov.sa/ar/advanced-search/deals',
   verificationStatus: MARKET_VERIFICATION_STATUS.VERIFIED,
 }), /cannot set trust\/authority fields/);
 
@@ -127,6 +138,38 @@ assert.throws(() => createSandboxMarketEvidenceDraft({
   sourceReference: 'GASTAT-BAD',
   sourceUrl: 'https://www.stats.gov.sa/',
 }), /does not support evidence type/);
+
+assert.throws(() => createSandboxMarketEvidenceDraft({
+  id: 'rega-rent-row-overclaim',
+  marketContextId: MARKET_CONTEXT_ID,
+  geographyKey: GEOGRAPHY_KEY,
+  assetType: ASSET_TYPE,
+  evidenceType: MARKET_EVIDENCE_TYPE.CLOSED_RENT_TRANSACTION,
+  normalizedValue: { annualRentSar: 100000, areaSqm: 100 },
+  sourceId: 'REGA_REAL_ESTATE_INDICATORS',
+  sourceReference: 'REGA-RENT-ROW',
+  sourceUrl: 'https://rei.rega.gov.sa/ar',
+}), /does not support evidence type/);
+
+const aggregateDraft = createSandboxMarketEvidenceDraft({
+  id: 'rega-rent-aggregate-draft',
+  marketContextId: MARKET_CONTEXT_ID,
+  geographyKey: GEOGRAPHY_KEY,
+  assetType: ASSET_TYPE,
+  evidenceType: MARKET_EVIDENCE_TYPE.RENT_MARKET_AGGREGATE,
+  normalizedValue: { averageAnnualRentSar: 120000 },
+  sourceId: 'REGA_REAL_ESTATE_INDICATORS',
+  sourceReference: 'REGA-RENT-AGG-2026-Q2',
+  sourceUrl: 'https://rei.rega.gov.sa/ar',
+  seriesKey: 'REGA-RENT-AGG',
+  periodKey: '2026-Q2',
+  effectiveAt: '2026-06-30T00:00:00.000Z',
+});
+assert.equal(aggregateDraft.evidenceClass, MARKET_EVIDENCE_CLASS.AUTHORITATIVE_AGGREGATE);
+assert.equal(aggregateDraft.periodKey, '2026-Q2');
+assert.equal(aggregateDraft.verificationStatus, MARKET_VERIFICATION_STATUS.UNVERIFIED);
+assert.equal(aggregateDraft.resolutionMethod, MARKET_RESOLUTION_METHOD.USER_SUPPLIED);
+assert.equal(aggregateDraft.decisionReady, false);
 
 const askingDraft = createSandboxMarketEvidenceDraft({
   id: 'asking-draft',
