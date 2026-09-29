@@ -7,16 +7,20 @@ Tracking issue: #468
 
 ## Purpose
 
-C2 creates a versioned, fail-closed evidence foundation for Saudi real-estate market comparables. It is designed to prevent four common decision defects:
+C2 creates a versioned, fail-closed evidence foundation for Saudi real-estate market comparables. It is designed to prevent recurring decision defects:
 
 1. treating asking/listing prices as if they were closed transactions;
-2. pooling evidence from different geographies, asset types or analytical contexts without an explicit rule;
-3. treating a public web page as proof of API/licensing/production machine-access rights;
-4. converting a market-data calculation into a professional/certified valuation opinion.
+2. treating aggregate rental indicators as row-level registered rent transactions;
+3. pooling evidence from different geographies, asset types or analytical contexts without an explicit rule;
+4. conflating retrieval time with the transaction/index effective date;
+5. collapsing multiple periods of one official index series into a false conflict;
+6. treating a public web page as proof of API/licensing/production machine-access rights;
+7. allowing a caller to lower a minimum-comparable threshold while reusing a governed policy identifier;
+8. converting a market-data calculation into a professional/certified valuation opinion.
 
 ## Public-source research basis — 29 Sep 2026
 
-The official REGA Real Estate Indicators platform publicly states that it provides real-estate sale and rental market indicators and historical deal views. It identifies official data sources including Ministry of Justice, Real Estate Registry and Ejar, and publishes index series linked to official statistical sources including GASTAT.
+The official REGA Real Estate Indicators platform publicly states that it provides real-estate sale and rental market indicators and historical sale-deal views. It identifies official upstream data sources including Ministry of Justice, Real Estate Registry and Ejar, and publishes index series linked to official statistical sources including GASTAT.
 
 Reference pages used for Phase-0 source classification:
 
@@ -29,6 +33,8 @@ Reference pages used for Phase-0 source classification:
 
 These public references establish **source identity and public-service existence only**. They do not establish API availability, bulk-download rights, licensing, redistribution rights, SLA, authentication method or production-use permission.
 
+C2 therefore narrows REGA's Phase-0 scope deliberately: REGA may support historical closed-sale evidence and sale/rent aggregate or index evidence where the field semantics are independently verified, but C2 does **not** infer row-level closed-rent transaction authority from REGA's aggregate rental indicators. Row-level registered rent evidence is modeled separately under Ejar, subject to independent access and field-level verification.
+
 ## Contract
 
 Schema version: `C2_MARKET_EVIDENCE_V1`
@@ -39,6 +45,8 @@ Evidence types are explicitly separated:
 - `CLOSED_RENT_TRANSACTION`
 - `ASKING_SALE_LISTING`
 - `ASKING_RENT_LISTING`
+- `SALE_MARKET_AGGREGATE`
+- `RENT_MARKET_AGGREGATE`
 - `SALE_PRICE_INDEX`
 - `RENT_INDEX`
 - `MARKET_LIQUIDITY_INDICATOR`
@@ -59,27 +67,58 @@ Authoritative evidence requires:
 - exact geography binding;
 - exact asset-type binding;
 - registered official source compatible with the evidence type;
-- official-domain source URL and source reference;
+- HTTPS official-domain source URL and source reference;
 - trusted verifier and verification reference;
 - governed freshness policy;
-- non-future observation timestamp and non-stale validity window;
+- explicit `effectiveAt` for the economic/market observation being represented;
+- explicit `observedAt` for when the evidence was obtained/verified;
+- `effectiveAt <= observedAt <= asOf`;
+- non-stale validity window;
 - JSON-safe deterministic normalized value;
 - official resolution method appropriate to the evidence type.
 
 Closed transactions additionally require a stable `transactionKey` and a usable price/rent-per-square-metre metric, supplied directly or deterministically derived from total amount and area.
 
+Official aggregates/indices additionally require both:
+
+- `seriesKey` — identity of the official series;
+- `periodKey` — identity of the observation period.
+
+This prevents legitimate quarter-to-quarter or month-to-month changes in the same series from being treated as contradictory evidence.
+
 ## Minimum comparable count
 
 C2 intentionally does **not** hard-code a universal minimum comparable count.
 
-Decision readiness requires an evaluator-supplied minimum-count policy whose `policyId` is present in a separately governed policy allow-list. This prevents a caller from inventing a threshold ad hoc while also avoiding an unsupported universal threshold in the engine.
+Decision readiness selects a `minimumCountPolicyId`, but the threshold values are read from an evaluator-supplied **governed minimum-count policy registry**. The evidence payload cannot supply or lower those threshold values. If the selected policy is absent, malformed, or lacks a required evidence-type threshold, C2 fails closed.
+
+This distinguishes:
+
+- selecting an approved policy; from
+- defining the contents of that policy.
+
+The latter remains an external governance responsibility.
 
 ## Duplicate and conflict handling
 
-- the same transaction key with the same normalized value may be corroborated across official sources and is deduplicated;
-- the same transaction key with different normalized values is a hard evidence conflict and returns `HOLD_EVIDENCE`;
-- unrelated transaction keys remain separate comparables;
-- supplemental asking evidence never resolves an authoritative conflict.
+For closed transactions:
+
+- same transaction key + same normalized value may be corroborated across official sources and is deduplicated;
+- same transaction key + different normalized value is a hard conflict and returns `HOLD_EVIDENCE`.
+
+For official aggregates/indices:
+
+- identity is `evidenceType + seriesKey + periodKey`;
+- different periods in the same series remain distinct valid observations;
+- same series and same period with different normalized values returns `HOLD_EVIDENCE`.
+
+Supplemental asking evidence never resolves an authoritative conflict.
+
+## Supplemental asking/listing evidence
+
+Asking evidence is structurally supplemental. It may be retained for context but cannot satisfy an authoritative evidence requirement or enter the authoritative closed-transaction distribution.
+
+If a supplemental URL is supplied, C2 requires a syntactically valid HTTP(S) URL. This is transport hygiene only and does not promote that source to official authority.
 
 ## Sandbox boundary
 
@@ -95,7 +134,9 @@ It always creates:
 - no transaction authority;
 - no Public AI authority.
 
-For evidence labelled as an official/authoritative type, the Sandbox checks source registry scope and official-domain alignment but **cannot** convert that capture into trusted official evidence.
+The Sandbox can preserve `effectiveAt`, `seriesKey` and `periodKey` for later verification, but it cannot establish their authority.
+
+For evidence labelled as an official/authoritative type, the Sandbox checks source-registry scope and official-domain alignment but **cannot** convert that capture into trusted official evidence.
 
 ## Explicit non-authority
 
@@ -124,8 +165,9 @@ Current governance remains:
 1. independently verify machine-access/API/licensing path for each production source;
 2. name and govern the trusted-verifier registry owner;
 3. name and govern freshness-policy ownership;
-4. establish minimum-comparable policies by decision/use case;
-5. privacy/security review for location and transaction evidence;
-6. review field-level source semantics and transformation rules;
-7. human review and explicit integration authorization;
-8. regression, provenance, security and decision-integrity qualification on the eventual integration head.
+4. establish governed minimum-comparable policy definitions by decision/use case;
+5. verify row-level field semantics for each transaction source independently from aggregate indicators;
+6. privacy/security review for location and transaction evidence;
+7. review source-specific transformation and deduplication rules;
+8. human review and explicit integration authorization;
+9. regression, provenance, security and decision-integrity qualification on the eventual integration head.
