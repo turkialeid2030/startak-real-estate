@@ -16,6 +16,16 @@ function assertPlainObject(value, name) {
   }
 }
 
+function cloneAssumptionRegistry(value) {
+  if (value === undefined || value === null) return null;
+  if (!Array.isArray(value)) return value;
+  return value.map((item) => (
+    item && typeof item === 'object' && !Array.isArray(item)
+      ? { ...item }
+      : item
+  ));
+}
+
 function cloneDealRecord(record) {
   assertPlainObject(record, 'deal record');
   return {
@@ -23,6 +33,7 @@ function cloneDealRecord(record) {
     inputs: record.inputs && typeof record.inputs === 'object' && !Array.isArray(record.inputs)
       ? { ...record.inputs }
       : {},
+    assumptionRegistry: cloneAssumptionRegistry(record.assumptionRegistry),
   };
 }
 
@@ -31,6 +42,9 @@ function createFreshWorkspaceState(defaultInputs) {
   return {
     assumptionModelVersion: ASSUMPTION_MODEL_VERSION.V2,
     inputs: { ...defaultInputs },
+    // P25: a fresh deal has no override provenance until the user supplies it.
+    // `null` is intentional and must never be expanded into synthetic approval.
+    assumptionRegistry: null,
     legacyCompatibility: false,
     explicitUpgradeRequired: false,
     transactionAuthorized: false,
@@ -60,6 +74,7 @@ function hydrateSavedDealForUi(record, defaultInputs) {
   return {
     assumptionModelVersion,
     inputs,
+    assumptionRegistry: cloneAssumptionRegistry(record.assumptionRegistry),
     legacyCompatibility: assumptionModelVersion === ASSUMPTION_MODEL_VERSION.LEGACY,
     explicitUpgradeRequired: assumptionModelVersion === ASSUMPTION_MODEL_VERSION.LEGACY,
     transactionAuthorized: false,
@@ -80,9 +95,11 @@ function explicitlyUpgradeUiDeal(record) {
   const upgraded = upgradeDealToV2(cloneDealRecord(record));
   // Upgrading changes the governing model version but must never invent new
   // deal evidence. If the legacy record did not persist exit assumptions, V2
-  // remains incomplete until they are explicitly supplied.
+  // remains incomplete until they are explicitly supplied. P25 override
+  // provenance is carried forward byte-for-byte at the field level.
   return {
     ...upgraded,
+    assumptionRegistry: cloneAssumptionRegistry(upgraded.assumptionRegistry),
     transactionAuthorized: false,
   };
 }
