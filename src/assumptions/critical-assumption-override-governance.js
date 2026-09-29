@@ -24,10 +24,24 @@ function cleanString(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-function validDateString(value) {
+function parseDateString(value) {
   const text = cleanString(value);
-  if (!text) return false;
-  return Number.isFinite(new Date(text).getTime());
+  if (!text) return null;
+  const parsed = new Date(text);
+  return Number.isFinite(parsed.getTime()) ? parsed : null;
+}
+
+function validDateString(value) {
+  return parseDateString(value) !== null;
+}
+
+function resolveAsOf(value) {
+  if (value === undefined || value === null) return new Date();
+  const parsed = value instanceof Date ? new Date(value.getTime()) : new Date(value);
+  if (!Number.isFinite(parsed.getTime())) {
+    throw new TypeError('asOf must be a valid date');
+  }
+  return parsed;
 }
 
 function percentDelta(baselineValue, overrideValue) {
@@ -51,7 +65,7 @@ function emptyGovernance(modelVersion, status = 'NO_OVERRIDES') {
   });
 }
 
-function buildCriticalAssumptionOverrideGovernance({ assumptionRegistry, assumptionModelVersion } = {}) {
+function buildCriticalAssumptionOverrideGovernance({ assumptionRegistry, assumptionModelVersion, asOf } = {}) {
   const modelVersion = assumptionModelVersion || ASSUMPTION_MODEL_VERSION.LEGACY;
   if (modelVersion !== ASSUMPTION_MODEL_VERSION.V2) {
     return emptyGovernance(modelVersion, 'NOT_APPLICABLE');
@@ -81,6 +95,7 @@ function buildCriticalAssumptionOverrideGovernance({ assumptionRegistry, assumpt
 
   if (candidatesById.size === 0) return emptyGovernance(modelVersion);
 
+  const asOfDate = resolveAsOf(asOf);
   const overrides = [];
   const resolvedOverrides = {};
   const blockers = [];
@@ -118,16 +133,32 @@ function buildCriticalAssumptionOverrideGovernance({ assumptionRegistry, assumpt
     const approvalReference = cleanString(item.approvalReference);
     const approvedAt = cleanString(item.approvedAt);
     const approvalStatus = cleanString(item.approvalStatus);
+    const expiresAt = cleanString(item.expiresAt);
 
-    if (!sourceType || !sourceReference || !validDateString(sourceDate)) {
+    const parsedSourceDate = parseDateString(sourceDate);
+    const parsedApprovedAt = parseDateString(approvedAt);
+    const parsedExpiresAt = expiresAt ? parseDateString(expiresAt) : null;
+
+    if (!sourceType || !sourceReference || !parsedSourceDate) {
       itemBlockers.push(`CRITICAL_OVERRIDE_SOURCE_EVIDENCE_REQUIRED:${id}`);
+    } else if (parsedSourceDate.getTime() > asOfDate.getTime()) {
+      itemBlockers.push(`CRITICAL_OVERRIDE_SOURCE_DATE_IN_FUTURE:${id}`);
     }
     if (!reason) itemBlockers.push(`CRITICAL_OVERRIDE_REASON_REQUIRED:${id}`);
     if (!approver) itemBlockers.push(`CRITICAL_OVERRIDE_APPROVER_REQUIRED:${id}`);
     if (!approvalReference) itemBlockers.push(`CRITICAL_OVERRIDE_APPROVAL_REFERENCE_REQUIRED:${id}`);
-    if (!validDateString(approvedAt)) itemBlockers.push(`CRITICAL_OVERRIDE_APPROVAL_DATE_REQUIRED:${id}`);
+    if (!parsedApprovedAt) {
+      itemBlockers.push(`CRITICAL_OVERRIDE_APPROVAL_DATE_REQUIRED:${id}`);
+    } else if (parsedApprovedAt.getTime() > asOfDate.getTime()) {
+      itemBlockers.push(`CRITICAL_OVERRIDE_APPROVAL_DATE_IN_FUTURE:${id}`);
+    }
     if (approvalStatus !== CRITICAL_ASSUMPTION_APPROVAL_STATUS.APPROVED) {
       itemBlockers.push(`CRITICAL_OVERRIDE_APPROVAL_STATUS_REQUIRED:${id}`);
+    }
+    if (expiresAt && !parsedExpiresAt) {
+      itemBlockers.push(`CRITICAL_OVERRIDE_EXPIRY_DATE_INVALID:${id}`);
+    } else if (parsedExpiresAt && parsedExpiresAt.getTime() < asOfDate.getTime()) {
+      itemBlockers.push(`CRITICAL_OVERRIDE_EXPIRED:${id}`);
     }
 
     const baselineValue = V2_CANONICAL_ASSUMPTIONS[id];
@@ -144,11 +175,11 @@ function buildCriticalAssumptionOverrideGovernance({ assumptionRegistry, assumpt
       provenance: {
         sourceType: sourceType || null,
         sourceReference: sourceReference || null,
-        sourceDate: validDateString(sourceDate) ? new Date(sourceDate).toISOString() : null,
+        sourceDate: parsedSourceDate ? parsedSourceDate.toISOString() : null,
         reason: reason || null,
         approver: approver || null,
         approvalReference: approvalReference || null,
-        approvedAt: validDateString(approvedAt) ? new Date(approvedAt).toISOString() : null,
+        approvedAt: parsedApprovedAt ? parsedApprovedAt.toISOString() : null,
         approvalStatus: approvalStatus || null,
       },
     };
@@ -168,10 +199,10 @@ function buildCriticalAssumptionOverrideGovernance({ assumptionRegistry, assumpt
     overrides,
     blockers,
     notice_ar: hasIncompleteCriticalOverrides
-      ? 'تجاوز افتراض حرج غير مكتمل التوثيق؛ النتائج التحليلية تبقى ظاهرة لكنها غير جاهزة للقرار.'
+      ? 'تجاوز افتراض حرج غير مكتمل التوثيق أو غير صالح زمنياً؛ النتائج التحليلية تبقى ظاهرة لكنها غير جاهزة للقرار.'
       : null,
     notice_en: hasIncompleteCriticalOverrides
-      ? 'A critical assumption override is incompletely documented; analytical results remain visible but are not decision-ready.'
+      ? 'A critical assumption override has incomplete or temporally invalid evidence; analytical results remain visible but are not decision-ready.'
       : null,
   });
 }
