@@ -53,6 +53,7 @@ function createSandboxMethodIndicationDraft(raw = {}) {
     id: cleanString(raw.id) || null,
     sourceResult,
     recognizedApproachFamily: model.approachFamily,
+    recognizedValueScope: model.valueScope,
     recognizedModelVersion: modelVersion,
     verifiedBy: null,
     verificationReference: null,
@@ -63,7 +64,7 @@ function createSandboxMethodIndicationDraft(raw = {}) {
     certifiedValuationEstablished: false,
     transactionAuthorized: false,
     publicAiAuthorized: false,
-    semantics: 'Sandbox method draft only. Recognition of a model version does not verify the result, its source hash, its evidence dependencies or its professional suitability for reconciliation.',
+    semantics: 'Sandbox method draft only. Recognition of a model version and value scope does not verify the result, its source hash, its evidence dependencies or its professional suitability for reconciliation.',
   });
 }
 
