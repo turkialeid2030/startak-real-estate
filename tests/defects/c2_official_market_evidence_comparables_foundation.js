@@ -24,15 +24,12 @@ const ASSET_TYPE = 'OFFICE';
 const TRUSTED_VERIFIER = 'C2-TEST-VERIFIER';
 const FRESHNESS_POLICY = 'C2-TEST-FRESHNESS';
 const MINIMUM_POLICY = 'C2-TEST-MINIMUM-COMPS';
-
-function minimumCountPolicy(count = 3) {
-  return {
-    policyId: MINIMUM_POLICY,
-    minimumByEvidenceType: {
-      [MARKET_EVIDENCE_TYPE.CLOSED_SALE_TRANSACTION]: count,
-    },
-  };
-}
+const INDEX_MINIMUM_POLICY = 'C2-TEST-INDEX-MINIMUM';
+const GOVERNED_MINIMUM_POLICIES = Object.freeze({
+  [MINIMUM_POLICY]: Object.freeze({
+    [MARKET_EVIDENCE_TYPE.CLOSED_SALE_TRANSACTION]: 3,
+  }),
+});
 
 function evaluate(evidenceRecords, options = {}) {
   return evaluateMarketEvidenceBundle({
@@ -43,8 +40,8 @@ function evaluate(evidenceRecords, options = {}) {
     asOf: AS_OF,
     trustedVerifierIds: [TRUSTED_VERIFIER],
     governedFreshnessPolicyIds: [FRESHNESS_POLICY],
-    governedMinimumCountPolicyIds: [MINIMUM_POLICY],
-    minimumCountPolicy: minimumCountPolicy(),
+    minimumCountPolicyId: MINIMUM_POLICY,
+    governedMinimumCountPolicies: GOVERNED_MINIMUM_POLICIES,
     ...options,
   });
 }
@@ -68,6 +65,33 @@ function saleRecord(index, overrides = {}) {
     verifiedBy: TRUSTED_VERIFIER,
     verificationReference: `C2-VERIFY-${index}`,
     freshnessPolicyId: FRESHNESS_POLICY,
+    effectiveAt: `2026-09-${20 + index}T10:00:00.000Z`,
+    observedAt: '2026-09-29T12:00:00.000Z',
+    validUntil: '2026-10-29T12:00:00.000Z',
+    ...overrides,
+  };
+}
+
+function indexRecord(periodKey, indexValue, effectiveAt, overrides = {}) {
+  return {
+    id: `c2-index-${periodKey}`,
+    marketContextId: MARKET_CONTEXT_ID,
+    geographyKey: GEOGRAPHY_KEY,
+    assetType: ASSET_TYPE,
+    evidenceType: MARKET_EVIDENCE_TYPE.SALE_PRICE_INDEX,
+    evidenceClass: MARKET_EVIDENCE_CLASS.AUTHORITATIVE_AGGREGATE,
+    normalizedValue: { indexValue },
+    sourceId: 'GASTAT_REAL_ESTATE_INDICES',
+    sourceReference: `GASTAT-REPI-${periodKey}`,
+    sourceUrl: 'https://www.stats.gov.sa/',
+    seriesKey: 'GASTAT-REAL-ESTATE-PRICE-INDEX',
+    periodKey,
+    resolutionMethod: MARKET_RESOLUTION_METHOD.OFFICIAL_PUBLISHED_INDICATOR,
+    verificationStatus: MARKET_VERIFICATION_STATUS.VERIFIED,
+    verifiedBy: TRUSTED_VERIFIER,
+    verificationReference: `C2-VERIFY-INDEX-${periodKey}`,
+    freshnessPolicyId: FRESHNESS_POLICY,
+    effectiveAt,
     observedAt: '2026-09-29T12:00:00.000Z',
     validUntil: '2026-10-29T12:00:00.000Z',
     ...overrides,
@@ -79,8 +103,11 @@ function threeSales() {
 }
 
 assert.equal(marketSourceSupportsEvidenceType('REGA_REAL_ESTATE_INDICATORS', MARKET_EVIDENCE_TYPE.CLOSED_SALE_TRANSACTION), true);
+assert.equal(marketSourceSupportsEvidenceType('REGA_REAL_ESTATE_INDICATORS', MARKET_EVIDENCE_TYPE.CLOSED_RENT_TRANSACTION), false);
+assert.equal(marketSourceSupportsEvidenceType('REGA_REAL_ESTATE_INDICATORS', MARKET_EVIDENCE_TYPE.RENT_MARKET_AGGREGATE), true);
 assert.equal(marketSourceSupportsEvidenceType('GASTAT_REAL_ESTATE_INDICES', MARKET_EVIDENCE_TYPE.CLOSED_SALE_TRANSACTION), false);
 assert.equal(officialMarketUrlMatchesSource('REGA_REAL_ESTATE_INDICATORS', 'https://rei.rega.gov.sa/ar'), true);
+assert.equal(officialMarketUrlMatchesSource('REGA_REAL_ESTATE_INDICATORS', 'http://rei.rega.gov.sa/ar'), false);
 assert.equal(officialMarketUrlMatchesSource('REGA_REAL_ESTATE_INDICATORS', 'https://example.com/fake'), false);
 for (const source of Object.values(OFFICIAL_MARKET_SOURCE_REGISTRY)) {
   assert.equal(source.productionAdapterEnabled, false, `${source.id}: production adapter must remain disabled in C2 Phase 0`);
@@ -97,13 +124,23 @@ const noMinimumPolicy = evaluateMarketEvidenceBundle({
 });
 assert.equal(noMinimumPolicy.status, MARKET_GATE_STATUS.HOLD_EVIDENCE);
 assert.ok(noMinimumPolicy.blockers.includes('C2_MINIMUM_COUNT_POLICY_ID_REQUIRED'));
-assert.ok(noMinimumPolicy.blockers.includes('C2_MINIMUM_COUNT_POLICY_MAP_REQUIRED'));
+assert.ok(noMinimumPolicy.blockers.includes('C2_MINIMUM_COUNT_REQUIRED:CLOSED_SALE_TRANSACTION'));
 
 const inventedMinimumPolicy = evaluate(threeSales(), {
-  governedMinimumCountPolicyIds: [],
+  minimumCountPolicyId: 'CALLER-INVENTED-POLICY',
 });
 assert.equal(inventedMinimumPolicy.status, MARKET_GATE_STATUS.HOLD_EVIDENCE);
-assert.ok(inventedMinimumPolicy.blockers.includes(`C2_MINIMUM_COUNT_POLICY_NOT_GOVERNED:${MINIMUM_POLICY}`));
+assert.ok(inventedMinimumPolicy.blockers.includes('C2_MINIMUM_COUNT_POLICY_NOT_GOVERNED:CALLER-INVENTED-POLICY'));
+
+const attemptedCountSpoof = evaluate([saleRecord(1)], {
+  minimumCountPolicy: {
+    policyId: MINIMUM_POLICY,
+    minimumByEvidenceType: { [MARKET_EVIDENCE_TYPE.CLOSED_SALE_TRANSACTION]: 1 },
+  },
+});
+assert.equal(attemptedCountSpoof.status, MARKET_GATE_STATUS.HOLD_EVIDENCE);
+assert.ok(attemptedCountSpoof.blockers.includes('C2_MINIMUM_COMPARABLES_NOT_MET:CLOSED_SALE_TRANSACTION:1/3'));
+assert.equal(attemptedCountSpoof.minimumCountPolicy.minimumByEvidenceType.CLOSED_SALE_TRANSACTION, 3);
 
 const empty = evaluate([]);
 assert.equal(empty.status, MARKET_GATE_STATUS.HOLD_EVIDENCE);
@@ -124,6 +161,7 @@ assert.equal(ready.distributions.closedSalePricePerSqmSar.max, 12000);
 assert.equal(ready.askingEvidenceIncludedInAuthoritativeDistribution, false);
 assert.equal(ready.professionalValuationOpinion, false);
 assert.equal(ready.transactionAuthorized, false);
+assert.equal(ready.authoritativeEvidence[0].effectiveAt.startsWith('2026-09-21'), true);
 
 const asking = {
   id: 'c2-asking-1',
@@ -146,6 +184,12 @@ assert.equal(withAsking.authoritativeEvidence.length, 3);
 assert.equal(withAsking.supplementalAskingEvidence.length, 1);
 assert.equal(withAsking.distributions.closedSalePricePerSqmSar.median, 10000);
 assert.equal(withAsking.askingEvidenceIncludedInAuthoritativeDistribution, false);
+
+const badAskingUrl = { ...asking, id: 'c2-asking-bad-url', sourceUrl: 'javascript:alert(1)' };
+const withBadAsking = evaluate([...threeSales(), badAskingUrl]);
+assert.equal(withBadAsking.status, MARKET_GATE_STATUS.READY);
+assert.equal(withBadAsking.supplementalAskingEvidence.length, 0);
+assert.ok(withBadAsking.records[3].blockers.includes('C2_SUPPLEMENTAL_SOURCE_URL_INVALID:ASKING_SALE_LISTING'));
 
 assert.throws(() => evaluateMarketEvidenceBundle({
   marketContextId: MARKET_CONTEXT_ID,
@@ -174,6 +218,23 @@ stale[2] = { ...stale[2], validUntil: '2026-09-28T23:00:00.000Z' };
 const staleHeld = evaluate(stale);
 assert.equal(staleHeld.status, MARKET_GATE_STATUS.HOLD_EVIDENCE);
 assert.ok(staleHeld.records[2].blockers.includes('C2_EVIDENCE_STALE:CLOSED_SALE_TRANSACTION'));
+
+const futureEffective = threeSales();
+futureEffective[0] = { ...futureEffective[0], effectiveAt: '2026-09-30T10:00:00.000Z' };
+const futureEffectiveHeld = evaluate(futureEffective);
+assert.equal(futureEffectiveHeld.status, MARKET_GATE_STATUS.HOLD_EVIDENCE);
+assert.ok(futureEffectiveHeld.records[0].blockers.includes('C2_FUTURE_EFFECTIVE_TIMESTAMP:CLOSED_SALE_TRANSACTION'));
+assert.ok(futureEffectiveHeld.records[0].blockers.includes('C2_EFFECTIVE_AFTER_OBSERVATION:CLOSED_SALE_TRANSACTION'));
+
+const effectiveAfterObservation = threeSales();
+effectiveAfterObservation[1] = {
+  ...effectiveAfterObservation[1],
+  effectiveAt: '2026-09-29T13:00:00.000Z',
+  observedAt: '2026-09-29T12:00:00.000Z',
+};
+const temporalHeld = evaluate(effectiveAfterObservation);
+assert.equal(temporalHeld.status, MARKET_GATE_STATUS.HOLD_EVIDENCE);
+assert.ok(temporalHeld.records[1].blockers.includes('C2_EFFECTIVE_AFTER_OBSERVATION:CLOSED_SALE_TRANSACTION'));
 
 const scopeMismatch = threeSales();
 scopeMismatch[0] = {
@@ -230,5 +291,39 @@ assert.equal(corroboratedReady.authoritativeEvidence.length, 3);
 const sale1 = corroboratedReady.authoritativeEvidence.find((record) => record.transactionKey === 'SALE-1');
 assert.equal(sale1.sourceCount, 2);
 assert.deepEqual([...sale1.corroboratingSourceIds].sort(), ['REAL_ESTATE_REGISTRY_MARKET_RECORDS', 'REGA_REAL_ESTATE_INDICATORS'].sort());
+
+const indexPolicies = Object.freeze({
+  [INDEX_MINIMUM_POLICY]: Object.freeze({
+    [MARKET_EVIDENCE_TYPE.SALE_PRICE_INDEX]: 2,
+  }),
+});
+const indexSeries = evaluate([
+  indexRecord('2026-Q1', 101.2, '2026-03-31T00:00:00.000Z'),
+  indexRecord('2026-Q2', 103.6, '2026-06-30T00:00:00.000Z'),
+], {
+  requiredEvidenceTypes: [MARKET_EVIDENCE_TYPE.SALE_PRICE_INDEX],
+  minimumCountPolicyId: INDEX_MINIMUM_POLICY,
+  governedMinimumCountPolicies: indexPolicies,
+});
+assert.equal(indexSeries.status, MARKET_GATE_STATUS.READY);
+assert.equal(indexSeries.authoritativeEvidence.length, 2);
+assert.deepEqual(indexSeries.conflictKeys, []);
+assert.deepEqual(indexSeries.authoritativeEvidence.map((record) => record.periodKey), ['2026-Q1', '2026-Q2']);
+
+const samePeriodConflict = evaluate([
+  indexRecord('2026-Q2', 103.6, '2026-06-30T00:00:00.000Z'),
+  indexRecord('2026-Q2', 109.9, '2026-06-30T00:00:00.000Z', {
+    id: 'c2-index-2026-Q2-conflict',
+    sourceReference: 'GASTAT-REPI-2026-Q2-CONFLICT',
+    verificationReference: 'C2-VERIFY-INDEX-2026-Q2-CONFLICT',
+  }),
+], {
+  requiredEvidenceTypes: [MARKET_EVIDENCE_TYPE.SALE_PRICE_INDEX],
+  minimumCountPolicyId: INDEX_MINIMUM_POLICY,
+  governedMinimumCountPolicies: indexPolicies,
+});
+assert.equal(samePeriodConflict.status, MARKET_GATE_STATUS.HOLD_EVIDENCE);
+assert.ok(samePeriodConflict.blockers.includes('C2_EVIDENCE_CONFLICT:SERIES:SALE_PRICE_INDEX:GASTAT-REAL-ESTATE-PRICE-INDEX:2026-Q2'));
+assert.ok(samePeriodConflict.blockers.includes('C2_MINIMUM_COMPARABLES_NOT_MET:SALE_PRICE_INDEX:0/2'));
 
 console.log('C2_OFFICIAL_MARKET_EVIDENCE_COMPARABLES_FOUNDATION=PASS');
