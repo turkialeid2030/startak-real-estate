@@ -7,6 +7,7 @@ const { applyExistingBuildingExitCostGovernance } = require('./valuation/existin
 const { applyExistingBuildingLeaseRollForwardGovernance } = require('./valuation/existing-building-lease-roll-forward-governance');
 const { applyFinancingRemediation } = require('./financing/remediation-wave-b');
 const { STUDY_TYPE, STUDY_TYPE_TO_LEGACY_MODE } = require('../contracts/study-type');
+const { buildFinancialTimingBasis } = require('../contracts/financial-timing-basis');
 const { validateEngineInputs } = require('../validation/numeric-safety');
 const { validateSupportedFinancialHorizons } = require('../validation/financial-horizon-support');
 const { INTERNAL_CRITICAL_OVERRIDE_KEY } = require('../assumptions/assumption-model');
@@ -219,10 +220,14 @@ function calculateInvestmentCase({ studyType, inputs, leverageEnabled, assumptio
   // Its arithmetic is replacement cost new plus the user-entered land-value
   // indication; it does not use building age, determine market value, or create
   // an accredited valuation. Do not invent depreciation/obsolescence economics.
+  // P26 / #404: timingBasis is methodology metadata only. It makes the model's
+  // periodic annual NPV/IRR convention and construction-debt timing explicit
+  // without changing a single analytical value.
   const canonicalResult = {
     ...economicResult,
     ...canonicalMetadata,
     priceBasis: buildPriceBasis(studyType),
+    timingBasis: buildFinancialTimingBasis(studyType),
   };
 
   // P25 is deliberately post-calculation. Missing source/approval evidence on
