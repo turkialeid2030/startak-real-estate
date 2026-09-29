@@ -61,7 +61,6 @@ function completeRequiredEvidence() {
   ];
 }
 
-// Registry must remain scope-specific and live adapters disabled by default.
 assert.equal(sourceSupportsEvidenceType('BALADY_URBAN_MAPS', GEOSPATIAL_EVIDENCE_TYPE.ZONING_BUILDABILITY), true);
 assert.equal(sourceSupportsEvidenceType('REAL_ESTATE_REGISTRY', GEOSPATIAL_EVIDENCE_TYPE.ZONING_BUILDABILITY), false);
 assert.equal(officialUrlMatchesSource('REAL_ESTATE_REGISTRY', 'https://www.rer.sa/'), true);
@@ -70,7 +69,6 @@ for (const source of Object.values(OFFICIAL_SOURCE_REGISTRY)) {
   assert.equal(source.productionAdapterEnabled, false, `${source.id}: live production adapter must remain disabled in C1 foundation`);
 }
 
-// Missing official evidence must fail closed.
 const empty = evaluateGeospatialEvidenceBundle({ evidenceRecords: [], asOf: AS_OF });
 assert.equal(empty.status, GEOSPATIAL_GATE_STATUS.HOLD_EVIDENCE);
 assert.equal(empty.decisionReady, false);
@@ -81,8 +79,6 @@ assert.equal(empty.transactionAuthorized, false);
 assert.equal(empty.professionalValuationOpinion, false);
 assert.equal(empty.bindingZoningDetermination, false);
 
-// Complete, current, scope-valid official evidence can make C1 evidence-ready,
-// without creating transaction or professional authority.
 const ready = evaluateGeospatialEvidenceBundle({ evidenceRecords: completeRequiredEvidence(), asOf: AS_OF });
 assert.equal(ready.status, GEOSPATIAL_GATE_STATUS.READY);
 assert.equal(ready.decisionReady, true);
@@ -94,7 +90,6 @@ assert.equal(ready.publicAiAuthorized, false);
 assert.equal(ready.professionalValuationOpinion, false);
 assert.equal(ready.bindingZoningDetermination, false);
 
-// User-supplied critical parcel identity is not promoted to official evidence.
 const userParcel = completeRequiredEvidence();
 userParcel[0] = { ...userParcel[0], resolutionMethod: GEOSPATIAL_RESOLUTION_METHOD.USER_SUPPLIED };
 const userParcelHeld = evaluateGeospatialEvidenceBundle({ evidenceRecords: userParcel, asOf: AS_OF });
@@ -102,21 +97,18 @@ assert.equal(userParcelHeld.status, GEOSPATIAL_GATE_STATUS.HOLD_EVIDENCE);
 assert.ok(userParcelHeld.blockers.includes('C1_OFFICIAL_RESOLUTION_REQUIRED:PARCEL_IDENTITY'));
 assert.ok(userParcelHeld.blockers.includes('C1_REQUIRED_EVIDENCE_MISSING:PARCEL_IDENTITY'));
 
-// Stale critical evidence must fail closed; no universal freshness period is invented.
 const stale = completeRequiredEvidence();
 stale[2] = { ...stale[2], validUntil: '2026-09-28T23:59:59.000Z' };
 const staleHeld = evaluateGeospatialEvidenceBundle({ evidenceRecords: stale, asOf: AS_OF });
 assert.equal(staleHeld.status, GEOSPATIAL_GATE_STATUS.HOLD_EVIDENCE);
 assert.ok(staleHeld.blockers.includes('C1_EVIDENCE_STALE:ZONING_BUILDABILITY'));
 
-// Future-dated evidence cannot be used to create present decision readiness.
 const future = completeRequiredEvidence();
 future[1] = { ...future[1], observedAt: '2026-09-30T00:00:00.000Z', validUntil: '2026-10-30T00:00:00.000Z' };
 const futureHeld = evaluateGeospatialEvidenceBundle({ evidenceRecords: future, asOf: AS_OF });
 assert.equal(futureHeld.status, GEOSPATIAL_GATE_STATUS.HOLD_EVIDENCE);
 assert.ok(futureHeld.blockers.includes('C1_FUTURE_EVIDENCE_TIMESTAMP:LAND_USE'));
 
-// A source cannot be reused outside its registered authority scope.
 const scopeMismatch = completeRequiredEvidence();
 scopeMismatch[2] = {
   ...scopeMismatch[2],
@@ -128,15 +120,29 @@ const scopeHeld = evaluateGeospatialEvidenceBundle({ evidenceRecords: scopeMisma
 assert.equal(scopeHeld.status, GEOSPATIAL_GATE_STATUS.HOLD_EVIDENCE);
 assert.ok(scopeHeld.blockers.includes('C1_SOURCE_SCOPE_MISMATCH:REAL_ESTATE_REGISTRY:ZONING_BUILDABILITY'));
 
-// Official source identity requires an official-domain URL, not a label only.
 const badDomain = completeRequiredEvidence();
 badDomain[1] = { ...badDomain[1], sourceUrl: 'https://example.com/fake-balady' };
 const badDomainHeld = evaluateGeospatialEvidenceBundle({ evidenceRecords: badDomain, asOf: AS_OF });
 assert.equal(badDomainHeld.status, GEOSPATIAL_GATE_STATUS.HOLD_EVIDENCE);
 assert.ok(badDomainHeld.blockers.includes('C1_OFFICIAL_SOURCE_URL_REQUIRED:BALADY_URBAN_MAPS'));
 
-// Conflicting critical facts are HOLD_EVIDENCE; C1 does not choose whichever
-// official source/value is more convenient.
+// Non-JSON or cyclic values must fail closed rather than throwing or producing
+// ambiguous hashes that could collide with legitimate evidence.
+const nonFinite = completeRequiredEvidence();
+nonFinite[1] = { ...nonFinite[1], normalizedValue: { useCode: 'RESIDENTIAL', ratio: Number.NaN } };
+const nonFiniteHeld = evaluateGeospatialEvidenceBundle({ evidenceRecords: nonFinite, asOf: AS_OF });
+assert.equal(nonFiniteHeld.status, GEOSPATIAL_GATE_STATUS.HOLD_EVIDENCE);
+assert.ok(nonFiniteHeld.blockers.includes('C1_NORMALIZED_VALUE_JSON_REQUIRED:LAND_USE'));
+
+const cyclicValue = { useCode: 'RESIDENTIAL' };
+cyclicValue.self = cyclicValue;
+const cyclic = completeRequiredEvidence();
+cyclic[1] = { ...cyclic[1], normalizedValue: cyclicValue };
+assert.doesNotThrow(() => evaluateGeospatialEvidenceBundle({ evidenceRecords: cyclic, asOf: AS_OF }));
+const cyclicHeld = evaluateGeospatialEvidenceBundle({ evidenceRecords: cyclic, asOf: AS_OF });
+assert.equal(cyclicHeld.status, GEOSPATIAL_GATE_STATUS.HOLD_EVIDENCE);
+assert.ok(cyclicHeld.blockers.includes('C1_NORMALIZED_VALUE_JSON_REQUIRED:LAND_USE'));
+
 const conflict = completeRequiredEvidence();
 conflict.push({
   ...conflict[2],
@@ -149,7 +155,6 @@ assert.equal(conflictHeld.status, GEOSPATIAL_GATE_STATUS.HOLD_EVIDENCE);
 assert.ok(conflictHeld.blockers.includes('C1_EVIDENCE_CONFLICT:ZONING_BUILDABILITY'));
 assert.equal(conflictHeld.resolvedEvidence.ZONING_BUILDABILITY, undefined);
 
-// Matching independent sources can corroborate an optional/critical context fact.
 const corroborated = completeRequiredEvidence();
 const roadValue = { roadClass: 'PRIMARY', access: true };
 corroborated.push(baseRecord({

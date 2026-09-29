@@ -30,6 +30,24 @@ function toTimestamp(value) {
   return Number.isFinite(ms) ? ms : null;
 }
 
+function isJsonSafe(value, seen = new Set()) {
+  if (value === null) return true;
+  if (typeof value === 'string' || typeof value === 'boolean') return true;
+  if (typeof value === 'number') return Number.isFinite(value);
+  if (typeof value !== 'object') return false;
+  if (seen.has(value)) return false;
+
+  const prototype = Object.getPrototypeOf(value);
+  if (!Array.isArray(value) && prototype !== Object.prototype && prototype !== null) return false;
+
+  seen.add(value);
+  const valid = Array.isArray(value)
+    ? value.every((item) => isJsonSafe(item, seen))
+    : Object.keys(value).every((key) => isJsonSafe(value[key], seen));
+  seen.delete(value);
+  return valid;
+}
+
 function canonicalize(value) {
   if (Array.isArray(value)) return value.map(canonicalize);
   if (value && typeof value === 'object') {
@@ -42,7 +60,14 @@ function canonicalize(value) {
 }
 
 function valueHash(value) {
-  return crypto.createHash('sha256').update(JSON.stringify(canonicalize(value))).digest('hex');
+  if (!isJsonSafe(value)) return null;
+  try {
+    const serialized = JSON.stringify(canonicalize(value));
+    if (typeof serialized !== 'string') return null;
+    return crypto.createHash('sha256').update(serialized).digest('hex');
+  } catch (_) {
+    return null;
+  }
 }
 
 function unique(values) {
@@ -109,14 +134,16 @@ function evaluateRecord(record, { asOfMs, requiredEvidenceTypes }) {
   const hasNormalizedValue = Object.prototype.hasOwnProperty.call(record, 'normalizedValue')
     && record.normalizedValue !== undefined
     && record.normalizedValue !== null;
+  const normalizedValueHash = hasNormalizedValue ? valueHash(record.normalizedValue) : null;
   if (!hasNormalizedValue) blockers.push(`C1_NORMALIZED_VALUE_REQUIRED:${evidenceType || 'UNKNOWN'}`);
+  else if (!normalizedValueHash) blockers.push(`C1_NORMALIZED_VALUE_JSON_REQUIRED:${evidenceType || 'UNKNOWN'}`);
 
   const normalized = {
     id: id || null,
     subjectId: subjectId || null,
     evidenceType: evidenceType || null,
     normalizedValue: hasNormalizedValue ? record.normalizedValue : null,
-    normalizedValueHash: hasNormalizedValue ? valueHash(record.normalizedValue) : null,
+    normalizedValueHash,
     sourceId: sourceId || null,
     sourceReference: sourceReference || null,
     sourceUrl: sourceUrl || null,
