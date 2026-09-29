@@ -13,6 +13,7 @@ const {
   MARKET_RESOLUTION_METHOD,
 } = require('../../src/contracts/market-evidence');
 const {
+  VALUATION_VALUE_SCOPE,
   RECONCILIATION_GATE_STATUS,
   RECONCILIATION_CONFIDENCE_CLASS,
 } = require('../../src/contracts/valuation-reconciliation');
@@ -23,14 +24,16 @@ const {
 const AS_OF = '2026-09-29T19:30:00.000Z';
 const PROPERTY_REF = 'property-001';
 const VALUATION_DATE = '2026-09-29T00:00:00.000Z';
+const VALUATION_SCOPE = VALUATION_VALUE_SCOPE.WHOLE_PROPERTY;
 const GEO_VERIFIER = 'C3-GEO-VERIFIER';
 const GEO_FRESHNESS = 'C3-GEO-FRESHNESS';
 const MARKET_VERIFIER = 'C3-MARKET-VERIFIER';
 const MARKET_FRESHNESS = 'C3-MARKET-FRESHNESS';
 const MARKET_MIN_POLICY = 'C3-MARKET-MIN-3';
+const MARKET_BINDER = 'C3-MARKET-CONTEXT-BINDER';
 const METHOD_VERIFIER = 'C3-METHOD-VERIFIER';
 const RECONCILER = 'C3-RECONCILER';
-const RECON_POLICY = 'C3-THREE-APPROACH-POLICY';
+const RECON_POLICY = 'C3-WHOLE-PROPERTY-INCOME-COST-POLICY';
 const MARKET_CONTEXT_ID = 'riyadh-office-market-001';
 const GEOGRAPHY_KEY = 'SA-RIYADH-OLAYA';
 const ASSET_TYPE = 'OFFICE';
@@ -130,6 +133,20 @@ function marketEvidence() {
   };
 }
 
+function marketContextBinding(overrides = {}) {
+  return {
+    bindingId: 'market-binding-001',
+    propertyRef: PROPERTY_REF,
+    marketContextId: MARKET_CONTEXT_ID,
+    geographyKey: GEOGRAPHY_KEY,
+    assetType: ASSET_TYPE,
+    boundBy: MARKET_BINDER,
+    bindingReference: 'C3-MARKET-BINDING-REF-001',
+    boundAt: '2026-09-29T17:45:00.000Z',
+    ...overrides,
+  };
+}
+
 function sourceResult(modelVersion, valueSar, hashChar, overrides = {}) {
   const common = {
     modelVersion,
@@ -191,26 +208,26 @@ function method(id, modelVersion, valueSar, hashChar, overrides = {}) {
 
 function methods() {
   return [
-    method('market-1', 'LAND_SALES_COMPARISON_1.0', 10000000, 'a'),
-    method('income-1', 'DIRECT_CAPITALIZATION_1.0', 10500000, 'b'),
-    method('cost-1', 'COST_APPROACH_1.0', 9500000, 'c'),
+    method('income-cap', 'DIRECT_CAPITALIZATION_1.0', 10000000, 'a'),
+    method('income-dcf', 'PROFESSIONAL_DCF_1.0', 10400000, 'b'),
+    method('cost-1', 'COST_APPROACH_1.0', 9600000, 'c'),
   ];
 }
 
 function governedPolicies(overrides = {}) {
   return {
     [RECON_POLICY]: {
+      valuationScope: VALUATION_SCOPE,
       allowedModelVersions: [
-        'LAND_SALES_COMPARISON_1.0',
         'DIRECT_CAPITALIZATION_1.0',
         'PROFESSIONAL_DCF_1.0',
         'COST_APPROACH_1.0',
       ],
-      requiredApproachFamilies: ['MARKET', 'INCOME', 'COST'],
+      requiredApproachFamilies: ['INCOME', 'COST'],
       minimumMethodIndications: 3,
-      minimumDistinctApproachFamilies: 3,
+      minimumDistinctApproachFamilies: 2,
       maxSingleIndicationWeight: 0.5,
-      maxSingleApproachWeight: 0.5,
+      maxSingleApproachWeight: 0.65,
       maxSpreadRatio: 0.25,
       confidenceSpreadThresholds: { highMax: 0.1, moderateMax: 0.2 },
       requireAllEligibleIndicationsWeighted: true,
@@ -222,14 +239,14 @@ function governedPolicies(overrides = {}) {
 function instruction(overrides = {}) {
   return {
     instructionId: 'recon-001',
-    rationale: 'Three governed approaches are reconciled using explicit professional weights after evidence review.',
+    rationale: 'Two governed income indications and one governed cost indication are reconciled with explicit professional weights after evidence review.',
     reconciledBy: RECONCILER,
     reconciliationReference: 'C3-RECON-REF-001',
     reconciledAt: '2026-09-29T18:30:00.000Z',
     weightsByIndicationId: {
-      'market-1': 0.4,
-      'income-1': 0.35,
-      'cost-1': 0.25,
+      'income-cap': 0.3,
+      'income-dcf': 0.3,
+      'cost-1': 0.4,
     },
     ...overrides,
   };
@@ -239,9 +256,12 @@ function evaluate(overrides = {}) {
   return evaluateValuationReconciliation({
     propertyRef: PROPERTY_REF,
     valuationDate: VALUATION_DATE,
+    valuationScope: VALUATION_SCOPE,
     asOf: AS_OF,
     geospatialEvidence: geospatialEvidence(),
     marketEvidence: marketEvidence(),
+    marketContextBinding: marketContextBinding(),
+    trustedMarketContextBinderIds: [MARKET_BINDER],
     methodIndications: methods(),
     trustedMethodVerifierIds: [METHOD_VERIFIER],
     trustedReconcilerIds: [RECONCILER],
@@ -257,14 +277,18 @@ assert.equal(ready.status, RECONCILIATION_GATE_STATUS.READY);
 assert.equal(ready.decisionReady, true);
 assert.equal(ready.c1ReevaluatedInternally, true);
 assert.equal(ready.c2ReevaluatedInternally, true);
+assert.equal(ready.marketContextBindingRequired, true);
+assert.equal(ready.valuationScopeEnforced, true);
+assert.equal(ready.valuationScope, VALUATION_SCOPE);
+assert.equal(ready.marketContextBinding.marketContextId, MARKET_CONTEXT_ID);
 assert.equal(ready.methodCoverage.eligibleMethodCount, 3);
-assert.deepEqual([...ready.methodCoverage.eligibleApproachFamilies].sort(), ['COST', 'INCOME', 'MARKET']);
+assert.deepEqual([...ready.methodCoverage.eligibleApproachFamilies].sort(), ['COST', 'INCOME']);
 assert.equal(ready.methodCoverage.requiredFamilyCoverageRatio, 1);
-assert.equal(ready.candidateWeightedValueSar, 10050000);
-assert.equal(ready.analyticalValueIndicationSar, 10050000);
-assert.equal(ready.analyticalRangeLowSar, 9500000);
-assert.equal(ready.analyticalRangeHighSar, 10500000);
-assert.ok(Math.abs(ready.spreadRatio - (1000000 / 10050000)) < 1e-12);
+assert.equal(ready.candidateWeightedValueSar, 9960000);
+assert.equal(ready.analyticalValueIndicationSar, 9960000);
+assert.equal(ready.analyticalRangeLowSar, 9600000);
+assert.equal(ready.analyticalRangeHighSar, 10400000);
+assert.ok(Math.abs(ready.spreadRatio - (800000 / 9960000)) < 1e-12);
 assert.equal(ready.analyticalConfidenceClass, RECONCILIATION_CONFIDENCE_CLASS.HIGH);
 assert.equal(ready.automaticMethodSelection, false);
 assert.equal(ready.automaticReconciliationWeightsGenerated, false);
@@ -314,32 +338,68 @@ const fakeMarketHeld = evaluate({ marketEvidence: fakeReadyMarket });
 assert.equal(fakeMarketHeld.status, RECONCILIATION_GATE_STATUS.HOLD_EVIDENCE);
 assert.ok(fakeMarketHeld.blockers.includes('C3_C2_EVIDENCE_NOT_READY'));
 
+const wrongContextBinding = evaluate({
+  marketContextBinding: marketContextBinding({ marketContextId: 'jeddah-office-market-999' }),
+});
+assert.equal(wrongContextBinding.status, RECONCILIATION_GATE_STATUS.HOLD_EVIDENCE);
+assert.ok(wrongContextBinding.blockers.includes('C3_MARKET_CONTEXT_ID_MISMATCH'));
+assert.equal(wrongContextBinding.analyticalValueIndicationSar, null);
+
+const untrustedContextBinder = evaluate({
+  marketContextBinding: marketContextBinding({ boundBy: 'CALLER-INVENTED-BINDER' }),
+});
+assert.equal(untrustedContextBinder.status, RECONCILIATION_GATE_STATUS.HOLD_EVIDENCE);
+assert.ok(untrustedContextBinder.blockers.includes('C3_MARKET_CONTEXT_BINDER_UNTRUSTED:CALLER-INVENTED-BINDER'));
+
 const untrustedMethods = methods();
-untrustedMethods[1] = method('income-1', 'DIRECT_CAPITALIZATION_1.0', 10500000, 'b', { verifiedBy: 'CALLER-INVENTED-VERIFIER' });
+untrustedMethods[1] = method('income-dcf', 'PROFESSIONAL_DCF_1.0', 10400000, 'b', { verifiedBy: 'CALLER-INVENTED-VERIFIER' });
 const untrustedHeld = evaluate({ methodIndications: untrustedMethods });
 assert.equal(untrustedHeld.status, RECONCILIATION_GATE_STATUS.HOLD_RECONCILIATION);
-assert.ok(untrustedHeld.blockers.includes('C3_METHOD_VERIFIER_UNTRUSTED:income-1'));
+assert.ok(untrustedHeld.blockers.includes('C3_METHOD_VERIFIER_UNTRUSTED:income-dcf'));
 assert.ok(untrustedHeld.blockers.includes('C3_MINIMUM_METHODS_NOT_MET:2/3'));
 assert.equal(untrustedHeld.analyticalValueIndicationSar, null);
 
 const reviewRequiredDcf = methods();
-reviewRequiredDcf[1] = method('income-1', 'PROFESSIONAL_DCF_1.0', 10500000, 'd', {
+reviewRequiredDcf[1] = method('income-dcf', 'PROFESSIONAL_DCF_1.0', 10400000, 'b', {
   sourceResult: { status: 'REVIEW_REQUIRED' },
 });
 const reviewHeld = evaluate({ methodIndications: reviewRequiredDcf });
 assert.equal(reviewHeld.status, RECONCILIATION_GATE_STATUS.HOLD_RECONCILIATION);
 assert.ok(reviewHeld.blockers.includes('C3_METHOD_STATUS_NOT_RECONCILABLE:PROFESSIONAL_DCF_1.0:REVIEW_REQUIRED'));
 
+const verifiedBeforeDate = methods();
+verifiedBeforeDate[0] = method('income-cap', 'DIRECT_CAPITALIZATION_1.0', 10000000, 'a', {
+  verifiedAt: '2026-09-28T23:00:00.000Z',
+});
+const earlyVerificationHeld = evaluate({ methodIndications: verifiedBeforeDate });
+assert.equal(earlyVerificationHeld.status, RECONCILIATION_GATE_STATUS.HOLD_RECONCILIATION);
+assert.ok(earlyVerificationHeld.blockers.includes('C3_METHOD_VERIFIED_BEFORE_VALUATION_DATE:income-cap'));
+
 const propertyMismatchMethods = methods();
-propertyMismatchMethods[0] = method('market-1', 'LAND_SALES_COMPARISON_1.0', 10000000, 'a', {
+propertyMismatchMethods[0] = method('income-cap', 'DIRECT_CAPITALIZATION_1.0', 10000000, 'a', {
   sourceResult: { propertyRef: 'property-OTHER' },
 });
 const propertyMismatchHeld = evaluate({ methodIndications: propertyMismatchMethods });
 assert.equal(propertyMismatchHeld.status, RECONCILIATION_GATE_STATUS.HOLD_RECONCILIATION);
-assert.ok(propertyMismatchHeld.blockers.includes('C3_METHOD_PROPERTY_REF_MISMATCH:market-1'));
+assert.ok(propertyMismatchHeld.blockers.includes('C3_METHOD_PROPERTY_REF_MISMATCH:income-cap'));
+
+const landScopeMethod = methods();
+landScopeMethod[0] = method('market-land', 'LAND_SALES_COMPARISON_1.0', 10000000, 'd');
+const landScopeHeld = evaluate({ methodIndications: landScopeMethod });
+assert.equal(landScopeHeld.status, RECONCILIATION_GATE_STATUS.HOLD_RECONCILIATION);
+assert.ok(landScopeHeld.blockers.includes('C3_METHOD_MODEL_NOT_ALLOWED_BY_POLICY:LAND_SALES_COMPARISON_1.0'));
+assert.ok(landScopeHeld.blockers.includes('C3_METHOD_VALUE_SCOPE_MISMATCH:market-land:LAND_ONLY/WHOLE_PROPERTY'));
+
+const policyScopeMismatch = evaluate({
+  governedReconciliationPolicies: governedPolicies({
+    allowedModelVersions: ['LAND_SALES_COMPARISON_1.0'],
+  }),
+});
+assert.equal(policyScopeMismatch.status, RECONCILIATION_GATE_STATUS.HOLD_RECONCILIATION);
+assert.ok(policyScopeMismatch.blockers.includes('C3_POLICY_MODEL_SCOPE_MISMATCH:LAND_SALES_COMPARISON_1.0:LAND_ONLY/WHOLE_PROPERTY'));
 
 const duplicateCalc = methods();
-duplicateCalc[2] = method('cost-1', 'COST_APPROACH_1.0', 9500000, 'b');
+duplicateCalc[2] = method('cost-1', 'COST_APPROACH_1.0', 9600000, 'b');
 const duplicateHeld = evaluate({ methodIndications: duplicateCalc });
 assert.equal(duplicateHeld.status, RECONCILIATION_GATE_STATUS.HOLD_RECONCILIATION);
 assert.ok(duplicateHeld.blockers.some((code) => code.startsWith('C3_DUPLICATE_METHOD_CALCULATION:')));
@@ -347,16 +407,16 @@ assert.ok(duplicateHeld.blockers.includes('C3_MINIMUM_METHODS_NOT_MET:2/3'));
 
 const weightExceeds = evaluate({
   reconciliationInstruction: instruction({
-    weightsByIndicationId: { 'market-1': 0.55, 'income-1': 0.25, 'cost-1': 0.2 },
+    weightsByIndicationId: { 'income-cap': 0.55, 'income-dcf': 0.25, 'cost-1': 0.2 },
   }),
 });
 assert.equal(weightExceeds.status, RECONCILIATION_GATE_STATUS.HOLD_RECONCILIATION);
-assert.ok(weightExceeds.blockers.includes('C3_RECONCILIATION_WEIGHT_EXCEEDS_POLICY:market-1'));
-assert.ok(weightExceeds.blockers.includes('C3_APPROACH_WEIGHT_EXCEEDS_POLICY:MARKET'));
+assert.ok(weightExceeds.blockers.includes('C3_RECONCILIATION_WEIGHT_EXCEEDS_POLICY:income-cap'));
+assert.ok(weightExceeds.blockers.includes('C3_APPROACH_WEIGHT_EXCEEDS_POLICY:INCOME'));
 
 const badSum = evaluate({
   reconciliationInstruction: instruction({
-    weightsByIndicationId: { 'market-1': 0.4, 'income-1': 0.3, 'cost-1': 0.2 },
+    weightsByIndicationId: { 'income-cap': 0.3, 'income-dcf': 0.3, 'cost-1': 0.3 },
   }),
 });
 assert.equal(badSum.status, RECONCILIATION_GATE_STATUS.HOLD_RECONCILIATION);
@@ -365,15 +425,15 @@ assert.ok(badSum.blockers.some((code) => code.startsWith('C3_RECONCILIATION_WEIG
 const missingCostMethod = methods().slice(0, 2);
 const missingCostHeld = evaluate({
   methodIndications: missingCostMethod,
-  reconciliationInstruction: instruction({ weightsByIndicationId: { 'market-1': 0.5, 'income-1': 0.5 } }),
+  reconciliationInstruction: instruction({ weightsByIndicationId: { 'income-cap': 0.5, 'income-dcf': 0.5 } }),
 });
 assert.equal(missingCostHeld.status, RECONCILIATION_GATE_STATUS.HOLD_RECONCILIATION);
 assert.ok(missingCostHeld.blockers.includes('C3_REQUIRED_APPROACH_MISSING:COST'));
 assert.ok(missingCostHeld.blockers.includes('C3_REQUIRED_APPROACH_NOT_WEIGHTED:COST'));
 
 const divergentMethods = [
-  method('market-1', 'LAND_SALES_COMPARISON_1.0', 10000000, 'a'),
-  method('income-1', 'DIRECT_CAPITALIZATION_1.0', 20000000, 'b'),
+  method('income-cap', 'DIRECT_CAPITALIZATION_1.0', 10000000, 'a'),
+  method('income-dcf', 'PROFESSIONAL_DCF_1.0', 20000000, 'b'),
   method('cost-1', 'COST_APPROACH_1.0', 9000000, 'c'),
 ];
 const divergenceHeld = evaluate({ methodIndications: divergentMethods });
@@ -388,11 +448,11 @@ assert.equal(ungovernedPolicy.status, RECONCILIATION_GATE_STATUS.HOLD_RECONCILIA
 assert.ok(ungovernedPolicy.blockers.includes('C3_RECONCILIATION_POLICY_NOT_GOVERNED:CALLER-INVENTED-POLICY'));
 
 const badUpstreamAuthority = methods();
-badUpstreamAuthority[0] = method('market-1', 'LAND_SALES_COMPARISON_1.0', 10000000, 'a', {
+badUpstreamAuthority[0] = method('income-cap', 'DIRECT_CAPITALIZATION_1.0', 10000000, 'a', {
   sourceResult: { certifiedValuationEstablished: true },
 });
 const authorityHeld = evaluate({ methodIndications: badUpstreamAuthority });
 assert.equal(authorityHeld.status, RECONCILIATION_GATE_STATUS.HOLD_RECONCILIATION);
-assert.ok(authorityHeld.blockers.includes('C3_UPSTREAM_CERTIFICATION_FLAG_INVALID:market-1'));
+assert.ok(authorityHeld.blockers.includes('C3_UPSTREAM_CERTIFICATION_FLAG_INVALID:income-cap'));
 
 console.log('C3_GOVERNED_VALUATION_RECONCILIATION_FOUNDATION=PASS');
