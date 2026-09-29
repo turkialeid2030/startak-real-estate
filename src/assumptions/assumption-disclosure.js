@@ -2,7 +2,7 @@
 
 const {
   ASSUMPTION_MODEL_VERSION,
-  V2_APPROVED_ASSUMPTIONS,
+  V2_CANONICAL_ASSUMPTIONS,
   buildAssumptionModelDisclosure,
   normalizeAssumptionModelVersion,
 } = require('./assumption-model');
@@ -43,17 +43,31 @@ const LEASE_ROLL_FORWARD_DISCLOSURE = Object.freeze({
   }),
 });
 
+const CRITICAL_OVERRIDE_DISCLOSURE = Object.freeze({
+  INCOMPLETE_DOCUMENTATION: Object.freeze({
+    ar: 'يوجد تجاوز لافتراض حرج دون اكتمال مصدره ومرجعه واعتماده. تبقى النتائج التحليلية ظاهرة للمراجعة، لكن القرار محجوب حتى استكمال التوثيق الصريح.',
+    en: 'A critical assumption override lacks complete source, reference, or approval evidence. Analytical outputs remain visible for review, but decision readiness is blocked until explicit documentation is complete.',
+  }),
+});
+
 function buildAssumptionDisclosureEnvelope({
   assumptionModelVersion,
   exitCapSource = null,
   exitTransactionCostSource = null,
   leaseRollForwardStatus = null,
+  criticalAssumptionOverrideGovernance = null,
 } = {}) {
   const version = normalizeAssumptionModelVersion(assumptionModelVersion);
-  const modelDisclosure = buildAssumptionModelDisclosure(version);
-  const approvedAssumptionKeys = version === ASSUMPTION_MODEL_VERSION.V2
-    ? Object.freeze(Object.keys(V2_APPROVED_ASSUMPTIONS))
+  const modelDisclosure = buildAssumptionModelDisclosure(version, {
+    criticalAssumptionOverrideGovernance,
+  });
+  const canonicalAssumptionKeys = version === ASSUMPTION_MODEL_VERSION.V2
+    ? Object.freeze(Object.keys(V2_CANONICAL_ASSUMPTIONS))
     : Object.freeze([]);
+
+  // Deprecated compatibility field. Code-level baseline assumptions are not
+  // evidence of user, committee, valuer, lender, legal, tax, or transaction approval.
+  const approvedAssumptionKeys = Object.freeze([]);
 
   let exitCapNotice = null;
   if (exitCapSource === EXIT_CAP_SOURCE.LEGACY_DERIVED) exitCapNotice = EXIT_CAP_DISCLOSURE.LEGACY_DERIVED;
@@ -75,6 +89,14 @@ function buildAssumptionDisclosureEnvelope({
     leaseRollForwardNotice = LEASE_ROLL_FORWARD_DISCLOSURE.MISSING_REQUIRED;
   }
 
+  const criticalOverrideDocumentationIncomplete = !!(
+    criticalAssumptionOverrideGovernance
+    && criticalAssumptionOverrideGovernance.hasIncompleteCriticalOverrides === true
+  );
+  const criticalOverrideNotice = criticalOverrideDocumentationIncomplete
+    ? CRITICAL_OVERRIDE_DISCLOSURE.INCOMPLETE_DOCUMENTATION
+    : null;
+
   const requiresExplicitExitCap = version === ASSUMPTION_MODEL_VERSION.V2
     && exitCapSource === EXIT_CAP_SOURCE.MISSING_REQUIRED;
   const requiresExplicitExitTransactionCost = version === ASSUMPTION_MODEL_VERSION.V2
@@ -83,15 +105,22 @@ function buildAssumptionDisclosureEnvelope({
     && leaseRollForwardStatus === LEASE_ROLL_FORWARD_STATUS.MISSING_REQUIRED;
 
   return Object.freeze({
-    schemaVersion: 3,
+    schemaVersion: 4,
     assumptionModelVersion: version,
     badge: Object.freeze({
       ar: modelDisclosure.label_ar,
       en: modelDisclosure.label_en,
     }),
     legacyCompatibility: modelDisclosure.legacyCompatibility,
-    userApprovedAssumptions: modelDisclosure.userApprovedAssumptions,
+    userApprovedAssumptions: false,
+    canonicalBaselineIsApprovalEvidence: false,
+    canonicalAssumptionKeys,
     approvedAssumptionKeys,
+    criticalOverridesPresent: modelDisclosure.criticalOverridesPresent,
+    criticalOverridesDocumentationComplete: modelDisclosure.criticalOverridesDocumentationComplete,
+    criticalOverrideApprovalEvidenceStatus: modelDisclosure.criticalOverrideApprovalEvidenceStatus,
+    criticalOverrideDocumentationIncomplete,
+    criticalOverrideNotice,
     exitCapSource,
     exitCapNotice,
     requiresExplicitExitCap,
@@ -104,7 +133,13 @@ function buildAssumptionDisclosureEnvelope({
     exportMetadata: Object.freeze({
       assumptionModelVersion: version,
       legacyCompatibility: modelDisclosure.legacyCompatibility,
+      canonicalBaselineIsApprovalEvidence: false,
+      canonicalAssumptionKeys,
       approvedAssumptionKeys,
+      criticalOverridesPresent: modelDisclosure.criticalOverridesPresent,
+      criticalOverridesDocumentationComplete: modelDisclosure.criticalOverridesDocumentationComplete,
+      criticalOverrideApprovalEvidenceStatus: modelDisclosure.criticalOverrideApprovalEvidenceStatus,
+      criticalOverrideDocumentationIncomplete,
       exitCapSource,
       exitCapRequired: requiresExplicitExitCap,
       exitTransactionCostSource,
@@ -113,7 +148,7 @@ function buildAssumptionDisclosureEnvelope({
       leaseRollForwardRequired: requiresLeaseRollForward,
     }),
     transactionAuthorized: false,
-    semantics: 'Disclosure metadata for dashboards, cash-flow views, sensitivity views, and exports. It describes the active assumption model plus exit-cap, exit-transaction-cost, and contractual lease-roll-forward provenance; it does not determine statutory tax incidence, invent post-expiry lease economics, or authorize a transaction.',
+    semantics: 'Disclosure metadata for dashboards, cash-flow views, sensitivity views, and exports. V2 code defaults are canonical analytical baseline assumptions, not approval evidence. Critical overrides require explicit provenance and approval evidence for decision readiness. This disclosure does not determine statutory tax incidence, invent post-expiry lease economics, authorize a transaction, activate the canonical baseline, or authorize Commercial Go-Live.',
   });
 }
 
@@ -121,5 +156,6 @@ module.exports = {
   EXIT_CAP_DISCLOSURE,
   EXIT_TRANSACTION_COST_DISCLOSURE,
   LEASE_ROLL_FORWARD_DISCLOSURE,
+  CRITICAL_OVERRIDE_DISCLOSURE,
   buildAssumptionDisclosureEnvelope,
 };
