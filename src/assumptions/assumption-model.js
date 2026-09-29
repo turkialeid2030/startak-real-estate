@@ -18,6 +18,7 @@ const V2_CANONICAL_ASSUMPTIONS = Object.freeze({
 // Backward-compatible export only. The historical symbol name must not be read
 // as approval evidence. New code should use V2_CANONICAL_ASSUMPTIONS.
 const V2_APPROVED_ASSUMPTIONS = V2_CANONICAL_ASSUMPTIONS;
+const INTERNAL_CRITICAL_OVERRIDE_KEY = '__p25CriticalAssumptionOverrides';
 
 const V2_ASSUMPTION_LABELS = Object.freeze({
   maintenanceRate: Object.freeze({
@@ -55,11 +56,19 @@ function applyAssumptionModel(inputs, version, context = {}) {
     throw new TypeError('inputs must be an object');
   }
   const normalizedVersion = normalizeAssumptionModelVersion(version);
-  if (normalizedVersion === ASSUMPTION_MODEL_VERSION.LEGACY) return { ...inputs };
+  const {
+    [INTERNAL_CRITICAL_OVERRIDE_KEY]: embeddedCriticalOverrides,
+    ...economicInputs
+  } = inputs;
+  if (normalizedVersion === ASSUMPTION_MODEL_VERSION.LEGACY) return { ...economicInputs };
 
-  const requestedOverrides = context && context.criticalOverrides && typeof context.criticalOverrides === 'object'
+  const contextualOverrides = context && context.criticalOverrides && typeof context.criticalOverrides === 'object'
     ? context.criticalOverrides
-    : {};
+    : null;
+  const requestedOverrides = contextualOverrides
+    || (embeddedCriticalOverrides && typeof embeddedCriticalOverrides === 'object' && !Array.isArray(embeddedCriticalOverrides)
+      ? embeddedCriticalOverrides
+      : {});
   const criticalOverrides = {};
   for (const key of Object.keys(V2_CANONICAL_ASSUMPTIONS)) {
     if (Object.prototype.hasOwnProperty.call(requestedOverrides, key)
@@ -70,7 +79,7 @@ function applyAssumptionModel(inputs, version, context = {}) {
   }
 
   return {
-    ...inputs,
+    ...economicInputs,
     ...V2_CANONICAL_ASSUMPTIONS,
     ...criticalOverrides,
   };
@@ -115,6 +124,7 @@ module.exports = {
   V2_CANONICAL_ASSUMPTIONS,
   V2_APPROVED_ASSUMPTIONS,
   V2_ASSUMPTION_LABELS,
+  INTERNAL_CRITICAL_OVERRIDE_KEY,
   normalizeAssumptionModelVersion,
   applyAssumptionModel,
   buildAssumptionModelDisclosure,
