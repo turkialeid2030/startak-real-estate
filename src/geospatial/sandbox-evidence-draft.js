@@ -15,6 +15,7 @@ const RESERVED_TRUST_FIELDS = Object.freeze([
   'verificationStatus',
   'verifiedBy',
   'verificationReference',
+  'resolutionMethod',
   'decisionReady',
   'transactionAuthorized',
   'publicAiAuthorized',
@@ -47,8 +48,6 @@ function createSandboxGeospatialEvidenceDraft(raw = {}) {
     throw new TypeError(`source URL does not match registered official domains for ${sourceId}`);
   }
 
-  const resolutionMethod = cleanString(raw.resolutionMethod) || GEOSPATIAL_RESOLUTION_METHOD.USER_SUPPLIED;
-
   return Object.freeze({
     draftVersion: C1_SANDBOX_EVIDENCE_DRAFT_VERSION,
     id: cleanString(raw.id) || null,
@@ -61,7 +60,10 @@ function createSandboxGeospatialEvidenceDraft(raw = {}) {
     observedAt: cleanString(raw.observedAt) || null,
     validUntil: cleanString(raw.validUntil) || null,
     freshnessPolicyId: cleanString(raw.freshnessPolicyId) || null,
-    resolutionMethod,
+    // A sandbox/manual capture cannot assert that it was resolved through an
+    // official query path. That fact may only be established by a later trusted
+    // verification process outside this draft adapter.
+    resolutionMethod: GEOSPATIAL_RESOLUTION_METHOD.USER_SUPPLIED,
     critical: raw.critical === true,
     verificationStatus: GEOSPATIAL_VERIFICATION_STATUS.UNVERIFIED,
     verifiedBy: null,
@@ -72,7 +74,7 @@ function createSandboxGeospatialEvidenceDraft(raw = {}) {
     transactionAuthorized: false,
     publicAiAuthorized: false,
     professionalValuationOpinion: false,
-    semantics: 'Sandbox draft only. Source labels and normalized values are captured for review; verification and decision authority cannot be created by this adapter.',
+    semantics: 'Sandbox draft only. Source labels and normalized values are captured for review; official resolution, verification and decision authority cannot be created by this adapter.',
   });
 }
 
