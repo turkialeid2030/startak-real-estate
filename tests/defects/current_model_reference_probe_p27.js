@@ -80,5 +80,4 @@ for (const [id, fixture, leverageEnabled] of [
   cases.push(summarize(id, result));
 }
 
-console.log(`P27_CURRENT_REFERENCE_PROBE=${JSON.stringify(cases)}`);
-console.log('CURRENT_MODEL_REFERENCE_PROBE_P27=PASS');
+throw new Error(`P27_CURRENT_REFERENCE_PROBE=${JSON.stringify(cases)}`);
