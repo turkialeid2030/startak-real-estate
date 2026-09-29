@@ -168,6 +168,8 @@ function comparableMeasurements(overrides = {}) {
     unitOfComparison: UNIT,
     basisQuantity: 2000,
     sourceRef: `MEASUREMENT-SOURCE-${index}`,
+    effectiveAt: `2026-09-${20 + index}T12:00:00.000Z`,
+    validUntil: '2026-10-30T00:00:00.000Z',
     verifiedBy: MEASUREMENT_VERIFIER,
     verificationReference: `MEASUREMENT-VERIFY-${index}`,
     verifiedAt: '2026-09-29T17:15:00.000Z',
@@ -200,6 +202,7 @@ function policy(overrides = {}) {
       allowedUnitsOfComparison: [UNIT],
       allowedAssetTypes: [ASSET_TYPE],
       minimumComparableCount: 3,
+      maxMeasurementTransactionDateGapDays: 30,
       maxSingleComparableWeight: 0.5,
       maxSingleAdjustmentPercent: 0.2,
       maxNetAdjustmentPercent: 0.25,
@@ -265,6 +268,8 @@ assert.equal(readyPacket.readyForCanonicalWholePropertySalesCalculation, true);
 assert.equal(readyPacket.valueScope, 'WHOLE_PROPERTY');
 assert.equal(readyPacket.unitOfComparison, UNIT);
 assert.equal(readyPacket.c2MarketEvidenceReevaluatedInternally, true);
+assert.equal(readyPacket.transactionDateLookAheadBlocked, true);
+assert.equal(readyPacket.comparableMeasurementTemporalGovernanceRequired, true);
 assert.equal(readyPacket.automaticComparableSelection, false);
 assert.equal(readyPacket.automaticAdjustmentEstimated, false);
 assert.equal(readyPacket.automaticComparableWeighting, false);
@@ -307,6 +312,15 @@ const amountHeld = build({ marketEvidence: marketEvidence(priceOnlyRecords) });
 assert.equal(amountHeld.status, WHOLE_PROPERTY_SALES_INPUT_STATUS.HOLD_MARKET_EVIDENCE);
 assert.ok(amountHeld.blockers.includes('C3M_C2_TOTAL_SALE_AMOUNT_REQUIRED:comp-2:C3M-TX-2'));
 
+const postValuationSaleRecords = [
+  saleRecord(1, 10000000),
+  saleRecord(2, 9600000),
+  saleRecord(3, 10200000, { effectiveAt: '2026-09-29T12:00:00.000Z' }),
+];
+const lookAheadHeld = build({ marketEvidence: marketEvidence(postValuationSaleRecords) });
+assert.equal(lookAheadHeld.status, WHOLE_PROPERTY_SALES_INPUT_STATUS.HOLD_MARKET_EVIDENCE);
+assert.ok(lookAheadHeld.blockers.includes('C3M_POST_VALUATION_DATE_SALE_NOT_ELIGIBLE:comp-3:C3M-TX-3'));
+
 const contextHeld = build({ marketContextBinding: marketContextBinding({ marketContextId: 'unrelated-market-context' }) });
 assert.equal(contextHeld.status, WHOLE_PROPERTY_SALES_INPUT_STATUS.HOLD_MARKET_CONTEXT_BINDING);
 assert.ok(contextHeld.blockers.includes('C3M_MARKET_CONTEXT_ID_MISMATCH'));
@@ -324,6 +338,18 @@ const untrustedMeasurementHeld = build({
 });
 assert.equal(untrustedMeasurementHeld.status, WHOLE_PROPERTY_SALES_INPUT_STATUS.HOLD_COMPARABLE_MEASUREMENT);
 assert.ok(untrustedMeasurementHeld.blockers.includes('C3M_COMPARABLE_MEASUREMENT_VERIFIER_UNTRUSTED:comp-1'));
+
+const staleMeasurementHeld = build({
+  comparableMeasurements: comparableMeasurements({ 0: { validUntil: '2026-09-28T23:00:00.000Z' } }),
+});
+assert.equal(staleMeasurementHeld.status, WHOLE_PROPERTY_SALES_INPUT_STATUS.HOLD_COMPARABLE_MEASUREMENT);
+assert.ok(staleMeasurementHeld.blockers.includes('C3M_COMPARABLE_MEASUREMENT_STALE:comp-1'));
+
+const measurementDateGapHeld = build({
+  comparableMeasurements: comparableMeasurements({ 1: { effectiveAt: '2026-06-01T12:00:00.000Z' } }),
+});
+assert.equal(measurementDateGapHeld.status, WHOLE_PROPERTY_SALES_INPUT_STATUS.HOLD_MARKET_EVIDENCE);
+assert.ok(measurementDateGapHeld.blockers.includes('C3M_MEASUREMENT_TRANSACTION_DATE_GAP_EXCEEDS_POLICY:comp-2'));
 
 const untrustedSelectorHeld = build({ selectedBy: 'CALLER-INVENTED-SELECTOR' });
 assert.equal(untrustedSelectorHeld.status, WHOLE_PROPERTY_SALES_INPUT_STATUS.HOLD_SELECTION);
@@ -344,6 +370,12 @@ const excessiveAdjustmentHeld = build({
 });
 assert.equal(excessiveAdjustmentHeld.status, WHOLE_PROPERTY_SALES_INPUT_STATUS.HOLD_ADJUSTMENT);
 assert.ok(excessiveAdjustmentHeld.blockers.includes('C3M_SINGLE_ADJUSTMENT_EXCEEDS_POLICY:adj-comp-2-location'));
+
+const weakenedPolicyHeld = build({
+  governedReconciliationPolicies: policy({ requireAdjustmentDisposition: false }),
+});
+assert.equal(weakenedPolicyHeld.status, WHOLE_PROPERTY_SALES_INPUT_STATUS.HOLD_RECONCILIATION);
+assert.ok(weakenedPolicyHeld.blockers.includes('C3M_POLICY_REQUIRE_ADJUSTMENT_DISPOSITION_MUST_BE_TRUE'));
 
 const overweightHeld = build({
   weightsByComparableId: { 'comp-1': 0.6, 'comp-2': 0.2, 'comp-3': 0.2 },
