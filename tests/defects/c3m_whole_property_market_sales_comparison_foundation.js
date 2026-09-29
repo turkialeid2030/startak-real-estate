@@ -138,9 +138,7 @@ function marketEvidence(records = null) {
     governedFreshnessPolicyIds: [MARKET_FRESHNESS],
     minimumCountPolicyId: MARKET_MIN_POLICY,
     governedMinimumCountPolicies: {
-      [MARKET_MIN_POLICY]: {
-        [MARKET_EVIDENCE_TYPE.CLOSED_SALE_TRANSACTION]: 3,
-      },
+      [MARKET_MIN_POLICY]: { [MARKET_EVIDENCE_TYPE.CLOSED_SALE_TRANSACTION]: 3 },
     },
   };
 }
@@ -178,21 +176,42 @@ function comparableMeasurements(overrides = {}) {
   return rows;
 }
 
-function adjustmentRecords(overrides = {}) {
-  const rows = [{
-    adjustmentId: 'adj-comp-2-location',
-    comparableId: 'comp-2',
-    factor: WHOLE_PROPERTY_ADJUSTMENT_FACTOR.LOCATION,
-    direction: WHOLE_PROPERTY_ADJUSTMENT_DIRECTION.INCREASE,
+function noneAdjustment(comparableId, index) {
+  return {
+    adjustmentId: `adj-${comparableId}-none`,
+    comparableId,
+    factor: WHOLE_PROPERTY_ADJUSTMENT_FACTOR.OTHER,
+    factorLabel: 'NO_MATERIAL_ADJUSTMENT',
+    direction: WHOLE_PROPERTY_ADJUSTMENT_DIRECTION.NONE,
     method: WHOLE_PROPERTY_ADJUSTMENT_METHOD.PERCENT_OF_BASE,
-    magnitude: 0.05,
-    rationale: 'Comparable location is professionally assessed as inferior to the subject.',
-    evidenceRefs: ['ADJ-EVIDENCE-LOCATION-001'],
+    magnitude: 0,
+    rationale: 'Professional review found no material adjustment supported by the reviewed evidence.',
+    evidenceRefs: [`ADJ-EVIDENCE-NONE-${index}`],
     reviewedBy: ADJUSTMENT_REVIEWER,
-    reviewReference: 'ADJ-REVIEW-001',
+    reviewReference: `ADJ-REVIEW-NONE-${index}`,
     reviewedAt: '2026-09-29T17:40:00.000Z',
-  }];
-  if (overrides[0]) rows[0] = { ...rows[0], ...overrides[0] };
+  };
+}
+
+function adjustmentRecords(overrides = {}) {
+  const rows = [
+    noneAdjustment('comp-1', 1),
+    {
+      adjustmentId: 'adj-comp-2-location',
+      comparableId: 'comp-2',
+      factor: WHOLE_PROPERTY_ADJUSTMENT_FACTOR.LOCATION,
+      direction: WHOLE_PROPERTY_ADJUSTMENT_DIRECTION.INCREASE,
+      method: WHOLE_PROPERTY_ADJUSTMENT_METHOD.PERCENT_OF_BASE,
+      magnitude: 0.05,
+      rationale: 'Comparable location is professionally assessed as inferior to the subject.',
+      evidenceRefs: ['ADJ-EVIDENCE-LOCATION-001'],
+      reviewedBy: ADJUSTMENT_REVIEWER,
+      reviewReference: 'ADJ-REVIEW-001',
+      reviewedAt: '2026-09-29T17:40:00.000Z',
+    },
+    noneAdjustment('comp-3', 3),
+  ];
+  for (const [index, patch] of Object.entries(overrides)) rows[Number(index)] = { ...rows[Number(index)], ...patch };
   return rows;
 }
 
@@ -241,10 +260,6 @@ function build(overrides = {}) {
     selectedAt: '2026-09-29T17:30:00.000Z',
     trustedComparableSelectorIds: [SELECTOR],
     adjustmentRecords: adjustmentRecords(),
-    noAdjustmentRationales: {
-      'comp-1': 'No material adjustment identified after professional review.',
-      'comp-3': 'No material adjustment identified after professional review.',
-    },
     trustedAdjustmentReviewerIds: [ADJUSTMENT_REVIEWER],
     reconciliationPolicyId: RECON_POLICY,
     governedReconciliationPolicies: policy(),
@@ -270,14 +285,17 @@ assert.equal(readyPacket.unitOfComparison, UNIT);
 assert.equal(readyPacket.c2MarketEvidenceReevaluatedInternally, true);
 assert.equal(readyPacket.transactionDateLookAheadBlocked, true);
 assert.equal(readyPacket.comparableMeasurementTemporalGovernanceRequired, true);
+assert.equal(readyPacket.trustedAdjustmentDispositionRequiredForEverySelectedComparable, true);
 assert.equal(readyPacket.automaticComparableSelection, false);
 assert.equal(readyPacket.automaticAdjustmentEstimated, false);
 assert.equal(readyPacket.automaticComparableWeighting, false);
 assert.equal(verifyWholePropertySalesComparisonInputIntegrity(readyPacket), true);
 assert.equal(readyPacket.indications[0].baseUnitValueSar, 5000);
+assert.equal(readyPacket.indications[0].explicitNoAdjustmentDisposition, true);
 assert.equal(readyPacket.indications[1].baseUnitValueSar, 4800);
 assert.equal(readyPacket.indications[1].adjustedUnitValueSar, 5040);
 assert.equal(readyPacket.indications[2].adjustedUnitValueSar, 5100);
+assert.equal(readyPacket.indications[2].explicitNoAdjustmentDisposition, true);
 
 const result = calculateWholePropertySalesComparisonIndication(readyPacket);
 assert.equal(result.status, WHOLE_PROPERTY_SALES_RESULT_STATUS.WHOLE_PROPERTY_MARKET_VALUE_INDICATION_READY);
@@ -303,18 +321,13 @@ const thinMarketHeld = build({ marketEvidence: marketEvidence([saleRecord(1, 100
 assert.equal(thinMarketHeld.status, WHOLE_PROPERTY_SALES_INPUT_STATUS.HOLD_MARKET_EVIDENCE);
 assert.ok(thinMarketHeld.blockers.includes('C3M_MARKET_EVIDENCE_NOT_READY'));
 
-const priceOnlyRecords = [
-  saleRecord(1, 10000000),
-  saleRecord(2, 9600000, { normalizedValue: { pricePerSqmSar: 4800 } }),
-  saleRecord(3, 10200000),
-];
+const priceOnlyRecords = [saleRecord(1, 10000000), saleRecord(2, 9600000, { normalizedValue: { pricePerSqmSar: 4800 } }), saleRecord(3, 10200000)];
 const amountHeld = build({ marketEvidence: marketEvidence(priceOnlyRecords) });
 assert.equal(amountHeld.status, WHOLE_PROPERTY_SALES_INPUT_STATUS.HOLD_MARKET_EVIDENCE);
 assert.ok(amountHeld.blockers.includes('C3M_C2_TOTAL_SALE_AMOUNT_REQUIRED:comp-2:C3M-TX-2'));
 
 const postValuationSaleRecords = [
-  saleRecord(1, 10000000),
-  saleRecord(2, 9600000),
+  saleRecord(1, 10000000), saleRecord(2, 9600000),
   saleRecord(3, 10200000, { effectiveAt: '2026-09-29T12:00:00.000Z' }),
 ];
 const lookAheadHeld = build({ marketEvidence: marketEvidence(postValuationSaleRecords) });
@@ -325,29 +338,19 @@ const contextHeld = build({ marketContextBinding: marketContextBinding({ marketC
 assert.equal(contextHeld.status, WHOLE_PROPERTY_SALES_INPUT_STATUS.HOLD_MARKET_CONTEXT_BINDING);
 assert.ok(contextHeld.blockers.includes('C3M_MARKET_CONTEXT_ID_MISMATCH'));
 
-const basisMismatchHeld = build({
-  comparableMeasurements: comparableMeasurements({
-    1: { unitOfComparison: WHOLE_PROPERTY_UNIT_OF_COMPARISON.NET_LEASABLE_AREA_SQM },
-  }),
-});
+const basisMismatchHeld = build({ comparableMeasurements: comparableMeasurements({ 1: { unitOfComparison: WHOLE_PROPERTY_UNIT_OF_COMPARISON.NET_LEASABLE_AREA_SQM } }) });
 assert.equal(basisMismatchHeld.status, WHOLE_PROPERTY_SALES_INPUT_STATUS.HOLD_COMPARABLE_MEASUREMENT);
 assert.ok(basisMismatchHeld.blockers.includes('C3M_COMPARABLE_UNIT_BASIS_MISMATCH:comp-2'));
 
-const untrustedMeasurementHeld = build({
-  comparableMeasurements: comparableMeasurements({ 0: { verifiedBy: 'CALLER-INVENTED-MEASURER' } }),
-});
+const untrustedMeasurementHeld = build({ comparableMeasurements: comparableMeasurements({ 0: { verifiedBy: 'CALLER-INVENTED-MEASURER' } }) });
 assert.equal(untrustedMeasurementHeld.status, WHOLE_PROPERTY_SALES_INPUT_STATUS.HOLD_COMPARABLE_MEASUREMENT);
 assert.ok(untrustedMeasurementHeld.blockers.includes('C3M_COMPARABLE_MEASUREMENT_VERIFIER_UNTRUSTED:comp-1'));
 
-const staleMeasurementHeld = build({
-  comparableMeasurements: comparableMeasurements({ 0: { validUntil: '2026-09-28T23:00:00.000Z' } }),
-});
+const staleMeasurementHeld = build({ comparableMeasurements: comparableMeasurements({ 0: { validUntil: '2026-09-28T23:00:00.000Z' } }) });
 assert.equal(staleMeasurementHeld.status, WHOLE_PROPERTY_SALES_INPUT_STATUS.HOLD_COMPARABLE_MEASUREMENT);
 assert.ok(staleMeasurementHeld.blockers.includes('C3M_COMPARABLE_MEASUREMENT_STALE:comp-1'));
 
-const measurementDateGapHeld = build({
-  comparableMeasurements: comparableMeasurements({ 1: { effectiveAt: '2026-06-01T12:00:00.000Z' } }),
-});
+const measurementDateGapHeld = build({ comparableMeasurements: comparableMeasurements({ 1: { effectiveAt: '2026-06-01T12:00:00.000Z' } }) });
 assert.equal(measurementDateGapHeld.status, WHOLE_PROPERTY_SALES_INPUT_STATUS.HOLD_MARKET_EVIDENCE);
 assert.ok(measurementDateGapHeld.blockers.includes('C3M_MEASUREMENT_TRANSACTION_DATE_GAP_EXCEEDS_POLICY:comp-2'));
 
@@ -355,39 +358,35 @@ const untrustedSelectorHeld = build({ selectedBy: 'CALLER-INVENTED-SELECTOR' });
 assert.equal(untrustedSelectorHeld.status, WHOLE_PROPERTY_SALES_INPUT_STATUS.HOLD_SELECTION);
 assert.ok(untrustedSelectorHeld.blockers.includes('C3M_COMPARABLE_SELECTOR_UNTRUSTED:CALLER-INVENTED-SELECTOR'));
 
-const missingDispositionHeld = build({ noAdjustmentRationales: { 'comp-1': 'Reviewed.' } });
+const missingDispositionHeld = build({ adjustmentRecords: adjustmentRecords().slice(0, 2) });
 assert.equal(missingDispositionHeld.status, WHOLE_PROPERTY_SALES_INPUT_STATUS.HOLD_ADJUSTMENT);
-assert.ok(missingDispositionHeld.blockers.includes('C3M_ADJUSTMENT_DISPOSITION_REQUIRED:comp-3'));
+assert.ok(missingDispositionHeld.blockers.includes('C3M_TRUSTED_ADJUSTMENT_DISPOSITION_REQUIRED:comp-3'));
 
-const untrustedAdjustmentHeld = build({
-  adjustmentRecords: adjustmentRecords({ 0: { reviewedBy: 'CALLER-INVENTED-REVIEWER' } }),
-});
+const untrustedNoAdjustmentHeld = build({ adjustmentRecords: adjustmentRecords({ 0: { reviewedBy: 'CALLER-INVENTED-REVIEWER' } }) });
+assert.equal(untrustedNoAdjustmentHeld.status, WHOLE_PROPERTY_SALES_INPUT_STATUS.HOLD_ADJUSTMENT);
+assert.ok(untrustedNoAdjustmentHeld.blockers.includes('C3M_ADJUSTMENT_REVIEWER_UNTRUSTED:adj-comp-1-none'));
+
+const untrustedAdjustmentHeld = build({ adjustmentRecords: adjustmentRecords({ 1: { reviewedBy: 'CALLER-INVENTED-REVIEWER' } }) });
 assert.equal(untrustedAdjustmentHeld.status, WHOLE_PROPERTY_SALES_INPUT_STATUS.HOLD_ADJUSTMENT);
 assert.ok(untrustedAdjustmentHeld.blockers.includes('C3M_ADJUSTMENT_REVIEWER_UNTRUSTED:adj-comp-2-location'));
 
-const excessiveAdjustmentHeld = build({
-  adjustmentRecords: adjustmentRecords({ 0: { magnitude: 0.25 } }),
-});
+const excessiveAdjustmentHeld = build({ adjustmentRecords: adjustmentRecords({ 1: { magnitude: 0.25 } }) });
 assert.equal(excessiveAdjustmentHeld.status, WHOLE_PROPERTY_SALES_INPUT_STATUS.HOLD_ADJUSTMENT);
 assert.ok(excessiveAdjustmentHeld.blockers.includes('C3M_SINGLE_ADJUSTMENT_EXCEEDS_POLICY:adj-comp-2-location'));
 
-const weakenedPolicyHeld = build({
-  governedReconciliationPolicies: policy({ requireAdjustmentDisposition: false }),
-});
+const weakenedPolicyHeld = build({ governedReconciliationPolicies: policy({ requireAdjustmentDisposition: false }) });
 assert.equal(weakenedPolicyHeld.status, WHOLE_PROPERTY_SALES_INPUT_STATUS.HOLD_RECONCILIATION);
 assert.ok(weakenedPolicyHeld.blockers.includes('C3M_POLICY_REQUIRE_ADJUSTMENT_DISPOSITION_MUST_BE_TRUE'));
 
-const overweightHeld = build({
-  weightsByComparableId: { 'comp-1': 0.6, 'comp-2': 0.2, 'comp-3': 0.2 },
-});
+const infeasiblePolicyHeld = build({ governedReconciliationPolicies: policy({ maxSingleComparableWeight: 0.3 }) });
+assert.equal(infeasiblePolicyHeld.status, WHOLE_PROPERTY_SALES_INPUT_STATUS.HOLD_RECONCILIATION);
+assert.ok(infeasiblePolicyHeld.blockers.includes('C3M_POLICY_WEIGHT_CAP_INFEASIBLE'));
+
+const overweightHeld = build({ weightsByComparableId: { 'comp-1': 0.6, 'comp-2': 0.2, 'comp-3': 0.2 } });
 assert.equal(overweightHeld.status, WHOLE_PROPERTY_SALES_INPUT_STATUS.HOLD_RECONCILIATION);
 assert.ok(overweightHeld.blockers.includes('C3M_WEIGHT_EXCEEDS_POLICY:comp-1'));
 
-const divergentMarket = marketEvidence([
-  saleRecord(1, 10000000),
-  saleRecord(2, 9600000),
-  saleRecord(3, 20000000),
-]);
+const divergentMarket = marketEvidence([saleRecord(1, 10000000), saleRecord(2, 9600000), saleRecord(3, 20000000)]);
 const divergenceHeld = build({ marketEvidence: divergentMarket });
 assert.equal(divergenceHeld.status, WHOLE_PROPERTY_SALES_INPUT_STATUS.HOLD_RECONCILIATION);
 assert.ok(divergenceHeld.blockers.some((code) => code.startsWith('C3M_ADJUSTED_UNIT_SPREAD_EXCEEDS_POLICY:')));
