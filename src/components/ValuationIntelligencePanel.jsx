@@ -3,13 +3,13 @@ import ValuationIntelligenceBasePanel from './ValuationIntelligenceBasePanel.jsx
 import ValuationAdvancedPanel from './ValuationAdvancedPanel.jsx';
 import CriticalEvidenceRequirementsPanel from './CriticalEvidenceRequirementsPanel.jsx';
 import GovernedDecisionOperationsPanel from './GovernedDecisionOperationsPanel.jsx';
+import GovernedHumanReviewPanel from './GovernedHumanReviewPanel.jsx';
 
 export default function ValuationIntelligencePanel(props) {
   const {
     locale = 'ar-SA',
     valuationCase = null,
     onChangeValuationCase,
-    onRecordGovernedHumanReview,
   } = props;
 
   return (
@@ -30,7 +30,10 @@ export default function ValuationIntelligencePanel(props) {
           <GovernedDecisionOperationsPanel
             locale={locale}
             valuationCase={valuationCase}
-            onRecordGovernedHumanReview={onRecordGovernedHumanReview}
+          />
+          <GovernedHumanReviewPanel
+            locale={locale}
+            valuationCase={valuationCase}
           />
         </>
       ) : null}
