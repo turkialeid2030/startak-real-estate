@@ -1,7 +1,15 @@
 import React from 'react';
-import aiAssistClient from '../residential-income-acquisition/ai-assist-client';
 
-const { requestResidentialIncomeAiAssist, AI_ASSIST_CLIENT_STATUS } = aiAssistClient;
+// Browser/dev-runtime compatibility: this client is authored as CommonJS and is
+// also consumed by Node regression tests. Using a default ESM import makes Vite
+// request a non-existent `default` export and prevents the entire React root
+// from mounting. Keep the boundary explicit and consistent with the rest of
+// the application source, which consumes CommonJS governance modules via
+// `require()`.
+const {
+  requestResidentialIncomeAiAssist,
+  AI_ASSIST_CLIENT_STATUS,
+} = require('../residential-income-acquisition/ai-assist-client');
 
 const ACTIVATION_INCOMPLETE_CODES = new Set([
   'AI_ACCESS_NOT_CONFIGURED',
