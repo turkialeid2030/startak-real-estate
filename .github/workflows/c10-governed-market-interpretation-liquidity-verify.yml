@@ -1,0 +1,47 @@
+name: C10 Governed Market Interpretation Liquidity Verify
+
+on:
+  pull_request:
+    paths:
+      - 'src/contracts/market-evidence.js'
+      - 'src/market/market-evidence-governance.js'
+      - 'src/market/official-market-source-registry.js'
+      - 'src/market/governed-market-interpretation.js'
+      - 'src/market/index.js'
+      - 'tests/defects/c10_governed_market_interpretation_liquidity.js'
+      - 'docs/capabilities/C10_GOVERNED_MARKET_INTERPRETATION_LIQUIDITY.md'
+      - '.github/workflows/c10-governed-market-interpretation-liquidity-verify.yml'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact candidate head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Assert exact candidate head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          test "$ACTUAL_SHA" = "$EXPECTED_SHA"
+          echo "EXACT_HEAD_SHA=$ACTUAL_SHA"
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: C10 governed market interpretation liquidity regression
+        run: node tests/defects/c10_governed_market_interpretation_liquidity.js
+      - name: Canonical release verification
+        run: npm run release:verify
