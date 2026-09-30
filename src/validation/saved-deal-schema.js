@@ -12,12 +12,13 @@
 //   inspects and throws or returns.
 // - The legacy {id, name, mode, inputs, savedAt} core remains valid exactly
 //   as before. Optional assumptionModelVersion, assumptionRegistry,
-//   valuationCase, zakatCase and standards-snapshot metadata are additive and
-//   versioned; absence remains valid for historical records and never triggers
-//   automatic migration.
+//   valuationCase, governedDealDecision, zakatCase and standards-snapshot
+//   metadata are additive and versioned; absence remains valid for historical
+//   records and never triggers automatic migration.
 
 const { hydrateResidentialIncomeOperatingCaseSnapshot } = require('../residential-income-acquisition/operating-case-snapshot');
 const { validateValuationCaseExtension } = require('../valuation-intelligence/saved-deal-extension');
+const { validateGovernedDealDecisionSnapshot } = require('../decision-intelligence/governed-deal-decision');
 const { ASSUMPTION_MODEL_VERSION } = require('../assumptions/assumption-model');
 const {
   SAVED_DEAL_ASSUMPTION_REGISTRY_VERSION,
@@ -52,6 +53,14 @@ function validateSavedDealRecord(parsed) {
   // Study mode/type: must be exactly one of the two known values.
   if (typeof parsed.mode !== 'string' || !VALID_MODES.includes(parsed.mode)) {
     throw new SavedDealValidationError('INVALID_MODE', `mode=${JSON.stringify(parsed.mode)}`);
+  }
+
+  // C5 fail-closed precedence: if governed-decision metadata is attached to a
+  // non-building record, report that C5 governance violation before validating
+  // any other optional building-only extension. This keeps the canonical error
+  // deterministic even when a malformed record carries multiple extensions.
+  if (Object.prototype.hasOwnProperty.call(parsed, 'governedDealDecision') && parsed.mode !== 'building') {
+    throw new SavedDealValidationError('GOVERNED_DECISION_REQUIRES_BUILDING_MODE', `mode=${parsed.mode}`);
   }
 
   // Raw inputs payload: must be a plain object (not null/array/primitive).
@@ -136,6 +145,25 @@ function validateSavedDealRecord(parsed) {
       validateValuationCaseExtension(parsed.valuationCase);
     } catch (error) {
       throw new SavedDealValidationError('INVALID_VALUATION_CASE', error.reasonCode || error.name || 'UNKNOWN');
+    }
+  }
+
+  // C5: a governed C4 decision is executable only as saved-deal governance
+  // metadata for an existing-building valuation case. Validate the complete C4
+  // snapshot (including hash, lineage, freshness-at-generation and authority
+  // boundaries) before the record reaches application state. Do not repair or
+  // silently strip malformed snapshots.
+  if (Object.prototype.hasOwnProperty.call(parsed, 'governedDealDecision')) {
+    if (!Object.prototype.hasOwnProperty.call(parsed, 'valuationCase')) {
+      throw new SavedDealValidationError('GOVERNED_DECISION_REQUIRES_VALUATION_CASE', 'valuationCase');
+    }
+    try {
+      validateGovernedDealDecisionSnapshot(parsed.governedDealDecision);
+    } catch (error) {
+      throw new SavedDealValidationError('INVALID_GOVERNED_DEAL_DECISION', error.code || error.name || 'UNKNOWN');
+    }
+    if (parsed.valuationCase.projectId !== parsed.governedDealDecision.projectId) {
+      throw new SavedDealValidationError('GOVERNED_DECISION_PROJECT_MISMATCH', 'valuationCase.projectId');
     }
   }
 

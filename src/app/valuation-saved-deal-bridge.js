@@ -2,6 +2,19 @@
 
 const { validateValuationCaseExtension } = require('../valuation-intelligence');
 const { validateGovernedDealDecisionSnapshot } = require('../decision-intelligence/governed-deal-decision');
+const {
+  C5OperationalError,
+  computeSavedDealStateHash,
+  evaluateGovernedDecisionOperationalState,
+  buildGovernedDecisionOperationalExport,
+} = require('./governed-decision-operational');
+
+// Session-only provenance association. The exact valuationCase object returned
+// by valuationCaseFromSavedDeal is the capability token for the loaded saved
+// record. Any valuation-case replacement loses this association by design.
+// Economic/governance edits are additionally detected by the saved-deal state
+// hash before C4 metadata can be preserved on update.
+const loadedGovernedContextByValuationCase = new WeakMap();
 
 function clone(value) {
   if (Array.isArray(value)) return value.map(clone);
@@ -14,12 +27,23 @@ function requiredSavedDeal(record) {
   return record;
 }
 
+function rememberGovernedContext(valuationCase, record) {
+  if (!valuationCase || !record || !Object.prototype.hasOwnProperty.call(record, 'governedDealDecision')) return;
+  validateGovernedDealDecisionSnapshot(record.governedDealDecision);
+  loadedGovernedContextByValuationCase.set(valuationCase, Object.freeze({
+    savedDealRecord: clone(record),
+    savedDealStateHashSha256: computeSavedDealStateHash(record),
+  }));
+}
+
 function valuationCaseFromSavedDeal(record) {
   requiredSavedDeal(record);
   if (record.mode !== 'building') return null;
   if (!Object.prototype.hasOwnProperty.call(record, 'valuationCase')) return null;
   validateValuationCaseExtension(record.valuationCase);
-  return clone(record.valuationCase);
+  const valuationCase = clone(record.valuationCase);
+  rememberGovernedContext(valuationCase, record);
+  return valuationCase;
 }
 
 function withValuationCase(record, valuationCase) {
@@ -27,10 +51,25 @@ function withValuationCase(record, valuationCase) {
   const { valuationCase: _discarded, ...withoutValuationCase } = record;
   if (record.mode !== 'building' || valuationCase === null || valuationCase === undefined) return withoutValuationCase;
   validateValuationCaseExtension(valuationCase);
-  return {
+  let output = {
     ...withoutValuationCase,
     valuationCase: clone(valuationCase),
   };
+
+  const loaded = loadedGovernedContextByValuationCase.get(valuationCase);
+  if (loaded && loaded.savedDealRecord.governedDealDecision) {
+    const currentStateHash = computeSavedDealStateHash(output);
+    if (currentStateHash === loaded.savedDealStateHashSha256) {
+      output = withGovernedDealDecision(output, loaded.savedDealRecord.governedDealDecision);
+    } else {
+      // Any material saved-deal state change invalidates the session provenance
+      // association. The stale governed snapshot is deliberately not carried
+      // forward into the updated deal.
+      loadedGovernedContextByValuationCase.delete(valuationCase);
+      delete output.governedDealDecision;
+    }
+  }
+  return output;
 }
 
 function governedDealDecisionFromSavedDeal(record) {
@@ -52,9 +91,42 @@ function withGovernedDealDecision(record, governedDealDecision) {
   };
 }
 
+function governedDecisionOperationalContextFromValuationCase(valuationCase, { asOf = new Date() } = {}) {
+  if (!valuationCase || typeof valuationCase !== 'object') return null;
+  const loaded = loadedGovernedContextByValuationCase.get(valuationCase);
+  if (!loaded) return null;
+  const viewModel = evaluateGovernedDecisionOperationalState({
+    savedDealRecord: loaded.savedDealRecord,
+    expectedContext: { projectId: valuationCase.projectId },
+    asOf,
+  });
+  return Object.freeze({
+    sourceSavedDealId: loaded.savedDealRecord.id || null,
+    sourceSavedDealStateHashSha256: loaded.savedDealStateHashSha256,
+    viewModel,
+  });
+}
+
+function buildGovernedDecisionOperationalExportFromValuationCase(valuationCase, {
+  reportId,
+  generatedAt = new Date(),
+} = {}) {
+  if (!valuationCase || typeof valuationCase !== 'object') throw new C5OperationalError('C5_LOADED_CONTEXT_REQUIRED');
+  const loaded = loadedGovernedContextByValuationCase.get(valuationCase);
+  if (!loaded) throw new C5OperationalError('C5_LOADED_CONTEXT_REQUIRED');
+  return buildGovernedDecisionOperationalExport({
+    savedDealRecord: loaded.savedDealRecord,
+    expectedContext: { projectId: valuationCase.projectId },
+    reportId,
+    generatedAt,
+  });
+}
+
 module.exports = {
   valuationCaseFromSavedDeal,
   withValuationCase,
   governedDealDecisionFromSavedDeal,
   withGovernedDealDecision,
+  governedDecisionOperationalContextFromValuationCase,
+  buildGovernedDecisionOperationalExportFromValuationCase,
 };
