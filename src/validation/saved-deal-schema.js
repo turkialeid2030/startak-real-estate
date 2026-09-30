@@ -12,13 +12,14 @@
 //   inspects and throws or returns.
 // - The legacy {id, name, mode, inputs, savedAt} core remains valid exactly
 //   as before. Optional assumptionModelVersion, assumptionRegistry,
-//   valuationCase, governedDealDecision, zakatCase and standards-snapshot
-//   metadata are additive and versioned; absence remains valid for historical
-//   records and never triggers automatic migration.
+//   valuationCase, governedDealDecision, governedHumanReview, zakatCase and
+//   standards-snapshot metadata are additive and versioned; absence remains
+//   valid for historical records and never triggers automatic migration.
 
 const { hydrateResidentialIncomeOperatingCaseSnapshot } = require('../residential-income-acquisition/operating-case-snapshot');
 const { validateValuationCaseExtension } = require('../valuation-intelligence/saved-deal-extension');
 const { validateGovernedDealDecisionSnapshot } = require('../decision-intelligence/governed-deal-decision');
+const { validateGovernedHumanReview } = require('../decision-intelligence/governed-human-review');
 const { ASSUMPTION_MODEL_VERSION } = require('../assumptions/assumption-model');
 const {
   SAVED_DEAL_ASSUMPTION_REGISTRY_VERSION,
@@ -55,10 +56,12 @@ function validateSavedDealRecord(parsed) {
     throw new SavedDealValidationError('INVALID_MODE', `mode=${JSON.stringify(parsed.mode)}`);
   }
 
-  // C5 fail-closed precedence: if governed-decision metadata is attached to a
-  // non-building record, report that C5 governance violation before validating
-  // any other optional building-only extension. This keeps the canonical error
-  // deterministic even when a malformed record carries multiple extensions.
+  // Fail-closed governance precedence: governed decision/review metadata is
+  // never valid for land studies, regardless of what other optional building
+  // extensions are also present.
+  if (Object.prototype.hasOwnProperty.call(parsed, 'governedHumanReview') && parsed.mode !== 'building') {
+    throw new SavedDealValidationError('GOVERNED_HUMAN_REVIEW_REQUIRES_BUILDING_MODE', `mode=${parsed.mode}`);
+  }
   if (Object.prototype.hasOwnProperty.call(parsed, 'governedDealDecision') && parsed.mode !== 'building') {
     throw new SavedDealValidationError('GOVERNED_DECISION_REQUIRES_BUILDING_MODE', `mode=${parsed.mode}`);
   }
@@ -150,9 +153,7 @@ function validateSavedDealRecord(parsed) {
 
   // C5: a governed C4 decision is executable only as saved-deal governance
   // metadata for an existing-building valuation case. Validate the complete C4
-  // snapshot (including hash, lineage, freshness-at-generation and authority
-  // boundaries) before the record reaches application state. Do not repair or
-  // silently strip malformed snapshots.
+  // snapshot before the record reaches application state.
   if (Object.prototype.hasOwnProperty.call(parsed, 'governedDealDecision')) {
     if (!Object.prototype.hasOwnProperty.call(parsed, 'valuationCase')) {
       throw new SavedDealValidationError('GOVERNED_DECISION_REQUIRES_VALUATION_CASE', 'valuationCase');
@@ -164,6 +165,21 @@ function validateSavedDealRecord(parsed) {
     }
     if (parsed.valuationCase.projectId !== parsed.governedDealDecision.projectId) {
       throw new SavedDealValidationError('GOVERNED_DECISION_PROJECT_MISMATCH', 'valuationCase.projectId');
+    }
+  }
+
+  // C6: the human-review record is a separately hashed, non-authorizing overlay
+  // and must remain cryptographically bound to the exact C4 snapshot and the
+  // material saved-deal state. Historical staleness is intentionally not
+  // re-evaluated here; current-time freshness is an operational/UI gate.
+  if (Object.prototype.hasOwnProperty.call(parsed, 'governedHumanReview')) {
+    if (!Object.prototype.hasOwnProperty.call(parsed, 'governedDealDecision')) {
+      throw new SavedDealValidationError('GOVERNED_HUMAN_REVIEW_REQUIRES_DECISION', 'governedDealDecision');
+    }
+    try {
+      validateGovernedHumanReview(parsed.governedHumanReview, { savedDealRecord: parsed });
+    } catch (error) {
+      throw new SavedDealValidationError('INVALID_GOVERNED_HUMAN_REVIEW', error.code || error.name || 'UNKNOWN');
     }
   }
 
