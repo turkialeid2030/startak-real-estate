@@ -9,6 +9,7 @@ export default function ValuationIntelligencePanel(props) {
     locale = 'ar-SA',
     valuationCase = null,
     onChangeValuationCase,
+    onRecordGovernedHumanReview,
   } = props;
 
   return (
@@ -29,6 +30,7 @@ export default function ValuationIntelligencePanel(props) {
           <GovernedDecisionOperationsPanel
             locale={locale}
             valuationCase={valuationCase}
+            onRecordGovernedHumanReview={onRecordGovernedHumanReview}
           />
         </>
       ) : null}
