@@ -15,7 +15,12 @@ async function preloadDeal(page, record) {
 }
 
 async function loadSavedDeal(page, name) {
-  await page.getByTitle('الصفقات المحفوظة').click();
+  // Locale-independent selector: the Saved Deals control is the only header
+  // button containing Lucide's bookmark glyph. Avoid binding the E2E proof to
+  // translated title text.
+  const savedDealsButton = page.locator('button:has(svg.lucide-bookmark)').first();
+  await expect(savedDealsButton).toBeVisible();
+  await savedDealsButton.click();
   await expect(page.getByRole('button', { name })).toBeVisible();
   await page.getByRole('button', { name }).click();
 }
@@ -104,7 +109,7 @@ test('holds stale governed context and disables review/export in Chromium', asyn
   const c5Panel = page.getByTestId('governed-decision-operations');
   await expect(c5Panel).toBeVisible();
   await expect(c5Panel.getByText('C5_RECONCILIATION_STALE_NOW')).toBeVisible();
-  await expect(c5Panel.getByRole('button', { name: 'تصدير المخرج التحليلي المحكوم' })).toBeDisabled();
+  await expect(c5Panel.getByRole('button').last()).toBeDisabled();
   await expect(page.getByTestId('c6-review-status')).toHaveText('HOLD');
   await expect(page.getByTestId('c6-review-hold-reasons')).toContainText('C5_RECONCILIATION_STALE_NOW');
   await expect(page.getByTestId('c6-reviewer-id')).toBeDisabled();
