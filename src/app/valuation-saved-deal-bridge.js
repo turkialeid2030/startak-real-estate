@@ -3,6 +3,13 @@
 const { validateValuationCaseExtension } = require('../valuation-intelligence');
 const { validateGovernedDealDecisionSnapshot } = require('../decision-intelligence/governed-deal-decision');
 const {
+  buildGovernedHumanReview,
+  validateGovernedHumanReview,
+  withGovernedHumanReview: attachGovernedHumanReview,
+  evaluateControlledHumanReviewState,
+  buildGovernedReviewedDecisionExport,
+} = require('../decision-intelligence/governed-human-review');
+const {
   C5OperationalError,
   computeSavedDealStateHash,
   evaluateGovernedDecisionOperationalState,
@@ -13,7 +20,7 @@ const {
 // by valuationCaseFromSavedDeal is the capability token for the loaded saved
 // record. Any valuation-case replacement loses this association by design.
 // Economic/governance edits are additionally detected by the saved-deal state
-// hash before C4 metadata can be preserved on update.
+// hash before C4/C6 metadata can be preserved on update.
 const loadedGovernedContextByValuationCase = new WeakMap();
 
 function clone(value) {
@@ -30,6 +37,9 @@ function requiredSavedDeal(record) {
 function rememberGovernedContext(valuationCase, record) {
   if (!valuationCase || !record || !Object.prototype.hasOwnProperty.call(record, 'governedDealDecision')) return;
   validateGovernedDealDecisionSnapshot(record.governedDealDecision);
+  if (Object.prototype.hasOwnProperty.call(record, 'governedHumanReview')) {
+    validateGovernedHumanReview(record.governedHumanReview, { savedDealRecord: record });
+  }
   loadedGovernedContextByValuationCase.set(valuationCase, Object.freeze({
     savedDealRecord: clone(record),
     savedDealStateHashSha256: computeSavedDealStateHash(record),
@@ -48,11 +58,16 @@ function valuationCaseFromSavedDeal(record) {
 
 function withValuationCase(record, valuationCase) {
   requiredSavedDeal(record);
-  const { valuationCase: _discarded, ...withoutValuationCase } = record;
-  if (record.mode !== 'building' || valuationCase === null || valuationCase === undefined) return withoutValuationCase;
+  const {
+    valuationCase: _discardedValuationCase,
+    governedDealDecision: _discardedDecision,
+    governedHumanReview: _discardedReview,
+    ...withoutGovernedExtensions
+  } = record;
+  if (record.mode !== 'building' || valuationCase === null || valuationCase === undefined) return withoutGovernedExtensions;
   validateValuationCaseExtension(valuationCase);
   let output = {
-    ...withoutValuationCase,
+    ...withoutGovernedExtensions,
     valuationCase: clone(valuationCase),
   };
 
@@ -61,12 +76,16 @@ function withValuationCase(record, valuationCase) {
     const currentStateHash = computeSavedDealStateHash(output);
     if (currentStateHash === loaded.savedDealStateHashSha256) {
       output = withGovernedDealDecision(output, loaded.savedDealRecord.governedDealDecision);
+      if (loaded.savedDealRecord.governedHumanReview) {
+        output = attachGovernedHumanReview(output, loaded.savedDealRecord.governedHumanReview);
+      }
     } else {
       // Any material saved-deal state change invalidates the session provenance
-      // association. The stale governed snapshot is deliberately not carried
-      // forward into the updated deal.
+      // association. The stale governed decision and review are deliberately not
+      // carried forward into the updated deal.
       loadedGovernedContextByValuationCase.delete(valuationCase);
       delete output.governedDealDecision;
+      delete output.governedHumanReview;
     }
   }
   return output;
@@ -82,13 +101,18 @@ function governedDealDecisionFromSavedDeal(record) {
 
 function withGovernedDealDecision(record, governedDealDecision) {
   requiredSavedDeal(record);
-  const { governedDealDecision: _discarded, ...withoutGovernedDecision } = record;
+  const { governedDealDecision: _discarded, governedHumanReview: _discardedReview, ...withoutGovernedDecision } = record;
   if (record.mode !== 'building' || governedDealDecision === null || governedDealDecision === undefined) return withoutGovernedDecision;
   validateGovernedDealDecisionSnapshot(governedDealDecision);
   return {
     ...withoutGovernedDecision,
     governedDealDecision: clone(governedDealDecision),
   };
+}
+
+function withGovernedHumanReview(record, governedHumanReview) {
+  requiredSavedDeal(record);
+  return attachGovernedHumanReview(record, governedHumanReview);
 }
 
 function governedDecisionOperationalContextFromValuationCase(valuationCase, { asOf = new Date() } = {}) {
@@ -107,6 +131,31 @@ function governedDecisionOperationalContextFromValuationCase(valuationCase, { as
   });
 }
 
+function governedHumanReviewContextFromValuationCase(valuationCase, { asOf = new Date() } = {}) {
+  if (!valuationCase || typeof valuationCase !== 'object') return null;
+  const loaded = loadedGovernedContextByValuationCase.get(valuationCase);
+  if (!loaded) return null;
+  const viewModel = evaluateControlledHumanReviewState({
+    savedDealRecord: loaded.savedDealRecord,
+    asOf,
+  });
+  return Object.freeze({
+    sourceSavedDealId: loaded.savedDealRecord.id || null,
+    sourceSavedDealStateHashSha256: loaded.savedDealStateHashSha256,
+    viewModel,
+  });
+}
+
+function buildGovernedHumanReviewFromValuationCase(valuationCase, reviewInput = {}) {
+  if (!valuationCase || typeof valuationCase !== 'object') throw new C5OperationalError('C5_LOADED_CONTEXT_REQUIRED');
+  const loaded = loadedGovernedContextByValuationCase.get(valuationCase);
+  if (!loaded) throw new C5OperationalError('C5_LOADED_CONTEXT_REQUIRED');
+  return buildGovernedHumanReview({
+    savedDealRecord: loaded.savedDealRecord,
+    ...reviewInput,
+  });
+}
+
 function buildGovernedDecisionOperationalExportFromValuationCase(valuationCase, {
   reportId,
   generatedAt = new Date(),
@@ -122,11 +171,29 @@ function buildGovernedDecisionOperationalExportFromValuationCase(valuationCase, 
   });
 }
 
+function buildGovernedReviewedDecisionExportFromValuationCase(valuationCase, {
+  reportId,
+  generatedAt = new Date(),
+} = {}) {
+  if (!valuationCase || typeof valuationCase !== 'object') throw new C5OperationalError('C5_LOADED_CONTEXT_REQUIRED');
+  const loaded = loadedGovernedContextByValuationCase.get(valuationCase);
+  if (!loaded) throw new C5OperationalError('C5_LOADED_CONTEXT_REQUIRED');
+  return buildGovernedReviewedDecisionExport({
+    savedDealRecord: loaded.savedDealRecord,
+    reportId,
+    generatedAt,
+  });
+}
+
 module.exports = {
   valuationCaseFromSavedDeal,
   withValuationCase,
   governedDealDecisionFromSavedDeal,
   withGovernedDealDecision,
+  withGovernedHumanReview,
   governedDecisionOperationalContextFromValuationCase,
+  governedHumanReviewContextFromValuationCase,
+  buildGovernedHumanReviewFromValuationCase,
   buildGovernedDecisionOperationalExportFromValuationCase,
+  buildGovernedReviewedDecisionExportFromValuationCase,
 };
