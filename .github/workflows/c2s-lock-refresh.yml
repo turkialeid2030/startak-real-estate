@@ -1,0 +1,54 @@
+name: C2S Lock Refresh
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/c2s-lock-refresh.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-undici-lock:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 1
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Refresh vulnerable transitive dependency within declared range
+        run: npm update undici --package-lock-only --ignore-scripts
+      - name: Verify patched lock selection
+        run: |
+          node - <<'NODE'
+          const lock = require('./package-lock.json');
+          const entry = lock.packages && lock.packages['node_modules/undici'];
+          if (!entry || typeof entry.version !== 'string') throw new Error('undici lock entry missing');
+          console.log(`UNDICI_LOCK_VERSION=${entry.version}`);
+          const parts = entry.version.split('.').map(Number);
+          if (parts.length !== 3 || parts.some((n) => !Number.isInteger(n))) throw new Error('invalid undici version');
+          if (parts[0] < 8 || (parts[0] === 8 && (parts[1] < 10 || (parts[1] === 10 && parts[2] < 2)))) {
+            throw new Error(`undici remains below patched floor: ${entry.version}`);
+          }
+          NODE
+          npm audit --audit-level=high
+      - name: Commit patched lockfile only
+        run: |
+          if git diff --quiet -- package-lock.json; then
+            echo 'LOCKFILE_ALREADY_PATCHED=true'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add package-lock.json
+          git commit -m 'chore: refresh undici lockfile to patched release'
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
