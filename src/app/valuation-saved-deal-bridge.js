@@ -9,6 +9,7 @@ const {
   evaluateControlledHumanReviewState,
   buildGovernedReviewedDecisionExport,
 } = require('../decision-intelligence/governed-human-review');
+const { validateSavedDealRecord } = require('../validation/saved-deal-schema');
 const { createStorageProvider } = require('../storage/create-storage-provider');
 const {
   C5OperationalError,
@@ -165,6 +166,10 @@ async function persistGovernedHumanReviewFromValuationCase(valuationCase, review
   if (!id) throw new C5OperationalError('C5_SAVED_DEAL_ID_REQUIRED');
   const review = buildGovernedHumanReview({ savedDealRecord: loaded.savedDealRecord, ...reviewInput });
   const updatedRecord = attachGovernedHumanReview(loaded.savedDealRecord, review);
+  // Reuse the canonical structural boundary before persistence. This proves
+  // the persisted review, decision, valuation case and all existing saved-deal
+  // extensions remain jointly valid; no C6-only write path bypasses it.
+  validateSavedDealRecord(updatedRecord);
   const storageProvider = createStorageProvider();
   await storageProvider.set(`deal:${id}`, JSON.stringify(updatedRecord));
   rememberGovernedContext(valuationCase, updatedRecord);
