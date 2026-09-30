@@ -101,9 +101,10 @@ test('holds stale governed context and disables review/export in Chromium', asyn
   await page.goto('/');
   await loadSavedDeal(page, record.name);
 
-  await expect(page.getByTestId('governed-decision-operations')).toBeVisible();
-  await expect(page.getByTestId('c5-hold-reasons')).toContainText('C5_RECONCILIATION_STALE_NOW');
-  await expect(page.getByTestId('c5-governed-export')).toBeDisabled();
+  const c5Panel = page.getByTestId('governed-decision-operations');
+  await expect(c5Panel).toBeVisible();
+  await expect(c5Panel.getByText('C5_RECONCILIATION_STALE_NOW')).toBeVisible();
+  await expect(c5Panel.getByRole('button', { name: 'تصدير المخرج التحليلي المحكوم' })).toBeDisabled();
   await expect(page.getByTestId('c6-review-status')).toHaveText('HOLD');
   await expect(page.getByTestId('c6-review-hold-reasons')).toContainText('C5_RECONCILIATION_STALE_NOW');
   await expect(page.getByTestId('c6-reviewer-id')).toBeDisabled();
