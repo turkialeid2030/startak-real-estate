@@ -39,21 +39,37 @@ async function dumpBrowserSurface(page, reason) {
     console.log('C6_BUTTON_DIAGNOSTIC_ERROR', error?.message || String(error));
   }
   try {
+    console.log('C6_STORAGE_KEYS', JSON.stringify(await page.evaluate(() => Object.keys(window.localStorage))));
+  } catch (error) {
+    console.log('C6_STORAGE_DIAGNOSTIC_ERROR', error?.message || String(error));
+  }
+  try {
     console.log('C6_HTML', (await page.content()).slice(0, 8000));
   } catch (error) {
     console.log('C6_HTML_ERROR', error?.message || String(error));
   }
 }
 
-async function loadSavedDeal(page, name) {
+async function loadSavedDeal(page) {
   const savedDealsButton = page.locator('button:has(svg.lucide-bookmark)').first();
   if (await savedDealsButton.count() === 0) {
     await dumpBrowserSurface(page, 'SAVED_DEALS_BUTTON_NOT_FOUND');
   }
   await expect(savedDealsButton).toBeVisible();
   await savedDealsButton.click();
-  await expect(page.getByRole('button', { name })).toBeVisible();
-  await page.getByRole('button', { name }).click();
+
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  // The first building-icon button is the built-in reference study. A
+  // preloaded saved building deal is the second. Select structurally so this
+  // browser proof is not coupled to StrictArabicSurfaceGuard rewriting a
+  // user-supplied Latin deal name on the Arabic surface.
+  const savedBuildingDealButton = dialog.locator('button:has(svg.lucide-building-2)').nth(1);
+  if (await dialog.locator('button:has(svg.lucide-building-2)').count() < 2) {
+    await dumpBrowserSurface(page, 'PRELOADED_SAVED_DEAL_NOT_RENDERED');
+  }
+  await expect(savedBuildingDealButton).toBeVisible();
+  await savedBuildingDealButton.click();
 }
 
 async function persistedRecord(page, id) {
@@ -63,12 +79,21 @@ async function persistedRecord(page, id) {
   }, { namespace: NAMESPACE, dealId: id });
 }
 
+async function persistedIndex(page) {
+  return page.evaluate((namespace) => {
+    const raw = window.localStorage.getItem(`${namespace}deals-index`);
+    return raw ? JSON.parse(raw) : null;
+  }, NAMESPACE);
+}
+
 test('records, reloads and exports a non-authorizing governed human review', async ({ page }) => {
   attachBrowserDiagnostics(page);
   const record = buildC6SavedDeal({ now: new Date() });
   await preloadDeal(page, record);
   await page.goto('/');
-  await loadSavedDeal(page, record.name);
+  expect(await persistedRecord(page, record.id)).toBeTruthy();
+  expect(await persistedIndex(page)).toEqual(expect.arrayContaining([expect.objectContaining({ id: record.id })]));
+  await loadSavedDeal(page);
 
   await expect(page.getByTestId('governed-decision-operations')).toBeVisible();
   await expect(page.getByTestId('c6-human-review-workflow')).toBeVisible();
@@ -101,7 +126,7 @@ test('records, reloads and exports a non-authorizing governed human review', asy
   expect(stored.governedHumanReview.decisionSnapshotHashSha256).toBe(stored.governedDealDecision.snapshotHashSha256);
 
   await page.reload();
-  await loadSavedDeal(page, record.name);
+  await loadSavedDeal(page);
   await expect(page.getByTestId('c6-review-status')).toHaveText('REVIEW_RECORDED');
   await expect(page.getByText('browser-reviewer-c6')).toBeVisible();
   await expect(page.getByTestId('c6-reviewed-export')).toBeEnabled();
@@ -137,7 +162,9 @@ test('holds stale governed context and disables review/export in Chromium', asyn
   record.name = 'C6 stale governed browser deal';
   await preloadDeal(page, record);
   await page.goto('/');
-  await loadSavedDeal(page, record.name);
+  expect(await persistedRecord(page, record.id)).toBeTruthy();
+  expect(await persistedIndex(page)).toEqual(expect.arrayContaining([expect.objectContaining({ id: record.id })]));
+  await loadSavedDeal(page);
 
   const c5Panel = page.getByTestId('governed-decision-operations');
   await expect(c5Panel).toBeVisible();
