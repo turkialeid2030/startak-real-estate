@@ -43,6 +43,28 @@ function baseRecord(overrides = {}) {
   };
 }
 
+function statisticalOfficialRecord(overrides = {}) {
+  const evidencePayload = overrides.evidencePayload || payload('OFFICIAL_STATISTICAL_INDEX', { index: 118.4 });
+  return {
+    id: 'official-gastat-1',
+    sourceProvider: 'GASTAT_REAL_ESTATE_INDICES',
+    underlyingAuthority: 'GASTAT_REAL_ESTATE_INDICES',
+    provenanceVerified: true,
+    sourceTier: SOURCE_TIER.A_OFFICIAL_AUTHORITATIVE,
+    licensingStatus: SOURCE_LICENSING_STATUS.NOT_APPLICABLE_OFFICIAL,
+    sourceUrl: 'https://www.stats.gov.sa/',
+    retrievedAt: '2026-09-30T06:05:00.000Z',
+    effectiveAt: '2026-09-28T00:00:00.000Z',
+    validUntil: '2026-10-30T06:05:00.000Z',
+    originalSourceReference: 'GASTAT-INDEX-001',
+    methodologyVersion: 'GASTAT-METHOD-2026-Q3',
+    corroboratedBy: [],
+    evidencePayload,
+    evidenceHashSha256: hashValue(evidencePayload),
+    ...overrides,
+  };
+}
+
 function commercialRecord(overrides = {}) {
   const evidencePayload = overrides.evidencePayload || payload('COMMERCIAL_MARKET_VIEW', { pricePerSqmSar: 5100 });
   return {
@@ -136,6 +158,7 @@ assert.equal(validOfficial.status, SOURCE_PROVENANCE_GATE_STATUS.READY);
 assert.equal(validOfficial.authoritativeEvidence.length, 1);
 assert.equal(validOfficial.authoritativeEvidence[0].usageRole, SOURCE_USAGE_ROLE.AUTHORITATIVE_EVIDENCE);
 assert.equal(validOfficial.authoritativeEvidence[0].authoritativeEvidenceEligible, true);
+assert.equal(validOfficial.verifiedOfficialEvidenceRecords.length, 1);
 
 const unknownCommercial = evaluateSourceProvenanceBundle({ records: [commercialRecord()], asOf: AS_OF });
 assert.equal(unknownCommercial.status, SOURCE_PROVENANCE_GATE_STATUS.READY);
@@ -166,13 +189,59 @@ assert.equal(corroboratedBundle.status, SOURCE_PROVENANCE_GATE_STATUS.READY);
 assert.equal(corroboratedBundle.authoritativeEvidence.length, 1);
 assert.equal(corroboratedBundle.commercialCorroboration.length, 1);
 assert.equal(corroboratedBundle.commercialCorroboration[0].officialUnderlyingProvenanceCorroborated, true);
+assert.deepEqual(corroboratedBundle.commercialCorroboration[0].matchedOfficialEvidenceHashes, [official.evidenceHashSha256]);
 assert.equal(corroboratedBundle.commercialCorroboration[0].authoritativeEvidenceEligible, false);
+
+const unrelatedOfficial = statisticalOfficialRecord();
+const commercialWrongAuthorityHash = evaluateSourceProvenanceBundle({
+  records: [
+    unrelatedOfficial,
+    commercialRecord({
+      underlyingAuthority: 'MINISTRY_OF_JUSTICE_REAL_ESTATE_TRANSACTIONS',
+      provenanceVerified: true,
+      corroboratedBy: [unrelatedOfficial.evidenceHashSha256],
+    }),
+  ],
+  asOf: AS_OF,
+});
+assert.equal(commercialWrongAuthorityHash.status, SOURCE_PROVENANCE_GATE_STATUS.HOLD_EVIDENCE);
+assert.ok(commercialWrongAuthorityHash.blockers.includes('C2S_COMMERCIAL_OFFICIAL_PROVENANCE_AUTHORITY_MISMATCH'));
 
 const validAvm = evaluateSourceProvenanceBundle({ records: [avmRecord()], asOf: AS_OF });
 assert.equal(validAvm.status, SOURCE_PROVENANCE_GATE_STATUS.READY);
 assert.equal(validAvm.avmBenchmarks.length, 1);
 assert.equal(validAvm.avmCanEstablishCertifiedValuation, false);
 assert.equal(validAvm.certifiedValuationEstablished, false);
+
+const corroboratedAvm = evaluateSourceProvenanceBundle({
+  records: [
+    official,
+    avmRecord({
+      underlyingAuthority: 'MINISTRY_OF_JUSTICE_REAL_ESTATE_TRANSACTIONS',
+      provenanceVerified: true,
+      corroboratedBy: [official.evidenceHashSha256],
+    }),
+  ],
+  asOf: AS_OF,
+});
+assert.equal(corroboratedAvm.status, SOURCE_PROVENANCE_GATE_STATUS.READY);
+assert.equal(corroboratedAvm.avmBenchmarks.length, 1);
+assert.equal(corroboratedAvm.avmBenchmarks[0].officialUnderlyingProvenanceCorroborated, true);
+assert.equal(corroboratedAvm.avmBenchmarks[0].authoritativeEvidenceEligible, false);
+
+const avmWrongAuthorityHash = evaluateSourceProvenanceBundle({
+  records: [
+    unrelatedOfficial,
+    avmRecord({
+      underlyingAuthority: 'MINISTRY_OF_JUSTICE_REAL_ESTATE_TRANSACTIONS',
+      provenanceVerified: true,
+      corroboratedBy: [unrelatedOfficial.evidenceHashSha256],
+    }),
+  ],
+  asOf: AS_OF,
+});
+assert.equal(avmWrongAuthorityHash.status, SOURCE_PROVENANCE_GATE_STATUS.HOLD_EVIDENCE);
+assert.ok(avmWrongAuthorityHash.blockers.includes('C2S_AVM_OFFICIAL_PROVENANCE_AUTHORITY_MISMATCH'));
 
 const avmAuthorityInjection = evaluateSourceProvenanceBundle({
   records: [avmRecord({ certifiedValuationEstablished: true, transactionAuthorized: true })],
@@ -234,7 +303,7 @@ const deterministicB = evaluateSourceProvenanceBundle({
 assert.equal(deterministicA.status, SOURCE_PROVENANCE_GATE_STATUS.READY);
 assert.equal(deterministicA.bundleHashSha256, deterministicB.bundleHashSha256);
 
-for (const result of [validOfficial, unknownCommercial, corroboratedBundle, validAvm, validProfessional]) {
+for (const result of [validOfficial, unknownCommercial, corroboratedBundle, validAvm, corroboratedAvm, validProfessional]) {
   assert.equal(result.finalValuationConclusionEstablished, false);
   assert.equal(result.certifiedValuationEstablished, false);
   assert.equal(result.transactionAuthorized, false);
