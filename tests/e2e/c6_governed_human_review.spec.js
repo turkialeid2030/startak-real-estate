@@ -18,8 +18,17 @@ function attachBrowserDiagnostics(page) {
 async function preloadDeal(page, record) {
   const index = [{ id: record.id, name: record.name, mode: record.mode, savedAt: record.savedAt }];
   await page.addInitScript(({ namespace, deal, dealIndex }) => {
-    window.localStorage.setItem(`${namespace}deal:${deal.id}`, JSON.stringify(deal));
-    window.localStorage.setItem(`${namespace}deals-index`, JSON.stringify(dealIndex));
+    const dealKey = `${namespace}deal:${deal.id}`;
+    const indexKey = `${namespace}deals-index`;
+    // addInitScript runs on every navigation/reload. Seed only when absent so
+    // the E2E fixture cannot overwrite a review that the application itself
+    // persisted during the test. This preserves real browser durability.
+    if (window.localStorage.getItem(dealKey) === null) {
+      window.localStorage.setItem(dealKey, JSON.stringify(deal));
+    }
+    if (window.localStorage.getItem(indexKey) === null) {
+      window.localStorage.setItem(indexKey, JSON.stringify(dealIndex));
+    }
   }, { namespace: NAMESPACE, deal: record, dealIndex: index });
 }
 
@@ -125,6 +134,11 @@ test('records, reloads and exports a non-authorizing governed human review', asy
   expect(stored.governedHumanReview.decisionSnapshotHashSha256).toBe(stored.governedDealDecision.snapshotHashSha256);
 
   await page.reload();
+  // Prove browser persistence survived the reload before relying on UI
+  // hydration. This prevents the fixture itself from masking a durability bug.
+  const reloadedStored = await persistedRecord(page, record.id);
+  expect(reloadedStored?.governedHumanReview?.reviewerId).toBe('browser-reviewer-c6');
+  expect(reloadedStored?.governedHumanReview?.reviewHashSha256).toBe(stored.governedHumanReview.reviewHashSha256);
   await loadSavedDeal(page);
   await expect(page.getByText('browser-reviewer-c6')).toBeVisible();
   await expect(page.getByTestId('c6-reviewed-export')).toBeEnabled();
