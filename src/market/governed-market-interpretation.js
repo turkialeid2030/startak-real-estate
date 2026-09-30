@@ -323,9 +323,16 @@ function evaluateGovernedMarketInterpretation({
 
   const marketEvidenceHash = computeMarketEvidenceHash(upstream);
   if (upstream.status !== MARKET_GATE_STATUS.READY || upstream.decisionReady !== true) {
+    const recordBlockers = Array.isArray(upstream.records)
+      ? upstream.records.flatMap((record) => Array.isArray(record?.blockers) ? record.blockers : [])
+      : [];
     return baseResult({
       status: MARKET_INTERPRETATION_STATUS.HOLD_UPSTREAM_EVIDENCE,
-      blockers: ['C10_UPSTREAM_MARKET_EVIDENCE_NOT_READY', ...(Array.isArray(upstream.blockers) ? upstream.blockers : [])],
+      blockers: [
+        'C10_UPSTREAM_MARKET_EVIDENCE_NOT_READY',
+        ...(Array.isArray(upstream.blockers) ? upstream.blockers : []),
+        ...recordBlockers,
+      ],
       warnings: Array.isArray(upstream.warnings) ? upstream.warnings : [],
       upstream,
       marketEvidenceHash,
