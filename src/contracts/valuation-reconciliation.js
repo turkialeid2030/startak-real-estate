@@ -47,9 +47,16 @@ const RECOGNIZED_METHOD_MODELS = Object.freeze({
     expectedIndicationType: 'WHOLE_PROPERTY_SALES_COMPARISON_VALUE_INDICATION',
     requiredSourceValueScope: VALUATION_VALUE_SCOPE.WHOLE_PROPERTY,
     requiredSourceApproachFamily: VALUATION_APPROACH_FAMILY.MARKET,
-    requiredSourceHashFields: Object.freeze(['inputPacketHashSha256']),
+    requiredSourceHashFields: Object.freeze([
+      'inputPacketHashSha256',
+      'propertyEvidencePacketHashSha256',
+      'marketEvidenceEvaluationHashSha256',
+    ]),
     requiredSourceBooleanFlags: Object.freeze({
       canonicalCalculationEngine: true,
+      professionalComparableSelectionUsed: true,
+      professionalAdjustmentDispositionUsed: true,
+      professionalWeightsUsed: true,
       automaticComparableSelection: false,
       automaticAdjustmentEstimated: false,
       automaticComparableWeighting: false,
