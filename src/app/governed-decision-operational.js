@@ -1,6 +1,6 @@
 'use strict';
 
-const crypto = require('crypto');
+const { sha256Hex } = require('../crypto/sha256');
 const {
   C4_REPORT_CLASSIFICATION,
   C4_AUTHORITY_BOUNDARY,
@@ -68,7 +68,7 @@ function isJsonSafe(value, seen = new Set()) {
 
 function sha256(value) {
   if (!isJsonSafe(value)) throw new C5OperationalError('C5_NON_JSON_SAFE_PAYLOAD');
-  return crypto.createHash('sha256').update(JSON.stringify(canonicalize(value))).digest('hex');
+  return sha256Hex(JSON.stringify(canonicalize(value)));
 }
 
 function toMs(value) {
