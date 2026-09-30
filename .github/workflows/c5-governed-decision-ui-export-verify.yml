@@ -1,0 +1,41 @@
+name: C5 Governed Decision UI Export Verify
+
+on:
+  pull_request:
+    paths:
+      - 'src/app/governed-decision-operational.js'
+      - 'src/app/valuation-saved-deal-bridge.js'
+      - 'src/components/GovernedDecisionOperationsPanel.jsx'
+      - 'src/components/ValuationIntelligencePanel.jsx'
+      - 'src/validation/saved-deal-schema.js'
+      - 'tests/defects/c5_governed_decision_ui_export_integration.js'
+      - 'tests/defects/c4_governed_deal_decision_report_integration.js'
+      - 'docs/capabilities/C5_GOVERNED_DECISION_UI_EXPORT_INTEGRATION.md'
+      - '.github/workflows/c5-governed-decision-ui-export-verify.yml'
+      - 'package.json'
+      - 'package-lock.json'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: C5 governed decision UI/export integration
+        run: node tests/defects/c5_governed_decision_ui_export_integration.js
+      - name: C4 governed decision/report regression
+        run: node tests/defects/c4_governed_deal_decision_report_integration.js
+      - name: Canonical release verification
+        run: npm run release:verify
