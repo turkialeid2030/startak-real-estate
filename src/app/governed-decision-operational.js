@@ -86,6 +86,11 @@ function savedDealStateCore(record) {
   if (!record || typeof record !== 'object' || Array.isArray(record)) throw new C5OperationalError('C5_SAVED_DEAL_REQUIRED');
   const core = clone(record);
   delete core.governedDealDecision;
+  // C6 review metadata is an immutable human-governance overlay. It must not
+  // redefine the material economic/valuation state to which the C4 decision is
+  // bound; otherwise merely recording a recommendation would invalidate the
+  // same governed snapshot it references.
+  delete core.governedHumanReview;
   delete core.name;
   delete core.savedAt;
   return core;
