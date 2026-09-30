@@ -1,8 +1,13 @@
 import React from 'react';
-import {
+
+// Browser/dev-runtime compatibility: operating-case-editor is CommonJS and is
+// also consumed by Node regression tests. Consume it through require() rather
+// than named ESM imports so Vite does not request exports the module does not
+// declare in source form.
+const {
   updateVerifiedLeaseTerms,
   addVerifiedRentCollection,
-} from '../residential-income-acquisition/operating-case-editor';
+} = require('../residential-income-acquisition/operating-case-editor');
 
 const INPUT_CLASS = 'w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-100 outline-none focus:border-[#C9A24C]';
 
