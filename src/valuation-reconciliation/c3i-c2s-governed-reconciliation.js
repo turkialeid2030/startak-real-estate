@@ -8,14 +8,26 @@ const {
   SOURCE_PROVENANCE_GATE_STATUS,
 } = require('../contracts/source-intelligence');
 const {
+  WHOLE_PROPERTY_SALES_INPUT_STATUS,
+  WHOLE_PROPERTY_SALES_RESULT_STATUS,
+} = require('../contracts/whole-property-sales-comparison');
+const {
   evaluateSourceProvenanceBundle,
   hashValue,
 } = require('../source-intelligence/source-provenance-governance');
 const {
+  buildWholePropertySalesComparisonInputPacket,
+  verifyWholePropertySalesComparisonInputIntegrity,
+} = require('../valuation/whole-property-sales-comparison-input');
+const {
+  calculateWholePropertySalesComparisonIndication,
+} = require('../engines/valuation/whole-property-sales-comparison');
+const {
   evaluateValuationReconciliation,
 } = require('./valuation-reconciliation-governance');
 
-const C3I_C2S_GOVERNED_RECONCILIATION_VERSION = 'C3I_C2S_GOVERNED_RECONCILIATION_V1';
+const C3I_C2S_GOVERNED_RECONCILIATION_VERSION = 'C3I_C2S_GOVERNED_RECONCILIATION_V2';
+const WHOLE_PROPERTY_MARKET_MODEL_VERSION = 'WHOLE_PROPERTY_SALES_COMPARISON_1.0';
 
 const EVIDENCE_DOMAIN = Object.freeze({
   GEOSPATIAL: 'GEOSPATIAL',
@@ -183,11 +195,127 @@ function evaluateEvidenceBindings(input, provenanceEvaluation) {
   });
 }
 
-function heldResult(input, blockers, provenanceEvaluation = null, bindingEvaluation = null) {
+function evaluateWholePropertyMarketMethodBindings(input) {
+  const blockers = [];
+  const traces = [];
+  const methods = Array.isArray(input.methodIndications) ? input.methodIndications : [];
+  const c3mMethods = methods.filter((method) => method && method.sourceResult
+    && cleanString(method.sourceResult.modelVersion) === WHOLE_PROPERTY_MARKET_MODEL_VERSION);
+  if (!c3mMethods.length) return Object.freeze({ status: 'NOT_REQUIRED', traces: freezeArray([]), blockers: freezeArray([]) });
+
+  const drafts = input.wholePropertyMarketInputsByIndicationId;
+  if (!drafts || typeof drafts !== 'object' || Array.isArray(drafts)) {
+    return Object.freeze({
+      status: 'HOLD',
+      traces: freezeArray([]),
+      blockers: freezeArray(['C3I_C2S_C3M_INPUT_DRAFT_REGISTRY_REQUIRED']),
+    });
+  }
+
+  const c3mMethodIds = new Set(c3mMethods.map((method) => cleanString(method.id)).filter(Boolean));
+  for (const key of Object.keys(drafts)) {
+    if (!c3mMethodIds.has(key)) blockers.push(`C3I_C2S_C3M_INPUT_DRAFT_ORPHANED:${key}`);
+  }
+
+  for (const method of c3mMethods) {
+    const methodId = cleanString(method.id);
+    if (!methodId) {
+      blockers.push('C3I_C2S_C3M_METHOD_ID_REQUIRED');
+      continue;
+    }
+    const draft = drafts[methodId];
+    if (!draft || typeof draft !== 'object' || Array.isArray(draft)) {
+      blockers.push(`C3I_C2S_C3M_INPUT_DRAFT_REQUIRED:${methodId}`);
+      continue;
+    }
+
+    let canonicalPacket;
+    try {
+      canonicalPacket = buildWholePropertySalesComparisonInputPacket({
+        ...draft,
+        propertyRef: input.propertyRef,
+        valuationDate: input.valuationDate,
+        asOf: input.asOf,
+        marketEvidence: input.marketEvidence,
+        marketContextBinding: input.marketContextBinding,
+        trustedMarketContextBinderIds: input.trustedMarketContextBinderIds || [],
+      });
+    } catch (error) {
+      blockers.push(`C3I_C2S_C3M_INPUT_BUILD_ERROR:${methodId}:${error && error.message ? error.message : 'UNKNOWN'}`);
+      continue;
+    }
+
+    if (canonicalPacket.status !== WHOLE_PROPERTY_SALES_INPUT_STATUS.READY_FOR_CANONICAL_WHOLE_PROPERTY_SALES_CALCULATION
+        || canonicalPacket.readyForCanonicalWholePropertySalesCalculation !== true
+        || !verifyWholePropertySalesComparisonInputIntegrity(canonicalPacket)) {
+      blockers.push(`C3I_C2S_C3M_CANONICAL_INPUT_NOT_READY:${methodId}`);
+      for (const blocker of canonicalPacket.blockers || []) blockers.push(`C3I_C2S_C3M_INPUT:${methodId}:${blocker}`);
+      continue;
+    }
+
+    const canonicalResult = calculateWholePropertySalesComparisonIndication(canonicalPacket);
+    if (canonicalResult.status !== WHOLE_PROPERTY_SALES_RESULT_STATUS.WHOLE_PROPERTY_MARKET_VALUE_INDICATION_READY) {
+      blockers.push(`C3I_C2S_C3M_CANONICAL_RESULT_NOT_READY:${methodId}:${canonicalResult.status || 'UNKNOWN'}`);
+      continue;
+    }
+
+    const supplied = method.sourceResult;
+    const exactChecks = [
+      ['modelVersion', canonicalResult.modelVersion],
+      ['status', canonicalResult.status],
+      ['propertyRef', canonicalResult.propertyRef],
+      ['valuationDate', canonicalResult.valuationDate],
+      ['valueScope', canonicalResult.valueScope],
+      ['approachFamily', canonicalResult.approachFamily],
+      ['indicationType', canonicalResult.indicationType],
+      ['inputPacketHashSha256', canonicalResult.inputPacketHashSha256],
+      ['propertyEvidencePacketHashSha256', canonicalResult.propertyEvidencePacketHashSha256],
+      ['marketEvidenceEvaluationHashSha256', canonicalResult.marketEvidenceEvaluationHashSha256],
+      ['calculationHashSha256', canonicalResult.calculationHashSha256],
+      ['valueIndicationSar', canonicalResult.valueIndicationSar],
+      ['reconciledUnitValueSar', canonicalResult.reconciledUnitValueSar],
+      ['subjectBasisQuantity', canonicalResult.subjectBasisQuantity],
+      ['canonicalCalculationEngine', true],
+      ['automaticComparableSelection', false],
+      ['automaticAdjustmentEstimated', false],
+      ['automaticComparableWeighting', false],
+      ['finalValuationConclusionEstablished', false],
+      ['certifiedValuationEstablished', false],
+      ['transactionAuthorized', false],
+      ['publicAiAuthorized', false],
+    ];
+    const mismatches = exactChecks.filter(([field, expected]) => supplied[field] !== expected).map(([field]) => field);
+    if (mismatches.length) {
+      blockers.push(`C3I_C2S_C3M_CANONICAL_RESULT_MISMATCH:${methodId}:${mismatches.join(',')}`);
+      continue;
+    }
+
+    traces.push(Object.freeze({
+      indicationId: methodId,
+      modelVersion: canonicalResult.modelVersion,
+      canonicalInputPacketHashSha256: canonicalResult.inputPacketHashSha256,
+      propertyEvidencePacketHashSha256: canonicalResult.propertyEvidencePacketHashSha256,
+      marketEvidenceEvaluationHashSha256: canonicalResult.marketEvidenceEvaluationHashSha256,
+      calculationHashSha256: canonicalResult.calculationHashSha256,
+      valueIndicationSar: canonicalResult.valueIndicationSar,
+      canonicalResultRecomputedFromCurrentMarketEvidence: true,
+    }));
+  }
+
+  return Object.freeze({
+    status: blockers.length ? 'HOLD' : 'READY',
+    requiredMethodCount: c3mMethods.length,
+    verifiedMethodCount: traces.length,
+    traces: freezeArray(traces),
+    blockers: freezeArray([...new Set(blockers)]),
+  });
+}
+
+function heldResult(input, blockers, provenanceEvaluation = null, bindingEvaluation = null, marketMethodEvaluation = null, status = RECONCILIATION_GATE_STATUS.HOLD_EVIDENCE) {
   const uniqueBlockers = [...new Set(blockers)];
   return Object.freeze({
     version: C3I_C2S_GOVERNED_RECONCILIATION_VERSION,
-    status: RECONCILIATION_GATE_STATUS.HOLD_EVIDENCE,
+    status,
     decisionReady: false,
     propertyRef: cleanString(input && input.propertyRef) || null,
     valuationDate: cleanString(input && input.valuationDate) || null,
@@ -195,6 +323,7 @@ function heldResult(input, blockers, provenanceEvaluation = null, bindingEvaluat
     sourceProvenanceReady: false,
     sourceProvenanceEvaluation: provenanceEvaluation,
     sourceProvenanceBindingEvaluation: bindingEvaluation,
+    wholePropertyMarketMethodEvaluation: marketMethodEvaluation,
     sourceProvenanceBundleHashSha256: provenanceEvaluation && provenanceEvaluation.bundleHashSha256 || null,
     candidateWeightedValueSar: null,
     analyticalValueIndicationSar: null,
@@ -207,7 +336,7 @@ function heldResult(input, blockers, provenanceEvaluation = null, bindingEvaluat
     transactionAuthorized: false,
     publicAiAuthorized: false,
     blockers: freezeArray(uniqueBlockers),
-    semantics: 'C3I/C2S fails closed before valuation reconciliation when source provenance or exact evidence-to-provenance binding is not independently governed. No analytical value is emitted from a provenance-held request.',
+    semantics: 'C3I/C2S fails closed before analytical reconciliation when source provenance, exact evidence-to-provenance binding, or canonical C3M input/result binding is not independently governed. No analytical value is emitted from a held request.',
   });
 }
 
@@ -249,6 +378,14 @@ function evaluateC3IC2SGovernedReconciliation(input = {}) {
     ], provenanceEvaluation, bindingEvaluation);
   }
 
+  const marketMethodEvaluation = evaluateWholePropertyMarketMethodBindings(input);
+  if (marketMethodEvaluation.status === 'HOLD') {
+    return heldResult(input, [
+      'C3I_C2S_C3M_METHOD_BINDING_NOT_READY',
+      ...marketMethodEvaluation.blockers,
+    ], provenanceEvaluation, bindingEvaluation, marketMethodEvaluation, RECONCILIATION_GATE_STATUS.HOLD_RECONCILIATION);
+  }
+
   const reconciliation = evaluateValuationReconciliation(input);
   return Object.freeze({
     ...reconciliation,
@@ -256,13 +393,14 @@ function evaluateC3IC2SGovernedReconciliation(input = {}) {
     sourceProvenanceReady: true,
     sourceProvenanceEvaluation: provenanceEvaluation,
     sourceProvenanceBindingEvaluation: bindingEvaluation,
+    wholePropertyMarketMethodEvaluation: marketMethodEvaluation,
     sourceProvenanceBundleHashSha256: provenanceEvaluation.bundleHashSha256,
     decisionReady: reconciliation.decisionReady === true,
     finalValuationConclusionEstablished: false,
     certifiedValuationEstablished: false,
     transactionAuthorized: false,
     publicAiAuthorized: false,
-    semantics: `${reconciliation.semantics || ''} C3I/C2S additionally requires independently governed authoritative provenance and exact hash-bound source evidence for every C1/C2 record consumed by reconciliation.`,
+    semantics: `${reconciliation.semantics || ''} C3I/C2S additionally requires independently governed authoritative provenance and exact hash-bound source evidence for every C1/C2 record consumed by reconciliation. Every C3M whole-property MARKET indication is independently rebuilt from the current C2 market evidence and current market-context binding, recalculated by the canonical C3M engine, and required to match the supplied upstream result exactly before it may enter C3 weighting.`,
   });
 }
 
