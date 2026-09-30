@@ -9,6 +9,7 @@ const {
   evaluateControlledHumanReviewState,
   buildGovernedReviewedDecisionExport,
 } = require('../decision-intelligence/governed-human-review');
+const { createStorageProvider } = require('../storage/create-storage-provider');
 const {
   C5OperationalError,
   computeSavedDealStateHash,
@@ -156,6 +157,20 @@ function buildGovernedHumanReviewFromValuationCase(valuationCase, reviewInput = 
   });
 }
 
+async function persistGovernedHumanReviewFromValuationCase(valuationCase, reviewInput = {}) {
+  if (!valuationCase || typeof valuationCase !== 'object') throw new C5OperationalError('C5_LOADED_CONTEXT_REQUIRED');
+  const loaded = loadedGovernedContextByValuationCase.get(valuationCase);
+  if (!loaded) throw new C5OperationalError('C5_LOADED_CONTEXT_REQUIRED');
+  const id = typeof loaded.savedDealRecord.id === 'string' ? loaded.savedDealRecord.id.trim() : '';
+  if (!id) throw new C5OperationalError('C5_SAVED_DEAL_ID_REQUIRED');
+  const review = buildGovernedHumanReview({ savedDealRecord: loaded.savedDealRecord, ...reviewInput });
+  const updatedRecord = attachGovernedHumanReview(loaded.savedDealRecord, review);
+  const storageProvider = createStorageProvider();
+  await storageProvider.set(`deal:${id}`, JSON.stringify(updatedRecord));
+  rememberGovernedContext(valuationCase, updatedRecord);
+  return clone(review);
+}
+
 function buildGovernedDecisionOperationalExportFromValuationCase(valuationCase, {
   reportId,
   generatedAt = new Date(),
@@ -194,6 +209,7 @@ module.exports = {
   governedDecisionOperationalContextFromValuationCase,
   governedHumanReviewContextFromValuationCase,
   buildGovernedHumanReviewFromValuationCase,
+  persistGovernedHumanReviewFromValuationCase,
   buildGovernedDecisionOperationalExportFromValuationCase,
   buildGovernedReviewedDecisionExportFromValuationCase,
 };
