@@ -7,8 +7,11 @@ on:
       - 'src/app/valuation-saved-deal-bridge.js'
       - 'src/components/GovernedDecisionOperationsPanel.jsx'
       - 'src/components/ValuationIntelligencePanel.jsx'
+      - 'src/crypto/sha256.js'
+      - 'src/decision-intelligence/governed-deal-decision.js'
       - 'src/validation/saved-deal-schema.js'
       - 'tests/defects/c5_governed_decision_ui_export_integration.js'
+      - 'tests/defects/c5_browser_safe_sha256.js'
       - 'tests/defects/c4_governed_deal_decision_report_integration.js'
       - 'docs/capabilities/C5_GOVERNED_DECISION_UI_EXPORT_INTEGRATION.md'
       - '.github/workflows/c5-governed-decision-ui-export-verify.yml'
@@ -33,6 +36,8 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
+      - name: Browser-safe SHA-256 parity
+        run: node tests/defects/c5_browser_safe_sha256.js
       - name: C5 governed decision UI/export integration
         run: node tests/defects/c5_governed_decision_ui_export_integration.js
       - name: C4 governed decision/report regression
