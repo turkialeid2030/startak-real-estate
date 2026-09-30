@@ -6,6 +6,15 @@ const { buildC6SavedDeal } = require('../fixtures/c6-governed-saved-deal');
 
 const NAMESPACE = 'STARTAK_REAL_ESTATE:SAVED_DEALS:';
 
+function attachBrowserDiagnostics(page) {
+  page.on('pageerror', (error) => {
+    console.log('C6_PAGE_ERROR', error?.stack || error?.message || String(error));
+  });
+  page.on('console', (message) => {
+    if (message.type() === 'error') console.log('C6_BROWSER_CONSOLE_ERROR', message.text());
+  });
+}
+
 async function preloadDeal(page, record) {
   const index = [{ id: record.id, name: record.name, mode: record.mode, savedAt: record.savedAt }];
   await page.addInitScript(({ namespace, deal, dealIndex }) => {
@@ -14,11 +23,33 @@ async function preloadDeal(page, record) {
   }, { namespace: NAMESPACE, deal: record, dealIndex: index });
 }
 
+async function dumpBrowserSurface(page, reason) {
+  console.log('C6_DIAGNOSTIC_REASON', reason);
+  console.log('C6_URL', page.url());
+  try {
+    console.log('C6_BODY_TEXT', (await page.locator('body').innerText()).slice(0, 5000));
+  } catch (error) {
+    console.log('C6_BODY_TEXT_ERROR', error?.message || String(error));
+  }
+  try {
+    console.log('C6_BUTTON_COUNT', await page.locator('button').count());
+    console.log('C6_BUTTON_TITLES', JSON.stringify(await page.locator('button').evaluateAll((nodes) => nodes.map((node) => node.getAttribute('title')))));
+    console.log('C6_BUTTON_TEXTS', JSON.stringify(await page.locator('button').allTextContents()));
+  } catch (error) {
+    console.log('C6_BUTTON_DIAGNOSTIC_ERROR', error?.message || String(error));
+  }
+  try {
+    console.log('C6_HTML', (await page.content()).slice(0, 8000));
+  } catch (error) {
+    console.log('C6_HTML_ERROR', error?.message || String(error));
+  }
+}
+
 async function loadSavedDeal(page, name) {
-  // Locale-independent selector: the Saved Deals control is the only header
-  // button containing Lucide's bookmark glyph. Avoid binding the E2E proof to
-  // translated title text.
   const savedDealsButton = page.locator('button:has(svg.lucide-bookmark)').first();
+  if (await savedDealsButton.count() === 0) {
+    await dumpBrowserSurface(page, 'SAVED_DEALS_BUTTON_NOT_FOUND');
+  }
   await expect(savedDealsButton).toBeVisible();
   await savedDealsButton.click();
   await expect(page.getByRole('button', { name })).toBeVisible();
@@ -33,6 +64,7 @@ async function persistedRecord(page, id) {
 }
 
 test('records, reloads and exports a non-authorizing governed human review', async ({ page }) => {
+  attachBrowserDiagnostics(page);
   const record = buildC6SavedDeal({ now: new Date() });
   await preloadDeal(page, record);
   await page.goto('/');
@@ -99,6 +131,7 @@ test('records, reloads and exports a non-authorizing governed human review', asy
 });
 
 test('holds stale governed context and disables review/export in Chromium', async ({ page }) => {
+  attachBrowserDiagnostics(page);
   const staleBase = new Date(Date.now() - (72 * 60 * 60 * 1000));
   const record = buildC6SavedDeal({ now: staleBase, id: 'DEAL-C6-STALE' });
   record.name = 'C6 stale governed browser deal';
