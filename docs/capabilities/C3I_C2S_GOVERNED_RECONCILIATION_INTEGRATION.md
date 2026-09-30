@@ -43,6 +43,25 @@ C3 recognizes only the exact qualified C3M model contract:
 
 The result must also preserve the C3M safety flags and input-packet hash required by the model registry. LAND sales comparison remains `LAND_ONLY` and is rejected from a WHOLE_PROPERTY policy.
 
+## Canonical C3M current-input binding
+A syntactically valid 64-character `inputPacketHashSha256` is not sufficient. For every C3M method indication, C3I requires a governed raw C3M input draft in `wholePropertyMarketInputsByIndicationId` and independently rebuilds the canonical C3M packet.
+
+The rebuild forcibly takes the following values from the current C3I request, rather than trusting the upstream result or draft:
+- `propertyRef`
+- `valuationDate`
+- `asOf`
+- current C2 `marketEvidence`
+- current `marketContextBinding`
+- current governed market-context binder registry
+
+C3I then:
+1. executes `buildWholePropertySalesComparisonInputPacket`;
+2. requires the resulting packet to be ready and pass `verifyWholePropertySalesComparisonInputIntegrity`;
+3. executes the canonical C3M calculation engine again;
+4. requires the supplied upstream C3M result to match the recomputed canonical result on model, status, property, valuation date, scope, approach, indication type, input hash, property-evidence hash, market-evidence evaluation hash, calculation hash, value, unit-value arithmetic, subject basis quantity and authority/safety flags.
+
+This closes the stale/fabricated-hash gap: a C3M result produced from an earlier or different C2 market packet cannot enter current C3 reconciliation merely by presenting a structurally valid hash.
+
 ## Adversarial coverage
 The integration regression includes:
 - valid six-record authoritative C1/C2 provenance binding;
@@ -53,13 +72,17 @@ The integration regression includes:
 - wrong official provider bound to a market record;
 - post-provenance evidence tampering / evidence-hash mismatch;
 - duplicate evidence binding;
+- missing C3M input draft;
+- stale C3M result generated from a different market-evidence packet;
+- forged C3M input-packet hash;
+- forged C3M calculation hash;
 - fabricated C3M status;
 - fabricated C3M indication type;
 - upstream transaction-authority injection;
 - LAND_ONLY market indication attempted in WHOLE_PROPERTY reconciliation.
 
 ## Fail-closed output
-If source provenance or exact binding fails, C3I returns `HOLD_EVIDENCE`, emits no analytical value, and preserves:
+If source provenance or exact C1/C2 binding fails, C3I returns `HOLD_EVIDENCE`. If canonical C3M input/result binding fails, it returns `HOLD_RECONCILIATION`. Both states emit no analytical value and preserve:
 - `finalValuationConclusionEstablished = false`
 - `certifiedValuationEstablished = false`
 - `transactionAuthorized = false`
