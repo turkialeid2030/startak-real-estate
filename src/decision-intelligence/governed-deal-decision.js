@@ -17,6 +17,14 @@ const {
 
 const HASH_RE = /^[a-f0-9]{64}$/i;
 const HOUR_MS = 60 * 60 * 1000;
+const C3_RESULT_CORE_FIELDS = Object.freeze([
+  'version', 'schemaVersion', 'propertyRef', 'valuationDate', 'valuationScope', 'asOf',
+  'status', 'decisionReady', 'reconciliationPolicyId', 'dependencyStatus',
+  'marketContextBinding', 'methodCoverage', 'eligibleMethodIndications',
+  'reconciliationInstruction', 'weightedTrace', 'candidateWeightedValueSar',
+  'analyticalRangeLowSar', 'analyticalRangeHighSar', 'spreadRatio',
+  'analyticalConfidenceClass', 'analyticalValueIndicationSar', 'blockers', 'warnings',
+]);
 
 class C4GovernanceError extends Error {
   constructor(code, field = null) {
@@ -42,37 +50,26 @@ function requiredObject(value, field) {
   return value;
 }
 
-function toTimestamp(value, field) {
-  const text = requiredString(value, field);
-  const ms = new Date(text).getTime();
+function timestamp(value, field) {
+  const ms = new Date(requiredString(value, field)).getTime();
   if (!Number.isFinite(ms)) throw new C4GovernanceError('C4_TIMESTAMP_INVALID', field);
   return ms;
 }
 
-function normalizedIso(value, field) {
-  return new Date(toTimestamp(value, field)).toISOString();
+function iso(value, field) {
+  return new Date(timestamp(value, field)).toISOString();
 }
 
-function assertHash(value, field) {
-  const text = cleanString(value);
+function hash64(value, field) {
+  const text = cleanString(value).toLowerCase();
   if (!HASH_RE.test(text)) throw new C4GovernanceError('C4_HASH_REQUIRED', field);
-  return text.toLowerCase();
+  return text;
 }
 
-function isJsonSafe(value, seen = new Set()) {
-  if (value === null) return true;
-  if (typeof value === 'string' || typeof value === 'boolean') return true;
-  if (typeof value === 'number') return Number.isFinite(value);
-  if (typeof value !== 'object') return false;
-  if (seen.has(value)) return false;
-  const prototype = Object.getPrototypeOf(value);
-  if (!Array.isArray(value) && prototype !== Object.prototype && prototype !== null) return false;
-  seen.add(value);
-  const valid = Array.isArray(value)
-    ? value.every((item) => isJsonSafe(item, seen))
-    : Object.keys(value).every((key) => isJsonSafe(value[key], seen));
-  seen.delete(value);
-  return valid;
+function clone(value) {
+  if (Array.isArray(value)) return value.map(clone);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, clone(child)]));
 }
 
 function canonicalize(value) {
@@ -86,171 +83,116 @@ function canonicalize(value) {
   return value;
 }
 
+function isJsonSafe(value, seen = new Set()) {
+  if (value === null || ['string', 'boolean'].includes(typeof value)) return true;
+  if (typeof value === 'number') return Number.isFinite(value);
+  if (typeof value !== 'object' || seen.has(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  if (!Array.isArray(value) && prototype !== Object.prototype && prototype !== null) return false;
+  seen.add(value);
+  const ok = Array.isArray(value)
+    ? value.every((item) => isJsonSafe(item, seen))
+    : Object.values(value).every((item) => isJsonSafe(item, seen));
+  seen.delete(value);
+  return ok;
+}
+
 function sha256(value) {
   if (!isJsonSafe(value)) throw new C4GovernanceError('C4_NON_JSON_SAFE_PAYLOAD');
   return crypto.createHash('sha256').update(JSON.stringify(canonicalize(value))).digest('hex');
 }
 
-function clone(value) {
-  if (Array.isArray(value)) return value.map(clone);
-  if (!value || typeof value !== 'object') return value;
-  return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, clone(child)]));
-}
-
 function deepFreeze(value) {
   if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
-  for (const child of Object.values(value)) deepFreeze(child);
+  Object.values(value).forEach(deepFreeze);
   return Object.freeze(value);
 }
 
-const C3_RESULT_CORE_FIELDS = Object.freeze([
-  'version',
-  'schemaVersion',
-  'propertyRef',
-  'valuationDate',
-  'valuationScope',
-  'asOf',
-  'status',
-  'decisionReady',
-  'reconciliationPolicyId',
-  'dependencyStatus',
-  'marketContextBinding',
-  'methodCoverage',
-  'eligibleMethodIndications',
-  'reconciliationInstruction',
-  'weightedTrace',
-  'candidateWeightedValueSar',
-  'analyticalRangeLowSar',
-  'analyticalRangeHighSar',
-  'spreadRatio',
-  'analyticalConfidenceClass',
-  'analyticalValueIndicationSar',
-  'blockers',
-  'warnings',
-]);
-
-function c3ResultCore(reconciliation) {
-  const core = {};
-  for (const field of C3_RESULT_CORE_FIELDS) core[field] = clone(reconciliation[field]);
-  return core;
+function c3Core(reconciliation) {
+  return Object.fromEntries(C3_RESULT_CORE_FIELDS.map((field) => [field, clone(reconciliation[field])]));
 }
 
 function computeC3ResultHash(reconciliation) {
   requiredObject(reconciliation, 'reconciliation');
-  return sha256(c3ResultCore(reconciliation));
+  return sha256(c3Core(reconciliation));
 }
 
-function assertFalse(value, field, code) {
+function requireFalse(value, field, code) {
   if (value !== false) throw new C4GovernanceError(code, field);
 }
 
-function validateC3Reconciliation(reconciliation, {
-  propertyRef,
-  valuationDate,
-  generatedAtMs,
-  maxReconciliationAgeHours,
-}) {
+function validateC3(reconciliation, { propertyRef, valuationDate, generatedAtMs, maxReconciliationAgeHours }) {
   requiredObject(reconciliation, 'reconciliation');
-  if (reconciliation.schemaVersion !== C3_VALUATION_RECONCILIATION_SCHEMA_VERSION) {
-    throw new C4GovernanceError('C4_C3_SCHEMA_UNSUPPORTED', 'reconciliation.schemaVersion');
-  }
-  if (reconciliation.status !== RECONCILIATION_GATE_STATUS.READY || reconciliation.decisionReady !== true) {
-    throw new C4GovernanceError('C4_RECONCILIATION_NOT_READY');
-  }
-  if (!Array.isArray(reconciliation.blockers) || reconciliation.blockers.length !== 0) {
-    throw new C4GovernanceError('C4_RECONCILIATION_BLOCKERS_PRESENT');
-  }
-  if (reconciliation.valuationScope !== VALUATION_VALUE_SCOPE.WHOLE_PROPERTY) {
-    throw new C4GovernanceError('C4_WHOLE_PROPERTY_SCOPE_REQUIRED', 'reconciliation.valuationScope');
-  }
-  if (cleanString(reconciliation.propertyRef) !== propertyRef) {
-    throw new C4GovernanceError('C4_PROPERTY_REF_MISMATCH', 'reconciliation.propertyRef');
-  }
-  if (normalizedIso(reconciliation.valuationDate, 'reconciliation.valuationDate') !== valuationDate) {
-    throw new C4GovernanceError('C4_VALUATION_DATE_MISMATCH', 'reconciliation.valuationDate');
-  }
-  const asOfMs = toTimestamp(reconciliation.asOf, 'reconciliation.asOf');
+  if (reconciliation.schemaVersion !== C3_VALUATION_RECONCILIATION_SCHEMA_VERSION) throw new C4GovernanceError('C4_C3_SCHEMA_UNSUPPORTED');
+  if (reconciliation.status !== RECONCILIATION_GATE_STATUS.READY || reconciliation.decisionReady !== true) throw new C4GovernanceError('C4_RECONCILIATION_NOT_READY');
+  if (!Array.isArray(reconciliation.blockers) || reconciliation.blockers.length) throw new C4GovernanceError('C4_RECONCILIATION_BLOCKERS_PRESENT');
+  if (reconciliation.valuationScope !== VALUATION_VALUE_SCOPE.WHOLE_PROPERTY) throw new C4GovernanceError('C4_WHOLE_PROPERTY_SCOPE_REQUIRED');
+  if (cleanString(reconciliation.propertyRef) !== propertyRef) throw new C4GovernanceError('C4_PROPERTY_REF_MISMATCH');
+  if (iso(reconciliation.valuationDate, 'reconciliation.valuationDate') !== valuationDate) throw new C4GovernanceError('C4_VALUATION_DATE_MISMATCH');
   if (!(typeof maxReconciliationAgeHours === 'number' && Number.isFinite(maxReconciliationAgeHours) && maxReconciliationAgeHours > 0)) {
-    throw new C4GovernanceError('C4_FRESHNESS_POLICY_INVALID', 'maxReconciliationAgeHours');
+    throw new C4GovernanceError('C4_FRESHNESS_POLICY_INVALID');
   }
+  const asOfMs = timestamp(reconciliation.asOf, 'reconciliation.asOf');
   if (asOfMs > generatedAtMs) throw new C4GovernanceError('C4_RECONCILIATION_FROM_FUTURE');
-  if ((generatedAtMs - asOfMs) > maxReconciliationAgeHours * HOUR_MS) {
-    throw new C4GovernanceError('C4_RECONCILIATION_STALE');
-  }
-  if (reconciliation.dependencyStatus?.c1 !== 'READY' || reconciliation.dependencyStatus?.c2 !== 'READY') {
-    throw new C4GovernanceError('C4_UPSTREAM_EVIDENCE_NOT_READY');
-  }
-  assertFalse(reconciliation.finalValuationConclusionEstablished, 'reconciliation.finalValuationConclusionEstablished', 'C4_UPSTREAM_FINAL_VALUATION_FORBIDDEN');
-  assertFalse(reconciliation.certifiedValuationEstablished, 'reconciliation.certifiedValuationEstablished', 'C4_UPSTREAM_CERTIFIED_VALUATION_FORBIDDEN');
-  assertFalse(reconciliation.transactionAuthorized, 'reconciliation.transactionAuthorized', 'C4_UPSTREAM_TRANSACTION_AUTHORITY_FORBIDDEN');
-  assertFalse(reconciliation.publicAiAuthorized, 'reconciliation.publicAiAuthorized', 'C4_UPSTREAM_PUBLIC_AI_AUTHORITY_FORBIDDEN');
-  if (!(typeof reconciliation.analyticalValueIndicationSar === 'number'
-      && Number.isFinite(reconciliation.analyticalValueIndicationSar)
-      && reconciliation.analyticalValueIndicationSar > 0)) {
+  if (generatedAtMs - asOfMs > maxReconciliationAgeHours * HOUR_MS) throw new C4GovernanceError('C4_RECONCILIATION_STALE');
+  if (reconciliation.dependencyStatus?.c1 !== 'READY' || reconciliation.dependencyStatus?.c2 !== 'READY') throw new C4GovernanceError('C4_UPSTREAM_EVIDENCE_NOT_READY');
+  requireFalse(reconciliation.finalValuationConclusionEstablished, 'finalValuationConclusionEstablished', 'C4_UPSTREAM_FINAL_VALUATION_FORBIDDEN');
+  requireFalse(reconciliation.certifiedValuationEstablished, 'certifiedValuationEstablished', 'C4_UPSTREAM_CERTIFIED_VALUATION_FORBIDDEN');
+  requireFalse(reconciliation.transactionAuthorized, 'transactionAuthorized', 'C4_UPSTREAM_TRANSACTION_AUTHORITY_FORBIDDEN');
+  requireFalse(reconciliation.publicAiAuthorized, 'publicAiAuthorized', 'C4_UPSTREAM_PUBLIC_AI_AUTHORITY_FORBIDDEN');
+  if (!(typeof reconciliation.analyticalValueIndicationSar === 'number' && Number.isFinite(reconciliation.analyticalValueIndicationSar) && reconciliation.analyticalValueIndicationSar > 0)) {
     throw new C4GovernanceError('C4_ANALYTICAL_VALUE_INDICATION_INVALID');
   }
-  if (!Array.isArray(reconciliation.eligibleMethodIndications) || reconciliation.eligibleMethodIndications.length === 0) {
-    throw new C4GovernanceError('C4_METHOD_LINEAGE_REQUIRED');
-  }
+  if (!Array.isArray(reconciliation.eligibleMethodIndications) || !reconciliation.eligibleMethodIndications.length) throw new C4GovernanceError('C4_METHOD_LINEAGE_REQUIRED');
   for (const method of reconciliation.eligibleMethodIndications) {
-    requiredObject(method, 'reconciliation.eligibleMethodIndications[]');
-    requiredString(method.id, 'reconciliation.eligibleMethodIndications[].id');
-    assertHash(method.calculationHashSha256, `method.${method.id}.calculationHashSha256`);
-    assertHash(method.sourceResultHashSha256, `method.${method.id}.sourceResultHashSha256`);
+    requiredObject(method, 'eligibleMethodIndication');
+    const id = requiredString(method.id, 'method.id');
+    hash64(method.calculationHashSha256, `method.${id}.calculationHashSha256`);
+    hash64(method.sourceResultHashSha256, `method.${id}.sourceResultHashSha256`);
   }
-  const declaredHash = assertHash(reconciliation.resultHashSha256, 'reconciliation.resultHashSha256');
-  const computedHash = computeC3ResultHash(reconciliation);
-  if (declaredHash !== computedHash) throw new C4GovernanceError('C4_RECONCILIATION_HASH_MISMATCH');
+  const declaredHash = hash64(reconciliation.resultHashSha256, 'reconciliation.resultHashSha256');
+  if (declaredHash !== computeC3ResultHash(reconciliation)) throw new C4GovernanceError('C4_RECONCILIATION_HASH_MISMATCH');
   return { asOfMs, declaredHash };
 }
 
-function validateEvidenceLineage(evidenceLineage, reconciliation) {
-  requiredObject(evidenceLineage, 'evidenceLineage');
-  const c1ResultHashSha256 = assertHash(evidenceLineage.c1ResultHashSha256, 'evidenceLineage.c1ResultHashSha256');
-  const c2ResultHashSha256 = assertHash(evidenceLineage.c2ResultHashSha256, 'evidenceLineage.c2ResultHashSha256');
-  const reconciliationResultHashSha256 = assertHash(evidenceLineage.reconciliationResultHashSha256, 'evidenceLineage.reconciliationResultHashSha256');
-  if (reconciliationResultHashSha256 !== reconciliation.resultHashSha256.toLowerCase()) {
-    throw new C4GovernanceError('C4_LINEAGE_RECONCILIATION_HASH_MISMATCH');
-  }
-  if (!Array.isArray(evidenceLineage.sourceEvidenceHashes) || evidenceLineage.sourceEvidenceHashes.length === 0) {
-    throw new C4GovernanceError('C4_SOURCE_EVIDENCE_HASHES_REQUIRED');
-  }
-  const sourceEvidenceHashes = evidenceLineage.sourceEvidenceHashes.map((value, index) => assertHash(value, `evidenceLineage.sourceEvidenceHashes[${index}]`));
-  const methodMap = requiredObject(evidenceLineage.methodSourceResultHashesById, 'evidenceLineage.methodSourceResultHashesById');
-  const expectedMethods = reconciliation.eligibleMethodIndications;
-  if (Object.keys(methodMap).length !== expectedMethods.length) throw new C4GovernanceError('C4_METHOD_LINEAGE_CARDINALITY_MISMATCH');
-  const methodSourceResultHashesById = {};
-  for (const method of expectedMethods) {
-    const declared = assertHash(methodMap[method.id], `evidenceLineage.methodSourceResultHashesById.${method.id}`);
-    const expected = assertHash(method.sourceResultHashSha256, `reconciliation.method.${method.id}.sourceResultHashSha256`);
-    if (declared !== expected) throw new C4GovernanceError('C4_METHOD_SOURCE_HASH_MISMATCH', method.id);
-    methodSourceResultHashesById[method.id] = declared;
-  }
-  for (const id of Object.keys(methodMap)) {
-    if (!expectedMethods.some((method) => method.id === id)) throw new C4GovernanceError('C4_UNKNOWN_METHOD_LINEAGE', id);
-  }
-  return {
-    c1ResultHashSha256,
-    c2ResultHashSha256,
-    reconciliationResultHashSha256,
-    sourceEvidenceHashes: [...new Set(sourceEvidenceHashes)].sort(),
-    methodSourceResultHashesById,
+function normalizeLineage(lineage, reconciliation) {
+  requiredObject(lineage, 'evidenceLineage');
+  const normalized = {
+    c1ResultHashSha256: hash64(lineage.c1ResultHashSha256, 'evidenceLineage.c1ResultHashSha256'),
+    c2ResultHashSha256: hash64(lineage.c2ResultHashSha256, 'evidenceLineage.c2ResultHashSha256'),
+    reconciliationResultHashSha256: hash64(lineage.reconciliationResultHashSha256, 'evidenceLineage.reconciliationResultHashSha256'),
   };
+  if (normalized.reconciliationResultHashSha256 !== reconciliation.resultHashSha256.toLowerCase()) throw new C4GovernanceError('C4_LINEAGE_RECONCILIATION_HASH_MISMATCH');
+  if (!Array.isArray(lineage.sourceEvidenceHashes) || !lineage.sourceEvidenceHashes.length) throw new C4GovernanceError('C4_SOURCE_EVIDENCE_HASHES_REQUIRED');
+  normalized.sourceEvidenceHashes = [...new Set(lineage.sourceEvidenceHashes.map((item, index) => hash64(item, `evidenceLineage.sourceEvidenceHashes[${index}]`)))].sort();
+  const map = requiredObject(lineage.methodSourceResultHashesById, 'evidenceLineage.methodSourceResultHashesById');
+  const methods = reconciliation.eligibleMethodIndications;
+  if (Object.keys(map).length !== methods.length) throw new C4GovernanceError('C4_METHOD_LINEAGE_CARDINALITY_MISMATCH');
+  normalized.methodSourceResultHashesById = {};
+  for (const method of methods) {
+    const declared = hash64(map[method.id], `evidenceLineage.methodSourceResultHashesById.${method.id}`);
+    if (declared !== hash64(method.sourceResultHashSha256, `method.${method.id}.sourceResultHashSha256`)) throw new C4GovernanceError('C4_METHOD_SOURCE_HASH_MISMATCH', method.id);
+    normalized.methodSourceResultHashesById[method.id] = declared;
+  }
+  if (Object.keys(map).some((id) => !methods.some((method) => method.id === id))) throw new C4GovernanceError('C4_UNKNOWN_METHOD_LINEAGE');
+  return normalized;
 }
 
-function validateHumanReview(humanReview, { reconciliationAsOfMs, generatedAtMs }) {
-  if (humanReview === null || humanReview === undefined) return null;
-  requiredObject(humanReview, 'humanReview');
-  for (const forbidden of ['approved', 'approvalStatus', 'transactionAuthorized', 'commercialGoLive', 'finalValuationConclusionEstablished', 'certifiedValuationEstablished']) {
-    if (Object.prototype.hasOwnProperty.call(humanReview, forbidden)) throw new C4GovernanceError('C4_REVIEW_AUTHORITY_FIELD_FORBIDDEN', `humanReview.${forbidden}`);
+function normalizeReview(review, { reconciliationAsOfMs, generatedAtMs }) {
+  if (review === null || review === undefined) return null;
+  requiredObject(review, 'humanReview');
+  if (review.approved === true || (Object.prototype.hasOwnProperty.call(review, 'approvalStatus') && review.approvalStatus !== 'NOT_ESTABLISHED')) {
+    throw new C4GovernanceError('C4_REVIEW_AUTHORITY_FIELD_FORBIDDEN');
   }
-  const reviewerId = requiredString(humanReview.reviewerId, 'humanReview.reviewerId');
-  const recommendation = requiredString(humanReview.recommendation, 'humanReview.recommendation');
-  if (!Object.values(C4_REVIEW_RECOMMENDATION).includes(recommendation)) {
-    throw new C4GovernanceError('C4_REVIEW_RECOMMENDATION_INVALID', 'humanReview.recommendation');
+  for (const field of ['approvalEstablished', 'transactionAuthorized', 'finalValuationConclusionEstablished', 'certifiedValuationEstablished']) {
+    if (Object.prototype.hasOwnProperty.call(review, field) && review[field] !== false) throw new C4GovernanceError('C4_REVIEW_AUTHORITY_FIELD_FORBIDDEN', field);
   }
-  const rationale = requiredString(humanReview.rationale, 'humanReview.rationale');
-  const reviewedAtMs = toTimestamp(humanReview.reviewedAt, 'humanReview.reviewedAt');
+  if (Object.prototype.hasOwnProperty.call(review, 'commercialGoLive') && review.commercialGoLive !== 'HOLD') throw new C4GovernanceError('C4_REVIEW_AUTHORITY_FIELD_FORBIDDEN', 'commercialGoLive');
+  const reviewerId = requiredString(review.reviewerId, 'humanReview.reviewerId');
+  const recommendation = requiredString(review.recommendation, 'humanReview.recommendation');
+  if (!Object.values(C4_REVIEW_RECOMMENDATION).includes(recommendation)) throw new C4GovernanceError('C4_REVIEW_RECOMMENDATION_INVALID');
+  const rationale = requiredString(review.rationale, 'humanReview.rationale');
+  const reviewedAtMs = timestamp(review.reviewedAt, 'humanReview.reviewedAt');
   if (reviewedAtMs < reconciliationAsOfMs) throw new C4GovernanceError('C4_REVIEW_BEFORE_RECONCILIATION');
   if (reviewedAtMs > generatedAtMs) throw new C4GovernanceError('C4_REVIEW_FROM_FUTURE');
   return {
@@ -263,7 +205,7 @@ function validateHumanReview(humanReview, { reconciliationAsOfMs, generatedAtMs 
   };
 }
 
-function decisionCore(snapshot) {
+function snapshotCore(snapshot) {
   return {
     schemaVersion: snapshot.schemaVersion,
     caseId: snapshot.caseId,
@@ -284,34 +226,15 @@ function decisionCore(snapshot) {
   };
 }
 
-function buildGovernedDealDecision({
-  caseId,
-  projectId,
-  propertyRef,
-  valuationDate,
-  reconciliation,
-  evidenceLineage,
-  generatedAt,
-  maxReconciliationAgeHours,
-  humanReview = null,
-} = {}) {
+function buildGovernedDealDecision({ caseId, projectId, propertyRef, valuationDate, reconciliation, evidenceLineage, generatedAt, maxReconciliationAgeHours, humanReview = null } = {}) {
   const scopedCaseId = requiredString(caseId, 'caseId');
   const scopedProjectId = requiredString(projectId, 'projectId');
   const scopedPropertyRef = requiredString(propertyRef, 'propertyRef');
-  const scopedValuationDate = normalizedIso(valuationDate, 'valuationDate');
-  const generatedAtMs = toTimestamp(generatedAt, 'generatedAt');
-  const reconciliationValidation = validateC3Reconciliation(reconciliation, {
-    propertyRef: scopedPropertyRef,
-    valuationDate: scopedValuationDate,
-    generatedAtMs,
-    maxReconciliationAgeHours,
-  });
-  const lineage = validateEvidenceLineage(evidenceLineage, reconciliation);
-  const review = validateHumanReview(humanReview, {
-    reconciliationAsOfMs: reconciliationValidation.asOfMs,
-    generatedAtMs,
-  });
-
+  const scopedValuationDate = iso(valuationDate, 'valuationDate');
+  const generatedAtMs = timestamp(generatedAt, 'generatedAt');
+  const upstream = validateC3(reconciliation, { propertyRef: scopedPropertyRef, valuationDate: scopedValuationDate, generatedAtMs, maxReconciliationAgeHours });
+  const lineage = normalizeLineage(evidenceLineage, reconciliation);
+  const review = normalizeReview(humanReview, { reconciliationAsOfMs: upstream.asOfMs, generatedAtMs });
   const core = {
     schemaVersion: C4_GOVERNED_DEAL_DECISION_SCHEMA_VERSION,
     caseId: scopedCaseId,
@@ -323,9 +246,9 @@ function buildGovernedDealDecision({
     status: review ? C4_DECISION_STATUS.REVIEW_RECOMMENDATION_RECORDED : C4_DECISION_STATUS.READY_FOR_HUMAN_REVIEW,
     reconciliationSummary: {
       schemaVersion: reconciliation.schemaVersion,
-      resultHashSha256: reconciliationValidation.declaredHash,
+      resultHashSha256: upstream.declaredHash,
       status: reconciliation.status,
-      asOf: new Date(reconciliationValidation.asOfMs).toISOString(),
+      asOf: new Date(upstream.asOfMs).toISOString(),
       valuationScope: reconciliation.valuationScope,
       reconciliationPolicyId: reconciliation.reconciliationPolicyId,
       analyticalValueIndicationSar: reconciliation.analyticalValueIndicationSar,
@@ -343,71 +266,51 @@ function buildGovernedDealDecision({
     reportReady: true,
     semantics: 'C4 binds a qualified governed reconciliation to an auditable deal/case snapshot and optional human reviewer recommendation. It does not approve a transaction, establish commercial go-live, create a final or certified valuation, or authorize public AI.',
   };
-
   return deepFreeze({ ...core, snapshotHashSha256: sha256(core) });
 }
 
 function validateGovernedDealDecisionSnapshot(snapshot) {
   requiredObject(snapshot, 'governedDealDecision');
-  const allowedKeys = new Set([...Object.keys(decisionCore(snapshot)), 'snapshotHashSha256']);
-  for (const key of Object.keys(snapshot)) {
-    if (!allowedKeys.has(key)) throw new C4GovernanceError('C4_SNAPSHOT_FIELD_NOT_ALLOWED', key);
-  }
+  const allowed = new Set([...Object.keys(snapshotCore(snapshot)), 'snapshotHashSha256']);
+  if (Object.keys(snapshot).some((key) => !allowed.has(key))) throw new C4GovernanceError('C4_SNAPSHOT_FIELD_NOT_ALLOWED');
   if (snapshot.schemaVersion !== C4_GOVERNED_DEAL_DECISION_SCHEMA_VERSION) throw new C4GovernanceError('C4_SNAPSHOT_SCHEMA_UNSUPPORTED');
   requiredString(snapshot.caseId, 'snapshot.caseId');
   requiredString(snapshot.projectId, 'snapshot.projectId');
   requiredString(snapshot.propertyRef, 'snapshot.propertyRef');
-  normalizedIso(snapshot.valuationDate, 'snapshot.valuationDate');
-  const generatedAtMs = toTimestamp(snapshot.generatedAt, 'snapshot.generatedAt');
-  if (!(typeof snapshot.maxReconciliationAgeHours === 'number' && Number.isFinite(snapshot.maxReconciliationAgeHours) && snapshot.maxReconciliationAgeHours > 0)) {
-    throw new C4GovernanceError('C4_FRESHNESS_POLICY_INVALID', 'snapshot.maxReconciliationAgeHours');
-  }
-  requiredObject(snapshot.reconciliationSummary, 'snapshot.reconciliationSummary');
-  if (snapshot.reconciliationSummary.schemaVersion !== C3_VALUATION_RECONCILIATION_SCHEMA_VERSION
-      || snapshot.reconciliationSummary.status !== RECONCILIATION_GATE_STATUS.READY
-      || snapshot.reconciliationSummary.valuationScope !== VALUATION_VALUE_SCOPE.WHOLE_PROPERTY) {
-    throw new C4GovernanceError('C4_SNAPSHOT_RECONCILIATION_NOT_QUALIFIED');
-  }
-  const reconciliationHash = assertHash(snapshot.reconciliationSummary.resultHashSha256, 'snapshot.reconciliationSummary.resultHashSha256');
+  iso(snapshot.valuationDate, 'snapshot.valuationDate');
+  const generatedAtMs = timestamp(snapshot.generatedAt, 'snapshot.generatedAt');
+  if (!(typeof snapshot.maxReconciliationAgeHours === 'number' && Number.isFinite(snapshot.maxReconciliationAgeHours) && snapshot.maxReconciliationAgeHours > 0)) throw new C4GovernanceError('C4_FRESHNESS_POLICY_INVALID');
+  const summary = requiredObject(snapshot.reconciliationSummary, 'snapshot.reconciliationSummary');
+  if (summary.schemaVersion !== C3_VALUATION_RECONCILIATION_SCHEMA_VERSION || summary.status !== RECONCILIATION_GATE_STATUS.READY || summary.valuationScope !== VALUATION_VALUE_SCOPE.WHOLE_PROPERTY) throw new C4GovernanceError('C4_SNAPSHOT_RECONCILIATION_NOT_QUALIFIED');
+  const reconciliationHash = hash64(summary.resultHashSha256, 'snapshot.reconciliationSummary.resultHashSha256');
   const lineage = requiredObject(snapshot.evidenceLineage, 'snapshot.evidenceLineage');
-  assertHash(lineage.c1ResultHashSha256, 'snapshot.evidenceLineage.c1ResultHashSha256');
-  assertHash(lineage.c2ResultHashSha256, 'snapshot.evidenceLineage.c2ResultHashSha256');
-  if (assertHash(lineage.reconciliationResultHashSha256, 'snapshot.evidenceLineage.reconciliationResultHashSha256') !== reconciliationHash) {
-    throw new C4GovernanceError('C4_LINEAGE_RECONCILIATION_HASH_MISMATCH');
-  }
-  if (!Array.isArray(lineage.sourceEvidenceHashes) || lineage.sourceEvidenceHashes.length === 0) throw new C4GovernanceError('C4_SOURCE_EVIDENCE_HASHES_REQUIRED');
-  lineage.sourceEvidenceHashes.forEach((hash, index) => assertHash(hash, `snapshot.evidenceLineage.sourceEvidenceHashes[${index}]`));
-  requiredObject(lineage.methodSourceResultHashesById, 'snapshot.evidenceLineage.methodSourceResultHashesById');
-  for (const [id, hash] of Object.entries(lineage.methodSourceResultHashesById)) assertHash(hash, `snapshot.evidenceLineage.methodSourceResultHashesById.${id}`);
-
+  hash64(lineage.c1ResultHashSha256, 'snapshot.evidenceLineage.c1ResultHashSha256');
+  hash64(lineage.c2ResultHashSha256, 'snapshot.evidenceLineage.c2ResultHashSha256');
+  if (hash64(lineage.reconciliationResultHashSha256, 'snapshot.evidenceLineage.reconciliationResultHashSha256') !== reconciliationHash) throw new C4GovernanceError('C4_LINEAGE_RECONCILIATION_HASH_MISMATCH');
+  if (!Array.isArray(lineage.sourceEvidenceHashes) || !lineage.sourceEvidenceHashes.length) throw new C4GovernanceError('C4_SOURCE_EVIDENCE_HASHES_REQUIRED');
+  lineage.sourceEvidenceHashes.forEach((item, index) => hash64(item, `snapshot.evidenceLineage.sourceEvidenceHashes[${index}]`));
+  const methodMap = requiredObject(lineage.methodSourceResultHashesById, 'snapshot.evidenceLineage.methodSourceResultHashesById');
+  Object.entries(methodMap).forEach(([id, value]) => hash64(value, `snapshot.evidenceLineage.methodSourceResultHashesById.${id}`));
   const authority = requiredObject(snapshot.authorityBoundary, 'snapshot.authorityBoundary');
   if (authority.commercialGoLive !== 'HOLD') throw new C4GovernanceError('C4_COMMERCIAL_GO_LIVE_FORBIDDEN');
-  for (const field of ['transactionAuthority', 'publicAi', 'canonicalBaselineActivationAuthorized', 'approvalAuthorized', 'finalValuationConclusionEstablished', 'certifiedValuationEstablished']) {
-    if (authority[field] !== false) throw new C4GovernanceError('C4_AUTHORITY_ESCALATION_FORBIDDEN', `snapshot.authorityBoundary.${field}`);
-  }
-  if (snapshot.humanDecisionRequired !== true || snapshot.transactionReady !== false || snapshot.reportReady !== true) {
-    throw new C4GovernanceError('C4_SNAPSHOT_SEMANTICS_INVALID');
-  }
-  const reconciliationAsOfMs = toTimestamp(snapshot.reconciliationSummary.asOf, 'snapshot.reconciliationSummary.asOf');
-  if (reconciliationAsOfMs > generatedAtMs || (generatedAtMs - reconciliationAsOfMs) > snapshot.maxReconciliationAgeHours * HOUR_MS) {
-    throw new C4GovernanceError('C4_SNAPSHOT_RECONCILIATION_STALE');
-  }
-  const review = validateHumanReview(snapshot.humanReview, { reconciliationAsOfMs, generatedAtMs });
+  ['transactionAuthority', 'publicAi', 'canonicalBaselineActivationAuthorized', 'approvalAuthorized', 'finalValuationConclusionEstablished', 'certifiedValuationEstablished'].forEach((field) => {
+    if (authority[field] !== false) throw new C4GovernanceError('C4_AUTHORITY_ESCALATION_FORBIDDEN', field);
+  });
+  if (snapshot.humanDecisionRequired !== true || snapshot.transactionReady !== false || snapshot.reportReady !== true) throw new C4GovernanceError('C4_SNAPSHOT_SEMANTICS_INVALID');
+  const asOfMs = timestamp(summary.asOf, 'snapshot.reconciliationSummary.asOf');
+  if (asOfMs > generatedAtMs || generatedAtMs - asOfMs > snapshot.maxReconciliationAgeHours * HOUR_MS) throw new C4GovernanceError('C4_SNAPSHOT_RECONCILIATION_STALE');
+  const review = normalizeReview(snapshot.humanReview, { reconciliationAsOfMs: asOfMs, generatedAtMs });
   const expectedStatus = review ? C4_DECISION_STATUS.REVIEW_RECOMMENDATION_RECORDED : C4_DECISION_STATUS.READY_FOR_HUMAN_REVIEW;
   if (snapshot.status !== expectedStatus) throw new C4GovernanceError('C4_SNAPSHOT_REVIEW_STATUS_MISMATCH');
-  const declaredHash = assertHash(snapshot.snapshotHashSha256, 'snapshot.snapshotHashSha256');
-  const computedHash = sha256(decisionCore(snapshot));
-  if (declaredHash !== computedHash) throw new C4GovernanceError('C4_SNAPSHOT_HASH_MISMATCH');
+  if (hash64(snapshot.snapshotHashSha256, 'snapshot.snapshotHashSha256') !== sha256(snapshotCore(snapshot))) throw new C4GovernanceError('C4_SNAPSHOT_HASH_MISMATCH');
   return true;
 }
 
 function buildGovernedDealDecisionReport({ reportId, decisionSnapshot, generatedAt } = {}) {
   const scopedReportId = requiredString(reportId, 'reportId');
   validateGovernedDealDecisionSnapshot(decisionSnapshot);
-  const generatedAtMs = toTimestamp(generatedAt, 'report.generatedAt');
-  const decisionGeneratedAtMs = toTimestamp(decisionSnapshot.generatedAt, 'decisionSnapshot.generatedAt');
-  if (generatedAtMs < decisionGeneratedAtMs) throw new C4GovernanceError('C4_REPORT_BEFORE_DECISION_SNAPSHOT');
-
+  const generatedAtMs = timestamp(generatedAt, 'report.generatedAt');
+  if (generatedAtMs < timestamp(decisionSnapshot.generatedAt, 'decisionSnapshot.generatedAt')) throw new C4GovernanceError('C4_REPORT_BEFORE_DECISION_SNAPSHOT');
   const core = {
     schemaVersion: C4_GOVERNED_REPORT_SCHEMA_VERSION,
     reportId: scopedReportId,
@@ -421,11 +324,7 @@ function buildGovernedDealDecisionReport({ reportId, decisionSnapshot, generated
     reconciliation: clone(decisionSnapshot.reconciliationSummary),
     evidenceLineage: clone(decisionSnapshot.evidenceLineage),
     reviewerRecommendation: decisionSnapshot.humanReview ? clone(decisionSnapshot.humanReview) : null,
-    approval: {
-      status: 'NOT_ESTABLISHED',
-      authorized: false,
-      transactionAuthorized: false,
-    },
+    approval: { status: 'NOT_ESTABLISHED', authorized: false, transactionAuthorized: false },
     authorityBoundary: { ...C4_AUTHORITY_BOUNDARY },
     humanDecisionRequired: true,
     disclosures: [
