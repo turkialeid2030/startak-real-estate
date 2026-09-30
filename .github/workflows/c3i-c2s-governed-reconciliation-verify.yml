@@ -1,0 +1,37 @@
+name: C3I C2S Governed Reconciliation Verify
+
+on:
+  pull_request:
+    paths:
+      - 'src/contracts/valuation-reconciliation.js'
+      - 'src/contracts/source-intelligence.js'
+      - 'src/source-intelligence/**'
+      - 'src/valuation-reconciliation/**'
+      - 'tests/defects/c3i_c2s_governed_reconciliation_integration.js'
+      - 'docs/capabilities/C3I_C2S_GOVERNED_RECONCILIATION_INTEGRATION.md'
+      - '.github/workflows/c3i-c2s-governed-reconciliation-verify.yml'
+      - 'package.json'
+      - 'package-lock.json'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: C3I C2S governed reconciliation integration
+        run: node tests/defects/c3i_c2s_governed_reconciliation_integration.js
+      - name: Canonical release verification
+        run: npm run release:verify

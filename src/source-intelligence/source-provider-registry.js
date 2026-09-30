@@ -30,6 +30,16 @@ const CANONICAL_SOURCE_PROVIDER_REGISTRY = Object.freeze({
     machineAccessStatus: SOURCE_MACHINE_ACCESS_STATUS.PUBLIC_WEB_UI_ONLY_MACHINE_ACCESS_NOT_VERIFIED,
     productionAdapterEnabled: false,
   }),
+  REGA_GEOSPATIAL_REAL_ESTATE_PORTAL: Object.freeze({
+    id: 'REGA_GEOSPATIAL_REAL_ESTATE_PORTAL',
+    organization: 'Real Estate General Authority',
+    sourceTier: SOURCE_TIER.A_OFFICIAL_AUTHORITATIVE,
+    providerKind: SOURCE_PROVIDER_KIND.OFFICIAL_AUTHORITY,
+    officialDomains: Object.freeze(['rega.gov.sa', 'www.rega.gov.sa']),
+    allowedUnderlyingAuthorities: Object.freeze(['REGA_GEOSPATIAL_REAL_ESTATE_PORTAL']),
+    machineAccessStatus: SOURCE_MACHINE_ACCESS_STATUS.PUBLIC_WEB_UI_ONLY_MACHINE_ACCESS_NOT_VERIFIED,
+    productionAdapterEnabled: false,
+  }),
   MINISTRY_OF_JUSTICE_REAL_ESTATE_TRANSACTIONS: Object.freeze({
     id: 'MINISTRY_OF_JUSTICE_REAL_ESTATE_TRANSACTIONS',
     organization: 'Ministry of Justice',
