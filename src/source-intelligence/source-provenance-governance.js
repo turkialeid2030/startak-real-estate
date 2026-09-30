@@ -106,6 +106,35 @@ function resolveProvider(sourceProvider, governedProfessionalProviders) {
   return normalizeProfessionalProvider(sourceProvider, governedProfessionalProviders);
 }
 
+function normalizeVerifiedOfficialEvidenceRecords(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map((record) => {
+    if (!record || typeof record !== 'object' || Array.isArray(record)) return null;
+    const evidenceHashSha256 = cleanString(record.evidenceHashSha256).toLowerCase();
+    if (!HASH_RE.test(evidenceHashSha256)) return null;
+    return Object.freeze({
+      evidenceHashSha256,
+      sourceProvider: cleanString(record.sourceProvider) || null,
+      underlyingAuthority: cleanString(record.underlyingAuthority) || null,
+    });
+  }).filter(Boolean);
+}
+
+function evaluateOfficialCorroboration(corroboratedBy, claimedUnderlyingAuthority, verifiedOfficialEvidenceRecords) {
+  const claimedAuthority = cleanString(claimedUnderlyingAuthority);
+  const corroborationHashes = new Set(Array.isArray(corroboratedBy) ? corroboratedBy : []);
+  const officialRecords = normalizeVerifiedOfficialEvidenceRecords(verifiedOfficialEvidenceRecords);
+  const hashMatchedRecords = officialRecords.filter((record) => corroborationHashes.has(record.evidenceHashSha256));
+  const authorityMatchedRecords = hashMatchedRecords.filter((record) => (
+    record.sourceProvider === claimedAuthority || record.underlyingAuthority === claimedAuthority
+  ));
+  return Object.freeze({
+    anyVerifiedOfficialHashMatched: hashMatchedRecords.length > 0,
+    claimedAuthorityMatched: authorityMatchedRecords.length > 0,
+    matchedOfficialEvidenceHashes: Object.freeze(authorityMatchedRecords.map((record) => record.evidenceHashSha256)),
+  });
+}
+
 function evaluateLicenseVerification(record, provider, context) {
   const blockers = [];
   const verification = record.licenseVerification;
@@ -155,7 +184,7 @@ function evaluateSourceProvenanceRecord(record, {
   asOfMs,
   governedProfessionalProviders = {},
   trustedLicenseVerifierIds = [],
-  verifiedOfficialEvidenceHashes = [],
+  verifiedOfficialEvidenceRecords = [],
 } = {}) {
   const blockers = [];
   const warnings = [];
@@ -221,6 +250,7 @@ function evaluateSourceProvenanceRecord(record, {
   let authoritativeEvidenceEligible = false;
   let professionalValuationOpinionEligible = false;
   let officialUnderlyingProvenanceCorroborated = false;
+  let matchedOfficialEvidenceHashes = [];
   let licenseVerification = null;
 
   if (sourceTier === SOURCE_TIER.A_OFFICIAL_AUTHORITATIVE) {
@@ -242,9 +272,14 @@ function evaluateSourceProvenanceRecord(record, {
       if (!underlying || underlying.sourceTier !== SOURCE_TIER.A_OFFICIAL_AUTHORITATIVE) {
         blockers.push(`C2S_COMMERCIAL_UNDERLYING_AUTHORITY_INVALID:${underlyingAuthority || 'MISSING'}`);
       }
-      const verifiedSet = new Set(verifiedOfficialEvidenceHashes.map((value) => cleanString(value).toLowerCase()));
-      officialUnderlyingProvenanceCorroborated = corroboratedBy.some((hash) => verifiedSet.has(hash));
-      if (!officialUnderlyingProvenanceCorroborated) blockers.push('C2S_COMMERCIAL_OFFICIAL_PROVENANCE_UNCORROBORATED');
+      const corroboration = evaluateOfficialCorroboration(corroboratedBy, underlyingAuthority, verifiedOfficialEvidenceRecords);
+      officialUnderlyingProvenanceCorroborated = corroboration.claimedAuthorityMatched;
+      matchedOfficialEvidenceHashes = corroboration.matchedOfficialEvidenceHashes;
+      if (!officialUnderlyingProvenanceCorroborated) {
+        blockers.push(corroboration.anyVerifiedOfficialHashMatched
+          ? 'C2S_COMMERCIAL_OFFICIAL_PROVENANCE_AUTHORITY_MISMATCH'
+          : 'C2S_COMMERCIAL_OFFICIAL_PROVENANCE_UNCORROBORATED');
+      }
     } else if (underlyingAuthority) {
       warnings.push('C2S_COMMERCIAL_UNVERIFIED_UNDERLYING_AUTHORITY_CLAIM_IGNORED');
     }
@@ -258,9 +293,14 @@ function evaluateSourceProvenanceRecord(record, {
       if (!underlying || underlying.sourceTier !== SOURCE_TIER.A_OFFICIAL_AUTHORITATIVE) {
         blockers.push(`C2S_AVM_UNDERLYING_AUTHORITY_INVALID:${underlyingAuthority || 'MISSING'}`);
       }
-      const verifiedSet = new Set(verifiedOfficialEvidenceHashes.map((value) => cleanString(value).toLowerCase()));
-      officialUnderlyingProvenanceCorroborated = corroboratedBy.some((hash) => verifiedSet.has(hash));
-      if (!officialUnderlyingProvenanceCorroborated) blockers.push('C2S_AVM_OFFICIAL_PROVENANCE_UNCORROBORATED');
+      const corroboration = evaluateOfficialCorroboration(corroboratedBy, underlyingAuthority, verifiedOfficialEvidenceRecords);
+      officialUnderlyingProvenanceCorroborated = corroboration.claimedAuthorityMatched;
+      matchedOfficialEvidenceHashes = corroboration.matchedOfficialEvidenceHashes;
+      if (!officialUnderlyingProvenanceCorroborated) {
+        blockers.push(corroboration.anyVerifiedOfficialHashMatched
+          ? 'C2S_AVM_OFFICIAL_PROVENANCE_AUTHORITY_MISMATCH'
+          : 'C2S_AVM_OFFICIAL_PROVENANCE_UNCORROBORATED');
+      }
     }
   } else if (sourceTier === SOURCE_TIER.D_LICENSED_PROFESSIONAL) {
     if (!provider || provider.providerKind !== SOURCE_PROVIDER_KIND.LICENSED_PROFESSIONAL_FIRM) blockers.push('C2S_PROFESSIONAL_PROVIDER_REGISTRY_REQUIRED');
@@ -291,6 +331,7 @@ function evaluateSourceProvenanceRecord(record, {
     originalSourceReference: originalSourceReference || null,
     methodologyVersion: methodologyVersion || null,
     corroboratedBy,
+    matchedOfficialEvidenceHashes,
     evidenceHashSha256: HASH_RE.test(evidenceHashSha256) ? evidenceHashSha256 : null,
     licenseVerification,
   };
@@ -334,17 +375,22 @@ function evaluateSourceProvenanceBundle({
       asOfMs,
       governedProfessionalProviders,
       trustedLicenseVerifierIds: trustedLicenseVerifiers,
-      verifiedOfficialEvidenceHashes: [],
+      verifiedOfficialEvidenceRecords: [],
     }))
     .filter((finding) => finding.normalized && finding.blockers.length === 0 && finding.normalized.authoritativeEvidenceEligible);
 
-  const verifiedOfficialEvidenceHashes = [...new Set(officialPass.map((finding) => finding.normalized.evidenceHashSha256).filter(Boolean))];
+  const verifiedOfficialEvidenceRecords = officialPass.map((finding) => Object.freeze({
+    evidenceHashSha256: finding.normalized.evidenceHashSha256,
+    sourceProvider: finding.normalized.sourceProvider,
+    underlyingAuthority: finding.normalized.underlyingAuthority,
+  }));
+  const verifiedOfficialEvidenceHashes = [...new Set(verifiedOfficialEvidenceRecords.map((record) => record.evidenceHashSha256).filter(Boolean))];
 
   const findings = sourceRecords.map((record) => evaluateSourceProvenanceRecord(record, {
     asOfMs,
     governedProfessionalProviders,
     trustedLicenseVerifierIds: trustedLicenseVerifiers,
-    verifiedOfficialEvidenceHashes,
+    verifiedOfficialEvidenceRecords,
   }));
 
   const blockers = [];
@@ -375,6 +421,7 @@ function evaluateSourceProvenanceBundle({
     status,
     decisionReady: status === SOURCE_PROVENANCE_GATE_STATUS.READY,
     verifiedOfficialEvidenceHashes: Object.freeze(verifiedOfficialEvidenceHashes),
+    verifiedOfficialEvidenceRecords: Object.freeze(verifiedOfficialEvidenceRecords),
     records: Object.freeze(normalizedRecords),
     authoritativeEvidence: Object.freeze(normalizedRecords.filter((record) => record.authoritativeEvidenceEligible)),
     commercialCorroboration: Object.freeze(normalizedRecords.filter((record) => record.usageRole === SOURCE_USAGE_ROLE.CORROBORATION_ONLY && record.blockers.length === 0)),
@@ -389,7 +436,7 @@ function evaluateSourceProvenanceBundle({
     certifiedValuationEstablished: false,
     transactionAuthorized: false,
     publicAiAuthorized: false,
-    semantics: 'C2S classifies source provenance independently from valuation arithmetic. Official sources may support authoritative evidence only when their provider, underlying authority, provenance, timestamps and evidence hash pass. Commercial intelligence can corroborate but cannot self-elevate to official authority. External AVMs are benchmark/challenger inputs only. Licensed-professional opinions require a governed provider plus trusted license verification and still do not by themselves authorize a transaction, public AI, canonical activation or a final/certified Startak valuation.',
+    semantics: 'C2S classifies source provenance independently from valuation arithmetic. Official sources may support authoritative evidence only when their provider, underlying authority, provenance, timestamps and evidence hash pass. Commercial intelligence can corroborate but cannot self-elevate to official authority. A commercial or AVM claim of official provenance must be linked by evidence hash to an independently verified official record whose source provider or declared underlying authority matches the claimed authority. External AVMs are benchmark/challenger inputs only. Licensed-professional opinions require a governed provider plus trusted license verification and still do not by themselves authorize a transaction, public AI, canonical activation or a final/certified Startak valuation.',
   });
 }
 
