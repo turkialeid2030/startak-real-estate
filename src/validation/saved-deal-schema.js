@@ -55,6 +55,14 @@ function validateSavedDealRecord(parsed) {
     throw new SavedDealValidationError('INVALID_MODE', `mode=${JSON.stringify(parsed.mode)}`);
   }
 
+  // C5 fail-closed precedence: if governed-decision metadata is attached to a
+  // non-building record, report that C5 governance violation before validating
+  // any other optional building-only extension. This keeps the canonical error
+  // deterministic even when a malformed record carries multiple extensions.
+  if (Object.prototype.hasOwnProperty.call(parsed, 'governedDealDecision') && parsed.mode !== 'building') {
+    throw new SavedDealValidationError('GOVERNED_DECISION_REQUIRES_BUILDING_MODE', `mode=${parsed.mode}`);
+  }
+
   // Raw inputs payload: must be a plain object (not null/array/primitive).
   if (parsed.inputs === null || typeof parsed.inputs !== 'object' || Array.isArray(parsed.inputs)) {
     throw new SavedDealValidationError('INVALID_INPUTS_SHAPE', `typeof=${Array.isArray(parsed.inputs) ? 'array' : typeof parsed.inputs}`);
@@ -146,9 +154,6 @@ function validateSavedDealRecord(parsed) {
   // boundaries) before the record reaches application state. Do not repair or
   // silently strip malformed snapshots.
   if (Object.prototype.hasOwnProperty.call(parsed, 'governedDealDecision')) {
-    if (parsed.mode !== 'building') {
-      throw new SavedDealValidationError('GOVERNED_DECISION_REQUIRES_BUILDING_MODE', `mode=${parsed.mode}`);
-    }
     if (!Object.prototype.hasOwnProperty.call(parsed, 'valuationCase')) {
       throw new SavedDealValidationError('GOVERNED_DECISION_REQUIRES_VALUATION_CASE', 'valuationCase');
     }
