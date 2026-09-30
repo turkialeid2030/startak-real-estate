@@ -13,6 +13,7 @@ const {
   computeSavedDealStateHash,
   evaluateGovernedDecisionOperationalState,
   buildGovernedDecisionOperationalExport,
+  verifyGovernedDecisionOperationalExport,
 } = require('../app/governed-decision-operational');
 
 const HASH_RE = /^[a-f0-9]{64}$/i;
@@ -121,6 +122,10 @@ function validateAuthority(review) {
   if (review.humanDecisionRequired !== true) throw new C6ReviewError('C6_HUMAN_DECISION_REQUIRED');
 }
 
+function upstreamReviewAlreadyRecorded(savedDealRecord) {
+  return Boolean(savedDealRecord?.governedDealDecision?.humanReview);
+}
+
 function validateGovernedHumanReview(review, { savedDealRecord = null } = {}) {
   if (!review || typeof review !== 'object' || Array.isArray(review)) throw new C6ReviewError('C6_REVIEW_OBJECT_REQUIRED');
   const allowed = new Set([...Object.keys(reviewCore(review)), 'reviewHashSha256']);
@@ -140,6 +145,7 @@ function validateGovernedHumanReview(review, { savedDealRecord = null } = {}) {
   if (savedDealRecord) {
     if (savedDealRecord.mode !== 'building') throw new C6ReviewError('C6_REVIEW_REQUIRES_BUILDING_MODE');
     if (!savedDealRecord.governedDealDecision) throw new C6ReviewError('C6_GOVERNED_DECISION_REQUIRED');
+    if (upstreamReviewAlreadyRecorded(savedDealRecord)) throw new C6ReviewError('C6_UPSTREAM_REVIEW_ALREADY_RECORDED');
     if (snapshotHash !== cleanString(savedDealRecord.governedDealDecision.snapshotHashSha256).toLowerCase()) throw new C6ReviewError('C6_DECISION_SNAPSHOT_HASH_MISMATCH');
     if (stateHash !== computeSavedDealStateHash(savedDealRecord)) throw new C6ReviewError('C6_SAVED_DEAL_STATE_HASH_MISMATCH');
   }
@@ -149,6 +155,7 @@ function validateGovernedHumanReview(review, { savedDealRecord = null } = {}) {
 function buildGovernedHumanReview({ savedDealRecord, reviewerId, recommendation, rationale, reviewedAt = new Date() } = {}) {
   if (!savedDealRecord || typeof savedDealRecord !== 'object' || Array.isArray(savedDealRecord)) throw new C6ReviewError('C6_SAVED_DEAL_REQUIRED');
   if (Object.prototype.hasOwnProperty.call(savedDealRecord, 'governedHumanReview')) throw new C6ReviewError('C6_REVIEW_ALREADY_RECORDED');
+  if (upstreamReviewAlreadyRecorded(savedDealRecord)) throw new C6ReviewError('C6_UPSTREAM_REVIEW_ALREADY_RECORDED');
   const reviewed = normalizeTime(reviewedAt, 'reviewedAt');
   const operational = evaluateGovernedDecisionOperationalState({ savedDealRecord, asOf: reviewed.iso });
   if (!operational.canExport) throw new C6ReviewError('C6_REVIEW_BLOCKED', operational.reasonCodes.join(','));
@@ -209,6 +216,16 @@ function evaluateControlledHumanReviewState({ savedDealRecord, asOf = new Date()
     humanDecisionRequired: true,
   };
   if (!operational.canExport) return Object.freeze({ ...base, status: 'HOLD', canRecordReview: false, canExportReviewedOutput: false, review: null });
+  if (upstreamReviewAlreadyRecorded(savedDealRecord)) {
+    return Object.freeze({
+      ...base,
+      status: 'HOLD_UPSTREAM_REVIEW_ALREADY_RECORDED',
+      canRecordReview: false,
+      canExportReviewedOutput: false,
+      reasonCodes: ['C6_UPSTREAM_REVIEW_ALREADY_RECORDED'],
+      review: null,
+    });
+  }
   if (!savedDealRecord.governedHumanReview) return Object.freeze({ ...base, status: 'READY_FOR_HUMAN_REVIEW', canRecordReview: true, canExportReviewedOutput: false, review: null });
   try {
     validateGovernedHumanReview(savedDealRecord.governedHumanReview, { savedDealRecord });
@@ -229,6 +246,7 @@ function buildGovernedReviewedDecisionExport({ savedDealRecord, reportId, genera
   if (!state.canExportReviewedOutput) throw new C6ReviewError('C6_REVIEWED_EXPORT_BLOCKED', state.reasonCodes.join(','));
   validateGovernedHumanReview(savedDealRecord.governedHumanReview, { savedDealRecord });
   const c5Export = buildGovernedDecisionOperationalExport({ savedDealRecord, reportId, generatedAt: generated.iso });
+  if (!verifyGovernedDecisionOperationalExport(c5Export)) throw new C6ReviewError('C6_NESTED_C5_EXPORT_INVALID');
   const core = {
     schemaVersion: C6_GOVERNED_REVIEW_EXPORT_SCHEMA_VERSION,
     classification: C4_REPORT_CLASSIFICATION.NON_AUTHORIZING_ANALYTICAL_OUTPUT,
@@ -275,6 +293,12 @@ function verifyGovernedReviewedDecisionExport(envelope) {
   if (envelope.transactionAuthorized !== false || envelope.approvalAuthorized !== false || envelope.publicAiAuthorized !== false || envelope.commercialGoLive !== 'HOLD') return false;
   if (envelope.finalValuationConclusionEstablished !== false || envelope.certifiedValuationEstablished !== false) return false;
   if (!envelope.review || envelope.reviewHashSha256 !== envelope.review.reviewHashSha256) return false;
+  if (!envelope.c5Export || envelope.c5ExportHashSha256 !== envelope.c5Export.exportHashSha256) return false;
+  if (!verifyGovernedDecisionOperationalExport(envelope.c5Export)) return false;
+  if (envelope.decisionSnapshotHashSha256 !== envelope.c5Export.decisionSnapshotHashSha256) return false;
+  if (envelope.savedDealStateHashSha256 !== envelope.c5Export.savedDealStateHashSha256) return false;
+  if (envelope.review.decisionSnapshotHashSha256 !== envelope.decisionSnapshotHashSha256) return false;
+  if (envelope.review.savedDealStateHashSha256 !== envelope.savedDealStateHashSha256) return false;
   try {
     validateGovernedHumanReview(envelope.review);
     return hash64(envelope.exportHashSha256, 'exportHashSha256') === sha256(reviewedExportCore(envelope));
