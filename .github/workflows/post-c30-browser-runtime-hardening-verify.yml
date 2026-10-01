@@ -1,0 +1,85 @@
+name: Post-C30 Browser Runtime Hardening Verify
+
+on:
+  pull_request:
+    paths:
+      - 'src/runtime/browser-crypto-shim.js'
+      - 'src/components/IntegratedCaseReviewPanel.jsx'
+      - 'src/presentation/integrated-case-review.js'
+      - 'src/main.jsx'
+      - 'vite.config.js'
+      - 'tests/fixtures/post-c30-integrated-review-bundles.js'
+      - 'tests/e2e/post_c30_integrated_case_review.spec.js'
+      - 'tests/defects/post_c30_browser_crypto_shim.js'
+      - '.github/workflows/post-c30-browser-runtime-hardening-verify.yml'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact candidate head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Assert exact candidate head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          test "$ACTUAL_SHA" = "$EXPECTED_SHA"
+          echo "EXACT_HEAD_SHA=$ACTUAL_SHA"
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Browser SHA-256 compatibility regression
+        run: node tests/defects/post_c30_browser_crypto_shim.js
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Integrated review production-bundle Chromium E2E
+        run: npx playwright test tests/e2e/post_c30_integrated_case_review.spec.js --project=chromium
+
+      - name: C30 release-candidate evidence-pack regression
+        env:
+          C30_EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node tests/defects/c30_release_candidate_freeze_evidence_pack.js
+
+      - name: Integrated review UI regression
+        run: node tests/defects/c26_integrated_case_review_ui.js
+
+      - name: C29 shadow simulation and UAT harness regression
+        run: node tests/defects/c29_governed_shadow_simulation_uat_harness.js
+
+      - name: Production build
+        run: |
+          npm run build 2>&1 | tee /tmp/post-c30-build.log
+          if grep -q 'Module "crypto" has been externalized for browser compatibility' /tmp/post-c30-build.log; then
+            echo 'POST_C30_BROWSER_CRYPTO_EXTERNALIZATION=FAIL'
+            exit 1
+          fi
+          echo 'POST_C30_BROWSER_CRYPTO_EXTERNALIZATION=PASS'
+
+      - name: Package verification
+        run: npm run verify:package
+
+      - name: Dependency audit
+        run: npm audit --audit-level=low
+
+      - name: Canonical release verification
+        run: npm run release:verify
