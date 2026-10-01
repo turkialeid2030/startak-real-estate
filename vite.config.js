@@ -2,8 +2,10 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 const packageJson = JSON.parse(fs.readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
+const browserCryptoShim = fileURLToPath(new URL('./src/runtime/browser-crypto-shim.js', import.meta.url));
 
 function normalizeCommit(value) {
   const raw = String(value || '').trim().toLowerCase();
@@ -60,6 +62,46 @@ function releaseManifestPlugin() {
 
 export default defineConfig({
   plugins: [react(), tailwindcss(), releaseManifestPlugin()],
+  resolve: {
+    // These aliases affect browser bundling only. Node qualification and test
+    // execution keep using the native Node `crypto` implementation. The shim
+    // intentionally exposes SHA-256 hashing only, which is the full browser
+    // requirement of the currently reachable governance modules.
+    alias: {
+      crypto: browserCryptoShim,
+      'node:crypto': browserCryptoShim,
+    },
+  },
+  build: {
+    // Post-C30 bundle hardening is deliberately a bundler-only partition. The
+    // product keeps its existing synchronous imports and governed workspace
+    // wiring; architecture regressions therefore continue to validate the same
+    // source graph. strictExecutionOrder prevents manual chunk boundaries from
+    // reordering side-effectful module initialization.
+    rolldownOptions: {
+      output: {
+        strictExecutionOrder: true,
+        codeSplitting: {
+          groups: [
+            {
+              name: 'vendor-initial',
+              test: /node_modules[\\/]/,
+              tags: ['$initial'],
+              maxSize: 450 * 1024,
+              priority: 20,
+            },
+            {
+              name: 'startak-initial',
+              test: /[\\/]src[\\/]/,
+              tags: ['$initial'],
+              maxSize: 450 * 1024,
+              priority: 10,
+            },
+          ],
+        },
+      },
+    },
+  },
   define: {
     __STARTAK_BUILD_METADATA__: JSON.stringify(buildMetadata),
   },
