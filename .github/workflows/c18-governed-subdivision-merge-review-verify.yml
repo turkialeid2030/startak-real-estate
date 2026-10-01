@@ -1,0 +1,45 @@
+name: C18 Governed Subdivision Merge Review Verify
+
+on:
+  pull_request:
+    paths:
+      - 'src/strategy/governed-subdivision-merge-review.js'
+      - 'tests/defects/c18_governed_subdivision_merge_review.js'
+      - 'docs/capabilities/C18_GOVERNED_SUBDIVISION_MERGE_REVIEW.md'
+      - '.github/workflows/c18-governed-subdivision-merge-review-verify.yml'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact candidate head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Assert exact candidate head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          test "$ACTUAL_SHA" = "$EXPECTED_SHA"
+          echo "EXACT_HEAD_SHA=$ACTUAL_SHA"
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: C18 governed subdivision merge regression
+        run: node tests/defects/c18_governed_subdivision_merge_review.js
+      - name: C17 governed raw land strategic optionality regression
+        run: node tests/defects/c17_governed_raw_land_strategic_optionality.js
+      - name: Canonical release verification
+        run: npm run release:verify
