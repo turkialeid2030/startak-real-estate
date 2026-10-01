@@ -31,6 +31,7 @@ const base = {
   reviewedAt: '2026-09-30T09:00:00Z',
   validUntil: '2026-12-31T23:59:59Z',
   reviewEvidenceRef: 'REVIEW-EVIDENCE-1',
+  upfrontFeesOutsideRepaymentSchedule: true,
   repaymentScheduleComplete: true,
   quotedFundingDate: '2026-10-15T00:00:00Z',
   quoteValidUntil: '2026-10-31T23:59:59Z',
@@ -240,6 +241,28 @@ const noRate = createGovernedFinancingOffer({
 const disclosureResult = evaluate([noRate], makePolicy([noRate], { allowedStructureLabels: ['TERM-FIXED'] }));
 assert.strictEqual(disclosureResult.status, FINANCING_STATUS.HOLD_COMPARABILITY);
 assert(disclosureResult.blockers.includes('C14_REQUIRED_RATE_DISCLOSURE_MISSING:NO-RATE'));
+
+const malformedStructurePolicy = makePolicy([offerA], {
+  allowedStructureLabels: ['TERM-FIXED', 123],
+  requiredDisclosureFields: [],
+});
+const malformedStructureResult = evaluate([offerA], malformedStructurePolicy);
+assert.strictEqual(malformedStructureResult.status, FINANCING_STATUS.HOLD_POLICY);
+assert(malformedStructureResult.blockers.includes('C14_POLICY_ALLOWED_STRUCTURES_REQUIRED'));
+
+assert.throws(() => createGovernedFinancingOffer({
+  ...base,
+  offerId: 'BAD-FEE-TREATMENT',
+  providerRef: 'P',
+  structureLabel: 'S',
+  upfrontFeesSar: 0,
+  upfrontFeesOutsideRepaymentSchedule: false,
+  sourceRef: 'R',
+  sourceEvidenceRef: 'E',
+  sourceVersionHashSha256: H1,
+  reviewEvidenceHashSha256: H2,
+  repaymentSchedule: [{ paymentId: 'P1', paymentDate: '2027-01-01', paymentKind: PAYMENT_KIND.DEBT_SERVICE, amountSar: 1 }],
+}), /C14_UPFRONT_FEES_SCHEDULE_TREATMENT_REQUIRED/);
 
 const missingContext = evaluateGovernedFinancingOptions({});
 assert.strictEqual(missingContext.status, FINANCING_STATUS.HOLD_CONTEXT);
