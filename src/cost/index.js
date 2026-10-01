@@ -1,3 +1,7 @@
 'use strict';
 
-module.exports = require('./cost-approach-inputs');
+const costApproachInputs = require('./cost-approach-inputs');
+
+module.exports = Object.assign({}, costApproachInputs, {
+  costApproachInputs,
+});
