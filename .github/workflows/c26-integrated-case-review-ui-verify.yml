@@ -1,0 +1,55 @@
+name: C26 Integrated Case Review UI Closure Verify
+
+on:
+  pull_request:
+    paths:
+      - 'src/presentation/integrated-case-review.js'
+      - 'src/components/IntegratedCaseReviewPanel.jsx'
+      - 'src/main.jsx'
+      - 'tests/defects/c26_integrated_case_review_ui.js'
+      - 'docs/capabilities/C26_INTEGRATED_CASE_REVIEW_UI.md'
+      - '.github/workflows/c26-integrated-case-review-ui-verify.yml'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact candidate head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Assert exact candidate head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          test "$ACTUAL_SHA" = "$EXPECTED_SHA"
+          echo "EXACT_HEAD_SHA=$ACTUAL_SHA"
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: C26 integrated case review UI regression
+        run: node tests/defects/c26_integrated_case_review_ui.js
+      - name: C26 operator workspace RBAC regression
+        run: node tests/defects/c26_governed_operator_workspace_rbac.js
+      - name: C29 shadow simulation and UAT harness regression
+        run: node tests/defects/c29_governed_shadow_simulation_uat_harness.js
+      - name: Production build
+        run: npm run build
+      - name: Package verification
+        run: npm run verify:package
+      - name: Dependency audit
+        run: npm audit --audit-level=low
+      - name: Canonical release verification
+        run: npm run release:verify
