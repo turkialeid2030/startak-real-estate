@@ -66,14 +66,22 @@ jobs:
       - name: C29 shadow simulation and UAT harness regression
         run: node tests/defects/c29_governed_shadow_simulation_uat_harness.js
 
-      - name: Production build
+      - name: Production build and browser-boundary assertions
         run: |
           npm run build 2>&1 | tee /tmp/post-c30-build.log
           if grep -q 'Module "crypto" has been externalized for browser compatibility' /tmp/post-c30-build.log; then
             echo 'POST_C30_BROWSER_CRYPTO_EXTERNALIZATION=FAIL'
             exit 1
           fi
-          echo 'POST_C30_BROWSER_CRYPTO_EXTERNALIZATION=PASS'
+          if grep -q 'Some chunks are larger than 500 kB after minification' /tmp/post-c30-build.log; then
+            echo 'POST_C30_BUNDLE_THRESHOLD=FAIL'
+            exit 1
+          fi
+          MAX_JS_BYTES="$(find dist/assets -type f -name '*.js' -printf '%s\n' | sort -nr | head -1)"
+          test -n "$MAX_JS_BYTES"
+          test "$MAX_JS_BYTES" -le 512000
+          echo "POST_C30_BROWSER_CRYPTO_EXTERNALIZATION=PASS"
+          echo "POST_C30_BUNDLE_THRESHOLD=PASS MAX_JS_BYTES=$MAX_JS_BYTES"
 
       - name: Package verification
         run: npm run verify:package
