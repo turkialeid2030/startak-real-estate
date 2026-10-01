@@ -7,7 +7,7 @@ on:
       - 'src/components/IntegratedCaseReviewPanel.jsx'
       - 'src/presentation/integrated-case-review.js'
       - 'src/main.jsx'
-      - 'vite.config.js'
+      - 'vite.config.mjs'
       - 'tests/fixtures/post-c30-integrated-review-bundles.js'
       - 'tests/e2e/post_c30_integrated_case_review.spec.js'
       - 'tests/defects/post_c30_browser_crypto_shim.js'
@@ -46,7 +46,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Browser SHA-256 compatibility regression
+      - name: Browser SHA-256 and Vite config regression
         run: node tests/defects/post_c30_browser_crypto_shim.js
 
       - name: Install Chromium
@@ -77,11 +77,20 @@ jobs:
             echo 'POST_C30_BUNDLE_THRESHOLD=FAIL'
             exit 1
           fi
+          if grep -q 'unsupported by `configLoader: .native.`' /tmp/post-c30-build.log; then
+            echo 'VITE_NATIVE_CONFIG_COMPAT=FAIL'
+            exit 1
+          fi
+          if grep -q 'ESM syntax in a file loaded as CommonJS' /tmp/post-c30-build.log; then
+            echo 'VITE_NATIVE_CONFIG_COMPAT=FAIL'
+            exit 1
+          fi
           MAX_JS_BYTES="$(find dist/assets -type f -name '*.js' -printf '%s\n' | sort -nr | head -1)"
           test -n "$MAX_JS_BYTES"
           test "$MAX_JS_BYTES" -le 512000
           echo "POST_C30_BROWSER_CRYPTO_EXTERNALIZATION=PASS"
           echo "POST_C30_BUNDLE_THRESHOLD=PASS MAX_JS_BYTES=$MAX_JS_BYTES"
+          echo "VITE_NATIVE_CONFIG_COMPAT=PASS"
 
       - name: Package verification
         run: npm run verify:package
