@@ -67,12 +67,19 @@ check('observability reads internal build metadata rather than mutable window bu
   assert.ok(source.includes('release: build.buildId'));
 });
 
-check('Vite emits a release manifest and compile-time metadata define', () => {
-  const source = fs.readFileSync(path.join(__dirname, '../../vite.config.js'), 'utf8');
+check('Vite uses explicit ESM config and emits release manifest plus compile-time metadata define', () => {
+  const esmConfigPath = path.join(__dirname, '../../vite.config.mjs');
+  const legacyConfigPath = path.join(__dirname, '../../vite.config.js');
+  assert.strictEqual(fs.existsSync(esmConfigPath), true, 'vite.config.mjs is required');
+  assert.strictEqual(fs.existsSync(legacyConfigPath), false, 'legacy vite.config.js must not coexist after explicit ESM migration');
+  const source = fs.readFileSync(esmConfigPath, 'utf8');
   assert.ok(source.includes('release-manifest.json'));
   assert.ok(source.includes('__STARTAK_BUILD_METADATA__'));
   assert.ok(source.includes('GITHUB_SHA'));
   assert.ok(source.includes('CF_PAGES_COMMIT_SHA'));
+  assert.ok(source.includes("evidenceBoundary: 'BUILD_TRACE_ONLY_NOT_DEPLOYMENT_PROOF'"));
+  assert.ok(source.includes('deploymentVerified: false'));
+  assert.ok(source.includes('productionDeploymentAuthorized: false'));
 });
 
 check('fallback metadata never asserts deployment or production authorization', () => {
