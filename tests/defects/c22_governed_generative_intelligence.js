@@ -224,7 +224,7 @@ assert.strictEqual(privateMode.status, REVIEW_STATUS.HOLD_PROVIDER);
 assert(privateMode.blockers.includes('C22_PROVIDER_DEPLOYMENT_MODE_NOT_ALLOWED'));
 assert(privateMode.blockers.includes('C22_PROVIDER_LIVE_MODE_NOT_AUTHORIZED'));
 
-const staleReq = request(f.p, { requestId: 'REQ-STALE', retrievalItems: retrieval({ first: { validUntil: '2026-09-30T12:00:00Z' } }) });
+const staleReq = request(f.p, { requestId: 'REQ-STALE', retrievalItems: retrieval({ first: { knownAt: '2026-09-29T08:00:00Z', validUntil: '2026-09-30T12:00:00Z' } }) });
 const staleResp = response(staleReq, f.p, { responseId: 'RESP-STALE' });
 const stalePolicy = policy(f.p, staleReq, { policyId: 'POLICY-STALE' });
 const stale = evaluateGovernedGenerativeIntelligence({ modelProfile: f.p, request: staleReq, response: staleResp, aiPolicy: stalePolicy, asOf: AS_OF });
