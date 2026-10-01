@@ -62,17 +62,26 @@ async function buildCaseResult(nowMs) {
   return Object.freeze({ ...core, resultHashSha256: await sha256Hex(core) });
 }
 
-async function buildGrant({ role, subjectRef, caseResult, nowMs, expired = false }) {
+async function buildGrant({
+  role,
+  subjectRef,
+  caseResult,
+  nowMs,
+  expired = false,
+  caseId = caseResult.caseId,
+  propertyRef = caseResult.propertyRef,
+  grantSuffix = role,
+}) {
   const issuedAt = expired ? iso(nowMs - (4 * 60 * 60 * 1000)) : iso(nowMs - (60 * 60 * 1000));
   const validUntil = expired ? iso(nowMs - (2 * 60 * 60 * 1000)) : iso(nowMs + (4 * 60 * 60 * 1000));
   return createReviewAccessGrant({
-    grantId: `GRANT-POST-C30-${role}`,
+    grantId: `GRANT-POST-C30-${grantSuffix}`,
     subjectRef,
     role,
-    caseId: caseResult.caseId,
-    propertyRef: caseResult.propertyRef,
+    caseId,
+    propertyRef,
     permissions: ROLE_PERMISSIONS[role],
-    authorizationEvidenceHashSha256: await sha256Hex(`post-c30-auth-${role}-${expired ? 'expired' : 'active'}`),
+    authorizationEvidenceHashSha256: await sha256Hex(`post-c30-auth-${grantSuffix}-${expired ? 'expired' : 'active'}`),
     issuedAt,
     validUntil,
     transactionAuthorized: false,
@@ -136,6 +145,7 @@ async function buildPostC30IntegratedReviewBundles({ now = new Date() } = {}) {
     caseResult,
     nowMs,
     expired: true,
+    grantSuffix: 'EXPIRED',
   });
   const expired = await createIntegratedReviewBundle({
     bundleId: 'BUNDLE-POST-C30-EXPIRED',
@@ -146,15 +156,43 @@ async function buildPostC30IntegratedReviewBundles({ now = new Date() } = {}) {
     aiDraft: null,
   });
 
+  // Integrity-tamper fixture: mutation deliberately occurs after the signed
+  // bundle is created so validation must fail at the bundle integrity gate.
   const tampered = clone(reviewer);
   tampered.caseResult.status = 'READY_FOR_HUMAN_CASE_REVIEW';
 
-  const incompleteLineage = clone(reviewer);
-  incompleteLineage.evidenceHashesSha256 = incompleteLineage.evidenceHashesSha256
+  // Lineage fixture remains structurally/integrity valid. It intentionally
+  // omits one C24 lineage hash so the dedicated completeness gate is exercised.
+  const incompleteEvidence = evidenceHashesSha256
     .filter((hash) => hash !== caseResult.auditLineage[0].inputHashSha256);
+  const incompleteLineage = await createIntegratedReviewBundle({
+    bundleId: 'BUNDLE-POST-C30-INCOMPLETE-LINEAGE',
+    createdAt: iso(nowMs - (20 * 60 * 1000)),
+    caseResult,
+    accessGrant: reviewerGrant,
+    evidenceHashesSha256: incompleteEvidence,
+    aiDraft: null,
+  });
 
-  const crossContext = clone(reviewer);
-  crossContext.accessGrant.caseId = 'CASE-OTHER-CONTEXT';
+  // Cross-context fixture uses a valid independently hashed grant for another
+  // case so the context gate, not grant-integrity validation, is exercised.
+  const otherContextGrant = await buildGrant({
+    role: UI_ROLE.REVIEWER,
+    subjectRef: 'USER-POST-C30-CROSS-CONTEXT',
+    caseResult,
+    nowMs,
+    caseId: 'CASE-OTHER-CONTEXT',
+    propertyRef: caseResult.propertyRef,
+    grantSuffix: 'CROSS-CONTEXT',
+  });
+  const crossContext = await createIntegratedReviewBundle({
+    bundleId: 'BUNDLE-POST-C30-CROSS-CONTEXT',
+    createdAt: iso(nowMs - (15 * 60 * 1000)),
+    caseResult,
+    accessGrant: otherContextGrant,
+    evidenceHashesSha256,
+    aiDraft: null,
+  });
 
   return Object.freeze({
     reviewer,
