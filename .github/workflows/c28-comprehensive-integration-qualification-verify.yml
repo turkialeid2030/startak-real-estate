@@ -1,0 +1,55 @@
+name: C28 Comprehensive Integration Qualification Verify
+
+on:
+  pull_request:
+    paths:
+      - 'src/qualification/governed-integration-qualification.js'
+      - 'tests/defects/c28_comprehensive_integration_qualification.js'
+      - 'docs/capabilities/C28_COMPREHENSIVE_INTEGRATION_QUALIFICATION.md'
+      - '.github/workflows/c28-comprehensive-integration-qualification-verify.yml'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact candidate head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Assert exact candidate head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          test "$ACTUAL_SHA" = "$EXPECTED_SHA"
+          echo "EXACT_HEAD_SHA=$ACTUAL_SHA"
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: C28 cross-layer integration qualification regression
+        run: node tests/defects/c28_comprehensive_integration_qualification.js
+      - name: C27 observability regression
+        run: node tests/defects/c27_governed_observability_operational_safety.js
+      - name: C26 RBAC regression
+        run: node tests/defects/c26_governed_operator_workspace_rbac.js
+      - name: C25 source readiness regression
+        run: node tests/defects/c25_production_source_operational_readiness.js
+      - name: C24 orchestration regression
+        run: node tests/defects/c24_integrated_case_property_orchestration.js
+      - name: C23 AI grounding regression
+        run: node tests/defects/c23_governed_live_ai_provider_gateway.js
+      - name: C22 AI orchestration regression
+        run: node tests/defects/c22_governed_generative_intelligence.js
+      - name: Canonical release verification — full discovered regression/build/package/audit
+        run: npm run release:verify
