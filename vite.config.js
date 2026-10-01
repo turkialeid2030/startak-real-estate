@@ -72,6 +72,36 @@ export default defineConfig({
       'node:crypto': browserCryptoShim,
     },
   },
+  build: {
+    // Post-C30 bundle hardening is deliberately a bundler-only partition. The
+    // product keeps its existing synchronous imports and governed workspace
+    // wiring; architecture regressions therefore continue to validate the same
+    // source graph. strictExecutionOrder prevents manual chunk boundaries from
+    // reordering side-effectful module initialization.
+    rolldownOptions: {
+      output: {
+        strictExecutionOrder: true,
+        codeSplitting: {
+          groups: [
+            {
+              name: 'vendor-initial',
+              test: /node_modules[\\/]/,
+              tags: ['$initial'],
+              maxSize: 450 * 1024,
+              priority: 20,
+            },
+            {
+              name: 'startak-initial',
+              test: /[\\/]src[\\/]/,
+              tags: ['$initial'],
+              maxSize: 450 * 1024,
+              priority: 10,
+            },
+          ],
+        },
+      },
+    },
+  },
   define: {
     __STARTAK_BUILD_METADATA__: JSON.stringify(buildMetadata),
   },
