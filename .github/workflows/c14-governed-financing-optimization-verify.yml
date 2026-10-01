@@ -1,0 +1,43 @@
+name: C14 Governed Financing Optimization Verify
+
+on:
+  pull_request:
+    paths:
+      - 'src/financing/governed-financing-optimization.js'
+      - 'tests/defects/c14_governed_financing_optimization.js'
+      - 'docs/capabilities/C14_GOVERNED_FINANCING_OPTIMIZATION.md'
+      - '.github/workflows/c14-governed-financing-optimization-verify.yml'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact candidate head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Assert exact candidate head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          test "$ACTUAL_SHA" = "$EXPECTED_SHA"
+          echo "EXACT_HEAD_SHA=$ACTUAL_SHA"
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: C14 governed financing optimization regression
+        run: node tests/defects/c14_governed_financing_optimization.js
+      - name: Canonical release verification
+        run: npm run release:verify
