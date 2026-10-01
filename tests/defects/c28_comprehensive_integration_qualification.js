@@ -9,6 +9,7 @@ const {RESULT,STATUS,TECHNICAL_GATE,EXTERNAL_GATE,createQualificationCheck,evalu
 
 const hash=(v)=>crypto.createHash('sha256').update(String(v)).digest('hex');
 const H=(c)=>c.repeat(64);
+const G=(c)=>c.repeat(40);
 const AS_OF='2026-10-01T19:00:00Z';
 const CASE_ID='CASE-C28'; const PROP='PROP-C28'; const MARKET='MARKET-C28';
 const stages=Object.values(STAGE_ID); const cap=(s)=>`CAPABILITY:${s}:QUALIFIED`;
@@ -35,8 +36,8 @@ const reviewAction=createWorkspaceAction({actionId:'ACTION-C28-REVIEW',sessionHa
 const review=evaluateOperatorWorkspaceAction({session:reviewer,workspaceAction:reviewAction,caseSnapshot:{caseId:CASE_ID,propertyRef:PROP,status:holdCase.status,resultHashSha256:holdCase.resultHashSha256},asOf:AS_OF});
 assert.strictEqual(review.status,RBAC_STATUS.ALLOWED);assert.strictEqual(review.deterministicStateAfter,OVERALL_STATUS.HOLD);assert.strictEqual(review.deterministicStateOverrideApplied,false);assert.strictEqual(review.transactionAuthorized,false);
 
-// Qualification evidence: every technical gate must be supplied and PASS; external gaps remain explicit.
-const HEAD=H('c');let i=0;
+// Qualification evidence: Git head is a 40-hex commit SHA; evidence remains SHA-256.
+const HEAD=G('c');let i=0;
 const technicalChecks=Object.values(TECHNICAL_GATE).map(g=>createQualificationCheck({checkId:`TECH-${++i}`,gate:g,result:RESULT.PASS,candidateHeadSha:HEAD,evidenceRef:`EVIDENCE-${g}`,evidenceHashSha256:hash(`evidence:${g}`),observedAt:'2026-10-01T18:45:00Z'}));
 const externalChecks=Object.values(EXTERNAL_GATE).map(g=>createQualificationCheck({checkId:`EXT-${++i}`,gate:g,result:RESULT.NOT_EVALUATED,candidateHeadSha:HEAD,reasonCode:`${g}_EVIDENCE_NOT_SUPPLIED`}));
 const qualified=evaluateIntegrationQualification({qualificationId:'QUAL-C28',candidateHeadSha:HEAD,checks:[...technicalChecks,...externalChecks],evaluatedAt:AS_OF});
@@ -49,5 +50,6 @@ const failed=evaluateIntegrationQualification({qualificationId:'QUAL-C28-FAIL',c
 const tampered=[{...technicalChecks[0],evidenceRef:'TAMPERED'},...technicalChecks.slice(1)];
 const integrity=evaluateIntegrationQualification({qualificationId:'QUAL-C28-TAMPER',candidateHeadSha:HEAD,checks:tampered,evaluatedAt:AS_OF});assert.strictEqual(integrity.status,STATUS.HOLD_INTEGRITY);
 assert.throws(()=>createQualificationCheck({checkId:'BAD-EXT',gate:EXTERNAL_GATE.UAT_PROFESSIONAL_REVIEW,result:RESULT.NOT_EVALUATED,candidateHeadSha:HEAD,reasonCode:'NOT_SUPPLIED',evidenceRef:'FAKE'}),/C28_NOT_EVALUATED_MUST_NOT_FABRICATE_EVIDENCE/);
+assert.throws(()=>createQualificationCheck({checkId:'BAD-HEAD',gate:TECHNICAL_GATE.FULL_REGRESSION,result:RESULT.PASS,candidateHeadSha:H('e'),evidenceRef:'E',evidenceHashSha256:H('f'),observedAt:'2026-10-01T18:45:00Z'}),/C28_CANDIDATE_HEAD_INVALID/);
 
 console.log('C28_COMPREHENSIVE_INTEGRATION_QUALIFICATION=PASS');
