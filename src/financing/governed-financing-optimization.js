@@ -259,7 +259,12 @@ function validatePolicy(policy, context) {
   const requiredDisclosureFields = Array.isArray(policy.requiredDisclosureFields)
     ? [...new Set(policy.requiredDisclosureFields)]
     : [];
-  if (requiredDisclosureFields.some((x) => !Object.values(DISCLOSURE_FIELD).includes(x))) blockers.push('C14_POLICY_REQUIRED_DISCLOSURES_INVALID');
+  if (policy.requiredDisclosureFields != null && !Array.isArray(policy.requiredDisclosureFields)) {
+    blockers.push('C14_POLICY_REQUIRED_DISCLOSURES_INVALID');
+  }
+  if (requiredDisclosureFields.some((x) => !Object.values(DISCLOSURE_FIELD).includes(x))) {
+    blockers.push('C14_POLICY_REQUIRED_DISCLOSURES_INVALID');
+  }
 
   const thresholds = policy.reviewThresholds == null
     ? []
