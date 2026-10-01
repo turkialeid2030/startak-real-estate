@@ -22,11 +22,13 @@ const EXTERNAL_GATE=Object.freeze({
   CANONICAL_EXTERNAL_SOURCE_HASH:'CANONICAL_EXTERNAL_SOURCE_HASH',SECURITY_PRIVACY_APPROVAL:'SECURITY_PRIVACY_APPROVAL',
   LIVE_AI_PROVIDER_AUTHORIZATION:'LIVE_AI_PROVIDER_AUTHORIZATION',UAT_PROFESSIONAL_REVIEW:'UAT_PROFESSIONAL_REVIEW',
 });
-const SHA=/^[a-f0-9]{64}$/;
+const SHA256=/^[a-f0-9]{64}$/;
+const GIT_SHA=/^[a-f0-9]{40}$/;
 function canon(v){if(Array.isArray(v))return v.map(canon);if(v&&typeof v==='object')return Object.keys(v).sort().reduce((o,k)=>{o[k]=canon(v[k]);return o;},{});return v;}
 function hash(v){return crypto.createHash('sha256').update(JSON.stringify(canon(v))).digest('hex');}
 function text(v,c){if(typeof v!=='string'||!v.trim())throw new Error(c);return v;}
-function sha(v,c){if(typeof v!=='string'||!SHA.test(v))throw new Error(c);return v;}
+function sha256(v,c){if(typeof v!=='string'||!SHA256.test(v))throw new Error(c);return v;}
+function gitSha(v,c){if(typeof v!=='string'||!GIT_SHA.test(v))throw new Error(c);return v;}
 function iso(v,c){text(v,c);if(Number.isNaN(Date.parse(v)))throw new Error(c);return v;}
 
 function checkMaterial(i){return {checkId:i.checkId,gate:i.gate,gateClass:i.gateClass,result:i.result,candidateHeadSha:i.candidateHeadSha,evidenceRef:i.evidenceRef||null,evidenceHashSha256:i.evidenceHashSha256||null,observedAt:i.observedAt||null,reasonCode:i.reasonCode||null};}
@@ -38,21 +40,21 @@ function createQualificationCheck(input){
   if(technical&&input.result===RESULT.NOT_EVALUATED)throw new Error('C28_TECHNICAL_GATE_CANNOT_BE_NOT_EVALUATED');
   const material=checkMaterial({
     checkId:text(input.checkId,'C28_CHECK_ID_REQUIRED'),gate:input.gate,gateClass:technical?'TECHNICAL':'EXTERNAL',result:input.result,
-    candidateHeadSha:sha(input.candidateHeadSha,'C28_CANDIDATE_HEAD_INVALID'),
+    candidateHeadSha:gitSha(input.candidateHeadSha,'C28_CANDIDATE_HEAD_INVALID'),
     evidenceRef:input.evidenceRef||null,evidenceHashSha256:input.evidenceHashSha256||null,observedAt:input.observedAt||null,reasonCode:input.reasonCode||null,
   });
   if(input.result===RESULT.NOT_EVALUATED){
     if(!material.reasonCode)throw new Error('C28_NOT_EVALUATED_REASON_REQUIRED');
     if(material.evidenceRef||material.evidenceHashSha256||material.observedAt)throw new Error('C28_NOT_EVALUATED_MUST_NOT_FABRICATE_EVIDENCE');
   }else{
-    text(material.evidenceRef,'C28_EVIDENCE_REF_REQUIRED');sha(material.evidenceHashSha256,'C28_EVIDENCE_HASH_INVALID');iso(material.observedAt,'C28_OBSERVED_AT_INVALID');
+    text(material.evidenceRef,'C28_EVIDENCE_REF_REQUIRED');sha256(material.evidenceHashSha256,'C28_EVIDENCE_HASH_INVALID');iso(material.observedAt,'C28_OBSERVED_AT_INVALID');
   }
   return Object.freeze({...material,checkHashSha256:hash(material)});
 }
-function verifyCheck(c){return !!c&&SHA.test(c.checkHashSha256||'')&&hash(checkMaterial(c))===c.checkHashSha256;}
+function verifyCheck(c){return !!c&&SHA256.test(c.checkHashSha256||'')&&hash(checkMaterial(c))===c.checkHashSha256;}
 
 function evaluateIntegrationQualification({qualificationId,candidateHeadSha,checks,evaluatedAt}){
-  text(qualificationId,'C28_QUALIFICATION_ID_REQUIRED');sha(candidateHeadSha,'C28_CANDIDATE_HEAD_INVALID');iso(evaluatedAt,'C28_EVALUATED_AT_INVALID');
+  text(qualificationId,'C28_QUALIFICATION_ID_REQUIRED');gitSha(candidateHeadSha,'C28_CANDIDATE_HEAD_INVALID');iso(evaluatedAt,'C28_EVALUATED_AT_INVALID');
   if(!Array.isArray(checks))throw new Error('C28_CHECKS_REQUIRED');
   const blockers=[]; const seen=new Set();
   for(const c of checks){
