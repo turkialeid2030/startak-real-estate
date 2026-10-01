@@ -242,6 +242,14 @@ const disclosureResult = evaluate([noRate], makePolicy([noRate], { allowedStruct
 assert.strictEqual(disclosureResult.status, FINANCING_STATUS.HOLD_COMPARABILITY);
 assert(disclosureResult.blockers.includes('C14_REQUIRED_RATE_DISCLOSURE_MISSING:NO-RATE'));
 
+const malformedDisclosurePolicy = makePolicy([offerA], {
+  allowedStructureLabels: ['TERM-FIXED'],
+  requiredDisclosureFields: 'RATE',
+});
+const malformedDisclosureResult = evaluate([offerA], malformedDisclosurePolicy);
+assert.strictEqual(malformedDisclosureResult.status, FINANCING_STATUS.HOLD_POLICY);
+assert(malformedDisclosureResult.blockers.includes('C14_POLICY_REQUIRED_DISCLOSURES_INVALID'));
+
 const malformedStructurePolicy = makePolicy([offerA], {
   allowedStructureLabels: ['TERM-FIXED', 123],
   requiredDisclosureFields: [],
