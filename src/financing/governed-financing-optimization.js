@@ -32,11 +32,7 @@ const COMPARISON_METRIC = Object.freeze({
 });
 
 const DIRECTION = Object.freeze({ MIN: 'MIN', MAX: 'MAX' });
-const DISCLOSURE_FIELD = Object.freeze({
-  RATE: 'RATE',
-  COVENANTS: 'COVENANTS',
-  SECURITY: 'SECURITY',
-});
+const DISCLOSURE_FIELD = Object.freeze({ RATE: 'RATE', COVENANTS: 'COVENANTS', SECURITY: 'SECURITY' });
 
 const nonEmpty = (v) => typeof v === 'string' && v.trim().length > 0;
 const clean = (v) => nonEmpty(v) ? v.trim() : '';
@@ -80,7 +76,9 @@ function freeze(v) {
 
 function normalizeStringArray(values, field) {
   if (values == null) return [];
-  if (!Array.isArray(values) || values.some((v) => !nonEmpty(v))) throw new TypeError(`${field} must be an array of non-empty strings`);
+  if (!Array.isArray(values) || values.some((v) => !nonEmpty(v))) {
+    throw new TypeError(`${field} must be an array of non-empty strings`);
+  }
   return [...new Set(values.map((v) => v.trim()))].sort();
 }
 
@@ -130,6 +128,7 @@ function createGovernedFinancingOffer(x = {}) {
   if ((x.currency || 'SAR') !== 'SAR') throw new TypeError('C14_PHASE0_REQUIRES_SAR');
   if (!finitePositive(x.comparisonPrincipalSar)) throw new TypeError('C14_COMPARISON_PRINCIPAL_INVALID');
   if (!finiteNN(x.upfrontFeesSar)) throw new TypeError('C14_UPFRONT_FEES_INVALID');
+  if (x.upfrontFeesOutsideRepaymentSchedule !== true) throw new TypeError('C14_UPFRONT_FEES_SCHEDULE_TREATMENT_REQUIRED');
   if (x.repaymentScheduleComplete !== true) throw new TypeError('C14_COMPLETE_REPAYMENT_SCHEDULE_REQUIRED');
   if (!validSha(x.sourceVersionHashSha256)) throw new TypeError('C14_SOURCE_VERSION_HASH_REQUIRED');
   if (!validSha(x.reviewEvidenceHashSha256)) throw new TypeError('C14_REVIEW_EVIDENCE_HASH_REQUIRED');
@@ -159,6 +158,7 @@ function createGovernedFinancingOffer(x = {}) {
     currency: 'SAR',
     comparisonPrincipalSar: x.comparisonPrincipalSar,
     upfrontFeesSar: x.upfrontFeesSar,
+    upfrontFeesOutsideRepaymentSchedule: true,
     repaymentScheduleComplete: true,
     repaymentSchedule,
     quotedFundingDate,
@@ -241,7 +241,12 @@ function validatePolicy(policy, context) {
   const allowedStructureLabels = Array.isArray(policy.allowedStructureLabels)
     ? [...new Set(policy.allowedStructureLabels.map((x) => clean(x)).filter(Boolean))].sort()
     : [];
-  if (!allowedStructureLabels.length) blockers.push('C14_POLICY_ALLOWED_STRUCTURES_REQUIRED');
+  if (
+    !Array.isArray(policy.allowedStructureLabels)
+    || !policy.allowedStructureLabels.length
+    || policy.allowedStructureLabels.some((x) => !nonEmpty(x))
+    || !allowedStructureLabels.length
+  ) blockers.push('C14_POLICY_ALLOWED_STRUCTURES_REQUIRED');
   if (typeof policy.requireEqualComparisonPrincipal !== 'boolean') blockers.push('C14_POLICY_EQUAL_PRINCIPAL_RULE_REQUIRED');
 
   const criteria = Array.isArray(policy.rankingCriteria) ? policy.rankingCriteria.map(normalizeCriterion) : [];
@@ -442,6 +447,9 @@ function evaluateGovernedFinancingOptions(x = {}) {
     if (offer.currency !== 'SAR') { evidenceBlockers.push(`C14_OFFER_CURRENCY_INVALID:${id}`); continue; }
     if (!finitePositive(offer.comparisonPrincipalSar) || !finiteNN(offer.upfrontFeesSar)) {
       evidenceBlockers.push(`C14_OFFER_ECONOMICS_INVALID:${id}`); continue;
+    }
+    if (offer.upfrontFeesOutsideRepaymentSchedule !== true) {
+      evidenceBlockers.push(`C14_UPFRONT_FEES_SCHEDULE_TREATMENT_INVALID:${id}`); continue;
     }
     if (offer.repaymentScheduleComplete !== true || !Array.isArray(offer.repaymentSchedule) || !offer.repaymentSchedule.length) {
       evidenceBlockers.push(`C14_REPAYMENT_SCHEDULE_INCOMPLETE:${id}`); continue;
