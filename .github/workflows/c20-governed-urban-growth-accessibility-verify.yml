@@ -1,0 +1,45 @@
+name: C20 Governed Urban Growth Accessibility Verify
+
+on:
+  pull_request:
+    paths:
+      - 'src/market/governed-urban-growth-accessibility.js'
+      - 'tests/defects/c20_governed_urban_growth_accessibility.js'
+      - 'docs/capabilities/C20_GOVERNED_URBAN_GROWTH_ACCESSIBILITY.md'
+      - '.github/workflows/c20-governed-urban-growth-accessibility-verify.yml'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact candidate head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Assert exact candidate head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          test "$ACTUAL_SHA" = "$EXPECTED_SHA"
+          echo "EXACT_HEAD_SHA=$ACTUAL_SHA"
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: C20 governed urban growth accessibility regression
+        run: node tests/defects/c20_governed_urban_growth_accessibility.js
+      - name: C19 governed policy shock comparable impact regression
+        run: node tests/defects/c19_governed_policy_shock_comparable_impact.js
+      - name: Canonical release verification
+        run: npm run release:verify
