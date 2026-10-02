@@ -1,0 +1,64 @@
+name: C31 Canonical Evidence Readiness Verify
+
+on:
+  pull_request:
+    paths:
+      - 'tools/c31-canonical-evidence-readiness.js'
+      - 'release/evidence/c31-canonical-evidence-input-map.json'
+      - 'tests/defects/c31_canonical_evidence_readiness.js'
+      - 'docs/capabilities/C31_CANONICAL_EVIDENCE_READINESS.md'
+      - '.github/workflows/c31-canonical-evidence-readiness-verify.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact C31 head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+
+      - name: Assert exact C31 head
+        shell: bash
+        run: |
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          test "$ACTUAL_SHA" = "$EXPECTED_HEAD_SHA"
+          echo "EXACT_HEAD_SHA=$ACTUAL_SHA"
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: C31 canonical evidence readiness regression
+        run: node tests/defects/c31_canonical_evidence_readiness.js
+
+      - name: Validate current real canonical readiness
+        env:
+          COMPOSITE_BASELINE_SHADOW_CANDIDATE_PATH: ''
+          COMPOSITE_BASELINE_SHADOW_EVIDENCE_PATH: ''
+          FRESH_COMPOSITE_SHADOW_CANDIDATE_PATH: ''
+          FRESH_COMPOSITE_SHADOW_EVIDENCE_PATH: ''
+          SUCCESSOR_FRESH_COMPOSITE_SHADOW_CANDIDATE_PATH: ''
+          SUCCESSOR_FRESH_COMPOSITE_SHADOW_EVIDENCE_PATH: ''
+          COMPOSITE_CUTOVER_REVIEWER_LIFECYCLE_PATH: ''
+          COMPOSITE_CUTOVER_ACTIVATION_PLAN_PATH: ''
+          COMPOSITE_CUTOVER_SHADOW_PATH: ''
+          COMPOSITE_CUTOVER_REHEARSAL_PATH: ''
+          CANONICAL_ORIGINAL_PATH: ''
+        run: node tools/c31-canonical-evidence-readiness.js
+
+      - name: Canonical release verification
+        run: npm run release:verify
