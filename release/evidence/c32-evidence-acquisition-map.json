@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "scope": "C32_RELEASE_EVIDENCE_ACQUISITION",
+  "trackerIssues": [541, 558],
+  "requests": [
+    {
+      "requestKey": "C30:SECURITY_REVIEW_AUTHORIZATION",
+      "issueNumber": 545,
+      "ownerRole": "Independent security reviewer / CISO delegate",
+      "requestPackage": "Independent application and release security review bound to the qualified candidate, with findings, disposition, reviewer identity/reference, verification time and validity period.",
+      "acceptanceBoundary": "Must satisfy the governed C30 supplied-and-verified contract and artifact SHA-256 integrity; engineering self-attestation is not acceptable.",
+      "syntheticSubstituteAllowed": false
+    },
+    {
+      "requestKey": "C30:PRIVACY_REVIEW_AUTHORIZATION",
+      "issueNumber": 546,
+      "ownerRole": "Privacy officer / PDPL reviewer",
+      "requestPackage": "Independent privacy and PDPL review of data flows, retention, lawful basis, access boundaries and release posture, bound to the qualified candidate.",
+      "acceptanceBoundary": "Must be an independently issued privacy disposition with governed metadata and artifact hash; generated privacy text is not approval.",
+      "syntheticSubstituteAllowed": false
+    },
+    {
+      "requestKey": "C30:AI_PROVIDER_PRODUCTION_AUTHORIZATION",
+      "issueNumber": 547,
+      "ownerRole": "AI governance owner / authorized provider administrator",
+      "requestPackage": "Documented authorization for the intended production AI provider/configuration, including account/tenant scope, data-use constraints and approved production boundary.",
+      "acceptanceBoundary": "Must originate from the accountable provider/governance owner and remain separate from application engineering qualification.",
+      "syntheticSubstituteAllowed": false
+    },
+    {
+      "requestKey": "C30:SOURCE_RIGHTS_AUTHORIZATION",
+      "issueNumber": 548,
+      "ownerRole": "Legal data-rights / licensing owner",
+      "requestPackage": "Evidence of lawful rights to use each governed external source in the intended production and reporting context, including restrictions and provenance references.",
+      "acceptanceBoundary": "Rights must be independently verifiable; source availability or technical access alone does not establish legal usage rights.",
+      "syntheticSubstituteAllowed": false
+    },
+    {
+      "requestKey": "C30:UAT_HUMAN_APPROVAL",
+      "issueNumber": 549,
+      "ownerRole": "Business product owner / designated UAT panel",
+      "requestPackage": "Executed human UAT on the qualified candidate using approved scenarios, defects/dispositions, participant identity/reference and explicit acceptance or rejection.",
+      "acceptanceBoundary": "Browser E2E, CI and synthetic test fixtures are engineering evidence only and cannot substitute for human UAT approval.",
+      "syntheticSubstituteAllowed": false
+    },
+    {
+      "requestKey": "C30:HISTORICAL_REPLAY_EVIDENCE",
+      "issueNumber": 550,
+      "ownerRole": "Independent model validation / valuation QA owner",
+      "requestPackage": "Executed historical replay against approved real historical cases/data with expected-versus-actual results, exceptions, methodology/version binding and reviewer disposition.",
+      "acceptanceBoundary": "Synthetic cases do not satisfy historical replay; the evidence must be generated from real approved historical inputs and independently reviewed.",
+      "syntheticSubstituteAllowed": false
+    },
+    {
+      "requestKey": "C30:ROLLBACK_OPERATIONAL_VERIFICATION",
+      "issueNumber": 551,
+      "ownerRole": "SRE / production operations owner",
+      "requestPackage": "Executed rollback rehearsal or operational verification for the applicable release path, including exact rollback identity, timing, recovery evidence and operator sign-off.",
+      "acceptanceBoundary": "A written rollback plan alone is insufficient; operational verification must be executed and independently recorded.",
+      "syntheticSubstituteAllowed": false
+    },
+    {
+      "requestKey": "C30:LEGAL_REGULATORY_APPROVAL",
+      "issueNumber": 552,
+      "ownerRole": "Authorized legal and regulatory counsel",
+      "requestPackage": "Independent legal/regulatory review covering the intended Saudi real-estate decision-support use, disclosures, professional-boundary risks and release constraints.",
+      "acceptanceBoundary": "Must be a real accountable legal/regulatory disposition; engineering or AI-generated legal analysis cannot serve as approval.",
+      "syntheticSubstituteAllowed": false
+    },
+    {
+      "requestKey": "C31:COMPOSITE_BASELINE_SHADOW",
+      "issueNumber": 559,
+      "ownerRole": "Canonical baseline governance reviewer",
+      "requestPackage": "Real composite-baseline candidate and matching evidence artifacts for governed shadow evaluation against the current registry.",
+      "acceptanceBoundary": "Both governed inputs must be supplied together and pass the existing shadow gate as VERIFIED without activation.",
+      "syntheticSubstituteAllowed": false
+    },
+    {
+      "requestKey": "C31:FRESH_COMPOSITE_SHADOW",
+      "issueNumber": 560,
+      "ownerRole": "Independent model validation / fresh-cycle reviewer",
+      "requestPackage": "Real fresh-cycle composite candidate and evidence artifacts with cycle identity and evidence hashes for the existing fresh-shadow evaluator.",
+      "acceptanceBoundary": "The governed gate must return VERIFIED; test fixtures and stale cycles are not acceptable real inputs.",
+      "syntheticSubstituteAllowed": false
+    },
+    {
+      "requestKey": "C31:SUCCESSOR_FRESH_COMPOSITE_SHADOW",
+      "issueNumber": 561,
+      "ownerRole": "Independent successor-baseline validation reviewer",
+      "requestPackage": "Real successor fresh composite candidate and evidence artifacts bound to current registry content identity and the applicable successor cycle.",
+      "acceptanceBoundary": "Must satisfy the successor fresh-shadow governed evaluator as VERIFIED without any automatic reactivation or cutover.",
+      "syntheticSubstituteAllowed": false
+    },
+    {
+      "requestKey": "C31:COMPOSITE_CUTOVER_SAFETY",
+      "issueNumber": 562,
+      "ownerRole": "Change authority / release operations reviewer",
+      "requestPackage": "Reviewer lifecycle, activation plan, verified shadow evaluation and executed rehearsal result for the governed cutover-safety gate.",
+      "acceptanceBoundary": "All four real artifacts are required together; VERIFIED means safety prerequisites satisfied but activation remains separately prohibited.",
+      "syntheticSubstituteAllowed": false
+    },
+    {
+      "requestKey": "C31:CANONICAL_SOURCE_HASH",
+      "issueNumber": 563,
+      "ownerRole": "Canonical source custodian / data governance owner",
+      "requestPackage": "The actual external canonical source file whose real bytes are expected to match SHA-256 ac0767d3f13c463259f401a5d7af06c1140ee780a9f86489eb17ad9d7c72dc71.",
+      "acceptanceBoundary": "The verifier must compute the digest from the actual supplied source bytes; a copied hash value or generated substitute is not evidence.",
+      "syntheticSubstituteAllowed": false
+    }
+  ]
+}
