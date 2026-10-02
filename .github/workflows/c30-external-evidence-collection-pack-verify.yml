@@ -1,0 +1,52 @@
+name: C30 External Evidence Collection Pack Verify
+
+on:
+  pull_request:
+    paths:
+      - 'tools/c30-external-evidence-intake.js'
+      - 'release/evidence/c30-external-evidence-manifest.template.json'
+      - 'tests/defects/c30_external_evidence_collection_pack.js'
+      - 'docs/capabilities/C30_EXTERNAL_EVIDENCE_COLLECTION_PACK.md'
+      - '.github/workflows/c30-external-evidence-collection-pack-verify.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact collection-pack head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Assert exact collection-pack head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          test "$ACTUAL_SHA" = "$EXPECTED_SHA"
+          echo "EXACT_HEAD_SHA=$ACTUAL_SHA"
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: External evidence collection pack regression
+        run: node tests/defects/c30_external_evidence_collection_pack.js
+
+      - name: Validate canonical NOT_SUPPLIED intake template
+        env:
+          C30_EXTERNAL_EXPECTED_CANDIDATE_SHA: 2f066168f6cdca672d668ff5367ab250fe5cb907
+        run: node tools/c30-external-evidence-intake.js release/evidence/c30-external-evidence-manifest.template.json
+
+      - name: Canonical release verification
+        run: npm run release:verify
