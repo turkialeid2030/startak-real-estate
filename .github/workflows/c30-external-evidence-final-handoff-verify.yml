@@ -1,0 +1,62 @@
+name: C30 External Evidence Final Handoff Verify
+
+on:
+  pull_request:
+    paths:
+      - 'tools/c30-external-evidence-final-handoff.js'
+      - 'release/evidence/c30-external-evidence-handoff-map.json'
+      - 'release/evidence/c30-external-evidence-manifest.template.json'
+      - 'release/evidence/c30-external-artifact-index.template.json'
+      - 'tools/c30-external-evidence-intake.js'
+      - 'tools/c30-external-evidence-artifact-verify.js'
+      - 'tests/defects/c30_external_evidence_final_handoff.js'
+      - 'docs/release/C30_EXTERNAL_EVIDENCE_FINAL_HANDOFF.md'
+      - '.github/workflows/c30-external-evidence-final-handoff-verify.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      C30_EXTERNAL_EXPECTED_CANDIDATE_SHA: 2f066168f6cdca672d668ff5367ab250fe5cb907
+    steps:
+      - name: Checkout exact final-handoff head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+
+      - name: Assert exact final-handoff head
+        shell: bash
+        run: |
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          test "$ACTUAL_SHA" = "$EXPECTED_HEAD_SHA"
+          echo "EXACT_HEAD_SHA=$ACTUAL_SHA"
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Final external evidence handoff regression
+        run: node tests/defects/c30_external_evidence_final_handoff.js
+
+      - name: Validate current real final handoff
+        run: >-
+          node tools/c30-external-evidence-final-handoff.js
+          release/evidence/c30-external-evidence-manifest.template.json
+          release/evidence/c30-external-artifact-index.template.json
+          release/evidence/c30-external-evidence-handoff-map.json
+          .
+
+      - name: Canonical release verification
+        run: npm run release:verify
