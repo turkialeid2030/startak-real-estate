@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "scope": "C34_SINGLE_ACCOUNTABLE_OWNER_REGISTER",
+  "sourceAcquisitionMap": "release/evidence/c32-evidence-acquisition-map.json",
+  "sourceRequestRegister": "release/evidence/c33-evidence-outreach-register.json",
+  "accountableOwnerRef": "repository-owner:@turkialeid2030",
+  "accountableOwnerContactRef": "github:@turkialeid2030",
+  "assignmentBasis": "OWNER_SELF_DECLARATION",
+  "ownerAcknowledged": true,
+  "items": [
+    {"requestKey":"C30:SECURITY_REVIEW_AUTHORIZATION","accountableOwnerRef":"repository-owner:@turkialeid2030","accountableOwnerContactRef":"github:@turkialeid2030","evidenceProviderRef":null,"independentReviewerRef":null,"requestSentAt":null,"responseReceivedAt":null,"evidenceSatisfied":false},
+    {"requestKey":"C30:PRIVACY_REVIEW_AUTHORIZATION","accountableOwnerRef":"repository-owner:@turkialeid2030","accountableOwnerContactRef":"github:@turkialeid2030","evidenceProviderRef":null,"independentReviewerRef":null,"requestSentAt":null,"responseReceivedAt":null,"evidenceSatisfied":false},
+    {"requestKey":"C30:AI_PROVIDER_PRODUCTION_AUTHORIZATION","accountableOwnerRef":"repository-owner:@turkialeid2030","accountableOwnerContactRef":"github:@turkialeid2030","evidenceProviderRef":null,"independentReviewerRef":null,"requestSentAt":null,"responseReceivedAt":null,"evidenceSatisfied":false},
+    {"requestKey":"C30:SOURCE_RIGHTS_AUTHORIZATION","accountableOwnerRef":"repository-owner:@turkialeid2030","accountableOwnerContactRef":"github:@turkialeid2030","evidenceProviderRef":null,"independentReviewerRef":null,"requestSentAt":null,"responseReceivedAt":null,"evidenceSatisfied":false},
+    {"requestKey":"C30:UAT_HUMAN_APPROVAL","accountableOwnerRef":"repository-owner:@turkialeid2030","accountableOwnerContactRef":"github:@turkialeid2030","evidenceProviderRef":null,"independentReviewerRef":null,"requestSentAt":null,"responseReceivedAt":null,"evidenceSatisfied":false},
+    {"requestKey":"C30:HISTORICAL_REPLAY_EVIDENCE","accountableOwnerRef":"repository-owner:@turkialeid2030","accountableOwnerContactRef":"github:@turkialeid2030","evidenceProviderRef":null,"independentReviewerRef":null,"requestSentAt":null,"responseReceivedAt":null,"evidenceSatisfied":false},
+    {"requestKey":"C30:ROLLBACK_OPERATIONAL_VERIFICATION","accountableOwnerRef":"repository-owner:@turkialeid2030","accountableOwnerContactRef":"github:@turkialeid2030","evidenceProviderRef":null,"independentReviewerRef":null,"requestSentAt":null,"responseReceivedAt":null,"evidenceSatisfied":false},
+    {"requestKey":"C30:LEGAL_REGULATORY_APPROVAL","accountableOwnerRef":"repository-owner:@turkialeid2030","accountableOwnerContactRef":"github:@turkialeid2030","evidenceProviderRef":null,"independentReviewerRef":null,"requestSentAt":null,"responseReceivedAt":null,"evidenceSatisfied":false},
+    {"requestKey":"C31:COMPOSITE_BASELINE_SHADOW","accountableOwnerRef":"repository-owner:@turkialeid2030","accountableOwnerContactRef":"github:@turkialeid2030","evidenceProviderRef":null,"independentReviewerRef":null,"requestSentAt":null,"responseReceivedAt":null,"evidenceSatisfied":false},
+    {"requestKey":"C31:FRESH_COMPOSITE_SHADOW","accountableOwnerRef":"repository-owner:@turkialeid2030","accountableOwnerContactRef":"github:@turkialeid2030","evidenceProviderRef":null,"independentReviewerRef":null,"requestSentAt":null,"responseReceivedAt":null,"evidenceSatisfied":false},
+    {"requestKey":"C31:SUCCESSOR_FRESH_COMPOSITE_SHADOW","accountableOwnerRef":"repository-owner:@turkialeid2030","accountableOwnerContactRef":"github:@turkialeid2030","evidenceProviderRef":null,"independentReviewerRef":null,"requestSentAt":null,"responseReceivedAt":null,"evidenceSatisfied":false},
+    {"requestKey":"C31:COMPOSITE_CUTOVER_SAFETY","accountableOwnerRef":"repository-owner:@turkialeid2030","accountableOwnerContactRef":"github:@turkialeid2030","evidenceProviderRef":null,"independentReviewerRef":null,"requestSentAt":null,"responseReceivedAt":null,"evidenceSatisfied":false},
+    {"requestKey":"C31:CANONICAL_SOURCE_HASH","accountableOwnerRef":"repository-owner:@turkialeid2030","accountableOwnerContactRef":"github:@turkialeid2030","evidenceProviderRef":null,"independentReviewerRef":null,"requestSentAt":null,"responseReceivedAt":null,"evidenceSatisfied":false}
+  ]
+}
