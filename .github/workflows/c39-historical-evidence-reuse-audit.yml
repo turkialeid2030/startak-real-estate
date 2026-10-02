@@ -1,0 +1,73 @@
+name: C39 Historical Evidence Reuse Audit Verify
+
+on:
+  pull_request:
+    branches:
+      - c38-rollback-signed-review-intake
+    paths:
+      - 'release/evidence/c39-historical-evidence-reuse-audit.json'
+      - 'tools/c39-historical-evidence-reuse-audit.js'
+      - 'tests/defects/c39_historical_evidence_reuse_audit.js'
+      - 'docs/release/C39_HISTORICAL_EVIDENCE_REUSE_AUDIT.md'
+      - '.github/workflows/c39-historical-evidence-reuse-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Checkout exact C39 head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Assert exact C39 head
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          test "$ACTUAL_SHA" = "$EXPECTED_HEAD_SHA"
+          echo "EXACT_HEAD_SHA=$ACTUAL_SHA"
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: C39 historical evidence reuse audit regression
+        run: node tests/defects/c39_historical_evidence_reuse_audit.js
+
+      - name: Validate fail-closed historical-reuse posture
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tools/c39-historical-evidence-reuse-audit.js | tee /tmp/c39-summary.json
+          node - <<'NODE'
+          const fs = require('fs');
+          const r = JSON.parse(fs.readFileSync('/tmp/c39-summary.json', 'utf8'));
+          if (r.gateCount !== 13) throw new Error('C39_GATE_COUNT_INVALID');
+          if (r.currentSatisfied !== 0) throw new Error('C39_FALSE_CURRENT_SATISFACTION');
+          if (r.automaticReuseEligible !== 0) throw new Error('C39_FALSE_AUTOMATIC_REUSE');
+          if (r.currentCandidateEvidencePendingRequiredReview !== 1) throw new Error('C39_ROLLBACK_PENDING_REVIEW_COUNT_INVALID');
+          if (r.historicalContextAutoSatisfiesAnyGate !== false) throw new Error('C39_CONTEXT_SCOPE_LAUNDERING');
+          if (r.c30DecisionEffect !== 'HOLD') throw new Error('C39_C30_DECISION_ESCALATED');
+          if (r.c31DecisionEffect !== 'HOLD_CANONICAL_INPUTS_REQUIRED') throw new Error('C39_C31_DECISION_ESCALATED');
+          for (const key of ['releaseDecisionAuthorized','canonicalBaselineActivationAuthorized','mergeAuthorized','deploymentAuthorized','commercialGoLiveAuthorized','transactionAuthority','approvalAuthorized','publicAiAuthorized']) {
+            if (r[key] !== false) throw new Error(`C39_AUTHORITY_ESCALATION:${key}`);
+          }
+          console.log('C39_FAIL_CLOSED_REUSE_POSTURE=PASS');
+          NODE
+
+      - name: Canonical release verification on C39 head
+        run: npm run release:verify
