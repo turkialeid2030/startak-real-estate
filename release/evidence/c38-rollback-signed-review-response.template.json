@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "scope": "C38_ROLLBACK_SIGNED_REVIEW_RESPONSE",
+  "reviewPurpose": "INDEPENDENT_OPERATIONAL_ROLLBACK_REHEARSAL_ACCEPTANCE",
+  "evidenceId": "ROLLBACK_OPERATIONAL_VERIFICATION",
+  "reviewerRef": "human:said",
+  "reviewerId": "reviewer-said-2026-09-17",
+  "ownerRef": "github:turkialeid2030",
+  "ownerDesignationIssue": 592,
+  "candidateHeadSha": "2f066168f6cdca672d668ff5367ab250fe5cb907",
+  "rollbackPointSha": "ba617ef387843b6916bb8da0bf08b16e0922260f",
+  "c36CandidateArtifactSha256": "4475f40dcbc5d6b2b2edfc1a6584686b6c7f7c29afab1861b4f16ece1ad52409",
+  "c37ReviewPayloadSha256": "ba03306c60c65507823c0fb434d0bac09c599fef6fdc0956722f727606b979c9",
+  "sourceRehearsalReportSha256": "a0ba299578af8577de23a467bd3f7e410c636b85fa92e8b107ce73ed1498fe76",
+  "sourceWorkflowRunId": 37046492311,
+  "sourceWorkflowJobId": 110969106434,
+  "reviewerAnswers": [
+    {
+      "id": "Q1_EXECUTION_REALITY",
+      "answer": null,
+      "reviewerNote": null
+    },
+    {
+      "id": "Q2_SHA_BINDING",
+      "answer": null,
+      "reviewerNote": null
+    },
+    {
+      "id": "Q3_RECOVERY_RESULT",
+      "answer": null,
+      "reviewerNote": null
+    },
+    {
+      "id": "Q4_MATERIAL_DEFECT",
+      "answer": null,
+      "reviewerNote": null
+    },
+    {
+      "id": "Q5_SCOPE_ACCEPTANCE",
+      "answer": null,
+      "reviewerNote": null
+    }
+  ],
+  "reviewDecision": null,
+  "reasonCode": null,
+  "reviewedAt": null,
+  "signatureAlgorithm": "RSA-SHA256",
+  "signatureBase64": null,
+  "templateIsEvidence": false,
+  "signedReviewVerified": false,
+  "independentReviewAccepted": false,
+  "evidenceSatisfied": false,
+  "c30EvidenceStatus": "NOT_SUPPLIED_PENDING_INDEPENDENT_REVIEW",
+  "releaseDecisionAuthorized": false,
+  "canonicalBaselineActivationAuthorized": false,
+  "mergeAuthorized": false,
+  "deploymentAuthorized": false,
+  "commercialGoLiveAuthorized": false,
+  "transactionAuthority": false,
+  "approvalAuthorized": false,
+  "publicAiAuthorized": false
+}
