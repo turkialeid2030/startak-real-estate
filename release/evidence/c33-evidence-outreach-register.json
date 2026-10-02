@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "scope": "C33_EVIDENCE_REQUEST_OUTREACH_REGISTER",
+  "sourceAcquisitionMap": "release/evidence/c32-evidence-acquisition-map.json",
+  "items": [
+    {"requestKey":"C30:SECURITY_REVIEW_AUTHORIZATION","lifecycleState":"REQUEST_READY_OWNER_ASSIGNMENT_REQUIRED","namedOwnerRef":null,"contactRef":null,"sentAt":null,"responseReceivedAt":null},
+    {"requestKey":"C30:PRIVACY_REVIEW_AUTHORIZATION","lifecycleState":"REQUEST_READY_OWNER_ASSIGNMENT_REQUIRED","namedOwnerRef":null,"contactRef":null,"sentAt":null,"responseReceivedAt":null},
+    {"requestKey":"C30:AI_PROVIDER_PRODUCTION_AUTHORIZATION","lifecycleState":"REQUEST_READY_OWNER_ASSIGNMENT_REQUIRED","namedOwnerRef":null,"contactRef":null,"sentAt":null,"responseReceivedAt":null},
+    {"requestKey":"C30:SOURCE_RIGHTS_AUTHORIZATION","lifecycleState":"REQUEST_READY_OWNER_ASSIGNMENT_REQUIRED","namedOwnerRef":null,"contactRef":null,"sentAt":null,"responseReceivedAt":null},
+    {"requestKey":"C30:UAT_HUMAN_APPROVAL","lifecycleState":"REQUEST_READY_OWNER_ASSIGNMENT_REQUIRED","namedOwnerRef":null,"contactRef":null,"sentAt":null,"responseReceivedAt":null},
+    {"requestKey":"C30:HISTORICAL_REPLAY_EVIDENCE","lifecycleState":"REQUEST_READY_OWNER_ASSIGNMENT_REQUIRED","namedOwnerRef":null,"contactRef":null,"sentAt":null,"responseReceivedAt":null},
+    {"requestKey":"C30:ROLLBACK_OPERATIONAL_VERIFICATION","lifecycleState":"REQUEST_READY_OWNER_ASSIGNMENT_REQUIRED","namedOwnerRef":null,"contactRef":null,"sentAt":null,"responseReceivedAt":null},
+    {"requestKey":"C30:LEGAL_REGULATORY_APPROVAL","lifecycleState":"REQUEST_READY_OWNER_ASSIGNMENT_REQUIRED","namedOwnerRef":null,"contactRef":null,"sentAt":null,"responseReceivedAt":null},
+    {"requestKey":"C31:COMPOSITE_BASELINE_SHADOW","lifecycleState":"REQUEST_READY_OWNER_ASSIGNMENT_REQUIRED","namedOwnerRef":null,"contactRef":null,"sentAt":null,"responseReceivedAt":null},
+    {"requestKey":"C31:FRESH_COMPOSITE_SHADOW","lifecycleState":"REQUEST_READY_OWNER_ASSIGNMENT_REQUIRED","namedOwnerRef":null,"contactRef":null,"sentAt":null,"responseReceivedAt":null},
+    {"requestKey":"C31:SUCCESSOR_FRESH_COMPOSITE_SHADOW","lifecycleState":"REQUEST_READY_OWNER_ASSIGNMENT_REQUIRED","namedOwnerRef":null,"contactRef":null,"sentAt":null,"responseReceivedAt":null},
+    {"requestKey":"C31:COMPOSITE_CUTOVER_SAFETY","lifecycleState":"REQUEST_READY_OWNER_ASSIGNMENT_REQUIRED","namedOwnerRef":null,"contactRef":null,"sentAt":null,"responseReceivedAt":null},
+    {"requestKey":"C31:CANONICAL_SOURCE_HASH","lifecycleState":"REQUEST_READY_OWNER_ASSIGNMENT_REQUIRED","namedOwnerRef":null,"contactRef":null,"sentAt":null,"responseReceivedAt":null}
+  ]
+}
