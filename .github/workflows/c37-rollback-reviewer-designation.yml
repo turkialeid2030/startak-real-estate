@@ -1,0 +1,76 @@
+name: C37 Rollback Reviewer Designation Verify
+
+on:
+  pull_request:
+    branches:
+      - c36-rollback-evidence-review-handoff
+    paths:
+      - 'release/evidence/c37-rollback-reviewer-designation.json'
+      - 'release/evidence/c37-rollback-independent-review-payload.json'
+      - 'tools/c37-rollback-reviewer-designation.js'
+      - 'tests/defects/c37_rollback_reviewer_designation.js'
+      - 'docs/release/C37_ROLLBACK_INDEPENDENT_REVIEWER_DESIGNATION.md'
+      - '.github/workflows/c37-rollback-reviewer-designation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Checkout exact C37 head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Assert exact C37 head
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          test "$ACTUAL_SHA" = "$EXPECTED_HEAD_SHA"
+          echo "EXACT_HEAD_SHA=$ACTUAL_SHA"
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: C37 reviewer designation regression
+        run: node tests/defects/c37_rollback_reviewer_designation.js
+
+      - name: Validate fail-closed designation posture
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tools/c37-rollback-reviewer-designation.js | tee /tmp/c37-summary.json
+          node - <<'NODE'
+          const fs = require('fs');
+          const r = JSON.parse(fs.readFileSync('/tmp/c37-summary.json', 'utf8'));
+          if (r.ownerDecisionRecorded !== true) throw new Error('C37_OWNER_DECISION_NOT_RECORDED');
+          if (r.reviewerDesignated !== true) throw new Error('C37_REVIEWER_NOT_DESIGNATED');
+          if (r.reviewerIndependentFromOwner !== true) throw new Error('C37_REVIEWER_NOT_INDEPENDENT');
+          if (r.candidateArtifactIntegrityVerified !== true) throw new Error('C37_CANDIDATE_INTEGRITY_NOT_VERIFIED');
+          if (r.reviewPayloadPrepared !== true) throw new Error('C37_REVIEW_PAYLOAD_NOT_PREPARED');
+          if (r.substantiveReviewCompleted !== false) throw new Error('C37_FALSE_REVIEW_COMPLETION');
+          if (r.independentReviewAccepted !== false) throw new Error('C37_FALSE_REVIEW_ACCEPTANCE');
+          if (r.evidenceSatisfied !== false) throw new Error('C37_FALSE_EVIDENCE_SATISFACTION');
+          if (r.c30EvidenceStatus !== 'NOT_SUPPLIED_PENDING_INDEPENDENT_REVIEW') throw new Error('C37_C30_GATE_ESCALATED');
+          for (const key of ['releaseDecisionAuthorized','canonicalBaselineActivationAuthorized','mergeAuthorized','deploymentAuthorized','commercialGoLiveAuthorized','transactionAuthority','approvalAuthorized','publicAiAuthorized']) {
+            if (r[key] !== false) throw new Error(`C37_AUTHORITY_ESCALATION:${key}`);
+          }
+          console.log('C37_REVIEWER_DESIGNATION_POSTURE=PASS');
+          NODE
+
+      - name: Canonical release verification on C37 head
+        run: npm run release:verify
