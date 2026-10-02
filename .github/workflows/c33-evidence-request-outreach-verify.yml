@@ -1,0 +1,71 @@
+name: C33 Evidence Request Outreach Verify
+
+on:
+  pull_request:
+    paths:
+      - 'tools/c33-evidence-request-pack.js'
+      - 'release/evidence/c33-evidence-outreach-register.json'
+      - 'release/evidence/c32-evidence-acquisition-map.json'
+      - 'tests/defects/c33_evidence_request_pack.js'
+      - 'docs/release/C33_EVIDENCE_REQUEST_OUTREACH.md'
+      - '.github/workflows/c33-evidence-request-outreach-verify.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Checkout exact C33 head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Assert exact C33 head
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          test "$ACTUAL_SHA" = "$EXPECTED_HEAD_SHA"
+          echo "EXACT_HEAD_SHA=$ACTUAL_SHA"
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: C33 evidence request pack regression
+        run: node tests/defects/c33_evidence_request_pack.js
+
+      - name: Validate current real outreach posture
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tools/c33-evidence-request-pack.js | tee /tmp/c33-request-pack.json
+          node - <<'NODE'
+          const fs = require('fs');
+          const r = JSON.parse(fs.readFileSync('/tmp/c33-request-pack.json', 'utf8'));
+          if (r.totalRequiredItems !== 13) throw new Error('C33_TOTAL_REQUIRED_ITEMS_INVALID');
+          if (r.packetReadyCount !== 13) throw new Error('C33_PACKET_READY_COUNT_INVALID');
+          if (r.namedOwnerAssignedCount !== 0) throw new Error('C33_REAL_OWNER_ASSIGNMENT_CHANGED');
+          if (r.sentCount !== 0) throw new Error('C33_REAL_SENT_COUNT_CHANGED');
+          if (r.responseReceivedCount !== 0) throw new Error('C33_REAL_RESPONSE_COUNT_CHANGED');
+          if (r.programState !== 'REQUEST_PACKETS_READY_OWNER_ASSIGNMENT_REQUIRED') throw new Error('C33_REAL_STATE_CHANGED');
+          if (r.requestPacketIsEvidence !== false) throw new Error('C33_PACKET_FALSELY_ELEVATED_TO_EVIDENCE');
+          for (const key of ['releaseDecisionAuthorized', 'deploymentAuthorized', 'publicAiAuthorized']) {
+            if (r[key] !== false) throw new Error(`C33_AUTHORITY_ESCALATION:${key}`);
+          }
+          console.log('C33_CURRENT_REAL_OUTREACH_POSTURE=PASS');
+          NODE
+
+      - name: Canonical release verification
+        run: npm run release:verify
