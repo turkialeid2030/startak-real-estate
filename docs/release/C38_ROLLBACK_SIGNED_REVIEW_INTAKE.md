@@ -17,8 +17,10 @@ C38 does not write Said's answers, decision, timestamp or signature. It validate
 - candidate: `2f066168f6cdca672d668ff5367ab250fe5cb907`
 - rollback point: `ba617ef387843b6916bb8da0bf08b16e0922260f`
 - C36 candidate artifact SHA-256: `4475f40dcbc5d6b2b2edfc1a6584686b6c7f7c29afab1861b4f16ece1ad52409`
-- C37 unanswered review payload SHA-256: `b991831cab7386973e4478614c335ef431ade9f8e34d2b403f19a8b967db3a67`
+- C37 unanswered review payload raw-file SHA-256: `ba03306c60c65507823c0fb434d0bac09c599fef6fdc0956722f727606b979c9`
 - source rehearsal report SHA-256: `a0ba299578af8577de23a467bd3f7e410c636b85fa92e8b107ce73ed1498fe76`
+
+The C37 raw-file SHA above is the value emitted by the exact-head C37 validator itself. Earlier coordination text that cited `b991831cab7386973e4478614c335ef431ade9f8e34d2b403f19a8b967db3a67` was corrected and must not be used as the raw-file integrity anchor.
 
 ## Said public trust material
 
