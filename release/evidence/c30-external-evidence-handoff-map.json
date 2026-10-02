@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "collectionScope": "C30_EXTERNAL_EVIDENCE_HANDOFF_OWNERS",
+  "candidateHeadSha": "2f066168f6cdca672d668ff5367ab250fe5cb907",
+  "trackerIssue": 541,
+  "gates": [
+    {
+      "evidenceId": "SECURITY_REVIEW_AUTHORIZATION",
+      "issueNumber": 545,
+      "independentOwnerRole": "Independent Security Review Authority",
+      "engineeringMaySelfApprove": false,
+      "requiredExternalStatus": "SUPPLIED_VERIFIED",
+      "acceptanceBoundary": "Independent security review and explicit production authorization bound to the exact release candidate."
+    },
+    {
+      "evidenceId": "PRIVACY_REVIEW_AUTHORIZATION",
+      "issueNumber": 546,
+      "independentOwnerRole": "Privacy / Data Protection Authority",
+      "engineeringMaySelfApprove": false,
+      "requiredExternalStatus": "SUPPLIED_VERIFIED",
+      "acceptanceBoundary": "Independent privacy and data-protection review with explicit authorization for the exact release candidate."
+    },
+    {
+      "evidenceId": "AI_PROVIDER_PRODUCTION_AUTHORIZATION",
+      "issueNumber": 547,
+      "independentOwnerRole": "AI Provider / Contract Authorization Holder",
+      "engineeringMaySelfApprove": false,
+      "requiredExternalStatus": "SUPPLIED_VERIFIED",
+      "acceptanceBoundary": "Documented production-use authorization for the selected AI provider and governed configuration."
+    },
+    {
+      "evidenceId": "SOURCE_RIGHTS_AUTHORIZATION",
+      "issueNumber": 548,
+      "independentOwnerRole": "Legal / Data Rights Authority",
+      "engineeringMaySelfApprove": false,
+      "requiredExternalStatus": "SUPPLIED_VERIFIED",
+      "acceptanceBoundary": "Documented rights or lawful basis for governed production use of required external sources."
+    },
+    {
+      "evidenceId": "UAT_HUMAN_APPROVAL",
+      "issueNumber": 549,
+      "independentOwnerRole": "Business UAT Acceptance Authority",
+      "engineeringMaySelfApprove": false,
+      "requiredExternalStatus": "SUPPLIED_VERIFIED",
+      "acceptanceBoundary": "Human business acceptance based on representative production-like use; automated E2E is not a substitute."
+    },
+    {
+      "evidenceId": "HISTORICAL_REPLAY_EVIDENCE",
+      "issueNumber": 550,
+      "independentOwnerRole": "Independent Model / Business Validation Authority",
+      "engineeringMaySelfApprove": false,
+      "requiredExternalStatus": "SUPPLIED_VERIFIED",
+      "acceptanceBoundary": "Replay against real historical cases with documented expected outcomes, deviations, and reviewer conclusion."
+    },
+    {
+      "evidenceId": "ROLLBACK_OPERATIONAL_VERIFICATION",
+      "issueNumber": 551,
+      "independentOwnerRole": "Production Operations / Change Authority",
+      "engineeringMaySelfApprove": false,
+      "requiredExternalStatus": "SUPPLIED_VERIFIED",
+      "acceptanceBoundary": "Observed controlled rollback drill with timing, outcome, restoration evidence, and operational sign-off."
+    },
+    {
+      "evidenceId": "LEGAL_REGULATORY_APPROVAL",
+      "issueNumber": 552,
+      "independentOwnerRole": "Legal / Regulatory Approval Authority",
+      "engineeringMaySelfApprove": false,
+      "requiredExternalStatus": "SUPPLIED_VERIFIED",
+      "acceptanceBoundary": "Explicit legal and regulatory approval for the intended production operating model and exact release candidate."
+    }
+  ]
+}
