@@ -1,0 +1,77 @@
+name: C38 Rollback Signed Review Intake Verify
+
+on:
+  pull_request:
+    branches:
+      - c37-rollback-independent-reviewer-designation
+    paths:
+      - 'release/evidence/c38-rollback-reviewer-trust.json'
+      - 'release/evidence/c38-rollback-signed-review-response.template.json'
+      - 'tools/c38-rollback-signed-review-intake.js'
+      - 'tests/defects/c38_rollback_signed_review_intake.js'
+      - 'docs/release/C38_ROLLBACK_SIGNED_REVIEW_INTAKE.md'
+      - '.github/workflows/c38-rollback-signed-review-intake.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Checkout exact C38 head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Assert exact C38 head
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          test "$ACTUAL_SHA" = "$EXPECTED_HEAD_SHA"
+          echo "EXACT_HEAD_SHA=$ACTUAL_SHA"
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: C38 signed rollback review intake regression
+        run: node tests/defects/c38_rollback_signed_review_intake.js
+
+      - name: Validate real waiting posture
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tools/c38-rollback-signed-review-intake.js | tee /tmp/c38-summary.json
+          node - <<'NODE'
+          const fs = require('fs');
+          const r = JSON.parse(fs.readFileSync('/tmp/c38-summary.json', 'utf8'));
+          if (r.publicTrustValidated !== true) throw new Error('C38_PUBLIC_TRUST_NOT_VALIDATED');
+          if (r.c36CandidateArtifactIntegrityVerified !== true) throw new Error('C38_C36_INTEGRITY_FAILED');
+          if (r.c37ReviewPayloadIntegrityVerified !== true) throw new Error('C38_C37_INTEGRITY_FAILED');
+          if (r.responseTemplateBlank !== true) throw new Error('C38_TEMPLATE_NOT_BLANK');
+          if (r.genuineSignedReviewSupplied !== false) throw new Error('C38_FALSE_SIGNED_REVIEW_SUPPLY');
+          if (r.signedReviewVerified !== false) throw new Error('C38_FALSE_SIGNED_REVIEW_VERIFICATION');
+          if (r.governedC30IntakeReady !== false) throw new Error('C38_FALSE_C30_INTAKE_READINESS');
+          if (r.evidenceSatisfied !== false) throw new Error('C38_FALSE_EVIDENCE_SATISFACTION');
+          if (r.c30EvidenceStatus !== 'NOT_SUPPLIED_PENDING_INDEPENDENT_REVIEW') throw new Error('C38_C30_GATE_ESCALATED');
+          if (r.handoffState !== 'AWAITING_GENUINE_SIGNED_REVIEW') throw new Error('C38_WAITING_STATE_INVALID');
+          for (const key of ['releaseDecisionAuthorized','canonicalBaselineActivationAuthorized','mergeAuthorized','deploymentAuthorized','commercialGoLiveAuthorized','transactionAuthority','approvalAuthorized','publicAiAuthorized']) {
+            if (r[key] !== false) throw new Error(`C38_AUTHORITY_ESCALATION:${key}`);
+          }
+          console.log('C38_REAL_WAITING_POSTURE=PASS');
+          NODE
+
+      - name: Canonical release verification on C38 head
+        run: npm run release:verify
