@@ -1,0 +1,59 @@
+name: C30 External Evidence Artifact Integrity Verify
+
+on:
+  pull_request:
+    paths:
+      - 'tools/c30-external-evidence-artifact-verify.js'
+      - 'tools/c30-external-evidence-intake.js'
+      - 'release/evidence/c30-external-evidence-manifest.template.json'
+      - 'release/evidence/c30-external-artifact-index.template.json'
+      - 'tests/defects/c30_external_evidence_artifact_integrity.js'
+      - 'docs/capabilities/C30_EXTERNAL_EVIDENCE_ARTIFACT_INTEGRITY.md'
+      - '.github/workflows/c30-external-evidence-artifact-integrity-verify.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      C30_EXTERNAL_EXPECTED_CANDIDATE_SHA: 2f066168f6cdca672d668ff5367ab250fe5cb907
+    steps:
+      - name: Checkout exact artifact-integrity head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Assert exact artifact-integrity head
+        shell: bash
+        run: |
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          test "$ACTUAL_SHA" = "$EXPECTED_HEAD_SHA"
+          echo "EXACT_HEAD_SHA=$ACTUAL_SHA"
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: External evidence artifact integrity regression
+        run: node tests/defects/c30_external_evidence_artifact_integrity.js
+
+      - name: Validate current empty artifact index against real NOT_SUPPLIED template
+        run: >-
+          node tools/c30-external-evidence-artifact-verify.js
+          release/evidence/c30-external-evidence-manifest.template.json
+          release/evidence/c30-external-artifact-index.template.json
+          .
+
+      - name: Canonical release verification
+        run: npm run release:verify
