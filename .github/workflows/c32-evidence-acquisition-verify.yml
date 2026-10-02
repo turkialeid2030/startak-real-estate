@@ -1,0 +1,75 @@
+name: C32 Evidence Acquisition Verify
+
+on:
+  pull_request:
+    paths:
+      - 'tools/c32-release-blocker-ledger.js'
+      - 'release/evidence/c32-evidence-acquisition-map.json'
+      - 'tests/defects/c32_release_blocker_ledger.js'
+      - 'docs/release/C32_EVIDENCE_ACQUISITION_PROGRAM.md'
+      - '.github/workflows/c32-evidence-acquisition-verify.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    env:
+      EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Checkout exact C32 head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Assert exact C32 head
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          test "$ACTUAL_SHA" = "$EXPECTED_HEAD_SHA"
+          echo "EXACT_HEAD_SHA=$ACTUAL_SHA"
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: C32 blocker-ledger regression
+        run: node tests/defects/c32_release_blocker_ledger.js
+
+      - name: Validate current real 13-item posture
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tools/c32-release-blocker-ledger.js | tee /tmp/c32-ledger.json
+          node - <<'NODE'
+          const fs = require('fs');
+          const r = JSON.parse(fs.readFileSync('/tmp/c32-ledger.json', 'utf8'));
+          if (r.totalRequiredItems !== 13) throw new Error('C32_TOTAL_REQUIRED_ITEMS_INVALID');
+          if (r.satisfiedCount !== 0) throw new Error('C32_REAL_SATISFIED_COUNT_CHANGED');
+          if (r.waitingCount !== 13) throw new Error('C32_REAL_WAITING_COUNT_CHANGED');
+          if (r.programState !== 'WAITING_FOR_REAL_EXTERNAL_EVIDENCE') throw new Error('C32_REAL_STATE_CHANGED');
+          const authority = [
+            'releaseDecisionAuthorized',
+            'canonicalBaselineActivationAuthorized',
+            'mergeAuthorized',
+            'deploymentAuthorized',
+            'commercialGoLiveAuthorized',
+            'transactionAuthority',
+            'approvalAuthorized',
+            'publicAiAuthorized',
+          ];
+          for (const key of authority) if (r[key] !== false) throw new Error(`C32_AUTHORITY_ESCALATION:${key}`);
+          console.log('C32_CURRENT_REAL_POSTURE=PASS');
+          NODE
+
+      - name: Canonical release verification
+        run: npm run release:verify
