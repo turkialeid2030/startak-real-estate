@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "scope": "C31_CANONICAL_EVIDENCE_INPUT_MAP_ONLY",
+  "qualifiedDependencyHead": "5a69353d53618fa261c68741525fb64fc38f037d",
+  "gates": [
+    {
+      "gateId": "COMPOSITE_BASELINE_SHADOW",
+      "currentState": "NOT_EVALUATED",
+      "requiredInputs": [
+        "COMPOSITE_BASELINE_SHADOW_CANDIDATE_PATH",
+        "COMPOSITE_BASELINE_SHADOW_EVIDENCE_PATH"
+      ],
+      "requiredFlag": "REQUIRE_COMPOSITE_BASELINE_SHADOW=1",
+      "authorityEffect": "NONE"
+    },
+    {
+      "gateId": "FRESH_COMPOSITE_SHADOW",
+      "currentState": "NOT_EVALUATED",
+      "requiredInputs": [
+        "FRESH_COMPOSITE_SHADOW_CANDIDATE_PATH",
+        "FRESH_COMPOSITE_SHADOW_EVIDENCE_PATH"
+      ],
+      "requiredFlag": "REQUIRE_FRESH_COMPOSITE_SHADOW=1",
+      "authorityEffect": "NONE"
+    },
+    {
+      "gateId": "SUCCESSOR_FRESH_COMPOSITE_SHADOW",
+      "currentState": "NOT_EVALUATED",
+      "requiredInputs": [
+        "SUCCESSOR_FRESH_COMPOSITE_SHADOW_CANDIDATE_PATH",
+        "SUCCESSOR_FRESH_COMPOSITE_SHADOW_EVIDENCE_PATH"
+      ],
+      "requiredFlag": "REQUIRE_SUCCESSOR_FRESH_COMPOSITE_SHADOW=1",
+      "authorityEffect": "NONE"
+    },
+    {
+      "gateId": "COMPOSITE_CUTOVER_SAFETY",
+      "currentState": "NOT_EVALUATED",
+      "requiredInputs": [
+        "COMPOSITE_CUTOVER_REVIEWER_LIFECYCLE_PATH",
+        "COMPOSITE_CUTOVER_ACTIVATION_PLAN_PATH",
+        "COMPOSITE_CUTOVER_SHADOW_PATH",
+        "COMPOSITE_CUTOVER_REHEARSAL_PATH"
+      ],
+      "requiredFlag": "REQUIRE_COMPOSITE_CUTOVER_SAFETY=1",
+      "authorityEffect": "NONE"
+    },
+    {
+      "gateId": "CANONICAL_SOURCE_HASH",
+      "currentState": "NOT_EVALUATED",
+      "requiredInputs": [
+        "CANONICAL_ORIGINAL_PATH"
+      ],
+      "requiredFlag": "REQUIRE_CANONICAL_SOURCE_HASH=1",
+      "expectedSha256": "ac0767d3f13c463259f401a5d7af06c1140ee780a9f86489eb17ad9d7c72dc71",
+      "authorityEffect": "NONE"
+    }
+  ],
+  "governance": {
+    "canonicalBaselineActivationAuthorized": false,
+    "releaseDecisionAuthorized": false,
+    "mergeAuthorized": false,
+    "deploymentAuthorized": false,
+    "commercialGoLiveAuthorized": false,
+    "transactionAuthority": false,
+    "approvalAuthorized": false,
+    "publicAiAuthorized": false
+  }
+}
