@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "scope": "C35_OWNER_UAT_EXECUTION_PACK",
+  "evidenceGate": "UAT_HUMAN_APPROVAL",
+  "candidateHeadSha": "2f066168f6cdca672d668ff5367ab250fe5cb907",
+  "authorizedBusinessOwnerRef": "repository-owner:@turkialeid2030",
+  "executionStatus": "NOT_EXECUTED",
+  "packIsEvidence": false,
+  "browserE2eIsUat": false,
+  "scenarios": [
+    {
+      "scenarioId": "UAT-01",
+      "title": "إنشاء صفقة جديدة بدون بيانات اقتصادية مكتملة",
+      "expectedOutcome": "المسار يبقى مغلقًا افتراضيًا ولا ينشئ أرقامًا تجريبية أو توصية موثوقة تخفي نقص البيانات.",
+      "actualObservation": null,
+      "result": "NOT_EXECUTED",
+      "defectRef": null
+    },
+    {
+      "scenarioId": "UAT-02",
+      "title": "إدخال صفقة عقارية مكتملة ومراجعة قرار الاستثمار",
+      "expectedOutcome": "تظهر الحسابات والافتراضات ومصادر الأدلة وحالة الجاهزية بصورة قابلة للتتبع، دون رفع الافتراض إلى حقيقة مثبتة.",
+      "actualObservation": null,
+      "result": "NOT_EXECUTED",
+      "defectRef": null
+    },
+    {
+      "scenarioId": "UAT-03",
+      "title": "مراجعة الحالة المتكاملة وربطها بالصفقة والعقار",
+      "expectedOutcome": "يُرفض السياق المتلاعب أو المنتهي أو غير المطابق، وتبقى صلاحيات المراجعة محدودة دون اعتماد أو معاملة.",
+      "actualObservation": null,
+      "result": "NOT_EXECUTED",
+      "defectRef": null
+    },
+    {
+      "scenarioId": "UAT-04",
+      "title": "محاولة تصدير تقرير تقييم مع نقص الأدلة المطلوبة",
+      "expectedOutcome": "يُمنع التصدير المحكوم عند نقص الأدلة الحرجة ولا يُقدَّم التقرير كاعتماد أو موافقة.",
+      "actualObservation": null,
+      "result": "NOT_EXECUTED",
+      "defectRef": null
+    },
+    {
+      "scenarioId": "UAT-05",
+      "title": "مراجعة مخرجات الذكاء الاصطناعي",
+      "expectedOutcome": "لا تُعرض المخرجات كموثوقة إلا عند وجود grounding/proof مناسب، وتظل موسومة كمسودة تتطلب مراجعة بشرية ولا تمنح صلاحية قرار أو معاملة.",
+      "actualObservation": null,
+      "result": "NOT_EXECUTED",
+      "defectRef": null
+    },
+    {
+      "scenarioId": "UAT-06",
+      "title": "التحقق من حدود السلطة التشغيلية",
+      "expectedOutcome": "لا تمنح واجهة المراجعة أو التقارير أو الذكاء الاصطناعي صلاحية دمج أو نشر أو اعتماد أو تنفيذ معاملة أو تشغيل تجاري.",
+      "actualObservation": null,
+      "result": "NOT_EXECUTED",
+      "defectRef": null
+    }
+  ],
+  "materialDefectsDispositioned": false,
+  "executedByRef": null,
+  "executedAt": null,
+  "ownerDecision": null,
+  "signedOffAt": null,
+  "evidenceHashSha256": null,
+  "releaseDecisionAuthorized": false,
+  "deploymentAuthorized": false,
+  "publicAiAuthorized": false
+}
