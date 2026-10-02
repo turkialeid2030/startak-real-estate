@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 1,
+  "collectionScope": "C30_EXTERNAL_EVIDENCE_ONLY",
+  "candidateHeadSha": "2f066168f6cdca672d668ff5367ab250fe5cb907",
+  "sourceTrackerIssue": 541,
+  "items": [
+    {
+      "evidenceId": "SECURITY_REVIEW_AUTHORIZATION",
+      "candidateHeadSha": "2f066168f6cdca672d668ff5367ab250fe5cb907",
+      "status": "NOT_SUPPLIED",
+      "evidenceRef": null,
+      "evidenceHashSha256": null,
+      "verifiedByRef": null,
+      "verifiedAt": null,
+      "validUntil": null,
+      "reasonCode": "C30_EXTERNAL_NOT_SUPPLIED"
+    },
+    {
+      "evidenceId": "PRIVACY_REVIEW_AUTHORIZATION",
+      "candidateHeadSha": "2f066168f6cdca672d668ff5367ab250fe5cb907",
+      "status": "NOT_SUPPLIED",
+      "evidenceRef": null,
+      "evidenceHashSha256": null,
+      "verifiedByRef": null,
+      "verifiedAt": null,
+      "validUntil": null,
+      "reasonCode": "C30_EXTERNAL_NOT_SUPPLIED"
+    },
+    {
+      "evidenceId": "AI_PROVIDER_PRODUCTION_AUTHORIZATION",
+      "candidateHeadSha": "2f066168f6cdca672d668ff5367ab250fe5cb907",
+      "status": "NOT_SUPPLIED",
+      "evidenceRef": null,
+      "evidenceHashSha256": null,
+      "verifiedByRef": null,
+      "verifiedAt": null,
+      "validUntil": null,
+      "reasonCode": "C30_EXTERNAL_NOT_SUPPLIED"
+    },
+    {
+      "evidenceId": "SOURCE_RIGHTS_AUTHORIZATION",
+      "candidateHeadSha": "2f066168f6cdca672d668ff5367ab250fe5cb907",
+      "status": "NOT_SUPPLIED",
+      "evidenceRef": null,
+      "evidenceHashSha256": null,
+      "verifiedByRef": null,
+      "verifiedAt": null,
+      "validUntil": null,
+      "reasonCode": "C30_EXTERNAL_NOT_SUPPLIED"
+    },
+    {
+      "evidenceId": "UAT_HUMAN_APPROVAL",
+      "candidateHeadSha": "2f066168f6cdca672d668ff5367ab250fe5cb907",
+      "status": "NOT_SUPPLIED",
+      "evidenceRef": null,
+      "evidenceHashSha256": null,
+      "verifiedByRef": null,
+      "verifiedAt": null,
+      "validUntil": null,
+      "reasonCode": "C30_EXTERNAL_NOT_SUPPLIED"
+    },
+    {
+      "evidenceId": "HISTORICAL_REPLAY_EVIDENCE",
+      "candidateHeadSha": "2f066168f6cdca672d668ff5367ab250fe5cb907",
+      "status": "NOT_SUPPLIED",
+      "evidenceRef": null,
+      "evidenceHashSha256": null,
+      "verifiedByRef": null,
+      "verifiedAt": null,
+      "validUntil": null,
+      "reasonCode": "C30_EXTERNAL_NOT_SUPPLIED"
+    },
+    {
+      "evidenceId": "ROLLBACK_OPERATIONAL_VERIFICATION",
+      "candidateHeadSha": "2f066168f6cdca672d668ff5367ab250fe5cb907",
+      "status": "NOT_SUPPLIED",
+      "evidenceRef": null,
+      "evidenceHashSha256": null,
+      "verifiedByRef": null,
+      "verifiedAt": null,
+      "validUntil": null,
+      "reasonCode": "C30_EXTERNAL_NOT_SUPPLIED"
+    },
+    {
+      "evidenceId": "LEGAL_REGULATORY_APPROVAL",
+      "candidateHeadSha": "2f066168f6cdca672d668ff5367ab250fe5cb907",
+      "status": "NOT_SUPPLIED",
+      "evidenceRef": null,
+      "evidenceHashSha256": null,
+      "verifiedByRef": null,
+      "verifiedAt": null,
+      "validUntil": null,
+      "reasonCode": "C30_EXTERNAL_NOT_SUPPLIED"
+    }
+  ]
+}
