@@ -1,0 +1,72 @@
+name: C36 Rollback Evidence Review Handoff Verify
+
+on:
+  pull_request:
+    branches:
+      - c35-owner-execution-wave1
+    paths:
+      - 'release/evidence/c36-rollback-candidate-evidence.json'
+      - 'release/evidence/c36-rollback-independent-review-request.json'
+      - 'tools/c36-rollback-evidence-handoff.js'
+      - 'tests/defects/c36_rollback_evidence_handoff.js'
+      - 'docs/release/C36_ROLLBACK_EVIDENCE_REVIEW_HANDOFF.md'
+      - '.github/workflows/c36-rollback-evidence-review-handoff.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Checkout exact C36 head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Assert exact C36 head
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          test "$ACTUAL_SHA" = "$EXPECTED_HEAD_SHA"
+          echo "EXACT_HEAD_SHA=$ACTUAL_SHA"
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: C36 rollback evidence handoff regression
+        run: node tests/defects/c36_rollback_evidence_handoff.js
+
+      - name: Validate durable candidate evidence posture
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tools/c36-rollback-evidence-handoff.js | tee /tmp/c36-summary.json
+          node - <<'NODE'
+          const fs = require('fs');
+          const r = JSON.parse(fs.readFileSync('/tmp/c36-summary.json', 'utf8'));
+          if (r.executionEvidencePersisted !== true) throw new Error('C36_EXECUTION_EVIDENCE_NOT_PERSISTED');
+          if (r.independentReviewerAssigned !== false) throw new Error('C36_FALSE_REVIEWER_ASSIGNMENT');
+          if (r.independentReviewAccepted !== false) throw new Error('C36_FALSE_INDEPENDENT_ACCEPTANCE');
+          if (r.evidenceSatisfied !== false) throw new Error('C36_FALSE_EVIDENCE_SATISFACTION');
+          if (r.c30EvidenceStatus !== 'NOT_SUPPLIED_PENDING_INDEPENDENT_REVIEW') throw new Error('C36_C30_GATE_ESCALATED');
+          for (const key of ['releaseDecisionAuthorized','canonicalBaselineActivationAuthorized','mergeAuthorized','deploymentAuthorized','commercialGoLiveAuthorized','transactionAuthority','approvalAuthorized','publicAiAuthorized']) {
+            if (r[key] !== false) throw new Error(`C36_AUTHORITY_ESCALATION:${key}`);
+          }
+          console.log('C36_DURABLE_HANDOFF_POSTURE=PASS');
+          NODE
+
+      - name: Canonical release verification on C36 head
+        run: npm run release:verify
