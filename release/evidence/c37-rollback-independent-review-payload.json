@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "scope": "C37_ROLLBACK_INDEPENDENT_REVIEW_PAYLOAD",
+  "reviewPurpose": "INDEPENDENT_OPERATIONAL_ROLLBACK_REHEARSAL_ACCEPTANCE",
+  "evidenceId": "ROLLBACK_OPERATIONAL_VERIFICATION",
+  "reviewerRef": "human:said",
+  "reviewerId": "reviewer-said-2026-09-17",
+  "reviewerCurrentPublicKeySha256": "0af393bd7c091106c3b16e493b4f99d39570c77675c9c5dee175d5a7727ebbc1",
+  "ownerDesignationIssue": 592,
+  "candidateHeadSha": "2f066168f6cdca672d668ff5367ab250fe5cb907",
+  "rollbackPointSha": "ba617ef387843b6916bb8da0bf08b16e0922260f",
+  "c36QualifiedHeadSha": "fe63dcc441cc8c8d665430a63e126fbe814aac13",
+  "candidateArtifactSha256": "4475f40dcbc5d6b2b2edfc1a6584686b6c7f7c29afab1861b4f16ece1ad52409",
+  "sourceRehearsalReportSha256": "a0ba299578af8577de23a467bd3f7e410c636b85fa92e8b107ce73ed1498fe76",
+  "sourceWorkflowRunId": 37046492311,
+  "sourceWorkflowJobId": 110969106434,
+  "executionWindow": {
+    "startedAt": "2026-10-02T18:19:43Z",
+    "completedAt": "2026-10-02T18:24:20Z"
+  },
+  "observedVerification": {
+    "targetBeforeRollback": "PASS",
+    "rollbackPoint": "PASS",
+    "targetAfterRestore": "PASS",
+    "targetBeforeRollbackSeconds": 86,
+    "rollbackPointSeconds": 85,
+    "targetAfterRestoreSeconds": 85
+  },
+  "reviewQuestions": [
+    {
+      "id": "Q1_EXECUTION_REALITY",
+      "questionAr": "هل تؤكد الأدلة أن مسار الهدف ثم الرجوع ثم الاستعادة نُفذ فعليًا في البيئة غير الإنتاجية المعلنة؟",
+      "answer": null,
+      "reviewerNote": null
+    },
+    {
+      "id": "Q2_SHA_BINDING",
+      "questionAr": "هل ترتبط جميع مراحل البروفة بمعرّفات الالتزام والبصمات الصحيحة دون استبدال أو غموض؟",
+      "answer": null,
+      "reviewerNote": null
+    },
+    {
+      "id": "Q3_RECOVERY_RESULT",
+      "questionAr": "هل نجح البناء والتحقق الإصدارى قبل الرجوع وعند نقطة الرجوع وبعد استعادة الهدف كما هو موثق؟",
+      "answer": null,
+      "reviewerNote": null
+    },
+    {
+      "id": "Q4_MATERIAL_DEFECT",
+      "questionAr": "هل توجد ملاحظة تشغيلية جوهرية تمنع قبول بروفة الرجوع كدليل تشغيلي غير إنتاجي؟",
+      "answer": null,
+      "reviewerNote": null
+    },
+    {
+      "id": "Q5_SCOPE_ACCEPTANCE",
+      "questionAr": "هل تقبل هذا الدليل ضمن نطاق ROLLBACK_OPERATIONAL_VERIFICATION فقط دون اعتباره تفويضًا للنشر أو التشغيل التجاري؟",
+      "answer": null,
+      "reviewerNote": null
+    }
+  ],
+  "reviewDecision": null,
+  "reasonCode": null,
+  "reviewedAt": null,
+  "signatureAlgorithmExpected": "RSA-SHA256",
+  "signatureBase64": null,
+  "signedArtifactSha256": null,
+  "payloadIsApproval": false,
+  "independentReviewAccepted": false,
+  "evidenceSatisfied": false,
+  "c30EvidenceStatus": "NOT_SUPPLIED_PENDING_INDEPENDENT_REVIEW",
+  "releaseDecisionAuthorized": false,
+  "canonicalBaselineActivationAuthorized": false,
+  "mergeAuthorized": false,
+  "deploymentAuthorized": false,
+  "commercialGoLiveAuthorized": false,
+  "transactionAuthority": false,
+  "approvalAuthorized": false,
+  "publicAiAuthorized": false
+}
