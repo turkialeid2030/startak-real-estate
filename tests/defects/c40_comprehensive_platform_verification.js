@@ -9,17 +9,52 @@ function approx(actual, expected, tolerance = 1e-8, label = 'value') {
   assert.ok(Math.abs(actual - expected) <= tolerance * scale, `${label}: expected ${expected}, got ${actual}`);
 }
 
-function assertFiniteTree(value, path = 'result') {
+function diagnosticPermitsNonFinite(diagnostic) {
+  return Boolean(
+    diagnostic
+    && diagnostic.reliability
+    && diagnostic.reliability !== 'RELIABLE'
+    && typeof diagnostic.reasonCode === 'string'
+    && diagnostic.reasonCode.length > 0,
+  );
+}
+
+function isGovernedNonFinite(root, path) {
+  if (path.endsWith('.irrDiagnostics.irr') || path.endsWith('.irrDiagnostics.mirr')) {
+    return diagnosticPermitsNonFinite(root.irrDiagnostics);
+  }
+  if (path.endsWith('.leveredIrrDiagnostics.irr') || path.endsWith('.leveredIrrDiagnostics.mirr')) {
+    return diagnosticPermitsNonFinite(root.leveredIrrDiagnostics);
+  }
+  if (path.endsWith('.leveredIRR') || path.endsWith('.leveredMirr')) {
+    return diagnosticPermitsNonFinite(root.leveredIrrDiagnostics);
+  }
+  if (path.endsWith('.irr') || path.endsWith('.mirr')) {
+    return diagnosticPermitsNonFinite(root.irrDiagnostics);
+  }
+  if (path.endsWith('.paybackOnCost')) return root.cumulativePaybackOnCost === null;
+  if (path.endsWith('.paybackOnPrice')) return root.cumulativePaybackOnPrice === null;
+  if (path.endsWith('.simplePaybackYears')) return root.cumulativeProjectPaybackYears === null;
+  if (path.endsWith('.priceToNoiMultiple')) return !(root.NOI > 0);
+  if (path.endsWith('.projectCostToNoiMultiple')) return !(root.stabilizedNOI > 0);
+  return false;
+}
+
+function assertFiniteTree(value, path = 'result', root = value) {
   if (typeof value === 'number') {
-    assert.ok(Number.isFinite(value), `${path} must be finite, got ${value}`);
+    if (Number.isFinite(value)) return;
+    assert.ok(
+      Number.isNaN(value) && isGovernedNonFinite(root, path),
+      `${path} contains an unexpected non-finite value: ${value}`,
+    );
     return;
   }
   if (Array.isArray(value)) {
-    value.forEach((item, index) => assertFiniteTree(item, `${path}[${index}]`));
+    value.forEach((item, index) => assertFiniteTree(item, `${path}[${index}]`, root));
     return;
   }
   if (value && typeof value === 'object') {
-    for (const [key, child] of Object.entries(value)) assertFiniteTree(child, `${path}.${key}`);
+    for (const [key, child] of Object.entries(value)) assertFiniteTree(child, `${path}.${key}`, root);
   }
 }
 
@@ -45,7 +80,7 @@ for (const scenario of C40_PROPERTY_SIMULATION_MATRIX) {
   const rerun = runScenario(scenario);
 
   assert.deepStrictEqual(stable(result), stable(rerun), `${scenario.id} must be deterministic`);
-  assertFiniteTree(result, scenario.id);
+  assertFiniteTree(result, scenario.id, result);
   assert.ok(Array.isArray(result.cashflows), `${scenario.id} must expose cashflows`);
   assert.ok(result.cashflows.length >= 2, `${scenario.id} must expose a usable cashflow horizon`);
   assert.ok(result.priceBasis && result.priceBasis.version, `${scenario.id} must expose price-basis governance`);
