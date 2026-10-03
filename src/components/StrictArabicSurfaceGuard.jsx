@@ -74,7 +74,11 @@ const INLINE_TERMS = Object.freeze([
   [/\bverified\s*=\s*false\b/gi, 'تم التحقق: لا'],
 ]);
 
-const TECHNICAL_REFERENCE = /^(?:https?:\/\/\S+|[a-f0-9]{16,}|[A-Za-z0-9._:@/-]+\.(?:json|xlsx|pptx|pdf)|[A-Za-z]+[-_:][A-Za-z0-9._:-]*\d[A-Za-z0-9._:-]*)$/i;
+// Identifier-like values are reference data, not prose. Permit digits in the
+// leading token so stable IDs such as C41-E2E-123 and E2E-DEAL-C41-LAND retain
+// their exact identity on the Arabic surface. This preserves traceability while
+// ordinary English prose still fails closed through the sanitizer below.
+const TECHNICAL_REFERENCE = /^(?:https?:\/\/\S+|[a-f0-9]{16,}|[A-Za-z0-9._:@/-]+\.(?:json|xlsx|pptx|pdf)|[A-Za-z][A-Za-z0-9]*[-_:][A-Za-z0-9._:-]*\d[A-Za-z0-9._:-]*)$/i;
 const ALL_CAPS_CODE = /^[A-Z][A-Z0-9_:-]{1,}$/;
 
 function translateCodeTokens(text) {
