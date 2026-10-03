@@ -6,7 +6,7 @@ C41 qualifies the complete exposed Startak Real Estate SPA surface before integr
 ## Integrated qualification status
 C41 was first technically qualified standalone, then merged into C40. The integrated C40+C41 candidate was requalified on exact SHA:
 
-`c57e1b7cee63b91583f53f6e1a5240e60d7c7c5c`
+`c896518200862e9b14917204de03e3155bbdd990`
 
 Integrated result: `C41_FINAL_READINESS=PASS`.
 
