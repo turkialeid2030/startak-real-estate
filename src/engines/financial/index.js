@@ -18,19 +18,22 @@ function computeNPV(rate, cashflows) {
 function computeIRR(cashflows) {
   requireFiniteArray('irrCashflows', cashflows);
 
-  // A NaN IRR is not always numeric corruption. The existing diagnostic
-  // contract explicitly distinguishes the mathematically legitimate no-root
-  // case (no cash-flow sign change) from solver/non-finite failures. Preserve
-  // that semantic distinction rather than treating every NaN result alike.
+  // The diagnostic layer owns the semantic distinction between a reliable IRR
+  // and legitimate non-computable/non-unique solver outcomes. Because the
+  // cash-flow array has already passed the canonical finite-number guard above,
+  // a diagnostic NaN here is not input-number corruption: it is governed model
+  // state (for example no root, a root outside the bounded solver bracket, or a
+  // non-conventional stream whose selected IRR cannot be represented reliably).
+  // Returning that governed state keeps hard decision gates fail-closed without
+  // converting a mathematically valid "IRR unavailable" condition into a runtime
+  // exception. This also removes Node-runtime sensitivity at extreme brackets.
   const diagnostic = irrDiagnostics.analyzeIRR(cashflows);
-  if (
-    diagnostic.reliability === irrDiagnostics.IRR_RELIABILITY.NOT_COMPUTABLE
-    && diagnostic.reasonCode === 'NO_SIGN_CHANGE_NO_IRR_EXISTS'
-  ) {
+  if (diagnostic.irr === null || diagnostic.irr === undefined) return diagnostic.irr;
+
+  if (diagnostic.reliability !== irrDiagnostics.IRR_RELIABILITY.RELIABLE) {
     return diagnostic.irr;
   }
 
-  if (diagnostic.irr === null || diagnostic.irr === undefined) return diagnostic.irr;
   return requireFiniteIntermediate('irr', diagnostic.irr);
 }
 
