@@ -1,7 +1,7 @@
 'use strict';
 
 const assert = require('assert');
-const { calculateInvestmentCase, STUDY_TYPE } = require('../../src/engines');
+const { calculateInvestmentCase, STUDY_TYPE, VACANCY_MONTHS_MAP } = require('../../src/engines');
 const { C40_PROPERTY_SIMULATION_MATRIX } = require('../fixtures/c40_property_simulation_matrix');
 
 function approx(actual, expected, tolerance = 1e-8, label = 'value') {
@@ -58,9 +58,30 @@ for (const scenario of C40_PROPERTY_SIMULATION_MATRIX) {
     approx(result.totalFloorArea, i.floorCount * i.floorAreaEach, 1e-10, `${scenario.id}.totalFloorArea`);
     const expectedNla = i.netLeasableOverride > 0 ? i.netLeasableOverride : result.totalFloorArea * i.efficiencyRatio;
     approx(result.netLeasableArea, expectedNla, 1e-10, `${scenario.id}.netLeasableArea`);
-    approx(result.grossRentalIncome, result.netLeasableArea * i.rentPerSqm, 1e-10, `${scenario.id}.grossRentalIncome`);
-    approx(result.serviceIncome, result.rentalIncomeAfterVacancy * i.serviceIncomeRate, 1e-10, `${scenario.id}.serviceIncome`);
-    approx(result.totalAnnualIncome, result.rentalIncomeAfterVacancy + result.serviceIncome, 1e-10, `${scenario.id}.totalAnnualIncome`);
+
+    // Existing-building Wave A defines grossRentalIncome as stabilized occupied
+    // rent (NLA x rent x occupancy). Lease-status vacancy is a separate one-time
+    // lease-up factor used only for first-year economics. Keep those concepts
+    // explicit so C40 does not regress to double-counting or omitting vacancy.
+    const expectedStabilizedGrossRentalIncome = result.netLeasableArea * i.rentPerSqm * i.occupancyRate;
+    approx(result.grossRentalIncome, expectedStabilizedGrossRentalIncome, 1e-10, `${scenario.id}.grossRentalIncome`);
+    approx(result.stabilizedGrossRentalIncome, expectedStabilizedGrossRentalIncome, 1e-10, `${scenario.id}.stabilizedGrossRentalIncome`);
+
+    const expectedVacancyMonths = VACANCY_MONTHS_MAP[i.leaseStatus] ?? 0;
+    const expectedInitialLeaseUpFactor = Math.min(1, Math.max(0, 1 - Math.max(0, expectedVacancyMonths) / 12));
+    assert.strictEqual(result.vacancyMonths, expectedVacancyMonths, `${scenario.id}.vacancyMonths`);
+    approx(result.initialLeaseUpFactor, expectedInitialLeaseUpFactor, 1e-10, `${scenario.id}.initialLeaseUpFactor`);
+
+    const expectedFirstYearRentalIncome = expectedStabilizedGrossRentalIncome * expectedInitialLeaseUpFactor;
+    const expectedStabilizedServiceIncome = expectedStabilizedGrossRentalIncome * i.serviceIncomeRate;
+    const expectedFirstYearServiceIncome = expectedFirstYearRentalIncome * i.serviceIncomeRate;
+    approx(result.vacancyDeduction, expectedStabilizedGrossRentalIncome - expectedFirstYearRentalIncome, 1e-10, `${scenario.id}.vacancyDeduction`);
+    approx(result.rentalIncomeAfterVacancy, expectedFirstYearRentalIncome, 1e-10, `${scenario.id}.rentalIncomeAfterVacancy`);
+    approx(result.serviceIncome, expectedStabilizedServiceIncome, 1e-10, `${scenario.id}.serviceIncome`);
+    approx(result.firstYearServiceIncome, expectedFirstYearServiceIncome, 1e-10, `${scenario.id}.firstYearServiceIncome`);
+    approx(result.totalAnnualIncome, expectedStabilizedGrossRentalIncome + expectedStabilizedServiceIncome, 1e-10, `${scenario.id}.totalAnnualIncome`);
+    approx(result.firstYearTotalAnnualIncome, expectedFirstYearRentalIncome + expectedFirstYearServiceIncome, 1e-10, `${scenario.id}.firstYearTotalAnnualIncome`);
+
     assert.strictEqual(result.costApproachAccreditedValuation, false, `${scenario.id} must not claim accredited valuation`);
     assert.strictEqual(result.costApproachMarketValueDetermined, false, `${scenario.id} cost approach must not claim market value`);
     assert.strictEqual(result.totalAppraisedValueLegacyAlias, true, `${scenario.id} legacy alias disclosure must remain explicit`);
