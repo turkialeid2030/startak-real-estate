@@ -1,0 +1,261 @@
+name: C41 Full Platform Exhaustive Reliability Qualification
+
+on:
+  pull_request:
+    branches:
+      - c40-platform-exhaustive-integration-verification
+      - c39-historical-evidence-reuse-audit
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Assert exact candidate SHA
+        id: sha
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          test "$ACTUAL_SHA" = "$EXPECTED_SHA"
+          echo "sha=$ACTUAL_SHA" >> "$GITHUB_OUTPUT"
+          echo "C41_QUALIFICATION_SHA=$ACTUAL_SHA" >> "$GITHUB_ENV"
+          echo "C41 exact candidate SHA: $ACTUAL_SHA"
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Dependency bootstrap
+        id: bootstrap
+        continue-on-error: true
+        run: npm ci
+
+      - name: Randomized financial and cross-layer reliability
+        id: reliability
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/defects/c41_full_platform_reliability_qualification.js
+
+      - name: C40 platform and official-source governance regression
+        id: c40_regression
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/defects/c40_comprehensive_platform_verification.js
+          node tests/defects/c40_official_source_governance.js
+
+      - name: AI grounding recommendations and forecast governance
+        id: ai_governance
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/defects/c22_governed_generative_intelligence.js
+          node tests/defects/c23_governed_live_ai_provider_gateway.js
+          node tests/defects/c28_comprehensive_integration_qualification.js
+          node tests/architecture/run_wave14e_specialized_forecast_assumptions.js
+
+      - name: Deal input report recommendation and human-review flows
+        id: deal_flow
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/defects/c24_integrated_case_property_orchestration.js
+          node tests/defects/c4_governed_deal_decision_report_integration.js
+          node tests/defects/c5_governed_decision_ui_export_integration.js
+          node tests/defects/c6_controlled_human_review_workflow.js
+
+      - name: Financial model scenario suite
+        id: financial_suite
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/architecture/run_wave12a_professional_income_noi.js
+          node tests/architecture/run_wave12b_direct_capitalization.js
+          node tests/architecture/run_wave12c_professional_dcf.js
+          node tests/architecture/run_wave12d_investment_financing_metrics.js
+          node tests/architecture/run_wave11d_development_sensitivity.js
+          node tests/defects/c7_governed_correlated_monte_carlo.js
+          node tests/defects/financial_integrity_p7_monte_carlo.js
+
+      - name: Install Chromium
+        id: chromium_install
+        if: always()
+        continue-on-error: true
+        run: npx playwright install --with-deps chromium
+
+      - name: Full Playwright UI suite
+        id: browser_suite
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx playwright test --project=chromium
+
+      - name: Production runtime persistence lifecycle
+        id: runtime_lifecycle
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run build
+          node tests/e2e/core_runtime_e2e.mjs
+          node - <<'NODE'
+          const fs = require('fs');
+          const path = 'runtime-evidence/e2e/core-e2e-result.json';
+          if (!fs.existsSync(path)) throw new Error('CORE_E2E_RESULT_MISSING');
+          const r = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const required = ['CORE-01','CORE-02','CORE-03','CORE-04','CORE-05','CORE-06'];
+          for (const key of required) {
+            if (r[key] !== 'PASS') throw new Error(`${key}=${r[key]}`);
+          }
+          if (r.PAGE_ERRORS !== 0 || r.FATAL_CONSOLE_ERRORS !== 0) throw new Error(`runtime errors page=${r.PAGE_ERRORS} console=${r.FATAL_CONSOLE_ERRORS}`);
+          console.log('C41_PRODUCTION_RUNTIME_LIFECYCLE=PASS');
+          NODE
+
+      - name: Full regression and decision integrity
+        id: regression
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm test
+          npm run test:decision-integrity
+
+      - name: Production build and package verification
+        id: build_package
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run build
+          npm run verify:package
+
+      - name: Dependency security audit
+        id: npm_audit
+        if: always()
+        continue-on-error: true
+        run: npm audit --audit-level=low
+
+      - name: Canonical release verification
+        id: release_verify
+        if: always()
+        continue-on-error: true
+        run: npm run release:verify
+
+      - name: C41 Gap and Readiness Audit
+        id: readiness
+        if: always()
+        shell: bash
+        env:
+          BOOTSTRAP: ${{ steps.bootstrap.outcome }}
+          RELIABILITY: ${{ steps.reliability.outcome }}
+          C40_REGRESSION: ${{ steps.c40_regression.outcome }}
+          AI_GOVERNANCE: ${{ steps.ai_governance.outcome }}
+          DEAL_FLOW: ${{ steps.deal_flow.outcome }}
+          FINANCIAL_SUITE: ${{ steps.financial_suite.outcome }}
+          CHROMIUM_INSTALL: ${{ steps.chromium_install.outcome }}
+          BROWSER_SUITE: ${{ steps.browser_suite.outcome }}
+          RUNTIME_LIFECYCLE: ${{ steps.runtime_lifecycle.outcome }}
+          REGRESSION: ${{ steps.regression.outcome }}
+          BUILD_PACKAGE: ${{ steps.build_package.outcome }}
+          NPM_AUDIT: ${{ steps.npm_audit.outcome }}
+          RELEASE_VERIFY: ${{ steps.release_verify.outcome }}
+        run: |
+          set -euo pipefail
+          status() {
+            case "$1" in
+              success) printf 'PASS' ;;
+              failure) printf 'FAIL' ;;
+              skipped|cancelled|'') printf 'HOLD' ;;
+              *) printf 'HOLD' ;;
+            esac
+          }
+
+          CURRENT_SHA="$(git rev-parse HEAD)"
+          SHA_STATUS="PASS"
+          if [ "$CURRENT_SHA" != "$C41_QUALIFICATION_SHA" ]; then SHA_STATUS="FAIL"; fi
+
+          {
+            echo "# C41 Gap & Readiness Audit"
+            echo
+            echo "Candidate SHA: \`$CURRENT_SHA\`"
+            echo
+            echo "| Gate | Status |"
+            echo "|---|---|"
+            echo "| Dependency bootstrap | $(status "$BOOTSTRAP") |"
+            echo "| Randomized financial / cross-layer reliability | $(status "$RELIABILITY") |"
+            echo "| C40 regression / source governance | $(status "$C40_REGRESSION") |"
+            echo "| AI / grounding / recommendations / forecasts | $(status "$AI_GOVERNANCE") |"
+            echo "| Deal input → report → recommendation → review | $(status "$DEAL_FLOW") |"
+            echo "| DCF / cap / NOI / financing / sensitivity / Monte Carlo | $(status "$FINANCIAL_SUITE") |"
+            echo "| Chromium installation | $(status "$CHROMIUM_INSTALL") |"
+            echo "| Full Playwright UI suite | $(status "$BROWSER_SUITE") |"
+            echo "| Save / reload / reset / financing runtime lifecycle | $(status "$RUNTIME_LIFECYCLE") |"
+            echo "| Full regression / decision integrity | $(status "$REGRESSION") |"
+            echo "| Build / package verification | $(status "$BUILD_PACKAGE") |"
+            echo "| npm audit | $(status "$NPM_AUDIT") |"
+            echo "| Canonical Release Verify | $(status "$RELEASE_VERIFY") |"
+            echo "| Single exact SHA attestation | $SHA_STATUS |"
+            echo "| Live-source operational activation | HOLD — separate activation gate |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          printf '%s\n' \
+            "C41_QUALIFICATION_SHA=$CURRENT_SHA" \
+            "C41_RELIABILITY=$(status "$RELIABILITY")" \
+            "C41_C40_REGRESSION=$(status "$C40_REGRESSION")" \
+            "C41_AI_GOVERNANCE=$(status "$AI_GOVERNANCE")" \
+            "C41_DEAL_FLOW=$(status "$DEAL_FLOW")" \
+            "C41_FINANCIAL_SUITE=$(status "$FINANCIAL_SUITE")" \
+            "C41_BROWSER_SUITE=$(status "$BROWSER_SUITE")" \
+            "C41_RUNTIME_LIFECYCLE=$(status "$RUNTIME_LIFECYCLE")" \
+            "C41_REGRESSION=$(status "$REGRESSION")" \
+            "C41_BUILD_PACKAGE=$(status "$BUILD_PACKAGE")" \
+            "C41_NPM_AUDIT=$(status "$NPM_AUDIT")" \
+            "C41_RELEASE_VERIFY=$(status "$RELEASE_VERIFY")" \
+            "C41_SINGLE_SHA=$SHA_STATUS" \
+            "C41_LIVE_SOURCE_ACTIVATION=HOLD"
+
+          failures=0
+          for value in \
+            "$BOOTSTRAP" "$RELIABILITY" "$C40_REGRESSION" "$AI_GOVERNANCE" \
+            "$DEAL_FLOW" "$FINANCIAL_SUITE" "$CHROMIUM_INSTALL" "$BROWSER_SUITE" \
+            "$RUNTIME_LIFECYCLE" "$REGRESSION" "$BUILD_PACKAGE" "$NPM_AUDIT" "$RELEASE_VERIFY"; do
+            if [ "$value" != "success" ]; then failures=$((failures + 1)); fi
+          done
+          if [ "$SHA_STATUS" != "PASS" ]; then failures=$((failures + 1)); fi
+
+          if [ "$failures" -ne 0 ]; then
+            echo "C41_FINAL_READINESS=FAIL"
+            exit 1
+          fi
+          echo "C41_FINAL_READINESS=PASS"
