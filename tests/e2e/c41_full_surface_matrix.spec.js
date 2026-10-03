@@ -16,8 +16,10 @@ function captureDiagnostics(page) {
 
 async function boot(page, { locale, viewport }) {
   await page.setViewportSize(viewport);
+  // Playwright provides a fresh browser context per test. Do not clear
+  // localStorage in an init script: init scripts run again on reload and would
+  // erase the very persistence state this suite is intended to verify.
   await page.addInitScript((requestedLocale) => {
-    window.localStorage.clear();
     window.localStorage.setItem('startak.presentation.locale', requestedLocale);
   }, locale);
   await page.goto('/');
@@ -259,9 +261,13 @@ test('C41 saved-deal persistence, reset, delete and locale-toggle lifecycle', as
   const diagnostics = captureDiagnostics(page);
   await boot(page, { locale: 'ar-SA', viewport: { width: 1440, height: 1200 } });
 
+  // Use the complete land-development default case for persistence semantics.
+  // Fresh V2 existing-building deals intentionally begin with missing explicit
+  // exit assumptions; that fail-closed governance path is qualified elsewhere.
+  await selectMode(page, 1);
   const firstScalar = page.locator('aside input[inputmode="decimal"]:visible').first();
   const original = await firstScalar.inputValue();
-  const distinct = original === '77' ? '78' : '77';
+  const distinct = original === '31' ? '32' : '31';
   await firstScalar.fill(distinct);
   await firstScalar.press('Tab');
   await page.waitForTimeout(100);
@@ -278,6 +284,20 @@ test('C41 saved-deal persistence, reset, delete and locale-toggle lifecycle', as
   const saveButton = panel.getByRole('button', { name: /^(حفظ|Save)$/ }).first();
   await saveButton.click();
   await page.waitForTimeout(250);
+
+  const persistedBeforeReload = await page.evaluate((name) => {
+    const ns = 'STARTAK_REAL_ESTATE:SAVED_DEALS:';
+    const rawIndex = window.localStorage.getItem(ns + 'deals-index');
+    const index = rawIndex ? JSON.parse(rawIndex) : [];
+    const entry = Array.isArray(index) ? index.find((item) => item && item.name === name) : null;
+    const rawRecord = entry ? window.localStorage.getItem(ns + 'deal:' + entry.id) : null;
+    return {
+      index: Boolean(entry),
+      record: Boolean(rawRecord && JSON.parse(rawRecord).name === name),
+    };
+  }, dealName);
+  expect(persistedBeforeReload.index, 'saved-deal index was not written').toBe(true);
+  expect(persistedBeforeReload.record, 'saved-deal record was not written').toBe(true);
 
   await page.reload({ waitUntil: 'networkidle' });
   await page.locator('button:has(svg.lucide-bookmark)').first().click();
@@ -300,6 +320,14 @@ test('C41 saved-deal persistence, reset, delete and locale-toggle lifecycle', as
   await page.waitForTimeout(150);
   await expect(page.getByText(dealName, { exact: true })).toHaveCount(0);
 
+  const deletedFromStorage = await page.evaluate((name) => {
+    const ns = 'STARTAK_REAL_ESTATE:SAVED_DEALS:';
+    const rawIndex = window.localStorage.getItem(ns + 'deals-index');
+    const index = rawIndex ? JSON.parse(rawIndex) : [];
+    return !Array.isArray(index) || !index.some((item) => item && item.name === name);
+  }, dealName);
+  expect(deletedFromStorage, 'deleted deal remained in persisted index').toBe(true);
+
   const closeCandidate = page.locator('button:has(svg.lucide-x)').filter({ visible: true }).first();
   if (await closeCandidate.count()) await closeCandidate.click().catch(() => {});
 
@@ -315,6 +343,7 @@ test('C41 saved-deal persistence, reset, delete and locale-toggle lifecycle', as
   expect(diagnostics.pageErrors).toEqual([]);
   expect(diagnostics.consoleErrors).toEqual([]);
   console.log('C41_SAVED_DEAL_LIFECYCLE=PASS');
+  console.log('C41_SAVED_DEAL_STORAGE_ATTESTATION=PASS');
   console.log('C41_RESET_ACTIVE_DEAL_RELOAD=PASS');
   console.log('C41_DELETE_DEAL=PASS');
   console.log('C41_LOCALE_TOGGLE=PASS');
