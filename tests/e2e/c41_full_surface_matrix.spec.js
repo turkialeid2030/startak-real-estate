@@ -328,8 +328,14 @@ test('C41 saved-deal persistence, reset, delete and locale-toggle lifecycle', as
   }, dealName);
   expect(deletedFromStorage, 'deleted deal remained in persisted index').toBe(true);
 
-  const closeCandidate = page.locator('button:has(svg.lucide-x)').filter({ visible: true }).first();
-  if (await closeCandidate.count()) await closeCandidate.click().catch(() => {});
+  // Close the actual Saved Deals dialog through its semantic boundary before
+  // exercising header controls. The previous icon-class probe targeted
+  // `lucide-x`, while the panel close control renders XCircle/CircleX and left
+  // the modal overlay intercepting the locale-toggle click.
+  const savedDealsDialog = page.locator('[role="dialog"]').first();
+  await expect(savedDealsDialog).toBeVisible();
+  await savedDealsDialog.locator('button').first().click();
+  await expect(savedDealsDialog).toBeHidden();
 
   const localeButton = page.locator('header button').filter({ hasText: /^(EN|ع)$/ }).first();
   await localeButton.click();
