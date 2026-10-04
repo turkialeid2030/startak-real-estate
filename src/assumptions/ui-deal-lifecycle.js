@@ -28,13 +28,25 @@ function cloneAssumptionRegistry(value) {
 
 function cloneDealRecord(record) {
   assertPlainObject(record, 'deal record');
-  return {
+  const cloned = {
     ...record,
     inputs: record.inputs && typeof record.inputs === 'object' && !Array.isArray(record.inputs)
       ? { ...record.inputs }
       : {},
-    assumptionRegistry: cloneAssumptionRegistry(record.assumptionRegistry),
   };
+
+  // Assumption Registry is optional envelope metadata. Absence has a distinct
+  // governed meaning (NOT_EVALUATED / no override provenance) and must remain
+  // absence across clone/save boundaries. Materializing an absent registry as
+  // `null` creates a structurally invalid Saved Deal because the persistence
+  // schema intentionally requires any *present* registry to be an array.
+  if (Object.prototype.hasOwnProperty.call(record, 'assumptionRegistry')) {
+    cloned.assumptionRegistry = cloneAssumptionRegistry(record.assumptionRegistry);
+  } else {
+    delete cloned.assumptionRegistry;
+  }
+
+  return cloned;
 }
 
 function createFreshWorkspaceState(defaultInputs) {
@@ -43,7 +55,8 @@ function createFreshWorkspaceState(defaultInputs) {
     assumptionModelVersion: ASSUMPTION_MODEL_VERSION.V2,
     inputs: { ...defaultInputs },
     // P25: a fresh deal has no override provenance until the user supplies it.
-    // `null` is intentional and must never be expanded into synthetic approval.
+    // `null` is intentional in workspace state and must never be expanded into
+    // synthetic approval. Persistence keeps this as *absent* optional metadata.
     assumptionRegistry: null,
     legacyCompatibility: false,
     explicitUpgradeRequired: false,

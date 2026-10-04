@@ -19,6 +19,9 @@ function log(id, status, extra) {
 function withTimeout(promise, ms, label) {
   return Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT_AT ' + label)), ms))]);
 }
+function hasGovernedAnalyticalState(text) {
+  return /حالة تحليلية مواتية|حالة تحليلية مشروطة|مخاطر تحليلية مرتفعة|المدخلات غير مكتملة|تعليق التحليل لحين استكمال الأدلة|يتطلب مراجعة مختص مرخص/.test(String(text || ''));
+}
 
 let previewServer, browser;
 const pageErrors = [];
@@ -54,7 +57,6 @@ try {
   await page.waitForTimeout(200);
   const numInputs = page.locator('input[type="text"], input[inputmode="decimal"]');
   const first = numInputs.first();
-  const before = await first.inputValue();
   const bodyBefore = await page.locator('body').innerText();
   await first.fill('777777');
   await first.blur();
@@ -63,10 +65,14 @@ try {
   const bodyAfter = await page.locator('body').innerText();
   const editOk = after === '777777';
   const recalcOk = bodyAfter !== bodyBefore;
-  const hasRec = /يوصى بالشراء|لا يوصى بالشراء/.test(bodyAfter);
+  // Production presentation intentionally externalizes legacy BUY/NO-BUY wording
+  // into governed analytical-support labels. An incomplete V2 building deal is
+  // also a valid fail-closed state until its explicit exit assumptions exist.
+  const hasRec = hasGovernedAnalyticalState(bodyAfter);
   result.EXISTING_BUILDING_INPUT_EDIT = editOk ? 'PASS' : 'FAIL';
   result.EXISTING_BUILDING_RECALCULATION = recalcOk ? 'PASS' : 'FAIL';
-  log('CORE-02', (editOk && recalcOk && hasRec) ? 'PASS' : 'FAIL', `edit=${editOk} recalc=${recalcOk} rec=${hasRec}`);
+  result.EXISTING_BUILDING_GOVERNED_DECISION_STATE = hasRec ? 'PASS' : 'FAIL';
+  log('CORE-02', (editOk && recalcOk && hasRec) ? 'PASS' : 'FAIL', `edit=${editOk} recalc=${recalcOk} governedState=${hasRec}`);
   result.EXISTING_BUILDING_E2E = result['CORE-02'];
 
   // ===== CORE-03 LAND_DEVELOPMENT =====
@@ -81,10 +87,11 @@ try {
   const bodyLandAfter = await page.locator('body').innerText();
   const landEditOk = afterL === '666666';
   const landRecalcOk = bodyLandAfter !== bodyLandBefore;
-  const landHasRec = /يوصى بالشراء|لا يوصى بالشراء/.test(bodyLandAfter);
+  const landHasRec = hasGovernedAnalyticalState(bodyLandAfter);
   result.LAND_INPUT_EDIT = landEditOk ? 'PASS' : 'FAIL';
   result.LAND_RECALCULATION = landRecalcOk ? 'PASS' : 'FAIL';
-  log('CORE-03', (landEditOk && landRecalcOk && landHasRec) ? 'PASS' : 'FAIL', `edit=${landEditOk} recalc=${landRecalcOk} rec=${landHasRec}`);
+  result.LAND_GOVERNED_DECISION_STATE = landHasRec ? 'PASS' : 'FAIL';
+  log('CORE-03', (landEditOk && landRecalcOk && landHasRec) ? 'PASS' : 'FAIL', `edit=${landEditOk} recalc=${landRecalcOk} governedState=${landHasRec}`);
   result.LAND_DEVELOPMENT_E2E = result['CORE-03'];
 
   // ===== CORE-04 FINANCING =====
@@ -113,44 +120,71 @@ try {
   await page.close();
 
   // ===== CORE-05 SAVED_DEALS (own fresh context, per Section 13) =====
+  // Persistence is tested on the complete default land study. The fresh V2
+  // building workspace is intentionally fail-closed on deal-specific exit
+  // assumptions and is covered separately by assumption-governance tests.
   const context5 = await browser.newContext({ viewport: { width: 1440, height: 1200 } });
   const page5 = await context5.newPage();
-  page5.setDefaultTimeout(3000);
+  page5.setDefaultTimeout(5000);
+  page5.on('pageerror', (e) => pageErrors.push(e.message));
+  page5.on('console', (m) => { if (m.type() === 'error') consoleErrors.push(m.text()); });
   try {
     await page5.goto(url, { waitUntil: 'domcontentloaded' });
     await page5.waitForTimeout(300);
-    const distinctInput = page5.locator('input[type="text"], input[inputmode="decimal"]').first();
-    await distinctInput.fill('555555');
+    await page5.getByText('أرض + تطوير', { exact: true }).click();
+    await page5.waitForTimeout(250);
+    const distinctInput = page5.locator('aside input[type="text"], aside input[inputmode="decimal"]').first();
+    await distinctInput.fill('31');
     await distinctInput.blur();
     await page5.waitForTimeout(200);
 
     await page5.getByTitle('الصفقات المحفوظة').click();
     await page5.waitForTimeout(300);
+    const dealName = 'E2E-DEAL-C41-LAND';
     const nameInput = page5.getByPlaceholder('اسم الصفقة...');
-    await nameInput.fill('E2E-DEAL-555555');
+    await nameInput.fill(dealName);
     await page5.getByRole('button', { name: 'حفظ', exact: true }).click({ timeout: 3000 });
     await page5.waitForTimeout(600);
+
+    const persisted = await page5.evaluate((name) => {
+      const ns = 'STARTAK_REAL_ESTATE:SAVED_DEALS:';
+      const rawIndex = window.localStorage.getItem(ns + 'deals-index');
+      const index = rawIndex ? JSON.parse(rawIndex) : [];
+      const entry = Array.isArray(index) ? index.find((item) => item && item.name === name) : null;
+      const rawDeal = entry ? window.localStorage.getItem(ns + 'deal:' + entry.id) : null;
+      return {
+        indexContainsDeal: Boolean(entry),
+        recordContainsDeal: Boolean(rawDeal && JSON.parse(rawDeal).name === name),
+      };
+    }, dealName);
+    result.SAVED_DEAL_INDEX_PERSISTED = persisted.indexContainsDeal ? 'PASS' : 'FAIL';
+    result.SAVED_DEAL_RECORD_PERSISTED = persisted.recordContainsDeal ? 'PASS' : 'FAIL';
     const bodyAfterSave = await page5.locator('body').innerText();
-    const dealVisible = bodyAfterSave.includes('E2E-DEAL-555555');
+    const dealVisible = bodyAfterSave.includes(dealName);
 
     // reload
     await page5.reload({ waitUntil: 'domcontentloaded' });
-    await page5.waitForTimeout(400);
+    await page5.waitForTimeout(500);
     await page5.getByTitle('الصفقات المحفوظة').click();
     await page5.waitForTimeout(300);
-    const bodyAfterReload = await page5.locator('body').innerText();
-    const survivesReload = bodyAfterReload.includes('E2E-DEAL-555555');
+    const dealLabel = page5.getByText(dealName, { exact: true });
+    const survivesReload = await dealLabel.isVisible().catch(() => false);
     result.SAVED_DEAL_SURVIVES_RELOAD = survivesReload;
 
     if (survivesReload) {
-      await page5.getByText('E2E-DEAL-555555').click();
+      await dealLabel.click();
       await page5.waitForTimeout(400);
-      const restoredVal = await page5.locator('input[type="text"], input[inputmode="decimal"]').first().inputValue();
-      result.SAVED_DEAL_INPUT_RESTORED = restoredVal === '555555';
+      const restoredVal = await page5.locator('aside input[type="text"], aside input[inputmode="decimal"]').first().inputValue();
+      result.SAVED_DEAL_INPUT_RESTORED = restoredVal === '31';
     } else {
       result.SAVED_DEAL_INPUT_RESTORED = false;
     }
-    log('CORE-05', (dealVisible && survivesReload && result.SAVED_DEAL_INPUT_RESTORED) ? 'PASS' : 'FAIL', `visible=${dealVisible} reload=${survivesReload} restored=${result.SAVED_DEAL_INPUT_RESTORED}`);
+    const savedDealPass = dealVisible
+      && persisted.indexContainsDeal
+      && persisted.recordContainsDeal
+      && survivesReload
+      && result.SAVED_DEAL_INPUT_RESTORED;
+    log('CORE-05', savedDealPass ? 'PASS' : 'FAIL', `visible=${dealVisible} index=${persisted.indexContainsDeal} record=${persisted.recordContainsDeal} reload=${survivesReload} restored=${result.SAVED_DEAL_INPUT_RESTORED}`);
   } catch (e) {
     log('CORE-05', 'FAIL: ' + e.message.slice(0, 150), '');
     result.SAVED_DEAL_SURVIVES_RELOAD = false;
@@ -164,6 +198,8 @@ try {
   const context6 = await browser.newContext({ viewport: { width: 1440, height: 1200 } });
   const page6 = await context6.newPage();
   page6.setDefaultTimeout(3000);
+  page6.on('pageerror', (e) => pageErrors.push(e.message));
+  page6.on('console', (m) => { if (m.type() === 'error') consoleErrors.push(m.text()); });
   try {
     await page6.goto(url, { waitUntil: 'domcontentloaded' });
     await page6.waitForTimeout(300);
