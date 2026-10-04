@@ -1,0 +1,82 @@
+name: C48 Internal AI Provider Production Readiness
+
+on:
+  pull_request:
+    branches:
+      - c47-internal-privacy-pdpl-readiness
+    paths:
+      - 'package.json'
+      - 'src/ai/provider-production-readiness.js'
+      - 'src/ai/governed-live-provider-gateway.js'
+      - 'tests/ai/run_c48_internal_ai_provider_production_readiness.js'
+      - 'release/evidence/c48-internal-ai-provider-production-readiness.json'
+      - 'docs/C48_INTERNAL_AI_PROVIDER_PRODUCTION_READINESS.md'
+      - '.github/workflows/c48-internal-ai-provider-production-readiness.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Assert exact pull-request head
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          EXPECTED_SHA="${{ github.event.pull_request.head.sha }}"
+          test "$ACTUAL_SHA" = "$EXPECTED_SHA"
+          echo "C48_EXACT_HEAD_ASSERTION=PASS sha=$ACTUAL_SHA"
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: C48 production-readiness contract
+        run: npm run test:c48:provider-production-readiness
+
+      - name: C23 governed live provider regression
+        run: node tests/defects/c23_governed_live_ai_provider_gateway.js
+
+      - name: C47 privacy and PDPL engineering regression
+        run: npm run test:c47:privacy
+
+      - name: Public AI privacy-security regression
+        run: node tests/runtime/run_riai_public_ai_security.js
+
+      - name: Dependency vulnerability audit
+        run: npm audit --audit-level=low
+
+      - name: Production build
+        run: npm run build
+
+      - name: Package verification
+        run: npm run verify:package
+
+      - name: Canonical release verification
+        run: npm run release:verify
+
+      - name: C48 bounded readiness posture
+        run: |
+          echo 'C48_INTERNAL_AI_PROVIDER_PRODUCTION_READINESS=PASS'
+          echo 'C48_READY_FOR_INDEPENDENT_PROVIDER_AUTHORIZATION_REVIEW=PASS'
+          echo 'C48_GATE_547_SATISFIED=FALSE'
+          echo 'C48_PUBLIC_AI_AUTHORIZED=FALSE'
+          echo 'C48_PRODUCTION_INVOCATION_AUTHORIZED=FALSE'
+          echo 'C48_DEPLOYMENT_AUTHORIZED=FALSE'
+          echo 'C48_COMMERCIAL_GO_LIVE_AUTHORIZED=FALSE'
+          echo 'C48_FINAL_POSTURE=INTERNAL_AI_PROVIDER_PRODUCTION_READINESS_QUALIFIED_READY_FOR_INDEPENDENT_PROVIDER_AUTHORIZATION_REVIEW_EXTERNAL_GATE_547_HOLD'
