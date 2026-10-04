@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "scope": "C45_INTERNAL_SOURCE_RIGHTS_ADVISORY_REVIEW",
+  "reviewDate": "2026-10-04",
+  "c44QualifiedBaseSha": "560ab02b3164f3462b3f1645cc7fa11a6d5d3d6f",
+  "frozenProductCandidateSha": "db05999e5a3c995235ac290c256251ab1592072b",
+  "reviewRole": "OWNER_DELEGATED_INTERNAL_ADVISORY_REVIEW",
+  "reviewAuthorityBoundary": "INTERNAL_ADVISORY_ONLY_NOT_INDEPENDENT_EXTERNAL_LEGAL_AUTHORITY",
+  "internalAdvisoryDecision": "APPROVED_WITH_RESTRICTIONS",
+  "externalSourceRightsAuthorizationGranted": false,
+  "gate548Satisfied": false,
+  "mergeAuthorized": false,
+  "deploymentAuthorized": false,
+  "commercialGoLiveAuthorized": false,
+  "publicAiAuthorized": false,
+  "policy": {
+    "default": "DENY_UNLESS_EXPLICIT_OPEN_DATA_OR_WRITTEN_PERMISSION",
+    "noGeneralWebsiteScraping": true,
+    "noCredentialedDataReuseWithoutSeparateAgreement": true,
+    "noPersonalOrProtectedData": true,
+    "sourceAttributionRequired": true,
+    "datasetLicenseCaptureRequired": true,
+    "retrievalTimestampRequired": true,
+    "originalDatasetIntegrityRequired": true
+  },
+  "sources": [
+    {
+      "sourceId": "REGA_REAL_ESTATE_INDICATORS",
+      "authority": "الهيئة العامة للعقار",
+      "advisoryDisposition": "CONDITIONAL_OPEN_DATA_ONLY",
+      "approvedChannels": ["EXPLICITLY_LICENSED_OPEN_DATA_DATASET", "WRITTEN_PERMISSION_OR_GOVERNED_OFFICIAL_CONNECTOR"],
+      "prohibitedChannels": ["GENERAL_WEBSITE_CONTENT_COPYING", "UNLICENSED_SCRAPING", "DERIVATIVE_REPUBLICATION_WITHOUT_PERMISSION"],
+      "evidence": [
+        "https://rega.gov.sa/البيانات-المفتوحة/",
+        "https://rega.gov.sa/الأحكام-والشروط/"
+      ],
+      "rationale": "REGA provides an open-data route, but its general website terms reserve intellectual-property rights and prohibit copying, distribution and derivative use without written permission. Only dataset-specific open-data rights or written authorization may be relied upon.",
+      "externalAuthorization": false
+    },
+    {
+      "sourceId": "GASTAT_REAL_ESTATE_STATISTICS",
+      "authority": "الهيئة العامة للإحصاء",
+      "advisoryDisposition": "CONDITIONAL_OPEN_DATA_API_ALLOWED",
+      "approvedChannels": ["OFFICIAL_OPEN_DATA_API", "PUBLISHED_OPEN_DATA_UNDER_APPLICABLE_LICENSE"],
+      "prohibitedChannels": ["RESTRICTED_MICRODATA_WITHOUT_SEPARATE_APPROVAL", "PERSONAL_DATA", "UNLICENSED_REPUBLICATION"],
+      "evidence": [
+        "https://www.stats.gov.sa/ar/microdata",
+        "https://dp.stats.gov.sa/?locale=ar"
+      ],
+      "rationale": "GASTAT states that open data are reusable, subject to the applicable open-data license, and provides an official API for open datasets and indicators. Scientific-use or restricted microdata remain outside this approval.",
+      "externalAuthorization": false
+    },
+    {
+      "sourceId": "ZATCA_REAL_ESTATE_TAX",
+      "authority": "هيئة الزكاة والضريبة والجمارك",
+      "advisoryDisposition": "CONDITIONAL_OPEN_DATA_AND_REGULATORY_REFERENCE_ONLY",
+      "approvedChannels": ["OFFICIAL_OPEN_DATA", "SOURCE_LINKED_REGULATORY_FACT_REFERENCE"],
+      "prohibitedChannels": ["COMMERCIAL_COPY_OF_GENERAL_PORTAL_CONTENT", "GENERAL_PORTAL_BULK_REPUBLICATION"],
+      "evidence": [
+        "https://www.zatca.gov.sa/ar/eServices/Pages/OpenDataRequestCard.aspx",
+        "https://zatca.gov.sa/ar/Pages/Terms.aspx"
+      ],
+      "rationale": "ZATCA provides an open-data mechanism, but general portal content is restricted to personal/non-profit use absent prior written permission. Production should ingest only explicitly open data and record regulatory facts with source/version references rather than reproducing protected portal content.",
+      "externalAuthorization": false
+    },
+    {
+      "sourceId": "SAMA_REAL_ESTATE_FINANCE",
+      "authority": "البنك المركزي السعودي",
+      "advisoryDisposition": "CONDITIONAL_OPEN_DATA_API_ONLY",
+      "approvedChannels": ["SAMA_OPEN_DATA_PLATFORM", "SAMA_OPEN_DATA_API"],
+      "prohibitedChannels": ["COMMERCIAL_REUSE_OF_GENERAL_WEBSITE_CONTENT", "GENERAL_SITE_SCRAPING"],
+      "evidence": [
+        "https://www.sama.gov.sa/ar-sa/Statistics/Pages/Summary.aspx",
+        "https://www.sama.gov.sa/ar-sa/pages/termsofuse.aspx"
+      ],
+      "rationale": "SAMA expressly provides reusable open data and an API. Its general website terms restrict commercial reuse of ordinary site content. The connector must be limited to the open-data platform/API and preserve source attribution and observation metadata.",
+      "externalAuthorization": false
+    },
+    {
+      "sourceId": "MOJ_REAL_ESTATE_TRANSACTIONS",
+      "authority": "وزارة العدل",
+      "advisoryDisposition": "CONDITIONAL_OPEN_DATA_ALLOWED",
+      "approvedChannels": ["MOJ_OPEN_DATA_LIBRARY", "MOJ_INTERACTIVE_REPORT_EXPORT", "OPEN_DATA_REQUEST_RESPONSE"],
+      "prohibitedChannels": ["PROTECTED_OR_PERSONAL_DATA", "ALTERATION_OF_SOURCE_DATA", "GENERAL_SITE_CONTENT_REPUBLICATION_OUTSIDE_OPEN_DATA_TERMS"],
+      "evidence": [
+        "https://www.moj.gov.sa/ar/OpenData/Pages/OpenDataPolicy.aspx",
+        "https://www.moj.gov.sa/ar/Ministry/Pages/TermsOfUse.aspx"
+      ],
+      "rationale": "MOJ explicitly permits use and reuse of its open data subject to attribution, preservation of data integrity and lawful use. This does not extend to protected/personal data or unrestricted reuse of general portal content.",
+      "externalAuthorization": false
+    },
+    {
+      "sourceId": "EJAR_RENTAL_ECOSYSTEM",
+      "authority": "إيجار / الهيئة العامة للعقار",
+      "advisoryDisposition": "HOLD_EXPLICIT_PERMISSION_REQUIRED",
+      "approvedChannels": ["SEPARATE_WRITTEN_DATA_SHARING_OR_API_AGREEMENT", "EXPLICIT_DATASET_SPECIFIC_OPEN_LICENSE_IF_LATER_PUBLISHED"],
+      "prohibitedChannels": ["GENERAL_SITE_SCRAPING", "CONTENT_COPYING", "COMMERCIAL_REUSE", "INFORMATION_RETRIEVAL_SYSTEM_INGESTION_WITHOUT_PERMISSION"],
+      "evidence": [
+        "https://www.ejar.sa/ar/privacy-policy"
+      ],
+      "rationale": "Ejar terms limit site content to personal use and expressly prohibit copying or embedding site content into an electronic or automated information-retrieval system beyond personal use. No production connector is approved without a separate written agreement or explicit dataset-specific open license.",
+      "externalAuthorization": false
+    }
+  ],
+  "overallAdvisoryConclusion": "INTERNAL_ADVISORY_APPROVAL_GRANTED_FOR_RESTRICTED_OPEN_DATA_ONLY_POLICY; EXTERNAL_SOURCE_RIGHTS_GATE_REMAINS_HOLD",
+  "requiredNextEvidence": [
+    "Dataset-level license or written permission for each production-used source",
+    "Explicit Ejar data-sharing/API permission or removal of Ejar as a required production source",
+    "Independent qualified Saudi legal/data-governance sign-off bound to the exact release candidate",
+    "Ingestion through the governed C30 evidence intake path"
+  ]
+}
