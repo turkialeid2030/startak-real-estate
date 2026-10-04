@@ -105,10 +105,10 @@ check(() => assert(usesLines.length > 0, 'C47 workflow must use at least one ext
 usesLines.forEach((line) => check(() => assert(immutableUse.test(line), `mutable action reference: ${line.trim()}`)));
 check(() => assert(/permissions:\s*\n\s*contents:\s*read/m.test(workflow)));
 check(() => assert(workflow.includes('branches:\n      - c46-internal-security-review-and-hardening')));
-check(() => assert(workflow.includes('C47_PDPL_COMPLIANCE_CERTIFIED=FALSE'));
-check(() => assert(workflow.includes('C47_GATE_546_SATISFIED=FALSE'));
-check(() => assert(workflow.includes('C47_DEPLOYMENT_AUTHORIZED=FALSE'));
-check(() => assert(workflow.includes('C47_COMMERCIAL_GO_LIVE_AUTHORIZED=FALSE'));
+check(() => assert(workflow.includes('C47_PDPL_COMPLIANCE_CERTIFIED=FALSE')));
+check(() => assert(workflow.includes('C47_GATE_546_SATISFIED=FALSE')));
+check(() => assert(workflow.includes('C47_DEPLOYMENT_AUTHORIZED=FALSE')));
+check(() => assert(workflow.includes('C47_COMMERCIAL_GO_LIVE_AUTHORIZED=FALSE')));
 
 console.log(`C47_INTERNAL_PRIVACY_PDPL_READINESS=PASS checks=${checks}`);
 console.log('C47_READY_FOR_INDEPENDENT_PRIVACY_REVIEW=PASS');
