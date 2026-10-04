@@ -1,0 +1,79 @@
+name: C49 Internal Official Source Data Rights Readiness
+
+on:
+  pull_request:
+    branches:
+      - c48-internal-ai-provider-production-readiness
+    paths:
+      - 'package.json'
+      - 'src/sources/official-source-data-rights-readiness.js'
+      - 'src/sources/saudi-official-source-catalog.js'
+      - 'tests/sources/run_c49_internal_official_source_data_rights_readiness.js'
+      - 'release/evidence/c49-internal-official-source-data-rights-readiness.json'
+      - 'docs/C49_INTERNAL_OFFICIAL_SOURCE_DATA_RIGHTS_READINESS.md'
+      - '.github/workflows/c49-internal-official-source-data-rights-readiness.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Assert exact pull-request head
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          EXPECTED_SHA="${{ github.event.pull_request.head.sha }}"
+          test "$ACTUAL_SHA" = "$EXPECTED_SHA"
+          echo "C49_EXACT_HEAD_ASSERTION=PASS sha=$ACTUAL_SHA"
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: C49 source-rights readiness contract
+        run: npm run test:c49:source-data-rights
+
+      - name: Existing official-source catalog regression
+        run: node tests/defects/c40_official_source_grounding_and_demo_hardening.js
+
+      - name: C48 provider-readiness regression
+        run: npm run test:c48:provider-production-readiness
+
+      - name: Dependency vulnerability audit
+        run: npm audit --audit-level=low
+
+      - name: Production build
+        run: npm run build
+
+      - name: Package verification
+        run: npm run verify:package
+
+      - name: Canonical release verification
+        run: npm run release:verify
+
+      - name: C49 bounded readiness posture
+        run: |
+          echo 'C49_INTERNAL_OFFICIAL_SOURCE_DATA_RIGHTS_READINESS=PASS'
+          echo 'C49_READY_FOR_INDEPENDENT_SOURCE_RIGHTS_REVIEW=PASS'
+          echo 'C49_GATE_548_SATISFIED=FALSE'
+          echo 'C49_SOURCE_USE_AUTHORIZED=FALSE'
+          echo 'C49_REDISTRIBUTION_AUTHORIZED=FALSE'
+          echo 'C49_DEPLOYMENT_AUTHORIZED=FALSE'
+          echo 'C49_COMMERCIAL_GO_LIVE_AUTHORIZED=FALSE'
+          echo 'C49_FINAL_POSTURE=INTERNAL_OFFICIAL_SOURCE_DATA_RIGHTS_READINESS_QUALIFIED_READY_FOR_INDEPENDENT_SOURCE_RIGHTS_REVIEW_EXTERNAL_GATE_548_HOLD'
