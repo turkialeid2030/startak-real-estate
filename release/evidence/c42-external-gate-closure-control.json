@@ -1,0 +1,180 @@
+{
+  "schemaVersion": 1,
+  "scope": "C42_EXTERNAL_GATE_CLOSURE_CONTROL",
+  "baseBranch": "c39-historical-evidence-reuse-audit",
+  "baseHeadSha": "c09a3308ce1ce08ab468e553931a84ce056992c1",
+  "sourceAudit": "release/evidence/c39-historical-evidence-reuse-audit.json",
+  "controlRule": "ENGINEERING_MAY_PREPARE_REQUESTS_AND_VALIDATE_ARTIFACTS_BUT_MUST_NOT SELF-ASSERT_EXTERNAL_APPROVAL_OR_CANONICAL_INPUTS",
+  "gateCount": 13,
+  "currentSatisfied": 0,
+  "decision": "HOLD_EXTERNAL_EVIDENCE_AND_CANONICAL_INPUTS_REQUIRED",
+  "priorityOrder": [
+    "C30:ROLLBACK_OPERATIONAL_VERIFICATION",
+    "C30:UAT_HUMAN_APPROVAL",
+    "C30:SECURITY_REVIEW_AUTHORIZATION",
+    "C30:PRIVACY_REVIEW_AUTHORIZATION",
+    "C30:LEGAL_REGULATORY_APPROVAL",
+    "C30:SOURCE_RIGHTS_AUTHORIZATION",
+    "C30:AI_PROVIDER_PRODUCTION_AUTHORIZATION",
+    "C30:HISTORICAL_REPLAY_EVIDENCE",
+    "C31:CANONICAL_SOURCE_HASH",
+    "C31:COMPOSITE_BASELINE_SHADOW",
+    "C31:FRESH_COMPOSITE_SHADOW",
+    "C31:SUCCESSOR_FRESH_COMPOSITE_SHADOW",
+    "C31:COMPOSITE_CUTOVER_SAFETY"
+  ],
+  "items": [
+    {
+      "requestKey": "C30:SECURITY_REVIEW_AUTHORIZATION",
+      "issue": 545,
+      "state": "NOT_SUPPLIED",
+      "blocking": true,
+      "humanOrExternalActionRequired": true,
+      "engineeringMaySelfSatisfy": false,
+      "requiredActorRole": "independent security reviewer",
+      "nextAction": "Provide the exact current candidate scope and existing engineering security results to an independent security reviewer and ingest the signed or independently traceable disposition through C30."
+    },
+    {
+      "requestKey": "C30:PRIVACY_REVIEW_AUTHORIZATION",
+      "issue": 546,
+      "state": "NOT_SUPPLIED",
+      "blocking": true,
+      "humanOrExternalActionRequired": true,
+      "engineeringMaySelfSatisfy": false,
+      "requiredActorRole": "qualified Saudi PDPL/privacy reviewer",
+      "nextAction": "Provide current data flows, retention, logging, residency and engineering privacy controls to a qualified Saudi PDPL/privacy reviewer and ingest the dated exact-scope disposition through C30."
+    },
+    {
+      "requestKey": "C30:AI_PROVIDER_PRODUCTION_AUTHORIZATION",
+      "issue": 547,
+      "state": "NOT_SUPPLIED",
+      "blocking": true,
+      "humanOrExternalActionRequired": true,
+      "engineeringMaySelfSatisfy": false,
+      "requiredActorRole": "provider-governance owner and authorized production approver",
+      "nextAction": "Select the real provider/model/use case and obtain production authorization covering data handling, retention, training use, residency, logging, credential separation and kill-switch controls."
+    },
+    {
+      "requestKey": "C30:SOURCE_RIGHTS_AUTHORIZATION",
+      "issue": 548,
+      "state": "NOT_SUPPLIED",
+      "blocking": true,
+      "humanOrExternalActionRequired": true,
+      "engineeringMaySelfSatisfy": false,
+      "requiredActorRole": "legal/data-governance reviewer",
+      "nextAction": "Build the exact current source universe and obtain source-by-source reuse-rights disposition; public visibility alone must not be treated as reuse authorization."
+    },
+    {
+      "requestKey": "C30:UAT_HUMAN_APPROVAL",
+      "issue": 549,
+      "state": "NOT_SUPPLIED",
+      "blocking": true,
+      "humanOrExternalActionRequired": true,
+      "engineeringMaySelfSatisfy": false,
+      "requiredActorRole": "authorized business/professional UAT reviewer",
+      "preparedArtifact": "release/evidence/c35-owner-uat-execution-pack.json",
+      "nextAction": "Execute the prepared predefined human UAT scenarios against the exact candidate, record observations and defects, and obtain genuine reviewer sign-off."
+    },
+    {
+      "requestKey": "C30:HISTORICAL_REPLAY_EVIDENCE",
+      "issue": 550,
+      "state": "NOT_SUPPLIED",
+      "blocking": true,
+      "humanOrExternalActionRequired": true,
+      "engineeringMaySelfSatisfy": false,
+      "requiredActorRole": "business data owner plus independent professional reviewer",
+      "nextAction": "Supply real historical cases with provenance and observed outcomes, run the existing replay harness using predeclared measures, and independently review material deviations."
+    },
+    {
+      "requestKey": "C30:ROLLBACK_OPERATIONAL_VERIFICATION",
+      "issue": 551,
+      "state": "NOT_SUPPLIED_PENDING_INDEPENDENT_REVIEW",
+      "blocking": true,
+      "humanOrExternalActionRequired": true,
+      "engineeringMaySelfSatisfy": false,
+      "requiredActorRole": "designated independent rollback reviewer",
+      "reviewerRef": "human:said",
+      "reviewerId": "reviewer-said-2026-09-17",
+      "preparedArtifacts": [
+        "release/evidence/c36-rollback-candidate-evidence.json",
+        "release/evidence/c36-rollback-independent-review-request.json",
+        "release/evidence/c37-rollback-independent-review-payload.json",
+        "release/evidence/c37-rollback-reviewer-designation.json",
+        "release/evidence/c38-rollback-reviewer-trust.json",
+        "release/evidence/c38-rollback-signed-review-response.template.json"
+      ],
+      "nextAction": "Obtain Said's genuine substantive RSA-SHA256-signed review response, verify it through the qualified C38 intake, then ingest the accepted or rejected result through C30."
+    },
+    {
+      "requestKey": "C30:LEGAL_REGULATORY_APPROVAL",
+      "issue": 552,
+      "state": "NOT_SUPPLIED",
+      "blocking": true,
+      "humanOrExternalActionRequired": true,
+      "engineeringMaySelfSatisfy": false,
+      "requiredActorRole": "qualified Saudi legal/compliance counsel",
+      "nextAction": "Provide current product scope, authority boundaries, disclaimers and controls to qualified Saudi counsel and obtain a traceable exact-candidate legal/regulatory disposition."
+    },
+    {
+      "requestKey": "C31:COMPOSITE_BASELINE_SHADOW",
+      "issue": 559,
+      "state": "NOT_EVALUATED",
+      "blocking": true,
+      "humanOrExternalActionRequired": true,
+      "engineeringMaySelfSatisfy": false,
+      "requiredActorRole": "canonical evidence owner",
+      "nextAction": "Supply a real composite baseline shadow candidate and evidence pair for the current registry state and run the governed shadow verifier."
+    },
+    {
+      "requestKey": "C31:FRESH_COMPOSITE_SHADOW",
+      "issue": 560,
+      "state": "NOT_EVALUATED",
+      "blocking": true,
+      "humanOrExternalActionRequired": true,
+      "engineeringMaySelfSatisfy": false,
+      "requiredActorRole": "canonical evidence owner",
+      "nextAction": "Produce and supply a real fresh-cycle candidate/evidence pair and evaluate it with the governed fresh composite shadow gate."
+    },
+    {
+      "requestKey": "C31:SUCCESSOR_FRESH_COMPOSITE_SHADOW",
+      "issue": 561,
+      "state": "NOT_EVALUATED",
+      "blocking": true,
+      "humanOrExternalActionRequired": true,
+      "engineeringMaySelfSatisfy": false,
+      "requiredActorRole": "canonical evidence owner",
+      "nextAction": "Produce the real successor-fresh candidate/evidence pair bound to the current registry content identity and run the governed successor-fresh shadow verifier."
+    },
+    {
+      "requestKey": "C31:COMPOSITE_CUTOVER_SAFETY",
+      "issue": 562,
+      "state": "NOT_EVALUATED",
+      "blocking": true,
+      "humanOrExternalActionRequired": true,
+      "engineeringMaySelfSatisfy": false,
+      "requiredActorRole": "release/canonical activation owner",
+      "nextAction": "Supply reviewer lifecycle, activation plan, shadow evidence and rehearsal set together, run cutover-safety verification, and keep activation separate pending explicit authority."
+    },
+    {
+      "requestKey": "C31:CANONICAL_SOURCE_HASH",
+      "issue": 563,
+      "state": "NOT_EVALUATED",
+      "blocking": true,
+      "humanOrExternalActionRequired": true,
+      "engineeringMaySelfSatisfy": false,
+      "requiredActorRole": "canonical source custodian",
+      "expectedSha256": "ac0767d3f13c463259f401a5d7af06c1140ee780a9f86489eb17ad9d7c72dc71",
+      "nextAction": "Supply the actual external canonical source file and compute SHA-256 from its real bytes; require exact match to the governed expected digest without bypass."
+    }
+  ],
+  "authority": {
+    "releaseDecisionAuthorized": false,
+    "canonicalBaselineActivationAuthorized": false,
+    "mergeAuthorized": false,
+    "deploymentAuthorized": false,
+    "commercialGoLiveAuthorized": false,
+    "transactionAuthority": false,
+    "approvalAuthorized": false,
+    "publicAiAuthorized": false
+  }
+}
