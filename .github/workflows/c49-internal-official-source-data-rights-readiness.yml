@@ -46,11 +46,8 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
-      - name: C49 source-rights readiness contract
+      - name: C49 source-rights readiness contract and official-source catalog regression
         run: npm run test:c49:source-data-rights
-
-      - name: Existing official-source catalog regression
-        run: node tests/defects/c40_official_source_grounding_and_demo_hardening.js
 
       - name: C48 provider-readiness regression
         run: npm run test:c48:provider-production-readiness
