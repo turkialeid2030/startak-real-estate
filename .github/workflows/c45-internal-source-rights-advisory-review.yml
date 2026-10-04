@@ -1,0 +1,104 @@
+name: C45 Internal Source Rights Advisory Review Verify
+
+on:
+  pull_request:
+    branches:
+      - c44-current-source-rights-review-register
+    paths:
+      - 'release/evidence/c45-internal-source-rights-advisory-review.json'
+      - 'tools/c45-internal-source-rights-advisory-review.js'
+      - 'tests/defects/c45_internal_source_rights_advisory_review.js'
+      - 'docs/release/C45_INTERNAL_SOURCE_RIGHTS_ADVISORY_REVIEW.md'
+      - '.github/workflows/c45-internal-source-rights-advisory-review.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    env:
+      C44_BASE_SHA: 560ab02b3164f3462b3f1645cc7fa11a6d5d3d6f
+      FROZEN_PRODUCT_CANDIDATE_SHA: db05999e5a3c995235ac290c256251ab1592072b
+    steps:
+      - name: Checkout exact C45 head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Assert exact C45 head
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          EXPECTED_SHA="${{ github.event.pull_request.head.sha || github.sha }}"
+          test "$ACTUAL_SHA" = "$EXPECTED_SHA"
+          echo "C45_QUALIFICATION_SHA=$ACTUAL_SHA"
+          echo "C45_FROZEN_PRODUCT_CANDIDATE_SHA=$FROZEN_PRODUCT_CANDIDATE_SHA"
+
+      - name: Enforce governance-only overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          git cat-file -e "$C44_BASE_SHA^{commit}"
+          mapfile -t changed < <(git diff --name-only "$C44_BASE_SHA" HEAD)
+          test "${#changed[@]}" -eq 5
+          for file in "${changed[@]}"; do
+            case "$file" in
+              release/evidence/c45-internal-source-rights-advisory-review.json|\
+              tools/c45-internal-source-rights-advisory-review.js|\
+              tests/defects/c45_internal_source_rights_advisory_review.js|\
+              docs/release/C45_INTERNAL_SOURCE_RIGHTS_ADVISORY_REVIEW.md|\
+              .github/workflows/c45-internal-source-rights-advisory-review.yml)
+                ;;
+              *)
+                echo "C45_NON_GOVERNANCE_OVERLAY_CHANGE=$file"
+                exit 1
+                ;;
+            esac
+          done
+          git diff --quiet "$FROZEN_PRODUCT_CANDIDATE_SHA" HEAD -- src package.json package-lock.json
+          echo "C45_GOVERNANCE_ONLY_OVERLAY=PASS"
+          echo "C45_PRODUCT_RUNTIME_UNCHANGED_FROM_FROZEN_CANDIDATE=PASS"
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Preserve official source governance
+        run: node tests/defects/c40_official_source_governance.js
+
+      - name: Preserve C44 external-rights boundary
+        run: node tests/defects/c44_current_source_rights_review_register.js
+
+      - name: Validate C45 internal advisory review
+        run: |
+          node tests/defects/c45_internal_source_rights_advisory_review.js
+          node tools/c45-internal-source-rights-advisory-review.js
+
+      - name: Canonical release verification
+        run: npm run release:verify
+
+      - name: Emit advisory authority boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "C45_INTERNAL_ADVISORY_APPROVED_WITH_RESTRICTIONS=PASS"
+          echo "C45_SOURCE_COUNT=6"
+          echo "C45_CONDITIONAL_SOURCE_COUNT=5"
+          echo "C45_HOLD_SOURCE_COUNT=1"
+          echo "C45_EJAR_PERMISSION_REQUIRED=TRUE"
+          echo "C45_EXTERNAL_SOURCE_RIGHTS_AUTHORIZED=FALSE"
+          echo "C45_GATE_548_SATISFIED=FALSE"
+          echo "C45_MERGE_AUTHORIZED=FALSE"
+          echo "C45_DEPLOYMENT_AUTHORIZED=FALSE"
+          echo "C45_COMMERCIAL_GO_LIVE_AUTHORIZED=FALSE"
+          echo "C45_FINAL_POSTURE=INTERNAL_ADVISORY_APPROVED_EXTERNAL_LEGAL_GATE_HOLD"
