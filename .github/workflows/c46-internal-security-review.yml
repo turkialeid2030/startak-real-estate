@@ -1,0 +1,97 @@
+name: C46 Internal Security Review and Hardening
+
+on:
+  pull_request:
+    branches:
+      - c45-internal-source-rights-advisory-review
+    paths:
+      - 'CSP_POLICY.md'
+      - 'public/_headers'
+      - 'src/security/**'
+      - 'tests/security/run_c46_internal_security_review.js'
+      - 'tests/architecture/run_wave17a_security_qualification_evidence.js'
+      - 'tests/runtime/run_postgres_runtime_rls_probe_tests.js'
+      - 'tests/runtime/run_controlled_staging_api_security_qualification_tests.js'
+      - 'tests/runtime/run_independent_security_uat_evidence_gate_tests.js'
+      - 'tests/runtime/run_riai_public_ai_security.js'
+      - 'tests/runtime/run_cloudflare_production_secret_boundary_tests.js'
+      - 'release/evidence/c46-internal-security-review.json'
+      - 'docs/C46_INTERNAL_SECURITY_REVIEW.md'
+      - '.github/workflows/c46-internal-security-review.yml'
+      - '.github/workflows/wave17a-security-qualification-evidence-verify.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Assert exact pull-request head
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          EXPECTED_SHA="${{ github.event.pull_request.head.sha }}"
+          test "$ACTUAL_SHA" = "$EXPECTED_SHA"
+          echo "C46_EXACT_HEAD_ASSERTION=PASS sha=$ACTUAL_SHA"
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: C46 internal security review contract
+        run: node tests/security/run_c46_internal_security_review.js
+
+      - name: Preserve Wave17A fail-closed qualification semantics
+        run: node tests/architecture/run_wave17a_security_qualification_evidence.js
+
+      - name: PostgreSQL RLS runtime-probe contract regression
+        run: node tests/runtime/run_postgres_runtime_rls_probe_tests.js
+
+      - name: Controlled staging API security contract regression
+        run: node tests/runtime/run_controlled_staging_api_security_qualification_tests.js
+
+      - name: Independent security and UAT evidence-gate regression
+        run: node tests/runtime/run_independent_security_uat_evidence_gate_tests.js
+
+      - name: Public AI security contract regression
+        run: node tests/runtime/run_riai_public_ai_security.js
+
+      - name: Cloudflare production-secret trust-boundary regression
+        run: node tests/runtime/run_cloudflare_production_secret_boundary_tests.js
+
+      - name: Dependency vulnerability audit
+        run: npm audit --audit-level=low
+
+      - name: Production build
+        run: npm run build
+
+      - name: Package verification
+        run: npm run verify:package
+
+      - name: Canonical release verification
+        run: npm run release:verify
+
+      - name: C46 bounded readiness posture
+        run: |
+          echo 'C46_INTERNAL_SECURITY_REVIEW=PASS'
+          echo 'C46_READY_FOR_INDEPENDENT_SECURITY_REVIEW=PASS'
+          echo 'C46_EXTERNAL_SECURITY_AUTHORIZED=FALSE'
+          echo 'C46_GATE_545_SATISFIED=FALSE'
+          echo 'C46_DEPLOYMENT_AUTHORIZED=FALSE'
+          echo 'C46_COMMERCIAL_GO_LIVE_AUTHORIZED=FALSE'
+          echo 'C46_FINAL_POSTURE=INTERNAL_SECURITY_QUALIFIED_READY_FOR_INDEPENDENT_REVIEW_EXTERNAL_SECURITY_GATE_HOLD'
