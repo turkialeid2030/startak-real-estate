@@ -15,7 +15,8 @@
     "test:c47:privacy": "node tests/privacy/run_c47_internal_privacy_pdpl_readiness.js",
     "test:c48:provider-production-readiness": "node tests/ai/run_c48_internal_ai_provider_production_readiness.js",
     "test:c49:source-data-rights": "node tests/sources/run_c49_internal_official_source_data_rights_readiness.js",
-    "test:c50:human-uat-readiness": "node tests/uat/run_c50_internal_human_uat_readiness.js"
+    "test:c50:human-uat-readiness": "node tests/uat/run_c50_internal_human_uat_readiness.js",
+    "test:c51:private-alpha": "node tests/release/run_c51_private_alpha_governance_non_api_acquisition.js"
   },
   "dependencies": {
     "@sentry/react": "^10.72.0",
