@@ -1,0 +1,22 @@
+{
+  "evidenceId": "C51_INTERNAL_HISTORICAL_REPLAY_READINESS",
+  "capability": "C51_INTERNAL_HISTORICAL_REPLAY_READINESS_V1",
+  "policyVersion": "C51_HISTORICAL_REPLAY_EVIDENCE_PREP_V1",
+  "candidateBaseSha": "f50e259c2a5c7fcd73b57c51b9136641762caae1",
+  "externalGateId": 550,
+  "externalGateEvidenceId": "HISTORICAL_REPLAY_EVIDENCE",
+  "internalEngineeringReadinessOnly": true,
+  "historicalReplayEvidenceSupplied": false,
+  "gate550Satisfied": false,
+  "historicalReplayApproved": false,
+  "syntheticHarnessTreatedAsHistoricalEvidence": false,
+  "inventedAccuracyOrBenchmarkAllowed": false,
+  "deploymentAuthorized": false,
+  "commercialGoLiveAuthorized": false,
+  "finalPosture": "INTERNAL_HISTORICAL_REPLAY_READINESS_PREPARED_EXTERNAL_GATE_550_HOLD",
+  "notes": [
+    "C51 prepares the replay method, predeclared-measure and external evidence contract only.",
+    "No real historical case pack is embedded or asserted by engineering.",
+    "External gate #550 remains NOT_SUPPLIED until real historical cases with provenance are independently reviewed."
+  ]
+}
