@@ -1,0 +1,83 @@
+name: C47 Internal Privacy / PDPL Readiness
+
+on:
+  pull_request:
+    branches:
+      - c46-internal-security-review-and-hardening
+    paths:
+      - 'package.json'
+      - 'src/observability/report-runtime-error.js'
+      - 'src/ai/governed-live-provider-gateway.js'
+      - 'src/storage/**'
+      - 'src/components/LocalDocumentEvidence*.jsx'
+      - 'tests/privacy/run_c47_internal_privacy_pdpl_readiness.js'
+      - 'release/evidence/c47-internal-privacy-pdpl-readiness.json'
+      - 'docs/C47_INTERNAL_PRIVACY_PDPL_READINESS.md'
+      - '.github/workflows/c47-internal-privacy-pdpl-readiness.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Assert exact pull-request head
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          EXPECTED_SHA="${{ github.event.pull_request.head.sha }}"
+          test "$ACTUAL_SHA" = "$EXPECTED_SHA"
+          echo "C47_EXACT_HEAD_ASSERTION=PASS sha=$ACTUAL_SHA"
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: C47 internal privacy and PDPL readiness contract
+        run: npm run test:c47:privacy
+
+      - name: Public AI privacy-security regression
+        run: node tests/runtime/run_riai_public_ai_security.js
+
+      - name: Storage-provider regression
+        run: node tests/runtime/run_storage_provider_tests.js
+
+      - name: Controlled observability incident regression
+        run: node tests/runtime/run_controlled_observability_incident_qualification_tests.js
+
+      - name: Dependency vulnerability audit
+        run: npm audit --audit-level=low
+
+      - name: Production build
+        run: npm run build
+
+      - name: Package verification
+        run: npm run verify:package
+
+      - name: Canonical release verification
+        run: npm run release:verify
+
+      - name: C47 bounded readiness posture
+        run: |
+          echo 'C47_INTERNAL_PRIVACY_PDPL_READINESS=PASS'
+          echo 'C47_READY_FOR_INDEPENDENT_PRIVACY_REVIEW=PASS'
+          echo 'C47_PDPL_COMPLIANCE_CERTIFIED=FALSE'
+          echo 'C47_GATE_546_SATISFIED=FALSE'
+          echo 'C47_DEPLOYMENT_AUTHORIZED=FALSE'
+          echo 'C47_COMMERCIAL_GO_LIVE_AUTHORIZED=FALSE'
+          echo 'C47_FINAL_POSTURE=INTERNAL_PRIVACY_ENGINEERING_QUALIFIED_READY_FOR_INDEPENDENT_PRIVACY_REVIEW_EXTERNAL_PDPL_GATE_HOLD'
