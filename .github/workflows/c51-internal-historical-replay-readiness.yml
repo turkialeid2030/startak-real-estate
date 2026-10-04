@@ -1,0 +1,64 @@
+name: C51 Internal Historical Replay Readiness
+
+on:
+  pull_request:
+    branches:
+      - c50-internal-human-uat-readiness
+    paths:
+      - 'package.json'
+      - 'src/replay/historical-replay-readiness.js'
+      - 'tests/replay/run_c51_internal_historical_replay_readiness.js'
+      - 'release/evidence/c51-internal-historical-replay-readiness.json'
+      - 'docs/C51_INTERNAL_HISTORICAL_REPLAY_READINESS.md'
+      - '.github/workflows/c51-internal-historical-replay-readiness.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Assert exact pull-request head
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          EXPECTED_SHA="${{ github.event.pull_request.head.sha }}"
+          test "$ACTUAL_SHA" = "$EXPECTED_SHA"
+          echo "C51_EXACT_HEAD_ASSERTION=PASS sha=$ACTUAL_SHA"
+      - name: Install locked dependencies
+        run: npm ci
+      - name: C51 historical replay readiness contract
+        run: npm run test:c51:historical-replay-readiness
+      - name: C50 human UAT readiness regression
+        run: npm run test:c50:human-uat-readiness
+      - name: Dependency vulnerability audit
+        run: npm audit --audit-level=low
+      - name: Production build
+        run: npm run build
+      - name: Package verification
+        run: npm run verify:package
+      - name: Canonical release verification
+        run: npm run release:verify
+      - name: C51 bounded readiness posture
+        run: |
+          echo 'C51_INTERNAL_HISTORICAL_REPLAY_READINESS=PASS'
+          echo 'C51_READY_FOR_INDEPENDENT_HISTORICAL_REPLAY=PASS'
+          echo 'C51_GATE_550_SATISFIED=FALSE'
+          echo 'C51_HISTORICAL_REPLAY_APPROVED=FALSE'
+          echo 'C51_DEPLOYMENT_AUTHORIZED=FALSE'
+          echo 'C51_COMMERCIAL_GO_LIVE_AUTHORIZED=FALSE'
+          echo 'C51_FINAL_POSTURE=INTERNAL_HISTORICAL_REPLAY_READINESS_QUALIFIED_READY_FOR_INDEPENDENT_HISTORICAL_REPLAY_EXTERNAL_GATE_550_HOLD'
