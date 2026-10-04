@@ -1,0 +1,73 @@
+name: C42 External Gate Closure Control Verify
+
+on:
+  pull_request:
+    branches:
+      - c39-historical-evidence-reuse-audit
+    paths:
+      - 'release/evidence/c42-external-gate-closure-control.json'
+      - 'tools/c42-external-gate-closure-control.js'
+      - 'tests/defects/c42_external_gate_closure_control.js'
+      - 'docs/release/C42_EXTERNAL_GATE_CLOSURE_CONTROL.md'
+      - '.github/workflows/c42-external-gate-closure-control.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact C42 head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Assert exact C42 head
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          test "$ACTUAL_SHA" = "$EXPECTED_HEAD_SHA"
+          echo "C42_QUALIFICATION_SHA=$ACTUAL_SHA"
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Preserve C39 fail-closed historical evidence posture
+        run: |
+          node tests/defects/c39_historical_evidence_reuse_audit.js
+          node tools/c39-historical-evidence-reuse-audit.js
+
+      - name: Validate C42 external gate closure control
+        run: |
+          node tests/defects/c42_external_gate_closure_control.js
+          node tools/c42-external-gate-closure-control.js
+
+      - name: Canonical release verification on exact C42 head
+        run: npm run release:verify
+
+      - name: Emit governed readiness boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "C42_ENGINEERING_CONTROL=PASS"
+          echo "C42_EXTERNAL_GATES_SATISFIED=0"
+          echo "C42_EXTERNAL_GATES_BLOCKING=13"
+          echo "C42_MERGE_AUTHORIZED=FALSE"
+          echo "C42_DEPLOYMENT_AUTHORIZED=FALSE"
+          echo "C42_COMMERCIAL_GO_LIVE_AUTHORIZED=FALSE"
+          echo "C42_PUBLIC_AI_AUTHORIZED=FALSE"
+          echo "C42_FINAL_POSTURE=HOLD_EXTERNAL_EVIDENCE_AND_CANONICAL_INPUTS_REQUIRED"
