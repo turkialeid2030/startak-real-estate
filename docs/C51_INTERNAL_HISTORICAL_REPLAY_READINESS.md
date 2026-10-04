@@ -10,6 +10,8 @@ It binds a replay plan to the exact candidate, predeclares the replay method and
 
 C51 **does not satisfy external gate #550**. Synthetic cases are not historical evidence. C29 or other harness simulations remain engineering evidence only and cannot become real historical replay evidence by relabeling them.
 
+Explicit invariant: synthetic cases are not historical evidence.
+
 C51 contains no claim of real historical performance, no invented accuracy, no invented KPI, no invented tolerance, and no invented benchmark.
 
 `C30 remains HOLD` while real historical evidence is absent.
