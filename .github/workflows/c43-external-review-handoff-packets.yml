@@ -1,0 +1,100 @@
+name: C43 External Review Handoff Packets Verify
+
+on:
+  pull_request:
+    branches:
+      - c42-external-gate-closure-control
+    paths:
+      - 'release/evidence/c43-external-review-handoff-packets.json'
+      - 'tools/c43-external-review-handoff-packets.js'
+      - 'tests/defects/c43_external_review_handoff_packets.js'
+      - 'docs/release/C43_EXTERNAL_REVIEW_HANDOFF_PACKETS.md'
+      - '.github/workflows/c43-external-review-handoff-packets.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      FROZEN_REVIEW_CANDIDATE_SHA: db05999e5a3c995235ac290c256251ab1592072b
+    steps:
+      - name: Checkout exact C43 head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Assert exact C43 head
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          test "$ACTUAL_SHA" = "$EXPECTED_HEAD_SHA"
+          echo "C43_QUALIFICATION_SHA=$ACTUAL_SHA"
+          echo "C43_REVIEW_CANDIDATE_SHA=$FROZEN_REVIEW_CANDIDATE_SHA"
+
+      - name: Enforce governance-only overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          git cat-file -e "$FROZEN_REVIEW_CANDIDATE_SHA^{commit}"
+          mapfile -t changed < <(git diff --name-only "$FROZEN_REVIEW_CANDIDATE_SHA" HEAD)
+          test "${#changed[@]}" -eq 5
+          for file in "${changed[@]}"; do
+            case "$file" in
+              release/evidence/c43-external-review-handoff-packets.json|\
+              tools/c43-external-review-handoff-packets.js|\
+              tests/defects/c43_external_review_handoff_packets.js|\
+              docs/release/C43_EXTERNAL_REVIEW_HANDOFF_PACKETS.md|\
+              .github/workflows/c43-external-review-handoff-packets.yml)
+                ;;
+              *)
+                echo "C43_NON_GOVERNANCE_OVERLAY_CHANGE=$file"
+                exit 1
+                ;;
+            esac
+          done
+          echo "C43_GOVERNANCE_ONLY_OVERLAY=PASS"
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Preserve C42 closure-control posture
+        run: |
+          node tests/defects/c42_external_gate_closure_control.js
+          node tools/c42-external-gate-closure-control.js
+
+      - name: Validate C43 handoff packets
+        run: |
+          node tests/defects/c43_external_review_handoff_packets.js
+          node tools/c43-external-review-handoff-packets.js
+
+      - name: Canonical release verification on C43 overlay head
+        run: npm run release:verify
+
+      - name: Emit handoff boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "C43_HANDOFF_PACKET_CONTROL=PASS"
+          echo "C43_REVIEW_CANDIDATE_SHA=$FROZEN_REVIEW_CANDIDATE_SHA"
+          echo "C43_PACKET_COUNT=13"
+          echo "C43_EXTERNAL_RECEIPT_CONFIRMED=0"
+          echo "C43_EXTERNAL_GATES_SATISFIED=0"
+          echo "C43_MERGE_AUTHORIZED=FALSE"
+          echo "C43_DEPLOYMENT_AUTHORIZED=FALSE"
+          echo "C43_COMMERCIAL_GO_LIVE_AUTHORIZED=FALSE"
+          echo "C43_PUBLIC_AI_AUTHORIZED=FALSE"
+          echo "C43_FINAL_POSTURE=HANDOFF_PACKETS_READY_GOVERNING_GATES_REMAIN_HOLD"
