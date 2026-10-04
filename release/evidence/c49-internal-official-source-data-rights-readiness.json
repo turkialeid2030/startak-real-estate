@@ -1,0 +1,36 @@
+{
+  "evidenceId": "C49_INTERNAL_OFFICIAL_SOURCE_DATA_RIGHTS_READINESS",
+  "capability": "C49_INTERNAL_OFFICIAL_SOURCE_DATA_RIGHTS_READINESS_V1",
+  "policyVersion": "C49_SOURCE_RIGHTS_AUTHORIZATION_PREP_V1",
+  "candidateBaseSha": "e0d2cf2e92caaf2dbe5677f0ca08f746c1c76f94",
+  "externalGateId": 548,
+  "externalGateEvidenceId": "SOURCE_RIGHTS_AUTHORIZATION",
+  "requiredExternalSourceCount": 6,
+  "requiredSourceUniverse": [
+    "EJAR_RENTAL_ECOSYSTEM",
+    "GASTAT_REAL_ESTATE_STATISTICS",
+    "MOJ_REAL_ESTATE_TRANSACTIONS",
+    "REGA_REAL_ESTATE_INDICATORS",
+    "SAMA_REAL_ESTATE_FINANCE",
+    "ZATCA_REAL_ESTATE_TAX"
+  ],
+  "internalEngineeringReadinessOnly": true,
+  "externalSourceRightsAuthorizationSupplied": false,
+  "gate548Satisfied": false,
+  "sourceRightsAuthorized": false,
+  "sourceUseAuthorized": false,
+  "redistributionAuthorized": false,
+  "deploymentAuthorized": false,
+  "commercialGoLiveAuthorized": false,
+  "publicVisibilityTreatedAsAuthorization": false,
+  "apiReachabilityTreatedAsAuthorization": false,
+  "scraperSuccessTreatedAsAuthorization": false,
+  "engineeringSelfAttestationTreatedAsIndependentApproval": false,
+  "finalPosture": "INTERNAL_OFFICIAL_SOURCE_DATA_RIGHTS_READINESS_PREPARED_EXTERNAL_GATE_548_HOLD",
+  "notes": [
+    "This evidence records internal engineering readiness only.",
+    "It does not create, infer, or certify any licence, lawful basis, processing right, storage right, derived-use right, or redistribution right.",
+    "External gate #548 remains NOT_SUPPLIED until independently reviewable source-rights evidence is supplied by the accountable legal/data-governance owner.",
+    "Any unresolved required source keeps C30 on HOLD; a material rejection may create NO_GO."
+  ]
+}

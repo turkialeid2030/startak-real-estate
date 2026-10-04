@@ -13,7 +13,8 @@
     "release:verify": "node tools/release-verify.js",
     "test:decision-integrity": "node tests/defects/decision_integrity_wave.js",
     "test:c47:privacy": "node tests/privacy/run_c47_internal_privacy_pdpl_readiness.js",
-    "test:c48:provider-production-readiness": "node tests/ai/run_c48_internal_ai_provider_production_readiness.js"
+    "test:c48:provider-production-readiness": "node tests/ai/run_c48_internal_ai_provider_production_readiness.js",
+    "test:c49:source-data-rights": "node tests/sources/run_c49_internal_official_source_data_rights_readiness.js"
   },
   "dependencies": {
     "@sentry/react": "^10.72.0",
