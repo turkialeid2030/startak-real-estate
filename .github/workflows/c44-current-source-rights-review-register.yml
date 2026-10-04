@@ -1,0 +1,107 @@
+name: C44 Current Source Rights Review Register Verify
+
+on:
+  pull_request:
+    branches:
+      - c43-external-review-handoff-packets
+    paths:
+      - 'release/evidence/c44-current-source-rights-review-register.json'
+      - 'tools/c44-current-source-rights-review-register.js'
+      - 'tests/defects/c44_current_source_rights_review_register.js'
+      - 'docs/release/C44_CURRENT_SOURCE_RIGHTS_REVIEW_REGISTER.md'
+      - '.github/workflows/c44-current-source-rights-review-register.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      C43_BASE_SHA: 088792d841bddf9af28af6aea0d9ea93c2440f5d
+      FROZEN_REVIEW_CANDIDATE_SHA: db05999e5a3c995235ac290c256251ab1592072b
+    steps:
+      - name: Checkout exact C44 head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Assert exact C44 head
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          test "$ACTUAL_SHA" = "$EXPECTED_HEAD_SHA"
+          echo "C44_QUALIFICATION_SHA=$ACTUAL_SHA"
+          echo "C44_FROZEN_REVIEW_CANDIDATE_SHA=$FROZEN_REVIEW_CANDIDATE_SHA"
+
+      - name: Enforce C44 governance-only overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          git cat-file -e "$C43_BASE_SHA^{commit}"
+          mapfile -t changed < <(git diff --name-only "$C43_BASE_SHA" HEAD)
+          test "${#changed[@]}" -eq 5
+          for file in "${changed[@]}"; do
+            case "$file" in
+              release/evidence/c44-current-source-rights-review-register.json|\
+              tools/c44-current-source-rights-review-register.js|\
+              tests/defects/c44_current_source_rights_review_register.js|\
+              docs/release/C44_CURRENT_SOURCE_RIGHTS_REVIEW_REGISTER.md|\
+              .github/workflows/c44-current-source-rights-review-register.yml)
+                ;;
+              *)
+                echo "C44_NON_GOVERNANCE_OVERLAY_CHANGE=$file"
+                exit 1
+                ;;
+            esac
+          done
+          git diff --quiet "$FROZEN_REVIEW_CANDIDATE_SHA" HEAD -- src package.json package-lock.json
+          echo "C44_GOVERNANCE_ONLY_OVERLAY=PASS"
+          echo "C44_PRODUCT_RUNTIME_UNCHANGED_FROM_FROZEN_CANDIDATE=PASS"
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Preserve official-source fail-closed governance
+        run: node tests/defects/c40_official_source_governance.js
+
+      - name: Preserve C43 handoff boundary
+        run: |
+          node tests/defects/c43_external_review_handoff_packets.js
+          node tools/c43-external-review-handoff-packets.js
+
+      - name: Validate C44 source-rights review register
+        run: |
+          node tests/defects/c44_current_source_rights_review_register.js
+          node tools/c44-current-source-rights-review-register.js
+
+      - name: Canonical release verification on C44 overlay head
+        run: npm run release:verify
+
+      - name: Emit governed source-rights boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "C44_SOURCE_UNIVERSE_PREPARED=PASS"
+          echo "C44_SOURCE_COUNT=6"
+          echo "C44_LIVE_SOURCE_CONNECTORS_CONFIGURED=0"
+          echo "C44_RIGHTS_REVIEW_REQUIRED_COUNT=6"
+          echo "C44_RIGHTS_EVIDENCE_SUPPLIED_COUNT=0"
+          echo "C44_SOURCE_RIGHTS_AUTHORIZED=FALSE"
+          echo "C44_GATE_548_SATISFIED=FALSE"
+          echo "C44_MERGE_AUTHORIZED=FALSE"
+          echo "C44_DEPLOYMENT_AUTHORIZED=FALSE"
+          echo "C44_COMMERCIAL_GO_LIVE_AUTHORIZED=FALSE"
+          echo "C44_FINAL_POSTURE=SOURCE_UNIVERSE_PREPARED_RIGHTS_REVIEW_PENDING"
