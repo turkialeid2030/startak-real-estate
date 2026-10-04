@@ -1,0 +1,231 @@
+name: C40 Platform Exhaustive Integration Qualification
+
+on:
+  pull_request:
+    branches:
+      - c39-historical-evidence-reuse-audit
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Assert exact candidate SHA
+        id: sha
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          test "$ACTUAL_SHA" = "$EXPECTED_SHA"
+          echo "sha=$ACTUAL_SHA" >> "$GITHUB_OUTPUT"
+          echo "C40_QUALIFICATION_SHA=$ACTUAL_SHA" >> "$GITHUB_ENV"
+          echo "C40 exact candidate SHA: $ACTUAL_SHA"
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Dependency bootstrap
+        id: bootstrap
+        continue-on-error: true
+        run: npm ci
+
+      - name: C40 core verification
+        id: c40_core
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/defects/c40_comprehensive_platform_verification.js
+          node tests/defects/c40_official_source_governance.js
+
+      - name: AI grounding recommendations and forecasting
+        id: ai_grounding_forecast
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/defects/c22_governed_generative_intelligence.js
+          node tests/defects/c23_governed_live_ai_provider_gateway.js
+          node tests/defects/c28_comprehensive_integration_qualification.js
+          node tests/architecture/run_wave14e_specialized_forecast_assumptions.js
+
+      - name: Deal input to report and recommendation flow
+        id: deal_flow
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/defects/c24_integrated_case_property_orchestration.js
+          node tests/defects/c4_governed_deal_decision_report_integration.js
+          node tests/defects/c5_governed_decision_ui_export_integration.js
+          node tests/defects/c6_controlled_human_review_workflow.js
+
+      - name: Real estate numbers zero income financing and scenarios
+        id: real_estate_finance
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/defects/c40_comprehensive_platform_verification.js
+          node tests/architecture/run_wave12a_professional_income_noi.js
+          node tests/architecture/run_wave12b_direct_capitalization.js
+          node tests/architecture/run_wave12c_professional_dcf.js
+          node tests/architecture/run_wave12d_investment_financing_metrics.js
+          node tests/architecture/run_wave11d_development_sensitivity.js
+          node tests/defects/c7_governed_correlated_monte_carlo.js
+          node tests/defects/financial_integrity_p7_monte_carlo.js
+
+      - name: Chromium Playwright exhaustive UI
+        id: browser
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx playwright install --with-deps chromium
+          npx playwright test tests/e2e/c40_platform_exhaustive.spec.js --project=chromium
+
+      - name: Full regression
+        id: regression
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm test
+          npm run test:decision-integrity
+
+      - name: Production build and package verification
+        id: build_package
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run build
+          npm run verify:package
+
+      - name: Dependency security audit
+        id: npm_audit
+        if: always()
+        continue-on-error: true
+        run: npm audit --audit-level=low
+
+      - name: Canonical release verification
+        id: release_verify
+        if: always()
+        continue-on-error: true
+        run: npm run release:verify
+
+      - name: Gap and readiness audit
+        id: readiness_audit
+        if: always()
+        shell: bash
+        env:
+          BOOTSTRAP: ${{ steps.bootstrap.outcome }}
+          C40_CORE: ${{ steps.c40_core.outcome }}
+          AI_GROUNDING_FORECAST: ${{ steps.ai_grounding_forecast.outcome }}
+          DEAL_FLOW: ${{ steps.deal_flow.outcome }}
+          REAL_ESTATE_FINANCE: ${{ steps.real_estate_finance.outcome }}
+          BROWSER: ${{ steps.browser.outcome }}
+          REGRESSION: ${{ steps.regression.outcome }}
+          BUILD_PACKAGE: ${{ steps.build_package.outcome }}
+          NPM_AUDIT: ${{ steps.npm_audit.outcome }}
+          RELEASE_VERIFY: ${{ steps.release_verify.outcome }}
+        run: |
+          set -euo pipefail
+          status() {
+            case "$1" in
+              success) printf 'PASS' ;;
+              failure) printf 'FAIL' ;;
+              skipped|cancelled|'') printf 'HOLD' ;;
+              *) printf 'HOLD' ;;
+            esac
+          }
+
+          CURRENT_SHA="$(git rev-parse HEAD)"
+          SHA_STATUS="PASS"
+          if [ "$CURRENT_SHA" != "$C40_QUALIFICATION_SHA" ]; then
+            SHA_STATUS="FAIL"
+          fi
+
+          {
+            echo "# C40 Gap & Readiness Audit"
+            echo
+            echo "Candidate SHA: \`$CURRENT_SHA\`"
+            echo
+            echo "| Gate | Status |"
+            echo "|---|---|"
+            echo "| Dependency bootstrap | $(status "$BOOTSTRAP") |"
+            echo "| 1. All new C40 tests | $(status "$C40_CORE") |"
+            echo "| 2. Failure/conflict closure | $(status "$C40_CORE") |"
+            echo "| 3. Chromium / Playwright UI | $(status "$BROWSER") |"
+            echo "| 4. AI / recommendations / grounding / forecasts | $(status "$AI_GROUNDING_FORECAST") |"
+            echo "| 5. Deal input-to-report flow | $(status "$DEAL_FLOW") |"
+            echo "| 6. Real-estate scenarios / numbers / zero-income / financing | $(status "$REAL_ESTATE_FINANCE") |"
+            echo "| 7a. Full regression | $(status "$REGRESSION") |"
+            echo "| 7b. Build + package verification | $(status "$BUILD_PACKAGE") |"
+            echo "| 7c. npm audit | $(status "$NPM_AUDIT") |"
+            echo "| 7d. Release Verify | $(status "$RELEASE_VERIFY") |"
+            echo "| 8. Gap & Readiness Audit emitted | PASS |"
+            echo "| 9. Single exact SHA attestation | $SHA_STATUS |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          printf '%s\n' \
+            "C40_QUALIFICATION_SHA=$CURRENT_SHA" \
+            "C40_CORE=$(status "$C40_CORE")" \
+            "C40_BROWSER=$(status "$BROWSER")" \
+            "C40_AI_GROUNDING_FORECAST=$(status "$AI_GROUNDING_FORECAST")" \
+            "C40_DEAL_FLOW=$(status "$DEAL_FLOW")" \
+            "C40_REAL_ESTATE_FINANCE=$(status "$REAL_ESTATE_FINANCE")" \
+            "C40_REGRESSION=$(status "$REGRESSION")" \
+            "C40_BUILD_PACKAGE=$(status "$BUILD_PACKAGE")" \
+            "C40_NPM_AUDIT=$(status "$NPM_AUDIT")" \
+            "C40_RELEASE_VERIFY=$(status "$RELEASE_VERIFY")" \
+            "C40_SINGLE_SHA=$SHA_STATUS"
+
+          failures=0
+          for value in \
+            "$BOOTSTRAP" \
+            "$C40_CORE" \
+            "$AI_GROUNDING_FORECAST" \
+            "$DEAL_FLOW" \
+            "$REAL_ESTATE_FINANCE" \
+            "$BROWSER" \
+            "$REGRESSION" \
+            "$BUILD_PACKAGE" \
+            "$NPM_AUDIT" \
+            "$RELEASE_VERIFY"; do
+            if [ "$value" != "success" ]; then
+              failures=$((failures + 1))
+            fi
+          done
+          if [ "$SHA_STATUS" != "PASS" ]; then
+            failures=$((failures + 1))
+          fi
+
+          if [ "$failures" -ne 0 ]; then
+            echo "C40_FINAL_READINESS=FAIL"
+            exit 1
+          fi
+
+          echo "C40_FINAL_READINESS=PASS"
