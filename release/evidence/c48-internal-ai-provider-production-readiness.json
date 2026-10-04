@@ -1,0 +1,22 @@
+{
+  "scope": "C48_INTERNAL_AI_PROVIDER_PRODUCTION_READINESS",
+  "baseC47QualifiedHeadSha": "e3dbbe1932751fff2f8b3ed45e5c2872d9d7199a",
+  "externalGateId": 547,
+  "internalEngineeringDecision": "READY_FOR_INDEPENDENT_PROVIDER_AUTHORIZATION_REVIEW",
+  "externalProductionAuthorizationSupplied": false,
+  "gate547Satisfied": false,
+  "publicAiAuthorized": false,
+  "productionProviderUseAuthorized": false,
+  "productionInvocationAuthorized": false,
+  "deploymentAuthorized": false,
+  "commercialGoLiveAuthorized": false,
+  "workingApiKeyConstitutesAuthorization": false,
+  "sandboxSuccessConstitutesAuthorization": false,
+  "internalCiConstitutesIndependentAuthorization": false,
+  "blockingExternalItems": [
+    "Independent provider production authorization for the exact candidate SHA and governed use case has not been supplied.",
+    "Authorized provider/model/version or governed model-selection approval has not been independently supplied for production.",
+    "Production data handling, retention, training-use, residency, logging, DLP, prompt, role, environment, and kill-switch evidence requires independent approval.",
+    "C30 external gate #547 has not accepted immutable authorization evidence for the exact candidate SHA."
+  ]
+}
