@@ -1,0 +1,38 @@
+{
+  "stage": "C53",
+  "capability": "PRIVATE_ALPHA_SOURCE_ACQUISITION_RUNTIME",
+  "operatingMode": "PRIVATE_ALPHA",
+  "qualifiedBase": "C52_PRIVATE_ALPHA_GOVERNANCE_NON_API_ACQUISITION",
+  "runtimeMethods": [
+    "DIRECT_HTTPS_FETCH",
+    "OFFICIAL_FILE_DOWNLOAD",
+    "SITEMAP_RSS_DISCOVERY",
+    "PUBLIC_BROWSER_RENDER",
+    "USER_AUTHORIZED_BROWSER_SESSION",
+    "USER_AUTHORIZED_EXPORT",
+    "MANUAL_ASSISTED_CAPTURE",
+    "MANUAL_UPLOAD"
+  ],
+  "runtimeControls": {
+    "httpsOnly": true,
+    "providerDomainBinding": true,
+    "redirectRevalidation": true,
+    "responseSizeLimit": true,
+    "contentTypeAllowlist": true,
+    "publicFetchSendsCredentials": false,
+    "authenticatedBrowserRequiresUserAuthorization": true,
+    "credentialBypassAllowed": false,
+    "captchaBypassAllowed": false,
+    "accessControlEvasionAllowed": false,
+    "rateLimitEvasionAllowed": false,
+    "artifactSha256": true,
+    "retrievalTimestamp": true,
+    "provenanceHandoff": "C2N/C2S"
+  },
+  "apiRequired": false,
+  "externalRightsApprovalEstablished": false,
+  "commercialUseAuthorized": false,
+  "publicDeploymentAuthorized": false,
+  "transactionAuthorized": false,
+  "approvalAuthorized": false
+}
