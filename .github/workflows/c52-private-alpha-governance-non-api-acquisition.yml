@@ -1,0 +1,74 @@
+name: C52 Private Alpha Governance and Non-API Acquisition
+
+on:
+  pull_request:
+    branches:
+      - c51-internal-historical-replay-readiness
+    paths:
+      - 'package.json'
+      - 'src/release/private-alpha-operating-mode.js'
+      - 'src/source-intelligence/private-alpha-acquisition-orchestrator.js'
+      - 'tests/release/run_c52_private_alpha_governance_non_api_acquisition.js'
+      - 'release/evidence/c52-private-alpha-governance-non-api-acquisition.json'
+      - 'docs/C52_PRIVATE_ALPHA_GOVERNANCE_NON_API_ACQUISITION.md'
+      - '.github/workflows/c52-private-alpha-governance-non-api-acquisition.yml'
+      - '.github/workflows/c2n-governed-non-api-source-acquisition-verify.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Assert exact pull-request head
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          EXPECTED_SHA="${{ github.event.pull_request.head.sha }}"
+          test "$ACTUAL_SHA" = "$EXPECTED_SHA"
+          echo "C52_EXACT_HEAD_ASSERTION=PASS sha=$ACTUAL_SHA"
+      - name: Install locked dependencies
+        run: npm ci
+      - name: C52 private-alpha governance and non-API acquisition contract
+        run: npm run test:c52:private-alpha
+      - name: C51 historical replay readiness regression
+        run: npm run test:c51:historical-replay-readiness
+      - name: C50 human UAT readiness regression
+        run: npm run test:c50:human-uat-readiness
+      - name: Existing C2N non-API acquisition regression
+        run: node tests/defects/c2n_governed_non_api_source_acquisition.js
+      - name: Dependency vulnerability audit
+        run: npm audit --audit-level=low
+      - name: Production build
+        run: npm run build
+      - name: Package verification
+        run: npm run verify:package
+      - name: Canonical release verification
+        run: npm run release:verify
+      - name: C52 bounded operating posture
+        run: |
+          echo 'C52_PRIVATE_ALPHA_GOVERNANCE=PASS'
+          echo 'C52_NON_API_ACQUISITION_ORCHESTRATION=PASS'
+          echo 'C52_API_REQUIRED=FALSE'
+          echo 'C52_PRIVATE_ALPHA_DEPLOYMENT_ELIGIBLE=TRUE'
+          echo 'C52_EXTERNAL_C30_GATES_BLOCK_PRIVATE_ALPHA=FALSE'
+          echo 'C52_EXTERNAL_C30_GATES_REQUIRED_FOR_COMMERCIAL_PRODUCTION=TRUE'
+          echo 'C52_PUBLIC_DEPLOYMENT_AUTHORIZED=FALSE'
+          echo 'C52_COMMERCIAL_GO_LIVE_AUTHORIZED=FALSE'
+          echo 'C52_TRANSACTION_AUTHORIZED=FALSE'
+          echo 'C52_APPROVAL_AUTHORIZED=FALSE'
+          echo 'C52_FINAL_POSTURE=PRIVATE_ALPHA_OWNER_ONLY_NON_COMMERCIAL_NON_API_FIRST'
