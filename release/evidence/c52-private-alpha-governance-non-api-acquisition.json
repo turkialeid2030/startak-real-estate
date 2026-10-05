@@ -1,0 +1,45 @@
+{
+  "stage": "C52",
+  "capability": "PRIVATE_ALPHA_GOVERNANCE_NON_API_ACQUISITION",
+  "operatingMode": "PRIVATE_ALPHA",
+  "scope": {
+    "ownerOnly": true,
+    "publicAccess": false,
+    "commercialUse": false,
+    "transactionExecution": false,
+    "approvalAuthority": false,
+    "certifiedValuationClaim": false,
+    "publicAi": false
+  },
+  "c30ExternalEvidenceTreatment": {
+    "statusRecordsPreserved": true,
+    "missingEvidenceMayRemainNotSupplied": true,
+    "blocksPrivateAlpha": false,
+    "requiredForCommercialProduction": true
+  },
+  "dataAcquisition": {
+    "apiRequired": false,
+    "apiPreferred": false,
+    "fallbackEnabled": true,
+    "supportedMethods": [
+      "DIRECT_HTTPS_FETCH",
+      "OFFICIAL_FILE_DOWNLOAD",
+      "PUBLIC_BROWSER_RENDER",
+      "SITEMAP_RSS_DISCOVERY",
+      "USER_AUTHORIZED_BROWSER_SESSION",
+      "USER_AUTHORIZED_EXPORT",
+      "MANUAL_ASSISTED_CAPTURE",
+      "MANUAL_UPLOAD"
+    ]
+  },
+  "hardSafetyBoundaries": {
+    "credentialBypassAllowed": false,
+    "captchaBypassAllowed": false,
+    "accessControlEvasionAllowed": false,
+    "rateLimitEvasionAllowed": false
+  },
+  "commercialProductionAuthorized": false,
+  "publicDeploymentAuthorized": false,
+  "transactionAuthorized": false,
+  "approvalAuthorized": false
+}
