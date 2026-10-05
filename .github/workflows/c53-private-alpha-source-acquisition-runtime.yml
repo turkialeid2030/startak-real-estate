@@ -1,0 +1,74 @@
+name: C53 Private Alpha Source Acquisition Runtime
+
+on:
+  pull_request:
+    branches:
+      - c52-private-alpha-governance-non-api-acquisition
+    paths:
+      - 'package.json'
+      - 'src/source-intelligence/private-alpha-acquisition-runtime.js'
+      - 'src/source-intelligence/private-alpha-acquisition-orchestrator.js'
+      - 'src/source-intelligence/source-provider-registry.js'
+      - 'tools/private-alpha-source-acquire.js'
+      - 'tests/source-intelligence/run_c53_private_alpha_source_acquisition_runtime.js'
+      - 'release/evidence/c53-private-alpha-source-acquisition-runtime.json'
+      - 'docs/C53_PRIVATE_ALPHA_SOURCE_ACQUISITION_RUNTIME.md'
+      - '.github/workflows/c53-private-alpha-source-acquisition-runtime.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Assert exact pull-request head
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          EXPECTED_SHA="${{ github.event.pull_request.head.sha }}"
+          test "$ACTUAL_SHA" = "$EXPECTED_SHA"
+          echo "C53_EXACT_HEAD_ASSERTION=PASS sha=$ACTUAL_SHA"
+      - name: Install locked dependencies
+        run: npm ci
+      - name: C53 executable acquisition runtime contract
+        run: npm run test:c53:source-acquisition-runtime
+      - name: C52 private-alpha governance regression
+        run: npm run test:c52:private-alpha
+      - name: C51 historical replay readiness regression
+        run: npm run test:c51:historical-replay-readiness
+      - name: Existing C2N non-API acquisition regression
+        run: node tests/defects/c2n_governed_non_api_source_acquisition.js
+      - name: Existing C2S provenance regression
+        run: node tests/defects/c2s_source_intelligence_evidence_provenance_registry.js
+      - name: Dependency vulnerability audit
+        run: npm audit --audit-level=low
+      - name: Production build
+        run: npm run build
+      - name: Package verification
+        run: npm run verify:package
+      - name: Canonical release verification
+        run: npm run release:verify
+      - name: C53 bounded runtime posture
+        run: |
+          echo 'C53_PRIVATE_ALPHA_SOURCE_ACQUISITION_RUNTIME=PASS'
+          echo 'C53_REAL_HTTPS_ACQUISITION_IMPLEMENTED=TRUE'
+          echo 'C53_BROWSER_ADAPTER_IMPLEMENTED=TRUE'
+          echo 'C53_USER_AUTHORIZED_SESSION_CAPTURE_IMPLEMENTED=TRUE'
+          echo 'C53_API_REQUIRED=FALSE'
+          echo 'C53_EXTERNAL_RIGHTS_APPROVAL_ESTABLISHED=FALSE'
+          echo 'C53_COMMERCIAL_GO_LIVE_AUTHORIZED=FALSE'
+          echo 'C53_FINAL_POSTURE=PRIVATE_ALPHA_EXECUTABLE_NON_API_SOURCE_ACQUISITION'
