@@ -84,7 +84,7 @@ async function realFileScenario(browser,asset){
   await dlg.getByPlaceholder('اسم الصفقة...').fill(asset.name);
   await dlg.getByRole('button',{name:'حفظ',exact:true}).click();
   await expect(dlg.getByRole('button',{name:asset.name})).toBeVisible({timeout:15000});
-  const saved=await page.evaluate(()=>Object.entries(localStorage).map(([key,value])=>({key,value}))
+  const saved=await page.evaluate((assetName)=>Object.entries(localStorage).map(([key,value])=>({key,value}))
     .filter(item=>item.key.includes('deal:')).map(item=>JSON.parse(item.value))
     .find(item=>item.name===assetName),asset.name);
   assert(saved?.valuationCase?.institutionalEvidence?.specialistDocumentManifest,
