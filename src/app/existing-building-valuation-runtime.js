@@ -8,6 +8,7 @@ const {
 } = require('../valuation-intelligence');
 const { createValuationPresentation } = require('./valuation-presentation');
 const { assessInstitutionalValuationDecisionBoundary } = require('./institutional-valuation-decision-boundary');
+const { specializeUnsupportedValuationCase } = require('./specialist-live-hold');
 
 const VALUATION_RUNTIME_MODE = Object.freeze({
   LEGACY_ONLY: SAVED_DEAL_VALUATION_MODE.LEGACY_ONLY,
@@ -47,6 +48,21 @@ function evaluateExistingBuildingValuation({
   }
 
   validateValuationCaseExtension(valuationCase);
+
+  // C69: hotel and industrial property interests cannot be calculated with
+  // OFFICE/RETAIL/RESIDENTIAL lease-income adapters. A governed refusal is
+  // better than a runtime crash or an invalid numeric indication.
+  const specialist= specializeUnsupportedValuationCase(valuationCase);
+  if(specialist){
+    return Object.freeze({
+      schemaVersion:1,mode:VALUATION_RUNTIME_MODE.VALUATION_V1,
+      caseId:normalizedCaseId,projectId:valuationCase.projectId,
+      stage:null,presentation:null,
+      specialistRoute:specialist.specialistRoute,
+      institutionalDecision:specialist.institutionalDecision,
+      semantics:'Specialist asset classification is accepted for evidence-readiness intake only. No existing-building income, capitalization, cost, hotel business or industrial property value has been calculated or certified.',
+    });
+  }
 
   const request = createExistingBuildingValuationRequest({
     caseId: normalizedCaseId,
