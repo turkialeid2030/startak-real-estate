@@ -173,6 +173,29 @@ async function run(){
   clientId,clock:()=>new Date()});
  const wrongAuth=await fetch(base+qs,{headers:wrongSigner({method:'GET',route:qs})});
  ok(wrongAuth.status===401,'unsigned caller cannot mint witness advance or read');
+ const signedAdvance={tenantId:'tenant-a',documentId:'DOC-C73-3D-MUTATION',
+  revision:1,headTag:'c'.repeat(64),expectedRevision:null,expectedHeadTag:null};
+ const signedRaw=Buffer.from(JSON.stringify(signedAdvance));
+ const alteredAdvance={...signedAdvance,headTag:'d'.repeat(64)};
+ const alteredResponse=await fetch(base+'/advance',{method:'POST',headers:{
+  'Content-Type':'application/json',...signer({
+   method:'POST',route:'/advance',body:signedRaw})},
+  body:JSON.stringify(alteredAdvance)});
+ ok(alteredResponse.status===401,'signed body hash refuses payload substitution');
+
+ // Concurrent signed client requests: append-only O_EXCL and CAS permit one winner.
+ const race={tenantId:'tenant-a',documentId:'DOC-C73-3D-RACE',revision:1,
+  expectedRevision:null,expectedHeadTag:null};
+ const contested=await Promise.all(['d','e'].map(tag=>{
+  const b={...race,headTag:tag.repeat(64)};
+  return fetch(base+'/advance',{method:'POST',
+   headers:{'Content-Type':'application/json',...signer({
+    method:'POST',route:'/advance',body:Buffer.from(JSON.stringify(b))})},
+   body:JSON.stringify(b)});
+ }));
+ ok(contested.filter(x=>x.status===200).length===1&&
+  contested.filter(x=>x.status===409).length===1,
+  'concurrent independently signed checkpoint writes have one winner');
  const staleSigner=createWitnessRequestSigner({privateKey:applicationClient.privateKey,
   clientId,clock:()=>new Date(Date.now()-600000)});
  const staleAuth=await fetch(base+qs,{headers:staleSigner({method:'GET',route:qs})});
