@@ -44,11 +44,22 @@ async function doSavedDealRoundtrip(page,assetClass){
   await page.locator('button[title="'+SELECTORS.saved+'"]').click();
   const dialog=page.getByRole('dialog',{name:'الصفقات'});
   await expect(dialog).toBeVisible();
-  const name='C63-PW-'+assetClass;
+  const name='صفقة اختبار '+({OFFICE:'مكاتب',RETAIL:'تجزئة',RESIDENTIAL:'سكني'}[assetClass]);
   await dialog.getByPlaceholder('اسم الصفقة...').fill(name);
   await dialog.getByRole('button',{name:'حفظ',exact:true}).click();
   const saved=dialog.getByRole('button',{name});
-  await expect(saved).toBeVisible({timeout:10000});
+  try {
+    await expect(saved).toBeVisible({timeout:10000});
+  } catch(e) {
+    const storage = await page.evaluate(() => ({
+      index:localStorage.getItem('deals-index'),
+      storedKeys:Object.keys(localStorage).filter(k=>k.startsWith('deal:')),
+    }));
+    console.error('C63_SAVED_DEAL_DIAGNOSTIC='+JSON.stringify({
+      visibleDialog:await dialog.innerText(),storage,
+    }));
+    throw e;
+  }
   // Reload is a real new browser document; no in-memory React state may satisfy it.
   await page.reload({waitUntil:'domcontentloaded'});
   await page.locator('button[title="'+SELECTORS.saved+'"]').click();
