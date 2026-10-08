@@ -1,0 +1,41 @@
+name: C59 Cost Obsolescence Cause Attribution Integrity
+on:
+  pull_request:
+    branches:
+      - c58-comparable-provenance-chain-20261008
+    paths:
+      - 'src/cost/depreciation-attribution-gate.js'
+      - 'tests/architecture/run_c59_componentized_cost_obsolescence.js'
+      - 'docs/C59_COST_CAUSE_ATTRIBUTION.md'
+      - '.github/workflows/c59-cost-obsolescence-attribution.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Assert exact SHA
+        if: github.event_name == 'pull_request'
+        run: test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+      - run: npm ci
+      - name: C59 cost depreciation attribution
+        run: node tests/architecture/run_c59_componentized_cost_obsolescence.js
+      - name: Preserve Wave 11A and C58 regressions
+        run: |
+          node tests/architecture/run_wave11a_cost_approach.js
+          node tests/architecture/run_c58_comparable_provenance_chain.js
+      - run: npm run build
+      - run: npm run verify:package
+      - run: npm run release:verify
+      - run: npm audit --audit-level=low
