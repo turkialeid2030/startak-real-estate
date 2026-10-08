@@ -20,7 +20,8 @@
     "test:c52:private-alpha": "node tests/release/run_c52_private_alpha_governance_non_api_acquisition.js",
     "test:c53:source-acquisition-runtime": "node tests/source-intelligence/run_c53_private_alpha_source_acquisition_runtime.js",
     "private-alpha:acquire": "node tools/private-alpha-source-acquire.js",
-    "dev:stable": "node tools/startak-dev-stable.js"
+    "dev:stable": "node tools/startak-dev-stable.js",
+    "dev:bundled": "vite --experimental-bundle"
   },
   "dependencies": {
     "@sentry/react": "^10.72.0",
