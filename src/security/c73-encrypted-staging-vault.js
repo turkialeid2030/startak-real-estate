@@ -68,11 +68,12 @@ function verdict(r){
  * and cannot be used as proof of actual malware safety. It must throw or return
  * an explicit CLEAN verdict, otherwise bytes NEVER enter vault storage.
  */
-function createEncryptedStagingVault({rootPath,key,keyRef,verifyRequest,scanner}={}){
+function createEncryptedStagingVault({rootPath,key,keyRef,verifyRequest,scanner,scanTimeoutMs=15000}={}){
  if(typeof rootPath!=='string'||!path.isAbsolute(rootPath)||typeof keyRef!=='string'||
   !/^[a-zA-Z0-9_-]{2,128}$/.test(keyRef)||
   !(Buffer.isBuffer(key)||key instanceof Uint8Array)||key.length!==32||
-  typeof verifyRequest!=='function'||typeof scanner!=='function')
+  typeof verifyRequest!=='function'||typeof scanner!=='function'||
+  !Number.isInteger(scanTimeoutMs)||scanTimeoutMs<10||scanTimeoutMs>60000)
   throw fail('C73_VAULT_DEPENDENCIES_REQUIRED');
  const root=path.resolve(rootPath);
  async function auth(request,s,action){
@@ -89,9 +90,18 @@ function createEncryptedStagingVault({rootPath,key,keyRef,verifyRequest,scanner}
   try{
    if(!matchesSignature(plain,mediaType))throw fail('C73_VAULT_SIGNATURE_MISMATCH');
    // No system test scanner result is a substitute for a certified security scanner.
-   let assessment;
-   try{assessment=await scanner({bytes:Buffer.from(plain),mediaType});}
-   catch{throw fail('C73_VAULT_SCANNER_HOLD');}
+   let assessment,timer;
+   // Scanners that hang, fail or reject MUST not admit document bytes. The
+   // upstream scan interface also requires bounded provider-side work.
+   try{
+    assessment=await Promise.race([
+     Promise.resolve().then(()=>scanner({bytes:Buffer.from(plain),mediaType})),
+     new Promise((_,reject)=>{
+      timer=setTimeout(()=>reject(fail('C73_VAULT_SCANNER_TIMEOUT')),scanTimeoutMs);
+     }),
+    ]);
+   }catch{throw fail('C73_VAULT_SCANNER_HOLD');}
+   finally{if(timer)clearTimeout(timer);}
    if(!assessment||assessment.status!=='CLEAN'||typeof assessment.engineRef!=='string'||
     assessment.engineRef.length<3||typeof assessment.signatureRef!=='string'||
     assessment.signatureRef.length<3)
