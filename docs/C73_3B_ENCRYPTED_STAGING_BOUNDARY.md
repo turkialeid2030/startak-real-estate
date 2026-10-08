@@ -11,9 +11,12 @@
 ## Boundaries — strictly not qualified
 This uses local filesystem staging, **not** managed Saudi-region cloud object storage, KMS/HSM, object version retention, WORM immutable root, documented secure erasure, comprehensive malware/structural parser or approved scan engine. An `unlink()` does not securely delete ciphertext from backups or snapshots. A root or parent filesystem/symlink administrator can compromise the store.
 
-No deployed HTTPS API has been connected to this module at this stage, nor is there a production identity provider, DLP, rate limiting, provider licence verification, PDPL legal approval, authorized valuer or official appraisal. Other issuer/source rights, real Saudi market backtests, load test, DR, external pen test and human UAT remain OPEN. Do NOT use customer data or main/deploy.
+A real **loopback HTTP** integration has been tested with synthetic RSA-signed bearer JWT, PostgreSQL 16 and encrypted local staging. This is NOT a deployed HTTPS service or approved production object store; it has no production identity provider, DLP, rate limiting, provider licence verification, PDPL legal approval, authorized valuer or official appraisal. Other issuer/source rights, real Saudi market backtests, load test, DR, external pen test and human UAT remain OPEN. Do NOT use customer data or main/deploy.
 
 Test: `node tests/architecture/run_c73_3b_encrypted_vault.js`; genuine in-process crypto + private temporary disk + fake IdP/scanner. Exact HEAD separate release/package/security gate required.
 
 ## Current disposition
 C73.3B is a **staging encryption engineering component** only. C73 #644, C73.3 #648, #622 and #634 remain OPEN/HOLD pending independent provider, legal, valuation and security signoff.
+
+## Integration and runtime scanner timeout update
+C73.3B also runs actual local HTTP + RSA-JWT + PostgreSQL 16 + AES-GCM staging, including reversible failed scan -> signed custody revocation, ciphertext removal upon revoke, and failure when the scanner never resolves. The scan timeout defaults to 15 seconds and is bounded between 10 ms and 60 seconds. These are engineering simulations with a fake scanner and fabricated identities and do not establish a certified scan engine, geographic residency or production approval.
