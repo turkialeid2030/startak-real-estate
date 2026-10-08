@@ -64,7 +64,7 @@ function run(){
   base.independentHumanGoNoGoRequired===true,'no fabricated external attestation');
  negative('EVIDENCE_BYTE_HASH_MISMATCH',a=>{a[0].evidenceBytes[8]^=1;});
  negative('SIGNATURE_INVALID',a=>{a[0].signature=(a[0].signature[0]==='A'?'B':'A')+a[0].signature.slice(1);});
- negative('SIGNATURE_INVALID',a=>{a[0].claim.evidenceHash='a'.repeat(64);});
+ negative('SIGNATURE_INVALID',a=>{a[0].claim.issuedAt='2026-10-06T18:00:00.000Z';});
  negative('EVIDENCE_SCOPE_MISMATCH',a=>{a[1].claim.environment='other-tenancy';rebuilt(a,1);});
  negative('EVIDENCE_SCOPE_MISMATCH',a=>{a[1].claim.targetSha='b'.repeat(40);rebuilt(a,1);});
  negative('EVIDENCE_EXPIRED_OR_UNTRUSTED_TIME',a=>{
@@ -81,7 +81,7 @@ function run(){
  negative('INVALID_EVIDENCE_SCHEMA',a=>{a[0].claim.sourceRightsVerified=true;});
  negative('INVALID_EVIDENCE_SCHEMA',a=>{a[0].productionApproved=true;});
  negative('DUPLICATE_GATE',a=>{a[0]={...a[1],claim:{...a[1].claim}};});
- negative('NOT_INDEPENDENT_SIGNERS',a=>{
+ negative('UNTRUSTED_ISSUER_OR_ROLE',a=>{
   a[1].claim.issuerId='reviewer-0';a[1].signature=signature(a[1].claim,0);
  },{...config,'reviewer-0':{...config['reviewer-0']}}); // unauthorized gate role denies first
  // Actual signer clone attack (same physical Ed25519 key, different configured issuer).
