@@ -98,7 +98,7 @@ check('reject malformed signatures and deleted or replaced events',()=>{
  const wrongTag=copy(record);wrongTag.events[0].tag='0'.repeat(64);
  assert.equal(verified(wrongTag).status,STATE.HOLD_INTEGRITY);
  const removed=copy(record);removed.events=[];
- assert.equal(verified(removed).status,STATE.HOLD_TRUSTED_HEAD_REQUIRED);
+ assert.equal(verified(removed).status,STATE.HOLD_INTEGRITY);
  const wrongVersion=copy(record);wrongVersion.schemaVersion=0;
  assert.equal(verified(wrongVersion).status,STATE.HOLD_INTEGRITY);
  const otherKind=copy(record);otherKind.events[0].kind='OFFICIALLY_AUTHORIZED';
