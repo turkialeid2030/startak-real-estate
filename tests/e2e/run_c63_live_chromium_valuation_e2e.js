@@ -16,7 +16,7 @@ const SELECTORS=Object.freeze({
 });
 
 async function configure(page,assetClass){
-  await page.getByRole('button',{name:SELECTORS.configure}).click();
+  await page.getByTestId('valuation-v1-configure').click();
   await page.getByLabel('معرّف المشروع',{exact:true}).fill('C63-'+assetClass+'-BROWSER');
   await page.getByLabel('فئة الأصل',{exact:true}).selectOption(assetClass);
   await page.getByLabel('مرحلة دورة الحياة',{exact:true}).selectOption('STABILIZED');
@@ -26,15 +26,17 @@ async function configure(page,assetClass){
   await page.getByLabel('أساس القيمة',{exact:true}).selectOption('MARKET_VALUE');
   await page.getByLabel('العملة',{exact:true}).fill('SAR');
   await page.getByLabel('تاريخ التقييم',{exact:true}).fill('2026-09-05');
-  await page.getByRole('button',{name:SELECTORS.apply}).click();
+  await page.getByTestId('valuation-v1-apply').click();
 }
 
 async function checkRuntime(page){
   await expect(page.getByText(SELECTORS.warning,{exact:false})).toBeVisible();
   await expect(page.getByText(SELECTORS.preliminary,{exact:true})).toBeVisible();
   await expect(page.getByText(SELECTORS.blocked,{exact:true})).toBeVisible();
-  await expect(page.getByText('HOLD_EXTERNAL_EVIDENCE_AND_DECISION_AUTHORITY',{exact:false})).toBeVisible();
-  await expect(page.getByText('Valuation V1',{exact:true})).toBeVisible();
+  await expect(page.getByTestId('valuation-v1-panel')).toBeVisible();
+  await expect(page.getByTestId('valuation-institutional-hold')).toHaveAttribute(
+    'data-c62-status','HOLD_EXTERNAL_EVIDENCE_AND_DECISION_AUTHORITY'
+  );
 }
 
 async function doSavedDealRoundtrip(page,assetClass){
@@ -80,6 +82,8 @@ async function scenario(browser,assetClass){
       text:(document.body?.innerText||'').slice(0,6000),
       html:(document.body?.innerHTML||'').slice(0,1000),
       lang:document.documentElement.lang,dir:document.documentElement.dir,
+      buttons:[...document.querySelectorAll('button')].filter(b=>b.closest('[data-testid="valuation-v1-panel"]')).map(b=>b.innerText).slice(0,20),
+      valuationSection:document.querySelector('[data-testid="valuation-v1-panel"]')?.innerText.slice(0,1500),
     })).catch(e=>({browserIntrospection:String(e)}));
     console.error('C63_BROWSER_DIAGNOSTIC_'+assetClass+'='+JSON.stringify({
       ...info,pageErrors:errors,requestFailures:failedRequests,consoleErrors,
