@@ -456,9 +456,9 @@ export default function ValuationIntelligencePanel({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="rounded-xl px-3 py-3" style={{ background: COLORS.panelRaised, border: `1px solid ${COLORS.hairlineSoft}` }}>
               <div className="text-[10px] mb-1" style={{ color: COLORS.slateDim }}>{text.currentStatus}</div>
-              <div className="text-xs font-semibold flex items-center gap-2" style={{ color: presentation.readyForDecisionControl ? COLORS.positive : COLORS.caution }}>
-                {presentation.readyForDecisionControl ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
-                {getValuationEngineStatusLabel(locale, presentation.engineStatus)}
+              <div className="text-xs font-semibold flex items-center gap-2" style={{ color: presentation.readyForDecisionControl && !institutionalDecision ? COLORS.positive : COLORS.caution }}>
+                {presentation.readyForDecisionControl && !institutionalDecision ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
+                {institutionalDecision ? (locale === 'ar-SA' ? 'حساب أولي — اعتماد مؤسسي معلّق' : 'Preliminary calculation — institutional HOLD') : getValuationEngineStatusLabel(locale, presentation.engineStatus)}
               </div>
             </div>
             <div className="rounded-xl px-3 py-3" style={{ background: COLORS.panelRaised, border: `1px solid ${COLORS.hairlineSoft}` }}>
