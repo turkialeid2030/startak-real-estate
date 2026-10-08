@@ -1,0 +1,107 @@
+name: C73.3A Real HTTP JWT Postgres Custody
+on:
+  pull_request:
+    branches:
+      - c73-2-transactional-postgres-custody-20261008
+    paths:
+      - 'src/security/c73-http-custody-gateway.js'
+      - 'tests/e2e/run_c73_3a_real_http_signed_jwt.js'
+      - 'docs/C73_3A_AUTHENTICATED_HTTP_CUSTODY_LIMITS.md'
+      - '.github/workflows/c73-3a-authenticated-http-custody-verify.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  real-http:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: local-ci-only
+          POSTGRES_USER: postgres
+          POSTGRES_DB: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Exact candidate SHA
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - run: npm ci
+      - name: Install PG library only inside ephemeral CI
+        run: npm install --no-save --package-lock=false --ignore-scripts pg@8.16.3
+      - name: Real HTTP bearer JWT RSA signed, tenant isolated Postgres custody
+        env:
+          C73_TEST_POSTGRES_PASSWORD: local-ci-only
+        run: |
+          set -euo pipefail
+          node tests/e2e/run_c73_3a_real_http_signed_jwt.js
+      - name: Real DB concurrency/replay and cryptographic regressions
+        env:
+          C73_TEST_POSTGRES_PASSWORD: local-ci-only
+        run: |
+          set -euo pipefail
+          node tests/e2e/run_c73_postgres_custody_integration.js
+          node tests/architecture/run_c73_signed_document_custody.js
+          node tests/architecture/run_c73_2_server_authorization_contract.js
+          node tests/architecture/run_c72_specialist_document_byte_hash.js
+      - name: Server-only API is not bundled into React
+        run: |
+          set -euo pipefail
+          if grep -R 'c73-http-custody-gateway' src/app src/components src/main.jsx; then
+            echo "C73_3A_SERVER_ONLY_API_IMPORT=FAIL"
+            exit 1
+          fi
+          echo "C73_3A_SERVER_ONLY_API_IMPORT=PASS"
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Exact candidate SHA
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - run: npm ci
+      - run: npm run release:verify
+      - run: npm run verify:package
+      - run: npm audit --audit-level=low
+  gate:
+    if: always()
+    needs: [real-http,release]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Fail closed and report staged-only approval
+        env:
+          LIVE_HTTP: ${{ needs.real-http.result }}
+          RELEASE: ${{ needs.release.result }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          echo "C73_3A_HEAD=$HEAD"
+          echo "C73_3A_HTTP=$LIVE_HTTP RELEASE=$RELEASE"
+          test "$LIVE_HTTP" = success
+          test "$RELEASE" = success
+          echo "C73_3A_AUTHENTICATED_HTTP_POSTGRES=PASS_SYNTHETIC_ONLY"
+          echo "C73_OFFICIAL_PROVENANCE_RIGHTS_VALUER_VAULT=HOLD"
