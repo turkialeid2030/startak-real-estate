@@ -75,7 +75,7 @@ function run(){
  rejected('INVALID_REGISTRY_ISSUER',m=>{m.issuers[0].role='BOARD_RELEASE_AUTHORITY';});
  rejected('INVALID_REGISTRY_ISSUER',m=>{m.issuers[0].gateId='P0-XX';});
  rejected('DUPLICATE_GATE_OR_ISSUER',m=>{m.issuers[1].issuerId=m.issuers[0].issuerId;});
- rejected('DUPLICATE_GATE_OR_ISSUER',m=>{m.issuers[1].gateId=m.issuers[0].gateId;});
+ rejected('DUPLICATE_GATE_OR_ISSUER',m=>{m.issuers[1].gateId=m.issuers[0].gateId;m.issuers[1].role=m.issuers[0].role;});
  rejected('NONINDEPENDENT_ISSUER_KEY',m=>{m.issuers[1].publicKey=m.issuers[0].publicKey;});
  rejected('REVOKED_ISSUER_PRESENT',m=>{m.revokedIssuerIds.push(m.issuers[0].issuerId);});
  rejected('INVALID_ISSUER_KEY',m=>{m.issuers[2].publicKey='fake-key';});
