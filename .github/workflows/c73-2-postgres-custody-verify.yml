@@ -1,0 +1,104 @@
+name: C73.2 Transactional Postgres Custody and Tenant Isolation
+on:
+  pull_request:
+    branches:
+      - c73-stage1-signed-custody-integrity-20261008
+    paths:
+      - 'sql/c73_transactional_custody.sql'
+      - 'src/security/c73-postgres-custody-service.js'
+      - 'tests/e2e/run_c73_postgres_custody_integration.js'
+      - 'tests/architecture/run_c73_2_server_authorization_contract.js'
+      - 'docs/C73_2_POSTGRES_CUSTODY_RUNBOOK.md'
+      - '.github/workflows/c73-2-postgres-custody-verify.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  real-db:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: local-ci-only
+          POSTGRES_USER: postgres
+          POSTGRES_DB: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Require identical head
+        env:
+          EXPECTED: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED"
+      - run: npm ci
+      - name: Install isolated test-only PostgreSQL client
+        run: npm install --no-save --package-lock=false --ignore-scripts pg@8.16.3
+      - name: Cross-tenant real database, optimistic concurrency and transaction rollback
+        env:
+          C73_TEST_POSTGRES_PASSWORD: local-ci-only
+        run: node tests/e2e/run_c73_postgres_custody_integration.js
+      - name: Standalone server role contract and C73.1 regression
+        run: |
+          set -euo pipefail
+          node tests/architecture/run_c73_2_server_authorization_contract.js
+          node tests/architecture/run_c73_signed_document_custody.js
+          node tests/architecture/run_c72_specialist_document_byte_hash.js
+      - name: Verify privileged adapter is never imported into the browser
+        run: |
+          set -euo pipefail
+          if grep -R 'c73-postgres-custody-service' src/app src/components src/main.jsx; then
+            echo "C73_2_SERVER_ONLY_IMPORT=FAIL"
+            exit 1
+          fi
+          echo "C73_2_SERVER_ONLY_IMPORT=PASS"
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Require identical head
+        env:
+          EXPECTED: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED"
+      - run: npm ci
+      - run: npm run release:verify
+      - run: npm run verify:package
+      - run: npm audit --audit-level=low
+  gate:
+    if: always()
+    needs: [real-db,release]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Fail closed on missing, skipped or failed jobs
+        env:
+          DATABASE: ${{ needs.real-db.result }}
+          RELEASE: ${{ needs.release.result }}
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          echo "C73_2_EXACT_SHA=$EXPECTED_SHA"
+          echo "C73_2_POSTGRES=$DATABASE C73_2_RELEASE=$RELEASE"
+          test "$DATABASE" = success
+          test "$RELEASE" = success
+          echo "C73_2_TRANSACTIONAL_CUSTODY=PASS_ISOLATED_SYNTHETIC_ONLY"
+          echo "C73_FULL_TRUST_VAULT_RIGHTS_PRODUCTION=HOLD"
