@@ -241,6 +241,7 @@ function TextInput({ label, value, onChange, placeholder, type = 'text' }) {
     <label className="block">
       <div className="text-[11px] mb-1" style={{ color: COLORS.slate }}>{label}</div>
       <input
+        aria-label={label}
         type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -257,6 +258,7 @@ function SelectInput({ label, value, onChange, placeholder, options }) {
     <label className="block">
       <div className="text-[11px] mb-1" style={{ color: COLORS.slate }}>{label}</div>
       <select
+        aria-label={label}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className="rf-input w-full px-3 py-2 text-xs"
@@ -406,7 +408,7 @@ export default function ValuationIntelligencePanel({
   ].map((method) => ({ value: method, label: getValuationMethodLabel(locale, method) }));
 
   return (
-    <section className="mt-6 rounded-2xl p-4 md:p-5" style={{ background: COLORS.panel, border: `1px solid ${COLORS.hairline}` }}>
+    <section data-testid="valuation-v1-panel" className="mt-6 rounded-2xl p-4 md:p-5" style={{ background: COLORS.panel, border: `1px solid ${COLORS.hairline}` }}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-3">
           <div className="mt-0.5"><ShieldCheck size={18} style={{ color: COLORS.brass }} /></div>
@@ -425,7 +427,9 @@ export default function ValuationIntelligencePanel({
       </div>
 
       {institutionalDecision ? (
-        <div dir={locale === 'ar-SA' ? 'rtl' : 'ltr'}
+        <div data-testid="valuation-institutional-hold"
+          data-c62-status={institutionalDecision.status}
+          dir={locale === 'ar-SA' ? 'rtl' : 'ltr'}
           className="my-3 rounded-md border px-3 py-2 text-xs"
           style={{ borderColor: COLORS.caution, color: COLORS.caution }}>
           {locale === 'ar-SA'
@@ -456,7 +460,7 @@ export default function ValuationIntelligencePanel({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="rounded-xl px-3 py-3" style={{ background: COLORS.panelRaised, border: `1px solid ${COLORS.hairlineSoft}` }}>
               <div className="text-[10px] mb-1" style={{ color: COLORS.slateDim }}>{text.currentStatus}</div>
-              <div className="text-xs font-semibold flex items-center gap-2" style={{ color: presentation.readyForDecisionControl && !institutionalDecision ? COLORS.positive : COLORS.caution }}>
+              <div data-testid="valuation-decision-readiness" className="text-xs font-semibold flex items-center gap-2" style={{ color: presentation.readyForDecisionControl && !institutionalDecision ? COLORS.positive : COLORS.caution }}>
                 {presentation.readyForDecisionControl && !institutionalDecision ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
                 {institutionalDecision ? (locale === 'ar-SA' ? 'حساب أولي — اعتماد مؤسسي معلّق' : 'Preliminary calculation — institutional HOLD') : getValuationEngineStatusLabel(locale, presentation.engineStatus)}
               </div>
@@ -514,6 +518,7 @@ export default function ValuationIntelligencePanel({
       <div className="mt-4 flex flex-wrap gap-2">
         <button
           type="button"
+          data-testid="valuation-v1-configure"
           onClick={() => setExpanded((value) => !value)}
           className="px-3 py-2 rounded-lg text-xs font-medium flex items-center gap-1.5"
           style={{ background: COLORS.panelRaised, border: `1px solid ${COLORS.hairline}`, color: COLORS.parchment }}
@@ -674,6 +679,7 @@ export default function ValuationIntelligencePanel({
           <div className="mt-4 flex justify-end">
             <button
               type="button"
+              data-testid="valuation-v1-apply"
               onClick={apply}
               className="px-4 py-2 rounded-lg text-xs font-semibold"
               style={{ background: COLORS.brass, color: COLORS.ink }}
