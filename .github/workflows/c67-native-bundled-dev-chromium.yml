@@ -1,0 +1,60 @@
+name: C67 Native Vite8 Bundled Dev Browser Qualification
+on:
+  pull_request:
+    branches:
+      - c66-vite-dev-commonjs-bootstrap-20261008
+    paths:
+      - 'package.json'
+      - 'tests/e2e/run_c67_native_vite8_bundled_dev.js'
+      - '.github/workflows/c67-native-bundled-dev-chromium.yml'
+      - 'docs/C67_NATIVE_VITE8_BUNDLED_DEV.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Validate exact PR SHA
+        if: github.event_name == 'pull_request'
+        run: test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+      - run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Start REAL native Vite bundled dev server
+        run: |
+          (nohup npm run dev:bundled -- --host 127.0.0.1 --port 4175 --strictPort > /tmp/c67-native-vite-bundled.log 2>&1 &)
+          for n in $(seq 1 90); do
+            if curl --fail --silent http://127.0.0.1:4175/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/c67-native-vite-bundled.log
+          exit 1
+      - name: Actual Chromium native Vite8 CJS-safe boot and land HOLD
+        env:
+          STARTAK_C67_URL: http://127.0.0.1:4175
+        run: |
+          node tests/e2e/run_c67_native_vite8_bundled_dev.js || {
+            echo "=== NATIVE VITE BUNDLED DEV OUTPUT ==="
+            cat /tmp/c67-native-vite-bundled.log
+            exit 1
+          }
+      - name: Canonical regression and no false authority
+        run: |
+          node tests/architecture/run_c64_land_institutional_hold.js
+          node tests/architecture/run_c65_institutional_arabic_reasons.js
+          node tests/architecture/run_c62_live_institutional_valuation_boundary.js
+      - run: npm run build
+      - run: npm run verify:package
+      - run: npm run release:verify
+      - run: npm audit --audit-level=low
