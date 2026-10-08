@@ -16,17 +16,18 @@ const SELECTORS=Object.freeze({
 });
 
 async function configure(page,assetClass){
-  await page.getByTestId('valuation-v1-configure').click();
-  await page.getByLabel('معرّف المشروع',{exact:true}).fill('C63-'+assetClass+'-BROWSER');
-  await page.getByLabel('فئة الأصل',{exact:true}).selectOption(assetClass);
-  await page.getByLabel('مرحلة دورة الحياة',{exact:true}).selectOption('STABILIZED');
-  await page.getByLabel('الاستراتيجية الاستثمارية',{exact:true}).selectOption('CORE_INCOME');
-  await page.getByLabel('نموذج الدخل',{exact:true}).selectOption('LEASE_INCOME');
-  await page.getByLabel('معالجة المصروفات التشغيلية',{exact:true}).selectOption('MARKET_ESTIMATE');
-  await page.getByLabel('أساس القيمة',{exact:true}).selectOption('MARKET_VALUE');
-  await page.getByLabel('العملة',{exact:true}).fill('SAR');
-  await page.getByLabel('تاريخ التقييم',{exact:true}).fill('2026-09-05');
-  await page.getByTestId('valuation-v1-apply').click();
+  const panel=page.getByTestId('valuation-v1-panel');
+  await panel.getByTestId('valuation-v1-configure').click();
+  await panel.getByLabel('معرّف المشروع',{exact:true}).fill('C63-'+assetClass+'-BROWSER');
+  await panel.getByLabel('فئة الأصل',{exact:true}).selectOption(assetClass);
+  await panel.getByLabel('مرحلة دورة الحياة',{exact:true}).selectOption('STABILIZED');
+  await panel.getByLabel('الاستراتيجية الاستثمارية',{exact:true}).selectOption('CORE_INCOME');
+  await panel.getByLabel('نموذج الدخل',{exact:true}).selectOption('LEASE_INCOME');
+  await panel.getByLabel('معالجة المصروفات التشغيلية',{exact:true}).selectOption('MARKET_ESTIMATE');
+  await panel.getByLabel('أساس القيمة',{exact:true}).selectOption('MARKET_VALUE');
+  await panel.getByLabel('العملة',{exact:true}).fill('SAR');
+  await panel.getByLabel('تاريخ التقييم',{exact:true}).fill('2026-09-05');
+  await panel.getByTestId('valuation-v1-apply').click();
 }
 
 async function checkRuntime(page){
