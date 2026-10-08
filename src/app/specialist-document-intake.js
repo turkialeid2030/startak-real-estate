@@ -9,7 +9,7 @@ const {
   EVIDENCE_TYPES,normalizeSpecialistReferenceIntake,
 }=require('./specialist-reference-intake');
 
-const VERSION='C72_LOCAL_BROWSER_DOCUMENT_HASH_V1';
+const VERSION='C72_LOCAL_BROWSER_DOCUMENT_HASH_V2';
 const MAX_BYTES=5*1024*1024;
 const SHA256=/^[0-9a-f]{64}$/;
 const TYPES=Object.freeze({
@@ -53,7 +53,7 @@ function caseBinding(valuationCase){
 }
 function emptyManifest(intake,valuationCase){
  const s=normalizeSpecialistReferenceIntake(intake,intake?.assetClass);
- return {schemaVersion:1,assetClass:s.assetClass,
+ return {schemaVersion:2,assetClass:s.assetClass,
   assetSubtype:s.assetSubtype,propertyRef:s.propertyRef,
   asOf:s.asOf,...caseBinding(valuationCase),entries:[]};
 }
@@ -62,7 +62,7 @@ function normalizeManifest(manifest,intake,valuationCase){
  const binding=caseBinding(valuationCase);
  if(manifest==null)return emptyManifest(scoped,valuationCase);
  strictKeys(manifest,MANIFEST_KEYS,'C72_MANIFEST');
- if(manifest.schemaVersion!==1||manifest.assetClass!==scoped.assetClass||
+ if(manifest.schemaVersion!==2||manifest.assetClass!==scoped.assetClass||
     manifest.assetSubtype!==scoped.assetSubtype||
     manifest.propertyRef!==scoped.propertyRef||manifest.asOf!==scoped.asOf||
     manifest.projectId!==binding.projectId||manifest.valuationDate!==binding.valuationDate)
@@ -92,7 +92,7 @@ function normalizeManifest(manifest,intake,valuationCase){
     sourceIndependentlyVerified:false,licensedReviewerApproved:false,
   };
  });
- return {schemaVersion:1,assetClass:scoped.assetClass,
+ return {schemaVersion:2,assetClass:scoped.assetClass,
   assetSubtype:scoped.assetSubtype,propertyRef:scoped.propertyRef,asOf:scoped.asOf,
   ...binding,entries};
 }
