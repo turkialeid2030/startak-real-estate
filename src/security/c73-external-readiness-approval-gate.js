@@ -72,7 +72,7 @@ function verifyExternalReadinessEvidence({
   const report={gateId:typeof gateId==='string'?gateId:'UNKNOWN',
    issuerId:typeof p?.issuerId==='string'?p.issuerId:null,
    verified:false};
-  reports.push(Object.freeze(report));
+  reports.push(report);
   if(!exact(item,['claim','signature','evidenceBytes'])||
    !exact(p,FIELDS)||!Object.hasOwn(GATES,gateId)){
    reasons.push('INVALID_EVIDENCE_SCHEMA');continue;
