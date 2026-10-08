@@ -1,0 +1,42 @@
+name: C58 Comparable Provenance and Rights Integrity
+on:
+  pull_request:
+    branches:
+      - c57-sector-e2e-evidence-coverage-20261008
+    paths:
+      - 'src/market/comparable-provenance-chain.js'
+      - 'tests/architecture/run_c58_comparable_provenance_chain.js'
+      - 'docs/C58_PROVENANCE_CHAIN_ENGINEERING.md'
+      - '.github/workflows/c58-comparable-provenance-chain.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Assert exact SHA
+        if: github.event_name == 'pull_request'
+        run: test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+      - run: npm ci
+      - name: C58 provenance and authenticity boundary
+        run: node tests/architecture/run_c58_comparable_provenance_chain.js
+      - name: C54 and Wave 9A regressions
+        run: |
+          node tests/architecture/run_market_comparable_decision_gate_v2.js
+          node tests/architecture/run_wave9a_market_comparable_evidence.js
+          node tests/architecture/run_wave9b_comparable_adjustments.js
+      - run: npm run build
+      - run: npm run verify:package
+      - run: npm run release:verify
+      - run: npm audit --audit-level=low
