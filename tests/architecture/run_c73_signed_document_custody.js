@@ -140,6 +140,19 @@ check('valid synthetic png jpeg receive different true byte fingerprints',()=>{
 const checked=appendCustodyEvent(record,{key:KEY,keyRef:KEY_REF,
  expectedScope:scope(),expectedHeadTag:record.headTag,expectedRevision:1,
  bytes:PDF,actorRef:'checker',observedAt:LATER,kind:EVENT.RECHECKED});
+check('jsonb property reorder does not break an otherwise valid signed append',()=>{
+ const shuffled=copy(record);
+ shuffled.scope=Object.fromEntries(Object.entries(shuffled.scope)
+  .sort(([a],[b])=>a.localeCompare(b)));
+ shuffled.events=shuffled.events.map(e=>Object.fromEntries(Object.entries(e)
+  .sort(([a],[b])=>a.localeCompare(b))));
+ assert.equal(verified(shuffled).status,STATE.INTEGRITY_MATCHED_UNVERIFIED);
+ const signed=appendCustodyEvent(shuffled,{key:KEY,keyRef:KEY_REF,
+  expectedScope:scope(),expectedHeadTag:record.headTag,expectedRevision:1,
+  bytes:PDF,actorRef:'checker',observedAt:LATER,kind:EVENT.RECHECKED});
+ assert.equal(verified(signed,{expectedHeadTag:signed.headTag,expectedRevision:2}).status,
+  STATE.INTEGRITY_MATCHED_UNVERIFIED);
+});
 check('recheck appends immutable signed chain and preserves original',()=>{
  assert.equal(record.events.length,1);
  assert.equal(checked.events.length,2);
