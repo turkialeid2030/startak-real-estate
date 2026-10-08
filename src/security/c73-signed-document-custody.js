@@ -224,8 +224,12 @@ function appendCustodyEvent(ledger,{key,keyRef,expectedScope,expectedHeadTag,
   time(observedAt);
   if(time(observedAt)<=time(ledger.events.at(-1).observedAt))
     throw new TypeError('C73_NONMONOTONIC_EVENT_TIME');
-  const tag=sign(key,keyRef,ledger.scope,e);
-  return freeze({schemaVersion:SCHEMA_VERSION,keyRef,scope:{...ledger.scope},
+  // PostgreSQL jsonb reorders object keys. Rebuild the canonical scope order
+  // before every signed append, not just before verification, so a DB roundtrip
+  // does not invalidate the next HMAC event in an otherwise valid custody chain.
+  const canonicalScope=scopePayload(ledger.scope);
+  const tag=sign(key,keyRef,canonicalScope,e);
+  return freeze({schemaVersion:SCHEMA_VERSION,keyRef,scope:canonicalScope,
     events:[...ledger.events.map(x=>({...x})),{...e,tag}],headTag:tag});
 }
 module.exports={SCHEMA_VERSION,STATE,EVENT,createCustodyLedger,
