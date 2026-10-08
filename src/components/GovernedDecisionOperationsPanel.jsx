@@ -56,6 +56,7 @@ export default function GovernedDecisionOperationsPanel({ valuationCase, locale 
   if (!context) return null;
   const vm = context.viewModel;
   const ready = vm?.canExport === true;
+  const c71SpecialistHold = vm?.status === 'HOLD_SPECIALIST_METHOD_NOT_QUALIFIED';
   const rtl = locale !== 'en';
 
   const handleExport = () => {
@@ -106,6 +107,14 @@ export default function GovernedDecisionOperationsPanel({ valuationCase, locale 
           </div>
           <StatusBadge ready={ready}>{vm?.status || 'UNKNOWN'}</StatusBadge>
         </div>
+
+        {c71SpecialistHold ? (
+          <div data-testid="c71-specialist-export-hold" role="status" className="mt-3 rounded-lg border border-amber-700/70 bg-amber-950/20 p-3 text-xs text-amber-200">
+            {text(locale,
+              'تصدير التقارير التحليلية والمراجعة البشرية لهذا العقار المتخصص معلّق. لا يعمل حاليًا منهج تقييم متخصص معتمد، ولا تكفي المراجع النصية أو لقطة القرار لمنح أي صلاحية تقييم أو تصدير.',
+              'Specialist analytical export and human review are ON HOLD. No qualified specialist valuation method is operational; textual references or a decision snapshot cannot establish an appraisal or report authority.')}
+          </div>
+        ) : null}
 
         {vm?.reasonCodes?.length ? (
           <div className="mt-4 rounded-lg border border-amber-800/60 bg-amber-950/20 p-3 text-xs text-amber-200" role="status">
@@ -158,6 +167,7 @@ export default function GovernedDecisionOperationsPanel({ valuationCase, locale 
           </div>
           <button
             type="button"
+            data-testid="c5-governed-analytical-export"
             onClick={handleExport}
             disabled={!ready}
             className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-semibold text-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
