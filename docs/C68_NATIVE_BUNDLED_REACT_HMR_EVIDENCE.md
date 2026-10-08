@@ -5,8 +5,8 @@ C67 actual Chromium demonstrated source CommonJS can boot in native Vite 8 exper
 
 ## Executed test methodology
 The CI test boots `npm run dev:bundled` against a REAL Vite native dev server, opens genuine Chromium with actual app C64 land institutional HOLD, then:
-1. Takes the **real Valuation V1 React JSX component** `src/components/ValuationIntelligenceBasePanel.jsx` and records original bytes.
-2. Changes precisely one visible Arabic React title to a unique new Arabic phrase on the CI runner's ephemeral working tree.
+1. Takes the **real C64 land institutional notice React JSX component** `src/components/LandDevelopmentInstitutionalNotice.jsx` and records original bytes.
+2. Changes precisely one visible land-mode Arabic React warning heading to a unique new Arabic phrase on the CI runner's ephemeral working tree.
 3. Requires the already-open Chromium page to update the title **without navigating/reloading the document** (a page `load` event would fail the test), while land mode and institutional HOLD remain intact.
 4. Restores exact original source in a finally block even on test failure, then tests `git status` for clean production component.
 5. Preserves C62–C65 source evidence/financial math, build, canonical release and npm security audit.
