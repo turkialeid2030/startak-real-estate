@@ -106,6 +106,8 @@ const COPY = Object.freeze({
     selectOffice: 'مكاتب',
     selectRetail: 'تجزئة',
     selectResidential: 'سكني',
+    selectHospitality: 'فندق أو ضيافة — جمع الأدلة فقط',
+    selectIndustrial: 'عقار صناعي أو لوجستي — جمع الأدلة فقط',
     selectExistingOperating: 'قائم ومشغّل',
     selectStabilized: 'مستقر',
     selectExistingVacant: 'قائم وشاغر',
@@ -185,6 +187,8 @@ const COPY = Object.freeze({
     selectOffice: 'Office',
     selectRetail: 'Retail',
     selectResidential: 'Residential',
+    selectHospitality: 'Hotel/hospitality — evidence intake only',
+    selectIndustrial: 'Industrial/logistics — evidence intake only',
     selectExistingOperating: 'Existing operating',
     selectStabilized: 'Stabilized',
     selectExistingVacant: 'Existing vacant',
@@ -376,6 +380,8 @@ export default function ValuationIntelligencePanel({
     { value: ASSET_CLASS.OFFICE, label: text.selectOffice },
     { value: ASSET_CLASS.RETAIL, label: text.selectRetail },
     { value: ASSET_CLASS.RESIDENTIAL, label: text.selectResidential },
+    { value: ASSET_CLASS.HOSPITALITY, label: text.selectHospitality },
+    { value: ASSET_CLASS.INDUSTRIAL_LOGISTICS, label: text.selectIndustrial },
   ];
   const lifecycleOptions = [
     { value: LIFECYCLE_STAGE.EXISTING_OPERATING, label: text.selectExistingOperating },
@@ -452,6 +458,28 @@ export default function ValuationIntelligencePanel({
             ))}
           </ul>
         </div>
+      ) : null}
+      {runtime?.specialistRoute ? (
+        <section data-testid="valuation-specialist-hold"
+          data-specialist-asset={runtime.specialistRoute.assetClass}
+          data-specialist-status={runtime.specialistRoute.status}
+          role="status" dir={locale==='ar-SA'?'rtl':'ltr'}
+          className="mt-3 rounded-xl p-3 text-xs leading-6"
+          style={{border:`1px solid ${COLORS.caution}`,background:COLORS.panelRaised,color:COLORS.parchment}}>
+          <div className="font-semibold">
+            {locale==='ar-SA'
+              ? 'مسار الأصول المتخصصة: جمع أدلة فقط — لا يوجد تقييم مهني مؤهل'
+              : 'Specialist assets: evidence-readiness intake only — no qualified appraisal'}
+          </div>
+          <p>
+            {locale==='ar-SA'
+              ? 'الحسابات العامة للمبنى لا تمثل قيمة عقار فندقي أو صناعي. يجب إكمال محول المنهج المتخصص والتحقق المستقل من حقوق العقار والمصادر ومراجعة المقيم المختص، قبل أي قيمة أو تقرير رسمي.'
+              : 'Generic existing-building calculations are not a hotel or industrial property valuation. A specialist method adapter, independently verified interest/source rights and licensed professional review are required before any value or official report.'}
+          </p>
+          <div className="mt-1" data-testid="valuation-specialist-financial-result">
+            {locale==='ar-SA'?'لا توجد قيمة عقارية متخصصة محسوبة أو معتمدة.':'No specialized property value calculated or certified.'}
+          </div>
+        </section>
       ) : null}
       {runtimeError ? (
         <div className="mt-4 rounded-xl px-3 py-3 flex gap-2" style={{ border: `1px solid ${COLORS.negative}`, background: 'rgba(180,84,74,0.12)' }}>

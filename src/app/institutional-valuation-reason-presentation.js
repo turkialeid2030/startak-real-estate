@@ -4,6 +4,16 @@
 const { getValuationMethodLabel } = require('./valuation-labels');
 
 const AR=Object.freeze({
+  C69_SPECIALIZED_VALUATION_ADAPTER_NOT_IMPLEMENTED:'لا يوجد محول تقييم متخصص يعمل لهذا النوع من العقار؛ يُحظر استخدام مؤشر المباني العامة بدلًا منه.',
+  C69_INDEPENDENT_PROPERTY_INTEREST_AND_SOURCE_RIGHTS_NOT_VERIFIED:'لم يُتحقق استقلاليًا من نطاق الحق العقاري وحقوق استخدام الأدلة.',
+  C69_LICENSED_SPECIALIST_REPORT_NOT_APPROVED:'يلزم تقييم صادر أو مراجع من مقيم مهني مخول وتقرير مستقل.',
+  C69_HOTEL_METRICS_AND_FFE_RESERVE_UNVERIFIED:'يلزم التحقق من الإشغال والسعر اليومي وإيراد الغرفة المتاحة واحتياطي إحلال التجهيزات الفندقية.',
+  C69_HOTEL_BUSINESS_GOODWILL_INTANGIBLES_NOT_SEPARATED:'يجب فصل قيمة العقار عن الشهرة والامتياز والنشاط التشغيلي للفندق.',
+  C69_HOTEL_REAL_PROPERTY_NOI_BRIDGE_NOT_REVIEWED:'لم تتم مراجعة تسوية صافي دخل العقار الفندقي بصورة مستقلة.',
+  C69_INDUSTRIAL_INSPECTION_BUILDING_PERMIT_FIRE_CODE_MISSING:'يلزم تقرير معاينة وشهادة التراخيص ومتطلبات الحريق والسلامة.',
+  C69_INDUSTRIAL_ENVIRONMENT_POWER_FLOOR_LOADING_NOT_VERIFIED:'يجب توثيق مخاطر التلوث وسعة الكهرباء وتحمل الأرضية الصناعية.',
+  C69_INDUSTRIAL_TITLE_LEASE_PERMITTED_USE_UNVERIFIED:'يلزم التحقق من الصك وعقود الإيجار والاستخدام الصناعي المسموح.',
+
   C62_INDEPENDENT_SOURCE_AND_PROFESSIONAL_AUTHORITY_NOT_ESTABLISHED:'لم تُثبت أصالة مصادر البيانات واعتماد المراجع المهني المستقل.',
   C62_UNDERLYING_VALUATION_STAGE_NOT_READY:'المنهج الحسابي الأساسي لم يستوف شروط الجاهزية.',
   C62_NO_AVAILABLE_METHOD:'لا يوجد منهج تقييم مؤهل للحساب في هذه الحالة.',
@@ -23,6 +33,16 @@ const AR=Object.freeze({
   NO_QUALIFIED_VALUATION_METHOD:'لا توجد منهجية تقييم مؤهلة.',
 });
 const EN=Object.freeze({
+  C69_SPECIALIZED_VALUATION_ADAPTER_NOT_IMPLEMENTED:'A specialist property method adapter is not operational; generic building indicators cannot substitute for it.',
+  C69_INDEPENDENT_PROPERTY_INTEREST_AND_SOURCE_RIGHTS_NOT_VERIFIED:'Independent verification of property interest and data usage rights is missing.',
+  C69_LICENSED_SPECIALIST_REPORT_NOT_APPROVED:'A licensed specialist appraisal and independent review are required.',
+  C69_HOTEL_METRICS_AND_FFE_RESERVE_UNVERIFIED:'Hotel occupancy, ADR, RevPAR and FF&E reserve need independent evidence.',
+  C69_HOTEL_BUSINESS_GOODWILL_INTANGIBLES_NOT_SEPARATED:'Hotel business, goodwill, brand/franchise and real property interests must be separated.',
+  C69_HOTEL_REAL_PROPERTY_NOI_BRIDGE_NOT_REVIEWED:'Independent reconciliation of hotel real-property NOI is missing.',
+  C69_INDUSTRIAL_INSPECTION_BUILDING_PERMIT_FIRE_CODE_MISSING:'Inspection, building permits and fire/life-safety records are required.',
+  C69_INDUSTRIAL_ENVIRONMENT_POWER_FLOOR_LOADING_NOT_VERIFIED:'Contamination, electrical power and floor-loading specifications require verification.',
+  C69_INDUSTRIAL_TITLE_LEASE_PERMITTED_USE_UNVERIFIED:'Title, lease evidence and lawful permitted industrial use must be verified.',
+
   C62_INDEPENDENT_SOURCE_AND_PROFESSIONAL_AUTHORITY_NOT_ESTABLISHED:'Independent source provenance and professional review authority are not established.',
   C62_UNDERLYING_VALUATION_STAGE_NOT_READY:'The underlying valuation stage is not qualified.',
   C62_NO_AVAILABLE_METHOD:'No qualified valuation method is available.',
