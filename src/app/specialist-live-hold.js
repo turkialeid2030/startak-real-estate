@@ -3,6 +3,7 @@
 const {ASSET_CLASS}=require('../project-model/project-profile');
 const {STATUS: C62_STATUS}=require('./institutional-valuation-decision-boundary');
 const {evaluateSpecialistReferenceIntake}=require('./specialist-reference-intake');
+const {assessLocalDocumentManifest}=require('./specialist-document-intake');
 
 const VERSION='C69_SPECIALIST_OPERATIONAL_HOLD_ONLY_V1';
 const SPECIALIST_ASSETS=Object.freeze([
@@ -39,6 +40,7 @@ function specializeUnsupportedValuationCase(valuationCase,{caseId}={}) {
   const specialistRoute=Object.freeze({
     version:VERSION,assetClass,status:'HOLD_SPECIALIST_METHOD_NOT_WIRED',
     referenceIntake,referenceIntakeInvalid,
+    documentFingerprintIntake:assessLocalDocumentManifest(valuationCase),
     adapterIntegrated:false,realProfessionalSourceAuthentication:false,
     externalSpecialistAuditCompleted:false,sourceRightsVerified:false,
     blockers,financialResultsAreGenericStudyOnly:true,
