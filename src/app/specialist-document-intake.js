@@ -23,7 +23,7 @@ const ENTRY_KEYS=Object.freeze([
 ]);
 const MANIFEST_KEYS=Object.freeze([
   'schemaVersion','assetClass','assetSubtype','propertyRef',
-  'asOf','entries',
+  'asOf','projectId','valuationDate','entries',
 ]);
 function isObject(value){
  return value!==null&&typeof value==='object'&&!Array.isArray(value)
@@ -43,19 +43,29 @@ function matchesSignature(bytes,mediaType){
   bytes[0]===0xff&&bytes[1]===0xd8&&bytes[2]===0xff;
  return false;
 }
-function emptyManifest(intake){
+function caseBinding(valuationCase){
+ const id=valuationCase?.projectId;
+ const date=valuationCase?.incomePolicy?.valuationDate;
+ if(typeof id!=='string'||!id.trim()||id.length>160||
+    typeof date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(date))
+  throw new TypeError('C72_PROJECT_AND_VALUATION_DATE_REQUIRED');
+ return {projectId:id,valuationDate:date};
+}
+function emptyManifest(intake,valuationCase){
  const s=normalizeSpecialistReferenceIntake(intake,intake?.assetClass);
  return {schemaVersion:1,assetClass:s.assetClass,
   assetSubtype:s.assetSubtype,propertyRef:s.propertyRef,
-  asOf:s.asOf,entries:[]};
+  asOf:s.asOf,...caseBinding(valuationCase),entries:[]};
 }
-function normalizeManifest(manifest,intake){
+function normalizeManifest(manifest,intake,valuationCase){
  const scoped=normalizeSpecialistReferenceIntake(intake,intake?.assetClass);
- if(manifest==null)return emptyManifest(scoped);
+ const binding=caseBinding(valuationCase);
+ if(manifest==null)return emptyManifest(scoped,valuationCase);
  strictKeys(manifest,MANIFEST_KEYS,'C72_MANIFEST');
  if(manifest.schemaVersion!==1||manifest.assetClass!==scoped.assetClass||
     manifest.assetSubtype!==scoped.assetSubtype||
-    manifest.propertyRef!==scoped.propertyRef||manifest.asOf!==scoped.asOf)
+    manifest.propertyRef!==scoped.propertyRef||manifest.asOf!==scoped.asOf||
+    manifest.projectId!==binding.projectId||manifest.valuationDate!==binding.valuationDate)
   throw new TypeError('C72_MANIFEST_CASE_CONTEXT_MISMATCH');
  if(!Array.isArray(manifest.entries)||manifest.entries.length>EVIDENCE_TYPES.length)
   throw new TypeError('C72_ENTRIES_INVALID');
@@ -84,7 +94,7 @@ function normalizeManifest(manifest,intake){
  });
  return {schemaVersion:1,assetClass:scoped.assetClass,
   assetSubtype:scoped.assetSubtype,propertyRef:scoped.propertyRef,asOf:scoped.asOf,
-  entries};
+  ...binding,entries};
 }
 async function fingerprintLocalFile(file,intake,evidenceType){
  const s=normalizeSpecialistReferenceIntake(intake,intake?.assetClass);
@@ -112,12 +122,12 @@ async function fingerprintLocalFile(file,intake,evidenceType){
   licensedReviewerApproved:false,
  };
 }
-function addDocumentHash(manifest,intake,entry){
- const prev=normalizeManifest(manifest,intake);
+function addDocumentHash(manifest,intake,entry,valuationCase){
+ const prev=normalizeManifest(manifest,intake,valuationCase);
  const candidate={...prev,entries:[
    ...prev.entries.filter(e=>e.evidenceType!==entry.evidenceType),entry,
  ]};
- return normalizeManifest(candidate,intake);
+ return normalizeManifest(candidate,intake,valuationCase);
 }
 function assessLocalDocumentManifest(valuationCase){
  const intake=valuationCase?.institutionalEvidence?.specialistIntake;
@@ -127,7 +137,7 @@ function assessLocalDocumentManifest(valuationCase){
   sourceIndependentlyVerified:false,documentsStored:false,officialReportAuthorized:false,
  });
  try{
-  const manifest=normalizeManifest(raw,intake);
+  const manifest=normalizeManifest(raw,intake,valuationCase);
   return Object.freeze({
    status:'HOLD_LOCAL_HASH_NOT_PROVENANCE',hashedControlCount:manifest.entries.length,
    invalid:false,sourceIndependentlyVerified:false,
@@ -143,6 +153,6 @@ function assessLocalDocumentManifest(valuationCase){
 }
 module.exports={
  VERSION,MAX_BYTES,TYPES,
- matchesSignature,emptyManifest,normalizeManifest,
+ matchesSignature,caseBinding,emptyManifest,normalizeManifest,
  fingerprintLocalFile,addDocumentHash,assessLocalDocumentManifest,
 };
