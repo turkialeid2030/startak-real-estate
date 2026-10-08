@@ -1,0 +1,64 @@
+name: C69 Actual Hotel Industrial Refusal Browser Gate
+on:
+  pull_request:
+    branches:
+      - c68-native-bundled-react-hmr-e2e-20261008
+    paths:
+      - 'src/app/specialist-live-hold.js'
+      - 'src/app/existing-building-valuation-runtime.js'
+      - 'src/app/institutional-valuation-reason-presentation.js'
+      - 'src/components/ValuationIntelligenceBasePanel.jsx'
+      - 'tests/architecture/run_c69_specialist_live_refusal.js'
+      - 'tests/e2e/run_c69_real_specialist_browser.js'
+      - '.github/workflows/c69-specialist-refusal-browser.yml'
+      - 'docs/C69_SPECIALIST_EVIDENCE_INTAKE_BOUNDARY.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Pin exact commit
+        if: github.event_name == 'pull_request'
+        run: test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+      - run: npm ci
+      - name: Specialist C69 structural and authority regression
+        run: |
+          node tests/architecture/run_c69_specialist_live_refusal.js
+          node tests/architecture/run_c61_specialized_property_operational_gates.js
+          node tests/architecture/run_c62_live_institutional_valuation_boundary.js
+          node tests/architecture/run_c64_land_institutional_hold.js
+          node tests/architecture/run_c65_institutional_arabic_reasons.js
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Serve deployment-equivalent bundle
+        run: |
+          (nohup npm run preview -- --host 127.0.0.1 --port 4173 --strictPort >/tmp/c69-preview.log 2>&1 &)
+          for n in $(seq 1 60); do
+            if curl --silent --fail http://127.0.0.1:4173/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/c69-preview.log
+          exit 1
+      - name: Actual hotel and industrial refusal plus saved-case browser reload
+        env:
+          STARTAK_E2E_URL: http://127.0.0.1:4173
+        run: node tests/e2e/run_c69_real_specialist_browser.js
+      - name: Regression real office retail residential V1
+        env:
+          STARTAK_E2E_URL: http://127.0.0.1:4173
+        run: node tests/e2e/run_c63_live_chromium_valuation_e2e.js
+      - run: npm run verify:package
+      - run: npm run release:verify
+      - run: npm audit --audit-level=low
