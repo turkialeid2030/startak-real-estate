@@ -1,0 +1,114 @@
+name: C73.4 Signed External P0 Evidence and No-Go Hard Gate
+on:
+  pull_request:
+    branches:
+      - c73-3d-authenticated-restart-durable-witness-20261008
+    paths:
+      - 'src/security/c73-external-readiness-approval-gate.js'
+      - 'tests/architecture/run_c73_4_external_release_evidence_gate.js'
+      - 'docs/C73_4_EXTERNAL_EVIDENCE_AND_MANUAL_GO_NO_GO.md'
+      - '.github/workflows/c73-4-external-evidence-no-go-verify.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  signed-approval-contract:
+    name: Real Ed25519 independent-signer and content-hash attack tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Exact checkout
+        env:
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$HEAD"
+      - run: npm ci
+      - name: Reject false production approvals and forged external evidence
+        run: node tests/architecture/run_c73_4_external_release_evidence_gate.js
+      - run: node tests/architecture/run_c73_signed_document_custody.js
+      - name: Ensure new trust gate is not frontend bundled
+        run: |
+          if grep -R 'c73-external-readiness-approval-gate' src/app src/components src/main.jsx; then
+            echo "C73_4_SERVER_ONLY_BOUNDARY=FAIL"
+            exit 1
+          fi
+          echo "C73_4_SERVER_ONLY_BOUNDARY=PASS"
+  production-like-db-regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: local-ci-only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Exact checkout
+        env:
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$HEAD"
+      - run: npm ci
+      - run: npm install --no-save --package-lock=false --ignore-scripts pg@8.16.3
+      - run: node tests/e2e/run_c73_3d_authenticated_witness_postgres.js
+        env:
+          C73_TEST_POSTGRES_PASSWORD: local-ci-only
+  independent-release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Exact checkout
+        env:
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$HEAD"
+      - run: npm ci
+      - run: npm run release:verify
+      - run: npm run verify:package
+      - run: npm audit --audit-level=low
+  gate:
+    if: always()
+    needs: [signed-approval-contract,production-like-db-regression,independent-release]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require all independently executed stages
+        env:
+          SIGNED: ${{ needs.signed-approval-contract.result }}
+          DB: ${{ needs.production-like-db-regression.result }}
+          RELEASE: ${{ needs.independent-release.result }}
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          echo "C73_4_SHA=$SHA P0_SIGNATURES=$SIGNED DB=$DB RELEASE=$RELEASE"
+          test "$SIGNED" = success
+          test "$DB" = success
+          test "$RELEASE" = success
+          echo "C73_4_ENGINEERING_PROOF=PASS"
+          echo "C73_4_REAL_EXTERNAL_APPROVALS=HOLD"
+          echo "C73_4_PRODUCTION_GO_LIVE=FALSE"
