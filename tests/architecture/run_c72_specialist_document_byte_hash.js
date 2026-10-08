@@ -49,17 +49,18 @@ async function run(){
   assert.equal(record.licensedReviewerApproved,false);
   const diff=await fingerprintLocalFile(fakeFile(changed),intake,'inspection');
   assert.notEqual(diff.sha256Hex,record.sha256Hex,'one-byte content variation must alter digest');
-  let manifest=addDocumentHash(null,intake,record);
+  let manifest=addDocumentHash(null,intake,record,val);
   assert.equal(manifest.entries.length,1);
-  manifest=addDocumentHash(manifest,intake,diff);
+  manifest=addDocumentHash(manifest,intake,diff,val);
   assert.equal(manifest.entries.length,1,'one control has only current digest');
   assert.equal(manifest.entries[0].sha256Hex,diff.sha256Hex);
   assert.equal(JSON.stringify(manifest).includes('synthetic proof bytes'),false);
   val.institutionalEvidence.specialistDocumentManifest=manifest;
   const roundtrip=clone(val);
   assert.equal(normalizeManifest(roundtrip.institutionalEvidence.specialistDocumentManifest,
-    roundtrip.institutionalEvidence.specialistIntake).entries[0].sha256Hex,diff.sha256Hex);
+    roundtrip.institutionalEvidence.specialistIntake,roundtrip).entries[0].sha256Hex,diff.sha256Hex);
   assert.equal(assessLocalDocumentManifest(roundtrip).hashedControlCount,1);
+  assert.equal(normalizeManifest(null,intake,val).entries.length,0);
   assert.equal(assessLocalDocumentManifest(roundtrip).sourceIndependentlyVerified,false);
   assert.equal(assessLocalDocumentManifest(roundtrip).officialReportAuthorized,false);
   const runtime=evaluateExistingBuildingValuation({
@@ -80,13 +81,41 @@ async function run(){
   assert.equal(evaluateExistingBuildingValuation({
    caseId:'C72-CASE',legacyInput:{},legacyResult:{},valuationCase:altered,
   }).institutionalDecision.transactionAuthorized,false);
+  assert.equal(manifest.projectId,val.projectId);
+  assert.equal(manifest.valuationDate,val.incomePolicy.valuationDate);
+  const reusedProject=clone(val);
+  reusedProject.projectId='DIFFERENT-C72-PROJECT';
+  assert.equal(assessLocalDocumentManifest(reusedProject).invalid,true,
+   'same property reference on a different project cannot reuse the digest');
+  const reusedDate=clone(val);
+  reusedDate.incomePolicy.valuationDate='2026-09-06';
+  assert.equal(assessLocalDocumentManifest(reusedDate).invalid,true,
+   'a new valuation date invalidates an older document manifest');
+  const copiedWithoutContext=clone(manifest);
+  delete copiedWithoutContext.projectId;
+  assert.throws(()=>normalizeManifest(copiedWithoutContext,intake,val),
+   /C72_MANIFEST_CASE_CONTEXT_MISMATCH/);
   const shifted=clone(val);
   shifted.institutionalEvidence.specialistIntake.evidenceRefs.inspection='مرجع آخر';
   assert.equal(assessLocalDocumentManifest(shifted).invalid,true,'no cross-reference digest reuse');
   const differentAsset=caseFor(cls===ASSET_CLASS.HOSPITALITY?ASSET_CLASS.INDUSTRIAL_LOGISTICS:ASSET_CLASS.HOSPITALITY);
-  assert.throws(()=>normalizeManifest(manifest,differentAsset.intake),/C72_MANIFEST_CASE_CONTEXT_MISMATCH/);
+  assert.throws(()=>normalizeManifest(manifest,differentAsset.intake,differentAsset.val),/C72_MANIFEST_CASE_CONTEXT_MISMATCH/);
   await assert.rejects(()=>fingerprintLocalFile(fakeFile(Buffer.from('not a pdf')),intake,'inspection'),
     /C72_FILE_SIGNATURE_MISMATCH/);
+  const png=Buffer.from([137,80,78,71,13,10,26,10,0,0,0,0,73,69,78,68]);
+  const jpeg=Buffer.from([0xff,0xd8,0xff,0xe0,0,0,0xff,0xd9]);
+  assert.equal((await fingerprintLocalFile(fakeFile(png,'image/png'),intake,'inspection')).sha256Hex,
+   createHash('sha256').update(png).digest('hex'));
+  assert.equal((await fingerprintLocalFile(fakeFile(jpeg,'image/jpeg'),intake,'inspection')).sha256Hex,
+   createHash('sha256').update(jpeg).digest('hex'));
+  await assert.rejects(()=>fingerprintLocalFile(fakeFile(png,'image/jpeg'),intake,'inspection'),
+   /C72_FILE_SIGNATURE_MISMATCH/);
+  await assert.rejects(()=>fingerprintLocalFile(fakeFile(jpeg,'image/png'),intake,'inspection'),
+   /C72_FILE_SIGNATURE_MISMATCH/);
+  await assert.rejects(()=>fingerprintLocalFile(fakeFile(Buffer.alloc(0)),intake,'inspection'),
+   /C72_FILE_SIZE_OR_TYPE_REJECTED/);
+  await assert.rejects(()=>fingerprintLocalFile(fakeFile(Buffer.from('%PDF-1')),intake,'inspection'),
+   /C72_FILE_SIZE_OR_TYPE_REJECTED/);
   await assert.rejects(()=>fingerprintLocalFile(fakeFile(content,'application/octet-stream'),intake,'inspection'),
     /C72_FILE_MEDIA_REJECTED/);
   await assert.rejects(()=>fingerprintLocalFile({size:MAX_BYTES+1,type:'application/pdf',arrayBuffer(){
