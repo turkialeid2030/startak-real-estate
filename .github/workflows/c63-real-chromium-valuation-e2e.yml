@@ -30,9 +30,11 @@ jobs:
       - run: npm ci
       - name: Install genuine Chromium browser
         run: npx playwright install --with-deps chromium
-      - name: Serve actual Vite React app
+      - name: Build deployable production artifact before browser E2E
+        run: npm run build
+      - name: Serve actual built Vite React app
         run: |
-          (nohup npm run dev -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/c63-vite.log 2>&1 &)
+          (nohup npm run preview -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/c63-vite.log 2>&1 &)
           for n in $(seq 1 60); do
             if curl --fail --silent http://127.0.0.1:4173/ > /dev/null; then exit 0; fi
             sleep 1
@@ -48,7 +50,6 @@ jobs:
           node tests/architecture/run_c62_live_institutional_valuation_boundary.js
           node tests/architecture/run_c61_specialized_property_operational_gates.js
           node tests/architecture/run_c60_income_rate_provenance.js
-      - run: npm run build
       - run: npm run verify:package
       - run: npm run release:verify
       - run: npm audit --audit-level=low
