@@ -1,0 +1,77 @@
+name: C72 Real File-Byte SHA256 Specialist Evidence Browser Gate
+on:
+  pull_request:
+    branches:
+      - c71-specialist-c5-c6-report-hard-gate-browser-20261008
+    paths:
+      - 'src/app/specialist-document-intake.js'
+      - 'src/app/specialist-live-hold.js'
+      - 'src/components/SpecialistDocumentHashPanel.jsx'
+      - 'src/components/ValuationIntelligencePanel.jsx'
+      - 'tests/architecture/run_c72_specialist_document_byte_hash.js'
+      - 'tests/e2e/run_c72_specialist_real_file_hash_browser.js'
+      - '.github/workflows/c72-real-document-browser-hash-verify.yml'
+      - 'docs/C72_LOCAL_DOCUMENT_SHA256_EVIDENCE.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Exact head identity
+        if: github.event_name == 'pull_request'
+        run: test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+      - run: npm ci
+      - name: Real byte hashing and canonical gate regression
+        run: |
+          node tests/architecture/run_c72_specialist_document_byte_hash.js
+          node tests/architecture/run_c71_specialist_c5_c6_canonical_hard_gate.js
+          node tests/architecture/run_c70_live_specialist_reference_intake.js
+          node tests/architecture/run_c69_specialist_live_refusal.js
+          node tests/architecture/run_c61_specialized_property_operational_gates.js
+          node tests/architecture/run_c62_live_institutional_valuation_boundary.js
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Serve actual compiled browser bundle
+        run: |
+          (nohup npm run preview -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/c72-preview.log 2>&1 &)
+          for n in $(seq 1 60); do
+            if curl --silent --fail http://127.0.0.1:4173/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/c72-preview.log
+          exit 1
+      - name: Actual Chromium PDF bytes, mutation, signature spoof and Saved Deal persistence
+        env:
+          STARTAK_E2E_URL: http://127.0.0.1:4173
+        run: |
+          node tests/e2e/run_c72_specialist_real_file_hash_browser.js || {
+            cat /tmp/c72-preview.log
+            exit 1
+          }
+      - name: Prior C71 real JSON exports vs specialist export blocking
+        env:
+          STARTAK_E2E_URL: http://127.0.0.1:4173
+        run: node tests/e2e/run_c71_c5_c6_specialist_report_browser.js
+      - name: C70 real specialist source reference entry regression
+        env:
+          STARTAK_E2E_URL: http://127.0.0.1:4173
+        run: node tests/e2e/run_c70_live_specialist_reference_browser.js
+      - name: C63 original three building categories browser regression
+        env:
+          STARTAK_E2E_URL: http://127.0.0.1:4173
+        run: node tests/e2e/run_c63_live_chromium_valuation_e2e.js
+      - run: npm run verify:package
+      - run: npm run release:verify
+      - run: npm audit --audit-level=low
