@@ -114,7 +114,7 @@ function createCustodyHttpHandler({custodyService,authenticator,clock}={}){
     expectedRevision:body.expectedRevision,expectedHeadTag:body.expectedHeadTag}));
   }catch(e){
    const code=typeof e.code==='string'?e.code:'';
-   const allowed=/^C73_(HTTP_|TENANT_|TRUSTED_IDENTITY|DOCUMENT_|STALE_|CUSTODY_NOT_ACTIVE|BYTE_RECHECK|EXPLICIT_CONCURRENCY|AUDIT_|DB_ROW_)/.test(code);
+   const allowed=/^C73_(HTTP_|TENANT_|TRUSTED_IDENTITY|DOCUMENT_|STALE_|CUSTODY_NOT_ACTIVE|BYTE_RECHECK|EXPLICIT_CONCURRENCY|AUDIT_|DB_ROW_|INPUT_SCOPE_|FILE_HEADER_|FILE_MEDIA_|SCOPE_|BYTES_|VALUATION_DATE_)/.test(code);
    const status=Number.isInteger(e.httpStatus)?e.httpStatus:
     code==='C73_DOCUMENT_NOT_FOUND'?404:
     code.includes('STALE')||code.includes('ALREADY_EXISTS')?409:
