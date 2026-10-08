@@ -1,0 +1,28 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const {VERSION,STATUS,REASONS,assessLandDevelopmentInstitutionalBoundary}=
+ require('../../src/app/land-development-institutional-boundary');
+assert.equal(assessLandDevelopmentInstitutionalBoundary({mode:'building'}),null);
+const baseline=assessLandDevelopmentInstitutionalBoundary({mode:'land'});
+assert.equal(baseline.status,STATUS);
+assert.equal(baseline.blockers.length,4);
+assert.equal(baseline.certifiedValuationSar,null);
+assert.equal(baseline.transactionAuthorized,false);
+assert.equal(baseline.readyForInstitutionalDecision,false);
+assert.equal(baseline.officialReportExportAuthorized,false);
+assert.equal(baseline.sourceRightsIndependentlyVerified,false);
+assert(Object.isFrozen(baseline));assert(Object.isFrozen(REASONS));
+const spoof=assessLandDevelopmentInstitutionalBoundary({mode:'land',sourceApproval:true,methodReady:true,reportApproval:true});
+assert.deepEqual(spoof,baseline,'caller-declared approvals must not bypass land hard gate');
+const src=fs.readFileSync(path.join(__dirname,'../../src/app/App.jsx'),'utf8');
+assert(src.includes('<LandDevelopmentInstitutionalNotice mode={mode} locale={locale} />'));
+assert(src.includes('data-testid={`startak-mode-${o.key}`}'));
+const jsx=fs.readFileSync(path.join(__dirname,'../../src/components/LandDevelopmentInstitutionalNotice.jsx'),'utf8');
+assert(jsx.includes('data-testid="land-development-institutional-hold"'));
+assert(jsx.includes('data-c64-status={boundary.status}'));
+assert(jsx.includes('جميع النتائج المعروضة تقديرات مالية أولية'));
+console.log('C64_LAND_DEVELOPMENT_INSTITUTIONAL_HOLD_IN_REAL_APP=PASS');
+console.log('C64_C55_DATED_RESIDUAL_LAND_UI_INTEGRATED=FALSE');
+console.log('C64_PROFESSIONAL_LAND_APPRAISAL_AUTHORIZED=FALSE');
