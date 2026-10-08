@@ -17,7 +17,7 @@ function message(method,route,issuedAt,nonce,body){
 }
 function createWitnessRequestSigner({privateKey,clientId,clock}={}){
  let key;
- try{key=createPrivateKey(privateKey);}catch{throw fail('C73_D_WITNESS_CLIENT_KEY_REQUIRED');}
+ try{key=privateKey?.type==='private'?privateKey:createPrivateKey(privateKey);}catch{throw fail('C73_D_WITNESS_CLIENT_KEY_REQUIRED');}
  if(key.asymmetricKeyType!=='ed25519'||typeof clock!=='function'||
   typeof clientId!=='string'||!ID.test(clientId))
   throw fail('C73_D_WITNESS_SIGNER_INVALID');
@@ -39,7 +39,7 @@ function createWitnessRequestSigner({privateKey,clientId,clock}={}){
 }
 function createWitnessRequestVerifier({publicKey,clientId,clock,maxClockSkewMs=30000}={}){
  let key;
- try{key=createPublicKey(publicKey);}catch{throw fail('C73_D_WITNESS_CLIENT_PUBKEY_REQUIRED');}
+ try{key=publicKey?.type==='public'?publicKey:createPublicKey(publicKey);}catch{throw fail('C73_D_WITNESS_CLIENT_PUBKEY_REQUIRED');}
  if(key.asymmetricKeyType!=='ed25519'||typeof clock!=='function'||
   typeof clientId!=='string'||!ID.test(clientId)||
   !Number.isSafeInteger(maxClockSkewMs)||maxClockSkewMs<1000||maxClockSkewMs>120000)
