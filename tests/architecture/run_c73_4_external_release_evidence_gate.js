@@ -11,7 +11,7 @@ const keys=ids.map(()=>generateKeyPairSync('ed25519'));
 const config=Object.fromEntries(ids.map((gateId,i)=>[
  'reviewer-'+i,{
  gateId,role:GATES[gateId],
- publicKey:keys[i].publicKey.export({type:'pem',format:'spki'}),
+ publicKey:keys[i].publicKey.export({type:'spki',format:'pem'}),
  },
 ]));
 function signature(p,i){
@@ -101,7 +101,7 @@ function run(){
   ...config['reviewer-5'],publicKey:'not-a-public-key',
  }});
  negative('SIGNATURE_INVALID',a=>{}, {...config,'reviewer-6':{
-  ...config['reviewer-6'],publicKey:keys[0].publicKey.export({type:'pem',format:'spki'}),
+  ...config['reviewer-6'],publicKey:keys[0].publicKey.export({type:'spki',format:'pem'}),
  }});
  check(assess(originals,{},SHA).status==='HOLD_EXTERNAL_P0_EVIDENCE',
   'no trusted independently pinned roots -> HOLD');
