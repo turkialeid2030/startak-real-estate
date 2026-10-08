@@ -23,7 +23,7 @@ function scope(tenantId='tenant-a'){
 function verified(ledger,opts={}){
  return verifyCustodyLedger(ledger,{
   key:KEY,keyRef:KEY_REF,expectedScope:scope(),
-  expectedHeadTag:ledger.headTag,expectedRevision:ledger.events.length,
+  expectedHeadTag:record.headTag,expectedRevision:1,
   assessedAt:AFTER,maxAgeSeconds:3600,...opts,
  });
 }
@@ -104,6 +104,14 @@ check('reject malformed signatures and deleted or replaced events',()=>{
  const otherKind=copy(record);otherKind.events[0].kind='OFFICIALLY_AUTHORIZED';
  assert.equal(verified(otherKind).status,STATE.HOLD_INTEGRITY);
 });
+check('untrusted issuance fields fail closed',()=>{
+ for(const additional of [{sourceRightsVerified:true},{licensedReviewerApproved:true},
+  {officialReportAuthorized:true},{bytes:'CLIENT_INJECTED'}]){
+  assert.throws(()=>createCustodyLedger({key:KEY,keyRef:KEY_REF,
+   scope:{...scope(),...additional},bytes:PDF,actorRef:'actor',observedAt:NOW}),
+   /INPUT_SCOPE_UNEXPECTED_OR_MISSING_FIELD/);
+ }
+});
 check('wrong key, unsafe weak key, or forged type cannot mint custody',()=>{
  assert.throws(()=>createCustodyLedger({key:Buffer.alloc(8),keyRef:KEY_REF,scope:scope(),
   bytes:PDF,actorRef:'actor',observedAt:NOW}),/256_BIT/);
@@ -124,7 +132,8 @@ check('valid synthetic png jpeg receive different true byte fingerprints',()=>{
    scope:{...scope(),mediaType,documentId:'IMAGE-'+mediaType},
    bytes,actorRef:'actor',observedAt:NOW});
   assert.equal(p.scope.sha256Hex,createHash('sha256').update(bytes).digest('hex'));
-  assert.equal(verified(p,{expectedScope:{...scope(),documentId:'IMAGE-'+mediaType}})
+  assert.equal(verified(p,{expectedHeadTag:p.headTag,expectedRevision:1,
+    expectedScope:{...scope(),documentId:'IMAGE-'+mediaType}})
     .status,STATE.INTEGRITY_MATCHED_UNVERIFIED);
  }
 });
@@ -136,7 +145,8 @@ check('recheck appends immutable signed chain and preserves original',()=>{
  assert.equal(checked.events.length,2);
  assert.equal(checked.events[1].previousTag,record.headTag);
  assert.notEqual(checked.headTag,record.headTag);
- assert.equal(verified(checked).status,STATE.INTEGRITY_MATCHED_UNVERIFIED);
+ assert.equal(verified(checked,{expectedHeadTag:checked.headTag,expectedRevision:2})
+  .status,STATE.INTEGRITY_MATCHED_UNVERIFIED);
 });
 check('replay old full signed ledger fails against newer trusted head',()=>{
  assert.equal(verified(record,{expectedHeadTag:checked.headTag,expectedRevision:2})
@@ -146,13 +156,17 @@ check('replay old full signed ledger fails against newer trusted head',()=>{
 });
 check('mutation or out of order chain events invalid',()=>{
  const missing=copy(checked);missing.events.pop();
- assert.equal(verified(missing).status,STATE.HOLD_TRUSTED_HEAD_REQUIRED);
+ assert.equal(verified(missing,{expectedHeadTag:checked.headTag,expectedRevision:2})
+  .status,STATE.HOLD_TRUSTED_HEAD_REQUIRED);
  const altered=copy(checked);altered.events[1].previousTag='a'.repeat(64);
- assert.equal(verified(altered).status,STATE.HOLD_INTEGRITY);
+ assert.equal(verified(altered,{expectedHeadTag:checked.headTag,expectedRevision:2})
+  .status,STATE.HOLD_INTEGRITY);
  const reverse=copy(checked);reverse.events.reverse();
- assert.equal(verified(reverse).status,STATE.HOLD_INTEGRITY);
+ assert.equal(verified(reverse,{expectedHeadTag:checked.headTag,expectedRevision:2})
+  .status,STATE.HOLD_INTEGRITY);
  const backdate=copy(checked);backdate.events[1].observedAt=NOW;
- assert.equal(verified(backdate).status,STATE.HOLD_INTEGRITY);
+ assert.equal(verified(backdate,{expectedHeadTag:checked.headTag,expectedRevision:2})
+  .status,STATE.HOLD_INTEGRITY);
 });
 check('recheck requires same actual physical bytes',()=>{
  const mutated=Buffer.from(PDF);mutated[12]^=1;
@@ -181,7 +195,8 @@ const revoked=appendCustodyEvent(checked,{key:KEY,keyRef:KEY_REF,
  expectedScope:scope(),expectedHeadTag:checked.headTag,expectedRevision:2,
  actorRef:'reviewer',observedAt:AFTER,kind:EVENT.REVOKED});
 check('revoked evidence cannot be promoted or rechecked',()=>{
- const result=verified(revoked,{assessedAt:'2026-10-08T12:03:00.000Z'});
+ const result=verified(revoked,{expectedHeadTag:revoked.headTag,expectedRevision:3,
+  assessedAt:'2026-10-08T12:03:00.000Z'});
  assert.equal(result.status,STATE.HOLD_REVOKED);
  assert.equal(result.professionalReportAuthorized,false);
  assert.throws(()=>appendCustodyEvent(revoked,{key:KEY,keyRef:KEY_REF,
