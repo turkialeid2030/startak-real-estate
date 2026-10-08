@@ -55,7 +55,24 @@ function createPostgresCustodyService({pool,verifyRequest,key,keyRef,clock}={}){
    'tenantId','caseId','projectId','propertyRef','valuationDate','documentId',
    'evidenceType','referenceId','artifactVersion'].map(k=>[k,s[k]]));
  }
- function verified(ledger,head,assessedAt){
+ async function verifyStoredAudit(client,tenantId,documentId,ledger){
+  const rows=await client.query(
+   'SELECT revision,event_tag,event_json FROM c73.custody_events WHERE tenant_id=$1 AND document_id=$2 ORDER BY revision',
+   [tenantId,documentId]);
+  if(rows.rowCount!==ledger.events.length)
+   throw error('C73_AUDIT_CONTINUITY_BROKEN');
+  for(let i=0;i<ledger.events.length;i++){
+   const expected=ledger.events[i],row=rows.rows[i];
+   if(row.revision!==i+1||row.event_tag!==expected.tag||
+      !row.event_json||Object.keys(row.event_json).length!==Object.keys(expected).length||
+      Object.keys(expected).some(key=>!Object.prototype.hasOwnProperty.call(row.event_json,key)||
+       row.event_json[key]!==expected[key]))
+    throw error('C73_AUDIT_CONTINUITY_BROKEN');
+  }
+ }
+ function verified(ledger,head,assessedAt,tenantId,documentId){
+  if(ledger?.scope?.tenantId!==tenantId||ledger?.scope?.documentId!==documentId)
+   throw error('C73_DB_ROW_SCOPE_MISMATCH');
   const v=verifyCustodyLedger(ledger,{
    key,keyRef,expectedScope:desiredScope(ledger),
    expectedHeadTag:head.head_tag,expectedRevision:head.revision,
@@ -81,7 +98,8 @@ function createPostgresCustodyService({pool,verifyRequest,key,keyRef,clock}={}){
       'INSERT INTO c73.custody_events(tenant_id,document_id,revision,event_tag,event_json) VALUES($1,$2,$3,$4,$5::jsonb)',
       [actor.tenantId,ledger.scope.documentId,1,ledger.headTag,JSON.stringify(ledger.events[0])]);
    }catch(e){if(e.code==='23505')throw error('C73_DOCUMENT_ALREADY_EXISTS');throw e;}
-   return {ledger,verdict:verified(ledger,{head_tag:ledger.headTag,revision:1},now())};
+   await verifyStoredAudit(client,actor.tenantId,ledger.scope.documentId,ledger);
+   return {ledger,verdict:verified(ledger,{head_tag:ledger.headTag,revision:1},now(),actor.tenantId,ledger.scope.documentId)};
   });
  }
  async function get({request,documentId}={}){
@@ -92,7 +110,9 @@ function createPostgresCustodyService({pool,verifyRequest,key,keyRef,clock}={}){
     'SELECT revision,head_tag,ledger FROM c73.custody_heads WHERE tenant_id=$1 AND document_id=$2',
     [actor.tenantId,documentId]);
    if(rows.rowCount!==1)throw error('C73_DOCUMENT_NOT_FOUND');
-   const h=rows.rows[0],verdict=verified(h.ledger,h,now());
+   const h=rows.rows[0];
+   await verifyStoredAudit(client,actor.tenantId,documentId,h.ledger);
+   const verdict=verified(h.ledger,h,now(),actor.tenantId,documentId);
    return {ledger:h.ledger,verdict};
   });
  }
@@ -111,7 +131,8 @@ function createPostgresCustodyService({pool,verifyRequest,key,keyRef,clock}={}){
    const h=r.rows[0];
    if(h.revision!==expectedRevision||h.head_tag!==expectedHeadTag)
     throw error('C73_STALE_CUSTODY_REVISION');
-   const result=verified(h.ledger,h,now());
+   await verifyStoredAudit(client,actor.tenantId,documentId,h.ledger);
+   const result=verified(h.ledger,h,now(),actor.tenantId,documentId);
    if(result.status!==STATE.INTEGRITY_MATCHED_UNVERIFIED)
     throw error('C73_CUSTODY_NOT_ACTIVE:'+result.status);
    const ledger=appendCustodyEvent(h.ledger,{
@@ -128,8 +149,9 @@ function createPostgresCustodyService({pool,verifyRequest,key,keyRef,clock}={}){
     'INSERT INTO c73.custody_events(tenant_id,document_id,revision,event_tag,event_json) VALUES($1,$2,$3,$4,$5::jsonb)',
     [actor.tenantId,documentId,ledger.events.length,ledger.headTag,
      JSON.stringify(ledger.events.at(-1))]);
+   await verifyStoredAudit(client,actor.tenantId,documentId,ledger);
    return {ledger,verdict:verified(ledger,{
-    head_tag:ledger.headTag,revision:ledger.events.length},now())};
+    head_tag:ledger.headTag,revision:ledger.events.length},now(),actor.tenantId,documentId)};
   });
  }
  return Object.freeze({
