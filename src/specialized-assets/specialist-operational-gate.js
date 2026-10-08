@@ -63,7 +63,7 @@ function evaluateSpecializedAssetEvidence({
       (item.status==='REVIEWED_NOT_APPLICABLE'&&!filled(item.notApplicableRationale)))
       blockers.push('SPECIALIST_CONTROL_UNRESOLVED:'+name);
     if(item?.status==='REVIEWED_NOT_APPLICABLE' &&
-      ['zoning','titleInterest','inspection','professionalSpecialistReview'].includes(name))
+      ['zoning','titleInterest','inspection','fireLifeSafety','professionalSpecialistReview'].includes(name))
       blockers.push('MANDATORY_SPECIALIST_CONTROL_CANNOT_BE_SKIPPED:'+name);
   }
   const referenced=[];
