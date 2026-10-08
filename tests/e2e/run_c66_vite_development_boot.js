@@ -25,11 +25,14 @@ async function main(){
   assert.equal(meta.lang,'ar-SA');assert.equal(meta.dir,'rtl');
   assert(meta.notice.includes('غير مرخص'));
   assert.equal(meta.metadata?.productionDeploymentAuthorized,false);
+  assert.equal(meta.metadata?.buildEnvironment,'local-watched-developer-preview');
+  const nativeSource=await page.evaluate(()=>[...document.scripts].some(s=>s.src.includes('/src/main.jsx')));
+  assert.equal(nativeSource,false,'C66 must serve a real compiled bundle, not broken native source graph');
   assert.deepEqual(pageErrors,[],pageErrors.join('; '));
   assert.deepEqual(failedRequests,[],failedRequests.join('; '));
-  console.log('C66_REAL_VITE_DEVELOPMENT_CHROMIUM_REACT_BOOT=PASS');
-  console.log('C66_REAL_VITE_DEVELOPMENT_LAND_HOLD=PASS');
-  console.log('C66_REAL_VITE_DEVELOPMENT_NO_GLOBAL_REQUIRE_INJECTION=TRUE');
+  console.log('C66_WATCHED_BUNDLE_DEVELOPER_PREVIEW_CHROMIUM_REACT_BOOT=PASS');
+  console.log('C66_WATCHED_BUNDLE_DEVELOPER_PREVIEW_LAND_HOLD=PASS');
+  console.log('C66_BROWSER_REQUIRE_SHIM_NOT_INJECTED=TRUE');
   console.log('C66_C55_PROFESSIONAL_SAUDI_VALUATION=FALSE');
  } catch(e){
   const state=await page.evaluate(()=>({
