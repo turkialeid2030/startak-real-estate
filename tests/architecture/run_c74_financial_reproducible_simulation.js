@@ -144,7 +144,7 @@ const summary={schemaVersion:1,qualification:'SYNTHETIC_ENGINEERING_ONLY',
  certifiedValuation:false,productionAuthorized:false};
 const json=JSON.stringify(summary,null,2)+'\n';
 writeFileSync(path.join(EVIDENCE,'financial-simulation.json'),json);
-console.log(`C74_FINANCIAL_REPRODUCIBLE_SIMULATION=PASS engine_cases=${seededCases} monte_carlo_draws=${summary.scenarioDraws} invalid_cases=${invalid.length}`);
+console.log(`C74_FINANCIAL_REPRODUCIBLE_SIMULATION=PASS engine_cases=${seededCases} fixed_draws=${summary.scenarioDraws} stochastic_draws=${summary.stochasticDraws} invalid_cases=${invalid.length}`);
 console.log('C74_REAL_MARKET_FORECAST_VALIDATION=FALSE');
 console.log('C74_INDEPENDENT_PROFESSIONAL_VALUATION=FALSE');
 console.log('C74_EVIDENCE_SHA256='+createHash('sha256').update(json).digest('hex'));
