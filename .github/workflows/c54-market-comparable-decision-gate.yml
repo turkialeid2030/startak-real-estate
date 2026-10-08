@@ -1,0 +1,52 @@
+name: C54 Market Comparable Decision Gate
+
+on:
+  pull_request:
+    branches:
+      - c53-private-alpha-source-acquisition-runtime
+    paths:
+      - 'src/valuation-intelligence/market-comparables.js'
+      - 'tests/architecture/run_market_comparable_decision_gate_v2.js'
+      - '.github/workflows/c54-market-comparable-decision-gate.yml'
+      - 'docs/C54_MARKET_COMPARABLE_DECISION_GATE.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Assert exact pull-request head
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+      - name: Install locked dependencies
+        run: npm ci
+      - name: C54 adversarial comparable gate tests
+        run: node tests/architecture/run_market_comparable_decision_gate_v2.js
+      - name: Existing valuation engine regression
+        run: node tests/architecture/run_valuation_intelligence_v1.js
+      - name: Existing valuation stage orchestration regression
+        run: node tests/architecture/run_valuation_stage_orchestrator_v1.js
+      - name: Production build
+        run: npm run build
+      - name: Package verification
+        run: npm run verify:package
+      - name: Canonical release regression
+        run: npm run release:verify
+      - name: Dependency security audit
+        run: npm audit --audit-level=low
