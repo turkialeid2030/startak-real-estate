@@ -1,0 +1,41 @@
+name: C56 Saudi Historical Out Of Sample Evidence Contract
+on:
+  pull_request:
+    branches:
+      - c55-governed-dated-development-residual-20261008
+    paths:
+      - 'src/replay/saudi-historical-cohort.js'
+      - 'tests/replay/run_c56_saudi_historical_cohort.js'
+      - 'docs/C56_SAUDI_OUT_OF_SAMPLE_EVIDENCE.md'
+      - '.github/workflows/c56-saudi-out-of-sample-evidence-verify.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Assert exact head
+        if: github.event_name == 'pull_request'
+        run: test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+      - run: npm ci
+      - name: C56 out-of-sample sealed cohort contract
+        run: node tests/replay/run_c56_saudi_historical_cohort.js
+      - name: Preserve C51 replay and C55 residual regressions
+        run: |
+          node tests/replay/run_c51_internal_historical_replay_readiness.js
+          node tests/architecture/run_c55_dated_development_residual.js
+      - run: npm run build
+      - run: npm run verify:package
+      - run: npm run release:verify
+      - run: npm audit --audit-level=low
