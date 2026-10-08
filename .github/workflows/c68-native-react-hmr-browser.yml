@@ -4,6 +4,7 @@ on:
     branches:
       - c67-vite8-native-bundled-dev-chromium-20261008
     paths:
+      - 'vite.config.mjs'
       - 'tests/e2e/run_c68_native_bundled_react_hmr.js'
       - 'docs/C68_NATIVE_BUNDLED_REACT_HMR_EVIDENCE.md'
       - '.github/workflows/c68-native-react-hmr-browser.yml'
