@@ -5,9 +5,9 @@ const assert=require('node:assert/strict');
 const {chromium,expect}=require('@playwright/test');
 
 const url=process.env.STARTAK_C68_URL||'http://127.0.0.1:4176';
-const filename=path.join(__dirname,'../../src/components/ValuationIntelligenceBasePanel.jsx');
-const oldTitle="title: 'ذكاء التقييم العقاري',";
-const newTitle="title: 'ذكاء التقييم العقاري — اختبار تحديث حي',";
+const filename=path.join(__dirname,'../../src/components/LandDevelopmentInstitutionalNotice.jsx');
+const oldTitle="status:'التقييم المؤسسي للأرض والتطوير: معلّق.',";
+const newTitle="status:'التقييم المؤسسي للأرض والتطوير: معلّق — اختبار تحديث حي.',";
 
 async function main(){
   const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
@@ -23,8 +23,7 @@ async function main(){
   assert(!original.includes(newTitle),'C68 editable fixture must be clean before testing');
   try{
     await page.goto(url,{waitUntil:'domcontentloaded',timeout:45000});
-    const panel=page.getByTestId('valuation-v1-panel');
-    await expect(panel).toContainText('ذكاء التقييم العقاري',{timeout:45000});
+    await expect(page.getByTestId('valuation-v1-panel')).toBeVisible({timeout:45000});
     await page.getByTestId('startak-mode-land').click();
     await expect(page.getByTestId('land-development-institutional-hold')).toHaveAttribute(
       'data-c64-status','HOLD_LAND_DEVELOPMENT_INSTITUTIONAL_EVIDENCE');
@@ -32,7 +31,8 @@ async function main(){
     assert(initialLoadCount>=1,'Browser did not record an initial navigation');
     fs.writeFileSync(filename,original.replace(oldTitle,newTitle),'utf8');
     edited=true;
-    await expect(panel).toContainText('ذكاء التقييم العقاري — اختبار تحديث حي',{timeout:45000});
+    await expect(page.getByTestId('land-development-institutional-hold'))
+      .toContainText('التقييم المؤسسي للأرض والتطوير: معلّق — اختبار تحديث حي.',{timeout:45000});
     assert.equal(loads,initialLoadCount,
       'React title changed through full page reload instead of hot module replacement');
     await expect(page.getByTestId('land-development-institutional-hold')).toHaveAttribute(
@@ -42,7 +42,7 @@ async function main(){
     console.log('C68_LAND_AUTHORITY_HOLD_PERSISTS_AFTER_HMR=PASS');
   }catch(e){
     const diagnostic=await page.evaluate(()=>({
-      html:document.querySelector('[data-testid="valuation-v1-panel"]')?.innerText.slice(0,650),
+      html:document.querySelector('[data-testid="land-development-institutional-hold"]')?.innerText.slice(0,650),
       land:document.querySelector('[data-testid="land-development-institutional-hold"]')?.getAttribute('data-c64-status'),
       nav:performance.getEntriesByType('navigation').map(n=>n.type),
     })).catch(x=>({introspection:String(x)}));
