@@ -52,7 +52,7 @@ function evaluateExistingBuildingValuation({
   // C69: hotel and industrial property interests cannot be calculated with
   // OFFICE/RETAIL/RESIDENTIAL lease-income adapters. A governed refusal is
   // better than a runtime crash or an invalid numeric indication.
-  const specialist= specializeUnsupportedValuationCase(valuationCase);
+  const specialist= specializeUnsupportedValuationCase(valuationCase,{caseId:normalizedCaseId});
   if(specialist){
     return Object.freeze({
       schemaVersion:1,mode:VALUATION_RUNTIME_MODE.VALUATION_V1,

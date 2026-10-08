@@ -2,6 +2,7 @@
 
 const {ASSET_CLASS}=require('../project-model/project-profile');
 const {STATUS: C62_STATUS}=require('./institutional-valuation-decision-boundary');
+const {evaluateSpecialistReferenceIntake}=require('./specialist-reference-intake');
 
 const VERSION='C69_SPECIALIST_OPERATIONAL_HOLD_ONLY_V1';
 const SPECIALIST_ASSETS=Object.freeze([
@@ -23,12 +24,21 @@ const INDUSTRIAL=Object.freeze([
   'C69_INDUSTRIAL_ENVIRONMENT_POWER_FLOOR_LOADING_NOT_VERIFIED',
   'C69_INDUSTRIAL_TITLE_LEASE_PERMITTED_USE_UNVERIFIED',
 ]);
-function specializeUnsupportedValuationCase(valuationCase) {
+function specializeUnsupportedValuationCase(valuationCase,{caseId}={}) {
   const assetClass=valuationCase?.classification?.assetClass;
   if(!SPECIALIST_ASSETS.includes(assetClass))return null;
   const blockers=Object.freeze([...COMMON,...(assetClass===ASSET_CLASS.HOSPITALITY?HOTEL:INDUSTRIAL)]);
+  let referenceIntake=null,referenceIntakeInvalid=false;
+  try{
+    referenceIntake=evaluateSpecialistReferenceIntake({valuationCase,caseId});
+  }catch{
+    // A tampered, overlong or cross-asset saved intake must not crash into
+    // an apparently eligible value. The six permanent C69 blocks remain.
+    referenceIntakeInvalid=true;
+  }
   const specialistRoute=Object.freeze({
     version:VERSION,assetClass,status:'HOLD_SPECIALIST_METHOD_NOT_WIRED',
+    referenceIntake,referenceIntakeInvalid,
     adapterIntegrated:false,realProfessionalSourceAuthentication:false,
     externalSpecialistAuditCompleted:false,sourceRightsVerified:false,
     blockers,financialResultsAreGenericStudyOnly:true,

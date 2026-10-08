@@ -1,0 +1,70 @@
+name: C70 Actual C61 Specialist Reference Intake Browser Verification
+on:
+  pull_request:
+    branches:
+      - c69-specialist-valuation-live-hold-browser-20261008
+    paths:
+      - 'src/app/specialist-reference-intake.js'
+      - 'src/app/specialist-live-hold.js'
+      - 'src/app/existing-building-valuation-runtime.js'
+      - 'src/components/SpecialistEvidenceIntakePanel.jsx'
+      - 'src/components/ValuationIntelligencePanel.jsx'
+      - 'tests/architecture/run_c70_live_specialist_reference_intake.js'
+      - 'tests/e2e/run_c70_live_specialist_reference_browser.js'
+      - '.github/workflows/c70-live-specialist-intake-browser.yml'
+      - 'docs/C70_LIVE_SPECIALIST_INTAKE_C61.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Exact source SHA
+        if: github.event_name == 'pull_request'
+        run: test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+      - run: npm ci
+      - name: C70 reference-only C61 source and permission regressions
+        run: |
+          node tests/architecture/run_c70_live_specialist_reference_intake.js
+          node tests/architecture/run_c69_specialist_live_refusal.js
+          node tests/architecture/run_c61_specialized_property_operational_gates.js
+          node tests/architecture/run_c62_live_institutional_valuation_boundary.js
+          node tests/architecture/run_c64_land_institutional_hold.js
+          node tests/architecture/run_c65_institutional_arabic_reasons.js
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Serve actual production-equivalent app
+        run: |
+          (nohup npm run preview -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/c70-preview.log 2>&1 &)
+          for n in $(seq 1 60); do
+            if curl --silent --fail http://127.0.0.1:4173/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/c70-preview.log
+          exit 1
+      - name: Actual browser C61 hotel industrial intake and negative tampering
+        env:
+          STARTAK_E2E_URL: http://127.0.0.1:4173
+        run: node tests/e2e/run_c70_live_specialist_reference_browser.js
+      - name: Existing C69 real browser specialist regression
+        env:
+          STARTAK_E2E_URL: http://127.0.0.1:4173
+        run: node tests/e2e/run_c69_real_specialist_browser.js
+      - name: Existing C63 real office retail residential browser regression
+        env:
+          STARTAK_E2E_URL: http://127.0.0.1:4173
+        run: node tests/e2e/run_c63_live_chromium_valuation_e2e.js
+      - run: npm run verify:package
+      - run: npm run release:verify
+      - run: npm audit --audit-level=low
