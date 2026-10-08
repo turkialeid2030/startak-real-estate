@@ -1,0 +1,39 @@
+name: C55 Dated Development Residual Integrity
+on:
+  pull_request:
+    branches:
+      - c54-market-comparable-decision-gate-20261008
+    paths:
+      - 'src/engines/valuation/dated-development-residual.js'
+      - 'tests/architecture/run_c55_dated_development_residual.js'
+      - 'docs/C55_DATED_DEVELOPMENT_RESIDUAL.md'
+      - '.github/workflows/c55-dated-development-residual-verify.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Assert exact PR head
+        if: github.event_name == 'pull_request'
+        run: test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+      - run: npm ci
+      - name: C55 independent dated residual tests
+        run: node tests/architecture/run_c55_dated_development_residual.js
+      - name: Preserve legacy nominal-residual engine regression
+        run: node tests/architecture/run_wave11c_development_residual.js
+      - run: npm run build
+      - run: npm run verify:package
+      - run: npm run release:verify
+      - run: npm audit --audit-level=low
