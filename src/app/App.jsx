@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import ResidentialIncomeAcquisitionPanel from "../components/ResidentialIncomeAcquisitionPanel.jsx";
 import ValuationIntelligencePanel from "../components/ValuationIntelligencePanel.jsx";
+import LandDevelopmentInstitutionalNotice from "../components/LandDevelopmentInstitutionalNotice.jsx";
 import { ZakatInputSection, ZakatCashFlowPanel } from "../components/ZakatLayerPanel.jsx";
 
 // ============================================================
@@ -1339,6 +1340,7 @@ function ModeSwitch({ mode, setMode }) {
         return (
           <button
             key={o.key}
+            data-testid={`startak-mode-${o.key}`}
             type="button"
             onClick={() => setMode(o.key)}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-medium transition-colors"
@@ -2055,6 +2057,8 @@ export default function App() {
             </button>
           </div>
         </header>
+
+        <LandDevelopmentInstitutionalNotice mode={mode} locale={locale} />
 
         <DealsPanel
           open={dealsPanelOpen}
