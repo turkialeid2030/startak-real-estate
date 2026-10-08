@@ -1,0 +1,49 @@
+name: C62 Live Valuation Institutional Decision Boundary
+on:
+  pull_request:
+    branches:
+      - c61-specialized-property-operating-hard-gates-20261008
+    paths:
+      - 'src/app/institutional-valuation-decision-boundary.js'
+      - 'src/app/existing-building-valuation-runtime.js'
+      - 'src/app/valuation-case-draft.js'
+      - 'src/valuation-intelligence/saved-deal-extension.js'
+      - 'src/components/ValuationIntelligenceBasePanel.jsx'
+      - 'tests/architecture/run_c62_live_institutional_valuation_boundary.js'
+      - 'docs/C62_LIVE_INSTITUTIONAL_DECISION_BOUNDARY.md'
+      - '.github/workflows/c62-live-institutional-boundary-verify.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Assert exact HEAD
+        if: github.event_name == 'pull_request'
+        run: test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+      - run: npm ci
+      - name: Actual Valuation V1 runtime C62 integration and export hold
+        run: node tests/architecture/run_c62_live_institutional_valuation_boundary.js
+      - name: Preserve existing Valuation V1 and C58-C61 regression semantics
+        run: |
+          node tests/architecture/run_existing_building_valuation_runtime_v1.js
+          node tests/architecture/run_existing_building_valuation_ui_runtime_v1.js
+          node tests/architecture/run_c58_comparable_provenance_chain.js
+          node tests/architecture/run_c59_componentized_cost_obsolescence.js
+          node tests/architecture/run_c60_income_rate_provenance.js
+          node tests/architecture/run_c61_specialized_property_operational_gates.js
+      - run: npm run build
+      - run: npm run verify:package
+      - run: npm run release:verify
+      - run: npm audit --audit-level=low
