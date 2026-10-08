@@ -1,6 +1,7 @@
 'use strict';
 
 const { sha256Hex } = require('../crypto/sha256');
+const { ASSET_CLASS } = require('../project-model/project-profile');
 const {
   C4_REPORT_CLASSIFICATION,
   C4_AUTHORITY_BOUNDARY,
@@ -16,6 +17,7 @@ const HOUR_MS = 60 * 60 * 1000;
 const C5_OPERATIONAL_STATUS = Object.freeze({
   READY_FOR_GOVERNED_EXPORT: 'READY_FOR_GOVERNED_EXPORT',
   HOLD_NOT_APPLICABLE: 'HOLD_NOT_APPLICABLE',
+  HOLD_SPECIALIST_METHOD_NOT_QUALIFIED: 'HOLD_SPECIALIST_METHOD_NOT_QUALIFIED',
   HOLD_NO_GOVERNED_DECISION: 'HOLD_NO_GOVERNED_DECISION',
   HOLD_INVALID_GOVERNED_DECISION: 'HOLD_INVALID_GOVERNED_DECISION',
   HOLD_SCOPE_MISMATCH: 'HOLD_SCOPE_MISMATCH',
@@ -138,6 +140,26 @@ function evaluateGovernedDecisionOperationalState({ savedDealRecord, expectedCon
     return fail(C5_OPERATIONAL_STATUS.HOLD_NOT_APPLICABLE, ['C5_GOVERNED_DECISION_REQUIRES_BUILDING_MODE'], {
       savedDealId: cleanString(savedDealRecord.id) || null,
     });
+  }
+  // C71 authoritative report gate: C69/C70 specialist routes intentionally
+  // have NO professional valuation adapter/independently verified evidence.
+  // A coherent C4 hash or self-declared 9/9 C61 references must never allow
+  // even a governed analytical export to imply a specialist property value.
+  // Apply within the canonical C5 primitive; C6 delegates to this path for
+  // reviewer recording and reviewed exports, not merely the disabled UI.
+  const assetClass = savedDealRecord.valuationCase?.classification?.assetClass;
+  if ([ASSET_CLASS.HOSPITALITY, ASSET_CLASS.INDUSTRIAL_LOGISTICS, ASSET_CLASS.MIXED_USE].includes(assetClass)) {
+    return fail(
+      C5_OPERATIONAL_STATUS.HOLD_SPECIALIST_METHOD_NOT_QUALIFIED,
+      ['C71_SPECIALIST_METHOD_NOT_OPERATIONALLY_QUALIFIED',
+       'C71_NO_INDEPENDENT_SPECIALIST_SOURCE_OR_PROFESSIONAL_REPORT_AUTHORITY'],
+      {
+        savedDealId: cleanString(savedDealRecord.id) || null,
+        assetClass,
+        analyticalValueIndicationSar: null,
+        finalValuationConclusionEstablished: false,
+      },
+    );
   }
   if (!Object.prototype.hasOwnProperty.call(savedDealRecord, 'governedDealDecision')) {
     return fail(C5_OPERATIONAL_STATUS.HOLD_NO_GOVERNED_DECISION, ['C5_GOVERNED_DECISION_NOT_ATTACHED'], {
