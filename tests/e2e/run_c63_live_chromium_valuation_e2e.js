@@ -35,6 +35,14 @@ async function checkRuntime(page){
   await expect(page.getByText(SELECTORS.preliminary,{exact:true})).toBeVisible();
   await expect(page.getByText(SELECTORS.blocked,{exact:true})).toBeVisible();
   await expect(page.getByTestId('valuation-v1-panel')).toBeVisible();
+  await expect(page.getByTestId('institutional-hold-description')).toBeVisible();
+  await expect(page.getByTestId('institutional-hold-count')).toContainText('عدد متطلبات التعليق:');
+  const readableReasons=page.getByTestId('institutional-hold-reasons');
+  await expect(readableReasons.locator('li').first()).toBeVisible();
+  const written=await readableReasons.innerText();
+  assert(!written.includes('محتوى واجهة غير معرّب'),'C65 Arabic blocker masking');
+  assert(!written.includes('حالة نظامية غير معرّفة'),'C65 undefined Arabic legal status');
+  assert(!written.includes('C62_'),'C65 raw internal code leaked');
   await expect(page.getByTestId('valuation-institutional-hold')).toHaveAttribute(
     'data-c62-status','HOLD_EXTERNAL_EVIDENCE_AND_DECISION_AUTHORITY'
   );

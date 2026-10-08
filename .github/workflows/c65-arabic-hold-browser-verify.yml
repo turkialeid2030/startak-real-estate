@@ -1,0 +1,56 @@
+name: C65 Arabic Institutional Hold Disclosure Real Browser
+on:
+  pull_request:
+    branches:
+      - c63-chromium-valuation-live-e2e-20261008
+    paths:
+      - 'src/app/institutional-valuation-reason-presentation.js'
+      - 'src/components/ValuationIntelligenceBasePanel.jsx'
+      - 'tests/architecture/run_c65_institutional_arabic_reasons.js'
+      - 'tests/e2e/run_c63_live_chromium_valuation_e2e.js'
+      - 'docs/C65_INSTITUTIONAL_HOLD_ARABIC_DISCLOSURE.md'
+      - '.github/workflows/c65-arabic-hold-browser-verify.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Verify commit to test
+        if: github.event_name == 'pull_request'
+        run: test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+      - run: npm ci
+      - name: C65 Arabic English audit-source mapping
+        run: node tests/architecture/run_c65_institutional_arabic_reasons.js
+      - name: Exact production build
+        run: npm run build
+      - name: Install Chromium browser
+        run: npx playwright install --with-deps chromium
+      - name: Serve production application
+        run: |
+          (nohup npm run preview -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/c65-preview.log 2>&1 &)
+          for n in $(seq 1 60); do
+            if curl --silent --fail http://127.0.0.1:4173/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/c65-preview.log
+          exit 1
+      - name: Real browser hold reasons and saved deal roundtrip
+        env:
+          STARTAK_E2E_URL: http://127.0.0.1:4173
+        run: node tests/e2e/run_c63_live_chromium_valuation_e2e.js
+      - run: node tests/architecture/run_c62_live_institutional_valuation_boundary.js
+      - run: npm run verify:package
+      - run: npm run release:verify
+      - run: npm audit --audit-level=low
