@@ -73,6 +73,7 @@ function evaluateSaudiHistoricalCohort({ replayPlan, replayRecord, asOf, registr
   if (!rows.length) blockers.push('REAL_SAUDI_HISTORICAL_CASES_NOT_SUPPLIED');
   if (!registrationValid || !valid(asOf)) return hold(blockers);
 
+  if (!replayPlan || !replayRecord) return hold(['C51_REPLAY_PLAN_AND_RECORD_REQUIRED']);
   const c51 = evaluateExternalHistoricalReplayForGateIngestion({replayPlan,replayRecord,asOf});
   if (c51.status !== C51_STATUS.READY_FOR_C30_GATE_INGESTION) blockers.push('C51_INDEPENDENT_HISTORICAL_REPLAY_GATE_NOT_READY');
 
@@ -101,6 +102,7 @@ function evaluateSaudiHistoricalCohort({ replayPlan, replayRecord, asOf, registr
     const identity = row.propertyIdentityRef + '|' + row.comparatorAsOf + '|' + row.comparatorEvidenceRef;
     if (seenFacts.has(identity)) blockers.push('DUPLICATE_MARKET_TRUTH:' + id);
     seenFacts.add(identity);
+    if (Date.parse(registration.predeclaredAt) > Date.parse(row.modelIssuedAt)) blockers.push('PROTOCOL_DECLARED_AFTER_MODEL_PREDICTION:' + id);
     if (Date.parse(row.modelIssuedAt) > Date.parse(row.comparatorAsOf)) blockers.push('FUTURE_INFORMATION_LEAKAGE:' + id);
     if (Date.parse(row.comparatorAsOf) > Date.parse(asOf)) blockers.push('FUTURE_COMPARATOR_TRUTH:' + id);
     if (row.split === 'CALIBRATION' && Date.parse(row.comparatorAsOf) > Date.parse(registration.calibrationEndDate)) {
@@ -121,7 +123,12 @@ function evaluateSaudiHistoricalCohort({ replayPlan, replayRecord, asOf, registr
   }
   if (blockers.length) return hold(blockers, {casesSupplied: rows.length, holdoutCount: h.length});
 
-  const validate = evaluateExternalValuationValidation({observations: h, policy: validationPolicy});
+  let validate;
+  try {
+    validate = evaluateExternalValuationValidation({observations: h, policy: validationPolicy});
+  } catch (error) {
+    return hold(['EXTERNAL_VALIDATION_POLICY_INVALID'], {errorName: error.name});
+  }
   const segments = {};
   const groups = new Map();
   for (const row of h) {
