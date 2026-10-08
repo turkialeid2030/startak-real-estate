@@ -71,6 +71,7 @@ export default function GovernedHumanReviewPanel({ valuationCase, locale = 'ar-S
   const vm = context.viewModel;
   const review = vm?.review || null;
   const canRecord = vm?.canRecordReview === true;
+  const c71SpecialistHold = vm?.c5Status === 'HOLD_SPECIALIST_METHOD_NOT_QUALIFIED';
   const canExport = vm?.canExportReviewedOutput === true;
   const rtl = locale !== 'en';
 
@@ -157,6 +158,14 @@ export default function GovernedHumanReviewPanel({ valuationCase, locale = 'ar-S
             <span data-testid="c6-review-status">{vm?.status || 'UNAVAILABLE'}</span>
           </StatusBadge>
         </div>
+
+        {c71SpecialistHold ? (
+          <div data-testid="c71-specialist-export-hold" role="status" className="mt-3 rounded-lg border border-amber-700/70 bg-amber-950/20 p-3 text-xs text-amber-200">
+            {text(locale,
+              'تصدير التقارير التحليلية والمراجعة البشرية لهذا العقار المتخصص معلّق. لا يعمل حاليًا منهج تقييم متخصص معتمد، ولا تكفي المراجع النصية أو لقطة القرار لمنح أي صلاحية تقييم أو تصدير.',
+              'Specialist analytical export and human review are ON HOLD. No qualified specialist valuation method is operational; textual references or a decision snapshot cannot establish an appraisal or report authority.')}
+          </div>
+        ) : null}
 
         {vm?.reasonCodes?.length ? (
           <div data-testid="c6-review-hold-reasons" className="mt-4 rounded-lg border border-amber-800/60 bg-amber-950/20 p-3 text-xs text-amber-200" role="status">
