@@ -41,8 +41,8 @@ const base={
 };
 const ready=assessMarketRateProvenance(base);
 assert.equal(ready.status,STATUS.READY_FOR_EXTERNAL_AUTHENTICATION);
-assert.equal(ready.medianObservedCapRate,0.075);
-assert.equal(ready.entryVsMedianBps,0);
+assert(Math.abs(ready.medianObservedCapRate-0.075)<1e-12);
+assert(Math.abs(ready.entryVsMedianBps)<1e-9);
 assert.equal(ready.comparablesCount,2);
 assert.equal(ready.stressTerminalValuesSar[0].terminalValueSar,15000000);
 assert(ready.stressTerminalValuesSar[1].terminalValueSar<ready.stressTerminalValuesSar[0].terminalValueSar);
