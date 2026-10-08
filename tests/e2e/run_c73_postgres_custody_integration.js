@@ -62,6 +62,39 @@ async function run(){
   'no document bytes persisted to signed ledger');
  const readA=await service.get({request:{sessionToken:'a'},documentId:'DOC-100'});
  const readB=await service.get({request:{sessionToken:'b'},documentId:'DOC-100'});
+ // Even a privileged accidental SQL modification cannot silently break the
+ // append-only audit event store while the HMAC head still appears valid.
+ const auditA=await admin.query(
+  "SELECT event_tag,event_json FROM c73.custody_events WHERE tenant_id='tenant-a' AND document_id='DOC-100' AND revision=1");
+ await admin.query("UPDATE c73.custody_events SET event_tag=$1 WHERE tenant_id='tenant-a' AND document_id='DOC-100' AND revision=1",
+  ['0'.repeat(64)]);
+ try{
+  await denied(()=>service.get({request:{sessionToken:'a'},documentId:'DOC-100'}),
+   /C73_AUDIT_CONTINUITY_BROKEN/);
+ }finally{
+  await admin.query("UPDATE c73.custody_events SET event_tag=$1 WHERE tenant_id='tenant-a' AND document_id='DOC-100' AND revision=1",
+   [auditA.rows[0].event_tag]);
+ }
+ // Swap a correctly signed, *fully consistent* A ledger/head/event into B's
+ // database row. It must still be rejected before returning cross-tenant data.
+ const backupB=await admin.query(
+  "SELECT revision,head_tag,ledger FROM c73.custody_heads WHERE tenant_id='tenant-b' AND document_id='DOC-100'");
+ const backupBEvent=await admin.query(
+  "SELECT event_tag,event_json FROM c73.custody_events WHERE tenant_id='tenant-b' AND document_id='DOC-100' AND revision=1");
+ await admin.query("UPDATE c73.custody_heads SET revision=$1,head_tag=$2,ledger=$3::jsonb WHERE tenant_id='tenant-b' AND document_id='DOC-100'",
+  [1,one.ledger.headTag,JSON.stringify(one.ledger)]);
+ await admin.query("UPDATE c73.custody_events SET event_tag=$1,event_json=$2::jsonb WHERE tenant_id='tenant-b' AND document_id='DOC-100' AND revision=1",
+  [one.ledger.headTag,JSON.stringify(one.ledger.events[0])]);
+ try{
+  await denied(()=>service.get({request:{sessionToken:'b'},documentId:'DOC-100'}),
+   /C73_DB_ROW_SCOPE_MISMATCH/);
+ }finally{
+  await admin.query("UPDATE c73.custody_heads SET revision=$1,head_tag=$2,ledger=$3::jsonb WHERE tenant_id='tenant-b' AND document_id='DOC-100'",
+   [backupB.rows[0].revision,backupB.rows[0].head_tag,JSON.stringify(backupB.rows[0].ledger)]);
+  await admin.query("UPDATE c73.custody_events SET event_tag=$1,event_json=$2::jsonb WHERE tenant_id='tenant-b' AND document_id='DOC-100' AND revision=1",
+   [backupBEvent.rows[0].event_tag,JSON.stringify(backupBEvent.rows[0].event_json)]);
+ }
+
  check(readA.ledger.scope.tenantId==='tenant-a'&&readB.ledger.scope.tenantId==='tenant-b',
   'tenant scopes segregated in the real database');
  await denied(()=>service.get({request:{sessionToken:'view',tenantId:'tenant-b'},documentId:'DOC-B'}),
