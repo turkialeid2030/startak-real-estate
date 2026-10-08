@@ -80,7 +80,7 @@ const COPY = Object.freeze({
     configError: 'تعذر تطبيق إعدادات التقييم',
     runtimeError: 'تعذر تشغيل طبقة التقييم لهذه الحالة. بقيت الدراسة الأساسية دون تغيير.',
     currentStatus: 'حالة التقييم',
-    finalValue: 'القيمة النهائية المؤهلة',
+    finalValue: 'مؤشر القيمة الحسابي الأولي (غير معتمد)',
     reasons: 'أسباب التعليق / عدم الإتاحة',
     evidenceGaps: 'فجوات الأدلة أو المدخلات',
     methods: 'المناهج',
@@ -159,7 +159,7 @@ const COPY = Object.freeze({
     configError: 'Valuation configuration could not be applied',
     runtimeError: 'The valuation layer could not run for this case. The base study remains unchanged.',
     currentStatus: 'Valuation status',
-    finalValue: 'Qualified final value',
+    finalValue: 'Preliminary calculation (not certified)',
     reasons: 'Hold / unavailability reasons',
     evidenceGaps: 'Evidence or input gaps',
     methods: 'Methods',
@@ -363,6 +363,7 @@ export default function ValuationIntelligencePanel({
 
   const presentation = runtime?.presentation || null;
   const stage = runtime?.stage || null;
+  const institutionalDecision = runtime?.institutionalDecision || null;
   const isLegacyOnly = !valuationCase || runtime?.mode === VALUATION_RUNTIME_MODE.LEGACY_ONLY;
   const finalValue = presentation ? money(presentation.finalValue, locale) : null;
 
@@ -423,6 +424,18 @@ export default function ValuationIntelligencePanel({
         </span>
       </div>
 
+      {institutionalDecision ? (
+        <div dir={locale === 'ar-SA' ? 'rtl' : 'ltr'}
+          className="my-3 rounded-md border px-3 py-2 text-xs"
+          style={{ borderColor: COLORS.caution, color: COLORS.caution }}>
+          {locale === 'ar-SA'
+            ? 'الاعتماد الاستثماري والتقييم المهني والتصدير الرسمي: معلّق. نتائج المناهج أدناه مؤشرات حسابية أولية فقط؛ لم يثبت التحقق الخارجي من الصفقات وحقوق المصادر وموافقة المقيم المختص.'
+            : 'Institutional decision, certified appraisal and governed export: ON HOLD. The methods below are preliminary calculations; independent market-source, data-rights and specialist authority checks remain outstanding.'}
+          <div className="mt-1 font-mono text-[10px]">
+            {institutionalDecision.status} · {institutionalDecision.blockers?.length || 0} blockers
+          </div>
+        </div>
+      ) : null}
       {runtimeError ? (
         <div className="mt-4 rounded-xl px-3 py-3 flex gap-2" style={{ border: `1px solid ${COLORS.negative}`, background: 'rgba(180,84,74,0.12)' }}>
           <XCircle size={16} style={{ color: COLORS.negative, flexShrink: 0 }} />
