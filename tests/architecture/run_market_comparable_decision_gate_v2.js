@@ -63,6 +63,8 @@ held(indication([comparable('X3', undefined, { date: null }), comparable('X4')])
   'MARKET_COMPARABLE_TRANSACTION_DATE_REQUIRED');
 held(indication([comparable('F1', undefined, { date: '2026-09-02' }), comparable('F2')]),
   'MARKET_COMPARABLE_DATE_AFTER_VALUATION');
+held(indication([comparable('I1', undefined, { date: '2026-02-30' }), comparable('I2')]),
+  'MARKET_COMPARABLE_TRANSACTION_DATE_REQUIRED');
 held(indication([comparable('G1', undefined, { grade: EVIDENCE_GRADE.E_MARKET_OBSERVATION }), comparable('G2')]),
   'MARKET_COMPARABLE_EXECUTED_EVIDENCE_GRADE_INSUFFICIENT');
 held(indication([comparable('D'), comparable('D')]),
