@@ -36,6 +36,12 @@ jobs:
           test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
       - name: Install locked dependencies
         run: npm ci
+      - name: Identify high-severity dependency (diagnostic only)
+        shell: bash
+        run: |
+          npm audit --json > .c54-audit.json || true
+          node -e 'const a=require("./.c54-audit.json"); for (const [name,v] of Object.entries(a.vulnerabilities||{})) if (v.severity==="high"||v.severity==="critical") console.log(JSON.stringify({name,severity:v.severity,range:v.range,via:v.via,fixAvailable:v.fixAvailable}));'
+          rm -f .c54-audit.json
       - name: C54 adversarial comparable gate tests
         run: node tests/architecture/run_market_comparable_decision_gate_v2.js
       - name: Existing valuation engine regression
