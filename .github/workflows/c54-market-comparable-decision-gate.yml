@@ -6,6 +6,7 @@ on:
       - c53-private-alpha-source-acquisition-runtime
     paths:
       - 'src/valuation-intelligence/market-comparables.js'
+      - 'package-lock.json'
       - 'tests/architecture/run_market_comparable_decision_gate_v2.js'
       - '.github/workflows/c54-market-comparable-decision-gate.yml'
       - 'docs/C54_MARKET_COMPARABLE_DECISION_GATE.md'
