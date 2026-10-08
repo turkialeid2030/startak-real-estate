@@ -17,6 +17,10 @@ const SCOPE_FIELDS = Object.freeze([
   'tenantId','caseId','projectId','propertyRef','valuationDate','documentId',
   'evidenceType','referenceId','artifactVersion','mediaType','sizeBytes','sha256Hex','nonce',
 ]);
+const REQUEST_FIELDS = Object.freeze([
+  'tenantId','caseId','projectId','propertyRef','valuationDate','documentId',
+  'evidenceType','referenceId','artifactVersion','mediaType',
+]);
 const LEDGER_FIELDS = Object.freeze(['schemaVersion','keyRef','scope','events','headTag']);
 const EVENT_FIELDS = Object.freeze(['sequence','kind','actorRef','observedAt','previousTag','tag']);
 const STATE = Object.freeze({
@@ -180,7 +184,7 @@ function verifyCustodyLedger(ledger,{key,keyRef,expectedScope,expectedHeadTag,
 function createCustodyLedger({key,keyRef,scope,bytes,actorRef,observedAt}={}){
   secretKey(key);string(keyRef,'C73_KEY_REF_REQUIRED');
   const raw=byteBuffer(bytes);
-  if(!scope||typeof scope!=='object')throw new TypeError('C73_SCOPE_REQUIRED');
+  exactKeys(scope,REQUEST_FIELDS,'C73_INPUT_SCOPE_UNEXPECTED_OR_MISSING_FIELD');
   const mediaType=scope.mediaType;
   if(!Object.hasOwn(TYPES,mediaType)||!matchesSignature(raw,mediaType))
     throw new TypeError('C73_FILE_HEADER_OR_MIME_REJECTED');
