@@ -120,11 +120,11 @@ async function run(){
  const poisonSignature={...witness,
   readCheckpoint:async id=>{
    const actual=await witness.readCheckpoint(id);
-   return {...actual,signature:actual.signature.slice(0,-2)+'aa'};
+   return {...actual,signature:(actual.signature[0]==='A'?'B':'A')+actual.signature.slice(1)};
   }};
  const poisoned=createWitnessedCustodyGate({...options,witness:poisonSignature});
  await denies(()=>poisoned.get({request:request('a'),documentId:d}),/C73_WITNESS_SIGNATURE_HOLD/);
- const wrongKey=generateKeyPairSync('ed25519').publicKey;
+ const wrongKey=generateKeyPairSync('ed25519').publicKey.export({format:'pem',type:'spki'});
  const counterfeit=createWitnessedCustodyGate({...options,publicKey:wrongKey});
  await denies(()=>counterfeit.get({request:request('a'),documentId:d}),/C73_WITNESS_SIGNATURE_HOLD/);
  const aged=createWitnessedCustodyGate({...options,clock:()=>new Date(Date.now()+600000)});
