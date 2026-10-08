@@ -1,0 +1,219 @@
+name: C74 Whole-System Financial, Browser and Adversarial Simulation
+on:
+  pull_request:
+    branches:
+      - c72-real-browser-file-byte-sha256-specialist-20261008
+    paths:
+      - 'tests/architecture/run_c74_financial_reproducible_simulation.js'
+      - '.github/workflows/c74-whole-system-financial-browser-adversarial-verify.yml'
+      - 'docs/C74_WHOLE_SYSTEM_QUALIFICATION_SCOPE.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  finance:
+    name: Financial, Valuation and Deterministic Simulation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Exact-head attestation
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - run: npm ci
+      - name: Eight-seed land and building calculations + independent NPV IRR DSCR oracle + 9000 MC draws
+        run: node tests/architecture/run_c74_financial_reproducible_simulation.js
+      - name: Valuation and financing methods including development timing
+        run: |
+          set -euo pipefail
+          node tests/architecture/run_wave11c_development_residual.js
+          node tests/architecture/run_wave11d_development_sensitivity.js
+          node tests/architecture/run_c55_dated_development_residual.js
+          node tests/architecture/run_wave12a_professional_income_noi.js
+          node tests/architecture/run_wave12b_direct_capitalization.js
+          node tests/architecture/run_wave12c_professional_dcf.js
+          node tests/architecture/run_wave12d_investment_financing_metrics.js
+          node tests/defects/c7_governed_correlated_monte_carlo.js
+          node tests/defects/financial_integrity_p7_monte_carlo.js
+      - name: Real estate source/method readiness and specialist financial holds
+        run: |
+          set -euo pipefail
+          node tests/architecture/run_c58_comparable_provenance_chain.js
+          node tests/architecture/run_c59_componentized_cost_obsolescence.js
+          node tests/architecture/run_c60_income_rate_provenance.js
+          node tests/architecture/run_c61_specialized_property_operational_gates.js
+          node tests/architecture/run_c62_live_institutional_valuation_boundary.js
+          node tests/architecture/run_c72_specialist_document_byte_hash.js
+      - name: Save deterministic synthetic financial evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: c74-financial-synthetic-evidence
+          path: |
+            runtime-evidence/c74/
+            runtime-evidence/deep-platform/financial-metamorphic-*.json
+          if-no-files-found: warn
+  browser:
+    name: Production-Bundle AR EN Mobile Desktop and Asset Journeys
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Exact-head attestation
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: C40 accessibility and C41 full AR/EN desktop/mobile UX matrix
+        run: npx playwright test tests/e2e/c40_platform_exhaustive.spec.js tests/e2e/c41_full_surface_matrix.spec.js --project=chromium
+      - name: Compile and host exact production bundle
+        run: |
+          set -euo pipefail
+          npm run build
+          (nohup npm run preview -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/c74-preview.log 2>&1 &)
+          for n in $(seq 1 80); do
+            if curl --silent --fail http://127.0.0.1:4173/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/c74-preview.log
+          exit 1
+      - name: Real Chromium property classes, land, specialists, evidence and report refusals
+        env:
+          STARTAK_E2E_URL: http://127.0.0.1:4173
+        run: |
+          set -euo pipefail
+          node tests/e2e/run_c63_live_chromium_valuation_e2e.js
+          node tests/e2e/run_c64_land_live_chromium.js
+          node tests/e2e/run_c69_real_specialist_browser.js
+          node tests/e2e/run_c70_live_specialist_reference_browser.js
+          node tests/e2e/run_c71_c5_c6_specialist_report_browser.js
+          node tests/e2e/run_c72_specialist_real_file_hash_browser.js
+      - name: Save failure-only Playwright diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: c74-browser-evidence
+          path: |
+            test-results/
+            playwright-report/
+            /tmp/c74-preview.log
+          if-no-files-found: warn
+  security:
+    name: Decision Integrity, Source Rights and Privacy Hard Gates
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Exact-head attestation
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - run: npm ci
+      - name: Cross-layer decisions, references, storage, security & lifecycle
+        run: |
+          set -euo pipefail
+          node tests/defects/c40_comprehensive_platform_verification.js
+          node tests/defects/c41_full_platform_reliability_qualification.js
+          node tests/defects/c24_integrated_case_property_orchestration.js
+          node tests/defects/c4_governed_deal_decision_report_integration.js
+          node tests/defects/c5_governed_decision_ui_export_integration.js
+          node tests/defects/c6_controlled_human_review_workflow.js
+          node tests/architecture/run_lifecycle_fail_closed_stress_v1.js
+          node tests/architecture/run_c70_live_specialist_reference_intake.js
+          node tests/architecture/run_c71_specialist_c5_c6_canonical_hard_gate.js
+      - name: Saudi-source rights, PDPL and independent human UAT gates (not self-attested)
+        run: |
+          set -euo pipefail
+          npm run test:c47:privacy
+          npm run test:c49:source-data-rights
+          npm run test:c50:human-uat-readiness
+          node tests/architecture/run_document_intelligence_case_isolation.js
+          node tests/architecture/run_tenant_boundary_security_v1.js
+          node tests/architecture/run_c72_specialist_document_byte_hash.js
+      - name: No critical/high/moderate/low dependency advisories
+        run: npm audit --audit-level=low
+  release:
+    name: Canonical Whole-System Regression and Package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Exact-head attestation
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - run: npm ci
+      - run: npm test
+      - run: npm run test:decision-integrity
+      - run: npm run build
+      - run: npm run verify:package
+      - run: npm run release:verify
+      - run: npm audit --audit-level=low
+  gate:
+    name: C74 Exact-Head Results Gate
+    if: always()
+    needs: [finance,browser,security,release]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Report actual outcomes and fail closed on any required failure
+        env:
+          FINANCE: ${{ needs.finance.result }}
+          BROWSER: ${{ needs.browser.result }}
+          SECURITY: ${{ needs.security.result }}
+          RELEASE: ${{ needs.release.result }}
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          echo "C74_CANDIDATE_SHA=$EXPECTED_SHA"
+          echo "C74_FINANCE=$FINANCE C74_BROWSER=$BROWSER C74_SECURITY=$SECURITY C74_RELEASE=$RELEASE"
+          {
+            echo "# C74 exact-head engineering qualification"
+            echo
+            echo "Commit: \`$EXPECTED_SHA\`"
+            echo
+            echo "| Required independent job | Status |"
+            echo "|---|---|"
+            echo "| Financial simulations | $FINANCE |"
+            echo "| Arabic/English browser & property journeys | $BROWSER |"
+            echo "| Security/privacy/authority refusal | $SECURITY |"
+            echo "| Full regression/release/package | $RELEASE |"
+            echo
+            echo "External Saudi data provenance, rights, professional license, human UAT and production approval: **HOLD / NOT TESTED WITH REAL INDEPENDENT EVIDENCE**."
+          } >> "$GITHUB_STEP_SUMMARY"
+          for status in "$FINANCE" "$BROWSER" "$SECURITY" "$RELEASE"; do
+            if [ "$status" != success ]; then
+              echo "C74_SYSTEM_QUALIFICATION=FAIL"
+              exit 1
+            fi
+          done
+          echo "C74_SYSTEM_QUALIFICATION=PASS_SYNTHETIC_ENGINEERING_ONLY"
