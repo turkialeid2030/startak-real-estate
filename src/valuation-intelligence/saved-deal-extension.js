@@ -59,6 +59,7 @@ function validateValuationCaseExtension(extension) {
     'criticalEvidenceRequirements',
     'singleMethodPolicy',
     'reconciliationPolicy',
+    'institutionalEvidence',
   ]) validateOptionalObject(extension, field);
 
   return extension;
