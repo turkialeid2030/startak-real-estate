@@ -186,7 +186,7 @@ const interest=buildSpecializedInterestSeparationPacket({
  reviewedByRef:'REVIEWER',reviewedAt:'2026-01-07',reviewEvidenceRef:'SPECIALIST-REVIEW',
 });
 assert.strictEqual(interest.readyForSpecializedValuationPremiseReview,true);
-function checks(){return CHECKS.map(type=>({
+function specialistEvidence(){return CHECKS.map(type=>({
  type,status:'CONFIRMED',evidenceRef:'SYNTHETIC-'+type,artifactSha256:'c'.repeat(64),
  reviewedByRef:'TEST-REVIEWER',reviewedAt:'2026-01-08',
 }));}
@@ -202,7 +202,7 @@ const hotelParams={
  assetType:'HOTEL_FULL_SERVICE',caseId:'CASE-14B',propertyRef:'PROP-14B',
  valuationDate:'2026-01-01',asOf:'2026-01-09',
  hotelMetricsPacket:hotelMetrics,interestSeparationPacket:interest,
- hotelIncomeBridge:hotelBridge,specialistChecks:checks(),
+ hotelIncomeBridge:hotelBridge,specialistChecks:specialistEvidence(),
 };
 function hold(p,reason){const x=evaluateSpecializedAssetEvidence(p);assert.equal(x.status,STATUS.HOLD);
  if(reason)assert(x.blockers.some(z=>z.includes(reason)),x.blockers.join('; '));}
@@ -217,8 +217,8 @@ hold({...hotelParams,hotelIncomeBridge:{...hotelBridge,reportedRealPropertyNoiSa
   'BRIDGE_ARITHMETIC_INCONSISTENT');
 hold({...hotelParams,hotelIncomeBridge:{...hotelBridge,auditedStatementsRef:null}},
   'HOTEL_REAL_PROPERTY_NOI_BRIDGE_INCOMPLETE');
-hold({...hotelParams,specialistChecks:checks().slice(1)},'SPECIALIST_CONTROL_UNRESOLVED');
-hold({...hotelParams,specialistChecks:[...checks().slice(0,4),{...checks()[4],status:'REVIEWED_NOT_APPLICABLE',notApplicableRationale:'bad'},...checks().slice(5)]},
+hold({...hotelParams,specialistChecks:specialistEvidence().slice(1)},'SPECIALIST_CONTROL_UNRESOLVED');
+hold({...hotelParams,specialistChecks:[...specialistEvidence().slice(0,4),{...specialistEvidence()[4],status:'REVIEWED_NOT_APPLICABLE',notApplicableRationale:'bad'},...specialistEvidence().slice(5)]},
   null);
 
 const industrialSpec=createIndustrialLogisticsAssetSpec({
@@ -234,7 +234,7 @@ const industrialSpec=createIndustrialLogisticsAssetSpec({
 const industrialParams={
  assetType:INDUSTRIAL_SUBTYPE.WAREHOUSE,
  caseId:'IND-CASE',propertyRef:'IND-PROP',valuationDate:'2026-01-01',asOf:'2026-01-09',
- industrialSpec,specialistChecks:checks(),
+ industrialSpec,specialistChecks:specialistEvidence(),
 };
 const industry=evaluateSpecializedAssetEvidence(industrialParams);
 assert.equal(industry.status,STATUS.READY_FOR_EXTERNAL_SPECIALIST_REVIEW);
@@ -244,10 +244,10 @@ hold({...industrialParams,industrialSpec:{...industrialSpec,buildingPermitStatus
 hold({...industrialParams,industrialSpec:{...industrialSpec,metadata:{designFloorLoadKnPerSqm:0}}},'INDUSTRIAL_FULL_INSPECTION');
 hold({...industrialParams,industrialSpec:{...industrialSpec,leaseStructure:LEASE_STRUCTURE.UNKNOWN}},
  'INDUSTRIAL_LEASE_BURDEN_UNDEFINED');
-hold({...industrialParams,specialistChecks:checks().map(x=>x.type==='environmentalContamination'?
+hold({...industrialParams,specialistChecks:specialistEvidence().map(x=>x.type==='environmentalContamination'?
  {...x,status:'REVIEWED_NOT_APPLICABLE',notApplicableRationale:'No supporting soil study'}:x)},
  'INDUSTRIAL_ENVIRONMENTAL_REVIEW_REQUIRED');
-hold({...industrialParams,specialistChecks:checks().map(x=>x.type==='titleInterest'?
+hold({...industrialParams,specialistChecks:specialistEvidence().map(x=>x.type==='titleInterest'?
  {...x,status:'REVIEWED_NOT_APPLICABLE',notApplicableRationale:'missing'}:x)},
  'MANDATORY_SPECIALIST_CONTROL_CANNOT_BE_SKIPPED');
 console.log('C61_SPECIALIZED_PROPERTY_OPERATIONAL_GATES=PASS');
