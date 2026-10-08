@@ -28,6 +28,7 @@ const ADVANCED_PRESERVED_FIELDS = Object.freeze([
   'evidence',
   'criticalEvidenceRequirements',
   'reconciliationPolicy',
+  'institutionalEvidence',
 ]);
 
 function emptyValuationCaseDraft() {
