@@ -5,6 +5,9 @@ const assert=require('node:assert/strict');
 const {createServer}=require('node:http');
 const {generateKeyPairSync,createSign}=require('node:crypto');
 const fs=require('node:fs'),path=require('node:path');
+const fsp=require('node:fs/promises'),os=require('node:os');
+const {createEncryptedStagingVault}=require('../../src/security/c73-encrypted-staging-vault');
+const {createVaultBackedCustodyService}=require('../../src/security/c73-integrated-staging-custody');
 const {Pool}=require('pg');
 const {createOidcBearerAuthenticator}=require('../../src/security/oidc-bearer-authenticator');
 const {createPostgresCustodyService}=require('../../src/security/c73-postgres-custody-service');
@@ -18,7 +21,7 @@ const ISS='https://synthetic-idp.example.invalid/',AUD='startak-staging-custody'
 const baseEpoch=Math.floor(Date.parse('2026-10-08T15:00:00Z')/1000);
 const admin=new Pool({host:'127.0.0.1',port:5432,user:'postgres',
  password:process.env.C73_TEST_POSTGRES_PASSWORD||'local-ci-only',database:'postgres'});
-let app,server,checks=0;
+let app,server,vaultRoot,checks=0;
 function check(ok,msg){assert.ok(ok,msg);checks++;}
 function jwt(payload,header={}){
  const enc=x=>Buffer.from(JSON.stringify(x)).toString('base64url');
@@ -57,10 +60,23 @@ async function run(){
  });
  let clockTick=baseEpoch*1000;
  const now=()=>new Date(clockTick+=1000);
- const service=createPostgresCustodyService({pool:app,key,keyRef:'synthetic-http-hmac',clock:now,
+ const postgresCustody=createPostgresCustodyService({pool:app,key,keyRef:'synthetic-http-hmac',clock:now,
   // Only internal server envelope post-authentication; JSON fields are not read.
   verifyRequest:async r=>r?.__verifiedIdentity||null,
  });
+ vaultRoot=await fsp.mkdtemp(path.join(os.tmpdir(),'c73-3b-http-staging-'));
+ await fsp.chmod(vaultRoot,0o700);
+ const stagingVault=createEncryptedStagingVault({
+  rootPath:vaultRoot,key:require('node:crypto').randomBytes(32),keyRef:'synthetic-http-stage',
+  verifyRequest:async r=>r?.__verifiedIdentity||null,
+  scanner:async({bytes})=>{
+   if(bytes.includes(Buffer.from('SIMULATED_SCANNER_OUTAGE')))
+    throw Error('Simulated scanner downtime');
+   return {status:'CLEAN',engineRef:'synthetic-unlicensed-ci-scanner',
+    signatureRef:'synthetic-test-signature-only'};
+  },
+ });
+ const service=createVaultBackedCustodyService({custodyService:postgresCustody,vault:stagingVault});
  server=createServer(createCustodyHttpHandler({authenticator,custodyService:service,clock:now}));
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  base='http://127.0.0.1:'+server.address().port;
@@ -73,6 +89,12 @@ async function run(){
  check(first.data.verdict.status===STATE.INTEGRITY_MATCHED_UNVERIFIED,'not official source verification');
  check(first.data.verdict.professionalReportAuthorized===false &&
   first.data.verdict.sourceRightsVerified===false,'official authority blocked');
+ check(first.data.storage.status==='STAGED_ENCRYPTED_UNVERIFIED','authorized staging encrypted');
+ let objectNames=await fsp.readdir(vaultRoot);
+ check(objectNames.length===1,'first encrypted file stored on disk');
+ let ciphertext=await fsp.readFile(path.join(vaultRoot,objectNames[0]),'utf8');
+ check(!ciphertext.includes('C73_3A_SYNTHETIC_SENSITIVE_BYTES')&&!ciphertext.includes(enc(PDF)),
+  'no plaintext or original base64 persisted');
  check(!first.raw.includes('C73_3A_SYNTHETIC_SENSITIVE_BYTES')&&
   !first.raw.includes(enc(PDF)),'no file payload in returned metadata');
  check(first.headers.get('cache-control').includes('no-store'),'HTTP no store');
@@ -80,6 +102,18 @@ async function run(){
  const firstB=await call('POST','/v1/custody',b,{scope:scope('tenant-b'),bytesBase64:enc(PDF)});
  check(firstB.status===201&&firstB.data.ledger.scope.tenantId==='tenant-b',
   'same document ID in distinct tenant succeeds');
+ objectNames=await fsp.readdir(vaultRoot);
+ check(objectNames.length===2,'two encrypted objects with same document name isolated by tenant');
+ const outage=await call('POST','/v1/custody',a,{
+  scope:scope('tenant-a','DOC-SCANNER-OUTAGE'),
+  bytesBase64:enc(Buffer.from('%PDF-1.4\nSIMULATED_SCANNER_OUTAGE\n%%EOF\n')),
+ });
+ check(outage.status!==201,'scanner failure must not accept staging');
+ const held=await call('GET','/v1/custody/DOC-SCANNER-OUTAGE',a);
+ check(held.status===200&&held.data.verdict.status===STATE.HOLD_REVOKED,
+  'compensating revoke prevents active ledger after scan failure');
+ check((await fsp.readdir(vaultRoot)).length===2,
+  'failed scanner leaves no encrypted object');
  const getA=await call('GET','/v1/custody/DOC-HTTP',a);
  check(getA.status===200&&getA.data.ledger.scope.tenantId==='tenant-a','A read isolated');
  const getB=await call('GET','/v1/custody/DOC-HTTP',b);
@@ -142,11 +176,18 @@ async function run(){
  check(again.status!==200,'recheck revoked denied');
  const end=await call('GET','/v1/custody/DOC-HTTP',a);
  check(end.status===200&&end.data.verdict.status===STATE.HOLD_REVOKED,'revoked persisted');
+ check((await fsp.readdir(vaultRoot)).length===1,
+  'revoke removes A staged ciphertext while B remains isolated');
  check(!end.raw.includes(enc(PDF)),'retrieved manifest contains no bytes');
  const ambient=await app.query('SELECT * FROM c73.custody_heads');
  check(ambient.rowCount===0,'no leaked ambient tenant on pooled DB');
- console.log('C73_3A_REAL_HTTP_RSA_JWT_POSTGRES_CUSTODY=PASS checks='+checks);
+ console.log('C73_3B_REAL_HTTP_JWT_POSTGRES_AES_GCM_STAGING=PASS checks='+checks);
  console.log('C73_3A_PRODUCTION_JWKS_IDP_VAULT_RIGHTS=HOLD');
 }
 run().catch(e=>{console.error('C73_3A_REAL_HTTP_RSA_JWT_POSTGRES_CUSTODY=FAIL',e);process.exitCode=1;})
- .finally(async()=>{if(server)await new Promise(r=>server.close(r));if(app)await app.end();await admin.end();});
+ .finally(async()=>{
+  if(server)await new Promise(r=>server.close(r));
+  if(app)await app.end();
+  await admin.end();
+  if(vaultRoot)await fsp.rm(vaultRoot,{force:true,recursive:true});
+ });

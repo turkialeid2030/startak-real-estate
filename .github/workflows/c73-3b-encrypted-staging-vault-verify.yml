@@ -1,0 +1,127 @@
+name: C73.3B Encrypted Staging Vault Adversarial Verify
+on:
+  pull_request:
+    branches:
+      - c73-3a-authenticated-http-custody-gate-20261008
+    paths:
+      - 'src/security/c73-encrypted-staging-vault.js'
+      - 'src/security/c73-integrated-staging-custody.js'
+      - 'tests/e2e/run_c73_3a_real_http_signed_jwt.js'
+      - 'tests/architecture/run_c73_3b_encrypted_vault.js'
+      - 'docs/C73_3B_ENCRYPTED_STAGING_BOUNDARY.md'
+      - '.github/workflows/c73-3b-encrypted-staging-vault-verify.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  encrypted-vault:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Require exact candidate SHA
+        env:
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$SHA"
+      - run: npm ci
+      - name: Actual filesystem AES-GCM and denial simulations
+        run: |
+          set -euo pipefail
+          node tests/architecture/run_c73_3b_encrypted_vault.js
+          node tests/architecture/run_c73_signed_document_custody.js
+          node tests/architecture/run_c73_2_server_authorization_contract.js
+          node tests/architecture/run_c72_specialist_document_byte_hash.js
+      - name: Never bundle server-only vault into public React frontend
+        run: |
+          if grep -R 'c73-encrypted-staging-vault' src/app src/components src/main.jsx; then
+            echo "C73_3B_BROWSER_IMPORT=FAIL"
+            exit 1
+          fi
+          echo "C73_3B_BROWSER_IMPORT=PASS"
+      - run: npm run build
+      - run: npm audit --audit-level=low
+  real-http-integrated:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: local-ci-only
+          POSTGRES_USER: postgres
+          POSTGRES_DB: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Require exact HEAD
+        env:
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$SHA"
+      - run: npm ci
+      - name: Install isolated test-only PostgreSQL client
+        run: npm install --no-save --package-lock=false --ignore-scripts pg@8.16.3
+      - name: Real PostgreSQL plus signed JWT HTTP plus AES-GCM staged bytes
+        env:
+          C73_TEST_POSTGRES_PASSWORD: local-ci-only
+        run: |
+          set -euo pipefail
+          node tests/e2e/run_c73_3a_real_http_signed_jwt.js
+          node tests/e2e/run_c73_postgres_custody_integration.js
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Require exact candidate SHA
+        env:
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$SHA"
+      - run: npm ci
+      - run: npm run release:verify
+      - run: npm run verify:package
+      - run: npm audit --audit-level=low
+  gate:
+    if: always()
+    needs: [encrypted-vault,real-http-integrated,release]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Fail closed unless required jobs are successful
+        env:
+          VAULT: ${{ needs.encrypted-vault.result }}
+          HTTP: ${{ needs.real-http-integrated.result }}
+          RELEASE: ${{ needs.release.result }}
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          echo "C73_3B_SHA=$SHA C73_3B_VAULT=$VAULT C73_3B_HTTP=$HTTP C73_3B_RELEASE=$RELEASE"
+          test "$VAULT" = success
+          test "$HTTP" = success
+          test "$RELEASE" = success
+          echo "C73_3B_ENCRYPTED_STAGING=PASS_SYNTHETIC_ENGINEERING_ONLY"
+          echo "C73_PRODUCTION_KMS_CLOUD_REGION_MALWARE_RIGHTS_VALUER=HOLD"
