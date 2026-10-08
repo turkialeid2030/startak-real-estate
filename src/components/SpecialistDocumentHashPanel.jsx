@@ -1,4 +1,4 @@
-import React,{useEffect,useState} from 'react';
+import React,{useEffect,useRef,useState} from 'react';
 const {ASSET_CLASS}=require('../project-model/project-profile');
 const {
  EVIDENCE_TYPES,normalizeSpecialistReferenceIntake,
@@ -55,6 +55,11 @@ export default function SpecialistDocumentHashPanel({
  const [error,setError]=useState(null);
  const [done,setDone]=useState(null);
  const [busy,setBusy]=useState(false);
+ const caseRef=useRef(valuationCase);
+ // Always compare with the most recent rendered case, not the async handler's closure.
+ caseRef.current=valuationCase;
+ const operationRef=useRef(0);
+ useEffect(()=>()=>{operationRef.current+=1;},[]);
  useEffect(()=>{setError(null);setDone(null);},[valuationCase]);
  if(!enabled)return null;
  const copy=MESSAGES[locale==='en'?'en':'ar'];
@@ -65,30 +70,41 @@ export default function SpecialistDocumentHashPanel({
  let intake=null,manifest=null;
  try{
   intake=normalizeSpecialistReferenceIntake(rawIntake,cls);
-  manifest=normalizeManifest(rawManifest,intake);
+  manifest=normalizeManifest(rawManifest,intake,valuationCase);
  }catch{/* user-imported or outdated record must remain HOLD */}
  const invalid=assessment.invalid||Boolean(rawManifest&&!manifest);
  const onFile=async(type,event)=>{
   const file=event.target.files?.[0];
   event.target.value='';
   if(!file)return;
+  const startedCase=caseRef.current;
+  const operation=++operationRef.current;
   setError(null);setDone(null);setBusy(true);
   try{
-   if(!intake||invalid)throw new TypeError('C72_INVALID_CURRENT_CASE');
+   if(!intake||invalid||startedCase!==valuationCase)
+    throw new TypeError('C72_INVALID_CURRENT_CASE');
    const entry=await fingerprintLocalFile(file,intake,type);
-   const next=addDocumentHash(rawManifest,intake,entry);
+   // A different case, changed source reference, or superseded request must never receive the old digest.
+   if(operation!==operationRef.current||caseRef.current!==startedCase)
+    throw new TypeError('C72_STALE_ASYNC_CASE_CONTEXT');
+   const next=addDocumentHash(rawManifest,intake,entry,startedCase);
    onChangeValuationCase({
-    ...valuationCase,
+    ...startedCase,
     institutionalEvidence:{
-     ...(valuationCase.institutionalEvidence||{}),
+     ...(startedCase.institutionalEvidence||{}),
      specialistDocumentManifest:next,
     },
    });
    setDone(type);
-  }catch{setError(type);}
-  finally{setBusy(false);}
+  }catch{
+   if(operation===operationRef.current)setError(type);
+  }finally{
+   if(operation===operationRef.current)setBusy(false);
+  }
  };
  const clear=()=>{
+  operationRef.current+=1;
+  setBusy(false);
   if(!rawManifest)return;
   const {specialistDocumentManifest:_discarded,...kept}=
     valuationCase.institutionalEvidence||{};
