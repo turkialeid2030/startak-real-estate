@@ -6,25 +6,6 @@ import { fileURLToPath } from 'node:url';
 
 const packageJson = JSON.parse(fs.readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
 const browserCryptoShim = fileURLToPath(new URL('./src/runtime/browser-crypto-shim.js', import.meta.url));
-const c66DevEntrypoint = fileURLToPath(new URL('./src/main.jsx', import.meta.url));
-
-/**
- * C66: Vite native development serving cannot execute repo-owned static
- * CommonJS require statements (confirmed by real Chromium, issue #632).
- * Let Vite's dependency optimizer/Rolldown translate the *whole* local
- * source graph through one explicit synthetic bare module instead of
- * injecting window.require or rewriting financial/authenticated modules.
- * Applies only to dev; production entry/build is unchanged.
- */
-function startakDevelopmentCommonJsBridge() {
-  return {
-    name: 'startak-dev-local-commonjs-bridge',
-    apply: 'serve',
-    transformIndexHtml(html) {
-      return html.replace('src="/src/main.jsx"', 'src="/src/dev-bridge-entry.mjs"');
-    },
-  };
-}
 
 function normalizeCommit(value) {
   const raw = String(value || '').trim().toLowerCase();
@@ -80,20 +61,13 @@ function releaseManifestPlugin() {
 }
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), startakDevelopmentCommonJsBridge(), releaseManifestPlugin()],
-  optimizeDeps: {
-    // The aliased bare entry is intentionally selected as an optimized CJS
-    // dependency: the dev server otherwise leaves require() in source ESM.
-    include: ['@startak-local-app'],
-    force: true,
-  },
+  plugins: [react(), tailwindcss(), releaseManifestPlugin()],
   resolve: {
     // These aliases affect browser bundling only. Node qualification and test
     // execution keep using the native Node `crypto` implementation. The shim
     // intentionally exposes SHA-256 hashing only, which is the full browser
     // requirement of the currently reachable governance modules.
     alias: {
-      '@startak-local-app': c66DevEntrypoint,
       crypto: browserCryptoShim,
       'node:crypto': browserCryptoShim,
     },
