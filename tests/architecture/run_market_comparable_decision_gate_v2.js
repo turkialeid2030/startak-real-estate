@@ -83,4 +83,55 @@ const direct = assessMarketComparableDecisionReadiness({
   valuationDate: date,
 });
 assert.equal(direct.status, MARKET_COMPARABLE_DECISION_STATUS.READY);
+
+const {
+  ASSET_CLASS,
+  LIFECYCLE_STAGE,
+  INVESTMENT_STRATEGY,
+  INCOME_MODEL,
+  createProjectProfile,
+} = require('../../src/project-model/project-profile');
+const {
+  VALUATION_METHOD,
+  createValuationRequest,
+  orchestrateValuationStage,
+  METHOD_STATE,
+} = require('../../src/valuation-intelligence');
+
+const projectProfile = createProjectProfile({
+  projectId: 'C54-MARKET-ONLY-TEST',
+  projectName: 'C54 evidence gate synthetic office',
+  assetClasses: [ASSET_CLASS.OFFICE],
+  lifecycleStage: LIFECYCLE_STAGE.STABILIZED,
+  investmentStrategy: INVESTMENT_STRATEGY.CORE_INCOME,
+  incomeModel: INCOME_MODEL.LEASE_INCOME,
+  jurisdiction: { country: 'SA', city: 'Riyadh' },
+});
+const blockedRequest = createValuationRequest({
+  caseId: 'C54-HOLD-CASE',
+  projectId: projectProfile.projectId,
+  projectProfile,
+  methodInputs: {
+    [VALUATION_METHOD.MARKET_COMPARABLE]: {
+      comparables: [comparable('S-DIAG'), comparable('O-DIAG', TRANSACTION_STATUS.ASKING_SALE)],
+      subjectArea: 100,
+      basis: BASIS_OF_VALUE.MARKET_VALUE,
+      valuationDate: date,
+      currency: 'SAR',
+      weightingPolicy: WEIGHTING_POLICY.EQUAL,
+    },
+  },
+  evidencePolicy: { minEvidenceCount: 1, maxAssumptionBurdenRatio: 1, maxLowGradeRatio: 1 },
+  singleMethodPolicy: {
+    allowedMethod: VALUATION_METHOD.MARKET_COMPARABLE,
+    justification: 'Synthetic attempted override; invalid comparables still must fail closed.',
+  },
+});
+const blockedStage = orchestrateValuationStage(blockedRequest);
+const blockedMarket = blockedStage.methods.find(item => item.method === VALUATION_METHOD.MARKET_COMPARABLE);
+assert.equal(blockedMarket.state, METHOD_STATE.HOLD);
+assert.equal(blockedMarket.indication.status, INDICATION_STATUS.HOLD_EVIDENCE_CONFLICT);
+assert.equal(blockedStage.readyForDecisionControl, false);
+assert.equal(blockedStage.finalValue, null);
+
 console.log('C54_MARKET_COMPARABLE_DECISION_GATE=PASS');
