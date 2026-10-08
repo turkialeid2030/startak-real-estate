@@ -32,7 +32,7 @@ async function main(){
     assert(runtime.rootChildren>0,'React root is empty in actual native bundled dev');
     assert(!runtime.metadata?.productionDeploymentAuthorized,'Source dev must not authorize production');
     assert.equal(runtime.hasInjectedWindowRequire,false,'Global require shim is forbidden');
-    assert(runtime.scripts.some(s=>s.includes('@vite/client')),'Native dev must carry Vite client; NOT production preview');
+    assert(runtime.scripts.some(s=>s.includes('/bundledDevClient.mjs')),'Native Vite 8 bundledDev must serve its real development client, not production preview');
     assert.deepEqual(errors,[],'Browser errors: '+errors.join('; '));
     assert.deepEqual(failed,[],'Network failures: '+failed.join('; '));
     assert(!csp.some(s=>/require is not defined|Could not resolve|Unhandled/i.test(s)),
