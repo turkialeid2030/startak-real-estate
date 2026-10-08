@@ -48,7 +48,7 @@ jobs:
             exit 1
           }
       - name: Restore source code safety before qualification
-        run: test -z "$(git status --short -- src/components/ValuationIntelligenceBasePanel.jsx)"
+        run: test -z "$(git status --short -- src/components/LandDevelopmentInstitutionalNotice.jsx)"
       - name: Existing financial and land authority invariants
         run: |
           node tests/architecture/run_c64_land_institutional_hold.js
