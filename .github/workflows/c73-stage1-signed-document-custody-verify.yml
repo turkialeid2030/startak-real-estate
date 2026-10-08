@@ -1,0 +1,86 @@
+name: C73 Stage-1 Signed Document Custody Contract
+on:
+  pull_request:
+    branches:
+      - c74-system-wide-real-browser-finance-adversarial-simulation-20261008
+    paths:
+      - 'src/security/c73-signed-document-custody.js'
+      - 'tests/architecture/run_c73_signed_document_custody.js'
+      - 'docs/C73_1_SIGNED_CUSTODY_BOUNDARY.md'
+      - '.github/workflows/c73-stage1-signed-document-custody-verify.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  security-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Exact candidate SHA
+        env:
+          EXPECTED: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED"
+      - run: npm ci
+      - name: Signed custody and local hash negative regressions
+        run: |
+          set -euo pipefail
+          node tests/architecture/run_c73_signed_document_custody.js
+          node tests/architecture/run_c72_specialist_document_byte_hash.js
+          node tests/architecture/run_c71_specialist_c5_c6_canonical_hard_gate.js
+          node tests/architecture/run_c62_live_institutional_valuation_boundary.js
+          node tests/architecture/run_tenant_boundary_security_v1.js
+          node tests/architecture/run_professional_assignment_v1.js
+      - name: Browser-safety boundary cannot bundle server-only HMAC
+        run: |
+          set -euo pipefail
+          if grep -R 'c73-signed-document-custody' src/app src/components src/main.jsx; then
+            echo "C73_SERVER_ONLY_MODULE_BROWSER_IMPORT=FAIL"
+            exit 1
+          fi
+          echo "C73_SERVER_ONLY_MODULE_BROWSER_IMPORT=PASS"
+      - run: npm run build
+      - run: npm run verify:package
+      - run: npm audit --audit-level=low
+  independent-release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Exact candidate SHA
+        env:
+          EXPECTED: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED"
+      - run: npm ci
+      - run: npm run release:verify
+  gate:
+    if: always()
+    needs: [security-contract,independent-release]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Fail closed for any incomplete test job
+        env:
+          SECURITY: ${{ needs.security-contract.result }}
+          RELEASE: ${{ needs.independent-release.result }}
+        run: |
+          set -euo pipefail
+          echo "C73_1_SECURITY=$SECURITY"
+          echo "C73_1_RELEASE=$RELEASE"
+          test "$SECURITY" = success
+          test "$RELEASE" = success
+          echo "C73_1_ENGINEERING_CRYPTO_CONTRACT=PASS"
+          echo "C73_PROVENANCE_VAULT_SOURCE_RIGHTS_LICENSE_AUTHORITY=HOLD"
