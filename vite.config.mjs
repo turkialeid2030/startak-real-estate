@@ -6,6 +6,31 @@ import { fileURLToPath } from 'node:url';
 
 const packageJson = JSON.parse(fs.readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
 const browserCryptoShim = fileURLToPath(new URL('./src/runtime/browser-crypto-shim.js', import.meta.url));
+/**
+ * C68: exact Tailwind/Vite8 bundled-dev incompatibility remediation.
+ * The @tailwindcss/vite:generate:serve plugin's hotUpdate needs opts.server,
+ * but Vite bundledDev intentionally passes only { type, file, modules }.
+ * Its upstream fix short-circuits only this unsupported cross-environment
+ * hook when server is absent; other module transforms remain unchanged.
+ * This compatibility wrapper is opt-in for --experimental-bundle only.
+ */
+function startakTailwindBundledDevCompat(plugins) {
+  if (!process.argv.includes('--experimental-bundle')) return plugins;
+  const list=Array.isArray(plugins)?plugins:[plugins];
+  return list.map((plugin) => {
+    if (!plugin || plugin.name !== '@tailwindcss/vite:generate:serve'
+      || typeof plugin.hotUpdate !== 'function') return plugin;
+    const originalHotUpdate=plugin.hotUpdate;
+    return {
+      ...plugin,
+      hotUpdate(options) {
+        if (!options || !options.server) return undefined;
+        return originalHotUpdate.call(this,options);
+      },
+    };
+  });
+}
+
 
 function normalizeCommit(value) {
   const raw = String(value || '').trim().toLowerCase();
@@ -61,7 +86,7 @@ function releaseManifestPlugin() {
 }
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), releaseManifestPlugin()],
+  plugins: [react(), startakTailwindBundledDevCompat(tailwindcss()), releaseManifestPlugin()],
   resolve: {
     // These aliases affect browser bundling only. Node qualification and test
     // execution keep using the native Node `crypto` implementation. The shim
