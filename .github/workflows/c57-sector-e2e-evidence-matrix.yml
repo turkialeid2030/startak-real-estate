@@ -1,0 +1,39 @@
+name: C57 Sector E2E Evidence Completeness
+on:
+  pull_request:
+    branches:
+      - c56-saudi-historical-validation-cohort-20261008
+    paths:
+      - 'src/pilot/asset-sector-e2e-evidence-matrix.js'
+      - 'tests/pilot/run_c57_asset_sector_e2e_matrix.js'
+      - 'docs/C57_REAL_ASSET_SECTOR_E2E_PLAN.md'
+      - '.github/workflows/c57-sector-e2e-evidence-matrix.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Assert exact pull-request SHA
+        if: github.event_name == 'pull_request'
+        run: test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+      - run: npm ci
+      - name: C57 structural sector E2E evidence matrix
+        run: node tests/pilot/run_c57_asset_sector_e2e_matrix.js
+      - name: Preserve C56 independent validation regression
+        run: node tests/replay/run_c56_saudi_historical_cohort.js
+      - run: npm run build
+      - run: npm run verify:package
+      - run: npm run release:verify
+      - run: npm audit --audit-level=low
