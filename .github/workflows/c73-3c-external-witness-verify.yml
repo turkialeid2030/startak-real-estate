@@ -1,0 +1,82 @@
+name: C73.3C Signed Witness Security Verification
+on:
+  pull_request:
+    branches:
+      - c73-3b-encrypted-staging-evidence-vault-20261008
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  witness:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: local-ci-only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Verify exact PR head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - run: npm ci
+      - run: npm install --no-save --package-lock=false --ignore-scripts pg@8.16.3
+      - run: node tests/e2e/run_c73_3c_signed_witness_postgres.js
+        env:
+          C73_TEST_POSTGRES_PASSWORD: local-ci-only
+      - run: node tests/e2e/run_c73_3a_real_http_signed_jwt.js
+        env:
+          C73_TEST_POSTGRES_PASSWORD: local-ci-only
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Verify exact PR head
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - run: npm ci
+      - run: npm run release:verify
+      - run: npm run verify:package
+      - run: npm audit --audit-level=low
+
+  gate:
+    if: always()
+    needs: [witness,release]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Independent witness and release checks must both pass
+        env:
+          WITNESS: ${{ needs.witness.result }}
+          RELEASE: ${{ needs.release.result }}
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          echo "C73_3C_HEAD=$SHA WITNESS=$WITNESS RELEASE=$RELEASE"
+          test "$WITNESS" = success
+          test "$RELEASE" = success
+          echo "C73_3C_ENGINEERING_GATE=PASS_SYNTHETIC_ONLY"
+          echo "C73_3C_REAL_WORM_MTLS_HUMAN_AUTHORIZATION=HOLD"
