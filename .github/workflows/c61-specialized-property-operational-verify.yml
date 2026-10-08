@@ -1,0 +1,43 @@
+name: C61 Hotel Industrial Specialist Evidence Gate
+on:
+  pull_request:
+    branches:
+      - c60-income-rate-evidence-20261008
+    paths:
+      - 'src/specialized-assets/specialist-operational-gate.js'
+      - 'tests/architecture/run_c61_specialized_property_operational_gates.js'
+      - 'docs/C61_HOTEL_INDUSTRIAL_SPECIALIST_EVIDENCE.md'
+      - '.github/workflows/c61-specialized-property-operational-verify.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Assert exact SHA
+        if: github.event_name == 'pull_request'
+        run: test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+      - run: npm ci
+      - name: C61 hotel and industrial specialization
+        run: node tests/architecture/run_c61_specialized_property_operational_gates.js
+      - name: Preserve original specialist regressions
+        run: |
+          node tests/architecture/run_wave14b_hospitality_operating_metrics.js
+          node tests/architecture/run_wave14g_specialized_interest_separation.js
+          node tests/architecture/run_industrial_logistics_adapter_v1.js
+          node tests/architecture/run_c60_income_rate_provenance.js
+      - run: npm run build
+      - run: npm run verify:package
+      - run: npm run release:verify
+      - run: npm audit --audit-level=low
