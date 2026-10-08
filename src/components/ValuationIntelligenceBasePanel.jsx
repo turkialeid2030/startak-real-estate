@@ -24,6 +24,9 @@ const {
   getValuationReasonLabel,
 } = require('../app/valuation-labels');
 const { VALUATION_RUNTIME_MODE } = require('../app/existing-building-valuation-runtime');
+const {
+  displayBlocker, institutionalStatusText, institutionalCountLabel, displayEvidenceGap,
+} = require('../app/institutional-valuation-reason-presentation');
 
 const COLORS = Object.freeze({
   ink: '#0D1526',
@@ -95,8 +98,8 @@ const COPY = Object.freeze({
     singleMethodAccepted: 'تم استخدام سياسة قبول منهج واحد',
     singleMethodJustification: 'المبرر',
     governanceNote: 'جاهزية التقييم لا تعني اعتماد الصفقة أو تفويض أي معاملة. يبقى القرار البشري والحوكمة المطلوبة إلزاميين.',
-    legacyOnlyBadge: 'Legacy Only',
-    valuationV1Badge: 'Valuation V1',
+    legacyOnlyBadge: 'الدراسة الحالية',
+    valuationV1Badge: 'التقييم الأولي المنضبط',
     available: 'متاح',
     hold: 'معلّق',
     unavailable: 'غير متاح',
@@ -435,9 +438,19 @@ export default function ValuationIntelligencePanel({
           {locale === 'ar-SA'
             ? 'الاعتماد الاستثماري والتقييم المهني والتصدير الرسمي: معلّق. نتائج المناهج أدناه مؤشرات حسابية أولية فقط؛ لم يثبت التحقق الخارجي من الصفقات وحقوق المصادر وموافقة المقيم المختص.'
             : 'Institutional decision, certified appraisal and governed export: ON HOLD. The methods below are preliminary calculations; independent market-source, data-rights and specialist authority checks remain outstanding.'}
-          <div className="mt-1 font-mono text-[10px]">
-            {institutionalDecision.status} · {institutionalDecision.blockers?.length || 0} blockers
+          <div data-testid="institutional-hold-description" className="mt-2 text-xs font-semibold" role="status">
+            {institutionalStatusText(locale)}
           </div>
+          <div data-testid="institutional-hold-count" className="mt-1 text-[11px]">
+            {institutionalCountLabel(institutionalDecision.blockers?.length || 0,locale)}
+          </div>
+          <ul data-testid="institutional-hold-reasons" className="mt-2 list-disc ps-4 space-y-1">
+            {(institutionalDecision.blockers || []).map((reason,index) => (
+              <li key={index} className="text-[11px] leading-5">
+                {displayBlocker(reason,locale)}
+              </li>
+            ))}
+          </ul>
         </div>
       ) : null}
       {runtimeError ? (
@@ -497,7 +510,11 @@ export default function ValuationIntelligencePanel({
                 <div className="text-[10px]" style={{ color: COLORS.slateDim }}>{text.noGaps}</div>
               ) : (
                 <ul className="space-y-1">
-                  {presentation.evidenceGaps.map((gap) => <li key={gap} className="text-[10px] font-mono" style={{ color: COLORS.slate }}>{gap}</li>)}
+                  {presentation.evidenceGaps.map((gap,index) => (
+                      <li key={index} className="text-[10px] leading-relaxed" style={{ color: COLORS.slate }}>
+                        {displayEvidenceGap(index,locale)}
+                      </li>
+                    ))}
                 </ul>
               )}
             </div>
