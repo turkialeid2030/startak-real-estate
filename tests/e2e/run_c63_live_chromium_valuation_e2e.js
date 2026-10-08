@@ -61,7 +61,11 @@ async function scenario(browser,assetClass){
   const context=await browser.newContext({viewport:{width:1440,height:1000},locale:'ar-SA'});
   const page=await context.newPage();
   const errors=[];
+  const failedRequests=[];
+  const consoleErrors=[];
   page.on('pageerror',error=>errors.push(String(error)));
+  page.on('requestfailed',req=>failedRequests.push(req.url()+':'+req.failure()?.errorText));
+  page.on('console',message=>{if(message.type()==='error')consoleErrors.push(message.text());});
   try{
     await page.goto(BASE,{waitUntil:'domcontentloaded',timeout:30000});
     await expect(page.getByText(SELECTORS.caseTitle,{exact:true})).toBeVisible({timeout:25000});
@@ -72,6 +76,14 @@ async function scenario(browser,assetClass){
     assert.deepEqual(errors,[],'uncaught browser errors: '+errors.join(' | '));
     console.log('C63_REAL_CHROMIUM_UI_'+assetClass+'=PASS');
   }catch(error){
+    const info=await page.evaluate(()=>({url:location.href,title:document.title,
+      text:(document.body?.innerText||'').slice(0,6000),
+      html:(document.body?.innerHTML||'').slice(0,1000),
+      lang:document.documentElement.lang,dir:document.documentElement.dir,
+    })).catch(e=>({browserIntrospection:String(e)}));
+    console.error('C63_BROWSER_DIAGNOSTIC_'+assetClass+'='+JSON.stringify({
+      ...info,pageErrors:errors,requestFailures:failedRequests,consoleErrors,
+    }));
     console.error('C63_REAL_CHROMIUM_UI_'+assetClass+'=FAIL: '+error.stack);
     try{await page.screenshot({path:'/tmp/c63-failure-'+assetClass.toLowerCase()+'.png',fullPage:true});}catch{}
     throw error;
