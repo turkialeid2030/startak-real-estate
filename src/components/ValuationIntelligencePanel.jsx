@@ -5,6 +5,7 @@ import CriticalEvidenceRequirementsPanel from './CriticalEvidenceRequirementsPan
 import GovernedDecisionOperationsPanel from './GovernedDecisionOperationsPanel.jsx';
 import GovernedHumanReviewPanel from './GovernedHumanReviewPanel.jsx';
 import SpecialistEvidenceIntakePanel from './SpecialistEvidenceIntakePanel.jsx';
+import SpecialistDocumentHashPanel from './SpecialistDocumentHashPanel.jsx';
 
 export default function ValuationIntelligencePanel(props) {
   const {
@@ -17,6 +18,7 @@ export default function ValuationIntelligencePanel(props) {
     <>
       <ValuationIntelligenceBasePanel {...props} />
       <SpecialistEvidenceIntakePanel {...props} />
+      <SpecialistDocumentHashPanel {...props} />
       {valuationCase ? (
         <>
           <ValuationAdvancedPanel
