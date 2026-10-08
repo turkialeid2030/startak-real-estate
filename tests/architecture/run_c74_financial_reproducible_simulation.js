@@ -76,6 +76,48 @@ for(const [index,s] of configurations.entries()){
   npvMedianSar:first.summary.npvSar.p50,irrMedian:first.summary.irr.p50,
   dscrMedian:first.summary.dscr.p50,flags:first.warnings});
 }
+// Genuinely stochastic triangular distributions; fixed-seed reproducibility
+// and first-order scenario ordering, without implying market-calibrated forecasts.
+const stochastic=[
+ {name:'downside',growth:[-.10,-.05,0],cap:[.10,.12,.14],disc:[.13,.16,.19]},
+ {name:'base',growth:[-.02,.02,.06],cap:[.07,.08,.10],disc:[.08,.10,.12]},
+ {name:'upside',growth:[.02,.06,.10],cap:[.05,.06,.07],disc:[.05,.07,.09]},
+];
+const stochasticRecords=[];
+for(const config of stochastic){
+ const tri=([min,mode,max])=>({type:'triangular',min,mode,max});
+ const input={seed:20261008,iterations:5000,base,thresholds,
+  distributions:{noiGrowth:tri(config.growth),exitCapRate:tri(config.cap),discountRate:tri(config.disc)}};
+ const a=runGovernedMonteCarlo(input),b=runGovernedMonteCarlo(input);
+ assert.notEqual(a.status,MONTE_CARLO_STATUS.HOLD,config.name+' stochastic draw must not be HOLD');
+ assert.deepEqual(a.summary,b.summary,config.name+' seeded stochastic replay must match');
+ for(const key of ['npvSar','irr','dscr']){
+  const q=a.summary[key];
+  assert.ok(q.p05<q.p50&&q.p50<q.p95,config.name+' distributions must produce nondegenerate ordered quantiles '+key);
+ }
+ for(const p of [a.summary.npvSar.probabilityNegative,
+  a.summary.irr.probabilityBelowHurdle,a.summary.dscr.probabilityBelowMinimum])
+  assert.ok(p>=0&&p<=1,'stochastic risk probability in [0,1]');
+ stochasticRecords.push({scenario:config.name,iterations:a.iterations,
+  npvP05Sar:a.summary.npvSar.p05,npvP50Sar:a.summary.npvSar.p50,npvP95Sar:a.summary.npvSar.p95,
+  irrP50:a.summary.irr.p50,negativeNpvProbability:a.summary.npvSar.probabilityNegative,
+  dscrBreachProbability:a.summary.dscr.probabilityBelowMinimum,status:a.status});
+}
+assert.ok(stochasticRecords[0].npvP50Sar<stochasticRecords[1].npvP50Sar&&
+ stochasticRecords[1].npvP50Sar<stochasticRecords[2].npvP50Sar,
+ 'stochastic downside/base/upside median NPV must be ordered');
+assert.ok(stochasticRecords[0].irrP50<stochasticRecords[1].irrP50&&
+ stochasticRecords[1].irrP50<stochasticRecords[2].irrP50,
+ 'stochastic downside/base/upside median IRR must be ordered');
+const alternate=runGovernedMonteCarlo({
+ seed:20261009,iterations:5000,base,thresholds,
+ distributions:{noiGrowth:{type:'triangular',min:-.02,mode:.02,max:.06},
+ exitCapRate:{type:'triangular',min:.07,mode:.08,max:.10},
+ discountRate:{type:'triangular',min:.08,mode:.10,max:.12}},
+});
+assert.notEqual(alternate.status,MONTE_CARLO_STATUS.HOLD);
+assert.notEqual(alternate.summary.npvSar.p50,stochasticRecords[1].npvP50Sar,
+ 'different seeded random streams should produce different central estimators');
 assert.ok(records[0].npvMedianSar<records[1].npvMedianSar,'downside NPV must be worse than base');
 assert.ok(records[1].npvMedianSar<records[2].npvMedianSar,'upside NPV must exceed base');
 assert.ok(records[0].irrMedian<records[1].irrMedian&&records[1].irrMedian<records[2].irrMedian,
@@ -96,6 +138,7 @@ for(const override of invalid){
 const summary={schemaVersion:1,qualification:'SYNTHETIC_ENGINEERING_ONLY',
  seeds,financialLandCases:seededCases/2,financialBuildingCases:seededCases/2,
  scenarios:records,scenarioDraws:records.reduce((a,r)=>a+r.iterations,0),
+ stochasticScenarios:stochasticRecords,stochasticDraws:15000,
  adversarialInvalidCases:invalid.length,
  sourceAuthentication:false,realSaudiHoldoutValidated:false,
  certifiedValuation:false,productionAuthorized:false};
