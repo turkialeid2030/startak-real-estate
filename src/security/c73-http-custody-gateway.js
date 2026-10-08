@@ -113,7 +113,12 @@ function createCustodyHttpHandler({custodyService,authenticator,clock}={}){
    return send(res,200,await custodyService.revoke({request,documentId,
     expectedRevision:body.expectedRevision,expectedHeadTag:body.expectedHeadTag}));
   }catch(e){
-   const code=typeof e.code==='string'?e.code:'';
+   // Node TypeError validators carry an error message, not necessarily a code.
+   // Promote only a strict list of known public validation errors. Never emit
+   // arbitrary database/stack/crypto messages in the HTTP response.
+   const publicValidation=/^C73_(INPUT_SCOPE_UNEXPECTED_OR_MISSING_FIELD|FILE_HEADER_OR_MIME_REJECTED|SCOPE_(?:FIELDS_INVALID|NUMBER_INVALID|SHA_INVALID|NONCE_INVALID|STRING_INVALID|FILE_INVALID)|BYTES_SIZE_INVALID|VALUATION_DATE_INVALID)$/;
+   const code=typeof e.code==='string'&&e.code.startsWith('C73_')?
+    e.code:typeof e.message==='string'&&publicValidation.test(e.message)?e.message:'';
    const allowed=/^C73_(HTTP_|TENANT_|TRUSTED_IDENTITY|DOCUMENT_|STALE_|CUSTODY_NOT_ACTIVE|BYTE_RECHECK|EXPLICIT_CONCURRENCY|AUDIT_|DB_ROW_|INPUT_SCOPE_|FILE_HEADER_|FILE_MEDIA_|SCOPE_|BYTES_|VALUATION_DATE_)/.test(code);
    const status=Number.isInteger(e.httpStatus)?e.httpStatus:
     code==='C73_DOCUMENT_NOT_FOUND'?404:
