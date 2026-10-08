@@ -40,6 +40,9 @@ async function no(p,regex){await assert.rejects(p,regex);checks++;}
   await no(denied.put({...input,request:request('editorA'),bytes:PDF}),/SCANNER_HOLD/);
   const offline=createEncryptedStagingVault({...cfg,scanner:async()=>{throw Error('scanner offline')}});
   await no(offline.put({...input,request:request('editorA'),bytes:PDF}),/SCANNER_HOLD/);
+  const stalled=createEncryptedStagingVault({...cfg,scanTimeoutMs:25,
+   scanner:async()=>new Promise(()=>{})});
+  await no(stalled.put({...input,request:request('editorA'),bytes:PDF}),/SCANNER_HOLD/);
   ok((await fs.readdir(root)).length===0,'deny before encrypted file write');
   const receipt=await vault.put({...input,request:request('editorA'),bytes:PDF});
   ok(receipt.status==='STAGED_ENCRYPTED_UNVERIFIED','encrypted receipt status');
