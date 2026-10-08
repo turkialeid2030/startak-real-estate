@@ -241,6 +241,7 @@ function TextInput({ label, value, onChange, placeholder, type = 'text' }) {
     <label className="block">
       <div className="text-[11px] mb-1" style={{ color: COLORS.slate }}>{label}</div>
       <input
+        aria-label={label}
         type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -257,6 +258,7 @@ function SelectInput({ label, value, onChange, placeholder, options }) {
     <label className="block">
       <div className="text-[11px] mb-1" style={{ color: COLORS.slate }}>{label}</div>
       <select
+        aria-label={label}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className="rf-input w-full px-3 py-2 text-xs"
