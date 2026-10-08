@@ -1,0 +1,68 @@
+name: C71 Canonical C5 C6 Specialist Export Hard Gate Real Browser
+on:
+  pull_request:
+    branches:
+      - c70-live-specialist-evidence-intake-c61-gate-20261008
+    paths:
+      - 'src/app/governed-decision-operational.js'
+      - 'src/components/GovernedDecisionOperationsPanel.jsx'
+      - 'src/components/GovernedHumanReviewPanel.jsx'
+      - 'tests/architecture/run_c71_specialist_c5_c6_canonical_hard_gate.js'
+      - 'tests/e2e/run_c71_c5_c6_specialist_report_browser.js'
+      - '.github/workflows/c71-c5-c6-specialist-browser-hard-gate.yml'
+      - 'docs/C71_C5_C6_SPECIALIST_REPORT_BOUNDARY.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Exact commit
+        if: github.event_name == 'pull_request'
+        run: test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+      - run: npm ci
+      - name: Canonical C5 C6 export boundary and regressions
+        run: |
+          node tests/architecture/run_c71_specialist_c5_c6_canonical_hard_gate.js
+          node tests/defects/c5_governed_decision_ui_export_integration.js
+          node tests/defects/c6_controlled_human_review_workflow.js
+          node tests/architecture/run_c70_live_specialist_reference_intake.js
+          node tests/architecture/run_c69_specialist_live_refusal.js
+          node tests/architecture/run_c62_live_institutional_valuation_boundary.js
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Serve exact built application for actual browser exports
+        run: |
+          (nohup npm run preview -- --host 127.0.0.1 --port 4173 --strictPort >/tmp/c71-preview.log 2>&1 &)
+          for n in $(seq 1 60); do
+            if curl --silent --fail http://127.0.0.1:4173/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/c71-preview.log
+          exit 1
+      - name: Real C5 C6 downloads vs forged specialist report blocks
+        env:
+          STARTAK_E2E_URL: http://127.0.0.1:4173
+        run: node tests/e2e/run_c71_c5_c6_specialist_report_browser.js
+      - name: C70 real hotel industrial evidence intake regression
+        env:
+          STARTAK_E2E_URL: http://127.0.0.1:4173
+        run: node tests/e2e/run_c70_live_specialist_reference_browser.js
+      - name: Existing C63 office retail residential regression
+        env:
+          STARTAK_E2E_URL: http://127.0.0.1:4173
+        run: node tests/e2e/run_c63_live_chromium_valuation_e2e.js
+      - run: npm run verify:package
+      - run: npm run release:verify
+      - run: npm audit --audit-level=low
