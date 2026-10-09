@@ -47,7 +47,7 @@ assert.strictEqual(land.priceBasis.version, PRICE_BASIS_VERSION);
 assert.strictEqual(land.priceBasis.metric, 'maxJustifiedLandPricePerSqm');
 assert.strictEqual(land.priceBasis.outputBasis, 'RAW_LAND_MARKET_PRICE_PER_SQM_SAR');
 assert.deepStrictEqual(land.priceBasis.thresholdBasis, ['MAX_PAYBACK_THRESHOLD']);
-assert.strictEqual(land.priceBasis.bindingRateFormula, 'RECIPROCAL_MAX_PAYBACK');
+assert.strictEqual(land.priceBasis.bindingRateFormula, 'CALENDAR_CUMULATIVE_OPERATING_PAYBACK_INVERTED_OVER_CONSTRUCTION_AND_NOI');
 assert.strictEqual(land.priceBasis.constructionCostIncludedInSolver, true);
 assert.strictEqual(land.priceBasis.solvesAllFinancialHardGates, false);
 assert.ok(land.priceBasis.excludedDecisionGates.includes('IRR_MEETS_HURDLE'));
@@ -62,7 +62,7 @@ assert.strictEqual(
 );
 assert.strictEqual(
   getDecisionMetricLabelOverride('ar-SA', 'metricRowR2B2.maxJustifiedLandPricePerSqm'),
-  'أقصى سعر لمتر الأرض وفق حد الاسترداد فقط',
+  'أقصى سعر لمتر الأرض يحقق الاسترداد التشغيلي التراكمي خلال المدة التقويمية المحددة فقط',
 );
 assert.strictEqual(
   getDecisionMetricLabelOverride('en', 'metricRowR2B2.maxJustifiedPrice'),
@@ -70,7 +70,7 @@ assert.strictEqual(
 );
 assert.strictEqual(
   getDecisionMetricLabelOverride('en', 'metricRowR2B2.maxJustifiedLandPricePerSqm'),
-  'Maximum Land Price per Sqm — Payback Threshold Only',
+  'Maximum Land Price per Sqm — Calendar Cumulative Operating Payback Only',
 );
 assert.strictEqual(getDecisionMetricLabelOverride('ar-SA', 'metricRowR2B2.netYieldOnPrice'), null);
 
