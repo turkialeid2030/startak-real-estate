@@ -25,6 +25,9 @@ async function configure(page,asset){
  await page.getByLabel('مرحلة دورة الحياة',{exact:true}).selectOption('STABILIZED');
  await page.getByLabel('الاستراتيجية الاستثمارية',{exact:true}).selectOption('CORE_INCOME');
  await page.getByLabel('نموذج الدخل',{exact:true}).selectOption('LEASE_INCOME');
+ const uiLabels=await page.locator('label').allInnerTexts();
+ console.log('C75_MAINLINE_UI_LABELS_AFTER_INCOME='+JSON.stringify(uiLabels.slice(-38)).slice(0,3000));
+ console.log('C75_MAINLINE_INPUT_COUNTS='+JSON.stringify({selects:await page.locator('select').count(),fields:await page.locator('input').count()}));
  await page.getByLabel('معالجة المصروفات التشغيلية',{exact:true}).selectOption('MARKET_ESTIMATE');
  await page.getByLabel('أساس القيمة',{exact:true}).selectOption('MARKET_VALUE');
  await page.getByLabel('العملة',{exact:true}).fill('SAR');
