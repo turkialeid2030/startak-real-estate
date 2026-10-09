@@ -18,6 +18,16 @@ function locallyDownload(content,mime,name){
     URL.revokeObjectURL(url);
   }
 }
+const STATUS_LABEL=Object.freeze({
+ PRELIMINARY_VALUE_CALCULATED:{ar:'مؤشر قيمة أولي محسوب',en:'Preliminary value calculated'},
+ METHOD_INDICATIONS_ONLY:{ar:'مؤشرات مناهج متاحة للمراجعة',en:'Method indications available'},
+ SPECIALIST_INPUTS_ONLY:{ar:'مسودة بيانات عقار متخصص',en:'Specialist asset input draft'},
+ INPUTS_REQUIRED:{ar:'المدخلات غير مكتملة',en:'More inputs required'},
+});
+function humanStatus(status,locale){
+ const label=STATUS_LABEL[status];
+ return label?(locale==='en'?label.en:label.ar):(locale==='en'?'Draft under review':'مسودة قيد المراجعة');
+}
 function smallName(s){
   return String(s||'property').replace(/[^a-zA-Z0-9_-]/g,'-').slice(0,65);
 }
@@ -69,7 +79,7 @@ export default function PersonalInvestmentResearchPanel({
           <div className="rounded-xl border border-slate-700 p-3">
             <div className="text-[11px] text-slate-400">{ar?'حالة المسودة':'Draft status'}</div>
             <div data-testid="c75-personal-status" className="mt-1 text-sm text-slate-100">
-              {draft.reportStatus}
+              {humanStatus(draft.reportStatus,locale)}
             </div>
           </div>
           <div className="rounded-xl border border-slate-700 p-3">
