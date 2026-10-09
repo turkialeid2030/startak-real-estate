@@ -247,7 +247,9 @@ function NumField({ label, unit, note, value, onChange, step = 1, min, warnBelow
           if (raw === "" || raw === "-" || raw === "." || raw === "-.") return;
           const parsed = Number(raw);
           if (!Number.isFinite(parsed)) return;
-          // F01: Do not silently replace a negative acquisition price with 0.01.\n           // Propagate actual numeric input to the canonical validation gate.\n           onChange(parsed);
+          // F01: Never turn a negative purchase price into a positive input.
+          // Preserve the original value so engine validation blocks calculation.
+          onChange(parsed);
         }}
       />
       <FieldNote note={note} warning={warning} />
