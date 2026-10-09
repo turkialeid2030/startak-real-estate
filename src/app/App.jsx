@@ -243,11 +243,11 @@ function NumField({ label, unit, note, value, onChange, step = 1, min, warnBelow
         aria-invalid={warning ? "true" : undefined}
         onChange={(e) => {
           if (disabled) return;
-          const raw = e.target.value.replace(/[^\d.\-]/g, "");
+          const raw = e.target.value.replace(/[−﹣－]/g, "-").replace(/[^\d.\-]/g, "");
           if (raw === "" || raw === "-" || raw === "." || raw === "-.") return;
           const parsed = Number(raw);
           if (!Number.isFinite(parsed)) return;
-          onChange(min !== undefined ? Math.max(min, parsed) : parsed);
+          // F01: Do not silently replace a negative acquisition price with 0.01.\n           // Propagate actual numeric input to the canonical validation gate.\n           onChange(parsed);
         }}
       />
       <FieldNote note={note} warning={warning} />
