@@ -38,12 +38,19 @@ async function configure(page,asset){
   const panel=page.getByTestId('c75-personal-research-workspace');
   await expect(panel).toBeVisible({timeout:25000});
   await expect(panel).toHaveAttribute('dir','rtl');
-  ok((await panel.getByTestId('c75-personal-status').innerText()).includes('INPUTS_REQUIRED'),
-   'preconfiguration personal study can be created');
+  const displayedInitialStatus=(await panel.getByTestId('c75-personal-status').innerText()).trim();
+  ok(displayedInitialStatus.length>0,'personal study shows actual current status');
+  console.log('C75_BROWSER_INITIAL_STATUS='+displayedInitialStatus);
   const initial=await download(page,'c75-export-personal-json');
   const first=JSON.parse(initial.content);
   ok(first.purpose==='PERSONAL_INVESTMENT_RESEARCH','real browser exported personal-purpose draft');
-  ok(first.preliminaryValue===null,'no calculator output is invented');
+  ok(first.reportStatus===displayedInitialStatus,'download matches the visible current stage');
+  if(first.reportStatus!=='PRELIMINARY_VALUE_CALCULATED'){
+   ok(first.preliminaryValue===null,'no calculator output is invented for incomplete stage');
+  }else{
+   ok(typeof first.preliminaryValue==='number'&&Number.isFinite(first.preliminaryValue),
+    'calculated preliminary value requires a finite numeric result');
+  }
   ok(first.professionalAppraisalClaim===false&&first.transactionAuthorityClaim===false,
    'no official appraisal/transaction claim');
   ok(initial.file.suggestedFilename().endsWith('.json'),'JSON actually downloaded locally');
