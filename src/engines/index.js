@@ -39,7 +39,7 @@ function buildPriceBasis(studyType) {
     metric: 'maxJustifiedLandPricePerSqm',
     outputBasis: 'RAW_LAND_MARKET_PRICE_PER_SQM_SAR',
     thresholdBasis: Object.freeze(['MAX_PAYBACK_THRESHOLD']),
-    bindingRateFormula: 'RECIPROCAL_MAX_PAYBACK',
+    bindingRateFormula: 'CALENDAR_CUMULATIVE_OPERATING_PAYBACK_INVERTED_OVER_CONSTRUCTION_AND_NOI',
     acquisitionLoadsIncludedInSolver: true,
     fixedCostsIncludedInSolver: Object.freeze(['engineeringCost', 'landValuationCost']),
     constructionCostIncludedInSolver: true,
