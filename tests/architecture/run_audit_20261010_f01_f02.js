@@ -7,7 +7,9 @@ const {calcLandDevelopment}=require('../../src/engines/valuation/land-developmen
 const {calcExistingBuilding}=require('../../src/engines/valuation/existing-building');
 const {validateEngineInputs,ValidationError}=require('../../src/validation/numeric-safety');
 const {calculateInvestmentCase,STUDY_TYPE}=require('../../src/engines');
-const land=gold['RE-GOLD-001_land_development'].inputs;
+const {V2_APPROVED_ASSUMPTIONS}=require('../../src/assumptions/assumption-model');
+const rawLand=gold['RE-GOLD-001_land_development'].inputs;
+const land={...rawLand,...V2_APPROVED_ASSUMPTIONS};
 const building=gold['RE-GOLD-002_existing_building'].inputs;
 let checks=0;
 function ok(x,msg){assert.ok(x,msg);checks++;}
@@ -60,6 +62,14 @@ const approx=(a,b,t)=>Math.abs(a-b)<=t;
    'the existing IRR/NPV calculation remains implemented, but changes with purchase cost');
  ok(at.maxJustifiedLandPricePerSqm===max,
    'quoted maximum independent of chosen initial land purchase price');
+ const legacy=calcLandDevelopment(rawLand);
+ const legacyPrice=legacy.maxJustifiedLandPricePerSqm;
+ ok(Number.isFinite(legacyPrice)&&legacyPrice>0,
+   'legacy economics have a separately calculated ceiling, not substituted V2');
+ const legacyAt=calcLandDevelopment({...rawLand,landPricePerSqm:legacyPrice});
+ ok(legacyAt.cumulativeProjectPaybackYears!==null&&
+ legacyAt.cumulativeProjectPaybackYears<=rawLand.maxPaybackThreshold,
+  'legacy payback floor verifies against its own unmodified legacy cashflows');
  const delayed=calcLandDevelopment({...land,constructionPeriod:3});
  ok(delayed.maxJustifiedLandPricePerSqm<max,
    'one extra construction year reduces nine-year calendar payback capacity');
