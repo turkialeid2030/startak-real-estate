@@ -1,5 +1,6 @@
 import React from 'react';
 import ValuationIntelligenceBasePanel from './ValuationIntelligenceBasePanel.jsx';
+import PersonalInvestmentResearchPanel from './PersonalInvestmentResearchPanel.jsx';
 import ValuationAdvancedPanel from './ValuationAdvancedPanel.jsx';
 import CriticalEvidenceRequirementsPanel from './CriticalEvidenceRequirementsPanel.jsx';
 
@@ -13,6 +14,7 @@ export default function ValuationIntelligencePanel(props) {
   return (
     <>
       <ValuationIntelligenceBasePanel {...props} />
+      <PersonalInvestmentResearchPanel {...props} />
       {valuationCase ? (
         <>
           <ValuationAdvancedPanel
