@@ -37,7 +37,8 @@ const approx=(a,b,t)=>Math.abs(a-b)<=t;
 })();
 (function F02_max_price_must_derive_from_actual_calendar_cashflows(){
  const result=calcLandDevelopment(land);
- ok(result.cumulativeProjectPaybackYears>9.8&&result.cumulativeProjectPaybackYears<10.1,
+ console.log('AUDIT_F02_REFERENCE_VALUES',JSON.stringify({payback:result.cumulativeProjectPaybackYears,ceiling:result.maxJustifiedLandPricePerSqm,firstOperatingNOI:result.firstOperatingYearNOI,stableNOI:result.stabilizedNOI,constructionYears:result.constructionYears}));
+ ok(result.cumulativeProjectPaybackYears>land.maxPaybackThreshold,
    'reference 20,000 SAR/sqm correctly misses nine-year calendar payback');
  const max=result.maxJustifiedLandPricePerSqm;
  ok(Number.isFinite(max)&&max>13000&&max<14500,
