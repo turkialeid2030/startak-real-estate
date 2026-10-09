@@ -14,8 +14,12 @@ async function download(page,selector){
  return {file,content};
 }
 async function configure(page,asset){
- const panel=page.getByRole('button',{name:'تهيئة Valuation V1',exact:true});
- await panel.click();
+ const projectInput=page.getByLabel('معرّف المشروع',{exact:true});
+ // The mainline screen may already be expanded when a valuation case exists.
+ if(!(await projectInput.isVisible())){
+  await page.getByRole('button',{name:/تهيئة Valuation V1|تعديل الإعدادات/}).click();
+ }
+ await expect(projectInput).toBeVisible();
  await page.getByLabel('معرّف المشروع',{exact:true}).fill('PERSONAL-C75-'+asset);
  await page.getByLabel('فئة الأصل',{exact:true}).selectOption(asset);
  await page.getByLabel('مرحلة دورة الحياة',{exact:true}).selectOption('STABILIZED');
