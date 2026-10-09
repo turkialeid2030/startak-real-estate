@@ -14,25 +14,23 @@ async function download(page,selector){
  return {file,content};
 }
 async function configure(page,asset){
- const projectInput=page.getByLabel('معرّف المشروع',{exact:true});
+ const panel=page.getByTestId('valuation-v1-panel');
+ const projectInput=panel.getByLabel('معرّف المشروع',{exact:true});
  // The mainline screen may already be expanded when a valuation case exists.
  if(!(await projectInput.isVisible())){
-  await page.getByRole('button',{name:/تهيئة Valuation V1|تعديل الإعدادات/}).click();
+  await panel.getByTestId('valuation-v1-configure').click();
  }
  await expect(projectInput).toBeVisible();
- await page.getByLabel('معرّف المشروع',{exact:true}).fill('PERSONAL-C75-'+asset);
- await page.getByLabel('فئة الأصل',{exact:true}).selectOption(asset);
- await page.getByLabel('مرحلة دورة الحياة',{exact:true}).selectOption('STABILIZED');
- await page.getByLabel('الاستراتيجية الاستثمارية',{exact:true}).selectOption('CORE_INCOME');
- await page.getByLabel('نموذج الدخل',{exact:true}).selectOption('LEASE_INCOME');
- const uiLabels=await page.locator('label').allInnerTexts();
- console.log('C75_MAINLINE_UI_LABELS_AFTER_INCOME='+JSON.stringify(uiLabels.slice(-38)).slice(0,3000));
- console.log('C75_MAINLINE_INPUT_COUNTS='+JSON.stringify({selects:await page.locator('select').count(),fields:await page.locator('input').count()}));
- await page.getByLabel('معالجة المصروفات التشغيلية',{exact:true}).selectOption('MARKET_ESTIMATE');
- await page.getByLabel('أساس القيمة',{exact:true}).selectOption('MARKET_VALUE');
- await page.getByLabel('العملة',{exact:true}).fill('SAR');
- await page.getByLabel('تاريخ التقييم',{exact:true}).fill('2026-10-09');
- await page.getByRole('button',{name:'تطبيق الإعدادات',exact:true}).click();
+ await panel.getByLabel('معرّف المشروع',{exact:true}).fill('PERSONAL-C75-'+asset);
+ await panel.getByLabel('فئة الأصل',{exact:true}).selectOption(asset);
+ await panel.getByLabel('مرحلة دورة الحياة',{exact:true}).selectOption('STABILIZED');
+ await panel.getByLabel('الاستراتيجية الاستثمارية',{exact:true}).selectOption('CORE_INCOME');
+ await panel.getByLabel('نموذج الدخل',{exact:true}).selectOption('LEASE_INCOME');
+ await panel.getByLabel('معالجة المصروفات التشغيلية',{exact:true}).selectOption('MARKET_ESTIMATE');
+ await panel.getByLabel('أساس القيمة',{exact:true}).selectOption('MARKET_VALUE');
+ await panel.getByLabel('العملة',{exact:true}).fill('SAR');
+ await panel.getByLabel('تاريخ التقييم',{exact:true}).fill('2026-10-09');
+ await panel.getByTestId('valuation-v1-apply').click();
 }
 (async()=>{
  const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
