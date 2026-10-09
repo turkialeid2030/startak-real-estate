@@ -8,6 +8,7 @@ on:
       - 'src/components/PersonalInvestmentResearchPanel.jsx'
       - 'src/components/ValuationIntelligencePanel.jsx'
       - 'tests/architecture/run_c75_personal_research_workspace.js'
+      - 'tests/e2e/run_c75_real_chromium_personal_study.js'
       - 'docs/C75_PERSONAL_RESEARCH_MODE_AR.md'
       - '.github/workflows/c75-personal-research-workspace-verify.yml'
   workflow_dispatch:
@@ -47,6 +48,41 @@ jobs:
           grep -q 'c75-export-personal-json' src/components/PersonalInvestmentResearchPanel.jsx
           echo "C75_PERSONAL_WORKSPACE_LIVE_REACT_WIRING=PASS"
       - run: npm audit --audit-level=low
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Exact candidate SHA
+        env:
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$SHA"
+      - run: npm ci
+      - name: Install genuine Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Build actual frontend bundle
+        run: npm run build
+      - name: Serve production build
+        run: |
+          set -euo pipefail
+          (nohup npm run preview -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/c75-vite.log 2>&1 &)
+          for n in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:4173/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/c75-vite.log
+          exit 1
+      - name: Personal report exported through real Arabic React browser UI
+        env:
+          STARTAK_E2E_URL: http://127.0.0.1:4173
+        run: node tests/e2e/run_c75_real_chromium_personal_study.js
   release:
     runs-on: ubuntu-24.04
     timeout-minutes: 55
@@ -69,17 +105,19 @@ jobs:
       - run: npm audit --audit-level=low
   gate:
     if: always()
-    needs: [personal-research,release]
+    needs: [personal-research,browser,release]
     runs-on: ubuntu-24.04
     steps:
       - name: Both personal and independent release must pass; commercial approval separate
         env:
           PERSONAL: ${{ needs.personal-research.result }}
+          BROWSER: ${{ needs.browser.result }}
           RELEASE: ${{ needs.release.result }}
           SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           test "$PERSONAL" = success
+          test "$BROWSER" = success
           test "$RELEASE" = success
           echo "C75_PERSONAL_RESEARCH_READY_FOR_OWNER_REVIEW=PASS sha=$SHA"
           echo "C75_OFFICIAL_PROFESSIONAL_CERTIFICATION=NOT_CLAIMED"
