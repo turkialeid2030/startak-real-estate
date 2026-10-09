@@ -44,7 +44,14 @@ async function configure(page,asset){
   const initial=await download(page,'c75-export-personal-json');
   const first=JSON.parse(initial.content);
   ok(first.purpose==='PERSONAL_INVESTMENT_RESEARCH','real browser exported personal-purpose draft');
-  ok(first.reportStatus===displayedInitialStatus,'download matches the visible current stage');
+  const labels={
+   PRELIMINARY_VALUE_CALCULATED:'مؤشر قيمة أولي محسوب',
+   METHOD_INDICATIONS_ONLY:'مؤشرات مناهج متاحة للمراجعة',
+   SPECIALIST_INPUTS_ONLY:'مسودة بيانات عقار متخصص',
+   INPUTS_REQUIRED:'المدخلات غير مكتملة',
+  };
+  ok(displayedInitialStatus===labels[first.reportStatus],
+   'download matches the visible localized research status');
   if(first.reportStatus!=='PRELIMINARY_VALUE_CALCULATED'){
    ok(first.preliminaryValue===null,'no calculator output is invented for incomplete stage');
   }else{
