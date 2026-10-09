@@ -405,7 +405,7 @@ export default function ValuationIntelligencePanel({
   ].map((method) => ({ value: method, label: getValuationMethodLabel(locale, method) }));
 
   return (
-    <section className="mt-6 rounded-2xl p-4 md:p-5" style={{ background: COLORS.panel, border: `1px solid ${COLORS.hairline}` }}>
+    <section data-testid="valuation-v1-panel" className="mt-6 rounded-2xl p-4 md:p-5" style={{ background: COLORS.panel, border: `1px solid ${COLORS.hairline}` }}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-3">
           <div className="mt-0.5"><ShieldCheck size={18} style={{ color: COLORS.brass }} /></div>
@@ -501,6 +501,7 @@ export default function ValuationIntelligencePanel({
       <div className="mt-4 flex flex-wrap gap-2">
         <button
           type="button"
+          data-testid="valuation-v1-configure"
           onClick={() => setExpanded((value) => !value)}
           className="px-3 py-2 rounded-lg text-xs font-medium flex items-center gap-1.5"
           style={{ background: COLORS.panelRaised, border: `1px solid ${COLORS.hairline}`, color: COLORS.parchment }}
@@ -661,6 +662,7 @@ export default function ValuationIntelligencePanel({
           <div className="mt-4 flex justify-end">
             <button
               type="button"
+              data-testid="valuation-v1-apply"
               onClick={apply}
               className="px-4 py-2 rounded-lg text-xs font-semibold"
               style={{ background: COLORS.brass, color: COLORS.ink }}
