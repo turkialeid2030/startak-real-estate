@@ -60,7 +60,7 @@ const COST_APPROACH_INDICATION_SEMANTICS = Object.freeze({
 const DECISION_METRIC_LABEL_OVERRIDES = Object.freeze({
   'ar-SA': Object.freeze({
     'metricRowR2B2.maxJustifiedPrice': 'أقصى سعر شراء للمبنى وفق حدّي العائد الصافي والاسترداد فقط',
-    'metricRowR2B2.maxJustifiedLandPricePerSqm': 'أقصى سعر لمتر الأرض وفق حد الاسترداد فقط',
+    'metricRowR2B2.maxJustifiedLandPricePerSqm': 'أقصى سعر لمتر الأرض يحقق الاسترداد التشغيلي التراكمي خلال المدة التقويمية المحددة فقط',
     'metricRow.coverageRatio': 'مضاعف إجمالي المساحة المبنية إلى مساحة الأرض — يشمل الأقبية وليس نسبة تغطية الموقع',
     'financingInput.ltvLabelBuilding': 'نسبة التمويل المطلوبة إلى إجمالي تكلفة الاستحواذ (LTC)',
     'financingInput.ltvWarnBuilding': 'النسبة في هذا المسار تُطبّق على إجمالي تكلفة الاستحواذ، وليست نسبة قرض إلى سعر الشراء أو إلى قيمة تقييم مستقلة',
@@ -86,7 +86,7 @@ const DECISION_METRIC_LABEL_OVERRIDES = Object.freeze({
   }),
   en: Object.freeze({
     'metricRowR2B2.maxJustifiedPrice': 'Maximum Building Purchase Price — Yield/Payback Thresholds Only',
-    'metricRowR2B2.maxJustifiedLandPricePerSqm': 'Maximum Land Price per Sqm — Payback Threshold Only',
+    'metricRowR2B2.maxJustifiedLandPricePerSqm': 'Maximum Land Price per Sqm — Calendar Cumulative Operating Payback Only',
     'metricRow.coverageRatio': 'Gross Built Area / Land Area Multiple — includes basements; not site coverage',
     'financingInput.ltvLabelBuilding': 'Requested Loan-to-Total-Acquisition-Cost Ratio (LTC)',
     'financingInput.ltvWarnBuilding': 'This ratio is applied to total acquisition cost, not raw purchase price and not an independently appraised value.',
