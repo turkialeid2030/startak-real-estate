@@ -1,0 +1,77 @@
+name: Audit 2026-10-10 P0 F01 Negative Price and F02 Land Boundary
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/app/App.jsx'
+      - 'src/engines/valuation/land-development.js'
+      - 'src/engines/index.js'
+      - 'tests/architecture/run_audit_20261010_f01_f02.js'
+      - 'docs/AUDIT_20261010_F01_F02_OWNER_FINANCIAL_REMEDIATION.md'
+      - '.github/workflows/audit-20261010-f01-f02-verify.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit-economic-boundary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Exact-head binding
+        env:
+          EXPECTED: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED"
+      - run: npm ci
+      - name: Live engine negative price and calendar max land price regression
+        run: node tests/architecture/run_audit_20261010_f01_f02.js
+      - name: Production React interface builds after input integrity correction
+        run: npm run build
+      - name: Verify known numerical validation and independent model remains regression tested
+        run: |
+          node tests/characterization/run_obs001_purchase_price_zero.js
+          node tests/architecture/run_decision_reversal_max_price_v1.js
+      - run: npm audit --audit-level=low
+  independent-release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Exact-head binding
+        env:
+          EXPECTED: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED"
+      - run: npm ci
+      - run: npm run release:verify
+      - run: npm run verify:package
+      - run: npm audit --audit-level=low
+  gate:
+    if: always()
+    needs: [audit-economic-boundary,independent-release]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Hard require true positive success for financial fix and independent release
+        env:
+          AUDIT: ${{ needs.audit-economic-boundary.result }}
+          RELEASE: ${{ needs.independent-release.result }}
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$AUDIT" = success
+          test "$RELEASE" = success
+          echo "AUDIT_20261010_F01_F02_ENGINEERING_GATE=PASS sha=$SHA"
+          echo "AUDIT_DEPLOYED_TO_PRODUCTION=FALSE"
