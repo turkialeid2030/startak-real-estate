@@ -18,6 +18,57 @@ const {
 
 const FINANCIAL_MODEL_VERSION = 'LAND_WAVE_A_2.0';
 
+// AUDIT F02: Invert the actual calendar-time, operating-only cumulative
+// payback test, including construction draws and the actual operating NOI
+// schedule. A stabilized NOI multiple is NOT the inverse of calendar payback.
+// Return null when even zero land price cannot meet the user's threshold.
+// Cent-level truncation ensures reported price itself satisfies the test.
+function solveCalendarPaybackLandPrice({
+  landArea, feeLoad, engineeringCost, landValuationCost,
+  constructionYears, constructionCostPerYear, operatingNoiCashflows,
+  threshold, referencePrice,
+}) {
+  if (![landArea, feeLoad, engineeringCost, landValuationCost,
+    constructionYears, constructionCostPerYear, threshold, referencePrice]
+    .every(Number.isFinite) || !(landArea > 0) || !(feeLoad > 0) ||
+    !(threshold > 0) || constructionYears < 1 ||
+    !Array.isArray(operatingNoiCashflows) ||
+    !operatingNoiCashflows.every(Number.isFinite)) return null;
+  const flowsAfterPurchase = [
+    ...Array.from({ length: constructionYears }, () => -constructionCostPerYear),
+    ...operatingNoiCashflows,
+  ];
+  const meets = (pricePerSqm) => {
+    const initialOutflow = -(landArea * pricePerSqm * feeLoad
+      + engineeringCost + landValuationCost);
+    if (!Number.isFinite(initialOutflow)) return false;
+    const years = computeCumulativePaybackYears([initialOutflow, ...flowsAfterPurchase]);
+    return years !== null && years <= threshold;
+  };
+  if (!meets(0)) return null;
+
+  let low = 0;
+  let high = Math.max(1, referencePrice);
+  for (let i = 0; i < 64 && meets(high); i += 1) {
+    if (high >= 1e12) return null; // unbounded/unstable scenario: do not invent a maximum
+    high *= 2;
+  }
+  if (meets(high)) return null;
+  for (let i = 0; i < 75; i += 1) {
+    const middle = (low + high) / 2;
+    if (meets(middle)) low = middle;
+    else high = middle;
+  }
+  // The user enters SAR/m² in cents. Snap DOWN to an affordable price.
+  let cents = Math.floor(low * 100 + 1e-7);
+  if (!Number.isSafeInteger(cents) || cents < 0) return null;
+  // Roundoff at threshold must never produce a price that fails our own test.
+  for (let i = 0; i < 4 && cents > 0 && !meets(cents / 100); i += 1) cents -= 1;
+  if (!meets(cents / 100)) return null;
+  for (let i = 0; i < 4 && meets((cents + 1) / 100); i += 1) cents += 1;
+  return cents / 100;
+}
+
 function calcLandDevelopment(inp) {
   validateEngineInputs(inp);
   const landArea = inp.landLength * inp.landWidth;
@@ -85,15 +136,6 @@ function calcLandDevelopment(inp) {
   const valueSurplusOverCost = marketValueAfterCompletion - totalProjectCost;
   const projectCostToNoiMultiple = stabilizedNOI > 0 ? totalProjectCost / stabilizedNOI : NaN;
 
-  const requiredYield = Math.max(1 / inp.maxPaybackThreshold, 0);
-  const targetProjectCost = stabilizedNOI > 0 && requiredYield > 0 ? stabilizedNOI / requiredYield : 0;
-  const targetLandAcquisitionCost = targetProjectCost - totalConstructionCost;
-  const feeLoad = 1 + inp.landCommissionRate + inp.landTransferFeeRate;
-  const targetLandMarketValue = feeLoad > 0
-    ? (targetLandAcquisitionCost - inp.engineeringCost - inp.landValuationCost) / feeLoad
-    : 0;
-  const maxJustifiedLandPricePerSqm = landArea > 0 ? Math.max(0, targetLandMarketValue / landArea) : 0;
-
   const cashflows = [-totalLandAcquisitionCost];
   const paybackCashflows = [-totalLandAcquisitionCost];
   const constructionYears = Math.max(1, Math.round(inp.constructionPeriod));
@@ -124,6 +166,19 @@ function calcLandDevelopment(inp) {
   }
 
   const cumulativeProjectPaybackYears = stabilizedNOI > 0 ? computeCumulativePaybackYears(paybackCashflows) : null;
+  // F02: derive the boundary from the same operating-only cashflows used to
+  // show calendar payback, not from 9x stabilized first-year NOI.
+  const maxJustifiedLandPricePerSqm = solveCalendarPaybackLandPrice({
+    landArea,
+    feeLoad: 1 + inp.landCommissionRate + inp.landTransferFeeRate,
+    engineeringCost: inp.engineeringCost,
+    landValuationCost: inp.landValuationCost,
+    constructionYears,
+    constructionCostPerYear: perYearConstructionDraw,
+    operatingNoiCashflows,
+    threshold: inp.maxPaybackThreshold,
+    referencePrice: inp.landPricePerSqm,
+  });
   // Legacy UI formatter treats NaN as unavailable but crashes on null. The v2
   // nullable field above is authoritative for machine consumers and decisions.
   const simplePaybackYears = cumulativeProjectPaybackYears === null ? NaN : cumulativeProjectPaybackYears;
