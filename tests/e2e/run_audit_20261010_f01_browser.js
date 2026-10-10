@@ -13,7 +13,7 @@ const url=process.env.STARTAK_E2E_URL||'http://127.0.0.1:4173';
   await price.fill('-1');
   await expect(price).toHaveValue('-1');
   checks++;
-  const validation=page.getByText(/يجب أن تكون أكبر من صفر/);
+  const validation=page.getByText(/الحد الأدنى المسموح/);
   await expect(validation).toBeVisible({timeout:10000});
   checks++;
   assert.ok(!(await page.getByText('10,069.92%').isVisible()),
