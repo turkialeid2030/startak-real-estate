@@ -1,3 +1,5 @@
+import RentalCalendarPanel from "../components/RentalCalendarPanel.jsx";
+import InputProvenancePanel from "../components/InputProvenancePanel.jsx";
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   ComposedChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -10,6 +12,8 @@ import {
 } from "lucide-react";
 import ResidentialIncomeAcquisitionPanel from "../components/ResidentialIncomeAcquisitionPanel.jsx";
 import ValuationIntelligencePanel from "../components/ValuationIntelligencePanel.jsx";
+import PersonalInvestmentResearchPanel from "../components/PersonalInvestmentResearchPanel.jsx";
+import PaybackDisclosurePanel from "../components/PaybackDisclosurePanel.jsx";
 import { ZakatInputSection, ZakatCashFlowPanel } from "../components/ZakatLayerPanel.jsx";
 
 // ============================================================
@@ -128,6 +132,7 @@ const {
 } = require('../residential-income-acquisition');
 const { evaluateExistingBuildingValuation } = require('./existing-building-valuation-runtime');
 const { valuationCaseFromSavedDeal, withValuationCase } = require('./valuation-saved-deal-bridge');
+const { updateValuationEditorDraft, copyValuationEditorDraft, rebaseValuationEditorDraft } = require('./valuation-editor-draft');
 const {
   UI_MODE,
   createUiWorkspace,
@@ -229,8 +234,16 @@ function FieldNote({ note, warning }) {
 }
 
 function NumField({ label, unit, note, value, onChange, step = 1, min, warnBelow, warnAbove, warnText, disabled = false }) {
-  const { t } = useLocale();
-  const warning = rangeWarning(value, warnBelow, warnAbove, warnText, t);
+  const { t, locale } = useLocale();
+  const belowMinimum = min !== undefined && Number.isFinite(value) && value < min;
+  // F01: Never silently clamp a financially invalid price; show its exact
+  // field-level error next to the value as well as letting the engine refuse it.
+  const minWarning = belowMinimum
+    ? (locale === "en"
+      ? `Invalid input: value is below the permitted minimum (${min}). Correct the value.`
+      : `قيمة غير صالحة: القيمة أقل من الحد الأدنى المسموح (${min}). يرجى تصحيح المدخل.`)
+    : null;
+  const warning = minWarning || rangeWarning(value, warnBelow, warnAbove, warnText, t);
   return (
     <Field label={label} unit={unit}>
       <input
@@ -243,11 +256,13 @@ function NumField({ label, unit, note, value, onChange, step = 1, min, warnBelow
         aria-invalid={warning ? "true" : undefined}
         onChange={(e) => {
           if (disabled) return;
-          const raw = e.target.value.replace(/[^\d.\-]/g, "");
+          const raw = e.target.value.replace(/[−﹣－]/g, "-").replace(/[^\d.\-]/g, "");
           if (raw === "" || raw === "-" || raw === "." || raw === "-.") return;
           const parsed = Number(raw);
           if (!Number.isFinite(parsed)) return;
-          onChange(min !== undefined ? Math.max(min, parsed) : parsed);
+          // F01: Never turn a negative purchase price into a positive input.
+          // Preserve the original value so engine validation blocks calculation.
+          onChange(parsed);
         }}
       />
       <FieldNote note={note} warning={warning} />
@@ -447,7 +462,7 @@ function KPIChip({ label, value, icon: Icon, accent, sub, warning }) {
   );
 }
 
-function VerdictSeal({ verdict, metCount, totalCriteria = 4, size = "large" }) {
+function VerdictSeal({ verdict, metCount, totalCriteria = null, size = "large" }) {
   const { t } = useLocale();
   const isIncomplete = verdict === "INCOMPLETE_INPUTS";
   const isGo = verdict === "يوصى بالشراء";
@@ -1515,7 +1530,7 @@ function DealsPanel({
               >
                 <button type="button" onClick={() => onLoadDeal(d.id)} className="flex-1 flex items-center gap-2 text-xs" style={{ color: COLORS.parchment }}>
                   {d.mode === "building" ? <Building2 size={13} style={{ color: COLORS.slate }} /> : <Landmark size={13} style={{ color: COLORS.slate }} />}
-                  {getDealDisplayName(d, t)}
+                  <span data-user-content translate="no" dir="auto">{getDealDisplayName(d, t)}</span>
                 </button>
                 <button type="button" onClick={() => onDeleteDeal(d.id)} aria-label={t("globalApp.deleteDeal")} style={{ color: COLORS.negative }}>
                   <Trash2 size={14} />
@@ -1592,7 +1607,23 @@ export default function App() {
   const [residentialIncomeOperatingCase, setResidentialIncomeOperatingCase] = useState(null);
   const [operatingCaseMessage, setOperatingCaseMessage] = useState(null);
   const [valuationCase, setValuationCase] = useState(null);
+  const [valuationEditorDraft, replaceValuationEditorDraft] = useState(null);
+  const valuationEditorDraftRef = useRef(null);
+  // Validate before scheduling React state. A rejected edit must not throw
+  // from a render-time updater or discard an accepted edit in another group.
+  const setValuationEditorDraft = (next) => {
+    const value = typeof next === 'function' ? next(valuationEditorDraftRef.current) : next;
+    valuationEditorDraftRef.current = value;
+    replaceValuationEditorDraft(value);
+    return value;
+  };
+  const [valuationEditorKey, setValuationEditorKey] = useState(0);
+  const modeContexts = useRef({ building: { activeDealId: null, zakatCase: null }, land: { activeDealId: null, zakatCase: null } });
   const [zakatCase, setZakatCase] = useState(null);
+  const [provenanceByMode,setProvenanceByMode]=useState({building:null,land:null});
+  const inputProvenance=provenanceByMode[mode];
+  const [rentalByMode,setRentalByMode]=useState({building:null,land:null});
+  const rentalContext=rentalByMode[mode];
   const residentialIncomeAcquisitionView = useMemo(
     () => createResidentialIncomeAcquisitionViewModel(residentialIncomeOperatingCase),
     [residentialIncomeOperatingCase],
@@ -1690,6 +1721,32 @@ export default function App() {
   const [savingInProgress, setSavingInProgress] = useState(false);
   const [dealsError, setDealsError] = useState(null);
   const activeDealName = activeDealId ? (savedDeals.find((d) => d.id === activeDealId) || {}).name : null;
+  const switchStudyMode = (nextMode) => {
+    if (nextMode === mode) return;
+    modeContexts.current[mode] = { activeDealId, zakatCase };
+    const context = modeContexts.current[nextMode];
+    setMode(nextMode);
+    setActiveDealId(context.activeDealId);
+    setZakatCase(context.zakatCase);
+    setOperatingCaseMessage(null);
+    setActiveTab('dashboard');
+  };
+  const changeValuationCase = (next, appliedGroup = 'base') => {
+    setValuationEditorDraft(current => rebaseValuationEditorDraft(current, appliedGroup, next));
+    setValuationCase(next);
+  };
+  const changeValuationEditorDraft = (group, draft) => {
+    try {
+      setValuationEditorDraft(current => updateValuationEditorDraft(current, group, draft));
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, code: error.code || 'INVALID_VALUATION_EDITOR_DRAFT' };
+    }
+  };
+  const financialContext = useMemo(() => ({ mode, inputs, assumptionModelVersion, zakatCase, inputProvenance, rentalContext,
+    dealName: activeDealName || inputs.projectTitle || '',
+    valuationEditorDraft: mode === 'building' ? valuationEditorDraft : null,
+  }), [mode, inputs, assumptionModelVersion, zakatCase, activeDealName, valuationEditorDraft,inputProvenance,rentalContext]);
 
   const valuationRuntimeState = useMemo(() => {
     if (mode !== "building") return { runtime: null, error: null };
@@ -1735,7 +1792,10 @@ export default function App() {
   }, []);
 
   const loadBuiltIn = (builtInMode) => {
+    if (builtInMode !== mode) modeContexts.current[mode] = { activeDealId, zakatCase };
     setMode(builtInMode);
+    setProvenanceByMode(current=>({...current,[builtInMode]:null}));
+    setRentalByMode(current=>({...current,[builtInMode]:null}));
     if (builtInMode === UI_MODE.BUILDING) {
       const workspace = createUiWorkspace({ mode: UI_MODE.BUILDING, defaultInputs: DEFAULT_BUILDING_INPUTS });
       setBuildingInputs(workspace.inputs);
@@ -1745,9 +1805,13 @@ export default function App() {
       setLandInputs(workspace.inputs);
       setLandAssumptionModelVersion(workspace.assumptionModelVersion);
     }
-    setResidentialIncomeOperatingCase(null);
+    if (builtInMode === UI_MODE.BUILDING) {
+      setResidentialIncomeOperatingCase(null);
+      setValuationCase(null);
+      setValuationEditorDraft(null);
+      setValuationEditorKey(key => key + 1);
+    }
     setOperatingCaseMessage(null);
-    setValuationCase(null);
     setZakatCase(null);
     setActiveDealId(null);
     setActiveTab("dashboard");
@@ -1765,7 +1829,10 @@ export default function App() {
         record,
         defaultInputs: record.mode === UI_MODE.BUILDING ? DEFAULT_BUILDING_INPUTS : DEFAULT_LAND_INPUTS,
       });
+      if (hydrated.mode !== mode) modeContexts.current[mode] = { activeDealId, zakatCase };
       setMode(hydrated.mode);
+      setProvenanceByMode(current=>({...current,[hydrated.mode]:record.inputProvenance||null}));
+      setRentalByMode(current=>({...current,[hydrated.mode]:record.rentalContext||null}));
       if (hydrated.mode === UI_MODE.BUILDING) {
         setBuildingInputs(hydrated.inputs);
         setBuildingAssumptionModelVersion(hydrated.assumptionModelVersion);
@@ -1773,10 +1840,14 @@ export default function App() {
         setLandInputs(hydrated.inputs);
         setLandAssumptionModelVersion(hydrated.assumptionModelVersion);
       }
-      setResidentialIncomeOperatingCase(record.operatingCase
-        ? hydrateResidentialIncomeOperatingCaseSnapshot(record.operatingCase)
-        : null);
-      setValuationCase(valuationCaseFromSavedDeal(record));
+      if (hydrated.mode === UI_MODE.BUILDING) {
+        setResidentialIncomeOperatingCase(record.operatingCase
+          ? hydrateResidentialIncomeOperatingCaseSnapshot(record.operatingCase)
+          : null);
+        setValuationCase(valuationCaseFromSavedDeal(record));
+        setValuationEditorDraft(copyValuationEditorDraft(record.valuationEditorDraft));
+        setValuationEditorKey(key => key + 1);
+      }
       setZakatCase(record.zakatCase ? validateUserEnteredZakatCase(record.zakatCase) : null);
       setOperatingCaseMessage(null);
       setActiveDealId(id);
@@ -1788,14 +1859,18 @@ export default function App() {
   };
 
   const recordWithExtensions = (record) => {
-    let extended = record;
+    let extended = inputProvenance ? {...record,inputProvenance} : record;
+    if(rentalContext) extended={...extended,rentalContext};
     if (record.mode === "building" && residentialIncomeOperatingCase) {
       extended = { ...extended, operatingCase: residentialIncomeOperatingCase };
     }
     if (zakatCase) {
       extended = { ...extended, zakatCase: validateUserEnteredZakatCase(zakatCase) };
     }
-    return withValuationCase(extended, valuationCase);
+    const configured = withValuationCase(extended, valuationCase);
+    return record.mode === 'building' && valuationEditorDraft
+      ? { ...configured, valuationEditorDraft: copyValuationEditorDraft(valuationEditorDraft) }
+      : configured;
   };
 
   const importResidentialIncomeOperatingCase = async (file) => {
@@ -1917,11 +1992,30 @@ export default function App() {
       const newIndex = savedDeals.filter((d) => d.id !== id);
       await storageProvider.set("deals-index", JSON.stringify(newIndex));
       setSavedDeals(newIndex);
+      for (const draftMode of ['building', 'land']) {
+        if (modeContexts.current[draftMode].activeDealId === id) {
+          modeContexts.current[draftMode] = { activeDealId: null, zakatCase: null };
+          setProvenanceByMode(current=>({...current,[draftMode]:null}));
+          setRentalByMode(current=>({...current,[draftMode]:null}));
+          if (draftMode === 'building' && mode !== 'building') {
+            setValuationCase(null);
+            setValuationEditorDraft(null);
+            setValuationEditorKey(key => key + 1);
+            setResidentialIncomeOperatingCase(null);
+          }
+        }
+      }
       if (activeDealId === id) {
+        setProvenanceByMode(current=>({...current,[mode]:null}));
+        setRentalByMode(current=>({...current,[mode]:null}));
         setActiveDealId(null);
-        setResidentialIncomeOperatingCase(null);
-        setOperatingCaseMessage(null);
-        setValuationCase(null);
+        if (mode === 'building') {
+          setResidentialIncomeOperatingCase(null);
+          setOperatingCaseMessage(null);
+          setValuationCase(null);
+          setValuationEditorDraft(null);
+          setValuationEditorKey(key => key + 1);
+        }
         setZakatCase(null);
       }
     } catch (e) {
@@ -1973,6 +2067,7 @@ export default function App() {
 
   const resetCurrent = () => {
     setZakatCase(null);
+    if(!activeDealId){setProvenanceByMode(current=>({...current,[mode]:null}));setRentalByMode(current=>({...current,[mode]:null}));}
     if (activeDealId) {
       loadDeal(activeDealId);
     } else if (mode === "building") {
@@ -1982,11 +2077,12 @@ export default function App() {
       setResidentialIncomeOperatingCase(null);
       setOperatingCaseMessage(null);
       setValuationCase(null);
+      setValuationEditorDraft(null);
+      setValuationEditorKey(key => key + 1);
     } else {
       const workspace = createUiWorkspace({ mode: UI_MODE.LAND, defaultInputs: DEFAULT_LAND_INPUTS });
       setLandInputs(workspace.inputs);
       setLandAssumptionModelVersion(workspace.assumptionModelVersion);
-      setValuationCase(null);
     }
   };
 
@@ -2005,7 +2101,7 @@ export default function App() {
             </h1>
             <p className="text-xs md:text-sm mt-1 flex items-center gap-1.5" style={{ color: COLORS.slate }}>
               <MapPin size={13} />
-              {activeDealName ? `${activeDealName} — ${getProjectTitleDisplay(inputs.projectTitle, t)}` : getProjectTitleDisplay(inputs.projectTitle, t)}
+              <span data-user-content translate="no" dir="auto">{activeDealName ? `${activeDealName} — ${getProjectTitleDisplay(inputs.projectTitle, t)}` : getProjectTitleDisplay(inputs.projectTitle, t)}</span>
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -2018,19 +2114,12 @@ export default function App() {
             >
               {locale === "ar-SA" ? "EN" : "ع"}
             </button>
-            <ModeSwitch mode={mode} setMode={(m) => {
-              setMode(m);
-              setActiveDealId(null);
-              setResidentialIncomeOperatingCase(null);
-              setOperatingCaseMessage(null);
-              setValuationCase(null);
-              setZakatCase(null);
-              setActiveTab("dashboard");
-            }} />
+            <ModeSwitch mode={mode} setMode={switchStudyMode} />
             <button
               type="button"
               onClick={() => setDealsPanelOpen(true)}
               title={t("actions.savedDeals")}
+              aria-label={t("actions.savedDeals")}
               className="relative p-2.5 rounded-xl"
               style={{ background: COLORS.panelRaised, border: `1px solid ${COLORS.hairline}`, color: COLORS.slate }}
             >
@@ -2048,6 +2137,7 @@ export default function App() {
               type="button"
               onClick={resetCurrent}
               title={activeDealId ? t("savedDeals.resetButtonTitleActive") : t("actions.reset")}
+              aria-label={activeDealId ? t("savedDeals.resetButtonTitleActive") : t("actions.reset")}
               className="p-2.5 rounded-xl"
               style={{ background: COLORS.panelRaised, border: `1px solid ${COLORS.hairline}`, color: COLORS.slate }}
             >
@@ -2115,6 +2205,8 @@ export default function App() {
             ) : (
               <LandInputPanel inputs={landInputs} setInputs={setLandInputs} assumptionModelVersion={landAssumptionModelVersion} />
             )}
+            <RentalCalendarPanel key={`${mode}:${activeDealId||"draft"}`} mode={mode} inputs={inputs} result={results} context={rentalContext} onChange={next=>setRentalByMode(current=>({...current,[mode]:next}))}/>
+            <InputProvenancePanel key={mode} mode={mode} inputs={inputs} provenance={inputProvenance} onChange={next=>setProvenanceByMode(current=>({...current,[mode]:next}))}/>
             <ZakatInputSection zakatCase={zakatCase} setZakatCase={setZakatCase} />
           </aside>
 
@@ -2126,7 +2218,7 @@ export default function App() {
               </div>
             ) : null}
             <Tabs value={activeTab} onChange={setActiveTab} />
-            {activeTab === "dashboard" && <DashboardTab mode={mode} inputs={inputs} results={results} />}
+            {activeTab === "dashboard" && <><DashboardTab mode={mode} inputs={inputs} results={results} /><PaybackDisclosurePanel mode={mode} results={results} locale={locale} /></>}
             {activeTab === "cashflow" && <CashFlowTab mode={mode} inputs={inputs} results={results} zakatCase={zakatCase} />}
             {activeTab === "sensitivity" && <SensitivityTab
               mode={mode}
@@ -2139,15 +2231,23 @@ export default function App() {
           </main>
         </div>
 
-        {mode === "building" ? (
+        <div hidden={mode !== "building"} data-testid="building-valuation-draft-container">
           <ValuationIntelligencePanel
+            key={valuationEditorKey}
             locale={locale}
             valuationCase={valuationCase}
-            onChangeValuationCase={setValuationCase}
+            onChangeValuationCase={changeValuationCase}
+            valuationEditorDraft={valuationEditorDraft}
+            onChangeValuationEditorDraft={changeValuationEditorDraft}
+            hidePersonalReport
             runtime={valuationRuntimeState.runtime}
             runtimeError={valuationRuntimeState.error}
           />
-        ) : null}
+        </div>
+        <PersonalInvestmentResearchPanel locale={locale}
+          valuationCase={mode === 'building' ? valuationCase : null}
+          runtime={mode === 'building' ? valuationRuntimeState.runtime : null}
+          financialContext={financialContext} />
 
         {mode === "building" ? (
           <ResidentialIncomeAcquisitionPanel
@@ -2171,6 +2271,7 @@ export default function App() {
           </div>
           <div className="text-[10px] leading-relaxed" style={{ color: COLORS.slateDim }}>
             {t("globalApp.methodologyNote")}
+            {' '}<span data-testid="methodology-criteria-count">{t("globalApp.currentCriteriaCount", { count: Number.isInteger(results.totalCriteria) && !activeValidationError ? results.totalCriteria : '—' })}</span>
           </div>
         </footer>
       </div>

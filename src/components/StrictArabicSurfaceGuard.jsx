@@ -12,6 +12,9 @@ const {
 // governance provenance. The lower Arabic sanitizer is the single owner of
 // governed-token protection; this DOM guard must not wrap those tokens in a
 // second sentinel namespace before invoking it.
+const { describeDiagnostic } = require('../i18n/diagnostic-presentation.js');
+const UNMAPPED_PREFIX = 'نص يحتاج استكمال التعريب؛ الأصل: ';
+
 const APPROVED_TECHNICAL_TOKENS = GOVERNED_PRESENTATION_TOKENS;
 const APPROVED_TECHNICAL_TOKEN_PATTERN = GOVERNED_PRESENTATION_TOKEN_PATTERN;
 
@@ -53,6 +56,9 @@ const EXACT_TEXT = Object.freeze({
   scenarioRisk: 'مخاطر السيناريوهات',
   valuation: 'التقييم',
   financial: 'التحليل المالي',
+  'Valuation V1': 'التقييم — الإصدار الأول',
+  'Legacy Only': 'المسار المالي الحالي',
+  'C75 · PERSONAL RESEARCH': 'الدراسة الشخصية',
 });
 
 const INLINE_TERMS = Object.freeze([
@@ -83,7 +89,7 @@ function translateCodeTokens(text) {
     // generic enums. The lower sanitizer has already restored them here.
     if (APPROVED_TECHNICAL_TOKENS.has(token)) return token;
     if (ARABIC_VALUE_LABELS[token]) return ARABIC_VALUE_LABELS[token];
-    return presentCode(token, 'ar-SA', 'حالة نظامية');
+    return token;
   });
 }
 
@@ -91,11 +97,15 @@ function translateArabicSurfaceText(value) {
   if (value === null || value === undefined) return value;
   const original = String(value);
   const trimmed = original.trim();
-  if (!trimmed) return original;
+  if (!trimmed || trimmed.startsWith(UNMAPPED_PREFIX)) return original;
   if (TECHNICAL_REFERENCE.test(trimmed)) return original;
   if (APPROVED_TECHNICAL_TOKENS.has(trimmed)) return original;
   if (EXACT_TEXT[trimmed]) return original.replace(trimmed, EXACT_TEXT[trimmed]);
-  if (ALL_CAPS_CODE.test(trimmed)) return original.replace(trimmed, presentCode(trimmed, 'ar-SA'));
+  if (ALL_CAPS_CODE.test(trimmed)) {
+    if (ARABIC_VALUE_LABELS[trimmed]) return original.replace(trimmed, ARABIC_VALUE_LABELS[trimmed]);
+    const diagnostic = describeDiagnostic(trimmed);
+    return original.replace(trimmed, UNMAPPED_PREFIX + diagnostic.message + ' ' + trimmed);
+  }
 
   // sanitizeArabicUiText is the sole governed-token protector. It preserves V2,
   // EN, MISSING_REQUIRED and EXPLICIT byte-for-byte while translating ordinary
@@ -106,12 +116,12 @@ function translateArabicSurfaceText(value) {
   for (const [pattern, replacement] of INLINE_TERMS) translated = translated.replace(pattern, replacement);
   translated = translateCodeTokens(translated);
 
-  // Strict fail-closed customer surface: an unmapped English prose fragment is
-  // never exposed in Arabic mode. Approved technical tokens above are excluded
+  // Preserve unmapped source text. Diagnostics use DiagnosticText; this fallback
+  // is visibly incomplete and idempotent, so MutationObserver cannot erase or loop. Approved technical tokens above are excluded
   // from the prose check but remain exact for governed production diagnostics.
   const proseForLatinCheck = translated.replace(APPROVED_TECHNICAL_TOKEN_PATTERN, '');
   if (/[A-Za-z]/.test(proseForLatinCheck)) {
-    return original.replace(trimmed, 'محتوى واجهة غير معرّب');
+    return original.replace(trimmed, UNMAPPED_PREFIX + trimmed);
   }
   return translated;
 }
@@ -131,7 +141,7 @@ function translateAttribute(value) {
 
 function processElement(element) {
   if (!element || element.nodeType !== 1) return;
-  if (element.matches('script, style, code')) return;
+  if (element.closest('[data-user-content], [data-diagnostic-content], [translate="no"], script, style, code, pre')) return;
   for (const attr of ['title', 'aria-label', 'placeholder']) {
     if (element.hasAttribute(attr)) {
       const before = element.getAttribute(attr);
@@ -151,7 +161,7 @@ function processTree(root) {
       processElement(node);
     } else if (node.nodeType === 3) {
       const parent = node.parentElement;
-      if (parent && !parent.matches('script, style, code, input, textarea')) {
+      if (parent && !parent.closest('[data-user-content], [data-diagnostic-content], [translate="no"], script, style, code, pre, input, textarea')) {
         const before = node.nodeValue;
         const after = translateArabicSurfaceText(before);
         if (after !== before) node.nodeValue = after;

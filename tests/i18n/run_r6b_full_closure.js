@@ -1,3 +1,4 @@
+function historicalEvidence(id, detail) { console.log(`${id} NOT_RERUN -- historical note only: ${detail}`); }
 // tests/i18n/run_r6b_full_closure.js -- R6-B: 6 error rows (5 dealsError +
 // PersistenceUnavailableError). Stable-code bilingual architecture, trigger
 // invariance, R6-A/validation/R5 preservation.
@@ -41,7 +42,7 @@ const rB = calculateInvestmentCase({ studyType: STUDY_TYPE.EXISTING_BUILDING, in
 check('ENGINE-INTACT', isFinite(rB.irr) && isFinite(rB.NOI), `irr=${rB.irr}`);
 check('VERDICT-INTACT', ['يوصى بالشراء','يوصى بالشراء بشروط','لا يوصى بالشراء'].includes(rB.verdict), `"${rB.verdict}"`);
 
-check('BROWSER-REACHABLE-DEAL-SAVE-FAILED', true, 'confirmed via real Chromium test: simulated localStorage.setItem failure produced correct bilingual message with zero cross-locale leakage');
+historicalEvidence('BROWSER-REACHABLE-DEAL-SAVE-FAILED', 'confirmed via real Chromium test: simulated localStorage.setItem failure produced correct bilingual message with zero cross-locale leakage');
 check('MALFORMED-DEAL-REAL-PATH', require('child_process').spawnSync('node', [path.join(__dirname, 'run_r6b_malformed_saved_deal_real_path.js')]).status === 0, 'malformed Saved Deal rejected via the real production load path in both locales, same code, zero internal leakage -- see dedicated test for full detail');
 check('PERSISTENCE-UNAVAILABLE-UNREACHABLE-CURRENT-UI', !appSrc.includes('PersistenceUnavailableError') || !appSrc.match(/catch.*PersistenceUnavailableError/s), 'confirmed: no catch site in App.jsx currently renders this to the user (thrown only, from createStorageProvider try/catch that returns null)');
 

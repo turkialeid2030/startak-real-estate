@@ -1,3 +1,5 @@
+const {validateRentalCalendar}=require('../app/rental-calendar-disclosure');
+const {validateInputProvenance}=require('../app/input-provenance');
 // src/validation/saved-deal-schema.js -- SDI-001: canonical STRUCTURAL
 // validation boundary for a parsed Saved Deal record, applied after
 // JSON.parse succeeds but before the record is trusted (setMode/setInputs).
@@ -24,6 +26,7 @@ const {
   validatePersistedAssumptionRegistry,
 } = require('../assumptions/saved-deal-assumption-registry');
 const { validateUserEnteredZakatCase } = require('../zakat/user-entered-zakat');
+const { validateValuationEditorDraft } = require('../app/valuation-editor-draft');
 const { validateSavedDealStandardsMetadata, RESERVED_METADATA_KEYS } = require('../standards/saved-deal-standards-snapshot');
 
 class SavedDealValidationError extends Error {
@@ -109,6 +112,13 @@ function validateSavedDealRecord(parsed) {
     throw new SavedDealValidationError('INVALID_NAME_TYPE', `typeof=${typeof parsed.name}`);
   }
 
+  if(Object.prototype.hasOwnProperty.call(parsed,'rentalContext')) {try{validateRentalCalendar(parsed.rentalContext);}catch(e){throw new SavedDealValidationError('INVALID_RENTAL_CALENDAR',e.code);}}
+  if (Object.prototype.hasOwnProperty.call(parsed.inputs, 'rentalContext')) throw new SavedDealValidationError('PROVENANCE_IN_ECONOMIC_INPUTS','rentalContext');
+  if (Object.prototype.hasOwnProperty.call(parsed, 'inputProvenance')) {
+    try { validateInputProvenance(parsed.inputProvenance); if(parsed.inputProvenance && parsed.inputProvenance.mode!==parsed.mode) throw new Error('MODE_MISMATCH'); }
+    catch(error) {throw new SavedDealValidationError('INVALID_INPUT_PROVENANCE',error.code||error.message);}
+  }
+  if (Object.prototype.hasOwnProperty.call(parsed.inputs, 'inputProvenance')) throw new SavedDealValidationError('PROVENANCE_IN_ECONOMIC_INPUTS','inputProvenance');
   if (Object.prototype.hasOwnProperty.call(parsed, 'zakatCase')) {
     try {
       validateUserEnteredZakatCase(parsed.zakatCase);
@@ -126,6 +136,12 @@ function validateSavedDealRecord(parsed) {
     } catch (error) {
       throw new SavedDealValidationError('INVALID_OPERATING_CASE', error.reasonCode || error.name || 'UNKNOWN');
     }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(parsed, 'valuationEditorDraft')) {
+    if (parsed.mode !== 'building') throw new SavedDealValidationError('VALUATION_DRAFT_REQUIRES_BUILDING_MODE', parsed.mode);
+    try { validateValuationEditorDraft(parsed.valuationEditorDraft); }
+    catch (error) { throw new SavedDealValidationError('INVALID_VALUATION_EDITOR_DRAFT', error.code || error.name); }
   }
 
   if (Object.prototype.hasOwnProperty.call(parsed, 'valuationCase')) {

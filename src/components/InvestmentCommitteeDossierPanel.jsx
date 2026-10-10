@@ -1,3 +1,5 @@
+const {useLocale}=require('../i18n/LocaleContext');
+import DiagnosticText from './DiagnosticText.jsx';
 import React from 'react';
 
 function Badge({ children }) {
@@ -9,6 +11,7 @@ function EmptyState({ children }) {
 }
 
 function ActionRegister({ dossier, actionReviewRegister }) {
+  const {locale}=useLocale();
   const actions = dossier?.actionRegister?.actions || [];
   const reviewById = new Map((actionReviewRegister?.workflows || []).map((item) => [item.actionId, item]));
   return (
@@ -24,16 +27,16 @@ function ActionRegister({ dossier, actionReviewRegister }) {
             <article key={action.actionId} className="rounded-lg border border-slate-800 p-3">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
-                  <div className="text-sm text-slate-100">{action.description}</div>
-                  <div className="mt-1 text-[11px] text-slate-500">{action.actionId} · {action.type} · المسؤول: {action.ownerId}</div>
+                  <div className="text-sm text-slate-100"><DiagnosticText code={action.description} locale={locale}/></div>
+                  <div className="mt-1 text-[11px] text-slate-500"><span data-user-content translate="no">{action.actionId}</span> · <DiagnosticText code={action.type} locale={locale}/> · المسؤول: <span data-user-content translate="no">{action.ownerId}</span></div>
                 </div>
                 <div className="flex flex-wrap gap-1">
                   <Badge>{action.status}</Badge>
                   {review?.workflowStatus ? <Badge>{review.workflowStatus}</Badge> : null}
                 </div>
               </div>
-              {action.requiredEvidenceKeys?.length ? <div className="mt-2 text-[11px] text-slate-400">الأدلة المطلوبة: {action.requiredEvidenceKeys.join(', ')}</div> : null}
-              {review?.missingEvidenceKeys?.length ? <div className="mt-2 text-[11px] text-amber-300">نواقص: {review.missingEvidenceKeys.join(', ')}</div> : null}
+              {action.requiredEvidenceKeys?.length ? <div className="mt-2 text-[11px] text-slate-400">الأدلة المطلوبة: <code>{action.requiredEvidenceKeys.join(', ')}</code></div> : null}
+              {review?.missingEvidenceKeys?.length ? <div className="mt-2 text-[11px] text-amber-300">نواقص: <code>{review.missingEvidenceKeys.join(', ')}</code></div> : null}
               {review?.canRequestHumanClosure ? <div className="mt-2 text-[11px] text-emerald-300">جاهز لطلب مراجعة الإغلاق البشري.</div> : null}
             </article>
           );
@@ -67,6 +70,7 @@ function AiReview({ dossier }) {
 }
 
 export default function InvestmentCommitteeDossierPanel({ dossier, actionReviewRegister = null }) {
+  const {locale}=useLocale();
   if (!dossier || typeof dossier !== 'object') return null;
   const summary = dossier.executiveSummary || {};
   const attachments = dossier.analyticalAttachments || {};
@@ -74,18 +78,18 @@ export default function InvestmentCommitteeDossierPanel({ dossier, actionReviewR
   const assumptions = dossier.evidenceAndAssumptions?.assumptions || [];
 
   return (
-    <aside data-testid="investment-committee-dossier" dir="rtl" className="mx-auto mt-6 w-full max-w-7xl px-4 pb-8">
+    <aside data-testid="investment-committee-dossier" data-dossier-status={dossier.status} dir="rtl" className="mx-auto mt-6 w-full max-w-7xl px-4 pb-8">
       <div className="rounded-2xl border border-slate-800 bg-[#0D1526] p-4 shadow-2xl shadow-black/20 md:p-5">
         <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <div className="text-[11px] uppercase tracking-[0.18em] text-slate-500">Investment Committee Decision Dossier</div>
             <h2 className="mt-1 text-lg font-semibold text-slate-100">ملف قرار لجنة الاستثمار</h2>
-            <div className="mt-1 text-[11px] text-slate-500">Case: {dossier.caseId || '—'} · Project: {dossier.projectId || '—'}</div>
+            <div className="mt-1 text-[11px] text-slate-500">{locale==='en'?'Case':'الحالة'}: <span data-user-content translate="no">{dossier.caseId || '—'}</span> · {locale==='en'?'Project':'المشروع'}: <span data-user-content translate="no">{dossier.projectId || '—'}</span></div>
           </div>
           <div className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-200">{dossier.status || 'UNKNOWN'}</div>
         </div>
 
-        {dossier.reasonCodes?.length ? <div role="status" className="mb-4 rounded-lg border border-amber-800/60 bg-amber-950/20 p-3 text-xs text-amber-200">{dossier.reasonCodes.join(' · ')}</div> : null}
+        {dossier.reasonCodes?.length ? <div role="status" className="mb-4 rounded-lg border border-amber-800/60 bg-amber-950/20 p-3 text-xs text-amber-200">{dossier.reasonCodes.map(reason => <div key={reason}><DiagnosticText code={reason} locale={locale} /></div>)}</div> : null}
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-lg border border-slate-800 p-3"><div className="text-[11px] text-slate-500">الموثوقية النوعية</div><div className="mt-1 text-sm text-slate-100">{summary.decisionReliability || '—'}</div></div>

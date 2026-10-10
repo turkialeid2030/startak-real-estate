@@ -1,11 +1,13 @@
-import React, { useMemo, useRef, useState } from 'react';
+import DiagnosticText from './DiagnosticText.jsx';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 
+const { createManualTranscription } = require('../document-intelligence/manual-transcription');
 const { parseDocument } = require('../document-intelligence/parsers');
 const { useLocale } = require('../i18n/LocaleContext.js');
 
 const MAX_FILE_BYTES = 40 * 1024 * 1024;
 const MAX_PREVIEW_ATOMS = 20;
-const ACCEPTED_EXTENSIONS = ['.xlsx', '.pptx', '.pdf'];
+const ACCEPTED_EXTENSIONS = ['.xlsx', '.pptx', '.pdf', '.docx'];
 
 function extensionOf(name = '') {
   const match = /\.[^.]+$/.exec(String(name).toLowerCase());
@@ -35,6 +37,8 @@ function atomLocation(atom, labels) {
   const location = atom?.location || {};
   if (location.kind === 'CELL') return `${labels.sheet}: ${location.sheet || '—'} · ${labels.cell}: ${location.cell || '—'}`;
   if (location.kind === 'SLIDE') return `${labels.slide}: ${location.slide || '—'}`;
+  if (location.kind === 'PAGE') return `${labels.page}: ${location.page} · ${labels.line}: ${location.line || '—'}`;
+  if (location.kind === 'SECTION' && location.paragraph) return `${labels.paragraph}: ${location.paragraph}`;
   return location.kind || '—';
 }
 
@@ -55,13 +59,16 @@ function StatusPill({ status }) {
   );
 }
 
-export default function LocalDocumentEvidenceIntakePanel({ onRecordChange = null }) {
+export default function LocalDocumentEvidenceIntakePanel({ onRecordChange = null, caseId: suppliedCaseId = null }) {
   const { locale, dir } = useLocale();
   const isAr = locale === 'ar-SA';
   const fileInputRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const [record, setRecord] = useState(null);
   const [error, setError] = useState(null);
+  const [manual, setManual] = useState({text:'',page:'1',reviewerRef:'',note:''});
+  const requestRef = useRef({id:0,controller:null});
+  useEffect(() => { requestRef.current.id++; requestRef.current.controller?.abort(); setBusy(false); setRecord(null); setError(null); publishRecord(null); return () => requestRef.current.controller?.abort(); }, [suppliedCaseId]);
 
   const publishRecord = (nextRecord) => {
     if (typeof onRecordChange === 'function') onRecordChange(nextRecord);
@@ -70,11 +77,11 @@ export default function LocalDocumentEvidenceIntakePanel({ onRecordChange = null
   const l = useMemo(() => isAr ? {
     eyebrow: 'DOCUMENT INTELLIGENCE · LOCAL INTAKE',
     title: 'فحص المستندات محليًا',
-    intro: 'استخراج محتوى أولي من ملفات XLSX وPPTX داخل المتصفح. ملفات PDF تبقى موقوفة احترازيًا حتى اعتماد محلل ثنائي اللغة ومحدود المخاطر.',
+    intro: 'استخراج نصوص PDF وWord ومحتوى XLSX وPPTX محليًا. الصور والصفحات الممسوحة تحتاج نقلًا يدويًا موثقًا؛ لا يتوفر تعرف ضوئي في هذه الوحدة.',
     localOnly: 'المعالجة محلية في هذه الواجهة؛ لا تُرسل الملفات إلى جهة خارجية بواسطة هذه الوحدة.',
     choose: 'اختيار ملف',
     clear: 'مسح النتيجة',
-    accepted: 'الأنواع المقبولة: XLSX · PPTX · PDF — الحد الأقصى 40 MB',
+    accepted: 'الأنواع المقبولة: XLSX · PPTX · PDF · DOCX — الحد الأقصى 40 MB',
     parsing: 'جارٍ الفحص…',
     file: 'الملف',
     size: 'الحجم',
@@ -89,21 +96,21 @@ export default function LocalDocumentEvidenceIntakePanel({ onRecordChange = null
     noAtoms: 'لا توجد عناصر مستخرجة قابلة للعرض.',
     sheet: 'الورقة',
     cell: 'الخلية',
-    slide: 'الشريحة',
+    slide: 'الشريحة', page: 'الصفحة',line:'السطر',paragraph:'الفقرة',cancel:'إلغاء المعالجة',
     semanticBoundary: 'حدود الدلالة',
     boundary: 'المحتوى المستخرج ليس دليلاً موثقًا ولا يدخل المحرك المالي تلقائيًا. يلزم ربطه بمصدر ومراجعة بشرية قبل استخدامه كدليل.',
-    invalidType: 'نوع الملف غير مدعوم. استخدم XLSX أو PPTX أو PDF.',
+    invalidType: 'نوع الملف غير مدعوم. استخدم XLSX أو PPTX أو PDF أو DOCX.',
     tooLarge: 'حجم الملف يتجاوز الحد المحلي المسموح 40 MB.',
     hashFailed: 'تعذّر إنشاء بصمة محلية للملف؛ تم إيقاف المعالجة احترازيًا.',
     readFailed: 'تعذّر قراءة الملف أو فحصه محليًا.',
   } : {
     eyebrow: 'DOCUMENT INTELLIGENCE · LOCAL INTAKE',
     title: 'Local document intake',
-    intro: 'Extract preliminary content from XLSX and PPTX files in the browser. PDF remains fail-closed until a bounded bilingual parser is qualified.',
+    intro: 'Extract native PDF and Word text, XLSX cells, and PPTX text locally. Images and scanned pages need documented manual transcription; OCR is unavailable in this module.',
     localOnly: 'Processing is local in this interface; this module does not send the file to an external service.',
     choose: 'Choose file',
     clear: 'Clear result',
-    accepted: 'Accepted: XLSX · PPTX · PDF — maximum 40 MB',
+    accepted: 'Accepted: XLSX · PPTX · PDF · DOCX — maximum 40 MB',
     parsing: 'Inspecting…',
     file: 'File',
     size: 'Size',
@@ -118,16 +125,17 @@ export default function LocalDocumentEvidenceIntakePanel({ onRecordChange = null
     noAtoms: 'No extracted atoms are available to display.',
     sheet: 'Sheet',
     cell: 'Cell',
-    slide: 'Slide',
+    slide: 'Slide', page: 'Page',line:'Line',paragraph:'Paragraph',cancel:'Cancel processing',
     semanticBoundary: 'Semantic boundary',
     boundary: 'Parsed content is not verified evidence and is never fed into the financial engine automatically. Source linkage and human review are required before analytical evidence use.',
-    invalidType: 'Unsupported file type. Use XLSX, PPTX, or PDF.',
+    invalidType: 'Unsupported file type. Use XLSX, PPTX, PDF, or DOCX.',
     tooLarge: 'The file exceeds the 40 MB local intake limit.',
     hashFailed: 'A local file digest could not be created; processing stopped fail-closed.',
     readFailed: 'The file could not be read or inspected locally.',
   }, [isAr]);
 
   const reset = () => {
+    requestRef.current.id++; requestRef.current.controller?.abort(); setBusy(false);
     setRecord(null);
     setError(null);
     publishRecord(null);
@@ -149,9 +157,12 @@ export default function LocalDocumentEvidenceIntakePanel({ onRecordChange = null
       return;
     }
 
+    const requestId=++requestRef.current.id;
+    const controller=new AbortController(); requestRef.current.controller=controller;
     setBusy(true);
     try {
       const buffer = await file.arrayBuffer();
+      if(requestId!==requestRef.current.id || controller.signal.aborted) return;
       let digest;
       try { digest = await sha256(buffer); }
       catch (_) {
@@ -160,7 +171,7 @@ export default function LocalDocumentEvidenceIntakePanel({ onRecordChange = null
       }
 
       const documentId = `local-sha256:${digest}`;
-      const caseId = `LOCAL_INTAKE:${digest.slice(0, 16)}`;
+      const caseId = suppliedCaseId || `LOCAL_INTAKE:${digest.slice(0, 16)}`;
       const mimeType = file.type || 'application/octet-stream';
       const receivedAt = new Date().toISOString();
       const document = {
@@ -169,7 +180,10 @@ export default function LocalDocumentEvidenceIntakePanel({ onRecordChange = null
         fileName: file.name,
         mimeType,
       };
-      const result = await parseDocument({ document, content: buffer });
+      const options={signal:controller.signal};
+      if(extension==='.pdf') options.loadPdfLibrary=(await import('../document-intelligence/parsers/pdf-browser-library.mjs')).loadPdfLibrary;
+      const result = await parseDocument({ document, content: buffer,options });
+      if(requestId!==requestRef.current.id || controller.signal.aborted) return;
       const nextRecord = Object.freeze({
         fileName: file.name,
         size: file.size,
@@ -182,11 +196,12 @@ export default function LocalDocumentEvidenceIntakePanel({ onRecordChange = null
       });
       setRecord(nextRecord);
       publishRecord(nextRecord);
-    } catch (_) {
-      setError(l.readFailed);
+    } catch (error) {
+      if(requestId!==requestRef.current.id) return;
+      setError(error.code || l.readFailed);
       publishRecord(null);
     } finally {
-      setBusy(false);
+      if(requestId===requestRef.current.id) setBusy(false);
     }
   };
 
@@ -203,19 +218,23 @@ export default function LocalDocumentEvidenceIntakePanel({ onRecordChange = null
             <p className="mt-1 text-[11px] leading-5 text-emerald-200/80">{l.localOnly}</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <label className="cursor-pointer rounded-lg border border-amber-600/50 bg-amber-400/10 px-3 py-2 text-xs font-semibold text-amber-200 hover:bg-amber-400/15">
+            <button type="button" onClick={()=>fileInputRef.current?.click()} disabled={busy} className="cursor-pointer rounded-lg border border-amber-600/50 bg-amber-400/10 px-3 py-2 text-xs font-semibold text-amber-200 hover:bg-amber-400/15">
               {busy ? l.parsing : l.choose}
+            </button>
               <input
                 ref={fileInputRef}
                 data-testid="local-document-file-input"
                 aria-label={l.choose}
                 type="file"
-                accept=".xlsx,.pptx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.presentationml.presentation"
-                className="hidden"
+                hidden
+                tabIndex={-1}
+                aria-hidden="true"
+                accept=".xlsx,.pptx,.pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                className="sr-only"
                 disabled={busy}
                 onChange={(event) => handleFile(event.target.files?.[0] || null)}
               />
-            </label>
+            {busy ? <button type="button" onClick={reset} className="rounded-lg border border-slate-600 px-3 py-2 text-xs text-slate-200">{l.cancel}</button> : null}
             {record || error ? (
               <button type="button" onClick={reset} className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300 hover:bg-slate-800/60">
                 {l.clear}
@@ -227,13 +246,13 @@ export default function LocalDocumentEvidenceIntakePanel({ onRecordChange = null
         <div className="mt-3 text-[10px] text-slate-500">{l.accepted}</div>
 
         {error ? (
-          <div role="alert" className="mt-4 rounded-lg border border-rose-800/60 bg-rose-950/20 p-3 text-xs text-rose-200">{error}</div>
+          <div role="alert" className="mt-4 rounded-lg border border-rose-800/60 bg-rose-950/20 p-3 text-xs text-rose-200"><DiagnosticText code={error} locale={locale} /></div>
         ) : null}
 
         {record ? (
           <div className="mt-5 space-y-4">
             <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-              <div className="rounded-lg border border-slate-800 bg-slate-950/30 p-3"><div className="text-[10px] text-slate-500">{l.file}</div><div className="mt-1 break-all text-xs text-slate-200">{record.fileName}</div></div>
+              <div className="rounded-lg border border-slate-800 bg-slate-950/30 p-3"><div className="text-[10px] text-slate-500">{l.file}</div><div className="mt-1 break-all text-xs text-slate-200"><span data-user-content translate="no">{record.fileName}</span></div></div>
               <div className="rounded-lg border border-slate-800 bg-slate-950/30 p-3"><div className="text-[10px] text-slate-500">{l.size}</div><div className="mt-1 text-xs text-slate-200">{bytesLabel(record.size, locale)}</div></div>
               <div className="rounded-lg border border-slate-800 bg-slate-950/30 p-3"><div className="text-[10px] text-slate-500">{l.format}</div><div className="mt-1 text-xs text-slate-200">{record.result.format}</div></div>
               <div className="rounded-lg border border-slate-800 bg-slate-950/30 p-3"><div className="text-[10px] text-slate-500">{l.status}</div><div className="mt-1"><StatusPill status={record.result.status} /></div></div>
@@ -254,7 +273,7 @@ export default function LocalDocumentEvidenceIntakePanel({ onRecordChange = null
                   data-parser-reason={record.result.reason || ''}
                   className="mt-1 text-xs text-slate-200"
                 >
-                  {record.result.reason || '—'}
+                  {record.result.reason ? <DiagnosticText code={record.result.reason} locale={locale} /> : '—'}
                 </div>
               </div>
             </div>
@@ -263,7 +282,7 @@ export default function LocalDocumentEvidenceIntakePanel({ onRecordChange = null
               <div className="rounded-lg border border-amber-800/50 bg-amber-950/20 p-3">
                 <div className="text-xs font-semibold text-amber-200">{l.warnings}</div>
                 <ul className="mt-2 space-y-1 text-[11px] leading-5 text-amber-100/80">
-                  {record.result.warnings.map((warning) => <li key={warning}>• {warning}</li>)}
+                  {record.result.warnings.map((warning) => <li key={warning}>• <DiagnosticText code={warning} locale={locale} /></li>)}
                 </ul>
               </div>
             ) : null}
@@ -276,9 +295,9 @@ export default function LocalDocumentEvidenceIntakePanel({ onRecordChange = null
                     <article key={atom.atomId} className="rounded-lg border border-slate-800 bg-slate-950/20 p-3">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="text-[10px] font-semibold text-slate-400">{atom.kind} · {atom.valueType}</span>
-                        <span className="text-[10px] text-slate-500">{atomLocation(atom, l)}</span>
+                        <span className="text-[10px] text-slate-500"><span data-user-content translate="no">{atomLocation(atom, l)}</span></span>
                       </div>
-                      <div className="mt-2 whitespace-pre-wrap break-words text-xs leading-5 text-slate-200">{truncate(atom.rawValue)}</div>
+                      <div className="mt-2 whitespace-pre-wrap break-words text-xs leading-5 text-slate-200"><span data-user-content translate="no">{truncate(atom.rawValue)}</span></div>
                     </article>
                   ))}
                   {(record.result.atoms?.length || 0) > MAX_PREVIEW_ATOMS ? <div className="text-[10px] text-slate-500">+{record.result.atoms.length - MAX_PREVIEW_ATOMS}</div> : null}
@@ -286,6 +305,15 @@ export default function LocalDocumentEvidenceIntakePanel({ onRecordChange = null
               ) : <div className="text-xs text-slate-500">{l.noAtoms}</div>}
             </div>
 
+            <details data-testid="manual-transcription" className="rounded-lg border border-slate-600 p-3">
+              <summary className="cursor-pointer p-2 text-sm text-slate-100">{isAr?'نقل محتوى يدويًا مع مرجع الصفحة':'Transcribe content with a source-page reference'}</summary>
+              <p className="my-2 text-xs text-slate-300">{isAr?'أدخل قيمة أو فقرة كما تظهر في الأصل. تُربط ببصمة الملف والصفحة؛ يلزم تحقق منفصل من المطابقة.':'Enter a value or paragraph exactly as in the original. It is linked to the file digest and page and requires separate verification.'}</p>
+              <div className="grid gap-2 md:grid-cols-2">
+                {[["page",isAr?'رقم الصفحة أو الورقة':'Page or sheet number'],["reviewerRef",isAr?'اسم ناقل المحتوى':'Transcriber reference'],["note",isAr?'وصف موضع القيمة في المصدر':'Location description in the source']].map(([key,label])=><label key={key} className="text-xs text-slate-300">{label}<input data-testid={`manual-${key}`} type={key==='page'?'number':'text'} min="1" max="200" maxLength={key==='note'?2000:160} className="mt-1 w-full rounded bg-slate-950 p-2" value={manual[key]} onChange={e=>setManual({...manual,[key]:e.target.value})}/></label>)}
+                <label className="text-xs text-slate-300">{isAr?'النص أو القيمة المنقولة':'Transcribed text or value'}<textarea data-testid="manual-text" maxLength="32000" className="mt-1 w-full rounded bg-slate-950 p-2" value={manual.text} onChange={e=>setManual({...manual,text:e.target.value})}/></label>
+              </div>
+              <button data-testid="apply-manual-transcription" type="button" className="mt-3 rounded border border-sky-600 px-3 py-2 text-xs text-sky-200" onClick={()=>{try{const next=createManualTranscription({intakeRecord:record,...manual,page:Number(manual.page),capturedAt:new Date().toISOString()});setRecord(next);publishRecord(next);setError(null);}catch(e){setError(e.code);}}}>{isAr?'إضافة محتوى غير متحقق للتأهيل':'Add unverified content for qualification'}</button>
+            </details>
             <div className="rounded-lg border border-sky-800/50 bg-sky-950/20 p-3">
               <div className="text-xs font-semibold text-sky-200">{l.semanticBoundary}</div>
               <p className="mt-1 text-[11px] leading-5 text-sky-100/80">{l.boundary}</p>

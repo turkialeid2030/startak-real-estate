@@ -1,3 +1,4 @@
+function historicalEvidence(id, detail) { console.log(`${id} NOT_RERUN -- historical note only: ${detail}`); }
 // tests/i18n/run_r7_full_closure.js -- R7/R7-B permanent closure test.
 // GAP CORRECTION: R7 and R7-B's qualification evidence was gathered via
 // live-Chromium E2E scripts during those sessions, but no permanent test
@@ -22,7 +23,7 @@ check('R7-METHODOLOGY-VIA-T', appSrc.includes('t("globalApp.methodologyNote")'),
 // Real leak fixes (source-level proof)
 check('R7-FMTSAR-LEAK-FIXED', !appSrc.match(/fmtSAR\(activeNPV\)/) && appSrc.includes('formatCurrencyLocalized'), 'CashFlowTab NPV uses localized helper, not global fmtSAR()');
 check('R7-RANGEWARNING-LOCALE-NEUTRAL', appSrc.includes('function rangeWarning(value, warnBelow, warnAbove, warnText, t)'), 't threaded through shared fallback');
-check('R7-NUMFIELD-HAS-LOCALE', /function NumField\({[^}]*}\) \{\s*const \{ t \} = useLocale/.test(appSrc), 'NumField has useLocale()');
+check('R7-NUMFIELD-HAS-LOCALE', /function NumField\({[^}]*}\) \{\s*const \{ t(?:, locale)? \} = useLocale/.test(appSrc), 'NumField has useLocale()');
 check('R7-PERCENTFIELD-HAS-LOCALE', /function PercentField\({[^}]*}\) \{\s*const \{ t \} = useLocale/.test(appSrc), 'PercentField has useLocale()');
 
 // R7-B: DealsPanel modal accessibility
@@ -36,12 +37,12 @@ check('R7B-DELETE-ARIA-LABEL', appSrc.includes('aria-label={t("globalApp.deleteD
 // Live-verified evidence from R7 and R7-B sessions (documented, not re-executed
 // here -- see I18N_R7_ACCESSIBILITY_RESPONSIVE_FULL_E2E_REPORT.md for the full
 // scripts and raw output captured during those live Chromium sessions)
-check('R7-LIVE-RTL-LTR-VERIFIED', true, 'ar-SA: lang=ar-SA dir=rtl; en: lang=en dir=ltr; live switch without reload -- verified in R7 session');
-check('R7B-LIVE-12-RESPONSIVE-SCENARIOS', true, '3 viewports x 2 locales x 2 studies = 12/12, zero horizontal overflow, verified in R7-B session (no sampling)');
-check('R7B-LIVE-MODAL-KEYBOARD', true, 'Escape close, Tab+Enter close, autoFocus initial focus -- all verified live in R7-B session');
-check('R7-LIVE-BUILDING-E2E', true, 'multi-input + enum change + validation trigger/recovery + save/EN-load/update/AR-roundtrip/delete, 0 page errors -- verified live in R7-B session');
-check('R7-LIVE-LAND-E2E', true, 'multi-input + buildingTypeLabel/buildingPermitStatus enum changes + save/EN-load(raw values confirmed still Arabic in storage)/delete, 0 page errors -- verified live in R7-B session');
-check('R7-LIVE-CASHFLOW-NPV-NO-LEAK', true, 'en-locale NPV confirmed showing SAR, zero "ريال" -- verified live in both R7 and R7-B sessions');
+historicalEvidence('R7-LIVE-RTL-LTR-VERIFIED', 'ar-SA: lang=ar-SA dir=rtl; en: lang=en dir=ltr; live switch without reload -- verified in R7 session');
+historicalEvidence('R7B-LIVE-12-RESPONSIVE-SCENARIOS', '3 viewports x 2 locales x 2 studies = 12/12, zero horizontal overflow, verified in R7-B session (no sampling)');
+historicalEvidence('R7B-LIVE-MODAL-KEYBOARD', 'Escape close, Tab+Enter close, autoFocus initial focus -- all verified live in R7-B session');
+historicalEvidence('R7-LIVE-BUILDING-E2E', 'multi-input + enum change + validation trigger/recovery + save/EN-load/update/AR-roundtrip/delete, 0 page errors -- verified live in R7-B session');
+historicalEvidence('R7-LIVE-LAND-E2E', 'multi-input + buildingTypeLabel/buildingPermitStatus enum changes + save/EN-load(raw values confirmed still Arabic in storage)/delete, 0 page errors -- verified live in R7-B session');
+historicalEvidence('R7-LIVE-CASHFLOW-NPV-NO-LEAK', 'en-locale NPV confirmed showing SAR, zero "ريال" -- verified live in both R7 and R7-B sessions');
 
 // I18N_FULL final-gate discoveries (FG-I18N-001/002), orchestrated here
 try { require('child_process').execFileSync('node', [path.join(__dirname, 'run_i18n_full_discovered_leaks.js')], {stdio:'pipe'}); check('I18N-FULL-DISCOVERED-LEAKS-REGRESSION', true, 'exit 0'); }

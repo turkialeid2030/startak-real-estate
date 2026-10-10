@@ -6,6 +6,7 @@ const PARSER_FORMAT = Object.freeze({
   XLSX: 'XLSX',
   PPTX: 'PPTX',
   PDF: 'PDF',
+  DOCX: 'DOCX',
   UNKNOWN: 'UNKNOWN',
 });
 

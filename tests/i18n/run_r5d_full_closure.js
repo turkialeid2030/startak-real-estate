@@ -1,3 +1,4 @@
+function historicalEvidence(id, detail) { console.log(`${id} NOT_RERUN -- historical note only: ${detail}`); }
 // tests/i18n/run_r5d_full_closure.js -- R5-D: financing UI, both studies.
 // FINAL R5 wave. Inventory/component/property reconciliation, financing
 // structure raw/display separation, semantic invariance, R5-A/B/C isolation.
@@ -55,7 +56,7 @@ const hardcodedL = (landPanel.match(/(?:label|note|warnText)="[^"]*[\u0600-\u06F
 check('R5-FULLY-COMPLETE-BUILDING', hardcodedB === 0, `hardcoded Arabic remaining in BuildingInputPanel = ${hardcodedB}`);
 check('R5-FULLY-COMPLETE-LAND', hardcodedL === 0, `hardcoded Arabic remaining in LandInputPanel = ${hardcodedL}`);
 
-check('SELECTFIELD-STRING-COMPAT', true, 'confirmed via full regression pass with financingStructureLabel migration -- no other SelectField broke');
+historicalEvidence('SELECTFIELD-STRING-COMPAT', 'confirmed via full regression pass with financingStructureLabel migration -- no other SelectField broke');
 check('SEMANTIC-COMPARISON-INTACT', appSrc.includes('inputs.buildingPermitStatus === "صادر"'), 'buildingPermitStatus checked comparison byte-identical');
 
 const B = gold['RE-GOLD-002_existing_building'].inputs;

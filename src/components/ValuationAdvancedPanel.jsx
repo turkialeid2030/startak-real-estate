@@ -1,4 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import useConfigurationDraft from './useConfigurationDraft.js';
+import ConfigurationDraftNotice from './ConfigurationDraftNotice.jsx';
+import DiagnosticText from './DiagnosticText.jsx';
 import { ChevronDown, ChevronUp, Plus, Trash2, XCircle } from 'lucide-react';
 
 const {
@@ -443,14 +446,13 @@ function ReconciliationEditor({ locale, draft, setDraft }) {
   );
 }
 
-export default function ValuationAdvancedPanel({ locale = 'ar-SA', valuationCase, onChangeValuationCase }) {
+export default function ValuationAdvancedPanel({ locale = 'ar-SA', valuationCase, onChangeValuationCase, editorDraft = null, onChangeEditorDraft }) {
   const text = copyForLocale(locale);
   const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState(() => advancedDraftFromValuationCase(valuationCase));
+  const [draft, setDraft, editError] = useConfigurationDraft(valuationCase, advancedDraftFromValuationCase, editorDraft, onChangeEditorDraft);
   const [message, setMessage] = useState(null);
 
   useEffect(() => {
-    setDraft(advancedDraftFromValuationCase(valuationCase));
     setMessage(null);
   }, [valuationCase]);
 
@@ -470,7 +472,9 @@ export default function ValuationAdvancedPanel({ locale = 'ar-SA', valuationCase
     } catch (error) {
       setMessage({
         ok: false,
-        text: `${text.error}: ${error?.reasonCode || error?.name || 'INVALID_CONFIGURATION'}${error?.field ? ` — ${error.field}` : ''}`,
+        text: text.error,
+        code: error?.reasonCode || error?.name || 'INVALID_CONFIGURATION',
+        field: error?.field || null,
       });
     }
   };
@@ -488,6 +492,7 @@ export default function ValuationAdvancedPanel({ locale = 'ar-SA', valuationCase
 
       {open ? (
         <div className="mt-4 space-y-3">
+          <ConfigurationDraftNotice code={editError} locale={locale} />
           <EvidenceEditor locale={locale} draft={draft} setDraft={setDraft} />
           <MarketComparableEditor locale={locale} draft={draft} setDraft={setDraft} />
           <CostEditor locale={locale} draft={draft} setDraft={setDraft} />
@@ -496,7 +501,7 @@ export default function ValuationAdvancedPanel({ locale = 'ar-SA', valuationCase
           {message ? (
             <div className="rounded-lg px-3 py-2 flex items-start gap-2" style={{ border: `1px solid ${message.ok ? COLORS.hairline : COLORS.negative}`, color: message.ok ? COLORS.brassSoft : COLORS.negative }}>
               {!message.ok ? <XCircle size={13} style={{ flexShrink: 0 }} /> : null}
-              <div className="text-[10px] leading-relaxed">{message.text}</div>
+              <div className="text-[10px] leading-relaxed">{message.text}{message.code && <><br/><DiagnosticText locale={locale} code={message.code}/>{message.field && <code translate="no" dir="ltr"> — {message.field}</code>}</>}</div>
             </div>
           ) : null}
 

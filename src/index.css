@@ -15,3 +15,16 @@
 .rf-root div.sticky.top-2.z-20.rounded-2xl.p-3.mb-6 {
   pointer-events: none;
 }
+
+/* Visible keyboard focus across the full personal-study and evidence workspace. */
+:where(button,a,input,select,textarea,summary):focus-visible { outline:3px solid #7dd3fc; outline-offset:3px; }
+@media (prefers-reduced-motion:reduce) { *,*::before,*::after {scroll-behavior:auto!important;animation-duration:0.01ms!important;transition-duration:0.01ms!important;} }
+
+/* Small metadata and placeholders keep readable contrast on the dark surfaces. */
+.text-slate-500,.text-slate-600 {color:#94a3b8;}
+input::placeholder,textarea::placeholder {color:#94a3b8;opacity:1;}
+
+/* Preserve full diagnostic codes and user references while allowing nested
+   review cards to shrink inside the 390px mobile workspace. */
+.canonical-review-surface { min-width:0; overflow-wrap:anywhere; }
+.canonical-review-surface :where(section,aside,article,div,p,span,code,li) { min-width:0; }

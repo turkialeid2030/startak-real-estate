@@ -1,8 +1,10 @@
 import React, {useMemo, useState} from 'react';
+import DiagnosticText from './DiagnosticText.jsx';
 const {
   buildPersonalResearchReport,
   htmlReport,
 }=require('../app/personal-investment-research-report');
+const {buildPersonalFinancialStudy,htmlFinancialStudy}=require('../app/personal-financial-study');
 
 function locallyDownload(content,mime,name){
   const blob=new Blob([content],{type:mime});
@@ -37,23 +39,28 @@ function amount(n,currency,locale){
 }
 export default function PersonalInvestmentResearchPanel({
   locale='ar-SA',valuationCase=null,runtime=null,
+  financialContext=null,
 }){
   const [message,setMessage]=useState('');
   const ar=locale!=='en';
   const draft=useMemo(()=>{
-    try{return buildPersonalResearchReport({valuationCase,runtime,generatedAt:new Date()});}
+    try{return financialContext
+      ? buildPersonalFinancialStudy({...financialContext,valuationCase,runtime,generatedAt:new Date()})
+      : buildPersonalResearchReport({valuationCase,runtime,generatedAt:new Date()});}
     catch{return null;}
-  },[valuationCase,runtime]);
+  },[valuationCase,runtime,financialContext]);
   if(!draft)return null;
   const save=(format)=>{
     setMessage('');
     try{
       // Regenerate using current in-memory inputs so no stale governance
       // snapshot or external P0 licence is required for private study exports.
-      const current=buildPersonalResearchReport({valuationCase,runtime,generatedAt:new Date()});
+      const current=financialContext
+        ? buildPersonalFinancialStudy({...financialContext,valuationCase,runtime,generatedAt:new Date()})
+        : buildPersonalResearchReport({valuationCase,runtime,generatedAt:new Date()});
       const prefix='startak-personal-'+smallName(current.caseId||current.projectId)+
         '-'+current.generatedAt.slice(0,10);
-      if(format==='html')locallyDownload(htmlReport(current,{locale}),
+      if(format==='html')locallyDownload(financialContext?htmlFinancialStudy(current,{locale}):htmlReport(current,{locale}),
         'text/html;charset=utf-8',prefix+'.html');
       else locallyDownload(JSON.stringify(current,null,2),'application/json;charset=utf-8',
         prefix+'.json');
@@ -67,7 +74,7 @@ export default function PersonalInvestmentResearchPanel({
     <section dir={ar?'rtl':'ltr'} data-testid="c75-personal-research-workspace"
       className="mx-auto mt-5 w-full max-w-7xl px-4">
       <div className="rounded-2xl border border-slate-700 bg-[#101d33] p-4 md:p-5">
-        <div className="text-[11px] tracking-wide text-slate-400">C75 · PERSONAL RESEARCH</div>
+        <div className="text-[11px] tracking-wide text-slate-400">{ar?'الدراسة الشخصية':'Personal research'}</div>
         <h2 className="mt-1 text-base font-semibold text-slate-100">
           {ar?'دراسة الاستثمار العقاري الشخصية':'Personal real estate investment study'}
         </h2>
@@ -75,6 +82,15 @@ export default function PersonalInvestmentResearchPanel({
           {ar?'يمكنك تحليل الفرصة وتصدير مسودة شخصية حتى عند نقص بعض الأدلة. لا تُحوَّل القيم غير المحسوبة إلى أرقام مفترضة، وتُعرض الفجوات بوضوح. هذا المسار مستقل عن بوابات الإطلاق التجاري.':
             'Analyze and export your private draft despite missing external approvals. Uncalculated values are never invented, and missing inputs are reported. Commercial release gates do not control personal drafts.'}
         </p>
+        {draft.financial && <p data-testid="personal-financial-scope" className="mt-2 text-xs leading-6 text-slate-300">
+          {ar?'يشمل التصدير المدخلات الحالية والنتائج المالية والتدفقات والتمويل والحساسية وسيناريوهات الاختبار. نتائج التقييم الإضافي تعرض منفصلة عن مؤشرات الاستثمار.':'Export includes current inputs, financial results, cashflows, financing, sensitivities and stress scenarios. Additional valuation indications remain separate.'}
+        </p>}
+        {draft.financial?.status === 'INPUTS_INVALID' && <p data-testid="personal-financial-input-hold" className="mt-2 text-xs text-amber-200">
+          {ar?'المدخلات الحالية غير صالحة؛ التصدير مسودة مدخلات دون نتائج مالية من حالة سابقة.':'Current inputs are invalid; export is an input draft with no previous financial results.'}
+        </p>}
+        {draft.financial?.status === 'COMPUTATION_FAILED' && <p className="mt-2 text-xs text-amber-200">
+          <DiagnosticText code={draft.financial.error?.code} locale={locale} />
+        </p>}
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           <div className="rounded-xl border border-slate-700 p-3">
             <div className="text-[11px] text-slate-400">{ar?'حالة المسودة':'Draft status'}</div>
@@ -108,8 +124,8 @@ export default function PersonalInvestmentResearchPanel({
                 <th className="py-2 text-start">{ar?'مؤشر القيمة':'Value indication'}</th>
               </tr></thead>
               <tbody>{draft.methods.map((m,i)=><tr key={m.method+'-'+i} className="border-b border-slate-800">
-                <td className="py-2">{m.method}</td>
-                <td className="py-2">{m.state}</td>
+                <td className="py-2"><DiagnosticText locale={locale} code={m.method}/></td>
+                <td className="py-2"><DiagnosticText locale={locale} code={m.state}/></td>
                 <td className="py-2">{amount(m.diagnosticValue,draft.currency,locale)}</td>
               </tr>)}</tbody>
             </table>
@@ -121,7 +137,7 @@ export default function PersonalInvestmentResearchPanel({
               {ar?'عرض المدخلات الناقصة وملاحظات الأدلة':'Review missing inputs and evidence notes'}
             </summary>
             <ul className="mt-2 list-inside list-disc space-y-1">
-              {draft.warnings.map(w=><li key={w}>{w}</li>)}
+              {draft.warnings.map(w=><li key={w}><DiagnosticText locale={locale} code={w}/></li>)}
             </ul>
           </details>
         )}

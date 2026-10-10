@@ -9,7 +9,7 @@ const main = fs.readFileSync(path.join(root, 'src/main.jsx'), 'utf8');
 const panel = fs.readFileSync(path.join(root, 'src/components/CanonicalCaseWorkspacePanel.jsx'), 'utf8');
 const governanceProjection = fs.readFileSync(path.join(root, 'src/runtime/canonical-governance-projections.js'), 'utf8');
 
-assert(main.includes("import CanonicalCaseWorkspacePanel from './components/CanonicalCaseWorkspacePanel.jsx';"));
+assert(main.includes("lazy(()=>import('./components/CanonicalCaseWorkspacePanel.jsx'))"));
 assert(main.includes('<CanonicalCaseWorkspacePanel />'));
 assert(main.includes('Decision Intelligence may render only from that'));
 assert(main.includes('Investment Committee, action-review, outcome-feedback'));

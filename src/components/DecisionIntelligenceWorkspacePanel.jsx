@@ -1,3 +1,5 @@
+const {useLocale}=require('../i18n/LocaleContext');
+import DiagnosticText from './DiagnosticText.jsx';
 import React from 'react';
 
 const STATUS_TONE = Object.freeze({
@@ -125,6 +127,7 @@ function AiSection({ workspace }) {
 }
 
 export default function DecisionIntelligenceWorkspacePanel({ workspace }) {
+  const {locale}=useLocale();
   if (!workspace || typeof workspace !== 'object') return null;
 
   return (
@@ -134,7 +137,7 @@ export default function DecisionIntelligenceWorkspacePanel({ workspace }) {
           <div>
             <div className="text-[11px] uppercase tracking-[0.18em] text-slate-500">Decision Intelligence Workspace</div>
             <h2 className="mt-1 text-lg font-semibold text-slate-100">مساحة القرار والتحقق</h2>
-            <div className="mt-1 text-[11px] text-slate-500">Case: {workspace.caseId || '—'} · Project: {workspace.projectId || '—'}</div>
+            <div className="mt-1 text-[11px] text-slate-500">{locale==='en'?'Case':'الحالة'}: <span data-user-content translate="no">{workspace.caseId || '—'}</span> · {locale==='en'?'Project':'المشروع'}: <span data-user-content translate="no">{workspace.projectId || '—'}</span></div>
           </div>
           <div className={`rounded-lg border px-3 py-2 text-xs ${tone(workspace.status)}`}>
             {workspace.status || 'UNKNOWN'}
@@ -143,7 +146,7 @@ export default function DecisionIntelligenceWorkspacePanel({ workspace }) {
 
         {workspace.reasonCodes?.length ? (
           <div className="mb-4 rounded-lg border border-amber-800/60 bg-amber-950/20 p-3 text-xs text-amber-200" role="status">
-            {workspace.reasonCodes.join(' · ')}
+            {workspace.reasonCodes.map(reason => <div key={reason}><DiagnosticText code={reason} locale={locale} /></div>)}
           </div>
         ) : null}
 

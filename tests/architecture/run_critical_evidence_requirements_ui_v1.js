@@ -22,7 +22,10 @@ const orchestrator = fs.readFileSync(path.join(root, 'src/valuation-intelligence
 
 assert(wrapper.includes("import CriticalEvidenceRequirementsPanel from './CriticalEvidenceRequirementsPanel.jsx';"));
 assert(wrapper.includes('<CriticalEvidenceRequirementsPanel'));
-assert(panel.includes('criticalEvidenceRowsFromValuationCase(valuationCase)'));
+assert(panel.includes('useConfigurationDraft(valuationCase, criticalEvidenceRowsFromValuationCase, editorDraft, onChangeEditorDraft)'));
+const configurationDraftHook = fs.readFileSync(path.join(root, 'src/components/useConfigurationDraft.js'), 'utf8');
+assert(configurationDraftHook.includes('fromSource(source)'));
+assert(configurationDraftHook.includes('storedDraft ?? localDraft'));
 assert(panel.includes('applyCriticalEvidenceRowsToValuationCase(valuationCase, rows)'));
 assert(panel.includes("'effectiveGrossIncome'"));
 assert(panel.includes("'operatingExpenses'"));

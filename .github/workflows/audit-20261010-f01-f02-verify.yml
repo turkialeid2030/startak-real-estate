@@ -1,0 +1,115 @@
+name: Audit 2026-10-10 P0 F01 Negative Price and F02 Land Boundary
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/app/App.jsx'
+      - 'src/engines/valuation/land-development.js'
+      - 'src/engines/index.js'
+      - 'tests/architecture/run_audit_20261010_f01_f02.js'
+      - 'tests/e2e/run_audit_20261010_f01_browser.js'
+      - 'src/i18n/decision-metric-semantics.js'
+      - 'tests/defects/justified_price_semantics_398.js'
+      - 'docs/AUDIT_20261010_F01_F02_OWNER_FINANCIAL_REMEDIATION.md'
+      - '.github/workflows/audit-20261010-f01-f02-verify.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit-economic-boundary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Exact-head binding
+        env:
+          EXPECTED: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED"
+      - run: npm ci
+      - name: Live engine negative price and calendar max land price regression
+        run: node tests/architecture/run_audit_20261010_f01_f02.js
+      - name: Production React interface builds after input integrity correction
+        run: npm run build
+      - name: Verify known numerical validation and independent model remains regression tested
+        run: |
+          node tests/characterization/run_obs001_purchase_price_zero.js
+          node tests/architecture/run_decision_reversal_max_price_v1.js
+      - run: npm audit --audit-level=low
+  chromium-negative-price:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Exact-head binding
+        env:
+          EXPECTED: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED"
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - name: Serve actual production candidate
+        run: |
+          set -euo pipefail
+          (nohup npm run preview -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/f01-vite.log 2>&1 &)
+          for n in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:4173/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/f01-vite.log
+          exit 1
+      - name: Real browser negative SAR purchase must hold with explicit error
+        env:
+          STARTAK_E2E_URL: http://127.0.0.1:4173
+        run: node tests/e2e/run_audit_20261010_f01_browser.js
+  independent-release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Exact-head binding
+        env:
+          EXPECTED: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED"
+      - run: npm ci
+      - run: npm run release:verify
+      - run: npm run verify:package
+      - run: npm audit --audit-level=low
+  gate:
+    if: always()
+    needs: [audit-economic-boundary,chromium-negative-price,independent-release]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Hard require true positive success for financial fix and independent release
+        env:
+          AUDIT: ${{ needs.audit-economic-boundary.result }}
+          BROWSER: ${{ needs.chromium-negative-price.result }}
+          RELEASE: ${{ needs.independent-release.result }}
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$AUDIT" = success
+          test "$BROWSER" = success
+          test "$RELEASE" = success
+          echo "AUDIT_20261010_F01_F02_ENGINEERING_GATE=PASS sha=$SHA"
+          echo "AUDIT_DEPLOYED_TO_PRODUCTION=FALSE"

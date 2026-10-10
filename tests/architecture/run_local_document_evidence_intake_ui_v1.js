@@ -25,9 +25,9 @@ async function checkAsync(name, fn) {
 
 (async () => {
   check('local document intake is mounted through the explicit composed application tree', () => {
-    assert(main.includes("import LocalDocumentEvidenceWorkspace from './components/LocalDocumentEvidenceWorkspace.jsx';"));
+    assert(main.includes("lazy(()=>import('./components/LocalDocumentEvidenceWorkspace.jsx'))"));
     assert(main.includes('<LocalDocumentEvidenceWorkspace />'));
-    assert(workspace.includes('<LocalDocumentEvidenceIntakePanel onRecordChange={handleIntakeChange} />'));
+    assert(workspace.includes('<LocalDocumentEvidenceIntakePanel caseId={caseId.trim()||null} onRecordChange={handleIntakeChange} />'));
     assert(workspace.includes('setCandidate(null)'));
     assert(workspace.includes('setVerificationRecord(null)'));
     assert(!main.includes('window.__STARTAK_'));
@@ -42,9 +42,9 @@ async function checkAsync(name, fn) {
     assert(!panel.includes('WebSocket'));
   });
 
-  check('file scope is bounded to xlsx pptx and pdf with a pre-parse size cap', () => {
+  check('file scope is bounded to xlsx pptx pdf and docx with a pre-parse size cap', () => {
     assert(panel.includes("const MAX_FILE_BYTES = 40 * 1024 * 1024"));
-    assert(panel.includes("const ACCEPTED_EXTENSIONS = ['.xlsx', '.pptx', '.pdf']"));
+    assert(panel.includes("const ACCEPTED_EXTENSIONS = ['.xlsx', '.pptx', '.pdf', '.docx']"));
     assert(panel.includes('if (file.size > MAX_FILE_BYTES)'));
   });
 
@@ -63,18 +63,18 @@ async function checkAsync(name, fn) {
   check('registered parsers preserve bounded capability claims', () => {
     assert.strictEqual(xlsx.ADAPTER_ID, 'XLSX_DETERMINISTIC_V1');
     assert.strictEqual(pptx.ADAPTER_ID, 'PPTX_DETERMINISTIC_V1');
-    assert.strictEqual(pdf.ADAPTER_ID, 'PDF_FAIL_CLOSED_V1');
+    assert.strictEqual(pdf.ADAPTER_ID, 'PDF_BOUNDED_TEXT_V1');
     assert.strictEqual(pdf.supports({ fileName: 'sample.pdf' }), true);
   });
 
-  await checkAsync('PDF remains fail-closed even with a valid PDF header', async () => {
+  await checkAsync('Corrupt PDF is rejected without partial atoms', async () => {
     const bytes = new TextEncoder().encode('%PDF-1.7\n% local fixture');
     const result = await pdf.parse({
       document: { documentId: 'doc-pdf-1', caseId: 'case-local-1', fileName: 'sample.pdf', mimeType: 'application/pdf' },
       content: bytes,
     });
-    assert.strictEqual(result.status, 'UNSUPPORTED');
-    assert.strictEqual(result.reason, 'PDF_BINARY_PARSER_NOT_YET_VETTED');
+    assert.strictEqual(result.status, 'REJECTED');
+    assert.strictEqual(result.reason, 'PDF_INVALID_OR_CORRUPT');
     assert.strictEqual(result.atoms.length, 0);
     assert.strictEqual(result.truthSemantics, 'Parser output is not Evidence and is never a financial-engine input by itself.');
   });

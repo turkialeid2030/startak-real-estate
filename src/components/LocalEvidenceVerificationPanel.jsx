@@ -1,3 +1,4 @@
+import DiagnosticText from './DiagnosticText.jsx';
 import React, { useEffect, useMemo, useState } from 'react';
 
 const { AUTHORITY_CLASS } = require('../document-intelligence/contracts');
@@ -191,7 +192,7 @@ export default function LocalEvidenceVerificationPanel({ candidate, onVerificati
               <Check testId="verification-conflict-check" checked={conflictDeclarationCompleted} onChange={setConflictDeclarationCompleted} label={l.conflict} />
             </div>
             <button data-testid="assess-verification-packet" type="button" onClick={assess} className="rounded-lg border border-violet-600/60 bg-violet-400/10 px-4 py-2 text-xs font-semibold text-violet-200">{l.assess}</button>
-            {gate ? <div data-testid="verification-gate-result" className={`rounded-lg border p-3 text-xs ${gateReady ? 'border-emerald-800/60 bg-emerald-950/20 text-emerald-200' : 'border-rose-800/60 bg-rose-950/20 text-rose-200'}`}><div className="text-[10px] opacity-70">{l.gateStatus}</div><div className="mt-1 font-semibold">{gate.status}</div>{gate.reasons?.length ? <div className="mt-2 text-[11px]">{gate.reasons.join(' · ')}</div> : null}</div> : null}
+            {gate ? <div data-testid="verification-gate-result" className={`rounded-lg border p-3 text-xs ${gateReady ? 'border-emerald-800/60 bg-emerald-950/20 text-emerald-200' : 'border-rose-800/60 bg-rose-950/20 text-rose-200'}`}><div className="text-[10px] opacity-70">{l.gateStatus}</div><div className="mt-1 font-semibold">{gate.status}</div>{gate.reasons?.length ? <div className="mt-2 text-[11px]">{gate.reasons.map(reason => <div key={reason}><DiagnosticText code={reason} locale={locale} /></div>)}</div> : null}</div> : null}
           </div>
 
           <div className="space-y-3">
@@ -222,7 +223,7 @@ export default function LocalEvidenceVerificationPanel({ candidate, onVerificati
                     <div><div className="text-[10px] text-slate-500">{l.authority}</div><div data-testid="verified-authority-status" className="mt-1 text-xs text-slate-200">{verificationRecord.verifiedFact ? `${verificationRecord.verifiedFact.authorityClass} · verified=${String(verificationRecord.verifiedFact.authorityVerified)}` : '—'}</div></div>
                     <div><div className="text-[10px] text-slate-500">{l.engine}</div><div className="mt-1 text-xs text-amber-200">{l.notEligible}</div></div>
                   </div>
-                ) : <div className="mt-2 text-[11px] text-rose-200">{verificationRecord.reasons?.join(' · ')}</div>}
+                ) : <div className="mt-2 text-[11px] text-rose-200">{verificationRecord.reasons?.map(reason => <div key={reason}><DiagnosticText code={reason} locale={locale} /></div>)}</div>}
               </div>
             ) : null}
           </div>

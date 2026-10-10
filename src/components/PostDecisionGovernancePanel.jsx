@@ -1,4 +1,6 @@
 import React, { useMemo } from 'react';
+import DiagnosticText from './DiagnosticText.jsx';
+const {useLocale}=require('../i18n/LocaleContext');
 import OutcomeMonitoringPanel from './OutcomeMonitoringPanel.jsx';
 import LearningChangeControlPanel from './LearningChangeControlPanel.jsx';
 const { buildPostDecisionGovernanceWorkspace } = require('../runtime/post-decision-governance-workspace');
@@ -30,6 +32,7 @@ export default function PostDecisionGovernancePanel({
   impactAssessmentsByProposalRef = {},
   changeApprovalsByProposalRef = {},
 }) {
+  const {locale}=useLocale();
   const pipeline = useMemo(() => {
     if (!canonicalWorkspace) return null;
     return buildPostDecisionGovernanceWorkspace({
@@ -72,14 +75,14 @@ export default function PostDecisionGovernancePanel({
             <div>
               <div className="text-[11px] uppercase tracking-[0.18em] text-slate-500">Controlled Post-Decision Governance</div>
               <h2 className="mt-1 text-lg font-semibold text-slate-100">مراجعة الإجراءات والنتائج والتعلّم</h2>
-              <div className="mt-1 text-[11px] text-slate-500">Case: {pipeline.caseId} · Project: {pipeline.projectId}</div>
+              <div className="mt-1 text-[11px] text-slate-500">{locale==='en'?'Case':'الحالة'}: <span data-user-content translate="no">{pipeline.caseId}</span> · {locale==='en'?'Project':'المشروع'}: <span data-user-content translate="no">{pipeline.projectId}</span></div>
             </div>
-            <Badge>{pipeline.status}</Badge>
+            <Badge><DiagnosticText code={pipeline.status} locale={locale}/></Badge>
           </div>
 
           {pipeline.reasonCodes?.length ? (
             <div role="status" className="mb-4 rounded-lg border border-amber-800/60 bg-amber-950/20 p-3 text-xs text-amber-200">
-              {pipeline.reasonCodes.join(' · ')}
+              {pipeline.reasonCodes.map(code=><div key={code}><DiagnosticText code={code} locale={locale}/></div>)}
             </div>
           ) : null}
 
