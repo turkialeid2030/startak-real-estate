@@ -229,8 +229,16 @@ function FieldNote({ note, warning }) {
 }
 
 function NumField({ label, unit, note, value, onChange, step = 1, min, warnBelow, warnAbove, warnText, disabled = false }) {
-  const { t } = useLocale();
-  const warning = rangeWarning(value, warnBelow, warnAbove, warnText, t);
+  const { t, locale } = useLocale();
+  const belowMinimum = min !== undefined && Number.isFinite(value) && value < min;
+  // F01: Never silently clamp a financially invalid price; show its exact
+  // field-level error next to the value as well as letting the engine refuse it.
+  const minWarning = belowMinimum
+    ? (locale === "en"
+      ? `Invalid input: value is below the permitted minimum (${min}). Correct the value.`
+      : `قيمة غير صالحة: القيمة أقل من الحد الأدنى المسموح (${min}). يرجى تصحيح المدخل.`)
+    : null;
+  const warning = minWarning || rangeWarning(value, warnBelow, warnAbove, warnText, t);
   return (
     <Field label={label} unit={unit}>
       <input
