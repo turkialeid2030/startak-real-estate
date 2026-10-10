@@ -25,6 +25,7 @@ on:
       - 'docs/AUDIT_20261010_REMAINING_REVIEW.md'
       - '.github/workflows/standards-provenance-verify.yml'
       - '.github/workflows/audit-20261010-f03-f07-verify.yml'
+      - '.github/workflows/audit-20261010-deployed-owner-verify.yml'
   workflow_dispatch:
 permissions:
   contents: read

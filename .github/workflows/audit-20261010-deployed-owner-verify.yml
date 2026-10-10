@@ -1,0 +1,75 @@
+name: Audit 2026-10-10 Deployed Owner Acceptance
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.*'
+      - 'tests/e2e/run_audit_20261010_*'
+      - 'tests/e2e/run_c75_real_chromium_personal_study.js'
+      - '.github/workflows/audit-20261010-deployed-owner-verify.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: deployed-owner-acceptance-main
+  cancel-in-progress: true
+jobs:
+  deployed-owner-acceptance:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      STARTAK_SOURCE_COMMIT: ${{ github.sha }}
+      STARTAK_E2E_URL: https://startak-real-estate.pages.dev
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Bind verification source to main
+        run: test "$(git rev-parse HEAD)" = "$STARTAK_SOURCE_COMMIT"
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - name: Require the exact reviewed commit on the public deployment
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs/promises';
+          const expected=process.env.STARTAK_SOURCE_COMMIT;
+          if(!/^[a-f0-9]{40}$/.test(expected))throw new Error('Exact source SHA missing');
+          let observed=null;
+          for(let attempt=0;attempt<36;attempt++){
+            try{
+              const response=await fetch(process.env.STARTAK_E2E_URL+'/release-manifest.json?audit='+expected,{signal:AbortSignal.timeout(10000),headers:{'cache-control':'no-cache'}});
+              if(!response.ok)throw new Error('Manifest HTTP '+response.status);
+              observed=await response.json();
+              if(observed.sourceCommit===expected&&observed.sourceCommitBound===true){
+                await fs.mkdir('runtime-evidence/remaining-audit',{recursive:true});
+                await fs.writeFile('runtime-evidence/remaining-audit/deployed-manifest.json',JSON.stringify({expectedSourceCommit:expected,observedManifest:observed,checkedAt:new Date().toISOString(),deploymentReadOnly:true,transactionAuthorized:false},null,2));
+                console.log('DEPLOYED_OWNER_SOURCE=PASS sha='+expected);
+                process.exit(0);
+              }
+            }catch(e){console.log('Deployment not ready: '+e.message);}
+            await new Promise(resolve=>setTimeout(resolve,5000));
+          }
+          throw new Error('Public deployment does not match reviewed main: '+JSON.stringify(observed));
+          JS
+      - name: Published owner study and draft persistence
+        run: node tests/e2e/run_audit_20261010_f03_f07_browser.js
+      - name: Published financial export compatibility
+        run: node tests/e2e/run_c75_real_chromium_personal_study.js
+      - name: Published PDF worker, source journals, actions and three-browser print acceptance
+        run: node tests/e2e/run_audit_20261010_remaining_browser.js
+      - name: Save deployment-correlated browser and print evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: deployed-owner-acceptance-${{ github.sha }}
+          path: runtime-evidence/remaining-audit
+          if-no-files-found: error

@@ -65,7 +65,9 @@ async function download(page,locator){const pending=page.waitForEvent('download'
    await page.getByTestId('case-action-IN_PROGRESS').click();await page.getByTestId('case-action-evidenceRef').fill('Synthetic journal page 1');await page.getByTestId('case-action-SATISFIED_PENDING_REVIEW').click();await page.getByTestId('case-action-actorId').fill('REVIEWER');await page.getByTestId('case-action-reviewNote').fill('Reviewed source reference');await page.getByTestId('case-action-CLOSED').click();
    await expect(page.getByTestId('case-actions-count')).toContainText('0');checks++;
    await expect(page.getByTestId('investment-committee-dossier')).toHaveAttribute('data-dossier-status','HOLD_WORKSPACE');checks++;
-   ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'no page-level overflow at tested viewport');
+   const layout=await page.evaluate(()=>({width:innerWidth,scrollWidth:document.documentElement.scrollWidth,offenders:[...document.querySelectorAll('body *')].map(el=>{const r=el.getBoundingClientRect();return {tag:el.tagName,testId:el.getAttribute('data-testid'),classes:typeof el.className==='string'?el.className:'',text:(el.innerText||'').slice(0,100),left:r.left,right:r.right,width:r.width};}).filter(r=>r.width>0&&(r.left < -1||r.right>innerWidth+1)).slice(-35)}));
+   if(layout.scrollWidth>layout.width+1){await fs.writeFile(`${DIR}/${name}-${viewport.width}-overflow.json`,JSON.stringify(layout,null,2));await page.screenshot({path:`${DIR}/${name}-${viewport.width}-overflow.png`,fullPage:true});}
+   ok(layout.scrollWidth<=layout.width+1,'no page-level overflow at tested viewport');
    if(name==='chromium'&&viewport.width===1366){
     const html=await download(page,page.getByTestId('c75-export-personal-html'));const htmlHash=html.match(/[a-f0-9]{64}/g)?.at(-1);const print=await context.newPage();await print.setContent(html,{waitUntil:'load'});await print.setViewportSize({width:794,height:1123});await print.emulateMedia({media:'print'});
     ok(await print.evaluate(()=>[...document.querySelectorAll('table')].every(t=>t.scrollWidth<=document.documentElement.clientWidth+1)),'print tables fit page viewport');

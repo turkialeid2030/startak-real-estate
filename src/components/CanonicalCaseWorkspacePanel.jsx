@@ -193,7 +193,7 @@ export default function CanonicalCaseWorkspacePanel() {
   const committeeDossier = governanceProjection?.committeeDossier || null;
 
   return (
-    <section data-testid="canonical-case-workspace-panel" dir={en ? 'ltr' : 'rtl'} className="mx-auto mt-6 w-full max-w-7xl px-4 pb-4">
+    <section data-testid="canonical-case-workspace-panel" dir={en ? 'ltr' : 'rtl'} className="canonical-review-surface mx-auto mt-6 w-full max-w-7xl px-4 pb-4">
       <div className="rounded-2xl border border-slate-800 bg-[#0D1526] p-4 shadow-xl shadow-black/20 md:p-5">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>

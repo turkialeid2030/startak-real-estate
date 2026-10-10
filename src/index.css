@@ -23,3 +23,8 @@
 /* Small metadata and placeholders keep readable contrast on the dark surfaces. */
 .text-slate-500,.text-slate-600 {color:#94a3b8;}
 input::placeholder,textarea::placeholder {color:#94a3b8;opacity:1;}
+
+/* Preserve full diagnostic codes and user references while allowing nested
+   review cards to shrink inside the 390px mobile workspace. */
+.canonical-review-surface { min-width:0; overflow-wrap:anywhere; }
+.canonical-review-surface :where(section,aside,article,div,p,span,code,li) { min-width:0; }
