@@ -28,7 +28,7 @@ export default function LocalDocumentEvidenceWorkspace() {
       <LocalEvidenceQualificationPanel intakeRecord={intakeRecord} onCandidateChange={handleCandidateChange} />
       <LocalEvidenceVerificationPanel candidate={candidate} onVerificationRecordChange={setVerificationRecord} />
       <LocalEvidenceJournalPanel intakeRecord={intakeRecord} candidate={candidate} verificationRecord={verificationRecord}/>
-      <output data-testid="local-evidence-workflow-status" className="sr-only">
+      <output data-testid="local-evidence-workflow-status" data-verification-status={verificationRecord?.verifiedFactEstablished ? 'VERIFIED_FACT_RECORDED_NOT_UNDERWRITING_READY' : 'VERIFICATION_NOT_COMPLETE'} className="sr-only">
         {verificationRecord?.verifiedFactEstablished ? 'VERIFIED_FACT_RECORDED_NOT_UNDERWRITING_READY' : 'VERIFICATION_NOT_COMPLETE'}
       </output>
     </div>

@@ -49,7 +49,8 @@ async function download(page,locator){const pending=page.waitForEvent('download'
    ok(readLocalReviewJournal(JSON.stringify(journal),{caseId:'CASE-LOCAL-AUDIT',projectId:null,kind:'EVIDENCE'}).payload.candidate.fact.normalizedValue===1500,'exported source journal preserves value and scope');
    await page.reload();await page.getByTestId('document-case-id').fill('CASE-LOCAL-AUDIT');await page.getByTestId('local-document-file-input').setInputFiles({name:'English source - عقار.pdf',mimeType:'application/pdf',buffer:pdfFixture()});
    await expect(page.getByTestId('saved-evidence-journal')).toBeVisible({timeout:25000});checks++;
-   await expect(page.getByTestId('local-evidence-workflow-status')).toHaveText('VERIFICATION_NOT_COMPLETE');checks++;
+   await expect(page.getByTestId('local-evidence-workflow-status')).toHaveAttribute('data-verification-status','VERIFICATION_NOT_COMPLETE');checks++;
+   await expect(page.getByTestId('local-evidence-workflow-status')).toHaveText('التحقق غير مكتمل');checks++;
    await page.getByTitle(ar.actions.savedDeals,{exact:true}).click();await page.getByRole('dialog').getByRole('button',{name:seed.name,exact:true}).click();
    const provenance=page.getByTestId('input-provenance');await provenance.locator('summary').click();
    for(const[key,value]of Object.entries({field:'buildingPrice',unit:'SAR',sourceReference:'USER ESTIMATE / source',sourceDate:'2026-10-01',location:'Riyadh',reviewerRef:'OWNER'})) {const control=page.getByTestId('provenance-'+key);if(key==='field')await control.selectOption(value);else await control.fill(value);}
