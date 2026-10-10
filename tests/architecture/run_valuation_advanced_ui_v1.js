@@ -18,7 +18,11 @@ assert(wrapper.includes("import ValuationAdvancedPanel from './ValuationAdvanced
 assert(wrapper.includes('valuationCase ? ('));
 assert(wrapper.includes('<ValuationAdvancedPanel'));
 assert(base.includes('buildValuationCaseFromDraft(draft)'));
-assert(advanced.includes('advancedDraftFromValuationCase(valuationCase)'));
+assert(advanced.includes('useConfigurationDraft(valuationCase, advancedDraftFromValuationCase, editorDraft, onChangeEditorDraft)'));
+const configurationDraftHook = fs.readFileSync(path.join(root, 'src/components/useConfigurationDraft.js'), 'utf8');
+assert(configurationDraftHook.includes('fromSource(source)'));
+assert(configurationDraftHook.includes('storedDraft ?? localDraft'));
+assert(configurationDraftHook.includes('onChange(value)'));
 assert(advanced.includes('applyAdvancedDraftToValuationCase(valuationCase, draft)'));
 assert(advanced.includes('EVIDENCE_KEYS.map'));
 assert(advanced.includes('emptyComparableDraft()'));

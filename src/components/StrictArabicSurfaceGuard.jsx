@@ -53,6 +53,9 @@ const EXACT_TEXT = Object.freeze({
   scenarioRisk: 'مخاطر السيناريوهات',
   valuation: 'التقييم',
   financial: 'التحليل المالي',
+  'Valuation V1': 'التقييم — الإصدار الأول',
+  'Legacy Only': 'المسار المالي الحالي',
+  'C75 · PERSONAL RESEARCH': 'الدراسة الشخصية',
 });
 
 const INLINE_TERMS = Object.freeze([
@@ -131,7 +134,7 @@ function translateAttribute(value) {
 
 function processElement(element) {
   if (!element || element.nodeType !== 1) return;
-  if (element.matches('script, style, code')) return;
+  if (element.closest('[data-user-content], [data-diagnostic-content], [translate="no"], script, style, code, pre')) return;
   for (const attr of ['title', 'aria-label', 'placeholder']) {
     if (element.hasAttribute(attr)) {
       const before = element.getAttribute(attr);
@@ -151,7 +154,7 @@ function processTree(root) {
       processElement(node);
     } else if (node.nodeType === 3) {
       const parent = node.parentElement;
-      if (parent && !parent.matches('script, style, code, input, textarea')) {
+      if (parent && !parent.closest('[data-user-content], [data-diagnostic-content], [translate="no"], script, style, code, pre, input, textarea')) {
         const before = node.nodeValue;
         const after = translateArabicSurfaceText(before);
         if (after !== before) node.nodeValue = after;

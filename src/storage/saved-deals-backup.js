@@ -21,6 +21,7 @@ const OPTIONAL_DEAL_EXTENSION_KEYS = Object.freeze([
   'zakatCase',
   'operatingCase',
   'valuationCase',
+  'valuationEditorDraft',
   'standardsSnapshotVersion',
   'standardsSnapshot',
   'valuationStandardsContext',

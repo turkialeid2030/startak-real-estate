@@ -59,6 +59,9 @@ const COST_APPROACH_INDICATION_SEMANTICS = Object.freeze({
 
 const DECISION_METRIC_LABEL_OVERRIDES = Object.freeze({
   'ar-SA': Object.freeze({
+    'kpi.payback': 'الاسترداد التشغيلي التراكمي — يستبعد البيع',
+    'metricRowR2B2.paybackOnPrice': 'استرداد سعر الشراء تشغيليًا ضمن أفق المحرك — يستبعد البيع',
+    'globalApp.inputsNote': 'الحقول المتاحة قابلة للتعديل؛ افتراضات V2 المقفلة تعرض وفق نموذجها المحدد',
     'metricRowR2B2.maxJustifiedPrice': 'أقصى سعر شراء للمبنى وفق حدّي العائد الصافي والاسترداد فقط',
     'metricRowR2B2.maxJustifiedLandPricePerSqm': 'أقصى سعر لمتر الأرض يحقق الاسترداد التشغيلي التراكمي خلال المدة التقويمية المحددة فقط',
     'metricRow.coverageRatio': 'مضاعف إجمالي المساحة المبنية إلى مساحة الأرض — يشمل الأقبية وليس نسبة تغطية الموقع',
@@ -85,6 +88,9 @@ const DECISION_METRIC_LABEL_OVERRIDES = Object.freeze({
     'metricRowR2B2.annualDepreciationNote': 'بند حسابي منفصل لا يدخل في مؤشر تكلفة الاستبدال + الأرض، ولا يمثل إهلاكًا سوقيًا أو تقادمًا وظيفيًا/اقتصاديًا أو تقييمًا معتمدًا.',
   }),
   en: Object.freeze({
+    'kpi.payback': 'Cumulative Operating Recovery — Excludes Sale',
+    'metricRowR2B2.paybackOnPrice': 'Purchase-Price Operating Recovery over the Engine Horizon — Excludes Sale',
+    'globalApp.inputsNote': 'Available fields are editable; locked V2 assumptions use the stated model',
     'metricRowR2B2.maxJustifiedPrice': 'Maximum Building Purchase Price — Yield/Payback Thresholds Only',
     'metricRowR2B2.maxJustifiedLandPricePerSqm': 'Maximum Land Price per Sqm — Calendar Cumulative Operating Payback Only',
     'metricRow.coverageRatio': 'Gross Built Area / Land Area Multiple — includes basements; not site coverage',

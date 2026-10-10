@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import useConfigurationDraft from './useConfigurationDraft.js';
+import DiagnosticText from './DiagnosticText.jsx';
 import { ChevronDown, ChevronUp, Plus, Trash2, XCircle } from 'lucide-react';
 
 const {
@@ -132,14 +134,15 @@ export default function CriticalEvidenceRequirementsPanel({
   locale = 'ar-SA',
   valuationCase,
   onChangeValuationCase,
+  editorDraft = null,
+  onChangeEditorDraft,
 }) {
   const text = copyForLocale(locale);
   const [open, setOpen] = useState(false);
-  const [rows, setRows] = useState(() => criticalEvidenceRowsFromValuationCase(valuationCase));
+  const [rows, setRows] = useConfigurationDraft(valuationCase, criticalEvidenceRowsFromValuationCase, editorDraft, onChangeEditorDraft);
   const [message, setMessage] = useState(null);
 
   useEffect(() => {
-    setRows(criticalEvidenceRowsFromValuationCase(valuationCase));
     setMessage(null);
   }, [valuationCase]);
 
@@ -162,7 +165,9 @@ export default function CriticalEvidenceRequirementsPanel({
     } catch (error) {
       setMessage({
         ok: false,
-        text: `${text.error}: ${error?.reasonCode || error?.name || 'INVALID_CONFIGURATION'}${error?.field ? ` — ${error.field}` : ''}`,
+        text: text.error,
+        code: error?.reasonCode || error?.name || 'INVALID_CONFIGURATION',
+        field: error?.field || null,
       });
     }
   };
@@ -249,7 +254,7 @@ export default function CriticalEvidenceRequirementsPanel({
           {message ? (
             <div className="rounded-lg px-3 py-2 flex items-start gap-2" style={{ border: `1px solid ${message.ok ? COLORS.hairline : COLORS.negative}`, color: message.ok ? COLORS.brassSoft : COLORS.negative }}>
               {!message.ok ? <XCircle size={13} style={{ flexShrink: 0 }} /> : null}
-              <div className="text-[10px] leading-relaxed">{message.text}</div>
+              <div className="text-[10px] leading-relaxed">{message.text}{message.code && <><br/><DiagnosticText locale={locale} code={message.code}/>{message.field && <code translate="no" dir="ltr"> — {message.field}</code>}</>}</div>
             </div>
           ) : null}
 

@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import DiagnosticText from './DiagnosticText.jsx';
+import useConfigurationDraft from './useConfigurationDraft.js';
 import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, ShieldCheck, XCircle } from 'lucide-react';
 
 const {
@@ -48,13 +50,13 @@ const COPY = Object.freeze({
     title: 'ذكاء التقييم العقاري',
     subtitle: 'طبقة تقييم إضافية لا تستبدل محرك الدراسة الحالي ولا تعيد حساب الصفقات القديمة تلقائياً.',
     legacyTitle: 'المسار الحالي فقط',
-    legacyBody: 'لم يتم تفعيل Valuation V1 لهذه الحالة. تستمر نتائج الدراسة الحالية كما هي دون ترحيل أو افتراضات تلقائية.',
-    configure: 'تهيئة Valuation V1',
+    legacyBody: 'لم تُفعّل طبقة التقييم لهذه الحالة. تستمر نتائج الدراسة الحالية دون ترحيل أو افتراضات تلقائية.',
+    configure: 'تهيئة التقييم',
     editConfiguration: 'تعديل الإعدادات',
     closeConfiguration: 'إغلاق الإعدادات',
     applyConfiguration: 'تطبيق الإعدادات',
     disable: 'العودة للمسار الحالي فقط',
-    disableConfirm: 'سيتم إلغاء تفعيل Valuation V1 للحالة الحالية فقط. لن يتم حذف نتائج المحرك الحالي. هل تريد المتابعة؟',
+    disableConfirm: 'سيتم إلغاء تفعيل طبقة التقييم للحالة الحالية فقط. لن يتم حذف نتائج المحرك الحالي. هل تريد المتابعة؟',
     configuration: 'إعدادات التقييم',
     configurationNote: 'لا توجد قيم اقتصادية افتراضية مخفية. الحقول المطلوبة يجب تحديدها صراحة.',
     projectId: 'معرّف المشروع',
@@ -75,7 +77,7 @@ const COPY = Object.freeze({
     justification: 'مبرر الاعتماد المهني',
     requiredPlaceholder: 'اختر صراحة',
     currencyPlaceholder: 'مثال: SAR',
-    projectPlaceholder: 'مثال: PROJECT-001',
+    projectPlaceholder: 'أدخل معرّف المشروع',
     justificationPlaceholder: 'اكتب مبرراً مهنياً واضحاً لقبول منهج واحد فقط',
     configError: 'تعذر تطبيق إعدادات التقييم',
     runtimeError: 'تعذر تشغيل طبقة التقييم لهذه الحالة. بقيت الدراسة الأساسية دون تغيير.',
@@ -95,8 +97,8 @@ const COPY = Object.freeze({
     singleMethodAccepted: 'تم استخدام سياسة قبول منهج واحد',
     singleMethodJustification: 'المبرر',
     governanceNote: 'جاهزية التقييم لا تعني اعتماد الصفقة أو تفويض أي معاملة. يبقى القرار البشري والحوكمة المطلوبة إلزاميين.',
-    legacyOnlyBadge: 'Legacy Only',
-    valuationV1Badge: 'Valuation V1',
+    legacyOnlyBadge: 'المسار المالي الحالي',
+    valuationV1Badge: 'التقييم — الإصدار الأول',
     available: 'متاح',
     hold: 'معلّق',
     unavailable: 'غير متاح',
@@ -322,14 +324,15 @@ export default function ValuationIntelligencePanel({
   onChangeValuationCase,
   runtime = null,
   runtimeError = null,
+  editorDraft = null,
+  onChangeEditorDraft,
 }) {
   const text = copyForLocale(locale);
   const [expanded, setExpanded] = useState(Boolean(valuationCase));
-  const [draft, setDraft] = useState(() => draftFromValuationCase(valuationCase));
+  const [draft, setDraft] = useConfigurationDraft(valuationCase, draftFromValuationCase, editorDraft, onChangeEditorDraft);
   const [draftError, setDraftError] = useState(null);
 
   useEffect(() => {
-    setDraft(draftFromValuationCase(valuationCase));
     setDraftError(null);
   }, [valuationCase]);
 
@@ -428,7 +431,7 @@ export default function ValuationIntelligencePanel({
           <XCircle size={16} style={{ color: COLORS.negative, flexShrink: 0 }} />
           <div>
             <div className="text-xs font-semibold" style={{ color: COLORS.negative }}>{text.runtimeError}</div>
-            <div className="text-[10px] mt-1" style={{ color: COLORS.slate }}>{runtimeError.code || runtimeError.name || 'VALUATION_RUNTIME_ERROR'}</div>
+            <div className="text-[10px] mt-1" style={{ color: COLORS.slate }}><DiagnosticText locale={locale} code={runtimeError.code || runtimeError.name || 'VALUATION_RUNTIME_ERROR'} /></div>
           </div>
         </div>
       ) : null}
@@ -480,7 +483,7 @@ export default function ValuationIntelligencePanel({
                 <div className="text-[10px]" style={{ color: COLORS.slateDim }}>{text.noGaps}</div>
               ) : (
                 <ul className="space-y-1">
-                  {presentation.evidenceGaps.map((gap) => <li key={gap} className="text-[10px] font-mono" style={{ color: COLORS.slate }}>{gap}</li>)}
+                  {presentation.evidenceGaps.map((gap) => <li key={gap} className="text-[10px]" style={{ color: COLORS.slate }}><DiagnosticText locale={locale} code={gap} /></li>)}
                 </ul>
               )}
             </div>
@@ -490,7 +493,7 @@ export default function ValuationIntelligencePanel({
             <div className="rounded-xl px-3 py-3" style={{ background: COLORS.panelRaised, border: `1px solid ${COLORS.brassDim}` }}>
               <div className="text-xs font-semibold" style={{ color: COLORS.brassSoft }}>{text.singleMethodAccepted}</div>
               <div className="text-[10px] mt-1" style={{ color: COLORS.slate }}>{getValuationMethodLabel(locale, presentation.singleMethodAcceptance.method)}</div>
-              <div className="text-[10px] mt-1 leading-relaxed" style={{ color: COLORS.slateDim }}>{text.singleMethodJustification}: {presentation.singleMethodAcceptance.justification}</div>
+              <div className="text-[10px] mt-1 leading-relaxed" style={{ color: COLORS.slateDim }}>{text.singleMethodJustification}: <span data-user-content translate="no">{presentation.singleMethodAcceptance.justification}</span></div>
             </div>
           ) : null}
 
@@ -654,7 +657,7 @@ export default function ValuationIntelligencePanel({
             <div className="mt-3 rounded-xl px-3 py-3 flex gap-2" style={{ border: `1px solid ${COLORS.negative}`, background: 'rgba(180,84,74,0.12)' }}>
               <XCircle size={15} style={{ color: COLORS.negative, flexShrink: 0 }} />
               <div className="text-[10px]" style={{ color: COLORS.negative }}>
-                {text.configError}: {draftError.reasonCode}{draftError.field ? ` — ${draftError.field}` : ''}
+                {text.configError}: <DiagnosticText locale={locale} code={draftError.reasonCode}/>{draftError.field ? <code translate="no" dir="ltr"> — {draftError.field}</code> : null}
               </div>
             </div>
           ) : null}

@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import ResidentialIncomeAcquisitionPanel from "../components/ResidentialIncomeAcquisitionPanel.jsx";
 import ValuationIntelligencePanel from "../components/ValuationIntelligencePanel.jsx";
+import PersonalInvestmentResearchPanel from "../components/PersonalInvestmentResearchPanel.jsx";
+import PaybackDisclosurePanel from "../components/PaybackDisclosurePanel.jsx";
 import { ZakatInputSection, ZakatCashFlowPanel } from "../components/ZakatLayerPanel.jsx";
 
 // ============================================================
@@ -128,6 +130,7 @@ const {
 } = require('../residential-income-acquisition');
 const { evaluateExistingBuildingValuation } = require('./existing-building-valuation-runtime');
 const { valuationCaseFromSavedDeal, withValuationCase } = require('./valuation-saved-deal-bridge');
+const { updateValuationEditorDraft, copyValuationEditorDraft, rebaseValuationEditorDraft } = require('./valuation-editor-draft');
 const {
   UI_MODE,
   createUiWorkspace,
@@ -1525,7 +1528,7 @@ function DealsPanel({
               >
                 <button type="button" onClick={() => onLoadDeal(d.id)} className="flex-1 flex items-center gap-2 text-xs" style={{ color: COLORS.parchment }}>
                   {d.mode === "building" ? <Building2 size={13} style={{ color: COLORS.slate }} /> : <Landmark size={13} style={{ color: COLORS.slate }} />}
-                  {getDealDisplayName(d, t)}
+                  <span data-user-content translate="no" dir="auto">{getDealDisplayName(d, t)}</span>
                 </button>
                 <button type="button" onClick={() => onDeleteDeal(d.id)} aria-label={t("globalApp.deleteDeal")} style={{ color: COLORS.negative }}>
                   <Trash2 size={14} />
@@ -1602,6 +1605,9 @@ export default function App() {
   const [residentialIncomeOperatingCase, setResidentialIncomeOperatingCase] = useState(null);
   const [operatingCaseMessage, setOperatingCaseMessage] = useState(null);
   const [valuationCase, setValuationCase] = useState(null);
+  const [valuationEditorDraft, setValuationEditorDraft] = useState(null);
+  const [valuationEditorKey, setValuationEditorKey] = useState(0);
+  const modeContexts = useRef({ building: { activeDealId: null, zakatCase: null }, land: { activeDealId: null, zakatCase: null } });
   const [zakatCase, setZakatCase] = useState(null);
   const residentialIncomeAcquisitionView = useMemo(
     () => createResidentialIncomeAcquisitionViewModel(residentialIncomeOperatingCase),
@@ -1700,6 +1706,27 @@ export default function App() {
   const [savingInProgress, setSavingInProgress] = useState(false);
   const [dealsError, setDealsError] = useState(null);
   const activeDealName = activeDealId ? (savedDeals.find((d) => d.id === activeDealId) || {}).name : null;
+  const switchStudyMode = (nextMode) => {
+    if (nextMode === mode) return;
+    modeContexts.current[mode] = { activeDealId, zakatCase };
+    const context = modeContexts.current[nextMode];
+    setMode(nextMode);
+    setActiveDealId(context.activeDealId);
+    setZakatCase(context.zakatCase);
+    setOperatingCaseMessage(null);
+    setActiveTab('dashboard');
+  };
+  const changeValuationCase = (next, appliedGroup = 'base') => {
+    setValuationCase(next);
+    setValuationEditorDraft(current => rebaseValuationEditorDraft(current, appliedGroup, next));
+  };
+  const changeValuationEditorDraft = (group, draft) => {
+    setValuationEditorDraft(current => updateValuationEditorDraft(current, group, draft));
+  };
+  const financialContext = useMemo(() => ({ mode, inputs, assumptionModelVersion, zakatCase,
+    dealName: activeDealName || inputs.projectTitle || '',
+    valuationEditorDraft: mode === 'building' ? valuationEditorDraft : null,
+  }), [mode, inputs, assumptionModelVersion, zakatCase, activeDealName, valuationEditorDraft]);
 
   const valuationRuntimeState = useMemo(() => {
     if (mode !== "building") return { runtime: null, error: null };
@@ -1745,6 +1772,7 @@ export default function App() {
   }, []);
 
   const loadBuiltIn = (builtInMode) => {
+    if (builtInMode !== mode) modeContexts.current[mode] = { activeDealId, zakatCase };
     setMode(builtInMode);
     if (builtInMode === UI_MODE.BUILDING) {
       const workspace = createUiWorkspace({ mode: UI_MODE.BUILDING, defaultInputs: DEFAULT_BUILDING_INPUTS });
@@ -1755,9 +1783,13 @@ export default function App() {
       setLandInputs(workspace.inputs);
       setLandAssumptionModelVersion(workspace.assumptionModelVersion);
     }
-    setResidentialIncomeOperatingCase(null);
+    if (builtInMode === UI_MODE.BUILDING) {
+      setResidentialIncomeOperatingCase(null);
+      setValuationCase(null);
+      setValuationEditorDraft(null);
+      setValuationEditorKey(key => key + 1);
+    }
     setOperatingCaseMessage(null);
-    setValuationCase(null);
     setZakatCase(null);
     setActiveDealId(null);
     setActiveTab("dashboard");
@@ -1775,6 +1807,7 @@ export default function App() {
         record,
         defaultInputs: record.mode === UI_MODE.BUILDING ? DEFAULT_BUILDING_INPUTS : DEFAULT_LAND_INPUTS,
       });
+      if (hydrated.mode !== mode) modeContexts.current[mode] = { activeDealId, zakatCase };
       setMode(hydrated.mode);
       if (hydrated.mode === UI_MODE.BUILDING) {
         setBuildingInputs(hydrated.inputs);
@@ -1783,10 +1816,14 @@ export default function App() {
         setLandInputs(hydrated.inputs);
         setLandAssumptionModelVersion(hydrated.assumptionModelVersion);
       }
-      setResidentialIncomeOperatingCase(record.operatingCase
-        ? hydrateResidentialIncomeOperatingCaseSnapshot(record.operatingCase)
-        : null);
-      setValuationCase(valuationCaseFromSavedDeal(record));
+      if (hydrated.mode === UI_MODE.BUILDING) {
+        setResidentialIncomeOperatingCase(record.operatingCase
+          ? hydrateResidentialIncomeOperatingCaseSnapshot(record.operatingCase)
+          : null);
+        setValuationCase(valuationCaseFromSavedDeal(record));
+        setValuationEditorDraft(copyValuationEditorDraft(record.valuationEditorDraft));
+        setValuationEditorKey(key => key + 1);
+      }
       setZakatCase(record.zakatCase ? validateUserEnteredZakatCase(record.zakatCase) : null);
       setOperatingCaseMessage(null);
       setActiveDealId(id);
@@ -1805,7 +1842,10 @@ export default function App() {
     if (zakatCase) {
       extended = { ...extended, zakatCase: validateUserEnteredZakatCase(zakatCase) };
     }
-    return withValuationCase(extended, valuationCase);
+    const configured = withValuationCase(extended, valuationCase);
+    return record.mode === 'building' && valuationEditorDraft
+      ? { ...configured, valuationEditorDraft: copyValuationEditorDraft(valuationEditorDraft) }
+      : configured;
   };
 
   const importResidentialIncomeOperatingCase = async (file) => {
@@ -1927,11 +1967,26 @@ export default function App() {
       const newIndex = savedDeals.filter((d) => d.id !== id);
       await storageProvider.set("deals-index", JSON.stringify(newIndex));
       setSavedDeals(newIndex);
+      for (const draftMode of ['building', 'land']) {
+        if (modeContexts.current[draftMode].activeDealId === id) {
+          modeContexts.current[draftMode] = { activeDealId: null, zakatCase: null };
+          if (draftMode === 'building' && mode !== 'building') {
+            setValuationCase(null);
+            setValuationEditorDraft(null);
+            setValuationEditorKey(key => key + 1);
+            setResidentialIncomeOperatingCase(null);
+          }
+        }
+      }
       if (activeDealId === id) {
         setActiveDealId(null);
-        setResidentialIncomeOperatingCase(null);
-        setOperatingCaseMessage(null);
-        setValuationCase(null);
+        if (mode === 'building') {
+          setResidentialIncomeOperatingCase(null);
+          setOperatingCaseMessage(null);
+          setValuationCase(null);
+          setValuationEditorDraft(null);
+          setValuationEditorKey(key => key + 1);
+        }
         setZakatCase(null);
       }
     } catch (e) {
@@ -1992,11 +2047,12 @@ export default function App() {
       setResidentialIncomeOperatingCase(null);
       setOperatingCaseMessage(null);
       setValuationCase(null);
+      setValuationEditorDraft(null);
+      setValuationEditorKey(key => key + 1);
     } else {
       const workspace = createUiWorkspace({ mode: UI_MODE.LAND, defaultInputs: DEFAULT_LAND_INPUTS });
       setLandInputs(workspace.inputs);
       setLandAssumptionModelVersion(workspace.assumptionModelVersion);
-      setValuationCase(null);
     }
   };
 
@@ -2015,7 +2071,7 @@ export default function App() {
             </h1>
             <p className="text-xs md:text-sm mt-1 flex items-center gap-1.5" style={{ color: COLORS.slate }}>
               <MapPin size={13} />
-              {activeDealName ? `${activeDealName} — ${getProjectTitleDisplay(inputs.projectTitle, t)}` : getProjectTitleDisplay(inputs.projectTitle, t)}
+              <span data-user-content translate="no" dir="auto">{activeDealName ? `${activeDealName} — ${getProjectTitleDisplay(inputs.projectTitle, t)}` : getProjectTitleDisplay(inputs.projectTitle, t)}</span>
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -2028,15 +2084,7 @@ export default function App() {
             >
               {locale === "ar-SA" ? "EN" : "ع"}
             </button>
-            <ModeSwitch mode={mode} setMode={(m) => {
-              setMode(m);
-              setActiveDealId(null);
-              setResidentialIncomeOperatingCase(null);
-              setOperatingCaseMessage(null);
-              setValuationCase(null);
-              setZakatCase(null);
-              setActiveTab("dashboard");
-            }} />
+            <ModeSwitch mode={mode} setMode={switchStudyMode} />
             <button
               type="button"
               onClick={() => setDealsPanelOpen(true)}
@@ -2136,7 +2184,7 @@ export default function App() {
               </div>
             ) : null}
             <Tabs value={activeTab} onChange={setActiveTab} />
-            {activeTab === "dashboard" && <DashboardTab mode={mode} inputs={inputs} results={results} />}
+            {activeTab === "dashboard" && <><DashboardTab mode={mode} inputs={inputs} results={results} /><PaybackDisclosurePanel mode={mode} results={results} locale={locale} /></>}
             {activeTab === "cashflow" && <CashFlowTab mode={mode} inputs={inputs} results={results} zakatCase={zakatCase} />}
             {activeTab === "sensitivity" && <SensitivityTab
               mode={mode}
@@ -2149,15 +2197,23 @@ export default function App() {
           </main>
         </div>
 
-        {mode === "building" ? (
+        <div hidden={mode !== "building"} data-testid="building-valuation-draft-container">
           <ValuationIntelligencePanel
+            key={valuationEditorKey}
             locale={locale}
             valuationCase={valuationCase}
-            onChangeValuationCase={setValuationCase}
+            onChangeValuationCase={changeValuationCase}
+            valuationEditorDraft={valuationEditorDraft}
+            onChangeValuationEditorDraft={changeValuationEditorDraft}
+            hidePersonalReport
             runtime={valuationRuntimeState.runtime}
             runtimeError={valuationRuntimeState.error}
           />
-        ) : null}
+        </div>
+        <PersonalInvestmentResearchPanel locale={locale}
+          valuationCase={mode === 'building' ? valuationCase : null}
+          runtime={mode === 'building' ? valuationRuntimeState.runtime : null}
+          financialContext={financialContext} />
 
         {mode === "building" ? (
           <ResidentialIncomeAcquisitionPanel

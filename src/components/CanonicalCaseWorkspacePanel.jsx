@@ -206,7 +206,7 @@ export default function CanonicalCaseWorkspacePanel() {
             <Label>{copy.deal}</Label>
             <select aria-label={copy.deal} className={`${SELECT_STYLE} mt-1`} value={selectedDealId} onChange={(event) => setSelectedDealId(event.target.value)} disabled={loading || deals.length === 0}>
               {deals.length === 0 ? <option value="">{copy.noDeals}</option> : null}
-              {deals.map((deal) => <option key={deal.id} value={deal.id}>{deal.name || deal.id} · {deal.mode}</option>)}
+              {deals.map((deal) => <option key={deal.id} value={deal.id} data-user-content translate="no">{deal.name || deal.id} · {deal.mode}</option>)}
             </select>
           </div>
           <div><Label>{copy.workspaceId}</Label><input aria-label={copy.workspaceId} className={`${INPUT_STYLE} mt-1`} value={workspaceId} onChange={(event) => setWorkspaceId(event.target.value)} placeholder="WS-..." /></div>

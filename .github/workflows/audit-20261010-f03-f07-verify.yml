@@ -1,0 +1,110 @@
+name: Audit 2026-10-10 F03-F07 Owner Study and Draft Persistence
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/app/**'
+      - 'src/components/**'
+      - 'src/i18n/**'
+      - 'src/validation/saved-deal-schema.js'
+      - 'src/storage/saved-deals-backup.js'
+      - 'tests/architecture/run_audit_20261010_f03_f07.js'
+      - 'tests/e2e/run_audit_20261010_f03_f07_browser.js'
+      - '.github/workflows/audit-20261010-f03-f07-verify.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  owner-study-regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Bind tested source
+        env:
+          EXPECTED: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED"
+      - run: npm ci
+      - run: node tests/architecture/run_audit_20261010_f03_f07.js
+      - run: node tests/architecture/run_audit_20261010_f01_f02.js
+  chromium-owner-study:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Bind tested source
+        env:
+          EXPECTED: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED"
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - name: Serve production build
+        run: |
+          set -euo pipefail
+          (nohup npm run preview -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/owner-study-vite.log 2>&1 &)
+          for n in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:4173/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/owner-study-vite.log
+          exit 1
+      - name: Actual desktop and mobile Arabic workflows
+        env:
+          STARTAK_E2E_URL: http://127.0.0.1:4173
+        run: node tests/e2e/run_audit_20261010_f03_f07_browser.js
+      - name: Existing personal export compatibility
+        env:
+          STARTAK_E2E_URL: http://127.0.0.1:4173
+        run: node tests/e2e/run_c75_real_chromium_personal_study.js
+  independent-release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - name: Bind tested source
+        env:
+          EXPECTED: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED"
+      - run: npm ci
+      - run: npm run release:verify
+      - run: npm audit --audit-level=low
+  gate:
+    if: always()
+    needs: [owner-study-regression, chromium-owner-study, independent-release]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require actual successful jobs on the tested source
+        env:
+          REGRESSION: ${{ needs.owner-study-regression.result }}
+          BROWSER: ${{ needs.chromium-owner-study.result }}
+          RELEASE: ${{ needs.independent-release.result }}
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$REGRESSION" = success
+          test "$BROWSER" = success
+          test "$RELEASE" = success
+          echo "AUDIT_20261010_F03_F07_ENGINEERING_GATE=PASS sha=$SHA"
+          echo "MARKET_DATA_AND_ALL_ASSET_CATEGORIES_VERIFIED=FALSE"

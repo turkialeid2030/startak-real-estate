@@ -24,6 +24,7 @@ const {
   validatePersistedAssumptionRegistry,
 } = require('../assumptions/saved-deal-assumption-registry');
 const { validateUserEnteredZakatCase } = require('../zakat/user-entered-zakat');
+const { validateValuationEditorDraft } = require('../app/valuation-editor-draft');
 const { validateSavedDealStandardsMetadata, RESERVED_METADATA_KEYS } = require('../standards/saved-deal-standards-snapshot');
 
 class SavedDealValidationError extends Error {
@@ -126,6 +127,12 @@ function validateSavedDealRecord(parsed) {
     } catch (error) {
       throw new SavedDealValidationError('INVALID_OPERATING_CASE', error.reasonCode || error.name || 'UNKNOWN');
     }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(parsed, 'valuationEditorDraft')) {
+    if (parsed.mode !== 'building') throw new SavedDealValidationError('VALUATION_DRAFT_REQUIRES_BUILDING_MODE', parsed.mode);
+    try { validateValuationEditorDraft(parsed.valuationEditorDraft); }
+    catch (error) { throw new SavedDealValidationError('INVALID_VALUATION_EDITOR_DRAFT', error.code || error.name); }
   }
 
   if (Object.prototype.hasOwnProperty.call(parsed, 'valuationCase')) {
