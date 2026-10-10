@@ -63,7 +63,7 @@ try {
   const parserReason = await page.getByTestId('local-document-parser-reason').getAttribute('data-parser-reason');
   record(
     'DOC-E2E-03-PDF-FAIL-CLOSED',
-    parserStatus === 'UNSUPPORTED' && parserReason === 'PDF_BINARY_PARSER_NOT_YET_VETTED' && atomCount === '0',
+    parserStatus === 'REJECTED' && parserReason === 'PDF_INVALID_OR_CORRUPT' && atomCount === '0',
     `status=${parserStatus} reason=${parserReason} atoms=${atomCount}`,
   );
   record('DOC-E2E-04-CONTENT-DIGEST', /^[a-f0-9]{64}$/i.test(digest), `digestLength=${digest.length}`);

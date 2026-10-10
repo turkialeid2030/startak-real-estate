@@ -84,7 +84,7 @@ check('STRICT-AR-MISSING-KEY-FAIL-CLOSED', contextSource.includes("locale === 'a
 const mainSource = fs.readFileSync(path.join(__dirname, '../../src/main.jsx'), 'utf8');
 const guardSource = fs.readFileSync(path.join(__dirname, '../../src/components/StrictArabicSurfaceGuard.jsx'), 'utf8');
 check('STRICT-AR-GUARD-INSTALLED', mainSource.includes('<StrictArabicSurfaceGuard />'), 'strict Arabic surface guard installed under LocaleProvider');
-check('STRICT-AR-GUARD-FAIL-CLOSED', guardSource.includes("return original.replace(trimmed, 'محتوى واجهة غير معرّب');"), 'unmapped English prose is not exposed in Arabic mode');
+check('STRICT-AR-GUARD-PRESERVES-ORIGINAL', guardSource.includes('UNMAPPED_PREFIX + trimmed') && !guardSource.includes("return original.replace(trimmed, 'محتوى واجهة غير معرّب');"), 'unmapped text retains its source with an explicit Arabic explanation; runtime preservation is tested separately');
 check('STRICT-AR-TECHNICAL-REF-BOUNDARY', guardSource.includes('TECHNICAL_REFERENCE.test(trimmed)'), 'immutable technical references remain exact');
 
 check(

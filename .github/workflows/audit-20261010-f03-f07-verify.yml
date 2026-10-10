@@ -7,7 +7,18 @@ on:
       - 'src/components/**'
       - 'src/i18n/**'
       - 'src/validation/saved-deal-schema.js'
-      - 'src/storage/saved-deals-backup.js'
+      - 'src/storage/**'
+      - 'src/document-intelligence/**'
+      - 'src/decision-actions/**'
+      - 'src/project-model/**'
+      - 'src/runtime/**'
+      - 'src/main.jsx'
+      - 'src/index.css'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tests/fixtures/**'
+      - 'tests/architecture/run_audit_20261010_remaining.js'
+      - 'tests/e2e/run_audit_20261010_remaining_browser.js'
       - 'tests/architecture/run_audit_20261010_f03_f07.js'
       - 'tests/e2e/run_audit_20261010_f03_f07_browser.js'
       - 'docs/AUDIT_20261010_F03_F07_OWNER_STUDY_REMEDIATION.md'
@@ -17,6 +28,8 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+env:
+  STARTAK_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
 jobs:
   owner-study-regression:
     runs-on: ubuntu-24.04
@@ -37,6 +50,7 @@ jobs:
       - run: npm ci
       - run: node tests/architecture/run_audit_20261010_f03_f07.js
       - run: node tests/architecture/run_audit_20261010_f01_f02.js
+      - run: node tests/architecture/run_audit_20261010_remaining.js
   chromium-owner-study:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -54,7 +68,7 @@ jobs:
           EXPECTED: ${{ github.event.pull_request.head.sha || github.sha }}
         run: test "$(git rev-parse HEAD)" = "$EXPECTED"
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps chromium firefox webkit
       - run: npm run build
       - name: Serve production build
         run: |
@@ -74,6 +88,17 @@ jobs:
         env:
           STARTAK_E2E_URL: http://127.0.0.1:4173
         run: node tests/e2e/run_c75_real_chromium_personal_study.js
+      - name: Native PDF, source journals, gap actions, keyboard and print acceptance
+        env:
+          STARTAK_E2E_URL: http://127.0.0.1:4173
+        run: node tests/e2e/run_audit_20261010_remaining_browser.js
+      - name: Save browser and print evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: remaining-audit-browser-print-evidence
+          path: runtime-evidence/remaining-audit
+          if-no-files-found: error
   independent-release:
     runs-on: ubuntu-24.04
     timeout-minutes: 55

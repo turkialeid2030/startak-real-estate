@@ -1,3 +1,5 @@
+const {useLocale}=require('../i18n/LocaleContext');
+import DiagnosticText from './DiagnosticText.jsx';
 import React from 'react';
 
 function Badge({ children }) {
@@ -67,6 +69,7 @@ function AiReview({ dossier }) {
 }
 
 export default function InvestmentCommitteeDossierPanel({ dossier, actionReviewRegister = null }) {
+  const {locale}=useLocale();
   if (!dossier || typeof dossier !== 'object') return null;
   const summary = dossier.executiveSummary || {};
   const attachments = dossier.analyticalAttachments || {};
@@ -74,7 +77,7 @@ export default function InvestmentCommitteeDossierPanel({ dossier, actionReviewR
   const assumptions = dossier.evidenceAndAssumptions?.assumptions || [];
 
   return (
-    <aside data-testid="investment-committee-dossier" dir="rtl" className="mx-auto mt-6 w-full max-w-7xl px-4 pb-8">
+    <aside data-testid="investment-committee-dossier" data-dossier-status={dossier.status} dir="rtl" className="mx-auto mt-6 w-full max-w-7xl px-4 pb-8">
       <div className="rounded-2xl border border-slate-800 bg-[#0D1526] p-4 shadow-2xl shadow-black/20 md:p-5">
         <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
@@ -85,7 +88,7 @@ export default function InvestmentCommitteeDossierPanel({ dossier, actionReviewR
           <div className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-200">{dossier.status || 'UNKNOWN'}</div>
         </div>
 
-        {dossier.reasonCodes?.length ? <div role="status" className="mb-4 rounded-lg border border-amber-800/60 bg-amber-950/20 p-3 text-xs text-amber-200">{dossier.reasonCodes.join(' · ')}</div> : null}
+        {dossier.reasonCodes?.length ? <div role="status" className="mb-4 rounded-lg border border-amber-800/60 bg-amber-950/20 p-3 text-xs text-amber-200">{dossier.reasonCodes.map(reason => <div key={reason}><DiagnosticText code={reason} locale={locale} /></div>)}</div> : null}
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-lg border border-slate-800 p-3"><div className="text-[11px] text-slate-500">الموثوقية النوعية</div><div className="mt-1 text-sm text-slate-100">{summary.decisionReliability || '—'}</div></div>

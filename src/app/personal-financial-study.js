@@ -7,6 +7,9 @@ const { paybackDisclosure } = require('./payback-disclosure');
 const { describeDiagnostic } = require('../i18n/diagnostic-presentation');
 const arLabels = require('../i18n/locales/ar-SA');
 const enLabels = require('../i18n/locales/en');
+const {validateRentalCalendar,rentalCalendarDisclosure}=require('./rental-calendar-disclosure');
+const { validateInputProvenance,provenanceForInputs }=require('./input-provenance');
+const { financialModelScope } = require('../project-model/asset-support');
 const { BUILD_METADATA } = require('../runtime/build-metadata');
 const VERSION = 'PERSONAL_FINANCIAL_STUDY_V2';
 const finite = x => typeof x === 'number' && Number.isFinite(x) ? x : null;
@@ -97,8 +100,9 @@ function zakat(mode, r, inputs, zakatCase) {
   } catch (error) { return { status: 'ZAKAT_INPUTS_INVALID', layer: null, error: { code: error.code || error.name } }; }
 }
 function buildPersonalFinancialStudy({ mode, inputs, assumptionModelVersion, zakatCase = null,
-  dealName = '', valuationCase = null, runtime = null, valuationEditorDraft = null, generatedAt = new Date() } = {}) {
+  dealName = '', inputProvenance = null, rentalContext = null, valuationCase = null, runtime = null, valuationEditorDraft = null, generatedAt = new Date() } = {}) {
   if (!['building', 'land'].includes(mode) || !inputs || typeof inputs !== 'object' || Array.isArray(inputs)) throw new TypeError('PERSONAL_FINANCIAL_CONTEXT_INVALID');
+  validateInputProvenance(inputProvenance);validateRentalCalendar(rentalContext);
   const calculated = evaluate(mode, inputs, assumptionModelVersion);
   const valuation = buildPersonalResearchReport({ valuationCase: mode === 'building' ? valuationCase : null,
     runtime: mode === 'building' && calculated.results ? runtime : null, generatedAt });
@@ -108,8 +112,11 @@ function buildPersonalFinancialStudy({ mode, inputs, assumptionModelVersion, zak
     dealName: typeof dealName === 'string' ? dealName : '',
     currency: 'SAR', valuationReport: valuation,
     sourceBuild: snapshot(BUILD_METADATA),
-    inputFingerprintSha256: digest({ mode, inputs: inputSnapshot, assumptionModelVersion, zakatCase, valuationCase, valuationEditorDraft }),
+    inputFingerprintSha256: digest({ mode, inputs: inputSnapshot, assumptionModelVersion, zakatCase, valuationCase, valuationEditorDraft,inputProvenance,rentalContext }),
     financial: { mode, currency: 'SAR', assumptionModelVersion,
+      modelScope: financialModelScope(mode),
+      rentalCalendar:rentalCalendarDisclosure({mode,inputs,result:calculated.results,context:rentalContext,asOfDate:generatedAt}),
+      inputProvenance:provenanceForInputs(mode,inputs,inputProvenance),
       engineVersion: calculated.results?.financialModelVersion || null,
       status: calculated.status, inputs: inputSnapshot,
       results: calculated.results, governance: calculated.governance, error: calculated.error,
@@ -187,9 +194,9 @@ function htmlFinancialStudy(report, { locale = 'ar-SA' } = {}) {
     [words('العائد الداخلي بعد الزكاة المدخلة', 'IRR after user-entered Zakat'), percent(z.afterZakatIRR)],
     [words('صافي القيمة الحالية بعد الزكاة المدخلة', 'NPV after user-entered Zakat'), money(z.afterZakatNPV)],
   ]) : '<p>' + diagnostic(f.zakat.status) + '</p>';
-  return '<!doctype html><html lang="' + (ar ? 'ar' : 'en') + '" dir="' + (ar ? 'rtl' : 'ltr') + '"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; style-src &#39;unsafe-inline&#39;"><title>' + words('دراسة استثمار عقاري شخصية', 'Personal real estate investment study') + '</title><style>body{font-family:Tahoma,Arial,sans-serif;color:#162033;max-width:1100px;margin:2rem auto;padding:1rem}h1,h2{color:#18344a}table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:12px}th,td{border:1px solid #bac4ce;padding:.55rem;text-align:start;vertical-align:top;overflow-wrap:anywhere}th{background:#edf1f5}code{font-size:10px;overflow-wrap:anywhere}p,li{line-height:1.7}thead{display:table-header-group}@media print{body{margin:0;padding:0}tr{break-inside:avoid}h2{break-after:avoid}}</style></head><body><h1>' + words('دراسة استثمار عقاري شخصية', 'Personal real estate investment study') + '</h1><p>' + h(report.dealName || f.inputs.projectTitle || '') + '</p><p>' + words('دراسة تحليلية شخصية أولية — غير معتمدة', 'Personal preliminary analytical study — not certified') + '</p>'
+  return '<!doctype html><html lang="' + (ar ? 'ar' : 'en') + '" dir="' + (ar ? 'rtl' : 'ltr') + '"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; style-src &#39;unsafe-inline&#39;"><title>' + words('دراسة استثمار عقاري شخصية', 'Personal real estate investment study') + '</title><style>body{font-family:Tahoma,Arial,sans-serif;color:#162033;max-width:1100px;margin:2rem auto;padding:1rem}h1,h2{color:#18344a}table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:12px}th,td{border:1px solid #bac4ce;padding:.55rem;text-align:start;vertical-align:top;overflow-wrap:anywhere}th{background:#edf1f5}code{font-size:10px;overflow-wrap:anywhere}p,li{line-height:1.7}thead{display:table-header-group}@page{size:A4;margin:14mm}@media print{body{margin:0;padding:0}tr{break-inside:avoid}h2{break-after:avoid}}</style></head><body><h1>' + words('دراسة استثمار عقاري شخصية', 'Personal real estate investment study') + '</h1><p>' + h(report.dealName || f.inputs.projectTitle || '') + '</p><p>' + words('دراسة تحليلية شخصية أولية — غير معتمدة', 'Personal preliminary analytical study — not certified') + '</p>'
     + rows([[words('نوع الدراسة', 'Study type'), words(f.mode === 'building' ? 'مبنى قائم' : 'أرض وتطوير', f.mode)], [words('تاريخ إعداد الدراسة', 'Generated at'), report.generatedAt], [words('إصدار الافتراضات', 'Assumption version'), f.assumptionModelVersion], [words('إصدار المحرك المالي', 'Financial engine version'), f.engineVersion], [words('معرّف بناء المنصة', 'Platform build identifier'), report.sourceBuild.buildId], [words('نسخة الشيفرة المصدرية', 'Source commit'), report.sourceBuild.sourceCommit || words('غير مرتبط بنسخة متحقق منها', 'Unverified source binding')], [words('حالة الحساب', 'Calculation status'), f.status]])
-    + error + '<h2>' + words('الملخص المالي', 'Financial summary') + '</h2>' + rows(metrics)
+    + '<p>' + words('حد النموذج: إيجار مجمع للمبنى أو تطوير عام للأرض؛ الفئات المتخصصة وبيانات السوق لم تُؤهل. لا تثبت هذه الدراسة صلاحية التراخيص أو العقود أو مؤشرات القيمة المهنية.', 'Model scope: aggregate building rent or general land development; specialist asset models and market inputs are not qualified. The study does not establish licences, contracts, or professional value authority.') + '</p>' + error + '<h2>' + words('الملخص المالي', 'Financial summary') + '</h2>' + rows(metrics)
     + '<h2>' + words('الاسترداد وأفق الدراسة', 'Recovery and study horizon') + '</h2>' + rows([
       [words('استرداد بسيط: تكلفة ÷ صافي دخل أول سنة تشغيل', 'Simple cost / first operating-year NOI'), number(p.simpleCostOverFirstOperatingNoiYears)],
       [words('استرداد تشغيلي تراكمي في أفق المحرك — يستبعد البيع', 'Engine cumulative operating recovery — excludes sale'), number(p.engineCumulativeOperatingYears)],
@@ -203,6 +210,8 @@ function htmlFinancialStudy(report, { locale = 'ar-SA' } = {}) {
     + '<h2>' + words('الحساسية: تغيير مدخل واحد ±10%', 'Sensitivity: one input ±10%') + '</h2><table><tr><th>' + words('المدخل', 'Input') + '</th><th>' + words('العائد عند الخفض', 'IRR at decrease') + '</th><th>' + words('العائد عند الرفع', 'IRR at increase') + '</th><th>' + words('التغييرات وحدود التطبيق', 'Changes and boundaries') + '</th></tr>' + sensitivity + '</table>'
     + '<h2>' + words('سيناريوهات اختبار افتراضية', 'Illustrative stress scenarios') + '</h2><p>' + words('اختبارات مدخلات معلنة وليست توقعات أو احتمالات. تعكس كل نتيجة القيم الفعلية المطبقة بعد حدود الإشغال.', 'Explicit input tests, not forecasts or probabilities. Each result uses the effective values after occupancy bounds.') + '</p><table><tr><th>' + words('السيناريو', 'Scenario') + '</th><th>' + words('العائد الداخلي', 'IRR') + '</th><th>' + words('صافي القيمة الحالية', 'NPV') + '</th><th>' + words('الافتراضات المطبقة', 'Applied assumptions') + '</th></tr>' + scenarios + '</table>'
     + '<h2>' + words('المدخلات الأصلية', 'Original inputs') + '</h2><p>' + words('القيم أدخلها المستخدم أو جاءت من نموذج الافتراضات المحدد. لا تثبت بذاتها أسعار السوق أو صحة مستند.', 'Values are user supplied or from the stated assumption model. They do not independently verify market prices or documents.') + '</p>' + rows(inputRows)
+    + '<h2>' + words('فترات الدراسة ومراجعة نمو الإيجار','Calendar periods and rent-growth review') + '</h2><p>' + diagnostic(f.rentalCalendar?.status||'REGULATORY_CONTEXT_MISSING') + '</p>' + rows((f.rentalCalendar?.periods||[]).map(period=>[String(period.year),period.startDate+' — '+period.endDateExclusive+' · '+describeDiagnostic(period.status,locale).message])) + '<p>' + words('النهاية التقويمية المعروضة احتساب ميلادي إرشادي لخمس سنوات يحتاج تأكيدًا قانونيًا. مراجع العقود والاعتراض لا تثبت قبولها دون تحقق مستقل. نتائج الحساب افتراضية ولا تُعد اعتمادًا لتطبيق الأنظمة.','The displayed end is an illustrative five-year Gregorian projection requiring legal confirmation. Contract and objection references require independent verification. Financial results remain illustrative and do not certify regulatory applicability.') + '</p>'
+    + '<h2>' + words('مصادر المدخلات وحالة مراجعتها','Input provenance and review status') + '</h2>' + rows(Object.values(f.inputProvenance||{}).map(entry=>[label(entry.field)+' ['+entry.field+']', [entry.unit,entry.sourceReference,entry.sourceDate,entry.location,entry.status].filter(Boolean).join(' · ')]))
     + '<h2>' + words('مؤشرات التقييم الإضافية', 'Additional valuation indications') + '</h2><table><tr><th>' + words('المنهج', 'Method') + '</th><th>' + words('الحالة', 'Status') + '</th><th>' + words('مؤشر القيمة', 'Value') + '</th></tr>' + stageRows + '</table>'
     + '<h2>' + words('أسباب عدم الإتاحة وملاحظات الأدلة', 'Unavailable results and evidence notes') + '</h2><ul>' + blockers.map(code => '<li>' + diagnostic(code) + '</li>').join('') + '</ul>'
     + '<p><small>' + words('بصمة المدخلات', 'Input fingerprint') + ': <code>' + report.inputFingerprintSha256 + '</code><br>' + words('بصمة التقرير', 'Report fingerprint') + ': <code>' + report.reportHashSha256 + '</code></small></p></body></html>';

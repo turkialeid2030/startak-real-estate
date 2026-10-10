@@ -1,3 +1,5 @@
+const {useLocale}=require('../i18n/LocaleContext');
+import DiagnosticText from './DiagnosticText.jsx';
 import React from 'react';
 
 const STATUS_TONE = Object.freeze({
@@ -125,6 +127,7 @@ function AiSection({ workspace }) {
 }
 
 export default function DecisionIntelligenceWorkspacePanel({ workspace }) {
+  const {locale}=useLocale();
   if (!workspace || typeof workspace !== 'object') return null;
 
   return (
@@ -143,7 +146,7 @@ export default function DecisionIntelligenceWorkspacePanel({ workspace }) {
 
         {workspace.reasonCodes?.length ? (
           <div className="mb-4 rounded-lg border border-amber-800/60 bg-amber-950/20 p-3 text-xs text-amber-200" role="status">
-            {workspace.reasonCodes.join(' · ')}
+            {workspace.reasonCodes.map(reason => <div key={reason}><DiagnosticText code={reason} locale={locale} /></div>)}
           </div>
         ) : null}
 

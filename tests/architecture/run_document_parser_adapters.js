@@ -163,8 +163,8 @@ async function main() {
   const pdfBytes = new TextEncoder().encode('%PDF-1.7\n1 0 obj\n<<>>\nendobj\n');
   const pdfDoc = await documentFor({ documentId: 'DOC-PDF-001', fileName: 'valuation.pdf', mimeType: 'application/pdf', content: pdfBytes });
   const pdfResult = await parseDocument({ document: pdfDoc, content: pdfBytes });
-  check(pdfResult.status === PARSER_STATUS.UNSUPPORTED, 'Qualified PDF parser must remain fail-closed at this wave');
-  check(pdfResult.reason === 'PDF_BINARY_PARSER_NOT_YET_VETTED', 'PDF fail-closed reason mismatch');
+  check(pdfResult.status === PARSER_STATUS.REJECTED, 'Truncated PDF must be rejected');
+  check(pdfResult.reason === 'PDF_INVALID_OR_CORRUPT', 'Corrupt PDF reason mismatch');
 
   const invalidPdf = new TextEncoder().encode('not-a-pdf');
   const invalidPdfDoc = await documentFor({ documentId: 'DOC-PDF-002', fileName: 'bad.pdf', mimeType: 'application/pdf', content: invalidPdf });

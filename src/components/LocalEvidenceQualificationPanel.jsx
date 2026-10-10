@@ -1,3 +1,4 @@
+import DiagnosticText from './DiagnosticText.jsx';
 import React, { useEffect, useMemo, useState } from 'react';
 
 const { MATERIALITY } = require('../document-intelligence/contracts');
@@ -36,7 +37,7 @@ export default function LocalEvidenceQualificationPanel({ intakeRecord, onCandid
     eyebrow: 'EVIDENCE QUALIFICATION · HUMAN SEMANTIC MAPPING',
     title: 'تأهيل المحتوى المستخرج كمرشح دليل',
     intro: 'اختر عنصرًا مستخرجًا ثم عرّف معناه ومصدره يدويًا. هذه الخطوة لا تجعل المحتوى حقيقة موثقة ولا تسمح باستخدامه تلقائيًا في المحرك المالي.',
-    noParsed: 'لا يوجد ملف محلل بنجاح يحتوي على عناصر قابلة للتأهيل. ارفع ملف XLSX أو PPTX صالحًا أعلاه أولًا.',
+    noParsed: 'لا يوجد ملف محلل بنجاح يحتوي على عناصر قابلة للتأهيل. ارفع ملفًا نصيًا صالحًا أو أدخل نقلًا يدويًا موثقًا أعلاه أولًا.',
     atom: 'العنصر المستخرج',
     semanticKey: 'المفتاح الدلالي',
     semanticPlaceholder: 'مثال: market_rent_per_sqm',
@@ -64,7 +65,7 @@ export default function LocalEvidenceQualificationPanel({ intakeRecord, onCandid
     eyebrow: 'EVIDENCE QUALIFICATION · HUMAN SEMANTIC MAPPING',
     title: 'Qualify parsed content as an evidence candidate',
     intro: 'Select a parsed atom and explicitly define its meaning and provenance. This step does not make the content a verified fact and never feeds it into the financial engine automatically.',
-    noParsed: 'No successfully parsed document with qualifiable atoms is available. Upload a valid XLSX or PPTX above first.',
+    noParsed: 'No successfully parsed document with qualifiable atoms is available. Upload a text document or create a documented manual transcription above first.',
     atom: 'Parsed atom',
     semanticKey: 'Semantic key',
     semanticPlaceholder: 'Example: market_rent_per_sqm',
@@ -131,16 +132,16 @@ export default function LocalEvidenceQualificationPanel({ intakeRecord, onCandid
                 <span className="mb-1 block text-[11px] text-slate-500">{l.atom}</span>
                 <select data-testid="evidence-atom-select" value={atomId} onChange={(e) => setAtomId(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-950/50 px-3 py-2 text-xs text-slate-200">
                   <option value="">—</option>
-                  {atoms.map((atom) => <option key={atom.atomId} value={atom.atomId}>{shortValue(atom.rawValue)} · {atom.location?.kind || '—'}</option>)}
+                  {atoms.map((atom) => <option data-user-content translate="no" key={atom.atomId} value={atom.atomId}>{shortValue(atom.rawValue)} · {atom.location?.kind || '—'}</option>)}
                 </select>
               </label>
 
-              {selectedAtom ? <div data-testid="selected-atom-preview" className="rounded-lg border border-slate-800 bg-slate-950/30 p-3 text-xs text-slate-300">{shortValue(selectedAtom.rawValue, 260)}</div> : null}
+              {selectedAtom ? <div data-testid="selected-atom-preview" className="rounded-lg border border-slate-800 bg-slate-950/30 p-3 text-xs text-slate-300"><span data-user-content translate="no">{shortValue(selectedAtom.rawValue, 260)}</span></div> : null}
 
               <label className="block"><span className="mb-1 block text-[11px] text-slate-500">{l.semanticKey}</span><input data-testid="semantic-key-input" value={semanticKey} onChange={(e) => setSemanticKey(e.target.value)} placeholder={l.semanticPlaceholder} className="w-full rounded-lg border border-slate-700 bg-slate-950/50 px-3 py-2 text-xs text-slate-200" /></label>
               <div className="grid gap-3 sm:grid-cols-3">
-                <label className="block"><span className="mb-1 block text-[11px] text-slate-500">{l.valueType}</span><select value={valueType} onChange={(e) => setValueType(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-950/50 px-3 py-2 text-xs text-slate-200">{VALUE_TYPES.map((v) => <option key={v}>{v}</option>)}</select></label>
-                <label className="block"><span className="mb-1 block text-[11px] text-slate-500">{l.unit}</span><input value={unit} onChange={(e) => setUnit(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-950/50 px-3 py-2 text-xs text-slate-200" /></label>
+                <label className="block"><span className="mb-1 block text-[11px] text-slate-500">{l.valueType}</span><select data-testid="evidence-value-type" value={valueType} onChange={(e) => setValueType(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-950/50 px-3 py-2 text-xs text-slate-200">{VALUE_TYPES.map((v) => <option key={v} value={v}>{v}</option>)}</select></label>
+                <label className="block"><span className="mb-1 block text-[11px] text-slate-500">{l.unit}</span><input data-testid="evidence-unit" value={unit} onChange={(e) => setUnit(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-950/50 px-3 py-2 text-xs text-slate-200" /></label>
                 <label className="block"><span className="mb-1 block text-[11px] text-slate-500">{l.materiality}</span><select value={materiality} onChange={(e) => setMateriality(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-950/50 px-3 py-2 text-xs text-slate-200"><option value={MATERIALITY.SUPPORTING}>SUPPORTING</option><option value={MATERIALITY.MATERIAL}>MATERIAL</option></select></label>
               </div>
               <label className="block"><span className="mb-1 block text-[11px] text-slate-500">{l.sourceReference}</span><input data-testid="source-reference-input" value={sourceReference} onChange={(e) => setSourceReference(e.target.value)} placeholder={l.sourcePlaceholder} className="w-full rounded-lg border border-slate-700 bg-slate-950/50 px-3 py-2 text-xs text-slate-200" /></label>
@@ -169,7 +170,7 @@ export default function LocalEvidenceQualificationPanel({ intakeRecord, onCandid
                       <div className="rounded-lg border border-amber-800/50 bg-amber-950/20 p-3 text-[11px] leading-5 text-amber-100/80">{l.boundary}</div>
                     </>
                   ) : (
-                    <div role="alert" className="rounded-lg border border-rose-800/50 bg-rose-950/20 p-3 text-xs text-rose-200">{candidate.reasons.join(' · ')}</div>
+                    <div role="alert" className="rounded-lg border border-rose-800/50 bg-rose-950/20 p-3 text-xs text-rose-200">{candidate.reasons.map(reason => <div key={reason}><DiagnosticText code={reason} locale={locale} /></div>)}</div>
                   )}
                 </div>
               ) : <div className="rounded-xl border border-dashed border-slate-700 p-4 text-xs text-slate-500">{l.boundary}</div>}

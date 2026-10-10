@@ -1,3 +1,5 @@
+const {validateRentalCalendar}=require('../app/rental-calendar-disclosure');
+const {validateInputProvenance}=require('../app/input-provenance');
 // src/validation/saved-deal-schema.js -- SDI-001: canonical STRUCTURAL
 // validation boundary for a parsed Saved Deal record, applied after
 // JSON.parse succeeds but before the record is trusted (setMode/setInputs).
@@ -110,6 +112,13 @@ function validateSavedDealRecord(parsed) {
     throw new SavedDealValidationError('INVALID_NAME_TYPE', `typeof=${typeof parsed.name}`);
   }
 
+  if(Object.prototype.hasOwnProperty.call(parsed,'rentalContext')) {try{validateRentalCalendar(parsed.rentalContext);}catch(e){throw new SavedDealValidationError('INVALID_RENTAL_CALENDAR',e.code);}}
+  if (Object.prototype.hasOwnProperty.call(parsed.inputs, 'rentalContext')) throw new SavedDealValidationError('PROVENANCE_IN_ECONOMIC_INPUTS','rentalContext');
+  if (Object.prototype.hasOwnProperty.call(parsed, 'inputProvenance')) {
+    try { validateInputProvenance(parsed.inputProvenance); if(parsed.inputProvenance && parsed.inputProvenance.mode!==parsed.mode) throw new Error('MODE_MISMATCH'); }
+    catch(error) {throw new SavedDealValidationError('INVALID_INPUT_PROVENANCE',error.code||error.message);}
+  }
+  if (Object.prototype.hasOwnProperty.call(parsed.inputs, 'inputProvenance')) throw new SavedDealValidationError('PROVENANCE_IN_ECONOMIC_INPUTS','inputProvenance');
   if (Object.prototype.hasOwnProperty.call(parsed, 'zakatCase')) {
     try {
       validateUserEnteredZakatCase(parsed.zakatCase);

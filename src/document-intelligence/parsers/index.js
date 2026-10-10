@@ -4,9 +4,10 @@ const contracts = require('./contracts');
 const xlsx = require('./xlsx-adapter');
 const pptx = require('./pptx-adapter');
 const pdf = require('./pdf-adapter');
+const docx = require('./docx-adapter');
 const { mapParsedAtomToEvidenceFact } = require('./evidence-mapper');
 
-const ADAPTERS = Object.freeze([xlsx, pptx, pdf]);
+const ADAPTERS = Object.freeze([xlsx, pptx, pdf, docx]);
 
 async function parseDocument({ document, content, options = {} }) {
   if (!document || typeof document !== 'object') throw new TypeError('document is required');
@@ -29,7 +30,7 @@ async function parseDocument({ document, content, options = {} }) {
       reason: `AMBIGUOUS_FORMAT_METADATA:${matches.map((a) => a.ADAPTER_ID).join(',')}`,
     });
   }
-  return matches[0].parse({ document, content, ...(options || {}) });
+  return matches[0].parse({ ...(options || {}), document, content });
 }
 
 module.exports = {
@@ -40,4 +41,5 @@ module.exports = {
   xlsx,
   pptx,
   pdf,
+  docx,
 };

@@ -103,12 +103,13 @@ function projectCanonicalWorkspaceToDecisionIntelligence(canonicalWorkspace) {
  * register through a separate integration boundary; this function cannot be
  * used to bypass that work.
  */
-function buildCanonicalCommitteePreparation(canonicalWorkspace) {
+function buildCanonicalCommitteePreparation(canonicalWorkspace, suppliedActionRegister = null) {
   const decisionWorkspace = projectCanonicalWorkspaceToDecisionIntelligence(canonicalWorkspace);
+  if(suppliedActionRegister && (suppliedActionRegister.caseId!==decisionWorkspace.caseId || suppliedActionRegister.projectId!==decisionWorkspace.projectId)) throw new Error('ACTION_CASE_OR_PROJECT_ISOLATION_VIOLATION');
   const actionRegister = buildDecisionActionRegister({
     caseId: decisionWorkspace.caseId,
     projectId: decisionWorkspace.projectId,
-    actions: [],
+    actions: suppliedActionRegister?.actions || [],
   });
   const committeeDossier = buildCommitteeDecisionDossier({
     caseId: decisionWorkspace.caseId,

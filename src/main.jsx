@@ -1,11 +1,12 @@
 import './index.css';
-import React from 'react';
+import React, {lazy,Suspense} from 'react';
+import AssetSupportPanel from './components/AssetSupportPanel.jsx';
 import ReactDOM from 'react-dom/client';
 import App from './app/App.jsx';
-import LocalDocumentEvidenceWorkspace from './components/LocalDocumentEvidenceWorkspace.jsx';
+const LocalDocumentEvidenceWorkspace=lazy(()=>import('./components/LocalDocumentEvidenceWorkspace.jsx'));
 import ComplianceBoundaryNotice from './components/ComplianceBoundaryNotice.jsx';
 import ExitCapGuidanceEnhancer from './components/ExitCapGuidanceEnhancer.jsx';
-import CanonicalCaseWorkspacePanel from './components/CanonicalCaseWorkspacePanel.jsx';
+const CanonicalCaseWorkspacePanel=lazy(()=>import('./components/CanonicalCaseWorkspacePanel.jsx'));
 import StrictArabicSurfaceGuard from './components/StrictArabicSurfaceGuard.jsx';
 const { LocaleProvider } = require('./i18n/LocaleContext.js');
 const { installRuntimeBuildMetadata } = require('./runtime/build-metadata.js');
@@ -29,10 +30,13 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <LocaleProvider defaultLocale="ar-SA">
       <ComplianceBoundaryNotice />
+      <AssetSupportPanel />
       <App />
       <ExitCapGuidanceEnhancer />
-      <LocalDocumentEvidenceWorkspace />
-      <CanonicalCaseWorkspacePanel />
+      <Suspense fallback={<p role="status" className="p-4 text-slate-200">جارٍ تحميل مساحات المستندات والحالة…</p>}>
+        <LocalDocumentEvidenceWorkspace />
+        <CanonicalCaseWorkspacePanel />
+      </Suspense>
       <StrictArabicSurfaceGuard />
     </LocaleProvider>
   </React.StrictMode>

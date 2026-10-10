@@ -1,3 +1,5 @@
+import RentalCalendarPanel from "../components/RentalCalendarPanel.jsx";
+import InputProvenancePanel from "../components/InputProvenancePanel.jsx";
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   ComposedChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -1618,6 +1620,10 @@ export default function App() {
   const [valuationEditorKey, setValuationEditorKey] = useState(0);
   const modeContexts = useRef({ building: { activeDealId: null, zakatCase: null }, land: { activeDealId: null, zakatCase: null } });
   const [zakatCase, setZakatCase] = useState(null);
+  const [provenanceByMode,setProvenanceByMode]=useState({building:null,land:null});
+  const inputProvenance=provenanceByMode[mode];
+  const [rentalByMode,setRentalByMode]=useState({building:null,land:null});
+  const rentalContext=rentalByMode[mode];
   const residentialIncomeAcquisitionView = useMemo(
     () => createResidentialIncomeAcquisitionViewModel(residentialIncomeOperatingCase),
     [residentialIncomeOperatingCase],
@@ -1737,10 +1743,10 @@ export default function App() {
       return { ok: false, code: error.code || 'INVALID_VALUATION_EDITOR_DRAFT' };
     }
   };
-  const financialContext = useMemo(() => ({ mode, inputs, assumptionModelVersion, zakatCase,
+  const financialContext = useMemo(() => ({ mode, inputs, assumptionModelVersion, zakatCase, inputProvenance, rentalContext,
     dealName: activeDealName || inputs.projectTitle || '',
     valuationEditorDraft: mode === 'building' ? valuationEditorDraft : null,
-  }), [mode, inputs, assumptionModelVersion, zakatCase, activeDealName, valuationEditorDraft]);
+  }), [mode, inputs, assumptionModelVersion, zakatCase, activeDealName, valuationEditorDraft,inputProvenance,rentalContext]);
 
   const valuationRuntimeState = useMemo(() => {
     if (mode !== "building") return { runtime: null, error: null };
@@ -1788,6 +1794,8 @@ export default function App() {
   const loadBuiltIn = (builtInMode) => {
     if (builtInMode !== mode) modeContexts.current[mode] = { activeDealId, zakatCase };
     setMode(builtInMode);
+    setProvenanceByMode(current=>({...current,[builtInMode]:null}));
+    setRentalByMode(current=>({...current,[builtInMode]:null}));
     if (builtInMode === UI_MODE.BUILDING) {
       const workspace = createUiWorkspace({ mode: UI_MODE.BUILDING, defaultInputs: DEFAULT_BUILDING_INPUTS });
       setBuildingInputs(workspace.inputs);
@@ -1823,6 +1831,8 @@ export default function App() {
       });
       if (hydrated.mode !== mode) modeContexts.current[mode] = { activeDealId, zakatCase };
       setMode(hydrated.mode);
+      setProvenanceByMode(current=>({...current,[hydrated.mode]:record.inputProvenance||null}));
+      setRentalByMode(current=>({...current,[hydrated.mode]:record.rentalContext||null}));
       if (hydrated.mode === UI_MODE.BUILDING) {
         setBuildingInputs(hydrated.inputs);
         setBuildingAssumptionModelVersion(hydrated.assumptionModelVersion);
@@ -1849,7 +1859,8 @@ export default function App() {
   };
 
   const recordWithExtensions = (record) => {
-    let extended = record;
+    let extended = inputProvenance ? {...record,inputProvenance} : record;
+    if(rentalContext) extended={...extended,rentalContext};
     if (record.mode === "building" && residentialIncomeOperatingCase) {
       extended = { ...extended, operatingCase: residentialIncomeOperatingCase };
     }
@@ -1984,6 +1995,8 @@ export default function App() {
       for (const draftMode of ['building', 'land']) {
         if (modeContexts.current[draftMode].activeDealId === id) {
           modeContexts.current[draftMode] = { activeDealId: null, zakatCase: null };
+          setProvenanceByMode(current=>({...current,[draftMode]:null}));
+          setRentalByMode(current=>({...current,[draftMode]:null}));
           if (draftMode === 'building' && mode !== 'building') {
             setValuationCase(null);
             setValuationEditorDraft(null);
@@ -1993,6 +2006,8 @@ export default function App() {
         }
       }
       if (activeDealId === id) {
+        setProvenanceByMode(current=>({...current,[mode]:null}));
+        setRentalByMode(current=>({...current,[mode]:null}));
         setActiveDealId(null);
         if (mode === 'building') {
           setResidentialIncomeOperatingCase(null);
@@ -2052,6 +2067,7 @@ export default function App() {
 
   const resetCurrent = () => {
     setZakatCase(null);
+    if(!activeDealId){setProvenanceByMode(current=>({...current,[mode]:null}));setRentalByMode(current=>({...current,[mode]:null}));}
     if (activeDealId) {
       loadDeal(activeDealId);
     } else if (mode === "building") {
@@ -2103,6 +2119,7 @@ export default function App() {
               type="button"
               onClick={() => setDealsPanelOpen(true)}
               title={t("actions.savedDeals")}
+              aria-label={t("actions.savedDeals")}
               className="relative p-2.5 rounded-xl"
               style={{ background: COLORS.panelRaised, border: `1px solid ${COLORS.hairline}`, color: COLORS.slate }}
             >
@@ -2120,6 +2137,7 @@ export default function App() {
               type="button"
               onClick={resetCurrent}
               title={activeDealId ? t("savedDeals.resetButtonTitleActive") : t("actions.reset")}
+              aria-label={activeDealId ? t("savedDeals.resetButtonTitleActive") : t("actions.reset")}
               className="p-2.5 rounded-xl"
               style={{ background: COLORS.panelRaised, border: `1px solid ${COLORS.hairline}`, color: COLORS.slate }}
             >
@@ -2187,6 +2205,8 @@ export default function App() {
             ) : (
               <LandInputPanel inputs={landInputs} setInputs={setLandInputs} assumptionModelVersion={landAssumptionModelVersion} />
             )}
+            <RentalCalendarPanel key={`${mode}:${activeDealId||"draft"}`} mode={mode} inputs={inputs} result={results} context={rentalContext} onChange={next=>setRentalByMode(current=>({...current,[mode]:next}))}/>
+            <InputProvenancePanel key={mode} mode={mode} inputs={inputs} provenance={inputProvenance} onChange={next=>setProvenanceByMode(current=>({...current,[mode]:next}))}/>
             <ZakatInputSection zakatCase={zakatCase} setZakatCase={setZakatCase} />
           </aside>
 

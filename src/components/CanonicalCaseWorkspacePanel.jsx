@@ -1,3 +1,6 @@
+import CaseGapActionsPanel from './CaseGapActionsPanel.jsx';
+import AssetSupportPanel from './AssetSupportPanel.jsx';
+import DiagnosticText from './DiagnosticText.jsx';
 import React, { useEffect, useMemo, useState } from 'react';
 import DecisionIntelligenceWorkspacePanel from './DecisionIntelligenceWorkspacePanel.jsx';
 import InvestmentCommitteeDossierPanel from './InvestmentCommitteeDossierPanel.jsx';
@@ -51,6 +54,7 @@ export default function CanonicalCaseWorkspacePanel() {
   const [investmentStrategy, setInvestmentStrategy] = useState(INVESTMENT_STRATEGY.OTHER);
   const [customInvestmentStrategy, setCustomInvestmentStrategy] = useState('USER_SELECTED_STRATEGY');
   const [incomeModel, setIncomeModel] = useState(INCOME_MODEL.UNKNOWN);
+  const [actionRegister,setActionRegister]=useState(null);
   const [workspace, setWorkspace] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -141,6 +145,7 @@ export default function CanonicalCaseWorkspacePanel() {
     setAssembling(true);
     setError(null);
     setWorkspace(null);
+    setActionRegister(null);
     try {
       const storage = createStorageProvider();
       const raw = await storage.get(`deal:${selectedDealId}`);
@@ -181,8 +186,8 @@ export default function CanonicalCaseWorkspacePanel() {
   }
 
   const governanceProjection = useMemo(
-    () => workspace ? buildCanonicalCommitteePreparation(workspace) : null,
-    [workspace],
+    () => workspace ? buildCanonicalCommitteePreparation(workspace,actionRegister) : null,
+    [workspace,actionRegister],
   );
   const decisionWorkspace = governanceProjection?.decisionWorkspace || null;
   const committeeDossier = governanceProjection?.committeeDossier || null;
@@ -209,10 +214,10 @@ export default function CanonicalCaseWorkspacePanel() {
               {deals.map((deal) => <option key={deal.id} value={deal.id} data-user-content translate="no">{deal.name || deal.id} · {deal.mode}</option>)}
             </select>
           </div>
-          <div><Label>{copy.workspaceId}</Label><input aria-label={copy.workspaceId} className={`${INPUT_STYLE} mt-1`} value={workspaceId} onChange={(event) => setWorkspaceId(event.target.value)} placeholder="WS-..." /></div>
-          <div><Label>{copy.projectId}</Label><input aria-label={copy.projectId} className={`${INPUT_STYLE} mt-1`} value={projectId} onChange={(event) => setProjectId(event.target.value)} placeholder="PROJECT-..." /></div>
-          <div><Label>{copy.caseId}</Label><input aria-label={copy.caseId} className={`${INPUT_STYLE} mt-1`} value={caseId} onChange={(event) => setCaseId(event.target.value)} placeholder="CASE-..." /></div>
-          <div><Label>{copy.actorId}</Label><input aria-label={copy.actorId} className={`${INPUT_STYLE} mt-1`} value={actorId} onChange={(event) => setActorId(event.target.value)} placeholder="ACTOR-..." /></div>
+          <div><Label>{copy.workspaceId}</Label><input maxLength="160" aria-label={copy.workspaceId} className={`${INPUT_STYLE} mt-1`} value={workspaceId} onChange={(event) => setWorkspaceId(event.target.value)} placeholder="WS-..." /></div>
+          <div><Label>{copy.projectId}</Label><input maxLength="160" aria-label={copy.projectId} className={`${INPUT_STYLE} mt-1`} value={projectId} onChange={(event) => setProjectId(event.target.value)} placeholder="PROJECT-..." /></div>
+          <div><Label>{copy.caseId}</Label><input maxLength="160" aria-label={copy.caseId} className={`${INPUT_STYLE} mt-1`} value={caseId} onChange={(event) => setCaseId(event.target.value)} placeholder="CASE-..." /></div>
+          <div><Label>{copy.actorId}</Label><input maxLength="160" aria-label={copy.actorId} className={`${INPUT_STYLE} mt-1`} value={actorId} onChange={(event) => setActorId(event.target.value)} placeholder="ACTOR-..." /></div>
           <div><Label>{copy.assetClass}</Label><div className="mt-1"><Select value={assetClass} onChange={setAssetClass} options={values(ASSET_CLASS)} ariaLabel={copy.assetClass} /></div></div>
           <div><Label>{copy.lifecycle}</Label><div className="mt-1"><Select value={lifecycleStage} onChange={setLifecycleStage} options={values(LIFECYCLE_STAGE)} ariaLabel={copy.lifecycle} /></div></div>
           <div><Label>{copy.strategy}</Label><div className="mt-1"><Select value={investmentStrategy} onChange={setInvestmentStrategy} options={values(INVESTMENT_STRATEGY)} ariaLabel={copy.strategy} /></div></div>
@@ -227,7 +232,8 @@ export default function CanonicalCaseWorkspacePanel() {
           <div>{copy.boundaries}</div>
         </div>
 
-        {error ? <div className="mt-3 rounded-lg border border-rose-900/60 bg-rose-950/20 p-3 text-xs text-rose-200" role="alert">{String(error)}</div> : null}
+        <AssetSupportPanel assetClass={assetClass} />
+        {error ? <div className="mt-3 rounded-lg border border-rose-900/60 bg-rose-950/20 p-3 text-xs text-rose-200" role="alert"><DiagnosticText code={error} locale={locale} /></div> : null}
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <button type="button" onClick={assemble} disabled={assembling || loading || deals.length === 0} className="rounded-lg border border-emerald-700/60 bg-emerald-950/30 px-4 py-2 text-xs font-semibold text-emerald-200 disabled:cursor-not-allowed disabled:opacity-50">
@@ -238,14 +244,15 @@ export default function CanonicalCaseWorkspacePanel() {
 
         {workspace ? (
           <div className="mt-4 grid gap-3 md:grid-cols-4">
-            <div className="rounded-lg border border-slate-800 p-3 text-xs text-slate-400">Project: <span className="text-slate-200">{workspace.projectId}</span></div>
-            <div className="rounded-lg border border-slate-800 p-3 text-xs text-slate-400">Case: <span className="text-slate-200">{workspace.caseId}</span></div>
+            <div className="rounded-lg border border-slate-800 p-3 text-xs text-slate-400">Project: <span data-user-content translate="no" className="text-slate-200">{workspace.projectId}</span></div>
+            <div className="rounded-lg border border-slate-800 p-3 text-xs text-slate-400">Case: <span data-user-content translate="no" className="text-slate-200">{workspace.caseId}</span></div>
             <div className="rounded-lg border border-slate-800 p-3 text-xs text-slate-400">{copy.unresolved}: <span className="text-slate-200">{workspace.orchestration.unresolvedLifecycleSections.length}</span></div>
             <div className="rounded-lg border border-slate-800 p-3 text-xs text-slate-400">{copy.governance}: <span className="text-slate-200">{committeeDossier?.status || '—'}</span></div>
           </div>
         ) : null}
       </div>
 
+      {workspace ? <CaseGapActionsPanel key={workspace.workspaceId} workspace={workspace} onRegisterChange={setActionRegister}/> : null}
       {decisionWorkspace ? <DecisionIntelligenceWorkspacePanel workspace={decisionWorkspace} /> : null}
       {committeeDossier ? <InvestmentCommitteeDossierPanel dossier={committeeDossier} actionReviewRegister={null} /> : null}
       {workspace ? <PostDecisionGovernancePanel canonicalWorkspace={workspace} /> : null}

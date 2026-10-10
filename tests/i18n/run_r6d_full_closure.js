@@ -1,3 +1,4 @@
+function historicalEvidence(id, detail) { console.log(`${id} NOT_RERUN -- historical note only: ${detail}`); }
 // tests/i18n/run_r6d_full_closure.js -- R6-D: Saved Deal persistence +
 // browser integration qualification. QUALIFICATION wave -- zero production
 // code changed. Documents live-verified evidence from this session's
@@ -51,12 +52,12 @@ check('STORAGE-KEY-PREFIX-UNCHANGED', appSrc.includes('"deal:" + id') && appSrc.
 
 // Live-browser evidence from this session (documented, not re-executed here --
 // see the assistant's turn for the full Playwright scripts and raw output)
-check('BUILDING-FULL-STATE-ROUNDTRIP', true, 'saved Building deal with non-default price(7654321)/leaseStatus(6 أشهر)/financing ON/ltv(0.65)/structure(إجارة منتهية بالتمليك); AR->EN load showed localized enum display ("Ijara Muntahia Bittamleek") while localStorage retained the exact raw Arabic string; survived a full page reload byte-identical (JSON.stringify equality)');
-check('LOCALE-SWITCH-ZERO-WRITES', true, 'instrumented localStorage.length + exact deal-record string before/after an AR->EN->AR switch with no save/update/delete -- both identical, confirming locale changes never write to storage');
-check('LAND-FULL-STATE-ROUNDTRIP', true, 'saved Land deal with non-default price(3210)/buildingTypeLabel(استخدام مختلط)/buildingPermitStatus(قيد الإجراء); EN load showed "Mixed Use"/"In Progress" while raw values remained the exact Arabic strings in storage');
-check('UPDATE-PATH-VERIFIED', true, 'modified price to 9999 while in en-locale, clicked Update Current Deal with Changes -- persisted record reflects the new price, name unchanged, buildingTypeLabel still the original raw Arabic value (not re-written by locale)');
-check('DELETE-PATH-VERIFIED', true, 'deleted the Land deal from the en-locale UI -- confirmed the record key was fully removed from localStorage (getItem returned null)');
-check('DISCOVERED-UPDATE-PANEL-BEHAVIOR', true, 'observed (not changed): updateActiveDeal does not auto-close the panel the way saveCurrentAsNewDeal does -- pre-existing behavior difference, documented as evidence, not altered');
+historicalEvidence('BUILDING-FULL-STATE-ROUNDTRIP', 'saved Building deal with non-default price(7654321)/leaseStatus(6 أشهر)/financing ON/ltv(0.65)/structure(إجارة منتهية بالتمليك); AR->EN load showed localized enum display ("Ijara Muntahia Bittamleek") while localStorage retained the exact raw Arabic string; survived a full page reload byte-identical (JSON.stringify equality)');
+historicalEvidence('LOCALE-SWITCH-ZERO-WRITES', 'instrumented localStorage.length + exact deal-record string before/after an AR->EN->AR switch with no save/update/delete -- both identical, confirming locale changes never write to storage');
+historicalEvidence('LAND-FULL-STATE-ROUNDTRIP', 'saved Land deal with non-default price(3210)/buildingTypeLabel(استخدام مختلط)/buildingPermitStatus(قيد الإجراء); EN load showed "Mixed Use"/"In Progress" while raw values remained the exact Arabic strings in storage');
+historicalEvidence('UPDATE-PATH-VERIFIED', 'modified price to 9999 while in en-locale, clicked Update Current Deal with Changes -- persisted record reflects the new price, name unchanged, buildingTypeLabel still the original raw Arabic value (not re-written by locale)');
+historicalEvidence('DELETE-PATH-VERIFIED', 'deleted the Land deal from the en-locale UI -- confirmed the record key was fully removed from localStorage (getItem returned null)');
+historicalEvidence('DISCOVERED-UPDATE-PANEL-BEHAVIOR', 'observed (not changed): updateActiveDeal does not auto-close the panel the way saveCurrentAsNewDeal does -- pre-existing behavior difference, documented as evidence, not altered');
 
 // Malformed + storage-failure regressions (re-run via existing R6-B suite)
 try { execFileSync('node', [path.join(__dirname,'run_r6b_malformed_saved_deal_real_path.js')], {stdio:'pipe'}); check('MALFORMED-REGRESSION', true, 'exit 0'); }
@@ -79,7 +80,7 @@ check('VERDICT-INTACT', ['يوصى بالشراء','يوصى بالشراء بش
 // SDI-001 registration
 check('SDI-001-REGISTERED', fs.existsSync(path.join(__dirname,'../..','FINDINGS_REGISTER.md')) && fs.readFileSync(path.join(__dirname,'../..','FINDINGS_REGISTER.md'),'utf8').includes('SDI-001'), 'separate data-integrity finding registered, not fixed in R6-D');
 
-check('ZERO-PAGE-ERRORS-FULL-SESSION', true, '0 pageerror events across Building + Land comprehensive persistence sessions');
+historicalEvidence('ZERO-PAGE-ERRORS-FULL-SESSION', '0 pageerror events across Building + Land comprehensive persistence sessions');
 
 const allPass = results.every(Boolean);
 console.log('\nRUN_R6D_FULL_CLOSURE=' + (allPass?'PASS':'FAIL'));

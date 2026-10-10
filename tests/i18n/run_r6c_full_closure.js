@@ -1,3 +1,4 @@
+function historicalEvidence(id, detail) { console.log(`${id} NOT_RERUN -- historical note only: ${detail}`); }
 // tests/i18n/run_r6c_full_closure.js -- R6-C validation/i18n qualification.
 const fs = require('fs'), path = require('path');
 const { execFileSync } = require('child_process');
@@ -114,11 +115,11 @@ const rB = calculateInvestmentCase({ studyType: STUDY_TYPE.EXISTING_BUILDING, in
 check('FINANCIAL-CURRENT-CANONICAL', Number.isFinite(rB.NOI) && /^BUILDING_WAVE_A_/.test(rB.financialModelVersion), `version=${rB.financialModelVersion}`);
 check('VERDICT-DOMAIN-INTACT', ['يوصى بالشراء','يوصى بالشراء بشروط','لا يوصى بالشراء'].includes(rB.verdict), `"${rB.verdict}"`);
 
-check('BROWSER-AR-DISCLOSURE', true, 'existing localized invalid-input disclosure evidence retained');
-check('BROWSER-ACTIVE-ROUNDTRIP', true, 'existing ar->en->ar validation presentation evidence retained');
-check('BROWSER-RECOVERY-REAL-RECALC', true, 'existing correction/recalculation browser evidence retained for the UI validation layer');
-check('BROWSER-ZERO-LEAK', true, 'existing locale-purity browser evidence retained');
-check('BROWSER-ZERO-PAGE-ERRORS', true, '0 pageerror evidence retained');
+historicalEvidence('BROWSER-AR-DISCLOSURE', 'existing localized invalid-input disclosure evidence retained');
+historicalEvidence('BROWSER-ACTIVE-ROUNDTRIP', 'existing ar->en->ar validation presentation evidence retained');
+historicalEvidence('BROWSER-RECOVERY-REAL-RECALC', 'existing correction/recalculation browser evidence retained for the UI validation layer');
+historicalEvidence('BROWSER-ZERO-LEAK', 'existing locale-purity browser evidence retained');
+historicalEvidence('BROWSER-ZERO-PAGE-ERRORS', '0 pageerror evidence retained');
 
 const allPass = results.every(Boolean);
 console.log('\nRUN_R6C_FULL_CLOSURE=' + (allPass?'PASS':'FAIL'));
