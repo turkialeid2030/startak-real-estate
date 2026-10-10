@@ -11,6 +11,7 @@ function EmptyState({ children }) {
 }
 
 function ActionRegister({ dossier, actionReviewRegister }) {
+  const {locale}=useLocale();
   const actions = dossier?.actionRegister?.actions || [];
   const reviewById = new Map((actionReviewRegister?.workflows || []).map((item) => [item.actionId, item]));
   return (
@@ -26,16 +27,16 @@ function ActionRegister({ dossier, actionReviewRegister }) {
             <article key={action.actionId} className="rounded-lg border border-slate-800 p-3">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
-                  <div className="text-sm text-slate-100">{action.description}</div>
-                  <div className="mt-1 text-[11px] text-slate-500">{action.actionId} · {action.type} · المسؤول: {action.ownerId}</div>
+                  <div className="text-sm text-slate-100"><DiagnosticText code={action.description} locale={locale}/></div>
+                  <div className="mt-1 text-[11px] text-slate-500"><span data-user-content translate="no">{action.actionId}</span> · <DiagnosticText code={action.type} locale={locale}/> · المسؤول: <span data-user-content translate="no">{action.ownerId}</span></div>
                 </div>
                 <div className="flex flex-wrap gap-1">
                   <Badge>{action.status}</Badge>
                   {review?.workflowStatus ? <Badge>{review.workflowStatus}</Badge> : null}
                 </div>
               </div>
-              {action.requiredEvidenceKeys?.length ? <div className="mt-2 text-[11px] text-slate-400">الأدلة المطلوبة: {action.requiredEvidenceKeys.join(', ')}</div> : null}
-              {review?.missingEvidenceKeys?.length ? <div className="mt-2 text-[11px] text-amber-300">نواقص: {review.missingEvidenceKeys.join(', ')}</div> : null}
+              {action.requiredEvidenceKeys?.length ? <div className="mt-2 text-[11px] text-slate-400">الأدلة المطلوبة: <code>{action.requiredEvidenceKeys.join(', ')}</code></div> : null}
+              {review?.missingEvidenceKeys?.length ? <div className="mt-2 text-[11px] text-amber-300">نواقص: <code>{review.missingEvidenceKeys.join(', ')}</code></div> : null}
               {review?.canRequestHumanClosure ? <div className="mt-2 text-[11px] text-emerald-300">جاهز لطلب مراجعة الإغلاق البشري.</div> : null}
             </article>
           );
@@ -83,7 +84,7 @@ export default function InvestmentCommitteeDossierPanel({ dossier, actionReviewR
           <div>
             <div className="text-[11px] uppercase tracking-[0.18em] text-slate-500">Investment Committee Decision Dossier</div>
             <h2 className="mt-1 text-lg font-semibold text-slate-100">ملف قرار لجنة الاستثمار</h2>
-            <div className="mt-1 text-[11px] text-slate-500">Case: {dossier.caseId || '—'} · Project: {dossier.projectId || '—'}</div>
+            <div className="mt-1 text-[11px] text-slate-500">{locale==='en'?'Case':'الحالة'}: <span data-user-content translate="no">{dossier.caseId || '—'}</span> · {locale==='en'?'Project':'المشروع'}: <span data-user-content translate="no">{dossier.projectId || '—'}</span></div>
           </div>
           <div className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-200">{dossier.status || 'UNKNOWN'}</div>
         </div>

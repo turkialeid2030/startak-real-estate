@@ -34,6 +34,12 @@ const SECTIONS = Object.freeze({
   COMMERCIAL_DUE_DILIGENCE: 'الفحص التجاري', DOCUMENT_EVIDENCE: 'أدلة المستندات',
 });
 const EXTRA_REASONS = Object.freeze({
+  RECORDED_HUMAN_COMMITTEE_DECISION_REQUIRED:'يلزم تسجيل قرار اللجنة البشري مع مرجع موثق قبل متابعة هذا المسار.',
+  HOLD_COMMITTEE_DECISION:'متابعة الإجراءات معلقة لحين تسجيل قرار اللجنة البشري.',
+  EVIDENCE:'إجراء لاستكمال مراجع الأدلة ومراجعتها.',
+  LEGAL_REVIEW:'إجراء مراجعة قانونية يتطلب مختصًا مرخصًا.',
+  TECHNICAL_DD:'إجراء فحص فني يتطلب مراجعة مختص.',
+  VALUATION_REVIEW:'إجراء مراجعة التقييم من المختص المؤهل.',
   INVALID_RENTAL_CALENDAR:'أدخل تاريخ بدء صالحًا وحدد نطاق الموقع ونوع الإيجار.',
   REGULATORY_CONTEXT_MISSING:'لم يكتمل تاريخ الدراسة ونطاق الموقع ونوع الإيجار؛ النمو افتراض غير مؤهل للاعتماد الفعلي.',
   RENT_GROWTH_REVIEW_REQUIRED:'النمو الإيجاري المفترض يتداخل مع فترة الضبط المحتملة؛ يحتاج مراجعة العقد والموقع وأي اعتراض مقبول.',
