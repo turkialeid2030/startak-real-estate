@@ -11,6 +11,7 @@ on:
       - 'tests/architecture/run_audit_20261010_f03_f07.js'
       - 'tests/e2e/run_audit_20261010_f03_f07_browser.js'
       - 'docs/AUDIT_20261010_F03_F07_OWNER_STUDY_REMEDIATION.md'
+      - 'docs/AUDIT_20261010_REMAINING_REVIEW.md'
       - '.github/workflows/standards-provenance-verify.yml'
       - '.github/workflows/audit-20261010-f03-f07-verify.yml'
   workflow_dispatch:

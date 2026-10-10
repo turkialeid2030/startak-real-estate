@@ -5,12 +5,15 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { createRequire } = require('node:module');
 const { JSDOM } = require('jsdom');
+const React = require('react');
+const { createRoot } = require('react-dom/client');
 const gold = require('../reference/RE-GOLD-baseline.json');
 const { V2_APPROVED_ASSUMPTIONS } = require('../../src/assumptions/assumption-model');
 const { buildPersonalFinancialStudy, verifyPersonalFinancialStudy, htmlFinancialStudy } = require('../../src/app/personal-financial-study');
 const { updateValuationEditorDraft, validateValuationEditorDraft, copyValuationEditorDraft, rebaseValuationEditorDraft } = require('../../src/app/valuation-editor-draft');
 const { advancedDraftFromValuationCase } = require('../../src/app/valuation-advanced-draft');
 const { emptyValuationCaseDraft } = require('../../src/app/valuation-case-draft');
+const { emptyCriticalEvidenceRow } = require('../../src/app/critical-evidence-draft');
 const { describeDiagnostic } = require('../../src/i18n/diagnostic-presentation');
 const { validateSavedDealRecord } = require('../../src/validation/saved-deal-schema');
 const { buildExportPayload, planRestore } = require('../../src/storage/saved-deals-backup');
@@ -53,6 +56,11 @@ const make = (mode, inputs, version = 'LEGACY') => buildPersonalFinancialStudy({
   const tampered = JSON.parse(JSON.stringify(b)); tampered.financial.results.NOI += 1;
   ok(!verifyPersonalFinancialStudy(tampered), 'editing a reported metric invalidates its fingerprint');
   const html = htmlFinancialStudy(b);
+  for (const [mode, inputs] of [['building', building], ['land', land]]) {
+    const unlevered = make(mode, inputs), levered = make(mode, { ...inputs, leverageEnabled: true });
+    eq(levered.financial.results.totalCriteria, unlevered.financial.results.totalCriteria + 2, 'financing adds exactly the two engine criteria in ' + mode);
+    ok(htmlFinancialStudy(levered).includes(levered.financial.results.metCount + ' / ' + levered.financial.results.totalCriteria), 'HTML reports actual engine criteria in ' + mode);
+  }
   ok(html.includes('التدفقات السنوية') && html.includes('قبل احتياطي الإحلال') && html.includes('سيناريوهات اختبار افتراضية'), 'financial report includes cashflows, reserve basis and scenarios');
   ok(html.includes('غير متحقق ضمن مدة الدراسة') && html.includes('dir="rtl"'), 'Arabic report preserves unavailable operating payback and RTL');
   ok(html.includes(b.inputFingerprintSha256) && html.includes(b.reportHashSha256), 'input and report fingerprints included');
@@ -97,5 +105,65 @@ const make = (mode, inputs, version = 'LEGACY') => buildPersonalFinancialStudy({
   eq(dom.window.document.querySelector('[data-user-content]').textContent, deal.name, 'Arabic DOM guard leaves nested user data unchanged');
   eq(dom.window.document.querySelector('code').textContent, 'UNREGISTERED_REASON_X', 'Arabic DOM guard leaves original diagnostic code intact');
   eq(dom.window.document.getElementById('label').textContent, 'المشروع', 'system labels still translate normally');
+  dom.window.close();
+
+  // Exercise the actual shared hook and App update handlers in React. This is
+  // a component test; the separate Chromium suite verifies the real input UI.
+  const reactDom = new JSDOM('<div id="root"></div>', { url: 'http://localhost' });
+  const previousWindow = global.window, previousDocument = global.document;
+  global.window = reactDom.window; global.document = reactDom.window.document;
+  global.IS_REACT_ACT_ENVIRONMENT = true;
+  const hookFile = path.resolve(__dirname, '../../src/components/useConfigurationDraft.js');
+  const hookSource = fs.readFileSync(hookFile, 'utf8')
+    .replace("import { useEffect, useState } from 'react';", 'const { useEffect, useState } = React;')
+    .replace('export default function', 'function');
+  const useDraft = new Function('React', hookSource + '\nreturn useConfigurationDraft;')(React);
+  const appSource = fs.readFileSync(path.resolve(__dirname, '../../src/app/App.jsx'), 'utf8');
+  const setterBody = appSource.match(/const setValuationEditorDraft = \(next\) => \{([\s\S]*?)\n  \};/)[1];
+  const changeBody = appSource.match(/const changeValuationEditorDraft = \(group, draft\) => \{([\s\S]*?)\n  \};/)[1];
+  let api;
+  function Harness() {
+    const [stored, replace] = React.useState(null);
+    const ref = React.useRef(null);
+    const setStored = new Function('valuationEditorDraftRef', 'replaceValuationEditorDraft', 'return next => {' + setterBody + '}')(ref, replace);
+    const change = new Function('setValuationEditorDraft', 'updateValuationEditorDraft', 'return (group, draft) => {' + changeBody + '}')(setStored, updateValuationEditorDraft);
+    const [draft, edit, error] = useDraft(null, emptyValuationCaseDraft, stored?.base, value => change('base', value));
+    api = { draft, edit, error, stored, change, reset: setStored };
+    return React.createElement('p', null, error || draft.projectId || 'EMPTY');
+  }
+  const root = createRoot(document.getElementById('root'));
+  try {
+    await React.act(async () => root.render(React.createElement(Harness)));
+    await React.act(async () => api.edit({ ...api.draft, projectId: 'ACCEPTED' }));
+    await React.act(async () => api.edit({ ...api.draft, projectId: 'X'.repeat(32001) }));
+    eq(api.draft.projectId, 'ACCEPTED', 'overlong paste preserves the previous visible value');
+    eq(api.stored.base.projectId, 'ACCEPTED', 'overlong paste cannot replace the persistable draft');
+    eq(api.error, 'INVALID_VALUATION_EDITOR_DRAFT', 'overlong paste produces an explicit edit error rather than a render exception');
+    await React.act(async () => api.edit({ ...api.draft, projectId: 'X'.repeat(32000) }));
+    eq(api.draft.projectId.length, 32000, 'exact string limit remains accepted');
+    eq(api.error, null, 'a valid edit clears the refusal notice');
+    await React.act(async () => {
+      api.change('advanced', advancedDraftFromValuationCase(null));
+      api.change('critical', [emptyCriticalEvidenceRow()]);
+    });
+    ok(api.stored.advanced && api.stored.critical && api.stored.base, 'same React batch retains all edited groups');
+    let rejected;
+    await React.act(async () => { rejected = api.change('critical', Array.from({ length: 301 }, () => emptyCriticalEvidenceRow())); });
+    eq(rejected.ok, false, 'oversized row array is refused synchronously');
+    eq(api.stored.critical.length, 1, 'refused rows preserve the accepted evidence draft');
+    const large = advancedDraftFromValuationCase(null);
+    function fillStrings(value) { for (const key of Object.keys(value)) { if (typeof value[key] === 'string') value[key] = 'X'.repeat(32000); else if (value[key] && !Array.isArray(value[key]) && typeof value[key] === 'object') fillStrings(value[key]); } }
+    fillStrings(large);
+    ok(JSON.stringify(large).length > 300000, 'aggregate-limit fixture exceeds the envelope limit with individually bounded strings');
+    await React.act(async () => { rejected = api.change('advanced', large); });
+    eq(rejected.ok, false, 'oversized total draft is refused without changing other groups');
+    eq(api.stored.base.projectId.length, 32000, 'aggregate rejection retains accepted base edits');
+    await React.act(async () => { api.reset(null); api.change('base', emptyValuationCaseDraft()); });
+    ok(!api.stored.advanced && !api.stored.critical, 'reset synchronizes the next edit with the cleared context');
+  } finally {
+    await React.act(async () => root.unmount());
+    reactDom.window.close(); global.window = previousWindow; global.document = previousDocument;
+    delete global.IS_REACT_ACT_ENVIRONMENT;
+  }
   console.log('AUDIT_20261010_F03_F07=PASS checks=' + checks);
 })().catch(error => { console.error(error); process.exitCode = 1; });

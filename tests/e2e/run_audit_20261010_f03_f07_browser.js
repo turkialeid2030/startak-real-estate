@@ -61,6 +61,8 @@ async function jsonReport(page) {
         ok(first.version === 'PERSONAL_FINANCIAL_STUDY_V2' && first.dealName === NAME, 'full financial report preserves original name');
         ok(first.financial.results.NOI > 0 && first.financial.annualCashflows.length === 6, 'real UI exports financial engine and all study years');
         ok(first.financial.experiments.sensitivity.length === 3, 'browser export includes calculated sensitivities');
+        await expect(page.getByTestId('methodology-criteria-count')).toContainText(String(first.financial.results.totalCriteria));
+        checks++;
         ok(first.financial.payback.cumulativeOperatingWithinStudyYears === null && first.financial.payback.cumulativeWithTerminalSaleYears === 5,
           'sale-dependent recovery does not claim operating recovery');
         await expect(page.getByTestId('payback-disclosure')).toContainText('استرداد بسيط');
@@ -70,6 +72,14 @@ async function jsonReport(page) {
         await page.getByTestId('valuation-v1-configure').click();
         const project = page.getByPlaceholder('أدخل معرّف المشروع', { exact: true });
         await project.fill(PROJECT);
+        await project.fill('X'.repeat(32001));
+        await expect(project).toHaveValue(PROJECT);
+        await expect(page.getByTestId('valuation-draft-edit-error')).toContainText('INVALID_VALUATION_EDITOR_DRAFT');
+        checks += 2;
+        await project.fill(PROJECT + '-RECOVERED');
+        await expect(page.getByTestId('valuation-draft-edit-error')).not.toBeVisible();
+        await project.fill(PROJECT);
+        checks++;
         await page.getByTestId('valuation-v1-apply').click();
         await expect(page.getByTestId('valuation-v1-panel').locator('[data-diagnostic-content]')).toContainText('INVALID_ENUM');
         await expect(page.getByTestId('valuation-v1-panel')).toContainText('اختر قيمة مدعومة');
@@ -78,6 +88,8 @@ async function jsonReport(page) {
         await expect(page.getByTestId('building-valuation-draft-container')).toBeHidden();
         const land = await jsonReport(page);
         ok(land.financial.mode === 'land' && verifyPersonalFinancialStudy(land), 'land mode also exports current-input financial report');
+        await expect(page.getByTestId('methodology-criteria-count')).toContainText(String(land.financial.results.totalCriteria));
+        checks++;
         const landName = 'AUDIT F06 LAND DELETE';
         let landDialog = await openDeals(page);
         await landDialog.getByPlaceholder(ar.savedDeals.namePlaceholder, { exact: true }).fill(landName);

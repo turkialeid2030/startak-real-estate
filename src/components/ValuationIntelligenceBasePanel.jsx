@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import DiagnosticText from './DiagnosticText.jsx';
 import useConfigurationDraft from './useConfigurationDraft.js';
+import ConfigurationDraftNotice from './ConfigurationDraftNotice.jsx';
 import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, ShieldCheck, XCircle } from 'lucide-react';
 
 const {
@@ -329,7 +330,7 @@ export default function ValuationIntelligencePanel({
 }) {
   const text = copyForLocale(locale);
   const [expanded, setExpanded] = useState(Boolean(valuationCase));
-  const [draft, setDraft] = useConfigurationDraft(valuationCase, draftFromValuationCase, editorDraft, onChangeEditorDraft);
+  const [draft, setDraft, editError] = useConfigurationDraft(valuationCase, draftFromValuationCase, editorDraft, onChangeEditorDraft);
   const [draftError, setDraftError] = useState(null);
 
   useEffect(() => {
@@ -526,6 +527,7 @@ export default function ValuationIntelligencePanel({
 
       {expanded ? (
         <div className="mt-4 pt-4" style={{ borderTop: `1px solid ${COLORS.hairlineSoft}` }}>
+          <ConfigurationDraftNotice code={editError} locale={locale} />
           <div className="mb-4">
             <div className="rf-display text-sm font-semibold" style={{ color: COLORS.parchment }}>{text.configuration}</div>
             <div className="text-[10px] leading-relaxed mt-1" style={{ color: COLORS.slateDim }}>{text.configurationNote}</div>

@@ -12,6 +12,7 @@ const REASONS = Object.freeze({
   INVALID_NUMBER: ['أدخل رقمًا صالحًا للحقل المحدد.', 'Enter a valid number for the identified field.'],
   OUT_OF_RANGE: ['القيمة خارج نطاق الحقل المسموح؛ صححها.', 'The value is outside the permitted field range.'],
   INVALID_CONFIGURATION: ['راجع الحقول المطلوبة ونطاقاتها في إعداد التقييم.', 'Review required configuration fields and ranges.'],
+  INVALID_VALUATION_EDITOR_DRAFT: ['تعذر حفظ هذا التغيير في المسودة. قلّل طول النص أو عدد الصفوف؛ احتُفظ بالقيم السابقة.', 'This draft edit could not be saved. Reduce the text length or row count; previous values were retained.'],
   SPECIALIST_HOTEL_ADAPTER_NOT_IMPLEMENTED: ['محرك تقييم الفنادق المتخصص غير متاح؛ البيانات محفوظة كمسودة.', 'A specialist hotel valuation adapter is unavailable; inputs remain a draft.'],
   SPECIALIST_INDUSTRIAL_ADAPTER_NOT_IMPLEMENTED: ['محرك تقييم العقار الصناعي المتخصص غير متاح؛ البيانات محفوظة كمسودة.', 'A specialist industrial valuation adapter is unavailable; inputs remain a draft.'],
   FINANCIAL_INPUTS_INVALID: ['المدخلات المالية غير صالحة؛ لم تُصدر نتائج من حالة سابقة.', 'Financial inputs are invalid; no previous results were exported.'],

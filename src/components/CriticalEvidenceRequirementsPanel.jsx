@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import useConfigurationDraft from './useConfigurationDraft.js';
+import ConfigurationDraftNotice from './ConfigurationDraftNotice.jsx';
 import DiagnosticText from './DiagnosticText.jsx';
 import { ChevronDown, ChevronUp, Plus, Trash2, XCircle } from 'lucide-react';
 
@@ -139,7 +140,7 @@ export default function CriticalEvidenceRequirementsPanel({
 }) {
   const text = copyForLocale(locale);
   const [open, setOpen] = useState(false);
-  const [rows, setRows] = useConfigurationDraft(valuationCase, criticalEvidenceRowsFromValuationCase, editorDraft, onChangeEditorDraft);
+  const [rows, setRows, editError] = useConfigurationDraft(valuationCase, criticalEvidenceRowsFromValuationCase, editorDraft, onChangeEditorDraft);
   const [message, setMessage] = useState(null);
 
   useEffect(() => {
@@ -185,6 +186,7 @@ export default function CriticalEvidenceRequirementsPanel({
 
       {open ? (
         <div className="mt-4 space-y-3">
+          <ConfigurationDraftNotice code={editError} locale={locale} />
           <div className="flex items-center justify-between gap-2">
             <div className="text-[9px]" style={{ color: COLORS.slateDim }}>{rows.length === 0 ? text.none : text.fieldHint}</div>
             <button type="button" onClick={addRow} className="text-[10px] px-2 py-1.5 rounded-lg flex items-center gap-1" style={{ border: `1px solid ${COLORS.hairline}`, color: COLORS.brassSoft }}>

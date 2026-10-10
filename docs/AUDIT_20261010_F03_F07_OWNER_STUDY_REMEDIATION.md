@@ -27,10 +27,16 @@ The first published candidate is `62443d8772d552548dc83c688a2cf9b59ea43073`. Pub
 - Independent release job: 474/474 discovered regression suites, production build, package verification, release verification and zero reported npm audit vulnerabilities passed. The local release verifier also passed.
 - An additional Standards Provenance workflow used Node 20 and failed to load the locked jsdom 30 dependency (`webidl.util.markAsUncloneable is not a function`). That workflow is corrected to Node 24 and the explicit source head; its final success must be verified alongside the other final-head checks.
 - Dedicated GitHub workflows bind the exact tested commit and require real-browser and release success. PR evidence is updated only after fresh successful jobs on the final head.
-- Some inherited regression scripts contain historical browser observations as fixed assertions. They are labelled `NOT_RERUN`; only the fresh Playwright logs above are current browser evidence.
+- Some inherited regression scripts contain historical browser observations as fixed assertions. The modified `run_r6d_building_update_delete_real_path.js` labels its historical observations `NOT_RERUN`; other inherited scripts, including `run_r7_full_closure.js`, still need that evidence-quality cleanup. Only fresh Playwright logs establish current browser behavior.
 - External canonical-source evidence and composite cutover evidence remain `NOT_EVALUATED` when their inputs are absent. An engineering gate is not a professional release authorization.
 - Width 390 is a real Chromium viewport test, not a physical-device/accessibility/performance certification. Main remains unchanged; no production deployment is claimed.
 
 ## Audit work still open
+
+A subsequent owner-requested careful review reproduced a render exception when a 32,001-character edit exceeded draft validation limits. Updates now validate synchronously before React state is scheduled, refuse the edit with an Arabic explanation and its original code, and retain accepted draft values. The focused suite exercises the actual shared hook and App handlers in React, including the exact string boundary, row/aggregate limits, multiple groups in one batch, and context reset. The Chromium suite also exercises the overlong paste and recovery in both viewports. Fresh final-head CI is required for this revision; previous-head browser evidence cannot qualify it.
+
+The same review removed the footer's fixed four-criteria statement and editable-all-fields claim. The current criteria count comes from the same engine result used by the recommendation, and the HTML study includes met/total criteria. Financing count behavior is verified in both financial modes.
+
+See [the remaining-audit review](AUDIT_20261010_REMAINING_REVIEW.md) for code-backed gaps and acceptance boundaries.
 
 F10/F11: specialist asset models and professional method qualification; F14–F18: market/source records, complete documentary workflow including PDF/OCR, actionable gap closure and institutional identity. Also still open are the complete source/hosting/security review, access and tenant isolation, accessibility and actual device/load testing, governed local rules and taxes, qualified AI roles with measured accuracy, and commercial demand/pricing/cash-plan evidence. None is marked closed by this change.

@@ -460,7 +460,7 @@ function KPIChip({ label, value, icon: Icon, accent, sub, warning }) {
   );
 }
 
-function VerdictSeal({ verdict, metCount, totalCriteria = 4, size = "large" }) {
+function VerdictSeal({ verdict, metCount, totalCriteria = null, size = "large" }) {
   const { t } = useLocale();
   const isIncomplete = verdict === "INCOMPLETE_INPUTS";
   const isGo = verdict === "يوصى بالشراء";
@@ -1605,7 +1605,16 @@ export default function App() {
   const [residentialIncomeOperatingCase, setResidentialIncomeOperatingCase] = useState(null);
   const [operatingCaseMessage, setOperatingCaseMessage] = useState(null);
   const [valuationCase, setValuationCase] = useState(null);
-  const [valuationEditorDraft, setValuationEditorDraft] = useState(null);
+  const [valuationEditorDraft, replaceValuationEditorDraft] = useState(null);
+  const valuationEditorDraftRef = useRef(null);
+  // Validate before scheduling React state. A rejected edit must not throw
+  // from a render-time updater or discard an accepted edit in another group.
+  const setValuationEditorDraft = (next) => {
+    const value = typeof next === 'function' ? next(valuationEditorDraftRef.current) : next;
+    valuationEditorDraftRef.current = value;
+    replaceValuationEditorDraft(value);
+    return value;
+  };
   const [valuationEditorKey, setValuationEditorKey] = useState(0);
   const modeContexts = useRef({ building: { activeDealId: null, zakatCase: null }, land: { activeDealId: null, zakatCase: null } });
   const [zakatCase, setZakatCase] = useState(null);
@@ -1717,11 +1726,16 @@ export default function App() {
     setActiveTab('dashboard');
   };
   const changeValuationCase = (next, appliedGroup = 'base') => {
-    setValuationCase(next);
     setValuationEditorDraft(current => rebaseValuationEditorDraft(current, appliedGroup, next));
+    setValuationCase(next);
   };
   const changeValuationEditorDraft = (group, draft) => {
-    setValuationEditorDraft(current => updateValuationEditorDraft(current, group, draft));
+    try {
+      setValuationEditorDraft(current => updateValuationEditorDraft(current, group, draft));
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, code: error.code || 'INVALID_VALUATION_EDITOR_DRAFT' };
+    }
   };
   const financialContext = useMemo(() => ({ mode, inputs, assumptionModelVersion, zakatCase,
     dealName: activeDealName || inputs.projectTitle || '',
@@ -2237,6 +2251,7 @@ export default function App() {
           </div>
           <div className="text-[10px] leading-relaxed" style={{ color: COLORS.slateDim }}>
             {t("globalApp.methodologyNote")}
+            {' '}<span data-testid="methodology-criteria-count">{t("globalApp.currentCriteriaCount", { count: Number.isInteger(results.totalCriteria) && !activeValidationError ? results.totalCriteria : '—' })}</span>
           </div>
         </footer>
       </div>

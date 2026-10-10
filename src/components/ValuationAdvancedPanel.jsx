@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import useConfigurationDraft from './useConfigurationDraft.js';
+import ConfigurationDraftNotice from './ConfigurationDraftNotice.jsx';
 import DiagnosticText from './DiagnosticText.jsx';
 import { ChevronDown, ChevronUp, Plus, Trash2, XCircle } from 'lucide-react';
 
@@ -448,7 +449,7 @@ function ReconciliationEditor({ locale, draft, setDraft }) {
 export default function ValuationAdvancedPanel({ locale = 'ar-SA', valuationCase, onChangeValuationCase, editorDraft = null, onChangeEditorDraft }) {
   const text = copyForLocale(locale);
   const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useConfigurationDraft(valuationCase, advancedDraftFromValuationCase, editorDraft, onChangeEditorDraft);
+  const [draft, setDraft, editError] = useConfigurationDraft(valuationCase, advancedDraftFromValuationCase, editorDraft, onChangeEditorDraft);
   const [message, setMessage] = useState(null);
 
   useEffect(() => {
@@ -491,6 +492,7 @@ export default function ValuationAdvancedPanel({ locale = 'ar-SA', valuationCase
 
       {open ? (
         <div className="mt-4 space-y-3">
+          <ConfigurationDraftNotice code={editError} locale={locale} />
           <EvidenceEditor locale={locale} draft={draft} setDraft={setDraft} />
           <MarketComparableEditor locale={locale} draft={draft} setDraft={setDraft} />
           <CostEditor locale={locale} draft={draft} setDraft={setDraft} />

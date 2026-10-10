@@ -161,6 +161,7 @@ function htmlFinancialStudy(report, { locale = 'ar-SA' } = {}) {
     [words('المصروفات التشغيلية مع احتياطي الإحلال', 'Operating expenses including replacement reserve'), money(expenses)],
     [words('معدل العائد الداخلي قبل التمويل', 'Unlevered IRR'), percent(r.irr)],
     [words('صافي القيمة الحالية قبل التمويل', 'Unlevered NPV'), money(r.npv)],
+    [words('المعايير المحققة / إجمالي المعايير في نتيجة المحرك', 'Met / total criteria from the engine result'), Number.isInteger(r.metCount) && Number.isInteger(r.totalCriteria) ? r.metCount + ' / ' + r.totalCriteria : words('غير متاح', 'Unavailable')],
     [words('التمويل مفعّل', 'Financing enabled'), f.inputs.leverageEnabled ? words('نعم', 'Yes') : words('لا', 'No')],
     [words('مبلغ التمويل', 'Debt amount'), f.inputs.leverageEnabled ? money(r.loanAmount) : words('غير منطبق', 'Not applicable')],
     [words('خدمة الدين السنوية', 'Annual debt service'), f.inputs.leverageEnabled ? money(r.debtService) : words('غير منطبق', 'Not applicable')],
