@@ -226,6 +226,9 @@ export default function LocalDocumentEvidenceIntakePanel({ onRecordChange = null
                 data-testid="local-document-file-input"
                 aria-label={l.choose}
                 type="file"
+                hidden
+                tabIndex={-1}
+                aria-hidden="true"
                 accept=".xlsx,.pptx,.pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.presentationml.presentation"
                 className="sr-only"
                 disabled={busy}

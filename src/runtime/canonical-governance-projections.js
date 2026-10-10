@@ -96,7 +96,8 @@ function projectCanonicalWorkspaceToDecisionIntelligence(canonicalWorkspace) {
 
 /**
  * Project the canonical case into an Investment Committee preparation dossier.
- * The empty action register is explicit, scoped and non-authorizing. Because the
+ * Caller-supplied local action records are scoped and non-authorizing. The
+ * default register is empty until ownership is explicitly supplied. Because the
  * conservative Decision Intelligence projection is never READY_FOR_REVIEW at
  * this boundary, the dossier must remain HOLD_WORKSPACE. A later controlled
  * workflow may supply a qualified Decision Intelligence workspace and action

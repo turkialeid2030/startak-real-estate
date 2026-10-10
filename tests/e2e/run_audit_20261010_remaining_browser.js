@@ -66,9 +66,9 @@ async function download(page,locator){const pending=page.waitForEvent('download'
    await expect(page.getByTestId('investment-committee-dossier')).toHaveAttribute('data-dossier-status','HOLD_WORKSPACE');checks++;
    ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'no page-level overflow at tested viewport');
    if(name==='chromium'&&viewport.width===1366){
-    const html=await download(page,page.getByTestId('c75-export-personal-html'));const print=await context.newPage();await print.setContent(html,{waitUntil:'load'});await print.setViewportSize({width:794,height:1123});await print.emulateMedia({media:'print'});
+    const html=await download(page,page.getByTestId('c75-export-personal-html'));const htmlHash=html.match(/[a-f0-9]{64}/g)?.at(-1);const print=await context.newPage();await print.setContent(html,{waitUntil:'load'});await print.setViewportSize({width:794,height:1123});await print.emulateMedia({media:'print'});
     ok(await print.evaluate(()=>[...document.querySelectorAll('table')].every(t=>t.scrollWidth<=document.documentElement.clientWidth+1)),'print tables fit page viewport');
-    await print.pdf({path:DIR+'/personal-study-A4.pdf',format:'A4',printBackground:true,displayHeaderFooter:true,headerTemplate:'<span></span>',footerTemplate:'<div style="width:100%;font-size:9px;text-align:center"><span class="pageNumber"></span> / <span class="totalPages"></span></div>',margin:{top:'14mm',bottom:'18mm',left:'14mm',right:'14mm'}});const {readPdfText}=await import('../../src/document-intelligence/parsers/pdf-text-reader.mjs');const printed=await readPdfText(await fs.readFile(DIR+'/personal-study-A4.pdf'));ok(printed.pageCount>1&&printed.lines.some(line=>line.text.includes(report.reportHashSha256)),'generated print PDF has multiple pages and retains report fingerprint');await print.close();
+    await print.pdf({path:DIR+'/personal-study-A4.pdf',format:'A4',printBackground:true,displayHeaderFooter:true,headerTemplate:'<span></span>',footerTemplate:'<div style="width:100%;font-size:9px;text-align:center"><span class="pageNumber"></span> / <span class="totalPages"></span></div>',margin:{top:'14mm',bottom:'18mm',left:'14mm',right:'14mm'}});const {readPdfText}=await import('../../src/document-intelligence/parsers/pdf-text-reader.mjs');const printed=await readPdfText(await fs.readFile(DIR+'/personal-study-A4.pdf'));ok(printed.pageCount>1&&printed.lines.some(line=>line.text.includes(htmlHash)),'generated print PDF has multiple pages and retains report fingerprint');await print.close();
    }
    await page.screenshot({path:`${DIR}/${name}-${viewport.width}.png`,fullPage:true});
    ok(errors.length===0,`${name} pageerrors: ${errors.join(' | ')}`);ok(external.length===0,'document module sends no external POST uploads');
@@ -77,4 +77,4 @@ async function download(page,locator){const pending=page.waitForEvent('download'
  }
  await fs.writeFile(DIR+'/acceptance.json',JSON.stringify({sourceCommit:process.env.STARTAK_SOURCE_COMMIT||null,checks,browsers:evidence,physicalDevicesTested:false,screenReaderTested:false,marketDataVerified:false},null,2));
  console.log(`AUDIT_REMAINING_BROWSER=PASS checks=${checks}`);
-})().catch(e=>{console.error(e);process.exit(1);});
+})().catch(async e=>{console.error(e);await fs.mkdir(DIR,{recursive:true});await fs.writeFile(DIR+'/failure.json',JSON.stringify({sourceCommit:process.env.STARTAK_SOURCE_COMMIT||null,checksCompleted:checks,error:e.message},null,2));process.exit(1);});

@@ -24,7 +24,7 @@ installGlobalHandlers(); // privacy-minimized live Sentry provider
 // canonical workspace below is the first explicit in-app route from validated
 // Saved Deals + explicit project/case classification into a scoped canonical
 // ExecutableInvestmentCase. Decision Intelligence may render only from that
-// local canonical route. Investment Committee, action-review, outcome-feedback
+// local canonical route. Institutional Investment Committee, action-review, outcome-feedback
 // and learning remain disabled until they receive an equivalent controlled path.
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
