@@ -11,7 +11,7 @@ function Field({ label, children }) {
   return (
     <label className="block text-[11px] text-slate-400">
       <span className="mb-1 block">{label}</span>
-      {children}
+      {React.isValidElement(children) ? React.cloneElement(children, { 'aria-label': label }) : children}
     </label>
   );
 }
