@@ -37,7 +37,7 @@ function validateValue({ value, field, allowAssumption, asOfMs, lineageByRef, is
     issue(issues, 'COLLECTION_INPUT_UNIT_MUST_BE_SAR', field, value.sourceRef);
     return false;
   }
-  if (!value.effectiveDate || new Date(value.effectiveDate).getTime() > asOfMs) {
+  if (!value.effectiveDate || !Number.isFinite(Date.parse(value.effectiveDate)) || Date.parse(value.effectiveDate) > asOfMs) {
     issue(issues, 'COLLECTION_INPUT_EFFECTIVE_DATE_INVALID', field, value.sourceRef);
     return false;
   }
@@ -71,6 +71,8 @@ function empty(operatingCase, status, issues = [], recordCount = 0) {
       potentialGrossRent: null,
       concessions: null,
       creditLoss: null,
+      uncollectedContractualRent: null,
+      excessCollectionsRequiringAllocation: null,
       economicLoss: null,
     },
     collectionRate: null,
@@ -129,6 +131,7 @@ function calculateCollectionsReconciliation(operatingCase) {
   if (!records.length) return empty(operatingCase, COLLECTIONS_RECONCILIATION_STATUS.NOT_AVAILABLE);
 
   const asOfMs = new Date(operatingCase.asOfDate).getTime();
+  if (!Number.isFinite(asOfMs)) return empty(operatingCase, COLLECTIONS_RECONCILIATION_STATUS.NOT_CALCULABLE, [{code:'COLLECTION_CASE_DATE_INVALID',field:'asOfDate',refId:null}], records.length);
   const lineageByRef = new Map((operatingCase.evidenceLineage || []).map((record) => [record.refId, record]));
   const issues = [];
   const validity = [];
@@ -136,7 +139,8 @@ function calculateCollectionsReconciliation(operatingCase) {
 
   for (const record of records) {
     const prefix = `collection.${record.collectionId}`;
-    const periodValid = new Date(record.periodEnd).getTime() <= asOfMs;
+    const startMs = Date.parse(record.periodStart), endMs = Date.parse(record.periodEnd);
+    const periodValid = Number.isFinite(startMs) && Number.isFinite(endMs) && startMs < endMs && endMs <= asOfMs;
     if (!periodValid) {
       issue(issues, 'COLLECTION_PERIOD_ENDS_AFTER_AS_OF_DATE', prefix);
     }
@@ -156,6 +160,12 @@ function calculateCollectionsReconciliation(operatingCase) {
 
   const totalDue = collectionRows.reduce((sum, item) => sum + item.record.contractualRentDue.value, 0);
   const totalCollected = collectionRows.reduce((sum, item) => sum + item.record.collectedRent.value, 0);
+  // No undocumented cross-unit or cross-period allocation. Preserve gross
+  // unpaid due even when another record carries excess cash or a prepayment.
+  const uncollectedContractualRent = collectionRows.reduce((sum, item) => sum + Math.max(0, item.record.contractualRentDue.value - item.record.collectedRent.value), 0);
+  const excessCollectionsRequiringAllocation = collectionRows.reduce((sum, item) => sum + Math.max(0, item.record.collectedRent.value - item.record.contractualRentDue.value), 0);
+  if (![totalDue,totalCollected,uncollectedContractualRent,excessCollectionsRequiringAllocation].every(Number.isFinite)) return empty(operatingCase, COLLECTIONS_RECONCILIATION_STATUS.NOT_CALCULABLE, [...issues,{code:'COLLECTION_TOTAL_OUT_OF_RANGE',field:'rentCollections',refId:null}], records.length);
+  for (const item of collectionRows) if (item.record.collectedRent.value > item.record.contractualRentDue.value) issue(issues, 'EXCESS_COLLECTION_REQUIRES_ALLOCATION_REVIEW', `collection.${item.record.collectionId}`, item.record.collectedRent.sourceRef);
   const collectionRate = totalDue > 0 ? totalCollected / totalDue : null;
   if (totalDue === 0) issue(issues, 'CONTRACTUAL_RENT_DUE_MUST_BE_POSITIVE', 'rentCollections');
 
@@ -165,6 +175,7 @@ function calculateCollectionsReconciliation(operatingCase) {
     ? economicRows.reduce((sum, item) => sum + item.record.potentialGrossRent.value, 0)
     : null;
   const economicOccupancy = totalPotential !== null && totalPotential > 0 ? totalCollected / totalPotential : null;
+  if (totalPotential !== null && !Number.isFinite(totalPotential)) return empty(operatingCase, COLLECTIONS_RECONCILIATION_STATUS.NOT_CALCULABLE, [...issues,{code:'COLLECTION_TOTAL_OUT_OF_RANGE',field:'potentialGrossRent',refId:null}], records.length);
   if (totalPotential === 0) issue(issues, 'POTENTIAL_GROSS_RENT_MUST_BE_POSITIVE', 'rentCollections');
 
   const completeConcessionCoverage = validity.every((item) => item.concessionsValid);
@@ -198,8 +209,10 @@ function calculateCollectionsReconciliation(operatingCase) {
       rentCollected: totalCollected,
       potentialGrossRent: totalPotential,
       concessions: totalConcessions,
-      creditLoss: Math.max(0, totalDue - totalCollected),
-      economicLoss: totalPotential === null ? null : Math.max(0, totalPotential - totalCollected),
+      creditLoss: uncollectedContractualRent,
+      uncollectedContractualRent,
+      excessCollectionsRequiringAllocation,
+      economicLoss: totalPotential === null ? null : economicRows.reduce((sum, item) => sum + Math.max(0, item.record.potentialGrossRent.value - item.record.collectedRent.value), 0),
     },
     collectionRate,
     economicOccupancy,
@@ -216,7 +229,7 @@ function calculateCollectionsReconciliation(operatingCase) {
     financialCalculationExecuted: false,
     stabilizedNoiCalculated: false,
     investmentDecision: null,
-    semantics: 'Collection rate equals verified cash collected divided by verified contractual rent due. Economic occupancy equals cash collected divided by complete adopted potential gross rent. Neither metric is silently written into stabilized NOI.',
+    semantics: 'Collection rate equals verified cash collected divided by verified contractual rent due. Economic occupancy equals cash collected divided by complete adopted potential gross rent. Uncollected contractual rent is summed per record without undocumented cross-unit or cross-period allocation; the legacy creditLoss alias is unpaid due, not a confirmed credit write-off. Excess cash requires allocation review and may produce a ratio above 100%; ratios are not silently capped. Neither metric is silently written into stabilized NOI.',
   });
 }
 

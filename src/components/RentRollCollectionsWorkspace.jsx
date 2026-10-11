@@ -1,4 +1,5 @@
 import React from 'react';
+import DiagnosticText from './DiagnosticText.jsx';
 import {
   updateVerifiedLeaseTerms,
   addVerifiedRentCollection,
@@ -10,14 +11,14 @@ function Field({ label, children }) {
   return (
     <label className="block text-[11px] text-slate-400">
       <span className="mb-1 block">{label}</span>
-      {children}
+      {React.isValidElement(children) ? React.cloneElement(children, { 'aria-label': label }) : children}
     </label>
   );
 }
 
 function amount(value, locale) {
   return typeof value === 'number' && Number.isFinite(value)
-    ? value.toLocaleString(locale, { maximumFractionDigits: 0 })
+    ? value.toLocaleString(locale, { maximumFractionDigits: 2 })
     : '—';
 }
 
@@ -31,15 +32,19 @@ export default function RentRollCollectionsWorkspace({ operatingCase, metrics, t
   const locale = dir === 'rtl' ? 'ar-SA' : 'en-US';
   const [leaseDraft, setLeaseDraft] = React.useState({ leaseId: '', baseRent: '', endDate: '', sourceRef: '', adoptionDecisionRef: '', confirmed: false });
   const [collectionDraft, setCollectionDraft] = React.useState({
-    collectionId: '', unitId: '', leaseId: '', periodStart: '', periodEnd: '', contractualRentDue: '', collectedRent: '', potentialGrossRent: '', concessions: '0', sourceRef: '', adoptionDecisionRef: '', confirmed: false,
+    collectionId: '', unitId: '', leaseId: '', periodStart: '', periodEnd: '', contractualRentDue: '', collectedRent: '', potentialGrossRent: '', concessions: '', sourceRef: '', adoptionDecisionRef: '', confirmed: false,
   });
   const [feedback, setFeedback] = React.useState(null);
+  const [saving, setSaving] = React.useState(false);
+  const inFlight = React.useRef(false);
+  const changeLease = patch => setLeaseDraft(current => ({...current,...patch,confirmed:false}));
+  const changeCollection = patch => setCollectionDraft(current => ({...current,...patch,confirmed:false}));
   if (!operatingCase || !metrics) return null;
 
   const activeLeases = operatingCase.leases.filter((lease) => lease.lifecycleStatus === 'ACTIVE');
   const selectCollectionUnit = (unitId) => {
     const activeLease = activeLeases.find((lease) => lease.unitId === unitId);
-    setCollectionDraft({ ...collectionDraft, unitId, leaseId: activeLease ? activeLease.leaseId : '' });
+    changeCollection({ unitId, leaseId: activeLease ? activeLease.leaseId : '' });
   };
   const selectLease = (leaseId) => {
     const lease = operatingCase.leases.find((item) => item.leaseId === leaseId);
@@ -52,28 +57,35 @@ export default function RentRollCollectionsWorkspace({ operatingCase, metrics, t
     }));
   };
   const replaceCase = async (candidate, successCode) => {
-    const result = await onReplaceOperatingCase?.(candidate, successCode);
-    if (result && result.ok === false) throw new Error(result.code || 'OPERATING_CASE_UPDATE_REJECTED');
+    if (typeof onReplaceOperatingCase !== 'function') throw new Error('OPERATING_CASE_UPDATE_HANDLER_REQUIRED');
+    const result = await onReplaceOperatingCase(candidate, successCode);
+    if (!result || result.ok !== true) throw new Error(result?.code || 'OPERATING_CASE_UPDATE_REJECTED');
     setFeedback({ ok: true, code: successCode });
   };
   const submitLease = async (event) => {
     event.preventDefault();
+    if (inFlight.current) return;
+    inFlight.current = true; setSaving(true);
     try {
       const candidate = updateVerifiedLeaseTerms(operatingCase, leaseDraft);
       await replaceCase(candidate, 'LEASE_UPDATED');
       setLeaseDraft((current) => ({ ...current, sourceRef: '', adoptionDecisionRef: '', confirmed: false }));
     } catch (error) {
-      setFeedback({ ok: false, code: String(error.message || error).slice(0, 160) });
+      setFeedback({ ok: false, code: String(error.code || error.message || error).slice(0, 160) });
+    } finally { inFlight.current = false; setSaving(false);
     }
   };
   const submitCollection = async (event) => {
     event.preventDefault();
+    if (inFlight.current) return;
+    inFlight.current = true; setSaving(true);
     try {
       const candidate = addVerifiedRentCollection(operatingCase, collectionDraft);
       await replaceCase(candidate, 'COLLECTION_ADDED');
-      setCollectionDraft((current) => ({ ...current, collectionId: '', contractualRentDue: '', collectedRent: '', potentialGrossRent: '', concessions: '0', sourceRef: '', adoptionDecisionRef: '', confirmed: false }));
+      setCollectionDraft((current) => ({ ...current, collectionId: '', contractualRentDue: '', collectedRent: '', potentialGrossRent: '', concessions: '', sourceRef: '', adoptionDecisionRef: '', confirmed: false }));
     } catch (error) {
-      setFeedback({ ok: false, code: String(error.message || error).slice(0, 160) });
+      setFeedback({ ok: false, code: String(error.code || error.message || error).slice(0, 160) });
+    } finally { inFlight.current = false; setSaving(false);
     }
   };
 
@@ -104,11 +116,11 @@ export default function RentRollCollectionsWorkspace({ operatingCase, metrics, t
           <tbody className="divide-y divide-slate-800 text-slate-300">
             {metrics.rentRoll.rows.map((row) => (
               <tr key={row.unitId}>
-                <td className="px-3 py-2 font-medium text-slate-100">{row.unitId}</td>
+                <td data-user-content translate="no" className="px-3 py-2 font-medium text-slate-100">{row.unitId}</td>
                 <td className="px-3 py-2">{row.operatingStatus}</td>
                 <td className="px-3 py-2 rf-num">{amount(row.rentableAreaSqm, locale)}</td>
-                <td className="px-3 py-2">{row.leaseId || '—'}</td>
-                <td className="px-3 py-2">{row.tenantId || '—'}</td>
+                <td data-user-content translate="no" className="px-3 py-2">{row.leaseId || '—'}</td>
+                <td data-user-content translate="no" className="px-3 py-2">{row.tenantId || '—'}</td>
                 <td className="px-3 py-2">{row.leaseEndDate || '—'}</td>
                 <td className="px-3 py-2 rf-num">{amount(row.currentAnnualContractRent, locale)}</td>
               </tr>
@@ -125,56 +137,65 @@ export default function RentRollCollectionsWorkspace({ operatingCase, metrics, t
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
+        <div className="xl:col-span-2 rounded-lg border border-amber-800 p-3 text-xs text-amber-100" data-testid="riai-collection-allocation-review">
+          <p>{dir === 'rtl' ? 'المستحق غير المحصل دون مقاصة بين السجلات' : 'Uncollected due without cross-record offset'}: {amount(collections.totals.uncollectedContractualRent, locale)}</p>
+          <p>{dir === 'rtl' ? 'تحصيل زائد يحتاج إثبات تخصيص' : 'Excess collections requiring allocation evidence'}: {amount(collections.totals.excessCollectionsRequiringAllocation, locale)}</p>
+          <p className="mt-2 leading-5">{dir === 'rtl' ? 'التحصيل الزائد أو المقدم لا يخفض عجز سجل آخر دون تخصيص موثق. النسب قد تتجاوز ١٠٠٪ ولا تُقص تلقائيًا. التأكيد المحلي لا يثبت هوية المراجع أو صحة المصدر، ولا يحدّث صافي الدخل المالي تلقائيًا.' : 'Excess or prepaid cash does not reduce another record’s unpaid due without documented allocation. Ratios may exceed 100% and are not silently capped. Local confirmation does not authenticate the reviewer or source and does not automatically update financial NOI.'}</p>
+        </div>
         <form onSubmit={submitLease} className="rounded-lg border border-slate-800 p-3" data-testid="riai-lease-editor">
+          <fieldset disabled={saving} className="min-w-0">
           <h4 className="text-xs font-semibold text-slate-200">{t('riai.leaseEditor')}</h4>
           <p className="mt-1 text-[10px] leading-5 text-slate-500">{t('riai.leaseEditorBoundary')}</p>
           <div className="mt-3 grid gap-3 md:grid-cols-2">
             <Field label={t('riai.leaseId')}>
               <select className={INPUT_CLASS} value={leaseDraft.leaseId} onChange={(event) => selectLease(event.target.value)} required>
                 <option value="">—</option>
-                {activeLeases.map((lease) => <option key={lease.leaseId} value={lease.leaseId}>{lease.leaseId} · {lease.unitId}</option>)}
+                {activeLeases.map((lease) => <option data-user-content translate="no" key={lease.leaseId} value={lease.leaseId}>{lease.leaseId} · {lease.unitId}</option>)}
               </select>
             </Field>
-            <Field label={t('riai.periodicBaseRent')}><input className={INPUT_CLASS} type="number" min="0" step="0.01" value={leaseDraft.baseRent} onChange={(event) => setLeaseDraft({ ...leaseDraft, baseRent: event.target.value })} required /></Field>
-            <Field label={t('riai.leaseEnd')}><input className={INPUT_CLASS} type="date" value={leaseDraft.endDate} onChange={(event) => setLeaseDraft({ ...leaseDraft, endDate: event.target.value })} required /></Field>
-            <Field label={t('riai.sourceRef')}><input className={INPUT_CLASS} type="text" value={leaseDraft.sourceRef} onChange={(event) => setLeaseDraft({ ...leaseDraft, sourceRef: event.target.value })} required /></Field>
-            <Field label={t('riai.adoptionRef')}><input className={INPUT_CLASS} type="text" value={leaseDraft.adoptionDecisionRef} onChange={(event) => setLeaseDraft({ ...leaseDraft, adoptionDecisionRef: event.target.value })} required /></Field>
+            <Field label={t('riai.periodicBaseRent')}><input className={INPUT_CLASS} type="number" min="0" step="0.01" value={leaseDraft.baseRent} onChange={(event) => changeLease({ baseRent: event.target.value })} required /></Field>
+            <Field label={t('riai.leaseEnd')}><input className={INPUT_CLASS} type="date" value={leaseDraft.endDate} onChange={(event) => changeLease({ endDate: event.target.value })} required /></Field>
+            <Field label={t('riai.sourceRef')}><input className={INPUT_CLASS} type="text" value={leaseDraft.sourceRef} onChange={(event) => changeLease({ sourceRef: event.target.value })} required /></Field>
+            <Field label={t('riai.adoptionRef')}><input className={INPUT_CLASS} type="text" value={leaseDraft.adoptionDecisionRef} onChange={(event) => changeLease({ adoptionDecisionRef: event.target.value })} required /></Field>
           </div>
           <label className="mt-3 flex items-start gap-2 text-[10px] leading-5 text-slate-400"><input type="checkbox" checked={leaseDraft.confirmed} onChange={(event) => setLeaseDraft({ ...leaseDraft, confirmed: event.target.checked })} />{t('riai.verificationConfirmation')}</label>
-          <button type="submit" className="mt-3 rounded-lg border border-[#8A7440] bg-[#C9A24C]/10 px-3 py-2 text-xs text-[#E7D3A0]">{t('riai.applyLeaseUpdate')}</button>
+          <button type="submit" disabled={saving} className="mt-3 rounded-lg border border-[#8A7440] bg-[#C9A24C]/10 px-3 py-2 text-xs text-[#E7D3A0]">{t('riai.applyLeaseUpdate')}</button>
+          </fieldset>
         </form>
 
         <form onSubmit={submitCollection} className="rounded-lg border border-slate-800 p-3" data-testid="riai-collection-editor">
+          <fieldset disabled={saving} className="min-w-0">
           <h4 className="text-xs font-semibold text-slate-200">{t('riai.collectionEditor')}</h4>
           <p className="mt-1 text-[10px] leading-5 text-slate-500">{t('riai.collectionEditorBoundary')}</p>
           <div className="mt-3 grid gap-3 md:grid-cols-2">
-            <Field label={t('riai.collectionId')}><input className={INPUT_CLASS} type="text" value={collectionDraft.collectionId} onChange={(event) => setCollectionDraft({ ...collectionDraft, collectionId: event.target.value })} required /></Field>
+            <Field label={t('riai.collectionId')}><input className={INPUT_CLASS} type="text" value={collectionDraft.collectionId} onChange={(event) => changeCollection({ collectionId: event.target.value })} required /></Field>
             <Field label={t('riai.unitAndLease')}>
               <select className={INPUT_CLASS} value={collectionDraft.unitId} onChange={(event) => selectCollectionUnit(event.target.value)} required>
                 <option value="">—</option>
                 {operatingCase.units.map((unit) => {
                   const lease = activeLeases.find((item) => item.unitId === unit.unitId);
-                  return <option key={unit.unitId} value={unit.unitId}>{unit.unitId} · {lease ? lease.leaseId : t('riai.noActiveLease')}</option>;
+                  return <option data-user-content translate="no" key={unit.unitId} value={unit.unitId}>{unit.unitId} · {lease ? lease.leaseId : t('riai.noActiveLease')}</option>;
                 })}
               </select>
             </Field>
-            <Field label={t('riai.periodStart')}><input className={INPUT_CLASS} type="date" value={collectionDraft.periodStart} onChange={(event) => setCollectionDraft({ ...collectionDraft, periodStart: event.target.value })} required /></Field>
-            <Field label={t('riai.periodEnd')}><input className={INPUT_CLASS} type="date" value={collectionDraft.periodEnd} onChange={(event) => setCollectionDraft({ ...collectionDraft, periodEnd: event.target.value })} required /></Field>
-            <Field label={t('riai.contractualRentDue')}><input className={INPUT_CLASS} type="number" min="0" step="0.01" value={collectionDraft.contractualRentDue} onChange={(event) => setCollectionDraft({ ...collectionDraft, contractualRentDue: event.target.value })} required /></Field>
-            <Field label={t('riai.rentCollected')}><input className={INPUT_CLASS} type="number" min="0" step="0.01" value={collectionDraft.collectedRent} onChange={(event) => setCollectionDraft({ ...collectionDraft, collectedRent: event.target.value })} required /></Field>
-            <Field label={t('riai.potentialGrossRent')}><input className={INPUT_CLASS} type="number" min="0" step="0.01" value={collectionDraft.potentialGrossRent} onChange={(event) => setCollectionDraft({ ...collectionDraft, potentialGrossRent: event.target.value })} required /></Field>
-            <Field label={t('riai.concessions')}><input className={INPUT_CLASS} type="number" min="0" step="0.01" value={collectionDraft.concessions} onChange={(event) => setCollectionDraft({ ...collectionDraft, concessions: event.target.value })} required /></Field>
-            <Field label={t('riai.sourceRef')}><input className={INPUT_CLASS} type="text" value={collectionDraft.sourceRef} onChange={(event) => setCollectionDraft({ ...collectionDraft, sourceRef: event.target.value })} required /></Field>
-            <Field label={t('riai.adoptionRef')}><input className={INPUT_CLASS} type="text" value={collectionDraft.adoptionDecisionRef} onChange={(event) => setCollectionDraft({ ...collectionDraft, adoptionDecisionRef: event.target.value })} required /></Field>
+            <Field label={t('riai.periodStart')}><input className={INPUT_CLASS} type="date" value={collectionDraft.periodStart} onChange={(event) => changeCollection({ periodStart: event.target.value })} required /></Field>
+            <Field label={t('riai.periodEnd')}><input className={INPUT_CLASS} type="date" value={collectionDraft.periodEnd} onChange={(event) => changeCollection({ periodEnd: event.target.value })} required /></Field>
+            <Field label={t('riai.contractualRentDue')}><input className={INPUT_CLASS} type="number" min="0" step="0.01" value={collectionDraft.contractualRentDue} onChange={(event) => changeCollection({ contractualRentDue: event.target.value })} required /></Field>
+            <Field label={t('riai.rentCollected')}><input className={INPUT_CLASS} type="number" min="0" step="0.01" value={collectionDraft.collectedRent} onChange={(event) => changeCollection({ collectedRent: event.target.value })} required /></Field>
+            <Field label={t('riai.potentialGrossRent')}><input className={INPUT_CLASS} type="number" min="0" step="0.01" value={collectionDraft.potentialGrossRent} onChange={(event) => changeCollection({ potentialGrossRent: event.target.value })} required /></Field>
+            <Field label={t('riai.concessions')}><input className={INPUT_CLASS} type="number" min="0" step="0.01" value={collectionDraft.concessions} onChange={(event) => changeCollection({ concessions: event.target.value })} required /></Field>
+            <Field label={t('riai.sourceRef')}><input className={INPUT_CLASS} type="text" value={collectionDraft.sourceRef} onChange={(event) => changeCollection({ sourceRef: event.target.value })} required /></Field>
+            <Field label={t('riai.adoptionRef')}><input className={INPUT_CLASS} type="text" value={collectionDraft.adoptionDecisionRef} onChange={(event) => changeCollection({ adoptionDecisionRef: event.target.value })} required /></Field>
           </div>
           <label className="mt-3 flex items-start gap-2 text-[10px] leading-5 text-slate-400"><input type="checkbox" checked={collectionDraft.confirmed} onChange={(event) => setCollectionDraft({ ...collectionDraft, confirmed: event.target.checked })} />{t('riai.verificationConfirmation')}</label>
-          <button type="submit" className="mt-3 rounded-lg border border-[#8A7440] bg-[#C9A24C]/10 px-3 py-2 text-xs text-[#E7D3A0]">{t('riai.addCollectionRecord')}</button>
+          <button type="submit" disabled={saving} className="mt-3 rounded-lg border border-[#8A7440] bg-[#C9A24C]/10 px-3 py-2 text-xs text-[#E7D3A0]">{t('riai.addCollectionRecord')}</button>
+          </fieldset>
         </form>
       </div>
 
       {feedback ? (
         <div role="status" className={`mt-3 rounded-lg border p-2 text-[10px] ${feedback.ok ? 'border-emerald-900/60 text-emerald-300' : 'border-rose-900/60 text-rose-300'}`}>
-          {feedback.ok ? t(`riai.${feedback.code === 'LEASE_UPDATED' ? 'leaseUpdateSuccess' : 'collectionAddSuccess'}`) : `${t('riai.workspaceUpdateFailed')} (${feedback.code})`}
+          {feedback.ok ? t(`riai.${feedback.code === 'LEASE_UPDATED' ? 'leaseUpdateSuccess' : 'collectionAddSuccess'}`) : <DiagnosticText code={feedback.code} locale={dir === 'rtl' ? 'ar-SA' : 'en'} />}
         </div>
       ) : null}
       <p className="mt-3 text-[10px] leading-5 text-slate-500">{t('riai.collectionsNoNoiWrite')}</p>

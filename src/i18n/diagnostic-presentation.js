@@ -3,6 +3,12 @@ const { LABELS } = require('../app/valuation-labels');
 const { ARABIC_VALUE_LABELS } = require('./strict-arabic-presentation');
 
 const REASONS = Object.freeze({
+  OPERATING_AMOUNT_REQUIRED: ['أدخل مبلغًا صريحًا صالحًا؛ الحقل الفارغ لا يعني صفرًا.', 'Enter an explicit valid amount; a blank field is not zero.'],
+  OPERATING_CASE_UPDATE_HANDLER_REQUIRED: ['مسار حفظ الحالة غير متاح؛ لم يُحفظ التعديل.', 'The case update handler is unavailable; no change was saved.'],
+  OPERATING_CASE_UPDATE_REJECTED: ['لم يؤكد مسار الحفظ قبول التعديل؛ لم يُعلن نجاح الحفظ.', 'The update handler did not confirm acceptance; saving was not reported as successful.'],
+  EXPLICIT_VERIFICATION_CONFIRMATION_REQUIRED: ['راجع البيانات وأكد مراجعتها بعد آخر تغيير قبل الحفظ.', 'Review and confirm the data after the last change before saving.'],
+  COLLECTION_PERIOD_ENDS_AFTER_AS_OF_DATE: ['نهاية فترة التحصيل تتجاوز تاريخ الحالة؛ راجع الفترة أو حدّث تاريخ الحالة.', 'Collection period ends after the case date; review the period or update the case date.'],
+  EXCESS_COLLECTION_REQUIRES_ALLOCATION_REVIEW: ['التحصيل الزائد يحتاج تخصيصًا موثقًا؛ لا يُقاص تلقائيًا مع عجز سجل آخر.', 'Excess collections need documented allocation; they do not automatically offset another record’s shortfall.'],
   NO_QUALIFIED_VALUATION_STAGE: ['لا يوجد منهج تقييم مؤهل بالبيانات الحالية.', 'No qualified valuation stage is available.'],
   PERSONAL_VALUATION_CONFIGURATION_REQUIRED: ['أكمل إعداد التقييم إذا أردت مؤشر قيمة؛ يمكنك حفظ الدراسة المالية الحالية.', 'Complete valuation configuration for a value indication; the financial study may still be saved.'],
   LEGACY_INPUT_VALIDATION_HOLD: ['صحّح المدخل المالي غير الصالح قبل إعادة حساب التقييم.', 'Correct invalid financial inputs before recalculating valuation.'],

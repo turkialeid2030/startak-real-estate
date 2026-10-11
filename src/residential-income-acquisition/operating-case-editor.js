@@ -16,13 +16,19 @@ function requiredText(value, field) {
 }
 
 function nonNegativeNumber(value, field) {
-  const parsed = typeof value === 'number' ? value : Number(value);
+  if (typeof value !== 'number' && typeof value !== 'string') throw Object.assign(new TypeError(`${field}: OPERATING_AMOUNT_REQUIRED`), {code:'OPERATING_AMOUNT_REQUIRED',field});
+  const text = typeof value === 'string' ? value.trim().replace(/[٠-٩]/g, digit => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit))).replace(/[۰-۹]/g, digit => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit))).replace(/٫/g, '.') : null;
+  if (text !== null && !/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(text)) throw Object.assign(new TypeError(`${field}: OPERATING_AMOUNT_REQUIRED`), {code:'OPERATING_AMOUNT_REQUIRED',field});
+  const parsed = text === null ? value : Number(text);
   if (!Number.isFinite(parsed) || parsed < 0) throw new TypeError(`${field} must be a finite number >= 0`);
+  if (!Number.isSafeInteger(Math.round(parsed * 100))) throw new TypeError(`${field}: OPERATING_AMOUNT_OUT_OF_RANGE`);
   return parsed;
 }
 
 function isoDate(value, field) {
   const text = requiredText(value, field);
+  const day = text.slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}(?:T.*)?$/.test(text) || !Number.isFinite(Date.parse(day)) || new Date(day).toISOString().slice(0, 10) !== day) throw new TypeError(`${field} must be a valid ISO date`);
   const parsed = new Date(text);
   if (Number.isNaN(parsed.getTime())) throw new TypeError(`${field} must be a valid date`);
   return text;
@@ -151,6 +157,7 @@ function addVerifiedRentCollection(operatingCase, draft, { recordedAt = new Date
   const adoptionDecisionRef = requiredText(draft.adoptionDecisionRef, 'adoptionDecisionRef');
   const periodStart = isoDate(draft.periodStart, 'periodStart');
   const periodEnd = isoDate(draft.periodEnd, 'periodEnd');
+  if (Date.parse(periodEnd) > Date.parse(operatingCase.asOfDate)) throw new TypeError('COLLECTION_PERIOD_ENDS_AFTER_AS_OF_DATE');
   const lease = leaseId ? operatingCase.leases.find((record) => record.leaseId === leaseId) : null;
   if (leaseId && !lease) throw new TypeError('LEASE_NOT_FOUND');
   const unitId = lease ? lease.unitId : requiredText(draft.unitId, 'unitId');
