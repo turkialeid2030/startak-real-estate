@@ -1,4 +1,5 @@
 'use strict';
+const { capitalizationBasis } = require('../../app/capitalization-basis');
 
 // Financial Engine Remediation Wave A.
 // Corrects duplicated decision criteria, non-positive-NOI payback behaviour,
@@ -132,7 +133,8 @@ function calcLandDevelopment(inp) {
   const financialModelStatus = stabilizedNOI > 0 ? 'VALID' : 'INVALID_ECONOMIC_CASE';
 
   const capRateOnCost = totalProjectCost > 0 ? stabilizedNOI / totalProjectCost : null;
-  const marketValueAfterCompletion = inp.marketCapRate > 0 && stabilizedNOI > 0 ? stabilizedNOI / inp.marketCapRate : 0;
+  const incomeCapBasis = capitalizationBasis(inp, stabilizedEconomics);
+  const marketValueAfterCompletion = inp.marketCapRate > 0 && incomeCapBasis.selectedNoi > 0 ? incomeCapBasis.selectedNoi / inp.marketCapRate : 0;
   const valueSurplusOverCost = marketValueAfterCompletion - totalProjectCost;
   const projectCostToNoiMultiple = stabilizedNOI > 0 ? totalProjectCost / stabilizedNOI : NaN;
 
@@ -265,7 +267,7 @@ function calcLandDevelopment(inp) {
     replacementReserveAmount: stabilizedEconomics.replacementReserveAmount,
     operatingExpensesBeforeReserve: stabilizedEconomics.operatingExpensesBeforeReserve,
     operatingExpenses, stabilizedNOI, firstOperatingYearNOI, noiBeforeReserve: stabilizedEconomics.noiBeforeReserve,
-    capRateOnCost, marketValueAfterCompletion, valueSurplusOverCost,
+    incomeCapBasis, capRateOnCost, marketValueAfterCompletion, valueSurplusOverCost,
     cumulativeProjectPaybackYears, simplePaybackYears, projectCostToNoiMultiple,
     maxJustifiedLandPricePerSqm,
     cashflows, paybackCashflows, operatingNoiCashflows, irr, npv, terminalExitValue, terminalNetExitValue,

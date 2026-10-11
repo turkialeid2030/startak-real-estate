@@ -1,4 +1,5 @@
 import RentalCalendarPanel from "../components/RentalCalendarPanel.jsx";
+import CapitalizationBasisPanel from "../components/CapitalizationBasisPanel.jsx";
 import InputProvenancePanel from "../components/InputProvenancePanel.jsx";
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
@@ -2205,6 +2206,7 @@ export default function App() {
             ) : (
               <LandInputPanel inputs={landInputs} setInputs={setLandInputs} assumptionModelVersion={landAssumptionModelVersion} />
             )}
+            <CapitalizationBasisPanel mode={mode} inputs={inputs} onChange={basis=>(mode==='building'?setBuildingInputs:setLandInputs)(current=>({...current,marketCapNoiBasis:basis}))}/>
             <RentalCalendarPanel key={`${mode}:${activeDealId||"draft"}`} mode={mode} inputs={inputs} result={results} context={rentalContext} onChange={next=>setRentalByMode(current=>({...current,[mode]:next}))}/>
             <InputProvenancePanel key={mode} mode={mode} inputs={inputs} provenance={inputProvenance} onChange={next=>setProvenanceByMode(current=>({...current,[mode]:next}))}/>
             <ZakatInputSection zakatCase={zakatCase} setZakatCase={setZakatCase} />

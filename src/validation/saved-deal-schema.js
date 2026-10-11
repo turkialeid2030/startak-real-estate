@@ -63,6 +63,9 @@ function validateSavedDealRecord(parsed) {
   }
 
   // Governance/provenance metadata is envelope metadata only. Nested copies
+  if (Object.prototype.hasOwnProperty.call(parsed.inputs, 'marketCapNoiBasis') && !['BEFORE_RESERVE', 'AFTER_RESERVE'].includes(parsed.inputs.marketCapNoiBasis)) {
+    throw new SavedDealValidationError('INVALID_MARKET_CAP_NOI_BASIS', 'marketCapNoiBasis');
+  }
   // inside economic inputs are structurally invalid because they would blur
   // the economic-input and governance boundaries.
   const nestedStandardsKeys = RESERVED_METADATA_KEYS.filter((key) => Object.prototype.hasOwnProperty.call(parsed.inputs, key));
