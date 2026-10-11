@@ -25,6 +25,14 @@ async function download(page,locator){const pending=page.waitForEvent('download'
    await expect(page.getByText('نص يحتاج استكمال التعريب؛ الأصل:',{exact:false})).toHaveCount(0);checks++;
    await expect(page.getByText('تحليل الاستحواذ على العقارات السكنية المدرة للدخل',{exact:true})).toBeVisible();checks++;
    await expect(documentPanel).toContainText('مستند وورد');checks++;
+   const basis=page.getByTestId('capitalization-basis-select');
+   await expect(basis).toHaveValue('');checks++;
+   await basis.selectOption('BEFORE_RESERVE');
+   await expect(basis).toHaveValue('BEFORE_RESERVE');checks++;
+   const basisReport=JSON.parse(await download(page,page.getByTestId('c75-export-personal-json')));
+   ok(basisReport.financial.results.incomeCapBasis.basis==='BEFORE_RESERVE','basis selection reaches financial export');
+   ok(verifyPersonalFinancialStudy(basisReport),'basis report digest verifies');
+   await basis.selectOption('AFTER_RESERVE');
    const inputOptions=await page.getByTestId('provenance-field').locator('option').allTextContents();
    ok(inputOptions.includes('اسم الدراسة')&&inputOptions.includes('تفعيل الرافعة المالية')&&inputOptions.includes('معدل الربح السنوي'),'input source picker names study and financing fields in Arabic');
    const support=page.getByTestId('asset-support-matrix').first();await support.locator('summary').click();await expect(support.getByRole('row')).toHaveCount(14);checks++;

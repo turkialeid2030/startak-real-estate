@@ -1,6 +1,7 @@
 'use strict';
 
 const VALUATION_RESULT_FIELDS = Object.freeze({
+  incomeCapBasis: { present: 'BOTH', type: 'object', note: 'Current capitalization NOI convention and unverified selection status; does not authorize professional release or change exit convention' },
   marketValueByIncomeCap: { present: 'EXISTING_BUILDING_ONLY', type: 'number' },
   marketValueAfterCompletion: { present: 'LAND_DEVELOPMENT_ONLY', type: 'number' },
   totalAppraisedValue: { present: 'EXISTING_BUILDING_ONLY', type: 'number' },

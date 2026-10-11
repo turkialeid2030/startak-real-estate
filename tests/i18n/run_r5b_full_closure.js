@@ -30,7 +30,7 @@ check('ZERO-SELECTFIELD', r5b.every(r => r.component !== 'SelectField'), 'zero S
 
 const arKeys = Object.keys(arSA.inputLand);
 const enKeys = Object.keys(en.inputLand);
-check('DICT-PARITY', JSON.stringify(arKeys.sort())===JSON.stringify(enKeys.sort()) && arKeys.length===50, `ar=${arKeys.length} en=${enKeys.length}`);
+check('DICT-PARITY', JSON.stringify(arKeys.sort())===JSON.stringify(enKeys.sort()) && arKeys.length===51 && arKeys.includes('marketCapNoiBasis'), `ar=${arKeys.length} en=${enKeys.length}`);
 
 const appSrc = fs.readFileSync(path.join(__dirname, '../..', 'src/app/App.jsx'), 'utf8');
 check('R5C-BUILDINGTYPE-NOW-LOCALIZED', appSrc.includes('t("dashboardR3.selectBuildingType")'), 'buildingTypeLabel (R5-C) now localized via central mapper -- expected once R5-C completes');

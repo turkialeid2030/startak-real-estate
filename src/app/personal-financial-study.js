@@ -12,6 +12,7 @@ const { validateInputProvenance,provenanceForInputs }=require('./input-provenanc
 const { financialModelScope } = require('../project-model/asset-support');
 const { BUILD_METADATA } = require('../runtime/build-metadata');
 const VERSION = 'PERSONAL_FINANCIAL_STUDY_V2';
+const {geometryReview}=require('./capitalization-basis');
 const finite = x => typeof x === 'number' && Number.isFinite(x) ? x : null;
 function snapshot(value) {
   if (Array.isArray(value)) return value.map(snapshot);
@@ -115,6 +116,7 @@ function buildPersonalFinancialStudy({ mode, inputs, assumptionModelVersion, zak
     inputFingerprintSha256: digest({ mode, inputs: inputSnapshot, assumptionModelVersion, zakatCase, valuationCase, valuationEditorDraft,inputProvenance,rentalContext }),
     financial: { mode, currency: 'SAR', assumptionModelVersion,
       modelScope: financialModelScope(mode),
+      geometryReview: geometryReview(mode, inputs),
       rentalCalendar:rentalCalendarDisclosure({mode,inputs,result:calculated.results,context:rentalContext,asOfDate:generatedAt}),
       inputProvenance:provenanceForInputs(mode,inputs,inputProvenance),
       engineVersion: calculated.results?.financialModelVersion || null,
@@ -160,6 +162,11 @@ function htmlFinancialStudy(report, { locale = 'ar-SA' } = {}) {
   const firstNoi = f.mode === 'building' ? r.firstYearNOI : r.firstOperatingYearNOI;
   const expenses = f.mode === 'building' ? r.opexAmount : r.operatingExpenses;
   const metrics = [
+    [words('أساس مؤشر الرسملة الحالية', 'Current capitalization indication basis'), r.incomeCapBasis ? (r.incomeCapBasis.basis === 'BEFORE_RESERVE' ? words('قبل احتياطي الإحلال','Before replacement reserve') : words('بعد احتياطي الإحلال','After replacement reserve')) : words('غير متاح','Unavailable')],
+    [words('حالة توثيق الأساس', 'Basis documentation status'), r.incomeCapBasis?.explicitlySelected ? words('اختيار مستخدم؛ غير متحقق منه مستقلاً','User selected; not independently verified') : words('غير موثق؛ توافق حسابي مع النسخة السابقة فقط','Undocumented; legacy arithmetic compatibility only')],
+    [words('مؤشر قيمة الرسملة الحالية', 'Current capitalization value indication'), money(r.marketValueByIncomeCap ?? r.marketValueAfterCompletion)],
+    [words('أساس التدفقات ورسملة التخارج', 'Cashflow and exit capitalization basis'), words('بعد احتياطي الإحلال؛ لا يغيره اختيار أساس الرسملة الحالية','After replacement reserve; unaffected by current capitalization basis selection')],
+    [words('فحص مساحة القبو', 'Basement footprint review'), f.geometryReview === 'BASEMENT_FOOTPRINT_REQUIRES_RIGHTS_AND_PERMIT_REVIEW' ? words('مساحة القبو تتجاوز الأرض؛ يلزم التحقق من الحقوق والرخص وتوثيق الاستثناء','Basement exceeds plot; verify rights and permits and document the exception') : words('لم يرصد هذا الفحص استثناء مساحة قبو؛ ليس اعتمادًا هندسيًا','No basement footprint exception detected by this check; not engineering approval')],
     [words('إجمالي تكلفة الاستحواذ / المشروع', 'Total acquisition / project cost'), money(r.totalPurchaseCost ?? r.totalProjectCost)],
     [words('صافي الدخل التشغيلي المستقر قبل احتياطي الإحلال', 'Stabilized NOI before replacement reserve'), money(r.noiBeforeReserve)],
     [words('احتياطي الإحلال السنوي', 'Annual replacement reserve'), money(r.replacementReserveAmount)],

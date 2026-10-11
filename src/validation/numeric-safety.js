@@ -187,6 +187,10 @@ function validateEngineInputs(inputs, options = {}) {
   }
 
   const studyType = options.studyType || inferStudyType(inputs);
+  if (Object.prototype.hasOwnProperty.call(inputs, 'marketCapNoiBasis') && !['BEFORE_RESERVE', 'AFTER_RESERVE'].includes(inputs.marketCapNoiBasis)) {
+    throw new ValidationError('marketCapNoiBasis', inputs.marketCapNoiBasis, 'INVALID_MARKET_CAP_NOI_BASIS',
+      'أساس صافي الدخل لمعدل الرسملة غير صالح', 'Invalid capitalization-rate NOI basis');
+  }
   validateRequiredFields(inputs, studyType);
 
   for (const [key, value] of Object.entries(inputs)) {

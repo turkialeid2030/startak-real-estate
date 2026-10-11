@@ -10,6 +10,7 @@
 // simple criterion count.
 const { computeNPV, computeIRR, amortizationSchedule, analyzeIRR } = require('../financial');
 const { tierVerdict } = require('../recommendation');
+const { capitalizationBasis } = require('../../app/capitalization-basis');
 const { validateEngineInputs } = require('../../validation/numeric-safety');
 const { applyAssumptionModel, buildAssumptionModelDisclosure } = require('../../assumptions/assumption-model');
 const { resolveExitCapRate, EXIT_CAP_SOURCE } = require('./exit-cap-resolver');
@@ -110,7 +111,8 @@ function calcExistingBuilding(rawInp, context = {}) {
   const netYieldOnPrice = inp.buildingPrice > 0 ? NOI / inp.buildingPrice : null;
   const priceToNoiMultiple = NOI > 0 ? inp.buildingPrice / NOI : NaN;
 
-  const marketValueByIncomeCap = inp.marketCapRate > 0 && NOI > 0 ? NOI / inp.marketCapRate : 0;
+  const incomeCapBasis = capitalizationBasis(inp, stabilizedEconomics);
+  const marketValueByIncomeCap = inp.marketCapRate > 0 && incomeCapBasis.selectedNoi > 0 ? incomeCapBasis.selectedNoi / inp.marketCapRate : 0;
   const valueGapVsCost = marketValueByIncomeCap - totalPurchaseCost;
 
   // Actual hold-period operating sequence used by IRR/NPV when exit analytics
@@ -268,7 +270,7 @@ function calcExistingBuilding(rawInp, context = {}) {
     netYieldOnCost, grossYieldOnCost,
     cumulativePaybackOnCost, cumulativePaybackOnPrice, paybackHorizonYears, paybackNoiCashflows,
     paybackOnCost, netYieldOnPrice, paybackOnPrice, priceToNoiMultiple,
-    marketValueByIncomeCap, valueGapVsCost, exitCapRate, terminalSaleValue, terminalNetSaleProceeds,
+    incomeCapBasis, marketValueByIncomeCap, valueGapVsCost, exitCapRate, terminalSaleValue, terminalNetSaleProceeds,
     basementConstructionValue, floorConstructionValue, totalReplacementConstructionValue, currentLandValue,
     totalAppraisedValue, annualDepreciation,
     cashflows, operatingNoiCashflows, irr, npv, maxJustifiedPrice,
