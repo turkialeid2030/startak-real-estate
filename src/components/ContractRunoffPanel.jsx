@@ -1,0 +1,33 @@
+import React from 'react';
+
+export default function ContractRunoffPanel({result,operatingCase,dir}) {
+  if(!result)return null;
+  const ar=dir==='rtl',text=(a,b)=>ar?a:b;
+  const amount=v=>v===null?'—':v.toLocaleString(ar?'ar-SA':'en-US',{maximumFractionDigits:2});
+  const reasons={
+    RUNOFF_CASE_DATE_INVALID:['تاريخ الحالة غير صالح.','Invalid case date.'],
+    RUNOFF_PROPERTY_INTEREST_REQUIRED:['هذا الإصدار يقتصر على الملكية الحرة بمرجع مصدر ومراجعة؛ الحقوق محددة المدة تحتاج نموذجًا مستقلًا.','This version requires sourced, adopted freehold interest; time-limited rights need a separate model.'],
+    RUNOFF_LEASE_LIMIT_EXCEEDED:['يتجاوز الإسقاط حد 2000 عقد؛ يلزم تقسيم النطاق دون إسقاط سجلات.','Projection exceeds 2000 leases; split the scope without dropping records.'],
+    RUNOFF_OPERATING_METRICS_REQUIRED:['يلزم استكمال بيانات الوحدات والعقود أولًا.','Complete unit and lease inputs first.'],
+    RUNOFF_LEASE_DATES_INVALID:['تواريخ العقد لا تتفق مع حالته.','Lease dates contradict its status.'],
+    RUNOFF_ADOPTED_RENT_REQUIRED:['يلزم مبلغ إيجار مؤرخ بمصدر ومرجع مراجعة للشروط.','Dated rent, source and adopted terms are required.'],
+    RUNOFF_ESCALATION_NOT_SUPPORTED:['هذا الإسقاط يدعم الإيجار الثابت فقط؛ العقود المتدرجة أو المرتبطة بمؤشر تحتاج مسارًا مؤهلًا.','This projection supports fixed rent only; escalated or indexed leases need a qualified schedule.'],
+    RUNOFF_OVERLAPPING_LEASES:['توجد فترات عقود متداخلة للوحدة؛ حُجب الجمع لمنع ازدواج الإيراد.','Overlapping unit leases block double-counted revenue.'],
+    RUNOFF_NORMALIZED_OPEX_REQUIRED:['المصروفات المعيارية ناقصة أو غير مؤهلة؛ الصافي محجوب وليس صفرًا.','Normalized OPEX is missing or unqualified; net income is withheld, not zero.'],
+    RUNOFF_AMOUNT_OUT_OF_RANGE:['المبلغ يتجاوز حدود الدقة الحسابية.','Amount exceeds supported precision.'],
+  };
+  const download=()=>{
+    const blob=new Blob([JSON.stringify({format:'STARTAK_CONTRACT_RUNOFF',version:1,sourceOperatingCase:operatingCase,result},null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob),anchor=document.createElement('a');anchor.href=url;anchor.download='contract-runoff.json';anchor.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  };
+  return <section data-testid="contract-runoff-panel" className="rounded-xl border border-slate-700 p-4" aria-label={text('الإسقاط التعاقدي الشهري','Monthly contract run-off')}>
+    <h3 className="text-sm font-semibold">{text('الإسقاط التعاقدي الشهري','Monthly contract run-off')}</h3>
+    <p className="mt-2 text-xs text-amber-200">{text('الإيجار الأساسي فقط؛ الإعفاءات وفترات السماح ليست محسوبة. عدد المدخلات الموسومة كافتراضات','Base rent only; concessions and rent-free periods are not calculated. Inputs declared as assumptions')}: {result.assumptions.length}</p>
+    <p className="mt-2 text-xs leading-6 text-slate-300">{text('12 شهرًا تقويميًا تبدأ من تاريخ الحالة؛ الشهر الأول جزئي إن لزم. توزيع استحقاق تحليلي للإيجار السنوي على 12 شهرًا وبأيام التغطية الفعلية، وليس جدول فواتير أو تحصيل متوقع. يتوقف الإيجار عند انتهاء العقد دون تجديد أو نمو مفترض. تاريخ النهاية غير مشمول.','12 calendar months from the case date, with a partial first month where applicable. Analytical accrual: annual rent divided by 12 and prorated by covered calendar days, not invoicing or forecast collections. Rent stops at lease expiry with no assumed renewal or growth. End dates are exclusive.')}</p>
+    <p className="mt-2 text-xs leading-6 text-amber-200">{text('المصروفات المعيارية توزيع ثابت وليست مدفوعات فعلية. لا يشمل الصافي النفقات الرأسمالية أو التمويل أو الضرائب أو الإيرادات الأخرى. لا يعدّل الدراسة الرئيسية ولا يثبت صحة المصادر أو اعتمادًا مهنيًا.','Normalized OPEX is a flat allocation, not actual payments. Net excludes CAPEX, financing, taxes and other income. It does not modify the main study, authenticate sources or authorize professional release.')}</p>
+    {result.issues.map((item,i)=><p key={i} className="mt-2 text-xs text-amber-200" data-diagnostic-content translate="no">{reasons[item.code]?.[ar?0:1]||item.code} <code dir="ltr">{item.refId||''}</code></p>)}
+    {result.totals&&<div className="mt-3 overflow-x-auto"><table className="w-full text-xs"><thead><tr>{[text('الفترة','Period'),text('إيجار تعاقدي','Contract rent'),text('مصروفات معيارية','Normalized OPEX'),text('صافي قبل الرأسمالي','Net before CAPEX')].map(x=><th key={x} className="p-2 text-start">{x}</th>)}</tr></thead><tbody>{result.rows.map(row=><tr key={row.periodStart}><td className="p-2" dir="ltr">{row.periodStart}</td><td className="p-2 rf-num">{amount(row.contractRent)}</td><td className="p-2 rf-num">{amount(row.normalizedOpex)}</td><td className="p-2 rf-num">{amount(row.contractNetBeforeCapex)}</td></tr>)}</tbody><tfoot><tr><th className="p-2 text-start">{text('الإجمالي بالريال','Total SAR')}</th><td className="p-2 rf-num" data-testid="runoff-total-rent">{amount(result.totals.contractRent)}</td><td className="p-2 rf-num">{amount(result.totals.normalizedOpex)}</td><td className="p-2 rf-num" data-testid="runoff-total-net">{amount(result.totals.contractNetBeforeCapex)}</td></tr></tfoot></table></div>}
+    <p className="mt-3 text-xs leading-6">{text('التحصيل التاريخي للسجلات المرفقة — منفصل عن الإسقاط','Historical collections from attached records — separate from projection')}: {amount(result.historicalCollections.totals.rentCollected)} {text('ريال؛ لا يُرحّل تلقائيًا إلى المستقبل.','SAR; not automatically carried into the future.')}</p>
+    <button type="button" data-testid="export-contract-runoff" onClick={download} className="mt-3 rounded border border-slate-600 px-3 py-2 text-xs">{text('تصدير الإسقاط ومدخلاته','Export projection and inputs')}</button>
+  </section>;
+}
