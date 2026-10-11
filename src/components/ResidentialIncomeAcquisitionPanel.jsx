@@ -163,6 +163,7 @@ export default function ResidentialIncomeAcquisitionPanel({
             </div>
             {metrics?.status === 'CALCULATED' ? (
               <RentRollCollectionsWorkspace
+                key={`${viewModel.operatingCase.caseId}:${viewModel.operatingCase.asOfDate}`}
                 operatingCase={viewModel.operatingCase}
                 metrics={metrics}
                 t={t}

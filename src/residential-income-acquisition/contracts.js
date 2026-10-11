@@ -200,6 +200,8 @@ function enumValue(value, enumeration, field) {
 
 function isoDate(value, field) {
   const text = requiredString(value, field);
+  const day = text.slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}(?:T.*)?$/.test(text) || !Number.isFinite(Date.parse(day)) || new Date(day).toISOString().slice(0, 10) !== day) throw new TypeError(`${field} must be a valid ISO date or timestamp`);
   const parsed = new Date(text);
   if (Number.isNaN(parsed.getTime())) throw new TypeError(`${field} must be a valid ISO date or timestamp`);
   return text;
