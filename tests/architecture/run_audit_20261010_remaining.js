@@ -88,6 +88,17 @@ let checks=0;function check(value,message){assert.ok(value,message);checks++;}fu
  for(let i=0;i<3;i++)vm.runInNewContext('processTree(document.getElementById("root"));',context);
  check(dom.window.document.body.textContent===first,'DOM translation is idempotent');
  check(dom.window.document.getElementById('user').textContent==='NAME / اسم ABC','free user text remains verbatim');dom.window.close();
+ const displayedCases=[
+  ['4.65x','4.65×'],
+  ['1.25x','1.25×'],
+  ['Residential Income Acquisition Intelligence','تحليل الاستحواذ على العقارات السكنية المدرة للدخل'],
+  ['EVIDENCE GOVERNANCE · HUMAN VERIFICATION','حوكمة الأدلة · التحقق البشري'],
+  ['استخراج نصوص PDF وWord ومحتوى XLSX وPPTX محليًا.','استخراج نصوص ملف مستند ووورد ومحتوى جدول بيانات وعرض تقديمي محليًا.'],
+  ['الأنواع المقبولة: XLSX · PPTX · PDF · DOCX — الحد الأقصى 40 MB','الأنواع المقبولة: جدول بيانات · عرض تقديمي · ملف مستند · مستند وورد — الحد الأقصى 40 ميغابايت'],
+  ['سنة صافي الدخل التشغيلي المستقبلية N+1 في إصدار V2','سنة صافي الدخل التشغيلي المستقبلية (مدة الدراسة + سنة واحدة) في إصدار V2'],
+ ];
+ for(const [original,expected]of displayedCases){const output=context.translateArabicSurfaceText(original);check(output===expected,`known display value is localized: ${original}`);check(context.translateArabicSurfaceText(output)===output,'localized display is stable after another observer pass');}
+ check(context.translateArabicSurfaceText('Unknown Word requirement').includes('نص يحتاج استكمال التعريب؛ الأصل: Unknown Word requirement'),'known terms do not suppress unknown source prose');
  const calendar=createRentalCalendar({studyStartDate:'2026-10-10',locationScope:'RIYADH_URBAN',leaseCategory:'COMMERCIAL',contractReference:'synthetic',lastRentReference:'base rent',exceptionReference:''});
  const disclosure=rentalCalendarDisclosure({mode:'building',inputs:{rentGrowthRate:0.05},result:{cashflows:Array(7).fill(0)},context:calendar,asOfDate:'2026-10-10'});
  check(disclosure.periods[0].status==='RENT_GROWTH_REVIEW_REQUIRED'&&disclosure.periods[5].status==='OUTSIDE_CHECKED_RENT_FREEZE_SCOPE_REVIEW_REQUIRED','growth review is limited to calendar overlap; no perpetual freeze');
