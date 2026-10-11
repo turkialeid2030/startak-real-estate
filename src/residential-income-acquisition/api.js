@@ -5,6 +5,7 @@ const { assessOperatingUnderwritingReadiness } = require('./readiness');
 const { calculateOperatingMetrics } = require('./operating-metrics');
 const { calculatePropertyCosts } = require('./property-costs');
 const { calculateIncomeAnalysis } = require('./income-analysis');
+const { calculateContractRunoff } = require('./contract-runoff');
 const { calculateAcquisitionBasis } = require('./acquisition-basis');
 const { calculateReverseUnderwriting } = require('./reverse-underwriting');
 const { calculateExitStrategyComparison } = require('./exit-strategy');
@@ -66,6 +67,7 @@ function createEmptyResidentialIncomeAcquisitionViewModel() {
     operatingMetrics: null,
     propertyCosts: null,
     incomeAnalysis: null,
+    contractRunoff: null,
     acquisitionBasis: null,
     reverseUnderwriting: null,
     exitStrategyComparison: null,
@@ -155,6 +157,7 @@ function createResidentialIncomeAcquisitionViewModel(operatingCase = null) {
     lifecycleLocationUpside,
     subdivisionGate,
     scenarioIntegration,
+    contractRunoff: calculateContractRunoff(operatingCase),
     acquisitionAnalyticalScore,
     investmentCommitteePack,
     financialCalculationExecuted: incomeAnalysis.financialCalculationExecuted || acquisitionBasis.financialCalculationExecuted,

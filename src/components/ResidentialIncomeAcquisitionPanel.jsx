@@ -2,6 +2,7 @@ import React from 'react';
 import ResidentialIncomeDecisionExtension from './ResidentialIncomeDecisionExtension';
 import ResidentialIncomeAiAssistPanel from './ResidentialIncomeAiAssistPanel';
 import RentRollCollectionsWorkspace from './RentRollCollectionsWorkspace';
+import ContractRunoffPanel from './ContractRunoffPanel';
 
 const STATUS_TONE = Object.freeze({
   READY_FOR_OPERATING_UNDERWRITING: 'border-emerald-700/50 bg-emerald-950/20 text-emerald-200',
@@ -211,6 +212,7 @@ export default function ResidentialIncomeAcquisitionPanel({
                 ) : null}
               </section>
             ) : null}
+            <ContractRunoffPanel result={viewModel.contractRunoff} operatingCase={viewModel.operatingCase} dir={dir} />
             {income?.stabilizedNoiCalculated ? (
               <section aria-labelledby="riai-income-analysis" className="rounded-xl border border-slate-800 bg-slate-950/30 p-4">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
