@@ -22,6 +22,11 @@ async function download(page,locator){const pending=page.waitForEvent('download'
    await context.addInitScript(({namespace,seed})=>{localStorage.setItem('startak.locale','ar-SA');if(!localStorage.getItem(namespace+'remaining-seeded')){localStorage.setItem(namespace+'deal:'+seed.id,JSON.stringify(seed));localStorage.setItem(namespace+'deals-index',JSON.stringify([{id:seed.id,name:seed.name,mode:seed.mode,savedAt:seed.savedAt}]));localStorage.setItem(namespace+'remaining-seeded','true');}}, {namespace,seed});
    await page.goto(BASE,{waitUntil:'domcontentloaded'});
    const documentPanel=page.getByTestId('local-document-evidence-intake');await expect(documentPanel).toBeVisible({timeout:30000});
+   await expect(page.getByText('نص يحتاج استكمال التعريب؛ الأصل:',{exact:false})).toHaveCount(0);checks++;
+   await expect(page.getByText('تحليل الاستحواذ على العقارات السكنية المدرة للدخل',{exact:true})).toBeVisible();checks++;
+   await expect(documentPanel).toContainText('مستند وورد');checks++;
+   const inputOptions=await page.getByTestId('provenance-field').locator('option').allTextContents();
+   ok(inputOptions.includes('اسم الدراسة')&&inputOptions.includes('تفعيل الرافعة المالية')&&inputOptions.includes('معدل الربح السنوي'),'input source picker names study and financing fields in Arabic');
    const support=page.getByTestId('asset-support-matrix').first();await support.locator('summary').click();await expect(support.getByRole('row')).toHaveCount(14);checks++;
    // Actual keyboard activation, rather than a source-only accessibility claim.
    const chooser=documentPanel.getByRole('button',{name:'اختيار ملف',exact:true});await page.keyboard.press('Tab');await chooser.focus();await expect(chooser).toBeFocused();checks++;
