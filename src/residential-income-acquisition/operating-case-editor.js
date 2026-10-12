@@ -6,6 +6,7 @@ const {
   createEvidenceLineageRecord,
   createEvidenceAwareValue,
   createLease,
+  createRentEscalation,
   createRentCollectionRecord,
   createResidentialIncomeOperatingCase,
 } = require('./contracts');
@@ -107,6 +108,7 @@ function updateVerifiedLeaseTerms(operatingCase, draft, { recordedAt = new Date(
   const target = operatingCase.leases.find((lease) => lease.leaseId === leaseId);
   if (!target) throw new TypeError('LEASE_NOT_FOUND');
   const endDate = isoDate(draft.endDate, 'endDate');
+  if(target.escalation.schedule.some(entry=>Date.parse(entry.effectiveDate)>=Date.parse(endDate)))throw new TypeError('LEASE_SCHEDULE_OUTSIDE_TERM');
   const baseRentValue = nonNegativeNumber(draft.baseRent, 'baseRent');
   const evidenceLineage = extendEvidenceLineage(operatingCase, {
     sourceRef,
@@ -191,7 +193,32 @@ function addVerifiedRentCollection(operatingCase, draft, { recordedAt = new Date
   });
 }
 
+function updateVerifiedLeaseSchedule(operatingCase,draft,{recordedAt=new Date().toISOString()}={}) {
+  if(!draft||draft.confirmed!==true)throw new TypeError('EXPLICIT_VERIFICATION_CONFIRMATION_REQUIRED');
+  const target=operatingCase.leases.find(lease=>lease.leaseId===draft.leaseId);
+  if(!target)throw new TypeError('LEASE_NOT_FOUND');
+  if(!['ACTIVE','FUTURE'].includes(target.lifecycleStatus)||!['NONE','STEP_RENT','MANUAL_SCHEDULE'].includes(target.escalation.type))throw new TypeError('LEASE_SCHEDULE_TYPE_UNSUPPORTED');
+  if(!Array.isArray(draft.entries)||draft.entries.length===0||draft.entries.length>200)throw new TypeError('LEASE_SCHEDULE_REQUIRED');
+  const sourceRef=requiredText(draft.sourceRef,'sourceRef');
+  const adoptionDecisionRef=requiredText(draft.adoptionDecisionRef,'adoptionDecisionRef');
+  let previous=-Infinity;
+  const schedule=draft.entries.map((entry,index)=>{
+    const effectiveDate=isoDate(entry.effectiveDate,'effectiveDate');
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(effectiveDate))throw new TypeError('LEASE_SCHEDULE_DATE_ONLY_REQUIRED');
+    const date=Date.parse(effectiveDate);
+    if(!target.startDate||!target.endDate||date<Date.parse(target.startDate)||date>=Date.parse(target.endDate))throw new TypeError('LEASE_SCHEDULE_OUTSIDE_TERM');
+    if(date<=previous)throw new TypeError('LEASE_SCHEDULE_DATES_NOT_INCREASING');
+    previous=date;
+    const rent=createEvidenceAwareValue({...verifiedMoney(`lease.${target.leaseId}.schedule.${index}.rent`,entry.rent,sourceRef,adoptionDecisionRef,operatingCase.asOfDate),unit:target.baseRent.unit});
+    return {effectiveDate,rent};
+  });
+  const evidenceLineage=extendEvidenceLineage(operatingCase,{sourceRef,adoptionDecisionRef,recordedAt,note:'Locally declared lease schedule review; does not authenticate source, reviewer or regulatory applicability.'});
+  const updated=createLease({...target,escalation:createRentEscalation({type:'MANUAL_SCHEDULE',schedule}),evidenceRefs:[...new Set([...target.evidenceRefs,sourceRef,adoptionDecisionRef])]});
+  return rebuildCase(operatingCase,{leases:operatingCase.leases.map(lease=>lease.leaseId===target.leaseId?updated:lease),evidenceLineage});
+}
+
 module.exports = {
+  updateVerifiedLeaseSchedule,
   updateVerifiedLeaseTerms,
   addVerifiedRentCollection,
 };

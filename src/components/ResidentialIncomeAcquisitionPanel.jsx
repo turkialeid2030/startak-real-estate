@@ -3,6 +3,7 @@ import ResidentialIncomeDecisionExtension from './ResidentialIncomeDecisionExten
 import ResidentialIncomeAiAssistPanel from './ResidentialIncomeAiAssistPanel';
 import RentRollCollectionsWorkspace from './RentRollCollectionsWorkspace';
 import ContractRunoffPanel from './ContractRunoffPanel';
+import LeaseScheduleEditor from './LeaseScheduleEditor';
 
 const STATUS_TONE = Object.freeze({
   READY_FOR_OPERATING_UNDERWRITING: 'border-emerald-700/50 bg-emerald-950/20 text-emerald-200',
@@ -164,7 +165,7 @@ export default function ResidentialIncomeAcquisitionPanel({
             </div>
             {metrics?.status === 'CALCULATED' ? (
               <RentRollCollectionsWorkspace
-                key={`${viewModel.operatingCase.caseId}:${viewModel.operatingCase.asOfDate}`}
+                key={`rent-roll:${viewModel.operatingCase.caseId}:${viewModel.operatingCase.asOfDate}`}
                 operatingCase={viewModel.operatingCase}
                 metrics={metrics}
                 t={t}
@@ -213,6 +214,7 @@ export default function ResidentialIncomeAcquisitionPanel({
               </section>
             ) : null}
             <ContractRunoffPanel result={viewModel.contractRunoff} operatingCase={viewModel.operatingCase} dir={dir} />
+            <LeaseScheduleEditor key={`lease-schedule:${viewModel.operatingCase.caseId}:${viewModel.operatingCase.asOfDate}`} operatingCase={viewModel.operatingCase} onReplaceOperatingCase={onReplaceOperatingCase} dir={dir} />
             {income?.stabilizedNoiCalculated ? (
               <section aria-labelledby="riai-income-analysis" className="rounded-xl border border-slate-800 bg-slate-950/30 p-4">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
