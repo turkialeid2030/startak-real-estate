@@ -110,7 +110,7 @@ function calculateContractRunoff(operatingCase) {
   });
   result.totals.scheduledCapex=result.capitalPaymentPlan.total;
   result.totals.contractNetAfterScheduledCapex=result.totals.contractNetBeforeCapex===null||result.capitalPaymentPlan.total===null?null:result.totals.contractNetBeforeCapex-result.capitalPaymentPlan.total;
-  if(result.totals.contractNetAfterScheduledCapex!==null&&!Number.isSafeInteger(Math.round(result.totals.contractNetAfterScheduledCapex*100))){add('RUNOFF_AMOUNT_OUT_OF_RANGE');result.totals.contractNetAfterScheduledCapex=null;result.rows.forEach(row=>{row.contractNetAfterScheduledCapex=null;});}
+  if([...result.rows,result.totals].some(row=>row.contractNetAfterScheduledCapex!==null&&!Number.isSafeInteger(Math.round(row.contractNetAfterScheduledCapex*100)))){add('RUNOFF_AMOUNT_OUT_OF_RANGE');result.totals.contractNetAfterScheduledCapex=null;result.rows.forEach(row=>{row.contractNetAfterScheduledCapex=null;});}
   result.semantics=result.semantics.replace('CAPEX timing, ','')+' Explicit capital payment plans, when present and reconciled to all supplied item costs, are separately deducted to show analytical net after scheduled CAPEX. This is not a receipt forecast or actual cash balance.';
   if(result.capitalPaymentPlan.status==='SCHEDULED')result.assumptions.push(...operatingCase.capexItems.filter(item=>item.estimatedCost.verificationStatus==='ASSUMED').map(item=>({field:item.estimatedCost.field,value:item.estimatedCost.value,unit:item.estimatedCost.unit,adoptionDecisionRef:item.estimatedCost.adoptionDecisionRef})));
   return deepFreeze(result);

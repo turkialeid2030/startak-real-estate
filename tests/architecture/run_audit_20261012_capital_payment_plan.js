@@ -1,7 +1,8 @@
 'use strict';
 const assert=require('node:assert/strict');
 const {operatingCase,verified}=require('../fixtures/synthetic-collections-case');
-const {createResidentialIncomeOperatingCase,createCapexItem,createOperatingExpense}=require('../../src/residential-income-acquisition/contracts');
+const {createResidentialIncomeOperatingCase,createCapexItem,createOperatingExpense,createLease}=require('../../src/residential-income-acquisition/contracts');
+const {updateVerifiedLeaseSchedule}=require('../../src/residential-income-acquisition/operating-case-editor');
 const {replaceCapitalPaymentPlan,calculateCapitalPaymentPlan}=require('../../src/residential-income-acquisition/capital-payment-plan');
 const {calculateContractRunoff}=require('../../src/residential-income-acquisition/contract-runoff');
 const {buildResidentialIncomeOperatingCaseEnvelope,parseResidentialIncomeOperatingCaseEnvelope}=require('../../src/residential-income-acquisition/operating-case-snapshot');
@@ -44,4 +45,13 @@ for(let month=0;month<12;month++){
  eq(x.rows.map(row=>row.scheduledCapex),Array.from({length:12},(_,i)=>i===month?12000:0));
  eq(x.totals.contractNetAfterScheduledCapex,376000);
 }
+// A safe annual total must not conceal an unsafe individual monthly net.
+let huge=createResidentialIncomeOperatingCase({...base,
+ leases:[createLease({...base.leases[0],endDate:'2027-09-01',baseRent:verified('lease.LEASE-1.baseRent',90000000000000,'SAR/year','evidence://lease/rent')})],
+ operatingExpenses:[createOperatingExpense({...opex,annualAmount:verified('opex',80000000000000,'SAR/year','evidence://lease/rent')})],
+ capexItems:[createCapexItem({...item,estimatedCost:verified('capex.cost',90000000000000,'SAR','evidence://lease/rent')})]});
+huge=updateVerifiedLeaseSchedule(huge,{leaseId:'LEASE-1',entries:[{effectiveDate:'2026-09-01',rent:0},{effectiveDate:'2026-10-01',rent:90000000000000}],sourceRef:'source',adoptionDecisionRef:'review',confirmed:true});
+huge=replaceCapitalPaymentPlan(huge,{...draft,entries:[{capexItemId:'CAP-1',date:'2026-09-01',amount:'90000000000000'}]});
+const guarded=calculateContractRunoff(huge);
+eq(guarded.totals.contractNetAfterScheduledCapex,null);eq(guarded.rows.every(row=>row.contractNetAfterScheduledCapex===null),true);eq(guarded.issues.some(x=>x.code==='RUNOFF_AMOUNT_OUT_OF_RANGE'),true);
 console.log(`AUDIT_CAPITAL_PAYMENT_PLAN=PASS checks=${checks}`);
