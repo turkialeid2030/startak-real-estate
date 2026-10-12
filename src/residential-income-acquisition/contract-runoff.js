@@ -23,11 +23,11 @@ function calculateContractRunoff(operatingCase) {
     && Number.isSafeInteger(Math.round(value.value*100)) && value.unit===unit
     && Number.isFinite(day(value.effectiveDate)) && day(value.effectiveDate)<=start
     && adoption(value.adoptionDecisionRef) && (value.verificationStatus==='ASSUMED'||source(value.sourceRef));
-  const result={schemaVersion:1,calculationVersion:'CONTRACT_RUNOFF_V1',caseId:operatingCase.caseId,asOfDate:operatingCase.asOfDate,
+  const result={schemaVersion:1,calculationVersion:'CONTRACT_RUNOFF_V2',caseId:operatingCase.caseId,asOfDate:operatingCase.asOfDate,
     status:'NOT_CALCULABLE',issues,assumptions:[],periodStart:null,periodEndExclusive:null,rows:[],totals:null,
     historicalCollections:calculateCollectionsReconciliation(operatingCase),
     capexCashflow:null,collectionForecast:null,professionalReleaseAuthorized:false,financialEngineUpdated:false,
-    semantics:'Illustrative 12-calendar-month accrual run-off of adopted fixed-rent ACTIVE/FUTURE leases. Start inclusive, end exclusive; annual rent / 12 prorated by actual calendar days in each month. No renewal, growth, cash collection, vacancy forecast, CAPEX timing, financing, tax, valuation or main-engine mutation. Normalized OPEX is a flat analytical allocation, not actual payments. Local evidence declarations do not authenticate source or reviewer.'};
+    semantics:'Illustrative 12-calendar-month accrual run-off of adopted ACTIVE/FUTURE leases with fixed rent or explicit dated STEP_RENT/MANUAL_SCHEDULE amounts. Each scheduled amount replaces periodic rent from its inclusive date until the next entry or exclusive lease end. Explicit zero represents rent-free days; no implicit end or restart is inferred. Annualized rent / 12 is prorated by calendar days in each segment. No automatic renewal, percentage/index growth, collection forecast, CAPEX timing, financing, tax, valuation or main-engine mutation. Normalized OPEX is a flat analytical allocation. Local declarations do not authenticate source, reviewer or legal permissibility.'};
   if(!Number.isFinite(start)){add('RUNOFF_CASE_DATE_INVALID');return deepFreeze(result);}
   const interest=operatingCase.propertyInterest;
   if(interest.interestType!=='FREEHOLD'||!source(interest.interestEvidenceRef)||!adoption(interest.interestAdoptionDecisionRef)
@@ -40,12 +40,26 @@ function calculateContractRunoff(operatingCase) {
   const leases=operatingCase.leases.filter(x=>['ACTIVE','FUTURE'].includes(x.lifecycleStatus));
   if(leases.length>2000){add('RUNOFF_LEASE_LIMIT_EXCEEDED');return deepFreeze(result);}
   const byUnit=new Map();
+  const schedules=new Map();
+  let scheduledEntryCount=0;
   for(const lease of leases){
     const a=day(lease.startDate),b=day(lease.endDate);
     if(!Number.isFinite(a)||!Number.isFinite(b)||b<=a||(lease.lifecycleStatus==='FUTURE'&&a<start))add('RUNOFF_LEASE_DATES_INVALID',lease.leaseId);
     if(!validMoney(lease.baseRent,RENT_UNIT_BY_FREQUENCY[lease.rentFrequency])||!ANNUALIZATION_FACTOR[lease.rentFrequency]
       ||!source(lease.termsEvidenceRef)||!adoption(lease.termsAdoptionDecisionRef))add('RUNOFF_ADOPTED_RENT_REQUIRED',lease.leaseId);
-    if(lease.escalation.type!=='NONE')add('RUNOFF_ESCALATION_NOT_SUPPORTED',lease.leaseId);
+    const scheduled=['STEP_RENT','MANUAL_SCHEDULE'].includes(lease.escalation.type);
+    if(!scheduled&&lease.escalation.type!=='NONE')add('RUNOFF_ESCALATION_NOT_SUPPORTED',lease.leaseId);
+    const entries=scheduled?lease.escalation.schedule:[];
+    scheduledEntryCount+=entries.length;
+    if(scheduled&&(entries.length===0||entries.length>200))add('RUNOFF_SCHEDULE_INVALID',lease.leaseId);
+    let previous=-Infinity;
+    for(const entry of entries){
+      const effective=day(entry.effectiveDate);
+      if(!Number.isFinite(effective)||effective<a||effective>=b||effective<=previous
+        ||!validMoney(entry.rent,RENT_UNIT_BY_FREQUENCY[lease.rentFrequency]))add('RUNOFF_SCHEDULE_INVALID',lease.leaseId);
+      previous=effective;
+    }
+    schedules.set(lease.leaseId,entries.map(x=>({...x,date:day(x.effectiveDate)})));
     if(!byUnit.has(lease.unitId))byUnit.set(lease.unitId,[]);
     byUnit.get(lease.unitId).push({a,b,id:lease.leaseId});
   }
@@ -53,18 +67,29 @@ function calculateContractRunoff(operatingCase) {
     entries.sort((a,b)=>a.a-b.a);
     for(let i=1;i<entries.length;i++)if(entries[i].a<entries[i-1].b)add('RUNOFF_OVERLAPPING_LEASES',entries[i].id);
   }
+  if(scheduledEntryCount>10000)add('RUNOFF_SCHEDULE_LIMIT_EXCEEDED');
   if(issues.length)return deepFreeze(result);
   const expenses=operatingCase.operatingExpenses.filter(x=>x.basis==='NORMALIZED');
-  result.assumptions=[...leases.map(x=>x.baseRent),...expenses.map(x=>x.annualAmount)].filter(x=>x.verificationStatus==='ASSUMED').map(x=>({field:x.field,value:x.value,unit:x.unit,adoptionDecisionRef:x.adoptionDecisionRef}));
+  result.assumptions=[...leases.map(x=>x.baseRent),...[...schedules.values()].flatMap(x=>x.map(e=>e.rent)),...expenses.map(x=>x.annualAmount)].filter(x=>x.verificationStatus==='ASSUMED').map(x=>({field:x.field,value:x.value,unit:x.unit,adoptionDecisionRef:x.adoptionDecisionRef}));
   const completeCosts=expenses.length>0&&expenses.every(x=>validMoney(x.annualAmount,'SAR/year'));
   const annualOpex=completeCosts?expenses.reduce((sum,x)=>sum+x.annualAmount.value,0):null;
   if(annualOpex===null)add('RUNOFF_NORMALIZED_OPEX_REQUIRED');
   for(let i=0;i<12;i++){
     const monthStart=Date.UTC(year,month+i,1),monthEnd=Date.UTC(year,month+i+1,1),a=Math.max(start,monthStart);
     const leaseRows=leases.map(lease=>{
-      const covered=Math.max(0,Math.min(monthEnd,day(lease.endDate))-Math.max(a,day(lease.startDate)));
-      return {leaseId:lease.leaseId,unitId:lease.unitId,coveredDays:covered/86400000,
-        rent:lease.baseRent.value*ANNUALIZATION_FACTOR[lease.rentFrequency]/12*covered/(monthEnd-monthStart),
+      const from=Math.max(a,day(lease.startDate)),to=Math.min(monthEnd,day(lease.endDate));
+      const entries=schedules.get(lease.leaseId),segments=[];
+      if(to>from){
+        const boundaries=[from,...entries.filter(e=>e.date>from&&e.date<to).map(e=>e.date),to];
+        for(let n=0;n<boundaries.length-1;n++){
+          let input=lease.baseRent;
+          for(const entry of entries){if(entry.date>boundaries[n])break;input=entry.rent;}
+          const days=(boundaries[n+1]-boundaries[n])/86400000;
+          segments.push({start:new Date(boundaries[n]).toISOString().slice(0,10),endExclusive:new Date(boundaries[n+1]).toISOString().slice(0,10),days,periodicRent:input.value,rent:input.value*ANNUALIZATION_FACTOR[lease.rentFrequency]/12*days/((monthEnd-monthStart)/86400000),sourceRef:input.sourceRef,adoptionDecisionRef:input.adoptionDecisionRef});
+        }
+      }
+      return {leaseId:lease.leaseId,unitId:lease.unitId,coveredDays:Math.max(0,to-from)/86400000,segments,
+        rent:segments.reduce((sum,segment)=>sum+segment.rent,0),
         sourceRef:lease.baseRent.sourceRef,adoptionDecisionRef:lease.baseRent.adoptionDecisionRef};
     });
     const rent=leaseRows.reduce((sum,x)=>sum+x.rent,0);
