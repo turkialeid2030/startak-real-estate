@@ -1,0 +1,47 @@
+'use strict';
+const assert=require('node:assert/strict');
+const {operatingCase,verified}=require('../fixtures/synthetic-collections-case');
+const {createResidentialIncomeOperatingCase,createCapexItem,createOperatingExpense}=require('../../src/residential-income-acquisition/contracts');
+const {replaceCapitalPaymentPlan,calculateCapitalPaymentPlan}=require('../../src/residential-income-acquisition/capital-payment-plan');
+const {calculateContractRunoff}=require('../../src/residential-income-acquisition/contract-runoff');
+const {buildResidentialIncomeOperatingCaseEnvelope,parseResidentialIncomeOperatingCaseEnvelope}=require('../../src/residential-income-acquisition/operating-case-snapshot');
+let checks=0;
+const eq=(a,b)=>{assert.deepEqual(a,b);checks++;};
+const reject=(fn,code)=>{assert.throws(fn,new RegExp(code));checks++;};
+const base=operatingCase({collections:[]});
+const item=createCapexItem({caseId:base.caseId,capexItemId:'CAP-1',propertyId:'PROPERTY-1',category:'OTHER',severity:'LOW',estimatedCost:verified('capex.cost',12000,'SAR','evidence://lease/rent'),requiredByDate:'2026-10-01'});
+const opex=createOperatingExpense({caseId:base.caseId,expenseId:'EXP-1',propertyId:'PROPERTY-1',category:'MAINTENANCE',basis:'NORMALIZED',annualAmount:verified('opex',12000,'SAR/year','evidence://lease/rent')});
+const c=createResidentialIncomeOperatingCase({...base,capexItems:[item],operatingExpenses:[opex]});
+const draft={sourceRef:'synthetic-plan',reviewRef:'synthetic-review',confirmed:true,entries:[{capexItemId:'CAP-1',date:'2026-09-01',amount:'2000'},{capexItemId:'CAP-1',date:'2026-10-15',amount:'5000'},{capexItemId:'CAP-1',date:'2027-09-01',amount:'5000'}]};
+eq(calculateContractRunoff(c).totals.contractNetAfterScheduledCapex,null);
+const saved=replaceCapitalPaymentPlan(c,draft),r=calculateContractRunoff(saved);
+eq(r.capitalPaymentPlan.status,'SCHEDULED');eq(r.totals.scheduledCapex,7000);eq(r.capitalPaymentPlan.outsideHorizon,5000);
+eq(r.rows[0].scheduledCapex,2000);eq(r.rows[1].scheduledCapex,5000);eq(r.rows[2].scheduledCapex,0);
+eq(r.totals.contractNetAfterScheduledCapex,381000);eq(r.rows[0].contractNetAfterScheduledCapex,97000);
+eq(r.collectionForecast,null);eq(c.capitalPaymentPlan,undefined);eq(saved.rentCollections,c.rentCollections);
+eq(parseResidentialIncomeOperatingCaseEnvelope(JSON.stringify(buildResidentialIncomeOperatingCaseEnvelope(saved))),saved);
+reject(()=>replaceCapitalPaymentPlan(c,{...draft,confirmed:false}),'EXPLICIT_VERIFICATION_CONFIRMATION_REQUIRED');
+reject(()=>replaceCapitalPaymentPlan(c,{...draft,entries:[]}),'CAPITAL_PLAN_COST_MISMATCH');
+reject(()=>replaceCapitalPaymentPlan(c,{...draft,entries:[{capexItemId:'CAP-1',date:'2026-09-01',amount:'12000.01'}]}),'CAPITAL_PLAN_COST_MISMATCH');
+reject(()=>replaceCapitalPaymentPlan(c,{...draft,entries:[{capexItemId:'CAP-1',date:'2026-08-31',amount:'12000'}]}),'CAPITAL_PLAN_PAST_DATE');
+for(const date of ['2026-02-30','2026-09-01T00:00:00Z',''])reject(()=>replaceCapitalPaymentPlan(c,{...draft,entries:[{capexItemId:'CAP-1',date,amount:'12000'}]}),'CAPITAL_PLAN_DATE_INVALID');
+for(const amount of ['',null,'0','-1','12000.001'])reject(()=>replaceCapitalPaymentPlan(c,{...draft,entries:[{capexItemId:'CAP-1',date:'2026-09-01',amount}]}),'LEDGER_AMOUNT_INVALID');
+reject(()=>replaceCapitalPaymentPlan(c,{...draft,sourceRef:''}),'CAPITAL_PLAN_REFERENCE_REQUIRED');
+reject(()=>replaceCapitalPaymentPlan(c,{...draft,reviewRef:draft.sourceRef}),'CAPITAL_PLAN_REFERENCE_REQUIRED');
+reject(()=>replaceCapitalPaymentPlan(c,{...draft,entries:[{capexItemId:'MISSING',date:'2026-09-01',amount:'12000'}]}),'CAPITAL_PLAN_ITEM_MISSING');
+reject(()=>replaceCapitalPaymentPlan(c,{...draft,entries:[draft.entries[0],draft.entries[0]]}),'CAPITAL_PLAN_DUPLICATE_DATE');
+eq(calculateCapitalPaymentPlan(replaceCapitalPaymentPlan(base,{...draft,entries:[]}),[]).total,0);
+const changed=createResidentialIncomeOperatingCase({...saved,capexItems:[createCapexItem({...item,estimatedCost:verified('capex.cost',13000,'SAR','evidence://lease/rent')})]});
+eq(calculateContractRunoff(changed).capitalPaymentPlan.status,'NOT_CALCULABLE');eq(calculateContractRunoff(changed).totals.contractNetAfterScheduledCapex,null);
+const unqualified=createResidentialIncomeOperatingCase({...saved,capexItems:[createCapexItem({...item,estimatedCost:verified('capex.cost',12000,'USD','evidence://lease/rent')})]});
+eq(calculateContractRunoff(unqualified).capitalPaymentPlan.issues[0].code,'CAPITAL_PLAN_COST_UNQUALIFIED');
+const noOpex=replaceCapitalPaymentPlan(createResidentialIncomeOperatingCase({...c,operatingExpenses:[]}),draft);
+eq(calculateContractRunoff(noOpex).totals.scheduledCapex,7000);eq(calculateContractRunoff(noOpex).totals.contractNetAfterScheduledCapex,null);
+// Every monthly boundary gets the explicit date's amount; maintenance deadline is irrelevant.
+for(let month=0;month<12;month++){
+ const date=new Date(Date.UTC(2026,8+month,1)).toISOString().slice(0,10);
+ const x=calculateContractRunoff(replaceCapitalPaymentPlan(c,{...draft,entries:[{capexItemId:'CAP-1',date,amount:'12000'}]}));
+ eq(x.rows.map(row=>row.scheduledCapex),Array.from({length:12},(_,i)=>i===month?12000:0));
+ eq(x.totals.contractNetAfterScheduledCapex,376000);
+}
+console.log(`AUDIT_CAPITAL_PAYMENT_PLAN=PASS checks=${checks}`);

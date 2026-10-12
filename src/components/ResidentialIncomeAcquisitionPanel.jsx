@@ -4,6 +4,9 @@ import ResidentialIncomeAiAssistPanel from './ResidentialIncomeAiAssistPanel';
 import RentRollCollectionsWorkspace from './RentRollCollectionsWorkspace';
 import ContractRunoffPanel from './ContractRunoffPanel';
 import LeaseScheduleEditor from './LeaseScheduleEditor';
+import ReceivablesLedgerPanel from './ReceivablesLedgerPanel';
+import CapitalPaymentPlanEditor from './CapitalPaymentPlanEditor';
+import FutureLeaseEditor from './FutureLeaseEditor';
 
 const STATUS_TONE = Object.freeze({
   READY_FOR_OPERATING_UNDERWRITING: 'border-emerald-700/50 bg-emerald-950/20 text-emerald-200',
@@ -137,7 +140,7 @@ export default function ResidentialIncomeAcquisitionPanel({
             role="status"
             className={`mt-3 rounded-lg border p-3 text-xs ${operatingCaseMessage.ok ? 'border-emerald-900/60 bg-emerald-950/20 text-emerald-200' : 'border-rose-900/60 bg-rose-950/20 text-rose-200'}`}
           >
-            {operatingCaseMessage.ok
+            {operatingCaseMessage.ok && operatingCaseMessage.code === 'CAPITAL_PLAN_UPDATED' ? (dir === 'rtl' ? 'تم حفظ خطة الدفع.' : 'Payment plan saved.') : operatingCaseMessage.ok && operatingCaseMessage.code === 'LEDGER_UPDATED' ? (dir === 'rtl' ? 'تم حفظ سجل المستحقات والقبض.' : 'Charges and receipts register saved.') : operatingCaseMessage.ok
               ? t(`riai.${operatingCaseMessage.code === 'EXPORTED'
                 ? 'exportSuccess'
                 : operatingCaseMessage.code === 'CLEARED'
@@ -214,6 +217,9 @@ export default function ResidentialIncomeAcquisitionPanel({
               </section>
             ) : null}
             <ContractRunoffPanel result={viewModel.contractRunoff} operatingCase={viewModel.operatingCase} dir={dir} />
+            <details key={`ledger:${viewModel.operatingCase.caseId}:${viewModel.operatingCase.asOfDate}`}><summary data-testid="ledger-open" className="cursor-pointer rounded border border-slate-700 p-3 text-sm">{dir==='rtl'?'سجل المستحقات والقبض':'Charges and receipts register'}</summary><ReceivablesLedgerPanel operatingCase={viewModel.operatingCase} onReplaceOperatingCase={onReplaceOperatingCase} dir={dir} /></details>
+            <details key={`capital-plan:${viewModel.operatingCase.caseId}:${viewModel.operatingCase.asOfDate}`}><summary data-testid="capital-open" className="cursor-pointer rounded border border-slate-700 p-3 text-sm">{dir==='rtl'?'خطة دفع النفقات الرأسمالية':'Capital payment plan'}</summary><CapitalPaymentPlanEditor operatingCase={viewModel.operatingCase} onReplaceOperatingCase={onReplaceOperatingCase} dir={dir} /></details>
+            <details key={`future-lease:${viewModel.operatingCase.caseId}:${viewModel.operatingCase.asOfDate}`}><summary data-testid="future-open" className="cursor-pointer rounded border border-slate-700 p-3 text-sm">{dir==='rtl'?'العقود اللاحقة للوحدات':'Successor unit leases'}</summary><FutureLeaseEditor operatingCase={viewModel.operatingCase} onReplaceOperatingCase={onReplaceOperatingCase} dir={dir} /></details>
             <LeaseScheduleEditor key={`lease-schedule:${viewModel.operatingCase.caseId}:${viewModel.operatingCase.asOfDate}`} operatingCase={viewModel.operatingCase} onReplaceOperatingCase={onReplaceOperatingCase} dir={dir} />
             {income?.stabilizedNoiCalculated ? (
               <section aria-labelledby="riai-income-analysis" className="rounded-xl border border-slate-800 bg-slate-950/30 p-4">
