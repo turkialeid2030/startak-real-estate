@@ -11,8 +11,11 @@ export default function ReceivablesLedgerPanel({operatingCase,onReplaceOperating
   const busy=React.useRef(false);
   const change=patch=>{setDraft(current=>({...current,...patch,confirmed:false,signature:current.signature??signature}));setFeedback(null);};
   const money=minor=>minor==null?'—':(minor/100).toLocaleString(ar?'ar-SA':'en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
-  const types={CHARGE:t('مستحق إيجار','Rent charge'),RECEIPT:t('دفعة مقبوضة','Receipt'),ALLOCATION:t('تخصيص دفعة','Payment allocation'),REVERSAL:t('عكس قيد خاطئ','Reverse incorrect entry')};
+  const types={CHARGE:t('مستحق إيجار','Rent charge'),RECEIPT:t('دفعة مقبوضة','Receipt'),ALLOCATION:t('تخصيص دفعة','Payment allocation'),REFUND:t('تسجيل مبلغ مردود','Record completed refund'),REVERSAL:t('عكس قيد خاطئ','Reverse incorrect entry')};
   const errors={
+    LEDGER_OVERREFUND:t('المبلغ المردود يتجاوز الرصيد غير المخصص من الدفعة.','Refund exceeds the unallocated receipt balance.'),
+    LEDGER_REFUND_REFERENCE_INVALID:t('اختر دفعة أصلية قائمة لربط المبلغ المردود بها.','Select an active original receipt.'),
+    LEDGER_REVERSE_REFUNDS_FIRST:t('اعكس قيود الرد المرتبطة أولًا إذا كانت خاطئة؛ عكس السجل لا يسترد المال.','Correct related refund entries first if incorrect; reversal does not recover cash.'),
     EXPLICIT_VERIFICATION_CONFIRMATION_REQUIRED:t('أكّد مراجعة القيد بعد آخر تعديل.','Confirm review after the last edit.'),
     LEDGER_OVERALLOCATION:t('المبلغ يتجاوز المتبقي في المستحق أو الدفعة.','Amount exceeds the charge or receipt balance.'),
     LEDGER_CROSS_LEASE_ALLOCATION:t('يجب أن ينتمي المستحق والدفعة إلى العقد نفسه.','Charge and receipt must belong to the same lease.'),
@@ -22,7 +25,7 @@ export default function ReceivablesLedgerPanel({operatingCase,onReplaceOperating
     LEDGER_OVERLAPPING_CHARGES:t('تتداخل فترة المستحق مع قيد إيجار قائم للعقد.','Charge period overlaps another active charge for this lease.'),
     LEDGER_PERIOD_OUTSIDE_LEASE:t('يجب أن تكون الفترة داخل العقد، ونهايتها غير شاملة.','Period must lie within the lease; the end is exclusive.'),
     LEDGER_FUTURE_EVENT:t('تاريخ القيد يتجاوز تاريخ الحالة. غيّر تاريخ الحالة فقط بأدلة مناسبة.','Entry date exceeds the case as-of date.'),
-    LEDGER_EVENT_CHRONOLOGY:t('تاريخ التخصيص أو العكس يسبق القيد المرجعي.','Allocation or reversal predates its source entry.'),
+    LEDGER_EVENT_CHRONOLOGY:t('التاريخ يسبق القيد المرجعي أو حركة مرتبطة بالدفعة المردودة.','Date precedes the source entry or a related movement of the refunded receipt.'),
     LEDGER_AMOUNT_INVALID:t('أدخل مبلغًا موجبًا بمنزلتين عشريتين كحد أقصى.','Enter a positive amount with at most two decimals.'),
     LEDGER_DISTINCT_REVIEW_REQUIRED:t('مرجع المراجعة يجب أن يختلف عن مرجع المستند.','Review reference must differ from source reference.'),
     LEDGER_DRAFT_STALE:t('تغير العقد أو السجل. امسح المسودة وأعد مراجعتها.','Lease or ledger changed. Clear the draft and review again.'),
@@ -49,10 +52,11 @@ export default function ReceivablesLedgerPanel({operatingCase,onReplaceOperating
   const active=entries.filter(e=>e.type!=='REVERSAL'&&!result.reversedIds.includes(e.id));
   return <section className="rounded-xl border border-slate-700 p-4" data-testid="receivables-ledger">
     <h3 className="text-sm font-semibold">{t('سجل المستحقات والقبض','Charges and receipts register')}</h3>
+    <p className="my-2 text-xs leading-6">{t('تسجيل الرد يوثق مبلغًا أُعيد بالفعل من دفعة أصلية، ولا ينفذ تحويلًا بنكيًا أو يلغي المستحق. المبلغ المخصص لا يتاح للرد قبل عكس تخصيصه؛ عكس التخصيص يعيد المديونية. أدخل الحركات المرتبطة بالرد بترتيب تواريخها.','A refund entry documents money already returned from an original receipt; it does not execute a bank transfer or cancel a charge. Reverse an allocation before refunding its amount; this reopens the debt. Enter refund-related movements in date order.')}</p>
     <p className="my-2 text-xs leading-6 text-slate-300">{t('سجّل مستحقات الإيجار الصافية والدفعات الفعلية من مستنداتها، ثم خصّص الدفعة للمستحق. لا يُستنتج القبض من الإيجار المتوقع. لا يشمل السجل الضرائب والتأمينات والرسوم، ولا يصدر فاتورة ضريبية.','Enter net rent charges and actual receipts from their documents, then allocate receipts to charges. Expected rent is not received cash. Taxes, deposits and fees are excluded; this register does not issue tax invoices.')}</p>
     <p className="mb-3 text-xs leading-6 text-amber-200">{t('السجل محلي وضمن القيود المدخلة فقط؛ لا يثبت اكتمال الحساب أو صحة المستند أو هوية المراجع. يُعرض منفصلًا عن مجاميع التحصيل السابقة ولا يُجمع معها. عكس القيد تصحيح للسجل وليس ردًا نقديًا.','This local register covers entered records only; it does not establish completeness, source authenticity or reviewer identity. It remains separate from period collection aggregates. Reversal corrects an entry and is not a cash refund.')}</p>
     <div className="grid grid-cols-2 gap-2 md:grid-cols-4 text-xs mb-3">
-      {Object.entries({charged:t('المستحقات المسجلة','Recorded charges'),received:t('القبض المسجل','Recorded receipts'),outstanding:t('المتبقي غير المسدد','Outstanding charges'),unallocated:t('قبض غير مخصص','Unallocated receipts')}).map(([key,label])=><div className="rounded bg-slate-950 p-2" key={key}><p>{label}</p><strong data-testid={`ledger-total-${key}`}>{money(result.totalsMinor?.[key])}</strong></div>)}
+      {Object.entries({charged:t('المستحقات المسجلة','Recorded charges'),received:t('إجمالي القبض المسجل','Gross recorded receipts'),refunded:t('المبالغ المردودة','Recorded refunds'),netReceived:t('صافي القبض بعد الرد','Net receipts after refunds'),outstanding:t('المتبقي غير المسدد','Outstanding charges'),unallocated:t('قبض متاح غير مخصص','Available unallocated receipts')}).map(([key,label])=><div className="rounded bg-slate-950 p-2" key={key}><p>{label}</p><strong data-testid={`ledger-total-${key}`}>{money(result.totalsMinor?.[key])}</strong></div>)}
     </div>
     {result.totalsMinor&&<div className="grid grid-cols-2 gap-2 md:grid-cols-3 text-xs mb-3">{Object.entries({notDue:t('لم يستحق بعد','Not yet due'),dueToday:t('مستحق اليوم','Due today'),days1to30:t('متأخر 1–30 يومًا','1–30 days overdue'),days31to60:t('متأخر 31–60 يومًا','31–60 days overdue'),days61to90:t('متأخر 61–90 يومًا','61–90 days overdue'),daysOver90:t('متأخر أكثر من 90 يومًا','Over 90 days overdue')}).map(([key,label])=><p key={key}>{label}: {money(result.agingMinor[key])}</p>)}</div>}
     <form onSubmit={submit}>
@@ -64,6 +68,7 @@ export default function ReceivablesLedgerPanel({operatingCase,onReplaceOperating
           {['CHARGE','RECEIPT'].includes(draft.type)&&<>{select('leaseId',t('العقد','Lease'),operatingCase.leases.map(l=>[l.leaseId,l.leaseId]))}{input('reference',t('رقم المستند أو العملية الفريد','Unique document or transaction reference'))}</>}
           {draft.type==='CHARGE'&&<>{input('periodStart',t('بداية فترة الإيجار','Rent period start'),'date')}{input('periodEndExclusive',t('نهاية الفترة غير شاملة','Exclusive period end'),'date')}{input('dueDate',t('تاريخ الاستحقاق','Due date'),'date')}</>}
           {draft.type==='ALLOCATION'&&<>{select('chargeId',t('المستحق','Charge'),result.chargeRows.filter(x=>x.outstandingMinor>0).map(x=>[x.id,`${x.id} · ${money(x.outstandingMinor)}`]))}{select('receiptId',t('الدفعة','Receipt'),result.receiptRows.filter(x=>x.unallocatedMinor>0).map(x=>[x.id,`${x.id} · ${money(x.unallocatedMinor)}`]))}</>}
+          {draft.type==='REFUND'&&<>{select('receiptId',t('الدفعة الأصلية — الرصيد المتاح للرد','Original receipt — refundable balance'),result.receiptRows.filter(x=>x.unallocatedMinor>0).map(x=>[x.id,`${x.id} · ${money(x.unallocatedMinor)}`]))}{input('reference',t('مرجع عملية الرد الفريد','Unique refund transaction reference'))}{input('reason',t('سبب الرد','Refund reason'))}</>}
           {draft.type==='REVERSAL'?<>{select('targetId',t('القيد المطلوب عكسه','Entry to reverse'),active.map(x=>[x.id,x.id]))}{input('reason',t('سبب التصحيح','Correction reason'))}</>:input('amount',t('المبلغ بالريال','Amount in SAR'),'number')}
           {input('sourceRef',t('مرجع المصدر','Source reference'))}{input('reviewRef',t('مرجع المراجعة المحلية','Local review reference'))}
         </div>
