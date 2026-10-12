@@ -6,6 +6,7 @@ const {
   createEvidenceLineageRecord,
   createEvidenceAwareValue,
   createLease,
+  createUnit,
   createRentEscalation,
   createRentCollectionRecord,
   createResidentialIncomeOperatingCase,
@@ -88,12 +89,14 @@ function rebuildCase(operatingCase, overrides) {
     propertyInterest: operatingCase.propertyInterest,
     property: operatingCase.property,
     buildings: operatingCase.buildings,
-    units: operatingCase.units,
+    units: overrides.units || operatingCase.units,
     leases: overrides.leases || operatingCase.leases,
     rentCollections: overrides.rentCollections || operatingCase.rentCollections || [],
+    receivablesLedger: operatingCase.receivablesLedger,
     tenants: operatingCase.tenants,
     operatingExpenses: operatingCase.operatingExpenses,
     capexItems: operatingCase.capexItems,
+    capitalPaymentPlan: operatingCase.capitalPaymentPlan,
     exitScenarios: operatingCase.exitScenarios,
     additionalOperatingInputs: operatingCase.additionalOperatingInputs,
     evidenceLineage: overrides.evidenceLineage || operatingCase.evidenceLineage,
@@ -217,7 +220,26 @@ function updateVerifiedLeaseSchedule(operatingCase,draft,{recordedAt=new Date().
   return rebuildCase(operatingCase,{leases:operatingCase.leases.map(lease=>lease.leaseId===target.leaseId?updated:lease),evidenceLineage});
 }
 
+function addDocumentedFutureLease(operatingCase,draft,{recordedAt=new Date().toISOString()}={}) {
+  if(draft?.confirmed!==true)throw new TypeError('EXPLICIT_VERIFICATION_CONFIRMATION_REQUIRED');
+  const previous=operatingCase.leases.find(x=>x.leaseId===draft.previousLeaseId);
+  if(!previous||!previous.endDate)throw new TypeError('LEASE_NOT_FOUND');
+  const leaseId=requiredText(draft.leaseId,'leaseId'),tenantId=requiredText(draft.tenantId,'tenantId');
+  if(operatingCase.leases.some(x=>x.leaseId===leaseId))throw new TypeError('FUTURE_LEASE_DUPLICATE_ID');
+  if(!operatingCase.tenants.some(x=>x.tenantId===tenantId))throw new TypeError('FUTURE_LEASE_TENANT_REQUIRED');
+  const startDate=isoDate(draft.startDate,'startDate'),endDate=isoDate(draft.endDate,'endDate');
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(startDate)||!/^\d{4}-\d{2}-\d{2}$/.test(endDate)||Date.parse(startDate)<=Date.parse(operatingCase.asOfDate)||Date.parse(startDate)<Date.parse(previous.endDate)||Date.parse(endDate)<=Date.parse(startDate))throw new TypeError('FUTURE_LEASE_DATES_INVALID');
+  if(operatingCase.leases.some(x=>x.unitId===previous.unitId&&['ACTIVE','FUTURE'].includes(x.lifecycleStatus)&&Date.parse(startDate)<Date.parse(x.endDate)&&Date.parse(x.startDate)<Date.parse(endDate)))throw new TypeError('FUTURE_LEASE_OVERLAP');
+  const sourceRef=requiredText(draft.sourceRef,'sourceRef'),adoptionDecisionRef=requiredText(draft.adoptionDecisionRef,'adoptionDecisionRef');
+  const evidenceLineage=extendEvidenceLineage(operatingCase,{sourceRef,adoptionDecisionRef,recordedAt,note:'Locally reviewed future lease document; not an assumed automatic renewal or legal authentication.'});
+  const baseRent=createEvidenceAwareValue({...verifiedMoney(`lease.${leaseId}.baseRent`,draft.baseRent,sourceRef,adoptionDecisionRef,operatingCase.asOfDate),unit:previous.baseRent.unit});
+  const lease=createLease({caseId:operatingCase.caseId,propertyInterestId:previous.propertyInterestId,propertyId:previous.propertyId,buildingId:previous.buildingId,unitId:previous.unitId,leaseId,tenantId,lifecycleStatus:'FUTURE',startDate,endDate,baseRent,rentFrequency:previous.rentFrequency,termsEvidenceRef:sourceRef,termsAdoptionDecisionRef:adoptionDecisionRef});
+  const units=operatingCase.units.map(unit=>unit.unitId===lease.unitId?createUnit({...unit,leaseIds:[...unit.leaseIds,leaseId]}):unit);
+  return rebuildCase(operatingCase,{leases:[...operatingCase.leases,lease],units,evidenceLineage});
+}
+
 module.exports = {
+  addDocumentedFutureLease,
   updateVerifiedLeaseSchedule,
   updateVerifiedLeaseTerms,
   addVerifiedRentCollection,

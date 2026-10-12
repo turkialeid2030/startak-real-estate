@@ -1,0 +1,33 @@
+'use strict';
+const assert=require('node:assert/strict');
+const {operatingCase}=require('../fixtures/synthetic-collections-case');
+const {addDocumentedFutureLease}=require('../../src/residential-income-acquisition/operating-case-editor');
+const {calculateContractRunoff}=require('../../src/residential-income-acquisition/contract-runoff');
+const {buildResidentialIncomeOperatingCaseEnvelope,parseResidentialIncomeOperatingCaseEnvelope}=require('../../src/residential-income-acquisition/operating-case-snapshot');
+const {calculateOperatingMetrics}=require('../../src/residential-income-acquisition/operating-metrics');
+let checks=0;
+const eq=(a,b)=>{assert.deepEqual(a,b);checks++;};
+const reject=(fn,code)=>{assert.throws(fn,new RegExp(code));checks++;};
+const base=operatingCase({collections:[]});
+const draft={previousLeaseId:'LEASE-1',leaseId:'LEASE-NEXT',tenantId:'TENANT-1',startDate:'2027-02-01',endDate:'2028-02-01',baseRent:'1440000',sourceRef:'synthetic-successor-contract',adoptionDecisionRef:'synthetic-successor-review',confirmed:true};
+const c=addDocumentedFutureLease(base,draft),r=calculateContractRunoff(c);
+eq(c.leases.length,2);eq(c.leases[0],base.leases[0]);eq(c.leases[1].lifecycleStatus,'FUTURE');eq(c.leases[1].escalation.type,'NONE');eq(c.leases[1].securityRefs,[]);
+eq(c.units[0].leaseIds,['LEASE-1','LEASE-NEXT']);eq(c.units[0].operatingStatus,base.units[0].operatingStatus);
+eq(r.rows[4].contractRent,0);eq(r.rows[5].contractRent,120000);eq(r.totals.contractRent,1240000);
+eq(calculateOperatingMetrics(c),calculateOperatingMetrics(base));
+eq(base.leases.length,1);eq(parseResidentialIncomeOperatingCaseEnvelope(JSON.stringify(buildResidentialIncomeOperatingCaseEnvelope(c))),c);
+reject(()=>addDocumentedFutureLease(base,{...draft,confirmed:false}),'EXPLICIT_VERIFICATION_CONFIRMATION_REQUIRED');
+reject(()=>addDocumentedFutureLease(base,{...draft,leaseId:'LEASE-1'}),'FUTURE_LEASE_DUPLICATE_ID');
+reject(()=>addDocumentedFutureLease(base,{...draft,tenantId:'MISSING'}),'FUTURE_LEASE_TENANT_REQUIRED');
+reject(()=>addDocumentedFutureLease(base,{...draft,previousLeaseId:'MISSING'}),'LEASE_NOT_FOUND');
+for(const startDate of ['2026-08-01','2026-09-01','2026-12-31','2027-02-01T00:00:00Z','2028-02-01'])reject(()=>addDocumentedFutureLease(base,{...draft,startDate}),'FUTURE_LEASE_DATES_INVALID');
+for(const field of ['sourceRef','adoptionDecisionRef','leaseId','tenantId'])reject(()=>addDocumentedFutureLease(base,{...draft,[field]:''}),'required');
+reject(()=>addDocumentedFutureLease(c,{...draft,leaseId:'OVERLAP'}),'FUTURE_LEASE_OVERLAP');
+const adjacent=addDocumentedFutureLease(base,{...draft,startDate:'2027-01-01'});
+eq(calculateContractRunoff(adjacent).rows[4].contractRent,120000);
+for(let gap=0;gap<8;gap++){
+ const start=new Date(Date.UTC(2027,gap,1)).toISOString().slice(0,10);
+ const result=calculateContractRunoff(addDocumentedFutureLease(base,{...draft,startDate:start,endDate:'2028-09-01'}));
+ eq(result.totals.contractRent,400000+(8-gap)*120000);
+}
+console.log(`AUDIT_FUTURE_LEASE=PASS checks=${checks}`);

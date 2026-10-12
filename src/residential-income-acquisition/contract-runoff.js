@@ -2,6 +2,7 @@
 const {deepFreeze}=require('./contracts');
 const {calculateOperatingMetrics,ANNUALIZATION_FACTOR,RENT_UNIT_BY_FREQUENCY}=require('./operating-metrics');
 const {calculateCollectionsReconciliation}=require('./collections-reconciliation');
+const {calculateCapitalPaymentPlan}=require('./capital-payment-plan');
 
 // A bounded analytical run-off, not a billing schedule or a renewal forecast.
 // Monthly accrual = annual rent / 12, prorated by covered calendar days.
@@ -23,7 +24,7 @@ function calculateContractRunoff(operatingCase) {
     && Number.isSafeInteger(Math.round(value.value*100)) && value.unit===unit
     && Number.isFinite(day(value.effectiveDate)) && day(value.effectiveDate)<=start
     && adoption(value.adoptionDecisionRef) && (value.verificationStatus==='ASSUMED'||source(value.sourceRef));
-  const result={schemaVersion:1,calculationVersion:'CONTRACT_RUNOFF_V2',caseId:operatingCase.caseId,asOfDate:operatingCase.asOfDate,
+  const result={schemaVersion:1,calculationVersion:'CONTRACT_RUNOFF_V3',caseId:operatingCase.caseId,asOfDate:operatingCase.asOfDate,
     status:'NOT_CALCULABLE',issues,assumptions:[],periodStart:null,periodEndExclusive:null,rows:[],totals:null,
     historicalCollections:calculateCollectionsReconciliation(operatingCase),
     capexCashflow:null,collectionForecast:null,professionalReleaseAuthorized:false,financialEngineUpdated:false,
@@ -101,6 +102,17 @@ function calculateContractRunoff(operatingCase) {
     add('RUNOFF_AMOUNT_OUT_OF_RANGE');result.rows=[];result.totals=null;return deepFreeze(result);
   }
   result.status=annualOpex===null?'RENT_ONLY':'ILLUSTRATIVE_RUNOFF';
+  result.capitalPaymentPlan=calculateCapitalPaymentPlan(operatingCase,result.rows);
+  result.capexCashflow=result.capitalPaymentPlan.status==='SCHEDULED'?result.capitalPaymentPlan.rows:null;
+  result.rows.forEach((row,index)=>{
+    row.scheduledCapex=result.capexCashflow===null?null:result.capexCashflow[index].amount;
+    row.contractNetAfterScheduledCapex=row.contractNetBeforeCapex===null||row.scheduledCapex===null?null:row.contractNetBeforeCapex-row.scheduledCapex;
+  });
+  result.totals.scheduledCapex=result.capitalPaymentPlan.total;
+  result.totals.contractNetAfterScheduledCapex=result.totals.contractNetBeforeCapex===null||result.capitalPaymentPlan.total===null?null:result.totals.contractNetBeforeCapex-result.capitalPaymentPlan.total;
+  if(result.totals.contractNetAfterScheduledCapex!==null&&!Number.isSafeInteger(Math.round(result.totals.contractNetAfterScheduledCapex*100))){add('RUNOFF_AMOUNT_OUT_OF_RANGE');result.totals.contractNetAfterScheduledCapex=null;result.rows.forEach(row=>{row.contractNetAfterScheduledCapex=null;});}
+  result.semantics=result.semantics.replace('CAPEX timing, ','')+' Explicit capital payment plans, when present and reconciled to all supplied item costs, are separately deducted to show analytical net after scheduled CAPEX. This is not a receipt forecast or actual cash balance.';
+  if(result.capitalPaymentPlan.status==='SCHEDULED')result.assumptions.push(...operatingCase.capexItems.filter(item=>item.estimatedCost.verificationStatus==='ASSUMED').map(item=>({field:item.estimatedCost.field,value:item.estimatedCost.value,unit:item.estimatedCost.unit,adoptionDecisionRef:item.estimatedCost.adoptionDecisionRef})));
   return deepFreeze(result);
 }
 module.exports={calculateContractRunoff};
