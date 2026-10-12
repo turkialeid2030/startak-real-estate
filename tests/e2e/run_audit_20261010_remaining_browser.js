@@ -139,6 +139,7 @@ async function download(page,locator){const pending=page.waitForEvent('download'
    ok(scheduled.result.totals.contractRent===410000&&scheduled.result.totals.contractNetBeforeCapex===398000&&scheduled.result.rows[0].leaseRows[0].segments[1].periodicRent===0,'UI schedule applies rent-free days and explicit restart at monthly boundaries');
    const scheduleCase=JSON.parse(await download(page,page.getByRole('button',{name:ar.riai.exportOperatingCase,exact:true})));
    ok(scheduleCase.operatingCase.leases[0].escalation.schedule.length===2&&scheduleCase.operatingCase.leases[0].escalation.schedule[1].rent.value===1440000,'operating snapshot retains the accepted schedule');
+   await page.getByTestId('capital-open').click();
    await page.getByTestId('capital-add').click();await page.getByTestId('capital-item-0').selectOption('CAP-1');
    await page.getByTestId('capital-date-0').fill('2026-09-10');await page.getByTestId('capital-amount-0').fill('12001');
    await page.getByTestId('capital-source').fill('Synthetic plan');await page.getByTestId('capital-review').fill('Synthetic plan review');
@@ -158,6 +159,7 @@ async function download(page,locator){const pending=page.waitForEvent('download'
     await page.getByTestId('ledger-sourceRef').fill('Synthetic source');await page.getByTestId('ledger-reviewRef').fill('Synthetic review');
    };
    const ledgerSave=async()=>{await page.getByTestId('ledger-confirm').check();await page.getByTestId('ledger-save').click();await expect(page.getByTestId('ledger-feedback')).toHaveText('تم حفظ القيد.');checks++;};
+   await page.getByTestId('ledger-open').click();
    await ledgerFill('CHARGE',{id:'C1',date:'2026-08-01',leaseId:'LEASE-1',reference:'INV-1',periodStart:'2026-08-01',periodEndExclusive:'2026-09-01',dueDate:'2026-08-01',amount:'100.25'});
    await page.getByTestId('ledger-confirm').check();await page.getByTestId('ledger-amount').fill('100.26');
    await expect(page.getByTestId('ledger-confirm')).not.toBeChecked();checks++;
@@ -179,6 +181,7 @@ async function download(page,locator){const pending=page.waitForEvent('download'
    await importOperating(ledgerCase);
    const restored=JSON.parse(await download(page,page.getByTestId('ledger-export')));
    ok(restored.result.totalsMinor.outstanding===10025&&restored.sourceOperatingCase.capitalPaymentPlan.entries[0].amountMinor===1200000,'snapshot round trip preserves ledger and capital payment plan');
+   await page.getByTestId('future-open').click();
    await page.getByTestId('future-previous').selectOption('LEASE-1');await page.getByTestId('future-tenant').selectOption('TENANT-1');
    for(const[key,value]of Object.entries({leaseId:'LEASE-NEXT',startDate:'2026-12-01',endDate:'2028-02-01',baseRent:'1440000',sourceRef:'Synthetic signed successor',adoptionDecisionRef:'Synthetic successor review'}))await page.getByTestId(`future-${key}`).fill(value);
    await page.getByTestId('future-confirm').check();await page.getByTestId('future-save').click();await expect(page.getByTestId('future-feedback')).toContainText('FUTURE_LEASE_DATES_INVALID');checks++;
