@@ -162,6 +162,17 @@ async function download(page,locator){const pending=page.waitForEvent('download'
    const operatingPlan=JSON.parse(await download(page,page.getByTestId('export-contract-runoff')));
    ok(operatingPlan.result.operatingPaymentPlan.total===3000&&operatingPlan.result.operatingPaymentPlan.rows[0].amount===3000&&operatingPlan.result.operatingPaymentPlan.coverageComplete===false,'explicit operating payments remain partial and are not inferred from annual budget');
    ok(JSON.stringify(operatingPlan.result.totals)===JSON.stringify(planned.result.totals),'planned payments do not double count normalized OPEX or change existing net');
+   await page.getByTestId('operating-budget-enabled').check();
+   await page.getByTestId('operating-budget-start').fill('2026-09-01');await page.getByTestId('operating-budget-end').fill('2027-09-01');
+   await page.getByTestId('operating-budget-amount-0').fill('3001');
+   await page.getByTestId('operating-source').fill('Synthetic period budget and payment plan');await page.getByTestId('operating-review').fill('Synthetic period budget review');
+   await page.getByTestId('operating-confirm').check();await page.getByTestId('operating-save').click();await expect(page.getByTestId('operating-feedback')).toContainText('OPERATING_BUDGET_AMOUNT_MISMATCH');checks++;
+   await page.getByTestId('operating-budget-amount-0').fill('3000');await expect(page.getByTestId('operating-confirm')).not.toBeChecked();checks++;
+   await page.getByTestId('operating-confirm').check();await page.getByTestId('operating-save').click();await expect(page.getByTestId('operating-feedback')).toContainText('تم حفظ');checks++;
+   const budgetPlan=JSON.parse(await download(page,page.getByTestId('export-contract-runoff')));
+   ok(budgetPlan.result.operatingPaymentPlan.budgetReconciliation.status==='MATCHED_ENTERED_BUDGET'&&budgetPlan.result.operatingPaymentPlan.budgetReconciliation.rows[0].differenceMinor===0,'period budget reconciles exactly per item');
+   ok(JSON.stringify(budgetPlan.result.totals)===JSON.stringify(planned.result.totals)&&budgetPlan.result.operatingPaymentPlan.coverageComplete===false,'matched entered budget does not promote cash coverage or change NOI');
+
    const ledgerFill=async(type,values)=>{
     await page.getByTestId('ledger-type').selectOption(type);
     for(const[key,value]of Object.entries(values)){
@@ -213,6 +224,7 @@ async function download(page,locator){const pending=page.waitForEvent('download'
    ok(restored.result.totalsMinor.outstanding===9025&&restored.sourceOperatingCase.capitalPaymentPlan.entries[0].amountMinor===1200000,'snapshot round trip preserves ledger and capital payment plan');
    ok(restored.result.totalsMinor.credited===1000&&restored.result.creditRows[0].id==='K2'&&restored.result.reversedIds.includes('K1'),'documented reduction and correction survive snapshot round trip');
    ok(restored.sourceOperatingCase.operatingPaymentPlan.entries[0].amountMinor===300000,'operating payment plan survives ledger changes and import/export');
+   ok(restored.sourceOperatingCase.operatingPaymentPlan.budgetControl.periodStart==='2026-09-01'&&restored.sourceOperatingCase.operatingPaymentPlan.budgetControl.items[0].amountMinor===300000,'period budget survives ledger changes and snapshot replay');
    ok(restored.result.totalsMinor.refunded===2025&&restored.result.refundRows[0].id==='F2'&&restored.result.reversedIds.includes('F1'),'refund and correction survive snapshot round trip');
    await page.getByTestId('future-open').click();
    await page.getByTestId('future-previous').selectOption('LEASE-1');await page.getByTestId('future-tenant').selectOption('TENANT-1');
@@ -225,10 +237,10 @@ async function download(page,locator){const pending=page.waitForEvent('download'
    ok(successor.sourceOperatingCase.receivablesLedger.events.length===10&&successor.sourceOperatingCase.capitalPaymentPlan.entries.length===1&&successor.sourceOperatingCase.leases.length===2,'successor save preserves ledger and capital plan');
    await page.getByTestId('future-leaseId').fill('UNSAVED-NEXT');await page.getByTestId('future-confirm').check();
    await page.getByTestId('ledger-id').fill('UNSAVED-LEDGER');await page.getByTestId('ledger-confirm').check();
-   await page.getByTestId('operating-source').fill('UNSAVED-OPERATING');await page.getByTestId('operating-confirm').check();
+   await page.getByTestId('operating-budget-start').fill('2026-10-01');await page.getByTestId('operating-source').fill('UNSAVED-OPERATING');await page.getByTestId('operating-confirm').check();
    await importOperating(envelope);await expect(page.getByTestId('schedule-lease')).toHaveValue('');checks++;
    await expect(page.getByTestId('ledger-id')).toHaveValue('');checks++;await expect(page.getByTestId('ledger-confirm')).not.toBeChecked();checks++;
-   await expect(page.getByTestId('operating-source')).toHaveValue('');checks++;await expect(page.getByTestId('operating-confirm')).not.toBeChecked();checks++;
+   await expect(page.getByTestId('operating-source')).toHaveValue('');checks++;await expect(page.getByTestId('operating-budget-enabled')).not.toBeChecked();checks++;await expect(page.getByTestId('operating-confirm')).not.toBeChecked();checks++;
    await expect(page.getByTestId('capital-source')).toHaveValue('');checks++;await expect(page.getByTestId('capital-confirm')).not.toBeChecked();checks++;
    await expect(page.getByTestId('future-leaseId')).toHaveValue('');checks++;await expect(page.getByTestId('future-confirm')).not.toBeChecked();checks++;
    await expect(page.getByTestId('schedule-confirm')).not.toBeChecked();checks++;
