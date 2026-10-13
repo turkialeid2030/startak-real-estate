@@ -36,6 +36,11 @@ function replayReceivablesLedger(input, operatingCase) {
   const leaseById = new Map(leases.map(l=>[l.leaseId,l]));
   const records = new Map(), references = new Set(), reversed = new Set(), used = new Map(), events = [];
   const refunded = new Map(), receiptMovement = new Map(), refundReceipts = new Set();
+  const credited = new Map(), chargeMovement = new Map(), creditCharges = new Set();
+  const moveCharge = (id, when, strict = false) => {
+    if ((strict || creditCharges.has(id)) && when < (chargeMovement.get(id)||'')) fail('LEDGER_EVENT_CHRONOLOGY');
+    chargeMovement.set(id,when > (chargeMovement.get(id)||'') ? when : chargeMovement.get(id));
+  };
   const moveReceipt = (id, when, strict = false) => {
     if ((strict || refundReceipts.has(id)) && when < (receiptMovement.get(id)||'')) fail('LEDGER_EVENT_CHRONOLOGY');
     receiptMovement.set(id,when > (receiptMovement.get(id)||'') ? when : receiptMovement.get(id));
@@ -57,6 +62,7 @@ function replayReceivablesLedger(input, operatingCase) {
       event.amountMinor = minor(raw.amountMinor);
       if (event.type === 'RECEIPT') moveReceipt(event.id,event.date);
       if (event.type === 'CHARGE') {
+        moveCharge(event.id,event.date);
         event.periodStart = date(raw.periodStart);
         event.periodEndExclusive = date(raw.periodEndExclusive);
         event.dueDate = date(raw.dueDate);
@@ -74,11 +80,27 @@ function replayReceivablesLedger(input, operatingCase) {
       if (charge.leaseId !== receipt.leaseId) fail('LEDGER_CROSS_LEASE_ALLOCATION');
       if (event.date < charge.date || event.date < receipt.date) fail('LEDGER_EVENT_CHRONOLOGY');
       moveReceipt(receipt.id,event.date);
+      moveCharge(charge.id,event.date);
       for (const target of [charge,receipt]) {
         const total = add(used.get(target.id)||0,event.amountMinor);
-        if (total > target.amountMinor-(refunded.get(target.id)||0)) fail('LEDGER_OVERALLOCATION');
+        if (total > target.amountMinor-(refunded.get(target.id)||0)-(credited.get(target.id)||0)) fail('LEDGER_OVERALLOCATION');
         used.set(target.id,total);
       }
+    } else if (event.type === 'CREDIT') {
+      event.chargeId=text(raw.chargeId);
+      event.reference=text(raw.reference);
+      event.reason=text(raw.reason);
+      event.amountMinor=minor(raw.amountMinor);
+      const charge=records.get(event.chargeId);
+      if (charge?.type !== 'CHARGE' || reversed.has(charge.id)) fail('LEDGER_CREDIT_REFERENCE_INVALID');
+      moveCharge(charge.id,event.date,true);
+      const refKey=JSON.stringify([event.type,event.reference]);
+      if (references.has(refKey)) fail('LEDGER_DUPLICATE_REFERENCE');
+      references.add(refKey);
+      const total=add(credited.get(charge.id)||0,event.amountMinor);
+      if (total > charge.amountMinor-(used.get(charge.id)||0)) fail('LEDGER_OVERCREDIT');
+      credited.set(charge.id,total);
+      creditCharges.add(charge.id);
     } else if (event.type === 'REFUND') {
       event.receiptId=text(raw.receiptId);
       event.reference=text(raw.reference);
@@ -101,14 +123,20 @@ function replayReceivablesLedger(input, operatingCase) {
       if (!target || target.type === 'REVERSAL' || reversed.has(target.id)) fail('LEDGER_REVERSAL_REFERENCE_INVALID');
       if (event.date < target.date) fail('LEDGER_EVENT_CHRONOLOGY');
       if (target.type === 'RECEIPT') moveReceipt(target.id,event.date);
+      if (target.type === 'CHARGE') moveCharge(target.id,event.date);
       if (target.type === 'ALLOCATION') {
         moveReceipt(target.receiptId,event.date);
+        moveCharge(target.chargeId,event.date);
         used.set(target.chargeId,(used.get(target.chargeId)||0)-target.amountMinor);
         used.set(target.receiptId,(used.get(target.receiptId)||0)-target.amountMinor);
       } else if (target.type === 'REFUND') {
         moveReceipt(target.receiptId,event.date,true);
         refunded.set(target.receiptId,(refunded.get(target.receiptId)||0)-target.amountMinor);
-      } else if (refunded.get(target.id)) fail('LEDGER_REVERSE_REFUNDS_FIRST');
+      } else if (target.type === 'CREDIT') {
+        moveCharge(target.chargeId,event.date,true);
+        credited.set(target.chargeId,(credited.get(target.chargeId)||0)-target.amountMinor);
+      } else if (credited.get(target.id)) fail('LEDGER_REVERSE_CREDITS_FIRST');
+      else if (refunded.get(target.id)) fail('LEDGER_REVERSE_REFUNDS_FIRST');
       else if (used.get(target.id)) fail('LEDGER_REVERSE_ALLOCATIONS_FIRST');
       reversed.add(target.id);
     } else fail('LEDGER_TYPE_INVALID');
@@ -116,18 +144,21 @@ function replayReceivablesLedger(input, operatingCase) {
     events.push(event);
   }
   const ledger = {schemaVersion:1,caseId,events};
-  const chargeRows=[], receiptRows=[], refundRows=[], months=new Map(), refundMonths=new Map();
+  const chargeRows=[], receiptRows=[], refundRows=[], creditRows=[], months=new Map(), refundMonths=new Map();
   const aging = {notDue:0,dueToday:0,days1to30:0,days31to60:0,days61to90:0,daysOver90:0};
-  let charged=0,received=0,allocated=0,returned=0;
+  let charged=0,received=0,allocated=0,returned=0,reduced=0;
   for (const event of events) {
     if (reversed.has(event.id)) continue;
     if (event.type === 'CHARGE') {
-      const applied=used.get(event.id)||0, outstanding=event.amountMinor-applied;
+      const applied=used.get(event.id)||0, reduction=credited.get(event.id)||0, outstanding=event.amountMinor-applied-reduction;
       const overdueDays=Math.round((Date.parse(asOf)-Date.parse(event.dueDate))/86400000);
       const bucket=overdueDays<0?'notDue':overdueDays===0?'dueToday':overdueDays<=30?'days1to30':overdueDays<=60?'days31to60':overdueDays<=90?'days61to90':'daysOver90';
       aging[bucket]=add(aging[bucket],outstanding);
       charged=add(charged,event.amountMinor);allocated=add(allocated,applied);
-      chargeRows.push({...event,allocatedMinor:applied,outstandingMinor:outstanding,overdueDays:Math.max(0,overdueDays),agingBucket:bucket});
+      chargeRows.push({...event,allocatedMinor:applied,creditedMinor:reduction,netChargedMinor:event.amountMinor-reduction,outstandingMinor:outstanding,overdueDays:Math.max(0,overdueDays),agingBucket:bucket});
+    } else if (event.type === 'CREDIT') {
+      reduced=add(reduced,event.amountMinor);
+      creditRows.push({...event,leaseId:records.get(event.chargeId).leaseId});
     } else if (event.type === 'RECEIPT') {
       const applied=used.get(event.id)||0;
       received=add(received,event.amountMinor);
@@ -143,7 +174,8 @@ function replayReceivablesLedger(input, operatingCase) {
     }
   }
   return {ledger,summary:{schemaVersion:1,caseId,asOfDate,status:events.length?'RECORDED':'NOT_AVAILABLE',currency:'SAR',amountUnit:'halala',chargeRows,receiptRows,reversedIds:[...reversed],agingMinor:aging,
-    totalsMinor:events.length?{charged,received,allocated,outstanding:charged-allocated,unallocated:received-allocated-returned,refunded:returned,netReceived:received-returned}:null,
+    totalsMinor:events.length?{charged,received,allocated,outstanding:charged-allocated-reduced,unallocated:received-allocated-returned,refunded:returned,netReceived:received-returned,credited:reduced,netCharged:charged-reduced}:null,
+    creditRows,
     refundRows,monthlyRefunds:[...refundMonths].sort(([a],[b])=>a.localeCompare(b)).map(([month,amountMinor])=>({month,amountMinor})),
     monthlyReceipts:[...months].sort(([a],[b])=>a.localeCompare(b)).map(([month,amountMinor])=>({month,amountMinor})),
     scope:'Locally entered rent-only document register, as of the case date. Not a tax invoice, bank verification, forecast or general ledger. Separate from period collection aggregates; never summed with them or written to NOI. Reversals correct entries and are not cash refunds.',professionalReleaseAuthorized:false,financialEngineUpdated:false}};
