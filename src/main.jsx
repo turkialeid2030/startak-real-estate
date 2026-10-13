@@ -1,5 +1,6 @@
 import './index.css';
 import React, {lazy,Suspense} from 'react';
+import WorkspaceErrorBoundary from './components/WorkspaceErrorBoundary.jsx';
 import AssetSupportPanel from './components/AssetSupportPanel.jsx';
 import ReactDOM from 'react-dom/client';
 import App from './app/App.jsx';
@@ -33,10 +34,16 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <AssetSupportPanel />
       <App />
       <ExitCapGuidanceEnhancer />
-      <Suspense fallback={<p role="status" className="p-4 text-slate-200">جارٍ تحميل مساحات المستندات والحالة…</p>}>
-        <LocalDocumentEvidenceWorkspace />
-        <CanonicalCaseWorkspacePanel />
-      </Suspense>
+      <WorkspaceErrorBoundary surface="documents">
+        <Suspense fallback={<p role="status" className="p-4 text-slate-200">جارٍ تحميل مساحة المستندات…</p>}>
+          <LocalDocumentEvidenceWorkspace />
+        </Suspense>
+      </WorkspaceErrorBoundary>
+      <WorkspaceErrorBoundary surface="canonical">
+        <Suspense fallback={<p role="status" className="p-4 text-slate-200">جارٍ تحميل مساحة الحالة…</p>}>
+          <CanonicalCaseWorkspacePanel />
+        </Suspense>
+      </WorkspaceErrorBoundary>
       <StrictArabicSurfaceGuard />
     </LocaleProvider>
   </React.StrictMode>

@@ -198,6 +198,44 @@ async function jsonReport(page) {
         await context.close();
       }
     }
+    // Reproduce the observed production MIME failure in isolated synthetic
+    // sessions. Normal acceptance above still requires zero page errors.
+    for (const width of [1366, 390]) {
+      for (const target of [
+        { chunk: 'CanonicalCaseWorkspacePanel', surface: 'canonical', healthy: 'local-document-evidence-workspace', recovered: 'canonical-case-workspace-panel' },
+        { chunk: 'LocalDocumentEvidenceWorkspace', surface: 'documents', healthy: 'canonical-case-workspace-panel', recovered: 'local-document-evidence-workspace' },
+      ]) {
+        const context = await browser.newContext({ viewport: { width, height: 960 }, locale: 'ar-SA', acceptDownloads: true });
+        try {
+          let intercepted = 0;
+          const pattern = `**/assets/${target.chunk}-*.js`;
+          await context.route(pattern, route => {
+            intercepted++;
+            return route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><title>Asset unavailable</title>' });
+          });
+          const page = await context.newPage();
+          await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+          const warning = page.getByTestId(`workspace-unavailable-${target.surface}`);
+          await expect(warning).toBeVisible({ timeout: 25000 }); checks++;
+          ok(intercepted > 0, 'actual module request received simulated HTML');
+          await expect(page.getByTestId(target.healthy)).toBeVisible(); checks++;
+          const dialog = await openDeals(page);
+          await dialog.getByRole('button', { name: ar.globalApp.closePanel, exact: true }).click(); checks++;
+          const price = page.getByLabel(/قيمة شراء المبنى/).first();
+          await price.fill('1234567');
+          await expect(price).toHaveValue('1234567'); checks++;
+          const report = await jsonReport(page);
+          ok(report.financial.inputs.buildingPrice === 1234567 && verifyPersonalFinancialStudy(report), 'study input and verified export survive sibling module failure');
+          await expect(warning).toContainText('احفظ عملك'); checks++;
+          // Recovery is explicit and only after exporting the edited work.
+          await context.unroute(pattern);
+          await page.reload({ waitUntil: 'domcontentloaded' });
+          await expect(page.getByTestId(target.recovered)).toBeVisible({ timeout: 25000 });
+          await expect(warning).not.toBeVisible(); checks++;
+          console.log(`WORKSPACE_MIME_ISOLATION=PASS surface=${target.surface} width=${width}`);
+        } finally { await context.close(); }
+      }
+    }
     console.log('AUDIT_F03_F07_REAL_CHROMIUM=PASS checks=' + checks);
   } finally { await browser.close(); }
 })().catch(error => { console.error('AUDIT_F03_F07_REAL_CHROMIUM=FAIL', error); process.exitCode = 1; });
