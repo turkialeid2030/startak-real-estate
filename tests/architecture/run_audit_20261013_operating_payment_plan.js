@@ -38,4 +38,33 @@ eq(calculateOperatingPaymentPlan(later,[]).status,'NEEDS_REVIEW');eq(calculateOp
 // Dates on the boundary belong to exactly one month; the exclusive horizon is outside.
 const boundary=replaceOperatingPaymentPlan(c,{...draft,entries:[{expenseId:'BUDGET',date:'2026-09-30',amount:'0.01'},{expenseId:'BUDGET',date:'2026-10-01',amount:'0.02'},{expenseId:'BUDGET',date:'2027-09-01',amount:'0.03'}]});
 const br=calculateContractRunoff(boundary).operatingPaymentPlan;eq(br.rows[0].amount,0.01);eq(br.rows[1].amount,0.02);eq(br.total,0.03);eq(br.outsideHorizon,0.03);
+// Explicit period budgets are independent of annual references and reconcile per item.
+const controlled={...draft,entries:draft.entries.slice(0,2),budgetControl:{periodStart:'2026-09-01',periodEndExclusive:'2026-11-01',items:[{expenseId:'BUDGET',amount:'350.75'},{expenseId:'UNSCHEDULED',amount:'0'}]}};
+const controlledCase=replaceOperatingPaymentPlan(c,controlled), cr=calculateContractRunoff(controlledCase);
+eq(cr.operatingPaymentPlan.budgetReconciliation.status,'MATCHED_ENTERED_BUDGET');
+eq(cr.operatingPaymentPlan.budgetReconciliation.rows.map(x=>[x.budgetMinor,x.plannedMinor,x.differenceMinor]),[[35075,35075,0],[0,0,0]]);
+eq(cr.operatingPaymentPlan.total,350.75);eq(cr.operatingPaymentPlan.coverageComplete,false);eq(cr.operatingPaymentPlan.cashBalanceCalculated,false);
+eq(cr.totals,before.totals);eq(controlledCase.operatingExpenses,c.operatingExpenses);
+eq(parseResidentialIncomeOperatingCaseEnvelope(JSON.stringify(buildResidentialIncomeOperatingCaseEnvelope(controlledCase))),controlledCase);
+eq(updateVerifiedLeaseTerms(controlledCase,{leaseId:'LEASE-1',endDate:'2027-02-01',baseRent:'1200000',sourceRef:'evidence://new',adoptionDecisionRef:'review://new',confirmed:true}).operatingPaymentPlan,controlledCase.operatingPaymentPlan);
+const withBudget=patch=>({...controlled,budgetControl:{...controlled.budgetControl,...patch}});
+for(const periodStart of ['', '2026-02-30','2026-11-01','2026-12-01'])reject(()=>replaceOperatingPaymentPlan(c,withBudget({periodStart})),'OPERATING_BUDGET_PERIOD_INVALID');
+reject(()=>replaceOperatingPaymentPlan(c,withBudget({periodStart:'2026-08-01'})),'OPERATING_BUDGET_PAST_PERIOD');
+reject(()=>replaceOperatingPaymentPlan(c,withBudget({periodEndExclusive:'2026-10-15'})),'OPERATING_BUDGET_PAYMENT_OUTSIDE_PERIOD');
+reject(()=>replaceOperatingPaymentPlan(c,withBudget({periodStart:'2026-09-02'})),'OPERATING_BUDGET_PAYMENT_OUTSIDE_PERIOD');
+for(const items of [[],[controlled.budgetControl.items[0]],[controlled.budgetControl.items[0],controlled.budgetControl.items[0]],[{expenseId:'ACTUAL',amount:'0'},controlled.budgetControl.items[0]]])reject(()=>replaceOperatingPaymentPlan(c,withBudget({items})),'OPERATING_BUDGET_COVERAGE_REQUIRED');
+for(const amount of ['',null,'-1','1.005',[0],{},false])reject(()=>replaceOperatingPaymentPlan(c,withBudget({items:[{expenseId:'BUDGET',amount},controlled.budgetControl.items[1]]})),'LEDGER_AMOUNT_INVALID');
+for(const amount of ['350.74','350.76','0'])reject(()=>replaceOperatingPaymentPlan(c,withBudget({items:[{expenseId:'BUDGET',amount},controlled.budgetControl.items[1]]})),'OPERATING_BUDGET_AMOUNT_MISMATCH');
+// Equal grand totals cannot hide one overscheduled item and another underscheduled one.
+reject(()=>replaceOperatingPaymentPlan(c,withBudget({items:[{expenseId:'BUDGET',amount:'350'},{expenseId:'UNSCHEDULED',amount:'0.75'}]})),'OPERATING_BUDGET_AMOUNT_MISMATCH');
+const zero=replaceOperatingPaymentPlan(c,{...withBudget({items:[{expenseId:'BUDGET',amount:'٠'},{expenseId:'UNSCHEDULED',amount:'۰٫۰۰'}]}),entries:[]});
+eq(calculateContractRunoff(zero).operatingPaymentPlan.total,0);eq(calculateContractRunoff(zero).operatingPaymentPlan.budgetReconciliation.status,'MATCHED_ENTERED_BUDGET');
+const imported=JSON.parse(JSON.stringify(controlledCase));imported.operatingPaymentPlan.budgetControl.items[0].amountMinor++;
+const mismatch=calculateContractRunoff(createResidentialIncomeOperatingCase(imported)).operatingPaymentPlan;
+eq(mismatch.status,'NEEDS_REVIEW');eq(mismatch.total,null);eq(mismatch.budgetReconciliation.rows[0].differenceMinor,1);
+imported.operatingPaymentPlan.budgetControl.items[0].amountMinor=0.5;reject(()=>createResidentialIncomeOperatingCase(imported),'OPERATING_BUDGET_AMOUNT_INVALID');
+imported.operatingPaymentPlan.budgetControl.items[0].amountMinor=Number.MAX_SAFE_INTEGER;imported.operatingPaymentPlan.budgetControl.items[1].amountMinor=1;reject(()=>createResidentialIncomeOperatingCase(imported),'OPERATING_BUDGET_AMOUNT_INVALID');
+eq(calculateContractRunoff(createResidentialIncomeOperatingCase({...controlledCase,asOfDate:'2026-09-02'})).operatingPaymentPlan.status,'NEEDS_REVIEW');
+// Disabling period control preserves legacy explicit-payment behavior.
+const uncontrolled=replaceOperatingPaymentPlan(controlledCase,{...draft,budgetControl:null});eq(uncontrolled.operatingPaymentPlan.budgetControl,undefined);eq(calculateContractRunoff(uncontrolled).operatingPaymentPlan.budgetReconciliation.status,'NOT_PROVIDED');
 console.log(`AUDIT_OPERATING_PAYMENT_PLAN=PASS checks=${checks}`);
