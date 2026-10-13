@@ -6,6 +6,7 @@ import ContractRunoffPanel from './ContractRunoffPanel';
 import LeaseScheduleEditor from './LeaseScheduleEditor';
 import ReceivablesLedgerPanel from './ReceivablesLedgerPanel';
 import CapitalPaymentPlanEditor from './CapitalPaymentPlanEditor';
+import OperatingPaymentPlanEditor from './OperatingPaymentPlanEditor';
 import FutureLeaseEditor from './FutureLeaseEditor';
 
 const STATUS_TONE = Object.freeze({
@@ -140,7 +141,7 @@ export default function ResidentialIncomeAcquisitionPanel({
             role="status"
             className={`mt-3 rounded-lg border p-3 text-xs ${operatingCaseMessage.ok ? 'border-emerald-900/60 bg-emerald-950/20 text-emerald-200' : 'border-rose-900/60 bg-rose-950/20 text-rose-200'}`}
           >
-            {operatingCaseMessage.ok && operatingCaseMessage.code === 'CAPITAL_PLAN_UPDATED' ? (dir === 'rtl' ? 'تم حفظ خطة الدفع.' : 'Payment plan saved.') : operatingCaseMessage.ok && operatingCaseMessage.code === 'LEDGER_UPDATED' ? (dir === 'rtl' ? 'تم حفظ سجل المستحقات والقبض.' : 'Charges and receipts register saved.') : operatingCaseMessage.ok
+            {operatingCaseMessage.ok && ['CAPITAL_PLAN_UPDATED','OPERATING_PLAN_UPDATED'].includes(operatingCaseMessage.code) ? (dir === 'rtl' ? 'تم حفظ خطة الدفع.' : 'Payment plan saved.') : operatingCaseMessage.ok && operatingCaseMessage.code === 'LEDGER_UPDATED' ? (dir === 'rtl' ? 'تم حفظ سجل المستحقات والقبض.' : 'Charges and receipts register saved.') : operatingCaseMessage.ok
               ? t(`riai.${operatingCaseMessage.code === 'EXPORTED'
                 ? 'exportSuccess'
                 : operatingCaseMessage.code === 'CLEARED'
@@ -217,6 +218,7 @@ export default function ResidentialIncomeAcquisitionPanel({
               </section>
             ) : null}
             <ContractRunoffPanel result={viewModel.contractRunoff} operatingCase={viewModel.operatingCase} dir={dir} />
+            <details key={`operating-plan:${viewModel.operatingCase.caseId}:${viewModel.operatingCase.asOfDate}`}><summary data-testid="operating-open" className="cursor-pointer rounded border border-slate-700 p-3 text-sm">{dir==='rtl'?'دفعات التشغيل المخططة':'Planned operating payments'}</summary><OperatingPaymentPlanEditor operatingCase={viewModel.operatingCase} onReplaceOperatingCase={onReplaceOperatingCase} dir={dir} /></details>
             <details key={`ledger:${viewModel.operatingCase.caseId}:${viewModel.operatingCase.asOfDate}`}><summary data-testid="ledger-open" className="cursor-pointer rounded border border-slate-700 p-3 text-sm">{dir==='rtl'?'سجل المستحقات والقبض':'Charges and receipts register'}</summary><ReceivablesLedgerPanel operatingCase={viewModel.operatingCase} onReplaceOperatingCase={onReplaceOperatingCase} dir={dir} /></details>
             <details key={`capital-plan:${viewModel.operatingCase.caseId}:${viewModel.operatingCase.asOfDate}`}><summary data-testid="capital-open" className="cursor-pointer rounded border border-slate-700 p-3 text-sm">{dir==='rtl'?'خطة دفع النفقات الرأسمالية':'Capital payment plan'}</summary><CapitalPaymentPlanEditor operatingCase={viewModel.operatingCase} onReplaceOperatingCase={onReplaceOperatingCase} dir={dir} /></details>
             <details key={`future-lease:${viewModel.operatingCase.caseId}:${viewModel.operatingCase.asOfDate}`}><summary data-testid="future-open" className="cursor-pointer rounded border border-slate-700 p-3 text-sm">{dir==='rtl'?'العقود اللاحقة للوحدات':'Successor unit leases'}</summary><FutureLeaseEditor operatingCase={viewModel.operatingCase} onReplaceOperatingCase={onReplaceOperatingCase} dir={dir} /></details>
