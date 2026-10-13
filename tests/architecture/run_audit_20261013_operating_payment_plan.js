@@ -53,7 +53,7 @@ reject(()=>replaceOperatingPaymentPlan(c,withBudget({periodStart:'2026-08-01'}))
 reject(()=>replaceOperatingPaymentPlan(c,withBudget({periodEndExclusive:'2026-10-15'})),'OPERATING_BUDGET_PAYMENT_OUTSIDE_PERIOD');
 reject(()=>replaceOperatingPaymentPlan(c,withBudget({periodStart:'2026-09-02'})),'OPERATING_BUDGET_PAYMENT_OUTSIDE_PERIOD');
 for(const items of [[],[controlled.budgetControl.items[0]],[controlled.budgetControl.items[0],controlled.budgetControl.items[0]],[{expenseId:'ACTUAL',amount:'0'},controlled.budgetControl.items[0]]])reject(()=>replaceOperatingPaymentPlan(c,withBudget({items})),'OPERATING_BUDGET_COVERAGE_REQUIRED');
-for(const amount of ['',null,'-1','1.005'])reject(()=>replaceOperatingPaymentPlan(c,withBudget({items:[{expenseId:'BUDGET',amount},controlled.budgetControl.items[1]]})),'LEDGER_AMOUNT_INVALID');
+for(const amount of ['',null,'-1','1.005',[0],{},false])reject(()=>replaceOperatingPaymentPlan(c,withBudget({items:[{expenseId:'BUDGET',amount},controlled.budgetControl.items[1]]})),'LEDGER_AMOUNT_INVALID');
 for(const amount of ['350.74','350.76','0'])reject(()=>replaceOperatingPaymentPlan(c,withBudget({items:[{expenseId:'BUDGET',amount},controlled.budgetControl.items[1]]})),'OPERATING_BUDGET_AMOUNT_MISMATCH');
 // Equal grand totals cannot hide one overscheduled item and another underscheduled one.
 reject(()=>replaceOperatingPaymentPlan(c,withBudget({items:[{expenseId:'BUDGET',amount:'350'},{expenseId:'UNSCHEDULED',amount:'0.75'}]})),'OPERATING_BUDGET_AMOUNT_MISMATCH');

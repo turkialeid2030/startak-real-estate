@@ -29,6 +29,7 @@ function reconcileBudget(plan,asOfDate){
   return {status:issues.length?'NEEDS_REVIEW':'MATCHED_ENTERED_BUDGET',periodStart:b.periodStart,periodEndExclusive:b.periodEndExclusive,rows,issues};
 }
 function budgetAmount(value){
+  if(typeof value!=='string'&&typeof value!=='number')fail('LEDGER_AMOUNT_INVALID');
   const normalized=String(value??'').trim().replace(/[٠-٩]/g,d=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[۰-۹]/g,d=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/٫/g,'.');
   return /^0+(?:\.0{1,2})?$/.test(normalized)?0:parseLedgerAmount(value);
 }
