@@ -290,6 +290,7 @@ function hydrateResidentialIncomeOperatingCaseSnapshot(snapshot) {
       operatingExpenses,
       capexItems,
       capitalPaymentPlan: snapshot.capitalPaymentPlan,
+      operatingPaymentPlan: snapshot.operatingPaymentPlan,
       exitScenarios,
       additionalOperatingInputs,
       evidenceLineage,

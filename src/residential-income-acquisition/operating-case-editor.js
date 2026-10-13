@@ -97,6 +97,7 @@ function rebuildCase(operatingCase, overrides) {
     operatingExpenses: operatingCase.operatingExpenses,
     capexItems: operatingCase.capexItems,
     capitalPaymentPlan: operatingCase.capitalPaymentPlan,
+    operatingPaymentPlan: operatingCase.operatingPaymentPlan,
     exitScenarios: operatingCase.exitScenarios,
     additionalOperatingInputs: operatingCase.additionalOperatingInputs,
     evidenceLineage: overrides.evidenceLineage || operatingCase.evidenceLineage,

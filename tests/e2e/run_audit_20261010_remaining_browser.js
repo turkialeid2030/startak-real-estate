@@ -117,6 +117,7 @@ async function download(page,locator){const pending=page.waitForEvent('download'
    await collection.getByLabel(ar.riai.collectionId,{exact:true}).fill('UNSAVED-CASE-ONE');await confirmed.check();
    const other=JSON.parse(JSON.stringify(envelope).replaceAll('CASE-COLLECTIONS-1','CASE-COLLECTIONS-SECOND'));
    other.operatingCase.operatingExpenses=[createOperatingExpense({caseId:'CASE-COLLECTIONS-SECOND',expenseId:'EXP-1',propertyId:'PROPERTY-1',category:'MAINTENANCE',basis:'NORMALIZED',annualAmount:verified('opex.maintenance',12000,'SAR/year','evidence://lease/rent')})];
+   other.operatingCase.operatingExpenses.push(createOperatingExpense({caseId:'CASE-COLLECTIONS-SECOND',expenseId:'BUDGET-1',propertyId:'PROPERTY-1',category:'MAINTENANCE',basis:'BUDGET',annualAmount:verified('opex.budget',5000,'SAR/year','evidence://lease/rent')}));
    other.operatingCase.capexItems=[createCapexItem({caseId:'CASE-COLLECTIONS-SECOND',capexItemId:'CAP-1',propertyId:'PROPERTY-1',category:'OTHER',severity:'LOW',estimatedCost:verified('capex.cost',12000,'SAR','evidence://lease/rent')})];
    await importOperating(other);
    await expect(collection.getByLabel(ar.riai.collectionId,{exact:true})).toHaveValue('');checks++;
@@ -150,6 +151,17 @@ async function download(page,locator){const pending=page.waitForEvent('download'
    await expect(page.getByTestId('capital-feedback')).toHaveText('تم حفظ خطة الدفع.');checks++;
    const planned=JSON.parse(await download(page,page.getByTestId('export-contract-runoff')));
    ok(planned.result.totals.scheduledCapex===12000&&planned.result.totals.contractNetAfterScheduledCapex===386000&&planned.result.rows[0].scheduledCapex===12000,'capital timing affects only explicit analytical net and retains before-CAPEX amount');
+   await page.getByTestId('operating-open').click();await page.getByTestId('operating-add').click();
+   await expect(page.getByTestId('operating-item-0').locator('option')).toHaveCount(2);checks++;
+   await page.getByTestId('operating-item-0').selectOption('BUDGET-1');await page.getByTestId('operating-date-0').fill('2026-08-31');await page.getByTestId('operating-amount-0').fill('3000');
+   await page.getByTestId('operating-source').fill('Synthetic operating payment plan');await page.getByTestId('operating-review').fill('Synthetic operating review');
+   await page.getByTestId('operating-confirm').check();await page.getByTestId('operating-save').click();await expect(page.getByTestId('operating-feedback')).toContainText('OPERATING_PLAN_PAST_DATE');checks++;
+   await page.getByTestId('operating-date-0').fill('2026-09-15');await expect(page.getByTestId('operating-confirm')).not.toBeChecked();checks++;
+   await page.getByTestId('operating-save').click();await expect(page.getByTestId('operating-feedback')).toContainText('EXPLICIT_VERIFICATION_CONFIRMATION_REQUIRED');checks++;
+   await page.getByTestId('operating-confirm').check();await page.getByTestId('operating-save').click();await expect(page.getByTestId('operating-feedback')).toHaveText('تم حفظ خطة الدفع.');checks++;
+   const operatingPlan=JSON.parse(await download(page,page.getByTestId('export-contract-runoff')));
+   ok(operatingPlan.result.operatingPaymentPlan.total===3000&&operatingPlan.result.operatingPaymentPlan.rows[0].amount===3000&&operatingPlan.result.operatingPaymentPlan.coverageComplete===false,'explicit operating payments remain partial and are not inferred from annual budget');
+   ok(JSON.stringify(operatingPlan.result.totals)===JSON.stringify(planned.result.totals),'planned payments do not double count normalized OPEX or change existing net');
    const ledgerFill=async(type,values)=>{
     await page.getByTestId('ledger-type').selectOption(type);
     for(const[key,value]of Object.entries(values)){
@@ -200,6 +212,7 @@ async function download(page,locator){const pending=page.waitForEvent('download'
    const restored=JSON.parse(await download(page,page.getByTestId('ledger-export')));
    ok(restored.result.totalsMinor.outstanding===9025&&restored.sourceOperatingCase.capitalPaymentPlan.entries[0].amountMinor===1200000,'snapshot round trip preserves ledger and capital payment plan');
    ok(restored.result.totalsMinor.credited===1000&&restored.result.creditRows[0].id==='K2'&&restored.result.reversedIds.includes('K1'),'documented reduction and correction survive snapshot round trip');
+   ok(restored.sourceOperatingCase.operatingPaymentPlan.entries[0].amountMinor===300000,'operating payment plan survives ledger changes and import/export');
    ok(restored.result.totalsMinor.refunded===2025&&restored.result.refundRows[0].id==='F2'&&restored.result.reversedIds.includes('F1'),'refund and correction survive snapshot round trip');
    await page.getByTestId('future-open').click();
    await page.getByTestId('future-previous').selectOption('LEASE-1');await page.getByTestId('future-tenant').selectOption('TENANT-1');
@@ -212,8 +225,10 @@ async function download(page,locator){const pending=page.waitForEvent('download'
    ok(successor.sourceOperatingCase.receivablesLedger.events.length===10&&successor.sourceOperatingCase.capitalPaymentPlan.entries.length===1&&successor.sourceOperatingCase.leases.length===2,'successor save preserves ledger and capital plan');
    await page.getByTestId('future-leaseId').fill('UNSAVED-NEXT');await page.getByTestId('future-confirm').check();
    await page.getByTestId('ledger-id').fill('UNSAVED-LEDGER');await page.getByTestId('ledger-confirm').check();
+   await page.getByTestId('operating-source').fill('UNSAVED-OPERATING');await page.getByTestId('operating-confirm').check();
    await importOperating(envelope);await expect(page.getByTestId('schedule-lease')).toHaveValue('');checks++;
    await expect(page.getByTestId('ledger-id')).toHaveValue('');checks++;await expect(page.getByTestId('ledger-confirm')).not.toBeChecked();checks++;
+   await expect(page.getByTestId('operating-source')).toHaveValue('');checks++;await expect(page.getByTestId('operating-confirm')).not.toBeChecked();checks++;
    await expect(page.getByTestId('capital-source')).toHaveValue('');checks++;await expect(page.getByTestId('capital-confirm')).not.toBeChecked();checks++;
    await expect(page.getByTestId('future-leaseId')).toHaveValue('');checks++;await expect(page.getByTestId('future-confirm')).not.toBeChecked();checks++;
    await expect(page.getByTestId('schedule-confirm')).not.toBeChecked();checks++;
