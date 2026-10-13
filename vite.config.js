@@ -48,6 +48,10 @@ const buildMetadata = resolveBuildMetadata();
 function releaseManifestPlugin() {
   return {
     name: 'startak-release-manifest',
+    transformIndexHtml() {
+      return [{ tag: 'meta', attrs: { name: 'startak-source-commit',
+        content: buildMetadata.sourceCommit || 'UNVERIFIED_LOCAL' }, injectTo: 'head' }];
+    },
     generateBundle() {
       this.emitFile({
         type: 'asset',

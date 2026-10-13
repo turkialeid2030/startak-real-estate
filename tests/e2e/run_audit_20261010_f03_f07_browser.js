@@ -18,6 +18,7 @@ async function capturePageState(page) {
     lang: document.documentElement.lang,
     dir: document.documentElement.dir,
     title: document.title,
+    documentSourceCommit: document.querySelector('meta[name="startak-source-commit"]')?.content || null,
     studyVisible: Boolean(document.querySelector('[data-testid="c75-personal-research-workspace"]')),
     headerButtons: [...document.querySelectorAll('header button')].map(button => ({
       title: button.getAttribute('title'), label: button.getAttribute('aria-label'),
@@ -78,7 +79,14 @@ async function jsonReport(page) {
             window.localStorage.setItem(namespace + 'audit-seeded', 'true');
           }
         }, { namespace, seed });
-        await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        const navigation = await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        if (process.env.STARTAK_SOURCE_COMMIT) {
+          const documentCommit = await page.locator('meta[name="startak-source-commit"]').getAttribute('content');
+          ok(documentCommit === process.env.STARTAK_SOURCE_COMMIT, 'entry HTML matches reviewed source before study interaction');
+        }
+        if (BASE.startsWith('https://')) {
+          ok(/(?:^|,)\s*no-store\s*(?:,|$)/i.test(navigation.headers()['cache-control'] || ''), 'public entry document forbids storage');
+        }
         await expect(page.getByTestId('c75-personal-research-workspace')).toBeVisible({ timeout: 25000 });
         diagnostics.states.push({stage:'before-saved-deals',...await capturePageState(page)});
         await loadSaved(page);

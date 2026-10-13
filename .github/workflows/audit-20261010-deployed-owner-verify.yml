@@ -50,8 +50,15 @@ jobs:
               if(!response.ok)throw new Error('Manifest HTTP '+response.status);
               observed=await response.json();
               if(observed.sourceCommit===expected&&observed.sourceCommitBound===true){
+                if(!/(?:^|,)\s*no-store\s*(?:,|$)/i.test(response.headers.get('cache-control')||''))throw new Error('Release manifest permits storage');
+                const documentResponse=await fetch(process.env.STARTAK_E2E_URL+'/',{signal:AbortSignal.timeout(10000)});
+                if(!documentResponse.ok)throw new Error('Entry document HTTP '+documentResponse.status);
+                if(!/(?:^|,)\s*no-store\s*(?:,|$)/i.test(documentResponse.headers.get('cache-control')||''))throw new Error('Entry document permits storage');
+                const html=await documentResponse.text();
+                const meta=html.match(/<meta\s+name="startak-source-commit"\s+content="([a-f0-9]{40})"\s*\/?\s*>/);
+                if(meta?.[1]!==expected)throw new Error('Entry document does not match reviewed source');
                 await fs.mkdir('runtime-evidence/remaining-audit',{recursive:true});
-                await fs.writeFile('runtime-evidence/remaining-audit/deployed-manifest.json',JSON.stringify({expectedSourceCommit:expected,observedManifest:observed,checkedAt:new Date().toISOString(),deploymentReadOnly:true,transactionAuthorized:false},null,2));
+                await fs.writeFile('runtime-evidence/remaining-audit/deployed-manifest.json',JSON.stringify({expectedSourceCommit:expected,documentSourceCommit:meta[1],documentCacheControl:documentResponse.headers.get('cache-control'),observedManifest:observed,checkedAt:new Date().toISOString(),deploymentReadOnly:true,transactionAuthorized:false},null,2));
                 console.log('DEPLOYED_OWNER_SOURCE=PASS sha='+expected);
                 process.exit(0);
               }
