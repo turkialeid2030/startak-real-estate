@@ -9,6 +9,23 @@ const BASE = process.env.STARTAK_E2E_URL || 'http://127.0.0.1:4173';
 const NAME = 'AUDIT ONLY 20261010 OFFICE / عقار';
 const PROJECT = 'DRAFT-F06-NOT-APPLIED';
 const namespace = require('../../src/storage/browser-local-storage-provider').NAMESPACE;
+const EVIDENCE_DIR = 'runtime-evidence/remaining-audit';
+// This suite uses a new isolated browser context and synthetic records only.
+// Do not reuse this evidence collector against an authenticated user session.
+async function capturePageState(page) {
+  return page.evaluate(() => ({
+    url: location.origin + location.pathname,
+    lang: document.documentElement.lang,
+    dir: document.documentElement.dir,
+    title: document.title,
+    studyVisible: Boolean(document.querySelector('[data-testid="c75-personal-research-workspace"]')),
+    headerButtons: [...document.querySelectorAll('header button')].map(button => ({
+      title: button.getAttribute('title'), label: button.getAttribute('aria-label'),
+      text: button.textContent.slice(0,200), disabled: button.disabled,
+    })),
+    scripts: [...document.scripts].map(script => script.getAttribute('src')).filter(Boolean),
+  }));
+}
 let checks = 0;
 function ok(value, message) { assert.ok(value, message); checks++; }
 async function download(page, locator) {
@@ -39,7 +56,17 @@ async function jsonReport(page) {
       const context = await browser.newContext({ viewport, locale: 'ar-SA', acceptDownloads: true });
       const page = await context.newPage();
       const errors = [];
+      const diagnostics={expectedSourceCommit:process.env.STARTAK_SOURCE_COMMIT||null,viewport,consoleErrors:[],failedRequests:[],responses:[],states:[]};
       page.on('pageerror', error => errors.push(error.message));
+      const safeUrl=value=>{try{const u=new URL(value);return u.origin+u.pathname;}catch{return 'INVALID_URL';}};
+      page.on('console',message=>{if(message.type()==='error'&&diagnostics.consoleErrors.length<30)diagnostics.consoleErrors.push(message.text().slice(0,1000));});
+      page.on('requestfailed',request=>{if(diagnostics.failedRequests.length<30)diagnostics.failedRequests.push({url:safeUrl(request.url()),error:request.failure()?.errorText});});
+      page.on('response',response=>{
+        if(['document','script'].includes(response.request().resourceType())&&diagnostics.responses.length<50){
+          const headers=response.headers();
+          diagnostics.responses.push({url:safeUrl(response.url()),status:response.status(),cacheStatus:headers['cf-cache-status']||null,age:headers.age||null,contentType:headers['content-type']||null});
+        }
+      });
       try {
         const seed = { id: 'audit-f03-f07', name: NAME, mode: 'building',
           savedAt: '2026-10-10T00:00:00Z', inputs: gold['RE-GOLD-002_existing_building'].inputs };
@@ -53,10 +80,12 @@ async function jsonReport(page) {
         }, { namespace, seed });
         await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 30000 });
         await expect(page.getByTestId('c75-personal-research-workspace')).toBeVisible({ timeout: 25000 });
+        diagnostics.states.push({stage:'before-saved-deals',...await capturePageState(page)});
         await loadSaved(page);
         await expect(page.locator('header [data-user-content]')).toContainText(NAME);
         checks++;
         const first = await jsonReport(page);
+        if(process.env.STARTAK_SOURCE_COMMIT)ok(first.sourceBuild.sourceCommit===process.env.STARTAK_SOURCE_COMMIT,'loaded application source matches the accepted commit, not only the separately fetched manifest');
         ok(verifyPersonalFinancialStudy(first), 'browser export fingerprint verifies in independent Node runtime');
         ok(first.version === 'PERSONAL_FINANCIAL_STUDY_V2' && first.dealName === NAME, 'full financial report preserves original name');
         ok(first.financial.results.NOI > 0 && first.financial.annualCashflows.length === 6, 'real UI exports financial engine and all study years');
@@ -153,7 +182,21 @@ async function jsonReport(page) {
         ok(verifyPersonalFinancialStudy(invalid), 'invalid-input draft is still an internally consistent report');
         ok(errors.length === 0, 'no React/browser page exception');
         console.log('AUDIT_F03_F07_CHROMIUM_VIEWPORT=PASS width=' + viewport.width);
-      } finally { await context.close(); }
+      } catch(error) {
+        diagnostics.failure=String(error.stack||error).slice(0,8000);
+        try {
+          diagnostics.states.push({stage:'failure',...await capturePageState(page)});
+          await fs.mkdir(EVIDENCE_DIR,{recursive:true});
+          await page.screenshot({path:`${EVIDENCE_DIR}/owner-study-failure-${viewport.width}.png`,fullPage:false,timeout:5000});
+        } catch(captureError) { diagnostics.captureError=String(captureError.message||captureError).slice(0,1000); }
+        throw error; // Evidence failure must never replace or suppress the test failure.
+      } finally {
+        try {
+          await fs.mkdir(EVIDENCE_DIR,{recursive:true});
+          await fs.writeFile(`${EVIDENCE_DIR}/owner-study-diagnostics-${viewport.width}.json`,JSON.stringify({...diagnostics,pageErrors:errors},null,2));
+        } catch(e) { console.error('OWNER_STUDY_DIAGNOSTICS_WRITE_FAILED',e.message); }
+        await context.close();
+      }
     }
     console.log('AUDIT_F03_F07_REAL_CHROMIUM=PASS checks=' + checks);
   } finally { await browser.close(); }
