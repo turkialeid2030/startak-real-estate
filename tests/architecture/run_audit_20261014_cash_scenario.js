@@ -47,4 +47,30 @@ bad=JSON.parse(JSON.stringify(zero));bad.cashScenario.openingMinor=-Number.MAX_S
 eq(calculateContractRunoff(createResidentialIncomeOperatingCase(bad)).cashScenario.closingMinor,null);
 for(const n of [Number.MAX_SAFE_INTEGER,-Number.MAX_SAFE_INTEGER,0,1,-1])eq(replaceCashScenario(c,{...draft,openingAmount:formatCashMinor(n),entries:[]}).cashScenario.openingMinor,n);
 eq(formatCashMinor(Number.MAX_SAFE_INTEGER),'90071992547409.91');
+// Month-end balances must not hide dated cash gaps. Debit-first is explicit.
+eq(before.cashScenario.liquidity,null);
+eq(p.liquidity.minimumMinor,-6024);eq(p.liquidity.firstShortfallDate,'2026-09-01');
+eq(p.liquidity.minimumDate,'2026-09-30');eq(p.liquidity.additionalOpeningRequiredMinor,6024);
+eq(p.liquidity.sameDayOrder,'PAYMENTS_BEFORE_RECEIPTS');eq(p.liquidity.actualBankBalance,false);eq(p.liquidity.coverageComplete,false);
+eq(p.liquidity.rows.at(-1).closingMinor,p.closingMinor);
+const lateDraft={...draft,openingAmount:'0',entries:[{leaseId:'LEASE-1',date:'2026-09-30',amount:'200',reference:'late'}]};
+const late=calculateContractRunoff(replaceCashScenario(c,lateDraft)).cashScenario;
+eq(late.rows[0].closingMinor,5000);eq(late.liquidity.minimumMinor,-15000);
+eq(late.liquidity.firstShortfallDate,'2026-09-30');eq(late.liquidity.additionalOpeningRequiredMinor,15000);
+eq(late.liquidity.rows,[{date:'2026-09-30',openingMinor:0,paymentsMinor:15000,receiptsMinor:20000,beforeReceiptsMinor:-15000,closingMinor:5000}]);
+const early=calculateContractRunoff(replaceCashScenario(c,{...lateDraft,entries:[{...lateDraft.entries[0],date:'2026-09-29'}]})).cashScenario;
+eq(early.closingMinor,late.closingMinor);eq(early.liquidity.minimumMinor,0);eq(early.liquidity.firstShortfallDate,null);eq(early.liquidity.additionalOpeningRequiredMinor,0);
+const covered=calculateContractRunoff(replaceCashScenario(c,{...lateDraft,openingAmount:'150'})).cashScenario;
+eq(covered.liquidity.minimumMinor,0);eq(covered.liquidity.firstShortfallDate,null);
+const noReceipts=calculateContractRunoff(zero).cashScenario;
+eq(noReceipts.liquidity.additionalOpeningRequiredMinor,15000);
+eq(missing.liquidity,null);
+const permuted=replaceCashScenario(c,{...draft,entries:[...draft.entries].reverse()});
+eq(calculateContractRunoff(permuted).cashScenario.liquidity,p.liquidity);
+// Intraday conservative gap may overflow even when month-end cancellation is safe.
+const unsafeDay=replaceCashScenario(c,{...lateDraft,openingAmount:formatCashMinor(-Number.MAX_SAFE_INTEGER),entries:[{...lateDraft.entries[0],amount:'150'}]});
+const overflow=calculateContractRunoff(unsafeDay).cashScenario;
+eq(overflow.status,'NEEDS_REVIEW');eq(overflow.liquidity,null);eq(overflow.rows,[]);eq(overflow.closingMinor,null);
+// Replaying a snapshot recomputes the dated check from source plans.
+eq(calculateContractRunoff(parseResidentialIncomeOperatingCaseEnvelope(JSON.stringify(buildResidentialIncomeOperatingCaseEnvelope(saved)))).cashScenario.liquidity,p.liquidity);
 console.log(`AUDIT_CASH_SCENARIO=PASS checks=${checks}`);

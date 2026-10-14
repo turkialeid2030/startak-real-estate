@@ -32,7 +32,7 @@ function validateCashScenario(plan,c){
   return {schemaVersion:1,caseId:plan.caseId,openingDate:plan.openingDate,openingMinor:plan.openingMinor,sourceRef:plan.sourceRef.trim(),reviewRef:plan.reviewRef.trim(),entries};
 }
 function calculateCashScenario(c,periods){
-  const empty={status:'NOT_AVAILABLE',rows:[],closingMinor:null,issues:[],coverageComplete:false,actualBankBalance:false};
+  const empty={status:'NOT_AVAILABLE',rows:[],closingMinor:null,issues:[],coverageComplete:false,actualBankBalance:false,liquidity:null};
   if(!c.cashScenario)return empty;
   const p=validateCashScenario(c.cashScenario,c),issues=[];
   if(!periods.length)return {...empty,status:'NEEDS_REVIEW',issues:[{code:'CASH_HORIZON_REQUIRED'}]};
@@ -53,7 +53,29 @@ function calculateCashScenario(c,periods){
       const net=receipts-operatingPaid-capex,opening=balance;balance+=net;
       return {periodStart:period.periodStart,periodEndExclusive:period.periodEndExclusive,openingMinor:safe(opening),receiptsMinor:safe(receipts),operatingMinor:safe(operatingPaid),capexMinor:safe(capex),netMinor:safe(net),closingMinor:safe(balance)};
     });
-    return {...empty,status:'PARTIAL_SCENARIO',rows,closingMinor:safe(balance),sourceRef:p.sourceRef,reviewRef:p.reviewRef,capitalOutsideHorizon:capital.outsideHorizon,
+    // Dates do not establish intraday settlement order. Debit-first is a
+    // conservative bound for the supplied flows, not observed bank liquidity.
+    const daily=new Map();
+    const add=(entry,key)=>{
+      const day=daily.get(entry.date)||{date:entry.date,receipts:0n,payments:0n};
+      day[key]+=BigInt(entry.amountMinor);daily.set(entry.date,day);
+    };
+    p.entries.forEach(e=>add(e,'receipts'));
+    [...operating.rows,...capital.rows].forEach(row=>row.entries.forEach(e=>add(e,'payments')));
+    let current=BigInt(p.openingMinor),minimum=current,minimumDate=start;
+    let firstShortfallDate=current<0n?start:null;
+    const dailyRows=[...daily.values()].sort((a,b)=>a.date.localeCompare(b.date)).map(day=>{
+      const opening=current,afterPayments=current-day.payments;
+      if(afterPayments<minimum){minimum=afterPayments;minimumDate=day.date;}
+      if(firstShortfallDate===null&&afterPayments<0n)firstShortfallDate=day.date;
+      current=afterPayments+day.receipts;
+      return {date:day.date,openingMinor:safe(opening),paymentsMinor:safe(day.payments),
+        receiptsMinor:safe(day.receipts),beforeReceiptsMinor:safe(afterPayments),closingMinor:safe(current)};
+    });
+    const liquidity={status:'CONSERVATIVE_ENTERED_FLOWS',sameDayOrder:'PAYMENTS_BEFORE_RECEIPTS',
+      rows:dailyRows,minimumMinor:safe(minimum),minimumDate,firstShortfallDate,
+      additionalOpeningRequiredMinor:safe(minimum<0n?-minimum:0n),coverageComplete:false,actualBankBalance:false};
+    return {...empty,status:'PARTIAL_SCENARIO',rows,liquidity,closingMinor:safe(balance),sourceRef:p.sourceRef,reviewRef:p.reviewRef,capitalOutsideHorizon:capital.outsideHorizon,
       semantics:'Entered receipt assumptions and documented opening balance less supplied operating and capital plans only. No accrual conversion or ledger carry-forward. Excludes unentered taxes, financing, deposits, fees and other flows. Month-end scenario, not intramonth liquidity, complete forecast, executed payments or verified bank balance.'};
   }catch(error){if(error.message!=='CASH_AMOUNT_OUT_OF_RANGE')throw error;return {...empty,status:'NEEDS_REVIEW',issues:[{code:error.message}]};}
 }
