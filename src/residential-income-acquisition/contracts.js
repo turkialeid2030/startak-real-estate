@@ -4,6 +4,7 @@ const { TITLE_RESULT_STATUS } = require('../title-intelligence');
 const { TENANT_RESULT_STATUS } = require('../tenant-intelligence');
 const { replayReceivablesLedger } = require('./receivables-ledger');
 const { validateCapitalPaymentPlan } = require('./capital-payment-plan');
+const { validateCashScenario } = require('./cash-scenario');
 const { validateOperatingPaymentPlan } = require('./operating-payment-plan');
 
 const PROPERTY_INTEREST_TYPE = Object.freeze({
@@ -948,6 +949,7 @@ function createResidentialIncomeOperatingCase({
   capexItems = [],
   capitalPaymentPlan = null,
   operatingPaymentPlan = null,
+  cashScenario = null,
   exitScenarios = [],
   additionalOperatingInputs = [],
   evidenceLineage = [],
@@ -1052,6 +1054,7 @@ function createResidentialIncomeOperatingCase({
     operatingExpenses: [...operatingExpenses],
     capexItems: [...capexItems],
     ...(capitalPaymentPlan === null ? {} : {capitalPaymentPlan:validateCapitalPaymentPlan(capitalPaymentPlan,{caseId:normalizedCaseId,capexItems})}),
+    ...(cashScenario === null ? {} : {cashScenario:validateCashScenario(cashScenario,{caseId:normalizedCaseId,leases})}),
     ...(operatingPaymentPlan === null ? {} : {operatingPaymentPlan:validateOperatingPaymentPlan(operatingPaymentPlan,{caseId:normalizedCaseId,operatingExpenses})}),
     exitScenarios: [...exitScenarios],
     additionalOperatingInputs: [...additionalOperatingInputs],
