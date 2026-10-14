@@ -292,6 +292,7 @@ function hydrateResidentialIncomeOperatingCaseSnapshot(snapshot) {
       capitalPaymentPlan: snapshot.capitalPaymentPlan,
       operatingPaymentPlan: snapshot.operatingPaymentPlan,
     cashScenario: snapshot.cashScenario,
+    bankRentStatement: snapshot.bankRentStatement,
       exitScenarios,
       additionalOperatingInputs,
       evidenceLineage,
