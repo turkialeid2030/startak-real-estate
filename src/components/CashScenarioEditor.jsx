@@ -2,7 +2,7 @@ import React from 'react';
 import {replaceCashScenario,formatCashMinor} from '../residential-income-acquisition/cash-scenario';
 const cls='w-full min-w-0 rounded border border-slate-600 bg-slate-950 p-2 text-xs';
 export default function CashScenarioEditor({operatingCase:c,onReplaceOperatingCase,dir}){
-  const t=(a,b)=>dir==='rtl'?a:b,signature=JSON.stringify([c.cashScenario||null,c.leases]);
+  const t=(a,b)=>dir==='rtl'?a:b,signature=JSON.stringify([c.cashScenario||null,c.leases.map(l=>l.leaseId)]);
   const initial=()=>({openingDate:c.cashScenario?.openingDate||c.asOfDate.slice(0,10),openingAmount:c.cashScenario?formatCashMinor(c.cashScenario.openingMinor):'',entries:(c.cashScenario?.entries||[]).map(e=>({...e,amount:formatCashMinor(e.amountMinor)})),sourceRef:'',reviewRef:'',confirmed:false,signature});
   const [draft,setDraft]=React.useState(initial),[feedback,setFeedback]=React.useState(null),[saving,setSaving]=React.useState(false),busy=React.useRef(false);
   const change=patch=>{setDraft(d=>({...d,...patch,confirmed:false}));setFeedback(null);};
@@ -15,7 +15,7 @@ export default function CashScenarioEditor({operatingCase:c,onReplaceOperatingCa
       if(typeof onReplaceOperatingCase!=='function')throw new Error('OPERATING_CASE_UPDATE_HANDLER_REQUIRED');
       const response=await onReplaceOperatingCase(next,'CASH_SCENARIO_UPDATED');
       if(response?.ok!==true)throw new Error(response?.code||'OPERATING_CASE_UPDATE_REJECTED');
-      setDraft(d=>({...d,confirmed:false,sourceRef:'',reviewRef:'',signature:JSON.stringify([next.cashScenario,next.leases])}));setFeedback({ok:true});
+      setDraft(d=>({...d,confirmed:false,sourceRef:'',reviewRef:'',signature:JSON.stringify([next.cashScenario,next.leases.map(l=>l.leaseId)])}));setFeedback({ok:true});
     }catch(error){setFeedback({ok:false,code:String(error.message||error).slice(0,160)});}finally{busy.current=false;setSaving(false);}
   };
   return <form onSubmit={submit} className="rounded border border-slate-700 p-3 text-xs"><fieldset disabled={saving} className="min-w-0 space-y-3">
