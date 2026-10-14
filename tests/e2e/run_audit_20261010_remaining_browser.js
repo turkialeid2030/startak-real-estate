@@ -257,7 +257,7 @@ async function download(page,locator){const pending=page.waitForEvent('download'
    ok(bankMatched.result.status==='MATCHED_ENTERED_RENT_MOVEMENTS'&&bankMatched.result.totalsMinor.creditDifference===0&&bankMatched.result.totalsMinor.debitDifference===0&&!bankMatched.result.actualBankBalance&&!bankMatched.result.coverageComplete,'receipt and refund match exactly without claiming bank balance or completeness');
    const ledgerCase=JSON.parse(await download(page,page.getByRole('button',{name:ar.riai.exportOperatingCase,exact:true})));
    await importOperating(ledgerCase);
-   await page.getByTestId('bank-open').click();
+   if(await page.getByTestId('bank-open').locator('..').getAttribute('open')===null)await page.getByTestId('bank-open').click();
    const bankRestored=JSON.parse(await download(page,page.getByTestId('bank-export')));
    ok(bankRestored.result.status==='MATCHED_ENTERED_RENT_MOVEMENTS'&&bankRestored.sourceOperatingCase.bankRentStatement.entries.length===2,'snapshot round trip preserves bank statement and recomputes matching');
    const restored=JSON.parse(await download(page,page.getByTestId('ledger-export')));
