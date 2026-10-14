@@ -96,6 +96,9 @@ async function download(page,locator){const pending=page.waitForEvent('download'
    const importOperating=async payload=>page.getByTestId('riai-operating-case-file-input').setInputFiles({name:'synthetic-operating-case.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(payload))});
    await importOperating(envelope);
    const operating=page.getByTestId('riai-rent-roll-collections-workspace');await expect(operating).toBeVisible();checks++;
+   await expect(page.getByTestId('lease-calendar-uncovered')).toHaveText('243');checks++;
+   const leaseCalendarInitial=JSON.parse(await download(page,page.getByTestId('lease-calendar-export')));
+   ok(leaseCalendarInitial.result.status==='DERIVED_DOCUMENTED_CALENDAR'&&leaseCalendarInitial.result.leaseRows[0].daysToEnd===122&&!leaseCalendarInitial.result.noticesSent,'case-date calendar derives dates without sending notices');
    const collection=page.getByTestId('riai-collection-editor');
    await expect(collection.getByLabel(ar.riai.concessions,{exact:true})).toHaveValue('');checks++;
    await collection.getByLabel(ar.riai.unitAndLease,{exact:true}).selectOption('UNIT-1');
@@ -288,6 +291,9 @@ async function download(page,locator){const pending=page.waitForEvent('download'
    const successor=JSON.parse(await download(page,page.getByTestId('export-contract-runoff')));
    ok(successor.result.rows[4].contractRent===0&&successor.result.rows[5].contractRent===120000&&successor.result.totals.contractRent===1250000,'documented successor contributes only after its start, retaining the vacancy gap');
    ok(successor.sourceOperatingCase.receivablesLedger.events.length===10&&successor.sourceOperatingCase.capitalPaymentPlan.entries.length===1&&successor.sourceOperatingCase.leases.length===2,'successor save preserves ledger and capital plan');
+   await expect(page.getByTestId('lease-calendar-uncovered')).toHaveText('31');checks++;
+   const leaseCalendarSuccessor=JSON.parse(await download(page,page.getByTestId('lease-calendar-export')));
+   ok(leaseCalendarSuccessor.result.unitRows[0].gaps[0].start==='2027-01-01'&&leaseCalendarSuccessor.result.unitRows[0].gaps[0].endExclusive==='2027-02-01'&&!leaseCalendarSuccessor.result.actualVacancyEstablished,'documented successor closes coverage only from its start date');
    await page.getByTestId('future-leaseId').fill('UNSAVED-NEXT');await page.getByTestId('future-confirm').check();
    await page.getByTestId('ledger-id').fill('UNSAVED-LEDGER');await page.getByTestId('ledger-confirm').check();
    await page.getByTestId('operating-budget-start').fill('2026-10-01');await page.getByTestId('operating-source').fill('UNSAVED-OPERATING');await page.getByTestId('operating-confirm').check();
