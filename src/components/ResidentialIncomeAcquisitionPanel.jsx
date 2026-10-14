@@ -6,6 +6,7 @@ import ContractRunoffPanel from './ContractRunoffPanel';
 import LeaseScheduleEditor from './LeaseScheduleEditor';
 import ReceivablesLedgerPanel from './ReceivablesLedgerPanel';
 import CapitalPaymentPlanEditor from './CapitalPaymentPlanEditor';
+import CashScenarioEditor from './CashScenarioEditor';
 import OperatingPaymentPlanEditor from './OperatingPaymentPlanEditor';
 import FutureLeaseEditor from './FutureLeaseEditor';
 
@@ -218,6 +219,7 @@ export default function ResidentialIncomeAcquisitionPanel({
               </section>
             ) : null}
             <ContractRunoffPanel result={viewModel.contractRunoff} operatingCase={viewModel.operatingCase} dir={dir} />
+            <details key={`cash-scenario:${viewModel.operatingCase.caseId}:${viewModel.operatingCase.asOfDate}`}><summary data-testid="cash-open" className="cursor-pointer rounded border border-slate-700 p-3 text-sm">{dir==='rtl'?'سيناريو التحصيل والرصيد':'Receipts and balance scenario'}</summary><CashScenarioEditor operatingCase={viewModel.operatingCase} onReplaceOperatingCase={onReplaceOperatingCase} dir={dir} /></details>
             <details key={`operating-plan:${viewModel.operatingCase.caseId}:${viewModel.operatingCase.asOfDate}`}><summary data-testid="operating-open" className="cursor-pointer rounded border border-slate-700 p-3 text-sm">{dir==='rtl'?'دفعات التشغيل المخططة':'Planned operating payments'}</summary><OperatingPaymentPlanEditor operatingCase={viewModel.operatingCase} onReplaceOperatingCase={onReplaceOperatingCase} dir={dir} /></details>
             <details key={`ledger:${viewModel.operatingCase.caseId}:${viewModel.operatingCase.asOfDate}`}><summary data-testid="ledger-open" className="cursor-pointer rounded border border-slate-700 p-3 text-sm">{dir==='rtl'?'سجل المستحقات والقبض':'Charges and receipts register'}</summary><ReceivablesLedgerPanel operatingCase={viewModel.operatingCase} onReplaceOperatingCase={onReplaceOperatingCase} dir={dir} /></details>
             <details key={`capital-plan:${viewModel.operatingCase.caseId}:${viewModel.operatingCase.asOfDate}`}><summary data-testid="capital-open" className="cursor-pointer rounded border border-slate-700 p-3 text-sm">{dir==='rtl'?'خطة دفع النفقات الرأسمالية':'Capital payment plan'}</summary><CapitalPaymentPlanEditor operatingCase={viewModel.operatingCase} onReplaceOperatingCase={onReplaceOperatingCase} dir={dir} /></details>

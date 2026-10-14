@@ -173,6 +173,19 @@ async function download(page,locator){const pending=page.waitForEvent('download'
    ok(budgetPlan.result.operatingPaymentPlan.budgetReconciliation.status==='MATCHED_ENTERED_BUDGET'&&budgetPlan.result.operatingPaymentPlan.budgetReconciliation.rows[0].differenceMinor===0,'period budget reconciles exactly per item');
    ok(JSON.stringify(budgetPlan.result.totals)===JSON.stringify(planned.result.totals)&&budgetPlan.result.operatingPaymentPlan.coverageComplete===false,'matched entered budget does not promote cash coverage or change NOI');
 
+   await page.getByTestId('cash-open').click();
+   await page.getByTestId('cash-opening').fill('1000');await page.getByTestId('cash-add').click();
+   await page.getByTestId('cash-lease-0').selectOption('LEASE-1');await page.getByTestId('cash-receipt-date-0').fill('2026-08-31');
+   await page.getByTestId('cash-amount-0').fill('20000.25');await page.getByTestId('cash-reference-0').fill('Synthetic future receipt');
+   await page.getByTestId('cash-source').fill('Synthetic opening and receipts');await page.getByTestId('cash-review').fill('Synthetic cash review');
+   await page.getByTestId('cash-confirm').check();await page.getByTestId('cash-save').click();await expect(page.getByTestId('cash-feedback')).toContainText('CASH_RECEIPT_OUTSIDE_HORIZON');checks++;
+   await page.getByTestId('cash-receipt-date-0').fill('2026-10-01');await expect(page.getByTestId('cash-confirm')).not.toBeChecked();checks++;
+   await page.getByTestId('cash-save').click();await expect(page.getByTestId('cash-feedback')).toContainText('EXPLICIT_VERIFICATION_CONFIRMATION_REQUIRED');checks++;
+   await page.getByTestId('cash-confirm').check();await page.getByTestId('cash-save').click();await expect(page.getByTestId('cash-feedback')).toHaveText('تم حفظ السيناريو.');checks++;
+   const cash=JSON.parse(await download(page,page.getByTestId('export-contract-runoff')));
+   ok(cash.result.cashScenario.status==='PARTIAL_SCENARIO'&&cash.result.cashScenario.rows[0].closingMinor===-1400000&&cash.result.cashScenario.closingMinor===600025,'cash scenario uses dated receipts and both payment plans without accrual conversion');
+   ok(JSON.stringify(cash.result.totals)===JSON.stringify(planned.result.totals)&&cash.result.cashScenario.coverageComplete===false,'cash scenario does not alter analytical NOI or assert complete coverage');
+
    const ledgerFill=async(type,values)=>{
     await page.getByTestId('ledger-type').selectOption(type);
     for(const[key,value]of Object.entries(values)){
@@ -223,6 +236,7 @@ async function download(page,locator){const pending=page.waitForEvent('download'
    const restored=JSON.parse(await download(page,page.getByTestId('ledger-export')));
    ok(restored.result.totalsMinor.outstanding===9025&&restored.sourceOperatingCase.capitalPaymentPlan.entries[0].amountMinor===1200000,'snapshot round trip preserves ledger and capital payment plan');
    ok(restored.result.totalsMinor.credited===1000&&restored.result.creditRows[0].id==='K2'&&restored.result.reversedIds.includes('K1'),'documented reduction and correction survive snapshot round trip');
+   ok(restored.sourceOperatingCase.cashScenario.openingMinor===100000&&restored.sourceOperatingCase.cashScenario.entries[0].amountMinor===2000025,'cash assumptions survive ledger updates and snapshot import');
    ok(restored.sourceOperatingCase.operatingPaymentPlan.entries[0].amountMinor===300000,'operating payment plan survives ledger changes and import/export');
    ok(restored.sourceOperatingCase.operatingPaymentPlan.budgetControl.periodStart==='2026-09-01'&&restored.sourceOperatingCase.operatingPaymentPlan.budgetControl.items[0].amountMinor===300000,'period budget survives ledger changes and snapshot replay');
    ok(restored.result.totalsMinor.refunded===2025&&restored.result.refundRows[0].id==='F2'&&restored.result.reversedIds.includes('F1'),'refund and correction survive snapshot round trip');

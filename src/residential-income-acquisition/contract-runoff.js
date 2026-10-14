@@ -1,4 +1,5 @@
 'use strict';
+const {calculateCashScenario}=require('./cash-scenario');
 const {deepFreeze}=require('./contracts');
 const {calculateOperatingMetrics,ANNUALIZATION_FACTOR,RENT_UNIT_BY_FREQUENCY}=require('./operating-metrics');
 const {calculateCollectionsReconciliation}=require('./collections-reconciliation');
@@ -105,6 +106,7 @@ function calculateContractRunoff(operatingCase) {
   result.status=annualOpex===null?'RENT_ONLY':'ILLUSTRATIVE_RUNOFF';
   result.capitalPaymentPlan=calculateCapitalPaymentPlan(operatingCase,result.rows);
   result.operatingPaymentPlan=calculateOperatingPaymentPlan(operatingCase,result.rows);
+  result.cashScenario=calculateCashScenario(operatingCase,result.rows);
   result.capexCashflow=result.capitalPaymentPlan.status==='SCHEDULED'?result.capitalPaymentPlan.rows:null;
   result.rows.forEach((row,index)=>{
     row.scheduledCapex=result.capexCashflow===null?null:result.capexCashflow[index].amount;
