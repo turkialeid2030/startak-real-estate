@@ -4,6 +4,7 @@ const { TITLE_RESULT_STATUS } = require('../title-intelligence');
 const { TENANT_RESULT_STATUS } = require('../tenant-intelligence');
 const { replayReceivablesLedger } = require('./receivables-ledger');
 const { validateCapitalPaymentPlan } = require('./capital-payment-plan');
+const { validateBankRentStatement } = require('./bank-rent-reconciliation');
 const { validateCashScenario } = require('./cash-scenario');
 const { validateOperatingPaymentPlan } = require('./operating-payment-plan');
 
@@ -950,6 +951,7 @@ function createResidentialIncomeOperatingCase({
   capitalPaymentPlan = null,
   operatingPaymentPlan = null,
   cashScenario = null,
+  bankRentStatement = null,
   exitScenarios = [],
   additionalOperatingInputs = [],
   evidenceLineage = [],
@@ -1050,6 +1052,7 @@ function createResidentialIncomeOperatingCase({
     leases: [...leases],
     rentCollections: [...rentCollections],
     ...(receivablesLedger === null ? {} : {receivablesLedger: replayReceivablesLedger(receivablesLedger, {caseId:normalizedCaseId, asOfDate:normalizedAsOfDate, leases}).ledger}),
+    ...(bankRentStatement === null ? {} : {bankRentStatement:validateBankRentStatement(bankRentStatement,{caseId:normalizedCaseId,asOfDate:normalizedAsOfDate})}),
     tenants: [...tenants],
     operatingExpenses: [...operatingExpenses],
     capexItems: [...capexItems],
