@@ -3,6 +3,7 @@ import ResidentialIncomeDecisionExtension from './ResidentialIncomeDecisionExten
 import ResidentialIncomeAiAssistPanel from './ResidentialIncomeAiAssistPanel';
 import RentRollCollectionsWorkspace from './RentRollCollectionsWorkspace';
 import ContractRunoffPanel from './ContractRunoffPanel';
+import LeaseCalendarPanel from './LeaseCalendarPanel';
 import LeaseScheduleEditor from './LeaseScheduleEditor';
 import ReceivablesLedgerPanel from './ReceivablesLedgerPanel';
 import CapitalPaymentPlanEditor from './CapitalPaymentPlanEditor';
@@ -220,6 +221,7 @@ export default function ResidentialIncomeAcquisitionPanel({
               </section>
             ) : null}
             <ContractRunoffPanel result={viewModel.contractRunoff} operatingCase={viewModel.operatingCase} dir={dir} />
+            <LeaseCalendarPanel operatingCase={viewModel.operatingCase} dir={dir} />
             <details key={`cash-scenario:${viewModel.operatingCase.caseId}:${viewModel.operatingCase.asOfDate}`}><summary data-testid="cash-open" className="cursor-pointer rounded border border-slate-700 p-3 text-sm">{dir==='rtl'?'سيناريو التحصيل والرصيد':'Receipts and balance scenario'}</summary><CashScenarioEditor operatingCase={viewModel.operatingCase} onReplaceOperatingCase={onReplaceOperatingCase} dir={dir} /></details>
             <details key={`operating-plan:${viewModel.operatingCase.caseId}:${viewModel.operatingCase.asOfDate}`}><summary data-testid="operating-open" className="cursor-pointer rounded border border-slate-700 p-3 text-sm">{dir==='rtl'?'دفعات التشغيل المخططة':'Planned operating payments'}</summary><OperatingPaymentPlanEditor operatingCase={viewModel.operatingCase} onReplaceOperatingCase={onReplaceOperatingCase} dir={dir} /></details>
             <details key={`ledger:${viewModel.operatingCase.caseId}:${viewModel.operatingCase.asOfDate}`}><summary data-testid="ledger-open" className="cursor-pointer rounded border border-slate-700 p-3 text-sm">{dir==='rtl'?'سجل المستحقات والقبض':'Charges and receipts register'}</summary><ReceivablesLedgerPanel operatingCase={viewModel.operatingCase} onReplaceOperatingCase={onReplaceOperatingCase} dir={dir} /></details>
