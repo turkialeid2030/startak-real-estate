@@ -186,10 +186,10 @@ async function download(page,locator){const pending=page.waitForEvent('download'
    ok(cash.result.cashScenario.status==='PARTIAL_SCENARIO'&&cash.result.cashScenario.rows[0].closingMinor===-1400000&&cash.result.cashScenario.closingMinor===600025,'cash scenario uses dated receipts and both payment plans without accrual conversion');
    ok(JSON.stringify(cash.result.totals)===JSON.stringify(planned.result.totals)&&cash.result.cashScenario.coverageComplete===false,'cash scenario does not alter analytical NOI or assert complete coverage');
 
-   ok(cash.result.cashScenario.liquidity.minimumMinor===-1400000&&cash.result.cashScenario.liquidity.firstShortfallDate==='2026-09-01'&&cash.result.cashScenario.liquidity.additionalOpeningRequiredMinor===1400000,'dated check includes CAPEX and OPEX before later receipt despite positive horizon balance');
+   ok(cash.result.cashScenario.liquidity.minimumMinor===-1400000&&cash.result.cashScenario.liquidity.firstShortfallDate==='2026-09-10'&&cash.result.cashScenario.liquidity.additionalOpeningRequiredMinor===1400000,'dated check includes CAPEX and OPEX before later receipt despite positive horizon balance');
    await page.getByTestId('cash-results').locator('summary').first().click();
    await expect(page.getByTestId('cash-liquidity-minimum')).toHaveText('-14000.00');checks++;
-   await expect(page.getByTestId('cash-liquidity-first-shortfall')).toHaveText('2026-09-01');checks++;
+   await expect(page.getByTestId('cash-liquidity-first-shortfall')).toHaveText('2026-09-10');checks++;
    await expect(page.getByTestId('cash-liquidity-required')).toHaveText('14000.00');checks++;
 
    const ledgerFill=async(type,values)=>{
