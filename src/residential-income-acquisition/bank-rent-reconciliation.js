@@ -3,6 +3,12 @@ const {calculateReceivablesLedger,parseLedgerAmount}=require('./receivables-ledg
 const fail=code=>{throw new TypeError(code);};
 const text=v=>{if(typeof v!=='string'||!v.trim()||v.length>500)fail('BANK_REFERENCE_REQUIRED');return v.trim();};
 const date=v=>{if(typeof v!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(v)||!Number.isFinite(Date.parse(v))||new Date(v).toISOString().slice(0,10)!==v)fail('BANK_DATE_INVALID');return v;};
+function parseStatementBalance(value){
+  if(typeof value!=='string'&&typeof value!=='number')fail('BANK_BALANCE_INVALID');
+  const s=String(value).trim().replace(/[٠-٩]/g,d=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[۰-۹]/g,d=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/٫/g,'.');
+  if(/^-?0+(?:\.0{1,2})?$/.test(s))return 0;
+  return s.startsWith('-')?-parseLedgerAmount(s.slice(1)):parseLedgerAmount(s);
+}
 function validateBankRentStatement(input,c){
   if(!input||input.schemaVersion!==1||input.caseId!==c.caseId||input.currency!=='SAR'||!Array.isArray(input.entries)||input.entries.length>5000)fail('BANK_STATEMENT_INVALID');
   const accountRef=text(input.accountRef),sourceRef=text(input.sourceRef),reviewRef=text(input.reviewRef);
@@ -22,10 +28,15 @@ function validateBankRentStatement(input,c){
     if(ledgerEventId&&links.has(ledgerEventId))fail('BANK_DUPLICATE_LEDGER_LINK');if(ledgerEventId)links.add(ledgerEventId);
     return {id,reference,date:when,direction:e.direction,amountMinor:e.amountMinor,ledgerEventId};
   });
-  return {schemaVersion:1,caseId:c.caseId,currency:'SAR',accountRef,sourceRef,reviewRef,periodStart,periodEndExclusive,entries};
+  let balances;
+  if(input.balances!==undefined&&input.balances!==null){
+    if(!Number.isSafeInteger(input.balances.openingMinor)||!Number.isSafeInteger(input.balances.closingMinor))fail('BANK_BALANCE_INVALID');
+    balances={openingMinor:input.balances.openingMinor,closingMinor:input.balances.closingMinor};
+  }
+  return {schemaVersion:1,caseId:c.caseId,currency:'SAR',accountRef,sourceRef,reviewRef,periodStart,periodEndExclusive,entries,...(balances?{balances}:{})};
 }
 function calculateBankRentReconciliation(c){
-  const empty={status:'NOT_AVAILABLE',rows:[],unmatchedLedgerIds:[],issues:[],totalsMinor:null,actualBankBalance:false,coverageComplete:false};
+  const empty={status:'NOT_AVAILABLE',rows:[],unmatchedLedgerIds:[],issues:[],totalsMinor:null,balanceReconciliation:{status:'NOT_PROVIDED'},actualBankBalance:false,coverageComplete:false};
   if(!c.bankRentStatement)return empty;
   const p=validateBankRentStatement(c.bankRentStatement,c),ledger=calculateReceivablesLedger(c);
   const movements=[...ledger.receiptRows.map(x=>({...x,direction:'CREDIT'})),...ledger.refundRows.map(x=>({...x,direction:'DEBIT'}))].filter(x=>x.date>=p.periodStart&&x.date<p.periodEndExclusive);
@@ -44,17 +55,27 @@ function calculateBankRentReconciliation(c){
   for(const e of movements){if(e.direction==='CREDIT')ledgerCredits+=BigInt(e.amountMinor);else ledgerDebits+=BigInt(e.amountMinor);}
   const unmatchedLedgerIds=movements.filter(e=>!matched.has(e.id)).map(e=>e.id);
   const safe=n=>{if(n>BigInt(Number.MAX_SAFE_INTEGER)||n< -BigInt(Number.MAX_SAFE_INTEGER))fail('BANK_TOTAL_OUT_OF_RANGE');return Number(n);};
-  let totalsMinor;
-  try{totalsMinor={bankCredits:safe(bankCredits),bankDebits:safe(bankDebits),ledgerCredits:safe(ledgerCredits),ledgerDebits:safe(ledgerDebits),creditDifference:safe(bankCredits-ledgerCredits),debitDifference:safe(bankDebits-ledgerDebits)};}
+  let totalsMinor,balanceReconciliation={status:'NOT_PROVIDED'};
+  try{
+    totalsMinor={bankCredits:safe(bankCredits),bankDebits:safe(bankDebits),ledgerCredits:safe(ledgerCredits),ledgerDebits:safe(ledgerDebits),creditDifference:safe(bankCredits-ledgerCredits),debitDifference:safe(bankDebits-ledgerDebits)};
+    if(p.balances){
+      const calculatedClosing=BigInt(p.balances.openingMinor)+bankCredits-bankDebits;
+      const difference=BigInt(p.balances.closingMinor)-calculatedClosing;
+      balanceReconciliation={status:difference===0n?'MATCHED_ENTERED_BALANCES':'BALANCE_MISMATCH',...p.balances,calculatedClosingMinor:safe(calculatedClosing),differenceMinor:safe(difference),coverageComplete:false,actualBankBalance:false};
+      if(difference!==0n)issues.push({code:'BANK_BALANCE_MISMATCH'});
+    }
+  }
   catch(e){return {...empty,status:'NEEDS_REVIEW',issues:[{code:e.message}]};}
-  return {...empty,status:issues.length||unmatchedLedgerIds.length?'NEEDS_REVIEW':'MATCHED_ENTERED_RENT_MOVEMENTS',rows,unmatchedLedgerIds,issues,totalsMinor,
+  return {...empty,status:issues.length||unmatchedLedgerIds.length?'NEEDS_REVIEW':'MATCHED_ENTERED_RENT_MOVEMENTS',rows,unmatchedLedgerIds,issues,totalsMinor,balanceReconciliation,
     periodStart:p.periodStart,periodEndExclusive:p.periodEndExclusive,accountRef:p.accountRef,sourceRef:p.sourceRef,reviewRef:p.reviewRef,
-    semantics:'One-to-one matching of entered statement rent credits/refund debits against active local rent movements in the declared period. Exact date, direction and amount only; no bank connection, completeness certification, opening/closing balance reconciliation or authentication of reviewer/source. Non-rent movements require separate accounting review. Recomputed after ledger changes.'};
+    semantics:'One-to-one matching of entered statement rent credits/refund debits against active local rent movements in the declared period. Exact date, direction and amount only. Optional opening plus entered credits less entered debits is compared with entered closing balance; arithmetic equality does not authenticate the statement, bank balance, completeness or reviewer. Missing balances are NOT_PROVIDED, never zero. Non-rent movements require separate accounting review. Recomputed after ledger changes.'};
 }
 function replaceBankRentStatement(c,draft){
   if(draft?.confirmed!==true)fail('EXPLICIT_VERIFICATION_CONFIRMATION_REQUIRED');
   if(!Array.isArray(draft.entries))fail('BANK_STATEMENT_INVALID');
-  const bankRentStatement=validateBankRentStatement({...draft,schemaVersion:1,caseId:c.caseId,currency:'SAR',entries:draft.entries.map(e=>({...e,amountMinor:parseLedgerAmount(e.amount)}))},c);
+  const {balances:ignored,...fields}=draft;
+  const balances=draft.balanceControl===true?{openingMinor:parseStatementBalance(draft.openingAmount),closingMinor:parseStatementBalance(draft.closingAmount)}:undefined;
+  const bankRentStatement=validateBankRentStatement({...fields,balances,schemaVersion:1,caseId:c.caseId,currency:'SAR',entries:draft.entries.map(e=>({...e,amountMinor:parseLedgerAmount(e.amount)}))},c);
   return require('./contracts').createResidentialIncomeOperatingCase({...c,bankRentStatement});
 }
 module.exports={validateBankRentStatement,calculateBankRentReconciliation,replaceBankRentStatement};
