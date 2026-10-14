@@ -1,9 +1,9 @@
 import React from 'react';
-import {replaceCashScenario} from '../residential-income-acquisition/cash-scenario';
+import {replaceCashScenario,formatCashMinor} from '../residential-income-acquisition/cash-scenario';
 const cls='w-full min-w-0 rounded border border-slate-600 bg-slate-950 p-2 text-xs';
 export default function CashScenarioEditor({operatingCase:c,onReplaceOperatingCase,dir}){
   const t=(a,b)=>dir==='rtl'?a:b,signature=JSON.stringify([c.cashScenario||null,c.leases]);
-  const initial=()=>({openingDate:c.cashScenario?.openingDate||c.asOfDate.slice(0,10),openingAmount:c.cashScenario?String(c.cashScenario.openingMinor/100):'',entries:(c.cashScenario?.entries||[]).map(e=>({...e,amount:String(e.amountMinor/100)})),sourceRef:'',reviewRef:'',confirmed:false,signature});
+  const initial=()=>({openingDate:c.cashScenario?.openingDate||c.asOfDate.slice(0,10),openingAmount:c.cashScenario?formatCashMinor(c.cashScenario.openingMinor):'',entries:(c.cashScenario?.entries||[]).map(e=>({...e,amount:formatCashMinor(e.amountMinor)})),sourceRef:'',reviewRef:'',confirmed:false,signature});
   const [draft,setDraft]=React.useState(initial),[feedback,setFeedback]=React.useState(null),[saving,setSaving]=React.useState(false),busy=React.useRef(false);
   const change=patch=>{setDraft(d=>({...d,...patch,confirmed:false}));setFeedback(null);};
   const edit=(i,patch)=>change({entries:draft.entries.map((e,n)=>n===i?{...e,...patch}:e)});

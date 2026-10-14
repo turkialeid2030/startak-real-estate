@@ -4,7 +4,7 @@ const {operatingCase,verified}=require('../fixtures/synthetic-collections-case')
 const {createResidentialIncomeOperatingCase,createOperatingExpense}=require('../../src/residential-income-acquisition/contracts');
 const {replaceOperatingPaymentPlan}=require('../../src/residential-income-acquisition/operating-payment-plan');
 const {replaceCapitalPaymentPlan}=require('../../src/residential-income-acquisition/capital-payment-plan');
-const {replaceCashScenario,calculateCashScenario}=require('../../src/residential-income-acquisition/cash-scenario');
+const {replaceCashScenario,calculateCashScenario,formatCashMinor}=require('../../src/residential-income-acquisition/cash-scenario');
 const {calculateContractRunoff}=require('../../src/residential-income-acquisition/contract-runoff');
 const {updateVerifiedLeaseTerms}=require('../../src/residential-income-acquisition/operating-case-editor');
 const {buildResidentialIncomeOperatingCaseEnvelope,parseResidentialIncomeOperatingCaseEnvelope}=require('../../src/residential-income-acquisition/operating-case-snapshot');
@@ -45,4 +45,6 @@ bad=JSON.parse(JSON.stringify(saved));bad.cashScenario.openingMinor=Number.MAX_S
 eq(calculateContractRunoff(createResidentialIncomeOperatingCase(bad)).cashScenario.closingMinor,null);
 bad=JSON.parse(JSON.stringify(zero));bad.cashScenario.openingMinor=-Number.MAX_SAFE_INTEGER;
 eq(calculateContractRunoff(createResidentialIncomeOperatingCase(bad)).cashScenario.closingMinor,null);
+for(const n of [Number.MAX_SAFE_INTEGER,-Number.MAX_SAFE_INTEGER,0,1,-1])eq(replaceCashScenario(c,{...draft,openingAmount:formatCashMinor(n),entries:[]}).cashScenario.openingMinor,n);
+eq(formatCashMinor(Number.MAX_SAFE_INTEGER),'90071992547409.91');
 console.log(`AUDIT_CASH_SCENARIO=PASS checks=${checks}`);

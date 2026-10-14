@@ -4,6 +4,11 @@ const {calculateOperatingPaymentPlan}=require('./operating-payment-plan');
 const {calculateCapitalPaymentPlan}=require('./capital-payment-plan');
 const fail=code=>{throw new TypeError(code);};
 const date=v=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&Number.isFinite(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v;
+function formatCashMinor(value){
+  if(!Number.isSafeInteger(value))fail('CASH_AMOUNT_INVALID');
+  const n=BigInt(value),a=n<0n?-n:n;
+  return `${n<0n?'-':''}${a/100n}.${String(a%100n).padStart(2,'0')}`;
+}
 function openingAmount(value){
   if(typeof value!=='string'&&typeof value!=='number')fail('CASH_OPENING_INVALID');
   const s=String(value).trim().replace(/[٠-٩]/g,d=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[۰-۹]/g,d=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/٫/g,'.');
@@ -64,4 +69,4 @@ function replaceCashScenario(c,draft){
   if(cashScenario.entries.some(e=>e.date<cashScenario.openingDate||e.date>=end))fail('CASH_RECEIPT_OUTSIDE_HORIZON');
   return candidate;
 }
-module.exports={validateCashScenario,calculateCashScenario,replaceCashScenario};
+module.exports={validateCashScenario,calculateCashScenario,replaceCashScenario,formatCashMinor};
