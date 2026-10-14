@@ -6,10 +6,10 @@ const cls='w-full min-w-0 rounded border border-slate-600 bg-slate-950 p-2 text-
 export default function BankRentReconciliationPanel({operatingCase:c,onReplaceOperatingCase,dir}){
   const t=(a,b)=>dir==='rtl'?a:b,result=calculateBankRentReconciliation(c),ledger=calculateReceivablesLedger(c);
   const signature=JSON.stringify([c.bankRentStatement||null,c.receivablesLedger||null,c.leases,c.asOfDate]);
-  const initial=()=>({periodStart:c.bankRentStatement?.periodStart||'',periodEndExclusive:c.bankRentStatement?.periodEndExclusive||'',accountRef:c.bankRentStatement?.accountRef||'',sourceRef:'',reviewRef:'',confirmed:false,signature,
+  const initial=()=>({periodStart:c.bankRentStatement?.periodStart||'',periodEndExclusive:c.bankRentStatement?.periodEndExclusive||'',accountRef:c.bankRentStatement?.accountRef||'',sourceRef:'',reviewRef:'',confirmed:false,signature:c.bankRentStatement?signature:null,
     entries:(c.bankRentStatement?.entries||[]).map(e=>({...e,amount:formatCashMinor(e.amountMinor)}))});
   const [draft,setDraft]=React.useState(initial),[feedback,setFeedback]=React.useState(null),[saving,setSaving]=React.useState(false),busy=React.useRef(false);
-  const change=patch=>{setDraft(d=>({...d,...patch,confirmed:false}));setFeedback(null);};
+  const change=patch=>{setDraft(d=>({...d,...patch,confirmed:false,signature:d.signature??signature}));setFeedback(null);};
   const edit=(i,patch)=>change({entries:draft.entries.map((e,n)=>n===i?{...e,...patch}:e)});
   const submit=async e=>{
     e.preventDefault();if(busy.current)return;busy.current=true;setSaving(true);
