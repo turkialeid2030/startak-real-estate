@@ -1,0 +1,44 @@
+'use strict';
+const assert=require('node:assert/strict');
+const {operatingCase}=require('../fixtures/synthetic-collections-case');
+const {appendReceivablesEvent,calculateReceivablesLedger}=require('../../src/residential-income-acquisition/receivables-ledger');
+const {replaceBankRentStatement,calculateBankRentReconciliation}=require('../../src/residential-income-acquisition/bank-rent-reconciliation');
+const {createResidentialIncomeOperatingCase}=require('../../src/residential-income-acquisition/contracts');
+const {updateVerifiedLeaseTerms}=require('../../src/residential-income-acquisition/operating-case-editor');
+const {buildResidentialIncomeOperatingCaseEnvelope,parseResidentialIncomeOperatingCaseEnvelope}=require('../../src/residential-income-acquisition/operating-case-snapshot');
+let checks=0;const eq=(a,b)=>{assert.deepEqual(a,b);checks++;},bad=(fn,code)=>{assert.throws(fn,new RegExp(code));checks++;};
+let c=operatingCase({collections:[]});
+const event={id:'R',type:'RECEIPT',date:'2026-08-01',leaseId:'LEASE-1',amount:'100.25',reference:'receipt',sourceRef:'source',reviewRef:'review',confirmed:true};
+c=appendReceivablesEvent(c,event);
+c=appendReceivablesEvent(c,{...event,id:'F',type:'REFUND',receiptId:'R',date:'2026-08-02',amount:'10.25',reference:'refund',reason:'completed return'});
+const draft={periodStart:'2026-08-01',periodEndExclusive:'2026-09-01',accountRef:'rent-account',sourceRef:'statement-source',reviewRef:'statement-review',confirmed:true,entries:[{id:'BC',reference:'bank-credit',date:'2026-08-01',direction:'CREDIT',amount:'100.25',ledgerEventId:'R'},{id:'BD',reference:'bank-debit',date:'2026-08-02',direction:'DEBIT',amount:'10.25',ledgerEventId:'F'}]};
+eq(calculateBankRentReconciliation(c).status,'NOT_AVAILABLE');
+const saved=replaceBankRentStatement(c,draft),result=calculateBankRentReconciliation(saved);
+eq(result.status,'MATCHED_ENTERED_RENT_MOVEMENTS');eq(result.totalsMinor,{bankCredits:10025,bankDebits:1025,ledgerCredits:10025,ledgerDebits:1025,creditDifference:0,debitDifference:0});eq(result.unmatchedLedgerIds,[]);eq(result.actualBankBalance,false);eq(result.coverageComplete,false);eq(c.bankRentStatement,undefined);eq(calculateReceivablesLedger(saved),calculateReceivablesLedger(c));
+eq(parseResidentialIncomeOperatingCaseEnvelope(JSON.stringify(buildResidentialIncomeOperatingCaseEnvelope(saved))),saved);
+eq(updateVerifiedLeaseTerms(saved,{leaseId:'LEASE-1',endDate:'2027-02-01',baseRent:'1200000',sourceRef:'new-source',adoptionDecisionRef:'new-review',confirmed:true}).bankRentStatement,saved.bankRentStatement);
+for(const [field,value,code] of [['amount','100.26','AMOUNT_MISMATCH'],['date','2026-08-03','DATE_MISMATCH'],['direction','DEBIT','DIRECTION_MISMATCH'],['ledgerEventId','unknown','UNMATCHED_BANK_ENTRY'],['ledgerEventId','','UNMATCHED_BANK_ENTRY']]){
+ const r=calculateBankRentReconciliation(replaceBankRentStatement(c,{...draft,entries:[{...draft.entries[0],[field]:value},draft.entries[1]]}));eq(r.status,'NEEDS_REVIEW');eq(r.rows[0].status,code);eq(r.unmatchedLedgerIds,['R']);
+}
+// Offset errors in gross credit/debit totals must not pass per-entry matching.
+const offset=calculateBankRentReconciliation(replaceBankRentStatement(c,{...draft,entries:draft.entries.map(e=>({...e,amount:e.direction==='CREDIT'?'101.25':'11.25'}))}));eq(offset.status,'NEEDS_REVIEW');eq(offset.totalsMinor.creditDifference,100);eq(offset.totalsMinor.debitDifference,100);
+const empty=replaceBankRentStatement(c,{...draft,entries:[]});eq(calculateBankRentReconciliation(empty).status,'NEEDS_REVIEW');eq(calculateBankRentReconciliation(empty).unmatchedLedgerIds,['R','F']);
+const noMovements=replaceBankRentStatement(operatingCase({collections:[]}),{...draft,entries:[]});eq(calculateBankRentReconciliation(noMovements).status,'MATCHED_ENTERED_RENT_MOVEMENTS');eq(calculateBankRentReconciliation(noMovements).coverageComplete,false);
+const reversed=appendReceivablesEvent(saved,{id:'X',type:'REVERSAL',date:'2026-08-03',targetId:'F',reason:'correction',sourceRef:'source-x',reviewRef:'review-x',confirmed:true});eq(calculateBankRentReconciliation(reversed).status,'NEEDS_REVIEW');eq(calculateBankRentReconciliation(reversed).rows[1].status,'UNMATCHED_BANK_ENTRY');
+bad(()=>replaceBankRentStatement(c,{...draft,confirmed:false}),'EXPLICIT_VERIFICATION_CONFIRMATION_REQUIRED');
+for(const date of ['2026-02-30','2026-08-01T00:00:00Z',''])bad(()=>replaceBankRentStatement(c,{...draft,entries:[{...draft.entries[0],date}]}),'BANK_DATE_INVALID');
+for(const date of ['2026-07-31','2026-09-01'])bad(()=>replaceBankRentStatement(c,{...draft,entries:[{...draft.entries[0],date}]}),'BANK_ENTRY_OUTSIDE_PERIOD');
+for(const amount of ['0','-1','0.001',null,[]])bad(()=>replaceBankRentStatement(c,{...draft,entries:[{...draft.entries[0],amount}]}),'LEDGER_AMOUNT_INVALID');
+for(const field of ['accountRef','sourceRef','reviewRef'])bad(()=>replaceBankRentStatement(c,{...draft,[field]:''}),'BANK_REFERENCE_REQUIRED');
+bad(()=>replaceBankRentStatement(c,{...draft,sourceRef:draft.reviewRef}),'BANK_DISTINCT_REVIEW_REQUIRED');
+bad(()=>replaceBankRentStatement(c,{...draft,periodEndExclusive:'2026-09-03'}),'BANK_PERIOD_INVALID');
+bad(()=>replaceBankRentStatement(c,{...draft,periodStart:draft.periodEndExclusive}),'BANK_PERIOD_INVALID');
+bad(()=>replaceBankRentStatement(c,{...draft,entries:[draft.entries[0],draft.entries[0]]}),'BANK_DUPLICATE_ENTRY');
+bad(()=>replaceBankRentStatement(c,{...draft,entries:[draft.entries[0],{...draft.entries[0],id:'other',reference:'other'}]}),'BANK_DUPLICATE_LEDGER_LINK');
+bad(()=>replaceBankRentStatement(c,{...draft,entries:[{...draft.entries[0],direction:'OTHER'}]}),'BANK_DIRECTION_INVALID');
+bad(()=>replaceBankRentStatement(c,{...draft,entries:Array(5001).fill(draft.entries[0])}),'BANK_STATEMENT_INVALID');
+for(const patch of [{currency:'USD'},{caseId:'OTHER'},{entries:[{...saved.bankRentStatement.entries[0],amountMinor:0.5}]}])bad(()=>createResidentialIncomeOperatingCase({...saved,bankRentStatement:{...saved.bankRentStatement,...patch}}),'BANK_STATEMENT_INVALID|BANK_AMOUNT_INVALID');
+const max=Number.MAX_SAFE_INTEGER;
+const overflow=createResidentialIncomeOperatingCase({...saved,bankRentStatement:{...saved.bankRentStatement,entries:[1,2].map(i=>({id:'huge-'+i,reference:'huge-'+i,date:'2026-08-01',direction:'CREDIT',amountMinor:max,ledgerEventId:null}))}});
+eq(calculateBankRentReconciliation(overflow).status,'NEEDS_REVIEW');eq(calculateBankRentReconciliation(overflow).totalsMinor,null);eq(calculateBankRentReconciliation(overflow).rows,[]);
+console.log(`AUDIT_BANK_RENT_RECONCILIATION=PASS checks=${checks}`);

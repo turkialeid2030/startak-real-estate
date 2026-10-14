@@ -237,8 +237,29 @@ async function download(page,locator){const pending=page.waitForEvent('download'
    await page.getByTestId('ledger-confirm').check();await page.getByTestId('ledger-save').click();await expect(page.getByTestId('ledger-feedback')).toContainText('LEDGER_REVERSE_CREDITS_FIRST');checks++;
    await page.getByTestId('ledger-targetId').selectOption('K1');await ledgerSave();
    await ledgerFill('CREDIT',{id:'K2',date:'2026-08-06',chargeId:'C1',reference:'CREDIT-2',reason:'Synthetic corrected reduction',amount:'10.00'});await ledgerSave();
+   await page.getByTestId('bank-open').click();
+   await page.getByTestId('bank-periodStart').fill('2026-08-01');await page.getByTestId('bank-periodEndExclusive').fill('2026-09-01');
+   await page.getByTestId('bank-accountRef').fill('Synthetic rent account');await page.getByTestId('bank-sourceRef').fill('Synthetic statement');await page.getByTestId('bank-reviewRef').fill('Synthetic statement review');
+   for(const [i,id,reference,date,amount,direction,link] of [[0,'BC','credit-source','2026-08-01','120.51','CREDIT','R1'],[1,'BD','debit-source','2026-08-03','20.25','DEBIT','F2']]){
+    await page.getByTestId('bank-add').click();
+    for(const [key,value] of Object.entries({id,reference,date,amount}))await page.getByTestId(`bank-${key}-${i}`).fill(value);
+    await page.getByTestId(`bank-direction-${i}`).selectOption(direction);await page.getByTestId(`bank-link-${i}`).selectOption(link);
+   }
+   await page.getByTestId('bank-confirm').check();await page.getByTestId('bank-save').click();await expect(page.getByTestId('bank-feedback')).toHaveText('تم حفظ الكشف وإعادة المطابقة.');checks++;
+   await expect(page.getByTestId('bank-status')).toHaveText('فروق أو حركات تحتاج مراجعة');checks++;
+   const mismatchedBank=JSON.parse(await download(page,page.getByTestId('bank-export')));
+   ok(mismatchedBank.result.rows[0].status==='AMOUNT_MISMATCH'&&mismatchedBank.result.unmatchedLedgerIds.includes('R1'),'one halala difference blocks matching');
+   await page.getByTestId('bank-amount-0').fill('120.50');await expect(page.getByTestId('bank-confirm')).not.toBeChecked();checks++;
+   await page.getByTestId('bank-sourceRef').fill('Synthetic corrected statement');await page.getByTestId('bank-reviewRef').fill('Synthetic corrected review');
+   await page.getByTestId('bank-save').click();await expect(page.getByTestId('bank-feedback')).toContainText('EXPLICIT_VERIFICATION_CONFIRMATION_REQUIRED');checks++;
+   await page.getByTestId('bank-confirm').check();await page.getByTestId('bank-save').click();await expect(page.getByTestId('bank-status')).toHaveText('مطابقة الحركات الإيجارية المدخلة فقط');checks++;
+   const bankMatched=JSON.parse(await download(page,page.getByTestId('bank-export')));
+   ok(bankMatched.result.status==='MATCHED_ENTERED_RENT_MOVEMENTS'&&bankMatched.result.totalsMinor.creditDifference===0&&bankMatched.result.totalsMinor.debitDifference===0&&!bankMatched.result.actualBankBalance&&!bankMatched.result.coverageComplete,'receipt and refund match exactly without claiming bank balance or completeness');
    const ledgerCase=JSON.parse(await download(page,page.getByRole('button',{name:ar.riai.exportOperatingCase,exact:true})));
    await importOperating(ledgerCase);
+   if(await page.getByTestId('bank-open').locator('..').getAttribute('open')===null)await page.getByTestId('bank-open').click();
+   const bankRestored=JSON.parse(await download(page,page.getByTestId('bank-export')));
+   ok(bankRestored.result.status==='MATCHED_ENTERED_RENT_MOVEMENTS'&&bankRestored.sourceOperatingCase.bankRentStatement.entries.length===2,'snapshot round trip preserves bank statement and recomputes matching');
    const restored=JSON.parse(await download(page,page.getByTestId('ledger-export')));
    ok(restored.result.totalsMinor.outstanding===9025&&restored.sourceOperatingCase.capitalPaymentPlan.entries[0].amountMinor===1200000,'snapshot round trip preserves ledger and capital payment plan');
    ok(restored.result.totalsMinor.credited===1000&&restored.result.creditRows[0].id==='K2'&&restored.result.reversedIds.includes('K1'),'documented reduction and correction survive snapshot round trip');
