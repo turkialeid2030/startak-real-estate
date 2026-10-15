@@ -5,6 +5,7 @@
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const { createHash } = require('crypto');
 const pkg = require('../package.json');
 const glob = (dir, ext) => fs.readdirSync(dir).filter((f) => f.endsWith(ext)).map((f) => path.join(dir, f));
 
@@ -73,6 +74,26 @@ if (!fs.existsSync(manifestPath)) {
 }
 
 console.log('');
-const ok = (total - passed === 0) && externalFiles === 0 && manifestOk;
+console.log('=== STEP 5: final asset byte manifest ===');
+let assetManifestOk = false;
+try {
+  const assetManifest = JSON.parse(fs.readFileSync('dist/asset-manifest.json', 'utf8'));
+  const releaseManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  const listed = new Set();
+  if (assetManifest.schemaVersion !== 1 || assetManifest.sourceCommit !== releaseManifest.sourceCommit || !Array.isArray(assetManifest.assets) || !assetManifest.assets.length) throw Error('Invalid asset manifest');
+  for (const item of assetManifest.assets) {
+    if (!/^assets\/[A-Za-z0-9._/-]+$/.test(item.path) || item.path.split('/').some(x => !x || x === '.' || x === '..') || listed.has(item.path)) throw Error('Unsafe or duplicate asset path');
+    listed.add(item.path);
+    const bytes = fs.readFileSync(path.join('dist', item.path));
+    if (bytes.length !== item.sizeBytes || createHash('sha256').update(bytes).digest('hex') !== item.sha256) throw Error('Final asset bytes mismatch: ' + item.path);
+  }
+  const written = [];
+  const walk = directory => { for (const entry of fs.readdirSync(directory, {withFileTypes:true})) { const name = path.join(directory, entry.name); if (entry.isDirectory()) walk(name); else written.push(name.replaceAll('\\', '/').slice(5)); } };
+  walk('dist/assets');
+  if (written.length !== listed.size || written.some(file => !listed.has(file)) || !fs.existsSync('dist/404.html')) throw Error('Incomplete asset inventory or missing 404');
+  assetManifestOk = true;
+  console.log(`FINAL_ASSET_MANIFEST=PASS assets=${listed.size}`);
+} catch (error) { console.log('FINAL_ASSET_MANIFEST=FAIL ' + error.message); }
+const ok = (total - passed === 0) && externalFiles === 0 && manifestOk && assetManifestOk;
 console.log(ok ? 'VERIFY_PACKAGE=PASS' : 'VERIFY_PACKAGE=FAIL');
 process.exit(ok ? 0 : 1);

@@ -2,6 +2,8 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import fs from 'node:fs';
+import { createHash } from 'node:crypto';
+import path from 'node:path';
 
 const packageJson = JSON.parse(fs.readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
 
@@ -58,6 +60,20 @@ function releaseManifestPlugin() {
         fileName: 'release-manifest.json',
         source: `${JSON.stringify(buildMetadata, null, 2)}\n`,
       });
+    },
+    writeBundle(options, bundle) {
+      const directory = options.dir;
+      if (!directory) throw new Error('Asset manifest requires a build output directory');
+      const assets = Object.values(bundle).filter(item => item.fileName.startsWith('assets/')).map(item => {
+        // Read final written bytes: Vite can rewrite preload references after
+        // user generateBundle hooks have run.
+        const bytes = fs.readFileSync(path.join(directory, item.fileName));
+        return { path: item.fileName, sizeBytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') };
+      }).sort((a, b) => a.path.localeCompare(b.path));
+      fs.writeFileSync(path.join(directory, 'asset-manifest.json'), `${JSON.stringify({
+        schemaVersion: 1, sourceCommit: buildMetadata.sourceCommit, assets,
+        evidenceBoundary: 'BUILD_ASSET_BYTES_NOT_DELIVERY_PROOF',
+      }, null, 2)}\n`);
     },
   };
 }
