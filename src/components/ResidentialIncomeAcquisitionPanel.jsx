@@ -86,7 +86,7 @@ export default function ResidentialIncomeAcquisitionPanel({
   const locale = dir === 'rtl' ? 'ar-SA' : 'en-US';
 
   return (
-    <aside data-testid="residential-income-acquisition-panel" dir={dir} className="mt-6">
+    <aside data-testid="residential-income-acquisition-panel" dir={dir} className="mt-6 text-slate-100" style={{colorScheme:'dark'}}>
       <div className="rounded-2xl border border-slate-800 bg-[#111C30] p-4 md:p-5">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>

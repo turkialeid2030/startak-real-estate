@@ -2,6 +2,7 @@
 const {parseLedgerAmount}=require('./receivables-ledger');
 const {calculateOperatingPaymentPlan}=require('./operating-payment-plan');
 const {calculateCapitalPaymentPlan}=require('./capital-payment-plan');
+const {validateCashOtherFlows,cashOtherFlowCoverage}=require('./cash-other-flows');
 const fail=code=>{throw new TypeError(code);};
 const date=v=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&Number.isFinite(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v;
 function formatCashMinor(value){
@@ -29,17 +30,20 @@ function validateCashScenario(plan,c){
     seen.add(e.reference.trim());total+=BigInt(e.amountMinor);if(total>BigInt(Number.MAX_SAFE_INTEGER))fail('CASH_AMOUNT_OUT_OF_RANGE');
     return {leaseId:e.leaseId,date:e.date,amountMinor:e.amountMinor,reference:e.reference.trim()};
   });
-  return {schemaVersion:1,caseId:plan.caseId,openingDate:plan.openingDate,openingMinor:plan.openingMinor,sourceRef:plan.sourceRef.trim(),reviewRef:plan.reviewRef.trim(),entries};
+  return {schemaVersion:1,caseId:plan.caseId,openingDate:plan.openingDate,openingMinor:plan.openingMinor,sourceRef:plan.sourceRef.trim(),reviewRef:plan.reviewRef.trim(),entries,
+    ...(plan.otherFlows===undefined?{}:{otherFlows:validateCashOtherFlows(plan.otherFlows,[...seen])})};
 }
 function calculateCashScenario(c,periods){
   const empty={status:'NOT_AVAILABLE',rows:[],closingMinor:null,issues:[],coverageComplete:false,actualBankBalance:false,liquidity:null};
   if(!c.cashScenario)return empty;
-  const p=validateCashScenario(c.cashScenario,c),issues=[];
+  const p=validateCashScenario(c.cashScenario,c),issues=[],otherEntries=p.otherFlows?.entries||[];
+  empty.otherFlowCoverage=cashOtherFlowCoverage(p.otherFlows);
   if(!periods.length)return {...empty,status:'NEEDS_REVIEW',issues:[{code:'CASH_HORIZON_REQUIRED'}]};
   const start=periods[0].periodStart,end=periods[periods.length-1].periodEndExclusive;
   if(start!==c.asOfDate.slice(0,10)||p.openingDate!==start)issues.push({code:'CASH_OPENING_DATE_MISMATCH'});
   for(let i=0;i<periods.length;i++)if(!date(periods[i].periodStart)||!date(periods[i].periodEndExclusive)||periods[i].periodStart>=periods[i].periodEndExclusive||(i&&periods[i-1].periodEndExclusive!==periods[i].periodStart))issues.push({code:'CASH_HORIZON_REQUIRED'});
   if(p.entries.some(e=>e.date<start||e.date>=end))issues.push({code:'CASH_RECEIPT_OUTSIDE_HORIZON'});
+  if(otherEntries.some(e=>e.date<start||e.date>=end))issues.push({code:'CASH_OTHER_FLOW_OUTSIDE_HORIZON'});
   const operating=calculateOperatingPaymentPlan(c,periods),capital=calculateCapitalPaymentPlan(c,periods),b=c.operatingPaymentPlan?.budgetControl;
   if(operating.status!=='RECORDED_PLAN'||operating.budgetReconciliation?.status!=='MATCHED_ENTERED_BUDGET'||b?.periodStart!==start||b?.periodEndExclusive!==end)issues.push({code:'CASH_MATCHED_HORIZON_BUDGET_REQUIRED'});
   if(capital.status!=='SCHEDULED')issues.push({code:'CASH_CAPITAL_PLAN_REQUIRED'});
@@ -50,8 +54,11 @@ function calculateCashScenario(c,periods){
     const rows=periods.map((period,i)=>{
       const receipts=p.entries.filter(e=>e.date>=period.periodStart&&e.date<period.periodEndExclusive).reduce((s,e)=>s+BigInt(e.amountMinor),0n);
       const operatingPaid=operating.rows[i].entries.reduce((s,e)=>s+BigInt(e.amountMinor),0n),capex=capital.rows[i].entries.reduce((s,e)=>s+BigInt(e.amountMinor),0n);
-      const net=receipts-operatingPaid-capex,opening=balance;balance+=net;
-      return {periodStart:period.periodStart,periodEndExclusive:period.periodEndExclusive,openingMinor:safe(opening),receiptsMinor:safe(receipts),operatingMinor:safe(operatingPaid),capexMinor:safe(capex),netMinor:safe(net),closingMinor:safe(balance)};
+      const other=otherEntries.filter(e=>e.date>=period.periodStart&&e.date<period.periodEndExclusive);
+      const sum=direction=>other.filter(e=>e.direction===direction).reduce((s,e)=>s+BigInt(e.amountMinor),0n);
+      const otherInflows=sum('INFLOW'),otherOutflows=sum('OUTFLOW');
+      const net=receipts+otherInflows-operatingPaid-capex-otherOutflows,opening=balance;balance+=net;
+      return {periodStart:period.periodStart,periodEndExclusive:period.periodEndExclusive,openingMinor:safe(opening),receiptsMinor:safe(receipts),operatingMinor:safe(operatingPaid),capexMinor:safe(capex),otherInflowsMinor:safe(otherInflows),otherOutflowsMinor:safe(otherOutflows),netMinor:safe(net),closingMinor:safe(balance)};
     });
     // Dates do not establish intraday settlement order. Debit-first is a
     // conservative bound for the supplied flows, not observed bank liquidity.
@@ -61,6 +68,7 @@ function calculateCashScenario(c,periods){
       day[key]+=BigInt(entry.amountMinor);daily.set(entry.date,day);
     };
     p.entries.forEach(e=>add(e,'receipts'));
+    otherEntries.forEach(e=>add(e,e.direction==='INFLOW'?'receipts':'payments'));
     [...operating.rows,...capital.rows].forEach(row=>row.entries.forEach(e=>add(e,'payments')));
     let current=BigInt(p.openingMinor),minimum=current,minimumDate=start;
     let firstShortfallDate=current<0n?start:null;
@@ -76,19 +84,24 @@ function calculateCashScenario(c,periods){
       rows:dailyRows,minimumMinor:safe(minimum),minimumDate,firstShortfallDate,
       additionalOpeningRequiredMinor:safe(minimum<0n?-minimum:0n),coverageComplete:false,actualBankBalance:false};
     return {...empty,status:'PARTIAL_SCENARIO',rows,liquidity,closingMinor:safe(balance),sourceRef:p.sourceRef,reviewRef:p.reviewRef,capitalOutsideHorizon:capital.outsideHorizon,
-      semantics:'Entered receipt assumptions and documented opening balance less supplied operating and capital plans only. No accrual conversion or ledger carry-forward. Excludes unentered taxes, financing, deposits, fees and other flows. Month-end scenario, not intramonth liquidity, complete forecast, executed payments or verified bank balance.'};
+      semantics:'Entered opening balance, rent receipt assumptions and separately sourced additional inflows less supplied operating, capital and additional outflow plans. No accrual conversion, automatic tax calculation or ledger carry-forward. Excludes all unentered flows. A declared category review does not independently verify completeness. Scenario and conservative dated check, not executed payments, available funding or verified bank balance.'};
   }catch(error){if(error.message!=='CASH_AMOUNT_OUT_OF_RANGE')throw error;return {...empty,status:'NEEDS_REVIEW',issues:[{code:error.message}]};}
 }
 function replaceCashScenario(c,draft){
   if(draft?.confirmed!==true)fail('EXPLICIT_VERIFICATION_CONFIRMATION_REQUIRED');
   if(!Array.isArray(draft.entries))fail('CASH_SCENARIO_INVALID');
   const cashScenario={schemaVersion:1,caseId:c.caseId,openingDate:draft.openingDate,openingMinor:openingAmount(draft.openingAmount),sourceRef:draft.sourceRef,reviewRef:draft.reviewRef,entries:draft.entries.map(e=>({...e,amountMinor:parseLedgerAmount(e.amount)}))};
+  if(draft.otherFlows!==undefined){
+    if(!draft.otherFlows||!Array.isArray(draft.otherFlows.entries))fail('CASH_OTHER_FLOWS_INVALID');
+    cashScenario.otherFlows={...draft.otherFlows,entries:draft.otherFlows.entries.map(e=>({...e,amountMinor:parseLedgerAmount(e.amount)}))};
+  }
   const {createResidentialIncomeOperatingCase}=require('./contracts');
   const candidate=createResidentialIncomeOperatingCase({...c,cashScenario});
   // Receipts can be saved before payment plans; blocked calculations remain visible.
   if(cashScenario.openingDate!==c.asOfDate.slice(0,10))fail('CASH_OPENING_DATE_MISMATCH');
   const d=new Date(c.asOfDate),end=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+12,1)).toISOString().slice(0,10);
   if(cashScenario.entries.some(e=>e.date<cashScenario.openingDate||e.date>=end))fail('CASH_RECEIPT_OUTSIDE_HORIZON');
+  if(cashScenario.otherFlows?.entries.some(e=>e.date<cashScenario.openingDate||e.date>=end))fail('CASH_OTHER_FLOW_OUTSIDE_HORIZON');
   return candidate;
 }
 module.exports={validateCashScenario,calculateCashScenario,replaceCashScenario,formatCashMinor};

@@ -14,6 +14,15 @@ const BASE=process.env.STARTAK_E2E_URL||'http://127.0.0.1:4173';
 const DIR='runtime-evidence/remaining-audit';let checks=0;
 const ok=(condition,message)=>{assert.ok(condition,message);checks++;};
 async function download(page,locator){const pending=page.waitForEvent('download');await locator.click();const file=await pending;return fs.readFile(await file.path(),'utf8');}
+async function textContrast(locator){return locator.evaluate(el=>{
+ const canvas=document.createElement('canvas');canvas.width=canvas.height=1;const ctx=canvas.getContext('2d');
+ const rgb=color=>{ctx.clearRect(0,0,1,1);ctx.fillStyle=color;ctx.fillRect(0,0,1,1);return [...ctx.getImageData(0,0,1,1).data];};
+ const foreground=rgb(getComputedStyle(el).color);let background;
+ for(let node=el;node;node=node.parentElement){const color=rgb(getComputedStyle(node).backgroundColor);if(color[3]===255){background=color;break;}}
+ if(!background)throw new Error('Opaque text background required for contrast check');
+ const luminance=channels=>channels.slice(0,3).map(x=>x/255).map(x=>x<=0.04045?x/12.92:((x+0.055)/1.055)**2.4).reduce((s,x,i)=>s+x*[0.2126,0.7152,0.0722][i],0);
+ const a=luminance(foreground),b=luminance(background);return (Math.max(a,b)+0.05)/(Math.min(a,b)+0.05);
+ });}
 (async()=>{
  await fs.mkdir(DIR,{recursive:true});const evidence=[];
  for(const[name,engine]of Object.entries({chromium,firefox,webkit})){
@@ -195,6 +204,62 @@ async function download(page,locator){const pending=page.waitForEvent('download'
    await expect(page.getByTestId('cash-liquidity-first-shortfall')).toHaveText('2026-09-10');checks++;
    await expect(page.getByTestId('cash-liquidity-required')).toHaveText('14000.00');checks++;
 
+   await expect(page.getByTestId('cash-other-review-status')).toContainText('غير مكتملة');checks++;
+   const otherRows=[
+    {category:'FINANCING',direction:'INFLOW',date:'2026-09-09',amount:'20000',reference:'Synthetic future receipt',description:'Synthetic loan draw'},
+    {category:'TAX',direction:'OUTFLOW',date:'2026-09-15',amount:'100.25',reference:'Synthetic tax',description:'Synthetic entered tax payment'},
+    {category:'DEPOSIT',direction:'INFLOW',date:'2026-09-15',amount:'250',reference:'Synthetic deposit receipt',description:'Synthetic deposit held'},
+    {category:'DEPOSIT',direction:'OUTFLOW',date:'2026-10-02',amount:'250',reference:'Synthetic deposit return',description:'Synthetic deposit repayment'},
+   ];
+   for(const [i,row]of otherRows.entries()){
+    await page.getByTestId('cash-other-add').click();
+    for(const [key,value]of Object.entries(row)){
+     const input=page.getByTestId(`cash-other-${key}-${i}`);
+     if(['category','direction'].includes(key))await input.selectOption(value);else await input.fill(value);
+    }
+    await page.getByTestId(`cash-other-source-${i}`).fill('Synthetic documented assumption');
+   }
+   await page.getByTestId('cash-source').fill('Synthetic full entered cash plan');await page.getByTestId('cash-review').fill('Synthetic other flows review');
+   await page.getByTestId('cash-confirm').check();await page.getByTestId('cash-save').click();await expect(page.getByTestId('cash-feedback')).toContainText('CASH_UNIQUE_REFERENCE_REQUIRED');checks++;
+   await page.getByTestId('cash-other-reference-0').fill('Synthetic financing draw');await expect(page.getByTestId('cash-confirm')).not.toBeChecked();checks++;
+   for(const category of ['FINANCING','DEPOSIT'])await page.getByTestId(`cash-category-review-${category}`).selectOption('ENTERED');
+   for(const category of ['TAX','FEES','OTHER'])await page.getByTestId(`cash-category-review-${category}`).selectOption('NONE_EXPECTED');
+   await page.getByTestId('cash-confirm').check();await page.getByTestId('cash-save').click();await expect(page.getByTestId('cash-feedback')).toContainText('CASH_CATEGORY_REVIEW_CONFLICT');checks++;
+   await page.getByTestId('cash-category-review-TAX').selectOption('ENTERED');
+   await page.getByTestId('cash-confirm').check();await page.getByTestId('cash-other-amount-1').fill('100.26');
+   await expect(page.getByTestId('cash-confirm')).not.toBeChecked();checks++;
+   await expect(page.getByTestId('cash-category-review-TAX')).toHaveValue('NOT_REVIEWED');checks++;
+   await page.getByTestId('cash-other-amount-1').fill('100.25');
+   await page.getByTestId('cash-category-review-TAX').selectOption('ENTERED');await page.getByTestId('cash-confirm').check();await page.getByTestId('cash-save').click();await expect(page.getByTestId('cash-feedback')).toHaveText('تم حفظ السيناريو.');checks++;
+   const otherCash=JSON.parse(await download(page,page.getByTestId('export-contract-runoff')));
+   ok(otherCash.result.cashScenario.closingMinor===2590000&&otherCash.result.cashScenario.rows[0].closingMinor===614975,'financing, tax and deposits affect only dated entered cash flows');
+   ok(otherCash.result.cashScenario.otherFlowCoverage.status==='REVIEW_DECLARED'&&otherCash.result.cashScenario.coverageComplete===false,'declared category review does not verify complete cash coverage');
+   ok(JSON.stringify(otherCash.result.totals)===JSON.stringify(cash.result.totals)&&otherCash.sourceOperatingCase.cashScenario.otherFlows.entries.length===4,'additional flows retain source inputs without changing analytical rental NOI');
+   await expect(page.getByTestId('cash-closing')).toHaveText('25900.00');checks++;
+   await expect(page.getByTestId('cash-liquidity-minimum')).toHaveText('1000.00');checks++;
+   await expect(page.getByTestId('cash-other-review-status')).toContainText('(5/5)');checks++;
+   const cashLayout=await page.evaluate(()=>({width:innerWidth,scrollWidth:document.documentElement.scrollWidth}));
+   ok(cashLayout.scrollWidth<=cashLayout.width+1,'additional cash controls and tables retain viewport width');
+   ok(await textContrast(page.getByTestId('cash-other-amount-0'))>=4.5,'cash amount text has readable contrast against its dark control');
+   ok(await textContrast(page.getByTestId('cash-other-review-status'))>=4.5,'cash review text has readable contrast against its panel');
+   const moneyGap=await page.getByTestId('cash-other-coverage').locator('tbody tr').first().evaluate(row=>{
+    const rect=cell=>{const range=document.createRange();range.selectNodeContents(cell);return range.getBoundingClientRect();};
+    const a=rect(row.cells[3]),b=rect(row.cells[4]);return Math.max(a.left,b.left)-Math.min(a.right,b.right);
+   });
+   ok(moneyGap>=12,'inflow and outflow amounts have distinct readable columns on mobile and desktop');
+   await page.getByTestId('cash-other-coverage').evaluate(el=>{el.scrollIntoView({block:'center'});window.scrollBy(0,-120);});
+   await page.getByTestId('cash-other-coverage').screenshot({path:`${DIR}/${name}-${viewport.width}-cash-coverage.png`});
+   await page.getByTestId('cash-other-add').locator('..').screenshot({path:`${DIR}/${name}-${viewport.width}-cash-editor.png`});
+   // A plan change after beginning another cash review invalidates the draft.
+   await page.getByTestId('cash-other-amount-1').fill('100.26');
+   await page.getByTestId('capital-date-0').fill('2026-09-11');
+   await page.getByTestId('capital-source').fill('Synthetic revised payment date');await page.getByTestId('capital-review').fill('Synthetic revised date review');
+   await page.getByTestId('capital-confirm').check();await page.getByTestId('capital-save').click();await expect(page.getByTestId('capital-feedback')).toHaveText('تم حفظ خطة الدفع.');checks++;
+   await page.getByTestId('cash-source').fill('Synthetic stale draft source');await page.getByTestId('cash-review').fill('Synthetic stale draft review');
+   await page.getByTestId('cash-confirm').check();await page.getByTestId('cash-save').click();await expect(page.getByTestId('cash-feedback')).toContainText('CASH_DRAFT_STALE');checks++;
+   await page.getByTestId('cash-reload').click();await expect(page.getByTestId('cash-other-amount-1')).toHaveValue('100.25');checks++;
+   await expect(page.getByTestId('cash-confirm')).not.toBeChecked();checks++;
+
    const ledgerFill=async(type,values)=>{
     await page.getByTestId('ledger-type').selectOption(type);
     for(const[key,value]of Object.entries(values)){
@@ -279,6 +344,9 @@ async function download(page,locator){const pending=page.waitForEvent('download'
    ok(restored.result.totalsMinor.outstanding===9025&&restored.sourceOperatingCase.capitalPaymentPlan.entries[0].amountMinor===1200000,'snapshot round trip preserves ledger and capital payment plan');
    ok(restored.result.totalsMinor.credited===1000&&restored.result.creditRows[0].id==='K2'&&restored.result.reversedIds.includes('K1'),'documented reduction and correction survive snapshot round trip');
    ok(restored.sourceOperatingCase.cashScenario.openingMinor===100000&&restored.sourceOperatingCase.cashScenario.entries[0].amountMinor===2000025,'cash assumptions survive ledger updates and snapshot import');
+   ok(restored.sourceOperatingCase.cashScenario.otherFlows.entries.length===4&&restored.sourceOperatingCase.cashScenario.otherFlows.categoryReviews.every(r=>r.status!=='NOT_REVIEWED'),'additional sourced flows and explicit category reviews survive ledger updates and snapshot replay');
+   const restoredOtherCash=JSON.parse(await download(page,page.getByTestId('export-contract-runoff')));
+   ok(restoredOtherCash.result.cashScenario.closingMinor===2590000&&restoredOtherCash.result.cashScenario.liquidity.minimumMinor===100000,'replayed snapshot recomputes monthly and daily balances including additional flows');
    ok(restored.sourceOperatingCase.operatingPaymentPlan.entries[0].amountMinor===300000,'operating payment plan survives ledger changes and import/export');
    ok(restored.sourceOperatingCase.operatingPaymentPlan.budgetControl.periodStart==='2026-09-01'&&restored.sourceOperatingCase.operatingPaymentPlan.budgetControl.items[0].amountMinor===300000,'period budget survives ledger changes and snapshot replay');
    ok(restored.result.totalsMinor.refunded===2025&&restored.result.refundRows[0].id==='F2'&&restored.result.reversedIds.includes('F1'),'refund and correction survive snapshot round trip');
