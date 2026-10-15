@@ -242,6 +242,11 @@ async function textContrast(locator){return locator.evaluate(el=>{
    ok(cashLayout.scrollWidth<=cashLayout.width+1,'additional cash controls and tables retain viewport width');
    ok(await textContrast(page.getByTestId('cash-other-amount-0'))>=4.5,'cash amount text has readable contrast against its dark control');
    ok(await textContrast(page.getByTestId('cash-other-review-status'))>=4.5,'cash review text has readable contrast against its panel');
+   const moneyGap=await page.getByTestId('cash-other-coverage').locator('tbody tr').first().evaluate(row=>{
+    const rect=cell=>{const range=document.createRange();range.selectNodeContents(cell);return range.getBoundingClientRect();};
+    const a=rect(row.cells[3]),b=rect(row.cells[4]);return Math.max(a.left,b.left)-Math.min(a.right,b.right);
+   });
+   ok(moneyGap>=12,'inflow and outflow amounts have distinct readable columns on mobile and desktop');
    await page.getByTestId('cash-other-coverage').evaluate(el=>{el.scrollIntoView({block:'center'});window.scrollBy(0,-120);});
    await page.getByTestId('cash-other-coverage').screenshot({path:`${DIR}/${name}-${viewport.width}-cash-coverage.png`});
    await page.getByTestId('cash-other-add').locator('..').screenshot({path:`${DIR}/${name}-${viewport.width}-cash-editor.png`});
