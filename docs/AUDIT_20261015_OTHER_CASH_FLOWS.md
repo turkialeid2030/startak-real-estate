@@ -35,3 +35,8 @@ Browser acceptance covers Arabic desktop/mobile workflows in Chromium,
 Firefox and WebKit, including rejected duplicates, review invalidation,
 category conflicts and restored calculations. Deployment acceptance also
 checks source binding and all final asset bytes before browser checks.
+
+Visual review found inherited black text on dark operating panels. The parent
+workspace now supplies a light foreground and dark native-control scheme.
+Browser acceptance checks actual rendered foreground/background contrast for
+the cash input and review result in all six browser/viewport combinations.
