@@ -229,6 +229,19 @@ async function download(page,locator){const pending=page.waitForEvent('download'
    await expect(page.getByTestId('cash-closing')).toHaveText('25900.00');checks++;
    await expect(page.getByTestId('cash-liquidity-minimum')).toHaveText('1000.00');checks++;
    await expect(page.getByTestId('cash-other-review-status')).toContainText('(5/5)');checks++;
+   const cashLayout=await page.evaluate(()=>({width:innerWidth,scrollWidth:document.documentElement.scrollWidth}));
+   ok(cashLayout.scrollWidth<=cashLayout.width+1,'additional cash controls and tables retain viewport width');
+   await page.getByTestId('cash-other-coverage').screenshot({path:`${DIR}/${name}-${viewport.width}-cash-coverage.png`});
+   await page.getByTestId('cash-other-add').locator('..').screenshot({path:`${DIR}/${name}-${viewport.width}-cash-editor.png`});
+   // A plan change after beginning another cash review invalidates the draft.
+   await page.getByTestId('cash-other-amount-1').fill('100.26');
+   await page.getByTestId('capital-date-0').fill('2026-09-11');
+   await page.getByTestId('capital-source').fill('Synthetic revised payment date');await page.getByTestId('capital-review').fill('Synthetic revised date review');
+   await page.getByTestId('capital-confirm').check();await page.getByTestId('capital-save').click();await expect(page.getByTestId('capital-feedback')).toHaveText('تم حفظ خطة الدفع.');checks++;
+   await page.getByTestId('cash-source').fill('Synthetic stale draft source');await page.getByTestId('cash-review').fill('Synthetic stale draft review');
+   await page.getByTestId('cash-confirm').check();await page.getByTestId('cash-save').click();await expect(page.getByTestId('cash-feedback')).toContainText('CASH_DRAFT_STALE');checks++;
+   await page.getByTestId('cash-reload').click();await expect(page.getByTestId('cash-other-amount-1')).toHaveValue('100.25');checks++;
+   await expect(page.getByTestId('cash-confirm')).not.toBeChecked();checks++;
 
    const ledgerFill=async(type,values)=>{
     await page.getByTestId('ledger-type').selectOption(type);
