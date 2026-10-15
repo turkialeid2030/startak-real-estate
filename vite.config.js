@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import fs from 'node:fs';
+import { createHash } from 'node:crypto';
 
 const packageJson = JSON.parse(fs.readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
 
@@ -52,12 +53,20 @@ function releaseManifestPlugin() {
       return [{ tag: 'meta', attrs: { name: 'startak-source-commit',
         content: buildMetadata.sourceCommit || 'UNVERIFIED_LOCAL' }, injectTo: 'head' }];
     },
-    generateBundle() {
+    generateBundle(_options, bundle) {
       this.emitFile({
         type: 'asset',
         fileName: 'release-manifest.json',
         source: `${JSON.stringify(buildMetadata, null, 2)}\n`,
       });
+      const assets = Object.values(bundle).filter(item => item.fileName.startsWith('assets/')).map(item => {
+        const bytes = Buffer.from(item.type === 'chunk' ? item.code : item.source);
+        return { path: item.fileName, sizeBytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') };
+      }).sort((a, b) => a.path.localeCompare(b.path));
+      this.emitFile({ type: 'asset', fileName: 'asset-manifest.json', source: `${JSON.stringify({
+        schemaVersion: 1, sourceCommit: buildMetadata.sourceCommit, assets,
+        evidenceBoundary: 'BUILD_ASSET_BYTES_NOT_DELIVERY_PROOF',
+      }, null, 2)}\n` });
     },
   };
 }
