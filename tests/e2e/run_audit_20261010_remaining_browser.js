@@ -14,6 +14,15 @@ const BASE=process.env.STARTAK_E2E_URL||'http://127.0.0.1:4173';
 const DIR='runtime-evidence/remaining-audit';let checks=0;
 const ok=(condition,message)=>{assert.ok(condition,message);checks++;};
 async function download(page,locator){const pending=page.waitForEvent('download');await locator.click();const file=await pending;return fs.readFile(await file.path(),'utf8');}
+async function textContrast(locator){return locator.evaluate(el=>{
+ const canvas=document.createElement('canvas');canvas.width=canvas.height=1;const ctx=canvas.getContext('2d');
+ const rgb=color=>{ctx.clearRect(0,0,1,1);ctx.fillStyle=color;ctx.fillRect(0,0,1,1);return [...ctx.getImageData(0,0,1,1).data];};
+ const foreground=rgb(getComputedStyle(el).color);let background;
+ for(let node=el;node;node=node.parentElement){const color=rgb(getComputedStyle(node).backgroundColor);if(color[3]===255){background=color;break;}}
+ if(!background)throw new Error('Opaque text background required for contrast check');
+ const luminance=channels=>channels.slice(0,3).map(x=>x/255).map(x=>x<=0.04045?x/12.92:((x+0.055)/1.055)**2.4).reduce((s,x,i)=>s+x*[0.2126,0.7152,0.0722][i],0);
+ const a=luminance(foreground),b=luminance(background);return (Math.max(a,b)+0.05)/(Math.min(a,b)+0.05);
+ });}
 (async()=>{
  await fs.mkdir(DIR,{recursive:true});const evidence=[];
  for(const[name,engine]of Object.entries({chromium,firefox,webkit})){
@@ -231,6 +240,9 @@ async function download(page,locator){const pending=page.waitForEvent('download'
    await expect(page.getByTestId('cash-other-review-status')).toContainText('(5/5)');checks++;
    const cashLayout=await page.evaluate(()=>({width:innerWidth,scrollWidth:document.documentElement.scrollWidth}));
    ok(cashLayout.scrollWidth<=cashLayout.width+1,'additional cash controls and tables retain viewport width');
+   ok(await textContrast(page.getByTestId('cash-other-amount-0'))>=4.5,'cash amount text has readable contrast against its dark control');
+   ok(await textContrast(page.getByTestId('cash-other-review-status'))>=4.5,'cash review text has readable contrast against its panel');
+   await page.getByTestId('cash-other-coverage').evaluate(el=>{el.scrollIntoView({block:'center'});window.scrollBy(0,-120);});
    await page.getByTestId('cash-other-coverage').screenshot({path:`${DIR}/${name}-${viewport.width}-cash-coverage.png`});
    await page.getByTestId('cash-other-add').locator('..').screenshot({path:`${DIR}/${name}-${viewport.width}-cash-editor.png`});
    // A plan change after beginning another cash review invalidates the draft.
