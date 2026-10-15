@@ -195,6 +195,41 @@ async function download(page,locator){const pending=page.waitForEvent('download'
    await expect(page.getByTestId('cash-liquidity-first-shortfall')).toHaveText('2026-09-10');checks++;
    await expect(page.getByTestId('cash-liquidity-required')).toHaveText('14000.00');checks++;
 
+   await expect(page.getByTestId('cash-other-review-status')).toContainText('غير مكتملة');checks++;
+   const otherRows=[
+    {category:'FINANCING',direction:'INFLOW',date:'2026-09-09',amount:'20000',reference:'Synthetic future receipt',description:'Synthetic loan draw'},
+    {category:'TAX',direction:'OUTFLOW',date:'2026-09-15',amount:'100.25',reference:'Synthetic tax',description:'Synthetic entered tax payment'},
+    {category:'DEPOSIT',direction:'INFLOW',date:'2026-09-15',amount:'250',reference:'Synthetic deposit receipt',description:'Synthetic deposit held'},
+    {category:'DEPOSIT',direction:'OUTFLOW',date:'2026-10-02',amount:'250',reference:'Synthetic deposit return',description:'Synthetic deposit repayment'},
+   ];
+   for(const [i,row]of otherRows.entries()){
+    await page.getByTestId('cash-other-add').click();
+    for(const [key,value]of Object.entries(row)){
+     const input=page.getByTestId(`cash-other-${key}-${i}`);
+     if(['category','direction'].includes(key))await input.selectOption(value);else await input.fill(value);
+    }
+    await page.getByTestId(`cash-other-source-${i}`).fill('Synthetic documented assumption');
+   }
+   await page.getByTestId('cash-source').fill('Synthetic full entered cash plan');await page.getByTestId('cash-review').fill('Synthetic other flows review');
+   await page.getByTestId('cash-confirm').check();await page.getByTestId('cash-save').click();await expect(page.getByTestId('cash-feedback')).toContainText('CASH_UNIQUE_REFERENCE_REQUIRED');checks++;
+   await page.getByTestId('cash-other-reference-0').fill('Synthetic financing draw');await expect(page.getByTestId('cash-confirm')).not.toBeChecked();checks++;
+   for(const category of ['FINANCING','DEPOSIT'])await page.getByTestId(`cash-category-review-${category}`).selectOption('ENTERED');
+   for(const category of ['TAX','FEES','OTHER'])await page.getByTestId(`cash-category-review-${category}`).selectOption('NONE_EXPECTED');
+   await page.getByTestId('cash-confirm').check();await page.getByTestId('cash-save').click();await expect(page.getByTestId('cash-feedback')).toContainText('CASH_CATEGORY_REVIEW_CONFLICT');checks++;
+   await page.getByTestId('cash-category-review-TAX').selectOption('ENTERED');
+   await page.getByTestId('cash-confirm').check();await page.getByTestId('cash-other-amount-1').fill('100.26');
+   await expect(page.getByTestId('cash-confirm')).not.toBeChecked();checks++;
+   await expect(page.getByTestId('cash-category-review-TAX')).toHaveValue('NOT_REVIEWED');checks++;
+   await page.getByTestId('cash-other-amount-1').fill('100.25');
+   await page.getByTestId('cash-category-review-TAX').selectOption('ENTERED');await page.getByTestId('cash-confirm').check();await page.getByTestId('cash-save').click();await expect(page.getByTestId('cash-feedback')).toHaveText('تم حفظ السيناريو.');checks++;
+   const otherCash=JSON.parse(await download(page,page.getByTestId('export-contract-runoff')));
+   ok(otherCash.result.cashScenario.closingMinor===2590000&&otherCash.result.cashScenario.rows[0].closingMinor===614975,'financing, tax and deposits affect only dated entered cash flows');
+   ok(otherCash.result.cashScenario.otherFlowCoverage.status==='REVIEW_DECLARED'&&otherCash.result.cashScenario.coverageComplete===false,'declared category review does not verify complete cash coverage');
+   ok(JSON.stringify(otherCash.result.totals)===JSON.stringify(cash.result.totals)&&otherCash.sourceOperatingCase.cashScenario.otherFlows.entries.length===4,'additional flows retain source inputs without changing analytical rental NOI');
+   await expect(page.getByTestId('cash-closing')).toHaveText('25900.00');checks++;
+   await expect(page.getByTestId('cash-liquidity-minimum')).toHaveText('1000.00');checks++;
+   await expect(page.getByTestId('cash-other-review-status')).toContainText('(5/5)');checks++;
+
    const ledgerFill=async(type,values)=>{
     await page.getByTestId('ledger-type').selectOption(type);
     for(const[key,value]of Object.entries(values)){
@@ -279,6 +314,9 @@ async function download(page,locator){const pending=page.waitForEvent('download'
    ok(restored.result.totalsMinor.outstanding===9025&&restored.sourceOperatingCase.capitalPaymentPlan.entries[0].amountMinor===1200000,'snapshot round trip preserves ledger and capital payment plan');
    ok(restored.result.totalsMinor.credited===1000&&restored.result.creditRows[0].id==='K2'&&restored.result.reversedIds.includes('K1'),'documented reduction and correction survive snapshot round trip');
    ok(restored.sourceOperatingCase.cashScenario.openingMinor===100000&&restored.sourceOperatingCase.cashScenario.entries[0].amountMinor===2000025,'cash assumptions survive ledger updates and snapshot import');
+   ok(restored.sourceOperatingCase.cashScenario.otherFlows.entries.length===4&&restored.sourceOperatingCase.cashScenario.otherFlows.categoryReviews.every(r=>r.status!=='NOT_REVIEWED'),'additional sourced flows and explicit category reviews survive ledger updates and snapshot replay');
+   const restoredOtherCash=JSON.parse(await download(page,page.getByTestId('export-contract-runoff')));
+   ok(restoredOtherCash.result.cashScenario.closingMinor===2590000&&restoredOtherCash.result.cashScenario.liquidity.minimumMinor===100000,'replayed snapshot recomputes monthly and daily balances including additional flows');
    ok(restored.sourceOperatingCase.operatingPaymentPlan.entries[0].amountMinor===300000,'operating payment plan survives ledger changes and import/export');
    ok(restored.sourceOperatingCase.operatingPaymentPlan.budgetControl.periodStart==='2026-09-01'&&restored.sourceOperatingCase.operatingPaymentPlan.budgetControl.items[0].amountMinor===300000,'period budget survives ledger changes and snapshot replay');
    ok(restored.result.totalsMinor.refunded===2025&&restored.result.refundRows[0].id==='F2'&&restored.result.reversedIds.includes('F1'),'refund and correction survive snapshot round trip');
