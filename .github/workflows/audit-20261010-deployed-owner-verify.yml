@@ -67,6 +67,8 @@ jobs:
           }
           throw new Error('Public deployment does not match reviewed main: '+JSON.stringify(observed));
           JS
+      - name: Verify every compiled asset byte and missing-asset status
+        run: node tools/verify-deployed-assets.mjs --url "$STARTAK_E2E_URL" --expected-sha "$STARTAK_SOURCE_COMMIT" --output runtime-evidence/remaining-audit/deployed-assets.json
       - name: Published owner study and draft persistence
         run: node tests/e2e/run_audit_20261010_f03_f07_browser.js
       - name: Published financial export compatibility
