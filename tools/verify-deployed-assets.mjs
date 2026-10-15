@@ -31,7 +31,7 @@ export async function verifyDeployedAssets({url,expectedSha,fetchImpl=fetch}){
   const worker=async()=>{
     while(next<manifest.assets.length){
       const item=manifest.assets[next++],{response,bytes}=await read('/'+item.path),type=response.headers.get('content-type')||'';
-      const expectedType=item.path.endsWith('.js')?/(?:application|text)\/(?:java|ecma)script/i:item.path.endsWith('.css')?/text\/css/i:item.path.endsWith('.wasm')?/application\/wasm/i:null;
+      const expectedType=/\.(?:m?js|cjs)$/.test(item.path)?/(?:application|text)\/(?:java|ecma)script/i:item.path.endsWith('.css')?/text\/css/i:item.path.endsWith('.wasm')?/application\/wasm/i:null;
       const sha256=createHash('sha256').update(bytes).digest('hex');
       const status=response.status===200&&(!expectedType||expectedType.test(type))&&bytes.length===item.sizeBytes&&sha256===item.sha256?'PASS':'FAIL';
       rows.push({path:item.path,status,httpStatus:response.status,contentType:type,sizeBytes:bytes.length,expectedSizeBytes:item.sizeBytes,sha256,expectedSha256:item.sha256});
