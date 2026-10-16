@@ -1,4 +1,5 @@
 'use strict';
+const {normalizeNumericText}=require('../validation/numeric-text');
 
 // Local, append-only document register. It does not issue tax invoices or
 // infer receipts from contractual accrual. All arithmetic is in integer halalas.
@@ -22,10 +23,13 @@ function add(a,b) {
 }
 function parseLedgerAmount(value) {
   if (typeof value !== 'string' && typeof value !== 'number') fail('LEDGER_AMOUNT_INVALID');
-  const normalized = String(value).trim().replace(/[٠-٩]/g,d=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[۰-۹]/g,d=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/٫/g,'.');
+  const result=normalizeNumericText(value);if(!result.ok)fail('LEDGER_AMOUNT_INVALID');
+  const normalized=result.normalized;
   if (!/^\d+(?:\.\d{1,2})?$/.test(normalized)) fail('LEDGER_AMOUNT_INVALID');
   const [whole,fraction=''] = normalized.split('.');
-  return minor(Number(whole)*100+Number(fraction.padEnd(2,'0')));
+  const amount=BigInt(whole)*100n+BigInt(fraction.padEnd(2,'0'));
+  if(amount>BigInt(Number.MAX_SAFE_INTEGER))fail('LEDGER_AMOUNT_INVALID');
+  return minor(Number(amount));
 }
 
 function replayReceivablesLedger(input, operatingCase) {
