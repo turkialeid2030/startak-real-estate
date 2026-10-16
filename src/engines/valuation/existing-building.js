@@ -147,12 +147,26 @@ function calcExistingBuilding(rawInp, context = {}) {
   const paybackOnCost = cumulativePaybackOnCost === null ? NaN : cumulativePaybackOnCost;
   const paybackOnPrice = cumulativePaybackOnPrice === null ? NaN : cumulativePaybackOnPrice;
 
-  const requiredYield = Math.max(inp.minYieldThreshold, 1 / inp.maxPaybackThreshold);
-  const targetTotalAcquisitionCost = NOI > 0 && requiredYield > 0 ? NOI / requiredYield : 0;
+  // Invert the same dated operating sequence as cumulative payback. The first
+  // crossing matters: later negative NOI must not erase an earlier recovery.
+  let cumulativeRecovery=0,maxRecovery=0;
+  for(let i=0;i<paybackNoiCashflows.length&&i<inp.maxPaybackThreshold;i++){
+    cumulativeRecovery+=paybackNoiCashflows[i]*Math.min(1,inp.maxPaybackThreshold-i);
+    maxRecovery=Math.max(maxRecovery,cumulativeRecovery);
+  }
+  const yieldCostLimit=inp.minYieldThreshold>0?NOI/inp.minYieldThreshold:Infinity;
+  const targetTotalAcquisitionCost=NOI>0?Math.min(yieldCostLimit,maxRecovery):0;
   const purchaseLoad = 1 + inp.commissionRate + inp.transferFeeRate;
-  const maxJustifiedPrice = purchaseLoad > 0
-    ? Math.max(0, (targetTotalAcquisitionCost - inp.inspectionCost - inp.valuationCost) / purchaseLoad)
+  let maxJustifiedPrice = purchaseLoad > 0
+    ? Math.max(0, Math.floor(((targetTotalAcquisitionCost-inp.inspectionCost-inp.valuationCost)/purchaseLoad)*100)/100)
     : 0;
+  for(let attempt=0;attempt<3&&maxJustifiedPrice>0;attempt++){
+    const cost=maxJustifiedPrice+maxJustifiedPrice*inp.commissionRate+maxJustifiedPrice*inp.transferFeeRate+inp.inspectionCost+inp.valuationCost;
+    const recovery=computeCumulativePaybackYears([-cost,...paybackNoiCashflows]);
+    if(NOI/cost>=inp.minYieldThreshold&&recovery!==null&&recovery<=inp.maxPaybackThreshold)break;
+    maxJustifiedPrice=Math.max(0,Math.round((maxJustifiedPrice-0.01)*100)/100);
+  }
+  const maxPriceConstraint={bindingConstraint:yieldCostLimit<maxRecovery?'NET_YIELD_ON_COST':'CUMULATIVE_PAYBACK',yieldTotalCostLimit:Number.isFinite(yieldCostLimit)?yieldCostLimit:null,paybackTotalCostLimit:maxRecovery,thresholdYears:inp.maxPaybackThreshold,rounding:'PURCHASE_PRICE_DOWN_TO_HALALA',allDecisionGatesSolved:false};
 
   const cashflows = [-totalPurchaseCost];
   let terminalSaleValue = exitAnalyticsReady ? 0 : null;
@@ -273,7 +287,7 @@ function calcExistingBuilding(rawInp, context = {}) {
     incomeCapBasis, marketValueByIncomeCap, valueGapVsCost, exitCapRate, terminalSaleValue, terminalNetSaleProceeds,
     basementConstructionValue, floorConstructionValue, totalReplacementConstructionValue, currentLandValue,
     totalAppraisedValue, annualDepreciation,
-    cashflows, operatingNoiCashflows, irr, npv, maxJustifiedPrice,
+    cashflows, operatingNoiCashflows, irr, npv, maxJustifiedPrice,maxPriceConstraint,
     loanAmount, equityRequired, debtService, dscrMin, leveredCashflows, leveredIRR, leveredNPV, equityDiscountRate,
     c0, c1, c2, c3, c4, c5, c6, c7,
     metCount: exitAnalyticsReady ? verdictResult.met : null,
