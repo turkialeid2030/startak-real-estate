@@ -24,7 +24,7 @@ check('R7-METHODOLOGY-VIA-T', appSrc.includes('t("globalApp.methodologyNote")'),
 check('R7-FMTSAR-LEAK-FIXED', !appSrc.match(/fmtSAR\(activeNPV\)/) && appSrc.includes('formatCurrencyLocalized'), 'CashFlowTab NPV uses localized helper, not global fmtSAR()');
 check('R7-RANGEWARNING-LOCALE-NEUTRAL', appSrc.includes('function rangeWarning(value, warnBelow, warnAbove, warnText, t)'), 't threaded through shared fallback');
 check('R7-NUMFIELD-HAS-LOCALE', /function NumField\({[^}]*}\) \{\s*const \{ t(?:, locale)? \} = useLocale/.test(appSrc), 'NumField has useLocale()');
-check('R7-PERCENTFIELD-HAS-LOCALE', /function PercentField\({[^}]*}\) \{\s*const \{ t \} = useLocale/.test(appSrc), 'PercentField has useLocale()');
+check('R7-PERCENTFIELD-HAS-LOCALE', /function PercentField\({[^}]*}\) \{\s*const \{ t,locale \} = useLocale/.test(appSrc), 'PercentField has useLocale()');
 
 // R7-B: DealsPanel modal accessibility
 check('R7B-DIALOG-ROLE', appSrc.includes('role="dialog"'), 'modal semantics present');
