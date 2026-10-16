@@ -28,6 +28,8 @@ are included in this change.
 
 ## Current implementation sequence and evidence boundaries
 
+- Staged N08 atomic quota worker: `workers/riai-quota/` combines rate and token reservation in a storage transaction, rejects duplicate-ID conflicts, settles usage idempotently, retains uncertain usage and blocks overages. Synthetic concurrent tests reproduce the two audit boundary cases without over-admission. **Not wired into the gateway or deployed; legacy KV path remains open.** Production binding, full-request token bound, persistent concurrency qualification and monetary-cost controls remain required. See worker README for explicit activation gates.
+
 - Published batch `53266c20ef918d30564f8d1f850daa7e6e6ded17`: numeric parsing (N01), cumulative building ceiling within its disclosed constraints (N02), duplicate sample rejection (N06), expert-role output guard (partial N07), selected Arabic/accessibility labels (partial N09). Published acceptance passed on rerun; the earlier asset 404 is retained as unresolved N11 evidence.
 - PR #682 / merge `3d9abc1b877157b736ff02e1372674b7724e7ae7`: bounded gateway bodies; all four applicable PR workflows passed at reviewed head `9770a7d1205a67d93b8c86536062af8d4efa16d5`. Merge is not independent evidence of production deployment.
 - Next technical dependencies: atomic shared quota reservation and settlement (N08); source-linked operational/financial reconciliation without cash/accrual or CAPEX/reserve double counting (N05); provider-channel financial assertion controls (N07).
