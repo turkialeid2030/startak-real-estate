@@ -30,11 +30,13 @@ function median(values) {
   if (!Array.isArray(values) || values.length === 0) return null;
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  return sorted.length % 2 ? sorted[mid] : sorted[mid - 1] / 2 + sorted[mid] / 2;
 }
 
 function mean(values) {
-  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+  // Called for non-negative absolute errors. Online averaging avoids summing
+  // several individually finite errors into Infinity.
+  return values.length ? values.reduce((average, value, index) => average + (value - average) / (index + 1), 0) : null;
 }
 
 function validatePolicy(policy) {
@@ -192,6 +194,8 @@ function evaluateExternalValuationValidation({ observations, policy = null }) {
   };
 
   const passes =
+    [metrics.meanAbsolutePercentageError, metrics.medianAbsolutePercentageError,
+      metrics.medianSignedPercentageError, metrics.maxAbsolutePercentageError].every(Number.isFinite) &&
     metrics.medianAbsolutePercentageError <= policy.maxMedianAbsolutePercentageError &&
     Math.abs(metrics.medianSignedPercentageError) <= policy.maxAbsoluteMedianSignedPercentageError;
 
