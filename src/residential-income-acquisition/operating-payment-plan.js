@@ -1,5 +1,6 @@
 'use strict';
 const {parseLedgerAmount}=require('./receivables-ledger');
+const {normalizeNumericText}=require('../validation/numeric-text');
 const fail=code=>{throw new TypeError(code);};
 const validDate=value=>typeof value==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(value))&&new Date(value).toISOString().slice(0,10)===value;
 function validateBudgetControl(control,ids){
@@ -30,7 +31,7 @@ function reconcileBudget(plan,asOfDate){
 }
 function budgetAmount(value){
   if(typeof value!=='string'&&typeof value!=='number')fail('LEDGER_AMOUNT_INVALID');
-  const normalized=String(value??'').trim().replace(/[٠-٩]/g,d=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[۰-۹]/g,d=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/٫/g,'.');
+  const result=normalizeNumericText(value);if(!result.ok)fail('LEDGER_AMOUNT_INVALID');const normalized=result.normalized;
   return /^0+(?:\.0{1,2})?$/.test(normalized)?0:parseLedgerAmount(value);
 }
 function validateOperatingPaymentPlan(plan,operatingCase){
