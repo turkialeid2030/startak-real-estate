@@ -24,7 +24,7 @@ are included in this change.
 
 ## Reproduction and acceptance
 
-- `node tests/architecture/run_reaudit_20261016_numeric_price_sample.js`: 223 assertions across shared parsing, document units, exact minor-unit ledger values, optional percentages, purchase ceilings and repeated samples.
+- `node tests/architecture/run_reaudit_20261016_numeric_price_sample.js`: 225 assertions across shared parsing, document units, exact minor-unit ledger values, optional percentages, purchase ceilings, repeated samples and overflow-safe aggregate errors.
 - `node tests/architecture/run_ai_output_guard_remediation_v2.js`: 12 grouped checks, including the unreferenced market-value reproduction and numeric snapshot mismatches.
 - Existing browser owner-study suite extended with real controlled-input and downloaded-report assertions at 1366px and 390px.
 - Full release/package/build, CI and deployed asset/browser acceptance must pass for the exact reviewed tree. This document alone is not evidence of deployment.
