@@ -99,7 +99,7 @@ async function writeAuditRecord({ store, record, ttlSeconds = 34560000, timeoutM
     ]);
     return Object.freeze({ written: true, key });
   }
-  catch (error) { return Object.freeze({ written: false, code: error.code === 'AI_AUDIT_WRITE_TIMEOUT' ? error.code : 'AI_AUDIT_WRITE_FAILED' }); }
+  catch (error) { return Object.freeze({ written: false, code: error?.code === 'AI_AUDIT_WRITE_TIMEOUT' ? error.code : 'AI_AUDIT_WRITE_FAILED' }); }
   finally { clearTimeout(timer); }
 }
 
