@@ -28,7 +28,7 @@ assert.strictEqual(building.priceBasis.version, PRICE_BASIS_VERSION);
 assert.strictEqual(building.priceBasis.metric, 'maxJustifiedPrice');
 assert.strictEqual(building.priceBasis.outputBasis, 'BASE_BUILDING_PURCHASE_PRICE_SAR');
 assert.deepStrictEqual(building.priceBasis.thresholdBasis, ['MIN_NET_YIELD_THRESHOLD', 'MAX_PAYBACK_THRESHOLD']);
-assert.strictEqual(building.priceBasis.bindingRateFormula, 'MAX_MIN_YIELD_OR_RECIPROCAL_MAX_PAYBACK');
+assert.strictEqual(building.priceBasis.bindingRateFormula, 'MIN_YIELD_AND_CUMULATIVE_OPERATING_PAYBACK_INVERTED');
 assert.strictEqual(building.priceBasis.solvesAllFinancialHardGates, false);
 assert.ok(building.priceBasis.excludedDecisionGates.includes('IRR_MEETS_HURDLE'));
 assert.ok(building.priceBasis.excludedDecisionGates.includes('NPV_NON_NEGATIVE'));
