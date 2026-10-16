@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const { readBoundedText } = await import('../../functions/api/riai/_bounded-body.mjs');
 
 const options = { maxBytes: 8, timeoutMs: 100 };
+assert.equal(await readBoundedText(new Response('12345678'), options), '12345678');
 assert.equal(await readBoundedText(new Response('مرح'), options), 'مرح');
 assert.equal(await readBoundedText(new Response(null), options), '');
 await assert.rejects(readBoundedText(new Response('123456789'), options), { code: 'BODY_TOO_LARGE' });
