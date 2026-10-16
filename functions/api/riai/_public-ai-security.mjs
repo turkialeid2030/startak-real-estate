@@ -117,50 +117,9 @@ function dayBucket(now) {
   return Math.floor(now / 86400000);
 }
 
-async function checkAndReserveGlobalTokenBudget({ store, estimatedTokens, config, now = Date.now() } = {}) {
-  if (!store || typeof store.get !== 'function' || typeof store.put !== 'function') {
-    return Object.freeze({ allowed: false, status: 503, code: 'AI_TOKEN_BUDGET_STORE_UNAVAILABLE' });
-  }
-  if (!config || !Number.isInteger(config.globalPerDay) || config.globalPerDay <= 0) {
-    return Object.freeze({ allowed: false, status: 503, code: 'AI_TOKEN_BUDGET_NOT_CONFIGURED' });
-  }
-  if (!Number.isInteger(estimatedTokens) || estimatedTokens <= 0) {
-    return Object.freeze({ allowed: false, status: 503, code: 'AI_TOKEN_BUDGET_ESTIMATE_INVALID' });
-  }
-
-  const key = `budget:tokens:global:${dayBucket(now)}`;
-  let current = 0;
-  try {
-    const raw = await store.get(key);
-    const parsed = Number(raw);
-    current = Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
-  } catch (_) {
-    return Object.freeze({ allowed: false, status: 503, code: 'AI_TOKEN_BUDGET_STORE_UNAVAILABLE' });
-  }
-
-  const projected = current + estimatedTokens;
-  if (projected > config.globalPerDay) {
-    return Object.freeze({
-      allowed: false,
-      status: 429,
-      code: 'AI_TOKEN_BUDGET_EXCEEDED',
-      remainingTokens: Math.max(0, config.globalPerDay - current),
-      retryAfterSeconds: 3600,
-    });
-  }
-
-  try {
-    await store.put(key, String(projected), { expirationTtl: config.ttlSeconds });
-  } catch (_) {
-    return Object.freeze({ allowed: false, status: 503, code: 'AI_TOKEN_BUDGET_STORE_UNAVAILABLE' });
-  }
-
-  return Object.freeze({
-    allowed: true,
-    code: null,
-    reservedTokens: estimatedTokens,
-    remainingTokens: config.globalPerDay - projected,
-  });
+// Compatibility export only; non-atomic KV admission must never authorize traffic.
+async function checkAndReserveGlobalTokenBudget() {
+  return Object.freeze({allowed:false,status:503,code:'AI_ATOMIC_QUOTA_REQUIRED'});
 }
 
 export {
