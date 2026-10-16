@@ -1,4 +1,5 @@
 'use strict';
+const {parseNumericText}=require('../validation/numeric-text');
 
 const {
   OPERATING_INPUT_STATUS,
@@ -19,9 +20,9 @@ function requiredText(value, field) {
 
 function nonNegativeNumber(value, field) {
   if (typeof value !== 'number' && typeof value !== 'string') throw Object.assign(new TypeError(`${field}: OPERATING_AMOUNT_REQUIRED`), {code:'OPERATING_AMOUNT_REQUIRED',field});
-  const text = typeof value === 'string' ? value.trim().replace(/[٠-٩]/g, digit => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit))).replace(/[۰-۹]/g, digit => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit))).replace(/٫/g, '.') : null;
-  if (text !== null && !/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(text)) throw Object.assign(new TypeError(`${field}: OPERATING_AMOUNT_REQUIRED`), {code:'OPERATING_AMOUNT_REQUIRED',field});
-  const parsed = text === null ? value : Number(text);
+  const result=parseNumericText(value);
+  if(!result.ok)throw Object.assign(new TypeError(`${field}: OPERATING_AMOUNT_REQUIRED`),{code:'OPERATING_AMOUNT_REQUIRED',field});
+  const parsed=result.value;
   if (!Number.isFinite(parsed) || parsed < 0) throw new TypeError(`${field} must be a finite number >= 0`);
   if (!Number.isSafeInteger(Math.round(parsed * 100))) throw new TypeError(`${field}: OPERATING_AMOUNT_OUT_OF_RANGE`);
   return parsed;
