@@ -47,7 +47,7 @@ function env(overrides = {}) {
     RIAI_AI_PROVIDER_KEY: 'placeholder-provider-key',
     RIAI_AI_MODEL: 'gpt-5.6-terra',
     RIAI_AI_MAX_OUTPUT_TOKENS: '256',
-    RIAI_AI_GLOBAL_TOKEN_BUDGET_PER_DAY: '5000',
+    RIAI_AI_GLOBAL_TOKEN_BUDGET_PER_DAY:'100000',RIAI_AI_INPUT_TOKEN_UPPER_BOUND:'20000',RIAI_AI_QUOTA:require('../fixtures/riai-quota-binding')(),
     RIAI_AI_RATE_PER_MINUTE: '20',
     RIAI_AI_RATE_PER_DAY: '100',
     RIAI_AI_RATE_GLOBAL_PER_DAY: '1000',
