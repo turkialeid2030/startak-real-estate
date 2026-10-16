@@ -260,7 +260,7 @@ module.exports = {
     paybackOnPrice: "Payback Years on Purchase Price",
     marketValueByIncomeCap: "Market Value (Income Capitalization)",
     valueGapVsCost: "Gap vs. Total Cost",
-    maxJustifiedPrice: "Highest Purchase Price Meeting Criteria",
+    maxJustifiedPrice: "Highest Purchase Price Meeting Yield and Payback Limits",
     replacementConstructionValue: "Building Replacement Construction Value",
     currentLandValue: "Current Land Value",
     totalAppraisedValue: "Total Current Appraised Value",
