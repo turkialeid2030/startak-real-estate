@@ -12,5 +12,9 @@ function provider(boundary='This output is advisory analysis only and does not c
  let r=await onRequestPost({request:req(SNAPSHOT),env:env({RIAI_RATE_LIMIT_KV:undefined})}); assert.equal(r.status,503); assert.equal(called,false);
  const e=env(); r=await onRequestPost({request:req(SNAPSHOT),env:e}); const b=await r.json(); assert.equal(r.status,200); assert.equal(b.ok,true); assert.equal(e.RIAI_AUDIT_KV.map.size,1);
  const spoof=JSON.parse(JSON.stringify(SNAPSHOT)); spoof.readiness.blockers[0].field='Tenant: Ahmed Al-Otaibi, Unit 14B'; called=false; r=await onRequestPost({request:req(spoof),env:env()}); const sb=await r.json(); assert.equal(r.status,400); assert.equal(sb.code,'SNAPSHOT_FREE_TEXT_NOT_PERMITTED'); assert.equal(called,false);
+ global.fetch=async()=>new Response('x'.repeat(65537));
+ r=await onRequestPost({request:req(SNAPSHOT),env:env()}); assert.equal(r.status,502); assert.equal((await r.json()).code,'AI_PROVIDER_RESPONSE_TOO_LARGE');
+ global.fetch=async()=>new Response(new ReadableStream({start(c){c.error(new Error('synthetic stream failure'));}}));
+ r=await onRequestPost({request:req(SNAPSHOT),env:env()}); assert.equal(r.status,502); assert.equal((await r.json()).code,'AI_PROVIDER_RESPONSE_READ_FAILED');
  console.log('RIAI_GATEWAY_INTEGRATION=PASS');
 })().catch((e)=>{console.error(e);process.exit(1);});

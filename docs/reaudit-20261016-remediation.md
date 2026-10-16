@@ -16,13 +16,15 @@ are included in this change.
 | N05 | Separate operating and aggregate financial models are not silently overwritten or represented as reconciled. | Unified source-backed reconciliation and report remain OPEN. |
 | N06 | Reused case, project/asset or external comparator references fail closed; invalid calendar dates and non-finite error metrics cannot qualify a sample. | Distinct identifiers do not independently prove statistical independence; actual external observations and review remain required. Statistical-confidence and transaction-authority flags remain false. |
 | N07 | AI expert-role guard rejects numeric/magnitude prose and requires structured numeric claims to match a cited snapshot fact's key, value and unit exactly. | This is a narrow deterministic guard, not semantic verification of every qualitative assertion or independent market validation. Provider/client output channels and live provider qualification remain OPEN. |
-| N08 | No activation or relaxation of existing production-disabled AI configuration. | Non-atomic KV rate/token reservations, bounded response streaming and fail-closed audit persistence remain OPEN. A distributed atomic backend and concurrency qualification are required before enabling provider traffic. |
+| N08 | Request and provider bodies are read with streamed byte limits and deadlines; the provider deadline includes body consumption, with cancellation on timeout/overflow and explicit read failures. No activation or relaxation of production-disabled AI. | Non-atomic KV rate/token reservations and fail-closed audit persistence remain OPEN. A distributed atomic backend and concurrency qualification are required before enabling provider traffic. Certificate and Turnstile response readers are outside this patch. |
 | N09 | Human Arabic labels added for CALCULATED, OCCUPIED and NOT_CALCULABLE; accordion controls expose expanded state and target IDs. | Complete bilingual/accessibility review remains OPEN. |
 | N10 | No new unsupported asset qualification claim. | Specialized-asset models, real samples and independent qualification remain OPEN. |
 | N11 | Real UI regressions cover numeric entry, invalid-current-input export and purchase-boundary behavior on desktop/mobile; existing asset integrity checks remain mandatory. | Prior production asset-delivery incident is not declared root-cause-resolved merely because a later run passed. |
 | N12 | No change to institutional identity/authorization or storage claims. | Cross-device authorization, backup/restore and institutional operation remain OPEN. |
 
 ## Reproduction and acceptance
+
+- `node tests/architecture/run_riai_bounded_body.js`: exact byte boundaries, split Arabic UTF-8, invalid encoding, stalled bodies, cancellation that itself stalls, pre-aborted reads and invalid limits. This is local synthetic qualification, not a provider-production test.
 
 - `node tests/architecture/run_reaudit_20261016_numeric_price_sample.js`: 244 assertions across shared parsing, document units, exact minor-unit ledger values, optional percentages, direct-engine/current-report rejection of raw numeric strings, purchase ceilings, repeated samples and overflow-safe aggregate errors.
 - `node tests/architecture/run_ai_output_guard_remediation_v2.js`: 12 grouped checks, including the unreferenced market-value reproduction and numeric snapshot mismatches.

@@ -1,3 +1,4 @@
+import { readBoundedText } from './_bounded-body.mjs';
 import {
   enforceSnapshotDataDiscipline,
   resolveRateLimitConfig,
@@ -480,7 +481,8 @@ export async function onRequestPost(context) {
   if (Number.isFinite(lengthHeader) && lengthHeader > MAX_REQUEST_BYTES) return json({ ok: false, code: 'REQUEST_TOO_LARGE', aiModelUsed: false }, 413);
 
   let text;
-  try { text = await request.text(); } catch (_) { return json({ ok: false, code: 'REQUEST_READ_FAILED', aiModelUsed: false }, 400); }
+  try { text = await readBoundedText(request, { maxBytes: MAX_REQUEST_BYTES, timeoutMs: 5000 }); }
+  catch (error) { return json({ ok: false, code: error.code === 'BODY_TOO_LARGE' ? 'REQUEST_TOO_LARGE' : 'REQUEST_READ_FAILED', aiModelUsed: false }, error.code === 'BODY_TOO_LARGE' ? 413 : 400); }
   if (new TextEncoder().encode(text).length > MAX_REQUEST_BYTES) return json({ ok: false, code: 'REQUEST_TOO_LARGE', aiModelUsed: false }, 413);
 
   let body;
@@ -552,13 +554,22 @@ export async function onRequestPost(context) {
     await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'PROVIDER_FAILED', reasonCode: code, model, tokenLimit: outputBudget.value, startedAt });
     return json({ ok: false, code, aiModelUsed: false }, 502);
   }
-  clearTimeout(timer);
-
   if (!providerResponse.ok) {
+    clearTimeout(timer);
+    void providerResponse.body?.cancel().catch(() => {});
     await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'PROVIDER_FAILED', reasonCode: 'AI_PROVIDER_REJECTED_REQUEST', model, tokenLimit: outputBudget.value, startedAt });
     return json({ ok: false, code: 'AI_PROVIDER_REJECTED_REQUEST', providerStatus: providerResponse.status, aiModelUsed: false }, 502);
   }
-  const providerText = await providerResponse.text();
+  let providerText;
+  try {
+    providerText = await readBoundedText(providerResponse, { maxBytes: MAX_PROVIDER_BYTES, timeoutMs: PROVIDER_TIMEOUT_MS, signal: controller.signal });
+  } catch (error) {
+    const code = error.code === 'BODY_TOO_LARGE' ? 'AI_PROVIDER_RESPONSE_TOO_LARGE' : ['BODY_READ_TIMEOUT', 'BODY_READ_ABORTED'].includes(error.code) ? 'AI_PROVIDER_TIMEOUT' : 'AI_PROVIDER_RESPONSE_READ_FAILED';
+    await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'PROVIDER_FAILED', reasonCode: code, model, tokenLimit: outputBudget.value, startedAt });
+    return json({ ok: false, code, aiModelUsed: false }, 502);
+  } finally {
+    clearTimeout(timer);
+  }
   if (new TextEncoder().encode(providerText).length > MAX_PROVIDER_BYTES) {
     await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'PROVIDER_FAILED', reasonCode: 'AI_PROVIDER_RESPONSE_TOO_LARGE', model, tokenLimit: outputBudget.value, startedAt });
     return json({ ok: false, code: 'AI_PROVIDER_RESPONSE_TOO_LARGE', aiModelUsed: false }, 502);
