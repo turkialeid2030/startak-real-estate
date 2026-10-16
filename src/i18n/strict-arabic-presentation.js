@@ -3,6 +3,9 @@
 // Presentation-only Arabic localization boundary. Engine/domain values remain
 // byte-identical; this module converts only customer-facing labels/statuses.
 const ARABIC_VALUE_LABELS = Object.freeze({
+  CALCULATED: 'محسوب من المدخلات الحالية',
+  OCCUPIED: 'مشغول بحسب البيانات المدخلة',
+  NOT_CALCULABLE: 'تعذر الحساب؛ راجع المدخلات الناقصة أو غير المؤهلة',
   // Generic workflow / readiness states
   READY_FOR_REVIEW: 'جاهز للمراجعة',
   READY: 'جاهز',
