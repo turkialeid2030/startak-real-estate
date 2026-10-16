@@ -80,18 +80,27 @@ async function sha256Hex(text) {
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-async function buildAuditRecord({ subjectKey, subjectSalt, snapshot, model, outcome, reasonCode = null, tokenLimit = null, accessMode = null, latencyMs = null, resultSummary = null, now = Date.now() } = {}) {
+async function buildAuditRecord({ subjectKey, subjectSalt, snapshot, model, outcome, reasonCode = null, tokenLimit = null, accessMode = null, latencyMs = null, resultSummary = null, invocationId = null, now = Date.now() } = {}) {
   const subjectHash = await sha256Hex(`${subjectSalt || ''}:${subjectKey || ''}`);
   const snapshotHash = await sha256Hex(JSON.stringify(snapshot === undefined ? null : snapshot));
   const resultHash = resultSummary == null ? null : await sha256Hex(JSON.stringify(resultSummary));
-  return Object.freeze({ schemaVersion: 1, recordType: 'RIAI_AI_ASSIST_INVOCATION', timestamp: new Date(now).toISOString(), subjectHash, snapshotHash, resultHash, model: model || null, accessMode, outcome, reasonCode, tokenLimit, latencyMs, payloadStored: false });
+  return Object.freeze({ schemaVersion: 1, recordType: 'RIAI_AI_ASSIST_INVOCATION', eventId: crypto.randomUUID(), invocationId, timestamp: new Date(now).toISOString(), subjectHash, snapshotHash, resultHash, model: model || null, accessMode, outcome, reasonCode, tokenLimit, latencyMs, payloadStored: false });
 }
 
-async function writeAuditRecord({ store, record, ttlSeconds = 34560000 } = {}) {
+async function writeAuditRecord({ store, record, ttlSeconds = 34560000, timeoutMs = 3000 } = {}) {
   if (!store || typeof store.put !== 'function') return Object.freeze({ written: false, code: 'AI_AUDIT_STORE_UNAVAILABLE' });
-  const key = `audit:${record.timestamp}:${record.snapshotHash.slice(0, 12)}`;
-  try { await store.put(key, JSON.stringify(record), { expirationTtl: ttlSeconds }); return Object.freeze({ written: true, key }); }
-  catch (_) { return Object.freeze({ written: false, code: 'AI_AUDIT_WRITE_FAILED' }); }
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) return Object.freeze({ written: false, code: 'AI_AUDIT_INVALID_TIMEOUT' });
+  const key = `audit:${record.timestamp}:${record.snapshotHash.slice(0, 12)}:${crypto.randomUUID()}`;
+  let timer;
+  try {
+    await Promise.race([
+      Promise.resolve().then(() => store.put(key, JSON.stringify(record), { expirationTtl: ttlSeconds })),
+      new Promise((_, reject) => { timer = setTimeout(() => reject(Object.assign(new Error('audit timeout'), { code: 'AI_AUDIT_WRITE_TIMEOUT' })), timeoutMs); }),
+    ]);
+    return Object.freeze({ written: true, key });
+  }
+  catch (error) { return Object.freeze({ written: false, code: error?.code === 'AI_AUDIT_WRITE_TIMEOUT' ? error.code : 'AI_AUDIT_WRITE_FAILED' }); }
+  finally { clearTimeout(timer); }
 }
 
 export { SNAPSHOT_TOKEN_PATTERN, SNAPSHOT_LIMITS, enforceSnapshotDataDiscipline, RATE_LIMIT_DEFAULTS, resolveRateLimitConfig, checkAndConsumeRateLimit, sha256Hex, buildAuditRecord, writeAuditRecord };

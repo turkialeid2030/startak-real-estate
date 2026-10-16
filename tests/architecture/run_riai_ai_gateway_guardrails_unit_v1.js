@@ -16,5 +16,11 @@ class FakeKV { constructor(){ this.map=new Map(); } async get(k){ return this.ma
   assert.equal((await g.checkAndConsumeRateLimit({store:kv,subjectKey:'u',now,config:cfg})).code,'AI_RATE_LIMIT_EXCEEDED_PER_MINUTE');
   const record = await g.buildAuditRecord({subjectKey:'user-1',subjectSalt:'pepper',snapshot:valid,outcome:'SUCCESS'});
   assert.equal(record.payloadStored,false); assert.ok(!JSON.stringify(record).includes('user-1')); assert.match(record.subjectHash,/^[0-9a-f]{64}$/);
+  const auditStore=new FakeKV();
+  const writes=await Promise.all(Array.from({length:20},()=>g.writeAuditRecord({store:auditStore,record})));
+  assert(writes.every(item=>item.written)); assert.equal(auditStore.map.size,20);
+  assert.equal((await g.writeAuditRecord({store:{put:()=>new Promise(()=>{})},record,timeoutMs:10})).code,'AI_AUDIT_WRITE_TIMEOUT');
+  assert.equal((await g.writeAuditRecord({store:{put:()=>{throw new Error('test');}},record})).code,'AI_AUDIT_WRITE_FAILED');
+  assert.equal((await g.writeAuditRecord({store:{put:()=>{throw null;}},record})).code,'AI_AUDIT_WRITE_FAILED');
   console.log('RIAI_GUARDRAILS_UNIT=PASS');
 })().catch((e)=>{ console.error(e); process.exit(1); });

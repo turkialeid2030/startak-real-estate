@@ -57,7 +57,11 @@ function trimText(value, max = MAX_TEXT) {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
 }
 
-async function recordAudit(context, {
+class AuditPersistenceError extends Error {
+  constructor(code) { super(code); this.code = code; }
+}
+
+async function persistAudit(context, {
   access,
   snapshot,
   outcome,
@@ -81,11 +85,18 @@ async function recordAudit(context, {
       accessMode: access && access.mode,
       latencyMs: Number.isFinite(startedAt) ? Date.now() - startedAt : null,
       resultSummary,
+      invocationId: context.invocationId,
     });
     return await writeAuditRecord({ store, record });
   } catch (_) {
     return { written: false, code: 'AI_AUDIT_UNEXPECTED_FAILURE' };
   }
+}
+
+async function recordAudit(context, details) {
+  const result = await persistAudit(context, details);
+  if (!result.written) throw new AuditPersistenceError(result.code);
+  return result;
 }
 
 function summarizeSeverity(result) {
@@ -467,7 +478,7 @@ async function resolveAccess(request, env, body) {
   return createPublicAccessIdentity(request, env);
 }
 
-export async function onRequestPost(context) {
+async function handleRequestPost(context) {
   const request = context.request;
   const env = context.env || {};
   const startedAt = Date.now();
@@ -538,10 +549,13 @@ export async function onRequestPost(context) {
 
   const providerRequest = buildProviderRequest(protocol.value, model, body.decisionSnapshot, outputBudget);
 
+  await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'PROVIDER_REQUEST_PENDING', model, tokenLimit: outputBudget.value, startedAt });
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
   let providerResponse;
   try {
+    context.providerRequestAttempted = true;
     providerResponse = await fetch(provider.url.toString(), {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
@@ -615,6 +629,15 @@ export async function onRequestPost(context) {
     outputTokenLimit: outputBudget.value,
     result: sanitized.value,
   });
+}
+
+export async function onRequestPost(context) {
+  const execution = { ...context, invocationId: crypto.randomUUID(), providerRequestAttempted: false };
+  try { return await handleRequestPost(execution); }
+  catch (error) {
+    if (!(error instanceof AuditPersistenceError)) throw error;
+    return json({ ok: false, code: error.code, auditPersisted: false, providerRequestAttempted: execution.providerRequestAttempted, automaticRetryAllowed: false }, 503);
+  }
 }
 
 export async function onRequest(context) {
