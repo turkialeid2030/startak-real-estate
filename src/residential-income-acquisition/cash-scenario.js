@@ -1,5 +1,6 @@
 'use strict';
 const {parseLedgerAmount}=require('./receivables-ledger');
+const {normalizeNumericText}=require('../validation/numeric-text');
 const {calculateOperatingPaymentPlan}=require('./operating-payment-plan');
 const {calculateCapitalPaymentPlan}=require('./capital-payment-plan');
 const {validateCashOtherFlows,cashOtherFlowCoverage}=require('./cash-other-flows');
@@ -12,7 +13,7 @@ function formatCashMinor(value){
 }
 function openingAmount(value){
   if(typeof value!=='string'&&typeof value!=='number')fail('CASH_OPENING_INVALID');
-  const s=String(value).trim().replace(/[٠-٩]/g,d=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[۰-۹]/g,d=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/٫/g,'.');
+  const normalized=normalizeNumericText(value);if(!normalized.ok)fail('CASH_OPENING_INVALID');const s=normalized.normalized;
   if(/^-?0+(?:\.0{1,2})?$/.test(s))return 0;
   return s.startsWith('-')?-parseLedgerAmount(s.slice(1)):parseLedgerAmount(s);
 }
