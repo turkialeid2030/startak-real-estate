@@ -9,6 +9,8 @@ const {calculateInvestmentCase,STUDY_TYPE}=require('../../src/engines');
 const {V2_APPROVED_ASSUMPTIONS}=require('../../src/assumptions/assumption-model');
 const {evaluateExternalValuationValidation:evaluate}=require('../../src/validation/external-valuation-validation');
 const gold=require('../reference/RE-GOLD-baseline.json');
+const {buildPersonalFinancialStudy}=require('../../src/app/personal-financial-study');
+const {applyExitCapInputText}=require('../../src/assumptions/ui-integration-controller');
 let checks=0;const eq=(a,b)=>{assert.deepEqual(a,b);checks++;},ok=(v,msg)=>{assert.ok(v,msg);checks++;};
 for(const raw of ['1800.5','1800٫5','١٨٠٠٫٥','١٬٨٠٠٫٥','۱٬۸۰۰٫۵','1,800.5',' ١٨٠٠.٥ ']){
  eq(parseNumericText(raw).value,1800.5);eq(normalizeExtractedValue(raw,'NUMBER'),1800.5);eq(parseLedgerAmount(raw),180050);
@@ -20,6 +22,16 @@ eq(normalizeExtractedValue('١٤٠٬٠٠٠٬٠٠٠ ريال','NUMBER'),140000000
 eq(normalizeExtractedValue('۹۵٫۵٪','NUMBER'),95.5);
 for(const raw of ['1e3%','oops 1200 SAR','1800.5 garbage']){assert.throws(()=>normalizeExtractedValue(raw,'NUMBER'));checks++;}
 const base=gold['RE-GOLD-002_existing_building'].inputs;
+for (const raw of ['1e3','١٨٠٠٫٥٫٢','1,80']) {
+ const invalid=buildPersonalFinancialStudy({mode:'building',inputs:{...base,rentPerSqm:raw},assumptionModelVersion:'LEGACY'});
+ eq(invalid.financial.status,'INPUTS_INVALID');eq(invalid.financial.results,null);
+ eq(invalid.financial.inputs.rentPerSqm,raw);eq(invalid.financial.annualCashflows,[]);
+}
+for (const field of ['buildingPrice','inspectionCost','rentPerSqm','landLength','leaseYears']) {
+ assert.throws(()=>calcExistingBuilding({...base,[field]:'1e3'}),error=>error.name==='ValidationError'&&error.field===field);checks++;
+}
+const invalidOptional=applyExitCapInputText({inputs:base,rawText:'1e-3'});
+eq(invalidOptional.inputValid,false);ok(Number.isNaN(invalidOptional.inputs.exitCapRate));
 const audited={...base,...V2_APPROVED_ASSUMPTIONS,exitCapRate:.075,exitTransferFeeRate:0,leaseYears:6};
 const run=inputs=>calculateInvestmentCase({studyType:STUDY_TYPE.EXISTING_BUILDING,inputs,assumptionModelVersion:'V2'});
 const result=run(audited),at=run({...audited,buildingPrice:result.maxJustifiedPrice});
