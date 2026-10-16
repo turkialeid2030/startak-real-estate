@@ -203,6 +203,9 @@ function validateEngineInputs(inputs, options = {}) {
     'leaseYears',
   ]);
   for (const field of numericFields) {
+    // Missing lease evidence retains the dedicated INCOMPLETE_INPUTS path;
+    // supplied text/booleans must still fail numeric validation immediately.
+    if (field === 'leaseYears' && inputs[field] == null) continue;
     if (field in inputs) requireFinite(field, inputs[field]);
   }
 
