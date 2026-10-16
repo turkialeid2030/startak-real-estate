@@ -89,6 +89,7 @@ async function loadRouteModule() {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'startak-riai-ai-test-'));
   const sourceDir = path.join(ROOT, 'functions', 'api', 'riai');
   fs.copyFileSync(path.join(sourceDir, '_guardrails.mjs'), path.join(tmp, '_guardrails.mjs'));
+  fs.copyFileSync(path.join(sourceDir, '_bounded-body.mjs'), path.join(tmp, '_bounded-body.mjs'));
   fs.copyFileSync(path.join(sourceDir, '_public-ai-security.mjs'), path.join(tmp, '_public-ai-security.mjs'));
   fs.copyFileSync(path.join(sourceDir, 'ai-assist.js'), path.join(tmp, 'ai-assist.mjs'));
   const mod = await import(`${pathToFileURL(path.join(tmp, 'ai-assist.mjs')).href}?v=${Date.now()}`);
