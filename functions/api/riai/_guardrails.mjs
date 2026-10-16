@@ -51,28 +51,9 @@ function resolveRateLimitConfig(env = {}) {
     ttlSeconds: positiveInt(env.RIAI_AI_RATE_TTL_SECONDS, RATE_LIMIT_DEFAULTS.ttlSeconds),
   });
 }
-function minuteBucket(now) { return Math.floor(now / 60000); }
-function dayBucket(now) { return Math.floor(now / 86400000); }
-async function readCounter(store, key) { const raw = await store.get(key); const value = Number(raw); return Number.isFinite(value) && value >= 0 ? value : 0; }
-
-async function checkAndConsumeRateLimit({ store, subjectKey, now = Date.now(), config } = {}) {
-  if (!store || typeof store.get !== 'function' || typeof store.put !== 'function') return Object.freeze({ allowed: false, code: 'AI_RATE_LIMIT_STORE_UNAVAILABLE', status: 503 });
-  if (typeof subjectKey !== 'string' || !subjectKey) return Object.freeze({ allowed: false, code: 'AI_RATE_LIMIT_SUBJECT_MISSING', status: 401 });
-  const limits = config || RATE_LIMIT_DEFAULTS;
-  const minuteKey = `rl:min:${subjectKey}:${minuteBucket(now)}`;
-  const dayKey = `rl:day:${subjectKey}:${dayBucket(now)}`;
-  const globalKey = `rl:day:__global__:${dayBucket(now)}`;
-  const [minuteCount, dayCount, globalCount] = await Promise.all([readCounter(store, minuteKey), readCounter(store, dayKey), readCounter(store, globalKey)]);
-  if (minuteCount >= limits.perSubjectPerMinute) return Object.freeze({ allowed: false, code: 'AI_RATE_LIMIT_EXCEEDED_PER_MINUTE', status: 429, retryAfterSeconds: 60 - Math.floor((now % 60000) / 1000) });
-  if (dayCount >= limits.perSubjectPerDay) return Object.freeze({ allowed: false, code: 'AI_RATE_LIMIT_EXCEEDED_PER_DAY', status: 429, retryAfterSeconds: 3600 });
-  if (globalCount >= limits.globalPerDay) return Object.freeze({ allowed: false, code: 'AI_SPEND_BUDGET_EXHAUSTED', status: 429, retryAfterSeconds: 3600 });
-  const options = { expirationTtl: limits.ttlSeconds };
-  await Promise.all([
-    store.put(minuteKey, String(minuteCount + 1), options),
-    store.put(dayKey, String(dayCount + 1), options),
-    store.put(globalKey, String(globalCount + 1), options),
-  ]);
-  return Object.freeze({ allowed: true, code: null, remainingThisMinute: limits.perSubjectPerMinute - minuteCount - 1, remainingToday: limits.perSubjectPerDay - dayCount - 1 });
+// Legacy KV admission is intentionally disabled: callers must use the atomic namespace.
+async function checkAndConsumeRateLimit({ store } = {}) {
+  return Object.freeze({ allowed:false,status:503,code:store?'AI_ATOMIC_QUOTA_REQUIRED':'AI_RATE_LIMIT_STORE_UNAVAILABLE' });
 }
 
 async function sha256Hex(text) {
