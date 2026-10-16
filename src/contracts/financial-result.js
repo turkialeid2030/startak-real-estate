@@ -57,6 +57,7 @@ const FINANCIAL_RESULT_FIELDS = Object.freeze({
   cumulativePaybackOnCost: { present: 'EXISTING_BUILDING_ONLY', type: 'number | null', note: 'authoritative cumulative operating cash-flow payback' },
   cumulativePaybackOnPrice: { present: 'EXISTING_BUILDING_ONLY', type: 'number | null', note: 'authoritative cumulative operating cash-flow payback on purchase price' },
   paybackHorizonYears: { present: 'EXISTING_BUILDING_ONLY', type: 'number' },
+  maxPriceConstraint: {present:'EXISTING_BUILDING_ONLY',type:'object',note:'Yield and cumulative operating recovery constraints only; does not solve all decision gates'},
   paybackOnCost: { present: 'EXISTING_BUILDING_ONLY', type: 'number (legacy display alias; may be NaN)' },
   netYieldOnPrice: { present: 'EXISTING_BUILDING_ONLY', type: 'number | null' },
   paybackOnPrice: { present: 'EXISTING_BUILDING_ONLY', type: 'number (legacy display alias; may be NaN)' },
