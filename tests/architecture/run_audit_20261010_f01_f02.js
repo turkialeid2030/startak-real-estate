@@ -22,7 +22,8 @@ const approx=(a,b,t)=>Math.abs(a-b)<=t;
  const app=fs.readFileSync(path.resolve(__dirname,'../../src/app/App.jsx'),'utf8');
  ok(!app.includes('onChange(min !== undefined ? Math.max(min, parsed) : parsed)'),
    'no UI silently coerces -1 into 0.01 or other positive floors');
- ok(app.includes('onChange(parsed);'),'UI hands original parsed numeric value to validator');
+ const numeric=fs.readFileSync(path.resolve(__dirname,'../../src/components/NumericTextInput.jsx'),'utf8');
+ ok(app.includes('NumericTextInput')&&numeric.includes('onChange(next)')&&numeric.includes('parseNumericText(text)'),'UI uses strict parser and forwards negative/invalid inputs without clamping');
  for(const value of [-1,0,-0.01]){
   rejects(()=>calcExistingBuilding({...building,buildingPrice:value}),
    'buildingPrice','building negative or zero rejects before financial metrics');
