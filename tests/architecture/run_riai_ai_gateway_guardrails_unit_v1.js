@@ -21,5 +21,6 @@ class FakeKV { constructor(){ this.map=new Map(); } async get(k){ return this.ma
   assert(writes.every(item=>item.written)); assert.equal(auditStore.map.size,20);
   assert.equal((await g.writeAuditRecord({store:{put:()=>new Promise(()=>{})},record,timeoutMs:10})).code,'AI_AUDIT_WRITE_TIMEOUT');
   assert.equal((await g.writeAuditRecord({store:{put:()=>{throw new Error('test');}},record})).code,'AI_AUDIT_WRITE_FAILED');
+  assert.equal((await g.writeAuditRecord({store:{put:()=>{throw null;}},record})).code,'AI_AUDIT_WRITE_FAILED');
   console.log('RIAI_GUARDRAILS_UNIT=PASS');
 })().catch((e)=>{ console.error(e); process.exit(1); });
