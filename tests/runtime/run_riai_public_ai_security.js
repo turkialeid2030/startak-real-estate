@@ -54,7 +54,7 @@ function baseEnv(overrides = {}) {
     RIAI_AI_PROVIDER_KEY: 'PROVIDER_SECRET_NEVER_LOG',
     RIAI_AI_MODEL: 'test-model',
     RIAI_AI_MAX_OUTPUT_TOKENS: '256',
-    RIAI_AI_GLOBAL_TOKEN_BUDGET_PER_DAY: '5000',
+    RIAI_AI_GLOBAL_TOKEN_BUDGET_PER_DAY:'100000',RIAI_AI_INPUT_TOKEN_UPPER_BOUND:'20000',RIAI_AI_QUOTA:require('../fixtures/riai-quota-binding')(),
     RIAI_AI_RATE_PER_MINUTE: '20',
     RIAI_AI_RATE_PER_DAY: '100',
     RIAI_AI_RATE_GLOBAL_PER_DAY: '1000',
@@ -90,6 +90,7 @@ async function loadRouteModule() {
   const sourceDir = path.join(ROOT, 'functions', 'api', 'riai');
   fs.copyFileSync(path.join(sourceDir, '_guardrails.mjs'), path.join(tmp, '_guardrails.mjs'));
   fs.copyFileSync(path.join(sourceDir, '_bounded-body.mjs'), path.join(tmp, '_bounded-body.mjs'));
+  fs.copyFileSync(path.join(sourceDir, '_quota-client.mjs'), path.join(tmp, '_quota-client.mjs'));
   fs.copyFileSync(path.join(sourceDir, '_public-ai-security.mjs'), path.join(tmp, '_public-ai-security.mjs'));
   fs.copyFileSync(path.join(sourceDir, 'ai-assist.js'), path.join(tmp, 'ai-assist.mjs'));
   const mod = await import(`${pathToFileURL(path.join(tmp, 'ai-assist.mjs')).href}?v=${Date.now()}`);
@@ -138,7 +139,7 @@ async function main() {
         assert(!audit.includes(forbidden), `audit leaked secret/raw identifier: ${forbidden}`);
       }
       assert(audit.includes('CLOUDFLARE_TURNSTILE'));
-      assert(Array.from(env.RIAI_RATE_LIMIT_KV.map.keys()).some((key) => key.startsWith('budget:tokens:global:')));
+      assert(Array.from(env.RIAI_AI_QUOTA.state.data.keys()).some((key) => key.startsWith('tokens:')));
     }
 
     {
