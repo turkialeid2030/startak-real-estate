@@ -1,11 +1,12 @@
 'use strict';
 const {calculateReceivablesLedger,parseLedgerAmount}=require('./receivables-ledger');
+const {normalizeNumericText}=require('../validation/numeric-text');
 const fail=code=>{throw new TypeError(code);};
 const text=v=>{if(typeof v!=='string'||!v.trim()||v.length>500)fail('BANK_REFERENCE_REQUIRED');return v.trim();};
 const date=v=>{if(typeof v!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(v)||!Number.isFinite(Date.parse(v))||new Date(v).toISOString().slice(0,10)!==v)fail('BANK_DATE_INVALID');return v;};
 function parseStatementBalance(value){
   if(typeof value!=='string'&&typeof value!=='number')fail('BANK_BALANCE_INVALID');
-  const s=String(value).trim().replace(/[٠-٩]/g,d=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[۰-۹]/g,d=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/٫/g,'.');
+  const normalized=normalizeNumericText(value);if(!normalized.ok)fail('BANK_BALANCE_INVALID');const s=normalized.normalized;
   if(/^-?0+(?:\.0{1,2})?$/.test(s))return 0;
   return s.startsWith('-')?-parseLedgerAmount(s.slice(1)):parseLedgerAmount(s);
 }
