@@ -23,7 +23,7 @@ function finitePositive(value) {
 }
 
 function isDate(value) {
-  return nonEmptyString(value) && Number.isFinite(Date.parse(value));
+  return nonEmptyString(value)&&/^\d{4}-\d{2}-\d{2}(?:T.*)?$/.test(value)&&Number.isFinite(Date.parse(value))&&new Date(value.slice(0,10)).toISOString().slice(0,10)===value.slice(0,10);
 }
 
 function median(values) {
@@ -78,6 +78,7 @@ function evaluateExternalValuationValidation({ observations, policy = null }) {
   const normalized = [];
   const evidenceFailures = [];
   const comparabilityFailures = [];
+  const seenCases=new Set(),seenProjects=new Set(),seenComparators=new Set();
 
   for (const [index, item] of observations.entries()) {
     const evidenceValid =
@@ -99,6 +100,14 @@ function evaluateExternalValuationValidation({ observations, policy = null }) {
       evidenceFailures.push({ index, reason: 'MISSING_OR_INVALID_EVIDENCE_METADATA' });
       continue;
     }
+
+    // Repeated cases/assets or reused external evidence are not independent
+    // observations. Reject the sample rather than silently inflating its size.
+    const caseKey=item.caseId.trim(),projectKey=item.projectId.trim(),comparatorKey=item.comparatorEvidenceRef.trim();
+    if(seenCases.has(caseKey)||seenProjects.has(projectKey)||seenComparators.has(comparatorKey)){
+      evidenceFailures.push({index,reason:'DUPLICATE_OR_DEPENDENT_OBSERVATION'});continue;
+    }
+    seenCases.add(caseKey);seenProjects.add(projectKey);seenComparators.add(comparatorKey);
 
     if (item.startakCurrency && item.startakCurrency !== item.currency) {
       comparabilityFailures.push({ index, reason: 'STARTAK_CURRENCY_MISMATCH' });
@@ -126,6 +135,9 @@ function evaluateExternalValuationValidation({ observations, policy = null }) {
     const signedError = item.startakValue - item.comparatorValue;
     const signedPercentageError = signedError / item.comparatorValue;
     const absolutePercentageError = Math.abs(signedPercentageError);
+    if(![signedError,signedPercentageError,absolutePercentageError].every(Number.isFinite)){
+      evidenceFailures.push({index,reason:'NON_FINITE_ERROR_METRIC'});continue;
+    }
 
     normalized.push({
       index,
