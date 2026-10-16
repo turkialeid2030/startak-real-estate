@@ -22,7 +22,8 @@ for (const override of [{ occupancyRate: 5 }, { rentGrowthRate: 2 }, { loanRate:
 ok(ar.inputBuilding.managementFeeRate && en.inputBuilding.managementFeeRate, 'expense model fields must be translated');
 ok(ar.inputBuilding.insuranceRateNote.includes('الإحلال'), 'Arabic insurance base must disclose replacement value');
 const app = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'app', 'App.jsx'), 'utf8');
-ok(app.includes('aria-live="polite"') && app.includes('aria-invalid={warning'), 'a11y live/invalid state must be wired');
+const numeric=fs.readFileSync(path.join(__dirname,'../../src/components/NumericTextInput.jsx'),'utf8');
+ok(app.includes('aria-live="polite"') && numeric.includes('aria-invalid={invalid||warning')&&numeric.includes('role="alert"'), 'a11y live/invalid state must be wired');
 ok(app.includes('irrIsUnreliable') && app.includes('mirrValue'), 'KPI ribbon must consume IRR reliability');
 ok(app.includes('storageFailureMessage'), 'quota-specific save error must be routed');
 console.log(`WAVE_C_CHECKS=${checks} FAILED=0`);
