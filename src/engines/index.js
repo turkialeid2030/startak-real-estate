@@ -20,7 +20,7 @@ function buildPriceBasis(studyType) {
       metric: 'maxJustifiedPrice',
       outputBasis: 'BASE_BUILDING_PURCHASE_PRICE_SAR',
       thresholdBasis: Object.freeze(['MIN_NET_YIELD_THRESHOLD', 'MAX_PAYBACK_THRESHOLD']),
-      bindingRateFormula: 'MAX_MIN_YIELD_OR_RECIPROCAL_MAX_PAYBACK',
+      bindingRateFormula: 'MIN_YIELD_AND_CUMULATIVE_OPERATING_PAYBACK_INVERTED',
       acquisitionLoadsIncludedInSolver: true,
       fixedCostsIncludedInSolver: Object.freeze(['inspectionCost', 'valuationCost']),
       solvesAllFinancialHardGates: false,
