@@ -1,8 +1,9 @@
 import { readBoundedText } from './_bounded-body.mjs';
+import { reserveGatewayQuota, settleGatewayQuota, verifiedUsage } from './_quota-client.mjs';
 import {
   enforceSnapshotDataDiscipline,
   resolveRateLimitConfig,
-  checkAndConsumeRateLimit,
+  sha256Hex,
   buildAuditRecord,
   writeAuditRecord,
 } from './_guardrails.mjs';
@@ -12,8 +13,6 @@ import {
   verifyTurnstile,
   createPublicAccessIdentity,
   resolveTokenBudgetConfig,
-  estimateProviderTokenReservation,
-  checkAndReserveGlobalTokenBudget,
 } from './_public-ai-security.mjs';
 
 const MAX_REQUEST_BYTES = 32768;
@@ -506,17 +505,6 @@ async function handleRequestPost(context) {
   const access = await resolveAccess(request, env, body);
   if (!access.ok) return json({ ok: false, code: access.code, aiModelUsed: false }, access.status);
 
-  const rateLimitResult = await checkAndConsumeRateLimit({
-    store: env.RIAI_RATE_LIMIT_KV,
-    subjectKey: access.subject,
-    config: resolveRateLimitConfig(env),
-  });
-  if (!rateLimitResult.allowed) {
-    await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'RATE_LIMITED', reasonCode: rateLimitResult.code, startedAt });
-    const headers = rateLimitResult.retryAfterSeconds ? { 'retry-after': String(rateLimitResult.retryAfterSeconds) } : undefined;
-    return json({ ok: false, code: rateLimitResult.code, aiModelUsed: false }, rateLimitResult.status, headers);
-  }
-
   const provider = allowedProviderUrl(env);
   if (provider.error) return json({ ok: false, code: provider.error, aiModelUsed: false }, 503);
   const protocol = resolveProviderProtocol(env);
@@ -527,11 +515,17 @@ async function handleRequestPost(context) {
   const outputBudget = providerOutputBudget(env);
   if (outputBudget.error) return json({ ok: false, code: outputBudget.error, aiModelUsed: false }, 503);
 
-  const tokenReservation = estimateProviderTokenReservation(body.decisionSnapshot, outputBudget.value);
-  const tokenBudget = await checkAndReserveGlobalTokenBudget({
-    store: env.RIAI_RATE_LIMIT_KV,
-    estimatedTokens: tokenReservation,
-    config: resolveTokenBudgetConfig(env),
+  const providerRequest = buildProviderRequest(protocol.value, model, body.decisionSnapshot, outputBudget);
+  const dailyTokens = resolveTokenBudgetConfig(env).globalPerDay;
+  if (!Number.isSafeInteger(dailyTokens) || dailyTokens <= 0) return json({ok:false,code:'AI_TOKEN_BUDGET_NOT_CONFIGURED',aiModelUsed:false},503);
+  // Operator must qualify this bound for the configured model/protocol, including hidden overhead.
+  const inputBound = Number(env.RIAI_AI_INPUT_TOKEN_UPPER_BOUND);
+  const requestBytes = new TextEncoder().encode(JSON.stringify(providerRequest)).length;
+  if (!Number.isSafeInteger(inputBound) || inputBound < requestBytes || !Number.isSafeInteger(inputBound + outputBudget.value)) return json({ok:false,code:'AI_INPUT_TOKEN_BOUND_NOT_QUALIFIED',aiModelUsed:false},503);
+  const rates = resolveRateLimitConfig(env);
+  const tokenBudget = await reserveGatewayQuota(env.RIAI_AI_QUOTA, {
+    id:context.invocationId, subjectHash:await sha256Hex(`${env.RIAI_AUDIT_SUBJECT_SALT || ''}:${access.subject}`), tokens:inputBound + outputBudget.value,
+    limits:{minute:rates.perSubjectPerMinute,subjectDay:rates.perSubjectPerDay,globalDay:rates.globalPerDay,tokensDay:dailyTokens},
   });
   if (!tokenBudget.allowed) {
     await recordAudit(context, {
@@ -546,8 +540,6 @@ async function handleRequestPost(context) {
     const headers = tokenBudget.retryAfterSeconds ? { 'retry-after': String(tokenBudget.retryAfterSeconds) } : undefined;
     return json({ ok: false, code: tokenBudget.code, aiModelUsed: false }, tokenBudget.status, headers);
   }
-
-  const providerRequest = buildProviderRequest(protocol.value, model, body.decisionSnapshot, outputBudget);
 
   await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'PROVIDER_REQUEST_PENDING', model, tokenLimit: outputBudget.value, startedAt });
 
@@ -594,6 +586,14 @@ async function handleRequestPost(context) {
   catch (_) {
     await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'PROVIDER_FAILED', reasonCode: 'AI_PROVIDER_RESPONSE_INVALID_JSON', model, tokenLimit: outputBudget.value, startedAt });
     return json({ ok: false, code: 'AI_PROVIDER_RESPONSE_INVALID_JSON', aiModelUsed: false }, 502);
+  }
+  const actualTokens = verifiedUsage(providerPayload, protocol.value);
+  if (actualTokens !== null) {
+    const settlement = await settleGatewayQuota(env.RIAI_AI_QUOTA, {id:context.invocationId,actualTokens});
+    if (!settlement.ok) {
+      await recordAudit(context, {access,snapshot:body.decisionSnapshot,outcome:'QUOTA_SETTLEMENT_FAILED',reasonCode:settlement.code,model,startedAt});
+      return json({ok:false,code:settlement.code,providerRequestAttempted:true,automaticRetryAllowed:false},503);
+    }
   }
   const extracted = extractProviderJson(providerPayload, protocol.value);
   if (extracted.error) {
