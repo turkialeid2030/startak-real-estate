@@ -15,6 +15,7 @@ import ResidentialIncomeAcquisitionPanel from "../components/ResidentialIncomeAc
 import ValuationIntelligencePanel from "../components/ValuationIntelligencePanel.jsx";
 import PersonalInvestmentResearchPanel from "../components/PersonalInvestmentResearchPanel.jsx";
 import PaybackDisclosurePanel from "../components/PaybackDisclosurePanel.jsx";
+import NumericTextInput from '../components/NumericTextInput.jsx';
 import { ZakatInputSection, ZakatCashFlowPanel } from "../components/ZakatLayerPanel.jsx";
 
 // ============================================================
@@ -247,24 +248,14 @@ function NumField({ label, unit, note, value, onChange, step = 1, min, warnBelow
   const warning = minWarning || rangeWarning(value, warnBelow, warnAbove, warnText, t);
   return (
     <Field label={label} unit={unit}>
-      <input
-        type="text"
-        inputMode="decimal"
+      <NumericTextInput
+        locale={locale}
         className="rf-input rf-num w-full px-3 py-2 text-sm"
         style={{ ...baseInputStyle(), opacity: disabled ? 0.65 : 1, cursor: disabled ? "not-allowed" : "text" }}
         value={value}
         disabled={disabled}
-        aria-invalid={warning ? "true" : undefined}
-        onChange={(e) => {
-          if (disabled) return;
-          const raw = e.target.value.replace(/[−﹣－]/g, "-").replace(/[^\d.\-]/g, "");
-          if (raw === "" || raw === "-" || raw === "." || raw === "-.") return;
-          const parsed = Number(raw);
-          if (!Number.isFinite(parsed)) return;
-          // F01: Never turn a negative purchase price into a positive input.
-          // Preserve the original value so engine validation blocks calculation.
-          onChange(parsed);
-        }}
+        warning={warning}
+        onChange={onChange}
       />
       <FieldNote note={note} warning={warning} />
     </Field>
@@ -272,26 +263,19 @@ function NumField({ label, unit, note, value, onChange, step = 1, min, warnBelow
 }
 
 function PercentField({ label, note, value, onChange, warnBelow, warnAbove, warnText, disabled = false }) {
-  const { t } = useLocale();
+  const { t,locale } = useLocale();
   const warning = rangeWarning(value, warnBelow, warnAbove, warnText, t);
   return (
     <Field label={label} unit="%">
-      <input
-        type="text"
-        inputMode="decimal"
+      <NumericTextInput
+        locale={locale}
+        percentage
         className="rf-input rf-num w-full px-3 py-2 text-sm"
         style={{ ...baseInputStyle(), opacity: disabled ? 0.65 : 1, cursor: disabled ? "not-allowed" : "text" }}
-        value={Number((value * 100).toFixed(4))}
+        value={value}
         disabled={disabled}
-        aria-invalid={warning ? "true" : undefined}
-        onChange={(e) => {
-          if (disabled) return;
-          const raw = e.target.value.replace(/[^\d.\-]/g, "");
-          if (raw === "" || raw === "-" || raw === "." || raw === "-.") return;
-          const parsed = Number(raw);
-          if (!Number.isFinite(parsed)) return;
-          onChange(parsed / 100);
-        }}
+        warning={warning}
+        onChange={onChange}
       />
       <FieldNote note={note} warning={warning} />
     </Field>
@@ -307,6 +291,7 @@ function OptionalPercentField({ label, note, value, onCommit, min = 0, max = 1, 
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    if(value!==null&&value!==undefined&&(!isFiniteNumber(value)||value<min||value>max))return;
     setRaw(formatRaw(value));
     setError(null);
   }, [value]);
@@ -335,7 +320,7 @@ function OptionalPercentField({ label, note, value, onCommit, min = 0, max = 1, 
         value={raw}
         aria-invalid={error ? "true" : undefined}
         onChange={(e) => {
-          setRaw(e.target.value.replace(/[^\d.\-]/g, ""));
+          setRaw(e.target.value);
           if (error) setError(null);
         }}
         onBlur={commit}
@@ -422,11 +407,14 @@ function Toggle({ label, note, checked, onChange }) {
 
 function Section({ eyebrow, title, defaultOpen = false, children }) {
   const [open, setOpen] = useState(defaultOpen);
+  const panelId = React.useId();
   return (
     <div className="rounded-2xl mb-3 overflow-hidden" style={{ background: COLORS.panel, border: `1px solid ${COLORS.hairline}` }}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-controls={panelId}
         className="w-full flex items-center justify-between px-4 py-3 text-right"
       >
         <div>
@@ -438,7 +426,7 @@ function Section({ eyebrow, title, defaultOpen = false, children }) {
           style={{ color: COLORS.slate, transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}
         />
       </button>
-      <div className={`rf-accordion-body ${open ? "open" : ""}`}>
+      <div id={panelId} className={`rf-accordion-body ${open ? "open" : ""}`}>
         <div className="rf-accordion-inner">
           <div className="px-4 pb-4 pt-1">{children}</div>
         </div>
@@ -782,13 +770,20 @@ function RecommendationCard({ results, criteria }) {
 // DASHBOARD TAB
 // ============================================================
 function DashboardTab({ mode, inputs, results }) {
-  const { t } = useLocale();
+  const { t,locale } = useLocale();
   // R1B: presentation-only unit localization, used EXCLUSIVELY inside the
   // criteria={[...]} arrays below. Global fmtSAR()/fmtYears() are
   // deliberately left untouched -- every other call site in this file
   // (MetricRow etc.) continues using them exactly as before.
   const formatRecommendationCurrency = (n) => (isFiniteNumber(n) ? `${fmtNum(n)} ${t("units.sar")}` : "—");
-  const formatRecommendationYears = (n) => (isFiniteNumber(n) ? `${n.toFixed(1)} ${t("units.years")}` : "—");
+  const formatRecommendationYears = (n,limit) => {
+    if(!isFiniteNumber(n))return '—';
+    const near=Number.isFinite(limit)&&Math.abs(n-limit)<0.1;
+    const rounded=n.toFixed(near?6:1);
+    const qualifier=near&&n>limit&&Number(rounded)<=limit?(locale==='en'?' (above limit before rounding)':' (أعلى من الحد قبل التقريب)'):'';
+    return `${rounded} ${t('units.years')}${qualifier}`;
+  };
+  const formatPriceBoundary=n=>isFiniteNumber(n)?`${n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})} ${t('units.sar')}`:'—';
   // R2B-1: presentation-only area/currency-per-area helpers, used EXCLUSIVELY
   // for the 23 authorized MetricRow call sites (MR-B01..B12, MR-L01..L11).
   const formatMetricArea = (n) => `${fmtNum(n)} ${t("units.squareMeters")}`;
@@ -845,7 +840,8 @@ function DashboardTab({ mode, inputs, results }) {
           <MetricRow label={t("metricRowR2B2.paybackOnPrice")} value={formatRecommendationYears(r.paybackOnPrice)} strong />
           <MetricRow label={t("metricRowR2B2.marketValueByIncomeCap")} value={formatRecommendationCurrency(r.marketValueByIncomeCap)} />
           <MetricRow label={t("metricRowR2B2.valueGapVsCost")} value={formatMetricCurrencySigned(r.valueGapVsCost)} positiveNegative={r.valueGapVsCost >= 0} />
-          <MetricRow label={t("metricRowR2B2.maxJustifiedPrice")} value={formatRecommendationCurrency(r.maxJustifiedPrice)} />
+          <MetricRow label={t("metricRowR2B2.maxJustifiedPrice")} value={<span data-testid="building-price-boundary" dir="ltr">{formatPriceBoundary(r.maxJustifiedPrice)}</span>} />
+          {isFiniteNumber(r.maxJustifiedPrice)&&r.maxPriceConstraint&&<p data-testid="building-price-constraint" className="text-xs text-slate-300">{locale==='en'?'Binding purchase constraint: ':'قيد الشراء الحاكم: '}{r.maxPriceConstraint.bindingConstraint==='CUMULATIVE_PAYBACK'?(locale==='en'?'cumulative operating payback':'الاسترداد التشغيلي التراكمي'):(locale==='en'?'minimum net yield':'الحد الأدنى للعائد الصافي')}. {locale==='en'?'This boundary solves these two limits only; IRR, NPV, valuation coverage and financing criteria require their separate checks.':'هذا الحد يحل شرطي العائد الصافي والاسترداد فقط؛ تبقى معايير العائد الداخلي والقيمة الحالية وتغطية القيمة والتمويل بحاجة إلى فحصها المستقل.'}</p>}
         </MetricGroup>
 
         <MetricGroup eyebrow={t("globalApp.section6")} title={t("dashboardR3.sectionAppraisal")}>
@@ -885,7 +881,7 @@ function DashboardTab({ mode, inputs, results }) {
           criteria={[
           { ok: r.c0, label: t("recommendation.criteria.noiPositive"), actual: formatRecommendationCurrency(r.NOI), target: `> 0 ${t("units.sar")}` },
           { ok: r.c1, label: t("recommendation.criteria.ebNetYieldOnCost", { value: fmtPct(inputs.minYieldThreshold, 1) }), actual: fmtPct(r.netYieldOnCost), target: fmtPct(inputs.minYieldThreshold, 1) },
-          { ok: r.c2, label: t("recommendation.criteria.ebPaybackOnCost", { years: inputs.maxPaybackThreshold }), actual: formatRecommendationYears(r.paybackOnCost), target: `${inputs.maxPaybackThreshold} ${t("units.years")}` },
+          { ok: r.c2, label: t("recommendation.criteria.ebPaybackOnCost", { years: inputs.maxPaybackThreshold }), actual: formatRecommendationYears(r.paybackOnCost,inputs.maxPaybackThreshold), target: `${inputs.maxPaybackThreshold} ${t("units.years")}` },
           { ok: r.c3, label: t("recommendation.criteria.ebIrrVsDiscount"), actual: fmtPct(r.irr), target: fmtPct(inputs.discountRate) },
           { ok: r.c6, label: t("recommendation.criteria.npvNonNegative"), actual: formatRecommendationCurrency(r.npv), target: `≥ 0 ${t("units.sar")}` },
           { ok: r.c4, label: t("recommendation.criteria.ebMarketValueVsCost"), actual: formatRecommendationCurrency(r.marketValueByIncomeCap), target: formatRecommendationCurrency(r.totalPurchaseCost) },

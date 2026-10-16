@@ -260,7 +260,7 @@ module.exports = {
     paybackOnPrice: "سنوات الاسترداد على سعر الشراء",
     marketValueByIncomeCap: "القيمة السوقية (رسملة الدخل)",
     valueGapVsCost: "الفرق عن إجمالي التكلفة",
-    maxJustifiedPrice: "أعلى سعر شراء يحقق المعايير",
+    maxJustifiedPrice: "أعلى سعر شراء يحقق شرطي العائد والاسترداد",
     replacementConstructionValue: "قيمة إنشاء المباني (استبدالية)",
     currentLandValue: "قيمة الأرض الحالية",
     totalAppraisedValue: "القيمة الإجمالية الحالية",

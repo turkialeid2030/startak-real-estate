@@ -1,4 +1,5 @@
 'use strict';
+const {parseNumericText}=require('../validation/numeric-text');
 
 const {
   DOCUMENT_TYPE,
@@ -80,19 +81,12 @@ function replaceArabicDigits(value) {
 }
 
 function normalizeNumber(rawValue) {
-  if (typeof rawValue === 'number') {
-    if (!Number.isFinite(rawValue)) throw new TypeError('NUMBER value must be finite');
-    return rawValue;
-  }
-  const cleaned = replaceArabicDigits(rawValue)
-    .replace(/,/g, '')
-    .replace(/[^0-9eE+\-.]/g, '');
-  if (!cleaned || cleaned === '-' || cleaned === '.' || cleaned === '+') {
-    throw new TypeError(`Unable to normalize NUMBER from value: ${rawValue}`);
-  }
-  const value = Number(cleaned);
-  if (!Number.isFinite(value)) throw new TypeError(`Unable to normalize finite NUMBER from value: ${rawValue}`);
-  return value;
+  // Unit tokens are separated explicitly at the document boundary; arbitrary
+  // letters and unsupported notation are never removed from the number.
+  const text=typeof rawValue==='string'?rawValue.trim().replace(/\s*(?:%|٪|SAR|ريال|ر\.س|م²|m²|sqm)$/iu,''):rawValue;
+  const result=parseNumericText(text);
+  if(!result.ok)throw new TypeError(`Unable to normalize NUMBER: ${result.code}`);
+  return result.value;
 }
 
 function normalizeBoolean(rawValue) {

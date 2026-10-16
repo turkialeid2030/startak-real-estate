@@ -32,7 +32,13 @@ const numeric = calculate(6);
 assert.equal(numeric.leaseRollForwardStatus, LEASE_ROLL_FORWARD_STATUS.CONTRACT_COVERS_HOLD_AND_FORWARD_NOI);
 assert.notEqual(numeric.decisionStatus, 'INCOMPLETE_INPUTS');
 
-for (const weakValue of ['6', '', true, null, undefined]) {
+for (const weakValue of ['6', '', true]) {
+  assert.throws(() => calculate(weakValue), error =>
+    error.name === 'ValidationError' && error.field === 'leaseYears'
+      && error.code === 'FINITE_NUMBER_REQUIRED');
+}
+
+for (const weakValue of [null, undefined]) {
   const result = calculate(weakValue);
   assert.equal(result.leaseRollForwardStatus, LEASE_ROLL_FORWARD_STATUS.MISSING_REQUIRED);
   assert.equal(result.decisionStatus, 'INCOMPLETE_INPUTS');

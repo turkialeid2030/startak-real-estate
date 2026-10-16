@@ -102,8 +102,8 @@ check('minimum sample size is caller governed', () => {
 check('excess median absolute error fails caller threshold', () => {
   const observations = [
     observation({ startakValue: 12_000_000 }),
-    observation({ caseId: 'CASE-2', projectId: 'PROJECT-2', startakValue: 12_500_000 }),
-    observation({ caseId: 'CASE-3', projectId: 'PROJECT-3', startakValue: 13_000_000 }),
+    observation({ caseId: 'CASE-2', projectId: 'PROJECT-2', startakValue: 12_500_000,comparatorEvidenceRef:'external://2' }),
+    observation({ caseId: 'CASE-3', projectId: 'PROJECT-3', startakValue: 13_000_000,comparatorEvidenceRef:'external://3' }),
   ];
   assert.strictEqual(evaluateExternalValuationValidation({ observations, policy: policy() }).status, STATUS.HOLD_THRESHOLD);
 });
@@ -114,8 +114,8 @@ check('systematic signed bias can fail even when sample exists', () => {
   p.maxAbsoluteMedianSignedPercentageError = 0.01;
   const observations = [
     observation({ startakValue: 10_300_000 }),
-    observation({ caseId: 'CASE-2', projectId: 'PROJECT-2', startakValue: 10_400_000 }),
-    observation({ caseId: 'CASE-3', projectId: 'PROJECT-3', startakValue: 10_500_000 }),
+    observation({ caseId: 'CASE-2', projectId: 'PROJECT-2', startakValue: 10_400_000,comparatorEvidenceRef:'external://2' }),
+    observation({ caseId: 'CASE-3', projectId: 'PROJECT-3', startakValue: 10_500_000,comparatorEvidenceRef:'external://3' }),
   ];
   assert.strictEqual(evaluateExternalValuationValidation({ observations, policy: p }).status, STATUS.HOLD_THRESHOLD);
 });

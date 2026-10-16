@@ -1,6 +1,7 @@
 'use strict';
 
 const { normalizeAssumptionModelVersion } = require('./assumption-model');
+const {parseNumericText}=require('../validation/numeric-text');
 const { buildAssumptionDisclosureEnvelope } = require('./assumption-disclosure');
 const { assessSensitivityReadiness } = require('../sensitivity/readiness');
 const { EXIT_CAP_SOURCE } = require('../engines/valuation/exit-cap-resolver');
@@ -20,12 +21,13 @@ function formatOptionalPercentInput(value) {
 function parseOptionalPercentInput(raw, { min = 0, max = 1 } = {}) {
   const text = String(raw ?? '').trim();
   if (text === '') return Object.freeze({ present: false, value: undefined });
-  if (!/^-?(?:\d+\.?\d*|\.\d+)$/.test(text)) {
+  const parsed=parseNumericText(raw);
+  if (!parsed.ok) {
     const error = new Error('optional percent input must be a valid numeric percentage or blank');
     error.code = 'OPTIONAL_PERCENT_INVALID';
     throw error;
   }
-  const percent = Number(text);
+  const percent = parsed.value;
   const value = percent / 100;
   if (!Number.isFinite(value) || value < min || value > max) {
     const error = new RangeError(`optional percent input must be between ${min * 100}% and ${max * 100}%`);

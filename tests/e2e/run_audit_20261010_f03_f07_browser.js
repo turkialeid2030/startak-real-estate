@@ -106,6 +106,39 @@ async function jsonReport(page) {
         await expect(page.getByTestId('payback-disclosure')).toContainText('غير متحقق');
         checks += 2;
 
+        // Re-audit N01/N02: drive actual controlled inputs and downloaded
+        // current-input reports, not only the standalone numeric helper.
+        const rentInput = page.getByLabel(new RegExp(ar.inputBuilding.rentPerSqm)).first();
+        if (!await rentInput.isVisible()) await page.getByRole('button', { name: new RegExp(ar.inputBuilding.sec3) }).click();
+        for (const raw of ['1800.5', '١٨٠٠٫٥', '۱٬۸۰۰٫۵']) {
+          await rentInput.fill(raw);
+          await expect(rentInput).toHaveValue(raw); checks++;
+          const numeric = await jsonReport(page);
+          ok(numeric.financial.inputs.rentPerSqm === 1800.5 && numeric.financial.results !== null,
+            'English, Arabic and Persian rent decimals retain identical value');
+        }
+        for (const raw of ['1e3', '١٨٠٠٫٥٫٢', '1,80']) {
+          await rentInput.fill(raw);
+          await expect(rentInput).toHaveValue(raw);
+          await expect(rentInput).toHaveAttribute('aria-invalid', 'true'); checks += 2;
+          const invalidNumeric = await jsonReport(page);
+          ok(invalidNumeric.financial.status === 'INPUTS_INVALID' && invalidNumeric.financial.results === null
+            && invalidNumeric.financial.inputs.rentPerSqm === raw && invalidNumeric.financial.annualCashflows.length === 0,
+            'malformed raw input is retained and cannot export stale valid calculations');
+        }
+        await rentInput.fill(String(seed.inputs.rentPerSqm));
+        const boundaryInput = page.getByLabel(/قيمة شراء المبنى/).first();
+        await boundaryInput.fill(String(first.financial.results.maxJustifiedPrice));
+        const atBoundary = await jsonReport(page);
+        ok(atBoundary.financial.results.c1 && atBoundary.financial.results.c2,
+          'UI purchase boundary meets exactly the advertised yield and cumulative-payback constraints');
+        await expect(page.getByTestId('building-price-constraint')).toContainText('شرطي العائد الصافي والاسترداد فقط'); checks++;
+        await boundaryInput.fill(String(first.financial.results.maxJustifiedPrice + 1));
+        const aboveBoundary = await jsonReport(page);
+        ok(!aboveBoundary.financial.results.c1 || !aboveBoundary.financial.results.c2,
+          'one riyal above UI boundary fails at least one advertised purchase constraint');
+        await boundaryInput.fill(String(seed.inputs.buildingPrice));
+
         await page.getByTestId('valuation-v1-configure').click();
         const project = page.getByPlaceholder('أدخل معرّف المشروع', { exact: true });
         await project.fill(PROJECT);

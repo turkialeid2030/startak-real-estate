@@ -23,18 +23,20 @@ function finitePositive(value) {
 }
 
 function isDate(value) {
-  return nonEmptyString(value) && Number.isFinite(Date.parse(value));
+  return nonEmptyString(value)&&/^\d{4}-\d{2}-\d{2}(?:T.*)?$/.test(value)&&Number.isFinite(Date.parse(value))&&new Date(value.slice(0,10)).toISOString().slice(0,10)===value.slice(0,10);
 }
 
 function median(values) {
   if (!Array.isArray(values) || values.length === 0) return null;
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  return sorted.length % 2 ? sorted[mid] : sorted[mid - 1] / 2 + sorted[mid] / 2;
 }
 
 function mean(values) {
-  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+  // Called for non-negative absolute errors. Online averaging avoids summing
+  // several individually finite errors into Infinity.
+  return values.length ? values.reduce((average, value, index) => average + (value - average) / (index + 1), 0) : null;
 }
 
 function validatePolicy(policy) {
@@ -78,6 +80,7 @@ function evaluateExternalValuationValidation({ observations, policy = null }) {
   const normalized = [];
   const evidenceFailures = [];
   const comparabilityFailures = [];
+  const seenCases=new Set(),seenProjects=new Set(),seenComparators=new Set();
 
   for (const [index, item] of observations.entries()) {
     const evidenceValid =
@@ -99,6 +102,14 @@ function evaluateExternalValuationValidation({ observations, policy = null }) {
       evidenceFailures.push({ index, reason: 'MISSING_OR_INVALID_EVIDENCE_METADATA' });
       continue;
     }
+
+    // Repeated cases/assets or reused external evidence are not independent
+    // observations. Reject the sample rather than silently inflating its size.
+    const caseKey=item.caseId.trim(),projectKey=item.projectId.trim(),comparatorKey=item.comparatorEvidenceRef.trim();
+    if(seenCases.has(caseKey)||seenProjects.has(projectKey)||seenComparators.has(comparatorKey)){
+      evidenceFailures.push({index,reason:'DUPLICATE_OR_DEPENDENT_OBSERVATION'});continue;
+    }
+    seenCases.add(caseKey);seenProjects.add(projectKey);seenComparators.add(comparatorKey);
 
     if (item.startakCurrency && item.startakCurrency !== item.currency) {
       comparabilityFailures.push({ index, reason: 'STARTAK_CURRENCY_MISMATCH' });
@@ -126,6 +137,9 @@ function evaluateExternalValuationValidation({ observations, policy = null }) {
     const signedError = item.startakValue - item.comparatorValue;
     const signedPercentageError = signedError / item.comparatorValue;
     const absolutePercentageError = Math.abs(signedPercentageError);
+    if(![signedError,signedPercentageError,absolutePercentageError].every(Number.isFinite)){
+      evidenceFailures.push({index,reason:'NON_FINITE_ERROR_METRIC'});continue;
+    }
 
     normalized.push({
       index,
@@ -180,6 +194,8 @@ function evaluateExternalValuationValidation({ observations, policy = null }) {
   };
 
   const passes =
+    [metrics.meanAbsolutePercentageError, metrics.medianAbsolutePercentageError,
+      metrics.medianSignedPercentageError, metrics.maxAbsolutePercentageError].every(Number.isFinite) &&
     metrics.medianAbsolutePercentageError <= policy.maxMedianAbsolutePercentageError &&
     Math.abs(metrics.medianSignedPercentageError) <= policy.maxAbsoluteMedianSignedPercentageError;
 

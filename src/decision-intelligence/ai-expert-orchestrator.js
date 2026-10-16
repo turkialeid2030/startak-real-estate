@@ -84,6 +84,7 @@ function buildRoleInstructions(role) {
     'Use only the supplied analytical context, evidence references, assumptions, scenarios, and deterministic outputs.',
     'Do not invent facts, market prices, regulations, legal conclusions, probabilities, or evidence.',
     'Cite evidenceRefs for every material factual claim.',
+    'Keep all prose qualitative. Numeric facts belong only in financialClaims as exact {ref,key,value,unit} copies of numeric factRefs in this snapshot; cite their refs. A matched snapshot fact is not independent market verification.',
     'Label assumptions and scenarios explicitly.',
     'Do not state or imply a certified valuation, legal opinion, regulated investment advice, or transaction authorization.',
     'Do not issue imperative or final transaction language such as instructions to buy, sell, acquire, approve, or reject. Descriptive terms such as purchase price or sale value are allowed when analytically necessary.',
@@ -258,6 +259,30 @@ function validateAiRoleOutput({ stage, output } = {}) {
   if (output.legalOpinionProduced === true) reasonCodes.push('LEGAL_OPINION_NOT_ALLOWED');
   if (output.transactionAuthorized === true) reasonCodes.push('TRANSACTION_AUTHORIZATION_NOT_ALLOWED');
   if (typeof output.numericConfidence === 'number') reasonCodes.push('UNCALIBRATED_NUMERIC_CONFIDENCE_NOT_ALLOWED');
+  // Fail closed on numerical prose: a valid citation alone cannot prove that
+  // an arbitrary market-value number was derived from the cited fact. Keep
+  // numbers in a narrow, exact-match data channel rather than attempting to
+  // infer their financial meaning from generated language.
+  const quantitativeText = /[0-9٠-٩۰-۹]|\b(?:hundred|thousand|million|billion|trillion)\b|(?:مليون|مليار|تريليون|مئة|مائة|ألف|الف)/i;
+  const numericTextFields = GUARDED_TEXT_FIELDS.filter(field => {
+    const value = output[field];
+    return (typeof value === 'string' ? [value] : Array.isArray(value) ? value : [])
+      .some(text => typeof text === 'string' && quantitativeText.test(text));
+  });
+  if (numericTextFields.length) reasonCodes.push('UNSTRUCTURED_NUMERIC_CLAIM');
+  const financialClaims = output.financialClaims == null ? [] : output.financialClaims;
+  const facts = stage.context?.dossier?.aiNarrativeContext?.factRefs || [];
+  if (!Array.isArray(financialClaims) || financialClaims.length > 100 || financialClaims.some(claim => {
+    if (!claim || typeof claim !== 'object' || Array.isArray(claim)
+      || Object.keys(claim).some(key => !['ref','key','value','unit'].includes(key))
+      || typeof claim.ref !== 'string' || !claim.ref.trim()
+      || typeof claim.key !== 'string' || !claim.key.trim()
+      || typeof claim.value !== 'number' || !Number.isFinite(claim.value)
+      || !citedEvidenceRefs.includes(claim.ref)) return true;
+    const matchingFacts = facts.filter(fact => fact.ref === claim.ref && fact.key === claim.key);
+    return matchingFacts.length !== 1 || matchingFacts[0].value !== claim.value
+      || (matchingFacts[0].unit ?? null) !== (claim.unit ?? null);
+  })) reasonCodes.push('NUMERIC_CLAIM_NOT_BOUND_TO_SNAPSHOT');
 
   if (reasonCodes.length) {
     return freeze({
@@ -267,6 +292,7 @@ function validateAiRoleOutput({ stage, output } = {}) {
       unknownEvidenceRefs: unknownRefs,
       prohibitedDecisionLanguageFields: textInspection.prohibitedFields,
       invalidTextShapeFields: textInspection.invalidShapeFields,
+      numericTextFields,
       transactionAuthorized: false,
     });
   }
@@ -288,6 +314,8 @@ function validateAiRoleOutput({ stage, output } = {}) {
     uncertainties,
     disagreements,
     diligenceSuggestions,
+    financialClaims: financialClaims.map(claim => ({ ...claim })),
+    numericClaimVerification: 'EXACT_SNAPSHOT_MATCH_ONLY_NOT_INDEPENDENT_MARKET_VERIFICATION',
     numericConfidence: null,
     humanDecisionRequired: true,
     transactionAuthorized: false,

@@ -1,6 +1,7 @@
 'use strict';
 
 const { calculateInvestmentCase, STUDY_TYPE } = require('../engines');
+const { parseNumericText } = require('../validation/numeric-text');
 const {
   ASSUMPTION_MODEL_VERSION,
   V2_APPROVED_ASSUMPTIONS,
@@ -127,9 +128,9 @@ function calculateUiInvestmentState({ mode, inputs, assumptionModelVersion }) {
 
 function buildInvalidOptionalPercentDraft(inputs, key, rawText, error) {
   const text = String(rawText ?? '').trim();
-  const numericPercent = Number(text);
-  const invalidValue = text !== '' && Number.isFinite(numericPercent)
-    ? numericPercent / 100
+  const parsed = parseNumericText(text);
+  const invalidValue = parsed.ok
+    ? parsed.value / 100
     : NaN;
   const nextInputs = { ...inputs, [key]: invalidValue };
   return Object.freeze({

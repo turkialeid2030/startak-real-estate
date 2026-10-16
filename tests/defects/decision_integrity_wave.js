@@ -54,7 +54,7 @@ assert.strictEqual(classifyFinancingModel('إجارة منتهية بالتمل�
 const app = fs.readFileSync(path.join(ROOT, 'src', 'app', 'App.jsx'), 'utf8');
 for (const needle of [
   'actual: fmtPct(r.netYieldOnCost)',
-  'actual: formatRecommendationYears(r.paybackOnCost)',
+  'actual: formatRecommendationYears(r.paybackOnCost,inputs.maxPaybackThreshold)',
   'ok: r.c6, label: t("recommendation.criteria.npvNonNegative")',
   'ok: r.c7, label: t("recommendation.criteria.leveredNpvNonNegative")',
   'ok: r.c2, label: t("recommendation.criteria.npvNonNegative")',
