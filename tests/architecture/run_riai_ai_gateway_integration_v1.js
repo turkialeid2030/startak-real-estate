@@ -10,7 +10,14 @@ function provider(boundary='This output is advisory analysis only and does not c
  const {onRequestPost}=await import(path.join(__dirname,'..','..','functions/api/riai/ai-assist.js'));
  let called=false; global.fetch=async()=>{called=true;return new Response(JSON.stringify(provider()),{status:200});};
  let r=await onRequestPost({request:req(SNAPSHOT),env:env({RIAI_RATE_LIMIT_KV:undefined})}); assert.equal(r.status,503); assert.equal(called,false);
- const e=env(); r=await onRequestPost({request:req(SNAPSHOT),env:e}); const b=await r.json(); assert.equal(r.status,200); assert.equal(b.ok,true); assert.equal(e.RIAI_AUDIT_KV.map.size,1);
+ const e=env(); r=await onRequestPost({request:req(SNAPSHOT),env:e}); const b=await r.json(); assert.equal(r.status,200); assert.equal(b.ok,true); assert.equal(e.RIAI_AUDIT_KV.map.size,2);
+ const events=Array.from(e.RIAI_AUDIT_KV.map.values()).map(JSON.parse); assert.equal(events[0].invocationId,events[1].invocationId); assert.notEqual(events[0].eventId,events[1].eventId);
+ called=false;
+ r=await onRequestPost({request:req(SNAPSHOT),env:env({RIAI_AUDIT_KV:undefined})}); assert.equal(r.status,503); assert.equal(called,false); assert.equal((await r.json()).code,'AI_AUDIT_STORE_UNAVAILABLE');
+ r=await onRequestPost({request:req(SNAPSHOT),env:env({RIAI_AUDIT_KV:{put:async()=>{throw new Error('synthetic failure');}}})}); assert.equal(r.status,503); assert.equal(called,false);
+ let writes=0;
+ r=await onRequestPost({request:req(SNAPSHOT),env:env({RIAI_AUDIT_KV:{put:async()=>{if(++writes===2)throw new Error('synthetic terminal failure');}}})});
+ const auditFailure=await r.json(); assert.equal(r.status,503); assert.equal(called,true); assert.equal(auditFailure.providerRequestAttempted,true); assert.equal(auditFailure.automaticRetryAllowed,false); assert.equal(auditFailure.result,undefined);
  const spoof=JSON.parse(JSON.stringify(SNAPSHOT)); spoof.readiness.blockers[0].field='Tenant: Ahmed Al-Otaibi, Unit 14B'; called=false; r=await onRequestPost({request:req(spoof),env:env()}); const sb=await r.json(); assert.equal(r.status,400); assert.equal(sb.code,'SNAPSHOT_FREE_TEXT_NOT_PERMITTED'); assert.equal(called,false);
  global.fetch=async()=>new Response('x'.repeat(65537));
  r=await onRequestPost({request:req(SNAPSHOT),env:env()}); assert.equal(r.status,502); assert.equal((await r.json()).code,'AI_PROVIDER_RESPONSE_TOO_LARGE');
