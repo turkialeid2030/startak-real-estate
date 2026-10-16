@@ -23,5 +23,9 @@ function provider(boundary='This output is advisory analysis only and does not c
  r=await onRequestPost({request:req(SNAPSHOT),env:env()}); assert.equal(r.status,502); assert.equal((await r.json()).code,'AI_PROVIDER_RESPONSE_TOO_LARGE');
  global.fetch=async()=>new Response(new ReadableStream({start(c){c.error(new Error('synthetic stream failure'));}}));
  r=await onRequestPost({request:req(SNAPSHOT),env:env()}); assert.equal(r.status,502); assert.equal((await r.json()).code,'AI_PROVIDER_RESPONSE_READ_FAILED');
+ writes=0;
+ global.fetch=async()=>new Response('synthetic rejection',{status:500});
+ r=await onRequestPost({request:req(SNAPSHOT),env:env({RIAI_AUDIT_KV:{put:async()=>{if(++writes===2)throw new Error('terminal audit failure');}}})});
+ assert.equal(r.status,503); assert.equal((await r.json()).code,'AI_AUDIT_WRITE_FAILED');
  console.log('RIAI_GATEWAY_INTEGRATION=PASS');
 })().catch((e)=>{console.error(e);process.exit(1);});
