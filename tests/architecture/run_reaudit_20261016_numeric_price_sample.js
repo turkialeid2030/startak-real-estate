@@ -45,4 +45,6 @@ for(const observations of [[observation,observation,observation],sample.map(x=>(
 }
 eq(evaluate({observations:[{...observation,startakAsOf:'2026-02-30'}],policy}).status,'HOLD_EVIDENCE');
 const unsafe=evaluate({observations:[{...observation,startakValue:Number.MAX_VALUE,comparatorValue:1e-300}],policy});eq(unsafe.status,'HOLD_EVIDENCE');eq(unsafe.metrics,null);
+const extreme=evaluate({observations:sample.map(x=>({...x,startakValue:Number.MAX_VALUE,comparatorValue:1})),policy});
+eq(extreme.validationPolicyPassed,false);ok(Number.isFinite(extreme.metrics.meanAbsolutePercentageError));
 console.log(`REAUDIT_NUMERIC_PRICE_SAMPLE=PASS checks=${checks}`);
