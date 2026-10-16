@@ -108,7 +108,7 @@ async function jsonReport(page) {
 
         // Re-audit N01/N02: drive actual controlled inputs and downloaded
         // current-input reports, not only the standalone numeric helper.
-        const rentInput = page.getByLabel(ar.inputBuilding.rentPerSqm, { exact: true });
+        const rentInput = page.getByLabel(new RegExp(ar.inputBuilding.rentPerSqm)).first();
         if (!await rentInput.isVisible()) await page.getByRole('button', { name: new RegExp(ar.inputBuilding.sec3) }).click();
         for (const raw of ['1800.5', '١٨٠٠٫٥', '۱٬۸۰۰٫۵']) {
           await rentInput.fill(raw);
