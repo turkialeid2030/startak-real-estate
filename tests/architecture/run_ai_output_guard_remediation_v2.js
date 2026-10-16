@@ -27,7 +27,7 @@ function makeStage(role = AI_ROLE.ANALYST) {
       caseId: 'CASE-GUARD-1',
       projectId: 'PROJECT-GUARD-1',
       dossierStatus: 'READY_ANALYTICAL_CASE',
-      aiNarrativeContext: { factRefs: [{ ref: 'E-1' }] },
+      aiNarrativeContext: { factRefs: [{ ref: 'E-1', key: 'buildingPrice', value: 140000000, unit: 'SAR' }] },
     },
   });
 }
@@ -52,7 +52,7 @@ let checks = 0;
 function check(name, fn) { fn(); checks += 1; console.log(`PASS ${name}`); }
 
 check('descriptive English real-estate terms are not false positives', () => {
-  const text = 'The purchase price is 140 million and the terminal sale value is evidence-sensitive; the buy-side assumption requires review.';
+  const text = 'The purchase price and the terminal sale value are evidence-sensitive; the buy-side assumption requires review.';
   assert.strictEqual(containsProhibitedDecisionLanguage(text), false);
   assert.strictEqual(validateAiRoleOutput({ stage: makeStage(), output: output({ narrative: text }) }).accepted, true);
 });
@@ -117,4 +117,27 @@ check('further diligence recommendation remains allowed', () => {
   assert.strictEqual(result.humanDecisionRequired, true);
 });
 
+check('unreferenced financial numbers in every prose channel fail closed', () => {
+  for (const narrative of ['The market value is 100 million.', 'القيمة السوقية ١٠٠ مليون.', 'القيمة السوقية مئة مليون.', 'The market value is one hundred million.']) {
+    const result = validateAiRoleOutput({stage: makeStage(), output: output({narrative})});
+    assert.strictEqual(result.accepted, false);
+    assert.ok(result.reasonCodes.includes('UNSTRUCTURED_NUMERIC_CLAIM'));
+    assert.strictEqual(result.transactionAuthorized, false);
+  }
+  for (const field of ['uncertainties','disagreements','diligenceSuggestions']) {
+    assert.strictEqual(validateAiRoleOutput({stage: makeStage(), output: output({[field]: ['DSCR 1.2']})}).accepted, false);
+  }
+});
+check('numeric claims must match exact cited snapshot key, value and unit', () => {
+  const claim = {ref:'E-1',key:'buildingPrice',value:140000000,unit:'SAR'};
+  const accepted = validateAiRoleOutput({stage:makeStage(),output:output({financialClaims:[claim]})});
+  assert.strictEqual(accepted.accepted,true);
+  assert.deepStrictEqual(accepted.financialClaims,[claim]);
+  assert.ok(accepted.numericClaimVerification.includes('NOT_INDEPENDENT_MARKET'));
+  for (const financialClaims of [
+    [{...claim,value:100000000}], [{...claim,key:'marketValue'}], [{...claim,unit:'USD'}],
+    [{...claim,ref:'unknown'}], [{...claim,value:NaN}], [{...claim,extra:'unverified'}], {},
+  ]) assert.strictEqual(validateAiRoleOutput({stage:makeStage(),output:output({financialClaims})}).accepted,false);
+  assert.strictEqual(validateAiRoleOutput({stage:makeStage(),output:output({financialClaims:[claim],citedEvidenceRefs:[]})}).accepted,false);
+});
 console.log(`AI_OUTPUT_GUARD_REMEDIATION_V2=PASS checks=${checks}`);
