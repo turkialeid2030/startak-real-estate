@@ -193,6 +193,19 @@ function validateEngineInputs(inputs, options = {}) {
   }
   validateRequiredFields(inputs, studyType);
 
+  // Do not let JavaScript comparisons/multiplication coerce raw draft strings
+  // (notably "1e3") into apparently valid economics. Numeric parsing belongs
+  // at the input boundary; both direct engine and report calls require numbers.
+  const numericFields = new Set([
+    ...PERCENTAGE_FIELDS_0_TO_1, ...GROWTH_RATE_FIELDS, ...NON_NEGATIVE_FIELDS,
+    ...STRICTLY_POSITIVE_DIVISOR_FIELDS, ...INTEGER_PERIOD_OR_COUNT_FIELDS,
+    ...Object.values(REQUIRED_ENGINE_FIELDS).flat().filter(field => !['leaseStatus','leverageEnabled'].includes(field)),
+    'leaseYears',
+  ]);
+  for (const field of numericFields) {
+    if (field in inputs) requireFinite(field, inputs[field]);
+  }
+
   for (const [key, value] of Object.entries(inputs)) {
     if (typeof value !== 'number') continue;
     requireFinite(key, value);
