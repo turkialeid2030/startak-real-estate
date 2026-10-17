@@ -1741,9 +1741,10 @@ export default function App() {
     }
   };
   const financialContext = useMemo(() => ({ mode, inputs, assumptionModelVersion, zakatCase, inputProvenance, rentalContext,
+    operatingCase: mode === 'building' ? residentialIncomeOperatingCase : null,
     dealName: activeDealName || inputs.projectTitle || '',
     valuationEditorDraft: mode === 'building' ? valuationEditorDraft : null,
-  }), [mode, inputs, assumptionModelVersion, zakatCase, activeDealName, valuationEditorDraft,inputProvenance,rentalContext]);
+  }), [mode, inputs, assumptionModelVersion, zakatCase, activeDealName, valuationEditorDraft,inputProvenance,rentalContext,residentialIncomeOperatingCase]);
 
   const valuationRuntimeState = useMemo(() => {
     if (mode !== "building") return { runtime: null, error: null };
