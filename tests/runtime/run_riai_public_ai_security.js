@@ -91,6 +91,7 @@ async function loadRouteModule() {
   fs.copyFileSync(path.join(sourceDir, '_guardrails.mjs'), path.join(tmp, '_guardrails.mjs'));
   fs.copyFileSync(path.join(sourceDir, '_bounded-body.mjs'), path.join(tmp, '_bounded-body.mjs'));
   fs.copyFileSync(path.join(sourceDir, '_quota-client.mjs'), path.join(tmp, '_quota-client.mjs'));
+  fs.copyFileSync(path.join(sourceDir, '_qualitative-output.mjs'), path.join(tmp, '_qualitative-output.mjs'));
   fs.copyFileSync(path.join(sourceDir, '_public-ai-security.mjs'), path.join(tmp, '_public-ai-security.mjs'));
   fs.copyFileSync(path.join(sourceDir, 'ai-assist.js'), path.join(tmp, 'ai-assist.mjs'));
   const mod = await import(`${pathToFileURL(path.join(tmp, 'ai-assist.mjs')).href}?v=${Date.now()}`);

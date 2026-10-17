@@ -1,5 +1,6 @@
 import { sha256Hex } from './_guardrails.mjs';
 
+import { readBoundedText } from './_bounded-body.mjs';
 const TURNSTILE_VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 const TURNSTILE_TIMEOUT_MS = 5000;
 const TURNSTILE_ACTION = 'riai_ai_assist';
@@ -57,12 +58,16 @@ async function verifyTurnstile({ request, env = {}, token, fetchImpl = fetch } =
     clearTimeout(timer);
     return Object.freeze({ ok: false, status: 503, code: 'AI_TURNSTILE_UNAVAILABLE' });
   }
-  clearTimeout(timer);
-  if (!response.ok) return Object.freeze({ ok: false, status: 503, code: 'AI_TURNSTILE_UNAVAILABLE' });
+  if (!response.ok) {
+    clearTimeout(timer);
+    void response.body?.cancel().catch(() => {});
+    return Object.freeze({ ok: false, status: 503, code: 'AI_TURNSTILE_UNAVAILABLE' });
+  }
 
   let payload;
-  try { payload = await response.json(); }
+  try { payload = JSON.parse(await readBoundedText(response, {maxBytes:16384,timeoutMs:TURNSTILE_TIMEOUT_MS,signal:controller.signal})); }
   catch (_) { return Object.freeze({ ok: false, status: 503, code: 'AI_TURNSTILE_RESPONSE_INVALID' }); }
+  finally { clearTimeout(timer); }
 
   if (!payload || payload.success !== true) {
     return Object.freeze({ ok: false, status: 403, code: 'AI_TURNSTILE_FAILED' });
