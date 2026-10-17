@@ -40,5 +40,10 @@ function provider(boundary='This output is advisory analysis only and does not c
  const settlementEnv=env(); const originalGet=settlementEnv.RIAI_AI_QUOTA.get;
  settlementEnv.RIAI_AI_QUOTA.get=()=>({fetch:async(url,options)=>url.endsWith('/settle')?Response.json({settled:false}):originalGet().fetch(url,options)});
  r=await onRequestPost({request:req(SNAPSHOT),env:settlementEnv});assert.equal(r.status,503);assert.equal((await r.json()).code,'AI_QUOTA_SETTLEMENT_REJECTED');
+ for(const field of ['executiveObservations','evidenceGaps','scenarioChecks','dueDiligenceQuestions']) {
+   const malicious=provider();const output=JSON.parse(malicious.choices[0].message.content);output[field]=['القيمة السوقية 100 مليون ريال'];malicious.choices[0].message.content=JSON.stringify(output);
+   global.fetch=async()=>Response.json(malicious);
+   r=await onRequestPost({request:req(SNAPSHOT),env:env()});const blocked=await r.json();assert.equal(r.status,502);assert.equal(blocked.code,'AI_UNSOURCED_NUMERIC_CLAIM');assert.equal(blocked.result,undefined);
+ }
  console.log('RIAI_GATEWAY_INTEGRATION=PASS');
 })().catch((e)=>{console.error(e);process.exit(1);});
