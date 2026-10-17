@@ -11,9 +11,10 @@ class FakeKV { constructor(){ this.map=new Map(); } async get(k){ return this.ma
   const noKv = await g.checkAndConsumeRateLimit({ store:null, subjectKey:'u' });
   assert.equal(noKv.code, 'AI_RATE_LIMIT_STORE_UNAVAILABLE');
   const kv = new FakeKV(); const cfg={perSubjectPerMinute:2,perSubjectPerDay:10,globalPerDay:100,ttlSeconds:90000}; const now=Date.now();
-  assert.equal((await g.checkAndConsumeRateLimit({store:kv,subjectKey:'u',now,config:cfg})).allowed,true);
-  assert.equal((await g.checkAndConsumeRateLimit({store:kv,subjectKey:'u',now,config:cfg})).allowed,true);
-  assert.equal((await g.checkAndConsumeRateLimit({store:kv,subjectKey:'u',now,config:cfg})).code,'AI_RATE_LIMIT_EXCEEDED_PER_MINUTE');
+  assert.equal((await g.checkAndConsumeRateLimit({store:kv,subjectKey:'u',now,config:cfg})).code,'AI_ATOMIC_QUOTA_REQUIRED');
+  assert.equal(kv.map.size,0);
+  const legacy=await import('../../functions/api/riai/_public-ai-security.mjs');
+  assert.equal((await legacy.checkAndReserveGlobalTokenBudget({store:kv,estimatedTokens:60,config:{globalPerDay:100}})).allowed,false);
   const record = await g.buildAuditRecord({subjectKey:'user-1',subjectSalt:'pepper',snapshot:valid,outcome:'SUCCESS'});
   assert.equal(record.payloadStored,false); assert.ok(!JSON.stringify(record).includes('user-1')); assert.match(record.subjectHash,/^[0-9a-f]{64}$/);
   const auditStore=new FakeKV();

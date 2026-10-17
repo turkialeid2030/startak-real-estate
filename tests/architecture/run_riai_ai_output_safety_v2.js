@@ -64,7 +64,7 @@ assert(gateway.includes('outputTokenLimit: outputBudget.value'));
 const sameOriginIndex = gateway.indexOf('const sameOrigin = validateSameOriginRequest(request);');
 const accessIndex = gateway.indexOf('const access = await resolveAccess(request, env, body);');
 const budgetIndex = gateway.indexOf('const outputBudget = providerOutputBudget(env);');
-const tokenBudgetIndex = gateway.indexOf('const tokenBudget = await checkAndReserveGlobalTokenBudget({');
+const tokenBudgetIndex = gateway.indexOf('const tokenBudget = await reserveGatewayQuota(');
 const providerFetchIndex = gateway.indexOf('providerResponse = await fetch(provider.url.toString()');
 assert(sameOriginIndex >= 0);
 assert(accessIndex > sameOriginIndex);
