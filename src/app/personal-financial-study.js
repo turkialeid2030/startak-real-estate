@@ -14,6 +14,7 @@ const { BUILD_METADATA } = require('../runtime/build-metadata');
 const { hydrateResidentialIncomeOperatingCaseSnapshot } = require('../residential-income-acquisition/operating-case-snapshot');
 const { calculateContractRunoff } = require('../residential-income-acquisition/contract-runoff');
 const { operatingReportDetails } = require('./operating-report-details');
+const { purchaseBoundaryMessage, findVerifiedPurchaseAlternative } = require('../assumptions/purchase-boundary-qualification');
 const VERSION = 'PERSONAL_FINANCIAL_STUDY_V2';
 const {geometryReview}=require('./capitalization-basis');
 const finite = x => typeof x === 'number' && Number.isFinite(x) ? x : null;
@@ -135,6 +136,8 @@ function buildPersonalFinancialStudy({ mode, inputs, assumptionModelVersion, zak
       inputProvenance:provenanceForInputs(mode,inputs,inputProvenance),
       engineVersion: calculated.results?.financialModelVersion || null,
       status: calculated.status, inputs: inputSnapshot,
+      purchaseAlternative: mode === 'building' && calculated.results
+        ? findVerifiedPurchaseAlternative(inputs, assumptionModelVersion, calculated.results.purchasePriceQualification) : null,
       results: calculated.results, governance: calculated.governance, error: calculated.error,
       payback: calculated.results ? paybackDisclosure(mode, calculated.results) : null,
       annualCashflows: annualRows(mode, calculated.results, inputs),
@@ -192,6 +195,9 @@ function htmlFinancialStudy(report, { locale = 'ar-SA' } = {}) {
       [words('بصمة المصدر التشغيلي', 'Operating source fingerprint'), op.sourceFingerprintSha256],
     ]) + '<p>' + words('يحفظ تصدير JSON لقطة الحالة والمراجع والتفاصيل الشهرية وأسباب تعليق الحساب وخطط التشغيل ورأس المال والتحصيل.', 'The JSON export preserves the source case, references, monthly details, calculation blockers and operating, capital and receipt plans.') + '</p>';
   const metrics = [
+    [words('سعر بديل أقل اجتاز المعايير — ليس إثباتًا لأعلى سعر ممكن', 'Verified lower alternative — not a proven global maximum'), money(f.purchaseAlternative?.price)],
+    [words('حد الشراء المجتاز لجميع المعايير المالية عند السعر نفسه', 'Purchase boundary passing every financial criterion at that price'), money(r.purchasePriceQualification?.qualifiedPrice)],
+    [words('أسباب عدم تأهيل حد الشراء', 'Purchase boundary qualification blockers'), purchaseBoundaryMessage(r.purchasePriceQualification,locale) || words('لا أسباب مسجلة؛ ليس اعتمادًا استثماريًا', 'No recorded blockers; not investment approval')],
     [words('أساس مؤشر الرسملة الحالية', 'Current capitalization indication basis'), r.incomeCapBasis ? (r.incomeCapBasis.basis === 'BEFORE_RESERVE' ? words('قبل احتياطي الإحلال','Before replacement reserve') : words('بعد احتياطي الإحلال','After replacement reserve')) : words('غير متاح','Unavailable')],
     [words('حالة توثيق الأساس', 'Basis documentation status'), r.incomeCapBasis?.explicitlySelected ? words('اختيار مستخدم؛ غير متحقق منه مستقلاً','User selected; not independently verified') : words('غير موثق؛ توافق حسابي مع النسخة السابقة فقط','Undocumented; legacy arithmetic compatibility only')],
     [words('مؤشر قيمة الرسملة الحالية', 'Current capitalization value indication'), money(r.marketValueByIncomeCap ?? r.marketValueAfterCompletion)],

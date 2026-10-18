@@ -146,6 +146,7 @@ const {
   prepareNewUiDealForSave,
   prepareUpdatedUiDealForSave,
 } = require('../assumptions/ui-integration-controller');
+const { purchaseBoundaryMessage } = require('../assumptions/purchase-boundary-qualification');
 const { ASSUMPTION_MODEL_VERSION } = require('../assumptions/assumption-model');
 const { isFiniteNumber } = require('../assumptions/ui-safe-formatters');
 const { validateUserEnteredZakatCase } = require('../zakat/user-entered-zakat');
@@ -840,7 +841,8 @@ function DashboardTab({ mode, inputs, results }) {
           <MetricRow label={t("metricRowR2B2.paybackOnPrice")} value={formatRecommendationYears(r.paybackOnPrice)} strong />
           <MetricRow label={t("metricRowR2B2.marketValueByIncomeCap")} value={formatRecommendationCurrency(r.marketValueByIncomeCap)} />
           <MetricRow label={t("metricRowR2B2.valueGapVsCost")} value={formatMetricCurrencySigned(r.valueGapVsCost)} positiveNegative={r.valueGapVsCost >= 0} />
-          <MetricRow label={t("metricRowR2B2.maxJustifiedPrice")} value={<span data-testid="building-price-boundary" dir="ltr">{formatPriceBoundary(r.maxJustifiedPrice)}</span>} />
+          <MetricRow label={t("metricRowR2B2.maxJustifiedPrice")} value={<span data-testid="building-price-boundary" dir="ltr">{formatPriceBoundary(r.purchasePriceQualification?.qualifiedPrice)}</span>} />
+          {r.purchasePriceQualification?.status==='NOT_QUALIFIED'&&<p role="status" data-testid="building-price-unqualified" className="text-xs text-amber-300">{locale==='en'?'No qualified purchase ceiling: ':'لا يتوفر حد شراء مؤهل: '}{purchaseBoundaryMessage(r.purchasePriceQualification,locale)}</p>}
           {isFiniteNumber(r.maxJustifiedPrice)&&r.maxPriceConstraint&&<p data-testid="building-price-constraint" className="text-xs text-slate-300">{locale==='en'?'Binding purchase constraint: ':'قيد الشراء الحاكم: '}{r.maxPriceConstraint.bindingConstraint==='CUMULATIVE_PAYBACK'?(locale==='en'?'cumulative operating payback':'الاسترداد التشغيلي التراكمي'):(locale==='en'?'minimum net yield':'الحد الأدنى للعائد الصافي')}. {locale==='en'?'This boundary solves these two limits only; IRR, NPV, valuation coverage and financing criteria require their separate checks.':'هذا الحد يحل شرطي العائد الصافي والاسترداد فقط؛ تبقى معايير العائد الداخلي والقيمة الحالية وتغطية القيمة والتمويل بحاجة إلى فحصها المستقل.'}</p>}
         </MetricGroup>
 

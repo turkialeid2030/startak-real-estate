@@ -2,6 +2,7 @@
 
 const { calculateInvestmentCase, STUDY_TYPE } = require('../engines');
 const { parseNumericText } = require('../validation/numeric-text');
+const { qualifyPurchaseBoundary } = require('./purchase-boundary-qualification');
 const {
   ASSUMPTION_MODEL_VERSION,
   V2_APPROVED_ASSUMPTIONS,
@@ -97,12 +98,15 @@ function calculateUiInvestmentState({ mode, inputs, assumptionModelVersion }) {
   assertMode(mode);
   assertPlainObject(inputs, 'inputs');
   const version = normalizeAssumptionModelVersion(assumptionModelVersion);
-  const results = calculateInvestmentCase({
+  const calculatedResults = calculateInvestmentCase({
     studyType: studyTypeForMode(mode),
     inputs,
     leverageEnabled: Boolean(inputs.leverageEnabled),
     assumptionModelVersion: version,
   });
+  const results = mode === UI_MODE.BUILDING ? { ...calculatedResults,
+    purchasePriceQualification: qualifyPurchaseBoundary(inputs, version, calculatedResults.maxJustifiedPrice),
+  } : calculatedResults;
   const governance = mode === UI_MODE.BUILDING
     ? buildUiAssumptionGovernance({
         assumptionModelVersion: version,
