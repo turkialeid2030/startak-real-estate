@@ -41,4 +41,31 @@ function qualifyPurchaseBoundary(inputs, assumptionModelVersion, candidatePrice)
     return { ...base, reason: 'BOUNDARY_CALCULATION_FAILED', errorCode: error.code || error.rule || error.name };
   }
 }
-module.exports = { qualifyPurchaseBoundary, purchaseBoundaryMessage };
+function findVerifiedPurchaseAlternative(inputs, assumptionModelVersion, qualification) {
+  const empty = { status: 'NOT_SEARCHED', price: null, evaluations: 0,
+    globalMaximumEstablished: false, transactionAuthorized: false };
+  if (qualification?.qualifiedPrice != null || qualification?.reason !== 'BOUNDARY_CRITERIA_FAILED') return empty;
+  const upperMinor = Math.floor(qualification.candidatePrice * 100);
+  if (!Number.isSafeInteger(upperMinor) || upperMinor <= 1) return empty;
+  let high = upperMinor, low = 0, verified = null, evaluations = 0;
+  // Find a passing lower point; do not infer infeasibility from sampling failure.
+  for (let candidate = Math.floor(high / 2); candidate >= 1 && evaluations < 40; candidate = Math.floor(candidate / 2)) {
+    const q = qualifyPurchaseBoundary(inputs, assumptionModelVersion, candidate / 100); evaluations++;
+    if (q.qualifiedPrice != null) { low = candidate; verified = q; break; }
+    if (q.reason !== 'BOUNDARY_CRITERIA_FAILED') return { ...empty, status: 'SEARCH_INCOMPLETE', evaluations };
+    high = candidate;
+  }
+  if (!verified) return { ...empty, status: 'NO_VERIFIED_ALTERNATIVE_FOUND', evaluations };
+  // Refine only the found pass/fail interval. No global monotonicity claim.
+  while (high - low > 1 && evaluations < 90) {
+    const mid = low + Math.floor((high - low) / 2);
+    const q = qualifyPurchaseBoundary(inputs, assumptionModelVersion, mid / 100); evaluations++;
+    if (q.qualifiedPrice != null) { low = mid; verified = q; }
+    else if (q.reason === 'BOUNDARY_CRITERIA_FAILED') high = mid;
+    else return { ...empty, status: 'SEARCH_INCOMPLETE', evaluations };
+  }
+  return { ...empty, status: 'VERIFIED_LOWER_PRICE', price: verified.qualifiedPrice, evaluations,
+    qualification: verified, originalBoundary: qualification.candidatePrice,
+    failingUpperPrice: high / 100, searchResolutionSar: (high - low) / 100 };
+}
+module.exports = { qualifyPurchaseBoundary, purchaseBoundaryMessage, findVerifiedPurchaseAlternative };
