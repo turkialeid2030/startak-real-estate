@@ -192,6 +192,8 @@ function htmlFinancialStudy(report, { locale = 'ar-SA' } = {}) {
       [words('بصمة المصدر التشغيلي', 'Operating source fingerprint'), op.sourceFingerprintSha256],
     ]) + '<p>' + words('يحفظ تصدير JSON لقطة الحالة والمراجع والتفاصيل الشهرية وأسباب تعليق الحساب وخطط التشغيل ورأس المال والتحصيل.', 'The JSON export preserves the source case, references, monthly details, calculation blockers and operating, capital and receipt plans.') + '</p>';
   const metrics = [
+    [words('حد الشراء المجتاز لجميع المعايير المالية عند السعر نفسه', 'Purchase boundary passing every financial criterion at that price'), money(r.purchasePriceQualification?.qualifiedPrice)],
+    [words('أسباب عدم تأهيل حد الشراء', 'Purchase boundary qualification blockers'), r.purchasePriceQualification?.failedCriteria?.join(' · ') || r.purchasePriceQualification?.reason || words('لا أسباب مسجلة؛ ليس اعتمادًا استثماريًا', 'No recorded blockers; not investment approval')],
     [words('أساس مؤشر الرسملة الحالية', 'Current capitalization indication basis'), r.incomeCapBasis ? (r.incomeCapBasis.basis === 'BEFORE_RESERVE' ? words('قبل احتياطي الإحلال','Before replacement reserve') : words('بعد احتياطي الإحلال','After replacement reserve')) : words('غير متاح','Unavailable')],
     [words('حالة توثيق الأساس', 'Basis documentation status'), r.incomeCapBasis?.explicitlySelected ? words('اختيار مستخدم؛ غير متحقق منه مستقلاً','User selected; not independently verified') : words('غير موثق؛ توافق حسابي مع النسخة السابقة فقط','Undocumented; legacy arithmetic compatibility only')],
     [words('مؤشر قيمة الرسملة الحالية', 'Current capitalization value indication'), money(r.marketValueByIncomeCap ?? r.marketValueAfterCompletion)],
