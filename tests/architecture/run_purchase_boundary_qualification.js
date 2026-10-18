@@ -21,6 +21,14 @@ assert.ok(financed.purchasePriceQualification.criteria.some(c=>c.code==='LEVERED
 for(const price of [null,NaN,Infinity,-1,0]) assert.equal(qualifyPurchaseBoundary(gold,'LEGACY',price).qualifiedPrice,null);
 const report=buildPersonalFinancialStudy({mode:'building',inputs:{...gold,discountRate:.5},assumptionModelVersion:'LEGACY'});
 assert.equal(report.financial.results.purchasePriceQualification.qualifiedPrice,null);
+const alternative=report.financial.purchaseAlternative;
+assert.equal(alternative.status,'VERIFIED_LOWER_PRICE');
+assert.ok(alternative.price<failing.maxJustifiedPrice);
+assert.ok(alternative.qualification.criteria.every(c=>c.met===true));
+assert.equal(qualifyPurchaseBoundary({...gold,discountRate:.5},'LEGACY',alternative.price).qualifiedPrice,alternative.price);
+assert.equal(qualifyPurchaseBoundary({...gold,discountRate:.5},'LEGACY',alternative.failingUpperPrice).qualifiedPrice,null);
+assert.ok(alternative.searchResolutionSar<=.01);
+assert.equal(alternative.globalMaximumEstablished,false);
 assert.ok(htmlFinancialStudy(report,{locale:'en'}).includes('NPV is negative'));
 assert.ok(purchaseBoundaryMessage(failing.purchasePriceQualification,'ar-SA').includes('صافي القيمة الحالية سالب'));
 assert.ok(!/[A-Za-z_]/.test(purchaseBoundaryMessage({reason:'BOUNDARY_CRITERIA_INCOMPLETE'},'ar-SA')));
