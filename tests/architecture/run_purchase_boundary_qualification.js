@@ -1,7 +1,7 @@
 'use strict';
 const assert=require('node:assert/strict');
 const {calculateUiInvestmentState}=require('../../src/assumptions/ui-integration-controller');
-const {qualifyPurchaseBoundary}=require('../../src/assumptions/purchase-boundary-qualification');
+const {qualifyPurchaseBoundary,purchaseBoundaryMessage}=require('../../src/assumptions/purchase-boundary-qualification');
 const {buildPersonalFinancialStudy,htmlFinancialStudy}=require('../../src/app/personal-financial-study');
 const gold=require('../reference/RE-GOLD-baseline.json')['RE-GOLD-002_existing_building'].inputs;
 const run=changes=>calculateUiInvestmentState({mode:'building',inputs:{...gold,...changes},assumptionModelVersion:'LEGACY'}).results;
@@ -21,7 +21,9 @@ assert.ok(financed.purchasePriceQualification.criteria.some(c=>c.code==='LEVERED
 for(const price of [null,NaN,Infinity,-1,0]) assert.equal(qualifyPurchaseBoundary(gold,'LEGACY',price).qualifiedPrice,null);
 const report=buildPersonalFinancialStudy({mode:'building',inputs:{...gold,discountRate:.5},assumptionModelVersion:'LEGACY'});
 assert.equal(report.financial.results.purchasePriceQualification.qualifiedPrice,null);
-assert.ok(htmlFinancialStudy(report,{locale:'en'}).includes('NPV_NON_NEGATIVE'));
+assert.ok(htmlFinancialStudy(report,{locale:'en'}).includes('NPV is negative'));
+assert.ok(purchaseBoundaryMessage(failing.purchasePriceQualification,'ar-SA').includes('صافي القيمة الحالية سالب'));
+assert.ok(!/[A-Za-z_]/.test(purchaseBoundaryMessage({reason:'BOUNDARY_CRITERIA_INCOMPLETE'},'ar-SA')));
 assert.equal(financed.purchasePriceQualification.transactionAuthorized,false);
 assert.equal(financed.purchasePriceQualification.allConstraintsOptimized,false);
 console.log('PURCHASE_BOUNDARY_QUALIFICATION: PASS (full-engine criteria, boundary+1, high hurdle abstention, financing, export)');
