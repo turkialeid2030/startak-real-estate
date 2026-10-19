@@ -281,6 +281,33 @@ async function textContrast(locator){return locator.evaluate(el=>{
    await page.getByTestId('cash-reload').click();await expect(page.getByTestId('cash-other-amount-1')).toHaveValue('100.25');checks++;
    await expect(page.getByTestId('cash-confirm')).not.toBeChecked();checks++;
 
+   // Source-dated property returns use explicit acquisition/exit inputs and
+   // the actual payment dates, excluding financing, deposits and opening cash.
+   await page.getByTestId('cash-return-editor').locator('summary').click();await page.getByTestId('cash-return-enabled').check();
+   for(const[key,value]of Object.entries({acquisitionAmount:'١٠٠٬٠٠٠',acquisitionSourceRef:'Synthetic acquisition assumption',discountPercent:'۱۰',discountSourceRef:'Synthetic discount assumption',reviewRef:'Synthetic investment return review'}))await page.getByTestId(`cash-return-${key}`).fill(value);
+   await page.getByTestId('cash-return-exitTreatment').selectOption('EXPLICIT_SALE');
+   for(const[key,value]of Object.entries({saleDate:'2027-08-31',netSaleAmount:'١١٠٬٠٠٠',saleSourceRef:'Synthetic net sale assumption'}))await page.getByTestId(`cash-return-${key}`).fill(value);
+   await page.getByTestId('cash-source').fill('Synthetic cash with acquisition and sale');await page.getByTestId('cash-review').fill('Synthetic cash return review');
+   await page.getByTestId('cash-confirm').check();await page.getByTestId('cash-save').click();await expect(page.getByTestId('cash-feedback')).toHaveText('تم حفظ السيناريو.');checks++;
+   const returnExport=JSON.parse(await download(page,page.getByTestId('export-contract-runoff'))),sourceReturn=returnExport.result.cashScenario.investmentReturns;
+   const expectedNpv=-100000+20000.25/1.1**(30/365.2425)-3000/1.1**(14/365.2425)-12000/1.1**(10/365.2425)-100.25/1.1**(14/365.2425)+110000/1.1**(364/365.2425);
+   ok(sourceReturn.status==='CALCULATED_ENTERED_SCENARIO'&&Math.abs(sourceReturn.npvSar-expectedNpv)<1e-7&&sourceReturn.flows.length===6,'dated property NPV matches independent cash arithmetic, excluding loan, deposits and opening cash');
+   ok(returnExport.result.cashScenario.closingMinor===3590000&&returnExport.result.cashScenario.liquidity.minimumMinor===-9900000,'asset purchase and sale enter liquidity exactly once');
+   const returnPanel=page.getByTestId('cash-investment-returns');await returnPanel.locator('summary').click();
+   await expect(page.getByTestId('cash-return-npv')).toHaveText(sourceReturn.npvSar.toLocaleString('ar-SA',{maximumFractionDigits:2}));checks++;
+   const returnStudy=JSON.parse(await download(page,page.getByTestId('c75-export-personal-json')));
+   ok(verifyPersonalFinancialStudy(returnStudy)&&returnStudy.operatingReport.contractRunoff.cashScenario.investmentReturns.npvSar===sourceReturn.npvSar,'current financial report hash binds the same source return');
+   const returnHtml=await download(page,page.getByTestId('c75-export-personal-html'));
+   ok(returnHtml.includes('عائد مؤرخ من التدفقات النقدية المدخلة')&&returnHtml.includes('Synthetic net sale assumption'),'HTML includes source-dated return and its source reference');
+   await page.getByTestId('cash-horizon-end').fill('2028-09-01');await page.getByTestId('cash-source').fill('Synthetic expanded horizon');await page.getByTestId('cash-review').fill('Synthetic expanded review');
+   await page.getByTestId('cash-confirm').check();await page.getByTestId('cash-save').click();await expect(page.getByTestId('cash-feedback')).toHaveText('تم حفظ السيناريو.');checks++;
+   const expanded=JSON.parse(await download(page,page.getByTestId('export-contract-runoff')));
+   ok(expanded.result.cashScenario.investmentReturns.status==='NEEDS_REVIEW'&&expanded.result.cashScenario.investmentReturns.npvSar===null,'extending the cash horizon cannot reuse a shorter operating budget or its prior return');
+   await page.getByTestId('cash-horizon-end').fill('2027-09-01');await page.getByTestId('cash-return-enabled').uncheck();
+   await page.getByTestId('cash-source').fill('Synthetic original horizon without return');await page.getByTestId('cash-review').fill('Synthetic restored scope review');
+   await page.getByTestId('cash-confirm').check();await page.getByTestId('cash-save').click();await expect(page.getByTestId('cash-feedback')).toHaveText('تم حفظ السيناريو.');checks++;
+   await expect(page.getByTestId('cash-investment-returns')).toHaveCount(0);await expect(page.getByTestId('cash-closing')).toHaveText('25900.00');checks+=2;
+
    const ledgerFill=async(type,values)=>{
     await page.getByTestId('ledger-type').selectOption(type);
     for(const[key,value]of Object.entries(values)){

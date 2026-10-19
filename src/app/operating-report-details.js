@@ -1,5 +1,6 @@
 'use strict';
 const { describeDiagnostic } = require('../i18n/diagnostic-presentation');
+const { enteredInvestmentReturnsHtml } = require('./entered-investment-returns-html');
 const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function operatingReportDetails(runoff, locale = 'ar-SA') {
   if (!runoff) return '';
@@ -35,11 +36,13 @@ function operatingReportDetails(runoff, locale = 'ar-SA') {
       (runoff.rows || []).map(row=>[row.periodStart,row.periodEndExclusive,money(row.contractRent),money(row.normalizedOpex),money(row.scheduledCapex),money(row.contractNetAfterScheduledCapex)]))
     + '<h2>'+w('النقد الشهري وفق الخطط المدخلة','Monthly cash from entered plans')+'</h2><p>'
     + w('توقع جزئي يستبعد التدفقات غير المدخلة؛ لا يثبت رصيد بنك أو قبضًا فعليًا.','Partial scenario excluding unentered flows; not a verified bank balance or executed receipt.')+'</p>'
-    + table([w('بداية الفترة','Period start'),w('الافتتاحي','Opening'),w('تحصيل متوقع','Planned receipts'),w('دفعات تشغيل','Operating payments'),w('دفعات رأسمالية','Capital payments'),w('تدفقات أخرى داخلة','Other inflows'),w('تدفقات أخرى خارجة','Other outflows'),w('الختامي','Closing')],
-      (cash?.rows || []).map(row=>[row.periodStart,...['openingMinor','receiptsMinor','operatingMinor','capexMinor','otherInflowsMinor','otherOutflowsMinor','closingMinor'].map(key=>minor(row[key]))]))
+    + table([w('بداية الفترة','Period start'),w('الافتتاحي','Opening'),w('تحصيل متوقع','Planned receipts'),w('دفعات تشغيل','Operating payments'),w('دفعات رأسمالية','Capital payments')],
+      (cash?.rows || []).map(row=>[row.periodStart,...['openingMinor','receiptsMinor','operatingMinor','capexMinor'].map(key=>minor(row[key]))]))
+    + table([w('بداية الفترة','Period start'),w('تدفقات أخرى داخلة','Other inflows'),w('تدفقات أخرى خارجة','Other outflows'),w('ثمن شراء الأصل','Asset acquisition'),w('صافي بيع الأصل','Net asset sale'),w('الختامي','Closing')],
+      (cash?.rows || []).map(row=>[row.periodStart,...['otherInflowsMinor','otherOutflowsMinor','acquisitionMinor','assetSaleMinor','closingMinor'].map(key=>minor(['acquisitionMinor','assetSaleMinor'].includes(key)?(row[key]??0):row[key]))]))
     + table([w('فحص السيولة المحافظ','Conservative liquidity check'),w('القيمة','Value')],[
       [w('أدنى رصيد قبل تحصيل اليوم','Minimum balance before same-day receipts'),minor(cash?.liquidity?.minimumMinor)],
       [w('تاريخ أدنى رصيد','Minimum balance date'),cash?.liquidity?.minimumDate || w('غير متاح','Unavailable')],
-    ]);
+    ]) + enteredInvestmentReturnsHtml(cash?.investmentReturns,locale);
 }
 module.exports = { operatingReportDetails };
