@@ -4,6 +4,8 @@ const {chromium,firefox,webkit,expect}=require('@playwright/test');
 const {pdfFixture}=require('../fixtures/bounded-pdf');
 const gold=require('../reference/RE-GOLD-baseline.json');
 const ar=require('../../src/i18n/locales/ar-SA');
+const {sanitizeArabicUiText}=require('../../src/i18n/strict-arabic-presentation');
+const {getDecisionMetricLabelOverride}=require('../../src/i18n/decision-metric-semantics');
 const {operatingCase,verified}=require('../fixtures/synthetic-collections-case');
 const {createOperatingExpense,createCapexItem}=require('../../src/residential-income-acquisition');
 const {buildResidentialIncomeOperatingCaseEnvelope}=require('../../src/residential-income-acquisition');
@@ -89,6 +91,41 @@ async function textContrast(locator){return locator.evaluate(el=>{
    await expect(page.getByTestId('local-evidence-workflow-status')).toHaveAttribute('data-verification-status','VERIFICATION_NOT_COMPLETE');checks++;
    await expect(page.getByTestId('local-evidence-workflow-status')).toHaveText('التحقق غير مكتمل');checks++;
    await page.getByTitle(ar.actions.savedDeals,{exact:true}).click();await page.getByRole('dialog').getByRole('button',{name:seed.name,exact:true}).click();
+   // Full-engine lower-price evidence must match the current exported inputs
+   // on all three browsers, including the explicit-zero-debt case.
+   const hurdle=page.getByLabel(sanitizeArabicUiText(ar.inputBuilding.discountRate),{exact:false}).first();
+   const valuationSection=page.getByRole('button',{name:ar.inputBuilding.sec5,exact:false});
+   if(await valuationSection.getAttribute('aria-expanded')!=='true')await valuationSection.click();
+   await hurdle.fill('50');
+   const lowerReport=JSON.parse(await download(page,page.getByTestId('c75-export-personal-json')));
+   const lower=lowerReport.financial.purchaseAlternative;
+   ok(lower.status==='VERIFIED_LOWER_PRICE'&&lower.qualification.criteria.every(c=>c.met===true),'lower candidate passes every canonical criterion');
+   ok(JSON.stringify(lower)===JSON.stringify(lowerReport.financial.results.purchaseAlternative)&&lower.globalMaximumEstablished===false,'export aliases current review without global-maximality claim');
+   await expect(page.getByTestId('building-price-alternative-value')).toContainText(lower.price.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}));checks++;
+   await expect(page.getByTestId('building-price-alternative-status')).toContainText('ليس إثباتًا لأعلى سعر ممكن');checks++;
+   await hurdle.fill('8');
+   await expect(page.getByTestId('building-price-alternative')).toHaveCount(0);checks++;
+   const debtSwitch=page.getByRole('switch',{name:ar.financing.toggle,exact:true});
+   const financingSection=page.getByRole('button',{name:ar.financingInput.section,exact:false});
+   const financingBody=page.locator('[id='+JSON.stringify(await financingSection.getAttribute('aria-controls'))+']');
+   if(await financingSection.getAttribute('aria-expanded')!=='true'){
+    await expect(debtSwitch).toHaveCount(0);await expect(financingBody).toHaveAttribute('inert','');checks+=2;
+    await financingSection.focus();await page.keyboard.press('Tab');
+    ok(!await financingBody.evaluate(el=>el.contains(document.activeElement)),'keyboard tab skips all collapsed financing controls');
+    await financingSection.focus();await page.keyboard.press('Enter');
+   }
+   await expect(financingSection).toHaveAttribute('aria-expanded','true');await expect(financingBody).not.toHaveAttribute('inert','');checks+=2;
+   const debtRatio=page.getByLabel(sanitizeArabicUiText(getDecisionMetricLabelOverride('ar-SA','financingInput.ltvLabelBuilding')),{exact:false}).first();
+   await debtRatio.fill('0');
+   if(await debtSwitch.getAttribute('aria-checked')!=='true')await debtSwitch.click();
+   const zeroDebt=JSON.parse(await download(page,page.getByTestId('c75-export-personal-json')));
+   ok(zeroDebt.financial.inputs.leverageEnabled===true&&zeroDebt.financial.inputs.ltv===0,'real controls request financing with zero debt');
+   ok(zeroDebt.financial.results.purchasePriceQualification.status==='ALL_CRITERIA_VERIFIED_AT_BOUNDARY'&&zeroDebt.financial.results.purchasePriceQualification.criteria.length===6,'zero debt qualifies through six economically unlevered criteria');
+   await expect(page.getByTestId('building-price-unqualified')).toHaveCount(0);checks++;
+   await expect(page.getByTestId('building-price-boundary')).not.toHaveText('—');checks++;
+   if((await debtSwitch.getAttribute('aria-checked')==='true')!==seed.inputs.leverageEnabled)await debtSwitch.click();
+   await debtRatio.fill(String(seed.inputs.ltv*100));await hurdle.fill(String(seed.inputs.discountRate*100));
+   await financingSection.click();await expect(debtSwitch).toHaveCount(0);await expect(financingBody).toHaveAttribute('aria-hidden','true');checks+=2;
    const provenance=page.getByTestId('input-provenance');await provenance.locator('summary').click();
    for(const[key,value]of Object.entries({field:'buildingPrice',unit:'SAR',sourceReference:'USER ESTIMATE / source',sourceDate:'2026-10-01',location:'Riyadh',reviewerRef:'OWNER'})) {const control=page.getByTestId('provenance-'+key);if(key==='field')await control.selectOption(value);else await control.fill(value);}
    await page.getByTestId('save-input-provenance').click();await expect(provenance).toContainText('USER_SUPPLIED_UNVERIFIED');checks++;

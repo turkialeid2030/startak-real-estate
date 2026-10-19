@@ -187,18 +187,18 @@ try {
   await runTask('FINANCING_DISCOVERY_AND_REVERSIBILITY', page, async (act) => {
     await act(() => page.getByText('مبنى قائم', { exact: true }).first().click());
     await page.waitForTimeout(150);
-    const toggle = page.getByRole('switch', { name: 'تفعيل الرافعة المالية' }).first();
-    if ((await toggle.count()) === 0) throw new Error('financing toggle cannot be discovered by accessible name');
-
-    const section = toggle.locator('xpath=ancestor::div[contains(@class,"rounded-2xl") and contains(@class,"overflow-hidden")][1]');
+    const header = page.getByRole('button', { name: /التمويل العقاري/ }).first();
+    const section = header.locator('xpath=ancestor::div[contains(@class,"rounded-2xl") and contains(@class,"overflow-hidden")][1]');
     if ((await section.count()) === 0) throw new Error('financing section container could not be resolved');
     const sectionBody = section.locator('.rf-accordion-body').first();
     if ((await sectionBody.count()) === 0) throw new Error('financing accordion body could not be resolved');
     if (!((await sectionBody.getAttribute('class')) || '').split(/\s+/).includes('open')) {
-      await act(() => section.locator(':scope > button').first().click());
+      await act(() => header.click());
       await page.waitForTimeout(220);
     }
 
+    const toggle = page.getByRole('switch', { name: 'تفعيل الرافعة المالية' }).first();
+    if ((await toggle.count()) === 0) throw new Error('opened financing toggle cannot be discovered by accessible name');
     await toggle.scrollIntoViewIfNeeded();
     const before = await toggle.getAttribute('aria-checked');
     await act(() => toggle.click());

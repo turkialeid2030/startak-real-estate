@@ -1,6 +1,7 @@
 'use strict';
 const assert=require('node:assert/strict');
 const {chromium,expect}=require('@playwright/test');
+const ar=require('../../src/i18n/locales/ar-SA');
 const url=process.env.STARTAK_E2E_URL||'http://127.0.0.1:4173';
 (async()=>{
  const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
@@ -8,6 +9,9 @@ const url=process.env.STARTAK_E2E_URL||'http://127.0.0.1:4173';
  const page=await context.newPage();let checks=0;
  try{
   await page.goto(url,{waitUntil:'domcontentloaded',timeout:30000});
+  const section=page.getByRole('button',{name:ar.inputBuilding.sec2,exact:false});
+  await expect(section).toBeVisible({timeout:25000});
+  if(await section.getAttribute('aria-expanded')!=='true')await section.click();
   const price=page.getByLabel(/قيمة شراء المبنى/).first();
   await expect(price).toBeVisible({timeout:25000});
   await price.fill('-1');
