@@ -4,6 +4,8 @@ const {chromium,firefox,webkit,expect}=require('@playwright/test');
 const {pdfFixture}=require('../fixtures/bounded-pdf');
 const gold=require('../reference/RE-GOLD-baseline.json');
 const ar=require('../../src/i18n/locales/ar-SA');
+const {sanitizeArabicUiText}=require('../../src/i18n/strict-arabic-presentation');
+const {getDecisionMetricLabelOverride}=require('../../src/i18n/decision-metric-semantics');
 const {operatingCase,verified}=require('../fixtures/synthetic-collections-case');
 const {createOperatingExpense,createCapexItem}=require('../../src/residential-income-acquisition');
 const {buildResidentialIncomeOperatingCaseEnvelope}=require('../../src/residential-income-acquisition');
@@ -91,7 +93,7 @@ async function textContrast(locator){return locator.evaluate(el=>{
    await page.getByTitle(ar.actions.savedDeals,{exact:true}).click();await page.getByRole('dialog').getByRole('button',{name:seed.name,exact:true}).click();
    // Full-engine lower-price evidence must match the current exported inputs
    // on all three browsers, including the explicit-zero-debt case.
-   const hurdle=page.getByLabel(ar.inputBuilding.discountRate,{exact:false}).first();
+   const hurdle=page.getByLabel(sanitizeArabicUiText(ar.inputBuilding.discountRate),{exact:false}).first();
    if(!await hurdle.isVisible())await page.getByRole('button',{name:new RegExp(ar.inputBuilding.sec5)}).click();
    await hurdle.fill('50');
    const lowerReport=JSON.parse(await download(page,page.getByTestId('c75-export-personal-json')));
@@ -104,7 +106,7 @@ async function textContrast(locator){return locator.evaluate(el=>{
    await expect(page.getByTestId('building-price-alternative')).toHaveCount(0);checks++;
    const debtSwitch=page.getByRole('switch',{name:ar.financing.toggle,exact:true});
    if(!await debtSwitch.isVisible())await page.getByRole('button',{name:ar.financingInput.section,exact:false}).click();
-   const debtRatio=page.getByLabel('نسبة التمويل المطلوبة إلى إجمالي تكلفة الاستحواذ (LTC)',{exact:false}).first();
+   const debtRatio=page.getByLabel(sanitizeArabicUiText(getDecisionMetricLabelOverride('ar-SA','financingInput.ltvLabelBuilding')),{exact:false}).first();
    await debtRatio.fill('0');
    if(await debtSwitch.getAttribute('aria-checked')!=='true')await debtSwitch.click();
    const zeroDebt=JSON.parse(await download(page,page.getByTestId('c75-export-personal-json')));
