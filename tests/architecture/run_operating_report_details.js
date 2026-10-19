@@ -13,7 +13,8 @@ for (const locale of ['en','ar-SA']) {
   assert.equal(doc.querySelectorAll('script').length,0);
   assert.ok(doc.body.textContent.includes('<script>bad</script>'));
   assert.ok(doc.body.textContent.includes('RUNOFF_CASE_DATE_INVALID'));
-  assert.equal(doc.querySelectorAll('table').length,5);
+  assert.equal(doc.querySelectorAll('table').length,6);
+  assert.ok([...doc.querySelectorAll('table')].every(table=>table.querySelectorAll('thead th').length<=6),'cash detail tables remain readable when printed');
   assert.ok(doc.body.textContent.includes('2026-09-30'));
   if(locale==='en'){
     assert.ok(doc.body.textContent.includes('193,000 SAR'));

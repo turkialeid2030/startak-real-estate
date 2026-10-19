@@ -39,7 +39,7 @@ function operatingReportDetails(runoff, locale = 'ar-SA') {
     + table([w('بداية الفترة','Period start'),w('الافتتاحي','Opening'),w('تحصيل متوقع','Planned receipts'),w('دفعات تشغيل','Operating payments'),w('دفعات رأسمالية','Capital payments')],
       (cash?.rows || []).map(row=>[row.periodStart,...['openingMinor','receiptsMinor','operatingMinor','capexMinor'].map(key=>minor(row[key]))]))
     + table([w('بداية الفترة','Period start'),w('تدفقات أخرى داخلة','Other inflows'),w('تدفقات أخرى خارجة','Other outflows'),w('ثمن شراء الأصل','Asset acquisition'),w('صافي بيع الأصل','Net asset sale'),w('الختامي','Closing')],
-      (cash?.rows || []).map(row=>[row.periodStart,...['otherInflowsMinor','otherOutflowsMinor','acquisitionMinor','assetSaleMinor','closingMinor'].map(key=>minor(['acquisitionMinor','assetSaleMinor'].includes(key)?(row[key]??0):row[key]))]))
+      (cash?.rows || []).map(row=>[row.periodStart,...['otherInflowsMinor','otherOutflowsMinor','acquisitionMinor','assetSaleMinor','closingMinor'].map(key=>minor(row[key]))]))
     + table([w('فحص السيولة المحافظ','Conservative liquidity check'),w('القيمة','Value')],[
       [w('أدنى رصيد قبل تحصيل اليوم','Minimum balance before same-day receipts'),minor(cash?.liquidity?.minimumMinor)],
       [w('تاريخ أدنى رصيد','Minimum balance date'),cash?.liquidity?.minimumDate || w('غير متاح','Unavailable')],
