@@ -14,6 +14,18 @@ const BASE=process.env.STARTAK_E2E_URL||'http://127.0.0.1:4173';
 const DIR='runtime-evidence/remaining-audit';let checks=0;
 const ok=(condition,message)=>{assert.ok(condition,message);checks++;};
 async function download(page,locator){const pending=page.waitForEvent('download');await locator.click();const file=await pending;return fs.readFile(await file.path(),'utf8');}
+async function captureDocument(page,prefix){
+ const size=await page.evaluate(()=>({width:document.documentElement.scrollWidth,height:document.documentElement.scrollHeight}));
+ const tiles=[];
+ // WebKit rejects images above 32767 physical pixels. Preserve all content
+ // with bounded CSS-pixel tiles rather than skipping or truncating evidence.
+ for(let y=0;y<size.height;y+=8000){
+  const path=`${prefix}-${tiles.length+1}.png`,height=Math.min(8000,size.height-y);
+  await page.screenshot({path,fullPage:true,scale:'css',clip:{x:0,y,width:size.width,height}});
+  tiles.push({path,y,height});
+ }
+ await fs.writeFile(prefix+'-tiles.json',JSON.stringify({...size,tiles},null,2));
+}
 async function textContrast(locator){return locator.evaluate(el=>{
  const canvas=document.createElement('canvas');canvas.width=canvas.height=1;const ctx=canvas.getContext('2d');
  const rgb=color=>{ctx.clearRect(0,0,1,1);ctx.fillStyle=color;ctx.fillRect(0,0,1,1);return [...ctx.getImageData(0,0,1,1).data];};
@@ -93,7 +105,7 @@ async function textContrast(locator){return locator.evaluate(el=>{
    for(const surface of ['decision-intelligence-workspace','investment-committee-dossier','post-decision-governance-panel']){await expect(page.getByTestId(surface).locator('[data-user-content]').filter({hasText:'CASE-LOCAL-AUDIT'}).first()).toHaveText('CASE-LOCAL-AUDIT');checks++;}
    console.log(`AUDIT_REMAINING_VIEWPORT=PASS engine=${name} width=${viewport.width} checks=${checks}`);
    const layout=await page.evaluate(()=>({width:innerWidth,scrollWidth:document.documentElement.scrollWidth,offenders:[...document.querySelectorAll('body *')].map(el=>{const r=el.getBoundingClientRect();return {tag:el.tagName,testId:el.getAttribute('data-testid'),classes:typeof el.className==='string'?el.className:'',text:(el.innerText||'').slice(0,100),left:r.left,right:r.right,width:r.width};}).filter(r=>r.width>0&&(r.left < -1||r.right>innerWidth+1)).slice(-35)}));
-   if(layout.scrollWidth>layout.width+1){await fs.writeFile(`${DIR}/${name}-${viewport.width}-overflow.json`,JSON.stringify(layout,null,2));await page.screenshot({path:`${DIR}/${name}-${viewport.width}-overflow.png`,fullPage:true});}
+   if(layout.scrollWidth>layout.width+1){await fs.writeFile(`${DIR}/${name}-${viewport.width}-overflow.json`,JSON.stringify(layout,null,2));await captureDocument(page,`${DIR}/${name}-${viewport.width}-overflow`);}
    ok(layout.scrollWidth<=layout.width+1,'no page-level overflow at tested viewport');
    if(name==='chromium'&&viewport.width===1366){
     const html=await download(page,page.getByTestId('c75-export-personal-html'));const htmlHash=html.match(/[a-f0-9]{64}/g)?.at(-1);const print=await context.newPage();await print.setContent(html,{waitUntil:'load'});await print.setViewportSize({width:794,height:1123});await print.emulateMedia({media:'print'});
@@ -392,7 +404,7 @@ async function textContrast(locator){return locator.evaluate(el=>{
    await zakat.fill('۰');await page.getByTestId('zakat-amount-source').selectOption('ACCOUNTANT');
    const zeroZakat=JSON.parse(await download(page,page.getByTestId('c75-export-personal-json')));
    ok(zeroZakat.financial.zakat.layer.annualZakatAmount===0,'explicit Persian zero is preserved');
-   await page.screenshot({path:`${DIR}/${name}-${viewport.width}.png`,fullPage:true});
+   await captureDocument(page,`${DIR}/${name}-${viewport.width}`);
    ok(errors.length===0,`${name} pageerrors: ${errors.join(' | ')}`);ok(external.length===0,'document module sends no external POST uploads');
    evidence.push({engine:name,viewport,checksCompleted:checks,pageErrors:errors.length,externalPosts:external.length,physicalDevice:false});await context.close();
   }}finally{await browser.close();}
