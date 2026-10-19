@@ -55,6 +55,24 @@ const gold = require('../reference/RE-GOLD-baseline.json')['RE-GOLD-002_existing
   assert.equal(header.getAttribute('aria-expanded'),'true');assert.equal(body.getAttribute('aria-hidden'),'false');
   assert(!body.hasAttribute('inert'));assert.equal(body.style.visibility,'visible');
   await React.act(async()=>header.click());assert(body.hasAttribute('inert'));assert.equal(body.style.visibility,'hidden');
+  const certFile=path.resolve(__dirname,'../../src/components/PurchaseCeilingCertificate.jsx');
+  const certSource=fs.readFileSync(certFile,'utf8').replace("import React from 'react';",'').replace('export default function ','function ');
+  const certCode=await transformWithOxc(certSource,certFile,{jsx:{runtime:'classic'}});
+  const CertificateComponent=new Function('React','require',certCode.code+'\nreturn PurchaseCeilingCertificate;')(React,createRequire(certFile));
+  const certInputs={...gold,leaseYears:10,exitCapRate:.075,exitTransferFeeRate:0,discountRate:.5};
+  const certificate=calculateUiInvestmentState({...context,inputs:certInputs}).results.purchaseCeilingCertificate;
+  assert.equal(certificate.status,'PROVEN_WITHIN_MODEL');
+  for(const locale of ['ar-SA','en']) {
+    await React.act(async()=>root.render(React.createElement(CertificateComponent,{certificate,locale})));
+    assert(document.querySelector('[data-testid="building-price-certificate-value"]').textContent.includes(certificate.price.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})));
+    assert(document.querySelector('[role=status]').textContent.includes(locale==='en'?'within the supported model':'ضمن النموذج المدعوم'));
+  }
+  const held=calculateUiInvestmentState({...context,inputs:{...certInputs,leaseYears:6}}).results.purchaseCeilingCertificate;
+  await React.act(async()=>root.render(React.createElement(CertificateComponent,{certificate:held})));
+  assert.equal(document.querySelector('[data-testid="building-price-certificate-value"]'),null);
+  assert(document.querySelector('[role=status]').textContent.includes('تغطية العقود'));
+  await React.act(async()=>root.render(React.createElement(CertificateComponent,{certificate,inputValid:false})));
+  assert.equal(document.body.textContent,'');
   await React.act(async () => root.unmount()); dom.window.close();
   console.log('PURCHASE_ALTERNATIVE_UI=PASS (actual React, two locales, report parity, stale price removal, collapsed-control isolation)');
 })().catch(error => { console.error(error); process.exitCode = 1; });

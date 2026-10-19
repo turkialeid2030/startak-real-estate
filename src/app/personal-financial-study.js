@@ -16,6 +16,7 @@ const { calculateContractRunoff } = require('../residential-income-acquisition/c
 const { operatingReportDetails } = require('./operating-report-details');
 const { reconcileOperatingFinancial, reconciliationHtml, reconcileOperatingHorizon, horizonReconciliationHtml } = require('./operating-financial-reconciliation');
 const { purchaseBoundaryMessage, purchaseAlternativeMessage } = require('../assumptions/purchase-boundary-qualification');
+const { purchaseCeilingCertificateMessage } = require('../assumptions/purchase-ceiling-certificate');
 const VERSION = 'PERSONAL_FINANCIAL_STUDY_V2';
 const {geometryReview}=require('./capitalization-basis');
 const finite = x => typeof x === 'number' && Number.isFinite(x) ? x : null;
@@ -204,6 +205,12 @@ function htmlFinancialStudy(report, { locale = 'ar-SA' } = {}) {
       [words('بصمة المصدر التشغيلي', 'Operating source fingerprint'), op.sourceFingerprintSha256],
     ]) + '<p>' + words('يحفظ تصدير JSON لقطة الحالة والمراجع والتفاصيل الشهرية وأسباب تعليق الحساب وخطط التشغيل ورأس المال والتحصيل.', 'The JSON export preserves the source case, references, monthly details, calculation blockers and operating, capital and receipt plans.') + '</p>';
   const metrics = [
+    ...(f.mode === 'building' ? [
+      [words('أعلى سعر مجتاز مثبت ضمن النموذج على شبكة الهللة', 'Highest passing price proven within the model on the halala grid'), money(r.purchaseCeilingCertificate?.price)],
+      [words('نطاق إثبات الحد الأعلى', 'Ceiling proof scope'), purchaseCeilingCertificateMessage(r.purchaseCeilingCertificate, locale)],
+      [words('السعر الأعلى بهللة المستبعد بقيد لازم', 'Next halala excluded by a necessary gate'), money(r.purchaseCeilingCertificate?.status === 'PROVEN_WITHIN_MODEL' ? r.purchaseCeilingCertificate.nextPrice : null)],
+      [words('القيود المستبعدة لكل الأسعار الأعلى ضمن النطاق نفسه', 'Gates excluding every higher price within the same scope'), r.purchaseCeilingCertificate?.status === 'PROVEN_WITHIN_MODEL' ? purchaseBoundaryMessage({ failedCriteria: r.purchaseCeilingCertificate.blockingCriteria }, locale) : words('لم يثبت', 'Not proven')],
+    ] : []),
     [words('سعر بديل أقل اجتاز المعايير — ليس إثباتًا لأعلى سعر ممكن', 'Verified lower alternative — not a proven global maximum'), money(f.purchaseAlternative?.price)],
     [words('حالة البحث عن السعر البديل', 'Alternative price search status'), purchaseAlternativeMessage(f.purchaseAlternative,locale)],
     [words('حد الشراء المجتاز لجميع المعايير المالية عند السعر نفسه', 'Purchase boundary passing every financial criterion at that price'), money(r.purchasePriceQualification?.qualifiedPrice)],

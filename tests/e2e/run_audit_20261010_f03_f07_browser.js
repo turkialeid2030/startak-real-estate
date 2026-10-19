@@ -129,6 +129,7 @@ async function openPurchaseInputs(page) {
           await expect(page.getByTestId('building-price-boundary')).toHaveText('—');
           await expect(page.getByTestId('building-price-alternative-value')).toHaveCount(0);
           await expect(page.getByTestId('building-price-review-invalid')).toBeVisible(); checks += 3;
+          await expect(page.getByTestId('building-price-certificate-value')).toHaveCount(0);checks++;
           const invalidNumeric = await jsonReport(page);
           ok(invalidNumeric.financial.status === 'INPUTS_INVALID' && invalidNumeric.financial.results === null
             && invalidNumeric.financial.inputs.rentPerSqm === raw && invalidNumeric.financial.annualCashflows.length === 0,
