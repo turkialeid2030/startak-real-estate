@@ -3,6 +3,7 @@
 const { calculateInvestmentCase, STUDY_TYPE } = require('../engines');
 const { parseNumericText } = require('../validation/numeric-text');
 const { qualifyPurchaseBoundary, findVerifiedPurchaseAlternative } = require('./purchase-boundary-qualification');
+const { certifyPurchaseCeiling } = require('./purchase-ceiling-certificate');
 const {
   ASSUMPTION_MODEL_VERSION,
   V2_APPROVED_ASSUMPTIONS,
@@ -106,8 +107,12 @@ function calculateUiInvestmentState({ mode, inputs, assumptionModelVersion, incl
   });
   const purchasePriceQualification = mode === UI_MODE.BUILDING
     ? qualifyPurchaseBoundary(inputs, version, calculatedResults.maxJustifiedPrice) : null;
+  const purchaseAlternative = mode === UI_MODE.BUILDING && includePurchaseAlternative
+    ? findVerifiedPurchaseAlternative(inputs, version, purchasePriceQualification) : null;
   const results = mode === UI_MODE.BUILDING ? { ...calculatedResults, purchasePriceQualification,
-    ...(includePurchaseAlternative ? { purchaseAlternative: findVerifiedPurchaseAlternative(inputs, version, purchasePriceQualification) } : {}),
+    ...(includePurchaseAlternative ? { purchaseAlternative,
+      purchaseCeilingCertificate: certifyPurchaseCeiling(inputs, version, purchasePriceQualification.qualifiedPrice ?? purchaseAlternative.price),
+    } : {}),
   } : calculatedResults;
   const governance = mode === UI_MODE.BUILDING
     ? buildUiAssumptionGovernance({

@@ -16,6 +16,7 @@ import ValuationIntelligencePanel from "../components/ValuationIntelligencePanel
 import PersonalInvestmentResearchPanel from "../components/PersonalInvestmentResearchPanel.jsx";
 import PaybackDisclosurePanel from "../components/PaybackDisclosurePanel.jsx";
 import PurchasePriceAlternative from "../components/PurchasePriceAlternative.jsx";
+import PurchaseCeilingCertificate from "../components/PurchaseCeilingCertificate.jsx";
 import NumericTextInput from '../components/NumericTextInput.jsx';
 import { ZakatInputSection, ZakatCashFlowPanel } from "../components/ZakatLayerPanel.jsx";
 
@@ -846,6 +847,7 @@ function DashboardTab({ mode, inputs, results, inputValid = true }) {
           <MetricRow label={t("metricRowR2B2.maxJustifiedPrice")} value={<span data-testid="building-price-boundary" dir="ltr">{formatPriceBoundary(inputValid ? r.purchasePriceQualification?.qualifiedPrice : null)}</span>} />
           {inputValid&&r.purchasePriceQualification?.status==='NOT_QUALIFIED'&&<p role="status" data-testid="building-price-unqualified" className="text-xs text-amber-300">{locale==='en'?'No qualified purchase ceiling: ':'لا يتوفر حد شراء مؤهل: '}{purchaseBoundaryMessage(r.purchasePriceQualification,locale)}</p>}
           <PurchasePriceAlternative alternative={r.purchaseAlternative} locale={locale} inputValid={inputValid} />
+          <PurchaseCeilingCertificate certificate={r.purchaseCeilingCertificate} locale={locale} inputValid={inputValid} />
           {inputValid&&isFiniteNumber(r.maxJustifiedPrice)&&r.maxPriceConstraint&&<p data-testid="building-price-constraint" className="text-xs text-slate-300">{locale==='en'?'Binding purchase constraint: ':'قيد الشراء الحاكم: '}{r.maxPriceConstraint.bindingConstraint==='CUMULATIVE_PAYBACK'?(locale==='en'?'cumulative operating payback':'الاسترداد التشغيلي التراكمي'):(locale==='en'?'minimum net yield':'الحد الأدنى للعائد الصافي')}. {locale==='en'?'This boundary solves these two limits only; IRR, NPV, valuation coverage and financing criteria require their separate checks.':'هذا الحد يحل شرطي العائد الصافي والاسترداد فقط؛ تبقى معايير العائد الداخلي والقيمة الحالية وتغطية القيمة والتمويل بحاجة إلى فحصها المستقل.'}</p>}
         </MetricGroup>
 
