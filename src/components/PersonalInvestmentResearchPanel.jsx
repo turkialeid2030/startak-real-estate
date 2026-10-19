@@ -1,5 +1,6 @@
 import React, {useMemo, useState} from 'react';
 import DiagnosticText from './DiagnosticText.jsx';
+import OperatingFinancialComparison from './OperatingFinancialComparison';
 const {
   buildPersonalResearchReport,
   htmlReport,
@@ -141,6 +142,7 @@ export default function PersonalInvestmentResearchPanel({
             </ul>
           </details>
         )}
+        <OperatingFinancialComparison operatingReport={draft.operatingReport} locale={locale} />
         <div className="mt-4 flex flex-wrap gap-2">
           <button type="button" data-testid="c75-export-personal-html"
             onClick={()=>save('html')}

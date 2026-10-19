@@ -1,4 +1,5 @@
 import React from 'react';
+import NumericDraftInput from './NumericDraftInput';
 import {replaceCashScenario,formatCashMinor} from '../residential-income-acquisition/cash-scenario';
 import {CASH_OTHER_FLOW_CATEGORIES} from '../residential-income-acquisition/cash-other-flows';
 import CashOtherFlowsEditor from './CashOtherFlowsEditor';
@@ -25,11 +26,11 @@ export default function CashScenarioEditor({operatingCase:c,onReplaceOperatingCa
     <p>{t('أدخل الرصيد في بداية تاريخ الحالة والتحصيل المستقبلي المفترض بالريال. لا يُستنتج التحصيل من الإيجار أو الفواتير أو المقبوضات التاريخية. السطر مرتبط بعقد، وقد يمثل متأخرات؛ مرجعه فريد داخل الخطة. عدم إدخال سطور مع التأكيد يعني افتراض عدم التحصيل خلال الأفق.','Enter opening balance at the start of the case date and assumed future receipts in SAR. Receipts are not inferred from rent, invoices or historical collections. Each line links to a lease, may include arrears, and needs a unique plan reference. Confirming no lines explicitly assumes no receipts in the horizon.')}</p>
     <p>{t('الأفق نفس 12 شهرًا تقويميًا للإسقاط. يلزم تطابق موازنة التشغيل مع الأفق وخطة رأسمالية مؤهلة لحساب الناتج. أدرج التدفقات الأخرى أدناه وراجع تغطيتها؛ كل تدفق غير مدخل مستبعد. لا يثبت السيناريو اكتمال المصادر أو رصيد البنك الفعلي.','The horizon matches the 12-calendar-month projection. Calculation requires a matched operating budget for that exact horizon and a qualified capital plan. Enter and review additional flows below; every unentered flow is excluded. The scenario does not establish source completeness or actual bank funds.')}</p>
     <label className="block">{t('تاريخ الرصيد الافتتاحي','Opening balance date')}<input data-testid="cash-date" className={cls} type="date" required value={draft.openingDate} onChange={e=>change({openingDate:e.target.value})}/></label>
-    <label className="block">{t('الرصيد الافتتاحي بالريال — الصفر والسالب صريحان','Opening balance SAR — explicit zero or negative allowed')}<input data-testid="cash-opening" className={cls} required value={draft.openingAmount} onChange={e=>change({openingAmount:e.target.value})}/></label>
+    <label className="block">{t('الرصيد الافتتاحي بالريال — الصفر والسالب صريحان','Opening balance SAR — explicit zero or negative allowed')}<NumericDraftInput data-testid="cash-opening" locale={dir==='rtl'?'ar-SA':'en'} min={null} className={cls} required value={draft.openingAmount} onChange={e=>change({openingAmount:e.target.value})}/></label>
     {draft.entries.map((entry,i)=><div key={i} className="grid gap-2 sm:grid-cols-2">
       <label>{t('العقد','Lease')}<select data-testid={`cash-lease-${i}`} className={cls} required value={entry.leaseId} onChange={e=>edit(i,{leaseId:e.target.value})}><option value="">—</option>{c.leases.map(l=><option key={l.leaseId} data-user-content translate="no" value={l.leaseId}>{l.leaseId}</option>)}</select></label>
       <label>{t('تاريخ التحصيل المفترض','Assumed receipt date')}<input data-testid={`cash-receipt-date-${i}`} className={cls} type="date" required value={entry.date} onChange={e=>edit(i,{date:e.target.value})}/></label>
-      <label>{t('المبلغ بالريال','Amount SAR')}<input data-testid={`cash-amount-${i}`} className={cls} required value={entry.amount} onChange={e=>edit(i,{amount:e.target.value})}/></label>
+      <label>{t('المبلغ بالريال','Amount SAR')}<NumericDraftInput data-testid={`cash-amount-${i}`} locale={dir==='rtl'?'ar-SA':'en'} min={0.01} className={cls} required value={entry.amount} onChange={e=>edit(i,{amount:e.target.value})}/></label>
       <label>{t('مرجع التحصيل المخطط','Planned receipt reference')}<input data-testid={`cash-reference-${i}`} className={cls} required maxLength={500} value={entry.reference} onChange={e=>edit(i,{reference:e.target.value})}/></label>
       <button type="button" onClick={()=>change({entries:draft.entries.filter((_,n)=>i!==n)})}>{t('حذف السطر','Remove row')}</button>
     </div>)}

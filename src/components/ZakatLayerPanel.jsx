@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
+import NumericDraftInput from './NumericDraftInput';
+import { parseNumericText } from '../validation/numeric-text';
 const { useLocale } = require('../i18n/LocaleContext.js');
 const {
   ZAKAT_INPUT_SOURCE,
@@ -22,28 +24,31 @@ function formatPct(value) {
 }
 
 export function ZakatInputSection({ zakatCase, setZakatCase }) {
-  const { t } = useLocale();
-  const [raw, setRaw] = useState(zakatCase && Number.isFinite(zakatCase.annualAmount) ? String(zakatCase.annualAmount) : '');
+  const { t, locale } = useLocale();
+  const [raw, setRaw] = useState(zakatCase ? String(zakatCase.annualAmount ?? '') : '');
+  const sent = React.useRef(zakatCase?.annualAmount);
 
   useEffect(() => {
-    setRaw(zakatCase && Number.isFinite(zakatCase.annualAmount) ? String(zakatCase.annualAmount) : '');
+    if (!Object.is(sent.current, zakatCase?.annualAmount)) {
+      setRaw(zakatCase ? String(zakatCase.annualAmount ?? '') : '');
+      sent.current = zakatCase?.annualAmount;
+    }
   }, [zakatCase && zakatCase.annualAmount]);
 
   const amountProvided = Boolean(zakatCase && Number.isFinite(zakatCase.annualAmount));
   const sourceMissing = amountProvided && !zakatCase.source;
 
-  const commitAmount = () => {
-    const normalized = raw.trim();
-    if (normalized === '') {
+  const changeAmount = (text) => {
+    setRaw(text);
+    if (text.trim() === '') {
+      sent.current = undefined;
       setZakatCase(null);
       return;
     }
-    const parsed = Number(normalized);
-    if (!Number.isFinite(parsed) || parsed < 0) {
-      setRaw(amountProvided ? String(zakatCase.annualAmount) : '');
-      return;
-    }
-    setZakatCase((prev) => ({ annualAmount: parsed, source: prev && prev.source ? prev.source : null }));
+    const parsed = parseNumericText(text);
+    const next = parsed.ok && parsed.value >= 0 ? parsed.value : text;
+    sent.current = next;
+    setZakatCase((prev) => ({ annualAmount: next, source: prev?.source || null }));
   };
 
   return (
@@ -53,9 +58,8 @@ export function ZakatInputSection({ zakatCase, setZakatCase }) {
         <div className="text-sm font-semibold mb-3" style={{ color: C.parchment }}>{t('zakat.sectionTitle')}</div>
         <label className="block mb-3">
           <div className="text-xs mb-1" style={{ color: C.slate }}>{t('zakat.annualAmountLabel')}</div>
-          <input type="text" inputMode="decimal" value={raw}
-            onChange={(e) => setRaw(e.target.value.replace(/[^\d.]/g, ''))}
-            onBlur={commitAmount}
+          <NumericDraftInput data-testid="zakat-annual-amount" value={raw} locale={locale}
+            onChange={(e) => changeAmount(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
             className="w-full px-3 py-2 text-sm rounded-lg"
             style={{ background: C.panelInput, border: `1px solid ${C.hairline}`, color: C.parchment }}
@@ -64,7 +68,7 @@ export function ZakatInputSection({ zakatCase, setZakatCase }) {
         </label>
         <label className="block mb-2">
           <div className="text-xs mb-1" style={{ color: C.slate }}>{t('zakat.sourceLabel')}</div>
-          <select value={zakatCase && zakatCase.source ? zakatCase.source : ''} disabled={!amountProvided}
+          <select data-testid="zakat-amount-source" value={zakatCase && zakatCase.source ? zakatCase.source : ''} disabled={!amountProvided}
             onChange={(e) => setZakatCase((prev) => ({ annualAmount: prev.annualAmount, source: e.target.value || null }))}
             className="w-full px-3 py-2 text-sm rounded-lg"
             style={{ background: C.panelInput, border: `1px solid ${sourceMissing ? C.caution : C.hairline}`, color: C.parchment, opacity: amountProvided ? 1 : 0.6 }}>

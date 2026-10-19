@@ -1,3 +1,4 @@
+import NumericDraftInput from './NumericDraftInput';
 import React from 'react';
 import {updateVerifiedLeaseSchedule} from '../residential-income-acquisition/operating-case-editor';
 
@@ -45,7 +46,7 @@ export default function LeaseScheduleEditor({operatingCase,onReplaceOperatingCas
       {selected&&<p className="mt-2 text-xs" data-user-content translate="no">{selected.startDate} → {selected.endDate} · {selected.baseRent.unit}</p>}
       <div className="mt-3 space-y-2">{draft.entries.map((entry,index)=><div key={index} className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_auto]">
         <label className="text-xs">{t('تاريخ السريان','Effective date')}<input data-testid={`schedule-date-${index}`} aria-label={t(`تاريخ السريان ${index+1}`,`Effective date ${index+1}`)} type="date" required className={inputClass} value={entry.effectiveDate} onChange={e=>change({entries:draft.entries.map((x,i)=>i===index?{...x,effectiveDate:e.target.value}:x)})}/></label>
-        <label className="text-xs">{t('إيجار الفترة','Periodic rent')}<input data-testid={`schedule-rent-${index}`} aria-label={t(`إيجار الفترة ${index+1}`,`Periodic rent ${index+1}`)} type="number" min="0" step="0.01" required className={inputClass} value={entry.rent} onChange={e=>change({entries:draft.entries.map((x,i)=>i===index?{...x,rent:e.target.value}:x)})}/></label>
+        <label className="text-xs">{t('إيجار الفترة','Periodic rent')}<NumericDraftInput data-testid={`schedule-rent-${index}`} aria-label={t(`إيجار الفترة ${index+1}`,`Periodic rent ${index+1}`)} locale={dir==='rtl'?'ar-SA':'en'} min="0" required className={inputClass} value={entry.rent} onChange={e=>change({entries:draft.entries.map((x,i)=>i===index?{...x,rent:e.target.value}:x)})}/></label>
         <button type="button" className="rounded border border-slate-600 p-2 text-xs" disabled={draft.entries.length===1} aria-label={t(`حذف السطر ${index+1}`,`Remove row ${index+1}`)} onClick={()=>change({entries:draft.entries.filter((_,i)=>i!==index)})}>{t('حذف السطر','Remove row')}</button>
       </div>)}</div>
       <button type="button" data-testid="schedule-add-row" disabled={draft.entries.length>=200} onClick={()=>change({entries:[...draft.entries,{effectiveDate:'',rent:''}]})} className="my-3 rounded border border-slate-600 p-2 text-xs">{t('إضافة تاريخ ومبلغ','Add date and amount')}</button>
