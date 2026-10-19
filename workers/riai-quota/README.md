@@ -36,7 +36,24 @@ Before activation:
 
 Tests use a serialized transactional in-memory double with rollback. They check
 the algorithm, not Cloudflare's deployed binding or financial billing correctness.
-Token counts are not monetary costs; currency/model-price limits remain separate.
+Monetary admission is now integrated, but production qualification remains open.
+The gateway requires an operator-reviewed ceiling for the exact configured model:
+`RIAI_AI_PRICE_BOUND_MODEL`, `RIAI_AI_PRICE_BOUND_EXPIRES_AT` (UTC),
+`RIAI_AI_MAX_USD_MICROS_PER_TOKEN`, `RIAI_AI_FIXED_USD_MICROS_PER_REQUEST`
+(explicit zero allowed), and `RIAI_AI_GLOBAL_USD_MICROS_PER_DAY`.
+These are integer USD millionths, not SAR and not published provider prices.
+The rate must conservatively bound both input and output tokens including paid
+reasoning/caching behavior; fixed charges must be bounded separately. External
+tools or charges not bounded by this formula remain unsupported. No actual price
+is inferred by this code. Missing, expired or model-mismatched settings block use.
+
+Money and tokens are reserved in the same transaction under one shared actor.
+The gateway requires the worker to acknowledge the monetary reservation; an old
+worker response cannot authorize a provider call. Monetary reservations are NOT
+refunded on token settlement: a token usage response is not a verified invoice.
+Uncertain calls retain the full ceiling. Price validity, actual billing, currency
+exposure, persistent runtime behavior and a controlled reconciliation process
+must be qualified before activation. The clock day is UTC, matching token caps.
 
 Official implementation references:
 - https://developers.cloudflare.com/pages/functions/bindings/

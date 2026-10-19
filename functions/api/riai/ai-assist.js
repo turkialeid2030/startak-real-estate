@@ -1,6 +1,7 @@
 import { readBoundedText } from './_bounded-body.mjs';
 import { qualitativeOutputError } from './_qualitative-output.mjs';
 import { reserveGatewayQuota, settleGatewayQuota, verifiedUsage } from './_quota-client.mjs';
+import { monetaryReservation } from './_money-budget.mjs';
 import {
   enforceSnapshotDataDiscipline,
   resolveRateLimitConfig,
@@ -531,9 +532,12 @@ async function handleRequestPost(context) {
   const requestBytes = new TextEncoder().encode(JSON.stringify(providerRequest)).length;
   if (!Number.isSafeInteger(inputBound) || inputBound < requestBytes || !Number.isSafeInteger(inputBound + outputBudget.value)) return json({ok:false,code:'AI_INPUT_TOKEN_BOUND_NOT_QUALIFIED',aiModelUsed:false},503);
   const rates = resolveRateLimitConfig(env);
+  const monetary = monetaryReservation(env,model,inputBound + outputBudget.value);
+  if (!monetary.ok) return json({ok:false,code:monetary.code,aiModelUsed:false},503);
   const tokenBudget = await reserveGatewayQuota(env.RIAI_AI_QUOTA, {
     id:context.invocationId, subjectHash:await sha256Hex(`${env.RIAI_AUDIT_SUBJECT_SALT || ''}:${access.subject}`), tokens:inputBound + outputBudget.value,
     limits:{minute:rates.perSubjectPerMinute,subjectDay:rates.perSubjectPerDay,globalDay:rates.globalPerDay,tokensDay:dailyTokens},
+    money:monetary.money,
   });
   if (!tokenBudget.allowed) {
     await recordAudit(context, {
