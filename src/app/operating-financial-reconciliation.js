@@ -8,10 +8,13 @@ function reconcileOperatingFinancial(runoff, result, calendar) {
   if (!first || first.startDate !== runoff?.periodStart || first.endDateExclusive !== runoff?.periodEndExclusive)
     base.blockers.push('PERIOD_MISMATCH');
   const safe = n => typeof n === 'number' && Number.isFinite(n) && Number.isSafeInteger(Math.round(n * 100));
-  const values = [runoff?.totals?.contractRent, runoff?.totals?.normalizedOpex,
+  const values = [runoff?.totals?.contractRent, runoff?.totals?.normalizedOpexBeforeReserve,
     result?.rentalIncomeAfterVacancy, result?.firstYearServiceIncome,
     result?.firstYearTotalAnnualIncome, result?.firstYearNOI, result?.replacementReserveAmount];
   if (!values.every(safe)) base.blockers.push('AMOUNTS_UNAVAILABLE');
+  if(!safe(runoff?.totals?.normalizedReplacementReserve)||!safe(runoff?.totals?.normalizedOpex)
+    || Math.abs(runoff.totals.normalizedOpex-runoff.totals.normalizedOpexBeforeReserve-runoff.totals.normalizedReplacementReserve)>.005)
+    base.blockers.push('SOURCE_RESERVE_BREAKDOWN_REQUIRED');
   if (base.blockers.length) return base;
   const [rent, opex, modelRent, service, revenue, noi, reserve] = values;
   const modelOpex = revenue - noi - reserve;
@@ -88,10 +91,12 @@ function reconcileOperatingHorizon(operatingCase, result, calendar) {
     },{periods:[p]});
     return {year:p.year,periodStart:p.startDate,periodEndExclusive:p.endDateExclusive,
       bridge, sourceIssues:runoff.issues, contractRent:runoff.totals?.contractRent ?? null,
-      normalizedOpex:runoff.totals?.normalizedOpex ?? null,
-      netBeforeReserveAndCapex:runoff.totals?.contractNetBeforeCapex ?? null,
+      normalizedOpex:runoff.totals?.normalizedOpexBeforeReserve ?? null,
+      sourceReplacementReserve:runoff.totals?.normalizedReplacementReserve ?? null,
+      netBeforeReserveAndCapex:runoff.totals?.contractNetBeforeReserveAndCapex ?? null,
       scheduledCapex:runoff.totals?.scheduledCapex ?? null,
-      netAfterScheduledCapexBeforeReserve:runoff.totals?.contractNetAfterScheduledCapex ?? null,
+      netAfterScheduledCapexBeforeReserve:runoff.totals?.contractNetBeforeReserveAndCapex!=null&&runoff.totals?.scheduledCapex!=null
+        ? runoff.totals.contractNetBeforeReserveAndCapex-runoff.totals.scheduledCapex : null,
       modelNoiAfterReserve:e.NOI,
       capexStatus:runoff.capitalPaymentPlan?.status ?? 'NOT_AVAILABLE'};
   });
@@ -107,10 +112,12 @@ function horizonReconciliationHtml(horizon, locale='ar-SA') {
     +w('المبالغ بالريال السعودي. تُستخدم العقود القائمة والمستقبلية المسجلة دون افتراض تجديد بعد انتهائها، وتبقى المصروفات المعيارية ثابتة وفق اللقطة. هذه مقارنة استحقاق وليست توقع تحصيل أو تقييمًا سوقيًا. الإنفاق الرأسمالي مستقل عن احتياطي الإحلال؛ لم تتغير عوائد النموذج المجمع.',
     'Amounts in SAR. Entered active/future leases run off without assumed renewals; normalized expenses remain flat per the source snapshot. This is an accrual comparison, not a collection forecast or market valuation. CAPEX is separate from the replacement reserve; aggregate returns are unchanged.')+'</p>';
   if(!horizon.years.length) return head+'<p>'+w('التسوية غير متاحة: تحقق من تطابق تاريخ الحالة وبداية الدراسة واكتمال السنوات والمدخلات.','Reconciliation unavailable: check case/study start alignment and complete annual inputs.')+'</p>';
-  const headers=[w('السنة','Year'),w('بداية الفترة','Period start'),w('النهاية غير المشمولة','Exclusive end'),w('حالة التسوية','Bridge status'),w('إيجار العقود','Contract rent'),w('المصروف المعياري','Normalized OPEX'),w('الصافي قبل الاحتياطي والإنفاق الرأسمالي','Net before reserve and CAPEX'),w('الإنفاق الرأسمالي المجدول','Scheduled CAPEX'),w('الصافي بعد الإنفاق وقبل الاحتياطي','Net after CAPEX before reserve'),w('صافي النموذج بعد الاحتياطي','Model NOI after reserve')];
-  return head+'<table><thead><tr>'+headers.map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'
-    +horizon.years.map(y=>'<tr>'+[y.year,y.periodStart,y.periodEndExclusive,
+  const table=(headers,rows)=>'<table><thead><tr>'+headers.map(h=>'<th>'+escape(h)+'</th>').join('')+'</tr></thead><tbody>'
+    +rows.map(row=>'<tr>'+row.map(v=>'<td>'+escape(v)+'</td>').join('')+'</tr>').join('')+'</tbody></table>';
+  return head+table([w('السنة','Year'),w('بداية الفترة','Period start'),w('النهاية غير المشمولة','Exclusive end'),w('حالة التسوية','Bridge status'),w('إيجار العقود','Contract rent'),w('المصروف دون الاحتياطي','OPEX before reserve')],horizon.years.map(y=>[y.year,y.periodStart,y.periodEndExclusive,
       y.bridge.status==='ARITHMETIC_BRIDGE_COMPLETE'?w('متسقة حسابيًا','Arithmetic match'):w('تحتاج استكمالًا','Incomplete'),
-      ...['contractRent','normalizedOpex','netBeforeReserveAndCapex','scheduledCapex','netAfterScheduledCapexBeforeReserve','modelNoiAfterReserve'].map(k=>money(y[k]))].map(v=>'<td>'+escape(v)+'</td>').join('')+'</tr>').join('')+'</tbody></table>';
+      money(y.contractRent),money(y.normalizedOpex)]))
+    +table([w('السنة','Year'),w('احتياطي الحالة المسجل','Recorded source reserve'),w('الصافي قبل الاحتياطي والإنفاق','Net before reserve and CAPEX'),w('الإنفاق الرأسمالي','Scheduled CAPEX'),w('الصافي بعد الإنفاق وقبل الاحتياطي','Net after CAPEX before reserve'),w('صافي النموذج بعد الاحتياطي','Model NOI after reserve')],
+      horizon.years.map(y=>[y.year,...['sourceReplacementReserve','netBeforeReserveAndCapex','scheduledCapex','netAfterScheduledCapexBeforeReserve','modelNoiAfterReserve'].map(k=>money(y[k]))]));
 }
 module.exports = { reconcileOperatingFinancial, reconciliationHtml, reconcileOperatingHorizon, horizonReconciliationHtml };

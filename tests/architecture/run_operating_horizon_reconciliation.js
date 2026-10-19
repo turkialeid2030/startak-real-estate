@@ -49,4 +49,11 @@ const badCalendar=JSON.parse(JSON.stringify(report.financial.rentalCalendar));ba
 assert.equal(reconcileOperatingHorizon(source,report.financial.results,badCalendar).status,'NOT_COMPARABLE');
 const changed=JSON.parse(JSON.stringify(report));changed.operatingReport.horizonReconciliation.years[1].scheduledCapex=0;
 assert.equal(verifyPersonalFinancialStudy(changed),false);
+const reserved=JSON.parse(JSON.stringify(source));
+reserved.operatingExpenses.push(createOperatingExpense({caseId:base.caseId,expenseId:'RESERVE-1',propertyId:'PROPERTY-1',category:'REPLACEMENT_RESERVE',basis:'NORMALIZED',annualAmount:verified('reserve',1200,'SAR/year','evidence://lease/rent')}));
+const reserveReport=build(reserved),reserveHorizon=reserveReport.operatingReport.horizonReconciliation;
+assert.equal(reserveHorizon.status,'ARITHMETIC_HORIZON_COMPLETE');
+assert.deepEqual(reserveHorizon.years.map(y=>y.sourceReplacementReserve),[1200,1200,1200]);
+assert.deepEqual(reserveHorizon.years.map(y=>y.netAfterScheduledCapexBeforeReserve),[388000,-24000,-12000]);
+assert.equal(reserveReport.operatingReport.contractRunoff.totals.contractNetBeforeCapex,386800);
 console.log('OPERATING_HORIZON_RECONCILIATION: PASS');

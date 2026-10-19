@@ -80,6 +80,7 @@ function calculateContractRunoff(operatingCase, window = null) {
   result.assumptions=[...leases.map(x=>x.baseRent),...[...schedules.values()].flatMap(x=>x.map(e=>e.rent)),...expenses.map(x=>x.annualAmount)].filter(x=>x.verificationStatus==='ASSUMED').map(x=>({field:x.field,value:x.value,unit:x.unit,adoptionDecisionRef:x.adoptionDecisionRef}));
   const completeCosts=expenses.length>0&&expenses.every(x=>validMoney(x.annualAmount,'SAR/year'));
   const annualOpex=completeCosts?expenses.reduce((sum,x)=>sum+x.annualAmount.value,0):null;
+  const annualReserve=completeCosts?expenses.filter(x=>x.category==='REPLACEMENT_RESERVE').reduce((sum,x)=>sum+x.annualAmount.value,0):null;
   if(annualOpex===null)add('RUNOFF_NORMALIZED_OPEX_REQUIRED');
   for(let i=0;i<13&&Date.UTC(year,month+i,1)<end;i++){
     const monthStart=Date.UTC(year,month+i,1),calendarMonthEnd=Date.UTC(year,month+i+1,1),monthEnd=Math.min(end,calendarMonthEnd),a=Math.max(windowStart,monthStart);
@@ -101,9 +102,12 @@ function calculateContractRunoff(operatingCase, window = null) {
     });
     const rent=leaseRows.reduce((sum,x)=>sum+x.rent,0);
     const opex=annualOpex===null?null:annualOpex/12*(monthEnd-a)/(calendarMonthEnd-monthStart);
-    result.rows.push({periodStart:new Date(a).toISOString().slice(0,10),periodEndExclusive:new Date(monthEnd).toISOString().slice(0,10),contractRent:rent,normalizedOpex:opex,contractNetBeforeCapex:opex===null?null:rent-opex,leaseRows});
+    const reserve=annualReserve===null?null:annualReserve/12*(monthEnd-a)/(calendarMonthEnd-monthStart);
+    const beforeReserve=opex===null?null:opex-reserve;
+    result.rows.push({periodStart:new Date(a).toISOString().slice(0,10),periodEndExclusive:new Date(monthEnd).toISOString().slice(0,10),contractRent:rent,normalizedOpex:opex,normalizedReplacementReserve:reserve,normalizedOpexBeforeReserve:beforeReserve,contractNetBeforeReserveAndCapex:beforeReserve===null?null:rent-beforeReserve,contractNetBeforeCapex:opex===null?null:rent-opex,leaseRows});
   }
   result.totals={contractRent:result.rows.reduce((s,r)=>s+r.contractRent,0),normalizedOpex:annualOpex===null?null:result.rows.reduce((s,r)=>s+r.normalizedOpex,0),contractNetBeforeCapex:annualOpex===null?null:result.rows.reduce((s,r)=>s+r.contractNetBeforeCapex,0)};
+  for(const key of ['normalizedReplacementReserve','normalizedOpexBeforeReserve','contractNetBeforeReserveAndCapex']) result.totals[key]=annualOpex===null?null:result.rows.reduce((sum,row)=>sum+row[key],0);
   if(Object.values(result.totals).some(v=>v!==null&&!Number.isSafeInteger(Math.round(v*100)))){
     add('RUNOFF_AMOUNT_OUT_OF_RANGE');result.rows=[];result.totals=null;return deepFreeze(result);
   }

@@ -1,7 +1,7 @@
 'use strict';
 const assert = require('node:assert/strict');
 const {reconcileOperatingFinancial, reconciliationHtml} = require('../../src/app/operating-financial-reconciliation');
-const runoff = {periodStart:'2026-01-01',periodEndExclusive:'2027-01-01',totals:{contractRent:1000,normalizedOpex:200}};
+const runoff = {periodStart:'2026-01-01',periodEndExclusive:'2027-01-01',totals:{contractRent:1000,normalizedOpex:200,normalizedOpexBeforeReserve:200,normalizedReplacementReserve:0}};
 const model = {rentalIncomeAfterVacancy:1200,firstYearServiceIncome:100,firstYearTotalAnnualIncome:1300,firstYearNOI:900,replacementReserveAmount:50};
 const calendar = {periods:[{startDate:'2026-01-01',endDateExclusive:'2027-01-01'}]};
 const bridge = reconcileOperatingFinancial(runoff,model,calendar);
