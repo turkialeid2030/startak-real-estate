@@ -2,7 +2,7 @@
 
 const { calculateInvestmentCase, STUDY_TYPE } = require('../engines');
 const { parseNumericText } = require('../validation/numeric-text');
-const { qualifyPurchaseBoundary } = require('./purchase-boundary-qualification');
+const { qualifyPurchaseBoundary, findVerifiedPurchaseAlternative } = require('./purchase-boundary-qualification');
 const {
   ASSUMPTION_MODEL_VERSION,
   V2_APPROVED_ASSUMPTIONS,
@@ -94,7 +94,7 @@ function hydrateUiDeal({ record, defaultInputs }) {
   });
 }
 
-function calculateUiInvestmentState({ mode, inputs, assumptionModelVersion }) {
+function calculateUiInvestmentState({ mode, inputs, assumptionModelVersion, includePurchaseAlternative = true }) {
   assertMode(mode);
   assertPlainObject(inputs, 'inputs');
   const version = normalizeAssumptionModelVersion(assumptionModelVersion);
@@ -104,8 +104,10 @@ function calculateUiInvestmentState({ mode, inputs, assumptionModelVersion }) {
     leverageEnabled: Boolean(inputs.leverageEnabled),
     assumptionModelVersion: version,
   });
-  const results = mode === UI_MODE.BUILDING ? { ...calculatedResults,
-    purchasePriceQualification: qualifyPurchaseBoundary(inputs, version, calculatedResults.maxJustifiedPrice),
+  const purchasePriceQualification = mode === UI_MODE.BUILDING
+    ? qualifyPurchaseBoundary(inputs, version, calculatedResults.maxJustifiedPrice) : null;
+  const results = mode === UI_MODE.BUILDING ? { ...calculatedResults, purchasePriceQualification,
+    ...(includePurchaseAlternative ? { purchaseAlternative: findVerifiedPurchaseAlternative(inputs, version, purchasePriceQualification) } : {}),
   } : calculatedResults;
   const governance = mode === UI_MODE.BUILDING
     ? buildUiAssumptionGovernance({

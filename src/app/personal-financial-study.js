@@ -15,7 +15,7 @@ const { hydrateResidentialIncomeOperatingCaseSnapshot } = require('../residentia
 const { calculateContractRunoff } = require('../residential-income-acquisition/contract-runoff');
 const { operatingReportDetails } = require('./operating-report-details');
 const { reconcileOperatingFinancial, reconciliationHtml, reconcileOperatingHorizon, horizonReconciliationHtml } = require('./operating-financial-reconciliation');
-const { purchaseBoundaryMessage, findVerifiedPurchaseAlternative } = require('../assumptions/purchase-boundary-qualification');
+const { purchaseBoundaryMessage, purchaseAlternativeMessage } = require('../assumptions/purchase-boundary-qualification');
 const VERSION = 'PERSONAL_FINANCIAL_STUDY_V2';
 const {geometryReview}=require('./capitalization-basis');
 const finite = x => typeof x === 'number' && Number.isFinite(x) ? x : null;
@@ -29,9 +29,9 @@ function freeze(value) {
   if (value && typeof value === 'object') { Object.values(value).forEach(freeze); Object.freeze(value); }
   return value;
 }
-function evaluate(mode, inputs, assumptionModelVersion) {
+function evaluate(mode, inputs, assumptionModelVersion, includePurchaseAlternative = true) {
   try {
-    const state = calculateUiInvestmentState({ mode, inputs, assumptionModelVersion });
+    const state = calculateUiInvestmentState({ mode, inputs, assumptionModelVersion, includePurchaseAlternative });
     return { status: state.results.financialModelStatus || 'CALCULATED', results: snapshot(state.results),
       governance: snapshot(state.governance || null), error: null };
   } catch (error) {
@@ -55,7 +55,9 @@ function experiment(mode, inputs, assumptionModelVersion, changes) {
     changed[field] = effective;
     return { field, original: inputs[field], requested, effective, boundaryLimited: requested !== effective };
   });
-  const calculated = evaluate(mode, changed, assumptionModelVersion);
+  // Sensitivity summaries do not consume price alternatives. Avoid repeating
+  // the bounded full-engine search for each illustrative perturbation.
+  const calculated = evaluate(mode, changed, assumptionModelVersion, false);
   return { appliedChanges, status: calculated.status, metrics: summary(calculated.results), error: calculated.error };
 }
 function experiments(mode, inputs, assumptionModelVersion) {
@@ -144,7 +146,7 @@ function buildPersonalFinancialStudy({ mode, inputs, assumptionModelVersion, zak
       engineVersion: calculated.results?.financialModelVersion || null,
       status: calculated.status, inputs: inputSnapshot,
       purchaseAlternative: mode === 'building' && calculated.results
-        ? findVerifiedPurchaseAlternative(inputs, assumptionModelVersion, calculated.results.purchasePriceQualification) : null,
+        ? calculated.results.purchaseAlternative : null,
       results: calculated.results, governance: calculated.governance, error: calculated.error,
       payback: calculated.results ? paybackDisclosure(mode, calculated.results) : null,
       annualCashflows: annualRows(mode, calculated.results, inputs),
@@ -203,6 +205,7 @@ function htmlFinancialStudy(report, { locale = 'ar-SA' } = {}) {
     ]) + '<p>' + words('يحفظ تصدير JSON لقطة الحالة والمراجع والتفاصيل الشهرية وأسباب تعليق الحساب وخطط التشغيل ورأس المال والتحصيل.', 'The JSON export preserves the source case, references, monthly details, calculation blockers and operating, capital and receipt plans.') + '</p>';
   const metrics = [
     [words('سعر بديل أقل اجتاز المعايير — ليس إثباتًا لأعلى سعر ممكن', 'Verified lower alternative — not a proven global maximum'), money(f.purchaseAlternative?.price)],
+    [words('حالة البحث عن السعر البديل', 'Alternative price search status'), purchaseAlternativeMessage(f.purchaseAlternative,locale)],
     [words('حد الشراء المجتاز لجميع المعايير المالية عند السعر نفسه', 'Purchase boundary passing every financial criterion at that price'), money(r.purchasePriceQualification?.qualifiedPrice)],
     [words('أسباب عدم تأهيل حد الشراء', 'Purchase boundary qualification blockers'), purchaseBoundaryMessage(r.purchasePriceQualification,locale) || words('لا أسباب مسجلة؛ ليس اعتمادًا استثماريًا', 'No recorded blockers; not investment approval')],
     [words('أساس مؤشر الرسملة الحالية', 'Current capitalization indication basis'), r.incomeCapBasis ? (r.incomeCapBasis.basis === 'BEFORE_RESERVE' ? words('قبل احتياطي الإحلال','Before replacement reserve') : words('بعد احتياطي الإحلال','After replacement reserve')) : words('غير متاح','Unavailable')],

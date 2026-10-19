@@ -1,7 +1,7 @@
 'use strict';
 const assert=require('node:assert/strict');
 const {calculateUiInvestmentState}=require('../../src/assumptions/ui-integration-controller');
-const {qualifyPurchaseBoundary,purchaseBoundaryMessage}=require('../../src/assumptions/purchase-boundary-qualification');
+const {qualifyPurchaseBoundary,purchaseBoundaryMessage,purchaseAlternativeMessage,findVerifiedPurchaseAlternative}=require('../../src/assumptions/purchase-boundary-qualification');
 const {buildPersonalFinancialStudy,htmlFinancialStudy}=require('../../src/app/personal-financial-study');
 const gold=require('../reference/RE-GOLD-baseline.json')['RE-GOLD-002_existing_building'].inputs;
 const run=changes=>calculateUiInvestmentState({mode:'building',inputs:{...gold,...changes},assumptionModelVersion:'LEGACY'}).results;
@@ -18,10 +18,27 @@ assert.ok(failing.maxJustifiedPrice>0);
 const financed=run({leverageEnabled:true,discountRate:.08});
 assert.ok(financed.purchasePriceQualification.criteria.some(c=>c.code==='DSCR_MINIMUM'));
 assert.ok(financed.purchasePriceQualification.criteria.some(c=>c.code==='LEVERED_NPV_NON_NEGATIVE'));
+for(const assumptionModelVersion of ['LEGACY','V2']) {
+  const inputs={...gold,discountRate:.08,ltv:0,leaseYears:6,exitCapRate:.075,exitTransferFeeRate:0};
+  const off=calculateUiInvestmentState({mode:'building',inputs:{...inputs,leverageEnabled:false},assumptionModelVersion}).results;
+  const on=calculateUiInvestmentState({mode:'building',inputs:{...inputs,leverageEnabled:true},assumptionModelVersion}).results;
+  assert.equal(on.purchasePriceQualification.status,'ALL_CRITERIA_VERIFIED_AT_BOUNDARY');
+  assert.equal(on.purchasePriceQualification.qualifiedPrice,off.purchasePriceQualification.qualifiedPrice);
+  assert.deepEqual(on.purchasePriceQualification.criteria,off.purchasePriceQualification.criteria);
+  assert.deepEqual(on.purchasePriceQualification.missingCriteria,[]);
+  assert.equal(on.purchasePriceQualification.debtCriteriaRequired,false);
+  assert.equal(on.purchasePriceQualification.transactionAuthorized,false);
+  const missingExit={...inputs,leverageEnabled:true};delete missingExit.exitCapRate;delete missingExit.exitTransferFeeRate;
+  const incomplete=calculateUiInvestmentState({mode:'building',inputs:missingExit,assumptionModelVersion:'V2'}).results;
+  assert.equal(incomplete.purchasePriceQualification.qualifiedPrice,null,'zero debt must not bypass missing exit evidence');
+}
+assert.equal(financed.purchasePriceQualification.debtCriteriaRequired,true);
 for(const price of [null,NaN,Infinity,-1,0]) assert.equal(qualifyPurchaseBoundary(gold,'LEGACY',price).qualifiedPrice,null);
 const report=buildPersonalFinancialStudy({mode:'building',inputs:{...gold,discountRate:.5},assumptionModelVersion:'LEGACY'});
 assert.equal(report.financial.results.purchasePriceQualification.qualifiedPrice,null);
 const alternative=report.financial.purchaseAlternative;
+assert.strictEqual(alternative,report.financial.results.purchaseAlternative,'report aliases its canonical current-result review');
+assert.deepEqual(alternative,failing.purchaseAlternative,'screen and export consume the same review function and inputs');
 assert.equal(alternative.status,'VERIFIED_LOWER_PRICE');
 assert.ok(alternative.price<failing.maxJustifiedPrice);
 assert.ok(alternative.qualification.criteria.every(c=>c.met===true));
@@ -29,9 +46,23 @@ assert.equal(qualifyPurchaseBoundary({...gold,discountRate:.5},'LEGACY',alternat
 assert.equal(qualifyPurchaseBoundary({...gold,discountRate:.5},'LEGACY',alternative.failingUpperPrice).qualifiedPrice,null);
 assert.ok(alternative.searchResolutionSar<=.01);
 assert.equal(alternative.globalMaximumEstablished,false);
+assert.equal(alternative.transactionAuthorized,false);
+const noIncome=run({rentPerSqm:0,serviceIncomeRate:0});
+assert.equal(noIncome.purchaseAlternative.status,'NOT_SEARCHED');
+const costly={...gold,discountRate:.5,inspectionCost:1e9};
+const noFeasible=findVerifiedPurchaseAlternative(costly,'LEGACY',qualifyPurchaseBoundary(costly,'LEGACY',100000));
+assert.equal(noFeasible.price,null);assert.equal(noFeasible.status,'NO_VERIFIED_ALTERNATIVE_FOUND');
+assert.equal(noFeasible.globalMaximumEstablished,false);
+const skipped=calculateUiInvestmentState({mode:'building',inputs:{...gold,discountRate:.5},assumptionModelVersion:'LEGACY',includePurchaseAlternative:false}).results;
+assert.equal(skipped.purchaseAlternative,undefined);
+assert.deepEqual(skipped.purchasePriceQualification,failing.purchasePriceQualification,'skipping an unused sensitivity search does not skip qualification');
+for(const status of ['VERIFIED_LOWER_PRICE','NO_VERIFIED_ALTERNATIVE_FOUND','SEARCH_INCOMPLETE','NOT_SEARCHED']) {
+  assert.ok(purchaseAlternativeMessage({status},'en').length>20);
+  assert.ok(!/[A-Za-z_]/.test(purchaseAlternativeMessage({status},'ar-SA')));
+}
 assert.ok(htmlFinancialStudy(report,{locale:'en'}).includes('NPV is negative'));
 assert.ok(purchaseBoundaryMessage(failing.purchasePriceQualification,'ar-SA').includes('صافي القيمة الحالية سالب'));
 assert.ok(!/[A-Za-z_]/.test(purchaseBoundaryMessage({reason:'BOUNDARY_CRITERIA_INCOMPLETE'},'ar-SA')));
 assert.equal(financed.purchasePriceQualification.transactionAuthorized,false);
 assert.equal(financed.purchasePriceQualification.allConstraintsOptimized,false);
-console.log('PURCHASE_BOUNDARY_QUALIFICATION: PASS (full-engine criteria, boundary+1, high hurdle abstention, financing, export)');
+console.log('PURCHASE_BOUNDARY_QUALIFICATION: PASS (full-engine criteria, boundary+1, high hurdle, zero debt in LEGACY/V2, shared alternative, export)');

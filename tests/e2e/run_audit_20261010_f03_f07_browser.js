@@ -121,6 +121,9 @@ async function jsonReport(page) {
           await rentInput.fill(raw);
           await expect(rentInput).toHaveValue(raw);
           await expect(rentInput).toHaveAttribute('aria-invalid', 'true'); checks += 2;
+          await expect(page.getByTestId('building-price-boundary')).toHaveText('—');
+          await expect(page.getByTestId('building-price-alternative-value')).toHaveCount(0);
+          await expect(page.getByTestId('building-price-review-invalid')).toBeVisible(); checks += 3;
           const invalidNumeric = await jsonReport(page);
           ok(invalidNumeric.financial.status === 'INPUTS_INVALID' && invalidNumeric.financial.results === null
             && invalidNumeric.financial.inputs.rentPerSqm === raw && invalidNumeric.financial.annualCashflows.length === 0,

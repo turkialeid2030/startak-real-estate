@@ -18,6 +18,15 @@ function purchaseBoundaryMessage(qualification, locale = 'ar-SA') {
   const codes = qualification?.failedCriteria?.length ? qualification.failedCriteria : [qualification?.reason];
   return codes.filter(Boolean).map(code => (MESSAGES[code] || ['تحتاج نتيجة الفحص إلى مراجعة','Review the qualification result'])[locale === 'en' ? 1 : 0]).join(' · ');
 }
+function purchaseAlternativeMessage(alternative, locale = 'ar-SA') {
+  const messages = {
+    VERIFIED_LOWER_PRICE: ['سعر أقل اجتاز جميع المعايير عند السعر نفسه؛ ليس إثباتًا لأعلى سعر ممكن ولا تفويضًا بالشراء', 'A lower price passed every criterion at that price; not a proven global maximum or purchase authorization'],
+    NO_VERIFIED_ALTERNATIVE_FOUND: ['لم يعثر البحث المحدود على سعر بديل مؤهل؛ لا يثبت ذلك عدم وجود سعر مناسب', 'The bounded search found no verified alternative; this does not prove that no feasible price exists'],
+    SEARCH_INCOMPLETE: ['توقف البحث لعدم اكتمال الفحص؛ لا يتوفر سعر بديل مؤهل', 'The search stopped because evaluation was incomplete; no verified alternative is available'],
+    NOT_SEARCHED: ['لم يُجر بحث عن سعر بديل؛ راجع تأهيل الحد الأصلي واكتمال المدخلات', 'No alternative search was performed; review original-boundary qualification and input completeness'],
+  };
+  return (messages[alternative?.status] || messages.NOT_SEARCHED)[locale === 'en' ? 1 : 0];
+}
 function qualifyPurchaseBoundary(inputs, assumptionModelVersion, candidatePrice) {
   const base = { candidatePrice: Number.isFinite(candidatePrice) ? candidatePrice : null,
     qualifiedPrice: null, status: 'NOT_QUALIFIED', criteria: [], failedCriteria: [],
@@ -27,13 +36,17 @@ function qualifyPurchaseBoundary(inputs, assumptionModelVersion, candidatePrice)
     const result = calculateInvestmentCase({ studyType: STUDY_TYPE.EXISTING_BUILDING,
       inputs: { ...inputs, buildingPrice: candidatePrice }, leverageEnabled: Boolean(inputs.leverageEnabled), assumptionModelVersion });
     const criteria = result.criteriaDetail || [];
+    // Match the canonical entrypoint's explicit-zero-debt normalization. A
+    // financing toggle alone must not require criteria omitted by that engine.
+    const debtCriteriaRequired = Boolean(inputs.leverageEnabled) && inputs.ltv !== 0;
     const expected = ['STABILIZED_NOI_POSITIVE','NET_YIELD_ON_COST','CUMULATIVE_PAYBACK','IRR_MEETS_HURDLE','NPV_NON_NEGATIVE','INCOME_VALUE_COVERS_COST',
-      ...(inputs.leverageEnabled ? ['DSCR_MINIMUM','LEVERED_NPV_NON_NEGATIVE'] : [])];
-    const complete = expected.every(code => criteria.filter(c => c.code === code).length === 1);
+      ...(debtCriteriaRequired ? ['DSCR_MINIMUM','LEVERED_NPV_NON_NEGATIVE'] : [])];
+    const missingCriteria = expected.filter(code => criteria.filter(c => c.code === code).length !== 1);
+    const complete = missingCriteria.length === 0;
     const failedCriteria = criteria.filter(c => c.met !== true).map(c => c.code);
     const pass = complete && failedCriteria.length === 0 && result.decisionStatus === 'ALL_CRITERIA_MET';
     return { ...base, status: pass ? 'ALL_CRITERIA_VERIFIED_AT_BOUNDARY' : 'NOT_QUALIFIED',
-      qualifiedPrice: pass ? candidatePrice : null, criteria, failedCriteria,
+      qualifiedPrice: pass ? candidatePrice : null, criteria, failedCriteria, missingCriteria, debtCriteriaRequired,
       reason: !complete ? 'BOUNDARY_CRITERIA_INCOMPLETE' : pass ? null : 'BOUNDARY_CRITERIA_FAILED',
       cumulativePaybackYears: result.cumulativePaybackOnCost,
       irr: result.irr, npv: result.npv, minimumDscr: result.dscrMin, equityNpv: result.leveredNPV };
@@ -68,4 +81,4 @@ function findVerifiedPurchaseAlternative(inputs, assumptionModelVersion, qualifi
     qualification: verified, originalBoundary: qualification.candidatePrice,
     failingUpperPrice: high / 100, searchResolutionSar: (high - low) / 100 };
 }
-module.exports = { qualifyPurchaseBoundary, purchaseBoundaryMessage, findVerifiedPurchaseAlternative };
+module.exports = { qualifyPurchaseBoundary, purchaseBoundaryMessage, findVerifiedPurchaseAlternative, purchaseAlternativeMessage };

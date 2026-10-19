@@ -15,6 +15,7 @@ import ResidentialIncomeAcquisitionPanel from "../components/ResidentialIncomeAc
 import ValuationIntelligencePanel from "../components/ValuationIntelligencePanel.jsx";
 import PersonalInvestmentResearchPanel from "../components/PersonalInvestmentResearchPanel.jsx";
 import PaybackDisclosurePanel from "../components/PaybackDisclosurePanel.jsx";
+import PurchasePriceAlternative from "../components/PurchasePriceAlternative.jsx";
 import NumericTextInput from '../components/NumericTextInput.jsx';
 import { ZakatInputSection, ZakatCashFlowPanel } from "../components/ZakatLayerPanel.jsx";
 
@@ -770,7 +771,7 @@ function RecommendationCard({ results, criteria }) {
 // ============================================================
 // DASHBOARD TAB
 // ============================================================
-function DashboardTab({ mode, inputs, results }) {
+function DashboardTab({ mode, inputs, results, inputValid = true }) {
   const { t,locale } = useLocale();
   // R1B: presentation-only unit localization, used EXCLUSIVELY inside the
   // criteria={[...]} arrays below. Global fmtSAR()/fmtYears() are
@@ -841,9 +842,10 @@ function DashboardTab({ mode, inputs, results }) {
           <MetricRow label={t("metricRowR2B2.paybackOnPrice")} value={formatRecommendationYears(r.paybackOnPrice)} strong />
           <MetricRow label={t("metricRowR2B2.marketValueByIncomeCap")} value={formatRecommendationCurrency(r.marketValueByIncomeCap)} />
           <MetricRow label={t("metricRowR2B2.valueGapVsCost")} value={formatMetricCurrencySigned(r.valueGapVsCost)} positiveNegative={r.valueGapVsCost >= 0} />
-          <MetricRow label={t("metricRowR2B2.maxJustifiedPrice")} value={<span data-testid="building-price-boundary" dir="ltr">{formatPriceBoundary(r.purchasePriceQualification?.qualifiedPrice)}</span>} />
-          {r.purchasePriceQualification?.status==='NOT_QUALIFIED'&&<p role="status" data-testid="building-price-unqualified" className="text-xs text-amber-300">{locale==='en'?'No qualified purchase ceiling: ':'لا يتوفر حد شراء مؤهل: '}{purchaseBoundaryMessage(r.purchasePriceQualification,locale)}</p>}
-          {isFiniteNumber(r.maxJustifiedPrice)&&r.maxPriceConstraint&&<p data-testid="building-price-constraint" className="text-xs text-slate-300">{locale==='en'?'Binding purchase constraint: ':'قيد الشراء الحاكم: '}{r.maxPriceConstraint.bindingConstraint==='CUMULATIVE_PAYBACK'?(locale==='en'?'cumulative operating payback':'الاسترداد التشغيلي التراكمي'):(locale==='en'?'minimum net yield':'الحد الأدنى للعائد الصافي')}. {locale==='en'?'This boundary solves these two limits only; IRR, NPV, valuation coverage and financing criteria require their separate checks.':'هذا الحد يحل شرطي العائد الصافي والاسترداد فقط؛ تبقى معايير العائد الداخلي والقيمة الحالية وتغطية القيمة والتمويل بحاجة إلى فحصها المستقل.'}</p>}
+          <MetricRow label={t("metricRowR2B2.maxJustifiedPrice")} value={<span data-testid="building-price-boundary" dir="ltr">{formatPriceBoundary(inputValid ? r.purchasePriceQualification?.qualifiedPrice : null)}</span>} />
+          {inputValid&&r.purchasePriceQualification?.status==='NOT_QUALIFIED'&&<p role="status" data-testid="building-price-unqualified" className="text-xs text-amber-300">{locale==='en'?'No qualified purchase ceiling: ':'لا يتوفر حد شراء مؤهل: '}{purchaseBoundaryMessage(r.purchasePriceQualification,locale)}</p>}
+          <PurchasePriceAlternative alternative={r.purchaseAlternative} locale={locale} inputValid={inputValid} />
+          {inputValid&&isFiniteNumber(r.maxJustifiedPrice)&&r.maxPriceConstraint&&<p data-testid="building-price-constraint" className="text-xs text-slate-300">{locale==='en'?'Binding purchase constraint: ':'قيد الشراء الحاكم: '}{r.maxPriceConstraint.bindingConstraint==='CUMULATIVE_PAYBACK'?(locale==='en'?'cumulative operating payback':'الاسترداد التشغيلي التراكمي'):(locale==='en'?'minimum net yield':'الحد الأدنى للعائد الصافي')}. {locale==='en'?'This boundary solves these two limits only; IRR, NPV, valuation coverage and financing criteria require their separate checks.':'هذا الحد يحل شرطي العائد الصافي والاسترداد فقط؛ تبقى معايير العائد الداخلي والقيمة الحالية وتغطية القيمة والتمويل بحاجة إلى فحصها المستقل.'}</p>}
         </MetricGroup>
 
         <MetricGroup eyebrow={t("globalApp.section6")} title={t("dashboardR3.sectionAppraisal")}>
@@ -2219,7 +2221,7 @@ export default function App() {
               </div>
             ) : null}
             <Tabs value={activeTab} onChange={setActiveTab} />
-            {activeTab === "dashboard" && <><DashboardTab mode={mode} inputs={inputs} results={results} /><PaybackDisclosurePanel mode={mode} results={results} locale={locale} /></>}
+            {activeTab === "dashboard" && <><DashboardTab mode={mode} inputs={inputs} results={results} inputValid={!activeValidationError} /><PaybackDisclosurePanel mode={mode} results={results} locale={locale} /></>}
             {activeTab === "cashflow" && <CashFlowTab mode={mode} inputs={inputs} results={results} zakatCase={zakatCase} />}
             {activeTab === "sensitivity" && <SensitivityTab
               mode={mode}
