@@ -49,6 +49,11 @@ async function loadSaved(page) {
 async function jsonReport(page) {
   return JSON.parse(await download(page, page.getByTestId('c75-export-personal-json')));
 }
+async function openPurchaseInputs(page) {
+  const section=page.getByRole('button',{name:ar.inputBuilding.sec2,exact:false});
+  if(await section.getAttribute('aria-expanded')!=='true')await section.click();
+  await expect(section).toHaveAttribute('aria-expanded','true');
+}
 
 (async () => {
   const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
@@ -130,6 +135,7 @@ async function jsonReport(page) {
             'malformed raw input is retained and cannot export stale valid calculations');
         }
         await rentInput.fill(String(seed.inputs.rentPerSqm));
+        await openPurchaseInputs(page);
         const boundaryInput = page.getByLabel(/قيمة شراء المبنى/).first();
         await boundaryInput.fill(String(first.financial.results.maxJustifiedPrice));
         const atBoundary = await jsonReport(page);
@@ -217,6 +223,7 @@ async function jsonReport(page) {
         ok(html.includes('التدفقات السنوية') && html.includes('الحساسية') && html.includes(NAME) && html.includes('dir="rtl"'),
           'standalone financial HTML contains name, cashflows, sensitivity and Arabic direction');
 
+        await openPurchaseInputs(page);
         const price = page.getByLabel(/قيمة شراء المبنى/).first();
         await price.fill('-1');
         await expect(page.getByTestId('personal-financial-input-hold')).toBeVisible();
@@ -265,6 +272,7 @@ async function jsonReport(page) {
           await expect(page.getByTestId(target.healthy)).toBeVisible(); checks++;
           const dialog = await openDeals(page);
           await dialog.getByRole('button', { name: ar.globalApp.closePanel, exact: true }).click(); checks++;
+          await openPurchaseInputs(page);
           const price = page.getByLabel(/قيمة شراء المبنى/).first();
           await price.fill('1234567');
           await expect(price).toHaveValue('1234567'); checks++;

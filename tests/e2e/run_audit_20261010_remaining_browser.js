@@ -94,7 +94,8 @@ async function textContrast(locator){return locator.evaluate(el=>{
    // Full-engine lower-price evidence must match the current exported inputs
    // on all three browsers, including the explicit-zero-debt case.
    const hurdle=page.getByLabel(sanitizeArabicUiText(ar.inputBuilding.discountRate),{exact:false}).first();
-   if(!await hurdle.isVisible())await page.getByRole('button',{name:new RegExp(ar.inputBuilding.sec5)}).click();
+   const valuationSection=page.getByRole('button',{name:ar.inputBuilding.sec5,exact:false});
+   if(await valuationSection.getAttribute('aria-expanded')!=='true')await valuationSection.click();
    await hurdle.fill('50');
    const lowerReport=JSON.parse(await download(page,page.getByTestId('c75-export-personal-json')));
    const lower=lowerReport.financial.purchaseAlternative;
@@ -105,7 +106,15 @@ async function textContrast(locator){return locator.evaluate(el=>{
    await hurdle.fill('8');
    await expect(page.getByTestId('building-price-alternative')).toHaveCount(0);checks++;
    const debtSwitch=page.getByRole('switch',{name:ar.financing.toggle,exact:true});
-   if(!await debtSwitch.isVisible())await page.getByRole('button',{name:ar.financingInput.section,exact:false}).click();
+   const financingSection=page.getByRole('button',{name:ar.financingInput.section,exact:false});
+   const financingBody=page.locator('[id='+JSON.stringify(await financingSection.getAttribute('aria-controls'))+']');
+   if(await financingSection.getAttribute('aria-expanded')!=='true'){
+    await expect(debtSwitch).toHaveCount(0);await expect(financingBody).toHaveAttribute('inert','');checks+=2;
+    await financingSection.focus();await page.keyboard.press('Tab');
+    ok(!await financingBody.evaluate(el=>el.contains(document.activeElement)),'keyboard tab skips all collapsed financing controls');
+    await financingSection.focus();await page.keyboard.press('Enter');
+   }
+   await expect(financingSection).toHaveAttribute('aria-expanded','true');await expect(financingBody).not.toHaveAttribute('inert','');checks+=2;
    const debtRatio=page.getByLabel(sanitizeArabicUiText(getDecisionMetricLabelOverride('ar-SA','financingInput.ltvLabelBuilding')),{exact:false}).first();
    await debtRatio.fill('0');
    if(await debtSwitch.getAttribute('aria-checked')!=='true')await debtSwitch.click();
@@ -116,6 +125,7 @@ async function textContrast(locator){return locator.evaluate(el=>{
    await expect(page.getByTestId('building-price-boundary')).not.toHaveText('—');checks++;
    if((await debtSwitch.getAttribute('aria-checked')==='true')!==seed.inputs.leverageEnabled)await debtSwitch.click();
    await debtRatio.fill(String(seed.inputs.ltv*100));await hurdle.fill(String(seed.inputs.discountRate*100));
+   await financingSection.click();await expect(debtSwitch).toHaveCount(0);await expect(financingBody).toHaveAttribute('aria-hidden','true');checks+=2;
    const provenance=page.getByTestId('input-provenance');await provenance.locator('summary').click();
    for(const[key,value]of Object.entries({field:'buildingPrice',unit:'SAR',sourceReference:'USER ESTIMATE / source',sourceDate:'2026-10-01',location:'Riyadh',reviewerRef:'OWNER'})) {const control=page.getByTestId('provenance-'+key);if(key==='field')await control.selectOption(value);else await control.fill(value);}
    await page.getByTestId('save-input-provenance').click();await expect(provenance).toContainText('USER_SUPPLIED_UNVERIFIED');checks++;

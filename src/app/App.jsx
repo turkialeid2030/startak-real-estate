@@ -428,7 +428,8 @@ function Section({ eyebrow, title, defaultOpen = false, children }) {
           style={{ color: COLORS.slate, transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}
         />
       </button>
-      <div id={panelId} className={`rf-accordion-body ${open ? "open" : ""}`}>
+      <div id={panelId} className={`rf-accordion-body ${open ? "open" : ""}`}
+        aria-hidden={!open} inert={open ? undefined : ''} style={{ visibility: open ? 'visible' : 'hidden' }}>
         <div className="rf-accordion-inner">
           <div className="px-4 pb-4 pt-1">{children}</div>
         </div>

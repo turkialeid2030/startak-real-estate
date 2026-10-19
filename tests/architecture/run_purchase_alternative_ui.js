@@ -41,6 +41,20 @@ const gold = require('../reference/RE-GOLD-baseline.json')['RE-GOLD-002_existing
     await React.act(async () => root.render(React.createElement(Component, { alternative })));
     assert.equal(document.body.textContent, '');
   }
+  // Exercise the real app accordion, not a replacement implementation.
+  const appFile=path.resolve(__dirname,'../../src/app/App.jsx');
+  const appSource=fs.readFileSync(appFile,'utf8');
+  const sectionSource=appSource.slice(appSource.indexOf('function Section('),appSource.indexOf('\nfunction KPIChip('));
+  const transformed=await transformWithOxc(sectionSource,appFile,{jsx:{runtime:'classic'}});
+  const Section=new Function('React','useState','COLORS','ChevronDown',transformed.code+'\nreturn Section;')(React,React.useState,{},()=>null);
+  await React.act(async()=>root.render(React.createElement(Section,{title:'Financing'},React.createElement('input',{'aria-label':'Debt ratio'}))));
+  const header=document.querySelector('button'),body=document.getElementById(header.getAttribute('aria-controls'));
+  assert.equal(header.getAttribute('aria-expanded'),'false');
+  assert.equal(body.getAttribute('aria-hidden'),'true');assert(body.hasAttribute('inert'));assert.equal(body.style.visibility,'hidden');
+  await React.act(async()=>header.click());
+  assert.equal(header.getAttribute('aria-expanded'),'true');assert.equal(body.getAttribute('aria-hidden'),'false');
+  assert(!body.hasAttribute('inert'));assert.equal(body.style.visibility,'visible');
+  await React.act(async()=>header.click());assert(body.hasAttribute('inert'));assert.equal(body.style.visibility,'hidden');
   await React.act(async () => root.unmount()); dom.window.close();
-  console.log('PURCHASE_ALTERNATIVE_UI=PASS (actual React, two locales, current report parity, stale price removal)');
+  console.log('PURCHASE_ALTERNATIVE_UI=PASS (actual React, two locales, report parity, stale price removal, collapsed-control isolation)');
 })().catch(error => { console.error(error); process.exitCode = 1; });
