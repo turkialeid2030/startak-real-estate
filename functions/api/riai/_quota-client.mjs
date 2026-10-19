@@ -1,6 +1,6 @@
 import { readBoundedText } from './_bounded-body.mjs';
 const ACTOR = 'riai-global-quota-v1';
-const codes = { MINUTE_LIMIT:'AI_RATE_LIMIT_EXCEEDED_PER_MINUTE', SUBJECT_DAY_LIMIT:'AI_RATE_LIMIT_EXCEEDED_PER_DAY', GLOBAL_DAY_LIMIT:'AI_SPEND_BUDGET_EXHAUSTED', TOKEN_DAY_LIMIT:'AI_TOKEN_BUDGET_EXCEEDED' };
+const codes = { MINUTE_LIMIT:'AI_RATE_LIMIT_EXCEEDED_PER_MINUTE', SUBJECT_DAY_LIMIT:'AI_RATE_LIMIT_EXCEEDED_PER_DAY', GLOBAL_DAY_LIMIT:'AI_SPEND_BUDGET_EXHAUSTED', TOKEN_DAY_LIMIT:'AI_TOKEN_BUDGET_EXCEEDED', MONETARY_DAY_LIMIT:'AI_MONETARY_BUDGET_EXCEEDED' };
 async function call(binding, route, body) {
   if (!binding || typeof binding.idFromName !== 'function' || typeof binding.get !== 'function') throw new Error('binding unavailable');
   let timer;
@@ -16,7 +16,8 @@ async function call(binding, route, body) {
 export async function reserveGatewayQuota(binding, input) {
   try {
     const result = await call(binding, '/reserve', input);
-    if (result.allowed === true && result.replayed === false && result.id === input.id && result.reservedTokens === input.tokens) return {...result,status:200};
+    if (result.allowed === true && result.replayed === false && result.id === input.id && result.reservedTokens === input.tokens
+      && (!input.money || result.reservedUsdMicros === input.money.reservedUsdMicros)) return {...result,status:200};
     const code = codes[result.code];
     return {allowed:false,status:code?429:503,code:code||'AI_ATOMIC_QUOTA_REJECTED'};
   } catch (_) { return {allowed:false,status:503,code:'AI_ATOMIC_QUOTA_UNAVAILABLE'}; }

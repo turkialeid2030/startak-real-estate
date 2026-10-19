@@ -119,8 +119,11 @@ function calcExistingBuilding(rawInp, context = {}) {
   // are ready. It remains useful as an operating-only disclosure when V2 is
   // missing exitCapRate, but no return metric is derived from it in that state.
   const operatingNoiCashflows = [];
+  const annualOperatingEconomics = [];
   for (let y = 1; y <= inp.holdPeriod; y += 1) {
-    operatingNoiCashflows.push(yearEconomics(y - 1, y === 1 ? initialLeaseUpFactor : 1).NOI);
+    const economics = yearEconomics(y - 1, y === 1 ? initialLeaseUpFactor : 1);
+    operatingNoiCashflows.push(economics.NOI);
+    annualOperatingEconomics.push({ year: y, ...economics });
   }
 
   // Payback is an operating-recovery metric, not a synonym for the holding
@@ -287,7 +290,7 @@ function calcExistingBuilding(rawInp, context = {}) {
     incomeCapBasis, marketValueByIncomeCap, valueGapVsCost, exitCapRate, terminalSaleValue, terminalNetSaleProceeds,
     basementConstructionValue, floorConstructionValue, totalReplacementConstructionValue, currentLandValue,
     totalAppraisedValue, annualDepreciation,
-    cashflows, operatingNoiCashflows, irr, npv, maxJustifiedPrice,maxPriceConstraint,
+    cashflows, operatingNoiCashflows, annualOperatingEconomics, irr, npv, maxJustifiedPrice,maxPriceConstraint,
     loanAmount, equityRequired, debtService, dscrMin, leveredCashflows, leveredIRR, leveredNPV, equityDiscountRate,
     c0, c1, c2, c3, c4, c5, c6, c7,
     metCount: exitAnalyticsReady ? verdictResult.met : null,

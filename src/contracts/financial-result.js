@@ -13,6 +13,7 @@ const FINANCIAL_RESULT_FIELDS = Object.freeze({
   cashflowsIncludeTerminalValue: { present: 'EXISTING_BUILDING_ONLY', type: 'boolean', note: 'false when exit-dependent analytics are fail-closed' },
   cashflows: { present: 'BOTH', type: 'number[]' },
   operatingNoiCashflows: { present: 'BOTH', type: 'number[]' },
+  annualOperatingEconomics: { present: 'BUILDING', type: 'object[]', description: 'Per-hold-year rental, service, expense, reserve and NOI components from the same engine calculation; no dated contract adoption.' },
   paybackCashflows: { present: 'LAND_DEVELOPMENT_ONLY', type: 'number[]' },
   paybackNoiCashflows: { present: 'EXISTING_BUILDING_ONLY', type: 'number[]' },
   irr: { present: 'BOTH', type: 'number (may be NaN when no root exists or exit-dependent analytics are unavailable)' },

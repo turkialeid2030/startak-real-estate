@@ -3,7 +3,7 @@ const assert = require('assert');
 const path = require('path');
 class FakeKV { constructor(){ this.map=new Map(); } async get(k){ return this.map.get(k) ?? null; } async put(k,v){ this.map.set(k,v); } }
 const SNAPSHOT={schemaVersion:1,capability:'RESIDENTIAL_INCOME_ACQUISITION_AI_ASSIST',asOfDate:'2026-09-03',readinessStatus:'NEEDS_DUE_DILIGENCE',readiness:{blockers:[{code:'TITLE_EVIDENCE_REQUIRED',field:'propertyInterest.title'}]},acquisitionScore:{status:'CALCULATED_WITH_GAPS',redFlags:[{code:'PRICE_HIGH',severity:'HIGH'}]},governance:{rawOperatingCaseIncluded:false,tenantNamesIncluded:false,evidenceDocumentTextIncluded:false,automaticInvestmentRecommendationAllowed:false,legalConclusionAllowed:false,transactionAuthorizationAllowed:false}};
-function env(overrides={}){return{RIAI_AI_ALLOW_LOCAL_UNAUTHENTICATED:'true',RIAI_AI_PROVIDER_URL:'https://api.example-provider.com/v1/chat/completions',RIAI_AI_ALLOWED_HOSTS:'api.example-provider.com',RIAI_AI_PROVIDER_KEY:'placeholder',RIAI_AI_MODEL:'test-model',RIAI_AI_GLOBAL_TOKEN_BUDGET_PER_DAY:'100000',RIAI_AI_INPUT_TOKEN_UPPER_BOUND:'20000',RIAI_AI_QUOTA:require('../fixtures/riai-quota-binding')(),RIAI_RATE_LIMIT_KV:new FakeKV(),RIAI_AUDIT_KV:new FakeKV(),RIAI_AUDIT_SUBJECT_SALT:'placeholder-salt',...overrides};}
+function env(overrides={}){return{RIAI_AI_ALLOW_LOCAL_UNAUTHENTICATED:'true',RIAI_AI_PROVIDER_URL:'https://api.example-provider.com/v1/chat/completions',RIAI_AI_ALLOWED_HOSTS:'api.example-provider.com',RIAI_AI_PROVIDER_KEY:'placeholder',RIAI_AI_MODEL:'test-model',...require('../fixtures/riai-money-bound')('test-model'),RIAI_AI_GLOBAL_TOKEN_BUDGET_PER_DAY:'100000',RIAI_AI_INPUT_TOKEN_UPPER_BOUND:'20000',RIAI_AI_QUOTA:require('../fixtures/riai-quota-binding')(),RIAI_RATE_LIMIT_KV:new FakeKV(),RIAI_AUDIT_KV:new FakeKV(),RIAI_AUDIT_SUBJECT_SALT:'placeholder-salt',...overrides};}
 function req(snapshot){return new Request('http://localhost/api/riai/ai-assist',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({decisionSnapshot:snapshot})});}
 function provider(boundary='This output is advisory analysis only and does not constitute an investment or legal recommendation.'){return{choices:[{message:{content:JSON.stringify({executiveObservations:['NOI_WITHIN_RANGE'],riskFlags:[{code:'LEASE_RISK',severity:'MEDIUM',rationale:'CONCENTRATION_RISK'}],evidenceGaps:['MARKET_RENT_MISSING'],dueDiligenceQuestions:['CONFIRM_TITLE'],scenarioChecks:['STRESS_TEST'],earlyWarningIndicators:[{indicator:'DSCR_DECLINING',whyItMatters:'COVERAGE_NARROWING'}],decisionBoundary:boundary})}}]};}
 (async()=>{
@@ -44,6 +44,11 @@ function provider(boundary='This output is advisory analysis only and does not c
    const malicious=provider();const output=JSON.parse(malicious.choices[0].message.content);output[field]=['القيمة السوقية 100 مليون ريال'];malicious.choices[0].message.content=JSON.stringify(output);
    global.fetch=async()=>Response.json(malicious);
    r=await onRequestPost({request:req(SNAPSHOT),env:env()});const blocked=await r.json();assert.equal(r.status,502);assert.equal(blocked.code,'AI_UNSOURCED_NUMERIC_CLAIM');assert.equal(blocked.result,undefined);
+ }
+ let moneyProviderCalls=0;global.fetch=async()=>{moneyProviderCalls++;return Response.json(provider());};
+ for(const overrides of [{RIAI_AI_PRICE_BOUND_MODEL:undefined},{RIAI_AI_PRICE_BOUND_EXPIRES_AT:'2020-01-01T00:00:00Z'},{RIAI_AI_GLOBAL_USD_MICROS_PER_DAY:'1'}]) {
+   r=await onRequestPost({request:req(SNAPSHOT),env:env(overrides)});
+   assert.ok([429,503].includes(r.status));assert.equal(moneyProviderCalls,0);
  }
  console.log('RIAI_GATEWAY_INTEGRATION=PASS');
 })().catch((e)=>{console.error(e);process.exit(1);});

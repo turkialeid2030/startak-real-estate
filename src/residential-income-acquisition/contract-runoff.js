@@ -8,7 +8,7 @@ const {calculateOperatingPaymentPlan}=require('./operating-payment-plan');
 
 // A bounded analytical run-off, not a billing schedule or a renewal forecast.
 // Monthly accrual = annual rent / 12, prorated by covered calendar days.
-function calculateContractRunoff(operatingCase) {
+function calculateContractRunoff(operatingCase, window = null) {
   if (operatingCase?.contractType !== 'RESIDENTIAL_INCOME_OPERATING_CASE_V1') throw new TypeError('OPERATING_CASE_REQUIRED');
   const issues=[];
   const add=(code,refId=null)=>issues.push({code,refId});
@@ -36,9 +36,13 @@ function calculateContractRunoff(operatingCase) {
   if(interest.interestType!=='FREEHOLD'||!source(interest.interestEvidenceRef)||!adoption(interest.interestAdoptionDecisionRef)
     ||(interest.commencementDate&&day(interest.commencementDate)>start))add('RUNOFF_PROPERTY_INTEREST_REQUIRED');
   if(calculateOperatingMetrics(operatingCase).status!=='CALCULATED')add('RUNOFF_OPERATING_METRICS_REQUIRED');
-  const first=new Date(start),month=first.getUTCMonth(),year=first.getUTCFullYear();
-  const end=Date.UTC(year,month+12,1);
-  result.periodStart=new Date(start).toISOString().slice(0,10);
+  // Projection windows never move the source as-of date or re-verify future facts.
+  const windowStart=window===null?start:day(window.periodStart);
+  const first=new Date(windowStart),month=first.getUTCMonth(),year=first.getUTCFullYear();
+  const end=window===null?Date.UTC(year,month+12,1):day(window.periodEndExclusive);
+  if(!Number.isFinite(windowStart)||!Number.isFinite(end)||windowStart<start||end<=windowStart
+    ||end-windowStart>366*86400000||end-start>50*366*86400000){add('RUNOFF_WINDOW_INVALID');return deepFreeze(result);}
+  result.periodStart=new Date(windowStart).toISOString().slice(0,10);
   result.periodEndExclusive=new Date(end).toISOString().slice(0,10);
   const leases=operatingCase.leases.filter(x=>['ACTIVE','FUTURE'].includes(x.lifecycleStatus));
   if(leases.length>2000){add('RUNOFF_LEASE_LIMIT_EXCEEDED');return deepFreeze(result);}
@@ -76,9 +80,10 @@ function calculateContractRunoff(operatingCase) {
   result.assumptions=[...leases.map(x=>x.baseRent),...[...schedules.values()].flatMap(x=>x.map(e=>e.rent)),...expenses.map(x=>x.annualAmount)].filter(x=>x.verificationStatus==='ASSUMED').map(x=>({field:x.field,value:x.value,unit:x.unit,adoptionDecisionRef:x.adoptionDecisionRef}));
   const completeCosts=expenses.length>0&&expenses.every(x=>validMoney(x.annualAmount,'SAR/year'));
   const annualOpex=completeCosts?expenses.reduce((sum,x)=>sum+x.annualAmount.value,0):null;
+  const annualReserve=completeCosts?expenses.filter(x=>x.category==='REPLACEMENT_RESERVE').reduce((sum,x)=>sum+x.annualAmount.value,0):null;
   if(annualOpex===null)add('RUNOFF_NORMALIZED_OPEX_REQUIRED');
-  for(let i=0;i<12;i++){
-    const monthStart=Date.UTC(year,month+i,1),monthEnd=Date.UTC(year,month+i+1,1),a=Math.max(start,monthStart);
+  for(let i=0;i<13&&Date.UTC(year,month+i,1)<end;i++){
+    const monthStart=Date.UTC(year,month+i,1),calendarMonthEnd=Date.UTC(year,month+i+1,1),monthEnd=Math.min(end,calendarMonthEnd),a=Math.max(windowStart,monthStart);
     const leaseRows=leases.map(lease=>{
       const from=Math.max(a,day(lease.startDate)),to=Math.min(monthEnd,day(lease.endDate));
       const entries=schedules.get(lease.leaseId),segments=[];
@@ -88,7 +93,7 @@ function calculateContractRunoff(operatingCase) {
           let input=lease.baseRent;
           for(const entry of entries){if(entry.date>boundaries[n])break;input=entry.rent;}
           const days=(boundaries[n+1]-boundaries[n])/86400000;
-          segments.push({start:new Date(boundaries[n]).toISOString().slice(0,10),endExclusive:new Date(boundaries[n+1]).toISOString().slice(0,10),days,periodicRent:input.value,rent:input.value*ANNUALIZATION_FACTOR[lease.rentFrequency]/12*days/((monthEnd-monthStart)/86400000),sourceRef:input.sourceRef,adoptionDecisionRef:input.adoptionDecisionRef});
+          segments.push({start:new Date(boundaries[n]).toISOString().slice(0,10),endExclusive:new Date(boundaries[n+1]).toISOString().slice(0,10),days,periodicRent:input.value,rent:input.value*ANNUALIZATION_FACTOR[lease.rentFrequency]/12*days/((calendarMonthEnd-monthStart)/86400000),sourceRef:input.sourceRef,adoptionDecisionRef:input.adoptionDecisionRef});
         }
       }
       return {leaseId:lease.leaseId,unitId:lease.unitId,coveredDays:Math.max(0,to-from)/86400000,segments,
@@ -96,10 +101,13 @@ function calculateContractRunoff(operatingCase) {
         sourceRef:lease.baseRent.sourceRef,adoptionDecisionRef:lease.baseRent.adoptionDecisionRef};
     });
     const rent=leaseRows.reduce((sum,x)=>sum+x.rent,0);
-    const opex=annualOpex===null?null:annualOpex/12*(monthEnd-a)/(monthEnd-monthStart);
-    result.rows.push({periodStart:new Date(a).toISOString().slice(0,10),periodEndExclusive:new Date(monthEnd).toISOString().slice(0,10),contractRent:rent,normalizedOpex:opex,contractNetBeforeCapex:opex===null?null:rent-opex,leaseRows});
+    const opex=annualOpex===null?null:annualOpex/12*(monthEnd-a)/(calendarMonthEnd-monthStart);
+    const reserve=annualReserve===null?null:annualReserve/12*(monthEnd-a)/(calendarMonthEnd-monthStart);
+    const beforeReserve=opex===null?null:opex-reserve;
+    result.rows.push({periodStart:new Date(a).toISOString().slice(0,10),periodEndExclusive:new Date(monthEnd).toISOString().slice(0,10),contractRent:rent,normalizedOpex:opex,normalizedReplacementReserve:reserve,normalizedOpexBeforeReserve:beforeReserve,contractNetBeforeReserveAndCapex:beforeReserve===null?null:rent-beforeReserve,contractNetBeforeCapex:opex===null?null:rent-opex,leaseRows});
   }
   result.totals={contractRent:result.rows.reduce((s,r)=>s+r.contractRent,0),normalizedOpex:annualOpex===null?null:result.rows.reduce((s,r)=>s+r.normalizedOpex,0),contractNetBeforeCapex:annualOpex===null?null:result.rows.reduce((s,r)=>s+r.contractNetBeforeCapex,0)};
+  for(const key of ['normalizedReplacementReserve','normalizedOpexBeforeReserve','contractNetBeforeReserveAndCapex']) result.totals[key]=annualOpex===null?null:result.rows.reduce((sum,row)=>sum+row[key],0);
   if(Object.values(result.totals).some(v=>v!==null&&!Number.isSafeInteger(Math.round(v*100)))){
     add('RUNOFF_AMOUNT_OUT_OF_RANGE');result.rows=[];result.totals=null;return deepFreeze(result);
   }
