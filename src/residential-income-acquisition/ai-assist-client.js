@@ -6,6 +6,7 @@ const {
   validateResidentialIncomeAiAssistResponse,
 } = require('./ai-assist-contract');
 const { prepareTurnstileToken } = require('./turnstile-client');
+const { readBoundedJson } = require('./bounded-json-client');
 
 const AI_ASSIST_ENDPOINT = '/api/riai/ai-assist';
 const CLIENT_TIMEOUT_MS = 20000;
@@ -17,7 +18,7 @@ const AI_ASSIST_CLIENT_STATUS = Object.freeze({
   INVALID_RESPONSE: 'INVALID_RESPONSE',
 });
 
-async function requestResidentialIncomeAiAssist(viewModel, options = {}) {
+async function performReview(viewModel, options = {}) {
   const snapshot = buildResidentialIncomeAiDecisionSnapshot(viewModel);
   if (snapshot.status !== AI_ASSIST_STATUS.READY) {
     return Object.freeze({
@@ -34,6 +35,7 @@ async function requestResidentialIncomeAiAssist(viewModel, options = {}) {
   }
 
   const turnstile = await prepareTurnstileToken(fetchImpl, options);
+  if (options.signal?.aborted) throw new Error('AI_ASSIST_CANCELLED');
   if (!turnstile.ok) {
     return Object.freeze({
       status: AI_ASSIST_CLIENT_STATUS.UNAVAILABLE,
@@ -42,10 +44,6 @@ async function requestResidentialIncomeAiAssist(viewModel, options = {}) {
       result: null,
     });
   }
-
-  const controller = typeof AbortController === 'function' ? new AbortController() : null;
-  const timeoutMs = Number.isFinite(options.timeoutMs) ? Math.max(1000, Math.min(options.timeoutMs, 30000)) : CLIENT_TIMEOUT_MS;
-  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
 
   const requestBody = { decisionSnapshot: snapshot.decisionSnapshot };
   if (turnstile.token) requestBody.turnstileToken = turnstile.token;
@@ -58,10 +56,9 @@ async function requestResidentialIncomeAiAssist(viewModel, options = {}) {
       credentials: 'same-origin',
       cache: 'no-store',
       body: JSON.stringify(requestBody),
-      ...(controller ? { signal: controller.signal } : {}),
+      signal: options.signal,
     });
   } catch (error) {
-    if (timer) clearTimeout(timer);
     return Object.freeze({
       status: AI_ASSIST_CLIENT_STATUS.UNAVAILABLE,
       reasonCode: error && error.name === 'AbortError' ? 'AI_ASSIST_TIMEOUT' : 'AI_ASSIST_NETWORK_FAILED',
@@ -69,10 +66,9 @@ async function requestResidentialIncomeAiAssist(viewModel, options = {}) {
       result: null,
     });
   }
-  if (timer) clearTimeout(timer);
 
   let payload;
-  try { payload = await response.json(); }
+  try { payload = await readBoundedJson(response, 65536, options.signal); }
   catch (_) {
     return Object.freeze({ status: AI_ASSIST_CLIENT_STATUS.INVALID_RESPONSE, reasonCode: 'AI_ASSIST_RESPONSE_INVALID_JSON', aiModelUsed: false, result: null });
   }
@@ -105,6 +101,35 @@ async function requestResidentialIncomeAiAssist(viewModel, options = {}) {
     deterministicScoreRemainsAuthoritative: true,
     result: validated.value,
   });
+}
+
+// The deadline covers configuration, challenge, headers AND response body. A race
+// also settles callers whose injected transport does not implement abort.
+async function requestResidentialIncomeAiAssist(viewModel, options = {}) {
+  const controller = new AbortController();
+  const timeoutMs = Number.isFinite(options.timeoutMs) ? Math.max(1000, Math.min(options.timeoutMs, 30000)) : CLIENT_TIMEOUT_MS;
+  let timer;
+  let onAbort;
+  const stopped = new Promise((resolve) => {
+    const stop = (reasonCode) => {
+      controller.abort();
+      resolve(Object.freeze({ status: AI_ASSIST_CLIENT_STATUS.UNAVAILABLE, reasonCode, aiModelUsed: false, result: null }));
+    };
+    onAbort = () => stop('AI_ASSIST_CANCELLED');
+    timer = setTimeout(() => stop('AI_ASSIST_TIMEOUT'), timeoutMs);
+    options.signal?.addEventListener('abort', onAbort, { once: true });
+    if (options.signal?.aborted) onAbort();
+  });
+  try {
+    if (controller.signal.aborted) return await stopped;
+    return await Promise.race([stopped, performReview(viewModel, { ...options, signal: controller.signal })]);
+  } catch (_) {
+    return Object.freeze({ status: AI_ASSIST_CLIENT_STATUS.UNAVAILABLE, reasonCode: 'AI_ASSIST_NETWORK_FAILED', aiModelUsed: false, result: null });
+  } finally {
+    clearTimeout(timer);
+    options.signal?.removeEventListener('abort', onAbort);
+    controller.abort();
+  }
 }
 
 module.exports = {

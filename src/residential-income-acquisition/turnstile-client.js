@@ -1,5 +1,7 @@
 'use strict';
 
+const { readBoundedJson } = require('./bounded-json-client');
+
 const PUBLIC_CONFIG_ENDPOINT = '/api/riai/public-config';
 const TURNSTILE_SCRIPT_ID = 'startak-riai-turnstile-script';
 const TURNSTILE_SCRIPT_URL = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
@@ -10,10 +12,11 @@ function unavailable(reasonCode) {
   return Object.freeze({ ok: false, required: true, token: null, reasonCode });
 }
 
-async function fetchPublicAiConfig(fetchImpl) {
+async function fetchPublicAiConfig(fetchImpl, signal) {
   let response;
   try {
     response = await fetchImpl(PUBLIC_CONFIG_ENDPOINT, {
+      signal,
       method: 'GET',
       credentials: 'same-origin',
       cache: 'no-store',
@@ -24,7 +27,7 @@ async function fetchPublicAiConfig(fetchImpl) {
   }
   if (!response.ok) return Object.freeze({ ok: false, reasonCode: `AI_PUBLIC_CONFIG_HTTP_${response.status}` });
   let payload;
-  try { payload = await response.json(); }
+  try { payload = await readBoundedJson(response, 8192, signal); }
   catch (_) { return Object.freeze({ ok: false, reasonCode: 'AI_PUBLIC_CONFIG_INVALID_JSON' }); }
   if (!payload || payload.schemaVersion !== 1 || typeof payload.publicAiEnabled !== 'boolean') {
     return Object.freeze({ ok: false, reasonCode: 'AI_PUBLIC_CONFIG_INVALID' });
@@ -36,7 +39,7 @@ async function fetchPublicAiConfig(fetchImpl) {
   });
 }
 
-function loadTurnstileScript() {
+function loadTurnstileScript(signal) {
   if (typeof window === 'undefined' || typeof document === 'undefined') {
     return Promise.reject(new Error('TURNSTILE_BROWSER_REQUIRED'));
   }
@@ -44,11 +47,21 @@ function loadTurnstileScript() {
 
   return new Promise((resolve, reject) => {
     let script = document.getElementById(TURNSTILE_SCRIPT_ID);
-    const onReady = () => {
-      if (window.turnstile && typeof window.turnstile.render === 'function') resolve(window.turnstile);
-      else reject(new Error('TURNSTILE_API_UNAVAILABLE'));
+    let timer;
+    const finish = (error) => {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
+      script?.removeEventListener('load', onReady);
+      script?.removeEventListener('error', onError);
+      if (error) { script?.remove(); reject(error); }
+      else resolve(window.turnstile);
     };
-    const onError = () => reject(new Error('TURNSTILE_SCRIPT_FAILED'));
+    const onReady = () => finish(window.turnstile && typeof window.turnstile.render === 'function' ? null : new Error('TURNSTILE_API_UNAVAILABLE'));
+    const onError = () => finish(new Error('TURNSTILE_SCRIPT_FAILED'));
+    const onAbort = () => finish(new Error('TURNSTILE_CANCELLED'));
+    timer = setTimeout(() => finish(new Error('TURNSTILE_SCRIPT_TIMEOUT')), TURNSTILE_CLIENT_TIMEOUT_MS);
+    signal?.addEventListener('abort', onAbort, { once: true });
+    if (signal?.aborted) { onAbort(); return; }
 
     if (!script) {
       script = document.createElement('script');
@@ -70,11 +83,12 @@ function loadTurnstileScript() {
   });
 }
 
-async function executeTurnstile(siteKey, timeoutMs = TURNSTILE_CLIENT_TIMEOUT_MS) {
+async function executeTurnstile(siteKey, timeoutMs = TURNSTILE_CLIENT_TIMEOUT_MS, signal) {
   let api;
-  try { api = await loadTurnstileScript(); }
+  try { api = await loadTurnstileScript(signal); }
   catch (_) { return unavailable('AI_TURNSTILE_CLIENT_UNAVAILABLE'); }
 
+  if (signal?.aborted) return unavailable('AI_ASSIST_CANCELLED');
   return new Promise((resolve) => {
     const container = document.createElement('div');
     container.setAttribute('data-startak-turnstile', 'riai-ai-assist');
@@ -90,11 +104,14 @@ async function executeTurnstile(siteKey, timeoutMs = TURNSTILE_CLIENT_TIMEOUT_MS
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
       try { if (widgetId !== null && typeof api.remove === 'function') api.remove(widgetId); } catch (_) {}
       try { container.remove(); } catch (_) {}
       resolve(result);
     };
+    const onAbort = () => finish(unavailable('AI_ASSIST_CANCELLED'));
     const timer = setTimeout(() => finish(unavailable('AI_TURNSTILE_CLIENT_TIMEOUT')), timeoutMs);
+    signal?.addEventListener('abort', onAbort, { once: true });
 
     try {
       widgetId = api.render(container, {
@@ -113,7 +130,9 @@ async function executeTurnstile(siteKey, timeoutMs = TURNSTILE_CLIENT_TIMEOUT_MS
         'expired-callback': () => finish(unavailable('AI_TURNSTILE_CLIENT_EXPIRED')),
         'timeout-callback': () => finish(unavailable('AI_TURNSTILE_CLIENT_TIMEOUT')),
       });
-      api.execute(widgetId);
+      if (settled) {
+        if (typeof api.remove === 'function') api.remove(widgetId);
+      } else api.execute(widgetId);
     } catch (_) {
       finish(unavailable('AI_TURNSTILE_CLIENT_FAILED'));
     }
@@ -125,13 +144,13 @@ async function prepareTurnstileToken(fetchImpl, options = {}) {
     return Object.freeze({ ok: true, required: true, token: options.turnstileToken.trim(), reasonCode: null });
   }
 
-  const config = await fetchPublicAiConfig(fetchImpl);
+  const config = await fetchPublicAiConfig(fetchImpl, options.signal);
   if (!config.ok) {
     return Object.freeze({ ok: true, required: false, token: null, reasonCode: config.reasonCode });
   }
   if (!config.publicAiEnabled) return Object.freeze({ ok: true, required: false, token: null, reasonCode: null });
   if (!config.turnstileSiteKey) return unavailable('AI_TURNSTILE_SITE_KEY_NOT_CONFIGURED');
-  return executeTurnstile(config.turnstileSiteKey, options.turnstileTimeoutMs);
+  return executeTurnstile(config.turnstileSiteKey, options.turnstileTimeoutMs, options.signal);
 }
 
 module.exports = {

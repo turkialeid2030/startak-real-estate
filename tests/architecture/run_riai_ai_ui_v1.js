@@ -13,7 +13,7 @@ assert(panel.includes("import ResidentialIncomeAiAssistPanel from './Residential
 assert(panel.includes('<ResidentialIncomeAiAssistPanel viewModel={viewModel} dir={dir} />'));
 assert(aiPanel.includes('data-testid="riai-ai-assist-panel"'));
 assert(aiPanel.includes('data-testid="riai-ai-assist-run"'));
-assert(aiPanel.includes('requestResidentialIncomeAiAssist(viewModel)'));
+assert(aiPanel.includes('requestResidentialIncomeAiAssist(viewModel, { signal: controller.signal })'));
 assert(aiPanel.includes("state.status === 'SUCCESS'"));
 assert(aiPanel.includes('ACTIVATION_INCOMPLETE_CODES.has(state.reasonCode)'));
 assert(aiPanel.includes("'AI_ACCESS_NOT_CONFIGURED'"));
@@ -25,7 +25,7 @@ assert(aiPanel.includes('لا رأي قانوني'));
 assert(aiPanel.includes('لا تعديل تلقائي للحسابات'));
 
 // User action is required; no mount-time request is allowed.
-const effectBlock = aiPanel.match(/React\.useEffect\([\s\S]*?\}, \[caseKey\]\);/);
+const effectBlock = aiPanel.match(/React\.useEffect\([\s\S]*?\}, \[\]\);/);
 assert(effectBlock);
 assert(!effectBlock[0].includes('requestResidentialIncomeAiAssist'));
 assert(aiPanel.includes('onClick={runReview}'));

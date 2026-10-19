@@ -1,4 +1,5 @@
 import React from 'react';
+import aiAssistContract from '../residential-income-acquisition/ai-assist-contract';
 import aiAssistClient from '../residential-income-acquisition/ai-assist-client';
 
 const { requestResidentialIncomeAiAssist, AI_ASSIST_CLIENT_STATUS } = aiAssistClient;
@@ -9,13 +10,13 @@ const ACTIVATION_INCOMPLETE_CODES = new Set([
   'AI_PROVIDER_NOT_CONFIGURED',
 ]);
 
-function Tone({ severity }) {
+function Tone({ severity, ar }) {
   const cls = severity === 'HIGH'
     ? 'border-rose-900/60 bg-rose-950/20 text-rose-200'
     : severity === 'MEDIUM'
       ? 'border-amber-900/60 bg-amber-950/20 text-amber-200'
       : 'border-slate-800 bg-slate-950/20 text-slate-300';
-  return <span className={`rounded border px-2 py-0.5 text-[10px] ${cls}`}>{severity}</span>;
+  return <span className={`rounded border px-2 py-0.5 text-[10px] ${cls}`}>{ar ? ({ HIGH: 'مرتفع', MEDIUM: 'متوسط', LOW: 'منخفض' }[severity] || severity) : severity}</span>;
 }
 
 function TextList({ items, emptyLabel }) {
@@ -43,14 +44,19 @@ function ResultSection({ title, children }) {
 }
 
 export default function ResidentialIncomeAiAssistPanel({ viewModel, dir = 'rtl' }) {
+  const caseKey = JSON.stringify([viewModel?.caseId, aiAssistContract.buildResidentialIncomeAiDecisionSnapshot(viewModel)]);
+  return <ReviewSession key={caseKey} viewModel={viewModel} dir={dir} />;
+}
+
+function ReviewSession({ viewModel, dir }) {
   const ar = dir === 'rtl';
   const label = (arabic, english) => (ar ? arabic : english);
   const [state, setState] = React.useState({ status: 'IDLE', payload: null, reasonCode: null });
-  const caseKey = `${viewModel?.caseId || ''}:${viewModel?.asOfDate || ''}:${viewModel?.summary?.evidenceLineageCount || 0}`;
-
-  React.useEffect(() => {
-    setState({ status: 'IDLE', payload: null, reasonCode: null });
-  }, [caseKey]);
+  const pending = React.useRef(null);
+  React.useEffect(() => () => {
+    pending.current?.abort();
+    pending.current = null;
+  }, []);
 
   if (!viewModel || viewModel.apiStatus !== 'CASE_LOADED') return null;
 
@@ -58,23 +64,34 @@ export default function ResidentialIncomeAiAssistPanel({ viewModel, dir = 'rtl' 
   const result = state.payload?.result || null;
 
   const runReview = async () => {
-    if (loading) return;
+    if (pending.current) return;
+    const controller = new AbortController();
+    pending.current = controller;
     setState({ status: 'LOADING', payload: null, reasonCode: null });
-    const response = await requestResidentialIncomeAiAssist(viewModel);
-    if (response.status === AI_ASSIST_CLIENT_STATUS.SUCCESS) {
-      setState({ status: 'SUCCESS', payload: response, reasonCode: null });
-      return;
+    try {
+      const response = await requestResidentialIncomeAiAssist(viewModel, { signal: controller.signal });
+      if (pending.current !== controller || controller.signal.aborted) return;
+      if (response.status === AI_ASSIST_CLIENT_STATUS.SUCCESS) {
+        setState({ status: 'SUCCESS', payload: response, reasonCode: null });
+      } else {
+        setState({ status: 'ERROR', payload: null, reasonCode: response.reasonCode || response.status });
+      }
+    } catch (_) {
+      if (pending.current === controller && !controller.signal.aborted) {
+        setState({ status: 'ERROR', payload: null, reasonCode: 'AI_ASSIST_NETWORK_FAILED' });
+      }
+    } finally {
+      if (pending.current === controller) pending.current = null;
     }
-    setState({ status: 'ERROR', payload: null, reasonCode: response.reasonCode || response.status });
   };
 
   const activationIncomplete = ACTIVATION_INCOMPLETE_CODES.has(state.reasonCode);
 
   return (
-    <section data-testid="riai-ai-assist-panel" className="rounded-xl border border-indigo-900/50 bg-indigo-950/10 p-4">
+    <section data-testid="riai-ai-assist-panel" aria-busy={loading} className="rounded-xl border border-indigo-900/50 bg-indigo-950/10 p-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div className="max-w-3xl">
-          <div className="text-[10px] uppercase tracking-[0.18em] text-indigo-300/70">Governed AI Analytical Review v1</div>
+          <div className="text-[10px] uppercase tracking-[0.18em] text-indigo-300/70">{label('مراجعة تحليلية محكومة — الإصدار الأول', 'Governed AI Analytical Review v1')}</div>
           <h3 className="mt-1 text-sm font-semibold text-slate-100">
             {label('المراجعة التحليلية المساندة بالذكاء الاصطناعي', 'Governed AI analytical review')}
           </h3>
@@ -96,10 +113,11 @@ export default function ResidentialIncomeAiAssistPanel({ viewModel, dir = 'rtl' 
             ? label('جارٍ التحليل…', 'Analyzing…')
             : state.status === 'SUCCESS'
               ? label('إعادة المراجعة', 'Run again')
-              : label('تشغيل مراجعة AI', 'Run AI review')}
+              : label('تشغيل المراجعة المساندة', 'Run AI review')}
         </button>
       </div>
 
+      <span role="status" className="sr-only">{loading ? label('جارٍ التحليل…', 'Analyzing…') : ''}</span>
       <div className="mt-3 flex flex-wrap gap-2 text-[10px] text-slate-500">
         <span className="rounded border border-slate-800 px-2 py-1">{label('تشغيل يدوي فقط', 'Manual only')}</span>
         <span className="rounded border border-slate-800 px-2 py-1">{label('لا تعديل تلقائي للحسابات', 'No automatic financial changes')}</span>
@@ -114,7 +132,7 @@ export default function ResidentialIncomeAiAssistPanel({ viewModel, dir = 'rtl' 
                 'مسار الذكاء الاصطناعي مُنفذ ومحمي تقنياً، لكن تفعيل الإنتاج لم يكتمل بعد: يلزم ضبط Cloudflare Access ومزود AI حسب إعدادات البيئة. التحليل الحتمي الحالي يظل عاملاً بالكامل.',
                 'The AI path is technically implemented and protected, but production activation is incomplete: Cloudflare Access and the AI provider must be configured in the environment. The deterministic analytical engine remains fully operational.',
               )
-            : `${label('تعذر تنفيذ مراجعة AI في هذه المحاولة.', 'AI review could not be completed in this attempt.')} (${state.reasonCode})`}
+            : `${label('تعذر تنفيذ المراجعة المساندة في هذه المحاولة.', 'AI review could not be completed in this attempt.')} (${state.reasonCode})`}
         </div>
       ) : null}
 
@@ -122,7 +140,7 @@ export default function ResidentialIncomeAiAssistPanel({ viewModel, dir = 'rtl' 
         <div className="mt-4 space-y-4" data-testid="riai-ai-assist-result">
           <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
             <span className="rounded border border-emerald-900/50 bg-emerald-950/10 px-2 py-1 text-emerald-200">
-              {label('AI مستخدم للمراجعة السردية فقط', 'AI used for narrative review only')}
+              {label('الذكاء الاصطناعي للمراجعة السردية فقط', 'AI used for narrative review only')}
             </span>
             {state.payload.model ? <span>{label('النموذج', 'Model')}: {state.payload.model}</span> : null}
             {state.payload.generatedAt ? <span>{state.payload.generatedAt}</span> : null}
@@ -140,7 +158,7 @@ export default function ResidentialIncomeAiAssistPanel({ viewModel, dir = 'rtl' 
                     <div key={`${flag.code}-${index}`} className="rounded-lg border border-slate-800 bg-slate-950/20 p-3 text-xs text-slate-300">
                       <div className="flex items-center justify-between gap-2">
                         <strong className="text-slate-100">{flag.code}</strong>
-                        <Tone severity={flag.severity} />
+                        <Tone severity={flag.severity} ar={ar} />
                       </div>
                       <p className="mt-2 leading-6">{flag.rationale}</p>
                     </div>
