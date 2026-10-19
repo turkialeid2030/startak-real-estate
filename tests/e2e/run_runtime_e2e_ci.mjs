@@ -147,12 +147,11 @@ try {
 
   await page.getByText('مبنى قائم', { exact: true }).click();
   await page.waitForTimeout(250);
+  // Discover/open the visible section header first. Collapsed controls are
+  // deliberately absent from the accessibility tree and cannot be anchors.
+  await ensureAccordionOpen(page, 'التمويل العقاري');
   const leverageButton = page.getByRole('switch', { name: 'تفعيل الرافعة المالية', exact: true });
   const leverageCount = await leverageButton.count();
-  const financingSection = leverageButton.locator('xpath=ancestor::div[contains(@class,"rounded-2xl")][1]');
-  const sectionHeader = financingSection.locator(':scope > button').first();
-  await sectionHeader.click();
-  await page.waitForTimeout(300);
   const checkedBefore = await leverageButton.getAttribute('aria-checked');
   await leverageButton.click();
   await page.waitForTimeout(400);
