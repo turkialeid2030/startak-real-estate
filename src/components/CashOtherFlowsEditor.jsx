@@ -1,4 +1,5 @@
 import React from 'react';
+import NumericDraftInput from './NumericDraftInput';
 import {CASH_OTHER_FLOW_CATEGORIES} from '../residential-income-acquisition/cash-other-flows';
 const cls='w-full min-w-0 rounded border border-slate-600 bg-slate-950 p-2 text-xs';
 export const cashCategoryLabels={FINANCING:['التمويل: سحب وسداد وتكلفة','Financing: drawdown, repayment and cost'],TAX:['الضرائب: دفع واسترداد','Taxes: payment and refund'],DEPOSIT:['التأمينات: استلام ورد','Deposits: receipt and return'],FEES:['الرسوم والعمولات','Fees and commissions'],OTHER:['تدفقات أخرى','Other flows']};
@@ -13,7 +14,7 @@ export default function CashOtherFlowsEditor({value,onChange,dir}){
       <label>{t('البند','Category')}<select className={cls} data-testid={`cash-other-category-${i}`} required value={entry.category} onChange={e=>edit(i,{category:e.target.value})}><option value="">—</option>{CASH_OTHER_FLOW_CATEGORIES.map(category=><option key={category} value={category}>{t(...cashCategoryLabels[category])}</option>)}</select></label>
       <label>{t('الاتجاه','Direction')}<select className={cls} data-testid={`cash-other-direction-${i}`} value={entry.direction} onChange={e=>edit(i,{direction:e.target.value})}><option value="INFLOW">{t('داخل','Inflow')}</option><option value="OUTFLOW">{t('خارج','Outflow')}</option></select></label>
       <label>{t('التاريخ المتوقع','Expected date')}<input className={cls} data-testid={`cash-other-date-${i}`} type="date" required value={entry.date} onChange={e=>edit(i,{date:e.target.value})}/></label>
-      <label>{t('المبلغ بالريال — موجب؛ الاتجاه يحدد الإشارة','Amount SAR — positive; direction determines sign')}<input className={cls} data-testid={`cash-other-amount-${i}`} required value={entry.amount} onChange={e=>edit(i,{amount:e.target.value})}/></label>
+      <label>{t('المبلغ بالريال — موجب؛ الاتجاه يحدد الإشارة','Amount SAR — positive; direction determines sign')}<NumericDraftInput className={cls} locale={dir==='rtl'?'ar-SA':'en'} min={0.01} data-testid={`cash-other-amount-${i}`} required value={entry.amount} onChange={e=>edit(i,{amount:e.target.value})}/></label>
       <label>{t('وصف الحركة','Movement description')}<input className={cls} data-testid={`cash-other-description-${i}`} required maxLength={500} value={entry.description} onChange={e=>edit(i,{description:e.target.value})}/></label>
       <label>{t('مرجع فريد للحركة','Unique movement reference')}<input className={cls} data-testid={`cash-other-reference-${i}`} required maxLength={500} value={entry.reference} onChange={e=>edit(i,{reference:e.target.value})}/></label>
       <label>{t('مصدر المبلغ والتاريخ','Amount and date source')}<input className={cls} data-testid={`cash-other-source-${i}`} required maxLength={500} value={entry.sourceRef} onChange={e=>edit(i,{sourceRef:e.target.value})}/></label>

@@ -1,3 +1,4 @@
+import NumericDraftInput from './NumericDraftInput';
 import React from 'react';
 import DiagnosticText from './DiagnosticText.jsx';
 import {
@@ -153,7 +154,7 @@ export default function RentRollCollectionsWorkspace({ operatingCase, metrics, t
                 {activeLeases.map((lease) => <option data-user-content translate="no" key={lease.leaseId} value={lease.leaseId}>{lease.leaseId} · {lease.unitId}</option>)}
               </select>
             </Field>
-            <Field label={t('riai.periodicBaseRent')}><input className={INPUT_CLASS} type="number" min="0" step="0.01" value={leaseDraft.baseRent} onChange={(event) => changeLease({ baseRent: event.target.value })} required /></Field>
+            <Field label={t('riai.periodicBaseRent')}><NumericDraftInput className={INPUT_CLASS} locale={dir==='rtl'?'ar-SA':'en'} min="0" value={leaseDraft.baseRent} onChange={(event) => changeLease({ baseRent: event.target.value })} required /></Field>
             <Field label={t('riai.leaseEnd')}><input className={INPUT_CLASS} type="date" value={leaseDraft.endDate} onChange={(event) => changeLease({ endDate: event.target.value })} required /></Field>
             <Field label={t('riai.sourceRef')}><input className={INPUT_CLASS} type="text" value={leaseDraft.sourceRef} onChange={(event) => changeLease({ sourceRef: event.target.value })} required /></Field>
             <Field label={t('riai.adoptionRef')}><input className={INPUT_CLASS} type="text" value={leaseDraft.adoptionDecisionRef} onChange={(event) => changeLease({ adoptionDecisionRef: event.target.value })} required /></Field>
@@ -180,10 +181,10 @@ export default function RentRollCollectionsWorkspace({ operatingCase, metrics, t
             </Field>
             <Field label={t('riai.periodStart')}><input className={INPUT_CLASS} type="date" value={collectionDraft.periodStart} onChange={(event) => changeCollection({ periodStart: event.target.value })} required /></Field>
             <Field label={t('riai.periodEnd')}><input className={INPUT_CLASS} type="date" value={collectionDraft.periodEnd} onChange={(event) => changeCollection({ periodEnd: event.target.value })} required /></Field>
-            <Field label={t('riai.contractualRentDue')}><input className={INPUT_CLASS} type="number" min="0" step="0.01" value={collectionDraft.contractualRentDue} onChange={(event) => changeCollection({ contractualRentDue: event.target.value })} required /></Field>
-            <Field label={t('riai.rentCollected')}><input className={INPUT_CLASS} type="number" min="0" step="0.01" value={collectionDraft.collectedRent} onChange={(event) => changeCollection({ collectedRent: event.target.value })} required /></Field>
-            <Field label={t('riai.potentialGrossRent')}><input className={INPUT_CLASS} type="number" min="0" step="0.01" value={collectionDraft.potentialGrossRent} onChange={(event) => changeCollection({ potentialGrossRent: event.target.value })} required /></Field>
-            <Field label={t('riai.concessions')}><input className={INPUT_CLASS} type="number" min="0" step="0.01" value={collectionDraft.concessions} onChange={(event) => changeCollection({ concessions: event.target.value })} required /></Field>
+            <Field label={t('riai.contractualRentDue')}><NumericDraftInput className={INPUT_CLASS} locale={dir==='rtl'?'ar-SA':'en'} min="0" value={collectionDraft.contractualRentDue} onChange={(event) => changeCollection({ contractualRentDue: event.target.value })} required /></Field>
+            <Field label={t('riai.rentCollected')}><NumericDraftInput className={INPUT_CLASS} locale={dir==='rtl'?'ar-SA':'en'} min="0" value={collectionDraft.collectedRent} onChange={(event) => changeCollection({ collectedRent: event.target.value })} required /></Field>
+            <Field label={t('riai.potentialGrossRent')}><NumericDraftInput className={INPUT_CLASS} locale={dir==='rtl'?'ar-SA':'en'} min="0" value={collectionDraft.potentialGrossRent} onChange={(event) => changeCollection({ potentialGrossRent: event.target.value })} required /></Field>
+            <Field label={t('riai.concessions')}><NumericDraftInput className={INPUT_CLASS} locale={dir==='rtl'?'ar-SA':'en'} min="0" value={collectionDraft.concessions} onChange={(event) => changeCollection({ concessions: event.target.value })} required /></Field>
             <Field label={t('riai.sourceRef')}><input className={INPUT_CLASS} type="text" value={collectionDraft.sourceRef} onChange={(event) => changeCollection({ sourceRef: event.target.value })} required /></Field>
             <Field label={t('riai.adoptionRef')}><input className={INPUT_CLASS} type="text" value={collectionDraft.adoptionDecisionRef} onChange={(event) => changeCollection({ adoptionDecisionRef: event.target.value })} required /></Field>
           </div>

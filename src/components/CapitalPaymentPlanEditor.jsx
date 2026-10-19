@@ -1,3 +1,4 @@
+import NumericDraftInput from './NumericDraftInput';
 import React from 'react';
 import {replaceCapitalPaymentPlan} from '../residential-income-acquisition/capital-payment-plan';
 const inputClass='w-full min-w-0 rounded border border-slate-600 bg-slate-950 p-2 text-xs';
@@ -28,7 +29,7 @@ export default function CapitalPaymentPlanEditor({operatingCase,onReplaceOperati
     {draft.entries.map((entry,index)=><div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 mb-2" key={index}>
       <label className="text-xs">{t('البند','Item')}<select data-testid={`capital-item-${index}`} className={inputClass} required value={entry.capexItemId} onChange={e=>edit(index,{capexItemId:e.target.value})}><option value="">—</option>{operatingCase.capexItems.map(item=><option data-user-content translate="no" key={item.capexItemId} value={item.capexItemId}>{item.capexItemId} · {item.estimatedCost.value??'—'} SAR</option>)}</select></label>
       <label className="text-xs">{t('تاريخ الدفع المخطط','Planned payment date')}<input data-testid={`capital-date-${index}`} className={inputClass} type="date" required value={entry.date} onChange={e=>edit(index,{date:e.target.value})}/></label>
-      <label className="text-xs">{t('المبلغ بالريال','Amount in SAR')}<input data-testid={`capital-amount-${index}`} className={inputClass} type="number" min="0.01" step="0.01" required value={entry.amount} onChange={e=>edit(index,{amount:e.target.value})}/></label>
+      <label className="text-xs">{t('المبلغ بالريال','Amount in SAR')}<NumericDraftInput data-testid={`capital-amount-${index}`} className={inputClass} locale={dir==='rtl'?'ar-SA':'en'} min="0.01" required value={entry.amount} onChange={e=>edit(index,{amount:e.target.value})}/></label>
       <button type="button" className="rounded border border-slate-600 p-2 text-xs" onClick={()=>change({entries:draft.entries.filter((_,i)=>i!==index)})}>{t('حذف السطر','Remove row')}</button>
     </div>)}
     <button data-testid="capital-add" type="button" disabled={!operatingCase.capexItems.length||draft.entries.length>=2000} className="rounded border border-slate-600 p-2 text-xs mb-3" onClick={()=>change({entries:[...draft.entries,{capexItemId:'',date:'',amount:''}]})}>{t('إضافة دفعة مخططة','Add planned payment')}</button>
