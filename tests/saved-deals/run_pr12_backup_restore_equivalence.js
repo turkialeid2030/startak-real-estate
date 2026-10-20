@@ -48,7 +48,7 @@ function check(id, cond, detail) { console.log(`${id} ${cond?'PASS':'FAIL'} -- $
 
   // Restore with a BRAND-NEW storageProvider (proves no memory cheating) via PRODUCTION functions, from the re-parsed STRING
   const freshStore = {};
-  const freshProvider = { get: async (k) => (k in freshStore ? freshStore[k] : null), set: async (k, v) => { freshStore[k] = v; } };
+  const freshProvider = { get: async (k) => (k in freshStore ? freshStore[k] : null), set: async (k, v) => { freshStore[k] = v; },delete:async k=>{delete freshStore[k];} };
   const parsed = JSON.parse(backupPayloadString);
   const plan = planRestore(parsed, [], new Map());
   const newIndex = await commitRestore(plan, freshProvider);

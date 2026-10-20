@@ -121,7 +121,8 @@ const arDict = require('../i18n/locales/ar-SA.js');
 const enDict = require('../i18n/locales/en.js');
 const { validateSavedDealRecord } = require('../validation/saved-deal-schema.js');
 const { validateEngineInputs } = require('../validation/numeric-safety.js');
-const { buildExportPayload, planRestore, commitRestore } = require('../storage/saved-deals-backup.js');
+const {buildCurrentExportPayload,restoreBackupPayload,readSavedDealsIndex,parseBackupText,serializeBackup,MAX_BACKUP_BYTES,MAX_DEALS}=require('../storage/saved-deals-backup.js');
+const {withSavedDealsLock}=require('../storage/saved-deals-operation-lock');
 // RUNTIME REMEDIATION (Runtime Enablement v1): all 8 window.storage call sites
 // below are replaced by this single centralized abstraction. No storage
 // business logic changes -- same get/set/delete semantics, same keys, same
@@ -1453,6 +1454,7 @@ function KPIRibbon({ mode, results, leverageEnabled }) {
 }
 
 function storageFailureMessage(error, fallback) {
+  if(error?.reasonCode==='BACKUP_DEAL_LIMIT')return {code:error.reasonCode,message_ar:arDict.savedDeals.backupLimit,message_en:enDict.savedDeals.backupLimit};
   if (error && error.code === "STORAGE_QUOTA_EXCEEDED") {
     return { code: error.code, message_ar: error.message_ar, message_en: error.message_en };
   }
@@ -1465,11 +1467,12 @@ function storageFailureMessage(error, fallback) {
 function DealsPanel({
   open, onClose, savedDeals, dealsLoading, activeDealId, mode,
   onLoadBuiltIn, onLoadDeal, onDeleteDeal, onSaveNew, onUpdateActive,
-  saveNameInput, setSaveNameInput, savingInProgress, dealsError,
-  onExportBackup, onImportBackup, backupMessage,
+  saveNameInput, setSaveNameInput, savingInProgress: storageBusy, dealsError,
+  onExportBackup, onImportBackup, backupMessage, restoreRecoveryRequired,
 }) {
   const { t, locale } = useLocale();
   if (!open) return null;
+  const savingInProgress=storageBusy||dealsLoading;
   const handleKeyDown = (e) => { if (e.key === "Escape") onClose(); };
   return (
     <div
@@ -1481,6 +1484,7 @@ function DealsPanel({
         role="dialog"
         aria-modal="true"
         aria-label={t("savedDeals.panelTitle")}
+        aria-busy={savingInProgress}
         onKeyDown={handleKeyDown}
         className="w-full md:w-[480px] max-h-[85vh] overflow-y-auto rounded-t-2xl md:rounded-2xl p-5"
         style={{ background: COLORS.panel, border: `1px solid ${COLORS.hairline}` }}
@@ -1497,6 +1501,7 @@ function DealsPanel({
         <div className="flex gap-2 mb-5">
           <button
             type="button"
+            disabled={savingInProgress}
             onClick={() => onLoadBuiltIn("building")}
             className="flex-1 flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs"
             style={{
@@ -1508,6 +1513,7 @@ function DealsPanel({
           </button>
           <button
             type="button"
+            disabled={savingInProgress}
             onClick={() => onLoadBuiltIn("land")}
             className="flex-1 flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs"
             style={{
@@ -1532,11 +1538,11 @@ function DealsPanel({
                 className="flex items-center gap-2 px-3 py-2 rounded-xl"
                 style={{ background: activeDealId === d.id ? COLORS.panelRaised : "transparent", border: `1px solid ${COLORS.hairline}` }}
               >
-                <button type="button" onClick={() => onLoadDeal(d.id)} className="flex-1 flex items-center gap-2 text-xs" style={{ color: COLORS.parchment }}>
+                <button type="button" disabled={savingInProgress} onClick={() => onLoadDeal(d.id)} className="flex-1 flex items-center gap-2 text-xs" style={{ color: COLORS.parchment }}>
                   {d.mode === "building" ? <Building2 size={13} style={{ color: COLORS.slate }} /> : <Landmark size={13} style={{ color: COLORS.slate }} />}
                   <span data-user-content translate="no" dir="auto">{getDealDisplayName(d, t)}</span>
                 </button>
-                <button type="button" onClick={() => onDeleteDeal(d.id)} aria-label={t("globalApp.deleteDeal")} style={{ color: COLORS.negative }}>
+                <button type="button" disabled={savingInProgress||restoreRecoveryRequired} onClick={() => onDeleteDeal(d.id)} aria-label={t("globalApp.deleteDeal")} style={{ color: COLORS.negative }}>
                   <Trash2 size={14} />
                 </button>
               </div>
@@ -1546,17 +1552,16 @@ function DealsPanel({
 
         {dealsError ? <div className="text-[11px] mb-3" style={{ color: COLORS.negative }}>{locale === "en" ? dealsError.message_en : dealsError.message_ar}</div> : null}
 
-        {backupMessage ? <div className="text-[11px] mb-3" style={{ color: backupMessage.ok ? COLORS.brass : COLORS.negative }}>{locale === "en" ? backupMessage.en : backupMessage.ar}</div> : null}
+        {backupMessage ? <div data-testid="saved-backup-message" data-backup-code={backupMessage.code||''} role={backupMessage.ok?'status':'alert'} className="text-[11px] mb-3" style={{ color: backupMessage.ok ? COLORS.brass : COLORS.negative }}>{locale === "en" ? backupMessage.en : backupMessage.ar}</div> : null}
+        {savingInProgress?<p role="status" aria-live="polite" className="mb-3 text-xs" style={{color:COLORS.parchment}}>{t('savedDeals.storageBusy')}</p>:null}
 
         <Divider />
         <div className="flex gap-2 mb-3">
-          <button type="button" onClick={onExportBackup} className="flex-1 px-3 py-2 rounded-lg text-xs font-medium" style={{ background: COLORS.panelRaised, color: COLORS.parchment, border: `1px solid ${COLORS.hairline}` }}>
+          <button data-testid="saved-backup-export" type="button" disabled={savingInProgress} onClick={onExportBackup} className="flex-1 px-3 py-2 rounded-lg text-xs font-medium" style={{ background: COLORS.panelRaised, color: COLORS.parchment, border: `1px solid ${COLORS.hairline}` }}>
             {t("savedDeals.exportBackup")}
           </button>
-          <label className="flex-1 px-3 py-2 rounded-lg text-xs font-medium text-center cursor-pointer" style={{ background: COLORS.panelRaised, color: COLORS.parchment, border: `1px solid ${COLORS.hairline}` }}>
-            {t("savedDeals.importRestore")}
-            <input type="file" accept="application/json" className="hidden" onChange={(e) => { if (e.target.files[0]) onImportBackup(e.target.files[0]); e.target.value = ""; }} />
-          </label>
+          <button data-testid="saved-backup-import-button" type="button" disabled={savingInProgress||restoreRecoveryRequired} onClick={()=>document.getElementById('saved-backup-file')?.click()} className="flex-1 px-3 py-2 rounded-lg text-xs font-medium" style={{background:COLORS.panelRaised,color:COLORS.parchment,border:`1px solid ${COLORS.hairline}`}}>{t('savedDeals.importRestore')}</button>
+          <input id="saved-backup-file" data-testid="saved-backup-file" type="file" accept="application/json,.json" hidden disabled={savingInProgress||restoreRecoveryRequired} onChange={e=>{const file=e.target.files[0];e.target.value='';if(file)onImportBackup(file);}}/>
         </div>
         <div className="text-[10px] leading-relaxed mb-3" style={{ color: COLORS.slateDim }}>{t("savedDeals.durabilityDisclosure")}</div>
         <div className="text-[10px] tracking-widest mb-2" style={{ color: COLORS.brass }}>{t("savedDeals.saveSectionTitle")}</div>
@@ -1572,7 +1577,7 @@ function DealsPanel({
           <button
             type="button"
             onClick={onSaveNew}
-            disabled={savingInProgress || !saveNameInput.trim()}
+            disabled={savingInProgress || restoreRecoveryRequired || !saveNameInput.trim()}
             className="px-3.5 py-2 rounded-lg text-xs font-medium flex items-center gap-1.5"
             style={{ background: COLORS.brass, color: COLORS.ink, opacity: savingInProgress || !saveNameInput.trim() ? 0.5 : 1 }}
           >
@@ -1583,7 +1588,7 @@ function DealsPanel({
           <button
             type="button"
             onClick={onUpdateActive}
-            disabled={savingInProgress}
+            disabled={savingInProgress||restoreRecoveryRequired}
             className="w-full mt-2 px-3 py-2 rounded-lg text-xs font-medium"
             style={{ background: COLORS.panelRaised, border: `1px solid ${COLORS.brassDim}`, color: COLORS.brass }}
           >
@@ -1723,9 +1728,12 @@ export default function App() {
   const [dealsPanelOpen, setDealsPanelOpen] = useState(false);
   const [saveNameInput, setSaveNameInput] = useState("");
   const [savingInProgress, setSavingInProgress] = useState(false);
+  const savedOperationRef=useRef(false),restoreRecoveryRef=useRef(false);
+  const [restoreRecoveryRequired,setRestoreRecoveryRequired]=useState(false);
   const [dealsError, setDealsError] = useState(null);
   const activeDealName = activeDealId ? (savedDeals.find((d) => d.id === activeDealId) || {}).name : null;
   const switchStudyMode = (nextMode) => {
+    if(savedOperationRef.current)return;
     if (nextMode === mode) return;
     modeContexts.current[mode] = { activeDealId, zakatCase };
     const context = modeContexts.current[nextMode];
@@ -1797,6 +1805,7 @@ export default function App() {
   }, []);
 
   const loadBuiltIn = (builtInMode) => {
+    if(savedOperationRef.current)return;
     if (builtInMode !== mode) modeContexts.current[mode] = { activeDealId, zakatCase };
     setMode(builtInMode);
     setProvenanceByMode(current=>({...current,[builtInMode]:null}));
@@ -1824,6 +1833,7 @@ export default function App() {
   };
 
   const loadDeal = async (id) => {
+    if(savedOperationRef.current)return;
     setDealsError(null);
     try {
       const value = await storageProvider.get("deal:" + id);
@@ -1928,6 +1938,7 @@ export default function App() {
   };
 
   const saveCurrentAsNewDeal = async () => {
+    if(dealsLoading||savedOperationRef.current||restoreRecoveryRef.current)return;
     const name = saveNameInput.trim();
     if (!name) return;
     // SDI-002: block persistence of an invalid current input state. Calls the
@@ -1946,25 +1957,31 @@ export default function App() {
       setDealsError({ code: e.code || "ZAKAT_CASE_INVALID", message_ar: "أكمل مبلغ الزكاة ومصدره قبل الحفظ، أو امسح مبلغ الزكاة.", message_en: "Complete the Zakat amount and its source before saving, or clear the Zakat amount." });
       return;
     }
-    setSavingInProgress(true);
+    savedOperationRef.current=true;setSavingInProgress(true);
     setDealsError(null);
     try {
-      const id = "deal_" + Date.now();
-      const record = recordWithExtensions(prepareNewUiDealForSave({ id, name, mode, inputs, savedAt: new Date().toISOString() }));
-      await storageProvider.set("deal:" + id, JSON.stringify(record));
-      const newIndex = [...savedDeals, { id, name, mode, savedAt: record.savedAt }];
-      await storageProvider.set("deals-index", JSON.stringify(newIndex));
+      const {id,newIndex}=await withSavedDealsLock(storageProvider,async()=>{
+        const {entries}=await readSavedDealsIndex(storageProvider);
+        let id="deal_"+Date.now(),suffix=0;
+        while(await storageProvider.get('deal:'+id)!==null)id='deal_'+Date.now()+'_'+ ++suffix;
+        const record=recordWithExtensions(prepareNewUiDealForSave({id,name,mode,inputs,savedAt:new Date().toISOString()}));
+        if(entries.length>=MAX_DEALS)throw Object.assign(new Error('BACKUP_DEAL_LIMIT'),{reasonCode:'BACKUP_DEAL_LIMIT'});
+        const newIndex=[...entries,{id,name,mode,savedAt:record.savedAt}];
+        await storageProvider.set('deal:'+id,JSON.stringify(record));
+        await storageProvider.set('deals-index',JSON.stringify(newIndex));return {id,newIndex};
+      });
       setSavedDeals(newIndex);
       setActiveDealId(id);
       setSaveNameInput("");
     } catch (e) {
       setDealsError(storageFailureMessage(e, { code: "DEAL_SAVE_FAILED", message_ar: "تعذّر الحفظ، حاول مرة أخرى", message_en: "Save failed, please try again" }));
     } finally {
-      setSavingInProgress(false);
+      savedOperationRef.current=false;setSavingInProgress(false);
     }
   };
 
   const updateActiveDeal = async () => {
+    if(dealsLoading||savedOperationRef.current||restoreRecoveryRef.current)return;
     if (!activeDealId) return;
     // SDI-002: same persistence-safety boundary as saveCurrentAsNewDeal above.
     try { validateEngineInputs({ ...inputs, leverageEnabled: inputs.leverageEnabled }); }
@@ -1974,28 +1991,36 @@ export default function App() {
       setDealsError({ code: e.code || "ZAKAT_CASE_INVALID", message_ar: "أكمل مبلغ الزكاة ومصدره قبل الحفظ، أو امسح مبلغ الزكاة.", message_en: "Complete the Zakat amount and its source before saving, or clear the Zakat amount." });
       return;
     }
-    setSavingInProgress(true);
+    savedOperationRef.current=true;setSavingInProgress(true);
     setDealsError(null);
     try {
-      const existing = savedDeals.find((d) => d.id === activeDealId);
+      const newIndex=await withSavedDealsLock(storageProvider,async()=>{
+      const {entries}=await readSavedDealsIndex(storageProvider);
+      const existing = entries.find((d) => d.id === activeDealId);
+      if(!existing)throw new Error('DEAL_NOT_FOUND');
       const record = recordWithExtensions(prepareUpdatedUiDealForSave({ id: activeDealId, name: existing ? existing.name : "صفقة", mode, inputs, savedAt: new Date().toISOString() }, assumptionModelVersion));
       await storageProvider.set("deal:" + activeDealId, JSON.stringify(record));
-      const newIndex = savedDeals.map((d) => (d.id === activeDealId ? { ...d, savedAt: record.savedAt } : d));
+      const newIndex = entries.map((d) => (d.id === activeDealId ? { ...d, savedAt: record.savedAt } : d));
       await storageProvider.set("deals-index", JSON.stringify(newIndex));
+      return newIndex;});
       setSavedDeals(newIndex);
     } catch (e) {
       setDealsError(storageFailureMessage(e, { code: "DEAL_UPDATE_FAILED", message_ar: "تعذّر تحديث الصفقة", message_en: "The deal could not be updated" }));
     } finally {
-      setSavingInProgress(false);
+      savedOperationRef.current=false;setSavingInProgress(false);
     }
   };
 
   const deleteDeal = async (id) => {
+    if(dealsLoading||savedOperationRef.current||restoreRecoveryRef.current)return;
+    savedOperationRef.current=true;setSavingInProgress(true);
     setDealsError(null);
     try {
-      await storageProvider.delete("deal:" + id);
-      const newIndex = savedDeals.filter((d) => d.id !== id);
+      const newIndex=await withSavedDealsLock(storageProvider,async()=>{
+      const {entries}=await readSavedDealsIndex(storageProvider);
+      const newIndex = entries.filter((d) => d.id !== id);
       await storageProvider.set("deals-index", JSON.stringify(newIndex));
+      await storageProvider.delete("deal:" + id);return newIndex;});
       setSavedDeals(newIndex);
       for (const draftMode of ['building', 'land']) {
         if (modeContexts.current[draftMode].activeDealId === id) {
@@ -2025,16 +2050,18 @@ export default function App() {
       }
     } catch (e) {
       setDealsError({ code: "DEAL_DELETE_FAILED", message_ar: "تعذّر الحذف", message_en: "Delete failed" });
-    }
+    }finally{savedOperationRef.current=false;setSavingInProgress(false);}
   };
 
   const [backupMessage, setBackupMessage] = useState(null);
 
   const exportBackup = async () => {
+    if(dealsLoading||savedOperationRef.current)return;
+    savedOperationRef.current=true;setSavingInProgress(true);
     setBackupMessage(null);
     try {
-      const payload = await buildExportPayload(savedDeals, storageProvider);
-      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const payload = await buildCurrentExportPayload(storageProvider);
+      const blob = new Blob([serializeBackup(payload)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       const dateStr = new Date().toISOString().slice(0, 10);
@@ -2046,28 +2073,27 @@ export default function App() {
       URL.revokeObjectURL(url);
       setBackupMessage({ ok: true, ar: arDict.savedDeals.exportSuccess, en: enDict.savedDeals.exportSuccess });
     } catch (e) {
-      setBackupMessage({ ok: false, ar: arDict.savedDeals.exportFailedCorrupt, en: enDict.savedDeals.exportFailedCorrupt });
-    }
+      const key=e.reasonCode==='BACKUP_SIZE_LIMIT'||e.reasonCode==='BACKUP_DEAL_LIMIT'?'backupLimit':'exportFailedCorrupt';
+      setBackupMessage({ok:false,code:e.reasonCode||'BACKUP_EXPORT_FAILED',ar:arDict.savedDeals[key],en:enDict.savedDeals[key]});
+    }finally{savedOperationRef.current=false;setSavingInProgress(false);}
   };
 
   const importBackup = async (file) => {
+    if(dealsLoading||savedOperationRef.current||restoreRecoveryRef.current)return;
+    savedOperationRef.current=true;setSavingInProgress(true);
     setBackupMessage(null);
     try {
-      const text = await file.text();
-      let parsed;
-      try { parsed = JSON.parse(text); } catch (e) { throw new Error("INVALID_JSON"); }
-      const existingRecordsById = new Map();
-      for (const entry of savedDeals) {
-        const raw = await storageProvider.get("deal:" + entry.id);
-        if (raw) existingRecordsById.set(entry.id, raw);
-      }
-      const plan = planRestore(parsed, savedDeals, existingRecordsById); // throws on ANY structural problem -- zero writes happen before this line succeeds
-      const newIndex = await commitRestore(plan, storageProvider);
-      setSavedDeals(newIndex);
-      setBackupMessage({ ok: true, ar: arDict.savedDeals.importSuccess, en: enDict.savedDeals.importSuccess });
+      if(!Number.isSafeInteger(file.size)||file.size>MAX_BACKUP_BYTES)throw Object.assign(new Error('BACKUP_SIZE_LIMIT'),{reasonCode:'BACKUP_SIZE_LIMIT'});
+      const parsed=parseBackupText(await file.text());
+      const restored=await restoreBackupPayload(parsed,storageProvider);
+      setSavedDeals(restored.index);
+      setBackupMessage({ok:true,code:'BACKUP_RESTORED',ar:`${arDict.savedDeals.importSuccess} — أضيفت: ${restored.added}؛ موجودة مطابقة: ${restored.skipped}؛ نسخ عند التعارض: ${restored.renamed}.`,en:`${enDict.savedDeals.importSuccess} — Added: ${restored.added}; existing matches: ${restored.skipped}; conflict copies: ${restored.renamed}.`});
     } catch (e) {
-      setBackupMessage({ ok: false, ar: arDict.savedDeals.importFailedInvalid, en: enDict.savedDeals.importFailedInvalid });
-    }
+      const code=e.reasonCode||'BACKUP_INVALID';
+      const key=code==='RESTORE_RECOVERY_REQUIRED'?'importRecoveryRequired':code==='RESTORE_STORAGE_FAILED_ROLLED_BACK'?'importRolledBack':code==='RESTORE_STORAGE_CHANGED'||code==='RESTORE_TARGET_OCCUPIED'?'importStorageChanged':code==='BACKUP_SIZE_LIMIT'||code==='BACKUP_DEAL_LIMIT'?'backupLimit':'importFailedInvalid';
+      if(code==='RESTORE_RECOVERY_REQUIRED'){restoreRecoveryRef.current=true;setRestoreRecoveryRequired(true);}
+      setBackupMessage({ok:false,code,ar:arDict.savedDeals[key],en:enDict.savedDeals[key]});
+    }finally{savedOperationRef.current=false;setSavingInProgress(false);}
   };
 
   const resetCurrent = () => {
@@ -2170,6 +2196,7 @@ export default function App() {
           onExportBackup={exportBackup}
           onImportBackup={importBackup}
           backupMessage={backupMessage}
+          restoreRecoveryRequired={restoreRecoveryRequired}
         />
 
         <KPIRibbon mode={mode} results={results} leverageEnabled={inputs.leverageEnabled} />
