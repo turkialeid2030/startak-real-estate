@@ -25,8 +25,14 @@ async function contextFor(browser,width,seed=[],host=false){
    localStorage.setItem(ns+'deals-index',JSON.stringify(seed.map(({id,name,mode,savedAt})=>({id,name,mode,savedAt}))));localStorage.setItem(ns+'backup-fixture-seeded','true');
   }
   const originalSet=Storage.prototype.setItem,originalDelete=Storage.prototype.removeItem;
-  Storage.prototype.setItem=function(key,value){if(window.__backupFailure&&key===ns+'deal:io-two'){const mode=window.__backupFailure;window.__backupFailure=null;if(mode==='after')originalSet.call(this,key,value);throw new DOMException('Synthetic quota failure','QuotaExceededError');}return originalSet.call(this,key,value);};
-  Storage.prototype.removeItem=function(key){if(window.__backupCleanupFailure&&key===ns+'deal:io-one')throw new DOMException('Synthetic cleanup failure','SecurityError');return originalDelete.call(this,key);};
+  Storage.prototype.setItem=function(key,value){
+   const failure=window.__crudFailure;if(failure?.op==='set'&&key===ns+failure.key){window.__crudFailure=null;if(failure.after)originalSet.call(this,key,value);throw new DOMException('Synthetic CRUD write failure','QuotaExceededError');}
+   if(window.__backupFailure&&key===ns+'deal:io-two'){const mode=window.__backupFailure;window.__backupFailure=null;if(mode==='after')originalSet.call(this,key,value);throw new DOMException('Synthetic quota failure','QuotaExceededError');}return originalSet.call(this,key,value);
+  };
+  Storage.prototype.removeItem=function(key){
+   const failure=window.__crudFailure;if(failure?.op==='delete'&&key===ns+failure.key){window.__crudFailure=null;if(failure.after)originalDelete.call(this,key);throw new DOMException('Synthetic CRUD delete failure','SecurityError');}
+   if(window.__backupCleanupFailure&&key===ns+'deal:io-one'||window.__crudCleanupFailure&&key.startsWith(ns+'deal:deal_'))throw new DOMException('Synthetic cleanup failure','SecurityError');return originalDelete.call(this,key);
+  };
   if(host){
    window.__backupHostWrites=0;window.__backupFileReads=0;const text=File.prototype.text;File.prototype.text=function(){window.__backupFileReads++;return text.call(this);};
    window.storage={get:async key=>{const value=localStorage.getItem(ns+key);return value===null?null:{value};},set:async(key,value)=>{window.__backupHostWrites++;if(window.__backupHold&&key.startsWith('deal:')){window.__backupHold=false;window.__backupWaiting=true;await new Promise(resolve=>{window.__releaseBackup=resolve;});}localStorage.setItem(ns+key,value);},delete:async key=>localStorage.removeItem(ns+key)};
@@ -86,6 +92,23 @@ async function diagnose(page,label,error){
       await page.waitForFunction(ns=>{const list=JSON.parse(localStorage.getItem(ns+'deals-index'));return list.some(d=>d.id==='parallel-one')&&list.some(d=>d.id==='parallel-two');},NAMESPACE,{timeout:20000});
       await expect(page.getByTestId('saved-backup-export')).toBeEnabled();const both=await download(page,page.getByTestId('saved-backup-export'));ok(both.deals.length===5&&both.deals.some(d=>d.id==='parallel-one')&&both.deals.some(d=>d.id==='parallel-two'),'fresh export retains changes from both tabs');await second.close();
      }
+     // Invoke real UI save/update/delete against Storage failures. Each must
+     // restore exactly the prior record/index bytes before reporting rollback.
+     const beforeCrud=await savedSnapshot(page),recordKey='deal:'+transfer.deals[0].id;
+     await dialog.getByPlaceholder(ar.savedDeals.namePlaceholder).fill('FAILED UI SAVE / فشل تجريبي');
+     await page.evaluate(()=>{window.__crudFailure={op:'set',key:'deals-index',after:true};});
+     await dialog.getByRole('button',{name:ar.savedDeals.saveButton,exact:true}).click();
+     await expect(page.getByTestId('saved-deals-error')).toHaveAttribute('data-storage-code','RESTORE_STORAGE_FAILED_ROLLED_BACK');assert.deepEqual(await savedSnapshot(page),beforeCrud);checks+=2;
+     await page.evaluate(key=>{window.__crudFailure={op:'set',key,after:true};},recordKey);
+     await dialog.getByRole('button',{name:ar.savedDeals.updateButton,exact:true}).click();
+     await expect(dialog).toHaveAttribute('aria-busy','false');await expect(page.getByTestId('saved-deals-error')).toHaveAttribute('data-storage-code','RESTORE_STORAGE_FAILED_ROLLED_BACK');assert.deepEqual(await savedSnapshot(page),beforeCrud);checks+=2;
+     await page.evaluate(key=>{window.__crudFailure={op:'delete',key,after:true};},recordKey);
+     await dialog.getByRole('button',{name:transfer.deals[0].name,exact:true}).locator('..').getByRole('button',{name:ar.globalApp.deleteDeal,exact:true}).click();
+     await expect(dialog).toHaveAttribute('aria-busy','false');await expect(page.getByTestId('saved-deals-error')).toHaveAttribute('data-storage-code','RESTORE_STORAGE_FAILED_ROLLED_BACK');assert.deepEqual(await savedSnapshot(page),beforeCrud);checks+=2;
+     await dialog.screenshot({path:`${DIR}/${name}-${width}-crud-rollback.png`});
+     await dialog.getByRole('button',{name:ar.savedDeals.updateButton,exact:true}).click();await expect(dialog).toHaveAttribute('aria-busy','false');await expect(page.getByTestId('saved-deals-error')).toHaveCount(0);checks++;
+     const afterUpdate=await download(page,page.getByTestId('saved-backup-export')),updated=afterUpdate.deals.find(d=>d.id===transfer.deals[0].id);
+     assert.deepEqual(updated.assumptionRegistry,transfer.deals[0].assumptionRegistry);assert.deepEqual(updated.assumptionRegistryVersion,transfer.deals[0].assumptionRegistryVersion);assert.deepEqual(updated.operatingCase,transfer.deals[0].operatingCase);checks+=3;
      const beforeFailure=await savedSnapshot(page);await page.evaluate(()=>{window.__backupFailure='after';});
      await importFile(page,legacy([simple('io-one'),simple('io-two')]));await expect(page.getByTestId('saved-backup-message')).toHaveAttribute('data-backup-code','RESTORE_STORAGE_FAILED_ROLLED_BACK');assert.deepEqual(await savedSnapshot(page),beforeFailure);checks+=2;
      await dialog.screenshot({path:`${DIR}/${name}-${width}-backup-rollback.png`});
@@ -107,6 +130,11 @@ async function diagnose(page,label,error){
      await page.waitForFunction(()=>window.__backupWaiting===true);await expect(dialog).toHaveAttribute('aria-busy','true');await expect(page.getByTestId('saved-backup-import-button')).toBeDisabled();await expect(page.getByTestId('saved-backup-export')).toBeDisabled();checks+=3;
      ok(await page.evaluate(()=>window.__backupFileReads===1),'same-tick duplicate import reads the file only once');await page.evaluate(()=>window.__releaseBackup());
      await expect(page.getByTestId('saved-backup-message')).toHaveAttribute('data-backup-code','BACKUP_RESTORED');ok(await page.evaluate(()=>window.__backupHostWrites)===transfer.deals.length+1,'exactly one restore reaches the asynchronous host provider');
+     await dialog.getByPlaceholder(ar.savedDeals.namePlaceholder).fill('HOST RECOVERY / استرجاع تجريبي');
+     await page.evaluate(()=>{window.__crudFailure={op:'set',key:'deals-index',after:true};window.__crudCleanupFailure=true;});
+     await dialog.getByRole('button',{name:ar.savedDeals.saveButton,exact:true}).click();
+     await expect(page.getByTestId('saved-deals-error')).toHaveAttribute('data-storage-code','RESTORE_RECOVERY_REQUIRED');await expect(dialog.getByRole('button',{name:ar.savedDeals.saveButton,exact:true})).toBeDisabled();await expect(page.getByTestId('saved-backup-import-button')).toBeDisabled();await expect(page.getByTestId('saved-backup-export')).toBeEnabled();checks+=4;
+     await dialog.screenshot({path:DIR+'/chromium-host-crud-recovery.png'});
     }catch(error){await diagnose(page,'chromium-host',error);}finally{await context.close();}
    }
   }finally{await browser.close();}

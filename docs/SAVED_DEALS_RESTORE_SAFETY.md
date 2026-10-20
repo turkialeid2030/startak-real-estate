@@ -1,8 +1,10 @@
-# Saved-deal backup and restore safety — 20 October 2026
+# Saved-deal storage, backup and restore safety — 20 October 2026
 
 This change repairs two reproduced defects: repeated incoming IDs could create
 duplicate index rows and overwrite one another; a failed restore write could
 leave staged records after an error that claimed current data was unchanged.
+Ordinary save/update/delete also exposed partial record/index changes after an
+observed storage failure. They now use the same verified compensation path.
 
 ## Supported behavior
 
@@ -33,6 +35,15 @@ new records, verifies each write and publishes the final index last. On a write
 failure it attempts compensation and verifies the old index and removal of its
 staged records. A write-then-reject acknowledgment is covered. A foreign index
 or changed staged record is never overwritten during compensation.
+
+New UI saves allocate an unused ID inside the lock. Updates preserve imported
+assumption registries and read-only standards metadata; explicitly cleared
+editable Zakat/operating/valuation cases remain cleared. Updates stage and
+verify the changed record before publishing its index metadata. Deletions
+unlink the index before removing the record. Compensation restores any prior
+record bytes before republishing the prior index, then removes newly staged
+records. The outcome must be verified byte for byte; foreign record/index
+changes are not overwritten.
 
 Verified compensation has a separate failure message. Unverified compensation
 produces `RESTORE_RECOVERY_REQUIRED`; saving, deleting and importing are blocked
@@ -69,12 +80,18 @@ and operating-source preservation, plan immutability, stale snapshots, occupied
 unindexed keys, bounded/malicious JSON, concurrent imports and every failing
 write position before/after acknowledgment. Rollback failure/foreign-index
 cases explicitly require recovery. Tests compare restored financial arithmetic.
+Save, update and delete have fault injection at every record/index operation,
+including delete-then-reject, exact byte restoration, ignored writes and failed
+compensation. Update tests preserve registries while clearing editable cases.
 
 Mandatory browser acceptance transfers an actual UI export from Chromium into
 fresh Chromium/Firefox/WebKit contexts at desktop/mobile widths, reloads data,
 compares source inputs/operating fingerprints and independently hashed financial
 reports, and exercises same-tick duplicate admission, a stalled asynchronous host,
 two-tab concurrency, oversize/duplicate/corrupt files and real provider failures.
+The real UI save/update/delete paths also face write/delete-then-reject failures
+in all three browsers, followed by a successful update preserving provenance;
+an asynchronous host failure verifies the session write block for a failed save.
 Only synthetic data enters CI artifacts. These are browser viewports, not physical
 device or institutional recovery certification. The three historical hardcoded
 PR12 browser observations now report `NOT_RERUN`; current browser evidence is

@@ -121,8 +121,7 @@ const arDict = require('../i18n/locales/ar-SA.js');
 const enDict = require('../i18n/locales/en.js');
 const { validateSavedDealRecord } = require('../validation/saved-deal-schema.js');
 const { validateEngineInputs } = require('../validation/numeric-safety.js');
-const {buildCurrentExportPayload,restoreBackupPayload,readSavedDealsIndex,parseBackupText,serializeBackup,MAX_BACKUP_BYTES,MAX_DEALS}=require('../storage/saved-deals-backup.js');
-const {withSavedDealsLock}=require('../storage/saved-deals-operation-lock');
+const {buildCurrentExportPayload,restoreBackupPayload,saveNewSavedDeal,updateSavedDealRecord,removeSavedDealRecord,parseBackupText,serializeBackup,MAX_BACKUP_BYTES}=require('../storage/saved-deals-backup.js');
 // RUNTIME REMEDIATION (Runtime Enablement v1): all 8 window.storage call sites
 // below are replaced by this single centralized abstraction. No storage
 // business logic changes -- same get/set/delete semantics, same keys, same
@@ -1454,7 +1453,8 @@ function KPIRibbon({ mode, results, leverageEnabled }) {
 }
 
 function storageFailureMessage(error, fallback) {
-  if(error?.reasonCode==='BACKUP_DEAL_LIMIT')return {code:error.reasonCode,message_ar:arDict.savedDeals.backupLimit,message_en:enDict.savedDeals.backupLimit};
+  const key=error?.reasonCode==='RESTORE_RECOVERY_REQUIRED'?'importRecoveryRequired':error?.reasonCode==='RESTORE_STORAGE_FAILED_ROLLED_BACK'?'importRolledBack':error?.reasonCode==='RESTORE_STORAGE_CHANGED'?'importStorageChanged':error?.reasonCode==='BACKUP_DEAL_LIMIT'||error?.reasonCode==='BACKUP_SIZE_LIMIT'?'backupLimit':null;
+  if(key)return {code:error.reasonCode,message_ar:arDict.savedDeals[key],message_en:enDict.savedDeals[key]};
   if (error && error.code === "STORAGE_QUOTA_EXCEEDED") {
     return { code: error.code, message_ar: error.message_ar, message_en: error.message_en };
   }
@@ -1550,7 +1550,7 @@ function DealsPanel({
           </div>
         )}
 
-        {dealsError ? <div className="text-[11px] mb-3" style={{ color: COLORS.negative }}>{locale === "en" ? dealsError.message_en : dealsError.message_ar}</div> : null}
+        {dealsError ? <div data-testid="saved-deals-error" data-storage-code={dealsError.code} role="alert" className="text-[11px] mb-3" style={{ color: COLORS.negative }}>{locale === "en" ? dealsError.message_en : dealsError.message_ar}</div> : null}
 
         {backupMessage ? <div data-testid="saved-backup-message" data-backup-code={backupMessage.code||''} role={backupMessage.ok?'status':'alert'} className="text-[11px] mb-3" style={{ color: backupMessage.ok ? COLORS.brass : COLORS.negative }}>{locale === "en" ? backupMessage.en : backupMessage.ar}</div> : null}
         {savingInProgress?<p role="status" aria-live="polite" className="mb-3 text-xs" style={{color:COLORS.parchment}}>{t('savedDeals.storageBusy')}</p>:null}
@@ -1960,20 +1960,13 @@ export default function App() {
     savedOperationRef.current=true;setSavingInProgress(true);
     setDealsError(null);
     try {
-      const {id,newIndex}=await withSavedDealsLock(storageProvider,async()=>{
-        const {entries}=await readSavedDealsIndex(storageProvider);
-        let id="deal_"+Date.now(),suffix=0;
-        while(await storageProvider.get('deal:'+id)!==null)id='deal_'+Date.now()+'_'+ ++suffix;
-        const record=recordWithExtensions(prepareNewUiDealForSave({id,name,mode,inputs,savedAt:new Date().toISOString()}));
-        if(entries.length>=MAX_DEALS)throw Object.assign(new Error('BACKUP_DEAL_LIMIT'),{reasonCode:'BACKUP_DEAL_LIMIT'});
-        const newIndex=[...entries,{id,name,mode,savedAt:record.savedAt}];
-        await storageProvider.set('deal:'+id,JSON.stringify(record));
-        await storageProvider.set('deals-index',JSON.stringify(newIndex));return {id,newIndex};
-      });
+      const record=recordWithExtensions(prepareNewUiDealForSave({id:"deal_"+Date.now(),name,mode,inputs,savedAt:new Date().toISOString()}));
+      const {id,index:newIndex}=await saveNewSavedDeal(record,storageProvider);
       setSavedDeals(newIndex);
       setActiveDealId(id);
       setSaveNameInput("");
     } catch (e) {
+      if(e.reasonCode==='RESTORE_RECOVERY_REQUIRED'){restoreRecoveryRef.current=true;setRestoreRecoveryRequired(true);}
       setDealsError(storageFailureMessage(e, { code: "DEAL_SAVE_FAILED", message_ar: "تعذّر الحفظ، حاول مرة أخرى", message_en: "Save failed, please try again" }));
     } finally {
       savedOperationRef.current=false;setSavingInProgress(false);
@@ -1994,17 +1987,10 @@ export default function App() {
     savedOperationRef.current=true;setSavingInProgress(true);
     setDealsError(null);
     try {
-      const newIndex=await withSavedDealsLock(storageProvider,async()=>{
-      const {entries}=await readSavedDealsIndex(storageProvider);
-      const existing = entries.find((d) => d.id === activeDealId);
-      if(!existing)throw new Error('DEAL_NOT_FOUND');
-      const record = recordWithExtensions(prepareUpdatedUiDealForSave({ id: activeDealId, name: existing ? existing.name : "صفقة", mode, inputs, savedAt: new Date().toISOString() }, assumptionModelVersion));
-      await storageProvider.set("deal:" + activeDealId, JSON.stringify(record));
-      const newIndex = entries.map((d) => (d.id === activeDealId ? { ...d, savedAt: record.savedAt } : d));
-      await storageProvider.set("deals-index", JSON.stringify(newIndex));
-      return newIndex;});
+      const newIndex=await updateSavedDealRecord(activeDealId,existing=>recordWithExtensions(prepareUpdatedUiDealForSave({ id: activeDealId, name: existing ? existing.name : "صفقة", mode, inputs, savedAt: new Date().toISOString() }, assumptionModelVersion)),storageProvider);
       setSavedDeals(newIndex);
     } catch (e) {
+      if(e.reasonCode==='RESTORE_RECOVERY_REQUIRED'){restoreRecoveryRef.current=true;setRestoreRecoveryRequired(true);}
       setDealsError(storageFailureMessage(e, { code: "DEAL_UPDATE_FAILED", message_ar: "تعذّر تحديث الصفقة", message_en: "The deal could not be updated" }));
     } finally {
       savedOperationRef.current=false;setSavingInProgress(false);
@@ -2016,11 +2002,7 @@ export default function App() {
     savedOperationRef.current=true;setSavingInProgress(true);
     setDealsError(null);
     try {
-      const newIndex=await withSavedDealsLock(storageProvider,async()=>{
-      const {entries}=await readSavedDealsIndex(storageProvider);
-      const newIndex = entries.filter((d) => d.id !== id);
-      await storageProvider.set("deals-index", JSON.stringify(newIndex));
-      await storageProvider.delete("deal:" + id);return newIndex;});
+      const newIndex=await removeSavedDealRecord(id,storageProvider);
       setSavedDeals(newIndex);
       for (const draftMode of ['building', 'land']) {
         if (modeContexts.current[draftMode].activeDealId === id) {
@@ -2049,7 +2031,8 @@ export default function App() {
         setZakatCase(null);
       }
     } catch (e) {
-      setDealsError({ code: "DEAL_DELETE_FAILED", message_ar: "تعذّر الحذف", message_en: "Delete failed" });
+      if(e.reasonCode==='RESTORE_RECOVERY_REQUIRED'){restoreRecoveryRef.current=true;setRestoreRecoveryRequired(true);}
+      setDealsError(storageFailureMessage(e, { code: "DEAL_DELETE_FAILED", message_ar: "تعذّر الحذف", message_en: "Delete failed" }));
     }finally{savedOperationRef.current=false;setSavingInProgress(false);}
   };
 

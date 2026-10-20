@@ -201,8 +201,8 @@ function validateBackupEnvelope(parsed) {
  *   - no ID collision                  -> import as-is
  * Throws BackupError on ANY structural problem (envelope or any single
  * deal) -- the caller must not commit anything if this throws. This is
- * what makes restore transactional/non-destructive: nothing is written
- * until this entire plan succeeds.
+ * what keeps structural validation ahead of writes: nothing is written
+ * until this entire plan succeeds. Observed I/O failures use compensation.
  */
 function planRestore(backupPayload, existingIndexEntries, existingRecordsById) {
   validateBackupEnvelope(backupPayload);
@@ -270,36 +270,100 @@ async function commitRestoreUnlocked(plan,provider){
  await checkExisting();
  for(const {id}of plan.toWrite)if(await provider.get('deal:'+id)!==null)throw new BackupError('RESTORE_TARGET_OCCUPIED');
  if(!plan.toWrite.length)return plan.newIndexEntries;
- const after=JSON.stringify(plan.newIndexEntries),attempted=[];
+ return applySavedDealState(provider,before,plan.newIndexEntries,plan.toWrite.map(({id,record})=>({key:'deal:'+id,beforeRaw:null,afterRaw:JSON.stringify(record)})),checkExisting);
+}
+
+// All callers hold the shared operation lock. This compensates observed I/O
+// failure, including write-then-reject; it is not a process-crash transaction.
+async function applySavedDealState(provider,before,newIndex,changes,checkUnchanged=async()=>{}){
+ if(!['get','set','delete'].every(key=>typeof provider[key]==='function'))throw new BackupError('RESTORE_PROVIDER_UNSUPPORTED');
+ checkIndex(newIndex);const after=JSON.stringify(newIndex),attempted=[];
+ if(await provider.get('deals-index')!==before.raw)throw new BackupError('RESTORE_STORAGE_CHANGED');
+ for(const change of changes)if(await provider.get(change.key)!==change.beforeRaw)throw new BackupError('RESTORE_STORAGE_CHANGED');
+ await checkUnchanged();
+ const write=async change=>{
+  if(await provider.get(change.key)!==change.beforeRaw)throw new BackupError('RESTORE_STORAGE_CHANGED');
+  attempted.push(change);
+  if(change.afterRaw===null)await provider.delete(change.key);else await provider.set(change.key,change.afterRaw);
+  if(await provider.get(change.key)!==change.afterRaw)throw new BackupError('RESTORE_WRITE_NOT_CONFIRMED');
+ };
  try{
-  for(const {id,record}of plan.toWrite){
-   const key='deal:'+id,text=JSON.stringify(record);
-   if(await provider.get(key)!==null)throw new BackupError('RESTORE_TARGET_OCCUPIED');attempted.push({key,text});
-   await provider.set(key,text);if(await provider.get(key)!==text)throw new BackupError('RESTORE_WRITE_NOT_CONFIRMED');
-  }
+  // Adds/updates stage their record before publishing the index. Deletion
+  // unlinks first so a successful read never sees a missing indexed record.
+  for(const change of changes.filter(c=>c.afterRaw!==null))await write(change);
   if(await provider.get('deals-index')!==before.raw)throw new BackupError('RESTORE_STORAGE_CHANGED');
-  await checkExisting();await provider.set('deals-index',after);
+  await checkUnchanged();await provider.set('deals-index',after);
   if(await provider.get('deals-index')!==after)throw new BackupError('RESTORE_WRITE_NOT_CONFIRMED');
-  return plan.newIndexEntries;
+  for(const change of changes.filter(c=>c.afterRaw===null))await write(change);
+  if(await provider.get('deals-index')!==after)throw new BackupError('RESTORE_STORAGE_CHANGED');
+  for(const change of changes)if(await provider.get(change.key)!==change.afterRaw)throw new BackupError('RESTORE_WRITE_NOT_CONFIRMED');
+  return newIndex;
  }catch(cause){
-  // Never overwrite an index published by another writer or delete its data.
-  // Failure to observe/verify compensation is explicit, never "unchanged".
   try{
-   const current=await provider.get('deals-index');
-   if(current!==before.raw){
-    if(current!==after)throw new Error('FOREIGN_INDEX');
+   const ownedIndex=async()=>{
+    const current=await provider.get('deals-index');
+    if(current!==before.raw&&current!==after)throw new Error('FOREIGN_INDEX');return current;
+   };
+   await ownedIndex();
+   await checkUnchanged();
+   for(const change of changes){const current=await provider.get(change.key);if(current!==change.beforeRaw&&(!attempted.includes(change)||current!==change.afterRaw))throw new Error('FOREIGN_RECORD');}
+   // Restore deleted/updated records before making the old index visible.
+   for(const change of attempted.filter(c=>c.beforeRaw!==null)){
+    const current=await provider.get(change.key);if(current===change.beforeRaw)continue;
+    if(current!==change.afterRaw)throw new Error('FOREIGN_RECORD');await ownedIndex();
+    await provider.set(change.key,change.beforeRaw);
+    if(await provider.get(change.key)!==change.beforeRaw)throw new Error('RECORD_ROLLBACK_UNCONFIRMED');
+   }
+   if(await ownedIndex()!==before.raw){
     if(before.raw===null)await provider.delete('deals-index');else await provider.set('deals-index',before.raw);
    }
    if(await provider.get('deals-index')!==before.raw)throw new Error('INDEX_ROLLBACK_UNCONFIRMED');
-   for(const {key,text}of attempted.reverse()){
-    const value=await provider.get(key);if(value===null)continue;
-    if(value!==text)throw new Error('FOREIGN_RECORD');await provider.delete(key);
-    if(await provider.get(key)!==null)throw new Error('RECORD_ROLLBACK_UNCONFIRMED');
+   for(const change of attempted.filter(c=>c.beforeRaw===null).reverse()){
+    const current=await provider.get(change.key);if(current===null)continue;
+    if(current!==change.afterRaw)throw new Error('FOREIGN_RECORD');
+    if(await provider.get('deals-index')!==before.raw)throw new Error('FOREIGN_INDEX');
+    await provider.delete(change.key);
+    if(await provider.get(change.key)!==null)throw new Error('RECORD_ROLLBACK_UNCONFIRMED');
    }
+   for(const change of changes)if(await provider.get(change.key)!==change.beforeRaw)throw new Error('RECORD_ROLLBACK_UNCONFIRMED');
+   if(await provider.get('deals-index')!==before.raw)throw new Error('INDEX_ROLLBACK_UNCONFIRMED');
   }catch(_){throw new BackupError('RESTORE_RECOVERY_REQUIRED');}
   throw new BackupError('RESTORE_STORAGE_FAILED_ROLLED_BACK');
  }
 }
+function checkedRecord(record){
+ validateSavedDealRecord(record);checkJson(record);
+ if(!validId(record.id))throw new BackupError('BACKUP_DUPLICATE_OR_INVALID_ID');
+ return JSON.parse(JSON.stringify(record));
+}
+function indexEntry(record){return Object.fromEntries(Object.entries({id:record.id,name:record.name,mode:record.mode,savedAt:record.savedAt}).filter(([,value])=>value!==undefined));}
+function saveNewSavedDeal(record,provider){return withSavedDealsLock(provider,async()=>{
+ const saved=checkedRecord(record),before=await readSavedDealsIndex(provider);
+ if(before.entries.length>=MAX_DEALS)throw new BackupError('BACKUP_DEAL_LIMIT');
+ const ids=new Set(before.entries.map(e=>e.id)),base=saved.id;let suffix=0;
+ while(ids.has(saved.id)||await provider.get('deal:'+saved.id)!==null)saved.id=base.slice(0,130)+'~saved-'+ ++suffix;
+ const index=await applySavedDealState(provider,before,[...before.entries,indexEntry(saved)],[{key:'deal:'+saved.id,beforeRaw:null,afterRaw:JSON.stringify(saved)}]);
+ return {id:saved.id,index};
+});}
+const READ_ONLY_EXTENSION_KEYS=['assumptionRegistry','assumptionRegistryVersion','standardsSnapshotVersion','standardsSnapshot','valuationStandardsContext'];
+function updateSavedDealRecord(id,makeRecord,provider){return withSavedDealsLock(provider,async()=>{
+ const before=await readSavedDealsIndex(provider);
+ if(!before.entries.some(entry=>entry.id===id))throw new BackupError('DEAL_NOT_FOUND');
+ const raw=await provider.get('deal:'+id);if(raw===null)throw new BackupError('MISSING_INDEXED_RECORD');
+ const original=checkedRecord(parseBackupText(raw));if(original.id!==id)throw new BackupError('BACKUP_RECORD_ID_MISMATCH');
+ const proposed=makeRecord(JSON.parse(JSON.stringify(original)));
+ // The form has no editor for these imported source/standards fields. Keep
+ // them while allowing editable Zakat/operating/valuation cases to be cleared.
+ for(const key of READ_ONLY_EXTENSION_KEYS)if(!Object.prototype.hasOwnProperty.call(proposed,key)&&Object.prototype.hasOwnProperty.call(original,key))proposed[key]=original[key];
+ const saved=checkedRecord(proposed);if(saved.id!==id||saved.mode!==original.mode)throw new BackupError('BACKUP_RECORD_ID_MISMATCH');
+ return applySavedDealState(provider,before,before.entries.map(entry=>entry.id===id?{...entry,...indexEntry(saved)}:entry),[{key:'deal:'+id,beforeRaw:raw,afterRaw:JSON.stringify(saved)}]);
+});}
+function removeSavedDealRecord(id,provider){return withSavedDealsLock(provider,async()=>{
+ const before=await readSavedDealsIndex(provider);
+ if(!before.entries.some(entry=>entry.id===id))throw new BackupError('DEAL_NOT_FOUND');
+ const raw=await provider.get('deal:'+id);if(raw===null)throw new BackupError('MISSING_INDEXED_RECORD');
+ return applySavedDealState(provider,before,before.entries.filter(entry=>entry.id!==id),[{key:'deal:'+id,beforeRaw:raw,afterRaw:null}]);
+});}
 function restoreBackupPayload(payload,provider){return withSavedDealsLock(provider,async()=>{
  const {entries,records}=await readSavedDealsSnapshot(provider);
  const plan=planRestore(payload,entries,records);const index=await commitRestoreUnlocked(plan,provider);
@@ -319,5 +383,6 @@ module.exports = {
   buildComplianceMetadata,
   buildExportProvenance,
   buildCurrentExportPayload,readSavedDealsIndex,restoreBackupPayload,
+  saveNewSavedDeal,updateSavedDealRecord,removeSavedDealRecord,
   parseBackupText,serializeBackup,MAX_BACKUP_BYTES,MAX_DEALS,
 };

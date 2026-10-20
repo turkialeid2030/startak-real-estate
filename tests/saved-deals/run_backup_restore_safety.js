@@ -1,6 +1,6 @@
 'use strict';
 const assert=require('node:assert/strict');
-const {planRestore,commitRestore,restoreBackupPayload,buildCurrentExportPayload,buildExportPayload,parseBackupText,serializeBackup,MAX_BACKUP_BYTES,MAX_DEALS}=require('../../src/storage/saved-deals-backup');
+const {planRestore,commitRestore,restoreBackupPayload,buildCurrentExportPayload,buildExportPayload,saveNewSavedDeal,updateSavedDealRecord,removeSavedDealRecord,parseBackupText,serializeBackup,MAX_BACKUP_BYTES,MAX_DEALS}=require('../../src/storage/saved-deals-backup');
 const {withSavedDealsLock}=require('../../src/storage/saved-deals-operation-lock');
 const {calculateInvestmentCase,STUDY_TYPE}=require('../../src/engines');
 const gold=require('../reference/RE-GOLD-baseline.json');
@@ -58,5 +58,34 @@ const snapshot=p=>[...p.store].sort(([a],[b])=>a.localeCompare(b));
  const minimal={id:'minimal-legacy',mode:'building',inputs:{}},minimalStore=memory({'deal:minimal-legacy':JSON.stringify(minimal)});
  const minimalExport=await buildExportPayload([{id:minimal.id}],minimalStore);eq(minimalExport.deals,[minimal]);
  const minimalDestination=memory();await restoreBackupPayload(minimalExport,minimalDestination);eq(JSON.parse(await minimalDestination.get('deal:minimal-legacy')),minimal);
+ // Ordinary UI save/update/delete have the same observed-failure boundary.
+ // Exercise both record/index positions and write-then-reject for each path.
+ const initialRecord=deal('existing','Original'),initialState={'deal:existing':JSON.stringify(initialRecord,null,2),'deals-index':'[ { "id": "existing", "name": "Original", "mode": "building" } ]'};
+ const operations={save:m=>saveNewSavedDeal(deal('new'),m),update:m=>updateSavedDealRecord('existing',old=>({...old,name:'Changed',savedAt:'2026-10-21T00:00:00Z'}),m),delete:m=>removeSavedDealRecord('existing',m)};
+ for(const operation of Object.values(operations))for(const failAt of [1,2])for(const afterWrite of [false,true]){
+  const m=memory(initialState),original=snapshot(m),set=m.set,del=m.delete;let attempts=0;
+  m.set=async(k,v)=>{if(++attempts===failAt){if(afterWrite)await set(k,v);throw Error('synthetic write failure');}await set(k,v);};
+  m.delete=async k=>{if(++attempts===failAt){if(afterWrite)await del(k);throw Error('synthetic delete failure');}await del(k);};
+  await rejects(()=>operation(m),'RESTORE_STORAGE_FAILED_ROLLED_BACK');eq(snapshot(m),original);
+ }
+ for(const afterWrite of [false,true]){
+  const m=memory(),set=m.set;let attempts=0;m.set=async(k,v)=>{if(++attempts===2){if(afterWrite)await set(k,v);throw Error('index failed');}await set(k,v);};
+  await rejects(()=>operations.save(m),'RESTORE_STORAGE_FAILED_ROLLED_BACK');eq(snapshot(m),[]);
+ }
+ const retained=memory();await restoreBackupPayload(payload([rich[0]]),retained);
+ await updateSavedDealRecord(rich[0].id,old=>({id:old.id,name:old.name,mode:old.mode,inputs:old.inputs,savedAt:old.savedAt}),retained);
+ const updated=JSON.parse(await retained.get('deal:'+rich[0].id));eq(updated.assumptionRegistry,rich[0].assumptionRegistry);eq(updated.assumptionRegistryVersion,rich[0].assumptionRegistryVersion);eq(Object.hasOwn(updated,'zakatCase'),false);eq(Object.hasOwn(updated,'operatingCase'),false);eq(Object.hasOwn(updated,'valuationCase'),false);
+ const saved=await saveNewSavedDeal(deal('existing','Distinct'),retained);eq(saved.id,'existing');
+ const savedAgain=await saveNewSavedDeal(deal('existing','Distinct second'),retained);eq(savedAgain.id,'existing~saved-1');eq(JSON.parse(await retained.get('deal:existing')).name,'Distinct');
+ await removeSavedDealRecord(savedAgain.id,retained);eq(await retained.get('deal:'+savedAgain.id),null);eq(JSON.parse(await retained.get('deals-index')).some(e=>e.id===savedAgain.id),false);
+ const concurrentCrud=memory();await Promise.all([saveNewSavedDeal(deal('same'),concurrentCrud),saveNewSavedDeal(deal('same','Other'),concurrentCrud)]);eq(JSON.parse(await concurrentCrud.get('deals-index')).map(e=>e.id),['same','same~saved-1']);
+ const staleUpdate=memory(initialState);await rejects(()=>updateSavedDealRecord('existing',old=>{staleUpdate.store.set('deals-index','[{"id":"foreign"}]');return old;},staleUpdate),'RESTORE_STORAGE_CHANGED');eq(staleUpdate.writes(),0);eq(await staleUpdate.get('deals-index'),'[{"id":"foreign"}]');
+ const foreignRecord=memory(initialState),foreignSet=foreignRecord.set;foreignRecord.set=async(k,v)=>{if(k==='deals-index'){foreignRecord.store.set('deal:existing','foreign bytes');throw Error('foreign writer');}await foreignSet(k,v);};
+ await rejects(()=>operations.update(foreignRecord),'RESTORE_RECOVERY_REQUIRED');eq(await foreignRecord.get('deal:existing'),'foreign bytes');
+ const unattemptedDelete=memory(initialState),unlink=unattemptedDelete.set;unattemptedDelete.set=async(k,v)=>{await unlink(k,v);unattemptedDelete.store.set('deal:existing','foreign before deletion');throw Error('index acknowledgment failed');};
+ await rejects(()=>operations.delete(unattemptedDelete),'RESTORE_RECOVERY_REQUIRED');eq(await unattemptedDelete.get('deal:existing'),'foreign before deletion');
+ const cannotUndo=memory(initialState),undoSet=cannotUndo.set;let undoAttempt=0;cannotUndo.set=async(k,v)=>{if(++undoAttempt>=2)throw Error('unavailable');await undoSet(k,v);};
+ await rejects(()=>operations.update(cannotUndo),'RESTORE_RECOVERY_REQUIRED');eq(JSON.parse(await cannotUndo.get('deal:existing')).name,'Changed');
+ const ignored=memory();ignored.set=async()=>{};await rejects(()=>saveNewSavedDeal(deal('ignored'),ignored),'RESTORE_STORAGE_FAILED_ROLLED_BACK');eq(snapshot(ignored),[]);
  console.log(`BACKUP_RESTORE_SAFETY=PASS checks=${checks}`);
 })().catch(e=>{console.error(e);process.exitCode=1;});
