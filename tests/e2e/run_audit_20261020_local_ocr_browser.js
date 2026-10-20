@@ -69,6 +69,7 @@ async function secureLoopbackPreview(){
    const file=page.getByTestId('local-document-file-input');
    const upload=async(name,mimeType,buffer)=>{await file.setInputFiles({name,mimeType,buffer});await expect(page.getByTestId('local-ocr-controls')).toBeVisible({timeout:15000});};
    await upload('synthetic.png','image/png',pngTextFixture());
+   await expect(page.getByTestId('local-ocr-layout').getByRole('radio',{name:'تلقائي',exact:true})).toBeChecked();checks++;
    await expect(page.getByTestId('local-document-parser-reason')).toHaveAttribute('data-parser-reason','IMAGE_OCR_NOT_RUN');checks++;
    await page.getByTestId('local-ocr-start').click();await expect(page.getByTestId('local-document-parser-status')).toHaveAttribute('data-parser-status','PARSED',{timeout:65000});checks++;
    const extracted=await download(page,page.getByTestId('local-ocr-export'));
@@ -95,7 +96,7 @@ async function secureLoopbackPreview(){
    const pdf=imagePdfFixture(images.map(base64=>({bytes:Buffer.from(base64,'base64'),width:1500,height:450})));
    await upload('synthetic-scanned.pdf','application/pdf',pdf);
    await expect(page.getByTestId('local-document-parser-reason')).toHaveAttribute('data-parser-reason','PDF_NO_EXTRACTABLE_TEXT');checks++;
-   await page.getByTestId('local-ocr-page').fill('٢');await page.getByTestId('local-ocr-layout').selectOption('SINGLE_BLOCK');await page.getByTestId('local-ocr-start').click();
+   await page.getByTestId('local-ocr-page').fill('٢');await page.getByTestId('local-ocr-layout').getByRole('radio',{name:'كتلة نص واحدة',exact:true}).check();await page.getByTestId('local-ocr-start').click();
    await expect(page.getByTestId('local-document-parser-status')).toHaveAttribute('data-parser-status','PARSED',{timeout:65000});checks++;
    const scanned=await download(page,page.getByTestId('local-ocr-export')),text=scanned.intakeRecord.result.atoms.map(a=>a.rawValue).join('\n');
    await fs.writeFile(`${DIR}/${name}-${width}-ocr-extract.json`,JSON.stringify(scanned,null,2));
@@ -109,7 +110,9 @@ async function secureLoopbackPreview(){
    ok(scanned.intakeRecord.result.atoms.every(a=>a.location.page===2&&!a.metadata.fullDocumentCovered),'selected PDF page numbers retained without whole-document coverage');
    ok(scanned.intakeRecord.digest===createHash('sha256').update(pdf).digest('hex'),'raster output remains bound to original PDF hash');
    ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'OCR controls and preview fit the viewport');
-   await page.getByTestId('local-ocr-layout').selectOption('AUTO');
+   const blockChoice=page.getByTestId('local-ocr-layout').getByRole('radio',{name:'كتلة نص واحدة',exact:true});
+   await blockChoice.focus();await page.keyboard.press('ArrowLeft');
+   await expect(page.getByTestId('local-ocr-layout').getByRole('radio',{name:'تلقائي',exact:true})).toBeChecked();checks++;
    await expect(page.getByTestId('local-ocr-export')).toHaveCount(0);await expect(page.getByTestId('local-ocr-source-preview')).toHaveCount(0);await expect(page.getByTestId('local-document-parser-status')).toHaveCount(0);checks+=3;
    await page.getByTestId('local-ocr-page').fill('3');await page.getByTestId('local-ocr-start').click();
    await expect(panel.getByRole('alert')).toContainText('OCR_PAGE_INVALID',{timeout:15000});await expect(page.getByTestId('local-ocr-export')).toHaveCount(0);await expect(page.getByTestId('local-ocr-source-preview')).toHaveCount(0);checks+=3;
