@@ -394,7 +394,12 @@ module.exports = {
     exportFailedCorrupt: "Export failed: a saved deal has a corrupted structure. Nothing was exported.",
     importSuccess: "Backup restored successfully",
     importFailedInvalid: "Import failed: the file is invalid or corrupted. Your current data was not changed.",
-    durabilityDisclosure: "Saved Deals are stored locally in this browser only. Clearing browser data or switching devices may remove them. Use Export Backup to keep a restorable copy.",
+    durabilityDisclosure: "Backup includes saved deals and their extensions; it excludes original documents, document/action review journals and unsaved edits. Storage belongs to this browser; clearing browser data may remove it. Keep the backup outside the browser. Restore does not verify sources or financial qualification.",
+    storageBusy: "Completing the storage operation…",
+    backupLimit: "Limit: 10 MiB per backup and 200 deals in the final index. The operation did not complete.",
+    importRolledBack: "The storage operation failed; rollback of its record changes and the prior index was verified. The operation did not complete.",
+    importRecoveryRequired: "Not all storage changes could be verified as rolled back. Saving, updating, deleting and importing are blocked in this session; review the data, retain the original backup and try exporting current deals. Do not assume data is unchanged.",
+    importStorageChanged: "Storage changed or a target ID was occupied. No write began; retry the operation to read the current index.",
   },
   validationDisclosure: {
     title: "Invalid Input Value",

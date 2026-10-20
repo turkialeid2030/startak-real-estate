@@ -4,6 +4,7 @@
 // locale-independent structural selectors (lucide icon CSS classes) to
 // eliminate the timing fragility of coordinate-based clicks.
 const fs = require('fs'), path = require('path');
+const {removeSavedDealRecord}=require('../../src/storage/saved-deals-backup');
 const results = [];
 function check(id, cond, detail) { console.log(`${id} ${cond?'PASS':'FAIL'} -- ${detail}`); results.push(cond); }
 
@@ -15,7 +16,7 @@ const deleteFn = appSrc.match(/const deleteDeal = async \(id\) => \{[\s\S]*?\n  
 check('UPDATE_FUNCTION_STUDY_BRANCHES-0', !/mode\s*===\s*["'](building|land)["']/.test(updateFn), 'zero mode-conditional branches in updateActiveDeal');
 const deletePersistence = deleteFn.split('setSavedDeals(newIndex)')[0];
 check('DELETE_PERSISTENCE_STUDY_BRANCHES-0', !/mode\s*===\s*["'](building|land)["']/.test(deletePersistence), 'saved record deletion and index write are independent of study mode');
-check('DELETE_SINGLE_TARGET_KEY', (deletePersistence.match(/storageProvider\.delete\(/g) || []).length === 1 && deletePersistence.includes('storageProvider.delete("deal:" + id)'), 'delete only the selected record key');
+check('DELETE_SHARED_STORAGE_PATH', deletePersistence.includes('removeSavedDealRecord(id,storageProvider)'), 'UI delegates selected ID to the shared verified storage path');
 
 // Historical evidence recorded by the original real-browser session (structural
 // selectors: svg.lucide-circle-x for close, svg.lucide-trash-2 scoped to the
@@ -38,8 +39,19 @@ historical('BUILDING_DELETE_UNRELATED_RECORDS_CHANGED-FALSE', 'a second, unrelat
 historical('APP_INTERACTIVE_AFTER_DELETE', 'page.locator("body").isVisible() === true, app remained fully responsive');
 historical('ZERO_PAGE_ERRORS', '0 pageerror events across the entire sequence');
 
-const allPass = results.every(Boolean);
-console.log('\nBUILDING_UPDATE_BROWSER_PATH=NOT_RERUN');
-console.log('BUILDING_DELETE_BROWSER_PATH=NOT_RERUN');
-console.log('RUN_R6D_BUILDING_UPDATE_DELETE_REAL_PATH=' + (allPass?'PASS':'FAIL'));
-process.exit(allPass?0:1);
+(async()=>{
+  // Verify the selected-key contract by execution rather than requiring a
+  // direct provider.delete call in App after compensation moved into storage.
+  for(const mode of ['building','land']){
+    const target={id:'selected',mode,inputs:{}},control={id:'unrelated',mode:mode==='building'?'land':'building',inputs:{}};
+    const untouched=JSON.stringify(control),store=new Map([['deal:selected',JSON.stringify(target)],['deal:unrelated',untouched],['deals-index',JSON.stringify([{id:target.id},{id:control.id}])]]);
+    const provider={get:async key=>store.get(key)??null,set:async(key,value)=>{store.set(key,value);},delete:async key=>{store.delete(key);}};
+    const index=await removeSavedDealRecord(target.id,provider);
+    check('DELETE_SINGLE_TARGET_KEY-'+mode, !store.has('deal:selected')&&store.get('deal:unrelated')===untouched&&JSON.stringify(index)==='[{"id":"unrelated"}]'&&store.get('deals-index')===JSON.stringify(index), 'only selected record removed; unrelated raw bytes and index entry preserved');
+  }
+  const allPass = results.every(Boolean);
+  console.log('\nBUILDING_UPDATE_BROWSER_PATH=NOT_RERUN');
+  console.log('BUILDING_DELETE_BROWSER_PATH=NOT_RERUN');
+  console.log('RUN_R6D_BUILDING_UPDATE_DELETE_REAL_PATH=' + (allPass?'PASS':'FAIL'));
+  process.exitCode=allPass?0:1;
+})().catch(error=>{console.error(error);process.exitCode=1;});

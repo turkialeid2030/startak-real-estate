@@ -8,6 +8,9 @@
 // canonical validator; does NOT implement a second/duplicate schema validator.
 
 const { validateSavedDealRecord } = require('../validation/saved-deal-schema.js');
+const {withSavedDealsLock}=require('./saved-deals-operation-lock');
+const {MAX_BACKUP_BYTES,MAX_DEALS,checkText,checkJson,validId,checkIndex,parseBackupText,serializeBackup}=require('./saved-deals-backup-limits');
+const restorePlans=new WeakMap();
 const {
   OPERATING_MODE,
   SHORT_SCOPE_NOTICE,
@@ -18,6 +21,8 @@ const BACKUP_FORMAT = 'STARTAK_SAVED_DEALS_BACKUP';
 const BACKUP_VERSION = 4;
 const OPTIONAL_DEAL_EXTENSION_KEYS = Object.freeze([
   'assumptionModelVersion',
+  'assumptionRegistry',
+  'assumptionRegistryVersion',
   'zakatCase',
   'operatingCase',
   'valuationCase',
@@ -31,6 +36,8 @@ const OPTIONAL_DEAL_EXTENSION_KEYS = Object.freeze([
 
 function projectDealRecord(parsed, id = parsed.id) {
   const record = { id, name: parsed.name, mode: parsed.mode, inputs: parsed.inputs, savedAt: parsed.savedAt };
+  // Historical canonically valid records may omit optional display metadata.
+  for(const key of ['name','savedAt'])if(record[key]===undefined)delete record[key];
   for (const key of OPTIONAL_DEAL_EXTENSION_KEYS) {
     if (Object.prototype.hasOwnProperty.call(parsed, key)) record[key] = parsed[key];
   }
@@ -82,20 +89,27 @@ function buildExportProvenance(exportedAt, dealCount) {
  * record is never silently omitted or silently exported as trusted data.
  */
 async function buildExportPayload(dealIndexEntries, storageProvider) {
+  return withSavedDealsLock(storageProvider,()=>buildExportUnlocked(dealIndexEntries,storageProvider));
+}
+async function buildExportUnlocked(dealIndexEntries, storageProvider) {
+  checkIndex(dealIndexEntries);
   const deals = [];
   for (const entry of dealIndexEntries) {
     const raw = await storageProvider.get('deal:' + entry.id);
     if (!raw) throw new BackupError('MISSING_INDEXED_RECORD', `id=${entry.id}`);
+    checkText(raw);
     let parsed;
     try { parsed = JSON.parse(raw); } catch (e) { throw new BackupError('CORRUPT_JSON_IN_STORAGE', `id=${entry.id}`); }
     validateSavedDealRecord(parsed); // throws SavedDealValidationError if structurally invalid -- propagates, aborting the whole export
+    checkJson(parsed);
+    if(parsed.id!==entry.id)throw new BackupError('BACKUP_RECORD_ID_MISMATCH');
     // Preserve the core deal plus optional canonical non-economic extensions.
     // No calculated view-model, valuation result, or presentation field is
     // exported here.
     deals.push(projectDealRecord(parsed));
   }
   const exportedAt = new Date().toISOString();
-  return {
+  const payload={
     format: BACKUP_FORMAT,
     backupVersion: BACKUP_VERSION,
     exportedAt,
@@ -103,7 +117,23 @@ async function buildExportPayload(dealIndexEntries, storageProvider) {
     evidenceProvenance: buildExportProvenance(exportedAt, deals.length),
     deals,
   };
+  serializeBackup(payload);return payload;
 }
+
+async function readSavedDealsIndex(provider){
+ const raw=await provider.get('deals-index');let entries=[];
+ if(raw!==null){checkText(raw);try{entries=JSON.parse(raw);}catch{throw new BackupError('BACKUP_INDEX_INVALID');}}
+ checkIndex(entries);return {entries,raw};
+}
+async function readSavedDealsSnapshot(provider){
+ const {entries,raw}=await readSavedDealsIndex(provider),records=new Map();
+ let total=0;
+ for(const entry of entries){const text=await provider.get('deal:'+entry.id);if(typeof text!=='string')throw new BackupError('MISSING_INDEXED_RECORD');checkText(text);total+=new TextEncoder().encode(text).byteLength;if(total>MAX_BACKUP_BYTES)throw new BackupError('BACKUP_SIZE_LIMIT');records.set(entry.id,text);}
+ return {entries,raw,records};
+}
+function buildCurrentExportPayload(provider){return withSavedDealsLock(provider,async()=>{
+ const {entries}=await readSavedDealsIndex(provider);return buildExportUnlocked(entries,provider);
+});}
 
 function validateV4ComplianceMetadata(parsed) {
   const compliance = parsed.compliance;
@@ -154,6 +184,8 @@ function validateBackupEnvelope(parsed) {
   if (!Array.isArray(parsed.deals)) {
     throw new BackupError('MISSING_DEALS_ARRAY', `typeof=${typeof parsed.deals}`);
   }
+  checkJson(parsed);
+  if(parsed.deals.length>MAX_DEALS)throw new BackupError('BACKUP_DEAL_LIMIT');
   if (parsed.backupVersion >= 4) validateV4ComplianceMetadata(parsed);
   return parsed;
 }
@@ -169,32 +201,53 @@ function validateBackupEnvelope(parsed) {
  *   - no ID collision                  -> import as-is
  * Throws BackupError on ANY structural problem (envelope or any single
  * deal) -- the caller must not commit anything if this throws. This is
- * what makes restore transactional/non-destructive: nothing is written
- * until this entire plan succeeds.
+ * what keeps structural validation ahead of writes: nothing is written
+ * until this entire plan succeeds. Observed I/O failures use compensation.
  */
 function planRestore(backupPayload, existingIndexEntries, existingRecordsById) {
   validateBackupEnvelope(backupPayload);
+  checkIndex(existingIndexEntries);
+  if(!(existingRecordsById instanceof Map))throw new BackupError('RESTORE_SNAPSHOT_INVALID');
+  const incomingIds=new Set();
+  for(const deal of backupPayload.deals){
+    validateSavedDealRecord(deal);
+    if(!validId(deal.id)||incomingIds.has(deal.id))throw new BackupError('BACKUP_DUPLICATE_OR_INVALID_ID');
+    incomingIds.add(deal.id);
+  }
   const existingIds = new Map(existingIndexEntries.map((e) => [e.id, e]));
+  const reservedIds=new Set([...existingIds.keys(),...incomingIds]);
   const toWrite = []; // [{id, record}]
-  const newIndexEntries = [...existingIndexEntries];
+  const newIndexEntries = JSON.parse(JSON.stringify(existingIndexEntries));
+  let skippedCount=0,renamedCount=0;
 
   for (const deal of backupPayload.deals) {
     validateSavedDealRecord(deal); // reuse SDI-001 validator -- throws on any structural defect, aborting the whole plan
     let targetId = deal.id;
     if (existingIds.has(deal.id)) {
       const existingRaw = existingRecordsById.get(deal.id);
-      const existingContent = existingRaw ? JSON.stringify(JSON.parse(existingRaw)) : null;
+      if(typeof existingRaw!=='string')throw new BackupError('MISSING_INDEXED_RECORD');
+      checkText(existingRaw);
+      let existing;try{existing=JSON.parse(existingRaw);}catch{throw new BackupError('CORRUPT_JSON_IN_STORAGE');}
+      validateSavedDealRecord(existing);checkJson(existing);
+      if(existing.id!==deal.id)throw new BackupError('BACKUP_RECORD_ID_MISMATCH');
+      const existingContent = JSON.stringify(projectDealRecord(existing));
       const incomingContent = JSON.stringify(projectDealRecord(deal));
       if (existingContent === incomingContent) {
+        skippedCount++;
         continue; // exact duplicate -- skip, not an error, not a write
       }
-      targetId = 'deal_restored_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+      let suffix=1;do{targetId=deal.id.slice(0,130)+'~restored-'+suffix++;}while(reservedIds.has(targetId));
+      reservedIds.add(targetId);renamedCount++;
     }
-    const record = projectDealRecord(deal, targetId);
+    const record = JSON.parse(JSON.stringify(projectDealRecord(deal, targetId)));
     toWrite.push({ id: targetId, record });
-    newIndexEntries.push({ id: targetId, name: deal.name, mode: deal.mode, savedAt: deal.savedAt });
+    newIndexEntries.push(Object.fromEntries(Object.entries({id:targetId,name:deal.name,mode:deal.mode,savedAt:deal.savedAt}).filter(([,value])=>value!==undefined)));
   }
-  return { toWrite, newIndexEntries };
+  checkIndex(newIndexEntries);
+  const plan={toWrite,newIndexEntries,skippedCount,renamedCount};
+  const freeze=value=>{if(value&&typeof value==='object'){Object.values(value).forEach(freeze);Object.freeze(value);}return value;};freeze(plan);
+  restorePlans.set(plan,{used:false,index:JSON.stringify(existingIndexEntries),records:new Map(existingRecordsById)});
+  return plan;
 }
 
 /**
@@ -205,12 +258,117 @@ function planRestore(backupPayload, existingIndexEntries, existingRecordsById) {
  * (handled by the caller's existing DEAL_SAVE_FAILED-style error path).
  */
 async function commitRestore(plan, storageProvider) {
-  for (const { id, record } of plan.toWrite) {
-    await storageProvider.set('deal:' + id, JSON.stringify(record));
-  }
-  await storageProvider.set('deals-index', JSON.stringify(plan.newIndexEntries));
-  return plan.newIndexEntries;
+  return withSavedDealsLock(storageProvider,()=>commitRestoreUnlocked(plan,storageProvider));
 }
+async function commitRestoreUnlocked(plan,provider){
+ const state=restorePlans.get(plan);
+ if(!state||state.used)throw new BackupError('RESTORE_PLAN_INVALID_OR_USED');state.used=true;
+ if(!['get','set','delete'].every(key=>typeof provider[key]==='function'))throw new BackupError('RESTORE_PROVIDER_UNSUPPORTED');
+ const before=await readSavedDealsIndex(provider);
+ if(JSON.stringify(before.entries)!==state.index)throw new BackupError('RESTORE_STORAGE_CHANGED');
+ const checkExisting=async()=>{for(const[id,text]of state.records)if(await provider.get('deal:'+id)!==text)throw new BackupError('RESTORE_STORAGE_CHANGED');};
+ await checkExisting();
+ for(const {id}of plan.toWrite)if(await provider.get('deal:'+id)!==null)throw new BackupError('RESTORE_TARGET_OCCUPIED');
+ if(!plan.toWrite.length)return plan.newIndexEntries;
+ return applySavedDealState(provider,before,plan.newIndexEntries,plan.toWrite.map(({id,record})=>({key:'deal:'+id,beforeRaw:null,afterRaw:JSON.stringify(record)})),checkExisting);
+}
+
+// All callers hold the shared operation lock. This compensates observed I/O
+// failure, including write-then-reject; it is not a process-crash transaction.
+async function applySavedDealState(provider,before,newIndex,changes,checkUnchanged=async()=>{}){
+ if(!['get','set','delete'].every(key=>typeof provider[key]==='function'))throw new BackupError('RESTORE_PROVIDER_UNSUPPORTED');
+ checkIndex(newIndex);const after=JSON.stringify(newIndex),attempted=[];
+ if(await provider.get('deals-index')!==before.raw)throw new BackupError('RESTORE_STORAGE_CHANGED');
+ for(const change of changes)if(await provider.get(change.key)!==change.beforeRaw)throw new BackupError('RESTORE_STORAGE_CHANGED');
+ await checkUnchanged();
+ const write=async change=>{
+  if(await provider.get(change.key)!==change.beforeRaw)throw new BackupError('RESTORE_STORAGE_CHANGED');
+  attempted.push(change);
+  if(change.afterRaw===null)await provider.delete(change.key);else await provider.set(change.key,change.afterRaw);
+  if(await provider.get(change.key)!==change.afterRaw)throw new BackupError('RESTORE_WRITE_NOT_CONFIRMED');
+ };
+ try{
+  // Adds/updates stage their record before publishing the index. Deletion
+  // unlinks first so a successful read never sees a missing indexed record.
+  for(const change of changes.filter(c=>c.afterRaw!==null))await write(change);
+  if(await provider.get('deals-index')!==before.raw)throw new BackupError('RESTORE_STORAGE_CHANGED');
+  await checkUnchanged();await provider.set('deals-index',after);
+  if(await provider.get('deals-index')!==after)throw new BackupError('RESTORE_WRITE_NOT_CONFIRMED');
+  for(const change of changes.filter(c=>c.afterRaw===null))await write(change);
+  if(await provider.get('deals-index')!==after)throw new BackupError('RESTORE_STORAGE_CHANGED');
+  for(const change of changes)if(await provider.get(change.key)!==change.afterRaw)throw new BackupError('RESTORE_WRITE_NOT_CONFIRMED');
+  return newIndex;
+ }catch(cause){
+  try{
+   const ownedIndex=async()=>{
+    const current=await provider.get('deals-index');
+    if(current!==before.raw&&current!==after)throw new Error('FOREIGN_INDEX');return current;
+   };
+   await ownedIndex();
+   await checkUnchanged();
+   for(const change of changes){const current=await provider.get(change.key);if(current!==change.beforeRaw&&(!attempted.includes(change)||current!==change.afterRaw))throw new Error('FOREIGN_RECORD');}
+   // Restore deleted/updated records before making the old index visible.
+   for(const change of attempted.filter(c=>c.beforeRaw!==null)){
+    const current=await provider.get(change.key);if(current===change.beforeRaw)continue;
+    if(current!==change.afterRaw)throw new Error('FOREIGN_RECORD');await ownedIndex();
+    await provider.set(change.key,change.beforeRaw);
+    if(await provider.get(change.key)!==change.beforeRaw)throw new Error('RECORD_ROLLBACK_UNCONFIRMED');
+   }
+   if(await ownedIndex()!==before.raw){
+    if(before.raw===null)await provider.delete('deals-index');else await provider.set('deals-index',before.raw);
+   }
+   if(await provider.get('deals-index')!==before.raw)throw new Error('INDEX_ROLLBACK_UNCONFIRMED');
+   for(const change of attempted.filter(c=>c.beforeRaw===null).reverse()){
+    const current=await provider.get(change.key);if(current===null)continue;
+    if(current!==change.afterRaw)throw new Error('FOREIGN_RECORD');
+    if(await provider.get('deals-index')!==before.raw)throw new Error('FOREIGN_INDEX');
+    await provider.delete(change.key);
+    if(await provider.get(change.key)!==null)throw new Error('RECORD_ROLLBACK_UNCONFIRMED');
+   }
+   for(const change of changes)if(await provider.get(change.key)!==change.beforeRaw)throw new Error('RECORD_ROLLBACK_UNCONFIRMED');
+   if(await provider.get('deals-index')!==before.raw)throw new Error('INDEX_ROLLBACK_UNCONFIRMED');
+  }catch(_){throw new BackupError('RESTORE_RECOVERY_REQUIRED');}
+  throw new BackupError('RESTORE_STORAGE_FAILED_ROLLED_BACK');
+ }
+}
+function checkedRecord(record){
+ validateSavedDealRecord(record);checkJson(record);
+ if(!validId(record.id))throw new BackupError('BACKUP_DUPLICATE_OR_INVALID_ID');
+ return JSON.parse(JSON.stringify(record));
+}
+function indexEntry(record){return Object.fromEntries(Object.entries({id:record.id,name:record.name,mode:record.mode,savedAt:record.savedAt}).filter(([,value])=>value!==undefined));}
+function saveNewSavedDeal(record,provider){return withSavedDealsLock(provider,async()=>{
+ const saved=checkedRecord(record),before=await readSavedDealsIndex(provider);
+ if(before.entries.length>=MAX_DEALS)throw new BackupError('BACKUP_DEAL_LIMIT');
+ const ids=new Set(before.entries.map(e=>e.id)),base=saved.id;let suffix=0;
+ while(ids.has(saved.id)||await provider.get('deal:'+saved.id)!==null)saved.id=base.slice(0,130)+'~saved-'+ ++suffix;
+ const index=await applySavedDealState(provider,before,[...before.entries,indexEntry(saved)],[{key:'deal:'+saved.id,beforeRaw:null,afterRaw:JSON.stringify(saved)}]);
+ return {id:saved.id,index};
+});}
+const READ_ONLY_EXTENSION_KEYS=['assumptionRegistry','assumptionRegistryVersion','standardsSnapshotVersion','standardsSnapshot','valuationStandardsContext'];
+function updateSavedDealRecord(id,makeRecord,provider){return withSavedDealsLock(provider,async()=>{
+ const before=await readSavedDealsIndex(provider);
+ if(!before.entries.some(entry=>entry.id===id))throw new BackupError('DEAL_NOT_FOUND');
+ const raw=await provider.get('deal:'+id);if(raw===null)throw new BackupError('MISSING_INDEXED_RECORD');
+ const original=checkedRecord(parseBackupText(raw));if(original.id!==id)throw new BackupError('BACKUP_RECORD_ID_MISMATCH');
+ const proposed=makeRecord(JSON.parse(JSON.stringify(original)));
+ // The form has no editor for these imported source/standards fields. Keep
+ // them while allowing editable Zakat/operating/valuation cases to be cleared.
+ for(const key of READ_ONLY_EXTENSION_KEYS)if(!Object.prototype.hasOwnProperty.call(proposed,key)&&Object.prototype.hasOwnProperty.call(original,key))proposed[key]=original[key];
+ const saved=checkedRecord(proposed);if(saved.id!==id||saved.mode!==original.mode)throw new BackupError('BACKUP_RECORD_ID_MISMATCH');
+ return applySavedDealState(provider,before,before.entries.map(entry=>entry.id===id?{...entry,...indexEntry(saved)}:entry),[{key:'deal:'+id,beforeRaw:raw,afterRaw:JSON.stringify(saved)}]);
+});}
+function removeSavedDealRecord(id,provider){return withSavedDealsLock(provider,async()=>{
+ const before=await readSavedDealsIndex(provider);
+ if(!before.entries.some(entry=>entry.id===id))throw new BackupError('DEAL_NOT_FOUND');
+ const raw=await provider.get('deal:'+id);if(raw===null)throw new BackupError('MISSING_INDEXED_RECORD');
+ return applySavedDealState(provider,before,before.entries.filter(entry=>entry.id!==id),[{key:'deal:'+id,beforeRaw:raw,afterRaw:null}]);
+});}
+function restoreBackupPayload(payload,provider){return withSavedDealsLock(provider,async()=>{
+ const {entries,records}=await readSavedDealsSnapshot(provider);
+ const plan=planRestore(payload,entries,records);const index=await commitRestoreUnlocked(plan,provider);
+ return {index,added:plan.toWrite.length,skipped:plan.skippedCount,renamed:plan.renamedCount};
+});}
 
 module.exports = {
   buildExportPayload,
@@ -224,4 +382,7 @@ module.exports = {
   projectDealRecord,
   buildComplianceMetadata,
   buildExportProvenance,
+  buildCurrentExportPayload,readSavedDealsIndex,restoreBackupPayload,
+  saveNewSavedDeal,updateSavedDealRecord,removeSavedDealRecord,
+  parseBackupText,serializeBackup,MAX_BACKUP_BYTES,MAX_DEALS,
 };

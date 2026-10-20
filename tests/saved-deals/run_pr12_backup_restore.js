@@ -5,7 +5,7 @@ const { SavedDealValidationError } = require('../../src/validation/saved-deal-sc
 const results = [];
 function check(id, cond, detail) { console.log(`${id} ${cond?'PASS':'FAIL'} -- ${detail}`); results.push(cond); }
 
-function mockProvider(store) { return { get: async (k) => store[k] || null, set: async (k, v) => { store[k] = v; } }; }
+function mockProvider(store) { return { get: async (k) => store[k] || null, set: async (k, v) => { store[k] = v; },delete:async k=>{delete store[k];} }; }
 
 (async () => {
   const store1 = { 'deal:d1': JSON.stringify({ id: 'd1', name: 'مشروعي الأول', mode: 'building', inputs: { buildingPrice: 140000000 }, savedAt: '2026-01-01' }) };
@@ -42,10 +42,9 @@ function mockProvider(store) { return { get: async (k) => store[k] || null, set:
   const commitResult = await commitRestore(plan1, mockProvider(store3));
   check('COMMIT-WRITES-CORRECTLY', commitResult.length === 1 && JSON.parse(store3['deal:d2']).inputs.landPricePerSqm === 5000, 'commit only after plan succeeds');
 
-  // Live browser evidence (documented, this session)
-  check('LIVE-EXPORT-SUCCESS-MESSAGE', true, 'ar-SA export success message rendered, 0 page errors');
-  check('LIVE-IMPORT-DEDUP-NO-DUPLICATE', true, 'importing the exact same deal back resulted in 1 deal, not 2');
-  check('LIVE-MALFORMED-IMPORT-REJECTED-NON-DESTRUCTIVE', true, 'invalid JSON import: deals-index string byte-identical before/after the failed attempt');
+  // Historical observations are not current executions. Real browser transfer
+  // and failure coverage lives in the mandatory backup browser acceptance.
+  console.log('HISTORICAL_PR12_BROWSER_OBSERVATIONS=NOT_RERUN');
 
   const allPass = results.every(Boolean);
   console.log('\nDATA_DURABILITY_CLASSIFICATION=LOCAL_BROWSER_STORAGE_WITH_USER_MANAGED_EXPORT_RESTORE');

@@ -15,7 +15,8 @@ const tAr = tFactory(arSA), tEn = tFactory(en);
 const results = [];
 function check(id, cond, detail) { console.log(`${id} ${cond?'PASS':'FAIL'} -- ${detail}`); results.push(cond); }
 
-check('DICT-21-KEYS', Object.keys(arSA.savedDeals).length===21 && Object.keys(en.savedDeals).length===21, `ar=${Object.keys(arSA.savedDeals).length} en=${Object.keys(en.savedDeals).length} (was 14 through R6-A; PR-12 added 7 keys for Export/Import Backup -- intentional, later-authorized increase, not a regression)`);
+const requiredSavedDealKeys=['panelTitle','referenceStudies','builtinBuilding','builtinLand','mySavedDeals','loading','emptyState','saveSectionTitle','namePlaceholder','saveButton','updateButton','saveNote','systemDefaultDealName','resetButtonTitleActive','exportBackup','importRestore','exportSuccess','exportFailedCorrupt','importSuccess','importFailedInvalid','durabilityDisclosure','storageBusy','backupLimit','importRolledBack','importRecoveryRequired','importStorageChanged'];
+check('DICT-SAVED-DEAL-KEYS',requiredSavedDealKeys.every(key=>typeof arSA.savedDeals[key]==='string'&&/[\u0600-\u06ff]/.test(arSA.savedDeals[key])&&typeof en.savedDeals[key]==='string'&&/[A-Za-z]/.test(en.savedDeals[key])),'required saved-deal and distinct restore-outcome messages exist in both languages; additive labels are allowed');
 check('DICT-PARITY', JSON.stringify(Object.keys(arSA.savedDeals).sort())===JSON.stringify(Object.keys(en.savedDeals).sort()), 'exact key match');
 
 // Default name policy: CASE A confirmed and implemented
