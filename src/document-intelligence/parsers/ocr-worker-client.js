@@ -19,7 +19,7 @@ async function recognizeWithOwnedWorker({spawn,paths,image,signal,onProgress,tim
       else {current.reject(failure('OCR_ENGINE_FAILED'));stop(failure('OCR_ENGINE_FAILED'));}
     };
     worker.addEventListener('message',message);
-    worker.addEventListener('error',()=>stop(failure('OCR_ENGINE_FAILED')));
+    worker.addEventListener('error',event=>{event?.preventDefault?.();stop(failure('OCR_ENGINE_FAILED'));});
     signal?.addEventListener('abort',abort,{once:true});
     if(signal?.aborted)abort();
     timer=setTimeout(()=>stop(failure('OCR_TIMEOUT')),timeoutMs);

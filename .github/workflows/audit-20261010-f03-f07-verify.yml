@@ -93,14 +93,14 @@ jobs:
         env:
           STARTAK_E2E_URL: http://127.0.0.1:4173
         run: node tests/e2e/run_c75_real_chromium_personal_study.js
-      - name: Native PDF, source journals, gap actions, keyboard and print acceptance
-        env:
-          STARTAK_E2E_URL: http://127.0.0.1:4173
-        run: node tests/e2e/run_audit_20261010_remaining_browser.js
       - name: Local Arabic/English OCR, selected PDF pages, CSP and worker lifecycle
         env:
           STARTAK_E2E_URL: http://127.0.0.1:4173
         run: node tests/e2e/run_audit_20261020_local_ocr_browser.js
+      - name: Native PDF, source journals, gap actions, keyboard and print acceptance
+        env:
+          STARTAK_E2E_URL: http://127.0.0.1:4173
+        run: node tests/e2e/run_audit_20261010_remaining_browser.js
       - name: Save browser and print evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a

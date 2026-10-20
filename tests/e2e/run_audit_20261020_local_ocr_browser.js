@@ -70,12 +70,16 @@ async function download(page,locator){const pending=page.waitForEvent('download'
    await page.getByTestId('local-ocr-page').fill('٢');await page.getByTestId('local-ocr-start').click();
    await expect(page.getByTestId('local-document-parser-status')).toHaveAttribute('data-parser-status','PARSED',{timeout:65000});checks++;
    const scanned=await download(page,page.getByTestId('local-ocr-export')),text=scanned.intakeRecord.result.atoms.map(a=>a.rawValue).join('\n');
+   await fs.writeFile(`${DIR}/${name}-${width}-ocr-extract.json`,JSON.stringify(scanned,null,2));
+   await fs.writeFile(`${DIR}/${name}-${width}-ocr-source.pdf`,pdf);
+   const rasterUrl=await page.getByTestId('local-ocr-source-preview').locator('img').getAttribute('src');
+   await fs.writeFile(`${DIR}/${name}-${width}-ocr-raster.png`,Buffer.from(rasterUrl.split(',')[1],'base64'));
+   await panel.screenshot({path:`${DIR}/${name}-${width}-local-ocr.png`});
    ok(text.includes('3456.70')&&!text.includes('1234.50'),'only selected scanned page two is recognized');
-   ok(/[\u0600-\u06ff]{3}/.test(text),'real Arabic image pixels produce Arabic OCR characters');
+   ok(/[\u0600-\u06ff]{3}/.test(text),'real Arabic image pixels produce Arabic OCR characters; observed '+JSON.stringify(text));
    ok(scanned.intakeRecord.result.atoms.every(a=>a.location.page===2&&!a.metadata.fullDocumentCovered),'selected PDF page numbers retained without whole-document coverage');
    ok(scanned.intakeRecord.digest===createHash('sha256').update(pdf).digest('hex'),'raster output remains bound to original PDF hash');
    ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'OCR controls and preview fit the viewport');
-   await panel.screenshot({path:`${DIR}/${name}-${width}-local-ocr.png`});
    await page.getByTestId('local-ocr-page').fill('3');await page.getByTestId('local-ocr-start').click();
    await expect(panel.getByRole('alert')).toContainText('OCR_PAGE_INVALID',{timeout:15000});await expect(page.getByTestId('local-ocr-export')).toHaveCount(0);await expect(page.getByTestId('local-ocr-source-preview')).toHaveCount(0);checks+=3;
    await page.getByTestId('local-ocr-page').fill('1');await page.getByTestId('local-ocr-start').click();
