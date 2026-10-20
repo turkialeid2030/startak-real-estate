@@ -52,7 +52,11 @@ delivery verification. CSP permits WebAssembly compilation with
 `wasm-unsafe-eval`, keeps general JavaScript `unsafe-eval` disallowed, and restricts
 workers to self. Worker responses use the same production policy. Browser tests
 apply that policy where preview servers omit Pages headers, and never relax an
-existing public policy. Private user attachments are absent from the repository,
+existing public policy. HTTP loopback previews are forwarded through temporary
+local HTTPS because WebKit upgrades their subresources under the unchanged
+`upgrade-insecure-requests` directive. Certificate checking is bypassed only for
+that ephemeral loopback fixture; published HTTPS acceptance uses normal checks.
+Private user attachments are absent from the repository,
 test fixtures, CI uploads and bundled resources.
 
 ## Limits

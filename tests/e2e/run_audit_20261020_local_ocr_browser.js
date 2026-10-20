@@ -2,17 +2,38 @@
 const assert=require('node:assert/strict'),fs=require('node:fs/promises'),{createHash}=require('node:crypto');
 const {chromium,firefox,webkit,expect}=require('@playwright/test');
 const {pngTextFixture,imagePdfFixture}=require('../fixtures/local-ocr-page');
-const BASE=(process.env.STARTAK_E2E_URL||'http://127.0.0.1:4173').replace(/\/$/,'');
+let BASE=(process.env.STARTAK_E2E_URL||'http://127.0.0.1:4173').replace(/\/$/,'');
+let closePreview,localTlsPreview=false;
 const DIR='runtime-evidence/remaining-audit';let checks=0;
 const ok=(v,label)=>{assert.ok(v,label);checks++;};
 async function download(page,locator){const pending=page.waitForEvent('download');await locator.click();const file=await pending;return JSON.parse(await fs.readFile(await file.path(),'utf8'));}
+async function secureLoopbackPreview(){
+ const upstream=new URL(BASE);if(upstream.protocol==='https:')return;
+ if(upstream.protocol!=='http:'||!['127.0.0.1','localhost'].includes(upstream.hostname))throw Error('OCR acceptance requires HTTPS or a loopback preview');
+ // WebKit upgrades loopback subresources under the unchanged production CSP.
+ // Supply real local TLS instead of removing upgrade-insecure-requests.
+ const dir=await fs.mkdtemp(require('node:path').join(require('node:os').tmpdir(),'startak-ocr-tls-'));
+ let server;
+ try{
+  const key=dir+'/key.pem',cert=dir+'/cert.pem';
+  require('node:child_process').execFileSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-keyout',key,'-out',cert,'-days','1','-subj','/CN=localhost','-addext','subjectAltName=IP:127.0.0.1,DNS:localhost'],{stdio:'ignore'});
+  server=require('node:https').createServer({key:await fs.readFile(key),cert:await fs.readFile(cert)},(req,res)=>{
+   const request=require('node:http').request({hostname:upstream.hostname,port:upstream.port||80,path:req.url,method:req.method,headers:{...req.headers,host:upstream.host}},response=>{res.writeHead(response.statusCode,response.headers);response.pipe(res);});
+   request.setTimeout(20000,()=>request.destroy(Error('Loopback preview timeout')));
+   request.on('error',()=>{if(!res.headersSent){res.writeHead(502);res.end('Loopback preview failed');}else res.destroy();});req.pipe(request);
+  });
+  await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});
+  BASE='https://127.0.0.1:'+server.address().port;localTlsPreview=true;
+  closePreview=async()=>{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));await fs.rm(dir,{recursive:true,force:true});};
+ }catch(error){server?.closeAllConnections();server?.close();await fs.rm(dir,{recursive:true,force:true});throw error;}
+}
 (async()=>{
- await fs.mkdir(DIR,{recursive:true});const evidence=[];
+ await fs.mkdir(DIR,{recursive:true});await secureLoopbackPreview();const evidence=[];
  const header=(await fs.readFile('public/_headers','utf8')).split('\n').find(l=>l.includes('Content-Security-Policy:')).trim().slice('Content-Security-Policy:'.length).trim();
  for(const[name,engine]of Object.entries({chromium,firefox,webkit})){
   const browser=await engine.launch({headless:true,...(name==='chromium'?{args:['--no-sandbox']}: {})});
   try{for(const width of [1366,390]){
-   const context=await browser.newContext({viewport:{width,height:960},locale:'ar-SA',acceptDownloads:true,reducedMotion:'reduce'});
+   const context=await browser.newContext({viewport:{width,height:960},locale:'ar-SA',acceptDownloads:true,reducedMotion:'reduce',ignoreHTTPSErrors:localTlsPreview});
    await context.addInitScript(()=>{
     localStorage.setItem('startak.locale','ar-SA');
     const OriginalWorker=window.Worker;window.__ocrWorkers={created:0,terminated:0};
@@ -27,7 +48,7 @@ async function download(page,locator){const pending=page.waitForEvent('download'
    // Vite preview does not implement Pages headers. Enforce the production
    // policy there; never replace or relax an existing deployed policy.
    let stallWorker=false,resumeWorker,workerBlocked;
-   const applyPolicy=async route=>{const response=await route.fetch(),headers=response.headers();
+   const applyPolicy=async route=>{const response=await route.fetch({ignoreHTTPSErrors:localTlsPreview}),headers=response.headers();
     if(!headers['content-security-policy'])headers['content-security-policy']=header;
     await route.fulfill({response,headers});};
    await context.route(BASE+'/',applyPolicy);
@@ -114,4 +135,4 @@ async function download(page,locator){const pending=page.waitForEvent('download'
  }
  await fs.writeFile(DIR+'/local-ocr-acceptance.json',JSON.stringify({sourceCommit:process.env.STARTAK_SOURCE_COMMIT||null,checks,browsers:evidence,independentAccuracyQualified:false,sourceAuthenticationQualified:false},null,2));
  console.log(`LOCAL_OCR_BROWSER=PASS checks=${checks}`);
-})().catch(async error=>{console.error(error);await fs.mkdir(DIR,{recursive:true});await fs.writeFile(DIR+'/local-ocr-failure.json',JSON.stringify({checksCompleted:checks,error:error.message},null,2));process.exit(1);});
+})().catch(async error=>{console.error(error);await fs.mkdir(DIR,{recursive:true});await fs.writeFile(DIR+'/local-ocr-failure.json',JSON.stringify({checksCompleted:checks,error:error.message},null,2));process.exitCode=1;}).finally(async()=>{await closePreview?.();});
