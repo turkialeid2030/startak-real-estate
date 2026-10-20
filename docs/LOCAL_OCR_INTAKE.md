@@ -6,6 +6,14 @@ extraction step, never automatic verified evidence or financial input. It does
 not infer document authenticity, legal title, table semantics or complete file
 coverage. A confidence score is an engine score, not measured accuracy.
 
+Automatic layout is the default. Users can explicitly choose Single text block
+for text arranged in one block; it is unsuitable for multiple columns. The
+selection is recorded on every OCR atom and export, and changing it clears the
+previous result/candidate/preview. Automatic layout can omit clear Arabic lines
+even with high confidence: the browser-generated Firefox font fixture reproduces
+this with pinned models, while Single text block reads both Arabic and Latin
+lines from those same pixels. No silent retry or merged alternative text is used.
+
 ## Source and lifecycle
 
 The original file SHA-256 is checked again before rendering. A PDF selection

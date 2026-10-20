@@ -2,7 +2,8 @@
 const failure=code=>Object.assign(new Error(code),{code});
 // Own the pinned v7 worker from its creation, including model initialization.
 // This avoids leaving an initializing worker alive after cancellation/deadline.
-async function recognizeWithOwnedWorker({spawn,paths,image,signal,onProgress,timeoutMs=60000}) {
+async function recognizeWithOwnedWorker({spawn,paths,image,signal,onProgress,timeoutMs=60000,layout='AUTO'}) {
+  if(!['AUTO','SINGLE_BLOCK'].includes(layout))throw failure('OCR_LAYOUT_INVALID');
   if(!Number.isInteger(timeoutMs)||timeoutMs<1||timeoutMs>60000)throw failure('OCR_LIMIT_EXCEEDED');
   if(signal?.aborted)throw failure('OCR_ABORTED');
   let worker,timer,pending,sequence=0,closed=false;
@@ -32,17 +33,17 @@ async function recognizeWithOwnedWorker({spawn,paths,image,signal,onProgress,tim
     await job('load',{options:{lstmOnly:true,corePath:paths.corePath,logging:false}});
     await job('loadLanguage',{langs:['ara','eng'],options:{langPath:paths.langPath,gzip:true,lstmOnly:true,cacheMethod:'none'}});
     await job('initialize',{langs:['ara','eng'],oem:1,config:{}});
-    await job('setParameters',{params:{tessedit_pageseg_mode:'3',user_defined_dpi:'162'}});
+    await job('setParameters',{params:{tessedit_pageseg_mode:layout==='SINGLE_BLOCK'?'6':'3',user_defined_dpi:'162'}});
     return await job('recognize',{image,options:{},output:{text:true,blocks:true}});
   }finally{
     clearTimeout(timer);signal?.removeEventListener('abort',abort);stop(failure('OCR_CLOSED'));
   }
 }
-function recognizeBrowserRaster(image,{assetBase,signal,onProgress,timeoutMs}={}) {
+function recognizeBrowserRaster(image,{assetBase,signal,onProgress,timeoutMs,layout}={}) {
   const origin=globalThis.location?.origin;
   if(typeof origin!=='string'||!/^\/assets\/ocr\/[a-f0-9]{20}$/.test(assetBase||''))throw failure('OCR_ASSETS_UNAVAILABLE');
   const base=new URL(assetBase+'/',origin).href;
-  return recognizeWithOwnedWorker({image,signal,onProgress,timeoutMs,
+  return recognizeWithOwnedWorker({image,signal,onProgress,timeoutMs,layout,
     paths:{corePath:base,langPath:base},spawn:()=>new Worker(base+'worker.min.js')});
 }
 module.exports={recognizeWithOwnedWorker,recognizeBrowserRaster};

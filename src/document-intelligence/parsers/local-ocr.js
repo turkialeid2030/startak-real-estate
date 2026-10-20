@@ -2,7 +2,8 @@
 const {createParserResult,createParsedAtom,PARSER_STATUS,PARSED_ATOM_KIND}=require('./contracts');
 const failure=code=>Object.assign(new Error(code),{code});
 const MAX_PIXELS=6000000,MAX_CHARACTERS=32000,MAX_LINES=500;
-function makeOcrResult(record,raster,data,page) {
+function makeOcrResult(record,raster,data,page,layout='AUTO') {
+  if(!['AUTO','SINGLE_BLOCK'].includes(layout))throw failure('OCR_LAYOUT_INVALID');
   if(!data||typeof data.text!=='string'||data.text.length>MAX_CHARACTERS
     ||JSON.stringify(data).length>4000000)throw failure('OCR_LIMIT_EXCEEDED');
   const document={documentId:record.documentId,caseId:record.caseId};
@@ -33,12 +34,13 @@ function makeOcrResult(record,raster,data,page) {
   return createParserResult({...common,status:PARSER_STATUS.PARSED,atoms:lines.map((line,index)=>createParsedAtom({
     atomId:`${record.documentId}:ocr:page:${page}:line:${index+1}`,document,adapterId,kind:PARSED_ATOM_KIND.TEXT,
     rawValue:line.text,valueType:'STRING',location:{kind:'PAGE',page,line:index+1,pixelBounds:line.box,rasterWidth:raster.width,rasterHeight:raster.height},
-    metadata:{extraction:'LOCAL_OCR_UNVERIFIED',engineVersion:'TESSERACT_JS_7.0.0',languages:['ara','eng'],
+    metadata:{extraction:'LOCAL_OCR_UNVERIFIED',engineVersion:'TESSERACT_JS_7.0.0',languages:['ara','eng'],layout,
       sourceDigestSha256:record.digest,pixelBounds:line.box,rasterWidth:raster.width,rasterHeight:raster.height,
       engineConfidence:line.confidence,confidenceIsAccuracy:false,fullDocumentCovered:false,financialInputEligible:false},
   }))});
 }
-async function runLocalOcr({record,content,page=1,render,recognize,signal,onProgress,timeoutMs=60000}) {
+async function runLocalOcr({record,content,page=1,render,recognize,signal,onProgress,timeoutMs=60000,layout='AUTO'}) {
+  if(!['AUTO','SINGLE_BLOCK'].includes(layout))throw failure('OCR_LAYOUT_INVALID');
   if(!record||!/^[a-f0-9]{64}$/.test(record.digest)||record.documentId!==`local-sha256:${record.digest}`
     ||!record.caseId||!['PDF','IMAGE'].includes(record.result?.format))throw failure('OCR_SOURCE_INVALID');
   if(!Number.isInteger(page)||page<1||page>200||(record.result.format==='IMAGE'&&page!==1))throw failure('OCR_PAGE_INVALID');
@@ -63,9 +65,9 @@ async function runLocalOcr({record,content,page=1,render,recognize,signal,onProg
       if(!Number.isInteger(raster.width)||!Number.isInteger(raster.height)||raster.width<1||raster.height<1
         ||raster.width*raster.height>MAX_PIXELS||!(raster.image instanceof Uint8Array)||raster.image.byteLength>24*1024*1024)throw failure('OCR_LIMIT_EXCEEDED');
       if(typeof raster.previewUrl!=='string'||!raster.previewUrl.startsWith('data:image/png;base64,')||raster.previewUrl.length>32*1024*1024)throw failure('OCR_RESULT_INVALID');
-      const data=await recognize(raster.image,{signal:controller.signal,onProgress,timeoutMs});
+      const data=await recognize(raster.image,{signal:controller.signal,onProgress,timeoutMs,layout});
       if(controller.signal.aborted)throw failure('OCR_ABORTED');
-      return {record:Object.freeze({...record,result:makeOcrResult(record,raster,data,page)}),previewUrl:raster.previewUrl};
+      return {record:Object.freeze({...record,result:makeOcrResult(record,raster,data,page,layout)}),previewUrl:raster.previewUrl};
     })(),stopped]);
   }finally{clearTimeout(timer);signal?.removeEventListener('abort',abort);controller.abort();}
 }

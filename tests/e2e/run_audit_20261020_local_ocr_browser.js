@@ -56,6 +56,7 @@ async function download(page,locator){const pending=page.waitForEvent('download'
    const journal=await download(page,page.getByTestId('export-evidence-journal')),candidate=journal.payload.candidate;
    ok(candidate.financialEngineEligible===false&&!candidate.verifiedFactEstablished,'OCR semantic mapping remains an unverified candidate');
    const firstAtom=extracted.intakeRecord.result.atoms[0];ok(candidate.fact.sourceLocator.pixelBounds.x0===firstAtom.metadata.pixelBounds.x0&&candidate.fact.extraction.confidence===firstAtom.metadata.engineConfidence/100,'source journal preserves original pixel coordinates and actual extraction confidence');
+   ok(extracted.intakeRecord.result.atoms.every(a=>a.metadata.layout==='AUTO'),'default image extraction records automatic layout');
    await expect(page.getByTestId('local-ocr-source-preview').locator('img')).toBeVisible();checks++;
    await expect(page.getByTestId('local-evidence-workflow-status')).toHaveAttribute('data-verification-status','VERIFICATION_NOT_COMPLETE');checks++;
    // Test real Arabic pixels and a scanned two-page PDF, not a hidden text layer.
@@ -67,7 +68,7 @@ async function download(page,locator){const pending=page.waitForEvent('download'
    const pdf=imagePdfFixture(images.map(base64=>({bytes:Buffer.from(base64,'base64'),width:1500,height:450})));
    await upload('synthetic-scanned.pdf','application/pdf',pdf);
    await expect(page.getByTestId('local-document-parser-reason')).toHaveAttribute('data-parser-reason','PDF_NO_EXTRACTABLE_TEXT');checks++;
-   await page.getByTestId('local-ocr-page').fill('٢');await page.getByTestId('local-ocr-start').click();
+   await page.getByTestId('local-ocr-page').fill('٢');await page.getByTestId('local-ocr-layout').selectOption('SINGLE_BLOCK');await page.getByTestId('local-ocr-start').click();
    await expect(page.getByTestId('local-document-parser-status')).toHaveAttribute('data-parser-status','PARSED',{timeout:65000});checks++;
    const scanned=await download(page,page.getByTestId('local-ocr-export')),text=scanned.intakeRecord.result.atoms.map(a=>a.rawValue).join('\n');
    await fs.writeFile(`${DIR}/${name}-${width}-ocr-extract.json`,JSON.stringify(scanned,null,2));
@@ -76,10 +77,13 @@ async function download(page,locator){const pending=page.waitForEvent('download'
    await fs.writeFile(`${DIR}/${name}-${width}-ocr-raster.png`,Buffer.from(rasterUrl.split(',')[1],'base64'));
    await panel.screenshot({path:`${DIR}/${name}-${width}-local-ocr.png`});
    ok(text.includes('3456.70')&&!text.includes('1234.50'),'only selected scanned page two is recognized');
-   ok(/[\u0600-\u06ff]{3}/.test(text),'real Arabic image pixels produce Arabic OCR characters; observed '+JSON.stringify(text));
+   ok(/[\u0600-\u06ff]{3}/.test(text),'real Arabic image pixels produce Arabic OCR characters; engine='+name+' width='+width+' observed '+JSON.stringify(text));
+   ok(scanned.intakeRecord.result.atoms.every(a=>a.metadata.layout==='SINGLE_BLOCK'),'explicit single-block layout survives export');
    ok(scanned.intakeRecord.result.atoms.every(a=>a.location.page===2&&!a.metadata.fullDocumentCovered),'selected PDF page numbers retained without whole-document coverage');
    ok(scanned.intakeRecord.digest===createHash('sha256').update(pdf).digest('hex'),'raster output remains bound to original PDF hash');
    ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'OCR controls and preview fit the viewport');
+   await page.getByTestId('local-ocr-layout').selectOption('AUTO');
+   await expect(page.getByTestId('local-ocr-export')).toHaveCount(0);await expect(page.getByTestId('local-ocr-source-preview')).toHaveCount(0);await expect(page.getByTestId('local-document-parser-status')).toHaveCount(0);checks+=3;
    await page.getByTestId('local-ocr-page').fill('3');await page.getByTestId('local-ocr-start').click();
    await expect(panel.getByRole('alert')).toContainText('OCR_PAGE_INVALID',{timeout:15000});await expect(page.getByTestId('local-ocr-export')).toHaveCount(0);await expect(page.getByTestId('local-ocr-source-preview')).toHaveCount(0);checks+=3;
    await page.getByTestId('local-ocr-page').fill('1');await page.getByTestId('local-ocr-start').click();
@@ -95,6 +99,7 @@ async function download(page,locator){const pending=page.waitForEvent('download'
    await expect(page.getByTestId('local-ocr-controls')).toHaveCount(0);await expect(page.getByTestId('local-ocr-export')).toHaveCount(0);checks+=2;
    await page.waitForFunction(()=>window.__ocrWorkers.created===window.__ocrWorkers.terminated,null,{timeout:15000});resumeWorker();stallWorker=false;
    const workers=await page.evaluate(()=>window.__ocrWorkers);ok(workers.created>=3&&workers.created===workers.terminated,'all owned workers terminate, including initialization cancellation');
+   ok(await page.getByTestId('local-ocr-layout').count()===0,'replacing a case clears OCR layout controls');
    ok(resources.length>0&&resources.every(url=>url.startsWith(BASE+'/assets/ocr/')),'engine resources remain same-origin');
    ok(external.length===0,'OCR performs no external request or document upload');ok(violations.length===0,'real OCR runs under production CSP: '+violations.join(' | '));ok(errors.length===0,'no browser runtime errors: '+errors.join(' | '));
    evidence.push({engine:name,width,checksCompleted:checks,workers,externalRequests:external,policyViolations:violations,physicalDevice:false});

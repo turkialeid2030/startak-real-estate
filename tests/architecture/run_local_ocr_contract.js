@@ -26,6 +26,11 @@ class FakeWorker{
  eq(result.record.result.status,'PARSED');eq(result.record.result.atoms[0].rawValue,'RENT 1234.50 SAR');
  const atom=result.record.result.atoms[0];eq(atom.location,{kind:'PAGE',page:1,line:1,pixelBounds:{x0:1,y0:2,x1:400,y1:60},rasterWidth:1000,rasterHeight:250});eq(atom.metadata.sourceDigestSha256,digest);
  eq(atom.metadata.engineConfidence,87);eq(atom.metadata.financialInputEligible,false);eq(atom.metadata.confidenceIsAccuracy,false);eq(atom.metadata.fullDocumentCovered,false);
+ eq(atom.metadata.layout,'AUTO');
+ let selectedLayout;const blockResult=await runLocalOcr({record,content:bytes,layout:'SINGLE_BLOCK',render:async()=>raster,recognize:async(_,{layout})=>{selectedLayout=layout;return data;}});
+ eq(selectedLayout,'SINGLE_BLOCK');eq(blockResult.record.result.atoms[0].metadata.layout,'SINGLE_BLOCK');
+ await bad(()=>runLocalOcr({record,content:bytes,layout:'INVALID'}),'OCR_LAYOUT_INVALID');
+ await bad(()=>recognizeWithOwnedWorker({layout:'INVALID'}),'OCR_LAYOUT_INVALID');
  const document=await ingestDocument({documentId:record.documentId,caseId:record.caseId,fileName:'synthetic.png',mimeType:'image/png',content:bytes,receivedAt:'2026-10-20T00:00:00Z'});
  const fact=mapParsedAtomToEvidenceFact({atom,document,factId:'FACT-OCR',semanticKey:'text',capturedAt:'2026-10-20T00:00:00Z'});
  eq(fact.truthStatus,'EXTRACTED_EVIDENCE');eq(fact.sourceLocator.page,1);eq(fact.extraction.confidence,.87);eq(fact.sourceLocator.pixelBounds,atom.metadata.pixelBounds);
@@ -49,10 +54,11 @@ class FakeWorker{
  await bad(()=>pending,'OCR_ABORTED');eq(cancelledSignal.aborted,true);
  for(const mode of ['resolve','reject','hang']){
   const worker=new FakeWorker(mode),args={spawn:()=>worker,paths:{corePath:'/local',langPath:'/local'},image:bytes,timeoutMs:10};
-  if(mode==='resolve'){eq(await recognizeWithOwnedWorker(args),data);eq(worker.packets.map(p=>p.action),['load','loadLanguage','initialize','setParameters','recognize']);eq(worker.packets[1].payload.options.cacheMethod,'none');}
+  if(mode==='resolve'){eq(await recognizeWithOwnedWorker(args),data);eq(worker.packets.map(p=>p.action),['load','loadLanguage','initialize','setParameters','recognize']);eq(worker.packets[1].payload.options.cacheMethod,'none');eq(worker.packets[3].payload.params.tessedit_pageseg_mode,'3');}
   else await bad(()=>recognizeWithOwnedWorker(args),mode==='hang'?'OCR_TIMEOUT':'OCR_ENGINE_FAILED');
   eq(worker.terminated,1);
  }
+ const blockWorker=new FakeWorker();await recognizeWithOwnedWorker({spawn:()=>blockWorker,paths:{},image:bytes,layout:'SINGLE_BLOCK'});eq(blockWorker.packets[3].payload.params.tessedit_pageseg_mode,'6');eq(blockWorker.terminated,1);
  const worker=new FakeWorker('hang'),controller=new AbortController();
  const work=recognizeWithOwnedWorker({spawn:()=>worker,paths:{},image:bytes,signal:controller.signal});controller.abort();await bad(()=>work,'OCR_ABORTED');eq(worker.terminated,1);
  assert.throws(()=>recognizeBrowserRaster(bytes,{assetBase:'https://external.invalid'}),/OCR_ASSETS_UNAVAILABLE/);checks++;

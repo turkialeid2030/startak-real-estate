@@ -71,9 +71,9 @@ export default function LocalDocumentEvidenceIntakePanel({ onRecordChange = null
   const [record, setRecord] = useState(null);
   const [error, setError] = useState(null);
   const [manual, setManual] = useState(emptyManual);
-  const [ocrSource,setOcrSource]=useState(null),[ocrPage,setOcrPage]=useState('1'),[ocrPreview,setOcrPreview]=useState(null);
+  const [ocrSource,setOcrSource]=useState(null),[ocrPage,setOcrPage]=useState('1'),[ocrPreview,setOcrPreview]=useState(null),[ocrLayout,setOcrLayout]=useState('AUTO');
   const requestRef = useRef({id:0,controller:null,ocrActive:false});
-  useEffect(() => { requestRef.current.id++; requestRef.current.controller?.abort();requestRef.current.ocrActive=false; setBusy(false); setRecord(null); setError(null);setOcrSource(null);setOcrPage('1');setOcrPreview(null);setManual(emptyManual()); publishRecord(null); return () => {requestRef.current.id++;requestRef.current.controller?.abort();}; }, [suppliedCaseId]);
+  useEffect(() => { requestRef.current.id++; requestRef.current.controller?.abort();requestRef.current.ocrActive=false; setBusy(false); setRecord(null); setError(null);setOcrSource(null);setOcrPage('1');setOcrLayout('AUTO');setOcrPreview(null);setManual(emptyManual()); publishRecord(null); return () => {requestRef.current.id++;requestRef.current.controller?.abort();}; }, [suppliedCaseId]);
 
   const publishRecord = (nextRecord) => {
     if (typeof onRecordChange === 'function') onRecordChange(nextRecord);
@@ -143,14 +143,14 @@ export default function LocalDocumentEvidenceIntakePanel({ onRecordChange = null
     requestRef.current.id++; requestRef.current.controller?.abort();requestRef.current.ocrActive=false; setBusy(false);
     setRecord(null);
     setError(null);
-    setOcrSource(null);setOcrPreview(null);setOcrPage('1');setManual(emptyManual());
+    setOcrSource(null);setOcrPreview(null);setOcrPage('1');setOcrLayout('AUTO');setManual(emptyManual());
     publishRecord(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleFile = async (file) => {
     requestRef.current.id++;requestRef.current.controller?.abort();requestRef.current.ocrActive=false;setBusy(false);
-    setOcrSource(null);setOcrPreview(null);setOcrPage('1');setManual(emptyManual());
+    setOcrSource(null);setOcrPreview(null);setOcrPage('1');setOcrLayout('AUTO');setManual(emptyManual());
     setError(null);
     setRecord(null);
     publishRecord(null);
@@ -224,7 +224,7 @@ export default function LocalDocumentEvidenceIntakePanel({ onRecordChange = null
     requestRef.current.controller?.abort();const id=++requestRef.current.id,controller=new AbortController();requestRef.current.controller=controller;
     setBusy(true);setRecord(null);setOcrPreview(null);setError(null);publishRecord(null);
     try{
-      const output=await runLocalOcr({record:ocrSource.record,content:ocrSource.buffer,page:parsedPage.value,signal:controller.signal,
+      const output=await runLocalOcr({record:ocrSource.record,content:ocrSource.buffer,page:parsedPage.value,layout:ocrLayout,signal:controller.signal,
         render:async(bytes,options)=>{
           const [{renderOcrPage},{loadPdfLibrary}]=await Promise.all([import('../document-intelligence/parsers/ocr-page-renderer.mjs'),import('../document-intelligence/parsers/pdf-browser-library.mjs')]);
           return renderOcrPage(bytes,{...options,loadPdfLibrary});
@@ -284,6 +284,8 @@ export default function LocalDocumentEvidenceIntakePanel({ onRecordChange = null
         {ocrSource&&<div data-testid="local-ocr-controls" className="mt-4 space-y-3 rounded border border-slate-600 p-3 text-xs text-slate-200">
           <p>{isAr?'قراءة ضوئية محلية لصفحة واحدة. تُحمّل ملفات المحرك واللغتين من الموقع نفسه عند الطلب، ولا يُرسل المستند إلى مزود خارجي. الحد: صورة معالجة من 6 ملايين بكسل و60 ثانية؛ قد تفشل الصور الكبيرة أو الرديئة.':'Local single-page OCR. Engine and language assets load from this site on demand; the document is not uploaded to a provider. Limit: 6 million processed pixels and 60 seconds; large or poor images may fail.'}</p>
           <label className="block">{isAr?'رقم صفحة PDF للقراءة الضوئية':'PDF page number for OCR'}<input data-testid="local-ocr-page" className="ms-2 w-24 rounded bg-slate-950 p-2" inputMode="numeric" value={ocrPage} disabled={busy||ocrSource.record.result.format==='IMAGE'} onChange={e=>{setOcrPage(e.target.value);setOcrPreview(null);setRecord(null);publishRecord(null);}}/></label>
+          <label className="block">{isAr?'تنسيق النص في الصورة':'Text layout in the image'}<select data-testid="local-ocr-layout" className="ms-2 max-w-full rounded bg-slate-950 p-2" value={ocrLayout} disabled={busy} onChange={e=>{setOcrLayout(e.target.value);setOcrPreview(null);setRecord(null);setError(null);publishRecord(null);}}><option value="AUTO">{isAr?'تلقائي':'Automatic'}</option><option value="SINGLE_BLOCK">{isAr?'كتلة نص واحدة':'Single text block'}</option></select></label>
+          <p>{isAr?'قد يغفل الوضع التلقائي سطورًا حتى مع ثقة مرتفعة. للنص المرتب في كتلة واحدة، جرّب وضع كتلة نص واحدة وقارن النتيجة بالأصل؛ لا يناسب الأعمدة المتعددة.':'Automatic layout may omit lines even with high confidence. For one text block, try Single text block and compare against the source; it is unsuitable for multiple columns.'}</p>
           <button data-testid="local-ocr-start" type="button" disabled={busy} onClick={startOcr} className="rounded border border-amber-500 px-3 py-2">{isAr?'قراءة الصفحة ضوئيًا':'Read page with local OCR'}</button>
           <p>{isAr?'النص والمواضع تقديرات آلية غير متحققة. درجة ثقة المحرك ليست نسبة دقة؛ يلزم فحص الأرقام والفواصل وترتيب الجداول أمام الأصل. لا يشمل هذا باقي صفحات الملف.':'Text and locations are unverified estimates. Engine confidence is not an accuracy rate. Check numbers, decimal separators and table order against the original. Other pages are not covered.'}</p>
         </div>}

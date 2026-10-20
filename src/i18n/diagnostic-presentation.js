@@ -9,6 +9,7 @@ const REASONS = Object.freeze({
   OCR_NUMBERS_AND_LAYOUT_REVIEW_REQUIRED:['راجع الأرقام والفواصل والتواريخ وترتيب الجدول أمام الصورة؛ درجة الثقة ليست نسبة دقة.','Check numbers, separators, dates and table order against the image; confidence is not accuracy.'],
   OCR_NO_TEXT:['لم يُتعرف على نص في الصفحة؛ راجع جودة الصورة أو استخدم النقل اليدوي.','No text recognized; check image quality or use manual transcription.'],
   OCR_PAGE_INVALID:['أدخل رقم صفحة صحيحًا موجودًا بالملف، بين 1 و200. الصورة المفردة صفحتها 1.','Enter an existing integer page number from 1 to 200; a single image uses page 1.'],
+  OCR_LAYOUT_INVALID:['اختر تنسيق نص مدعومًا ثم أعد القراءة الضوئية.','Select a supported text layout and retry OCR.'],
   OCR_LIMIT_EXCEEDED:['تجاوزت القراءة حدود الحجم أو البكسلات أو النص؛ استخدم صورة أصغر أو صفحة أبسط.','OCR exceeded size, pixel or text limits; use a smaller image or simpler page.'],
   OCR_ABORTED:['أُلغيت القراءة الضوئية؛ لم تُقبل نتيجة جزئية.','OCR cancelled; no partial result was accepted.'],
   OCR_TIMEOUT:['انتهت مهلة القراءة الضوئية؛ لم تُقبل نتيجة جزئية.','OCR timed out; no partial result was accepted.'],
