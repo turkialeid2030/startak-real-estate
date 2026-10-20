@@ -448,11 +448,21 @@ async function textContrast(locator){return locator.evaluate(el=>{
    ok(periodBridge.rows.find(r=>r.code==='REVERSAL').outstandingMinor===7010&&periodBridge.rows.find(r=>r.code==='REVERSAL').unallocatedMinor===8035,'document corrections stay separate from recorded cash receipts and refunds');
    await expect(page.getByTestId('receivables-period-CLOSING-unpaid')).toHaveText('90.25');await expect(page.getByTestId('receivables-period-CLOSING-unallocated')).toHaveText('100.25');checks+=2;
    await expect(page.getByTestId('receivables-period-RESIDUAL-unpaid')).toHaveText('0.00');await expect(page.getByTestId('receivables-period-RESIDUAL-unallocated')).toHaveText('0.00');checks+=2;
+   const periodPanel=page.getByTestId('receivables-period-bridge');
+   await periodPanel.locator('details').first().locator('summary').click();
+   ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'populated period bridge and source tables stay inside the viewport');
+   await periodPanel.screenshot({path:`${DIR}/${name}-${viewport.width}-receivables-period.png`});
+   await periodPanel.locator('details').first().locator('summary').click();
    const periodStudy=JSON.parse(await download(page,page.getByTestId('c75-export-personal-json')));
    ok(verifyPersonalFinancialStudy(periodStudy),'period reconciliation financial export hash verifies');
    assert.deepEqual(periodStudy.operatingReport.bankRentReconciliation.ledgerPeriodReconciliation,periodBridge);checks++;
    const periodStudyHtml=await download(page,page.getByTestId('c75-export-personal-html'));
    ok(periodStudyHtml.includes('تسوية المستحقات والمقبوضات خلال فترة الكشف')&&periodStudyHtml.includes('90.25')&&periodStudyHtml.includes('100.25'),'HTML report preserves the same statement-period balances');
+   if(name==='chromium'&&viewport.width===1366){
+    const periodPrint=await context.newPage();await periodPrint.setContent(periodStudyHtml,{waitUntil:'load'});await periodPrint.setViewportSize({width:794,height:1123});await periodPrint.emulateMedia({media:'print'});
+    ok(await periodPrint.evaluate(()=>[...document.querySelectorAll('table')].every(t=>t.scrollWidth<=document.documentElement.clientWidth+1)),'source-linked period reconciliation tables fit the print viewport');
+    await periodPrint.pdf({path:DIR+'/receivables-period-study-A4.pdf',format:'A4',printBackground:true,margin:{top:'14mm',bottom:'18mm',left:'14mm',right:'14mm'}});await periodPrint.close();
+   }
    const ledgerCase=JSON.parse(await download(page,page.getByRole('button',{name:ar.riai.exportOperatingCase,exact:true})));
    const correctedAfterPeriod=appendReceivablesEvent(bankBalanced.sourceOperatingCase,{id:'XK2-LATER',type:'REVERSAL',date:'2026-09-01',targetId:'K2',reason:'Synthetic later correction',sourceRef:'Synthetic later credit source',reviewRef:'Synthetic later review',confirmed:true});
    await importOperating(buildResidentialIncomeOperatingCaseEnvelope(correctedAfterPeriod));
