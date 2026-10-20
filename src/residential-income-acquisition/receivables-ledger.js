@@ -39,14 +39,17 @@ function replayReceivablesLedger(input, operatingCase) {
   if (input.events.length > 5000) fail('LEDGER_LIMIT_EXCEEDED');
   const leaseById = new Map(leases.map(l=>[l.leaseId,l]));
   const records = new Map(), references = new Set(), reversed = new Set(), used = new Map(), events = [];
-  const refunded = new Map(), receiptMovement = new Map(), refundReceipts = new Set();
-  const credited = new Map(), chargeMovement = new Map(), creditCharges = new Set();
-  const moveCharge = (id, when, strict = false) => {
-    if ((strict || creditCharges.has(id)) && when < (chargeMovement.get(id)||'')) fail('LEDGER_EVENT_CHRONOLOGY');
+  const refunded = new Map(), receiptMovement = new Map();
+  const credited = new Map(), chargeMovement = new Map();
+  // All movements linked to a document must preserve entered-date order.
+  // Otherwise a backdated allocation after a reversal can overallocate an
+  // earlier cutoff even though the final active balances look valid.
+  const moveCharge = (id, when) => {
+    if (when < (chargeMovement.get(id)||'')) fail('LEDGER_EVENT_CHRONOLOGY');
     chargeMovement.set(id,when > (chargeMovement.get(id)||'') ? when : chargeMovement.get(id));
   };
-  const moveReceipt = (id, when, strict = false) => {
-    if ((strict || refundReceipts.has(id)) && when < (receiptMovement.get(id)||'')) fail('LEDGER_EVENT_CHRONOLOGY');
+  const moveReceipt = (id, when) => {
+    if (when < (receiptMovement.get(id)||'')) fail('LEDGER_EVENT_CHRONOLOGY');
     receiptMovement.set(id,when > (receiptMovement.get(id)||'') ? when : receiptMovement.get(id));
   };
   for (const raw of input.events) {
@@ -97,14 +100,13 @@ function replayReceivablesLedger(input, operatingCase) {
       event.amountMinor=minor(raw.amountMinor);
       const charge=records.get(event.chargeId);
       if (charge?.type !== 'CHARGE' || reversed.has(charge.id)) fail('LEDGER_CREDIT_REFERENCE_INVALID');
-      moveCharge(charge.id,event.date,true);
+      moveCharge(charge.id,event.date);
       const refKey=JSON.stringify([event.type,event.reference]);
       if (references.has(refKey)) fail('LEDGER_DUPLICATE_REFERENCE');
       references.add(refKey);
       const total=add(credited.get(charge.id)||0,event.amountMinor);
       if (total > charge.amountMinor-(used.get(charge.id)||0)) fail('LEDGER_OVERCREDIT');
       credited.set(charge.id,total);
-      creditCharges.add(charge.id);
     } else if (event.type === 'REFUND') {
       event.receiptId=text(raw.receiptId);
       event.reference=text(raw.reference);
@@ -112,14 +114,13 @@ function replayReceivablesLedger(input, operatingCase) {
       event.amountMinor=minor(raw.amountMinor);
       const receipt=records.get(event.receiptId);
       if (receipt?.type !== 'RECEIPT' || reversed.has(receipt.id)) fail('LEDGER_REFUND_REFERENCE_INVALID');
-      moveReceipt(receipt.id,event.date,true);
+      moveReceipt(receipt.id,event.date);
       const refKey=JSON.stringify([event.type,event.reference]);
       if (references.has(refKey)) fail('LEDGER_DUPLICATE_REFERENCE');
       references.add(refKey);
       const total=add(refunded.get(receipt.id)||0,event.amountMinor);
       if (total > receipt.amountMinor-(used.get(receipt.id)||0)) fail('LEDGER_OVERREFUND');
       refunded.set(receipt.id,total);
-      refundReceipts.add(receipt.id);
     } else if (event.type === 'REVERSAL') {
       event.targetId = text(raw.targetId);
       event.reason = text(raw.reason);
@@ -134,10 +135,10 @@ function replayReceivablesLedger(input, operatingCase) {
         used.set(target.chargeId,(used.get(target.chargeId)||0)-target.amountMinor);
         used.set(target.receiptId,(used.get(target.receiptId)||0)-target.amountMinor);
       } else if (target.type === 'REFUND') {
-        moveReceipt(target.receiptId,event.date,true);
+        moveReceipt(target.receiptId,event.date);
         refunded.set(target.receiptId,(refunded.get(target.receiptId)||0)-target.amountMinor);
       } else if (target.type === 'CREDIT') {
-        moveCharge(target.chargeId,event.date,true);
+        moveCharge(target.chargeId,event.date);
         credited.set(target.chargeId,(credited.get(target.chargeId)||0)-target.amountMinor);
       } else if (credited.get(target.id)) fail('LEDGER_REVERSE_CREDITS_FIRST');
       else if (refunded.get(target.id)) fail('LEDGER_REVERSE_REFUNDS_FIRST');
