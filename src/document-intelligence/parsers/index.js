@@ -5,9 +5,10 @@ const xlsx = require('./xlsx-adapter');
 const pptx = require('./pptx-adapter');
 const pdf = require('./pdf-adapter');
 const docx = require('./docx-adapter');
+const image = require('./image-adapter');
 const { mapParsedAtomToEvidenceFact } = require('./evidence-mapper');
 
-const ADAPTERS = Object.freeze([xlsx, pptx, pdf, docx]);
+const ADAPTERS = Object.freeze([xlsx, pptx, pdf, docx, image]);
 
 async function parseDocument({ document, content, options = {} }) {
   if (!document || typeof document !== 'object') throw new TypeError('document is required');
@@ -42,4 +43,5 @@ module.exports = {
   pptx,
   pdf,
   docx,
+  image,
 };

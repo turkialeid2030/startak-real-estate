@@ -5,7 +5,7 @@
     "name_en": "Architecture & Control Plane",
     "name_ar": "معمارية النظام ومستوى التحكم",
     "status": "PARTIAL",
-    "evidence": "engines/contracts/StudyDefinitions/tests exist (Wave A/B); no CI/build/lint pipeline exists yet (BUILD_STATUS=NOT_CONFIGURED per Wave B closing report)"
+    "evidence": "Engine contracts and study definitions, canonical build/package/regression verification, CI gates and exact-source deployed asset/browser acceptance are implemented. These engineering checks do not establish independent canonical-source qualification, institutional release authority or general production readiness."
   },
   {
     "phase_id": "PHASE_1",
@@ -21,7 +21,7 @@
     "name_en": "Evidence & Property Identity",
     "name_ar": "الأدلة وهوية العقار",
     "status": "PARTIAL",
-    "evidence": "Document Intelligence foundation implemented in src/document-intelligence: immutable SHA-256 intake, metadata classification, Evidence Fact/source-locator contracts, deterministic normalization, cross-document reconciliation, explicit verified-fact promotion, and evidence-to-underwriting readiness gating. Qualified by tests/architecture/run_document_intelligence_foundation.js. Parser/OCR/connectors/evidence UI/persistence/property-identity verification remain not implemented."
+    "evidence": "Document Intelligence includes SHA-256 intake, metadata classification, Evidence Fact/source-locator contracts, normalization, reconciliation and explicit verification/readiness gates. Bounded local Office/native-PDF parsers, explicit single-page Arabic/English PDF/image OCR, evidence UI and local source/review journals are implemented with engineering tests. OCR retains source hash, pixel geometry and actual extraction score; candidates remain unverified. Live authorized connectors, independent OCR/table accuracy, institutional persistence/authentication and independent property/source identity remain open."
   },
   {
     "phase_id": "PHASE_3",

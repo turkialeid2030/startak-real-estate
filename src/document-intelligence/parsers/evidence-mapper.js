@@ -24,6 +24,11 @@ function mapParsedAtomToEvidenceFact({
   }
   const targetValueType = valueType || atom.valueType || 'STRING';
   const normalizedValue = normalizeExtractedValue(atom.rawValue, targetValueType);
+  const ocr=atom.adapterId==='LOCAL_OCR_PAGE_V1';
+  if(ocr&&(atom.metadata?.extraction!=='LOCAL_OCR_UNVERIFIED'
+    ||atom.metadata.sourceDigestSha256!==document.contentHashSha256
+    ||!Number.isFinite(atom.metadata.engineConfidence)||atom.metadata.engineConfidence<0||atom.metadata.engineConfidence>100))
+    throw new TypeError('OCR_SOURCE_OR_CONFIDENCE_INVALID');
 
   return createEvidenceFact({
     factId,
@@ -36,7 +41,7 @@ function mapParsedAtomToEvidenceFact({
     unit,
     sourceLocator: atom.location,
     extractionMethod: atom.adapterId,
-    extractionConfidence,
+    extractionConfidence:ocr?atom.metadata.engineConfidence/100:extractionConfidence,
     materiality,
     capturedAt,
   });

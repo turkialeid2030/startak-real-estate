@@ -8,6 +8,9 @@ on:
       - 'package-lock.json'
       - 'vite.config.*'
       - 'tests/e2e/run_audit_20261010_*'
+      - 'tests/e2e/run_audit_20261020_local_ocr_browser.js'
+      - 'tools/local-ocr-assets.mjs'
+      - 'public/_headers'
       - 'tests/e2e/run_c75_real_chromium_personal_study.js'
       - '.github/workflows/audit-20261010-deployed-owner-verify.yml'
   workflow_dispatch:
@@ -75,6 +78,8 @@ jobs:
         run: node tests/e2e/run_c75_real_chromium_personal_study.js
       - name: Published PDF worker, source journals, actions and three-browser print acceptance
         run: node tests/e2e/run_audit_20261010_remaining_browser.js
+      - name: Published local Arabic/English OCR and worker lifecycle
+        run: node tests/e2e/run_audit_20261020_local_ocr_browser.js
       - name: Save deployment-correlated browser and print evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a

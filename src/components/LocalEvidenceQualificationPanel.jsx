@@ -37,7 +37,7 @@ export default function LocalEvidenceQualificationPanel({ intakeRecord, onCandid
     eyebrow: 'EVIDENCE QUALIFICATION · HUMAN SEMANTIC MAPPING',
     title: 'تأهيل المحتوى المستخرج كمرشح دليل',
     intro: 'اختر عنصرًا مستخرجًا ثم عرّف معناه ومصدره يدويًا. هذه الخطوة لا تجعل المحتوى حقيقة موثقة ولا تسمح باستخدامه تلقائيًا في المحرك المالي.',
-    noParsed: 'لا يوجد ملف محلل بنجاح يحتوي على عناصر قابلة للتأهيل. ارفع ملفًا نصيًا صالحًا أو أدخل نقلًا يدويًا موثقًا أعلاه أولًا.',
+    noParsed: 'لا توجد عناصر قابلة للتأهيل. ارفع ملفًا نصيًا صالحًا، أو نفذ القراءة الضوئية للصفحة المطلوبة، أو أدخل نقلًا يدويًا موثقًا أعلاه.',
     atom: 'العنصر المستخرج',
     semanticKey: 'المفتاح الدلالي',
     semanticPlaceholder: 'مثال: market_rent_per_sqm',
@@ -65,7 +65,7 @@ export default function LocalEvidenceQualificationPanel({ intakeRecord, onCandid
     eyebrow: 'EVIDENCE QUALIFICATION · HUMAN SEMANTIC MAPPING',
     title: 'Qualify parsed content as an evidence candidate',
     intro: 'Select a parsed atom and explicitly define its meaning and provenance. This step does not make the content a verified fact and never feeds it into the financial engine automatically.',
-    noParsed: 'No successfully parsed document with qualifiable atoms is available. Upload a text document or create a documented manual transcription above first.',
+    noParsed: 'No qualifiable atoms are available. Upload a text document, run local OCR on the required page, or create a documented manual transcription above.',
     atom: 'Parsed atom',
     semanticKey: 'Semantic key',
     semanticPlaceholder: 'Example: market_rent_per_sqm',
@@ -166,7 +166,7 @@ export default function LocalEvidenceQualificationPanel({ intakeRecord, onCandid
                         <div><div className="text-[10px] text-slate-500">{l.authority}</div><div className="mt-1 text-xs text-slate-200">{candidate.fact.authorityClass} · verified={String(candidate.authorityVerified)}</div></div>
                       </div>
                       <div><div className="text-[10px] text-slate-500">{l.sourceHash}</div><div className="mt-1 break-all font-mono text-[10px] text-slate-300">{candidate.documentHashSha256}</div></div>
-                      <div><div className="text-[10px] text-slate-500">{l.locator}</div><pre className="mt-1 overflow-auto whitespace-pre-wrap text-[10px] text-slate-300">{JSON.stringify(candidate.fact.sourceLocator, null, 2)}</pre></div>
+                      <div><div className="text-[10px] text-slate-500">{l.locator}</div><pre data-user-content translate="no" className="mt-1 overflow-auto whitespace-pre-wrap text-[10px] text-slate-300">{JSON.stringify(candidate.fact.sourceLocator, null, 2)}</pre></div>
                       <div className="rounded-lg border border-amber-800/50 bg-amber-950/20 p-3 text-[11px] leading-5 text-amber-100/80">{l.boundary}</div>
                     </>
                   ) : (

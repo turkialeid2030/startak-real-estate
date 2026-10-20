@@ -19,6 +19,10 @@ on:
       - 'tests/fixtures/**'
       - 'tests/architecture/run_audit_20261010_remaining.js'
       - 'tests/e2e/run_audit_20261010_remaining_browser.js'
+      - 'tests/e2e/run_audit_20261020_local_ocr_browser.js'
+      - 'tools/local-ocr-assets.mjs'
+      - 'public/_headers'
+      - 'vite.config.*'
       - 'tests/architecture/run_audit_20261010_f03_f07.js'
       - 'tests/e2e/run_audit_20261010_f03_f07_browser.js'
       - 'docs/AUDIT_20261010_F03_F07_OWNER_STUDY_REMEDIATION.md'
@@ -93,6 +97,10 @@ jobs:
         env:
           STARTAK_E2E_URL: http://127.0.0.1:4173
         run: node tests/e2e/run_audit_20261010_remaining_browser.js
+      - name: Local Arabic/English OCR, selected PDF pages, CSP and worker lifecycle
+        env:
+          STARTAK_E2E_URL: http://127.0.0.1:4173
+        run: node tests/e2e/run_audit_20261020_local_ocr_browser.js
       - name: Save browser and print evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
