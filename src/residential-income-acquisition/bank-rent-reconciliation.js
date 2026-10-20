@@ -1,4 +1,5 @@
 'use strict';
+const {calculateReceivablesPeriodReconciliation}=require('./receivables-period-reconciliation');
 const {calculateReceivablesLedger,parseLedgerAmount}=require('./receivables-ledger');
 const {normalizeNumericText}=require('../validation/numeric-text');
 const fail=code=>{throw new TypeError(code);};
@@ -37,9 +38,10 @@ function validateBankRentStatement(input,c){
   return {schemaVersion:1,caseId:c.caseId,currency:'SAR',accountRef,sourceRef,reviewRef,periodStart,periodEndExclusive,entries,...(balances?{balances}:{})};
 }
 function calculateBankRentReconciliation(c){
-  const empty={status:'NOT_AVAILABLE',rows:[],unmatchedLedgerIds:[],issues:[],totalsMinor:null,balanceReconciliation:{status:'NOT_PROVIDED'},actualBankBalance:false,coverageComplete:false};
+  const empty={status:'NOT_AVAILABLE',rows:[],unmatchedLedgerIds:[],issues:[],totalsMinor:null,balanceReconciliation:{status:'NOT_PROVIDED'},ledgerPeriodReconciliation:null,actualBankBalance:false,coverageComplete:false};
   if(!c.bankRentStatement)return empty;
   const p=validateBankRentStatement(c.bankRentStatement,c),ledger=calculateReceivablesLedger(c);
+  empty.ledgerPeriodReconciliation=calculateReceivablesPeriodReconciliation(c,p);
   const movements=[...ledger.receiptRows.map(x=>({...x,direction:'CREDIT'})),...ledger.refundRows.map(x=>({...x,direction:'DEBIT'}))].filter(x=>x.date>=p.periodStart&&x.date<p.periodEndExclusive);
   const byId=new Map(movements.map(x=>[x.id,x])),matched=new Set(),issues=[];
   let bankCredits=0n,bankDebits=0n,ledgerCredits=0n,ledgerDebits=0n;

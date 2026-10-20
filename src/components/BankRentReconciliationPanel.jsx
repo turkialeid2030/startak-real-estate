@@ -1,4 +1,5 @@
 import React from 'react';
+import ReceivablesPeriodReconciliation from './ReceivablesPeriodReconciliation.jsx';
 import {calculateBankRentReconciliation,replaceBankRentStatement} from '../residential-income-acquisition/bank-rent-reconciliation';
 import {calculateReceivablesLedger} from '../residential-income-acquisition/receivables-ledger';
 import {formatCashMinor} from '../residential-income-acquisition/cash-scenario';
@@ -47,6 +48,7 @@ export default function BankRentReconciliationPanel({operatingCase:c,onReplaceOp
     <div className="overflow-x-auto"><table className="w-full"><thead><tr>{[t('الحركة','Movement'),t('القيد','Ledger entry'),t('الكشف','Statement'),t('السجل','Ledger'),t('الحالة','Status')].map(x=><th key={x}>{x}</th>)}</tr></thead><tbody>{result.rows.map(row=><tr key={row.id}><td data-user-content translate="no">{row.id}</td><td data-user-content translate="no">{row.ledgerEventId||'—'}</td><td>{formatCashMinor(row.amountMinor)}</td><td>{row.ledgerAmountMinor===null?'—':formatCashMinor(row.ledgerAmountMinor)}</td><td data-diagnostic-content translate="no"><code>{row.status}</code></td></tr>)}</tbody></table></div>
     {result.totalsMinor&&<p>{t('فرق الإيداعات / فرق المردودات بالهللة','Credit / refund differences in halalas')}: {result.totalsMinor.creditDifference} / {result.totalsMinor.debitDifference}</p>}
     <p>{t('قيود السجل غير المطابقة','Unmatched ledger entries')}: <span data-user-content translate="no">{result.unmatchedLedgerIds.join(', ')||'—'}</span></p>
+    <ReceivablesPeriodReconciliation result={result.ledgerPeriodReconciliation} locale={dir==='rtl'?'ar-SA':'en'}/>
     <button data-testid="bank-export" type="button" onClick={download}>{t('تصدير المطابقة ومصادرها','Export reconciliation and sources')}</button>
   </section>;
 }
