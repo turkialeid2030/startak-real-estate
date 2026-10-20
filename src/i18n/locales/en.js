@@ -399,7 +399,7 @@ module.exports = {
     backupLimit: "Limit: 10 MiB per backup and 200 deals in the final index. The operation did not complete.",
     importRolledBack: "The storage operation failed; rollback of its record changes and the prior index was verified. The operation did not complete.",
     importRecoveryRequired: "Not all storage changes could be verified as rolled back. Saving, updating, deleting and importing are blocked in this session; review the data, retain the original backup and try exporting current deals. Do not assume data is unchanged.",
-    importStorageChanged: "Storage changed or a target ID was occupied. No restore write began; retry restore to read the current index.",
+    importStorageChanged: "Storage changed or a target ID was occupied. No write began; retry the operation to read the current index.",
   },
   validationDisclosure: {
     title: "Invalid Input Value",
