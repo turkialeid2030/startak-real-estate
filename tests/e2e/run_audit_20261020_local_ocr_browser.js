@@ -18,8 +18,10 @@ async function download(page,locator){const pending=page.waitForEvent('download'
     const OriginalWorker=window.Worker;window.__ocrWorkers={created:0,terminated:0};
     window.Worker=class extends OriginalWorker{constructor(url,options){super(url,options);this.ocr=String(url).includes('/assets/ocr/');if(this.ocr)window.__ocrWorkers.created++;}terminate(){if(this.ocr){window.__ocrWorkers.terminated++;this.ocr=false;}super.terminate();}};
    });
-   const page=await context.newPage(),errors=[],external=[],violations=[],resources=[];
+   const page=await context.newPage(),errors=[],external=[],violations=[],resources=[],failedRequests=[],consoleErrors=[];
    page.on('pageerror',e=>errors.push(e.message));
+   page.on('requestfailed',r=>failedRequests.push({url:r.url(),error:r.failure()?.errorText}));
+   page.on('console',m=>{if(m.type()==='error')consoleErrors.push(m.text());});
    page.on('request',r=>{if(!r.url().startsWith(BASE)&&!r.url().startsWith('data:')&&!r.url().startsWith('blob:'))external.push({url:r.url(),method:r.method()});if(r.url().includes('/assets/ocr/'))resources.push(r.url());});
    page.on('console',m=>{if(m.type()==='error'&&/Content Security Policy|Refused to|wasm/i.test(m.text()))violations.push(m.text());});
    // Vite preview does not implement Pages headers. Enforce the production
@@ -36,7 +38,11 @@ async function download(page,locator){const pending=page.waitForEvent('download'
     await applyPolicy(route);
    });
    await page.goto(BASE+'/',{waitUntil:'domcontentloaded'});
-   const panel=page.getByTestId('local-document-evidence-intake');await expect(panel).toBeVisible({timeout:30000});
+   const panel=page.getByTestId('local-document-evidence-intake');
+   try{await expect(panel).toBeVisible({timeout:30000});}catch(error){
+    await fs.writeFile(`${DIR}/${name}-${width}-startup-failure.json`,JSON.stringify({engine:name,width,errors,external,violations,failedRequests,consoleErrors,body:await page.locator('body').innerText()},null,2));
+    await page.screenshot({path:`${DIR}/${name}-${width}-startup-failure.png`});throw error;
+   }
    ok(resources.length===0,'OCR model/worker assets do not load on initial page view');
    await page.getByTestId('document-case-id').fill('SYNTHETIC-OCR-'+name+'-'+width);
    const file=page.getByTestId('local-document-file-input');
