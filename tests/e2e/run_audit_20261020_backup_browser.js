@@ -98,7 +98,7 @@ async function diagnose(page,label,error){
      await dialog.getByPlaceholder(ar.savedDeals.namePlaceholder).fill('FAILED UI SAVE / فشل تجريبي');
      await page.evaluate(()=>{window.__crudFailure={op:'set',key:'deals-index',after:true};});
      await dialog.getByRole('button',{name:ar.savedDeals.saveButton,exact:true}).click();
-     await expect(page.getByTestId('saved-deals-error')).toHaveAttribute('data-storage-code','RESTORE_STORAGE_FAILED_ROLLED_BACK');assert.deepEqual(await savedSnapshot(page),beforeCrud);checks+=2;
+     await expect(page.getByTestId('saved-deals-error')).toHaveAttribute('data-storage-code','RESTORE_STORAGE_FAILED_ROLLED_BACK');await expect(page.getByTestId('saved-backup-message')).toHaveCount(0);assert.deepEqual(await savedSnapshot(page),beforeCrud);checks+=3;
      await page.evaluate(key=>{window.__crudFailure={op:'set',key,after:true};},recordKey);
      await dialog.getByRole('button',{name:ar.savedDeals.updateButton,exact:true}).click();
      await expect(dialog).toHaveAttribute('aria-busy','false');await expect(page.getByTestId('saved-deals-error')).toHaveAttribute('data-storage-code','RESTORE_STORAGE_FAILED_ROLLED_BACK');assert.deepEqual(await savedSnapshot(page),beforeCrud);checks+=2;
@@ -110,12 +110,13 @@ async function diagnose(page,label,error){
      const afterUpdate=await download(page,page.getByTestId('saved-backup-export')),updated=afterUpdate.deals.find(d=>d.id===transfer.deals[0].id);
      assert.deepEqual(updated.assumptionRegistry,transfer.deals[0].assumptionRegistry);assert.deepEqual(updated.assumptionRegistryVersion,transfer.deals[0].assumptionRegistryVersion);assert.deepEqual(updated.operatingCase,transfer.deals[0].operatingCase);checks+=3;
      const beforeFailure=await savedSnapshot(page);await page.evaluate(()=>{window.__backupFailure='after';});
-     await importFile(page,legacy([simple('io-one'),simple('io-two')]));await expect(page.getByTestId('saved-backup-message')).toHaveAttribute('data-backup-code','RESTORE_STORAGE_FAILED_ROLLED_BACK');assert.deepEqual(await savedSnapshot(page),beforeFailure);checks+=2;
+     await importFile(page,legacy([simple('io-one'),simple('io-two')]));await expect(page.getByTestId('saved-backup-message')).toHaveAttribute('data-backup-code','RESTORE_STORAGE_FAILED_ROLLED_BACK');await expect(page.getByTestId('saved-deals-error')).toHaveCount(0);assert.deepEqual(await savedSnapshot(page),beforeFailure);checks+=3;
      await dialog.screenshot({path:`${DIR}/${name}-${width}-backup-rollback.png`});
      if(width===390){
       await page.evaluate(()=>{window.__backupFailure='before';window.__backupCleanupFailure=true;});await importFile(page,legacy([simple('io-one'),simple('io-two')]));
       await expect(page.getByTestId('saved-backup-message')).toHaveAttribute('data-backup-code','RESTORE_RECOVERY_REQUIRED');await expect(page.getByTestId('saved-backup-import-button')).toBeDisabled();await expect(dialog.getByRole('button',{name:ar.savedDeals.saveButton,exact:true})).toBeDisabled();await expect(page.getByTestId('saved-backup-export')).toBeEnabled();checks+=4;
       await dialog.screenshot({path:`${DIR}/${name}-${width}-backup-recovery.png`});
+      const rescue=await download(page,page.getByTestId('saved-backup-export'));ok(rescue.deals.length===3,'recovery export contains the current indexed deals');await expect(page.getByTestId('saved-deals-recovery')).toBeVisible();await expect(page.getByTestId('saved-backup-import-button')).toBeDisabled();checks+=2;
      }
      ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'backup controls fit desktop/mobile viewport');ok(errors.length===0,'no browser runtime errors: '+errors.join(' | '));
      evidence.push({engine:name,width,crossBrowserTransfer:true,physicalDevice:false,checksCompleted:checks});
@@ -133,8 +134,10 @@ async function diagnose(page,label,error){
      await dialog.getByPlaceholder(ar.savedDeals.namePlaceholder).fill('HOST RECOVERY / استرجاع تجريبي');
      await page.evaluate(()=>{window.__crudFailure={op:'set',key:'deals-index',after:true};window.__crudCleanupFailure=true;});
      await dialog.getByRole('button',{name:ar.savedDeals.saveButton,exact:true}).click();
-     await expect(page.getByTestId('saved-deals-error')).toHaveAttribute('data-storage-code','RESTORE_RECOVERY_REQUIRED');await expect(dialog.getByRole('button',{name:ar.savedDeals.saveButton,exact:true})).toBeDisabled();await expect(page.getByTestId('saved-backup-import-button')).toBeDisabled();await expect(page.getByTestId('saved-backup-export')).toBeEnabled();checks+=4;
+     await expect(page.getByTestId('saved-deals-error')).toHaveAttribute('data-storage-code','RESTORE_RECOVERY_REQUIRED');await expect(page.getByTestId('saved-backup-message')).toHaveCount(0);await expect(dialog.getByRole('button',{name:ar.savedDeals.saveButton,exact:true})).toBeDisabled();await expect(page.getByTestId('saved-backup-import-button')).toBeDisabled();await expect(page.getByTestId('saved-backup-export')).toBeEnabled();checks+=5;
      await dialog.screenshot({path:DIR+'/chromium-host-crud-recovery.png'});
+     const rescue=await download(page,page.getByTestId('saved-backup-export'));ok(rescue.deals.length===transfer.deals.length,'host recovery export does not turn staged unindexed data into saved deals');await expect(page.getByTestId('saved-deals-recovery')).toBeVisible();await expect(dialog.getByRole('button',{name:ar.savedDeals.saveButton,exact:true})).toBeDisabled();checks+=2;
+     await dialog.screenshot({path:DIR+'/chromium-host-recovery-export.png'});
     }catch(error){await diagnose(page,'chromium-host',error);}finally{await context.close();}
    }
   }finally{await browser.close();}

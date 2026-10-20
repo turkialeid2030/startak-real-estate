@@ -57,6 +57,11 @@ storage snapshot inside that lock, and export reads the current index instead
 of an older React list. Same-tick duplicate import is stopped before reading the
 file; controls and the accessible busy status reflect ongoing operations.
 Native file selection has a keyboard-accessible button.
+Starting any storage operation clears the preceding operation's result, so a
+stale success cannot appear alongside a newer save/import/recovery failure.
+The session recovery warning persists after a successful read-only export;
+that export contains only currently indexed valid records and does not clear
+the write block or establish that unindexed staged data has been recovered.
 
 ## Scope and remaining limits
 

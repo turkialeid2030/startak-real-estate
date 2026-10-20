@@ -1553,6 +1553,7 @@ function DealsPanel({
         {dealsError ? <div data-testid="saved-deals-error" data-storage-code={dealsError.code} role="alert" className="text-[11px] mb-3" style={{ color: COLORS.negative }}>{locale === "en" ? dealsError.message_en : dealsError.message_ar}</div> : null}
 
         {backupMessage ? <div data-testid="saved-backup-message" data-backup-code={backupMessage.code||''} role={backupMessage.ok?'status':'alert'} className="text-[11px] mb-3" style={{ color: backupMessage.ok ? COLORS.brass : COLORS.negative }}>{locale === "en" ? backupMessage.en : backupMessage.ar}</div> : null}
+        {restoreRecoveryRequired&&backupMessage?.code!=='RESTORE_RECOVERY_REQUIRED'&&dealsError?.code!=='RESTORE_RECOVERY_REQUIRED'?<p data-testid="saved-deals-recovery" role="alert" className="text-[11px] mb-3" style={{color:COLORS.negative}}>{t('savedDeals.importRecoveryRequired')}</p>:null}
         {savingInProgress?<p role="status" aria-live="polite" className="mb-3 text-xs" style={{color:COLORS.parchment}}>{t('savedDeals.storageBusy')}</p>:null}
 
         <Divider />
@@ -1954,11 +1955,12 @@ export default function App() {
     catch (e) { if (e.name === 'ValidationError') return; throw e; }
     try { validateUserEnteredZakatCase(zakatCase); }
     catch (e) {
+      setBackupMessage(null);
       setDealsError({ code: e.code || "ZAKAT_CASE_INVALID", message_ar: "أكمل مبلغ الزكاة ومصدره قبل الحفظ، أو امسح مبلغ الزكاة.", message_en: "Complete the Zakat amount and its source before saving, or clear the Zakat amount." });
       return;
     }
     savedOperationRef.current=true;setSavingInProgress(true);
-    setDealsError(null);
+    setDealsError(null);setBackupMessage(null);
     try {
       const record=recordWithExtensions(prepareNewUiDealForSave({id:"deal_"+Date.now(),name,mode,inputs,savedAt:new Date().toISOString()}));
       const {id,index:newIndex}=await saveNewSavedDeal(record,storageProvider);
@@ -1981,11 +1983,12 @@ export default function App() {
     catch (e) { if (e.name === 'ValidationError') return; throw e; }
     try { validateUserEnteredZakatCase(zakatCase); }
     catch (e) {
+      setBackupMessage(null);
       setDealsError({ code: e.code || "ZAKAT_CASE_INVALID", message_ar: "أكمل مبلغ الزكاة ومصدره قبل الحفظ، أو امسح مبلغ الزكاة.", message_en: "Complete the Zakat amount and its source before saving, or clear the Zakat amount." });
       return;
     }
     savedOperationRef.current=true;setSavingInProgress(true);
-    setDealsError(null);
+    setDealsError(null);setBackupMessage(null);
     try {
       const newIndex=await updateSavedDealRecord(activeDealId,existing=>recordWithExtensions(prepareUpdatedUiDealForSave({ id: activeDealId, name: existing ? existing.name : "صفقة", mode, inputs, savedAt: new Date().toISOString() }, assumptionModelVersion)),storageProvider);
       setSavedDeals(newIndex);
@@ -2000,7 +2003,7 @@ export default function App() {
   const deleteDeal = async (id) => {
     if(dealsLoading||savedOperationRef.current||restoreRecoveryRef.current)return;
     savedOperationRef.current=true;setSavingInProgress(true);
-    setDealsError(null);
+    setDealsError(null);setBackupMessage(null);
     try {
       const newIndex=await removeSavedDealRecord(id,storageProvider);
       setSavedDeals(newIndex);
@@ -2041,7 +2044,7 @@ export default function App() {
   const exportBackup = async () => {
     if(dealsLoading||savedOperationRef.current)return;
     savedOperationRef.current=true;setSavingInProgress(true);
-    setBackupMessage(null);
+    setBackupMessage(null);setDealsError(null);
     try {
       const payload = await buildCurrentExportPayload(storageProvider);
       const blob = new Blob([serializeBackup(payload)], { type: "application/json" });
@@ -2064,7 +2067,7 @@ export default function App() {
   const importBackup = async (file) => {
     if(dealsLoading||savedOperationRef.current||restoreRecoveryRef.current)return;
     savedOperationRef.current=true;setSavingInProgress(true);
-    setBackupMessage(null);
+    setBackupMessage(null);setDealsError(null);
     try {
       if(!Number.isSafeInteger(file.size)||file.size>MAX_BACKUP_BYTES)throw Object.assign(new Error('BACKUP_SIZE_LIMIT'),{reasonCode:'BACKUP_SIZE_LIMIT'});
       const parsed=parseBackupText(await file.text());
