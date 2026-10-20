@@ -184,6 +184,8 @@ const ARABIC_TERM_REPLACEMENTS = Object.freeze([
   [/\bPPTX\b/g, 'عرض تقديمي'],
   [/\bCSV\b/g, 'ملف بيانات جدولي'],
   [/\bPDF\b/g, 'ملف مستند'],
+  [/\bPNG\b/g, 'صورة بي إن جي'],
+  [/\bJPEG\b|\bJPG\b/g, 'صورة جي بي جي'],
   [/\bJSON\b/g, 'ملف بيانات'],
   [/\bHTML\b/g, 'صفحة ويب'],
   [/\bSAR\b/g, 'ريال سعودي'],

@@ -42,9 +42,9 @@ async function checkAsync(name, fn) {
     assert(!panel.includes('WebSocket'));
   });
 
-  check('file scope is bounded to xlsx pptx pdf and docx with a pre-parse size cap', () => {
+  check('file scope includes local PNG/JPEG OCR and bounded Office/PDF intake', () => {
     assert(panel.includes("const MAX_FILE_BYTES = 40 * 1024 * 1024"));
-    assert(panel.includes("const ACCEPTED_EXTENSIONS = ['.xlsx', '.pptx', '.pdf', '.docx']"));
+    assert(panel.includes("const ACCEPTED_EXTENSIONS = ['.xlsx', '.pptx', '.pdf', '.docx','.png','.jpg','.jpeg']"));
     assert(panel.includes('if (file.size > MAX_FILE_BYTES)'));
   });
 

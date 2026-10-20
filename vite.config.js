@@ -4,6 +4,7 @@ import tailwindcss from '@tailwindcss/vite';
 import fs from 'node:fs';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
+import {localOcrAssets,localOcrAssetsPlugin} from './tools/local-ocr-assets.mjs';
 
 const packageJson = JSON.parse(fs.readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
 
@@ -46,6 +47,7 @@ function resolveBuildMetadata() {
 }
 
 const buildMetadata = resolveBuildMetadata();
+const ocrAssets=localOcrAssets();
 
 function releaseManifestPlugin() {
   return {
@@ -79,8 +81,9 @@ function releaseManifestPlugin() {
 }
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), releaseManifestPlugin()],
+  plugins: [react(), tailwindcss(), localOcrAssetsPlugin(ocrAssets), releaseManifestPlugin()],
   define: {
     __STARTAK_BUILD_METADATA__: JSON.stringify(buildMetadata),
+    __STARTAK_OCR_ASSET_BASE__:JSON.stringify(ocrAssets.base),
   },
 });
