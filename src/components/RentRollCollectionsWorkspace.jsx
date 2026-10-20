@@ -31,31 +31,32 @@ function ratio(value, locale) {
 
 export default function RentRollCollectionsWorkspace({ operatingCase, metrics, t, dir, onReplaceOperatingCase }) {
   const locale = dir === 'rtl' ? 'ar-SA' : 'en-US';
-  const [leaseDraft, setLeaseDraft] = React.useState({ leaseId: '', baseRent: '', endDate: '', sourceRef: '', adoptionDecisionRef: '', confirmed: false });
+  const signature=React.useMemo(()=>JSON.stringify(operatingCase),[operatingCase]);
+  const [leaseDraft, setLeaseDraft] = React.useState({ leaseId: '', baseRent: '', endDate: '', sourceRef: '', adoptionDecisionRef: '', confirmed: false,signature:null });
   const [collectionDraft, setCollectionDraft] = React.useState({
-    collectionId: '', unitId: '', leaseId: '', periodStart: '', periodEnd: '', contractualRentDue: '', collectedRent: '', potentialGrossRent: '', concessions: '', sourceRef: '', adoptionDecisionRef: '', confirmed: false,
+    collectionId: '', unitId: '', leaseId: '', periodStart: '', periodEnd: '', contractualRentDue: '', collectedRent: '', potentialGrossRent: '', concessions: '', sourceRef: '', adoptionDecisionRef: '', confirmed: false,signature:null,
   });
   const [feedback, setFeedback] = React.useState(null);
   const [saving, setSaving] = React.useState(false);
   const inFlight = React.useRef(false);
-  const changeLease = patch => setLeaseDraft(current => ({...current,...patch,confirmed:false}));
-  const changeCollection = patch => setCollectionDraft(current => ({...current,...patch,confirmed:false}));
+  const changeLease = patch => {setLeaseDraft(current=>({...current,...patch,confirmed:false}));setFeedback(null);};
+  const changeCollection = patch => {setCollectionDraft(current=>({...current,signature:current.signature??signature,...patch,confirmed:false}));setFeedback(null);};
   if (!operatingCase || !metrics) return null;
 
   const activeLeases = operatingCase.leases.filter((lease) => lease.lifecycleStatus === 'ACTIVE');
   const selectCollectionUnit = (unitId) => {
     const activeLease = activeLeases.find((lease) => lease.unitId === unitId);
-    changeCollection({ unitId, leaseId: activeLease ? activeLease.leaseId : '' });
+    changeCollection({ unitId, leaseId: activeLease ? activeLease.leaseId : '',signature });
   };
   const selectLease = (leaseId) => {
     const lease = operatingCase.leases.find((item) => item.leaseId === leaseId);
-    setLeaseDraft((current) => ({
-      ...current,
+    setLeaseDraft({
       leaseId,
       baseRent: lease ? String(lease.baseRent.value ?? '') : '',
       endDate: lease ? String(lease.endDate || '').slice(0, 10) : '',
-      confirmed: false,
-    }));
+      confirmed: false,sourceRef:'',adoptionDecisionRef:'',signature,
+    });
+    setFeedback(null);
   };
   const replaceCase = async (candidate, successCode) => {
     if (typeof onReplaceOperatingCase !== 'function') throw new Error('OPERATING_CASE_UPDATE_HANDLER_REQUIRED');
@@ -68,9 +69,10 @@ export default function RentRollCollectionsWorkspace({ operatingCase, metrics, t
     if (inFlight.current) return;
     inFlight.current = true; setSaving(true);
     try {
+      if(leaseDraft.signature!==signature)throw new TypeError('LEASE_LIFECYCLE_DRAFT_STALE');
       const candidate = updateVerifiedLeaseTerms(operatingCase, leaseDraft);
       await replaceCase(candidate, 'LEASE_UPDATED');
-      setLeaseDraft((current) => ({ ...current, sourceRef: '', adoptionDecisionRef: '', confirmed: false }));
+      setLeaseDraft((current) => ({ ...current, sourceRef: '', adoptionDecisionRef: '', confirmed: false,signature:JSON.stringify(candidate) }));
     } catch (error) {
       setFeedback({ ok: false, code: String(error.code || error.message || error).slice(0, 160) });
     } finally { inFlight.current = false; setSaving(false);
@@ -81,9 +83,10 @@ export default function RentRollCollectionsWorkspace({ operatingCase, metrics, t
     if (inFlight.current) return;
     inFlight.current = true; setSaving(true);
     try {
+      if(collectionDraft.signature!==signature)throw new TypeError('LEASE_LIFECYCLE_DRAFT_STALE');
       const candidate = addVerifiedRentCollection(operatingCase, collectionDraft);
       await replaceCase(candidate, 'COLLECTION_ADDED');
-      setCollectionDraft((current) => ({ ...current, collectionId: '', contractualRentDue: '', collectedRent: '', potentialGrossRent: '', concessions: '', sourceRef: '', adoptionDecisionRef: '', confirmed: false }));
+      setCollectionDraft((current) => ({ ...current, collectionId: '', contractualRentDue: '', collectedRent: '', potentialGrossRent: '', concessions: '', sourceRef: '', adoptionDecisionRef: '', confirmed: false,signature:JSON.stringify(candidate) }));
     } catch (error) {
       setFeedback({ ok: false, code: String(error.code || error.message || error).slice(0, 160) });
     } finally { inFlight.current = false; setSaving(false);
@@ -196,7 +199,7 @@ export default function RentRollCollectionsWorkspace({ operatingCase, metrics, t
 
       {feedback ? (
         <div role="status" className={`mt-3 rounded-lg border p-2 text-[10px] ${feedback.ok ? 'border-emerald-900/60 text-emerald-300' : 'border-rose-900/60 text-rose-300'}`}>
-          {feedback.ok ? t(`riai.${feedback.code === 'LEASE_UPDATED' ? 'leaseUpdateSuccess' : 'collectionAddSuccess'}`) : <DiagnosticText code={feedback.code} locale={dir === 'rtl' ? 'ar-SA' : 'en'} />}
+          {feedback.ok ? t(`riai.${feedback.code === 'LEASE_UPDATED' ? 'leaseUpdateSuccess' : 'collectionAddSuccess'}`) : feedback.code==='LEASE_LIFECYCLE_DRAFT_STALE'?(dir==='rtl'?'تغيرت الحالة منذ بدء المسودة؛ أعد اختيار العقد أو الوحدة وراجع المدخلات.':'The case changed after drafting; reselect the lease or unit and review the inputs.'):<DiagnosticText code={feedback.code} locale={dir === 'rtl' ? 'ar-SA' : 'en'} />}
         </div>
       ) : null}
       <p className="mt-3 text-[10px] leading-5 text-slate-500">{t('riai.collectionsNoNoiWrite')}</p>
