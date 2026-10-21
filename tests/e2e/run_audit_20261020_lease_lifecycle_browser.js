@@ -60,7 +60,7 @@ async function act(page,action,leaseId,date,index){
     const backup=JSON.parse(await download(page,page.getByTestId('saved-backup-export')));eq(backup.deals[0].operatingCase,snapshot);
     await page.reload();await page.getByTitle(ar.actions.savedDeals,{exact:true}).click();await page.getByRole('dialog').getByRole('button',{name:seed.name,exact:true}).click();const reopened=await study(page);eq(reopened.operatingReport.sourceSnapshot,snapshot);eq(reopened.operatingReport.sourceFingerprintSha256,reviewed.operatingReport.sourceFingerprintSha256);
     const raw=await page.evaluate(key=>localStorage.getItem(key),NAMESPACE+'deal:'+seed.id);
-    await page.getByTitle('Switch to English',{exact:true}).click();await expect(page.locator('html')).toHaveAttribute('lang','en');checks++;
+    await page.getByTestId('locale-switch').click();await expect(page.locator('html')).toHaveAttribute('lang','en');checks++;
     await page.getByTestId('lifecycle-open').click();await expect(page.getByTestId('lease-lifecycle-editor')).toContainText('Lease lifecycle and change history');checks++;
     const english=await download(page,page.getByTestId('c75-export-personal-html'));ok(english.includes('Local lease change history')&&english.includes('Recorded early end'),'English report includes translated change kinds');eq(await page.evaluate(key=>localStorage.getItem(key),NAMESPACE+'deal:'+seed.id),raw);
     ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'lease lifecycle controls fit the viewport');ok(errors.length===0,'no runtime errors: '+errors.join(' | '));ok(external.length===0,'local lifecycle never sends an external POST');
