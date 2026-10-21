@@ -636,6 +636,7 @@ function createLease({
   termsEvidenceRef = null,
   termsAdoptionDecisionRef = null,
   evidenceRefs = [],
+  changeLog = [],
 }) {
   requiredString(caseId, 'caseId');
   requiredString(propertyInterestId, 'propertyInterestId');
@@ -665,7 +666,7 @@ function createLease({
     throw new RangeError('lease endDate must be after startDate');
   }
 
-  return deepFreeze({
+  const record = {
     schemaVersion: 1,
     caseId: caseId.trim(),
     propertyInterestId: propertyInterestId.trim(),
@@ -688,7 +689,45 @@ function createLease({
       normalizedTermsEvidenceRef,
       normalizedTermsAdoptionRef,
     ]),
+  };
+  if (!Array.isArray(changeLog) || changeLog.length > 100) throw new TypeError('LEASE_HISTORY_LIMIT');
+  if (changeLog.length) record.changeLog = normalizeLeaseChangeLog(changeLog, record);
+  return deepFreeze(record);
+}
+
+const LEASE_CHANGE_KINDS = Object.freeze(['TERMS_REPLACED','SCHEDULE_REPLACED','EARLY_END_RECORDED','FUTURE_CANCELLED','STATE_REVIEWED','PREVIOUS_TERMS_RESTORED']);
+function normalizeLeaseChangeLog(log, current) {
+  const identity = ['caseId','propertyInterestId','propertyId','buildingId','unitId','leaseId','tenantId'];
+  const snapshot = value => {
+    if (!value || typeof value !== 'object' || Array.isArray(value) || Object.hasOwn(value,'changeLog')) throw new TypeError('LEASE_HISTORY_SNAPSHOT_INVALID');
+    if (identity.some(key => value[key] !== current[key])) throw new TypeError('LEASE_HISTORY_ISOLATION');
+    const escalation = value.escalation;
+    if (!escalation || !Array.isArray(escalation.schedule)) throw new TypeError('LEASE_HISTORY_SNAPSHOT_INVALID');
+    return createLease({...value,baseRent:createEvidenceAwareValue(value.baseRent),escalation:createRentEscalation({
+      ...escalation,changeValue:escalation.changeValue ? createEvidenceAwareValue(escalation.changeValue) : null,
+      schedule:escalation.schedule.map(entry=>({...entry,rent:createEvidenceAwareValue(entry.rent)})),
+    })});
+  };
+  const dateOnly = value => {
+    const date = isoDate(value,'lease change date');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new TypeError('LEASE_HISTORY_DATE_INVALID');
+    return date;
+  };
+  let previous = null, previousRecorded = -Infinity, previousCaseDate = null;
+  const normalized = log.map((event,index)=>{
+    if (!event || event.revision !== index+1 || !LEASE_CHANGE_KINDS.includes(event.kind)) throw new TypeError('LEASE_HISTORY_REVISION_INVALID');
+    const before=snapshot(event.before),after=snapshot(event.after),recordedAt=isoDate(event.recordedAt,'lease change recordedAt');
+    const caseDateBefore=dateOnly(event.caseDateBefore),caseDateAfter=dateOnly(event.caseDateAfter),effectiveDate=dateOnly(event.effectiveDate);
+    if (Date.parse(recordedAt)<previousRecorded || caseDateAfter<caseDateBefore || (previousCaseDate&&caseDateBefore<previousCaseDate)) throw new TypeError('LEASE_HISTORY_CHRONOLOGY');
+    if (previous && JSON.stringify(previous)!==JSON.stringify(before)) throw new TypeError('LEASE_HISTORY_CHAIN_MISMATCH');
+    const reason=requiredString(event.reason,'lease change reason');if(reason.length>1000)throw new TypeError('LEASE_HISTORY_REASON_LIMIT');
+    previous=after;previousRecorded=Date.parse(recordedAt);previousCaseDate=caseDateAfter;
+    return {revision:index+1,kind:event.kind,recordedAt,caseDateBefore,caseDateAfter,effectiveDate,reason,
+      sourceRef:requiredString(event.sourceRef,'lease change sourceRef'),adoptionDecisionRef:requiredString(event.adoptionDecisionRef,'lease change adoptionDecisionRef'),
+      before,after,sourceAuthenticated:false,legalEffectEstablished:false,externalActionPerformed:false};
   });
+  if (JSON.stringify(previous)!==JSON.stringify(current)) throw new TypeError('LEASE_HISTORY_CURRENT_MISMATCH');
+  return normalized;
 }
 
 function createRentCollectionRecord({
@@ -996,6 +1035,11 @@ function createResidentialIncomeOperatingCase({
     assertExactReferenceSet(unit.leaseIds, actualLeaseIds, `unit.${unit.unitId}.leaseIds`);
   }
   for (const lease of leases) {
+    for(const change of lease.changeLog||[]){
+      const source=evidenceLineage.find(record=>record.refId===change.sourceRef),review=evidenceLineage.find(record=>record.refId===change.adoptionDecisionRef);
+      if(!source||![LINEAGE_KIND.SOURCE_DOCUMENT,LINEAGE_KIND.EVIDENCE_FACT].includes(source.kind)||review?.kind!==LINEAGE_KIND.UNDERWRITING_ADOPTION)throw new TypeError('LEASE_HISTORY_LINEAGE_REQUIRED');
+      if(change.caseDateAfter>normalizedAsOfDate.slice(0,10))throw new TypeError('LEASE_HISTORY_CASE_DATE_MISMATCH');
+    }
     if (!unitIds.has(lease.unitId)) throw new TypeError(`LEASE_UNIT_REFERENCE_MISSING: ${lease.leaseId}`);
     const unit = units.find((candidate) => candidate.unitId === lease.unitId);
     if (lease.buildingId !== unit.buildingId || lease.propertyId !== property.propertyId || lease.propertyInterestId !== propertyInterest.propertyInterestId) {

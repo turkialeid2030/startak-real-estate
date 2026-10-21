@@ -1,5 +1,7 @@
 'use strict';
 const {parseNumericText}=require('../validation/numeric-text');
+const {leaseWithoutHistory,appendLeaseChange,assertLeaseIntervals}=require('./lease-history');
+const {validDate,defaultCashHorizonEnd}=require('./cash-horizon');
 
 const {
   OPERATING_INPUT_STATUS,
@@ -86,7 +88,7 @@ function verifiedMoney(field, value, sourceRef, adoptionDecisionRef, effectiveDa
 function rebuildCase(operatingCase, overrides) {
   return createResidentialIncomeOperatingCase({
     caseId: operatingCase.caseId,
-    asOfDate: operatingCase.asOfDate,
+    asOfDate: overrides.asOfDate || operatingCase.asOfDate,
     propertyInterest: operatingCase.propertyInterest,
     property: operatingCase.property,
     buildings: operatingCase.buildings,
@@ -154,7 +156,9 @@ function updateVerifiedLeaseTerms(operatingCase, draft, { recordedAt = new Date(
     termsAdoptionDecisionRef: adoptionDecisionRef,
     evidenceRefs: target.evidenceRefs,
   });
-  const leases = operatingCase.leases.map((lease) => lease.leaseId === leaseId ? updatedLease : lease);
+  const revised=appendLeaseChange(target,updatedLease,{kind:'TERMS_REPLACED',recordedAt,caseDateBefore:operatingCase.asOfDate,sourceRef,adoptionDecisionRef,reason:'Locally entered replacement of lease terms; previous terms retained.'});
+  const leases = operatingCase.leases.map((lease) => lease.leaseId === leaseId ? revised : lease);
+  assertLeaseIntervals(leases,target.unitId);
   return rebuildCase(operatingCase, { leases, evidenceLineage });
 }
 
@@ -220,7 +224,8 @@ function updateVerifiedLeaseSchedule(operatingCase,draft,{recordedAt=new Date().
     return {effectiveDate,rent};
   });
   const evidenceLineage=extendEvidenceLineage(operatingCase,{sourceRef,adoptionDecisionRef,recordedAt,note:'Locally declared lease schedule review; does not authenticate source, reviewer or regulatory applicability.'});
-  const updated=createLease({...target,escalation:createRentEscalation({type:'MANUAL_SCHEDULE',schedule}),evidenceRefs:[...new Set([...target.evidenceRefs,sourceRef,adoptionDecisionRef])]});
+  const next=createLease({...leaseWithoutHistory(target),escalation:createRentEscalation({type:'MANUAL_SCHEDULE',schedule}),evidenceRefs:[...new Set([...target.evidenceRefs,sourceRef,adoptionDecisionRef])]});
+  const updated=appendLeaseChange(target,next,{kind:'SCHEDULE_REPLACED',recordedAt,caseDateBefore:operatingCase.asOfDate,sourceRef,adoptionDecisionRef,reason:'Locally entered replacement of the complete dated rent schedule; previous schedule retained.'});
   return rebuildCase(operatingCase,{leases:operatingCase.leases.map(lease=>lease.leaseId===target.leaseId?updated:lease),evidenceLineage});
 }
 
@@ -242,7 +247,56 @@ function addDocumentedFutureLease(operatingCase,draft,{recordedAt=new Date().toI
   return rebuildCase(operatingCase,{leases:[...operatingCase.leases,lease],units,evidenceLineage});
 }
 
+function recordDocumentedLeaseLifecycle(operatingCase,draft,{recordedAt=new Date().toISOString()}={}){
+ if(draft?.confirmed!==true)throw new TypeError('EXPLICIT_VERIFICATION_CONFIRMATION_REQUIRED');
+ if(!['EARLY_END','CANCEL_FUTURE','REVIEW_DATE','RESTORE_PREVIOUS'].includes(draft.action))throw new TypeError('LEASE_LIFECYCLE_ACTION_INVALID');
+ const sourceRef=requiredText(draft.sourceRef,'sourceRef'),adoptionDecisionRef=requiredText(draft.adoptionDecisionRef,'adoptionDecisionRef'),reason=requiredText(draft.reason,'reason');
+ if(reason.length>1000)throw new TypeError('LEASE_HISTORY_REASON_LIMIT');
+ const asOf=operatingCase.asOfDate.slice(0,10),reviewDate=draft.action==='REVIEW_DATE'?draft.date:asOf;
+ if(!validDate(reviewDate)||reviewDate<asOf)throw new TypeError('LEASE_REVIEW_DATE_INVALID');
+ if(draft.action==='REVIEW_DATE')defaultCashHorizonEnd(reviewDate);
+ const evidenceLineage=extendEvidenceLineage(operatingCase,{sourceRef,adoptionDecisionRef,recordedAt,note:'Local documentary lifecycle review only; no legal action, authenticated identity, notice, billing or cash execution.'});
+ const meta={recordedAt,caseDateBefore:asOf,caseDateAfter:reviewDate,sourceRef,adoptionDecisionRef,reason};
+ let leases;
+ if(draft.action==='REVIEW_DATE'){
+  let reviewed=0;
+  leases=operatingCase.leases.map(lease=>{
+   if(lease.lifecycleStatus==='TERMINATED'||lease.lifecycleStatus==='EXPIRED')return lease;
+   if(!['ACTIVE','FUTURE'].includes(lease.lifecycleStatus)||!lease.startDate||!lease.endDate)throw new TypeError('LEASE_LIFECYCLE_TERMS_REQUIRED');
+   const state=reviewDate<lease.startDate.slice(0,10)?'FUTURE':reviewDate>=lease.endDate.slice(0,10)?'EXPIRED':'ACTIVE';reviewed++;
+   const next=createLease({...leaseWithoutHistory(lease),lifecycleStatus:state});
+   return appendLeaseChange(lease,next,{...meta,kind:'STATE_REVIEWED'});
+  });
+  if(!reviewed)throw new TypeError('LEASE_LIFECYCLE_NO_REVIEWABLE_LEASE');
+ }else{
+  const target=operatingCase.leases.find(lease=>lease.leaseId===draft.leaseId);if(!target)throw new TypeError('LEASE_NOT_FOUND');
+  let next,kind,effectiveDate=asOf;
+  if(draft.action==='EARLY_END'){
+   if(target.lifecycleStatus!=='ACTIVE'||!target.startDate||!target.endDate||!validDate(draft.date)||draft.date<=target.startDate.slice(0,10)||draft.date>=target.endDate.slice(0,10))throw new TypeError('LEASE_EARLY_END_INVALID');
+   if(!['NONE','STEP_RENT','MANUAL_SCHEDULE'].includes(target.escalation.type))throw new TypeError('LEASE_SCHEDULE_TYPE_UNSUPPORTED');
+   effectiveDate=draft.date;
+   const schedule=target.escalation.schedule.filter(entry=>entry.effectiveDate.slice(0,10)<draft.date);
+   const escalation=schedule.length?createRentEscalation({...target.escalation,schedule}):createRentEscalation({type:'NONE'});
+   next=createLease({...leaseWithoutHistory(target),endDate:draft.date,lifecycleStatus:draft.date<=asOf?'TERMINATED':'ACTIVE',escalation,termsEvidenceRef:sourceRef,termsAdoptionDecisionRef:adoptionDecisionRef});kind='EARLY_END_RECORDED';
+  }else if(draft.action==='CANCEL_FUTURE'){
+   if(target.lifecycleStatus!=='FUTURE'||!target.startDate||target.startDate.slice(0,10)<=asOf)throw new TypeError('LEASE_CANCEL_FUTURE_INVALID');
+   next=createLease({...leaseWithoutHistory(target),lifecycleStatus:'TERMINATED',termsEvidenceRef:sourceRef,termsAdoptionDecisionRef:adoptionDecisionRef});kind='FUTURE_CANCELLED';
+  }else{
+   const previous=target.changeLog?.at(-1);
+   if(!previous||previous.kind==='STATE_REVIEWED'||previous.caseDateAfter!==asOf)throw new TypeError('LEASE_RESTORE_PREVIOUS_INVALID');
+   next=createLease({...previous.before,termsEvidenceRef:sourceRef,termsAdoptionDecisionRef:adoptionDecisionRef});kind='PREVIOUS_TERMS_RESTORED';
+   if((next.lifecycleStatus==='ACTIVE'&&(!next.startDate||!next.endDate||next.startDate.slice(0,10)>asOf||next.endDate.slice(0,10)<=asOf))||(next.lifecycleStatus==='FUTURE'&&(!next.startDate||next.startDate.slice(0,10)<=asOf)))throw new TypeError('LEASE_RESTORE_PREVIOUS_INVALID');
+  }
+  const revised=appendLeaseChange(target,next,{...meta,kind,effectiveDate});
+  leases=operatingCase.leases.map(lease=>lease===target?revised:lease);
+ }
+ assertLeaseIntervals(leases);
+ // Canonical reconstruction retains receipts and rejects contradictory periods.
+ return rebuildCase(operatingCase,{leases,evidenceLineage,asOfDate:reviewDate});
+}
+
 module.exports = {
+  recordDocumentedLeaseLifecycle,
   addDocumentedFutureLease,
   updateVerifiedLeaseSchedule,
   updateVerifiedLeaseTerms,

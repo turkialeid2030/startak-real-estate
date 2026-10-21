@@ -14,6 +14,7 @@ const { BUILD_METADATA } = require('../runtime/build-metadata');
 const { hydrateResidentialIncomeOperatingCaseSnapshot } = require('../residential-income-acquisition/operating-case-snapshot');
 const { calculateContractRunoff } = require('../residential-income-acquisition/contract-runoff');
 const { operatingReportDetails } = require('./operating-report-details');
+const { leaseHistoryHtml } = require('./lease-history-report');
 const { calculateBankRentReconciliation } = require('../residential-income-acquisition/bank-rent-reconciliation');
 const { bankRentReconciliationHtml } = require('./receivables-period-presentation');
 const { reconcileOperatingFinancial, reconciliationHtml, reconcileOperatingHorizon, horizonReconciliationHtml } = require('./operating-financial-reconciliation');
@@ -269,7 +270,7 @@ function htmlFinancialStudy(report, { locale = 'ar-SA' } = {}) {
       [words('استرداد مع البيع بنهاية السنة', 'Recovery including end-of-year sale'), number(p.cumulativeWithTerminalSaleYears)],
     ]) + '<p>' + words('الامتداد التشغيلي بعد مدة الدراسة افتراض نموذجي، ولا يثبت وجود عقود تغطي ذلك الامتداد. الاسترداد مع البيع يستخدم توقيت البيع في نهاية السنة.', 'Operating projections beyond the study are not proof of covering leases. Recovery relying on sale uses the actual end-of-year sale timing.') + '</p>'
     + '<h2>' + words('التدفقات السنوية', 'Annual cashflows') + '</h2><table><thead><tr><th>' + words('السنة', 'Year') + '</th><th>' + words('الدخل التشغيلي', 'Operating NOI') + '</th><th>' + words('التدفق قبل التمويل', 'Unlevered flow') + '</th><th>' + words('تدفق حقوق الملكية', 'Equity flow') + '</th><th>' + words('التخارج', 'Exit') + '</th></tr></thead><tbody>' + annual + '</tbody></table>'
-    + operatingSection + reconciliationHtml(op?.reconciliation, locale) + horizonReconciliationHtml(op?.horizonReconciliation,locale) + operatingReportDetails(runoff, locale)
+    + operatingSection + leaseHistoryHtml(op?.sourceSnapshot,locale) + reconciliationHtml(op?.reconciliation, locale) + horizonReconciliationHtml(op?.horizonReconciliation,locale) + operatingReportDetails(runoff, locale)
     + (op ? bankRentReconciliationHtml(op.bankRentReconciliation,locale) : '')
     + '<h2>' + words('الزكاة المدخلة وأثرها', 'User-entered Zakat effect') + '</h2>' + zakatRows
     + '<h2>' + words('الحساسية: تغيير مدخل واحد ±10%', 'Sensitivity: one input ±10%') + '</h2><table><thead><tr><th>' + words('المدخل', 'Input') + '</th><th>' + words('العائد عند الخفض', 'IRR at decrease') + '</th><th>' + words('العائد عند الرفع', 'IRR at increase') + '</th><th>' + words('التغييرات وحدود التطبيق', 'Changes and boundaries') + '</th></tr></thead><tbody>' + sensitivity + '</tbody></table>'

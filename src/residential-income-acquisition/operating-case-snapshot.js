@@ -213,6 +213,7 @@ function hydrateResidentialIncomeOperatingCaseSnapshot(snapshot) {
       termsEvidenceRef: record.termsEvidenceRef,
       termsAdoptionDecisionRef: record.termsAdoptionDecisionRef,
       evidenceRefs: record.evidenceRefs,
+      changeLog: record.changeLog,
     }));
     const rentCollections = optionalArrayWithinLimit(snapshot, 'rentCollections').map((record) => createRentCollectionRecord({
       caseId: record.caseId,

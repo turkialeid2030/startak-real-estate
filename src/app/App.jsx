@@ -2124,6 +2124,7 @@ export default function App() {
           <div className="flex items-center gap-2">
             <button
               type="button"
+              data-testid="locale-switch"
               onClick={() => setLocale(locale === "ar-SA" ? "en" : "ar-SA")}
               title={locale === "ar-SA" ? "Switch to English" : "التبديل إلى العربية"}
               className="relative p-2.5 rounded-xl text-xs font-semibold"

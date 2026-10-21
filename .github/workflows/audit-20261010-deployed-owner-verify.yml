@@ -10,6 +10,7 @@ on:
       - 'tests/e2e/run_audit_20261010_*'
       - 'tests/e2e/run_audit_20261020_local_ocr_browser.js'
       - 'tests/e2e/run_audit_20261020_backup_browser.js'
+      - 'tests/e2e/run_audit_20261020_lease_lifecycle_browser.js'
       - 'tests/e2e/local-tls-preview.js'
       - 'tests/fixtures/synthetic-backup-deals.js'
       - 'tools/local-ocr-assets.mjs'
@@ -79,6 +80,10 @@ jobs:
         run: node tests/e2e/run_audit_20261010_f03_f07_browser.js
       - name: Published financial export compatibility
         run: node tests/e2e/run_c75_real_chromium_personal_study.js
+      - name: Published lease lifecycle, retained terms and saved report acceptance
+        env:
+          STARTAK_LEASE_VISUAL_PREVIEW: '1'
+        run: node tests/e2e/run_audit_20261020_lease_lifecycle_browser.js
       - name: Published backup transfer, rollback and concurrent restore
         run: node tests/e2e/run_audit_20261020_backup_browser.js
       - name: Published PDF worker, source journals, actions and three-browser print acceptance

@@ -11,6 +11,7 @@ import BankRentReconciliationPanel from './BankRentReconciliationPanel';
 import CashScenarioEditor from './CashScenarioEditor';
 import OperatingPaymentPlanEditor from './OperatingPaymentPlanEditor';
 import FutureLeaseEditor from './FutureLeaseEditor';
+import LeaseLifecycleEditor from './LeaseLifecycleEditor';
 
 const STATUS_TONE = Object.freeze({
   READY_FOR_OPERATING_UNDERWRITING: 'border-emerald-700/50 bg-emerald-950/20 text-emerald-200',
@@ -222,6 +223,7 @@ export default function ResidentialIncomeAcquisitionPanel({
             ) : null}
             <ContractRunoffPanel result={viewModel.contractRunoff} operatingCase={viewModel.operatingCase} dir={dir} />
             <LeaseCalendarPanel operatingCase={viewModel.operatingCase} dir={dir} />
+            <details key={'lease-lifecycle:'+viewModel.operatingCase.caseId}><summary data-testid="lifecycle-open" className="cursor-pointer rounded border border-slate-700 p-3 text-sm">{dir==='rtl'?'دورة العقود وسجل التغييرات':'Lease lifecycle and change history'}</summary><LeaseLifecycleEditor operatingCase={viewModel.operatingCase} onReplaceOperatingCase={onReplaceOperatingCase} dir={dir}/></details>
             <details key={`cash-scenario:${viewModel.operatingCase.caseId}:${viewModel.operatingCase.asOfDate}`}><summary data-testid="cash-open" className="cursor-pointer rounded border border-slate-700 p-3 text-sm">{dir==='rtl'?'سيناريو التحصيل والرصيد':'Receipts and balance scenario'}</summary><CashScenarioEditor operatingCase={viewModel.operatingCase} onReplaceOperatingCase={onReplaceOperatingCase} dir={dir} /></details>
             <details key={`operating-plan:${viewModel.operatingCase.caseId}:${viewModel.operatingCase.asOfDate}`}><summary data-testid="operating-open" className="cursor-pointer rounded border border-slate-700 p-3 text-sm">{dir==='rtl'?'دفعات التشغيل المخططة':'Planned operating payments'}</summary><OperatingPaymentPlanEditor operatingCase={viewModel.operatingCase} onReplaceOperatingCase={onReplaceOperatingCase} dir={dir} /></details>
             <details key={`ledger:${viewModel.operatingCase.caseId}:${viewModel.operatingCase.asOfDate}`}><summary data-testid="ledger-open" className="cursor-pointer rounded border border-slate-700 p-3 text-sm">{dir==='rtl'?'سجل المستحقات والقبض':'Charges and receipts register'}</summary><ReceivablesLedgerPanel operatingCase={viewModel.operatingCase} onReplaceOperatingCase={onReplaceOperatingCase} dir={dir} /></details>
