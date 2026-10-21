@@ -320,7 +320,6 @@ async function applySavedDealState(provider,before,newIndex,changes,checkUnchang
     if(before.raw===null)await provider.delete('deals-index');else await provider.set('deals-index',before.raw);
    }
    if(await provider.get('deals-index')!==before.raw)throw new Error('INDEX_ROLLBACK_UNCONFIRMED');
-   await finishSavedDealTransaction(provider,journal,'before');
    for(const change of attempted.filter(c=>c.beforeRaw===null).reverse()){
     const current=await provider.get(change.key);if(current===null)continue;
     if(current!==change.afterRaw)throw new Error('FOREIGN_RECORD');
@@ -330,6 +329,7 @@ async function applySavedDealState(provider,before,newIndex,changes,checkUnchang
    }
    for(const change of changes)if(await provider.get(change.key)!==change.beforeRaw)throw new Error('RECORD_ROLLBACK_UNCONFIRMED');
    if(await provider.get('deals-index')!==before.raw)throw new Error('INDEX_ROLLBACK_UNCONFIRMED');
+   await finishSavedDealTransaction(provider,journal,'before');
   }catch(_){throw new BackupError('RESTORE_RECOVERY_REQUIRED');}
   throw new BackupError('RESTORE_STORAGE_FAILED_ROLLED_BACK');
  }

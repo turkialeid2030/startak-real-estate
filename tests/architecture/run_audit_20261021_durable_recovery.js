@@ -33,11 +33,22 @@ function altered(text,change){const j=JSON.parse(text);change(j);delete j.checks
    let seen=0,failed=false;
    const p=mapProvider(before,{onWrite:async event=>{if(event.before)seen++;if(!failed&&seen===position&&event.before===!afterWrite){failed=true;throw Error('Synthetic I/O interruption');}}});
    let error;try{await operation(fixture.kind,p);}catch(e){error=e;}
+   if(position===1){ok(error);eq(error.reasonCode,undefined);}
+   else if(position===fixture.events.length){if(afterWrite)eq(error,undefined);else eq(error?.reasonCode,'RESTORE_RECOVERY_REQUIRED');}
+   else eq(error?.reasonCode,'RESTORE_STORAGE_FAILED_ROLLED_BACK');
    const restarted=mapProvider(p.data);await initializeSavedDealsStorage(restarted);
    eq(rows(restarted.data),rows(error?before:after));ok(failed);
   }
   const dirty=fixture.prefixes.find(s=>s.pending&&JSON.stringify(rows(new Map(s.entries)))!==JSON.stringify(rows(before))&&new Map(s.entries).get('deals-index')!==before.get('deals-index'))||fixture.prefixes.find(s=>s.pending);
   const dirtyMap=new Map(dirty.entries),journal=dirtyMap.get(JOURNAL_KEY);
+  const recoveryTrace=mapProvider(dirtyMap);await initializeSavedDealsStorage(recoveryTrace);
+  for(let position=1;position<=recoveryTrace.events.length;position++)for(const afterWrite of [false,true]){
+   let seen=0,failed=false;
+   const p=mapProvider(dirtyMap,{onWrite:async e=>{if(e.before)seen++;if(!failed&&seen===position&&e.before===!afterWrite){failed=true;throw Error('Synthetic recovery I/O failure');}}});
+   let error;try{await initializeSavedDealsStorage(p);}catch(e){error=e;}
+   if(error)eq(error.reasonCode,'RESTORE_RECOVERY_REQUIRED');
+   const restarted=mapProvider(p.data);await initializeSavedDealsStorage(restarted);eq(rows(restarted.data),rows(before));ok(failed);
+  }
   const mutations=[
    data=>data.set(JOURNAL_KEY,journal+'x'),
    data=>data.set(JOURNAL_KEY,altered(journal,j=>j.changes[0].key='outside:unsafe')),
