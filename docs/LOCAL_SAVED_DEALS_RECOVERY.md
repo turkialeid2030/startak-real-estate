@@ -92,7 +92,13 @@ process group and requires the operating-system exit receipt. It tests immediate
 kills and a 6.5-second paused interval without forcing a disk flush. It also kills
 the browser at each native recovery mutation for a multi-record import.
 
-Reopening uses the same actual browser profile, with no dirty-state injection.
+Reopening uses the same actual browser storage, with no dirty-state injection.
+Before each launch the harness removes only tab/session-restore metadata from
+its owned temporary profile. Chromium otherwise defers reopening a prior tab
+until the first window is created; that unseen tab can consume the recovery
+before the observed page starts. Local Storage/LevelDB and saved-deal storage
+files are never edited by the harness. Empty startup and a single observed app
+tab are required; these tests do not qualify automatic browser tab restoration.
 A read-only startup probe records the persisted bytes before application code.
 The test accepts only the exact prior state, a journal restored to the exact
 prior state, or an observed committed snapshot with no journal. Unjournaled
@@ -102,7 +108,7 @@ native barriers, SIGKILL receipts and state fingerprints. At least one real
 journal recovery and one committed-state persistence must actually be observed;
 the test cannot silently pass by losing every in-flight write.
 
-These observations cover the bundled Chromium version on Linux CI with
+These observations cover manually opening the app in the bundled Chromium on Linux CI with
 instrumented call boundaries. They do not establish physical-device, browser
 vendor/version universality, OS crash, power-loss, physical disk synchronization,
 storage eviction, institutional recovery, source authentication or independent

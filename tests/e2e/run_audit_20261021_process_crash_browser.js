@@ -24,6 +24,11 @@ async function snapshot(page){return sorted(await page.evaluate(ns=>Object.keys(
 async function panel(page){await page.getByTitle(ar.actions.savedDeals,{exact:true}).click();const d=page.getByRole('dialog');await expect(d).toHaveAttribute('aria-busy','false');return d;}
 
 async function launch(profile){
+ assert.ok(root&&profile.startsWith(root+path.sep),'Only this test temporary profiles may be opened');
+ // Chromium can defer reopening the previous tab until the first window is
+ // created, even with --no-startup-window. Remove ONLY owned tab-session
+ // metadata; never alter Local Storage/LevelDB or any saved-deal byte.
+ for(const relative of ['Sessions','Current Session','Current Tabs','Last Session','Last Tabs'])await fs.rm(path.join(profile,'Default',relative),{recursive:true,force:true});
  await fs.rm(path.join(profile,'DevToolsActivePort'),{force:true});
  const args=['--headless=new','--no-sandbox','--disable-dev-shm-usage','--no-first-run','--no-default-browser-check','--no-startup-window','--disable-session-crashed-bubble','--disable-background-networking','--disable-component-update','--disable-default-apps','--password-store=basic','--use-mock-keychain','--remote-debugging-address=127.0.0.1','--remote-debugging-port=0','--user-data-dir='+profile];
  if(preview.local)args.push('--ignore-certificate-errors');
@@ -176,6 +181,6 @@ async function verifyReopen(profile,previous,completed,label){
   await fs.rm(profile,{recursive:true,force:true});
  }
  eq(cases.length,38);eq(killCount,42);ok(cases.some(c=>c.outcome==='JOURNAL_RECOVERED'),'Actual retained journal recovery was observed');ok(cases.some(c=>c.outcome==='COMMITTED_STATE_PERSISTED'),'Actual committed state persistence was observed');
- const report={sourceCommit:process.env.STARTAK_SOURCE_COMMIT,checks,engine:'chromium',browserVersion:testedBrowserVersion,platform:process.platform,architecture:process.arch,cases,killCount,signal:'SIGKILL',actualProcessCrashTested:true,isolatedProfiles:true,instrumentedNativeCallBarriers:true,forcedDiskFlush:false,physicalDeviceTested:false,osCrashTested:false,powerLossTested:false,evictionTested:false,diskDurabilityQualified:false,institutionalRestoreQualified:false,sourceAuthenticationQualified:false};
+ const report={sourceCommit:process.env.STARTAK_SOURCE_COMMIT,checks,engine:'chromium',browserVersion:testedBrowserVersion,platform:process.platform,architecture:process.arch,cases,killCount,signal:'SIGKILL',actualProcessCrashTested:true,isolatedProfiles:true,tabSessionMetadataRemoved:true,savedDealStorageFilesModifiedByHarness:false,instrumentedNativeCallBarriers:true,forcedDiskFlush:false,physicalDeviceTested:false,osCrashTested:false,powerLossTested:false,evictionTested:false,diskDurabilityQualified:false,institutionalRestoreQualified:false,sourceAuthenticationQualified:false};
  await fs.writeFile(DIR+'/actual-process-crash-acceptance.json',JSON.stringify(report,null,2));console.log('ACTUAL_PROCESS_CRASH_BROWSER=PASS checks='+checks+' cases='+cases.length+' kills='+killCount);
 })().catch(async e=>{console.error(e);await fs.mkdir(DIR,{recursive:true});await fs.writeFile(DIR+'/actual-process-crash-failure.json',JSON.stringify({sourceCommit:process.env.STARTAK_SOURCE_COMMIT||null,checks,killCount,error:e.stack},null,2));process.exitCode=1;}).finally(async()=>{for(const owned of [...active])await kill(owned).catch(()=>{});await preview?.close();if(root)await fs.rm(root,{recursive:true,force:true});});
