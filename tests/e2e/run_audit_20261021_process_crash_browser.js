@@ -25,7 +25,7 @@ async function panel(page){await page.getByTitle(ar.actions.savedDeals,{exact:tr
 
 async function launch(profile){
  await fs.rm(path.join(profile,'DevToolsActivePort'),{force:true});
- const args=['--headless=new','--no-sandbox','--disable-dev-shm-usage','--no-first-run','--no-default-browser-check','--disable-background-networking','--disable-component-update','--disable-default-apps','--password-store=basic','--use-mock-keychain','--remote-debugging-address=127.0.0.1','--remote-debugging-port=0','--user-data-dir='+profile,'about:blank'];
+ const args=['--headless=new','--no-sandbox','--disable-dev-shm-usage','--no-first-run','--no-default-browser-check','--no-startup-window','--disable-session-crashed-bubble','--disable-background-networking','--disable-component-update','--disable-default-apps','--password-store=basic','--use-mock-keychain','--remote-debugging-address=127.0.0.1','--remote-debugging-port=0','--user-data-dir='+profile];
  if(preview.local)args.push('--ignore-certificate-errors');
  const child=spawn(chromium.executablePath(),args,{detached:true,stdio:['ignore','ignore','pipe']});
  let stderr='';child.stderr.on('data',b=>{stderr=(stderr+b.toString()).slice(-4000);});
@@ -43,7 +43,8 @@ async function launch(profile){
   if(!port)throw Error('Owned Chromium CDP endpoint unavailable: '+stderr);
   owned.browser=await chromium.connectOverCDP('http://127.0.0.1:'+port,{timeout:15000});
   const context=owned.browser.contexts()[0];assert.ok(context,'Persistent default context required');
-  context.setDefaultTimeout(15000);const page=context.pages()[0]||await context.newPage();await page.setViewportSize({width:1366,height:960});
+  ok(context.pages().length===0,'No automatically restored tab may consume recovery before the startup probe: '+context.pages().map(p=>p.url()).join('|'));
+  context.setDefaultTimeout(15000);const page=await context.newPage();await page.setViewportSize({width:1366,height:960});
   return {...owned,context,page};
  }catch(e){await kill(owned);throw e;}
 }

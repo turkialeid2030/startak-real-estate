@@ -91,6 +91,10 @@ jobs:
           done
           cat /tmp/owner-study-vite.log
           exit 1
+      - name: Actual owned Chromium process kills during mutations and recovery
+        env:
+          STARTAK_E2E_URL: http://127.0.0.1:4173
+        run: node tests/e2e/run_audit_20261021_process_crash_browser.js
       - name: Actual desktop and mobile Arabic workflows
         env:
           STARTAK_E2E_URL: http://127.0.0.1:4173
@@ -112,10 +116,6 @@ jobs:
         env:
           STARTAK_E2E_URL: http://127.0.0.1:4173
         run: node tests/e2e/run_audit_20261020_backup_browser.js
-      - name: Actual owned Chromium process kills during mutations and recovery
-        env:
-          STARTAK_E2E_URL: http://127.0.0.1:4173
-        run: node tests/e2e/run_audit_20261021_process_crash_browser.js
       - name: Local Arabic/English OCR, selected PDF pages, CSP and worker lifecycle
         env:
           STARTAK_E2E_URL: http://127.0.0.1:4173
