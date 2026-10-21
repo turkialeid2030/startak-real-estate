@@ -13,7 +13,7 @@ const {JOURNAL_KEY}=require('../../src/storage/saved-deals-recovery');
 const {localTlsPreview}=require('./local-tls-preview');
 const ar=require('../../src/i18n/locales/ar-SA');
 const DIR='runtime-evidence/remaining-audit',active=new Set();
-let checks=0,killCount=0,preview,root;
+let checks=0,killCount=0,preview,root,testedBrowserVersion;
 const eq=(a,b,m)=>{assert.deepEqual(a,b,m);checks++;};
 const ok=(v,m)=>{assert.ok(v,m);checks++;};
 const sorted=entries=>entries.slice().sort(([a],[b])=>a.localeCompare(b));
@@ -42,6 +42,7 @@ async function launch(profile){
   }
   if(!port)throw Error('Owned Chromium CDP endpoint unavailable: '+stderr);
   owned.browser=await chromium.connectOverCDP('http://127.0.0.1:'+port,{timeout:15000});
+  const version=owned.browser.version();if(testedBrowserVersion)eq(version,testedBrowserVersion);else testedBrowserVersion=version;
   const context=owned.browser.contexts()[0];assert.ok(context,'Persistent default context required');
   ok(context.pages().length===0,'No automatically restored tab may consume recovery before the startup probe: '+context.pages().map(p=>p.url()).join('|'));
   context.setDefaultTimeout(15000);const page=await context.newPage();await page.setViewportSize({width:1366,height:960});
@@ -94,6 +95,7 @@ async function openApp(owned){
  const source=await owned.page.locator('meta[name="startak-source-commit"]').getAttribute('content');
  eq(source,process.env.STARTAK_SOURCE_COMMIT,'Process-crash browser is testing the exact CI/public source');
  const dialog=await panel(owned.page);ok(await owned.page.evaluate(()=>isSecureContext&&typeof navigator.locks?.request==='function'),'Real secure-context Web Locks required');
+ eq(owned.context.pages().map(p=>p.url()),[preview.url+'/'],'Only the observed app tab may access this profile');
  return {dialog,errors};
 }
 async function invoke(owned,kind,dialog){
@@ -107,7 +109,11 @@ async function invoke(owned,kind,dialog){
 async function verifyReopen(profile,previous,completed,label){
  const owned=await launch(profile);
  try{
-  await owned.page.addInitScript(ns=>{window.__startakRawStartup=Object.keys(localStorage).filter(k=>k.startsWith(ns)).map(k=>[k.slice(ns.length),localStorage.getItem(k)]);},NAMESPACE);
+  await owned.page.addInitScript(ns=>{
+   window.__startakRawStartup=Object.keys(localStorage).filter(k=>k.startsWith(ns)).map(k=>[k.slice(ns.length),localStorage.getItem(k)]);
+   window.__startakStartupMutations=[];
+   for(const method of ['setItem','removeItem']){const native=Storage.prototype[method];Storage.prototype[method]=function(key,...args){const result=native.call(this,key,...args);if(this===localStorage&&String(key).startsWith(ns))window.__startakStartupMutations.push({method,key,stack:new Error().stack});return result;};}
+  },NAMESPACE);
   const {dialog,errors}=await openApp(owned),startup=sorted(await owned.page.evaluate(()=>window.__startakRawStartup));
   const pending=new Map(startup).has(JOURNAL_KEY),state=await snapshot(owned.page);
   let outcome;
@@ -119,6 +125,9 @@ async function verifyReopen(profile,previous,completed,label){
   await owned.page.reload();await panel(owned.page);eq(await snapshot(owned.page),state,'Second reopening is idempotent');eq(errors,[]);
   if(label==='restore-4-settled'||label==='recovery-4')await owned.page.getByRole('dialog').screenshot({path:DIR+'/chromium-'+label+'-process-crash.png'});
   return {outcome,startupFingerprintSha256:hash(startup),resultFingerprintSha256:hash(state),journalObservedAfterCrash:pending};
+ }catch(error){
+  await fs.writeFile(DIR+'/'+label+'-process-startup-failure.json',JSON.stringify({error:error.stack,pages:owned.context.pages().map(p=>p.url()),startup:await owned.page.evaluate(()=>window.__startakRawStartup),mutations:await owned.page.evaluate(()=>window.__startakStartupMutations),current:await snapshot(owned.page),body:await owned.page.locator('body').innerText()},null,2));
+  await owned.page.screenshot({path:DIR+'/'+label+'-process-startup-failure.png'});throw error;
  }finally{await close(owned);}
 }
 
@@ -167,6 +176,6 @@ async function verifyReopen(profile,previous,completed,label){
   await fs.rm(profile,{recursive:true,force:true});
  }
  eq(cases.length,38);eq(killCount,42);ok(cases.some(c=>c.outcome==='JOURNAL_RECOVERED'),'Actual retained journal recovery was observed');ok(cases.some(c=>c.outcome==='COMMITTED_STATE_PERSISTED'),'Actual committed state persistence was observed');
- const report={sourceCommit:process.env.STARTAK_SOURCE_COMMIT,checks,engine:'chromium',browserVersion:await chromium.launch({headless:true,args:['--no-sandbox']}).then(async b=>{const v=b.version();await b.close();return v;}),platform:process.platform,architecture:process.arch,cases,killCount,signal:'SIGKILL',actualProcessCrashTested:true,isolatedProfiles:true,instrumentedNativeCallBarriers:true,forcedDiskFlush:false,physicalDeviceTested:false,osCrashTested:false,powerLossTested:false,evictionTested:false,diskDurabilityQualified:false,institutionalRestoreQualified:false,sourceAuthenticationQualified:false};
+ const report={sourceCommit:process.env.STARTAK_SOURCE_COMMIT,checks,engine:'chromium',browserVersion:testedBrowserVersion,platform:process.platform,architecture:process.arch,cases,killCount,signal:'SIGKILL',actualProcessCrashTested:true,isolatedProfiles:true,instrumentedNativeCallBarriers:true,forcedDiskFlush:false,physicalDeviceTested:false,osCrashTested:false,powerLossTested:false,evictionTested:false,diskDurabilityQualified:false,institutionalRestoreQualified:false,sourceAuthenticationQualified:false};
  await fs.writeFile(DIR+'/actual-process-crash-acceptance.json',JSON.stringify(report,null,2));console.log('ACTUAL_PROCESS_CRASH_BROWSER=PASS checks='+checks+' cases='+cases.length+' kills='+killCount);
 })().catch(async e=>{console.error(e);await fs.mkdir(DIR,{recursive:true});await fs.writeFile(DIR+'/actual-process-crash-failure.json',JSON.stringify({sourceCommit:process.env.STARTAK_SOURCE_COMMIT||null,checks,killCount,error:e.stack},null,2));process.exitCode=1;}).finally(async()=>{for(const owned of [...active])await kill(owned).catch(()=>{});await preview?.close();if(root)await fs.rm(root,{recursive:true,force:true});});
