@@ -13,6 +13,8 @@ on:
       - 'tests/e2e/run_audit_20261020_lease_lifecycle_browser.js'
       - 'tests/e2e/run_audit_20261021_durable_recovery_browser.js'
       - 'tests/e2e/run_audit_20261021_process_crash_browser.js'
+      - 'tests/e2e/run_audit_20261021_document_tables_browser.js'
+      - 'tests/fixtures/document-table.js'
       - 'tests/fixtures/synthetic-interrupted-saved-deals.js'
       - 'tests/e2e/local-tls-preview.js'
       - 'tests/fixtures/synthetic-backup-deals.js'
@@ -79,6 +81,8 @@ jobs:
           JS
       - name: Verify every compiled asset byte and missing-asset status
         run: node tools/verify-deployed-assets.mjs --url "$STARTAK_E2E_URL" --expected-sha "$STARTAK_SOURCE_COMMIT" --output runtime-evidence/remaining-audit/deployed-assets.json
+      - name: Published source-linked native PDF and actual OCR tables
+        run: node tests/e2e/run_audit_20261021_document_tables_browser.js
       - name: Published owner study and draft persistence
         run: node tests/e2e/run_audit_20261010_f03_f07_browser.js
       - name: Published financial export compatibility

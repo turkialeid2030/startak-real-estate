@@ -26,7 +26,27 @@ function makeOcrResult(record,raster,data,page,layout='AUTO') {
         if(!box||!['x0','y0','x1','y1'].every(k=>Number.isInteger(box[k]))
           ||box.x0<0||box.y0<0||box.x1<=box.x0||box.y1<=box.y0||box.x1>raster.width||box.y1>raster.height
           ||!Number.isFinite(line.confidence)||line.confidence<0||line.confidence>100)throw failure('OCR_RESULT_INVALID');
-        lines.push({text,box,confidence:line.confidence});
+        const words=line.words;
+        if(words!==undefined&&(!Array.isArray(words)||words.length>2000))throw failure('OCR_RESULT_INVALID');
+        const fragments=[];
+        for(const word of words||[]){
+          if(typeof word.text!=='string'||word.text.length>MAX_CHARACTERS)throw failure('OCR_RESULT_INVALID');
+          if(!word.text.trim())continue;
+          const b=word.bbox;
+          if(!b||!['x0','y0','x1','y1'].every(k=>Number.isInteger(b[k]))
+            // Tesseract's Arabic word boxes can include diacritics outside
+            // its line box. Validate against the actual raster, never clip
+            // those source coordinates to an assumed hierarchy.
+            ||b.x0<0||b.y0<0||b.x1>raster.width||b.y1>raster.height||b.x1<=b.x0||b.y1<=b.y0
+            ||!Number.isFinite(word.confidence)||word.confidence<0||word.confidence>100)throw failure('OCR_RESULT_INVALID');
+          fragments.push({text:word.text,bounds:{...b},orientation:'HORIZONTAL',direction:'UNKNOWN',
+            inPage:true,granularity:'WORD',confidence:word.confidence});
+        }
+        // A line-only response remains visible, but it must never be split into
+        // invented word boxes. A line crossing a grid edge will block mapping.
+        if(!fragments.length)fragments.push({text,bounds:{...box},orientation:'HORIZONTAL',direction:'UNKNOWN',
+          inPage:true,granularity:'LINE',confidence:line.confidence});
+        lines.push({text,box,confidence:line.confidence,fragments});
       }
     }
   }
@@ -36,7 +56,8 @@ function makeOcrResult(record,raster,data,page,layout='AUTO') {
     rawValue:line.text,valueType:'STRING',location:{kind:'PAGE',page,line:index+1,pixelBounds:line.box,rasterWidth:raster.width,rasterHeight:raster.height},
     metadata:{extraction:'LOCAL_OCR_UNVERIFIED',engineVersion:'TESSERACT_JS_7.0.0',languages:['ara','eng'],layout,
       sourceDigestSha256:record.digest,pixelBounds:line.box,rasterWidth:raster.width,rasterHeight:raster.height,
-      engineConfidence:line.confidence,confidenceIsAccuracy:false,fullDocumentCovered:false,financialInputEligible:false},
+      engineConfidence:line.confidence,confidenceIsAccuracy:false,fullDocumentCovered:false,financialInputEligible:false,
+      layoutFragments:{version:1,width:raster.width,height:raster.height,units:'PIXEL',fragments:line.fragments}},
   }))});
 }
 async function runLocalOcr({record,content,page=1,render,recognize,signal,onProgress,timeoutMs=60000,layout='AUTO'}) {

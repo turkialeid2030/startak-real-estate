@@ -2,6 +2,30 @@
 // worker; Node qualification uses the pinned library, never a remote URL.
 const MAX_BYTES = 40 * 1024 * 1024;
 const failure = code => Object.assign(new Error(code), { code });
+// A viewport box is an estimate of a text item, not a glyph outline. Keep the
+// original item text and orientation so table review can abstain at boundaries.
+function itemFragment(item, viewport, styles, util) {
+  if (!item.str.trim() || !Array.isArray(item.transform) || item.transform.length !== 6
+    || !item.transform.every(Number.isFinite) || !Number.isFinite(item.width) || item.width <= 0) return null;
+  const tx = util.transform(viewport.transform, item.transform);
+  const angle = Math.atan2(tx[1], tx[0]);
+  const height = Math.hypot(tx[2], tx[3]), width = item.width * viewport.scale;
+  if (!(height > 0) || !Number.isFinite(width)) return null;
+  const style = styles?.[item.fontName];
+  const ascent = height * (Number.isFinite(style?.ascent) ? style.ascent
+    : Number.isFinite(style?.descent) ? 1 + style.descent : 0.8);
+  const left = tx[4] + ascent * Math.sin(angle), top = tx[5] - ascent * Math.cos(angle);
+  const points = [[left,top], [left+width*Math.cos(angle),top+width*Math.sin(angle)],
+    [left-height*Math.sin(angle),top+height*Math.cos(angle)],
+    [left+width*Math.cos(angle)-height*Math.sin(angle),top+width*Math.sin(angle)+height*Math.cos(angle)]];
+  const bounds = { x0:Math.min(...points.map(p=>p[0])),y0:Math.min(...points.map(p=>p[1])),
+    x1:Math.max(...points.map(p=>p[0])),y1:Math.max(...points.map(p=>p[1])) };
+  // Do not silently clip off-page text into a seemingly valid table cell.
+  const inPage = bounds.x0 >= 0 && bounds.y0 >= 0 && bounds.x1 <= viewport.width && bounds.y1 <= viewport.height;
+  return { text:item.str, bounds, direction:item.dir || 'ltr',
+    orientation:Math.abs(Math.sin(angle)) < 0.001 && Math.cos(angle) > 0 && !style?.vertical ? 'HORIZONTAL' : 'OTHER',
+    inPage, granularity:'TEXT_ITEM' };
+}
 export async function readPdfText(content, { loadPdfLibrary, signal, maxPages = 200,
   maxAtoms = 5000, maxCharacters = 1000000, timeoutMs = 20000 } = {}) {
   for (const [value, max] of [[maxPages,200],[maxAtoms,5000],[maxCharacters,1000000],[timeoutMs,20000]]) {
@@ -36,16 +60,20 @@ export async function readPdfText(content, { loadPdfLibrary, signal, maxPages = 
       for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
         if (signal?.aborted) throw failure('PDF_PARSER_ABORTED');
         const page = await pdf.getPage(pageNumber);
+        const viewport = page.getViewport({scale:1});
         const text = await page.getTextContent({ includeMarkedContent:false,disableNormalization:false });
         itemCount += text.items.length;
         if (itemCount > 50000) throw failure('PDF_LIMIT_EXCEEDED');
-        let line = '', lineNumber = 0, previousY = null, found = false;
+        let line = '', fragments = [], missingGeometry = 0, lineNumber = 0, previousY = null, found = false;
         const flush = () => {
           if (line.trim()) {
-            lines.push({ text:line.trim(),page:pageNumber,line:++lineNumber }); found = true;
+            lines.push({ text:line.trim(),page:pageNumber,line:++lineNumber,
+              layoutFragments:{version:1,width:viewport.width,height:viewport.height,units:'PDF_POINT',fragments,missingGeometry} }); found = true;
             if (lines.length > maxAtoms) throw failure('PDF_LIMIT_EXCEEDED');
           }
           line = '';
+          fragments = [];
+          missingGeometry = 0;
         };
         for (const item of text.items) {
           if (typeof item.str !== 'string') continue;
@@ -54,6 +82,9 @@ export async function readPdfText(content, { loadPdfLibrary, signal, maxPages = 
           const y = item.transform?.[5] ?? null;
           if (previousY !== null && y !== null && Math.abs(y-previousY)>2) flush();
           line += (line ? ' ' : '') + item.str;
+          const fragment = itemFragment(item,viewport,text.styles,library.Util);
+          if (fragment) fragments.push(fragment);
+          else if (item.str.trim()) missingGeometry++;
           previousY = y;
           if (item.hasEOL) flush();
         }

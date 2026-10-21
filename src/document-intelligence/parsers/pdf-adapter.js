@@ -21,9 +21,10 @@ async function parse({ document, content, ...options }) {
       atomId:`${document.documentId}:page:${line.page}:line:${line.line}`, document,adapterId:ADAPTER_ID,
       kind:PARSED_ATOM_KIND.TEXT,rawValue:line.text,valueType:'STRING',
       location:{ kind:'PAGE',page:line.page,line:line.line },
-      metadata:{ extraction:'NATIVE_TEXT_ONLY',pageCount:extracted.pageCount,libraryVersion:extracted.libraryVersion },
+      metadata:{ extraction:'NATIVE_TEXT_ONLY',pageCount:extracted.pageCount,libraryVersion:extracted.libraryVersion,
+        layoutFragments:line.layoutFragments },
     }));
-    const warnings = ['PDF_TEXT_ONLY_NOT_VISUAL_READING_ORDER'];
+    const warnings = ['PDF_TEXT_ONLY_NOT_VISUAL_READING_ORDER','PDF_TEXT_BOXES_APPROXIMATE_REVIEW_REQUIRED'];
     if (extracted.textlessPages.length) warnings.push('PDF_PARTIALLY_TEXTLESS');
     return result({ status:PARSER_STATUS.PARSED,atoms,warnings });
   } catch (error) {

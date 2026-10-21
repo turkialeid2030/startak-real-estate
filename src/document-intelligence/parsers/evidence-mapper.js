@@ -29,6 +29,15 @@ function mapParsedAtomToEvidenceFact({
     ||atom.metadata.sourceDigestSha256!==document.contentHashSha256
     ||!Number.isFinite(atom.metadata.engineConfidence)||atom.metadata.engineConfidence<0||atom.metadata.engineConfidence>100))
     throw new TypeError('OCR_SOURCE_OR_CONFIDENCE_INVALID');
+  const table=atom.adapterId==='LOCAL_DOCUMENT_TABLE_V1';
+  if(table&&(atom.metadata?.extraction!=='GEOMETRIC_TABLE_CELL_UNVERIFIED'
+    ||atom.metadata.sourceDigestSha256!==document.contentHashSha256
+    ||atom.location?.sourceDigestSha256!==document.contentHashSha256
+    ||!Array.isArray(atom.location.sourceFragments)||!atom.location.sourceFragments.length
+    ||!(atom.metadata.sourceExtractionConfidence===null
+      ||(Number.isFinite(atom.metadata.sourceExtractionConfidence)
+        &&atom.metadata.sourceExtractionConfidence>=0&&atom.metadata.sourceExtractionConfidence<=1))))
+    throw new TypeError('TABLE_SOURCE_OR_GRID_MISMATCH');
 
   return createEvidenceFact({
     factId,
@@ -41,7 +50,8 @@ function mapParsedAtomToEvidenceFact({
     unit,
     sourceLocator: atom.location,
     extractionMethod: atom.adapterId,
-    extractionConfidence:ocr?atom.metadata.engineConfidence/100:extractionConfidence,
+    extractionConfidence:ocr?atom.metadata.engineConfidence/100:table
+      ?(atom.metadata.sourceExtractionConfidence ?? 1):extractionConfidence,
     materiality,
     capturedAt,
   });
