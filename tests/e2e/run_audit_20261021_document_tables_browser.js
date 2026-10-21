@@ -77,6 +77,9 @@ async function download(page,button){const pending=page.waitForEvent('download')
       ok(fact.normalizedValue===1234.50&&fact.rawValue==='1234.50','numeric interpretation is explicit and retains the original string');
       ok(fact.sourceLocator.page===2&&fact.sourceLocator.row===2&&fact.sourceLocator.column===2&&fact.sourceLocator.tableHashSha256===exported.table.tableHashSha256,'saved source journal retains the exact cell and grid');
       ok(fact.truthStatus==='EXTRACTED_EVIDENCE'&&fact.verification.status==='NOT_VERIFIED'&&!journal.payload.candidate.financialEngineEligible,'selected table value remains unverified and outside financial engine');
+      await checkLayout('saved-source');
+      await page.getByTestId('document-tables').evaluate(e=>e.scrollIntoView({block:'start',inline:'nearest'}));
+      await page.screenshot({path:`${DIR}/${name}-${width}-document-table-viewport.png`});
       await page.getByTestId('document-tables').screenshot({path:`${DIR}/${name}-${width}-document-table.png`});
       await fs.writeFile(`${DIR}/${name}-${width}-document-table.json`,JSON.stringify(exported,null,2));
       await fs.writeFile(`${DIR}/${name}-${width}-document-table-journal.json`,JSON.stringify(journal,null,2));
