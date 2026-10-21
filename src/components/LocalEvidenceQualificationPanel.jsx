@@ -15,6 +15,15 @@ function shortValue(value, max = 100) {
   return text.length > max ? `${text.slice(0, max)}…` : text;
 }
 
+function locatorSummary(locator,ar) {
+  if(locator.kind==='PAGE')return [ar?`الصفحة ${locator.page}`:`Page ${locator.page}`,
+    ...(locator.row?[ar?`الصف ${locator.row}`:`Row ${locator.row}`]:[]),
+    ...(locator.column?[ar?`العمود ${locator.column}`:`Column ${locator.column}`]:[])].join(' · ');
+  if(locator.kind==='CELL')return `${locator.sheet||''} · ${locator.cell}`;
+  if(locator.kind==='SLIDE')return ar?`الشريحة ${locator.slide}`:`Slide ${locator.slide}`;
+  return locator.section||locator.field||locator.kind;
+}
+
 export default function LocalEvidenceQualificationPanel({ intakeRecord, preferredAtomId = null, onCandidateChange }) {
   const { locale, dir } = useLocale();
   const isAr = locale === 'ar-SA';
@@ -118,7 +127,7 @@ export default function LocalEvidenceQualificationPanel({ intakeRecord, preferre
   };
 
   return (
-    <section data-testid="local-evidence-qualification" dir={dir} className="mx-auto w-full max-w-7xl px-4 pb-8 md:px-8">
+    <section data-testid="local-evidence-qualification" dir={dir} className="mx-auto min-w-0 w-full max-w-7xl px-4 pb-8 [overflow-wrap:anywhere] md:px-8">
       <div className="rounded-2xl border border-sky-800/50 bg-[#101a2d] p-4 md:p-5">
         <div className="text-[10px] font-semibold tracking-[0.18em] text-sky-300/80">{l.eyebrow}</div>
         <h2 className="mt-1 text-lg font-bold text-slate-100">{l.title}</h2>
@@ -127,8 +136,8 @@ export default function LocalEvidenceQualificationPanel({ intakeRecord, preferre
         {!atoms.length ? (
           <div className="mt-4 rounded-lg border border-dashed border-slate-700 p-4 text-xs text-slate-500">{l.noParsed}</div>
         ) : (
-          <div className="mt-5 grid gap-4 xl:grid-cols-2">
-            <div className="space-y-3">
+          <div className="mt-5 grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-2">
+            <div className="min-w-0 space-y-3">
               <label className="block text-xs text-slate-300">
                 <span className="mb-1 block text-[11px] text-slate-500">{l.atom}</span>
                 <select data-testid="evidence-atom-select" value={atomId} onChange={(e) => setAtomId(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-950/50 px-3 py-2 text-xs text-slate-200">
@@ -152,7 +161,7 @@ export default function LocalEvidenceQualificationPanel({ intakeRecord, preferre
               <button data-testid="create-evidence-candidate" type="button" onClick={createCandidate} disabled={!atomId} className="rounded-lg border border-sky-600/60 bg-sky-400/10 px-4 py-2 text-xs font-semibold text-sky-200 disabled:cursor-not-allowed disabled:opacity-40">{l.create}</button>
             </div>
 
-            <div>
+            <div className="min-w-0">
               {candidate ? (
                 <div data-testid="evidence-candidate-result" className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/25 p-4">
                   <div className="grid gap-2 sm:grid-cols-2">
@@ -167,7 +176,13 @@ export default function LocalEvidenceQualificationPanel({ intakeRecord, preferre
                         <div><div className="text-[10px] text-slate-500">{l.authority}</div><div className="mt-1 text-xs text-slate-200">{candidate.fact.authorityClass} · verified={String(candidate.authorityVerified)}</div></div>
                       </div>
                       <div><div className="text-[10px] text-slate-500">{l.sourceHash}</div><div className="mt-1 break-all font-mono text-[10px] text-slate-300">{candidate.documentHashSha256}</div></div>
-                      <div><div className="text-[10px] text-slate-500">{l.locator}</div><pre data-user-content translate="no" className="mt-1 overflow-auto whitespace-pre-wrap text-[10px] text-slate-300">{JSON.stringify(candidate.fact.sourceLocator, null, 2)}</pre></div>
+                      <div className="min-w-0"><div className="text-[10px] text-slate-500">{l.locator}</div>
+                        <p data-user-content translate="no" className="mt-1 text-xs text-slate-200">{locatorSummary(candidate.fact.sourceLocator,isAr)}</p>
+                        <details data-testid="evidence-source-details" className="mt-2 min-w-0 rounded border border-slate-700 p-2">
+                          <summary className="cursor-pointer py-1 text-xs text-sky-200">{isAr?'عرض المراجع والمواضع التفصيلية':'Show detailed references and coordinates'}</summary>
+                          <pre data-user-content translate="no" className="mt-2 max-h-80 min-w-0 max-w-full overflow-auto whitespace-pre-wrap break-all text-[10px] text-slate-300">{JSON.stringify(candidate.fact.sourceLocator, null, 2)}</pre>
+                        </details>
+                      </div>
                       <div className="rounded-lg border border-amber-800/50 bg-amber-950/20 p-3 text-[11px] leading-5 text-amber-100/80">{l.boundary}</div>
                     </>
                   ) : (

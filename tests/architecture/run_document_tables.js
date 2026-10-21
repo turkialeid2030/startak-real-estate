@@ -2,6 +2,7 @@
 const assert=require('node:assert/strict'),{createHash}=require('node:crypto');
 const {nativeTablePdfFixture}=require('../fixtures/document-table');
 const {parseDocument}=require('../../src/document-intelligence/parsers');
+const {mapParsedAtomToEvidenceFact}=require('../../src/document-intelligence/parsers/evidence-mapper');
 const {makeOcrResult}=require('../../src/document-intelligence/parsers/local-ocr');
 const {buildParsedEvidenceCandidate}=require('../../src/document-intelligence/parsed-evidence-qualification');
 const {createLocalReviewJournal,readLocalReviewJournal}=require('../../src/storage/local-review-journal');
@@ -68,6 +69,10 @@ const qualify=(record,atomId)=>buildParsedEvidenceCandidate({intakeRecord:record
   const candidate=qualify(selected,atom.atomId);eq(candidate.status,'CANDIDATE_REQUIRES_VERIFICATION');
   eq(candidate.fact.truthStatus,'EXTRACTED_EVIDENCE');eq(candidate.fact.verification.status,'NOT_VERIFIED');
   eq(candidate.financialEngineEligible,false);eq(candidate.authorityVerified,false);eq(candidate.fact.sourceLocator.sourceFragments,atom.location.sourceFragments);
+  for(const confidence of [NaN,Infinity,-.01,1.01,undefined]){
+    assert.throws(()=>mapParsedAtomToEvidenceFact({atom:{...atom,metadata:{...atom.metadata,sourceExtractionConfidence:confidence}},
+      document:{documentId:record.documentId,caseId:record.caseId,contentHashSha256:record.digest},semanticKey:'synthetic'}),/TABLE_SOURCE_OR_GRID_MISMATCH/);checks++;
+  }
   const another=appendDocumentTableCell({intakeRecord:record,table,row:3,column:2});
   eq(qualify(another,another.result.atoms[0].atomId).fact.factId!==candidate.fact.factId,true);
   for(const patch of [{rawValue:'9999'},{location:{...atom.location,row:1}},{metadata:{...atom.metadata,sourceExtractionConfidence:.99}}]){

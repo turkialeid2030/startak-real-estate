@@ -39,6 +39,19 @@ async function download(page,button){const pending=page.waitForEvent('download')
         await page.getByTestId('table-build').click();
       };
       const restore=payload=>page.getByTestId('table-restore-file').setInputFiles({name:'synthetic-grid.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(payload))});
+      const checkLayout=async stage=>{
+        const layout=await page.evaluate(()=>{
+          const rect=element=>{const r=element.getBoundingClientRect();return {left:r.left,right:r.right,width:r.width};};
+          return {viewport:innerWidth,scrollWidth:document.documentElement.scrollWidth,scrollX,
+            table:rect(document.querySelector('[data-testid="document-tables"]')),
+            candidate:document.querySelector('[data-testid="evidence-candidate-result"]')?rect(document.querySelector('[data-testid="evidence-candidate-result"]')):null,
+            selects:[...document.querySelectorAll('[data-testid="document-tables"] select')].map(s=>({appearance:getComputedStyle(s).appearance,scheme:getComputedStyle(s).colorScheme,background:getComputedStyle(s).backgroundColor,color:getComputedStyle(s).color}))};
+        });
+        await fs.writeFile(`${DIR}/${name}-${width}-table-layout-${stage}.json`,JSON.stringify(layout,null,2));
+        ok(layout.scrollWidth<=layout.viewport+1&&layout.table.left>=-1&&layout.table.right<=layout.viewport+1,'native table and preview stay within viewport at '+stage+': '+JSON.stringify(layout));
+        ok(!layout.candidate||(layout.candidate.left>=-1&&layout.candidate.right<=layout.viewport+1),'source candidate stays within viewport at '+stage);
+        ok(layout.selects.every(s=>s.appearance==='none'&&s.scheme==='dark'),'explicit dark select rendering is preserved in '+name);
+      };
       await upload();await page.getByTestId('table-page').selectOption('2');await fillGrid();
       await expect(page.getByTestId('document-table-result')).toHaveAttribute('data-status','REVIEW_REQUIRED');checks++;
       await expect(page.getByTestId('table-cell-1-1')).toHaveText('Item');checks++;
@@ -51,12 +64,14 @@ async function download(page,button){const pending=page.waitForEvent('download')
       ok(exported.table.cells[5].rawValue===null,'empty source cell is never filled with zero');
       ok(exported.table.cells.flatMap(c=>c.sourceFragments).every(f=>f.sourceAtomId&&f.bounds),'every populated cell has original item coordinates');
       await page.getByTestId('table-preview').click();await expect(page.getByTestId('table-source-preview').locator('svg image')).toHaveCount(1,{timeout:15000});checks++;
+      await checkLayout('native-preview');
       await page.getByTestId('table-cell-2-2').getByRole('button').focus();await page.keyboard.press('Enter');
       await expect(page.getByTestId('selected-atom-preview')).toHaveText('1234.50');checks++;
       ok((await page.getByTestId('evidence-atom-select').inputValue()).includes(':table:'),'keyboard selection chooses the exact table atom in semantic mapping');
       await page.getByTestId('semantic-key-input').fill('synthetic.source.amount');await page.getByTestId('evidence-value-type').selectOption('NUMBER');
       await page.getByTestId('source-reference-input').fill('Synthetic table page 2');await page.getByTestId('reviewer-reference-input').fill('SYNTHETIC-REVIEWER');await page.getByTestId('reviewer-note-input').fill('Source grid checked locally; no independent authority review');
       await page.getByTestId('create-evidence-candidate').click();await expect(page.getByTestId('candidate-truth-status')).toBeVisible();checks++;
+      await checkLayout('candidate');await page.getByTestId('evidence-source-details').locator('summary').click();await checkLayout('expanded-source');
       await page.getByTestId('save-evidence-journal').click();await expect(page.getByTestId('saved-evidence-journal')).toBeVisible();
       const journal=await download(page,page.getByTestId('export-evidence-journal')),fact=journal.payload.candidate.fact;
       ok(fact.normalizedValue===1234.50&&fact.rawValue==='1234.50','numeric interpretation is explicit and retains the original string');

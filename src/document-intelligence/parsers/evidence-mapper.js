@@ -33,7 +33,10 @@ function mapParsedAtomToEvidenceFact({
   if(table&&(atom.metadata?.extraction!=='GEOMETRIC_TABLE_CELL_UNVERIFIED'
     ||atom.metadata.sourceDigestSha256!==document.contentHashSha256
     ||atom.location?.sourceDigestSha256!==document.contentHashSha256
-    ||!Array.isArray(atom.location.sourceFragments)||!atom.location.sourceFragments.length))
+    ||!Array.isArray(atom.location.sourceFragments)||!atom.location.sourceFragments.length
+    ||!(atom.metadata.sourceExtractionConfidence===null
+      ||(Number.isFinite(atom.metadata.sourceExtractionConfidence)
+        &&atom.metadata.sourceExtractionConfidence>=0&&atom.metadata.sourceExtractionConfidence<=1))))
     throw new TypeError('TABLE_SOURCE_OR_GRID_MISMATCH');
 
   return createEvidenceFact({
