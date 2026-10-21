@@ -1,5 +1,11 @@
 # Saved-deal storage, backup and restore safety — 20 October 2026
 
+Update 21 October: the browser provider now has a persistent recovery journal,
+startup recovery and a durable write block while its journal cannot be resolved.
+See [local recovery](LOCAL_SAVED_DEALS_RECOVERY.md) for its commit point, quota
+requirements and tested interruption model. Host storage retains compensation
+and a session block; it does not acquire browser crash-recovery qualification.
+
 This change repairs two reproduced defects: repeated incoming IDs could create
 duplicate index rows and overwrite one another; a failed restore write could
 leave staged records after an error that claimed current data was unchanged.
@@ -52,7 +58,8 @@ be attempted. The UI does not promise unchanged data in that state. Users must
 retain the original backup and review the data before further recovery.
 
 All cooperating save/update/delete/export/restore paths share an origin-scoped
-Web Lock when available and a per-runtime queue otherwise. Import reads a fresh
+Web Lock. Safe browser writes now require that API; other providers retain the
+per-runtime fallback queue. Import reads a fresh
 storage snapshot inside that lock, and export reads the current index instead
 of an older React list. Same-tick duplicate import is stopped before reading the
 file; controls and the accessible busy status reflect ongoing operations.
@@ -70,11 +77,13 @@ document/action review journals, unsaved form state and credentials are excluded
 and disclosed in the UI. It does not create authenticated reviewer identity or
 change source verification, transaction authorization or financial arithmetic.
 
-Compensation is verified after an observed I/O failure; it is not a database
-transaction or crash-recovery protocol. Sudden tab/process/device termination,
-late/ambiguous writes by a remote host, noncooperating/older tabs, absent Web
-Locks, quota failure during compensation and external deletion remain limits.
-The session recovery block is not a durable cross-device incident record.
+The browser recovery protocol covers persisted prefixes of an interrupted
+multi-key operation, with a verified rollback on reopening. It is not a database
+transaction or physical-disk durability proof. Actual process/device failure,
+late/ambiguous writes by a remote host, noncooperating/older tabs, quota failure
+during recovery, eviction and external deletion remain limits. Neither the
+temporary browser journal nor the host session block is a cross-device incident
+record or an authenticated audit log.
 Institutional persistence, authenticated access, encryption/retention policies,
 real-device recovery, disaster recovery and independent qualification remain open.
 

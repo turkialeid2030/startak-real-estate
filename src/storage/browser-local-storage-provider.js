@@ -15,8 +15,8 @@ class StorageQuotaExceededError extends Error {
     super('Browser storage quota exceeded');
     this.name = 'StorageQuotaExceededError';
     this.code = 'STORAGE_QUOTA_EXCEEDED';
-    this.message_ar = 'امتلأت مساحة التخزين في المتصفح. صدِّر نسخة احتياطية من الصفقات ثم احذف صفقات قديمة قبل الحفظ مرة أخرى.';
-    this.message_en = 'Browser storage is full. Export a backup of your deals and delete older deals before saving again.';
+    this.message_ar = 'امتلأت مساحة التخزين أو لم تعد تكفي للحفظ الآمن. صدِّر نسخة احتياطية واحتفظ بها خارج المتصفح قبل معالجة المساحة، ثم أعد المحاولة.';
+    this.message_en = 'Browser storage is full or cannot accommodate safe saving. Export a backup and retain it outside the browser before addressing storage capacity, then try again.';
     this.cause = cause;
   }
 }
@@ -39,4 +39,4 @@ async function del(key) {
   window.localStorage.removeItem(NAMESPACE + key);
 }
 function providerName() { return 'BrowserLocalStorageProvider'; }
-module.exports = { isAvailable, get, set, delete: del, providerName, NAMESPACE, StorageQuotaExceededError, isQuotaError };
+module.exports = { isAvailable, get, set, delete: del, providerName, NAMESPACE, StorageQuotaExceededError, isQuotaError, savedDealsRecovery:'BROWSER_LOCAL_JOURNAL_V1' };
