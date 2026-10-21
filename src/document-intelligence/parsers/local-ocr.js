@@ -34,7 +34,10 @@ function makeOcrResult(record,raster,data,page,layout='AUTO') {
           if(!word.text.trim())continue;
           const b=word.bbox;
           if(!b||!['x0','y0','x1','y1'].every(k=>Number.isInteger(b[k]))
-            ||b.x0<box.x0||b.y0<box.y0||b.x1>box.x1||b.y1>box.y1||b.x1<=b.x0||b.y1<=b.y0
+            // Tesseract's Arabic word boxes can include diacritics outside
+            // its line box. Validate against the actual raster, never clip
+            // those source coordinates to an assumed hierarchy.
+            ||b.x0<0||b.y0<0||b.x1>raster.width||b.y1>raster.height||b.x1<=b.x0||b.y1<=b.y0
             ||!Number.isFinite(word.confidence)||word.confidence<0||word.confidence>100)throw failure('OCR_RESULT_INVALID');
           fragments.push({text:word.text,bounds:{...b},orientation:'HORIZONTAL',direction:'UNKNOWN',
             inPage:true,granularity:'WORD',confidence:word.confidence});

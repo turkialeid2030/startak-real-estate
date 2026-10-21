@@ -94,6 +94,18 @@ const qualify=(record,atomId)=>buildParsedEvidenceCandidate({intakeRecord:record
   eq(ocrTable.cells.map(c=>c.rawValue),['إيجار','١٢٣٤٫٥٠','قيمة','-50.00']);eq(ocrTable.units,'PIXEL');
   const ocrSelected=appendDocumentTableCell({intakeRecord:ocrRecord,table:ocrTable,row:1,column:2});
   eq(qualify(ocrSelected,ocrSelected.result.atoms[0].atomId).fact.extraction.confidence,.82);
+  const diacritics=copy(ocrData);
+  diacritics.blocks[0].paragraphs[0].lines[0].words[0].bbox={x0:700,y0:16,x1:900,y1:64};
+  const extended={...ocrRecord,result:makeOcrResult(ocrRecord,raster,diacritics,1)};
+  eq(extended.result.atoms[0].metadata.layoutFragments.fragments[0].bounds,{x0:700,y0:16,x1:900,y1:64});
+  const extendedTable=reconstructDocumentTable({intakeRecord:extended,page:1,rowEdges:[0,100,200],columnEdges:[0,500,1000],direction:'rtl'});
+  eq(extendedTable.status,'REVIEW_REQUIRED');eq(extendedTable.cells[0].rawValue,'إيجار');
+  eq(reconstructDocumentTable({intakeRecord:extended,page:1,rowEdges:[20,100,200],columnEdges:[0,500,1000]}).status,'AMBIGUOUS');
+  for(const patch of [{bbox:{x0:700,y0:-1,x1:900,y1:60}},{bbox:{x0:700,y0:20,x1:1001,y1:60}},
+    {bbox:{x0:700,y0:20,x1:900,y1:251}},{bbox:{x0:700,y0:20,x1:700,y1:60}},{confidence:NaN}]){
+    const invalid=copy(ocrData);Object.assign(invalid.blocks[0].paragraphs[0].lines[0].words[0],patch);
+    assert.throws(()=>makeOcrResult(ocrRecord,raster,invalid,1),/OCR_RESULT_INVALID/);checks++;
+  }
   const fallback=copy(ocrData);fallback.blocks[0].paragraphs[0].lines.forEach(line=>delete line.words);
   const lineOnly={...ocrRecord,result:makeOcrResult(ocrRecord,raster,fallback,1)};
   eq(reconstructDocumentTable({intakeRecord:lineOnly,page:1,rowEdges:[0,100,200],columnEdges:[0,500,1000]}).status,'AMBIGUOUS');
