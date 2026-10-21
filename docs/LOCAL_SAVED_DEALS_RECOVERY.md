@@ -82,3 +82,35 @@ recovery and unavailable coordination. These are persisted-prefix replays and
 real reloads, not actual process kills, physical-device tests or independent
 recovery qualification. Exact source, run IDs/counts and artifact digests are
 recorded in the PR after final gates and public acceptance pass.
+
+A separate mandatory Linux/Chromium test exercises actual process termination.
+It creates and owns temporary persistent browser profiles, prepares a clean
+baseline through a normal browser shutdown, and invokes save/update/delete/import
+through the real application UI. After each native storage mutation, a CDP
+debugger barrier pauses the renderer; the test sends SIGKILL to its owned browser
+process group and requires the operating-system exit receipt. It tests immediate
+kills and a 6.5-second paused interval without forcing a disk flush. It also kills
+the browser at each native recovery mutation for a multi-record import.
+
+Reopening uses the same actual browser storage, with no dirty-state injection.
+Before each launch the harness removes only tab/session-restore metadata from
+its owned temporary profile. Chromium otherwise defers reopening a prior tab
+until the first window is created; that unseen tab can consume the recovery
+before the observed page starts. Local Storage/LevelDB and saved-deal storage
+files are never edited by the harness. Empty startup and a single observed app
+tab are required; these tests do not qualify automatic browser tab restoration.
+A read-only startup probe records the persisted bytes before application code.
+The test accepts only the exact prior state, a journal restored to the exact
+prior state, or an observed committed snapshot with no journal. Unjournaled
+partial state fails the test. Another reload verifies idempotence. The separate
+`actual-process-crash-acceptance.json` records source, browser/OS, each case,
+native barriers, SIGKILL receipts and state fingerprints. At least one real
+journal recovery and one committed-state persistence must actually be observed;
+the test cannot silently pass by losing every in-flight write.
+
+These observations cover manually opening the app in the bundled Chromium on Linux CI with
+instrumented call boundaries. They do not establish physical-device, browser
+vendor/version universality, OS crash, power-loss, physical disk synchronization,
+storage eviction, institutional recovery, source authentication or independent
+qualification. The existing three-browser prefix report retains its narrower
+scope and false process-kill flag; the separate report is not backdated into it.
