@@ -121,7 +121,7 @@ const arDict = require('../i18n/locales/ar-SA.js');
 const enDict = require('../i18n/locales/en.js');
 const { validateSavedDealRecord } = require('../validation/saved-deal-schema.js');
 const { validateEngineInputs } = require('../validation/numeric-safety.js');
-const {buildCurrentExportPayload,restoreBackupPayload,saveNewSavedDeal,updateSavedDealRecord,removeSavedDealRecord,parseBackupText,serializeBackup,MAX_BACKUP_BYTES}=require('../storage/saved-deals-backup.js');
+const {buildCurrentExportPayload,restoreBackupPayload,saveNewSavedDeal,updateSavedDealRecord,removeSavedDealRecord,initializeSavedDealsStorage,readCurrentSavedDealsIndex,readSavedDealRecord,parseBackupText,serializeBackup,MAX_BACKUP_BYTES}=require('../storage/saved-deals-backup.js');
 // RUNTIME REMEDIATION (Runtime Enablement v1): all 8 window.storage call sites
 // below are replaced by this single centralized abstraction. No storage
 // business logic changes -- same get/set/delete semantics, same keys, same
@@ -1453,7 +1453,7 @@ function KPIRibbon({ mode, results, leverageEnabled }) {
 }
 
 function storageFailureMessage(error, fallback) {
-  const key=error?.reasonCode==='RESTORE_RECOVERY_REQUIRED'?'importRecoveryRequired':error?.reasonCode==='RESTORE_STORAGE_FAILED_ROLLED_BACK'?'importRolledBack':error?.reasonCode==='RESTORE_STORAGE_CHANGED'?'importStorageChanged':error?.reasonCode==='BACKUP_DEAL_LIMIT'||error?.reasonCode==='BACKUP_SIZE_LIMIT'?'backupLimit':null;
+  const key=error?.reasonCode==='RESTORE_RECOVERY_REQUIRED'?'importRecoveryRequired':error?.reasonCode==='STORAGE_COORDINATION_REQUIRED'?'coordinationRequired':error?.reasonCode==='RESTORE_STORAGE_FAILED_ROLLED_BACK'?'importRolledBack':error?.reasonCode==='RESTORE_STORAGE_CHANGED'?'importStorageChanged':error?.reasonCode==='BACKUP_DEAL_LIMIT'||error?.reasonCode==='BACKUP_SIZE_LIMIT'?'backupLimit':null;
   if(key)return {code:error.reasonCode,message_ar:arDict.savedDeals[key],message_en:enDict.savedDeals[key]};
   if (error && error.code === "STORAGE_QUOTA_EXCEEDED") {
     return { code: error.code, message_ar: error.message_ar, message_en: error.message_en };
@@ -1794,11 +1794,13 @@ export default function App() {
   useEffect(() => {
     (async () => {
       try {
-        const value = await storageProvider.get("deals-index");
-        const list = value ? JSON.parse(value) : [];
-        setSavedDeals(Array.isArray(list) ? list : []);
+        const state=await initializeSavedDealsStorage(storageProvider);
+        setSavedDeals(state.entries);
+        if(state.recovered)setBackupMessage({ok:true,code:'INTERRUPTED_OPERATION_RECOVERED',ar:arDict.savedDeals.interruptedRecovered,en:enDict.savedDeals.interruptedRecovered});
       } catch (e) {
-        setSavedDeals([]);
+        if(e.reasonCode==='RESTORE_RECOVERY_REQUIRED'){restoreRecoveryRef.current=true;setRestoreRecoveryRequired(true);}
+        setDealsError(storageFailureMessage(e,{code:'DEAL_INDEX_LOAD_FAILED',message_ar:'تعذر تحميل فهرس الصفقات. راجع التخزين قبل الحفظ.',message_en:'The saved-deal index could not be loaded. Review storage before saving.'}));
+        try{const {entries}=await readCurrentSavedDealsIndex(storageProvider);setSavedDeals(entries);}catch{setSavedDeals([]);}
       } finally {
         setDealsLoading(false);
       }
@@ -1837,7 +1839,7 @@ export default function App() {
     if(savedOperationRef.current)return;
     setDealsError(null);
     try {
-      const value = await storageProvider.get("deal:" + id);
+      const value = await readSavedDealRecord(id,storageProvider);
       if (!value) { setDealsError({ code: "DEAL_NOT_FOUND", message_ar: "تعذّر العثور على الصفقة", message_en: "The deal could not be found" }); return; }
       const record = JSON.parse(value);
       validateSavedDealRecord(record); // SDI-001: structural validation boundary -- throws SavedDealValidationError on malformed shape; caught below, mapped to the existing DEAL_LOAD_FAILED public contract
@@ -2076,7 +2078,7 @@ export default function App() {
       setBackupMessage({ok:true,code:'BACKUP_RESTORED',ar:`${arDict.savedDeals.importSuccess} — أضيفت: ${restored.added}؛ موجودة مطابقة: ${restored.skipped}؛ نسخ عند التعارض: ${restored.renamed}.`,en:`${enDict.savedDeals.importSuccess} — Added: ${restored.added}; existing matches: ${restored.skipped}; conflict copies: ${restored.renamed}.`});
     } catch (e) {
       const code=e.reasonCode||'BACKUP_INVALID';
-      const key=code==='RESTORE_RECOVERY_REQUIRED'?'importRecoveryRequired':code==='RESTORE_STORAGE_FAILED_ROLLED_BACK'?'importRolledBack':code==='RESTORE_STORAGE_CHANGED'||code==='RESTORE_TARGET_OCCUPIED'?'importStorageChanged':code==='BACKUP_SIZE_LIMIT'||code==='BACKUP_DEAL_LIMIT'?'backupLimit':'importFailedInvalid';
+      const key=code==='RESTORE_RECOVERY_REQUIRED'?'importRecoveryRequired':code==='STORAGE_COORDINATION_REQUIRED'?'coordinationRequired':code==='RESTORE_STORAGE_FAILED_ROLLED_BACK'?'importRolledBack':code==='RESTORE_STORAGE_CHANGED'||code==='RESTORE_TARGET_OCCUPIED'?'importStorageChanged':code==='BACKUP_SIZE_LIMIT'||code==='BACKUP_DEAL_LIMIT'?'backupLimit':'importFailedInvalid';
       if(code==='RESTORE_RECOVERY_REQUIRED'){restoreRecoveryRef.current=true;setRestoreRecoveryRequired(true);}
       setBackupMessage({ok:false,code,ar:arDict.savedDeals[key],en:enDict.savedDeals[key]});
     }finally{savedOperationRef.current=false;setSavingInProgress(false);}

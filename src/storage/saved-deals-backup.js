@@ -9,6 +9,7 @@
 
 const { validateSavedDealRecord } = require('../validation/saved-deal-schema.js');
 const {withSavedDealsLock}=require('./saved-deals-operation-lock');
+const {beginSavedDealTransaction,finishSavedDealTransaction,recoverSavedDeals}=require('./saved-deals-recovery');
 const {MAX_BACKUP_BYTES,MAX_DEALS,checkText,checkJson,validId,checkIndex,parseBackupText,serializeBackup}=require('./saved-deals-backup-limits');
 const restorePlans=new WeakMap();
 const {
@@ -274,13 +275,15 @@ async function commitRestoreUnlocked(plan,provider){
 }
 
 // All callers hold the shared operation lock. This compensates observed I/O
-// failure, including write-then-reject; it is not a process-crash transaction.
+// failure, including write-then-reject. The local browser also prepares a
+// recovery journal before any data write; its removal is the commit point.
 async function applySavedDealState(provider,before,newIndex,changes,checkUnchanged=async()=>{}){
  if(!['get','set','delete'].every(key=>typeof provider[key]==='function'))throw new BackupError('RESTORE_PROVIDER_UNSUPPORTED');
  checkIndex(newIndex);const after=JSON.stringify(newIndex),attempted=[];
  if(await provider.get('deals-index')!==before.raw)throw new BackupError('RESTORE_STORAGE_CHANGED');
  for(const change of changes)if(await provider.get(change.key)!==change.beforeRaw)throw new BackupError('RESTORE_STORAGE_CHANGED');
  await checkUnchanged();
+ const journal=await beginSavedDealTransaction(provider,before.raw,after,changes);
  const write=async change=>{
   if(await provider.get(change.key)!==change.beforeRaw)throw new BackupError('RESTORE_STORAGE_CHANGED');
   attempted.push(change);
@@ -297,7 +300,6 @@ async function applySavedDealState(provider,before,newIndex,changes,checkUnchang
   for(const change of changes.filter(c=>c.afterRaw===null))await write(change);
   if(await provider.get('deals-index')!==after)throw new BackupError('RESTORE_STORAGE_CHANGED');
   for(const change of changes)if(await provider.get(change.key)!==change.afterRaw)throw new BackupError('RESTORE_WRITE_NOT_CONFIRMED');
-  return newIndex;
  }catch(cause){
   try{
    const ownedIndex=async()=>{
@@ -318,6 +320,7 @@ async function applySavedDealState(provider,before,newIndex,changes,checkUnchang
     if(before.raw===null)await provider.delete('deals-index');else await provider.set('deals-index',before.raw);
    }
    if(await provider.get('deals-index')!==before.raw)throw new Error('INDEX_ROLLBACK_UNCONFIRMED');
+   await finishSavedDealTransaction(provider,journal,'before');
    for(const change of attempted.filter(c=>c.beforeRaw===null).reverse()){
     const current=await provider.get(change.key);if(current===null)continue;
     if(current!==change.afterRaw)throw new Error('FOREIGN_RECORD');
@@ -330,7 +333,18 @@ async function applySavedDealState(provider,before,newIndex,changes,checkUnchang
   }catch(_){throw new BackupError('RESTORE_RECOVERY_REQUIRED');}
   throw new BackupError('RESTORE_STORAGE_FAILED_ROLLED_BACK');
  }
+ // An ambiguous final cleanup must never start compensation after the commit
+ // point. It reports recovery required; a retained journal rolls back on reopen.
+ await finishSavedDealTransaction(provider,journal,'after');
+ return newIndex;
 }
+function initializeSavedDealsStorage(provider){return withSavedDealsLock(provider,async()=>{
+ const recovery=await recoverSavedDeals(provider);const {entries}=await readSavedDealsIndex(provider);return {entries,...recovery};
+});}
+function readCurrentSavedDealsIndex(provider){return withSavedDealsLock(provider,()=>readSavedDealsIndex(provider));}
+function readSavedDealRecord(id,provider){return withSavedDealsLock(provider,async()=>{
+ const {entries}=await readSavedDealsIndex(provider);if(!entries.some(e=>e.id===id))return null;return provider.get('deal:'+id);
+});}
 function checkedRecord(record){
  validateSavedDealRecord(record);checkJson(record);
  if(!validId(record.id))throw new BackupError('BACKUP_DUPLICATE_OR_INVALID_ID');
@@ -384,5 +398,6 @@ module.exports = {
   buildExportProvenance,
   buildCurrentExportPayload,readSavedDealsIndex,restoreBackupPayload,
   saveNewSavedDeal,updateSavedDealRecord,removeSavedDealRecord,
+  initializeSavedDealsStorage,readCurrentSavedDealsIndex,readSavedDealRecord,
   parseBackupText,serializeBackup,MAX_BACKUP_BYTES,MAX_DEALS,
 };

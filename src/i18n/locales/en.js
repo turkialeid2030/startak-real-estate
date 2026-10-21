@@ -398,7 +398,9 @@ module.exports = {
     storageBusy: "Completing the storage operation…",
     backupLimit: "Limit: 10 MiB per backup and 200 deals in the final index. The operation did not complete.",
     importRolledBack: "The storage operation failed; rollback of its record changes and the prior index was verified. The operation did not complete.",
-    importRecoveryRequired: "Not all storage changes could be verified as rolled back. Saving, updating, deleting and importing are blocked in this session; review the data, retain the original backup and try exporting current deals. Do not assume data is unchanged.",
+    importRecoveryRequired: "Storage recovery could not be verified. Saving, updating, deleting and importing are blocked; review the data, retain the original backup and try exporting current deals. Any local recovery journal is checked when reopening. Do not assume data is unchanged.",
+    interruptedRecovered: "The previous data and index were restored after verified rollback of an interrupted local save. Review your deal before editing again.",
+    coordinationRequired: "Safe saving is unavailable because this browser cannot coordinate operations across tabs. Use a modern browser and a secure connection; you can try exporting current deals.",
     importStorageChanged: "Storage changed or a target ID was occupied. No write began; retry the operation to read the current index.",
   },
   validationDisclosure: {

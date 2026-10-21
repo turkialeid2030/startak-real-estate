@@ -48,7 +48,21 @@ const versionMetadataGoverned = newRecord.assumptionModelVersion === ASSUMPTION_
 const appUsesGovernedPersistence = appSrc.includes('prepareNewUiDealForSave({')
   && appSrc.includes('prepareUpdatedUiDealForSave({ id: activeDealId');
 check('SCHEMA-CORE-PRESERVED-WITH-OPTIONAL-RIAI', corePreserved && versionMetadataGoverned && appUsesGovernedPersistence, 'original five raw fields and optional Building operatingCase/valuationCase are preserved through governed persistence; Wave 2 version metadata is explicit and outside inputs');
-check('STORAGE-KEY-PREFIX-UNCHANGED', appSrc.includes('"deal:" + id') && appSrc.includes('"deals-index"'), 'storage keys unchanged');
+try {
+  // Exercise the adapter after reads moved behind the operation lock. Requiring
+  // literal keys in App would fail a safe refactor without checking storage.
+  execFileSync(process.execPath,['-e',`
+    const assert=require('node:assert/strict');
+    const p=require('./src/storage/browser-local-storage-provider');
+    const {initializeSavedDealsStorage,readSavedDealRecord}=require('./src/storage/saved-deals-backup');
+    assert.equal(p.NAMESPACE,'STARTAK_REAL_ESTATE:SAVED_DEALS:');
+    const raw='preserve exact record bytes',keys=[];
+    const data=new Map([[p.NAMESPACE+'deals-index','[{"id":"selected"}]'],[p.NAMESPACE+'deal:selected',raw]]);
+    global.window={localStorage:{getItem:key=>{keys.push(key);return data.get(key)??null;}}};
+    (async()=>{assert.deepEqual((await initializeSavedDealsStorage(p)).entries,[{id:'selected'}]);assert.equal(await readSavedDealRecord('selected',p),raw);assert.ok(keys.includes(p.NAMESPACE+'deals-index'));assert.ok(keys.includes(p.NAMESPACE+'deal:selected'));assert.equal(data.size,2);})().catch(e=>{console.error(e);process.exitCode=1;});
+  `],{cwd:path.join(__dirname,'../..'),stdio:'pipe'});
+  check('STORAGE-KEY-PREFIX-UNCHANGED',true,'legacy record/index keys exercised through actual browser adapter and locked reads; recovery journal is additive');
+} catch { check('STORAGE-KEY-PREFIX-UNCHANGED',false,'legacy key runtime probe failed'); }
 
 // Live-browser evidence from this session (documented, not re-executed here --
 // see the assistant's turn for the full Playwright scripts and raw output)

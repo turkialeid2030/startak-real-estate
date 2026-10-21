@@ -23,6 +23,7 @@ on:
       - 'tests/e2e/run_audit_20261020_local_ocr_browser.js'
       - 'tests/e2e/run_audit_20261020_backup_browser.js'
       - 'tests/e2e/run_audit_20261020_lease_lifecycle_browser.js'
+      - 'tests/e2e/run_audit_20261021_durable_recovery_browser.js'
       - 'tests/e2e/local-tls-preview.js'
       - 'tools/local-ocr-assets.mjs'
       - 'public/_headers'
@@ -102,6 +103,10 @@ jobs:
           STARTAK_E2E_URL: http://127.0.0.1:4173
           STARTAK_LEASE_VISUAL_PREVIEW: '1'
         run: node tests/e2e/run_audit_20261020_lease_lifecycle_browser.js
+      - name: Durable local recovery, persisted interruptions and startup write block
+        env:
+          STARTAK_E2E_URL: http://127.0.0.1:4173
+        run: node tests/e2e/run_audit_20261021_durable_recovery_browser.js
       - name: Cross-browser backup transfer, conflicts, rollback and concurrent restore
         env:
           STARTAK_E2E_URL: http://127.0.0.1:4173

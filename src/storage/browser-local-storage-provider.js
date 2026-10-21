@@ -39,4 +39,4 @@ async function del(key) {
   window.localStorage.removeItem(NAMESPACE + key);
 }
 function providerName() { return 'BrowserLocalStorageProvider'; }
-module.exports = { isAvailable, get, set, delete: del, providerName, NAMESPACE, StorageQuotaExceededError, isQuotaError };
+module.exports = { isAvailable, get, set, delete: del, providerName, NAMESPACE, StorageQuotaExceededError, isQuotaError, savedDealsRecovery:'BROWSER_LOCAL_JOURNAL_V1' };
