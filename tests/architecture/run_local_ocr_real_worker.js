@@ -13,6 +13,8 @@ const {pngTextFixture}=require('../fixtures/local-ocr-page');
   assert(data.text.includes('1234.50'));assert(data.text.includes('SAR'));assert.equal(terminations,1);
   const result=makeOcrResult({digest:'a'.repeat(64),documentId:'local-sha256:'+'a'.repeat(64),caseId:'SYNTHETIC',result:{format:'IMAGE'}},{width:1000,height:250},data,1);
   assert.equal(result.status,'PARSED');assert(result.atoms.every(a=>a.metadata.financialInputEligible===false));
+  assert(result.atoms.flatMap(a=>a.metadata.layoutFragments.fragments).some(f=>f.granularity==='WORD'&&f.text.includes('1234.50')));
+  assert(result.atoms.every(a=>a.metadata.layoutFragments.width===1000&&a.metadata.layoutFragments.height===250));
   console.log('LOCAL_OCR_REAL_WORKER=PASS (pinned actual WASM/protocol, local Arabic+English models, exact synthetic decimal, geometry, terminated worker)');
  }finally{fs.rmSync(dir,{recursive:true,force:true});}
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -15,7 +15,7 @@ function shortValue(value, max = 100) {
   return text.length > max ? `${text.slice(0, max)}…` : text;
 }
 
-export default function LocalEvidenceQualificationPanel({ intakeRecord, onCandidateChange }) {
+export default function LocalEvidenceQualificationPanel({ intakeRecord, preferredAtomId = null, onCandidateChange }) {
   const { locale, dir } = useLocale();
   const isAr = locale === 'ar-SA';
   const atoms = intakeRecord?.result?.status === 'PARSED' && Array.isArray(intakeRecord.result.atoms)
@@ -32,6 +32,7 @@ export default function LocalEvidenceQualificationPanel({ intakeRecord, onCandid
   const [reviewerRef, setReviewerRef] = useState('');
   const [reviewerNote, setReviewerNote] = useState('');
   const [candidate, setCandidate] = useState(null);
+  useEffect(() => { setAtomId(preferredAtomId || ''); }, [intakeRecord, preferredAtomId]);
 
   const l = useMemo(() => isAr ? {
     eyebrow: 'EVIDENCE QUALIFICATION · HUMAN SEMANTIC MAPPING',

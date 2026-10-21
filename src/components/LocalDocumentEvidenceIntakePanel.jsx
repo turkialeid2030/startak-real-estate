@@ -1,4 +1,5 @@
 import DiagnosticText from './DiagnosticText.jsx';
+import LocalDocumentTablePanel from './LocalDocumentTablePanel.jsx';
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 const { createManualTranscription } = require('../document-intelligence/manual-transcription');
@@ -76,8 +77,8 @@ export default function LocalDocumentEvidenceIntakePanel({ onRecordChange = null
   const requestRef = useRef({id:0,controller:null,ocrActive:false});
   useEffect(() => { requestRef.current.id++; requestRef.current.controller?.abort();requestRef.current.ocrActive=false; setBusy(false); setRecord(null); setError(null);setOcrSource(null);setOcrPage('1');setOcrLayout('AUTO');setOcrPreview(null);setManual(emptyManual()); publishRecord(null); return () => {requestRef.current.id++;requestRef.current.controller?.abort();}; }, [suppliedCaseId]);
 
-  const publishRecord = (nextRecord) => {
-    if (typeof onRecordChange === 'function') onRecordChange(nextRecord);
+  const publishRecord = (nextRecord, selectedAtomId = null) => {
+    if (typeof onRecordChange === 'function') onRecordChange(nextRecord, selectedAtomId);
   };
 
   const l = useMemo(() => isAr ? {
@@ -338,6 +339,9 @@ export default function LocalDocumentEvidenceIntakePanel({ onRecordChange = null
               </div>
             ) : null}
 
+            {record.result.status==='PARSED'&&['PDF','IMAGE'].includes(record.result.format)&&<LocalDocumentTablePanel
+              record={record} sourceBuffer={ocrSource?.buffer} sourcePreviewUrl={ocrPreview}
+              onSelectionChange={(next,atomId)=>publishRecord(next||record,atomId)}/>}
             <div className="rounded-xl border border-slate-800 p-3">
               <div className="mb-2 text-xs font-semibold text-slate-200">{l.preview}</div>
               {previewAtoms.length ? (

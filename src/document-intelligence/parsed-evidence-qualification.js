@@ -9,6 +9,8 @@ const {
 } = require('./contracts');
 const { classifyDocument } = require('./pipeline');
 const { mapParsedAtomToEvidenceFact } = require('./parsers/evidence-mapper');
+const { sha256Hex } = require('../crypto/sha256');
+const { VERSION: TABLE_VERSION, assertTableCellMatchesSource } = require('./document-tables');
 
 const PARSED_EVIDENCE_QUALIFICATION_STATUS = Object.freeze({
   CANDIDATE_REQUIRES_VERIFICATION: 'CANDIDATE_REQUIRES_VERIFICATION',
@@ -87,6 +89,10 @@ function buildParsedEvidenceCandidate({
   if (!atom || atom.caseId !== intakeRecord.caseId || atom.documentId !== intakeRecord.documentId) {
     return hold(PARSED_EVIDENCE_QUALIFICATION_STATUS.HOLD_ATOM, ['selected atom must exist in the same intake document and case'], context);
   }
+  if (atom.adapterId === TABLE_VERSION) {
+    try { assertTableCellMatchesSource(intakeRecord,atom); }
+    catch (error) { return hold(PARSED_EVIDENCE_QUALIFICATION_STATUS.HOLD_ATOM,[error.code || 'TABLE_SOURCE_OR_GRID_MISMATCH'],context); }
+  }
 
   if (!nonEmptyString(semanticKey) || !nonEmptyString(valueType) || !Object.values(MATERIALITY).includes(materiality)) {
     return hold(PARSED_EVIDENCE_QUALIFICATION_STATUS.HOLD_SEMANTIC_MAPPING, ['explicit semanticKey, valueType, and valid materiality are required; parser output is never self-mapped'], context);
@@ -117,7 +123,9 @@ function buildParsedEvidenceCandidate({
     fact = mapParsedAtomToEvidenceFact({
       atom,
       document,
-      factId: `local-fact:${intakeRecord.digest.slice(0, 16)}:${atom.atomId.split(':').slice(-2).join(':')}`,
+      factId: atom.adapterId === TABLE_VERSION
+        ? `local-fact:${intakeRecord.digest.slice(0,16)}:table:${sha256Hex(atom.atomId)}`
+        : `local-fact:${intakeRecord.digest.slice(0, 16)}:${atom.atomId.split(':').slice(-2).join(':')}`,
       semanticKey: semanticKey.trim(),
       valueType: valueType.trim(),
       unit: nonEmptyString(unit) ? unit.trim() : null,
