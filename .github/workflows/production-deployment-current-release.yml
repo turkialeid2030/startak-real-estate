@@ -35,6 +35,9 @@ jobs:
     runs-on: ubuntu-24.04
     environment: production
     timeout-minutes: 30
+    concurrency:
+      group: startak-real-estate-production-deployment
+      cancel-in-progress: false
     env:
       CF_API_TOKEN_RAW: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CF_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
@@ -132,6 +135,7 @@ jobs:
           rm -f "$body"
           jq -e '.success == true' <<<"$project_json" >/dev/null
           jq -e '.result.production_branch == "main"' <<<"$project_json" >/dev/null
+          jq -e '.result.source.config.production_deployments_enabled == false' <<<"$project_json" >/dev/null
           jq -e '.result.deployment_configs.production.fail_open == false' <<<"$project_json" >/dev/null
           jq -e '.result.deployment_configs.production.env_vars.RIAI_PUBLIC_AI_ENABLED.value == "false"' <<<"$project_json" >/dev/null
           echo 'CLOUDFLARE_CREDENTIAL_STATUS=PROJECT_ACCESS_PASS'
@@ -162,6 +166,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          node tools/verify-production-target.mjs --repository "$GITHUB_REPOSITORY" --expected-sha "$EXPECTED_MAIN_SHA"
           npx wrangler pages deploy dist --project-name "$CF_PROJECT_NAME" --branch main --commit-hash "$EXPECTED_MAIN_SHA"
 
       - name: Verify provider deployment identity
@@ -173,6 +178,7 @@ jobs:
             deployments="$(curl --fail-with-body --silent --show-error "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}/deployments?env=production&per_page=10")"
             deployed_sha="$(jq -r '(.result | map(select((.environment // "") == "production" and (.latest_stage.status // "") == "success")) | first | (.source.config.commit_hash // .deployment_trigger.metadata.commit_hash // ""))' <<<"$deployments" | tr '[:upper:]' '[:lower:]')"
             if [[ "$deployed_sha" == "$EXPECTED_MAIN_SHA" ]]; then
+              node tools/verify-production-target.mjs --repository "$GITHUB_REPOSITORY" --expected-sha "$EXPECTED_MAIN_SHA"
               echo "PRODUCTION_DEPLOYMENT_IDENTITY=PASS sha=$deployed_sha"
               exit 0
             fi
