@@ -24,7 +24,26 @@ export async function verifyDeployedAssets({url,expectedSha,fetchImpl=fetch}){
   const entry=await read('/');
   if(!entry.response.ok)throw Error('ASSET_ENTRY_RESPONSE_INVALID');
   const html=entry.bytes.toString('utf8');
-  if(!html.includes(`name="startak-source-commit" content="${expectedSha}"`))throw Error('ASSET_ENTRY_SOURCE_MISMATCH');
+  if(!html.includes(`name="startak-source-commit" content="${expectedSha}"`)){
+    // Evidence from one failed observation. Never retry, embed response bodies, or accept mixed deployments.
+    const observed=html.match(/<meta\s+name="startak-source-commit"\s+content="([a-f0-9]{40})"/);
+    const header=(response,name)=>String(response.headers.get(name)||'').slice(0,160);
+    const failure=new Error('ASSET_ENTRY_SOURCE_MISMATCH');
+    failure.observation={
+      schemaVersion:1,status:'FAIL',reasonCode:failure.message,expectedSourceCommit:expectedSha,
+      observedEntrySourceCommit:observed?.[1]||null,observedAssetManifestSourceCommit:manifest.sourceCommit,
+      entryHtmlSha256:createHash('sha256').update(entry.bytes).digest('hex'),
+      entryHttpStatus:entry.response.status,manifestHttpStatus:manifestResponse.response.status,
+      entryCacheControl:header(entry.response,'cache-control'),
+      manifestCacheControl:header(manifestResponse.response,'cache-control'),
+      entryCfRay:header(entry.response,'cf-ray'),manifestCfRay:header(manifestResponse.response,'cf-ray'),
+      entryCfCacheStatus:header(entry.response,'cf-cache-status'),
+      manifestCfCacheStatus:header(manifestResponse.response,'cf-cache-status'),
+      checkedAt:new Date().toISOString(),automaticRetries:0,
+      evidenceBoundary:'SINGLE_DELIVERY_OBSERVATION_NOT_ROOT_CAUSE_OR_PERMANENT_AVAILABILITY_PROOF'
+    };
+    throw failure;
+  }
   const entryScripts=[...html.matchAll(/<script\b[^>]*\bsrc="\/([^"?]+\.js)"/g)].map(x=>x[1]);
   if(!entryScripts.length||entryScripts.some(path=>!paths.has(path)))throw Error('ASSET_ENTRY_SCRIPT_NOT_IN_MANIFEST');
   const rows=[];let next=0;
@@ -49,5 +68,22 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
     if(process.argv.includes('--output'))await fs.writeFile(arg('--output'),JSON.stringify(result,null,2));
     console.log(`DEPLOYED_ASSET_BYTES=${result.status} assets=${result.assets.length} missing=${result.missingAssetHttpStatus}`);
     if(result.status!=='PASS'){console.error(JSON.stringify(result.assets.filter(x=>x.status==='FAIL')));process.exitCode=1;}
-  }catch(error){console.error('DEPLOYED_ASSET_BYTES=FAIL '+error.message);process.exitCode=1;}
+  }catch(error){
+    const reasonCode=/^[A-Z][A-Z0-9_]{1,95}$/.test(error.message)?error.message:'ASSET_OBSERVATION_FAILED';
+    // The diagnostic artifact contains only bounded response metadata and hashes, never HTML or asset bytes.
+    if(process.argv.includes('--output')){
+      const out=arg('--output');
+      try{
+        const {dirname}=await import('node:path');
+        await fs.mkdir(dirname(out),{recursive:true});
+        await fs.writeFile(out,JSON.stringify(error.observation||{
+          schemaVersion:1,status:'FAIL',reasonCode,expectedSourceCommit:arg('--expected-sha'),
+          checkedAt:new Date().toISOString(),automaticRetries:0,
+          evidenceBoundary:'SINGLE_DELIVERY_OBSERVATION_NOT_ROOT_CAUSE_OR_PERMANENT_AVAILABILITY_PROOF'
+        },null,2));
+        console.error('DEPLOYED_ASSET_FAILURE_EVIDENCE=RECORDED');
+      }catch(writeError){console.error('DEPLOYED_ASSET_FAILURE_EVIDENCE=WRITE_FAILED');}
+    }
+    console.error('DEPLOYED_ASSET_BYTES=FAIL '+reasonCode);process.exitCode=1;
+  }
 }

@@ -1,0 +1,45 @@
+name: Pinned Owner Browser Image Verify
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/audit-20261010-deployed-owner-verify.yml'
+      - '.github/workflows/owner-browser-provision-verify.yml'
+      - 'package-lock.json'
+      - 'tests/architecture/run_published_owner_browser_image.js'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pinned-owner-browser-image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e
+      options: --user 1001
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Real Chromium Firefox WebKit container launch
+        run: |
+          node --input-type=module <<'JS'
+          import {chromium, firefox, webkit} from 'playwright';
+          import fs from 'node:fs';
+          const pkg=JSON.parse(fs.readFileSync('node_modules/playwright/package.json','utf8'));
+          if(pkg.version!=='1.62.1')throw Error('PLAYWRIGHT_PACKAGE_IMAGE_MISMATCH');
+          for(const [kind,browserType] of Object.entries({chromium,firefox,webkit})){
+            if(!fs.existsSync(browserType.executablePath()))throw Error('MISSING_PINNED_'+kind.toUpperCase());
+            const browser=await browserType.launch({headless:true});
+            try{
+              const page=await browser.newPage();
+              await page.goto('data:text/html;charset=utf-8,'+encodeURIComponent('<html lang="ar" dir="rtl"><body><p id="smoke">جاهز</p></body></html>'));
+              if(await page.locator('#smoke').innerText()!=='جاهز')throw Error('FAILED_BROWSER_DOCUMENT_'+kind);
+              console.log('OWNER_BROWSER_IMAGE_'+kind.toUpperCase()+'=PASS');
+            }finally{await browser.close();}
+          }
+          JS

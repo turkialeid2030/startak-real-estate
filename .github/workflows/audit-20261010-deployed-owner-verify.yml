@@ -32,6 +32,11 @@ jobs:
   deployed-owner-acceptance:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
+    # Exact image matches package-lock Playwright 1.62.1; avoids unreliable apt --with-deps.
+    # Image index digest from Microsoft's official Playwright registry, not a floating tag.
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e
+      options: --user 1001
     timeout-minutes: 25
     env:
       STARTAK_SOURCE_COMMIT: ${{ github.sha }}
@@ -48,7 +53,19 @@ jobs:
       - name: Bind verification source to main
         run: test "$(git rev-parse HEAD)" = "$STARTAK_SOURCE_COMMIT"
       - run: npm ci
-      - run: npx playwright install --with-deps chromium firefox webkit
+      - name: Verify pinned Playwright browsers without live apt downloads
+        run: |
+          node - <<'JS'
+          const fs = require('node:fs');
+          const pkg=require('playwright/package.json');
+          const {chromium,firefox,webkit}=require('playwright');
+          if(pkg.version!=='1.62.1')throw Error('PLAYWRIGHT_IMAGE_PACKAGE_VERSION_MISMATCH');
+          for(const [kind,engine] of Object.entries({chromium,firefox,webkit})){
+            const binary=engine.executablePath();
+            if(!fs.existsSync(binary))throw Error('PLAYWRIGHT_PINNED_BROWSER_NOT_FOUND_'+kind.toUpperCase());
+          }
+          console.log('PLAYWRIGHT_PINNED_BROWSERS=PASS');
+          JS
       - name: Require the exact reviewed commit on the public deployment
         run: |
           node --input-type=module <<'JS'

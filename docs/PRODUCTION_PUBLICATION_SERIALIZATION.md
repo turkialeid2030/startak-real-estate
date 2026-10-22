@@ -30,3 +30,31 @@ incident. That root cause remains open. Asset byte/MIME/404 acceptance proves it
 bounded observation, not permanent availability or historical causation.
 
 Primary workflow semantics: [GitHub concurrency documentation](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency).
+
+
+## Post-provider public-delivery gate — 22 October 2026 (PR #703)
+
+Provider-reported success, a correct release identity and HTTP 200 are not sufficient
+to mark a deployment fully delivered: the public CDN may independently return
+an earlier HTML entry point or incomplete assets. A real failure of this type was
+observed on 21 October 2026 in [acceptance run #39656203282](https://github.com/turkialeid2030/startak-real-estate/actions/runs/39656203282), attempt 1:
+the public source read passed; the immediately subsequent asset-read failed
+`ASSET_ENTRY_SOURCE_MISMATCH`.
+
+After Wrangler, source confirmation and HTTP smoke, the authorized production
+publication workflow now performs a mandatory **single, bounded** public
+asset-manifest, HTML source, JS/CSS/Wasm byte/digest/MIME and missing-asset
+404 check against the exact main SHA. Any observed failure stops that workflow
+before it can announce publication success. The evidence is retained by an
+`if: always()` artifact step without changing the failed job's conclusion.
+An asset source mismatch records only bounded expected/observed commit IDs,
+HTTP/cache/CDN response metadata and HTML digest; **not the HTML body or private
+source documents**. Synthetic tests enforce no hidden asset retries and
+preservation of failure states.
+
+This does **not** undo bytes already published by Cloudflare, roll back a
+deployment, prove multi-edge propagation, or establish historical root cause.
+The separately triggered full three-engine deployed-owner acceptance remains
+mandatory. Do not reinterpret an acceptance-on-rerun as proof that an earlier
+failure never happened. Full N11 closure requires provider-specific root-cause
+trace and independent bounded stability/recovery evidence.
