@@ -26,7 +26,7 @@ export async function verifyDeployedAssets({url,expectedSha,fetchImpl=fetch}){
   const html=entry.bytes.toString('utf8');
   if(!html.includes(`name="startak-source-commit" content="${expectedSha}"`)){
     // Evidence from one failed observation. Never retry, embed response bodies, or accept mixed deployments.
-    const observed=html.match(/<meta\\s+name="startak-source-commit"\\s+content="([a-f0-9]{40})"/);
+    const observed=html.match(/<meta\s+name="startak-source-commit"\s+content="([a-f0-9]{40})"/);
     const header=(response,name)=>String(response.headers.get(name)||'').slice(0,160);
     const failure=new Error('ASSET_ENTRY_SOURCE_MISMATCH');
     failure.observation={
