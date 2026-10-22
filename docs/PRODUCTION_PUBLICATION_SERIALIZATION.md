@@ -84,3 +84,33 @@ relevant cache configuration; request CDN/provider edge logs when available
 through an authorized operator; demonstrate repeatable correction and
 independently observed propagation before closing root-cause evidence.
 Even repeated PASS results do not by themselves identify historical causation.
+
+
+## Exact-main owner-commanded public acceptance — 23 October 2026
+
+An asset-verifier-only change is not necessarily included in the
+`push.paths` of the full deployed-owner browser-acceptance workflow.
+A successful production deployment cannot be taken as a substitute for
+published full-browser acceptance on the *same* main SHA.
+
+The existing acceptance workflow therefore accepts an additional
+owner-only `issue_comment` command on tracker #396:
+
+```text
+/startak accept-production <exact-current-main-40-character-sha>
+```
+
+The workflow requires the issue author to be the repository owner with
+OWNER association, the comment to match the strict full SHA command,
+and the requested SHA to match both the GitHub event commit and
+current `refs/heads/main` from the remote. A moved main, malformed
+input or another actor fails before any browser acceptance can start.
+It preserves the existing push and manual UI trigger, source-bound
+build manifest and byte/MIME/404 check, and all owner/financial/PDF/OCR,
+lease, recovery and three-browser gates. A passing set of tests on an
+earlier SHA must never be reported as acceptance of current main.
+
+This command does **not** publish or permit institutional readiness.
+It is read-only testing of the exact current public release and remains
+separate from the authorized `/startak deploy-production` command.
+Records from earlier failed observations remain part of N11 history.
