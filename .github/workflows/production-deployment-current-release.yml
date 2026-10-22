@@ -224,7 +224,8 @@ jobs:
         shell: bash
         run: |
           echo 'Production deployment and one bounded asset delivery observation completed for exact trusted main.' >> "$GITHUB_STEP_SUMMARY"
-          echo "- deployedMainSha: $EXPECTED_MAIN_SHA" >> "$GITHUB_STEP_SUMMARY"\n          echo "- productionAssetDelivery: verified single observation; full published browser acceptance remains separate" >> "$GITHUB_STEP_SUMMARY"
+          echo "- deployedMainSha: $EXPECTED_MAIN_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo "- productionAssetDelivery: verified single observation; full published browser acceptance remains separate" >> "$GITHUB_STEP_SUMMARY"
           echo "- productionTracker: #$CURRENT_PRODUCTION_TRACKER" >> "$GITHUB_STEP_SUMMARY"
           echo '- publicAIActivated: false' >> "$GITHUB_STEP_SUMMARY"
           echo '- transactionAuthority: false' >> "$GITHUB_STEP_SUMMARY"
