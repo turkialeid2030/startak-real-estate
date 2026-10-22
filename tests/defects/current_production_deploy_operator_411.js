@@ -30,6 +30,22 @@ assert.match(workflow, /PRODUCTION_DEPLOYMENT_IDENTITY=PASS/,
 assert.match(workflow, /PRODUCTION_HTTP_SMOKE=PASS/,
   'deployment must verify production HTTP smoke');
 
+const smokePosition = workflow.indexOf('- name: Production HTTP smoke test');
+const assetPosition = workflow.indexOf('- name: Verify all public assets after provider acknowledged exact release');
+const artifactPosition = workflow.indexOf('- name: Preserve bounded production publication evidence');
+const boundaryPosition = workflow.indexOf('- name: Publish deployment boundary');
+assert(smokePosition >= 0 && assetPosition > smokePosition && artifactPosition > assetPosition && boundaryPosition > artifactPosition,
+  'deployment must fail closed on public asset verification after smoke and before success announcement');
+assert.match(workflow, /node tools\/verify-deployed-assets\.mjs --url "https:\/\/\$\{CF_PRODUCTION_HOST\}\/" --expected-sha "\$EXPECTED_MAIN_SHA"/,
+  'published assets must be verified using exact reviewed commit SHA on production host');
+assert.match(workflow, /PRODUCTION_ASSET_DELIVERY_VERIFIED=PASS/,
+  'production success must report actual asset verification');
+assert.match(workflow, /if-no-files-found: warn/,
+  'asset failure evidence should be best-effort without hiding original failed deployment job');
+assert.doesNotMatch(workflow.slice(assetPosition,boundaryPosition), /continue-on-error:\s*true/,
+  'production asset verification must not be bypassed');
+
+
 assert.doesNotMatch(workflow, /github\.event\.issue\.number == 351/,
   'historical #351 command path must not remain active');
 assert.doesNotMatch(workflow, /QUALIFIED_CANDIDATE_SHA/,
