@@ -28,7 +28,9 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: deployed-owner-acceptance-main
+  # Issue comments are not automatically acceptance commands. They must never
+  # cancel a main-push acceptance before the owner-commanded job guard runs.
+  group: ${{ github.event_name == 'issue_comment' && format('deployed-owner-comment-{0}', github.run_id) || 'deployed-owner-acceptance-main' }}
   cancel-in-progress: true
 jobs:
   deployed-owner-acceptance:
