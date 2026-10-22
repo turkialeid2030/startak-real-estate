@@ -7,9 +7,15 @@ export async function verifyDeployedAssets({url,expectedSha,fetchImpl=fetch}){
   if(!/^[a-f0-9]{40}$/.test(expectedSha))throw Error('ASSET_EXPECTED_SOURCE_REQUIRED');
   const base=new URL(url);
   if(!['http:','https:'].includes(base.protocol)||base.username||base.password||base.pathname!=='/'||base.search||base.hash)throw Error('ASSET_ORIGIN_REQUIRED');
+  // Response metadata is bounded, public CDN diagnostics; never capture response bodies or cookies.
+  const responseMeta=response=>{
+    const header=name=>String(response.headers.get(name)||'').slice(0,160);
+    return {httpStatus:response.status,cfRay:header('cf-ray'),cfCacheStatus:header('cf-cache-status'),cacheControl:header('cache-control'),age:header('age'),server:header('server')};
+  };
   const read=async path=>{
     const response=await fetchImpl(new URL(path,base),{redirect:'error',signal:AbortSignal.timeout(15000)});
-    return {response,bytes:Buffer.from(await response.arrayBuffer())};
+    const bytes=Buffer.from(await response.arrayBuffer());
+    return {response,bytes,observedAt:new Date().toISOString()};
   };
   const manifestResponse=await read('/asset-manifest.json');
   if(!manifestResponse.response.ok||!/application\/json/i.test(manifestResponse.response.headers.get('content-type')||''))throw Error('ASSET_MANIFEST_RESPONSE_INVALID');
@@ -49,17 +55,17 @@ export async function verifyDeployedAssets({url,expectedSha,fetchImpl=fetch}){
   const rows=[];let next=0;
   const worker=async()=>{
     while(next<manifest.assets.length){
-      const item=manifest.assets[next++],{response,bytes}=await read('/'+item.path),type=response.headers.get('content-type')||'';
+      const item=manifest.assets[next++],{response,bytes,observedAt}=await read('/'+item.path),type=response.headers.get('content-type')||'';
       const expectedType=/\.(?:m?js|cjs)$/.test(item.path)?/(?:application|text)\/(?:java|ecma)script/i:item.path.endsWith('.css')?/text\/css/i:item.path.endsWith('.wasm')?/application\/wasm/i:null;
       const sha256=createHash('sha256').update(bytes).digest('hex');
       const status=response.status===200&&(!expectedType||expectedType.test(type))&&bytes.length===item.sizeBytes&&sha256===item.sha256?'PASS':'FAIL';
-      rows.push({path:item.path,status,httpStatus:response.status,contentType:type,sizeBytes:bytes.length,expectedSizeBytes:item.sizeBytes,sha256,expectedSha256:item.sha256});
+      rows.push({path:item.path,status,httpStatus:response.status,contentType:type,sizeBytes:bytes.length,expectedSizeBytes:item.sizeBytes,sha256,expectedSha256:item.sha256,observedAt,responseMetadata:responseMeta(response)});
     }
   };
   await Promise.all(Array.from({length:4},worker));
   const missing=await read('/assets/__startak_missing_'+expectedSha+'.js');
   const missingAssetStatus=missing.response.status===404?'PASS':'FAIL';
-  return {schemaVersion:1,expectedSourceCommit:expectedSha,checkedAt:new Date().toISOString(),status:rows.every(r=>r.status==='PASS')&&missingAssetStatus==='PASS'?'PASS':'FAIL',assets:rows.sort((a,b)=>a.path.localeCompare(b.path)),missingAssetStatus,missingAssetHttpStatus:missing.response.status,automaticRetries:0,evidenceBoundary:'SINGLE_DELIVERY_OBSERVATION_NOT_ROOT_CAUSE_OR_PERMANENT_AVAILABILITY_PROOF'};
+  return {schemaVersion:1,expectedSourceCommit:expectedSha,checkedAt:new Date().toISOString(),status:rows.every(r=>r.status==='PASS')&&missingAssetStatus==='PASS'?'PASS':'FAIL',assets:rows.sort((a,b)=>a.path.localeCompare(b.path)),manifestResponseMetadata:responseMeta(manifestResponse.response),manifestObservedAt:manifestResponse.observedAt,entryResponseMetadata:responseMeta(entry.response),entryObservedAt:entry.observedAt,entryHtmlSha256:createHash('sha256').update(entry.bytes).digest('hex'),missingAssetStatus,missingAssetHttpStatus:missing.response.status,missingResponseMetadata:responseMeta(missing.response),missingObservedAt:missing.observedAt,automaticRetries:0,evidenceBoundary:'SINGLE_DELIVERY_OBSERVATION_NOT_ROOT_CAUSE_OR_PERMANENT_AVAILABILITY_PROOF'};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
   const arg=name=>process.argv[process.argv.indexOf(name)+1];

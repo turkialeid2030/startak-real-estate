@@ -58,3 +58,29 @@ The separately triggered full three-engine deployed-owner acceptance remains
 mandatory. Do not reinterpret an acceptance-on-rerun as proof that an earlier
 failure never happened. Full N11 closure requires provider-specific root-cause
 trace and independent bounded stability/recovery evidence.
+
+
+## Per-resource edge diagnostics — 22 October 2026 (follow-up)
+
+First exact-main publication of #703 had a **bounded post-deploy delivery PASS**
+for 24/24 assets, then independent owner acceptance at nearly the same time
+failed for a declared JavaScript asset that returned HTTP 404 and HTML.
+The two observations came from distinct CI workers and do not prove an
+intermittent browser defect or establish Cloudflare's root cause.
+
+The asset verifier now records, alongside every asset's SHA-256 and status,
+its response timestamp, bounded `cf-ray`, `cf-cache-status`, `cache-control`,
+`age` and `server` headers. It retains similarly bounded provenance for
+the HTML entry, asset manifest and intentional 404 probe. This makes it
+possible to compare actual delivery locations/headers, rather than assume
+two requests traversed the same edge. No cookies, authorization, HTML
+body, asset body or credentials are stored in this evidence. The verifier
+still performs a single observation with no automatic retry and rejects
+any mismatched bytes, MIME, status, digest or source commit.
+
+Required operator follow-up for N11: retain the PASS and FAIL artifacts;
+align timestamps, `cf-ray`, provider deployment ID, asset path/hash and
+relevant cache configuration; request CDN/provider edge logs when available
+through an authorized operator; demonstrate repeatable correction and
+independently observed propagation before closing root-cause evidence.
+Even repeated PASS results do not by themselves identify historical causation.
