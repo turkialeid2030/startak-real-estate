@@ -23,6 +23,8 @@ on:
       - 'tests/e2e/run_c75_real_chromium_personal_study.js'
       - '.github/workflows/audit-20261010-deployed-owner-verify.yml'
   workflow_dispatch:
+  issue_comment:
+    types: [created]
 permissions:
   contents: read
 concurrency:
@@ -30,7 +32,13 @@ concurrency:
   cancel-in-progress: true
 jobs:
   deployed-owner-acceptance:
-    if: github.ref == 'refs/heads/main'
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name != 'issue_comment' ||
+       (github.event.issue.number == 396 &&
+        github.event.comment.author_association == 'OWNER' &&
+        github.event.comment.user.login == github.repository_owner &&
+        startsWith(github.event.comment.body, '/startak accept-production ')))
     runs-on: ubuntu-24.04
     # Exact image matches package-lock Playwright 1.62.1; avoids unreliable apt --with-deps.
     # Image index digest from Microsoft's official Playwright registry, not a floating tag.
@@ -42,6 +50,21 @@ jobs:
       STARTAK_SOURCE_COMMIT: ${{ github.sha }}
       STARTAK_E2E_URL: https://startak-real-estate.pages.dev
     steps:
+      - name: Bind owner-commanded acceptance to exact current main
+        if: github.event_name == 'issue_comment'
+        shell: bash
+        env:
+          ACCEPTANCE_COMMENT: ${{ github.event.comment.body }}
+          COMMENT_ACTOR: ${{ github.event.comment.user.login }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          [[ "$COMMENT_ACTOR" == "$REPOSITORY_OWNER" ]] || { echo 'Acceptance restricted to repository owner'; exit 1; }
+          [[ "$ACCEPTANCE_COMMENT" =~ ^/startak[[:space:]]accept-production[[:space:]]([a-fA-F0-9]{40})[[:space:]]*$ ]] || { echo 'Malformed exact-SHA acceptance command'; exit 1; }
+          requested="$(printf '%s' "${BASH_REMATCH[1]}" | tr '[:upper:]' '[:lower:]')"
+          current_main="$(git ls-remote "https://github.com/${GITHUB_REPOSITORY}.git" refs/heads/main | awk '{print $1}' | tr '[:upper:]' '[:lower:]')"
+          [[ "$requested" == "$GITHUB_SHA" && "$requested" == "$current_main" ]] || { echo 'Acceptance request does not match exact current main'; exit 1; }
+          echo "OWNER_PUBLIC_ACCEPTANCE_AUTHORIZED=PASS sha=$requested"
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
           ref: ${{ github.sha }}
