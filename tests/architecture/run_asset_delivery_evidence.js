@@ -61,7 +61,26 @@ const path=require('node:path');
     err=>{assert.equal(err.message,'ASSET_ENTRY_SOURCE_MISMATCH');count++;
       assert.equal(err.observation.observedEntrySourceCommit,null);count++;return true});
   const badManifest=makeFetch({manifestSource:old});
-  await assert.rejects(verifyDeployedAssets({url:'https://example.test/',expectedSha:expected,fetchImpl:badManifest.fetchImpl}),/ASSET_MANIFEST_SOURCE_INVALID/);count++;
+  await assert.rejects(
+    verifyDeployedAssets({url:'https://example.test/',expectedSha:expected,fetchImpl:badManifest.fetchImpl}),
+    error=>{
+      assert.equal(error.message,'ASSET_MANIFEST_SOURCE_INVALID');count++;
+      assert.equal(error.observation.status,'FAIL');count++;
+      assert.equal(error.observation.reasonCode,'ASSET_MANIFEST_SOURCE_INVALID');count++;
+      assert.equal(error.observation.expectedSourceCommit,expected);count++;
+      assert.equal(error.observation.observedAssetManifestSourceCommit,old);count++;
+      assert.equal(error.observation.manifestResponseMetadata.cfRay,'manifest-ray');count++;
+      assert.equal(error.observation.manifestResponseMetadata.cacheControl,'no-store');count++;
+      assert.equal(error.observation.automaticRetries,0);count++;
+      assert.match(error.observation.manifestSha256,/^[a-f0-9]{64}$/);count++;
+      assert.ok(error.observation.manifestSizeBytes>0);count++;
+      assert.equal(error.observation.manifestAssetCount,1);count++;
+      assert.equal(JSON.stringify(error.observation).includes('synthetic-only'),false);count++;
+      assert.equal(JSON.stringify(error.observation).includes(JSON.stringify({schemaVersion:1,sourceCommit:old})),false);count++;
+      return true;
+    }
+  );
+  assert.deepEqual(badManifest.seen,['/asset-manifest.json']);count++;
   const badAsset=makeFetch({brokenAsset:true});
   const failed=await verifyDeployedAssets({url:'https://example.test/',expectedSha:expected,fetchImpl:badAsset.fetchImpl});
   assert.equal(failed.status,'FAIL');count++;
