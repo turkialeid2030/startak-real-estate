@@ -142,6 +142,11 @@ function createComparableEvidenceRecord({
   const capturedAtIso = iso(capturedAt, 'capturedAt');
   if (Date.parse(sourceDateIso) > Date.parse(capturedAtIso)) throw new TypeError('MARKET_SOURCE_DATE_AFTER_CAPTURE');
   if (Date.parse(transactionDateIso) > Date.parse(capturedAtIso)) throw new TypeError('MARKET_TRANSACTION_DATE_AFTER_CAPTURE');
+  if (verification.status !== MARKET_VERIFICATION_STATUS.NOT_VERIFIED) {
+    const verifiedAtIso = iso(verification.verifiedAt, 'verification.verifiedAt');
+    if (Date.parse(verifiedAtIso) > Date.parse(capturedAtIso)) throw new TypeError('MARKET_REVIEW_AFTER_CAPTURE');
+    if (Date.parse(verifiedAtIso) < Date.parse(transactionDateIso)) throw new TypeError('MARKET_REVIEW_BEFORE_TRANSACTION');
+  }
   if (!location || typeof location !== 'object') throw new TypeError('location is required');
   assertNonEmpty(location.city, 'location.city');
   assertNonEmpty(location.district, 'location.district');
@@ -190,6 +195,40 @@ function createComparableEvidenceRecord({
   return freeze(record);
 }
 
+// Integrity is a *non-authenticating* guard against accidental or client-side
+// mutation after normalization. A matching digest is NOT official-source proof.
+function assertComparableRecordIntegrity(record) {
+  if (!record || typeof record !== 'object' || Array.isArray(record)) {
+    throw new TypeError('COMPARABLE_RECORD_INVALID');
+  }
+  if (typeof record.comparableHashSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(record.comparableHashSha256)) {
+    throw new TypeError('COMPARABLE_DIGEST_MISSING');
+  }
+  const { comparableHashSha256, ...unsigned } = record;
+  if (hash(unsigned) !== comparableHashSha256) {
+    throw new TypeError('COMPARABLE_INTEGRITY_MISMATCH');
+  }
+  if (!Object.values(MARKET_EVIDENCE_LEVEL).includes(record.evidenceLevel)
+    || record.evidenceRank !== MARKET_EVIDENCE_RANK[record.evidenceLevel]) {
+    throw new TypeError('COMPARABLE_EVIDENCE_RANK_MISMATCH');
+  }
+  finitePositive(record.areaSqm, 'areaSqm');
+  finitePositive(record.amountSar, 'amountSar');
+  if (record.unitValueSarPerSqm !== record.amountSar / record.areaSqm) {
+    throw new TypeError('COMPARABLE_UNIT_VALUE_MISMATCH');
+  }
+  validateVerificationForLevel(record.evidenceLevel, record.verification);
+  if (record.verification.status !== MARKET_VERIFICATION_STATUS.NOT_VERIFIED) {
+    if (Date.parse(record.verification.verifiedAt) > Date.parse(record.capturedAt)) {
+      throw new TypeError('COMPARABLE_REVIEW_AFTER_CAPTURE');
+    }
+    if (Date.parse(record.verification.verifiedAt) < Date.parse(record.transactionDate)) {
+      throw new TypeError('COMPARABLE_REVIEW_BEFORE_TRANSACTION');
+    }
+  }
+  return true;
+}
+
 function daysBetween(earlier, later) {
   return Math.floor((Date.parse(later) - Date.parse(earlier)) / 86400000);
 }
@@ -234,8 +273,12 @@ function evaluateComparableSetQuality({
   const recordQuality = [];
   const minimumRank = MARKET_EVIDENCE_RANK[minimumEvidenceLevel];
 
+  const comparableIds = new Set();
   for (const record of records) {
     if (!record || record.caseId !== caseId) throw new TypeError('CASE_ISOLATION_VIOLATION: comparable belongs to another case');
+    assertComparableRecordIntegrity(record);
+    if (comparableIds.has(record.comparableId)) throw new TypeError('DUPLICATE_COMPARABLE_ID:'+record.comparableId);
+    comparableIds.add(record.comparableId);
     const fingerprint = createComparableFingerprint(record);
     const ageDays = daysBetween(record.transactionDate, asOf);
     const stale = ageDays < 0 || ageDays > maxAgeDays;
@@ -313,6 +356,9 @@ function evaluateComparableSetQuality({
     valuationConclusionProduced: false,
     transactionAuthorized: false,
     certifiedValuationEstablished: false,
+    sourceUsageRightsEstablished: false,
+    officialSourceAuthenticationEstablished: false,
+    professionalMarketUseAuthorized: false,
     semantics: 'Quality qualification removes neither professional judgment nor comparable-selection responsibility. Evidence hierarchy, freshness, duplication, abnormality, contradiction and configured outlier review are explicit; no comparable is automatically selected or weighted for valuation.',
   });
 }
@@ -325,5 +371,6 @@ module.exports = {
   COMPARABLE_QUALITY_STATUS,
   createComparableEvidenceRecord,
   createComparableFingerprint,
+  assertComparableRecordIntegrity,
   evaluateComparableSetQuality,
 };
