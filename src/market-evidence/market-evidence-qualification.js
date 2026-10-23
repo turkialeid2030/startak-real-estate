@@ -61,6 +61,8 @@ function hold(status, reasons, context = {}) {
     analyticalUseAllowed: false,
     externalMarketTruthEstablished: false,
     certifiedValuationEstablished: false,
+    sourceUsageRightsEstablished: false,
+    officialSourceAuthenticationEstablished: false,
     humanReviewRequired: true,
   };
 }
@@ -153,6 +155,21 @@ function qualifyMarketEvidence({
       continue;
     }
 
+    // A retrospective valuation must not use a later human review.
+    // A review also cannot predate the observation it purports to verify.
+    const observationTime = Date.parse(item.observedAt);
+    const reviewTime = Date.parse(item.reviewedAt);
+    const cutoffTime = Date.parse(asOfDate);
+    if (reviewTime < observationTime || reviewTime > cutoffTime) {
+      failures.push({
+        index,
+        reason: MARKET_EVIDENCE_STATUS.HOLD_REVIEW,
+        field: item.field,
+        detail: reviewTime < observationTime ? 'REVIEW_BEFORE_OBSERVATION' : 'REVIEW_AFTER_AS_OF_DATE',
+      });
+      continue;
+    }
+
     const allowedGrades = governance.allowedGradesByUsage[usage];
     const allowedStatuses = governance.allowedStatusesByUsage[usage];
     if (!Array.isArray(allowedGrades) || !allowedGrades.includes(item.grade) || !Array.isArray(allowedStatuses) || !allowedStatuses.includes(item.status)) {
@@ -227,6 +244,8 @@ function qualifyMarketEvidence({
     analyticalUseAllowed: true,
     externalMarketTruthEstablished: false,
     certifiedValuationEstablished: false,
+    sourceUsageRightsEstablished: false,
+    officialSourceAuthenticationEstablished: false,
     humanReviewRequired: true,
     semantics: 'QUALIFIED_FOR_ANALYTICAL_USE means the supplied market evidence satisfies the caller-supplied geography, freshness, review, grade, and status policy. It does not establish external market truth, fetch live/official data, or constitute a certified valuation.',
   };
