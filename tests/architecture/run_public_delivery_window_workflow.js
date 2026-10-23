@@ -13,5 +13,8 @@ assert.match(y,/node tools\/verify-public-delivery-window\.mjs/);
 assert.match(y,/if: always\(\)/);
 assert.match(y,/test "\$EVIDENCE_RESULT" = success/);
 assert.match(y,/N11_ROOT_CAUSE_CLOSED=false/);
+assert.match(y,/always\(\) && \(github\.event_name == 'workflow_dispatch' \|\|/);
+assert.match(y,/github\.event\.comment\.user\.login == github\.repository_owner/);
+assert.match(y,/startsWith\(github\.event\.comment\.body, '\/startak verify-public-delivery '\)/);
 assert.doesNotMatch(y,/continue-on-error:\s*true/);
 console.log('PUBLIC_DELIVERY_WINDOW_WORKFLOW_GUARDS=13 PASS');
