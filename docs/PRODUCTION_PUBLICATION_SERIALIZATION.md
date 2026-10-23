@@ -114,3 +114,22 @@ This command does **not** publish or permit institutional readiness.
 It is read-only testing of the exact current public release and remains
 separate from the authorized `/startak deploy-production` command.
 Records from earlier failed observations remain part of N11 history.
+
+
+## Avoid cancelled owner acceptance from unrelated comments — 23 October 2026
+
+After #705 was merged, an automatically triggered owner-acceptance run on
+the push was cancelled when the separate authorized production deployment
+comment triggered the same acceptance workflow. That comment was not an
+acceptance command, so its acceptance job was skipped. As a result,
+the initial full-browser acceptance was lost even though all engineering
+branch checks passed. This is a workflow scheduling defect, not proof of
+an application bug.
+
+To prevent unrelated comments from cancelling a valid push acceptance,
+each `issue_comment` run now uses its own distinct concurrency group.
+Push-triggered acceptance still shares the original serialized/cancellable
+group. The owner-command authorization and exact-main binding remain
+unchanged; an unapproved comment will still skip the job, and it cannot
+interfere with the full push acceptance. These changes do not relax
+source, CDN asset, browser, recovery or evidence gates.
