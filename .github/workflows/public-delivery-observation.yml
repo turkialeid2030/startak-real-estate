@@ -73,7 +73,12 @@ jobs:
           path: runtime-evidence/n11-public-delivery/
           if-no-files-found: warn
   gate:
-    if: always() && (github.event_name == 'workflow_dispatch' || github.event.issue.number == 396)
+    if: >-
+      always() && (github.event_name == 'workflow_dispatch' ||
+        (github.event.issue.number == 396 &&
+         github.event.comment.author_association == 'OWNER' &&
+         github.event.comment.user.login == github.repository_owner &&
+         startsWith(github.event.comment.body, '/startak verify-public-delivery ')))
     needs: [observe]
     runs-on: ubuntu-24.04
     steps:
