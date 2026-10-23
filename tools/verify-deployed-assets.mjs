@@ -20,7 +20,29 @@ export async function verifyDeployedAssets({url,expectedSha,fetchImpl=fetch}){
   const manifestResponse=await read('/asset-manifest.json');
   if(!manifestResponse.response.ok||!/application\/json/i.test(manifestResponse.response.headers.get('content-type')||''))throw Error('ASSET_MANIFEST_RESPONSE_INVALID');
   const manifest=JSON.parse(manifestResponse.bytes.toString('utf8'));
-  if(manifest.schemaVersion!==1||manifest.sourceCommit!==expectedSha||!Array.isArray(manifest.assets)||!manifest.assets.length||manifest.assets.length>2000)throw Error('ASSET_MANIFEST_SOURCE_INVALID');
+  if(manifest.schemaVersion!==1||manifest.sourceCommit!==expectedSha||!Array.isArray(manifest.assets)||!manifest.assets.length||manifest.assets.length>2000){
+    // A failed deployment may serve a prior manifest from a CDN edge even
+    // while the provider control plane confirms the requested commit.
+    // Preserve the manifest's bounded, non-sensitive edge trace on FIRST
+    // failure (never retry-until-PASS or serialize the manifest body).
+    const failure=new Error('ASSET_MANIFEST_SOURCE_INVALID');
+    const observedCommit=typeof manifest.sourceCommit==='string'
+      && /^[a-f0-9]{40}$/.test(manifest.sourceCommit)?manifest.sourceCommit:null;
+    failure.observation={
+      schemaVersion:1,status:'FAIL',reasonCode:failure.message,
+      expectedSourceCommit:expectedSha,
+      observedAssetManifestSourceCommit:observedCommit,
+      manifestSha256:createHash('sha256').update(manifestResponse.bytes).digest('hex'),
+      manifestSizeBytes:manifestResponse.bytes.length,
+      manifestSchemaVersion:Number.isSafeInteger(manifest.schemaVersion)?manifest.schemaVersion:null,
+      manifestAssetCount:Array.isArray(manifest.assets)?manifest.assets.length:null,
+      manifestResponseMetadata:responseMeta(manifestResponse.response),
+      manifestObservedAt:manifestResponse.observedAt,
+      checkedAt:new Date().toISOString(),automaticRetries:0,
+      evidenceBoundary:'SINGLE_MANIFEST_OBSERVATION_NOT_CDN_ROOT_CAUSE_OR_PERMANENT_AVAILABILITY_PROOF'
+    };
+    throw failure;
+  }
   const paths=new Set();let total=0;
   for(const item of manifest.assets){
     if(!/^assets\/[A-Za-z0-9._/-]+$/.test(item.path)||item.path.split('/').some(x=>x==='.'||x==='..'||!x)||paths.has(item.path)||!Number.isSafeInteger(item.sizeBytes)||item.sizeBytes<0||!/^[a-f0-9]{64}$/.test(item.sha256))throw Error('ASSET_MANIFEST_ENTRY_INVALID');
