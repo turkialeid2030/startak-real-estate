@@ -281,6 +281,10 @@ function evaluateComparableSetQuality({
     comparableIds.add(record.comparableId);
     const fingerprint = createComparableFingerprint(record);
     const ageDays = daysBetween(record.transactionDate, asOf);
+    // Backtests and as-of-date valuations must never silently use evidence
+    // captured/published/reviewed *after* the decision date.
+    const futureKnowledge = [record.sourceDate,record.capturedAt,record.verification.verifiedAt]
+      .some(date => date != null && Date.parse(date) > Date.parse(asOf));
     const stale = ageDays < 0 || ageDays > maxAgeDays;
     const belowEvidenceFloor = record.evidenceRank < minimumRank;
     const outlier = unitValueRangeSarPerSqm !== null
@@ -292,6 +296,7 @@ function evaluateComparableSetQuality({
     group.push(record);
     byPropertyAndDate.set(groupKey, group);
 
+    if (futureKnowledge) blockers.push(`FUTURE_KNOWLEDGE_COMPARABLE:${record.comparableId}`);
     if (stale) blockers.push(`STALE_COMPARABLE:${record.comparableId}`);
     if (belowEvidenceFloor) blockers.push(`EVIDENCE_LEVEL_BELOW_MINIMUM:${record.comparableId}`);
     if (duplicateOf) blockers.push(`DUPLICATE_COMPARABLE:${record.comparableId}:${duplicateOf}`);
@@ -303,6 +308,7 @@ function evaluateComparableSetQuality({
       comparableId: record.comparableId,
       ageDays,
       stale,
+      futureKnowledge,
       belowEvidenceFloor,
       duplicateOf,
       abnormalTransaction: record.abnormalTransaction,
@@ -331,7 +337,7 @@ function evaluateComparableSetQuality({
   }
 
   const uniqueQualifiedIds = recordQuality
-    .filter((item) => !item.stale && !item.belowEvidenceFloor && !item.duplicateOf && !item.abnormalTransaction)
+    .filter((item) => !item.stale && !item.futureKnowledge && !item.belowEvidenceFloor && !item.duplicateOf && !item.abnormalTransaction)
     .map((item) => item.comparableId);
   if (uniqueQualifiedIds.length < minimumComparableCount) {
     blockers.push(`INSUFFICIENT_QUALIFIED_COMPARABLES:${uniqueQualifiedIds.length}/${minimumComparableCount}`);
