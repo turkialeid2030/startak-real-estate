@@ -133,3 +133,35 @@ group. The owner-command authorization and exact-main binding remain
 unchanged; an unapproved comment will still skip the job, and it cannot
 interfere with the full push acceptance. These changes do not relax
 source, CDN asset, browser, recovery or evidence gates.
+
+
+## Bounded two-runner public asset delivery window — 23 October 2026
+
+The production publication job and deployed-owner browser acceptance still
+provide indispensable **single-observation** real-delivery and UI checks.
+Prior runs returned contradictory PASS/404 observations, and N11 root cause
+remains **OPEN**. A successful rerun does not erase an earlier failure.
+
+The separate `N11 Public Delivery Window` workflow records three sequential
+observations by **each of two independent GitHub-hosted runners**, using
+the same exact main SHA, a five-second gap and **zero retry-to-pass behavior**.
+One failed observation in either runner makes the aggregate gate FAIL, even if
+subsequent observations pass. Evidence records HTTP status, MIME, SHA-256 and
+bounded Cloudflare/cache headers but never bodies or authentication tokens.
+This is read-only and cannot publish, roll back, make valuation decisions or
+activate third-party data.
+
+The owner can trigger it on issue #396 with:
+
+```text
+/startak verify-public-delivery <exact-current-main-40-character-sha>
+```
+
+The workflow also supports a manual SHA-bound dispatch, and rejects any
+event SHA mismatch with the current remote main. The two runners **do not
+prove distinct CDN PoPs or geographic regions**; their response metadata
+must be examined before claiming edge diversity. Three successful samples
+per runner provide bounded delivery evidence only, not a global uptime
+guarantee, explanation of historical 404 responses, or legal/commercial
+launch authorization. N11 closure still requires causal evidence and
+independent correction/recovery assessment with a provider/operator.
