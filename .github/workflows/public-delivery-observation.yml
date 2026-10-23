@@ -1,0 +1,91 @@
+name: N11 Public Delivery Window
+on:
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact current main SHA
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: n11-observe-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  observe:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.issue.number == 396 &&
+       github.event.comment.author_association == 'OWNER' &&
+       github.event.comment.user.login == github.repository_owner &&
+       startsWith(github.event.comment.body, '/startak verify-public-delivery '))
+    strategy:
+      fail-fast: false
+      matrix:
+        observer: [runner-a, runner-b]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      STARTAK_SOURCE_COMMIT: ${{ github.sha }}
+      TARGET: https://startak-real-estate.pages.dev/
+    steps:
+      - name: Bind observation to owner and exact current main
+        shell: bash
+        env:
+          OBSERVATION_COMMENT: ${{ github.event.comment.body }}
+          DISPATCH_SHA: ${{ inputs.expected_sha }}
+          EVENT_KIND: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_KIND" == "issue_comment" ]]; then
+            [[ "$OBSERVATION_COMMENT" =~ ^/startak[[:space:]]verify-public-delivery[[:space:]]([a-fA-F0-9]{40})[[:space:]]*$ ]] || exit 1
+            requested="${BASH_REMATCH[1]}"
+          else
+            requested="$DISPATCH_SHA"
+          fi
+          requested="$(printf '%s' "$requested" | tr '[:upper:]' '[:lower:]')"
+          [[ "$requested" =~ ^[a-f0-9]{40}$ ]] || exit 1
+          current_main="$(git ls-remote "https://github.com/${GITHUB_REPOSITORY}.git" refs/heads/main | awk '{print $1}' | tr '[:upper:]' '[:lower:]')"
+          [[ "$requested" == "$GITHUB_SHA" && "$requested" == "$current_main" ]] || { echo 'N11_OBSERVATION_MAIN_MOVED_OR_UNAUTHORIZED_SHA'; exit 1; }
+          echo "N11_OBSERVATION_SOURCE_BOUND=PASS sha=$requested"
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+      - name: Three no-retry public observations from one independent runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tools/verify-public-delivery-window.mjs \
+            --url "$TARGET" --expected-sha "$STARTAK_SOURCE_COMMIT" \
+            --samples 3 --pause-ms 5000 \
+            --output "runtime-evidence/n11-public-delivery/${{ matrix.observer }}.json"
+      - name: Retain pass or failure evidence without mutating verdict
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: n11-delivery-${{ github.sha }}-${{ matrix.observer }}
+          path: runtime-evidence/n11-public-delivery/
+          if-no-files-found: warn
+  gate:
+    if: >-
+      always() && (github.event_name == 'workflow_dispatch' ||
+        (github.event.issue.number == 396 &&
+         github.event.comment.author_association == 'OWNER' &&
+         github.event.comment.user.login == github.repository_owner &&
+         startsWith(github.event.comment.body, '/startak verify-public-delivery ')))
+    needs: [observe]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Fail if either independent runner observed a single bad delivery
+        env:
+          EVIDENCE_RESULT: ${{ needs.observe.result }}
+        run: |
+          test "$EVIDENCE_RESULT" = success
+          echo "N11_BOUNDED_PUBLIC_DELIVERY_WINDOW=PASS"
+          echo "N11_ROOT_CAUSE_CLOSED=false"
