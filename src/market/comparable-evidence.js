@@ -261,6 +261,11 @@ function evaluateComparableSetQuality({
   minimumEvidenceLevel,
   unitValueRangeSarPerSqm = null,
   contradictionTolerance = {},
+  targetAssetType = null,
+  targetTransactionType = null,
+  targetCity = null,
+  allowedComparableCities = [],
+  targetDistrict = null,
 } = {}) {
   assertNonEmpty(caseId, 'caseId');
   if (!Array.isArray(records)) throw new TypeError('records must be an array');
@@ -268,6 +273,31 @@ function evaluateComparableSetQuality({
   if (!Number.isInteger(minimumComparableCount) || minimumComparableCount < 1) throw new TypeError('minimumComparableCount must be a positive integer');
   assertEnum(minimumEvidenceLevel, MARKET_EVIDENCE_LEVEL, 'minimumEvidenceLevel');
   const asOf = iso(asOfDate, 'asOfDate');
+  // A quality check cannot combine land/building, rent/sale, or cities as
+  // though their SAR/sqm denominators and markets were interchangeable.
+  // Explicit targets override the first-record fallback; the fallback is
+  // conservative and does not amount to independent subject verification.
+  const normalizeScope = x => nonEmpty(x) ? x.trim().toUpperCase() : null;
+  for (const [name,value] of Object.entries({targetAssetType,targetCity,targetDistrict})) {
+    if (value !== null && !nonEmpty(value)) throw new TypeError(name+' must be null or a non-empty string');
+  }
+  if (targetTransactionType !== null) assertEnum(targetTransactionType, MARKET_TRANSACTION_TYPE, 'targetTransactionType');
+  if (!Array.isArray(allowedComparableCities)
+      || allowedComparableCities.some(value => !nonEmpty(value))) {
+    throw new TypeError('allowedComparableCities must be an array of non-empty city names');
+  }
+  if (allowedComparableCities.length > 0 && !nonEmpty(targetCity)) {
+    throw new TypeError('ALLOWED_CITIES_REQUIRE_TARGET_CITY');
+  }
+  const first = records[0] || null;
+  const effectiveAssetType = normalizeScope(targetAssetType ?? first?.assetType);
+  const effectiveTransactionType = targetTransactionType ?? first?.transactionType ?? null;
+  const effectiveCity = normalizeScope(targetCity ?? first?.location?.city);
+  const permittedCities = new Set([effectiveCity,...allowedComparableCities.map(normalizeScope)].filter(Boolean));
+  const effectiveDistrict = normalizeScope(targetDistrict);
+  if (records.length > 0 && (!effectiveAssetType || !Object.values(MARKET_TRANSACTION_TYPE).includes(effectiveTransactionType) || !effectiveCity)) {
+    throw new TypeError('COMPARABLE_SUBJECT_SCOPE_INCOMPLETE');
+  }
   if (unitValueRangeSarPerSqm !== null) {
     if (!unitValueRangeSarPerSqm || typeof unitValueRangeSarPerSqm !== 'object') throw new TypeError('unitValueRangeSarPerSqm is invalid');
     finitePositive(unitValueRangeSarPerSqm.min, 'unitValueRangeSarPerSqm.min');
@@ -294,6 +324,11 @@ function evaluateComparableSetQuality({
     // captured/published/reviewed *after* the decision date.
     const futureKnowledge = [record.sourceDate,record.capturedAt,record.verification.verifiedAt]
       .some(date => date != null && Date.parse(date) > Date.parse(asOf));
+    const assetTypeMismatch = normalizeScope(record.assetType) !== effectiveAssetType;
+    const transactionTypeMismatch = record.transactionType !== effectiveTransactionType;
+    const cityMismatch = !permittedCities.has(normalizeScope(record.location?.city));
+    const districtDifference = effectiveDistrict !== null
+      && normalizeScope(record.location?.district) !== effectiveDistrict;
     const stale = ageDays < 0 || ageDays > maxAgeDays;
     const belowEvidenceFloor = record.evidenceRank < minimumRank;
     const outlier = unitValueRangeSarPerSqm !== null
@@ -305,6 +340,10 @@ function evaluateComparableSetQuality({
     group.push(record);
     byPropertyAndDate.set(groupKey, group);
 
+    if (assetTypeMismatch) blockers.push(`COMPARABLE_ASSET_TYPE_MISMATCH:${record.comparableId}`);
+    if (transactionTypeMismatch) blockers.push(`COMPARABLE_TRANSACTION_TYPE_MISMATCH:${record.comparableId}`);
+    if (cityMismatch) blockers.push(`COMPARABLE_CITY_OUTSIDE_SCOPE:${record.comparableId}`);
+    if (districtDifference) warnings.push(`COMPARABLE_DISTRICT_ADJUSTMENT_REVIEW:${record.comparableId}`);
     if (futureKnowledge) blockers.push(`FUTURE_KNOWLEDGE_COMPARABLE:${record.comparableId}`);
     if (stale) blockers.push(`STALE_COMPARABLE:${record.comparableId}`);
     if (belowEvidenceFloor) blockers.push(`EVIDENCE_LEVEL_BELOW_MINIMUM:${record.comparableId}`);
@@ -318,6 +357,10 @@ function evaluateComparableSetQuality({
       ageDays,
       stale,
       futureKnowledge,
+      assetTypeMismatch,
+      transactionTypeMismatch,
+      cityMismatch,
+      districtDifference,
       belowEvidenceFloor,
       duplicateOf,
       abnormalTransaction: record.abnormalTransaction,
@@ -346,7 +389,7 @@ function evaluateComparableSetQuality({
   }
 
   const uniqueQualifiedIds = recordQuality
-    .filter((item) => !item.stale && !item.futureKnowledge && !item.belowEvidenceFloor && !item.duplicateOf && !item.abnormalTransaction)
+    .filter((item) => !item.stale && !item.futureKnowledge && !item.assetTypeMismatch && !item.transactionTypeMismatch && !item.cityMismatch && !item.belowEvidenceFloor && !item.duplicateOf && !item.abnormalTransaction)
     .map((item) => item.comparableId);
   if (uniqueQualifiedIds.length < minimumComparableCount) {
     blockers.push(`INSUFFICIENT_QUALIFIED_COMPARABLES:${uniqueQualifiedIds.length}/${minimumComparableCount}`);
@@ -361,6 +404,15 @@ function evaluateComparableSetQuality({
     caseId,
     asOfDate: asOf,
     status,
+    subjectScope: {
+      assetType: effectiveAssetType,
+      transactionType: effectiveTransactionType,
+      city: effectiveCity,
+      district: effectiveDistrict,
+      allowedComparableCities: [...permittedCities],
+      callerSpecified: targetAssetType !== null && targetTransactionType !== null && targetCity !== null,
+      independentSubjectVerificationEstablished: false,
+    },
     recordQuality,
     qualifiedComparableIds: uniqueQualifiedIds,
     blockers,
