@@ -48,6 +48,10 @@ assert.throws(()=>quality([recomputedRank]),/COMPARABLE_EVIDENCE_RANK_MISMATCH/)
 const recomputedUnit={...record,unitValueSarPerSqm:1};
 delete recomputedUnit.comparableHashSha256;recomputedUnit.comparableHashSha256=sha(recomputedUnit);
 assert.throws(()=>quality([recomputedUnit]),/COMPARABLE_UNIT_VALUE_MISMATCH/);
+const forgedApproval={...record,transactionAuthorized:true};
+delete forgedApproval.comparableHashSha256;
+forgedApproval.comparableHashSha256=sha(forgedApproval);
+assert.throws(()=>quality([forgedApproval]),/COMPARABLE_AUTHORITY_FLAGS_MUST_REMAIN_FALSE/);
 assert.throws(()=>quality([record,record]),/DUPLICATE_COMPARABLE_ID/);
 const source2=sample('C2');
 assert.equal(quality([record,source2]).status,'QUALIFIED_FOR_PROFESSIONAL_SELECTION');
