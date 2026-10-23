@@ -39,3 +39,7 @@ reviewer string alone does not satisfy these requirements.
 This engineering change does not change the user-facing licence decision;
 institutional and certified valuation use remain HOLD / NOT_AUTHORIZED until
 those approvals and independent validations are documented.
+
+## Point-in-time market evidence control
+
+Quality checks now reject a comparable for an as-of analysis whenever its source publication, acquisition/capture or verification took place after the valuation cutoff. This prevents hindsight data leakage in historical comparisons; a completed transaction date alone does not establish that the information was publicly or legally available when the decision was made. The original record is preserved for audit, but excluded from the qualified count with the `FUTURE_KNOWLEDGE_COMPARABLE` blocker. This is not a substitute for a licensed data feed or independent transaction authenticity proof.
