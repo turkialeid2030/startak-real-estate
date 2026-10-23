@@ -217,6 +217,15 @@ function assertComparableRecordIntegrity(record) {
   if (record.unitValueSarPerSqm !== record.amountSar / record.areaSqm) {
     throw new TypeError('COMPARABLE_UNIT_VALUE_MISMATCH');
   }
+  if (record.professionalSelectionMade !== false
+    || record.valuationWeightAssigned !== false
+    || record.transactionAuthorized !== false
+    || record.certifiedValuationEstablished !== false) {
+    throw new TypeError('COMPARABLE_AUTHORITY_FLAGS_MUST_REMAIN_FALSE');
+  }
+  for (const key of ['sourceDate','transactionDate','capturedAt']) {
+    iso(record[key], key);
+  }
   validateVerificationForLevel(record.evidenceLevel, record.verification);
   if (record.verification.status !== MARKET_VERIFICATION_STATUS.NOT_VERIFIED) {
     if (Date.parse(record.verification.verifiedAt) > Date.parse(record.capturedAt)) {
