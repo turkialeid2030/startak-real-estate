@@ -18,36 +18,55 @@ export async function verifyDeployedAssets({url,expectedSha,fetchImpl=fetch}){
     return {response,bytes,observedAt:new Date().toISOString()};
   };
   const manifestResponse=await read('/asset-manifest.json');
-  if(!manifestResponse.response.ok||!/application\/json/i.test(manifestResponse.response.headers.get('content-type')||''))throw Error('ASSET_MANIFEST_RESPONSE_INVALID');
-  const manifest=JSON.parse(manifestResponse.bytes.toString('utf8'));
-  if(manifest.schemaVersion!==1||manifest.sourceCommit!==expectedSha||!Array.isArray(manifest.assets)||!manifest.assets.length||manifest.assets.length>2000){
-    // A failed deployment may serve a prior manifest from a CDN edge even
-    // while the provider control plane confirms the requested commit.
-    // Preserve the manifest's bounded, non-sensitive edge trace on FIRST
-    // failure (never retry-until-PASS or serialize the manifest body).
-    const failure=new Error('ASSET_MANIFEST_SOURCE_INVALID');
-    const observedCommit=typeof manifest.sourceCommit==='string'
-      && /^[a-f0-9]{40}$/.test(manifest.sourceCommit)?manifest.sourceCommit:null;
-    failure.observation={
-      schemaVersion:1,status:'FAIL',reasonCode:failure.message,
+  // Record bounded FIRST-failure edge evidence for all response, JSON,
+  // source and entry errors. Never retry and never persist response bodies.
+  const failManifest=(reasonCode,manifest=null,entryIndex=null)=>{
+    const error=new Error(reasonCode);
+    const candidate=manifest&&typeof manifest==='object'&&!Array.isArray(manifest)?manifest:{};
+    error.observation={
+      schemaVersion:1,status:'FAIL',reasonCode,
       expectedSourceCommit:expectedSha,
-      observedAssetManifestSourceCommit:observedCommit,
+      observedAssetManifestSourceCommit:typeof candidate.sourceCommit==='string'
+        && /^[a-f0-9]{40}$/.test(candidate.sourceCommit)?candidate.sourceCommit:null,
       manifestSha256:createHash('sha256').update(manifestResponse.bytes).digest('hex'),
       manifestSizeBytes:manifestResponse.bytes.length,
-      manifestSchemaVersion:Number.isSafeInteger(manifest.schemaVersion)?manifest.schemaVersion:null,
-      manifestAssetCount:Array.isArray(manifest.assets)?manifest.assets.length:null,
+      manifestSchemaVersion:Number.isSafeInteger(candidate.schemaVersion)?candidate.schemaVersion:null,
+      manifestAssetCount:Array.isArray(candidate.assets)?candidate.assets.length:null,
+      manifestEntryIndex:Number.isInteger(entryIndex)?entryIndex:null,
+      manifestContentType:String(manifestResponse.response.headers.get('content-type')||'').slice(0,120),
       manifestResponseMetadata:responseMeta(manifestResponse.response),
       manifestObservedAt:manifestResponse.observedAt,
       checkedAt:new Date().toISOString(),automaticRetries:0,
-      evidenceBoundary:'SINGLE_MANIFEST_OBSERVATION_NOT_CDN_ROOT_CAUSE_OR_PERMANENT_AVAILABILITY_PROOF'
+      evidenceBoundary:'FIRST_MANIFEST_FAILURE_NOT_CDN_ROOT_CAUSE_OR_GLOBAL_AVAILABILITY_PROOF'
     };
-    throw failure;
+    throw error;
+  };
+  if(!manifestResponse.response.ok
+    || !/application\/json/i.test(manifestResponse.response.headers.get('content-type')||'')){
+    failManifest('ASSET_MANIFEST_RESPONSE_INVALID');
+  }
+  if(manifestResponse.bytes.length>1024*1024){
+    failManifest('ASSET_MANIFEST_SIZE_LIMIT_EXCEEDED');
+  }
+  let manifest;
+  try { manifest=JSON.parse(manifestResponse.bytes.toString('utf8')); }
+  catch { failManifest('ASSET_MANIFEST_JSON_INVALID'); }
+  if(!manifest||typeof manifest!=='object'||Array.isArray(manifest)
+    ||manifest.schemaVersion!==1||manifest.sourceCommit!==expectedSha
+    ||!Array.isArray(manifest.assets)||!manifest.assets.length||manifest.assets.length>2000){
+    failManifest('ASSET_MANIFEST_SOURCE_INVALID',manifest);
   }
   const paths=new Set();let total=0;
-  for(const item of manifest.assets){
-    if(!/^assets\/[A-Za-z0-9._/-]+$/.test(item.path)||item.path.split('/').some(x=>x==='.'||x==='..'||!x)||paths.has(item.path)||!Number.isSafeInteger(item.sizeBytes)||item.sizeBytes<0||!/^[a-f0-9]{64}$/.test(item.sha256))throw Error('ASSET_MANIFEST_ENTRY_INVALID');
+  for(const [entryIndex,item] of manifest.assets.entries()){
+    if(!item||typeof item!=='object'||Array.isArray(item)
+      ||typeof item.path!=='string'||!/^assets\/[A-Za-z0-9._/-]+$/.test(item.path)
+      ||item.path.split('/').some(x=>x==='.'||x==='..'||!x)
+      ||paths.has(item.path)||!Number.isSafeInteger(item.sizeBytes)||item.sizeBytes<0
+      ||typeof item.sha256!=='string'||!/^[a-f0-9]{64}$/.test(item.sha256)){
+      failManifest('ASSET_MANIFEST_ENTRY_INVALID',manifest,entryIndex);
+    }
     paths.add(item.path);total+=item.sizeBytes;
-    if(total>64*1024*1024)throw Error('ASSET_MANIFEST_LIMIT_EXCEEDED');
+    if(total>64*1024*1024)failManifest('ASSET_MANIFEST_LIMIT_EXCEEDED',manifest,entryIndex);
   }
   const entry=await read('/');
   if(!entry.response.ok)throw Error('ASSET_ENTRY_RESPONSE_INVALID');
