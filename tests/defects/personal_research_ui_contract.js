@@ -1,0 +1,25 @@
+'use strict';
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const root = path.resolve(__dirname, '../..');
+const app = fs.readFileSync(path.join(root, 'src/app/App.jsx'), 'utf8');
+const panel = fs.readFileSync(path.join(root, 'src/components/PersonalResearchReadinessPanel.jsx'), 'utf8');
+const model = fs.readFileSync(path.join(root, 'src/governance/personal-research-readiness.js'), 'utf8');
+let checks = 0;
+function match(text, exp, reason) { assert.match(text, exp, reason); checks++; }
+match(app, /import PersonalResearchReadinessPanel from [^;]+;/, 'panel imported');
+match(app, /<PersonalResearchReadinessPanel\s+[\s\S]*?mode=\{mode\}[\s\S]*?results=\{results\}[\s\S]*?inputs=\{inputs\}[\s\S]*?validationError=\{activeValidationError\}[\s\S]*?locale=\{locale\}[\s\S]*?\/>/, 'live props');
+assert.ok(app.indexOf('<PersonalResearchReadinessPanel') < app.indexOf('<KPIRibbon mode={mode}'), 'readiness visible before KPI');
+checks++;
+match(panel, /evaluatePersonalResearchReadiness\(\{mode, inputs, results, validationError\}\)/, 'call canonical separate check');
+match(panel, /data-testid="personal-research-status"/, 'status independently testable');
+match(panel, /data-testid="personal-research-reasons"/, 'risk reasons visible');
+match(panel, /role="status" aria-live="polite"/, 'screen-reader announcement');
+match(panel, /data\.status === PERSONAL_STATUS\.HOLD/, 'HOLD UI state');
+match(panel, /data\.status === PERSONAL_STATUS\.CAUTION/, 'caution UI state');
+match(panel, /لا تعد النتيجة تصريحاً بالشراء/, 'no transaction claim Arabic');
+match(panel, /legacy panels may show the last valid result/, 'stale-value warning English');
+match(model, /financialDecisionAuthorized:false/, 'no investment authorization');
+match(model, /independentlyVerifiedMarketAccuracy:false/, 'no independent market claim');
+console.log('PERSONAL_RESEARCH_UI_WIRING=PASS checks='+checks);
