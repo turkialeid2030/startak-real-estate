@@ -22,6 +22,8 @@ const { purchaseBoundaryMessage, purchaseAlternativeMessage } = require('../assu
 const { purchaseCeilingCertificateMessage } = require('../assumptions/purchase-ceiling-certificate');
 const VERSION = 'PERSONAL_FINANCIAL_STUDY_V2';
 const {geometryReview}=require('./capitalization-basis');
+const {PERSONAL_STATUS,evaluatePersonalResearchReadiness}=
+  require('../governance/personal-research-readiness');
 const finite = x => typeof x === 'number' && Number.isFinite(x) ? x : null;
 function snapshot(value) {
   if (Array.isArray(value)) return value.map(snapshot);
@@ -116,8 +118,21 @@ function buildPersonalFinancialStudy({ mode, inputs, assumptionModelVersion, zak
   if (!['building', 'land'].includes(mode) || !inputs || typeof inputs !== 'object' || Array.isArray(inputs)) throw new TypeError('PERSONAL_FINANCIAL_CONTEXT_INVALID');
   validateInputProvenance(inputProvenance);validateRentalCalendar(rentalContext);
   const calculated = evaluate(mode, inputs, assumptionModelVersion);
+  const readiness = evaluatePersonalResearchReadiness({
+    mode,inputs,results:calculated.results,validationError:calculated.error,
+  });
+  // Export current input drafts even when calculations fail; never carry a
+  // numerically inconsistent economic model into a purported current report.
+  // A bounded, incomplete analysis can contain useful partial arithmetic.
+  // Keep it labeled INCOMPLETE_INPUTS/INVALID_ECONOMIC_CASE rather than
+  // erase its numbers; suppression is reserved for an actual independent
+  // arithmetic reconciliation failure in an otherwise VALID model.
+  const arithmeticMismatch = calculated.results?.financialModelStatus === 'VALID' &&
+    readiness.status === PERSONAL_STATUS.HOLD;
+  const safeResults = arithmeticMismatch ? null : calculated.results;
+  const effectiveStatus = arithmeticMismatch ? 'FINANCIAL_INTEGRITY_HOLD' : calculated.status;
   const valuation = buildPersonalResearchReport({ valuationCase: mode === 'building' ? valuationCase : null,
-    runtime: mode === 'building' && calculated.results ? runtime : null, generatedAt });
+    runtime: mode === 'building' && safeResults ? runtime : null, generatedAt });
   const inputSnapshot = snapshot(inputs);
   const operatingSnapshot = mode === 'building' && operatingCase
     ? snapshot(hydrateResidentialIncomeOperatingCaseSnapshot(operatingCase)) : null;
@@ -131,11 +146,11 @@ function buildPersonalFinancialStudy({ mode, inputs, assumptionModelVersion, zak
     propertyIdentityIndependentlyVerified: false,
   } : null;
   if (operatingReport) operatingReport.reconciliation = reconcileOperatingFinancial(
-    operatingReport.contractRunoff, calculated.results,
-    rentalCalendarDisclosure({mode,inputs,result:calculated.results,context:rentalContext,asOfDate:generatedAt}));
+    operatingReport.contractRunoff, safeResults,
+    rentalCalendarDisclosure({mode,inputs,result:safeResults,context:rentalContext,asOfDate:generatedAt}));
   if (operatingReport) operatingReport.horizonReconciliation = reconcileOperatingHorizon(
-    operatingSnapshot, calculated.results,
-    rentalCalendarDisclosure({mode,inputs,result:calculated.results,context:rentalContext,asOfDate:generatedAt}));
+    operatingSnapshot, safeResults,
+    rentalCalendarDisclosure({mode,inputs,result:safeResults,context:rentalContext,asOfDate:generatedAt}));
   const { reportHashSha256: _valuationHash, ...compatibleValuationFields } = valuation;
   const core = { ...compatibleValuationFields, version: VERSION,
     dealName: typeof dealName === 'string' ? dealName : '',
@@ -146,17 +161,18 @@ function buildPersonalFinancialStudy({ mode, inputs, assumptionModelVersion, zak
     financial: { mode, currency: 'SAR', assumptionModelVersion,
       modelScope: financialModelScope(mode),
       geometryReview: geometryReview(mode, inputs),
-      rentalCalendar:rentalCalendarDisclosure({mode,inputs,result:calculated.results,context:rentalContext,asOfDate:generatedAt}),
+      rentalCalendar:rentalCalendarDisclosure({mode,inputs,result:safeResults,context:rentalContext,asOfDate:generatedAt}),
       inputProvenance:provenanceForInputs(mode,inputs,inputProvenance),
-      engineVersion: calculated.results?.financialModelVersion || null,
-      status: calculated.status, inputs: inputSnapshot,
-      purchaseAlternative: mode === 'building' && calculated.results
-        ? calculated.results.purchaseAlternative : null,
-      results: calculated.results, governance: calculated.governance, error: calculated.error,
-      payback: calculated.results ? paybackDisclosure(mode, calculated.results) : null,
-      annualCashflows: annualRows(mode, calculated.results, inputs),
-      experiments: calculated.results ? experiments(mode, inputs, assumptionModelVersion) : null,
-      zakat: zakat(mode, calculated.results, inputs, zakatCase),
+      engineVersion: safeResults?.financialModelVersion || null,
+      status: effectiveStatus, inputs: inputSnapshot,
+      personalResearchIntegrity: snapshot(readiness),
+      purchaseAlternative: mode === 'building' && safeResults
+        ? safeResults.purchaseAlternative : null,
+      results: safeResults, governance: safeResults ? calculated.governance : null, error: calculated.error,
+      payback: safeResults ? paybackDisclosure(mode, safeResults) : null,
+      annualCashflows: annualRows(mode, safeResults, inputs),
+      experiments: safeResults ? experiments(mode, inputs, assumptionModelVersion) : null,
+      zakat: zakat(mode, safeResults, inputs, zakatCase),
       usesPreviousValidResults: false,
     },
     valuationEditorDraft: snapshot(valuationEditorDraft),
@@ -190,6 +206,30 @@ function htmlFinancialStudy(report, { locale = 'ar-SA' } = {}) {
   };
   const inputRows = Object.entries(f.inputs).map(([key, value]) => [label(key) + ' [' + key + ']',
     value === null ? words('مفقود / غير متاح', 'Missing / unavailable') : typeof value === 'boolean' ? (value ? words('نعم','Yes') : words('لا','No')) : typeof value === 'object' ? JSON.stringify(value) : String(value)]);
+  const integrityArabicLabels = {
+    INPUT_OR_CALCULATION_NOT_AVAILABLE:'بيانات الحساب غير متاحة أو المدخلات غير صالحة',
+    MODEL_INCOMPLETE_OR_INVALID:'الدراسة غير مكتملة أو لم تتأهل اقتصادياً',
+    ACQUISITION_COST_ROLLUP:'مجموع تكلفة الاستحواذ غير متطابق',
+    NOI_RECONCILIATION:'صافي الدخل التشغيلي غير متطابق',
+    PROJECT_COST_ROLLUP:'مجموع تكاليف التطوير غير متطابق',
+    STABILIZED_NOI_RECONCILIATION:'صافي دخل التطوير المستقر غير متطابق',
+    CASHFLOW_VALUES_FINITE:'تدفق نقدي غير صالح',
+    FINANCIAL_CRITERIA_COMPLETE:'معايير الحساب غير مكتملة',
+    FINANCIAL_HARD_GATES_NOT_MET:'أحد الشروط المالية الحاكمة غير محقق',
+    NPV_NOT_ESTABLISHED:'القيمة الحالية غير متحققة',
+    IRR_NOT_ESTABLISHED:'العائد الداخلي غير متحقق',
+    IRR_REQUIRES_MANUAL_REVIEW:'العائد الداخلي يحتاج مراجعة',
+    EXIT_ANALYSIS_NOT_READY:'تحليل التخارج غير مكتمل',
+  };
+  const integrityStatus = f.personalResearchIntegrity?.status;
+  const integrityStatusText = integrityStatus === PERSONAL_STATUS.RESEARCH
+    ? words('تطابق حسابي مبدئي', 'Basic arithmetic reconciled')
+    : integrityStatus === PERSONAL_STATUS.CAUTION
+      ? words('حساب مبدئي مع ملاحظات مالية', 'Arithmetic reconciled with financial cautions')
+      : words('معلق أو غير مكتمل؛ لا يُعد قراراً استثمارياً', 'On hold or incomplete; not an investment decision');
+  const integrityReasonsText = (f.personalResearchIntegrity?.reasonCodes || [])
+    .map(code => ar ? (integrityArabicLabels[code] || 'سبب حسابي يحتاج مراجعة') : code)
+    .join(ar ? '؛ ' : '; ') || words('لا توجد أسباب ضمن الفحص', 'None under arithmetic check');
   const firstNoi = f.mode === 'building' ? r.firstYearNOI : r.firstOperatingYearNOI;
   const expenses = f.mode === 'building' ? r.opexAmount : r.operatingExpenses;
   const op = report.operatingReport, runoff = op?.contractRunoff;
@@ -259,6 +299,12 @@ function htmlFinancialStudy(report, { locale = 'ar-SA' } = {}) {
     [words('صافي القيمة الحالية بعد الزكاة المدخلة', 'NPV after user-entered Zakat'), money(z.afterZakatNPV)],
   ]) : '<p>' + diagnostic(f.zakat.status) + '</p>';
   return '<!doctype html><html lang="' + (ar ? 'ar' : 'en') + '" dir="' + (ar ? 'rtl' : 'ltr') + '"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; style-src &#39;unsafe-inline&#39;"><title>' + words('دراسة استثمار عقاري شخصية', 'Personal real estate investment study') + '</title><style>body{font-family:Tahoma,Arial,sans-serif;color:#162033;max-width:1100px;margin:2rem auto;padding:1rem}h1,h2{color:#18344a}table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:12px}th,td{border:1px solid #bac4ce;padding:.55rem;text-align:start;vertical-align:top;overflow-wrap:anywhere}th{background:#edf1f5}code{font-size:10px;overflow-wrap:anywhere}p,li{line-height:1.7}thead{display:table-header-group;break-inside:avoid;break-after:avoid}h1,h2{break-after:avoid;page-break-after:avoid}@page{size:A4;margin:14mm}@media print{body{margin:0;padding:0}tr{break-inside:avoid}h2{break-after:avoid}}</style></head><body><h1>' + words('دراسة استثمار عقاري شخصية', 'Personal real estate investment study') + '</h1><p>' + h(report.dealName || f.inputs.projectTitle || '') + '</p><p>' + words('دراسة تحليلية شخصية أولية — غير معتمدة', 'Personal preliminary analytical study — not certified') + '</p>'
+    + rows([[words('سلامة النتائج المالية', 'Financial integrity'),
+      integrityStatusText],
+      [words('أسباب التعليق أو التحذير', 'Integrity warnings'),
+      integrityReasonsText],
+      [words('الاعتماد على مصادر سوق مستقلة', 'Independently verified market sources'),
+      words('غير مثبت', 'Not established')]])
     + rows([[words('نوع الدراسة', 'Study type'), words(f.mode === 'building' ? 'مبنى قائم' : 'أرض وتطوير', f.mode)], [words('تاريخ إعداد الدراسة', 'Generated at'), report.generatedAt], [words('إصدار الافتراضات', 'Assumption version'), f.assumptionModelVersion], [words('إصدار المحرك المالي', 'Financial engine version'), f.engineVersion], [words('معرّف بناء المنصة', 'Platform build identifier'), report.sourceBuild.buildId], [words('نسخة الشيفرة المصدرية', 'Source commit'), report.sourceBuild.sourceCommit || words('غير مرتبط بنسخة متحقق منها', 'Unverified source binding')], [words('حالة الحساب', 'Calculation status'), f.status]])
     + '<p>' + words('حد النموذج: إيجار مجمع للمبنى أو تطوير عام للأرض؛ الفئات المتخصصة وبيانات السوق لم تُؤهل. لا تثبت هذه الدراسة صلاحية التراخيص أو العقود أو مؤشرات القيمة المهنية.', 'Model scope: aggregate building rent or general land development; specialist asset models and market inputs are not qualified. The study does not establish licences, contracts, or professional value authority.') + '</p>' + error + '<h2>' + words('الملخص المالي', 'Financial summary') + '</h2>' + rows(metrics)
     + '<h2>' + words('الاسترداد وأفق الدراسة', 'Recovery and study horizon') + '</h2>' + rows([
