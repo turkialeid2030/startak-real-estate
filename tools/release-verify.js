@@ -110,7 +110,19 @@ step('NPM_AUDIT_RELEASE_THRESHOLD', () => {
   const data = JSON.parse(out);
   const v = data.metadata?.vulnerabilities || {};
   console.log(`  critical=${v.critical||0} high=${v.high||0} moderate=${v.moderate||0} low=${v.low||0}`);
-  if ((v.critical || 0) > 0 || (v.high || 0) > 0) throw new Error('critical/high vulnerability present');
+  // Emit only public npm package/advisory identifiers and remediation range.
+  // Never print the whole audit payload or registry auth, token, headers or config.
+  if ((v.critical || 0) > 0 || (v.high || 0) > 0) {
+    for (const [name,record] of Object.entries(data.vulnerabilities || {}).slice(0,200)) {
+      if (!['high','critical'].includes(record?.severity)) continue;
+      const safe = str => typeof str === 'string' && /^[a-zA-Z0-9@/._^-]{1,150}$/.test(str) ? str : 'UNAVAILABLE';
+      const version = safe(record?.range);
+      const fix = record?.fixAvailable && typeof record.fixAvailable === 'object'
+        ? safe(record.fixAvailable.version) : record?.fixAvailable === true ? 'AVAILABLE' : 'NOT_INDICATED';
+      console.log(`  vulnerable_package=${safe(name)} severity=${record.severity} range=${version} fix=${fix}`);
+    }
+    throw new Error('critical/high vulnerability present');
+  }
 });
 
 step('CANONICAL_BASELINE_REGISTRY_VERIFICATION', () => {
