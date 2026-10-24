@@ -10,6 +10,8 @@ const AR_REASONS = Object.freeze({
   PROJECT_COST_ROLLUP:'مجموع تكاليف المشروع غير متطابق',
   STABILIZED_NOI_RECONCILIATION:'صافي الدخل التشغيلي المستقر غير متطابق',
   CASHFLOW_VALUES_FINITE:'يوجد تدفق نقدي غير صالح حسابياً',
+  OPENING_INVESTMENT_CASHFLOW:'التدفق النقدي الأول لا يطابق تكلفة الاستحواذ',
+  NPV_CASHFLOW_RECONCILIATION:'صافي القيمة الحالية لا يطابق التدفقات ومعدل الخصم',
   FINANCIAL_CRITERIA_COMPLETE:'معايير التقييم المالي غير مكتملة',
   FINANCIAL_HARD_GATES_NOT_MET:'لم تتحقق بعض القيود المالية الإلزامية',
   NPV_NOT_ESTABLISHED:'صافي القيمة الحالية غير متحقق',
