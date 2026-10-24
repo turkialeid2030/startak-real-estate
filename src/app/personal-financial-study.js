@@ -125,7 +125,7 @@ function buildPersonalFinancialStudy({ mode, inputs, assumptionModelVersion, zak
   // numerically inconsistent economic model into a purported current report.
   const safeResults = readiness.computationChecked ? calculated.results : null;
   const effectiveStatus = safeResults ? calculated.status :
-    safeResults ? 'FINANCIAL_INTEGRITY_HOLD' : calculated.status;
+    calculated.results ? 'FINANCIAL_INTEGRITY_HOLD' : calculated.status;
   const valuation = buildPersonalResearchReport({ valuationCase: mode === 'building' ? valuationCase : null,
     runtime: mode === 'building' && safeResults ? runtime : null, generatedAt });
   const inputSnapshot = snapshot(inputs);
