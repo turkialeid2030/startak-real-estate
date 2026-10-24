@@ -214,6 +214,8 @@ function htmlFinancialStudy(report, { locale = 'ar-SA' } = {}) {
     PROJECT_COST_ROLLUP:'مجموع تكاليف التطوير غير متطابق',
     STABILIZED_NOI_RECONCILIATION:'صافي دخل التطوير المستقر غير متطابق',
     CASHFLOW_VALUES_FINITE:'تدفق نقدي غير صالح',
+    OPENING_INVESTMENT_CASHFLOW:'تدفق الاستثمار الأول لا يطابق تكلفة الاستحواذ',
+    NPV_CASHFLOW_RECONCILIATION:'القيمة الحالية لا تطابق جدول التدفقات ومعدل الخصم',
     FINANCIAL_CRITERIA_COMPLETE:'معايير الحساب غير مكتملة',
     FINANCIAL_HARD_GATES_NOT_MET:'أحد الشروط المالية الحاكمة غير محقق',
     NPV_NOT_ESTABLISHED:'القيمة الحالية غير متحققة',
