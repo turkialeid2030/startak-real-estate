@@ -123,9 +123,14 @@ function buildPersonalFinancialStudy({ mode, inputs, assumptionModelVersion, zak
   });
   // Export current input drafts even when calculations fail; never carry a
   // numerically inconsistent economic model into a purported current report.
-  const safeResults = readiness.computationChecked ? calculated.results : null;
-  const effectiveStatus = safeResults ? calculated.status :
-    calculated.results ? 'FINANCIAL_INTEGRITY_HOLD' : calculated.status;
+  // A bounded, incomplete analysis can contain useful partial arithmetic.
+  // Keep it labeled INCOMPLETE_INPUTS/INVALID_ECONOMIC_CASE rather than
+  // erase its numbers; suppression is reserved for an actual independent
+  // arithmetic reconciliation failure in an otherwise VALID model.
+  const arithmeticMismatch = calculated.results?.financialModelStatus === 'VALID' &&
+    readiness.status === PERSONAL_STATUS.HOLD;
+  const safeResults = arithmeticMismatch ? null : calculated.results;
+  const effectiveStatus = arithmeticMismatch ? 'FINANCIAL_INTEGRITY_HOLD' : calculated.status;
   const valuation = buildPersonalResearchReport({ valuationCase: mode === 'building' ? valuationCase : null,
     runtime: mode === 'building' && safeResults ? runtime : null, generatedAt });
   const inputSnapshot = snapshot(inputs);
