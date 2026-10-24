@@ -1,6 +1,22 @@
 import React from 'react';
 const { PERSONAL_STATUS, evaluatePersonalResearchReadiness } = require('../governance/personal-research-readiness');
 
+const AR_REASONS = Object.freeze({
+  INPUT_OR_CALCULATION_NOT_AVAILABLE:'المدخلات الحالية غير صالحة أو الحساب غير متاح',
+  STUDY_MODE_UNSUPPORTED:'نوع الدراسة غير مؤهل لهذا الفحص',
+  MODEL_INCOMPLETE_OR_INVALID:'النموذج غير مكتمل أو نتائجه الاقتصادية غير مؤهلة',
+  ACQUISITION_COST_ROLLUP:'مجموع تكلفة الاستحواذ غير متطابق',
+  NOI_RECONCILIATION:'صافي الدخل التشغيلي غير متطابق مع الإيرادات والمصروفات',
+  PROJECT_COST_ROLLUP:'مجموع تكاليف المشروع غير متطابق',
+  STABILIZED_NOI_RECONCILIATION:'صافي الدخل التشغيلي المستقر غير متطابق',
+  CASHFLOW_VALUES_FINITE:'يوجد تدفق نقدي غير صالح حسابياً',
+  FINANCIAL_CRITERIA_COMPLETE:'معايير التقييم المالي غير مكتملة',
+  FINANCIAL_HARD_GATES_NOT_MET:'لم تتحقق بعض القيود المالية الإلزامية',
+  NPV_NOT_ESTABLISHED:'صافي القيمة الحالية غير متحقق',
+  IRR_NOT_ESTABLISHED:'معدل العائد الداخلي غير متحقق',
+  IRR_REQUIRES_MANUAL_REVIEW:'يتطلب معدل العائد الداخلي مراجعة مستقلة',
+  EXIT_ANALYSIS_NOT_READY:'تحليل قيمة التخارج غير مكتمل',
+});
 export default function PersonalResearchReadinessPanel({mode, inputs, results, validationError, locale = 'ar-SA'}) {
   const data = evaluatePersonalResearchReadiness({mode, inputs, results, validationError});
   const ar = locale !== 'en';
@@ -22,7 +38,7 @@ export default function PersonalResearchReadinessPanel({mode, inputs, results, v
       </div>
       {data.reasonCodes.length > 0 && (
         <p data-testid="personal-research-reasons" className="text-xs mt-2" style={{color:'#E7BE86'}}>
-          {data.reasonCodes.join('، ')}
+          {ar ? data.reasonCodes.map(code => AR_REASONS[code] || 'توجد ملاحظة حسابية تتطلب مراجعة').join('؛ ') : data.reasonCodes.join(', ')}
         </p>
       )}
       <p className="text-xs mt-2" style={{color:'#BAC2D2'}}>
