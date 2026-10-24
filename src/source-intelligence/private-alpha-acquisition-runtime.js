@@ -87,12 +87,41 @@ function buildEvidence({ plan, method, sourceUrl, finalUrl, bytes, contentType, 
 }
 
 async function readResponseBodyBounded(response, maxBytes) {
-  const declared = Number(response.headers?.get?.('content-length'));
-  if (Number.isFinite(declared) && declared > maxBytes) {
+  const rawLength = response.headers?.get?.('content-length');
+  const declared = rawLength === null || rawLength === undefined ? null : Number(rawLength);
+  if (declared !== null && Number.isFinite(declared) && declared > maxBytes) {
     throw new AcquisitionRuntimeError('C53_ARTIFACT_TOO_LARGE', 'Declared response size exceeds configured limit.', { declared, maxBytes });
   }
-  const ab = await response.arrayBuffer();
-  const bytes = Buffer.from(ab);
+  // Fetch streams MUST be bounded before materialization. Untrusted providers
+  // may omit or falsify Content-Length; arrayBuffer() alone is NOT a byte cap.
+  if (typeof response.body?.getReader === 'function') {
+    const reader = response.body.getReader();
+    const chunks = [];
+    let total = 0;
+    try {
+      while (true) {
+        const part = await reader.read();
+        if (part.done) break;
+        if (!(part.value instanceof Uint8Array)) {
+          throw new AcquisitionRuntimeError('C53_RESPONSE_CHUNK_INVALID', 'Unexpected source response chunk.');
+        }
+        total += part.value.byteLength;
+        if (total > maxBytes) {
+          throw new AcquisitionRuntimeError('C53_ARTIFACT_TOO_LARGE', 'Response stream exceeded configured limit.', { maxBytes });
+        }
+        chunks.push(Buffer.from(part.value));
+      }
+    } catch (error) {
+      try { await reader.cancel(); } catch (_) {}
+      throw error;
+    } finally {
+      try { reader.releaseLock(); } catch (_) {}
+    }
+    return Buffer.concat(chunks, total);
+  }
+  // Test doubles may expose only arrayBuffer(); actual Node fetch provides
+  // a WHATWG stream and is always processed through the bounded path above.
+  const bytes = Buffer.from(await response.arrayBuffer());
   if (bytes.length > maxBytes) {
     throw new AcquisitionRuntimeError('C53_ARTIFACT_TOO_LARGE', 'Response size exceeds configured limit.', { actual: bytes.length, maxBytes });
   }
@@ -150,6 +179,11 @@ async function acquirePublicArtifact({
   now = () => new Date().toISOString(),
 } = {}) {
   if (typeof fetchImpl !== 'function') throw new AcquisitionRuntimeError('C53_FETCH_IMPLEMENTATION_REQUIRED');
+  if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > DEFAULT_MAX_BYTES ||
+      !Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 120000 ||
+      !Number.isSafeInteger(maxRedirects) || maxRedirects < 0 || maxRedirects > DEFAULT_MAX_REDIRECTS) {
+    throw new AcquisitionRuntimeError('C53_ACQUISITION_BOUNDS_INVALID', 'Invalid source size/time/redirect bounds.');
+  }
   if (![ACQUISITION_METHOD.DIRECT_HTTPS_FETCH, ACQUISITION_METHOD.OFFICIAL_FILE_DOWNLOAD, ACQUISITION_METHOD.SITEMAP_RSS_DISCOVERY].includes(method)) {
     throw new AcquisitionRuntimeError('C53_PUBLIC_FETCH_METHOD_NOT_ALLOWED');
   }
