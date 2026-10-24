@@ -15,6 +15,7 @@ import ResidentialIncomeAcquisitionPanel from "../components/ResidentialIncomeAc
 import ValuationIntelligencePanel from "../components/ValuationIntelligencePanel.jsx";
 import PersonalInvestmentResearchPanel from "../components/PersonalInvestmentResearchPanel.jsx";
 import PaybackDisclosurePanel from "../components/PaybackDisclosurePanel.jsx";
+import PersonalResearchReadinessPanel from "../components/PersonalResearchReadinessPanel.jsx";
 import PurchasePriceAlternative from "../components/PurchasePriceAlternative.jsx";
 import PurchaseCeilingCertificate from "../components/PurchaseCeilingCertificate.jsx";
 import NumericTextInput from '../components/NumericTextInput.jsx';
@@ -2188,6 +2189,13 @@ export default function App() {
           restoreRecoveryRequired={restoreRecoveryRequired}
         />
 
+        <PersonalResearchReadinessPanel
+          mode={mode}
+          results={results}
+          inputs={inputs}
+          validationError={activeValidationError}
+          locale={locale}
+        />
         <KPIRibbon mode={mode} results={results} leverageEnabled={inputs.leverageEnabled} />
         {mode === UI_MODE.BUILDING ? <AssumptionDisclosureBanner disclosure={assumptionDisclosure} /> : null}
 
