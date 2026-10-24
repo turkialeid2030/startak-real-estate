@@ -176,6 +176,47 @@ function response({ status = 200, body = '', headers: headerMap = {} } = {}) {
     bytes: Buffer.alloc(0),
   }), 'C53_EMPTY_ARTIFACT');
 
+  // No Content-Length: stream must stop before collecting an over-limit body.
+  let readCount = 0, cancelled = false, arrayBufferCalled = false;
+  await rejectsCode(async () => acquirePublicArtifact({
+    sourceProvider: 'REGA_REAL_ESTATE_INDICATORS',
+    sourceUrl: 'https://rei.rega.gov.sa/',
+    maxBytes: 5,
+    fetchImpl: async () => ({
+      status: 200, ok: true,
+      headers: headers({ 'content-type': 'text/plain' }),
+      body: {
+        getReader: () => ({
+          read: async () => {
+            readCount += 1;
+            return { done: false, value: new Uint8Array(readCount === 1 ? 4 : 3) };
+          },
+          cancel: async () => { cancelled = true; },
+          releaseLock: () => {},
+        }),
+      },
+      arrayBuffer: async () => {
+        arrayBufferCalled = true;
+        throw new Error('unbounded materialization is forbidden');
+      },
+    }),
+  }), 'C53_ARTIFACT_TOO_LARGE');
+  eq(readCount, 2, 'stream stops at first over-limit chunk');
+  eq(cancelled, true, 'stream is cancelled after byte limit');
+  eq(arrayBufferCalled, false, 'live stream must not use arrayBuffer');
+  for (const invalid of [
+    { maxBytes: 0 }, { maxBytes: 15 * 1024 * 1024 + 1 },
+    { timeoutMs: 0 }, { timeoutMs: 120001 },
+    { maxRedirects: -1 }, { maxRedirects: 6 },
+  ]) {
+    await rejectsCode(async () => acquirePublicArtifact({
+      sourceProvider: 'REGA_REAL_ESTATE_INDICATORS',
+      sourceUrl: 'https://rei.rega.gov.sa/',
+      fetchImpl: async () => { throw new Error('invalid config reached network'); },
+      ...invalid,
+    }), 'C53_ACQUISITION_BOUNDS_INVALID');
+  }
+
   console.log(`C53_PRIVATE_ALPHA_SOURCE_ACQUISITION_RUNTIME_CHECKS=${checks}`);
   console.log('C53_PRIVATE_ALPHA_SOURCE_ACQUISITION_RUNTIME_RESULT=PASS');
 })().catch((error) => {
