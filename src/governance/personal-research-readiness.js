@@ -56,6 +56,30 @@ function evaluatePersonalResearchReadiness({ mode, results, inputs, validationEr
   const cashflowOk = Array.isArray(results.cashflows) &&
     results.cashflows.length >= 2 && results.cashflows.every(finite);
   checks.push({id:'CASHFLOW_VALUES_FINITE',pass:cashflowOk});
+  // Cross-check the opening investment outlay independently of the engine:
+  // the land development series initially pays for acquisition, while later
+  // annual rows carry construction draws. Do not subtract full project cost twice.
+  if (cashflowOk) {
+    check('OPENING_INVESTMENT_CASHFLOW',
+      results.cashflows[0],
+      -(mode === 'building' ? results.totalPurchaseCost : results.totalLandAcquisitionCost));
+    // Independently discount the *actual* unlevered annual series rather than
+    // trusting the same engine's already-aggregated NPV. A legitimate unknown
+    // NPV remains CAUTION below, not a fabricated zero or numerical pass.
+    const rate = mode === 'building' ? inputs.discountRate : inputs.hurdleRate;
+    if (finite(results.npv)) {
+      const expected = finite(rate) && rate > -1 ?
+        results.cashflows.reduce((sum, value, year) =>
+          sum + value / (1 + rate) ** year, 0) : NaN;
+      const tolerance = Math.max(0.1,
+        1e-9 * Math.max(Math.abs(results.cashflows[0]), Math.abs(expected || 0)));
+      checks.push({
+        id:'NPV_CASHFLOW_RECONCILIATION',
+        pass:finite(expected) && Math.abs(results.npv - expected) <= tolerance,
+        actual:results.npv, expected:finite(expected) ? expected : null,
+      });
+    }
+  }
   const criteriaOk = Number.isInteger(results.totalCriteria) &&
     results.totalCriteria > 0 &&
     Array.isArray(results.criteriaDetail) &&
