@@ -32,8 +32,8 @@ for(const [mode,result,inputs] of [['building',b,building],['land',l,land]]){
  assert.ok(out.checks.every(c=>c.pass));
  assertions+=2;
 }
-function mustHold({mode,results,inputs},code){
- const x=evaluatePersonalResearchReadiness({mode,results,inputs});
+function mustHold({mode,results,inputs,validationError},code){
+ const x=evaluatePersonalResearchReadiness({mode,results,inputs,validationError});
  assert.equal(x.status,PERSONAL_STATUS.HOLD);
  assert.ok(x.reasonCodes.includes(code),x.reasonCodes.join(','));
  assert.equal(x.personalResearchAllowed,false);
