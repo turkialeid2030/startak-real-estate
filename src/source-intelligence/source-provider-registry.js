@@ -160,7 +160,9 @@ function sourceUrlMatchesProvider(provider, urlText) {
   if (!provider || !Array.isArray(provider.officialDomains) || typeof urlText !== 'string' || !urlText.trim()) return false;
   try {
     const parsed = new URL(urlText.trim());
-    return parsed.protocol === 'https:' && provider.officialDomains.includes(parsed.hostname.toLowerCase());
+    return parsed.protocol === 'https:' && !parsed.username && !parsed.password &&
+      (!parsed.port || parsed.port === '443') &&
+      provider.officialDomains.includes(parsed.hostname.toLowerCase());
   } catch (_) {
     return false;
   }
