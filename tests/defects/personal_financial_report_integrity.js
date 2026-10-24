@@ -20,7 +20,9 @@ for(const [mode,name] of [['building','RE-GOLD-002-U'],['land','RE-GOLD-001-U']]
  const html=htmlFinancialStudy(report,{locale:'ar-SA'});
  assert.ok(html.includes('سلامة النتائج المالية'));
  assert.ok(html.includes('الاعتماد على مصادر سوق مستقلة'));
- checks+=8;
+ assert.ok(!html.includes('HOLD_INPUT_OR_FINANCIAL_INTEGRITY'));
+ assert.ok(!html.includes('PERSONAL_RESEARCH_MATH_CHECKED'));
+ checks+=10;
  const invalid=buildPersonalFinancialStudy({mode,inputs:{...inputs,
    [mode==='building'?'buildingPrice':'landPricePerSqm']:NaN},
    assumptionModelVersion:'LEGACY',generatedAt:at});
