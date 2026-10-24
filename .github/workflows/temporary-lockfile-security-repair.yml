@@ -1,0 +1,42 @@
+name: Temporary Lockfile Security Repair
+on:
+  push:
+    branches:
+      - fix/n11-first-failure-all-manifest-responses-20261024
+permissions:
+  contents: write
+concurrency:
+  group: temporary-lockfile-security-repair
+  cancel-in-progress: false
+jobs:
+  patch-lockfile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout temporary repair branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: true
+      - name: Setup trusted npm runtime
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Repair affected lockfile resolution without force or major upgrades
+        run: |
+          set -euo pipefail
+          npm audit fix --package-lock-only --ignore-scripts --no-fund
+          npm ci --ignore-scripts --no-fund
+          npm audit --audit-level=high
+          node -e "const p=require('./package-lock.json');const v=p.packages['node_modules/undici'].version;const major=Number(v.split('.')[0]);if(major!==8||v==='8.11.2')process.exit(1);console.log('SECURITY_UNDICI_PATCH='+v)"
+      - name: Commit only patched lockfile to owner branch
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- package-lock.json; then
+            echo 'SECURITY_LOCKFILE_ALREADY_PATCHED=PASS'
+          else
+            git add -- package-lock.json
+            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'Patch vulnerable transitive undici via npm audited lockfile update'
+            git push origin HEAD:refs/heads/fix/n11-first-failure-all-manifest-responses-20261024
+            echo 'SECURITY_LOCKFILE_UPDATE_PUSHED=PASS'
+          fi
