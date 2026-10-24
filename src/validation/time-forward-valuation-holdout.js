@@ -57,14 +57,21 @@ function protocolErrors(p) {
   }
   if (!Array.isArray(p.slices) || p.slices.length === 0) errors.push('REGISTERED_SLICES_REQUIRED');
   else {
-    const seen = new Set();
+    const seen = new Set(), fields = new Set();
     for (const [i, s] of p.slices.entries()) {
       const key = String(s?.field) + ':' + String(s?.value);
       if (!s || !SCOPES.has(s.field) || !nonEmpty(s.value) ||
-          !Number.isInteger(s.minObservations) || s.minObservations < 1 || seen.has(key)) {
+          !Number.isInteger(s.minObservations) || s.minObservations < 1 ||
+          !['maxMedianAbsolutePercentageError', 'maxP90AbsolutePercentageError',
+            'maxAbsoluteMedianSignedPercentageError'].every(k => nonNegativeFinite(s[k])) ||
+          seen.has(key)) {
         errors.push('INVALID_OR_DUPLICATE_SLICE_' + i);
       }
+      if (s && SCOPES.has(s.field)) fields.add(s.field);
       seen.add(key);
+    }
+    if (!fields.has('region') || !fields.has('assetType')) {
+      errors.push('REGION_AND_ASSET_TYPE_SLICE_REGISTRATION_REQUIRED');
     }
   }
   const numeric = p.numericPolicy;
@@ -79,6 +86,12 @@ function protocolErrors(p) {
 function percentileNearestRank(values, fraction) {
   const sorted = [...values].sort((a,b) => a-b);
   return sorted[Math.ceil(sorted.length * fraction)-1];
+}
+function median(values) {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a,b) => a-b);
+  const m = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[m] : sorted[m-1] / 2 + sorted[m] / 2;
 }
 function stable(value) {
   if (Array.isArray(value)) return value.map(stable);
@@ -127,6 +140,16 @@ function evaluateTimeForwardHoldout({ protocol, observations } = {}) {
     perRecord.push(item);
   }
   if (failures.length) return hold(STATUS.HOLD_COHORT, ['COHORT_INTEGRITY_FAILED'], failures);
+  // Every observed location and asset type must be explicitly in the
+  // pre-registered cohort. Unregistered slices cannot be silently discarded.
+  const registeredSlices = new Set(protocol.slices.map(s => s.field + ':' + s.value));
+  const unregistered = perRecord.flatMap((item, index) =>
+    ['region', 'assetType']
+      .filter(field => !registeredSlices.has(field + ':' + item[field].trim()))
+      .map(field => ({ index, field, value:item[field].trim(), code:'UNREGISTERED_COHORT_SLICE' })));
+  if (unregistered.length) {
+    return hold(STATUS.HOLD_COHORT, ['UNREGISTERED_COHORT_SLICE'], unregistered);
+  }
   const result = evaluateExternalValuationValidation({
     observations: perRecord, policy: protocol.numericPolicy,
   });
@@ -138,16 +161,40 @@ function evaluateTimeForwardHoldout({ protocol, observations } = {}) {
   const p90 = percentileNearestRank(errors, 0.9);
   const sliceMetrics = protocol.slices.map(s => {
     const matching = result.observations.filter(o => observations[o.index][s.field].trim() === s.value);
-    return { field:s.field, value:s.value, observationCount:matching.length,
+    const absoluteErrors = matching.map(o => o.absolutePercentageError);
+    const signedErrors = matching.map(o => o.signedPercentageError);
+    return {
+      field:s.field, value:s.value, observationCount:matching.length,
       required:s.minObservations,
-      medianAbsolutePercentageError:matching.length ?
-        percentileNearestRank(matching.map(o=>o.absolutePercentageError),0.5) : null };
+      maxMedianAbsolutePercentageError:s.maxMedianAbsolutePercentageError,
+      maxP90AbsolutePercentageError:s.maxP90AbsolutePercentageError,
+      maxAbsoluteMedianSignedPercentageError:s.maxAbsoluteMedianSignedPercentageError,
+      medianAbsolutePercentageError:median(absoluteErrors),
+      p90AbsolutePercentageError:matching.length ? percentileNearestRank(absoluteErrors,0.9) : null,
+      medianSignedPercentageError:median(signedErrors),
+    };
   });
   const sliceFailures = sliceMetrics.filter(s => s.observationCount < s.required);
-  if (sliceFailures.length) return hold(STATUS.HOLD_COHORT, ['REGISTERED_SLICE_UNDERPOWERED'],sliceFailures);
+  if (sliceFailures.length) return {
+    ...hold(STATUS.HOLD_COHORT, ['REGISTERED_SLICE_UNDERPOWERED'], sliceFailures),
+    sliceMetrics,
+  };
+  const sliceBreaches = sliceMetrics.filter(s =>
+    s.medianAbsolutePercentageError > s.maxMedianAbsolutePercentageError ||
+    s.p90AbsolutePercentageError > s.maxP90AbsolutePercentageError ||
+    Math.abs(s.medianSignedPercentageError) > s.maxAbsoluteMedianSignedPercentageError);
+  if (sliceBreaches.length) {
+    return {
+      ...hold(STATUS.HOLD_NUMERIC, ['REGISTERED_SLICE_NUMERIC_THRESHOLD_EXCEEDED'],sliceBreaches),
+      sliceMetrics,
+    };
+  }
   if (p90 > protocol.maxP90AbsolutePercentageError) {
-    return hold(STATUS.HOLD_NUMERIC, ['P90_OUTSIDE_REGISTERED_THRESHOLD'],
-      [{actual:p90, maximum:protocol.maxP90AbsolutePercentageError}]);
+    return {
+      ...hold(STATUS.HOLD_NUMERIC, ['P90_OUTSIDE_REGISTERED_THRESHOLD'],
+        [{actual:p90, maximum:protocol.maxP90AbsolutePercentageError}]),
+      sliceMetrics,
+    };
   }
   const protocolDigestSha256 = crypto.createHash('sha256')
     .update(JSON.stringify(stable(protocol))).digest('hex');
