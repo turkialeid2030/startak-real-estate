@@ -52,13 +52,23 @@ mustHold({mode:'land',inputs:land,results:{...l,cashflows:[-1000,NaN]}},
   'CASHFLOW_VALUES_FINITE');
 mustHold({mode:'building',inputs:building,results:{...b,criteriaDetail:[]}},
   'FINANCIAL_CRITERIA_COMPLETE');
+mustHold({mode:'building',inputs:building,results:{...b,cashflows:
+  [-b.totalPurchaseCost-100,...b.cashflows.slice(1)]}},
+  'OPENING_INVESTMENT_CASHFLOW');
+mustHold({mode:'land',inputs:land,results:{...l,cashflows:
+  [-l.totalLandAcquisitionCost+100,...l.cashflows.slice(1)]}},
+  'OPENING_INVESTMENT_CASHFLOW');
+mustHold({mode:'building',inputs:building,results:{...b,npv:b.npv+1000}},
+  'NPV_CASHFLOW_RECONCILIATION');
+mustHold({mode:'land',inputs:land,results:{...l,npv:l.npv-1000}},
+  'NPV_CASHFLOW_RECONCILIATION');
 mustHold({mode:'building',inputs:building,results:{...b,financialModelStatus:'INCOMPLETE_INPUTS'}},
   'MODEL_INCOMPLETE_OR_INVALID');
 mustHold({mode:'warehouse',inputs:building,results:b},'STUDY_MODE_UNSUPPORTED');
 mustHold({mode:'building',inputs:building,results:b,validationError:new Error('missing input')},
   'INPUT_OR_CALCULATION_NOT_AVAILABLE');
 const caution=evaluatePersonalResearchReadiness({mode:'land',inputs:land,
-  results:{...l,failedHardGates:['NPV_NON_NEGATIVE'],npv:-1000}});
+  results:{...l,failedHardGates:['NPV_NON_NEGATIVE']}});
 assert.equal(caution.status,PERSONAL_STATUS.CAUTION);
 assert.equal(caution.personalResearchAllowed,true);
 assert.equal(caution.financialDecisionAuthorized,false);
