@@ -163,7 +163,7 @@ function buildPersonalFinancialStudy({ mode, inputs, assumptionModelVersion, zak
       personalResearchIntegrity: snapshot(readiness),
       purchaseAlternative: mode === 'building' && safeResults
         ? safeResults.purchaseAlternative : null,
-      results: safeResults, governance: calculated.governance, error: calculated.error,
+      results: safeResults, governance: safeResults ? calculated.governance : null, error: calculated.error,
       payback: safeResults ? paybackDisclosure(mode, safeResults) : null,
       annualCashflows: annualRows(mode, safeResults, inputs),
       experiments: safeResults ? experiments(mode, inputs, assumptionModelVersion) : null,
