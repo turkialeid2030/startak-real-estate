@@ -176,6 +176,19 @@ function response({ status = 200, body = '', headers: headerMap = {} } = {}) {
     bytes: Buffer.alloc(0),
   }), 'C53_EMPTY_ARTIFACT');
 
+  // Domain allowlisting must not conceal Basic Auth in URL userinfo or
+  // non-standard ports, even when the hostname itself is official.
+  for (const suspicious of [
+    'https://demo:password@rei.rega.gov.sa/',
+    'https://rei.rega.gov.sa:4443/',
+    'https://rei.rega.gov.sa.evil.example/',
+  ]) {
+    await rejectsCode(async () => acquirePublicArtifact({
+      sourceProvider:'REGA_REAL_ESTATE_INDICATORS',
+      sourceUrl:suspicious,
+      fetchImpl:async () => { throw new Error('unsafe URL reached network'); },
+    }), 'C53_ACQUISITION_PLAN_NOT_READY');
+  }
   // No Content-Length: stream must stop before collecting an over-limit body.
   let readCount = 0, cancelled = false, arrayBufferCalled = false;
   await rejectsCode(async () => acquirePublicArtifact({
