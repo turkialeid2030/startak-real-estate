@@ -206,6 +206,30 @@ function htmlFinancialStudy(report, { locale = 'ar-SA' } = {}) {
   };
   const inputRows = Object.entries(f.inputs).map(([key, value]) => [label(key) + ' [' + key + ']',
     value === null ? words('مفقود / غير متاح', 'Missing / unavailable') : typeof value === 'boolean' ? (value ? words('نعم','Yes') : words('لا','No')) : typeof value === 'object' ? JSON.stringify(value) : String(value)]);
+  const integrityArabicLabels = {
+    INPUT_OR_CALCULATION_NOT_AVAILABLE:'بيانات الحساب غير متاحة أو المدخلات غير صالحة',
+    MODEL_INCOMPLETE_OR_INVALID:'الدراسة غير مكتملة أو لم تتأهل اقتصادياً',
+    ACQUISITION_COST_ROLLUP:'مجموع تكلفة الاستحواذ غير متطابق',
+    NOI_RECONCILIATION:'صافي الدخل التشغيلي غير متطابق',
+    PROJECT_COST_ROLLUP:'مجموع تكاليف التطوير غير متطابق',
+    STABILIZED_NOI_RECONCILIATION:'صافي دخل التطوير المستقر غير متطابق',
+    CASHFLOW_VALUES_FINITE:'تدفق نقدي غير صالح',
+    FINANCIAL_CRITERIA_COMPLETE:'معايير الحساب غير مكتملة',
+    FINANCIAL_HARD_GATES_NOT_MET:'أحد الشروط المالية الحاكمة غير محقق',
+    NPV_NOT_ESTABLISHED:'القيمة الحالية غير متحققة',
+    IRR_NOT_ESTABLISHED:'العائد الداخلي غير متحقق',
+    IRR_REQUIRES_MANUAL_REVIEW:'العائد الداخلي يحتاج مراجعة',
+    EXIT_ANALYSIS_NOT_READY:'تحليل التخارج غير مكتمل',
+  };
+  const integrityStatus = f.personalResearchIntegrity?.status;
+  const integrityStatusText = integrityStatus === PERSONAL_STATUS.RESEARCH
+    ? words('تطابق حسابي مبدئي', 'Basic arithmetic reconciled')
+    : integrityStatus === PERSONAL_STATUS.CAUTION
+      ? words('حساب مبدئي مع ملاحظات مالية', 'Arithmetic reconciled with financial cautions')
+      : words('معلق أو غير مكتمل؛ لا يُعد قراراً استثمارياً', 'On hold or incomplete; not an investment decision');
+  const integrityReasonsText = (f.personalResearchIntegrity?.reasonCodes || [])
+    .map(code => ar ? (integrityArabicLabels[code] || 'سبب حسابي يحتاج مراجعة') : code)
+    .join(ar ? '؛ ' : '; ') || words('لا توجد أسباب ضمن الفحص', 'None under arithmetic check');
   const firstNoi = f.mode === 'building' ? r.firstYearNOI : r.firstOperatingYearNOI;
   const expenses = f.mode === 'building' ? r.opexAmount : r.operatingExpenses;
   const op = report.operatingReport, runoff = op?.contractRunoff;
@@ -276,9 +300,9 @@ function htmlFinancialStudy(report, { locale = 'ar-SA' } = {}) {
   ]) : '<p>' + diagnostic(f.zakat.status) + '</p>';
   return '<!doctype html><html lang="' + (ar ? 'ar' : 'en') + '" dir="' + (ar ? 'rtl' : 'ltr') + '"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; style-src &#39;unsafe-inline&#39;"><title>' + words('دراسة استثمار عقاري شخصية', 'Personal real estate investment study') + '</title><style>body{font-family:Tahoma,Arial,sans-serif;color:#162033;max-width:1100px;margin:2rem auto;padding:1rem}h1,h2{color:#18344a}table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:12px}th,td{border:1px solid #bac4ce;padding:.55rem;text-align:start;vertical-align:top;overflow-wrap:anywhere}th{background:#edf1f5}code{font-size:10px;overflow-wrap:anywhere}p,li{line-height:1.7}thead{display:table-header-group;break-inside:avoid;break-after:avoid}h1,h2{break-after:avoid;page-break-after:avoid}@page{size:A4;margin:14mm}@media print{body{margin:0;padding:0}tr{break-inside:avoid}h2{break-after:avoid}}</style></head><body><h1>' + words('دراسة استثمار عقاري شخصية', 'Personal real estate investment study') + '</h1><p>' + h(report.dealName || f.inputs.projectTitle || '') + '</p><p>' + words('دراسة تحليلية شخصية أولية — غير معتمدة', 'Personal preliminary analytical study — not certified') + '</p>'
     + rows([[words('سلامة النتائج المالية', 'Financial integrity'),
-      f.personalResearchIntegrity?.status || words('غير متاح','Unavailable')],
+      integrityStatusText],
       [words('أسباب التعليق أو التحذير', 'Integrity warnings'),
-      (f.personalResearchIntegrity?.reasonCodes || []).join(' / ') || words('لا يوجد ضمن فحص الحساب', 'None within the arithmetic check')],
+      integrityReasonsText],
       [words('الاعتماد على مصادر سوق مستقلة', 'Independently verified market sources'),
       words('غير مثبت', 'Not established')]])
     + rows([[words('نوع الدراسة', 'Study type'), words(f.mode === 'building' ? 'مبنى قائم' : 'أرض وتطوير', f.mode)], [words('تاريخ إعداد الدراسة', 'Generated at'), report.generatedAt], [words('إصدار الافتراضات', 'Assumption version'), f.assumptionModelVersion], [words('إصدار المحرك المالي', 'Financial engine version'), f.engineVersion], [words('معرّف بناء المنصة', 'Platform build identifier'), report.sourceBuild.buildId], [words('نسخة الشيفرة المصدرية', 'Source commit'), report.sourceBuild.sourceCommit || words('غير مرتبط بنسخة متحقق منها', 'Unverified source binding')], [words('حالة الحساب', 'Calculation status'), f.status]])
