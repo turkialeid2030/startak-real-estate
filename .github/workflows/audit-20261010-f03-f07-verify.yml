@@ -9,6 +9,9 @@ on:
       - 'src/validation/saved-deal-schema.js'
       - 'src/storage/**'
       - 'src/valuation-intelligence/personal-limited-interest-case-archive.js'
+      - 'src/valuation-intelligence/personal-phased-development-dcf.js'
+      - 'tests/architecture/run_personal_phased_development_dcf.js'
+      - 'tests/e2e/run_personal_phased_development_browser.js'
       - 'tests/architecture/run_personal_limited_interest_archive.js'
       - 'tests/e2e/run_personal_limited_interest_archive_browser.js'
       - 'src/document-intelligence/**'
@@ -65,6 +68,7 @@ jobs:
       - run: npm ci
       - run: node tests/architecture/run_audit_20261010_f03_f07.js
       - run: node tests/architecture/run_personal_limited_interest_archive.js
+      - run: node tests/architecture/run_personal_phased_development_dcf.js
       - run: node tests/architecture/run_audit_20261010_f01_f02.js
       - run: node tests/architecture/run_audit_20261010_remaining.js
   chromium-owner-study:
@@ -116,6 +120,10 @@ jobs:
         env:
           STARTAK_E2E_URL: http://127.0.0.1:4173
         run: node tests/e2e/run_personal_limited_interest_archive_browser.js
+      - name: Real browser C55 phased land development DCF and negative guardrails
+        env:
+          STARTAK_E2E_URL: http://127.0.0.1:4173
+        run: node tests/e2e/run_personal_phased_development_browser.js
       - name: Lease lifecycle, retained terms, current-source review and saved report acceptance
         env:
           STARTAK_E2E_URL: http://127.0.0.1:4173
