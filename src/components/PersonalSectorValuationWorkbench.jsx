@@ -87,7 +87,7 @@ export default function PersonalSectorValuationWorkbench({assetClass,locale='ar-
  };
  const money=n=>new Intl.NumberFormat(ar?'ar-SA':'en-SA',{maximumFractionDigits:0}).format(n);
  const Checkbox=({label,checked,onChange})=><label className="flex items-center gap-2 text-xs min-h-[36px]" style={{color:'#E7E9EE'}}>
-  <input type="checkbox" checked={checked} onChange={e=>onChange(e.target.checked)}/>{label}
+  <input type="checkbox" style={{width:28,height:28,flexShrink:0}} checked={checked} onChange={e=>onChange(e.target.checked)}/>{label}
  </label>;
  return <section data-testid="personal-sector-workbench" dir={ar?'rtl':'ltr'}
    className="rounded-xl mt-4 p-4" style={{background:'#1A2942',border:'1px solid #40506A'}}>
