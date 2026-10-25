@@ -2,7 +2,7 @@
 
 // Offline market-data exploration only: local file rows and user-declared
 // source DO NOT establish official authenticity, data rights or valuation.
-const {sourceUrlMatchesProvider}=require('./source-provider-registry');
+const {sourceUrlMatchesProvider,getCanonicalSourceProvider}=require('./source-provider-registry');
 const MAX_CSV_BYTES=2*1024*1024;
 const MAX_ROWS=10000;
 const MAX_COLUMNS=64;
@@ -87,7 +87,7 @@ function reviewLocalSaudiSaleCsv({csvText,sourceProvider,sourceUrl,asOf}={}){
  const fail=(code,additional={})=>freeze({...base,reason:code,rowsAccepted:0,rowsExcluded:0,
   reasons:Object.freeze({}),groups:[],...additional});
  if(!Object.prototype.hasOwnProperty.call(PROVIDERS,sourceProvider)||
-    typeof sourceUrl!=='string'||!sourceUrlMatchesProvider(sourceProvider,sourceUrl))
+    typeof sourceUrl!=='string'||!sourceUrlMatchesProvider(getCanonicalSourceProvider(sourceProvider),sourceUrl))
    return fail('SOURCE_PROVIDER_URL_NOT_ALLOWLISTED');
  if(!/^\d{4}-\d{2}-\d{2}$/.test(asOf||'')||validDate(asOf,asOf)!==asOf)
    return fail('VALID_AS_OF_DATE_REQUIRED');
