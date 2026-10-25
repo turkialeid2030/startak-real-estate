@@ -122,18 +122,24 @@ function reviewLocalSaudiSaleCsv({csvText,sourceProvider,sourceUrl,asOf}={}){
   const ppm=price/area;
   if(indexes.unitPrice>=0&&get('unitPrice').trim()!==''){
    const published=parseAmount(get('unitPrice'));
-   if(published===null||Math.abs(ppm-published)>Math.max(1,ppm*0.01)){exclude('REPORTED_PRICE_PER_SQM_CONFLICT');continue;}
+   if(published===null||Math.abs(ppm-published)>Math.max(1,ppm*0.001)){exclude('REPORTED_PRICE_PER_SQM_CONFLICT');continue;}
   }
-  valid.push({date,city,subtype,pricePerSqm:ppm,price,area,district:get('district').trim()});
+  const district=get('district').trim(),classification=get('classification').trim();
+  if(district.length>120||classification.length>120){exclude('LOCATION_OR_CLASSIFICATION_TOO_LONG');continue;}
+  valid.push({date,city,subtype,classification,district,pricePerSqm:ppm,price,area});
  }
  const groups=new Map();
  for(const row of valid){
-  const key=JSON.stringify([row.city,row.subtype]);
-  if(!groups.has(key))groups.set(key,{city:row.city,subtype:row.subtype,values:[],dates:[]});
+  // Never blend residential/commercial/agricultural classifications or
+  // districts into a single comparable price distribution.
+  const key=JSON.stringify([row.city,row.district,row.classification,row.subtype]);
+  if(!groups.has(key))groups.set(key,{city:row.city,district:row.district,
+    classification:row.classification,subtype:row.subtype,values:[],dates:[]});
   const g=groups.get(key);g.values.push(row.pricePerSqm);g.dates.push(row.date);
  }
  const grouped=[...groups.values()].map(g=>({
-  city:g.city,subtype:g.subtype,recordCount:g.values.length,
+  city:g.city,district:g.district,classification:g.classification,
+  subtype:g.subtype,recordCount:g.values.length,
   medianPricePerSqm:g.values.length>=3?median(g.values):null,
   earliestDate:g.dates.slice().sort()[0],latestDate:g.dates.slice().sort().at(-1),
   disclosure:'DESCRIPTIVE_USER_FILE_ONLY_NOT_ASSET_VALUATION',
