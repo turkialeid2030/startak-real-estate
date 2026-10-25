@@ -4,6 +4,7 @@ import PersonalInvestmentResearchPanel from './PersonalInvestmentResearchPanel.j
 import ValuationAdvancedPanel from './ValuationAdvancedPanel.jsx';
 import CriticalEvidenceRequirementsPanel from './CriticalEvidenceRequirementsPanel.jsx';
 import PersonalAssetUniversePanel from './PersonalAssetUniversePanel.jsx';
+import PersonalSaudiSaleCsvPanel from './PersonalSaudiSaleCsvPanel.jsx';
 
 export default function ValuationIntelligencePanel(props) {
   const {
@@ -18,6 +19,7 @@ export default function ValuationIntelligencePanel(props) {
   return (
     <>
       <PersonalAssetUniversePanel locale={locale} />
+      <PersonalSaudiSaleCsvPanel locale={locale} />
       <ValuationIntelligenceBasePanel {...props}
         onChangeValuationCase={next => onChangeValuationCase?.(next, 'base')}
         editorDraft={valuationEditorDraft?.base}
