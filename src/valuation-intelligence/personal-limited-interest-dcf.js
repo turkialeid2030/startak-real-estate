@@ -22,7 +22,7 @@ function assessLimitedPropertyInterest({
  nominalDiscountRate,upfrontRightConsiderationSar,
  termsCheckedAgainstContract=false,propertyOnlyCashflowsConfirmed=false,
  improvementOwnershipAtTermEnd=false,assignabilityRequiresConsent=false,
- consentEvidenceIndependentlyVerified=false,
+ consentDocumentUserDeclared=false,
 }={}){
  const bad=[];
  if(!Object.values(ASSET_CLASS).includes(assetClass))bad.push('UNKNOWN_ASSET_CLASS');
@@ -43,7 +43,7 @@ function assessLimitedPropertyInterest({
  if(!termsCheckedAgainstContract)bad.push('CONTRACTUAL_TERM_AND_OBLIGATIONS_NOT_DECLARED_REVIEWED');
  if(!propertyOnlyCashflowsConfirmed)bad.push('PROPERTY_REVENUE_EXCLUDING_OPERATING_BUSINESS_NOT_CONFIRMED');
  if(improvementOwnershipAtTermEnd)bad.push('IMPROVEMENT_REVERSION_REQUIRES_SEPARATE_VERIFIED_MODEL');
- if(assignabilityRequiresConsent&&!consentEvidenceIndependentlyVerified)
+ if(assignabilityRequiresConsent&&!consentDocumentUserDeclared)
   bad.push('ASSIGNABILITY_CONSENT_NOT_ESTABLISHED');
  if(propertyRight===RIGHTS.WAQF_RESTRICTED)
   bad.push('WAQF_RESTRICTED_INTEREST_REQUIRES_INDEPENDENT_LEGAL_REVIEW');
