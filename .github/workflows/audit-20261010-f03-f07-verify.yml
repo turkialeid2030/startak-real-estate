@@ -10,6 +10,7 @@ on:
       - 'src/storage/**'
       - 'src/valuation-intelligence/personal-limited-interest-case-archive.js'
       - 'tests/architecture/run_personal_limited_interest_archive.js'
+      - 'tests/e2e/run_personal_limited_interest_archive_browser.js'
       - 'src/document-intelligence/**'
       - 'src/decision-actions/**'
       - 'src/project-model/**'
@@ -111,6 +112,10 @@ jobs:
         env:
           STARTAK_E2E_URL: http://127.0.0.1:4173
         run: node tests/e2e/run_c75_real_chromium_personal_study.js
+      - name: Real browser limited-property-rights archive input, tamper, and isolation
+        env:
+          STARTAK_E2E_URL: http://127.0.0.1:4173
+        run: node tests/e2e/run_personal_limited_interest_archive_browser.js
       - name: Lease lifecycle, retained terms, current-source review and saved report acceptance
         env:
           STARTAK_E2E_URL: http://127.0.0.1:4173
