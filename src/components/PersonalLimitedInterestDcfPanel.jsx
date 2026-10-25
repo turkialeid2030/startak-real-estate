@@ -46,7 +46,7 @@ export default function PersonalLimitedInterestDcfPanel({assetClass,locale='ar-S
     propertyOnlyCashflowsConfirmed:confirmed.realty,
     improvementOwnershipAtTermEnd:confirmed.improvements,
     assignabilityRequiresConsent:confirmed.consentRequired,
-    consentEvidenceIndependentlyVerified:confirmed.consentVerified,
+    consentDocumentUserDeclared:confirmed.consentVerified,
    }));
   }catch(e){
    setResult({status:STATUS.HOLD,reasonCodes:['UNSUPPORTED_RIGHTS_SCENARIO'],periods:[]});
