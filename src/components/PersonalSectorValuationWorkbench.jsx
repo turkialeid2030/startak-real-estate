@@ -1,8 +1,11 @@
 import React,{useState} from 'react';
+import {useRef} from 'react';
 const {EXPENSE_TREATMENT}=require('../valuation-intelligence/income-capitalization');
 const {VALUATION_METHOD}=require('../valuation-intelligence/contracts');
 const {STATUS,MARKET_UNITS,evaluatePersonalSectorScenarios}=require('../valuation-intelligence/personal-sector-scenario-workbench');
 const {parseAmount}=require('../source-intelligence/personal-saudi-sale-csv');
+const {MAX_ARCHIVE_BYTES,createPersonalSectorCaseArchive,verifyPersonalSectorCaseArchive}=
+ require('../valuation-intelligence/personal-sector-case-archive');
 
 const REASONS={
  UNKNOWN_ASSET_CLASS:'نوع العقار غير معرّف',
@@ -57,6 +60,49 @@ export default function PersonalSectorValuationWorkbench({assetClass,locale='ar-
  const [marketOptions,setMarketOptions]=useState({unit:'',quantity:'',businessExcluded:false,mixedAllocated:false});
  const [policy,setPolicy]=useState({maxDispersion:'',incomeWeight:'',costWeight:'',marketWeight:''});
  const [output,setOutput]=useState(null);
+ const [archiveStatus,setArchiveStatus]=useState('');
+ const archiveFileRef=useRef(null);
+ const currentState=()=>({assetClass,subject,methods,inc,cost,comparables,marketOptions,policy});
+ const exportCase=async()=>{
+  setArchiveStatus('');
+  try{
+   const archive=await createPersonalSectorCaseArchive(currentState(),{subtle:globalThis.crypto?.subtle});
+   const json=JSON.stringify(archive,null,2);
+   const url=URL.createObjectURL(new Blob([json],{type:'application/json;charset=utf-8'}));
+   const anchor=document.createElement('a');
+   anchor.href=url;anchor.download='startak-personal-sector-case-v1.json';
+   document.body.appendChild(anchor);anchor.click();anchor.remove();
+   URL.revokeObjectURL(url);
+   setArchiveStatus(ar?'تم إنشاء ملف دراسة المدخلات فقط على جهازك؛ لا يحفظ نتائج التقييم أو يمنح الملف توقيعًا موثوقًا.':
+     'Input-only case file created locally. Valuation outcomes are not saved and SHA-256 is not a digital signature.');
+  }catch(e){setArchiveStatus(ar?'فشل تصدير ملف الدراسة بصورة آمنة؛ لا توجد نسخة محفوظة.':
+     'Secure input-case export failed. No file was saved.');}
+ };
+ const importCase=async(event)=>{
+  const file=event.target.files?.[0];
+  if(archiveFileRef.current)archiveFileRef.current.value='';
+  setArchiveStatus('');
+  if(!file)return;
+  if(file.size<=0||file.size>MAX_ARCHIVE_BYTES){
+   setArchiveStatus(ar?'حجم الملف غير صالح أو يتجاوز 64 كيلوبايت.':'Invalid or oversized archive (>64 KiB).');return;
+  }
+  try{
+   const text=new TextDecoder('utf-8',{fatal:true}).decode(await file.arrayBuffer());
+   const archive=JSON.parse(text);
+   const restored=await verifyPersonalSectorCaseArchive(archive,{
+     subtle:globalThis.crypto?.subtle,expectedAssetClass:assetClass,
+   });
+   setSubject(restored.subject);setMethods(restored.methods);
+   setInc(restored.inc);setCost(restored.cost);setComparables(restored.comparables);
+   setMarketOptions(restored.marketOptions);setPolicy(restored.policy);
+   setOutput(null);
+   setArchiveStatus(ar?'استُعيدت المدخلات بعد التحقق من البصمة. يجب إعادة الحساب؛ النتائج السابقة لا تُستعاد.':
+     'Verified input fields restored. Recalculate; prior output and authorization were not restored.');
+  }catch(e){
+   setArchiveStatus(ar?'رُفض الملف: نوع العقار أو الإصدار أو البصمة أو بنية المدخلات لا تتطابق. لم تتغير دراستك الحالية.':
+    'File rejected: asset type, format or SHA-256 mismatch. Your current case was not modified.');
+  }
+ };
  const change=(fn,k,v)=>{fn(old=>({...old,[k]:v}));setOutput(null);};
  const calc=()=>{
   const income=methods.income?{
@@ -233,6 +279,25 @@ export default function PersonalSectorValuationWorkbench({assetClass,locale='ar-
       value={policy.maxDispersion} onChange={v=>change(setPolicy,'maxDispersion',v)}/>
    </div>
   </div>}
+  <div className="rounded-lg border border-slate-500/40 p-3 mt-4">
+    <p className="text-xs leading-relaxed" style={{color:'#BFC9D8'}}>{ar?
+      'حفظ واستعادة الدراسة الشخصية كملف JSON على جهازك. الملف يتضمن المدخلات فقط، وليس نتائج اعتماد أو صك ملكية؛ بصمة SHA-256 تكشف التلف العرضي ولا تثبت هوية المصدر.':
+      'Export/import your input-only private research case as JSON. SHA-256 detects accidental corruption; it is not a signed identity or proof of authenticity.'}</p>
+    <div className="flex flex-wrap items-center gap-3 mt-2">
+      <button type="button" onClick={exportCase} data-testid="personal-sector-export-case"
+       className="min-h-[40px] rounded-lg border border-slate-500 px-3 py-2 text-xs" style={{color:'#F0E7DB'}}>
+       {ar?'حفظ ملف الدراسة محليًا':'Export local case'}
+      </button>
+      <label className="text-xs" style={{color:'#F0E7DB'}}>
+       {ar?'استعادة ملف دراسة سابق':'Import prior case'}
+       <input ref={archiveFileRef} type="file" accept=".json,application/json"
+        data-testid="personal-sector-import-case" className="block mt-1 py-2 text-xs min-h-[36px]"
+        onChange={importCase}/>
+      </label>
+    </div>
+    {archiveStatus&&<p data-testid="personal-sector-archive-status" role="status"
+       className="text-xs leading-relaxed mt-2" style={{color:'#E7BC7D'}}>{archiveStatus}</p>}
+  </div>
   <button type="button" onClick={calc} data-testid="personal-sector-calculate"
    className="mt-4 px-4 py-3 rounded-lg text-xs font-semibold min-h-[40px]"
    style={{background:'#C9A24C',color:'#142236'}}>
