@@ -75,6 +75,8 @@ async function main(){
  assert.deepEqual(draftRestore,canonicalState(draft));
  // Runtime UI must clear computed output and never restore authority.
  const ui=fs.readFileSync('src/components/PersonalLimitedInterestDcfPanel.jsx','utf8');
+ assert.ok(ui.includes('الإيراد العقاري السنوي قبل مصروفات التشغيل'),
+  'rights income must not be mislabeled as NOI then charged costs twice');
  for(const t of [
   'data-testid="limited-interest-export-case"',
   'data-testid="limited-interest-import-case"',
