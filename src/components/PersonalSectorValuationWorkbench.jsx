@@ -1,7 +1,7 @@
 import React,{useState} from 'react';
 const {EXPENSE_TREATMENT}=require('../valuation-intelligence/income-capitalization');
 const {VALUATION_METHOD}=require('../valuation-intelligence/contracts');
-const {STATUS,evaluatePersonalSectorScenarios}=require('../valuation-intelligence/personal-sector-scenario-workbench');
+const {STATUS,MARKET_UNITS,evaluatePersonalSectorScenarios}=require('../valuation-intelligence/personal-sector-scenario-workbench');
 const {parseAmount}=require('../source-intelligence/personal-saudi-sale-csv');
 
 const REASONS={
@@ -24,7 +24,12 @@ const REASONS={
  LAND_ONLY_REQUIRES_LAND_METHOD_NOT_BUILDING_REPLACEMENT:'الأرض الفضاء لا تُقيّم بتكلفة مبنى غير موجود',
  NON_REAL_ESTATE_COMPONENTS_NOT_EXCLUDED_FROM_COST:'استبعد المعدات والقيم التجارية من تكلفة العقار',
  AT_LEAST_THREE_EXECUTED_COMPARABLES_REQUIRED:'أدخل ثلاث صفقات منفذة مماثلة على الأقل',
- MARKET_COMPARABLE_IDENTITY_DATE_OR_STATUS_INVALID:'الصفقات غير متطابقة بالمدينة والنوع والحقوق أو التاريخ أو المرجع',
+ MARKET_COMPARABLE_IDENTITY_DATE_OR_STATUS_INVALID:'الصفقات غير متطابقة بالحي أو المدينة أو النوع أو الحق أو وحدة المقارنة أو التاريخ أو المرجع',
+ MARKET_UNIT_NOT_APPROPRIATE_FOR_SECTOR:'وحدة المقارنة المختارة غير مناسبة لطبيعة هذا القطاع',
+ SUBJECT_DISTRICT_REQUIRED_FOR_SALES:'حدد الحي الذي تقع فيه المقارنات',
+ SUBJECT_MARKET_COMPARISON_QUANTITY_REQUIRED:'أدخل عدد وحدات المقارنة المناسبة للقطاع',
+ MARKET_PRICE_INCLUDES_UNSEPARATED_OPERATING_BUSINESS:'قيمة الصفقات تتضمن أرباح التشغيل أو المعدات غير العقارية',
+ MIXED_USE_COMPARABLE_ALLOCATION_UNCLEAR:'لا توجد تسوية واضحة لمكونات قيمة المجمع متعدد الاستخدامات',
  SECOND_INDEPENDENT_METHOD_NOT_PROVIDED:'متاح مؤشر طريقة واحدة فقط ولا يوجد ترجيح نهائي',
  RECONCILIATION_POLICY_REQUIRED:'أدخل أوزان الطرق وحد فرق القيم للترجيح',
  RECONCILIATION_POLICY_INVALID:'الأوزان يجب أن يكون مجموعها 1 وكل وزن أكبر من صفر',
@@ -34,7 +39,7 @@ const REASONS={
  INDEPENDENT_MARKET_AND_SPECIALIST_EVIDENCE_STILL_REQUIRED:'الترجيح الحسابي افتراضي؛ يلزم إثبات مستقل للبيانات والقطاع',
 };
 const inputClass='w-full rounded-lg border border-slate-500/50 p-2 text-sm min-h-[36px]';
-const initialMarket=()=>Array.from({length:3},()=>({id:'',city:'',subtype:'',right:'',date:'',unitValue:'',source:''}));
+const initialMarket=()=>Array.from({length:3},()=>({id:'',city:'',district:'',subtype:'',right:'',date:'',unitValue:'',source:'',unit:''}));
 function Row({ar,label,value,onChange,placeholder='',type='text'}){
  return <label className="block text-xs" style={{color:'#E6E9F0'}}>
   {label}
@@ -44,11 +49,12 @@ function Row({ar,label,value,onChange,placeholder='',type='text'}){
 }
 export default function PersonalSectorValuationWorkbench({assetClass,locale='ar-SA'}){
  const ar=locale!=='en';
- const [subject,setSubject]=useState({city:'',subtype:'',date:'',area:'',right:''});
+ const [subject,setSubject]=useState({city:'',district:'',subtype:'',date:'',area:'',right:''});
  const [methods,setMethods]=useState({income:false,cost:false,market:false});
  const [inc,setInc]=useState({gross:'',opex:'',cap:'',expenseTreatment:'',realEstateOnly:false,groundLease:false,sharedCosts:false});
  const [cost,setCost]=useState({land:'',replacement:'',depreciation:'',excludesBusiness:false});
  const [comparables,setComparables]=useState(initialMarket);
+ const [marketOptions,setMarketOptions]=useState({unit:'',quantity:'',businessExcluded:false,mixedAllocated:false});
  const [policy,setPolicy]=useState({maxDispersion:'',incomeWeight:'',costWeight:'',marketWeight:''});
  const [output,setOutput]=useState(null);
  const change=(fn,k,v)=>{fn(old=>({...old,[k]:v}));setOutput(null);};
@@ -64,8 +70,12 @@ export default function PersonalSectorValuationWorkbench({assetClass,locale='ar-
    landValue:parseAmount(cost.land),replacementBuildingCost:parseAmount(cost.replacement),
    depreciationRate:parseAmount(cost.depreciation),businessEquipmentExcluded:cost.excludesBusiness,
   }:null;
-  const market=methods.market?{comparables:comparables.map(c=>({
-   comparableId:c.id,city:c.city,assetClass,
+  const market=methods.market?{
+   unitOfComparison:marketOptions.unit,subjectQuantity:parseAmount(marketOptions.quantity),
+   businessAssetsExcluded:marketOptions.businessExcluded,
+   mixedUseComparableAllocationConfirmed:marketOptions.mixedAllocated,
+   comparables:comparables.map(c=>({
+   comparableId:c.id,city:c.city,district:c.district,assetClass,unitOfComparison:c.unit,
    propertySubtype:c.subtype,propertyRight:c.right,transactionDate:c.date,
    sourceRef:c.source,unitValue:parseAmount(c.unitValue),transactionStatus:'EXECUTED_SALE',
   }))}:null;
@@ -78,7 +88,7 @@ export default function PersonalSectorValuationWorkbench({assetClass,locale='ar-
   }:null;
   try{
    setOutput(evaluatePersonalSectorScenarios({
-    assetClass,city:subject.city,propertySubtype:subject.subtype,
+    assetClass,city:subject.city,propertySubtype:subject.subtype,subjectDistrict:subject.district,
     valuationDate:subject.date,subjectAreaSqm:parseAmount(subject.area),
     propertyRight:subject.right,income,cost:replacement,market,reconciliationPolicy,
    }));
@@ -100,6 +110,7 @@ export default function PersonalSectorValuationWorkbench({assetClass,locale='ar-
   </p>
   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
    <Row ar={ar} label={ar?'المدينة':'City'} value={subject.city} onChange={v=>change(setSubject,'city',v)}/>
+   <Row ar={ar} label={ar?'الحي العقاري':'Property district'} value={subject.district} onChange={v=>change(setSubject,'district',v)}/>
    <Row ar={ar} label={ar?'نوع العقار التفصيلي (مثلاً: فندق 4 نجوم)':'Exact property subtype'}
     value={subject.subtype} onChange={v=>change(setSubject,'subtype',v)}/>
    <Row ar={ar} label={ar?'مساحة العقار (م²)':'Area sqm'} value={subject.area} onChange={v=>change(setSubject,'area',v)}/>
@@ -157,19 +168,48 @@ export default function PersonalSectorValuationWorkbench({assetClass,locale='ar-
      checked={cost.excludesBusiness} onChange={v=>change(setCost,'excludesBusiness',v)}/>}
   </div>}
   {methods.market&&<div className="mt-3 p-3 rounded-lg border border-slate-500/40">
-   <strong className="text-xs" style={{color:'#E8C98B'}}>{ar?'ثلاث صفقات بيع منفذة من نفس المدينة والنوع والحق؛ دون عروض':'Three executed sales with matching city, subtype and property interest; no asking prices'}</strong>
+   <strong className="text-xs" style={{color:'#E8C98B'}}>{ar?'ثلاث صفقات بيع منفذة من نفس الحي والمدينة والنوع والحق؛ دون عروض':'Three executed sales matching district, subtype and property right; no asking prices'}</strong>
+   <label className="block text-xs mt-3" style={{color:'#E7E9EE'}}>
+     {ar?'وحدة المقارنة المناسبة للقطاع':'Sector-appropriate market comparison unit'}
+     <select value={marketOptions.unit} className={inputClass} style={{background:'#F4F5F5',color:'#192336',marginTop:5}}
+      onChange={e=>change(setMarketOptions,'unit',e.target.value)}>
+      <option value="">{ar?'حدد وحدة المقارنة':'Choose unit'}</option>
+      {(MARKET_UNITS[assetClass]||[]).map(unit=><option key={unit} value={unit}>
+       {({SQM:ar?'ريال لكل متر مربع':'SAR per sqm',UNIT:ar?'ريال لكل وحدة سكنية':'SAR per home',ROOM_KEY:ar?'ريال لكل غرفة فندقية':'SAR per hotel key',
+         BED:ar?'ريال لكل سرير':'SAR per bed',SEAT:ar?'ريال لكل مقعد':'SAR per seat',
+         SPACE:ar?'ريال لكل موقف':'SAR per parking space',MW_IT:ar?'ريال لكل ميجاوات تقنية':'SAR per IT MW'})[unit]||unit}
+      </option>)}
+     </select>
+   </label>
+   {marketOptions.unit&&marketOptions.unit!=='SQM'&&<Row
+      label={ar?'عدد وحدات المقارنة في العقار':'Number of comparison units'}
+      value={marketOptions.quantity} onChange={v=>change(setMarketOptions,'quantity',v)}/>}
+   {!['LAND','RESIDENTIAL','OFFICE','RETAIL'].includes(assetClass)&&<Checkbox
+      label={ar?'أؤكد فصل قيمة العقار عن النشاط والمعدات في صفقات المقارنة':'Sale unit values exclude equipment and operating business value'}
+      checked={marketOptions.businessExcluded} onChange={v=>change(setMarketOptions,'businessExcluded',v)}/>}
+   {assetClass==='MIXED_USE'&&<Checkbox
+      label={ar?'تمت تسوية قيمة أجزاء الاستخدامات المختلطة دون ازدواج':'Mixed-use components allocated consistently'}
+      checked={marketOptions.mixedAllocated} onChange={v=>change(setMarketOptions,'mixedAllocated',v)}/>}
    {comparables.map((c,i)=><div key={i} className="mt-3 border-b border-slate-500/40 pb-3">
     <span className="text-xs" style={{color:'#E8C98B'}}>{ar?'الصفقة ':'Sale '}{i+1}</span>
     <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
      {[
       ['id',ar?'رقم الصفقة':'Sale ID'],
       ['city',ar?'مدينة الصفقة':'Sale city'],
+      ['district',ar?'حي الصفقة':'Sale district'],
       ['subtype',ar?'النوع التفصيلي للصفقة':'Property subtype'],
       ['date',ar?'تاريخ البيع':'Sale date'],
-      ['unitValue',ar?'قيمة المتر (ر.س/م²)':'SAR per sqm'],
+      ['unitValue',ar?'السعر لكل وحدة مقارنة مختارة (ريال)':'SAR per selected comparison unit'],
       ['source',ar?'مرجع الصفقة المصدرية':'Sale source reference'],
      ].map(([k,label])=><Row key={k} label={label} type={k==='date'?'date':'text'} value={c[k]}
        onChange={v=>{setComparables(old=>old.map((row,j)=>j===i?{...row,[k]:v}:row));setOutput(null);}}/>)}
+     <label className="block text-xs" style={{color:'#E7E9EE'}}>{ar?'وحدة المقارنة في الصفقة':'Unit of comparison in sale'}
+      <select value={c.unit} className={inputClass} style={{background:'#F4F5F5',color:'#192336'}}
+       onChange={e=>{setComparables(old=>old.map((row,j)=>j===i?{...row,unit:e.target.value}:row));setOutput(null);}}>
+       <option value="">{ar?'اختر':'Choose'}</option>
+       {(MARKET_UNITS[assetClass]||[]).map(x=><option key={x} value={x}>{x}</option>)}
+      </select>
+     </label>
      <label className="block text-xs" style={{color:'#E7E9EE'}}>{ar?'الحق المنقول في الصفقة':'Comparable property right'}
       <select value={c.right} className={inputClass} style={{background:'#F4F5F5',color:'#192336'}}
        onChange={e=>{setComparables(old=>old.map((row,j)=>j===i?{...row,right:e.target.value}:row));setOutput(null);}}>
