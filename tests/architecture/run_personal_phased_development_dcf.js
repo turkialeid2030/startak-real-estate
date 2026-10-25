@@ -65,7 +65,7 @@ held({periods:base().periods.slice(0,1)},'PHASES_2_TO_24_REQUIRED');
 held({periods:base().periods.map(p=>({...p,gdvReceiptsSar:0}))},'DATED_GDV_REQUIRED');
 held({periods:base().periods.map(p=>({...p,constructionCostsSar:0}))},'DATED_CONSTRUCTION_COST_REQUIRED');
 held({periods:base().periods.map(p=>({...p,otherDevelopmentCostsSar:-1}))},'PHASE_AMOUNT_INVALID');
-held({periods:base().periods.map(p=>({...p,gdvReceiptsSar:0,otherDevelopmentCostsSar:1000}))},'NON_POSITIVE_RESIDUAL_LAND_VALUE');
+held({periods:base().periods.map(p=>p.month===12?{...p,constructionCostsSar:3000}:p)},'NON_POSITIVE_RESIDUAL_LAND_VALUE');
 held({periods:Array.from({length:25},(_,i)=>({...base().periods[0],month:i}))},'PHASES_2_TO_24_REQUIRED');
 const missing=assess();
 eq(missing.status,STATUS.HOLD,'missing case fail closed');
