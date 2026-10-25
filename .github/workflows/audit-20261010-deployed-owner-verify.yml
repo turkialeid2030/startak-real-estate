@@ -23,6 +23,7 @@ on:
       - 'tests/e2e/run_c75_real_chromium_personal_study.js'
       - 'tests/e2e/run_personal_limited_interest_archive_browser.js'
       - 'tests/e2e/run_personal_phased_development_browser.js'
+      - 'tests/e2e/run_all_13_asset_classes_public_smoke.js'
       - '.github/workflows/audit-20261010-deployed-owner-verify.yml'
   workflow_dispatch:
   issue_comment:
@@ -135,6 +136,8 @@ jobs:
         run: node tests/e2e/run_personal_limited_interest_archive_browser.js
       - name: Published actual month-scheduled land development DCF and rights/discount refusals
         run: node tests/e2e/run_personal_phased_development_browser.js
+      - name: Published 13 canonical property-sector Arabic hard-HOLD and stale-results smoke
+        run: node tests/e2e/run_all_13_asset_classes_public_smoke.js
       - name: Published lease lifecycle, retained terms and saved report acceptance
         env:
           STARTAK_LEASE_VISUAL_PREVIEW: '1'
