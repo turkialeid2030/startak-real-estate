@@ -1,4 +1,5 @@
 import React, {useState} from 'react';
+import PersonalSectorValuationWorkbench from './PersonalSectorValuationWorkbench.jsx';
 const {ALL_SECTORS,SOURCE_CHANNELS,researchSectorRoute}=
   require('../governance/personal-asset-universe');
 
@@ -36,6 +37,7 @@ export default function PersonalAssetUniversePanel({locale='ar-SA'}) {
         <strong>{ar?'أدلة القطاع المطلوبة: ':'Required sector evidence: '}</strong>
         {ar?sector.evidenceAr:sector.evidenceEn}
       </p>
+      <PersonalSectorValuationWorkbench key={assetClass} assetClass={assetClass} locale={locale}/>
       <p className="text-xs mt-2" style={{color:'#AFC0D8'}}>
         {ar?'قنوات رسمية للبحث والتحقق (قد يتطلب بعضها النفاذ الوطني):':'Official research channels (some require authentication):'}
       </p>
