@@ -11,6 +11,7 @@ on:
       - 'src/valuation-intelligence/personal-limited-interest-case-archive.js'
       - 'src/valuation-intelligence/personal-phased-development-dcf.js'
       - 'tests/architecture/run_personal_phased_development_dcf.js'
+      - 'tests/architecture/run_full_platform_synthetic_simulation.js'
       - 'tests/e2e/run_personal_phased_development_browser.js'
       - 'tests/e2e/run_all_13_asset_classes_public_smoke.js'
       - 'tests/architecture/run_personal_limited_interest_archive.js'
@@ -70,6 +71,7 @@ jobs:
       - run: node tests/architecture/run_audit_20261010_f03_f07.js
       - run: node tests/architecture/run_personal_limited_interest_archive.js
       - run: node tests/architecture/run_personal_phased_development_dcf.js
+      - run: node tests/architecture/run_full_platform_synthetic_simulation.js
       - run: node tests/architecture/run_audit_20261010_f01_f02.js
       - run: node tests/architecture/run_audit_20261010_remaining.js
   chromium-owner-study:
