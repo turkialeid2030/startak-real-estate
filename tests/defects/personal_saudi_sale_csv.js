@@ -68,6 +68,18 @@ ok(reviewLocalSaudiSaleCsv({...base,csvText:'date,transaction_date,price\n2026,2
 ok(reviewLocalSaudiSaleCsv({...base,csvText:'A'.repeat(MAX_CSV_BYTES+1)}).reason,'CSV_INVALID_SIZE');
 ok(reviewLocalSaudiSaleCsv({...base,csvText:'a,b\n"unterminated'}).reason,'CSV_UNTERMINATED_QUOTE');
 ok(reviewLocalSaudiSaleCsv({...base,csvText:'a,b\n"abc"tail,3'}).reason,'CSV_INVALID_QUOTE_SUFFIX');
+const segregated=reviewLocalSaudiSaleCsv({...base,csvText:[
+ 'date,city_ar,district_ar,classification,property_type,price_sar,area_sqm,properties_count,ref_no',
+ '2026-09-01,الرياض,الياسمين,سكني,أرض,1200000,600,1,X01',
+ '2026-09-02,الرياض,الياسمين,سكني,أرض,1200000,600,1,X02',
+ '2026-09-03,الرياض,الياسمين,سكني,أرض,1200000,600,1,X03',
+ '2026-09-04,الرياض,الياسمين,تجاري,أرض,9000000,600,1,X04',
+ '2026-09-05,الرياض,الملقا,سكني,أرض,1800000,600,1,X05',
+ ].join('\\n')});
+ok(segregated.rowsAccepted,5);
+ok(segregated.groups.length,3);
+ok(segregated.groups.find(g=>g.district==='الياسمين'&&g.classification==='سكني').medianPricePerSqm,2000);
+ok(segregated.groups.find(g=>g.classification==='تجاري').medianPricePerSqm,null);
 const panel=fs.readFileSync(path.join(__dirname,'../../src/components/PersonalSaudiSaleCsvPanel.jsx'),'utf8');
 const parent=fs.readFileSync(path.join(__dirname,'../../src/components/ValuationIntelligencePanel.jsx'),'utf8');
 assert.match(panel,/crypto\.subtle\.digest\('SHA-256',buffer\)/);checks++;
