@@ -3,6 +3,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const {VERSION,STATUS,REQUIRED,validExternalRef,evaluateExternalQualification:assess}
  =require('../../src/governance/external-three-gates-readiness');
+const {evaluateServerExternalQualification:serverAssess}=require('../../src/validation/server-external-three-gates-readiness');
 let checks=0;
 function eq(a,b,why){assert.deepEqual(a,b,why);checks++;}
 function yes(v,why){assert.ok(v,why);checks++;}
@@ -43,10 +44,13 @@ eq(pretend.professionalReportsAuthorized,false,'no licensed report from source I
 eq(pretend.userIdentityAndTenantVaultAuthorized,false,'no real vault from checkbox');
 eq(pretend.commercialGoLiveAuthorized,false,'no commercial operation from affirmations');
 eq(pretend.transactionAuthorized,false,'no purchase authority');
-const malformed=assess({market:{evidenceRefs:evidenceRefs('market'),protocol:{},observations:[{}]}});
+const malformed=serverAssess({market:{evidenceRefs:evidenceRefs('market'),protocol:{},observations:[{}]}});
 eq(malformed.gates.market.cohortStatus,'HOLD_PROTOCOL','reuse existing pre-registered time-forward holdout');
 eq(malformed.gates.market.sampleMetricsWithinProtocol,false,'math not independently passed');
 eq(malformed.gates.market.metrics,null,'no fabricated cohort metrics');
+const browserOnly=assess({market:{evidenceRefs:evidenceRefs('market'),protocol:{},observations:[{}]}});
+ eq(browserOnly.gates.market.cohortStatus,null,'browser must not calculate server-side protocol');
+ yes(browserOnly.gates.market.reasonCodes.includes('SERVER_SIDE_HOLDOUT_VALIDATOR_REQUIRED'),'no browser Node crypto or forged cohort');
 const weird=assess({market:{protocol:null,observations:new Array(4).fill({})},
  ai:{evidenceRefs:{liveProviderRoundTrip:'token=should-never-leak'}},
  compliance:{evidenceRefs:{licensedRealEstateValuerApproval:'\n<script>'}}});
