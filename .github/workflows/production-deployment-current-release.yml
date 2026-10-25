@@ -209,8 +209,31 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p runtime-evidence/production-publication
-          node tools/verify-deployed-assets.mjs --url "https://${CF_PRODUCTION_HOST}/" --expected-sha "$EXPECTED_MAIN_SHA" --output runtime-evidence/production-publication/deployed-assets.json
-          echo "PRODUCTION_ASSET_DELIVERY_VERIFIED=PASS sha=$EXPECTED_MAIN_SHA"
+          # Cloudflare can acknowledge a new manifest before every edge delivers
+          # the same entry HTML. Retain EACH bounded failure instead of hiding
+          # the first mismatch; only two consecutive FULL hash/404/entry checks
+          # on the exact current main may qualify stable publication.
+          consecutive=0
+          max_observations=12
+          for attempt in $(seq 1 "$max_observations"); do
+            node tools/verify-production-target.mjs --repository "$GITHUB_REPOSITORY" --expected-sha "$EXPECTED_MAIN_SHA"
+            evidence="runtime-evidence/production-publication/deployed-assets-attempt-${attempt}.json"
+            if node tools/verify-deployed-assets.mjs --url "https://${CF_PRODUCTION_HOST}/" --expected-sha "$EXPECTED_MAIN_SHA" --output "$evidence"; then
+              consecutive=$((consecutive + 1))
+              echo "PRODUCTION_FULL_ASSET_OBSERVATION=PASS attempt=$attempt consecutive=$consecutive"
+              if [[ "$consecutive" -ge 2 ]]; then
+                cp "$evidence" runtime-evidence/production-publication/deployed-assets.json
+                echo "PRODUCTION_ASSET_DELIVERY_VERIFIED=PASS sha=$EXPECTED_MAIN_SHA consecutive_observations=2"
+                exit 0
+              fi
+            else
+              consecutive=0
+              echo "PRODUCTION_FULL_ASSET_OBSERVATION=FAIL attempt=$attempt; bounded SHA evidence preserved"
+            fi
+            if [[ "$attempt" -lt "$max_observations" ]]; then sleep 6; fi
+          done
+          echo "PRODUCTION_ASSET_DELIVERY_VERIFIED=FAIL sha=$EXPECTED_MAIN_SHA; exact-source or public assets did not converge"
+          exit 1
 
       - name: Preserve bounded production publication evidence
         if: always()
@@ -223,9 +246,9 @@ jobs:
       - name: Publish deployment boundary
         shell: bash
         run: |
-          echo 'Production deployment and one bounded asset delivery observation completed for exact trusted main.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Production deployment and two consecutive bounded full-asset checks passed for exact trusted main.' >> "$GITHUB_STEP_SUMMARY"
           echo "- deployedMainSha: $EXPECTED_MAIN_SHA" >> "$GITHUB_STEP_SUMMARY"
-          echo "- productionAssetDelivery: verified single observation; full published browser acceptance remains separate" >> "$GITHUB_STEP_SUMMARY"
+          echo "- productionAssetDelivery: verified on two successive complete hash observations; full published browser acceptance remains separate" >> "$GITHUB_STEP_SUMMARY"
           echo "- productionTracker: #$CURRENT_PRODUCTION_TRACKER" >> "$GITHUB_STEP_SUMMARY"
           echo '- publicAIActivated: false' >> "$GITHUB_STEP_SUMMARY"
           echo '- transactionAuthority: false' >> "$GITHUB_STEP_SUMMARY"
