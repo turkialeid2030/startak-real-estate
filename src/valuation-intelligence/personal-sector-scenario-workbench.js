@@ -63,6 +63,8 @@ function evaluatePersonalSectorScenarios({
  if(!positive(subjectAreaSqm,1e9))blockers.push('SUBJECT_AREA_REQUIRED');
  if(!['FREEHOLD','LEASEHOLD','USUFRUCT','WAQF_RESTRICTED'].includes(propertyRight))
   blockers.push('PROPERTY_RIGHT_UNDEFINED');
+ else if(propertyRight!=='FREEHOLD')
+  blockers.push('RESTRICTED_PROPERTY_INTEREST_REQUIRES_SPECIFIC_CASHFLOW_MODEL');
  if(!income&&!cost&&!market)blockers.push('AT_LEAST_ONE_METHOD_REQUIRED');
  if(blockers.length)return result(STATUS.HOLD,blockers);
  const indications=[];
@@ -150,7 +152,7 @@ function evaluatePersonalSectorScenarios({
  }
  if(blockers.length)return result(STATUS.HOLD,blockers);
  if(indications.length<2)return result(STATUS.PARTIAL,['SECOND_INDEPENDENT_METHOD_NOT_PROVIDED'],indications);
- if(!reconciliationPolicy||!positive(reconciliationPolicy.maxDispersion,1)||
+ if(!reconciliationPolicy||!nonNegative(reconciliationPolicy.maxDispersion,1)||
     !reconciliationPolicy.methodWeights){
   return result(STATUS.PARTIAL,['RECONCILIATION_POLICY_REQUIRED'],indications);
  }
