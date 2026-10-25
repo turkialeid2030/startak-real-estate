@@ -22,7 +22,8 @@ const EXCLUSION_CLASSES=new Set([
 const MONEY_MAX=1e13;
 function positive(n,max=MONEY_MAX){return typeof n==='number'&&Number.isFinite(n)&&n>0&&n<=max;}
 function nonNegative(n,max=MONEY_MAX){return typeof n==='number'&&Number.isFinite(n)&&n>=0&&n<=max;}
-function properDate(x){return typeof x==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&new Date(x+'T00:00:00Z').toISOString().slice(0,10)===x;}
+function properDate(x){if(typeof x!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(x))return false;
+ const d=new Date(x+'T00:00:00Z');return Number.isFinite(d.getTime())&&d.toISOString().slice(0,10)===x;}
 function freeze(x){if(x&&typeof x==='object'&&!Object.isFrozen(x)){for(const y of Object.values(x))freeze(y);Object.freeze(x);}return x;}
 const unverified=(sourceRef)=>({
  grade:EVIDENCE_GRADE.H_CLIENT_SUPPLIED_UNVERIFIED,
@@ -51,12 +52,13 @@ function result(status,reasonCodes,methodIndications=[],reconciliation=null){
  });
 }
 function evaluatePersonalSectorScenarios({
- assetClass,city,valuationDate,subjectAreaSqm,propertyRight,
+ assetClass,city,propertySubtype,valuationDate,subjectAreaSqm,propertyRight,
  income=null,cost=null,market=null,reconciliationPolicy=null,
 }={}){
  const blockers=[];
  if(!ALL_SECTORS[assetClass])blockers.push('UNKNOWN_ASSET_CLASS');
  if(typeof city!=='string'||!city.trim()||city.length>130)blockers.push('CITY_REQUIRED');
+ if(typeof propertySubtype!=='string'||!propertySubtype.trim()||propertySubtype.length>140)blockers.push('PROPERTY_SUBTYPE_REQUIRED');
  if(!properDate(valuationDate))blockers.push('VALUATION_DATE_INVALID');
  if(!positive(subjectAreaSqm,1e9))blockers.push('SUBJECT_AREA_REQUIRED');
  if(!['FREEHOLD','LEASEHOLD','USUFRUCT','WAQF_RESTRICTED'].includes(propertyRight))
@@ -120,7 +122,8 @@ function evaluatePersonalSectorScenarios({
    const normalized=[];
    for(const x of market.comparables){
     const sameCity=typeof x?.city==='string'&&x.city.trim()===city.trim();
-    const sameAsset=x?.assetClass===assetClass;
+    const sameAsset=x?.assetClass===assetClass&&x?.propertySubtype===propertySubtype&&
+      x?.propertyRight===propertyRight;
     const dated=properDate(x?.transactionDate)&&x.transactionDate<=valuationDate;
     const ref=typeof x?.sourceRef==='string'&&x.sourceRef.trim().length>0;
     const id=typeof x?.comparableId==='string'&&x.comparableId.trim();
