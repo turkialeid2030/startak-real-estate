@@ -42,7 +42,7 @@ export default function ExternalThreeGatesReadinessPanel({locale='ar-SA'}){
      {data.gates[k].reasonCodes.length}
     </p>
     <a href={LINKS[k]} target="_blank" rel="noopener noreferrer"
-     className="mt-2 inline-block text-xs underline" style={{color:'#B4D8F9'}}>
+     className="mt-2 inline-flex min-h-[40px] items-center py-2 text-xs underline" style={{color:'#B4D8F9'}}>
      {ar?'مرجع للتحقق — ليس اتصالًا حيًا':'Reference — not an integrated feed'}
     </a>
    </div>)}
