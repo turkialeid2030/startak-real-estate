@@ -11,6 +11,7 @@ const REASONS={
  VALUATION_DATE_INVALID:'تاريخ الدراسة غير صحيح',
  SUBJECT_AREA_REQUIRED:'أدخل المساحة',
  PROPERTY_RIGHT_UNDEFINED:'حدد الحق العقاري محل التحليل',
+ RESTRICTED_PROPERTY_INTEREST_REQUIRES_SPECIFIC_CASHFLOW_MODEL:'حق الإيجار أو الانتفاع أو الوقف يتطلب نموذجًا مستقلاً لمدة الحق والتزاماته؛ لا يُعامل كملكية كاملة',
  AT_LEAST_ONE_METHOD_REQUIRED:'اختر طريقة تقييم واحدة على الأقل',
  GROUND_RENT_INSTEAD_OF_BUILDING_NOI_REQUIRED:'دخل الأرض يجب أن يكون إيجار حق الأرض الموثق وليس دخل مبنى',
  OPERATING_BUSINESS_NOI_NOT_SEPARATED:'افصل دخل العقار عن أرباح النشاط والمعدات والسمعة التجارية',
