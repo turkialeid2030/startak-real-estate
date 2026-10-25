@@ -80,10 +80,11 @@ export default function PersonalSaudiSaleCsvPanel({locale='ar-SA'}) {
      </p>}
      {result.groups?.length>0&&
        <div className="overflow-x-auto"><table className="w-full text-xs text-start">
-        <thead><tr>{(ar?['المدينة','نوع العقار','عدد السجلات','الوسيط الوصفي (ر.س/م²)']:['City','Property type','Records','Descriptive median (SAR/m²)'])
+        <thead><tr>{(ar?['المدينة','الحي','التصنيف','نوع العقار','عدد السجلات','الوسيط الوصفي (ر.س/م²)']:['City','District','Class','Property type','Records','Descriptive median (SAR/m²)'])
          .map(x=><th className="p-2 text-start" key={x}>{x}</th>)}</tr></thead>
         <tbody>{result.groups.slice(0,12).map((g,i)=><tr key={i}>
-         <td className="p-2">{g.city}</td><td className="p-2">{g.subtype}</td>
+         <td className="p-2">{g.city}</td><td className="p-2">{g.district||'—'}</td>
+         <td className="p-2">{g.classification||'—'}</td><td className="p-2">{g.subtype}</td>
          <td className="p-2">{dateFormat(g.recordCount)}</td>
          <td className="p-2">{g.medianPricePerSqm===null
           ? (ar?'عينة غير كافية':'Insufficient sample'):dateFormat(g.medianPricePerSqm)}</td>
