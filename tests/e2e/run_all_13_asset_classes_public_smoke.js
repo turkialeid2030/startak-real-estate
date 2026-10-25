@@ -13,6 +13,14 @@ const BASE=process.env.STARTAK_E2E_URL||'http://127.0.0.1:4173';
   const universe=page.getByTestId('personal-asset-universe-panel');
   await expect(universe).toBeVisible({timeout:30000});
   await expect(universe).toHaveAttribute('dir','rtl');
+  const independent=universe.getByTestId('external-three-gates-readiness');
+  await expect(independent).toBeVisible();
+  await expect(independent).toHaveAttribute('dir','rtl');
+  for(const field of ['market','ai','compliance']){
+   await expect(independent.getByTestId('external-gate-'+field)).toContainText('معلّق');
+  }
+  await expect(independent.getByTestId('external-three-gates-authority')).toContainText('لا اعتماد');
+
   const selector=page.getByTestId('personal-asset-universe-select');
   const classes=Object.keys(ALL_SECTORS);
   assert.equal(classes.length,13,'13 canonical asset classes required for classification smoke');
