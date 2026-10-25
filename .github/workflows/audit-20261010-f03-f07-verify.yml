@@ -12,6 +12,7 @@ on:
       - 'src/valuation-intelligence/personal-phased-development-dcf.js'
       - 'tests/architecture/run_personal_phased_development_dcf.js'
       - 'tests/e2e/run_personal_phased_development_browser.js'
+      - 'tests/e2e/run_all_13_asset_classes_public_smoke.js'
       - 'tests/architecture/run_personal_limited_interest_archive.js'
       - 'tests/e2e/run_personal_limited_interest_archive_browser.js'
       - 'src/document-intelligence/**'
@@ -124,6 +125,10 @@ jobs:
         env:
           STARTAK_E2E_URL: http://127.0.0.1:4173
         run: node tests/e2e/run_personal_phased_development_browser.js
+      - name: Real browser 13-sector owner classification and hard-HOLD
+        env:
+          STARTAK_E2E_URL: http://127.0.0.1:4173
+        run: node tests/e2e/run_all_13_asset_classes_public_smoke.js
       - name: Lease lifecycle, retained terms, current-source review and saved report acceptance
         env:
           STARTAK_E2E_URL: http://127.0.0.1:4173
