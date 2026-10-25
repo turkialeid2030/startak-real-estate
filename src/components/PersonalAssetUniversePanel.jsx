@@ -41,7 +41,7 @@ export default function PersonalAssetUniversePanel({locale='ar-SA'}) {
       </p>
       <ul className="flex flex-col gap-1 mt-1">
         {SOURCE_CHANNELS.map(src=><li key={src.id}>
-          <a href={src.url} target="_blank" rel="noopener noreferrer" className="text-xs underline"
+          <a href={src.url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-[32px] items-center py-2 text-xs underline"
              style={{color:'#B9D9F6'}}>{ar?src.ar:src.en}</a>
         </li>)}
       </ul>
