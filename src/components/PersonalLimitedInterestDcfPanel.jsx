@@ -6,7 +6,7 @@ const {MAX_ARCHIVE_BYTES,createLimitedInterestArchive,verifyLimitedInterestArchi
  require('../valuation-intelligence/personal-limited-interest-case-archive');
 const LABELS=Object.freeze({
  termYears:'المدة المتبقية للحق (بالسنوات الصحيحة)',valuationDate:'تاريخ التقييم',
- annualPropertyIncomeSar:'الدخل العقاري السنوي الصافي من الأنشطة التجارية الأخرى',
+ annualPropertyIncomeSar:'الإيراد العقاري السنوي قبل مصروفات التشغيل وأجرة الحق والصيانة (دون دخل النشاط التجاري)',
  annualPropertyOperatingExpenseSar:'مصروفات تشغيل العقار السنوية',
  annualGroundRentSar:'الأجرة السنوية المدفوعة لمالك أصل العقار',
  annualSustainingCapexSar:'الإنفاق الرأسمالي السنوي اللازم لصيانة الحق',
