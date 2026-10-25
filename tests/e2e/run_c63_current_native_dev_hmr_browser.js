@@ -30,7 +30,7 @@ async function main(){
  assert(!original.includes(after),'not a clean source fixture');
  let child=null,browser=null,changed=false,logs='',pageErrors=[],consoleErrors=[],requestFailures=[];
  try{
-  child=spawn('npm',['run','dev:bundled','--','--host','127.0.0.1','--port','4175','--strictPort'],
+  child=spawn('npm',['run','dev','--','--host','127.0.0.1','--port','4175','--strictPort'],
    {cwd:path.join(__dirname,'../..'),env:{...process.env,STARTAK_SOURCE_COMMIT:''},
     stdio:['ignore','pipe','pipe'],detached:process.platform!=='win32'});
   for(const stream of [child.stdout,child.stderr])stream.on('data',chunk=>{logs=(logs+String(chunk)).slice(-16000);});
@@ -74,7 +74,7 @@ async function main(){
    'native plugin error '+consoleErrors.join('; ').slice(-800)+' '+logs.slice(-500));
   assert(!requestFailures.some(x=>/src\/main\.jsx|bundledDevClient/.test(x)),
    'essential native module failed');
-  console.log('C63_NATIVE_VITE8_BUNDLED_HMR=PASS sectors=13 researchHOLD=true noGlobalRequire=true noFullReload=true');
+  console.log('C63_DEFAULT_VITE8_BUNDLED_HMR=PASS sectors=13 researchHOLD=true noGlobalRequire=true noFullReload=true');
  }finally{
   if(changed)fs.writeFileSync(filename,original,'utf8');
   if(browser)await browser.close();
@@ -86,4 +86,4 @@ async function main(){
   assert.equal(fs.readFileSync(filename,'utf8'),original,'CI must restore original JSX exactly');
  }
 }
-main().catch(e=>{console.error('C63_NATIVE_VITE8_BUNDLED_HMR=FAIL',e);process.exitCode=1;});
+main().catch(e=>{console.error('C63_DEFAULT_VITE8_BUNDLED_HMR=FAIL',e);process.exitCode=1;});
