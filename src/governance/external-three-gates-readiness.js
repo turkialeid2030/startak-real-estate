@@ -1,7 +1,7 @@
 'use strict';
 // C56 / AI production / C73.3 readiness dashboard: never confuses a submitted
 // assertion or a synthetically passing cohort with independently audited facts.
-const {evaluateTimeForwardHoldout,STATUS:COHORT_STATUS}=require('../validation/time-forward-valuation-holdout');
+// Browser-safe: inject server-only cohort evaluator; never bundle node:crypto into React.
 const VERSION='THREE_EXTERNAL_QUALIFICATION_GATES_V1';
 const STATUS=Object.freeze({HOLD:'HOLD',EXTERNAL_REVIEW_REQUIRED:'EXTERNAL_REVIEW_REQUIRED'});
 const REQUIRED=Object.freeze({
@@ -51,22 +51,21 @@ function evidenceGapCodes(field,packet){
  return REQUIRED[field].filter(id=>!validExternalRef(packet?.evidenceRefs?.[id]))
   .map(id=>'EVIDENCE_REQUIRED_'+id.toUpperCase());
 }
-function evaluateExternalQualification({market=null,ai=null,compliance=null}={}){
+function evaluateExternalQualification({market=null,ai=null,compliance=null,evaluateHoldout=null}={}){
  const marketCodes=evidenceGapCodes('market',market);
  let actualCohort=null;
  if(!market?.protocol||!Array.isArray(market?.observations)||market.observations.length===0){
   marketCodes.push('SEALED_REAL_SAUDI_HOLDOUT_NOT_PROVIDED');
- }else{
+ }else if(typeof evaluateHoldout==='function'){
   try{
-   actualCohort=evaluateTimeForwardHoldout({
-    protocol:market.protocol,observations:market.observations,
-   });
-   if(actualCohort.status!==COHORT_STATUS.CALCULATED_WITHIN_REGISTERED_THRESHOLDS)
+   actualCohort=evaluateHoldout({protocol:market.protocol,observations:market.observations});
+   if(!actualCohort||typeof actualCohort!=='object'||typeof actualCohort.status!=='string')
+    throw new Error('INVALID_COHORT_RESULT');
+   if(actualCohort.status!=='CALCULATED_WITHIN_REGISTERED_THRESHOLDS')
     marketCodes.push('PRE_REGISTERED_HOLDOUT_'+actualCohort.status);
-   if(actualCohort.status===COHORT_STATUS.CALCULATED_WITHIN_REGISTERED_THRESHOLDS)
-    marketCodes.push('COHORT_MATH_IS_NOT_EXTERNAL_SOURCE_AUTHENTICATION');
+   else marketCodes.push('COHORT_MATH_IS_NOT_EXTERNAL_SOURCE_AUTHENTICATION');
   }catch(_){marketCodes.push('COHORT_EVALUATION_INVALID');}
- }
+ }else marketCodes.push('SERVER_SIDE_HOLDOUT_VALIDATOR_REQUIRED');
  const marketGate=output('market',marketCodes,{
   sampleMetricsWithinProtocol:actualCohort?.sampleMetricsWithinProtocol===true,
   observedSampleSize:Array.isArray(market?.observations)?market.observations.length:0,
