@@ -75,7 +75,7 @@ const segregated=reviewLocalSaudiSaleCsv({...base,csvText:[
  '2026-09-03,الرياض,الياسمين,سكني,أرض,1200000,600,1,X03',
  '2026-09-04,الرياض,الياسمين,تجاري,أرض,9000000,600,1,X04',
  '2026-09-05,الرياض,الملقا,سكني,أرض,1800000,600,1,X05',
- ].join('\\n')});
+ ].join('\n')});
 ok(segregated.rowsAccepted,5);
 ok(segregated.groups.length,3);
 ok(segregated.groups.find(g=>g.district==='الياسمين'&&g.classification==='سكني').medianPricePerSqm,2000);
