@@ -1,5 +1,6 @@
 import React, {useState} from 'react';
 import PersonalSectorValuationWorkbench from './PersonalSectorValuationWorkbench.jsx';
+import PersonalLimitedInterestDcfPanel from './PersonalLimitedInterestDcfPanel.jsx';
 const {ALL_SECTORS,SOURCE_CHANNELS,researchSectorRoute}=
   require('../governance/personal-asset-universe');
 
@@ -38,6 +39,7 @@ export default function PersonalAssetUniversePanel({locale='ar-SA'}) {
         {ar?sector.evidenceAr:sector.evidenceEn}
       </p>
       <PersonalSectorValuationWorkbench key={assetClass} assetClass={assetClass} locale={locale}/>
+      <PersonalLimitedInterestDcfPanel key={assetClass+'-rights'} assetClass={assetClass} locale={locale}/>
       <p className="text-xs mt-2" style={{color:'#AFC0D8'}}>
         {ar?'قنوات رسمية للبحث والتحقق (قد يتطلب بعضها النفاذ الوطني):':'Official research channels (some require authentication):'}
       </p>
