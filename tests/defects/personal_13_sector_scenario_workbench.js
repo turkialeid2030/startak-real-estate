@@ -5,17 +5,17 @@ const path=require('node:path');
 const {ASSET_CLASS}=require('../../src/project-model/project-profile');
 const {VALUATION_METHOD}=require('../../src/valuation-intelligence/contracts');
 const {EXPENSE_TREATMENT}=require('../../src/valuation-intelligence/income-capitalization');
-const {STATUS,evaluatePersonalSectorScenarios:run}=require('../../src/valuation-intelligence/personal-sector-scenario-workbench');
+const {STATUS,MARKET_UNITS,evaluatePersonalSectorScenarios:run}=require('../../src/valuation-intelligence/personal-sector-scenario-workbench');
 let count=0;
 function eq(a,b,msg){assert.deepEqual(a,b,msg);count++;}
 function near(a,b,tol=0.02){assert.ok(typeof a==='number'&&Math.abs(a-b)<=tol,`${a} does not equal ${b}`);count++;}
-const core={city:'الرياض',propertySubtype:'مكاتب',valuationDate:'2026-10-01',
+const core={city:'الرياض',subjectDistrict:'الملقا',propertySubtype:'مكاتب',valuationDate:'2026-10-01',
  subjectAreaSqm:1000,propertyRight:'FREEHOLD',assetClass:ASSET_CLASS.OFFICE};
 const income={annualEffectivePropertyIncome:1000000,annualPropertyOperatingExpenses:200000,
  capRate:0.08,expenseTreatment:EXPENSE_TREATMENT.ACTUAL_LANDLORD_OPEX};
 const cost={landValue:4000000,replacementBuildingCost:8000000,depreciationRate:0.25};
-const market={comparables:[1,2,3].map(i=>({
- comparableId:'SALE'+i,city:'الرياض',assetClass:ASSET_CLASS.OFFICE,
+const market={unitOfComparison:'SQM',subjectQuantity:1000,comparables:[1,2,3].map(i=>({
+ comparableId:'SALE'+i,city:'الرياض',district:'الملقا',unitOfComparison:'SQM',assetClass:ASSET_CLASS.OFFICE,
  propertySubtype:'مكاتب',propertyRight:'FREEHOLD',transactionDate:'2026-09-0'+i,
  transactionStatus:'EXECUTED_SALE',unitValue:10000,sourceRef:'DOC-'+i,
 }))};
@@ -59,18 +59,36 @@ holds({...core,valuationDate:'2026-02-30',income},'VALUATION_DATE_INVALID');
 holds({...core,propertyRight:'WAQF_RESTRICTED',income},'RESTRICTED_PROPERTY_INTEREST_REQUIRES_SPECIFIC_CASHFLOW_MODEL');
 holds({...core,propertyRight:'LEASEHOLD',income},'RESTRICTED_PROPERTY_INTEREST_REQUIRES_SPECIFIC_CASHFLOW_MODEL');
 holds({...core,assetClass:'FAKE',income},'UNKNOWN_ASSET_CLASS');
-holds({...core,market:{comparables:market.comparables.slice(0,2)}},'AT_LEAST_THREE_EXECUTED_COMPARABLES_REQUIRED');
-holds({...core,market:{comparables:[...market.comparables.slice(0,2),{...market.comparables[2],transactionStatus:'ASKING_SALE'}]}},
+holds({...core,market:{...market,comparables:market.comparables.slice(0,2)}},'AT_LEAST_THREE_EXECUTED_COMPARABLES_REQUIRED');
+holds({...core,market:{...market,comparables:[...market.comparables.slice(0,2),{...market.comparables[2],transactionStatus:'ASKING_SALE'}]}},
  'MARKET_COMPARABLE_IDENTITY_DATE_OR_STATUS_INVALID');
-holds({...core,market:{comparables:[...market.comparables.slice(0,2),{...market.comparables[2],city:'جدة'}]}},
+holds({...core,market:{...market,comparables:[...market.comparables.slice(0,2),{...market.comparables[2],city:'جدة'}]}},
  'MARKET_COMPARABLE_IDENTITY_DATE_OR_STATUS_INVALID');
-holds({...core,market:{comparables:[...market.comparables.slice(0,2),{...market.comparables[2],propertySubtype:'عيادة'}]}},
+holds({...core,market:{...market,comparables:[...market.comparables.slice(0,2),{...market.comparables[2],district:'الياسمين'}]}},
  'MARKET_COMPARABLE_IDENTITY_DATE_OR_STATUS_INVALID');
-holds({...core,market:{comparables:[...market.comparables.slice(0,2),{...market.comparables[2],propertyRight:'LEASEHOLD'}]}},
+holds({...core,market:{...market,unitOfComparison:'ROOM_KEY'}},
+ 'MARKET_UNIT_NOT_APPROPRIATE_FOR_SECTOR');
+holds({...core,market:{...market,comparables:[...market.comparables.slice(0,2),{...market.comparables[2],unitOfComparison:'UNIT'}]}},
  'MARKET_COMPARABLE_IDENTITY_DATE_OR_STATUS_INVALID');
-holds({...core,market:{comparables:[...market.comparables.slice(0,2),{...market.comparables[2],transactionDate:'2026-12-01'}]}},
+const hotelMarket={unitOfComparison:'ROOM_KEY',subjectQuantity:100,businessAssetsExcluded:true,
+  comparables:market.comparables.map(c=>({...c,assetClass:'HOSPITALITY',propertySubtype:'فندق أربع نجوم',
+    unitOfComparison:'ROOM_KEY',unitValue:1500000}))};
+const hotel=run({...core,assetClass:'HOSPITALITY',propertySubtype:'فندق أربع نجوم',market:hotelMarket});
+eq(hotel.status,STATUS.PARTIAL);near(hotel.methods[0].scenarioAmountSar,150000000);
+holds({...core,assetClass:'HOSPITALITY',propertySubtype:'فندق أربع نجوم',market:{...hotelMarket,unitOfComparison:'SQM'}},
+ 'MARKET_UNIT_NOT_APPROPRIATE_FOR_SECTOR');
+holds({...core,assetClass:'HOSPITALITY',propertySubtype:'فندق أربع نجوم',market:{...hotelMarket,businessAssetsExcluded:false}},
+ 'MARKET_PRICE_INCLUDES_UNSEPARATED_OPERATING_BUSINESS');
+eq(MARKET_UNITS.HOSPITALITY.includes('ROOM_KEY'),true);
+eq(MARKET_UNITS.DATA_CENTER.includes('MW_IT'),true);
+eq(MARKET_UNITS.PARKING.includes('SPACE'),true);
+holds({...core,market:{...market,comparables:[...market.comparables.slice(0,2),{...market.comparables[2],propertySubtype:'عيادة'}]}},
  'MARKET_COMPARABLE_IDENTITY_DATE_OR_STATUS_INVALID');
-holds({...core,market:{comparables:[...market.comparables.slice(0,2),{...market.comparables[2],comparableId:'SALE1'}]}},
+holds({...core,market:{...market,comparables:[...market.comparables.slice(0,2),{...market.comparables[2],propertyRight:'LEASEHOLD'}]}},
+ 'MARKET_COMPARABLE_IDENTITY_DATE_OR_STATUS_INVALID');
+holds({...core,market:{...market,comparables:[...market.comparables.slice(0,2),{...market.comparables[2],transactionDate:'2026-12-01'}]}},
+ 'MARKET_COMPARABLE_IDENTITY_DATE_OR_STATUS_INVALID');
+holds({...core,market:{...market,comparables:[...market.comparables.slice(0,2),{...market.comparables[2],comparableId:'SALE1'}]}},
  'MARKET_COMPARABLE_IDENTITY_DATE_OR_STATUS_INVALID');
 holds({...core,income:{...income,capRate:0}},'CAP_RATE_MISSING_OR_OUT_OF_BOUNDS');
 holds({...core,income:{...income,annualPropertyOperatingExpenses:1000000}},'PROPERTY_NOI_INPUTS_INVALID');
