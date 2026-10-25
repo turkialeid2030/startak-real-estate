@@ -25,7 +25,19 @@ const REASONS=Object.freeze({
  REMAINING_RIGHT_TERM_1_TO_80_YEARS_REQUIRED:'أدخل مدة صحيحة من سنة إلى 80 سنة.',
  INVALID_NOMINAL_DISCOUNT_RATE:'معدل الخصم يجب أن يكون بين 0% و75%.',
  PROPERTY_REVENUE_REQUIRED:'أدخل دخلًا عقاريًا سنويًا موجبًا.',
+ LIMITED_PROPERTY_RIGHT_REQUIRED:'حدد نوع حق الانتفاع أو حق الإيجار محل الدراسة.',
+ VALUATION_DATE_REQUIRED:'أدخل تاريخ تقييم صحيحًا.',
+ NON_FINITE_RIGHTS_CASHFLOW:'تجاوزت التدفقات الحدود الحسابية الآمنة؛ راجع الأرقام والنمو.',
+ NON_FINITE_RIGHTS_NPV:'تعذّر حساب صافي القيمة الحالية دون تجاوز الحدود الآمنة.',
+ UNSUPPORTED_RIGHTS_SCENARIO:'تعذّر حساب السيناريو من المدخلات الحالية؛ تحقق من الحقول.',
 });
+function reasonText(code,ar){
+ if(!ar)return code;
+ if(REASONS[code])return REASONS[code];
+ if(code.startsWith('INVALID_AMOUNT_'))return 'قيمة نقدية غير صالحة: '+code.slice('INVALID_AMOUNT_'.length);
+ if(code.startsWith('INVALID_ESCALATION_'))return 'معدل نمو خارج الحدود (-50% إلى 50%): '+code.slice('INVALID_ESCALATION_'.length);
+ return 'سبب الحجب يحتاج فحصًا: '+code;
+}
 const FIELDS=['annualPropertyIncomeSar','annualPropertyOperatingExpenseSar','annualGroundRentSar',
  'annualSustainingCapexSar','incomeEscalationRate','operatingExpenseEscalationRate',
  'groundRentEscalationRate','nominalDiscountRate','upfrontRightConsiderationSar'];
@@ -191,7 +203,7 @@ export default function PersonalLimitedInterestDcfPanel({assetClass,locale='ar-S
        {currency(result.ownerInvestmentNpvAfterUpfrontSar)}</p>
     </>}
     <p className="mt-2 text-xs" style={{color:'#EAC38B'}}>
-      {(result.reasonCodes||[]).map(c=>ar?(REASONS[c]||'المدخلات غير معتمدة خارجيًا'):c).join('؛ ')}
+      {(result.reasonCodes||[]).map(c=>reasonText(c,ar)).join('؛ ')}
     </p>
     <p className="mt-2 text-xs">{ar?
       'النتائج افتراضية ولم يتم إثبات قابلية التنازل أو الأسعار أو تراخيص الحقوق المستقلة؛ ليست سعر شراء أو تقييمًا مهنيًا.'
