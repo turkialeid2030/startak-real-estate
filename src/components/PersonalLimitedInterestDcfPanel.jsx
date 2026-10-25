@@ -1,10 +1,12 @@
-import React,{useState} from 'react';
+import React,{useState,useRef,useEffect} from 'react';
 const {assessLimitedPropertyInterest,RIGHTS,STATUS}=
  require('../valuation-intelligence/personal-limited-interest-dcf');
 const {parseAmount}=require('../source-intelligence/personal-saudi-sale-csv');
+const {MAX_ARCHIVE_BYTES,createLimitedInterestArchive,verifyLimitedInterestArchive}=
+ require('../valuation-intelligence/personal-limited-interest-case-archive');
 const LABELS=Object.freeze({
  termYears:'المدة المتبقية للحق (بالسنوات الصحيحة)',valuationDate:'تاريخ التقييم',
- annualPropertyIncomeSar:'الدخل العقاري السنوي الصافي من الأنشطة التجارية الأخرى',
+ annualPropertyIncomeSar:'الإيراد العقاري السنوي قبل مصروفات التشغيل وأجرة الحق والصيانة (دون دخل النشاط التجاري)',
  annualPropertyOperatingExpenseSar:'مصروفات تشغيل العقار السنوية',
  annualGroundRentSar:'الأجرة السنوية المدفوعة لمالك أصل العقار',
  annualSustainingCapexSar:'الإنفاق الرأسمالي السنوي اللازم لصيانة الحق',
@@ -23,7 +25,19 @@ const REASONS=Object.freeze({
  REMAINING_RIGHT_TERM_1_TO_80_YEARS_REQUIRED:'أدخل مدة صحيحة من سنة إلى 80 سنة.',
  INVALID_NOMINAL_DISCOUNT_RATE:'معدل الخصم يجب أن يكون بين 0% و75%.',
  PROPERTY_REVENUE_REQUIRED:'أدخل دخلًا عقاريًا سنويًا موجبًا.',
+ LIMITED_PROPERTY_RIGHT_REQUIRED:'حدد نوع حق الانتفاع أو حق الإيجار محل الدراسة.',
+ VALUATION_DATE_REQUIRED:'أدخل تاريخ تقييم صحيحًا.',
+ NON_FINITE_RIGHTS_CASHFLOW:'تجاوزت التدفقات الحدود الحسابية الآمنة؛ راجع الأرقام والنمو.',
+ NON_FINITE_RIGHTS_NPV:'تعذّر حساب صافي القيمة الحالية دون تجاوز الحدود الآمنة.',
+ UNSUPPORTED_RIGHTS_SCENARIO:'تعذّر حساب السيناريو من المدخلات الحالية؛ تحقق من الحقول.',
 });
+function reasonText(code,ar){
+ if(!ar)return code;
+ if(REASONS[code])return REASONS[code];
+ if(code.startsWith('INVALID_AMOUNT_'))return 'قيمة نقدية غير صالحة: '+code.slice('INVALID_AMOUNT_'.length);
+ if(code.startsWith('INVALID_ESCALATION_'))return 'معدل نمو خارج الحدود (-50% إلى 50%): '+code.slice('INVALID_ESCALATION_'.length);
+ return 'سبب الحجب يحتاج فحصًا: '+code;
+}
 const FIELDS=['annualPropertyIncomeSar','annualPropertyOperatingExpenseSar','annualGroundRentSar',
  'annualSustainingCapexSar','incomeEscalationRate','operatingExpenseEscalationRate',
  'groundRentEscalationRate','nominalDiscountRate','upfrontRightConsiderationSar'];
@@ -36,6 +50,50 @@ export default function PersonalLimitedInterestDcfPanel({assetClass,locale='ar-S
  const [valuationDate,setValuationDate]=useState('');
  const [confirmed,setConfirmed]=useState({terms:false,realty:false,improvements:false,consentRequired:false,consentVerified:false});
  const [result,setResult]=useState(null);
+ const [archiveStatus,setArchiveStatus]=useState('');
+ const archiveFileRef=useRef(null);
+ // Reset case and result if this component is reused for a different property sector.
+ useEffect(()=>{
+  setRight('');setInputs(empty());setTerm('');setValuationDate('');
+  setConfirmed({terms:false,realty:false,improvements:false,consentRequired:false,consentVerified:false});
+  setResult(null);setArchiveStatus('');
+ },[assetClass]);
+ const currentState=()=>({assetClass,right,term,valuationDate,inputs,confirmed});
+ const exportCase=async()=>{
+  setArchiveStatus('');
+  try{
+   const archive=await createLimitedInterestArchive(currentState(),{subtle:globalThis.crypto?.subtle});
+   const url=URL.createObjectURL(new Blob([JSON.stringify(archive,null,2)],{type:'application/json;charset=utf-8'}));
+   const link=document.createElement('a');
+   link.href=url;link.download='startak-limited-interest-case-v1.json';
+   document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
+   setArchiveStatus(ar?'حُفظت مدخلات حق الانتفاع على جهازك فقط؛ لا تُحفظ النتائج أو صلاحيات التصرف.':
+    'Input-only rights case exported locally. No results or transaction rights were saved.');
+  }catch(e){setArchiveStatus(ar?'تعذر حفظ الملف بأمان؛ لم تُنشأ نسخة احتياطية.':
+   'Secure local export failed; no backup was created.');}
+ };
+ const importCase=async(event)=>{
+  const file=event.target.files?.[0];
+  if(archiveFileRef.current)archiveFileRef.current.value='';
+  setArchiveStatus('');
+  if(!file)return;
+  if(file.size<=0||file.size>MAX_ARCHIVE_BYTES){
+   setArchiveStatus(ar?'حجم الملف غير صالح أو يتجاوز 16 كيلوبايت.':
+    'Invalid rights case archive size (>16 KiB).');return;
+  }
+  try{
+   const raw=new TextDecoder('utf-8',{fatal:true}).decode(await file.arrayBuffer());
+   const restored=await verifyLimitedInterestArchive(JSON.parse(raw),{
+    subtle:globalThis.crypto?.subtle,expectedAssetClass:assetClass,
+   });
+   setRight(restored.right);setTerm(restored.term);
+   setValuationDate(restored.valuationDate);setInputs(restored.inputs);
+   setConfirmed(restored.confirmed);setResult(null);
+   setArchiveStatus(ar?'استُعيدت المدخلات فقط؛ يجب إعادة الحساب والتحقق من المستندات والموافقات.':
+    'Inputs restored only. Recalculate and independently recheck documents and consents.');
+  }catch(e){setArchiveStatus(ar?'رفض الاستيراد: بصمة الملف أو نوع العقار أو البنية غير متطابقة. لم تُعدّل الدراسة.':
+   'Import rejected: integrity, asset class or structure mismatch. Existing case unchanged.');}
+ };
  const update=(setter,key,value)=>{setter(old=>({...old,[key]:value}));setResult(null)};
  const calc=()=>{
   try{
@@ -108,6 +166,24 @@ export default function PersonalLimitedInterestDcfPanel({assetClass,locale='ar-S
      {label}
    </label>)}
   </div>
+  <div className="mt-4 rounded-lg border border-slate-500/50 p-3">
+   <p className="text-xs leading-relaxed" style={{color:'#C5D3E1'}}>{ar?
+    'يمكن حفظ واستعادة مدخلات الحق كملف JSON محلي. بصمة SHA-256 تكشف التعديل أو التلف، لكنها ليست توقيعًا موثقًا ولا إثباتًا لصحة العقد أو الموافقات.':
+    'Export/import a private input-only JSON rights case. SHA-256 detects modification, but is not an identity signature, proof of contract, or verified consent.'}</p>
+   <div className="flex flex-wrap gap-3 mt-2 items-center">
+    <button type="button" data-testid="limited-interest-export-case" onClick={exportCase}
+     className="rounded-lg border border-slate-500 px-3 py-2 text-xs min-h-[40px]"
+     style={{color:'#F0E8DA'}}>{ar?'حفظ مدخلات الحق محليًا':'Export rights input case'}</button>
+    <label className="text-xs" style={{color:'#F0E8DA'}}>
+     {ar?'استعادة ملف حق سابق':'Import rights input case'}
+     <input ref={archiveFileRef} type="file" accept=".json,application/json"
+      data-testid="limited-interest-import-case" className="block mt-1 py-2 text-xs"
+      onChange={importCase}/>
+    </label>
+   </div>
+   {archiveStatus&&<p data-testid="limited-interest-archive-status" role="status"
+    className="text-xs leading-relaxed mt-2" style={{color:'#E7BC7D'}}>{archiveStatus}</p>}
+  </div>
   <button type="button" data-testid="limited-interest-calculate"
    onClick={calc} className="rounded-lg p-3 min-h-[40px] text-xs font-semibold mt-3"
    style={{background:'#C9A24C',color:'#17233B'}}>
@@ -127,7 +203,7 @@ export default function PersonalLimitedInterestDcfPanel({assetClass,locale='ar-S
        {currency(result.ownerInvestmentNpvAfterUpfrontSar)}</p>
     </>}
     <p className="mt-2 text-xs" style={{color:'#EAC38B'}}>
-      {(result.reasonCodes||[]).map(c=>ar?(REASONS[c]||'المدخلات غير معتمدة خارجيًا'):c).join('؛ ')}
+      {(result.reasonCodes||[]).map(c=>reasonText(c,ar)).join('؛ ')}
     </p>
     <p className="mt-2 text-xs">{ar?
       'النتائج افتراضية ولم يتم إثبات قابلية التنازل أو الأسعار أو تراخيص الحقوق المستقلة؛ ليست سعر شراء أو تقييمًا مهنيًا.'
