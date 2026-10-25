@@ -19,6 +19,22 @@ const EXCLUSION_CLASSES=new Set([
  ASSET_CLASS.EDUCATION,ASSET_CLASS.PARKING,ASSET_CLASS.DATA_CENTER,
  ASSET_CLASS.MIXED_USE,ASSET_CLASS.SPECIAL_PURPOSE,ASSET_CLASS.OTHER,
 ]);
+const MARKET_UNITS=Object.freeze({
+ LAND:Object.freeze(['SQM']),
+ RESIDENTIAL:Object.freeze(['SQM','UNIT']),
+ OFFICE:Object.freeze(['SQM']),
+ RETAIL:Object.freeze(['SQM']),
+ INDUSTRIAL_LOGISTICS:Object.freeze(['SQM']),
+ HOSPITALITY:Object.freeze(['ROOM_KEY']),
+ HEALTHCARE:Object.freeze(['BED','SQM']),
+ EDUCATION:Object.freeze(['SEAT','SQM']),
+ MIXED_USE:Object.freeze(['SQM']),
+ PARKING:Object.freeze(['SPACE']),
+ DATA_CENTER:Object.freeze(['MW_IT']),
+ SPECIAL_PURPOSE:Object.freeze(['SQM']),
+ OTHER:Object.freeze([]),
+});
+
 const MONEY_MAX=1e13;
 function positive(n,max=MONEY_MAX){return typeof n==='number'&&Number.isFinite(n)&&n>0&&n<=max;}
 function nonNegative(n,max=MONEY_MAX){return typeof n==='number'&&Number.isFinite(n)&&n>=0&&n<=max;}
@@ -52,7 +68,7 @@ function result(status,reasonCodes,methodIndications=[],reconciliation=null){
  });
 }
 function evaluatePersonalSectorScenarios({
- assetClass,city,propertySubtype,valuationDate,subjectAreaSqm,propertyRight,
+ assetClass,city,propertySubtype,subjectDistrict,valuationDate,subjectAreaSqm,propertyRight,
  income=null,cost=null,market=null,reconciliationPolicy=null,
 }={}){
  const blockers=[];
@@ -117,15 +133,29 @@ function evaluatePersonalSectorScenarios({
   }
  }
  if(market){
+  // Market units must reflect how the relevant sector trades: hotels per key,
+  // parking per space, data centers per IT MW, land/offices per sqm.
+  const unit=market.unitOfComparison;
+  const units=MARKET_UNITS[assetClass]||[];
+  if(!units.includes(unit))blockers.push('MARKET_UNIT_NOT_APPROPRIATE_FOR_SECTOR');
+  if(typeof subjectDistrict!=='string'||!subjectDistrict.trim()||
+     subjectDistrict.length>120)blockers.push('SUBJECT_DISTRICT_REQUIRED_FOR_SALES');
+  const quantity=unit==='SQM'?subjectAreaSqm:market.subjectQuantity;
+  if(!positive(quantity,1e9))blockers.push('SUBJECT_MARKET_COMPARISON_QUANTITY_REQUIRED');
+  if(EXCLUSION_CLASSES.has(assetClass)&&market.businessAssetsExcluded!==true)
+    blockers.push('MARKET_PRICE_INCLUDES_UNSEPARATED_OPERATING_BUSINESS');
+  if(assetClass===ASSET_CLASS.MIXED_USE&&market.mixedUseComparableAllocationConfirmed!==true)
+    blockers.push('MIXED_USE_COMPARABLE_ALLOCATION_UNCLEAR');
   if(!Array.isArray(market.comparables)||market.comparables.length<3||
      market.comparables.length>20) blockers.push('AT_LEAST_THREE_EXECUTED_COMPARABLES_REQUIRED');
   const ids=new Set();
   if(!blockers.length){
    const normalized=[];
    for(const x of market.comparables){
-    const sameCity=typeof x?.city==='string'&&x.city.trim()===city.trim();
+    const sameCity=typeof x?.city==='string'&&x.city.trim()===city.trim()&&
+      x?.district===subjectDistrict;
     const sameAsset=x?.assetClass===assetClass&&x?.propertySubtype===propertySubtype&&
-      x?.propertyRight===propertyRight;
+      x?.propertyRight===propertyRight&&x?.unitOfComparison===unit;
     const dated=properDate(x?.transactionDate)&&x.transactionDate<=valuationDate;
     const ref=typeof x?.sourceRef==='string'&&x.sourceRef.trim().length>0;
     const id=typeof x?.comparableId==='string'&&x.comparableId.trim();
@@ -144,7 +174,9 @@ function evaluatePersonalSectorScenarios({
    }
    if(!blockers.length){
     indications.push(calculateMarketComparableIndication({
-     comparables:normalized,subjectArea:subjectAreaSqm,
+     // The canonical comparable engine uses subjectArea as a generic numeric
+     // multiplier; this adapter supplies a sector-appropriate comparable quantity.
+     comparables:normalized,subjectArea:quantity,
      weightingPolicy:WEIGHTING_POLICY.EQUAL,valuationDate,currency:'SAR',
     }));
    }
@@ -169,4 +201,4 @@ function evaluatePersonalSectorScenarios({
   return result(STATUS.PARTIAL,['RECONCILIATION_POLICY_INVALID'],indications);
  }
 }
-module.exports={VERSION,STATUS,evaluatePersonalSectorScenarios};
+module.exports={VERSION,STATUS,MARKET_UNITS,evaluatePersonalSectorScenarios};
