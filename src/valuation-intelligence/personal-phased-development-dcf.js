@@ -21,8 +21,8 @@ function hold(reasons,rows=[]){return deepFreeze({
 function assessPersonalPhasedDevelopment({
  assetClass,propertyRight,valuationDate,landAreaSqm,annualDiscountRate,periods,
  riskAndDeveloperReturnIncludedInDiscountRate=false,
- noSeparateDeveloperProfitOrRiskSpread=true,
- noFinancingCostsOrDebtServiceIncluded=true,
+ noSeparateDeveloperProfitOrRiskSpread=false,
+ noFinancingCostsOrDebtServiceIncluded=false,
  nonRealtyBusinessAndEquipmentExcluded=false,
  documentedTimingReviewed=false,
 }={}){
