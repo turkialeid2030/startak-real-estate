@@ -8,6 +8,28 @@ import {localOcrAssets,localOcrAssetsPlugin} from './tools/local-ocr-assets.mjs'
 
 const packageJson = JSON.parse(fs.readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
 
+/**
+ * Experimental native Vite 8 bundled development on repo-owned CommonJS source.
+ * Tailwind's serve generator can receive Vite bundledDev's reduced hotUpdate
+ * event (no server property). The upstream Tailwind plugin cannot consume that
+ * event. Suppress only this incompatible Tailwind hook for that case; preserve
+ * React's actual HMR, all transforms, normal Vite and production builds.
+ */
+function tailwindBundledDevCompatibility(plugins) {
+  if (!process.argv.includes('--experimental-bundle')) return plugins;
+  const list=Array.isArray(plugins)?plugins:[plugins];
+  return list.map(plugin=>{
+    if(!plugin||plugin.name!=='@tailwindcss/vite:generate:serve'
+        ||typeof plugin.hotUpdate!=='function')return plugin;
+    const original=plugin.hotUpdate;
+    return {...plugin,hotUpdate(options){
+      if(!options||!options.server)return undefined;
+      return original.call(this,options);
+    }};
+  });
+}
+
+
 function normalizeCommit(value) {
   const raw = String(value || '').trim().toLowerCase();
   return /^[0-9a-f]{40}$/.test(raw) ? raw : null;
@@ -81,7 +103,7 @@ function releaseManifestPlugin() {
 }
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), localOcrAssetsPlugin(ocrAssets), releaseManifestPlugin()],
+  plugins: [react(), ...tailwindBundledDevCompatibility(tailwindcss()), localOcrAssetsPlugin(ocrAssets), releaseManifestPlugin()],
   define: {
     __STARTAK_BUILD_METADATA__: JSON.stringify(buildMetadata),
     __STARTAK_OCR_ASSET_BASE__:JSON.stringify(ocrAssets.base),

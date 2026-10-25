@@ -6,12 +6,14 @@
   "scripts": {
     "test": "node tests/characterization/run_all.js",
     "test:characterization": "node tests/characterization/run_all.js",
-    "dev": "vite",
+    "dev": "vite --experimental-bundle",
     "build": "vite build",
     "preview": "vite preview",
     "verify:package": "node tests/verify_package.js",
     "release:verify": "node tools/release-verify.js",
-    "test:decision-integrity": "node tests/defects/decision_integrity_wave.js"
+    "test:decision-integrity": "node tests/defects/decision_integrity_wave.js",
+    "dev:bundled": "vite --experimental-bundle",
+    "dev:unbundled-diagnostic": "vite"
   },
   "dependencies": {
     "@sentry/react": "^10.72.0",
