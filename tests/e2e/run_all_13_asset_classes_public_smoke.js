@@ -50,6 +50,47 @@ const BASE=process.env.STARTAK_E2E_URL||'http://127.0.0.1:4173';
   await selector.selectOption('OFFICE');
   await expect(universe.getByTestId('personal-sector-scenario-output')).toHaveCount(0);
   await expect(universe.getByTestId('personal-limited-interest-dcf')).toBeVisible();
+  // P0: live interface must never invent an EXECUTED_SALE from arbitrary
+  // owner-entered comparable rows. All other fields are complete to isolate status.
+  const marketCase=universe.getByTestId('personal-sector-workbench');
+  await marketCase.getByLabel('المدينة',{exact:true}).fill('الرياض');
+  await marketCase.getByLabel('الحي العقاري',{exact:true}).fill('الملقا');
+  await marketCase.getByLabel('نوع العقار التفصيلي (مثلاً: فندق 4 نجوم)').fill('مكاتب');
+  await marketCase.getByLabel('مساحة العقار (م²)').fill('١٬٠٠٠');
+  await marketCase.getByLabel('تاريخ الدراسة').fill('2026-10-25');
+  await marketCase.getByLabel('الحق العقاري محل التقييم').selectOption('FREEHOLD');
+  await marketCase.getByLabel('صفقات مماثلة منفذة').check();
+  await marketCase.getByLabel('وحدة المقارنة المناسبة للقطاع').selectOption('SQM');
+  for(let i=0;i<3;i++){
+   const comp=marketCase.getByTestId('personal-sector-comparable-'+i);
+   await comp.getByLabel('رقم الصفقة').fill('SALE'+(i+1));
+   await comp.getByLabel('مدينة الصفقة').fill('الرياض');
+   await comp.getByLabel('حي الصفقة').fill('الملقا');
+   await comp.getByLabel('النوع التفصيلي للصفقة').fill('مكاتب');
+   await comp.getByLabel('تاريخ البيع').fill('2026-09-0'+(i+1));
+   await comp.getByLabel('السعر لكل وحدة مقارنة مختارة (ريال)').fill('١٠٬٠٠٠');
+   await comp.getByLabel('مرجع الصفقة المصدرية').fill('DOC-'+(i+1));
+   await comp.getByLabel('وحدة المقارنة في الصفقة').selectOption('SQM');
+   await comp.getByLabel('الحق المنقول في الصفقة').selectOption('FREEHOLD');
+   if(i<2)await comp.getByTestId('personal-sector-sale-status-'+i).selectOption('EXECUTED_SALE');
+  }
+  const calculate=marketCase.getByTestId('personal-sector-calculate');
+  await calculate.click();
+  await expect(marketCase.getByTestId('personal-sector-scenario-output')).toContainText('الحساب محجوب');
+  await expect(marketCase.getByTestId('personal-sector-reasons')).toContainText('الصفقات غير متطابقة');
+  await expect(marketCase.getByTestId('personal-sector-provisional-value')).toHaveCount(0);
+  const status=marketCase.getByTestId('personal-sector-sale-status-2');
+  await status.selectOption('ASKING_SALE');
+  await expect(marketCase.getByTestId('personal-sector-scenario-output')).toHaveCount(0);
+  await calculate.click();
+  await expect(marketCase.getByTestId('personal-sector-scenario-output')).toContainText('الحساب محجوب');
+  await expect(marketCase.getByTestId('personal-sector-provisional-value')).toHaveCount(0);
+  await status.selectOption('EXECUTED_SALE');
+  await calculate.click();
+  await expect(marketCase.getByTestId('personal-sector-scenario-output')).toContainText('مؤشرات طرق منفصلة');
+  await expect(marketCase.getByTestId('personal-sector-scenario-output')).toContainText('MARKET_COMPARABLE');
+  await expect(marketCase.getByTestId('personal-sector-provisional-value')).toHaveCount(0);
+  await expect(marketCase.getByTestId('personal-sector-scenario-output')).toContainText('لم يتم التحقق منها رسميًا');
   assert.deepEqual(errors,[],'no React browser runtime exceptions across 13 asset classes');
   console.log('ALL_13_ASSET_CLASSES_REAL_BROWSER_HOLD=PASS sectors='+verified);
  }finally{await context.close();await browser.close();}
