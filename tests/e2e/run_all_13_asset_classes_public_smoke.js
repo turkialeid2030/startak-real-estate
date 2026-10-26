@@ -1,11 +1,12 @@
 'use strict';
 const assert=require('node:assert/strict');
+const fs=require('node:fs/promises');
 const {chromium,expect}=require('@playwright/test');
 const {ALL_SECTORS}=require('../../src/governance/personal-asset-universe');
 const BASE=process.env.STARTAK_E2E_URL||'http://127.0.0.1:4173';
 (async()=>{
  const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
- const context=await browser.newContext({locale:'ar-SA',viewport:{width:1366,height:960}});
+ const context=await browser.newContext({locale:'ar-SA',viewport:{width:1366,height:960},acceptDownloads:true});
  const page=await context.newPage(),errors=[];
  page.on('pageerror',e=>errors.push(e.message));
  try{
@@ -91,6 +92,46 @@ const BASE=process.env.STARTAK_E2E_URL||'http://127.0.0.1:4173';
   await expect(marketCase.getByTestId('personal-sector-scenario-output')).toContainText('MARKET_COMPARABLE');
   await expect(marketCase.getByTestId('personal-sector-provisional-value')).toHaveCount(0);
   await expect(marketCase.getByTestId('personal-sector-scenario-output')).toContainText('لم يتم التحقق منها رسميًا');
+
+  const buttons=marketCase.getByTestId('personal-sector-report-downloads');
+  await expect(buttons).toBeVisible();
+  const download=async id=>{
+   const pending=page.waitForEvent('download');
+   await marketCase.getByTestId(id).click();
+   const item=await pending;
+   return {filename:item.suggestedFilename(),body:await fs.readFile(await item.path(),'utf8')};
+  };
+  const research=await download('personal-sector-export-report-json');
+  assert.ok(research.filename.endsWith('.json'));
+  const report=JSON.parse(research.body);
+  assert.equal(report.version,'PERSONAL_SECTOR_RESEARCH_REPORT_V1');
+  assert.equal(report.purpose,'PERSONAL_NON_CERTIFIED_SECTOR_RESEARCH');
+  assert.equal(report.result.status,'INDIVIDUAL_METHOD_SCENARIOS_ONLY');
+  assert.equal(report.studyInputs.comparables[2].saleKind,'EXECUTED_SALE');
+  assert.equal(report.result.methods[0].method,'MARKET_COMPARABLE');
+  assert.equal(report.result.provisionalReconciledAmountSar,null);
+  assert.equal(report.professionalAppraisalClaim,false);
+  assert.equal(report.independentlyVerified,false);
+  assert.match(report.reportHashSha256,/^[a-f0-9]{64}$/);
+  const printable=await download('personal-sector-export-report-html');
+  assert.ok(printable.filename.endsWith('.html'));
+  assert.ok(printable.body.includes('lang="ar" dir="rtl"'));
+  assert.ok(printable.body.includes('MOJ')===false);
+  assert.ok(printable.body.includes('DOC-3')&&printable.body.includes('EXECUTED_SALE'));
+  assert.ok(printable.body.includes(report.inputFingerprintSha256),
+   'printable HTML must preserve the same exact study-input SHA as the downloaded JSON');
+  assert.ok(!printable.body.includes('<script'));
+  await status.selectOption('ASKING_SALE');
+  await expect(buttons).toHaveCount(0);
+  await calculate.click();
+  const blocked=JSON.parse((await download('personal-sector-export-report-json')).body);
+  assert.equal(blocked.result.status,'HOLD_INPUT_OR_SECTOR_POLICY');
+  assert.equal(blocked.result.methods.length,0);
+  assert.equal(blocked.result.provisionalReconciledAmountSar,null);
+  assert.equal(blocked.studyInputs.comparables[2].saleKind,'ASKING_SALE');
+  assert.equal(blocked.professionalAppraisalClaim,false);
+  console.log('C57_OWNER_RESEARCH_REPORTS_LIVE_JSON_HTML_HOLD=PASS');
+
   assert.deepEqual(errors,[],'no React browser runtime exceptions across 13 asset classes');
   console.log('ALL_13_ASSET_CLASSES_REAL_BROWSER_HOLD=PASS sectors='+verified);
  }finally{await context.close();await browser.close();}

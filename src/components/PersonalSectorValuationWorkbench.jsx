@@ -3,7 +3,9 @@ import {useRef} from 'react';
 const {EXPENSE_TREATMENT}=require('../valuation-intelligence/income-capitalization');
 const {VALUATION_METHOD}=require('../valuation-intelligence/contracts');
 const {STATUS,MARKET_UNITS,evaluatePersonalSectorScenarios}=require('../valuation-intelligence/personal-sector-scenario-workbench');
-const {parseAmount}=require('../source-intelligence/personal-saudi-sale-csv');
+const {calculatePersonalSectorCase,buildPersonalSectorResearchReport,
+ verifyPersonalSectorResearchReport,renderPersonalSectorResearchHtml}=
+ require('../valuation-intelligence/personal-sector-research-report');
 const {MAX_ARCHIVE_BYTES,createPersonalSectorCaseArchive,verifyPersonalSectorCaseArchive}=
  require('../valuation-intelligence/personal-sector-case-archive');
 
@@ -61,6 +63,7 @@ export default function PersonalSectorValuationWorkbench({assetClass,locale='ar-
  const [policy,setPolicy]=useState({maxDispersion:'',incomeWeight:'',costWeight:'',marketWeight:''});
  const [output,setOutput]=useState(null);
  const [archiveStatus,setArchiveStatus]=useState('');
+ const [reportStatus,setReportStatus]=useState('');
  const archiveFileRef=useRef(null);
  const currentState=()=>({assetClass,subject,methods,inc,cost,comparables,marketOptions,policy});
  const exportCase=async()=>{
@@ -70,7 +73,7 @@ export default function PersonalSectorValuationWorkbench({assetClass,locale='ar-
    const json=JSON.stringify(archive,null,2);
    const url=URL.createObjectURL(new Blob([json],{type:'application/json;charset=utf-8'}));
    const anchor=document.createElement('a');
-   anchor.href=url;anchor.download='startak-personal-sector-case-v1.json';
+   anchor.href=url;anchor.download='startak-personal-sector-case-v2.json';
    document.body.appendChild(anchor);anchor.click();anchor.remove();
    URL.revokeObjectURL(url);
    setArchiveStatus(ar?'تم إنشاء ملف دراسة المدخلات فقط على جهازك؛ لا يحفظ نتائج التقييم أو يمنح الملف توقيعًا موثوقًا.':
@@ -105,41 +108,31 @@ export default function PersonalSectorValuationWorkbench({assetClass,locale='ar-
  };
  const change=(fn,k,v)=>{fn(old=>({...old,[k]:v}));setOutput(null);};
  const calc=()=>{
-  const income=methods.income?{
-   annualEffectivePropertyIncome:parseAmount(inc.gross),
-   annualPropertyOperatingExpenses:parseAmount(inc.opex),
-   capRate:parseAmount(inc.cap),expenseTreatment:inc.expenseTreatment,
-   realEstateOnlyConfirmed:inc.realEstateOnly,
-   groundLeaseEvidenceConfirmed:inc.groundLease,sharedCostsAllocated:inc.sharedCosts,
-  }:null;
-  const replacement=methods.cost?{
-   landValue:parseAmount(cost.land),replacementBuildingCost:parseAmount(cost.replacement),
-   depreciationRate:parseAmount(cost.depreciation),businessEquipmentExcluded:cost.excludesBusiness,
-  }:null;
-  const market=methods.market?{
-   unitOfComparison:marketOptions.unit,subjectQuantity:parseAmount(marketOptions.quantity),
-   businessAssetsExcluded:marketOptions.businessExcluded,
-   mixedUseComparableAllocationConfirmed:marketOptions.mixedAllocated,
-   comparables:comparables.map(c=>({
-   comparableId:c.id,city:c.city,district:c.district,assetClass,unitOfComparison:c.unit,
-   propertySubtype:c.subtype,propertyRight:c.right,transactionDate:c.date,
-   sourceRef:c.source,unitValue:parseAmount(c.unitValue),transactionStatus:c.saleKind,
-  }))}:null;
-  const weights={};
-  if(methods.income)weights[VALUATION_METHOD.INCOME_DIRECT_CAPITALIZATION]=parseAmount(policy.incomeWeight);
-  if(methods.cost)weights[VALUATION_METHOD.COST_DEPRECIATED_REPLACEMENT]=parseAmount(policy.costWeight);
-  if(methods.market)weights[VALUATION_METHOD.MARKET_COMPARABLE]=parseAmount(policy.marketWeight);
-  const reconciliationPolicy=Object.keys(weights).length>=2?{
-   maxDispersion:parseAmount(policy.maxDispersion),methodWeights:weights,
-  }:null;
-  try{
-   setOutput(evaluatePersonalSectorScenarios({
-    assetClass,city:subject.city,propertySubtype:subject.subtype,subjectDistrict:subject.district,
-    valuationDate:subject.date,subjectAreaSqm:parseAmount(subject.area),
-    propertyRight:subject.right,income,cost:replacement,market,reconciliationPolicy,
-   }));
-  }catch(e){setOutput({status:STATUS.HOLD,reasonCodes:['INVALID_SCENARIO_VALUES'],methods:[],
+  setReportStatus('');
+  try{setOutput(calculatePersonalSectorCase(currentState()));}
+  catch(e){setOutput({status:STATUS.HOLD,reasonCodes:['INVALID_SCENARIO_VALUES'],methods:[],
    provisionalReconciledAmountSar:null});}
+ };
+ const saveReport=(format)=>{
+  setReportStatus('');
+  try{
+   if(!output)throw new Error('CALCULATE_FIRST');
+   const report=buildPersonalSectorResearchReport(currentState());
+   if(!verifyPersonalSectorResearchReport(report)||JSON.stringify(report.result)!==JSON.stringify(output))
+    throw new Error('STALE_OR_INCONSISTENT_RESULT');
+   const html=format==='html';
+   const body=html?renderPersonalSectorResearchHtml(report,{locale}):JSON.stringify(report,null,2);
+   const mime=html?'text/html;charset=utf-8':'application/json;charset=utf-8';
+   const url=URL.createObjectURL(new Blob([body],{type:mime}));
+   const anchor=document.createElement('a');
+   anchor.href=url;
+   anchor.download='startak-sector-personal-research-'+report.assetClass.toLowerCase()+
+    (html?'.html':'.json');
+   document.body.appendChild(anchor);anchor.click();anchor.remove();URL.revokeObjectURL(url);
+   setReportStatus(ar?'تم تصدير الدراسة الشخصية مع أسباب الحجب وبصمة التحقق، دون اعتماد مهني.':
+    'Personal method study downloaded with HOLD reasons and integrity digest; not certified.');
+  }catch(e){setReportStatus(ar?'تعذر إنشاء التقرير أو تغيرت المدخلات: أعد الحساب أولًا.':
+   'Cannot export inconsistent or stale scenario. Recalculate the study.');}
  };
  const money=n=>new Intl.NumberFormat(ar?'ar-SA':'en-SA',{maximumFractionDigits:0}).format(n);
  const Checkbox=({label,checked,onChange})=><label className="flex items-center gap-2 text-xs min-h-[36px]" style={{color:'#E7E9EE'}}>
@@ -313,6 +306,25 @@ export default function PersonalSectorValuationWorkbench({assetClass,locale='ar-
    style={{background:'#C9A24C',color:'#142236'}}>
    {ar?'احسب المؤشرات الافتراضية (دون اعتماد)':'Calculate unverified research scenarios'}
   </button>
+  {output&&<div className="mt-3 rounded-lg border border-slate-500/40 p-3"
+   data-testid="personal-sector-report-downloads">
+    <p className="text-xs leading-relaxed" style={{color:'#BFC9D8'}}>
+     {ar?'يمكن تنزيل نتائج الدراسة الشخصية مع الافتراضات وحالة المقارنات وأسباب الحجب، دون توصية شراء أو تقرير تقييم مهني.':
+       'Export current owner-only calculation, declared sale status, inputs and HOLD reasons; never a certified appraisal.'}
+    </p>
+    <div className="mt-2 flex flex-wrap gap-2">
+     <button type="button" data-testid="personal-sector-export-report-json" onClick={()=>saveReport('json')}
+       className="min-h-[40px] px-3 py-2 rounded-lg border border-slate-500 text-xs" style={{color:'#E8EDF4'}}>
+       {ar?'تقرير الدراسة JSON':'Research report JSON'}
+     </button>
+     <button type="button" data-testid="personal-sector-export-report-html" onClick={()=>saveReport('html')}
+       className="min-h-[40px] px-3 py-2 rounded-lg border border-slate-500 text-xs" style={{color:'#E8EDF4'}}>
+       {ar?'تقرير عربي للطباعة HTML':'Printable HTML report'}
+     </button>
+    </div>
+    {reportStatus&&<p data-testid="personal-sector-report-status" role="status"
+     className="mt-2 text-xs" style={{color:'#E8C18C'}}>{reportStatus}</p>}
+   </div>}
   {output&&<div role="status" data-testid="personal-sector-scenario-output"
     className="mt-4 rounded-lg p-3" style={{background:'#101D31',color:'#E6EBF5'}}>
     <strong className="text-sm">{output.status===STATUS.HOLD
