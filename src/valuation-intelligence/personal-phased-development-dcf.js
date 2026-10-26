@@ -80,6 +80,34 @@ function assessPersonalPhasedDevelopment({
  }
  if(!Number.isFinite(pv)||!Number.isFinite(nominal)||Math.abs(pv)>1e15)
   return hold(['OVERFLOW']);
+ // C55: a same-schedule arithmetic bridge, not a professional reconciliation.
+ // Legacy terminal residual puts ALL net inflows and costs at completion,
+ // whereas the monthly DCF assigns each cashflow its own actual month.
+ // Neither result is an approved price, and no method is selected for a deal.
+ const terminalMonth=dated.at(-1).month;
+ const terminalAggregateShadowSar=nominal/Math.pow(1+annualDiscountRate,terminalMonth/12);
+ if(!Number.isFinite(terminalAggregateShadowSar)||Math.abs(terminalAggregateShadowSar)>1e15)
+  return hold(['METHOD_SHADOW_OVERFLOW'],dated);
+ const methodContrast=deepFreeze({
+  status:'UNRECONCILED_RESEARCH_CONTRAST',basis:'SAME_USER_DECLARED_UNLEVERED_PHASE_SCHEDULE',
+  monthlyDatedPvSar:pv,nominalUndiscountedSar:nominal,
+  terminalAggregateShadowSar,terminalMonth,
+  effectiveAnnualDiscountRate:annualDiscountRate,
+  differenceNominalMinusMonthlySar:nominal-pv,
+  differenceTerminalMinusMonthlySar:terminalAggregateShadowSar-pv,
+  modelIdentification:[
+   'DATED_CASHFLOWS_MONTHLY_DISCOUNTED',
+   'NOMINAL_UNDISCOUNTED_SHADOW',
+   'LEGACY_STYLE_TERMINAL_NET_DISCOUNT_SHADOW',
+  ],
+  legacyContractsUnchanged:true,financingAndDebtExcluded:true,
+  developerProfitEmbeddedInDiscountRate:true,
+  actualLegacyEngineExecuted:false,commercialOrProfessionalReviewPassed:false,
+  independentlyVerifiedSourceEvidence:false,
+  automaticMethodSelection:false,automaticBlendedValuation:false,
+  transactionAuthorized:false,
+  semantics:'Terminal shadow discounts every nominal net receipt and cost at the final month; it is NOT the monthly dated DCF. Illustrative arithmetic with user declarations only. Original method contracts and all evidence/approval HOLD remain unchanged.',
+ });
  // Negative residual is an infeasible project, never an owner buying recommendation.
  if(pv<=0)return hold(['NON_POSITIVE_RESIDUAL_LAND_VALUE'],dated);
  return deepFreeze({
@@ -87,7 +115,7 @@ function assessPersonalPhasedDevelopment({
   reasonCodes:['USER_DECLARED_SCHEDULE_NOT_INDEPENDENTLY_VERIFIED',
    'SAUDI_LAND_RIGHTS_PLANNING_AND_PERMITS_UNVERIFIED','PROFESSIONAL_REVIEW_REQUIRED'],
   valuationDate,assetClass,propertyRight,annualDiscountRate,landAreaSqm,
-  periods:dated,nominalNetBeforeLandSar:nominal,
+  periods:dated,nominalNetBeforeLandSar:nominal,methodContrast,
   landResidualPvSar:pv,landResidualPvPerSqmSar:pv/landAreaSqm,
   discountConvention:'EFFECTIVE_ANNUAL_RATE_MONTH_END_EXPONENT_MONTH_OVER_12',
   developerReturnTreatment:'IN_ANNUAL_DISCOUNT_RATE_NO_SEPARATE_PROFIT_OR_RISK_SPREAD',
