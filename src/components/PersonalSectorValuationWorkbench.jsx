@@ -236,7 +236,7 @@ export default function PersonalSectorValuationWorkbench({assetClass,locale='ar-
    {assetClass==='MIXED_USE'&&<Checkbox
       label={ar?'تمت تسوية قيمة أجزاء الاستخدامات المختلطة دون ازدواج':'Mixed-use components allocated consistently'}
       checked={marketOptions.mixedAllocated} onChange={v=>change(setMarketOptions,'mixedAllocated',v)}/>}
-   {comparables.map((c,i)=><div key={i} className="mt-3 border-b border-slate-500/40 pb-3">
+   {comparables.map((c,i)=><div key={i} data-testid={'personal-sector-comparable-'+i} className="mt-3 border-b border-slate-500/40 pb-3">
     <span className="text-xs" style={{color:'#E8C98B'}}>{ar?'الصفقة ':'Sale '}{i+1}</span>
     <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
      {[
