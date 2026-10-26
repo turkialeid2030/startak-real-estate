@@ -22,6 +22,7 @@ const { purchaseBoundaryMessage, purchaseAlternativeMessage } = require('../assu
 const { purchaseCeilingCertificateMessage } = require('../assumptions/purchase-ceiling-certificate');
 const VERSION = 'PERSONAL_FINANCIAL_STUDY_V2';
 const {geometryReview}=require('./capitalization-basis');
+const {buildFinancialTimingBasisReportDisclosure}=require('../reporting/financial-timing-basis-report');
 const {PERSONAL_STATUS,evaluatePersonalResearchReadiness}=
   require('../governance/personal-research-readiness');
 const finite = x => typeof x === 'number' && Number.isFinite(x) ? x : null;
@@ -164,6 +165,9 @@ function buildPersonalFinancialStudy({ mode, inputs, assumptionModelVersion, zak
       rentalCalendar:rentalCalendarDisclosure({mode,inputs,result:safeResults,context:rentalContext,asOfDate:generatedAt}),
       inputProvenance:provenanceForInputs(mode,inputs,inputProvenance),
       engineVersion: safeResults?.financialModelVersion || null,
+      // Versioned methodology follows the exact calculated results and never
+      // survives a financial-integrity HOLD from a previous valid draft.
+      timingBasis: safeResults?.timingBasis ? snapshot(safeResults.timingBasis) : null,
       status: effectiveStatus, inputs: inputSnapshot,
       personalResearchIntegrity: snapshot(readiness),
       purchaseAlternative: mode === 'building' && safeResults
@@ -232,6 +236,17 @@ function htmlFinancialStudy(report, { locale = 'ar-SA' } = {}) {
   const integrityReasonsText = (f.personalResearchIntegrity?.reasonCodes || [])
     .map(code => ar ? (integrityArabicLabels[code] || 'سبب حسابي يحتاج مراجعة') : code)
     .join(ar ? '؛ ' : '; ') || words('لا توجد أسباب ضمن الفحص', 'None under arithmetic check');
+  const timingDisclosure = f.timingBasis
+    ? buildFinancialTimingBasisReportDisclosure({
+      timingBasis:f.timingBasis,decisionStatus:f.status,analyticalResultsOnly:true,
+    },{locale})
+    : null;
+  const timingSection = timingDisclosure
+    ? '<h2>' + words('منهجية توقيت التدفقات والعوائد','Cash-flow timing methodology') + '</h2>'
+      + rows(timingDisclosure.rows.map(item=>[item.label,item.applicable ? String(item.value) : words('لا ينطبق','Not applicable')]))
+      + '<p>' + h(timingDisclosure.reconciliationNote) + '</p>'
+    : '<h2>' + words('منهجية توقيت التدفقات والعوائد','Cash-flow timing methodology') + '</h2><p>'
+      + words('غير متاحة لعدم تحقق النموذج المالي الحالي؛ لا تستخدم إفصاحًا محفوظًا سابقًا','Unavailable without a valid current financial model; prior saved disclosure is not reused') + '</p>';
   const firstNoi = f.mode === 'building' ? r.firstYearNOI : r.firstOperatingYearNOI;
   const expenses = f.mode === 'building' ? r.opexAmount : r.operatingExpenses;
   const op = report.operatingReport, runoff = op?.contractRunoff;
@@ -309,6 +324,7 @@ function htmlFinancialStudy(report, { locale = 'ar-SA' } = {}) {
       words('غير مثبت', 'Not established')]])
     + rows([[words('نوع الدراسة', 'Study type'), words(f.mode === 'building' ? 'مبنى قائم' : 'أرض وتطوير', f.mode)], [words('تاريخ إعداد الدراسة', 'Generated at'), report.generatedAt], [words('إصدار الافتراضات', 'Assumption version'), f.assumptionModelVersion], [words('إصدار المحرك المالي', 'Financial engine version'), f.engineVersion], [words('معرّف بناء المنصة', 'Platform build identifier'), report.sourceBuild.buildId], [words('نسخة الشيفرة المصدرية', 'Source commit'), report.sourceBuild.sourceCommit || words('غير مرتبط بنسخة متحقق منها', 'Unverified source binding')], [words('حالة الحساب', 'Calculation status'), f.status]])
     + '<p>' + words('حد النموذج: إيجار مجمع للمبنى أو تطوير عام للأرض؛ الفئات المتخصصة وبيانات السوق لم تُؤهل. لا تثبت هذه الدراسة صلاحية التراخيص أو العقود أو مؤشرات القيمة المهنية.', 'Model scope: aggregate building rent or general land development; specialist asset models and market inputs are not qualified. The study does not establish licences, contracts, or professional value authority.') + '</p>' + error + '<h2>' + words('الملخص المالي', 'Financial summary') + '</h2>' + rows(metrics)
+    + timingSection
     + '<h2>' + words('الاسترداد وأفق الدراسة', 'Recovery and study horizon') + '</h2>' + rows([
       [words('استرداد بسيط: تكلفة ÷ صافي دخل أول سنة تشغيل', 'Simple cost / first operating-year NOI'), number(p.simpleCostOverFirstOperatingNoiYears)],
       [words('استرداد تشغيلي تراكمي في أفق المحرك — يستبعد البيع', 'Engine cumulative operating recovery — excludes sale'), number(p.engineCumulativeOperatingYears)],
