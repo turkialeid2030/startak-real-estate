@@ -42,7 +42,7 @@ const REASONS={
  INDEPENDENT_MARKET_AND_SPECIALIST_EVIDENCE_STILL_REQUIRED:'الترجيح الحسابي افتراضي؛ يلزم إثبات مستقل للبيانات والقطاع',
 };
 const inputClass='w-full rounded-lg border border-slate-500/50 p-2 text-sm min-h-[36px]';
-const initialMarket=()=>Array.from({length:3},()=>({id:'',city:'',district:'',subtype:'',right:'',date:'',unitValue:'',source:'',unit:''}));
+const initialMarket=()=>Array.from({length:3},()=>({id:'',city:'',district:'',subtype:'',right:'',date:'',unitValue:'',source:'',unit:'',saleKind:''}));
 function Row({ar,label,value,onChange,placeholder='',type='text'}){
  return <label className="block text-xs" style={{color:'#E6E9F0'}}>
   {label}
@@ -123,7 +123,7 @@ export default function PersonalSectorValuationWorkbench({assetClass,locale='ar-
    comparables:comparables.map(c=>({
    comparableId:c.id,city:c.city,district:c.district,assetClass,unitOfComparison:c.unit,
    propertySubtype:c.subtype,propertyRight:c.right,transactionDate:c.date,
-   sourceRef:c.source,unitValue:parseAmount(c.unitValue),transactionStatus:'EXECUTED_SALE',
+   sourceRef:c.source,unitValue:parseAmount(c.unitValue),transactionStatus:c.saleKind,
   }))}:null;
   const weights={};
   if(methods.income)weights[VALUATION_METHOD.INCOME_DIRECT_CAPITALIZATION]=parseAmount(policy.incomeWeight);
@@ -214,7 +214,7 @@ export default function PersonalSectorValuationWorkbench({assetClass,locale='ar-
      checked={cost.excludesBusiness} onChange={v=>change(setCost,'excludesBusiness',v)}/>}
   </div>}
   {methods.market&&<div className="mt-3 p-3 rounded-lg border border-slate-500/40">
-   <strong className="text-xs" style={{color:'#E8C98B'}}>{ar?'ثلاث صفقات بيع منفذة من نفس الحي والمدينة والنوع والحق؛ دون عروض':'Three executed sales matching district, subtype and property right; no asking prices'}</strong>
+   <strong className="text-xs" style={{color:'#E8C98B'}}>{ar?'ثلاث صفقات بيع منفذة وفق تصريحك وتطابق الحي والمدينة والنوع والحق؛ لا تُقبل العروض ولا يثبت التصريح صحة السجل':'Three user-declared executed sales matching district, subtype and property right; asking prices are excluded and declarations are unverified'}</strong>
    <label className="block text-xs mt-3" style={{color:'#E7E9EE'}}>
      {ar?'وحدة المقارنة المناسبة للقطاع':'Sector-appropriate market comparison unit'}
      <select value={marketOptions.unit} className={inputClass} style={{background:'#F4F5F5',color:'#192336',marginTop:5}}
@@ -236,7 +236,7 @@ export default function PersonalSectorValuationWorkbench({assetClass,locale='ar-
    {assetClass==='MIXED_USE'&&<Checkbox
       label={ar?'تمت تسوية قيمة أجزاء الاستخدامات المختلطة دون ازدواج':'Mixed-use components allocated consistently'}
       checked={marketOptions.mixedAllocated} onChange={v=>change(setMarketOptions,'mixedAllocated',v)}/>}
-   {comparables.map((c,i)=><div key={i} className="mt-3 border-b border-slate-500/40 pb-3">
+   {comparables.map((c,i)=><div key={i} data-testid={'personal-sector-comparable-'+i} className="mt-3 border-b border-slate-500/40 pb-3">
     <span className="text-xs" style={{color:'#E8C98B'}}>{ar?'الصفقة ':'Sale '}{i+1}</span>
     <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
      {[
@@ -249,6 +249,16 @@ export default function PersonalSectorValuationWorkbench({assetClass,locale='ar-
       ['source',ar?'مرجع الصفقة المصدرية':'Sale source reference'],
      ].map(([k,label])=><Row key={k} label={label} type={k==='date'?'date':'text'} value={c[k]}
        onChange={v=>{setComparables(old=>old.map((row,j)=>j===i?{...row,[k]:v}:row));setOutput(null);}}/>)}
+     <label className="block text-xs" style={{color:'#E7E9EE'}}>
+      {ar?'حالة الصفقة حسب تصريح المستخدم (غير موثقة رسميًا)':'User-declared sale status (not independently verified)'}
+      <select value={c.saleKind} data-testid={'personal-sector-sale-status-'+i}
+       className={inputClass} style={{background:'#F4F5F5',color:'#192336',marginTop:5}}
+       onChange={e=>{setComparables(old=>old.map((row,j)=>j===i?{...row,saleKind:e.target.value}:row));setOutput(null);}}>
+       <option value="">{ar?'غير محدد — لا يقبل في حساب صفقات البيع':'Unspecified — excluded from executed-sale calculation'}</option>
+       <option value="EXECUTED_SALE">{ar?'بيع منفذ بحسب إقرار المستخدم':'User-declared executed sale'}</option>
+       <option value="ASKING_SALE">{ar?'عرض بيع أو سوم — مستبعد':'Listing / asking price — excluded'}</option>
+      </select>
+     </label>
      <label className="block text-xs" style={{color:'#E7E9EE'}}>{ar?'وحدة المقارنة في الصفقة':'Unit of comparison in sale'}
       <select value={c.unit} className={inputClass} style={{background:'#F4F5F5',color:'#192336'}}
        onChange={e=>{setComparables(old=>old.map((row,j)=>j===i?{...row,unit:e.target.value}:row));setOutput(null);}}>
