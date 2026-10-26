@@ -84,6 +84,11 @@ jobs:
       - run: node tests/architecture/run_audit_20261010_remaining.js
   chromium-owner-study:
     runs-on: ubuntu-24.04
+    # Pin the same official Playwright image already qualified by deployed-owner-acceptance.
+    # Browser executables are present in the image; do not depend on live apt/CDN downloads.
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e
+      options: --user 1001
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
@@ -99,7 +104,18 @@ jobs:
           EXPECTED: ${{ github.event.pull_request.head.sha || github.sha }}
         run: test "$(git rev-parse HEAD)" = "$EXPECTED"
       - run: npm ci
-      - run: npx playwright install --with-deps chromium firefox webkit
+      - name: Verify exact pinned Playwright 1.62.1 browsers without live downloads
+        run: |
+          node - <<'JS'
+          const fs=require('node:fs');
+          const {chromium,firefox,webkit}=require('playwright');
+          const version=require('playwright/package.json').version;
+          if(version!=='1.62.1')throw Error('PLAYWRIGHT_VERSION_MISMATCH');
+          for(const [kind,engine] of Object.entries({chromium,firefox,webkit})){
+            if(!fs.existsSync(engine.executablePath()))throw Error('PINNED_BROWSER_NOT_FOUND_'+kind);
+          }
+          console.log('PLAYWRIGHT_PINNED_CHROMIUM_FIREFOX_WEBKIT=PASS');
+          JS
       - run: npm run build
       - name: Serve production build
         run: |
