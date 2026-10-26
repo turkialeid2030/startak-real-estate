@@ -13,6 +13,9 @@ on:
       - 'tests/architecture/run_personal_phased_development_dcf.js'
       - 'tests/architecture/run_full_platform_synthetic_simulation.js'
       - 'tests/architecture/run_external_three_gates_readiness.js'
+      - 'tests/defects/independent_preregistration_witness_c56.js'
+      - 'src/validation/independent-pre-registration-witness.js'
+      - 'src/validation/server-external-three-gates-readiness.js'
       - 'src/governance/external-three-gates-readiness.js'
       - 'src/components/ExternalThreeGatesReadinessPanel.jsx'
       - 'tests/e2e/run_personal_phased_development_browser.js'
@@ -76,6 +79,7 @@ jobs:
       - run: node tests/architecture/run_personal_phased_development_dcf.js
       - run: node tests/architecture/run_full_platform_synthetic_simulation.js
       - run: node tests/architecture/run_external_three_gates_readiness.js
+      - run: node tests/defects/independent_preregistration_witness_c56.js
       - run: node tests/architecture/run_audit_20261010_f01_f02.js
       - run: node tests/architecture/run_audit_20261010_remaining.js
   chromium-owner-study:
