@@ -147,6 +147,28 @@ export default function PersonalPhasedDevelopmentDcfPanel({locale='ar-SA'}){
      {money(result.landResidualPvPerSqmSar)}</p>
     <p className="text-xs mt-1">{ar?'المتبقي الاسمي قبل شراء الأرض (ريال): ':'Undiscounted before land SAR: '}
      {money(result.nominalNetBeforeLandSar)}</p>
+    {result.methodContrast&&<section data-testid="phased-development-method-contrast"
+     className="mt-3 rounded-lg border border-slate-500/50 p-3">
+     <h5 className="text-xs font-semibold">
+      {ar?'مقارنة حسابية لأسس التوقيت — غير معتمدة':'Timing-basis method contrast — not certified'}
+     </h5>
+     <p className="text-xs mt-2">
+      {ar?'هذه ثلاث قراءات للتدفقات نفسها؛ لا تُجمع ولا يُختار المتوسط أو الأعلى آليًا. طريقة نهاية المشروع تفترض وقوع جميع التحصيلات والتكاليف في الشهر الأخير، ولذلك تختلف عن الخصم الشهري الفعلي.':
+       'Three mathematical views of the SAME user-supplied cashflows. Do not average or select one automatically. The terminal shadow assumes every receipt and cost occurs in the last month rather than at its dated period.'}
+     </p>
+     <div className="overflow-x-auto mt-2"><table className="w-full text-xs">
+      <tbody>
+       <tr><th className="p-2 text-start">{ar?'التدفقات الشهرية المخصومة':'Dated monthly present value'}</th><td className="p-2">{money(result.methodContrast.monthlyDatedPvSar)}</td></tr>
+       <tr><th className="p-2 text-start">{ar?'المتبقي الاسمي دون خصم':'Undiscounted nominal shadow'}</th><td className="p-2">{money(result.methodContrast.nominalUndiscountedSar)}</td></tr>
+       <tr><th className="p-2 text-start">{ar?'صافي نهاية المشروع المخصوم (محاكاة حسابية)':'Terminal-aggregate discount shadow'}</th><td className="p-2">{money(result.methodContrast.terminalAggregateShadowSar)}</td></tr>
+       <tr><th className="p-2 text-start">{ar?'فرق خصم نهاية المشروع عن الجدول الشهري':'Terminal minus monthly difference'}</th><td className="p-2">{money(result.methodContrast.differenceTerminalMinusMonthlySar)}</td></tr>
+      </tbody>
+     </table></div>
+     <p className="mt-2 text-xs" style={{color:'#E7C08C'}}>
+      {ar?'هذه مقارنة تعليمية للطرق وليست تسوية مهنية أو سعر شراء. تتطلب اعتماد التخطيط والصك والتكاليف والتوقيت ومعدل الخصم والبيانات الواقعية من مختص مستقل.':
+       'Not a professional reconciliation or acquisition price. Requires independent planning, title, cost, timing, discount rate, and real-market reviews.'}
+     </p>
+    </section>}
     <div className="overflow-x-auto mt-2"><table className="text-xs w-full" style={{color:'#ECF0F6'}}>
      <thead><tr><th className="p-2 text-start">{ar?'الشهر':'Month'}</th>
       <th className="p-2 text-start">{ar?'الصافي الاسمي':'Nominal net'}</th>
