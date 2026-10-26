@@ -75,7 +75,7 @@ ok(ui.includes('data-testid="phased-development-calculate"'),'real UI calculate'
 ok(ui.includes('data-testid="phased-development-pv"'),'real UI labels residual');
 ok(ui.includes('setResult(null)'),'clear stale calculation on input edits');
 ok(ui.includes('month:parseAmount(r.month)'),'month uses approved Arabic numeral parser instead of Number coercion');
-ok(ui.includes('data-testid="phased-month-input"'),'Arabic phase-month text input is targetable in live browser');
+ok(ui.includes('testId="phased-month-input"')&&ui.includes('data-testid={testId}'),'Arabic phase-month test ID propagates to the actual input');
 ok(ui.includes('inputMode="numeric"'),'mobile Arabic phase-month keypad hint');
 ok(!ui.includes('Number(r.month)'),'no permissive JS month coercion');
 const {parseAmount}=require('../../src/source-intelligence/personal-saudi-sale-csv');
