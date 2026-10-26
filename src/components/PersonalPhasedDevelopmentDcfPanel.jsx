@@ -33,9 +33,9 @@ const REASONS={
  NON_POSITIVE_RESIDUAL_LAND_VALUE:'القيمة المتبقية للأرض صفرية أو سالبة؛ المشروع لا يبرر شراء الأرض وفق المدخلات',
  OVERFLOW:'تجاوزت الأرقام الحدود الحسابية الآمنة',
 };
-function Field({label,value,onChange,type='text'}){
+function Field({label,value,onChange,type='text',testId,inputMode}){
  return <label className="block text-xs" style={{color:'#F0E8D9'}}>{label}
-  <input type={type} inputMode={type==='text'?'decimal':undefined}
+  <input type={type} data-testid={testId} inputMode={inputMode||(type==='text'?'decimal':undefined)}
    className={inputClass} style={inputStyle} value={value} onChange={e=>onChange(e.target.value)}/>
  </label>;
 }
@@ -56,7 +56,7 @@ export default function PersonalPhasedDevelopmentDcfPanel({locale='ar-SA'}){
    setResult(assessPersonalPhasedDevelopment({
     assetClass:'LAND',propertyRight:right,valuationDate,landAreaSqm:parseAmount(area),
     annualDiscountRate:parseAmount(rate),
-    periods:rows.map(r=>({month:r.month===''?NaN:Number(r.month),
+    periods:rows.map(r=>({month:parseAmount(r.month),
      gdvReceiptsSar:parseAmount(r.gdv),constructionCostsSar:parseAmount(r.construction),
      otherDevelopmentCostsSar:parseAmount(r.other)})),
     riskAndDeveloperReturnIncludedInDiscountRate:checks.risk,
@@ -101,7 +101,7 @@ export default function PersonalPhasedDevelopmentDcfPanel({locale='ar-SA'}){
   <div className="flex flex-col gap-3 mt-2">
    {rows.map((r,i)=><div key={i} className="rounded-lg p-3 border border-slate-500/50">
     <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-     <Field label={ar?'الشهر':'Month'} value={r.month} type="number" onChange={v=>changeRow(i,'month',v)}/>
+     <Field label={ar?'الشهر':'Month'} value={r.month} testId="phased-month-input" inputMode="numeric" onChange={v=>changeRow(i,'month',v)}/>
      <Field label={ar?'تحصيل مبيعات المشروع (ر.س)':'GDV receipts SAR'} value={r.gdv} onChange={v=>changeRow(i,'gdv',v)}/>
      <Field label={ar?'تكاليف الإنشاء (ر.س)':'Construction SAR'} value={r.construction} onChange={v=>changeRow(i,'construction',v)}/>
      <Field label={ar?'مصاريف أخرى دون تمويل أو ربح مطور (ر.س)':'Other costs, no financing/profit SAR'}

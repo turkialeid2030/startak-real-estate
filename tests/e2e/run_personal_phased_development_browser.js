@@ -19,17 +19,17 @@ const BASE=process.env.STARTAK_E2E_URL||'http://127.0.0.1:4173';
   await panel.locator('input[type="date"]').fill('2026-10-25');
   const amountInputs=panel.locator('input[inputmode="decimal"]');
   // Area, rate, followed by each period's GDV/construction/other figures.
-  await amountInputs.nth(0).fill('200');
-  await amountInputs.nth(1).fill('0.10');
+  await amountInputs.nth(0).fill('٢٠٠');
+  await amountInputs.nth(1).fill('٠٫١٠');
   await amountInputs.nth(2).fill('0');
   await amountInputs.nth(3).fill('200');
   await amountInputs.nth(4).fill('0');
-  await amountInputs.nth(5).fill('1000');
+  await amountInputs.nth(5).fill('١٬٠٠٠');
   await amountInputs.nth(6).fill('300');
   await amountInputs.nth(7).fill('0');
   await panel.getByTestId('phased-add-month').click();
-  await panel.locator('input[type="number"]').nth(2).fill('24');
-  await amountInputs.nth(8).fill('500');
+  await panel.getByTestId('phased-month-input').nth(2).fill('٢٤');
+  await amountInputs.nth(8).fill('٥٠٠');
   await amountInputs.nth(9).fill('100');
   await amountInputs.nth(10).fill('0');
   const checks=panel.locator('input[type="checkbox"]');
@@ -44,13 +44,29 @@ const BASE=process.env.STARTAK_E2E_URL||'http://127.0.0.1:4173';
   await expect(methodContrast).toContainText('لا تُجمع ولا يُختار المتوسط');
   const shown=await panel.getByTestId('phased-development-pv').innerText();
   assert.ok(shown.includes('766')||shown.includes('٧٦٦'),'expected hand-worked discounted ~766.94 SAR');
+  const months=panel.getByTestId('phased-month-input');
+  await expect(months).toHaveCount(3);
+  await expect(months.nth(2)).toHaveValue('٢٤');
+  // Invalid, fractional or scientific-notation month must NOT be rounded or coerced.
+  for(const bad of ['٢٤٫٥','2e1','-1','١٢٬٥٠٠']){
+   await months.nth(2).fill(bad);
+   await expect(panel.getByTestId('phased-development-result')).toHaveCount(0);
+   await panel.getByTestId('phased-development-calculate').click();
+   await expect(panel.getByTestId('phased-development-reasons')).toContainText('تاريخ شهر الفترة غير صحيح');
+   await expect(panel.getByTestId('phased-development-pv')).toHaveCount(0);
+  }
+  // Persian-Indic digits retain exact integer meaning.
+  await months.nth(2).fill('۲۴');
+  await panel.getByTestId('phased-development-calculate').click();
+  await expect(panel.getByTestId('phased-development-result')).toContainText('القيمة المتبقية البحثية');
+  await expect(panel.getByTestId('phased-development-method-contrast')).toBeVisible();
   await amountInputs.nth(1).fill('0');
   await expect(panel.getByTestId('phased-development-result')).toHaveCount(0);
   await expect(panel.getByTestId('phased-development-method-contrast')).toHaveCount(0);
   await panel.getByTestId('phased-development-calculate').click();
   await expect(panel.getByTestId('phased-development-reasons')).toContainText('معدل صفر');
   await expect(panel.getByTestId('phased-development-pv')).toHaveCount(0);
-  await amountInputs.nth(1).fill('0.10');
+  await amountInputs.nth(1).fill('٠٫١٠');
   await panel.getByTestId('phased-property-right').selectOption('WAQF_RESTRICTED');
   await panel.getByTestId('phased-development-calculate').click();
   await expect(panel.getByTestId('phased-development-reasons')).toContainText('الحق العقاري ليس ملكية كاملة');
