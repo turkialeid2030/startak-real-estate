@@ -1,7 +1,10 @@
 'use strict';
 
 const {ASSET_CLASS}=require('../project-model/project-profile');
-const VERSION='PERSONAL_SECTOR_CASE_ARCHIVE_V1';
+const VERSION='PERSONAL_SECTOR_CASE_ARCHIVE_V2';
+const LEGACY_VERSION='PERSONAL_SECTOR_CASE_ARCHIVE_V1';
+// Never promote a legacy unknown sale to an executed transaction during import.
+const SALE_KIND=Object.freeze(['','EXECUTED_SALE','ASKING_SALE']);
 const MAX_ARCHIVE_BYTES=64*1024;
 const fields=Object.freeze({
  subject:Object.freeze({city:'string',district:'string',subtype:'string',date:'string',area:'string',right:'string'}),
@@ -10,8 +13,9 @@ const fields=Object.freeze({
  cost:Object.freeze({land:'string',replacement:'string',depreciation:'string',excludesBusiness:'boolean'}),
  marketOptions:Object.freeze({unit:'string',quantity:'string',businessExcluded:'boolean',mixedAllocated:'boolean'}),
  policy:Object.freeze({maxDispersion:'string',incomeWeight:'string',costWeight:'string',marketWeight:'string'}),
- comparable:Object.freeze({id:'string',city:'string',district:'string',subtype:'string',right:'string',date:'string',unitValue:'string',source:'string',unit:'string'}),
+ comparable:Object.freeze({id:'string',city:'string',district:'string',subtype:'string',right:'string',date:'string',unitValue:'string',source:'string',unit:'string',saleKind:'string'}),
 });
+const LEGACY_COMPARABLE_FIELDS=Object.freeze({id:'string',city:'string',district:'string',subtype:'string',right:'string',date:'string',unitValue:'string',source:'string',unit:'string'});
 function isPlain(x){return x!==null&&typeof x==='object'&&!Array.isArray(x)&&Object.getPrototypeOf(x)===Object.prototype;}
 function fail(code){throw Object.assign(new Error(code),{code});}
 function canonicalObject(value,schema,label,maxLength=200){
@@ -27,7 +31,7 @@ function canonicalObject(value,schema,label,maxLength=200){
  }
  return result;
 }
-function canonicalState(state){
+function canonicalState(state,{legacy=false}={}){
  if(!isPlain(state))fail('INVALID_STATE');
  const keys=['assetClass','subject','methods','inc','cost','comparables','marketOptions','policy'];
  if(Object.keys(state).length!==keys.length||keys.some(k=>!Object.prototype.hasOwnProperty.call(state,k)))
@@ -37,7 +41,11 @@ function canonicalState(state){
  if(!Array.isArray(state.comparables)||state.comparables.length!==3)fail('INVALID_COMPARABLE_COUNT');
  const result={assetClass:state.assetClass};
  for(const name of ['subject','methods','inc','cost'])result[name]=canonicalObject(state[name],fields[name],name.toUpperCase());
- result.comparables=state.comparables.map(x=>canonicalObject(x,fields.comparable,'COMPARABLE'));
+ result.comparables=state.comparables.map(x=>{
+  const value=canonicalObject(x,legacy?LEGACY_COMPARABLE_FIELDS:fields.comparable,'COMPARABLE');
+  if(!legacy&&!SALE_KIND.includes(value.saleKind))fail('UNRECOGNIZED_COMPARABLE_SALE_STATUS');
+  return value;
+ });
  for(const name of ['marketOptions','policy'])result[name]=canonicalObject(state[name],fields[name],name.toUpperCase());
  return result;
 }
@@ -63,15 +71,16 @@ async function createPersonalSectorCaseArchive(state,{subtle,createdAt}={}){
 }
 async function verifyPersonalSectorCaseArchive(archive,{subtle,expectedAssetClass}={}){
  if(!isPlain(archive)||Object.keys(archive).length!==4)fail('INVALID_ARCHIVE_STRUCTURE');
- if(archive.version!==VERSION||!strictIso(archive.createdAt)||typeof archive.sha256!=='string'
+ if(![VERSION,LEGACY_VERSION].includes(archive.version)||!strictIso(archive.createdAt)||typeof archive.sha256!=='string'
     ||! /^[a-f0-9]{64}$/.test(archive.sha256))fail('ARCHIVE_VERSION_DATE_OR_HASH_INVALID');
- const state=canonicalState(archive.state);
+ const legacy=archive.version===LEGACY_VERSION;
+ const state=canonicalState(archive.state,{legacy});
  if(expectedAssetClass&&state.assetClass!==expectedAssetClass)fail('ASSET_CLASS_MISMATCH');
- const body={version:VERSION,createdAt:archive.createdAt,state};
+ const body={version:archive.version,createdAt:archive.createdAt,state};
  const actual=await digest(body,subtle);
  if(actual!==archive.sha256)fail('ARCHIVE_SHA256_MISMATCH');
  // Never restore calculated results or permissions. Recompute them from
  // the restored inputs so no stale or injected appraisal can be displayed.
- return state;
+ return legacy?{...state,comparables:state.comparables.map(x=>({...x,saleKind:''}))}:state;
 }
-module.exports={VERSION,MAX_ARCHIVE_BYTES,canonicalState,createPersonalSectorCaseArchive,verifyPersonalSectorCaseArchive};
+module.exports={VERSION,LEGACY_VERSION,MAX_ARCHIVE_BYTES,canonicalState,createPersonalSectorCaseArchive,verifyPersonalSectorCaseArchive};
