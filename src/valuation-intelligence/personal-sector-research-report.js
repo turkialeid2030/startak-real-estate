@@ -97,7 +97,7 @@ function verifyPersonalSectorResearchReport(r){
  if(!r||typeof r!=='object'||Array.isArray(r))return false;
  try{
   const {reportHashSha256,...core}=r;
-  if(Object.keys(r).length!==15||r.version!==VERSION||r.purpose!==PURPOSE||
+  if(Object.keys(r).length!==16||r.version!==VERSION||r.purpose!==PURPOSE||
    !/^[a-f0-9]{64}$/.test(reportHashSha256||'')||
    r.professionalAppraisalClaim!==false||r.independentlyVerified!==false||
    r.transactionAuthorityClaim!==false||r.externalGoLiveAuthorized!==false||
