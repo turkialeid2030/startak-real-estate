@@ -19,6 +19,7 @@ const { calcExistingBuilding } = require('../../src/engines/valuation/existing-b
 const { calcLandDevelopment } = require('../../src/engines/valuation/land-development');
 const { EXIT_TRANSACTION_COST_SOURCE } = require('../../src/engines/valuation/exit-transaction-cost-resolver');
 const { LEASE_ROLL_FORWARD_STATUS } = require('../../src/engines/valuation/existing-building-lease-roll-forward-governance');
+const { FINANCIAL_TIMING_BASIS_VERSION, FINANCIAL_TIMING_CONVENTION } = require('../../src/contracts/financial-timing-basis');
 
 const FIXTURE_DIR = path.join(__dirname, 'fixtures');
 const legacy = loadCurrentEngines();
@@ -53,6 +54,7 @@ const CANONICAL_METADATA_FIELDS = [
   'costApproachAccreditedValuation',
   'costApproachMarketValueDetermined',
   'totalAppraisedValueLegacyAlias',
+  'timingBasis',
 ];
 
 function withoutCanonicalMetadata(result) {
@@ -137,12 +139,32 @@ function validCostApproachMetadata(result, fixture) {
     && result.totalAppraisedValueLegacyAlias === true;
 }
 
+function validTimingBasisMetadata(result, fixture) {
+  const t = result.timingBasis;
+  if (!t || t.version !== FINANCIAL_TIMING_BASIS_VERSION ||
+      t.initialInvestmentTiming !== FINANCIAL_TIMING_CONVENTION.INITIAL_INVESTMENT_TIME_ZERO ||
+      t.unleveredCashflowTiming !== FINANCIAL_TIMING_CONVENTION.ANNUAL_END_OF_PERIOD ||
+      t.npvConvention !== FINANCIAL_TIMING_CONVENTION.PERIODIC_ANNUAL_NPV ||
+      t.irrConvention !== FINANCIAL_TIMING_CONVENTION.PERIODIC_ANNUAL_IRR ||
+      t.xnpvUsed !== false || t.xirrUsed !== false ||
+      t.datedCashflowMethod !== false || t.transactionAuthorized !== false) return false;
+  if (fixture.study_type === 'building')
+    return t.terminalValueTiming === FINANCIAL_TIMING_CONVENTION.END_OF_FINAL_HOLD_YEAR &&
+      t.constructionCashflowTiming === FINANCIAL_TIMING_CONVENTION.NOT_APPLICABLE &&
+      t.constructionDebtPeriodsPerYear === null;
+  return t.terminalValueTiming === FINANCIAL_TIMING_CONVENTION.END_OF_FINAL_OPERATING_YEAR &&
+    t.constructionCashflowTiming === FINANCIAL_TIMING_CONVENTION.ANNUAL_END_OF_PERIOD &&
+    t.constructionDebtDrawTiming === FINANCIAL_TIMING_CONVENTION.MONTHLY_BEGINNING_OF_PERIOD &&
+    t.constructionInterestCapitalizationTiming === FINANCIAL_TIMING_CONVENTION.MONTHLY_END_OF_PERIOD &&
+    t.annualConstructionDebtDrawsAreAggregationOnly === true;
+}
 let unexpectedMismatches = 0;
 let intentionalFinancingOverlays = 0;
 let intentionalPriceBasisOverlays = 0;
 let intentionalExitCostMetadataOverlays = 0;
 let intentionalLeaseMetadataOverlays = 0;
 let intentionalCostApproachMetadataOverlays = 0;
+let intentionalTimingBasisMetadataOverlays = 0;
 let legacyVsV2DifferentFixtures = 0;
 
 for (const fid of fixtureFiles) {
@@ -169,6 +191,9 @@ for (const fid of fixtureFiles) {
   if (validCostApproachMetadata(productionV2, fixture)) {
     if (fixture.study_type === 'building') intentionalCostApproachMetadataOverlays += 1;
   } else { unexpectedMismatches += 1; console.log(`${fid}: cost_approach_metadata=INVALID`); }
+
+  if (validTimingBasisMetadata(productionV2, fixture)) intentionalTimingBasisMetadataOverlays += 1;
+  else { unexpectedMismatches += 1; console.log(`${fid}: timing_basis_metadata=INVALID`); }
 
   const isFinancingOverlayCase = fixture.input_set.leverageEnabled === true;
   if (isFinancingOverlayCase) {
@@ -206,6 +231,7 @@ console.log(`INTENTIONAL_PRICE_BASIS_OVERLAYS=${intentionalPriceBasisOverlays}`)
 console.log(`INTENTIONAL_EXIT_COST_METADATA_OVERLAYS=${intentionalExitCostMetadataOverlays}`);
 console.log(`INTENTIONAL_LEASE_METADATA_OVERLAYS=${intentionalLeaseMetadataOverlays}`);
 console.log(`INTENTIONAL_COST_APPROACH_METADATA_OVERLAYS=${intentionalCostApproachMetadataOverlays}`);
+console.log(`INTENTIONAL_TIMING_BASIS_METADATA_OVERLAYS=${intentionalTimingBasisMetadataOverlays}`);
 console.log(`LEGACY_VS_V2_DIFFERENT_FIXTURES=${legacyVsV2DifferentFixtures}`);
 process.exit(
   unexpectedMismatches === 0
@@ -214,6 +240,7 @@ process.exit(
   && intentionalExitCostMetadataOverlays === 2
   && intentionalLeaseMetadataOverlays === 2
   && intentionalCostApproachMetadataOverlays === 2
+  && intentionalTimingBasisMetadataOverlays === fixtureFiles.length
   && legacyVsV2DifferentFixtures > 0
     ? 0
     : 1,
