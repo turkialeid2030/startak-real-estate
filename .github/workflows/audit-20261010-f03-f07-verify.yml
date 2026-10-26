@@ -118,6 +118,7 @@ jobs:
           JS
       - run: npm run build
       - name: Serve production build
+        shell: bash
         run: |
           set -euo pipefail
           (nohup npm run preview -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/owner-study-vite.log 2>&1 &)
