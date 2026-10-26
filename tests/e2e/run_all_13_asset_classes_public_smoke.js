@@ -118,8 +118,8 @@ const BASE=process.env.STARTAK_E2E_URL||'http://127.0.0.1:4173';
   assert.ok(printable.body.includes('lang="ar" dir="rtl"'));
   assert.ok(printable.body.includes('MOJ')===false);
   assert.ok(printable.body.includes('DOC-3')&&printable.body.includes('EXECUTED_SALE'));
-  assert.ok(printable.body.includes(report.reportHashSha256)===false,
-   'time-specific regenerated report must not impersonate a prior report hash');
+  assert.ok(printable.body.includes(report.inputFingerprintSha256),
+   'printable HTML must preserve the same exact study-input SHA as the downloaded JSON');
   assert.ok(!printable.body.includes('<script'));
   await status.selectOption('ASKING_SALE');
   await expect(buttons).toHaveCount(0);
