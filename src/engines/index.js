@@ -7,6 +7,7 @@ const { applyExistingBuildingExitCostGovernance } = require('./valuation/existin
 const { applyExistingBuildingLeaseRollForwardGovernance } = require('./valuation/existing-building-lease-roll-forward-governance');
 const { applyFinancingRemediation } = require('./financing/remediation-wave-b');
 const { STUDY_TYPE, STUDY_TYPE_TO_LEGACY_MODE } = require('../contracts/study-type');
+const { buildFinancialTimingBasis } = require('../contracts/financial-timing-basis');
 const { validateEngineInputs } = require('../validation/numeric-safety');
 const { validateSupportedFinancialHorizons } = require('../validation/financial-horizon-support');
 
@@ -200,6 +201,8 @@ function calculateInvestmentCase({ studyType, inputs, leverageEnabled, assumptio
     ...economicResult,
     ...canonicalMetadata,
     priceBasis: buildPriceBasis(studyType),
+    // P26 metadata: this does not alter NPV, IRR, cashflows or lending authority.
+    timingBasis: buildFinancialTimingBasis(studyType),
   };
 }
 
