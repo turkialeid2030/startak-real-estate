@@ -4,6 +4,7 @@
 const FINANCIAL_RESULT_FIELDS = Object.freeze({
   financialModelVersion: { present: 'BOTH', type: 'string' },
   financialModelStatus: { present: 'BOTH', type: 'VALID | INVALID_ECONOMIC_CASE | INCOMPLETE_INPUTS' },
+  timingBasis: { present: 'BOTH', type: 'object', note: 'Annual period, terminal value, land development construction debt timing metadata only; non-authorizing' },
   assumptionModelVersion: { present: 'EXISTING_BUILDING_ONLY', type: 'LEGACY | V2', note: 'Wave-2 assumption-envelope version carried into deterministic result metadata' },
   assumptionModelDisclosure: { present: 'EXISTING_BUILDING_ONLY', type: 'object', note: 'non-authorizing disclosure metadata for the active assumption model' },
   exitCapSource: { present: 'EXISTING_BUILDING_ONLY', type: 'EXPLICIT | LEGACY_DERIVED | MISSING_REQUIRED' },
