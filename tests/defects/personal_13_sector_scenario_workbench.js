@@ -122,5 +122,8 @@ assert.match(universe,/<PersonalSectorValuationWorkbench key=\{assetClass\} asse
 assert.match(panel,/data-testid="personal-sector-calculate"/);count++;
 assert.match(panel,/data-testid="personal-sector-scenario-output"/);count++;
 assert.match(panel,/لا توجد أرقام افتراضية مخفية/);count++;
-assert.match(panel,/sourceRef:c.source/);count++;
+assert.match(panel,/calculatePersonalSectorCase\(currentState\(\)\)/);count++;
+const reportAdapter=fs.readFileSync(path.join(pathRoot,'src/valuation-intelligence/personal-sector-research-report.js'),'utf8');
+assert.match(reportAdapter,/sourceRef:c.source/);count++;
+assert.match(reportAdapter,/transactionStatus:c.saleKind/);count++;
 console.log('PERSONAL_13_ASSET_CLASS_MULTI_METHOD_SCENARIO_GATE=PASS checks='+count);
