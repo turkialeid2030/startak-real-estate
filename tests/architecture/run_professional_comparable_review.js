@@ -5,13 +5,13 @@ const {compareAdjustments,costReplacementScenario}=require('../../src/market/pro
 const asOf=new Date('2026-10-27T12:00:00Z'),area=1800.25;
 const rows=[
  {id:'synthetic-A',sourceUrl:'https://example.org/a',date:'2026-09-01',
-  pricePerSqm:5200,weightPct:25,transactionStatus:'EXECUTED',basis:'LAND_SQM',
+  pricePerSqm:5200,comparableArea:1700,weightPct:25,transactionStatus:'EXECUTED',basis:'LAND_SQM',
   marketConditionsPct:-8,areaPct:-10},
  {id:'synthetic-B',sourceUrl:'https://example.org/b',date:'2026-09-02',
-  pricePerSqm:4100,weightPct:45,transactionStatus:'EXECUTED',basis:'LAND_SQM',
+  pricePerSqm:4100,comparableArea:1800,weightPct:45,transactionStatus:'EXECUTED',basis:'LAND_SQM',
   areaPct:-5},
  {id:'synthetic-C',sourceUrl:'https://example.org/c',date:'2026-09-03',
-  pricePerSqm:4600,weightPct:30,transactionStatus:'EXECUTED',basis:'LAND_SQM',
+  pricePerSqm:4600,comparableArea:2000,weightPct:30,transactionStatus:'EXECUTED',basis:'LAND_SQM',
   marketConditionsPct:-7,accessPct:3},
 ];
 const base={comparables:rows,subjectArea:area,basis:'LAND_SQM',asOf};
@@ -26,6 +26,12 @@ assert.equal(report.weightedPricePerSqm,4151.05);
 assert.equal(report.scenarioValueSar,7472927.76,'Round weighted price/sqm then multiply by land area');
 assert.equal(report.appraisalCertified,false);
 assert.equal(report.evidenceQualifiedForAutomaticPublication,false);
+const extreme=compareAdjustments({...base,comparables:rows.map((r,i)=>i===0?{...r,comparableArea:150}:r)});
+assert.equal(extreme.status,'ILLUSTRATIVE_HUMAN_REVIEW_REQUIRED');
+assert.equal(extreme.warnings.includes('EXTREME_AREA_RATIO_REQUIRES_EXPERT_REVIEW'),true);
+const areaMissing=compareAdjustments({...base,comparables:rows.map((r,i)=>i===1?{...r,comparableArea:''}:r)});
+assert.equal(areaMissing.status,'ILLUSTRATIVE_HUMAN_REVIEW_REQUIRED');
+
 const offer=compareAdjustments({...base,comparables:rows.map((r,i)=>i===0?{...r,transactionStatus:'OFFER'}:r)});
 assert.equal(offer.status,'ILLUSTRATIVE_HUMAN_REVIEW_REQUIRED');
 assert.equal(offer.offerComparableCount,1);
