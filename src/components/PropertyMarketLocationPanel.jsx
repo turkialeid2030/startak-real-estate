@@ -262,9 +262,17 @@ export default function PropertyMarketLocationPanel() {
         exportedAt:new Date().toISOString()},null,2)],{type:'application/json'});
       const url=URL.createObjectURL(blob),a=document.createElement('a');
       a.href=url;a.download='startak-location-market-personal-study.json';
-      document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
-      setMessage('صُدّرت نسخة شخصية تتضمن المدخلات والافتراضات ومصادرها، دون اعتماد مهني.');
-    } catch { setMessage('تعذر تصدير الدراسة.'); }
+      a.style.display='none';
+      document.body.appendChild(a);
+      a.click();
+      // Do not revoke a blob immediately: asynchronous Chromium downloads
+      // may be delayed by other CI tasks or operating-system scheduling.
+      setTimeout(()=>{a.remove();URL.revokeObjectURL(url);},60000);
+      setMessage('تم إعداد ملف الدراسة وإرسال طلب تنزيله إلى المتصفح؛ يرجى التحقق من قائمة التنزيلات.');
+    } catch(error) {
+      console.error('STARTAK_PERSONAL_STUDY_EXPORT_ERROR',error);
+      setMessage('تعذر إعداد ملف الدراسة للتنزيل. رمز الخطأ: '+String(error?.name||'UNKNOWN'));
+    }
   };
   const latestWindow='آخر 365 يومًا من تاريخ الحساب، وليست بالضرورة معاملات نُفذت اليوم';
   return <section dir="rtl" data-testid="location-market-study" className="mt-6 rounded-2xl border border-[#4B607A] bg-[#141F35] p-4 md:p-6 text-slate-100">

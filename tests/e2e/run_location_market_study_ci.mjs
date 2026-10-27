@@ -27,9 +27,10 @@ try{
  const addr=server.httpServer.address();const url='http://127.0.0.1:'+addr.port+'/';
  browser=await chromium.launch({headless:true,executablePath:findChromiumExecutable(),
  args:['--no-sandbox','--disable-gpu']});
- const page=await browser.newPage({viewport:{width:1280,height:960},locale:'ar-SA'});
+ const page=await browser.newPage({viewport:{width:1280,height:960},locale:'ar-SA',acceptDownloads:true});
  page.setDefaultTimeout(10000);
  page.on('pageerror',e=>result.errors.push(e.message));
+ page.on('console',msg=>{if(msg.type()==='error')result.errors.push('BROWSER_CONSOLE:'+msg.text());});
  await page.addInitScript(()=>{
   const prefix='STARTAK_REAL_ESTATE:SAVED_DEALS:';
   const id='SYNTH-MKT-BUILD-01';
@@ -199,9 +200,15 @@ try{
  assert(segmentText.includes('17,000,000')||segmentText.includes('١٧٬٠٠٠٬٠٠٠'),
   'unit-class rent should match 200 x 125 sqm x annual lease median');
  mark('UNIT_CLASS_CONTRACT_RENT_RECONCILIATION_AND_FORM',true);
- const downloadEvent=page.waitForEvent('download');
+ const downloadEvent=page.waitForEvent('download',{timeout:25000});
  await panel.getByRole('button',{name:'تصدير الدراسة الأولية JSON'}).click();
- const download=await downloadEvent;
+ const download=await downloadEvent.catch(async error=>{
+   const status=await panel.locator('p[role="status"]').allTextContents();
+   throw new Error('PERSONAL_STUDY_DOWNLOAD_NOT_EMITTED; status='+
+     status.filter(x=>/تنزيل|تصدير|خطأ|تعذر/.test(x)).join(' | ').slice(0,700)+
+     '; browserErrors='+result.errors.slice(-4).join(' | ')+
+     '; original='+error.message);
+ });
  const saved=await download.path();
  const exported=JSON.parse(fs.readFileSync(saved,'utf8'));
  assert(exported.kind==='STARTAK_PERSONAL_MARKET_STUDY','missing study identity');
