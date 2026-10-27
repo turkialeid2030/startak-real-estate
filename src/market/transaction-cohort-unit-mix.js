@@ -121,6 +121,7 @@ function evaluateUnitMixRents({subject,unitMix=[],leaseComparables=[],expenseRat
    if(!proximity(subject,r))continue;
    const area=val(r.areaSqm,.01),annualRent=val(r.annualRent,.01);
    if(!area||!annualRent||!unitArea||area/unitArea<.5||area/unitArea>2)continue;
+   if(annualRent/area>1e6)continue;
    const ref=r.sourceRecordId?String(r.sourceRecordId):r.sourceUrl+'|'+r.date+'|'+annualRent+'|'+area;
    if(seenLeases.has(ref))continue;seenLeases.add(ref);
    rates.push(annualRent/area);
@@ -134,6 +135,8 @@ function evaluateUnitMixRents({subject,unitMix=[],leaseComparables=[],expenseRat
    annualGrossMarketRentSar:gross===null?null:round(gross),problems};
  });
  const declaredCount=val(subject?.unitCount,0),declaredNla=val(subject?.rentableArea,.01);
+ if(declaredCount===null)errors.push('DECLARED_UNIT_COUNT_REQUIRED');
+ if(declaredNla===null)errors.push('DECLARED_RENTABLE_AREA_REQUIRED');
  if(declaredCount!==null&&totalUnits!==declaredCount)errors.push('UNIT_COUNT_DOES_NOT_RECONCILE');
  if(declaredNla!==null&&totalNla>declaredNla*1.02)errors.push('MIX_AREA_EXCEEDS_DECLARED_RENTABLE');
  if(declaredNla!==null&&totalNla<declaredNla*.98)warnings.push('MIX_AREA_BELOW_DECLARED_RENTABLE');
