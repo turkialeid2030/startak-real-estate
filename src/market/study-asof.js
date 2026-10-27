@@ -24,4 +24,4 @@ function resolveStudyAsOf(value,clock=()=>new Date()){
  return {asOf,date:day,origin:'USER_VALUATION_DATE',
    issues:[],userSelected:true};
 }
-module.exports={resolveStudyAsOf};
+module.exports={resolveStudyAsOf,localDateString};
