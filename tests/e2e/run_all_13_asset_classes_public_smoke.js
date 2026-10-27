@@ -119,6 +119,18 @@ const BASE=process.env.STARTAK_E2E_URL||'http://127.0.0.1:4173';
   assert.ok(printable.body.includes('lang="ar" dir="rtl"'));
   assert.ok(printable.body.includes('MOJ')===false);
   assert.ok(printable.body.includes('DOC-3')&&printable.body.includes('EXECUTED_SALE'));
+  assert.ok(printable.body.includes('المدينة')&&printable.body.includes('الحي')&&
+    printable.body.includes('نوع العقار')&&printable.body.includes('الحق العقاري')&&
+    printable.body.includes('وحدة المقارنة')&&printable.body.includes('حالة الصفقة'),
+    'Production-visible printable comparables must retain all identity dimensions');
+  assert.ok(printable.body.includes('الملقا')&&printable.body.includes('FREEHOLD')&&
+    printable.body.includes('SQM')&&printable.body.includes('مكاتب'));
+  assert.ok(printable.body.includes('متاح مؤشر طريقة واحدة فقط')&&
+    printable.body.includes('SECOND_INDEPENDENT_METHOD_NOT_PROVIDED'),
+    'Arabic HOLD explanation and stable audit code both required in printed report');
+  assert.ok(printable.body.includes('غير مثبت')&&printable.body.includes('إقرارات ومدخلات المستخدم'),
+    'Printable report must disclose unverified valuation basis and owner-entered source');
+
   assert.ok(printable.body.includes(report.inputFingerprintSha256),
    'printable HTML must preserve the same exact study-input SHA as the downloaded JSON');
   assert.ok(!printable.body.includes('<script'));
