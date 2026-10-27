@@ -94,17 +94,40 @@ function evaluateMarketStudy({ subject, sales = [], rentals = [], projects = [],
   if (!(expenseRatio >= 0 && expenseRatio < 1)) issues.push('EXPENSE_RATIO_INVALID');
   if (!(capRate > 0 && capRate < 1)) issues.push('CAP_RATE_INVALID');
   const radius = 5, ageLimit = 365;
-  const admissible = (row, amountKey, areaKey) => {
-    const amount = number(row?.[amountKey]), area = number(row?.[areaKey]);
+  const sameDistrict = (row) => {
+    const normalize = v => String(v || '').trim().replace(/\\s+/g, ' ').toLowerCase();
+    return Boolean(location && normalize(subject?.city) && normalize(subject?.district) &&
+      normalize(row?.city) === normalize(subject?.city) &&
+      normalize(row?.district) === normalize(subject?.district));
+  };
+  const spatialMatch = (row) => {
     const point = extractCoordinates(row?.location || '');
     const km = distanceKm(location, point);
+    // If a source has coordinate data, distance controls. A different location
+    // >5km away cannot be admitted merely by asserting the same district.
+    if (km !== null) return km <= radius ? 'WITHIN_5_KM' : null;
+    return sameDistrict(row) ? 'SAME_DISTRICT_NO_PARCEL_COORDINATES' : null;
+  };
+  const admissible = (row, amountKey, areaKey) => {
+    const amount = number(row?.[amountKey]), area = number(row?.[areaKey]);
     return Boolean(location && amount > 0 && area > 0 &&
       row?.assetType === type && row?.status === 'EXECUTED' &&
       sourceAvailable(row?.sourceUrl) && dateIsCurrent(row?.date, now, ageLimit) &&
-      km !== null && km <= radius);
+      spatialMatch(row));
   };
-  const eligibleSales = sales.filter(r => admissible(r, 'price', type === 'LAND' ? 'landArea' : 'builtArea'));
-  const eligibleRentals = rentals.filter(r => admissible(r, 'annualRent', 'rentableArea'));
+  const uniqueEligible = (rows,amountKey,areaKey) => {
+    const seen = new Set();
+    return rows.filter(row => {
+      if (!admissible(row,amountKey,areaKey)) return false;
+      const stableId = String(row.sourceRecordId || '').trim();
+      const key = stableId ? row.sourceUrl + '|id|' + stableId :
+        [row.sourceUrl,row.date,row.assetType,row[amountKey],row[areaKey],row.location,row.city,row.district].join('|');
+      if (seen.has(key)) return false;
+      seen.add(key);return true;
+    });
+  };
+  const eligibleSales = uniqueEligible(sales, 'price', type === 'LAND' ? 'landArea' : 'builtArea');
+  const eligibleRentals = uniqueEligible(rentals, 'annualRent', 'rentableArea');
   const saleUnitValues = eligibleSales.map(r => number(r.price) / number(type === 'LAND' ? r.landArea : r.builtArea));
   const rentUnitValues = eligibleRentals.map(r => number(r.annualRent) / number(r.rentableArea));
   const perSqmSale = eligibleSales.length >= 3 ? median(saleUnitValues) : null;
@@ -137,6 +160,8 @@ function evaluateMarketStudy({ subject, sales = [], rentals = [], projects = [],
   return {
     asOf: now.toISOString(), location, assetType: type, subjectArea: basisArea,
     eligibleSalesCount: eligibleSales.length, eligibleRentalsCount: eligibleRentals.length,
+    districtOnlySalesCount: eligibleSales.filter(r=>spatialMatch(r)==='SAME_DISTRICT_NO_PARCEL_COORDINATES').length,
+    districtOnlyRentalsCount: eligibleRentals.filter(r=>spatialMatch(r)==='SAME_DISTRICT_NO_PARCEL_COORDINATES').length,
     excludedSalesCount: sales.length - eligibleSales.length,
     excludedRentalsCount: rentals.length - eligibleRentals.length,
     medianExecutedSaleSarPerSqm: perSqmSale, medianExecutedRentSarPerSqmYear: perSqmRent,
@@ -149,7 +174,7 @@ function evaluateMarketStudy({ subject, sales = [], rentals = [], projects = [],
     rentRegulation, issues,
     hasLiveLicensedFeed: false, independentlyVerified: false, certifiedMarketValue: false,
     evidenceStatus: 'USER_ENTERED_UNVERIFIED',
-    methodology: 'Median of at least three recent (<=365 days), same-type, within-5-km user-supplied executed transactions or leases; two available methods equally reconciled. Subject land/built/rentable areas must use matching bases. No automatic project uplift.',
+    methodology: 'Median of at least three recent (<=365 days), same-type, user-supplied executed transactions or leases: within 5 km where coordinates are available, otherwise only same declared city and district. District approximation disclosed. Two available methods equally reconciled. Subject land/built/rentable areas must use matching bases. No automatic project uplift.',
   };
 }
 module.exports = { ASSET_TYPES, number, extractCoordinates, distanceKm, evaluateMarketStudy };
