@@ -72,7 +72,7 @@ function ComparisonTable({ title, kind, rows, setRows, assetType }) {
 }
 export default function PropertyMarketLocationPanel() {
   const [subject,setSubject]=useState({
-    name:'',assetType:'RESIDENTIAL_COMPOUND',city:'الرياض',district:'',location:'',
+    name:'',assetType:'RESIDENTIAL_COMPOUND',landSubtype:'',city:'الرياض',district:'',location:'',
     landArea:'',builtArea:'',rentableArea:'',buildingCount:'',unitCount:'',floorCount:'',
     roomCount:'',shopCount:'',parkingCount:'',warehouseCount:'',clearHeight:'',loadingDocks:'',
     historicalAnnualRent:'',leaseHistory:'UNKNOWN',urbanBoundary:'UNKNOWN',
@@ -159,6 +159,11 @@ export default function PropertyMarketLocationPanel() {
     <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
       <Field title="اسم العقار" value={subject.name} onChange={v=>updateSubject('name',v)} />
       <Select title="نوع العقار" value={subject.assetType} onChange={v=>updateSubject('assetType',v)} options={assetOptions}/>
+      {subject.assetType==='LAND'&&<Select title="تصنيف الأرض للمقارنات"
+        value={subject.landSubtype} onChange={v=>updateSubject('landSubtype',v)}
+        options={ [['','اختر حالة الأرض'],['RAW','أرض خام غير مخدومة'],['SERVICED','أرض مخدومة ومخططة'],
+         ['RESIDENTIAL','قطعة أرض سكنية'],['COMMERCIAL','قطعة أرض تجارية'],
+         ['AGRICULTURAL','أرض زراعية']] }/>}
       <Field title="المدينة" value={subject.city} onChange={v=>updateSubject('city',v)}/>
       <Field title="الحي" value={subject.district} onChange={v=>updateSubject('district',v)}/>
       <div className="md:col-span-2"><Field title="رابط اللوكيشن من Google Maps أو الإحداثيات" value={subject.location}
