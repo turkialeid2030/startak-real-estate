@@ -34,6 +34,7 @@ const rejectLabels={
 };
 export default function MarketOfferResearchPanel({subject,offers,setOffers}) {
  const [message,setMessage]=useState('');
+ const [reuseAcknowledged,setReuseAcknowledged]=useState(false);
  const research=useMemo(()=>reviewMarketOffers({subject,offers}),[subject,offers]);
  const update=(i,k,v)=>setOffers(old=>old.map((x,j)=>i===j?{...x,[k]:v}:x));
  const add=()=>setOffers(old=>old.length<50?[...old,{...newOffer(),
@@ -41,6 +42,7 @@ export default function MarketOfferResearchPanel({subject,offers,setOffers}) {
  const importCsv=async file=>{
   if(!file)return;
   try{
+   if(!reuseAcknowledged)throw Error('يلزم الإقرار بحق استخدام البيانات قبل الاستيراد');
    if(file.size>512*1024)throw Error('ملف أكبر من نصف ميغابايت');
    const result=importOfferRowsCsv(await file.text());
    setOffers(old=>[...old,...result.offers].slice(0,300));
@@ -70,8 +72,13 @@ export default function MarketOfferResearchPanel({subject,offers,setOffers}) {
       target="_blank" rel="noopener noreferrer">تقارير وزارة العدل</a>
    </div>
    <div className="mt-3">
+    <label className="flex min-h-[40px] items-center gap-3 text-xs text-slate-300">
+     <input type="checkbox" className="h-6 w-6 shrink-0" checked={reuseAcknowledged}
+      onChange={e=>setReuseAcknowledged(e.target.checked)}/>
+      أؤكد امتلاكي حق استخدام بيانات ملف الإعلانات لأغراض البحث
+    </label>
     <label className="block text-xs text-slate-300">استيراد عروض من ملف CSV مرخّص أو أعددته بنفسك
-     <input className={INPUT} type="file" accept=".csv,text/csv,text/plain"
+     <input className={INPUT} disabled={!reuseAcknowledged} type="file" accept=".csv,text/csv,text/plain"
       onChange={async e=>{const f=e.target.files?.[0];e.target.value='';await importCsv(f);}}/>
     </label>
     <p className="mt-1 text-xs text-slate-400">
