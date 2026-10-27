@@ -29,6 +29,9 @@ export async function settleGatewayQuota(binding, input) {
   } catch (_) { return {ok:false,code:'AI_ATOMIC_QUOTA_UNAVAILABLE'}; }
 }
 export function verifiedUsage(payload, protocol) {
+  // Do not interpret an unknown provider protocol as Chat Completions:
+  // usage shape is not proof of an authorized model/billing contract.
+  if (protocol!=='CHAT_COMPLETIONS' && protocol!=='OPENAI_RESPONSES') return null;
   const usage=payload?.usage;
   const input=protocol==='OPENAI_RESPONSES'?usage?.input_tokens:usage?.prompt_tokens;
   const output=protocol==='OPENAI_RESPONSES'?usage?.output_tokens:usage?.completion_tokens;
