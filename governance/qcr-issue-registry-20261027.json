@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "programId": "STARTAK-QCR-2026-10-27",
+  "parentIssue": 747,
+  "sourceProgramPath": "governance/qualification-90-day-program-20261027.json",
+  "mapping": [
+    {
+      "id": "Q01",
+      "issue": 750,
+      "url": "https://github.com/turkialeid2030/startak-real-estate/issues/750"
+    },
+    {
+      "id": "Q02",
+      "issue": 751,
+      "url": "https://github.com/turkialeid2030/startak-real-estate/issues/751"
+    },
+    {
+      "id": "Q03",
+      "issue": 752,
+      "url": "https://github.com/turkialeid2030/startak-real-estate/issues/752"
+    },
+    {
+      "id": "Q04",
+      "issue": 753,
+      "url": "https://github.com/turkialeid2030/startak-real-estate/issues/753"
+    },
+    {
+      "id": "Q05",
+      "issue": 754,
+      "url": "https://github.com/turkialeid2030/startak-real-estate/issues/754"
+    },
+    {
+      "id": "Q06",
+      "issue": 755,
+      "url": "https://github.com/turkialeid2030/startak-real-estate/issues/755"
+    },
+    {
+      "id": "Q07",
+      "issue": 756,
+      "url": "https://github.com/turkialeid2030/startak-real-estate/issues/756"
+    },
+    {
+      "id": "Q08",
+      "issue": 757,
+      "url": "https://github.com/turkialeid2030/startak-real-estate/issues/757"
+    },
+    {
+      "id": "Q09",
+      "issue": 758,
+      "url": "https://github.com/turkialeid2030/startak-real-estate/issues/758"
+    },
+    {
+      "id": "Q10",
+      "issue": 759,
+      "url": "https://github.com/turkialeid2030/startak-real-estate/issues/759"
+    },
+    {
+      "id": "Q11",
+      "issue": 760,
+      "url": "https://github.com/turkialeid2030/startak-real-estate/issues/760"
+    },
+    {
+      "id": "Q12",
+      "issue": 761,
+      "url": "https://github.com/turkialeid2030/startak-real-estate/issues/761"
+    }
+  ]
+}
