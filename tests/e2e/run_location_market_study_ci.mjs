@@ -182,7 +182,7 @@ try{
  await unitMix.getByLabel('فئة الوحدة').selectOption('APARTMENT_2BR');
  await unitMix.getByLabel('عدد وحدات الفئة').fill('200');
  await unitMix.getByLabel('متوسط المساحة لكل وحدة (م²)').fill('125');
- const today=new Date().toISOString().slice(0,10);
+ const today='2026-10-27'; // Same explicit valuation-as-of day supplied above.
  for(let i=0;i<3;i++){
   await unitMix.getByRole('button',{name:'+ إضافة عقد إيجار مقارن'}).click();
   await unitMix.getByLabel('نوع الوحدة المطابق').nth(i).selectOption('APARTMENT_2BR');
@@ -237,6 +237,7 @@ try{
  await linked.getByLabel('اختيار الصفقة لربط دراسة السوق').selectOption('SYNTH-MKT-BUILD-01');
  const savedDealBefore=await page.evaluate(()=>
   localStorage.getItem('STARTAK_REAL_ESTATE:SAVED_DEALS:deal:SYNTH-MKT-BUILD-01'));
+ await linked.getByLabel('أؤكد أن الدراسة تخص العقار نفسه').check();
  await linked.getByRole('button',{name:'حفظ ملحق الدراسة للصفقة المختارة'}).click();
  await linked.getByText('تم حفظ ملحق الدراسة البحثية للصفقة',{exact:false}).waitFor();
  const sidecar=await page.evaluate(()=>localStorage.getItem(
