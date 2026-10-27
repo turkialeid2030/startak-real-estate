@@ -52,6 +52,10 @@ on:
       - '.github/workflows/audit-20261010-f03-f07-verify.yml'
       - '.github/workflows/audit-20261010-deployed-owner-verify.yml'
   workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 env:

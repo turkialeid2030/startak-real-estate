@@ -38,6 +38,10 @@ on:
       - 'tests/e2e/run_location_market_study_ci.mjs'
       - '.github/workflows/location-market-study-verify.yml'
   workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   tests:
     runs-on: ubuntu-latest
