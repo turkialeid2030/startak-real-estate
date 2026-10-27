@@ -177,6 +177,19 @@ try{
  assert(exported.rentAssumptions?.stabilizedOccupancy==='0.90',
   'rent operating assumption missing from export');
  mark('FULL_PERSONAL_STUDY_EXPORT_INCLUDES_UNIT_MIX_LEASE_EVIDENCE',true);
+ await fill('الإيجار السنوي السابق','1');
+ await panel.locator('input[aria-label="استيراد دراسة STARTAK الشخصية JSON"]').setInputFiles({
+  name:'restored-startak.json',mimeType:'application/json',
+  buffer:Buffer.from(fs.readFileSync(saved))
+ });
+ await panel.getByText('استُعيدت مدخلات الدراسة الخاصة محليًا',{exact:false}).waitFor();
+ assert((await unitMix.innerText()).includes('17,000,000')||
+    (await unitMix.innerText()).includes('١٧٬٠٠٠٬٠٠٠'),
+   'restoring study must recalculate the same new-rent output');
+ const historicalAfterImport=await panel.getByLabel('الإيجار السنوي السابق').first().inputValue();
+ assert(historicalAfterImport==='999999999','restored prior rent input did not round-trip');
+ mark('REIMPORT_PERSONAL_STUDY_RESTORES_INPUTS_AND_RECALCULATES_RESULTS',true);
+
 
 
 
