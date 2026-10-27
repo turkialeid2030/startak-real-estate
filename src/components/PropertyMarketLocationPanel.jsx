@@ -8,6 +8,8 @@ import MarketOfferResearchPanel from './MarketOfferResearchPanel.jsx';
 import TransactionCohortAndUnitMixPanel from './TransactionCohortAndUnitMixPanel.jsx';
 const {reviewAskingVsExecuted,evaluateUnitMixRents}=require('../market/transaction-cohort-unit-mix');
 const {MAX_BYTES:MAX_STUDY_BYTES,parsePersonalMarketStudy}=require('../market/market-study-state');
+const {createStorageProvider}=require('../storage/create-storage-provider');
+const {listCanonicalDeals,saveResearchSidecar,loadResearchSidecar}=require('../market/saved-deal-study-sidecar');
 const {auditValuationReadiness}=require('../market/valuation-decision-gate');
 const {evaluateAppraisalReportQuality}=require('../market/property-report-quality');
 import ValuationQualityPanel from './ValuationQualityPanel.jsx';
@@ -106,6 +108,11 @@ export default function PropertyMarketLocationPanel() {
 
 
   const [message,setMessage]=useState('');
+  const [savedDeals,setSavedDeals]=useState([]);
+  const [selectedSavedDealId,setSelectedSavedDealId]=useState('');
+  const [savedDealStudyStatus,setSavedDealStudyStatus]=useState('');
+  const [replaceLinkedStudy,setReplaceLinkedStudy]=useState(false);
+  const [linkedStudyBusy,setLinkedStudyBusy]=useState(false);
   const updateSubject=(key,value)=>setSubject(current=>({...current,[key]:value}));
   const updateAssumption=(key,value)=>setAssumptions(current=>({...current,[key]:value}));
   const allSales=useMemo(()=>[...sales,...importedSales],[sales,importedSales]);
@@ -163,22 +170,71 @@ export default function PropertyMarketLocationPanel() {
     }catch(error){setImportStatus('تعذر الاستيراد: '+(error.message||'CSV_INVALID')+
       '. تحقق من الأعمدة، رابط مجموعة البيانات، وترخيص إعادة استخدامها.');}
   };
+  const makeResearchInputJson=()=>JSON.stringify({
+    kind:'STARTAK_PERSONAL_MARKET_STUDY',subject,assumptions,
+    sales:allSales,rentals:allRentals,projects,marketOffers,unitMix,leaseComparables,rentAssumptions,
+  });
+  const applyResearchStudy=restored=>{
+    setSubject(restored.subject);
+    setAssumptions(restored.assumptions);
+    setSales(restored.sales);
+    setRentals(restored.rentals);
+    setImportedSales([]);
+    setImportedRentals([]);
+    setProjects(restored.projects);
+    setMarketOffers(restored.marketOffers);
+    setUnitMix(restored.unitMix);
+    setLeaseComparables(restored.leaseComparables);
+    setRentAssumptions(restored.rentAssumptions);
+    setPublicRecords([]);setPublicLoadMeta(null);setPublicLoadStatus('');
+    setImportSource('');setRightsConfirmed(false);setImportStatus('');
+  };
+  const refreshCanonicalDeals=async()=>{
+    setSavedDealStudyStatus('');
+    try{
+      const deals=await listCanonicalDeals(createStorageProvider());
+      setSavedDeals(deals);
+      setSelectedSavedDealId(current=>deals.some(x=>x.id===current)?current:'');
+      setSavedDealStudyStatus(deals.length?'اختر الصفقة يدويًا للربط أو لاستعادة دراستها.':'لا توجد صفقات محفوظة في مساحة STARTAK الرئيسية.');
+    }catch(error){setSavedDealStudyStatus('تعذر قراءة سجل الصفقات: '+String(error.code||error.message));}
+  };
+  const saveLinkedStudy=async()=>{
+    if(!selectedSavedDealId){setSavedDealStudyStatus('اختر الصفقة المحفوظة أولًا.');return;}
+    setLinkedStudyBusy(true);
+    try{
+      const saved=await saveResearchSidecar({
+        storage:createStorageProvider(),dealId:selectedSavedDealId,
+        studyJson:makeResearchInputJson(),overwrite:replaceLinkedStudy,
+      });
+      setSavedDealStudyStatus('تم حفظ ملحق الدراسة البحثية للصفقة '+saved.dealId+
+        ' دون تغيير ملف الصفقة المالي الرئيسي أو منحه اعتمادًا مهنيًا.');
+      setReplaceLinkedStudy(false);
+    }catch(error){
+      const reason=String(error.code||error.message);
+      setSavedDealStudyStatus(reason==='SIDECAR_EXISTS_CONFIRM_OVERWRITE'?
+       'هذه الصفقة مرتبطة بدراسة سابقة؛ فعّل موافقة الاستبدال ثم أعد الحفظ.':
+       'تعذر الربط: '+reason);
+    }finally{setLinkedStudyBusy(false);}
+  };
+  const loadLinkedStudy=async()=>{
+    if(!selectedSavedDealId){setSavedDealStudyStatus('اختر الصفقة المحفوظة أولًا.');return;}
+    setLinkedStudyBusy(true);
+    try{
+      const result=await loadResearchSidecar({storage:createStorageProvider(),dealId:selectedSavedDealId});
+      if(!result.found){setSavedDealStudyStatus('لا توجد دراسة بحثية مرتبطة بهذه الصفقة.');return;}
+      applyResearchStudy(result.study);
+      setSavedDealStudyStatus('استُعيدت مدخلات الملحق المرتبط بالصفقة '+result.dealId+
+        '. أعادت المنصة احتساب المؤشرات، ولا يُستعاد أي اعتماد أو سعر معتمد من الملف.');
+      setReplaceLinkedStudy(false);
+    }catch(error){setSavedDealStudyStatus('تعذرت الاستعادة المرتبطة: '+String(error.code||error.message));}
+    finally{setLinkedStudyBusy(false);}
+  };
   const restoreJson=async file=>{
     if(!file)return;
     try{
       if(file.size>MAX_STUDY_BYTES)throw Error('STUDY_SIZE_LIMIT');
       const restored=parsePersonalMarketStudy(await file.text()).study;
-      setSubject(restored.subject);
-      setAssumptions(restored.assumptions);
-      setSales(restored.sales);
-      setRentals(restored.rentals);
-      setImportedSales([]);
-      setImportedRentals([]);
-      setProjects(restored.projects);
-      setMarketOffers(restored.marketOffers);
-      setUnitMix(restored.unitMix);
-      setLeaseComparables(restored.leaseComparables);
-      setRentAssumptions(restored.rentAssumptions);
+      applyResearchStudy(restored);
       setMessage('استُعيدت مدخلات الدراسة الخاصة محليًا؛ أُعيد حساب النتائج دون الثقة في أرقام قديمة أو ادعاءات اعتماد داخل الملف.');
     }catch(error){setMessage('فشل استيراد ملف الدراسة: '+String(error.message||'STUDY_INVALID'));}
   };
@@ -394,6 +450,47 @@ export default function PropertyMarketLocationPanel() {
        setRentAssumptions={setRentAssumptions}/>
     <ProfessionalComparableReviewPanel subject={subject} sales={allSales}/>
     <CrossMethodEvidencePanel subject={subject} report={report}/>
+    <section data-testid="saved-deal-market-study-link"
+      className="mt-5 rounded-xl border border-slate-600 bg-[#14263C] p-4">
+      <h3 className="text-sm font-semibold text-amber-100">ربط الدراسة البحثية بصفقة محفوظة في STARTAK</h3>
+      <p className="mt-2 text-xs leading-6 text-slate-300">
+        يحفظ هذا المسار نسخة من مدخلات الدراسة كملحق مستقل للصفقة التي تحددها، ولا يعدل أرقام
+        المدخلات المالية الأساسية أو السجل المعياري أو الموافقات. حفظ محلي حسب موفر التخزين المتاح،
+        وقد لا تتاح النسخة من جهاز آخر؛ احتفظ أيضًا بنسخة JSON خاصة.
+      </p>
+      <div className="mt-3 flex flex-wrap items-end gap-3">
+        <button type="button" disabled={linkedStudyBusy} onClick={refreshCanonicalDeals}
+          className="min-h-[40px] rounded-lg border border-amber-600 px-3 py-2 text-xs text-amber-100">
+          تحديث قائمة الصفقات المحفوظة
+        </button>
+        <label className="text-xs text-slate-300 flex-1 min-w-[220px]">
+          اختر الصفقة المراد ربط الدراسة بها (اختيار صريح)
+          <select className="mt-1 w-full min-h-[40px] rounded-lg border border-slate-600 bg-[#101c30] px-3 py-2"
+            aria-label="اختيار الصفقة لربط دراسة السوق"
+            value={selectedSavedDealId}
+            onChange={e=>{setSelectedSavedDealId(e.target.value);setReplaceLinkedStudy(false);}}>
+            <option value="">— اختر صفقة محفوظة —</option>
+            {savedDeals.map(deal=><option key={deal.id} value={deal.id}>{deal.name} ({deal.id})</option>)}
+          </select>
+        </label>
+      </div>
+      <label className="mt-3 min-h-[40px] inline-flex items-center gap-2 text-xs text-slate-300">
+        <input type="checkbox" className="h-6 w-6" checked={replaceLinkedStudy}
+          onChange={e=>setReplaceLinkedStudy(e.target.checked)}/>
+        أوافق على استبدال ملحق دراسة محفوظ سابقًا لهذه الصفقة
+      </label>
+      <div className="flex flex-wrap gap-2 mt-3">
+        <button type="button" disabled={linkedStudyBusy||!selectedSavedDealId}
+          onClick={saveLinkedStudy} className="min-h-[40px] rounded-lg bg-[#C9A24C] px-4 py-2 text-xs font-semibold text-[#141F35] disabled:opacity-50">
+          حفظ ملحق الدراسة للصفقة المختارة
+        </button>
+        <button type="button" disabled={linkedStudyBusy||!selectedSavedDealId}
+          onClick={loadLinkedStudy} className="min-h-[40px] rounded-lg border border-slate-600 px-4 py-2 text-xs text-slate-100 disabled:opacity-50">
+          استعادة ملحق الدراسة المرتبط
+        </button>
+      </div>
+      <p role="status" className="mt-3 text-xs text-amber-200">{savedDealStudyStatus}</p>
+    </section>
     <div className="flex flex-wrap gap-3 mt-4">
       <button type="button" onClick={exportJson} className="rounded-lg bg-[#C9A24C] px-4 py-2 text-xs font-semibold text-[#141F35]">تصدير الدراسة الأولية JSON</button>
       <label className="inline-flex flex-wrap items-center gap-2 rounded-lg border border-slate-600 px-3 py-2 text-xs text-slate-100">
