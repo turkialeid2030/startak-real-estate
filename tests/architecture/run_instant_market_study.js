@@ -76,4 +76,13 @@ assert.equal(invalidRates.incomeIndicationSar,null);
 assert.equal(invalidRates.saleIndicationSar,180e6);
 const firstLease=study({subject:{...subject,leaseHistory:'FIRST_LEASE'}});
 assert.equal(firstLease.rentRegulation,'FIRST_LEASE_TERMS_REQUIRE_REVIEW');
+const hotel=study({
+  subject:{...subject,assetType:'HOTEL',roomCount:'150'},
+  sales:sales.map(x=>({...x,assetType:'HOTEL'})),
+  rentals:rentals.map(x=>({...x,assetType:'HOTEL'})),
+});
+assert.equal(hotel.todayValueScenarioSar,null,'hotel business cannot be valued using generic NLA rent');
+assert.equal(hotel.marketAnnualRentPotentialSar,null,'hotel rooms require ADR/RevPAR not simple residential rent');
+assert.equal(hotel.confidence,'NO_SUPPORTED_PRIMARY_VALUE');
+assert.equal(hotel.issues.includes('SPECIALIST_ASSET_REQUIRES_SECTOR_UNDERWRITING'),true);
 console.log('STARTAK location market scenario tests: PASS (all assertions)');
