@@ -6,6 +6,7 @@ import ProfessionalComparableReviewPanel from './ProfessionalComparableReviewPan
 import CrossMethodEvidencePanel from './CrossMethodEvidencePanel.jsx';
 import MarketOfferResearchPanel from './MarketOfferResearchPanel.jsx';
 import TransactionCohortAndUnitMixPanel from './TransactionCohortAndUnitMixPanel.jsx';
+const {reviewAskingVsExecuted,evaluateUnitMixRents}=require('../market/transaction-cohort-unit-mix');
 
 const INPUT = 'w-full rounded-lg border border-slate-600 bg-[#101c30] px-3 py-2 text-sm text-slate-100';
 const createRow = () => ({ assetType:'', status:'ASKING', price:'', annualRent:'', builtArea:'', landArea:'',
@@ -83,6 +84,9 @@ export default function PropertyMarketLocationPanel() {
   const [rentals,setRentals]=useState(Array.from({length:3},createRow));
   const [projects,setProjects]=useState([blankProject()]);
   const [marketOffers,setMarketOffers]=useState([]);
+  const [unitMix,setUnitMix]=useState([]);
+  const [leaseComparables,setLeaseComparables]=useState([]);
+  const [rentAssumptions,setRentAssumptions]=useState({expenseRatio:'0.20',stabilizedOccupancy:'0.90'});
   const [importedSales,setImportedSales]=useState([]);
   const [importedRentals,setImportedRentals]=useState([]);
   const [importSource,setImportSource]=useState('');
@@ -101,6 +105,12 @@ export default function PropertyMarketLocationPanel() {
   const allRentals=useMemo(()=>[...rentals,...importedRentals],[rentals,importedRentals]);
   const report=useMemo(()=>evaluateMarketStudy({subject,sales:allSales,rentals:allRentals,projects,assumptions}),
     [subject,allSales,allRentals,projects,assumptions]);
+  const askingVsExecutedCohorts=useMemo(()=>reviewAskingVsExecuted({
+    subject,askingOffers:marketOffers,executedSales:allSales,
+  }),[subject,marketOffers,allSales]);
+  const segmentedMarketRents=useMemo(()=>evaluateUnitMixRents({
+    subject,unitMix,leaseComparables,...rentAssumptions,
+  }),[subject,unitMix,leaseComparables,rentAssumptions]);
   const coords=extractCoordinates(subject.location);
   const publicNeighborhood=useMemo(()=>deriveDistrictSnapshot(publicRecords,{
     city:subject.city,district:subject.district,
@@ -143,7 +153,8 @@ export default function PropertyMarketLocationPanel() {
   const exportJson=()=>{
     try {
       const blob=new Blob([JSON.stringify({kind:'STARTAK_PERSONAL_MARKET_STUDY',subject,assumptions,
-        sales:allSales,rentals:allRentals,projects,marketOffers,report,exportedAt:new Date().toISOString()},null,2)],{type:'application/json'});
+        sales:allSales,rentals:allRentals,projects,marketOffers,unitMix,leaseComparables,rentAssumptions,
+        askingVsExecutedCohorts,segmentedMarketRents,report,exportedAt:new Date().toISOString()},null,2)],{type:'application/json'});
       const url=URL.createObjectURL(blob),a=document.createElement('a');
       a.href=url;a.download='startak-location-market-personal-study.json';
       document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
@@ -320,7 +331,10 @@ export default function PropertyMarketLocationPanel() {
       <p className="mt-2 text-xs text-slate-400">بيانات مقارنة يُقر بها المستخدم ولم يُتحقق منها مستقلاً. لا توجد تغذية لحظية مرخّصة متصلة. لا تستعمل هذه النتيجة كتقييم رسمي أو أساس قرار شراء ملزم.</p>
     </div>
     <MarketOfferResearchPanel subject={subject} offers={marketOffers} setOffers={setMarketOffers}/>
-    <TransactionCohortAndUnitMixPanel subject={subject} sales={allSales} askingOffers={marketOffers}/>
+    <TransactionCohortAndUnitMixPanel subject={subject} sales={allSales} askingOffers={marketOffers}
+       unitMix={unitMix} setUnitMix={setUnitMix} leaseComparables={leaseComparables}
+       setLeaseComparables={setLeaseComparables} rentAssumptions={rentAssumptions}
+       setRentAssumptions={setRentAssumptions}/>
     <ProfessionalComparableReviewPanel subject={subject} sales={allSales}/>
     <CrossMethodEvidencePanel subject={subject} report={report}/>
     <div className="flex flex-wrap gap-3 mt-4">
