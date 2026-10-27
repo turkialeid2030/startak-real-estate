@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 const { ASSET_TYPES, extractCoordinates, evaluateMarketStudy } = require('../market/instant-market-study');
+const { prepareImportCsv,MAX_CSV_BYTES } = require('../market/public-dataset-import');
 
 const INPUT = 'w-full rounded-lg border border-slate-600 bg-[#101c30] px-3 py-2 text-sm text-slate-100';
 const createRow = () => ({ assetType:'', status:'ASKING', price:'', annualRent:'', builtArea:'', landArea:'',
@@ -72,16 +73,37 @@ export default function PropertyMarketLocationPanel() {
   const [sales,setSales]=useState(Array.from({length:3},createRow));
   const [rentals,setRentals]=useState(Array.from({length:3},createRow));
   const [projects,setProjects]=useState([blankProject()]);
+  const [importedSales,setImportedSales]=useState([]);
+  const [importedRentals,setImportedRentals]=useState([]);
+  const [importSource,setImportSource]=useState('');
+  const [rightsConfirmed,setRightsConfirmed]=useState(false);
+  const [importStatus,setImportStatus]=useState('');
+
   const [message,setMessage]=useState('');
   const updateSubject=(key,value)=>setSubject(current=>({...current,[key]:value}));
   const updateAssumption=(key,value)=>setAssumptions(current=>({...current,[key]:value}));
-  const report=useMemo(()=>evaluateMarketStudy({subject,sales,rentals,projects,assumptions}),[subject,sales,rentals,projects,assumptions]);
+  const allSales=useMemo(()=>[...sales,...importedSales],[sales,importedSales]);
+  const allRentals=useMemo(()=>[...rentals,...importedRentals],[rentals,importedRentals]);
+  const report=useMemo(()=>evaluateMarketStudy({subject,sales:allSales,rentals:allRentals,projects,assumptions}),
+    [subject,allSales,allRentals,projects,assumptions]);
   const coords=extractCoordinates(subject.location);
   const updateProject=(i,key,v)=>setProjects(old=>old.map((r,j)=>j===i?{...r,[key]:v}:r));
+  const importLocalCsv=async (file,kind)=>{
+    if(!file)return;
+    try {
+      if(file.size>MAX_CSV_BYTES)throw new Error('CSV_SIZE_LIMIT');
+      const data=prepareImportCsv(await file.text(),{kind,datasetUrl:importSource,rightsConfirmed});
+      if(kind==='sale')setImportedSales(data.rows);
+      else setImportedRentals(data.rows);
+      setImportStatus('استوردت '+data.rows.length+' سجلاً — منها '+data.skipped+
+        ' غير مثبت التنفيذ وفق الحالة المعلنة، وستُستبعد. المصدر غير متحقق منه آليًا.');
+    }catch(error){setImportStatus('تعذر الاستيراد: '+(error.message||'CSV_INVALID')+
+      '. تحقق من الأعمدة، رابط مجموعة البيانات، وترخيص إعادة استخدامها.');}
+  };
   const exportJson=()=>{
     try {
       const blob=new Blob([JSON.stringify({kind:'STARTAK_PERSONAL_MARKET_STUDY',subject,assumptions,
-        sales,rentals,projects,report,exportedAt:new Date().toISOString()},null,2)],{type:'application/json'});
+        sales:allSales,rentals:allRentals,projects,report,exportedAt:new Date().toISOString()},null,2)],{type:'application/json'});
       const url=URL.createObjectURL(blob),a=document.createElement('a');
       a.href=url;a.download='startak-location-market-personal-study.json';
       document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
@@ -125,6 +147,37 @@ export default function PropertyMarketLocationPanel() {
       <Field title="معدل الرسملة ككسر" value={assumptions.capRate} onChange={v=>updateAssumption('capRate',v)}/>
     </div>
     <p className="text-xs text-amber-200 mt-2">النسب الموضوعة مبدئيًا أمثلة قابلة للتعديل وليست تقديرات سوقية للحي أو العقار.</p>
+    <section className="mt-5 rounded-xl border border-slate-600 bg-[#1A2942] p-3" data-testid="public-csv-import">
+      <h3 className="text-sm font-semibold text-amber-100">استيراد مقارنات من ملفات بيانات مصرح بها — بدون API</h3>
+      <p className="mt-2 text-xs leading-6 text-slate-300">يمكن فتح مواقع البيانات العامة، ثم تنزيل ملف CSV مرخص وإدخاله محليًا. لا تسحب المنصة محتوى سهيل أو المؤشرات العقارية آليًا ولا تتجاوز تسجيل الدخول. تُعرض الصفقة كمقارنة منفذة فقط إذا صرّح عمود الحالة بذلك. يُشترط تاريخ، نوع عقار، سعر، مساحة، مصدر، وموقع أو مدينة وحي متطابقان.</p>
+      <p className="mt-1 text-xs text-amber-200">رؤوس أعمدة CSV المدعومة: نوع العقار، حالة الصفقة، تاريخ الصفقة، قيمة الصفقة أو الإيجار السنوي، المساحة المبنية أو التأجيرية، المدينة، الحي، الإحداثيات، رابط المصدر، رقم الصفقة. يدعم المستورد كذلك أسماء أعمدة إنجليزية مكافئة. لا تُعد إحصاءات متوسط الحي ثلاث صفقات منفذة مستقلة.</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
+        <Field title="رابط مجموعة البيانات المفتوحة أو المصدر المرخّص (HTTPS)" value={importSource}
+          onChange={v=>{setImportSource(v);setRightsConfirmed(false);}} placeholder="https://..."/>
+        <label className="flex items-center gap-2 text-xs text-slate-200">
+          <input type="checkbox" checked={rightsConfirmed} onChange={e=>setRightsConfirmed(e.target.checked)}/>
+          أؤكد أن لي حق استخدام هذه البيانات وإعادة تحليلها
+        </label>
+        <label className="block text-xs text-slate-200">تحميل CSV لصفقات بيع منفّذة
+          <input className={INPUT+' mt-1'} type="file" accept=".csv,text/csv,text/plain"
+            onChange={async e=>{const file=e.target.files?.[0];e.target.value='';await importLocalCsv(file,'sale');}}/>
+        </label>
+        <label className="block text-xs text-slate-200">تحميل CSV لعقود الإيجار المنفّذة
+          <input className={INPUT+' mt-1'} type="file" accept=".csv,text/csv,text/plain"
+            onChange={async e=>{const file=e.target.files?.[0];e.target.value='';await importLocalCsv(file,'rent');}}/>
+        </label>
+      </div>
+      <p role="status" className="mt-2 text-xs text-amber-200">{importStatus}</p>
+      <p className="mt-2 text-xs text-slate-300">سجلات البيع المستوردة: {importedSales.length} | سجلات الإيجار المستوردة: {importedRentals.length}</p>
+      <div className="flex gap-3 mt-2">
+        <button type="button" className="text-xs text-rose-200 underline"
+          onClick={()=>{setImportedSales([]);setImportedRentals([]);setImportStatus('تم مسح المقارنات المستوردة من جلسة الصفحة.');}}>
+          مسح المقارنات المستوردة
+        </button>
+        <a className="text-xs text-sky-200 underline" target="_blank" rel="noopener noreferrer"
+          href="https://www.moj.gov.sa/ar/opendata/Pages/reports.aspx">تقارير الصفقات العقارية — وزارة العدل</a>
+      </div>
+    </section>
     <div className="mt-5 space-y-4">
       <ComparisonTable title="مقارنات البيع — لإنشاء مؤشر القيمة" kind="sale" rows={sales} setRows={setSales} assetType={subject.assetType}/>
       <ComparisonTable title="مقارنات الإيجار الجديد — مستقل عن الإيجار السابق" kind="rent" rows={rentals} setRows={setRentals} assetType={subject.assetType}/>
@@ -155,7 +208,8 @@ export default function PropertyMarketLocationPanel() {
         <div><span className="text-xs text-slate-400">مؤشر الدخل بالرسملة</span><strong className="block">{money(report.incomeIndicationSar)}</strong></div>
         <div><span className="text-xs text-slate-400">متوسط الإيجار السوقي لكل وحدة (تقريبي)</span><strong className="block">{money(report.averageMarketAnnualRentPerUnitSar)}</strong></div>
       </div>
-      <p className="text-xs text-slate-300 mt-3">مقارنات البيع المقبولة: {report.eligibleSalesCount} من {sales.length} | الإيجار المقبولة: {report.eligibleRentalsCount} من {rentals.length} | المشروعات ذات مصدر: {report.nearbyProjects.length}</p>
+      <p className="text-xs text-slate-300 mt-3">مقارنات البيع المقبولة: {report.eligibleSalesCount} من {allSales.length} | الإيجار المقبولة: {report.eligibleRentalsCount} من {allRentals.length} | المشروعات ذات مصدر: {report.nearbyProjects.length}</p>
+      <p className="text-xs text-slate-300 mt-2">مقارنات بلا إحداثيات للقطعة، قُبلت فقط على أساس تطابق الحي والمدينة: بيع {report.districtOnlySalesCount}، إيجار {report.districtOnlyRentalsCount}. تقريبي ولا يثبت البعد الحقيقي عن العقار.</p>
       <p className="text-xs text-amber-200 mt-2">الأثر الافتراضي للمشروعات على القيمة، منفصل عن الأساس: {money(report.projectScenarioSar)}. يتطلب إثباتًا مستقلًا لعلاقة التأثير وليس مجرد قرب المشروع.</p>
       <p className="text-xs text-rose-200 mt-2">
         الإيجار المسموح نظاميًا: غير محسوب آليًا. {report.rentRegulation==='EXISTING_RENT_FREEZE_REQUIRES_EJAR_REVIEW'
@@ -168,6 +222,7 @@ export default function PropertyMarketLocationPanel() {
     <div className="flex flex-wrap gap-3 mt-4">
       <button type="button" onClick={exportJson} className="rounded-lg bg-[#C9A24C] px-4 py-2 text-xs font-semibold text-[#141F35]">تصدير الدراسة الأولية JSON</button>
       <a className="rounded-lg border border-slate-600 px-4 py-2 text-xs text-sky-300" target="_blank" rel="noopener noreferrer" href="https://rei.rega.gov.sa/">المؤشرات العقارية الرسمية</a>
+      <a className="rounded-lg border border-slate-600 px-4 py-2 text-xs text-sky-300" target="_blank" rel="noopener noreferrer" href="https://suhail.ai/Riyadh/transactions">استعراض سهيل في تبويب مستقل (دون سحب)</a>
       <a className="rounded-lg border border-slate-600 px-4 py-2 text-xs text-sky-300" target="_blank" rel="noopener noreferrer" href="https://srem.moj.gov.sa/">الصفقات المسجلة — وزارة العدل</a>
       <a className="rounded-lg border border-slate-600 px-4 py-2 text-xs text-sky-300" target="_blank" rel="noopener noreferrer" href="https://opendata.rcrc.gov.sa/">بيانات ومشاريع مدينة الرياض المكانية</a>
     </div>
