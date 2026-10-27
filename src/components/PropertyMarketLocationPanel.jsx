@@ -19,6 +19,9 @@ const labelMap = {
   OCCUPANCY_INVALID:'نسبة الإشغال يجب أن تكون بين 0 و1',
   EXPENSE_RATIO_INVALID:'نسبة المصروفات يجب أن تكون بين 0 و1',
   CAP_RATE_INVALID:'معدل الرسملة يجب أن يكون أكبر من صفر وأقل من 1',
+  LAND_AREA_REQUIRED:'مساحة الأرض مطلوبة',BUILT_AREA_REQUIRED:'المساحة المبنية مطلوبة',
+  HOTEL_ROOM_COUNT_REQUIRED:'عدد غرف الفندق مطلوب',
+  SPECIALIST_ASSET_REQUIRES_SECTOR_UNDERWRITING:'الأصل متخصص: يلزم منهج دخل قطاعي مستقل ولا يمكن اعتماد نموذج الإيجار العام',
 };
 function Field({ title, value, onChange, type='text', placeholder='' }) {
   return <label className="block min-w-0 text-xs text-slate-300">{title}
@@ -68,6 +71,7 @@ export default function PropertyMarketLocationPanel() {
   const [subject,setSubject]=useState({
     name:'',assetType:'RESIDENTIAL_COMPOUND',city:'الرياض',district:'',location:'',
     landArea:'',builtArea:'',rentableArea:'',buildingCount:'',unitCount:'',floorCount:'',
+    roomCount:'',shopCount:'',parkingCount:'',warehouseCount:'',clearHeight:'',loadingDocks:'',
     historicalAnnualRent:'',leaseHistory:'UNKNOWN',urbanBoundary:'UNKNOWN',
   });
   const [assumptions,setAssumptions]=useState({occupancy:'0.9',expenseRatio:'0.20',capRate:'0.075'});
@@ -161,6 +165,14 @@ export default function PropertyMarketLocationPanel() {
       <Field title="عدد العمائر/المباني" value={subject.buildingCount} onChange={v=>updateSubject('buildingCount',v)}/>
       <Field title="عدد الوحدات (شقق/مكاتب/معارض)" value={subject.unitCount} onChange={v=>updateSubject('unitCount',v)}/>
       <Field title="عدد الأدوار (للتوثيق)" value={subject.floorCount} onChange={v=>updateSubject('floorCount',v)}/>
+      {(subject.assetType==='HOTEL')&&<Field title="عدد الغرف والمفاتيح الفندقية" value={subject.roomCount} onChange={v=>updateSubject('roomCount',v)}/>}
+      {(['COMMERCIAL_MALL','COMMERCIAL_COMPLEX','MIXED_USE'].includes(subject.assetType))&&<Field title="عدد المحلات والمعارض التجارية" value={subject.shopCount} onChange={v=>updateSubject('shopCount',v)}/>}
+      {(['WAREHOUSE','LOGISTICS_PARK','INDUSTRIAL_PROPERTY'].includes(subject.assetType))&&<>
+        <Field title="عدد المستودعات أو الوحدات اللوجستية" value={subject.warehouseCount} onChange={v=>updateSubject('warehouseCount',v)}/>
+        <Field title="الارتفاع الصافي الداخلي بالمتر" value={subject.clearHeight} onChange={v=>updateSubject('clearHeight',v)}/>
+        <Field title="عدد بوابات التحميل والتفريغ" value={subject.loadingDocks} onChange={v=>updateSubject('loadingDocks',v)}/>
+      </>}
+      <Field title="مواقف السيارات" value={subject.parkingCount} onChange={v=>updateSubject('parkingCount',v)}/>
       <Field title="الإيجار السنوي السابق (مرجع نظامي فقط)" value={subject.historicalAnnualRent} onChange={v=>updateSubject('historicalAnnualRent',v)}/>
       <Select title="تاريخ إشغال/تأجير الوحدة" value={subject.leaseHistory} onChange={v=>updateSubject('leaseHistory',v)}
         options={ [['UNKNOWN','غير معروف'],['PREVIOUSLY_LEASED','سبق تأجيرها'],['FIRST_LEASE','أول تأجير']] }/>
@@ -278,6 +290,14 @@ export default function PropertyMarketLocationPanel() {
         <div><span className="text-xs text-slate-400">مؤشر الدخل بالرسملة</span><strong className="block">{money(report.incomeIndicationSar)}</strong></div>
         <div><span className="text-xs text-slate-400">متوسط الإيجار السوقي لكل وحدة (تقريبي)</span><strong className="block">{money(report.averageMarketAnnualRentPerUnitSar)}</strong></div>
       </div>
+      <p className="mt-2 text-xs text-amber-200">مستوى الثقة: {report.confidence==='NO_SUPPORTED_PRIMARY_VALUE'?
+        'لا توجد قيمة أولية مؤهلة' : 'مؤشر أولي غير متحقق مهنيًا'}.
+        {report.specialistReason?' يلزم نموذج قطاعي متكامل للأصل المتخصص قبل إنتاج سعر رئيسي.':''}
+      </p>
+      {report.saleDispersion&&<p className="mt-1 text-xs text-slate-300">
+        مدى أسعار بيع المتر المقبولة: {money(report.saleDispersion.min)} إلى {money(report.saleDispersion.max)}.
+        الاتساع النسبي للمدى: {(report.saleDispersion.spreadToMedian*100).toFixed(1)}% — لا يمثل حد ثقة إحصائيًا.
+      </p>}
       <p className="text-xs text-slate-300 mt-3">مقارنات البيع المقبولة: {report.eligibleSalesCount} من {allSales.length} | الإيجار المقبولة: {report.eligibleRentalsCount} من {allRentals.length} | المشروعات ذات مصدر: {report.nearbyProjects.length}</p>
       <p className="text-xs text-slate-300 mt-2">مقارنات بلا إحداثيات للقطعة، قُبلت فقط على أساس تطابق الحي والمدينة: بيع {report.districtOnlySalesCount}، إيجار {report.districtOnlyRentalsCount}. تقريبي ولا يثبت البعد الحقيقي عن العقار.</p>
       <p className="text-xs text-amber-200 mt-2">الأثر الافتراضي للمشروعات على القيمة، منفصل عن الأساس: {money(report.projectScenarioSar)}. يتطلب إثباتًا مستقلًا لعلاقة التأثير وليس مجرد قرب المشروع.</p>
