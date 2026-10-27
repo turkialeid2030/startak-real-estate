@@ -143,5 +143,12 @@ isHold(go({},[]),STATUS.HOLD_COHORT,'SAMPLE_SIZE_MISSING_OR_EXCEEDS_BOUND');
 isHold(go({slices:[policy().slices[0],policy().slices[0],
   ...policy().slices.slice(1)]}),STATUS.HOLD_PROTOCOL,
   'INVALID_OR_DUPLICATE_SLICE_1');
+// Untrusted candidate protocols must fail before unbounded metadata loops.
+isHold(go({calibrationAssetIds:Array.from({length:10001},(_,i)=>'CAL-'+i)}),
+  STATUS.HOLD_PROTOCOL,'CALIBRATION_ASSET_IDS_LIMIT_EXCEEDED');
+isHold(go({slices:Array.from({length:129},(_,i)=>({
+  ...policy().slices[0],value:'Region-'+i
+}))}),
+  STATUS.HOLD_PROTOCOL,'REGISTERED_SLICES_LIMIT_EXCEEDED');
 console.log('N06_TIME_FORWARD_HOLDOUT=PASS checks='+checks+
   ' UNVERIFIED_EXTERNAL_AUTHORITIES_REMAIN_FALSE=PASS');

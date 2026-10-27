@@ -120,4 +120,12 @@ check('systematic signed bias can fail even when sample exists', () => {
   assert.strictEqual(evaluateExternalValuationValidation({ observations, policy: p }).status, STATUS.HOLD_THRESHOLD);
 });
 
+check('direct external validation rejects oversized observation arrays before processing', () => {
+  const observations = Array.from({ length: 10001 }, () => observation());
+  const out = evaluateExternalValuationValidation({observations, policy:policy()});
+  assert.strictEqual(out.status, STATUS.HOLD_EVIDENCE);
+  assert.deepStrictEqual(out.reasons, ['SAMPLE_SIZE_EXCEEDS_BOUND']);
+  assert.strictEqual(out.productionDecisionAuthorized, false);
+});
+
 console.log(`EXTERNAL_VALUATION_VALIDATION_V1=PASS checks=${checks}`);
