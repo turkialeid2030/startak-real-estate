@@ -41,8 +41,10 @@ function extractCoordinates(input) {
   try { url = new URL(raw); } catch { return null; }
   if (url.protocol !== 'https:' || !['google.com', 'www.google.com', 'maps.google.com', 'maps.app.goo.gl', 'goo.gl'].includes(url.hostname)) return null;
   // Shortened map links cannot be resolved locally. Never guess their position.
-  let match = url.href.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);
-  if (!match) match = url.href.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/);
+  // Prefer an explicitly pinned location (!3d..!4d) over the camera
+  // center (@lat,lng). Google Maps often places the camera away from the pin.
+  let match = url.href.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/);
+  if (!match) match = url.href.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);
   if (!match) {
     for (const key of ['q', 'query', 'll', 'center']) {
       const value = url.searchParams.get(key);
@@ -125,7 +127,14 @@ function evaluateMarketStudy({ subject, sales = [], rentals = [], projects = [],
   };
   const admissible = (row, amountKey, areaKey) => {
     const amount = number(row?.[amountKey]), area = number(row?.[areaKey]);
-    return Boolean(location && amount > 0 && area > 0 &&
+    const targetArea = amountKey === 'price' ? basisArea : lettableArea;
+    // Comparables with grossly different sizes must not be extrapolated as
+    // a like-for-like whole-asset sale/lease without an adjustment study.
+    const sizeRatio = area > 0 && targetArea > 0 ? area / targetArea : null;
+    const sizeComparable = sizeRatio !== null && sizeRatio >= 0.5 && sizeRatio <= 2;
+    const landSubtypeMatches=type!=='LAND'||!subject?.landSubtype||
+      (row?.landSubtype && row.landSubtype===subject.landSubtype);
+    return Boolean(location && amount > 0 && area > 0 && sizeComparable && landSubtypeMatches &&
       row?.assetType === type && row?.status === 'EXECUTED' &&
       sourceAvailable(row?.sourceUrl) && dateIsCurrent(row?.date, now, ageLimit) &&
       spatialMatch(row));
@@ -135,7 +144,10 @@ function evaluateMarketStudy({ subject, sales = [], rentals = [], projects = [],
     return rows.filter(row => {
       if (!admissible(row,amountKey,areaKey)) return false;
       const stableId = String(row.sourceRecordId || '').trim();
-      const key = stableId ? row.sourceUrl + '|id|' + stableId :
+      // A transaction ID is unique within its SOURCE HOST, even when
+      // copied into a different listing/detail URL from the same provider.
+      const sourceHost = new URL(row.sourceUrl).hostname.toLowerCase();
+      const key = stableId ? sourceHost + '|id|' + stableId :
         [row.sourceUrl,row.date,row.assetType,row[amountKey],row[areaKey],row.location,row.city,row.district].join('|');
       if (seen.has(key)) return false;
       seen.add(key);return true;
@@ -213,7 +225,7 @@ function evaluateMarketStudy({ subject, sales = [], rentals = [], projects = [],
     rentRegulation, issues,
     hasLiveLicensedFeed: false, independentlyVerified: false, certifiedMarketValue: false,
     evidenceStatus: 'USER_ENTERED_UNVERIFIED',
-    methodology: 'Median of at least three recent (<=365 days), same-type, user-supplied executed transactions or leases: within 5 km where coordinates are available, otherwise only same declared city and district. District approximation disclosed. Two independent methods may be averaged solely for an illustrative scenario if their gap is below 20%; at or above 20% the primary value is withheld for explicit reconciliation. Subject land/built/rentable areas must use matching bases. No automatic project uplift.',
+    methodology: 'Median of at least three recent (<=365 days), same-type, user-supplied executed transactions or leases: within 5 km where coordinates are available, otherwise only same declared city and district. District approximation disclosed. Two independent methods may be averaged solely for an illustrative scenario if their gap is below 20%; at or above 20% the primary value is withheld for explicit reconciliation. Subject land/built/rentable areas must use matching bases, and comparisons outside 50–200% of subject area are excluded from the simple extrapolation. Same-source record IDs deduplicated across URLs. No automatic project uplift.',
   };
 }
 module.exports = { ASSET_TYPES, number, extractCoordinates, distanceKm, evaluateMarketStudy };
