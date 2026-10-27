@@ -16,7 +16,7 @@ const {evaluateAppraisalReportQuality}=require('../market/property-report-qualit
 import ValuationQualityPanel from './ValuationQualityPanel.jsx';
 
 const INPUT = 'w-full rounded-lg border border-slate-600 bg-[#101c30] px-3 py-2 text-sm text-slate-100';
-const createRow = () => ({ assetType:'', status:'ASKING', price:'', annualRent:'', builtArea:'', landArea:'',
+const createRow = () => ({ assetType:'',landSubtype:'',sourceRecordId:'', status:'ASKING', price:'', annualRent:'', builtArea:'', landArea:'',
   rentableArea:'', date:'', location:'', sourceUrl:'' });
 const blankProject = () => ({ name:'', status:'PLANNED', location:'', sourceUrl:'', impactPct:'' });
 const MONEY = new Intl.NumberFormat('ar-SA', { maximumFractionDigits: 0 });
@@ -65,6 +65,15 @@ function ComparisonTable({ title, kind, rows, setRows, assetType }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
         <Select title="نوع العقار المقارن" value={row.assetType} onChange={v=>update(i,'assetType',v)} options={assetOptions}/>
         <Select title="طبيعة السعر" value={row.status} onChange={v=>update(i,'status',v)} options={statusOptions}/>
+        {isSale&&assetType==='LAND'&&<Select title="تصنيف الأرض المقارنة"
+          value={row.landSubtype||''} onChange={v=>update(i,'landSubtype',v)}
+          options={[['','غير محدد — لا يعتمد عند تحديد تصنيف للأرض'],
+            ['RAW','أرض خام غير مخدومة'],['SERVICED','أرض مخدومة ومخططة'],
+            ['RESIDENTIAL','قطعة أرض سكنية'],['COMMERCIAL','قطعة أرض تجارية'],
+            ['AGRICULTURAL','أرض زراعية']]}/>}
+        <Field title="معرّف الصفقة/العقد لدى المصدر (إن توفر)" value={row.sourceRecordId||''}
+          onChange={v=>update(i,'sourceRecordId',v)}/>
+
         <Field title={isSale?'قيمة البيع الفعلية (ر.س)':'الإيجار السنوي المتعاقد عليه (ر.س)'}
           value={isSale?row.price:row.annualRent} onChange={v=>update(i,isSale?'price':'annualRent',v)}/>
         <Field title={isSale?(assetType==='LAND'?'مساحة أرض المقارنة م²':'مساحة البناء الإجمالية للمقارنة م²'):'المساحة التأجيرية للمقارنة م²'}
