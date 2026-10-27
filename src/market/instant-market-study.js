@@ -95,12 +95,15 @@ function evaluateMarketStudy({ subject, sales = [], rentals = [], projects = [],
   if (!Object.prototype.hasOwnProperty.call(ASSET_TYPES, type)) issues.push('ASSET_TYPE_REQUIRED');
   if (!location) issues.push('COORDINATES_REQUIRED');
   if (!(basisArea > 0)) issues.push('COMPARISON_AREA_REQUIRED');
-  if (!(lettableArea > 0)) issues.push('RENTABLE_AREA_REQUIRED');
-  if (!Number.isInteger(buildings) || buildings < 0) issues.push('BUILDING_COUNT_REQUIRED');
-  if (!Number.isInteger(units) || units < 0) issues.push('UNIT_COUNT_REQUIRED');
-  if (!(occupancy >= 0 && occupancy <= 1)) issues.push('OCCUPANCY_INVALID');
-  if (!(expenseRatio >= 0 && expenseRatio < 1)) issues.push('EXPENSE_RATIO_INVALID');
-  if (!(capRate > 0 && capRate < 1)) issues.push('CAP_RATE_INVALID');
+  const needsIncomeInputs=type!=='LAND'&&!specialistAsset;
+  const needsBuildingUnitCounts=['RESIDENTIAL_COMPOUND','RESIDENTIAL_BUILDING','COMMERCIAL_COMPLEX',
+   'COMMERCIAL_MALL','OFFICE_TOWER','MIXED_USE'].includes(type);
+  if (needsIncomeInputs && !(lettableArea > 0)) issues.push('RENTABLE_AREA_REQUIRED');
+  if (needsBuildingUnitCounts && (!Number.isInteger(buildings) || buildings <= 0)) issues.push('BUILDING_COUNT_REQUIRED');
+  if (needsBuildingUnitCounts && (!Number.isInteger(units) || units <= 0)) issues.push('UNIT_COUNT_REQUIRED');
+  if (needsIncomeInputs && !(occupancy >= 0 && occupancy <= 1)) issues.push('OCCUPANCY_INVALID');
+  if (needsIncomeInputs && !(expenseRatio >= 0 && expenseRatio < 1)) issues.push('EXPENSE_RATIO_INVALID');
+  if (needsIncomeInputs && !(capRate > 0 && capRate < 1)) issues.push('CAP_RATE_INVALID');
   if (!(number(subject?.landArea)>0))issues.push('LAND_AREA_REQUIRED');
   if (type!=='LAND' && !(number(subject?.builtArea)>0))issues.push('BUILT_AREA_REQUIRED');
   if (type==='HOTEL' && !(number(subject?.roomCount)>0))issues.push('HOTEL_ROOM_COUNT_REQUIRED');
@@ -139,7 +142,7 @@ function evaluateMarketStudy({ subject, sales = [], rentals = [], projects = [],
     });
   };
   const eligibleSales = uniqueEligible(sales, 'price', type === 'LAND' ? 'landArea' : 'builtArea');
-  const eligibleRentals = uniqueEligible(rentals, 'annualRent', 'rentableArea');
+  const eligibleRentals = needsIncomeInputs ? uniqueEligible(rentals, 'annualRent', 'rentableArea') : [];
   const saleUnitValues = eligibleSales.map(r => number(r.price) / number(type === 'LAND' ? r.landArea : r.builtArea));
   const rentUnitValues = eligibleRentals.map(r => number(r.annualRent) / number(r.rentableArea));
   const perSqmSale = eligibleSales.length >= 3 ? median(saleUnitValues) : null;
