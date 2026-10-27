@@ -18,9 +18,9 @@ const salesCsv=[
 ].join('\n');
 const rentsCsv=[
 'نوع العقار,حالة الصفقة,تاريخ العقد,الإيجار السنوي,المساحة التأجيرية,المدينة,الحي,رقم العقد',
-'مجمع سكني,موثق,2026-10-01,20000000,20000,الرياض,الملقا,R01',
-'مجمع سكني,موثق,2026-10-01,22000000,20000,الرياض,الملقا,R02',
-'مجمع سكني,موثق,2026-10-01,18000000,20000,الرياض,الملقا,R03',
+'مجمع سكني,موثق,2026-10-01,15000000,20000,الرياض,الملقا,R01',
+'مجمع سكني,موثق,2026-10-01,16000000,20000,الرياض,الملقا,R02',
+'مجمع سكني,موثق,2026-10-01,14000000,20000,الرياض,الملقا,R03',
 ].join('\n');
 try{
  server=await preview({preview:{host:'127.0.0.1',port:4173,strictPort:false}});
@@ -81,6 +81,11 @@ try{
  const rentValue=await panel.getByText('الإيجار السوقي السنوي المحتمل').locator('xpath=..').locator('strong').innerText();
  assert(!rentValue.includes('غير قابل للحساب'),'rental estimate should become calculable');
  mark('MARKET_VALUE_AND_RENT_COMPUTED',true,valueAfter+' | '+rentValue);
+ const noGap=panel.getByText('فارق مؤشري السوق والدخل:',{exact:false});
+ assert((await noGap.innerText()).includes('0.0%'),
+  'balanced sale and income methods should agree without a reconciliation hold');
+ mark('MARKET_INCOME_BLEND_ONLY_WHEN_COHERENT',true);
+
  await fill('الإيجار السنوي السابق','999999999');
  const changed=await valuation.innerText();
  assert(changed===valueAfter,'old rent must not change market value');
