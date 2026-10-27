@@ -56,6 +56,12 @@ try{
  await fill('إجمالي المساحة القابلة للتأجير (م²)','25000');
  await fill('عدد العمائر/المباني','5');
  await fill('عدد الوحدات','200');
+ await panel.getByLabel('غرض دراسة التقييم').selectOption('ACQUISITION');
+ await fill('تاريخ القيمة المطلوب دراستها','2026-10-27');
+ await panel.getByLabel('نوع الحق العقاري (يحتاج تحقق)').selectOption('FULL_OWNERSHIP');
+ await fill('التصنيف التنظيمي أو الاستعمال المسموح','سكني');
+ await panel.getByLabel('حالة المعاينة الفعلية').selectOption('ON_SITE');
+ await fill('تاريخ المعاينة الميدانية','2026-10-26');
  mark('LOCATION_PROPERTY_COMPOSITION',((await panel.innerText()).includes('الإحداثيات المستخرجة')));
  const autoResearch=panel.locator('[data-testid="public-moJ-research"]');
  await autoResearch.getByRole('button',{name:'جلب الصفقات المفتوحة الآن وتحليل الحي'}).click();
@@ -85,6 +91,15 @@ try{
  assert((await noGap.innerText()).includes('0.0%'),
   'balanced sale and income methods should agree without a reconciliation hold');
  mark('MARKET_INCOME_BLEND_ONLY_WHEN_COHERENT',true);
+ const quality=panel.locator('[data-testid="valuation-quality-gates"]');
+ await quality.getByText('مسموح للبحث الشخصي فقط').waitFor();
+ await quality.locator('[data-testid="appraisal-report-checklist"] summary').click();
+ assert((await quality.innerText()).includes('المراجعة المهنية المستقلة'),
+  'report checklist must include external reviewer');
+ assert((await quality.innerText()).includes('يتطلب مراجعة خارجية'),
+  'a personal research draft must not self-certify an appraisal report');
+ mark('QUALITY_GATE_AND_EXTERNAL_PROFESSIONAL_REVIEW_CHECKLIST',true);
+
 
  await fill('الإيجار السنوي السابق','999999999');
  const changed=await valuation.innerText();
@@ -174,6 +189,12 @@ try{
   'new class-level rent does not reconcile to exported study');
  assert(exported.askingVsExecutedCohorts?.notSamePropertyProof===true,
   'executed vs asking cohorts were misleadingly treated as identical asset deals');
+ assert(exported.valuationReadiness?.status==='PRELIMINARY_CALCULATION_UNVERIFIED',
+  'preliminary value export must contain case evidence gate');
+ assert(exported.appraisalQuality?.certifiedReportExportAllowed===false,
+  'researcher-supplied metadata cannot certify a professional valuation');
+ assert(exported.subject?.valuationPurpose==='ACQUISITION',
+  'appraisal purpose metadata missing from saved study');
  assert(exported.rentAssumptions?.stabilizedOccupancy==='0.90',
   'rent operating assumption missing from export');
  mark('FULL_PERSONAL_STUDY_EXPORT_INCLUDES_UNIT_MIX_LEASE_EVIDENCE',true);
