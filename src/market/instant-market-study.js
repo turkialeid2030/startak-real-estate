@@ -95,7 +95,7 @@ function evaluateMarketStudy({ subject, sales = [], rentals = [], projects = [],
   if (!(capRate > 0 && capRate < 1)) issues.push('CAP_RATE_INVALID');
   const radius = 5, ageLimit = 365;
   const sameDistrict = (row) => {
-    const normalize = v => String(v || '').trim().replace(/\\s+/g, ' ').toLowerCase();
+    const normalize = v => String(v || '').trim().replace(/\s+/g, ' ').toLowerCase();
     return Boolean(location && normalize(subject?.city) && normalize(subject?.district) &&
       normalize(row?.city) === normalize(subject?.city) &&
       normalize(row?.district) === normalize(subject?.district));
