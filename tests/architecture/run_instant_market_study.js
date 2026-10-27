@@ -26,6 +26,8 @@ assert.equal(number(''),null);
 assert.equal(number('1.2.3'),null);
 assert.deepEqual(extractCoordinates('https://www.google.com/maps/@24.7,46.7,17z'),{lat:24.7,lng:46.7});
 assert.deepEqual(extractCoordinates('https://maps.google.com/?q=24.7,46.7'),{lat:24.7,lng:46.7});
+assert.deepEqual(extractCoordinates('https://www.google.com/maps/place/Example/@24.8,46.8,17z/data=!3d24.7!4d46.7'),
+  {lat:24.7,lng:46.7},'pinned property coordinate must win over map camera center');
 assert.equal(extractCoordinates('https://maps.app.goo.gl/short-link'),null,'unresolved shortened URL must not be guessed');
 assert.equal(extractCoordinates('https://attacker.com/?q=24.7,46.7'),null,'untrusted map host');
 assert.equal(extractCoordinates('100,200'),null,'invalid lat/lon');
@@ -66,6 +68,19 @@ assert.equal(tooFew.marketAnnualRentPotentialSar,null,'two leases cannot create 
 const distant=study({sales:[...sales.slice(0,2),{...sales[2],location:'25.700000,46.700000'}]});
 assert.equal(distant.eligibleSalesCount,2);
 assert.equal(distant.saleIndicationSar,null);
+const saleSizeOutlier=study({sales:[...sales.slice(0,2),{...sales[2],builtArea:'250'}],rentals:balancedRentals});
+assert.equal(saleSizeOutlier.eligibleSalesCount,2,'incompatible sale size cannot be extrapolated');
+assert.equal(saleSizeOutlier.saleIndicationSar,null);
+const rentSizeOutlier=study({sales,rentals:[...balancedRentals.slice(0,2),{...balancedRentals[2],rentableArea:'100'}]});
+assert.equal(rentSizeOutlier.eligibleRentalsCount,2);
+assert.equal(rentSizeOutlier.marketAnnualRentPotentialSar,null,'extreme lease-size mismatch must be excluded');
+const duplicateWithAlternateUrl=study({sales:[
+  {...sales[0],sourceRecordId:'DUPLICATE-ONE'},
+  {...sales[1],sourceRecordId:'DUPLICATE-ONE',sourceUrl:'https://rei.rega.gov.sa/details/other-url'},
+  {...sales[2],sourceRecordId:'UNIQUE-TWO'}
+]});
+assert.equal(duplicateWithAlternateUrl.eligibleSalesCount,2,'same-source deal ID cannot count twice via different URLs');
+assert.equal(duplicateWithAlternateUrl.saleIndicationSar,null);
 const wrongType=study({sales:[...sales.slice(0,2),{...sales[2],assetType:'OFFICE_TOWER'}]});
 assert.equal(wrongType.saleIndicationSar,null);
 const asking=study({sales:[...sales.slice(0,2),{...sales[2],status:'ASKING'}]});
