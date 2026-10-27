@@ -290,8 +290,8 @@ export default function PersonalSectorValuationWorkbench({assetClass,locale='ar-
   </div>}
   <div className="rounded-lg border border-slate-500/40 p-3 mt-4">
     <p className="text-xs leading-relaxed" style={{color:'#BFC9D8'}}>{ar?
-      'حفظ واستعادة الدراسة الشخصية كملف JSON على جهازك. الملف يتضمن المدخلات فقط، وليس نتائج اعتماد أو صك ملكية؛ بصمة SHA-256 تكشف التلف العرضي ولا تثبت هوية المصدر.':
-      'Export/import your input-only private research case as JSON. SHA-256 detects accidental corruption; it is not a signed identity or proof of authenticity.'}</p>
+      'حفظ مدخلات الدراسة كملف JSON أو استعادتها من ملف المدخلات أو تقرير الدراسة JSON بعد التحقق. تُستعاد المدخلات فقط؛ لا تُستعاد نتيجة سابقة أو صلاحية اعتماد. بصمة SHA-256 ليست إثباتًا لهوية المصدر.':
+      'Save input-only case JSON, or restore only editable inputs from a checked case or recalculated research JSON report. SHA-256 does not authenticate the origin or certify results.'}</p>
     <div className="flex flex-wrap items-center gap-3 mt-2">
       <button type="button" onClick={exportCase} data-testid="personal-sector-export-case"
        className="min-h-[40px] rounded-lg border border-slate-500 px-3 py-2 text-xs" style={{color:'#F0E7DB'}}>
