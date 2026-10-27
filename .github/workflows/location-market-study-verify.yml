@@ -3,6 +3,11 @@ on:
   pull_request:
     paths:
       - 'src/market/instant-market-study.js'
+      - 'src/market/valuation-decision-gate.js'
+      - 'src/market/property-report-quality.js'
+      - 'src/components/ValuationQualityPanel.jsx'
+      - 'tests/architecture/run_valuation_decision_gate.js'
+      - 'tests/architecture/run_appraisal_report_quality.js'
       - 'src/market/asking-offers.js'
       - 'src/market/transaction-cohort-unit-mix.js'
       - 'src/market/market-study-state.js'
@@ -42,6 +47,8 @@ jobs:
           cache: 'npm'
       - run: npm ci --ignore-scripts
       - run: node tests/architecture/run_instant_market_study.js
+      - run: node tests/architecture/run_valuation_decision_gate.js
+      - run: node tests/architecture/run_appraisal_report_quality.js
       - run: node tests/architecture/run_asking_offers.js
       - run: node tests/architecture/run_transaction_cohort_unit_mix.js
       - run: node tests/architecture/run_market_study_state.js
