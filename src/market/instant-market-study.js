@@ -152,10 +152,18 @@ function evaluateMarketStudy({ subject, sales = [], rentals = [], projects = [],
   const annualNOI = annualOccupiedRent !== null && expenseRatio >= 0 && expenseRatio < 1 ? annualOccupiedRent * (1 - expenseRatio) : null;
   const incomeIndication = annualNOI !== null && capRate > 0 && capRate < 1 ? annualNOI / capRate : null;
   const values = [saleIndication, incomeIndication].filter(x => x !== null);
-  const todayValueScenario = !specialistAsset && values.length ?
+  // The two methods are INDEPENDENT indicators. An unexplained >=20% spread
+  // requires an explicit human reconciliation; do not average away a material conflict.
+  const methodGapPct=saleIndication!==null&&incomeIndication!==null &&
+    Math.max(saleIndication,incomeIndication)>0 ?
+      Math.abs(saleIndication-incomeIndication)/Math.max(saleIndication,incomeIndication)*100:null;
+  const materialMethodGap=methodGapPct!==null&&methodGapPct>=20;
+  if(materialMethodGap)issues.push('MATERIAL_MARKET_INCOME_GAP_REQUIRES_RECONCILIATION');
+  const todayValueScenario = !specialistAsset && !materialMethodGap && values.length ?
     values.reduce((x,y)=>x+y, 0)/values.length : null;
   if(specialistReason) issues.push(specialistReason);
   const confidence = !values.length || specialistAsset?'NO_SUPPORTED_PRIMARY_VALUE':
+    materialMethodGap?'UNRECONCILED_METHODS_NO_PRIMARY_VALUE':
     'PRELIMINARY_UNVERIFIED_REQUIRES_INDEPENDENT_REVIEW';
   const saleDispersion = saleUnitValues.length>=3 ? {
     min:Math.min(...saleUnitValues),max:Math.max(...saleUnitValues),
@@ -194,14 +202,15 @@ function evaluateMarketStudy({ subject, sales = [], rentals = [], projects = [],
     saleIndicationSar: saleIndication, marketAnnualRentPotentialSar: marketRentPotential,
     confidence, specialistReason, saleDispersion, rentDispersion,
     expectedCollectedAnnualRentSar: annualOccupiedRent, estimatedAnnualNoiSar: annualNOI,
-    incomeIndicationSar: incomeIndication, todayValueScenarioSar: todayValueScenario,
+    incomeIndicationSar: incomeIndication, methodGapPct,materialMethodGap,
+    todayValueScenarioSar: todayValueScenario,
     averageMarketAnnualRentPerUnitSar: marketRentPotential !== null && units > 0 ? marketRentPotential / units : null,
     nearbyProjects: supportedProjects, projectScenarioSar: projectScenario,
     claimedProjectScenarioImpactPct: impacts.length ? overallScenarioImpact : null,
     rentRegulation, issues,
     hasLiveLicensedFeed: false, independentlyVerified: false, certifiedMarketValue: false,
     evidenceStatus: 'USER_ENTERED_UNVERIFIED',
-    methodology: 'Median of at least three recent (<=365 days), same-type, user-supplied executed transactions or leases: within 5 km where coordinates are available, otherwise only same declared city and district. District approximation disclosed. Two available methods equally reconciled. Subject land/built/rentable areas must use matching bases. No automatic project uplift.',
+    methodology: 'Median of at least three recent (<=365 days), same-type, user-supplied executed transactions or leases: within 5 km where coordinates are available, otherwise only same declared city and district. District approximation disclosed. Two independent methods may be averaged solely for an illustrative scenario if their gap is below 20%; at or above 20% the primary value is withheld for explicit reconciliation. Subject land/built/rentable areas must use matching bases. No automatic project uplift.',
   };
 }
 module.exports = { ASSET_TYPES, number, extractCoordinates, distanceKm, evaluateMarketStudy };
