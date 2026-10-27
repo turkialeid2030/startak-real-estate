@@ -6,6 +6,7 @@ const {canonicalState}=require('./personal-sector-case-archive');
 const {evaluatePersonalSectorScenarios,STATUS}=require('./personal-sector-scenario-workbench');
 const {VALUATION_METHOD}=require('./contracts');
 const {parseAmount}=require('../source-intelligence/personal-saudi-sale-csv');
+const {REASONS}=require('./personal-sector-reason-labels');
 const VERSION='PERSONAL_SECTOR_RESEARCH_REPORT_V1';
 const PURPOSE='PERSONAL_NON_CERTIFIED_SECTOR_RESEARCH';
 const MAX_REPORT_BYTES=128*1024;
@@ -119,7 +120,15 @@ function renderPersonalSectorResearchHtml(report,{locale='ar-SA'}={}){
  const row=(a,b)=>'<tr><th>'+h(a)+'</th><td>'+h(b)+'</td></tr>';
  const money=n=>typeof n==='number'&&Number.isFinite(n)?
   n.toLocaleString(ar?'ar-SA':'en-US',{maximumFractionDigits:2})+' SAR':'—';
+ const declaration=v=>v?(ar?'نعم — بحسب إقرار المستخدم':'Yes — user-declared'):(ar?'لا / غير مؤكد':'No / unconfirmed');
  const summary=[
+  row(ar?'نوع التقرير':'Report type',report.purpose),
+  row(ar?'إصدار التقرير':'Report schema version',report.version),
+  row(ar?'إصدار محرك الحساب':'Calculation model version',res.version),
+  row(ar?'أساس القيمة المستقل':'Independently supported valuation basis',
+   ar?'غير مثبت — هذه مؤشرات بحثية وليست قيمة سوقية معتمدة':'NOT_ESTABLISHED — arithmetic research only'),
+  row(ar?'مصدر البيانات':'Market input provenance',
+   ar?'إقرارات ومدخلات المستخدم، دون تحقق مستقل':'User-declared and user-entered, not independently verified'),
   row(ar?'القطاع':'Asset class',report.assetClass),
   row(ar?'المدينة':'City',inputs.subject.city),
   row(ar?'الحي':'District',inputs.subject.district),
@@ -132,22 +141,39 @@ function renderPersonalSectorResearchHtml(report,{locale='ar-SA'}={}){
   row(ar?'تاريخ إنشاء النسخة':'Generated at',report.generatedAt),
  ];
  const methodRows=res.methods.map(m=>'<tr><td>'+h(m.method)+'</td><td>'+
-  h(money(m.scenarioAmountSar))+'</td><td>'+h(m.status)+'</td></tr>').join('');
- const reasons=res.reasonCodes.map(code=>'<li>'+h(code)+'</li>').join('');
+  h(money(m.scenarioAmountSar))+'</td><td>'+h(money(m.netOperatingIncomeSar))+
+  '</td><td>'+h(m.status)+'</td></tr>').join('');
+ const reasons=res.reasonCodes.map(code=>'<li>'+
+  (ar?h(REASONS[code]||'سبب تحفظ لم يُترجم بعد')+' — ':'')+
+  '<code>'+h(code)+'</code></li>').join('');
  const comparableRows=inputs.comparables.map(c=>'<tr><td>'+h(c.id)+'</td><td>'+
   h(c.saleKind||'UNSPECIFIED')+'</td><td>'+h(c.source)+'</td><td>'+
-  h(c.date)+'</td><td>'+h(c.unitValue)+'</td></tr>').join('');
+  h(c.date)+'</td><td>'+h(c.city)+'</td><td>'+h(c.district)+'</td><td>'+
+  h(c.subtype)+'</td><td>'+h(c.right)+'</td><td>'+h(c.unit)+'</td><td>'+
+  h(c.unitValue)+'</td></tr>').join('');
  const declarations=[
   row(ar?'طريقة الدخل':'Income method selected',String(inputs.methods.income)),
   row(ar?'الدخل المعلن':'Declared gross property income',inputs.inc.gross),
   row(ar?'المصروفات المعلنة':'Declared OPEX',inputs.inc.opex),
   row(ar?'معدل الرسملة المدخل':'Entered capitalization rate',inputs.inc.cap),
+  row(ar?'سياسة تحمل مصروفات العقار':'Operating expense treatment',inputs.inc.expenseTreatment),
+  row(ar?'فصل دخل العقار عن النشاط':'Property-only income declaration',declaration(inputs.inc.realEstateOnly)),
+  row(ar?'إثبات دخل إيجار الأرض':'Ground-lease evidence declaration',declaration(inputs.inc.groundLease)),
+  row(ar?'توزيع المصروفات المشتركة':'Shared expenses allocated',declaration(inputs.inc.sharedCosts)),
   row(ar?'طريقة التكلفة':'Cost method selected',String(inputs.methods.cost)),
   row(ar?'قيمة الأرض المدخلة':'Entered land amount',inputs.cost.land),
   row(ar?'تكلفة الاستبدال المدخلة':'Entered replacement cost',inputs.cost.replacement),
   row(ar?'نسبة الاستهلاك المدخلة':'Entered depreciation',inputs.cost.depreciation),
+  row(ar?'استبعاد معدات وأعمال النشاط من التكلفة':'Business equipment excluded from cost',declaration(inputs.cost.excludesBusiness)),
   row(ar?'طريقة المقارنات':'Comparable method selected',String(inputs.methods.market)),
   row(ar?'وحدة المقارنة':'Comparison unit',inputs.marketOptions.unit),
+  row(ar?'كمية وحدات المقارنة المدخلة':'Entered comparison quantity',inputs.marketOptions.quantity),
+  row(ar?'استبعاد قيمة التشغيل من المقارنات':'Operating business excluded from comparables',declaration(inputs.marketOptions.businessExcluded)),
+  row(ar?'توزيع قيمة المجمع متعدد الاستخدامات':'Mixed-use comparable allocation declared',declaration(inputs.marketOptions.mixedAllocated)),
+  row(ar?'حد تشتت الطرق':'Method dispersion threshold',inputs.policy.maxDispersion),
+  row(ar?'وزن طريقة الدخل':'Income method weight',inputs.policy.incomeWeight),
+  row(ar?'وزن طريقة التكلفة':'Cost method weight',inputs.policy.costWeight),
+  row(ar?'وزن طريقة المقارنات':'Market comparison method weight',inputs.policy.marketWeight),
  ];
  const css='body{font-family:Tahoma,Arial,sans-serif;max-width:1050px;margin:2rem auto;padding:1rem;color:#152034}table{border-collapse:collapse;width:100%;margin:1rem 0}th,td{border:1px solid #abb8c7;padding:.55rem;text-align:start;vertical-align:top;overflow-wrap:anywhere}th{background:#eef2f5}h1,h2{color:#193652}small{color:#546578}@media print{body{margin:0;padding:0}}';
  return '<!doctype html><html lang="'+(ar?'ar':'en')+'" dir="'+(ar?'rtl':'ltr')+
@@ -157,9 +183,19 @@ function renderPersonalSectorResearchHtml(report,{locale='ar-SA'}={}){
   '<h2>'+h(ar?'ملخص الأصل والنتائج':'Asset and results')+'</h2><table>'+summary.join('')+
   '</table><h2>'+h(ar?'الافتراضات المدخلة':'Entered assumptions')+'</h2><table>'+declarations.join('')+
   '</table><h2>'+h(ar?'مؤشرات طرق التقييم':'Valuation method indications')+
-  '</h2><table><tr><th>Method</th><th>SAR</th><th>Status</th></tr>'+methodRows+
+  '</h2><table><tr><th>'+h(ar?'الطريقة':'Method')+'</th><th>'+h(ar?'المؤشر (ريال)':'Scenario amount (SAR)')+
+  '</th><th>'+h(ar?'صافي دخل العقار (ريال)':'Property NOI (SAR)')+
+  '</th><th>'+h(ar?'تصنيف النتيجة':'Status')+'</th></tr>'+methodRows+
   '</table><h2>'+h(ar?'سجل المقارنات المصرح بها':'Owner-declared comparable record')+
-  '</h2><table><tr><th>ID</th><th>Status</th><th>Source</th><th>Date</th><th>Unit amount</th></tr>'+comparableRows+
+  '</h2><p><small>'+h(ar?'كل المراجع والحالات أدناه إقرارات من المستخدم، وليست سجلات صفقات موثقة من مصدر مستقل.':
+    'All source references and sale statuses are supplied by the user and are not authenticated.')+
+  '</small></p><table><tr>'+
+  [ar?'رقم الصفقة':'Sale ID',ar?'حالة الصفقة':'Declared status',
+   ar?'مرجع المصدر المصرح':'User source reference',ar?'تاريخ الصفقة':'Sale date',
+   ar?'المدينة':'City',ar?'الحي':'District',ar?'نوع العقار':'Subtype',
+   ar?'الحق العقاري':'Property right',ar?'وحدة المقارنة':'Comparison unit',
+   ar?'القيمة لكل وحدة':'Amount per unit'].map(x=>'<th>'+h(x)+'</th>').join('')+
+  '</tr>'+comparableRows+
   '</table><h2>'+h(ar?'أسباب الحجب والتحفظات':'HOLD and warnings')+'</h2><ul>'+reasons+
   '</ul><p><small>'+h(report.caveat)+'</small></p>'+
   '<p><small>Input SHA-256: '+h(report.inputFingerprintSha256)+
