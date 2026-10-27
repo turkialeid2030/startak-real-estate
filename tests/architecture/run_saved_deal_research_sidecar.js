@@ -29,13 +29,20 @@ const createStudy=(assetType)=>JSON.stringify({
  const list=await listCanonicalDeals(storage);
  assert.equal(list.length,2);
  await assert.rejects(
-  ()=>saveResearchSidecar({storage,dealId:landDeal.id,studyJson:createStudy('RESIDENTIAL_COMPOUND')}),
+  ()=>saveResearchSidecar({storage,dealId:buildingDeal.id,studyJson:createStudy('RESIDENTIAL_COMPOUND')}),
+  /SAME_PROPERTY_ATTESTATION_REQUIRED/
+ );
+
+ await assert.rejects(
+  ()=>saveResearchSidecar({storage,dealId:landDeal.id,studyJson:createStudy('RESIDENTIAL_COMPOUND'),identityConfirmed:true}),
   /SAVED_DEAL_SUBJECT_TYPE_MISMATCH/
  );
  const linked=await saveResearchSidecar({storage,dealId:buildingDeal.id,
-  studyJson:createStudy('RESIDENTIAL_COMPOUND'),
+  studyJson:createStudy('RESIDENTIAL_COMPOUND'),identityConfirmed:true,
   clock:()=>new Date('2026-10-28T08:00:00Z')});
  assert.equal(linked.canonicalDealUntouched,true);
+ assert.equal(JSON.parse(store.get(sidecarKey(buildingDeal.id))).samePropertyAttestation,'USER_ATTESTED_UNVERIFIED');
+
  assert.equal(linked.savedAt,'2026-10-28T08:00:00.000Z');
  assert.equal(store.get('deal:'+landDeal.id),beforeLand);
  assert.equal(store.get('deal:'+buildingDeal.id),beforeBuilding);
@@ -47,17 +54,17 @@ const createStudy=(assetType)=>JSON.stringify({
  assert.equal(Object.hasOwn(restored.study,'report'),false);
  assert.equal(Object.hasOwn(restored.study,'appraisalQuality'),false);
  await assert.rejects(()=>saveResearchSidecar({storage,dealId:buildingDeal.id,
-  studyJson:createStudy('RESIDENTIAL_COMPOUND')}),/SIDECAR_EXISTS_CONFIRM_OVERWRITE/);
+  studyJson:createStudy('RESIDENTIAL_COMPOUND'),identityConfirmed:true}),/SIDECAR_EXISTS_CONFIRM_OVERWRITE/);
  await saveResearchSidecar({storage,dealId:buildingDeal.id,
-  studyJson:createStudy('RESIDENTIAL_COMPOUND'),overwrite:true});
- const landLinked=await saveResearchSidecar({storage,dealId:landDeal.id,studyJson:createStudy('LAND')});
+  studyJson:createStudy('RESIDENTIAL_COMPOUND'),identityConfirmed:true,overwrite:true});
+ const landLinked=await saveResearchSidecar({storage,dealId:landDeal.id,studyJson:createStudy('LAND'),identityConfirmed:true});
  assert.equal(landLinked.dealMode,'land');
  assert.equal((await loadResearchSidecar({storage,dealId:landDeal.id})).study.subject.assetType,'LAND');
  store.delete('deal:'+buildingDeal.id);
  await assert.rejects(()=>loadResearchSidecar({storage,dealId:buildingDeal.id}),/SAVED_DEAL_NOT_FOUND/);
  store.set('deal:'+buildingDeal.id,JSON.stringify({...buildingDeal,mode:'land'}));
  await assert.rejects(()=>loadResearchSidecar({storage,dealId:buildingDeal.id}),/SIDECAR_ID_OR_MODE_MISMATCH/);
- await assert.rejects(()=>saveResearchSidecar({storage,dealId:'../bad',studyJson:createStudy('LAND')}),/SAVED_DEAL_ID_INVALID/);
+ await assert.rejects(()=>saveResearchSidecar({storage,dealId:'../bad',studyJson:createStudy('LAND'),identityConfirmed:true}),/SAVED_DEAL_ID_INVALID/);
  await assert.rejects(()=>loadResearchSidecar({storage,dealId:'MISSING-ID'}),/SAVED_DEAL_NOT_IN_INDEX/);
  assert.equal(sidecarKey(landDeal.id),'market-study-sidecar:v1:'+landDeal.id);
  console.log('STARTAK_SAVED_DEAL_RESEARCH_SIDECAR: PASS');
