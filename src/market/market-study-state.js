@@ -38,11 +38,16 @@ function parsePersonalMarketStudy(value){
  try{data=JSON.parse(value)}catch{throw Error('STUDY_JSON_INVALID');}
  if(!data||typeof data!=='object'||Array.isArray(data)||data.kind!==KIND)
   throw Error('STUDY_FORMAT_UNSUPPORTED');
- const subject=pickStrings(data.subject,subjectKeys);
+ // Restore MUST be deterministic. Missing fields become blank and fail closed;
+ // never reuse stale fields from an already-open different property.
+ const subject=Object.assign(Object.fromEntries(subjectKeys.map(k=>[k,''])),
+   pickStrings(data.subject,subjectKeys));
  if(!Object.prototype.hasOwnProperty.call(ASSET_TYPES,subject.assetType))
   throw Error('STUDY_ASSET_TYPE_INVALID');
- const assumptions=pickStrings(data.assumptions||{},marketKeys);
- const rentAssumptions=pickStrings(data.rentAssumptions||{},rentKeys);
+ const assumptions=Object.assign(Object.fromEntries(marketKeys.map(k=>[k,''])),
+   pickStrings(data.assumptions||{},marketKeys));
+ const rentAssumptions=Object.assign(Object.fromEntries(rentKeys.map(k=>[k,''])),
+   pickStrings(data.rentAssumptions||{},rentKeys));
  const study={
   subject,assumptions,
   sales:rows(data,'sales',saleKeys),
