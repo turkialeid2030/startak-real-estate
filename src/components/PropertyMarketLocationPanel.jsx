@@ -56,7 +56,7 @@ function ComparisonTable({ title, kind, rows, setRows, assetType }) {
   const update=(i,key,value)=>setRows(old=>old.map((r,j)=>j===i?{...r,[key]:value}:r));
   return <section className="rounded-xl border border-slate-700 p-3">
     <h4 className="font-semibold text-sm text-amber-200">{title}</h4>
-    <p className="text-xs text-slate-400 mt-1">يلزم ثلاث مقارنات منفّذة على الأقل من نفس النوع ضمن 5 كم وبحد أقصى 365 يومًا، مع تاريخ ورابط مصدر وموقع كل مقارنة. العروض لا تدخل في الحساب.</p>
+    <p className="text-xs text-slate-400 mt-1">يلزم ثلاث مقارنات منفّذة على الأقل من نفس نوع العقار، خلال آخر 365 يومًا، بموقع يبعد 5 كم كحد أقصى أو تطابق معلن على مستوى الحي فقط. يشترط أن تكون مساحة المقارنة بين 50% و200% من مساحة الأصل على أساس المساحة نفسه. تُستبعد الصفقة المكررة بمعرّفها لدى المصدر نفسه، ولا تدخل عروض الأسعار في الحساب. تطابق النوع والموقع لا يُثبت الصك أو صحة المصدر مستقلاً.</p>
     {rows.map((row,i)=><div key={i} className="border-b border-slate-700 py-3">
       <div className="flex items-center justify-between mb-2">
         <strong className="text-xs text-slate-200">المقارنة {i+1}</strong>
@@ -438,7 +438,7 @@ export default function PropertyMarketLocationPanel() {
         مدى أسعار بيع المتر المقبولة: {money(report.saleDispersion.min)} إلى {money(report.saleDispersion.max)}.
         الاتساع النسبي للمدى: {(report.saleDispersion.spreadToMedian*100).toFixed(1)}% — لا يمثل حد ثقة إحصائيًا.
       </p>}
-      <p className="text-xs text-slate-300 mt-3">مقارنات البيع المقبولة: {report.eligibleSalesCount} من {allSales.length} | الإيجار المقبولة: {report.eligibleRentalsCount} من {allRentals.length} | المشروعات ذات مصدر: {report.nearbyProjects.length}</p>
+      <p className="text-xs text-slate-300 mt-3">مقارنات البيع المقبولة: {report.eligibleSalesCount} من {allSales.length} (مستبعد {report.excludedSalesCount}) | عقود الإيجار المقبولة: {report.eligibleRentalsCount} من {allRentals.length} (مستبعد {report.excludedRentalsCount}) | مشروعات قريبة بمصدر معلن: {report.nearbyProjects.length}</p>
       <p className="text-xs text-slate-300 mt-2">مقارنات بلا إحداثيات للقطعة، قُبلت فقط على أساس تطابق الحي والمدينة: بيع {report.districtOnlySalesCount}، إيجار {report.districtOnlyRentalsCount}. تقريبي ولا يثبت البعد الحقيقي عن العقار.</p>
       <p className="text-xs text-amber-200 mt-2">الأثر الافتراضي للمشروعات على القيمة، منفصل عن الأساس: {money(report.projectScenarioSar)}. يتطلب إثباتًا مستقلًا لعلاقة التأثير وليس مجرد قرب المشروع.</p>
       <p className="text-xs text-rose-200 mt-2">
