@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 const { ASSET_TYPES, extractCoordinates, evaluateMarketStudy } = require('../market/instant-market-study');
 const { prepareImportCsv,MAX_CSV_BYTES } = require('../market/public-dataset-import');
+const {readOpenQuarters,deriveDistrictSnapshot,OPEN_QUARTERS}=require('../market/saudi-open-data-research');
 
 const INPUT = 'w-full rounded-lg border border-slate-600 bg-[#101c30] px-3 py-2 text-sm text-slate-100';
 const createRow = () => ({ assetType:'', status:'ASKING', price:'', annualRent:'', builtArea:'', landArea:'',
@@ -78,6 +79,11 @@ export default function PropertyMarketLocationPanel() {
   const [importSource,setImportSource]=useState('');
   const [rightsConfirmed,setRightsConfirmed]=useState(false);
   const [importStatus,setImportStatus]=useState('');
+  const [publicRecords,setPublicRecords]=useState([]);
+  const [publicLoadStatus,setPublicLoadStatus]=useState('');
+  const [publicLoadMeta,setPublicLoadMeta]=useState(null);
+  const [publicLoading,setPublicLoading]=useState(false);
+
 
   const [message,setMessage]=useState('');
   const updateSubject=(key,value)=>setSubject(current=>({...current,[key]:value}));
@@ -87,6 +93,31 @@ export default function PropertyMarketLocationPanel() {
   const report=useMemo(()=>evaluateMarketStudy({subject,sales:allSales,rentals:allRentals,projects,assumptions}),
     [subject,allSales,allRentals,projects,assumptions]);
   const coords=extractCoordinates(subject.location);
+  const publicNeighborhood=useMemo(()=>deriveDistrictSnapshot(publicRecords,{
+    city:subject.city,district:subject.district,
+    classification:subject.assetType==='OFFICE_TOWER'||subject.assetType==='COMMERCIAL_COMPLEX'?'تجاري':
+      subject.assetType==='WAREHOUSE'?'صناعي':
+      subject.assetType==='LAND'?'':'سكني',
+  }),[publicRecords,subject.city,subject.district,subject.assetType]);
+  const fetchOpenData=async()=>{
+    if(publicLoading)return;
+    setPublicLoading(true);setPublicLoadStatus('جارٍ البحث في بيانات الصفقات المنشورة رسميًا والمصرح بإعادة استخدامها…');
+    try{
+      const data=await readOpenQuarters({onProgress:p=>setPublicLoadStatus(
+        p.state==='FETCHING'?'جارٍ قراءة بيانات '+p.quarter+'…':
+        p.state==='IMPORTED'?'تمت معالجة '+p.count+' سجل في '+p.quarter+'…':
+        'تعذرت قراءة '+p.quarter+'؛ ستظهر فجوة المصدر'
+      )});
+      setPublicRecords(data.records);
+      setPublicLoadMeta(data);
+      setPublicLoadStatus(data.incomplete?
+        'انتهت القراءة جزئيًا؛ بعض الملفات غير متاحة، ولا ينبغي تفسيرها بأنها تغطية كاملة.':
+        'تم تحميل بيانات الفترات المتاحة. هذه إحصاءات تاريخية للحي وليست بيانات بيع لحظية.');
+    }catch(error){
+      setPublicLoadStatus('تعذر البحث المفتوح: '+String(error.message||'NETWORK_FAILED')+'.');
+    }finally{setPublicLoading(false);}
+  };
+
   const updateProject=(i,key,v)=>setProjects(old=>old.map((r,j)=>j===i?{...r,[key]:v}:r));
   const importLocalCsv=async (file,kind)=>{
     if(!file)return;
@@ -147,6 +178,45 @@ export default function PropertyMarketLocationPanel() {
       <Field title="معدل الرسملة ككسر" value={assumptions.capRate} onChange={v=>updateAssumption('capRate',v)}/>
     </div>
     <p className="text-xs text-amber-200 mt-2">النسب الموضوعة مبدئيًا أمثلة قابلة للتعديل وليست تقديرات سوقية للحي أو العقار.</p>
+    <section className="mt-5 rounded-xl border border-slate-600 bg-[#1A2942] p-3" data-testid="public-moJ-research">
+      <h3 className="text-sm font-semibold text-amber-100">البحث التلقائي التجريبي في صفقات وزارة العدل المنشورة كبيانات مفتوحة</h3>
+      <p className="mt-2 text-xs leading-6 text-slate-300">بدون API رسمي أو تسجيل دخول: عند الضغط، تقرأ المنصة ملفات الفصول ${OPEN_QUARTERS.join("، ")} من مستودع عام ينسب البيانات الأصلية لوزارة العدل ورخصة البيانات المفتوحة السعودية. البحث يغطي جميع مدن المملكة التي تظهر في الملفات، وليس الرياض وحدها. وبيانات الأحياء والأسعار هنا <strong>مؤشر تاريخي للحي</strong> وليست صفقات مؤكدة لمجمعات أو فنادق أو أبراج.</p>
+      <div className="flex flex-wrap items-center gap-3 mt-3">
+        <button type="button" disabled={publicLoading} onClick={fetchOpenData}
+          className="min-h-[40px] rounded-lg bg-[#C9A24C] px-4 py-2 text-xs font-semibold text-[#141F35] disabled:opacity-50">
+          {publicLoading?'جارٍ جلب البيانات المفتوحة…':'جلب الصفقات المفتوحة الآن وتحليل الحي'}
+        </button>
+        <a href="https://github.com/civillizard/Saudi-Real-Estate-Data" target="_blank" rel="noopener noreferrer"
+          className="min-h-[40px] inline-flex items-center text-xs underline text-sky-200">بيانات وزارة العدل المعاد نشرها — ومعلومات الترخيص</a>
+      </div>
+      <p className="mt-2 text-xs text-slate-300" role="status">{publicLoadStatus}</p>
+      {publicLoadMeta&&<div className="mt-3 rounded-lg border border-slate-600 p-3 text-xs text-slate-200">
+        <p>إجمالي السجلات التي اجتازت سلامة الملف: {publicLoadMeta.records.length.toLocaleString('ar-SA')}،
+          الفصول المكتملة: {publicLoadMeta.sources.map(s=>s.quarter).join('، ')||'لا شيء'}.
+          {publicLoadMeta.incomplete?' يوجد نقص في بعض الفصول.':''}
+        </p>
+        <p className="mt-2">المدينة: {subject.city||'غير مدخلة'} — الحي: {subject.district||'غير مدخل'}</p>
+        <p className="mt-2">صفقات الحي المؤهلة حسب التصنيف العام: {publicNeighborhood.count}،
+          الوسيط التاريخي المسجل للمتر: {money(publicNeighborhood.medianPriceSqm)} /م²
+          {publicNeighborhood.count<3?' — لا توجد مقارنات كافية':''}.
+        </p>
+        <p className="mt-2 text-amber-200">لا تُحوَّل مؤشرات الحي تلقائيًا إلى قيمة مجمع سكني أو برج أو فندق؛ قد تتضمن السجلات صفقات أراضٍ مختلفة تمامًا. ولا تعد البيانات أحدث من الفصول المنشورة.</p>
+        {!!publicNeighborhood.referenceExamples?.length&&<details className="mt-2">
+          <summary className="min-h-[28px] cursor-pointer text-sky-200">عرض أمثلة الصفقات المنشورة مع المصادر</summary>
+          <div className="mt-2 max-h-64 overflow-auto">
+            <table className="w-full text-xs text-slate-200">
+              <thead><tr><th>التاريخ</th><th>السعر</th><th>المساحة</th><th>السعر/م²</th><th>المصدر</th></tr></thead>
+              <tbody>{publicNeighborhood.referenceExamples.map((x,i)=><tr key={i}>
+                <td className="px-2 py-2">{x.date}</td><td className="px-2 py-2">{money(x.price)}</td>
+                <td className="px-2 py-2">{x.area}</td><td className="px-2 py-2">{money(x.priceSqm)}</td>
+                <td className="px-2 py-2"><a className="underline text-sky-200" href={x.sourceUrl} target="_blank" rel="noopener noreferrer">CSV</a></td>
+              </tr>)}</tbody>
+            </table>
+          </div>
+        </details>}
+        {publicLoadMeta.errors.length>0&&<p className="mt-2 text-rose-200">تعذر جلب: {publicLoadMeta.errors.map(e=>e.quarter).join('، ')}. المخرجات لا تمثل تغطية كاملة.</p>}
+      </div>}
+    </section>
     <section className="mt-5 rounded-xl border border-slate-600 bg-[#1A2942] p-3" data-testid="public-csv-import">
       <h3 className="text-sm font-semibold text-amber-100">استيراد مقارنات من ملفات بيانات مصرح بها — بدون API</h3>
       <p className="mt-2 text-xs leading-6 text-slate-300">يمكن فتح مواقع البيانات العامة، ثم تنزيل ملف CSV مرخص وإدخاله محليًا. لا تسحب المنصة محتوى سهيل أو المؤشرات العقارية آليًا ولا تتجاوز تسجيل الدخول. تُعرض الصفقة كمقارنة منفذة فقط إذا صرّح عمود الحالة بذلك. يُشترط تاريخ، نوع عقار، سعر، مساحة، مصدر، وموقع أو مدينة وحي متطابقان.</p>
