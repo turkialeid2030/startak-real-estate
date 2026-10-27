@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'src/market/instant-market-study.js'
+      - 'src/market/study-asof.js'
+      - 'tests/architecture/run_study_asof.js'
       - 'src/market/valuation-decision-gate.js'
       - 'src/market/property-report-quality.js'
       - 'src/components/ValuationQualityPanel.jsx'
@@ -52,6 +54,7 @@ jobs:
           cache: 'npm'
       - run: npm ci --ignore-scripts
       - run: node tests/architecture/run_instant_market_study.js
+      - run: node tests/architecture/run_study_asof.js
       - run: node tests/architecture/run_valuation_decision_gate.js
       - run: node tests/architecture/run_unified_valuation_case.js
       - run: node tests/architecture/run_appraisal_report_quality.js
