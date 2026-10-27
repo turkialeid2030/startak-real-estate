@@ -4,6 +4,7 @@ const { prepareImportCsv,MAX_CSV_BYTES } = require('../market/public-dataset-imp
 const {readOpenQuarters,deriveDistrictSnapshot,OPEN_QUARTERS}=require('../market/saudi-open-data-research');
 import ProfessionalComparableReviewPanel from './ProfessionalComparableReviewPanel.jsx';
 import CrossMethodEvidencePanel from './CrossMethodEvidencePanel.jsx';
+import MarketOfferResearchPanel from './MarketOfferResearchPanel.jsx';
 
 const INPUT = 'w-full rounded-lg border border-slate-600 bg-[#101c30] px-3 py-2 text-sm text-slate-100';
 const createRow = () => ({ assetType:'', status:'ASKING', price:'', annualRent:'', builtArea:'', landArea:'',
@@ -80,6 +81,7 @@ export default function PropertyMarketLocationPanel() {
   const [sales,setSales]=useState(Array.from({length:3},createRow));
   const [rentals,setRentals]=useState(Array.from({length:3},createRow));
   const [projects,setProjects]=useState([blankProject()]);
+  const [marketOffers,setMarketOffers]=useState([]);
   const [importedSales,setImportedSales]=useState([]);
   const [importedRentals,setImportedRentals]=useState([]);
   const [importSource,setImportSource]=useState('');
@@ -140,7 +142,7 @@ export default function PropertyMarketLocationPanel() {
   const exportJson=()=>{
     try {
       const blob=new Blob([JSON.stringify({kind:'STARTAK_PERSONAL_MARKET_STUDY',subject,assumptions,
-        sales:allSales,rentals:allRentals,projects,report,exportedAt:new Date().toISOString()},null,2)],{type:'application/json'});
+        sales:allSales,rentals:allRentals,projects,marketOffers,report,exportedAt:new Date().toISOString()},null,2)],{type:'application/json'});
       const url=URL.createObjectURL(blob),a=document.createElement('a');
       a.href=url;a.download='startak-location-market-personal-study.json';
       document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
@@ -311,6 +313,7 @@ export default function PropertyMarketLocationPanel() {
       {!!report.issues.length&&<p className="mt-2 text-xs text-amber-300">بيانات بحاجة لاستكمال: {report.issues.map(x=>labelMap[x]||x).join('؛ ')}.</p>}
       <p className="mt-2 text-xs text-slate-400">بيانات مقارنة يُقر بها المستخدم ولم يُتحقق منها مستقلاً. لا توجد تغذية لحظية مرخّصة متصلة. لا تستعمل هذه النتيجة كتقييم رسمي أو أساس قرار شراء ملزم.</p>
     </div>
+    <MarketOfferResearchPanel subject={subject} offers={marketOffers} setOffers={setMarketOffers}/>
     <ProfessionalComparableReviewPanel subject={subject} sales={allSales}/>
     <CrossMethodEvidencePanel subject={subject} report={report}/>
     <div className="flex flex-wrap gap-3 mt-4">
