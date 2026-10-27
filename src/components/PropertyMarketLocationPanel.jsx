@@ -8,6 +8,9 @@ import MarketOfferResearchPanel from './MarketOfferResearchPanel.jsx';
 import TransactionCohortAndUnitMixPanel from './TransactionCohortAndUnitMixPanel.jsx';
 const {reviewAskingVsExecuted,evaluateUnitMixRents}=require('../market/transaction-cohort-unit-mix');
 const {MAX_BYTES:MAX_STUDY_BYTES,parsePersonalMarketStudy}=require('../market/market-study-state');
+const {auditValuationReadiness}=require('../market/valuation-decision-gate');
+const {evaluateAppraisalReportQuality}=require('../market/property-report-quality');
+import ValuationQualityPanel from './ValuationQualityPanel.jsx';
 
 const INPUT = 'w-full rounded-lg border border-slate-600 bg-[#101c30] px-3 py-2 text-sm text-slate-100';
 const createRow = () => ({ assetType:'', status:'ASKING', price:'', annualRent:'', builtArea:'', landArea:'',
@@ -80,6 +83,8 @@ export default function PropertyMarketLocationPanel() {
     landArea:'',builtArea:'',rentableArea:'',buildingCount:'',unitCount:'',floorCount:'',
     roomCount:'',shopCount:'',parkingCount:'',warehouseCount:'',clearHeight:'',loadingDocks:'',
     historicalAnnualRent:'',leaseHistory:'UNKNOWN',urbanBoundary:'UNKNOWN',
+    valuationPurpose:'',valuationDate:'',propertyRight:'UNKNOWN',
+    zoningClassification:'',inspectionStatus:'NOT_INSPECTED',inspectionDate:'',
   });
   const [assumptions,setAssumptions]=useState({occupancy:'0.9',expenseRatio:'0.20',capRate:'0.075'});
   const [sales,setSales]=useState(Array.from({length:3},createRow));
@@ -113,6 +118,12 @@ export default function PropertyMarketLocationPanel() {
   const segmentedMarketRents=useMemo(()=>evaluateUnitMixRents({
     subject,unitMix,leaseComparables,...rentAssumptions,
   }),[subject,unitMix,leaseComparables,rentAssumptions]);
+  const valuationReadiness=useMemo(()=>auditValuationReadiness({
+    subject,report,segmentedRent:segmentedMarketRents,sales:allSales,rentals:allRentals,
+  }),[subject,report,segmentedMarketRents,allSales,allRentals]);
+  const appraisalQuality=useMemo(()=>evaluateAppraisalReportQuality({
+    subject,marketReport:report,readiness:valuationReadiness,
+  }),[subject,report,valuationReadiness]);
   const coords=extractCoordinates(subject.location);
   const publicNeighborhood=useMemo(()=>deriveDistrictSnapshot(publicRecords,{
     city:subject.city,district:subject.district,
@@ -175,7 +186,8 @@ export default function PropertyMarketLocationPanel() {
     try {
       const blob=new Blob([JSON.stringify({kind:'STARTAK_PERSONAL_MARKET_STUDY',subject,assumptions,
         sales:allSales,rentals:allRentals,projects,marketOffers,unitMix,leaseComparables,rentAssumptions,
-        askingVsExecutedCohorts,segmentedMarketRents,report,exportedAt:new Date().toISOString()},null,2)],{type:'application/json'});
+        askingVsExecutedCohorts,segmentedMarketRents,valuationReadiness,appraisalQuality,report,
+        exportedAt:new Date().toISOString()},null,2)],{type:'application/json'});
       const url=URL.createObjectURL(blob),a=document.createElement('a');
       a.href=url;a.download='startak-location-market-personal-study.json';
       document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
@@ -191,6 +203,24 @@ export default function PropertyMarketLocationPanel() {
     </p>
     <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
       <Field title="اسم العقار" value={subject.name} onChange={v=>updateSubject('name',v)} />
+      <Select title="غرض دراسة التقييم" value={subject.valuationPurpose}
+        onChange={v=>updateSubject('valuationPurpose',v)}
+        options={ [['','اختر الغرض'],['ACQUISITION','دراسة شراء أو استحواذ'],
+         ['PORTFOLIO_REVIEW','مراجعة محفظة أصول'],['RENT_STUDY','دراسة أجرة سوقية'],
+         ['FINANCING_REVIEW','مراجعة تمويلية غير رسمية'],['OTHER','دراسة شخصية أخرى']] }/>
+      <Field title="تاريخ القيمة المطلوب دراستها" type="date" value={subject.valuationDate}
+        onChange={v=>updateSubject('valuationDate',v)}/>
+      <Select title="نوع الحق العقاري (يحتاج تحقق)" value={subject.propertyRight}
+        onChange={v=>updateSubject('propertyRight',v)}
+        options={ [['UNKNOWN','غير متحقق'],['FULL_OWNERSHIP','ملكية كاملة'],['USUFRUCT','حق انتفاع'],
+         ['LONG_LEASE','حق تأجير طويل المدة'],['OTHER','حق آخر']] }/>
+      <Field title="التصنيف التنظيمي أو الاستعمال المسموح (حسب الدليل)" value={subject.zoningClassification}
+        onChange={v=>updateSubject('zoningClassification',v)}/>
+      <Select title="حالة المعاينة الفعلية" value={subject.inspectionStatus}
+        onChange={v=>updateSubject('inspectionStatus',v)}
+        options={ [['NOT_INSPECTED','لم تتم المعاينة'],['REMOTE_ONLY','مراجعة صور أو موقع فقط'],['ON_SITE','تمت معاينة ميدانية — إقرار المستخدم']] }/>
+      <Field title="تاريخ المعاينة الميدانية" type="date" value={subject.inspectionDate}
+        onChange={v=>updateSubject('inspectionDate',v)}/>
       <Select title="نوع العقار" value={subject.assetType} onChange={v=>updateSubject('assetType',v)} options={assetOptions}/>
       {subject.assetType==='LAND'&&<Select title="تصنيف الأرض للمقارنات"
         value={subject.landSubtype} onChange={v=>updateSubject('landSubtype',v)}
@@ -325,8 +355,8 @@ export default function PropertyMarketLocationPanel() {
       <h3 className="font-bold text-amber-100">نتيجة الحساب وقت الطلب — ليست تثمينًا مهنيًا</h3>
       <p className="text-xs text-slate-300 mt-1">{latestWindow}. وقت الحساب: {report.asOf.slice(0,19).replace('T',' ')} UTC</p>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
-        <div><span className="text-xs text-slate-400">القيمة التقديرية الحسابية اليوم</span><strong className="block text-lg">{money(report.todayValueScenarioSar)}</strong></div>
-        <div><span className="text-xs text-slate-400">الإيجار السوقي السنوي المحتمل</span><strong className="block text-lg">{money(report.marketAnnualRentPotentialSar)}</strong></div>
+        <div><span className="text-xs text-slate-400">القيمة التقديرية الحسابية اليوم</span><strong className="block text-lg">{money(valuationReadiness.preliminaryValueSar)}</strong></div>
+        <div><span className="text-xs text-slate-400">الإيجار السوقي السنوي المحتمل</span><strong className="block text-lg">{money(valuationReadiness.newAnnualMarketRentSar)}</strong></div>
         <div><span className="text-xs text-slate-400">الإيجار السنوي المتوقع تحصيله بعد الإشغال</span><strong className="block text-lg">{money(report.expectedCollectedAnnualRentSar)}</strong></div>
         <div><span className="text-xs text-slate-400">مؤشر البيع بالمقارنات</span><strong className="block">{money(report.saleIndicationSar)}</strong></div>
         <div><span className="text-xs text-slate-400">مؤشر الدخل بالرسملة</span><strong className="block">{money(report.incomeIndicationSar)}</strong></div>
@@ -356,6 +386,7 @@ export default function PropertyMarketLocationPanel() {
       {!!report.issues.length&&<p className="mt-2 text-xs text-amber-300">بيانات بحاجة لاستكمال: {report.issues.map(x=>labelMap[x]||x).join('؛ ')}.</p>}
       <p className="mt-2 text-xs text-slate-400">بيانات مقارنة يُقر بها المستخدم ولم يُتحقق منها مستقلاً. لا توجد تغذية لحظية مرخّصة متصلة. لا تستعمل هذه النتيجة كتقييم رسمي أو أساس قرار شراء ملزم.</p>
     </div>
+    <ValuationQualityPanel readiness={valuationReadiness} quality={appraisalQuality}/>
     <MarketOfferResearchPanel subject={subject} offers={marketOffers} setOffers={setMarketOffers}/>
     <TransactionCohortAndUnitMixPanel subject={subject} sales={allSales} askingOffers={marketOffers}
        unitMix={unitMix} setUnitMix={setUnitMix} leaseComparables={leaseComparables}
