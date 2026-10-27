@@ -38,4 +38,24 @@ assert.equal(falseExecuted.rows[0].status,'ASKING','missing status cannot infer 
 assert.throws(()=>rowsFromCsv('a,b\n"oops'),/CSV_UNCLOSED_QUOTE/);
 assert.equal(rowsFromCsv('a;b\n1;2').records[0].columns.b,'2');
 assert.equal(rowsFromCsv('a,b\n"hello, there",x').records[0].columns.a,'hello, there');
+const landCsv=[
+ 'نوع العقار,نوع الأرض,حالة الصفقة,تاريخ الصفقة,قيمة الصفقة,مساحة الأرض,المدينة,الحي,رقم الصفقة',
+ 'أرض,أرض خام,إفراغ,2026-10-01,10000000,12000,الرياض,الملقا,RAW-1',
+ 'أرض,أرض مخدومة,إفراغ,2026-10-01,12000000,12000,الرياض,الملقا,SERV-1',
+].join('\n');
+const importedLand=prepareImportCsv(landCsv,{kind:'sale',datasetUrl:'https://data.gov.sa/land',rightsConfirmed:true});
+assert.equal(importedLand.rows[0].landSubtype,'RAW');
+assert.equal(importedLand.rows[1].landSubtype,'SERVICED');
+const asset={
+  ...subject,assetType:'LAND',landSubtype:'RAW',landArea:'15000'
+};
+const selected=evaluateMarketStudy({subject:asset,sales:importedLand.rows,asOf:new Date('2026-10-27T12:00:00Z')});
+assert.equal(selected.eligibleSalesCount,1,'serviced land cannot be valued as raw undeveloped land');
+const sectorCsv=['نوع العقار,حالة الصفقة,تاريخ الصفقة,قيمة الصفقة,المساحة المبنية',
+ 'فندق,إفراغ,2026-10-01,100000000,25000',
+ 'مصنع,إفراغ,2026-10-01,20000000,9000',
+ 'مستشفى,إفراغ,2026-10-01,130000000,12000',
+ 'مول,إفراغ,2026-10-01,150000000,40000'].join('\n');
+const sectors=prepareImportCsv(sectorCsv,{kind:'sale',datasetUrl:'https://data.gov.sa/sectors',rightsConfirmed:true});
+assert.deepEqual(sectors.rows.map(x=>x.assetType),['HOTEL','INDUSTRIAL_PROPERTY','HEALTHCARE_PROPERTY','COMMERCIAL_MALL']);
 console.log('STARTAK public dataset CSV local import: PASS');
