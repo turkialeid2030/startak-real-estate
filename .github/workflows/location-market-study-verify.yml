@@ -8,6 +8,7 @@ on:
       - 'src/app/App.jsx'
       - 'tests/architecture/run_instant_market_study.js'
       - 'tests/architecture/run_public_market_csv_import.js'
+      - 'tests/e2e/run_location_market_study_ci.mjs'
       - '.github/workflows/location-market-study-verify.yml'
   workflow_dispatch:
 jobs:
@@ -25,3 +26,5 @@ jobs:
       - run: node tests/architecture/run_instant_market_study.js
       - run: node tests/architecture/run_public_market_csv_import.js
       - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: node tests/e2e/run_location_market_study_ci.mjs
