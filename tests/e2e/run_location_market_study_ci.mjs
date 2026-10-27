@@ -51,6 +51,7 @@ try{
  const fill=async(label,value)=>panel.getByLabel(label,{exact:false}).first().fill(value);
  await fill('الحي','الملقا');
  await fill('رابط اللوكيشن من Google Maps أو الإحداثيات','24.75,46.65');
+ await fill('مساحة الأرض (م²)','10000');
  await fill('إجمالي المساحات المبنية لكل المباني (م²)','30000');
  await fill('إجمالي المساحة القابلة للتأجير (م²)','25000');
  await fill('عدد العمائر/المباني','5');
@@ -96,6 +97,22 @@ try{
  assert(gridStatus.includes('الصفقات المنفذة: 3'),'professional audit did not inherit three source rows');
  assert(!gridStatus.includes('المدخلات غير مكتملة'),'professional audit could not compute with three imported sales');
  mark('PROFESSIONAL_COMPARABLE_IMPORT_AND_ROUNDING',true);
+ const method=panel.locator('[data-testid="cross-method-reconciliation"]');
+ await method.locator('summary').click();
+ await method.getByLabel('سعر المتر للأرض وفق مقارنة موثقة').fill('1000');
+ await method.getByLabel('تكلفة إحلال متر المبنى').fill('500');
+ await method.getByLabel('الإهلاك المادي والوظيفي الإجمالي').fill('10');
+ await method.getByLabel('صافي الدخل التشغيلي السنوي').fill('1000000');
+ await method.getByLabel('معدل الرسملة (%)').fill('7');
+ await method.getByLabel('إيجار المقارنات السنوي').fill('300');
+ await method.getByLabel('إيجار افتراضي كنسبة').fill('5');
+ const methodText=await method.innerText();
+ assert(methodText.includes('وقف التسوية الآلية بسبب فرق جوهري'),
+   'cross-method evidence must HOLD when cost/sales/income spread >20%');
+ assert(methodText.includes('فارق الإيجارين'),
+   'comparison-based rent versus value percentage should appear separately');
+ mark('COST_MARKET_INCOME_RECONCILIATION_HOLD_AND_RENT_BRIDGE',true);
+
 
  await page.setViewportSize({width:390,height:844});
  const geom=await page.evaluate(()=>({width:document.documentElement.scrollWidth,
