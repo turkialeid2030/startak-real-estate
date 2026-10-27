@@ -8,7 +8,7 @@ const short={financingPct:'التمويل',marketConditionsPct:'ظروف الس�
   areaPct:'فرق المساحة',accessPct:'الوصول',frontagePct:'الواجهات',roadWidthPct:'عرض الشارع',
   topographyPct:'طبوغرافية الأرض',usePct:'الاستخدام',buildabilityPct:'نظام البناء',otherPct:'أخرى'};
 const blank=i=>({id:'P'+(i+1),date:'',sourceUrl:'',transactionStatus:'EXECUTED',
-  pricePerSqm:'',weightPct:i===0?'40':i===1?'35':'25',
+  pricePerSqm:'',comparableArea:'',weightPct:i===0?'40':i===1?'35':'25',
   financingPct:'0',marketConditionsPct:'0',transactionTypePct:'0',
   areaPct:'0',accessPct:'0',frontagePct:'0',roadWidthPct:'0',
   topographyPct:'0',usePct:'0',buildabilityPct:'0',otherPct:'0'});
@@ -33,6 +33,8 @@ const labels={
  INSUFFICIENT_EXECUTED_COMPARABLES:'أقل من ثلاث صفقات بيع منفذة',
  OFFERS_NOT_EXECUTED:'بعض البيانات عروض وليست صفقات منفذة',
  OFFERS_REQUIRE_NEGOTIATION_AND_SOURCE_REVIEW:'العروض تتطلب توثيقًا وتسوية بشرية',
+ COMPARABLE_AREA_NOT_VERIFIED:'مساحة المقارنة غير موثقة',
+ EXTREME_AREA_RATIO_REQUIRES_EXPERT_REVIEW:'فارق كبير جدًا بين مساحة الأصل ومساحة المقارنة؛ يلزم مراجعة متخصص',
  COMPARABLE_OLDER_THAN_365_DAYS:'بعض المقارنات أقدم من عام',
 };
 export default function ProfessionalComparableReviewPanel({subject,sales=[]}){
@@ -69,6 +71,7 @@ export default function ProfessionalComparableReviewPanel({subject,sales=[]}){
   setRows(take.map((x,i)=>({
    ...blank(i),id:'S'+(i+1),pricePerSqm:String(number(x.price)/number(
     basis==='LAND_SQM'?x.landArea:basis==='BUILT_SQM'?x.builtArea:x.rentableArea)),
+   comparableArea:String(number(basis==='LAND_SQM'?x.landArea:basis==='BUILT_SQM'?x.builtArea:x.rentableArea)),
    weightPct:String(weights[i]),date:x.date||'',sourceUrl:x.sourceUrl||'',
    transactionStatus:x.status==='EXECUTED'?'EXECUTED':'OFFER',
   })));
@@ -98,6 +101,7 @@ export default function ProfessionalComparableReviewPanel({subject,sales=[]}){
     </div>
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 mt-2">
       <Input title="سعر المتر قبل التسوية (ر.س)" value={row.pricePerSqm} onChange={v=>update(i,'pricePerSqm',v)}/>
+      <Input title="مساحة المقارنة الفعلية (م²)" value={row.comparableArea} onChange={v=>update(i,'comparableArea',v)}/>
       <Input title="الوزن النسبي (%)" value={row.weightPct} onChange={v=>update(i,'weightPct',v)}/>
       <Input title="تاريخ المقارنة" type="date" value={row.date} onChange={v=>update(i,'date',v)}/>
       <Select title="نوع الدليل" value={row.transactionStatus} onChange={v=>update(i,'transactionStatus',v)}
