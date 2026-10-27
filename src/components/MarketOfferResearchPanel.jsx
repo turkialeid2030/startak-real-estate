@@ -7,7 +7,7 @@ const label=(v)=>Number.isFinite(v)?nf.format(v)+' ر.س':'غير مؤهل لل�
 const yesterday=()=>new Date().toISOString().slice(0,10);
 const newOffer=()=>({
  offerKind:'SALE',assetType:'',evidenceType:'ASKING',date:yesterday(),sourceUrl:'',
- price:'',annualRent:'',rentPeriod:'YEAR',
+ price:'',annualRent:'',rentPeriod:'YEAR',investmentTerms:'',
  builtArea:'',landArea:'',rentableArea:'',city:'',district:'',location:'',
 });
 const assetOptions=[['','اختر النوع'],...Object.entries(ASSET_TYPES)];
@@ -31,6 +31,7 @@ const rejectLabels={
  COMPARABLE_AREA_REQUIRED:'المساحة المقارنة ناقصة',ASKING_PRICE_REQUIRED:'السعر المطلوب ناقص',
  RENT_PERIOD_UNSUPPORTED:'دورية الإيجار غير معروفة',NO_LONGER_ACTIVE:'الإعلان غير نشط',
  UNIT_PRICE_IMPLAUSIBLE:'سعر المتر غير منطقي',DUPLICATE_SOURCE:'إعلان مكرر',
+ INVESTMENT_STRUCTURE_REQUIRES_SEPARATE_UNDERWRITING:'الفرصة الاستثمارية تحتاج دراسة لشروطها والتدفقات؛ ليست مقارنة سعر متر',
 };
 export default function MarketOfferResearchPanel({subject,offers,setOffers}) {
  const [message,setMessage]=useState('');
@@ -95,20 +96,21 @@ export default function MarketOfferResearchPanel({subject,offers,setOffers}) {
      </div>
      <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
        <Select title="الغرض من العرض" value={offer.offerKind} onChange={v=>update(i,'offerKind',v)}
-        options={[['SALE','عرض بيع'],['RENT','عرض إيجار']]}/>
+        options={[['SALE','عرض بيع'],['RENT','عرض إيجار'],['INVESTMENT','فرصة استثمارية — سياق فقط']]}/>
        <Select title="نوع العقار المحدد" value={offer.assetType} onChange={v=>update(i,'assetType',v)} options={assetOptions}/>
        <Field title="تاريخ الإعلان أو المراجعة" type="date" value={offer.date} onChange={v=>update(i,'date',v)}/>
        {offer.offerKind==='SALE'
         ?<Field title="السعر المطلوب للبيع (ريال)" value={offer.price} onChange={v=>update(i,'price',v)}/>
-        :<>
+        :offer.offerKind==='RENT'?<>
          <Field title="قيمة الإيجار المعلن للفترة (ريال)" value={offer.annualRent} onChange={v=>update(i,'annualRent',v)}/>
          <Select title="دورية الإيجار" value={offer.rentPeriod} onChange={v=>update(i,'rentPeriod',v)}
           options={[['YEAR','سنوي'],['MONTH','شهري'],['UNKNOWN','غير معروف / موسمي — يستبعد']]}/>
-        </>}
-       <Field title={offer.offerKind==='SALE'?(selectArea==='landArea'?'مساحة الأرض المقارنة (م²)':'مساحة البناء المقارنة (م²)'):
+        </>:<Field title="وصف شروط فرصة الاستثمار (دون معلومات شخصية)"
+          value={offer.investmentTerms} onChange={v=>update(i,'investmentTerms',v)}/>}
+       {offer.offerKind!=='INVESTMENT'&&<Field title={offer.offerKind==='SALE'?(selectArea==='landArea'?'مساحة الأرض المقارنة (م²)':'مساحة البناء المقارنة (م²)'):
          (rentArea==='landArea'?'مساحة الأرض المؤجرة (م²)':'المساحة القابلة للتأجير (م²)')}
          value={offer[offer.offerKind==='SALE'?selectArea:rentArea]}
-         onChange={v=>update(i,offer.offerKind==='SALE'?selectArea:rentArea,v)}/>
+         onChange={v=>update(i,offer.offerKind==='SALE'?selectArea:rentArea,v)}/>}
        <Field title="المدينة" value={offer.city} onChange={v=>update(i,'city',v)}/>
        <Field title="الحي" value={offer.district} onChange={v=>update(i,'district',v)}/>
        <Field title="الإحداثيات — عند توفرها" value={offer.location} onChange={v=>update(i,'location',v)}
