@@ -3,6 +3,9 @@ on:
   pull_request:
     paths:
       - 'src/market/instant-market-study.js'
+      - 'src/market/asking-offers.js'
+      - 'src/components/MarketOfferResearchPanel.jsx'
+      - 'tests/architecture/run_asking_offers.js'
       - 'src/market/professional-comparable-review.js'
       - 'src/market/value-reconciliation-audit.js'
       - 'src/components/CrossMethodEvidencePanel.jsx'
@@ -34,6 +37,7 @@ jobs:
           cache: 'npm'
       - run: npm ci --ignore-scripts
       - run: node tests/architecture/run_instant_market_study.js
+      - run: node tests/architecture/run_asking_offers.js
       - run: node tests/architecture/run_professional_comparable_review.js
       - run: node tests/architecture/run_value_reconciliation_audit.js
       - run: node tests/architecture/run_public_market_csv_import.js
