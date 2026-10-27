@@ -56,4 +56,26 @@ assert.equal(reserveHorizon.status,'ARITHMETIC_HORIZON_COMPLETE');
 assert.deepEqual(reserveHorizon.years.map(y=>y.sourceReplacementReserve),[1200,1200,1200]);
 assert.deepEqual(reserveHorizon.years.map(y=>y.netAfterScheduledCapexBeforeReserve),[388000,-24000,-12000]);
 assert.equal(reserveReport.operatingReport.contractRunoff.totals.contractNetBeforeCapex,386800);
+
+// Malformed restored annual series and operating cases fail closed instead of throwing
+// or silently producing a partial but apparently comparable certificate.
+const untrustedCalendar=JSON.parse(JSON.stringify(report.financial.rentalCalendar));
+const untrustedEconomics=JSON.parse(JSON.stringify(report.financial.results));
+const sourcePeriod=untrustedCalendar.periods[0];
+const assertHeld=(c,r,cal)=>{
+  let state;
+  assert.doesNotThrow(()=>{state=reconcileOperatingHorizon(c,r,cal);});
+  assert.equal(state.status,'NOT_COMPARABLE');
+  assert.deepEqual(state.years,[]);
+  assert.equal(state.fullReconciliationEstablished,false);
+  assert.equal(state.transactionAuthorized,false);
+};
+assertHeld(source,untrustedEconomics,{periods:[null,...untrustedCalendar.periods.slice(1)]});
+assertHeld(source,untrustedEconomics,{periods:[undefined,...untrustedCalendar.periods.slice(1)]});
+assertHeld(source,untrustedEconomics,{periods:[]});
+assertHeld(source,untrustedEconomics,{periods:[{...sourcePeriod,startDate:null},...untrustedCalendar.periods.slice(1)]});
+assertHeld(source,{...untrustedEconomics,annualOperatingEconomics:[null,...untrustedEconomics.annualOperatingEconomics.slice(1)]},untrustedCalendar);
+assertHeld(source,{...untrustedEconomics,annualOperatingEconomics:[undefined,...untrustedEconomics.annualOperatingEconomics.slice(1)]},untrustedCalendar);
+assertHeld({...source,asOfDate:null},untrustedEconomics,untrustedCalendar);
+assertHeld({...source,contractType:'UNTRUSTED_CASE'},untrustedEconomics,untrustedCalendar);
 console.log('OPERATING_HORIZON_RECONCILIATION: PASS');
