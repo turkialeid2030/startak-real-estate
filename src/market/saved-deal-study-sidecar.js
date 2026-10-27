@@ -32,10 +32,11 @@ function subjectCompatible(studySubject,mode){
  if(mode==='land'&&studySubject.assetType!=='LAND')throw Error('SAVED_DEAL_SUBJECT_TYPE_MISMATCH');
  if(mode==='building'&&studySubject.assetType==='LAND')throw Error('SAVED_DEAL_SUBJECT_TYPE_MISMATCH');
 }
-async function saveResearchSidecar({storage,dealId,studyJson,clock=()=>new Date()}){
+async function saveResearchSidecar({storage,dealId,studyJson,overwrite=false,clock=()=>new Date()}){
  if(!storage||typeof storage.set!=='function')throw Error('STORAGE_PROVIDER_NOT_WRITABLE');
  const {deal,id}=await readCanonicalDeal(storage,dealId);
  const restored=parsePersonalMarketStudy(studyJson).study;
+ if(!overwrite&&await storage.get(sidecarKey(id))!==null)throw Error('SIDECAR_EXISTS_CONFIRM_OVERWRITE');
  subjectCompatible(restored.subject,deal.mode);
  const timestamp=clock().toISOString();
  const envelope={
