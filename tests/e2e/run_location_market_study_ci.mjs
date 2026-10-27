@@ -132,6 +132,32 @@ try{
  assert(methodText.includes('فارق الإيجارين'),
    'comparison-based rent versus value percentage should appear separately');
  mark('COST_MARKET_INCOME_RECONCILIATION_HOLD_AND_RENT_BRIDGE',true);
+ const unitMix=panel.locator('[data-testid="cohort-unit-mix"]');
+ await unitMix.locator('summary').click();
+ await unitMix.getByText('لا توجد مجموعتان مؤهلتان',{exact:false}).waitFor();
+ mark('COHORT_ASKING_VS_EXECUTED_NOT_ASSUMED_MATCHED',true);
+ await unitMix.getByRole('button',{name:'+ إضافة فئة وحدات'}).click();
+ await unitMix.getByLabel('فئة الوحدة').selectOption('APARTMENT_2BR');
+ await unitMix.getByLabel('عدد وحدات الفئة').fill('200');
+ await unitMix.getByLabel('متوسط المساحة لكل وحدة (م²)').fill('125');
+ const today=new Date().toISOString().slice(0,10);
+ for(let i=0;i<3;i++){
+  await unitMix.getByRole('button',{name:'+ إضافة عقد إيجار مقارن'}).click();
+  await unitMix.getByLabel('نوع الوحدة المطابق').nth(i).selectOption('APARTMENT_2BR');
+  await unitMix.getByLabel('تاريخ العقد').nth(i).fill(today);
+  await unitMix.getByLabel('الإيجار السنوي للعقد (ريال)').nth(i).fill(String((80+i*5)*1000));
+  await unitMix.getByLabel('المساحة التأجيرية للعقد (م²)').nth(i).fill('125');
+  await unitMix.getByLabel('معرّف غير شخصي للعقد').nth(i).fill('SYNTH-L'+i);
+  await unitMix.getByLabel('رابط الدليل الأصلي HTTPS').nth(i)
+   .fill('https://data.gov.sa/synthetic-contract-'+i);
+ }
+ await unitMix.getByText('الإيجار السوقي السنوي الإجمالي المحتمل:',{exact:false})
+  .waitFor();
+ const segmentText=await unitMix.innerText();
+ assert(segmentText.includes('17,000,000')||segmentText.includes('١٧٬٠٠٠٬٠٠٠'),
+  'unit-class rent should match 200 x 125 sqm x annual lease median');
+ mark('UNIT_CLASS_CONTRACT_RENT_RECONCILIATION_AND_FORM',true);
+
 
 
  await page.setViewportSize({width:390,height:844});
