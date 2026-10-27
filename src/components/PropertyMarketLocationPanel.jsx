@@ -7,6 +7,7 @@ import CrossMethodEvidencePanel from './CrossMethodEvidencePanel.jsx';
 import MarketOfferResearchPanel from './MarketOfferResearchPanel.jsx';
 import TransactionCohortAndUnitMixPanel from './TransactionCohortAndUnitMixPanel.jsx';
 const {reviewAskingVsExecuted,evaluateUnitMixRents}=require('../market/transaction-cohort-unit-mix');
+const {MAX_BYTES:MAX_STUDY_BYTES,parsePersonalMarketStudy}=require('../market/market-study-state');
 
 const INPUT = 'w-full rounded-lg border border-slate-600 bg-[#101c30] px-3 py-2 text-sm text-slate-100';
 const createRow = () => ({ assetType:'', status:'ASKING', price:'', annualRent:'', builtArea:'', landArea:'',
@@ -150,6 +151,25 @@ export default function PropertyMarketLocationPanel() {
         ' غير مثبت التنفيذ وفق الحالة المعلنة، وستُستبعد. المصدر غير متحقق منه آليًا.');
     }catch(error){setImportStatus('تعذر الاستيراد: '+(error.message||'CSV_INVALID')+
       '. تحقق من الأعمدة، رابط مجموعة البيانات، وترخيص إعادة استخدامها.');}
+  };
+  const restoreJson=async file=>{
+    if(!file)return;
+    try{
+      if(file.size>MAX_STUDY_BYTES)throw Error('STUDY_SIZE_LIMIT');
+      const restored=parsePersonalMarketStudy(await file.text()).study;
+      setSubject(previous=>({...previous,...restored.subject}));
+      setAssumptions(previous=>({...previous,...restored.assumptions}));
+      setSales(restored.sales);
+      setRentals(restored.rentals);
+      setImportedSales([]);
+      setImportedRentals([]);
+      setProjects(restored.projects);
+      setMarketOffers(restored.marketOffers);
+      setUnitMix(restored.unitMix);
+      setLeaseComparables(restored.leaseComparables);
+      setRentAssumptions(previous=>({...previous,...restored.rentAssumptions}));
+      setMessage('استُعيدت مدخلات الدراسة الخاصة محليًا؛ أُعيد حساب النتائج دون الثقة في أرقام قديمة أو ادعاءات اعتماد داخل الملف.');
+    }catch(error){setMessage('فشل استيراد ملف الدراسة: '+String(error.message||'STUDY_INVALID'));}
   };
   const exportJson=()=>{
     try {
@@ -345,6 +365,12 @@ export default function PropertyMarketLocationPanel() {
     <CrossMethodEvidencePanel subject={subject} report={report}/>
     <div className="flex flex-wrap gap-3 mt-4">
       <button type="button" onClick={exportJson} className="rounded-lg bg-[#C9A24C] px-4 py-2 text-xs font-semibold text-[#141F35]">تصدير الدراسة الأولية JSON</button>
+      <label className="inline-flex flex-wrap items-center gap-2 rounded-lg border border-slate-600 px-3 py-2 text-xs text-slate-100">
+        استعادة دراسة محفوظة JSON
+        <input aria-label="استيراد دراسة STARTAK الشخصية JSON" className="min-h-[40px] max-w-[220px] text-xs"
+          type="file" accept=".json,application/json"
+          onChange={async e=>{const f=e.target.files?.[0];e.target.value='';await restoreJson(f);}}/>
+      </label>
       <a className="rounded-lg border border-slate-600 px-4 py-2 text-xs text-sky-300" target="_blank" rel="noopener noreferrer" href="https://rei.rega.gov.sa/">المؤشرات العقارية الرسمية</a>
       <a className="rounded-lg border border-slate-600 px-4 py-2 text-xs text-sky-300" target="_blank" rel="noopener noreferrer" href="https://suhail.ai/Riyadh/transactions">استعراض سهيل في تبويب مستقل (دون سحب)</a>
       <a className="rounded-lg border border-slate-600 px-4 py-2 text-xs text-sky-300" target="_blank" rel="noopener noreferrer" href="https://srem.moj.gov.sa/">الصفقات المسجلة — وزارة العدل</a>
