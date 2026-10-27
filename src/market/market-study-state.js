@@ -6,7 +6,7 @@ const KIND='STARTAK_PERSONAL_MARKET_STUDY',MAX_BYTES=2*1024*1024;
 const subjectKeys='name assetType landSubtype city district location landArea builtArea rentableArea buildingCount unitCount floorCount roomCount shopCount parkingCount warehouseCount clearHeight loadingDocks historicalAnnualRent leaseHistory urbanBoundary valuationPurpose valuationDate propertyRight zoningClassification inspectionStatus inspectionDate'.split(' ');
 const marketKeys='occupancy expenseRatio capRate'.split(' ');
 const rentKeys='expenseRatio stabilizedOccupancy'.split(' ');
-const saleKeys='assetType status price annualRent builtArea landArea rentableArea date location sourceUrl sourceRecordId city district'.split(' ');
+const saleKeys='assetType landSubtype status price annualRent builtArea landArea rentableArea date location sourceUrl sourceRecordId city district'.split(' ');
 const projectKeys='name status location sourceUrl impactPct'.split(' ');
 const offerKeys='offerKind assetType landSubtype evidenceType date sourceUrl price annualRent rentPeriod investmentTerms builtArea landArea rentableArea city district location availability'.split(' ');
 const mixKeys='unitType unitCount areaPerUnitSqm'.split(' ');
