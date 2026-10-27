@@ -9,6 +9,7 @@ realCustomerDataAllowed:false
 });
 const REF=/^[A-Za-z0-9][A-Za-z0-9_./:@-]{11,511}$/;
 const SHA=/^[a-f0-9]{64}$/;
+const GIT_COMMIT_SHA=/^[a-f0-9]{40}$/;
 const MAX_EVIDENCE_ENTRIES=128;
 const MAX_EVIDENCE_INDEX_BYTES=65536;
 const EXPECTED_WORKSTREAMS=Object.freeze(Array.from({length:12},(_,i)=>'Q'+String(i+1).padStart(2,'0')));
@@ -22,7 +23,7 @@ function validateProgram(program){
  if(program.status!=='HOLD_NOT_AUTHORIZED')failures.push('PROGRAM_AUTHORITY_STATUS_INVALID');
  if(program.serviceBoundary?.personalResearchOnly!==true)failures.push('UNAUTHORIZED_SCOPE:personalResearchOnly');
  if(program.pilot?.commercialServicesEnabled!==false)failures.push('UNAUTHORIZED_SCOPE:commercialServicesEnabled');
- if(!SHA.test(program.basis?.productionBaselineSha||''))failures.push('BASELINE_SHA_REQUIRED');
+ if(!GIT_COMMIT_SHA.test(program.basis?.productionBaselineSha||''))failures.push('BASELINE_SHA_REQUIRED');
  if(!Array.isArray(program.workstreams)||program.workstreams.length!==EXPECTED_WORKSTREAMS.length)return [...failures,'WORKSTREAM_CARDINALITY_INVALID'];
  const ids=new Set(), coverage=new Set(),evidenceKeys=new Set();
  for(const w of program.workstreams){
