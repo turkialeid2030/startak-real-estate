@@ -154,8 +154,8 @@ export default function PropertyMarketLocationPanel() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
         <Field title="رابط مجموعة البيانات المفتوحة أو المصدر المرخّص (HTTPS)" value={importSource}
           onChange={v=>{setImportSource(v);setRightsConfirmed(false);}} placeholder="https://..."/>
-        <label className="flex items-center gap-2 text-xs text-slate-200">
-          <input type="checkbox" checked={rightsConfirmed} onChange={e=>setRightsConfirmed(e.target.checked)}/>
+        <label className="flex items-center gap-2 text-xs text-slate-200 min-h-[44px]">
+          <input className="w-7 h-7 flex-shrink-0" type="checkbox" checked={rightsConfirmed} onChange={e=>setRightsConfirmed(e.target.checked)}/>
           أؤكد أن لي حق استخدام هذه البيانات وإعادة تحليلها
         </label>
         <label className="block text-xs text-slate-200">تحميل CSV لصفقات بيع منفّذة
@@ -170,11 +170,11 @@ export default function PropertyMarketLocationPanel() {
       <p role="status" className="mt-2 text-xs text-amber-200">{importStatus}</p>
       <p className="mt-2 text-xs text-slate-300">سجلات البيع المستوردة: {importedSales.length} | سجلات الإيجار المستوردة: {importedRentals.length}</p>
       <div className="flex gap-3 mt-2">
-        <button type="button" className="text-xs text-rose-200 underline"
+        <button type="button" className="text-xs text-rose-200 underline min-h-[36px] py-2 px-2"
           onClick={()=>{setImportedSales([]);setImportedRentals([]);setImportStatus('تم مسح المقارنات المستوردة من جلسة الصفحة.');}}>
           مسح المقارنات المستوردة
         </button>
-        <a className="text-xs text-sky-200 underline" target="_blank" rel="noopener noreferrer"
+        <a className="text-xs text-sky-200 underline min-h-[36px] inline-flex items-center py-2 px-2" target="_blank" rel="noopener noreferrer"
           href="https://www.moj.gov.sa/ar/opendata/Pages/reports.aspx">تقارير الصفقات العقارية — وزارة العدل</a>
       </div>
     </section>
