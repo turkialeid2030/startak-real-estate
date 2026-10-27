@@ -37,3 +37,10 @@ Reuse exactly `src/validation/time-forward-valuation-holdout.js` and
 `tests/architecture/run_external_three_gates_readiness.js` and browser acceptance cover missing protocol, fake evidence assertions, bad refs, fake production AI status, incomplete PDPL/licensed appraisal packet, and continued forbidden purchase/report/go-live authority. Passing these is **software correctness**, not market accuracy.
 
 **Closure condition:** Three distinct independent authorized evidence reviewers and an accountable governance authority establish the facts and issue dated signatures outside the owner-local prototype. A future authenticated production service may consume verified evidence after separate security signoff. Until then use status `HOLD / NOT_AUTHORIZED`.
+
+## 27 October 2026 — one-batch N06 / N08 defensive bounds, external HOLD unchanged
+
+- Direct independent-value sample validation is capped at **10,000** observations before normalization; an oversized sample returns `HOLD_EVIDENCE`, not a metric or approval.
+- Time-forward pre-registration metadata refuses more than **10,000** calibration asset IDs or **128** declared slices. The existing 10,000-observation cohort limit and all pre-registered numerical thresholds remain unchanged.
+- AI token usage is accepted only for the two explicitly supported provider response protocols; unknown protocol labels cannot be interpreted implicitly as Chat Completions billing usage.
+- Adversarial regression tests are required for each bounded case. These changes are **not** an authenticated Saudi transaction source, a real provider call, or a PDPL/security/professional approval. Preserve G01–G14 and N03/N04/N05/N06/N08/N10/N11/N12 external gates as HOLD where real third-party proof is missing.
