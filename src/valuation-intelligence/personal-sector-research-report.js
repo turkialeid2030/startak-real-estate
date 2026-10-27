@@ -175,7 +175,7 @@ function renderPersonalSectorResearchHtml(report,{locale='ar-SA'}={}){
   row(ar?'وزن طريقة التكلفة':'Cost method weight',inputs.policy.costWeight),
   row(ar?'وزن طريقة المقارنات':'Market comparison method weight',inputs.policy.marketWeight),
  ];
- const css='body{font-family:Tahoma,Arial,sans-serif;max-width:1050px;margin:2rem auto;padding:1rem;color:#152034}table{border-collapse:collapse;width:100%;margin:1rem 0}th,td{border:1px solid #abb8c7;padding:.55rem;text-align:start;vertical-align:top;overflow-wrap:anywhere}th{background:#eef2f5}h1,h2{color:#193652}small{color:#546578}@media print{body{margin:0;padding:0}}';
+ const css='body{font-family:Tahoma,Arial,sans-serif;max-width:1050px;margin:2rem auto;padding:1rem;color:#152034}table{border-collapse:collapse;width:100%;margin:1rem 0}th,td{border:1px solid #abb8c7;padding:.55rem;text-align:start;vertical-align:top;overflow-wrap:anywhere}th{background:#eef2f5}h1,h2{color:#193652}small{color:#546578}@media print{@page{size:A4 landscape;margin:10mm}body{margin:0;padding:0;font-size:10pt}table{font-size:8pt;table-layout:fixed}th,td{padding:.3rem;overflow-wrap:anywhere}tr{break-inside:avoid}}';
  return '<!doctype html><html lang="'+(ar?'ar':'en')+'" dir="'+(ar?'rtl':'ltr')+
   '"><head><meta charset="UTF-8"><meta http-equiv="Content-Security-Policy" content="default-src &#39;none&#39;; style-src &#39;unsafe-inline&#39;">'+
   '<title>'+h(title)+'</title><style>'+css+'</style></head><body><h1>'+h(title)+'</h1>'+
