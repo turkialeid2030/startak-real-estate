@@ -7,6 +7,7 @@ on:
       - 'src/market/property-report-quality.js'
       - 'src/components/ValuationQualityPanel.jsx'
       - 'tests/architecture/run_valuation_decision_gate.js'
+      - 'tests/architecture/run_unified_valuation_case.js'
       - 'tests/architecture/run_appraisal_report_quality.js'
       - 'src/market/asking-offers.js'
       - 'src/market/transaction-cohort-unit-mix.js'
@@ -48,6 +49,7 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: node tests/architecture/run_instant_market_study.js
       - run: node tests/architecture/run_valuation_decision_gate.js
+      - run: node tests/architecture/run_unified_valuation_case.js
       - run: node tests/architecture/run_appraisal_report_quality.js
       - run: node tests/architecture/run_asking_offers.js
       - run: node tests/architecture/run_transaction_cohort_unit_mix.js
