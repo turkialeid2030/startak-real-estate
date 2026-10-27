@@ -10,6 +10,7 @@ const {reviewAskingVsExecuted,evaluateUnitMixRents}=require('../market/transacti
 const {MAX_BYTES:MAX_STUDY_BYTES,parsePersonalMarketStudy}=require('../market/market-study-state');
 const {createStorageProvider}=require('../storage/create-storage-provider');
 const {listCanonicalDeals,saveResearchSidecar,loadResearchSidecar}=require('../market/saved-deal-study-sidecar');
+const {resolveStudyAsOf}=require('../market/study-asof');
 const {auditValuationReadiness}=require('../market/valuation-decision-gate');
 const {evaluateAppraisalReportQuality}=require('../market/property-report-quality');
 import ValuationQualityPanel from './ValuationQualityPanel.jsx';
@@ -113,24 +114,27 @@ export default function PropertyMarketLocationPanel() {
   const [savedDealStudyStatus,setSavedDealStudyStatus]=useState('');
   const [replaceLinkedStudy,setReplaceLinkedStudy]=useState(false);
   const [linkedStudyBusy,setLinkedStudyBusy]=useState(false);
+  const [linkedDealIdentityAcknowledged,setLinkedDealIdentityAcknowledged]=useState(false);
   const updateSubject=(key,value)=>setSubject(current=>({...current,[key]:value}));
   const updateAssumption=(key,value)=>setAssumptions(current=>({...current,[key]:value}));
+  const studyAsOf=resolveStudyAsOf(subject.valuationDate);
+  const asOfMs=studyAsOf.asOf.getTime();
   const allSales=useMemo(()=>[...sales,...importedSales],[sales,importedSales]);
   const allRentals=useMemo(()=>[...rentals,...importedRentals],[rentals,importedRentals]);
-  const report=useMemo(()=>evaluateMarketStudy({subject,sales:allSales,rentals:allRentals,projects,assumptions}),
-    [subject,allSales,allRentals,projects,assumptions]);
+  const report=useMemo(()=>evaluateMarketStudy({subject,sales:allSales,rentals:allRentals,projects,assumptions,asOf:new Date(asOfMs)}),
+    [subject,allSales,allRentals,projects,assumptions,asOfMs]);
   const askingVsExecutedCohorts=useMemo(()=>reviewAskingVsExecuted({
-    subject,askingOffers:marketOffers,executedSales:allSales,
-  }),[subject,marketOffers,allSales]);
+    subject,askingOffers:marketOffers,executedSales:allSales,asOf:new Date(asOfMs),
+  }),[subject,marketOffers,allSales,asOfMs]);
   const segmentedMarketRents=useMemo(()=>evaluateUnitMixRents({
-    subject,unitMix,leaseComparables,...rentAssumptions,
-  }),[subject,unitMix,leaseComparables,rentAssumptions]);
+    subject,unitMix,leaseComparables,...rentAssumptions,asOf:new Date(asOfMs),
+  }),[subject,unitMix,leaseComparables,rentAssumptions,asOfMs]);
   const valuationReadiness=useMemo(()=>auditValuationReadiness({
-    subject,report,segmentedRent:segmentedMarketRents,sales:allSales,rentals:allRentals,
-  }),[subject,report,segmentedMarketRents,allSales,allRentals]);
+    subject,report,segmentedRent:segmentedMarketRents,sales:allSales,rentals:allRentals,asOf:new Date(asOfMs),
+  }),[subject,report,segmentedMarketRents,allSales,allRentals,asOfMs]);
   const appraisalQuality=useMemo(()=>evaluateAppraisalReportQuality({
-    subject,marketReport:report,readiness:valuationReadiness,
-  }),[subject,report,valuationReadiness]);
+    subject,marketReport:report,readiness:valuationReadiness,asOf:new Date(asOfMs),
+  }),[subject,report,valuationReadiness,asOfMs]);
   const coords=extractCoordinates(subject.location);
   const publicNeighborhood=useMemo(()=>deriveDistrictSnapshot(publicRecords,{
     city:subject.city,district:subject.district,
@@ -200,6 +204,7 @@ export default function PropertyMarketLocationPanel() {
   };
   const saveLinkedStudy=async()=>{
     if(!selectedSavedDealId){setSavedDealStudyStatus('اختر الصفقة المحفوظة أولًا.');return;}
+    if(!linkedDealIdentityAcknowledged){setSavedDealStudyStatus('أكد أن الدراسة تخص العقار نفسه قبل الحفظ.');return;}
     setLinkedStudyBusy(true);
     try{
       const saved=await saveResearchSidecar({
@@ -242,7 +247,8 @@ export default function PropertyMarketLocationPanel() {
     try {
       const blob=new Blob([JSON.stringify({kind:'STARTAK_PERSONAL_MARKET_STUDY',subject,assumptions,
         sales:allSales,rentals:allRentals,projects,marketOffers,unitMix,leaseComparables,rentAssumptions,
-        askingVsExecutedCohorts,segmentedMarketRents,valuationReadiness,appraisalQuality,report,
+        askingVsExecutedCohorts,segmentedMarketRents,valuationReadiness,appraisalQuality,
+        studyAsOf:{date:studyAsOf.date,origin:studyAsOf.origin,issues:studyAsOf.issues},report,
         exportedAt:new Date().toISOString()},null,2)],{type:'application/json'});
       const url=URL.createObjectURL(blob),a=document.createElement('a');
       a.href=url;a.download='startak-location-market-personal-study.json';
@@ -468,19 +474,24 @@ export default function PropertyMarketLocationPanel() {
           <select className="mt-1 w-full min-h-[40px] rounded-lg border border-slate-600 bg-[#101c30] px-3 py-2"
             aria-label="اختيار الصفقة لربط دراسة السوق"
             value={selectedSavedDealId}
-            onChange={e=>{setSelectedSavedDealId(e.target.value);setReplaceLinkedStudy(false);}}>
+            onChange={e=>{setSelectedSavedDealId(e.target.value);setReplaceLinkedStudy(false);setLinkedDealIdentityAcknowledged(false);}}>
             <option value="">— اختر صفقة محفوظة —</option>
             {savedDeals.map(deal=><option key={deal.id} value={deal.id}>{deal.name} ({deal.id})</option>)}
           </select>
         </label>
       </div>
       <label className="mt-3 min-h-[40px] inline-flex items-center gap-2 text-xs text-slate-300">
+        <input type="checkbox" className="h-6 w-6" checked={linkedDealIdentityAcknowledged}
+          onChange={e=>setLinkedDealIdentityAcknowledged(e.target.checked)}/>
+        أؤكد أن الدراسة تخص العقار نفسه في الصفقة المختارة (إقرار مستخدم وليس تحققًا من الصك).
+      </label>
+      <label className="mt-3 min-h-[40px] inline-flex items-center gap-2 text-xs text-slate-300">
         <input type="checkbox" className="h-6 w-6" checked={replaceLinkedStudy}
           onChange={e=>setReplaceLinkedStudy(e.target.checked)}/>
         أوافق على استبدال ملحق دراسة محفوظ سابقًا لهذه الصفقة
       </label>
       <div className="flex flex-wrap gap-2 mt-3">
-        <button type="button" disabled={linkedStudyBusy||!selectedSavedDealId}
+        <button type="button" disabled={linkedStudyBusy||!selectedSavedDealId||!linkedDealIdentityAcknowledged}
           onClick={saveLinkedStudy} className="min-h-[40px] rounded-lg bg-[#C9A24C] px-4 py-2 text-xs font-semibold text-[#141F35] disabled:opacity-50">
           حفظ ملحق الدراسة للصفقة المختارة
         </button>
