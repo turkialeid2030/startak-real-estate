@@ -69,7 +69,7 @@ function mapLandSubtype(value){
   const token=norm(value);
   const mapping={
     'raw':'RAW','خام':'RAW','أرضخام':'RAW','ارضخام':'RAW','غيرمخدومة':'RAW',
-    'serviced':'SERVICED','مخدومة':'SERVICED','مخططةومخدومة':'SERVICED',
+    'serviced':'SERVICED','مخدومة':'SERVICED','أرضمخدومة':'SERVICED','ارضمخدومة':'SERVICED','مخططةومخدومة':'SERVICED','أرضمخططة':'SERVICED',
     'residential':'RESIDENTIAL','سكنية':'RESIDENTIAL','أرضسكنية':'RESIDENTIAL',
     'commercial':'COMMERCIAL','تجارية':'COMMERCIAL','أرضتجارية':'COMMERCIAL',
     'agricultural':'AGRICULTURAL','زراعية':'AGRICULTURAL','أرضزراعية':'AGRICULTURAL',
