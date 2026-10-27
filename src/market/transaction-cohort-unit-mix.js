@@ -13,7 +13,7 @@ const HOUSE_TYPES=new Set(['RESIDENTIAL_COMPOUND','RESIDENTIAL_BUILDING','RESIDE
 const RETAIL_TYPES=new Set(['COMMERCIAL_COMPLEX','COMMERCIAL_MALL','MIXED_USE','OFFICE_TOWER','WAREHOUSE','LOGISTICS_PARK']);
 const EXCLUDED_SPECIALISTS=new Set(['HOTEL','HEALTHCARE_PROPERTY','INDUSTRIAL_PROPERTY']);
 const norm=s=>String(s??'').trim().replace(/\s+/g,' ').replace(/[أإآٱ]/g,'ا').replace(/ة/g,'ه').toLowerCase();
-const val=(x,min=0,max=1e14)=>{const n=number(x);return n!==null&&Number.isFinite(n)&&n>=min&&n<=max?n:null;};
+const val=(x,min=0,max=1e14)=>{const cleaned=typeof x==='string'&&/^\.\d+$/.test(x.trim())?'0'+x.trim():x;const n=number(cleaned);return n!==null&&Number.isFinite(n)&&n>=min&&n<=max?n:null;};
 const dateMs=(v,asOf,windowDays)=>{
  if(typeof v!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(v))return null;
  const n=Date.parse(v+'T00:00:00Z'),now=new Date(asOf).getTime();
