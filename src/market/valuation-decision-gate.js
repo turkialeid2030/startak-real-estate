@@ -25,6 +25,8 @@ const ASSET_METHODS=Object.freeze({
 const reasonText=Object.freeze({
   ASSET_TYPE_UNSUPPORTED:'نوع العقار غير مدعوم',
   LOCATION_EVIDENCE_MISSING:'إحداثيات العقار مطلوبة للمراجعة المكانية',
+  VALUATION_DATE_INVALID:'تاريخ التقييم المدخل غير صالح',
+  FUTURE_VALUATION_DATE_NOT_SUPPORTED:'التقييم التاريخي لا يقبل تاريخًا مستقبليًا',
   LAND_AREA_MISSING:'مساحة الأرض غير مكتملة',
   BUILT_AREA_MISSING:'مساحة المباني غير مكتملة',
   RENTABLE_AREA_MISSING:'المساحة التأجيرية غير مكتملة',
@@ -74,6 +76,15 @@ function auditValuationReadiness({subject={},report={},segmentedRent=null,sales=
  const type=String(subject.assetType||''),policy=ASSET_METHODS[type]||null;
  const reasons=[],notices=[],add=(collection,id)=>{if(!collection.includes(id))collection.push(id);};
  if(!Object.prototype.hasOwnProperty.call(ASSET_TYPES,type)||!policy)add(reasons,'ASSET_TYPE_UNSUPPORTED');
+ const valueDate=String(subject?.valuationDate||'');
+ if(valueDate){
+   const matching=/^\d{4}-\d{2}-\d{2}$/.test(valueDate);
+   const date=matching?new Date(valueDate+'T00:00:00.000Z'):new Date(NaN);
+   if(!matching||!Number.isFinite(date.getTime())||date.toISOString().slice(0,10)!==valueDate)
+     add(reasons,'VALUATION_DATE_INVALID');
+   else if(date.getTime()>d.getTime())add(reasons,'FUTURE_VALUATION_DATE_NOT_SUPPORTED');
+ }
+
  if(!extractCoordinates(String(subject.location||'')))add(reasons,'LOCATION_EVIDENCE_MISSING');
  if(!present(subject.landArea))add(reasons,'LAND_AREA_MISSING');
  if(type!=='LAND'&&!present(subject.builtArea))add(reasons,'BUILT_AREA_MISSING');
