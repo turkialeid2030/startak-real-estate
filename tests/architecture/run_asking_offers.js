@@ -39,11 +39,11 @@ const wrongCity=reviewMarketOffers({subject:{...base,city:'الرياض'},offers
 assert.equal(wrongCity.askingSales.acceptedOffers,0);
 const otherCity=reviewMarketOffers({subject:{...base,city:'مكة المكرمة',district:'العزيزية'},
  offers:[sale(1),sale(2),sale(3)].map((x,i)=>({...x,city:'مكة المكرمة',district:'العزيزية',
- sourceUrl:'https://sa.aqar.fm/m/'+i}))},asOf});
+ sourceUrl:'https://sa.aqar.fm/m/'+i})),asOf});
 assert.equal(otherCity.askingSales.acceptedOffers,3,'not hard-coded to one city');
 const factory=reviewMarketOffers({subject:{...base,assetType:'INDUSTRIAL_PROPERTY'},
  offers:[sale(1),sale(2),sale(3)].map((x,i)=>({...x,assetType:'INDUSTRIAL_PROPERTY',
- sourceUrl:'https://example.org/industrial/'+i}))},asOf});
+ sourceUrl:'https://example.org/industrial/'+i})),asOf});
 assert.equal(factory.askingSales.acceptedOffers,3);
 const seasonal=reviewMarketOffers({subject:base,offers:[rent(1),rent(2),{...rent(3),rentPeriod:'DAY'}],asOf});
 assert.equal(seasonal.askingRentalsAnnual.acceptedOffers,2);
