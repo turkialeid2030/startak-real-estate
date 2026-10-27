@@ -35,7 +35,7 @@ try{
   'منطقة الرياض,الرياض,الرياض/الملقا,91001,2026/02/15,سكني,1,1200000,600',
   'منطقة الرياض,الرياض,الرياض/الملقا,91002,2026/02/16,سكني,1,1800000,600',
   'منطقة الرياض,الرياض,الرياض/الملقا,91003,2026/02/17,سكني,1,2400000,600',
- ].join('\\n');
+ ].join('\n');
  await page.route('https://raw.githubusercontent.com/civillizard/Saudi-Real-Estate-Data/main/moj/sales/**',
   async(route)=>{await route.fulfill({status:200,body:openQuarterFixture,
     headers:{'content-type':'text/csv; charset=utf-8','access-control-allow-origin':'*'}});});
