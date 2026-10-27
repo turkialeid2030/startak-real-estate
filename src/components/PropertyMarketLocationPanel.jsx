@@ -27,6 +27,7 @@ const labelMap = {
   LAND_AREA_REQUIRED:'مساحة الأرض مطلوبة',BUILT_AREA_REQUIRED:'المساحة المبنية مطلوبة',
   HOTEL_ROOM_COUNT_REQUIRED:'عدد غرف الفندق مطلوب',
   SPECIALIST_ASSET_REQUIRES_SECTOR_UNDERWRITING:'الأصل متخصص: يلزم منهج دخل قطاعي مستقل ولا يمكن اعتماد نموذج الإيجار العام',
+  MATERIAL_MARKET_INCOME_GAP_REQUIRES_RECONCILIATION:'فارق جوهري بين السوق والدخل (20% أو أكثر): أوقفت القيمة الموحدة حتى تسوية الافتراضات والمقارنات',
 };
 function Field({ title, value, onChange, type='text', placeholder='' }) {
   return <label className="block min-w-0 text-xs text-slate-300">{title}
@@ -312,9 +313,14 @@ export default function PropertyMarketLocationPanel() {
         <div><span className="text-xs text-slate-400">متوسط الإيجار السوقي لكل وحدة (تقريبي)</span><strong className="block">{money(report.averageMarketAnnualRentPerUnitSar)}</strong></div>
       </div>
       <p className="mt-2 text-xs text-amber-200">مستوى الثقة: {report.confidence==='NO_SUPPORTED_PRIMARY_VALUE'?
-        'لا توجد قيمة أولية مؤهلة' : 'مؤشر أولي غير متحقق مهنيًا'}.
+        'لا توجد قيمة أولية مؤهلة' :report.confidence==='UNRECONCILED_METHODS_NO_PRIMARY_VALUE'?
+        'إيقاف النتيجة الموحدة بسبب اختلاف جوهري بين المنهجيات' : 'مؤشر أولي غير متحقق مهنيًا'}.
         {report.specialistReason?' يلزم نموذج قطاعي متكامل للأصل المتخصص قبل إنتاج سعر رئيسي.':''}
       </p>
+      {report.methodGapPct!==null&&<p className="mt-2 text-xs text-slate-300">
+        فارق مؤشري السوق والدخل: {report.methodGapPct.toFixed(1)}% من الأكبر؛
+        {report.materialMethodGap?' لا يُسمح باحتساب المتوسط كقيمة واحدة حتى تفسير الفرق ومراجعته.':' للتوثيق والتحقق من ملاءمة المنهجين.'}
+      </p>}
       {report.saleDispersion&&<p className="mt-1 text-xs text-slate-300">
         مدى أسعار بيع المتر المقبولة: {money(report.saleDispersion.min)} إلى {money(report.saleDispersion.max)}.
         الاتساع النسبي للمدى: {(report.saleDispersion.spreadToMedian*100).toFixed(1)}% — لا يمثل حد ثقة إحصائيًا.
