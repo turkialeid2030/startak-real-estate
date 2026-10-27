@@ -4,6 +4,9 @@ on:
     paths:
       - 'src/market/instant-market-study.js'
       - 'src/market/professional-comparable-review.js'
+      - 'src/market/value-reconciliation-audit.js'
+      - 'src/components/CrossMethodEvidencePanel.jsx'
+      - 'tests/architecture/run_value_reconciliation_audit.js'
       - 'src/components/ProfessionalComparableReviewPanel.jsx'
       - 'tests/architecture/run_professional_comparable_review.js'
       - 'src/market/public-dataset-import.js'
@@ -32,6 +35,7 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: node tests/architecture/run_instant_market_study.js
       - run: node tests/architecture/run_professional_comparable_review.js
+      - run: node tests/architecture/run_value_reconciliation_audit.js
       - run: node tests/architecture/run_public_market_csv_import.js
       - run: node tests/architecture/run_saudi_open_data_research.js
       - run: node tests/architecture/run_saudi_open_data_live_smoke.js
