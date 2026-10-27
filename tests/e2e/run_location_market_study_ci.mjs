@@ -99,6 +99,19 @@ try{
  assert((await quality.innerText()).includes('يتطلب مراجعة خارجية'),
   'a personal research draft must not self-certify an appraisal report');
  mark('QUALITY_GATE_AND_EXTERNAL_PROFESSIONAL_REVIEW_CHECKLIST',true);
+ await fill('عدد العمائر/المباني','');
+ assert((await valuation.innerText()).includes('غير قابل للحساب'),
+   'missing building count must disable blended property price even when financial comparisons exist');
+ await fill('عدد العمائر/المباني','5');
+ assert((await valuation.innerText())===valueAfter,'corrected subject metadata should reinstate preliminary price');
+ mark('BUILDING_COUNT_QUALITY_HARD_GATE_REVALIDATION',true);
+ await fill('معدل الرسملة ككسر','0.05');
+ assert((await valuation.innerText()).includes('غير قابل للحساب'),
+   'material income-vs-comparable conflict must disable blended price');
+ await fill('معدل الرسملة ككسر','0.075');
+ assert((await valuation.innerText())===valueAfter,'resolved method conflict should restore preliminary price');
+ mark('MATERIAL_METHOD_CONFLICT_HARD_GATE_REVALIDATION',true);
+
 
 
  await fill('الإيجار السنوي السابق','999999999');
