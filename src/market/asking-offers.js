@@ -55,6 +55,8 @@ function asOffer(row,{kind,subject,asOf,maxAgeDays=TIME_LIMIT_DAYS}){
    else rejection.push('NO_VERIFIABLE_LOCATION_MATCH');
  }
  const isLand=subject?.assetType==='LAND';
+ if(isLand && (!row.landSubtype||!subject.landSubtype||
+   String(row.landSubtype)!==String(subject.landSubtype)))rejection.push('LAND_SUBTYPE_UNVERIFIED');
  // Offers compare like with like: sale = land area for land only, built area otherwise.
  // Rent = rentable area, or land area for land leases.
  const areaBasis=kind==='SALE'?(isLand?'landArea':'builtArea'):(isLand?'landArea':'rentableArea');
@@ -117,6 +119,7 @@ const HEADER={
  price:['السعر المطلوب','سعر البيع المطلوب','price'],
  annualRent:['الإيجار المطلوب','الايجار المطلوب','annualRent'],
  rentPeriod:['دورية الإيجار','rentPeriod'],
+ landSubtype:['نوع الأرض','تصنيف الأرض','landSubtype'],
  landArea:['مساحة الأرض','landArea'],
  builtArea:['المساحة المبنية','builtArea'],
  rentableArea:['المساحة التأجيرية','rentableArea'],
@@ -150,6 +153,7 @@ function importOfferRowsCsv(csv) {
    rentPeriod:['MONTH','شهري','شهر'].some(x=>normalized(x)===rawPeriod)?'MONTH':
        ['YEAR','سنوي','سنة'].some(x=>normalized(x)===rawPeriod)?'YEAR':'UNKNOWN',
    landArea:field(cols,'landArea'),builtArea:field(cols,'builtArea'),rentableArea:field(cols,'rentableArea'),
+   landSubtype:field(cols,'landSubtype'),
    city:field(cols,'city'),district:field(cols,'district'),location:field(cols,'location'),
    date:field(cols,'date'),sourceUrl:field(cols,'sourceUrl'),
   };
