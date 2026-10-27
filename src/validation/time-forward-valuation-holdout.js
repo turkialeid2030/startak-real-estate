@@ -16,6 +16,10 @@ const STATUS = Object.freeze({
 });
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_CASES = 10000;
+// Bounded preregistration metadata: synthetic or real caller-provided
+// cohorts must never allocate unbounded calibration/slice collections.
+const MAX_CALIBRATION_ASSETS = MAX_CASES;
+const MAX_REGISTERED_SLICES = 128;
 const SCOPES = new Set(['region', 'assetType']);
 
 function validDate(value) {
@@ -50,12 +54,16 @@ function protocolErrors(p) {
       p.holdoutStartDate <= p.holdoutEndDate)) errors.push('TIME_FORWARD_PROTOCOL_ORDER_INVALID');
   }
   if (!nonNegativeFinite(p.maxP90AbsolutePercentageError)) errors.push('MAX_P90_THRESHOLD_REQUIRED');
-  if (!Array.isArray(p.calibrationAssetIds) || p.calibrationAssetIds.length === 0 ||
-      p.calibrationAssetIds.some(x => !nonEmpty(x)) ||
+  if (!Array.isArray(p.calibrationAssetIds) || p.calibrationAssetIds.length === 0) {
+    errors.push('CALIBRATION_ASSET_IDS_REQUIRED_AND_UNIQUE');
+  } else if (p.calibrationAssetIds.length > MAX_CALIBRATION_ASSETS) {
+    errors.push('CALIBRATION_ASSET_IDS_LIMIT_EXCEEDED');
+  } else if (p.calibrationAssetIds.some(x => !nonEmpty(x)) ||
       new Set(p.calibrationAssetIds).size !== p.calibrationAssetIds.length) {
     errors.push('CALIBRATION_ASSET_IDS_REQUIRED_AND_UNIQUE');
   }
   if (!Array.isArray(p.slices) || p.slices.length === 0) errors.push('REGISTERED_SLICES_REQUIRED');
+  else if (p.slices.length > MAX_REGISTERED_SLICES) errors.push('REGISTERED_SLICES_LIMIT_EXCEEDED');
   else {
     const seen = new Set(), fields = new Set();
     for (const [i, s] of p.slices.entries()) {
