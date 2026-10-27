@@ -53,7 +53,12 @@ function reconciliationHtml(bridge, locale = 'ar-SA') {
     RESIDUAL: ['فرق التسوية الحسابي','Arithmetic reconciliation residual'],
   };
   const title = en ? 'First-year accrual reconciliation' : 'تسوية الاستحقاق للسنة الأولى';
-  if (bridge.status === 'NOT_COMPARABLE') return '<h2>'+title+'</h2><p>'+(en
+  const rowsValid=Array.isArray(bridge.rows)&&bridge.rows.length===7
+    && bridge.rows.every(row=>row&&Object.prototype.hasOwnProperty.call(labels,row.code)
+      && typeof row.amount==='number'&&Number.isFinite(row.amount)
+      && Number.isSafeInteger(Math.round(row.amount*100)));
+  if (bridge.status !== 'ARITHMETIC_BRIDGE_COMPLETE' && bridge.status !== 'BRIDGE_RESIDUAL'
+    || !rowsValid) return '<h2>'+title+'</h2><p>'+(en
     ? 'Comparison withheld: identical dated annual periods and complete amounts are required.'
     : 'تعذرت المقارنة: يلزم تطابق الفترة السنوية المؤرخة واكتمال القيم.')+'</p>';
   return '<h2>'+title+'</h2><p>'+(en
@@ -68,12 +73,14 @@ function reconcileOperatingHorizon(operatingCase, result, calendar) {
   const periods = calendar?.periods, economics = result?.annualOperatingEconomics;
   if (!Array.isArray(periods) || !periods.length || periods.length > 50
     || !Array.isArray(economics) || economics.length !== periods.length
-    || periods[0].startDate !== operatingCase?.asOfDate?.slice(0,10)) return base;
+    || !periods[0] || typeof periods[0].startDate !== 'string'
+    || typeof operatingCase?.asOfDate !== 'string'
+    || periods[0].startDate !== operatingCase.asOfDate.slice(0,10)) return base;
   const date = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
     && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0,10) === value;
   for (let i=0; i<periods.length; i++) {
     const p = periods[i];
-    if (!date(p.startDate) || !date(p.endDateExclusive) || p.startDate >= p.endDateExclusive
+    if (!p || !economics[i] || !date(p.startDate) || !date(p.endDateExclusive) || p.startDate >= p.endDateExclusive
       || p.year !== i+1 || economics[i].year !== i+1
       || (i && periods[i-1].endDateExclusive !== p.startDate)) return base;
     const anchor = new Date(periods[0].startDate), expected = new Date(periods[0].startDate);
@@ -81,15 +88,19 @@ function reconcileOperatingHorizon(operatingCase, result, calendar) {
     expected.setUTCDate(Math.min(anchor.getUTCDate(),new Date(Date.UTC(expected.getUTCFullYear(),anchor.getUTCMonth()+1,0)).getUTCDate()));
     if (p.endDateExclusive !== expected.toISOString().slice(0,10)) return base;
   }
-  const years = periods.map((p,i) => {
-    const runoff = calculateContractRunoff(operatingCase,{periodStart:p.startDate,periodEndExclusive:p.endDateExclusive});
-    const e = economics[i];
+  const years = [];
+  for (let i=0; i<periods.length; i++) {
+    const p=periods[i], e=economics[i];
+    // A malformed persisted operating case must never abort a financial report.
+    let runoff;
+    try { runoff=calculateContractRunoff(operatingCase,{periodStart:p.startDate,periodEndExclusive:p.endDateExclusive}); }
+    catch { return base; }
     const bridge = reconcileOperatingFinancial(runoff,{
       rentalIncomeAfterVacancy:e.rental, firstYearServiceIncome:e.service,
       firstYearTotalAnnualIncome:e.revenue, firstYearNOI:e.NOI,
       replacementReserveAmount:e.replacementReserveAmount,
     },{periods:[p]});
-    return {year:p.year,periodStart:p.startDate,periodEndExclusive:p.endDateExclusive,
+    years.push({year:p.year,periodStart:p.startDate,periodEndExclusive:p.endDateExclusive,
       bridge, sourceIssues:runoff.issues, contractRent:runoff.totals?.contractRent ?? null,
       normalizedOpex:runoff.totals?.normalizedOpexBeforeReserve ?? null,
       sourceReplacementReserve:runoff.totals?.normalizedReplacementReserve ?? null,
@@ -98,8 +109,8 @@ function reconcileOperatingHorizon(operatingCase, result, calendar) {
       netAfterScheduledCapexBeforeReserve:runoff.totals?.contractNetBeforeReserveAndCapex!=null&&runoff.totals?.scheduledCapex!=null
         ? runoff.totals.contractNetBeforeReserveAndCapex-runoff.totals.scheduledCapex : null,
       modelNoiAfterReserve:e.NOI,
-      capexStatus:runoff.capitalPaymentPlan?.status ?? 'NOT_AVAILABLE'};
-  });
+      capexStatus:runoff.capitalPaymentPlan?.status ?? 'NOT_AVAILABLE'});
+  }
   return {...base,status:years.every(y=>y.bridge.status==='ARITHMETIC_BRIDGE_COMPLETE')
     ? 'ARITHMETIC_HORIZON_COMPLETE' : 'PARTIAL',years};
 }
