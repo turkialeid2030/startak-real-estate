@@ -9,6 +9,7 @@ realCustomerDataAllowed:false
 });
 const REF=/^[A-Za-z0-9][A-Za-z0-9_./:@-]{11,511}$/;
 const SHA=/^[a-f0-9]{64}$/;
+const GIT_COMMIT_SHA=/^[a-f0-9]{40}$/;
 const MAX_EVIDENCE_ENTRIES=128;
 const MAX_EVIDENCE_INDEX_BYTES=65536;
 const EXPECTED_WORKSTREAMS=Object.freeze(Array.from({length:12},(_,i)=>'Q'+String(i+1).padStart(2,'0')));
@@ -17,20 +18,34 @@ function validateProgram(program){
  const failures=[];
  if(!isRecord(program)||program.schemaVersion!==1||!/^STARTAK-QCR-\d{4}-\d{2}-\d{2}$/.test(program.programId||''))return ['INVALID_PROGRAM_HEADER'];
  if(!Number.isInteger(program.planningHorizonDays)||program.planningHorizonDays!==90)failures.push('INVALID_PLANNING_HORIZON');
+ // Program-owner mandate is execution of evidence gathering; no unilateral
+ // configuration edit may turn that mandate into commercial/professional GO.
+ if(program.status!=='HOLD_NOT_AUTHORIZED')failures.push('PROGRAM_AUTHORITY_STATUS_INVALID');
+ if(program.serviceBoundary?.personalResearchOnly!==true)failures.push('UNAUTHORIZED_SCOPE:personalResearchOnly');
+ if(program.pilot?.commercialServicesEnabled!==false)failures.push('UNAUTHORIZED_SCOPE:commercialServicesEnabled');
+ if(!GIT_COMMIT_SHA.test(program.basis?.productionBaselineSha||''))failures.push('BASELINE_SHA_REQUIRED');
  if(!Array.isArray(program.workstreams)||program.workstreams.length!==EXPECTED_WORKSTREAMS.length)return [...failures,'WORKSTREAM_CARDINALITY_INVALID'];
  const ids=new Set(), coverage=new Set(),evidenceKeys=new Set();
  for(const w of program.workstreams){
   if(!isRecord(w)||!/^Q\d{2}$/.test(w.id||'')||ids.has(w.id)){failures.push('WORKSTREAM_ID_INVALID_OR_DUPLICATE');continue;}
   ids.add(w.id);
   if(!['P0','P1'].includes(w.priority)||!Number.isInteger(w.targetDay)||w.targetDay<1||w.targetDay>90||w.executionMode!=='PARALLEL')failures.push('WORKSTREAM_SCHEDULE_INVALID:'+w.id);
-  if(!w.responsibleRole||!w.accountableRole||!w.informedRole)failures.push('RACI_MISSING:'+w.id);
+  if(![w.responsibleRole,w.accountableRole,w.informedRole].every(v=>typeof v==='string'&&v.trim().length>0))
+   failures.push('RACI_MISSING:'+w.id);
+  // Names may be recorded only with a real appointment; the initial
+  // execution ledger cannot silently promote an asserted person to an owner.
+  if(w.assignedPerson!==null)failures.push('UNVERIFIED_ASSIGNMENT:'+w.id);
   if(!Array.isArray(w.evidenceRequired)||w.evidenceRequired.length===0)failures.push('EVIDENCE_SCHEMA_MISSING:'+w.id);
   else for(const e of w.evidenceRequired){
    if(typeof e!=='string'||!/^\w{3,80}$/.test(e)||evidenceKeys.has(w.id+':'+e))failures.push('EVIDENCE_ID_INVALID:'+w.id);
    evidenceKeys.add(w.id+':'+e);
   }
-  if(!Array.isArray(w.relatedGapIds))failures.push('GAP_MAPPING_MISSING:'+w.id);
-  else for(const g of w.relatedGapIds)coverage.add(g);
+  if(!Array.isArray(w.relatedGapIds)||w.relatedGapIds.length===0)failures.push('GAP_MAPPING_MISSING:'+w.id);
+  else for(const g of w.relatedGapIds){
+   if(typeof g!=='string'||!/^(G(0[1-9]|1[0-4])|N[0-9]{2})$/.test(g))
+    failures.push('UNKNOWN_GAP_CODE:'+w.id);
+   else coverage.add(g);
+  }
   if(w.approvedExternalEvidence!==false||w.closed!==false)failures.push('IMPLICIT_EXTERNAL_APPROVAL:'+w.id);
  }
  for(const g of REQUIRED_GAPS)if(!coverage.has(g))failures.push('GAP_NOT_COVERED:'+g);
@@ -39,7 +54,9 @@ function validateProgram(program){
   const group=field==='realCustomerDataAllowed'?program.pilot:program.serviceBoundary;
   if(group?.[field]!==expected)failures.push('UNAUTHORIZED_SCOPE:'+field);
  }
- if(program.financial?.approvedBudgetSar!==null||program.financial?.pricingApproved!==false)failures.push('BUDGET_FABRICATION_OR_UNAUTHORIZED');
+ if(program.financial?.approvedBudgetSar!==null||program.financial?.actualSpendSar!==null||
+     program.financial?.pricingApproved!==false)
+   failures.push('BUDGET_FABRICATION_OR_UNAUTHORIZED');
  return [...new Set(failures)];
 }
 function validReference(v){return typeof v==='string'&&REF.test(v)&&!/(token|secret|password|apikey|bearer)/i.test(v)&&!/[?&#]/.test(v);}

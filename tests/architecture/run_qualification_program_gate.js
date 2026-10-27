@@ -35,6 +35,26 @@ const unauthorized=structuredClone(program);
 unauthorized.serviceBoundary.commercialGoLiveAuthorized=true;
 assert.ok(validateProgram(unauthorized).includes('UNAUTHORIZED_SCOPE:commercialGoLiveAuthorized'));
 assert.equal(assessQualificationProgram(unauthorized).status,'INVALID_PROGRAM');
+const forgedStatus=structuredClone(program);forgedStatus.status='APPROVED';
+assert.ok(validateProgram(forgedStatus).includes('PROGRAM_AUTHORITY_STATUS_INVALID'));
+const fakeCommercial=structuredClone(program);fakeCommercial.pilot.commercialServicesEnabled=true;
+assert.ok(validateProgram(fakeCommercial).includes('UNAUTHORIZED_SCOPE:commercialServicesEnabled'));
+const fakeResearchBoundary=structuredClone(program);fakeResearchBoundary.serviceBoundary.personalResearchOnly=false;
+assert.ok(validateProgram(fakeResearchBoundary).includes('UNAUTHORIZED_SCOPE:personalResearchOnly'));
+const fabricatedSpend=structuredClone(program);fabricatedSpend.financial.actualSpendSar=123456;
+assert.ok(validateProgram(fabricatedSpend).includes('BUDGET_FABRICATION_OR_UNAUTHORIZED'));
+const fabricatedRaci=structuredClone(program);fabricatedRaci.workstreams[0].assignedPerson='Invented Reviewer';
+assert.ok(validateProgram(fabricatedRaci).includes('UNVERIFIED_ASSIGNMENT:Q01'));
+const badGap=structuredClone(program);badGap.workstreams[0].relatedGapIds.push('G99');
+assert.ok(validateProgram(badGap).includes('UNKNOWN_GAP_CODE:Q01'));
+const missingBaseline=structuredClone(program);missingBaseline.basis.productionBaselineSha='not-a-commit';
+assert.ok(validateProgram(missingBaseline).includes('BASELINE_SHA_REQUIRED'));
+for(const tampered of [forgedStatus,fakeCommercial,fakeResearchBoundary,fabricatedSpend,fabricatedRaci,badGap,missingBaseline]){
+ const r=assessQualificationProgram(tampered,fake);
+ assert.equal(r.status,'INVALID_PROGRAM');
+ assert.equal(r.commercialGoLiveAuthorized,false);
+ assert.equal(r.transactionAuthorized,false);
+}
 const notCovered=structuredClone(program);
 notCovered.workstreams.forEach(w=>w.relatedGapIds=w.relatedGapIds.filter(id=>id!=='G14'));
 assert.ok(validateProgram(notCovered).includes('GAP_NOT_COVERED:G14'));
