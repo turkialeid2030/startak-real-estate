@@ -17,6 +17,19 @@ for (const bad of [null,undefined,NaN,Infinity,'200']) {
 const withCash = {...runoff,historicalCollections:{totals:{rentCollected:900000}},totals:{...runoff.totals,scheduledCapex:700}};
 assert.deepEqual(reconcileOperatingFinancial(withCash,model,calendar),bridge);
 for(const locale of ['en','ar-SA']) assert.ok(reconciliationHtml(bridge,locale).includes('<table>'));
+// Imported or corrupted report rows must not throw or print fabricated financial figures.
+for(const invalid of [
+  {...bridge,rows:[{code:'<img src=x onerror=alert(1)>',amount:1}]},
+  {...bridge,rows:bridge.rows.map((row,i)=>i===0?{...row,amount:Infinity}:row)},
+  {...bridge,status:'APPROVED_VALUATION'},
+  {...bridge,rows:null},
+]){
+  let html;
+  assert.doesNotThrow(()=>{html=reconciliationHtml(invalid,'en');});
+  assert.ok(html.includes('Comparison withheld'));
+  assert.ok(!html.includes('<table>'));
+  assert.ok(!html.includes('<img'));
+}
 const {operatingCase,verified} = require('../fixtures/synthetic-collections-case');
 const {createOperatingExpense} = require('../../src/residential-income-acquisition');
 const {buildPersonalFinancialStudy,verifyPersonalFinancialStudy,htmlFinancialStudy} = require('../../src/app/personal-financial-study');
