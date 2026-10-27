@@ -10,12 +10,14 @@ on:
       - 'tests/architecture/run_instant_market_study.js'
       - 'tests/architecture/run_public_market_csv_import.js'
       - 'tests/architecture/run_saudi_open_data_research.js'
+      - 'tests/architecture/run_saudi_open_data_live_smoke.js'
       - 'tests/e2e/run_location_market_study_ci.mjs'
       - '.github/workflows/location-market-study-verify.yml'
   workflow_dispatch:
 jobs:
   tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     permissions:
       contents: read
     steps:
@@ -28,6 +30,7 @@ jobs:
       - run: node tests/architecture/run_instant_market_study.js
       - run: node tests/architecture/run_public_market_csv_import.js
       - run: node tests/architecture/run_saudi_open_data_research.js
+      - run: node tests/architecture/run_saudi_open_data_live_smoke.js
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: node tests/e2e/run_location_market_study_ci.mjs
