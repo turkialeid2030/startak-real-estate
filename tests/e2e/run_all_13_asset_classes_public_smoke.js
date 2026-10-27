@@ -1,6 +1,7 @@
 'use strict';
 const assert=require('node:assert/strict');
 const fs=require('node:fs/promises');
+const {createHash}=require('node:crypto');
 const {chromium,expect}=require('@playwright/test');
 const {ALL_SECTORS}=require('../../src/governance/personal-asset-universe');
 const BASE=process.env.STARTAK_E2E_URL||'http://127.0.0.1:4173';
@@ -131,6 +132,74 @@ const BASE=process.env.STARTAK_E2E_URL||'http://127.0.0.1:4173';
   assert.equal(blocked.studyInputs.comparables[2].saleKind,'ASKING_SALE');
   assert.equal(blocked.professionalAppraisalClaim,false);
   console.log('C57_OWNER_RESEARCH_REPORTS_LIVE_JSON_HTML_HOLD=PASS');
+
+  // Verify a downloaded report can restore the research INPUTS only.
+  // Neither past calculation results nor licensed valuation authority may be reinstated.
+  const importFile=async(fileName,body)=>{
+   await marketCase.getByTestId('personal-sector-import-case').setInputFiles({
+    name:fileName,mimeType:'application/json',
+    buffer:Buffer.from(typeof body==='string'?body:JSON.stringify(body),'utf8'),
+   });
+   return marketCase.getByTestId('personal-sector-archive-status');
+  };
+  await importFile(research.filename,research.body);
+  await expect(marketCase.getByTestId('personal-sector-archive-status')).toContainText('إعادة حساب النتائج');
+  await expect(marketCase.getByTestId('personal-sector-scenario-output')).toHaveCount(0);
+  await expect(marketCase.getByTestId('personal-sector-comparable-2')
+    .getByTestId('personal-sector-sale-status-2')).toHaveValue('EXECUTED_SALE');
+  await expect(marketCase.getByLabel('المدينة',{exact:true})).toHaveValue('الرياض');
+  await calculate.click();
+  await expect(marketCase.getByTestId('personal-sector-scenario-output')).toContainText('مؤشرات طرق منفصلة');
+  const reissued=JSON.parse((await download('personal-sector-export-report-json')).body);
+  assert.equal(reissued.inputFingerprintSha256,report.inputFingerprintSha256);
+  assert.equal(reissued.reportStatus,undefined);
+  assert.equal(reissued.professionalAppraisalClaim,false);
+
+  // Actual browser V2 archive roundtrip also cannot revive a previous result.
+  const caseV2=await download('personal-sector-export-case');
+  const v2=JSON.parse(caseV2.body);
+  assert.equal(v2.version,'PERSONAL_SECTOR_CASE_ARCHIVE_V2');
+  await importFile(caseV2.filename,caseV2.body);
+  await expect(marketCase.getByTestId('personal-sector-scenario-output')).toHaveCount(0);
+  await expect(marketCase.getByTestId('personal-sector-comparable-2')
+    .getByTestId('personal-sector-sale-status-2')).toHaveValue('EXECUTED_SALE');
+
+  // A verified legacy V1 case is readable without silently promoting
+  // its unspecified sale status to executed-sale market evidence.
+  const legacyState=structuredClone(v2.state);
+  for(const c of legacyState.comparables)delete c.saleKind;
+  const legacyBody={version:'PERSONAL_SECTOR_CASE_ARCHIVE_V1',
+   createdAt:v2.createdAt,state:legacyState};
+  const legacy={...legacyBody,
+   sha256:createHash('sha256').update(JSON.stringify(legacyBody)).digest('hex')};
+  await importFile('legacy-input-v1.json',legacy);
+  await expect(marketCase.getByTestId('personal-sector-archive-status')).toContainText('استُعيدت المدخلات');
+  await expect(marketCase.getByTestId('personal-sector-scenario-output')).toHaveCount(0);
+  await expect(marketCase.getByTestId('personal-sector-comparable-2')
+    .getByTestId('personal-sector-sale-status-2')).toHaveValue('');
+  await calculate.click();
+  await expect(marketCase.getByTestId('personal-sector-scenario-output')).toContainText('الحساب محجوب');
+  await expect(marketCase.getByTestId('personal-sector-provisional-value')).toHaveCount(0);
+
+  // A modified report is rejected without touching the current case or result.
+  const forgedReport=JSON.parse(research.body);
+  forgedReport.studyInputs.subject.city='جدة';
+  await importFile('forged-owner-report.json',forgedReport);
+  await expect(marketCase.getByTestId('personal-sector-archive-status')).toContainText('رُفض الملف');
+  await expect(marketCase.getByLabel('المدينة',{exact:true})).toHaveValue('الرياض');
+  await expect(marketCase.getByTestId('personal-sector-comparable-2')
+    .getByTestId('personal-sector-sale-status-2')).toHaveValue('');
+  await expect(marketCase.getByTestId('personal-sector-scenario-output')).toContainText('الحساب محجوب');
+  // Restore-to-other-sector is rejected rather than silently changing asset class.
+  await selector.selectOption('RETAIL');
+  const retailCase=universe.getByTestId('personal-sector-workbench');
+  await retailCase.getByTestId('personal-sector-import-case').setInputFiles({
+   name:research.filename,mimeType:'application/json',buffer:Buffer.from(research.body),
+  });
+  await expect(retailCase.getByTestId('personal-sector-archive-status')).toContainText('رُفض الملف');
+  await expect(retailCase.getByLabel('المدينة',{exact:true})).toHaveValue('');
+  await expect(retailCase.getByTestId('personal-sector-scenario-output')).toHaveCount(0);
+  console.log('C57_REAL_BROWSER_REPORT_TO_V1_V2_INPUT_RESTORATION_AND_TAMPER_HOLD=PASS');
 
   assert.deepEqual(errors,[],'no React browser runtime exceptions across 13 asset classes');
   console.log('ALL_13_ASSET_CLASSES_REAL_BROWSER_HOLD=PASS sectors='+verified);
