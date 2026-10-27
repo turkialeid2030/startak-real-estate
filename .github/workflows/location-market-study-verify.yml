@@ -1,0 +1,24 @@
+name: Location Market Study Verify
+on:
+  pull_request:
+    paths:
+      - 'src/market/instant-market-study.js'
+      - 'src/components/PropertyMarketLocationPanel.jsx'
+      - 'src/app/App.jsx'
+      - 'tests/architecture/run_instant_market_study.js'
+      - '.github/workflows/location-market-study-verify.yml'
+  workflow_dispatch:
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci --ignore-scripts
+      - run: node tests/architecture/run_instant_market_study.js
+      - run: npm run build
