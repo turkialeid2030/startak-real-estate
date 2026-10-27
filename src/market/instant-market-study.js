@@ -9,6 +9,12 @@ const ASSET_TYPES = Object.freeze({
   OFFICE_TOWER: 'برج مكتبي',
   MIXED_USE: 'متعدد الاستخدامات',
   WAREHOUSE: 'مستودعات',
+  HOTEL: 'فندق أو شقق فندقية',
+  COMMERCIAL_MALL: 'مول تجاري',
+  RESIDENTIAL_VILLA: 'فلل سكنية',
+  LOGISTICS_PARK: 'مجمع لوجستي',
+  INDUSTRIAL_PROPERTY: 'منشأة صناعية',
+  HEALTHCARE_PROPERTY: 'أصل صحي أو مستشفى',
   LAND: 'أرض',
 });
 
@@ -77,6 +83,8 @@ function evaluateMarketStudy({ subject, sales = [], rentals = [], projects = [],
   const now = asOf instanceof Date ? asOf : new Date(asOf);
   if (!Number.isFinite(now.getTime())) throw new Error('AS_OF_INVALID');
   const type = subject && subject.assetType;
+  const specialistAsset=['HOTEL','HEALTHCARE_PROPERTY','INDUSTRIAL_PROPERTY'].includes(type);
+  const specialistReason=specialistAsset?'SPECIALIST_ASSET_REQUIRES_SECTOR_UNDERWRITING':null;
   const location = extractCoordinates(subject?.location || '');
   const basisArea = type === 'LAND' ? number(subject?.landArea) : number(subject?.builtArea);
   const lettableArea = number(subject?.rentableArea);
@@ -93,6 +101,10 @@ function evaluateMarketStudy({ subject, sales = [], rentals = [], projects = [],
   if (!(occupancy >= 0 && occupancy <= 1)) issues.push('OCCUPANCY_INVALID');
   if (!(expenseRatio >= 0 && expenseRatio < 1)) issues.push('EXPENSE_RATIO_INVALID');
   if (!(capRate > 0 && capRate < 1)) issues.push('CAP_RATE_INVALID');
+  if (!(number(subject?.landArea)>0))issues.push('LAND_AREA_REQUIRED');
+  if (type!=='LAND' && !(number(subject?.builtArea)>0))issues.push('BUILT_AREA_REQUIRED');
+  if (type==='HOTEL' && !(number(subject?.roomCount)>0))issues.push('HOTEL_ROOM_COUNT_REQUIRED');
+
   const radius = 5, ageLimit = 365;
   const sameDistrict = (row) => {
     const normalize = v => String(v || '').trim().replace(/\s+/g, ' ').toLowerCase();
@@ -133,12 +145,26 @@ function evaluateMarketStudy({ subject, sales = [], rentals = [], projects = [],
   const perSqmSale = eligibleSales.length >= 3 ? median(saleUnitValues) : null;
   const perSqmRent = eligibleRentals.length >= 3 ? median(rentUnitValues) : null;
   const saleIndication = perSqmSale !== null && basisArea > 0 ? perSqmSale * basisArea : null;
-  const marketRentPotential = perSqmRent !== null && lettableArea > 0 ? perSqmRent * lettableArea : null;
+  // Hotels, healthcare and industrial properties include business or fit-out value:
+  // a generic NLA rental model is not sufficient for an economic rent conclusion.
+  const marketRentPotential = !specialistAsset && perSqmRent !== null && lettableArea > 0 ? perSqmRent * lettableArea : null;
   const annualOccupiedRent = marketRentPotential !== null && occupancy >= 0 && occupancy <= 1 ? marketRentPotential * occupancy : null;
   const annualNOI = annualOccupiedRent !== null && expenseRatio >= 0 && expenseRatio < 1 ? annualOccupiedRent * (1 - expenseRatio) : null;
   const incomeIndication = annualNOI !== null && capRate > 0 && capRate < 1 ? annualNOI / capRate : null;
   const values = [saleIndication, incomeIndication].filter(x => x !== null);
-  const todayValueScenario = values.length ? values.reduce((x,y)=>x+y, 0)/values.length : null;
+  const todayValueScenario = !specialistAsset && values.length ?
+    values.reduce((x,y)=>x+y, 0)/values.length : null;
+  if(specialistReason) issues.push(specialistReason);
+  const confidence = !values.length || specialistAsset?'NO_SUPPORTED_PRIMARY_VALUE':
+    'PRELIMINARY_UNVERIFIED_REQUIRES_INDEPENDENT_REVIEW';
+  const saleDispersion = saleUnitValues.length>=3 ? {
+    min:Math.min(...saleUnitValues),max:Math.max(...saleUnitValues),
+    spreadToMedian:perSqmSale>0?(Math.max(...saleUnitValues)-Math.min(...saleUnitValues))/perSqmSale:null,
+  }:null;
+  const rentDispersion = rentUnitValues.length>=3 ? {
+    min:Math.min(...rentUnitValues),max:Math.max(...rentUnitValues),
+    spreadToMedian:perSqmRent>0?(Math.max(...rentUnitValues)-Math.min(...rentUnitValues))/perSqmRent:null,
+  }:null;
   const nearbyProjects = projects.map(row => ({
     name: String(row?.name || '').trim().slice(0, 120),
     status: row?.status || 'UNKNOWN',
@@ -166,6 +192,7 @@ function evaluateMarketStudy({ subject, sales = [], rentals = [], projects = [],
     excludedRentalsCount: rentals.length - eligibleRentals.length,
     medianExecutedSaleSarPerSqm: perSqmSale, medianExecutedRentSarPerSqmYear: perSqmRent,
     saleIndicationSar: saleIndication, marketAnnualRentPotentialSar: marketRentPotential,
+    confidence, specialistReason, saleDispersion, rentDispersion,
     expectedCollectedAnnualRentSar: annualOccupiedRent, estimatedAnnualNoiSar: annualNOI,
     incomeIndicationSar: incomeIndication, todayValueScenarioSar: todayValueScenario,
     averageMarketAnnualRentPerUnitSar: marketRentPotential !== null && units > 0 ? marketRentPotential / units : null,
