@@ -30,6 +30,16 @@ try{
  const page=await browser.newPage({viewport:{width:1280,height:960},locale:'ar-SA'});
  page.setDefaultTimeout(10000);
  page.on('pageerror',e=>result.errors.push(e.message));
+ const openQuarterFixture=[
+  'المنطقة,المدينة,المدينة / الحي,الرقم المرجعي للصفقة,تاريخ الصفقة ميلادي,تصنيف العقار,عدد العقارات,السعر,المساحة',
+  'منطقة الرياض,الرياض,الرياض/الملقا,91001,2026/02/15,سكني,1,1200000,600',
+  'منطقة الرياض,الرياض,الرياض/الملقا,91002,2026/02/16,سكني,1,1800000,600',
+  'منطقة الرياض,الرياض,الرياض/الملقا,91003,2026/02/17,سكني,1,2400000,600',
+ ].join('\\n');
+ await page.route('https://raw.githubusercontent.com/civillizard/Saudi-Real-Estate-Data/main/moj/sales/**',
+  async(route)=>{await route.fulfill({status:200,body:openQuarterFixture,
+    headers:{'content-type':'text/csv; charset=utf-8','access-control-allow-origin':'*'}});});
+
  await page.goto(url,{waitUntil:'domcontentloaded'});
  const panel=page.locator('[data-testid="location-market-study"]');
  await panel.waitFor({state:'visible'});
@@ -46,6 +56,14 @@ try{
  await fill('عدد العمائر/المباني','5');
  await fill('عدد الوحدات','200');
  mark('LOCATION_PROPERTY_COMPOSITION',((await panel.innerText()).includes('الإحداثيات المستخرجة')));
+ const autoResearch=panel.locator('[data-testid="public-moJ-research"]');
+ await autoResearch.getByRole('button',{name:'جلب الصفقات المفتوحة الآن وتحليل الحي'}).click();
+ await autoResearch.getByText(/صفقات الحي المؤهلة حسب التصنيف العام: 3/).waitFor();
+ mark('AUTO_OPEN_LICENSED_MOJ_DOWNLOAD_AND_NEIGHBORHOOD_CONTEXT',true);
+ assert((await valuation.innerText()).includes('غير قابل للحساب'),
+   'classification-only neighborhood data must NOT turn into a compound valuation');
+ mark('OPEN_DATA_SUBTYPE_NON_CONFLATION',true);
+
  await fill('رابط مجموعة البيانات المفتوحة','https://data.gov.sa/datasets/research-example');
  await panel.getByLabel('أؤكد أن لي حق استخدام هذه البيانات').check();
  const salesInput=panel.locator('[data-testid="public-csv-import"] input[type=file]').nth(0);
