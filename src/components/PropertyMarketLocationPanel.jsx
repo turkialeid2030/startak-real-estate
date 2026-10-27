@@ -448,7 +448,7 @@ export default function PropertyMarketLocationPanel() {
       {!!report.issues.length&&<p className="mt-2 text-xs text-amber-300">بيانات بحاجة لاستكمال: {report.issues.map(x=>labelMap[x]||x).join('؛ ')}.</p>}
       <p className="mt-2 text-xs text-slate-400">بيانات مقارنة يُقر بها المستخدم ولم يُتحقق منها مستقلاً. لا توجد تغذية لحظية مرخّصة متصلة. لا تستعمل هذه النتيجة كتقييم رسمي أو أساس قرار شراء ملزم.</p>
     </div>
-    <ValuationQualityPanel readiness={valuationReadiness} quality={appraisalQuality}/>
+    <ValuationQualityPanel readiness={valuationReadiness} quality={appraisalQuality} studyAsOf={studyAsOf}/>
     <MarketOfferResearchPanel subject={subject} offers={marketOffers} setOffers={setMarketOffers} asOf={studyAsOf.asOf}/>
     <TransactionCohortAndUnitMixPanel subject={subject} sales={allSales} askingOffers={marketOffers} asOf={studyAsOf.asOf}
        unitMix={unitMix} setUnitMix={setUnitMix} leaseComparables={leaseComparables}
