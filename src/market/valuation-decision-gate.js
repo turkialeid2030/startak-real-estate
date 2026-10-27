@@ -2,6 +2,7 @@
 // STARTAK personal study quality gate and single source of truth for CURRENT workbench.
 // Does NOT certify a value, verify linked URLs, or grant permission to transact.
 const {number,extractCoordinates,ASSET_TYPES}=require('./instant-market-study');
+const {localDateString}=require('./study-asof');
 const SPECIALIST=new Set(['HOTEL','HEALTHCARE_PROPERTY','INDUSTRIAL_PROPERTY']);
 const INCOME_REQUIRED=new Set([
  'RESIDENTIAL_COMPOUND','RESIDENTIAL_BUILDING','COMMERCIAL_COMPLEX',
@@ -82,7 +83,7 @@ function auditValuationReadiness({subject={},report={},segmentedRent=null,sales=
    const date=matching?new Date(valueDate+'T00:00:00.000Z'):new Date(NaN);
    if(!matching||!Number.isFinite(date.getTime())||date.toISOString().slice(0,10)!==valueDate)
      add(reasons,'VALUATION_DATE_INVALID');
-   else if(date.getTime()>d.getTime())add(reasons,'FUTURE_VALUATION_DATE_NOT_SUPPORTED');
+   else if(valueDate>localDateString(d))add(reasons,'FUTURE_VALUATION_DATE_NOT_SUPPORTED');
  }
 
  if(!extractCoordinates(String(subject.location||'')))add(reasons,'LOCATION_EVIDENCE_MISSING');
