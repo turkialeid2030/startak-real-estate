@@ -24,17 +24,18 @@ const errors={
  THREE_EXECUTED_LEASES_REQUIRED:'يلزم ثلاث عقود إيجار منفذة مناسبة لهذه الفئة',
  ASSET_NEEDS_SPECIALIST_RENT_MODEL:'هذا الأصل يتطلب نموذج تأجير أو تشغيل قطاعي متخصص',
 };
-export default function TransactionCohortAndUnitMixPanel({subject,sales,askingOffers,
+export default function TransactionCohortAndUnitMixPanel({subject,sales,askingOffers,asOf,
  unitMix,setUnitMix,leaseComparables,setLeaseComparables,rentAssumptions,setRentAssumptions}) {
  const expenseRatio=rentAssumptions.expenseRatio;
  const stabilizedOccupancy=rentAssumptions.stabilizedOccupancy;
  const setExpenseRatio=v=>setRentAssumptions(p=>({...p,expenseRatio:v}));
  const setStabilizedOccupancy=v=>setRentAssumptions(p=>({...p,stabilizedOccupancy:v}));
+ const asOfMs=asOf instanceof Date?asOf.getTime():Date.now();
  const cohort=useMemo(()=>reviewAskingVsExecuted({
-  subject,askingOffers,executedSales:sales,
- }),[subject,askingOffers,sales]);
+  subject,askingOffers,executedSales:sales,asOf:new Date(asOfMs),
+ }),[subject,askingOffers,sales,asOfMs]);
  const rental=useMemo(()=>evaluateUnitMixRents({subject,unitMix,leaseComparables,
-  expenseRatio,stabilizedOccupancy}),[subject,unitMix,leaseComparables,expenseRatio,stabilizedOccupancy]);
+  expenseRatio,stabilizedOccupancy,asOf:new Date(asOfMs)}),[subject,unitMix,leaseComparables,expenseRatio,stabilizedOccupancy,asOfMs]);
  const changeMix=(i,k,v)=>setUnitMix(a=>a.map((x,j)=>i===j?{...x,[k]:v}:x));
  const changeLease=(i,k,v)=>setLeaseComparables(a=>a.map((x,j)=>i===j?{...x,[k]:v}:x));
  const isSpecialist=['HOTEL','HEALTHCARE_PROPERTY','INDUSTRIAL_PROPERTY','LAND'].includes(subject.assetType);
