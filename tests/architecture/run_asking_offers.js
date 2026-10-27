@@ -70,4 +70,16 @@ assert.equal(investment.askingSales.acceptedOffers,0);
 assert.equal(investment.askingRentalsAnnual.acceptedOffers,0);
 assert.equal(investment.reviewed[0].contextOnly,true);
 assert.equal(investment.reviewed[0].issues[0],'INVESTMENT_STRUCTURE_REQUIRES_SEPARATE_UNDERWRITING');
+const rawLandSubject={...base,assetType:'LAND',landSubtype:'RAW',landArea:'100000'};
+const rawLandOffers=[1,2,3].map(i=>({
+  offerKind:'SALE',evidenceType:'ASKING',assetType:'LAND',landSubtype:'RAW',
+  city:'جدة',district:'السلامة',date:'2026-10-12',
+  sourceUrl:'https://example.org/land/'+i,price:String(10000000*i),landArea:'100000',
+}));
+const landStudy=reviewMarketOffers({subject:rawLandSubject,offers:rawLandOffers,asOf});
+assert.equal(landStudy.askingSales.acceptedOffers,3);
+const mixedLand=reviewMarketOffers({subject:rawLandSubject,
+  offers:[rawLandOffers[0],rawLandOffers[1],{...rawLandOffers[2],landSubtype:'SERVICED'}],asOf});
+assert.equal(mixedLand.askingSales.acceptedOffers,2);
+assert.equal(mixedLand.rejectedReasons.LAND_SUBTYPE_UNVERIFIED,1);
 console.log('STARTAK_ASKING_OFFER_EVIDENCE=PASS');
