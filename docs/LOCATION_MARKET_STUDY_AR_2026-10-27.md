@@ -19,3 +19,13 @@
 
 Official reference services: https://rei.rega.gov.sa/ and https://srem.moj.gov.sa/
 Regulation: https://rega.gov.sa/media-center/الأخبار-والإعلانات/الموافقة-على-الأحكام-النظامية-الخاصة-بضبط-العلاقة-بين-الم-ؤجر-والم-ستأج-ر/
+
+
+## 27 October 2026 — non-API public-dataset workflow
+- The user may open the official open-data websites separately and download explicitly reusable CSV datasets. STARTAK now has a **local CSV importer** for executed sales/contracted rentals; the operator must provide the original HTTPS dataset URL and affirm the applicable reuse licence. Only a valid explicit executed transaction status is considered; asking and unknown-status rows are never silently promoted.
+- The importer supports Arabic/English column aliases and source record identifiers, enforces a bounded file size and record count, and discloses that imported records remain **unverified by the system**.
+- If a compliant dataset lacks individual geocoordinates, a matching city+district can qualify a record under a clearly labeled district-level approximation; this is **not** a distance check and does not imply a property-level price signal. Where coordinates are present, exact maximum 5-km distance controls and cannot be circumvented using district text.
+- Original URLs, dates, source row IDs and CSV license acknowledgement must be retained with the case; no raw personal data should be uploaded or shared.
+- Available official open dataset context: [Saudi national open data overview](https://my.gov.sa/content/open-Data), [MoJ open data and report exports](https://www.moj.gov.sa/ar/opendata/Pages/reports.aspx).
+- **Not a crawler:** Suhail's [terms](https://suhail.ai/agreement) prohibit unauthorized collection or commercial exploitation; [REGA property indicators terms](https://rei.rega.gov.sa/ar/terms-and-conditions) reserve content reproduction/derivative rights without written consent. Directly automated systematic copying/republication from those site interfaces is excluded. Their public pages can be opened for permitted independent observation. Data specifically released as an official **open-licensed dataset** can be processed within that license, which is distinct from generic web pages.
+- CI: `node tests/architecture/run_instant_market_study.js`; `node tests/architecture/run_public_market_csv_import.js`; `npm run build`. This only qualifies the private analytical workbench, not a live institutional appraiser.
