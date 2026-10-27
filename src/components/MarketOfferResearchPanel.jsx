@@ -8,7 +8,7 @@ const yesterday=()=>new Date().toISOString().slice(0,10);
 const newOffer=()=>({
  offerKind:'SALE',assetType:'',evidenceType:'ASKING',date:yesterday(),sourceUrl:'',
  price:'',annualRent:'',rentPeriod:'YEAR',investmentTerms:'',
- builtArea:'',landArea:'',rentableArea:'',city:'',district:'',location:'',
+ builtArea:'',landArea:'',rentableArea:'',landSubtype:'',city:'',district:'',location:'',
 });
 const assetOptions=[['','اختر النوع'],...Object.entries(ASSET_TYPES)];
 function Field({title,value,onChange,type='text',placeholder=''}) {
@@ -30,7 +30,7 @@ const rejectLabels={
  NO_VERIFIABLE_LOCATION_MATCH:'المدينة والحي/الموقع غير مطابقين',
  COMPARABLE_AREA_REQUIRED:'المساحة المقارنة ناقصة',ASKING_PRICE_REQUIRED:'السعر المطلوب ناقص',
  RENT_PERIOD_UNSUPPORTED:'دورية الإيجار غير معروفة',NO_LONGER_ACTIVE:'الإعلان غير نشط',
- UNIT_PRICE_IMPLAUSIBLE:'سعر المتر غير منطقي',DUPLICATE_SOURCE:'إعلان مكرر',
+ UNIT_PRICE_IMPLAUSIBLE:'سعر المتر غير منطقي',DUPLICATE_SOURCE:'إعلان مكرر',LAND_SUBTYPE_UNVERIFIED:'تصنيف الأرض غير معلوم أو لا يطابق الأرض المراد تقييمها',
  INVESTMENT_STRUCTURE_REQUIRES_SEPARATE_UNDERWRITING:'الفرصة الاستثمارية تحتاج دراسة لشروطها والتدفقات؛ ليست مقارنة سعر متر',
 };
 export default function MarketOfferResearchPanel({subject,offers,setOffers}) {
@@ -39,7 +39,7 @@ export default function MarketOfferResearchPanel({subject,offers,setOffers}) {
  const research=useMemo(()=>reviewMarketOffers({subject,offers}),[subject,offers]);
  const update=(i,k,v)=>setOffers(old=>old.map((x,j)=>i===j?{...x,[k]:v}:x));
  const add=()=>setOffers(old=>old.length<50?[...old,{...newOffer(),
-  assetType:subject.assetType,city:subject.city,district:subject.district}]:old);
+  assetType:subject.assetType,landSubtype:subject.landSubtype||'',city:subject.city,district:subject.district}]:old);
  const importCsv=async file=>{
   if(!file)return;
   try{
@@ -98,6 +98,12 @@ export default function MarketOfferResearchPanel({subject,offers,setOffers}) {
        <Select title="الغرض من العرض" value={offer.offerKind} onChange={v=>update(i,'offerKind',v)}
         options={[['SALE','عرض بيع'],['RENT','عرض إيجار'],['INVESTMENT','فرصة استثمارية — سياق فقط']]}/>
        <Select title="نوع العقار المحدد" value={offer.assetType} onChange={v=>update(i,'assetType',v)} options={assetOptions}/>
+       {offer.assetType==='LAND'&&<Select title="نوع الأرض المعلنة" value={offer.landSubtype}
+         onChange={v=>update(i,'landSubtype',v)}
+         options={[['','اختر نوع الأرض'],['RAW','أرض خام غير مخدومة'],
+          ['SERVICED','أرض مخدومة ومخططة'],['RESIDENTIAL','قطعة أرض سكنية'],
+          ['COMMERCIAL','قطعة أرض تجارية'],['AGRICULTURAL','أرض زراعية']]}/>}
+
        <Field title="تاريخ الإعلان أو المراجعة" type="date" value={offer.date} onChange={v=>update(i,'date',v)}/>
        {offer.offerKind==='SALE'
         ?<Field title="السعر المطلوب للبيع (ريال)" value={offer.price} onChange={v=>update(i,'price',v)}/>
