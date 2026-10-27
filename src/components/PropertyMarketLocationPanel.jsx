@@ -209,7 +209,8 @@ export default function PropertyMarketLocationPanel() {
     try{
       const saved=await saveResearchSidecar({
         storage:createStorageProvider(),dealId:selectedSavedDealId,
-        studyJson:makeResearchInputJson(),overwrite:replaceLinkedStudy,
+        studyJson:makeResearchInputJson(),identityConfirmed:linkedDealIdentityAcknowledged,
+        overwrite:replaceLinkedStudy,
       });
       setSavedDealStudyStatus('تم حفظ ملحق الدراسة البحثية للصفقة '+saved.dealId+
         ' دون تغيير ملف الصفقة المالي الرئيسي أو منحه اعتمادًا مهنيًا.');
