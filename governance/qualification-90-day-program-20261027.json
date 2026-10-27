@@ -1,0 +1,387 @@
+{
+  "schemaVersion": 1,
+  "programId": "STARTAK-QCR-2026-10-27",
+  "preparedAt": "2026-10-27",
+  "planningHorizonDays": 90,
+  "targetReviewDate": "2027-01-25",
+  "status": "HOLD_NOT_AUTHORIZED",
+  "basis": {
+    "productionBaselineSha": "1c3d43267a7f306efbb99844817f84f1955106b6",
+    "technicalReferenceIssue": 396,
+    "masterGapIssue": 622,
+    "ownerAuditIssue": 658,
+    "existingGates": [
+      "src/governance/external-three-gates-readiness.js",
+      "src/production-readiness/institutional-go-live-gate.js",
+      "src/production-readiness/human-go-live-decision.js"
+    ]
+  },
+  "pilot": {
+    "initialGeography": "الرياض",
+    "initialAssetTypes": [
+      "أراض",
+      "مبان سكنية مدرة للدخل",
+      "عقارات تجارية مدرة للدخل"
+    ],
+    "expansionRegions": [
+      "جدة",
+      "المنطقة الشرقية"
+    ],
+    "commercialServicesEnabled": false,
+    "realCustomerDataAllowed": false
+  },
+  "financial": {
+    "approvedBudgetSar": null,
+    "actualSpendSar": null,
+    "pricingApproved": false
+  },
+  "serviceBoundary": {
+    "personalResearchOnly": true,
+    "certifiedAppraisalIssuance": false,
+    "commercialGoLiveAuthorized": false,
+    "productionAiAuthorized": false,
+    "autonomousTransactionAuthorized": false
+  },
+  "workstreams": [
+    {
+      "id": "Q01",
+      "titleAr": "مصادر الصفقات وحقوق البيانات",
+      "priority": "P0",
+      "targetDay": 21,
+      "executionMode": "PARALLEL",
+      "responsibleRole": "مالك حوكمة البيانات",
+      "accountableRole": "المدير التنفيذي",
+      "assignedPerson": null,
+      "consultedRoles": [
+        "مستشار قانوني",
+        "مراجع مستقل"
+      ],
+      "informedRole": "لجنة القرار",
+      "relatedGapIds": [
+        "G02",
+        "G10",
+        "N03"
+      ],
+      "evidenceRequired": [
+        "dataRightsAgreement",
+        "completedSaleProvenance",
+        "licensedAcquisitionSmoke"
+      ],
+      "acceptanceAr": "قناة بيانات مصرح بها تفصل الصفقات المنفذة عن العروض وتوثق حدود استخدام كل سجل",
+      "approvedExternalEvidence": false,
+      "closed": false
+    },
+    {
+      "id": "Q02",
+      "titleAr": "التحقق المستقل من دقة التقييم",
+      "priority": "P0",
+      "targetDay": 45,
+      "executionMode": "PARALLEL",
+      "responsibleRole": "مراجع تقييم مستقل",
+      "accountableRole": "المدير التنفيذي",
+      "assignedPerson": null,
+      "consultedRoles": [
+        "مستشار قانوني",
+        "مراجع مستقل"
+      ],
+      "informedRole": "لجنة القرار",
+      "relatedGapIds": [
+        "G01",
+        "N06"
+      ],
+      "evidenceRequired": [
+        "sealedProtocol",
+        "completedSaudiHoldout",
+        "signedSegmentMetrics"
+      ],
+      "acceptanceAr": "اختبار سابق التسجيل بعينة سعودية أصلية غير مستخدمة في تدريب أو معايرة المحرك",
+      "approvedExternalEvidence": false,
+      "closed": false
+    },
+    {
+      "id": "Q03",
+      "titleAr": "مطابقة المحرك المالي مع التدفقات الفعلية",
+      "priority": "P0",
+      "targetDay": 45,
+      "executionMode": "PARALLEL",
+      "responsibleRole": "المراجع المالي المستقل",
+      "accountableRole": "المدير التنفيذي",
+      "assignedPerson": null,
+      "consultedRoles": [
+        "مستشار قانوني",
+        "مراجع مستقل"
+      ],
+      "informedRole": "لجنة القرار",
+      "relatedGapIds": [
+        "G03",
+        "G04",
+        "G07",
+        "N05"
+      ],
+      "evidenceRequired": [
+        "modelConventions",
+        "ledgerBankLeaseReconciliation",
+        "independentFinancialSignoff"
+      ],
+      "acceptanceAr": "مطابقة التدفقات والعقود والدفاتر وكشف منع احتساب التكلفة أو التمويل مرتين",
+      "approvedExternalEvidence": false,
+      "closed": false
+    },
+    {
+      "id": "Q04",
+      "titleAr": "تقييم القطاعات المتخصصة والأصول",
+      "priority": "P1",
+      "targetDay": 60,
+      "executionMode": "PARALLEL",
+      "responsibleRole": "مقيم عقاري متخصص",
+      "accountableRole": "قائد التأهيل",
+      "assignedPerson": null,
+      "consultedRoles": [
+        "مستشار قانوني",
+        "مراجع مستقل"
+      ],
+      "informedRole": "لجنة القرار",
+      "relatedGapIds": [
+        "G05",
+        "G06",
+        "G08",
+        "G12",
+        "N10"
+      ],
+      "evidenceRequired": [
+        "specialistAssetCases",
+        "costAndObsolescenceEvidence",
+        "independentPropertyInterestReview"
+      ],
+      "acceptanceAr": "مراجعة المستودعات والفنادق والأصول الصناعية والحقوق والمنهجيات وعوامل الاستهلاك",
+      "approvedExternalEvidence": false,
+      "closed": false
+    },
+    {
+      "id": "Q05",
+      "titleAr": "الهوية المؤسسية والتخزين الآمن",
+      "priority": "P0",
+      "targetDay": 45,
+      "executionMode": "PARALLEL",
+      "responsibleRole": "قائد الأمن والبنية",
+      "accountableRole": "المدير التنفيذي",
+      "assignedPerson": null,
+      "consultedRoles": [
+        "مستشار قانوني",
+        "مراجع مستقل"
+      ],
+      "informedRole": "لجنة القرار",
+      "relatedGapIds": [
+        "G11",
+        "G13",
+        "N12"
+      ],
+      "evidenceRequired": [
+        "identityRbacIsolation",
+        "encryptedVaultCustody",
+        "penetrationAndDrReport"
+      ],
+      "acceptanceAr": "هوية وصلاحيات حقيقية وعزل مستأجرين ونسخ واستعادة وفحص اختراق",
+      "approvedExternalEvidence": false,
+      "closed": false
+    },
+    {
+      "id": "Q06",
+      "titleAr": "الامتثال والخصوصية والتراخيص",
+      "priority": "P0",
+      "targetDay": 45,
+      "executionMode": "PARALLEL",
+      "responsibleRole": "المستشار القانوني ومسؤول الخصوصية",
+      "accountableRole": "المدير التنفيذي",
+      "assignedPerson": null,
+      "consultedRoles": [
+        "مستشار قانوني",
+        "مراجع مستقل"
+      ],
+      "informedRole": "لجنة القرار",
+      "relatedGapIds": [
+        "G10",
+        "G14",
+        "N12"
+      ],
+      "evidenceRequired": [
+        "licensingApplicabilityMemo",
+        "pdplAssessment",
+        "signedLegalDisposition"
+      ],
+      "acceptanceAr": "تحديد نوع النشاط وسريان الرخص والحقوق والسياسات النظامية وتوقيع مختص",
+      "approvedExternalEvidence": false,
+      "closed": false
+    },
+    {
+      "id": "Q07",
+      "titleAr": "الذكاء الاصطناعي والتسعير والحوكمة",
+      "priority": "P0",
+      "targetDay": 45,
+      "executionMode": "PARALLEL",
+      "responsibleRole": "قائد الذكاء الاصطناعي",
+      "accountableRole": "قائد الأمن والبنية",
+      "assignedPerson": null,
+      "consultedRoles": [
+        "مستشار قانوني",
+        "مراجع مستقل"
+      ],
+      "informedRole": "لجنة القرار",
+      "relatedGapIds": [
+        "G11",
+        "N04",
+        "N07",
+        "N08"
+      ],
+      "evidenceRequired": [
+        "approvedProviderContract",
+        "meteredProviderSafetyTest",
+        "quotaInvoiceReconciliation"
+      ],
+      "acceptanceAr": "اتصال حي مخول مع منع السعر المختلق والقرار التلقائي وتوثيق التكلفة والحصص",
+      "approvedExternalEvidence": false,
+      "closed": false
+    },
+    {
+      "id": "Q08",
+      "titleAr": "اختبارات المستخدم والإتاحة والتعافي",
+      "priority": "P0",
+      "targetDay": 60,
+      "executionMode": "PARALLEL",
+      "responsibleRole": "قائد جودة المنتج",
+      "accountableRole": "قائد التأهيل",
+      "assignedPerson": null,
+      "consultedRoles": [
+        "مستشار قانوني",
+        "مراجع مستقل"
+      ],
+      "informedRole": "لجنة القرار",
+      "relatedGapIds": [
+        "G09",
+        "N09",
+        "N12"
+      ],
+      "evidenceRequired": [
+        "signedHumanUat",
+        "realDeviceAccessibility",
+        "independentRecoveryDrill"
+      ],
+      "acceptanceAr": "اختبارات بشرية من مستخدمين حقيقيين وتقنيات مساعدة وبيئة أجهزة متنوعة",
+      "approvedExternalEvidence": false,
+      "closed": false
+    },
+    {
+      "id": "Q09",
+      "titleAr": "السبب الجذري لحوادث تسليم Cloudflare",
+      "priority": "P1",
+      "targetDay": 60,
+      "executionMode": "PARALLEL",
+      "responsibleRole": "مسؤول SRE",
+      "accountableRole": "قائد الأمن والبنية",
+      "assignedPerson": null,
+      "consultedRoles": [
+        "مستشار قانوني",
+        "مراجع مستقل"
+      ],
+      "informedRole": "لجنة القرار",
+      "relatedGapIds": [
+        "G11",
+        "N11"
+      ],
+      "evidenceRequired": [
+        "cloudflareIncidentTraces",
+        "providerRootCauseReport",
+        "counterexampleDeliveryWindow"
+      ],
+      "acceptanceAr": "تحديد مصدر اختلال البصمة والأصول ومراجعة سجل الحوادث والإصلاح",
+      "approvedExternalEvidence": false,
+      "closed": false
+    },
+    {
+      "id": "Q10",
+      "titleAr": "تجربة السوق والاقتصاديات التجارية",
+      "priority": "P1",
+      "targetDay": 75,
+      "executionMode": "PARALLEL",
+      "responsibleRole": "مدير المنتج والشراكات",
+      "accountableRole": "المدير التنفيذي",
+      "assignedPerson": null,
+      "consultedRoles": [
+        "مستشار قانوني",
+        "مراجع مستقل"
+      ],
+      "informedRole": "لجنة القرار",
+      "relatedGapIds": [
+        "G05",
+        "G09",
+        "G14"
+      ],
+      "evidenceRequired": [
+        "pilotCustomerConsent",
+        "unitEconomicsLedger",
+        "pilotBenefitMeasurement"
+      ],
+      "acceptanceAr": "قياس وقت الدراسة وتكلفة الخدمة واستعداد الدفع بلا عملاء حقيقيين قبل الترخيص",
+      "approvedExternalEvidence": false,
+      "closed": false
+    },
+    {
+      "id": "Q11",
+      "titleAr": "المراجعة المهنية ومطابقة التقرير",
+      "priority": "P0",
+      "targetDay": 75,
+      "executionMode": "PARALLEL",
+      "responsibleRole": "مقيم معتمد مستقل",
+      "accountableRole": "المدير التنفيذي",
+      "assignedPerson": null,
+      "consultedRoles": [
+        "مستشار قانوني",
+        "مراجع مستقل"
+      ],
+      "informedRole": "لجنة القرار",
+      "relatedGapIds": [
+        "G01",
+        "G07",
+        "G08",
+        "G12"
+      ],
+      "evidenceRequired": [
+        "valuerCredentialVerified",
+        "arabicReportMethodReview",
+        "independentScopeApproval"
+      ],
+      "acceptanceAr": "مراجعة مهنية مستقلة مع فصل التحليل البحثي عن التقرير المهني المعتمد",
+      "approvedExternalEvidence": false,
+      "closed": false
+    },
+    {
+      "id": "Q12",
+      "titleAr": "قرار المجلس النهائي ونشر نطاق الخدمة",
+      "priority": "P0",
+      "targetDay": 90,
+      "executionMode": "PARALLEL",
+      "responsibleRole": "أمين سر لجنة القرار",
+      "accountableRole": "المدير التنفيذي",
+      "assignedPerson": null,
+      "consultedRoles": [
+        "مستشار قانوني",
+        "مراجع مستقل"
+      ],
+      "informedRole": "لجنة القرار",
+      "relatedGapIds": [
+        "G09",
+        "G10",
+        "G13",
+        "G14"
+      ],
+      "evidenceRequired": [
+        "signedDecisionMinutes",
+        "scopeAndRollbackPolicy",
+        "independentEvidenceIndex"
+      ],
+      "acceptanceAr": "اعتماد GO أو NO-GO بمسؤوليات محددة بعد تحقق الأدلة، دون تفويض تلقائي للبرنامج",
+      "approvedExternalEvidence": false,
+      "closed": false
+    }
+  ]
+}
