@@ -6,8 +6,10 @@ const {STATUS,MARKET_UNITS,evaluatePersonalSectorScenarios}=require('../valuatio
 const {calculatePersonalSectorCase,buildPersonalSectorResearchReport,
  verifyPersonalSectorResearchReport,renderPersonalSectorResearchHtml}=
  require('../valuation-intelligence/personal-sector-research-report');
-const {MAX_ARCHIVE_BYTES,createPersonalSectorCaseArchive,verifyPersonalSectorCaseArchive}=
+const {createPersonalSectorCaseArchive}=
  require('../valuation-intelligence/personal-sector-case-archive');
+const {MAX_IMPORT_BYTES,restorePersonalSectorInputFile}=
+ require('../valuation-intelligence/personal-sector-input-restoration');
 
 const REASONS={
  UNKNOWN_ASSET_CLASS:'نوع العقار غير معرّف',
@@ -86,24 +88,28 @@ export default function PersonalSectorValuationWorkbench({assetClass,locale='ar-
   if(archiveFileRef.current)archiveFileRef.current.value='';
   setArchiveStatus('');
   if(!file)return;
-  if(file.size<=0||file.size>MAX_ARCHIVE_BYTES){
-   setArchiveStatus(ar?'حجم الملف غير صالح أو يتجاوز 64 كيلوبايت.':'Invalid or oversized archive (>64 KiB).');return;
+  if(file.size<=0||file.size>MAX_IMPORT_BYTES){
+   setArchiveStatus(ar?'حجم الملف غير صالح أو يتجاوز 128 كيلوبايت.':'Invalid or oversized study input (>128 KiB).');return;
   }
   try{
    const text=new TextDecoder('utf-8',{fatal:true}).decode(await file.arrayBuffer());
    const archive=JSON.parse(text);
-   const restored=await verifyPersonalSectorCaseArchive(archive,{
+   const restoredFile=await restorePersonalSectorInputFile(archive,{
      subtle:globalThis.crypto?.subtle,expectedAssetClass:assetClass,
    });
+   const restored=restoredFile.inputs;
    setSubject(restored.subject);setMethods(restored.methods);
    setInc(restored.inc);setCost(restored.cost);setComparables(restored.comparables);
    setMarketOptions(restored.marketOptions);setPolicy(restored.policy);
-   setOutput(null);
-   setArchiveStatus(ar?'استُعيدت المدخلات بعد التحقق من البصمة. يجب إعادة الحساب؛ النتائج السابقة لا تُستعاد.':
-     'Verified input fields restored. Recalculate; prior output and authorization were not restored.');
+   setOutput(null);setReportStatus('');
+   setArchiveStatus(restoredFile.sourceKind==='RECALCULATED_PERSONAL_REPORT'
+    ?(ar?'تم فحص بصمة التقرير وإعادة حساب النتائج للمطابقة، ثم استُعيدت المدخلات فقط. أعد الحساب؛ لا إثبات لصحة السوق أو اعتماد مهني.':
+      'Report digest and recomputation matched. Only inputs were restored. Recalculate; no market provenance or certification.')
+    :(ar?'استُعيدت المدخلات بعد التحقق من بصمتها؛ يجب إعادة الحساب ولا تُستعاد صلاحيات أو نتائج سابقة.':
+      'Archive integrity checked. Inputs only restored; recalculate; no results or authority reinstated.'));
   }catch(e){
-   setArchiveStatus(ar?'رُفض الملف: نوع العقار أو الإصدار أو البصمة أو بنية المدخلات لا تتطابق. لم تتغير دراستك الحالية.':
-    'File rejected: asset type, format or SHA-256 mismatch. Your current case was not modified.');
+   setArchiveStatus(ar?'رُفض الملف: لا تتطابق بنية الدراسة أو نوع العقار أو البصمة أو نتائج إعادة الحساب. لم تتغير المدخلات الحالية.':
+    'Document rejected: asset type, structure, SHA-256 or report recomputation failed. Your current case was not modified.');
   }
  };
  const change=(fn,k,v)=>{fn(old=>({...old,[k]:v}));setOutput(null);};
@@ -292,7 +298,7 @@ export default function PersonalSectorValuationWorkbench({assetClass,locale='ar-
        {ar?'حفظ ملف الدراسة محليًا':'Export local case'}
       </button>
       <label className="text-xs" style={{color:'#F0E7DB'}}>
-       {ar?'استعادة ملف دراسة سابق':'Import prior case'}
+       {ar?'استعادة مدخلات الدراسة أو تقرير JSON سابق':'Import case inputs or prior JSON report'}
        <input ref={archiveFileRef} type="file" accept=".json,application/json"
         data-testid="personal-sector-import-case" className="block mt-1 py-2 text-xs min-h-[36px]"
         onChange={importCase}/>
