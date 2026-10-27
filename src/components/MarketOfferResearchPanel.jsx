@@ -33,10 +33,11 @@ const rejectLabels={
  UNIT_PRICE_IMPLAUSIBLE:'سعر المتر غير منطقي',DUPLICATE_SOURCE:'إعلان مكرر',LAND_SUBTYPE_UNVERIFIED:'تصنيف الأرض غير معلوم أو لا يطابق الأرض المراد تقييمها',
  INVESTMENT_STRUCTURE_REQUIRES_SEPARATE_UNDERWRITING:'الفرصة الاستثمارية تحتاج دراسة لشروطها والتدفقات؛ ليست مقارنة سعر متر',
 };
-export default function MarketOfferResearchPanel({subject,offers,setOffers}) {
+export default function MarketOfferResearchPanel({subject,offers,setOffers,asOf}) {
  const [message,setMessage]=useState('');
  const [reuseAcknowledged,setReuseAcknowledged]=useState(false);
- const research=useMemo(()=>reviewMarketOffers({subject,offers}),[subject,offers]);
+ const asOfMs=asOf instanceof Date?asOf.getTime():Date.now();
+ const research=useMemo(()=>reviewMarketOffers({subject,offers,asOf:new Date(asOfMs)}),[subject,offers,asOfMs]);
  const update=(i,k,v)=>setOffers(old=>old.map((x,j)=>i===j?{...x,[k]:v}:x));
  const add=()=>setOffers(old=>old.length<50?[...old,{...newOffer(),
   assetType:subject.assetType,landSubtype:subject.landSubtype||'',city:subject.city,district:subject.district}]:old);
