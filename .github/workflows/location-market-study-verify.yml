@@ -4,6 +4,9 @@ on:
     paths:
       - 'src/market/instant-market-study.js'
       - 'src/market/asking-offers.js'
+      - 'src/market/transaction-cohort-unit-mix.js'
+      - 'src/components/TransactionCohortAndUnitMixPanel.jsx'
+      - 'tests/architecture/run_transaction_cohort_unit_mix.js'
       - 'src/components/MarketOfferResearchPanel.jsx'
       - 'tests/architecture/run_asking_offers.js'
       - 'src/market/professional-comparable-review.js'
@@ -38,6 +41,7 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: node tests/architecture/run_instant_market_study.js
       - run: node tests/architecture/run_asking_offers.js
+      - run: node tests/architecture/run_transaction_cohort_unit_mix.js
       - run: node tests/architecture/run_professional_comparable_review.js
       - run: node tests/architecture/run_value_reconciliation_audit.js
       - run: node tests/architecture/run_public_market_csv_import.js
