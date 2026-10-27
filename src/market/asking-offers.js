@@ -119,6 +119,7 @@ const HEADER={
  price:['السعر المطلوب','سعر البيع المطلوب','price'],
  annualRent:['الإيجار المطلوب','الايجار المطلوب','annualRent'],
  rentPeriod:['دورية الإيجار','rentPeriod'],
+ investmentTerms:['وصف فرصة الاستثمار','شروط الاستثمار','investmentTerms'],
  landSubtype:['نوع الأرض','تصنيف الأرض','landSubtype'],
  landArea:['مساحة الأرض','landArea'],
  builtArea:['المساحة المبنية','builtArea'],
