@@ -3,9 +3,11 @@ on:
   pull_request:
     paths:
       - 'src/market/instant-market-study.js'
+      - 'src/market/public-dataset-import.js'
       - 'src/components/PropertyMarketLocationPanel.jsx'
       - 'src/app/App.jsx'
       - 'tests/architecture/run_instant_market_study.js'
+      - 'tests/architecture/run_public_market_csv_import.js'
       - '.github/workflows/location-market-study-verify.yml'
   workflow_dispatch:
 jobs:
@@ -21,4 +23,5 @@ jobs:
           cache: 'npm'
       - run: npm ci --ignore-scripts
       - run: node tests/architecture/run_instant_market_study.js
+      - run: node tests/architecture/run_public_market_csv_import.js
       - run: npm run build
