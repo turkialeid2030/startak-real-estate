@@ -61,4 +61,13 @@ assert.equal(imported.offers[0].assetType,'COMMERCIAL_COMPLEX');
 assert.equal(imported.offers[0].evidenceType,'ASKING');
 assert.equal(imported.offers[1].evidenceType,'UNVERIFIED');
 assert.equal(reviewMarketOffers({subject:base,offers:imported.offers,asOf}).askingSales.acceptedOffers,1);
+const investment=reviewMarketOffers({subject:base,asOf,offers:[{
+ offerKind:'INVESTMENT',assetType:'COMMERCIAL_COMPLEX',evidenceType:'ASKING',
+ date:'2026-10-12',sourceUrl:'https://sa.aqar.fm/invest/1',
+ city:'جدة',district:'السلامة',investmentTerms:'Long-lease development opportunity',
+}]});
+assert.equal(investment.askingSales.acceptedOffers,0);
+assert.equal(investment.askingRentalsAnnual.acceptedOffers,0);
+assert.equal(investment.reviewed[0].contextOnly,true);
+assert.equal(investment.reviewed[0].issues[0],'INVESTMENT_STRUCTURE_REQUIRES_SEPARATE_UNDERWRITING');
 console.log('STARTAK_ASKING_OFFER_EVIDENCE=PASS');
