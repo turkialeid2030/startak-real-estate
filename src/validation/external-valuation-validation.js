@@ -1,5 +1,8 @@
 'use strict';
 
+// Consistent with the time-forward holdout. Direct validation is also public
+// to server callers, so it needs its own pre-loop resource guard.
+const MAX_EXTERNAL_OBSERVATIONS = 10000;
 const COMPARATOR_TYPE = Object.freeze({
   INDEPENDENT_APPRAISAL: 'INDEPENDENT_APPRAISAL',
   ACTUAL_TRANSACTION: 'ACTUAL_TRANSACTION',
@@ -65,6 +68,9 @@ function hold(status, reasons, observations = [], metrics = null) {
 function evaluateExternalValuationValidation({ observations, policy = null }) {
   if (!Array.isArray(observations) || observations.length === 0) {
     return hold(EXTERNAL_VALUATION_VALIDATION_STATUS.HOLD_EVIDENCE, ['at least one external comparison observation is required']);
+  }
+  if (observations.length > MAX_EXTERNAL_OBSERVATIONS) {
+    return hold(EXTERNAL_VALUATION_VALIDATION_STATUS.HOLD_EVIDENCE, ['SAMPLE_SIZE_EXCEEDS_BOUND']);
   }
 
   if (policy === null) {
