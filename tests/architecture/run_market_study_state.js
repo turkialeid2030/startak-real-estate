@@ -9,7 +9,7 @@ const study=JSON.stringify({
     propertyRight:'FULL_OWNERSHIP',zoningClassification:'سكني',
     inspectionStatus:'ON_SITE',inspectionDate:'2026-10-26'},
  assumptions:{occupancy:'0.95',expenseRatio:'0.2',capRate:'0.075'},
- sales:[{assetType:'RESIDENTIAL_COMPOUND',status:'EXECUTED',
+ sales:[{assetType:'RESIDENTIAL_COMPOUND',landSubtype:'RESIDENTIAL',status:'EXECUTED',
      sourceUrl:'https://example.org/synthetic',price:'1200000',builtArea:'300',
      sourceRecordId:'SYNTH-T1'}],
  rentals:[],projects:[],marketOffers:[],
@@ -35,6 +35,7 @@ assert.equal(parsed.study.subject.inspectionStatus,'ON_SITE');
 assert.equal(parsed.study.subject.propertyRight,'FULL_OWNERSHIP');
 assert.equal(parsed.study.assumptions.capRate,'0.075');
 assert.equal(parsed.study.unitMix.length,1);
+assert.equal(parsed.study.sales[0].landSubtype,'RESIDENTIAL','comparable land subtype must persist across JSON restore');
 assert.equal(parsed.study.leaseComparables.length,1);
 assert.equal(parsed.study.rentAssumptions.stabilizedOccupancy,'0.9');
 assert.equal(Object.hasOwn(parsed.study,'report'),false);
