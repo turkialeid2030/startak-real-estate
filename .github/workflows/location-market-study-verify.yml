@@ -12,6 +12,8 @@ on:
       - 'src/market/asking-offers.js'
       - 'src/market/transaction-cohort-unit-mix.js'
       - 'src/market/market-study-state.js'
+      - 'src/market/saved-deal-study-sidecar.js'
+      - 'tests/architecture/run_saved_deal_research_sidecar.js'
       - 'tests/architecture/run_market_study_state.js'
       - 'src/components/TransactionCohortAndUnitMixPanel.jsx'
       - 'tests/architecture/run_transaction_cohort_unit_mix.js'
@@ -54,6 +56,7 @@ jobs:
       - run: node tests/architecture/run_asking_offers.js
       - run: node tests/architecture/run_transaction_cohort_unit_mix.js
       - run: node tests/architecture/run_market_study_state.js
+      - run: node tests/architecture/run_saved_deal_research_sidecar.js
       - run: node tests/architecture/run_professional_comparable_review.js
       - run: node tests/architecture/run_value_reconciliation_audit.js
       - run: node tests/architecture/run_public_market_csv_import.js
