@@ -1,4 +1,4 @@
-import React,{useMemo,useState} from 'react';
+import React,{useMemo} from 'react';
 const {reviewAskingVsExecuted,evaluateUnitMixRents,UNIT_KINDS}=
  require('../market/transaction-cohort-unit-mix');
 const {number}=require('../market/instant-market-study');
@@ -24,11 +24,12 @@ const errors={
  THREE_EXECUTED_LEASES_REQUIRED:'يلزم ثلاث عقود إيجار منفذة مناسبة لهذه الفئة',
  ASSET_NEEDS_SPECIALIST_RENT_MODEL:'هذا الأصل يتطلب نموذج تأجير أو تشغيل قطاعي متخصص',
 };
-export default function TransactionCohortAndUnitMixPanel({subject,sales,askingOffers}) {
- const [unitMix,setUnitMix]=useState([]);
- const [leaseComparables,setLeaseComparables]=useState([]);
- const [expenseRatio,setExpenseRatio]=useState('0.20');
- const [stabilizedOccupancy,setStabilizedOccupancy]=useState('0.90');
+export default function TransactionCohortAndUnitMixPanel({subject,sales,askingOffers,
+ unitMix,setUnitMix,leaseComparables,setLeaseComparables,rentAssumptions,setRentAssumptions}) {
+ const expenseRatio=rentAssumptions.expenseRatio;
+ const stabilizedOccupancy=rentAssumptions.stabilizedOccupancy;
+ const setExpenseRatio=v=>setRentAssumptions(p=>({...p,expenseRatio:v}));
+ const setStabilizedOccupancy=v=>setRentAssumptions(p=>({...p,stabilizedOccupancy:v}));
  const cohort=useMemo(()=>reviewAskingVsExecuted({
   subject,askingOffers,executedSales:sales,
  }),[subject,askingOffers,sales]);
