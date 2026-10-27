@@ -3,6 +3,9 @@ on:
   pull_request:
     paths:
       - 'src/market/instant-market-study.js'
+      - 'src/market/professional-comparable-review.js'
+      - 'src/components/ProfessionalComparableReviewPanel.jsx'
+      - 'tests/architecture/run_professional_comparable_review.js'
       - 'src/market/public-dataset-import.js'
       - 'src/market/saudi-open-data-research.js'
       - 'src/components/PropertyMarketLocationPanel.jsx'
@@ -28,6 +31,7 @@ jobs:
           cache: 'npm'
       - run: npm ci --ignore-scripts
       - run: node tests/architecture/run_instant_market_study.js
+      - run: node tests/architecture/run_professional_comparable_review.js
       - run: node tests/architecture/run_public_market_csv_import.js
       - run: node tests/architecture/run_saudi_open_data_research.js
       - run: node tests/architecture/run_saudi_open_data_live_smoke.js
