@@ -157,6 +157,22 @@ try{
  assert(segmentText.includes('17,000,000')||segmentText.includes('١٧٬٠٠٠٬٠٠٠'),
   'unit-class rent should match 200 x 125 sqm x annual lease median');
  mark('UNIT_CLASS_CONTRACT_RENT_RECONCILIATION_AND_FORM',true);
+ const downloadEvent=page.waitForEvent('download');
+ await panel.getByRole('button',{name:'تصدير الدراسة الأولية JSON'}).click();
+ const download=await downloadEvent;
+ const saved=await download.path();
+ const exported=JSON.parse(fs.readFileSync(saved,'utf8'));
+ assert(exported.kind==='STARTAK_PERSONAL_MARKET_STUDY','missing study identity');
+ assert(exported.unitMix?.length===1&&exported.leaseComparables?.length===3,
+  'segmented unit mix and lease comparables missing from exported study');
+ assert(exported.segmentedMarketRents?.grossPotentialNewAnnualRentSar===17000000,
+  'new class-level rent does not reconcile to exported study');
+ assert(exported.askingVsExecutedCohorts?.notSamePropertyProof===true,
+  'executed vs asking cohorts were misleadingly treated as identical asset deals');
+ assert(exported.rentAssumptions?.stabilizedOccupancy==='0.90',
+  'rent operating assumption missing from export');
+ mark('FULL_PERSONAL_STUDY_EXPORT_INCLUDES_UNIT_MIX_LEASE_EVIDENCE',true);
+
 
 
 
