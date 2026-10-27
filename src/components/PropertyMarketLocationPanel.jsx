@@ -5,6 +5,7 @@ const {readOpenQuarters,deriveDistrictSnapshot,OPEN_QUARTERS}=require('../market
 import ProfessionalComparableReviewPanel from './ProfessionalComparableReviewPanel.jsx';
 import CrossMethodEvidencePanel from './CrossMethodEvidencePanel.jsx';
 import MarketOfferResearchPanel from './MarketOfferResearchPanel.jsx';
+import TransactionCohortAndUnitMixPanel from './TransactionCohortAndUnitMixPanel.jsx';
 
 const INPUT = 'w-full rounded-lg border border-slate-600 bg-[#101c30] px-3 py-2 text-sm text-slate-100';
 const createRow = () => ({ assetType:'', status:'ASKING', price:'', annualRent:'', builtArea:'', landArea:'',
@@ -319,6 +320,7 @@ export default function PropertyMarketLocationPanel() {
       <p className="mt-2 text-xs text-slate-400">بيانات مقارنة يُقر بها المستخدم ولم يُتحقق منها مستقلاً. لا توجد تغذية لحظية مرخّصة متصلة. لا تستعمل هذه النتيجة كتقييم رسمي أو أساس قرار شراء ملزم.</p>
     </div>
     <MarketOfferResearchPanel subject={subject} offers={marketOffers} setOffers={setMarketOffers}/>
+    <TransactionCohortAndUnitMixPanel subject={subject} sales={allSales} askingOffers={marketOffers}/>
     <ProfessionalComparableReviewPanel subject={subject} sales={allSales}/>
     <CrossMethodEvidencePanel subject={subject} report={report}/>
     <div className="flex flex-wrap gap-3 mt-4">
