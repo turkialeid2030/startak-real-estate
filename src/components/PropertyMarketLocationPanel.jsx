@@ -157,8 +157,8 @@ export default function PropertyMarketLocationPanel() {
     try{
       if(file.size>MAX_STUDY_BYTES)throw Error('STUDY_SIZE_LIMIT');
       const restored=parsePersonalMarketStudy(await file.text()).study;
-      setSubject(previous=>({...previous,...restored.subject}));
-      setAssumptions(previous=>({...previous,...restored.assumptions}));
+      setSubject(restored.subject);
+      setAssumptions(restored.assumptions);
       setSales(restored.sales);
       setRentals(restored.rentals);
       setImportedSales([]);
@@ -167,7 +167,7 @@ export default function PropertyMarketLocationPanel() {
       setMarketOffers(restored.marketOffers);
       setUnitMix(restored.unitMix);
       setLeaseComparables(restored.leaseComparables);
-      setRentAssumptions(previous=>({...previous,...restored.rentAssumptions}));
+      setRentAssumptions(restored.rentAssumptions);
       setMessage('استُعيدت مدخلات الدراسة الخاصة محليًا؛ أُعيد حساب النتائج دون الثقة في أرقام قديمة أو ادعاءات اعتماد داخل الملف.');
     }catch(error){setMessage('فشل استيراد ملف الدراسة: '+String(error.message||'STUDY_INVALID'));}
   };
