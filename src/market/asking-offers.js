@@ -23,6 +23,11 @@ function isoDate(value){
 }
 function asOffer(row,{kind,subject,asOf,maxAgeDays=TIME_LIMIT_DAYS}){
  const rejection=[];
+ if(kind==='INVESTMENT')return {accepted:false,
+   issues:['INVESTMENT_STRUCTURE_REQUIRES_SEPARATE_UNDERWRITING'],
+   sourceUrl:sourceUrlInfo(row.sourceUrl)?.link||null,contextOnly:true,
+   offerKind:kind,date:isoDate(row.date),unitAskingSar:null,
+   evidenceKind:'INVESTMENT_OPPORTUNITY_NOT_PRICE_COMPARABLE'};
  if(kind!=='SALE'&&kind!=='RENT')return {accepted:false,issues:['KIND_INVALID']};
  if(!ASSET_TYPES[subject?.assetType]||row.assetType!==subject.assetType)
    rejection.push('ASSET_TYPE_MISMATCH');
@@ -132,7 +137,8 @@ function importOfferRowsCsv(csv) {
   const offerKind=normalized(field(cols,'offerKind'));
   const assetInput=field(cols,'assetType');
   const arLabel=Object.entries(ASSET_TYPES).find(([,v])=>normalized(v)===normalized(assetInput));
-  const purpose=['SALE','بيع','للبيع'].includes(offerKind)?'SALE':
+  const purpose=['INVESTMENT','استثمار','فرصه استثماريه','فرصة استثمارية'].some(x=>normalized(x)===offerKind)?'INVESTMENT':
+    ['SALE','بيع','للبيع'].includes(offerKind)?'SALE':
        ['RENT','إيجار','ايجار','للإيجار','للايجار'].includes(offerKind)?'RENT':'';
   const status=normalized(field(cols,'evidenceType'));
   const rawPeriod=normalized(field(cols,'rentPeriod'));
@@ -140,6 +146,7 @@ function importOfferRowsCsv(csv) {
    offerKind:purpose,assetType:ASSET_TYPES[assetInput]?assetInput:(arLabel?.[0]||''),
    evidenceType:['ASKING','عرض','اعلان','إعلان','مطلوب'].some(x=>normalized(x)===status)?'ASKING':'UNVERIFIED',
    price:field(cols,'price'),annualRent:field(cols,'annualRent'),
+   investmentTerms:field(cols,'investmentTerms'),
    rentPeriod:['MONTH','شهري','شهر'].some(x=>normalized(x)===rawPeriod)?'MONTH':
        ['YEAR','سنوي','سنة'].some(x=>normalized(x)===rawPeriod)?'YEAR':'UNKNOWN',
    landArea:field(cols,'landArea'),builtArea:field(cols,'builtArea'),rentableArea:field(cols,'rentableArea'),
