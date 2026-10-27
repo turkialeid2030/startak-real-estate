@@ -30,6 +30,15 @@ try{
  const page=await browser.newPage({viewport:{width:1280,height:960},locale:'ar-SA'});
  page.setDefaultTimeout(10000);
  page.on('pageerror',e=>result.errors.push(e.message));
+ await page.addInitScript(()=>{
+  const prefix='STARTAK_REAL_ESTATE:SAVED_DEALS:';
+  const id='SYNTH-MKT-BUILD-01';
+  const index=[{id,name:'مجمع تجريبي محفوظ'}];
+  const deal={id,name:'مجمع تجريبي محفوظ',mode:'building',inputs:{},savedAt:'2026-10-27T00:00:00.000Z'};
+  localStorage.setItem(prefix+'deals-index',JSON.stringify(index));
+  localStorage.setItem(prefix+'deal:'+id,JSON.stringify(deal));
+ });
+
  const openQuarterFixture=[
   'المنطقة,المدينة,المدينة / الحي,الرقم المرجعي للصفقة,تاريخ الصفقة ميلادي,تصنيف العقار,عدد العقارات,السعر,المساحة',
   'منطقة الرياض,الرياض,الرياض/الملقا,91001,2026/02/15,سكني,1,1200000,600',
@@ -223,6 +232,31 @@ try{
  const historicalAfterImport=await panel.getByLabel('الإيجار السنوي السابق').first().inputValue();
  assert(historicalAfterImport==='999999999','restored prior rent input did not round-trip');
  mark('REIMPORT_PERSONAL_STUDY_RESTORES_INPUTS_AND_RECALCULATES_RESULTS',true);
+ const linked=panel.locator('[data-testid="saved-deal-market-study-link"]');
+ await linked.getByRole('button',{name:'تحديث قائمة الصفقات المحفوظة'}).click();
+ await linked.getByLabel('اختيار الصفقة لربط دراسة السوق').selectOption('SYNTH-MKT-BUILD-01');
+ const savedDealBefore=await page.evaluate(()=>
+  localStorage.getItem('STARTAK_REAL_ESTATE:SAVED_DEALS:deal:SYNTH-MKT-BUILD-01'));
+ await linked.getByRole('button',{name:'حفظ ملحق الدراسة للصفقة المختارة'}).click();
+ await linked.getByText('تم حفظ ملحق الدراسة البحثية للصفقة',{exact:false}).waitFor();
+ const sidecar=await page.evaluate(()=>localStorage.getItem(
+  'STARTAK_REAL_ESTATE:SAVED_DEALS:market-study-sidecar:v1:SYNTH-MKT-BUILD-01'));
+ const decoded=JSON.parse(sidecar);
+ assert(decoded.researchScope==='PERSONAL_UNVERIFIED_INPUTS_ONLY'&&decoded.studyInputs.unitMix.length===1,
+  'research must be linked solely as unapproved inputs');
+ assert(decoded.studyInputs.appraisalQuality===undefined&&decoded.studyInputs.report===undefined,
+  'certified outputs must not persist in canonical sidecar');
+ assert((await page.evaluate(()=>localStorage.getItem(
+  'STARTAK_REAL_ESTATE:SAVED_DEALS:deal:SYNTH-MKT-BUILD-01')))===savedDealBefore,
+  'canonical saved-deal record was modified by research sidecar');
+ mark('CANONICAL_DEAL_LINKED_RESEARCH_INPUTS_ISOLATED',true);
+ await linked.getByRole('button',{name:'حفظ ملحق الدراسة للصفقة المختارة'}).click();
+ await linked.getByText('هذه الصفقة مرتبطة بدراسة سابقة',{exact:false}).waitFor();
+ mark('RESEARCH_SIDECAR_OVERWRITE_REQUIRES_EXPLICIT_CONSENT',true);
+ await linked.getByRole('button',{name:'استعادة ملحق الدراسة المرتبط'}).click();
+ await linked.getByText('استُعيدت مدخلات الملحق المرتبط بالصفقة',{exact:false}).waitFor();
+ mark('CANONICAL_DEAL_RESEARCH_RESTORE_RECALCULATES',true);
+
 
 
 
