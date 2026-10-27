@@ -10,6 +10,11 @@ permissions:
 jobs:
   deep-platform-verify:
     runs-on: ubuntu-24.04
+    # Match the exact pre-installed Playwright image used by deployed owner
+    # acceptance; do not depend on live CDN/apt browser installation.
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e
+      options: --user 1001
     timeout-minutes: 40
     steps:
       - name: Checkout
@@ -20,14 +25,21 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+      - name: Verify pinned Chromium without live downloads
+        run: |
+          node - <<'JS'
+          const fs = require('node:fs');
+          const { chromium } = require('playwright');
+          if (require('playwright/package.json').version !== '1.62.1') throw new Error('PLAYWRIGHT_VERSION_MISMATCH');
+          if (!fs.existsSync(chromium.executablePath())) throw new Error('PINNED_CHROMIUM_NOT_FOUND');
+          console.log('DEEP_PINNED_CHROMIUM=PASS');
+          JS
 
       - name: Deep platform verification
         run: node tools/deep-platform-verify.js
