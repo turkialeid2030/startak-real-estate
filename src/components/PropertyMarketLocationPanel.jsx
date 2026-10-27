@@ -3,6 +3,7 @@ const { ASSET_TYPES, extractCoordinates, evaluateMarketStudy } = require('../mar
 const { prepareImportCsv,MAX_CSV_BYTES } = require('../market/public-dataset-import');
 const {readOpenQuarters,deriveDistrictSnapshot,OPEN_QUARTERS}=require('../market/saudi-open-data-research');
 import ProfessionalComparableReviewPanel from './ProfessionalComparableReviewPanel.jsx';
+import CrossMethodEvidencePanel from './CrossMethodEvidencePanel.jsx';
 
 const INPUT = 'w-full rounded-lg border border-slate-600 bg-[#101c30] px-3 py-2 text-sm text-slate-100';
 const createRow = () => ({ assetType:'', status:'ASKING', price:'', annualRent:'', builtArea:'', landArea:'',
@@ -311,6 +312,7 @@ export default function PropertyMarketLocationPanel() {
       <p className="mt-2 text-xs text-slate-400">بيانات مقارنة يُقر بها المستخدم ولم يُتحقق منها مستقلاً. لا توجد تغذية لحظية مرخّصة متصلة. لا تستعمل هذه النتيجة كتقييم رسمي أو أساس قرار شراء ملزم.</p>
     </div>
     <ProfessionalComparableReviewPanel subject={subject} sales={allSales}/>
+    <CrossMethodEvidencePanel subject={subject} report={report}/>
     <div className="flex flex-wrap gap-3 mt-4">
       <button type="button" onClick={exportJson} className="rounded-lg bg-[#C9A24C] px-4 py-2 text-xs font-semibold text-[#141F35]">تصدير الدراسة الأولية JSON</button>
       <a className="rounded-lg border border-slate-600 px-4 py-2 text-xs text-sky-300" target="_blank" rel="noopener noreferrer" href="https://rei.rega.gov.sa/">المؤشرات العقارية الرسمية</a>
