@@ -87,6 +87,26 @@ try{
  mark('OLD_RENT_SEPARATE_FROM_MARKET',true);
  assert((await panel.innerText()).includes('بيع 3، إيجار 3'),'district-only reference must be disclosed');
  mark('DISTRICT_ONLY_MATCH_DISCLOSURE',true);
+ const asking=panel.locator('[data-testid="asking-offer-research"]');
+ await asking.locator('summary').click();
+ const valueBeforeOffers=await valuation.innerText();
+ const askingCsv=[
+   'نوع العرض,نوع العقار,حالة السعر,تاريخ الإعلان,رابط الإعلان,السعر المطلوب,المساحة المبنية,المدينة,الحي',
+   'بيع,مجمع سكني,عرض,2026-10-12,https://sa.aqar.fm/listing/1,6000000,3000,الرياض,الملقا',
+   'بيع,مجمع سكني,عرض,2026-10-12,https://sa.aqar.fm/listing/2,9000000,3000,الرياض,الملقا',
+   'بيع,مجمع سكني,عرض,2026-10-12,https://sa.aqar.fm/listing/3,12000000,3000,الرياض,الملقا',
+ ].join('\n');
+ await asking.getByLabel('أؤكد امتلاكي حق استخدام بيانات ملف الإعلانات').check();
+ await asking.locator('input[type=file]').setInputFiles({
+  name:'asking.csv',mimeType:'text/csv',buffer:Buffer.from(askingCsv,'utf8')
+ });
+ await asking.getByText('عروض مؤهلة: 3').first().waitFor();
+ const offerText=await asking.innerText();
+ assert(offerText.includes('مؤشر سعر البيع المطلوب /م²'), 'asking-only sale indicator missing');
+ assert((await valuation.innerText())===valueBeforeOffers,
+  'asking prices must never affect primary estimated property value');
+ mark('AQAR_ASKING_OFFERS_SALE_METER_ISOLATED_FROM_PRIMARY_VALUE',true);
+
  const professional=panel.locator('[data-testid="professional-comparables"]');
  await professional.locator('summary').first().click();
  mark('PROFESSIONAL_AUDIT_PANEL_VISIBLE',await professional.isVisible());
