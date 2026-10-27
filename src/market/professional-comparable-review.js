@@ -28,6 +28,7 @@ function compareAdjustments({subjectArea,comparables=[],asOf=new Date(),
     const source=String(row.sourceUrl||'').trim();
     const price=clampFiniteNumber(row.pricePerSqm,0.01,1e8);
     const weightPct=clampFiniteNumber(row.weightPct,0,100);
+    const comparableArea=clampFiniteNumber(row.comparableArea,0.01,1e10);
     const status=row.transactionStatus;
     const problems=[];
     if(!id||seen.has(id))problems.push('COMPARABLE_ID_REQUIRED_UNIQUE');
@@ -39,19 +40,25 @@ function compareAdjustments({subjectArea,comparables=[],asOf=new Date(),
     else if(status==='EXECUTED')executed++;
     else {offers++;warnings.push('OFFERS_NOT_EXECUTED');}
     if(row.basis!==basis)problems.push('AREA_BASIS_MISMATCH');
+    if(comparableArea===null)warnings.push('COMPARABLE_AREA_NOT_VERIFIED');
+    else if(area!==null){
+      const ratio=area/comparableArea;
+      if(ratio>4||ratio<0.25)warnings.push('EXTREME_AREA_RATIO_REQUIRES_EXPERT_REVIEW');
+    }
     const date=String(row.date||'');
     const t=/^\d{4}-\d{2}-\d{2}$/.test(date)?Date.parse(date+'T00:00:00Z'):NaN;
     if(!Number.isFinite(t)||new Date(t).toISOString().slice(0,10)!==date||t>now.getTime())
       problems.push('COMPARABLE_DATE_INVALID');
     else if(now.getTime()-t>365*86400000)warnings.push('COMPARABLE_OLDER_THAN_365_DAYS');
     const adjustmentPct={};let otherTotal=0;
+    const areaRatio=area!==null&&comparableArea!==null?area/comparableArea:null;
     for(const k of ADJUSTMENT_KEYS){
       const raw=row[k]===''||row[k]===undefined||row[k]===null?0:clampFiniteNumber(row[k],-50,50);
       if(raw===null){problems.push('ADJUSTMENT_INVALID_'+k);adjustmentPct[k]=null;}
       else {adjustmentPct[k]=raw;if(k!=='financingPct'&&k!=='marketConditionsPct'&&k!=='transactionTypePct')otherTotal+=raw;}
     }
     if(problems.length||errors.length&&area===null)return {
-      id,problems,transactionStatus:status,weightPct,
+      id,problems,transactionStatus:status,weightPct,comparableArea,areaRatio,
       adjustedPricePerSqm:null,weightedPricePerSqm:null,
       adjustments:adjustmentPct,
     };
@@ -65,7 +72,7 @@ function compareAdjustments({subjectArea,comparables=[],asOf=new Date(),
     if(stage1Factor<=0||stage2Factor<=0)problems.push('ADJUSTMENT_NEGATIVE_PRICE');
     const adjusted=problems.length?null:round2(price*stage1Factor*stage2Factor);
     if(weightPct!==null)totalWeight+=weightPct;
-    return {id,problems,transactionStatus:status,sourceUrl:source,
+    return {id,problems,transactionStatus:status,sourceUrl:source,comparableArea,areaRatio,
       date,originalPricePerSqm:price,weightPct,adjustments:adjustmentPct,
       stage1PricePerSqm:problems.length?null:round2(price*stage1Factor),
       stage2OtherAdjustmentsPct:round2(otherTotal),
@@ -83,7 +90,9 @@ function compareAdjustments({subjectArea,comparables=[],asOf=new Date(),
   // Explicit unit-value rounding before multiplying by asset area mirrors report methodology.
   const weightedPricePerSqm=canCalculate?round2(rawWeighted):null;
   const scenarioValueSar=canCalculate&&area!==null?round2(weightedPricePerSqm*area):null;
-  const evidenceQualified=canCalculate&&executed>=minimumExecuted&&offers===0;
+  const evidenceQualified=canCalculate&&executed>=minimumExecuted&&offers===0&&
+    !warnings.includes('COMPARABLE_AREA_NOT_VERIFIED')&&
+    !warnings.includes('EXTREME_AREA_RATIO_REQUIRES_EXPERT_REVIEW');
   return {
     status:errors.length?'INVALID':
       evidenceQualified?'CALCULATION_POSSIBLE_UNVERIFIED':'ILLUSTRATIVE_HUMAN_REVIEW_REQUIRED',
