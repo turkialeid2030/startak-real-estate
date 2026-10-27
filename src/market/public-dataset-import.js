@@ -30,6 +30,7 @@ function rowsFromCsv(raw) {
 function norm(s){ return String(s||'').trim().replace(/[\s_\-/،.:()]+/g,'').toLowerCase(); }
 const ALIASES = {
   assetType:['assetType','propertyType','نوع العقار','النوع العقاري','تصنيف العقار'],
+  landSubtype:['landSubtype','landClassification','نوع الأرض','تصنيف الأرض','حالة الأرض'],
   status:['status','transactionStatus','حالة الصفقة','صفة الصفقة','نوع العملية','حالة العقد'],
   date:['date','transactionDate','تاريخ الصفقة','تاريخ الإفراغ','تاريخ العقد'],
   price:['price','salePrice','قيمة الصفقة','ثمن الصفقة','سعر البيع','قيمة البيع'],
@@ -56,8 +57,25 @@ const TYPES={
   'برجتجاري':'OFFICE_TOWER','متعددالاستخدامات':'MIXED_USE',
   'مستودع':'WAREHOUSE','مستودعات':'WAREHOUSE',
   'أرض':'LAND','ارض':'LAND',
+  'فندق':'HOTEL','فنادق':'HOTEL','فندقأوشققفندقية':'HOTEL',
+  'مركزتجاري':'COMMERCIAL_MALL','مول':'COMMERCIAL_MALL','مولتجاري':'COMMERCIAL_MALL',
+  'فيلا':'RESIDENTIAL_VILLA','فلل':'RESIDENTIAL_VILLA','فللسكنية':'RESIDENTIAL_VILLA',
+  'مجمعلوجستي':'LOGISTICS_PARK','مجمعمستودعات':'LOGISTICS_PARK',
+  'مصنع':'INDUSTRIAL_PROPERTY','منشأةصناعية':'INDUSTRIAL_PROPERTY',
+  'مستشفى':'HEALTHCARE_PROPERTY','مركزصحي':'HEALTHCARE_PROPERTY','أصلصحيأومستشفى':'HEALTHCARE_PROPERTY',
 };
 function mapType(value){const n=norm(value);return TYPES[n]||(/^[A-Z_]+$/.test(String(value||''))?value.trim():'');}
+function mapLandSubtype(value){
+  const token=norm(value);
+  const mapping={
+    'raw':'RAW','خام':'RAW','أرضخام':'RAW','ارضخام':'RAW','غيرمخدومة':'RAW',
+    'serviced':'SERVICED','مخدومة':'SERVICED','مخططةومخدومة':'SERVICED',
+    'residential':'RESIDENTIAL','سكنية':'RESIDENTIAL','أرضسكنية':'RESIDENTIAL',
+    'commercial':'COMMERCIAL','تجارية':'COMMERCIAL','أرضتجارية':'COMMERCIAL',
+    'agricultural':'AGRICULTURAL','زراعية':'AGRICULTURAL','أرضزراعية':'AGRICULTURAL',
+  };
+  return mapping[token]||'';
+}
 function mapStatus(value) {
   const text=norm(value);
   if(['executed','completed','منفذة','منفذ','تمالإفراغ','إفراغ','موثق','مكتمل','بيعمنفذ','عقدموثق'].includes(text))return 'EXECUTED';
@@ -75,6 +93,7 @@ function prepareImportCsv(raw,{kind,datasetUrl,rightsConfirmed=false}={}) {
     const source=col(columns,'sourceUrl')||datasetUrl;
     return {
       assetType:mapType(col(columns,'assetType')),
+      landSubtype:mapLandSubtype(col(columns,'landSubtype')),
       status:mapStatus(col(columns,'status')),
       date:dateISO(col(columns,'date')),
       price:kind==='sale'?col(columns,'price'):'',
