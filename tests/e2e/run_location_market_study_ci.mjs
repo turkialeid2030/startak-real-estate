@@ -86,6 +86,17 @@ try{
  mark('OLD_RENT_SEPARATE_FROM_MARKET',true);
  assert((await panel.innerText()).includes('بيع 3، إيجار 3'),'district-only reference must be disclosed');
  mark('DISTRICT_ONLY_MATCH_DISCLOSURE',true);
+ const professional=panel.locator('[data-testid="professional-comparables"]');
+ await professional.locator('summary').first().click();
+ mark('PROFESSIONAL_AUDIT_PANEL_VISIBLE',await professional.isVisible());
+ await professional.getByLabel('أساس المقارنة (مطابق لكل المقارنات)').selectOption('BUILT_SQM');
+ await professional.getByRole('button',{name:'إحضار مقارنات البيع المدخلة للمراجعة'}).click();
+ await professional.getByText('سعر المتر المرجّح بعد التقريب إلى هللتين:',{exact:false}).waitFor();
+ const gridStatus=await professional.innerText();
+ assert(gridStatus.includes('الصفقات المنفذة: 3'),'professional audit did not inherit three source rows');
+ assert(!gridStatus.includes('المدخلات غير مكتملة'),'professional audit could not compute with three imported sales');
+ mark('PROFESSIONAL_COMPARABLE_IMPORT_AND_ROUNDING',true);
+
  await page.setViewportSize({width:390,height:844});
  const geom=await page.evaluate(()=>({width:document.documentElement.scrollWidth,
  viewport:document.documentElement.clientWidth}));
