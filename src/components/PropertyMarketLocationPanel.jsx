@@ -169,6 +169,7 @@ export default function PropertyMarketLocationPanel() {
       <button type="button" onClick={exportJson} className="rounded-lg bg-[#C9A24C] px-4 py-2 text-xs font-semibold text-[#141F35]">تصدير الدراسة الأولية JSON</button>
       <a className="rounded-lg border border-slate-600 px-4 py-2 text-xs text-sky-300" target="_blank" rel="noopener noreferrer" href="https://rei.rega.gov.sa/">المؤشرات العقارية الرسمية</a>
       <a className="rounded-lg border border-slate-600 px-4 py-2 text-xs text-sky-300" target="_blank" rel="noopener noreferrer" href="https://srem.moj.gov.sa/">الصفقات المسجلة — وزارة العدل</a>
+      <a className="rounded-lg border border-slate-600 px-4 py-2 text-xs text-sky-300" target="_blank" rel="noopener noreferrer" href="https://opendata.rcrc.gov.sa/">بيانات ومشاريع مدينة الرياض المكانية</a>
     </div>
     {message&&<p role="status" className="text-xs text-slate-200 mt-2">{message}</p>}
   </section>;
