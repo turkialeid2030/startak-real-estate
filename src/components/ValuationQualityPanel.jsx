@@ -1,6 +1,6 @@
 import React from 'react';
 const money=x=>Number.isFinite(x)?new Intl.NumberFormat('ar-SA',{maximumFractionDigits:0}).format(x)+' ر.س':'غير متاح';
-export default function ValuationQualityPanel({readiness,quality}) {
+export default function ValuationQualityPanel({readiness,quality,studyAsOf}) {
  const passed=quality.items.filter(x=>x.status==='PRESENT_USER_DECLARED').length;
  return <section data-testid="valuation-quality-gates" dir="rtl"
   className="mt-5 rounded-xl border border-amber-700/70 bg-[#15273D] p-4 text-slate-100">
@@ -8,6 +8,12 @@ export default function ValuationQualityPanel({readiness,quality}) {
   <p className="mt-2 text-xs leading-6 text-slate-300">
    تصنيف أولي يعتمد على بيانات الدراسة وما أقر به المستخدم. لا يجري فحصًا مستقلًا لمصداقية المستندات أو صكوك الملكية،
    ولا يمنح نسبة دقة أو اعتمادًا مهنيًا. نتائج الموقع والبيع والإيجار تخضع لبوابة واحدة قبل عرض السعر.
+  </p>
+  <p className="mt-3 text-xs text-slate-300">
+    تاريخ مرجع المقارنات: <strong>{studyAsOf?.date||'غير محدد'}</strong> —
+    {studyAsOf?.origin==='USER_VALUATION_DATE'?'تاريخ القيمة الذي حدده المستخدم':
+      'تاريخ فتح الدراسة حسب ساعة الجهاز'}.
+    تعني قراءة البيانات عند الطلب أنها بيانات منشورة ومتاحة، ولا تعني أن كل صفقة منفذة في هذا اليوم.
   </p>
   <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
    <div className="rounded-lg border border-slate-600 p-3">
