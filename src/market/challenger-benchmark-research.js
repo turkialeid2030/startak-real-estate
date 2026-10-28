@@ -2,7 +2,7 @@
 // Mathematically fair same-cohort model-challenger sandbox.
 // Reuses STARTAK independent holdout calculator but DOES NOT independently
 // authenticate any externally supplied sale price or claim a calibrated model.
-const {validateIndependentHoldout}=require('./appraisal-market-validation');
+const {calculateResearchErrorMetrics}=require('./appraisal-market-validation');
 const {rowsFromCsv,MAX_CSV_BYTES}=require('./public-dataset-import');
 const VERSION='STARTAK_CHALLENGER_SANDBOX_V1';
 const MODEL_IDS=Object.freeze(['STARTAK','BAYUT_TRUVALUE','GREM_AI','EARTH_VALUE','TATHMIN']);
@@ -91,23 +91,17 @@ function evaluateChallengers({observations=[],minimum=MIN,trainingPropertyRefs=[
  if(errors.length){hold.reasons=errors;return hold;}
  for(const modelId of models){
   const rows=[...cases.values()].map(({observations})=>observations.get(modelId));
-  // Existing deterministic math is used on sandbox-assumed reference labels.
-  // Those booleans are NOT actual outside verification; both output and app UI
-  // explicitly forbid external calibration claims or trading authority.
-  const math=validateIndependentHoldout({observations:rows.map(r=>({
-   ...r,executedTransactionConfirmed:true,independentlyVerified:true,
-   reuseRightsVerified:true,observationSourceType:'EXECUTED_REAL_ESTATE_TRANSACTION'
-  })),trainingPropertyRefs,minimum});
-  if(math.validObservations!==cases.size||!math.overall||
-    math.status!=='RESEARCH_HOLDOUT_CALCULATED_NOT_CERTIFIED'){
-   hold.reasons.push('EXISTING_HOLDOUT_CALCULATOR_REJECTED_'+modelId);return hold;
+  // Reuse the pure arithmetic; unverified input never impersonates a validated sale.
+  const math=calculateResearchErrorMetrics(rows);
+  if(!math||math.count!==cases.size){
+   hold.reasons.push('SANDBOX_METRICS_REJECTED_'+modelId);return hold;
   }
   const success=rows.filter(r=>Math.abs(r.predictedValueSar-r.executedPriceSar)/
     r.executedPriceSar<=0.10).length;
   const hasCosts=rows.every(r=>typeof r.runCostSar==='number'&&Number.isFinite(r.runCostSar));
   hold.metricsByModel[modelId]={
-   sampleSize:rows.length,maeSar:math.overall.maeSar,
-   mapePct:math.overall.mapePct,medianApePct:math.overall.medianApePct,
+   sampleSize:rows.length,maeSar:math.maeSar,
+   mapePct:math.mapePct,medianApePct:math.medianApePct,
    within10Pct:success/rows.length*100,
    costPerCorrectCompletedTaskSar:hasCosts&&success?
     rows.reduce((t,r)=>t+r.runCostSar,0)/success:null,

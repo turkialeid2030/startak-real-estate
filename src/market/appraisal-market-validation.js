@@ -6,6 +6,18 @@ const positive=n=>typeof n==='number'&&Number.isFinite(n)&&n>0&&n<=1e13;
 const date=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&
  Number.isFinite(Date.parse(s+'T00:00:00Z'))&&new Date(s+'T00:00:00Z').toISOString().slice(0,10)===s;
 const code=s=>typeof s==='string'&&s.trim().length>=2&&s.length<=120;
+// Pure error arithmetic. The caller must distinguish synthetic mathematical labels
+// from real transactions; this helper does NOT confer source authenticity.
+function calculateResearchErrorMetrics(rows){
+ if(!Array.isArray(rows)||rows.length===0)return null;
+ if(rows.some(r=>!positive(r?.predictedValueSar)||!positive(r?.executedPriceSar)))
+  throw Error('HOLDOUT_METRIC_VALUES_INVALID');
+ const err=rows.map(r=>Math.abs(r.predictedValueSar-r.executedPriceSar));
+ const ape=rows.map(r=>100*Math.abs(r.predictedValueSar-r.executedPriceSar)/r.executedPriceSar);
+ return {count:rows.length,maeSar:err.reduce((a,b)=>a+b,0)/rows.length,
+  mapePct:ape.reduce((a,b)=>a+b,0)/rows.length,
+  medianApePct:[...ape].sort((a,b)=>a-b)[Math.floor((ape.length-1)/2)]};
+}
 function validateIndependentHoldout({observations=[],trainingPropertyRefs=[],minimum=30}={}){
  const errors=[],valid=[],seen=new Set();
  if(!Array.isArray(observations)||observations.length>10000||!Array.isArray(trainingPropertyRefs)||
@@ -29,14 +41,7 @@ function validateIndependentHoldout({observations=[],trainingPropertyRefs=[],min
   if(reasons.length){errors.push({row:i,reason:reasons.join('|')});continue;}
   valid.push(r);
  }
- const errAbs=valid.map(r=>Math.abs(r.predictedValueSar-r.executedPriceSar));
- const metric=rows=>{
-  if(!rows.length)return null;
-  const abs=rows.map(r=>Math.abs(r.predictedValueSar-r.executedPriceSar));
-  return {count:rows.length,maeSar:abs.reduce((a,b)=>a+b,0)/rows.length,
-   mapePct:100*rows.reduce((a,r)=>a+Math.abs(r.predictedValueSar-r.executedPriceSar)/r.executedPriceSar,0)/rows.length,
-   medianApePct:[...rows].map(r=>100*Math.abs(r.predictedValueSar-r.executedPriceSar)/r.executedPriceSar).sort((a,b)=>a-b)[Math.floor((rows.length-1)/2)]};
- };
+ const metric=calculateResearchErrorMetrics;
  const groups={};
  for(const r of valid){
   const k=[r.assetType,r.city].join('|');
@@ -53,4 +58,4 @@ function validateIndependentHoldout({observations=[],trainingPropertyRefs=[],min
   certifiedAppraisalAccuracy:false,trainedFromClientReports:false,
   externalReviewAndLegalDataRightsRequired:true};
 }
-module.exports={VERSION,validateIndependentHoldout};
+module.exports={VERSION,calculateResearchErrorMetrics,validateIndependentHoldout};
