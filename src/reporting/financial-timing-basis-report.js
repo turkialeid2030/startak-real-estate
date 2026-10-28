@@ -71,6 +71,25 @@ function buildFinancialTimingBasisReportDisclosure(result, { locale = 'ar-SA' } 
   const lang = normalizeLocale(locale);
   const labels = LABELS[lang];
   const landDevelopmentTiming = timing.constructionDebtPeriodsPerYear === 12;
+  const sourceYears = result?.constructionPeriodYears;
+  const isFractionalConstruction = landDevelopmentTiming &&
+    typeof sourceYears === 'number' && Number.isFinite(sourceYears) && sourceYears > 0 &&
+    Math.abs(sourceYears - Math.round(sourceYears)) > 1e-10;
+  const fractionalConstructionReview = isFractionalConstruction ? Object.freeze({
+    status:'REQUIRES_DATED_CASHFLOW_RECONCILIATION',
+    inputConstructionYears:sourceYears,
+    annualConstructionBuckets: Number.isInteger(result?.annualConstructionYears)
+      ? result.annualConstructionYears : null,
+    nominalConstructionFinanceMonths: Number.isInteger(sourceYears*12)
+      ? sourceYears*12 : null,
+    datedCashflowEvidenceSupplied:false,
+    xirrCalculatedByThisReport:false,
+    xnpvCalculatedByThisReport:false,
+    professionalValuationAuthorized:false,
+    note:lang==='en'
+      ? 'A fractional development period cannot be treated as a validated dated-return forecast. The canonical IRR/NPV still uses annual buckets while construction financing uses monthly periods. No actual dated project cashflows or XIRR/XNPV have been verified. Obtain independently dated draw, operating and exit cashflows before relying on precise investment timing.'
+      : 'مدة التطوير الكسرية لا تُثبت عائدًا مؤرخًا فعليًا. ما زال IRR/NPV الأساسي يحسب بفترات سنوية، بينما التمويل شهري. لا توجد تدفقات مشروع مؤرخة مستقلة أو XIRR/XNPV متحقق منها. يلزم جدول سحوبات وتشغيل وتخارج مؤرخ ومراجع قبل الاعتماد على دقة توقيت الاستثمار.',
+  }) : null;
 
   const rows = [
     row('INITIAL_INVESTMENT_TIMING', labels.initialInvestmentTiming, timing.initialInvestmentTiming),
@@ -104,6 +123,11 @@ function buildFinancialTimingBasisReportDisclosure(result, { locale = 'ar-SA' } 
     row('NPV_CONVENTION', labels.npvConvention, timing.npvConvention),
     row('IRR_CONVENTION', labels.irrConvention, timing.irrConvention),
     row('DATED_CASHFLOW_METHOD', labels.datedCashflowMethod, timing.datedCashflowMethod ? 'YES' : labels.noDatedCashflows),
+    ...(fractionalConstructionReview ? [row(
+      'FRACTIONAL_CONSTRUCTION_RETURN_TIMING_HOLD',
+      lang==='en'?'Fractional construction timing — dated return proof':'مدة الإنشاء الكسرية — إثبات العائد المؤرخ',
+      fractionalConstructionReview.note
+    )] : []),
     row('TRANSACTION_AUTHORITY', labels.transactionAuthority, labels.noTransactionAuthority),
   ];
 
@@ -113,6 +137,7 @@ function buildFinancialTimingBasisReportDisclosure(result, { locale = 'ar-SA' } 
     locale: lang,
     title: labels.title,
     rows: Object.freeze(rows),
+    ...(fractionalConstructionReview ? {fractionalConstructionReview} : {}),
     methodology: Object.freeze({
       initialInvestmentTiming: timing.initialInvestmentTiming,
       unleveredCashflowTiming: timing.unleveredCashflowTiming,
