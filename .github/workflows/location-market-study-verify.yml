@@ -102,6 +102,8 @@ jobs:
       - run: node tests/valuation/challenger-benchmark-research.test.js
       - run: node tests/architecture/run_saudi_open_data_research.js
       - run: node tests/architecture/run_saudi_open_data_live_smoke.js
+      - name: Multi-provider investment decision synthetic cross-flow and official-source authority boundaries
+        run: node tests/architecture/run_cross_source_investment_simulation.js
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: node tests/e2e/run_location_market_study_ci.mjs
