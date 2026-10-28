@@ -1,6 +1,7 @@
 import RentalCalendarPanel from "../components/RentalCalendarPanel.jsx";
 import CapitalizationBasisPanel from "../components/CapitalizationBasisPanel.jsx";
 import InputProvenancePanel from "../components/InputProvenancePanel.jsx";
+import OwnerDatedScenarioPanel from "../components/OwnerDatedScenarioPanel.jsx";
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   ComposedChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -2296,6 +2297,12 @@ export default function App() {
           valuationCase={mode === 'building' ? valuationCase : null}
           runtime={mode === 'building' ? valuationRuntimeState.runtime : null}
           financialContext={financialContext} />
+        {mode === "land" && (
+          <OwnerDatedScenarioPanel
+            key={'dated-owner-'+String(activeDealId||'unsaved')}
+            locale={locale}
+          />
+        )}
 
         {mode === "building" ? (
           <ResidentialIncomeAcquisitionPanel
