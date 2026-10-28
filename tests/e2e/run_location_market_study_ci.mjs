@@ -69,7 +69,7 @@ try{
  const officialDisclosure=(await official.locator('p').first().textContent()||'').replace(/\s+/g,' ');
  // The Strict Arabic presentation layer localizes API and STARTAK in actual DOM text.
  const arabized=officialDisclosure.includes('واجهة برمجة التطبيقات')&&
-   officialDisclosure.includes('ستارتاك');
+   officialDisclosure.includes('ستارتك');
  const english=officialDisclosure.includes('API')&&officialDisclosure.includes('STARTAK');
  assert((arabized||english)&&officialDisclosure.includes('ليست تكامل')&&
   officialDisclosure.includes('ولا تُدرج'),
