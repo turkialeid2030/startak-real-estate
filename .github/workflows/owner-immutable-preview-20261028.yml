@@ -1,0 +1,80 @@
+name: Owner Immutable Preview Audit 1647DC09
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/owner-immutable-preview-20261028.yml'
+      - 'docs/STARTAK_COUNCIL_PILOT_REVIEW_1647DC09_AR_2026-10-28.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  immutable-preview-network:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      OWNER_IMMUTABLE_PREVIEW: https://1647dc09.startak-real-estate.pages.dev/
+      OWNER_PREVIEW_EXPECTED_SHA: 32fcfd773e4815a9d09d5ab08ef8bb87ae417def
+    steps:
+      - name: Checkout read-only audit source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Setup Node for independent manifest assertion
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+      - name: Probe DNS and HTTP separately without recording any customer content
+        shell: bash
+        run: |
+          set -u
+          mkdir -p runtime-evidence/immutable-owner-preview
+          if getent ahostsv4 1647dc09.startak-real-estate.pages.dev > /tmp/startak-owner-dns.txt 2>/dev/null; then
+            echo 'OWNER_PREVIEW_DNS=RESOLVED'
+          else
+            echo 'OWNER_PREVIEW_DNS=UNRESOLVED'
+          fi
+          for file in release-manifest.json asset-manifest.json; do
+            printf 'OWNER_PREVIEW_RESOURCE=%s\n' "$file"
+            code="$(curl -L --silent --show-error --max-time 12 \
+              --output "/tmp/startak-$file" --dump-header "/tmp/startak-$file.headers" \
+              --write-out '%{http_code}' "$OWNER_IMMUTABLE_PREVIEW$file")"
+            rc=$?
+            echo "OWNER_PREVIEW_CURL_EXIT=$rc HTTP=$code"
+            if [[ "$rc" == '0' && "$code" == '200' ]]; then
+              echo 'OWNER_PREVIEW_RESOURCE_HTTP_200=true'
+            fi
+          done
+          echo 'OWNER_PREVIEW_NETWORK_PROBE_DONE=true'
+      - name: Verify immutable release-manifest source identity, never silently promote failure
+        shell: bash
+        run: |
+          set -euo pipefail
+          if test ! -s /tmp/startak-release-manifest.json; then
+            echo 'OWNER_PREVIEW_MANIFEST=NOT_OBSERVED'
+            exit 1
+          fi
+          node - <<'NODE'
+          const fs=require('fs');
+          const m=JSON.parse(fs.readFileSync('/tmp/startak-release-manifest.json','utf8'));
+          const expected=process.env.OWNER_PREVIEW_EXPECTED_SHA;
+          if(m.sourceCommit!==expected||m.sourceCommitBound!==true) {
+            console.error('OWNER_PREVIEW_MANIFEST_SOURCE_MISMATCH');
+            process.exit(1);
+          }
+          console.log('OWNER_PREVIEW_MANIFEST_EXACT_SHA=PASS '+expected);
+          NODE
+      - name: Store bounded status-only audit record
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p runtime-evidence/immutable-owner-preview
+          printf '%s\n' 'Immutable URL verification limited to public HTTP metadata and source identity.' \
+            'A CDN failure or runner DNS failure does not prove the entire website is down.' \
+            > runtime-evidence/immutable-owner-preview/README.txt
+      - name: Upload audit metadata only
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: owner-immutable-preview-status-only
+          path: runtime-evidence/immutable-owner-preview
+          if-no-files-found: warn
