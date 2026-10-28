@@ -95,7 +95,7 @@ try{
  assert((await suhail.getByTestId('suhail-scope').innerText())
   .includes('Independently confirmed individual transactions: 0'),
   'D04 Suhail must not claim verified executed sales after locale switch');
- await page.getByRole('button',{name:'عربي',exact:true}).click();
+ await page.getByTestId('locale-switch').click();
  assert(await fusion.getAttribute('dir')==='rtl','D04 restores Arabic research panel direction');
  assert(await suhail.getAttribute('dir')==='rtl','D04 restores Arabic neighborhood panel direction');
  assert((await fusion.getByTestId('fusion-status').innerText()).includes('HOLD'),
