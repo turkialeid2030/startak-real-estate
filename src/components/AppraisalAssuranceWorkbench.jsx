@@ -1,10 +1,12 @@
 import React, {useEffect,useMemo,useState} from 'react';
+import {useAppraisalReviewSession} from './AppraisalReviewSessionContext.jsx';
+const {bindReview,validateIdentity}=require('../market/appraisal-study-binding');
 const {auditAppraisal,compareVersions}=require('../market/appraisal-assurance');
 
 // The user must manually transcribe and check every value against the original page.
 // This component neither uploads documents nor stores data persistently.
 const fresh=()=>({
- reportId:'',valuationDate:'',property:{deedNumber:'',owner:'',rightType:'',areaSqm:''},
+ reportId:'',valuationDate:'',property:{name:'',assetType:'',deedNumber:'',owner:'',rightType:'',areaSqm:''},
  reported:{capitalValueSar:'',marketRentSar:''},
  income:{annualGrossRevenueSar:'',vacancyLossSar:'',operatingExpensesSar:'',annualNoiSar:'',
    capitalizationRatePct:'',indicatedValueSar:'',rentUsesThisEstimate:false,leaseStructure:''},
@@ -14,6 +16,8 @@ const fresh=()=>({
 });
 const fields=[
  ['reportId','رقم تقرير التقييم','text'],
+ ['property.name','اسم العقار المطابق لدراسة السوق','text'],
+ ['property.assetType','رمز نوع الأصل المطابق لدراسة السوق','text'],
  ['valuationDate','تاريخ القيمة (ميلادي)','date'],
  ['property.deedNumber','رقم الصك (اختياري في هذه الدراسة)','text'],
  ['property.owner','اسم المالك (اختياري)','text'],
@@ -96,19 +100,30 @@ function IssueRows({items}){
  </ul>:<p className="text-xs text-slate-300">لم تظهر تعارضات في الحقول المدخلة. هذا لا يعني صحة التقرير أو اكتمال أدلته.</p>;
 }
 export default function AppraisalAssuranceWorkbench({intakeRecord=null}){
+ const {subject:marketSubject,setLink,clearLink}=useAppraisalReviewSession();
  const [open,setOpen]=useState(false);
+ const [identityConfirmed,setIdentityConfirmed]=useState(false);
+ const [linkMessage,setLinkMessage]=useState('');
  const [current,setCurrent]=useState(fresh);
  const [previous,setPrevious]=useState(fresh);
  const [compare,setCompare]=useState(false);
  // Reset on any uploaded source change, including clearing the source. No stale report fields cross files.
  const digest=intakeRecord?.digest||'';
  useEffect(()=>{setCurrent(fresh());setPrevious(fresh());setCompare(false);},[digest]);
+ useEffect(()=>{clearLink();setIdentityConfirmed(false);setLinkMessage('');},[current,previous,compare,digest]);
  const reviewed=useMemo(()=>auditAppraisal({
   ...current,
   provenance:{reportFileHash:digest,comparableEvidenceIndependentlyVerified:false},
   pages:{income:Number(current.pages.income),rent:Number(current.pages.rent)},
  }),[current,digest]);
  const diff=useMemo(()=>compare?compareVersions(previous,current):null,[compare,previous,current]);
+ const match=useMemo(()=>validateIdentity({subject:marketSubject||{},appraisal:current,documentDigest:digest,confirmed:identityConfirmed}),[marketSubject,current,digest,identityConfirmed]);
+ const attach=()=>{
+  const result=bindReview({subject:marketSubject||{},appraisal:current,documentDigest:digest,review:reviewed,confirmed:identityConfirmed});
+  if(!result.link){setLink(null);setLinkMessage('لم يتم الربط: '+result.reasons.join('، '));return;}
+  setLink(result.link);
+  setLinkMessage(result.status==='LINKED_AUDIT_HOLD'?'تم الربط مع إيقاف القيمة والتصدير بسبب تعارض التقرير.':'تم ربط التدقيق للدراسة الحالية بإقرار المستخدم، دون تحقق مهني مستقل.');
+ };
  return <section data-testid="appraisal-assurance-workbench" dir="rtl"
   className="mx-auto my-6 w-full max-w-7xl px-4 md:px-8">
   <div className="rounded-2xl border border-slate-700 bg-[#101a2d] p-4 text-slate-100 md:p-5">
@@ -122,6 +137,18 @@ export default function AppraisalAssuranceWorkbench({intakeRecord=null}){
     <p className="text-xs leading-6 text-slate-300">أدخل القيم يدويًا بعد مطابقتها مع صفحات الملف الأصلي. لا تُستورد حقول OCR تلقائيًا، ولا تحفظ هذه اللوحة البيانات في الخادم أو الصفقات المحفوظة أو GitHub. نتائجها للتدقيق البحثي فقط وغير معتمدة مهنيًا.</p>
     <p className="rounded border border-slate-700 p-2 text-xs text-slate-300">بصمة ملف المستند المحلي: {digest?<span data-testid="appraisal-document-hash" className="break-all font-mono" dir="ltr">{digest}</span>:'لم يُرفق ملف أو لم يكتمل فحصه'}</p>
     <FieldSet stage={current} setStage={setCurrent} prefix="current"/>
+    <section data-testid="appraisal-study-link" className="rounded-lg border border-slate-600 p-3 text-xs">
+      <h3 className="font-semibold text-amber-100">ربط هذا التدقيق بدراسة السوق الحالية — إقرار مستخدم لا تحقق من الصك</h3>
+      <p className="my-2 text-slate-300">هوية دراسة السوق الحالية: {marketSubject?.name||'غير محدد'} · {marketSubject?.assetType||'غير محدد'} · مساحة الأرض {marketSubject?.landArea||'غير محددة'} م² · تاريخ القيمة {marketSubject?.valuationDate||'غير محدد'}.</p>
+      <p className="my-2 text-slate-300">يلزم تطابق اسم العقار ونوعه ومساحة الأرض وتاريخ القيمة تمامًا، ووجود ملف ببصمة SHA-256، بالإضافة إلى إقرار المستخدم. أي اختلاف لاحق سيوقف النتائج المرتبطة تلقائيًا.</p>
+      <label className="inline-flex items-center gap-2 text-slate-200"><input type="checkbox" data-testid="appraisal-confirm-identity" checked={identityConfirmed} onChange={e=>setIdentityConfirmed(e.target.checked)}/>أقر أن بيانات التقرير تطابق العقار محل دراسة السوق.</label>
+      <div className="mt-2 flex flex-wrap gap-2 items-center">
+        <button type="button" data-testid="appraisal-link-to-study" disabled={match.status==='HOLD'} onClick={attach}
+          className="rounded border border-amber-500 px-3 py-2 text-amber-100 disabled:opacity-40">ربط نتيجة التدقيق بدراسة السوق</button>
+        <span data-testid="appraisal-identity-status" data-status={match.status} className="text-slate-300">{match.status==='HOLD'?'الربط غير مستوفٍ: '+match.reasons.join('، '):'الهوية متطابقة بإقرار المستخدم فقط'}</span>
+      </div>
+      {linkMessage&&<p role="status" className="mt-2 text-amber-200">{linkMessage}</p>}
+    </section>
     <div data-testid="appraisal-audit-status" data-status={reviewed.status} role="status"
       className={'rounded border p-3 '+(reviewed.status==='HOLD'?'border-rose-700 text-rose-100':'border-amber-700 text-amber-100')}>
      <strong>{reviewed.status==='HOLD'?'HOLD — توجد موانع حسابية أو منهجية':'REVIEW_REQUIRED — لم تثبت سلامة التقرير مهنيًا'}</strong>
@@ -160,7 +187,7 @@ export default function AppraisalAssuranceWorkbench({intakeRecord=null}){
      </div>}
     </div>
     <div className="flex flex-wrap gap-2">
-     <button type="button" onClick={()=>{setCurrent(fresh());setPrevious(fresh());setCompare(false);}}
+     <button type="button" onClick={()=>{setCurrent(fresh());setPrevious(fresh());setCompare(false);clearLink();}}
        data-testid="appraisal-reset" className="rounded border border-slate-500 px-3 py-2 text-xs">مسح مدخلات التدقيق المحلية</button>
      <p className="self-center text-xs text-slate-400">لا يوجد زر اعتماد أو تصدير تقرير مهني.</p>
     </div>
