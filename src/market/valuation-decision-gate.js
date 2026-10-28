@@ -44,6 +44,8 @@ const reasonText=Object.freeze({
   RENT_ESTIMATES_UNRECONCILED:'يوجد فرق جوهري بين الإيجار العام وإيجار فئات الوحدات',
   TENANCY_LEGAL_REVIEW_REQUIRED:'الأجرة الممكن تحصيلها نظاميًا تحتاج مراجعة العقود والضوابط',
   RENT_CLASS_EVIDENCE_INCOMPLETE:'فئات الوحدات لا تحتوي على عقود كافية أو مساحات وأعداد متسقة',
+  APPRAISAL_AUDIT_HOLD:'تدقيق تقرير التقييم كشف تعارضًا جوهريًا يتطلب المعالجة قبل عرض قيمة منفردة',
+  APPRAISAL_REVIEW_PENDING:'نتيجة تدقيق التقرير أولية وغير معتمدة مهنيًا',
 });
 function present(n){const v=number(n);return v!==null&&v>0;}
 function inRange(n){const v=number(n);return v!==null&&v>=0&&v<=1;}
@@ -71,7 +73,7 @@ function evidenceRow(row,kind,now){
    containsCoordinates:Boolean(extractCoordinates(String(row?.location||''))),
    dataRightsVerified:false};
 }
-function auditValuationReadiness({subject={},report={},segmentedRent=null,sales=[],rentals=[],asOf=new Date()}={}){
+function auditValuationReadiness({subject={},report={},segmentedRent=null,sales=[],rentals=[],appraisalReview=null,asOf=new Date()}={}){
  const d=asOf instanceof Date?asOf:new Date(asOf);
  if(!Number.isFinite(d.getTime()))throw Error('READINESS_AS_OF_INVALID');
  const type=String(subject.assetType||''),policy=ASSET_METHODS[type]||null;
@@ -101,6 +103,9 @@ function auditValuationReadiness({subject={},report={},segmentedRent=null,sales=
  if(salesQualified<3)add(reasons,'NO_EXECUTED_SALE_COMPARABLES');
  if(INCOME_REQUIRED.has(type)&&rentQualified<3)add(notices,'NO_EXECUTED_RENT_COMPARABLES');
  if(report?.materialMethodGap)add(reasons,'METHODS_UNRECONCILED');
+ // Optional, restrictive-only bridge: a review can BLOCK but never authorize a price or export.
+ if(appraisalReview?.status==='HOLD')add(reasons,'APPRAISAL_AUDIT_HOLD');
+ else if(appraisalReview!==null)add(notices,'APPRAISAL_REVIEW_PENDING');
  if((report?.districtOnlySalesCount||0)>0||(report?.districtOnlyRentalsCount||0)>0)
   add(notices,'DISTRICT_APPROXIMATION_USED');
  const metadata={
@@ -155,6 +160,7 @@ function auditValuationReadiness({subject={},report={},segmentedRent=null,sales=
     sourceUrlsUnverified:true,reuseRightsUnverified:true,
    },
    calculationsNotProofOfMarketAccuracy:true,
+   appraisalReviewStatus:appraisalReview?.status||'NOT_PROVIDED',
  };
 }
 module.exports={ASSET_METHODS,reasonText,auditValuationReadiness,evidenceRow,percentGap};

@@ -14,13 +14,13 @@ execSync('npm run build', { stdio: 'inherit' });
 
 console.log('');
 console.log('=== STEP 2: full regression ===');
-const testDirs = ['tests/characterization', 'tests/architecture', 'tests/defects', 'tests/runtime'];
+const testDirs = ['tests/characterization', 'tests/architecture', 'tests/defects', 'tests/runtime', 'tests/valuation'];
 let total = 0, passed = 0;
 const failures = [];
 for (const dir of testDirs) {
   if (!fs.existsSync(dir)) continue;
   for (const f of glob(dir, '.js')) {
-    if (!f.includes('run_') && !dir.includes('defects') && !dir.includes('runtime')) continue;
+    if (!f.includes('run_') && !dir.includes('defects') && !dir.includes('runtime') && !dir.includes('valuation')) continue;
     total++;
     try { execSync(`node ${f}`, { stdio: 'pipe' }); passed++; }
     catch (e) { failures.push(f); }

@@ -30,6 +30,10 @@ on:
       - 'src/market/public-dataset-import.js'
       - 'src/market/saudi-open-data-research.js'
       - 'src/components/PropertyMarketLocationPanel.jsx'
+      - 'src/components/AppraisalAssuranceWorkbench.jsx'
+      - 'src/components/LocalDocumentEvidenceWorkspace.jsx'
+      - 'src/market/appraisal-assurance.js'
+      - 'tests/e2e/run_appraisal_assurance_ci.mjs'
       - 'src/app/App.jsx'
       - 'tests/architecture/run_instant_market_study.js'
       - 'tests/architecture/run_public_market_csv_import.js'
@@ -74,3 +78,4 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: node tests/e2e/run_location_market_study_ci.mjs
+      - run: node tests/e2e/run_appraisal_assurance_ci.mjs

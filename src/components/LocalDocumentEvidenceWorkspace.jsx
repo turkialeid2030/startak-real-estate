@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import LocalEvidenceJournalPanel from './LocalEvidenceJournalPanel.jsx';
+import AppraisalAssuranceWorkbench from './AppraisalAssuranceWorkbench.jsx';
 import LocalDocumentEvidenceIntakePanel from './LocalDocumentEvidenceIntakePanel.jsx';
 import LocalEvidenceQualificationPanel from './LocalEvidenceQualificationPanel.jsx';
 import LocalEvidenceVerificationPanel from './LocalEvidenceVerificationPanel.jsx';
@@ -30,6 +31,7 @@ export default function LocalDocumentEvidenceWorkspace() {
       <LocalEvidenceQualificationPanel intakeRecord={intakeRecord} preferredAtomId={selectedAtomId} onCandidateChange={handleCandidateChange} />
       <LocalEvidenceVerificationPanel candidate={candidate} onVerificationRecordChange={setVerificationRecord} />
       <LocalEvidenceJournalPanel intakeRecord={intakeRecord} candidate={candidate} verificationRecord={verificationRecord}/>
+      <AppraisalAssuranceWorkbench intakeRecord={intakeRecord} />
       <output data-testid="local-evidence-workflow-status" data-verification-status={verificationRecord?.verifiedFactEstablished ? 'VERIFIED_FACT_RECORDED_NOT_UNDERWRITING_READY' : 'VERIFICATION_NOT_COMPLETE'} className="sr-only">
         {verificationRecord?.verifiedFactEstablished ? 'VERIFIED_FACT_RECORDED_NOT_UNDERWRITING_READY' : 'VERIFICATION_NOT_COMPLETE'}
       </output>
