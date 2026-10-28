@@ -86,6 +86,10 @@ try {
    'linked HOLD should disable personal HTML study report');
  assert(await personal.getByTestId('c75-export-personal-json').isDisabled(),
    'linked HOLD should disable personal JSON study report');
+ assert((await personal.getByTestId('c75-personal-status').innerText()).includes('HOLD'),
+   'a linked audit HOLD should hide report readiness');
+ assert((await personal.getByTestId('c75-personal-value').innerText()).trim()==='—',
+   'a linked audit HOLD must not display a preliminary report value');
  pass('linked appraisal HOLD quarantines independent HTML and JSON study report UI routes');
  const saved=market.getByTestId('saved-deal-market-study-link');
  await saved.getByRole('button',{name:'تحديث قائمة الصفقات المحفوظة'}).click();
