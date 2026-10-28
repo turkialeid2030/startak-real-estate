@@ -76,6 +76,11 @@ function coreMarketLabel(arabic,locale='ar-SA'){
  if(typeof arabic!=='string')throw TypeError('D04_LABEL_MUST_BE_STRING');
  return locale==='en'?(Object.prototype.hasOwnProperty.call(EN,arabic)?EN[arabic]:arabic):arabic;
 }
+function marketOptionLabel(code,arabic,locale='ar-SA'){
+ if(locale==='en'&&Object.prototype.hasOwnProperty.call(EN_ASSET,code)&&
+    ASSET_TYPES[code]===arabic)return EN_ASSET[code];
+ return coreMarketLabel(arabic,locale);
+}
 function coreMarketAssetOptions(locale='ar-SA'){
  return Object.freeze([
   Object.freeze(['',coreMarketLabel('اختر نوع العقار',locale)]),
@@ -89,4 +94,4 @@ function formatBridgeFields(patch={},locale='ar-SA'){
   (typeof v==='string'||typeof v==='number'))
  .map(([key,value])=>(locale==='en'?EN_BRIDGE_FIELDS[key]:key)+' = '+String(value)).join(' | ');
 }
-module.exports={coreMarketLabel,coreMarketAssetOptions,formatBridgeFields};
+module.exports={coreMarketLabel,marketOptionLabel,coreMarketAssetOptions,formatBridgeFields};
