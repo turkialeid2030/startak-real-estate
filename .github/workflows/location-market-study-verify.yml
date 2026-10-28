@@ -74,6 +74,10 @@ on:
       - 'src/app/personal-financial-study.js'
       - 'tests/defects/market_study_core_locale_d04.js'
       - 'tests/defects/fractional_construction_disclosure_d05.js'
+      - 'src/valuation-intelligence/dated-scenario-review.js'
+      - 'src/components/OwnerDatedScenarioPanel.jsx'
+      - 'tests/defects/dated_scenario_owner_d05.js'
+      - 'tests/e2e/run_d05_dated_research_ci.mjs'
       - 'tests/e2e/run_audit_d06_d07_ci.mjs'
       - '.github/workflows/location-market-study-verify.yml'
   workflow_dispatch:
@@ -112,6 +116,8 @@ jobs:
         run: node tests/defects/market_study_core_locale_d04.js
       - name: Audit D05 year/month return-timing precision and dated evidence warnings
         run: node tests/defects/fractional_construction_disclosure_d05.js
+      - name: Audit D05 explicit owner dated cashflow rights and fail-closed XIRR
+        run: node tests/defects/dated_scenario_owner_d05.js
       - name: Secure Access synthetic tests without tokens
         run: node tests/architecture/run_protected_preview_access.js
       - run: node tests/architecture/run_transaction_cohort_unit_mix.js
@@ -137,6 +143,8 @@ jobs:
       - run: node tests/e2e/run_appraisal_assurance_ci.mjs
       - name: Verify D06 explicit identity bridge and D07 separated statuses with real Chromium
         run: node tests/e2e/run_audit_d06_d07_ci.mjs
+      - name: Verify D05 separate dated owner scenario with real Chromium
+        run: node tests/e2e/run_d05_dated_research_ci.mjs
 
   owner-journey-real-chromium:
     runs-on: ubuntu-24.04
