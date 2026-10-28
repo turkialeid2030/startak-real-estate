@@ -12,12 +12,50 @@ export async function verifyDeployedAssets({url,expectedSha,fetchImpl=fetch}){
     const header=name=>String(response.headers.get(name)||'').slice(0,160);
     return {httpStatus:response.status,cfRay:header('cf-ray'),cfCacheStatus:header('cf-cache-status'),cacheControl:header('cache-control'),age:header('age'),server:header('server')};
   };
-  const read=async path=>{
-    const response=await fetchImpl(new URL(path,base),{redirect:'error',signal:AbortSignal.timeout(15000)});
-    const bytes=Buffer.from(await response.arrayBuffer());
+  // Limit response bytes *while reading*, not after an unbounded arrayBuffer.
+  // A malicious/stale CDN response must not exhaust runner memory.
+  const read=async (resourcePath,maxBytes)=>{
+    const response=await fetchImpl(new URL(resourcePath,base),{
+      redirect:'error',signal:AbortSignal.timeout(15000)
+    });
+    const oversize=()=>{
+      const err=new Error('ASSET_RESPONSE_SIZE_LIMIT_EXCEEDED');
+      err.observation={schemaVersion:1,status:'FAIL',reasonCode:err.message,
+        expectedSourceCommit:expectedSha,resourcePath,limitBytes:maxBytes,
+        responseMetadata:responseMeta(response),checkedAt:new Date().toISOString(),
+        automaticRetries:0,
+        evidenceBoundary:'BOUNDED_FIRST_RESPONSE_NO_BODY_OR_GLOBAL_AVAILABILITY_CLAIM'};
+      return err;
+    };
+    const declaredLength=response.headers.get('content-length');
+    if(declaredLength!==null&&/^\\d+$/.test(declaredLength)&&
+      Number(declaredLength)>maxBytes)throw oversize();
+    let bytes;
+    if(response.body&&typeof response.body.getReader==='function'){
+      const reader=response.body.getReader(),chunks=[];
+      let n=0;
+      try{
+        while(true){
+          const {done,value}=await reader.read();
+          if(done)break;
+          if(!(value instanceof Uint8Array))throw Error('ASSET_RESPONSE_STREAM_INVALID');
+          n+=value.byteLength;
+          if(n>maxBytes)throw oversize();
+          chunks.push(Buffer.from(value));
+        }
+      }finally{
+        try{await reader.cancel();}catch{}
+        reader.releaseLock();
+      }
+      bytes=Buffer.concat(chunks,n);
+    }else{
+      bytes=Buffer.from(await response.arrayBuffer());
+      if(bytes.length>maxBytes)throw oversize();
+    }
     return {response,bytes,observedAt:new Date().toISOString()};
   };
-  const manifestResponse=await read('/asset-manifest.json');
+  // Manifest sentinel preserves the existing exact size-limit diagnostic at 1 MiB + 1.
+  const manifestResponse=await read('/asset-manifest.json',1024*1024+1);
   // Record bounded FIRST-failure edge evidence for all response, JSON,
   // source and entry errors. Never retry and never persist response bodies.
   const failManifest=(reasonCode,manifest=null,entryIndex=null)=>{
@@ -68,7 +106,7 @@ export async function verifyDeployedAssets({url,expectedSha,fetchImpl=fetch}){
     paths.add(item.path);total+=item.sizeBytes;
     if(total>64*1024*1024)failManifest('ASSET_MANIFEST_LIMIT_EXCEEDED',manifest,entryIndex);
   }
-  const entry=await read('/');
+  const entry=await read('/',2*1024*1024);
   if(!entry.response.ok)throw Error('ASSET_ENTRY_RESPONSE_INVALID');
   const html=entry.bytes.toString('utf8');
   if(!html.includes(`name="startak-source-commit" content="${expectedSha}"`)){
@@ -96,7 +134,7 @@ export async function verifyDeployedAssets({url,expectedSha,fetchImpl=fetch}){
   const rows=[];let next=0;
   const worker=async()=>{
     while(next<manifest.assets.length){
-      const item=manifest.assets[next++],{response,bytes,observedAt}=await read('/'+item.path),type=response.headers.get('content-type')||'';
+      const item=manifest.assets[next++],{response,bytes,observedAt}=await read('/'+item.path,Math.min(64*1024*1024,Math.max(64*1024,item.sizeBytes+1))),type=response.headers.get('content-type')||'';
       const expectedType=/\.(?:m?js|cjs)$/.test(item.path)?/(?:application|text)\/(?:java|ecma)script/i:item.path.endsWith('.css')?/text\/css/i:item.path.endsWith('.wasm')?/application\/wasm/i:null;
       const sha256=createHash('sha256').update(bytes).digest('hex');
       const status=response.status===200&&(!expectedType||expectedType.test(type))&&bytes.length===item.sizeBytes&&sha256===item.sha256?'PASS':'FAIL';
@@ -104,7 +142,7 @@ export async function verifyDeployedAssets({url,expectedSha,fetchImpl=fetch}){
     }
   };
   await Promise.all(Array.from({length:4},worker));
-  const missing=await read('/assets/__startak_missing_'+expectedSha+'.js');
+  const missing=await read('/assets/__startak_missing_'+expectedSha+'.js',256*1024);
   const missingAssetStatus=missing.response.status===404?'PASS':'FAIL';
   return {schemaVersion:1,expectedSourceCommit:expectedSha,checkedAt:new Date().toISOString(),status:rows.every(r=>r.status==='PASS')&&missingAssetStatus==='PASS'?'PASS':'FAIL',assets:rows.sort((a,b)=>a.path.localeCompare(b.path)),manifestResponseMetadata:responseMeta(manifestResponse.response),manifestObservedAt:manifestResponse.observedAt,entryResponseMetadata:responseMeta(entry.response),entryObservedAt:entry.observedAt,entryHtmlSha256:createHash('sha256').update(entry.bytes).digest('hex'),missingAssetStatus,missingAssetHttpStatus:missing.response.status,missingResponseMetadata:responseMeta(missing.response),missingObservedAt:missing.observedAt,automaticRetries:0,evidenceBoundary:'SINGLE_DELIVERY_OBSERVATION_NOT_ROOT_CAUSE_OR_PERMANENT_AVAILABILITY_PROOF'};
 }
