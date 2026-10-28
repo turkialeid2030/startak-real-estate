@@ -39,4 +39,10 @@ check('no link preserves legacy research and cannot certify report',()=>{
  assert.equal(l.link.professionalUseAuthorized,false);
  assert.equal(evaluateBoundReview({subject,link:l.link}).blockExport,false);
 });
+check('once session is invalidated, reverting subject cannot restore authority',()=>{
+ const link=attach().link;
+ const invalidated={...link,invalidated:true};
+ assert.equal(evaluateBoundReview({subject,link:invalidated}).status,'STALE_OR_UNMATCHED_LINK');
+ assert.equal(evaluateBoundReview({subject,link:invalidated}).blockExport,true);
+});
 console.log('SUCCESS '+count+'/'+count+' independent binding tests');
