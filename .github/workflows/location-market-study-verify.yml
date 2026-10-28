@@ -2,6 +2,9 @@ name: Location Market Study Verify
 on:
   pull_request:
     paths:
+      - 'src/market/suhail-national-neighborhood-research.js'
+      - 'src/components/SuhailNationalResearchPanel.jsx'
+      - 'tests/valuation/suhail-national-neighborhood-research.test.js'
       - 'src/market/instant-market-study.js'
       - 'src/market/study-asof.js'
       - 'tests/architecture/run_study_asof.js'
@@ -73,6 +76,7 @@ jobs:
       - run: node tests/architecture/run_professional_comparable_review.js
       - run: node tests/architecture/run_value_reconciliation_audit.js
       - run: node tests/architecture/run_public_market_csv_import.js
+      - run: node tests/valuation/suhail-national-neighborhood-research.test.js
       - run: node tests/architecture/run_saudi_open_data_research.js
       - run: node tests/architecture/run_saudi_open_data_live_smoke.js
       - run: npm run build

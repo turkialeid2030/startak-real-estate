@@ -16,6 +16,7 @@ const {resolveStudyAsOf}=require('../market/study-asof');
 const {auditValuationReadiness}=require('../market/valuation-decision-gate');
 const {evaluateAppraisalReportQuality}=require('../market/property-report-quality');
 import ValuationQualityPanel from './ValuationQualityPanel.jsx';
+import SuhailNationalResearchPanel from './SuhailNationalResearchPanel.jsx';
 
 const INPUT = 'w-full rounded-lg border border-slate-600 bg-[#101c30] px-3 py-2 text-sm text-slate-100';
 const createRow = () => ({ assetType:'',landSubtype:'',sourceRecordId:'', status:'ASKING', price:'', annualRent:'', builtArea:'', landArea:'',
@@ -552,10 +553,11 @@ export default function PropertyMarketLocationPanel() {
           onChange={async e=>{const f=e.target.files?.[0];e.target.value='';await restoreJson(f);}}/>
       </label>
       <a className="rounded-lg border border-slate-600 px-4 py-2 text-xs text-sky-300" target="_blank" rel="noopener noreferrer" href="https://rei.rega.gov.sa/">المؤشرات العقارية الرسمية</a>
-      <a className="rounded-lg border border-slate-600 px-4 py-2 text-xs text-sky-300" target="_blank" rel="noopener noreferrer" href="https://suhail.ai/Riyadh/transactions">استعراض سهيل في تبويب مستقل (دون سحب)</a>
+      <a className="rounded-lg border border-slate-600 px-4 py-2 text-xs text-sky-300" target="_blank" rel="noopener noreferrer" href="https://www.suhail.ai/">منصة سهيل — جميع مناطق المملكة</a>
       <a className="rounded-lg border border-slate-600 px-4 py-2 text-xs text-sky-300" target="_blank" rel="noopener noreferrer" href="https://srem.moj.gov.sa/">الصفقات المسجلة — وزارة العدل</a>
       <a className="rounded-lg border border-slate-600 px-4 py-2 text-xs text-sky-300" target="_blank" rel="noopener noreferrer" href="https://opendata.rcrc.gov.sa/">بيانات ومشاريع مدينة الرياض المكانية</a>
     </div>
+    <SuhailNationalResearchPanel/>
     {message&&<p role="status" className="text-xs text-slate-200 mt-2">{message}</p>}
   </section>;
 }
