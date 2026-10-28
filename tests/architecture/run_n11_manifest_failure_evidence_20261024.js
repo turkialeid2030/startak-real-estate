@@ -46,5 +46,32 @@ const {createHash}=require('node:crypto');
  await fail({body:{...good,assets:[good.assets[0],good.assets[0]]},code:'ASSET_MANIFEST_ENTRY_INVALID',commit:expected,index:1});
  await fail({body:{...good,assets:[{...good.assets[0],sizeBytes:70*1024*1024}]},code:'ASSET_MANIFEST_LIMIT_EXCEEDED',commit:expected,index:0});
  await fail({body:'x'.repeat(1024*1024+1),code:'ASSET_MANIFEST_SIZE_LIMIT_EXCEEDED'});
+ // Stream bounds: reject oversized payloads before allocating the complete body.
+ const oversized=new Uint8Array(1024*1024+2);oversized.fill(88);
+ let oversizedCalls=0;
+ await assert.rejects(verifyDeployedAssets({url,expectedSha:expected,fetchImpl:async()=>{
+   oversizedCalls++;
+   return new Response(new ReadableStream({start(controller){
+     controller.enqueue(oversized);controller.close();
+   }}),{status:200,headers:{'content-type':'application/json'}});
+ }}),e=>{
+   assert.equal(e.message,'ASSET_RESPONSE_SIZE_LIMIT_EXCEEDED');
+   assert.equal(e.observation?.status,'FAIL');
+   assert.equal(e.observation?.resourcePath,'/asset-manifest.json');
+   assert.equal(e.observation?.limitBytes,1024*1024+1);
+   assert.equal(JSON.stringify(e.observation).includes('PRIVATE-TEXT'),false);
+   checks+=5;return true;
+ });
+ assert.equal(oversizedCalls,1);checks++;
+ // A forged Content-Length must also fail before any body read.
+ await assert.rejects(verifyDeployedAssets({url,expectedSha:expected,
+   fetchImpl:async()=>new Response('PRIVATE-TEXT',{status:200,headers:{
+     'content-type':'application/json','content-length':String(2*1024*1024)
+   }})}),e=>{
+    assert.equal(e.message,'ASSET_RESPONSE_SIZE_LIMIT_EXCEEDED');
+    assert.equal(e.observation?.limitBytes,1024*1024+1);
+    assert.equal(e.observation?.responseMetadata.httpStatus,200);
+    checks+=3;return true;
+ });
  console.log('N11_FIRST_MANIFEST_FAILURE_DIAGNOSTICS=PASS checks='+checks+' NO_BODY=PASS NO_RETRY=PASS');
 })().catch(e=>{console.error(e);process.exitCode=1});
