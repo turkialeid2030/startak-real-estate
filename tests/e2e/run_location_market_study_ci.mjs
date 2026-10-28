@@ -54,6 +54,27 @@ try{
  const panel=page.locator('[data-testid="location-market-study"]');
  await panel.waitFor({state:'visible'});
  mark('PANEL_MOUNT',await panel.isVisible());
+ const national=panel.getByTestId('suhail-national-research');
+ await national.waitFor({state:'visible'});
+ assert((await national.getByTestId('suhail-scope').innerText()).includes('6'),
+  'public Suhail indexed city count should include all 6 city labels, not just Riyadh');
+ await national.getByTestId('suhail-city').selectOption('وادي الدواسر');
+ assert((await national.locator('tbody tr').count())===2,
+  'Wadi Al Dawasir must display two neighborhood rows from public sample');
+ assert((await national.locator('tbody').innerText()).includes('أم سمرة'),
+  'Wadi Al Dawasir record missing from national source research');
+ mark('SUHAIL_NATIONAL_CITY_FILTER_NOT_RIYADH_ONLY',true);
+ const nationalCsv=['city,district,transferCount,totalValueSar,residentialSarSqm','جدة,الصفا,2,1500000,5000','الخبر,العليا,1,3500000,6000'].join('\\n');
+ await national.getByTestId('suhail-research-import').setInputFiles({
+  name:'national-research.csv',mimeType:'text/csv',buffer:Buffer.from(nationalCsv)
+ });
+ await national.getByTestId('suhail-import-status').getByText(/استيراد بحثي/).waitFor();
+ assert((await national.getByTestId('suhail-scope').innerText()).includes('2'),
+  'National CSV cities were not dynamically discovered');
+ await national.getByTestId('suhail-city').selectOption('الخبر');
+ assert((await national.locator('tbody tr').count())===1,
+  'Local imported Al Khobar neighborhood must remain separate from Jeddah');
+ mark('SUHAIL_NATIONAL_LOCAL_CSV_CITY_DISTRICT_ISOLATION',true);
  const valuation=panel.getByText('القيمة التقديرية الحسابية اليوم')
    .locator('xpath=..').locator('strong');
  assert((await valuation.innerText()).includes('غير قابل للحساب'),'empty comparable must fail closed');
