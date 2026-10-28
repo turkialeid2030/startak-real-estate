@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {useAppraisalReviewSession} from './AppraisalReviewSessionContext.jsx';
 const {evaluateBoundReview}=require('../market/appraisal-study-binding');
+const {proposeFinancialToMarketIdentity,applyFinancialToMarketIdentity}=
+  require('../market/financial-to-market-identity');
 const { ASSET_TYPES, extractCoordinates, evaluateMarketStudy } = require('../market/instant-market-study');
 const { prepareImportCsv,MAX_CSV_BYTES } = require('../market/public-dataset-import');
 const {readOpenQuarters,deriveDistrictSnapshot,OPEN_QUARTERS}=require('../market/saudi-open-data-research');
@@ -98,7 +100,7 @@ function ComparisonTable({ title, kind, rows, setRows, assetType }) {
     <button type="button" className="mt-3 rounded-lg border border-amber-600 px-3 py-2 text-xs text-amber-100" onClick={()=>setRows(old=>old.length>=15?old:[...old,createRow()])}>+ إضافة مقارنة</button>
   </section>;
 }
-export default function PropertyMarketLocationPanel() {
+export default function PropertyMarketLocationPanel({financialStudy=null}) {
   const {setSubject:setSessionSubject,link:appraisalLink,invalidateLink}=useAppraisalReviewSession();
   const [subject,setSubject]=useState({
     name:'',assetType:'RESIDENTIAL_COMPOUND',landSubtype:'',city:'الرياض',district:'',location:'',
@@ -129,6 +131,9 @@ export default function PropertyMarketLocationPanel() {
   const [researchSessionEpoch,setResearchSessionEpoch]=useState(0);
 
 
+  const [bridgeConfirmed,setBridgeConfirmed]=useState(false);
+  const [bridgeAssetType,setBridgeAssetType]=useState('');
+  const bridgeProposal=useMemo(()=>proposeFinancialToMarketIdentity(financialStudy||{}),[financialStudy]);
   const [message,setMessage]=useState('');
   const [savedDeals,setSavedDeals]=useState([]);
   const [selectedSavedDealId,setSelectedSavedDealId]=useState('');
@@ -312,6 +317,48 @@ export default function PropertyMarketLocationPanel() {
       أدخل رابط خرائط جوجل غير المختصر المتضمن إحداثيات العقار أو الإحداثيات مباشرة.
       هذه الحاسبة لا تجلب معاملات حية تلقائيًا؛ تعالج فقط مقارنات مثبتة المصدر يضيفها المستخدم وتُظهر نتائج سيناريو غير معتمدة.
     </p>
+    <div data-testid="market-financial-identity-bridge" className="mt-4 rounded-xl border border-amber-800 p-3 text-xs">
+      <h3 className="font-semibold text-amber-100">D06 — ربط اختياري لهوية العقار من الدراسة المالية</h3>
+      <p className="mt-2 text-slate-300">
+        النقل عند إقرارك فقط، ولا يثبت ملكية العقار أو صحة نوعه أو موقعه.
+        لا تُنقل المدينة أو الحي أو الصك ولا المقارنات؛ وتبقى قابلة للمراجعة والتحرير.
+      </p>
+      <p className="mt-2" data-testid="market-financial-bridge-status">
+        حالة النقل: {bridgeProposal.status}
+      </p>
+      {bridgeProposal.status==='USER_CONFIRMATION_REQUIRED'&&<>
+        <p className="mt-2 text-slate-300">
+          الحقول المقترحة: {Object.entries(bridgeProposal.subjectPatch).map(([k,v])=>k+' = '+v).join(' | ')}
+        </p>
+        {bridgeProposal.assetTypeMustBeSelectedByUser&&<Select
+          title="اختر نوع العقار صراحةً؛ لا نستخدم النوع الافتراضي أو اسم المشروع"
+          value={bridgeAssetType} onChange={v=>setBridgeAssetType(v)}
+          options={assetOptions.filter(x=>x[0]!=='LAND')}/>}
+        <label className="mt-2 flex items-center gap-2">
+          <input type="checkbox" checked={bridgeConfirmed}
+            onChange={e=>setBridgeConfirmed(e.target.checked)} />
+          أوافق على نسخ الحقول المقترحة واستبدال قيم هذه الحقول فقط بعد مراجعتها
+        </label>
+        <button type="button" data-testid="market-financial-bridge-apply"
+          disabled={!bridgeConfirmed||bridgeProposal.assetTypeMustBeSelectedByUser&&!bridgeAssetType}
+          className="mt-2 rounded border border-amber-600 px-3 py-2 disabled:opacity-50"
+          onClick={()=>{
+            const updated=applyFinancialToMarketIdentity({
+              proposal:bridgeProposal,subject,confirmed:bridgeConfirmed,
+              selectedAssetType:bridgeAssetType,
+            });
+            if(updated.status!=='COPIED_USER_CONFIRMED_NOT_VERIFIED'){
+              setMessage('لم تُنسخ بيانات الهوية: '+updated.status);return;
+            }
+            invalidateLink();
+            setSubject(updated.subject);
+            setBridgeConfirmed(false);
+            setMessage('تم نقل حقول الهوية بتأكيد المستخدم؛ لم تتحقق المنصة من الصك أو السوق أو الموقع.');
+          }}>
+          اعتماد نسخ بيانات العقار إلى البحث السوقي
+        </button>
+      </>}
+    </div>
     <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
       <Field title="اسم العقار" value={subject.name} onChange={v=>updateSubject('name',v)} />
       <Select title="غرض دراسة التقييم" value={subject.valuationPurpose}
