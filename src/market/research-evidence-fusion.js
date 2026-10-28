@@ -107,9 +107,14 @@ function compareCandidates(records){
   // Cross-provider exact transaction fingerprint remains *potential*:
   // same price, day, area and district is not conclusive identity.
   if(['REPORTED_SALE','OFFICIAL_REPORTED_SALE','THIRD_PARTY_REPORTED_SALE'].includes(record.type)
-     &&record.priceOrMetricSar>0&&record.eventDate&&record.areaSqm>0){
+     &&record.priceOrMetricSar>0&&record.eventDate&&
+       (record.transactionId||record.areaSqm>0)){
+   // Prefer transaction ID if present; otherwise require the same price AND area.
+   // This only flags a possible repeat. Unverified IDs may collide across providers.
+   const locator=record.transactionId?'id:'+norm(record.transactionId):
+     'area:'+record.areaSqm;
    const k=[norm(record.city),norm(record.district),record.eventDate,
-      record.priceOrMetricSar,record.areaSqm].join('|');
+      record.priceOrMetricSar,locator].join('|');
    const matches=areas.get('sale:'+k)||[];
    for(const p of matches)if(p.origin!==record.origin)
     crossSources.push({ids:[p.evidenceId,record.evidenceId],reason:'POTENTIAL_REPEATED_REPORTED_SALE'});

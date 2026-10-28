@@ -100,7 +100,7 @@ ok('evidence-grounded limited research narrative passes with no numeric authorit
  const out=researchClaimsGate({snapshot:snap,claims:[
   {kind:'OBSERVATION',text:'There is a published locality research signal.',
     evidenceIds:[snap.context[0].evidenceId]},
-  {kind:'LIMITATION',text:'Not a certified valuation.',evidenceIds:[]}]});
+  {kind:'LIMITATION',text:'Independent market verification is not available.',evidenceIds:[]}]});
  assert.equal(out.status,'RESEARCH_TEXT_ONLY');
  assert.equal(out.numericOutputsAllowed,false);
 });
