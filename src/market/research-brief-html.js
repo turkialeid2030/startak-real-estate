@@ -42,6 +42,10 @@ function renderResearchBriefHtml(bundle){
     '</td></tr>';
   }));
  const risks=bundle.riskCodes.map(r=>'<li>'+txt(r,120)+'</li>').join('');
+ const actions=Array.isArray(bundle.reviewerActionPlan?.tasks)?
+  bundle.reviewerActionPlan.tasks.filter(x=>x&&x.status==='OPEN_NOT_INDEPENDENTLY_VERIFIED').slice(0,15):[];
+ const actionList=actions.map(x=>'<li><strong>'+txt(x.label,200)+
+  '</strong> — '+txt(x.reason,260)+'</li>').join('');
  const css='@page{size:A4;margin:18mm}*{box-sizing:border-box}'+
   'body{font-family:Tajawal,Tahoma,Arial,sans-serif;max-width:1050px;margin:0 auto;padding:22px;color:#172337;line-height:1.8}'+
   'h1{font-size:22px}h2{font-size:16px;margin-top:24px;border-bottom:1px solid #cbd5e1}'+
@@ -74,6 +78,9 @@ function renderResearchBriefHtml(bundle){
  '<p>الفترة: ',txt(open.sampleDateMin,15),' — ',txt(open.sampleDateMax,15),
  ' | مصدر بيانات تاريخية مفتوحة عبر مرآة عامة، وليس اتصالًا رسميًا مباشرًا.</p></section>',
  '<section><h2>حالة التكامل والربط بين المنصات</h2>',dataTable,'</section>',
+ '<section><h2>خطة المراجعة الاستثمارية المشروطة</h2>',
+ '<p>المهام التالية تعالج فجوات البيانات ولا تفوض شراءً أو بيعًا أو إصدار قيمة مهنية.</p>',
+ '<ul>',actionList,'</ul></section>',
  '<section><h2>التعارضات والمخاطر ومتطلبات الإغلاق</h2><ul>',risks,'</ul></section>',
  '<section><h2>فهرس الأدلة والمراجع الأصلية</h2>',
  '<p>جميع الصفوف لا تزال غير موثقة بصورة مستقلة ولا تعتبر صفقات بيع معتمدة.</p>',
