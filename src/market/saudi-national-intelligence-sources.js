@@ -28,6 +28,27 @@ const SOURCES=Object.freeze([
  {id:'MANUS_SHARE',label:'Manus — تقرير مشترك غير مقروء',url:'https://manus.im/share/QnCMa3VxXUKQoW2SNmj98H',
   domain:'manus.im',origin:'USER_SHARED_UNREADABLE_LINK',allowed:['RESEARCH_NOTE']},
 ].map(x=>Object.freeze({...x,allowed:Object.freeze(x.allowed)})));
+// Official *browser* destinations for researching data. None implies a licensed API,
+// programmatic access, automated ingestion or authenticated sale/property evidence.
+const OFFICIAL_RESEARCH_ENTRYPOINTS=Object.freeze([
+ Object.freeze({id:'REGA_DAILY_RAW',label:'الصفقات اليومية الخام — الهيئة العامة للعقار',
+  url:'https://rei.rega.gov.sa/ar/advanced-search/live',sourceId:'REGA_REI',
+  datasetClass:'RAW_DAILY_REPORTED_SALES',
+  caveat:'بيانات خام دون تنقيح؛ يجب التحقق من التصنيف والتكرار والأطراف والحق العقاري.'}),
+ Object.freeze({id:'REGA_HISTORICAL_CLEANED',label:'الصفقات التاريخية المنقحة — الهيئة العامة للعقار',
+  url:'https://rei.rega.gov.sa/ar/advanced-search',sourceId:'REGA_REI',
+  datasetClass:'CLEANED_HISTORICAL_RESEARCH',
+  caveat:'مؤشرات أو سجلات بحثية منقحة؛ لا تثبت عقارًا مطابقًا ولا قيمة مهنية مستقلة.'}),
+ Object.freeze({id:'REGA_RENT_INDICATORS',label:'مؤشرات عقود الإيجار ومقارنة الأحياء — الهيئة العامة للعقار',
+  url:'https://rei.rega.gov.sa/ar/advanced-search',sourceId:'REGA_REI',
+  datasetClass:'RENT_AGGREGATE_RESEARCH',
+  caveat:'مؤشرات إيجارية مجمعة؛ لا تعادل كشف إيجار العقار أو عقد مستأجر موثقًا.'}),
+ Object.freeze({id:'MOJ_INTERACTIVE_REPORTS',label:'التقارير التفاعلية والبيانات المفتوحة — وزارة العدل',
+  url:'https://www.moj.gov.sa/ar/OpenData/Pages/reports.aspx',sourceId:'MOJ_REPORTS',
+  datasetClass:'OFFICIAL_STATISTICAL_RESEARCH',
+  caveat:'يجب مراجعة تاريخ ونطاق البيانات وحقوق إعادة الاستخدام قبل استيراد أي نسخة.'}),
+].map(x=>Object.freeze({...x,liveApiConnected:false,executedTransactionConfirmed:false,
+ independentEvidenceAuthenticated:false,marketValuationEligible:false})));
 const BY_ID=Object.freeze(Object.fromEntries(SOURCES.map(x=>[x.id,x])));
 const norm=s=>String(s??'').trim().replace(/[أإآٱ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي')
  .replace(/[\s_.-]+/g,'').toLowerCase();
@@ -220,5 +241,5 @@ function summarizeNationalResearch(records){
  cities:[...new Set(records.map(x=>x.city))].sort((a,b)=>a.localeCompare(b,'ar')),
  verifiedExecutedSales:0,certifiedValues:0};
 }
-module.exports={SOURCES,BY_ID,importNationalSourcesCsv,mergeNationalResearch,
+module.exports={SOURCES,BY_ID,OFFICIAL_RESEARCH_ENTRYPOINTS,importNationalSourcesCsv,mergeNationalResearch,
  filterNationalResearch,summarizeNationalResearch};
