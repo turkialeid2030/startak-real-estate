@@ -27,6 +27,23 @@ assert.equal(report.safeToUseAsPrimaryValue,false);
 const duplicated=reviewMarketOffers({subject:base,offers:[...Array.from({length:3},(_,i)=>sale(i+1)),sale(1)],asOf});
 assert.equal(duplicated.askingSales.acceptedOffers,3);
 assert.equal(duplicated.rejectedReasons.DUPLICATE_SOURCE,1);
+
+const trackingVariations=reviewMarketOffers({subject:base,asOf,offers:[
+ sale(1),
+ {...sale(1),sourceUrl:'https://sa.aqar.fm/a/1/?utm_source=chatgpt.com#same'},
+ {...sale(1),sourceUrl:'https://sa.aqar.fm/a/1?utm_medium=share&fbclid=123'},
+ sale(2),sale(3)]});
+assert.equal(trackingVariations.askingSales.acceptedOffers,3,
+ 'Tracking params, trailing slash and fragments must not create fabricated independent offers');
+assert.equal(trackingVariations.rejectedReasons.DUPLICATE_SOURCE,2);
+const queryIdentity=reviewMarketOffers({subject:base,asOf,offers:[
+ {...sale(1),sourceUrl:'https://sa.aqar.fm/listing?item=1&language=ar'},
+ {...sale(2),sourceUrl:'https://sa.aqar.fm/listing?language=ar&item=1&utm_campaign=mobile'},
+ {...sale(3),sourceUrl:'https://sa.aqar.fm/listing?item=2&language=ar'}]});
+assert.equal(queryIdentity.askingSales.acceptedOffers,2,
+ 'Query order does not create a new listing while a different item ID remains distinct');
+assert.equal(queryIdentity.rejectedReasons.DUPLICATE_SOURCE,1);
+
 const stale=reviewMarketOffers({subject:base,offers:[sale(1),sale(2),{...sale(3),date:'2024-01-01'}],asOf});
 assert.equal(stale.askingSales.medianAskingSarPerSqm,null);
 const wrongType=reviewMarketOffers({subject:base,offers:[sale(1),sale(2),{...sale(3),assetType:'HOTEL'}],asOf});
