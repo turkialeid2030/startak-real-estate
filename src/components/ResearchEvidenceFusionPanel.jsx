@@ -42,8 +42,8 @@ export default function ResearchEvidenceFusionPanel({subject={},feeds={},asOf='2
   <div className="flex flex-wrap justify-between gap-2">
    <div><h3 className="font-bold text-base">{en?'STARTAK — Multi-source market evidence':'STARTAK — ربط أدلة السوق متعددة المصادر'}</h3>
     <p className="mt-2 text-xs text-slate-300">{en?'Research evidence only; it does not issue a certified appraisal or purchase recommendation.':'عرض بحثي واحد؛ لا يصدر تقييمًا مهنيًا ولا توصية شراء دون أدلة.'}</p></div>
-   <span data-testid="fusion-status" className="text-xs text-amber-200">
-     {en?'Verification required — HOLD':'قيد التحقق — HOLD'}</span>
+   <span data-testid="fusion-status" data-decision="HOLD" className="text-xs text-amber-200">
+     {en?'Verification required — HOLD':'قيد التحقق — معلّق'}</span>
   </div>
   <p className="mt-3 text-xs text-slate-300" data-testid="fusion-subject">
    {en?'Property: ':'العقار: '}{subject.city||(en?'Unknown':'غير محدد')} / {subject.district||(en?'Unknown district':'الحي غير محدد')} |
