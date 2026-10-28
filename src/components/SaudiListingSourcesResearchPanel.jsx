@@ -33,7 +33,7 @@ export default function SaudiListingSourcesResearchPanel(){
   }catch(e){setBatchIssues([]);setNotice('تعذر قراءة البيانات: '+String(e.message||'UNKNOWN'));}
  };
  return <section data-testid="saudi-listing-research" dir="rtl"
-  className="mt-5 rounded-xl border border-sky-800 bg-slate-950 p-4 text-slate-100">
+  className="mt-5 w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-sky-800 bg-slate-950 p-4 text-slate-100">
   <h3 className="text-base font-bold">مصادر العروض والطلبات العقارية — جميع مدن المملكة</h3>
   <p className="mt-2 text-xs leading-6 text-slate-300">
    سبعة مصادر بحثية. الأسعار المطلوبة والميزانيات والمشاريع والمزادات ليست صفقات منفذة،
@@ -43,7 +43,7 @@ export default function SaudiListingSourcesResearchPanel(){
    {SOURCES.map(s=><a key={s.id} target="_blank" rel="noopener noreferrer" href={s.baseUrl}
     className="rounded border border-slate-600 px-3 py-2 text-xs text-sky-300">{s.nameAr}</a>)}
   </div>
-  <p className="mt-3 text-xs text-slate-300">
+  <p className="mt-3 break-all text-xs text-slate-300">
    صيغة ملف CSV: source,city,district,kind,priceSar,areaSqm,listingUrl,listingId,assetType,listingDate.
    تصنيفات kind: SALE_OFFER / RENT_OFFER / PROJECT_INDICATIVE / AUCTION_ASK / BUYER_REQUEST.
   </p>
@@ -84,7 +84,7 @@ export default function SaudiListingSourcesResearchPanel(){
    المصادر المتاحة: {summary.sourcesConfigured} | السجلات المستوردة: {summary.imported} |
    المدن في البيانات: {summary.cities.length} | الصفقات المنفذة المؤكدة: 0
   </p>
-  <div className="mt-3 overflow-x-auto">
+  <div className="mt-3 w-full max-w-full min-w-0 overflow-x-auto">
    <table className="w-full min-w-[760px] text-right text-xs">
     <thead className="border-b border-slate-700 text-slate-300"><tr>
      <th className="p-2">المصدر</th><th className="p-2">المدينة</th><th className="p-2">الحي</th>
