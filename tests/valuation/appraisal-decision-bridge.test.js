@@ -23,4 +23,11 @@ test('legacy callers do not require appraisal evidence argument',()=>{
  assert.equal(r.appraisalReviewStatus,'NOT_PROVIDED');
  assert.ok(!r.issues.includes('APPRAISAL_AUDIT_HOLD'));
 });
+test('unknown or malformed appraisal review cannot be downgraded to a notice',()=>{
+ for(const appraisalReview of [{status:'APPROVED'},false,{},'CLEARED',0]){
+  const r=auditValuationReadiness({subject,report,appraisalReview,asOf:new Date('2026-10-28T00:00:00Z')});
+  assert.ok(r.issues.includes('APPRAISAL_AUDIT_HOLD'));
+  assert.equal(r.preliminaryValueSar,null);
+ }
+});
 console.log('SUCCESS '+count+'/'+count+' decision gate regression cases');

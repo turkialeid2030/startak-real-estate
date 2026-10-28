@@ -105,8 +105,10 @@ function auditValuationReadiness({subject={},report={},segmentedRent=null,sales=
  if(INCOME_REQUIRED.has(type)&&rentQualified<3)add(notices,'NO_EXECUTED_RENT_COMPARABLES');
  if(report?.materialMethodGap)add(reasons,'METHODS_UNRECONCILED');
  // Optional, restrictive-only bridge: a review can BLOCK but never authorize a price or export.
- if(appraisalReview?.status==='HOLD')add(reasons,'APPRAISAL_AUDIT_HOLD');
- else if(appraisalReview!==null)add(notices,'APPRAISAL_REVIEW_PENDING');
+ if(appraisalReview!==null&&appraisalReview!==undefined){
+  if(appraisalReview?.status==='REVIEW_REQUIRED')add(notices,'APPRAISAL_REVIEW_PENDING');
+  else add(reasons,'APPRAISAL_AUDIT_HOLD'); // HOLD, unknown status and malformed payload fail closed.
+ }
  if((report?.districtOnlySalesCount||0)>0||(report?.districtOnlyRentalsCount||0)>0)
   add(notices,'DISTRICT_APPROXIMATION_USED');
  const metadata={
