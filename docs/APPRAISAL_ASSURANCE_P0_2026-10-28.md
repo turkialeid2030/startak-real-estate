@@ -95,3 +95,14 @@ The following is implemented in the current draft PR:
 - No certified or commercial output, and no automatic extraction/adoption of OCR data.
 
 Run the final SHA's GitHub Actions workflows including Location Market Study Verify and Release Verify before engineering qualification. E2F/E2G and Q01-Q12 remain unclosed.
+
+
+## P0-C Saved Deal sidecar hardening
+
+Implemented in the subsequent draft PR update:
+- The saveResearchSidecar function now accepts optional appraisalLink and calls appraisalSidecarGate on the parsed study subject after validating the canonical Saved Deal. A linked HOLD, stale/invalidated link, malformed link or mismatch with the saved deal name rejects before writing the sidecar. An unlinked personal study retains its original research-only behavior.
+- A valid LINKED_REVIEW_REQUIRED (explicit user-attested, not professionally validated) may save only the existing sanitized research input fields. No report PDF, file hash, appraisal verdict, reviewer assertion, or certification is stored in the sidecar envelope. The canonical Saved Deal and its index are untouched.
+- The market study UI also disables the save action when a link is blocked. Restoring a sidecar or importing JSON invalidates any live review link even if the imported subject identity is unchanged. Re-linking needs a fresh, explicit user review of the source.
+- Synthetic Node tests in tests/valuation/appraisal-sidecar-gate.test.js cover HOLD, stale, corrupted link, name mismatch, unlinked legacy behavior, and limited REVIEW_REQUIRED allow. Browser smoke checks that HOLD disables sidecar save.
+- This does not establish verified legal identity for a Saved Deal. Matching user-controlled property names and report study fields is not proof of deed or beneficial rights; separate professional and access-control approval remains required.
+- Never describe this limited internal Saved Deal sidecar gate as covering every financial/deal export or the institutional private evidence store. P0-C remains partial, and P0-B remains open.
