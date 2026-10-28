@@ -35,7 +35,7 @@ jobs:
           fi
           for file in release-manifest.json asset-manifest.json; do
             printf 'OWNER_PREVIEW_RESOURCE=%s\n' "$file"
-            code="$(curl -L --silent --show-error --max-time 12 \
+            code="$(curl --silent --show-error --max-time 12 \
               --output "/tmp/startak-$file" --dump-header "/tmp/startak-$file.headers" \
               --write-out '%{http_code}' "$OWNER_IMMUTABLE_PREVIEW$file")"
             rc=$?
@@ -44,21 +44,27 @@ jobs:
               echo 'OWNER_PREVIEW_RESOURCE_HTTP_200=true'
             fi
           done
-          code="$(curl -L --silent --show-error --max-time 12 --output /tmp/startak-root.html \
-            --dump-header /tmp/startak-root.headers --write-out '%{http_code}|%{content_type}|%{url_effective}' "$OWNER_IMMUTABLE_PREVIEW")"
+          code="$(curl --silent --show-error --max-time 12 --output /tmp/startak-root.html \
+            --dump-header /tmp/startak-root.headers --write-out '%{http_code}|%{content_type}' "$OWNER_IMMUTABLE_PREVIEW")"
           echo "OWNER_PREVIEW_ROOT_GET=$code"
           echo 'OWNER_PREVIEW_NETWORK_PROBE_DONE=true'
       - name: Verify immutable release-manifest source identity, never silently promote failure
         shell: bash
         run: |
           set -euo pipefail
-          if test ! -s /tmp/startak-release-manifest.json; then
-            echo 'OWNER_PREVIEW_MANIFEST=NOT_OBSERVED'
-            exit 1
-          fi
           node - <<'NODE'
           const fs=require('fs');
           const crypto=require('node:crypto');
+          // Classify authentication redirects using only hostname (never log signed query).
+          const headerFile='/tmp/startak-release-manifest.json.headers';
+          const responseHeaders=fs.existsSync(headerFile)?fs.readFileSync(headerFile,'utf8'):'';
+          const redirectLine=responseHeaders.split(/\r?\n/).find(x=>/^location:/i.test(x));
+          let redirectHost='';
+          try{redirectHost=new URL(redirectLine?.replace(/^location:\s*/i,'').trim()||'').hostname;}catch{}
+          if(redirectHost.endsWith('.cloudflareaccess.com')){
+            console.error('OWNER_PREVIEW_ACCESS_LOGIN_REQUIRED host='+redirectHost);
+            process.exit(1);
+          }
           const digest=v=>crypto.createHash('sha256').update(v).digest('hex');
           const content=fs.readFileSync('/tmp/startak-release-manifest.json');
           const root=fs.existsSync('/tmp/startak-root.html')?
@@ -67,7 +73,7 @@ jobs:
             fs.readFileSync('/tmp/startak-asset-manifest.json'):Buffer.alloc(0);
           const asText=content.toString('utf8').trimStart();
           if(asText.startsWith('<')){
-            const title=(asText.match(/<title[^>]*>([^<]*)<\\/title>/i)||[])[1]||'UNKNOWN';
+            const title=(asText.match(/<title[^>]*>([^<]*)<\/title>/i)||[])[1]||'UNKNOWN';
             console.error('OWNER_PREVIEW_MANIFEST_NOT_JSON '+JSON.stringify({
               responseClass:'HTML_INSTEAD_OF_RELEASE_JSON',
               bodySha256:digest(content),rootSha256:root.length?digest(root):null,
