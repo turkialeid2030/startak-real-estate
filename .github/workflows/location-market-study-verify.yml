@@ -202,7 +202,7 @@ jobs:
       contents: read
     env:
       EXPECTED_SHA: ${{ github.event.pull_request.head.sha }}
-      PREVIEW_URL: https://feature-appraisal-assurance.startak-real-estate.pages.dev/
+      PREVIEW_URL: ${{ github.head_ref == 'feature/audit-findings-d01-d07-20261028' && 'https://feature-audit-findings-d01-d.startak-real-estate.pages.dev/' || 'https://feature-appraisal-assurance.startak-real-estate.pages.dev/' }}
     steps:
       - name: Checkout exact candidate to use its read-only CDN verifier
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
