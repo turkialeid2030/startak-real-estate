@@ -16,7 +16,8 @@ try {
  page.setDefaultTimeout(15000);
  await page.addInitScript(()=>{
   const p='STARTAK_REAL_ESTATE:SAVED_DEALS:';
-  localStorage.setItem(p+'deals-index',JSON.stringify([{id:'SYN-CASE-LINK',name:'أصل اختباري'}]));
+  localStorage.setItem(p+'deals-index',JSON.stringify([{id:'SYN-CASE-LINK',name:'أصل اختباري'},{id:'SYN-OTHER',name:'أصل مختلف'}]));
+  localStorage.setItem(p+'deal:SYN-OTHER',JSON.stringify({id:'SYN-OTHER',name:'أصل مختلف',mode:'building',inputs:{}}));
   localStorage.setItem(p+'deal:SYN-CASE-LINK',JSON.stringify({
    id:'SYN-CASE-LINK',name:'أصل اختباري',mode:'building',inputs:{},
    savedAt:'2026-01-01T00:00:00.000Z'}));
@@ -91,6 +92,11 @@ try {
  }));
  assert(canonical.sidecar===null&&canonical.deal!==null,'blocked report must not create sidecar or change Saved Deal');
  pass('blocked appraisal prevents local Saved Deal sidecar save and canonical writes');
+ await saved.getByLabel('اختيار الصفقة لربط دراسة السوق').selectOption('SYN-OTHER');
+ await saved.getByTestId('appraisal-sidecar-name-mismatch').waitFor({state:'visible'});
+ assert(await saveButton.isDisabled(),'mismatched Saved Deal name must disable write');
+ pass('mismatched Saved Deal cannot be used as alternate target for linked report');
+ await saved.getByLabel('اختيار الصفقة لربط دراسة السوق').selectOption('SYN-CASE-LINK');
  await market.getByLabel('مساحة الأرض (م²)',{exact:true}).fill('1200.6');
  await market.locator('[data-testid="appraisal-market-link-status"][data-status="STALE_OR_UNMATCHED_LINK"]').waitFor();
  await market.getByLabel('مساحة الأرض (م²)',{exact:true}).fill('1200.5');
