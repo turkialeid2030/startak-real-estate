@@ -80,6 +80,13 @@ try {
  await market.getByTestId('personal-market-study-export').click();
  await market.getByText(/تم منع تصدير الدراسة/).waitFor({state:'visible'});
  pass('linked source with user-confirmed identical subject blocks research export and value');
+ const personal=page.getByTestId('c75-personal-research-workspace');
+ await personal.getByTestId('c75-appraisal-report-hold').waitFor({state:'visible'});
+ assert(await personal.getByTestId('c75-export-personal-html').isDisabled(),
+   'linked HOLD should disable personal HTML study report');
+ assert(await personal.getByTestId('c75-export-personal-json').isDisabled(),
+   'linked HOLD should disable personal JSON study report');
+ pass('linked appraisal HOLD quarantines independent HTML and JSON study report UI routes');
  const saved=market.getByTestId('saved-deal-market-study-link');
  await saved.getByRole('button',{name:'تحديث قائمة الصفقات المحفوظة'}).click();
  await saved.getByLabel('اختيار الصفقة لربط دراسة السوق').selectOption('SYN-CASE-LINK');
@@ -105,6 +112,11 @@ try {
  await work.getByTestId('appraisal-reset').click();
  await market.locator('[data-testid="appraisal-market-link-status"][data-status="NOT_LINKED"]').waitFor();
  pass('explicit reset clears linked audit and no professional certification is granted');
+ assert(await personal.getByTestId('c75-export-personal-html').isEnabled(),
+   'unlinked legacy personal research export must not stay blocked after reset');
+ assert(await personal.getByTestId('c75-export-personal-json').isEnabled(),
+   'unlinked legacy personal research JSON should be available after explicit reset');
+ pass('reset restores unlinked personal study drafts without professional authorization');
  console.log('APPRAISAL_BROWSER_SMOKE=PASS CASES='+checks.length);
 } catch(e) {
  console.error('APPRAISAL_BROWSER_SMOKE=FAIL: '+(e.stack||e.message));
