@@ -68,7 +68,6 @@ try {
  await work.getByTestId('appraisal-confirm-identity').check();
  assert(await work.getByTestId('appraisal-identity-status').getAttribute('data-status')==='MATCHED_USER_ATTESTED_NOT_INDEPENDENTLY_VERIFIED','identity should match only by user attestation');
  await work.getByTestId('appraisal-link-to-study').click();
- await market.getByTestId('appraisal-market-link-status').locator('[data-status="LINKED_AUDIT_HOLD"]').count().catch(()=>0);
  assert(await market.getByTestId('appraisal-market-link-status').getAttribute('data-status')==='LINKED_AUDIT_HOLD','linked arithmetic HOLD not propagated');
  await market.getByTestId('personal-market-study-export').click();
  await market.getByText(/تم منع تصدير الدراسة/).waitFor({state:'visible'});
