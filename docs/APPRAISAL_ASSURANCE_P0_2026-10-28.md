@@ -106,3 +106,14 @@ Implemented in the subsequent draft PR update:
 - Synthetic Node tests in tests/valuation/appraisal-sidecar-gate.test.js cover HOLD, stale, corrupted link, name mismatch, unlinked legacy behavior, and limited REVIEW_REQUIRED allow. Browser smoke checks that HOLD disables sidecar save.
 - This does not establish verified legal identity for a Saved Deal. Matching user-controlled property names and report study fields is not proof of deed or beneficial rights; separate professional and access-control approval remains required.
 - Never describe this limited internal Saved Deal sidecar gate as covering every financial/deal export or the institutional private evidence store. P0-C remains partial, and P0-B remains open.
+
+
+## Active-session personal report quarantine
+
+A further restrictive-only integration now covers the personal financial study HTML and JSON export buttons:
+- The new file src/market/appraisal-report-export-gate.js makes a linked HOLD, stale/invalidated or malformed report-study link reject private report exports on the current browser research session. Its guard is invoked inside the save action in PersonalInvestmentResearchPanel.jsx; disabling the two buttons is only an additional UX precaution.
+- An unlinked study stays a non-certified personal draft and can be exported as before. A valid REVIEW_REQUIRED linked audit does not grant professional approval or independent source verification.
+- The guard is intentionally conservative across the current research session, because the separate financial report route does not yet have a trustworthy canonical-property identity handshake. It may withhold reports for an unrelated draft while an active HOLD is linked. Clear or re-review the appraisal link to return to independent personal research, but do not interpret this as a professional resolution.
+- Canonical Saved Deal backups and operating-case input snapshots are not certified valuation reports; this additional guard does not modify their storage paths.
+- Six synthetic unit checks in tests/valuation/appraisal-personal-report-export.test.js and negative/positive browser cases in tests/e2e/run_appraisal_assurance_ci.mjs cover the new scope.
+- Full organization-wide report authority, all financial exports, legal identity verification, data rights and institutional access controls remain not implemented. This is not P0-C closure and is not permission to merge or deploy.
