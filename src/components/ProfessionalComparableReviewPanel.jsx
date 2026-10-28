@@ -89,7 +89,7 @@ export default function ProfessionalComparableReviewPanel({subject,sales=[]}){
    مساحة الأصل بحسب الأساس: <strong className="block">{area||'غير مدخلة'} م²</strong>
   </div>
   <button type="button" aria-label="إحضار مقارنات البيع المدخلة للمراجعة" className="rounded-lg min-h-[44px] border border-amber-600 text-xs text-amber-100 px-3 py-2"
-   onClick={fromSales>إحضار مقارنات البيع المدخلة للمراجعة</button>
+   onClick={fromSales}>إحضار مقارنات البيع المدخلة للمراجعة</button>
  </div>
  <p className="text-xs text-slate-300 mt-2" role="status">{note}</p>
  <div className="space-y-3 mt-4">
