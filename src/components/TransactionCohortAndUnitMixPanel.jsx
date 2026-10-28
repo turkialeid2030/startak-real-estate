@@ -78,7 +78,7 @@ export default function TransactionCohortAndUnitMixPanel({subject,sales,askingOf
   <button type="button" className="min-h-[40px] rounded-lg border border-rose-700 px-3 text-xs text-rose-200"
     onClick={()=>setUnitMix(a=>a.filter((_,j)=>i!==j))}>حذف الفئة</button>
  </div>)}
- <button type="button" className="mt-3 min-h-[40px] rounded-lg border border-amber-600 px-3 py-2 text-xs"
+ <button type="button" aria-label="إضافة فئة وحدات" className="mt-3 min-h-[40px] rounded-lg border border-amber-600 px-3 py-2 text-xs"
   onClick={()=>setUnitMix(a=>a.length<30?[...a,bUnit()]:a)}>+ إضافة فئة وحدات</button>
  <h4 className="mt-5 font-semibold text-sm text-amber-100">عقود الإيجار المقارنة بحسب نوع الوحدة</h4>
  {leaseComparables.map((r,i)=><div key={'l'+i} className="mt-3 rounded-lg border border-slate-700 p-3">
@@ -104,7 +104,7 @@ export default function TransactionCohortAndUnitMixPanel({subject,sales,askingOf
    </div>
   </div>
  </div>)}
- <button type="button" className="mt-3 min-h-[40px] rounded-lg border border-amber-600 px-3 py-2 text-xs"
+ <button type="button" aria-label="إضافة عقد إيجار مقارن" className="mt-3 min-h-[40px] rounded-lg border border-amber-600 px-3 py-2 text-xs"
   onClick={()=>setLeaseComparables(a=>a.length<250?[...a,{...bLease(),city:subject.city,district:subject.district}]:a)}>
   + إضافة عقد إيجار مقارن
  </button>

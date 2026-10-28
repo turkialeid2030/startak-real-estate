@@ -49,6 +49,8 @@ async function textContrast(locator){return locator.evaluate(el=>{
    await context.addInitScript(({namespace,seed})=>{localStorage.setItem('startak.locale','ar-SA');if(!localStorage.getItem(namespace+'remaining-seeded')){localStorage.setItem(namespace+'deal:'+seed.id,JSON.stringify(seed));localStorage.setItem(namespace+'deals-index',JSON.stringify([{id:seed.id,name:seed.name,mode:seed.mode,savedAt:seed.savedAt}]));localStorage.setItem(namespace+'remaining-seeded','true');}}, {namespace,seed});
    await page.goto(BASE,{waitUntil:'domcontentloaded'});
    const documentPanel=page.getByTestId('local-document-evidence-intake');await expect(documentPanel).toBeVisible({timeout:30000});
+   const untranslated=await page.getByText('نص يحتاج استكمال التعريب؛ الأصل:',{exact:false}).allTextContents();
+   if(untranslated.length) console.log('ARABIC_SURFACE_UNTRANSLATED_SAMPLES='+JSON.stringify(untranslated.slice(0,30)));
    await expect(page.getByText('نص يحتاج استكمال التعريب؛ الأصل:',{exact:false})).toHaveCount(0);checks++;
    await expect(page.getByText('تحليل الاستحواذ على العقارات السكنية المدرة للدخل',{exact:true})).toBeVisible();checks++;
    await expect(documentPanel).toContainText('مستند وورد');checks++;

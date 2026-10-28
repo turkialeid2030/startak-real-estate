@@ -136,7 +136,7 @@ export default function MarketOfferResearchPanel({subject,offers,setOffers,asOf}
      </p>}
     </div>)}
    <div className="flex flex-wrap gap-3 mt-3">
-    <button type="button" onClick={add} className="min-h-[40px] rounded-lg border border-amber-600 px-4 py-2 text-xs text-amber-200">+ إضافة عرض بيع أو إيجار</button>
+    <button type="button" onClick={add} aria-label="إضافة عرض بيع أو إيجار" className="min-h-[40px] rounded-lg border border-amber-600 px-4 py-2 text-xs text-amber-200">+ إضافة عرض بيع أو إيجار</button>
     {offers.length>0&&<button type="button" className="min-h-[40px] rounded-lg border border-slate-600 px-3 py-2 text-xs text-rose-200"
       onClick={()=>setOffers([])}>مسح العروض</button>}
    </div>

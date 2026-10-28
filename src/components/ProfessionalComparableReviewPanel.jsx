@@ -88,8 +88,8 @@ export default function ProfessionalComparableReviewPanel({subject,sales=[]}){
   <div className="text-xs text-slate-300 p-3 rounded-lg border border-slate-700">
    مساحة الأصل بحسب الأساس: <strong className="block">{area||'غير مدخلة'} م²</strong>
   </div>
-  <button type="button" className="rounded-lg min-h-[44px] border border-amber-600 text-xs text-amber-100 px-3 py-2"
-   onClick={fromSales}>إحضار مقارنات البيع المدخلة للمراجعة</button>
+  <button type="button" aria-label="إحضار مقارنات البيع المدخلة للمراجعة" className="rounded-lg min-h-[44px] border border-amber-600 text-xs text-amber-100 px-3 py-2"
+   onClick={fromSales>إحضار مقارنات البيع المدخلة للمراجعة</button>
  </div>
  <p className="text-xs text-slate-300 mt-2" role="status">{note}</p>
  <div className="space-y-3 mt-4">
@@ -117,7 +117,7 @@ export default function ProfessionalComparableReviewPanel({subject,sales=[]}){
     {result.analysed[i]?.problems?.length>0?' يلزم استكمال البيانات والتحقق من أساس المساحة وتاريخ المصدر.':''}</p>
   </div>)}
  </div>
- <button type="button" className="mt-3 min-h-[40px] rounded-lg border border-slate-600 px-3 py-2 text-xs"
+ <button type="button" aria-label="إضافة مقارنة جديدة للمراجعة" className="mt-3 min-h-[40px] rounded-lg border border-slate-600 px-3 py-2 text-xs"
   onClick={()=>setRows(old=>old.length<20?[...old,blank(old.length)]:old)}>+ إضافة مقارنة</button>
  <div className="mt-4 rounded-lg bg-[#102035] p-4" role="status">
   <p className="text-xs text-slate-300">نتيجة مراجعة المقارنات</p>

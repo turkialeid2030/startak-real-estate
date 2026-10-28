@@ -200,15 +200,23 @@ try{
  assert(segmentText.includes('17,000,000')||segmentText.includes('١٧٬٠٠٠٬٠٠٠'),
   'unit-class rent should match 200 x 125 sqm x annual lease median');
  mark('UNIT_CLASS_CONTRACT_RENT_RECONCILIATION_AND_FORM',true);
- const downloadEvent=page.waitForEvent('download',{timeout:25000});
- await panel.getByRole('button',{name:'تصدير الدراسة الأولية JSON'}).click();
- const download=await downloadEvent.catch(async error=>{
-   const status=await panel.locator('p[role="status"]').allTextContents();
-   throw new Error('PERSONAL_STUDY_DOWNLOAD_NOT_EMITTED; status='+
-     status.filter(x=>/تنزيل|تصدير|خطأ|تعذر/.test(x)).join(' | ').slice(0,700)+
-     '; browserErrors='+result.errors.slice(-4).join(' | ')+
-     '; original='+error.message);
- });
+ const exportButton=panel.getByRole('button',{name:'تصدير الدراسة الأولية JSON'});
+ await exportButton.scrollIntoViewIfNeeded();
+ // Settle both operations so click failures cannot be masked by an unhandled
+ // download listener rejected when the test closes the browser.
+ const outcomes=await Promise.allSettled([
+   page.waitForEvent('download',{timeout:20000}),
+   exportButton.click({timeout:12000}),
+ ]);
+ if(outcomes.some(x=>x.status==='rejected')){
+   const statuses=await panel.locator('p[role="status"]').allTextContents();
+   throw new Error('PERSONAL_STUDY_DOWNLOAD_FAILURE; click='+
+     (outcomes[1].status==='rejected'?outcomes[1].reason?.message:'OK')+
+     '; download='+(outcomes[0].status==='rejected'?outcomes[0].reason?.message:'OK')+
+     '; ui='+statuses.filter(x=>/تنزيل|تصدير|خطأ|تعذر/.test(x)).join(' | ').slice(0,700)+
+     '; browserErrors='+result.errors.slice(-4).join(' | '));
+ }
+ const download=outcomes[0].value;
  const saved=await download.path();
  const exported=JSON.parse(fs.readFileSync(saved,'utf8'));
  assert(exported.kind==='STARTAK_PERSONAL_MARKET_STUDY','missing study identity');
