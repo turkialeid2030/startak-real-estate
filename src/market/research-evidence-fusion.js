@@ -5,6 +5,7 @@
 const {SOURCE_MAP}=require('./saudi-listing-source-research');
 const {BY_FEATURE}=require('./earth-national-research');
 const {BY_ID}=require('./saudi-national-intelligence-sources');
+const {containsProhibitedDecisionLanguage}=require('../decision-intelligence/ai-expert-orchestrator');
 const VERSION='STARTAK_RESEARCH_FUSION_V1';
 const MAX_ROWS=12000;
 const norm=v=>String(v??'').trim().replace(/[أإآٱ]/g,'ا').replace(/ة/g,'ه')
@@ -207,7 +208,8 @@ function researchClaimsGate({snapshot,claims=[]}={}){
   }
   if(c.evidenceIds.some(id=>!ids.has(id)))reasons.push('CLAIM_UNSUPPORTED_CITATION_'+i);
   if(c.kind==='OBSERVATION'&&!c.evidenceIds.length)reasons.push('OBSERVATION_EVIDENCE_REQUIRED_'+i);
-  if(/\b(?:BUY|SELL|APPROVED|CERTIFIED|TRADE|INVEST NOW|GUARANTEED)\b/i.test(c.text)||
+  if(containsProhibitedDecisionLanguage(c.text)||
+     /\b(?:BUY|SELL|APPROVED|CERTIFIED|TRADE|INVEST NOW|GUARANTEED)\b/i.test(c.text)||
      /(?:اشتر|اشتري|نوصي بالشراء|أوصي بالشراء|اوصي بالشراء|أنصح بالشراء|انصح بالشراء|الشراء معتمد|القيمة معتمدة|تقييم معتمد|الصفقة مؤكدة|توصية نهائية|شراء مؤكد|بيع مضمون)/.test(c.text))
    reasons.push('MODEL_CANNOT_AUTHORIZE_ACTION_'+i);
   if(/[0-9٠-٩۰-۹]|[%٪$€]|\b(?:SAR|USD|million|billion)\b|(?:مليون|مليار|ألف ريال|ريال سعودي)/i.test(c.text))
