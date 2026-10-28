@@ -58,6 +58,17 @@ try{
  await nationalSources.waitFor({state:'visible'});
  assert((await nationalSources.getByTestId('national-sources-links').locator('a').count())===11,
   'Eleven distinct public real estate source reference URLs must be visible');
+ const official= nationalSources.getByTestId('national-official-entrypoints');
+ await official.waitFor({state:'visible'});
+ assert((await official.locator('a').count())===4,'four distinct official REGA/MOJ verification destinations required');
+ for(const entry of ['REGA_DAILY_RAW','REGA_HISTORICAL_CLEANED','REGA_RENT_INDICATORS','MOJ_INTERACTIVE_REPORTS']){
+  const link=official.getByTestId('official-entry-'+entry);
+  assert(await link.getAttribute('target')==='_blank','official research portal must not replace the study');
+  assert(await link.getAttribute('rel')==='noopener noreferrer','external portal must block tab-opener privileges');
+ }
+ assert((await official.innerText()).includes('ليست تكامل API'),
+  'official source links must not imply a live government data connection');
+ mark('FOUR_OFFICIAL_RESEARCH_ROUTES_VISIBLE_WITH_EXPLICIT_NO_API_CLAIM',true);
  const nationalResearchCSV=[
   'source,city,district,kind,recordId,eventDate,periodStart,periodEnd,metricName,metricValue,unit,sourceUrl,assetType',
   'REGA_REI,الرياض,الملقا,OFFICIAL_AGGREGATE,,,2026-07-01,2026-09-30,deal_count,20,COUNT,https://rei.rega.gov.sa/ar,LAND',
