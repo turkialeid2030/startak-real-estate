@@ -32,20 +32,24 @@ function proposeFinancialToMarketIdentity({mode,inputs={},results={},validationE
   notes:['NO_AUTOMATIC_PROPERTY_TYPE_GUESS','LOCATION_NOT_COPIED','NO_SOURCE_AUTHENTICATION'],
  });
 }
-function applyFinancialToMarketIdentity({proposal,subject,confirmed=false}={}){
+function applyFinancialToMarketIdentity({proposal,subject,confirmed=false,selectedAssetType=''}={}){
  if(proposal?.status!=='USER_CONFIRMATION_REQUIRED'||!proposal.subjectPatch||
     confirmed!==true||!subject||typeof subject!=='object'||Array.isArray(subject))
   return {status:'HOLD_NO_EXPLICIT_CONFIRMATION',subject:null};
  const p=proposal.subjectPatch;
- // Never substitute an office, residential compound, land parcel or hotel classification
- // from a string label. A building's property type must already be selected by the user.
- if(proposal.assetTypeMustBeSelectedByUser&&(!subject.assetType||
-   subject.assetType==='RESIDENTIAL_COMPOUND'&&!subject.userConfirmedAssetType))
-  return {status:'HOLD_ASSET_TYPE_MUST_BE_EXPLICITLY_SELECTED',subject:null};
- const {userConfirmedAssetType:_drop,...cleanSubject}=subject;
+ // A building type must be expressly selected in the bridge, never inferred
+ // from free-text project names or default values in the separate market form.
+ if(proposal.assetTypeMustBeSelectedByUser){
+  const {ASSET_TYPES}=require('./instant-market-study');
+  if(!Object.prototype.hasOwnProperty.call(ASSET_TYPES,selectedAssetType)||
+     selectedAssetType==='LAND')
+   return {status:'HOLD_ASSET_TYPE_MUST_BE_EXPLICITLY_SELECTED',subject:null};
+ }
+ const patch=proposal.assetTypeMustBeSelectedByUser?
+  {...p,assetType:selectedAssetType}:p;
  return {status:'COPIED_USER_CONFIRMED_NOT_VERIFIED',
-   subject:{...cleanSubject,...p},
+   subject:{...subject,...patch},
    independentlyVerified:false,certifiedPropertyIdentity:false,
-   copiedFields:Object.keys(p)};
+   copiedFields:Object.keys(patch)};
 }
 module.exports={proposeFinancialToMarketIdentity,applyFinancialToMarketIdentity};
