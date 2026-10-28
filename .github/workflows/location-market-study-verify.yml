@@ -182,6 +182,26 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
           mkdir -p runtime-evidence/preview-delivery
+          # Diagnose authentication separately from stale/missing CDN assets.
+          # Do not follow Cloudflare Access redirect or print its signed query.
+          response_code="$(curl --silent --show-error --max-time 12 \
+            --dump-header /tmp/startak-preview-access.headers --output /dev/null \
+            --write-out '%{http_code}' "${PREVIEW_URL}release-manifest.json" || true)"
+          redirect_host="$(node - <<'NODE'
+          const fs=require('fs');
+          const raw=fs.existsSync('/tmp/startak-preview-access.headers')?
+            fs.readFileSync('/tmp/startak-preview-access.headers','utf8'):'';
+          const location=raw.split(/\r?\n/).find(l=>/^location:/i.test(l));
+          let host='';try{host=new URL(location?.replace(/^location:\s*/i,'').trim()||'').hostname;}catch{}
+          process.stdout.write(host);
+          NODE
+          )"
+          if [[ "$redirect_host" == *.cloudflareaccess.com ]]; then
+            echo 'STARTAK_PREVIEW_DELIVERY=BLOCKED_ACCESS_LOGIN_REQUIRED'
+            echo 'Protected preview requires an authorized user session or managed CI service identity.'
+            exit 1
+          fi
+          echo "STARTAK_PREVIEW_PREFLIGHT_HTTP=$response_code"
           consecutive=0
           for attempt in $(seq 1 6); do
             echo "PREVIEW_OBSERVATION_ATTEMPT=$attempt"
