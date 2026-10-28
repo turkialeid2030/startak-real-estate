@@ -3,6 +3,7 @@ import {chromium} from 'playwright';
 import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url);
 const {findChromiumExecutable}=require('../config/paths');
+const {pngTextFixture}=require('../fixtures/local-ocr-page');
 let server,browser;
 function assert(condition,label){if(!condition)throw Error(label);}
 const checks=[];
@@ -48,6 +49,38 @@ try {
  pass('local data cleared without saving or approving');
  assert((await work.getByText('لا يوجد زر اعتماد أو تصدير تقرير مهني.').count())===1,'professional export boundary absent');
  pass('professional report export unavailable');
+ const market=page.getByTestId('location-market-study');
+ await market.getByLabel('اسم العقار',{exact:true}).fill('أصل اختباري');
+ await market.getByLabel('مساحة الأرض (م²)',{exact:true}).fill('1200.5');
+ await market.getByLabel('تاريخ القيمة المطلوب دراستها').fill('2026-01-01');
+ await page.getByTestId('local-document-file-input').setInputFiles({
+  name:'synthetic-source.png',mimeType:'image/png',buffer:pngTextFixture()
+ });
+ await page.getByTestId('local-document-digest').waitFor({state:'visible'});
+ await work.getByTestId('current-reportId').fill('SYN-LINK-1');
+ await work.getByTestId('current-property-name').fill('أصل اختباري');
+ await work.getByTestId('current-property-assetType').fill('RESIDENTIAL_COMPOUND');
+ await work.getByTestId('current-property-areaSqm').fill('١٬٢٠٠٫٥');
+ await work.getByTestId('current-valuationDate').fill('2026-01-01');
+ await work.getByTestId('current-income-annualNoiSar').fill('٢٬١٠٠٬٠٠٠');
+ await work.getByTestId('current-income-capitalizationRatePct').fill('7');
+ await work.getByTestId('current-income-indicatedValueSar').fill('55000000');
+ await work.getByTestId('appraisal-confirm-identity').check();
+ assert(await work.getByTestId('appraisal-identity-status').getAttribute('data-status')==='MATCHED_USER_ATTESTED_NOT_INDEPENDENTLY_VERIFIED','identity should match only by user attestation');
+ await work.getByTestId('appraisal-link-to-study').click();
+ await market.getByTestId('appraisal-market-link-status').locator('[data-status="LINKED_AUDIT_HOLD"]').count().catch(()=>0);
+ assert(await market.getByTestId('appraisal-market-link-status').getAttribute('data-status')==='LINKED_AUDIT_HOLD','linked arithmetic HOLD not propagated');
+ await market.getByTestId('personal-market-study-export').click();
+ await market.getByText(/تم منع تصدير الدراسة/).waitFor({state:'visible'});
+ pass('linked source with user-confirmed identical subject blocks research export and value');
+ await market.getByLabel('مساحة الأرض (م²)',{exact:true}).fill('1200.6');
+ await market.locator('[data-testid="appraisal-market-link-status"][data-status="STALE_OR_UNMATCHED_LINK"]').waitFor();
+ await market.getByLabel('مساحة الأرض (م²)',{exact:true}).fill('1200.5');
+ await market.locator('[data-testid="appraisal-market-link-status"][data-status="STALE_OR_UNMATCHED_LINK"]').waitFor();
+ pass('changing subject after linking invalidates link even if amount reverts');
+ await work.getByTestId('appraisal-reset').click();
+ await market.locator('[data-testid="appraisal-market-link-status"][data-status="NOT_LINKED"]').waitFor();
+ pass('explicit reset clears linked audit and no professional certification is granted');
  console.log('APPRAISAL_BROWSER_SMOKE=PASS CASES='+checks.length);
 } catch(e) {
  console.error('APPRAISAL_BROWSER_SMOKE=FAIL: '+(e.stack||e.message));
