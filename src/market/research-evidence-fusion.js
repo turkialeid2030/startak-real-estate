@@ -193,7 +193,7 @@ function researchClaimsGate({snapshot,claims=[]}={}){
   if(c.evidenceIds.some(id=>!ids.has(id)))reasons.push('CLAIM_UNSUPPORTED_CITATION_'+i);
   if(c.kind==='OBSERVATION'&&!c.evidenceIds.length)reasons.push('OBSERVATION_EVIDENCE_REQUIRED_'+i);
   if(/\b(?:BUY|SELL|APPROVED|CERTIFIED|TRADE|INVEST NOW|GUARANTEED)\b/i.test(c.text)||
-     /(?:اشتر|اشتري|نوصي بالشراء|انصح بالشراء|الشراء معتمد|القيمة معتمدة|تقييم معتمد|الصفقة مؤكدة|توصية نهائية|شراء مؤكد|بيع مضمون)/.test(c.text))
+     /(?:اشتر|اشتري|نوصي بالشراء|أوصي بالشراء|اوصي بالشراء|أنصح بالشراء|انصح بالشراء|الشراء معتمد|القيمة معتمدة|تقييم معتمد|الصفقة مؤكدة|توصية نهائية|شراء مؤكد|بيع مضمون)/.test(c.text))
    reasons.push('MODEL_CANNOT_AUTHORIZE_ACTION_'+i);
   if(/[0-9٠-٩۰-۹]|[%٪$€]|\b(?:SAR|USD|million|billion)\b|(?:مليون|مليار|ألف ريال|ريال سعودي)/i.test(c.text))
    reasons.push('UNVERIFIED_NUMERIC_CLAIM_NOT_ALLOWED_'+i);
