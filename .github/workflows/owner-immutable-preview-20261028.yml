@@ -44,6 +44,9 @@ jobs:
               echo 'OWNER_PREVIEW_RESOURCE_HTTP_200=true'
             fi
           done
+          code="$(curl -L --silent --show-error --max-time 12 --output /tmp/startak-root.html \
+            --dump-header /tmp/startak-root.headers --write-out '%{http_code}|%{content_type}|%{url_effective}' "$OWNER_IMMUTABLE_PREVIEW")"
+          echo "OWNER_PREVIEW_ROOT_GET=$code"
           echo 'OWNER_PREVIEW_NETWORK_PROBE_DONE=true'
       - name: Verify immutable release-manifest source identity, never silently promote failure
         shell: bash
@@ -55,10 +58,36 @@ jobs:
           fi
           node - <<'NODE'
           const fs=require('fs');
-          const m=JSON.parse(fs.readFileSync('/tmp/startak-release-manifest.json','utf8'));
+          const crypto=require('node:crypto');
+          const digest=v=>crypto.createHash('sha256').update(v).digest('hex');
+          const content=fs.readFileSync('/tmp/startak-release-manifest.json');
+          const root=fs.existsSync('/tmp/startak-root.html')?
+            fs.readFileSync('/tmp/startak-root.html'):Buffer.alloc(0);
+          const asset=fs.existsSync('/tmp/startak-asset-manifest.json')?
+            fs.readFileSync('/tmp/startak-asset-manifest.json'):Buffer.alloc(0);
+          const asText=content.toString('utf8').trimStart();
+          if(asText.startsWith('<')){
+            const title=(asText.match(/<title[^>]*>([^<]*)<\\/title>/i)||[])[1]||'UNKNOWN';
+            console.error('OWNER_PREVIEW_MANIFEST_NOT_JSON '+JSON.stringify({
+              responseClass:'HTML_INSTEAD_OF_RELEASE_JSON',
+              bodySha256:digest(content),rootSha256:root.length?digest(root):null,
+              sameBytesAsRoot:root.length>0&&digest(content)===digest(root),
+              pageTitle:title.slice(0,90),bodyBytes:content.length,
+              alsoAssetManifestHtml:asset.toString('utf8').trimStart().startsWith('<')
+            }));
+            process.exit(1);
+          }
+          let m;
+          try{m=JSON.parse(asText);}catch{
+            console.error('OWNER_PREVIEW_MANIFEST_JSON_PARSE_FAILED '+digest(content));
+            process.exit(1);
+          }
           const expected=process.env.OWNER_PREVIEW_EXPECTED_SHA;
           if(m.sourceCommit!==expected||m.sourceCommitBound!==true) {
-            console.error('OWNER_PREVIEW_MANIFEST_SOURCE_MISMATCH');
+            console.error('OWNER_PREVIEW_MANIFEST_SOURCE_MISMATCH '+JSON.stringify({
+              expected,observedSourceCommit:typeof m.sourceCommit==='string'?m.sourceCommit:null,
+              sourceCommitBound:m.sourceCommitBound===true
+            }));
             process.exit(1);
           }
           console.log('OWNER_PREVIEW_MANIFEST_EXACT_SHA=PASS '+expected);
