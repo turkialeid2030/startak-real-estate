@@ -275,6 +275,70 @@ async function main() {
   await check(async () => assert.strictEqual(revalidated.qa.qaStatus, REPORT_QA_STATUS.READY_FOR_INTERNAL_QA));
   await check(async () => assert.strictEqual(revalidated.authority.externalIssuanceAuthorized, false));
 
+  const reportInputWithFakeEvidence={...reportInput(),appraisalEvidence:{
+    status:'REVIEW_REQUIRED',professionalReportAuthorized:true}};
+  await check(async()=>assert.rejects(reportingService.prepareReport({
+    authorizationHeader:'Bearer analyst-token',workspaceId:'WS-REPORT-001',
+    nowEpochSeconds:NOW,reportInput:reportInputWithFakeEvidence,
+  }),(e)=>e&&e.code==='CALLER_REPORT_AUTHORITY_OVERRIDE_NOT_ALLOWED'));
+
+  const resolverState={status:'HOLD',workspaceVersion:1,propertyRef:'PROPERTY-INTEREST-001'};
+  const resolver={
+    async readForReport(ctx){
+      return {...ctx,reportId:'SYNTHETIC-APPRAISAL-R1',evidenceRef:'EVIDENCE-SYN-1',
+        sourceDigestSha256:'d'.repeat(64),status:resolverState.status,
+        workspaceVersion:resolverState.workspaceVersion,
+        propertyRef:resolverState.propertyRef};
+    },
+  };
+  const guarded=createAuthenticatedReportingService({
+    authenticator:auth,workspaceService,standardsHashFn:hashFn,
+    requiredTenantId:'tenant-a',appraisalEvidenceResolver:resolver,
+  });
+  const held=await guarded.prepareReport({
+    authorizationHeader:'Bearer analyst-token',workspaceId:'WS-REPORT-001',
+    nowEpochSeconds:NOW,reportInput:reportInput(),
+  });
+  await check(async()=>assert.strictEqual(held.status,'REPORT_BLOCKED'));
+  await check(async()=>assert.ok(held.appraisalGate.reasons.includes('CANONICAL_APPRAISAL_REVIEW_HOLD')));
+  await check(async()=>assert.strictEqual(held.authority.externalIssuanceAuthorized,false));
+
+  resolverState.status='REVIEW_REQUIRED';
+  const ready=await guarded.prepareReport({
+    authorizationHeader:'Bearer analyst-token',workspaceId:'WS-REPORT-001',
+    nowEpochSeconds:NOW,reportInput:reportInput(),
+  });
+  await check(async()=>assert.strictEqual(ready.status,'READY_FOR_INTERNAL_QA'));
+  await check(async()=>assert.strictEqual(ready.appraisalGate.professionalReportAuthorized,false));
+
+  resolverState.status='HOLD';
+  const revoked=await guarded.revalidateReport({
+    authorizationHeader:'Bearer ic-token',workspaceId:'WS-REPORT-001',
+    nowEpochSeconds:NOW,preparedReport:ready,
+  });
+  await check(async()=>assert.strictEqual(revoked.status,'REPORT_BLOCKED'));
+  await check(async()=>assert.strictEqual(revoked.appraisalGate.blockInternalQa,true));
+
+  resolverState.status='REVIEW_REQUIRED';resolverState.propertyRef='UNRELATED-PROPERTY';
+  const wrongProperty=await guarded.prepareReport({
+    authorizationHeader:'Bearer analyst-token',workspaceId:'WS-REPORT-001',
+    nowEpochSeconds:NOW,reportInput:reportInput(),
+  });
+  await check(async()=>assert.strictEqual(wrongProperty.status,'REPORT_BLOCKED'));
+  await check(async()=>assert.ok(wrongProperty.appraisalGate.reasons.includes('CANONICAL_APPRAISAL_SCOPE_OR_VERSION_MISMATCH')));
+  resolverState.propertyRef='PROPERTY-INTEREST-001';
+
+  const unavailable=createAuthenticatedReportingService({
+    authenticator:auth,workspaceService,standardsHashFn:hashFn,requiredTenantId:'tenant-a',
+    appraisalEvidenceResolver:{async readForReport(){throw Error('Synthetic storage offline');}},
+  });
+  const unavailableReport=await unavailable.prepareReport({
+    authorizationHeader:'Bearer analyst-token',workspaceId:'WS-REPORT-001',
+    nowEpochSeconds:NOW,reportInput:reportInput(),
+  });
+  await check(async()=>assert.strictEqual(unavailableReport.status,'REPORT_BLOCKED'));
+  await check(async()=>assert.ok(unavailableReport.appraisalGate.reasons.includes('CANONICAL_APPRAISAL_RESOLVER_FAILED')));
+  
   const tampered = {
     ...prepared,
     report: { ...prepared.report, reportVersion: 'forged-version' },
