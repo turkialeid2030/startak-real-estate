@@ -22,7 +22,7 @@ const num=v=>{
  const s=String(v??'').trim().replace(/[٠-٩]/g,x=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(x)))
   .replace(/[۰-۹]/g,x=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(x)))
   .replace(/[,٬\s]/g,'').replace(/٫/g,'.').replace(/%|٪/g,'');
- return /^\d+(?:\.\d+)?$/.test(s)?Number(s):null;
+ return /^-?\d+(?:\.\d+)?$/.test(s)?Number(s):null;
 };
 const text=v=>String(v??'').trim();
 const norm=v=>text(v).replace(/[أإآٱ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/\s+/g,' ').toLowerCase();
@@ -79,11 +79,14 @@ function parseResearchCsv(csv,{sourceUrl=SOURCE_URL,observedOn=PAGE_INDEXED_AT}=
   const transferCount=num(get('transferCount')),totalValueSar=num(get('totalValueSar'));
   const residentialSarSqm=num(get('residentialSarSqm')),commercialSarSqm=num(get('commercialSarSqm'));
   const growthPct=num(get('growthPct'));
-  if(!city||!district||city.length>120||district.length>120||
-    (transferCount!==null&&(!Number.isInteger(transferCount)||transferCount>10000000))||
-    (totalValueSar!==null&&totalValueSar>1e15)||
-    [residentialSarSqm,commercialSarSqm].some(x=>x!==null&&x>2e7)||
-    (growthPct!==null&&growthPct>1e6)){
+  const isMissing=v=>!text(v)||/^(?:—|–|-|لا يوجد بيانات|غير متاح|n\/a)$/i.test(text(v));
+  const malformed=Object.keys(fields).filter(k=>k!=='city'&&k!=='district').some(k=>
+   !isMissing(get(k))&&num(get(k))===null);
+  if(!city||!district||city.length>120||district.length>120||malformed||
+    (transferCount!==null&&(!Number.isInteger(transferCount)||transferCount<0||transferCount>10000000))||
+    (totalValueSar!==null&&(totalValueSar<0||totalValueSar>1e15))||
+    [residentialSarSqm,commercialSarSqm].some(x=>x!==null&&(x<0||x>2e7))||
+    (growthPct!==null&&(growthPct< -100||growthPct>1e6))){
     rejected.push({row:i+2,reason:'INVALID_LOCATION_OR_AGGREGATE'});continue;
   }
   records.push({country:'SA',city,district,transferCount,totalValueSar,
