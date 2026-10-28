@@ -21,6 +21,7 @@ import SaudiListingSourcesResearchPanel from './SaudiListingSourcesResearchPanel
 import EarthNationalResearchPanel from './EarthNationalResearchPanel.jsx';
 import SaudiNationalIntelligenceSourcesPanel from './SaudiNationalIntelligenceSourcesPanel.jsx';
 import ResearchEvidenceFusionPanel from './ResearchEvidenceFusionPanel.jsx';
+import ChallengerBenchmarkResearchPanel from './ChallengerBenchmarkResearchPanel.jsx';
 const {toPublicSample}=require('../market/suhail-national-neighborhood-research');
 
 const INPUT = 'w-full rounded-lg border border-slate-600 bg-[#101c30] px-3 py-2 text-sm text-slate-100';
@@ -565,6 +566,7 @@ export default function PropertyMarketLocationPanel() {
     </div>
     <ResearchEvidenceFusionPanel subject={subject} feeds={researchFeeds}
       asOf={studyAsOf.asOf.toISOString().slice(0,10)} readinessStatus={valuationReadiness.status}/>
+    <ChallengerBenchmarkResearchPanel/>
     <SuhailNationalResearchPanel onResearchChange={rows=>setResearchFeeds(f=>({...f,suhail:rows}))}/>
     <SaudiListingSourcesResearchPanel onResearchChange={rows=>setResearchFeeds(f=>({...f,listings:rows}))}/>
     <EarthNationalResearchPanel onResearchChange={rows=>setResearchFeeds(f=>({...f,earth:rows}))}/>
