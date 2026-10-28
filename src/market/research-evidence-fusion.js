@@ -302,7 +302,9 @@ function researchReviewPlan(snapshot,{marketReport=null,readiness=null}={}){
   add('REJECTED_IMPORTS','مراجعة الصفوف المرفوضة من الاستيراد','مراجعة الأخطاء قبل إعادة استخدام الملف');
  const issues=Array.isArray(marketReport?.issues)?marketReport.issues:[];
  const reasons=Array.isArray(readiness?.reasons)?readiness.reasons:[];
- if(issues.length||reasons.length||readiness?.status==='HOLD')
+ const readinessIssues=Array.isArray(readiness?.issues)?readiness.issues:[];
+ const held=typeof readiness?.status==='string'&&readiness.status.startsWith('HOLD');
+ if(issues.length||reasons.length||readinessIssues.length||held)
   add('VALUATION_RECONCILIATION','تسوية مناهج القيمة والدخل والتدفقات والافتراضات','وجود إشكالات حسابية أو نقص في جاهزية الدراسة');
  add('INDEPENDENT_REVIEW','مراجعة مهنية ومالية وقانونية مستقلة قبل قرار الاستثمار','لا توجد شهادة دقة سوقية أو اعتماد مهني مستقل لهذه الدراسة');
  return Object.freeze({status:'RESEARCH_GAPS_ONLY',investmentDecision:'HOLD',
