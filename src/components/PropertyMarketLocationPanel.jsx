@@ -92,7 +92,7 @@ function ComparisonTable({ title, kind, rows, setRows, assetType }) {
   </section>;
 }
 export default function PropertyMarketLocationPanel() {
-  const {setSubject:setSessionSubject,link:appraisalLink}=useAppraisalReviewSession();
+  const {setSubject:setSessionSubject,link:appraisalLink,invalidateLink}=useAppraisalReviewSession();
   const [subject,setSubject]=useState({
     name:'',assetType:'RESIDENTIAL_COMPOUND',landSubtype:'',city:'الرياض',district:'',location:'',
     landArea:'',builtArea:'',rentableArea:'',buildingCount:'',unitCount:'',floorCount:'',
@@ -193,6 +193,8 @@ export default function PropertyMarketLocationPanel() {
     sales:allSales,rentals:allRentals,projects,marketOffers,unitMix,leaseComparables,rentAssumptions,
   });
   const applyResearchStudy=restored=>{
+    // Loading/importing a study is a new review event, even when the identity fields match.
+    invalidateLink();
     setSubject(restored.subject);
     setAssumptions(restored.assumptions);
     setSales(restored.sales);
@@ -217,6 +219,7 @@ export default function PropertyMarketLocationPanel() {
     }catch(error){setSavedDealStudyStatus('تعذر قراءة سجل الصفقات: '+String(error.code||error.message));}
   };
   const saveLinkedStudy=async()=>{
+    if(appraisalBinding.blockExport){setSavedDealStudyStatus('حُظر حفظ ملحق الصفقة لوجود تدقيق تقييم متعارض أو ربط قديم. أعد المطابقة أولاً.');return;}
     if(!selectedSavedDealId){setSavedDealStudyStatus('اختر الصفقة المحفوظة أولًا.');return;}
     if(!linkedDealIdentityAcknowledged){setSavedDealStudyStatus('أكد أن الدراسة تخص العقار نفسه قبل الحفظ.');return;}
     setLinkedStudyBusy(true);
@@ -224,7 +227,7 @@ export default function PropertyMarketLocationPanel() {
       const saved=await saveResearchSidecar({
         storage:createStorageProvider(),dealId:selectedSavedDealId,
         studyJson:makeResearchInputJson(),identityConfirmed:linkedDealIdentityAcknowledged,
-        overwrite:replaceLinkedStudy,
+        overwrite:replaceLinkedStudy,appraisalLink,
       });
       setSavedDealStudyStatus('تم حفظ ملحق الدراسة البحثية للصفقة '+saved.dealId+
         ' دون تغيير ملف الصفقة المالي الرئيسي أو منحه اعتمادًا مهنيًا.');
@@ -523,7 +526,7 @@ export default function PropertyMarketLocationPanel() {
         أوافق على استبدال ملحق دراسة محفوظ سابقًا لهذه الصفقة
       </label>
       <div className="flex flex-wrap gap-2 mt-3">
-        <button type="button" disabled={linkedStudyBusy||!selectedSavedDealId||!linkedDealIdentityAcknowledged}
+        <button type="button" disabled={linkedStudyBusy||!selectedSavedDealId||!linkedDealIdentityAcknowledged||appraisalBinding.blockExport}
           onClick={saveLinkedStudy} className="min-h-[40px] rounded-lg bg-[#C9A24C] px-4 py-2 text-xs font-semibold text-[#141F35] disabled:opacity-50">
           حفظ ملحق الدراسة للصفقة المختارة
         </button>
