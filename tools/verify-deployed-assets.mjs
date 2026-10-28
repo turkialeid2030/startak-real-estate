@@ -48,9 +48,11 @@ export async function verifyDeployedAssets({url,expectedSha,fetchImpl=fetch}){
         reader.releaseLock();
       }
       bytes=Buffer.concat(chunks,n);
+    }else if(response.body===null){
+      // Empty-body responses are safe; opaque non-streaming bodies are not.
+      bytes=Buffer.alloc(0);
     }else{
-      bytes=Buffer.from(await response.arrayBuffer());
-      if(bytes.length>maxBytes)throw oversize();
+      throw Error('ASSET_RESPONSE_STREAM_INVALID');
     }
     return {response,bytes,observedAt:new Date().toISOString()};
   };
