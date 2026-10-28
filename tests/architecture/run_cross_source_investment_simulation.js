@@ -54,7 +54,8 @@ ok(snap.context.every(x=>!x.professionalComparableSelected&&!x.eligibleForFinanc
  'unverified research never enters the economic engine as comparable');
 const earlier=buildUnifiedResearch({subject,asOf:'2026-10-20',
  feeds:{listings:listings.records,national:national.records,earth:earth.records}});
-ok(earlier.subjectAreaRows===1,'as-of barrier eliminates future sale/offer observations');
+ok(earlier.subjectAreaRows===0&&earlier.risks.includes('POST_ASOF_RESEARCH_EXCLUDED'),
+ 'as-of barrier excludes all records only observed after the historical decision date');
 const bundle=researchReportBundle(snap,{marketReadinessStatus:'HOLD'});
 ok(bundle.valuationSar===null&&bundle.maximumPurchaseSar===null&&
  bundle.publishableProfessionalValuation===false,'report bundle blocks licensed appraisal');
