@@ -100,11 +100,13 @@ try{
  assert(await suhail.getAttribute('dir')==='rtl','D04 restores Arabic neighborhood panel direction');
  await page.waitForFunction(()=>{
    const element=document.querySelector('[data-testid="research-evidence-fusion"] [data-testid="fusion-status"]');
-   return element?.textContent?.includes('HOLD')===true;
+   return element?.getAttribute('data-decision')==='HOLD' &&
+     element?.textContent?.includes('معلّق')===true;
   },null,{timeout:8000});
- const statusAfterReturn=await fusion.getByTestId('fusion-status').textContent();
- assert(String(statusAfterReturn).includes('HOLD'),
-  'D04 Arabic HOLD status retained after DOM settles; actual='+JSON.stringify(statusAfterReturn));
+ const arStatus=await fusion.getByTestId('fusion-status').textContent();
+ assert(String(arStatus).includes('معلّق') &&
+   await fusion.getByTestId('fusion-status').getAttribute('data-decision')==='HOLD',
+   'D04 Arabic status must display Arabic hold while preserving immutable machine HOLD; actual='+JSON.stringify(arStatus));
  assert(errors.length===0,'React browser failures: '+errors.slice(0,2).join(','));
  console.log('D06_D07_REAL_CHROMIUM=PASS financial_and_valuation_states_separate=true inferred_title=false');
 }catch(e){console.error('D06_D07_REAL_CHROMIUM=FAIL '+String(e.stack||e));process.exitCode=1;}
