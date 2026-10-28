@@ -58,9 +58,9 @@ try{
  await apply.click();
  const name=await market.getByLabel('اسم العقار').inputValue();
  assert(name===STUDY,'D06 current user-saved financial deal identity must transfer without guessing');
- assert(await market.getByLabel('المدينة').inputValue()==='الرياض',
+ assert(await market.getByLabel('المدينة',{exact:true}).first().inputValue()==='الرياض',
   'D06 must preserve city rather than pretend the title verifies location');
- assert(await market.getByLabel('نوع العقار',{exact:true}).inputValue()==='OFFICE_TOWER',
+ assert(await market.getByLabel('نوع العقار',{exact:true}).first().inputValue()==='OFFICE_TOWER',
   'D06 asset class must be the expressly chosen option');
  assert(errors.length===0,'React browser failures: '+errors.slice(0,2).join(', '));
  console.log('D06_D07_REAL_CHROMIUM=PASS financial_and_valuation_states_separate=true inferred_title=false');
