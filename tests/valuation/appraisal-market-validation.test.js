@@ -34,7 +34,7 @@ t('small sample produces metrics only with insufficient-coverage label',()=>{
 t('30 synthetic rows permit research diagnostic but never certified accuracy',()=>{
  const r=e({observations:Array.from({length:30},(_,i)=>obs(i+1))});
  assert.equal(r.status,'RESEARCH_HOLDOUT_CALCULATED_NOT_CERTIFIED');
- assert.equal(r.overall.mapePct,100/11);
+ assert.ok(Math.abs(r.overall.mapePct-100/11)<1e-10,'floating-point MAPE arithmetic tolerance');
  assert.equal(r.certifiedAppraisalAccuracy,false);
  assert.equal(r.bySectorAndCity['WAREHOUSE|Riyadh'].count,30);
 });
