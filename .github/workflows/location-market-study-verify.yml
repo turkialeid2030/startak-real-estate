@@ -108,3 +108,50 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: node tests/e2e/run_location_market_study_ci.mjs
       - run: node tests/e2e/run_appraisal_assurance_ci.mjs
+
+  owner-journey-real-chromium:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    env:
+      STARTAK_E2E_URL: http://127.0.0.1:4173
+      STARTAK_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact unmerged candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Confirm exact candidate SHA
+        run: test "$(git rev-parse HEAD)" = "$STARTAK_SOURCE_COMMIT"
+      - run: npm ci
+      - name: Install real Chromium for owner acceptance
+        run: npx playwright install --with-deps chromium
+      - name: Build production-equivalent browser bundle
+        run: npm run build
+      - name: Launch isolated local preview, never Cloudflare production
+        shell: bash
+        run: |
+          set -euo pipefail
+          (nohup npm run preview -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/startak-owner-journey.log 2>&1 &)
+          for n in $(seq 1 60); do
+            if curl --silent --fail http://127.0.0.1:4173/ > /dev/null; then
+              echo "OWNER_JOURNEY_LOCAL_PREVIEW_READY=true"
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/startak-owner-journey.log
+          exit 1
+      - name: Visit and interact with all thirteen Saudi asset class workspaces
+        run: node tests/e2e/run_all_13_asset_classes_public_smoke.js
+      - name: Validate actual Arabic owner valuation, draft restore, numbers and export on desktop/mobile
+        run: node tests/e2e/run_audit_20261010_f03_f07_browser.js
+      - name: Download and verify owner personal JSON and HTML through Chromium
+        run: node tests/e2e/run_c75_real_chromium_personal_study.js
