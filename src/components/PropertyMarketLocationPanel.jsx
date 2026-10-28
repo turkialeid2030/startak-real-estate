@@ -1,4 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import {useAppraisalReviewSession} from './AppraisalReviewSessionContext.jsx';
+const {evaluateBoundReview}=require('../market/appraisal-study-binding');
 const { ASSET_TYPES, extractCoordinates, evaluateMarketStudy } = require('../market/instant-market-study');
 const { prepareImportCsv,MAX_CSV_BYTES } = require('../market/public-dataset-import');
 const {readOpenQuarters,deriveDistrictSnapshot,OPEN_QUARTERS}=require('../market/saudi-open-data-research');
@@ -90,6 +92,7 @@ function ComparisonTable({ title, kind, rows, setRows, assetType }) {
   </section>;
 }
 export default function PropertyMarketLocationPanel() {
+  const {setSubject:setSessionSubject,link:appraisalLink}=useAppraisalReviewSession();
   const [subject,setSubject]=useState({
     name:'',assetType:'RESIDENTIAL_COMPOUND',landSubtype:'',city:'الرياض',district:'',location:'',
     landArea:'',builtArea:'',rentableArea:'',buildingCount:'',unitCount:'',floorCount:'',
@@ -124,6 +127,8 @@ export default function PropertyMarketLocationPanel() {
   const [replaceLinkedStudy,setReplaceLinkedStudy]=useState(false);
   const [linkedStudyBusy,setLinkedStudyBusy]=useState(false);
   const [linkedDealIdentityAcknowledged,setLinkedDealIdentityAcknowledged]=useState(false);
+  useEffect(()=>{setSessionSubject(subject);},[subject,setSessionSubject]);
+  const appraisalBinding=useMemo(()=>evaluateBoundReview({subject,link:appraisalLink}),[subject,appraisalLink]);
   const updateSubject=(key,value)=>setSubject(current=>({...current,[key]:value}));
   const updateAssumption=(key,value)=>setAssumptions(current=>({...current,[key]:value}));
   const studyAsOf=resolveStudyAsOf(subject.valuationDate);
@@ -139,8 +144,8 @@ export default function PropertyMarketLocationPanel() {
     subject,unitMix,leaseComparables,...rentAssumptions,asOf:new Date(asOfMs),
   }),[subject,unitMix,leaseComparables,rentAssumptions,asOfMs]);
   const valuationReadiness=useMemo(()=>auditValuationReadiness({
-    subject,report,segmentedRent:segmentedMarketRents,sales:allSales,rentals:allRentals,asOf:new Date(asOfMs),
-  }),[subject,report,segmentedMarketRents,allSales,allRentals,asOfMs]);
+    subject,report,segmentedRent:segmentedMarketRents,sales:allSales,rentals:allRentals,appraisalReview:appraisalBinding.appraisalReview,asOf:new Date(asOfMs),
+  }),[subject,report,segmentedMarketRents,allSales,allRentals,appraisalBinding,asOfMs]);
   const appraisalQuality=useMemo(()=>evaluateAppraisalReportQuality({
     subject,marketReport:report,readiness:valuationReadiness,asOf:new Date(asOfMs),
   }),[subject,report,valuationReadiness,asOfMs]);
@@ -254,6 +259,10 @@ export default function PropertyMarketLocationPanel() {
     }catch(error){setMessage('فشل استيراد ملف الدراسة: '+String(error.message||'STUDY_INVALID'));}
   };
   const exportJson=()=>{
+    if(appraisalBinding.blockExport){
+      setMessage('تم منع تصدير الدراسة بسبب تعارض أو انتهاء صلاحية ربط تدقيق التقرير. راجع المطابقة والتدقيق أولاً.');
+      return;
+    }
     try {
       const blob=new Blob([JSON.stringify({kind:'STARTAK_PERSONAL_MARKET_STUDY',subject,assumptions,
         sales:allSales,rentals:allRentals,projects,marketOffers,unitMix,leaseComparables,rentAssumptions,
@@ -465,6 +474,11 @@ export default function PropertyMarketLocationPanel() {
       </p>
       {!!report.issues.length&&<p className="mt-2 text-xs text-amber-300">بيانات بحاجة لاستكمال: {report.issues.map(x=>labelMap[x]||x).join('؛ ')}.</p>}
       <p className="mt-2 text-xs text-slate-400">بيانات مقارنة يُقر بها المستخدم ولم يُتحقق منها مستقلاً. لا توجد تغذية لحظية مرخّصة متصلة. لا تستعمل هذه النتيجة كتقييم رسمي أو أساس قرار شراء ملزم.</p>
+    </div>
+    <div data-testid="appraisal-market-link-status" data-status={appraisalBinding.status} role="status" className="mt-3 rounded border border-slate-600 p-3 text-xs text-slate-200">
+      ربط تدقيق تقرير التقييم بدراسة السوق: {appraisalBinding.status==='NOT_LINKED'?'غير مرتبط — لا يجوز افتراض اعتماد التقرير':
+      appraisalBinding.status==='LINKED_REVIEW_REQUIRED'?'تم الربط بإقرار المستخدم — مراجعة غير معتمدة':
+      'HOLD — تعارض تدقيق أو تغيير بيانات الهوية؛ تمنع القيمة الموحدة والتصدير البحثي حتى التسوية'}.
     </div>
     <ValuationQualityPanel readiness={valuationReadiness} quality={appraisalQuality} studyAsOf={studyAsOf}/>
     <MarketOfferResearchPanel subject={subject} offers={marketOffers} setOffers={setMarketOffers} asOf={studyAsOf.asOf}/>
