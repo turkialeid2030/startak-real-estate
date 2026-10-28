@@ -69,6 +69,20 @@ ok('source lookalike URLs are rejected after import object mutation',()=>{
  const fake={listings:[{...listings[0],listingUrl:'https://sa.aqar.fm.evil.net/p/1'}]};
  assert.equal(fromResearchFeeds(fake).records.length,0);
 });
+ok('different official quarter snapshots must not conflict when imported on same day',()=>{
+ const data=[
+ 'source,city,district,kind,recordId,eventDate,periodStart,periodEnd,metricName,metricValue,unit,sourceUrl,assetType',
+ 'REGA_REI,الرياض,الملقا,OFFICIAL_AGGREGATE,,,2026-01-01,2026-03-31,deal_count,20,COUNT,https://rei.rega.gov.sa/ar,LAND',
+ 'REGA_REI,الرياض,الملقا,OFFICIAL_AGGREGATE,,,2026-04-01,2026-06-30,deal_count,30,COUNT,https://rei.rega.gov.sa/ar,LAND',
+ 'REGA_REI,جدة,الصفا,OFFICIAL_AGGREGATE,,,2026-04-01,2026-06-30,deal_count,40,COUNT,https://rei.rega.gov.sa/ar,LAND',
+ ].join('\n');
+ const parsed=importNationalSourcesCsv(data,{observedOn:'2026-10-28'});
+ assert.equal(parsed.records.length,3);
+ const output=buildUnifiedResearch({subject,feeds:{national:parsed.records}});
+ assert.equal(output.subjectAreaRows,2);
+ assert.equal(output.contradictoryObservations.length,0);
+ assert.equal(output.possibleRepeatedObservations,0);
+});
 ok('same source transaction with different amount is marked conflict',()=>{
  const cloned={...earth[0],amountSar:2700000};
  const out=buildUnifiedResearch({subject,feeds:{earth:[...earth,cloned]}});

@@ -69,7 +69,9 @@ function fromResearchFeeds(feeds={}){
         new URL(BY_ID[r.sourceId].url).hostname){
       errors.push({feed:key,row:i+1,code:'SOURCE_INVALID'});continue;
     }
-    type=r.evidenceClass;ref=r.recordId||r.metricName||r.sourceId;
+    type=r.evidenceClass;
+    ref=r.recordId||[r.metricName||r.sourceId,
+      r.periodStart||'',r.periodEnd||'',r.assetType||''].join(':');
     origin=r.sourceId;surface=r.sourceUrl;price=finite(r.metricValue);
     eventDate=r.eventDate||null;transactionId=type==='OFFICIAL_REPORTED_SALE'||
        type==='THIRD_PARTY_REPORTED_SALE'?r.recordId:null;
@@ -96,7 +98,8 @@ function compareCandidates(records){
  for(const record of records){
   // Within one provider, duplicated references on the same observation date
   // cannot count as independent market evidence.
-  const identityKey=[record.origin,norm(record.ref),record.observedOn].join('|');
+  const identityKey=[record.origin,norm(record.ref),norm(record.city),norm(record.district),
+    record.observedOn].join('|');
   const first=identity.get(identityKey);
   if(first){
    if(first.priceOrMetricSar!==record.priceOrMetricSar||
