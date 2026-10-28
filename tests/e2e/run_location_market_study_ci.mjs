@@ -90,8 +90,22 @@ try{
  await nationalSources.getByTestId('national-import-csv').setInputFiles({
   name:'synthetic-truvalue.csv',mimeType:'text/csv',buffer:Buffer.from(truCsv)});
  await nationalSources.getByTestId('national-import-status').filter({hasText:'أضيف 1'}).waitFor();
+ await nationalSources.getByTestId('national-city-filter').selectOption('');
+ await nationalSources.getByTestId('national-class-filter').selectOption('');
  await nationalSources.getByTestId('national-source-filter').selectOption('BAYUT_TRUVALUE');
- await nationalSources.locator('tbody tr').filter({hasText:'HIGH'}).waitFor();
+ const bayutMatching= nationalSources.locator('tbody tr').filter({hasText:'HIGH'});
+ try { await bayutMatching.waitFor(); }
+ catch(e){
+  const debug={
+   selectedSource:await nationalSources.getByTestId('national-source-filter').inputValue(),
+   selectedCity:await nationalSources.getByTestId('national-city-filter').inputValue(),
+   selectedClass:await nationalSources.getByTestId('national-class-filter').inputValue(),
+   notice:await nationalSources.getByTestId('national-import-status').innerText(),
+   rows:await nationalSources.locator('tbody').innerText(),
+   summary:await nationalSources.getByTestId('national-summary').innerText(),
+  };
+  throw Error('BAYUT_TRUVALUE_VIEW_DIAGNOSTIC: '+JSON.stringify(debug)+'; '+e.message);
+ }
  assert(await nationalSources.locator('tbody tr').count()===1,'TruValue estimate isolated from official sales');
  assert((await nationalSources.locator('tbody').innerText()).includes('HIGH'),
   'Bayut provider-stated confidence should be displayed as a label');
