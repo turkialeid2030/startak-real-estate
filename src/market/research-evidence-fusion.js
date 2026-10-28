@@ -277,6 +277,39 @@ function scenarioAnnex({marketReport=null,readiness=null}={}){
   disclaimer:'These deterministic outputs are conditional user-input scenarios, not independently verified market values or licensed appraisals.'};
 }
 
+// Actionable reviewer tasks for the owner pilot. These are missing-evidence requests,
+// not market price conclusions or AI authorization to transact.
+function researchReviewPlan(snapshot,{marketReport=null,readiness=null}={}){
+ if(!snapshot||snapshot.version!==VERSION||snapshot.status!=='HOLD_UNVERIFIED_PERSONAL_RESEARCH')
+  throw Error('RESEARCH_REVIEW_PLAN_INVALID');
+ const tasks=[];
+ const add=(id,label,reason)=>tasks.push(Object.freeze({
+  id,label,reason,status:'OPEN_NOT_INDEPENDENTLY_VERIFIED',
+  approvalClaim:false,professionalValuationClaim:false}));
+ if(!snapshot.subject?.city||!snapshot.subject?.district)
+  add('LOCATION_SCOPE','استكمال المدينة والحي للعقار','لا يمكن تحديد نطاق السوق دون موقع واضح');
+ if(!snapshot.matchedParcelCandidates)
+  add('PROPERTY_AND_TITLE','مطابقة موقع العقار وصكه ورقم القطعة والمخطط','تطابق اسم الحي لا يثبت هوية العقار ولا ملكيته');
+ if(snapshot.subjectAreaRows===0)
+  add('RELEVANT_MARKET_EVIDENCE','توفير بيانات سوق مرتبطة بالنطاق وتاريخ الدراسة','لم تتوافر سجلات بحثية مطابقة للنطاق عند التاريخ المحدد');
+ if(snapshot.verifiedExecutedSales===0)
+  add('EXECUTED_SALES_PROOF','مطابقة صفقات منفذة مع مصدر أصلي وصلاحية استخدام','العرض المعلن والصفقة المنقولة لا يثبتان سعر تنفيذ لعقار مقارن');
+ if(snapshot.possibleCrossSourceDuplicates?.length||snapshot.possibleRepeatedObservations)
+  add('DUPLICATES','تدقيق هوية السجلات والعروض المكررة بين المصادر','منع تضخيم حجم العينة والتأثير على المؤشرات');
+ if(snapshot.contradictoryObservations?.length)
+  add('CONFLICTS','التحقق من السجلات المتعارضة ومصدر كل رقم','لا يجوز اختيار القيمة الملائمة وإهمال المصدر المتعارض');
+ if(snapshot.rejectedRows?.length)
+  add('REJECTED_IMPORTS','مراجعة الصفوف المرفوضة من الاستيراد','مراجعة الأخطاء قبل إعادة استخدام الملف');
+ const issues=Array.isArray(marketReport?.issues)?marketReport.issues:[];
+ const reasons=Array.isArray(readiness?.reasons)?readiness.reasons:[];
+ if(issues.length||reasons.length||readiness?.status==='HOLD')
+  add('VALUATION_RECONCILIATION','تسوية مناهج القيمة والدخل والتدفقات والافتراضات','وجود إشكالات حسابية أو نقص في جاهزية الدراسة');
+ add('INDEPENDENT_REVIEW','مراجعة مهنية ومالية وقانونية مستقلة قبل قرار الاستثمار','لا توجد شهادة دقة سوقية أو اعتماد مهني مستقل لهذه الدراسة');
+ return Object.freeze({status:'RESEARCH_GAPS_ONLY',investmentDecision:'HOLD',
+  certifiedValueSar:null,approvedMaximumPurchaseSar:null,
+  sourceVerificationPerformed:false,independentProfessionalReviewCompleted:false,
+  taskCount:tasks.length,tasks});
+}
 function researchReportBundle(snapshot,{marketReadinessStatus='NOT_TESTED',marketReport=null,readiness=null,publicNeighborhood=null,publicLoadMeta=null}={}){
  if(!snapshot||snapshot.version!==VERSION)throw Error('FUSION_REPORT_INVALID');
  return {kind:'STARTAK_RESEARCH_EVIDENCE_BRIEF_V1',version:VERSION,
@@ -294,6 +327,7 @@ function researchReportBundle(snapshot,{marketReadinessStatus='NOT_TESTED',marke
     url:x.sourceUrl,verified:false})),
   scenarioAnnex:scenarioAnnex({marketReport,readiness}),
   openDataAnnex:publicOpenDataAnnex({snapshot,neighborhood:publicNeighborhood,loadMeta:publicLoadMeta}),
+  reviewerActionPlan:researchReviewPlan(snapshot,{marketReport,readiness}),
   riskCodes:snapshot.risks,valuationSar:null,maximumPurchaseSar:null,
   investmentDecision:'HOLD_REQUIRES_INDEPENDENT_MARKET_AND_FINANCIAL_EVIDENCE',
   permittedUse:'PERSONAL_RESEARCH_DRAFT',publishableProfessionalValuation:false,
@@ -302,4 +336,4 @@ function researchReportBundle(snapshot,{marketReadinessStatus='NOT_TESTED',marke
    'LIVE_SOURCE_APIS','PROPERTY_LEVEL_COMPARABLES','PROFESSIONAL_APPRAISAL']};
 }
 module.exports={VERSION,fromResearchFeeds,compareCandidates,buildUnifiedResearch,
- researchClaimsGate,researchReportBundle,scenarioAnnex,publicOpenDataAnnex};
+ researchClaimsGate,researchReportBundle,researchReviewPlan,scenarioAnnex,publicOpenDataAnnex};
