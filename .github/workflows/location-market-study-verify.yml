@@ -183,7 +183,7 @@ jobs:
           test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
           mkdir -p runtime-evidence/preview-delivery
           consecutive=0
-          for attempt in $(seq 1 18); do
+          for attempt in $(seq 1 6); do
             echo "PREVIEW_OBSERVATION_ATTEMPT=$attempt"
             if node tools/verify-deployed-assets.mjs --url "$PREVIEW_URL" --expected-sha "$EXPECTED_SHA" --output "runtime-evidence/preview-delivery/attempt-$attempt.json"; then
               consecutive=$((consecutive + 1))
