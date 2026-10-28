@@ -62,6 +62,13 @@ on:
       - 'tests/e2e/run_location_market_study_ci.mjs'
       - 'tools/verify-protected-preview.mjs'
       - 'tests/architecture/run_protected_preview_access.js'
+      - 'src/market/financial-to-market-identity.js'
+      - 'src/app/personal-study-status-clarity.js'
+      - 'src/components/PersonalInvestmentResearchPanel.jsx'
+      - 'src/components/CurrentCalculationBoundary.js'
+      - 'tests/defects/current_calculation_boundary_audit.js'
+      - 'tests/defects/financial_market_identity_d06.js'
+      - 'tests/defects/personal_study_status_clarity_d07.js'
       - '.github/workflows/location-market-study-verify.yml'
   workflow_dispatch:
 concurrency:
@@ -89,6 +96,12 @@ jobs:
       - run: node tests/architecture/run_unified_valuation_case.js
       - run: node tests/architecture/run_appraisal_report_quality.js
       - run: node tests/architecture/run_asking_offers.js
+      - name: Audit D01 stale results are inaccessible on invalid input
+        run: node tests/defects/current_calculation_boundary_audit.js
+      - name: Audit D06 explicit financial-to-market property identity
+        run: node tests/defects/financial_market_identity_d06.js
+      - name: Audit D07 independent financial and valuation labels
+        run: node tests/defects/personal_study_status_clarity_d07.js
       - name: Secure Access synthetic tests without tokens
         run: node tests/architecture/run_protected_preview_access.js
       - run: node tests/architecture/run_transaction_cohort_unit_mix.js
