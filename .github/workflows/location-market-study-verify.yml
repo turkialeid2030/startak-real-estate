@@ -60,6 +60,8 @@ on:
       - 'tests/architecture/run_saudi_open_data_research.js'
       - 'tests/architecture/run_saudi_open_data_live_smoke.js'
       - 'tests/e2e/run_location_market_study_ci.mjs'
+      - 'tools/verify-protected-preview.mjs'
+      - 'tests/architecture/run_protected_preview_access.js'
       - '.github/workflows/location-market-study-verify.yml'
   workflow_dispatch:
 concurrency:
@@ -87,6 +89,8 @@ jobs:
       - run: node tests/architecture/run_unified_valuation_case.js
       - run: node tests/architecture/run_appraisal_report_quality.js
       - run: node tests/architecture/run_asking_offers.js
+      - name: Secure Access synthetic tests without tokens
+        run: node tests/architecture/run_protected_preview_access.js
       - run: node tests/architecture/run_transaction_cohort_unit_mix.js
       - run: node tests/architecture/run_market_study_state.js
       - run: node tests/architecture/run_saved_deal_research_sidecar.js
