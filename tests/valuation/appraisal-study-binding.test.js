@@ -45,4 +45,20 @@ check('once session is invalidated, reverting subject cannot restore authority',
  assert.equal(evaluateBoundReview({subject,link:invalidated}).status,'STALE_OR_UNMATCHED_LINK');
  assert.equal(evaluateBoundReview({subject,link:invalidated}).blockExport,true);
 });
+check('unknown report review status must be held, not silently downgraded',()=>{
+ const tampered={...attach().link,reviewStatus:'UNKNOWN'};
+ assert.equal(evaluateBoundReview({subject,link:tampered}).blockExport,true);
+ assert.equal(evaluateBoundReview({subject,link:tampered}).status,'STALE_OR_UNMATCHED_LINK');
+});
+check('inconsistent reviewed issue cannot be linked as safe review',()=>{
+ const r=bindReview({subject,appraisal,documentDigest:sha,confirmed:true,
+  review:{status:'REVIEW_REQUIRED',issues:[{code:'CIRCULAR_VALUATION',severity:'BLOCK'}]}});
+ assert.equal(r.link,null);assert.equal(r.status,'HOLD');
+});
+check('injected blocking issue in review-only link still blocks',()=>{
+ const review=bindReview({subject,appraisal,documentDigest:sha,confirmed:true,
+  review:{status:'REVIEW_REQUIRED',issues:[]}});
+ const tampered={...review.link,issues:['CIRCULAR_VALUATION']};
+ assert.equal(evaluateBoundReview({subject,link:tampered}).blockExport,true);
+});
 console.log('SUCCESS '+count+'/'+count+' independent binding tests');

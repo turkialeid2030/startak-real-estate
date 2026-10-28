@@ -36,7 +36,8 @@ function validateIdentity({subject={},appraisal={},documentDigest,confirmed=fals
 function bindReview({subject,appraisal,documentDigest,review,confirmed}={}){
  const match=validateIdentity({subject,appraisal,documentDigest,confirmed});
  if(match.status==='HOLD')return {status:'HOLD',reasons:match.reasons,link:null};
- if(!review||!['HOLD','REVIEW_REQUIRED'].includes(review.status))
+ if(!review||!['HOLD','REVIEW_REQUIRED'].includes(review.status)||
+   (review.status==='REVIEW_REQUIRED'&&Array.isArray(review.issues)&&review.issues.some(x=>x?.severity==='BLOCK')))
    return {status:'HOLD',reasons:['VALID_APPRAISAL_AUDIT_REQUIRED'],link:null};
  const link=Object.freeze({
   kind:'STARTAK_APPRAISAL_SESSION_REVIEW_V1',documentDigest:digest(documentDigest),
@@ -53,6 +54,13 @@ function evaluateBoundReview({subject={},link=null}={}){
  if(link.invalidated===true||link.kind!=='STARTAK_APPRAISAL_SESSION_REVIEW_V1'||!digest(link.documentDigest)||
     !same(snapshot(subject),link.subjectSnapshot||{}))
   return {status:'STALE_OR_UNMATCHED_LINK',appraisalReview:{status:'HOLD'},blockExport:true,reasons:['APPRAISAL_LINK_IDENTITY_OR_SOURCE_CHANGED']};
+ if(!['HOLD','REVIEW_REQUIRED'].includes(link.reviewStatus)||
+    (link.reviewStatus==='REVIEW_REQUIRED'&&Array.isArray(link.issues)&&
+      link.issues.some(x=>['CIRCULAR_VALUATION','INCOME_CAPITALIZATION_MISMATCH',
+        'NOI_RECONCILIATION_MISMATCH','RENT_PERCENTAGE_ARITHMETIC_MISMATCH',
+        'SPECIALIST_EVIDENCE_HOLD','INVALID_NUMERIC_INPUT'].includes(x))))
+  return {status:'STALE_OR_UNMATCHED_LINK',appraisalReview:{status:'HOLD'},blockExport:true,
+    reasons:['APPRAISAL_REVIEW_STATE_INVALID_OR_BLOCKERS_PRESENT']};
  if(link.reviewStatus==='HOLD')
   return {status:'LINKED_AUDIT_HOLD',appraisalReview:{status:'HOLD'},blockExport:true,reasons:['APPRAISAL_AUDIT_HOLD']};
  return {status:'LINKED_REVIEW_REQUIRED',appraisalReview:{status:'REVIEW_REQUIRED'},

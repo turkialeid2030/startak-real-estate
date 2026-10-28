@@ -10,6 +10,7 @@ const ASSET_TYPES = Object.freeze({
   MIXED_USE: 'متعدد الاستخدامات',
   WAREHOUSE: 'مستودعات',
   HOTEL: 'فندق أو شقق فندقية',
+  FUEL_STATION: 'محطة وقود (عقار وتشغيل متخصص)',
   COMMERCIAL_MALL: 'مول تجاري',
   RESIDENTIAL_VILLA: 'فلل سكنية',
   LOGISTICS_PARK: 'مجمع لوجستي',
@@ -85,7 +86,7 @@ function evaluateMarketStudy({ subject, sales = [], rentals = [], projects = [],
   const now = asOf instanceof Date ? asOf : new Date(asOf);
   if (!Number.isFinite(now.getTime())) throw new Error('AS_OF_INVALID');
   const type = subject && subject.assetType;
-  const specialistAsset=['HOTEL','HEALTHCARE_PROPERTY','INDUSTRIAL_PROPERTY'].includes(type);
+  const specialistAsset=['HOTEL','HEALTHCARE_PROPERTY','INDUSTRIAL_PROPERTY','FUEL_STATION'].includes(type);
   const specialistReason=specialistAsset?'SPECIALIST_ASSET_REQUIRES_SECTOR_UNDERWRITING':null;
   const location = extractCoordinates(subject?.location || '');
   const basisArea = type === 'LAND' ? number(subject?.landArea) : number(subject?.builtArea);
@@ -160,7 +161,7 @@ function evaluateMarketStudy({ subject, sales = [], rentals = [], projects = [],
   const perSqmSale = eligibleSales.length >= 3 ? median(saleUnitValues) : null;
   const perSqmRent = eligibleRentals.length >= 3 ? median(rentUnitValues) : null;
   const saleIndication = perSqmSale !== null && basisArea > 0 ? perSqmSale * basisArea : null;
-  // Hotels, healthcare and industrial properties include business or fit-out value:
+  // Hotels, fuel stations, healthcare and industrial properties may include business or fit-out value:
   // a generic NLA rental model is not sufficient for an economic rent conclusion.
   const marketRentPotential = !specialistAsset && perSqmRent !== null && lettableArea > 0 ? perSqmRent * lettableArea : null;
   const annualOccupiedRent = marketRentPotential !== null && occupancy >= 0 && occupancy <= 1 ? marketRentPotential * occupancy : null;
