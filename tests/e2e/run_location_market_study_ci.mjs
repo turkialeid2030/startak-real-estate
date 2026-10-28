@@ -91,6 +91,7 @@ try{
   name:'synthetic-truvalue.csv',mimeType:'text/csv',buffer:Buffer.from(truCsv)});
  await nationalSources.getByTestId('national-import-status').filter({hasText:'أضيف 1'}).waitFor();
  await nationalSources.getByTestId('national-source-filter').selectOption('BAYUT_TRUVALUE');
+ await nationalSources.locator('tbody tr').filter({hasText:'HIGH'}).waitFor();
  assert(await nationalSources.locator('tbody tr').count()===1,'TruValue estimate isolated from official sales');
  assert((await nationalSources.locator('tbody').innerText()).includes('HIGH'),
   'Bayut provider-stated confidence should be displayed as a label');
