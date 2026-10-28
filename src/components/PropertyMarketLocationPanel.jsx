@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {useAppraisalReviewSession} from './AppraisalReviewSessionContext.jsx';
 const {evaluateBoundReview}=require('../market/appraisal-study-binding');
+const {useLocale}=require('../i18n/LocaleContext.js');
+const {coreMarketLabel,coreMarketAssetOptions,formatBridgeFields,marketOptionLabel}=
+  require('../i18n/market-study-core-labels');
 const {proposeFinancialToMarketIdentity,applyFinancialToMarketIdentity}=
   require('../market/financial-to-market-identity');
 const { ASSET_TYPES, extractCoordinates, evaluateMarketStudy } = require('../market/instant-market-study');
@@ -48,15 +51,17 @@ const labelMap = {
   MATERIAL_MARKET_INCOME_GAP_REQUIRES_RECONCILIATION:'فارق جوهري بين السوق والدخل (20% أو أكثر): أوقفت القيمة الموحدة حتى تسوية الافتراضات والمقارنات',
 };
 function Field({ title, value, onChange, type='text', placeholder='' }) {
-  return <label className="block min-w-0 text-xs text-slate-300">{title}
+  const {locale}=useLocale();
+  return <label className="block min-w-0 text-xs text-slate-300">{coreMarketLabel(title,locale)}
     <input className={INPUT+' mt-1'} type={type} value={value} placeholder={placeholder}
       onChange={e => onChange(e.target.value)} dir={type==='date'?'ltr':'auto'}/>
   </label>;
 }
 function Select({ title, value, onChange, options, testId }) {
-  return <label className="block min-w-0 text-xs text-slate-300">{title}
+  const {locale}=useLocale();
+  return <label className="block min-w-0 text-xs text-slate-300">{coreMarketLabel(title,locale)}
     <select data-testid={testId} className={INPUT+' mt-1'} value={value} onChange={e=>onChange(e.target.value)}>
-      {options.map(([v,t])=><option key={v} value={v}>{t}</option>)}
+      {options.map(([v,t])=><option key={v} value={v}>{marketOptionLabel(v,t,locale)}</option>)}
     </select>
   </label>;
 }
@@ -101,6 +106,9 @@ function ComparisonTable({ title, kind, rows, setRows, assetType }) {
   </section>;
 }
 export default function PropertyMarketLocationPanel({financialStudy=null}) {
+  const {locale}=useLocale();
+  const english=locale==='en';
+  const L=value=>coreMarketLabel(value,locale);
   const {setSubject:setSessionSubject,link:appraisalLink,invalidateLink}=useAppraisalReviewSession();
   const [subject,setSubject]=useState({
     name:'',assetType:'RESIDENTIAL_COMPOUND',landSubtype:'',city:'الرياض',district:'',location:'',
@@ -311,24 +319,26 @@ export default function PropertyMarketLocationPanel({financialStudy=null}) {
     }
   };
   const latestWindow='آخر 365 يومًا من تاريخ الحساب، وليست بالضرورة معاملات نُفذت اليوم';
-  return <section dir="rtl" data-testid="location-market-study" className="mt-6 rounded-2xl border border-[#4B607A] bg-[#141F35] p-4 md:p-6 text-slate-100">
-    <h2 className="text-lg font-bold text-amber-100">موقع العقار والقيمة السوقية والإيجار المستهدف — دراسة شخصية</h2>
+  return <section dir={english?'ltr':'rtl'} data-testid="location-market-study" className="mt-6 rounded-2xl border border-[#4B607A] bg-[#141F35] p-4 md:p-6 text-slate-100">
+    <h2 className="text-lg font-bold text-amber-100">{L('موقع العقار والقيمة السوقية والإيجار المستهدف — دراسة شخصية')}</h2>
     <p className="text-xs text-slate-300 leading-6 mt-2">
-      أدخل رابط خرائط جوجل غير المختصر المتضمن إحداثيات العقار أو الإحداثيات مباشرة.
-      هذه الحاسبة لا تجلب معاملات حية تلقائيًا؛ تعالج فقط مقارنات مثبتة المصدر يضيفها المستخدم وتُظهر نتائج سيناريو غير معتمدة.
+      {english
+        ? 'Enter an unshortened Google Maps coordinate link or coordinates. This tool does not fetch live executed transactions and uses only manually supplied comparables; outputs are unverified research scenarios.'
+        : 'أدخل رابط خرائط جوجل غير المختصر المتضمن إحداثيات العقار أو الإحداثيات مباشرة. هذه الحاسبة لا تجلب معاملات حية تلقائيًا؛ تعالج فقط مقارنات مثبتة المصدر يضيفها المستخدم وتُظهر نتائج سيناريو غير معتمدة.'}
     </p>
     <div data-testid="market-financial-identity-bridge" className="mt-4 rounded-xl border border-amber-800 p-3 text-xs">
-      <h3 className="font-semibold text-amber-100">D06 — ربط اختياري لهوية العقار من الدراسة المالية</h3>
+      <h3 className="font-semibold text-amber-100">{L('D06 — ربط اختياري لهوية العقار من الدراسة المالية')}</h3>
       <p className="mt-2 text-slate-300">
-        النقل عند إقرارك فقط، ولا يثبت ملكية العقار أو صحة نوعه أو موقعه.
-        لا تُنقل المدينة أو الحي أو الصك ولا المقارنات؛ وتبقى قابلة للمراجعة والتحرير.
+        {english
+          ? 'Copying requires your explicit consent and does not authenticate ownership, property type or location. City, district, title and comparables are not copied; all fields remain editable.'
+          : 'النقل عند إقرارك فقط، ولا يثبت ملكية العقار أو صحة نوعه أو موقعه. لا تُنقل المدينة أو الحي أو الصك ولا المقارنات؛ وتبقى قابلة للمراجعة والتحرير.'}
       </p>
       <p className="mt-2" data-testid="market-financial-bridge-status">
-        حالة النقل: {bridgeProposal.status}
+        {L('حالة النقل:')} {bridgeProposal.status}
       </p>
       {bridgeProposal.status==='USER_CONFIRMATION_REQUIRED'&&<>
         <p className="mt-2 text-slate-300">
-          الحقول المقترحة: {Object.entries(bridgeProposal.subjectPatch).map(([k,v])=>k+' = '+v).join(' | ')}
+          {L('الحقول المقترحة:')} {formatBridgeFields(bridgeProposal.subjectPatch,locale)}
         </p>
         {bridgeProposal.assetTypeMustBeSelectedByUser&&<Select
           title="اختر نوع العقار صراحةً؛ لا نستخدم النوع الافتراضي أو اسم المشروع"
@@ -337,7 +347,7 @@ export default function PropertyMarketLocationPanel({financialStudy=null}) {
         <label className="mt-2 flex items-center gap-2">
           <input type="checkbox" checked={bridgeConfirmed}
             onChange={e=>setBridgeConfirmed(e.target.checked)} />
-          أوافق على نسخ الحقول المقترحة واستبدال قيم هذه الحقول فقط بعد مراجعتها
+          {L('أوافق على نسخ الحقول المقترحة واستبدال قيم هذه الحقول فقط بعد مراجعتها')}
         </label>
         <button type="button" data-testid="market-financial-bridge-apply"
           disabled={!bridgeConfirmed||bridgeProposal.assetTypeMustBeSelectedByUser&&!bridgeAssetType}
@@ -348,17 +358,20 @@ export default function PropertyMarketLocationPanel({financialStudy=null}) {
               selectedAssetType:bridgeAssetType,
             });
             if(updated.status!=='COPIED_USER_CONFIRMED_NOT_VERIFIED'){
-              setMessage('لم تُنسخ بيانات الهوية: '+updated.status);return;
+              setMessage((english?'Property fields not copied: ':'لم تُنسخ بيانات الهوية: ')+updated.status);return;
             }
             invalidateLink();
             setSubject(updated.subject);
             setBridgeConfirmed(false);
-            setMessage('تم نقل حقول الهوية بتأكيد المستخدم؛ لم تتحقق المنصة من الصك أو السوق أو الموقع.');
+            setMessage(english?'User-confirmed property fields copied; title, location and market evidence have not been verified.':'تم نقل حقول الهوية بتأكيد المستخدم؛ لم تتحقق المنصة من الصك أو السوق أو الموقع.');
           }}>
-          اعتماد نسخ بيانات العقار إلى البحث السوقي
+          {L('اعتماد نسخ بيانات العقار إلى البحث السوقي')}
         </button>
       </>}
     </div>
+    {english&&<p data-testid="market-partial-locale-notice" role="note" className="mt-2 text-xs text-amber-200">
+      Core identity fields are translated. Some advanced market-source and comparison sections remain Arabic and are not fully localized.
+    </p>}
     <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
       <Field title="اسم العقار" value={subject.name} onChange={v=>updateSubject('name',v)} />
       <Select title="غرض دراسة التقييم" value={subject.valuationPurpose}
