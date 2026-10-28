@@ -55,7 +55,7 @@ export default function ResearchEvidenceFusionPanel({subject={},feeds={},asOf='2
     {en?'Potential duplicates: ':'تكرارات محتملة: '}{result.possibleCrossSourceDuplicates.length+result.possibleRepeatedObservations}</div>
    <div className="rounded border border-slate-700 p-2">{en?'Independently verified executed sales: ':'صفقات منفذة مثبتة: '}{result.verifiedExecutedSales}</div>
   </div>
-  <p className="mt-3 text-xs text-slate-300">{en?'District matching does not prove the subject property's identity or title. An independently evidenced parcel/plot identifier is needed; neighborhood indicators must not be blended with asking listings.':'مطابقة الحي لا تثبت تطابق العقار أو ملكيته؛ يلزم معرّف عقاري أو مخطط وقطعة موثقان. كما لا تُمزج مؤشرات الأحياء بالقيم المعلنة.'}</p>
+  <p className="mt-3 text-xs text-slate-300">{en?'District matching does not prove the subject property identity or title. An independently evidenced parcel/plot identifier is needed; neighborhood indicators must not be blended with asking listings.':'مطابقة الحي لا تثبت تطابق العقار أو ملكيته؛ يلزم معرّف عقاري أو مخطط وقطعة موثقان. كما لا تُمزج مؤشرات الأحياء بالقيم المعلنة.'}</p>
   <div data-testid="fusion-source-readiness" className="mt-2 text-xs text-slate-300">
    {result.feedReadiness.map(x=><p key={x.feed}>{x.feed}: {x.importedResearchRows} {en?'research rows; direct API not connected and individual source not verified':'سجل بحثي؛ API مباشر غير متصل، صحة المصدر الفردي غير مثبتة'}</p>)}
   </div>
