@@ -56,8 +56,8 @@ try{
  mark('PANEL_MOUNT',await panel.isVisible());
  const nationalSources=panel.getByTestId('national-intelligence-sources');
  await nationalSources.waitFor({state:'visible'});
- assert((await nationalSources.getByTestId('national-nine-links').locator('a').count())===9,
-  'Nine distinct public real estate source reference URLs must be visible');
+ assert((await nationalSources.getByTestId('national-sources-links').locator('a').count())===11,
+  'Eleven distinct public real estate source reference URLs must be visible');
  const nationalResearchCSV=[
   'source,city,district,kind,recordId,eventDate,periodStart,periodEnd,metricName,metricValue,unit,sourceUrl,assetType',
   'REGA_REI,الرياض,الملقا,OFFICIAL_AGGREGATE,,,2026-07-01,2026-09-30,deal_count,20,COUNT,https://rei.rega.gov.sa/ar,LAND',
@@ -83,6 +83,18 @@ try{
  assert((await nationalSources.getByTestId('national-summary').innerText()).includes('الصفقات الفردية المثبتة: 0'),
   'Imported public-facing MOJ research cannot self-certify an executed deal');
  mark('NINE_NATIONAL_SOURCES_TYPED_RESEARCH_UI_AND_NO_AUTOVALUATION',true);
+ const truCsv=[
+ 'source,city,district,kind,recordId,eventDate,periodStart,periodEnd,metricName,metricValue,unit,sourceUrl,assetType,rangeLowSar,rangeHighSar,confidenceLabel',
+ 'BAYUT_TRUVALUE,مكة المكرمة,العوالي,EXTERNAL_AVM_ESTIMATE,SYN-T-1,,,,estimated_value_sar,1800000,SAR,https://www.bayut.sa/property-market-analysis/tru-value/,APARTMENT,1700000,1900000,HIGH'
+ ].join('\n');
+ await nationalSources.getByTestId('national-import-csv').setInputFiles({
+  name:'synthetic-truvalue.csv',mimeType:'text/csv',buffer:Buffer.from(truCsv)});
+ await nationalSources.getByTestId('national-import-status').filter({hasText:'أضيف 1'}).waitFor();
+ await nationalSources.getByTestId('national-source-filter').selectOption('BAYUT_TRUVALUE');
+ assert(await nationalSources.locator('tbody tr').count()===1,'TruValue estimate isolated from official sales');
+ assert((await nationalSources.locator('tbody').innerText()).includes('HIGH'),
+  'Bayut provider-stated confidence should be displayed as a label');
+ mark('BAYUT_TRUVALUE_ADVISORY_INTERVAL_WITHOUT_CLAIMED_MARKET_ACCURACY',true);
 
  const earth=panel.getByTestId('earth-national-research');
  await earth.waitFor({state:'visible'});

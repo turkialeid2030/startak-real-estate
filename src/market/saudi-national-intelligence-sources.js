@@ -23,6 +23,10 @@ const SOURCES=Object.freeze([
   domain:'artofvalue.sa',origin:'INDEPENDENT_PROFESSIONAL_REFERENCE',allowed:['RESEARCH_NOTE']},
  {id:'THREE_QAR_AI',label:'3qar AI — مستشار عقاري',url:'https://3qar.ai/',
   domain:'3qar.ai',origin:'THIRD_PARTY_AI_ADVISOR',allowed:['RESEARCH_NOTE']},
+ {id:'BAYUT_TRUVALUE',label:'بيوت تروڤاليو — تقدير عقاري آلي',url:'https://www.bayut.sa/property-market-analysis/tru-value/',
+  domain:'bayut.sa',origin:'THIRD_PARTY_AVM',allowed:['EXTERNAL_AVM_ESTIMATE','RESEARCH_NOTE']},
+ {id:'MANUS_SHARE',label:'Manus — تقرير مشترك غير مقروء',url:'https://manus.im/share/QnCMa3VxXUKQoW2SNmj98H',
+  domain:'manus.im',origin:'USER_SHARED_UNREADABLE_LINK',allowed:['RESEARCH_NOTE']},
 ].map(x=>Object.freeze({...x,allowed:Object.freeze(x.allowed)})));
 const BY_ID=Object.freeze(Object.fromEntries(SOURCES.map(x=>[x.id,x])));
 const norm=s=>String(s??'').trim().replace(/[أإآٱ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي')
@@ -65,6 +69,10 @@ const headers=Object.freeze({
  metricValue:['metricvalue','قيمة المؤشر','القيمة'],
  unit:['unit','وحدة القياس'],sourceUrl:['sourceurl','رابط المصدر'],
  assetType:['assettype','نوع العقار'],
+ rangeLowSar:['rangelowsar','الحد الأدنى للتقدير'],
+ rangeHighSar:['rangehighsar','الحد الأعلى للتقدير'],
+ confidenceLabel:['confidencelabel','مستوى الثقة'],
+ modelAsOf:['modelasof','تاريخ تقدير النموذج'],
 });
 const allowedMetrics=Object.freeze({
  OFFICIAL_AGGREGATE:['deal_count','deal_value_sar','avg_sale_sar','avg_rent_sar','avg_sqm_sar','area_sqm','rent_contract_count'],
@@ -74,6 +82,13 @@ const allowedMetrics=Object.freeze({
  EXTERNAL_AVM_ESTIMATE:['estimated_value_sar'],
  RESEARCH_NOTE:[],
 });
+const BAYUT_SUPPORTED_ASSETS=Object.freeze(['APARTMENT','VILLA','FLOOR','RESIDENTIAL_LAND']);
+const confidenceValue=s=>{
+ const v=norm(s);
+ if(!v)return null;
+ return ({high:'HIGH',medium:'MEDIUM',low:'LOW',عاليه:'HIGH',متوسطه:'MEDIUM',
+  منخفضه:'LOW',مرتفعه:'HIGH'})[v]||'INVALID';
+};
 const unitByMetric=Object.freeze({deal_count:'COUNT',rent_contract_count:'COUNT',
  deal_value_sar:'SAR',avg_sale_sar:'SAR',avg_rent_sar:'SAR',avg_sqm_sar:'SAR_PER_SQM',
  area_sqm:'SQM',sale_price_sar:'SAR',estimated_value_sar:'SAR'});
@@ -99,6 +114,9 @@ function importNationalSourcesCsv(csv,{observedOn,asOf=new Date()}={}){
   const city=cell('city'),district=cell('district'),recordId=cell('recordId');
   const metricName=cell('metricName'),unit=cell('unit'),assetType=cell('assetType');
   const val=metric(cell('metricValue'));
+  const low=metric(cell('rangeLowSar')),high=metric(cell('rangeHighSar'));
+  const confidence=confidenceValue(cell('confidenceLabel'));
+  const modelAsOf=cell('modelAsOf')?date(cell('modelAsOf')):null;
   const periodStart=cell('periodStart')?date(cell('periodStart')):null;
   const periodEnd=cell('periodEnd')?date(cell('periodEnd')):null;
   const eventDate=cell('eventDate')?date(cell('eventDate')):null;
@@ -127,6 +145,19 @@ function importNationalSourcesCsv(csv,{observedOn,asOf=new Date()}={}){
    if(kind==='EXTERNAL_AVM_ESTIMATE'&&(eventDate||!recordId))
     issues.push('AVM_REFERENCE_REQUIRED');
   }
+  if(kind==='EXTERNAL_AVM_ESTIMATE'){
+   if(Number.isNaN(low)||Number.isNaN(high)||low!==null&&!(low>0)||
+      high!==null&&!(high>0))issues.push('AVM_RANGE_NUMBER_INVALID');
+   if((low===null)!==(high===null))issues.push('AVM_RANGE_INCOMPLETE');
+   if(low!==null&&high!==null&&
+     (low>high||val!==null&&(val<low||val>high)))issues.push('AVM_RANGE_ORDER_INVALID');
+   if(confidence==='INVALID')issues.push('AVM_CONFIDENCE_UNSUPPORTED');
+   if(cell('modelAsOf')&&(!modelAsOf||modelAsOf>observation))issues.push('AVM_DATE_INVALID');
+  }else if(cell('rangeLowSar')||cell('rangeHighSar')||cell('confidenceLabel')||cell('modelAsOf')){
+   issues.push('AVM_METADATA_NOT_ALLOWED');
+  }
+  if(source?.id==='BAYUT_TRUVALUE'&&kind==='EXTERNAL_AVM_ESTIMATE'&&
+      !BAYUT_SUPPORTED_ASSETS.includes(assetType))issues.push('TRUVALUE_ASSET_UNSUPPORTED');
   if(cell('eventDate')&&!eventDate||cell('periodStart')&&!periodStart||
     cell('periodEnd')&&!periodEnd)issues.push('DATE_INVALID');
   if(issues.length){rejected.push({line:row.line,issues});continue;}
@@ -134,6 +165,10 @@ function importNationalSourcesCsv(csv,{observedOn,asOf=new Date()}={}){
    evidenceClass:kind,sourceUrl:url,country:'SA',city,district,
    assetType:assetType||null,recordId:recordId||null,observedOn:observation,
    periodStart,periodEnd,eventDate,metricName:metricName||null,metricValue:val,
+   providerRangeLowSar:kind==='EXTERNAL_AVM_ESTIMATE'?low:null,
+   providerRangeHighSar:kind==='EXTERNAL_AVM_ESTIMATE'?high:null,
+   providerStatedConfidence:kind==='EXTERNAL_AVM_ESTIMATE'?confidence:null,
+   modelAsOf:kind==='EXTERNAL_AVM_ESTIMATE'?modelAsOf:null,
    metricUnit:unit||null,personalResearch:true,
    officialSourcePage:source.origin==='SA_GOV_OFFICIAL',
    sourceRecordAuthenticated:false,executedTransactionRecord:false,
@@ -149,7 +184,8 @@ function identity(row){
 }
 function equivalent(a,b){
  return ['sourceId','evidenceClass','sourceUrl','city','district','assetType',
- 'recordId','periodStart','periodEnd','eventDate','metricName','metricValue','metricUnit']
+ 'recordId','periodStart','periodEnd','eventDate','metricName','metricValue','metricUnit',
+ 'providerRangeLowSar','providerRangeHighSar','providerStatedConfidence','modelAsOf']
   .every(key=>a[key]===b[key]);
 }
 function mergeNationalResearch(existing,incoming,{limit=1500}={}){

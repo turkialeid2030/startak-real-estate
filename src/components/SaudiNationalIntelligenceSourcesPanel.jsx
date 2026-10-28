@@ -32,10 +32,10 @@ export default function SaudiNationalIntelligenceSourcesPanel(){
    className="mt-5 w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-sky-800 bg-slate-950 p-4 text-slate-100">
   <h3 className="text-base font-bold">مصادر البيانات الرسمية والتقييم العقاري — بحث شخصي</h3>
   <p className="mt-2 text-xs leading-6 text-slate-300">
-   تسعة مصادر بأدوار مختلفة: تقارير رسمية، بيانات مستقلة، تقديرات آلية، ومراجع مهنية.
+   مصادر حكومية وتحليلية وتقديرات خارجية، ومنها بيوت تروڤاليو. رابط Manus محفوظ كمرجع غير مقروء.
    الأرقام المستوردة هنا معلومات بحثية غير محققة بشكل مستقل؛ لا تنتقل إلى نموذج القيمة أو التقارير المعتمدة.
   </p>
-  <div data-testid="national-nine-links" className="mt-3 flex flex-wrap gap-2">
+  <div data-testid="national-sources-links" className="mt-3 flex flex-wrap gap-2">
    {SOURCES.map(src=><a key={src.id} target="_blank" rel="noopener noreferrer"
     href={src.url} className="rounded border border-slate-600 px-3 py-2 text-xs text-sky-300">
     {src.label}</a>)}
@@ -43,6 +43,8 @@ export default function SaudiNationalIntelligenceSourcesPanel(){
   <p className="mt-3 text-xs text-slate-300 break-all">
    صيغة CSV: source,city,district,kind,recordId,eventDate,periodStart,periodEnd,
    metricName,metricValue,unit,sourceUrl,assetType.
+   ولتقديرات AVM: rangeLowSar,rangeHighSar,confidenceLabel,modelAsOf (اختيارية).
+   مستوى الثقة المعلن ليس دقة مثبتة.
    أنواع kind مدعومة بحسب المصدر؛ المؤشرات تحتاج فترة ووحدة قياس،
    والصفقات المنشورة تحتاج معرفًا وتاريخًا، والتقدير الآلي لا يُعد صفقة.
   </p>
@@ -89,7 +91,7 @@ export default function SaudiNationalIntelligenceSourcesPanel(){
     <thead className="border-b border-slate-700 text-slate-300"><tr>
      <th className="p-2">المصدر</th><th className="p-2">المدينة</th><th className="p-2">الحي</th>
      <th className="p-2">النوع</th><th className="p-2">المؤشر</th>
-     <th className="p-2">القيمة / الوحدة</th><th className="p-2">المصدر</th>
+     <th className="p-2">القيمة / الوحدة</th><th className="p-2">نطاق المزود / ثقته المعلنة</th><th className="p-2">المصدر</th>
     </tr></thead>
     <tbody>{filtered.slice(0,50).map((r,i)=><tr key={r.sourceId+'|'+r.observedOn+'|'+r.recordId+'|'+i}
      className="border-b border-slate-800">
@@ -97,6 +99,10 @@ export default function SaudiNationalIntelligenceSourcesPanel(){
       <td className="p-2">{r.city}</td><td className="p-2">{r.district}</td>
       <td className="p-2">{classLabel[r.evidenceClass]}</td><td className="p-2">{r.metricName||'—'}</td>
       <td className="p-2">{r.metricValue===null?'—':new Intl.NumberFormat('ar-SA').format(r.metricValue)+' '+r.metricUnit}</td>
+      <td className="p-2">{r.providerRangeLowSar===null?'—':
+       new Intl.NumberFormat('ar-SA').format(r.providerRangeLowSar)+' – '+
+       new Intl.NumberFormat('ar-SA').format(r.providerRangeHighSar)}
+       {r.providerStatedConfidence?' / '+r.providerStatedConfidence:''}</td>
       <td className="p-2"><a target="_blank" rel="noopener noreferrer"
        href={r.sourceUrl} className="text-sky-300 underline">فتح</a></td>
      </tr>)}</tbody>

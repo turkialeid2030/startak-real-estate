@@ -26,13 +26,17 @@ const lines=[
  '','','','https://artofvalue.sa/',''],
  ['THREE_QAR_AI','جدة','الروضة','RESEARCH_NOTE','','','','',
  '','','','https://3qar.ai/',''],
+ ['BAYUT_TRUVALUE','مكة المكرمة','العوالي','EXTERNAL_AVM_ESTIMATE','SYN-BAYUT-1','','','',
+ 'estimated_value_sar','1800000','SAR','https://www.bayut.sa/property-market-analysis/tru-value/','APARTMENT'],
+ ['MANUS_SHARE','الدمام','الشاطئ','RESEARCH_NOTE','','','','',
+ '','','','https://manus.im/share/QnCMa3VxXUKQoW2SNmj98H',''],
 ];
 const csv=rows=>[fields.join(','),...rows.map(x=>x.join(','))].join('\n');
 const parse=rows=>importNationalSourcesCsv(csv(rows),{observedOn,asOf:new Date('2026-10-28T20:00:00Z')});
 const baseline=parse(lines);
-test('all 9 user-supplied sources are registered and accepted by their separate roles',()=>{
- assert.equal(SOURCES.length,9);assert.equal(baseline.records.length,9);assert.equal(baseline.rejected.length,0);
- assert.equal(new Set(baseline.records.map(x=>x.sourceId)).size,9);
+test('eleven references include Bayut TruValue and unreadable Manus session',()=>{
+ assert.equal(SOURCES.length,11);assert.equal(baseline.records.length,11);assert.equal(baseline.rejected.length,0);
+ assert.equal(new Set(baseline.records.map(x=>x.sourceId)).size,11);
 });
 test('official provenance alone never authorizes a certified executed sale',()=>{
  assert.ok(baseline.records.every(x=>x.executedTransactionRecord===false&&
@@ -106,4 +110,36 @@ test('no row imports unexpected seller or customer PII columns',()=>{
  assert.equal(records.length,1);
  assert.ok(!JSON.stringify(records[0]).includes('0509999999'));
 });
-console.log('NATIONAL_NINE_SOURCE_RESEARCH_TESTS='+n+'/'+n);
+test('TruValue point, provider-supplied confidence and interval remain advisory',()=>{
+ const cols=[...fields,'rangeLowSar','rangeHighSar','confidenceLabel','modelAsOf'];
+ const record=[...lines[9],'1700000','1900000','HIGH','2026-10-27'];
+ const x=importNationalSourcesCsv([cols.join(','),record.join(',')].join('\n'),{observedOn});
+ assert.equal(x.records.length,1);
+ const r=x.records[0];
+ assert.equal(r.providerRangeLowSar,1700000);
+ assert.equal(r.providerRangeHighSar,1900000);
+ assert.equal(r.providerStatedConfidence,'HIGH');
+ assert.equal(r.executedTransactionRecord,false);
+ assert.equal(r.marketValuationEligible,false);
+});
+test('TruValue asset types and invalid estimation ranges are blocked',()=>{
+ const cols=[...fields,'rangeLowSar','rangeHighSar'];
+ const parseOne=v=>importNationalSourcesCsv([cols.join(','),v.join(',')].join('\n'),{observedOn});
+ assert.equal(parseOne([...lines[9],'1700000','']).records.length,0);
+ assert.equal(parseOne([...lines[9],'2100000','2300000']).records.length,0);
+ const hotel=lines[9].slice();hotel[12]='HOTEL';
+ assert.equal(parseOne([...hotel,'1700000','1900000']).records.length,0);
+});
+test('Manus share is not a verified input capable of bearing prices',()=>{
+ const fake=lines[10].slice();fake[3]='EXTERNAL_AVM_ESTIMATE';fake[4]='FAKE-123';
+ fake[8]='estimated_value_sar';fake[9]='1000000';fake[10]='SAR';
+ assert.equal(parse([fake]).records.length,0);
+ assert.ok(parse([fake]).rejected[0].issues.includes('KIND_NOT_ALLOWED_FOR_SOURCE'));
+});
+test('official sales cannot carry uncalibrated provider confidence',()=>{
+ const cols=[...fields,'confidenceLabel'];
+ const r=importNationalSourcesCsv([cols.join(','),[...lines[1],'HIGH'].join(',')].join('\n'),{observedOn});
+ assert.equal(r.records.length,0);
+ assert.ok(r.rejected[0].issues.includes('AVM_METADATA_NOT_ALLOWED'));
+});
+console.log('NATIONAL_ELEVEN_SOURCE_RESEARCH_TESTS='+n+'/'+n);
