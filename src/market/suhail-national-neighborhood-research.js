@@ -43,7 +43,8 @@ const toPublicSample=()=>sample.map(([city,district,growthPct,transferCount,tota
 function parseResearchCsv(csv,{sourceUrl=SOURCE_URL,observedOn=PAGE_INDEXED_AT}={}){
  if(typeof csv!=='string'||new TextEncoder().encode(csv).length>MAX_BYTES)throw Error('SUHAIL_RESEARCH_CSV_SIZE_LIMIT');
  let parsedSource;try{parsedSource=new URL(sourceUrl);}catch(_){}
- if(!parsedSource||parsedSource.protocol!=='https:'||!parsedSource.hostname.includes('.')||
+ if(!parsedSource||parsedSource.protocol!=='https:'||
+    !(parsedSource.hostname==='suhail.ai'||parsedSource.hostname.endsWith('.suhail.ai'))||
     parsedSource.username||parsedSource.password)
   throw Error('SUHAIL_RESEARCH_SOURCE_REQUIRED');
  if(typeof observedOn!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(observedOn)||

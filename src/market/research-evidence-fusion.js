@@ -43,7 +43,9 @@ function fromResearchFeeds(feeds={}){
    if(key==='suhail'){
     if(!['NEIGHBORHOOD_AGGREGATE_INDEXED_UNVERIFIED',
        'USER_IMPORTED_NEIGHBORHOOD_AGGREGATE_UNVERIFIED'].includes(r.recordClass)||
-      !sourceUrl(r.sourceUrl)) {errors.push({feed:key,row:i+1,code:'SOURCE_INVALID'});continue;}
+      !sourceUrl(r.sourceUrl)||!(new URL(r.sourceUrl).hostname==='suhail.ai'||
+       new URL(r.sourceUrl).hostname.endsWith('.suhail.ai'))) {
+      errors.push({feed:key,row:i+1,code:'SOURCE_INVALID'});continue;}
     type='NEIGHBORHOOD_AGGREGATE';ref=r.city+'/'+r.district+'/'+r.observedOn;
     origin='SUHAIL';surface=r.sourceUrl;
    }else if(key==='listings'){
@@ -176,7 +178,9 @@ function buildUnifiedResearch({subject={},feeds={},asOf='2026-10-28'}={}){
  };
 }
 function researchClaimsGate({snapshot,claims=[]}={}){
- if(!snapshot||snapshot.version!==VERSION||!Array.isArray(claims)||claims.length>40)
+ if(!snapshot||snapshot.version!==VERSION||!Array.isArray(snapshot.context)||
+   snapshot.status!=='HOLD_UNVERIFIED_PERSONAL_RESEARCH'||
+   !Array.isArray(claims)||claims.length>40)
   return {status:'REJECTED',reasons:['CLAIMS_OR_SNAPSHOT_INVALID']};
  const ids=new Set(snapshot.context.map(x=>x.evidenceId));
  const reasons=[];
@@ -188,9 +192,13 @@ function researchClaimsGate({snapshot,claims=[]}={}){
   }
   if(c.evidenceIds.some(id=>!ids.has(id)))reasons.push('CLAIM_UNSUPPORTED_CITATION_'+i);
   if(c.kind==='OBSERVATION'&&!c.evidenceIds.length)reasons.push('OBSERVATION_EVIDENCE_REQUIRED_'+i);
-  if(/\b(?:BUY|SELL|APPROVED|CERTIFIED|TRADE)\b/i.test(c.text)||
-     /(?:اشتري الآن|الشراء معتمد|القيمة معتمدة|الصفقة مؤكدة)/.test(c.text))
+  if(/\b(?:BUY|SELL|APPROVED|CERTIFIED|TRADE|INVEST NOW|GUARANTEED)\b/i.test(c.text)||
+     /(?:اشتر|اشتري|نوصي بالشراء|انصح بالشراء|الشراء معتمد|القيمة معتمدة|تقييم معتمد|الصفقة مؤكدة|توصية نهائية|شراء مؤكد|بيع مضمون)/.test(c.text))
    reasons.push('MODEL_CANNOT_AUTHORIZE_ACTION_'+i);
+  if(/[0-9٠-٩۰-۹]|[%٪$€]|\b(?:SAR|USD|million|billion)\b|(?:مليون|مليار|ألف ريال|ريال سعودي)/i.test(c.text))
+   reasons.push('UNVERIFIED_NUMERIC_CLAIM_NOT_ALLOWED_'+i);
+  if(/https?:\/\/|(?:<script|ignore previous|تجاهل التعليمات)/i.test(c.text))
+   reasons.push('RESEARCH_TEXT_HAS_UNTRUSTED_INSTRUCTIONS_OR_LINKS_'+i);
   return {kind:c.kind,text:c.text,evidenceIds:c.evidenceIds.slice()};
  }).filter(Boolean);
  return {status:reasons.length?'REJECTED':'RESEARCH_TEXT_ONLY',reasons,

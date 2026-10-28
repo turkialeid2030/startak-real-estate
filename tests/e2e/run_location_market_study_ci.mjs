@@ -379,6 +379,11 @@ try{
  const historicalAfterImport=await panel.getByLabel('الإيجار السنوي السابق').first().inputValue();
  assert(historicalAfterImport==='999999999','restored prior rent input did not round-trip');
  mark('REIMPORT_PERSONAL_STUDY_RESTORES_INPUTS_AND_RECALCULATES_RESULTS',true);
+ const resetFusion=panel.getByTestId('research-evidence-fusion');
+ const resetText=await resetFusion.getByTestId('fusion-statistics').innerText();
+ assert(resetText.includes('السجلات البحثية: 10'),
+  'Restoring study must quarantine imports from previous case and retain only public Suhail sample');
+ mark('RESTORED_CASE_RESEARCH_CONTEXT_ISOLATION',true);
  const linked=panel.locator('[data-testid="saved-deal-market-study-link"]');
  await linked.getByRole('button',{name:'تحديث قائمة الصفقات المحفوظة'}).click();
  await linked.getByLabel('اختيار الصفقة لربط دراسة السوق').selectOption('SYNTH-MKT-BUILD-01');

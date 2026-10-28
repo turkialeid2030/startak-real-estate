@@ -3,6 +3,14 @@ const assert=require('node:assert/strict');
 const {toPublicSample,parseResearchCsv,mergeNeighborhoodResearch,selectNeighborhoodRows,researchSummary}=require('../../src/market/suhail-national-neighborhood-research');
 let n=0;function test(label,run){run();n++;console.log('PASS '+label);}
 const sample=toPublicSample();
+test('Suhail source provenance cannot be forged by an unrelated research URL',()=>{
+ const csv='city,district,transferCount\nRiyadh,Malqa,1';
+ assert.throws(()=>parseResearchCsv(csv,{sourceUrl:'https://suhail.ai.evil.net/Riyadh/transactions'}),
+  /SOURCE_REQUIRED/);
+ assert.throws(()=>parseResearchCsv(csv,{sourceUrl:'https://other.example.org/research'}),
+  /SOURCE_REQUIRED/);
+ assert.equal(parseResearchCsv(csv,{sourceUrl:'https://www.suhail.ai/Riyadh/transactions'}).records.length,1);
+});
 test('indexed public neighborhood rows span several cities, not just Riyadh',()=>{
  assert.equal(sample.length,10);
  assert.equal(researchSummary(sample).cityCount,6);

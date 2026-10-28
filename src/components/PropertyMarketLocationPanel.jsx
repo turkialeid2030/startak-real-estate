@@ -126,6 +126,7 @@ export default function PropertyMarketLocationPanel() {
   const [publicLoadMeta,setPublicLoadMeta]=useState(null);
   const [publicLoading,setPublicLoading]=useState(false);
   const [researchFeeds,setResearchFeeds]=useState(()=>({suhail:toPublicSample(),listings:[],earth:[],national:[]}));
+  const [researchSessionEpoch,setResearchSessionEpoch]=useState(0);
 
 
   const [message,setMessage]=useState('');
@@ -219,6 +220,10 @@ export default function PropertyMarketLocationPanel() {
     setLeaseComparables(restored.leaseComparables);
     setRentAssumptions(restored.rentAssumptions);
     setPublicRecords([]);setPublicLoadMeta(null);setPublicLoadStatus('');
+    // Restored study is a new case context. Quarantine old source imports:
+    // the UI must not implicitly carry previous case-specific research across deals.
+    setResearchFeeds({suhail:toPublicSample(),listings:[],earth:[],national:[]});
+    setResearchSessionEpoch(n=>n+1);
     setImportSource('');setRightsConfirmed(false);setImportStatus('');
   };
   const refreshCanonicalDeals=async()=>{
@@ -569,10 +574,10 @@ export default function PropertyMarketLocationPanel() {
       marketReport={report} readiness={valuationReadiness}
       readinessStatus={valuationReadiness.status}/>
     <ChallengerBenchmarkResearchPanel/>
-    <SuhailNationalResearchPanel onResearchChange={rows=>setResearchFeeds(f=>({...f,suhail:rows}))}/>
-    <SaudiListingSourcesResearchPanel onResearchChange={rows=>setResearchFeeds(f=>({...f,listings:rows}))}/>
-    <EarthNationalResearchPanel onResearchChange={rows=>setResearchFeeds(f=>({...f,earth:rows}))}/>
-    <SaudiNationalIntelligenceSourcesPanel onResearchChange={rows=>setResearchFeeds(f=>({...f,national:rows}))}/>
+    <SuhailNationalResearchPanel key={'suhail-'+researchSessionEpoch} onResearchChange={rows=>setResearchFeeds(f=>({...f,suhail:rows}))}/>
+    <SaudiListingSourcesResearchPanel key={'listings-'+researchSessionEpoch} onResearchChange={rows=>setResearchFeeds(f=>({...f,listings:rows}))}/>
+    <EarthNationalResearchPanel key={'earth-'+researchSessionEpoch} onResearchChange={rows=>setResearchFeeds(f=>({...f,earth:rows}))}/>
+    <SaudiNationalIntelligenceSourcesPanel key={'national-'+researchSessionEpoch} onResearchChange={rows=>setResearchFeeds(f=>({...f,national:rows}))}/>
     {message&&<p role="status" className="text-xs text-slate-200 mt-2">{message}</p>}
   </section>;
 }
