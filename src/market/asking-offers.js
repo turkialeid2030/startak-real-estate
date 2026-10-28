@@ -20,7 +20,7 @@ function sourceUrlInfo(value) {
      if(/^utm_/i.test(key)||/^(?:gclid|fbclid|mc_cid|mc_eid)$/i.test(key))
        u.searchParams.delete(key);
    u.searchParams.sort();
-   u.pathname=u.pathname.replace(/\\/+$/,'')||'/';
+   u.pathname=u.pathname.replace(/\/+$/,'')||'/';
    return {link:u.toString(),host:u.hostname.replace(/^www\./,'')};
  }catch{return null;}
 }
