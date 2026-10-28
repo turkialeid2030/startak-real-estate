@@ -27,6 +27,10 @@ function Select({title,value,onChange,options}) {
   </select>
  </label>;
 }
+const showComparableIssue=code=>labels[code]||
+ (String(code).startsWith('ROW_INVALID_')?
+ 'مقارنة غير مكتملة: راجع الرابط والتاريخ والسعر والمساحة':
+ 'ملاحظة فنية على المقارنة تتطلب مراجعة بشرية');
 const labels={
  SUBJECT_AREA_INVALID:'المساحة غير صالحة',COMPARABLE_COUNT_3_TO_20:'يلزم 3 إلى 20 مقارنة',
  WEIGHTS_MUST_SUM_TO_100:'مجموع الأوزان يجب أن يساوي 100%',
@@ -126,8 +130,8 @@ export default function ProfessionalComparableReviewPanel({subject,sales=[]}){
   <p className="mt-2 text-xs text-amber-200">حالة الدليل: {result.status==='INVALID'?'المدخلات غير مكتملة':
    result.status==='ILLUSTRATIVE_HUMAN_REVIEW_REQUIRED'?'عرض حسابي يتطلب مراجعة بشرية':'حساب أولي غير معتمد'}.
   الصفقات المنفذة: {result.executedComparableCount} | العروض: {result.offerComparableCount}.</p>
-  {!!result.errors.length&&<p className="text-xs text-rose-200 mt-2">أخطاء: {result.errors.map(x=>labels[x]||x).join('؛ ')}</p>}
-  {!!result.warnings.length&&<p className="text-xs text-amber-200 mt-2">ملاحظات: {result.warnings.map(x=>labels[x]||x).join('؛ ')}</p>}
+  {!!result.errors.length&&<p className="text-xs text-rose-200 mt-2">أخطاء: {result.errors.map(x=>showComparableIssue(x)).join('؛ ')}</p>}
+  {!!result.warnings.length&&<p className="text-xs text-amber-200 mt-2">ملاحظات: {result.warnings.map(x=>showComparableIssue(x)).join('؛ ')}</p>}
   <p className="text-xs text-slate-400 mt-3">هذه نتيجة لجدول مستقل للمراجعة والتعلم؛ لا تحل محل القيمة الأساسية أو تقرير المقيم المعتمد. لا يتم نسخ نتائج ملفات خاصة إلى المستودع العام.</p>
  </div>
  {subject.assetType!=='LAND'&&<details className="mt-4 border border-slate-700 rounded-lg p-3">

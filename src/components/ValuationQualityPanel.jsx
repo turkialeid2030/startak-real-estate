@@ -1,5 +1,14 @@
 import React from 'react';
 const money=x=>Number.isFinite(x)?new Intl.NumberFormat('ar-SA',{maximumFractionDigits:0}).format(x)+' ر.س':'غير متاح';
+const methodArabic=Object.freeze({
+ MARKET_COMPARABLES:'منهج مقارنة الصفقات السوقية',
+ MARKET_AND_INCOME:'الجمع بين دليلي المقارنة السوقية والدخل',
+ INCOME_AND_MARKET:'منهج الدخل مدعومًا بمقارنات السوق',
+ SEGMENTED_PROPERTY_SPECIFIC:'التقييم بحسب شرائح واستخدامات العقار',
+ SPECIALIST_HOTEL_DCF:'التدفقات النقدية الفندقية المتخصصة',
+ SPECIALIST_HEALTHCARE:'منهج متخصص للأصول الصحية',
+ SPECIALIST_INDUSTRIAL:'منهج متخصص للأصول الصناعية',
+});
 export default function ValuationQualityPanel({readiness,quality,studyAsOf}) {
  const passed=quality.items.filter(x=>x.status==='PRESENT_USER_DECLARED').length;
  return <section data-testid="valuation-quality-gates" dir="rtl"
@@ -37,7 +46,7 @@ export default function ValuationQualityPanel({readiness,quality,studyAsOf}) {
    </div>
   </div>
   <p className="mt-3 text-xs text-slate-300">
-   منهجية الأصل: <strong>{readiness.methodPolicy?.primary||'غير محددة'}</strong>.
+   منهجية الأصل: <strong>{methodArabic[readiness.methodPolicy?.primary]||'تحتاج منهجية هذا العقار إلى مراجعة متخصصة'}</strong>.
    عدد صفقات البيع المؤهلة: {readiness.evidenceCounts.salesQualifiedByExistingCalculator}،
    وعدد عقود الإيجار العامة المؤهلة: {readiness.evidenceCounts.rentalsQualifiedByExistingCalculator}.
   </p>

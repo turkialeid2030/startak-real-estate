@@ -17,6 +17,8 @@ function S({name,value,onChange,options}){return <label className="block min-w-0
  </select></label>;}
 const errors={
  SUBJECT_COMPARABLE_AREA_REQUIRED:'مساحة المقارنة للأصل غير مكتملة',
+ DECLARED_UNIT_COUNT_REQUIRED:'إجمالي عدد وحدات العقار غير مكتمل',
+ DECLARED_RENTABLE_AREA_REQUIRED:'إجمالي المساحة القابلة للتأجير للعقار غير مكتمل',
  UNIT_MIX_REQUIRED:'يجب إدخال فئات الوحدات ومساحاتها وعددها',
  UNIT_COUNT_DOES_NOT_RECONCILE:'عدد الوحدات في النموذج لا يطابق إجمالي وحدات العقار',
  MIX_AREA_EXCEEDS_DECLARED_RENTABLE:'مساحة الوحدات المدخلة أكبر من المساحة التأجيرية الإجمالية',

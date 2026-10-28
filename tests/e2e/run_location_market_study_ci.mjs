@@ -60,7 +60,7 @@ try{
  mark('NO_DEFAULT_FAKE_MARKET_VALUE',true);
  const fill=async(label,value)=>panel.getByLabel(label,{exact:false}).first().fill(value);
  await fill('الحي','الملقا');
- await fill('رابط اللوكيشن من Google Maps أو الإحداثيات','24.75,46.65');
+ await fill('رابط موقع العقار من خرائط جوجل أو الإحداثيات','24.75,46.65');
  await fill('مساحة الأرض (م²)','10000');
  await fill('إجمالي المساحات المبنية لكل المباني (م²)','30000');
  await fill('إجمالي المساحة القابلة للتأجير (م²)','25000');

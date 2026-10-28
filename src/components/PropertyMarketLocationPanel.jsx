@@ -82,7 +82,7 @@ function ComparisonTable({ title, kind, rows, setRows, assetType }) {
         <Field title="تاريخ الصفقة/العقد" type="date" value={row.date} onChange={v=>update(i,'date',v)}/>
         <Field title="موقع المقارنة (رابط أو إحداثيات)" value={row.location} onChange={v=>update(i,'location',v)} placeholder="24.7,46.7"/>
         <div className="sm:col-span-2 lg:col-span-3">
-          <Field title="رابط مصدر الصفقة أو العقد (HTTPS)" value={row.sourceUrl} onChange={v=>update(i,'sourceUrl',v)} placeholder="https://..."/>
+          <Field title="رابط مصدر الصفقة أو العقد (رابط آمن)" value={row.sourceUrl} onChange={v=>update(i,'sourceUrl',v)} placeholder="https://..."/>
         </div>
       </div>
     </div>)}
@@ -278,7 +278,7 @@ export default function PropertyMarketLocationPanel() {
   return <section dir="rtl" data-testid="location-market-study" className="mt-6 rounded-2xl border border-[#4B607A] bg-[#141F35] p-4 md:p-6 text-slate-100">
     <h2 className="text-lg font-bold text-amber-100">موقع العقار والقيمة السوقية والإيجار المستهدف — دراسة شخصية</h2>
     <p className="text-xs text-slate-300 leading-6 mt-2">
-      أدخل رابط Google Maps غير المختصر المتضمن إحداثيات العقار أو الإحداثيات مباشرة.
+      أدخل رابط خرائط جوجل غير المختصر المتضمن إحداثيات العقار أو الإحداثيات مباشرة.
       هذه الحاسبة لا تجلب معاملات حية تلقائيًا؛ تعالج فقط مقارنات مثبتة المصدر يضيفها المستخدم وتُظهر نتائج سيناريو غير معتمدة.
     </p>
     <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
@@ -309,7 +309,7 @@ export default function PropertyMarketLocationPanel() {
          ['AGRICULTURAL','أرض زراعية']] }/>}
       <Field title="المدينة" value={subject.city} onChange={v=>updateSubject('city',v)}/>
       <Field title="الحي" value={subject.district} onChange={v=>updateSubject('district',v)}/>
-      <div className="md:col-span-2"><Field title="رابط اللوكيشن من Google Maps أو الإحداثيات" value={subject.location}
+      <div className="md:col-span-2"><Field title="رابط موقع العقار من خرائط جوجل أو الإحداثيات" value={subject.location}
         onChange={v=>updateSubject('location',v)} placeholder="https://www.google.com/maps/@24.7,46.7,17z"/></div>
       <Field title="مساحة الأرض (م²)" value={subject.landArea} onChange={v=>updateSubject('landArea',v)}/>
       <Field title="إجمالي المساحات المبنية لكل المباني (م²)" value={subject.builtArea} onChange={v=>updateSubject('builtArea',v)}/>
@@ -334,7 +334,7 @@ export default function PropertyMarketLocationPanel() {
     <p className="text-xs text-slate-300 mt-3" role="status">
       {coords ? <>الإحداثيات المستخرجة: {fixed(coords.lat)}، {fixed(coords.lng)} — <a target="_blank" rel="noopener noreferrer" className="underline text-sky-300"
         href={`https://www.google.com/maps/search/?api=1&query=${coords.lat}%2C${coords.lng}`}>عرض النقطة على الخريطة</a></>
-        : 'لم تُستخرج إحداثيات بعد. روابط maps.app.goo.gl المختصرة لا تكفي؛ افتح الرابط وانسخ الإحداثيات.'}
+        : 'لم تُستخرج إحداثيات بعد. روابط خرائط جوجل المختصرة لا تكفي؛ افتح الرابط وانسخ الإحداثيات.'}
     </p>
     <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
       <Field title="الإشغال المتوقع ككسر (0.9 = 90%)" value={assumptions.occupancy} onChange={v=>updateAssumption('occupancy',v)} />
@@ -344,7 +344,7 @@ export default function PropertyMarketLocationPanel() {
     <p className="text-xs text-amber-200 mt-2">النسب الموضوعة مبدئيًا أمثلة قابلة للتعديل وليست تقديرات سوقية للحي أو العقار.</p>
     <section className="mt-5 rounded-xl border border-slate-600 bg-[#1A2942] p-3" data-testid="public-moJ-research">
       <h3 className="text-sm font-semibold text-amber-100">البحث التلقائي التجريبي في صفقات وزارة العدل المنشورة كبيانات مفتوحة</h3>
-      <p className="mt-2 text-xs leading-6 text-slate-300">بدون API رسمي أو تسجيل دخول: عند الضغط، تقرأ المنصة ملفات الفصول ${OPEN_QUARTERS.join("، ")} من مستودع عام ينسب البيانات الأصلية لوزارة العدل ورخصة البيانات المفتوحة السعودية. البحث يغطي جميع مدن المملكة التي تظهر في الملفات، وليس الرياض وحدها. وبيانات الأحياء والأسعار هنا <strong>مؤشر تاريخي للحي</strong> وليست صفقات مؤكدة لمجمعات أو فنادق أو أبراج.</p>
+      <p className="mt-2 text-xs leading-6 text-slate-300">دون اتصال رسمي مباشر أو تسجيل دخول: عند الضغط، تقرأ المنصة ملفات الفصول التاريخية المتاحة {OPEN_QUARTERS.map(quarter=>{const m=String(quarter).match(/^(\\d{4})-Q([1-4])$/);return m?'الربع '+['الأول','الثاني','الثالث','الرابع'][Number(m[2])-1]+' من '+m[1]:'فصل تاريخي';}).join('، ')} من مستودع عام ينسب البيانات الأصلية لوزارة العدل ورخصة البيانات المفتوحة السعودية. البحث يغطي جميع مدن المملكة التي تظهر في الملفات، وليس الرياض وحدها. وبيانات الأحياء والأسعار هنا <strong>مؤشر تاريخي للحي</strong> وليست صفقات مؤكدة لمجمعات أو فنادق أو أبراج.</p>
       <div className="flex flex-wrap items-center gap-3 mt-3">
         <button type="button" disabled={publicLoading} onClick={fetchOpenData}
           className="min-h-[40px] rounded-lg bg-[#C9A24C] px-4 py-2 text-xs font-semibold text-[#141F35] disabled:opacity-50">
@@ -386,7 +386,7 @@ export default function PropertyMarketLocationPanel() {
       <p className="mt-2 text-xs leading-6 text-slate-300">يمكن فتح مواقع البيانات العامة، ثم تنزيل ملف CSV مرخص وإدخاله محليًا. لا تسحب المنصة محتوى سهيل أو المؤشرات العقارية آليًا ولا تتجاوز تسجيل الدخول. تُعرض الصفقة كمقارنة منفذة فقط إذا صرّح عمود الحالة بذلك. يُشترط تاريخ، نوع عقار، سعر، مساحة، مصدر، وموقع أو مدينة وحي متطابقان.</p>
       <p className="mt-1 text-xs text-amber-200">رؤوس أعمدة CSV المدعومة: نوع العقار، حالة الصفقة، تاريخ الصفقة، قيمة الصفقة أو الإيجار السنوي، المساحة المبنية أو التأجيرية، المدينة، الحي، الإحداثيات، رابط المصدر، رقم الصفقة. يدعم المستورد كذلك أسماء أعمدة إنجليزية مكافئة. لا تُعد إحصاءات متوسط الحي ثلاث صفقات منفذة مستقلة.</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
-        <Field title="رابط مجموعة البيانات المفتوحة أو المصدر المرخّص (HTTPS)" value={importSource}
+        <Field title="رابط مجموعة البيانات المفتوحة أو المصدر المرخّص (رابط آمن)" value={importSource}
           onChange={v=>{setImportSource(v);setRightsConfirmed(false);}} placeholder="https://..."/>
         <label className="flex items-center gap-2 text-xs text-slate-200 min-h-[44px]">
           <input className="w-7 h-7 flex-shrink-0" type="checkbox" checked={rightsConfirmed} onChange={e=>setRightsConfirmed(e.target.checked)}/>
@@ -433,7 +433,7 @@ export default function PropertyMarketLocationPanel() {
     </section>
     <div className="mt-5 rounded-xl border border-amber-700/60 bg-[#1B2B43] p-4">
       <h3 className="font-bold text-amber-100">نتيجة الحساب وقت الطلب — ليست تثمينًا مهنيًا</h3>
-      <p className="text-xs text-slate-300 mt-1">{latestWindow}. وقت الحساب: {report.asOf.slice(0,19).replace('T',' ')} UTC</p>
+      <p className="text-xs text-slate-300 mt-1">{latestWindow}. وقت الحساب: {report.asOf.slice(0,19).replace('T',' ')} بالتوقيت العالمي</p>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
         <div><span className="text-xs text-slate-400">القيمة التقديرية الحسابية اليوم</span><strong className="block text-lg">{money(valuationReadiness.preliminaryValueSar)}</strong></div>
         <div><span className="text-xs text-slate-400">الإيجار السوقي السنوي المحتمل</span><strong className="block text-lg">{money(valuationReadiness.newAnnualMarketRentSar)}</strong></div>
