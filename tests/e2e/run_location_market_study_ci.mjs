@@ -64,11 +64,13 @@ try{
  assert((await national.locator('tbody').innerText()).includes('أم سمرة'),
   'Wadi Al Dawasir record missing from national source research');
  mark('SUHAIL_NATIONAL_CITY_FILTER_NOT_RIYADH_ONLY',true);
- const nationalCsv=['city,district,transferCount,totalValueSar,residentialSarSqm','جدة,الصفا,2,1500000,5000','الخبر,العليا,1,3500000,6000'].join('\\n');
+ const nationalCsv=['city,district,transferCount,totalValueSar,residentialSarSqm','جدة,الصفا,2,1500000,5000','الخبر,العليا,1,3500000,6000'].join('\n');
  await national.getByTestId('suhail-research-import').setInputFiles({
   name:'national-research.csv',mimeType:'text/csv',buffer:Buffer.from(nationalCsv)
  });
- await national.getByTestId('suhail-import-status').getByText(/استيراد بحثي/).waitFor();
+ await national.getByTestId('suhail-import-status').waitFor();
+ assert((await national.getByTestId('suhail-import-status').innerText()).includes('استيراد بحثي'),
+  'national CSV import status not displayed');
  assert((await national.getByTestId('suhail-scope').innerText()).includes('2'),
   'National CSV cities were not dynamically discovered');
  await national.getByTestId('suhail-city').selectOption('الخبر');
