@@ -14,6 +14,13 @@ try {
  browser=await chromium.launch({headless:true,executablePath:findChromiumExecutable(),args:['--no-sandbox','--disable-gpu']});
  const page=await browser.newPage({locale:'ar-SA',viewport:{width:1280,height:900}});
  page.setDefaultTimeout(15000);
+ await page.addInitScript(()=>{
+  const p='STARTAK_REAL_ESTATE:SAVED_DEALS:';
+  localStorage.setItem(p+'deals-index',JSON.stringify([{id:'SYN-CASE-LINK',name:'أصل اختباري'}]));
+  localStorage.setItem(p+'deal:SYN-CASE-LINK',JSON.stringify({
+   id:'SYN-CASE-LINK',name:'أصل اختباري',mode:'building',inputs:{},
+   savedAt:'2026-01-01T00:00:00.000Z'}));
+ });
  await page.goto(url,{waitUntil:'domcontentloaded'});
  const work=page.getByTestId('appraisal-assurance-workbench');
  await work.waitFor({state:'visible'});
@@ -72,6 +79,18 @@ try {
  await market.getByTestId('personal-market-study-export').click();
  await market.getByText(/تم منع تصدير الدراسة/).waitFor({state:'visible'});
  pass('linked source with user-confirmed identical subject blocks research export and value');
+ const saved=market.getByTestId('saved-deal-market-study-link');
+ await saved.getByRole('button',{name:'تحديث قائمة الصفقات المحفوظة'}).click();
+ await saved.getByLabel('اختيار الصفقة لربط دراسة السوق').selectOption('SYN-CASE-LINK');
+ await saved.getByLabel('أؤكد أن الدراسة تخص العقار نفسه في الصفقة المختارة (إقرار مستخدم وليس تحققًا من الصك).').check();
+ const saveButton=saved.getByRole('button',{name:'حفظ ملحق الدراسة للصفقة المختارة'});
+ assert(await saveButton.isDisabled(),'blocked report should disable sidecar save in UI');
+ const canonical=await page.evaluate(()=>({
+  deal:localStorage.getItem('STARTAK_REAL_ESTATE:SAVED_DEALS:deal:SYN-CASE-LINK'),
+  sidecar:localStorage.getItem('STARTAK_REAL_ESTATE:SAVED_DEALS:market-study-sidecar:v1:SYN-CASE-LINK')
+ }));
+ assert(canonical.sidecar===null&&canonical.deal!==null,'blocked report must not create sidecar or change Saved Deal');
+ pass('blocked appraisal prevents local Saved Deal sidecar save and canonical writes');
  await market.getByLabel('مساحة الأرض (م²)',{exact:true}).fill('1200.6');
  await market.locator('[data-testid="appraisal-market-link-status"][data-status="STALE_OR_UNMATCHED_LINK"]').waitFor();
  await market.getByLabel('مساحة الأرض (م²)',{exact:true}).fill('1200.5');
