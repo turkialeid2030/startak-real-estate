@@ -51,3 +51,15 @@
 **لا تساوي:** تحديث issue، نجاح CI، بيانات اصطناعية، تعيين GitHub Assignee، أو تصريح صاحب المشروع موافقة طرف مستقل. تبقى بوابة GO مغلقة إلى أن يتوفر دليل صالح قابل للتدقيق ويجتاز جميع القيود المنطبقة.
 
 روابط المرجع: [#622](https://github.com/turkialeid2030/startak-real-estate/issues/622)، [#747](https://github.com/turkialeid2030/startak-real-estate/issues/747)، [#765](https://github.com/turkialeid2030/startak-real-estate/issues/765).
+
+## إضافة تشغيلية: تجهيز طلبات الأدلة الـ36
+
+تمت إضافة أدوات إصدار قائمة طلبات الأدلة، دون ادعاء إرسالها أو اعتمادها:
+
+```bash
+node tools/qcr-evidence-acquisition.js --as-of=2026-10-28 --markdown
+node tools/qcr-evidence-acquisition.js --as-of=2026-10-28 --json
+node tests/architecture/run_qcr_evidence_acquisition.js
+```
+
+تُنشئ هذه الأدوات طلبًا منفصلًا لكل `evidenceType` من المسارات Q01–Q12، وتُظهر الدور الوظيفي المسؤول، وموعد المراجعة، ومعيار القبول، ورابط التذكرة. تبقى كل الطلبات `REQUEST_PREPARED_NOT_SENT`، ولا تسجل أي توقيع أو استلام أو اعتماد مستقل. لا تضع محتويات مستندات العملاء في GitHub العام.
