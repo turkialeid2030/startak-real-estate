@@ -68,15 +68,20 @@ function Select({ title, value, onChange, options, testId }) {
 const assetOptions = [['','اختر نوع العقار'],...Object.entries(ASSET_TYPES).map(([id,ar])=>[id,ar])];
 const statusOptions = [['ASKING','عرض/طلب غير منفّذ — مستبعد'],['EXECUTED','صفقة أو عقد منفّذ — إقرار المستخدم']];
 function ComparisonTable({ title, kind, rows, setRows, assetType }) {
+  const {locale}=useLocale();
+  const en=locale==='en';
+  const L=v=>coreMarketLabel(v,locale);
   const isSale = kind==='sale';
   const update=(i,key,value)=>setRows(old=>old.map((r,j)=>j===i?{...r,[key]:value}:r));
   return <section className="rounded-xl border border-slate-700 p-3">
-    <h4 className="font-semibold text-sm text-amber-200">{title}</h4>
-    <p className="text-xs text-slate-400 mt-1">يلزم ثلاث مقارنات منفّذة على الأقل من نفس نوع العقار، خلال آخر 365 يومًا، بموقع يبعد 5 كم كحد أقصى أو تطابق معلن على مستوى الحي فقط. يشترط أن تكون مساحة المقارنة بين 50% و200% من مساحة الأصل على أساس المساحة نفسه. تُستبعد الصفقة المكررة بمعرّفها لدى المصدر نفسه، ولا تدخل عروض الأسعار في الحساب. تطابق النوع والموقع لا يُثبت الصك أو صحة المصدر مستقلاً.</p>
+    <h4 className="font-semibold text-sm text-amber-200">{L(title)}</h4>
+    <p className="text-xs text-slate-400 mt-1">{en
+      ? 'At least three user-declared executed comparables of the same asset type within 365 days, within 5 km or explicitly matching the district. The comparable area must be 50%–200% of the subject on the same area basis. Duplicate source transaction IDs and asking listings are excluded. Matching type and location does not independently verify title or source.'
+      : 'يلزم ثلاث مقارنات منفّذة على الأقل من نفس نوع العقار، خلال آخر 365 يومًا، بموقع يبعد 5 كم كحد أقصى أو تطابق معلن على مستوى الحي فقط. يشترط أن تكون مساحة المقارنة بين 50% و200% من مساحة الأصل على أساس المساحة نفسه. تُستبعد الصفقة المكررة بمعرّفها لدى المصدر نفسه، ولا تدخل عروض الأسعار في الحساب. تطابق النوع والموقع لا يُثبت الصك أو صحة المصدر مستقلاً.'}</p>
     {rows.map((row,i)=><div key={i} className="border-b border-slate-700 py-3">
       <div className="flex items-center justify-between mb-2">
-        <strong className="text-xs text-slate-200">المقارنة {i+1}</strong>
-        {rows.length>3&&<button type="button" className="text-xs text-rose-300" onClick={()=>setRows(old=>old.filter((_,j)=>j!==i))}>حذف</button>}
+        <strong className="text-xs text-slate-200">{en?'Comparable ':'المقارنة '}{i+1}</strong>
+        {rows.length>3&&<button type="button" className="text-xs text-rose-300" onClick={()=>setRows(old=>old.filter((_,j)=>j!==i))}>{en?'Remove':'حذف'}</button>}
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
         <Select title="نوع العقار المقارن" value={row.assetType} onChange={v=>update(i,'assetType',v)} options={assetOptions}/>
@@ -102,7 +107,7 @@ function ComparisonTable({ title, kind, rows, setRows, assetType }) {
         </div>
       </div>
     </div>)}
-    <button type="button" className="mt-3 rounded-lg border border-amber-600 px-3 py-2 text-xs text-amber-100" onClick={()=>setRows(old=>old.length>=15?old:[...old,createRow()])}>+ إضافة مقارنة</button>
+    <button type="button" className="mt-3 rounded-lg border border-amber-600 px-3 py-2 text-xs text-amber-100" onClick={()=>setRows(old=>old.length>=15?old:[...old,createRow()])}>{en?'+ Add comparable':'+ إضافة مقارنة'}</button>
   </section>;
 }
 export default function PropertyMarketLocationPanel({financialStudy=null}) {
