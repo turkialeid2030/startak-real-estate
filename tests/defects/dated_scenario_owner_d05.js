@@ -25,6 +25,8 @@ for(const bad of [
  {rows:[{...rows[0],amount:'1e3'},rows[1]],annualDiscountRate:'0.1',rightsConfirmed:true},
  {rows,annualDiscountRate:'١٨٠٠٫٥٫٢',rightsConfirmed:true},
  {rows,annualDiscountRate:'-1',rightsConfirmed:true},
+ {rows,annualDiscountRate:'10',rightsConfirmed:true},
+ {rows,annualDiscountRate:'1',rightsConfirmed:true},
  {rows,annualDiscountRate:'',rightsConfirmed:true},
  {rows:[{...rows[0],amount:'1000'},rows[1]],annualDiscountRate:'0.10',rightsConfirmed:true},
  {rows:[{...rows[0],date:'2027-01-01'},rows[1]],annualDiscountRate:'0.1',rightsConfirmed:true}
