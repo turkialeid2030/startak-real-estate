@@ -142,4 +142,27 @@ test('official sales cannot carry uncalibrated provider confidence',()=>{
  assert.equal(r.records.length,0);
  assert.ok(r.rejected[0].issues.includes('AVM_METADATA_NOT_ALLOWED'));
 });
+test('REGA raw daily reported sale CSV is accepted but remains unverified research',()=>{
+ const raw=['REGA_REI','الرياض','الملقا','OFFICIAL_REPORTED_SALE',
+  'SYN-REGA-DAILY-001','2026-10-27','','','sale_price_sar','١٨٠٠٫٥','SAR',
+  'https://rei.rega.gov.sa/ar/advanced-search/live','LAND'];
+ const imported=parse([raw]);
+ assert.equal(imported.records.length,1);
+ assert.equal(imported.rejected.length,0);
+ const row=imported.records[0];
+ assert.equal(row.metricValue,1800.5);
+ assert.equal(row.evidenceClass,'OFFICIAL_REPORTED_SALE');
+ assert.equal(row.sourceRecordAuthenticated,false);
+ assert.equal(row.executedTransactionRecord,false);
+ assert.equal(row.independentMarketPriceVerified,false);
+ assert.equal(row.marketValuationEligible,false);
+ const missingId=[...raw];missingId[4]='';
+ const x=parse([missingId]);
+ assert.equal(x.records.length,0);
+ assert.ok(x.rejected[0].issues.includes('TRANSACTION_REPORTED_REFERENCE_DATE_REQUIRED'));
+ const future=[...raw];future[5]='2026-10-29';
+ assert.equal(parse([future]).records.length,0);
+ const badUrl=[...raw];badUrl[11]='https://rei.rega.gov.sa.evil.invalid/live';
+ assert.equal(parse([badUrl]).records.length,0);
+});
 console.log('NATIONAL_ELEVEN_SOURCE_RESEARCH_TESTS='+n+'/'+n);
