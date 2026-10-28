@@ -102,7 +102,7 @@ export default function TransactionCohortAndUnitMixPanel({subject,sales,askingOf
    <F name="الحي" value={r.district} onChange={v=>changeLease(i,'district',v)}/>
    <F name="الموقع أو الإحداثيات (اختياري مع مطابقة الحي)" value={r.location} onChange={v=>changeLease(i,'location',v)}/>
    <div className="sm:col-span-2 lg:col-span-3">
-    <F name="رابط الدليل الأصلي HTTPS" value={r.sourceUrl} onChange={v=>changeLease(i,'sourceUrl',v)} placeholder="https://..."/>
+    <F name="رابط الدليل الأصلي (رابط آمن)" value={r.sourceUrl} onChange={v=>changeLease(i,'sourceUrl',v)} placeholder="https://..."/>
    </div>
   </div>
  </div>)}

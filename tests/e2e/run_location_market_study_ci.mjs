@@ -191,7 +191,7 @@ try{
   await unitMix.getByLabel('الإيجار السنوي للعقد (ريال)').nth(i).fill(String((80+i*5)*1000));
   await unitMix.getByLabel('المساحة التأجيرية للعقد (م²)').nth(i).fill('125');
   await unitMix.getByLabel('معرّف غير شخصي للعقد').nth(i).fill('SYNTH-L'+i);
-  await unitMix.getByLabel('رابط الدليل الأصلي HTTPS').nth(i)
+  await unitMix.getByLabel('رابط الدليل الأصلي (رابط آمن)').nth(i)
    .fill('https://data.gov.sa/synthetic-contract-'+i);
  }
  await unitMix.getByText('الإيجار السوقي السنوي الإجمالي المحتمل:',{exact:false})

@@ -123,7 +123,7 @@ export default function MarketOfferResearchPanel({subject,offers,setOffers,asOf}
        <Field title="الإحداثيات — عند توفرها" value={offer.location} onChange={v=>update(i,'location',v)}
          placeholder="24.7,46.7"/>
        <div className="sm:col-span-2 lg:col-span-3">
-         <Field title="رابط الإعلان الأصلي (HTTPS)" value={offer.sourceUrl}
+         <Field title="رابط الإعلان الأصلي (رابط آمن)" value={offer.sourceUrl}
            onChange={v=>update(i,'sourceUrl',v)} placeholder="https://sa.aqar.fm/..."/>
        </div>
      </div>
