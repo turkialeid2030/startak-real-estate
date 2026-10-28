@@ -41,6 +41,12 @@ test('invalid aggregate is rejected without importing as an executed transaction
  assert.equal(r.records.length,1);assert.equal(r.rejected.length,1);
  assert.equal(r.records[0].executedTransactionRecord,false);
 });
+test('negative neighborhood growth is allowed, but negative deals and prices are blocked',()=>{
+ const c=parseResearchCsv('المدينة,الحي,عدد الإفراغات,إجمالي القيمة,النمو\nجدة,الصفا,2,500000,-12.5\nالخبر,العليا,-1,100000,2\nالدمام,المريكبات,1,-99,2');
+ assert.equal(c.records.length,1);
+ assert.equal(c.records[0].growthPct,-12.5);
+ assert.equal(c.rejected.length,2);
+});
 test('malformed imported csv rejects unclosed quoting',()=>{
  assert.throws(()=>parseResearchCsv('المدينة,الحي\n"الخبر,العليا'),/UNCLOSED_QUOTE/);
 });
