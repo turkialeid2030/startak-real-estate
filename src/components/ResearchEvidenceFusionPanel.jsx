@@ -89,6 +89,9 @@ export default function ResearchEvidenceFusionPanel({subject={},feeds={},asOf='2
   <div data-testid="fusion-review-actions" className="mt-3 rounded border border-amber-800 p-3 text-xs">
    <h4 className="font-bold">{en?'Advisory council evidence review — outstanding requirements':'خطة فحص مجلس تركي الاستشاري — متطلبات معلّقة'}</h4>
    <p className="mt-1 text-amber-200">{en?'These are evidence-bound review tasks, not a purchase recommendation or certified professional appraisal.':'هذه مهام مراجعة مستندة إلى نواقص الأدلة، وليست توصية شراء أو تقييمًا مهنيًا معتمدًا.'}</p>
+   {en&&<p data-testid="fusion-language-scope" className="mt-1 text-amber-200">
+     Individual audit task labels and reasons may remain in Arabic. The HTML export is Arabic only; do not interpret interface translation as certified or independently verified evidence.
+   </p>}
    <ol className="mt-2 list-decimal pr-5">
     {bundle.reviewerActionPlan.tasks.map(x=><li key={x.id} className="mb-2">
      <strong>{x.label}</strong> — {x.reason}</li>)}
