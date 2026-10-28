@@ -5,6 +5,8 @@ on:
       - 'src/market/challenger-benchmark-research.js'
       - 'src/components/ChallengerBenchmarkResearchPanel.jsx'
       - 'tests/valuation/challenger-benchmark-research.test.js'
+      - 'src/market/research-brief-html.js'
+      - 'tests/valuation/research-brief-html.test.js'
       - 'src/market/research-evidence-fusion.js'
       - 'src/components/ResearchEvidenceFusionPanel.jsx'
       - 'tests/valuation/research-evidence-fusion.test.js'
@@ -96,6 +98,7 @@ jobs:
       - run: node tests/valuation/earth-national-research.test.js
       - run: node tests/valuation/saudi-national-intelligence-sources.test.js
       - run: node tests/valuation/research-evidence-fusion.test.js
+      - run: node tests/valuation/research-brief-html.test.js
       - run: node tests/valuation/challenger-benchmark-research.test.js
       - run: node tests/architecture/run_saudi_open_data_research.js
       - run: node tests/architecture/run_saudi_open_data_live_smoke.js

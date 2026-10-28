@@ -1,6 +1,7 @@
 import React,{useMemo,useState} from 'react';
 const {buildUnifiedResearch,researchReportBundle,researchClaimsGate}=
  require('../market/research-evidence-fusion');
+const {renderResearchBriefHtml}=require('../market/research-brief-html');
 export default function ResearchEvidenceFusionPanel({subject={},feeds={},asOf='2026-10-28',
  readinessStatus='NOT_TESTED',marketReport=null,readiness=null,publicNeighborhood=null,publicLoadMeta=null}){
  const [message,setMessage]=useState('');
@@ -13,6 +14,16 @@ export default function ResearchEvidenceFusionPanel({subject={},feeds={},asOf='2
   {kind:'LIMITATION',text:'البيانات التي جُمعت عبر لوحات البحث لا تثبت بمفردها قيمة أو ملكية أو صفقة منفذة.',evidenceIds:[]},
   {kind:'REVIEW_TASK',text:'يلزم التحقق من الصفقات والموقع والحقوق ودراسة الدخل والمخاطر قبل اتخاذ قرار الشراء.',evidenceIds:[]}
  ]});
+ const exportHtml=()=>{
+  try{
+   const html=renderResearchBriefHtml(bundle);
+   const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+   const url=URL.createObjectURL(blob);const link=document.createElement('a');
+   link.href=url;link.download='STARTAK_Arabic_Research_Investment_Brief.html';
+   document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
+   setMessage('تم تصدير تقرير عربي بحثي غير معتمد؛ لا يتضمن توصية شراء أو تقييمًا مرخصًا.');
+  }catch(e){setMessage('تعذر إصدار التقرير البحثي العربي: '+String(e?.message||e));}
+ };
  const exportJson=()=>{
   try{
    const blob=new Blob([JSON.stringify({...bundle,aiAdvisory:safeMemo},null,2)],
@@ -77,6 +88,8 @@ export default function ResearchEvidenceFusionPanel({subject={},feeds={},asOf='2
   <div className="mt-3 flex flex-wrap gap-2">
    <button type="button" data-testid="fusion-export" onClick={exportJson}
     className="rounded border border-slate-500 px-3 py-2 text-xs">تصدير حزمة البحث JSON</button>
+   <button type="button" data-testid="fusion-export-html" onClick={exportHtml}
+    className="rounded border border-slate-500 px-3 py-2 text-xs">تقرير بحث عقاري واستثماري عربي HTML</button>
   </div>
   {message&&<p role="status" className="mt-2 text-xs text-sky-200">{message}</p>}
  </section>;

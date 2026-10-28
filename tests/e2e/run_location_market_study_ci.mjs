@@ -431,6 +431,13 @@ try{
   'Research evidence export must not contain an invented certified market value or buy price');
  assert(fusionJson.studySummary.validRows>=10,
   'Public Suhail sample must be included in the unified source evidence context');
+ const [htmlDownload]=await Promise.all([page.waitForEvent('download'),
+  fusion.getByTestId('fusion-export-html').click()]);
+ const htmlReport=fs.readFileSync(await htmlDownload.path(),'utf8');
+ assert(htmlReport.includes('تقرير بحث عقاري واستثماري')&&
+  htmlReport.includes('تعليق القرار')&&htmlReport.includes('غير معتمد'),
+  'Arabic evidence brief must be available as a properly labelled research document');
+ mark('ARABIC_RESEARCH_REPORT_HTML_EXPORT',true);
  mark('UNIFIED_RESEARCH_EVIDENCE_JOIN_AND_SAFE_EXPORT',true);
  await page.setViewportSize({width:390,height:844});
  const geom=await page.evaluate(()=>({width:document.documentElement.scrollWidth,
