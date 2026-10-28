@@ -50,7 +50,10 @@ function bindReview({subject,appraisal,documentDigest,review,confirmed}={}){
   reasons:[],link};
 }
 function evaluateBoundReview({subject={},link=null}={}){
- if(!link)return {status:'NOT_LINKED',appraisalReview:null,blockExport:false,reasons:[]};
+ if(link===null||link===undefined)return {status:'NOT_LINKED',appraisalReview:null,blockExport:false,reasons:[]};
+ if(typeof link!=='object'||Array.isArray(link))
+  return {status:'STALE_OR_UNMATCHED_LINK',appraisalReview:{status:'HOLD'},blockExport:true,
+   reasons:['APPRAISAL_LINK_MALFORMED']};
  if(link.invalidated===true||link.kind!=='STARTAK_APPRAISAL_SESSION_REVIEW_V1'||!digest(link.documentDigest)||
     !same(snapshot(subject),link.subjectSnapshot||{}))
   return {status:'STALE_OR_UNMATCHED_LINK',appraisalReview:{status:'HOLD'},blockExport:true,reasons:['APPRAISAL_LINK_IDENTITY_OR_SOURCE_CHANGED']};

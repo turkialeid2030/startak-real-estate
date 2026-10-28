@@ -61,4 +61,12 @@ check('injected blocking issue in review-only link still blocks',()=>{
  const tampered={...review.link,issues:['CIRCULAR_VALUATION']};
  assert.equal(evaluateBoundReview({subject,link:tampered}).blockExport,true);
 });
+check('malformed falsey and primitive links cannot masquerade as a missing link',()=>{
+ for(const input of [false,0,'',true,42,[],{}]){
+  const r=evaluateBoundReview({subject,link:input});
+  assert.equal(r.blockExport,true);
+  assert.equal(r.status,'STALE_OR_UNMATCHED_LINK');
+ }
+ assert.equal(evaluateBoundReview({subject,link:null}).blockExport,false);
+});
 console.log('SUCCESS '+count+'/'+count+' independent binding tests');
