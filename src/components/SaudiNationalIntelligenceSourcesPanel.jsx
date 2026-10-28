@@ -1,5 +1,5 @@
 import React,{useMemo,useState} from 'react';
-const {SOURCES,importNationalSourcesCsv,mergeNationalResearch,filterNationalResearch,
+const {SOURCES,OFFICIAL_RESEARCH_ENTRYPOINTS,importNationalSourcesCsv,mergeNationalResearch,filterNationalResearch,
  summarizeNationalResearch}=require('../market/saudi-national-intelligence-sources');
 const {MAX_CSV_BYTES}=require('../market/public-dataset-import');
 const confidenceAr={HIGH:'مرتفعة',MEDIUM:'متوسطة',LOW:'منخفضة'};
@@ -43,6 +43,18 @@ export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange}
    {SOURCES.map(src=><a key={src.id} target="_blank" rel="noopener noreferrer"
     href={src.url} className="rounded border border-slate-600 px-3 py-2 text-xs text-sky-300">
     {src.label}</a>)}
+  </div>
+  <div data-testid="national-official-entrypoints" className="mt-4 rounded-lg border border-slate-700 p-3">
+   <h4 className="text-sm font-semibold">التحقق من المصادر السعودية الرسمية</h4>
+   <p className="mt-1 text-xs text-amber-200">هذه روابط عرض وبحث على مواقع الجهات الرسمية، وليست تكامل API داخل STARTAK. يجب التفريق بين الصفقات اليومية الخام والبيانات التاريخية المنقحة ومؤشرات الإيجار، ولا تُدرج أي قيمة آليًا في تقرير التقييم.</p>
+   <div className="mt-2 grid gap-2 sm:grid-cols-2">
+    {OFFICIAL_RESEARCH_ENTRYPOINTS.map(src=><a key={src.id} href={src.url}
+     target="_blank" rel="noopener noreferrer" data-testid={'official-entry-'+src.id}
+     className="rounded border border-slate-600 p-2 text-xs text-sky-300">
+      <strong className="block">{src.label}</strong>
+      <span className="mt-1 block text-slate-300">{src.caveat}</span>
+     </a>)}
+   </div>
   </div>
   <p className="mt-3 text-xs text-slate-300 break-all">
    صيغة CSV: source,city,district,kind,recordId,eventDate,periodStart,periodEnd,
