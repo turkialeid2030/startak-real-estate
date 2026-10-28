@@ -3,6 +3,7 @@ import {useAppraisalReviewSession} from './AppraisalReviewSessionContext.jsx';
 const {evaluatePersonalReportExport,assertPersonalReportExportAllowed}=require('../market/appraisal-report-export-gate');
 import DiagnosticText from './DiagnosticText.jsx';
 import OperatingFinancialComparison from './OperatingFinancialComparison';
+const {financialAndValuationLabels}=require('../app/personal-study-status-clarity');
 const {
   buildPersonalResearchReport,
   htmlReport,
@@ -55,6 +56,7 @@ export default function PersonalInvestmentResearchPanel({
     catch{return null;}
   },[valuationCase,runtime,financialContext]);
   if(!draft)return null;
+  const statusClarity=financialAndValuationLabels(draft,locale);
   const save=(format)=>{
     setMessage('');
     try{
@@ -97,11 +99,15 @@ export default function PersonalInvestmentResearchPanel({
         {draft.financial?.status === 'COMPUTATION_FAILED' && <p className="mt-2 text-xs text-amber-200">
           <DiagnosticText code={draft.financial.error?.code} locale={locale} />
         </p>}
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <div className="mt-4 grid gap-3 md:grid-cols-4">
+          <div data-testid="c75-financial-status" className="rounded-xl border border-slate-700 p-3">
+            <div className="text-[11px] text-slate-400">{ar?'حالة الحساب المالي الحالي':'Current financial calculation status'}</div>
+            <div className="mt-1 text-sm text-slate-100">{statusClarity.financialLabel}</div>
+          </div>
           <div className="rounded-xl border border-slate-700 p-3">
-            <div className="text-[11px] text-slate-400">{ar?'حالة المسودة':'Draft status'}</div>
+            <div className="text-[11px] text-slate-400">{ar?'حالة التقييم الإضافي (مستقلة عن الحساب المالي)':'Additional valuation status (separate from financial calculation)'}</div>
             <div data-testid="c75-personal-status" className="mt-1 text-sm text-slate-100">
-              {reportExportGate.blocked?'HOLD — APPRAISAL_REVIEW':humanStatus(draft.reportStatus,locale)}
+              {reportExportGate.blocked?'HOLD — APPRAISAL_REVIEW':statusClarity.additionalValuationLabel}
             </div>
           </div>
           <div className="rounded-xl border border-slate-700 p-3">
