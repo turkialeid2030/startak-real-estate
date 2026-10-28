@@ -69,6 +69,11 @@ on:
       - 'tests/defects/current_calculation_boundary_audit.js'
       - 'tests/defects/financial_market_identity_d06.js'
       - 'tests/defects/personal_study_status_clarity_d07.js'
+      - 'src/i18n/market-study-core-labels.js'
+      - 'src/reporting/financial-timing-basis-report.js'
+      - 'src/app/personal-financial-study.js'
+      - 'tests/defects/market_study_core_locale_d04.js'
+      - 'tests/defects/fractional_construction_disclosure_d05.js'
       - 'tests/e2e/run_audit_d06_d07_ci.mjs'
       - '.github/workflows/location-market-study-verify.yml'
   workflow_dispatch:
@@ -103,6 +108,10 @@ jobs:
         run: node tests/defects/financial_market_identity_d06.js
       - name: Audit D07 independent financial and valuation labels
         run: node tests/defects/personal_study_status_clarity_d07.js
+      - name: Audit D04 market identity and approval localization parity
+        run: node tests/defects/market_study_core_locale_d04.js
+      - name: Audit D05 year/month return-timing precision and dated evidence warnings
+        run: node tests/defects/fractional_construction_disclosure_d05.js
       - name: Secure Access synthetic tests without tokens
         run: node tests/architecture/run_protected_preview_access.js
       - run: node tests/architecture/run_transaction_cohort_unit_mix.js
