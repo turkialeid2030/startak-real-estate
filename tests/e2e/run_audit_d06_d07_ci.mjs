@@ -98,8 +98,8 @@ try{
  await page.getByTestId('locale-switch').click();
  assert(await fusion.getAttribute('dir')==='rtl','D04 restores Arabic research panel direction');
  assert(await suhail.getAttribute('dir')==='rtl','D04 restores Arabic neighborhood panel direction');
- assert((await fusion.getByTestId('fusion-status').innerText()).includes('HOLD'),
-  'D04 Arabic HOLD state retained');
+ assert((await fusion.getByTestId('fusion-status').textContent()).includes('HOLD'),
+  'D04 Arabic HOLD state retained in DOM, including immediately after language switch');
  assert(errors.length===0,'React browser failures: '+errors.slice(0,2).join(','));
  console.log('D06_D07_REAL_CHROMIUM=PASS financial_and_valuation_states_separate=true inferred_title=false');
 }catch(e){console.error('D06_D07_REAL_CHROMIUM=FAIL '+String(e.stack||e));process.exitCode=1;}
