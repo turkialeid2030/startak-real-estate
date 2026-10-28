@@ -63,7 +63,7 @@ try{
   'عقار,الرياض,الملقا,SALE_OFFER,1500000,300,https://sa.aqar.fm/a/100,100,RESIDENTIAL_VILLA,2026-10-26',
   'ديل,الخبر,العليا,BUYER_REQUEST,900000,300,https://dealapp.sa/ar/tabs/home,200,RESIDENTIAL_VILLA,2026-10-26',
   'سكني,جدة,السلامة,PROJECT_INDICATIVE,900000,170,https://sakani.sa/services/off-plan-projects,300,RESIDENTIAL_VILLA,2026-10-26',
- ].join('\\n');
+ ].join('\n');
  await catalogs.getByTestId('listing-observed-on').fill('2026-10-28');
  await catalogs.getByTestId('listing-source-csv').setInputFiles({
   name:'synthetic-source-research.csv',mimeType:'text/csv',buffer:Buffer.from(researchCsv)
