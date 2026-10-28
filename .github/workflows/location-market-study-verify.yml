@@ -69,6 +69,7 @@ on:
       - 'tests/defects/current_calculation_boundary_audit.js'
       - 'tests/defects/financial_market_identity_d06.js'
       - 'tests/defects/personal_study_status_clarity_d07.js'
+      - 'tests/e2e/run_audit_d06_d07_ci.mjs'
       - '.github/workflows/location-market-study-verify.yml'
   workflow_dispatch:
 concurrency:
@@ -125,6 +126,8 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: node tests/e2e/run_location_market_study_ci.mjs
       - run: node tests/e2e/run_appraisal_assurance_ci.mjs
+      - name: Verify D06 explicit identity bridge and D07 separated statuses with real Chromium
+        run: node tests/e2e/run_audit_d06_d07_ci.mjs
 
   owner-journey-real-chromium:
     runs-on: ubuntu-24.04
