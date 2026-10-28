@@ -64,6 +64,20 @@ check('do not silently overwrite same URL same observed date with conflicting pr
  assert.equal(merged.conflicts.length,1);assert.equal(merged.records.length,1);
  assert.equal(merged.records[0].askingPriceOrBudgetSar,1500000);
 });
+check('distinct request IDs at a generic Deal page cannot overwrite one another',()=>{
+ const a=rows.at(-1);
+ const b=rows.at(-1).replace('D-12','D-13').replace('1400000','1500000');
+ const imported=parse([header,a,b].join('\n'));
+ assert.equal(imported.records.length,2);
+ const m=mergeListingResearch([],imported.records);
+ assert.equal(m.records.length,2);assert.equal(m.conflicts.length,0);
+});
+check('generic public root with neither specific URL nor listing reference is rejected',()=>{
+ const entry=rows[0].replace('https://sa.aqar.fm/p/100,AQ-100','https://sa.aqar.fm/,');
+ const parsed=parse([header,entry].join('\n'));
+ assert.equal(parsed.rejected.length,1);
+ assert.ok(parsed.rejected[0].issues.includes('SPECIFIC_LISTING_REFERENCE_REQUIRED'));
+});
 check('same advertisement in later observation date remains a new version',()=>{
  const old=parse([header,rows[0]].join('\n'),{observedOn:'2026-10-27'}).records;
  const next=parse([header,rows[0]].join('\n')).records;

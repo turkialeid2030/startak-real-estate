@@ -100,6 +100,13 @@ function parseListingResearchCsv(csv,{observedOn,asOf=new Date()}={}){
   if(!kind||!spec?.capabilities.includes(kind))issues.push('SOURCE_KIND_UNSUPPORTED');
   if(!city||!district||city.length>120||district.length>120)issues.push('CITY_DISTRICT_REQUIRED');
   if(!listingUrl)issues.push('OFFICIAL_LISTING_URL_REQUIRED');
+  // Homepage/category routes cannot identify distinct requests or listings;
+  // a provider-side reference is required when a unique listing route is unavailable.
+  if(listingUrl&&!listingId){
+   const u=new URL(listingUrl);
+   if(u.pathname==='/'||u.pathname==='/ar/'||u.pathname==='/ar/tabs/home')
+    issues.push('SPECIFIC_LISTING_REFERENCE_REQUIRED');
+  }
   if(listingId.length>120||assetType.length>90)issues.push('FIELD_LENGTH_INVALID');
   if(Number.isNaN(price)||price!==null&&(price<=0||price>1e14))issues.push('ASKING_PRICE_INVALID');
   if(Number.isNaN(area)||area!==null&&(area<=0||area>1e7))issues.push('AREA_INVALID');
@@ -120,14 +127,16 @@ function parseListingResearchCsv(csv,{observedOn,asOf=new Date()}={}){
  return {records:accepted,rejected,sourceCount:new Set(accepted.map(r=>r.sourceId)).size,
   importedIndividualExecutedTransactions:0,autoValuationEnabled:false};
 }
-function identity(r){return [r.sourceId,r.listingUrl,r.observedOn].join('|');}
+function identity(r){return [r.sourceId,r.listingId?'ID:'+r.listingId:'URL:'+r.listingUrl,
+ r.observedOn].join('|');}
 function metricsEqual(a,b){return ['city','district','kind','assetType',
  'askingPriceOrBudgetSar','areaSqm','listingId','listingDate'].every(k=>a[k]===b[k]);}
 function mergeListingResearch(previous,incoming){
  if(!Array.isArray(previous)||!Array.isArray(incoming))throw Error('SOURCE_RESEARCH_ARRAY_REQUIRED');
  const merged=[],map=new Map(),conflicts=[];let added=0,duplicates=0;
  const accept=(r,origin)=>{
-  if(!SOURCE_MAP[r?.sourceId]||r?.recordClass!=='USER_IMPORTED_MARKET_SIGNAL_UNVERIFIED'||
+  if(!SOURCE_MAP[r?.sourceId]||!SOURCE_MAP[r.sourceId].capabilities.includes(r.kind)||
+     r?.recordClass!=='USER_IMPORTED_MARKET_SIGNAL_UNVERIFIED'||
      r.executedTransactionRecord!==false||r.marketValuationEligible!==false||
      !canonicalUrl(r.listingUrl,SOURCE_MAP[r.sourceId].domains))
    throw Error('SOURCE_RESEARCH_INVALID_RECORD');

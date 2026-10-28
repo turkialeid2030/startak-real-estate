@@ -33,3 +33,7 @@ Sources verified through public site pages on 2026-10-28, without claim of provi
 
 ## Remaining acceptance
 For wider real-data coverage, import records from an available export/manual collection with explicit URL and observation date or use an independently established authorized provider endpoint. Validate city/district, asset type, area basis, current availability and independent sale/deed source before any use in a valuation model. Once authoritative feeds and controls are independently verified, reassess GO. Current professional/commercial decision remains HOLD/NOT_AUTHORIZED.
+
+## Same-provider listing identity
+
+Within a provider, the external listing/request ID is preferred when present, because multiple Deal buyer requests may share a generic public landing page URL. Without a provider ID, root and generic request landing routes do not count as specific unique listings. Distinct recorded observation dates remain separate versions. An URL matching an official domain is source provenance only, not proof that the listing or transaction is authentic.
