@@ -1,0 +1,24 @@
+'use strict';
+const assert=require('node:assert/strict');
+const {coreMarketLabel,marketOptionLabel,coreMarketAssetOptions,formatBridgeFields}=
+ require('../../src/i18n/market-study-core-labels');
+const {ASSET_TYPES}=require('../../src/market/instant-market-study');
+let checks=0;const ok=(val,msg)=>{assert.ok(val,msg);checks++;};
+ok(coreMarketLabel('المدينة','en')==='City','English city label');
+ok(coreMarketLabel('المدينة','ar-SA')==='المدينة','Arabic unchanged');
+ok(coreMarketLabel('اسم العقار','en')==='Property name','English property name');
+ok(coreMarketLabel('نوع الحق العقاري (يحتاج تحقق)','en').includes('unverified'),'no verified-title implication');
+ok(coreMarketLabel('unknown Arabic market diagnostic','en')==='unknown Arabic market diagnostic','do not erase unknown diagnostics');
+ok(marketOptionLabel('OFFICE_TOWER',ASSET_TYPES.OFFICE_TOWER,'en')==='Office tower','enum translation');
+ok(marketOptionLabel('OFFICE_TOWER',ASSET_TYPES.OFFICE_TOWER,'ar-SA')===ASSET_TYPES.OFFICE_TOWER,'Arabic asset label unchanged');
+ok(marketOptionLabel('OFFICE_TOWER','User-supplied malicious alias','en')==='User-supplied malicious alias','no type label spoofing');
+const en=coreMarketAssetOptions('en'),ar=coreMarketAssetOptions('ar-SA');
+ok(en.length===ar.length&&en.length===Object.keys(ASSET_TYPES).length+1,'complete asset enumeration');
+ok(en.every(([code],i)=>code===ar[i][0]),'asset ids remain stable for all thirteen sectors and land');
+ok(en.find(x=>x[0]==='LAND')[1]==='Land','land type translated');
+const original={name:'Synthetic',landArea:'1800.5',assetType:'OFFICE_TOWER',unknown:'secret'};
+const result=formatBridgeFields(original,'en');
+ok(result.includes('Property name = Synthetic')&&result.includes('Land area (sqm) = 1800.5'),'bridge labels translated only');
+ok(!result.includes('secret'),'unknown fields not displayed');
+ok(formatBridgeFields(original,'ar-SA').includes('landArea = 1800.5'),'Arabic bridge contract retained');
+console.log('D04_MARKET_CORE_TRANSLATIONS=PASS checks='+checks);
