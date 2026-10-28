@@ -62,7 +62,22 @@ try{
   'D06 must preserve city rather than pretend the title verifies location');
  assert(await market.getByTestId('market-subject-asset-type').inputValue()==='OFFICE_TOWER',
   'D06 asset class must be the expressly chosen option');
- assert(errors.length===0,'React browser failures: '+errors.slice(0,2).join(', '));
+ await page.getByRole('button',{name:'EN',exact:true}).click();
+ await market.getByTestId('market-partial-locale-notice').waitFor();
+ assert(await market.getAttribute('dir')==='ltr','D04 core market panel direction switches to LTR');
+ assert((await market.locator('h2').first().innerText()).includes('Property location'),
+  'D04 English market heading must be visible');
+ assert(await market.getByLabel('Property name',{exact:true}).first().inputValue()===STUDY,
+  'D04 locale switch must not change financial-to-market identity values');
+ assert((await market.getByTestId('market-subject-asset-type').inputValue())==='OFFICE_TOWER',
+  'D04 locale switch must not change machine asset classification');
+ assert((await market.getByTestId('market-subject-asset-type').innerText()).includes('Office tower'),
+  'D04 should localize asset enum labels without changing enum values');
+ assert((await bridge.innerText()).includes('Optional property identity link'),
+  'D04 must localize explicit-consent section');
+ assert((await market.getByTestId('market-partial-locale-notice').innerText())
+  .includes('not fully localized'),'D04 must disclose incomplete advanced-section translation');
+ assert(errors.length===0,'React browser failures: '+errors.slice(0,2).join(','));
  console.log('D06_D07_REAL_CHROMIUM=PASS financial_and_valuation_states_separate=true inferred_title=false');
 }catch(e){console.error('D06_D07_REAL_CHROMIUM=FAIL '+String(e.stack||e));process.exitCode=1;}
 finally{if(browser)await browser.close();if(server)await server.httpServer.close();}
