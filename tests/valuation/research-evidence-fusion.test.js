@@ -5,7 +5,7 @@ const {importEarthResearchCsv}=require('../../src/market/earth-national-research
 const {importNationalSourcesCsv}=require('../../src/market/saudi-national-intelligence-sources');
 const {toPublicSample}=require('../../src/market/suhail-national-neighborhood-research');
 const {buildUnifiedResearch,researchClaimsGate,researchReportBundle,
- fromResearchFeeds,scenarioAnnex,publicOpenDataAnnex}=require('../../src/market/research-evidence-fusion');
+ fromResearchFeeds,scenarioAnnex,publicOpenDataAnnex,researchReviewPlan}=require('../../src/market/research-evidence-fusion');
 let count=0;const ok=(label,run)=>{run();count++;console.log('PASS '+label);};
 const listings=parseListingResearchCsv([
  'source,city,district,kind,priceSar,areaSqm,listingUrl,listingId,assetType,listingDate',
@@ -65,6 +65,29 @@ ok('untrusted record that asserts certification is rejected, not promoted',()=>{
  const out=buildUnifiedResearch({subject,feeds:f});
  assert.equal(out.validResearchRows,0);
  assert.equal(out.rejectedRows.length,1);
+});
+ok('committee-style research review tasks follow evidence gaps and stay on HOLD',()=>{
+ const plan=researchReviewPlan(snap);
+ assert.equal(plan.investmentDecision,'HOLD');
+ assert.equal(plan.certifiedValueSar,null);
+ assert.ok(plan.tasks.some(x=>x.id==='PROPERTY_AND_TITLE'));
+ assert.ok(plan.tasks.some(x=>x.id==='EXECUTED_SALES_PROOF'));
+ assert.ok(plan.tasks.some(x=>x.id==='DUPLICATES'));
+ assert.ok(plan.tasks.some(x=>x.id==='INDEPENDENT_REVIEW'));
+ assert.ok(plan.tasks.every(x=>x.status==='OPEN_NOT_INDEPENDENTLY_VERIFIED'&&
+  x.approvalClaim===false));
+ const report=researchReportBundle(snap,{marketReport:{issues:['METHOD_GAP']},
+  readiness:{status:'HOLD',reasons:['NO_INDEPENDENT_RENT']}});
+ assert.ok(report.reviewerActionPlan.tasks.some(x=>x.id==='VALUATION_RECONCILIATION'));
+ assert.equal(report.reviewerActionPlan.approvedMaximumPurchaseSar,null);
+});
+ok('research action plan blocks fabricated input source authority',()=>{
+ assert.throws(()=>researchReviewPlan({status:'CERTIFIED'}),/RESEARCH_REVIEW_PLAN_INVALID/);
+ const blank=buildUnifiedResearch({subject:{},feeds:{},asOf:'2026-10-28'});
+ const plan=researchReviewPlan(blank);
+ assert.ok(plan.tasks.some(x=>x.id==='LOCATION_SCOPE'));
+ assert.ok(plan.tasks.some(x=>x.id==='RELEVANT_MARKET_EVIDENCE'));
+ assert.equal(plan.certifiedValueSar,null);
 });
 ok('source lookalike URLs are rejected after import object mutation',()=>{
  const fake={listings:[{...listings[0],listingUrl:'https://sa.aqar.fm.evil.net/p/1'}]};
