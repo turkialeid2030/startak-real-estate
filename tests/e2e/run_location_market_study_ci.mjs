@@ -54,6 +54,36 @@ try{
  const panel=page.locator('[data-testid="location-market-study"]');
  await panel.waitFor({state:'visible'});
  mark('PANEL_MOUNT',await panel.isVisible());
+ const nationalSources=panel.getByTestId('national-intelligence-sources');
+ await nationalSources.waitFor({state:'visible'});
+ assert((await nationalSources.getByTestId('national-nine-links').locator('a').count())===9,
+  'Nine distinct public real estate source reference URLs must be visible');
+ const nationalResearchCSV=[
+  'source,city,district,kind,recordId,eventDate,periodStart,periodEnd,metricName,metricValue,unit,sourceUrl,assetType',
+  'REGA_REI,الرياض,الملقا,OFFICIAL_AGGREGATE,,,2026-07-01,2026-09-30,deal_count,20,COUNT,https://rei.rega.gov.sa/ar,LAND',
+  'GREM_AI,جدة,السلامة,EXTERNAL_AVM_ESTIMATE,SYN-AVM-1,,,,estimated_value_sar,1800000,SAR,https://ai.grem.capital/ar,APARTMENT',
+  'MOJ_SREM,الخبر,العليا,OFFICIAL_REPORTED_SALE,SYN-TRAN-1,2026-10-22,,,sale_price_sar,4500000,SAR,https://srem.moj.gov.sa/,LAND',
+ ].join('\n');
+ await nationalSources.getByTestId('national-observed-on').fill('2026-10-28');
+ await nationalSources.getByTestId('national-import-csv').setInputFiles({
+  name:'synthetic-nine-sources.csv',mimeType:'text/csv',buffer:Buffer.from(nationalResearchCSV)});
+ await nationalSources.getByTestId('national-import-status').filter({hasText:'أضيف 3'}).waitFor();
+ await nationalSources.getByTestId('national-source-filter').selectOption('GREM_AI');
+ assert((await nationalSources.locator('tbody tr').count())===1,
+  'AVM provider must be isolated as an estimate rather than an executed sale');
+ assert((await nationalSources.locator('tbody').innerText()).includes('تقدير آلي'),
+  'External model output classification not visible');
+ await nationalSources.getByTestId('national-city-filter').selectOption('الرياض');
+ assert((await nationalSources.locator('tbody tr').count())===0,
+  'Foreign city AVM leaked into Riyadh results');
+ await nationalSources.getByTestId('national-source-filter').selectOption('MOJ_SREM');
+ await nationalSources.getByTestId('national-city-filter').selectOption('الخبر');
+ assert((await nationalSources.locator('tbody tr').count())===1,
+  'Saudi Ministry of Justice research row not filterable by the correct city');
+ assert((await nationalSources.getByTestId('national-summary').innerText()).includes('الصفقات الفردية المثبتة: 0'),
+  'Imported public-facing MOJ research cannot self-certify an executed deal');
+ mark('NINE_NATIONAL_SOURCES_TYPED_RESEARCH_UI_AND_NO_AUTOVALUATION',true);
+
  const earth=panel.getByTestId('earth-national-research');
  await earth.waitFor({state:'visible'});
  assert((await earth.getByTestId('earth-links').locator('a').count())===10,

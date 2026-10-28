@@ -19,6 +19,7 @@ import ValuationQualityPanel from './ValuationQualityPanel.jsx';
 import SuhailNationalResearchPanel from './SuhailNationalResearchPanel.jsx';
 import SaudiListingSourcesResearchPanel from './SaudiListingSourcesResearchPanel.jsx';
 import EarthNationalResearchPanel from './EarthNationalResearchPanel.jsx';
+import SaudiNationalIntelligenceSourcesPanel from './SaudiNationalIntelligenceSourcesPanel.jsx';
 
 const INPUT = 'w-full rounded-lg border border-slate-600 bg-[#101c30] px-3 py-2 text-sm text-slate-100';
 const createRow = () => ({ assetType:'',landSubtype:'',sourceRecordId:'', status:'ASKING', price:'', annualRent:'', builtArea:'', landArea:'',
@@ -562,6 +563,7 @@ export default function PropertyMarketLocationPanel() {
     <SuhailNationalResearchPanel/>
     <SaudiListingSourcesResearchPanel/>
     <EarthNationalResearchPanel/>
+    <SaudiNationalIntelligenceSourcesPanel/>
     {message&&<p role="status" className="text-xs text-slate-200 mt-2">{message}</p>}
   </section>;
 }
