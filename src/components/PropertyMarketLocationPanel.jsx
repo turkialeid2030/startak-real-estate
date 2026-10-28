@@ -129,6 +129,10 @@ export default function PropertyMarketLocationPanel() {
   const [linkedDealIdentityAcknowledged,setLinkedDealIdentityAcknowledged]=useState(false);
   useEffect(()=>{setSessionSubject(subject);},[subject,setSessionSubject]);
   const appraisalBinding=useMemo(()=>evaluateBoundReview({subject,link:appraisalLink}),[subject,appraisalLink]);
+  const selectedDeal=useMemo(()=>savedDeals.find(deal=>deal.id===selectedSavedDealId)||null,[savedDeals,selectedSavedDealId]);
+  const linkedDealNameConflict=Boolean(appraisalLink&&selectedDeal&&
+    String(selectedDeal.name).trim().replace(/\s+/g,' ').toLocaleLowerCase('ar')!==
+    String(subject.name).trim().replace(/\s+/g,' ').toLocaleLowerCase('ar'));
   const updateSubject=(key,value)=>setSubject(current=>({...current,[key]:value}));
   const updateAssumption=(key,value)=>setAssumptions(current=>({...current,[key]:value}));
   const studyAsOf=resolveStudyAsOf(subject.valuationDate);
@@ -220,6 +224,7 @@ export default function PropertyMarketLocationPanel() {
   };
   const saveLinkedStudy=async()=>{
     if(appraisalBinding.blockExport){setSavedDealStudyStatus('حُظر حفظ ملحق الصفقة لوجود تدقيق تقييم متعارض أو ربط قديم. أعد المطابقة أولاً.');return;}
+    if(linkedDealNameConflict){setSavedDealStudyStatus('اسم العقار في التقرير المرتبط لا يطابق اسم الصفقة المحفوظة؛ لا يجوز استخدام إقرار المطابقة وحده لتجاوز التعارض.');return;}
     if(!selectedSavedDealId){setSavedDealStudyStatus('اختر الصفقة المحفوظة أولًا.');return;}
     if(!linkedDealIdentityAcknowledged){setSavedDealStudyStatus('أكد أن الدراسة تخص العقار نفسه قبل الحفظ.');return;}
     setLinkedStudyBusy(true);
@@ -515,6 +520,7 @@ export default function PropertyMarketLocationPanel() {
           </select>
         </label>
       </div>
+      {linkedDealNameConflict&&<p data-testid="appraisal-sidecar-name-mismatch" role="alert" className="mt-2 text-xs text-rose-200">تعذر ربط تقرير التقييم بهذه الصفقة: اسم الصفقة المحفوظة مختلف عن اسم العقار الجاري دراسته. يلزم تصحيح الربط بعد التحقق من هوية الأصل.</p>}
       <label className="mt-3 min-h-[40px] inline-flex items-center gap-2 text-xs text-slate-300">
         <input type="checkbox" className="h-6 w-6" checked={linkedDealIdentityAcknowledged}
           onChange={e=>setLinkedDealIdentityAcknowledged(e.target.checked)}/>
@@ -526,7 +532,7 @@ export default function PropertyMarketLocationPanel() {
         أوافق على استبدال ملحق دراسة محفوظ سابقًا لهذه الصفقة
       </label>
       <div className="flex flex-wrap gap-2 mt-3">
-        <button type="button" disabled={linkedStudyBusy||!selectedSavedDealId||!linkedDealIdentityAcknowledged||appraisalBinding.blockExport}
+        <button type="button" disabled={linkedStudyBusy||!selectedSavedDealId||!linkedDealIdentityAcknowledged||appraisalBinding.blockExport||linkedDealNameConflict}
           onClick={saveLinkedStudy} className="min-h-[40px] rounded-lg bg-[#C9A24C] px-4 py-2 text-xs font-semibold text-[#141F35] disabled:opacity-50">
           حفظ ملحق الدراسة للصفقة المختارة
         </button>
