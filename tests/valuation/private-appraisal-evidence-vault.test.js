@@ -2,7 +2,8 @@
 const assert=require('node:assert/strict'),crypto=require('node:crypto');
 const {makePrivateAppraisalVault}=require('../../src/market/private-appraisal-evidence-vault');
 const map=new Map(),key=crypto.randomBytes(32);
-const adapter={get:async id=>map.has(id)?map.get(id):null,put:async(id,v)=>map.set(id,v)};
+const adapter={get:async id=>map.has(id)?map.get(id):null,
+ putIfAbsent:async(id,v)=>{if(map.has(id))return false;map.set(id,v);return true;}};
 const makeActor=(tenantId,role,authenticatedByTrustedBackend=true)=>({
  tenantId,role,authenticatedByTrustedBackend,actorId:'SYN-REVIEWER'});
 const v=makePrivateAppraisalVault({adapter,keyProvider:()=>key,clock:()=>new Date('2026-05-01T00:00:00Z')});

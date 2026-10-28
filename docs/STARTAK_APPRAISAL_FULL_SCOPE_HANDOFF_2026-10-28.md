@@ -30,3 +30,5 @@ The existing PR #764 is a draft stack on #763. It must pass full CI on the final
 ## Integration in valuation report intake UI
 
 The sector preflight is now invoked by the existing appraisal audit when the manually entered asset type is HOTEL, WAREHOUSE, LOGISTICS_PARK or COMMERCIAL_MALL (and additionally FUEL_STATION for headless use). The Arabic reviewer workbench displays sector-specific manually verified numeric fields and documents, returns a HOLD issue for incomplete evidence, and reuses the existing appraisal HOLD decision bridge. This does not compute a new property value, import OCR into financial inputs, or authorize specialized professional valuation. All supporting data remain transient in the local session.
+
+Production storage must supply a genuinely atomic putIfAbsent implementation (transactional unique key constraint or equivalent). An unsafe get-then-put API cannot establish immutable evidence under concurrent writes. The synthetic test adapter uses a Map only for contract validation and is not an institutionally durable repository.

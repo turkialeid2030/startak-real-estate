@@ -17,7 +17,7 @@ function keyFrom(keyProvider,tenant){
  return k;
 }
 function makePrivateAppraisalVault({adapter,keyProvider,clock=()=>new Date()}={}){
- if(!adapter||typeof adapter.get!=='function'||typeof adapter.put!=='function'||
+ if(!adapter||typeof adapter.get!=='function'||typeof adapter.putIfAbsent!=='function'||
   typeof keyProvider!=='function')throw Error('TRUSTED_ADAPTER_AND_KMS_REQUIRED');
  const idOf=(tenant,ref)=>'appraisal-evidence:v1:'+privateRef(tenant,'TENANT')+':'+privateRef(ref,'EVIDENCE_REF');
  async function put({actor,tenantId,evidenceRef,caseRef,sourceBytes,expectedSha256}={}){
@@ -39,7 +39,9 @@ function makePrivateAppraisalVault({adapter,keyProvider,clock=()=>new Date()}={}
    uploadedByActorRef:actor.actorId,uploadedAt:clock().toISOString(),
    legalReuseRightsVerified:false,independentlyProfessionallyReviewed:false,
    releaseAuthorized:false,storageAdapterSecurityVerified:false};
-  await adapter.put(identity,JSON.stringify(core));
+  // Atomic insert prevents parallel reviewers from silently overwriting the same immutable ref.
+  if(await adapter.putIfAbsent(identity,JSON.stringify(core))!==true)
+   throw Error('EVIDENCE_IMMUTABLE_REF_ALREADY_EXISTS');
   return {tenantId,evidenceRef,caseRef,sha256:sha,status:'SEALED_UNVERIFIED',
     professionalValueReleaseAuthorized:false};
  }
