@@ -13,6 +13,10 @@ on:
       - 'docs/AUDIT_20261010_F01_F02_OWNER_FINANCIAL_REMEDIATION.md'
       - '.github/workflows/audit-20261010-f01-f02-verify.yml'
   workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 jobs:

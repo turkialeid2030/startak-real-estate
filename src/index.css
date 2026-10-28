@@ -28,3 +28,6 @@ input::placeholder,textarea::placeholder {color:#94a3b8;opacity:1;}
    review cards to shrink inside the 390px mobile workspace. */
 .canonical-review-surface { min-width:0; overflow-wrap:anywhere; }
 .canonical-review-surface :where(section,aside,article,div,p,span,code,li) { min-width:0; }
+
+/* Native checkboxes are only ~17px wide on some mobile browsers. */
+:where(input[type="checkbox"],input[type="radio"]) { min-width:24px; min-height:24px; flex-shrink:0; }
