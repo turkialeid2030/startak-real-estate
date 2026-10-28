@@ -77,6 +77,29 @@ try{
   'D04 must localize explicit-consent section');
  assert((await market.getByTestId('market-partial-locale-notice').innerText())
   .includes('not fully localized'),'D04 must disclose incomplete advanced-section translation');
+ const fusion=page.getByTestId('research-evidence-fusion');
+ await fusion.waitFor({state:'visible'});
+ assert(await fusion.getAttribute('dir')==='ltr',
+  'D04 multi-source research panel must switch direction to English');
+ assert((await fusion.locator('h3').first().innerText()).includes('Multi-source market evidence'),
+  'D04 evidence integration English heading visible');
+ assert((await fusion.getByTestId('fusion-status').innerText()).includes('HOLD'),
+  'D04 must preserve HOLD state in English');
+ assert((await fusion.getByTestId('fusion-statistics').innerText()).includes('Independently verified executed sales'),
+  'D04 must distinguish verified executed transactions from research rows');
+ const suhail=page.getByTestId('suhail-national-research');
+ await suhail.waitFor({state:'visible'});
+ assert(await suhail.getAttribute('dir')==='ltr','D04 Suhail research panel direction');
+ assert((await suhail.locator('h3').first().innerText()).includes('Saudi neighborhood indicators'),
+  'D04 Suhail English sample warning visible');
+ assert((await suhail.getByTestId('suhail-scope').innerText())
+  .includes('Independently confirmed individual transactions: 0'),
+  'D04 Suhail must not claim verified executed sales after locale switch');
+ await page.getByRole('button',{name:'عربي',exact:true}).click();
+ assert(await fusion.getAttribute('dir')==='rtl','D04 restores Arabic research panel direction');
+ assert(await suhail.getAttribute('dir')==='rtl','D04 restores Arabic neighborhood panel direction');
+ assert((await fusion.getByTestId('fusion-status').innerText()).includes('HOLD'),
+  'D04 Arabic HOLD state retained');
  assert(errors.length===0,'React browser failures: '+errors.slice(0,2).join(','));
  console.log('D06_D07_REAL_CHROMIUM=PASS financial_and_valuation_states_separate=true inferred_title=false');
 }catch(e){console.error('D06_D07_REAL_CHROMIUM=FAIL '+String(e.stack||e));process.exitCode=1;}
