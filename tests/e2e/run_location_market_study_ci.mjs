@@ -67,8 +67,9 @@ try{
   assert(await link.getAttribute('rel')==='noopener noreferrer','external portal must block tab-opener privileges');
  }
  const officialDisclosure=(await official.locator('p').first().textContent()||'').replace(/\s+/g,' ');
- assert(/ليست\s+تكامل\s+API/.test(officialDisclosure),
-  'official source links must explicitly deny a live government API integration');
+ assert(officialDisclosure.includes('API')&&officialDisclosure.includes('STARTAK')&&
+  officialDisclosure.includes('ولا تُدرج'),
+  'official source research disclaimer absent; observed='+JSON.stringify(officialDisclosure.slice(0,300)));
  mark('FOUR_OFFICIAL_RESEARCH_ROUTES_VISIBLE_WITH_EXPLICIT_NO_API_CLAIM',true);
  const nationalResearchCSV=[
   'source,city,district,kind,recordId,eventDate,periodStart,periodEnd,metricName,metricValue,unit,sourceUrl,assetType',
