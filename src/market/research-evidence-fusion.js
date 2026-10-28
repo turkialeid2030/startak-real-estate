@@ -197,7 +197,28 @@ function researchClaimsGate({snapshot,claims=[]}={}){
   acceptedClaims:reasons.length?[]:safe,certified:false,
   numericOutputsAllowed:false,professionalReportAuthorized:false};
 }
-function researchReportBundle(snapshot,{marketReadinessStatus='NOT_TESTED'}={}){
+function scenarioAnnex({marketReport=null,readiness=null}={}){
+ const fields=['saleIndicationSar','incomeIndicationSar','todayValueScenarioSar',
+  'marketAnnualRentPotentialSar','expectedCollectedAnnualRentSar','estimatedAnnualNoiSar',
+  'methodGapPct','confidence'];
+ const nonNegative=(name,v)=>typeof v==='number'&&Number.isFinite(v)&&v>=0&&v<=1e15?v:null;
+ const values=Object.fromEntries(fields.map(k=>[k,
+  k==='confidence'?String(marketReport?.[k]??'').slice(0,60)||null:
+  nonNegative(k,marketReport?.[k])]));
+ const problems=Array.isArray(marketReport?.issues)?
+  marketReport.issues.filter(x=>typeof x==='string').slice(0,35):[];
+ const reasons=Array.isArray(readiness?.reasons)?
+  readiness.reasons.filter(x=>typeof x==='string').slice(0,35):[];
+ return {type:'USER_INPUT_DETERMINISTIC_SCENARIO_ONLY',
+  fromExistingMarketCalculator:true,sourceAuthenticationPerformed:false,
+  useForCertifiedAppraisal:false,investorPurchaseAuthorized:false,
+  previewValuesSar:values,marketCalculatorIssues:problems,
+  currentReadinessStatus:String(readiness?.status||'NOT_EVALUATED').slice(0,80),
+  currentReadinessReasons:reasons,
+  disclaimer:'These deterministic outputs are conditional user-input scenarios, not independently verified market values or licensed appraisals.'};
+}
+
+function researchReportBundle(snapshot,{marketReadinessStatus='NOT_TESTED',marketReport=null,readiness=null}={}){
  if(!snapshot||snapshot.version!==VERSION)throw Error('FUSION_REPORT_INVALID');
  return {kind:'STARTAK_RESEARCH_EVIDENCE_BRIEF_V1',version:VERSION,
   researchAsOf:snapshot.asOf,subject:snapshot.subject,
@@ -211,6 +232,7 @@ function researchReportBundle(snapshot,{marketReadinessStatus='NOT_TESTED'}={}){
   evidenceIndex:snapshot.context.map(x=>({id:x.evidenceId,origin:x.origin,type:x.type,
     city:x.city,district:x.district,date:x.eventDate||x.observedOn,
     url:x.sourceUrl,verified:false})),
+  scenarioAnnex:scenarioAnnex({marketReport,readiness}),
   riskCodes:snapshot.risks,valuationSar:null,maximumPurchaseSar:null,
   investmentDecision:'HOLD_REQUIRES_INDEPENDENT_MARKET_AND_FINANCIAL_EVIDENCE',
   permittedUse:'PERSONAL_RESEARCH_DRAFT',publishableProfessionalValuation:false,
@@ -219,4 +241,4 @@ function researchReportBundle(snapshot,{marketReadinessStatus='NOT_TESTED'}={}){
    'LIVE_SOURCE_APIS','PROPERTY_LEVEL_COMPARABLES','PROFESSIONAL_APPRAISAL']};
 }
 module.exports={VERSION,fromResearchFeeds,compareCandidates,buildUnifiedResearch,
- researchClaimsGate,researchReportBundle};
+ researchClaimsGate,researchReportBundle,scenarioAnnex};

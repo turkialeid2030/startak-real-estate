@@ -30,3 +30,6 @@ The Suhail, seven Saudi listing websites, ten Earth sections and national 11 sou
 
 ## Acceptance and traceability
 Run `node tests/valuation/research-evidence-fusion.test.js` and the extended `Location Market Study Verify` pipeline, then verify canonical `Release Verify` at exact commit. Live integrations and professional approvals must be assessed separately, with evidence, before changing `HOLD/NOT_AUTHORIZED`.
+
+## Scenario annex without automatic professional promotion
+The unified JSON research bundle now carries a narrowly allowlisted `scenarioAnnex` from the existing STARTAK `evaluateMarketStudy` result and `auditValuationReadiness` state, with explicit user-scenario-only labeling. The bundle's professional `valuationSar` and investment `maximumPurchaseSar` remain null. No new standalone market-value calculator was introduced. Negative/invalid/unknown numeric result fields are rejected from the annex.

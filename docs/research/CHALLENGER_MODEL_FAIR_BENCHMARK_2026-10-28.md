@@ -9,3 +9,6 @@ Date: 2026-10-28. Scope: user-uploaded, bounded CSV research sandbox.
 ## Independent-authentication boundary
 
 The benchmark now reuses a **pure mathematical error primitive** exported by the existing historical holdout module. It no longer sends fabricated `independentlyVerified:true` or `reuseRightsVerified:true` flags into the professional evidence validator. The existing formal `validateIndependentHoldout` still applies its independent evidence gates unchanged. Any model benchmark built from an uploaded CSV remains mathematics-on-user-claims, not proven accuracy.
+
+## Accuracy sample hardening (second iteration)
+- Enforce minimum **30 distinct property IDs**, not merely 30 time snapshots of the same property; reject repeated property with different prediction/execution dates or inconsistent city/sector identity, and reject training-property overlap. Identical property/valuation-date/real-sale-label is required for every challenger. Optional `rangeLowSar` / `rangeHighSar` are paired, positive and contain the provider's point estimate. Interval coverage is calculated only for complete self-reported intervals and remains an **uncertified** mathematical statistic.

@@ -4,7 +4,8 @@ const {parseListingResearchCsv}=require('../../src/market/saudi-listing-source-r
 const {importEarthResearchCsv}=require('../../src/market/earth-national-research');
 const {importNationalSourcesCsv}=require('../../src/market/saudi-national-intelligence-sources');
 const {toPublicSample}=require('../../src/market/suhail-national-neighborhood-research');
-const {buildUnifiedResearch,researchClaimsGate,researchReportBundle,fromResearchFeeds}=require('../../src/market/research-evidence-fusion');
+const {buildUnifiedResearch,researchClaimsGate,researchReportBundle,
+ fromResearchFeeds,scenarioAnnex}=require('../../src/market/research-evidence-fusion');
 let count=0;const ok=(label,run)=>{run();count++;console.log('PASS '+label);};
 const listings=parseListingResearchCsv([
  'source,city,district,kind,priceSar,areaSqm,listingUrl,listingId,assetType,listingDate',
@@ -125,5 +126,27 @@ ok('export never implies ownership, valuation, or investment approval',()=>{
  assert.equal(out.publishableProfessionalValuation,false);
  assert.equal(out.evidenceIndex.length,snap.context.length);
  assert.ok(out.riskCodes.length>0);
+});
+ok('existing deterministic market study is included as unverified scenario only',()=>{
+ const indicative=scenarioAnnex({marketReport:{
+  todayValueScenarioSar:1230000,estimatedAnnualNoiSar:80000,issues:['PROOF_PENDING'],
+  certifiedMarketValue:999999
+ },readiness:{status:'HOLD',reasons:['MISSING_PROVENANCE']}});
+ assert.equal(indicative.previewValuesSar.todayValueScenarioSar,1230000);
+ assert.equal(indicative.previewValuesSar.estimatedAnnualNoiSar,80000);
+ assert.equal(indicative.sourceAuthenticationPerformed,false);
+ assert.equal(indicative.currentReadinessStatus,'HOLD');
+ assert.equal(indicative.previewValuesSar.certifiedMarketValue,undefined);
+ const bundle=researchReportBundle(snap,{marketReport:{todayValueScenarioSar:1230000}});
+ assert.equal(bundle.scenarioAnnex.previewValuesSar.todayValueScenarioSar,1230000);
+ assert.equal(bundle.valuationSar,null);
+ assert.equal(bundle.maximumPurchaseSar,null);
+});
+ok('invalid and negative current market values cannot escape to scenario annex',()=>{
+ const r=scenarioAnnex({marketReport:{saleIndicationSar:-30,
+  incomeIndicationSar:Infinity,estimatedAnnualNoiSar:NaN}});
+ assert.equal(r.previewValuesSar.saleIndicationSar,null);
+ assert.equal(r.previewValuesSar.incomeIndicationSar,null);
+ assert.equal(r.previewValuesSar.estimatedAnnualNoiSar,null);
 });
 console.log('UNIFIED_RESEARCH_EVIDENCE_FUSION_TESTS='+count+'/'+count);

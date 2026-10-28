@@ -62,6 +62,33 @@ test('CSV parser rejects ambiguous number and accepts Arabic decimal',()=>{
  const a=parseChallengerCsv([fields,'STARTAK,SYN-X,LAND,الرياض,الملقا,2026-06-01,١٠٠٠٫٥,100000,2026-07-01,5'].join('\n'));
  assert.equal(a.records.length,1);assert.equal(a.records[0].predictedValueSar,1000.5);
 });
+test('the same property across thirty time snapshots is not 30 independent subjects',()=>{
+ const all=Array.from({length:30},(_,i)=>['STARTAK','GREM_AI'].map((modelId,j)=>({
+  modelId,propertyRef:'SINGLE-PROPERTY',assetType:'LAND',city:'الرياض',district:'الملقا',
+  predictedAsOf:'2025-01-'+String(i+1).padStart(2,'0'),
+  executionDate:'2025-02-'+String(i+1).padStart(2,'0'),
+  predictedValueSar:1000000+j*10000,executedPriceSar:1000000,
+  runCostSar:10
+ }))).flat();
+ const r=evaluateChallengers({observations:all});
+ assert.ok(r.reasons.some(x=>x.code==='MINIMUM_DISTINCT_PROPERTY_COUNT_NOT_MET'));
+ assert.ok(r.reasons.some(x=>x.code==='REPEATED_PROPERTY_WITH_DIFFERENT_CASE_DATE'));
+ assert.equal(Object.keys(r.metricsByModel).length,0);
+});
+test('invalid confidence intervals are rejected, complete interval gives illustrative coverage',()=>{
+ const rows=samples().map(r=>({...r,rangeLowSar:r.executedPriceSar-100000,
+  rangeHighSar:r.executedPriceSar+100000}));
+ const r=evaluateChallengers({observations:rows});
+ assert.equal(r.metricsByModel.STARTAK.indicativeIntervalCoveragePct,100);
+ assert.equal(r.independentMarketEvidenceVerified,false);
+ const bad=rows.map(x=>({...x}));bad[0].rangeHighSar=null;
+ assert.ok(evaluateChallengers({observations:bad}).reasons.some(x=>x.code==='INVALID_OBSERVATION_OR_TIME_LEAKAGE'));
+ const cols=fields+',rangeLowSar,rangeHighSar';
+ const c=parseChallengerCsv([cols,
+  'STARTAK,SYN-1,LAND,الرياض,الملقا,2026-06-01,1000000,1000000,2026-07-01,1,1200000,1300000'
+ ].join('\n'));
+ assert.equal(c.records.length,0);
+});
 test('CSV only allows named model providers and never declares verified prices',()=>{
  const invalid=parseChallengerCsv([fields,'FAKE,SYN-X,LAND,الرياض,الملقا,2026-06-01,100000,100000,2026-07-01,5'].join('\n'));
  assert.equal(invalid.records.length,0);assert.equal(invalid.verifiedExecutedLabels,0);

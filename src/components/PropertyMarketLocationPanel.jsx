@@ -565,7 +565,9 @@ export default function PropertyMarketLocationPanel() {
       <a className="rounded-lg border border-slate-600 px-4 py-2 text-xs text-sky-300" target="_blank" rel="noopener noreferrer" href="https://opendata.rcrc.gov.sa/">بيانات ومشاريع مدينة الرياض المكانية</a>
     </div>
     <ResearchEvidenceFusionPanel subject={subject} feeds={researchFeeds}
-      asOf={studyAsOf.asOf.toISOString().slice(0,10)} readinessStatus={valuationReadiness.status}/>
+      asOf={studyAsOf.asOf.toISOString().slice(0,10)}
+      marketReport={report} readiness={valuationReadiness}
+      readinessStatus={valuationReadiness.status}/>
     <ChallengerBenchmarkResearchPanel/>
     <SuhailNationalResearchPanel onResearchChange={rows=>setResearchFeeds(f=>({...f,suhail:rows}))}/>
     <SaudiListingSourcesResearchPanel onResearchChange={rows=>setResearchFeeds(f=>({...f,listings:rows}))}/>
