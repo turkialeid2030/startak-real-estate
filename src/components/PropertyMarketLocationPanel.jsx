@@ -53,9 +53,9 @@ function Field({ title, value, onChange, type='text', placeholder='' }) {
       onChange={e => onChange(e.target.value)} dir={type==='date'?'ltr':'auto'}/>
   </label>;
 }
-function Select({ title, value, onChange, options }) {
+function Select({ title, value, onChange, options, testId }) {
   return <label className="block min-w-0 text-xs text-slate-300">{title}
-    <select className={INPUT+' mt-1'} value={value} onChange={e=>onChange(e.target.value)}>
+    <select data-testid={testId} className={INPUT+' mt-1'} value={value} onChange={e=>onChange(e.target.value)}>
       {options.map(([v,t])=><option key={v} value={v}>{t}</option>)}
     </select>
   </label>;
@@ -379,7 +379,7 @@ export default function PropertyMarketLocationPanel({financialStudy=null}) {
         options={ [['NOT_INSPECTED','لم تتم المعاينة'],['REMOTE_ONLY','مراجعة صور أو موقع فقط'],['ON_SITE','تمت معاينة ميدانية — إقرار المستخدم']] }/>
       <Field title="تاريخ المعاينة الميدانية" type="date" value={subject.inspectionDate}
         onChange={v=>updateSubject('inspectionDate',v)}/>
-      <Select title="نوع العقار" value={subject.assetType} onChange={v=>updateSubject('assetType',v)} options={assetOptions}/>
+      <Select title="نوع العقار" value={subject.assetType} onChange={v=>updateSubject('assetType',v)} options={assetOptions} testId="market-subject-asset-type"/>
       {subject.assetType==='LAND'&&<Select title="تصنيف الأرض للمقارنات"
         value={subject.landSubtype} onChange={v=>updateSubject('landSubtype',v)}
         options={ [['','اختر حالة الأرض'],['RAW','أرض خام غير مخدومة'],['SERVICED','أرض مخدومة ومخططة'],
