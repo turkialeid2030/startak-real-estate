@@ -2,6 +2,10 @@ import React,{useMemo,useState} from 'react';
 const {SOURCES,importNationalSourcesCsv,mergeNationalResearch,filterNationalResearch,
  summarizeNationalResearch}=require('../market/saudi-national-intelligence-sources');
 const {MAX_CSV_BYTES}=require('../market/public-dataset-import');
+const confidenceAr={HIGH:'مرتفعة',MEDIUM:'متوسطة',LOW:'منخفضة'};
+const metricAr={estimated_value_sar:'القيمة المقدرة',sale_price_sar:'سعر بيع منشور',
+ deal_count:'عدد الصفقات',deal_value_sar:'إجمالي قيمة الصفقات',
+ avg_sqm_sar:'متوسط سعر المتر'};
 const classLabel={
  OFFICIAL_AGGREGATE:'مؤشر حكومي مجمع',OFFICIAL_REPORTED_SALE:'صفقة منشورة بواجهة حكومية',
  THIRD_PARTY_AGGREGATE:'مؤشر خاص مجمع',THIRD_PARTY_REPORTED_SALE:'صفقة منقولة عن جهة ثالثة',
@@ -97,12 +101,13 @@ export default function SaudiNationalIntelligenceSourcesPanel(){
      className="border-b border-slate-800">
       <td className="p-2">{SOURCES.find(x=>x.id===r.sourceId)?.label}</td>
       <td className="p-2">{r.city}</td><td className="p-2">{r.district}</td>
-      <td className="p-2">{classLabel[r.evidenceClass]}</td><td className="p-2">{r.metricName||'—'}</td>
+      <td className="p-2">{classLabel[r.evidenceClass]}</td><td className="p-2">{metricAr[r.metricName]||r.metricName||'—'}</td>
       <td className="p-2">{r.metricValue===null?'—':new Intl.NumberFormat('ar-SA').format(r.metricValue)+' '+r.metricUnit}</td>
       <td className="p-2">{r.providerRangeLowSar===null?'—':
        new Intl.NumberFormat('ar-SA').format(r.providerRangeLowSar)+' – '+
        new Intl.NumberFormat('ar-SA').format(r.providerRangeHighSar)}
-       {r.providerStatedConfidence?' / '+r.providerStatedConfidence:''}</td>
+       {r.providerStatedConfidence?' / ثقة المزود المعلنة: '+
+        (confidenceAr[r.providerStatedConfidence]||r.providerStatedConfidence):''}</td>
       <td className="p-2"><a target="_blank" rel="noopener noreferrer"
        href={r.sourceUrl} className="text-sky-300 underline">فتح</a></td>
      </tr>)}</tbody>

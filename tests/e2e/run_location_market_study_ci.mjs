@@ -93,7 +93,7 @@ try{
  await nationalSources.getByTestId('national-city-filter').selectOption('');
  await nationalSources.getByTestId('national-class-filter').selectOption('');
  await nationalSources.getByTestId('national-source-filter').selectOption('BAYUT_TRUVALUE');
- const bayutMatching= nationalSources.locator('tbody tr').filter({hasText:'HIGH'});
+ const bayutMatching= nationalSources.locator('tbody tr').filter({hasText:'ثقة المزود المعلنة: مرتفعة'});
  try { await bayutMatching.waitFor(); }
  catch(e){
   const debug={
@@ -107,8 +107,8 @@ try{
   throw Error('BAYUT_TRUVALUE_VIEW_DIAGNOSTIC: '+JSON.stringify(debug)+'; '+e.message);
  }
  assert(await nationalSources.locator('tbody tr').count()===1,'TruValue estimate isolated from official sales');
- assert((await nationalSources.locator('tbody').innerText()).includes('HIGH'),
-  'Bayut provider-stated confidence should be displayed as a label');
+ assert((await nationalSources.locator('tbody').innerText()).includes('ثقة المزود المعلنة: مرتفعة'),
+  'Bayut provider-stated confidence must remain labelled advisory in Arabic');
  mark('BAYUT_TRUVALUE_ADVISORY_INTERVAL_WITHOUT_CLAIMED_MARKET_ACCURACY',true);
 
  const earth=panel.getByTestId('earth-national-research');
