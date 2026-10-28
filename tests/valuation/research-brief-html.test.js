@@ -15,6 +15,14 @@ check('self-contained printable Arabic report with no professional claims',()=>{
  assert.ok(h.includes('غير معتمد'));
  assert.ok(!h.includes('<script'));
 });
+check('owner council tasks appear with explicit independent-evidence limits',()=>{
+ const h=renderResearchBriefHtml(brief);
+ assert.ok(h.includes('خطة المراجعة الاستثمارية المشروطة'));
+ assert.ok(h.includes('مطابقة موقع العقار وصكه'));
+ assert.ok(h.includes('مطابقة صفقات منفذة'));
+ assert.ok(h.includes('مراجعة مهنية ومالية وقانونية مستقلة'));
+ assert.ok(!h.includes('القيمة السوقية المعتمدة:'));
+});
 check('professional valuation and purchase decision cannot be injected into export',()=>{
  assert.throws(()=>renderResearchBriefHtml({...brief,valuationSar:2000000}),/RESEARCH_HTML_FAIL_CLOSED/);
  assert.throws(()=>renderResearchBriefHtml({...brief,maximumPurchaseSar:1000000}),/RESEARCH_HTML_FAIL_CLOSED/);
