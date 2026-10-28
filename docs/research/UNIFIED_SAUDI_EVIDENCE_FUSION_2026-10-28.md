@@ -33,3 +33,6 @@ Run `node tests/valuation/research-evidence-fusion.test.js` and the extended `Lo
 
 ## Scenario annex without automatic professional promotion
 The unified JSON research bundle now carries a narrowly allowlisted `scenarioAnnex` from the existing STARTAK `evaluateMarketStudy` result and `auditValuationReadiness` state, with explicit user-scenario-only labeling. The bundle's professional `valuationSar` and investment `maximumPurchaseSar` remain null. No new standalone market-value calculator was introduced. Negative/invalid/unknown numeric result fields are rejected from the annex.
+
+## Historical MOJ public open data bridge
+The existing on-click open-license quarter research loader is now explicitly evaluated at the study as-of date, and its **district-wide** `deriveDistrictSnapshot` is available as a separate `openDataAnnex` in the unified research report. The annex discloses listed quarters, source attribution, missing-quarter coverage, count and median SAR/sqm only when matching district and date with enough observations. It is not an individual verified subject-transaction match, not a licensed live feed and not an authorized value input. No protected Ministry of Justice endpoint is scraped.

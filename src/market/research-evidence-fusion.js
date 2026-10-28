@@ -205,6 +205,40 @@ function researchClaimsGate({snapshot,claims=[]}={}){
   acceptedClaims:reasons.length?[]:safe,certified:false,
   numericOutputsAllowed:false,professionalReportAuthorized:false};
 }
+function publicOpenDataAnnex({snapshot,neighborhood=null,loadMeta=null}={}){
+ if(!snapshot||snapshot.version!==VERSION)throw Error('OPEN_DATA_ANNEX_INVALID_SNAPSHOT');
+ const base={kind:'MOJ_HISTORIC_PUBLIC_OPEN_DATA_RESEARCH',
+  status:'NOT_LOADED',city:snapshot.subject.city,district:snapshot.subject.district,
+  asOf:snapshot.asOf,transactionCount:0,medianNeighborhoodSarSqm:null,
+  sampleDateMin:null,sampleDateMax:null,quarters:[],partialCoverage:null,
+  independentPropertyTransactionVerified:false,parcelSuitabilityVerified:false,
+  professionalComparableEligible:false,sourceAuthenticationPerformed:false,
+  dataOrigin:'Saudi Ministry of Justice open data via public GitHub mirror',
+  limitations:['HISTORICAL_AGGREGATE_NOT_LIVE','SUBTYPE_AND_PARCEL_NOT_VERIFIED']};
+ if(!loadMeta)return base;
+ if(!neighborhood||!['HISTORIC_NEIGHBORHOOD_CONTEXT','INSUFFICIENT_TRANSACTIONS','LOCATION_REQUIRED'].includes(neighborhood.status))
+  return {...base,status:'INVALID_OR_UNAVAILABLE_NEIGHBORHOOD'};
+ if(norm(neighborhood.city)!==norm(snapshot.subject.city)||
+    norm(neighborhood.district)!==norm(snapshot.subject.district))
+  return {...base,status:'LOCATION_MISMATCH'};
+ const max=neighborhood.maxDate,min=neighborhood.minDate;
+ if(max&&(!dated(max)||max>snapshot.asOf)||min&&(!dated(min)||min>snapshot.asOf))
+  return {...base,status:'POST_ASOF_DATA_REJECTED'};
+ const safeCount=Number.isInteger(neighborhood.count)&&neighborhood.count>=0?
+  neighborhood.count:0;
+ const enough=safeCount>=3&&neighborhood.status==='HISTORIC_NEIGHBORHOOD_CONTEXT';
+ const median=enough&&typeof neighborhood.medianPriceSqm==='number'&&
+  Number.isFinite(neighborhood.medianPriceSqm)&&neighborhood.medianPriceSqm>0&&
+  neighborhood.medianPriceSqm<=2e6?neighborhood.medianPriceSqm:null;
+ return {...base,status:median===null?'INSUFFICIENT_HISTORIC_CONTEXT':
+  'HISTORIC_NEIGHBORHOOD_AGGREGATE_RESEARCH_ONLY',
+  transactionCount:safeCount,medianNeighborhoodSarSqm:median,
+  sampleDateMin:min||null,sampleDateMax:max||null,
+  quarters:Array.isArray(loadMeta.sources)?loadMeta.sources.map(x=>String(x.quarter||'')).filter(x=>/^\d{4}-Q[1-4]$/.test(x)).slice(0,12):[],
+  partialCoverage:loadMeta.incomplete===true,
+  limitations:[...base.limitations,...(loadMeta.incomplete===true?['SOME_QUARTERS_UNAVAILABLE']:[])]};
+}
+
 function scenarioAnnex({marketReport=null,readiness=null}={}){
  const fields=['saleIndicationSar','incomeIndicationSar','todayValueScenarioSar',
   'marketAnnualRentPotentialSar','expectedCollectedAnnualRentSar','estimatedAnnualNoiSar',
@@ -226,7 +260,7 @@ function scenarioAnnex({marketReport=null,readiness=null}={}){
   disclaimer:'These deterministic outputs are conditional user-input scenarios, not independently verified market values or licensed appraisals.'};
 }
 
-function researchReportBundle(snapshot,{marketReadinessStatus='NOT_TESTED',marketReport=null,readiness=null}={}){
+function researchReportBundle(snapshot,{marketReadinessStatus='NOT_TESTED',marketReport=null,readiness=null,publicNeighborhood=null,publicLoadMeta=null}={}){
  if(!snapshot||snapshot.version!==VERSION)throw Error('FUSION_REPORT_INVALID');
  return {kind:'STARTAK_RESEARCH_EVIDENCE_BRIEF_V1',version:VERSION,
   researchAsOf:snapshot.asOf,subject:snapshot.subject,
@@ -241,6 +275,7 @@ function researchReportBundle(snapshot,{marketReadinessStatus='NOT_TESTED',marke
     city:x.city,district:x.district,date:x.eventDate||x.observedOn,
     url:x.sourceUrl,verified:false})),
   scenarioAnnex:scenarioAnnex({marketReport,readiness}),
+  openDataAnnex:publicOpenDataAnnex({snapshot,neighborhood:publicNeighborhood,loadMeta:publicLoadMeta}),
   riskCodes:snapshot.risks,valuationSar:null,maximumPurchaseSar:null,
   investmentDecision:'HOLD_REQUIRES_INDEPENDENT_MARKET_AND_FINANCIAL_EVIDENCE',
   permittedUse:'PERSONAL_RESEARCH_DRAFT',publishableProfessionalValuation:false,
@@ -249,4 +284,4 @@ function researchReportBundle(snapshot,{marketReadinessStatus='NOT_TESTED',marke
    'LIVE_SOURCE_APIS','PROPERTY_LEVEL_COMPARABLES','PROFESSIONAL_APPRAISAL']};
 }
 module.exports={VERSION,fromResearchFeeds,compareCandidates,buildUnifiedResearch,
- researchClaimsGate,researchReportBundle,scenarioAnnex};
+ researchClaimsGate,researchReportBundle,scenarioAnnex,publicOpenDataAnnex};

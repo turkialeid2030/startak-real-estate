@@ -168,12 +168,13 @@ export default function PropertyMarketLocationPanel() {
     classification:subject.assetType==='OFFICE_TOWER'||subject.assetType==='COMMERCIAL_COMPLEX'?'تجاري':
       subject.assetType==='WAREHOUSE'?'صناعي':
       subject.assetType==='LAND'?'':'سكني',
-  }),[publicRecords,subject.city,subject.district,subject.assetType]);
+    asOf:new Date(asOfMs),
+  }),[publicRecords,subject.city,subject.district,subject.assetType,asOfMs]);
   const fetchOpenData=async()=>{
     if(publicLoading)return;
     setPublicLoading(true);setPublicLoadStatus('جارٍ البحث في بيانات الصفقات المنشورة رسميًا والمصرح بإعادة استخدامها…');
     try{
-      const data=await readOpenQuarters({onProgress:p=>setPublicLoadStatus(
+      const data=await readOpenQuarters({asOf:new Date(asOfMs),onProgress:p=>setPublicLoadStatus(
         p.state==='FETCHING'?'جارٍ قراءة بيانات '+p.quarter+'…':
         p.state==='IMPORTED'?'تمت معالجة '+p.count+' سجل في '+p.quarter+'…':
         'تعذرت قراءة '+p.quarter+'؛ ستظهر فجوة المصدر'
@@ -572,6 +573,7 @@ export default function PropertyMarketLocationPanel() {
     <ResearchEvidenceFusionPanel subject={subject} feeds={researchFeeds}
       asOf={studyAsOf.asOf.toISOString().slice(0,10)}
       marketReport={report} readiness={valuationReadiness}
+      publicNeighborhood={publicNeighborhood} publicLoadMeta={publicLoadMeta}
       readinessStatus={valuationReadiness.status}/>
     <ChallengerBenchmarkResearchPanel/>
     <SuhailNationalResearchPanel key={'suhail-'+researchSessionEpoch} onResearchChange={rows=>setResearchFeeds(f=>({...f,suhail:rows}))}/>

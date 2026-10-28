@@ -5,7 +5,7 @@ const {importEarthResearchCsv}=require('../../src/market/earth-national-research
 const {importNationalSourcesCsv}=require('../../src/market/saudi-national-intelligence-sources');
 const {toPublicSample}=require('../../src/market/suhail-national-neighborhood-research');
 const {buildUnifiedResearch,researchClaimsGate,researchReportBundle,
- fromResearchFeeds,scenarioAnnex}=require('../../src/market/research-evidence-fusion');
+ fromResearchFeeds,scenarioAnnex,publicOpenDataAnnex}=require('../../src/market/research-evidence-fusion');
 let count=0;const ok=(label,run)=>{run();count++;console.log('PASS '+label);};
 const listings=parseListingResearchCsv([
  'source,city,district,kind,priceSar,areaSqm,listingUrl,listingId,assetType,listingDate',
@@ -162,5 +162,26 @@ ok('invalid and negative current market values cannot escape to scenario annex',
  assert.equal(r.previewValuesSar.saleIndicationSar,null);
  assert.equal(r.previewValuesSar.incomeIndicationSar,null);
  assert.equal(r.previewValuesSar.estimatedAnnualNoiSar,null);
+});
+ok('historic public MOJ mirror aggregate joins with dates and never becomes certified property comparable',()=>{
+ const annex=publicOpenDataAnnex({snapshot:snap,
+  neighborhood:{status:'HISTORIC_NEIGHBORHOOD_CONTEXT',city:'الرياض',
+   district:'الملقا',count:14,medianPriceSqm:4125,
+   minDate:'2026-01-02',maxDate:'2026-04-05'},
+  loadMeta:{incomplete:true,sources:[{quarter:'2026-Q1'}]}});
+ assert.equal(annex.status,'HISTORIC_NEIGHBORHOOD_AGGREGATE_RESEARCH_ONLY');
+ assert.equal(annex.transactionCount,14);
+ assert.equal(annex.medianNeighborhoodSarSqm,4125);
+ assert.equal(annex.professionalComparableEligible,false);
+ assert.equal(annex.partialCoverage,true);
+ assert.deepEqual(annex.quarters,['2026-Q1']);
+});
+ok('future dates or wrong city suppress open-data price',()=>{
+ const base={status:'HISTORIC_NEIGHBORHOOD_CONTEXT',city:'الرياض',
+  district:'الملقا',count:10,medianPriceSqm:7000,minDate:'2026-01-01',maxDate:'2026-12-01'};
+ assert.equal(publicOpenDataAnnex({snapshot:snap,neighborhood:base,loadMeta:{sources:[]}}).medianNeighborhoodSarSqm,null);
+ assert.equal(publicOpenDataAnnex({snapshot:snap,neighborhood:{...base,maxDate:'2026-09-01',city:'جدة'},
+  loadMeta:{sources:[]}}).status,'LOCATION_MISMATCH');
+ assert.equal(researchReportBundle(snap).openDataAnnex.status,'NOT_LOADED');
 });
 console.log('UNIFIED_RESEARCH_EVIDENCE_FUSION_TESTS='+count+'/'+count);

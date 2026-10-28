@@ -2,12 +2,13 @@ import React,{useMemo,useState} from 'react';
 const {buildUnifiedResearch,researchReportBundle,researchClaimsGate}=
  require('../market/research-evidence-fusion');
 export default function ResearchEvidenceFusionPanel({subject={},feeds={},asOf='2026-10-28',
- readinessStatus='NOT_TESTED',marketReport=null,readiness=null}){
+ readinessStatus='NOT_TESTED',marketReport=null,readiness=null,publicNeighborhood=null,publicLoadMeta=null}){
  const [message,setMessage]=useState('');
  const result=useMemo(()=>buildUnifiedResearch({subject,feeds,asOf}),[subject,feeds,asOf]);
  const bundle=useMemo(()=>researchReportBundle(result,{
-  marketReadinessStatus:readinessStatus,marketReport,readiness}),
-  [result,readinessStatus,marketReport,readiness]);
+  marketReadinessStatus:readinessStatus,marketReport,readiness,
+  publicNeighborhood,publicLoadMeta}),
+  [result,readinessStatus,marketReport,readiness,publicNeighborhood,publicLoadMeta]);
  const safeMemo=researchClaimsGate({snapshot:result,claims:[
   {kind:'LIMITATION',text:'البيانات التي جُمعت عبر لوحات البحث لا تثبت بمفردها قيمة أو ملكية أو صفقة منفذة.',evidenceIds:[]},
   {kind:'REVIEW_TASK',text:'يلزم التحقق من الصفقات والموقع والحقوق ودراسة الدخل والمخاطر قبل اتخاذ قرار الشراء.',evidenceIds:[]}
@@ -53,6 +54,14 @@ export default function ResearchEvidenceFusionPanel({subject={},feeds={},asOf='2
    <p>سقف الشراء: غير محسوب؛ يحتاج نموذج التدفقات النقدية والعائد المستهدف وبيانات معتمدة.</p>
    <p>توصية الاستثمار: تعليق القرار لحين التحقق، مع استمرار المحاكاة الداخلية.</p>
    <p className="mt-1">حالة محرك التقييم الحالي: {readinessStatus}</p>
+   <p data-testid="fusion-open-data-annex" className="mt-2">
+    مرجع وزارة العدل التاريخي المفتوح:
+    {bundle.openDataAnnex.status==='NOT_LOADED'?' لم يُحمّل بعد':
+    ' '+bundle.openDataAnnex.status}.
+    {Number.isFinite(bundle.openDataAnnex.medianNeighborhoodSarSqm)?
+     ' وسيط تاريخي للحي '+new Intl.NumberFormat('ar-SA').format(
+       bundle.openDataAnnex.medianNeighborhoodSarSqm)+' ر.س/م² (ليس قيمة العقار).':''}
+   </p>
    <p data-testid="fusion-scenario-annex" className="mt-2">
     ملحق سيناريو الحسابات الحالية (مدخلات غير موثقة):
     {Number.isFinite(bundle.scenarioAnnex.previewValuesSar.todayValueScenarioSar)?

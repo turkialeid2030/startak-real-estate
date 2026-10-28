@@ -424,6 +424,8 @@ try{
  const [fusionDownload]=await Promise.all([
   page.waitForEvent('download'),fusion.getByTestId('fusion-export').click()]);
  const fusionJson=JSON.parse(fs.readFileSync(await fusionDownload.path(),'utf8'));
+ assert(fusionJson.openDataAnnex?.professionalComparableEligible===false,
+  'Public historic neighborhood data may not become professional comparable automatically');
  assert(fusionJson.valuationSar===null&&fusionJson.maximumPurchaseSar===null&&
   fusionJson.investmentDecision==='HOLD_REQUIRES_INDEPENDENT_MARKET_AND_FINANCIAL_EVIDENCE',
   'Research evidence export must not contain an invented certified market value or buy price');
