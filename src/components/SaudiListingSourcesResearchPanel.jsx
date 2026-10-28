@@ -112,3 +112,4 @@ export default function SaudiListingSourcesResearchPanel(){
     هناك {batchIssues.length} أسطر أو تعارضات تحتاج مراجعة؛ لم تُقبل آليًا.
    </p>}
  </section>;
+}
