@@ -54,6 +54,24 @@ try{
  const panel=page.locator('[data-testid="location-market-study"]');
  await panel.waitFor({state:'visible'});
  mark('PANEL_MOUNT',await panel.isVisible());
+ const earth=panel.getByTestId('earth-national-research');
+ await earth.waitFor({state:'visible'});
+ assert((await earth.getByTestId('earth-links').locator('a').count())===10,
+  'All ten exact Earth portal sections must be linked');
+ await earth.getByTestId('earth-observed-on').fill('2026-10-28');
+ const earthCsv=['المدينة,الحي,رقم الصفقة,تاريخ الصفقة,قيمة الصفقة,المساحة',
+  'الرياض,الملقا,SYN-EARTH-100,2026-10-23,5000000,1000',
+  'جدة,السلامة,SYN-EARTH-101,2026-10-22,1200000,330'].join('\n');
+ await earth.getByTestId('earth-import-csv').setInputFiles({
+  name:'synthetic-earth-transactions.csv',mimeType:'text/csv',buffer:Buffer.from(earthCsv)});
+ await earth.getByTestId('earth-import-status').filter({hasText:'أضيف 2'}).waitFor();
+ await earth.getByTestId('earth-city-filter').selectOption('جدة');
+ assert(await earth.locator('tbody tr').count()===1,
+  'Earth research national city segregation failed');
+ assert((await earth.getByTestId('earth-summary').innerText()).includes('صفقات منفذة مؤكدة: 0'),
+  'Third-party reported Earth transaction must never be treated as a certified executed deed');
+ mark('EARTH_TEN_SECTION_CATALOG_AND_UNVERIFIED_NATIONAL_IMPORT',true);
+
  const catalogs=panel.getByTestId('saudi-listing-research');
  await catalogs.waitFor({state:'visible'});
  assert(await catalogs.getByTestId('saudi-listing-sources').locator('a').count()===7,
