@@ -21,4 +21,17 @@ const result=formatBridgeFields(original,'en');
 ok(result.includes('Property name = Synthetic')&&result.includes('Land area (sqm) = 1800.5'),'bridge labels translated only');
 ok(!result.includes('secret'),'unknown fields not displayed');
 ok(formatBridgeFields(original,'ar-SA').includes('landArea = 1800.5'),'Arabic bridge contract retained');
+for(const [ar,translation] of [
+ ['مقارنات البيع — لإنشاء مؤشر القيمة','Executed-sale comparables'],
+ ['مقارنات الإيجار الجديد — مستقل عن الإيجار السابق','New rent comparables'],
+ ['نوع العقار المقارن','Comparable asset class'],
+ ['صفقة أو عقد منفّذ — إقرار المستخدم','user attestation only'],
+ ['عرض/طلب غير منفّذ — مستبعد','excluded'],
+ ['قيمة البيع الفعلية (ر.س)','Executed sale amount'],
+ ['معرّف الصفقة/العقد لدى المصدر (إن توفر)','Source transaction'],
+]){
+ const actual=coreMarketLabel(ar,'en');
+ ok(actual.includes(translation),'comparison label English: '+ar);
+ ok(coreMarketLabel(ar,'ar-SA')===ar,'comparison label Arabic: '+ar);
+}
 console.log('D04_MARKET_CORE_TRANSLATIONS=PASS checks='+checks);
