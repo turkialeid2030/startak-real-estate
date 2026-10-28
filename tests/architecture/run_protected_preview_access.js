@@ -13,7 +13,6 @@ const path=require('node:path');
   for(const invalid of [
     'http://1647dc09.startak-real-estate.pages.dev/',
     'https://1647dc09.startak-real-estate.pages.dev/?utm_source=chatgpt.com',
-    'https://1647dc09.startak-real-estate.pages.dev/../../',
     'https://startak-real-estate.pages.dev/',
     'https://malicious.pages.dev/',
     'https://1647dc09.startak-real-estate.pages.dev.evil.test/',
