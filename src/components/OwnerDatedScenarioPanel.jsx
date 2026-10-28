@@ -20,7 +20,7 @@ export default function OwnerDatedScenarioPanel({locale='ar-SA'}){
     'أدخل التاريخ الفعلي والمبلغ الموقّع (السالب للمصروف والموجب للمقبوض) ومرجع المصدر لكل تدفق. لا تستنتج المنصة التواريخ أو المبالغ أو الحقوق أو التوثيق. النتيجة لا تستبدل IRR/NPV السنوي أو تمويل الإنشاء الشهري ولا تمثل تثمينًا أو تفويض شراء.'}
   </p>
   <label className="block text-xs mb-3">
-   {en?'Annual discount rate as decimal (0.10 = 10%)':'معدل الخصم السنوي ككسر (0.10 = 10%)'}
+   {en?'Annual discount rate as decimal: 0 to below 1 (0.10 = 10%; do not enter 10)':'معدل الخصم السنوي ككسر بين 0 وأقل من 1 (0.10 = 10%؛ لا تكتب 10)'}
    <input data-testid="dated-discount-rate" value={discount} onChange={e=>updateDiscount(e.target.value)}
     inputMode="decimal" className="mt-1 block w-full rounded border border-slate-600 bg-[#101c30] p-2" />
   </label>
