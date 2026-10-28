@@ -521,10 +521,10 @@ export default function PropertyMarketLocationPanel() {
       <p role="status" className="mt-3 text-xs text-amber-200">{savedDealStudyStatus}</p>
     </section>
     <div className="flex flex-wrap gap-3 mt-4">
-      <button type="button" onClick={exportJson} className="rounded-lg bg-[#C9A24C] px-4 py-2 text-xs font-semibold text-[#141F35]">تصدير الدراسة الأولية JSON</button>
+      <button type="button" data-testid="personal-market-study-export" onClick={exportJson} className="rounded-lg bg-[#C9A24C] px-4 py-2 text-xs font-semibold text-[#141F35]">تصدير الدراسة الأولية JSON</button>
       <label className="inline-flex flex-wrap items-center gap-2 rounded-lg border border-slate-600 px-3 py-2 text-xs text-slate-100">
         استعادة دراسة محفوظة JSON
-        <input aria-label="استيراد دراسة STARTAK الشخصية JSON" className="min-h-[40px] max-w-[220px] text-xs"
+        <input data-testid="personal-market-study-import" aria-label="استيراد دراسة STARTAK الشخصية JSON" className="min-h-[40px] max-w-[220px] text-xs"
           type="file" accept=".json,application/json"
           onChange={async e=>{const f=e.target.files?.[0];e.target.value='';await restoreJson(f);}}/>
       </label>

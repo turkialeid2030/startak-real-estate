@@ -179,13 +179,13 @@ try{
  await unitMix.locator('summary').click();
  await unitMix.getByText('لا توجد مجموعتان مؤهلتان',{exact:false}).waitFor();
  mark('COHORT_ASKING_VS_EXECUTED_NOT_ASSUMED_MATCHED',true);
- await unitMix.getByRole('button',{name:'+ إضافة فئة وحدات'}).click();
+ await unitMix.getByRole('button',{name:'إضافة فئة وحدات'}).click();
  await unitMix.getByLabel('فئة الوحدة').selectOption('APARTMENT_2BR');
  await unitMix.getByLabel('عدد وحدات الفئة').fill('200');
  await unitMix.getByLabel('متوسط المساحة لكل وحدة (م²)').fill('125');
  const today='2026-10-27'; // Same explicit valuation-as-of day supplied above.
  for(let i=0;i<3;i++){
-  await unitMix.getByRole('button',{name:'+ إضافة عقد إيجار مقارن'}).click();
+  await unitMix.getByRole('button',{name:'إضافة عقد إيجار مقارن'}).click();
   await unitMix.getByLabel('نوع الوحدة المطابق').nth(i).selectOption('APARTMENT_2BR');
   await unitMix.getByLabel('تاريخ العقد').nth(i).fill(today);
   await unitMix.getByLabel('الإيجار السنوي للعقد (ريال)').nth(i).fill(String((80+i*5)*1000));
@@ -200,7 +200,7 @@ try{
  assert(segmentText.includes('17,000,000')||segmentText.includes('١٧٬٠٠٠٬٠٠٠'),
   'unit-class rent should match 200 x 125 sqm x annual lease median');
  mark('UNIT_CLASS_CONTRACT_RENT_RECONCILIATION_AND_FORM',true);
- const exportButton=panel.getByRole('button',{name:'تصدير الدراسة الأولية JSON'});
+ const exportButton=panel.getByTestId('personal-market-study-export');
  await exportButton.scrollIntoViewIfNeeded();
  // Settle both operations so click failures cannot be masked by an unhandled
  // download listener rejected when the test closes the browser.
@@ -236,7 +236,7 @@ try{
   'rent operating assumption missing from export');
  mark('FULL_PERSONAL_STUDY_EXPORT_INCLUDES_UNIT_MIX_LEASE_EVIDENCE',true);
  await fill('الإيجار السنوي السابق','1');
- await panel.locator('input[aria-label="استيراد دراسة STARTAK الشخصية JSON"]').setInputFiles({
+ await panel.getByTestId('personal-market-study-import').setInputFiles({
   name:'restored-startak.json',mimeType:'application/json',
   buffer:Buffer.from(fs.readFileSync(saved))
  });
