@@ -282,13 +282,13 @@ async function main() {
     nowEpochSeconds:NOW,reportInput:reportInputWithFakeEvidence,
   }),(e)=>e&&e.code==='CALLER_REPORT_AUTHORITY_OVERRIDE_NOT_ALLOWED'));
 
-  const resolverState={status:'HOLD',workspaceVersion:1,propertyRef:'PROPERTY-INTEREST-001'};
+  const resolverState={status:'HOLD',workspaceVersion:1,propertyRef:'PROPERTY-INTEREST-001',issues:[]};
   const resolver={
     async readForReport(ctx){
       return {...ctx,reportId:'SYNTHETIC-APPRAISAL-R1',evidenceRef:'EVIDENCE-SYN-1',
         sourceDigestSha256:'d'.repeat(64),status:resolverState.status,
         workspaceVersion:resolverState.workspaceVersion,
-        propertyRef:resolverState.propertyRef};
+        propertyRef:resolverState.propertyRef,issues:resolverState.issues};
     },
   };
   const guarded=createAuthenticatedReportingService({
@@ -327,6 +327,14 @@ async function main() {
   await check(async()=>assert.strictEqual(wrongProperty.status,'REPORT_BLOCKED'));
   await check(async()=>assert.ok(wrongProperty.appraisalGate.reasons.includes('CANONICAL_APPRAISAL_SCOPE_OR_VERSION_MISMATCH')));
   resolverState.propertyRef='PROPERTY-INTEREST-001';
+  resolverState.issues=[{code:'CIRCULAR_VALUATION',severity:'BLOCK'}];
+  const incompatible=await guarded.prepareReport({
+    authorizationHeader:'Bearer analyst-token',workspaceId:'WS-REPORT-001',
+    nowEpochSeconds:NOW,reportInput:reportInput(),
+  });
+  await check(async()=>assert.strictEqual(incompatible.status,'REPORT_BLOCKED'));
+  await check(async()=>assert.ok(incompatible.appraisalGate.reasons.includes('CANONICAL_APPRAISAL_REVIEW_CONTRADICTS_BLOCKER')));
+  resolverState.issues=[];
 
   const unavailable=createAuthenticatedReportingService({
     authenticator:auth,workspaceService,standardsHashFn:hashFn,requiredTenantId:'tenant-a',

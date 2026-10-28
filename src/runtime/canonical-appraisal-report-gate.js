@@ -21,8 +21,14 @@ function checkCanonicalAppraisalReportEvidence({sourceContext={},propertyRef,rec
    reasons.push('CANONICAL_APPRAISAL_SOURCE_PROVENANCE_INCOMPLETE');
   if(record.status!=='REVIEW_REQUIRED'&&record.status!=='HOLD')
    reasons.push('CANONICAL_APPRAISAL_REVIEW_STATUS_UNKNOWN');
+  const blockers=new Set(['CIRCULAR_VALUATION','INCOME_CAPITALIZATION_MISMATCH',
+   'NOI_RECONCILIATION_MISMATCH','RENT_PERCENTAGE_ARITHMETIC_MISMATCH',
+   'SPECIALIST_EVIDENCE_HOLD','INVALID_NUMERIC_INPUT']);
+  const issues=Array.isArray(record.issues)?record.issues:[];
+  const hasBlockers=issues.some(x=>(typeof x==='string'&&blockers.has(x))||
+   (x&&typeof x==='object'&&(x.severity==='BLOCK'||blockers.has(x.code))));
   if(record.status==='REVIEW_REQUIRED'&&
-     (record.hasBlockingArithmeticIssue===true||record.hasCircularValuation===true))
+     (record.hasBlockingArithmeticIssue===true||record.hasCircularValuation===true||hasBlockers))
    reasons.push('CANONICAL_APPRAISAL_REVIEW_CONTRADICTS_BLOCKER');
   if(record.status==='HOLD')reasons.push('CANONICAL_APPRAISAL_REVIEW_HOLD');
  }
