@@ -155,3 +155,54 @@ jobs:
         run: node tests/e2e/run_audit_20261010_f03_f07_browser.js
       - name: Download and verify owner personal JSON and HTML through Chromium
         run: node tests/e2e/run_c75_real_chromium_personal_study.js
+
+  preview-delivery-readonly:
+    if: github.event_name == 'pull_request'
+    needs: [tests, owner-journey-real-chromium]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    permissions:
+      contents: read
+    env:
+      EXPECTED_SHA: ${{ github.event.pull_request.head.sha }}
+      PREVIEW_URL: https://feature-appraisal-assurance.startak-real-estate.pages.dev/
+    steps:
+      - name: Checkout exact candidate to use its read-only CDN verifier
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Node 22
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+      - name: Verify Cloudflare branch preview actual HTML, exact SHA, every asset hash and 404 behavior
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          mkdir -p runtime-evidence/preview-delivery
+          consecutive=0
+          for attempt in $(seq 1 18); do
+            echo "PREVIEW_OBSERVATION_ATTEMPT=$attempt"
+            if node tools/verify-deployed-assets.mjs --url "$PREVIEW_URL" --expected-sha "$EXPECTED_SHA" --output "runtime-evidence/preview-delivery/attempt-$attempt.json"; then
+              consecutive=$((consecutive + 1))
+              if [[ "$consecutive" -ge 2 ]]; then
+                echo "STARTAK_PREVIEW_EXACT_SHA_AND_ALL_ASSETS=PASS sha=$EXPECTED_SHA"
+                echo "PREVIEW_IS_NOT_PRODUCTION_OR_COMMERCIAL_APPROVAL=true"
+                exit 0
+              fi
+            else
+              consecutive=0
+            fi
+            sleep 10
+          done
+          echo "STARTAK_PREVIEW_DELIVERY=FAIL_OR_NOT_CONVERGED"
+          exit 1
+      - name: Retain bounded public metadata and hashes only
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: startak-branch-preview-readonly-observations
+          path: runtime-evidence/preview-delivery
+          if-no-files-found: warn
