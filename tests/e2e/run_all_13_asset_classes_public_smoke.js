@@ -90,7 +90,7 @@ const BASE=process.env.STARTAK_E2E_URL||'http://127.0.0.1:4173';
   await status.selectOption('EXECUTED_SALE');
   await calculate.click();
   await expect(marketCase.getByTestId('personal-sector-scenario-output')).toContainText('مؤشرات طرق منفصلة');
-  await expect(marketCase.getByTestId('personal-sector-scenario-output')).toContainText('MARKET_COMPARABLE');
+  await expect(marketCase.getByTestId('personal-sector-scenario-output')).toContainText('المقارنة السوقية');
   await expect(marketCase.getByTestId('personal-sector-provisional-value')).toHaveCount(0);
   await expect(marketCase.getByTestId('personal-sector-scenario-output')).toContainText('لم يتم التحقق منها رسميًا');
 
