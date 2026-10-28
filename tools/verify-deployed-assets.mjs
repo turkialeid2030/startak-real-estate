@@ -28,7 +28,7 @@ export async function verifyDeployedAssets({url,expectedSha,fetchImpl=fetch}){
       return err;
     };
     const declaredLength=response.headers.get('content-length');
-    if(declaredLength!==null&&/^\\d+$/.test(declaredLength)&&
+    if(declaredLength!==null&&/^\d+$/.test(declaredLength)&&
       Number(declaredLength)>maxBytes)throw oversize();
     let bytes;
     if(response.body&&typeof response.body.getReader==='function'){
