@@ -1,5 +1,5 @@
 import React,{useMemo,useState} from 'react';
-const {SOURCE_URL,toPublicSample,parseResearchCsv,selectNeighborhoodRows,researchSummary,MAX_BYTES}=
+const {SOURCE_URL,toPublicSample,parseResearchCsv,mergeNeighborhoodResearch,selectNeighborhoodRows,researchSummary,MAX_BYTES}=
  require('../market/suhail-national-neighborhood-research');
 const number=new Intl.NumberFormat('ar-SA');
 const fmt=v=>Number.isFinite(v)?number.format(v):'لا تتوفر بيانات';
@@ -8,6 +8,8 @@ export default function SuhailNationalResearchPanel(){
  const [city,setCity]=useState('');
  const [district,setDistrict]=useState('');
  const [note,setNote]=useState('');
+ const [datasetUrl,setDatasetUrl]=useState(SOURCE_URL);
+ const [observedOn,setObservedOn]=useState(()=>new Date().toISOString().slice(0,10));
  const summary=useMemo(()=>researchSummary(records),[records]);
  const visible=useMemo(()=>selectNeighborhoodRows(records,{city,district}),[records,city,district]);
  const importFile=async file=>{
@@ -15,10 +17,12 @@ export default function SuhailNationalResearchPanel(){
   if(file.size>MAX_BYTES){setNote('حجم ملف البيانات أكبر من الحد البحثي المسموح');return;}
   try{
    const s=await file.text();
-   const result=parseResearchCsv(s,{sourceUrl:SOURCE_URL,observedOn:new Date().toISOString().slice(0,10)});
-   setRecords(result.records);setCity('');setDistrict('');
-   setNote('استيراد بحثي: '+result.records.length+' سجلاً مجمعًا، مستبعد '+result.rejected.length+
-     '. لم تُضاف أي صفقة إلى محرك القيمة العقارية.');
+   const result=parseResearchCsv(s,{sourceUrl:datasetUrl,observedOn});
+   const combined=mergeNeighborhoodResearch(records,result.records);
+   setRecords(combined.records);setCity('');setDistrict('');
+   setNote('أضيف '+combined.added+' سجلًا بحثيًا؛ مكرر '+combined.duplicates+
+     '؛ متعارض '+combined.conflicts.length+'؛ مرفوض '+result.rejected.length+
+     '. تُحفظ البيانات السابقة ولا تُدرج أي صفقات فردية أو قيم عقارية تلقائيًا.');
   }catch(e){setNote('تعذر استيراد CSV: '+String(e.message||'UNKNOWN'));}
  };
  return <section data-testid="suhail-national-research" dir="rtl"
@@ -40,7 +44,17 @@ export default function SuhailNationalResearchPanel(){
     <input data-testid="suhail-district-filter" value={district} onChange={e=>setDistrict(e.target.value)}
      placeholder="بحث عن حي" className="mt-1 block rounded border border-slate-600 bg-slate-900 p-2"/>
    </label>
-   <label className="text-xs rounded border border-slate-600 p-2">استيراد CSV بحثي لمدن إضافية
+   <label className="text-xs">رابط المصدر لهذه الدفعة
+    <input data-testid="suhail-source-url" type="url" dir="ltr" value={datasetUrl}
+     onChange={e=>setDatasetUrl(e.target.value)}
+     className="mt-1 block w-[240px] rounded border border-slate-600 bg-slate-900 p-2"/>
+   </label>
+   <label className="text-xs">تاريخ الاطلاع (ليس تاريخ الصفقة)
+    <input data-testid="suhail-observed-on" type="date" value={observedOn}
+     onChange={e=>setObservedOn(e.target.value)}
+     className="mt-1 block rounded border border-slate-600 bg-slate-900 p-2"/>
+   </label>
+   <label className="text-xs rounded border border-slate-600 p-2">إضافة بيانات CSV البحثية
     <input data-testid="suhail-research-import" type="file" accept=".csv,text/csv" className="block max-w-[240px]"
      onChange={async e=>{const f=e.target.files?.[0];e.target.value='';await importFile(f);}}/>
    </label>
@@ -65,7 +79,8 @@ export default function SuhailNationalResearchPanel(){
    </table>
   </div>
   <p className="mt-2 text-xs text-slate-400">المعروض: {Math.min(visible.length,50)} من {visible.length} سجلات بعد التصفية.
-    صفر إفراغات مع متوسط متر غير صفري ممكن نتيجة اختلاف فترات المؤشر؛ لا يُستنتج منها سعر صفقة.</p>
+    المقارنة المالية محجوبة؛ ولا تُدمج القيم المجمعة بين فترات أو مصادر مختلفة.
+    صفر إفراغات مع متوسط متر غير صفري لا يعني عدم وجود قيمة للعقار.</p>
   <a className="mt-2 inline-block text-xs text-sky-300 underline" href={SOURCE_URL}
    target="_blank" rel="noopener noreferrer">عرض المصدر الأصلي — سهيل</a>
   {note&&<p role="status" className="mt-3 text-xs" data-testid="suhail-import-status">{note}</p>}

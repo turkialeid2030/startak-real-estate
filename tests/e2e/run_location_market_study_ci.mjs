@@ -71,12 +71,20 @@ try{
  await national.getByTestId('suhail-import-status').waitFor();
  assert((await national.getByTestId('suhail-import-status').innerText()).includes('استيراد بحثي'),
   'national CSV import status not displayed');
- assert((await national.getByTestId('suhail-scope').innerText()).includes('2'),
-  'National CSV cities were not dynamically discovered');
+ assert((await national.getByTestId('suhail-scope').innerText()).includes('8'),
+  'National CSV cities must merge into 6 existing cities rather than erasing the original sample');
+ assert((await national.getByTestId('suhail-import-status').innerText()).includes('أضيف 2'),
+  'National CSV import did not add both records');
  await national.getByTestId('suhail-city').selectOption('الخبر');
  assert((await national.locator('tbody tr').count())===1,
   'Local imported Al Khobar neighborhood must remain separate from Jeddah');
  mark('SUHAIL_NATIONAL_LOCAL_CSV_CITY_DISTRICT_ISOLATION',true);
+ await national.getByTestId('suhail-research-import').setInputFiles({
+  name:'duplicate-national-research.csv',mimeType:'text/csv',buffer:Buffer.from(nationalCsv)
+ });
+ assert((await national.getByTestId('suhail-import-status').innerText()).includes('مكرر 2'),
+  'reimporting identical neighborhood snapshots must deduplicate without new records');
+ mark('SUHAIL_CSV_DUPLICATE_DETECTION',true);
  const valuation=panel.getByText('القيمة التقديرية الحسابية اليوم')
    .locator('xpath=..').locator('strong');
  assert((await valuation.innerText()).includes('غير قابل للحساب'),'empty comparable must fail closed');

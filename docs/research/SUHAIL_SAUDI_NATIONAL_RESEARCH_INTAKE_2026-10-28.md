@@ -19,3 +19,7 @@ Source: https://www.suhail.ai/Riyadh/transactions — the page's displayed city 
 ## Controls / next evidence
 
 To enable additional city datasets, import a bounded CSV export or connect an authorized publicly supported feed. Every record must preserve its actual city, district, source, observation time and separate underlying transaction period where available. Source-rights and technical-access rules still apply to automated collection; personal research does not make an inaccessible interface public. Production and professional-release gates remain HOLD / NOT_AUTHORIZED.
+
+## 28 October — Provenance-safe multi-batch ingestion
+
+Follow-on improvement: CSV import now **appends** without losing the initial 10-row public sample or older city datasets. A per-batch HTTPS source URL and observation date (not transaction date) are explicitly recorded. Identical records from the same city, district, source and observation date are deduplicated; differing values with the same identity are reported as conflicts and retain the existing value rather than silently overwriting it. Distinct observation dates remain separate research snapshots. Ambiguous numeric groupings such as `1,2` and percentage values in currency fields are rejected; Arabic grouping, decimals and negative growth rates remain accepted. No aggregate is made eligible for valuation. Unit and browser regression tests validate additions, duplication and city separation. Full automated Suhail data retrieval is still not connected.

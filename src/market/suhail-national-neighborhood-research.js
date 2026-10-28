@@ -17,12 +17,21 @@ const sample=Object.freeze([
  ['الرياض','الملك سلمان',33.33,4,10040000,2655,5324],
  ['ضرما','روافة',0,0,0,null,null],
 ]);
-const num=v=>{
- if(typeof v==='number')return Number.isFinite(v)?v:null;
- const s=String(v??'').trim().replace(/[٠-٩]/g,x=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(x)))
+// All numeric fields are deterministic. Reject malformed/ambiguous grouping:
+// "1,2" MUST NOT become 12, and percent signs are legal for growth only.
+const num=(value,{percent=false}={})=>{
+ if(typeof value==='number')return Number.isFinite(value)?value:null;
+ let s=String(value??'').trim().replace(/[٠-٩]/g,x=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(x)))
   .replace(/[۰-۹]/g,x=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(x)))
-  .replace(/[,٬\s]/g,'').replace(/٫/g,'.').replace(/%|٪/g,'');
- return /^-?\d+(?:\.\d+)?$/.test(s)?Number(s):null;
+  .replace(/[\u00A0\u202F]/g,'').replace(/\u066B/g,'.');
+ const hasPct=/%|٪/.test(s);
+ if(hasPct&&!percent)return null;
+ if(hasPct){if(!/[%٪]$/.test(s))return null;s=s.slice(0,-1).trim();}
+ const isPlain=/^-?\d+(?:\.\d+)?$/.test(s);
+ const grouped=/^-?\d{1,3}(?:[,\u066C]\d{3})+(?:\.\d+)?$/.test(s);
+ if(!isPlain&&!grouped)return null;
+ const n=Number(s.replace(/[,\u066C]/g,''));
+ return Number.isFinite(n)?n:null;
 };
 const text=v=>String(v??'').trim();
 const norm=v=>text(v).replace(/[أإآٱ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/\s+/g,' ').toLowerCase();
@@ -32,8 +41,10 @@ const toPublicSample=()=>sample.map(([city,district,growthPct,transferCount,tota
  periodStart:null,periodEnd:null,recordClass:'NEIGHBORHOOD_AGGREGATE_INDEXED_UNVERIFIED',
  executedTransactionRecord:false,marketValuationEligible:false}));
 function parseResearchCsv(csv,{sourceUrl=SOURCE_URL,observedOn=PAGE_INDEXED_AT}={}){
- if(typeof csv!=='string'||csv.length>MAX_BYTES)throw Error('SUHAIL_RESEARCH_CSV_SIZE_LIMIT');
- if(typeof sourceUrl!=='string'||!/^https:\/\/[^@\s/]+(?:\/.*)?$/i.test(sourceUrl))
+ if(typeof csv!=='string'||new TextEncoder().encode(csv).length>MAX_BYTES)throw Error('SUHAIL_RESEARCH_CSV_SIZE_LIMIT');
+ let parsedSource;try{parsedSource=new URL(sourceUrl);}catch(_){}
+ if(!parsedSource||parsedSource.protocol!=='https:'||!parsedSource.hostname.includes('.')||
+    parsedSource.username||parsedSource.password)
   throw Error('SUHAIL_RESEARCH_SOURCE_REQUIRED');
  if(typeof observedOn!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(observedOn)||
   !Number.isFinite(Date.parse(observedOn+'T00:00:00Z'))||
@@ -78,10 +89,10 @@ function parseResearchCsv(csv,{sourceUrl=SOURCE_URL,observedOn=PAGE_INDEXED_AT}=
   const city=text(get('city')),district=text(get('district'));
   const transferCount=num(get('transferCount')),totalValueSar=num(get('totalValueSar'));
   const residentialSarSqm=num(get('residentialSarSqm')),commercialSarSqm=num(get('commercialSarSqm'));
-  const growthPct=num(get('growthPct'));
+  const growthPct=num(get('growthPct'),{percent:true});
   const isMissing=v=>!text(v)||/^(?:—|–|-|لا يوجد بيانات|غير متاح|n\/a)$/i.test(text(v));
   const malformed=Object.keys(fields).filter(k=>k!=='city'&&k!=='district').some(k=>
-   !isMissing(get(k))&&num(get(k))===null);
+   !isMissing(get(k))&&num(get(k),{percent:k==='growthPct'})===null);
   if(!city||!district||city.length>120||district.length>120||malformed||
     (transferCount!==null&&(!Number.isInteger(transferCount)||transferCount<0||transferCount>10000000))||
     (totalValueSar!==null&&(totalValueSar<0||totalValueSar>1e15))||
@@ -96,6 +107,41 @@ function parseResearchCsv(csv,{sourceUrl=SOURCE_URL,observedOn=PAGE_INDEXED_AT}=
  }
  return {records,rejected,recordClass:'NEIGHBORHOOD_RESEARCH_ONLY',autoValuationEnabled:false};
 }
+
+const sameMeasure=(a,b)=>['transferCount','totalValueSar','residentialSarSqm',
+ 'commercialSarSqm','growthPct'].every(k=>a[k]===b[k]);
+const keyOf=r=>[norm(r.sourceUrl),norm(r.city),norm(r.district),r.observedOn].join('|');
+// Add nonconflicting research snapshots only. Never lose the original public sample
+// or silently overwrite divergent values for the same city/area/source/date.
+function mergeNeighborhoodResearch(existing,incoming,{maxRows=MAX_ROWS}={}){
+ if(!Array.isArray(existing)||!Array.isArray(incoming))throw Error('SUHAIL_RESEARCH_MERGE_INPUT_INVALID');
+ if(!Number.isInteger(maxRows)||maxRows<1||maxRows>MAX_ROWS)throw Error('SUHAIL_RESEARCH_MAX_ROWS_INVALID');
+ const rows=[],seen=new Map(),conflicts=[];
+ let duplicates=0,added=0;
+ function accept(record,index,side){
+  if(!record||record.country!=='SA'||typeof record.sourceUrl!=='string'||
+     typeof record.city!=='string'||!record.city.trim()||
+     typeof record.district!=='string'||!record.district.trim()||
+     !/^\d{4}-\d{2}-\d{2}$/.test(record.observedOn||'')||
+     record.executedTransactionRecord!==false||record.marketValuationEligible!==false)
+   throw Error('SUHAIL_RESEARCH_RECORD_INVALID');
+  const key=keyOf(record),old=seen.get(key);
+  if(old){
+   if(sameMeasure(old,record)){duplicates++;return;}
+   conflicts.push({source:side,row:index+1,city:record.city,district:record.district,
+    sourceUrl:record.sourceUrl,observedOn:record.observedOn,reason:'CONFLICTING_NEIGHBORHOOD_SNAPSHOT'});
+   return;
+  }
+  if(rows.length>=maxRows)throw Error('SUHAIL_RESEARCH_ROW_LIMIT');
+  rows.push(record);seen.set(key,record);
+  if(side==='incoming')added++;
+ }
+ existing.forEach((r,i)=>accept(r,i,'existing'));
+ incoming.forEach((r,i)=>accept(r,i,'incoming'));
+ return {records:rows,added,duplicates,conflicts,
+  autoValuationEnabled:false,actualIndividualTransactionsImported:0};
+}
+
 function selectNeighborhoodRows(records,{city='',district=''}={}){
  if(!Array.isArray(records))throw Error('SUHAIL_RESEARCH_RECORDS_REQUIRED');
  const c=norm(city),d=norm(district);
@@ -108,4 +154,4 @@ function researchSummary(records){
   cannotDerivePropertyValuation:true,noPeriodVerified:true};
 }
 module.exports={SOURCE_URL,PAGE_INDEXED_AT,MAX_ROWS,MAX_BYTES,
- toPublicSample,parseResearchCsv,selectNeighborhoodRows,researchSummary};
+ toPublicSample,parseResearchCsv,mergeNeighborhoodResearch,selectNeighborhoodRows,researchSummary};
