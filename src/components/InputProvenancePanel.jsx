@@ -7,7 +7,9 @@ export default function InputProvenancePanel({mode,inputs,provenance,onChange}){
  const {locale}=useLocale(),ar=locale==='ar-SA';const [form,setForm]=useState({field:Object.keys(inputs)[0]||'',unit:'',sourceKind:'USER_ESTIMATE',sourceReference:'',sourceDate:'',location:'',reviewerRef:'',documentDigestSha256:''}),[error,setError]=useState(null);
  const labels=ar?require('../i18n/locales/ar-SA'):require('../i18n/locales/en');const group=mode==='building'?labels.inputBuilding:labels.inputLand;
  const sharedLabels={projectTitle:ar?'اسم الدراسة':'Study name',leaseStatus:labels.dashboardR3.selectLeaseStatus,leverageEnabled:labels.financing.toggle,ltv:mode==='building'?labels.financingInput.ltvLabelBuilding:labels.financingInput.ltvLabelLand,loanRate:labels.financingInput.loanRateLabel,loanTenor:mode==='building'?labels.financingInput.loanTenorLabelBuilding:labels.financingInput.loanTenorLabelLand,financingStructureLabel:labels.financingInput.structureLabel};
- const label=field=>typeof group?.[field]==='string'?group[field]:(sharedLabels[field]||field);
+ const label=field=>field==='exitTransferFeeRate'
+  ?(ar?'تكلفة معاملة الخروج المحمّلة اقتصاديًا على البائع':'Seller-borne exit transaction cost')
+  :typeof group?.[field]==='string'?group[field]:(sharedLabels[field]||field);
  const states=provenanceForInputs(mode,inputs,provenance);const recorded=Object.values(states).filter(s=>s.status!=='SOURCE_NOT_RECORDED');
  return <details data-testid="input-provenance" className="mt-3 rounded-xl border border-slate-600 bg-[#101a2d] p-3 text-xs text-slate-200"><summary className="cursor-pointer p-2 font-semibold">{ar?'مصدر المدخلات ووحداتها وتاريخها':'Input sources, units and dates'}</summary>
   <p className="my-2 leading-6">{ar?'سجل المصدر لكل مدخل جوهري. عند تغيير القيمة يطلب السجل مراجعة المصدر. المرجع المحلي لا يثبت صحة المستند أو أسعار السوق أو تطبيق الأنظمة.':'Record sources for material inputs. Changing a value marks its source for rechecking. Local references do not independently verify documents, market prices or regulations.'}</p>

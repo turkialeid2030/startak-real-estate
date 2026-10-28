@@ -293,9 +293,9 @@ module.exports = {
     totalFloorArea: "Total Floor Construction Area",
     netLeasableAreaApproved: "Approved Net Leasable Area",
     coverageRatio: "Building Coverage Ratio",
-    areaCheck: "Area Logic Check",
-    areaCheckOk: "Valid ✓",
-    areaCheckFail: "Conflict ✗",
+    areaCheck: "Leasable Area vs Floor Area Only",
+    areaCheckOk: "Within Floor Area ✓",
+    areaCheckFail: "Leasable Area Exceeds Floor Area ✗",
     parkingSpotsNote: "{{value}} parking spots",
     avgAreaPerFloorNote: "{{value}} m²/floor average",
     buildingPurchasePrice: "Building Purchase Price",
@@ -405,7 +405,7 @@ module.exports = {
   },
   validationDisclosure: {
     title: "Invalid Input Value",
-    messageSuffix: "The results shown below are the last valid calculated result, and are not updated to reflect the current value.",
+    messageSuffix: "Current financial results are withheld until the input is corrected and recalculated.",
   },
   financing: {
     toggle: "Enable Financial Leverage",

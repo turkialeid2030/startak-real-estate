@@ -293,9 +293,9 @@ module.exports = {
     totalFloorArea: "إجمالي المساحة الإنشائية للأدوار",
     netLeasableAreaApproved: "المساحة التأجيرية الصافية المعتمدة",
     coverageRatio: "معامل البناء إلى مساحة الأرض",
-    areaCheck: "الفحص المنطقي للمساحات",
-    areaCheckOk: "سليم ✓",
-    areaCheckFail: "تعارض ✗",
+    areaCheck: "مطابقة المساحة التأجيرية لمساحة الأدوار فقط",
+    areaCheckOk: "ضمن مساحة الأدوار ✓",
+    areaCheckFail: "المساحة التأجيرية تتجاوز الأدوار ✗",
     parkingSpotsNote: "{{value}} موقف سيارة",
     avgAreaPerFloorNote: "{{value}} م²/دور بالمتوسط",
     buildingPurchasePrice: "قيمة شراء المبنى",
@@ -405,7 +405,7 @@ module.exports = {
   },
   validationDisclosure: {
     title: "قيمة إدخال غير صالحة",
-    messageSuffix: "النتائج المعروضة أدناه هي آخر نتيجة محسوبة صحيحة، وليست محدَّثة وفق القيمة الحالية.",
+    messageSuffix: "حُجبت النتائج المالية الحالية حتى تصحيح المدخل وإعادة الحساب.",
   },
   financing: {
     toggle: "تفعيل الرافعة المالية",

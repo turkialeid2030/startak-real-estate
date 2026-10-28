@@ -50,8 +50,8 @@ export default function PersonalResearchReadinessPanel({mode, inputs, results, v
       </p>
       <p className="text-xs mt-1" style={{color:'#8C97AC'}}>
         {ar
-          ? 'عند وجود خطأ في المدخلات قد تعرض الأجزاء القديمة آخر نتيجة صالحة؛ لا تستخدم أرقامها قبل تصحيح الخطأ.'
-          : 'If inputs are invalid, legacy panels may show the last valid result; do not rely on it until the input error is repaired.'}
+          ? 'عند وجود خطأ في المدخلات تُحجب المؤشرات والنتائج المالية الحالية حتى تصحيح الخطأ وإعادة الحساب.'
+          : 'When an input is invalid, current financial indicators and results are withheld until it is corrected and recalculated.'}
       </p>
     </section>
   );
