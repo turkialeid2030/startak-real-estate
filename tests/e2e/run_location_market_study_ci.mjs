@@ -68,9 +68,9 @@ try{
  await national.getByTestId('suhail-research-import').setInputFiles({
   name:'national-research.csv',mimeType:'text/csv',buffer:Buffer.from(nationalCsv)
  });
- await national.getByTestId('suhail-import-status').waitFor();
- assert((await national.getByTestId('suhail-import-status').innerText()).includes('استيراد بحثي'),
-  'national CSV import status not displayed');
+ await national.getByTestId('suhail-import-status').filter({hasText:'أضيف 2'}).waitFor();
+ assert((await national.getByTestId('suhail-import-status').innerText()).includes('أضيف 2'),
+  'national CSV import must confirm two new rows');
  assert((await national.getByTestId('suhail-scope').innerText()).includes('8'),
   'National CSV cities must merge into 6 existing cities rather than erasing the original sample');
  assert((await national.getByTestId('suhail-import-status').innerText()).includes('أضيف 2'),
@@ -82,6 +82,7 @@ try{
  await national.getByTestId('suhail-research-import').setInputFiles({
   name:'duplicate-national-research.csv',mimeType:'text/csv',buffer:Buffer.from(nationalCsv)
  });
+ await national.getByTestId('suhail-import-status').filter({hasText:'مكرر 2'}).waitFor();
  assert((await national.getByTestId('suhail-import-status').innerText()).includes('مكرر 2'),
   'reimporting identical neighborhood snapshots must deduplicate without new records');
  mark('SUHAIL_CSV_DUPLICATE_DETECTION',true);
