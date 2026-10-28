@@ -43,6 +43,10 @@ export default function ResearchEvidenceFusionPanel({subject={},feeds={},asOf='2
   </div>
   <p className="mt-3 text-xs text-slate-300">مطابقة الحي لا تثبت تطابق العقار أو ملكيته؛
    يلزم معرّف عقاري أو مخطط وقطعة موثقان. كما لا تُمزج مؤشرات الأحياء بالقيم المعلنة.</p>
+  <div data-testid="fusion-source-readiness" className="mt-2 text-xs text-slate-300">
+   {result.feedReadiness.map(x=><p key={x.feed}>{x.feed}: {x.importedResearchRows} سجل بحثي؛
+    API مباشر غير متصل، صحة المصدر الفردي غير مثبتة</p>)}
+  </div>
   {result.sourceRefs.length>0?<p className="mt-2 text-xs break-words">
    المصادر المتعلقة بالحي: {result.sourceRefs.join('، ')}</p>:null}
   <p data-testid="fusion-risk-codes" className="mt-2 text-xs text-amber-200">

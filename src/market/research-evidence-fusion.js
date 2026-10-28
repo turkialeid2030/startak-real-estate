@@ -14,10 +14,13 @@ const finite=v=>typeof v==='number'&&Number.isFinite(v)?v:null;
 const dated=v=>typeof v==='string'&&/^\d{4}-\d\d-\d\d$/.test(v)&&
  Number.isFinite(Date.parse(v+'T00:00:00Z'))&&
  new Date(v+'T00:00:00Z').toISOString().slice(0,10)===v;
-const tag=Object.freeze({
- suहail:'NEIGHBORHOOD_AGGREGATE',listings:'ASKING_MARKET_SIGNAL',
- earth:'EARTH_RESEARCH',national:'NATIONAL_RESEARCH',
-});
+// Stable, transparent research citation IDs; NOT signatures or external verification.
+function researchEvidenceId(feed,x){
+ const values=[x.origin,x.type,x.ref,x.city,x.district,x.observedOn,
+  x.eventDate||'',x.transactionId||'',x.assetType||'',x.planNumber||'',
+  x.parcelNumber||'',x.priceOrMetricSar??'',x.areaSqm??''];
+ return feed+':'+values.map(v=>encodeURIComponent(String(v).slice(0,2200))).join('|');
+}
 function sourceUrl(v){
  try{const u=new URL(v);if(u.protocol!=='https:'||u.username||u.password||!u.hostname.includes('.'))
    return null;return u.toString();}catch{return null;}
@@ -82,7 +85,10 @@ function fromResearchFeeds(feeds={}){
    if(eventDate!==null&&(!dated(eventDate)||eventDate>r.observedOn)){
     errors.push({feed:key,row:i+1,code:'DATE_CONFLICT'});continue;
    }
-   const evidenceId=key+':'+String(i+1);
+   const proposed={origin,type,ref:short(ref),city:short(r.city),district:short(r.district),
+    observedOn:r.observedOn,eventDate,transactionId:short(transactionId),
+    assetType,planNumber,parcelNumber,priceOrMetricSar:price,areaSqm:area};
+   const evidenceId=researchEvidenceId(key,proposed);
    out.push(Object.freeze({evidenceId,feed:key,origin,type,city:short(r.city),
     district:short(r.district),assetType,observedOn:r.observedOn,
     eventDate,ref:short(ref),sourceUrl:surface,priceOrMetricSar:price,
@@ -100,12 +106,14 @@ function compareCandidates(records){
  for(const record of records){
   // Within one provider, duplicated references on the same observation date
   // cannot count as independent market evidence.
-  const identityKey=[record.origin,norm(record.ref),norm(record.city),norm(record.district),
-    record.observedOn].join('|');
+  const identityKey=[record.origin,record.type,norm(record.ref),norm(record.city),
+    norm(record.district),record.observedOn].join('|');
   const first=identity.get(identityKey);
   if(first){
    if(first.priceOrMetricSar!==record.priceOrMetricSar||
-      first.areaSqm!==record.areaSqm||!equalsLocation(first,record))
+      first.areaSqm!==record.areaSqm||first.assetType!==record.assetType||
+      first.planNumber!==record.planNumber||first.parcelNumber!==record.parcelNumber||
+      first.eventDate!==record.eventDate||!equalsLocation(first,record))
     conflicts.push({ids:[first.evidenceId,record.evidenceId],reason:'CONFLICTING_SOURCE_REFERENCE'});
    else duplicates.push({ids:[first.evidenceId,record.evidenceId],reason:'REPEATED_SOURCE_REFERENCE'});
   }else identity.set(identityKey,record);
@@ -160,6 +168,13 @@ function buildUnifiedResearch({subject={},feeds={},asOf='2026-10-28'}={}){
    city:short(subject.city),district:short(subject.district)},
   status:'HOLD_UNVERIFIED_PERSONAL_RESEARCH',
   totalInputRows:inputRows,validResearchRows:records.length,
+  feedReadiness:['suhail','listings','earth','national'].map(feed=>{
+   const items=records.filter(x=>x.feed===feed);
+   return {feed,importedResearchRows:items.length,
+    mode:feed==='suhail'?'PUBLIC_INDEX_SAMPLE_OR_MANUAL_CSV':'USER_IMPORTED_CSV_ONLY',
+    confirmedLiveApiConnected:false,independentRecordAuthentication:false,
+    lastObservedOn:items.length?items.map(x=>x.observedOn).sort().at(-1):null};
+  }),
   rejectedRows:errors,subjectAreaRows:related.length,
   countsByType:kinds,areaScopeOnly:related.filter(x=>!identified.includes(x)).length,
   matchedParcelCandidates:identified.length,
@@ -268,6 +283,7 @@ function researchReportBundle(snapshot,{marketReadinessStatus='NOT_TESTED',marke
   studySummary:{inputRows:snapshot.totalInputRows,validRows:snapshot.validResearchRows,
    rejectedRows:snapshot.rejectedRows.length,areaRows:snapshot.subjectAreaRows,
    sourceRefs:snapshot.sourceRefs,countsByType:snapshot.countsByType,
+   feedReadiness:snapshot.feedReadiness,
    duplicates:snapshot.possibleRepeatedObservations,
    possibleCrossSourceDuplicates:snapshot.possibleCrossSourceDuplicates.length,
    conflictingRecords:snapshot.contradictoryObservations.length},

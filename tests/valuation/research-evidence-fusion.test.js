@@ -184,4 +184,23 @@ ok('future dates or wrong city suppress open-data price',()=>{
   loadMeta:{sources:[]}}).status,'LOCATION_MISMATCH');
  assert.equal(researchReportBundle(snap).openDataAnnex.status,'NOT_LOADED');
 });
+ok('citation identifiers remain stable across reordering input rows and are not signatures',()=>{
+ const a=fromResearchFeeds({listings}).records;
+ const b=fromResearchFeeds({listings:[...listings].reverse()}).records;
+ assert.deepEqual(a.map(x=>x.evidenceId).sort(),b.map(x=>x.evidenceId).sort());
+ assert.ok(a.every(x=>x.sourceAuthenticated===false));
+ assert.notEqual(a[0].evidenceId,a[1].evidenceId);
+});
+ok('same provider record reference differing in asset class creates data conflict',()=>{
+ const x={...listings[0],assetType:'WAREHOUSE'};
+ const y=buildUnifiedResearch({subject,feeds:{listings:[listings[0],x]}});
+ assert.equal(y.contradictoryObservations.length,1);
+});
+ok('per-feed readiness explicitly discloses no live API coverage',()=>{
+ assert.equal(snap.feedReadiness.length,4);
+ assert.ok(snap.feedReadiness.every(x=>x.confirmedLiveApiConnected===false));
+ assert.equal(snap.feedReadiness.find(x=>x.feed==='suhail').mode,'PUBLIC_INDEX_SAMPLE_OR_MANUAL_CSV');
+ const v=researchReportBundle(snap);
+ assert.equal(v.studySummary.feedReadiness.length,4);
+});
 console.log('UNIFIED_RESEARCH_EVIDENCE_FUSION_TESTS='+count+'/'+count);

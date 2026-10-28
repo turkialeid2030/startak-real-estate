@@ -36,3 +36,6 @@ The unified JSON research bundle now carries a narrowly allowlisted `scenarioAnn
 
 ## Historical MOJ public open data bridge
 The existing on-click open-license quarter research loader is now explicitly evaluated at the study as-of date, and its **district-wide** `deriveDistrictSnapshot` is available as a separate `openDataAnnex` in the unified research report. The annex discloses listed quarters, source attribution, missing-quarter coverage, count and median SAR/sqm only when matching district and date with enough observations. It is not an individual verified subject-transaction match, not a licensed live feed and not an authorized value input. No protected Ministry of Justice endpoint is scraped.
+
+## Stable research evidence identifiers and per-feed honesty
+Citation IDs now derive deterministically from feed, source, event class, location, reference and values, rather than array index, so CSV ordering cannot silently reassign one citation to a different source observation. They are **not cryptographic signatures** or authenticated provenance. Same-provider same-reference rows with contradictory asset subtype, parcel or event date are flagged. `feedReadiness` explicitly tracks Suhail indexed sample vs manual CSV-only status of the other panels and keeps all live API/authenticated flags false until independently proven.
