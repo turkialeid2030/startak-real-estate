@@ -1,0 +1,53 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const cp=require('node:child_process');
+const root=path.join(__dirname,'../..');
+const program=JSON.parse(fs.readFileSync(path.join(root,'governance/qualification-90-day-program-20261027.json'),'utf8'));
+const registry=JSON.parse(fs.readFileSync(path.join(root,'governance/qcr-issue-registry-20261027.json'),'utf8'));
+const {makeAcquisitionPack}=require('../../src/production-readiness/qcr-evidence-acquisition');
+const {markdown,execute}=require('../../tools/qcr-evidence-acquisition');
+let count=0;
+const x=makeAcquisitionPack(program,registry,{asOf:'2026-10-28'});
+assert.equal(x.status,'REQUEST_PACK_READY_NOT_SENT');count++;
+assert.equal(x.requestCount,36);assert.equal(x.streamCount,12);count+=2;
+assert.equal(x.pendingIndependentEvidence,36);assert.equal(x.independentlyApprovedCount,0);count+=2;
+assert.equal(x.requests.length,36);count++;
+assert.equal(new Set(x.requests.map(r=>r.requestId)).size,36);count++;
+for(const req of x.requests){
+ assert.match(req.requestId,/^Q(?:0[1-9]|1[0-2]):[A-Za-z0-9_]+$/);
+ assert.equal(req.requestSent,false);
+ assert.equal(req.externalEvidenceReceived,false);
+ assert.equal(req.independentlyAuthenticated,false);
+ assert.equal(req.independentlyApproved,false);
+ assert.equal(req.actualPersonAssigned,false);
+ assert.equal(req.artifactSha256,null);
+ assert.equal(req.protectedEvidenceLocation,null);
+ assert.equal(req.status,'REQUEST_PREPARED_NOT_SENT');
+ assert.match(req.issueUrl,/^https:\/\/github.com\/turkialeid2030\/startak-real-estate\/issues\/(75\d|76[01])$/);
+ assert(req.requestTextAr.includes('لا تُرسل الملفات السرية إلى GitHub العام.'));
+ count+=11;
+}
+assert.equal(x.releaseAuthorized,false);
+assert.equal(x.commercialGoLiveAuthorized,false);
+assert.equal(x.professionalAppraisalAuthorized,false);
+assert.equal(x.productionAiAuthorized,false);
+assert.equal(x.transactionAuthorized,false);count+=5;
+assert.ok(markdown(x).includes('**الحالة: HOLD / NOT_AUTHORIZED.**'));count++;
+assert.equal(execute(['--as-of=2026-10-28','--json']).requestCount,36);count++;
+for(const args of [['--markdown','--json'],['--as-of=2026-10-28','--as-of=2026-10-29'],['--bad']]){
+ assert.throws(()=>execute(args));count++;
+}
+assert.equal(makeAcquisitionPack(program,registry,{asOf:'2026-02-31'}).status,'INVALID_QCR_INPUT');count++;
+const corrupt=structuredClone(registry);corrupt.mapping[0].issue=760;
+assert.equal(makeAcquisitionPack(program,corrupt,{asOf:'2026-10-28'}).status,'INVALID_QCR_INPUT');count++;
+const escalate=structuredClone(program);escalate.serviceBoundary.commercialGoLiveAuthorized=true;
+assert.equal(makeAcquisitionPack(escalate,registry,{asOf:'2026-10-28'}).status,'INVALID_QCR_INPUT');count++;
+const cli=cp.spawnSync(process.execPath,[path.join(root,'tools/qcr-evidence-acquisition.js'),'--as-of=2026-10-28','--json'],{encoding:'utf8',timeout:15000});
+assert.equal(cli.status,0,cli.stderr);assert.equal(JSON.parse(cli.stdout).requestCount,36);count+=2;
+const md=cp.spawnSync(process.execPath,[path.join(root,'tools/qcr-evidence-acquisition.js'),'--as-of=2026-10-28','--markdown'],{encoding:'utf8',timeout:15000});
+assert.equal(md.status,0,md.stderr);assert(md.stdout.includes('Q12'));count+=2;
+const bad=cp.spawnSync(process.execPath,[path.join(root,'tools/qcr-evidence-acquisition.js'),'--as-of=2026-02-31'],{encoding:'utf8',timeout:15000});
+assert.equal(bad.status,2);count++;
+console.log('QCR_EVIDENCE_ACQUISITION=PASS request_slots=36 streams=12 checks='+count+' approvals=0 release_authorized=false');

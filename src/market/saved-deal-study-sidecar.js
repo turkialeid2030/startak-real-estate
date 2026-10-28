@@ -3,6 +3,7 @@
 // Keeps canonical economic Saved Deals records/indices completely unchanged.
 const {validateSavedDealRecord}=require('../validation/saved-deal-schema');
 const {parsePersonalMarketStudy}=require('./market-study-state');
+const {evaluateBoundReview}=require('./appraisal-study-binding');
 const SIDECAR_KIND='STARTAK_PERSONAL_MARKET_STUDY_SAVED_DEAL_LINK_V1';
 const PREFIX='market-study-sidecar:v1:';
 const MAX_SIDECAR_CHARS=2_100_000;
@@ -32,13 +33,28 @@ function subjectCompatible(studySubject,mode){
  if(mode==='land'&&studySubject.assetType!=='LAND')throw Error('SAVED_DEAL_SUBJECT_TYPE_MISMATCH');
  if(mode==='building'&&studySubject.assetType==='LAND')throw Error('SAVED_DEAL_SUBJECT_TYPE_MISMATCH');
 }
-async function saveResearchSidecar({storage,dealId,studyJson,identityConfirmed=false,overwrite=false,clock=()=>new Date()}){
+function appraisalSidecarGate({studySubject,deal,appraisalLink=null}={}) {
+ if(appraisalLink===null)return 'NOT_LINKED';
+ // Restrictive-only: a corrupt, stale or blocked link never enables a sidecar write.
+ if(!appraisalLink||typeof appraisalLink!=='object'||Array.isArray(appraisalLink))
+   throw Error('SIDECAR_APPRAISAL_LINK_INVALID');
+ const review=evaluateBoundReview({subject:studySubject,link:appraisalLink});
+ if(review.status!=='LINKED_REVIEW_REQUIRED'||review.blockExport)
+   throw Error('SIDECAR_APPRAISAL_HOLD_OR_STALE');
+ const norm=s=>String(s||'').trim().replace(/\s+/g,' ').toLocaleLowerCase('ar');
+ // A report linked only to the live study may not silently cross to a different Saved Deal.
+ if(!norm(studySubject?.name)||norm(studySubject.name)!==norm(deal?.name))
+   throw Error('SIDECAR_APPRAISAL_SAVED_DEAL_NAME_MISMATCH');
+ return 'LINKED_REVIEW_REQUIRED_NOT_AUTHORIZED';
+}
+async function saveResearchSidecar({storage,dealId,studyJson,identityConfirmed=false,overwrite=false,appraisalLink=null,clock=()=>new Date()}){
  if(!storage||typeof storage.set!=='function')throw Error('STORAGE_PROVIDER_NOT_WRITABLE');
  if(identityConfirmed!==true)throw Error('SAME_PROPERTY_ATTESTATION_REQUIRED');
  const {deal,id}=await readCanonicalDeal(storage,dealId);
  const restored=parsePersonalMarketStudy(studyJson).study;
  if(!overwrite&&await storage.get(sidecarKey(id))!==null)throw Error('SIDECAR_EXISTS_CONFIRM_OVERWRITE');
  subjectCompatible(restored.subject,deal.mode);
+ const appraisalReviewStatus=appraisalSidecarGate({studySubject:restored.subject,deal,appraisalLink});
  const timestamp=clock().toISOString();
  const envelope={
   schemaVersion:1,kind:SIDECAR_KIND,
@@ -56,7 +72,7 @@ async function saveResearchSidecar({storage,dealId,studyJson,identityConfirmed=f
  const reread=await storage.get(sidecarKey(id));
  if(reread!==encoded)throw Error('SIDECAR_PERSISTENCE_NOT_VERIFIED');
  return {linked:true,dealId:id,dealMode:deal.mode,savedAt:timestamp,
-   researchScope:envelope.researchScope,canonicalDealUntouched:true};
+   researchScope:envelope.researchScope,appraisalReviewStatus,canonicalDealUntouched:true};
 }
 async function loadResearchSidecar({storage,dealId}){
  const {deal,id}=await readCanonicalDeal(storage,dealId);
@@ -83,4 +99,4 @@ async function listCanonicalDeals(storage){
  return parsed.filter(x=>x&&typeof x.id==='string'&&typeof x.name==='string')
   .map(x=>({id:x.id,name:x.name})).filter(x=>{try{validId(x.id);return true;}catch{return false;}});
 }
-module.exports={SIDECAR_KIND,sidecarKey,listCanonicalDeals,saveResearchSidecar,loadResearchSidecar};
+module.exports={SIDECAR_KIND,sidecarKey,listCanonicalDeals,appraisalSidecarGate,saveResearchSidecar,loadResearchSidecar};

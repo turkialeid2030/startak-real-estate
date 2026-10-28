@@ -1,4 +1,6 @@
 import React, {useMemo, useState} from 'react';
+import {useAppraisalReviewSession} from './AppraisalReviewSessionContext.jsx';
+const {evaluatePersonalReportExport,assertPersonalReportExportAllowed}=require('../market/appraisal-report-export-gate');
 import DiagnosticText from './DiagnosticText.jsx';
 import OperatingFinancialComparison from './OperatingFinancialComparison';
 const {
@@ -43,6 +45,8 @@ export default function PersonalInvestmentResearchPanel({
   financialContext=null,
 }){
   const [message,setMessage]=useState('');
+  const {subject:appraisalStudySubject,link:appraisalLink}=useAppraisalReviewSession();
+  const reportExportGate=useMemo(()=>evaluatePersonalReportExport({subject:appraisalStudySubject,link:appraisalLink}),[appraisalStudySubject,appraisalLink]);
   const ar=locale!=='en';
   const draft=useMemo(()=>{
     try{return financialContext
@@ -54,6 +58,7 @@ export default function PersonalInvestmentResearchPanel({
   const save=(format)=>{
     setMessage('');
     try{
+      assertPersonalReportExportAllowed({subject:appraisalStudySubject,link:appraisalLink});
       // Regenerate using current in-memory inputs so no stale governance
       // snapshot or external P0 licence is required for private study exports.
       const current=financialContext
@@ -70,7 +75,7 @@ export default function PersonalInvestmentResearchPanel({
       setMessage((ar?'تعذر تصدير المسودة: ':'Draft export failed: ')+(error.code||'INVALID_REPORT'));
     }
   };
-  const indicatorAvailable=draft.preliminaryValue!==null;
+  const indicatorAvailable=!reportExportGate.blocked&&draft.preliminaryValue!==null;
   return (
     <section dir={ar?'rtl':'ltr'} data-testid="c75-personal-research-workspace"
       className="mx-auto mt-5 w-full max-w-7xl px-4">
@@ -96,13 +101,13 @@ export default function PersonalInvestmentResearchPanel({
           <div className="rounded-xl border border-slate-700 p-3">
             <div className="text-[11px] text-slate-400">{ar?'حالة المسودة':'Draft status'}</div>
             <div data-testid="c75-personal-status" className="mt-1 text-sm text-slate-100">
-              {humanStatus(draft.reportStatus,locale)}
+              {reportExportGate.blocked?'HOLD — APPRAISAL_REVIEW':humanStatus(draft.reportStatus,locale)}
             </div>
           </div>
           <div className="rounded-xl border border-slate-700 p-3">
             <div className="text-[11px] text-slate-400">{ar?'القيمة الحسابية الأولية':'Preliminary computed value'}</div>
             <div data-testid="c75-personal-value" className="mt-1 text-sm text-slate-100">
-              {amount(draft.preliminaryValue,draft.currency,locale)}
+              {reportExportGate.blocked?'—':amount(draft.preliminaryValue,draft.currency,locale)}
             </div>
           </div>
           <div className="rounded-xl border border-slate-700 p-3">
@@ -116,7 +121,7 @@ export default function PersonalInvestmentResearchPanel({
               'No final value can be computed from the current inputs. You may export the draft and complete the analysis later.'}
           </p>
         )}
-        {draft.methods.length>0&&(
+        {!reportExportGate.blocked&&draft.methods.length>0&&(
           <div className="mt-4 overflow-auto">
             <table className="w-full text-xs text-slate-200">
               <thead><tr className="border-b border-slate-700 text-slate-400">
@@ -142,15 +147,21 @@ export default function PersonalInvestmentResearchPanel({
             </ul>
           </details>
         )}
-        <OperatingFinancialComparison operatingReport={draft.operatingReport} locale={locale} />
+        {!reportExportGate.blocked&&<OperatingFinancialComparison operatingReport={draft.operatingReport} locale={locale} />}
+        {reportExportGate.blocked&&<p role="alert" data-testid="c75-appraisal-report-hold" className="mt-3 rounded border border-rose-700 p-3 text-xs text-rose-100">
+          {ar?'HOLD: أوقف تدقيق التقييم المرتبط تصدير التقرير الشخصي في جلسة البحث الحالية. أعد مطابقة المستند وهوية العقار ومراجعة سبب التعارض قبل أي إصدار. لا يؤثر ذلك على نسخ بيانات الصفقات الاحتياطية.':
+          'HOLD: a linked appraisal discrepancy blocks personal HTML/JSON study reports in this research session. Reconcile the source and property identity before retrying. Canonical deal backups are unaffected.'}
+        </p>}
         <div className="mt-4 flex flex-wrap gap-2">
           <button type="button" data-testid="c75-export-personal-html"
             onClick={()=>save('html')}
+            disabled={reportExportGate.blocked}
             className="rounded-lg border border-slate-500 px-4 py-2 text-xs font-semibold text-slate-100">
             {ar?'تصدير دراسة شخصية بالعربية / HTML':'Export personal study / HTML'}
           </button>
           <button type="button" data-testid="c75-export-personal-json"
             onClick={()=>save('json')}
+            disabled={reportExportGate.blocked}
             className="rounded-lg border border-slate-500 px-4 py-2 text-xs font-semibold text-slate-100">
             {ar?'تصدير بيانات الدراسة JSON':'Export study data JSON'}
           </button>

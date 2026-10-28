@@ -1,4 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import {useAppraisalReviewSession} from './AppraisalReviewSessionContext.jsx';
+const {evaluateBoundReview}=require('../market/appraisal-study-binding');
 const { ASSET_TYPES, extractCoordinates, evaluateMarketStudy } = require('../market/instant-market-study');
 const { prepareImportCsv,MAX_CSV_BYTES } = require('../market/public-dataset-import');
 const {readOpenQuarters,deriveDistrictSnapshot,OPEN_QUARTERS}=require('../market/saudi-open-data-research');
@@ -14,6 +16,13 @@ const {resolveStudyAsOf}=require('../market/study-asof');
 const {auditValuationReadiness}=require('../market/valuation-decision-gate');
 const {evaluateAppraisalReportQuality}=require('../market/property-report-quality');
 import ValuationQualityPanel from './ValuationQualityPanel.jsx';
+import SuhailNationalResearchPanel from './SuhailNationalResearchPanel.jsx';
+import SaudiListingSourcesResearchPanel from './SaudiListingSourcesResearchPanel.jsx';
+import EarthNationalResearchPanel from './EarthNationalResearchPanel.jsx';
+import SaudiNationalIntelligenceSourcesPanel from './SaudiNationalIntelligenceSourcesPanel.jsx';
+import ResearchEvidenceFusionPanel from './ResearchEvidenceFusionPanel.jsx';
+import ChallengerBenchmarkResearchPanel from './ChallengerBenchmarkResearchPanel.jsx';
+const {toPublicSample}=require('../market/suhail-national-neighborhood-research');
 
 const INPUT = 'w-full rounded-lg border border-slate-600 bg-[#101c30] px-3 py-2 text-sm text-slate-100';
 const createRow = () => ({ assetType:'',landSubtype:'',sourceRecordId:'', status:'ASKING', price:'', annualRent:'', builtArea:'', landArea:'',
@@ -90,6 +99,7 @@ function ComparisonTable({ title, kind, rows, setRows, assetType }) {
   </section>;
 }
 export default function PropertyMarketLocationPanel() {
+  const {setSubject:setSessionSubject,link:appraisalLink,invalidateLink}=useAppraisalReviewSession();
   const [subject,setSubject]=useState({
     name:'',assetType:'RESIDENTIAL_COMPOUND',landSubtype:'',city:'الرياض',district:'',location:'',
     landArea:'',builtArea:'',rentableArea:'',buildingCount:'',unitCount:'',floorCount:'',
@@ -115,6 +125,8 @@ export default function PropertyMarketLocationPanel() {
   const [publicLoadStatus,setPublicLoadStatus]=useState('');
   const [publicLoadMeta,setPublicLoadMeta]=useState(null);
   const [publicLoading,setPublicLoading]=useState(false);
+  const [researchFeeds,setResearchFeeds]=useState(()=>({suhail:toPublicSample(),listings:[],earth:[],national:[]}));
+  const [researchSessionEpoch,setResearchSessionEpoch]=useState(0);
 
 
   const [message,setMessage]=useState('');
@@ -124,6 +136,12 @@ export default function PropertyMarketLocationPanel() {
   const [replaceLinkedStudy,setReplaceLinkedStudy]=useState(false);
   const [linkedStudyBusy,setLinkedStudyBusy]=useState(false);
   const [linkedDealIdentityAcknowledged,setLinkedDealIdentityAcknowledged]=useState(false);
+  useEffect(()=>{setSessionSubject(subject);},[subject,setSessionSubject]);
+  const appraisalBinding=useMemo(()=>evaluateBoundReview({subject,link:appraisalLink}),[subject,appraisalLink]);
+  const selectedDeal=useMemo(()=>savedDeals.find(deal=>deal.id===selectedSavedDealId)||null,[savedDeals,selectedSavedDealId]);
+  const linkedDealNameConflict=Boolean(appraisalLink&&selectedDeal&&
+    String(selectedDeal.name).trim().replace(/\s+/g,' ').toLocaleLowerCase('ar')!==
+    String(subject.name).trim().replace(/\s+/g,' ').toLocaleLowerCase('ar'));
   const updateSubject=(key,value)=>setSubject(current=>({...current,[key]:value}));
   const updateAssumption=(key,value)=>setAssumptions(current=>({...current,[key]:value}));
   const studyAsOf=resolveStudyAsOf(subject.valuationDate);
@@ -139,8 +157,8 @@ export default function PropertyMarketLocationPanel() {
     subject,unitMix,leaseComparables,...rentAssumptions,asOf:new Date(asOfMs),
   }),[subject,unitMix,leaseComparables,rentAssumptions,asOfMs]);
   const valuationReadiness=useMemo(()=>auditValuationReadiness({
-    subject,report,segmentedRent:segmentedMarketRents,sales:allSales,rentals:allRentals,asOf:new Date(asOfMs),
-  }),[subject,report,segmentedMarketRents,allSales,allRentals,asOfMs]);
+    subject,report,segmentedRent:segmentedMarketRents,sales:allSales,rentals:allRentals,appraisalReview:appraisalBinding.appraisalReview,asOf:new Date(asOfMs),
+  }),[subject,report,segmentedMarketRents,allSales,allRentals,appraisalBinding,asOfMs]);
   const appraisalQuality=useMemo(()=>evaluateAppraisalReportQuality({
     subject,marketReport:report,readiness:valuationReadiness,asOf:new Date(asOfMs),
   }),[subject,report,valuationReadiness,asOfMs]);
@@ -150,12 +168,13 @@ export default function PropertyMarketLocationPanel() {
     classification:subject.assetType==='OFFICE_TOWER'||subject.assetType==='COMMERCIAL_COMPLEX'?'تجاري':
       subject.assetType==='WAREHOUSE'?'صناعي':
       subject.assetType==='LAND'?'':'سكني',
-  }),[publicRecords,subject.city,subject.district,subject.assetType]);
+    asOf:new Date(asOfMs),
+  }),[publicRecords,subject.city,subject.district,subject.assetType,asOfMs]);
   const fetchOpenData=async()=>{
     if(publicLoading)return;
     setPublicLoading(true);setPublicLoadStatus('جارٍ البحث في بيانات الصفقات المنشورة رسميًا والمصرح بإعادة استخدامها…');
     try{
-      const data=await readOpenQuarters({onProgress:p=>setPublicLoadStatus(
+      const data=await readOpenQuarters({asOf:new Date(asOfMs),onProgress:p=>setPublicLoadStatus(
         p.state==='FETCHING'?'جارٍ قراءة بيانات '+p.quarter+'…':
         p.state==='IMPORTED'?'تمت معالجة '+p.count+' سجل في '+p.quarter+'…':
         'تعذرت قراءة '+p.quarter+'؛ ستظهر فجوة المصدر'
@@ -188,6 +207,8 @@ export default function PropertyMarketLocationPanel() {
     sales:allSales,rentals:allRentals,projects,marketOffers,unitMix,leaseComparables,rentAssumptions,
   });
   const applyResearchStudy=restored=>{
+    // Loading/importing a study is a new review event, even when the identity fields match.
+    invalidateLink();
     setSubject(restored.subject);
     setAssumptions(restored.assumptions);
     setSales(restored.sales);
@@ -200,6 +221,10 @@ export default function PropertyMarketLocationPanel() {
     setLeaseComparables(restored.leaseComparables);
     setRentAssumptions(restored.rentAssumptions);
     setPublicRecords([]);setPublicLoadMeta(null);setPublicLoadStatus('');
+    // Restored study is a new case context. Quarantine old source imports:
+    // the UI must not implicitly carry previous case-specific research across deals.
+    setResearchFeeds({suhail:toPublicSample(),listings:[],earth:[],national:[]});
+    setResearchSessionEpoch(n=>n+1);
     setImportSource('');setRightsConfirmed(false);setImportStatus('');
   };
   const refreshCanonicalDeals=async()=>{
@@ -212,6 +237,8 @@ export default function PropertyMarketLocationPanel() {
     }catch(error){setSavedDealStudyStatus('تعذر قراءة سجل الصفقات: '+String(error.code||error.message));}
   };
   const saveLinkedStudy=async()=>{
+    if(appraisalBinding.blockExport){setSavedDealStudyStatus('حُظر حفظ ملحق الصفقة لوجود تدقيق تقييم متعارض أو ربط قديم. أعد المطابقة أولاً.');return;}
+    if(linkedDealNameConflict){setSavedDealStudyStatus('اسم العقار في التقرير المرتبط لا يطابق اسم الصفقة المحفوظة؛ لا يجوز استخدام إقرار المطابقة وحده لتجاوز التعارض.');return;}
     if(!selectedSavedDealId){setSavedDealStudyStatus('اختر الصفقة المحفوظة أولًا.');return;}
     if(!linkedDealIdentityAcknowledged){setSavedDealStudyStatus('أكد أن الدراسة تخص العقار نفسه قبل الحفظ.');return;}
     setLinkedStudyBusy(true);
@@ -219,7 +246,7 @@ export default function PropertyMarketLocationPanel() {
       const saved=await saveResearchSidecar({
         storage:createStorageProvider(),dealId:selectedSavedDealId,
         studyJson:makeResearchInputJson(),identityConfirmed:linkedDealIdentityAcknowledged,
-        overwrite:replaceLinkedStudy,
+        overwrite:replaceLinkedStudy,appraisalLink,
       });
       setSavedDealStudyStatus('تم حفظ ملحق الدراسة البحثية للصفقة '+saved.dealId+
         ' دون تغيير ملف الصفقة المالي الرئيسي أو منحه اعتمادًا مهنيًا.');
@@ -254,6 +281,10 @@ export default function PropertyMarketLocationPanel() {
     }catch(error){setMessage('فشل استيراد ملف الدراسة: '+String(error.message||'STUDY_INVALID'));}
   };
   const exportJson=()=>{
+    if(appraisalBinding.blockExport){
+      setMessage('تم منع تصدير الدراسة بسبب تعارض أو انتهاء صلاحية ربط تدقيق التقرير. راجع المطابقة والتدقيق أولاً.');
+      return;
+    }
     try {
       const blob=new Blob([JSON.stringify({kind:'STARTAK_PERSONAL_MARKET_STUDY',subject,assumptions,
         sales:allSales,rentals:allRentals,projects,marketOffers,unitMix,leaseComparables,rentAssumptions,
@@ -466,6 +497,11 @@ export default function PropertyMarketLocationPanel() {
       {!!report.issues.length&&<p className="mt-2 text-xs text-amber-300">بيانات بحاجة لاستكمال: {report.issues.map(x=>labelMap[x]||x).join('؛ ')}.</p>}
       <p className="mt-2 text-xs text-slate-400">بيانات مقارنة يُقر بها المستخدم ولم يُتحقق منها مستقلاً. لا توجد تغذية لحظية مرخّصة متصلة. لا تستعمل هذه النتيجة كتقييم رسمي أو أساس قرار شراء ملزم.</p>
     </div>
+    <div data-testid="appraisal-market-link-status" data-status={appraisalBinding.status} role="status" className="mt-3 rounded border border-slate-600 p-3 text-xs text-slate-200">
+      ربط تدقيق تقرير التقييم بدراسة السوق: {appraisalBinding.status==='NOT_LINKED'?'غير مرتبط — لا يجوز افتراض اعتماد التقرير':
+      appraisalBinding.status==='LINKED_REVIEW_REQUIRED'?'تم الربط بإقرار المستخدم — مراجعة غير معتمدة':
+      'HOLD — تعارض تدقيق أو تغيير بيانات الهوية؛ تمنع القيمة الموحدة والتصدير البحثي حتى التسوية'}.
+    </div>
     <ValuationQualityPanel readiness={valuationReadiness} quality={appraisalQuality} studyAsOf={studyAsOf}/>
     <MarketOfferResearchPanel subject={subject} offers={marketOffers} setOffers={setMarketOffers} asOf={studyAsOf.asOf}/>
     <TransactionCohortAndUnitMixPanel subject={subject} sales={allSales} askingOffers={marketOffers} asOf={studyAsOf.asOf}
@@ -498,6 +534,7 @@ export default function PropertyMarketLocationPanel() {
           </select>
         </label>
       </div>
+      {linkedDealNameConflict&&<p data-testid="appraisal-sidecar-name-mismatch" role="alert" className="mt-2 text-xs text-rose-200">تعذر ربط تقرير التقييم بهذه الصفقة: اسم الصفقة المحفوظة مختلف عن اسم العقار الجاري دراسته. يلزم تصحيح الربط بعد التحقق من هوية الأصل.</p>}
       <label className="mt-3 min-h-[40px] inline-flex items-center gap-2 text-xs text-slate-300">
         <input type="checkbox" className="h-6 w-6" checked={linkedDealIdentityAcknowledged}
           onChange={e=>setLinkedDealIdentityAcknowledged(e.target.checked)}/>
@@ -509,7 +546,7 @@ export default function PropertyMarketLocationPanel() {
         أوافق على استبدال ملحق دراسة محفوظ سابقًا لهذه الصفقة
       </label>
       <div className="flex flex-wrap gap-2 mt-3">
-        <button type="button" disabled={linkedStudyBusy||!selectedSavedDealId||!linkedDealIdentityAcknowledged}
+        <button type="button" disabled={linkedStudyBusy||!selectedSavedDealId||!linkedDealIdentityAcknowledged||appraisalBinding.blockExport||linkedDealNameConflict}
           onClick={saveLinkedStudy} className="min-h-[40px] rounded-lg bg-[#C9A24C] px-4 py-2 text-xs font-semibold text-[#141F35] disabled:opacity-50">
           حفظ ملحق الدراسة للصفقة المختارة
         </button>
@@ -529,10 +566,20 @@ export default function PropertyMarketLocationPanel() {
           onChange={async e=>{const f=e.target.files?.[0];e.target.value='';await restoreJson(f);}}/>
       </label>
       <a className="rounded-lg border border-slate-600 px-4 py-2 text-xs text-sky-300" target="_blank" rel="noopener noreferrer" href="https://rei.rega.gov.sa/">المؤشرات العقارية الرسمية</a>
-      <a className="rounded-lg border border-slate-600 px-4 py-2 text-xs text-sky-300" target="_blank" rel="noopener noreferrer" href="https://suhail.ai/Riyadh/transactions">استعراض سهيل في تبويب مستقل (دون سحب)</a>
+      <a className="rounded-lg border border-slate-600 px-4 py-2 text-xs text-sky-300" target="_blank" rel="noopener noreferrer" href="https://www.suhail.ai/">منصة سهيل — جميع مناطق المملكة</a>
       <a className="rounded-lg border border-slate-600 px-4 py-2 text-xs text-sky-300" target="_blank" rel="noopener noreferrer" href="https://srem.moj.gov.sa/">الصفقات المسجلة — وزارة العدل</a>
       <a className="rounded-lg border border-slate-600 px-4 py-2 text-xs text-sky-300" target="_blank" rel="noopener noreferrer" href="https://opendata.rcrc.gov.sa/">بيانات ومشاريع مدينة الرياض المكانية</a>
     </div>
+    <ResearchEvidenceFusionPanel subject={subject} feeds={researchFeeds}
+      asOf={studyAsOf.asOf.toISOString().slice(0,10)}
+      marketReport={report} readiness={valuationReadiness}
+      publicNeighborhood={publicNeighborhood} publicLoadMeta={publicLoadMeta}
+      readinessStatus={valuationReadiness.status}/>
+    <ChallengerBenchmarkResearchPanel/>
+    <SuhailNationalResearchPanel key={'suhail-'+researchSessionEpoch} onResearchChange={rows=>setResearchFeeds(f=>({...f,suhail:rows}))}/>
+    <SaudiListingSourcesResearchPanel key={'listings-'+researchSessionEpoch} onResearchChange={rows=>setResearchFeeds(f=>({...f,listings:rows}))}/>
+    <EarthNationalResearchPanel key={'earth-'+researchSessionEpoch} onResearchChange={rows=>setResearchFeeds(f=>({...f,earth:rows}))}/>
+    <SaudiNationalIntelligenceSourcesPanel key={'national-'+researchSessionEpoch} onResearchChange={rows=>setResearchFeeds(f=>({...f,national:rows}))}/>
     {message&&<p role="status" className="text-xs text-slate-200 mt-2">{message}</p>}
   </section>;
 }

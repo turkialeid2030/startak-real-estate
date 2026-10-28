@@ -2,6 +2,26 @@ name: Location Market Study Verify
 on:
   pull_request:
     paths:
+      - 'src/market/challenger-benchmark-research.js'
+      - 'src/components/ChallengerBenchmarkResearchPanel.jsx'
+      - 'tests/valuation/challenger-benchmark-research.test.js'
+      - 'src/market/research-brief-html.js'
+      - 'tests/valuation/research-brief-html.test.js'
+      - 'src/market/research-evidence-fusion.js'
+      - 'src/components/ResearchEvidenceFusionPanel.jsx'
+      - 'tests/valuation/research-evidence-fusion.test.js'
+      - 'src/market/saudi-national-intelligence-sources.js'
+      - 'src/components/SaudiNationalIntelligenceSourcesPanel.jsx'
+      - 'tests/valuation/saudi-national-intelligence-sources.test.js'
+      - 'src/market/earth-national-research.js'
+      - 'src/components/EarthNationalResearchPanel.jsx'
+      - 'tests/valuation/earth-national-research.test.js'
+      - 'src/market/saudi-listing-source-research.js'
+      - 'src/components/SaudiListingSourcesResearchPanel.jsx'
+      - 'tests/valuation/saudi-listing-source-research.test.js'
+      - 'src/market/suhail-national-neighborhood-research.js'
+      - 'src/components/SuhailNationalResearchPanel.jsx'
+      - 'tests/valuation/suhail-national-neighborhood-research.test.js'
       - 'src/market/instant-market-study.js'
       - 'src/market/study-asof.js'
       - 'tests/architecture/run_study_asof.js'
@@ -30,12 +50,18 @@ on:
       - 'src/market/public-dataset-import.js'
       - 'src/market/saudi-open-data-research.js'
       - 'src/components/PropertyMarketLocationPanel.jsx'
+      - 'src/components/AppraisalAssuranceWorkbench.jsx'
+      - 'src/components/LocalDocumentEvidenceWorkspace.jsx'
+      - 'src/market/appraisal-assurance.js'
+      - 'tests/e2e/run_appraisal_assurance_ci.mjs'
       - 'src/app/App.jsx'
       - 'tests/architecture/run_instant_market_study.js'
       - 'tests/architecture/run_public_market_csv_import.js'
       - 'tests/architecture/run_saudi_open_data_research.js'
       - 'tests/architecture/run_saudi_open_data_live_smoke.js'
       - 'tests/e2e/run_location_market_study_ci.mjs'
+      - 'tools/verify-protected-preview.mjs'
+      - 'tests/architecture/run_protected_preview_access.js'
       - '.github/workflows/location-market-study-verify.yml'
   workflow_dispatch:
 concurrency:
@@ -63,14 +89,144 @@ jobs:
       - run: node tests/architecture/run_unified_valuation_case.js
       - run: node tests/architecture/run_appraisal_report_quality.js
       - run: node tests/architecture/run_asking_offers.js
+      - name: Secure Access synthetic tests without tokens
+        run: node tests/architecture/run_protected_preview_access.js
       - run: node tests/architecture/run_transaction_cohort_unit_mix.js
       - run: node tests/architecture/run_market_study_state.js
       - run: node tests/architecture/run_saved_deal_research_sidecar.js
       - run: node tests/architecture/run_professional_comparable_review.js
       - run: node tests/architecture/run_value_reconciliation_audit.js
       - run: node tests/architecture/run_public_market_csv_import.js
+      - run: node tests/valuation/suhail-national-neighborhood-research.test.js
+      - run: node tests/valuation/saudi-listing-source-research.test.js
+      - run: node tests/valuation/earth-national-research.test.js
+      - run: node tests/valuation/saudi-national-intelligence-sources.test.js
+      - run: node tests/valuation/research-evidence-fusion.test.js
+      - run: node tests/valuation/research-brief-html.test.js
+      - run: node tests/valuation/challenger-benchmark-research.test.js
       - run: node tests/architecture/run_saudi_open_data_research.js
       - run: node tests/architecture/run_saudi_open_data_live_smoke.js
+      - name: Multi-provider investment decision synthetic cross-flow and official-source authority boundaries
+        run: node tests/architecture/run_cross_source_investment_simulation.js
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: node tests/e2e/run_location_market_study_ci.mjs
+      - run: node tests/e2e/run_appraisal_assurance_ci.mjs
+
+  owner-journey-real-chromium:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    env:
+      STARTAK_E2E_URL: http://127.0.0.1:4173
+      STARTAK_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact unmerged candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Confirm exact candidate SHA
+        run: test "$(git rev-parse HEAD)" = "$STARTAK_SOURCE_COMMIT"
+      - run: npm ci
+      - name: Install real Chromium for owner acceptance
+        run: npx playwright install --with-deps chromium
+      - name: Build production-equivalent browser bundle
+        run: npm run build
+      - name: Launch isolated local preview, never Cloudflare production
+        shell: bash
+        run: |
+          set -euo pipefail
+          (nohup npm run preview -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/startak-owner-journey.log 2>&1 &)
+          for n in $(seq 1 60); do
+            if curl --silent --fail http://127.0.0.1:4173/ > /dev/null; then
+              echo "OWNER_JOURNEY_LOCAL_PREVIEW_READY=true"
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/startak-owner-journey.log
+          exit 1
+      - name: Visit and interact with all thirteen Saudi asset class workspaces
+        run: node tests/e2e/run_all_13_asset_classes_public_smoke.js
+      - name: Validate actual Arabic owner valuation, draft restore, numbers and export on desktop/mobile
+        run: node tests/e2e/run_audit_20261010_f03_f07_browser.js
+      - name: Download and verify owner personal JSON and HTML through Chromium
+        run: node tests/e2e/run_c75_real_chromium_personal_study.js
+
+  preview-delivery-readonly:
+    if: github.event_name == 'pull_request'
+    needs: [tests, owner-journey-real-chromium]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    permissions:
+      contents: read
+    env:
+      EXPECTED_SHA: ${{ github.event.pull_request.head.sha }}
+      PREVIEW_URL: https://feature-appraisal-assurance.startak-real-estate.pages.dev/
+    steps:
+      - name: Checkout exact candidate to use its read-only CDN verifier
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Node 22
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+      - name: Verify Cloudflare branch preview actual HTML, exact SHA, every asset hash and 404 behavior
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          mkdir -p runtime-evidence/preview-delivery
+          # Diagnose authentication separately from stale/missing CDN assets.
+          # Do not follow Cloudflare Access redirect or print its signed query.
+          response_code="$(curl --silent --show-error --max-time 12 \
+            --dump-header /tmp/startak-preview-access.headers --output /dev/null \
+            --write-out '%{http_code}' "${PREVIEW_URL}release-manifest.json" || true)"
+          redirect_host="$(node - <<'NODE'
+          const fs=require('fs');
+          const raw=fs.existsSync('/tmp/startak-preview-access.headers')?
+            fs.readFileSync('/tmp/startak-preview-access.headers','utf8'):'';
+          const location=raw.split(/\r?\n/).find(l=>/^location:/i.test(l));
+          let host='';try{host=new URL(location?.replace(/^location:\s*/i,'').trim()||'').hostname;}catch{}
+          process.stdout.write(host);
+          NODE
+          )"
+          if [[ "$redirect_host" == *.cloudflareaccess.com ]]; then
+            echo 'STARTAK_PREVIEW_DELIVERY=BLOCKED_ACCESS_LOGIN_REQUIRED'
+            echo 'Protected preview requires an authorized user session or managed CI service identity.'
+            exit 1
+          fi
+          echo "STARTAK_PREVIEW_PREFLIGHT_HTTP=$response_code"
+          consecutive=0
+          for attempt in $(seq 1 6); do
+            echo "PREVIEW_OBSERVATION_ATTEMPT=$attempt"
+            if node tools/verify-deployed-assets.mjs --url "$PREVIEW_URL" --expected-sha "$EXPECTED_SHA" --output "runtime-evidence/preview-delivery/attempt-$attempt.json"; then
+              consecutive=$((consecutive + 1))
+              if [[ "$consecutive" -ge 2 ]]; then
+                echo "STARTAK_PREVIEW_EXACT_SHA_AND_ALL_ASSETS=PASS sha=$EXPECTED_SHA"
+                echo "PREVIEW_IS_NOT_PRODUCTION_OR_COMMERCIAL_APPROVAL=true"
+                exit 0
+              fi
+            else
+              consecutive=0
+            fi
+            sleep 10
+          done
+          echo "STARTAK_PREVIEW_DELIVERY=FAIL_OR_NOT_CONVERGED"
+          exit 1
+      - name: Retain bounded public metadata and hashes only
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: startak-branch-preview-readonly-observations
+          path: runtime-evidence/preview-delivery
+          if-no-files-found: warn

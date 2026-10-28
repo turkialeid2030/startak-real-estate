@@ -1,0 +1,64 @@
+name: Authorized Cloudflare Preview Delivery Audit
+on:
+  workflow_dispatch:
+    inputs:
+      preview_url:
+        description: 'Exact approved STARTAK Pages preview origin ending in /'
+        required: true
+        type: string
+        default: 'https://1647dc09.startak-real-estate.pages.dev/'
+      source_sha:
+        description: 'Exact 40-character source commit expected in the deployed build'
+        required: true
+        type: string
+        default: '32fcfd773e4815a9d09d5ab08ef8bb87ae417def'
+
+# SECURITY: This workflow MUST run only from the reviewed main branch.
+# Never expose Access secrets to pull_request, pull_request_target or PR head code.
+# An admin must configure the protected startak-preview-audit Environment:
+# allow main branch only; require reviewers; store credentials in environment secrets.
+permissions:
+  contents: read
+concurrency:
+  group: startak-authorized-preview-audit
+  cancel-in-progress: false
+jobs:
+  verify-approved-preview:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    environment: startak-preview-audit
+    env:
+      PREVIEW_URL: ${{ inputs.preview_url }}
+      EXPECTED_SHA: ${{ inputs.source_sha }}
+      STARTAK_CF_ACCESS_CLIENT_ID: ${{ secrets.STARTAK_CF_ACCESS_CLIENT_ID }}
+      STARTAK_CF_ACCESS_CLIENT_SECRET: ${{ secrets.STARTAK_CF_ACCESS_CLIENT_SECRET }}
+    steps:
+      - name: Checkout trusted, reviewed main (never PR head)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          ref: main
+      - name: Setup Node 22
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+      - name: Require non-empty protected identity and exact approved preview hostname
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$STARTAK_CF_ACCESS_CLIENT_ID" || { echo 'ACCESS_CI_ID_NOT_CONFIGURED'; exit 1; }
+          test -n "$STARTAK_CF_ACCESS_CLIENT_SECRET" || { echo 'ACCESS_CI_SECRET_NOT_CONFIGURED'; exit 1; }
+          node --input-type=module - <<'NODE'
+          import {validatedProtectedPreviewUrl} from './tools/verify-protected-preview.mjs';
+          const url=validatedProtectedPreviewUrl(process.env.PREVIEW_URL);
+          if(!/^[a-f0-9]{40}$/.test(process.env.EXPECTED_SHA))throw Error('EXPECTED_SHA_INVALID');
+          console.log('AUTHORIZED_PREVIEW_SCOPE=VALID urlHost='+new URL(url).hostname);
+          NODE
+      - name: Verify authenticated exact SHA, downloaded assets SHA256 and missing asset 404
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tools/verify-protected-preview.mjs --url "$PREVIEW_URL" --expected-sha "$EXPECTED_SHA"
+      - name: Do not grant commercial or professional GO
+        run: echo 'PREVIEW_ASSET_INTEGRITY_IS_NOT_MARKET_ACCURACY_OR_RELEASE_AUTHORITY'

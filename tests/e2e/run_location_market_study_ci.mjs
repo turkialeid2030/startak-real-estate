@@ -54,6 +54,155 @@ try{
  const panel=page.locator('[data-testid="location-market-study"]');
  await panel.waitFor({state:'visible'});
  mark('PANEL_MOUNT',await panel.isVisible());
+ const nationalSources=panel.getByTestId('national-intelligence-sources');
+ await nationalSources.waitFor({state:'visible'});
+ assert((await nationalSources.getByTestId('national-sources-links').locator('a').count())===11,
+  'Eleven distinct public real estate source reference URLs must be visible');
+ const official= nationalSources.getByTestId('national-official-entrypoints');
+ await official.waitFor({state:'visible'});
+ assert((await official.locator('a').count())===4,'four distinct official REGA/MOJ verification destinations required');
+ for(const entry of ['REGA_DAILY_RAW','REGA_HISTORICAL_CLEANED','REGA_RENT_INDICATORS','MOJ_INTERACTIVE_REPORTS']){
+  const link=official.getByTestId('official-entry-'+entry);
+  assert(await link.getAttribute('target')==='_blank','official research portal must not replace the study');
+  assert(await link.getAttribute('rel')==='noopener noreferrer','external portal must block tab-opener privileges');
+ }
+ const officialDisclosure=(await official.locator('p').first().textContent()||'').replace(/\s+/g,' ');
+ // Validate the no-API/no-auto-valuation meaning, not transliteration of the brand.
+ const apiDisclosure=officialDisclosure.includes('واجهة برمجة التطبيقات')||
+   officialDisclosure.includes('API');
+ const noAutomaticValuation=officialDisclosure.includes('ولا تُدرج')&&
+   officialDisclosure.includes('آليًا');
+ assert(apiDisclosure&&officialDisclosure.includes('ليست تكامل')&&noAutomaticValuation,
+  'official source research disclaimer absent; observed='+JSON.stringify(officialDisclosure.slice(0,300)));
+ mark('FOUR_OFFICIAL_RESEARCH_ROUTES_VISIBLE_WITH_EXPLICIT_NO_API_CLAIM',true);
+ const nationalResearchCSV=[
+  'source,city,district,kind,recordId,eventDate,periodStart,periodEnd,metricName,metricValue,unit,sourceUrl,assetType',
+  'REGA_REI,الرياض,الملقا,OFFICIAL_AGGREGATE,,,2026-07-01,2026-09-30,deal_count,20,COUNT,https://rei.rega.gov.sa/ar,LAND',
+  'GREM_AI,جدة,السلامة,EXTERNAL_AVM_ESTIMATE,SYN-AVM-1,,,,estimated_value_sar,1800000,SAR,https://ai.grem.capital/ar,APARTMENT',
+  'MOJ_SREM,الخبر,العليا,OFFICIAL_REPORTED_SALE,SYN-TRAN-1,2026-10-22,,,sale_price_sar,4500000,SAR,https://srem.moj.gov.sa/,LAND',
+ ].join('\n');
+ await nationalSources.getByTestId('national-observed-on').fill('2026-10-28');
+ await nationalSources.getByTestId('national-import-csv').setInputFiles({
+  name:'synthetic-nine-sources.csv',mimeType:'text/csv',buffer:Buffer.from(nationalResearchCSV)});
+ await nationalSources.getByTestId('national-import-status').filter({hasText:'أضيف 3'}).waitFor();
+ await nationalSources.getByTestId('national-source-filter').selectOption('GREM_AI');
+ assert((await nationalSources.locator('tbody tr').count())===1,
+  'AVM provider must be isolated as an estimate rather than an executed sale');
+ assert((await nationalSources.locator('tbody').innerText()).includes('تقدير آلي'),
+  'External model output classification not visible');
+ await nationalSources.getByTestId('national-city-filter').selectOption('الرياض');
+ assert((await nationalSources.locator('tbody tr').count())===0,
+  'Foreign city AVM leaked into Riyadh results');
+ await nationalSources.getByTestId('national-source-filter').selectOption('MOJ_SREM');
+ await nationalSources.getByTestId('national-city-filter').selectOption('الخبر');
+ assert((await nationalSources.locator('tbody tr').count())===1,
+  'Saudi Ministry of Justice research row not filterable by the correct city');
+ assert((await nationalSources.getByTestId('national-summary').innerText()).includes('الصفقات الفردية المثبتة: 0'),
+  'Imported public-facing MOJ research cannot self-certify an executed deal');
+ mark('NINE_NATIONAL_SOURCES_TYPED_RESEARCH_UI_AND_NO_AUTOVALUATION',true);
+ const truCsv=[
+ 'source,city,district,kind,recordId,eventDate,periodStart,periodEnd,metricName,metricValue,unit,sourceUrl,assetType,rangeLowSar,rangeHighSar,confidenceLabel',
+ 'BAYUT_TRUVALUE,مكة المكرمة,العوالي,EXTERNAL_AVM_ESTIMATE,SYN-T-1,,,,estimated_value_sar,1800000,SAR,https://www.bayut.sa/property-market-analysis/tru-value/,APARTMENT,1700000,1900000,HIGH'
+ ].join('\n');
+ await nationalSources.getByTestId('national-import-csv').setInputFiles({
+  name:'synthetic-truvalue.csv',mimeType:'text/csv',buffer:Buffer.from(truCsv)});
+ await nationalSources.getByTestId('national-import-status').filter({hasText:'أضيف 1'}).waitFor();
+ await nationalSources.getByTestId('national-city-filter').selectOption('');
+ await nationalSources.getByTestId('national-class-filter').selectOption('');
+ await nationalSources.getByTestId('national-source-filter').selectOption('BAYUT_TRUVALUE');
+ const bayutMatching= nationalSources.locator('tbody tr').filter({hasText:'ثقة المزود المعلنة: مرتفعة'});
+ try { await bayutMatching.waitFor(); }
+ catch(e){
+  const debug={
+   selectedSource:await nationalSources.getByTestId('national-source-filter').inputValue(),
+   selectedCity:await nationalSources.getByTestId('national-city-filter').inputValue(),
+   selectedClass:await nationalSources.getByTestId('national-class-filter').inputValue(),
+   notice:await nationalSources.getByTestId('national-import-status').innerText(),
+   rows:await nationalSources.locator('tbody').innerText(),
+   summary:await nationalSources.getByTestId('national-summary').innerText(),
+  };
+  throw Error('BAYUT_TRUVALUE_VIEW_DIAGNOSTIC: '+JSON.stringify(debug)+'; '+e.message);
+ }
+ assert(await nationalSources.locator('tbody tr').count()===1,'TruValue estimate isolated from official sales');
+ assert((await nationalSources.locator('tbody').innerText()).includes('ثقة المزود المعلنة: مرتفعة'),
+  'Bayut provider-stated confidence must remain labelled advisory in Arabic');
+ mark('BAYUT_TRUVALUE_ADVISORY_INTERVAL_WITHOUT_CLAIMED_MARKET_ACCURACY',true);
+
+ const earth=panel.getByTestId('earth-national-research');
+ await earth.waitFor({state:'visible'});
+ assert((await earth.getByTestId('earth-links').locator('a').count())===10,
+  'All ten exact Earth portal sections must be linked');
+ await earth.getByTestId('earth-observed-on').fill('2026-10-28');
+ const earthCsv=['المدينة,الحي,رقم الصفقة,تاريخ الصفقة,قيمة الصفقة,المساحة',
+  'الرياض,الملقا,SYN-EARTH-100,2026-10-23,5000000,1000',
+  'جدة,السلامة,SYN-EARTH-101,2026-10-22,1200000,330'].join('\n');
+ await earth.getByTestId('earth-import-csv').setInputFiles({
+  name:'synthetic-earth-transactions.csv',mimeType:'text/csv',buffer:Buffer.from(earthCsv)});
+ await earth.getByTestId('earth-import-status').filter({hasText:'أضيف 2'}).waitFor();
+ await earth.getByTestId('earth-city-filter').selectOption('جدة');
+ assert(await earth.locator('tbody tr').count()===1,
+  'Earth research national city segregation failed');
+ assert((await earth.getByTestId('earth-summary').innerText()).includes('صفقات منفذة مؤكدة: 0'),
+  'Third-party reported Earth transaction must never be treated as a certified executed deed');
+ mark('EARTH_TEN_SECTION_CATALOG_AND_UNVERIFIED_NATIONAL_IMPORT',true);
+
+ const catalogs=panel.getByTestId('saudi-listing-research');
+ await catalogs.waitFor({state:'visible'});
+ assert(await catalogs.getByTestId('saudi-listing-sources').locator('a').count()===7,
+  'all seven reviewed real estate source links must appear');
+ const researchCsv=[
+  'source,city,district,kind,priceSar,areaSqm,listingUrl,listingId,assetType,listingDate',
+  'عقار,الرياض,الملقا,SALE_OFFER,1500000,300,https://sa.aqar.fm/a/100,100,RESIDENTIAL_VILLA,2026-10-26',
+  'ديل,الخبر,العليا,BUYER_REQUEST,900000,300,https://dealapp.sa/ar/tabs/home,200,RESIDENTIAL_VILLA,2026-10-26',
+  'سكني,جدة,السلامة,PROJECT_INDICATIVE,900000,170,https://sakani.sa/services/off-plan-projects,300,RESIDENTIAL_VILLA,2026-10-26',
+ ].join('\n');
+ await catalogs.getByTestId('listing-observed-on').fill('2026-10-28');
+ await catalogs.getByTestId('listing-source-csv').setInputFiles({
+  name:'synthetic-source-research.csv',mimeType:'text/csv',buffer:Buffer.from(researchCsv)
+ });
+ await catalogs.getByTestId('listing-import-notice').filter({hasText:'أُضيف 3'}).waitFor();
+ await catalogs.getByTestId('listing-platform-filter').selectOption('DEAL');
+ assert((await catalogs.locator('tbody tr').count())===1,'Deal requester must not merge into sales');
+ assert((await catalogs.locator('tbody').innerText()).includes('طلب عقاري'),
+  'buyer-request classification not displayed separately');
+ await catalogs.getByTestId('listing-city-filter').selectOption('الرياض');
+ assert((await catalogs.locator('tbody tr').count())===0,'cross-city and source leak detected');
+ await catalogs.getByTestId('listing-platform-filter').selectOption('');
+ assert((await catalogs.locator('tbody tr').count())===1,'Riyadh sale offer missing from catalog');
+ mark('SAUDI_SEVEN_SOURCE_NATIONAL_CSV_AND_DEMAND_SEGREGATION',true);
+
+ const national=panel.getByTestId('suhail-national-research');
+ await national.waitFor({state:'visible'});
+ assert((await national.getByTestId('suhail-scope').innerText()).includes('6'),
+  'public Suhail indexed city count should include all 6 city labels, not just Riyadh');
+ await national.getByTestId('suhail-city').selectOption('وادي الدواسر');
+ assert((await national.locator('tbody tr').count())===2,
+  'Wadi Al Dawasir must display two neighborhood rows from public sample');
+ assert((await national.locator('tbody').innerText()).includes('أم سمرة'),
+  'Wadi Al Dawasir record missing from national source research');
+ mark('SUHAIL_NATIONAL_CITY_FILTER_NOT_RIYADH_ONLY',true);
+ const nationalCsv=['city,district,transferCount,totalValueSar,residentialSarSqm','جدة,الصفا,2,1500000,5000','الخبر,العليا,1,3500000,6000'].join('\n');
+ await national.getByTestId('suhail-research-import').setInputFiles({
+  name:'national-research.csv',mimeType:'text/csv',buffer:Buffer.from(nationalCsv)
+ });
+ await national.getByTestId('suhail-import-status').filter({hasText:'أضيف 2'}).waitFor();
+ assert((await national.getByTestId('suhail-import-status').innerText()).includes('أضيف 2'),
+  'national CSV import must confirm two new rows');
+ assert((await national.getByTestId('suhail-scope').innerText()).includes('8'),
+  'National CSV cities must merge into 6 existing cities rather than erasing the original sample');
+ assert((await national.getByTestId('suhail-import-status').innerText()).includes('أضيف 2'),
+  'National CSV import did not add both records');
+ await national.getByTestId('suhail-city').selectOption('الخبر');
+ assert((await national.locator('tbody tr').count())===1,
+  'Local imported Al Khobar neighborhood must remain separate from Jeddah');
+ mark('SUHAIL_NATIONAL_LOCAL_CSV_CITY_DISTRICT_ISOLATION',true);
+ await national.getByTestId('suhail-research-import').setInputFiles({
+  name:'duplicate-national-research.csv',mimeType:'text/csv',buffer:Buffer.from(nationalCsv)
+ });
+ await national.getByTestId('suhail-import-status').filter({hasText:'مكرر 2'}).waitFor();
+ assert((await national.getByTestId('suhail-import-status').innerText()).includes('مكرر 2'),
+  'reimporting identical neighborhood snapshots must deduplicate without new records');
+ mark('SUHAIL_CSV_DUPLICATE_DETECTION',true);
  const valuation=panel.getByText('القيمة التقديرية الحسابية اليوم')
    .locator('xpath=..').locator('strong');
  assert((await valuation.innerText()).includes('غير قابل للحساب'),'empty comparable must fail closed');
@@ -247,6 +396,11 @@ try{
  const historicalAfterImport=await panel.getByLabel('الإيجار السنوي السابق').first().inputValue();
  assert(historicalAfterImport==='999999999','restored prior rent input did not round-trip');
  mark('REIMPORT_PERSONAL_STUDY_RESTORES_INPUTS_AND_RECALCULATES_RESULTS',true);
+ const resetFusion=panel.getByTestId('research-evidence-fusion');
+ const resetText=await resetFusion.getByTestId('fusion-statistics').innerText();
+ assert(resetText.includes('السجلات البحثية: 10'),
+  'Restoring study must quarantine imports from previous case and retain only public Suhail sample');
+ mark('RESTORED_CASE_RESEARCH_CONTEXT_ISOLATION',true);
  const linked=panel.locator('[data-testid="saved-deal-market-study-link"]');
  await linked.getByRole('button',{name:'تحديث قائمة الصفقات المحفوظة'}).click();
  await linked.getByLabel('اختيار الصفقة لربط دراسة السوق').selectOption('SYNTH-MKT-BUILD-01');
@@ -278,6 +432,30 @@ try{
 
 
 
+ const fusion=panel.getByTestId('research-evidence-fusion');
+ await fusion.waitFor({state:'visible'});
+ assert((await fusion.getByTestId('fusion-statistics').innerText()).includes('السجلات البحثية:'),
+  'Unified multi-source research totals must be shown');
+ assert((await fusion.getByTestId('fusion-risk-codes').innerText()).includes('RESEARCH_ONLY_NOT_INDEPENDENTLY_VERIFIED'),
+  'Combined data must never grant a certified price or investment decision');
+ const [fusionDownload]=await Promise.all([
+  page.waitForEvent('download'),fusion.getByTestId('fusion-export').click()]);
+ const fusionJson=JSON.parse(fs.readFileSync(await fusionDownload.path(),'utf8'));
+ assert(fusionJson.openDataAnnex?.professionalComparableEligible===false,
+  'Public historic neighborhood data may not become professional comparable automatically');
+ assert(fusionJson.valuationSar===null&&fusionJson.maximumPurchaseSar===null&&
+  fusionJson.investmentDecision==='HOLD_REQUIRES_INDEPENDENT_MARKET_AND_FINANCIAL_EVIDENCE',
+  'Research evidence export must not contain an invented certified market value or buy price');
+ assert(fusionJson.studySummary.validRows>=10,
+  'Public Suhail sample must be included in the unified source evidence context');
+ const [htmlDownload]=await Promise.all([page.waitForEvent('download'),
+  fusion.getByTestId('fusion-export-html').click()]);
+ const htmlReport=fs.readFileSync(await htmlDownload.path(),'utf8');
+ assert(htmlReport.includes('تقرير بحث عقاري واستثماري')&&
+  htmlReport.includes('تعليق القرار')&&htmlReport.includes('غير معتمد'),
+  'Arabic evidence brief must be available as a properly labelled research document');
+ mark('ARABIC_RESEARCH_REPORT_HTML_EXPORT',true);
+ mark('UNIFIED_RESEARCH_EVIDENCE_JOIN_AND_SAFE_EXPORT',true);
  await page.setViewportSize({width:390,height:844});
  const geom=await page.evaluate(()=>({width:document.documentElement.scrollWidth,
  viewport:document.documentElement.clientWidth}));

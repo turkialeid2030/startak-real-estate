@@ -1,6 +1,7 @@
 'use strict';
 
 const { requireVerifiedIdentityContext } = require('../security/verified-identity-context');
+const {checkCanonicalAppraisalReportEvidence}=require('./canonical-appraisal-report-gate');
 const { normalizePolicy, requireAuthorizedAction } = require('../security/authorization-audit');
 const {
   REPORT_QA_STATUS,
@@ -101,6 +102,7 @@ function createAuthenticatedReportingService({
   workspaceService,
   standardsHashFn,
   requiredTenantId,
+  appraisalEvidenceResolver=null,
   policy = DEFAULT_REPORT_RUNTIME_POLICY,
 } = {}) {
   if (!authenticator || typeof authenticator.authenticate !== 'function') {
@@ -110,6 +112,8 @@ function createAuthenticatedReportingService({
     throw new TypeError('workspaceService.loadWorkspace is required');
   }
   if (typeof standardsHashFn !== 'function') throw new TypeError('standardsHashFn is required');
+  if(appraisalEvidenceResolver!==null&&typeof appraisalEvidenceResolver?.readForReport!=='function')
+    throw new TypeError('appraisalEvidenceResolver.readForReport is required');
   const configuredTenantId = requiredTenantId == null ? null : requiredString(requiredTenantId, 'requiredTenantId');
   const normalizedPolicy = normalizePolicy(policy);
 
@@ -136,6 +140,24 @@ function createAuthenticatedReportingService({
       nowEpochSeconds,
     });
     return extractWorkspaceScope(loaded, normalizedWorkspaceId);
+  }
+
+  async function checkCurrentAppraisal({sourceContext,propertyRef}){
+    if(appraisalEvidenceResolver===null)
+      return checkCanonicalAppraisalReportEvidence({sourceContext,propertyRef});
+    let record;
+    try{
+      record=await appraisalEvidenceResolver.readForReport({
+        tenantId:sourceContext.tenantId,projectId:sourceContext.projectId,
+        caseId:sourceContext.caseId,workspaceId:sourceContext.workspaceId,
+        workspaceVersion:sourceContext.workspaceVersion,propertyRef,
+      });
+    }catch(_){
+      return Object.freeze({status:'HOLD_CANONICAL_APPRAISAL_REPORT',
+        blockInternalQa:true,sourceAuthenticated:false,independentMarketVerified:false,
+        professionalReportAuthorized:false,reasons:Object.freeze(['CANONICAL_APPRAISAL_RESOLVER_FAILED'])});
+    }
+    return checkCanonicalAppraisalReportEvidence({sourceContext,propertyRef,record,resolverConfigured:true});
   }
 
   async function prepareReport({
@@ -170,12 +192,15 @@ function createAuthenticatedReportingService({
       || input.identityContext != null
       || input.propertyRef != null
       || input.preparer != null
+      || input.appraisalGate != null
+      || input.appraisalEvidence != null
     ) {
       fail('CALLER_REPORT_AUTHORITY_OVERRIDE_NOT_ALLOWED');
     }
     const assignment = requiredObject(input.assignment, 'reportInput.assignment');
     if (assignment.caseId !== sourceContext.caseId) fail('REPORT_ASSIGNMENT_CASE_MISMATCH');
     const derivedPropertyRef = requiredString(assignment.valuedPropertyInterestId, 'assignment.valuedPropertyInterestId');
+    const appraisalGate=await checkCurrentAppraisal({sourceContext,propertyRef:derivedPropertyRef});
 
     const report = createProfessionalReportContract({
       ...input,
@@ -191,13 +216,14 @@ function createAuthenticatedReportingService({
     const qa = assessProfessionalReportQa(report);
 
     return freeze({
-      status: qa.qaStatus === REPORT_QA_STATUS.READY_FOR_INTERNAL_QA
+      status: !appraisalGate.blockInternalQa&&qa.qaStatus === REPORT_QA_STATUS.READY_FOR_INTERNAL_QA
         ? REPORT_RUNTIME_STATUS.READY_FOR_INTERNAL_QA
         : REPORT_RUNTIME_STATUS.REPORT_BLOCKED,
       sourceContext,
       preparedBy: auth.identity.actorId,
       report,
       qa,
+      appraisalGate,
       runtimeState: {
         reportPersisted: false,
         professionalCredentialValidatedHere: false,
@@ -254,14 +280,17 @@ function createAuthenticatedReportingService({
       fail('PREPARED_REPORT_STALE_WORKSPACE_VERSION');
     }
     if (report.caseId !== currentSource.caseId) fail('PREPARED_REPORT_CASE_MISMATCH');
+    const derivedPropertyRef=requiredString(report.propertyRef,'report.propertyRef');
+    const appraisalGate=await checkCurrentAppraisal({sourceContext:currentSource,propertyRef:derivedPropertyRef});
 
     const integrity = verifyProfessionalReportContract(report);
     if (!integrity.valid) fail('PREPARED_REPORT_INTEGRITY_FAILURE');
     const qa = assessProfessionalReportQa(report);
 
     return freeze({
-      status: REPORT_RUNTIME_STATUS.REPORT_REVALIDATED,
+      status: appraisalGate.blockInternalQa?REPORT_RUNTIME_STATUS.REPORT_BLOCKED:REPORT_RUNTIME_STATUS.REPORT_REVALIDATED,
       sourceContext: currentSource,
+      appraisalGate,
       report,
       integrity,
       qa,
