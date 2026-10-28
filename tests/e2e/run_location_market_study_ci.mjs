@@ -410,6 +410,21 @@ try{
 
 
 
+ const fusion=panel.getByTestId('research-evidence-fusion');
+ await fusion.waitFor({state:'visible'});
+ assert((await fusion.getByTestId('fusion-statistics').innerText()).includes('السجلات البحثية:'),
+  'Unified multi-source research totals must be shown');
+ assert((await fusion.getByTestId('fusion-risk-codes').innerText()).includes('RESEARCH_ONLY_NOT_INDEPENDENTLY_VERIFIED'),
+  'Combined data must never grant a certified price or investment decision');
+ const [fusionDownload]=await Promise.all([
+  page.waitForEvent('download'),fusion.getByTestId('fusion-export').click()]);
+ const fusionJson=JSON.parse(fs.readFileSync(await fusionDownload.path(),'utf8'));
+ assert(fusionJson.valuationSar===null&&fusionJson.maximumPurchaseSar===null&&
+  fusionJson.investmentDecision==='HOLD_REQUIRES_INDEPENDENT_MARKET_AND_FINANCIAL_EVIDENCE',
+  'Research evidence export must not contain an invented certified market value or buy price');
+ assert(fusionJson.studySummary.validRows>=10,
+  'Public Suhail sample must be included in the unified source evidence context');
+ mark('UNIFIED_RESEARCH_EVIDENCE_JOIN_AND_SAFE_EXPORT',true);
  await page.setViewportSize({width:390,height:844});
  const geom=await page.evaluate(()=>({width:document.documentElement.scrollWidth,
  viewport:document.documentElement.clientWidth}));

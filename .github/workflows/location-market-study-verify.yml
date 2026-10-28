@@ -2,6 +2,9 @@ name: Location Market Study Verify
 on:
   pull_request:
     paths:
+      - 'src/market/research-evidence-fusion.js'
+      - 'src/components/ResearchEvidenceFusionPanel.jsx'
+      - 'tests/valuation/research-evidence-fusion.test.js'
       - 'src/market/saudi-national-intelligence-sources.js'
       - 'src/components/SaudiNationalIntelligenceSourcesPanel.jsx'
       - 'tests/valuation/saudi-national-intelligence-sources.test.js'
@@ -89,6 +92,7 @@ jobs:
       - run: node tests/valuation/saudi-listing-source-research.test.js
       - run: node tests/valuation/earth-national-research.test.js
       - run: node tests/valuation/saudi-national-intelligence-sources.test.js
+      - run: node tests/valuation/research-evidence-fusion.test.js
       - run: node tests/architecture/run_saudi_open_data_research.js
       - run: node tests/architecture/run_saudi_open_data_live_smoke.js
       - run: npm run build

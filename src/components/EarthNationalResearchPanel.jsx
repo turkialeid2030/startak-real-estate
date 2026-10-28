@@ -8,7 +8,7 @@ const LABELS={REPORTED_SALE:'صفقة منشورة غير متحقق منها',
  ASKING_OFFER:'عرض معلن',VALUE_INDICATION:'قيمة استرشادية',
  PLANNING_CONTEXT:'معلومات مخطط',MARKET_AGGREGATE:'مؤشر مجمع',
  GEOGRAPHIC_CONTEXT:'معلومات مكانية',REGISTRY_CONTEXT:'بيانات سجل معروضة'};
-export default function EarthNationalResearchPanel(){
+export default function EarthNationalResearchPanel({onResearchChange}){
  const [records,setRecords]=useState([]);
  const [featureId,setFeatureId]=useState('TRANSACTION_TABLE');
  const [observedOn,setObservedOn]=useState(()=>new Date().toISOString().slice(0,10));
@@ -22,7 +22,7 @@ export default function EarthNationalResearchPanel(){
   try{
    const parsed=importEarthResearchCsv(await file.text(),{featureId,observedOn});
    const merged=mergeEarthResearch(records,parsed.records);
-   setRecords(merged.records);setCity('');setFilterFeature('');
+   setRecords(merged.records);onResearchChange?.(merged.records);setCity('');setFilterFeature('');
    setNotice('أضيف '+merged.added+' سجلًا؛ مكرر '+merged.duplicates+
      '؛ متعارض '+merged.conflicts.length+'؛ مستبعد '+parsed.rejected.length+
      '. لا توجد صفقات أو صكوك مؤكدة من هذا الاستيراد.');

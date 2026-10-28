@@ -3,7 +3,7 @@ const {SOURCE_URL,toPublicSample,parseResearchCsv,mergeNeighborhoodResearch,sele
  require('../market/suhail-national-neighborhood-research');
 const number=new Intl.NumberFormat('ar-SA');
 const fmt=v=>Number.isFinite(v)?number.format(v):'لا تتوفر بيانات';
-export default function SuhailNationalResearchPanel(){
+export default function SuhailNationalResearchPanel({onResearchChange}){
  const [records,setRecords]=useState(()=>toPublicSample());
  const [city,setCity]=useState('');
  const [district,setDistrict]=useState('');
@@ -19,7 +19,7 @@ export default function SuhailNationalResearchPanel(){
    const s=await file.text();
    const result=parseResearchCsv(s,{sourceUrl:datasetUrl,observedOn});
    const combined=mergeNeighborhoodResearch(records,result.records);
-   setRecords(combined.records);setCity('');setDistrict('');
+   setRecords(combined.records);onResearchChange?.(combined.records);setCity('');setDistrict('');
    setNote('أضيف '+combined.added+' سجلًا بحثيًا؛ مكرر '+combined.duplicates+
      '؛ متعارض '+combined.conflicts.length+'؛ مرفوض '+result.rejected.length+
      '. تُحفظ البيانات السابقة ولا تُدرج أي صفقات فردية أو قيم عقارية تلقائيًا.');

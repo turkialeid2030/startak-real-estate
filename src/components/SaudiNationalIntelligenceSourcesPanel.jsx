@@ -11,7 +11,7 @@ const classLabel={
  THIRD_PARTY_AGGREGATE:'مؤشر خاص مجمع',THIRD_PARTY_REPORTED_SALE:'صفقة منقولة عن جهة ثالثة',
  EXTERNAL_AVM_ESTIMATE:'تقدير آلي خارجي',RESEARCH_NOTE:'مرجع بحثي بلا قيمة رقمية'
 };
-export default function SaudiNationalIntelligenceSourcesPanel(){
+export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange}){
  const [records,setRecords]=useState([]);
  const [sourceId,setSourceId]=useState(''),[city,setCity]=useState('');
  const [evidenceClass,setEvidenceClass]=useState('');
@@ -26,7 +26,7 @@ export default function SaudiNationalIntelligenceSourcesPanel(){
   try{
    const fresh=importNationalSourcesCsv(await file.text(),{observedOn});
    const merged=mergeNationalResearch(records,fresh.records);
-   setRecords(merged.records);setSourceId('');setCity('');setEvidenceClass('');
+   setRecords(merged.records);onResearchChange?.(merged.records);setSourceId('');setCity('');setEvidenceClass('');
    setNotice('أضيف '+merged.added+'؛ مكرر '+merged.duplicates+
      '؛ متعارض '+merged.conflicts.length+'؛ مستبعد '+fresh.rejected.length+
      '. لا توجد صفقات منفذة مؤكدة أو تقييمات معتمدة.');

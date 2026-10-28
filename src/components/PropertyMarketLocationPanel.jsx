@@ -20,6 +20,8 @@ import SuhailNationalResearchPanel from './SuhailNationalResearchPanel.jsx';
 import SaudiListingSourcesResearchPanel from './SaudiListingSourcesResearchPanel.jsx';
 import EarthNationalResearchPanel from './EarthNationalResearchPanel.jsx';
 import SaudiNationalIntelligenceSourcesPanel from './SaudiNationalIntelligenceSourcesPanel.jsx';
+import ResearchEvidenceFusionPanel from './ResearchEvidenceFusionPanel.jsx';
+const {toPublicSample}=require('../market/suhail-national-neighborhood-research');
 
 const INPUT = 'w-full rounded-lg border border-slate-600 bg-[#101c30] px-3 py-2 text-sm text-slate-100';
 const createRow = () => ({ assetType:'',landSubtype:'',sourceRecordId:'', status:'ASKING', price:'', annualRent:'', builtArea:'', landArea:'',
@@ -122,6 +124,7 @@ export default function PropertyMarketLocationPanel() {
   const [publicLoadStatus,setPublicLoadStatus]=useState('');
   const [publicLoadMeta,setPublicLoadMeta]=useState(null);
   const [publicLoading,setPublicLoading]=useState(false);
+  const [researchFeeds,setResearchFeeds]=useState(()=>({suhail:toPublicSample(),listings:[],earth:[],national:[]}));
 
 
   const [message,setMessage]=useState('');
@@ -560,10 +563,12 @@ export default function PropertyMarketLocationPanel() {
       <a className="rounded-lg border border-slate-600 px-4 py-2 text-xs text-sky-300" target="_blank" rel="noopener noreferrer" href="https://srem.moj.gov.sa/">الصفقات المسجلة — وزارة العدل</a>
       <a className="rounded-lg border border-slate-600 px-4 py-2 text-xs text-sky-300" target="_blank" rel="noopener noreferrer" href="https://opendata.rcrc.gov.sa/">بيانات ومشاريع مدينة الرياض المكانية</a>
     </div>
-    <SuhailNationalResearchPanel/>
-    <SaudiListingSourcesResearchPanel/>
-    <EarthNationalResearchPanel/>
-    <SaudiNationalIntelligenceSourcesPanel/>
+    <ResearchEvidenceFusionPanel subject={subject} feeds={researchFeeds}
+      asOf={studyAsOf.asOf.toISOString().slice(0,10)} readinessStatus={valuationReadiness.status}/>
+    <SuhailNationalResearchPanel onResearchChange={rows=>setResearchFeeds(f=>({...f,suhail:rows}))}/>
+    <SaudiListingSourcesResearchPanel onResearchChange={rows=>setResearchFeeds(f=>({...f,listings:rows}))}/>
+    <EarthNationalResearchPanel onResearchChange={rows=>setResearchFeeds(f=>({...f,earth:rows}))}/>
+    <SaudiNationalIntelligenceSourcesPanel onResearchChange={rows=>setResearchFeeds(f=>({...f,national:rows}))}/>
     {message&&<p role="status" className="text-xs text-slate-200 mt-2">{message}</p>}
   </section>;
 }

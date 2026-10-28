@@ -6,7 +6,7 @@ const format=v=>Number.isFinite(v)?new Intl.NumberFormat('ar-SA').format(v):'—
 const KIND_LABELS={SALE_OFFER:'عرض بيع',RENT_OFFER:'عرض إيجار',
  PROJECT_INDICATIVE:'مشروع / سعر استرشادي',AUCTION_ASK:'سعر مزاد معلن',
  BUYER_REQUEST:'طلب عقاري / ميزانية'};
-export default function SaudiListingSourcesResearchPanel(){
+export default function SaudiListingSourcesResearchPanel({onResearchChange}){
  const [records,setRecords]=useState([]);
  const [city,setCity]=useState('');
  const [platform,setPlatform]=useState('');
@@ -22,7 +22,7 @@ export default function SaudiListingSourcesResearchPanel(){
   try{
    const parsed=parseListingResearchCsv(await file.text(),{observedOn});
    const merged=mergeListingResearch(records,parsed.records);
-   setRecords(merged.records);
+   setRecords(merged.records);onResearchChange?.(merged.records);
    setCity('');setPlatform('');setKind('');
    const issues=[...parsed.rejected.slice(0,10),...merged.conflicts.slice(0,10)];
    setBatchIssues(issues);
