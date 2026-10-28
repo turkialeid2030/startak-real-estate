@@ -16,7 +16,7 @@ function reviewOwnerDatedScenario({rows=[],annualDiscountRate='',rightsConfirmed
  if(rightsConfirmed!==true)return fail(['EXPLICIT_DATA_RIGHTS_AND_EVIDENCE_ATTESTATION_REQUIRED']);
  if(!Array.isArray(rows)||rows.length<2||rows.length>36)return fail(['DATED_ROWS_COUNT_INVALID']);
  const discount=parseNumericText(annualDiscountRate);
- if(!discount.ok||discount.value<=-1||discount.value>100)return fail(['ANNUAL_DISCOUNT_RATE_INVALID']);
+ if(!discount.ok||discount.value<0||discount.value>=1)return fail(['ANNUAL_DISCOUNT_RATE_INVALID_EXPECT_DECIMAL_0_TO_LESS_THAN_1']);
  const prepared=[];
  for(const r of rows){
   if(!r||typeof r.date!=='string'||typeof r.sourceReference!=='string'||
