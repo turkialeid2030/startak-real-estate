@@ -19,3 +19,7 @@ The user provided ten Earth page links covering property transactions, value est
 
 ## Outstanding
 No direct bulk ingestion of the Earth live API, downloadable Excel/CSV transaction content, authoritative government deed validation, signed market-data reuse rights, or live valuation accuracy benchmarks. Use the public export available in the browser and import its relevant columns to populate the research display. The approach preserves the personal research/testing purpose and all release safety gates.
+
+## Native table export compatibility
+
+Earth's table visibly labels city/neighborhood together in some views, as `المدينة/الحي`, with general columns `التاريخ`, `الرقم المرجعي للصفقة` and `سعر الصفقة`. The research CSV importer now accepts these as a combined location field **only when separated unambiguously by a slash**; contradictory separately supplied city/district information is rejected. This enhances manual export usability without promoting the rows to independently verified sales.

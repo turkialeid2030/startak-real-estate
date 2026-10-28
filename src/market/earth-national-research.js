@@ -27,10 +27,11 @@ const TYPE_BY_KIND=Object.freeze({
 });
 const headerMap=Object.freeze({
  city:['city','المدينة'],district:['district','الحي','اسم الحي'],
+ cityDistrict:['city/district','المدينة/الحي','المدينة / الحي','المدينة والحي'],
  region:['region','المنطقة'],featureId:['featureid','نوع المصدر','feature'],
- recordId:['recordid','رقم الصفقة','الرقم المرجعي للصفقة','رقم العقد','معرف السجل'],
- eventDate:['eventdate','transactiondate','تاريخ الصفقة','تاريخ العقد','تاريخ الإفراغ'],
- amountSar:['amountsar','price','سعر الصفقة','قيمة الصفقة','السعر','الإيجار السنوي'],
+ recordId:['recordid','رقم الصفقة','الرقم المرجعي للصفقة','الرقم المرجعي','رقم العقد','معرف السجل'],
+ eventDate:['eventdate','transactiondate','تاريخ الصفقة','تاريخ العقد','تاريخ الإفراغ','التاريخ','التاريخ الميلادي'],
+ amountSar:['amountsar','price','سعر الصفقة','قيمة الصفقة','السعر','السعر الإجمالي','سعر المنطقة','الإيجار السنوي'],
  areaSqm:['areasqm','area','المساحة','مساحة العقار'],
  planNumber:['plannumber','رقم المخطط'],
  parcelNumber:['parcelnumber','رقم القطعة'],
@@ -68,16 +69,25 @@ function importEarthResearchCsv(csv,{featureId,observedOn,asOf=new Date()}={}){
  const idx={};
  for(const [field,aliases] of Object.entries(headerMap))
   idx[field]=names.findIndex(name=>aliases.some(alias=>normalize(alias)===name));
- for(const key of ['city','district'])if(idx[key]<0)throw Error('EARTH_MISSING_CITY_DISTRICT_COLUMNS');
+ if((idx.city<0||idx.district<0)&&idx.cityDistrict<0)
+  throw Error('EARTH_MISSING_CITY_DISTRICT_COLUMNS');
  const accepted=[],rejected=[];
  for(const r of parsed.records){
   const get=key=>idx[key]>=0?String(r.columns[parsed.columns[idx[key]]]??'').trim():'';
-  const city=get('city'),district=get('district'),region=get('region');
+  // Earth export may combine city and neighborhood in one 'المدينة/الحي' field.
+  const pair=get('cityDistrict');
+  const slash=pair.indexOf('/');
+  const pairCity=slash>0?pair.slice(0,slash).trim():'';
+  const pairDistrict=slash>0?pair.slice(slash+1).trim():'';
+  const city=get('city')||pairCity,district=get('district')||pairDistrict,region=get('region');
+  const contradictoryPair=Boolean(pairCity&&get('city')&&normalize(pairCity)!==normalize(get('city'))||
+    pairDistrict&&get('district')&&normalize(pairDistrict)!==normalize(get('district')));
   const recordId=get('recordId'),eventDate=get('eventDate'),amount=moneyNumber(get('amountSar')),
    area=moneyNumber(get('areaSqm')),planNumber=get('planNumber'),
    parcelNumber=get('parcelNumber'),assetType=get('assetType');
   const issues=[];
   if(!city||!district||city.length>130||district.length>130)issues.push('LOCATION_REQUIRED');
+  if(contradictoryPair)issues.push('COMBINED_CITY_DISTRICT_CONFLICT');
   if([recordId,planNumber,parcelNumber,assetType,region].some(x=>x.length>130))
    issues.push('TEXT_FIELD_TOO_LONG');
   if(Number.isNaN(amount)||(amount!==null&&(amount<=0||amount>1e15)))issues.push('AMOUNT_INVALID');

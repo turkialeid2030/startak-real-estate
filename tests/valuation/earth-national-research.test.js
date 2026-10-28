@@ -73,6 +73,19 @@ check('no cross-feature records can be imported under wrong source selection',()
  const r=parse('TRANSACTION_TABLE',body);
  assert.equal(r.records.length,0);assert.equal(r.rejected.length,1);
 });
+check('Earth published city/district combined export headers are supported conservatively',()=>{
+ const csv='المدينة/الحي,الرقم المرجعي للصفقة,التاريخ,سعر الصفقة,المساحة\\nالرياض / الملقا,TX-200,2026-10-22,5500000,1000';
+ const r=parse('TRANSACTION_TABLE',csv.replace('\\n','\n'));
+ assert.equal(r.records.length,1);
+ assert.equal(r.records[0].city,'الرياض');assert.equal(r.records[0].district,'الملقا');
+ assert.equal(r.records[0].recordId,'TX-200');
+});
+check('contradictory city metadata in a combined Earth export is rejected',()=>{
+ const csv='المدينة,المدينة/الحي,رقم الصفقة\\nجدة,الرياض / الملقا,TX-3';
+ const r=parse('TRANSACTION_TABLE',csv.replace('\\n','\n'));
+ assert.equal(r.records.length,0);
+ assert.ok(r.rejected[0].issues.includes('COMBINED_CITY_DISTRICT_CONFLICT'));
+});
 check('unknown feature or future date is invalid',()=>{
  assert.throws(()=>parse('NOT_REAL',csv(sale)),/FEATURE_NOT_SUPPORTED/);
  assert.throws(()=>parse('TRANSACTION_TABLE',csv(sale),{observedOn:'2026-10-29'}),/OBSERVED_DATE_INVALID/);
