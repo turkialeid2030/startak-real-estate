@@ -85,6 +85,15 @@ export default function ResearchEvidenceFusionPanel({subject={},feeds={},asOf='2
     لا تعادل القيمة السوقية المعتمدة ولا سقف شراء.
    </p>
   </div>
+  <div data-testid="fusion-review-actions" className="mt-3 rounded border border-amber-800 p-3 text-xs">
+   <h4 className="font-bold">خطة فحص مجلس تركي الاستشاري — متطلبات معلّقة</h4>
+   <p className="mt-1 text-amber-200">هذه مهام مراجعة مستندة إلى نواقص الأدلة، وليست توصية شراء أو تقييمًا مهنيًا معتمدًا.</p>
+   <ol className="mt-2 list-decimal pr-5">
+    {bundle.reviewerActionPlan.tasks.map(x=><li key={x.id} className="mb-2">
+     <strong>{x.label}</strong> — {x.reason}</li>)}
+   </ol>
+   <p className="text-amber-200">القرار: تعليق الاستثمار لحين التحقق المستقل؛ لا قيمة أو سقف شراء معتمد.</p>
+  </div>
   <div className="mt-3 flex flex-wrap gap-2">
    <button type="button" data-testid="fusion-export" onClick={exportJson}
     className="rounded border border-slate-500 px-3 py-2 text-xs">تصدير حزمة البحث JSON</button>
