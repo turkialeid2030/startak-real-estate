@@ -1,6 +1,7 @@
 'use strict';
 // Pure, fail-closed appraisal-report diagnostics. No PDF uploads, identifiers, or certified values are bundled.
 // Never treat a professional report as a verified market transaction or a model-training label.
+const {evaluateSectorAppraisalEvidence}=require('./appraisal-sector-readiness');
 const MAX = 1e15;
 function number(input) {
   if (typeof input === 'number') return Number.isFinite(input) && Math.abs(input) <= MAX ? input : null;
@@ -74,6 +75,18 @@ function auditAppraisal(report = {}) {
   if (!clean(provenance.reportFileHash)) issues.push(issue('FILE_PROVENANCE_MISSING', 'REVIEW', 'Keep private file SHA-256 in controlled storage; do not put report in public repository'));
   if (provenance.comparableEvidenceIndependentlyVerified !== true)
     issues.push(issue('INDEPENDENT_MARKET_EVIDENCE_NOT_VERIFIED', 'REVIEW', 'External comparable evidence has not been independently confirmed'));
+  const sectorSource=report.sectorEvidence&&typeof report.sectorEvidence==='object'?
+    Object.fromEntries(Object.entries(report.sectorEvidence).map(([k,v])=>[k,
+      typeof v==='string'&&/^(?:availableRoomNights|occupiedRoomNights|roomRevenueSar|otherOperatingRevenueSar|hotelOperatingExpensesSar|ffAndEReserveSar|operatingBusinessExclusionSar|realPropertyNoiSar|grossLeasableAreaSqm|leasedAreaSqm|annualBaseRentSar|annualTurnoverRentSar|annualOtherPropertyRevenueSar|vacancyLossSar|landlordOperatingExpensesSar|builtAreaSqm|netLeasableAreaSqm|clearHeightMeters|annualPropertyRentSar|operatingBusinessIncomeSar)$/.test(k)?
+        number(v):v])):{};
+  const sector=evaluateSectorAppraisalEvidence({assetType:report.property?.assetType,evidence:sectorSource});
+  if(sector.applicable){
+    metrics.sectorReview=sector;
+    if(sector.status==='HOLD_SPECIALIST_EVIDENCE')
+      issues.push(issue('SPECIALIST_EVIDENCE_HOLD','BLOCK',
+        'Specialist real-property NOI / operating-business separation and use evidence required',
+        [citations.income]));
+  }
   const blocked = issues.some(x => x.severity === 'BLOCK');
   return {status: blocked ? 'HOLD' : 'REVIEW_REQUIRED', certification:'NOT_AUTHORIZED', approvedForPublication:false, metrics, issues};
 }

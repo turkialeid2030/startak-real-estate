@@ -12,6 +12,7 @@ const fresh=()=>({
    capitalizationRatePct:'',indicatedValueSar:'',rentUsesThisEstimate:false,leaseStructure:''},
  marketRent:{annualRentSar:'',capitalValueBasisSar:'',percentOfCapitalValue:'',derivation:'',
    usedAsIncomeApproachEvidence:false},
+ sectorEvidence:{},
  pages:{income:'',rent:''}
 });
 const fields=[
@@ -52,6 +53,7 @@ const descriptions=Object.freeze({
  REPORT_IDENTITY_COLLISION:'رقم التقرير ذاته يرتبط بصكين مختلفين؛ لا يجوز دمج النسختين.',
  REPORT_ID_MISMATCH:'رقم التقرير مختلف؛ لا تجوز مقارنة عقارين على أنهما نسختان.',
  DEPENDENT_VALUE_UNCHANGED:'تغير افتراض مالي دون تغير القيمة النهائية؛ يلزم توثيق التسوية.',
+ SPECIALIST_EVIDENCE_HOLD:'البيانات التشغيلية والمستندية القطاعية غير مكتملة أو لا تتطابق. لا تجوز رسملة ربح النشاط التجاري باعتباره صافي دخل عقاري.',
 });
 const at=(obj,path)=>path.split('.').reduce((a,b)=>a?.[b],obj);
 function update(obj,path,value){
@@ -90,6 +92,62 @@ function FieldSet({stage,setStage,prefix}){
   </label>
  </div>;
 }
+
+const sectorFields=Object.freeze({
+ HOTEL:[
+ ['availableRoomNights','الليالي الفندقية المتاحة','number'],['occupiedRoomNights','الليالي المشغولة','number'],
+ ['roomRevenueSar','دخل الغرف السنوي','number'],['otherOperatingRevenueSar','الإيرادات التشغيلية الأخرى','number'],
+ ['hotelOperatingExpensesSar','مصروفات تشغيل الفندق','number'],['ffAndEReserveSar','احتياطي الأثاث والمعدات','number'],
+ ['operatingBusinessExclusionSar','دخل النشاط التجاري المستبعد','number'],['realPropertyNoiSar','NOI العقار بعد استبعاد النشاط','number'],
+ ['operatingStatementRef','مرجع قائمة التشغيل','ref'],['managementAgreementRef','مرجع عقد المشغل','ref'],
+ ['specialistReviewRef','مرجع المراجع المتخصص','ref'],
+ ['realEstateAndOperatingBusinessSeparated','الفصل بين العقار والنشاط التجاري','boolean']],
+ COMMERCIAL_MALL:[
+ ['grossLeasableAreaSqm','إجمالي المساحة التأجيرية GLA','number'],['leasedAreaSqm','المساحة المؤجرة','number'],
+ ['annualBaseRentSar','الإيجارات الأساسية السنوية','number'],['annualTurnoverRentSar','إيجار نسب المبيعات','number'],
+ ['annualOtherPropertyRevenueSar','إيرادات عقارية إضافية','number'],['vacancyLossSar','فاقد الشواغر','number'],
+ ['landlordOperatingExpensesSar','مصروفات المالك','number'],['realPropertyNoiSar','NOI العقاري','number'],
+ ['rentRollRef','مرجع جدول المستأجرين','ref'],['serviceChargeAllocationRef','مرجع توزيع المصروفات المشتركة','ref'],
+ ['specialistReviewRef','مرجع المراجع المتخصص','ref'],['tenantMixAndConcentrationReviewed','تمت مراجعة توزيع المستأجرين','boolean']],
+ WAREHOUSE:[
+ ['builtAreaSqm','مساحة المباني','number'],['netLeasableAreaSqm','المساحة التأجيرية الصافية','number'],
+ ['clearHeightMeters','الارتفاع الصافي بالمتر','number'],['annualPropertyRentSar','دخل الإيجار العقاري','number'],
+ ['landlordOperatingExpensesSar','مصروفات المالك','number'],['realPropertyNoiSar','NOI العقاري','number'],
+ ['buildingPermitRef','مرجع رخصة البناء','ref'],['fireSafetyRef','مرجع سلامة الحريق','ref'],
+ ['leaseEvidenceRef','مرجع عقود الإيجار','ref'],['specialistReviewRef','مرجع المراجع المتخصص','ref'],
+ ['permittedUseAndFireSafetyVerified','تمت مراجعة التصاريح والحريق','boolean'],
+ ['loadingAndUtilitiesReviewed','تمت مراجعة التحميل والخدمات','boolean']],
+ FUEL_STATION:[
+ ['annualPropertyRentSar','الإيجار السنوي للعقار','number'],['landlordOperatingExpensesSar','مصروفات المالك','number'],
+ ['realPropertyNoiSar','NOI العقار','number'],['operatingBusinessIncomeSar','دخل تشغيل الوقود والخدمات (مستبعد)','number'],
+ ['operatorLeaseRef','مرجع عقد المشغل','ref'],['environmentalAssessmentRef','مرجع دراسة الالتزامات البيئية','ref'],
+ ['titleAndUseRef','مرجع حق العقار والاستخدام','ref'],['specialistReviewRef','مرجع المراجع المتخصص','ref'],
+ ['fuelBusinessExcludedFromRealPropertyNoi','تم استبعاد دخل تشغيل الوقود من NOI العقار','boolean'],
+ ['environmentalAndTankLiabilityReviewed','تمت مراجعة التزامات الخزانات والبيئة','boolean']]
+});
+function SpecialistFields({stage,setStage}){
+ const kind=stage.property.assetType==='LOGISTICS_PARK'?'WAREHOUSE':stage.property.assetType;
+ const choices=sectorFields[kind];
+ if(!choices)return null;
+ return <section data-testid="appraisal-specialist-fields" className="rounded-lg border border-amber-700 p-3">
+  <h3 className="mb-2 text-sm font-semibold text-amber-100">الحقول القطاعية للعقار المتخصص — مراجعة يدوية</h3>
+  <p className="mb-3 text-xs text-slate-300">أدخل أرقامًا من التقرير مع مرجع المستند. اختيار المربعات إقرار إدخال فقط وليس تحققًا مهنيًا. الأرقام تستخدم للفحص الحسابي ولا تولّد قيمة سوقية معتمدة.</p>
+  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+  {choices.map(([key,label,type])=>type==='boolean'?
+   <label key={key} className="flex items-center gap-2 text-xs text-slate-200">
+    <input data-testid={'sector-'+key} type="checkbox" checked={stage.sectorEvidence[key]===true}
+     onChange={e=>setStage(s=>update(s,'sectorEvidence.'+key,e.target.checked))}/>{label}
+   </label>:
+   <label key={key} className="text-xs text-slate-200">{label}
+    <input data-testid={'sector-'+key} dir="auto" value={stage.sectorEvidence[key]||''}
+     inputMode={type==='number'?'decimal':undefined}
+     onChange={e=>setStage(s=>update(s,'sectorEvidence.'+key,e.target.value))}
+     className="mt-1 block w-full rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-slate-100"/>
+   </label>)}
+  </div>
+ </section>;
+}
+
 function IssueRows({items}){
  return items.length?<ul className="mt-2 space-y-2">
   {items.map((x,i)=><li key={x.code+':'+i} className="rounded border border-slate-700 p-2 text-xs">
@@ -137,6 +195,13 @@ export default function AppraisalAssuranceWorkbench({intakeRecord=null}){
     <p className="text-xs leading-6 text-slate-300">أدخل القيم يدويًا بعد مطابقتها مع صفحات الملف الأصلي. لا تُستورد حقول OCR تلقائيًا، ولا تحفظ هذه اللوحة البيانات في الخادم أو الصفقات المحفوظة أو GitHub. نتائجها للتدقيق البحثي فقط وغير معتمدة مهنيًا.</p>
     <p className="rounded border border-slate-700 p-2 text-xs text-slate-300">بصمة ملف المستند المحلي: {digest?<span data-testid="appraisal-document-hash" className="break-all font-mono" dir="ltr">{digest}</span>:'لم يُرفق ملف أو لم يكتمل فحصه'}</p>
     <FieldSet stage={current} setStage={setCurrent} prefix="current"/>
+    <SpecialistFields stage={current} setStage={setCurrent}/>
+    {reviewed.metrics.sectorReview?.applicable&&
+     <section data-testid="appraisal-sector-status" data-status={reviewed.metrics.sectorReview.status}
+      className="rounded border border-amber-700 p-3 text-xs text-amber-100">
+      <strong>تدقيق أدلة الأصل المتخصص: {reviewed.metrics.sectorReview.status}</strong>
+      <p className="mt-1">الموانع: {reviewed.metrics.sectorReview.blockers.join('، ')||'لا توجد موانع حسابية في المدخلات؛ لا يزال الاعتماد المهني غير متاح.'}</p>
+     </section>}
     <section data-testid="appraisal-study-link" className="rounded-lg border border-slate-600 p-3 text-xs">
       <h3 className="font-semibold text-amber-100">ربط هذا التدقيق بدراسة السوق الحالية — إقرار مستخدم لا تحقق من الصك</h3>
       <p className="my-2 text-slate-300">هوية دراسة السوق الحالية: {marketSubject?.name||'غير محدد'} · {marketSubject?.assetType||'غير محدد'} · مساحة الأرض {marketSubject?.landArea||'غير محددة'} م² · تاريخ القيمة {marketSubject?.valuationDate||'غير محدد'}.</p>

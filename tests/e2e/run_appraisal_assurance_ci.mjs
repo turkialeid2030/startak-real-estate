@@ -121,6 +121,13 @@ try {
  assert(await personal.getByTestId('c75-export-personal-json').isEnabled(),
    'unlinked legacy personal research JSON should be available after explicit reset');
  pass('reset restores unlinked personal study drafts without professional authorization');
+ await work.getByTestId('current-property-assetType').fill('HOTEL');
+ await work.getByTestId('appraisal-specialist-fields').waitFor({state:'visible'});
+ assert(await work.getByTestId('appraisal-audit-status').getAttribute('data-status')==='HOLD',
+  'hotel without specialist NOI bridge must remain HOLD');
+ assert((await work.getByTestId('appraisal-sector-status').getAttribute('data-status'))==='HOLD_SPECIALIST_EVIDENCE',
+  'specialist report status must show missing evidence');
+ pass('hotel specialist evidence remains fail-closed without audited inputs');
  console.log('APPRAISAL_BROWSER_SMOKE=PASS CASES='+checks.length);
 } catch(e) {
  console.error('APPRAISAL_BROWSER_SMOKE=FAIL: '+(e.stack||e.message));

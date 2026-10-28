@@ -45,6 +45,16 @@ check('same report number versions not counted twice',()=>{
  const x=classifyReportIds([base,{...base,valuationDate:'2026-01-02'}]);
  assert.equal(x.length,1);assert.equal(x[0].count,2);assert.equal(x[0].additivePortfolioValueSar,null);
 });
+check('specialist hotel without operating inputs blocks valuation integrity',()=>{
+ const r=auditAppraisal({...base,property:{...base.property,assetType:'HOTEL'}});
+ assert.equal(r.status,'HOLD');
+ assert.ok(r.issues.some(x=>x.code==='SPECIALIST_EVIDENCE_HOLD'));
+});
+check('warehouse specialist preflight cannot silently authorize a generic rent valuation',()=>{
+ const r=auditAppraisal({...base,property:{...base.property,assetType:'WAREHOUSE'}});
+ assert.equal(r.status,'HOLD');
+ assert.equal(r.metrics.sectorReview.certification,'NOT_AUTHORIZED');
+});
 check('output never claims certification',()=>{
  const r=auditAppraisal(base);assert.equal(r.certification,'NOT_AUTHORIZED');assert.equal(r.approvedForPublication,false);
 });

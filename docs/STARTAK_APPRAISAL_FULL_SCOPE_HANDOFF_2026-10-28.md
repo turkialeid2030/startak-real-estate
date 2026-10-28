@@ -26,3 +26,7 @@ None of these modules is an independent real estate valuer, a professionally cer
 No real user's appraisal, deed, owner, rent roll, confidential report values or repository-inaccessible files are committed. All unit tests use synthetic records. The existence of 35 received appraisal documents cannot establish 35 independent transactions, market representativeness or a validated prediction-accuracy percentage. Holdout measurement must use explicitly rights-cleared, deduplicated real executed transactions that were not in the training sample, with prediction made on/before the actual transaction date.
 
 The existing PR #764 is a draft stack on #763. It must pass full CI on the final SHA. Any conversion of an appraisal input into a certified/authoritative property valuation requires separate legal and professional signoffs. Full-scope external gates stay open under issue #765.
+
+## Integration in valuation report intake UI
+
+The sector preflight is now invoked by the existing appraisal audit when the manually entered asset type is HOTEL, WAREHOUSE, LOGISTICS_PARK or COMMERCIAL_MALL (and additionally FUEL_STATION for headless use). The Arabic reviewer workbench displays sector-specific manually verified numeric fields and documents, returns a HOLD issue for incomplete evidence, and reuses the existing appraisal HOLD decision bridge. This does not compute a new property value, import OCR into financial inputs, or authorize specialized professional valuation. All supporting data remain transient in the local session.
