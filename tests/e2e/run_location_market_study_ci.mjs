@@ -54,6 +54,31 @@ try{
  const panel=page.locator('[data-testid="location-market-study"]');
  await panel.waitFor({state:'visible'});
  mark('PANEL_MOUNT',await panel.isVisible());
+ const catalogs=panel.getByTestId('saudi-listing-research');
+ await catalogs.waitFor({state:'visible'});
+ assert(await catalogs.getByTestId('saudi-listing-sources').locator('a').count()===7,
+  'all seven reviewed real estate source links must appear');
+ const researchCsv=[
+  'source,city,district,kind,priceSar,areaSqm,listingUrl,listingId,assetType,listingDate',
+  'عقار,الرياض,الملقا,SALE_OFFER,1500000,300,https://sa.aqar.fm/a/100,100,RESIDENTIAL_VILLA,2026-10-26',
+  'ديل,الخبر,العليا,BUYER_REQUEST,900000,300,https://dealapp.sa/ar/tabs/home,200,RESIDENTIAL_VILLA,2026-10-26',
+  'سكني,جدة,السلامة,PROJECT_INDICATIVE,900000,170,https://sakani.sa/services/off-plan-projects,300,RESIDENTIAL_VILLA,2026-10-26',
+ ].join('\\n');
+ await catalogs.getByTestId('listing-observed-on').fill('2026-10-28');
+ await catalogs.getByTestId('listing-source-csv').setInputFiles({
+  name:'synthetic-source-research.csv',mimeType:'text/csv',buffer:Buffer.from(researchCsv)
+ });
+ await catalogs.getByTestId('listing-import-notice').filter({hasText:'أُضيف 3'}).waitFor();
+ await catalogs.getByTestId('listing-platform-filter').selectOption('DEAL');
+ assert((await catalogs.locator('tbody tr').count())===1,'Deal requester must not merge into sales');
+ assert((await catalogs.locator('tbody').innerText()).includes('طلب عقاري'),
+  'buyer-request classification not displayed separately');
+ await catalogs.getByTestId('listing-city-filter').selectOption('الرياض');
+ assert((await catalogs.locator('tbody tr').count())===0,'cross-city and source leak detected');
+ await catalogs.getByTestId('listing-platform-filter').selectOption('');
+ assert((await catalogs.locator('tbody tr').count())===1,'Riyadh sale offer missing from catalog');
+ mark('SAUDI_SEVEN_SOURCE_NATIONAL_CSV_AND_DEMAND_SEGREGATION',true);
+
  const national=panel.getByTestId('suhail-national-research');
  await national.waitFor({state:'visible'});
  assert((await national.getByTestId('suhail-scope').innerText()).includes('6'),

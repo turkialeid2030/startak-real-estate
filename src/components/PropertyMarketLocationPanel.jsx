@@ -17,6 +17,7 @@ const {auditValuationReadiness}=require('../market/valuation-decision-gate');
 const {evaluateAppraisalReportQuality}=require('../market/property-report-quality');
 import ValuationQualityPanel from './ValuationQualityPanel.jsx';
 import SuhailNationalResearchPanel from './SuhailNationalResearchPanel.jsx';
+import SaudiListingSourcesResearchPanel from './SaudiListingSourcesResearchPanel.jsx';
 
 const INPUT = 'w-full rounded-lg border border-slate-600 bg-[#101c30] px-3 py-2 text-sm text-slate-100';
 const createRow = () => ({ assetType:'',landSubtype:'',sourceRecordId:'', status:'ASKING', price:'', annualRent:'', builtArea:'', landArea:'',
@@ -558,6 +559,7 @@ export default function PropertyMarketLocationPanel() {
       <a className="rounded-lg border border-slate-600 px-4 py-2 text-xs text-sky-300" target="_blank" rel="noopener noreferrer" href="https://opendata.rcrc.gov.sa/">بيانات ومشاريع مدينة الرياض المكانية</a>
     </div>
     <SuhailNationalResearchPanel/>
+    <SaudiListingSourcesResearchPanel/>
     {message&&<p role="status" className="text-xs text-slate-200 mt-2">{message}</p>}
   </section>;
 }
