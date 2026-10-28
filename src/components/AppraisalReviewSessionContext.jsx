@@ -9,7 +9,8 @@ export function AppraisalReviewSessionProvider({children}){
   if(link&&subject&&!link.invalidated&&evaluateBoundReview({subject,link}).status==='STALE_OR_UNMATCHED_LINK')
     setLink({...link,invalidated:true}); // sticky; reverting fields never silently revalidates
  },[subject,link]);
- const value=useMemo(()=>({subject,link,setSubject,setLink,clearLink:()=>setLink(null)}),[subject,link]);
+ const value=useMemo(()=>({subject,link,setSubject,setLink,clearLink:()=>setLink(null),
+  invalidateLink:()=>setLink(current=>current?{...current,invalidated:true}:null)}),[subject,link]);
  return <Context.Provider value={value}>{children}</Context.Provider>;
 }
 export function useAppraisalReviewSession(){
