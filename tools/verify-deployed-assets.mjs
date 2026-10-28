@@ -148,6 +148,20 @@ export async function verifyDeployedAssets({url,expectedSha,fetchImpl=fetch}){
   const missingAssetStatus=missing.response.status===404?'PASS':'FAIL';
   return {schemaVersion:1,expectedSourceCommit:expectedSha,checkedAt:new Date().toISOString(),status:rows.every(r=>r.status==='PASS')&&missingAssetStatus==='PASS'?'PASS':'FAIL',assets:rows.sort((a,b)=>a.path.localeCompare(b.path)),manifestResponseMetadata:responseMeta(manifestResponse.response),manifestObservedAt:manifestResponse.observedAt,entryResponseMetadata:responseMeta(entry.response),entryObservedAt:entry.observedAt,entryHtmlSha256:createHash('sha256').update(entry.bytes).digest('hex'),missingAssetStatus,missingAssetHttpStatus:missing.response.status,missingResponseMetadata:responseMeta(missing.response),missingObservedAt:missing.observedAt,automaticRetries:0,evidenceBoundary:'SINGLE_DELIVERY_OBSERVATION_NOT_ROOT_CAUSE_OR_PERMANENT_AVAILABILITY_PROOF'};
 }
+// Report only bounded network failure categories, not exceptions, URLs or
+// request headers. This aids incident triage without leaking credentials.
+export function classifyDeliveryObservationFailure(error){
+ const code=typeof error?.cause?.code==='string'?error.cause.code:'';
+ if(code==='ENOTFOUND'||code==='EAI_AGAIN')return 'ASSET_OBSERVATION_DNS_UNAVAILABLE';
+ if(code==='UND_ERR_CONNECT_TIMEOUT'||code==='ETIMEDOUT')return 'ASSET_OBSERVATION_CONNECT_TIMEOUT';
+ if(error?.name==='TimeoutError'||error?.name==='AbortError')
+  return 'ASSET_OBSERVATION_REQUEST_TIMEOUT';
+ if(error?.name==='TypeError'&&/fetch failed/i.test(String(error.message||'')))
+  return 'ASSET_OBSERVATION_NETWORK_FETCH_FAILED';
+ if(/^[A-Z][A-Z0-9_]{1,95}$/.test(String(error?.message||'')))
+  return error.message;
+ return 'ASSET_OBSERVATION_FAILED';
+}
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
   const arg=name=>process.argv[process.argv.indexOf(name)+1];
   try{
@@ -156,7 +170,7 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
     console.log(`DEPLOYED_ASSET_BYTES=${result.status} assets=${result.assets.length} missing=${result.missingAssetHttpStatus}`);
     if(result.status!=='PASS'){console.error(JSON.stringify(result.assets.filter(x=>x.status==='FAIL')));process.exitCode=1;}
   }catch(error){
-    const reasonCode=/^[A-Z][A-Z0-9_]{1,95}$/.test(error.message)?error.message:'ASSET_OBSERVATION_FAILED';
+    const reasonCode=classifyDeliveryObservationFailure(error);
     // The diagnostic artifact contains only bounded response metadata and hashes, never HTML or asset bytes.
     if(process.argv.includes('--output')){
       const out=arg('--output');
