@@ -67,7 +67,11 @@ try{
   assert(await link.getAttribute('rel')==='noopener noreferrer','external portal must block tab-opener privileges');
  }
  const officialDisclosure=(await official.locator('p').first().textContent()||'').replace(/\s+/g,' ');
- assert(officialDisclosure.includes('API')&&officialDisclosure.includes('STARTAK')&&
+ // The Strict Arabic presentation layer localizes API and STARTAK in actual DOM text.
+ const arabized=officialDisclosure.includes('واجهة برمجة التطبيقات')&&
+   officialDisclosure.includes('ستارتاك');
+ const english=officialDisclosure.includes('API')&&officialDisclosure.includes('STARTAK');
+ assert((arabized||english)&&officialDisclosure.includes('ليست تكامل')&&
   officialDisclosure.includes('ولا تُدرج'),
   'official source research disclaimer absent; observed='+JSON.stringify(officialDisclosure.slice(0,300)));
  mark('FOUR_OFFICIAL_RESEARCH_ROUTES_VISIBLE_WITH_EXPLICIT_NO_API_CLAIM',true);
