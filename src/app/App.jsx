@@ -2274,7 +2274,10 @@ export default function App() {
           </main>
         </div>
 
-        <PropertyMarketLocationPanel />
+        <PropertyMarketLocationPanel financialStudy={{
+          mode,inputs,results,validationError:activeValidationError,
+          dealName:activeDealName||inputs.projectTitle||''
+        }} />
 
         <div hidden={mode !== "building"} data-testid="building-valuation-draft-container">
           <ValuationIntelligencePanel
