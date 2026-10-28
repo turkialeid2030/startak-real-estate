@@ -77,3 +77,21 @@ Never put confidential reports, actual deed numbers, owners, rental amounts link
 - **No full professional gate claim**: this review is **not yet** bound to a specific current financial Saved Deal, nor does it supersede all existing export routes; the existing optional valuation-decision-gate bridge is restrictive-only. An identity-checked canonical link and end-to-end cross-route negative tests remain required for full P0-C closure.
 - **No institutionally secured document store**: existing local extraction with SHA256 is not equivalent to durable encrypted RBAC storage, retention controls or independent reviewer approval. P0-B remains open.
 - Browser CI result must be checked on the final PR head SHA. Source changes above do not, by themselves, demonstrate deployment or market accuracy.
+
+
+## P0-C session linkage scope and boundary (additional delivery)
+
+The following is implemented in the current draft PR:
+- src/market/appraisal-study-binding.js matches non-empty report ID, user-attested same property **name, asset type, land area and valuation date**, and a valid 64-digit SHA-256 digest of the locally inspected document.
+- src/components/AppraisalReviewSessionContext.jsx keeps the link in React memory only, never a window global, Saved Deal record, analytics event, or persistent storage.
+- src/components/AppraisalAssuranceWorkbench.jsx offers an explicit manual link action. It is unavailable without the source digest, property/date match and user acknowledgment; none of this constitutes independent title verification.
+- src/components/PropertyMarketLocationPanel.jsx consumes the linked audit via the existing restrictive-only valuation readiness gate. The report HOLD blocks a single preliminary market value and the *personal research JSON export from this particular panel*. Links are invalidated if study identity changes, including a change later reverted.
+- tests/valuation/appraisal-study-binding.test.js exercises identity, required hash, explicit attestation, stale invalidation, and export-block semantics. The existing appraisal browser CI now tests a synthetic image upload with same-study binding, blocked JSON export, and changed-identity invalidation.
+
+**Still open / not implied:**
+- No legal deed, property rights, source hash authenticity, reviewer identity or independent market evidence verified.
+- No canonical Saved Deal identity handshake: the private report is bound to the *current market study input*, not a specific persisted financial transaction.
+- No global production-wide export gate. This feature controls the current personal market study JSON route; all other investment/report/export flows still require a separate canonical report-authority integration and security review.
+- No certified or commercial output, and no automatic extraction/adoption of OCR data.
+
+Run the final SHA's GitHub Actions workflows including Location Market Study Verify and Release Verify before engineering qualification. E2F/E2G and Q01-Q12 remain unclosed.
