@@ -4,6 +4,12 @@
 // byte-identical; this module converts only customer-facing labels/statuses.
 const ARABIC_VALUE_LABELS = Object.freeze({
   CALCULATED: 'محسوب من المدخلات الحالية',
+  MARKET_COMPARABLE: 'المقارنة السوقية',
+  INCOME_DIRECT_CAPITALIZATION: 'رسملة الدخل المباشرة',
+  INCOME_DCF: 'التدفقات النقدية المخصومة',
+  INCOME_OPERATING_BUSINESS: 'دخل النشاط التشغيلي',
+  COST_DEPRECIATED_REPLACEMENT: 'تكلفة الاستبدال بعد الاستهلاك',
+  RESIDUAL: 'القيمة المتبقية',
   OCCUPIED: 'مشغول بحسب البيانات المدخلة',
   NOT_CALCULABLE: 'تعذر الحساب؛ راجع المدخلات الناقصة أو غير المؤهلة',
   // Generic workflow / readiness states

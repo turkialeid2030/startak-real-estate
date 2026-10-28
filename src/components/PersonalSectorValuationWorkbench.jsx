@@ -9,6 +9,7 @@ const {calculatePersonalSectorCase,buildPersonalSectorResearchReport,
 const {createPersonalSectorCaseArchive}=
  require('../valuation-intelligence/personal-sector-case-archive');
 const {REASONS}=require('../valuation-intelligence/personal-sector-reason-labels');
+const {presentCode}=require('../i18n/strict-arabic-presentation');
 const {MAX_IMPORT_BYTES,restorePersonalSectorInputFile}=
  require('../valuation-intelligence/personal-sector-input-restoration');
 
@@ -307,7 +308,7 @@ export default function PersonalSectorValuationWorkbench({assetClass,locale='ar-
        ? (ar?'ترجيح حسابي مبدئي غير معتمد سوقياً':'Reconciled research scenario; market unverified')
        :(ar?'مؤشرات طرق منفصلة دون قيمة نهائية':'Method indicators only; no final value')}</strong>
     {output.methods?.map(item=><p key={item.method} className="mt-2 text-xs">
-      <span dir="ltr">{item.method}</span>: {money(item.scenarioAmountSar)} {ar?'ريال (افتراضي)':'SAR (scenario)'}
+      <span dir={ar?'rtl':'ltr'}>{presentCode(item.method,locale)}</span>: {money(item.scenarioAmountSar)} {ar?'ريال (افتراضي)':'SAR (scenario)'}
     </p>)}
     {output.provisionalReconciledAmountSar!==null&&
       <p className="mt-2 text-sm" data-testid="personal-sector-provisional-value">

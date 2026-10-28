@@ -20,6 +20,7 @@ import PersonalResearchReadinessPanel from "../components/PersonalResearchReadin
 import PurchasePriceAlternative from "../components/PurchasePriceAlternative.jsx";
 import PurchaseCeilingCertificate from "../components/PurchaseCeilingCertificate.jsx";
 import NumericTextInput from '../components/NumericTextInput.jsx';
+import CurrentCalculationBoundary from '../components/CurrentCalculationBoundary.js';
 import { ZakatInputSection, ZakatCashFlowPanel } from "../components/ZakatLayerPanel.jsx";
 
 // ============================================================
@@ -1249,7 +1250,7 @@ function BuildingInputPanel({ inputs, setInputs, assumptionModelVersion, onExitC
 // INPUT PANEL — LAND + DEVELOPMENT
 // ============================================================
 function LandInputPanel({ inputs, setInputs, assumptionModelVersion }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const patch = (key, value) => setInputs((prev) => ({ ...prev, [key]: value }));
   const v2Governed = assumptionModelVersion === ASSUMPTION_MODEL_VERSION.V2;
   const governedNote = v2Governed ? t("globalApp.governedAssumptionV2Note") : null;
@@ -1308,6 +1309,13 @@ function LandInputPanel({ inputs, setInputs, assumptionModelVersion }) {
           warnAbove={5}
           note={t("inputLand.constructionPeriodNote")}
         />
+        {Number.isFinite(inputs.constructionPeriod) && !Number.isInteger(inputs.constructionPeriod) && (
+          <p role="status" data-testid="fractional-construction-timing-notice" className="mt-2 text-xs text-amber-200">
+            {locale === 'en'
+              ? `The annual project cash-flow model rounds construction to ${Math.max(1, Math.round(inputs.constructionPeriod))} years. The construction debt schedule uses ${Math.round(inputs.constructionPeriod * 12)} months. These are different timing bases; project returns are not a dated model of the entered fractional duration.`
+              : `نموذج تدفقات المشروع السنوي يقرّب مدة الإنشاء إلى ${Math.max(1, Math.round(inputs.constructionPeriod))} سنة، بينما يستخدم جدول تمويل الإنشاء ${Math.round(inputs.constructionPeriod * 12)} شهرًا. الأساسان الزمنيان مختلفان؛ عوائد المشروع لا تمثل تدفقات مؤرخة للمدة الجزئية المدخلة.`}
+          </p>
+        )}
         <PercentField label={t("inputLand.rentGrowthRate")} value={inputs.rentGrowthRate} onChange={(v) => patch("rentGrowthRate", v)} warnAbove={0.15} />
         <NumField label={t("inputLand.operatingPeriod")} unit={t("inputLand.unitYear")} value={inputs.operatingPeriod} onChange={(v) => patch("operatingPeriod", v)} min={1} warnAbove={25} />
         <PercentField label={t("inputLand.marketCapRate")} value={inputs.marketCapRate} onChange={(v) => patch("marketCapRate", v)} warnBelow={0.04} warnAbove={0.12} />
@@ -2197,7 +2205,9 @@ export default function App() {
           validationError={activeValidationError}
           locale={locale}
         />
-        <KPIRibbon mode={mode} results={results} leverageEnabled={inputs.leverageEnabled} />
+        <CurrentCalculationBoundary invalid={Boolean(activeValidationError)} locale={locale}>
+          <KPIRibbon mode={mode} results={results} leverageEnabled={inputs.leverageEnabled} />
+        </CurrentCalculationBoundary>
         {mode === UI_MODE.BUILDING ? <AssumptionDisclosureBanner disclosure={assumptionDisclosure} /> : null}
 
         {/* MAIN GRID */}
@@ -2249,6 +2259,7 @@ export default function App() {
               </div>
             ) : null}
             <Tabs value={activeTab} onChange={setActiveTab} />
+            <CurrentCalculationBoundary invalid={Boolean(activeValidationError)} locale={locale}>
             {activeTab === "dashboard" && <><DashboardTab mode={mode} inputs={inputs} results={results} inputValid={!activeValidationError} /><PaybackDisclosurePanel mode={mode} results={results} locale={locale} /></>}
             {activeTab === "cashflow" && <CashFlowTab mode={mode} inputs={inputs} results={results} zakatCase={zakatCase} />}
             {activeTab === "sensitivity" && <SensitivityTab
@@ -2259,6 +2270,7 @@ export default function App() {
               sensitivityRenderPolicy={mode === UI_MODE.BUILDING ? activeUiState.sensitivityRenderPolicy : 'RENDER_SENSITIVITY_OUTPUTS'}
               unavailableMessage={assumptionDisclosure ? [assumptionDisclosure.exitCapNotice, assumptionDisclosure.exitTransactionCostNotice].filter(Boolean).join(' ') : null}
             />}
+            </CurrentCalculationBoundary>
           </main>
         </div>
 
