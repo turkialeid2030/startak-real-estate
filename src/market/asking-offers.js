@@ -13,7 +13,15 @@ function sourceUrlInfo(value) {
    const u=new URL(value.trim());
    if(u.protocol!=='https:'||u.username||u.password||!u.hostname.includes('.'))return null;
    if(u.hostname==='localhost'||u.hostname.endsWith('.local'))return null;
-   return {link:u.href,host:u.hostname.replace(/^www\./,'')};
+   // Marketing fragments, tracking keys and query order are not independent listings.
+   // Preserve meaningful listing identifiers in ordinary query parameters.
+   u.hash='';
+   for(const key of [...u.searchParams.keys()])
+     if(/^utm_/i.test(key)||/^(?:gclid|fbclid|mc_cid|mc_eid)$/i.test(key))
+       u.searchParams.delete(key);
+   u.searchParams.sort();
+   u.pathname=u.pathname.replace(/\\/+$/,'')||'/';
+   return {link:u.toString(),host:u.hostname.replace(/^www\./,'')};
  }catch{return null;}
 }
 function isoDate(value){
