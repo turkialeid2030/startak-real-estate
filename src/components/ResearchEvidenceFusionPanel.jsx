@@ -3,6 +3,7 @@ const {buildUnifiedResearch,researchReportBundle,researchClaimsGate}=
  require('../market/research-evidence-fusion');
 const {renderResearchBriefHtml}=require('../market/research-brief-html');
 const {useLocale}=require('../i18n/LocaleContext.js');
+const {researchSourceLabel}=require('../i18n/research-source-presentation');
 export default function ResearchEvidenceFusionPanel({subject={},feeds={},asOf='2026-10-28',
  readinessStatus='NOT_TESTED',marketReport=null,readiness=null,publicNeighborhood=null,publicLoadMeta=null}){
  const {locale}=useLocale();
@@ -19,13 +20,13 @@ export default function ResearchEvidenceFusionPanel({subject={},feeds={},asOf='2
  ]});
  const exportHtml=()=>{
   try{
-   const html=renderResearchBriefHtml(bundle);
+   const html=renderResearchBriefHtml(bundle,{locale});
    const blob=new Blob([html],{type:'text/html;charset=utf-8'});
    const url=URL.createObjectURL(blob);const link=document.createElement('a');
-   link.href=url;link.download='STARTAK_Arabic_Research_Investment_Brief.html';
+   link.href=url;link.download=en?'STARTAK_English_Research_Investment_Brief.html':'STARTAK_Arabic_Research_Investment_Brief.html';
    document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
-   setMessage(en?'An Arabic research-only HTML report was exported; it is not a licensed valuation or purchase recommendation.':'تم تصدير تقرير عربي بحثي غير معتمد؛ لا يتضمن توصية شراء أو تقييمًا مرخصًا.');
-  }catch(e){setMessage((en?'Could not export Arabic research HTML: ':'تعذر إصدار التقرير البحثي العربي: ')+String(e?.message||e));}
+   setMessage(en?'An English research-only HTML report was exported; it is not a licensed valuation or purchase recommendation.':'تم تصدير تقرير عربي بحثي غير معتمد؛ لا يتضمن توصية شراء أو تقييمًا مرخصًا.');
+  }catch(e){setMessage((en?'Could not export research HTML: ':'تعذر إصدار التقرير البحثي العربي: ')+String(e?.message||e));}
  };
  const exportJson=()=>{
   try{
@@ -90,11 +91,11 @@ export default function ResearchEvidenceFusionPanel({subject={},feeds={},asOf='2
    <h4 className="font-bold">{en?'Advisory council evidence review — outstanding requirements':'خطة فحص مجلس تركي الاستشاري — متطلبات معلّقة'}</h4>
    <p className="mt-1 text-amber-200">{en?'These are evidence-bound review tasks, not a purchase recommendation or certified professional appraisal.':'هذه مهام مراجعة مستندة إلى نواقص الأدلة، وليست توصية شراء أو تقييمًا مهنيًا معتمدًا.'}</p>
    {en&&<p data-testid="fusion-language-scope" className="mt-1 text-amber-200">
-     Individual audit task labels and reasons may remain in Arabic. The HTML export is Arabic only; do not interpret interface translation as certified or independently verified evidence.
+     Original source wording and evidence codes are preserved. Interface or report translation does not verify source authenticity or authorize investment use.
    </p>}
    <ol className="mt-2 list-decimal pr-5">
     {bundle.reviewerActionPlan.tasks.map(x=><li key={x.id} className="mb-2">
-     <strong>{x.label}</strong> — {x.reason}</li>)}
+     <strong>{researchSourceLabel(x.label,locale)}</strong> — {researchSourceLabel(x.reason,locale)}</li>)}
    </ol>
    <p className="text-amber-200">{en?'Decision: hold the investment until independent verification. No certified value or purchase cap.':'القرار: تعليق الاستثمار لحين التحقق المستقل؛ لا قيمة أو سقف شراء معتمد.'}</p>
   </div>
@@ -102,7 +103,7 @@ export default function ResearchEvidenceFusionPanel({subject={},feeds={},asOf='2
    <button type="button" data-testid="fusion-export" onClick={exportJson}
     className="rounded border border-slate-500 px-3 py-2 text-xs">{en?'Export research JSON':'تصدير حزمة البحث JSON'}</button>
    <button type="button" data-testid="fusion-export-html" onClick={exportHtml}
-    className="rounded border border-slate-500 px-3 py-2 text-xs">{en?'Arabic real-estate research HTML':'تقرير بحث عقاري واستثماري عربي HTML'}</button>
+    className="rounded border border-slate-500 px-3 py-2 text-xs">{en?'English property research HTML':'تقرير بحث عقاري واستثماري عربي HTML'}</button>
   </div>
   {message&&<p role="status" className="mt-2 text-xs text-sky-200">{message}</p>}
  </section>;

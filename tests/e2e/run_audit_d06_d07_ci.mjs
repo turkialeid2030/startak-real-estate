@@ -114,6 +114,34 @@ try{
  assert((await national.getByTestId('national-class-filter').innerText())
   .includes('Official aggregated indicator'),
   'D04 evidence class labels translated without changing machine class');
+ const listings=page.getByTestId('saudi-listing-research');
+ const earth=page.getByTestId('earth-national-research');
+ const challenger=page.getByTestId('challenger-benchmark-research');
+ for(const [panel,title] of [[listings,'Saudi property listings'],[earth,'Earth — reported transactions'],
+   [challenger,'Challenger model comparison']]){
+  assert(await panel.getAttribute('dir')==='ltr','D04 English research source direction');
+  assert((await panel.locator('h3').innerText()).includes(title),'D04 source heading: '+title);
+ }
+ await listings.getByTestId('listing-observed-on').fill('2026-10-28');
+ await listings.getByTestId('listing-source-csv').setInputFiles({name:'synthetic-listings.csv',mimeType:'text/csv',
+  buffer:Buffer.from('source,city,district,kind,priceSar,areaSqm,listingUrl,listingId,assetType,listingDate\n'+
+   'DEAL,الرياض,الملقا,BUYER_REQUEST,100000,100,https://dealapp.sa/request/synthetic-d04,SYNTH-D04,LAND,2026-10-01')});
+ assert((await listings.getByTestId('listing-import-notice').innerText()).includes('Added 1;'),
+  'D04 translated import notice retains accepted row count');
+ await listings.getByTestId('listing-kind-filter').selectOption('BUYER_REQUEST');
+ assert((await listings.locator('tbody').innerText()).includes('Buyer request / budget'),
+  'D04 buyer budgets cannot become executed sale prices');
+ const listingHref=await listings.locator('tbody a').getAttribute('href');
+ await earth.getByTestId('earth-feature').selectOption('RENTAL_DEALS');
+ const earthHref=await earth.locator('[data-testid="earth-links"] a').first().getAttribute('href');
+ assert((await fusion.getByTestId('fusion-review-actions').innerText())
+  .includes('Match the property location, title, parcel and plan'),'D04 reviewer tasks localized');
+ const htmlPending=page.waitForEvent('download');
+ await fusion.getByTestId('fusion-export-html').click();
+ const htmlDownload=await htmlPending;
+ const englishHtml=await readFile(await htmlDownload.path(),'utf8');
+ assert(englishHtml.includes('<html lang="en" dir="ltr">')&&
+  englishHtml.includes('HOLD / NOT_AUTHORIZED'),'D04 English download retains HOLD');
  await page.getByTestId('locale-switch').click();
  assert(await national.getAttribute('dir')==='rtl',
   'D04 national panel restores RTL');
@@ -123,6 +151,19 @@ try{
   'D04 never changes source URL on language switch');
  assert((await national.locator('h3').first().innerText()).includes('مصادر البيانات الرسمية'),
   'D04 national source heading restores Arabic');
+ assert(await listings.getByTestId('listing-kind-filter').inputValue()==='BUYER_REQUEST',
+  'D04 nonempty listing class remains unchanged');
+ assert(await earth.getByTestId('earth-feature').inputValue()==='RENTAL_DEALS',
+  'D04 nonempty Earth feature remains unchanged');
+ assert(await listings.locator('tbody a').getAttribute('href')===listingHref&&
+  await earth.locator('[data-testid="earth-links"] a').first().getAttribute('href')===earthHref,
+  'D04 source URLs retain original values');
+ assert((await listings.getByTestId('listing-import-notice').textContent()).includes('أُضيف 1'),
+  'D04 earlier import notice updates language without reimport');
+ assert((await listings.locator('tbody').textContent()).includes('طلب عقاري / ميزانية'),
+  'D04 imported evidence restores Arabic classification');
+ for(const panel of [listings,earth,challenger])assert(await panel.getAttribute('dir')==='rtl',
+  'D04 source panels restore Arabic direction');
  assert(await fusion.getAttribute('dir')==='rtl','D04 restores Arabic research panel direction');
  assert(await suhail.getAttribute('dir')==='rtl','D04 restores Arabic neighborhood panel direction');
  await page.waitForFunction(()=>{
