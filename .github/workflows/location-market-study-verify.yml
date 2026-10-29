@@ -51,6 +51,11 @@ on:
       - 'src/market/saudi-open-data-research.js'
       - 'src/components/PropertyMarketLocationPanel.jsx'
       - 'src/components/AppraisalAssuranceWorkbench.jsx'
+      - 'src/components/OutcomeMonitoringPanel.jsx'
+      - 'src/components/LearningChangeControlPanel.jsx'
+      - 'src/components/EngineeringChangeQualificationPanel.jsx'
+      - 'src/i18n/assurance-workflow-presentation.js'
+      - 'tests/defects/assurance_workflow_locale_d04.js'
       - 'src/components/LocalDocumentEvidenceWorkspace.jsx'
       - 'src/market/appraisal-assurance.js'
       - 'tests/e2e/run_appraisal_assurance_ci.mjs'
@@ -124,6 +129,8 @@ jobs:
         run: node tests/defects/personal_study_status_clarity_d07.js
       - name: Audit D04 market identity and approval localization parity
         run: node tests/defects/market_study_core_locale_d04.js
+      - name: Audit D04 appraisal, quality and governance locale changes without changing source data or authority
+        run: node tests/defects/assurance_workflow_locale_d04.js
       - name: Audit D05 year/month return-timing precision and dated evidence warnings
         run: node tests/defects/fractional_construction_disclosure_d05.js
       - name: Audit D05 explicit owner dated cashflow rights and fail-closed XIRR

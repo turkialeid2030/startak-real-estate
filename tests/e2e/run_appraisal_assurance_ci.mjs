@@ -51,6 +51,30 @@ try {
  await work.getByTestId('previous-reported-marketRentSar').fill('213000');
  assert(await work.getByTestId('appraisal-version-differences').getByText('DEPENDENT_VALUE_UNCHANGED').count()>0,'version change must be visible');
  pass('same-report version changes detected without value double count');
+ const auditSnapshot=()=>work.locator('input,select').evaluateAll(nodes=>nodes.map(x=>({
+   id:x.getAttribute('data-testid'),type:x.type,value:x.value,checked:x.checked,
+   options:x.tagName==='SELECT'?Array.from(x.options).map(o=>o.value):null,
+ })));
+ const assertEnglishSystemText=async panel=>assert(await panel.evaluate(node=>{
+   const copy=node.cloneNode(true);
+   copy.querySelectorAll('[data-user-content],input,textarea,code,script,style').forEach(x=>x.remove());
+   return !/[\u0600-\u06ff]/.test(copy.textContent);
+ }),'untranslated Arabic system text in English assurance panel');
+ const versionSnapshot=await auditSnapshot();
+ await page.getByTestId('locale-switch').click();
+ assert(await work.getAttribute('dir')==='ltr','audit must use English direction');
+ assert((await work.getByTestId('current-reportId').getAttribute('aria-label'))==='Appraisal report ID','accessible audit field label translated');
+ assert((await work.getByTestId('appraisal-calculated-value').innerText()).includes('30,000,000 SAR'),'English currency formatting');
+ assert(JSON.stringify(await auditSnapshot())===JSON.stringify(versionSnapshot),'language switch changed current/previous report input or evidence choice');
+ await assertEnglishSystemText(work);
+ const quality=page.getByTestId('valuation-quality-gates');
+ assert(await quality.getAttribute('dir')==='ltr','quality gate uses English direction');
+ await assertEnglishSystemText(quality);
+ assert((await quality.getByTestId('appraisal-report-checklist').innerText()).includes('External review required'),'professional review remains required in English');
+ await page.getByTestId('locale-switch').click();
+ assert(await work.getAttribute('dir')==='rtl','audit restores Arabic direction');
+ assert(JSON.stringify(await auditSnapshot())===JSON.stringify(versionSnapshot),'return to Arabic changed report data');
+ pass('D04 current and previous audit inputs, enum values, calculations and HOLD survive AR-EN-AR');
  await work.getByTestId('appraisal-reset').click();
  assert(await work.getByTestId('appraisal-audit-status').getAttribute('data-status')==='REVIEW_REQUIRED','reset should clear material errors');
  assert(await work.getByTestId('current-reportId').inputValue()==='','reset should clear values');
@@ -80,6 +104,15 @@ try {
  await market.getByTestId('personal-market-study-export').click();
  await market.getByText(/تم منع تصدير الدراسة/).waitFor({state:'visible'});
  pass('linked source with user-confirmed identical subject blocks research export and value');
+ const linkedSnapshot=await auditSnapshot();
+ await page.getByTestId('locale-switch').click();
+ assert((await work.getByTestId('appraisal-link-message').innerText()).includes('Linked, with value and export held'),'existing linked audit message must translate without relinking');
+ assert(await market.getByTestId('appraisal-market-link-status').getAttribute('data-status')==='LINKED_AUDIT_HOLD','English switch cannot clear linked HOLD');
+ assert(JSON.stringify(await auditSnapshot())===JSON.stringify(linkedSnapshot),'linked identity declaration changed with language');
+ await assertEnglishSystemText(work);
+ await page.getByTestId('locale-switch').click();
+ assert((await work.getByTestId('appraisal-link-message').innerText()).includes('تم الربط'),'linked message restores Arabic without repeating action');
+ pass('D04 linked HOLD, original identity and live action message survive locale changes');
  const personal=page.getByTestId('c75-personal-research-workspace');
  await personal.getByTestId('c75-appraisal-report-hold').waitFor({state:'visible'});
  assert(await personal.getByTestId('c75-export-personal-html').isDisabled(),
@@ -128,6 +161,22 @@ try {
  assert((await work.getByTestId('appraisal-sector-status').getAttribute('data-status'))==='HOLD_SPECIALIST_EVIDENCE',
   'specialist report status must show missing evidence');
  pass('hotel specialist evidence remains fail-closed without audited inputs');
+ for(const type of ['HOTEL','COMMERCIAL_MALL','WAREHOUSE','LOGISTICS_PARK','FUEL_STATION']){
+  await work.getByTestId('current-property-assetType').fill(type);
+  const sector=work.getByTestId('appraisal-specialist-fields');
+  await sector.locator('input[inputmode="decimal"]').first().fill('١٢٣٫٥');
+  await sector.getByTestId('sector-specialistReviewRef').fill('مرجع أصلي https://source.invalid/SYNTH-HOLD');
+  await sector.locator('input[type="checkbox"]').first().check();
+  const before=await auditSnapshot();
+  await page.getByTestId('locale-switch').click();
+  await assertEnglishSystemText(sector);
+  assert(JSON.stringify(await auditSnapshot())===JSON.stringify(before),'specialist field changed on English switch: '+type);
+  assert(await work.getByTestId('appraisal-audit-status').getAttribute('data-status')==='HOLD','specialist declaration cannot release HOLD: '+type);
+  await page.getByTestId('locale-switch').click();
+  assert(JSON.stringify(await auditSnapshot())===JSON.stringify(before),'specialist field changed on Arabic switch: '+type);
+ }
+ pass('D04 five specialist asset paths retain source references, Arabic amounts, evidence declarations and HOLD');
+ console.log('D04_ASSURANCE_REAL_CHROMIUM=PASS source_values_unchanged=true authority_unchanged=true');
  console.log('APPRAISAL_BROWSER_SMOKE=PASS CASES='+checks.length);
 } catch(e) {
  console.error('APPRAISAL_BROWSER_SMOKE=FAIL: '+(e.stack||e.message));

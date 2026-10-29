@@ -375,7 +375,7 @@ export default function PropertyMarketLocationPanel({financialStudy=null}) {
       </>}
     </div>
     {english&&<p data-testid="market-partial-locale-notice" role="note" className="mt-2 text-xs text-amber-200">
-      Core identity fields are translated. Some advanced market-source and comparison sections remain Arabic and are not fully localized.
+      Identity, selected research panels, appraisal review and evidence quality are translated. Other analytical sections are not fully localized. Original source content retains its original language.
     </p>}
     <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
       <Field title="اسم العقار" value={subject.name} onChange={v=>updateSubject('name',v)} />
