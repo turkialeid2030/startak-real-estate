@@ -4,9 +4,34 @@
 const {parseNumericText}=require('../validation/numeric-text');
 const {normalizeCashflows,xnpv,solveDatedXirr,DATED_RETURNS_STATUS}=
  require('./dated-returns');
-const REVIEW_VERSION='UNVERIFIED_OWNER_DATED_SCENARIO_V1';
+const REVIEW_VERSION='UNVERIFIED_OWNER_DATED_SCENARIO_V2';
 const HOLD='HOLD_INSUFFICIENT_OR_INVALID_DATED_EVIDENCE';
-function reviewOwnerDatedScenario({rows=[],annualDiscountRate='',rightsConfirmed=false}={}){
+const {toMoney,fromMoney}=require('../engines/financial/precision');
+function reconcileCanonicalPeriodAmounts(rows,canonicalCashflows){
+ if(!Array.isArray(rows)||rows.length<2||rows.length>36)return {ok:false,blocker:'DATED_ROWS_COUNT_INVALID'};
+ if(!Array.isArray(canonicalCashflows)||canonicalCashflows.length<2||canonicalCashflows.length>36||
+   !canonicalCashflows.every(x=>typeof x==='number'&&Number.isFinite(x)&&Math.abs(x)<=1e12))
+  return {ok:false,blocker:'CANONICAL_CASHFLOWS_UNAVAILABLE'};
+ const totals=canonicalCashflows.map(()=>0n),counts=canonicalCashflows.map(()=>0);
+ for(const row of rows){
+  const raw=row?.canonicalPeriod;
+  if(!/^(0|[1-9]\d*)$/.test(String(raw??'')))return {ok:false,blocker:'CANONICAL_PERIOD_MAPPING_REQUIRED'};
+  const i=Number(raw),amount=parseNumericText(row.amount);
+  if(i>=totals.length||!amount.ok||Math.abs(amount.value)>1e12)
+   return {ok:false,blocker:'CANONICAL_PERIOD_MAPPING_INVALID'};
+  if(Math.abs(amount.value-fromMoney(toMoney(amount.value)))>1e-8)
+   return {ok:false,blocker:'CANONICAL_RECONCILIATION_REQUIRES_HALALA_AMOUNTS'};
+  totals[i]+=toMoney(amount.value);counts[i]++;
+ }
+ if(counts.some(x=>x===0))return {ok:false,blocker:'ALL_CANONICAL_PERIODS_MUST_BE_MAPPED'};
+ const periods=canonicalCashflows.map((amount,i)=>({period:i,canonicalAmountSar:fromMoney(toMoney(amount)),
+  suppliedAmountSar:fromMoney(totals[i]),differenceSar:fromMoney(totals[i]-toMoney(amount))}));
+ if(periods.some(x=>x.differenceSar!==0))return {ok:false,blocker:'CANONICAL_PERIOD_AMOUNTS_DO_NOT_RECONCILE'};
+ return Object.freeze({ok:true,status:'MATCHED_CANONICAL_PERIOD_AMOUNTS_ONLY',
+  periods:Object.freeze(periods.map(Object.freeze)),timingReconciled:false,monthlyFinancingReconciled:false});
+}
+function reviewOwnerDatedScenario({rows=[],annualDiscountRate='',rightsConfirmed=false,
+ requireCanonicalReconciliation=false,canonicalCashflows=null}={}){
  const fail=(codes)=>Object.freeze({
   version:REVIEW_VERSION,status:HOLD,blockers:Object.freeze([...codes]),xirr:null,xnpvSar:null,
   annualDiscountRate:null,datedCashflowCount:0,independentlyVerified:false,
@@ -26,6 +51,9 @@ function reviewOwnerDatedScenario({rows=[],annualDiscountRate='',rightsConfirmed
   if(!amount.ok||Math.abs(amount.value)>1e12)return fail(['CASHFLOW_AMOUNT_INVALID']);
   prepared.push({date:r.date,amount:amount.value});
  }
+ const reconciliation=requireCanonicalReconciliation===true?
+  reconcileCanonicalPeriodAmounts(rows,canonicalCashflows):null;
+ if(reconciliation&&!reconciliation.ok)return fail([reconciliation.blocker]);
  const dated=normalizeCashflows(prepared);
  if(!dated||dated.length<2)return fail(['DATED_CASHFLOWS_INVALID_OR_NOT_DISTINCT']);
  // Avoid silently certifying unrelated or partially sourced flows.
@@ -40,9 +68,11 @@ function reviewOwnerDatedScenario({rows=[],annualDiscountRate='',rightsConfirmed
   annualDiscountRate:discount.value,datedCashflowCount:dated.length,
   residualNpvSar:solved.residualNpvSar,dayCount:solved.dayCount,
   sourceReferencesUserAttested:true,independentlyVerified:false,
-  boundToCanonicalFinancialStudy:false,canonicalReturnsChanged:false,
+  boundToCanonicalFinancialStudy:requireCanonicalReconciliation===true,canonicalReturnsChanged:false,
+  amountReconciliation:reconciliation,
+  canonicalTimingReconciled:false,monthlyFinancingReconciled:false,
   professionalValuationAuthorized:false,transactionAuthorized:false,
   disclaimer:'Amounts, dates, completeness and source references are user supplied, not independently verified. This result does not reconcile or replace canonical periodic annual IRR/NPV or the monthly construction financing model.'
  });
 }
-module.exports={REVIEW_VERSION,reviewOwnerDatedScenario};
+module.exports={REVIEW_VERSION,reviewOwnerDatedScenario,reconcileCanonicalPeriodAmounts};

@@ -2299,8 +2299,10 @@ export default function App() {
           financialContext={financialContext} />
         {mode === "land" && (
           <OwnerDatedScenarioPanel
-            key={'dated-owner-'+String(activeDealId||'unsaved')}
+            key={JSON.stringify(['dated-owner',activeDealId||'unsaved',inputs,assumptionModelVersion,activeValidationError])}
             locale={locale}
+            projectCashflows={activeValidationError?null:results?.cashflows}
+            equityCashflows={activeValidationError?null:results?.leveredCashflows}
           />
         )}
 

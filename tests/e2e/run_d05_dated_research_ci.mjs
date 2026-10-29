@@ -44,6 +44,22 @@ try {
   'qualified mathematical result labels must display unverified state');
  ok(result.includes('لا تحقق مستقل')&&result.includes('لا صلاحية معاملة'),
   'UI must explicitly deny independent proof and transaction authority');
+ ok((await panel.getByTestId('dated-day-count').innerText()).includes('ACT/365.2425'),
+  'D05 day count must be visible');
+ await panel.getByTestId('dated-reconcile-amounts').check();
+ ok(await panel.getByTestId('dated-review-result').count()===0,
+  'changing reference policy invalidates prior standalone result');
+ await panel.getByTestId('dated-calculate').click();
+ ok((await panel.getByTestId('dated-review-blockers').innerText()).includes('CANONICAL_PERIOD_MAPPING_REQUIRED'),
+  'annual reference period cannot be inferred');
+ const periodCount=await panel.getByTestId('dated-row-period-0').locator('option').count();
+ ok(periodCount>2,'current project cashflows appear only as explicit reference options');
+ await panel.getByTestId('dated-row-period-0').selectOption('0');
+ await panel.getByTestId('dated-row-period-1').selectOption('1');
+ await panel.getByTestId('dated-calculate').click();
+ ok((await panel.getByTestId('dated-review-result').innerText()).includes('HOLD_'),
+  'unrelated sourced cashflows cannot pass amount reconciliation');
+ await panel.getByTestId('dated-reconcile-amounts').uncheck();
  await panel.getByTestId('dated-row-amount-1').fill('1e3');
  ok(await panel.getByTestId('dated-review-result').count()===0,
   'editing cashflows must clear previously calculated result immediately');
@@ -55,6 +71,17 @@ try {
   'English owner study labels visible on language switch');
  ok(await panel.getByTestId('dated-row-amount-1').inputValue()==='1e3',
   'locale change must never normalize malformed economic input');
+ await panel.getByTestId('dated-row-amount-1').fill('1100');
+ await panel.getByTestId('dated-calculate').click();
+ ok((await panel.getByTestId('dated-review-result').innerText()).includes('UNVERIFIED_DATED_SCENARIO_CALCULATED'),
+  'a current calculated result exists before changing project economics');
+ const constructionInput=page.locator('label').filter({hasText:'Construction Period'}).locator('input').first();
+ await constructionInput.fill('2.5');
+ ok(await panel.getByTestId('dated-row-date-0').inputValue()===''&&
+  await panel.getByTestId('dated-row-source-0').inputValue()===''&&
+  !await panel.getByTestId('dated-source-attestation').isChecked()&&
+  await panel.getByTestId('dated-review-result').count()===0,
+  'editing the same project invalidates prior dates, references, consent and results');
  ok(errors.length===0,'browser exceptions '+errors.slice(0,2).join(', '));
  console.log('D05_DATED_OWNER_REAL_CHROMIUM=PASS no_real_market_data=true canonical_unmodified=true');
 }catch(e){console.error('D05_DATED_OWNER_REAL_CHROMIUM=FAIL '+String(e.stack||e));process.exitCode=1;}

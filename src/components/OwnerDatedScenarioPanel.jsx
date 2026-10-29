@@ -1,13 +1,15 @@
 import React,{useState} from 'react';
 const {reviewOwnerDatedScenario}=require('../valuation-intelligence/dated-scenario-review');
-const emptyRow=()=>({date:'',amount:'',sourceReference:''});
-const money=n=>typeof n==='number'&&Number.isFinite(n)?n.toLocaleString('ar-SA',{maximumFractionDigits:2}):'—';
-export default function OwnerDatedScenarioPanel({locale='ar-SA'}){
+const emptyRow=()=>({date:'',amount:'',sourceReference:'',canonicalPeriod:''});
+export default function OwnerDatedScenarioPanel({locale='ar-SA',projectCashflows=null,equityCashflows=null}){
  const en=locale==='en';
+ const money=n=>typeof n==='number'&&Number.isFinite(n)?n.toLocaleString(en?'en-US':'ar-SA',{maximumFractionDigits:2}):'—';
  const [rows,setRows]=useState([emptyRow(),emptyRow()]);
  const [discount,setDiscount]=useState('');
  const [rights,setRights]=useState(false);
  const [review,setReview]=useState(null);
+ const [reconcile,setReconcile]=useState(false),[basis,setBasis]=useState('PROJECT');
+ const canonicalCashflows=basis==='EQUITY'?equityCashflows:projectCashflows;
  const patch=(i,key,value)=>{setRows(old=>old.map((r,j)=>i===j?{...r,[key]:value}:r));setReview(null)};
  const updateDiscount=value=>{setDiscount(value);setReview(null)};
  return <section data-testid="dated-scenario-review" dir={en?'ltr':'rtl'}
@@ -19,6 +21,23 @@ export default function OwnerDatedScenarioPanel({locale='ar-SA'}){
    {en?'Enter actual dates, signed amounts (negative outflows; positive inflows) and your source reference for EACH cash flow. No dates, amounts, source rights, or validation are inferred. Results never replace the canonical annual IRR/NPV or the monthly construction-financing model. Do not treat the output as a valuation or purchase authority.':
     'أدخل التاريخ الفعلي والمبلغ الموقّع (السالب للمصروف والموجب للمقبوض) ومرجع المصدر لكل تدفق. لا تستنتج المنصة التواريخ أو المبالغ أو الحقوق أو التوثيق. النتيجة لا تستبدل IRR/NPV السنوي أو تمويل الإنشاء الشهري ولا تمثل تثمينًا أو تفويض شراء.'}
   </p>
+  <p data-testid="dated-day-count" className="mb-3 text-xs text-amber-200">
+   {en?'Day count: ACT/365.2425. Dates are supplied by the user; this convention must be considered when comparing other tools.':
+    'أساس عد الأيام: ACT/365.2425. التواريخ مدخلة من المستخدم؛ يلزم مراعاة هذا الأساس عند المقارنة بأدوات أخرى.'}
+  </p>
+  <label className="mb-3 flex items-center gap-2 text-xs">
+   <input data-testid="dated-reconcile-amounts" type="checkbox" checked={reconcile}
+    onChange={e=>{setReconcile(e.target.checked);setReview(null)}} />
+   {en?'Require amount reconciliation to every period of the current financial study (dates and monthly financing remain unverified)':
+    'اشتراط مطابقة مبالغ كل فترة من الدراسة المالية الحالية (لا يثبت تواريخ التدفقات أو تسوية التمويل الشهري)'}
+  </label>
+  {reconcile&&<label className="mb-3 block text-xs">{en?'Reference cash-flow basis':'أساس التدفقات المرجعية'}
+   <select data-testid="dated-reference-basis" value={basis} onChange={e=>{setBasis(e.target.value);setReview(null)}}
+    className="mt-1 block w-full rounded border border-slate-600 bg-[#101c30] p-2">
+    <option value="PROJECT">{en?'Project — before financing':'المشروع — قبل التمويل'}</option>
+    <option value="EQUITY">{en?'Equity — after financing':'حقوق الملكية — بعد التمويل'}</option>
+   </select>
+  </label>}
   <label className="block text-xs mb-3">
    {en?'Annual discount rate as decimal: 0 to below 1 (0.10 = 10%; do not enter 10)':'معدل الخصم السنوي ككسر بين 0 وأقل من 1 (0.10 = 10%؛ لا تكتب 10)'}
    <input data-testid="dated-discount-rate" value={discount} onChange={e=>updateDiscount(e.target.value)}
@@ -31,6 +50,15 @@ export default function OwnerDatedScenarioPanel({locale='ar-SA'}){
       onChange={e=>patch(i,'date',e.target.value)}
       className="mt-1 w-full rounded border border-slate-600 bg-[#101c30] p-2" />
     </label>
+    {reconcile&&<label className="text-xs">{en?'Map to canonical annual period':'ربط بالفترة السنوية المرجعية'}
+     <select data-testid={'dated-row-period-'+i} value={r.canonicalPeriod} onChange={e=>patch(i,'canonicalPeriod',e.target.value)}
+      className="mt-1 w-full rounded border border-slate-600 bg-[#101c30] p-2">
+      <option value="">{en?'Select period explicitly':'اختر الفترة صراحة'}</option>
+      {(Array.isArray(canonicalCashflows)?canonicalCashflows:[]).map((amount,index)=><option key={index} value={index}>
+       {en?'Period ':'الفترة '}{index}: {money(amount)} {en?'SAR':'ريال'}
+      </option>)}
+     </select>
+    </label>}
     <label className="text-xs">{en?'Signed amount (SAR)':'المبلغ الموقّع بالريال'}
      <input data-testid={'dated-row-amount-'+i} value={r.amount} inputMode="decimal"
       onChange={e=>patch(i,'amount',e.target.value)}
@@ -61,7 +89,8 @@ export default function OwnerDatedScenarioPanel({locale='ar-SA'}){
     'أقر بحقي في استخدام المستندات وبإدخال جميع التدفقات المؤرخة ذات الصلة؛ إقرار المستخدم لا يعني تحققًا مستقلاً.'}
   </label>
   <button type="button" data-testid="dated-calculate" onClick={()=>setReview(reviewOwnerDatedScenario({
-    rows,annualDiscountRate:discount,rightsConfirmed:rights
+    rows,annualDiscountRate:discount,rightsConfirmed:rights,
+    requireCanonicalReconciliation:reconcile,canonicalCashflows
    }))}
    className="mt-3 rounded bg-amber-700 px-4 py-2 text-xs font-semibold text-white">
    {en?'Calculate research scenario only':'احسب السيناريو البحثي فقط'}
@@ -71,10 +100,14 @@ export default function OwnerDatedScenarioPanel({locale='ar-SA'}){
    {review.status==='UNVERIFIED_DATED_SCENARIO_CALCULATED'?<>
     <p>{en?'Unverified dated XIRR':'XIRR المؤرخ غير المتحقق'}: {(review.xirr*100).toFixed(4)}%</p>
     <p>{en?'Unverified dated XNPV (SAR)':'XNPV المؤرخ غير المتحقق (ريال)'}: {money(review.xnpvSar)}</p>
+    {review.amountReconciliation&&<p data-testid="dated-amount-reconciliation" className="mt-2 text-amber-200">
+     {en?'Every annual period amount matches the selected reference to the halala. This does not reconcile actual dates, construction timing or monthly financing.':
+      'تطابقت مبالغ جميع الفترات السنوية مع المرجع المختار بالهللة. لا يثبت ذلك تواريخ التدفقات الفعلية أو توقيت الإنشاء أو تسوية التمويل الشهري.'}
+    </p>}
    </>:<p data-testid="dated-review-blockers" className="text-rose-200">{review.blockers.join(' / ')}</p>}
    <p className="mt-2 text-amber-200">
-    {en?'No independent proof, no reconciliation to the annual model, no certified value and no transaction authority.':
-     'لا تحقق مستقل ولا تسوية مع النموذج السنوي ولا قيمة عقارية معتمدة ولا صلاحية معاملة.'}
+    {en?'No independent proof, no timing reconciliation to the annual or monthly model, no certified value and no transaction authority.':
+     'لا تحقق مستقل ولا تسوية زمنية مع النموذج السنوي أو الشهري ولا قيمة عقارية معتمدة ولا صلاحية معاملة.'}
    </p>
   </div>}
  </section>;
