@@ -54,6 +54,7 @@ on:
       - 'src/components/OutcomeMonitoringPanel.jsx'
       - 'src/components/LearningChangeControlPanel.jsx'
       - 'src/components/EngineeringChangeQualificationPanel.jsx'
+      - 'src/components/DecisionIntelligenceWorkspacePanel.jsx'
       - 'src/i18n/assurance-workflow-presentation.js'
       - 'tests/defects/assurance_workflow_locale_d04.js'
       - 'src/components/LocalDocumentEvidenceWorkspace.jsx'

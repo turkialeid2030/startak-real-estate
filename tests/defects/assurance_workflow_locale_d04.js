@@ -54,6 +54,7 @@ const ok=(condition,message)=>{assert.ok(condition,message);checks++;};
  const Quality=(await load('ValuationQualityPanel')).default;
  const Outcome=(await load('OutcomeMonitoringPanel')).default;
  const Learning=(await load('LearningChangeControlPanel')).default;
+ const Decision=(await load('DecisionIntelligenceWorkspacePanel')).default;
  const {AppraisalReviewSessionProvider,useAppraisalReviewSession}=modules.get('AppraisalReviewSessionContext');
  let setLocale;
  function Seed(){const {setSubject}=useAppraisalReviewSession();React.useEffect(()=>setSubject(subject),[]);return null;}
@@ -65,10 +66,15 @@ const ok=(condition,message)=>{assert.ok(condition,message);checks++;};
   impactAssessmentsByProposalRef:{[proposalRef]:{assessedBy:'SYNTH-RISK',assessedAt:'2026-01-01T12:00:00Z',impactSummary:'Synthetic test only',riskLevel:'HIGH',affectedDomains:['FINANCE'],testPlanRef:'SYNTH-TEST',rollbackPlanRef:'SYNTH-ROLLBACK',independentReviewRequired:true}},
   changeApprovalsByProposalRef:{[proposalRef]:{decision:'APPROVE_FOR_ENGINEERING',approverRef:'SYNTH-APPROVER',decidedAt:'2026-01-01T12:00:00Z',rationale:'Synthetic test only',humanDecisionConfirmed:true}}};
  const outcome={caseId,projectId,status:'REANALYSIS_REQUIRED',comparisons:[{id:'NOI',label:'بيان المصدر العربي',evidenceRef:'https://source.invalid/NOI',plannedValue:100,actualValue:80,materialVariance:true,explanation:'ملاحظة أصلية HOLD'}],requiredActions:{humanReviewRequired:true},reanalysisRequired:true};
- const original=JSON.stringify({readiness,quality,learningReview,governance,outcome});
+ const workspace={caseId,projectId,status:'HOLD_EVIDENCE',reasonCodes:[],
+  evidence:[{id:'SOURCE-1',label:'المصدر الأصلي',domain:'FINANCE',sourceRef:'https://source.invalid/HOLD',status:'UNVERIFIED',verified:false,stale:true,conflict:true}],
+  assumptions:[{id:'ASSUMPTION-1',label:'افتراض المستخدم',valueDisplay:'١٢٣٫٥',basis:'مرجع المستخدم',material:true,sensitivityRequired:true,approved:false}],
+  decisionQuality:{status:'HOLD_EVIDENCE',reliability:'INSUFFICIENT',nextBestDueDiligence:{id:'SOURCE_REVIEW',priority:'HIGH'}},
+  ai:[{role:'ANALYST',status:'ACCEPTED_FOR_REVIEW_ONLY',narrative:'سرد المصدر الأصلي HOLD',uncertainties:['تحفظ المصدر'],disagreements:['اختلاف المصدر'],citedEvidenceRefs:['https://source.invalid/HOLD']}],transactionAuthorized:false};
+ const original=JSON.stringify({readiness,quality,learningReview,governance,outcome,workspace});
  const registry=buildLearningChangeControlRegistry(governance);
  ok(registry.transactionAuthorized===false&&registry.authority.productionChangeAuthorized===false,'Synthetic engineering approval grants no production authority');
- function Harness(){return React.createElement(LocaleProvider,null,React.createElement(Control),React.createElement(AppraisalReviewSessionProvider,null,React.createElement(Seed),React.createElement(Work,{intakeRecord:{digest:'a'.repeat(64)}})),React.createElement(Quality,{readiness,quality,studyAsOf:{date:'2026-01-01',origin:'USER_VALUATION_DATE'}}),React.createElement(Outcome,{outcomeFeedback:outcome,learningReview}),React.createElement(Learning,governance));}
+ function Harness(){return React.createElement(LocaleProvider,null,React.createElement(Control),React.createElement(AppraisalReviewSessionProvider,null,React.createElement(Seed),React.createElement(Work,{intakeRecord:{digest:'a'.repeat(64)}})),React.createElement(Quality,{readiness,quality,studyAsOf:{date:'2026-01-01',origin:'USER_VALUATION_DATE'}}),React.createElement(Outcome,{outcomeFeedback:outcome,learningReview}),React.createElement(Learning,governance),React.createElement(Decision,{workspace}));}
  const root=createRoot(document.getElementById('root'));
  await React.act(async()=>root.render(React.createElement(Harness)));
  const byId=id=>document.querySelector('[data-testid="'+id+'"]');
@@ -90,11 +96,13 @@ const ok=(condition,message)=>{assert.ok(condition,message);checks++;};
  const englishSnapshot=snapshot().map(x=>({...x,id:x.id==='Rent source'?'rent-source':x.id}));
  ok(JSON.stringify(before)===JSON.stringify(englishSnapshot),'All raw fields, options and declarations preserved');
  const noArabicSystemText=node=>{const copy=node.cloneNode(true);copy.querySelectorAll('[data-user-content],input,textarea,code,script,style').forEach(x=>x.remove());return !/[\u0600-\u06ff]/.test(copy.textContent);};
- for(const id of ['appraisal-assurance-workbench','valuation-quality-gates','outcome-monitoring-panel','learning-change-control-panel','engineering-change-qualification-panel']){
+ for(const id of ['appraisal-assurance-workbench','valuation-quality-gates','outcome-monitoring-panel','learning-change-control-panel','engineering-change-qualification-panel','decision-intelligence-workspace']){
   ok(byId(id)?.dir==='ltr','Panel direction '+id);
   ok(noArabicSystemText(byId(id)),'No untranslated system text in '+id);
  }
  ok(document.body.textContent.includes('مقترح المصدر الأصلي HOLD')&&document.body.textContent.includes('ملاحظة أصلية HOLD'),'Original source narratives are preserved');
+ ok(byId('decision-intelligence-workspace').textContent.includes('سرد المصدر الأصلي HOLD'),'AI source narrative is preserved without claiming live verification');
+ ok(byId('decision-intelligence-workspace').textContent.includes('Unverified')&&byId('decision-intelligence-workspace').textContent.includes('human decision required'),'Decision evidence and human-review boundary translated');
  ok(document.body.textContent.includes('All production and transaction authority remains locked'),'English authority boundary');
  for(const kind of ['HOTEL','COMMERCIAL_MALL','WAREHOUSE','LOGISTICS_PARK','FUEL_STATION']){
   await change('current-property-assetType',kind);
@@ -109,7 +117,7 @@ const ok=(condition,message)=>{assert.ok(condition,message);checks++;};
  }
  await React.act(async()=>setLocale('ar-SA'));
  ok(document.body.textContent.includes('جميع صلاحيات الإنتاج والمعاملات تظل مقفلة'),'Arabic authority boundary');
- ok(JSON.stringify({readiness,quality,learningReview,governance,outcome})===original,'No domain records or authority fields mutated');
+ ok(JSON.stringify({readiness,quality,learningReview,governance,outcome,workspace})===original,'No domain records or authority fields mutated');
  for(const type of Object.keys(ASSET_METHODS))ok(ASSET_METHODS[type].primary,'Every asset method remains present');
  await React.act(async()=>root.unmount());dom.window.close();
  console.log('D04_ASSURANCE_WORKFLOW_LOCALE=PASS checks='+checks);

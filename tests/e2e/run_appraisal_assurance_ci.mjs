@@ -70,6 +70,7 @@ try {
  const quality=page.getByTestId('valuation-quality-gates');
  assert(await quality.getAttribute('dir')==='ltr','quality gate uses English direction');
  await assertEnglishSystemText(quality);
+ await quality.getByTestId('appraisal-report-checklist').locator('summary').click();
  assert((await quality.getByTestId('appraisal-report-checklist').innerText()).includes('External review required'),'professional review remains required in English');
  await page.getByTestId('locale-switch').click();
  assert(await work.getAttribute('dir')==='rtl','audit restores Arabic direction');
