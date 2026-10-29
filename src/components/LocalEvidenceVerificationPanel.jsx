@@ -1,3 +1,4 @@
+const {governanceEvidenceLabel}=require('../i18n/governance-evidence-presentation');
 import DiagnosticText from './DiagnosticText.jsx';
 import React, { useEffect, useMemo, useState } from 'react';
 
@@ -47,7 +48,7 @@ export default function LocalEvidenceVerificationPanel({ candidate, onVerificati
   const [sourceCheckedAgainstOriginal, setSourceCheckedAgainstOriginal] = useState(false);
   const [semanticMappingReviewed, setSemanticMappingReviewed] = useState(false);
   const [conflictDeclarationCompleted, setConflictDeclarationCompleted] = useState(false);
-  const [gate, setGate] = useState(null);
+  const [gateSnapshot, setGateSnapshot] = useState(null);
 
   const [outcome, setOutcome] = useState(EVIDENCE_VERIFICATION_OUTCOME.DEFER);
   const [decisionId, setDecisionId] = useState('');
@@ -60,10 +61,20 @@ export default function LocalEvidenceVerificationPanel({ candidate, onVerificati
   const [ackAuthority, setAckAuthority] = useState(false);
   const [ackMethod, setAckMethod] = useState(false);
   const [ackAccountability, setAckAccountability] = useState(false);
-  const [verificationRecord, setVerificationRecord] = useState(null);
+  const [decisionSnapshot, setDecisionSnapshot] = useState(null);
+  const packetMetadataKey=JSON.stringify([candidate,attestationId,verifierRef,verifierRole,verifierIdentityEvidenceRef,verificationMethod,verificationReference,authorityClass,authorityEvidenceRef,verifiedAt]);
+  const packetKey=JSON.stringify([packetMetadataKey,sourceCheckedAgainstOriginal,semanticMappingReviewed,conflictDeclarationCompleted]);
+  const gate=gateSnapshot?.key===packetKey?gateSnapshot.result:null;
+  const decisionKey=JSON.stringify([packetKey,outcome,decisionId,decidedByRef,decisionEvidenceRef,decidedAt,decisionConflictDeclared,ackSource,ackSemantic,ackAuthority,ackMethod,ackAccountability]);
+  const verificationRecord=gate&&decisionSnapshot?.key===decisionKey?decisionSnapshot.result:null;
+  useEffect(()=>{setSourceCheckedAgainstOriginal(false);setSemanticMappingReviewed(false);setConflictDeclarationCompleted(false);},[packetMetadataKey]);
+  // Never retain acknowledgements after changing the packet they attest to.
+  useEffect(()=>{setGateSnapshot(null);setDecisionSnapshot(null);setAckSource(false);setAckSemantic(false);setAckAuthority(false);setAckMethod(false);setAckAccountability(false);setDecisionConflictDeclared(false);},[packetKey]);
+  useEffect(()=>{setDecisionSnapshot(null);setAckSource(false);setAckSemantic(false);setAckAuthority(false);setAckMethod(false);setAckAccountability(false);setDecisionConflictDeclared(false);},[outcome,decisionId,decidedByRef,decisionEvidenceRef,decidedAt]);
+  useEffect(()=>{onVerificationRecordChange?.(verificationRecord);},[verificationRecord,onVerificationRecordChange]);
 
   const l = useMemo(() => isAr ? {
-    eyebrow: 'EVIDENCE GOVERNANCE · HUMAN VERIFICATION',
+    eyebrow: 'حوكمة الأدلة · التحقق البشري',
     title: 'التحقق البشري من مرشح الدليل',
     intro: 'هذه المرحلة توثق حزمة تحقق وقرارًا بشريًا منفصلًا. اختيار فئة المصدر هنا لا يثبتها بذاته؛ يجب إدخال مرجع دليل السلطة والتحقق من الأصل.',
     empty: 'أنشئ مرشح دليل صالحًا في المرحلة السابقة لبدء التحقق.',
@@ -72,7 +83,7 @@ export default function LocalEvidenceVerificationPanel({ candidate, onVerificati
     original: 'تمت المطابقة مع المصدر/المستند الأصلي.', semantic: 'تمت مراجعة الربط الدلالي والقيمة المستخرجة.', conflict: 'تم استكمال إقرار التعارض/تعارض المصالح.', assess: 'تقييم حزمة التحقق', gateStatus: 'حالة بوابة التحقق',
     decision: 'القرار البشري', outcome: 'النتيجة', decisionId: 'معرّف القرار', decidedBy: 'مرجع صاحب القرار', decisionRef: 'مرجع دليل القرار', decidedAt: 'وقت القرار', decisionConflict: 'تم استكمال إقرار التعارض للقرار.',
     ackSource: 'راجعت مرجع المصدر والأصل.', ackSemantic: 'راجعت المعنى الدلالي.', ackAuthority: 'راجعت دليل سلطة المصدر.', ackMethod: 'راجعت طريقة ومرجع التحقق.', ackAccountability: 'أتحمل مسؤولية القرار البشري المسجل.', record: 'تسجيل القرار البشري',
-    truth: 'حالة الحقيقة', authority: 'السلطة', engine: 'المحرك المالي', notEligible: 'غير مؤهل تلقائيًا', boundary: 'VERIFIED_FACT هنا سجل تحقق داخلي مبني على الأدلة والمراجع المدخلة. لا يمثل شهادة خارجية أو تقييمًا مرخصًا، ولا يكتب أي مدخل مالي ولا يجيز معاملة.',
+    truth: 'حالة الحقيقة', authority: 'السلطة', engine: 'المحرك المالي', notEligible: 'غير مؤهل تلقائيًا', boundary: 'الحقيقة المسجلة كمتحقق منها هنا سجل تحقق داخلي مبني على الأدلة والمراجع المدخلة. لا يمثل شهادة خارجية أو تقييمًا مرخصًا، ولا يكتب أي مدخل مالي ولا يجيز معاملة.',
   } : {
     eyebrow: 'EVIDENCE GOVERNANCE · HUMAN VERIFICATION',
     title: 'Human verification of an evidence candidate',
@@ -86,11 +97,7 @@ export default function LocalEvidenceVerificationPanel({ candidate, onVerificati
     truth: 'Truth status', authority: 'Authority', engine: 'Financial engine', notEligible: 'Not automatically eligible', boundary: 'VERIFIED_FACT here is an internal evidence-governance record based on supplied evidence and references. It is not external certification or a licensed valuation, does not write financial inputs, and does not authorize a transaction.',
   }, [isAr]);
 
-  useEffect(() => {
-    setGate(null);
-    setVerificationRecord(null);
-    onVerificationRecordChange?.(null);
-  }, [candidate, onVerificationRecordChange]);
+
 
   const attestationRefs = uniqueRefs([
     candidate?.sourceProvenance?.sourceReference,
@@ -120,9 +127,8 @@ export default function LocalEvidenceVerificationPanel({ candidate, onVerificati
       },
       evidenceRefs: attestationRefs,
     });
-    setGate(result);
-    setVerificationRecord(null);
-    onVerificationRecordChange?.(null);
+    setGateSnapshot({key:packetKey,result});
+    setDecisionSnapshot(null);
   };
 
   const recordDecision = () => {
@@ -146,8 +152,7 @@ export default function LocalEvidenceVerificationPanel({ candidate, onVerificati
       },
       evidenceRefs: refs,
     });
-    setVerificationRecord(result);
-    onVerificationRecordChange?.(result);
+    setDecisionSnapshot({key:decisionKey,result});
   };
 
   if (!candidate || candidate.status !== 'CANDIDATE_REQUIRES_VERIFICATION') {
@@ -182,7 +187,7 @@ export default function LocalEvidenceVerificationPanel({ candidate, onVerificati
               <Field label={l.identityRef}><input data-testid="verification-identity-ref" value={verifierIdentityEvidenceRef} onChange={(e) => setVerifierIdentityEvidenceRef(e.target.value)} className={inputClass} /></Field>
               <Field label={l.method}><input data-testid="verification-method" value={verificationMethod} onChange={(e) => setVerificationMethod(e.target.value)} className={inputClass} /></Field>
               <Field label={l.reference}><input data-testid="verification-reference" value={verificationReference} onChange={(e) => setVerificationReference(e.target.value)} className={inputClass} /></Field>
-              <Field label={l.authorityClass}><select data-testid="verification-authority-class" value={authorityClass} onChange={(e) => setAuthorityClass(e.target.value)} className={inputClass}>{AUTHORITY_OPTIONS.map((v) => <option key={v} value={v}>{v}</option>)}</select></Field>
+              <Field label={l.authorityClass}><select data-testid="verification-authority-class" value={authorityClass} onChange={(e) => setAuthorityClass(e.target.value)} className={inputClass}>{AUTHORITY_OPTIONS.map((v) => <option key={v} value={v}>{governanceEvidenceLabel(v,locale)}</option>)}</select></Field>
               <Field label={l.authorityRef}><input data-testid="verification-authority-ref" value={authorityEvidenceRef} onChange={(e) => setAuthorityEvidenceRef(e.target.value)} className={inputClass} /></Field>
               <Field label={l.verifiedAt}><input data-testid="verification-verified-at" type="datetime-local" value={verifiedAt} onChange={(e) => setVerifiedAt(e.target.value)} className={inputClass} /></Field>
             </div>
@@ -192,13 +197,13 @@ export default function LocalEvidenceVerificationPanel({ candidate, onVerificati
               <Check testId="verification-conflict-check" checked={conflictDeclarationCompleted} onChange={setConflictDeclarationCompleted} label={l.conflict} />
             </div>
             <button data-testid="assess-verification-packet" type="button" onClick={assess} className="rounded-lg border border-violet-600/60 bg-violet-400/10 px-4 py-2 text-xs font-semibold text-violet-200">{l.assess}</button>
-            {gate ? <div data-testid="verification-gate-result" className={`rounded-lg border p-3 text-xs ${gateReady ? 'border-emerald-800/60 bg-emerald-950/20 text-emerald-200' : 'border-rose-800/60 bg-rose-950/20 text-rose-200'}`}><div className="text-[10px] opacity-70">{l.gateStatus}</div><div className="mt-1 font-semibold">{gate.status}</div>{gate.reasons?.length ? <div className="mt-2 text-[11px]">{gate.reasons.map(reason => <div key={reason}><DiagnosticText code={reason} locale={locale} /></div>)}</div> : null}</div> : null}
+            {gate ? <div data-testid="verification-gate-result" data-status={gate.status} className={`rounded-lg border p-3 text-xs ${gateReady ? 'border-emerald-800/60 bg-emerald-950/20 text-emerald-200' : 'border-rose-800/60 bg-rose-950/20 text-rose-200'}`}><div className="text-[10px] opacity-70">{l.gateStatus}</div><div className="mt-1 font-semibold">{governanceEvidenceLabel(gate.status,locale)}</div>{gate.reasons?.length ? <div className="mt-2 text-[11px]">{gate.reasons.map(reason => <div key={reason}><DiagnosticText code={reason} locale={locale} /></div>)}</div> : null}</div> : null}
           </div>
 
           <div className="space-y-3">
             <h3 className="text-sm font-semibold text-violet-200">{l.decision}</h3>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label={l.outcome}><select data-testid="verification-outcome" value={outcome} onChange={(e) => setOutcome(e.target.value)} disabled={!gateReady} className={inputClass}><option value={EVIDENCE_VERIFICATION_OUTCOME.DEFER}>DEFER</option><option value={EVIDENCE_VERIFICATION_OUTCOME.VERIFY_FACT}>VERIFY_FACT</option><option value={EVIDENCE_VERIFICATION_OUTCOME.REJECT_CANDIDATE}>REJECT_CANDIDATE</option></select></Field>
+              <Field label={l.outcome}><select data-testid="verification-outcome" value={outcome} onChange={(e) => setOutcome(e.target.value)} disabled={!gateReady} className={inputClass}><option value={EVIDENCE_VERIFICATION_OUTCOME.DEFER}>{governanceEvidenceLabel('DEFER',locale)}</option><option value={EVIDENCE_VERIFICATION_OUTCOME.VERIFY_FACT}>{governanceEvidenceLabel('VERIFY_FACT',locale)}</option><option value={EVIDENCE_VERIFICATION_OUTCOME.REJECT_CANDIDATE}>{governanceEvidenceLabel('REJECT_CANDIDATE',locale)}</option></select></Field>
               <Field label={l.decisionId}><input data-testid="verification-decision-id" value={decisionId} onChange={(e) => setDecisionId(e.target.value)} disabled={!gateReady} className={inputClass} /></Field>
               <Field label={l.decidedBy}><input data-testid="verification-decided-by" value={decidedByRef} onChange={(e) => setDecidedByRef(e.target.value)} disabled={!gateReady} className={inputClass} /></Field>
               <Field label={l.decisionRef}><input data-testid="verification-decision-ref" value={decisionEvidenceRef} onChange={(e) => setDecisionEvidenceRef(e.target.value)} disabled={!gateReady} className={inputClass} /></Field>
@@ -215,12 +220,12 @@ export default function LocalEvidenceVerificationPanel({ candidate, onVerificati
             <button data-testid="record-verification-decision" type="button" onClick={recordDecision} disabled={!gateReady} className="rounded-lg border border-violet-600/60 bg-violet-400/10 px-4 py-2 text-xs font-semibold text-violet-200 disabled:cursor-not-allowed disabled:opacity-40">{l.record}</button>
 
             {verificationRecord ? (
-              <div data-testid="verification-decision-result" className={`rounded-xl border p-4 ${decisionRecorded ? 'border-slate-700 bg-slate-950/25' : 'border-rose-800/60 bg-rose-950/20'}`}>
-                <div className="text-xs font-semibold text-slate-200">{verificationRecord.status}</div>
+              <div data-testid="verification-decision-result" data-status={verificationRecord.status} className={`rounded-xl border p-4 ${decisionRecorded ? 'border-slate-700 bg-slate-950/25' : 'border-rose-800/60 bg-rose-950/20'}`}>
+                <div className="text-xs font-semibold text-slate-200">{governanceEvidenceLabel(verificationRecord.status,locale)}</div>
                 {decisionRecorded ? (
                   <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                    <div><div className="text-[10px] text-slate-500">{l.truth}</div><div data-testid="verified-truth-status" className="mt-1 text-xs text-slate-200">{verificationRecord.verifiedFact?.truthStatus || '—'}</div></div>
-                    <div><div className="text-[10px] text-slate-500">{l.authority}</div><div data-testid="verified-authority-status" className="mt-1 text-xs text-slate-200">{verificationRecord.verifiedFact ? `${verificationRecord.verifiedFact.authorityClass} · verified=${String(verificationRecord.verifiedFact.authorityVerified)}` : '—'}</div></div>
+                    <div><div className="text-[10px] text-slate-500">{l.truth}</div><div data-testid="verified-truth-status" data-status={verificationRecord.verifiedFact?.truthStatus} className="mt-1 text-xs text-slate-200">{governanceEvidenceLabel(verificationRecord.verifiedFact?.truthStatus,locale)}</div></div>
+                    <div><div className="text-[10px] text-slate-500">{l.authority}</div><div data-testid="verified-authority-status" className="mt-1 text-xs text-slate-200">{verificationRecord.verifiedFact ? `${governanceEvidenceLabel(verificationRecord.verifiedFact.authorityClass,locale)} · ${isAr?'التحقق مسجل:':'Recorded verification:'} ${verificationRecord.verifiedFact.authorityVerified?(isAr?'نعم':'Yes'):(isAr?'لا':'No')}` : '—'}</div></div>
                     <div><div className="text-[10px] text-slate-500">{l.engine}</div><div className="mt-1 text-xs text-amber-200">{l.notEligible}</div></div>
                   </div>
                 ) : <div className="mt-2 text-[11px] text-rose-200">{verificationRecord.reasons?.map(reason => <div key={reason}><DiagnosticText code={reason} locale={locale} /></div>)}</div>}

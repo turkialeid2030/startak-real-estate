@@ -6,6 +6,7 @@ const require=createRequire(import.meta.url);
 const {findChromiumExecutable}=require('../config/paths');
 const {financialAndValuationLabels}=require('../../src/app/personal-study-status-clarity');
 const gold=require('../reference/RE-GOLD-baseline.json');
+const {pdfFixture}=require('../fixtures/bounded-pdf');
 const ar=require('../../src/i18n/locales/ar-SA');
 const namespace=require('../../src/storage/browser-local-storage-provider').NAMESPACE;
 const STUDY='AUDIT-D06-IDENTITY-SYNTHETIC';
@@ -16,7 +17,7 @@ try{
  server=await preview({preview:{host:'127.0.0.1',port:4173,strictPort:false}});
  const url='http://127.0.0.1:'+server.httpServer.address().port+'/';
  browser=await chromium.launch({headless:true,executablePath:findChromiumExecutable(),args:['--no-sandbox']});
- const page=await browser.newPage({locale:'ar-SA',viewport:{width:1280,height:900},acceptDownloads:true});
+ const page=await browser.newPage({locale:'ar-SA',timezoneId:'UTC',viewport:{width:1280,height:900},acceptDownloads:true});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  const seed={id:'audit-d06-identity',name:STUDY,mode:'building',
   savedAt:'2026-10-28T00:00:00.000Z',inputs:gold['RE-GOLD-002_existing_building'].inputs};
@@ -228,6 +229,65 @@ try{
  await page.getByTestId('locale-switch').click();
  assert((await market.getByTestId('market-study-action-notice').innerText()).includes('تم إعداد ملف الدراسة'),'D04 action notice restores Arabic');
  console.log('D04_RESEARCH_ACTION_REAL_CHROMIUM=PASS replayed_actions=false source_values_unchanged=true');
+
+ // Real document -> human-mapped candidate -> internal verification -> changed
+ // packet. Synthetic declarations test UI state only, never external approval.
+ const intake=page.getByTestId('local-document-evidence-intake');
+ await page.getByTestId('document-case-id').fill('SYNTH-D04-GOVERNANCE');
+ await page.getByTestId('local-document-file-input').setInputFiles({name:'SYNTH-original-source.pdf',mimeType:'application/pdf',buffer:pdfFixture()});
+ await page.getByTestId('local-document-parser-status').waitFor();
+ await page.waitForFunction(()=>document.querySelector('[data-testid="local-document-parser-status"]')?.dataset.parserStatus==='PARSED');
+ await intake.getByTestId('manual-transcription').locator('summary').click();
+ for(const [field,value]of Object.entries({text:'1500',page:'1',reviewerRef:'SYNTH-TRANSCRIBER',note:'Synthetic only; compare against fixture page 1'}))await page.getByTestId('manual-'+field).fill(value);
+ await page.getByTestId('apply-manual-transcription').click();
+ await page.getByTestId('evidence-atom-select').selectOption({index:1});
+ for(const[id,value]of Object.entries({'semantic-key-input':'market.rent','evidence-unit':'SAR/sqm/year','source-reference-input':'المصدر الأصلي / SYNTH-HOLD','reviewer-reference-input':'SYNTH-MAPPER','reviewer-note-input':'Synthetic source mapping only'}))await page.getByTestId(id).fill(value);
+ await page.getByTestId('evidence-value-type').selectOption('NUMBER');
+ await page.getByTestId('create-evidence-candidate').click();
+ await page.getByTestId('candidate-truth-status').waitFor();
+ assert(await page.getByTestId('candidate-truth-status').getAttribute('data-status')==='EXTRACTED_EVIDENCE','D04 mapped source remains unverified');
+ const verification=page.getByTestId('local-evidence-verification');
+ const verifiedTime=new Date(Date.now()+60000).toISOString().slice(0,16),decisionTime=new Date(Date.now()+120000).toISOString().slice(0,16);
+ for(const[id,value]of Object.entries({'verification-attestation-id':'SYNTH-ATT','verification-verifier-ref':'SYNTH-VERIFIER','verification-verifier-role':'SYNTH-ROLE','verification-identity-ref':'SYNTH-IDENTITY','verification-method':'SYNTH-SOURCE-CHECK','verification-reference':'SYNTH-WORKPAPER','verification-authority-ref':'SYNTH-AUTHORITY','verification-verified-at':verifiedTime}))await page.getByTestId(id).fill(value);
+ await page.getByTestId('verification-authority-class').selectOption('CONTRACTUAL');
+ for(const id of ['verification-original-check','verification-semantic-check','verification-conflict-check'])await page.getByTestId(id).check();
+ await page.getByTestId('assess-verification-packet').click();
+ assert(await page.getByTestId('verification-gate-result').getAttribute('data-status')==='READY_FOR_HUMAN_VERIFICATION_DECISION','D04 complete packet supports human decision only');
+ await page.getByTestId('verification-outcome').selectOption('VERIFY_FACT');
+ for(const[id,value]of Object.entries({'verification-decision-id':'SYNTH-DECISION','verification-decided-by':'SYNTH-HUMAN','verification-decision-ref':'SYNTH-DECISION-SOURCE','verification-decided-at':decisionTime}))await page.getByTestId(id).fill(value);
+ for(const id of ['verification-decision-conflict','verification-ack-source','verification-ack-semantic','verification-ack-authority','verification-ack-method','verification-ack-accountability'])await page.getByTestId(id).check();
+ await page.getByTestId('record-verification-decision').click();
+ assert(await page.getByTestId('verification-decision-result').getAttribute('data-status')==='DECISION_RECORDED','D04 actual UI records internal synthetic decision');
+ await page.getByTestId('save-evidence-journal').click();
+ const journalDownload=page.waitForEvent('download');await page.getByTestId('export-evidence-journal').click();
+ const journalFile=await journalDownload,journal=JSON.parse(await readFile(await journalFile.path(),'utf8'));
+ assert(journal.payload.verificationRecord.transactionAuthorized===false&&journal.payload.verificationRecord.externalCertificationEstablished===false,'D04 internal recorded decision grants no external authority');
+ const verificationBefore=await verification.locator('input,select').evaluateAll(nodes=>nodes.map(x=>({value:x.value,checked:x.checked})));
+ await page.getByTestId('locale-switch').click();
+ assert(await verification.getAttribute('dir')==='ltr','D04 verification direction follows English');
+ assert((await page.getByTestId('verification-authority-class').innerText()).includes('Contractual source'),'D04 authority choices localized');
+ assert((await page.getByTestId('local-evidence-journal').getByRole('status').innerText()).includes('saved locally'),'D04 prior journal action follows English');
+ const verificationAfter=await verification.locator('input,select').evaluateAll(nodes=>nodes.map(x=>({value:x.value,checked:x.checked})));
+ assert(JSON.stringify(verificationBefore)===JSON.stringify(verificationAfter),'D04 verification values and declarations survive locale switch');
+ await page.getByTestId('verification-authority-ref').fill('SYNTH-CHANGED-AUTHORITY');
+ assert(await page.getByTestId('verification-gate-result').count()===0&&await page.getByTestId('verification-decision-result').count()===0&&await page.getByTestId('record-verification-decision').isDisabled(),'D06 changed packet revokes old gate and decision');
+ assert(!await page.getByTestId('verification-ack-source').isChecked(),'D06 changed packet revokes acknowledgements');
+ const canonical=page.getByTestId('canonical-case-workspace-panel');
+ for(const[label,value]of [['Workspace ID','SYNTH-WS'],['Project ID','SYNTH-PROJECT'],['Case ID','SYNTH-CASE'],['Analyst / actor ID','SYNTH-OWNER']])await canonical.getByRole('textbox',{name:label,exact:true}).fill(value);
+ await canonical.getByRole('combobox',{name:'Asset class',exact:true}).selectOption('OFFICE');
+ await canonical.getByRole('button',{name:'Assemble canonical case',exact:true}).click();
+ const dossier=page.getByTestId('investment-committee-dossier'),post=page.getByTestId('post-decision-governance-panel');
+ await dossier.waitFor();
+ for(const panel of [dossier,post]){
+  assert(await panel.getAttribute('dir')==='ltr','D04 governance follows English direction');
+  const englishText=await panel.evaluate(node=>{const copy=node.cloneNode(true);copy.querySelectorAll('[data-user-content],[data-diagnostic-content],code,input,textarea').forEach(x=>x.remove());return copy.textContent;});
+  assert(!/[؀-ۿ]/.test(englishText),'D04 governance has no untranslated Arabic system text');
+ }
+ assert(await dossier.getAttribute('data-dossier-status')==='HOLD_WORKSPACE','D04 translation cannot authorize committee dossier');
+ await page.getByTestId('locale-switch').click();
+ assert(await dossier.getAttribute('dir')==='rtl'&&await post.getAttribute('dir')==='rtl','D04 governance returns to Arabic');
+ assert((await canonical.getByRole('combobox',{name:'فئة الأصل',exact:true}).inputValue())==='OFFICE','D04 canonical class unchanged after roundtrip');
+ console.log('D04_GOVERNANCE_EVIDENCE_REAL_CHROMIUM=PASS stale_packet_revoked=true source_values_unchanged=true external_authority=false');
  assert(errors.length===0,'React browser failures: '+errors.slice(0,2).join(','));
  console.log('D06_D07_REAL_CHROMIUM=PASS financial_and_valuation_states_separate=true inferred_title=false');
 }catch(e){console.error('D06_D07_REAL_CHROMIUM=FAIL '+String(e.stack||e));process.exitCode=1;}
