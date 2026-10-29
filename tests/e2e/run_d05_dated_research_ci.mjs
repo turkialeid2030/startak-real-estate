@@ -1,6 +1,7 @@
 import {preview} from 'vite';
 import {chromium} from 'playwright';
 import {createRequire} from 'node:module';
+import {readFile} from 'node:fs/promises';
 const require=createRequire(import.meta.url);
 const ar=require('../../src/i18n/locales/ar-SA');
 const {findChromiumExecutable}=require('../config/paths');
@@ -102,6 +103,56 @@ try {
   !await panel.getByTestId('dated-source-attestation').isChecked()&&
   await panel.getByTestId('dated-review-result').count()===0,
   'editing the same project invalidates prior dates, references, consent and results');
+ const financingSection=page.getByRole('button',{name:/Real Estate Financing \(Optional\)/});
+ if(await financingSection.getAttribute('aria-expanded')!=='true')await financingSection.click();
+ const leverage=page.getByRole('switch',{name:'Enable Financial Leverage',exact:true});
+ if(await leverage.getAttribute('aria-checked')!=='true')await leverage.click();
+ const projection=page.getByTestId('dated-development-projection');
+ await projection.locator('summary').first().click();
+ ok(await projection.getByTestId('dated-projection-start').inputValue()===''&&
+  await projection.getByTestId('dated-projection-income-timing').inputValue()==='',
+  'monthly projection cannot infer start date or NOI allocation assumption');
+ await projection.getByTestId('dated-projection-calculate').click();
+ ok((await projection.getByTestId('dated-projection-blockers').innerText()).includes('EXPLICIT_PROJECTION_ASSUMPTIONS_REQUIRED'),
+  'no illustrative projection without explicit assumption confirmation');
+ await projection.getByTestId('dated-projection-start').fill('2026-01-31');
+ await projection.getByTestId('dated-projection-source').fill('SYNTH/EXECUTION-PLAN');
+ await projection.getByTestId('dated-projection-confirm').check();
+ await projection.getByTestId('dated-projection-calculate').click();
+ ok((await projection.getByTestId('dated-projection-blockers').innerText()).includes('EXPLICIT_INCOME_TIMING_REQUIRED'),
+  'NOI collection cannot silently default to monthly or annual');
+ await projection.getByTestId('dated-projection-income-timing').selectOption('UNIFORM_MONTHLY');
+ await projection.getByTestId('dated-projection-calculate').click();
+ ok((await projection.getByTestId('dated-projection-calendar').innerText()).includes('2028-07-31'),
+  '2.5-year development completes after 30 months, not after rounded 3 years');
+ const downloadPromise=page.waitForEvent('download');
+ await projection.getByTestId('dated-projection-export').click();
+ const download=await downloadPromise;
+ const payload=JSON.parse(await readFile(await download.path(),'utf8'));
+ ok(payload.inputs.constructionPeriod===2.5&&payload.inputs.leverageEnabled===true,
+  'download is bound to the current financed project inputs');
+ ok(payload.projection.constructionMonths===30&&payload.projection.canonicalRoundedConstructionYears===3&&
+  payload.projection.constructionRows.length===30&&payload.projection.completionDate==='2028-07-31',
+  'download contains the full monthly construction timeline');
+ ok(payload.projection.accounting.canonicalMonthlyFinancingAmountsMatched===true&&
+  payload.projection.accounting.projectAndEquityCashflowsReconciled===true,
+  'current monthly facility amounts and dated project/equity accounting agree');
+ ok(!payload.projection.canonicalReturnsChanged&&!payload.projection.independentlyVerified&&
+  !payload.projection.transactionAuthorized&&!payload.projection.professionalValuationAuthorized,
+  'projection export cannot confer verification, investment approval or alter annual economics');
+ await projection.getByTestId('dated-projection-income-timing').selectOption('ANNUAL_END');
+ ok(await projection.getByTestId('dated-projection-result').count()===0,'changing assumed receipt timing clears result');
+ await page.getByTestId('locale-switch').click();
+ ok(await projection.getAttribute('dir')==='rtl'&&
+  await projection.getByTestId('dated-projection-start').inputValue()==='2026-01-31'&&
+  await projection.getByTestId('dated-projection-income-timing').inputValue()==='ANNUAL_END',
+  'Arabic presentation preserves explicitly chosen projection assumptions');
+ await projection.getByTestId('dated-projection-calculate').click();
+ ok(await projection.getByTestId('dated-projection-calendar').count()===1,'Arabic monthly projection calculates');
+ await page.locator('label').filter({hasText:ar.inputLand.constructionPeriod}).locator('input').first().fill('2');
+ ok(await projection.getByTestId('dated-projection-start').inputValue()===''&&
+  await projection.getByTestId('dated-projection-result').count()===0,
+  'editing actual project inputs invalidates monthly projection and assumptions before display');
  ok(errors.length===0,'browser exceptions '+errors.slice(0,2).join(', '));
  console.log('D05_DATED_OWNER_REAL_CHROMIUM=PASS no_real_market_data=true canonical_unmodified=true');
 }catch(e){console.error('D05_DATED_OWNER_REAL_CHROMIUM=FAIL '+String(e.stack||e));process.exitCode=1;}

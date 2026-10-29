@@ -1,7 +1,8 @@
 import React,{useState} from 'react';
+import DatedDevelopmentProjectionPanel from './DatedDevelopmentProjectionPanel.jsx';
 const {reviewOwnerDatedScenario}=require('../valuation-intelligence/dated-scenario-review');
 const emptyRow=()=>({date:'',amount:'',sourceReference:'',canonicalPeriod:''});
-export default function OwnerDatedScenarioPanel({locale='ar-SA',projectCashflows=null,equityCashflows=null}){
+export default function OwnerDatedScenarioPanel({locale='ar-SA',projectCashflows=null,equityCashflows=null,financialInputs=null,assumptionModelVersion}){
  const en=locale==='en';
  const money=n=>typeof n==='number'&&Number.isFinite(n)?n.toLocaleString(en?'en-US':'ar-SA',{maximumFractionDigits:2}):'—';
  const [rows,setRows]=useState([emptyRow(),emptyRow()]);
@@ -151,5 +152,6 @@ export default function OwnerDatedScenarioPanel({locale='ar-SA',projectCashflows
      'لا تحقق مستقل ولا تسوية زمنية مع النموذج السنوي أو الشهري ولا قيمة عقارية معتمدة ولا صلاحية معاملة.'}
    </p>
   </div>}
+  <DatedDevelopmentProjectionPanel locale={locale} financialInputs={financialInputs} assumptionModelVersion={assumptionModelVersion}/>
  </section>;
 }

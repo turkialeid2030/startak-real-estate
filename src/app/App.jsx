@@ -2303,6 +2303,8 @@ export default function App() {
             locale={locale}
             projectCashflows={activeValidationError?null:results?.cashflows}
             equityCashflows={activeValidationError?null:results?.leveredCashflows}
+            financialInputs={activeValidationError?null:inputs}
+            assumptionModelVersion={assumptionModelVersion}
           />
         )}
 

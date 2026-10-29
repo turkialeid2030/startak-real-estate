@@ -78,6 +78,11 @@ on:
       - 'src/i18n/research-source-presentation.js'
       - 'src/i18n/advanced-market-presentation.js'
       - 'src/valuation-intelligence/declared-period-timing.js'
+      - 'src/valuation-intelligence/dated-development-projection.js'
+      - 'src/components/DatedDevelopmentProjectionPanel.jsx'
+      - 'tests/defects/dated_development_monthly_projection_d05.js'
+      - 'tests/reference/D05-monthly-reference.json'
+      - 'tests/reference/build_d05_monthly_reference.py'
       - 'tests/defects/declared_period_timing_d05.js'
       - 'tests/defects/dated_scenario_reconciliation_d05.js'
       - 'src/components/OwnerDatedScenarioPanel.jsx'
@@ -127,6 +132,12 @@ jobs:
         run: node tests/defects/dated_scenario_reconciliation_d05.js
       - name: Audit explicit sourced period dates without claiming monthly financing integration
         run: node tests/defects/declared_period_timing_d05.js
+      - name: Reproduce independent Decimal monthly reference without STARTAK imports
+        run: |
+          python3 tests/reference/build_d05_monthly_reference.py
+          git diff --exit-code -- tests/reference/D05-monthly-reference.json
+      - name: Verify dated construction and financing against independent references
+        run: node tests/defects/dated_development_monthly_projection_d05.js
       - name: Secure Access synthetic tests without tokens
         run: node tests/architecture/run_protected_preview_access.js
       - run: node tests/architecture/run_transaction_cohort_unit_mix.js
