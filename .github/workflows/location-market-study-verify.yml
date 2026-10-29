@@ -76,6 +76,9 @@ on:
       - 'tests/defects/fractional_construction_disclosure_d05.js'
       - 'src/valuation-intelligence/dated-scenario-review.js'
       - 'src/i18n/research-source-presentation.js'
+      - 'src/i18n/advanced-market-presentation.js'
+      - 'src/valuation-intelligence/declared-period-timing.js'
+      - 'tests/defects/declared_period_timing_d05.js'
       - 'tests/defects/dated_scenario_reconciliation_d05.js'
       - 'src/components/OwnerDatedScenarioPanel.jsx'
       - 'tests/defects/dated_scenario_owner_d05.js'
@@ -122,6 +125,8 @@ jobs:
         run: node tests/defects/dated_scenario_owner_d05.js
       - name: Audit canonical period amount reconciliation without inferring dates
         run: node tests/defects/dated_scenario_reconciliation_d05.js
+      - name: Audit explicit sourced period dates without claiming monthly financing integration
+        run: node tests/defects/declared_period_timing_d05.js
       - name: Secure Access synthetic tests without tokens
         run: node tests/architecture/run_protected_preview_access.js
       - run: node tests/architecture/run_transaction_cohort_unit_mix.js

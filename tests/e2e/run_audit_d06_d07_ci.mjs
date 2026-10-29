@@ -115,6 +115,29 @@ try{
   .includes('Official aggregated indicator'),
   'D04 evidence class labels translated without changing machine class');
  const listings=page.getByTestId('saudi-listing-research');
+ const advanced=[
+  [page.getByTestId('asking-offer-research'),'Market asking listings'],
+  [page.getByTestId('professional-comparables'),'Comparable review'],
+  [page.getByTestId('cross-method-reconciliation'),'Method and market rent reconciliation'],
+  [page.getByTestId('cohort-unit-mix'),'Asking and executed-sale cohorts']
+ ];
+ for(const [panel,title] of advanced){
+  assert(await panel.getAttribute('dir')==='ltr','D04 advanced English direction');
+  assert((await panel.locator('summary').first().innerText()).includes(title),'D04 advanced heading '+title);
+  await panel.locator('summary').first().click();
+ }
+ const asking=advanced[0][0],professional=advanced[1][0],methods=advanced[2][0],mix=advanced[3][0];
+ await asking.getByRole('button',{name:'Add sale or rental listing',exact:true}).click();
+ await asking.getByLabel('Asking sale price (SAR)',{exact:true}).fill('123456.78');
+ await asking.getByLabel('Original listing URL (secure)',{exact:true}).fill('https://example.org/synthetic-d04');
+ await professional.getByLabel('Comparison basis (same for all comparables)',{exact:true}).selectOption('BUILT_SQM');
+ await professional.getByLabel('Unadjusted price per sqm (SAR)',{exact:true}).first().fill('12500.25');
+ await methods.getByLabel('Building replacement cost (SAR/sqm)',{exact:true}).fill('2500.50');
+ await mix.getByRole('button',{name:'Add unit class',exact:true}).click();
+ await mix.getByLabel('Unit class',{exact:true}).last().selectOption('APARTMENT_2BR');
+ await mix.getByLabel('Class unit count',{exact:true}).last().fill('12');
+ const advancedBefore=await page.locator('[data-testid="asking-offer-research"], [data-testid="professional-comparables"], [data-testid="cross-method-reconciliation"], [data-testid="cohort-unit-mix"]').evaluateAll(nodes=>
+  nodes.flatMap(node=>Array.from(node.querySelectorAll('input:not([type=file]),select')).map(x=>({type:x.type,value:x.value,checked:x.checked}))));
  const earth=page.getByTestId('earth-national-research');
  const challenger=page.getByTestId('challenger-benchmark-research');
  for(const [panel,title] of [[listings,'Saudi property listings'],[earth,'Earth — reported transactions'],
@@ -164,6 +187,11 @@ try{
   'D04 imported evidence restores Arabic classification');
  for(const panel of [listings,earth,challenger])assert(await panel.getAttribute('dir')==='rtl',
   'D04 source panels restore Arabic direction');
+ for(const [panel] of advanced)assert(await panel.getAttribute('dir')==='rtl','D04 advanced RTL restored');
+ const advancedAfter=await page.locator('[data-testid="asking-offer-research"], [data-testid="professional-comparables"], [data-testid="cross-method-reconciliation"], [data-testid="cohort-unit-mix"]').evaluateAll(nodes=>
+  nodes.flatMap(node=>Array.from(node.querySelectorAll('input:not([type=file]),select')).map(x=>({type:x.type,value:x.value,checked:x.checked}))));
+ assert(JSON.stringify(advancedBefore)===JSON.stringify(advancedAfter),
+  'D04 locale switch must preserve every advanced field, source URL, amount, enum and checkbox');
  assert(await fusion.getAttribute('dir')==='rtl','D04 restores Arabic research panel direction');
  assert(await suhail.getAttribute('dir')==='rtl','D04 restores Arabic neighborhood panel direction');
  await page.waitForFunction(()=>{

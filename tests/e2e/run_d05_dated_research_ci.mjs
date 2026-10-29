@@ -54,6 +54,13 @@ try {
   'annual reference period cannot be inferred');
  const periodCount=await panel.getByTestId('dated-row-period-0').locator('option').count();
  ok(periodCount>2,'current project cashflows appear only as explicit reference options');
+ await panel.getByTestId('dated-check-period-dates').check();
+ ok(await panel.getByTestId('dated-window-start-0').inputValue()===''&&
+   await panel.getByTestId('dated-window-end-0').inputValue()==='',
+  'D05 never infers period dates from numeric annual or monthly indices');
+ await panel.getByTestId('dated-window-start-0').fill('2026-01-01');
+ await panel.getByTestId('dated-window-end-0').fill('2026-01-01');
+ await panel.getByTestId('dated-window-source-0').fill('SYNTH/time-zero-source');
  await panel.getByTestId('dated-row-period-0').selectOption('0');
  await panel.getByTestId('dated-row-period-1').selectOption('1');
  await panel.getByTestId('dated-calculate').click();
@@ -71,6 +78,17 @@ try {
   'English owner study labels visible on language switch');
  ok(await panel.getByTestId('dated-row-amount-1').inputValue()==='1e3',
   'locale change must never normalize malformed economic input');
+ await panel.getByTestId('dated-reconcile-amounts').check();
+ ok(await panel.getByTestId('dated-window-start-0').inputValue()==='2026-01-01'&&
+   await panel.getByTestId('dated-window-source-0').inputValue()==='SYNTH/time-zero-source',
+  'language switch preserves explicit user period evidence');
+ await panel.getByTestId('dated-reference-basis').selectOption('EQUITY');
+ ok(!await panel.getByTestId('dated-check-period-dates').isChecked(),
+  'switching project/equity reference clears timing attestation and windows');
+ await panel.getByTestId('dated-check-period-dates').check();
+ ok(await panel.getByTestId('dated-window-start-0').inputValue()==='',
+  'dates from a different financial basis cannot be reused automatically');
+ await panel.getByTestId('dated-reconcile-amounts').uncheck();
  await panel.getByTestId('dated-row-amount-1').fill('1100');
  await panel.getByTestId('dated-calculate').click();
  ok((await panel.getByTestId('dated-review-result').innerText()).includes('UNVERIFIED_DATED_SCENARIO_CALCULATED'),

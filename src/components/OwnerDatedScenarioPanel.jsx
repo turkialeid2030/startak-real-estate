@@ -9,7 +9,13 @@ export default function OwnerDatedScenarioPanel({locale='ar-SA',projectCashflows
  const [rights,setRights]=useState(false);
  const [review,setReview]=useState(null);
  const [reconcile,setReconcile]=useState(false),[basis,setBasis]=useState('PROJECT');
+ const [checkDates,setCheckDates]=useState(false),[windows,setWindows]=useState({});
  const canonicalCashflows=basis==='EQUITY'?equityCashflows:projectCashflows;
+ const declaredPeriods=(Array.isArray(canonicalCashflows)?canonicalCashflows:[]).map((_,period)=>({
+  period,startDate:windows[period]?.startDate||'',endDate:windows[period]?.endDate||'',
+  sourceReference:windows[period]?.sourceReference||''
+ }));
+ const patchWindow=(period,key,value)=>{setWindows(old=>({...old,[period]:{...old[period],[key]:value}}));setReview(null)};
  const patch=(i,key,value)=>{setRows(old=>old.map((r,j)=>i===j?{...r,[key]:value}:r));setReview(null)};
  const updateDiscount=value=>{setDiscount(value);setReview(null)};
  return <section data-testid="dated-scenario-review" dir={en?'ltr':'rtl'}
@@ -32,12 +38,42 @@ export default function OwnerDatedScenarioPanel({locale='ar-SA',projectCashflows
     'اشتراط مطابقة مبالغ كل فترة من الدراسة المالية الحالية (لا يثبت تواريخ التدفقات أو تسوية التمويل الشهري)'}
   </label>
   {reconcile&&<label className="mb-3 block text-xs">{en?'Reference cash-flow basis':'أساس التدفقات المرجعية'}
-   <select data-testid="dated-reference-basis" value={basis} onChange={e=>{setBasis(e.target.value);setReview(null)}}
+   <select data-testid="dated-reference-basis" value={basis} onChange={e=>{setBasis(e.target.value);setWindows({});setCheckDates(false);setReview(null)}}
     className="mt-1 block w-full rounded border border-slate-600 bg-[#101c30] p-2">
     <option value="PROJECT">{en?'Project — before financing':'المشروع — قبل التمويل'}</option>
     <option value="EQUITY">{en?'Equity — after financing':'حقوق الملكية — بعد التمويل'}</option>
    </select>
   </label>}
+  {reconcile&&<div className="mb-3 rounded border border-slate-600 p-3">
+   <label className="flex items-center gap-2 text-xs">
+    <input data-testid="dated-check-period-dates" type="checkbox" checked={checkDates}
+     onChange={e=>{setCheckDates(e.target.checked);setReview(null)}} />
+    {en?'Check cash-flow dates against explicitly sourced period windows':'فحص تواريخ التدفقات مقابل حدود فترات موثقة بمرجع المستخدم'}
+   </label>
+   {checkDates&&<>
+    <p className="my-2 text-xs text-amber-200">
+     {en?'Enter every window and its source. Period 0 is one date; later periods start at the previous end date and include their end date only. No dates are inferred. Matching these declarations does not reconcile canonical construction timing or monthly financing.':
+      'أدخل حدود كل فترة ومصدرها. الفترة صفر تاريخ واحد؛ تبدأ كل فترة لاحقة عند نهاية السابقة، وتستبعد تاريخ البداية وتضم تاريخ النهاية. لا تُستنتج أي تواريخ. مطابقة هذه الإقرارات لا تثبت تسوية توقيت الإنشاء أو التمويل الشهري في المحرك الأساسي.'}
+    </p>
+    {declaredPeriods.map(p=><div key={p.period} className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+     <label className="text-xs">{en?'Period ':'الفترة '}{p.period} — {en?'Start date':'تاريخ البداية'}
+      <input data-testid={'dated-window-start-'+p.period} type="date" value={p.startDate}
+       onChange={e=>patchWindow(p.period,'startDate',e.target.value)}
+       className="mt-1 w-full rounded border border-slate-600 bg-[#101c30] p-2" />
+     </label>
+     <label className="text-xs">{en?'End date':'تاريخ النهاية'}
+      <input data-testid={'dated-window-end-'+p.period} type="date" value={p.endDate}
+       onChange={e=>patchWindow(p.period,'endDate',e.target.value)}
+       className="mt-1 w-full rounded border border-slate-600 bg-[#101c30] p-2" />
+     </label>
+     <label className="text-xs">{en?'Period date source reference':'مرجع مصدر تواريخ الفترة'}
+      <input data-testid={'dated-window-source-'+p.period} value={p.sourceReference} maxLength={240}
+       onChange={e=>patchWindow(p.period,'sourceReference',e.target.value)}
+       className="mt-1 w-full rounded border border-slate-600 bg-[#101c30] p-2" />
+     </label>
+    </div>)}
+   </>}
+  </div>}
   <label className="block text-xs mb-3">
    {en?'Annual discount rate as decimal: 0 to below 1 (0.10 = 10%; do not enter 10)':'معدل الخصم السنوي ككسر بين 0 وأقل من 1 (0.10 = 10%؛ لا تكتب 10)'}
    <input data-testid="dated-discount-rate" value={discount} onChange={e=>updateDiscount(e.target.value)}
@@ -90,7 +126,8 @@ export default function OwnerDatedScenarioPanel({locale='ar-SA',projectCashflows
   </label>
   <button type="button" data-testid="dated-calculate" onClick={()=>setReview(reviewOwnerDatedScenario({
     rows,annualDiscountRate:discount,rightsConfirmed:rights,
-    requireCanonicalReconciliation:reconcile,canonicalCashflows
+    requireCanonicalReconciliation:reconcile,canonicalCashflows,
+    requireDeclaredTiming:reconcile&&checkDates,declaredPeriods
    }))}
    className="mt-3 rounded bg-amber-700 px-4 py-2 text-xs font-semibold text-white">
    {en?'Calculate research scenario only':'احسب السيناريو البحثي فقط'}
@@ -103,6 +140,10 @@ export default function OwnerDatedScenarioPanel({locale='ar-SA',projectCashflows
     {review.amountReconciliation&&<p data-testid="dated-amount-reconciliation" className="mt-2 text-amber-200">
      {en?'Every annual period amount matches the selected reference to the halala. This does not reconcile actual dates, construction timing or monthly financing.':
       'تطابقت مبالغ جميع الفترات السنوية مع المرجع المختار بالهللة. لا يثبت ذلك تواريخ التدفقات الفعلية أو توقيت الإنشاء أو تسوية التمويل الشهري.'}
+    </p>}
+    {review.declaredPeriodTimingMatched&&<p data-testid="dated-timing-reconciliation" className="mt-2 text-amber-200">
+     {en?'Cash-flow dates match your sourced period declarations. Sources are not independently verified; canonical annual/monthly timing is still unreconciled.':
+      'تطابقت تواريخ التدفقات مع حدود الفترات التي صرّحت بها وأرفقت مراجعها. المصادر غير متحقق منها مستقلاً، وتسوية التوقيت السنوي والشهري للمحرك الأساسي لم تكتمل.'}
     </p>}
    </>:<p data-testid="dated-review-blockers" className="text-rose-200">{review.blockers.join(' / ')}</p>}
    <p className="mt-2 text-amber-200">

@@ -1,19 +1,21 @@
 import React,{useMemo} from 'react';
+const {useLocale}=require('../i18n/LocaleContext.js');
+const {advancedMarketLabel,advancedMarketMoney}=require('../i18n/advanced-market-presentation');
 const {reviewAskingVsExecuted,evaluateUnitMixRents,UNIT_KINDS}=
  require('../market/transaction-cohort-unit-mix');
 const {number}=require('../market/instant-market-study');
 const INPUT='w-full mt-1 min-h-[40px] rounded-lg border border-slate-600 bg-[#101c30] px-3 py-2 text-sm text-slate-100';
-const nFormat=new Intl.NumberFormat('ar-SA',{maximumFractionDigits:2});
-const sar=x=>Number.isFinite(x)?nFormat.format(x)+' ر.س':'غير قابل للحساب';
 const bUnit=()=>({unitType:'',unitCount:'',areaPerUnitSqm:''});
 const bLease=()=>({unitType:'',status:'EXECUTED',date:'',annualRent:'',areaSqm:'',
  sourceUrl:'',sourceRecordId:'',city:'',district:'',location:''});
-function F({name,value,onChange,type='text',placeholder=''}){return <label className="block min-w-0 text-xs text-slate-300">
+function F({name,value,onChange,type='text',placeholder=''}){const {locale}=useLocale();const L=(value,code)=>advancedMarketLabel(value,locale,code);
+ return <label className="block min-w-0 text-xs text-slate-300">
  {name}<input className={INPUT} value={value??''} type={type} dir={type==='date'?'ltr':'auto'}
   placeholder={placeholder} onChange={e=>onChange(e.target.value)}/></label>;}
-function S({name,value,onChange,options}){return <label className="block min-w-0 text-xs text-slate-300">
- {name}<select className={INPUT} value={value||''} onChange={e=>onChange(e.target.value)}>
-  {options.map(([k,label])=><option key={k} value={k}>{label}</option>)}
+function S({name,value,onChange,options}){const {locale}=useLocale();const L=(value,code)=>advancedMarketLabel(value,locale,code);
+ return <label className="block min-w-0 text-xs text-slate-300">
+ {L(name)}<select className={INPUT} value={value||''} onChange={e=>onChange(e.target.value)}>
+  {options.map(([k,label])=><option key={k} value={k}>{L(label,k)}</option>)}
  </select></label>;}
 const errors={
  SUBJECT_COMPARABLE_AREA_REQUIRED:'مساحة المقارنة للأصل غير مكتملة',
@@ -28,6 +30,11 @@ const errors={
 };
 export default function TransactionCohortAndUnitMixPanel({subject,sales,askingOffers,asOf,
  unitMix,setUnitMix,leaseComparables,setLeaseComparables,rentAssumptions,setRentAssumptions}) {
+ const {locale}=useLocale();const en=locale==='en';
+ const L=(value,code)=>advancedMarketLabel(value,locale,code);
+ const money=value=>advancedMarketMoney(value,locale);
+ const nf=new Intl.NumberFormat(en?'en-US':'ar-SA',{maximumFractionDigits:2});
+
  const expenseRatio=rentAssumptions.expenseRatio;
  const stabilizedOccupancy=rentAssumptions.stabilizedOccupancy;
  const setExpenseRatio=v=>setRentAssumptions(p=>({...p,expenseRatio:v}));
@@ -41,59 +48,53 @@ export default function TransactionCohortAndUnitMixPanel({subject,sales,askingOf
  const changeMix=(i,k,v)=>setUnitMix(a=>a.map((x,j)=>i===j?{...x,[k]:v}:x));
  const changeLease=(i,k,v)=>setLeaseComparables(a=>a.map((x,j)=>i===j?{...x,[k]:v}:x));
  const isSpecialist=['HOTEL','HEALTHCARE_PROPERTY','INDUSTRIAL_PROPERTY','LAND'].includes(subject.assetType);
- return <details data-testid="cohort-unit-mix" dir="rtl"
+ return <details data-testid="cohort-unit-mix" dir={en?'ltr':'rtl'}
  className="mt-5 rounded-xl border border-slate-600 bg-[#192A41] p-3 md:p-4 text-slate-100">
- <summary className="min-h-[44px] cursor-pointer text-sm font-bold text-amber-100">
-  مطابقة مجموعات عروض البيع بالصفقات المنفذة + الإيجار حسب فئات الوحدات
- </summary>
- <p className="mt-2 text-xs leading-6 text-slate-300">
-  هذه مقارنة بين <strong>مجموعتين مستقلتين</strong> من الأدلة، وليست إثباتًا أن الإعلان المعيّن أُفرغ بالسعر المسجل.
-  لا تُحسب مقارنة إلا عند توافق فئة الأصل والمدينة أو القرب المكاني ومساحة الأصل والفترة؛
-  ولا تستخدم أسعار الإعلانات لتعديل القيمة الرئيسية تلقائيًا.
- </p>
+ <summary className="min-h-[44px] cursor-pointer text-sm font-bold text-amber-100">{L("مطابقة مجموعات عروض البيع بالصفقات المنفذة + الإيجار حسب فئات الوحدات")}</summary>
+ <p className="mt-2 text-xs leading-6 text-slate-300">{L("هذه مقارنة بين")} <strong>{L("مجموعتين مستقلتين")}</strong> {L("من الأدلة، وليست إثباتًا أن الإعلان المعيّن أُفرغ بالسعر المسجل. لا تُحسب مقارنة إلا عند توافق فئة الأصل والمدينة أو القرب المكاني ومساحة الأصل والفترة؛ ولا تستخدم أسعار الإعلانات لتعديل القيمة الرئيسية تلقائيًا.")}</p>
  <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
   <div className="rounded-lg border border-slate-600 p-3">
-   <p className="text-xs text-slate-300">وسيط المتر المعروض للبيع</p>
-   <strong className="mt-1 block text-lg">{sar(cohort.medianAskingSarPerSqm)}</strong>
-   <p className="text-xs text-slate-400">عروض ملائمة: {cohort.askingCount}</p>
+   <p className="text-xs text-slate-300">{L("وسيط المتر المعروض للبيع")}</p>
+   <strong className="mt-1 block text-lg">{money(cohort.medianAskingSarPerSqm)}</strong>
+   <p className="text-xs text-slate-400">{L("عروض ملائمة:")} {cohort.askingCount}</p>
   </div>
   <div className="rounded-lg border border-slate-600 p-3">
-   <p className="text-xs text-slate-300">وسيط المتر المنفذ للبيع</p>
-   <strong className="mt-1 block text-lg">{sar(cohort.medianExecutedSarPerSqm)}</strong>
-   <p className="text-xs text-slate-400">صفقات منفذة مناسبة: {cohort.executedCount}</p>
+   <p className="text-xs text-slate-300">{L("وسيط المتر المنفذ للبيع")}</p>
+   <strong className="mt-1 block text-lg">{money(cohort.medianExecutedSarPerSqm)}</strong>
+   <p className="text-xs text-slate-400">{L("صفقات منفذة مناسبة:")} {cohort.executedCount}</p>
   </div>
  </div>
  <div className="mt-3 rounded-lg border border-slate-600 p-3 text-xs leading-7">
-  <p>الفارق بين وسيطي مجموعتي السوق: <strong>{sar(cohort.askingMinusExecutedSarPerSqm)}</strong>
-  {Number.isFinite(cohort.askingMinusExecutedPct)?' ('+cohort.askingMinusExecutedPct+'% من وسيط المنفذ)':''}</p>
-  <p>حالات تطابق الحي فقط: {cohort.districtOnlyEvidence}. الحالة: {cohort.status==='COHORT_GAP_REVIEW_ONLY'?'دليل سياقي للمراجعة':'لا توجد مجموعتان مؤهلتان (3 عروض و3 صفقات على الأقل)'}</p>
-  <p className="text-amber-200">الفارق ليس خصم تفاوض محققًا، ولا يثبت بيع إعلان محدد.</p>
+  <p>{L("الفارق بين وسيطي مجموعتي السوق:")} <strong>{money(cohort.askingMinusExecutedSarPerSqm)}</strong>
+  {Number.isFinite(cohort.askingMinusExecutedPct)?' ('+cohort.askingMinusExecutedPct+L('% من وسيط المنفذ)'):''}</p>
+  <p>{L("حالات تطابق الحي فقط:")} {cohort.districtOnlyEvidence}. {L('الحالة:')} {cohort.status==='COHORT_GAP_REVIEW_ONLY'?L('دليل سياقي للمراجعة'):L('لا توجد مجموعتان مؤهلتان (3 عروض و3 صفقات على الأقل)')}</p>
+  <p className="text-amber-200">{L("الفارق ليس خصم تفاوض محققًا، ولا يثبت بيع إعلان محدد.")}</p>
  </div>
  {!isSpecialist&&<>
- <h4 className="mt-5 font-semibold text-sm text-amber-100">المزيج التأجيري للمجمع أو العقار</h4>
- <p className="mt-2 text-xs text-slate-300">أدخل عدد ومساحة كل فئة، ثم ثلاثة عقود إيجار فعلية مؤرخة على الأقل لكل فئة. تُحسب الأجرة السنوية الجديدة من هذه العقود، وليس من الإيجار السابق للعقار.</p>
+ <h4 className="mt-5 font-semibold text-sm text-amber-100">{L("المزيج التأجيري للمجمع أو العقار")}</h4>
+ <p className="mt-2 text-xs text-slate-300">{L("أدخل عدد ومساحة كل فئة، ثم ثلاثة عقود إيجار فعلية مؤرخة على الأقل لكل فئة. تُحسب الأجرة السنوية الجديدة من هذه العقود، وليس من الإيجار السابق للعقار.")}</p>
  {unitMix.map((r,i)=><div key={'u'+i} className="mt-3 grid grid-cols-1 sm:grid-cols-4 gap-2 rounded-lg border border-slate-700 p-3">
   <S name="فئة الوحدة" value={r.unitType} onChange={v=>changeMix(i,'unitType',v)}
-    options={[['','اختر فئة'],...Object.entries(UNIT_KINDS)]}/>
+    options={[['',L('اختر فئة')],...Object.entries(UNIT_KINDS)]}/>
   <F name="عدد وحدات الفئة" value={r.unitCount} onChange={v=>changeMix(i,'unitCount',v)}/>
   <F name="متوسط المساحة لكل وحدة (م²)" value={r.areaPerUnitSqm} onChange={v=>changeMix(i,'areaPerUnitSqm',v)}/>
   <button type="button" className="min-h-[40px] rounded-lg border border-rose-700 px-3 text-xs text-rose-200"
-    onClick={()=>setUnitMix(a=>a.filter((_,j)=>i!==j))}>حذف الفئة</button>
+    onClick={()=>setUnitMix(a=>a.filter((_,j)=>i!==j))}>{L("حذف الفئة")}</button>
  </div>)}
- <button type="button" aria-label="إضافة فئة وحدات" className="mt-3 min-h-[40px] rounded-lg border border-amber-600 px-3 py-2 text-xs"
-  onClick={()=>setUnitMix(a=>a.length<30?[...a,bUnit()]:a)}>+ إضافة فئة وحدات</button>
- <h4 className="mt-5 font-semibold text-sm text-amber-100">عقود الإيجار المقارنة بحسب نوع الوحدة</h4>
+ <button type="button" aria-label={L("إضافة فئة وحدات")} className="mt-3 min-h-[40px] rounded-lg border border-amber-600 px-3 py-2 text-xs"
+  onClick={()=>setUnitMix(a=>a.length<30?[...a,bUnit()]:a)}>{L("+ إضافة فئة وحدات")}</button>
+ <h4 className="mt-5 font-semibold text-sm text-amber-100">{L("عقود الإيجار المقارنة بحسب نوع الوحدة")}</h4>
  {leaseComparables.map((r,i)=><div key={'l'+i} className="mt-3 rounded-lg border border-slate-700 p-3">
   <div className="flex items-center justify-between">
-   <strong className="text-xs">عقد مقارن {i+1}</strong>
+   <strong className="text-xs">{L("عقد مقارن")} {i+1}</strong>
    <button type="button" className="min-h-[36px] px-3 text-xs text-rose-200"
-    onClick={()=>setLeaseComparables(a=>a.filter((_,j)=>i!==j))}>حذف</button>
+    onClick={()=>setLeaseComparables(a=>a.filter((_,j)=>i!==j))}>{L("حذف")}</button>
   </div>
   <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
    <S name="نوع الوحدة المطابق" value={r.unitType} onChange={v=>changeLease(i,'unitType',v)}
-    options={[['','اختر فئة'],...Object.entries(UNIT_KINDS)]}/>
+    options={[['',L('اختر فئة')],...Object.entries(UNIT_KINDS)]}/>
    <S name="صفة الدليل" value={r.status} onChange={v=>changeLease(i,'status',v)}
-    options={[['EXECUTED','عقد منفذ/موثق'],['ASKING','إعلان فقط — يستبعد']]}/>
+    options={[['EXECUTED',L('عقد منفذ/موثق')],['ASKING',L('إعلان فقط — يستبعد')]]}/>
    <F name="تاريخ العقد" type="date" value={r.date} onChange={v=>changeLease(i,'date',v)}/>
    <F name="الإيجار السنوي للعقد (ريال)" value={r.annualRent} onChange={v=>changeLease(i,'annualRent',v)}/>
    <F name="المساحة التأجيرية للعقد (م²)" value={r.areaSqm} onChange={v=>changeLease(i,'areaSqm',v)}/>
@@ -106,38 +107,28 @@ export default function TransactionCohortAndUnitMixPanel({subject,sales,askingOf
    </div>
   </div>
  </div>)}
- <button type="button" aria-label="إضافة عقد إيجار مقارن" className="mt-3 min-h-[40px] rounded-lg border border-amber-600 px-3 py-2 text-xs"
-  onClick={()=>setLeaseComparables(a=>a.length<250?[...a,{...bLease(),city:subject.city,district:subject.district}]:a)}>
-  + إضافة عقد إيجار مقارن
- </button>
+ <button type="button" aria-label={L("إضافة عقد إيجار مقارن")} className="mt-3 min-h-[40px] rounded-lg border border-amber-600 px-3 py-2 text-xs"
+  onClick={()=>setLeaseComparables(a=>a.length<250?[...a,{...bLease(),city:subject.city,district:subject.district}]:a)}>{L("+ إضافة عقد إيجار مقارن")}</button>
  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
   <F name="نسبة الإشغال المستقرة (0–1)" value={stabilizedOccupancy} onChange={setStabilizedOccupancy}/>
   <F name="نسبة مصروفات التشغيل من الدخل (0–1)" value={expenseRatio} onChange={setExpenseRatio}/>
  </div>
  <div className="mt-4 rounded-lg border border-slate-600 p-3 text-xs leading-7">
-  <p>الوحدات المدخلة: {rental.totalModelUnits} من {rental.totalDeclaredUnits??'غير محدد'}،
-   المساحة الإجمالية للمزيج: {nFormat.format(rental.totalModelRentableSqm)} م²</p>
+  <p>{L("الوحدات المدخلة:")} {rental.totalModelUnits} {L('من')} {rental.totalDeclaredUnits??L('غير محدد')}؛ {L('المساحة الإجمالية للمزيج:')} {nf.format(rental.totalModelRentableSqm)} {L('م²')}</p>
   {rental.segments.map((x,i)=><p key={i}>
-   {UNIT_KINDS[x.unitType]||'فئة غير محددة'}: {x.comparableLeaseCount} عقود مؤهلة،
-   الإيجار السنوي السوقي للفئة: {sar(x.annualGrossMarketRentSar)}
+   {L(UNIT_KINDS[x.unitType]||'فئة غير محددة')}: {x.comparableLeaseCount} {L('عقود مؤهلة،')} {L('الإيجار السنوي السوقي للفئة:')} {money(x.annualGrossMarketRentSar)}
   </p>)}
-  <p className="mt-2">الإيجار السوقي السنوي الإجمالي المحتمل: <strong>{sar(rental.grossPotentialNewAnnualRentSar)}</strong></p>
-  <p>الإيجار بعد نسبة الإشغال: <strong>{sar(rental.stabilizedAnnualRentSar)}</strong></p>
-  <p>صافي الدخل التشغيلي المبدئي: <strong>{sar(rental.stabilizedNoiSar)}</strong></p>
-  <p>الإيجار السابق (للمقارنة فقط، لا يدخل في التسعير): {sar(rental.historicAnnualRentSar)}</p>
-  {rental.errors.length>0&&<p className="text-amber-200 mt-2">
-   أسباب وقف التقدير: {rental.errors.map(x=>errors[x]||x).join('؛ ')}
+  <p className="mt-2">{L("الإيجار السوقي السنوي الإجمالي المحتمل:")} <strong>{money(rental.grossPotentialNewAnnualRentSar)}</strong></p>
+  <p>{L("الإيجار بعد نسبة الإشغال:")} <strong>{money(rental.stabilizedAnnualRentSar)}</strong></p>
+  <p>{L("صافي الدخل التشغيلي المبدئي:")} <strong>{money(rental.stabilizedNoiSar)}</strong></p>
+  <p>{L("الإيجار السابق (للمقارنة فقط، لا يدخل في التسعير):")} {money(rental.historicAnnualRentSar)}</p>
+  {rental.errors.length>0&&<p className="text-amber-200 mt-2">{L("أسباب وقف التقدير:")} {rental.errors.map(x=>L(errors[x]||x)).join('؛ ')}
   </p>}
-  {rental.warnings.length>0&&<p className="text-amber-200">
-   تنبيهات: {rental.warnings.join('؛ ')}
+  {rental.warnings.length>0&&<p className="text-amber-200">{L("تنبيهات:")} {rental.warnings.join('؛ ')}
   </p>}
-  <p className="text-slate-400 mt-2">العقود بيانات أدخلها المستخدم ولم يتحقق النظام منها مستقلاً.
-   هذا ليس اختبارًا للحد الأعلى القانوني للأجرة، ولا تقرير تثمين معتمدًا.</p>
+  <p className="text-slate-400 mt-2">{L("العقود بيانات أدخلها المستخدم ولم يتحقق النظام منها مستقلاً. هذا ليس اختبارًا للحد الأعلى القانوني للأجرة، ولا تقرير تثمين معتمدًا.")}</p>
  </div>
  </>}
- {isSpecialist&&<p className="mt-3 text-xs text-amber-200">
-  هذا الأصل يحتاج نموذجًا متخصصًا: الفنادق بالغرف والإشغال وADR/RevPAR، والأنشطة الصحية والصناعية
-  بعقودها وتجهيزاتها، والأرض بمنهج المبيعات/التطوير أو عقد انتفاع ملائم. نموذج الشقق والمعارض لا ينطبق عليه تلقائيًا.
- </p>}
+ {isSpecialist&&<p className="mt-3 text-xs text-amber-200">{L("هذا الأصل يحتاج نموذجًا متخصصًا: الفنادق بالغرف والإشغال وADR/RevPAR، والأنشطة الصحية والصناعية بعقودها وتجهيزاتها، والأرض بمنهج المبيعات/التطوير أو عقد انتفاع ملائم. نموذج الشقق والمعارض لا ينطبق عليه تلقائيًا.")}</p>}
  </details>;
 }
