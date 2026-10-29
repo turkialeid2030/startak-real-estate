@@ -1,3 +1,4 @@
+import DiagnosticText from './DiagnosticText.jsx';
 import React, { useEffect, useMemo, useState } from 'react';
 import {useAppraisalReviewSession} from './AppraisalReviewSessionContext.jsx';
 const {researchActionText}=require('../i18n/research-action-presentation');
@@ -326,14 +327,14 @@ export default function PropertyMarketLocationPanel({financialStudy=null}) {
         : 'أدخل رابط خرائط جوجل غير المختصر المتضمن إحداثيات العقار أو الإحداثيات مباشرة. هذه الحاسبة لا تجلب معاملات حية تلقائيًا؛ تعالج فقط مقارنات مثبتة المصدر يضيفها المستخدم وتُظهر نتائج سيناريو غير معتمدة.'}
     </p>
     <div data-testid="market-financial-identity-bridge" className="mt-4 rounded-xl border border-amber-800 p-3 text-xs">
-      <h3 className="font-semibold text-amber-100">{L('D06 — ربط اختياري لهوية العقار من الدراسة المالية')}</h3>
+      <h3 className="font-semibold text-amber-100"><code translate="no">D06</code> — {english?'Optional property identity link from the financial study':'ربط اختياري لهوية العقار من الدراسة المالية'}</h3>
       <p className="mt-2 text-slate-300">
         {english
           ? 'Copying requires your explicit consent and does not authenticate ownership, property type or location. City, district, title and comparables are not copied; all fields remain editable.'
           : 'النقل عند إقرارك فقط، ولا يثبت ملكية العقار أو صحة نوعه أو موقعه. لا تُنقل المدينة أو الحي أو الصك ولا المقارنات؛ وتبقى قابلة للمراجعة والتحرير.'}
       </p>
       <p className="mt-2" data-testid="market-financial-bridge-status">
-        {L('حالة النقل:')} {bridgeProposal.status}
+        {L('حالة النقل:')} <DiagnosticText code={bridgeProposal.status} locale={locale}/>
       </p>
       {bridgeProposal.status==='USER_CONFIRMATION_REQUIRED'&&<>
         <p className="mt-2 text-slate-300">

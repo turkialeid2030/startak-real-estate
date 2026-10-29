@@ -59,12 +59,12 @@ export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange}
    className="mt-5 w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-sky-800 bg-slate-950 p-4 text-slate-100">
   <h3 className="text-base font-bold">{tr('مصادر البيانات الرسمية والتقييم العقاري — بحث شخصي','Saudi official and third-party property evidence — personal research')}</h3>
   <p className="mt-2 text-xs leading-6 text-slate-300">
-   {tr('مصادر حكومية وتحليلية وتقديرات خارجية، ومنها بيوت تروڤاليو. رابط Manus محفوظ كمرجع غير مقروء. الأرقام المستوردة هنا معلومات بحثية غير محققة بشكل مستقل؛ لا تنتقل إلى نموذج القيمة أو التقارير المعتمدة.',
+   {tr('مصادر حكومية وتحليلية وتقديرات خارجية، ومنها بيوت تروڤاليو. رابط مانوس محفوظ كمرجع غير مقروء. الأرقام المستوردة هنا معلومات بحثية غير محققة بشكل مستقل؛ لا تنتقل إلى نموذج القيمة أو التقارير المعتمدة.',
    'Government and analytical sources and third-party estimates, including Bayut TrueValue. The Manus URL is a reference only and cannot be read by this workflow. Imported figures are research inputs without independent authentication and are not promoted into certified valuations or financial results.')}
   </p>
   <div data-testid="national-sources-links" className="mt-3 flex flex-wrap gap-2">
    {SOURCES.map(src=><a key={src.id} target="_blank" rel="noopener noreferrer"
-    href={src.url} className="rounded border border-slate-600 px-3 py-2 text-xs text-sky-300">
+    href={src.url} data-user-content translate="no" className="rounded border border-slate-600 px-3 py-2 text-xs text-sky-300">
     {src.label}</a>)}
   </div>
   <div data-testid="national-official-entrypoints" className="mt-4 rounded-lg border border-slate-700 p-3">
@@ -82,7 +82,7 @@ export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange}
   </div>
   <p className="mt-3 text-xs text-slate-300 break-all">
    {en?'CSV schema: ':'صيغة CSV: '}<code>source,city,district,kind,recordId,eventDate,periodStart,periodEnd,metricName,metricValue,unit,sourceUrl,assetType</code>.
-   {tr('ولتقديرات AVM (اختياري):','Optional AVM fields:')} <code>rangeLowSar,rangeHighSar,confidenceLabel,modelAsOf</code>.
+   {tr('ولتقديرات القيمة الآلية (اختياري):','Optional AVM fields:')} <code>rangeLowSar,rangeHighSar,confidenceLabel,modelAsOf</code>.
    {tr('مستوى الثقة المعلن ليس دقة مثبتة. المؤشرات تحتاج فترة ووحدة قياس، والصفقات المنشورة تحتاج معرفًا وتاريخًا، والتقدير الآلي لا يُعد صفقة.',
      'Provider-stated confidence is not validated accuracy. Indicators require a defined reporting period and unit; reported sales need IDs and dates, and automated estimates are not executed transactions.')}
   </p>

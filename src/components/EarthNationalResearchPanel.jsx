@@ -39,7 +39,7 @@ export default function EarthNationalResearchPanel({onResearchChange}){
    {FEATURES.map(x=><a href={x.url} key={x.id} target="_blank" rel="noopener noreferrer"
     className="rounded border border-slate-600 px-3 py-2 text-xs text-sky-300">{L(x.label)}</a>)}
   </div>
-  <p className="mt-3 text-xs text-slate-300 break-all">{L("ملف CSV بعد فتحه/تصديره بصيغة UTF-8: city,district,recordId,eventDate,amountSar,areaSqm,planNumber,parcelNumber,assetType. الحقول العربية الموازية مدعومة. تُحفظ صفة المصدر المختارة لكل دفعة.")}</p>
+  <p className="mt-3 text-xs text-slate-300 break-all">{en?'CSV fields, UTF-8 encoding: ':'حقول الملف الجدولي، بترميز '}<code translate="no">UTF-8: city,district,recordId,eventDate,amountSar,areaSqm,planNumber,parcelNumber,assetType</code>. {en?'Equivalent Arabic headers are supported. The selected source classification is retained per batch.':'الحقول العربية الموازية مدعومة. تُحفظ صفة المصدر المختارة لكل دفعة.'}</p>
   <div className="mt-3 flex flex-wrap items-end gap-3">
    <label className="text-xs">{L("قسم أرض")}<select value={featureId} onChange={e=>setFeatureId(e.target.value)}
      data-testid="earth-feature" className="mt-1 block max-w-[220px] rounded border border-slate-600 bg-slate-900 p-2">

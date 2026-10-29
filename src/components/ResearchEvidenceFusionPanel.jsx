@@ -1,3 +1,4 @@
+import DiagnosticText from './DiagnosticText.jsx';
 import React,{useMemo,useState} from 'react';
 const {buildUnifiedResearch,researchReportBundle,researchClaimsGate}=
  require('../market/research-evidence-fusion');
@@ -59,19 +60,19 @@ export default function ResearchEvidenceFusionPanel({subject={},feeds={},asOf='2
   </div>
   <p className="mt-3 text-xs text-slate-300">{en?'District matching does not prove the subject property identity or title. An independently evidenced parcel/plot identifier is needed; neighborhood indicators must not be blended with asking listings.':'مطابقة الحي لا تثبت تطابق العقار أو ملكيته؛ يلزم معرّف عقاري أو مخطط وقطعة موثقان. كما لا تُمزج مؤشرات الأحياء بالقيم المعلنة.'}</p>
   <div data-testid="fusion-source-readiness" className="mt-2 text-xs text-slate-300">
-   {result.feedReadiness.map(x=><p key={x.feed}>{x.feed}: {x.importedResearchRows} {en?'research rows; direct API not connected and individual source not verified':'سجل بحثي؛ API مباشر غير متصل، صحة المصدر الفردي غير مثبتة'}</p>)}
+   {result.feedReadiness.map(x=><p key={x.feed}>{({suhail:en?'Suhail':'سهيل',listings:en?'Listings':'العروض',earth:en?'Earth':'أرض',national:en?'National sources':'المصادر الوطنية'})[x.feed]||x.feed}: {x.importedResearchRows} {en?'research rows; direct API not connected and individual source not verified':'سجل بحثي؛ الربط المباشر غير متصل، صحة المصدر الفردي غير مثبتة'}</p>)}
   </div>
   {result.sourceRefs.length>0?<p className="mt-2 text-xs break-words">
-   {en?'Sources related to this district: ':'المصادر المتعلقة بالحي: '}{result.sourceRefs.join('، ')}</p>:null}
+   {en?'Sources related to this district: ':'المصادر المتعلقة بالحي: '}<span data-user-content translate="no">{result.sourceRefs.join('، ')}</span></p>:null}
   <p data-testid="fusion-risk-codes" className="mt-2 text-xs text-amber-200">
-    {en?'Evidence limitations: ':'قيود الفحص: '}{result.risks.join(' | ')}
+    {en?'Evidence limitations: ':'قيود الفحص: '}{result.risks.map(code=><span key={code}><DiagnosticText code={code} locale={locale}/>{' | '}</span>)}
   </p>
   <div className="mt-3 rounded border border-slate-700 p-3 text-xs">
    <p className="font-bold">{en?'Appraisal and investment review':'مراجعة التقييم والاستثمار'}</p>
    <p className="mt-1">{en?'Certified market value is unavailable from these research inputs.':'حسابات السوق المعتمدة: غير متاحة من هذه البيانات البحثية.'}</p>
    <p>{en?'Maximum purchase price not determined; requires evidenced cash flows, target return and verified inputs.':'سقف الشراء: غير محسوب؛ يحتاج نموذج التدفقات النقدية والعائد المستهدف وبيانات معتمدة.'}</p>
    <p>{en?'Investment decision on hold pending verification; internal simulations may continue.':'توصية الاستثمار: تعليق القرار لحين التحقق، مع استمرار المحاكاة الداخلية.'}</p>
-   <p className="mt-1">{en?'Current appraisal engine status: ':'حالة محرك التقييم الحالي: '}{readinessStatus}</p>
+   <p className="mt-1">{en?'Current appraisal engine status: ':'حالة محرك التقييم الحالي: '}<DiagnosticText code={readinessStatus} locale={locale}/></p>
    <p data-testid="fusion-open-data-annex" className="mt-2">
     {en?'Open historical Ministry of Justice dataset: ':'مرجع وزارة العدل التاريخي المفتوح: '}
     {bundle.openDataAnnex.status==='NOT_LOADED'?(en?' Not loaded':' لم يُحمّل بعد'):

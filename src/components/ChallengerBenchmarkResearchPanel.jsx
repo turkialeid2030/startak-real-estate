@@ -1,3 +1,4 @@
+import DiagnosticText from './DiagnosticText.jsx';
 import React,{useState} from 'react';
 const {MODEL_IDS,parseChallengerCsv,evaluateChallengers}=
  require('../market/challenger-benchmark-research');
@@ -26,14 +27,14 @@ export default function ChallengerBenchmarkResearchPanel(){
   <h3 className="font-bold">{L("اختبار النماذج المتنافسة — عينة عقارات مشتركة")}</h3>
   <p className="mt-2 text-xs text-slate-300">{L("المقارنة الرياضية تستخدم محرك التحقق التاريخي الموجود، وتشترط 30 عقارًا على الأقل والنطاق والتاريخ والصفقة المرجعية نفسها لجميع النماذج. بدون تحقق مستقل من أسعار التنفيذ، لا يجوز إعلان نسبة دقة حقيقية.")}</p>
   <p className="mt-2 text-xs text-slate-400">{en?'Supported models: ':'النماذج المدعومة: '}
-   {MODEL_IDS.join('، ')}</p>
-  <p className="mt-2 text-xs text-slate-300 break-all">{en?'CSV: modelId,propertyRef,assetType,city,district,predictedAsOf,predictedValueSar,executedPriceSar,executionDate,runCostSar (optional).':'CSV: modelId,propertyRef,assetType,city,district,predictedAsOf,predictedValueSar,executedPriceSar,executionDate,runCostSar (اختياري).'}</p>
+   <code translate="no">{MODEL_IDS.join('، ')}</code></p>
+  <p className="mt-2 text-xs text-slate-300 break-all">{en?'CSV fields: ':'حقول الملف الجدولي: '}<code translate="no">modelId,propertyRef,assetType,city,district,predictedAsOf,predictedValueSar,executedPriceSar,executionDate</code>. {en?'Optional: ':'اختياري: '}<code translate="no">runCostSar</code>.</p>
   <label className="mt-3 inline-block rounded border border-slate-600 p-2 text-xs">{L("بيانات المقارنة التجريبية CSV")}<input data-testid="challenger-csv" type="file" accept=".csv,text/csv"
     className="block max-w-[220px]" onChange={async e=>{
      const file=e.target.files?.[0];e.target.value='';await onFile(file);}}/>
   </label>
   <p data-testid="challenger-status" className="mt-3 text-xs text-amber-200">
-    {result.status} | {en?'Common cohort: ':'عينة مشتركة: '}{result.cohortSize} | {en?'External verification: not established':'الاعتماد الخارجي: غير متحقق'}</p>
+    <DiagnosticText code={result.status} locale={locale}/> | {en?'Common cohort: ':'عينة مشتركة: '}{result.cohortSize} | {en?'External verification: not established':'الاعتماد الخارجي: غير متحقق'}</p>
   {result.status==='RESEARCH_MATH_ONLY_EXTERNAL_VERIFICATION_REQUIRED'&&
    <div className="mt-3 w-full min-w-0 overflow-x-auto">
     <table className="min-w-[650px] w-full text-xs" style={{textAlign:en?'left':'right'}}><thead><tr>

@@ -215,6 +215,7 @@ try{
  assert(coreJson.kind==='STARTAK_PERSONAL_MARKET_STUDY','D04 actual core JSON downloaded');
  const csv=market.getByTestId('public-csv-import');
  await csv.locator('input[type=file]').first().setInputFiles({name:'SYNTH-D04-no-rights.csv',mimeType:'text/csv',buffer:Buffer.from('invalid,headers\n1,2')});
+ await page.waitForFunction(()=>document.querySelector('[data-testid="market-import-action-notice"]')?.textContent?.includes('تعذر الاستيراد'));
  assert((await market.getByTestId('market-import-action-notice').innerText()).includes('تعذر الاستيراد'),
   'D04 missing-rights CSV remains blocked in Arabic');
  const beforeActions=await market.locator('input:not([type=file]),select').evaluateAll(nodes=>nodes.map(x=>({value:x.value,checked:x.checked})));

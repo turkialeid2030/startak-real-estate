@@ -42,7 +42,7 @@ export default function SaudiListingSourcesResearchPanel({onResearchChange}){
    {SOURCES.map(s=><a key={s.id} target="_blank" rel="noopener noreferrer" href={s.baseUrl}
     className="rounded border border-slate-600 px-3 py-2 text-xs text-sky-300">{s.nameAr}</a>)}
   </div>
-  <p className="mt-3 break-all text-xs text-slate-300">{L("صيغة ملف CSV: source,city,district,kind,priceSar,areaSqm,listingUrl,listingId,assetType,listingDate. تصنيفات kind: SALE_OFFER / RENT_OFFER / PROJECT_INDICATIVE / AUCTION_ASK / BUYER_REQUEST.")}</p>
+  <p className="mt-3 break-all text-xs text-slate-300">{en?'CSV fields: ':'حقول الملف الجدولي: '}<code translate="no">source,city,district,kind,priceSar,areaSqm,listingUrl,listingId,assetType,listingDate</code>. {en?'Evidence kinds: ':'تصنيفات الدليل: '}<code translate="no">SALE_OFFER / RENT_OFFER / PROJECT_INDICATIVE / AUCTION_ASK / BUYER_REQUEST</code>.</p>
   <div className="mt-3 flex flex-wrap items-end gap-3">
    <label className="text-xs">{L("تاريخ الاطلاع على الدفعة")}<input data-testid="listing-observed-on" type="date" value={observedOn}
      onChange={e=>setObservedOn(e.target.value)}

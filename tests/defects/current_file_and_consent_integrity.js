@@ -27,6 +27,7 @@ const file=(name,text,pending=null)=>({name,size:new TextEncoder().encode(text).
  const byId=id=>document.querySelector('[data-testid="'+id+'"]');
  const change=(node,value)=>React.act(async()=>Simulate.change(typeof node==='string'?byId(node):node,{target:{value,checked:value}}));
  const click=id=>React.act(async()=>Simulate.click(byId(id)));
+ const until=async(predicate,message)=>{const end=Date.now()+5000;do{await React.act(async()=>{await new Promise(resolve=>setTimeout(resolve,10));});if(predicate())return;}while(Date.now()<end);throw Error(message);};
  let operations=[];
  const choose=(id,chosen)=>React.act(async()=>{Simulate.change(byId(id),{target:{files:[chosen],value:chosen.name}});await Promise.resolve();});
  await render();
@@ -38,7 +39,7 @@ const file=(name,text,pending=null)=>({name,size:new TextEncoder().encode(text).
  const slow=defer();await choose('personal-saudi-csv-file',file('slow.csv',csvText('SLOW'),slow));
  await choose('personal-saudi-csv-file',file('latest.csv',csvText('LATEST')));
  // Await actual WebCrypto completion without timer sleeps.
- await React.act(async()=>{await new Promise(resolve=>setImmediate(resolve));});
+ await until(()=>Boolean(byId('personal-saudi-csv-results')),'Latest CSV WebCrypto completion');
  ok(byId('personal-saudi-csv-results'),'Latest file accepted');
  const latestHash=createHash('sha256').update(csvText('LATEST')).digest('hex');
  ok(byId('personal-saudi-csv-results').textContent.includes(latestHash),'Hash binds to latest exact file bytes');
@@ -59,7 +60,7 @@ const file=(name,text,pending=null)=>({name,size:new TextEncoder().encode(text).
  await React.act(async()=>{oldArchive.resolve(bytes(archiveText));await oldArchive.promise;});ok(byId('limited-interest-term').value==='9','Pending import cannot overwrite new manual edits');
  const otherSector=defer();await choose('limited-interest-import-case',file('sector.json',archiveText,otherSector));sector='LAND';await render();
  await React.act(async()=>{otherSector.resolve(bytes(archiveText));await otherSector.promise;});ok(byId('limited-interest-term').value===''&&!byId('limited-interest-archive-status'),'Pending import cannot cross sector or restore old confirmation');
- sector='HOSPITALITY';await render();await choose('limited-interest-import-case',file('valid.json',archiveText));await React.act(async()=>{await new Promise(resolve=>setImmediate(resolve));});
+ sector='HOSPITALITY';await render();await choose('limited-interest-import-case',file('valid.json',archiveText));await until(()=>byId('limited-interest-term').value==='14','Archive WebCrypto completion');
  ok(byId('limited-interest-term').value==='14'&&byId('limited-interest-archive-status').textContent.includes('استُعيدت'),'Valid latest input archive restores');
  language='en';await render();ok(byId('limited-interest-archive-status').textContent.includes('Inputs restored only'),'Archive feedback changes language without repeating import');
  const digestWait=defer();Object.defineProperty(global,'crypto',{value:{subtle:{digest:async(...args)=>{const actual=await webcrypto.subtle.digest(...args);await digestWait.promise;return actual;}}},configurable:true});
