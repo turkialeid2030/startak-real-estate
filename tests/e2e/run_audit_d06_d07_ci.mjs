@@ -95,7 +95,34 @@ try{
  assert((await suhail.getByTestId('suhail-scope').innerText())
   .includes('Independently confirmed individual transactions: 0'),
   'D04 Suhail must not claim verified executed sales after locale switch');
+ const national=page.getByTestId('national-intelligence-sources');
+ await national.waitFor({state:'visible'});
+ assert(await national.getAttribute('dir')==='ltr',
+  'D04 national market evidence must use LTR in English');
+ assert((await national.locator('h3').first().innerText()).includes('Saudi official and third-party'),
+  'D04 national sources heading must localize');
+ const classFilter=national.getByTestId('national-class-filter');
+ const originalClassValue=await classFilter.inputValue();
+ const sourceUrl=national.locator('[data-testid="national-sources-links"] a').first();
+ const originalUrl=await sourceUrl.getAttribute('href');
+ assert((await national.getByTestId('national-summary').innerText())
+  .includes('Independently verified executed transactions:'),
+  'D04 English source review must not imply unverified sales are authentic');
+ assert((await national.getByTestId('national-language-scope').innerText())
+  .includes('does not validate any source'),
+  'D04 provider original-language caveat remains explicit');
+ assert((await national.getByTestId('national-class-filter').innerText())
+  .includes('Official aggregated indicator'),
+  'D04 evidence class labels translated without changing machine class');
  await page.getByTestId('locale-switch').click();
+ assert(await national.getAttribute('dir')==='rtl',
+  'D04 national panel restores RTL');
+ assert(await classFilter.inputValue()===originalClassValue,
+  'D04 never changes evidence class selection on language switch');
+ assert(await sourceUrl.getAttribute('href')===originalUrl,
+  'D04 never changes source URL on language switch');
+ assert((await national.locator('h3').first().innerText()).includes('مصادر البيانات الرسمية'),
+  'D04 national source heading restores Arabic');
  assert(await fusion.getAttribute('dir')==='rtl','D04 restores Arabic research panel direction');
  assert(await suhail.getAttribute('dir')==='rtl','D04 restores Arabic neighborhood panel direction');
  await page.waitForFunction(()=>{
