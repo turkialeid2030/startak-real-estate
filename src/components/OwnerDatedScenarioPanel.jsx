@@ -16,9 +16,9 @@ export default function OwnerDatedScenarioPanel({locale='ar-SA',projectCashflows
   period,startDate:windows[period]?.startDate||'',endDate:windows[period]?.endDate||'',
   sourceReference:windows[period]?.sourceReference||''
  }));
- const patchWindow=(period,key,value)=>{setWindows(old=>({...old,[period]:{...old[period],[key]:value}}));setReview(null)};
- const patch=(i,key,value)=>{setRows(old=>old.map((r,j)=>i===j?{...r,[key]:value}:r));setReview(null)};
- const updateDiscount=value=>{setDiscount(value);setReview(null)};
+ const patchWindow=(period,key,value)=>{setWindows(old=>({...old,[period]:{...old[period],[key]:value}}));setRights(false);setReview(null)};
+ const patch=(i,key,value)=>{setRows(old=>old.map((r,j)=>i===j?{...r,[key]:value}:r));setRights(false);setReview(null)};
+ const updateDiscount=value=>{setDiscount(value);setRights(false);setReview(null)};
  return <section data-testid="dated-scenario-review" dir={en?'ltr':'rtl'}
   className="mt-5 rounded-2xl border border-amber-700/60 bg-[#141F35] p-4 text-slate-100">
   <h2 className="text-sm font-bold text-amber-100">
@@ -34,12 +34,12 @@ export default function OwnerDatedScenarioPanel({locale='ar-SA',projectCashflows
   </p>
   <label className="mb-3 flex items-center gap-2 text-xs">
    <input data-testid="dated-reconcile-amounts" type="checkbox" checked={reconcile}
-    onChange={e=>{setReconcile(e.target.checked);setReview(null)}} />
+    onChange={e=>{setReconcile(e.target.checked);setRights(false);setReview(null)}} />
    {en?'Require amount reconciliation to every period of the current financial study (dates and monthly financing remain unverified)':
     'اشتراط مطابقة مبالغ كل فترة من الدراسة المالية الحالية (لا يثبت تواريخ التدفقات أو تسوية التمويل الشهري)'}
   </label>
   {reconcile&&<label className="mb-3 block text-xs">{en?'Reference cash-flow basis':'أساس التدفقات المرجعية'}
-   <select data-testid="dated-reference-basis" value={basis} onChange={e=>{setBasis(e.target.value);setWindows({});setCheckDates(false);setReview(null)}}
+   <select data-testid="dated-reference-basis" value={basis} onChange={e=>{setBasis(e.target.value);setWindows({});setCheckDates(false);setRights(false);setReview(null)}}
     className="mt-1 block w-full rounded border border-slate-600 bg-[#101c30] p-2">
     <option value="PROJECT">{en?'Project — before financing':'المشروع — قبل التمويل'}</option>
     <option value="EQUITY">{en?'Equity — after financing':'حقوق الملكية — بعد التمويل'}</option>
@@ -48,7 +48,7 @@ export default function OwnerDatedScenarioPanel({locale='ar-SA',projectCashflows
   {reconcile&&<div className="mb-3 rounded border border-slate-600 p-3">
    <label className="flex items-center gap-2 text-xs">
     <input data-testid="dated-check-period-dates" type="checkbox" checked={checkDates}
-     onChange={e=>{setCheckDates(e.target.checked);setReview(null)}} />
+     onChange={e=>{setCheckDates(e.target.checked);setRights(false);setReview(null)}} />
     {en?'Check cash-flow dates against explicitly sourced period windows':'فحص تواريخ التدفقات مقابل حدود فترات موثقة بمرجع المستخدم'}
    </label>
    {checkDates&&<>
@@ -111,11 +111,11 @@ export default function OwnerDatedScenarioPanel({locale='ar-SA',projectCashflows
   <div className="mt-3 flex flex-wrap gap-2">
    <button type="button" data-testid="dated-add-row" disabled={rows.length>=36}
     className="rounded border border-amber-600 px-3 py-2 text-xs disabled:opacity-50"
-    onClick={()=>{setRows(old=>[...old,emptyRow()]);setReview(null)}}>
+    onClick={()=>{setRows(old=>[...old,emptyRow()]);setRights(false);setReview(null)}}>
     {en?'Add dated cash flow':'إضافة تدفق مؤرخ'}
    </button>
    <button type="button" disabled={rows.length<=2} className="rounded border border-slate-600 px-3 py-2 text-xs disabled:opacity-50"
-    onClick={()=>{setRows(old=>old.slice(0,-1));setReview(null)}}>
+    onClick={()=>{setRows(old=>old.slice(0,-1));setRights(false);setReview(null)}}>
     {en?'Remove last row':'حذف آخر تدفق'}
    </button>
   </div>

@@ -51,50 +51,62 @@ export default function PersonalLimitedInterestDcfPanel({assetClass,locale='ar-S
  const [confirmed,setConfirmed]=useState({terms:false,realty:false,improvements:false,consentRequired:false,consentVerified:false});
  const [result,setResult]=useState(null);
  const [archiveStatus,setArchiveStatus]=useState('');
- const archiveFileRef=useRef(null);
+ const archiveFileRef=useRef(null),operation=useRef(0);
+ const currentContext=JSON.stringify([assetClass,right,term,valuationDate,inputs,confirmed]);
+ const contextRef=useRef(currentContext);contextRef.current=currentContext;
+ const invalidate=()=>{operation.current++;setResult(null);setArchiveStatus('');};
+ useEffect(()=>()=>{operation.current++;},[]);
+ const notices={
+  EXPORTED:ar?'حُفظت مدخلات حق الانتفاع على جهازك فقط؛ لا تُحفظ النتائج أو صلاحيات التصرف.':'Input-only rights case exported locally. No results or transaction rights were saved.',
+  EXPORT_FAILED:ar?'تعذر حفظ الملف بأمان؛ لم تُنشأ نسخة احتياطية.':'Secure local export failed; no backup was created.',
+  INVALID_SIZE:ar?'حجم الملف غير صالح أو يتجاوز 16 كيلوبايت.':'Invalid rights case archive size (>16 KiB).',
+  RESTORED:ar?'استُعيدت المدخلات فقط؛ يجب إعادة الحساب والتحقق من المستندات والموافقات.':'Inputs restored only. Recalculate and independently recheck documents and consents.',
+  REJECTED:ar?'رفض الاستيراد: بصمة الملف أو نوع العقار أو البنية غير متطابقة. لم تُعدّل الدراسة.':'Import rejected: integrity, asset class or structure mismatch. Existing case unchanged.',
+ };
  // Reset case and result if this component is reused for a different property sector.
  useEffect(()=>{
+  operation.current++;
   setRight('');setInputs(empty());setTerm('');setValuationDate('');
   setConfirmed({terms:false,realty:false,improvements:false,consentRequired:false,consentVerified:false});
   setResult(null);setArchiveStatus('');
  },[assetClass]);
  const currentState=()=>({assetClass,right,term,valuationDate,inputs,confirmed});
  const exportCase=async()=>{
-  setArchiveStatus('');
+  const id=++operation.current,context=currentContext;setArchiveStatus('');
   try{
    const archive=await createLimitedInterestArchive(currentState(),{subtle:globalThis.crypto?.subtle});
+   if(id!==operation.current||context!==contextRef.current)return;
    const url=URL.createObjectURL(new Blob([JSON.stringify(archive,null,2)],{type:'application/json;charset=utf-8'}));
    const link=document.createElement('a');
    link.href=url;link.download='startak-limited-interest-case-v1.json';
    document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
-   setArchiveStatus(ar?'حُفظت مدخلات حق الانتفاع على جهازك فقط؛ لا تُحفظ النتائج أو صلاحيات التصرف.':
-    'Input-only rights case exported locally. No results or transaction rights were saved.');
-  }catch(e){setArchiveStatus(ar?'تعذر حفظ الملف بأمان؛ لم تُنشأ نسخة احتياطية.':
-   'Secure local export failed; no backup was created.');}
+   setArchiveStatus('EXPORTED');
+  }catch(e){if(id===operation.current&&context===contextRef.current)setArchiveStatus('EXPORT_FAILED');}
  };
  const importCase=async(event)=>{
-  const file=event.target.files?.[0];
+  const id=++operation.current,context=currentContext,file=event.target.files?.[0];
   if(archiveFileRef.current)archiveFileRef.current.value='';
   setArchiveStatus('');
   if(!file)return;
   if(file.size<=0||file.size>MAX_ARCHIVE_BYTES){
-   setArchiveStatus(ar?'حجم الملف غير صالح أو يتجاوز 16 كيلوبايت.':
-    'Invalid rights case archive size (>16 KiB).');return;
+   setArchiveStatus('INVALID_SIZE');return;
   }
   try{
-   const raw=new TextDecoder('utf-8',{fatal:true}).decode(await file.arrayBuffer());
+   const buffer=await file.arrayBuffer();
+   if(id!==operation.current||context!==contextRef.current)return;
+   if(buffer.byteLength<=0||buffer.byteLength>MAX_ARCHIVE_BYTES)throw Error('ARCHIVE_TOO_LARGE');
+   const raw=new TextDecoder('utf-8',{fatal:true}).decode(buffer);
    const restored=await verifyLimitedInterestArchive(JSON.parse(raw),{
     subtle:globalThis.crypto?.subtle,expectedAssetClass:assetClass,
    });
+   if(id!==operation.current||context!==contextRef.current)return;
    setRight(restored.right);setTerm(restored.term);
    setValuationDate(restored.valuationDate);setInputs(restored.inputs);
    setConfirmed(restored.confirmed);setResult(null);
-   setArchiveStatus(ar?'استُعيدت المدخلات فقط؛ يجب إعادة الحساب والتحقق من المستندات والموافقات.':
-    'Inputs restored only. Recalculate and independently recheck documents and consents.');
-  }catch(e){setArchiveStatus(ar?'رفض الاستيراد: بصمة الملف أو نوع العقار أو البنية غير متطابقة. لم تُعدّل الدراسة.':
-   'Import rejected: integrity, asset class or structure mismatch. Existing case unchanged.');}
+   setArchiveStatus('RESTORED');
+  }catch(e){if(id===operation.current&&context===contextRef.current)setArchiveStatus('REJECTED');}
  };
- const update=(setter,key,value)=>{setter(old=>({...old,[key]:value}));setResult(null)};
+ const update=(setter,key,value)=>{invalidate();setter(old=>({...old,[key]:value}))};
  const calc=()=>{
   try{
    setResult(assessLimitedPropertyInterest({
@@ -123,7 +135,7 @@ export default function PersonalLimitedInterestDcfPanel({assetClass,locale='ar-S
   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
    <label className="text-xs" style={{color:'#E8E9ED'}}>
     {ar?'نوع الحق العقاري':'Interest to be valued'}
-    <select value={right} onChange={e=>{setRight(e.target.value);setResult(null);}}
+    <select value={right} onChange={e=>{invalidate();setRight(e.target.value);}}
      data-testid="limited-interest-right" className="block w-full min-h-[40px] rounded-lg p-2 mt-1"
      style={{background:'#F5F4F0',color:'#202937'}}>
      <option value="">{ar?'حدد الحق':'Select interest'}</option>
@@ -134,19 +146,19 @@ export default function PersonalLimitedInterestDcfPanel({assetClass,locale='ar-S
    </label>
    <label className="text-xs" style={{color:'#E8E9ED'}}>
     {ar?'المدة المتبقية بالسنوات':'Remaining term, full years'}
-    <input type="number" min="1" max="80" step="1" value={term}
-     onChange={e=>{setTerm(e.target.value);setResult(null);}} className="block w-full rounded-lg p-2 min-h-[40px] mt-1"
+    <input data-testid="limited-interest-term" type="number" min="1" max="80" step="1" value={term}
+     onChange={e=>{invalidate();setTerm(e.target.value);}} className="block w-full rounded-lg p-2 min-h-[40px] mt-1"
      style={{background:'#F5F4F0',color:'#202937'}}/>
    </label>
    <label className="text-xs" style={{color:'#E8E9ED'}}>
     {ar?'تاريخ التقييم':'Valuation date'}
-    <input type="date" value={valuationDate}
-     onChange={e=>{setValuationDate(e.target.value);setResult(null);}} className="block w-full rounded-lg p-2 min-h-[40px] mt-1"
+    <input data-testid="limited-interest-date" type="date" value={valuationDate}
+     onChange={e=>{invalidate();setValuationDate(e.target.value);}} className="block w-full rounded-lg p-2 min-h-[40px] mt-1"
      style={{background:'#F5F4F0',color:'#202937'}}/>
    </label>
    {FIELDS.map(k=><label key={k} className="text-xs" style={{color:'#E8E9ED'}}>
      {ar?LABELS[k]:k.replace(/([A-Z])/g,' $1')}
-     <input type="text" inputMode="decimal" value={inputs[k]}
+     <input data-testid={'limited-interest-'+k} type="text" inputMode="decimal" value={inputs[k]}
       className="block w-full rounded-lg p-2 min-h-[40px] mt-1"
       style={{background:'#F5F4F0',color:'#202937'}}
       onChange={e=>update(setInputs,k,e.target.value)}/>
@@ -182,7 +194,7 @@ export default function PersonalLimitedInterestDcfPanel({assetClass,locale='ar-S
     </label>
    </div>
    {archiveStatus&&<p data-testid="limited-interest-archive-status" role="status"
-    className="text-xs leading-relaxed mt-2" style={{color:'#E7BC7D'}}>{archiveStatus}</p>}
+    className="text-xs leading-relaxed mt-2" style={{color:'#E7BC7D'}}>{notices[archiveStatus]}</p>}
   </div>
   <button type="button" data-testid="limited-interest-calculate"
    onClick={calc} className="rounded-lg p-3 min-h-[40px] text-xs font-semibold mt-3"

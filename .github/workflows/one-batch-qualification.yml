@@ -22,7 +22,7 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps chromium firefox webkit
       - name: Run every engineering, browser and external qualification stage in one batch
         run: node tools/verify-all-stages.mjs --out-dir=/tmp/startak-one-batch
       - name: Preserve unified results even when full qualification is held
@@ -30,5 +30,7 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: all-stages-${{ github.event.pull_request.head.sha }}
-          path: /tmp/startak-one-batch/
+          path: |
+            /tmp/startak-one-batch/
+            runtime-evidence/remaining-audit/
           if-no-files-found: error

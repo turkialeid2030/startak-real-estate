@@ -48,8 +48,9 @@ export default function PersonalPhasedDevelopmentDcfPanel({locale='ar-SA'}){
  const [rows,setRows]=useState(initially);
  const [checks,setChecks]=useState({risk:false,margin:false,financing:false,nonRealty:false,timing:false});
  const [result,setResult]=useState(null);
- const change=(setter,value)=>{setter(value);setResult(null)};
- const changeRow=(index,key,value)=>{setRows(old=>old.map((x,i)=>i===index?{...x,[key]:value}:x));setResult(null)};
+ const invalidate=()=>{setChecks({risk:false,margin:false,financing:false,nonRealty:false,timing:false});setResult(null)};
+ const change=(setter,value)=>{setter(value);invalidate()};
+ const changeRow=(index,key,value)=>{setRows(old=>old.map((x,i)=>i===index?{...x,[key]:value}:x));invalidate()};
  const changeCheck=(key,value)=>{setChecks(old=>({...old,[key]:value}));setResult(null)};
  const calculate=()=>{
   try{
@@ -108,7 +109,7 @@ export default function PersonalPhasedDevelopmentDcfPanel({locale='ar-SA'}){
       value={r.other} onChange={v=>changeRow(i,'other',v)}/>
     </div>
     {rows.length>2&&<button type="button" className="mt-2 min-h-[40px] text-xs underline" style={{color:'#EAC58D'}}
-     onClick={()=>{setRows(old=>old.filter((_,j)=>j!==i));setResult(null);}}>
+     onClick={()=>{setRows(old=>old.filter((_,j)=>j!==i));invalidate();}}>
      {ar?'حذف هذه الفترة':'Remove period'}
     </button>}
    </div>)}
@@ -116,7 +117,7 @@ export default function PersonalPhasedDevelopmentDcfPanel({locale='ar-SA'}){
   <button type="button" disabled={rows.length>=MAX_ROWS} data-testid="phased-add-month"
    className="text-xs border border-slate-500 rounded-lg px-3 py-2 mt-3 min-h-[40px]"
    style={{color:'#F0E8D9'}} onClick={()=>{
-    setRows(old=>[...old,{month:'',gdv:'',construction:'',other:''}]);setResult(null);
+    setRows(old=>[...old,{month:'',gdv:'',construction:'',other:''}]);invalidate();
    }}>{ar?'إضافة شهر تحصيل أو صرف':'Add month'}</button>
   <div className="mt-4 space-y-2">
    {[

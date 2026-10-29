@@ -6,7 +6,7 @@ export default function DatedDevelopmentProjectionPanel({locale='ar-SA',financia
  const [timing,setTiming]=useState(''),[confirmed,setConfirmed]=useState(false),[result,setResult]=useState(null);
  const context=JSON.stringify([financialInputs,assumptionModelVersion]);
  const projection=result?.context===context?result.projection:null;
- const change=(setter,value)=>{setter(value);setResult(null)};
+ const change=(setter,value)=>{setter(value);setConfirmed(false);setResult(null)};
  const money=n=>Number.isFinite(n)?new Intl.NumberFormat(en?'en-US':'ar-SA',{maximumFractionDigits:2}).format(n):'—';
  const rate=n=>Number.isFinite(n)?new Intl.NumberFormat(en?'en-US':'ar-SA',{style:'percent',maximumFractionDigits:4}).format(n):'—';
  const inputClass='mt-1 block w-full rounded border border-slate-600 bg-[#101c30] p-2';
@@ -43,7 +43,7 @@ export default function DatedDevelopmentProjectionPanel({locale='ar-SA',financia
    </label>
   </div>
   <label className="my-3 flex items-center gap-2 text-xs">
-   <input data-testid="dated-projection-confirm" type="checkbox" checked={confirmed} onChange={e=>change(setConfirmed,e.target.checked)}/>
+   <input data-testid="dated-projection-confirm" type="checkbox" checked={confirmed} onChange={e=>{setConfirmed(e.target.checked);setResult(null)}}/>
    {tr('أوافق على قواعد التوزيع والتقويم المختارة لأغراض المحاكاة؛ لا أعتبرها تواريخ متحققًا منها أو اعتمادًا تمويليًا.',
     'I confirm the selected calendar and allocation assumptions for illustration; they are not verified dates or financing approval.')}
   </label>

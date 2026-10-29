@@ -7,7 +7,7 @@ import {createRequire} from 'node:module';
 import {verifyDeployedAssets} from './verify-deployed-assets.mjs';
 import {validatedProtectedPreviewUrl} from './verify-protected-preview.mjs';
 const require=createRequire(import.meta.url),root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
-export const REQUIRED=Object.freeze(['release','reference','reference-clean','market-browser','appraisal-browser','identity-browser','dated-browser','sectors-browser','owner-browser','export-browser']);
+export const REQUIRED=Object.freeze(['release','reference','reference-clean','market-browser','appraisal-browser','identity-browser','dated-browser','sectors-browser','owner-browser','export-browser','cross-browser','ocr-browser','document-tables-browser']);
 
 export function summarize({sha,checks,observations,requestCount}){
  if(!/^[a-f0-9]{40}$/.test(sha)||!Array.isArray(checks)||requestCount!==36)throw Error('BATCH_EVIDENCE_INVALID');
@@ -74,8 +74,8 @@ async function execute(){
  try{
   server=await preview({preview:{host:'127.0.0.1',port:4173,strictPort:true}});
   process.env.STARTAK_E2E_URL='http://127.0.0.1:4173';
-  for(const [id,file] of [['sectors-browser','run_all_13_asset_classes_public_smoke.js'],['owner-browser','run_audit_20261010_f03_f07_browser.js'],['export-browser','run_c75_real_chromium_personal_study.js']])checks.push(await command(id,'node',['tests/e2e/'+file],outDir));
- }catch{for(const id of ['sectors-browser','owner-browser','export-browser'])if(!checks.some(c=>c.id===id))checks.push({id,status:'FAIL',reason:'LOCAL_PREVIEW_UNAVAILABLE'});}
+  for(const [id,file] of [['sectors-browser','run_all_13_asset_classes_public_smoke.js'],['owner-browser','run_audit_20261010_f03_f07_browser.js'],['export-browser','run_c75_real_chromium_personal_study.js'],['cross-browser','run_audit_20261010_remaining_browser.js'],['ocr-browser','run_audit_20261020_local_ocr_browser.js'],['document-tables-browser','run_audit_20261021_document_tables_browser.js']])checks.push(await command(id,'node',['tests/e2e/'+file],outDir));
+ }catch{for(const id of ['sectors-browser','owner-browser','export-browser','cross-browser','ocr-browser','document-tables-browser'])if(!checks.some(c=>c.id===id))checks.push({id,status:'FAIL',reason:'LOCAL_PREVIEW_UNAVAILABLE'});}
  finally{if(server)await new Promise(resolve=>server.httpServer.close(resolve));}
  const observations=[];
  const previewObservation=await observeEndpoint('preview',url);

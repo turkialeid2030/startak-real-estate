@@ -50,6 +50,7 @@ try {
  await panel.getByTestId('dated-reconcile-amounts').check();
  ok(await panel.getByTestId('dated-review-result').count()===0,
   'changing reference policy invalidates prior standalone result');
+ await panel.getByTestId('dated-source-attestation').check();
  await panel.getByTestId('dated-calculate').click();
  ok((await panel.getByTestId('dated-review-blockers').innerText()).includes('CANONICAL_PERIOD_MAPPING_REQUIRED'),
   'annual reference period cannot be inferred');
@@ -64,6 +65,7 @@ try {
  await panel.getByTestId('dated-window-source-0').fill('SYNTH/time-zero-source');
  await panel.getByTestId('dated-row-period-0').selectOption('0');
  await panel.getByTestId('dated-row-period-1').selectOption('1');
+ await panel.getByTestId('dated-source-attestation').check();
  await panel.getByTestId('dated-calculate').click();
  ok((await panel.getByTestId('dated-review-result').innerText()).includes('HOLD_'),
   'unrelated sourced cashflows cannot pass amount reconciliation');
@@ -71,6 +73,7 @@ try {
  await panel.getByTestId('dated-row-amount-1').fill('1e3');
  ok(await panel.getByTestId('dated-review-result').count()===0,
   'editing cashflows must clear previously calculated result immediately');
+ await panel.getByTestId('dated-source-attestation').check();
  await panel.getByTestId('dated-calculate').click();
  ok((await panel.getByTestId('dated-review-result').innerText()).includes('HOLD_'),
   'malformed numeric text must hold');
@@ -91,6 +94,7 @@ try {
   'dates from a different financial basis cannot be reused automatically');
  await panel.getByTestId('dated-reconcile-amounts').uncheck();
  await panel.getByTestId('dated-row-amount-1').fill('1100');
+ await panel.getByTestId('dated-source-attestation').check();
  await panel.getByTestId('dated-calculate').click();
  ok((await panel.getByTestId('dated-review-result').innerText()).includes('UNVERIFIED_DATED_SCENARIO_CALCULATED'),
   'a current calculated result exists before changing project economics');
@@ -122,6 +126,8 @@ try {
  ok((await projection.getByTestId('dated-projection-blockers').innerText()).includes('EXPLICIT_INCOME_TIMING_REQUIRED'),
   'NOI collection cannot silently default to monthly or annual');
  await projection.getByTestId('dated-projection-income-timing').selectOption('UNIFORM_MONTHLY');
+ ok(!await projection.getByTestId('dated-projection-confirm').isChecked(),'changed timing revokes earlier assumption acknowledgement');
+ await projection.getByTestId('dated-projection-confirm').check();
  await projection.getByTestId('dated-projection-calculate').click();
  ok((await projection.getByTestId('dated-projection-calendar').innerText()).includes('2028-07-31'),
   '2.5-year development completes after 30 months, not after rounded 3 years');
@@ -147,6 +153,8 @@ try {
   await projection.getByTestId('dated-projection-start').inputValue()==='2026-01-31'&&
   await projection.getByTestId('dated-projection-income-timing').inputValue()==='ANNUAL_END',
   'Arabic presentation preserves explicitly chosen projection assumptions');
+ ok(!await projection.getByTestId('dated-projection-confirm').isChecked(),'locale switch cannot restore a revoked acknowledgement');
+ await projection.getByTestId('dated-projection-confirm').check();
  await projection.getByTestId('dated-projection-calculate').click();
  ok(await projection.getByTestId('dated-projection-calendar').count()===1,'Arabic monthly projection calculates');
  await page.locator('label').filter({hasText:ar.inputLand.constructionPeriod}).locator('input').first().fill('2');
