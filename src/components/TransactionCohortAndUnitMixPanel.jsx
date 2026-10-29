@@ -10,11 +10,11 @@ const bLease=()=>({unitType:'',status:'EXECUTED',date:'',annualRent:'',areaSqm:'
  sourceUrl:'',sourceRecordId:'',city:'',district:'',location:''});
 function F({name,value,onChange,type='text',placeholder=''}){const {locale}=useLocale();const L=(value,code)=>advancedMarketLabel(value,locale,code);
  return <label className="block min-w-0 text-xs text-slate-300">
- {name}<input className={INPUT} value={value??''} type={type} dir={type==='date'?'ltr':'auto'}
+ {name}<input aria-label={L(name)} className={INPUT} value={value??''} type={type} dir={type==='date'?'ltr':'auto'}
   placeholder={placeholder} onChange={e=>onChange(e.target.value)}/></label>;}
 function S({name,value,onChange,options}){const {locale}=useLocale();const L=(value,code)=>advancedMarketLabel(value,locale,code);
  return <label className="block min-w-0 text-xs text-slate-300">
- {L(name)}<select className={INPUT} value={value||''} onChange={e=>onChange(e.target.value)}>
+ {L(name)}<select aria-label={L(name)} className={INPUT} value={value||''} onChange={e=>onChange(e.target.value)}>
   {options.map(([k,label])=><option key={k} value={k}>{L(label,k)}</option>)}
  </select></label>;}
 const errors={

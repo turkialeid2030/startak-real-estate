@@ -14,14 +14,14 @@ const assetOptions=[['','اختر النوع'],...Object.entries(ASSET_TYPES)];
 function Field({title,value,onChange,type='text',placeholder=''}) {
  const {locale}=useLocale();const L=(value,code)=>advancedMarketLabel(value,locale,code);
  return <label className="min-w-0 block text-xs text-slate-300">{L(title)}
- <input className={INPUT} type={type} value={value||''} onChange={e=>onChange(e.target.value)}
+ <input aria-label={L(title)} className={INPUT} type={type} value={value||''} onChange={e=>onChange(e.target.value)}
   placeholder={placeholder} dir={type==='date'?'ltr':'auto'}/>
  </label>;
 }
 function Select({title,value,onChange,options}) {
  const {locale}=useLocale();const L=(value,code)=>advancedMarketLabel(value,locale,code);
  return <label className="min-w-0 block text-xs text-slate-300">{L(title)}
- <select value={value||''} className={INPUT} onChange={e=>onChange(e.target.value)}>
+ <select aria-label={L(title)} value={value||''} className={INPUT} onChange={e=>onChange(e.target.value)}>
   {options.map(([v,title])=><option key={v} value={v}>{L(title,v)}</option>)}
  </select></label>;
 }

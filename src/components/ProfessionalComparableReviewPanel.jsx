@@ -17,14 +17,14 @@ const blank=i=>({id:'P'+(i+1),date:'',sourceUrl:'',transactionStatus:'EXECUTED',
 function Input({title,value,onChange,type='text',placeholder=''}) {
  const {locale}=useLocale();const L=(value,code)=>advancedMarketLabel(value,locale,code);
  return <label className="text-xs text-slate-300 block min-w-0">{L(title)}
-  <input className={INPUT} value={value} onChange={e=>onChange(e.target.value)}
+  <input aria-label={L(title)} className={INPUT} value={value} onChange={e=>onChange(e.target.value)}
     type={type} placeholder={placeholder} dir={type==='date'?'ltr':'auto'}/>
  </label>;
 }
 function Select({title,value,onChange,options}) {
  const {locale}=useLocale();const L=(value,code)=>advancedMarketLabel(value,locale,code);
  return <label className="text-xs text-slate-300 block min-w-0">{L(title)}
-  <select className={INPUT} value={value} onChange={e=>onChange(e.target.value)}>
+  <select aria-label={L(title)} className={INPUT} value={value} onChange={e=>onChange(e.target.value)}>
    {options.map(([k,v])=><option key={k} value={k}>{L(v,k)}</option>)}
   </select>
  </label>;

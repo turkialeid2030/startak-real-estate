@@ -26,7 +26,7 @@ const reasons={
 function F({title,value,onChange}) {
  const {locale}=useLocale();const L=(value,code)=>advancedMarketLabel(value,locale,code);
  return <label className="block min-w-0 text-xs text-slate-300">{L(title)}
- <input className={FIELD} value={value} onChange={e=>onChange(e.target.value)} dir="auto"/>
+ <input aria-label={L(title)} className={FIELD} value={value} onChange={e=>onChange(e.target.value)} dir="auto"/>
  </label>;
 }
 export default function CrossMethodEvidencePanel({subject,report}){
