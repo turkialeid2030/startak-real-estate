@@ -14,7 +14,9 @@ const rows=[
  'سكني,المدينة المنورة,شظاة,PROJECT_INDICATIVE,750000,160,https://sakani.sa/services/off-plan-projects,S-50,RESIDENTIAL_VILLA,2026-10-27',
  'ديل,أبها,المنسك,BUYER_REQUEST,1400000,350,https://dealapp.sa/ar/tabs/home,D-12,RESIDENTIAL_VILLA,2026-10-25',
 ];
-const parse=(data,params={})=>parseListingResearchCsv(data,{observedOn,...params});
+// The as-of date is part of this test fixture, not the runner clock.
+const FIXTURE_AS_OF=new Date('2026-10-28T12:00:00.000Z');
+const parse=(data,params={})=>parseListingResearchCsv(data,{observedOn,asOf:FIXTURE_AS_OF,...params});
 const importAll=parse([header,...rows].join('\n'));
 check('seven official sources are configured with their real distinct roles',()=>{
  assert.equal(SOURCES.length,7);
@@ -50,6 +52,9 @@ check('strict Arabic decimal and grouping never converts ambiguous 1,2 into 12',
 });
 check('impossible dates and future observation are rejected',()=>{
  assert.throws(()=>parse([header,rows[0]].join('\n'),{observedOn:'2026-10-29'}),/OBSERVATION_INVALID/);
+ assert.equal(parse([header,rows[0]].join('\n'),{
+  observedOn:'2026-10-29',asOf:new Date('2026-10-29T12:00:00.000Z')
+ }).records.length,1);
  const invalid=rows[0].replace('2026-10-26','2026-02-30');
  assert.equal(parse([header,invalid].join('\n')).rejected.length,1);
 });
