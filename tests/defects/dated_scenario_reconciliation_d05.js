@@ -13,7 +13,8 @@ let checks=0;
 const ok=(v,m)=>{assert.ok(v,m);checks++};
 const result=evaluate();
 ok(result.status==='UNVERIFIED_DATED_SCENARIO_CALCULATED','matched sourced amounts calculate');
-ok(result.boundToCanonicalFinancialStudy===true,'explicitly matched reference is identified');
+ok(result.canonicalAmountReferenceMatched===true&&result.boundToCanonicalFinancialStudy===false,
+ 'amount matching cannot claim full canonical-study integration');
 ok(result.amountReconciliation.periods.every(x=>x.differenceSar===0),'each period reconciles to halalas');
 ok(result.canonicalTimingReconciled===false&&result.monthlyFinancingReconciled===false,
  'amounts cannot establish construction timing or monthly financing reconciliation');

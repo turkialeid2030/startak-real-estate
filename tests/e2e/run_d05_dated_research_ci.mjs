@@ -75,6 +75,8 @@ try {
  await panel.getByTestId('dated-calculate').click();
  ok((await panel.getByTestId('dated-review-result').innerText()).includes('UNVERIFIED_DATED_SCENARIO_CALCULATED'),
   'a current calculated result exists before changing project economics');
+ const timingSection=page.getByRole('button',{name:/Timing and Return/});
+ if(await timingSection.getAttribute('aria-expanded')!=='true')await timingSection.click();
  const constructionInput=page.locator('label').filter({hasText:'Construction Period'}).locator('input').first();
  await constructionInput.fill('2.5');
  ok(await panel.getByTestId('dated-row-date-0').inputValue()===''&&
