@@ -46,8 +46,20 @@ const BASE=process.env.STARTAK_E2E_URL||'http://127.0.0.1:4173';
    }else{
     await expect(universe.getByTestId('personal-phased-development-dcf')).toHaveCount(0);
    }
+   const inputSnapshot=()=>workbench.locator('input,select,textarea').evaluateAll(nodes=>nodes.map(x=>({value:x.value,checked:x.checked})));
+   const beforeLocale=await inputSnapshot();
+   await page.getByTestId('locale-switch').click();
+   await expect(workbench).toHaveAttribute('dir','ltr');
+   await expect(selector).toHaveValue(assetClass);
+   await expect(workbench.getByTestId('personal-sector-scenario-output')).toContainText('Held due to missing evidence');
+   assert.deepEqual(await inputSnapshot(),beforeLocale,'Locale cannot change sector inputs: '+assetClass);
+   await expect(workbench.getByTestId('personal-sector-provisional-value')).toHaveCount(0);
+   await page.getByTestId('locale-switch').click();
+   await expect(workbench).toHaveAttribute('dir','rtl');
+   assert.deepEqual(await inputSnapshot(),beforeLocale,'Arabic roundtrip preserves sector inputs: '+assetClass);
    verified++;
   }
+  console.log('ALL_13_ASSET_CLASSES_BILINGUAL_ROUNDTRIP=PASS sectors='+verified);
   // The switched sector remounts an empty research case; old HOLD and input must not leak.
   await selector.selectOption('OFFICE');
   await expect(universe.getByTestId('personal-sector-scenario-output')).toHaveCount(0);
