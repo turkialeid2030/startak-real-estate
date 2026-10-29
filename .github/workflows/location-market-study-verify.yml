@@ -76,6 +76,12 @@ on:
       - 'tests/defects/financial_market_identity_d06.js'
       - 'tests/defects/personal_study_status_clarity_d07.js'
       - 'src/i18n/market-study-core-labels.js'
+      - 'src/i18n/market-workflow-labels.js'
+      - 'src/i18n/valuation-evidence-presentation.js'
+      - 'src/i18n/research-action-presentation.js'
+      - 'src/components/ValuationAdvancedPanel.jsx'
+      - 'src/components/CriticalEvidenceRequirementsPanel.jsx'
+      - 'tests/defects/research_action_locale_d04.js'
       - 'src/reporting/financial-timing-basis-report.js'
       - 'src/app/personal-financial-study.js'
       - 'tests/defects/market_study_core_locale_d04.js'
@@ -132,6 +138,8 @@ jobs:
         run: node tests/defects/market_study_core_locale_d04.js
       - name: Audit D04 appraisal, quality and governance locale changes without changing source data or authority
         run: node tests/defects/assurance_workflow_locale_d04.js
+      - name: Audit evidence classifications and action notices without replaying actions
+        run: node tests/defects/research_action_locale_d04.js
       - name: Audit D05 year/month return-timing precision and dated evidence warnings
         run: node tests/defects/fractional_construction_disclosure_d05.js
       - name: Audit D05 explicit owner dated cashflow rights and fail-closed XIRR

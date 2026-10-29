@@ -3,6 +3,7 @@ const {buildUnifiedResearch,researchReportBundle,researchClaimsGate}=
  require('../market/research-evidence-fusion');
 const {renderResearchBriefHtml}=require('../market/research-brief-html');
 const {useLocale}=require('../i18n/LocaleContext.js');
+const {researchActionText}=require('../i18n/research-action-presentation');
 const {researchSourceLabel}=require('../i18n/research-source-presentation');
 export default function ResearchEvidenceFusionPanel({subject={},feeds={},asOf='2026-10-28',
  readinessStatus='NOT_TESTED',marketReport=null,readiness=null,publicNeighborhood=null,publicLoadMeta=null}){
@@ -25,8 +26,8 @@ export default function ResearchEvidenceFusionPanel({subject={},feeds={},asOf='2
    const url=URL.createObjectURL(blob);const link=document.createElement('a');
    link.href=url;link.download=en?'STARTAK_English_Research_Investment_Brief.html':'STARTAK_Arabic_Research_Investment_Brief.html';
    document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
-   setMessage(en?'An English research-only HTML report was exported; it is not a licensed valuation or purchase recommendation.':'تم تصدير تقرير عربي بحثي غير معتمد؛ لا يتضمن توصية شراء أو تقييمًا مرخصًا.');
-  }catch(e){setMessage((en?'Could not export research HTML: ':'تعذر إصدار التقرير البحثي العربي: ')+String(e?.message||e));}
+   setMessage({kind:en?'RESEARCH_HTML_EN':'RESEARCH_HTML_AR'});
+  }catch(e){setMessage({kind:'RESEARCH_HTML_FAILED',params:{code:String(e?.message||e)}});}
  };
  const exportJson=()=>{
   try{
@@ -35,8 +36,8 @@ export default function ResearchEvidenceFusionPanel({subject={},feeds={},asOf='2
    const url=URL.createObjectURL(blob);const link=document.createElement('a');
    link.href=url;link.download='STARTAK_Unified_Research_Brief.json';document.body.appendChild(link);
    link.click();link.remove();URL.revokeObjectURL(url);
-   setMessage(en?'Research JSON exported with evidence limitations and no certified market value.':'تم تصدير تقرير بحثي مع حدود الثقة؛ لا يتضمن قيمة سوقية معتمدة.');
-  }catch(e){setMessage((en?'Could not export research bundle: ':'تعذر تصدير التقرير البحثي: ')+String(e?.message||e));}
+   setMessage({kind:'RESEARCH_JSON_EXPORTED'});
+  }catch(e){setMessage({kind:'RESEARCH_JSON_FAILED',params:{code:String(e?.message||e)}});}
  };
  return <section data-testid="research-evidence-fusion" dir={en?'ltr':'rtl'}
   className="mt-5 w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-amber-700 bg-slate-950 p-4 text-slate-100">
@@ -105,6 +106,6 @@ export default function ResearchEvidenceFusionPanel({subject={},feeds={},asOf='2
    <button type="button" data-testid="fusion-export-html" onClick={exportHtml}
     className="rounded border border-slate-500 px-3 py-2 text-xs">{en?'English property research HTML':'تقرير بحث عقاري واستثماري عربي HTML'}</button>
   </div>
-  {message&&<p role="status" className="mt-2 text-xs text-sky-200">{message}</p>}
+  {message&&<p data-testid="research-export-action-notice" data-diagnostic-content translate="no" role="status" className="mt-2 text-xs text-sky-200">{researchActionText(message,locale)}</p>}
  </section>;
 }

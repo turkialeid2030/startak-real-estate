@@ -165,7 +165,11 @@ try{
  const englishHtml=await readFile(await htmlDownload.path(),'utf8');
  assert(englishHtml.includes('<html lang="en" dir="ltr">')&&
   englishHtml.includes('HOLD / NOT_AUTHORIZED'),'D04 English download retains HOLD');
+ assert((await fusion.getByTestId('research-export-action-notice').innerText()).includes('English research-only'),
+  'D04 exported file language recorded in action notice');
  await page.getByTestId('locale-switch').click();
+ assert((await fusion.getByTestId('research-export-action-notice').innerText()).includes('إنجليزي'),
+  'D04 Arabic notice still describes the actual English file without downloading again');
  assert(await national.getAttribute('dir')==='rtl',
   'D04 national panel restores RTL');
  assert(await classFilter.inputValue()===originalClassValue,
@@ -203,6 +207,27 @@ try{
  assert(String(arStatus).includes('معلّق') &&
    await fusion.getByTestId('fusion-status').getAttribute('data-decision')==='HOLD',
    'D04 Arabic status must display Arabic hold while preserving immutable machine HOLD; actual='+JSON.stringify(arStatus));
+ const coreDownloadPending=page.waitForEvent('download');
+ await market.getByTestId('personal-market-study-export').click();
+ const coreDownload=await coreDownloadPending;
+ const coreJson=JSON.parse(await readFile(await coreDownload.path(),'utf8'));
+ assert(coreJson.kind==='STARTAK_PERSONAL_MARKET_STUDY','D04 actual core JSON downloaded');
+ const csv=market.getByTestId('public-csv-import');
+ await csv.locator('input[type=file]').first().setInputFiles({name:'SYNTH-D04-no-rights.csv',mimeType:'text/csv',buffer:Buffer.from('invalid,headers\n1,2')});
+ assert((await market.getByTestId('market-import-action-notice').innerText()).includes('تعذر الاستيراد'),
+  'D04 missing-rights CSV remains blocked in Arabic');
+ const beforeActions=await market.locator('input:not([type=file]),select').evaluateAll(nodes=>nodes.map(x=>({value:x.value,checked:x.checked})));
+ await page.getByTestId('locale-switch').click();
+ assert((await market.getByTestId('market-study-action-notice').innerText()).includes('download requested'),
+  'D04 prior core download notice switches to English without another export');
+ assert((await market.getByTestId('market-import-action-notice').innerText()).includes('Import failed'),
+  'D04 prior CSV failure switches language without retrying import');
+ assert((await csv.locator('h3').innerText()).includes('authorized files'),'D04 core CSV section localized');
+ const afterActions=await market.locator('input:not([type=file]),select').evaluateAll(nodes=>nodes.map(x=>({value:x.value,checked:x.checked})));
+ assert(JSON.stringify(beforeActions)===JSON.stringify(afterActions),'D04 action notices cannot change fields or evidence choices');
+ await page.getByTestId('locale-switch').click();
+ assert((await market.getByTestId('market-study-action-notice').innerText()).includes('تم إعداد ملف الدراسة'),'D04 action notice restores Arabic');
+ console.log('D04_RESEARCH_ACTION_REAL_CHROMIUM=PASS replayed_actions=false source_values_unchanged=true');
  assert(errors.length===0,'React browser failures: '+errors.slice(0,2).join(','));
  console.log('D06_D07_REAL_CHROMIUM=PASS financial_and_valuation_states_separate=true inferred_title=false');
 }catch(e){console.error('D06_D07_REAL_CHROMIUM=FAIL '+String(e.stack||e));process.exitCode=1;}

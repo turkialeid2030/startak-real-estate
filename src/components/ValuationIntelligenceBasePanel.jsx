@@ -26,6 +26,7 @@ const {
   getValuationMethodLabel,
   getValuationReasonLabel,
 } = require('../app/valuation-labels');
+const {valuationEvidenceLabel}=require('../i18n/valuation-evidence-presentation');
 const { VALUATION_RUNTIME_MODE } = require('../app/existing-building-valuation-runtime');
 
 const COLORS = Object.freeze({
@@ -313,7 +314,7 @@ function MethodRow({ locale, method }) {
       {value ? <div className="rf-num text-sm mt-1" style={{ color: COLORS.brassSoft }}>{value}</div> : null}
       {reason ? <div className="text-[10px] leading-relaxed mt-1" style={{ color: COLORS.slate }}>{reason}</div> : null}
       {method.weakestEvidenceGrade ? (
-        <div className="text-[10px] mt-1" style={{ color: COLORS.slateDim }}>{method.weakestEvidenceGrade}</div>
+        <div className="text-[10px] mt-1" style={{ color: COLORS.slateDim }}>{valuationEvidenceLabel(method.weakestEvidenceGrade,locale)}</div>
       ) : null}
     </div>
   );

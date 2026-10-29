@@ -3,6 +3,7 @@
 // asset identifiers and appraisal decisions retain exactly the same semantics.
 const {ASSET_TYPES}=require('../market/instant-market-study');
 const EN=Object.freeze({
+ ...require('./market-workflow-labels'),
  'موقع العقار والقيمة السوقية والإيجار المستهدف — دراسة شخصية':'Property location, market evidence and target rent — personal study',
  'D06 — ربط اختياري لهوية العقار من الدراسة المالية':'D06 — Optional property identity link from financial study',
  'حالة النقل:':'Transfer status:',
@@ -115,7 +116,10 @@ const EN_BRIDGE_FIELDS=Object.freeze({
 });
 function coreMarketLabel(arabic,locale='ar-SA'){
  if(typeof arabic!=='string')throw TypeError('D04_LABEL_MUST_BE_STRING');
- return locale==='en'?(Object.prototype.hasOwnProperty.call(EN,arabic)?EN[arabic]:arabic):arabic;
+ if(locale!=='en')return arabic;
+ const key=arabic.replace(/\s+/g,' ').trim();
+ if(!Object.prototype.hasOwnProperty.call(EN,key))return arabic;
+ return (arabic.match(/^\s*/)?.[0]||'')+EN[key]+(arabic.match(/\s*$/)?.[0]||'');
 }
 function marketOptionLabel(code,arabic,locale='ar-SA'){
  if(locale==='en'&&Object.prototype.hasOwnProperty.call(EN_ASSET,code)&&
