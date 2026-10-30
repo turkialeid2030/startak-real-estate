@@ -8,10 +8,12 @@ const {auditAppraisal,compareVersions}=require('../market/appraisal-assurance');
 // The user must manually transcribe and check every value against the original page.
 // This component neither uploads documents nor stores data persistently.
 const fresh=()=>({
- reportId:'',valuationDate:'',property:{name:'',assetType:'',deedNumber:'',owner:'',rightType:'',areaSqm:''},
+ reportId:'',valuationDate:'',property:{name:'',assetType:'',deedNumber:'',owner:'',rightType:'',areaSqm:'',
+   builtAreaSqm:'',netLeasableAreaSqm:'',improvementOwner:''},
  reported:{capitalValueSar:'',marketRentSar:''},
  income:{annualGrossRevenueSar:'',vacancyLossSar:'',operatingExpensesSar:'',annualNoiSar:'',
-   capitalizationRatePct:'',indicatedValueSar:'',rentUsesThisEstimate:false,leaseStructure:''},
+   capitalizationRatePct:'',indicatedValueSar:'',rentUsesThisEstimate:false,leaseStructure:'',leaseTermYearsRemaining:''},
+ cost:{landValueSar:'',depreciatedImprovementValueSar:'',indicatedTotalSar:''},inputEvidence:{},
  marketRent:{annualRentSar:'',capitalValueBasisSar:'',percentOfCapitalValue:'',derivation:'',
    usedAsIncomeApproachEvidence:false},
  sectorEvidence:{},
@@ -24,7 +26,13 @@ const fields=[
  ['valuationDate','تاريخ القيمة (ميلادي)','date'],
  ['property.deedNumber','رقم الصك (اختياري في هذه الدراسة)','text'],
  ['property.owner','اسم المالك (اختياري)','text'],
- ['property.areaSqm','مساحة العقار م²','text'],
+ ['property.areaSqm','مساحة الأرض م²','text'],
+ ['property.builtAreaSqm','إجمالي مساحة البناء م² (مستقلة عن التأجير)','text'],
+ ['property.netLeasableAreaSqm','صافي المساحة التأجيرية الداخلية م² (دون الساحات)','text'],
+ ['income.leaseTermYearsRemaining','مدة العقد أو الحق المتبقية بالسنوات','text'],
+ ['cost.landValueSar','قيمة الأرض في أسلوب التكلفة (ريال)','text'],
+ ['cost.depreciatedImprovementValueSar','قيمة التحسينات بعد التقادم (ريال)','text'],
+ ['cost.indicatedTotalSar','إجمالي قيمة أسلوب التكلفة الوارد (ريال)','text'],
  ['reported.capitalValueSar','القيمة الرأسمالية الواردة (ريال)','text'],
  ['reported.marketRentSar','الإيجار السنوي الوارد (ريال)','text'],
  ['income.annualGrossRevenueSar','الإيراد التشغيلي الإجمالي السنوي (ريال)','text'],
@@ -40,6 +48,11 @@ const fields=[
  ['pages.rent','رقم صفحة حساب الإيجار في الأصل','text'],
 ];
 const descriptions=Object.freeze({
+ APPRAISAL_INPUTS_INCOMPLETE:'قيم أو مصادر جوهرية غير مكتملة؛ تبقى النتائج الحسابية استكشافية.',
+ APPRAISAL_INPUT_CONFLICT:'يوجد تعارض في أدلة المدخلات أو قيمة غير صالحة.',
+ INDOOR_LEASABLE_AREA_EXCEEDS_BUILT_AREA:'المساحة التأجيرية الداخلية تتجاوز إجمالي البناء؛ راجع التعريفات واستبعد الساحات الخارجية.',
+ COST_TOTAL_MISMATCH:'إجمالي أسلوب التكلفة لا يطابق الأرض مضافًا إليها التحسينات بعد التقادم.',
+ IMPROVEMENT_RIGHTS_UNRESOLVED:'لم تُحسم ملكية التحسينات ضمن حق المالك؛ مباني المستأجر أو الملكية المختلطة تتطلب تقييم الحقوق.',
  INCOME_CAPITALIZATION_MISMATCH:'تعارض بين قيمة أسلوب الدخل وحاصل قسمة NOI على معدل الرسملة.',
  NOI_RECONCILIATION_MISMATCH:'صافي الدخل لا يساوي الإيراد الإجمالي ناقص الشواغر والمصروفات.',
  RENT_DERIVED_FROM_CAPITAL_NOT_MARKET_EVIDENCE:'الإيجار مشتق من القيمة، وليس شاهدًا سوقيًا مستقلًا.',
@@ -74,6 +87,20 @@ function FieldSet({stage,setStage,prefix}){
       onChange={e=>setStage(s=>update(s,path,e.target.value))}
       className="mt-1 block w-full rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-slate-100" />
    </label>)}
+  {[
+   ['property.rightType','الحق محل التقييم',[
+    ['FREEHOLD','ملكية العقار'],['LEASED_FEE','ملكية مؤجرة بعقد'],
+    ['LEASEHOLD','حق المستأجر'],['USUFRUCT','حق انتفاع']]],
+   ['property.improvementOwner','مالك المبنى والتحسينات',[
+    ['PROPERTY_OWNER','مالك العقار'],['TENANT','المستأجر'],['MIXED','ملكية مختلطة']]],
+  ].map(([path,label,options])=><label key={path} className="block text-xs text-slate-200">{L(label)}
+   <select data-testid={prefix+'-'+path.replace(/\./g,'-')} aria-label={L(label)} value={at(stage,path)??''}
+     onChange={e=>setStage(s=>update(s,path,e.target.value))}
+     className="mt-1 w-full rounded-lg border border-slate-600 bg-slate-950 p-2 text-sm">
+    <option value="">{L('غير محدد / يلزم توثيق')}</option>
+    {options.map(([value,text])=><option key={value} value={value}>{L(text)}</option>)}
+   </select>
+  </label>)}
   <label className="block text-xs text-slate-200">{L("مصدر الإيجار")}
    <select aria-label={L("مصدر الإيجار")} value={stage.marketRent.derivation}
     onChange={e=>setStage(s=>update(s,'marketRent.derivation',e.target.value))}
@@ -94,6 +121,60 @@ function FieldSet({stage,setStage,prefix}){
    {L("يدّعي التقرير وجود عقد صافي ثلاثي موثّق (يلزم فحص العقد)")}
   </label>
  </div>;
+}
+
+const inputEvidenceLabels=Object.freeze({
+ landArea:'مساحة الأرض م²',rights:'الحق محل التقييم',builtArea:'إجمالي مساحة البناء م² (مستقلة عن التأجير)',
+ netLeasableArea:'صافي المساحة التأجيرية الداخلية م² (دون الساحات)',
+ improvementOwnership:'مالك المبنى والتحسينات',lease:'مدة العقد أو الحق المتبقية بالسنوات',
+ income:'صافي الدخل التشغيلي السنوي NOI (ريال)',expenses:'مصروفات المالك التشغيلية السنوية (ريال)',
+ capRate:'معدل الرسملة (%)',costLand:'قيمة الأرض في أسلوب التكلفة (ريال)',
+ cost:'قيمة التحسينات بعد التقادم (ريال)',costTotal:'إجمالي قيمة أسلوب التكلفة الوارد (ريال)',
+});
+const inputStatusLabels=Object.freeze({
+ MISSING_VALUE:'القيمة غير مدخلة',INVALID_VALUE:'القيمة غير صالحة',CONFLICT:'دليل متعارض',
+ ASSUMED:'افتراض محاكاة',SOURCE_REVIEW_REQUIRED:'مصدر المدخل يحتاج مراجعة',
+ DOCUMENT_REVIEWED_NOT_VERIFIED:'مستند راجعه المستخدم؛ دون تحقق مستقل',
+});
+function InputEvidenceReview({stage,setStage,review}){
+ const {locale}=useLocale();const L=value=>assuranceLabel(value,locale);
+ return <section data-testid="appraisal-input-review" data-status={review.status} className="rounded-lg border border-amber-700 p-3 text-xs">
+  <h3 className="font-semibold text-amber-100">{L('اكتمال مدخلات التقييم ومصادرها')}</h3>
+  <p data-testid="appraisal-input-review-summary" role="status" className="my-2 text-amber-100">
+   {L(review.status==='INCOMPLETE_INPUTS'?'مدخلات غير مكتملة — محاكاة استكشافية فقط':'المدخلات مراجعة يدويًا؛ لم تثبت القيمة السوقية مهنيًا')}
+  </p>
+  <ul data-testid="appraisal-input-gaps" className="space-y-1">
+   {review.rows.map(row=><li key={row.field} data-field={row.field} data-status={row.status}>
+    {L(inputEvidenceLabels[row.field])} · {L(inputStatusLabels[row.status])}
+   </li>)}
+  </ul>
+  <details className="mt-3">
+   <summary className="py-2 text-slate-200">{L('تسجيل مصدر كل مدخل وحالة مراجعته')}</summary>
+   <p className="my-2 text-slate-300">{L('تسجيل مرجع أو اختيار حالة مراجعة إقرار مستخدم فقط، ولا يثبت أصالة المستند أو صحة الحقوق.')}</p>
+   <div className="grid gap-3 sm:grid-cols-2">
+    {review.rows.map(row=><div key={row.field} className="space-y-2">
+     <label className="block text-slate-200">{L(inputEvidenceLabels[row.field])} · {L('حالة المصدر')}
+      <select data-testid={'evidence-'+row.field+'-status'} aria-label={L(inputEvidenceLabels[row.field])+' · '+L('حالة المصدر')}
+       value={stage.inputEvidence?.[row.field]?.status||''}
+       onChange={e=>setStage(s=>update(s,'inputEvidence.'+row.field+'.status',e.target.value))}
+       className="mt-1 w-full rounded-lg border border-slate-600 bg-slate-950 p-2 text-sm">
+       <option value="">{L('غير محدد / يلزم توثيق')}</option>
+       <option value="UNVERIFIED">{L('إفادة غير متحققة')}</option>
+       <option value="ASSUMED">{L('افتراض محاكاة')}</option>
+       <option value="OBSERVED">{L('مستند راجعه المستخدم؛ دون تحقق مستقل')}</option>
+       <option value="CONFLICT">{L('دليل متعارض')}</option>
+      </select>
+     </label>
+     <label className="block text-slate-200">{L(inputEvidenceLabels[row.field])} · {L('مرجع المصدر وصفحته')}
+      <input data-testid={'evidence-'+row.field+'-ref'} aria-label={L(inputEvidenceLabels[row.field])+' · '+L('مرجع المصدر وصفحته')}
+       dir="auto" value={stage.inputEvidence?.[row.field]?.sourceRef||''}
+       onChange={e=>setStage(s=>update(s,'inputEvidence.'+row.field+'.sourceRef',e.target.value))}
+       className="mt-1 block w-full rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-slate-100"/>
+     </label>
+    </div>)}
+   </div>
+  </details>
+ </section>;
 }
 
 const sectorFields=Object.freeze({
@@ -206,6 +287,7 @@ export default function AppraisalAssuranceWorkbench({intakeRecord=null}){
     <p className="rounded border border-slate-700 p-2 text-xs text-slate-300">{L("بصمة ملف المستند المحلي:")} {digest?<span data-testid="appraisal-document-hash" className="break-all font-mono" dir="ltr">{digest}</span>:L('لم يُرفق ملف أو لم يكتمل فحصه')}</p>
     <FieldSet stage={current} setStage={setCurrent} prefix="current"/>
     <SpecialistFields stage={current} setStage={setCurrent}/>
+    <InputEvidenceReview stage={current} setStage={setCurrent} review={reviewed.metrics.inputReview}/>
     {reviewed.metrics.sectorReview?.applicable&&
      <section data-testid="appraisal-sector-status" data-status={reviewed.metrics.sectorReview.status}
       className="rounded border border-amber-700 p-3 text-xs text-amber-100">

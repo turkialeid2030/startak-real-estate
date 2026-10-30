@@ -80,6 +80,39 @@ try {
  assert(await work.getByTestId('appraisal-audit-status').getAttribute('data-status')==='REVIEW_REQUIRED','reset should clear material errors');
  assert(await work.getByTestId('current-reportId').inputValue()==='','reset should clear values');
  pass('local data cleared without saving or approving');
+ await work.getByTestId('current-property-assetType').fill('COMMERCIAL_COMPLEX');
+ await work.getByTestId('current-property-areaSqm').fill('12000');
+ await work.getByTestId('current-property-netLeasableAreaSqm').fill('8000');
+ assert(await work.getByTestId('current-property-builtAreaSqm').inputValue()==='',
+  'leasable area must not populate built area');
+ assert(await work.getByTestId('appraisal-input-review').getAttribute('data-status')==='INCOMPLETE_INPUTS',
+  'missing facts must remain exploratory');
+ await work.getByTestId('current-property-builtAreaSqm').fill('7000');
+ assert(await work.getByTestId('appraisal-issues').getByText('INDOOR_LEASABLE_AREA_EXCEEDS_BUILT_AREA').count()===1,
+  'area conflict is not exposed');
+ await work.getByTestId('current-property-builtAreaSqm').fill('10000');
+ await work.getByTestId('current-cost-landValueSar').fill('100000000');
+ await work.getByTestId('current-cost-depreciatedImprovementValueSar').fill('15000000');
+ await work.getByTestId('current-cost-indicatedTotalSar').fill('115000000');
+ await work.getByTestId('current-property-improvementOwner').selectOption('TENANT');
+ assert(await work.getByTestId('appraisal-issues').getByText('IMPROVEMENT_RIGHTS_UNRESOLVED').count()===1,
+  'tenant improvements cannot be included in owner cost value');
+ await work.getByTestId('current-property-improvementOwner').selectOption('PROPERTY_OWNER');
+ assert(await work.getByTestId('appraisal-audit-status').getAttribute('data-status')==='REVIEW_REQUIRED',
+  'correcting conflict must still require review');
+ await work.getByText('تسجيل مصدر كل مدخل وحالة مراجعته',{exact:true}).click();
+ await work.getByTestId('evidence-builtArea-status').selectOption('ASSUMED');
+ await work.getByTestId('evidence-builtArea-ref').fill('SYNTHETIC source page 2');
+ assert(await work.getByTestId('appraisal-input-gaps').locator('[data-field="builtArea"]').getAttribute('data-status')==='ASSUMED',
+  'adding a reference cannot verify an assumed area');
+ const inputEvidenceSnapshot=await auditSnapshot();
+ await page.getByTestId('locale-switch').click();
+ await assertEnglishSystemText(work);
+ assert(JSON.stringify(await auditSnapshot())===JSON.stringify(inputEvidenceSnapshot),'evidence state changed with locale');
+ await page.getByTestId('locale-switch').click();
+ await work.getByTestId('appraisal-reset').click();
+ assert(await work.getByTestId('current-property-builtAreaSqm').inputValue()==='', 'reset must clear new area facts');
+ pass('separate areas, tenant rights, source gaps and exploratory statuses survive locale and reset');
  assert((await work.getByText('لا يوجد زر اعتماد أو تصدير تقرير مهني.').count())===1,'professional export boundary absent');
  pass('professional report export unavailable');
  const market=page.getByTestId('location-market-study');

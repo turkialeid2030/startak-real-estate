@@ -61,7 +61,8 @@ function evaluateBoundReview({subject={},link=null}={}){
     (link.reviewStatus==='REVIEW_REQUIRED'&&Array.isArray(link.issues)&&
       link.issues.some(x=>['CIRCULAR_VALUATION','INCOME_CAPITALIZATION_MISMATCH',
         'NOI_RECONCILIATION_MISMATCH','RENT_PERCENTAGE_ARITHMETIC_MISMATCH',
-        'SPECIALIST_EVIDENCE_HOLD','INVALID_NUMERIC_INPUT'].includes(x))))
+        'SPECIALIST_EVIDENCE_HOLD','INVALID_NUMERIC_INPUT','APPRAISAL_INPUT_CONFLICT',
+        'INDOOR_LEASABLE_AREA_EXCEEDS_BUILT_AREA','COST_TOTAL_MISMATCH','IMPROVEMENT_RIGHTS_UNRESOLVED'].includes(x))))
   return {status:'STALE_OR_UNMATCHED_LINK',appraisalReview:{status:'HOLD'},blockExport:true,
     reasons:['APPRAISAL_REVIEW_STATE_INVALID_OR_BLOCKERS_PRESENT']};
  if(link.reviewStatus==='HOLD')
