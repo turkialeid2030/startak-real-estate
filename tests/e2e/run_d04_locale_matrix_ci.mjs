@@ -27,7 +27,7 @@ try{
   await expand();
   // Actual input warning and canonical rejection must agree, including after a
   // previous valid result exists. Test both modes and both land dimensions.
-  for(const [field,label] of [['landLength','Land Length'],['landWidth','Land Width']])for(const invalidValue of ['0','0.005']){
+  for(const [field,label] of [['landLength',seed.mode==='land'?'Length':'Land Length'],['landWidth',seed.mode==='land'?'Width':'Land Width']])for(const invalidValue of ['0','0.005']){
    const input=page.getByRole('textbox',{name:new RegExp('^'+label+' ')});
    await input.fill(invalidValue);
    await expect(page.getByTestId('current-calculation-unavailable')).toHaveCount(2);

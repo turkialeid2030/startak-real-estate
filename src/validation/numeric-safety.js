@@ -222,7 +222,13 @@ function validateEngineInputs(inputs, options = {}) {
   // Zero/tiny dimensions must not leave financial outputs visible beside an
   // invalid-field warning. Generic validation probes keep their existing scope.
   if (studyType === STUDY_TYPE.EXISTING_BUILDING || studyType === STUDY_TYPE.LAND_DEVELOPMENT) {
-    for (const field of ['landLength', 'landWidth']) requireRange(field, inputs[field], 0.01, Number.MAX_VALUE);
+    for (const field of ['landLength', 'landWidth']) if (inputs[field] < 0.01) {
+      const ar = field === 'landLength' ? 'طول الأرض' : 'عرض الأرض';
+      const en = field === 'landLength' ? 'Land length' : 'Land width';
+      throw new ValidationError(field, inputs[field], 'OUT_OF_RANGE',
+        `${ar} يجب ألا يقل عن 0.01 متر؛ صحح القيمة المدخلة (${inputs[field]}).`,
+        `${en} must be at least 0.01 metres; correct the entered value (${inputs[field]}).`);
+    }
   }
 
   for (const field of GROWTH_RATE_FIELDS) {
