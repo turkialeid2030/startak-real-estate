@@ -1,5 +1,5 @@
 import DiagnosticText from './DiagnosticText.jsx';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {useAppraisalReviewSession} from './AppraisalReviewSessionContext.jsx';
 const {researchActionText}=require('../i18n/research-action-presentation');
 const {evaluateBoundReview}=require('../market/appraisal-study-binding');
@@ -154,7 +154,42 @@ export default function PropertyMarketLocationPanel({financialStudy=null}) {
   const [savedDealStudyStatus,setSavedDealStudyStatus]=useState('');
   const [replaceLinkedStudy,setReplaceLinkedStudy]=useState(false);
   const [linkedStudyBusy,setLinkedStudyBusy]=useState(false);
+  const [linkedSaveBusy,setLinkedSaveBusy]=useState(false);
   const [linkedDealIdentityAcknowledged,setLinkedDealIdentityAcknowledged]=useState(false);
+  // Each asynchronous read belongs to the current inputs and latest selection.
+  // Layout effects revoke old operations before another browser event can run.
+  const readIds=useRef({sale:0,rent:0,public:0,restore:0,sidecar:0,dealList:0});
+  const readMounted=useRef(true);
+  const beginRead=kind=>({kind,id:++readIds.current[kind]});
+  const currentRead=token=>readMounted.current&&readIds.current[token.kind]===token.id;
+  const revokeReads=(...kinds)=>{for(const kind of kinds)readIds.current[kind]++;};
+  useLayoutEffect(()=>{
+    readMounted.current=true;
+    return ()=>{readMounted.current=false;for(const kind of Object.keys(readIds.current))readIds.current[kind]++;};
+  },[]);
+  useLayoutEffect(()=>{
+    revokeReads('sale','rent');
+    setImportStatus('');
+  },[subject,importSource,rightsConfirmed,researchSessionEpoch]);
+  useLayoutEffect(()=>{
+    // Revoking reuse permission or declaring a different source removes the
+    // previously imported rows as well as cancelling any outstanding reads.
+    setImportedSales([]);setImportedRentals([]);
+  },[importSource,rightsConfirmed]);
+  useLayoutEffect(()=>{
+    revokeReads('public');
+    setPublicRecords([]);setPublicLoadMeta(null);setPublicLoadStatus('');
+    setPublicLoading(false);
+  },[subject.valuationDate,researchSessionEpoch]);
+  useLayoutEffect(()=>{
+    revokeReads('restore','sidecar');
+    setLinkedStudyBusy(false);
+  },[subject,assumptions,sales,rentals,projects,marketOffers,unitMix,
+    leaseComparables,rentAssumptions,importedSales,importedRentals,
+    importSource,rightsConfirmed,selectedSavedDealId,researchSessionEpoch]);
+  useLayoutEffect(()=>{
+    setLinkedDealIdentityAcknowledged(false);setReplaceLinkedStudy(false);
+  },[subject,selectedSavedDealId,researchSessionEpoch]);
   useEffect(()=>{setSessionSubject(subject);},[subject,setSessionSubject]);
   const appraisalBinding=useMemo(()=>evaluateBoundReview({subject,link:appraisalLink}),[subject,appraisalLink]);
   const selectedDeal=useMemo(()=>savedDeals.find(deal=>deal.id===selectedSavedDealId)||null,[savedDeals,selectedSavedDealId]);
@@ -192,30 +227,35 @@ export default function PropertyMarketLocationPanel({financialStudy=null}) {
   const quarterLabel=value=>{const m=String(value).match(/^([0-9]{4})-Q([1-4])$/);return english?(m?'Q'+m[2]+' '+m[1]:'Historical quarter'):(m?'الربع '+['الأول','الثاني','الثالث','الرابع'][Number(m[2])-1]+L(' من ')+m[1]:'فصل تاريخي');};
   const fetchOpenData=async()=>{
     if(publicLoading)return;
+    const token=beginRead('public');
     setPublicLoading(true);setPublicLoadStatus({kind:'OPEN_LOADING'});
     try{
-      const data=await readOpenQuarters({asOf:new Date(asOfMs),onProgress:p=>setPublicLoadStatus({
+      const data=await readOpenQuarters({asOf:new Date(asOfMs),onProgress:p=>{if(currentRead(token))setPublicLoadStatus({
         kind:p.state==='FETCHING'?'OPEN_FETCHING':p.state==='IMPORTED'?'OPEN_IMPORTED':'OPEN_QUARTER_FAILED',
         params:{quarter:p.quarter,count:p.count},
-      })});
+      });}});
+      if(!currentRead(token))return;
       setPublicRecords(data.records);
       setPublicLoadMeta(data);
       setPublicLoadStatus({kind:data.incomplete?'OPEN_PARTIAL':'OPEN_LOADED'});
     }catch(error){
-      setPublicLoadStatus({kind:'OPEN_FAILED',params:{code:String(error.message||'NETWORK_FAILED')}});
-    }finally{setPublicLoading(false);}
+      if(currentRead(token))setPublicLoadStatus({kind:'OPEN_FAILED',params:{code:String(error.message||'NETWORK_FAILED')}});
+    }finally{if(currentRead(token))setPublicLoading(false);}
   };
 
   const updateProject=(i,key,v)=>setProjects(old=>old.map((r,j)=>j===i?{...r,[key]:v}:r));
   const importLocalCsv=async (file,kind)=>{
     if(!file)return;
+    const token=beginRead(kind);setImportStatus('');
     try {
       if(file.size>MAX_CSV_BYTES)throw new Error('CSV_SIZE_LIMIT');
-      const data=prepareImportCsv(await file.text(),{kind,datasetUrl:importSource,rightsConfirmed});
+      const text=await file.text();
+      if(!currentRead(token))return;
+      const data=prepareImportCsv(text,{kind,datasetUrl:importSource,rightsConfirmed});
       if(kind==='sale')setImportedSales(data.rows);
       else setImportedRentals(data.rows);
       setImportStatus({kind:'CSV_IMPORTED',params:{count:data.rows.length,skipped:data.skipped}});
-    }catch(error){setImportStatus({kind:'CSV_FAILED',params:{code:error.message||'CSV_INVALID'}});}
+    }catch(error){if(currentRead(token))setImportStatus({kind:'CSV_FAILED',params:{code:error.message||'CSV_INVALID'}});}
 
   };
   const makeResearchInputJson=()=>JSON.stringify({
@@ -223,6 +263,8 @@ export default function PropertyMarketLocationPanel({financialStudy=null}) {
     sales:allSales,rentals:allRentals,projects,marketOffers,unitMix,leaseComparables,rentAssumptions,
   });
   const applyResearchStudy=restored=>{
+    revokeReads('sale','rent','public','restore','sidecar');
+    setPublicLoading(false);setLinkedStudyBusy(false);
     // Loading/importing a study is a new review event, even when the identity fields match.
     invalidateLink();
     setSubject(restored.subject);
@@ -244,54 +286,62 @@ export default function PropertyMarketLocationPanel({financialStudy=null}) {
     setImportSource('');setRightsConfirmed(false);setImportStatus('');
   };
   const refreshCanonicalDeals=async()=>{
-    setSavedDealStudyStatus('');
+    const token=beginRead('dealList');setSavedDealStudyStatus('');
     try{
       const deals=await listCanonicalDeals(createStorageProvider());
+      if(!currentRead(token))return;
       setSavedDeals(deals);
       setSelectedSavedDealId(current=>deals.some(x=>x.id===current)?current:'');
       setSavedDealStudyStatus({kind:deals.length?'DEAL_SELECT':'DEAL_NONE'});
-    }catch(error){setSavedDealStudyStatus({kind:'DEAL_LIST_FAILED',params:{code:String(error.code||error.message)}});}
+    }catch(error){if(currentRead(token))setSavedDealStudyStatus({kind:'DEAL_LIST_FAILED',params:{code:String(error.code||error.message)}});}
   };
 
   const saveLinkedStudy=async()=>{
+    if(linkedSaveBusy)return;
     if(appraisalBinding.blockExport){setSavedDealStudyStatus({kind:'SIDECAR_BLOCKED'});return;}
     if(linkedDealNameConflict){setSavedDealStudyStatus({kind:'SIDECAR_NAME_MISMATCH'});return;}
     if(!selectedSavedDealId){setSavedDealStudyStatus({kind:'DEAL_REQUIRED'});return;}
     if(!linkedDealIdentityAcknowledged){setSavedDealStudyStatus({kind:'IDENTITY_CONFIRM_REQUIRED'});return;}
-    setLinkedStudyBusy(true);
+    const token=beginRead('sidecar');setLinkedSaveBusy(true);
     try{
       const saved=await saveResearchSidecar({
         storage:createStorageProvider(),dealId:selectedSavedDealId,
         studyJson:makeResearchInputJson(),identityConfirmed:linkedDealIdentityAcknowledged,
         overwrite:replaceLinkedStudy,appraisalLink,
       });
+      if(!currentRead(token))return;
       setSavedDealStudyStatus({kind:'SIDECAR_SAVED',params:{dealId:saved.dealId}});
       setReplaceLinkedStudy(false);
     }catch(error){
+      if(!currentRead(token))return;
       const reason=String(error.code||error.message);
       setSavedDealStudyStatus({kind:reason==='SIDECAR_EXISTS_CONFIRM_OVERWRITE'?'SIDECAR_OVERWRITE_REQUIRED':'SIDECAR_SAVE_FAILED',params:{code:reason}});
-    }finally{setLinkedStudyBusy(false);}
+    }finally{if(readMounted.current)setLinkedSaveBusy(false);}
   };
   const loadLinkedStudy=async()=>{
     if(!selectedSavedDealId){setSavedDealStudyStatus({kind:'DEAL_REQUIRED'});return;}
-    setLinkedStudyBusy(true);
+    const token=beginRead('sidecar');revokeReads('restore');setLinkedStudyBusy(true);
     try{
       const result=await loadResearchSidecar({storage:createStorageProvider(),dealId:selectedSavedDealId});
+      if(!currentRead(token))return;
       if(!result.found){setSavedDealStudyStatus({kind:'SIDECAR_NOT_FOUND'});return;}
       applyResearchStudy(result.study);
       setSavedDealStudyStatus({kind:'SIDECAR_RESTORED',params:{dealId:result.dealId}});
       setReplaceLinkedStudy(false);
-    }catch(error){setSavedDealStudyStatus({kind:'SIDECAR_RESTORE_FAILED',params:{code:String(error.code||error.message)}});}
-    finally{setLinkedStudyBusy(false);}
+    }catch(error){if(currentRead(token))setSavedDealStudyStatus({kind:'SIDECAR_RESTORE_FAILED',params:{code:String(error.code||error.message)}});}
+    finally{if(currentRead(token))setLinkedStudyBusy(false);}
   };
   const restoreJson=async file=>{
     if(!file)return;
+    const token=beginRead('restore');revokeReads('sidecar');setLinkedStudyBusy(false);setMessage('');
     try{
       if(file.size>MAX_STUDY_BYTES)throw Error('STUDY_SIZE_LIMIT');
-      const restored=parsePersonalMarketStudy(await file.text()).study;
+      const text=await file.text();
+      if(!currentRead(token))return;
+      const restored=parsePersonalMarketStudy(text).study;
       applyResearchStudy(restored);
       setMessage({kind:'STUDY_RESTORED'});
-    }catch(error){setMessage({kind:'STUDY_RESTORE_FAILED',params:{code:String(error.message||'STUDY_INVALID')}});}
+    }catch(error){if(currentRead(token))setMessage({kind:'STUDY_RESTORE_FAILED',params:{code:String(error.message||'STUDY_INVALID')}});}
   };
   const exportJson=()=>{
     if(appraisalBinding.blockExport){
@@ -437,7 +487,7 @@ export default function PropertyMarketLocationPanel({financialStudy=null}) {
       <h3 className="text-sm font-semibold text-amber-100">{L("البحث التلقائي التجريبي في صفقات وزارة العدل المنشورة كبيانات مفتوحة")}</h3>
       <p className="mt-2 text-xs leading-6 text-slate-300">{L("دون اتصال رسمي مباشر أو تسجيل دخول: عند الضغط، تقرأ المنصة ملفات الفصول التاريخية المتاحة")} {OPEN_QUARTERS.map(quarterLabel).join(english?', ':'، ')} {L("من مستودع عام ينسب البيانات الأصلية لوزارة العدل ورخصة البيانات المفتوحة السعودية. البحث يغطي جميع مدن المملكة التي تظهر في الملفات، وليس الرياض وحدها. وبيانات الأحياء والأسعار هنا")} <strong>{L("مؤشر تاريخي للحي")}</strong> {L("وليست صفقات مؤكدة لمجمعات أو فنادق أو أبراج.")}</p>
       <div className="flex flex-wrap items-center gap-3 mt-3">
-        <button type="button" disabled={publicLoading} onClick={fetchOpenData}
+        <button type="button" data-testid="market-open-data-load" disabled={publicLoading} onClick={fetchOpenData}
           className="min-h-[40px] rounded-lg bg-[#C9A24C] px-4 py-2 text-xs font-semibold text-[#141F35] disabled:opacity-50">
           {publicLoading?L('جارٍ جلب البيانات المفتوحة…'):L('جلب الصفقات المفتوحة الآن وتحليل الحي')}
         </button>
@@ -491,10 +541,10 @@ export default function PropertyMarketLocationPanel({financialStudy=null}) {
         </label>
       </div>
       <p data-testid="market-import-action-notice" data-diagnostic-content translate="no" role="status" className="mt-2 text-xs text-amber-200">{researchActionText(importStatus,locale)}</p>
-      <p className="mt-2 text-xs text-slate-300">{L("سجلات البيع المستوردة:")} {importedSales.length} {L("| سجلات الإيجار المستوردة:")} {importedRentals.length}</p>
+      <p data-testid="market-import-counts" className="mt-2 text-xs text-slate-300">{L("سجلات البيع المستوردة:")} {importedSales.length} {L("| سجلات الإيجار المستوردة:")} {importedRentals.length}</p>
       <div className="flex gap-3 mt-2">
         <button type="button" className="text-xs text-rose-200 underline min-h-[36px] py-2 px-2"
-          onClick={()=>{setImportedSales([]);setImportedRentals([]);setImportStatus({kind:'CSV_CLEARED'});}}>
+          onClick={()=>{revokeReads('sale','rent','restore','sidecar');setLinkedStudyBusy(false);setImportedSales([]);setImportedRentals([]);setImportStatus({kind:'CSV_CLEARED'});}}>
           {L("مسح المقارنات المستوردة")}
         </button>
         <a className="text-xs text-sky-200 underline min-h-[36px] inline-flex items-center py-2 px-2" target="_blank" rel="noopener noreferrer"
@@ -574,7 +624,7 @@ export default function PropertyMarketLocationPanel({financialStudy=null}) {
         {L("يحفظ هذا المسار نسخة من مدخلات الدراسة كملحق مستقل للصفقة التي تحددها، ولا يعدل أرقام المدخلات المالية الأساسية أو السجل المعياري أو الموافقات. حفظ محلي حسب موفر التخزين المتاح، وقد لا تتاح النسخة من جهاز آخر؛ احتفظ أيضًا بنسخة JSON خاصة.")}
       </p>
       <div className="mt-3 flex flex-wrap items-end gap-3">
-        <button type="button" disabled={linkedStudyBusy} onClick={refreshCanonicalDeals}
+        <button type="button" disabled={linkedSaveBusy||linkedStudyBusy} onClick={refreshCanonicalDeals}
           className="min-h-[40px] rounded-lg border border-amber-600 px-3 py-2 text-xs text-amber-100">
           {L("تحديث قائمة الصفقات المحفوظة")}
         </button>
@@ -601,11 +651,11 @@ export default function PropertyMarketLocationPanel({financialStudy=null}) {
         {L("أوافق على استبدال ملحق دراسة محفوظ سابقًا لهذه الصفقة")}
       </label>
       <div className="flex flex-wrap gap-2 mt-3">
-        <button type="button" disabled={linkedStudyBusy||!selectedSavedDealId||!linkedDealIdentityAcknowledged||appraisalBinding.blockExport||linkedDealNameConflict}
+        <button type="button" disabled={linkedSaveBusy||linkedStudyBusy||!selectedSavedDealId||!linkedDealIdentityAcknowledged||appraisalBinding.blockExport||linkedDealNameConflict}
           onClick={saveLinkedStudy} className="min-h-[40px] rounded-lg bg-[#C9A24C] px-4 py-2 text-xs font-semibold text-[#141F35] disabled:opacity-50">
           {L("حفظ ملحق الدراسة للصفقة المختارة")}
         </button>
-        <button type="button" disabled={linkedStudyBusy||!selectedSavedDealId}
+        <button type="button" disabled={linkedSaveBusy||linkedStudyBusy||!selectedSavedDealId}
           onClick={loadLinkedStudy} className="min-h-[40px] rounded-lg border border-slate-600 px-4 py-2 text-xs text-slate-100 disabled:opacity-50">
           {L("استعادة ملحق الدراسة المرتبط")}
         </button>
