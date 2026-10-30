@@ -29,6 +29,7 @@ try{
    await scan(seed.mode+'-'+tab+'-en');await setLocale('ar-SA');await scan(seed.mode+'-'+tab+'-ar');
   }
  }
+ await setLocale('en');await page.getByRole('button',{name:en.tabs.dashboard,exact:true}).click();await expand();
  const universe=page.getByTestId('personal-asset-universe-panel');
  for(const assetClass of Object.keys(ALL_SECTORS)){
   await universe.getByTestId('personal-asset-universe-select').selectOption(assetClass);
@@ -37,8 +38,9 @@ try{
   if(await universe.getByTestId('phased-development-calculate').count())await universe.getByTestId('phased-development-calculate').click();
   await setLocale('en');await scan('sector-'+assetClass+'-hold-en');await setLocale('ar-SA');await scan('sector-'+assetClass+'-hold-ar');
  }
+ if(rows.length!==40)errors.push('REGISTERED_STATE_COUNT_MISMATCH');
  const report={schemaVersion:1,status:rows.every(x=>x.issues.length===0)&&errors.length===0?'PASS':'FAIL',coverageScope:'REGISTERED_RENDERED_UI_MATRIX_NOT_ALL_POSSIBLE_STATES',rows,errors,transactionAuthorized:false,professionalApproval:false};
  await fs.writeFile(DIR+'/d04-locale-matrix.json',JSON.stringify(report,null,2));
  console.log('D04_REGISTERED_LOCALE_MATRIX='+report.status+' states='+rows.length+' issues='+rows.reduce((n,x)=>n+x.issues.length,0));
  if(report.status!=='PASS')throw Error('Rendered locale matrix contains untranslated system content or runtime errors');
-}finally{await browser?.close();if(server)await new Promise(resolve=>server.httpServer.close(resolve));}
+}catch(error){await fs.writeFile(DIR+'/d04-locale-matrix.json',JSON.stringify({schemaVersion:1,status:'FAIL',coverageScope:'REGISTERED_RENDERED_UI_MATRIX_NOT_ALL_POSSIBLE_STATES',rows,errors:[...errors,String(error.message)],transactionAuthorized:false,professionalApproval:false},null,2));throw error;}finally{await browser?.close();if(server)await new Promise(resolve=>server.httpServer.close(resolve));}

@@ -74,8 +74,8 @@ export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange}
     {OFFICIAL_RESEARCH_ENTRYPOINTS.map(src=><a key={src.id} href={src.url}
      target="_blank" rel="noopener noreferrer" data-testid={'official-entry-'+src.id}
      className="rounded border border-slate-600 p-2 text-xs text-sky-300">
-      <strong className="block">{src.label}</strong>
-      <span className="mt-1 block text-slate-300">{src.caveat}</span>
+      <strong data-user-content translate="no" className="block">{src.label}</strong>
+      <span className="mt-1 block text-slate-300">{en?({REGA_DAILY_RAW:'Raw data require review of classification, duplicates, parties and property rights.',REGA_HISTORICAL_CLEANED:'Revised research indicators or records do not establish a matching property or an independent professional value.',REGA_RENT_INDICATORS:'Aggregated rent indicators are not a property rent roll or a verified tenant contract.',MOJ_INTERACTIVE_REPORTS:'Review dataset dates, scope and reuse rights before importing a copy.'})[src.id]:src.caveat}</span>
      </a>)}
    </div>
   </div>

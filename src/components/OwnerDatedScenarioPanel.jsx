@@ -22,15 +22,14 @@ export default function OwnerDatedScenarioPanel({locale='ar-SA',projectCashflows
  return <section data-testid="dated-scenario-review" dir={en?'ltr':'rtl'}
   className="mt-5 rounded-2xl border border-amber-700/60 bg-[#141F35] p-4 text-slate-100">
   <h2 className="text-sm font-bold text-amber-100">
-   {en?'D05 — Optional dated return research (unverified)':'D05 — بحث اختياري في عوائد التدفقات المؤرخة (غير معتمد)'}
+   <code>D05</code> — {en?'Optional dated return research (unverified)':'بحث اختياري في عوائد التدفقات المؤرخة (غير معتمد)'}
   </h2>
   <p className="my-3 text-xs text-slate-300">
    {en?'Enter actual dates, signed amounts (negative outflows; positive inflows) and your source reference for EACH cash flow. No dates, amounts, source rights, or validation are inferred. Results never replace the canonical annual IRR/NPV or the monthly construction-financing model. Do not treat the output as a valuation or purchase authority.':
     'أدخل التاريخ الفعلي والمبلغ الموقّع (السالب للمصروف والموجب للمقبوض) ومرجع المصدر لكل تدفق. لا تستنتج المنصة التواريخ أو المبالغ أو الحقوق أو التوثيق. النتيجة لا تستبدل IRR/NPV السنوي أو تمويل الإنشاء الشهري ولا تمثل تثمينًا أو تفويض شراء.'}
   </p>
   <p data-testid="dated-day-count" className="mb-3 text-xs text-amber-200">
-   {en?'Day count: ACT/365.2425. Dates are supplied by the user; this convention must be considered when comparing other tools.':
-    'أساس عد الأيام: ACT/365.2425. التواريخ مدخلة من المستخدم؛ يلزم مراعاة هذا الأساس عند المقارنة بأدوات أخرى.'}
+   {en?'Day count: ':'أساس عد الأيام: '}<code>ACT/365.2425</code>. {en?'Dates are supplied by the user; this convention must be considered when comparing other tools.':'التواريخ مدخلة من المستخدم؛ يلزم مراعاة هذا الأساس عند المقارنة بأدوات أخرى.'}
   </p>
   <label className="mb-3 flex items-center gap-2 text-xs">
    <input data-testid="dated-reconcile-amounts" type="checkbox" checked={reconcile}

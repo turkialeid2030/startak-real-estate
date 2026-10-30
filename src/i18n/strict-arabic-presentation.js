@@ -3,6 +3,9 @@
 // Presentation-only Arabic localization boundary. Engine/domain values remain
 // byte-identical; this module converts only customer-facing labels/statuses.
 const ARABIC_VALUE_LABELS = Object.freeze({
+  LEGACY_DERIVED:'مشتق من افتراضات النموذج السابق',
+  LEGACY_ACQUISITION_RATE_FALLBACK:'استخدام معدل الاستحواذ السابق بديلًا لتكلفة التخارج',
+  LEGACY:'إصدار الافتراضات السابق',
   CALCULATED: 'محسوب من المدخلات الحالية',
   MARKET_COMPARABLE: 'المقارنة السوقية',
   INCOME_DIRECT_CAPITALIZATION: 'رسملة الدخل المباشرة',

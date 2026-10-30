@@ -10,7 +10,7 @@ const bLease=()=>({unitType:'',status:'EXECUTED',date:'',annualRent:'',areaSqm:'
  sourceUrl:'',sourceRecordId:'',city:'',district:'',location:''});
 function F({name,value,onChange,type='text',placeholder=''}){const {locale}=useLocale();const L=(value,code)=>advancedMarketLabel(value,locale,code);
  return <label className="block min-w-0 text-xs text-slate-300">
- {name}<input aria-label={L(name)} className={INPUT} value={value??''} type={type} dir={type==='date'?'ltr':'auto'}
+ {L(name)}<input aria-label={L(name)} className={INPUT} value={value??''} type={type} dir={type==='date'?'ltr':'auto'}
   placeholder={placeholder} onChange={e=>onChange(e.target.value)}/></label>;}
 function S({name,value,onChange,options}){const {locale}=useLocale();const L=(value,code)=>advancedMarketLabel(value,locale,code);
  return <label className="block min-w-0 text-xs text-slate-300">
@@ -114,7 +114,7 @@ export default function TransactionCohortAndUnitMixPanel({subject,sales,askingOf
   <F name="نسبة مصروفات التشغيل من الدخل (0–1)" value={expenseRatio} onChange={setExpenseRatio}/>
  </div>
  <div className="mt-4 rounded-lg border border-slate-600 p-3 text-xs leading-7">
-  <p>{L("الوحدات المدخلة:")} {rental.totalModelUnits} {L('من')} {rental.totalDeclaredUnits??L('غير محدد')}؛ {L('المساحة الإجمالية للمزيج:')} {nf.format(rental.totalModelRentableSqm)} {L('م²')}</p>
+  <p>{L("الوحدات المدخلة:")} {rental.totalModelUnits} {L('من')} {rental.totalDeclaredUnits??L('غير محدد')}{en?'; ':'؛ '}{L('المساحة الإجمالية للمزيج:')} {nf.format(rental.totalModelRentableSqm)} {L('م²')}</p>
   {rental.segments.map((x,i)=><p key={i}>
    {L(UNIT_KINDS[x.unitType]||'فئة غير محددة')}: {x.comparableLeaseCount} {L('عقود مؤهلة،')} {L('الإيجار السنوي السوقي للفئة:')} {money(x.annualGrossMarketRentSar)}
   </p>)}
@@ -122,9 +122,9 @@ export default function TransactionCohortAndUnitMixPanel({subject,sales,askingOf
   <p>{L("الإيجار بعد نسبة الإشغال:")} <strong>{money(rental.stabilizedAnnualRentSar)}</strong></p>
   <p>{L("صافي الدخل التشغيلي المبدئي:")} <strong>{money(rental.stabilizedNoiSar)}</strong></p>
   <p>{L("الإيجار السابق (للمقارنة فقط، لا يدخل في التسعير):")} {money(rental.historicAnnualRentSar)}</p>
-  {rental.errors.length>0&&<p className="text-amber-200 mt-2">{L("أسباب وقف التقدير:")} {rental.errors.map(x=>L(errors[x]||x)).join('؛ ')}
+  {rental.errors.length>0&&<p className="text-amber-200 mt-2">{L("أسباب وقف التقدير:")} {rental.errors.map(x=>L(errors[x]||x)).join(en?'; ':'؛ ')}
   </p>}
-  {rental.warnings.length>0&&<p className="text-amber-200">{L("تنبيهات:")} {rental.warnings.join('؛ ')}
+  {rental.warnings.length>0&&<p className="text-amber-200">{L("تنبيهات:")} {rental.warnings.join(en?'; ':'؛ ')}
   </p>}
   <p className="text-slate-400 mt-2">{L("العقود بيانات أدخلها المستخدم ولم يتحقق النظام منها مستقلاً. هذا ليس اختبارًا للحد الأعلى القانوني للأجرة، ولا تقرير تثمين معتمدًا.")}</p>
  </div>

@@ -42,7 +42,7 @@ export default function SuhailNationalResearchPanel({onResearchChange}){
     <select data-testid="suhail-city" value={city} onChange={e=>setCity(e.target.value)}
      className="mt-1 block min-w-[140px] rounded border border-slate-600 bg-slate-900 p-2">
      <option value="">{en?'All cities in sample':'كل المدن المتاحة في العينة'}</option>
-     {summary.cities.map(x=><option key={x} value={x}>{x}</option>)}
+     {summary.cities.map(x=><option data-user-content translate="no" key={x} value={x}>{x}</option>)}
     </select>
    </label>
    <label className="text-xs">{en?'District':'الحي'}
@@ -76,7 +76,7 @@ export default function SuhailNationalResearchPanel({onResearchChange}){
       <th className="p-2">{en?'Commercial SAR/sqm':'متر التجاري'}</th><th className="p-2">{en?'Reported growth':'النمو المعلن'}</th></tr>
     </thead>
     <tbody>{visible.slice(0,50).map((r,i)=><tr key={r.city+'|'+r.district+'|'+i} className="border-b border-slate-800">
-      <td className="p-2">{r.city}</td><td className="p-2">{r.district}</td>
+      <td data-user-content translate="no" className="p-2">{r.city}</td><td data-user-content translate="no" className="p-2">{r.district}</td>
       <td className="p-2">{fmt(r.transferCount)}</td><td className="p-2">{fmt(r.totalValueSar)}</td>
       <td className="p-2">{fmt(r.residentialSarSqm)}</td><td className="p-2">{fmt(r.commercialSarSqm)}</td>
       <td className="p-2">{Number.isFinite(r.growthPct)?r.growthPct+'%':'—'}</td>

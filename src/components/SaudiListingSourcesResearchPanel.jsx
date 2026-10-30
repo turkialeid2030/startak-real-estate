@@ -39,7 +39,7 @@ export default function SaudiListingSourcesResearchPanel({onResearchChange}){
   <h3 className="text-base font-bold">{L("مصادر العروض والطلبات العقارية — جميع مدن المملكة")}</h3>
   <p className="mt-2 text-xs leading-6 text-slate-300">{L("سبعة مصادر بحثية. الأسعار المطلوبة والميزانيات والمشاريع والمزادات ليست صفقات منفذة، ولا تدخل تلقائيًا في حساب القيمة السوقية أو تقرير مهني. لم تُشغّل واجهة جمع آلي لهذه المواقع.")}</p>
   <div data-testid="saudi-listing-sources" className="mt-3 flex flex-wrap gap-2">
-   {SOURCES.map(s=><a key={s.id} target="_blank" rel="noopener noreferrer" href={s.baseUrl}
+   {SOURCES.map(s=><a key={s.id} target="_blank" rel="noopener noreferrer" href={s.baseUrl} data-user-content translate="no"
     className="rounded border border-slate-600 px-3 py-2 text-xs text-sky-300">{s.nameAr}</a>)}
   </div>
   <p className="mt-3 break-all text-xs text-slate-300">{en?'CSV fields: ':'حقول الملف الجدولي: '}<code translate="no">source,city,district,kind,priceSar,areaSqm,listingUrl,listingId,assetType,listingDate</code>. {en?'Evidence kinds: ':'تصنيفات الدليل: '}<code translate="no">SALE_OFFER / RENT_OFFER / PROJECT_INDICATIVE / AUCTION_ASK / BUYER_REQUEST</code>.</p>
@@ -56,12 +56,12 @@ export default function SaudiListingSourcesResearchPanel({onResearchChange}){
    <label className="text-xs">{L("المدينة")}<select data-testid="listing-city-filter" value={city} onChange={e=>setCity(e.target.value)}
      className="mt-1 block rounded border border-slate-600 bg-slate-900 p-2">
      <option value="">{L("جميع المدن المستوردة")}</option>
-     {summary.cities.map(c=><option value={c} key={c}>{c}</option>)}
+     {summary.cities.map(c=><option data-user-content translate="no" value={c} key={c}>{c}</option>)}
     </select>
    </label>
    <label className="text-xs">{L("المنصة")}<select data-testid="listing-platform-filter" value={platform} onChange={e=>setPlatform(e.target.value)}
      className="mt-1 block rounded border border-slate-600 bg-slate-900 p-2">
-     <option value="">{L("جميع المنصات")}</option>{SOURCES.map(s=><option key={s.id} value={s.id}>{s.nameAr}</option>)}
+     <option value="">{L("جميع المنصات")}</option>{SOURCES.map(s=><option data-user-content translate="no" key={s.id} value={s.id}>{s.nameAr}</option>)}
     </select>
    </label>
    <label className="text-xs">{L("نوع الإشارة")}<select data-testid="listing-kind-filter" value={kind} onChange={e=>setKind(e.target.value)}
@@ -83,8 +83,8 @@ export default function SaudiListingSourcesResearchPanel({onResearchChange}){
     </tr></thead>
     <tbody>{filtered.slice(0,75).map((r,i)=><tr className="border-b border-slate-800"
       key={r.sourceId+'|'+r.listingUrl+'|'+r.observedOn+'|'+i}>
-     <td className="p-2">{r.sourceNameAr}</td><td className="p-2">{r.city}</td>
-     <td className="p-2">{r.district}</td><td className="p-2">{L(KIND_LABELS[r.kind])}</td>
+     <td data-user-content translate="no" className="p-2">{r.sourceNameAr}</td><td data-user-content translate="no" className="p-2">{r.city}</td>
+     <td data-user-content translate="no" className="p-2">{r.district}</td><td className="p-2">{L(KIND_LABELS[r.kind])}</td>
      <td className="p-2">{fmt(r.askingPriceOrBudgetSar)}</td>
      <td className="p-2">{fmt(r.areaSqm)}</td>
      <td className="p-2"><a href={r.listingUrl} target="_blank" rel="noopener noreferrer"

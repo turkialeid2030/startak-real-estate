@@ -202,7 +202,7 @@ export default function AppraisalAssuranceWorkbench({intakeRecord=null}){
     <span className="text-xs text-slate-300">{open?L('إغلاق'):L('فتح')}</span>
    </button>
    {open&&<div id="appraisal-assurance-details" className="mt-3 space-y-4">
-    <p className="text-xs leading-6 text-slate-300">{L("أدخل القيم يدويًا بعد مطابقتها مع صفحات الملف الأصلي. لا تُستورد حقول OCR تلقائيًا، ولا تحفظ هذه اللوحة البيانات في الخادم أو الصفقات المحفوظة أو GitHub. نتائجها للتدقيق البحثي فقط وغير معتمدة مهنيًا.")}</p>
+    <p data-diagnostic-content translate="no" className="text-xs leading-6 text-slate-300">{L("أدخل القيم يدويًا بعد مطابقتها مع صفحات الملف الأصلي. لا تُستورد حقول OCR تلقائيًا، ولا تحفظ هذه اللوحة البيانات في الخادم أو الصفقات المحفوظة أو GitHub. نتائجها للتدقيق البحثي فقط وغير معتمدة مهنيًا.")}</p>
     <p className="rounded border border-slate-700 p-2 text-xs text-slate-300">{L("بصمة ملف المستند المحلي:")} {digest?<span data-testid="appraisal-document-hash" className="break-all font-mono" dir="ltr">{digest}</span>:L('لم يُرفق ملف أو لم يكتمل فحصه')}</p>
     <FieldSet stage={current} setStage={setCurrent} prefix="current"/>
     <SpecialistFields stage={current} setStage={setCurrent}/>
@@ -226,8 +226,8 @@ export default function AppraisalAssuranceWorkbench({intakeRecord=null}){
     </section>
     <div data-testid="appraisal-audit-status" data-status={reviewed.status} role="status"
       className={'rounded border p-3 '+(reviewed.status==='HOLD'?'border-rose-700 text-rose-100':'border-amber-700 text-amber-100')}>
-     <strong>{reviewed.status==='HOLD'?L('HOLD — توجد موانع حسابية أو منهجية'):L('REVIEW_REQUIRED — لم تثبت سلامة التقرير مهنيًا')}</strong>
-     <p className="mt-1 text-xs">{L("التصديق المهني: NOT_AUTHORIZED. إصدار تقرير تقييم رسمي غير متاح.")}</p>
+     <strong><code>{reviewed.status==='HOLD'?'HOLD':'REVIEW_REQUIRED'}</code> — {locale==='en'?(reviewed.status==='HOLD'?'Calculation or methodology blockers remain':'Professional report integrity has not been established'):(reviewed.status==='HOLD'?'توجد موانع حسابية أو منهجية':'لم تثبت سلامة التقرير مهنيًا')}</strong>
+     <p className="mt-1 text-xs">{locale==='en'?'Professional certification: ':'التصديق المهني: '}<code>NOT_AUTHORIZED</code>. {locale==='en'?'An official appraisal report cannot be issued.':'إصدار تقرير تقييم رسمي غير متاح.'}</p>
     </div>
     <div className="grid gap-2 sm:grid-cols-2">
      <div className="rounded border border-slate-700 p-3 text-sm">{L("القيمة التي تنتج عن NOI / معدل الرسملة")}

@@ -1,3 +1,4 @@
+import DiagnosticText from './DiagnosticText.jsx';
 import React, { useCallback, useState } from 'react';
 import LocalEvidenceJournalPanel from './LocalEvidenceJournalPanel.jsx';
 import AppraisalAssuranceWorkbench from './AppraisalAssuranceWorkbench.jsx';
@@ -37,7 +38,7 @@ export default function LocalDocumentEvidenceWorkspace() {
       <LocalEvidenceJournalPanel intakeRecord={intakeRecord} candidate={candidate} verificationRecord={verificationRecord}/>
       <AppraisalAssuranceWorkbench intakeRecord={intakeRecord} />
       <output data-testid="local-evidence-workflow-status" data-verification-status={verificationRecord?.verifiedFactEstablished ? 'VERIFIED_FACT_RECORDED_NOT_UNDERWRITING_READY' : 'VERIFICATION_NOT_COMPLETE'} className="sr-only">
-        {verificationRecord?.verifiedFactEstablished ? 'VERIFIED_FACT_RECORDED_NOT_UNDERWRITING_READY' : 'VERIFICATION_NOT_COMPLETE'}
+        <DiagnosticText locale={locale} code={verificationRecord?.verifiedFactEstablished ? 'VERIFIED_FACT_RECORDED_NOT_UNDERWRITING_READY' : 'VERIFICATION_NOT_COMPLETE'}/>
       </output>
     </div>
   );

@@ -388,7 +388,7 @@ export default function PropertyMarketLocationPanel({financialStudy=null}) {
       </p>
       {bridgeProposal.status==='USER_CONFIRMATION_REQUIRED'&&<>
         <p className="mt-2 text-slate-300">
-          {L('الحقول المقترحة:')} {formatBridgeFields(bridgeProposal.subjectPatch,locale)}
+          {L('الحقول المقترحة:')} {Object.entries(bridgeProposal.subjectPatch).map(([key,value],i)=><React.Fragment key={key}>{i?' | ':''}{({name:english?'Property name':'اسم العقار',landArea:english?'Land area (sqm)':'مساحة الأرض (م²)',builtArea:english?'Built area (sqm)':'مساحة البناء (م²)',rentableArea:english?'Rentable area (sqm)':'المساحة التأجيرية (م²)',assetType:english?'Asset type':'نوع العقار'})[key]} = <span data-user-content translate="no">{String(value)}</span></React.Fragment>)}
         </p>
         {bridgeProposal.assetTypeMustBeSelectedByUser&&<Select
           title="اختر نوع العقار صراحةً؛ لا نستخدم النوع الافتراضي أو اسم المشروع"

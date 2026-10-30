@@ -133,8 +133,8 @@ export default function ProfessionalComparableReviewPanel({subject,sales=[]}){
   <p className="mt-2 text-xs text-amber-200">{L("حالة الدليل:")} {result.status==='INVALID'?L('المدخلات غير مكتملة'):
    result.status==='ILLUSTRATIVE_HUMAN_REVIEW_REQUIRED'?L('عرض حسابي يتطلب مراجعة بشرية'):L('حساب أولي غير معتمد')}.
   {L('الصفقات المنفذة:')} {result.executedComparableCount} | {L('العروض:')} {result.offerComparableCount}.</p>
-  {!!result.errors.length&&<p className="text-xs text-rose-200 mt-2">{L("أخطاء:")} {result.errors.map(x=>L(showComparableIssue(x))).join('؛ ')}</p>}
-  {!!result.warnings.length&&<p className="text-xs text-amber-200 mt-2">{L("ملاحظات:")} {result.warnings.map(x=>L(showComparableIssue(x))).join('؛ ')}</p>}
+  {!!result.errors.length&&<p className="text-xs text-rose-200 mt-2">{L("أخطاء:")} {result.errors.map(x=>L(showComparableIssue(x))).join(en?'; ':'؛ ')}</p>}
+  {!!result.warnings.length&&<p className="text-xs text-amber-200 mt-2">{L("ملاحظات:")} {result.warnings.map(x=>L(showComparableIssue(x))).join(en?'; ':'؛ ')}</p>}
   <p className="text-xs text-slate-400 mt-3">{L("هذه نتيجة لجدول مستقل للمراجعة والتعلم؛ لا تحل محل القيمة الأساسية أو تقرير المقيم المعتمد. لا يتم نسخ نتائج ملفات خاصة إلى المستودع العام.")}</p>
  </div>
  {subject.assetType!=='LAND'&&<details className="mt-4 border border-slate-700 rounded-lg p-3">

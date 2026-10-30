@@ -49,7 +49,7 @@ export default function ResearchEvidenceFusionPanel({subject={},feeds={},asOf='2
      {en?'Verification required — HOLD':'قيد التحقق — معلّق'}</span>
   </div>
   <p className="mt-3 text-xs text-slate-300" data-testid="fusion-subject">
-   {en?'Property: ':'العقار: '}{subject.city||(en?'Unknown':'غير محدد')} / {subject.district||(en?'Unknown district':'الحي غير محدد')} |
+   {en?'Property: ':'العقار: '}<span data-user-content translate="no">{subject.city||(en?'Unknown':'غير محدد')}</span> / <span data-user-content translate="no">{subject.district||(en?'Unknown district':'الحي غير محدد')}</span> |
    {en?'Date: ':'التاريخ: '}{asOf}</p>
   <div data-testid="fusion-statistics" className="mt-3 grid grid-cols-2 gap-3 text-xs md:grid-cols-4">
    <div className="rounded border border-slate-700 p-2">{en?'Research rows: ':'السجلات البحثية: '}{result.validResearchRows}</div>

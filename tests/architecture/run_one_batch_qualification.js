@@ -4,10 +4,11 @@ const assert=require('node:assert/strict');
  const {REQUIRED,summarize,observeEndpoint,markdown}=await import('../../tools/verify-all-stages.mjs');
  const checks=REQUIRED.map(id=>({id,status:'PASS'})),sha='a'.repeat(40);
  const p=summarize({sha,checks,observations:[{id:'preview',status:'PASS',reason:'EXACT_SOURCE_AND_ASSET_HASHES_VERIFIED'}],requestCount:36});
+ assert.equal(p.stages.find(x=>x.id==='D04').registeredMatrixStatus,'PASS');assert.equal(p.stages.find(x=>x.id==='D04').status,'PARTIAL');
  assert.equal(p.engineeringStatus,'PASS');assert.equal(p.exitCode,2);assert.equal(p.productionAuthorized,false);
  assert(p.stages.filter(x=>['MARKET_DATA','LIVE_AI','TENANT_ISOLATION','PROFESSIONAL_REVIEW'].includes(x.id)).every(x=>x.status==='BLOCKED'));
  assert.equal(p.independentlyApprovedCount,0);assert.equal(p.requestsSent,0);assert(markdown(p).includes('HOLD / NOT_AUTHORIZED'));
- for(const missing of REQUIRED){const r=summarize({sha,checks:checks.filter(c=>c.id!==missing),observations:[],requestCount:36});assert.equal(r.engineeringStatus,'FAIL');assert.equal(r.exitCode,1);}
+ for(const missing of REQUIRED){const r=summarize({sha,checks:checks.filter(c=>c.id!==missing),observations:[],requestCount:36});assert.equal(r.engineeringStatus,'FAIL');assert.equal(r.exitCode,1);if(missing==='locale-browser')assert.equal(r.stages.find(x=>x.id==='D04').registeredMatrixStatus,'NOT_TESTED');}
  assert.throws(()=>summarize({sha,checks:[...checks,checks[0]],observations:[],requestCount:36}));
  assert.throws(()=>summarize({sha:'main',checks,observations:[],requestCount:36}));
  assert.throws(()=>summarize({sha,checks,observations:[],requestCount:35}));

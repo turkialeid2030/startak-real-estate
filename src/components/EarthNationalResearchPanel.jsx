@@ -58,7 +58,7 @@ export default function EarthNationalResearchPanel({onResearchChange}){
    <label className="text-xs">{L("المدينة")}<select data-testid="earth-city-filter" value={city} onChange={e=>setCity(e.target.value)}
      className="mt-1 block rounded border border-slate-600 bg-slate-900 p-2">
      <option value="">{L("جميع المدن المستوردة")}</option>
-     {summary.cities.map(x=><option key={x} value={x}>{x}</option>)}
+     {summary.cities.map(x=><option data-user-content translate="no" key={x} value={x}>{x}</option>)}
     </select>
    </label>
    <label className="text-xs">{L("نوع المصدر")}<select value={filterFeature} data-testid="earth-feature-filter"
@@ -81,7 +81,7 @@ export default function EarthNationalResearchPanel({onResearchChange}){
     </tr></thead>
     <tbody>{filtered.slice(0,75).map((r,i)=><tr className="border-b border-slate-800"
       key={r.sourceFeatureId+'|'+r.observedOn+'|'+r.recordId+'|'+i}>
-      <td className="p-2">{r.city}</td><td className="p-2">{r.district}</td>
+      <td data-user-content translate="no" className="p-2">{r.city}</td><td data-user-content translate="no" className="p-2">{r.district}</td>
       <td className="p-2">{L(LABELS[r.evidenceKind])}</td><td className="p-2">{r.recordId||'—'}</td>
       <td className="p-2">{r.eventDate||'—'}</td><td className="p-2">{fmt(r.amountSar)}</td>
       <td className="p-2"><a href={r.sourceUrl} target="_blank" rel="noopener noreferrer"

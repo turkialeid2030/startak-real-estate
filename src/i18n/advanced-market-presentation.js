@@ -2,6 +2,7 @@
 const {coreMarketLabel,marketOptionLabel}=require('./market-study-core-labels');
 const {researchSourceLabel}=require('./research-source-presentation');
 const EN=Object.freeze({
+ "نوع الدليل":"Evidence class",
 "استوديو":"Studio","شقة غرفة":"1-bedroom apartment","شقة غرفتين":"2-bedroom apartment","شقة ثلاث غرف":"3-bedroom apartment","شقة أربع غرف فأكثر":"4+ bedroom apartment","فيلا":"Villa","معرض أو محل":"Retail shop","مستأجر تجاري رئيسي":"Anchor retail tenant","مكتب":"Office","وحدة مستودع":"Warehouse bay","وحدة أخرى":"Other unit","الحد الأدنى 3":"minimum 3","م²":"sqm","/م²":"/sqm","الصفقات المنفذة:":"Executed sales:","العروض:":"Offers:","صافي المباني بعد الإهلاك:":"Net building value after depreciation:","و":"and","من الأكبر":"of the higher value","الحالة:":"Status:","من":"of","المساحة الإجمالية للمزيج:":"Total unit-mix area:","عقود مؤهلة،":"eligible leases;","الإيجار السنوي السوقي للفئة:":"Annual market rent for class:",
  "غير مؤهل للحساب": "Not eligible for calculation",
  "غير قابل للحساب": "Not calculable",

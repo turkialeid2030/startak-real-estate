@@ -7,7 +7,7 @@ import {createRequire} from 'node:module';
 import {verifyDeployedAssets} from './verify-deployed-assets.mjs';
 import {validatedProtectedPreviewUrl} from './verify-protected-preview.mjs';
 const require=createRequire(import.meta.url),root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
-export const REQUIRED=Object.freeze(['release','reference','reference-clean','market-browser','appraisal-browser','identity-browser','dated-browser','sectors-browser','owner-browser','export-browser','cross-browser','ocr-browser','document-tables-browser']);
+export const REQUIRED=Object.freeze(['release','reference','reference-clean','market-browser','appraisal-browser','identity-browser','dated-browser','sectors-browser','owner-browser','export-browser','cross-browser','ocr-browser','document-tables-browser','locale-browser']);
 
 export function summarize({sha,checks,observations,requestCount}){
  if(!/^[a-f0-9]{40}$/.test(sha)||!Array.isArray(checks)||requestCount!==36)throw Error('BATCH_EVIDENCE_INVALID');
@@ -17,7 +17,7 @@ export function summarize({sha,checks,observations,requestCount}){
  const preview=observations.find(x=>x.id==='preview');
  const stages=[
   {id:'ENGINEERING_D01_D02_D03_D06_D07',status:engineering?'PASS':'FAIL',reason:engineering?'ALL_REQUIRED_CHECKS_PASSED':'FAILED_OR_MISSING_CHECK'},
-  {id:'D04',status:'PARTIAL',reason:'CHECKED_BILINGUAL_PATHS_ONLY_GLOBAL_COVERAGE_NOT_PROVEN'},
+  {id:'D04',status:'PARTIAL',reason:'REGISTERED_MATRIX_DOES_NOT_COVER_ALL_POSSIBLE_PLATFORM_STATES',registeredMatrixStatus:checks.find(x=>x.id==='locale-browser')?.status||'NOT_TESTED',coverageScope:'REGISTERED_RENDERED_UI_MATRIX_NOT_ALL_POSSIBLE_STATES'},
   {id:'D05',status:'PARTIAL',reason:'DATED_ARITHMETIC_TESTED_ACTUAL_CONTRACT_DATES_AND_INDEPENDENT_REVIEW_MISSING'},
   {id:'MARKET_DATA',status:'BLOCKED',reason:'LICENSED_EXECUTED_SALE_HOLDOUT_AND_INDEPENDENT_REVIEW_NOT_PROVIDED'},
   {id:'LIVE_AI',status:'BLOCKED',reason:'ACTUAL_PROVIDER_USAGE_RECEIPT_AND_INDEPENDENT_BENCHMARK_NOT_PROVIDED'},
@@ -86,6 +86,7 @@ async function execute(){
   for(const [id,file] of [['sectors-browser','run_all_13_asset_classes_public_smoke.js'],['owner-browser','run_audit_20261010_f03_f07_browser.js'],['export-browser','run_c75_real_chromium_personal_study.js'],['cross-browser','run_audit_20261010_remaining_browser.js'],['ocr-browser','run_audit_20261020_local_ocr_browser.js'],['document-tables-browser','run_audit_20261021_document_tables_browser.js']])checks.push(await command(id,'node',['tests/e2e/'+file],outDir));
  }catch{for(const id of ['sectors-browser','owner-browser','export-browser','cross-browser','ocr-browser','document-tables-browser'])if(!checks.some(c=>c.id===id))checks.push({id,status:'FAIL',reason:'LOCAL_PREVIEW_UNAVAILABLE'});}
  finally{if(server)await new Promise(resolve=>server.httpServer.close(resolve));}
+ checks.push(await command('locale-browser','node',['tests/e2e/run_d04_locale_matrix_ci.mjs'],outDir));
  const observations=[];
  const previewObservation=await observeEndpoint('preview',url);
  if(previewObservation.httpStatus===200){try{const assets=await verifyDeployedAssets({url,expectedSha:sha});previewObservation.status=assets.status==='PASS'?'PASS':'BLOCKED';previewObservation.reason=assets.status==='PASS'?'EXACT_SOURCE_AND_ASSET_HASHES_VERIFIED':'CDN_NOT_VERIFIED';}catch{previewObservation.reason='EXACT_SOURCE_OR_ASSET_HASHES_NOT_VERIFIED';}}
