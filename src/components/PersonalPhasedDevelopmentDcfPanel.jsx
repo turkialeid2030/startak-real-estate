@@ -9,30 +9,7 @@ const initially=()=>[
  {month:'0',gdv:'',construction:'',other:''},
  {month:'12',gdv:'',construction:'',other:''},
 ];
-const REASONS={
- LAND_DEVELOPMENT_ONLY:'النموذج مخصص لتطوير الأرض فقط',
- LEGAL_PROPERTY_RIGHT_REQUIRES_SEPARATE_MODEL:'الحق العقاري ليس ملكية كاملة؛ يلزم نموذج مستقل',
- VALUATION_DATE_INVALID:'تاريخ التقييم غير صحيح',
- LAND_AREA_REQUIRED:'أدخل مساحة الأرض بالمتر المربع',
- DISCOUNT_RATE_INVALID:'معدل الخصم يجب أن يكون بين 0% و75%',
- RISK_AND_DEVELOPER_RETURN_TREATMENT_REQUIRED:'يجب بيان احتساب مخاطر التطوير وعائد المطور ضمن الخصم',
- DEVELOPER_RETURN_DOUBLE_COUNT_RISK:'احتمال احتساب ربح المطور أو علاوة المخاطر مرتين',
- FINANCING_AND_DISCOUNT_DOUBLE_COUNT_RISK:'لا تكرر فوائد التمويل وخدمة الدين في هذا التدفق غير الممول',
- NON_REALTY_GDV_NOT_EXCLUDED:'استبعد قيمة النشاط التجاري والمعدات غير العقارية',
- DATED_PHASES_NOT_REVIEWED:'راجع تواريخ وتوزيع الصرف والتحصيل',
- PHASES_2_TO_24_REQUIRED:'أدخل من فترتين إلى 24 فترة',
- PHASE_ROW_INVALID:'توجد فترة غير صالحة',
- PHASE_MONTH_INVALID:'تاريخ شهر الفترة غير صحيح (من 0 إلى 120)',
- DUPLICATE_MONTH:'لا يجوز تكرار نفس الشهر؛ اجمع المبالغ في فترة واحدة',
- PHASE_AMOUNT_INVALID:'المبالغ غير صالحة؛ اكتب صفرًا صريحًا عند عدم وجود مبلغ',
- EMPTY_PHASE:'لا يجوز أن تكون كل بنود الفترة صفرًا',
- FUTURE_PERIOD_REQUIRED:'يجب وجود فترة مستقبلية واحدة على الأقل',
- DATED_GDV_REQUIRED:'أدخل إيرادات مبيعات مستقبلية للمشروع',
- DATED_CONSTRUCTION_COST_REQUIRED:'أدخل تكلفة تطوير واحدة على الأقل',
- ZERO_RATE_WITH_FUTURE_DEVELOPMENT_HOLD:'معدل صفر لمشروع ممتد لا يجتاز بوابة العائد والمخاطر',
- NON_POSITIVE_RESIDUAL_LAND_VALUE:'القيمة المتبقية للأرض صفرية أو سالبة؛ المشروع لا يبرر شراء الأرض وفق المدخلات',
- OVERFLOW:'تجاوزت الأرقام الحدود الحسابية الآمنة',
-};
+const {researchReason}=require('../i18n/personal-research-presentation');
 function Field({label,value,onChange,type='text',testId,inputMode}){
  return <label className="block text-xs" style={{color:'#F0E8D9'}}>{label}
   <input type={type} data-testid={testId} inputMode={inputMode||(type==='text'?'decimal':undefined)}
@@ -180,10 +157,12 @@ export default function PersonalPhasedDevelopmentDcfPanel({locale='ar-SA'}){
      </tr>)}</tbody>
     </table></div>
    </>}
-   {result.reasonCodes?.length>0&&<p data-testid="phased-development-reasons"
+   {result.reasonCodes?.length>0&&<ul data-testid="phased-development-reasons"
     className="mt-2 text-xs" style={{color:'#E7C08C'}}>
-    {result.reasonCodes.map(code=>ar?(REASONS[code]||'يلزم تدقيق مستقل: '+code):code).join('؛ ')}
-   </p>}
+    {result.reasonCodes.map(code=><li key={code} data-diagnostic-content translate="no">
+      <span>{researchReason(code,locale).message}</span>{' '}<code dir="ltr">{code}</code>
+    </li>)}
+   </ul>}
    <p className="mt-2 text-xs" style={{color:'#CAD4E4'}}>{ar?
     'حساب شخصي من افتراضات المستخدم؛ لا يمثل سعر شراء أو تقييمًا مهنيًا أو تحققًا من التخطيط والصك والصفقات. لا يحفظ نتيجة داخل عقد أو يصدر تقرير تقييم معتمد.':
     'User-supplied assumptions only. Not a purchase ceiling, licensed appraisal, verified planning/title, audited market sale or authorization.'}</p>

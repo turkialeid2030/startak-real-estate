@@ -4,40 +4,7 @@ const {assessLimitedPropertyInterest,RIGHTS,STATUS}=
 const {parseAmount}=require('../source-intelligence/personal-saudi-sale-csv');
 const {MAX_ARCHIVE_BYTES,createLimitedInterestArchive,verifyLimitedInterestArchive}=
  require('../valuation-intelligence/personal-limited-interest-case-archive');
-const LABELS=Object.freeze({
- termYears:'المدة المتبقية للحق (بالسنوات الصحيحة)',valuationDate:'تاريخ التقييم',
- annualPropertyIncomeSar:'الإيراد العقاري السنوي قبل مصروفات التشغيل وأجرة الحق والصيانة (دون دخل النشاط التجاري)',
- annualPropertyOperatingExpenseSar:'مصروفات تشغيل العقار السنوية',
- annualGroundRentSar:'الأجرة السنوية المدفوعة لمالك أصل العقار',
- annualSustainingCapexSar:'الإنفاق الرأسمالي السنوي اللازم لصيانة الحق',
- incomeEscalationRate:'نمو الدخل السنوي (-0.02 = نقص 2%)',
- operatingExpenseEscalationRate:'نمو المصروفات السنوي',
- groundRentEscalationRate:'نمو أجرة حق الأصل السنوي',
- nominalDiscountRate:'معدل الخصم السنوي الاسمي (0.10 = 10%)',
- upfrontRightConsiderationSar:'المقابل المقدم للحصول على الحق (ريال)',
-});
-const REASONS=Object.freeze({
- WAQF_RESTRICTED_INTEREST_REQUIRES_INDEPENDENT_LEGAL_REVIEW:'حق الوقف مقيد ويحتاج مراجعة مستقلة للصك وصلاحية التصرف، ولا ينتج عنه تقييم رقمي تلقائي.',
- ASSIGNABILITY_CONSENT_NOT_ESTABLISHED:'تنازل الحق يستلزم موافقة؛ ولم تثبت الموافقة المستقلة.',
- CONTRACTUAL_TERM_AND_OBLIGATIONS_NOT_DECLARED_REVIEWED:'يجب مراجعة مدة الحق والأجرة والالتزامات في العقد.',
- PROPERTY_REVENUE_EXCLUDING_OPERATING_BUSINESS_NOT_CONFIRMED:'افصل دخل العقار عن أرباح المشغل أو المعدات والسمعة.',
- IMPROVEMENT_REVERSION_REQUIRES_SEPARATE_VERIFIED_MODEL:'التعويض أو ملكية التحسينات عند نهاية الحق تتطلب نموذجًا مستقلًا موثقًا.',
- REMAINING_RIGHT_TERM_1_TO_80_YEARS_REQUIRED:'أدخل مدة صحيحة من سنة إلى 80 سنة.',
- INVALID_NOMINAL_DISCOUNT_RATE:'معدل الخصم يجب أن يكون بين 0% و75%.',
- PROPERTY_REVENUE_REQUIRED:'أدخل دخلًا عقاريًا سنويًا موجبًا.',
- LIMITED_PROPERTY_RIGHT_REQUIRED:'حدد نوع حق الانتفاع أو حق الإيجار محل الدراسة.',
- VALUATION_DATE_REQUIRED:'أدخل تاريخ تقييم صحيحًا.',
- NON_FINITE_RIGHTS_CASHFLOW:'تجاوزت التدفقات الحدود الحسابية الآمنة؛ راجع الأرقام والنمو.',
- NON_FINITE_RIGHTS_NPV:'تعذّر حساب صافي القيمة الحالية دون تجاوز الحدود الآمنة.',
- UNSUPPORTED_RIGHTS_SCENARIO:'تعذّر حساب السيناريو من المدخلات الحالية؛ تحقق من الحقول.',
-});
-function reasonText(code,ar){
- if(!ar)return code;
- if(REASONS[code])return REASONS[code];
- if(code.startsWith('INVALID_AMOUNT_'))return 'قيمة نقدية غير صالحة: '+code.slice('INVALID_AMOUNT_'.length);
- if(code.startsWith('INVALID_ESCALATION_'))return 'معدل نمو خارج الحدود (-50% إلى 50%): '+code.slice('INVALID_ESCALATION_'.length);
- return 'سبب الحجب يحتاج فحصًا: '+code;
-}
+const {researchReason,researchFieldLabel}=require('../i18n/personal-research-presentation');
 const FIELDS=['annualPropertyIncomeSar','annualPropertyOperatingExpenseSar','annualGroundRentSar',
  'annualSustainingCapexSar','incomeEscalationRate','operatingExpenseEscalationRate',
  'groundRentEscalationRate','nominalDiscountRate','upfrontRightConsiderationSar'];
@@ -157,7 +124,7 @@ export default function PersonalLimitedInterestDcfPanel({assetClass,locale='ar-S
      style={{background:'#F5F4F0',color:'#202937'}}/>
    </label>
    {FIELDS.map(k=><label key={k} className="text-xs" style={{color:'#E8E9ED'}}>
-     {ar?LABELS[k]:k.replace(/([A-Z])/g,' $1')}
+     {researchFieldLabel(k,locale)}
      <input data-testid={'limited-interest-'+k} type="text" inputMode="decimal" value={inputs[k]}
       className="block w-full rounded-lg p-2 min-h-[40px] mt-1"
       style={{background:'#F5F4F0',color:'#202937'}}
@@ -214,9 +181,11 @@ export default function PersonalLimitedInterestDcfPanel({assetClass,locale='ar-S
      <p className="mt-2 text-xs">{ar?'صافي الاستثمار بعد المقابل المدفوع (ر.س): ':'Investor NPV after upfront premium SAR: '}
        {currency(result.ownerInvestmentNpvAfterUpfrontSar)}</p>
     </>}
-    <p className="mt-2 text-xs" style={{color:'#EAC38B'}}>
-      {(result.reasonCodes||[]).map(c=>reasonText(c,ar)).join('؛ ')}
-    </p>
+    <ul data-testid="limited-interest-reasons" className="mt-2 text-xs space-y-1" style={{color:'#EAC38B'}}>
+      {(result.reasonCodes||[]).map(code=><li key={code} data-diagnostic-content translate="no">
+        <span>{researchReason(code,locale).message}</span>{' '}<code dir="ltr">{code}</code>
+      </li>)}
+    </ul>
     <p className="mt-2 text-xs">{ar?
       'النتائج افتراضية ولم يتم إثبات قابلية التنازل أو الأسعار أو تراخيص الحقوق المستقلة؛ ليست سعر شراء أو تقييمًا مهنيًا.'
       :'User-supplied assumptions, not legally verified, certified, or an authorized purchase price.'}</p>
