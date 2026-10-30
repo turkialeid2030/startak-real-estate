@@ -29,7 +29,7 @@ try{
    await scan(seed.mode+'-'+tab+'-en');await setLocale('ar-SA');await scan(seed.mode+'-'+tab+'-ar');
   }
  }
- await setLocale('en');await page.getByRole('button',{name:en.tabs.dashboard,exact:true}).click();await expand();
+ await setLocale('en');await page.getByRole('button',{name:en.mode.building,exact:true}).click();await page.getByRole('button',{name:en.tabs.dashboard,exact:true}).click();await expand();
  const universe=page.getByTestId('personal-asset-universe-panel');
  for(const assetClass of Object.keys(ALL_SECTORS)){
   await universe.getByTestId('personal-asset-universe-select').selectOption(assetClass);
