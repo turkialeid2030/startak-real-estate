@@ -24,6 +24,7 @@ try{
  for(const seed of seeds){
   await setLocale('en');await page.getByTitle(en.actions.savedDeals,{exact:true}).click();const dialog=page.getByRole('dialog');
   await scan(seed.mode+'-saved-dialog-en',false);await dialog.getByRole('button',{name:seed.name,exact:true}).click();
+  await expand();
   // Actual input warning and canonical rejection must agree, including after a
   // previous valid result exists. Test both modes and both land dimensions.
   for(const [field,label] of [['landLength','Land Length'],['landWidth','Land Width']])for(const invalidValue of ['0','0.005']){
