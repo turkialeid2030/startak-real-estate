@@ -56,6 +56,15 @@ async function command(id,cmd,args,outDir){
  const code=await new Promise(resolve=>{child.once('error',()=>resolve(-1));child.once('close',code=>resolve(code));});
  clearTimeout(timer);await new Promise(resolve=>{stream.end(resolve);if(stream.destroyed)resolve();});
  const status=code===0&&!overflow&&!writeFailed?'PASS':'FAIL';console.log(id+'='+status);
+ // Keep failed synthetic CI checks inspectable through the job log as well as
+ // the artifact. Bound output and prefix each line so test text cannot become
+ // a GitHub workflow command. No credentials are supplied to these PR checks.
+ if(status==='FAIL'){
+  try{
+   const tail=(await fs.readFile(file,'utf8')).slice(-16000).replace(/\x1b\[[0-9;]*m/g,'');
+   for(const line of tail.split(/\r?\n/))console.log('diagnostic['+id+'] '+line.replace(/[\r\u0000]/g,' '));
+  }catch{console.log('diagnostic['+id+'] LOG_UNAVAILABLE');}
+ }
  return {id,status,exitCode:code,outputLimitExceeded:overflow,logFile:path.basename(file)};
 }
 async function execute(){
