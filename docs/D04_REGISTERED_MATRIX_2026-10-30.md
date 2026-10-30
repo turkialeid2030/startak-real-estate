@@ -13,3 +13,8 @@ The matrix is a required `locale-browser` check in the unified batch (14 require
 Interactive protected-preview login succeeded during this session: fresh rendered evidence showed the STARTAK heading and visible canonical workspace at the expected pages.dev origin after Cloudflare Access. This is an interactive session observation only. No authentication value, cookie or token is stored in this repository; GitHub jobs do not inherit the browser session. Automated source/asset verification still needs its own evidence.
 
 Exact-source CI results must be read from the PR and run artifacts. This document does not declare a run successful before completion.
+
+
+## Authenticated UI review: dimension warning/output mismatch
+
+A live protected-preview interaction reproduced Land Length = 0 showing an invalid-field warning while NOI and return-on-cost remained visible. The original sample was restored. Real building and land study contracts now enforce the same 0.01 m minimum for length and width in the canonical validator. Arithmetic formulas and valid-input semantics are unchanged; invalid dimensions now throw ValidationError and block calculations, saves through the shared validator, and financial export results. Generic validator probes retain their prior scope. A new 58-check regression exercises engine/UI/report rejection for 0, 0.005 and negative dimensions in both modes, and boundary acceptance at 0.01. The browser matrix additionally verifies eight invalid→corrected transitions with previous results present, KPI suppression and recovery. The first sector-matrix retry also exposed that the sector host is building-only; the test now explicitly switches back to building mode.

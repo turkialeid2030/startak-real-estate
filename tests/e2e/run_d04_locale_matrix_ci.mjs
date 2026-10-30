@@ -24,6 +24,18 @@ try{
  for(const seed of seeds){
   await setLocale('en');await page.getByTitle(en.actions.savedDeals,{exact:true}).click();const dialog=page.getByRole('dialog');
   await scan(seed.mode+'-saved-dialog-en',false);await dialog.getByRole('button',{name:seed.name,exact:true}).click();
+  // Actual input warning and canonical rejection must agree, including after a
+  // previous valid result exists. Test both modes and both land dimensions.
+  for(const [field,label] of [['landLength','Land Length'],['landWidth','Land Width']])for(const invalidValue of ['0','0.005']){
+   const input=page.getByRole('textbox',{name:new RegExp('^'+label+' ')});
+   await input.fill(invalidValue);
+   await expect(page.getByTestId('current-calculation-unavailable')).toHaveCount(2);
+   await expect(page.getByRole('status',{name:'Updated key performance indicators',exact:true})).toHaveCount(0);
+   await input.fill(String(seed.inputs[field]));
+   await expect(page.getByTestId('current-calculation-unavailable')).toHaveCount(0);
+   await expect(page.getByRole('status',{name:'Updated key performance indicators',exact:true})).toBeVisible();
+   console.log('CURRENT_DIMENSION_GUARD=PASS mode='+seed.mode+' field='+field+' rejected='+invalidValue);
+  }
   for(const tab of ['dashboard','cashflow','sensitivity']){
    await setLocale('en');await page.getByRole('button',{name:en.tabs[tab],exact:true}).click();
    await scan(seed.mode+'-'+tab+'-en');await setLocale('ar-SA');await scan(seed.mode+'-'+tab+'-ar');

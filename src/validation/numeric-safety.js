@@ -218,6 +218,13 @@ function validateEngineInputs(inputs, options = {}) {
     if (field in inputs) requireRange(field, inputs[field], 0, 1);
   }
 
+  // Match the visible land-dimension input minimum for real study contracts.
+  // Zero/tiny dimensions must not leave financial outputs visible beside an
+  // invalid-field warning. Generic validation probes keep their existing scope.
+  if (studyType === STUDY_TYPE.EXISTING_BUILDING || studyType === STUDY_TYPE.LAND_DEVELOPMENT) {
+    for (const field of ['landLength', 'landWidth']) requireRange(field, inputs[field], 0.01, Number.MAX_VALUE);
+  }
+
   for (const field of GROWTH_RATE_FIELDS) {
     if (field in inputs) requireRange(field, inputs[field], GROWTH_RATE_MIN, GROWTH_RATE_MAX);
   }
