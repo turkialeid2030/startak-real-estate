@@ -72,7 +72,9 @@ const fixture=(assetClass='OFFICE',city='الرياض-SYNTH')=>({assetClass,
  const file=(text,pending)=>({name:'synthetic.json',size:bytes(text).byteLength,arrayBuffer:()=>pending?.promise||Promise.resolve(bytes(text))});
  const settle=(d,value,reject=false)=>React.act(async()=>{reject?d.reject(value):d.resolve(value);await Promise.resolve();});
  const until=async(fn)=>{const end=Date.now()+5000;do{await React.act(async()=>new Promise(r=>setTimeout(r,10)));if(fn())return;}while(Date.now()<end);throw Error('Deferred WebCrypto operation did not finish');};
- await render();await click('personal-sector-calculate');
+ await render();
+ ok(byId('limited-interest-annualPropertyIncomeSar').closest('label').textContent.includes('before OPEX, ground rent and maintenance'),'Actual English rights income field excludes OPEX, ground rent and maintenance before calculating NOI');
+ await click('personal-sector-calculate');
  ok(byId('personal-sector-reasons').textContent.includes('Enter the city'),'English sector HOLD has a human explanation, not code only');
  ok(byId('personal-research-reasons').textContent.includes('Current inputs are invalid'),'English financial integrity reason is readable');
  await click('limited-interest-calculate');
@@ -81,6 +83,7 @@ const fixture=(assetClass='OFFICE',city='الرياض-SYNTH')=>({assetClass,
  const phasedButton=[...byId('personal-phased-development-dcf').querySelectorAll('button')].at(-1);await React.act(async()=>Simulate.click(phasedButton));
  ok(byId('phased-development-reasons').textContent.includes('Enter a valid valuation date'),'English phased development HOLD is readable');
  const codes=[...byId('personal-sector-reasons').querySelectorAll('code')].map(x=>x.textContent);locale='ar-SA';await render();
+ ok(byId('limited-interest-annualPropertyIncomeSar').closest('label').textContent.includes('الإيراد العقاري السنوي قبل مصروفات التشغيل وأجرة الحق والصيانة'),'Actual Arabic rights field retains gross income boundary');
  ok(byId('personal-sector-reasons').textContent.includes('حدد المدينة')&&JSON.stringify([...byId('personal-sector-reasons').querySelectorAll('code')].map(x=>x.textContent))===JSON.stringify(codes),'Arabic roundtrip keeps exact held result and codes');
  await choose({name:'oversize.json',size:200000});ok(byId('personal-sector-archive-status').textContent.includes('حجم الملف'),'Arabic size rejection');locale='en';await render();ok(byId('personal-sector-archive-status').textContent.includes('oversized'),'Prior rejection follows locale without another read');
  const archived=await createPersonalSectorCaseArchive(fixture('OFFICE','SYNTH-ARCHIVE'),{subtle:webcrypto.subtle}),text=JSON.stringify(archived);
