@@ -12,11 +12,11 @@ let checks=0;const ok=(v,m)=>{assert.ok(v,m);checks++;};
  const {transformWithOxc}=await import('vite');
  async function load(name){
   const file=path.resolve(__dirname,'../../src/components',name+'.jsx');let source=fs.readFileSync(file,'utf8');
-  const main=source.match(/export default function (\\w+)/)[1];
-  source=source.replace(/^import React(?:,\\s*\\{([^}]+)\\})? from 'react';$/gm,(_,hooks)=>'const React=require("react");'+(hooks?'const {'+hooks+'}=React;':''));
-  source=source.replaceAll('export default function ','function ').replace(/^export \\{[^}]+\\};$/gm,'');
+  const main=source.match(/export default function (\w+)/)[1];
+  source=source.replace(/^import React(?:,\s*\{([^}]+)\})? from 'react';$/gm,(_,hooks)=>'const React=require("react");'+(hooks?'const {'+hooks+'}=React;':''));
+  source=source.replaceAll('export default function ','function ').replace(/^export \{[^}]+\};$/gm,'');
   const {code}=await transformWithOxc(source,file,{jsx:{runtime:'classic'}}),module={exports:{}};
-  new Function('require','module','exports',code+'\\nmodule.exports='+main+';')(createRequire(file),module,module.exports);return module.exports;
+  new Function('require','module','exports',code+'\nmodule.exports='+main+';')(createRequire(file),module,module.exports);return module.exports;
  }
  const Panel=await load('SaudiNationalIntelligenceSourcesPanel'),Guard=await load('StrictArabicSurfaceGuard');
  let setLocale;function Control(){setLocale=useLocale().setLocale;return null;}
