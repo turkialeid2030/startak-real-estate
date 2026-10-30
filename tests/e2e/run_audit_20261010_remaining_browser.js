@@ -92,7 +92,10 @@ async function textContrast(locator){return locator.evaluate(el=>{
    await page.reload();await page.getByTestId('document-case-id').fill('CASE-LOCAL-AUDIT');await page.getByTestId('local-document-file-input').setInputFiles({name:'English source - عقار.pdf',mimeType:'application/pdf',buffer:pdfFixture()});
    await expect(page.getByTestId('saved-evidence-journal')).toBeVisible({timeout:25000});checks++;
    await expect(page.getByTestId('local-evidence-workflow-status')).toHaveAttribute('data-verification-status','VERIFICATION_NOT_COMPLETE');checks++;
-   await expect(page.getByTestId('local-evidence-workflow-status')).toHaveText('التحقق غير مكتمل');checks++;
+   // DiagnosticText intentionally preserves both the localized explanation and
+   // stable machine code. Verify both without treating either as approval.
+   await expect(page.getByTestId('local-evidence-workflow-status')).toContainText('التحقق غير مكتمل');checks++;
+   await expect(page.getByTestId('local-evidence-workflow-status').locator('code')).toHaveText('VERIFICATION_NOT_COMPLETE');checks++;
    await page.getByTitle(ar.actions.savedDeals,{exact:true}).click();await page.getByRole('dialog').getByRole('button',{name:seed.name,exact:true}).click();
    // Full-engine lower-price evidence must match the current exported inputs
    // on all three browsers, including the explicit-zero-debt case.
