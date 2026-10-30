@@ -26,7 +26,7 @@ function TextList({ items, emptyLabel }) {
   return (
     <ul className="space-y-2">
       {items.map((item, index) => (
-        <li key={`${index}-${item.slice(0, 24)}`} className="rounded-lg border border-slate-800 bg-slate-950/20 p-3 text-xs leading-6 text-slate-300">
+        <li data-user-content translate="no" key={`${index}-${item.slice(0, 24)}`} className="rounded-lg border border-slate-800 bg-slate-950/20 p-3 text-xs leading-6 text-slate-300">
           {item}
         </li>
       ))}
@@ -88,7 +88,7 @@ function ReviewSession({ viewModel, dir }) {
   const activationIncomplete = ACTIVATION_INCOMPLETE_CODES.has(state.reasonCode);
 
   return (
-    <section data-testid="riai-ai-assist-panel" aria-busy={loading} className="rounded-xl border border-indigo-900/50 bg-indigo-950/10 p-4">
+    <section data-testid="riai-ai-assist-panel" dir={dir} aria-busy={loading} className="rounded-xl border border-indigo-900/50 bg-indigo-950/10 p-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div className="max-w-3xl">
           <div className="text-[10px] uppercase tracking-[0.18em] text-indigo-300/70">{label('مراجعة تحليلية محكومة — الإصدار الأول', 'Governed AI Analytical Review v1')}</div>
@@ -157,10 +157,10 @@ function ReviewSession({ viewModel, dir }) {
                   {result.riskFlags.map((flag, index) => (
                     <div key={`${flag.code}-${index}`} className="rounded-lg border border-slate-800 bg-slate-950/20 p-3 text-xs text-slate-300">
                       <div className="flex items-center justify-between gap-2">
-                        <strong className="text-slate-100">{flag.code}</strong>
+                        <strong className="text-slate-100" data-diagnostic-content translate="no">{flag.code}</strong>
                         <Tone severity={flag.severity} ar={ar} />
                       </div>
-                      <p className="mt-2 leading-6">{flag.rationale}</p>
+                      <p data-user-content translate="no" className="mt-2 leading-6">{flag.rationale}</p>
                     </div>
                   ))}
                 </div>
@@ -184,8 +184,8 @@ function ReviewSession({ viewModel, dir }) {
                 <div className="space-y-2">
                   {result.earlyWarningIndicators.map((item, index) => (
                     <div key={`${index}-${item.indicator}`} className="rounded-lg border border-slate-800 bg-slate-950/20 p-3 text-xs text-slate-300">
-                      <strong className="text-slate-100">{item.indicator}</strong>
-                      <p className="mt-2 leading-6">{item.whyItMatters}</p>
+                      <strong className="text-slate-100" data-user-content translate="no">{item.indicator}</strong>
+                      <p data-user-content translate="no" className="mt-2 leading-6">{item.whyItMatters}</p>
                     </div>
                   ))}
                 </div>
@@ -194,7 +194,7 @@ function ReviewSession({ viewModel, dir }) {
           </div>
 
           <div className="rounded-lg border border-amber-900/50 bg-amber-950/10 p-3 text-[11px] leading-6 text-amber-200/90">
-            <strong>{label('حدود القرار:', 'Decision boundary:')}</strong> {result.decisionBoundary}
+            <strong>{label('حدود القرار:', 'Decision boundary:')}</strong> <span data-user-content translate="no">{result.decisionBoundary}</span>
           </div>
         </div>
       ) : null}

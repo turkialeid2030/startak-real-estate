@@ -20,6 +20,7 @@ const {
   applyAdvancedDraftToValuationCase,
 } = require('../app/valuation-advanced-draft');
 const { getValuationMethodLabel } = require('../app/valuation-labels');
+const {valuationEvidenceLabel}=require('../i18n/valuation-evidence-presentation');
 
 const COLORS = Object.freeze({
   ink: '#0D1526',
@@ -45,7 +46,7 @@ const COPY = Object.freeze({
     applied: 'تم تطبيق المدخلات المتقدمة على الحالة الحالية.',
     error: 'تعذر تطبيق المدخلات المتقدمة',
     evidence: 'أدلة المدخلات',
-    evidenceNote: 'عند عدم تفعيل دليل محدد، يستخدم محول المبنى وصفه الافتراضي كبيان مقدم من العميل وغير متحقق منه. لا تتم ترقية جودة الدليل تلقائياً.',
+    evidenceNote: 'عند عدم تفعيل دليل محدد، يستخدم محول المبنى وصفه الافتراضي كبيان مقدم من العميل وغير متحقق منه. لا تتم ترقية جودة الدليل تلقائياً. اختيار الدرجة والحالة إقرار تصنيف ولا يثبت تحققًا مستقلاً.',
     enabled: 'مفعّل',
     grade: 'درجة الدليل',
     status: 'حالة المدخل',
@@ -104,7 +105,7 @@ const COPY = Object.freeze({
     applied: 'Advanced inputs were applied to the current case.',
     error: 'Advanced inputs could not be applied',
     evidence: 'Input evidence',
-    evidenceNote: 'If an evidence item is not enabled, the existing-building adapter keeps its default client-supplied unverified descriptor. Evidence quality is never upgraded automatically.',
+    evidenceNote: 'If an evidence item is not enabled, the existing-building adapter keeps its default client-supplied unverified descriptor. Evidence quality is never upgraded automatically. Selecting a grade or status records a classification; it does not establish independent verification.',
     enabled: 'Enabled',
     grade: 'Evidence grade',
     status: 'Input status',
@@ -184,6 +185,7 @@ function TextInput({ label, value, onChange, placeholder, type = 'text', note })
     <Field label={label} note={note}>
       <input
         type={type}
+        aria-label={label}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
@@ -197,7 +199,7 @@ function TextInput({ label, value, onChange, placeholder, type = 'text', note })
 function SelectInput({ label, value, onChange, options, placeholder }) {
   return (
     <Field label={label}>
-      <select value={value} onChange={(event) => onChange(event.target.value)} className="rf-input w-full px-3 py-2 text-xs" style={inputStyle()}>
+      <select aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} className="rf-input w-full px-3 py-2 text-xs" style={inputStyle()}>
         <option value="" style={{ background: COLORS.panelRaised }}>{placeholder}</option>
         {options.map((option) => <option key={option.value} value={option.value} style={{ background: COLORS.panelRaised }}>{option.label}</option>)}
       </select>
@@ -256,8 +258,8 @@ function EvidenceEditor({ locale, draft, setDraft }) {
     replacementCost: text.replacementCost,
     depreciationRate: text.depreciationRateEvidence,
   };
-  const gradeOptions = Object.values(EVIDENCE_GRADE).map((value) => ({ value, label: value }));
-  const statusOptions = Object.values(INPUT_STATUS).map((value) => ({ value, label: value }));
+  const gradeOptions = Object.values(EVIDENCE_GRADE).map((value) => ({ value, label: valuationEvidenceLabel(value,locale) }));
+  const statusOptions = Object.values(INPUT_STATUS).map((value) => ({ value, label: valuationEvidenceLabel(value,locale) }));
 
   return (
     <Section title={text.evidence}>
@@ -289,10 +291,10 @@ function EvidenceEditor({ locale, draft, setDraft }) {
 function MarketComparableEditor({ locale, draft, setDraft }) {
   const text = copyForLocale(locale);
   const section = draft.marketComparable;
-  const basisOptions = [BASIS_OF_VALUE.MARKET_VALUE, BASIS_OF_VALUE.FAIR_VALUE, BASIS_OF_VALUE.MARKET_RENT].map((value) => ({ value, label: value }));
-  const weightingOptions = Object.values(WEIGHTING_POLICY).map((value) => ({ value, label: value }));
-  const transactionOptions = Object.values(TRANSACTION_STATUS).map((value) => ({ value, label: value }));
-  const gradeOptions = Object.values(EVIDENCE_GRADE).map((value) => ({ value, label: value }));
+  const basisOptions = [BASIS_OF_VALUE.MARKET_VALUE, BASIS_OF_VALUE.FAIR_VALUE, BASIS_OF_VALUE.MARKET_RENT].map((value) => ({ value, label: valuationEvidenceLabel(value,locale) }));
+  const weightingOptions = Object.values(WEIGHTING_POLICY).map((value) => ({ value, label: valuationEvidenceLabel(value,locale) }));
+  const transactionOptions = Object.values(TRANSACTION_STATUS).map((value) => ({ value, label: valuationEvidenceLabel(value,locale) }));
+  const gradeOptions = Object.values(EVIDENCE_GRADE).map((value) => ({ value, label: valuationEvidenceLabel(value,locale) }));
 
   const patchComparable = (index, field, value) => {
     setDraft((current) => ({
@@ -377,7 +379,7 @@ function MarketComparableEditor({ locale, draft, setDraft }) {
 function CostEditor({ locale, draft, setDraft }) {
   const text = copyForLocale(locale);
   const section = draft.cost;
-  const basisOptions = [BASIS_OF_VALUE.MARKET_VALUE, BASIS_OF_VALUE.FAIR_VALUE, BASIS_OF_VALUE.INVESTMENT_VALUE].map((value) => ({ value, label: value }));
+  const basisOptions = [BASIS_OF_VALUE.MARKET_VALUE, BASIS_OF_VALUE.FAIR_VALUE, BASIS_OF_VALUE.INVESTMENT_VALUE].map((value) => ({ value, label: valuationEvidenceLabel(value,locale) }));
   return (
     <Section title={text.cost}>
       <Toggle label={text.costEnable} checked={section.enabled} onChange={(value) => patchSection(setDraft, 'cost', 'enabled', value)} />
@@ -453,7 +455,7 @@ export default function ValuationAdvancedPanel({ locale = 'ar-SA', valuationCase
   const [message, setMessage] = useState(null);
 
   useEffect(() => {
-    setMessage(null);
+    setMessage(current=>current?.context===valuationCase?current:null);
   }, [valuationCase]);
 
   const activeCount = useMemo(() => {
@@ -464,15 +466,17 @@ export default function ValuationAdvancedPanel({ locale = 'ar-SA', valuationCase
     return count;
   }, [draft]);
 
+  const visibleMessage=message?.context===valuationCase?message:null;
+
   const apply = () => {
     try {
       const next = applyAdvancedDraftToValuationCase(valuationCase, draft);
       onChangeValuationCase(next);
-      setMessage({ ok: true, text: text.applied });
+      setMessage({ ok: true, context: next });
     } catch (error) {
       setMessage({
         ok: false,
-        text: text.error,
+        context: valuationCase,
         code: error?.reasonCode || error?.name || 'INVALID_CONFIGURATION',
         field: error?.field || null,
       });
@@ -480,7 +484,7 @@ export default function ValuationAdvancedPanel({ locale = 'ar-SA', valuationCase
   };
 
   return (
-    <div className="mt-4 rounded-xl p-3 md:p-4" style={{ border: `1px solid ${COLORS.hairline}`, background: 'rgba(28,44,74,0.45)' }}>
+    <div data-testid="valuation-advanced-editor" dir={locale==='en'?'ltr':'rtl'} className="mt-4 rounded-xl p-3 md:p-4" style={{ border: `1px solid ${COLORS.hairline}`, background: 'rgba(28,44,74,0.45)' }}>
       <button type="button" onClick={() => setOpen((value) => !value)} className="w-full flex items-start justify-between gap-3 text-start">
         <div>
           <div className="text-xs font-semibold" style={{ color: COLORS.parchment }}>{text.title}</div>
@@ -498,10 +502,10 @@ export default function ValuationAdvancedPanel({ locale = 'ar-SA', valuationCase
           <CostEditor locale={locale} draft={draft} setDraft={setDraft} />
           <ReconciliationEditor locale={locale} draft={draft} setDraft={setDraft} />
 
-          {message ? (
-            <div className="rounded-lg px-3 py-2 flex items-start gap-2" style={{ border: `1px solid ${message.ok ? COLORS.hairline : COLORS.negative}`, color: message.ok ? COLORS.brassSoft : COLORS.negative }}>
-              {!message.ok ? <XCircle size={13} style={{ flexShrink: 0 }} /> : null}
-              <div className="text-[10px] leading-relaxed">{message.text}{message.code && <><br/><DiagnosticText locale={locale} code={message.code}/>{message.field && <code translate="no" dir="ltr"> — {message.field}</code>}</>}</div>
+          {visibleMessage ? (
+            <div data-testid="valuation-advanced-status" role="status" className="rounded-lg px-3 py-2 flex items-start gap-2" style={{ border: `1px solid ${visibleMessage.ok ? COLORS.hairline : COLORS.negative}`, color: visibleMessage.ok ? COLORS.brassSoft : COLORS.negative }}>
+              {!visibleMessage.ok ? <XCircle size={13} style={{ flexShrink: 0 }} /> : null}
+              <div className="text-[10px] leading-relaxed">{visibleMessage.ok?text.applied:text.error}{visibleMessage.code && <><br/><DiagnosticText locale={locale} code={visibleMessage.code}/>{visibleMessage.field && <code translate="no" dir="ltr"> — {visibleMessage.field}</code>}</>}</div>
             </div>
           ) : null}
 

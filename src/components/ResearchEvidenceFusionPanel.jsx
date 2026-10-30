@@ -1,9 +1,15 @@
+import DiagnosticText from './DiagnosticText.jsx';
 import React,{useMemo,useState} from 'react';
 const {buildUnifiedResearch,researchReportBundle,researchClaimsGate}=
  require('../market/research-evidence-fusion');
 const {renderResearchBriefHtml}=require('../market/research-brief-html');
+const {useLocale}=require('../i18n/LocaleContext.js');
+const {researchActionText}=require('../i18n/research-action-presentation');
+const {researchSourceLabel}=require('../i18n/research-source-presentation');
 export default function ResearchEvidenceFusionPanel({subject={},feeds={},asOf='2026-10-28',
  readinessStatus='NOT_TESTED',marketReport=null,readiness=null,publicNeighborhood=null,publicLoadMeta=null}){
+ const {locale}=useLocale();
+ const en=locale==='en';
  const [message,setMessage]=useState('');
  const result=useMemo(()=>buildUnifiedResearch({subject,feeds,asOf}),[subject,feeds,asOf]);
  const bundle=useMemo(()=>researchReportBundle(result,{
@@ -16,13 +22,13 @@ export default function ResearchEvidenceFusionPanel({subject={},feeds={},asOf='2
  ]});
  const exportHtml=()=>{
   try{
-   const html=renderResearchBriefHtml(bundle);
+   const html=renderResearchBriefHtml(bundle,{locale});
    const blob=new Blob([html],{type:'text/html;charset=utf-8'});
    const url=URL.createObjectURL(blob);const link=document.createElement('a');
-   link.href=url;link.download='STARTAK_Arabic_Research_Investment_Brief.html';
+   link.href=url;link.download=en?'STARTAK_English_Research_Investment_Brief.html':'STARTAK_Arabic_Research_Investment_Brief.html';
    document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
-   setMessage('تم تصدير تقرير عربي بحثي غير معتمد؛ لا يتضمن توصية شراء أو تقييمًا مرخصًا.');
-  }catch(e){setMessage('تعذر إصدار التقرير البحثي العربي: '+String(e?.message||e));}
+   setMessage({kind:en?'RESEARCH_HTML_EN':'RESEARCH_HTML_AR'});
+  }catch(e){setMessage({kind:'RESEARCH_HTML_FAILED',params:{code:String(e?.message||e)}});}
  };
  const exportJson=()=>{
   try{
@@ -31,75 +37,76 @@ export default function ResearchEvidenceFusionPanel({subject={},feeds={},asOf='2
    const url=URL.createObjectURL(blob);const link=document.createElement('a');
    link.href=url;link.download='STARTAK_Unified_Research_Brief.json';document.body.appendChild(link);
    link.click();link.remove();URL.revokeObjectURL(url);
-   setMessage('تم تصدير تقرير بحثي مع حدود الثقة؛ لا يتضمن قيمة سوقية معتمدة.');
-  }catch(e){setMessage('تعذر تصدير التقرير البحثي: '+String(e?.message||e));}
+   setMessage({kind:'RESEARCH_JSON_EXPORTED'});
+  }catch(e){setMessage({kind:'RESEARCH_JSON_FAILED',params:{code:String(e?.message||e)}});}
  };
- return <section data-testid="research-evidence-fusion" dir="rtl"
+ return <section data-testid="research-evidence-fusion" dir={en?'ltr':'rtl'}
   className="mt-5 w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-amber-700 bg-slate-950 p-4 text-slate-100">
   <div className="flex flex-wrap justify-between gap-2">
-   <div><h3 className="font-bold text-base">STARTAK — ربط أدلة السوق متعددة المصادر</h3>
-    <p className="mt-2 text-xs text-slate-300">عرض بحثي واحد؛ لا يصدر تقييمًا مهنيًا ولا توصية شراء دون أدلة.</p></div>
-   <span data-testid="fusion-status" className="text-xs text-amber-200">
-     قيد التحقق — HOLD</span>
+   <div><h3 className="font-bold text-base">{en?'STARTAK — Multi-source market evidence':'STARTAK — ربط أدلة السوق متعددة المصادر'}</h3>
+    <p className="mt-2 text-xs text-slate-300">{en?'Research evidence only; it does not issue a certified appraisal or purchase recommendation.':'عرض بحثي واحد؛ لا يصدر تقييمًا مهنيًا ولا توصية شراء دون أدلة.'}</p></div>
+   <span data-testid="fusion-status" data-decision="HOLD" className="text-xs text-amber-200">
+     {en?'Verification required — HOLD':'قيد التحقق — معلّق'}</span>
   </div>
   <p className="mt-3 text-xs text-slate-300" data-testid="fusion-subject">
-   العقار: {subject.city||'غير محدد'} / {subject.district||'الحي غير محدد'} |
-   التاريخ: {asOf}</p>
+   {en?'Property: ':'العقار: '}<span data-user-content translate="no">{subject.city||(en?'Unknown':'غير محدد')}</span> / <span data-user-content translate="no">{subject.district||(en?'Unknown district':'الحي غير محدد')}</span> |
+   {en?'Date: ':'التاريخ: '}{asOf}</p>
   <div data-testid="fusion-statistics" className="mt-3 grid grid-cols-2 gap-3 text-xs md:grid-cols-4">
-   <div className="rounded border border-slate-700 p-2">السجلات البحثية: {result.validResearchRows}</div>
-   <div className="rounded border border-slate-700 p-2">سجلات نطاق الحي: {result.subjectAreaRows}</div>
+   <div className="rounded border border-slate-700 p-2">{en?'Research rows: ':'السجلات البحثية: '}{result.validResearchRows}</div>
+   <div className="rounded border border-slate-700 p-2">{en?'Subject district rows: ':'سجلات نطاق الحي: '}{result.subjectAreaRows}</div>
    <div className="rounded border border-slate-700 p-2">
-    تكرارات محتملة: {result.possibleCrossSourceDuplicates.length+result.possibleRepeatedObservations}</div>
-   <div className="rounded border border-slate-700 p-2">صفقات منفذة مثبتة: {result.verifiedExecutedSales}</div>
+    {en?'Potential duplicates: ':'تكرارات محتملة: '}{result.possibleCrossSourceDuplicates.length+result.possibleRepeatedObservations}</div>
+   <div className="rounded border border-slate-700 p-2">{en?'Independently verified executed sales: ':'صفقات منفذة مثبتة: '}{result.verifiedExecutedSales}</div>
   </div>
-  <p className="mt-3 text-xs text-slate-300">مطابقة الحي لا تثبت تطابق العقار أو ملكيته؛
-   يلزم معرّف عقاري أو مخطط وقطعة موثقان. كما لا تُمزج مؤشرات الأحياء بالقيم المعلنة.</p>
+  <p className="mt-3 text-xs text-slate-300">{en?'District matching does not prove the subject property identity or title. An independently evidenced parcel/plot identifier is needed; neighborhood indicators must not be blended with asking listings.':'مطابقة الحي لا تثبت تطابق العقار أو ملكيته؛ يلزم معرّف عقاري أو مخطط وقطعة موثقان. كما لا تُمزج مؤشرات الأحياء بالقيم المعلنة.'}</p>
   <div data-testid="fusion-source-readiness" className="mt-2 text-xs text-slate-300">
-   {result.feedReadiness.map(x=><p key={x.feed}>{x.feed}: {x.importedResearchRows} سجل بحثي؛
-    API مباشر غير متصل، صحة المصدر الفردي غير مثبتة</p>)}
+   {result.feedReadiness.map(x=><p key={x.feed}>{({suhail:en?'Suhail':'سهيل',listings:en?'Listings':'العروض',earth:en?'Earth':'أرض',national:en?'National sources':'المصادر الوطنية'})[x.feed]||x.feed}: {x.importedResearchRows} {en?'research rows; direct API not connected and individual source not verified':'سجل بحثي؛ الربط المباشر غير متصل، صحة المصدر الفردي غير مثبتة'}</p>)}
   </div>
   {result.sourceRefs.length>0?<p className="mt-2 text-xs break-words">
-   المصادر المتعلقة بالحي: {result.sourceRefs.join('، ')}</p>:null}
+   {en?'Sources related to this district: ':'المصادر المتعلقة بالحي: '}<span data-user-content translate="no">{result.sourceRefs.join('، ')}</span></p>:null}
   <p data-testid="fusion-risk-codes" className="mt-2 text-xs text-amber-200">
-    قيود الفحص: {result.risks.join(' | ')}
+    {en?'Evidence limitations: ':'قيود الفحص: '}{result.risks.map(code=><span key={code}><DiagnosticText code={code} locale={locale}/>{' | '}</span>)}
   </p>
   <div className="mt-3 rounded border border-slate-700 p-3 text-xs">
-   <p className="font-bold">مراجعة التقييم والاستثمار</p>
-   <p className="mt-1">حسابات السوق المعتمدة: غير متاحة من هذه البيانات البحثية.</p>
-   <p>سقف الشراء: غير محسوب؛ يحتاج نموذج التدفقات النقدية والعائد المستهدف وبيانات معتمدة.</p>
-   <p>توصية الاستثمار: تعليق القرار لحين التحقق، مع استمرار المحاكاة الداخلية.</p>
-   <p className="mt-1">حالة محرك التقييم الحالي: {readinessStatus}</p>
+   <p className="font-bold">{en?'Appraisal and investment review':'مراجعة التقييم والاستثمار'}</p>
+   <p className="mt-1">{en?'Certified market value is unavailable from these research inputs.':'حسابات السوق المعتمدة: غير متاحة من هذه البيانات البحثية.'}</p>
+   <p>{en?'Maximum purchase price not determined; requires evidenced cash flows, target return and verified inputs.':'سقف الشراء: غير محسوب؛ يحتاج نموذج التدفقات النقدية والعائد المستهدف وبيانات معتمدة.'}</p>
+   <p>{en?'Investment decision on hold pending verification; internal simulations may continue.':'توصية الاستثمار: تعليق القرار لحين التحقق، مع استمرار المحاكاة الداخلية.'}</p>
+   <p className="mt-1">{en?'Current appraisal engine status: ':'حالة محرك التقييم الحالي: '}<DiagnosticText code={readinessStatus} locale={locale}/></p>
    <p data-testid="fusion-open-data-annex" className="mt-2">
-    مرجع وزارة العدل التاريخي المفتوح:
-    {bundle.openDataAnnex.status==='NOT_LOADED'?' لم يُحمّل بعد':
+    {en?'Open historical Ministry of Justice dataset: ':'مرجع وزارة العدل التاريخي المفتوح: '}
+    {bundle.openDataAnnex.status==='NOT_LOADED'?(en?' Not loaded':' لم يُحمّل بعد'):
     ' '+bundle.openDataAnnex.status}.
     {Number.isFinite(bundle.openDataAnnex.medianNeighborhoodSarSqm)?
-     ' وسيط تاريخي للحي '+new Intl.NumberFormat('ar-SA').format(
-       bundle.openDataAnnex.medianNeighborhoodSarSqm)+' ر.س/م² (ليس قيمة العقار).':''}
+     (en?' Historical district median ':' وسيط تاريخي للحي ')+new Intl.NumberFormat(en?'en-US':'ar-SA').format(
+       bundle.openDataAnnex.medianNeighborhoodSarSqm)+(en?' SAR/sqm (not subject property value).':' ر.س/م² (ليس قيمة العقار).'):''}
    </p>
    <p data-testid="fusion-scenario-annex" className="mt-2">
-    ملحق سيناريو الحسابات الحالية (مدخلات غير موثقة):
+    {en?'Current arithmetic scenario annex (unverified inputs):':'ملحق سيناريو الحسابات الحالية (مدخلات غير موثقة):'}
     {Number.isFinite(bundle.scenarioAnnex.previewValuesSar.todayValueScenarioSar)?
-     ' القيمة التصورية '+new Intl.NumberFormat('ar-SA').format(
-       bundle.scenarioAnnex.previewValuesSar.todayValueScenarioSar)+' ريال':' لا توجد قيمة تصورية مكتملة'}.
-    لا تعادل القيمة السوقية المعتمدة ولا سقف شراء.
+     (en?' Scenario amount ':' القيمة التصورية ')+new Intl.NumberFormat(en?'en-US':'ar-SA').format(
+       bundle.scenarioAnnex.previewValuesSar.todayValueScenarioSar)+(en?' SAR':' ريال'):(en?' No complete scenario value':' لا توجد قيمة تصورية مكتملة')}.
+    {en?'Not a certified market value or approved purchase cap.':'لا تعادل القيمة السوقية المعتمدة ولا سقف شراء.'}
    </p>
   </div>
   <div data-testid="fusion-review-actions" className="mt-3 rounded border border-amber-800 p-3 text-xs">
-   <h4 className="font-bold">خطة فحص مجلس تركي الاستشاري — متطلبات معلّقة</h4>
-   <p className="mt-1 text-amber-200">هذه مهام مراجعة مستندة إلى نواقص الأدلة، وليست توصية شراء أو تقييمًا مهنيًا معتمدًا.</p>
+   <h4 className="font-bold">{en?'Advisory council evidence review — outstanding requirements':'خطة فحص مجلس تركي الاستشاري — متطلبات معلّقة'}</h4>
+   <p className="mt-1 text-amber-200">{en?'These are evidence-bound review tasks, not a purchase recommendation or certified professional appraisal.':'هذه مهام مراجعة مستندة إلى نواقص الأدلة، وليست توصية شراء أو تقييمًا مهنيًا معتمدًا.'}</p>
+   {en&&<p data-testid="fusion-language-scope" className="mt-1 text-amber-200">
+     Original source wording and evidence codes are preserved. Interface or report translation does not verify source authenticity or authorize investment use.
+   </p>}
    <ol className="mt-2 list-decimal pr-5">
     {bundle.reviewerActionPlan.tasks.map(x=><li key={x.id} className="mb-2">
-     <strong>{x.label}</strong> — {x.reason}</li>)}
+     <strong>{researchSourceLabel(x.label,locale)}</strong> — {researchSourceLabel(x.reason,locale)}</li>)}
    </ol>
-   <p className="text-amber-200">القرار: تعليق الاستثمار لحين التحقق المستقل؛ لا قيمة أو سقف شراء معتمد.</p>
+   <p className="text-amber-200">{en?'Decision: hold the investment until independent verification. No certified value or purchase cap.':'القرار: تعليق الاستثمار لحين التحقق المستقل؛ لا قيمة أو سقف شراء معتمد.'}</p>
   </div>
   <div className="mt-3 flex flex-wrap gap-2">
    <button type="button" data-testid="fusion-export" onClick={exportJson}
-    className="rounded border border-slate-500 px-3 py-2 text-xs">تصدير حزمة البحث JSON</button>
+    className="rounded border border-slate-500 px-3 py-2 text-xs">{en?'Export research JSON':'تصدير حزمة البحث JSON'}</button>
    <button type="button" data-testid="fusion-export-html" onClick={exportHtml}
-    className="rounded border border-slate-500 px-3 py-2 text-xs">تقرير بحث عقاري واستثماري عربي HTML</button>
+    className="rounded border border-slate-500 px-3 py-2 text-xs">{en?'English property research HTML':'تقرير بحث عقاري واستثماري عربي HTML'}</button>
   </div>
-  {message&&<p role="status" className="mt-2 text-xs text-sky-200">{message}</p>}
+  {message&&<p data-testid="research-export-action-notice" data-diagnostic-content translate="no" role="status" className="mt-2 text-xs text-sky-200">{researchActionText(message,locale)}</p>}
  </section>;
 }

@@ -1,0 +1,4623 @@
+{
+  "basis": "Independent Decimal halala schedule; ACT/365.2425; synthetic amounts only",
+  "cases": [
+    {
+      "name": "zero_rate_monthly",
+      "rate": 0.0,
+      "timing": "UNIFORM_MONTHLY",
+      "financed": true,
+      "tenorYears": 1.0,
+      "operatingYears": 1,
+      "grace": 0,
+      "balloon": 0.0,
+      "completionDebt": 100000.0,
+      "capitalizedInterest": 0.0,
+      "remainingDebt": 0.0,
+      "construction": [
+        {
+          "drawDate": "2026-01-31",
+          "capitalizationDate": "2026-02-28",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 0.0,
+          "balance": 51666.67
+        },
+        {
+          "drawDate": "2026-02-28",
+          "capitalizationDate": "2026-03-31",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 0.0,
+          "balance": 53333.34
+        },
+        {
+          "drawDate": "2026-03-31",
+          "capitalizationDate": "2026-04-30",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 0.0,
+          "balance": 55000.01
+        },
+        {
+          "drawDate": "2026-04-30",
+          "capitalizationDate": "2026-05-31",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 0.0,
+          "balance": 56666.68
+        },
+        {
+          "drawDate": "2026-05-31",
+          "capitalizationDate": "2026-06-30",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 0.0,
+          "balance": 58333.35
+        },
+        {
+          "drawDate": "2026-06-30",
+          "capitalizationDate": "2026-07-31",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 0.0,
+          "balance": 60000.02
+        },
+        {
+          "drawDate": "2026-07-31",
+          "capitalizationDate": "2026-08-31",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 0.0,
+          "balance": 61666.69
+        },
+        {
+          "drawDate": "2026-08-31",
+          "capitalizationDate": "2026-09-30",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 0.0,
+          "balance": 63333.36
+        },
+        {
+          "drawDate": "2026-09-30",
+          "capitalizationDate": "2026-10-31",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 0.0,
+          "balance": 65000.03
+        },
+        {
+          "drawDate": "2026-10-31",
+          "capitalizationDate": "2026-11-30",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 0.0,
+          "balance": 66666.7
+        },
+        {
+          "drawDate": "2026-11-30",
+          "capitalizationDate": "2026-12-31",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 0.0,
+          "balance": 68333.37
+        },
+        {
+          "drawDate": "2026-12-31",
+          "capitalizationDate": "2027-01-31",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 0.0,
+          "balance": 70000.04
+        },
+        {
+          "drawDate": "2027-01-31",
+          "capitalizationDate": "2027-02-28",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 0.0,
+          "balance": 71666.71
+        },
+        {
+          "drawDate": "2027-02-28",
+          "capitalizationDate": "2027-03-31",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 0.0,
+          "balance": 73333.38
+        },
+        {
+          "drawDate": "2027-03-31",
+          "capitalizationDate": "2027-04-30",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 0.0,
+          "balance": 75000.05
+        },
+        {
+          "drawDate": "2027-04-30",
+          "capitalizationDate": "2027-05-31",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 0.0,
+          "balance": 76666.72
+        },
+        {
+          "drawDate": "2027-05-31",
+          "capitalizationDate": "2027-06-30",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 0.0,
+          "balance": 78333.39
+        },
+        {
+          "drawDate": "2027-06-30",
+          "capitalizationDate": "2027-07-31",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 0.0,
+          "balance": 80000.06
+        },
+        {
+          "drawDate": "2027-07-31",
+          "capitalizationDate": "2027-08-31",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 0.0,
+          "balance": 81666.73
+        },
+        {
+          "drawDate": "2027-08-31",
+          "capitalizationDate": "2027-09-30",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 0.0,
+          "balance": 83333.4
+        },
+        {
+          "drawDate": "2027-09-30",
+          "capitalizationDate": "2027-10-31",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 0.0,
+          "balance": 85000.06
+        },
+        {
+          "drawDate": "2027-10-31",
+          "capitalizationDate": "2027-11-30",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 0.0,
+          "balance": 86666.72
+        },
+        {
+          "drawDate": "2027-11-30",
+          "capitalizationDate": "2027-12-31",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 0.0,
+          "balance": 88333.38
+        },
+        {
+          "drawDate": "2027-12-31",
+          "capitalizationDate": "2028-01-31",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 0.0,
+          "balance": 90000.04
+        },
+        {
+          "drawDate": "2028-01-31",
+          "capitalizationDate": "2028-02-29",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 0.0,
+          "balance": 91666.7
+        },
+        {
+          "drawDate": "2028-02-29",
+          "capitalizationDate": "2028-03-31",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 0.0,
+          "balance": 93333.36
+        },
+        {
+          "drawDate": "2028-03-31",
+          "capitalizationDate": "2028-04-30",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 0.0,
+          "balance": 95000.02
+        },
+        {
+          "drawDate": "2028-04-30",
+          "capitalizationDate": "2028-05-31",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 0.0,
+          "balance": 96666.68
+        },
+        {
+          "drawDate": "2028-05-31",
+          "capitalizationDate": "2028-06-30",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 0.0,
+          "balance": 98333.34
+        },
+        {
+          "drawDate": "2028-06-30",
+          "capitalizationDate": "2028-07-31",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 0.0,
+          "balance": 100000.0
+        }
+      ],
+      "debt": [
+        {
+          "month": 1,
+          "payment": 8333.33,
+          "balance": 91666.67
+        },
+        {
+          "month": 2,
+          "payment": 8333.33,
+          "balance": 83333.34
+        },
+        {
+          "month": 3,
+          "payment": 8333.33,
+          "balance": 75000.01
+        },
+        {
+          "month": 4,
+          "payment": 8333.33,
+          "balance": 66666.68
+        },
+        {
+          "month": 5,
+          "payment": 8333.33,
+          "balance": 58333.35
+        },
+        {
+          "month": 6,
+          "payment": 8333.33,
+          "balance": 50000.02
+        },
+        {
+          "month": 7,
+          "payment": 8333.33,
+          "balance": 41666.69
+        },
+        {
+          "month": 8,
+          "payment": 8333.33,
+          "balance": 33333.36
+        },
+        {
+          "month": 9,
+          "payment": 8333.33,
+          "balance": 25000.03
+        },
+        {
+          "month": 10,
+          "payment": 8333.33,
+          "balance": 16666.7
+        },
+        {
+          "month": 11,
+          "payment": 8333.33,
+          "balance": 8333.37
+        },
+        {
+          "month": 12,
+          "payment": 8333.37,
+          "balance": 0.0
+        }
+      ],
+      "project": {
+        "npv": 2659980.68,
+        "irr": 1.6468427325,
+        "cashflows": [
+          {
+            "date": "2026-01-31",
+            "amount": -103333.34
+          },
+          {
+            "date": "2026-02-28",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-03-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-04-30",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-05-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-06-30",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-07-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-08-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-09-30",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-10-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-11-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2026-12-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-01-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-02-28",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-03-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-04-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-05-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-06-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-07-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-08-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-09-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-10-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-11-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-12-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-01-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-02-29",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-03-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-04-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-05-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-06-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-08-31",
+            "amount": 30000.0
+          },
+          {
+            "date": "2028-09-30",
+            "amount": 30000.0
+          },
+          {
+            "date": "2028-10-31",
+            "amount": 30000.0
+          },
+          {
+            "date": "2028-11-30",
+            "amount": 30000.0
+          },
+          {
+            "date": "2028-12-31",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-01-31",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-02-28",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-03-31",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-04-30",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-05-31",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-06-30",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-07-31",
+            "amount": 3630000.0
+          }
+        ]
+      },
+      "equity": {
+        "npv": 2679781.92,
+        "irr": 2.2367955148,
+        "cashflows": [
+          {
+            "date": "2026-01-31",
+            "amount": -51666.67
+          },
+          {
+            "date": "2026-02-28",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-03-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-04-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-05-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-06-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-07-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-08-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-09-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-10-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-11-30",
+            "amount": -1666.66
+          },
+          {
+            "date": "2026-12-31",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-01-31",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-02-28",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-03-31",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-04-30",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-05-31",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-06-30",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-07-31",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-08-31",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-09-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2027-10-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2027-11-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2027-12-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-01-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-02-29",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-03-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-04-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-05-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-06-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-08-31",
+            "amount": 21666.67
+          },
+          {
+            "date": "2028-09-30",
+            "amount": 21666.67
+          },
+          {
+            "date": "2028-10-31",
+            "amount": 21666.67
+          },
+          {
+            "date": "2028-11-30",
+            "amount": 21666.67
+          },
+          {
+            "date": "2028-12-31",
+            "amount": 21666.67
+          },
+          {
+            "date": "2029-01-31",
+            "amount": 21666.67
+          },
+          {
+            "date": "2029-02-28",
+            "amount": 21666.67
+          },
+          {
+            "date": "2029-03-31",
+            "amount": 21666.67
+          },
+          {
+            "date": "2029-04-30",
+            "amount": 21666.67
+          },
+          {
+            "date": "2029-05-31",
+            "amount": 21666.67
+          },
+          {
+            "date": "2029-06-30",
+            "amount": 21666.67
+          },
+          {
+            "date": "2029-07-31",
+            "amount": 3621666.63
+          }
+        ]
+      }
+    },
+    {
+      "name": "interest_monthly",
+      "rate": 0.06,
+      "timing": "UNIFORM_MONTHLY",
+      "financed": true,
+      "tenorYears": 1.0,
+      "operatingYears": 1,
+      "grace": 0,
+      "balloon": 0.0,
+      "completionDebt": 112139.04,
+      "capitalizedInterest": 12139.04,
+      "remainingDebt": 0.0,
+      "construction": [
+        {
+          "drawDate": "2026-01-31",
+          "capitalizationDate": "2026-02-28",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 258.33,
+          "balance": 51925.0
+        },
+        {
+          "drawDate": "2026-02-28",
+          "capitalizationDate": "2026-03-31",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 267.96,
+          "balance": 53859.63
+        },
+        {
+          "drawDate": "2026-03-31",
+          "capitalizationDate": "2026-04-30",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 277.63,
+          "balance": 55803.93
+        },
+        {
+          "drawDate": "2026-04-30",
+          "capitalizationDate": "2026-05-31",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 287.35,
+          "balance": 57757.95
+        },
+        {
+          "drawDate": "2026-05-31",
+          "capitalizationDate": "2026-06-30",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 297.12,
+          "balance": 59721.74
+        },
+        {
+          "drawDate": "2026-06-30",
+          "capitalizationDate": "2026-07-31",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 306.94,
+          "balance": 61695.35
+        },
+        {
+          "drawDate": "2026-07-31",
+          "capitalizationDate": "2026-08-31",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 316.81,
+          "balance": 63678.83
+        },
+        {
+          "drawDate": "2026-08-31",
+          "capitalizationDate": "2026-09-30",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 326.73,
+          "balance": 65672.23
+        },
+        {
+          "drawDate": "2026-09-30",
+          "capitalizationDate": "2026-10-31",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 336.69,
+          "balance": 67675.59
+        },
+        {
+          "drawDate": "2026-10-31",
+          "capitalizationDate": "2026-11-30",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 346.71,
+          "balance": 69688.97
+        },
+        {
+          "drawDate": "2026-11-30",
+          "capitalizationDate": "2026-12-31",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 356.78,
+          "balance": 71712.42
+        },
+        {
+          "drawDate": "2026-12-31",
+          "capitalizationDate": "2027-01-31",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 366.9,
+          "balance": 73745.99
+        },
+        {
+          "drawDate": "2027-01-31",
+          "capitalizationDate": "2027-02-28",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 377.06,
+          "balance": 75789.72
+        },
+        {
+          "drawDate": "2027-02-28",
+          "capitalizationDate": "2027-03-31",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 387.28,
+          "balance": 77843.67
+        },
+        {
+          "drawDate": "2027-03-31",
+          "capitalizationDate": "2027-04-30",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 397.55,
+          "balance": 79907.89
+        },
+        {
+          "drawDate": "2027-04-30",
+          "capitalizationDate": "2027-05-31",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 407.87,
+          "balance": 81982.43
+        },
+        {
+          "drawDate": "2027-05-31",
+          "capitalizationDate": "2027-06-30",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 418.25,
+          "balance": 84067.35
+        },
+        {
+          "drawDate": "2027-06-30",
+          "capitalizationDate": "2027-07-31",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 428.67,
+          "balance": 86162.69
+        },
+        {
+          "drawDate": "2027-07-31",
+          "capitalizationDate": "2027-08-31",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 439.15,
+          "balance": 88268.51
+        },
+        {
+          "drawDate": "2027-08-31",
+          "capitalizationDate": "2027-09-30",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 449.68,
+          "balance": 90384.86
+        },
+        {
+          "drawDate": "2027-09-30",
+          "capitalizationDate": "2027-10-31",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 460.26,
+          "balance": 92511.78
+        },
+        {
+          "drawDate": "2027-10-31",
+          "capitalizationDate": "2027-11-30",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 470.89,
+          "balance": 94649.33
+        },
+        {
+          "drawDate": "2027-11-30",
+          "capitalizationDate": "2027-12-31",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 481.58,
+          "balance": 96797.57
+        },
+        {
+          "drawDate": "2027-12-31",
+          "capitalizationDate": "2028-01-31",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 492.32,
+          "balance": 98956.55
+        },
+        {
+          "drawDate": "2028-01-31",
+          "capitalizationDate": "2028-02-29",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 503.12,
+          "balance": 101126.33
+        },
+        {
+          "drawDate": "2028-02-29",
+          "capitalizationDate": "2028-03-31",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 513.96,
+          "balance": 103306.95
+        },
+        {
+          "drawDate": "2028-03-31",
+          "capitalizationDate": "2028-04-30",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 524.87,
+          "balance": 105498.48
+        },
+        {
+          "drawDate": "2028-04-30",
+          "capitalizationDate": "2028-05-31",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 535.83,
+          "balance": 107700.97
+        },
+        {
+          "drawDate": "2028-05-31",
+          "capitalizationDate": "2028-06-30",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 546.84,
+          "balance": 109914.47
+        },
+        {
+          "drawDate": "2028-06-30",
+          "capitalizationDate": "2028-07-31",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 557.91,
+          "balance": 112139.04
+        }
+      ],
+      "debt": [
+        {
+          "month": 1,
+          "payment": 9651.41,
+          "balance": 103048.33
+        },
+        {
+          "month": 2,
+          "payment": 9651.41,
+          "balance": 93912.16
+        },
+        {
+          "month": 3,
+          "payment": 9651.41,
+          "balance": 84730.31
+        },
+        {
+          "month": 4,
+          "payment": 9651.41,
+          "balance": 75502.55
+        },
+        {
+          "month": 5,
+          "payment": 9651.41,
+          "balance": 66228.65
+        },
+        {
+          "month": 6,
+          "payment": 9651.41,
+          "balance": 56908.38
+        },
+        {
+          "month": 7,
+          "payment": 9651.41,
+          "balance": 47541.51
+        },
+        {
+          "month": 8,
+          "payment": 9651.41,
+          "balance": 38127.81
+        },
+        {
+          "month": 9,
+          "payment": 9651.41,
+          "balance": 28667.04
+        },
+        {
+          "month": 10,
+          "payment": 9651.41,
+          "balance": 19158.97
+        },
+        {
+          "month": 11,
+          "payment": 9651.41,
+          "balance": 9603.35
+        },
+        {
+          "month": 12,
+          "payment": 9651.37,
+          "balance": 0.0
+        }
+      ],
+      "project": {
+        "npv": 2659980.68,
+        "irr": 1.6468427325,
+        "cashflows": [
+          {
+            "date": "2026-01-31",
+            "amount": -103333.34
+          },
+          {
+            "date": "2026-02-28",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-03-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-04-30",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-05-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-06-30",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-07-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-08-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-09-30",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-10-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-11-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2026-12-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-01-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-02-28",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-03-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-04-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-05-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-06-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-07-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-08-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-09-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-10-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-11-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-12-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-01-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-02-29",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-03-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-04-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-05-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-06-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-08-31",
+            "amount": 30000.0
+          },
+          {
+            "date": "2028-09-30",
+            "amount": 30000.0
+          },
+          {
+            "date": "2028-10-31",
+            "amount": 30000.0
+          },
+          {
+            "date": "2028-11-30",
+            "amount": 30000.0
+          },
+          {
+            "date": "2028-12-31",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-01-31",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-02-28",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-03-31",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-04-30",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-05-31",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-06-30",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-07-31",
+            "amount": 3630000.0
+          }
+        ]
+      },
+      "equity": {
+        "npv": 2667937.71,
+        "irr": 2.2298083294,
+        "cashflows": [
+          {
+            "date": "2026-01-31",
+            "amount": -51666.67
+          },
+          {
+            "date": "2026-02-28",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-03-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-04-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-05-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-06-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-07-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-08-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-09-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-10-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-11-30",
+            "amount": -1666.66
+          },
+          {
+            "date": "2026-12-31",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-01-31",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-02-28",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-03-31",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-04-30",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-05-31",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-06-30",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-07-31",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-08-31",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-09-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2027-10-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2027-11-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2027-12-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-01-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-02-29",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-03-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-04-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-05-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-06-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-08-31",
+            "amount": 20348.59
+          },
+          {
+            "date": "2028-09-30",
+            "amount": 20348.59
+          },
+          {
+            "date": "2028-10-31",
+            "amount": 20348.59
+          },
+          {
+            "date": "2028-11-30",
+            "amount": 20348.59
+          },
+          {
+            "date": "2028-12-31",
+            "amount": 20348.59
+          },
+          {
+            "date": "2029-01-31",
+            "amount": 20348.59
+          },
+          {
+            "date": "2029-02-28",
+            "amount": 20348.59
+          },
+          {
+            "date": "2029-03-31",
+            "amount": 20348.59
+          },
+          {
+            "date": "2029-04-30",
+            "amount": 20348.59
+          },
+          {
+            "date": "2029-05-31",
+            "amount": 20348.59
+          },
+          {
+            "date": "2029-06-30",
+            "amount": 20348.59
+          },
+          {
+            "date": "2029-07-31",
+            "amount": 3620348.63
+          }
+        ]
+      }
+    },
+    {
+      "name": "interest_annual",
+      "rate": 0.06,
+      "timing": "ANNUAL_END",
+      "financed": true,
+      "tenorYears": 1.0,
+      "operatingYears": 1,
+      "grace": 0,
+      "balloon": 0.0,
+      "completionDebt": 112139.04,
+      "capitalizedInterest": 12139.04,
+      "remainingDebt": 0.0,
+      "construction": [
+        {
+          "drawDate": "2026-01-31",
+          "capitalizationDate": "2026-02-28",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 258.33,
+          "balance": 51925.0
+        },
+        {
+          "drawDate": "2026-02-28",
+          "capitalizationDate": "2026-03-31",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 267.96,
+          "balance": 53859.63
+        },
+        {
+          "drawDate": "2026-03-31",
+          "capitalizationDate": "2026-04-30",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 277.63,
+          "balance": 55803.93
+        },
+        {
+          "drawDate": "2026-04-30",
+          "capitalizationDate": "2026-05-31",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 287.35,
+          "balance": 57757.95
+        },
+        {
+          "drawDate": "2026-05-31",
+          "capitalizationDate": "2026-06-30",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 297.12,
+          "balance": 59721.74
+        },
+        {
+          "drawDate": "2026-06-30",
+          "capitalizationDate": "2026-07-31",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 306.94,
+          "balance": 61695.35
+        },
+        {
+          "drawDate": "2026-07-31",
+          "capitalizationDate": "2026-08-31",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 316.81,
+          "balance": 63678.83
+        },
+        {
+          "drawDate": "2026-08-31",
+          "capitalizationDate": "2026-09-30",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 326.73,
+          "balance": 65672.23
+        },
+        {
+          "drawDate": "2026-09-30",
+          "capitalizationDate": "2026-10-31",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 336.69,
+          "balance": 67675.59
+        },
+        {
+          "drawDate": "2026-10-31",
+          "capitalizationDate": "2026-11-30",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 346.71,
+          "balance": 69688.97
+        },
+        {
+          "drawDate": "2026-11-30",
+          "capitalizationDate": "2026-12-31",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 356.78,
+          "balance": 71712.42
+        },
+        {
+          "drawDate": "2026-12-31",
+          "capitalizationDate": "2027-01-31",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 366.9,
+          "balance": 73745.99
+        },
+        {
+          "drawDate": "2027-01-31",
+          "capitalizationDate": "2027-02-28",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 377.06,
+          "balance": 75789.72
+        },
+        {
+          "drawDate": "2027-02-28",
+          "capitalizationDate": "2027-03-31",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 387.28,
+          "balance": 77843.67
+        },
+        {
+          "drawDate": "2027-03-31",
+          "capitalizationDate": "2027-04-30",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 397.55,
+          "balance": 79907.89
+        },
+        {
+          "drawDate": "2027-04-30",
+          "capitalizationDate": "2027-05-31",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 407.87,
+          "balance": 81982.43
+        },
+        {
+          "drawDate": "2027-05-31",
+          "capitalizationDate": "2027-06-30",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 418.25,
+          "balance": 84067.35
+        },
+        {
+          "drawDate": "2027-06-30",
+          "capitalizationDate": "2027-07-31",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 428.67,
+          "balance": 86162.69
+        },
+        {
+          "drawDate": "2027-07-31",
+          "capitalizationDate": "2027-08-31",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 439.15,
+          "balance": 88268.51
+        },
+        {
+          "drawDate": "2027-08-31",
+          "capitalizationDate": "2027-09-30",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 449.68,
+          "balance": 90384.86
+        },
+        {
+          "drawDate": "2027-09-30",
+          "capitalizationDate": "2027-10-31",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 460.26,
+          "balance": 92511.78
+        },
+        {
+          "drawDate": "2027-10-31",
+          "capitalizationDate": "2027-11-30",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 470.89,
+          "balance": 94649.33
+        },
+        {
+          "drawDate": "2027-11-30",
+          "capitalizationDate": "2027-12-31",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 481.58,
+          "balance": 96797.57
+        },
+        {
+          "drawDate": "2027-12-31",
+          "capitalizationDate": "2028-01-31",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 492.32,
+          "balance": 98956.55
+        },
+        {
+          "drawDate": "2028-01-31",
+          "capitalizationDate": "2028-02-29",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 503.12,
+          "balance": 101126.33
+        },
+        {
+          "drawDate": "2028-02-29",
+          "capitalizationDate": "2028-03-31",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 513.96,
+          "balance": 103306.95
+        },
+        {
+          "drawDate": "2028-03-31",
+          "capitalizationDate": "2028-04-30",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 524.87,
+          "balance": 105498.48
+        },
+        {
+          "drawDate": "2028-04-30",
+          "capitalizationDate": "2028-05-31",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 535.83,
+          "balance": 107700.97
+        },
+        {
+          "drawDate": "2028-05-31",
+          "capitalizationDate": "2028-06-30",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 546.84,
+          "balance": 109914.47
+        },
+        {
+          "drawDate": "2028-06-30",
+          "capitalizationDate": "2028-07-31",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 557.91,
+          "balance": 112139.04
+        }
+      ],
+      "debt": [
+        {
+          "month": 1,
+          "payment": 9651.41,
+          "balance": 103048.33
+        },
+        {
+          "month": 2,
+          "payment": 9651.41,
+          "balance": 93912.16
+        },
+        {
+          "month": 3,
+          "payment": 9651.41,
+          "balance": 84730.31
+        },
+        {
+          "month": 4,
+          "payment": 9651.41,
+          "balance": 75502.55
+        },
+        {
+          "month": 5,
+          "payment": 9651.41,
+          "balance": 66228.65
+        },
+        {
+          "month": 6,
+          "payment": 9651.41,
+          "balance": 56908.38
+        },
+        {
+          "month": 7,
+          "payment": 9651.41,
+          "balance": 47541.51
+        },
+        {
+          "month": 8,
+          "payment": 9651.41,
+          "balance": 38127.81
+        },
+        {
+          "month": 9,
+          "payment": 9651.41,
+          "balance": 28667.04
+        },
+        {
+          "month": 10,
+          "payment": 9651.41,
+          "balance": 19158.97
+        },
+        {
+          "month": 11,
+          "payment": 9651.41,
+          "balance": 9603.35
+        },
+        {
+          "month": 12,
+          "payment": 9651.37,
+          "balance": 0.0
+        }
+      ],
+      "project": {
+        "npv": 2648377.65,
+        "irr": 1.6028553858,
+        "cashflows": [
+          {
+            "date": "2026-01-31",
+            "amount": -103333.34
+          },
+          {
+            "date": "2026-02-28",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-03-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-04-30",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-05-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-06-30",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-07-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-08-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-09-30",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-10-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-11-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2026-12-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-01-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-02-28",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-03-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-04-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-05-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-06-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-07-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-08-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-09-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-10-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-11-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-12-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-01-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-02-29",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-03-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-04-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-05-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-06-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2029-07-31",
+            "amount": 3960000.0
+          }
+        ]
+      },
+      "equity": {
+        "npv": 2656334.68,
+        "irr": 2.1586806244,
+        "cashflows": [
+          {
+            "date": "2026-01-31",
+            "amount": -51666.67
+          },
+          {
+            "date": "2026-02-28",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-03-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-04-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-05-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-06-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-07-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-08-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-09-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-10-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-11-30",
+            "amount": -1666.66
+          },
+          {
+            "date": "2026-12-31",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-01-31",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-02-28",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-03-31",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-04-30",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-05-31",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-06-30",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-07-31",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-08-31",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-09-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2027-10-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2027-11-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2027-12-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-01-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-02-29",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-03-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-04-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-05-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-06-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-08-31",
+            "amount": -9651.41
+          },
+          {
+            "date": "2028-09-30",
+            "amount": -9651.41
+          },
+          {
+            "date": "2028-10-31",
+            "amount": -9651.41
+          },
+          {
+            "date": "2028-11-30",
+            "amount": -9651.41
+          },
+          {
+            "date": "2028-12-31",
+            "amount": -9651.41
+          },
+          {
+            "date": "2029-01-31",
+            "amount": -9651.41
+          },
+          {
+            "date": "2029-02-28",
+            "amount": -9651.41
+          },
+          {
+            "date": "2029-03-31",
+            "amount": -9651.41
+          },
+          {
+            "date": "2029-04-30",
+            "amount": -9651.41
+          },
+          {
+            "date": "2029-05-31",
+            "amount": -9651.41
+          },
+          {
+            "date": "2029-06-30",
+            "amount": -9651.41
+          },
+          {
+            "date": "2029-07-31",
+            "amount": 3950348.63
+          }
+        ]
+      }
+    },
+    {
+      "name": "unlevered_monthly",
+      "rate": 0.06,
+      "timing": "UNIFORM_MONTHLY",
+      "financed": false,
+      "tenorYears": 1.0,
+      "operatingYears": 1,
+      "grace": 0,
+      "balloon": 0.0,
+      "completionDebt": 0.0,
+      "capitalizedInterest": 0.0,
+      "remainingDebt": 0.0,
+      "construction": [
+        {
+          "drawDate": "2026-01-31",
+          "capitalizationDate": "2026-02-28",
+          "cost": 3333.34,
+          "draw": 0.0,
+          "interest": 0.0,
+          "balance": 0.0
+        },
+        {
+          "drawDate": "2026-02-28",
+          "capitalizationDate": "2026-03-31",
+          "cost": 3333.34,
+          "draw": 0.0,
+          "interest": 0.0,
+          "balance": 0.0
+        },
+        {
+          "drawDate": "2026-03-31",
+          "capitalizationDate": "2026-04-30",
+          "cost": 3333.34,
+          "draw": 0.0,
+          "interest": 0.0,
+          "balance": 0.0
+        },
+        {
+          "drawDate": "2026-04-30",
+          "capitalizationDate": "2026-05-31",
+          "cost": 3333.34,
+          "draw": 0.0,
+          "interest": 0.0,
+          "balance": 0.0
+        },
+        {
+          "drawDate": "2026-05-31",
+          "capitalizationDate": "2026-06-30",
+          "cost": 3333.34,
+          "draw": 0.0,
+          "interest": 0.0,
+          "balance": 0.0
+        },
+        {
+          "drawDate": "2026-06-30",
+          "capitalizationDate": "2026-07-31",
+          "cost": 3333.34,
+          "draw": 0.0,
+          "interest": 0.0,
+          "balance": 0.0
+        },
+        {
+          "drawDate": "2026-07-31",
+          "capitalizationDate": "2026-08-31",
+          "cost": 3333.34,
+          "draw": 0.0,
+          "interest": 0.0,
+          "balance": 0.0
+        },
+        {
+          "drawDate": "2026-08-31",
+          "capitalizationDate": "2026-09-30",
+          "cost": 3333.34,
+          "draw": 0.0,
+          "interest": 0.0,
+          "balance": 0.0
+        },
+        {
+          "drawDate": "2026-09-30",
+          "capitalizationDate": "2026-10-31",
+          "cost": 3333.34,
+          "draw": 0.0,
+          "interest": 0.0,
+          "balance": 0.0
+        },
+        {
+          "drawDate": "2026-10-31",
+          "capitalizationDate": "2026-11-30",
+          "cost": 3333.34,
+          "draw": 0.0,
+          "interest": 0.0,
+          "balance": 0.0
+        },
+        {
+          "drawDate": "2026-11-30",
+          "capitalizationDate": "2026-12-31",
+          "cost": 3333.33,
+          "draw": 0.0,
+          "interest": 0.0,
+          "balance": 0.0
+        },
+        {
+          "drawDate": "2026-12-31",
+          "capitalizationDate": "2027-01-31",
+          "cost": 3333.33,
+          "draw": 0.0,
+          "interest": 0.0,
+          "balance": 0.0
+        },
+        {
+          "drawDate": "2027-01-31",
+          "capitalizationDate": "2027-02-28",
+          "cost": 3333.33,
+          "draw": 0.0,
+          "interest": 0.0,
+          "balance": 0.0
+        },
+        {
+          "drawDate": "2027-02-28",
+          "capitalizationDate": "2027-03-31",
+          "cost": 3333.33,
+          "draw": 0.0,
+          "interest": 0.0,
+          "balance": 0.0
+        },
+        {
+          "drawDate": "2027-03-31",
+          "capitalizationDate": "2027-04-30",
+          "cost": 3333.33,
+          "draw": 0.0,
+          "interest": 0.0,
+          "balance": 0.0
+        },
+        {
+          "drawDate": "2027-04-30",
+          "capitalizationDate": "2027-05-31",
+          "cost": 3333.33,
+          "draw": 0.0,
+          "interest": 0.0,
+          "balance": 0.0
+        },
+        {
+          "drawDate": "2027-05-31",
+          "capitalizationDate": "2027-06-30",
+          "cost": 3333.33,
+          "draw": 0.0,
+          "interest": 0.0,
+          "balance": 0.0
+        },
+        {
+          "drawDate": "2027-06-30",
+          "capitalizationDate": "2027-07-31",
+          "cost": 3333.33,
+          "draw": 0.0,
+          "interest": 0.0,
+          "balance": 0.0
+        },
+        {
+          "drawDate": "2027-07-31",
+          "capitalizationDate": "2027-08-31",
+          "cost": 3333.33,
+          "draw": 0.0,
+          "interest": 0.0,
+          "balance": 0.0
+        },
+        {
+          "drawDate": "2027-08-31",
+          "capitalizationDate": "2027-09-30",
+          "cost": 3333.33,
+          "draw": 0.0,
+          "interest": 0.0,
+          "balance": 0.0
+        },
+        {
+          "drawDate": "2027-09-30",
+          "capitalizationDate": "2027-10-31",
+          "cost": 3333.33,
+          "draw": 0.0,
+          "interest": 0.0,
+          "balance": 0.0
+        },
+        {
+          "drawDate": "2027-10-31",
+          "capitalizationDate": "2027-11-30",
+          "cost": 3333.33,
+          "draw": 0.0,
+          "interest": 0.0,
+          "balance": 0.0
+        },
+        {
+          "drawDate": "2027-11-30",
+          "capitalizationDate": "2027-12-31",
+          "cost": 3333.33,
+          "draw": 0.0,
+          "interest": 0.0,
+          "balance": 0.0
+        },
+        {
+          "drawDate": "2027-12-31",
+          "capitalizationDate": "2028-01-31",
+          "cost": 3333.33,
+          "draw": 0.0,
+          "interest": 0.0,
+          "balance": 0.0
+        },
+        {
+          "drawDate": "2028-01-31",
+          "capitalizationDate": "2028-02-29",
+          "cost": 3333.33,
+          "draw": 0.0,
+          "interest": 0.0,
+          "balance": 0.0
+        },
+        {
+          "drawDate": "2028-02-29",
+          "capitalizationDate": "2028-03-31",
+          "cost": 3333.33,
+          "draw": 0.0,
+          "interest": 0.0,
+          "balance": 0.0
+        },
+        {
+          "drawDate": "2028-03-31",
+          "capitalizationDate": "2028-04-30",
+          "cost": 3333.33,
+          "draw": 0.0,
+          "interest": 0.0,
+          "balance": 0.0
+        },
+        {
+          "drawDate": "2028-04-30",
+          "capitalizationDate": "2028-05-31",
+          "cost": 3333.33,
+          "draw": 0.0,
+          "interest": 0.0,
+          "balance": 0.0
+        },
+        {
+          "drawDate": "2028-05-31",
+          "capitalizationDate": "2028-06-30",
+          "cost": 3333.33,
+          "draw": 0.0,
+          "interest": 0.0,
+          "balance": 0.0
+        },
+        {
+          "drawDate": "2028-06-30",
+          "capitalizationDate": "2028-07-31",
+          "cost": 3333.33,
+          "draw": 0.0,
+          "interest": 0.0,
+          "balance": 0.0
+        }
+      ],
+      "debt": [],
+      "project": {
+        "npv": 2659980.68,
+        "irr": 1.6468427325,
+        "cashflows": [
+          {
+            "date": "2026-01-31",
+            "amount": -103333.34
+          },
+          {
+            "date": "2026-02-28",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-03-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-04-30",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-05-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-06-30",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-07-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-08-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-09-30",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-10-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-11-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2026-12-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-01-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-02-28",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-03-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-04-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-05-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-06-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-07-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-08-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-09-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-10-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-11-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-12-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-01-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-02-29",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-03-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-04-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-05-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-06-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-08-31",
+            "amount": 30000.0
+          },
+          {
+            "date": "2028-09-30",
+            "amount": 30000.0
+          },
+          {
+            "date": "2028-10-31",
+            "amount": 30000.0
+          },
+          {
+            "date": "2028-11-30",
+            "amount": 30000.0
+          },
+          {
+            "date": "2028-12-31",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-01-31",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-02-28",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-03-31",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-04-30",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-05-31",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-06-30",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-07-31",
+            "amount": 3630000.0
+          }
+        ]
+      },
+      "equity": {
+        "npv": 2659980.68,
+        "irr": 1.6468427325,
+        "cashflows": [
+          {
+            "date": "2026-01-31",
+            "amount": -103333.34
+          },
+          {
+            "date": "2026-02-28",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-03-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-04-30",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-05-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-06-30",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-07-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-08-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-09-30",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-10-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-11-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2026-12-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-01-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-02-28",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-03-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-04-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-05-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-06-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-07-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-08-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-09-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-10-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-11-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-12-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-01-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-02-29",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-03-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-04-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-05-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-06-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-08-31",
+            "amount": 30000.0
+          },
+          {
+            "date": "2028-09-30",
+            "amount": 30000.0
+          },
+          {
+            "date": "2028-10-31",
+            "amount": 30000.0
+          },
+          {
+            "date": "2028-11-30",
+            "amount": 30000.0
+          },
+          {
+            "date": "2028-12-31",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-01-31",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-02-28",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-03-31",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-04-30",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-05-31",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-06-30",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-07-31",
+            "amount": 3630000.0
+          }
+        ]
+      }
+    },
+    {
+      "name": "debt_remaining_at_exit",
+      "rate": 0.06,
+      "timing": "UNIFORM_MONTHLY",
+      "financed": true,
+      "tenorYears": 3.0,
+      "operatingYears": 1,
+      "grace": 0,
+      "balloon": 0.0,
+      "completionDebt": 112139.04,
+      "capitalizedInterest": 12139.04,
+      "remainingDebt": 76972.9,
+      "construction": [
+        {
+          "drawDate": "2026-01-31",
+          "capitalizationDate": "2026-02-28",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 258.33,
+          "balance": 51925.0
+        },
+        {
+          "drawDate": "2026-02-28",
+          "capitalizationDate": "2026-03-31",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 267.96,
+          "balance": 53859.63
+        },
+        {
+          "drawDate": "2026-03-31",
+          "capitalizationDate": "2026-04-30",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 277.63,
+          "balance": 55803.93
+        },
+        {
+          "drawDate": "2026-04-30",
+          "capitalizationDate": "2026-05-31",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 287.35,
+          "balance": 57757.95
+        },
+        {
+          "drawDate": "2026-05-31",
+          "capitalizationDate": "2026-06-30",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 297.12,
+          "balance": 59721.74
+        },
+        {
+          "drawDate": "2026-06-30",
+          "capitalizationDate": "2026-07-31",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 306.94,
+          "balance": 61695.35
+        },
+        {
+          "drawDate": "2026-07-31",
+          "capitalizationDate": "2026-08-31",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 316.81,
+          "balance": 63678.83
+        },
+        {
+          "drawDate": "2026-08-31",
+          "capitalizationDate": "2026-09-30",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 326.73,
+          "balance": 65672.23
+        },
+        {
+          "drawDate": "2026-09-30",
+          "capitalizationDate": "2026-10-31",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 336.69,
+          "balance": 67675.59
+        },
+        {
+          "drawDate": "2026-10-31",
+          "capitalizationDate": "2026-11-30",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 346.71,
+          "balance": 69688.97
+        },
+        {
+          "drawDate": "2026-11-30",
+          "capitalizationDate": "2026-12-31",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 356.78,
+          "balance": 71712.42
+        },
+        {
+          "drawDate": "2026-12-31",
+          "capitalizationDate": "2027-01-31",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 366.9,
+          "balance": 73745.99
+        },
+        {
+          "drawDate": "2027-01-31",
+          "capitalizationDate": "2027-02-28",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 377.06,
+          "balance": 75789.72
+        },
+        {
+          "drawDate": "2027-02-28",
+          "capitalizationDate": "2027-03-31",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 387.28,
+          "balance": 77843.67
+        },
+        {
+          "drawDate": "2027-03-31",
+          "capitalizationDate": "2027-04-30",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 397.55,
+          "balance": 79907.89
+        },
+        {
+          "drawDate": "2027-04-30",
+          "capitalizationDate": "2027-05-31",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 407.87,
+          "balance": 81982.43
+        },
+        {
+          "drawDate": "2027-05-31",
+          "capitalizationDate": "2027-06-30",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 418.25,
+          "balance": 84067.35
+        },
+        {
+          "drawDate": "2027-06-30",
+          "capitalizationDate": "2027-07-31",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 428.67,
+          "balance": 86162.69
+        },
+        {
+          "drawDate": "2027-07-31",
+          "capitalizationDate": "2027-08-31",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 439.15,
+          "balance": 88268.51
+        },
+        {
+          "drawDate": "2027-08-31",
+          "capitalizationDate": "2027-09-30",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 449.68,
+          "balance": 90384.86
+        },
+        {
+          "drawDate": "2027-09-30",
+          "capitalizationDate": "2027-10-31",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 460.26,
+          "balance": 92511.78
+        },
+        {
+          "drawDate": "2027-10-31",
+          "capitalizationDate": "2027-11-30",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 470.89,
+          "balance": 94649.33
+        },
+        {
+          "drawDate": "2027-11-30",
+          "capitalizationDate": "2027-12-31",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 481.58,
+          "balance": 96797.57
+        },
+        {
+          "drawDate": "2027-12-31",
+          "capitalizationDate": "2028-01-31",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 492.32,
+          "balance": 98956.55
+        },
+        {
+          "drawDate": "2028-01-31",
+          "capitalizationDate": "2028-02-29",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 503.12,
+          "balance": 101126.33
+        },
+        {
+          "drawDate": "2028-02-29",
+          "capitalizationDate": "2028-03-31",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 513.96,
+          "balance": 103306.95
+        },
+        {
+          "drawDate": "2028-03-31",
+          "capitalizationDate": "2028-04-30",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 524.87,
+          "balance": 105498.48
+        },
+        {
+          "drawDate": "2028-04-30",
+          "capitalizationDate": "2028-05-31",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 535.83,
+          "balance": 107700.97
+        },
+        {
+          "drawDate": "2028-05-31",
+          "capitalizationDate": "2028-06-30",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 546.84,
+          "balance": 109914.47
+        },
+        {
+          "drawDate": "2028-06-30",
+          "capitalizationDate": "2028-07-31",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 557.91,
+          "balance": 112139.04
+        }
+      ],
+      "debt": [
+        {
+          "month": 1,
+          "payment": 3411.49,
+          "balance": 109288.25
+        },
+        {
+          "month": 2,
+          "payment": 3411.49,
+          "balance": 106423.2
+        },
+        {
+          "month": 3,
+          "payment": 3411.49,
+          "balance": 103543.83
+        },
+        {
+          "month": 4,
+          "payment": 3411.49,
+          "balance": 100650.06
+        },
+        {
+          "month": 5,
+          "payment": 3411.49,
+          "balance": 97741.82
+        },
+        {
+          "month": 6,
+          "payment": 3411.49,
+          "balance": 94819.04
+        },
+        {
+          "month": 7,
+          "payment": 3411.49,
+          "balance": 91881.65
+        },
+        {
+          "month": 8,
+          "payment": 3411.49,
+          "balance": 88929.57
+        },
+        {
+          "month": 9,
+          "payment": 3411.49,
+          "balance": 85962.73
+        },
+        {
+          "month": 10,
+          "payment": 3411.49,
+          "balance": 82981.05
+        },
+        {
+          "month": 11,
+          "payment": 3411.49,
+          "balance": 79984.47
+        },
+        {
+          "month": 12,
+          "payment": 3411.49,
+          "balance": 76972.9
+        }
+      ],
+      "project": {
+        "npv": 2659980.68,
+        "irr": 1.6468427325,
+        "cashflows": [
+          {
+            "date": "2026-01-31",
+            "amount": -103333.34
+          },
+          {
+            "date": "2026-02-28",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-03-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-04-30",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-05-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-06-30",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-07-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-08-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-09-30",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-10-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-11-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2026-12-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-01-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-02-28",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-03-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-04-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-05-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-06-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-07-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-08-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-09-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-10-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-11-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-12-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-01-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-02-29",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-03-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-04-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-05-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-06-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-08-31",
+            "amount": 30000.0
+          },
+          {
+            "date": "2028-09-30",
+            "amount": 30000.0
+          },
+          {
+            "date": "2028-10-31",
+            "amount": 30000.0
+          },
+          {
+            "date": "2028-11-30",
+            "amount": 30000.0
+          },
+          {
+            "date": "2028-12-31",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-01-31",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-02-28",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-03-31",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-04-30",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-05-31",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-06-30",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-07-31",
+            "amount": 3630000.0
+          }
+        ]
+      },
+      "equity": {
+        "npv": 2668850.61,
+        "irr": 2.2441066097,
+        "cashflows": [
+          {
+            "date": "2026-01-31",
+            "amount": -51666.67
+          },
+          {
+            "date": "2026-02-28",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-03-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-04-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-05-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-06-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-07-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-08-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-09-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-10-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-11-30",
+            "amount": -1666.66
+          },
+          {
+            "date": "2026-12-31",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-01-31",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-02-28",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-03-31",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-04-30",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-05-31",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-06-30",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-07-31",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-08-31",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-09-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2027-10-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2027-11-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2027-12-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-01-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-02-29",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-03-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-04-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-05-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-06-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-08-31",
+            "amount": 26588.51
+          },
+          {
+            "date": "2028-09-30",
+            "amount": 26588.51
+          },
+          {
+            "date": "2028-10-31",
+            "amount": 26588.51
+          },
+          {
+            "date": "2028-11-30",
+            "amount": 26588.51
+          },
+          {
+            "date": "2028-12-31",
+            "amount": 26588.51
+          },
+          {
+            "date": "2029-01-31",
+            "amount": 26588.51
+          },
+          {
+            "date": "2029-02-28",
+            "amount": 26588.51
+          },
+          {
+            "date": "2029-03-31",
+            "amount": 26588.51
+          },
+          {
+            "date": "2029-04-30",
+            "amount": 26588.51
+          },
+          {
+            "date": "2029-05-31",
+            "amount": 26588.51
+          },
+          {
+            "date": "2029-06-30",
+            "amount": 26588.51
+          },
+          {
+            "date": "2029-07-31",
+            "amount": 3549615.61
+          }
+        ]
+      }
+    },
+    {
+      "name": "capitalized_grace_balloon",
+      "rate": 0.06,
+      "timing": "UNIFORM_MONTHLY",
+      "financed": true,
+      "tenorYears": 1.0,
+      "operatingYears": 1,
+      "grace": 3,
+      "balloon": 0.2,
+      "completionDebt": 112139.04,
+      "capitalizedInterest": 12139.04,
+      "remainingDebt": 0.0,
+      "construction": [
+        {
+          "drawDate": "2026-01-31",
+          "capitalizationDate": "2026-02-28",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 258.33,
+          "balance": 51925.0
+        },
+        {
+          "drawDate": "2026-02-28",
+          "capitalizationDate": "2026-03-31",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 267.96,
+          "balance": 53859.63
+        },
+        {
+          "drawDate": "2026-03-31",
+          "capitalizationDate": "2026-04-30",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 277.63,
+          "balance": 55803.93
+        },
+        {
+          "drawDate": "2026-04-30",
+          "capitalizationDate": "2026-05-31",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 287.35,
+          "balance": 57757.95
+        },
+        {
+          "drawDate": "2026-05-31",
+          "capitalizationDate": "2026-06-30",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 297.12,
+          "balance": 59721.74
+        },
+        {
+          "drawDate": "2026-06-30",
+          "capitalizationDate": "2026-07-31",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 306.94,
+          "balance": 61695.35
+        },
+        {
+          "drawDate": "2026-07-31",
+          "capitalizationDate": "2026-08-31",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 316.81,
+          "balance": 63678.83
+        },
+        {
+          "drawDate": "2026-08-31",
+          "capitalizationDate": "2026-09-30",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 326.73,
+          "balance": 65672.23
+        },
+        {
+          "drawDate": "2026-09-30",
+          "capitalizationDate": "2026-10-31",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 336.69,
+          "balance": 67675.59
+        },
+        {
+          "drawDate": "2026-10-31",
+          "capitalizationDate": "2026-11-30",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 346.71,
+          "balance": 69688.97
+        },
+        {
+          "drawDate": "2026-11-30",
+          "capitalizationDate": "2026-12-31",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 356.78,
+          "balance": 71712.42
+        },
+        {
+          "drawDate": "2026-12-31",
+          "capitalizationDate": "2027-01-31",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 366.9,
+          "balance": 73745.99
+        },
+        {
+          "drawDate": "2027-01-31",
+          "capitalizationDate": "2027-02-28",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 377.06,
+          "balance": 75789.72
+        },
+        {
+          "drawDate": "2027-02-28",
+          "capitalizationDate": "2027-03-31",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 387.28,
+          "balance": 77843.67
+        },
+        {
+          "drawDate": "2027-03-31",
+          "capitalizationDate": "2027-04-30",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 397.55,
+          "balance": 79907.89
+        },
+        {
+          "drawDate": "2027-04-30",
+          "capitalizationDate": "2027-05-31",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 407.87,
+          "balance": 81982.43
+        },
+        {
+          "drawDate": "2027-05-31",
+          "capitalizationDate": "2027-06-30",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 418.25,
+          "balance": 84067.35
+        },
+        {
+          "drawDate": "2027-06-30",
+          "capitalizationDate": "2027-07-31",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 428.67,
+          "balance": 86162.69
+        },
+        {
+          "drawDate": "2027-07-31",
+          "capitalizationDate": "2027-08-31",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 439.15,
+          "balance": 88268.51
+        },
+        {
+          "drawDate": "2027-08-31",
+          "capitalizationDate": "2027-09-30",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 449.68,
+          "balance": 90384.86
+        },
+        {
+          "drawDate": "2027-09-30",
+          "capitalizationDate": "2027-10-31",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 460.26,
+          "balance": 92511.78
+        },
+        {
+          "drawDate": "2027-10-31",
+          "capitalizationDate": "2027-11-30",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 470.89,
+          "balance": 94649.33
+        },
+        {
+          "drawDate": "2027-11-30",
+          "capitalizationDate": "2027-12-31",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 481.58,
+          "balance": 96797.57
+        },
+        {
+          "drawDate": "2027-12-31",
+          "capitalizationDate": "2028-01-31",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 492.32,
+          "balance": 98956.55
+        },
+        {
+          "drawDate": "2028-01-31",
+          "capitalizationDate": "2028-02-29",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 503.12,
+          "balance": 101126.33
+        },
+        {
+          "drawDate": "2028-02-29",
+          "capitalizationDate": "2028-03-31",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 513.96,
+          "balance": 103306.95
+        },
+        {
+          "drawDate": "2028-03-31",
+          "capitalizationDate": "2028-04-30",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 524.87,
+          "balance": 105498.48
+        },
+        {
+          "drawDate": "2028-04-30",
+          "capitalizationDate": "2028-05-31",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 535.83,
+          "balance": 107700.97
+        },
+        {
+          "drawDate": "2028-05-31",
+          "capitalizationDate": "2028-06-30",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 546.84,
+          "balance": 109914.47
+        },
+        {
+          "drawDate": "2028-06-30",
+          "capitalizationDate": "2028-07-31",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 557.91,
+          "balance": 112139.04
+        }
+      ],
+      "debt": [
+        {
+          "month": 1,
+          "payment": 0.0,
+          "balance": 112699.74
+        },
+        {
+          "month": 2,
+          "payment": 0.0,
+          "balance": 113263.24
+        },
+        {
+          "month": 3,
+          "payment": 0.0,
+          "balance": 113829.56
+        },
+        {
+          "month": 4,
+          "payment": 10523.47,
+          "balance": 103875.24
+        },
+        {
+          "month": 5,
+          "payment": 10523.47,
+          "balance": 93871.15
+        },
+        {
+          "month": 6,
+          "payment": 10523.47,
+          "balance": 83817.04
+        },
+        {
+          "month": 7,
+          "payment": 10523.47,
+          "balance": 73712.66
+        },
+        {
+          "month": 8,
+          "payment": 10523.47,
+          "balance": 63557.75
+        },
+        {
+          "month": 9,
+          "payment": 10523.47,
+          "balance": 53352.07
+        },
+        {
+          "month": 10,
+          "payment": 10523.47,
+          "balance": 43095.36
+        },
+        {
+          "month": 11,
+          "payment": 10523.47,
+          "balance": 32787.37
+        },
+        {
+          "month": 12,
+          "payment": 32951.31,
+          "balance": 0.0
+        }
+      ],
+      "project": {
+        "npv": 2659980.68,
+        "irr": 1.6468427325,
+        "cashflows": [
+          {
+            "date": "2026-01-31",
+            "amount": -103333.34
+          },
+          {
+            "date": "2026-02-28",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-03-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-04-30",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-05-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-06-30",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-07-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-08-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-09-30",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-10-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-11-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2026-12-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-01-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-02-28",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-03-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-04-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-05-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-06-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-07-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-08-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-09-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-10-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-11-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-12-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-01-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-02-29",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-03-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-04-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-05-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-06-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-08-31",
+            "amount": 30000.0
+          },
+          {
+            "date": "2028-09-30",
+            "amount": 30000.0
+          },
+          {
+            "date": "2028-10-31",
+            "amount": 30000.0
+          },
+          {
+            "date": "2028-11-30",
+            "amount": 30000.0
+          },
+          {
+            "date": "2028-12-31",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-01-31",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-02-28",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-03-31",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-04-30",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-05-31",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-06-30",
+            "amount": 30000.0
+          },
+          {
+            "date": "2029-07-31",
+            "amount": 3630000.0
+          }
+        ]
+      },
+      "equity": {
+        "npv": 2668519.13,
+        "irr": 2.2402353758,
+        "cashflows": [
+          {
+            "date": "2026-01-31",
+            "amount": -51666.67
+          },
+          {
+            "date": "2026-02-28",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-03-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-04-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-05-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-06-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-07-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-08-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-09-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-10-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-11-30",
+            "amount": -1666.66
+          },
+          {
+            "date": "2026-12-31",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-01-31",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-02-28",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-03-31",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-04-30",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-05-31",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-06-30",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-07-31",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-08-31",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-09-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2027-10-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2027-11-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2027-12-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-01-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-02-29",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-03-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-04-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-05-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-06-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-08-31",
+            "amount": 30000.0
+          },
+          {
+            "date": "2028-09-30",
+            "amount": 30000.0
+          },
+          {
+            "date": "2028-10-31",
+            "amount": 30000.0
+          },
+          {
+            "date": "2028-11-30",
+            "amount": 19476.53
+          },
+          {
+            "date": "2028-12-31",
+            "amount": 19476.53
+          },
+          {
+            "date": "2029-01-31",
+            "amount": 19476.53
+          },
+          {
+            "date": "2029-02-28",
+            "amount": 19476.53
+          },
+          {
+            "date": "2029-03-31",
+            "amount": 19476.53
+          },
+          {
+            "date": "2029-04-30",
+            "amount": 19476.53
+          },
+          {
+            "date": "2029-05-31",
+            "amount": 19476.53
+          },
+          {
+            "date": "2029-06-30",
+            "amount": 19476.53
+          },
+          {
+            "date": "2029-07-31",
+            "amount": 3597048.69
+          }
+        ]
+      }
+    },
+    {
+      "name": "annual_multiple_sign_changes",
+      "rate": 0.06,
+      "timing": "ANNUAL_END",
+      "financed": true,
+      "tenorYears": 3.0,
+      "operatingYears": 2,
+      "grace": 0,
+      "balloon": 0.0,
+      "completionDebt": 112139.04,
+      "capitalizedInterest": 12139.04,
+      "remainingDebt": 39637.77,
+      "construction": [
+        {
+          "drawDate": "2026-01-31",
+          "capitalizationDate": "2026-02-28",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 258.33,
+          "balance": 51925.0
+        },
+        {
+          "drawDate": "2026-02-28",
+          "capitalizationDate": "2026-03-31",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 267.96,
+          "balance": 53859.63
+        },
+        {
+          "drawDate": "2026-03-31",
+          "capitalizationDate": "2026-04-30",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 277.63,
+          "balance": 55803.93
+        },
+        {
+          "drawDate": "2026-04-30",
+          "capitalizationDate": "2026-05-31",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 287.35,
+          "balance": 57757.95
+        },
+        {
+          "drawDate": "2026-05-31",
+          "capitalizationDate": "2026-06-30",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 297.12,
+          "balance": 59721.74
+        },
+        {
+          "drawDate": "2026-06-30",
+          "capitalizationDate": "2026-07-31",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 306.94,
+          "balance": 61695.35
+        },
+        {
+          "drawDate": "2026-07-31",
+          "capitalizationDate": "2026-08-31",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 316.81,
+          "balance": 63678.83
+        },
+        {
+          "drawDate": "2026-08-31",
+          "capitalizationDate": "2026-09-30",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 326.73,
+          "balance": 65672.23
+        },
+        {
+          "drawDate": "2026-09-30",
+          "capitalizationDate": "2026-10-31",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 336.69,
+          "balance": 67675.59
+        },
+        {
+          "drawDate": "2026-10-31",
+          "capitalizationDate": "2026-11-30",
+          "cost": 3333.34,
+          "draw": 1666.67,
+          "interest": 346.71,
+          "balance": 69688.97
+        },
+        {
+          "drawDate": "2026-11-30",
+          "capitalizationDate": "2026-12-31",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 356.78,
+          "balance": 71712.42
+        },
+        {
+          "drawDate": "2026-12-31",
+          "capitalizationDate": "2027-01-31",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 366.9,
+          "balance": 73745.99
+        },
+        {
+          "drawDate": "2027-01-31",
+          "capitalizationDate": "2027-02-28",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 377.06,
+          "balance": 75789.72
+        },
+        {
+          "drawDate": "2027-02-28",
+          "capitalizationDate": "2027-03-31",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 387.28,
+          "balance": 77843.67
+        },
+        {
+          "drawDate": "2027-03-31",
+          "capitalizationDate": "2027-04-30",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 397.55,
+          "balance": 79907.89
+        },
+        {
+          "drawDate": "2027-04-30",
+          "capitalizationDate": "2027-05-31",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 407.87,
+          "balance": 81982.43
+        },
+        {
+          "drawDate": "2027-05-31",
+          "capitalizationDate": "2027-06-30",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 418.25,
+          "balance": 84067.35
+        },
+        {
+          "drawDate": "2027-06-30",
+          "capitalizationDate": "2027-07-31",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 428.67,
+          "balance": 86162.69
+        },
+        {
+          "drawDate": "2027-07-31",
+          "capitalizationDate": "2027-08-31",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 439.15,
+          "balance": 88268.51
+        },
+        {
+          "drawDate": "2027-08-31",
+          "capitalizationDate": "2027-09-30",
+          "cost": 3333.33,
+          "draw": 1666.67,
+          "interest": 449.68,
+          "balance": 90384.86
+        },
+        {
+          "drawDate": "2027-09-30",
+          "capitalizationDate": "2027-10-31",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 460.26,
+          "balance": 92511.78
+        },
+        {
+          "drawDate": "2027-10-31",
+          "capitalizationDate": "2027-11-30",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 470.89,
+          "balance": 94649.33
+        },
+        {
+          "drawDate": "2027-11-30",
+          "capitalizationDate": "2027-12-31",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 481.58,
+          "balance": 96797.57
+        },
+        {
+          "drawDate": "2027-12-31",
+          "capitalizationDate": "2028-01-31",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 492.32,
+          "balance": 98956.55
+        },
+        {
+          "drawDate": "2028-01-31",
+          "capitalizationDate": "2028-02-29",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 503.12,
+          "balance": 101126.33
+        },
+        {
+          "drawDate": "2028-02-29",
+          "capitalizationDate": "2028-03-31",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 513.96,
+          "balance": 103306.95
+        },
+        {
+          "drawDate": "2028-03-31",
+          "capitalizationDate": "2028-04-30",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 524.87,
+          "balance": 105498.48
+        },
+        {
+          "drawDate": "2028-04-30",
+          "capitalizationDate": "2028-05-31",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 535.83,
+          "balance": 107700.97
+        },
+        {
+          "drawDate": "2028-05-31",
+          "capitalizationDate": "2028-06-30",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 546.84,
+          "balance": 109914.47
+        },
+        {
+          "drawDate": "2028-06-30",
+          "capitalizationDate": "2028-07-31",
+          "cost": 3333.33,
+          "draw": 1666.66,
+          "interest": 557.91,
+          "balance": 112139.04
+        }
+      ],
+      "debt": [
+        {
+          "month": 1,
+          "payment": 3411.49,
+          "balance": 109288.25
+        },
+        {
+          "month": 2,
+          "payment": 3411.49,
+          "balance": 106423.2
+        },
+        {
+          "month": 3,
+          "payment": 3411.49,
+          "balance": 103543.83
+        },
+        {
+          "month": 4,
+          "payment": 3411.49,
+          "balance": 100650.06
+        },
+        {
+          "month": 5,
+          "payment": 3411.49,
+          "balance": 97741.82
+        },
+        {
+          "month": 6,
+          "payment": 3411.49,
+          "balance": 94819.04
+        },
+        {
+          "month": 7,
+          "payment": 3411.49,
+          "balance": 91881.65
+        },
+        {
+          "month": 8,
+          "payment": 3411.49,
+          "balance": 88929.57
+        },
+        {
+          "month": 9,
+          "payment": 3411.49,
+          "balance": 85962.73
+        },
+        {
+          "month": 10,
+          "payment": 3411.49,
+          "balance": 82981.05
+        },
+        {
+          "month": 11,
+          "payment": 3411.49,
+          "balance": 79984.47
+        },
+        {
+          "month": 12,
+          "payment": 3411.49,
+          "balance": 76972.9
+        },
+        {
+          "month": 13,
+          "payment": 3411.49,
+          "balance": 73946.27
+        },
+        {
+          "month": 14,
+          "payment": 3411.49,
+          "balance": 70904.51
+        },
+        {
+          "month": 15,
+          "payment": 3411.49,
+          "balance": 67847.54
+        },
+        {
+          "month": 16,
+          "payment": 3411.49,
+          "balance": 64775.29
+        },
+        {
+          "month": 17,
+          "payment": 3411.49,
+          "balance": 61687.68
+        },
+        {
+          "month": 18,
+          "payment": 3411.49,
+          "balance": 58584.63
+        },
+        {
+          "month": 19,
+          "payment": 3411.49,
+          "balance": 55466.06
+        },
+        {
+          "month": 20,
+          "payment": 3411.49,
+          "balance": 52331.9
+        },
+        {
+          "month": 21,
+          "payment": 3411.49,
+          "balance": 49182.07
+        },
+        {
+          "month": 22,
+          "payment": 3411.49,
+          "balance": 46016.49
+        },
+        {
+          "month": 23,
+          "payment": 3411.49,
+          "balance": 42835.08
+        },
+        {
+          "month": 24,
+          "payment": 3411.49,
+          "balance": 39637.77
+        }
+      ],
+      "project": {
+        "npv": 2648540.9,
+        "irr": 1.1694398524,
+        "cashflows": [
+          {
+            "date": "2026-01-31",
+            "amount": -103333.34
+          },
+          {
+            "date": "2026-02-28",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-03-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-04-30",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-05-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-06-30",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-07-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-08-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-09-30",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-10-31",
+            "amount": -3333.34
+          },
+          {
+            "date": "2026-11-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2026-12-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-01-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-02-28",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-03-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-04-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-05-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-06-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-07-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-08-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-09-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-10-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-11-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2027-12-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-01-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-02-29",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-03-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-04-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-05-31",
+            "amount": -3333.33
+          },
+          {
+            "date": "2028-06-30",
+            "amount": -3333.33
+          },
+          {
+            "date": "2029-07-31",
+            "amount": 360000.0
+          },
+          {
+            "date": "2030-07-31",
+            "amount": 3960000.0
+          }
+        ]
+      },
+      "equity": {
+        "npv": 2658875.35,
+        "irr": null,
+        "cashflows": [
+          {
+            "date": "2026-01-31",
+            "amount": -51666.67
+          },
+          {
+            "date": "2026-02-28",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-03-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-04-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-05-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-06-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-07-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-08-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-09-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-10-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2026-11-30",
+            "amount": -1666.66
+          },
+          {
+            "date": "2026-12-31",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-01-31",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-02-28",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-03-31",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-04-30",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-05-31",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-06-30",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-07-31",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-08-31",
+            "amount": -1666.66
+          },
+          {
+            "date": "2027-09-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2027-10-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2027-11-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2027-12-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-01-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-02-29",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-03-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-04-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-05-31",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-06-30",
+            "amount": -1666.67
+          },
+          {
+            "date": "2028-08-31",
+            "amount": -3411.49
+          },
+          {
+            "date": "2028-09-30",
+            "amount": -3411.49
+          },
+          {
+            "date": "2028-10-31",
+            "amount": -3411.49
+          },
+          {
+            "date": "2028-11-30",
+            "amount": -3411.49
+          },
+          {
+            "date": "2028-12-31",
+            "amount": -3411.49
+          },
+          {
+            "date": "2029-01-31",
+            "amount": -3411.49
+          },
+          {
+            "date": "2029-02-28",
+            "amount": -3411.49
+          },
+          {
+            "date": "2029-03-31",
+            "amount": -3411.49
+          },
+          {
+            "date": "2029-04-30",
+            "amount": -3411.49
+          },
+          {
+            "date": "2029-05-31",
+            "amount": -3411.49
+          },
+          {
+            "date": "2029-06-30",
+            "amount": -3411.49
+          },
+          {
+            "date": "2029-07-31",
+            "amount": 356588.51
+          },
+          {
+            "date": "2029-08-31",
+            "amount": -3411.49
+          },
+          {
+            "date": "2029-09-30",
+            "amount": -3411.49
+          },
+          {
+            "date": "2029-10-31",
+            "amount": -3411.49
+          },
+          {
+            "date": "2029-11-30",
+            "amount": -3411.49
+          },
+          {
+            "date": "2029-12-31",
+            "amount": -3411.49
+          },
+          {
+            "date": "2030-01-31",
+            "amount": -3411.49
+          },
+          {
+            "date": "2030-02-28",
+            "amount": -3411.49
+          },
+          {
+            "date": "2030-03-31",
+            "amount": -3411.49
+          },
+          {
+            "date": "2030-04-30",
+            "amount": -3411.49
+          },
+          {
+            "date": "2030-05-31",
+            "amount": -3411.49
+          },
+          {
+            "date": "2030-06-30",
+            "amount": -3411.49
+          },
+          {
+            "date": "2030-07-31",
+            "amount": 3916950.74
+          }
+        ]
+      }
+    }
+  ]
+}

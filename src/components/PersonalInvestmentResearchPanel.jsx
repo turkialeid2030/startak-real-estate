@@ -3,6 +3,8 @@ import {useAppraisalReviewSession} from './AppraisalReviewSessionContext.jsx';
 const {evaluatePersonalReportExport,assertPersonalReportExportAllowed}=require('../market/appraisal-report-export-gate');
 import DiagnosticText from './DiagnosticText.jsx';
 import OperatingFinancialComparison from './OperatingFinancialComparison';
+const {researchActionText}=require('../i18n/research-action-presentation');
+const {financialAndValuationLabels}=require('../app/personal-study-status-clarity');
 const {
   buildPersonalResearchReport,
   htmlReport,
@@ -55,6 +57,7 @@ export default function PersonalInvestmentResearchPanel({
     catch{return null;}
   },[valuationCase,runtime,financialContext]);
   if(!draft)return null;
+  const statusClarity=financialAndValuationLabels(draft,locale);
   const save=(format)=>{
     setMessage('');
     try{
@@ -70,9 +73,9 @@ export default function PersonalInvestmentResearchPanel({
         'text/html;charset=utf-8',prefix+'.html');
       else locallyDownload(JSON.stringify(current,null,2),'application/json;charset=utf-8',
         prefix+'.json');
-      setMessage(ar?'تم تجهيز نسخة محلية من الدراسة الشخصية.':'Personal study saved locally.');
+      setMessage({kind:'PERSONAL_EXPORT_REQUESTED'});
     }catch(error){
-      setMessage((ar?'تعذر تصدير المسودة: ':'Draft export failed: ')+(error.code||'INVALID_REPORT'));
+      setMessage({kind:'PERSONAL_EXPORT_FAILED',params:{code:error.code||'INVALID_REPORT'}});
     }
   };
   const indicatorAvailable=!reportExportGate.blocked&&draft.preliminaryValue!==null;
@@ -97,11 +100,15 @@ export default function PersonalInvestmentResearchPanel({
         {draft.financial?.status === 'COMPUTATION_FAILED' && <p className="mt-2 text-xs text-amber-200">
           <DiagnosticText code={draft.financial.error?.code} locale={locale} />
         </p>}
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <div className="mt-4 grid gap-3 md:grid-cols-4">
+          <div data-testid="c75-financial-status" className="rounded-xl border border-slate-700 p-3">
+            <div className="text-[11px] text-slate-400">{ar?'حالة الحساب المالي الحالي':'Current financial calculation status'}</div>
+            <div className="mt-1 text-sm text-slate-100">{statusClarity.financialLabel}</div>
+          </div>
           <div className="rounded-xl border border-slate-700 p-3">
-            <div className="text-[11px] text-slate-400">{ar?'حالة المسودة':'Draft status'}</div>
+            <div className="text-[11px] text-slate-400">{ar?'حالة التقييم الإضافي (مستقلة عن الحساب المالي)':'Additional valuation status (separate from financial calculation)'}</div>
             <div data-testid="c75-personal-status" className="mt-1 text-sm text-slate-100">
-              {reportExportGate.blocked?'HOLD — APPRAISAL_REVIEW':humanStatus(draft.reportStatus,locale)}
+              {reportExportGate.blocked?'HOLD — APPRAISAL_REVIEW':statusClarity.additionalValuationLabel}
             </div>
           </div>
           <div className="rounded-xl border border-slate-700 p-3">
@@ -157,7 +164,7 @@ export default function PersonalInvestmentResearchPanel({
             onClick={()=>save('html')}
             disabled={reportExportGate.blocked}
             className="rounded-lg border border-slate-500 px-4 py-2 text-xs font-semibold text-slate-100">
-            {ar?'تصدير دراسة شخصية بالعربية / HTML':'Export personal study / HTML'}
+            {ar?'تصدير دراسة شخصية / HTML':'Export personal study / HTML'}
           </button>
           <button type="button" data-testid="c75-export-personal-json"
             onClick={()=>save('json')}
@@ -170,7 +177,7 @@ export default function PersonalInvestmentResearchPanel({
           {ar?'الملف يُنشأ على جهازك مباشرة. المخرج دراسة شخصية أولية، وليس تقرير تقييم عقاري مهنيًا معتمدًا.':
             'File is generated on your device. This is an initial personal study, not a certified professional appraisal.'}
         </div>
-        {message&&<div role="status" className="mt-2 text-xs text-slate-200">{message}</div>}
+        {message&&<div data-testid="personal-study-action-notice" data-diagnostic-content translate="no" role="status" className="mt-2 text-xs text-slate-200">{researchActionText(message,locale)}</div>}
       </div>
     </section>
   );
