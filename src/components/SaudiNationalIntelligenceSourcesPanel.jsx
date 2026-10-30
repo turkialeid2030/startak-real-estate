@@ -41,19 +41,18 @@ export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange}
   [records,sourceId,city,evidenceClass]);
  async function importFile(file){
   if(!file)return;
-  if(file.size>MAX_CSV_BYTES){setNotice(tr('حجم الملف أكبر من الحد المسموح','CSV file exceeds allowed size'));return;}
+  if(file.size>MAX_CSV_BYTES){setNotice({ar:'حجم الملف أكبر من الحد المسموح',en:'CSV file exceeds allowed size'});return;}
   try{
    const fresh=importNationalSourcesCsv(await file.text(),{observedOn});
    const merged=mergeNationalResearch(records,fresh.records);
    setRecords(merged.records);onResearchChange?.(merged.records);setSourceId('');setCity('');setEvidenceClass('');
-   setNotice(en
-     ?'Imported '+merged.added+'; duplicates '+merged.duplicates+
+   setNotice({en:'Imported '+merged.added+'; duplicates '+merged.duplicates+
       '; conflicts '+merged.conflicts.length+'; excluded '+fresh.rejected.length+
-      '. No independently verified executed sales or certified valuations.'
-     :'أضيف '+merged.added+'؛ مكرر '+merged.duplicates+
+      '. No independently verified executed sales or certified valuations.',
+     ar:'أضيف '+merged.added+'؛ مكرر '+merged.duplicates+
       '؛ متعارض '+merged.conflicts.length+'؛ مستبعد '+fresh.rejected.length+
-      '. لا توجد صفقات منفذة مؤكدة أو تقييمات معتمدة.');
-  }catch(e){setNotice(tr('خطأ بالاستيراد: ','CSV import error: ')+String(e.message||'UNKNOWN'));}
+      '. لا توجد صفقات منفذة مؤكدة أو تقييمات معتمدة.'});
+  }catch(e){setNotice({ar:'خطأ بالاستيراد: '+String(e.message||'UNKNOWN'),en:'CSV import error: '+String(e.message||'UNKNOWN')});}
  }
  return <section dir={en?'ltr':'rtl'} data-testid="national-intelligence-sources"
    className="mt-5 w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-sky-800 bg-slate-950 p-4 text-slate-100">
@@ -101,14 +100,14 @@ export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange}
     <select data-testid="national-city-filter" value={city} onChange={e=>setCity(e.target.value)}
      className="mt-1 block rounded border border-slate-600 bg-slate-900 p-2">
      <option value="">{tr('كل المدن','All cities')}</option>
-     {summary.cities.map(x=><option key={x} value={x}>{x}</option>)}
+     {summary.cities.map(x=><option data-user-content translate="no" key={x} value={x}>{x}</option>)}
     </select>
    </label>
    <label className="text-xs">{tr('المصدر','Source')}
     <select data-testid="national-source-filter" value={sourceId} onChange={e=>setSourceId(e.target.value)}
      className="mt-1 block max-w-[220px] rounded border border-slate-600 bg-slate-900 p-2">
      <option value="">{tr('جميع المصادر','All sources')}</option>
-     {SOURCES.map(x=><option key={x.id} value={x.id}>{x.label}</option>)}
+     {SOURCES.map(x=><option data-user-content translate="no" key={x.id} value={x.id}>{x.label}</option>)}
     </select>
    </label>
    <label className="text-xs">{tr('نوع الدليل','Evidence class')}
@@ -133,8 +132,8 @@ export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange}
     </tr></thead>
     <tbody>{filtered.slice(0,50).map((r,i)=><tr key={r.sourceId+'|'+r.observedOn+'|'+r.recordId+'|'+i}
      className="border-b border-slate-800">
-      <td className="p-2">{SOURCES.find(x=>x.id===r.sourceId)?.label}</td>
-      <td className="p-2">{r.city}</td><td className="p-2">{r.district}</td>
+      <td data-user-content translate="no" className="p-2">{SOURCES.find(x=>x.id===r.sourceId)?.label}</td>
+      <td data-user-content translate="no" className="p-2">{r.city}</td><td data-user-content translate="no" className="p-2">{r.district}</td>
       <td className="p-2">{evidenceClassLabels[r.evidenceClass]}</td><td className="p-2">{metrics[r.metricName]||r.metricName||'—'}</td>
       <td className="p-2">{r.metricValue===null?'—':fmt(r.metricValue)+' '+r.metricUnit}</td>
       <td className="p-2">{r.providerRangeLowSar===null?'—':
@@ -157,6 +156,6 @@ export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange}
     translation does not validate any source or authorize market use.
   </p>}
   {notice&&<p role="status" data-testid="national-import-status"
-   className="mt-2 text-xs text-sky-200">{notice}</p>}
+   data-diagnostic-content translate="no" className="mt-2 text-xs text-sky-200">{en?notice.en:notice.ar}</p>}
  </section>;
 }
