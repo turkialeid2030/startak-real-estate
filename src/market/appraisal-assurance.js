@@ -19,11 +19,70 @@ const id = x => clean(x).replace(/[\s\-]/g, '').replace(/[٠-٩]/g, c => String(
 const comparable = (a, b, toleranceSar = 1000, tolerancePct = 0.25) =>
   Math.abs(a - b) <= Math.max(toleranceSar, Math.abs(b) * tolerancePct / 100);
 function issue(code, severity, detail, pages = []) { return {code, severity, detail, pages: [...new Set(pages.filter(p => Number.isInteger(p) && p > 0))]}; }
+const BUILT_TYPES = new Set(['RESIDENTIAL_COMPOUND','RESIDENTIAL_BUILDING','RESIDENTIAL_VILLA',
+  'COMMERCIAL_COMPLEX','COMMERCIAL_MALL','OFFICE_TOWER','WAREHOUSE','LOGISTICS_PARK',
+  'MIXED_USE','HOTEL','FUEL_STATION','HEALTHCARE_PROPERTY','INDUSTRIAL_PROPERTY']);
+const RIGHTS = ['FREEHOLD','LEASED_FEE','LEASEHOLD','USUFRUCT'];
+const IMPROVEMENT_OWNERS = ['PROPERTY_OWNER','TENANT','MIXED'];
+// Completeness is separate from arithmetic. A manually reviewed document is not
+// independent verification; an assumption remains usable for exploration only.
+function reviewAppraisalInputs(report = {}) {
+  const p = report.property || {}, income = report.income || {}, cost = report.cost || {};
+  const evidence = report.inputEvidence || {}, rows = [];
+  const built = BUILT_TYPES.has(p.assetType);
+  const incomeUsed = ['annualNoiSar','capitalizationRatePct','indicatedValueSar']
+    .some(k => income[k] !== undefined && income[k] !== null && income[k] !== '');
+  const costUsed = Object.values(cost).some(v => v !== undefined && v !== null && v !== '');
+  const add = (field, value, valid) => {
+    const descriptor = evidence[field] || {};
+    const present = value !== undefined && value !== null && value !== '';
+    const status = descriptor.status === 'CONFLICT' ? 'CONFLICT' :
+      !present ? 'MISSING_VALUE' : !valid ? 'INVALID_VALUE' :
+      descriptor.status === 'ASSUMED' ? 'ASSUMED' :
+      descriptor.status === 'OBSERVED' && clean(descriptor.sourceRef) ? 'DOCUMENT_REVIEWED_NOT_VERIFIED' :
+      'SOURCE_REVIEW_REQUIRED';
+    rows.push({field,status,sourceRef:clean(descriptor.sourceRef),independentlyVerified:false});
+  };
+  const positive = value => { const n = number(value); return n !== null && n > 0; };
+  add('landArea',p.areaSqm,positive(p.areaSqm));
+  add('rights',p.rightType,RIGHTS.includes(p.rightType));
+  if (built) {
+    add('builtArea',p.builtAreaSqm,positive(p.builtAreaSqm));
+    if (incomeUsed) add('netLeasableArea',p.netLeasableAreaSqm,positive(p.netLeasableAreaSqm));
+    add('improvementOwnership',p.improvementOwner,IMPROVEMENT_OWNERS.includes(p.improvementOwner));
+  }
+  if (['LEASED_FEE','LEASEHOLD','USUFRUCT'].includes(p.rightType))
+    add('lease',income.leaseTermYearsRemaining,positive(income.leaseTermYearsRemaining));
+  const nonnegative = value => {const n = number(value);return n !== null && n >= 0;};
+  if (incomeUsed) {
+    add('income',income.annualNoiSar,nonnegative(income.annualNoiSar));
+    add('expenses',income.operatingExpensesSar,nonnegative(income.operatingExpensesSar));
+    add('capRate',income.capitalizationRatePct,
+      positive(income.capitalizationRatePct) && number(income.capitalizationRatePct) < 100);
+  }
+  if (costUsed) {
+    add('costLand',cost.landValueSar,nonnegative(cost.landValueSar));
+    add('cost',cost.depreciatedImprovementValueSar,nonnegative(cost.depreciatedImprovementValueSar));
+    add('costTotal',cost.indicatedTotalSar,nonnegative(cost.indicatedTotalSar));
+  }
+  return {status:rows.some(x=>x.status!=='DOCUMENT_REVIEWED_NOT_VERIFIED')?'INCOMPLETE_INPUTS':'REVIEW_REQUIRED',
+    rows,unresolvedFields:rows.filter(x=>x.status!=='DOCUMENT_REVIEWED_NOT_VERIFIED').map(x=>x.field),
+    professionalValuationAuthorized:false,independentlyVerified:false};
+}
 function auditAppraisal(report = {}) {
   const issues = [], metrics = {};
   const reported = report.reported || {}, income = report.income || {}, rent = report.marketRent || {};
   const provenance = report.provenance || {}, citations = report.pages || {};
   const capital = number(reported.capitalValueSar), marketRent = number(reported.marketRentSar);
+  const inputReview = reviewAppraisalInputs(report);
+  metrics.inputReview = inputReview;
+  if (inputReview.status === 'INCOMPLETE_INPUTS')
+    issues.push(issue('APPRAISAL_INPUTS_INCOMPLETE','REVIEW','Required values or their reviewed sources remain missing, assumed or unverified'));
+  if (inputReview.rows.some(x=>['CONFLICT','INVALID_VALUE'].includes(x.status)))
+    issues.push(issue('APPRAISAL_INPUT_CONFLICT','BLOCK','Structured property facts conflict or contain invalid values'));
+  const builtArea = number(report.property?.builtAreaSqm), netArea = number(report.property?.netLeasableAreaSqm);
+  if (builtArea !== null && builtArea > 0 && netArea !== null && netArea > builtArea)
+    issues.push(issue('INDOOR_LEASABLE_AREA_EXCEEDS_BUILT_AREA','BLOCK','Indoor net leasable area exceeds gross built area; check definitions and exclude leased external yards'));
   const numeric = (v, label, allowZero = false) => {
     if (v === undefined || v === null || v === '') return null;
     const n = number(v);
@@ -32,6 +91,17 @@ function auditAppraisal(report = {}) {
   };
   numeric(reported.capitalValueSar, 'reported.capitalValueSar');
   numeric(reported.marketRentSar, 'reported.marketRentSar');
+  const cost = report.cost || {};
+  const landCost = numeric(cost.landValueSar,'cost.landValueSar',true);
+  const improvements = numeric(cost.depreciatedImprovementValueSar,'cost.depreciatedImprovementValueSar',true);
+  const totalCost = numeric(cost.indicatedTotalSar,'cost.indicatedTotalSar',true);
+  if (landCost !== null && improvements !== null) {
+    metrics.recalculatedCostValueSar = cents(landCost + improvements);
+    if (totalCost !== null && !comparable(totalCost,landCost + improvements,1,0.000001))
+      issues.push(issue('COST_TOTAL_MISMATCH','BLOCK','Cost indication must reconcile to land plus depreciated improvements'));
+  }
+  if (improvements !== null && improvements > 0 && report.property?.improvementOwner !== 'PROPERTY_OWNER')
+    issues.push(issue('IMPROVEMENT_RIGHTS_UNRESOLVED','BLOCK','Positive improvement cost cannot be included in the owner interest without resolving ownership; tenant or mixed rights need a rights-specific valuation'));
   const noi = numeric(income.annualNoiSar, 'income.annualNoiSar', true);
   const cap = numeric(income.capitalizationRatePct, 'income.capitalizationRatePct');
   const indicated = numeric(income.indicatedValueSar, 'income.indicatedValueSar');
@@ -91,6 +161,10 @@ function auditAppraisal(report = {}) {
   return {status: blocked ? 'HOLD' : 'REVIEW_REQUIRED', certification:'NOT_AUTHORIZED', approvedForPublication:false, metrics, issues};
 }
 const PATHS = ['valuationDate', 'property.owner', 'property.deedNumber', 'property.rightType', 'property.areaSqm',
+  'property.builtAreaSqm','property.netLeasableAreaSqm','property.improvementOwner',
+  'income.leaseTermYearsRemaining','cost.landValueSar','cost.depreciatedImprovementValueSar','cost.indicatedTotalSar',
+  ...['landArea','rights','builtArea','netLeasableArea','improvementOwnership','lease','income','expenses','capRate','costLand','cost','costTotal']
+    .flatMap(field=>['status','sourceRef'].map(key=>'inputEvidence.'+field+'.'+key)),
   'reported.capitalValueSar', 'reported.marketRentSar', 'income.annualNoiSar', 'income.capitalizationRatePct',
   'income.indicatedValueSar', 'income.operatingExpensesSar', 'marketRent.annualRentSar',
   'marketRent.percentOfCapitalValue', 'marketRent.derivation'];
@@ -128,4 +202,4 @@ function classifyReportIds(reports = []) {
     // Do not silently deduplicate property values into a portfolio total.
     additivePortfolioValueSar:null}));
 }
-module.exports = {number, auditAppraisal, compareVersions, classifyReportIds};
+module.exports = {number, reviewAppraisalInputs, auditAppraisal, compareVersions, classifyReportIds};

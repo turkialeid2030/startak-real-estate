@@ -1,0 +1,85 @@
+'use strict';
+const assert=require('node:assert/strict');
+const {VERSION,TYPES,REASONS,label,freshPropertyMarketCase,copyInputs,parsePropertyLocation,evaluatePropertyMarketCase:run,
+ createPropertyCaseArchive,restorePropertyCaseArchive,renderPropertyMarketReport}=require('../../src/market/property-market-valuation-case');
+const {calculateMarketComparableIndication,createComparable,WEIGHTING_POLICY}=require('../../src/valuation-intelligence/market-comparables');
+let checks=0;const eq=(a,b)=>{assert.deepEqual(a,b);checks++;};
+const ok=(a)=>{assert.ok(a);checks++;};
+const clone=x=>JSON.parse(JSON.stringify(x));
+function sample(){const x=freshPropertyMarketCase();Object.assign(x.subject,{name:'Synthetic owner property',assetType:'COMMERCIAL_BUILDING',city:'Synthetic city',district:'Synthetic district',location:'Synthetic address',valuationDate:'2026-10-01',landAreaSqm:'1000',builtAreaSqm:'1600',nlaSqm:'1200',rightType:'FREEHOLD',scope:'LAND_AND_BUILDING',operatingStatus:'OPEN',sourceRef:'SYN-TITLE'});
+ Object.assign(x.mandate,{purpose:'RELETTING',leaseTermYears:'10',rentFreeMonths:'0',expenseAllocation:'SHARED',leaseTermsRef:'SYN-TERMS'});
+ x.sales.weightingPolicy='EQUAL';x.rents.weightingPolicy='EQUAL';
+ x.sales.comparables.forEach((r,i)=>Object.assign(r,{id:'SALE-'+i,amountSar:String(9000000+i*1000000),date:'2026-09-01',sourceRef:'SYN-SALE-'+i,kind:'EXECUTED_SALE',adjustmentPct:'0',taxBasis:'EXCLUSIVE',scopeConfirmed:true}));
+ x.rents.comparables.forEach((r,i)=>Object.assign(r,{id:'LEASE-'+i,amountSar:String(400000+i*100000),date:'2026-09-01',sourceRef:'SYN-LEASE-'+i,kind:'EXECUTED_LEASE',adjustmentPct:'0',taxBasis:'EXCLUSIVE',scopeConfirmed:true}));return x;}
+const base=sample(),out=run(base);
+eq(out.capital.amountSar,10000000);eq(out.rental.amountSar,500000);eq(out.rental.period,'ANNUAL');eq(out.taxBasis,'EXCLUSIVE');eq(out.status,'TWO_RESEARCH_INDICATIONS');
+eq(out.marketEvidenceIndependentlyVerified,false);eq(out.professionalValuationCertified,false);eq(out.commercialReportAuthorized,false);
+eq(freshPropertyMarketCase().mandate.lettingBasis,'WHOLE_PROPERTY');eq(freshPropertyMarketCase().mandate.taxBasis,'EXCLUSIVE');
+function change(path,value,branch,code){const x=clone(base);let o=x;const p=path.split('.');for(const k of p.slice(0,-1))o=o[k];o[p.at(-1)]=value;const result=run(x);eq(result[branch].amountSar,null);ok(result[branch].reasons.includes(code));return result;}
+change('subject.landAreaSqm','', 'capital','LAND_AREA_REQUIRED');
+change('subject.builtAreaSqm','', 'capital','BUILT_AREA_REQUIRED');
+change('subject.nlaSqm','1700','capital','AREA_CONFLICT');
+change('subject.valuationDate','2026-02-30','capital','IDENTITY_REQUIRED');
+change('subject.operatingStatus','FORGED','capital','IDENTITY_REQUIRED');
+change('subject.rightType','USUFRUCT','capital','RIGHTS_REQUIRE_REVIEW');
+change('mandate.purpose','','capital','PURPOSE_REQUIRED');
+change('mandate.taxBasis','INCLUSIVE','capital','TAX_POLICY_INVALID');
+change('mandate.leaseTermYears','','rental','LEASE_TERMS_REQUIRED');
+change('mandate.rentFreeMonths','121','rental','LEASE_TERMS_REQUIRED');
+change('mandate.lettingBasis','MULTI_UNIT','rental','MULTI_UNIT_RENT_ROLL_REQUIRED');
+change('rents.comparables.0.kind','CAPITAL_VALUE_PERCENTAGE','rental','COMPARABLE_DERIVED');
+eq(run({...base,rents:{...base.rents,comparables:[]}}).capital.amountSar,10000000);
+eq(run({...base,sales:{...base.sales,comparables:[]}}).rental.amountSar,500000);
+change('sales.comparables.0.taxBasis','INCLUSIVE','capital','COMPARABLE_TAX_REQUIRED');
+change('sales.comparables.0.kind','EXECUTED_LEASE','capital','COMPARABLE_INVALID');
+change('rents.comparables.0.kind','EXECUTED_SALE','rental','COMPARABLE_INVALID');
+change('rents.comparables.0.kind','ASKING','rental','COMPARABLE_INVALID');
+change('rents.comparables.0.date','2026-11-01','rental','COMPARABLE_INVALID');
+change('rents.comparables.0.sourceRef','','rental','COMPARABLE_INVALID');
+change('rents.comparables.0.scopeConfirmed',false,'rental','COMPARABLE_SCOPE_REQUIRED');
+change('rents.comparables.0.adjustmentPct','','rental','COMPARABLE_INVALID');
+change('rents.comparables.0.id','LEASE-1','rental','COMPARABLE_INVALID');
+change('rents.unit','ROOM_KEY','rental','COMPARISON_UNIT_INVALID');
+change('rents.weightingPolicy','','rental','WEIGHTING_REQUIRED');
+change('subject.areaBasis','MIXED_ITEMS','capital','MIXED_AREA_UNITS');
+const arabic=clone(base);arabic.rents.comparables.forEach(r=>r.amountSar='٥٠٠٬٠٠٠');eq(run(arabic).rental.amountSar,500000);
+for(const type of Object.keys(TYPES).filter(x=>x!=='VEHICLE')){
+ const x=clone(base);x.subject.assetType=type;x.subject.nonRealEstateExcluded=true;
+ if(type==='LAND'){x.subject.scope='LAND_ONLY';x.subject.builtAreaSqm='';x.subject.nlaSqm='';}
+ const r=run(x);eq(r.capital.amountSar,10000000);eq(r.rental.amountSar,500000);eq(r.professionalValuationCertified,false);
+}
+change('subject.assetType','VEHICLE','capital','NON_REAL_ESTATE_SCOPE');
+change('subject.assetType','FUEL_STATION','capital','BUSINESS_SEPARATION_REQUIRED');
+const closed=clone(base);closed.subject.assetType='HOTEL';closed.subject.nonRealEstateExcluded=true;closed.subject.operatingStatus='CLOSED_OR_RESTRICTED';
+eq(run(closed).rental.amountSar,null);ok(run(closed).rental.reasons.includes('CLOSED_RENT_REVIEW'));eq(run(closed).capital.amountSar,null);
+closed.subject.restrictedConditionRef='SYN-AS-IS-CLOSURE-TREATMENT';eq(run(closed).capital.amountSar,10000000);eq(run(closed).rental.amountSar,null);
+const land=clone(base);land.subject.scope='AS_VACANT_LAND';land.sales.unit='LAND_SQM';land.rents.unit='LAND_SQM';
+land.sales.comparables.forEach(r=>r.amountSar='10000');land.rents.comparables.forEach(r=>r.amountSar='500');
+eq(run(land).capital.amountSar,null);eq(run(land).rental.amountSar,null);
+Object.assign(land.landScenario,{demolitionCostSar:'100000',clearanceRef:'SYN-CLEARANCE'});eq(run(land).capital.amountSar,9900000);eq(run(land).rental.amountSar,500000);
+land.rents.unit='INDOOR_SQM';eq(run(land).rental.amountSar,null);
+const income=clone(base);Object.assign(income.capital,{method:'INCOME_DIRECT_CAPITALIZATION',grossIncomeSar:'1000000',ownerExpensesSar:'200000',capRatePct:'8',expenseTreatment:'ACTUAL_LANDLORD_OPEX',incomeSourceRef:'SYN-LEASE',capRateSourceRef:'SYN-CAP',incomeOrigin:'CONTRACTUAL_PROPERTY_INCOME',stableIncomeConfirmed:true});
+eq(run(income).capital.amountSar,10000000);eq(run(income).rental.amountSar,500000);
+income.capital.incomeOrigin='CAPITAL_VALUE_PERCENTAGE';eq(run(income).capital.amountSar,null);ok(run(income).capital.reasons.includes('COMPARABLE_DERIVED'));
+income.capital.incomeOrigin='CONTRACTUAL_PROPERTY_INCOME';income.subject.rightType='LEASED_FEE';eq(run(income).capital.amountSar,null);
+income.subject.existingLeaseRef='SYN-REMAINING-TERM';eq(run(income).capital.amountSar,null);ok(run(income).capital.reasons.includes('STABLE_INCOME_REQUIRED'));
+const cost=clone(base);Object.assign(cost.capital,{method:'COST_DEPRECIATED_REPLACEMENT',landValueSar:'4000000',replacementCostSar:'8000000',depreciationPct:'25',costSourceRef:'SYN-COST',improvementOwner:'PROPERTY_OWNER'});
+eq(run(cost).capital.amountSar,10000000);cost.capital.improvementOwner='TENANT';eq(run(cost).capital.amountSar,null);
+eq(parsePropertyLocation({location:'javascript:alert(1)'}).status,'INVALID');
+eq(parsePropertyLocation({location:'https://google.com.evil.invalid/maps'}).status,'INVALID');
+eq(parsePropertyLocation({location:'https://maps.app.goo.gl/test'}).status,'SHORT_LINK_REQUIRES_CONFIRMATION');
+eq(parsePropertyLocation({location:'https://www.google.com/maps/@24.8,46.6,15z'}).coordinates,{latitude:24.8,longitude:46.6});
+eq(parsePropertyLocation({latitude:'٢٤٫٨',longitude:'٤٦٫٦'}).coordinates,{latitude:24.8,longitude:46.6});
+eq(parsePropertyLocation({latitude:'91',longitude:'46'}).status,'INVALID');
+eq(parsePropertyLocation({latitude:'24',longitude:''}).status,'INVALID');
+const archive=createPropertyCaseArchive(base);eq(restorePropertyCaseArchive(archive),base);archive.inputs.subject.name='tampered';assert.throws(()=>restorePropertyCaseArchive(archive));checks++;
+assert.throws(()=>copyInputs({...base,certified:true}));checks++;
+const polluted=JSON.parse(JSON.stringify(base));polluted.subject.__proto__={certified:true};eq(copyInputs(polluted).subject.certified,undefined);
+const html=renderPropertyMarketReport(base);ok(html.includes('غير شامل الضريبة'));ok(html.includes('NOT_CERTIFIED'));ok(html.includes('Synthetic owner property'));
+const unsafe=clone(base);unsafe.subject.name='<script>alert(1)</script>';ok(!renderPropertyMarketReport(unsafe).includes('<script>alert(1)</script>'));
+assert.throws(()=>renderPropertyMarketReport(base,{link:{reviewStatus:'HOLD'}}));checks++;
+const english=renderPropertyMarketReport({...base,subject:{...base.subject,name:'SYNTHETIC'}},{locale:'en'});ok(!/[\u0600-\u06ff]/.test(english));
+for(const code of Object.keys(REASONS)){ok(label(code,'en')!==code);ok(!/[\u0600-\u06ff]/.test(label(code,'en')));}
+eq(freshPropertyMarketCase().version,VERSION);
+console.log('PROPERTY_MARKET_CASE=PASS checks='+checks+'; market evidence/certification=false');
+module.exports={sample};

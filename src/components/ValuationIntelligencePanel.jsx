@@ -5,6 +5,7 @@ import ValuationAdvancedPanel from './ValuationAdvancedPanel.jsx';
 import CriticalEvidenceRequirementsPanel from './CriticalEvidenceRequirementsPanel.jsx';
 import PersonalAssetUniversePanel from './PersonalAssetUniversePanel.jsx';
 import PersonalSaudiSaleCsvPanel from './PersonalSaudiSaleCsvPanel.jsx';
+import PropertyMarketValuationWorkbench from './PropertyMarketValuationWorkbench.jsx';
 
 export default function ValuationIntelligencePanel(props) {
   const {
@@ -18,6 +19,7 @@ export default function ValuationIntelligencePanel(props) {
 
   return (
     <>
+      <PropertyMarketValuationWorkbench locale={locale} />
       <PersonalAssetUniversePanel locale={locale} />
       <PersonalSaudiSaleCsvPanel locale={locale} />
       <ValuationIntelligenceBasePanel {...props}
