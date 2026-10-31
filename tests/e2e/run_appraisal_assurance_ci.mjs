@@ -210,6 +210,48 @@ try {
   assert(JSON.stringify(await auditSnapshot())===JSON.stringify(before),'specialist field changed on Arabic switch: '+type);
  }
  pass('D04 five specialist asset paths retain source references, Arabic amounts, evidence declarations and HOLD');
+ const {freshPropertyMarketCase,createPropertyCaseArchive}=require('../../src/market/property-market-valuation-case');
+ const ownerCase=freshPropertyMarketCase();
+ Object.assign(ownerCase.subject,{name:'SYNTHETIC whole lease',assetType:'FUEL_STATION',city:'SYNTHETIC CITY',district:'SYNTHETIC DISTRICT',
+  location:'https://maps.app.goo.gl/SYNTHETIC',valuationDate:'2026-10-01',landAreaSqm:'1000',builtAreaSqm:'600',nlaSqm:'400',
+  scope:'LAND_AND_BUILDING',rightType:'FREEHOLD',operatingStatus:'OPEN',nonRealEstateExcluded:true});
+ Object.assign(ownerCase.mandate,{purpose:'RELETTING',leaseTermYears:'10',rentFreeMonths:'0',expenseAllocation:'SHARED',leaseTermsRef:'SYNTHETIC WHOLE LEASE TERMS'});
+ ownerCase.sales.weightingPolicy='EQUAL';ownerCase.rents.weightingPolicy='EQUAL';
+ for(const [key,kind,amount] of [['sales','EXECUTED_SALE','10000000'],['rents','EXECUTED_LEASE','500000']]){
+  ownerCase[key].comparables.forEach((row,i)=>Object.assign(row,{id:key+'-'+i,amountSar:amount,date:'2026-09-01',sourceRef:'SYNTHETIC '+key+' '+i,
+   kind,adjustmentPct:'0',taxBasis:'EXCLUSIVE',scopeConfirmed:true}));
+ }
+ const owner=page.getByTestId('property-market-workbench');await owner.waitFor({state:'visible'});
+ await owner.getByTestId('property-case-import').setInputFiles({name:'synthetic-property-inputs.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(createPropertyCaseArchive(ownerCase)))});
+ await owner.getByTestId('property-case-subject-name').filter({visible:true}).waitFor();
+ await page.waitForFunction(()=>document.querySelector('[data-testid="property-case-subject-name"]')?.value==='SYNTHETIC whole lease');
+ await owner.getByTestId('property-case-step-1').click();
+ assert(await owner.getByTestId('property-case-mandate-lettingBasis').inputValue()==='WHOLE_PROPERTY','whole-property default and restoration');
+ await owner.getByTestId('property-case-step-3').click();await owner.getByTestId('property-case-calculate').click();
+ assert(await owner.getByTestId('property-case-result').getAttribute('data-status')==='TWO_RESEARCH_INDICATIONS','two independent research indications');
+ assert((await owner.getByTestId('property-case-sector-gaps').innerText()).includes('الخزانات'),'fuel environmental/ownership gap shown');
+ pass('whole-property case imports separate property identity, independent sale/rental evidence and fuel-station gaps');
+ await page.getByTestId('locale-switch').click();
+ assert((await owner.getByTestId('property-case-capital-amount').innerText()).includes('10,000,000'),'capital retained in English');
+ assert((await owner.getByTestId('property-case-rental-amount').innerText()).includes('500,000'),'rent retained in English');
+ assert(await owner.getAttribute('dir')==='ltr','new workbench English direction');
+ assert(await owner.evaluate(node=>{const copy=node.cloneNode(true);copy.querySelectorAll('input,textarea,code').forEach(x=>x.remove());return !/[\u0600-\u06ff]/.test(copy.textContent);}),
+  'new workbench English system labels');
+ pass('independent sale and annual rental indications retain amounts across locale');
+ const downloaded=page.waitForEvent('download');await owner.getByTestId('property-case-export-report').click();
+ assert((await downloaded).suggestedFilename()==='startak-property-market-research.html','research report export');
+ pass('tax-exclusive dual-indication research report downloads without professional authority');
+ await owner.getByTestId('property-case-step-0').click();await owner.getByTestId('property-case-subject-city').fill('SYNTHETIC EDIT');
+ await owner.getByTestId('property-case-step-3').click();assert(await owner.getByTestId('property-case-result').count()===0,'edit invalidates result');
+ pass('editing owner case invalidates prior capital and rent results');
+ await page.setViewportSize({width:390,height:844});
+ for(const index of [0,1,2,3]){
+  await owner.getByTestId('property-case-step-'+index).click();
+  assert(await owner.evaluate(node=>node.scrollWidth<=node.clientWidth+1),'owner case overflow at mobile step '+index);
+ }
+ await page.getByTestId('locale-switch').click();await owner.getByTestId('property-case-reset').click();
+ assert(await owner.getByTestId('property-case-subject-name').inputValue()==='','new-property reset');
+ pass('four-step owner case fits mobile and resets without retained property data');
  console.log('D04_ASSURANCE_REAL_CHROMIUM=PASS source_values_unchanged=true authority_unchanged=true');
  console.log('APPRAISAL_BROWSER_SMOKE=PASS CASES='+checks.length);
 } catch(e) {
