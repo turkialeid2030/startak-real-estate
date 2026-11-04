@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'tools/verify-protected-preview.mjs'
+      - 'tools/verify-deployed-assets.mjs'
+      - 'tests/architecture/run_protected_preview_registration.js'
       - 'tests/architecture/run_protected_preview_access.js'
       - '.github/workflows/authenticated-preview-delivery-manual.yml'
   workflow_dispatch:
