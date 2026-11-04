@@ -47,9 +47,47 @@ export async function verifyProtectedPreview({
   const scoped=scopedCloudflareAccessFetch({
     previewUrl:canonicalUrl,clientId,clientSecret,fetchImpl
   });
+  // Verify the independently generated release manifest before asset checks.
+  // Only a protected, same-origin fetch is permitted; credentials are never logged.
+  const releaseResponse=await scoped(new URL('/release-manifest.json',canonicalUrl),{
+    redirect:'error',signal:AbortSignal.timeout(15000)
+  });
+  if(releaseResponse.status!==200||
+     !/application\\/json/i.test(releaseResponse.headers.get('content-type')||''))
+    throw Error('PROTECTED_PREVIEW_RELEASE_MANIFEST_RESPONSE_INVALID');
+  const maxBytes=64*1024;
+  const declared=releaseResponse.headers.get('content-length');
+  if(declared!==null&&/^\\d+$/.test(declared)&&Number(declared)>maxBytes)
+    throw Error('PROTECTED_PREVIEW_RELEASE_MANIFEST_TOO_LARGE');
+  if(!releaseResponse.body||typeof releaseResponse.body.getReader!=='function')
+    throw Error('PROTECTED_PREVIEW_RELEASE_MANIFEST_BODY_INVALID');
+  const chunks=[];let size=0;const reader=releaseResponse.body.getReader();
+  try{
+    while(true){
+      const {done,value}=await reader.read();
+      if(done)break;
+      if(!(value instanceof Uint8Array))
+        throw Error('PROTECTED_PREVIEW_RELEASE_MANIFEST_BODY_INVALID');
+      size+=value.byteLength;
+      if(size>maxBytes)throw Error('PROTECTED_PREVIEW_RELEASE_MANIFEST_TOO_LARGE');
+      chunks.push(Buffer.from(value));
+    }
+  }finally{
+    try{await reader.cancel();}catch{}
+    reader.releaseLock();
+  }
+  let releaseManifest;
+  try{releaseManifest=JSON.parse(Buffer.concat(chunks,size).toString('utf8'));}
+  catch{throw Error('PROTECTED_PREVIEW_RELEASE_MANIFEST_JSON_INVALID');}
+  if(!releaseManifest||typeof releaseManifest!=='object'||Array.isArray(releaseManifest)||
+     releaseManifest.schemaVersion!==1||releaseManifest.sourceCommit!==expectedSha||
+     releaseManifest.sourceCommitBound!==true)
+    throw Error('PROTECTED_PREVIEW_RELEASE_MANIFEST_SOURCE_MISMATCH');
   // Full asset hash and missing-resource checks are delegated to one canonical
   // verifier, not a weaker independent implementation.
-  return verifyDeployedAssets({url:canonicalUrl,expectedSha,fetchImpl:scoped});
+  const result=await verifyDeployedAssets({url:canonicalUrl,expectedSha,fetchImpl:scoped});
+  return {...result,releaseManifestStatus:'PASS',
+    releaseManifestSourceCommit:releaseManifest.sourceCommit};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
   // Mandatory explicit parameters; never infer production authorization.
@@ -74,6 +112,11 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
       'PROTECTED_PREVIEW_URL_INVALID','PROTECTED_PREVIEW_ORIGIN_NOT_ALLOWED',
       'PROTECTED_PREVIEW_SERVICE_IDENTITY_NOT_CONFIGURED',
       'PROTECTED_PREVIEW_SHA_REQUIRED','PROTECTED_PREVIEW_FETCH_INVALID',
+      'PROTECTED_PREVIEW_RELEASE_MANIFEST_RESPONSE_INVALID',
+      'PROTECTED_PREVIEW_RELEASE_MANIFEST_TOO_LARGE',
+      'PROTECTED_PREVIEW_RELEASE_MANIFEST_BODY_INVALID',
+      'PROTECTED_PREVIEW_RELEASE_MANIFEST_JSON_INVALID',
+      'PROTECTED_PREVIEW_RELEASE_MANIFEST_SOURCE_MISMATCH',
       'PROTECTED_PREVIEW_CROSS_ORIGIN_BLOCKED',
       'PROTECTED_PREVIEW_REDIRECT_NOT_ALLOWED','PROTECTED_PREVIEW_HEADERS_CONFLICT',
       'ASSET_MANIFEST_RESPONSE_INVALID','ASSET_MANIFEST_SOURCE_INVALID',
