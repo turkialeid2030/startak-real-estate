@@ -25,6 +25,8 @@ const path=require('node:path');
     /SERVICE_IDENTITY_NOT_CONFIGURED/);pass();
   const hash=x=>createHash('sha256').update(x).digest('hex');
   const asset=Buffer.from('some synthetic JS content');
+  const releaseManifest={schemaVersion:1,sourceCommit:sha,sourceCommitBound:true,
+    appVersion:'1.0.0',buildId:'test-synthetic-build'};
   const manifest={schemaVersion:1,sourceCommit:sha,assets:[
     {path:'assets/index.js',sizeBytes:asset.length,sha256:hash(asset)}
   ]};
@@ -37,6 +39,8 @@ const path=require('node:path');
     assert.equal(opts.headers.get('CF-Access-Client-Id'),id);pass();
     assert.equal(opts.headers.get('CF-Access-Client-Secret'),secret);pass();
     const resource=new URL(input).pathname;observed.push(resource);
+    if(resource==='/release-manifest.json')
+      return new Response(JSON.stringify(releaseManifest),{status:200,headers:{'content-type':'application/json'}});
     if(resource==='/asset-manifest.json')
       return new Response(JSON.stringify(manifest),{status:200,headers:{'content-type':'application/json'}});
     if(resource==='/')
@@ -49,7 +53,19 @@ const path=require('node:path');
   assert.equal(result.status,'PASS');pass();
   assert.equal(result.assets.length,1);pass();
   assert.equal(result.missingAssetStatus,'PASS');pass();
-  assert.equal(observed.length,4);pass();
+  assert.equal(observed.length,5);pass();
+  assert.equal(result.releaseManifestStatus,'PASS');pass();
+  assert.equal(result.releaseManifestSourceCommit,sha);pass();
+  await assert.rejects(verifyProtectedPreview({url,expectedSha:sha,clientId:id,clientSecret:secret,
+    fetchImpl:async(input,opts)=>{
+      if(new URL(input).pathname==='/release-manifest.json')
+        return new Response(JSON.stringify({...releaseManifest,sourceCommit:'b'.repeat(40)}),
+          {status:200,headers:{'content-type':'application/json'}});
+      return fetchImpl(input,opts);
+    }}),/PROTECTED_PREVIEW_RELEASE_MANIFEST_SOURCE_MISMATCH/);pass();
+  await assert.rejects(verifyProtectedPreview({url,expectedSha:sha,clientId:id,clientSecret:secret,
+    fetchImpl:async()=>new Response('forbidden',{status:403,headers:{'content-type':'text/html'}})}),
+    /PROTECTED_PREVIEW_RELEASE_MANIFEST_RESPONSE_INVALID/);pass();
   const scoped=scopedCloudflareAccessFetch({previewUrl:url,clientId:id,clientSecret:secret,fetchImpl});
   await assert.rejects(scoped('https://example.test/private',{}),/CROSS_ORIGIN_BLOCKED/);pass();
   await assert.rejects(scoped(url,{redirect:'follow'}),/REDIRECT_NOT_ALLOWED/);pass();
