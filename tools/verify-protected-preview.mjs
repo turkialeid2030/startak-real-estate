@@ -53,11 +53,11 @@ export async function verifyProtectedPreview({
     redirect:'error',signal:AbortSignal.timeout(15000)
   });
   if(releaseResponse.status!==200||
-     !/application\\/json/i.test(releaseResponse.headers.get('content-type')||''))
+     !/application\/json/i.test(releaseResponse.headers.get('content-type')||''))
     throw Error('PROTECTED_PREVIEW_RELEASE_MANIFEST_RESPONSE_INVALID');
   const maxBytes=64*1024;
   const declared=releaseResponse.headers.get('content-length');
-  if(declared!==null&&/^\\d+$/.test(declared)&&Number(declared)>maxBytes)
+  if(declared!==null&&/^\d+$/.test(declared)&&Number(declared)>maxBytes)
     throw Error('PROTECTED_PREVIEW_RELEASE_MANIFEST_TOO_LARGE');
   if(!releaseResponse.body||typeof releaseResponse.body.getReader!=='function')
     throw Error('PROTECTED_PREVIEW_RELEASE_MANIFEST_BODY_INVALID');
