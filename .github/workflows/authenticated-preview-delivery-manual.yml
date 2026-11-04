@@ -3,15 +3,15 @@ on:
   workflow_dispatch:
     inputs:
       preview_url:
-        description: 'Exact approved STARTAK Pages preview origin ending in /'
+        description: 'Required: actual approved preview origin from Cloudflare Deployments (ending in /)'
         required: true
         type: string
-        default: 'https://1647dc09.startak-real-estate.pages.dev/'
+        # No default: administrator must paste the exact immutable/approved deployment URL.
       source_sha:
-        description: 'Exact 40-character source commit expected in the deployed build'
+        description: 'Required: exact 40-character candidate commit from verified Cloudflare deployment'
         required: true
         type: string
-        default: '32fcfd773e4815a9d09d5ab08ef8bb87ae417def'
+        # No default: administrator must match this SHA to the selected deployment.
 
 # SECURITY: This workflow MUST run only from the reviewed main branch.
 # Never expose Access secrets to pull_request, pull_request_target or PR head code.
