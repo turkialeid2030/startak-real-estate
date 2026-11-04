@@ -1,0 +1,89 @@
+name: RIAI Atomic Spending Stress Diagnostic
+on:
+  pull_request:
+    paths:
+      - 'tests/diagnostics/riai_quota_stress.mjs'
+      - '.github/workflows/riai-atomic-budget-diagnostic.yml'
+      - 'tests/architecture/run_riai_ai_gateway_integration_v1.js'
+      - 'tests/fixtures/riai-quota-binding.js'
+      - 'workers/riai-quota/quota.mjs'
+      - 'functions/api/riai/ai-assist.js'
+permissions:
+  contents: read
+concurrency:
+  group: riai-stress-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+jobs:
+  original-10-500:
+    name: Original gateway integration 500 runs x 10 requests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      EXPECTED_SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+      - name: Use exact locked dependencies as canonical workflow
+        run: npm ci
+      - name: Execute ORIGINAL unmodified gateway test 500 independent times
+        run: node tests/diagnostics/riai_quota_stress.mjs 10 500
+      - name: Preserve failure details and exact counts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: riai-original-10-500
+          path: artifacts/riai-stress/mode-10.json
+          if-no-files-found: warn
+  strict-50-500:
+    name: Real gateway 500 rounds x 50 simultaneous requests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      EXPECTED_SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+      - name: Use exact locked dependencies as canonical workflow
+        run: npm ci
+      - name: 50-way 500-round gateway test with exact admitted counts
+        run: node tests/diagnostics/riai_quota_stress.mjs 50 500
+      - name: Preserve failure details and provider-call counts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: riai-strict-50-500
+          path: artifacts/riai-stress/mode-50.json
+          if-no-files-found: warn
+  fixed-minute-boundary:
+    name: Deterministic atomicity versus calendar-minute rollover
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      EXPECTED_SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+      - name: Exercise actual quota worker against serial transactional fake
+        run: node tests/diagnostics/riai_quota_stress.mjs boundary 1
+      - name: Preserve boundary observations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: riai-fixed-window-boundary
+          path: artifacts/riai-stress/mode-boundary.json
+          if-no-files-found: warn
