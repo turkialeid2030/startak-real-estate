@@ -29,7 +29,11 @@ function provider(boundary='This output is advisory analysis only and does not c
  assert.equal(r.status,503); assert.equal((await r.json()).code,'AI_AUDIT_WRITE_FAILED');
  let providerCalls=0;
  global.fetch=async()=>{providerCalls++;return new Response(JSON.stringify({...provider(),usage:{prompt_tokens:10,completion_tokens:20,total_tokens:30}}));};
- const concurrentEnv=env({RIAI_AI_RATE_PER_MINUTE:'1'});
+ // Freeze only the quota minute for this concurrency assertion (not global Date.now).
+ // The previous real-time minute boundary could legitimately admit a second request.
+ const fixedMinute = Date.UTC(2026, 10, 4, 12, 30, 0);
+ const concurrentEnv=env({RIAI_AI_RATE_PER_MINUTE:'1',
+   RIAI_AI_QUOTA:require('../fixtures/riai-quota-binding')({fixedNow:fixedMinute})});
  const responses=await Promise.all(Array.from({length:10},()=>onRequestPost({request:req(SNAPSHOT),env:concurrentEnv})));
  assert.equal(providerCalls,1); assert.equal(responses.filter(response=>response.status===200).length,1); assert.equal(responses.filter(response=>response.status===429).length,9);
  assert.equal(Array.from(concurrentEnv.RIAI_AI_QUOTA.state.data.entries()).find(([key])=>key.startsWith('tokens:'))[1],30);
