@@ -28,16 +28,17 @@ jobs:
         with:
           node-version: 24
           cache: npm
+      - run: npm ci
       - name: Verify exact source and pinned browsers
         shell: bash
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$STARTAK_SOURCE_COMMIT"
-          node -e "const p=require('playwright/package.json');if(p.version!=='1.62.1')throw Error('PLAYWRIGHT_VERSION_MISMATCH');"
+          node -e "const fs=require('node:fs'); const p=require('playwright/package.json');if(p.version!=='1.62.1')throw Error('PLAYWRIGHT_VERSION_MISMATCH'); for(const [name,b] of Object.entries(require('playwright'))){if(['chromium','firefox','webkit'].includes(name)&&!fs.existsSync(b.executablePath()))throw Error('BROWSER_UNAVAILABLE_'+name);}"
           echo "SOURCE_SHA=$STARTAK_SOURCE_COMMIT"
-      - run: npm ci
       - run: npm run build
       - name: Serve built app locally
+        id: preview
         shell: bash
         run: |
           set -euo pipefail
@@ -55,7 +56,7 @@ jobs:
           mkdir -p runtime-evidence/hidden-diagnostics
           node tests/e2e/run_audit_20261020_local_ocr_browser.js 2>&1 | tee runtime-evidence/hidden-diagnostics/local-ocr-output.txt
       - name: Manual transcription diagnostic — three browsers and two widths
-        if: always()
+        if: ${{ always() && steps.preview.outcome == 'success' }}
         shell: bash
         run: |
           set -euo pipefail
