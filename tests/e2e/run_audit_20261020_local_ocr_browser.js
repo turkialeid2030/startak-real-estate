@@ -101,7 +101,7 @@ async function secureLoopbackPreview(){
    await expect(page.getByTestId('local-ocr-layout').getByRole('radio',{name:'تلقائي',exact:true})).toBeChecked();checks++;
    await expect(page.getByTestId('local-ocr-export')).toHaveCount(0);await expect(page.getByTestId('local-ocr-source-preview')).toHaveCount(0);await expect(page.getByTestId('local-document-parser-status')).toHaveCount(0);checks+=3;
    await page.getByTestId('local-ocr-page').fill('3');await page.getByTestId('local-ocr-start').click();
-   await expect(panel.getByRole('alert')).toContainText('OCR_PAGE_INVALID',{timeout:15000});await expect(page.getByTestId('local-ocr-export')).toHaveCount(0);await expect(page.getByTestId('local-ocr-source-preview')).toHaveCount(0);checks+=3;
+   await expect(panel.getByRole('alert')).toContainText('أدخل رقم صفحة صحيحًا موجودًا بالملف، بين 1 و200. الصورة المفردة صفحتها 1.',{timeout:15000});await expect(panel.getByRole('alert')).toHaveAttribute('data-reason-code','OCR_PAGE_INVALID');await expect(panel.getByRole('alert')).not.toContainText('OCR_PAGE_INVALID');await expect(page.getByTestId('local-ocr-export')).toHaveCount(0);await expect(page.getByTestId('local-ocr-source-preview')).toHaveCount(0);checks+=5;
    await page.getByTestId('local-ocr-page').fill('1');await page.getByTestId('local-ocr-start').click();
    await expect(page.getByTestId('local-ocr-busy')).toBeVisible();await panel.getByRole('button',{name:'إلغاء المعالجة',exact:true}).click();
    await expect(page.getByTestId('local-ocr-controls')).toHaveCount(0);await expect(page.getByTestId('local-document-parser-status')).toHaveCount(0);checks+=2;
