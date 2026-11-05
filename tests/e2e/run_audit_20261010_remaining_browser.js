@@ -95,7 +95,7 @@ async function textContrast(locator){return locator.evaluate(el=>{
    // DiagnosticText intentionally preserves both the localized explanation and
    // stable machine code. Verify both without treating either as approval.
    await expect(page.getByTestId('local-evidence-workflow-status')).toContainText('التحقق غير مكتمل');checks++;
-   await expect(page.getByTestId('local-evidence-workflow-status').locator('code')).toHaveText('VERIFICATION_NOT_COMPLETE');checks++;
+   await expect(page.getByTestId('local-evidence-workflow-status')).toHaveAttribute('data-reason-code','VERIFICATION_NOT_COMPLETE');checks++;
    await page.getByTitle(ar.actions.savedDeals,{exact:true}).click();await page.getByRole('dialog').getByRole('button',{name:seed.name,exact:true}).click();
    // Full-engine lower-price evidence must match the current exported inputs
    // on all three browsers, including the explicit-zero-debt case.
