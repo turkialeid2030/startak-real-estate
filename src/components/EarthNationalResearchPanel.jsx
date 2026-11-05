@@ -1,4 +1,5 @@
 import React,{useMemo,useState} from 'react';
+import ResearchCsvUpload from './ResearchCsvUpload.jsx';
 const {FEATURES,importEarthResearchCsv,mergeEarthResearch,filterEarthResearch,
  earthResearchSummary}=require('../market/earth-national-research');
 const {useLocale}=require('../i18n/LocaleContext.js');
@@ -50,11 +51,10 @@ export default function EarthNationalResearchPanel({onResearchChange}){
      onChange={e=>setObservedOn(e.target.value)}
      className="mt-1 block rounded border border-slate-600 bg-slate-900 p-2"/>
    </label>
-   <label className="text-xs rounded border border-slate-600 p-2">{L("استيراد CSV بحثي")}<input type="file" accept=".csv,text/csv" data-testid="earth-import-csv"
-     className="block max-w-[200px]" onChange={async e=>{
-      const file=e.target.files?.[0];e.target.value='';await onImport(file);
-     }}/>
-   </label>
+   <div className="rounded border border-slate-600 p-2 text-xs">
+    <p className="mb-1 text-slate-200">{L("استيراد CSV بحثي")}</p>
+    <ResearchCsvUpload testId="earth-import-csv" locale={locale} onChange={async e=>{const file=e.target.files?.[0];e.target.value='';await onImport(file);}}/>
+   </div>
    <label className="text-xs">{L("المدينة")}<select data-testid="earth-city-filter" value={city} onChange={e=>setCity(e.target.value)}
      className="mt-1 block rounded border border-slate-600 bg-slate-900 p-2">
      <option value="">{L("جميع المدن المستوردة")}</option>

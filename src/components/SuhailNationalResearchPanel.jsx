@@ -1,4 +1,5 @@
 import React,{useMemo,useState} from 'react';
+import ResearchCsvUpload from './ResearchCsvUpload.jsx';
 const {SOURCE_URL,toPublicSample,parseResearchCsv,mergeNeighborhoodResearch,selectNeighborhoodRows,researchSummary,MAX_BYTES}=
  require('../market/suhail-national-neighborhood-research');
 const {useLocale}=require('../i18n/LocaleContext.js');
@@ -59,10 +60,10 @@ export default function SuhailNationalResearchPanel({onResearchChange}){
      onChange={e=>setObservedOn(e.target.value)}
      className="mt-1 block rounded border border-slate-600 bg-slate-900 p-2"/>
    </label>
-   <label className="text-xs rounded border border-slate-600 p-2">{en?'Import research CSV':'إضافة بيانات CSV البحثية'}
-    <input data-testid="suhail-research-import" type="file" accept=".csv,text/csv" className="block max-w-[240px]"
-     onChange={async e=>{const f=e.target.files?.[0];e.target.value='';await importFile(f);}}/>
-   </label>
+   <div className="rounded border border-slate-600 p-2 text-xs">
+    <p className="mb-1 text-slate-200">{en?'Import research CSV':'إضافة بيانات CSV البحثية'}</p>
+    <ResearchCsvUpload testId="suhail-research-import" locale={locale} onChange={async e=>{const f=e.target.files?.[0];e.target.value='';await importFile(f);}}/>
+   </div>
   </div>
   <p data-testid="suhail-scope" className="mt-3 text-xs text-slate-300">
     {en?'Cities in sample: ':'المدن في البيانات الحالية: '}{summary.cityCount} | {en?'Neighborhoods: ':'الأحياء: '}{summary.neighborhoodRows} |

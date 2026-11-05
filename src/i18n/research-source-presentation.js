@@ -1,6 +1,7 @@
 'use strict';
 // Display-only labels; imported values, IDs, URLs and evidence codes are never translated.
 const EN=Object.freeze({
+ "اختيار ملف CSV": "Choose CSV file",
  "أرض — صفقات وخرائط ومخططات ومؤشرات جميع مدن المملكة": "Earth — reported transactions, maps, plans and Saudi market indicators",
  "مصادر العروض والطلبات العقارية — جميع مدن المملكة": "Saudi property listings and buyer requests — research sources",
  "اختبار النماذج المتنافسة — عينة عقارات مشتركة": "Challenger model comparison — common property cohort",

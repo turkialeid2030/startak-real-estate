@@ -1,4 +1,5 @@
 import React,{useMemo,useState} from 'react';
+import ResearchCsvUpload from './ResearchCsvUpload.jsx';
 const {SOURCES,parseListingResearchCsv,mergeListingResearch,filterListingResearch,
  listingResearchSummary}=require('../market/saudi-listing-source-research');
 const {useLocale}=require('../i18n/LocaleContext.js');
@@ -48,11 +49,10 @@ export default function SaudiListingSourcesResearchPanel({onResearchChange}){
      onChange={e=>setObservedOn(e.target.value)}
      className="mt-1 block rounded border border-slate-600 bg-slate-900 p-2"/>
    </label>
-   <label className="text-xs rounded border border-slate-600 p-2">{L("إضافة CSV بحثي للعروض")}<input data-testid="listing-source-csv" type="file" accept=".csv,text/csv"
-     className="block max-w-[220px]" onChange={async e=>{
-      const file=e.target.files?.[0];e.target.value='';await onFile(file);
-     }}/>
-   </label>
+   <div className="rounded border border-slate-600 p-2 text-xs">
+    <p className="mb-1 text-slate-200">{L("إضافة CSV بحثي للعروض")}</p>
+    <ResearchCsvUpload testId="listing-source-csv" locale={locale} onChange={async e=>{const file=e.target.files?.[0];e.target.value='';await onFile(file);}}/>
+   </div>
    <label className="text-xs">{L("المدينة")}<select data-testid="listing-city-filter" value={city} onChange={e=>setCity(e.target.value)}
      className="mt-1 block rounded border border-slate-600 bg-slate-900 p-2">
      <option value="">{L("جميع المدن المستوردة")}</option>

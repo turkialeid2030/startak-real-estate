@@ -1,5 +1,6 @@
 import DiagnosticText from './DiagnosticText.jsx';
 import React,{useState} from 'react';
+import ResearchCsvUpload from './ResearchCsvUpload.jsx';
 const {MODEL_IDS,parseChallengerCsv,evaluateChallengers}=
  require('../market/challenger-benchmark-research');
 const {useLocale}=require('../i18n/LocaleContext.js');
@@ -29,10 +30,10 @@ export default function ChallengerBenchmarkResearchPanel(){
   <p className="mt-2 text-xs text-slate-400">{en?'Supported models: ':'النماذج المدعومة: '}
    <code translate="no">{MODEL_IDS.join('، ')}</code></p>
   <p className="mt-2 text-xs text-slate-300 break-all">{en?'CSV fields: ':'حقول الملف الجدولي: '}<code translate="no">modelId,propertyRef,assetType,city,district,predictedAsOf,predictedValueSar,executedPriceSar,executionDate</code>. {en?'Optional: ':'اختياري: '}<code translate="no">runCostSar</code>.</p>
-  <label className="mt-3 inline-block rounded border border-slate-600 p-2 text-xs">{L("بيانات المقارنة التجريبية CSV")}<input data-testid="challenger-csv" type="file" accept=".csv,text/csv"
-    className="block max-w-[220px]" onChange={async e=>{
-     const file=e.target.files?.[0];e.target.value='';await onFile(file);}}/>
-  </label>
+  <div className="rounded border border-slate-600 p-2 text-xs">
+    <p className="mb-1 text-slate-200">{L("بيانات المقارنة التجريبية CSV")}</p>
+    <ResearchCsvUpload testId="challenger-csv" locale={locale} onChange={async e=>{const file=e.target.files?.[0];e.target.value='';await onFile(file);}}/>
+   </div>
   <p data-testid="challenger-status" className="mt-3 text-xs text-amber-200">
     <DiagnosticText code={result.status} locale={locale}/> | {en?'Common cohort: ':'عينة مشتركة: '}{result.cohortSize} | {en?'External verification: not established':'الاعتماد الخارجي: غير متحقق'}</p>
   {result.status==='RESEARCH_MATH_ONLY_EXTERNAL_VERIFICATION_REQUIRED'&&
