@@ -41,6 +41,7 @@ jobs:
             if curl -sSf http://127.0.0.1:4173/ -o /dev/null; then break; fi
             sleep 1
           done
+          STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_personal_phased_development_diagnostic.js > runtime-evidence/phased-browser/diagnostic.log 2>&1 || cat runtime-evidence/phased-browser/diagnostic.log
           STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_personal_phased_development_browser.js 2>&1 | tee runtime-evidence/phased-browser/test.log
       - name: Upload phased-browser logs
         if: always()

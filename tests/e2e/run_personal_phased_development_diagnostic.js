@@ -1,0 +1,90 @@
+'use strict';
+const assert=require('node:assert/strict');
+const {chromium,expect}=require('@playwright/test');
+const BASE=process.env.STARTAK_E2E_URL||'http://127.0.0.1:4173';
+(async()=>{
+ const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
+ const context=await browser.newContext({viewport:{width:1366,height:960},locale:'ar-SA'});
+ const page=await context.newPage();
+ const pageErrors=[];
+ page.on('pageerror',e=>pageErrors.push(e.message));
+ try{
+  await page.goto(BASE,{waitUntil:'domcontentloaded',timeout:30000});
+  await page.getByTestId('personal-asset-universe-select').selectOption('LAND');
+  const panel=page.getByTestId('personal-phased-development-dcf');
+  await expect(panel).toBeVisible({timeout:30000});
+  await panel.getByTestId('phased-development-calculate').click();
+  await expect(panel.getByTestId('phased-development-result')).toContainText('الحساب محجوب');
+  await expect(panel.getByTestId('phased-development-pv')).toHaveCount(0);
+  await panel.locator('input[type="date"]').fill('2026-10-25');
+  const amountInputs=panel.locator('input[inputmode="decimal"]');
+  // Area, rate, followed by each period's GDV/construction/other figures.
+  await amountInputs.nth(0).fill('٢٠٠');
+  await amountInputs.nth(1).fill('٠٫١٠');
+  await amountInputs.nth(2).fill('0');
+  await amountInputs.nth(3).fill('200');
+  await amountInputs.nth(4).fill('0');
+  await amountInputs.nth(5).fill('١٬٠٠٠');
+  await amountInputs.nth(6).fill('300');
+  await amountInputs.nth(7).fill('0');
+  await panel.getByTestId('phased-add-month').click();
+  await panel.getByTestId('phased-month-input').nth(2).fill('٢٤');
+  await amountInputs.nth(8).fill('٥٠٠');
+  await amountInputs.nth(9).fill('100');
+  await amountInputs.nth(10).fill('0');
+  const checks=panel.locator('input[type="checkbox"]');
+  for(let i=0;i<5;i++){
+   await checks.nth(i).check();
+   console.log('PHASED_CHECK_STATE_AFTER_'+i,JSON.stringify(await checks.evaluateAll(all=>all.map(e=>e.checked))));
+  }
+  console.log('PHASED_AFTER_ALL_CHECKS',JSON.stringify(await checks.evaluateAll(all=>all.map(e=>e.checked))));
+
+  await panel.getByTestId('phased-development-calculate').click();
+  console.log('PHASED_AFTER_CALC_CHECKS',JSON.stringify(await checks.evaluateAll(all=>all.map(e=>e.checked))));
+  console.log('PHASED_RESULT_TEXT',JSON.stringify(await panel.getByTestId('phased-development-result').innerText()));
+  await expect(panel.getByTestId('phased-development-result')).toContainText('القيمة المتبقية البحثية');
+  const methodContrast=panel.getByTestId('phased-development-method-contrast');
+  await expect(methodContrast).toBeVisible();
+  await expect(methodContrast).toContainText('مقارنة حسابية لأسس التوقيت');
+  await expect(methodContrast).toContainText('فرق خصم نهاية المشروع عن الجدول الشهري');
+  await expect(methodContrast.locator('tbody tr')).toHaveCount(4);
+  await expect(methodContrast).toContainText('لا تُجمع ولا يُختار المتوسط');
+  const shown=await panel.getByTestId('phased-development-pv').innerText();
+  assert.ok(shown.includes('766')||shown.includes('٧٦٦'),'expected hand-worked discounted ~766.94 SAR');
+  const months=panel.getByTestId('phased-month-input');
+  await expect(months).toHaveCount(3);
+  await expect(months.nth(2)).toHaveValue('٢٤');
+  // Invalid, fractional or scientific-notation month must NOT be rounded or coerced.
+  for(const bad of ['٢٤٫٥','2e1','-1','١٢٬٥٠٠']){
+   await months.nth(2).fill(bad);
+   await expect(panel.getByTestId('phased-development-result')).toHaveCount(0);
+   await panel.getByTestId('phased-development-calculate').click();
+   await expect(panel.getByTestId('phased-development-reasons')).toContainText('تاريخ شهر الفترة غير صحيح');
+   await expect(panel.getByTestId('phased-development-pv')).toHaveCount(0);
+  }
+  // Persian-Indic digits retain exact integer meaning.
+  await months.nth(2).fill('۲۴');
+  await panel.getByTestId('phased-development-calculate').click();
+  await expect(panel.getByTestId('phased-development-result')).toContainText('القيمة المتبقية البحثية');
+  await expect(panel.getByTestId('phased-development-method-contrast')).toBeVisible();
+  await amountInputs.nth(1).fill('0');
+  await expect(panel.getByTestId('phased-development-result')).toHaveCount(0);
+  await expect(panel.getByTestId('phased-development-method-contrast')).toHaveCount(0);
+  await panel.getByTestId('phased-development-calculate').click();
+  await expect(panel.getByTestId('phased-development-reasons')).toContainText('معدل صفر');
+  await expect(panel.getByTestId('phased-development-pv')).toHaveCount(0);
+  await amountInputs.nth(1).fill('٠٫١٠');
+  await panel.getByTestId('phased-property-right').selectOption('WAQF_RESTRICTED');
+  await panel.getByTestId('phased-development-calculate').click();
+  await expect(panel.getByTestId('phased-development-reasons')).toContainText('الحق العقاري ليس ملكية كاملة');
+  await expect(panel.getByTestId('phased-development-pv')).toHaveCount(0);
+  await page.getByTestId('personal-asset-universe-select').selectOption('RETAIL');
+  await expect(page.getByTestId('personal-phased-development-dcf')).toHaveCount(0);
+  await page.getByTestId('personal-asset-universe-select').selectOption('LAND');
+  const reset=page.getByTestId('personal-phased-development-dcf');
+  await expect(reset.locator('input[inputmode="decimal"]').first()).toHaveValue('');
+  await expect(reset.getByTestId('phased-development-result')).toHaveCount(0);
+  assert.equal(pageErrors.length,0,pageErrors.join('; '));
+  console.log('C55_PHASED_DIAGNOSTIC=PASS flows=input,holds,discount,timing,sector-reset');
+ }finally{await context.close();await browser.close();}
+})().catch(e=>{console.error('C55_PHASED_DIAGNOSTIC=FAIL',e);process.exitCode=1;});
