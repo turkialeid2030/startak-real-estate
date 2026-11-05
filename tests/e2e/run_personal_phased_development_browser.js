@@ -57,6 +57,13 @@ const BASE=process.env.STARTAK_E2E_URL||'http://127.0.0.1:4173';
   }
   // Persian-Indic digits retain exact integer meaning.
   await months.nth(2).fill('۲۴');
+  // Editing any cashflow date invalidates the five earlier user declarations.
+  // They must be explicitly confirmed again for a valid positive scenario.
+  await expect(checks).toHaveCount(5);
+  for(let i=0;i<5;i++){
+   await expect(checks.nth(i)).not.toBeChecked();
+   await checks.nth(i).check();
+  }
   await panel.getByTestId('phased-development-calculate').click();
   await expect(panel.getByTestId('phased-development-result')).toContainText('القيمة المتبقية البحثية');
   await expect(panel.getByTestId('phased-development-method-contrast')).toBeVisible();

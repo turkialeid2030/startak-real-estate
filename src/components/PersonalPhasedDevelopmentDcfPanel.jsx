@@ -159,8 +159,8 @@ export default function PersonalPhasedDevelopmentDcfPanel({locale='ar-SA'}){
    </>}
    {result.reasonCodes?.length>0&&<ul data-testid="phased-development-reasons"
     className="mt-2 text-xs" style={{color:'#E7C08C'}}>
-    {result.reasonCodes.map(code=><li key={code} data-diagnostic-content translate="no">
-      <span>{researchReason(code,locale).message}</span>{' '}<code dir="ltr">{code}</code>
+    {result.reasonCodes.map(code=><li key={code} data-diagnostic-content data-reason-code={code}>
+      <span>{researchReason(code,locale).message}</span>
     </li>)}
    </ul>}
    <p className="mt-2 text-xs" style={{color:'#CAD4E4'}}>{ar?
