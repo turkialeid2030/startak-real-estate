@@ -53,7 +53,7 @@ export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange}
      ar:'أضيف '+merged.added+'؛ مكرر '+merged.duplicates+
       '؛ متعارض '+merged.conflicts.length+'؛ مستبعد '+fresh.rejected.length+
       '. لا توجد صفقات منفذة مؤكدة أو تقييمات معتمدة.'});
-  }catch(e){setNotice({ar:'خطأ بالاستيراد: '+String(e.message||'UNKNOWN'),en:'CSV import error: '+String(e.message||'UNKNOWN')});}
+  }catch{setNotice({ar:'تعذر استيراد بيانات المصادر؛ تحقق من تنسيق الملف والأعمدة والتواريخ.',en:'Source data import failed; check CSV format, columns, and dates.'});}
  }
  return <section dir={en?'ltr':'rtl'} data-testid="national-intelligence-sources"
    className="mt-5 w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-sky-800 bg-slate-950 p-4 text-slate-100">

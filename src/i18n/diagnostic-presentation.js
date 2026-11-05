@@ -110,7 +110,7 @@ function describeDiagnostic(value, locale = 'ar-SA') {
     || (ar ? EXTRA_REASONS[code] : null) || catalog?.reason?.[code] || catalog?.method?.[code] || catalog?.state?.[code] || catalog?.engineStatus?.[code] || REASONS[code]?.[ar ? 0 : 1]
     || (ar ? ARABIC_VALUE_LABELS[code] : null);
   return Object.freeze({ code, message: known || (ar
-    ? 'تحتاج هذه الحالة إلى مراجعة تفصيلية وفق الرمز المرفق؛ لم يُحذف السبب الأصلي.'
-    : 'Review this condition using the attached code; the original reason is retained.') });
+    ? 'راجع المدخلات والأدلة المطلوبة قبل إعادة المحاولة؛ لم تُصدر نتيجة معتمدة.'
+    : 'Review the inputs and required evidence before retrying; no verified result was issued.') });
 }
 module.exports = { describeDiagnostic, REASONS };

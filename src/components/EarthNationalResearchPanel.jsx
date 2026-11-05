@@ -30,7 +30,7 @@ export default function EarthNationalResearchPanel({onResearchChange}){
    setRecords(merged.records);onResearchChange?.(merged.records);setCity('');setFilterFeature('');
    setNotice({ar:'أضيف '+merged.added+' سجلًا؛ مكرر '+merged.duplicates+'؛ متعارض '+merged.conflicts.length+'؛ مستبعد '+parsed.rejected.length+'. لا توجد صفقات أو صكوك مؤكدة من هذا الاستيراد.',
     en:'Added '+merged.added+'; duplicates '+merged.duplicates+'; conflicts '+merged.conflicts.length+'; excluded '+parsed.rejected.length+'. No independently confirmed transactions or titles.'});
-  }catch(e){const code=String(e.message||'UNKNOWN');setNotice({ar:'تعذر الاستيراد: '+code,en:'Import failed: '+code});}
+  }catch{setNotice({ar:'تعذر استيراد الملف؛ تحقق من أعمدة البيانات والتواريخ والقيم.',en:'CSV import failed; check data columns, dates, and values.'});}
  };
  return <section dir={en?'ltr':'rtl'} data-testid="earth-national-research"
   className="mt-5 w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-sky-800 bg-slate-950 p-4 text-slate-100">

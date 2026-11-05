@@ -19,9 +19,9 @@ export default function ChallengerBenchmarkResearchPanel(){
    const parsed=parseChallengerCsv(await file.text());
    const evaluated=evaluateChallengers({observations:parsed.records});
    setResult(evaluated);
-   setNotice({ar:'سجلات مقبولة '+parsed.records.length+'؛ مرفوضة '+parsed.rejected.length+'؛ حالة الموازنة: '+evaluated.status+'. النتائج رياضية بحثية وليست دقة سوقية معتمدة.',
-    en:'Accepted '+parsed.records.length+'; rejected '+parsed.rejected.length+'; comparison status: '+evaluated.status+'. Research mathematics only; market accuracy is not independently validated.'});
-  }catch(e){const code=String(e.message||e);setNotice({ar:'تعذر احتساب مقارنة النماذج: '+code,en:'Model comparison failed: '+code});}
+   setNotice({ar:'سجلات مقبولة '+parsed.records.length+'؛ مرفوضة '+parsed.rejected.length+'؛ حالة الموازنة: بحثية غير معتمدة. النتائج رياضية بحثية وليست دقة سوقية معتمدة.',
+    en:'Accepted '+parsed.records.length+'; rejected '+parsed.rejected.length+'; comparison status: research-only. Research mathematics only; market accuracy is not independently validated.'});
+  }catch{setNotice({ar:'تعذرت مقارنة النماذج؛ تحقق من أعمدة الملف وأسعار التنفيذ والتواريخ.',en:'Model comparison failed; check CSV columns, executed prices, and dates.'});}
  }
  return <section data-testid="challenger-benchmark-research" dir={en?'ltr':'rtl'}
   className="mt-5 w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-700 bg-slate-950 p-4 text-slate-100">

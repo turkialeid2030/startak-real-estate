@@ -33,7 +33,7 @@ export default function SaudiListingSourcesResearchPanel({onResearchChange}){
    setBatchIssues(issues);
    setNotice({ar:'أُضيف '+merged.added+' سجلًا؛ مكرر '+merged.duplicates+'؛ متعارض '+merged.conflicts.length+'؛ مرفوض '+parsed.rejected.length+'؛ تكرار محتمل بين المنصات '+merged.potentialCrossSourceDuplicates.length+'. لا توجد صفقات منفذة مستوردة.',
     en:'Added '+merged.added+'; duplicates '+merged.duplicates+'; conflicts '+merged.conflicts.length+'; rejected '+parsed.rejected.length+'; possible cross-platform duplicates '+merged.potentialCrossSourceDuplicates.length+'. No executed transactions imported.'});
-  }catch(e){setBatchIssues([]);const code=String(e.message||'UNKNOWN');setNotice({ar:'تعذر قراءة البيانات: '+code,en:'Import failed: '+code});}
+  }catch{setBatchIssues([]);setNotice({ar:'تعذر قراءة بيانات العروض؛ تحقق من تنسيق الملف والأعمدة.',en:'Listings import failed; check CSV format and columns.'});}
  };
  return <section data-testid="saudi-listing-research" dir={en?'ltr':'rtl'}
   className="mt-5 w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-sky-800 bg-slate-950 p-4 text-slate-100">

@@ -29,7 +29,7 @@ export default function SuhailNationalResearchPanel({onResearchChange}){
  :'أضيف '+combined.added+' سجلًا بحثيًا؛ مكرر '+combined.duplicates+
      '؛ متعارض '+combined.conflicts.length+'؛ مرفوض '+result.rejected.length+
      '. تُحفظ البيانات السابقة ولا تُدرج أي صفقات فردية أو قيم عقارية تلقائيًا.');
-  }catch(e){setNote((en?'CSV import failed: ':'تعذر استيراد CSV: ')+String(e.message||'UNKNOWN'));}
+  }catch{setNote(en?'CSV import failed; check the columns and values.':'تعذر استيراد الملف؛ تحقق من الأعمدة والقيم.');}
  };
  return <section data-testid="suhail-national-research" dir={en?'ltr':'rtl'}
   className="rounded-xl border border-sky-800 bg-slate-950 p-4 mt-5 text-slate-100">
