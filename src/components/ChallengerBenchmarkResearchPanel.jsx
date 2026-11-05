@@ -1,6 +1,6 @@
 import DiagnosticText from './DiagnosticText.jsx';
 import React,{useState} from 'react';
-import ResearchCsvUpload from './ResearchCsvUpload.jsx';
+const ResearchCsvUpload=require('./ResearchCsvUpload');
 const {MODEL_IDS,parseChallengerCsv,evaluateChallengers}=
  require('../market/challenger-benchmark-research');
 const {useLocale}=require('../i18n/LocaleContext.js');

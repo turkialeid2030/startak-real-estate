@@ -1,5 +1,5 @@
 import React,{useMemo,useState} from 'react';
-import ResearchCsvUpload from './ResearchCsvUpload.jsx';
+const ResearchCsvUpload=require('./ResearchCsvUpload');
 const {useLocale}=require('../i18n/LocaleContext.js');
 const {SOURCES,OFFICIAL_RESEARCH_ENTRYPOINTS,importNationalSourcesCsv,mergeNationalResearch,filterNationalResearch,
  summarizeNationalResearch}=require('../market/saudi-national-intelligence-sources');

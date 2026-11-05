@@ -1,5 +1,5 @@
 import React,{useMemo,useState} from 'react';
-import ResearchCsvUpload from './ResearchCsvUpload.jsx';
+const ResearchCsvUpload=require('./ResearchCsvUpload');
 const {FEATURES,importEarthResearchCsv,mergeEarthResearch,filterEarthResearch,
  earthResearchSummary}=require('../market/earth-national-research');
 const {useLocale}=require('../i18n/LocaleContext.js');

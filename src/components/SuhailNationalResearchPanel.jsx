@@ -1,5 +1,5 @@
 import React,{useMemo,useState} from 'react';
-import ResearchCsvUpload from './ResearchCsvUpload.jsx';
+const ResearchCsvUpload=require('./ResearchCsvUpload');
 const {SOURCE_URL,toPublicSample,parseResearchCsv,mergeNeighborhoodResearch,selectNeighborhoodRows,researchSummary,MAX_BYTES}=
  require('../market/suhail-national-neighborhood-research');
 const {useLocale}=require('../i18n/LocaleContext.js');
