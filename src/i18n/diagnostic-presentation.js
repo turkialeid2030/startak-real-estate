@@ -3,6 +3,7 @@ const { LABELS } = require('../app/valuation-labels');
 const { ARABIC_VALUE_LABELS } = require('./strict-arabic-presentation');
 
 const REASONS = Object.freeze({
+  USER_CONFIRMATION_REQUIRED:['راجع هوية العقار ثم أكد نقل بيانات الدراسة المالية إلى دراسة السوق.','Review the property identity and confirm before transferring financial study inputs into the market study.'],
   IMAGE_OCR_NOT_RUN:['اختر قراءة الصفحة ضوئيًا لاستخراج نص الصورة محليًا.','Choose local OCR to extract text from this image.'],
   OCR_UNVERIFIED_REVIEW_REQUIRED:['نص مستخرج ضوئيًا غير متحقق؛ قارنه بالأصل قبل الاعتماد.','Unverified OCR text; compare it with the original before adoption.'],
   OCR_SELECTED_PAGE_ONLY:['النتيجة تخص الصفحة المختارة فقط؛ باقي الملف لم يُقرأ ضوئيًا.','Only the selected page was processed; other pages were not OCR-read.'],

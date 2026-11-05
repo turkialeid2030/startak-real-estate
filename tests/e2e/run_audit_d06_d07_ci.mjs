@@ -48,8 +48,10 @@ try{
  const bridge=market.getByTestId('market-financial-identity-bridge');
  await bridge.waitFor();
  const observedBridge=await bridge.getByTestId('market-financial-bridge-status').innerText();
- assert(observedBridge.includes('USER_CONFIRMATION_REQUIRED'),
-  'D06 valid saved financial case must offer opt-in bridge; observed='+observedBridge);
+ assert(await bridge.getByTestId('market-financial-bridge-status').locator('[data-diagnostic-code="USER_CONFIRMATION_REQUIRED"]').count()>0
+  && observedBridge.includes('راجع هوية العقار')
+  && !observedBridge.includes('USER_CONFIRMATION_REQUIRED'),
+  'D06 consent remains mandatory and legible without a visible raw reason code; observed='+observedBridge);
  const apply=bridge.getByTestId('market-financial-bridge-apply');
  assert(await apply.isDisabled(),'D06 transfer must require user acknowledgement');
  // The building model cannot guess the market asset class from its name.
