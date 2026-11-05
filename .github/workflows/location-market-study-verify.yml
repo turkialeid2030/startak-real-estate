@@ -1,0 +1,76 @@
+name: Location Market Study Verify
+on:
+  pull_request:
+    paths:
+      - 'src/market/instant-market-study.js'
+      - 'src/market/study-asof.js'
+      - 'tests/architecture/run_study_asof.js'
+      - 'src/market/valuation-decision-gate.js'
+      - 'src/market/property-report-quality.js'
+      - 'src/components/ValuationQualityPanel.jsx'
+      - 'tests/architecture/run_valuation_decision_gate.js'
+      - 'tests/architecture/run_unified_valuation_case.js'
+      - 'tests/architecture/run_appraisal_report_quality.js'
+      - 'src/market/asking-offers.js'
+      - 'src/market/transaction-cohort-unit-mix.js'
+      - 'src/market/market-study-state.js'
+      - 'src/market/saved-deal-study-sidecar.js'
+      - 'tests/architecture/run_saved_deal_research_sidecar.js'
+      - 'tests/architecture/run_market_study_state.js'
+      - 'src/components/TransactionCohortAndUnitMixPanel.jsx'
+      - 'tests/architecture/run_transaction_cohort_unit_mix.js'
+      - 'src/components/MarketOfferResearchPanel.jsx'
+      - 'tests/architecture/run_asking_offers.js'
+      - 'src/market/professional-comparable-review.js'
+      - 'src/market/value-reconciliation-audit.js'
+      - 'src/components/CrossMethodEvidencePanel.jsx'
+      - 'tests/architecture/run_value_reconciliation_audit.js'
+      - 'src/components/ProfessionalComparableReviewPanel.jsx'
+      - 'tests/architecture/run_professional_comparable_review.js'
+      - 'src/market/public-dataset-import.js'
+      - 'src/market/saudi-open-data-research.js'
+      - 'src/components/PropertyMarketLocationPanel.jsx'
+      - 'src/app/App.jsx'
+      - 'tests/architecture/run_instant_market_study.js'
+      - 'tests/architecture/run_public_market_csv_import.js'
+      - 'tests/architecture/run_saudi_open_data_research.js'
+      - 'tests/architecture/run_saudi_open_data_live_smoke.js'
+      - 'tests/e2e/run_location_market_study_ci.mjs'
+      - '.github/workflows/location-market-study-verify.yml'
+  workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci --ignore-scripts
+      - run: node tests/architecture/run_instant_market_study.js
+      - run: node tests/architecture/run_study_asof.js
+      - run: node tests/architecture/run_valuation_decision_gate.js
+      - run: node tests/architecture/run_unified_valuation_case.js
+      - run: node tests/architecture/run_appraisal_report_quality.js
+      - run: node tests/architecture/run_asking_offers.js
+      - run: node tests/architecture/run_transaction_cohort_unit_mix.js
+      - run: node tests/architecture/run_market_study_state.js
+      - run: node tests/architecture/run_saved_deal_research_sidecar.js
+      - run: node tests/architecture/run_professional_comparable_review.js
+      - run: node tests/architecture/run_value_reconciliation_audit.js
+      - run: node tests/architecture/run_public_market_csv_import.js
+      - run: node tests/architecture/run_saudi_open_data_research.js
+      - run: node tests/architecture/run_saudi_open_data_live_smoke.js
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: node tests/e2e/run_location_market_study_ci.mjs

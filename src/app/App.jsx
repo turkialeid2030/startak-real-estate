@@ -12,6 +12,7 @@ import {
   MapPin, AlertTriangle, Bookmark, Save, Trash2,
 } from "lucide-react";
 import ResidentialIncomeAcquisitionPanel from "../components/ResidentialIncomeAcquisitionPanel.jsx";
+import PropertyMarketLocationPanel from "../components/PropertyMarketLocationPanel.jsx";
 import ValuationIntelligencePanel from "../components/ValuationIntelligencePanel.jsx";
 import PersonalInvestmentResearchPanel from "../components/PersonalInvestmentResearchPanel.jsx";
 import PaybackDisclosurePanel from "../components/PaybackDisclosurePanel.jsx";
@@ -2260,6 +2261,8 @@ export default function App() {
             />}
           </main>
         </div>
+
+        <PropertyMarketLocationPanel />
 
         <div hidden={mode !== "building"} data-testid="building-valuation-draft-container">
           <ValuationIntelligencePanel
