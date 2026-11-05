@@ -336,7 +336,7 @@ export default function LocalDocumentEvidenceIntakePanel({ onRecordChange = null
               <div className="rounded-lg border border-amber-800/50 bg-amber-950/20 p-3">
                 <div className="text-xs font-semibold text-amber-200">{l.warnings}</div>
                 <ul className="mt-2 space-y-1 text-[11px] leading-5 text-amber-100/80">
-                  {record.result.warnings.map((warning) => <li key={warning}>• <DiagnosticText code={warning} locale={locale} /></li>)}
+                  {record.result.warnings.map((warning) => <li key={warning} data-reason-code={warning}>• <DiagnosticText code={warning} locale={locale} /></li>)}
                 </ul>
               </div>
             ) : null}
