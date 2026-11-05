@@ -75,7 +75,7 @@ async function textContrast(locator){return locator.evaluate(el=>{
    await expect(documentPanel).toContainText('1500.00');checks++;
    await documentPanel.getByTestId('manual-transcription').locator('summary').click();
    await page.getByTestId('manual-text').fill('1500');await page.getByTestId('manual-page').fill('1');await page.getByTestId('manual-reviewerRef').fill('TRANSCRIBER');await page.getByTestId('manual-note').fill('Rent column page 1');await page.getByTestId('apply-manual-transcription').click();
-   await expect(documentPanel).toContainText('MANUAL_TRANSCRIPTION_UNVERIFIED');checks++;
+   await expect(documentPanel.getByTestId('local-document-parser-reason')).toContainText('هذا المحتوى نُقل يدويًا ولم يُتحقق من مطابقته للمصدر بعد.');await expect(documentPanel.getByTestId('local-document-parser-reason')).toHaveAttribute('data-reason-code','MANUAL_TRANSCRIPTION_UNVERIFIED');await expect(documentPanel.getByTestId('local-document-parser-reason')).not.toContainText('MANUAL_TRANSCRIPTION_UNVERIFIED');checks+=3;
    const qualification=page.getByTestId('local-evidence-qualification');await page.getByTestId('evidence-atom-select').selectOption({index:1});
    // Existing qualification controls use stable test IDs.
    await page.getByTestId('semantic-key-input').fill('market.rent');
