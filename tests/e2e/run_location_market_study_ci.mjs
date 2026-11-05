@@ -436,8 +436,10 @@ try{
  await fusion.waitFor({state:'visible'});
  assert((await fusion.getByTestId('fusion-statistics').innerText()).includes('السجلات البحثية:'),
   'Unified multi-source research totals must be shown');
- assert((await fusion.getByTestId('fusion-risk-codes').innerText()).includes('RESEARCH_ONLY_NOT_INDEPENDENTLY_VERIFIED'),
-  'Combined data must never grant a certified price or investment decision');
+ const fusionRiskSurface=fusion.getByTestId('fusion-risk-codes');
+ assert(await fusionRiskSurface.locator('[data-diagnostic-code="RESEARCH_ONLY_NOT_INDEPENDENTLY_VERIFIED"]').count()>0
+  && !(await fusionRiskSurface.innerText()).includes('RESEARCH_ONLY_NOT_INDEPENDENTLY_VERIFIED'),
+  'Combined research retains internal hold status without showing raw diagnostic codes');
  const [fusionDownload]=await Promise.all([
   page.waitForEvent('download'),fusion.getByTestId('fusion-export').click()]);
  const fusionJson=JSON.parse(fs.readFileSync(await fusionDownload.path(),'utf8'));

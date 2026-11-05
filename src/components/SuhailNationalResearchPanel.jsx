@@ -87,7 +87,7 @@ export default function SuhailNationalResearchPanel({onResearchChange}){
   <p className="mt-2 text-xs text-slate-400">{en?'Showing ':'المعروض: '}
     {Math.min(visible.length,50)} {en?'of ':'من '}{visible.length}
     {en?' filtered research rows. Financial comparables remain blocked; aggregates cannot be blended across periods or sources. Zero transfers with a nonzero sqm indicator is not evidence that a property is worthless.':' سجلات بعد التصفية. المقارنة المالية محجوبة؛ ولا تُدمج القيم المجمعة بين فترات أو مصادر مختلفة. صفر إفراغات مع متوسط متر غير صفري لا يعني عدم وجود قيمة للعقار.'}</p>
-  <a className="mt-2 inline-block text-xs text-sky-300 underline" href={SOURCE_URL}
+  <a className="mt-2 inline-flex min-h-[44px] items-center rounded-lg px-3 py-2 text-xs text-sky-300 underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" href={SOURCE_URL}
    target="_blank" rel="noopener noreferrer">{en?'Open Suhail source':'عرض المصدر الأصلي — سهيل'}</a>
   {note&&<p role="status" className="mt-3 text-xs" data-testid="suhail-import-status">{note}</p>}
  </section>;
