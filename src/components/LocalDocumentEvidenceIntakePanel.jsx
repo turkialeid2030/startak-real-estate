@@ -299,7 +299,7 @@ export default function LocalDocumentEvidenceIntakePanel({ onRecordChange = null
         {record?.result?.adapterId==='LOCAL_OCR_PAGE_V1'&&record.result.status==='PARSED'&&<button data-testid="local-ocr-export" type="button" onClick={exportOcr} className="mt-3 rounded border border-sky-600 px-3 py-2 text-xs text-sky-200">{isAr?'تصدير كل النص المستخرج ومواضعه ومراجعه':'Export all extracted text, positions and source references'}</button>}
 
         {error ? (
-          <div role="alert" className="mt-4 rounded-lg border border-rose-800/60 bg-rose-950/20 p-3 text-xs text-rose-200">{error.labelKey?l[error.labelKey]:<DiagnosticText code={error} locale={locale} />}</div>
+          <div role="alert" data-reason-code={typeof error==='string'?error:''} className="mt-4 rounded-lg border border-rose-800/60 bg-rose-950/20 p-3 text-xs text-rose-200">{error.labelKey?l[error.labelKey]:<DiagnosticText code={error} locale={locale} />}</div>
         ) : null}
 
         {record ? (
@@ -324,6 +324,7 @@ export default function LocalDocumentEvidenceIntakePanel({ onRecordChange = null
                 <div
                   data-testid="local-document-parser-reason"
                   data-parser-reason={record.result.reason || ''}
+                  data-reason-code={record.result.reason || ''}
                   className="mt-1 text-xs text-slate-200"
                 >
                   {record.result.reason ? <DiagnosticText code={record.result.reason} locale={locale} /> : '—'}
