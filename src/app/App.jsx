@@ -2,7 +2,7 @@ import RentalCalendarPanel from "../components/RentalCalendarPanel.jsx";
 import CapitalizationBasisPanel from "../components/CapitalizationBasisPanel.jsx";
 import InputProvenancePanel from "../components/InputProvenancePanel.jsx";
 import OwnerDatedScenarioPanel from "../components/OwnerDatedScenarioPanel.jsx";
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import {
   ComposedChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   ReferenceLine,
@@ -1628,6 +1628,15 @@ export default function App() {
   // Its financial inputs remain separate until an explicit reviewed bridge.
   const [ownerMarketSubject,setOwnerMarketSubject]=useState(createInitialMarketSubject);
   const [ownerMarketSummary,setOwnerMarketSummary]=useState(null);
+  // The market study's rolling as-of timestamp can refresh per render.
+  // Only propagate changed, user-visible summary fields; otherwise an
+  // App -> market panel -> App feedback cycle can starve lazy workspaces.
+  const updateOwnerMarketSummary=useCallback(next=>{
+    setOwnerMarketSummary(previous=>{
+      if(previous!==null&&next!==null&&JSON.stringify(previous)===JSON.stringify(next))return previous;
+      return next;
+    });
+  },[]);
   useEffect(()=>{
     document.body.dataset.startakOwnerView=ownerView;
     document.body.dataset.startakOwnerStep=String(ownerStep);
@@ -2321,7 +2330,7 @@ export default function App() {
         <PropertyMarketLocationPanel
           ownerSubject={ownerMarketSubject}
           onOwnerSubjectChange={setOwnerMarketSubject}
-          onOwnerMarketSummaryChange={setOwnerMarketSummary}
+          onOwnerMarketSummaryChange={updateOwnerMarketSummary}
           financialStudy={{
           mode,inputs,results,validationError:activeValidationError,
           dealName:activeDealName||inputs.projectTitle||''
