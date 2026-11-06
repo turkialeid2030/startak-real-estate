@@ -88,7 +88,7 @@ function validateCases(fixture){
 try {
   const fixture=await load('fixture');
   const ids=validateCases(fixture);
-  mark('REFERENCE_FORMULA=PASS','cases=17 expected_values_unchanged=true independent_market_verified=false');
+  mark('REFERENCE_FORMULA=PASS','cases=17 fixture_self_consistency=true source_authenticity_unverified=true independent_market_verified=false');
   if(!opts.has('engine-results')){
     mark('ENGINE_PARITY=BLOCKED_NOT_SUPPLIED');
     process.exit(2);
@@ -104,7 +104,11 @@ try {
     const row=actuals.get(c.id);
     if(!row||!same(row,c.expected))fail('ENGINE_OUTPUT_MISMATCH');
   }
-  mark('ENGINE_PARITY=PASS','cases=17 exact_value_and_rent=true');
+  mark('ENGINE_OUTPUT_ARTIFACT_CONSISTENCY=PASS','cases=17 exact_value_and_rent=true untrusted_input=true');
+  // A supplied JSON file can be hand-authored: matching numbers cannot prove
+  // it was produced by executing STARTAK engines. Never mark engine parity PASS
+  // until an independent executor binds source hash, exact engine SHA and logs.
+  mark('ENGINE_PARITY=BLOCKED_TRUSTED_EXECUTION_PROOF_REQUIRED');
   if(!opts.has('irr-provenance')){
     mark('IRR_BASELINE=BLOCKED_SOURCE_MAPPING_REQUIRED');
     process.exit(2);
