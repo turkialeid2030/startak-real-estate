@@ -13,7 +13,8 @@ import {
   MapPin, AlertTriangle, Bookmark, Save, Trash2,
 } from "lucide-react";
 import ResidentialIncomeAcquisitionPanel from "../components/ResidentialIncomeAcquisitionPanel.jsx";
-import PropertyMarketLocationPanel, {createInitialMarketSubject} from "../components/PropertyMarketLocationPanel.jsx";
+import PropertyMarketLocationPanel from "../components/PropertyMarketLocationPanel.jsx";
+const {createInitialMarketSubject}=require('../market/initial-market-subject');
 import ValuationIntelligencePanel from "../components/ValuationIntelligencePanel.jsx";
 import PersonalInvestmentResearchPanel from "../components/PersonalInvestmentResearchPanel.jsx";
 import PaybackDisclosurePanel from "../components/PaybackDisclosurePanel.jsx";
