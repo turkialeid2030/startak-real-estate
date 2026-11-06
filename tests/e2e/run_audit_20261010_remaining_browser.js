@@ -157,7 +157,7 @@ async function textContrast(locator){return locator.evaluate(el=>{
    await financingSection.click();await expect(debtSwitch).toHaveCount(0);await expect(financingBody).toHaveAttribute('aria-hidden','true');checks+=2;
    const provenance=page.getByTestId('input-provenance');await provenance.locator('summary').click();
    for(const[key,value]of Object.entries({field:'buildingPrice',unit:'SAR',sourceReference:'USER ESTIMATE / source',sourceDate:'2026-10-01',location:'Riyadh',reviewerRef:'OWNER'})) {const control=page.getByTestId('provenance-'+key);if(key==='field')await control.selectOption(value);else await control.fill(value);}
-   await page.getByTestId('save-input-provenance').click();await expect(provenance).toContainText('USER_SUPPLIED_UNVERIFIED');checks++;
+   await page.getByTestId('save-input-provenance').click();await expect(provenance.locator('[data-diagnostic-code="USER_SUPPLIED_UNVERIFIED"]')).toContainText('مصدر أدخله المستخدم ولم تُثبت صحته');await expect(provenance).not.toContainText('USER_SUPPLIED_UNVERIFIED');checks++;
    const report=JSON.parse(await download(page,page.getByTestId('c75-export-personal-json')));ok(verifyPersonalFinancialStudy(report)&&report.financial.inputProvenance.buildingPrice.sourceReference==='USER ESTIMATE / source','actual UI financial export includes input provenance');
    const canonical=page.getByTestId('canonical-case-workspace-panel');
    for(const[label,value]of [['معرّف مساحة العمل','WS-LOCAL-AUDIT'],['معرّف المشروع','PROJECT-LOCAL-AUDIT'],['معرّف الحالة','CASE-LOCAL-AUDIT'],['معرّف المحلل / المستخدم','OWNER']]) await canonical.getByRole('textbox',{name:label,exact:true}).fill(value);
