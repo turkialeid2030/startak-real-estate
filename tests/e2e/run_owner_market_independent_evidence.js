@@ -65,6 +65,15 @@ const {expect}=require('@playwright/test');
   await eq(ownerRent,money(520000));
   await expect(page.getByTestId('owner-market-results')).toContainText('بيع: 2');
   checks++;
+  // The simple evidence step must link to the original, live comparable forms;
+  // its counts must reflect the *qualified* sale and rent cohorts, not rows.
+  await page.getByTestId('owner-step-2').click();
+  await expect(page.getByTestId('owner-evidence-counts')).toContainText('بيع: 2');checks++;
+  await expect(page.getByTestId('owner-evidence-counts')).toContainText('إيجار: 3');checks++;
+  await page.getByTestId('owner-open-sales').click();
+  await expect(page.getByTestId('market-comparables-sale')).toBeFocused();checks++;
+  await page.getByTestId('owner-open-rentals').click();
+  await expect(page.getByTestId('market-comparables-rent')).toBeFocused();checks++;
   // With a third executed sale the separate sale and income estimates agree
   // within the existing 20% method-reconciliation gate; no synthetic result
   // becomes professionally certified.
