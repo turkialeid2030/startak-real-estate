@@ -126,9 +126,10 @@ async function openPurchaseInputs(page) {
           await rentInput.fill(raw);
           await expect(rentInput).toHaveValue(raw);
           await expect(rentInput).toHaveAttribute('aria-invalid', 'true'); checks += 2;
-          await expect(page.getByTestId('building-price-boundary')).toHaveText('—');
+          await expect(page.getByTestId('current-calculation-unavailable').first()).toBeVisible();
+          await expect(page.getByTestId('building-price-boundary')).toHaveCount(0);
           await expect(page.getByTestId('building-price-alternative-value')).toHaveCount(0);
-          await expect(page.getByTestId('building-price-review-invalid')).toBeVisible(); checks += 3;
+          await expect(page.getByTestId('building-price-review-invalid')).toHaveCount(0); checks += 4;
           await expect(page.getByTestId('building-price-certificate-value')).toHaveCount(0);checks++;
           const invalidNumeric = await jsonReport(page);
           ok(invalidNumeric.financial.status === 'INPUTS_INVALID' && invalidNumeric.financial.results === null
@@ -154,14 +155,14 @@ async function openPurchaseInputs(page) {
         await project.fill(PROJECT);
         await project.fill('X'.repeat(32001));
         await expect(project).toHaveValue(PROJECT);
-        await expect(page.getByTestId('valuation-draft-edit-error')).toContainText('INVALID_VALUATION_EDITOR_DRAFT');
+        await expect(page.getByTestId('valuation-draft-edit-error').locator('[data-diagnostic-code="INVALID_VALUATION_EDITOR_DRAFT"]')).toContainText('تعذر حفظ هذا التغيير في المسودة');
         checks += 2;
         await project.fill(PROJECT + '-RECOVERED');
         await expect(page.getByTestId('valuation-draft-edit-error')).not.toBeVisible();
         await project.fill(PROJECT);
         checks++;
         await page.getByTestId('valuation-v1-apply').click();
-        await expect(page.getByTestId('valuation-v1-panel').locator('[data-diagnostic-content]')).toContainText('INVALID_ENUM');
+        await expect(page.getByTestId('valuation-v1-panel').locator('[data-diagnostic-code="INVALID_ENUM"]')).toContainText('اختر قيمة مدعومة');
         await expect(page.getByTestId('valuation-v1-panel')).toContainText('اختر قيمة مدعومة');
         checks += 2;
         await page.getByRole('button', { name: ar.mode.land, exact: true }).click();

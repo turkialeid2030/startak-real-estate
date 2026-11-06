@@ -75,8 +75,11 @@ async function main(){
  assert.deepEqual(draftRestore,canonicalState(draft));
  // Runtime UI must clear computed output and never restore authority.
  const ui=fs.readFileSync('src/components/PersonalLimitedInterestDcfPanel.jsx','utf8');
- assert.ok(ui.includes('الإيراد العقاري السنوي قبل مصروفات التشغيل'),
-  'rights income must not be mislabeled as NOI then charged costs twice');
+ const {researchFieldLabel}=require('../../src/i18n/personal-research-presentation');
+ assert.ok(ui.includes('researchFieldLabel(k,locale)')&&
+  researchFieldLabel('annualPropertyIncomeSar','ar-SA').includes('الإيراد العقاري السنوي قبل مصروفات التشغيل')&&
+  researchFieldLabel('annualPropertyIncomeSar','en').includes('before OPEX, ground rent and maintenance'),
+  'rights income must not be mislabeled as NOI then charged costs twice in either locale');
  for(const t of [
   'data-testid="limited-interest-export-case"',
   'data-testid="limited-interest-import-case"',

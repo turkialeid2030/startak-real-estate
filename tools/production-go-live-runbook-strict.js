@@ -78,12 +78,10 @@ function main() {
     const result = execute(args);
     if (args.out) baseTool.writePrivateJson(args.out, result);
     else process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
-    if ([
-      STATUS.HOLD_PRODUCTION_CHAIN_PROVENANCE_PIN,
-      STATUS.HOLD_PRODUCTION_CHAIN_INTEGRITY,
-      STATUS.HOLD_PRODUCTION_CHAIN_STAGE_GAP,
-      STATUS.HOLD_RELEASE_CANDIDATE_DRIFT,
-    ].includes(result.status)) process.exit(2);
+    // The strict CLI must preserve the base tool's per-mode exit contract:
+    // e2g/e2h/e2i are not successful unless explicitly ready for external signing.
+    // Do not treat an arbitrary WAITING/unknown response as shell success.
+    if (baseTool.shouldExitHold(args, result)) process.exit(2);
   } catch (error) {
     console.error(`STRICT_PRODUCTION_GO_LIVE_RUNBOOK_ERROR: ${error.message}`);
     process.exit(65);
@@ -94,5 +92,6 @@ if (require.main === module) main();
 
 module.exports = {
   execute,
+  shouldExitHold: baseTool.shouldExitHold,
   main,
 };

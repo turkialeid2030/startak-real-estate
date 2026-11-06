@@ -1,6 +1,7 @@
 import './index.css';
 import React, {lazy,Suspense} from 'react';
 import WorkspaceErrorBoundary from './components/WorkspaceErrorBoundary.jsx';
+import {AppraisalReviewSessionProvider} from './components/AppraisalReviewSessionContext.jsx';
 import AssetSupportPanel from './components/AssetSupportPanel.jsx';
 import ReactDOM from 'react-dom/client';
 import App from './app/App.jsx';
@@ -30,6 +31,7 @@ installGlobalHandlers(); // privacy-minimized live Sentry provider
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <LocaleProvider defaultLocale="ar-SA">
+      <AppraisalReviewSessionProvider>
       <ComplianceBoundaryNotice />
       <AssetSupportPanel />
       <App />
@@ -45,6 +47,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         </Suspense>
       </WorkspaceErrorBoundary>
       <StrictArabicSurfaceGuard />
+      </AppraisalReviewSessionProvider>
     </LocaleProvider>
   </React.StrictMode>
 );

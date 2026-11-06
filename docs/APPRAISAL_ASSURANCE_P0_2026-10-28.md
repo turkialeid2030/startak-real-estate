@@ -1,0 +1,119 @@
+# STARTAK — Appraisal Assurance P0 (28 October 2026)
+
+## Release boundary
+
+This is a **non-certified, pure-data review engine** built as a **stacked change** on the personal research feature branch feature/location-market-valuation-20261027 (PR #763). It does not merge or deploy, authorize the release, extract files from user uploads, verify title deeds, or provide professional valuation advice.
+
+## Included and code locations
+
+- src/market/appraisal-assurance.js: auditAppraisal, compareVersions, classifyReportIds, and locale-aware number parser.
+- src/market/index.js: exposes the module under appraisalAssurance and its named functions. Existing economics and Saved Deals remain unchanged.
+- tests/valuation/appraisal-assurance.test.js: 12 regression cases with **synthetic** facts, no source reports or client data.
+- src/market/valuation-decision-gate.js: optionally accepts appraisalReview. Its HOLD result adds APPRAISAL_AUDIT_HOLD to the existing hard gate; no audit result can grant approval.
+- tests/valuation/appraisal-decision-bridge.test.js: 3 additional regression cases for the restrictive-only bridge.
+- tools/release-verify.js and tests/verify_package.js: include valuation test folder in mandatory test discovery.
+
+## Input contract (selected fields)
+
+Use *manually reviewed structured input* only. Do not claim scanned PDF ingestion is implemented.
+
+| Input | Purpose |
+| --- | --- |
+| reportId, valuationDate | Version identity / as-of |
+| property.deedNumber, property.owner, property.rightType, property.areaSqm | Identifying mismatches; data remain in authorized private runtime |
+| reported.capitalValueSar, reported.marketRentSar | Quoted valuation and rent |
+| income.annualGrossRevenueSar, income.vacancyLossSar, income.operatingExpensesSar, income.annualNoiSar | NOI bridge |
+| income.capitalizationRatePct, income.indicatedValueSar | Income-approach arithmetic |
+| marketRent.annualRentSar, marketRent.capitalValueBasisSar, marketRent.percentOfCapitalValue, marketRent.derivation | Rent independence check |
+| income.rentUsesThisEstimate, marketRent.usedAsIncomeApproachEvidence | Explicit circular dependence |
+| pages.income, pages.rent | Page numbers for manual review |
+| provenance.reportFileHash | Private input fingerprint; do not commit actual source hashes alongside client identities |
+| provenance.comparableEvidenceIndependentlyVerified | Attested evidence flag; NOT automated source verification |
+
+The return state is HOLD (material arithmetic/circularity issue) or REVIEW_REQUIRED (no detected blocker but never approved), always with certification: NOT_AUTHORIZED and approvedForPublication: false.
+
+### Example (synthetic)
+
+~~~js
+const { auditAppraisal } = require('./src/market/appraisal-assurance');
+const result = auditAppraisal({
+  reportId:'SYNTHETIC-1', valuationDate:'2026-01-01',
+  income:{annualNoiSar:2_100_000, capitalizationRatePct:7, indicatedValueSar:55_000_000},
+  pages:{income:42}
+});
+// result.status === 'HOLD', with INCOME_CAPITALIZATION_MISMATCH
+~~~
+
+## Acceptance and non-acceptance
+
+The 12 standalone synthetic unit checks passed locally under Node 22. Three additional bridge tests have been committed but have not been validated locally; repository CI must confirm all 15 cases and full regression for the final SHA. This is not equivalent to a production or professional qualification.
+
+Unimplemented, therefore **open**:
+1. OCR / PDF ingestion and page-level extraction with manual corrections;
+2. protected evidence-store, reviewer workflow and automated authenticated evidence verification;
+3. UI integration / rendering of provenance, issue severity and reasons; the headless optional decision gate bridge is implemented but is not end-to-end UI enforcement;
+4. qualified hotel / fuel station / logistics / shopping-center segment models;
+5. independent Saudi market benchmarking / out-of-sample validation and model calibration;
+6. E2F/E2G professional, data-rights, regulatory, security, approval and production-deployment gates.
+
+Never put confidential reports, actual deed numbers, owners, rental amounts linked to real property or private training datasets in a public repository. New review code does not change the existing HOLD/NOT_AUTHORIZED launch posture.
+
+## Follow-up implementation plan
+
+- P0-A: UI form for manual report fields, evidence status and discrepancy table; browser screenshots and accessibility.
+- P0-B: private report version store with SHA256, deduplication by licensed property rights and as-of, not report ID alone.
+- P0-C: admissibility decision connected to current decision-governance gate; no export of unsupported valuations.
+- P1: sector-specific NOI/DCF models and scenario/hold/invest decision ranges, with legal rent review and investment risk.
+- P2: independently licensed completed transactions, holdout QA, sector/geography MAE/MAPE and drift monitoring.
+
+
+## P0-A manual workbench delivery (28 October 2026, additional changes)
+
+- src/components/AppraisalAssuranceWorkbench.jsx mounts under the existing local document evidence workspace; RTL first, accessible labels and explicit open/close.
+- Existing LocalDocumentEvidenceIntakePanel remains the only PDF/document intake path. The appraisal workbench *does not auto-import or trust OCR*; users manually enter and check numbers and page references.
+- Digest from the existing local intake is shown to the reviewer; working inputs exist only in React memory and reset when the source digest changes or the reviewer presses Reset.
+- The workbench shows independent NOI/cap-rate recalculation, HOLD/REVIEW_REQUIRED findings and their referenced pages, and version comparisons. There is no certified export or single-click approval action.
+- tests/e2e/run_appraisal_assurance_ci.mjs exercises the RTL browser path with synthetic data; .github/workflows/location-market-study-verify.yml makes that browser test mandatory.
+- **No full professional gate claim**: this review is **not yet** bound to a specific current financial Saved Deal, nor does it supersede all existing export routes; the existing optional valuation-decision-gate bridge is restrictive-only. An identity-checked canonical link and end-to-end cross-route negative tests remain required for full P0-C closure.
+- **No institutionally secured document store**: existing local extraction with SHA256 is not equivalent to durable encrypted RBAC storage, retention controls or independent reviewer approval. P0-B remains open.
+- Browser CI result must be checked on the final PR head SHA. Source changes above do not, by themselves, demonstrate deployment or market accuracy.
+
+
+## P0-C session linkage scope and boundary (additional delivery)
+
+The following is implemented in the current draft PR:
+- src/market/appraisal-study-binding.js matches non-empty report ID, user-attested same property **name, asset type, land area and valuation date**, and a valid 64-digit SHA-256 digest of the locally inspected document.
+- src/components/AppraisalReviewSessionContext.jsx keeps the link in React memory only, never a window global, Saved Deal record, analytics event, or persistent storage.
+- src/components/AppraisalAssuranceWorkbench.jsx offers an explicit manual link action. It is unavailable without the source digest, property/date match and user acknowledgment; none of this constitutes independent title verification.
+- src/components/PropertyMarketLocationPanel.jsx consumes the linked audit via the existing restrictive-only valuation readiness gate. The report HOLD blocks a single preliminary market value and the *personal research JSON export from this particular panel*. Links are invalidated if study identity changes, including a change later reverted.
+- tests/valuation/appraisal-study-binding.test.js exercises identity, required hash, explicit attestation, stale invalidation, and export-block semantics. The existing appraisal browser CI now tests a synthetic image upload with same-study binding, blocked JSON export, and changed-identity invalidation.
+
+**Still open / not implied:**
+- No legal deed, property rights, source hash authenticity, reviewer identity or independent market evidence verified.
+- No canonical Saved Deal identity handshake: the private report is bound to the *current market study input*, not a specific persisted financial transaction.
+- No global production-wide export gate. This feature controls the current personal market study JSON route; all other investment/report/export flows still require a separate canonical report-authority integration and security review.
+- No certified or commercial output, and no automatic extraction/adoption of OCR data.
+
+Run the final SHA's GitHub Actions workflows including Location Market Study Verify and Release Verify before engineering qualification. E2F/E2G and Q01-Q12 remain unclosed.
+
+
+## P0-C Saved Deal sidecar hardening
+
+Implemented in the subsequent draft PR update:
+- The saveResearchSidecar function now accepts optional appraisalLink and calls appraisalSidecarGate on the parsed study subject after validating the canonical Saved Deal. A linked HOLD, stale/invalidated link, malformed link or mismatch with the saved deal name rejects before writing the sidecar. An unlinked personal study retains its original research-only behavior.
+- A valid LINKED_REVIEW_REQUIRED (explicit user-attested, not professionally validated) may save only the existing sanitized research input fields. No report PDF, file hash, appraisal verdict, reviewer assertion, or certification is stored in the sidecar envelope. The canonical Saved Deal and its index are untouched.
+- The market study UI also disables the save action when a link is blocked. Restoring a sidecar or importing JSON invalidates any live review link even if the imported subject identity is unchanged. Re-linking needs a fresh, explicit user review of the source.
+- Synthetic Node tests in tests/valuation/appraisal-sidecar-gate.test.js cover HOLD, stale, corrupted link, name mismatch, unlinked legacy behavior, and limited REVIEW_REQUIRED allow. Browser smoke checks that HOLD disables sidecar save.
+- This does not establish verified legal identity for a Saved Deal. Matching user-controlled property names and report study fields is not proof of deed or beneficial rights; separate professional and access-control approval remains required.
+- Never describe this limited internal Saved Deal sidecar gate as covering every financial/deal export or the institutional private evidence store. P0-C remains partial, and P0-B remains open.
+
+
+## Active-session personal report quarantine
+
+A further restrictive-only integration now covers the personal financial study HTML and JSON export buttons:
+- The new file src/market/appraisal-report-export-gate.js makes a linked HOLD, stale/invalidated or malformed report-study link reject private report exports on the current browser research session. Its guard is invoked inside the save action in PersonalInvestmentResearchPanel.jsx; disabling the two buttons is only an additional UX precaution.
+- An unlinked study stays a non-certified personal draft and can be exported as before. A valid REVIEW_REQUIRED linked audit does not grant professional approval or independent source verification.
+- The guard is intentionally conservative across the current research session, because the separate financial report route does not yet have a trustworthy canonical-property identity handshake. It may withhold reports for an unrelated draft while an active HOLD is linked. Clear or re-review the appraisal link to return to independent personal research, but do not interpret this as a professional resolution.
+- Canonical Saved Deal backups and operating-case input snapshots are not certified valuation reports; this additional guard does not modify their storage paths.
+- Six synthetic unit checks in tests/valuation/appraisal-personal-report-export.test.js and negative/positive browser cases in tests/e2e/run_appraisal_assurance_ci.mjs cover the new scope.
+- Full organization-wide report authority, all financial exports, legal identity verification, data rights and institutional access controls remain not implemented. This is not P0-C closure and is not permission to merge or deploy.

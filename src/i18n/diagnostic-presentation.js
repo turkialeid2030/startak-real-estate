@@ -3,6 +3,7 @@ const { LABELS } = require('../app/valuation-labels');
 const { ARABIC_VALUE_LABELS } = require('./strict-arabic-presentation');
 
 const REASONS = Object.freeze({
+  USER_CONFIRMATION_REQUIRED:['راجع هوية العقار ثم أكد نقل بيانات الدراسة المالية إلى دراسة السوق.','Review the property identity and confirm before transferring financial study inputs into the market study.'],
   IMAGE_OCR_NOT_RUN:['اختر قراءة الصفحة ضوئيًا لاستخراج نص الصورة محليًا.','Choose local OCR to extract text from this image.'],
   OCR_UNVERIFIED_REVIEW_REQUIRED:['نص مستخرج ضوئيًا غير متحقق؛ قارنه بالأصل قبل الاعتماد.','Unverified OCR text; compare it with the original before adoption.'],
   OCR_SELECTED_PAGE_ONLY:['النتيجة تخص الصفحة المختارة فقط؛ باقي الملف لم يُقرأ ضوئيًا.','Only the selected page was processed; other pages were not OCR-read.'],
@@ -109,7 +110,7 @@ function describeDiagnostic(value, locale = 'ar-SA') {
     || (ar ? EXTRA_REASONS[code] : null) || catalog?.reason?.[code] || catalog?.method?.[code] || catalog?.state?.[code] || catalog?.engineStatus?.[code] || REASONS[code]?.[ar ? 0 : 1]
     || (ar ? ARABIC_VALUE_LABELS[code] : null);
   return Object.freeze({ code, message: known || (ar
-    ? 'تحتاج هذه الحالة إلى مراجعة تفصيلية وفق الرمز المرفق؛ لم يُحذف السبب الأصلي.'
-    : 'Review this condition using the attached code; the original reason is retained.') });
+    ? 'راجع المدخلات والأدلة المطلوبة قبل إعادة المحاولة؛ لم تُصدر نتيجة معتمدة.'
+    : 'Review the inputs and required evidence before retrying; no verified result was issued.') });
 }
 module.exports = { describeDiagnostic, REASONS };

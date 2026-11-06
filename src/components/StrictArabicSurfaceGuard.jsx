@@ -145,32 +145,32 @@ function translateAttribute(value) {
   return exact[value] || translateArabicSurfaceText(value);
 }
 
-function processElement(element) {
+function processElement(element, remember = () => {}) {
   if (!element || element.nodeType !== 1) return;
   if (element.closest('[data-user-content], [data-diagnostic-content], [translate="no"], script, style, code, pre')) return;
   for (const attr of ['title', 'aria-label', 'placeholder']) {
     if (element.hasAttribute(attr)) {
       const before = element.getAttribute(attr);
       const after = translateAttribute(before);
-      if (after !== before) element.setAttribute(attr, after);
+      if (after !== before) { remember(element, attr, before, after); element.setAttribute(attr, after); }
     }
   }
 }
 
-function processTree(root) {
+function processTree(root, remember = () => {}) {
   if (!root || typeof document === 'undefined') return;
-  if (root.nodeType === 1) processElement(root);
+  if (root.nodeType === 1) processElement(root, remember);
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
   let node = walker.currentNode;
   while (node) {
     if (node.nodeType === 1) {
-      processElement(node);
+      processElement(node, remember);
     } else if (node.nodeType === 3) {
       const parent = node.parentElement;
       if (parent && !parent.closest('[data-user-content], [data-diagnostic-content], [translate="no"], script, style, code, pre, input, textarea')) {
         const before = node.nodeValue;
         const after = translateArabicSurfaceText(before);
-        if (after !== before) node.nodeValue = after;
+        if (after !== before) { remember(node, null, before, after); node.nodeValue = after; }
       }
     }
     node = walker.nextNode();
@@ -185,10 +185,20 @@ export default function StrictArabicSurfaceGuard() {
     const root = document.getElementById('root');
     if (!root) return undefined;
 
+    // React may keep a static node unchanged when the locale changes. Restore
+    // only guard-owned mutations; never overwrite a newer React/user value.
+    const changes = new Map();
+    const remember = (node, attr, before, after) => {
+      let fields = changes.get(node);
+      if (!fields) { fields = new Map(); changes.set(node, fields); }
+      const previous = fields.get(attr);
+      fields.set(attr, {before: previous && previous.after === before ? previous.before : before, after});
+    };
+    let active = true;
     let scheduled = false;
     const run = () => {
       scheduled = false;
-      processTree(root);
+      if (active) processTree(root, remember);
     };
     const schedule = () => {
       if (scheduled) return;
@@ -196,10 +206,21 @@ export default function StrictArabicSurfaceGuard() {
       queueMicrotask(run);
     };
 
-    processTree(root);
+    processTree(root, remember);
     const observer = new MutationObserver(schedule);
     observer.observe(root, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['title', 'aria-label', 'placeholder'] });
-    return () => observer.disconnect();
+    return () => {
+      active = false;
+      observer.disconnect();
+      for (const [node, fields] of changes) for (const [attr, {before, after}] of fields) {
+        const current = attr === null ? node.nodeValue : node.getAttribute(attr);
+        if (current === after) {
+          if (attr === null) node.nodeValue = before;
+          else node.setAttribute(attr, before);
+        }
+      }
+      changes.clear();
+    };
   }, [locale]);
 
   return null;

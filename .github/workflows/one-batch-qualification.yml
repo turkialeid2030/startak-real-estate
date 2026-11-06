@@ -1,0 +1,36 @@
+name: One Batch Qualification
+on:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: one-batch-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  all-stages:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      STARTAK_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - name: Run every engineering, browser and external qualification stage in one batch
+        run: node tools/verify-all-stages.mjs --out-dir=/tmp/startak-one-batch
+      - name: Preserve unified results even when full qualification is held
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: all-stages-${{ github.event.pull_request.head.sha }}
+          path: |
+            /tmp/startak-one-batch/
+            runtime-evidence/remaining-audit/
+          if-no-files-found: error

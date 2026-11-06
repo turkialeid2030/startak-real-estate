@@ -252,4 +252,26 @@ function e2hPacket(e2g, complete = true) {
   }
 })();
 
+(function strictCliReadyStateExitContract() {
+  // This is an exit-status test, not a synthetic professional authorization.
+  const {shouldExitHold} = require('../../tools/production-go-live-runbook-strict');
+  const modes = {
+    e2g: 'READY_FOR_EXTERNAL_HUMAN_RSA_SHA256_SIGNATURE',
+    e2h: 'READY_FOR_EXTERNAL_EXECUTION_RSA_SHA256_SIGNATURE',
+    e2i: 'READY_FOR_EXTERNAL_READINESS_RSA_SHA256_SIGNATURE',
+  };
+  for(const [mode,ready] of Object.entries(modes)){
+    assert.strictEqual(shouldExitHold({mode},{status:'WAITING_FOR_EXTERNAL_EVIDENCE',
+      upstreamPacketProvenancePinned:false,lowerLevelResult:null,blockers:[]}),true);
+    assert.strictEqual(shouldExitHold({mode},{status:ready,
+      upstreamPacketProvenancePinned:false,lowerLevelResult:{},blockers:[]}),true);
+    assert.strictEqual(shouldExitHold({mode},{status:ready,
+      upstreamPacketProvenancePinned:true,lowerLevelResult:{},blockers:['BLOCKED']}),true);
+    assert.strictEqual(shouldExitHold({mode},{status:ready,
+      upstreamPacketProvenancePinned:true,lowerLevelResult:{},blockers:[]}),false);
+  }
+  assert.strictEqual(shouldExitHold({mode:'status'},{
+    status:STATUS.HOLD_PRODUCTION_CHAIN_INTEGRITY}),true);
+})();
+
 console.log('PRODUCTION_DERIVED_STATE_STRICT_WRAPPER_TESTS=PASS');

@@ -15,6 +15,7 @@ const {
   applyCriticalEvidenceRowsToValuationCase,
 } = require('../app/critical-evidence-draft');
 const { getValuationMethodLabel } = require('../app/valuation-labels');
+const {valuationEvidenceLabel}=require('../i18n/valuation-evidence-presentation');
 
 const COLORS = Object.freeze({
   ink: '#0D1526',
@@ -114,17 +115,18 @@ function fieldSuggestionsForMethod(method, valuationCase) {
   return [...(STATIC_FIELD_SUGGESTIONS[method] || [])];
 }
 
-function CheckboxGroup({ values, selected, onChange }) {
+function CheckboxGroup({ values, selected, onChange, locale }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
       {values.map((value) => (
         <label key={value} className="flex items-center gap-2 text-[9px] px-2 py-1.5 rounded-lg" style={{ border: `1px solid ${COLORS.hairline}`, color: COLORS.slate }}>
           <input
             type="checkbox"
+            value={value}
             checked={selected.includes(value)}
             onChange={(event) => onChange(toggleListValue(selected, value, event.target.checked))}
           />
-          <span className="break-all">{value}</span>
+          <span className="break-all">{valuationEvidenceLabel(value,locale)}</span>
         </label>
       ))}
     </div>
@@ -144,7 +146,7 @@ export default function CriticalEvidenceRequirementsPanel({
   const [message, setMessage] = useState(null);
 
   useEffect(() => {
-    setMessage(null);
+    setMessage(current=>current?.context===valuationCase?current:null);
   }, [valuationCase]);
 
   const methodOptions = useMemo(() => Object.values(VALUATION_METHOD), []);
@@ -158,15 +160,17 @@ export default function CriticalEvidenceRequirementsPanel({
   const addRow = () => setRows((current) => [...current, emptyCriticalEvidenceRow()]);
   const removeRow = (index) => setRows((current) => current.filter((_, rowIndex) => rowIndex !== index));
 
+  const visibleMessage=message?.context===valuationCase?message:null;
+
   const apply = () => {
     try {
       const next = applyCriticalEvidenceRowsToValuationCase(valuationCase, rows);
       onChangeValuationCase(next);
-      setMessage({ ok: true, text: text.applied });
+      setMessage({ ok: true, context: next });
     } catch (error) {
       setMessage({
         ok: false,
-        text: text.error,
+        context: valuationCase,
         code: error?.reasonCode || error?.name || 'INVALID_CONFIGURATION',
         field: error?.field || null,
       });
@@ -174,7 +178,7 @@ export default function CriticalEvidenceRequirementsPanel({
   };
 
   return (
-    <div className="mt-4 rounded-xl p-3 md:p-4" style={{ border: `1px solid ${COLORS.hairline}`, background: 'rgba(28,44,74,0.45)' }}>
+    <div data-testid="critical-evidence-editor" dir={locale==='en'?'ltr':'rtl'} className="mt-4 rounded-xl p-3 md:p-4" style={{ border: `1px solid ${COLORS.hairline}`, background: 'rgba(28,44,74,0.45)' }}>
       <button type="button" onClick={() => setOpen((value) => !value)} className="w-full flex items-start justify-between gap-3 text-start">
         <div>
           <div className="text-xs font-semibold" style={{ color: COLORS.parchment }}>{text.title}</div>
@@ -241,11 +245,11 @@ export default function CriticalEvidenceRequirementsPanel({
                   <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 mt-3">
                     <div>
                       <div className="text-[10px] mb-2" style={{ color: COLORS.slate }}>{text.grades}</div>
-                      <CheckboxGroup values={gradeOptions} selected={row.allowedGrades} onChange={(value) => patchRow(index, 'allowedGrades', value)} />
+                      <CheckboxGroup locale={locale} values={gradeOptions} selected={row.allowedGrades} onChange={(value) => patchRow(index, 'allowedGrades', value)} />
                     </div>
                     <div>
                       <div className="text-[10px] mb-2" style={{ color: COLORS.slate }}>{text.statuses}</div>
-                      <CheckboxGroup values={statusOptions} selected={row.allowedStatuses} onChange={(value) => patchRow(index, 'allowedStatuses', value)} />
+                      <CheckboxGroup locale={locale} values={statusOptions} selected={row.allowedStatuses} onChange={(value) => patchRow(index, 'allowedStatuses', value)} />
                     </div>
                   </div>
                 </div>
@@ -253,10 +257,10 @@ export default function CriticalEvidenceRequirementsPanel({
             })}
           </div>
 
-          {message ? (
-            <div className="rounded-lg px-3 py-2 flex items-start gap-2" style={{ border: `1px solid ${message.ok ? COLORS.hairline : COLORS.negative}`, color: message.ok ? COLORS.brassSoft : COLORS.negative }}>
-              {!message.ok ? <XCircle size={13} style={{ flexShrink: 0 }} /> : null}
-              <div className="text-[10px] leading-relaxed">{message.text}{message.code && <><br/><DiagnosticText locale={locale} code={message.code}/>{message.field && <code translate="no" dir="ltr"> — {message.field}</code>}</>}</div>
+          {visibleMessage ? (
+            <div data-testid="critical-evidence-status" role="status" className="rounded-lg px-3 py-2 flex items-start gap-2" style={{ border: `1px solid ${visibleMessage.ok ? COLORS.hairline : COLORS.negative}`, color: visibleMessage.ok ? COLORS.brassSoft : COLORS.negative }}>
+              {!visibleMessage.ok ? <XCircle size={13} style={{ flexShrink: 0 }} /> : null}
+              <div className="text-[10px] leading-relaxed">{visibleMessage.ok?text.applied:text.error}{visibleMessage.code && <><br/><DiagnosticText locale={locale} code={visibleMessage.code}/>{visibleMessage.field && <code translate="no" dir="ltr"> — {visibleMessage.field}</code>}</>}</div>
             </div>
           ) : null}
 

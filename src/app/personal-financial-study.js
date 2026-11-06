@@ -239,6 +239,8 @@ function htmlFinancialStudy(report, { locale = 'ar-SA' } = {}) {
   const timingDisclosure = f.timingBasis
     ? buildFinancialTimingBasisReportDisclosure({
       timingBasis:f.timingBasis,decisionStatus:f.status,analyticalResultsOnly:true,
+      constructionPeriodYears:f.mode==='land'?f.inputs?.constructionPeriod:null,
+      annualConstructionYears:f.mode==='land'?f.results?.constructionYears:null,
     },{locale})
     : null;
   const timingSection = timingDisclosure

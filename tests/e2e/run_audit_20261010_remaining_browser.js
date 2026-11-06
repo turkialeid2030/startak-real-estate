@@ -49,6 +49,8 @@ async function textContrast(locator){return locator.evaluate(el=>{
    await context.addInitScript(({namespace,seed})=>{localStorage.setItem('startak.locale','ar-SA');if(!localStorage.getItem(namespace+'remaining-seeded')){localStorage.setItem(namespace+'deal:'+seed.id,JSON.stringify(seed));localStorage.setItem(namespace+'deals-index',JSON.stringify([{id:seed.id,name:seed.name,mode:seed.mode,savedAt:seed.savedAt}]));localStorage.setItem(namespace+'remaining-seeded','true');}}, {namespace,seed});
    await page.goto(BASE,{waitUntil:'domcontentloaded'});
    const documentPanel=page.getByTestId('local-document-evidence-intake');await expect(documentPanel).toBeVisible({timeout:30000});
+   const untranslated=await page.getByText('نص يحتاج استكمال التعريب؛ الأصل:',{exact:false}).allTextContents();
+   if(untranslated.length) console.log('ARABIC_SURFACE_UNTRANSLATED_SAMPLES='+JSON.stringify(untranslated.slice(0,30)));
    await expect(page.getByText('نص يحتاج استكمال التعريب؛ الأصل:',{exact:false})).toHaveCount(0);checks++;
    await expect(page.getByText('تحليل الاستحواذ على العقارات السكنية المدرة للدخل',{exact:true})).toBeVisible();checks++;
    await expect(documentPanel).toContainText('مستند وورد');checks++;
@@ -73,7 +75,7 @@ async function textContrast(locator){return locator.evaluate(el=>{
    await expect(documentPanel).toContainText('1500.00');checks++;
    await documentPanel.getByTestId('manual-transcription').locator('summary').click();
    await page.getByTestId('manual-text').fill('1500');await page.getByTestId('manual-page').fill('1');await page.getByTestId('manual-reviewerRef').fill('TRANSCRIBER');await page.getByTestId('manual-note').fill('Rent column page 1');await page.getByTestId('apply-manual-transcription').click();
-   await expect(documentPanel).toContainText('MANUAL_TRANSCRIPTION_UNVERIFIED');checks++;
+   await expect(documentPanel.locator('[data-diagnostic-code="MANUAL_TRANSCRIPTION_UNVERIFIED"]')).toContainText('هذا المحتوى نُقل يدويًا');checks++;
    const qualification=page.getByTestId('local-evidence-qualification');await page.getByTestId('evidence-atom-select').selectOption({index:1});
    // Existing qualification controls use stable test IDs.
    await page.getByTestId('semantic-key-input').fill('market.rent');
@@ -90,7 +92,10 @@ async function textContrast(locator){return locator.evaluate(el=>{
    await page.reload();await page.getByTestId('document-case-id').fill('CASE-LOCAL-AUDIT');await page.getByTestId('local-document-file-input').setInputFiles({name:'English source - عقار.pdf',mimeType:'application/pdf',buffer:pdfFixture()});
    await expect(page.getByTestId('saved-evidence-journal')).toBeVisible({timeout:25000});checks++;
    await expect(page.getByTestId('local-evidence-workflow-status')).toHaveAttribute('data-verification-status','VERIFICATION_NOT_COMPLETE');checks++;
-   await expect(page.getByTestId('local-evidence-workflow-status')).toHaveText('التحقق غير مكتمل');checks++;
+   // DiagnosticText preserves an internal reason attribute and a localized explanation;
+   // neither is approval and the raw code must not appear in owner-visible text.
+   await expect(page.getByTestId('local-evidence-workflow-status')).toContainText('التحقق غير مكتمل');checks++;
+   await expect(page.getByTestId('local-evidence-workflow-status').locator('[data-diagnostic-code="VERIFICATION_NOT_COMPLETE"]')).toContainText('التحقق غير مكتمل');checks++;
    await page.getByTitle(ar.actions.savedDeals,{exact:true}).click();await page.getByRole('dialog').getByRole('button',{name:seed.name,exact:true}).click();
    // Full-engine lower-price evidence must match the current exported inputs
    // on all three browsers, including the explicit-zero-debt case.
@@ -152,7 +157,7 @@ async function textContrast(locator){return locator.evaluate(el=>{
    await financingSection.click();await expect(debtSwitch).toHaveCount(0);await expect(financingBody).toHaveAttribute('aria-hidden','true');checks+=2;
    const provenance=page.getByTestId('input-provenance');await provenance.locator('summary').click();
    for(const[key,value]of Object.entries({field:'buildingPrice',unit:'SAR',sourceReference:'USER ESTIMATE / source',sourceDate:'2026-10-01',location:'Riyadh',reviewerRef:'OWNER'})) {const control=page.getByTestId('provenance-'+key);if(key==='field')await control.selectOption(value);else await control.fill(value);}
-   await page.getByTestId('save-input-provenance').click();await expect(provenance).toContainText('USER_SUPPLIED_UNVERIFIED');checks++;
+   await page.getByTestId('save-input-provenance').click();await expect(provenance.locator('[data-diagnostic-code="USER_SUPPLIED_UNVERIFIED"]')).toContainText('مصدر أدخله المستخدم ولم تُثبت صحته');await expect(provenance).not.toContainText('USER_SUPPLIED_UNVERIFIED');checks++;
    const report=JSON.parse(await download(page,page.getByTestId('c75-export-personal-json')));ok(verifyPersonalFinancialStudy(report)&&report.financial.inputProvenance.buildingPrice.sourceReference==='USER ESTIMATE / source','actual UI financial export includes input provenance');
    const canonical=page.getByTestId('canonical-case-workspace-panel');
    for(const[label,value]of [['معرّف مساحة العمل','WS-LOCAL-AUDIT'],['معرّف المشروع','PROJECT-LOCAL-AUDIT'],['معرّف الحالة','CASE-LOCAL-AUDIT'],['معرّف المحلل / المستخدم','OWNER']]) await canonical.getByRole('textbox',{name:label,exact:true}).fill(value);
@@ -189,7 +194,7 @@ async function textContrast(locator){return locator.evaluate(el=>{
    await collection.getByLabel(ar.riai.rentCollected,{exact:true}).fill('121');
    await expect(confirmed).not.toBeChecked();checks++;
    await collection.getByRole('button',{name:ar.riai.addCollectionRecord,exact:true}).click();
-   await expect(operating).toContainText('EXPLICIT_VERIFICATION_CONFIRMATION_REQUIRED');checks++;
+   await expect(operating.locator('[data-diagnostic-code="EXPLICIT_VERIFICATION_CONFIRMATION_REQUIRED"]')).toContainText('راجع البيانات وأكد مراجعتها بعد آخر تغيير قبل الحفظ.');await expect(operating).not.toContainText('EXPLICIT_VERIFICATION_CONFIRMATION_REQUIRED');checks++;
    await confirmed.check();await collection.getByRole('button',{name:ar.riai.addCollectionRecord,exact:true}).click();
    await expect(operating).toContainText(ar.riai.collectionAddSuccess);checks++;
    const exportedOperating=JSON.parse(await download(page,page.getByRole('button',{name:ar.riai.exportOperatingCase,exact:true})));

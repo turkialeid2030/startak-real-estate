@@ -1,3 +1,4 @@
+const {governanceEvidenceLabel}=require('../i18n/governance-evidence-presentation');
 import DiagnosticText from './DiagnosticText.jsx';
 import React, { useEffect, useMemo, useState } from 'react';
 
@@ -44,7 +45,7 @@ export default function LocalEvidenceQualificationPanel({ intakeRecord, preferre
   useEffect(() => { setAtomId(preferredAtomId || ''); }, [intakeRecord, preferredAtomId]);
 
   const l = useMemo(() => isAr ? {
-    eyebrow: 'EVIDENCE QUALIFICATION · HUMAN SEMANTIC MAPPING',
+    eyebrow: 'تأهيل الأدلة · الربط الدلالي البشري',
     title: 'تأهيل المحتوى المستخرج كمرشح دليل',
     intro: 'اختر عنصرًا مستخرجًا ثم عرّف معناه ومصدره يدويًا. هذه الخطوة لا تجعل المحتوى حقيقة موثقة ولا تسمح باستخدامه تلقائيًا في المحرك المالي.',
     noParsed: 'لا توجد عناصر قابلة للتأهيل. ارفع ملفًا نصيًا صالحًا، أو نفذ القراءة الضوئية للصفحة المطلوبة، أو أدخل نقلًا يدويًا موثقًا أعلاه.',
@@ -70,7 +71,7 @@ export default function LocalEvidenceQualificationPanel({ intakeRecord, preferre
     locator: 'موضع المصدر',
     engine: 'الأهلية للمحرك المالي',
     notEligible: 'غير مؤهل',
-    boundary: 'يتطلب تحققًا منفصلًا من المصدر/السلطة قبل الانتقال إلى VERIFIED_FACT أو READY_FOR_UNDERWRITING_INPUT.',
+    boundary: 'يتطلب تحققًا منفصلًا من المصدر وسلطته قبل تسجيل حقيقة متحقق منها أو التأهل كمدخل للدراسة.',
   } : {
     eyebrow: 'EVIDENCE QUALIFICATION · HUMAN SEMANTIC MAPPING',
     title: 'Qualify parsed content as an evidence candidate',
@@ -150,9 +151,9 @@ export default function LocalEvidenceQualificationPanel({ intakeRecord, preferre
 
               <label className="block"><span className="mb-1 block text-[11px] text-slate-500">{l.semanticKey}</span><input data-testid="semantic-key-input" value={semanticKey} onChange={(e) => setSemanticKey(e.target.value)} placeholder={l.semanticPlaceholder} className="w-full rounded-lg border border-slate-700 bg-slate-950/50 px-3 py-2 text-xs text-slate-200" /></label>
               <div className="grid gap-3 sm:grid-cols-3">
-                <label className="block"><span className="mb-1 block text-[11px] text-slate-500">{l.valueType}</span><select data-testid="evidence-value-type" value={valueType} onChange={(e) => setValueType(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-950/50 px-3 py-2 text-xs text-slate-200">{VALUE_TYPES.map((v) => <option key={v} value={v}>{v}</option>)}</select></label>
+                <label className="block"><span className="mb-1 block text-[11px] text-slate-500">{l.valueType}</span><select data-testid="evidence-value-type" value={valueType} onChange={(e) => setValueType(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-950/50 px-3 py-2 text-xs text-slate-200">{VALUE_TYPES.map((v) => <option key={v} value={v}>{governanceEvidenceLabel(v,locale)}</option>)}</select></label>
                 <label className="block"><span className="mb-1 block text-[11px] text-slate-500">{l.unit}</span><input data-testid="evidence-unit" value={unit} onChange={(e) => setUnit(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-950/50 px-3 py-2 text-xs text-slate-200" /></label>
-                <label className="block"><span className="mb-1 block text-[11px] text-slate-500">{l.materiality}</span><select value={materiality} onChange={(e) => setMateriality(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-950/50 px-3 py-2 text-xs text-slate-200"><option value={MATERIALITY.SUPPORTING}>SUPPORTING</option><option value={MATERIALITY.MATERIAL}>MATERIAL</option></select></label>
+                <label className="block"><span className="mb-1 block text-[11px] text-slate-500">{l.materiality}</span><select value={materiality} onChange={(e) => setMateriality(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-950/50 px-3 py-2 text-xs text-slate-200"><option value={MATERIALITY.SUPPORTING}>{governanceEvidenceLabel('SUPPORTING',locale)}</option><option value={MATERIALITY.MATERIAL}>{governanceEvidenceLabel('MATERIAL',locale)}</option></select></label>
               </div>
               <label className="block"><span className="mb-1 block text-[11px] text-slate-500">{l.sourceReference}</span><input data-testid="source-reference-input" value={sourceReference} onChange={(e) => setSourceReference(e.target.value)} placeholder={l.sourcePlaceholder} className="w-full rounded-lg border border-slate-700 bg-slate-950/50 px-3 py-2 text-xs text-slate-200" /></label>
               <label className="block"><span className="mb-1 block text-[11px] text-slate-500">{l.sourceDate}</span><input type="date" value={sourceDate} onChange={(e) => setSourceDate(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-950/50 px-3 py-2 text-xs text-slate-200" /></label>
@@ -163,17 +164,17 @@ export default function LocalEvidenceQualificationPanel({ intakeRecord, preferre
 
             <div className="min-w-0">
               {candidate ? (
-                <div data-testid="evidence-candidate-result" className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/25 p-4">
+                <div data-testid="evidence-candidate-result" data-status={candidate.status} className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/25 p-4">
                   <div className="grid gap-2 sm:grid-cols-2">
-                    <div><div className="text-[10px] text-slate-500">{l.status}</div><div className="mt-1 text-xs text-sky-200">{candidate.status}</div></div>
-                    <div><div className="text-[10px] text-slate-500">{l.engine}</div><div className="mt-1 text-xs text-rose-200">{candidate.financialEngineEligible ? 'YES' : l.notEligible}</div></div>
+                    <div><div className="text-[10px] text-slate-500">{l.status}</div><div className="mt-1 text-xs text-sky-200">{governanceEvidenceLabel(candidate.status,locale)}</div></div>
+                    <div><div className="text-[10px] text-slate-500">{l.engine}</div><div className="mt-1 text-xs text-rose-200">{candidate.financialEngineEligible ? (isAr?'نعم':'Yes') : l.notEligible}</div></div>
                   </div>
                   {candidate.status === PARSED_EVIDENCE_QUALIFICATION_STATUS.CANDIDATE_REQUIRES_VERIFICATION ? (
                     <>
                       <div className="grid gap-2 sm:grid-cols-3">
-                        <div><div className="text-[10px] text-slate-500">{l.truth}</div><div data-testid="candidate-truth-status" className="mt-1 text-xs text-slate-200">{candidate.fact.truthStatus}</div></div>
-                        <div><div className="text-[10px] text-slate-500">{l.verification}</div><div data-testid="candidate-verification-status" className="mt-1 text-xs text-amber-200">{candidate.verificationStatus}</div></div>
-                        <div><div className="text-[10px] text-slate-500">{l.authority}</div><div className="mt-1 text-xs text-slate-200">{candidate.fact.authorityClass} · verified={String(candidate.authorityVerified)}</div></div>
+                        <div><div className="text-[10px] text-slate-500">{l.truth}</div><div data-testid="candidate-truth-status" data-status={candidate.fact.truthStatus} className="mt-1 text-xs text-slate-200">{governanceEvidenceLabel(candidate.fact.truthStatus,locale)}</div></div>
+                        <div><div className="text-[10px] text-slate-500">{l.verification}</div><div data-testid="candidate-verification-status" data-status={candidate.verificationStatus} className="mt-1 text-xs text-amber-200">{governanceEvidenceLabel(candidate.verificationStatus,locale)}</div></div>
+                        <div><div className="text-[10px] text-slate-500">{l.authority}</div><div className="mt-1 text-xs text-slate-200">{governanceEvidenceLabel(candidate.fact.authorityClass,locale)} · {isAr?'التحقق مسجل:':'Recorded verification:'} {candidate.authorityVerified?(isAr?'نعم':'Yes'):(isAr?'لا':'No')}</div></div>
                       </div>
                       <div><div className="text-[10px] text-slate-500">{l.sourceHash}</div><div className="mt-1 break-all font-mono text-[10px] text-slate-300">{candidate.documentHashSha256}</div></div>
                       <div className="min-w-0"><div className="text-[10px] text-slate-500">{l.locator}</div>

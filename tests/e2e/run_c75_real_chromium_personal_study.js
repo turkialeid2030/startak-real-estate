@@ -32,13 +32,15 @@ async function download(page,selector){
   const first=JSON.parse(initial.content);
   ok(first.purpose==='PERSONAL_INVESTMENT_RESEARCH','real browser exported personal-purpose draft');
   const labels={
-   PRELIMINARY_VALUE_CALCULATED:'مؤشر قيمة أولي محسوب',
-   METHOD_INDICATIONS_ONLY:'مؤشرات مناهج متاحة للمراجعة',
-   SPECIALIST_INPUTS_ONLY:'مسودة بيانات عقار متخصص',
-   INPUTS_REQUIRED:'المدخلات غير مكتملة',
+   PRELIMINARY_VALUE_CALCULATED:'مؤشر تقييم إضافي أولي غير معتمد',
+   METHOD_INDICATIONS_ONLY:'مؤشرات مناهج تقييم إضافية فقط',
+   SPECIALIST_INPUTS_ONLY:'مدخلات تقييم متخصص أولية',
+   INPUTS_REQUIRED:'التقييم الإضافي يحتاج مدخلات وأدلة',
   };
   ok(displayedInitialStatus===labels[first.reportStatus],
-   'download matches the visible localized research status');
+   'download matches the separate localized additional-valuation status');
+  ok((await panel.getByTestId('c75-financial-status').innerText()).includes('الحساب المالي'),
+   'financial computation status is independently visible instead of conflated with appraisal inputs');
   if(first.reportStatus!=='PRELIMINARY_VALUE_CALCULATED'){
    ok(first.preliminaryValue===null,'no calculator output is invented for incomplete stage');
   }else{

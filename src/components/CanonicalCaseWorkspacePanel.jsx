@@ -1,3 +1,4 @@
+const {governanceEvidenceLabel}=require('../i18n/governance-evidence-presentation');
 import CaseGapActionsPanel from './CaseGapActionsPanel.jsx';
 import AssetSupportPanel from './AssetSupportPanel.jsx';
 import DiagnosticText from './DiagnosticText.jsx';
@@ -31,9 +32,10 @@ function Label({ children }) {
 }
 
 function Select({ value, onChange, options, ariaLabel }) {
+  const {locale}=useLocale();
   return (
     <select className={SELECT_STYLE} value={value} onChange={(event) => onChange(event.target.value)} aria-label={ariaLabel}>
-      {options.map((option) => <option key={option} value={option}>{option}</option>)}
+      {options.map((option) => <option key={option} value={option}>{governanceEvidenceLabel(option,locale)}</option>)}
     </select>
   );
 }
@@ -139,7 +141,7 @@ export default function CanonicalCaseWorkspacePanel() {
 
   async function assemble() {
     if (!selectedDealId || !workspaceId.trim() || !projectId.trim() || !caseId.trim() || !actorId.trim()) {
-      setError(copy.required);
+      setError('WORKSPACE_REQUIRED_FIELDS');
       return;
     }
     setAssembling(true);
@@ -222,9 +224,9 @@ export default function CanonicalCaseWorkspacePanel() {
           <div><Label>{copy.lifecycle}</Label><div className="mt-1"><Select value={lifecycleStage} onChange={setLifecycleStage} options={values(LIFECYCLE_STAGE)} ariaLabel={copy.lifecycle} /></div></div>
           <div><Label>{copy.strategy}</Label><div className="mt-1"><Select value={investmentStrategy} onChange={setInvestmentStrategy} options={values(INVESTMENT_STRATEGY)} ariaLabel={copy.strategy} /></div></div>
           <div><Label>{copy.incomeModel}</Label><div className="mt-1"><Select value={incomeModel} onChange={setIncomeModel} options={values(INCOME_MODEL)} ariaLabel={copy.incomeModel} /></div></div>
-          {assetClass === ASSET_CLASS.OTHER ? <div><Label>{copy.custom} · Asset</Label><input aria-label={`${copy.custom} · Asset`} className={`${INPUT_STYLE} mt-1`} value={customAssetClass} onChange={(event) => setCustomAssetClass(event.target.value)} /></div> : null}
-          {lifecycleStage === LIFECYCLE_STAGE.OTHER ? <div><Label>{copy.custom} · Lifecycle</Label><input aria-label={`${copy.custom} · Lifecycle`} className={`${INPUT_STYLE} mt-1`} value={customLifecycleStage} onChange={(event) => setCustomLifecycleStage(event.target.value)} /></div> : null}
-          {investmentStrategy === INVESTMENT_STRATEGY.OTHER ? <div><Label>{copy.custom} · Strategy</Label><input aria-label={`${copy.custom} · Strategy`} className={`${INPUT_STYLE} mt-1`} value={customInvestmentStrategy} onChange={(event) => setCustomInvestmentStrategy(event.target.value)} /></div> : null}
+          {assetClass === ASSET_CLASS.OTHER ? <div><Label>{copy.custom} · {copy.assetClass}</Label><input aria-label={`${copy.custom} · ${copy.assetClass}`} className={`${INPUT_STYLE} mt-1`} value={customAssetClass} onChange={(event) => setCustomAssetClass(event.target.value)} /></div> : null}
+          {lifecycleStage === LIFECYCLE_STAGE.OTHER ? <div><Label>{copy.custom} · {copy.lifecycle}</Label><input aria-label={`${copy.custom} · ${copy.lifecycle}`} className={`${INPUT_STYLE} mt-1`} value={customLifecycleStage} onChange={(event) => setCustomLifecycleStage(event.target.value)} /></div> : null}
+          {investmentStrategy === INVESTMENT_STRATEGY.OTHER ? <div><Label>{copy.custom} · {copy.strategy}</Label><input aria-label={`${copy.custom} · ${copy.strategy}`} className={`${INPUT_STYLE} mt-1`} value={customInvestmentStrategy} onChange={(event) => setCustomInvestmentStrategy(event.target.value)} /></div> : null}
         </div>
 
         <div className="mt-4 rounded-lg border border-amber-900/50 bg-amber-950/20 p-3 text-[11px] leading-5 text-amber-200">
@@ -233,21 +235,21 @@ export default function CanonicalCaseWorkspacePanel() {
         </div>
 
         <AssetSupportPanel assetClass={assetClass} />
-        {error ? <div className="mt-3 rounded-lg border border-rose-900/60 bg-rose-950/20 p-3 text-xs text-rose-200" role="alert"><DiagnosticText code={error} locale={locale} /></div> : null}
+        {error ? <div className="mt-3 rounded-lg border border-rose-900/60 bg-rose-950/20 p-3 text-xs text-rose-200" role="alert">{error==='WORKSPACE_REQUIRED_FIELDS'?copy.required:<DiagnosticText code={error} locale={locale} />}</div> : null}
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <button type="button" onClick={assemble} disabled={assembling || loading || deals.length === 0} className="rounded-lg border border-emerald-700/60 bg-emerald-950/30 px-4 py-2 text-xs font-semibold text-emerald-200 disabled:cursor-not-allowed disabled:opacity-50">
             {assembling ? '…' : copy.assemble}
           </button>
-          {workspace ? <span className="text-xs text-slate-400">{copy.status}: <strong className="text-slate-200">{workspace.status}</strong></span> : null}
+          {workspace ? <span className="text-xs text-slate-400">{copy.status}: <strong className="text-slate-200">{governanceEvidenceLabel(workspace.status,locale)}</strong></span> : null}
         </div>
 
         {workspace ? (
           <div className="mt-4 grid gap-3 md:grid-cols-4">
-            <div className="rounded-lg border border-slate-800 p-3 text-xs text-slate-400">Project: <span data-user-content translate="no" className="text-slate-200">{workspace.projectId}</span></div>
-            <div className="rounded-lg border border-slate-800 p-3 text-xs text-slate-400">Case: <span data-user-content translate="no" className="text-slate-200">{workspace.caseId}</span></div>
+            <div className="rounded-lg border border-slate-800 p-3 text-xs text-slate-400">{en?'Project':'المشروع'}: <span data-user-content translate="no" className="text-slate-200">{workspace.projectId}</span></div>
+            <div className="rounded-lg border border-slate-800 p-3 text-xs text-slate-400">{en?'Case':'الحالة'}: <span data-user-content translate="no" className="text-slate-200">{workspace.caseId}</span></div>
             <div className="rounded-lg border border-slate-800 p-3 text-xs text-slate-400">{copy.unresolved}: <span className="text-slate-200">{workspace.orchestration.unresolvedLifecycleSections.length}</span></div>
-            <div className="rounded-lg border border-slate-800 p-3 text-xs text-slate-400">{copy.governance}: <span className="text-slate-200">{committeeDossier?.status || '—'}</span></div>
+            <div className="rounded-lg border border-slate-800 p-3 text-xs text-slate-400">{copy.governance}: <span className="text-slate-200">{governanceEvidenceLabel(committeeDossier?.status,locale)}</span></div>
           </div>
         ) : null}
       </div>

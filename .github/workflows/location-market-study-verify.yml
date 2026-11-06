@@ -1,0 +1,231 @@
+name: Location Market Study Verify
+on:
+  pull_request:
+    paths:
+      - 'src/market/challenger-benchmark-research.js'
+      - 'src/components/ChallengerBenchmarkResearchPanel.jsx'
+      - 'tests/valuation/challenger-benchmark-research.test.js'
+      - 'src/market/research-brief-html.js'
+      - 'tests/valuation/research-brief-html.test.js'
+      - 'src/market/research-evidence-fusion.js'
+      - 'src/components/ResearchEvidenceFusionPanel.jsx'
+      - 'tests/valuation/research-evidence-fusion.test.js'
+      - 'src/market/saudi-national-intelligence-sources.js'
+      - 'src/components/SaudiNationalIntelligenceSourcesPanel.jsx'
+      - 'tests/valuation/saudi-national-intelligence-sources.test.js'
+      - 'src/market/earth-national-research.js'
+      - 'src/components/EarthNationalResearchPanel.jsx'
+      - 'tests/valuation/earth-national-research.test.js'
+      - 'src/market/saudi-listing-source-research.js'
+      - 'src/components/SaudiListingSourcesResearchPanel.jsx'
+      - 'tests/valuation/saudi-listing-source-research.test.js'
+      - 'src/market/suhail-national-neighborhood-research.js'
+      - 'src/components/SuhailNationalResearchPanel.jsx'
+      - 'tests/valuation/suhail-national-neighborhood-research.test.js'
+      - 'src/market/instant-market-study.js'
+      - 'src/market/study-asof.js'
+      - 'tests/architecture/run_study_asof.js'
+      - 'src/market/valuation-decision-gate.js'
+      - 'src/market/property-report-quality.js'
+      - 'src/components/ValuationQualityPanel.jsx'
+      - 'tests/architecture/run_valuation_decision_gate.js'
+      - 'tests/architecture/run_unified_valuation_case.js'
+      - 'tests/architecture/run_appraisal_report_quality.js'
+      - 'src/market/asking-offers.js'
+      - 'src/market/transaction-cohort-unit-mix.js'
+      - 'src/market/market-study-state.js'
+      - 'src/market/saved-deal-study-sidecar.js'
+      - 'tests/architecture/run_saved_deal_research_sidecar.js'
+      - 'tests/architecture/run_market_study_state.js'
+      - 'src/components/TransactionCohortAndUnitMixPanel.jsx'
+      - 'tests/architecture/run_transaction_cohort_unit_mix.js'
+      - 'src/components/MarketOfferResearchPanel.jsx'
+      - 'tests/architecture/run_asking_offers.js'
+      - 'src/market/professional-comparable-review.js'
+      - 'src/market/value-reconciliation-audit.js'
+      - 'src/components/CrossMethodEvidencePanel.jsx'
+      - 'tests/architecture/run_value_reconciliation_audit.js'
+      - 'src/components/ProfessionalComparableReviewPanel.jsx'
+      - 'tests/architecture/run_professional_comparable_review.js'
+      - 'src/market/public-dataset-import.js'
+      - 'src/market/saudi-open-data-research.js'
+      - 'src/components/PropertyMarketLocationPanel.jsx'
+      - 'src/components/AppraisalAssuranceWorkbench.jsx'
+      - 'src/components/OutcomeMonitoringPanel.jsx'
+      - 'src/components/LearningChangeControlPanel.jsx'
+      - 'src/components/EngineeringChangeQualificationPanel.jsx'
+      - 'src/components/DecisionIntelligenceWorkspacePanel.jsx'
+      - 'src/i18n/assurance-workflow-presentation.js'
+      - 'tests/defects/assurance_workflow_locale_d04.js'
+      - 'src/components/LocalDocumentEvidenceWorkspace.jsx'
+      - 'src/market/appraisal-assurance.js'
+      - 'tests/e2e/run_appraisal_assurance_ci.mjs'
+      - 'src/app/App.jsx'
+      - 'tests/architecture/run_instant_market_study.js'
+      - 'tests/architecture/run_public_market_csv_import.js'
+      - 'tests/architecture/run_saudi_open_data_research.js'
+      - 'tests/architecture/run_saudi_open_data_live_smoke.js'
+      - 'tests/e2e/run_location_market_study_ci.mjs'
+      - 'tools/verify-protected-preview.mjs'
+      - 'tests/architecture/run_protected_preview_access.js'
+      - 'src/market/financial-to-market-identity.js'
+      - 'src/app/personal-study-status-clarity.js'
+      - 'src/components/PersonalInvestmentResearchPanel.jsx'
+      - 'src/components/CurrentCalculationBoundary.js'
+      - 'tests/defects/current_calculation_boundary_audit.js'
+      - 'tests/defects/financial_market_identity_d06.js'
+      - 'tests/defects/personal_study_status_clarity_d07.js'
+      - 'src/i18n/market-study-core-labels.js'
+      - 'src/i18n/market-workflow-labels.js'
+      - 'src/i18n/valuation-evidence-presentation.js'
+      - 'src/i18n/research-action-presentation.js'
+      - 'src/components/ValuationAdvancedPanel.jsx'
+      - 'src/components/CriticalEvidenceRequirementsPanel.jsx'
+      - 'tests/defects/research_action_locale_d04.js'
+      - 'src/reporting/financial-timing-basis-report.js'
+      - 'src/app/personal-financial-study.js'
+      - 'tests/defects/market_study_core_locale_d04.js'
+      - 'tests/defects/fractional_construction_disclosure_d05.js'
+      - 'src/valuation-intelligence/dated-scenario-review.js'
+      - 'src/i18n/research-source-presentation.js'
+      - 'src/i18n/advanced-market-presentation.js'
+      - 'src/valuation-intelligence/declared-period-timing.js'
+      - 'src/valuation-intelligence/dated-development-projection.js'
+      - 'src/components/DatedDevelopmentProjectionPanel.jsx'
+      - 'tests/defects/dated_development_monthly_projection_d05.js'
+      - 'tests/reference/D05-monthly-reference.json'
+      - 'tests/reference/build_d05_monthly_reference.py'
+      - 'tests/defects/declared_period_timing_d05.js'
+      - 'tests/defects/dated_scenario_reconciliation_d05.js'
+      - 'src/components/OwnerDatedScenarioPanel.jsx'
+      - 'tests/defects/dated_scenario_owner_d05.js'
+      - 'tests/e2e/run_d05_dated_research_ci.mjs'
+      - 'tests/e2e/run_audit_d06_d07_ci.mjs'
+      - '.github/workflows/location-market-study-verify.yml'
+  workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci --ignore-scripts
+      - run: node tests/architecture/run_instant_market_study.js
+      - run: node tests/architecture/run_study_asof.js
+      - run: node tests/architecture/run_valuation_decision_gate.js
+      - run: node tests/architecture/run_unified_valuation_case.js
+      - run: node tests/architecture/run_appraisal_report_quality.js
+      - run: node tests/architecture/run_asking_offers.js
+      - name: Audit D01 stale results are inaccessible on invalid input
+        run: node tests/defects/current_calculation_boundary_audit.js
+      - name: Audit D06 explicit financial-to-market property identity
+        run: node tests/defects/financial_market_identity_d06.js
+      - name: Audit D07 independent financial and valuation labels
+        run: node tests/defects/personal_study_status_clarity_d07.js
+      - name: Audit D04 market identity and approval localization parity
+        run: node tests/defects/market_study_core_locale_d04.js
+      - name: Audit D04 appraisal, quality and governance locale changes without changing source data or authority
+        run: node tests/defects/assurance_workflow_locale_d04.js
+      - name: Audit evidence classifications and action notices without replaying actions
+        run: node tests/defects/research_action_locale_d04.js
+      - name: Audit D05 year/month return-timing precision and dated evidence warnings
+        run: node tests/defects/fractional_construction_disclosure_d05.js
+      - name: Audit D05 explicit owner dated cashflow rights and fail-closed XIRR
+        run: node tests/defects/dated_scenario_owner_d05.js
+      - name: Audit canonical period amount reconciliation without inferring dates
+        run: node tests/defects/dated_scenario_reconciliation_d05.js
+      - name: Audit explicit sourced period dates without claiming monthly financing integration
+        run: node tests/defects/declared_period_timing_d05.js
+      - name: Reproduce independent Decimal monthly reference without STARTAK imports
+        run: |
+          python3 tests/reference/build_d05_monthly_reference.py
+          git diff --exit-code -- tests/reference/D05-monthly-reference.json
+      - name: Verify dated construction and financing against independent references
+        run: node tests/defects/dated_development_monthly_projection_d05.js
+      - name: Secure Access synthetic tests without tokens
+        run: node tests/architecture/run_protected_preview_access.js
+      - run: node tests/architecture/run_transaction_cohort_unit_mix.js
+      - run: node tests/architecture/run_market_study_state.js
+      - run: node tests/architecture/run_saved_deal_research_sidecar.js
+      - run: node tests/architecture/run_professional_comparable_review.js
+      - run: node tests/architecture/run_value_reconciliation_audit.js
+      - run: node tests/architecture/run_public_market_csv_import.js
+      - run: node tests/valuation/suhail-national-neighborhood-research.test.js
+      - run: node tests/valuation/saudi-listing-source-research.test.js
+      - run: node tests/valuation/earth-national-research.test.js
+      - run: node tests/valuation/saudi-national-intelligence-sources.test.js
+      - run: node tests/valuation/research-evidence-fusion.test.js
+      - run: node tests/valuation/research-brief-html.test.js
+      - run: node tests/valuation/challenger-benchmark-research.test.js
+      - run: node tests/architecture/run_saudi_open_data_research.js
+      - run: node tests/architecture/run_saudi_open_data_live_smoke.js
+      - name: Multi-provider investment decision synthetic cross-flow and official-source authority boundaries
+        run: node tests/architecture/run_cross_source_investment_simulation.js
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: node tests/e2e/run_location_market_study_ci.mjs
+      - run: node tests/e2e/run_appraisal_assurance_ci.mjs
+      - name: Verify D06 explicit identity bridge and D07 separated statuses with real Chromium
+        run: node tests/e2e/run_audit_d06_d07_ci.mjs
+      - name: Verify D05 separate dated owner scenario with real Chromium
+        run: node tests/e2e/run_d05_dated_research_ci.mjs
+
+  owner-journey-real-chromium:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    env:
+      STARTAK_E2E_URL: http://127.0.0.1:4173
+      STARTAK_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact unmerged candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Confirm exact candidate SHA
+        run: test "$(git rev-parse HEAD)" = "$STARTAK_SOURCE_COMMIT"
+      - run: npm ci
+      - name: Install real Chromium for owner acceptance
+        run: npx playwright install --with-deps chromium
+      - name: Build production-equivalent browser bundle
+        run: npm run build
+      - name: Launch isolated local preview, never Cloudflare production
+        shell: bash
+        run: |
+          set -euo pipefail
+          (nohup npm run preview -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/startak-owner-journey.log 2>&1 &)
+          for n in $(seq 1 60); do
+            if curl --silent --fail http://127.0.0.1:4173/ > /dev/null; then
+              echo "OWNER_JOURNEY_LOCAL_PREVIEW_READY=true"
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/startak-owner-journey.log
+          exit 1
+      - name: Visit and interact with all thirteen Saudi asset class workspaces
+        run: node tests/e2e/run_all_13_asset_classes_public_smoke.js
+      - name: Validate actual Arabic owner valuation, draft restore, numbers and export on desktop/mobile
+        run: node tests/e2e/run_audit_20261010_f03_f07_browser.js
+      - name: Download and verify owner personal JSON and HTML through Chromium
+        run: node tests/e2e/run_c75_real_chromium_personal_study.js
+

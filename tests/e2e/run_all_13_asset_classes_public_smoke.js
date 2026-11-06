@@ -46,8 +46,23 @@ const BASE=process.env.STARTAK_E2E_URL||'http://127.0.0.1:4173';
    }else{
     await expect(universe.getByTestId('personal-phased-development-dcf')).toHaveCount(0);
    }
+   const inputSnapshot=()=>workbench.locator('input,select,textarea').evaluateAll(nodes=>nodes.map(x=>({value:x.value,checked:x.checked})));
+   const beforeLocale=await inputSnapshot();
+   await page.getByTestId('locale-switch').click();
+   await expect(workbench).toHaveAttribute('dir','ltr');
+   await expect(selector).toHaveValue(assetClass);
+   await expect(workbench.getByTestId('personal-sector-scenario-output')).toContainText('Held due to missing evidence');
+   await expect(workbench.getByTestId('personal-sector-reasons')).toContainText('Enter the city');
+   const englishReasons=await workbench.getByTestId('personal-sector-reasons').locator('span').allTextContents();
+   assert(englishReasons.every(t=>!/[\u0600-\u06ff]/.test(t)),'English reasons are human descriptions for '+assetClass);
+   assert.deepEqual(await inputSnapshot(),beforeLocale,'Locale cannot change sector inputs: '+assetClass);
+   await expect(workbench.getByTestId('personal-sector-provisional-value')).toHaveCount(0);
+   await page.getByTestId('locale-switch').click();
+   await expect(workbench).toHaveAttribute('dir','rtl');
+   assert.deepEqual(await inputSnapshot(),beforeLocale,'Arabic roundtrip preserves sector inputs: '+assetClass);
    verified++;
   }
+  console.log('ALL_13_ASSET_CLASSES_BILINGUAL_ROUNDTRIP=PASS sectors='+verified);
   // The switched sector remounts an empty research case; old HOLD and input must not leak.
   await selector.selectOption('OFFICE');
   await expect(universe.getByTestId('personal-sector-scenario-output')).toHaveCount(0);
@@ -90,7 +105,7 @@ const BASE=process.env.STARTAK_E2E_URL||'http://127.0.0.1:4173';
   await status.selectOption('EXECUTED_SALE');
   await calculate.click();
   await expect(marketCase.getByTestId('personal-sector-scenario-output')).toContainText('مؤشرات طرق منفصلة');
-  await expect(marketCase.getByTestId('personal-sector-scenario-output')).toContainText('MARKET_COMPARABLE');
+  await expect(marketCase.getByTestId('personal-sector-scenario-output')).toContainText('المقارنة السوقية');
   await expect(marketCase.getByTestId('personal-sector-provisional-value')).toHaveCount(0);
   await expect(marketCase.getByTestId('personal-sector-scenario-output')).toContainText('لم يتم التحقق منها رسميًا');
 
@@ -134,6 +149,26 @@ const BASE=process.env.STARTAK_E2E_URL||'http://127.0.0.1:4173';
   assert.ok(printable.body.includes(report.inputFingerprintSha256),
    'printable HTML must preserve the same exact study-input SHA as the downloaded JSON');
   assert.ok(!printable.body.includes('<script'));
+  await page.getByTestId('locale-switch').click();
+  await expect(marketCase).toHaveAttribute('dir','ltr');
+  await expect(marketCase.getByTestId('personal-sector-reasons')).toContainText('Only one method indication is available');
+  const englishPrintable=await download('personal-sector-export-report-html');
+  assert.ok(englishPrintable.body.includes('lang="en" dir="ltr"'));
+  assert.ok(englishPrintable.body.includes('Only one method indication is available')&&englishPrintable.body.includes('SECOND_INDEPENDENT_METHOD_NOT_PROVIDED'));
+  assert.ok(englishPrintable.body.includes('User-declared executed sale')&&englishPrintable.body.includes('SAR per sqm')&&englishPrintable.body.includes('Freehold as entered'));
+  assert.ok(englishPrintable.body.includes('DOC-3')&&englishPrintable.body.includes('الملقا')&&englishPrintable.body.includes(report.inputFingerprintSha256));
+  const printPage=await context.newPage();await printPage.setContent(englishPrintable.body);
+  assert.equal(await printPage.locator('script,img,svg').count(),0);
+  const humanEnglish=await printPage.locator('body').evaluate(body=>{const clone=body.cloneNode(true);clone.querySelectorAll('[data-user-content],code').forEach(x=>x.remove());return clone.textContent;});
+  assert(!/[\u0600-\u06ff]/.test(humanEnglish),'English printed prose is localized outside protected original fields');
+  await fs.mkdir('runtime-evidence/remaining-audit',{recursive:true});
+  await printPage.screenshot({path:'runtime-evidence/remaining-audit/sector-research-report-en.png',fullPage:true});
+  await printPage.setContent(printable.body);
+  await printPage.screenshot({path:'runtime-evidence/remaining-audit/sector-research-report-ar.png',fullPage:true});
+  await printPage.close();
+  await page.getByTestId('locale-switch').click();
+  await expect(marketCase).toHaveAttribute('dir','rtl');
+  console.log('SECTOR_REPORTS_ACTUAL_BILINGUAL_DOWNLOAD_AND_SOURCE_BOUNDARIES=PASS');
   await status.selectOption('ASKING_SALE');
   await expect(buttons).toHaveCount(0);
   await calculate.click();

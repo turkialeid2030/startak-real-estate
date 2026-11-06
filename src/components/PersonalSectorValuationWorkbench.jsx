@@ -1,5 +1,5 @@
 import React,{useState} from 'react';
-import {useRef} from 'react';
+import {useRef,useLayoutEffect} from 'react';
 const {EXPENSE_TREATMENT}=require('../valuation-intelligence/income-capitalization');
 const {VALUATION_METHOD}=require('../valuation-intelligence/contracts');
 const {STATUS,MARKET_UNITS,evaluatePersonalSectorScenarios}=require('../valuation-intelligence/personal-sector-scenario-workbench');
@@ -8,7 +8,7 @@ const {calculatePersonalSectorCase,buildPersonalSectorResearchReport,
  require('../valuation-intelligence/personal-sector-research-report');
 const {createPersonalSectorCaseArchive}=
  require('../valuation-intelligence/personal-sector-case-archive');
-const {REASONS}=require('../valuation-intelligence/personal-sector-reason-labels');
+const {researchReason,researchEnumLabel}=require('../i18n/personal-research-presentation');
 const {MAX_IMPORT_BYTES,restorePersonalSectorInputFile}=
  require('../valuation-intelligence/personal-sector-input-restoration');
 
@@ -36,58 +36,75 @@ export default function PersonalSectorValuationWorkbench({assetClass,locale='ar-
  const [reportStatus,setReportStatus]=useState('');
  const archiveFileRef=useRef(null);
  const currentState=()=>({assetClass,subject,methods,inc,cost,comparables,marketOptions,policy});
+ const operation=useRef(0),mounted=useRef(true);
+ useLayoutEffect(()=>{mounted.current=true;return ()=>{mounted.current=false;operation.current++;};},[]);
+ useLayoutEffect(()=>{operation.current++;},[subject,methods,inc,cost,comparables,marketOptions,policy]);
+ useLayoutEffect(()=>{
+  operation.current++;
+  setSubject({city:'',district:'',subtype:'',date:'',area:'',right:''});
+  setMethods({income:false,cost:false,market:false});
+  setInc({gross:'',opex:'',cap:'',expenseTreatment:'',realEstateOnly:false,groundLease:false,sharedCosts:false});
+  setCost({land:'',replacement:'',depreciation:'',excludesBusiness:false});
+  setComparables(initialMarket());setMarketOptions({unit:'',quantity:'',businessExcluded:false,mixedAllocated:false});
+  setPolicy({maxDispersion:'',incomeWeight:'',costWeight:'',marketWeight:''});
+  setOutput(null);setArchiveStatus('');setReportStatus('');
+ },[assetClass]);
+ const current=id=>mounted.current&&operation.current===id;
+ // Save semantic action identity; completed notices follow the current locale.
+ const messages={
+  EXPORTED:['تم إنشاء ملف دراسة المدخلات فقط على جهازك؛ لا يحفظ نتائج التقييم أو يمنح الملف توقيعًا موثوقًا.','Input-only case file created locally. Valuation outcomes are not saved and SHA-256 is not a digital signature.'],
+  EXPORT_FAILED:['فشل تصدير ملف الدراسة بصورة آمنة؛ لا توجد نسخة محفوظة.','Secure input-case export failed. No file was saved.'],
+  SIZE_INVALID:['حجم الملف غير صالح أو يتجاوز 128 كيلوبايت.','Invalid or oversized study input (>128 KiB).'],
+  REPORT_RESTORED:['تم فحص بصمة التقرير وإعادة حساب النتائج للمطابقة، ثم استُعيدت المدخلات فقط. أعد الحساب؛ لا إثبات لصحة السوق أو اعتماد مهني.','Report digest and recomputation matched. Only inputs were restored. Recalculate; no market provenance or certification.'],
+  INPUTS_RESTORED:['استُعيدت المدخلات بعد التحقق من بصمتها؛ يجب إعادة الحساب ولا تُستعاد صلاحيات أو نتائج سابقة.','Archive integrity checked. Inputs only restored; recalculate; no results or authority reinstated.'],
+  REJECTED:['رُفض الملف: لا تتطابق بنية الدراسة أو نوع العقار أو البصمة أو نتائج إعادة الحساب. لم تتغير المدخلات الحالية.','Document rejected: asset type, structure, SHA-256 or report recomputation failed. Your current case was not modified.'],
+  REPORT_EXPORTED:['تم تصدير الدراسة الشخصية مع أسباب الحجب وبصمة التحقق، دون اعتماد مهني.','Personal method study downloaded with HOLD reasons and integrity digest; not certified.'],
+  REPORT_FAILED:['تعذر إنشاء التقرير أو تغيرت المدخلات: أعد الحساب أولًا.','Cannot export inconsistent or stale scenario. Recalculate the study.'],
+ };
+ const actionText=kind=>messages[kind]?.[ar?0:1]||'';
  const exportCase=async()=>{
-  setArchiveStatus('');
+  const id=++operation.current;setArchiveStatus('');
   try{
    const archive=await createPersonalSectorCaseArchive(currentState(),{subtle:globalThis.crypto?.subtle});
+   if(!current(id))return;
    const json=JSON.stringify(archive,null,2);
    const url=URL.createObjectURL(new Blob([json],{type:'application/json;charset=utf-8'}));
-   const anchor=document.createElement('a');
-   anchor.href=url;anchor.download='startak-personal-sector-case-v2.json';
-   document.body.appendChild(anchor);anchor.click();anchor.remove();
-   URL.revokeObjectURL(url);
-   setArchiveStatus(ar?'تم إنشاء ملف دراسة المدخلات فقط على جهازك؛ لا يحفظ نتائج التقييم أو يمنح الملف توقيعًا موثوقًا.':
-     'Input-only case file created locally. Valuation outcomes are not saved and SHA-256 is not a digital signature.');
-  }catch(e){setArchiveStatus(ar?'فشل تصدير ملف الدراسة بصورة آمنة؛ لا توجد نسخة محفوظة.':
-     'Secure input-case export failed. No file was saved.');}
+   const anchor=document.createElement('a');anchor.href=url;anchor.download='startak-personal-sector-case-v2.json';
+   document.body.appendChild(anchor);anchor.click();anchor.remove();URL.revokeObjectURL(url);
+   setArchiveStatus('EXPORTED');
+  }catch(e){if(current(id))setArchiveStatus('EXPORT_FAILED');}
  };
  const importCase=async(event)=>{
   const file=event.target.files?.[0];
   if(archiveFileRef.current)archiveFileRef.current.value='';
-  setArchiveStatus('');
   if(!file)return;
-  if(file.size<=0||file.size>MAX_IMPORT_BYTES){
-   setArchiveStatus(ar?'حجم الملف غير صالح أو يتجاوز 128 كيلوبايت.':'Invalid or oversized study input (>128 KiB).');return;
-  }
+  const id=++operation.current;setArchiveStatus('');
+  if(file.size<=0||file.size>MAX_IMPORT_BYTES){setArchiveStatus('SIZE_INVALID');return;}
   try{
-   const text=new TextDecoder('utf-8',{fatal:true}).decode(await file.arrayBuffer());
-   const archive=JSON.parse(text);
+   const buffer=await file.arrayBuffer();if(!current(id))return;
+   const archive=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(buffer));
    const restoredFile=await restorePersonalSectorInputFile(archive,{
      subtle:globalThis.crypto?.subtle,expectedAssetClass:assetClass,
    });
+   if(!current(id))return;
    const restored=restoredFile.inputs;
    setSubject(restored.subject);setMethods(restored.methods);
    setInc(restored.inc);setCost(restored.cost);setComparables(restored.comparables);
    setMarketOptions(restored.marketOptions);setPolicy(restored.policy);
    setOutput(null);setReportStatus('');
-   setArchiveStatus(restoredFile.sourceKind==='RECALCULATED_PERSONAL_REPORT'
-    ?(ar?'تم فحص بصمة التقرير وإعادة حساب النتائج للمطابقة، ثم استُعيدت المدخلات فقط. أعد الحساب؛ لا إثبات لصحة السوق أو اعتماد مهني.':
-      'Report digest and recomputation matched. Only inputs were restored. Recalculate; no market provenance or certification.')
-    :(ar?'استُعيدت المدخلات بعد التحقق من بصمتها؛ يجب إعادة الحساب ولا تُستعاد صلاحيات أو نتائج سابقة.':
-      'Archive integrity checked. Inputs only restored; recalculate; no results or authority reinstated.'));
-  }catch(e){
-   setArchiveStatus(ar?'رُفض الملف: لا تتطابق بنية الدراسة أو نوع العقار أو البصمة أو نتائج إعادة الحساب. لم تتغير المدخلات الحالية.':
-    'Document rejected: asset type, structure, SHA-256 or report recomputation failed. Your current case was not modified.');
-  }
+   setArchiveStatus(restoredFile.sourceKind==='RECALCULATED_PERSONAL_REPORT'?'REPORT_RESTORED':'INPUTS_RESTORED');
+  }catch(e){if(current(id))setArchiveStatus('REJECTED');}
  };
- const change=(fn,k,v)=>{fn(old=>({...old,[k]:v}));setOutput(null);};
+ const change=(fn,k,v)=>{operation.current++;fn(old=>({...old,[k]:v}));setOutput(null);setReportStatus('');};
  const calc=()=>{
+  operation.current++;
   setReportStatus('');
   try{setOutput(calculatePersonalSectorCase(currentState()));}
   catch(e){setOutput({status:STATUS.HOLD,reasonCodes:['INVALID_SCENARIO_VALUES'],methods:[],
    provisionalReconciledAmountSar:null});}
  };
  const saveReport=(format)=>{
+  operation.current++;
   setReportStatus('');
   try{
    if(!output)throw new Error('CALCULATE_FIRST');
@@ -103,10 +120,8 @@ export default function PersonalSectorValuationWorkbench({assetClass,locale='ar-
    anchor.download='startak-sector-personal-research-'+report.assetClass.toLowerCase()+
     (html?'.html':'.json');
    document.body.appendChild(anchor);anchor.click();anchor.remove();URL.revokeObjectURL(url);
-   setReportStatus(ar?'تم تصدير الدراسة الشخصية مع أسباب الحجب وبصمة التحقق، دون اعتماد مهني.':
-    'Personal method study downloaded with HOLD reasons and integrity digest; not certified.');
-  }catch(e){setReportStatus(ar?'تعذر إنشاء التقرير أو تغيرت المدخلات: أعد الحساب أولًا.':
-   'Cannot export inconsistent or stale scenario. Recalculate the study.');}
+   setReportStatus('REPORT_EXPORTED');
+  }catch(e){setReportStatus('REPORT_FAILED');}
  };
  const money=n=>new Intl.NumberFormat(ar?'ar-SA':'en-SA',{maximumFractionDigits:0}).format(n);
  const Checkbox=({label,checked,onChange})=><label className="flex items-center gap-2 text-xs min-h-[36px]" style={{color:'#E7E9EE'}}>
@@ -230,7 +245,7 @@ export default function PersonalSectorValuationWorkbench({assetClass,locale='ar-
       <select value={c.unit} className={inputClass} style={{background:'#F4F5F5',color:'#192336'}}
        onChange={e=>{setComparables(old=>old.map((row,j)=>j===i?{...row,unit:e.target.value}:row));setOutput(null);}}>
        <option value="">{ar?'اختر':'Choose'}</option>
-       {(MARKET_UNITS[assetClass]||[]).map(x=><option key={x} value={x}>{x}</option>)}
+       {(MARKET_UNITS[assetClass]||[]).map(x=><option key={x} value={x}>{researchEnumLabel(x,locale)}</option>)}
       </select>
      </label>
      <label className="block text-xs" style={{color:'#E7E9EE'}}>{ar?'الحق المنقول في الصفقة':'Comparable property right'}
@@ -273,7 +288,7 @@ export default function PersonalSectorValuationWorkbench({assetClass,locale='ar-
       </label>
     </div>
     {archiveStatus&&<p data-testid="personal-sector-archive-status" role="status"
-       className="text-xs leading-relaxed mt-2" style={{color:'#E7BC7D'}}>{archiveStatus}</p>}
+       className="text-xs leading-relaxed mt-2" style={{color:'#E7BC7D'}}>{actionText(archiveStatus)}</p>}
   </div>
   <button type="button" onClick={calc} data-testid="personal-sector-calculate"
    className="mt-4 px-4 py-3 rounded-lg text-xs font-semibold min-h-[40px]"
@@ -293,11 +308,11 @@ export default function PersonalSectorValuationWorkbench({assetClass,locale='ar-
      </button>
      <button type="button" data-testid="personal-sector-export-report-html" onClick={()=>saveReport('html')}
        className="min-h-[40px] px-3 py-2 rounded-lg border border-slate-500 text-xs" style={{color:'#E8EDF4'}}>
-       {ar?'تقرير عربي للطباعة HTML':'Printable HTML report'}
+       {ar?'تقرير عربي للطباعة HTML':'Printable English HTML report'}
      </button>
     </div>
     {reportStatus&&<p data-testid="personal-sector-report-status" role="status"
-     className="mt-2 text-xs" style={{color:'#E8C18C'}}>{reportStatus}</p>}
+     className="mt-2 text-xs" style={{color:'#E8C18C'}}>{actionText(reportStatus)}</p>}
    </div>}
   {output&&<div role="status" data-testid="personal-sector-scenario-output"
     className="mt-4 rounded-lg p-3" style={{background:'#101D31',color:'#E6EBF5'}}>
@@ -307,16 +322,18 @@ export default function PersonalSectorValuationWorkbench({assetClass,locale='ar-
        ? (ar?'ترجيح حسابي مبدئي غير معتمد سوقياً':'Reconciled research scenario; market unverified')
        :(ar?'مؤشرات طرق منفصلة دون قيمة نهائية':'Method indicators only; no final value')}</strong>
     {output.methods?.map(item=><p key={item.method} className="mt-2 text-xs">
-      <span dir="ltr">{item.method}</span>: {money(item.scenarioAmountSar)} {ar?'ريال (افتراضي)':'SAR (scenario)'}
+      <span dir={ar?'rtl':'ltr'}>{researchEnumLabel(item.method,locale)}</span>: {money(item.scenarioAmountSar)} {ar?'ريال (افتراضي)':'SAR (scenario)'}
     </p>)}
     {output.provisionalReconciledAmountSar!==null&&
       <p className="mt-2 text-sm" data-testid="personal-sector-provisional-value">
        {ar?'ترجيح افتراضي، لا يمثل سعراً سوقياً موثقاً: ':'Scenario-only blend, not verified market value: '}
        {money(output.provisionalReconciledAmountSar)} {ar?'ريال':'SAR'}
       </p>}
-    {!!output.reasonCodes?.length&&<p data-testid="personal-sector-reasons" className="mt-2 text-xs" style={{color:'#E8C18C'}}>
-      {output.reasonCodes.map(c=>ar?(REASONS[c]||'شرط تحقّق إضافي غير مكتمل'):c).join('؛ ')}
-    </p>}
+    {!!output.reasonCodes?.length&&<ul data-testid="personal-sector-reasons" className="mt-2 text-xs space-y-1" style={{color:'#E8C18C'}}>
+      {output.reasonCodes.map(code=><li key={code} data-diagnostic-content translate="no">
+        <span>{researchReason(code,locale).message}</span>{' '}<code dir="ltr">{code}</code>
+      </li>)}
+    </ul>}
     <p className="text-xs mt-2" style={{color:'#BBC7D8'}}>{ar?
       'الدخل والتكاليف والصفقات مدخلة من المستخدم ولم يتم التحقق منها رسميًا. لا تستخدم الأرقام كقرار شراء أو تقرير تقييم مهني.'
       :'Inputs and sales are owner declarations and have not been independently verified. Do not use as a buying recommendation or professional appraisal.'}</p>

@@ -1,3 +1,4 @@
+const {governanceEvidenceLabel}=require('../i18n/governance-evidence-presentation');
 import DiagnosticText from './DiagnosticText.jsx';
 import LocalDocumentTablePanel from './LocalDocumentTablePanel.jsx';
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
@@ -47,7 +48,7 @@ function atomLocation(atom, labels) {
   return location.kind || '—';
 }
 
-function StatusPill({ status }) {
+function StatusPill({ status, locale }) {
   const className = status === 'PARSED'
     ? 'border-emerald-700/60 bg-emerald-950/30 text-emerald-200'
     : status === 'REJECTED'
@@ -59,7 +60,7 @@ function StatusPill({ status }) {
       data-parser-status={status || ''}
       className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${className}`}
     >
-      {status}
+      {governanceEvidenceLabel(status,locale)}
     </span>
   );
 }
@@ -82,7 +83,7 @@ export default function LocalDocumentEvidenceIntakePanel({ onRecordChange = null
   };
 
   const l = useMemo(() => isAr ? {
-    eyebrow: 'DOCUMENT INTELLIGENCE · LOCAL INTAKE',
+    eyebrow: 'ذكاء المستندات · الإدخال المحلي',
     title: 'فحص المستندات محليًا',
     intro: 'استخراج نصوص PDF وWord ومحتوى XLSX وPPTX محليًا، مع قراءة ضوئية عربية وإنجليزية لصفحة PDF مختارة أو صورة PNG/JPEG. راجع النص والأرقام أمام الأصل.',
     localOnly: 'المعالجة محلية في هذه الواجهة؛ لا تُرسل الملفات إلى جهة خارجية بواسطة هذه الوحدة.',
@@ -159,11 +160,11 @@ export default function LocalDocumentEvidenceIntakePanel({ onRecordChange = null
     if (!file) return;
     const extension = extensionOf(file.name);
     if (!ACCEPTED_EXTENSIONS.includes(extension)) {
-      setError(l.invalidType);
+      setError({labelKey:'invalidType'});
       return;
     }
     if (file.size > MAX_FILE_BYTES) {
-      setError(l.tooLarge);
+      setError({labelKey:'tooLarge'});
       return;
     }
 
@@ -177,7 +178,7 @@ export default function LocalDocumentEvidenceIntakePanel({ onRecordChange = null
       try { digest = await sha256(buffer); }
       catch (_) {
         if(requestId!==requestRef.current.id||controller.signal.aborted)return;
-        setError(l.hashFailed);
+        setError({labelKey:'hashFailed'});
         return;
       }
       if(requestId!==requestRef.current.id||controller.signal.aborted)return;
@@ -211,7 +212,7 @@ export default function LocalDocumentEvidenceIntakePanel({ onRecordChange = null
       publishRecord(nextRecord);
     } catch (error) {
       if(requestId!==requestRef.current.id) return;
-      setError(error.code || l.readFailed);
+      setError(error.code || {labelKey:'readFailed'});
       publishRecord(null);
     } finally {
       if(requestId===requestRef.current.id) setBusy(false);
@@ -298,7 +299,7 @@ export default function LocalDocumentEvidenceIntakePanel({ onRecordChange = null
         {record?.result?.adapterId==='LOCAL_OCR_PAGE_V1'&&record.result.status==='PARSED'&&<button data-testid="local-ocr-export" type="button" onClick={exportOcr} className="mt-3 rounded border border-sky-600 px-3 py-2 text-xs text-sky-200">{isAr?'تصدير كل النص المستخرج ومواضعه ومراجعه':'Export all extracted text, positions and source references'}</button>}
 
         {error ? (
-          <div role="alert" className="mt-4 rounded-lg border border-rose-800/60 bg-rose-950/20 p-3 text-xs text-rose-200"><DiagnosticText code={error} locale={locale} /></div>
+          <div role="alert" className="mt-4 rounded-lg border border-rose-800/60 bg-rose-950/20 p-3 text-xs text-rose-200">{error.labelKey?l[error.labelKey]:<DiagnosticText code={error} locale={locale} />}</div>
         ) : null}
 
         {record ? (
@@ -307,7 +308,7 @@ export default function LocalDocumentEvidenceIntakePanel({ onRecordChange = null
               <div className="rounded-lg border border-slate-800 bg-slate-950/30 p-3"><div className="text-[10px] text-slate-500">{l.file}</div><div className="mt-1 break-all text-xs text-slate-200"><span data-user-content translate="no">{record.fileName}</span></div></div>
               <div className="rounded-lg border border-slate-800 bg-slate-950/30 p-3"><div className="text-[10px] text-slate-500">{l.size}</div><div className="mt-1 text-xs text-slate-200">{bytesLabel(record.size, locale)}</div></div>
               <div className="rounded-lg border border-slate-800 bg-slate-950/30 p-3"><div className="text-[10px] text-slate-500">{l.format}</div><div className="mt-1 text-xs text-slate-200">{isAr&&record.result.format==='IMAGE'?'صورة':record.result.format}</div></div>
-              <div className="rounded-lg border border-slate-800 bg-slate-950/30 p-3"><div className="text-[10px] text-slate-500">{l.status}</div><div className="mt-1"><StatusPill status={record.result.status} /></div></div>
+              <div className="rounded-lg border border-slate-800 bg-slate-950/30 p-3"><div className="text-[10px] text-slate-500">{l.status}</div><div className="mt-1"><StatusPill status={record.result.status} locale={locale} /></div></div>
             </div>
 
             <div className="rounded-lg border border-slate-800 bg-slate-950/30 p-3">
@@ -349,7 +350,7 @@ export default function LocalDocumentEvidenceIntakePanel({ onRecordChange = null
                   {previewAtoms.map((atom) => (
                     <article key={atom.atomId} className="rounded-lg border border-slate-800 bg-slate-950/20 p-3">
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="text-[10px] font-semibold text-slate-400">{atom.kind} · {atom.valueType}</span>
+                        <span className="text-[10px] font-semibold text-slate-400">{governanceEvidenceLabel(atom.kind,locale)} · {governanceEvidenceLabel(atom.valueType,locale)}</span>
                         <span className="text-[10px] text-slate-500"><span data-user-content translate="no">{atomLocation(atom, l)}</span></span>
                       </div>
                       <div className="mt-2 whitespace-pre-wrap break-words text-xs leading-5 text-slate-200"><span data-user-content translate="no">{truncate(atom.rawValue)}</span></div>

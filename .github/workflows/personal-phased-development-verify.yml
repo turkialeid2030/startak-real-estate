@@ -1,0 +1,51 @@
+name: Personal Phased Development Browser Verify
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/components/PersonalPhasedDevelopmentDcfPanel.jsx'
+      - 'src/valuation-intelligence/personal-phased-development-dcf.js'
+      - 'tests/e2e/run_personal_phased_development_browser.js'
+      - '.github/workflows/personal-phased-development-verify.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  personal-phased-browser:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e
+      options: --user 1001
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install dependencies and build
+        run: npm ci && npm run build
+      - name: Run unchanged phased development Chromium acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p runtime-evidence/phased-browser
+          npm run preview -- --host 127.0.0.1 --port 4173 --strictPort > runtime-evidence/phased-browser/vite.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          for i in $(seq 1 45); do
+            if curl -sSf http://127.0.0.1:4173/ -o /dev/null; then break; fi
+            sleep 1
+          done
+          STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_personal_phased_development_browser.js 2>&1 | tee runtime-evidence/phased-browser/test.log
+      - name: Upload phased-browser logs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: personal-phased-browser-verification
+          path: runtime-evidence/phased-browser
+          if-no-files-found: warn

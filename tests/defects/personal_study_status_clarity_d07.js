@@ -1,0 +1,17 @@
+'use strict';
+const assert=require('node:assert/strict');
+const {financialAndValuationLabels}=require('../../src/app/personal-study-status-clarity');
+let checks=0;
+const ok=(v,w)=>{assert.deepEqual(v,w);checks++;};
+let x=financialAndValuationLabels({financial:{status:'VALID'},reportStatus:'INPUTS_REQUIRED'},'ar-SA');
+ok(x.financialValid,true);ok(x.additionalValuationComplete,false);ok(x.certifiedMarketValue,false);
+assert.match(x.financialLabel,/صالح حسابيًا/);checks++;
+assert.match(x.additionalValuationLabel,/التقييم الإضافي يحتاج/);checks++;
+x=financialAndValuationLabels({financial:{status:'INPUTS_INVALID'},reportStatus:'PRELIMINARY_VALUE_CALCULATED'},'en');
+ok(x.financialValid,false);ok(x.additionalValuationComplete,true);ok(x.professionalDecisionAuthorized,false);
+assert.match(x.financialLabel,/invalid/);checks++;
+x=financialAndValuationLabels({financial:{status:'FINANCIAL_INTEGRITY_HOLD'},reportStatus:'INPUTS_REQUIRED'});
+ok(x.financialValid,false);assert.match(x.financialLabel,/إيقاف/);checks++;
+x=financialAndValuationLabels({reportStatus:'INPUTS_REQUIRED'});
+ok(x.financialStatus,'NOT_INCLUDED');ok(x.financialValid,false);
+console.log('D07_SEPARATE_FINANCIAL_AND_VALUATION_STATUS=PASS checks='+checks);
