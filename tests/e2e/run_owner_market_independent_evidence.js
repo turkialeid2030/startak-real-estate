@@ -3,10 +3,14 @@
 // All data below are deliberately synthetic; NO private licensed fixture or
 // real transaction has been included in this public test.
 const assert=require('node:assert/strict');
-const {chromium}=require('playwright');
+const engines=require('playwright');
+const browserName=process.env.STARTAK_BROWSER||'chromium';
+if(!['chromium','firefox','webkit'].includes(browserName))throw Error('BROWSER_UNSUPPORTED');
 const {expect}=require('@playwright/test');
 (async()=>{
- const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
+ const browser=await engines[browserName].launch({
+  headless:true,...(browserName==='chromium'?{args:['--no-sandbox']}:{}),
+ });
  const page=await browser.newPage({viewport:{width:390,height:844},locale:'ar-SA'});
  const base=process.env.STARTAK_E2E_URL||'http://127.0.0.1:4173/';
  const money=x=>new Intl.NumberFormat('ar-SA',{maximumFractionDigits:0}).format(x);
@@ -90,6 +94,24 @@ const {expect}=require('@playwright/test');
   await page.getByTestId('owner-step-4').click();
   await eq(ownerCap,money(independentValue));
   await eq(ownerRent,money(520000));
+  // Missing valuation mandate must not yield numbers from a previously valid
+  // property. This is distinct from an external appraisal-review HOLD.
+  await page.getByTestId('owner-step-0').click();
+  await page.getByTestId('owner-valuation-date').fill('');
+  await page.getByTestId('owner-step-4').click();
+  await expect(page.getByTestId('owner-market-identity-hold')).toBeVisible();checks++;
+  await eq(ownerCap,'—');await eq(ownerRent,'—');
+  await page.getByTestId('owner-step-0').click();
+  await page.getByTestId('owner-valuation-date').fill('2026-10-15');
+  await page.getByTestId('owner-step-1').click();
+  await page.getByTestId('owner-property-right').selectOption('UNKNOWN');
+  await page.getByTestId('owner-step-4').click();
+  await expect(page.getByTestId('owner-market-identity-hold')).toBeVisible();checks++;
+  await eq(ownerCap,'—');await eq(ownerRent,'—');
+  await page.getByTestId('owner-step-1').click();
+  await page.getByTestId('owner-property-right').selectOption('FULL_OWNERSHIP');
+  await page.getByTestId('owner-step-4').click();
+  await eq(ownerCap,money(independentValue));await eq(ownerRent,money(520000));
   // Stale market values are quarantined immediately after the shared subject
   // changes, and missing coordinates cancel comparable eligibility.
   await page.getByTestId('owner-step-1').click();
@@ -97,6 +119,6 @@ const {expect}=require('@playwright/test');
   await page.getByTestId('owner-step-4').click();
   await eq(ownerCap,'—');await eq(ownerRent,'—');
   assert.equal(pageErrors.length,0,'browser runtime errors '+pageErrors.join(';'));checks++;
-  console.log('OWNER_MARKET_INDEPENDENT_EVIDENCE=PASS assertions='+checks+' synthetic_only=true professional_approval=false');
+  console.log('OWNER_MARKET_INDEPENDENT_EVIDENCE=PASS browser='+browserName+' assertions='+checks+' synthetic_only=true professional_approval=false');
  }finally{await page.close();await browser.close();}
-})().catch(e=>{console.error('OWNER_MARKET_INDEPENDENT_EVIDENCE=FAIL',e.stack||e);process.exitCode=1;});
+})().catch(e=>{console.error('OWNER_MARKET_INDEPENDENT_EVIDENCE=FAIL browser='+browserName,e.stack||e);process.exitCode=1;});
