@@ -18,6 +18,36 @@ const {expect}=require('@playwright/test');
    await expect(page.getByTestId('owner-missing-list')).toBeVisible();assertions++;
    const button=page.getByTestId('owner-advanced-mode');
    await expect(button).toBeVisible();assertions++;
+   // Market-purpose controls must write the SAME subject used by the
+   // previously existing detailed research panel, never a parallel estimate.
+   await page.getByTestId('owner-valuation-purpose').selectOption('RENT_STUDY');
+   await page.getByTestId('owner-valuation-date').fill('2026-10-15');
+   await page.getByTestId('owner-step-1').click();
+   await page.getByTestId('owner-market-name').fill('SYNTHETIC-SUBJECT-'+width);
+   await page.getByTestId('owner-market-land-area').fill('1234');
+   await page.getByTestId('owner-property-right').selectOption('FULL_OWNERSHIP');
+   await button.click();
+   const canonicalMarket=page.getByTestId('location-market-study');
+   await expect(canonicalMarket.getByLabel('غرض دراسة التقييم')).toHaveValue('RENT_STUDY');assertions++;
+   await expect(canonicalMarket.getByLabel('تاريخ القيمة المطلوب دراستها')).toHaveValue('2026-10-15');assertions++;
+   await expect(canonicalMarket.getByLabel('اسم العقار',{exact:true})).toHaveValue('SYNTHETIC-SUBJECT-'+width);assertions++;
+   await expect(canonicalMarket.getByLabel('مساحة الأرض (م²)')).toHaveValue('1234');assertions++;
+   await expect(canonicalMarket.getByLabel('نوع الحق العقاري (يحتاج تحقق)')).toHaveValue('FULL_OWNERSHIP');assertions++;
+   await canonicalMarket.getByLabel('المدينة',{exact:true}).fill('جدة');
+   await canonicalMarket.getByLabel('غرض دراسة التقييم').selectOption('ACQUISITION');
+   await page.getByTestId('owner-simple-mode').click();
+   await page.getByTestId('owner-step-0').click();
+   await expect(page.getByTestId('owner-valuation-purpose')).toHaveValue('ACQUISITION');assertions++;
+   await expect(page.getByTestId('owner-valuation-date')).toHaveValue('2026-10-15');assertions++;
+   await page.getByTestId('owner-step-1').click();
+   await expect(page.getByTestId('owner-market-city')).toHaveValue('جدة');assertions++;
+   await expect(page.getByTestId('owner-market-land-area')).toHaveValue('1234');assertions++;
+   await page.getByTestId('owner-step-4').click();
+   await expect(page.getByTestId('owner-market-results')).toBeVisible();assertions++;
+   await expect(page.getByTestId('owner-market-results').locator('dd')).toHaveCount(2);assertions++;
+   // No comparables have been provided; the result is never certified.
+   await expect(page.getByTestId('owner-market-results')).toContainText('غير معتمدة مهنيًا');assertions++;
+   await page.getByTestId('owner-step-0').click();
    for(let step=0;step<5;step++){
     await page.getByTestId('owner-step-'+step).click();
     await expect(page.getByTestId('owner-current-step')).toContainText('('+(step+1)+'/5)');assertions++;
