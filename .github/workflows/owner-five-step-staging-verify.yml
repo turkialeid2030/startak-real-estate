@@ -29,6 +29,16 @@ jobs:
         run: npm run build
       - name: Canonical regression and release verification
         run: npm run release:verify
+      - name: Assert private golden-case gate fails closed without the authorized source
+        shell: bash
+        run: |
+          set +e
+          output=$(node tools/verify-owner-external-golden-17.mjs 2>&1)
+          status=$?
+          set -e
+          printf '%s\n' "$output"
+          test "$status" -eq 2
+          printf '%s\n' "$output" | grep -Fq 'STARTAK_PRIVATE_GOLDEN_SOURCE=BLOCKED_NOT_SUPPLIED'
       - name: Owner five-step browser acceptance and screenshots
         shell: bash
         run: |
