@@ -74,12 +74,12 @@ function ComparisonTable({ title, kind, rows, setRows, assetType }) {
   const L=v=>coreMarketLabel(v,locale);
   const isSale = kind==='sale';
   const update=(i,key,value)=>setRows(old=>old.map((r,j)=>j===i?{...r,[key]:value}:r));
-  return <section className="rounded-xl border border-slate-700 p-3">
+  return <section data-testid={"market-comparables-"+kind} className="rounded-xl border border-slate-700 p-3">
     <h4 className="font-semibold text-sm text-amber-200">{L(title)}</h4>
     <p className="text-xs text-slate-400 mt-1">{en
       ? 'At least three user-declared executed comparables of the same asset type within 365 days, within 5 km or explicitly matching the district. The comparable area must be 50%–200% of the subject on the same area basis. Duplicate source transaction IDs and asking listings are excluded. Matching type and location does not independently verify title or source.'
       : 'يلزم ثلاث مقارنات منفّذة على الأقل من نفس نوع العقار، خلال آخر 365 يومًا، بموقع يبعد 5 كم كحد أقصى أو تطابق معلن على مستوى الحي فقط. يشترط أن تكون مساحة المقارنة بين 50% و200% من مساحة الأصل على أساس المساحة نفسه. تُستبعد الصفقة المكررة بمعرّفها لدى المصدر نفسه، ولا تدخل عروض الأسعار في الحساب. تطابق النوع والموقع لا يُثبت الصك أو صحة المصدر مستقلاً.'}</p>
-    {rows.map((row,i)=><div key={i} className="border-b border-slate-700 py-3">
+    {rows.map((row,i)=><div key={i} data-testid={"market-comparable-"+kind+"-"+i} className="border-b border-slate-700 py-3">
       <div className="flex items-center justify-between mb-2">
         <strong className="text-xs text-slate-200">{en?'Comparable ':'المقارنة '}{i+1}</strong>
         {rows.length>3&&<button type="button" className="text-xs text-rose-300" onClick={()=>setRows(old=>old.filter((_,j)=>j!==i))}>{en?'Remove':'حذف'}</button>}
@@ -594,8 +594,8 @@ export default function PropertyMarketLocationPanel({
       <h3 className="font-bold text-amber-100">{L("نتيجة الحساب وقت الطلب — ليست تثمينًا مهنيًا")}</h3>
       <p className="text-xs text-slate-300 mt-1">{latestWindow}{L(". وقت الحساب:")} {report.asOf.slice(0,19).replace('T',' ')} {L("بالتوقيت العالمي")}</p>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
-        <div><span className="text-xs text-slate-400">{L("القيمة التقديرية الحسابية اليوم")}</span><strong className="block text-lg">{money(valuationReadiness.preliminaryValueSar)}</strong></div>
-        <div><span className="text-xs text-slate-400">{L("الإيجار السوقي السنوي المحتمل")}</span><strong className="block text-lg">{money(valuationReadiness.newAnnualMarketRentSar)}</strong></div>
+        <div><span className="text-xs text-slate-400">{L("القيمة التقديرية الحسابية اليوم")}</span><strong data-testid="market-canonical-capital-indication" className="block text-lg">{money(valuationReadiness.preliminaryValueSar)}</strong></div>
+        <div><span className="text-xs text-slate-400">{L("الإيجار السوقي السنوي المحتمل")}</span><strong data-testid="market-canonical-rent-indication" className="block text-lg">{money(valuationReadiness.newAnnualMarketRentSar)}</strong></div>
         <div><span className="text-xs text-slate-400">{L("الإيجار السنوي المتوقع تحصيله بعد الإشغال")}</span><strong className="block text-lg">{money(report.expectedCollectedAnnualRentSar)}</strong></div>
         <div><span className="text-xs text-slate-400">{L("مؤشر البيع بالمقارنات")}</span><strong className="block">{money(report.saleIndicationSar)}</strong></div>
         <div><span className="text-xs text-slate-400">{L("مؤشر الدخل بالرسملة")}</span><strong className="block">{money(report.incomeIndicationSar)}</strong></div>
@@ -614,7 +614,7 @@ export default function PropertyMarketLocationPanel({
         {L("مدى أسعار بيع المتر المقبولة:")} {money(report.saleDispersion.min)} {L("إلى")} {money(report.saleDispersion.max)}{L(". الاتساع النسبي للمدى:")} {(report.saleDispersion.spreadToMedian*100).toFixed(1)}{L("% — لا يمثل حد ثقة إحصائيًا.")}
       </p>}
       <p className="text-xs text-slate-300 mt-3">{L("مقارنات البيع المقبولة:")} {report.eligibleSalesCount} {L("من")} {allSales.length} {L("(مستبعد")} {report.excludedSalesCount}{L(") | عقود الإيجار المقبولة:")} {report.eligibleRentalsCount} {L("من")} {allRentals.length} {L("(مستبعد")} {report.excludedRentalsCount}{L(") | مشروعات قريبة بمصدر معلن:")} {report.nearbyProjects.length}</p>
-      <p className="text-xs text-slate-300 mt-2">{L("مقارنات بلا إحداثيات للقطعة، قُبلت فقط على أساس تطابق الحي والمدينة: بيع")} {report.districtOnlySalesCount}{L("، إيجار")} {report.districtOnlyRentalsCount}{L(". تقريبي ولا يثبت البعد الحقيقي عن العقار.")}</p>
+      <p data-testid="market-evidence-district-only" className="text-xs text-slate-300 mt-2">{L("مقارنات بلا إحداثيات للقطعة، قُبلت فقط على أساس تطابق الحي والمدينة: بيع")} {report.districtOnlySalesCount}{L("، إيجار")} {report.districtOnlyRentalsCount}{L(". تقريبي ولا يثبت البعد الحقيقي عن العقار.")}</p>
       <p className="text-xs text-amber-200 mt-2">{L("الأثر الافتراضي للمشروعات على القيمة، منفصل عن الأساس:")} {money(report.projectScenarioSar)}{L(". يتطلب إثباتًا مستقلًا لعلاقة التأثير وليس مجرد قرب المشروع.")}</p>
       <p className="text-xs text-rose-200 mt-2">
         {L("الإيجار المسموح نظاميًا: غير محسوب آليًا.")} {report.rentRegulation==='EXISTING_RENT_FREEZE_REQUIRES_EJAR_REVIEW'
