@@ -75,7 +75,7 @@ function ComparisonTable({ title, kind, rows, setRows, assetType }) {
   const L=v=>coreMarketLabel(v,locale);
   const isSale = kind==='sale';
   const update=(i,key,value)=>setRows(old=>old.map((r,j)=>j===i?{...r,[key]:value}:r));
-  return <section data-testid={"market-comparables-"+kind} className="rounded-xl border border-slate-700 p-3">
+  return <section tabIndex={-1} data-testid={"market-comparables-"+kind} className="rounded-xl border border-slate-700 p-3 focus:outline-2 focus:outline-offset-2 focus:outline-amber-400">
     <h4 className="font-semibold text-sm text-amber-200">{L(title)}</h4>
     <p className="text-xs text-slate-400 mt-1">{en
       ? 'At least three user-declared executed comparables of the same asset type within 365 days, within 5 km or explicitly matching the district. The comparable area must be 50%–200% of the subject on the same area basis. Duplicate source transaction IDs and asking listings are excluded. Matching type and location does not independently verify title or source.'
