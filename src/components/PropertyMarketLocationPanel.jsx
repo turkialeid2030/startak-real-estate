@@ -228,6 +228,8 @@ export default function PropertyMarketLocationPanel({
   // market engine. A linked appraisal HOLD must never leak stale indications
   // into the simplified result screen.
   const ownerMarketSummary=useMemo(()=>({
+    // Prevent old results flashing after a subject edit before React effects run.
+    subjectKey:JSON.stringify(subject),
     saleIndicationSar:appraisalBinding.blockExport?null:
       (Number.isFinite(valuationReadiness.preliminaryValueSar)?valuationReadiness.preliminaryValueSar:null),
     annualRentIndicationSar:appraisalBinding.blockExport?null:
@@ -237,7 +239,7 @@ export default function PropertyMarketLocationPanel({
     blocked:Boolean(appraisalBinding.blockExport),
     eligibleSalesCount:report.eligibleSalesCount,
     eligibleRentalsCount:report.eligibleRentalsCount,
-  }),[valuationReadiness,appraisalBinding,report]);
+  }),[subject,valuationReadiness,appraisalBinding,report]);
   useEffect(()=>{
     if(typeof onOwnerMarketSummaryChange==='function')onOwnerMarketSummaryChange(ownerMarketSummary);
   },[onOwnerMarketSummaryChange,ownerMarketSummary]);
