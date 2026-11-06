@@ -134,52 +134,52 @@ jobs:
           exit 1
       - name: Source-linked native PDF and actual OCR tables, restore and evidence gates
         env:
-          STARTAK_E2E_URL: http://127.0.0.1:4173
+          STARTAK_E2E_URL: http://127.0.0.1:4173/?ownerView=advanced
         run: node tests/e2e/run_audit_20261021_document_tables_browser.js
       - name: Actual owned Chromium process kills during mutations and recovery
         env:
-          STARTAK_E2E_URL: http://127.0.0.1:4173
+          STARTAK_E2E_URL: http://127.0.0.1:4173/?ownerView=advanced
         run: node tests/e2e/run_audit_20261021_process_crash_browser.js
       - name: Actual desktop and mobile Arabic workflows
         env:
-          STARTAK_E2E_URL: http://127.0.0.1:4173
+          STARTAK_E2E_URL: http://127.0.0.1:4173/?ownerView=advanced
         run: node tests/e2e/run_audit_20261010_f03_f07_browser.js
       - name: Existing personal export compatibility
         env:
-          STARTAK_E2E_URL: http://127.0.0.1:4173
+          STARTAK_E2E_URL: http://127.0.0.1:4173/?ownerView=advanced
         run: node tests/e2e/run_c75_real_chromium_personal_study.js
       - name: Real browser limited-property-rights archive input, tamper, and isolation
         env:
-          STARTAK_E2E_URL: http://127.0.0.1:4173
+          STARTAK_E2E_URL: http://127.0.0.1:4173/?ownerView=advanced
         run: node tests/e2e/run_personal_limited_interest_archive_browser.js
       - name: Real browser C55 phased land development DCF and negative guardrails
         env:
-          STARTAK_E2E_URL: http://127.0.0.1:4173
+          STARTAK_E2E_URL: http://127.0.0.1:4173/?ownerView=advanced
         run: node tests/e2e/run_personal_phased_development_browser.js
       - name: Real browser 13-sector owner classification and hard-HOLD
         env:
-          STARTAK_E2E_URL: http://127.0.0.1:4173
+          STARTAK_E2E_URL: http://127.0.0.1:4173/?ownerView=advanced
         run: node tests/e2e/run_all_13_asset_classes_public_smoke.js
       - name: Lease lifecycle, retained terms, current-source review and saved report acceptance
         env:
-          STARTAK_E2E_URL: http://127.0.0.1:4173
+          STARTAK_E2E_URL: http://127.0.0.1:4173/?ownerView=advanced
           STARTAK_LEASE_VISUAL_PREVIEW: '1'
         run: node tests/e2e/run_audit_20261020_lease_lifecycle_browser.js
       - name: Durable local recovery, persisted interruptions and startup write block
         env:
-          STARTAK_E2E_URL: http://127.0.0.1:4173
+          STARTAK_E2E_URL: http://127.0.0.1:4173/?ownerView=advanced
         run: node tests/e2e/run_audit_20261021_durable_recovery_browser.js
       - name: Cross-browser backup transfer, conflicts, rollback and concurrent restore
         env:
-          STARTAK_E2E_URL: http://127.0.0.1:4173
+          STARTAK_E2E_URL: http://127.0.0.1:4173/?ownerView=advanced
         run: node tests/e2e/run_audit_20261020_backup_browser.js
       - name: Local Arabic/English OCR, selected PDF pages, CSP and worker lifecycle
         env:
-          STARTAK_E2E_URL: http://127.0.0.1:4173
+          STARTAK_E2E_URL: http://127.0.0.1:4173/?ownerView=advanced
         run: node tests/e2e/run_audit_20261020_local_ocr_browser.js
       - name: Native PDF, source journals, gap actions, keyboard and print acceptance
         env:
-          STARTAK_E2E_URL: http://127.0.0.1:4173
+          STARTAK_E2E_URL: http://127.0.0.1:4173/?ownerView=advanced
         run: node tests/e2e/run_audit_20261010_remaining_browser.js
       - name: Save browser and print evidence
         if: always()
