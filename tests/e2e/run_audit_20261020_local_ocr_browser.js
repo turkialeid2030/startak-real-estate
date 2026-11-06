@@ -37,14 +37,14 @@ async function secureLoopbackPreview(){
    const applyPolicy=async route=>{const response=await route.fetch({ignoreHTTPSErrors:localTlsPreview}),headers=response.headers();
     if(!headers['content-security-policy'])headers['content-security-policy']=header;
     await route.fulfill({response,headers});};
-   await context.route(BASE+'/',applyPolicy);
+   await context.route(BASE+'/?ownerView=advanced',applyPolicy);
    await context.route(BASE+'/assets/ocr/**',async route=>{
     if(stallWorker&&route.request().url().endsWith('/worker.min.js')){
      await new Promise(resolve=>{resumeWorker=resolve;workerBlocked();});await route.abort();return;
     }
     await applyPolicy(route);
    });
-   await page.goto(BASE+'/',{waitUntil:'domcontentloaded'});
+   await page.goto(BASE+'/?ownerView=advanced',{waitUntil:'domcontentloaded'});
    const panel=page.getByTestId('local-document-evidence-intake');
    try{await expect(panel).toBeVisible({timeout:30000});}catch(error){
     await fs.writeFile(`${DIR}/${name}-${width}-startup-failure.json`,JSON.stringify({engine:name,width,errors,external,violations,failedRequests,consoleErrors,body:await page.locator('body').innerText()},null,2));
