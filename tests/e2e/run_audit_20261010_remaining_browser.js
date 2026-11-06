@@ -75,7 +75,7 @@ async function textContrast(locator){return locator.evaluate(el=>{
    await expect(documentPanel).toContainText('1500.00');checks++;
    await documentPanel.getByTestId('manual-transcription').locator('summary').click();
    await page.getByTestId('manual-text').fill('1500');await page.getByTestId('manual-page').fill('1');await page.getByTestId('manual-reviewerRef').fill('TRANSCRIBER');await page.getByTestId('manual-note').fill('Rent column page 1');await page.getByTestId('apply-manual-transcription').click();
-   await expect(documentPanel).toContainText('MANUAL_TRANSCRIPTION_UNVERIFIED');checks++;
+   await expect(documentPanel.locator('li[data-reason-code="MANUAL_TRANSCRIPTION_UNVERIFIED"]')).toContainText('هذا المحتوى نُقل يدويًا ولم يُتحقق من مطابقته للمصدر بعد.');await expect(documentPanel.locator('li[data-reason-code="MANUAL_TRANSCRIPTION_UNVERIFIED"]')).toHaveAttribute('data-reason-code','MANUAL_TRANSCRIPTION_UNVERIFIED');await expect(documentPanel.locator('li[data-reason-code="MANUAL_TRANSCRIPTION_UNVERIFIED"]')).not.toContainText('MANUAL_TRANSCRIPTION_UNVERIFIED');checks+=3;
    const qualification=page.getByTestId('local-evidence-qualification');await page.getByTestId('evidence-atom-select').selectOption({index:1});
    // Existing qualification controls use stable test IDs.
    await page.getByTestId('semantic-key-input').fill('market.rent');
@@ -95,7 +95,7 @@ async function textContrast(locator){return locator.evaluate(el=>{
    // DiagnosticText intentionally preserves both the localized explanation and
    // stable machine code. Verify both without treating either as approval.
    await expect(page.getByTestId('local-evidence-workflow-status')).toContainText('التحقق غير مكتمل');checks++;
-   await expect(page.getByTestId('local-evidence-workflow-status').locator('code')).toHaveText('VERIFICATION_NOT_COMPLETE');checks++;
+   await expect(page.getByTestId('local-evidence-workflow-status')).toHaveAttribute('data-reason-code','VERIFICATION_NOT_COMPLETE');checks++;
    await page.getByTitle(ar.actions.savedDeals,{exact:true}).click();await page.getByRole('dialog').getByRole('button',{name:seed.name,exact:true}).click();
    // Full-engine lower-price evidence must match the current exported inputs
    // on all three browsers, including the explicit-zero-debt case.
@@ -157,7 +157,7 @@ async function textContrast(locator){return locator.evaluate(el=>{
    await financingSection.click();await expect(debtSwitch).toHaveCount(0);await expect(financingBody).toHaveAttribute('aria-hidden','true');checks+=2;
    const provenance=page.getByTestId('input-provenance');await provenance.locator('summary').click();
    for(const[key,value]of Object.entries({field:'buildingPrice',unit:'SAR',sourceReference:'USER ESTIMATE / source',sourceDate:'2026-10-01',location:'Riyadh',reviewerRef:'OWNER'})) {const control=page.getByTestId('provenance-'+key);if(key==='field')await control.selectOption(value);else await control.fill(value);}
-   await page.getByTestId('save-input-provenance').click();await expect(provenance).toContainText('USER_SUPPLIED_UNVERIFIED');checks++;
+   await page.getByTestId('save-input-provenance').click();await expect(provenance).toContainText('مصدر أدخله المستخدم ولم تُثبت صحته بمراجعة مستقلة.');await expect(provenance.locator('[data-diagnostic-code="USER_SUPPLIED_UNVERIFIED"]')).toHaveAttribute('data-diagnostic-code','USER_SUPPLIED_UNVERIFIED');await expect(provenance).not.toContainText('USER_SUPPLIED_UNVERIFIED');checks+=3;
    const report=JSON.parse(await download(page,page.getByTestId('c75-export-personal-json')));ok(verifyPersonalFinancialStudy(report)&&report.financial.inputProvenance.buildingPrice.sourceReference==='USER ESTIMATE / source','actual UI financial export includes input provenance');
    const canonical=page.getByTestId('canonical-case-workspace-panel');
    for(const[label,value]of [['معرّف مساحة العمل','WS-LOCAL-AUDIT'],['معرّف المشروع','PROJECT-LOCAL-AUDIT'],['معرّف الحالة','CASE-LOCAL-AUDIT'],['معرّف المحلل / المستخدم','OWNER']]) await canonical.getByRole('textbox',{name:label,exact:true}).fill(value);
@@ -194,7 +194,7 @@ async function textContrast(locator){return locator.evaluate(el=>{
    await collection.getByLabel(ar.riai.rentCollected,{exact:true}).fill('121');
    await expect(confirmed).not.toBeChecked();checks++;
    await collection.getByRole('button',{name:ar.riai.addCollectionRecord,exact:true}).click();
-   await expect(operating).toContainText('EXPLICIT_VERIFICATION_CONFIRMATION_REQUIRED');checks++;
+   await expect(operating).toContainText('راجع البيانات وأكد مراجعتها بعد آخر تغيير قبل الحفظ.');await expect(operating.locator('[data-diagnostic-code="EXPLICIT_VERIFICATION_CONFIRMATION_REQUIRED"]')).toHaveAttribute('data-diagnostic-code','EXPLICIT_VERIFICATION_CONFIRMATION_REQUIRED');await expect(operating).not.toContainText('EXPLICIT_VERIFICATION_CONFIRMATION_REQUIRED');checks+=3;
    await confirmed.check();await collection.getByRole('button',{name:ar.riai.addCollectionRecord,exact:true}).click();
    await expect(operating).toContainText(ar.riai.collectionAddSuccess);checks++;
    const exportedOperating=JSON.parse(await download(page,page.getByRole('button',{name:ar.riai.exportOperatingCase,exact:true})));

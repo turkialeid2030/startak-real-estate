@@ -1,0 +1,105 @@
+name: Owner Study Hidden Diagnostic Codes — Exact Verification
+on:
+  push:
+    branches:
+      - fix/owner-study-hidden-diagnostic-code-20261105
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-two-regressions:
+    name: Exact OCR and Manual Transcription — Chromium Firefox WebKit
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e
+      options: --user 1001
+    timeout-minutes: 80
+    env:
+      STARTAK_E2E_URL: http://127.0.0.1:4173
+      STARTAK_SOURCE_COMMIT: ${{ github.sha }}
+    steps:
+      - name: Checkout exact review commit
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Verify exact source and pinned browsers
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$STARTAK_SOURCE_COMMIT"
+          node -e "const fs=require('node:fs'); const p=require('playwright/package.json');if(p.version!=='1.62.1')throw Error('PLAYWRIGHT_VERSION_MISMATCH'); for(const [name,b] of Object.entries(require('playwright'))){if(['chromium','firefox','webkit'].includes(name)&&!fs.existsSync(b.executablePath()))throw Error('BROWSER_UNAVAILABLE_'+name);}"
+          echo "SOURCE_SHA=$STARTAK_SOURCE_COMMIT"
+      - run: npm run build
+      - name: Serve built app locally
+        id: preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          (nohup npm run preview -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/startak-diagnostics-preview.log 2>&1 &)
+          for n in $(seq 1 90); do
+            if curl --fail --silent http://127.0.0.1:4173/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/startak-diagnostics-preview.log
+          exit 1
+      - name: OCR diagnostic — three browsers and two widths
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p runtime-evidence/hidden-diagnostics
+          node tests/e2e/run_audit_20261020_local_ocr_browser.js 2>&1 | tee runtime-evidence/hidden-diagnostics/local-ocr-output.txt
+      - name: Manual transcription diagnostic — three browsers and two widths
+        if: ${{ always() && steps.preview.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p runtime-evidence/hidden-diagnostics
+          node tests/e2e/run_audit_20261010_remaining_browser.js 2>&1 | tee runtime-evidence/hidden-diagnostics/remaining-output.txt
+      - name: Preserve literal outputs and generated browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hidden-diagnostics-browser-logs
+          path: |
+            runtime-evidence/hidden-diagnostics/
+            runtime-evidence/remaining-audit/
+          if-no-files-found: warn
+          retention-days: 14
+
+  release-canonical:
+    name: Exact release:verify transcript
+    runs-on: ubuntu-24.04
+    timeout-minutes: 80
+    env:
+      STARTAK_SOURCE_COMMIT: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Run release:verify and preserve stdout/stderr verbatim
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p runtime-evidence/hidden-diagnostics
+          echo "SOURCE_SHA=$STARTAK_SOURCE_COMMIT"
+          npm run release:verify 2>&1 | tee runtime-evidence/hidden-diagnostics/release-verify-output.txt
+      - name: Upload literal release transcript
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hidden-diagnostics-release-verify-log
+          path: runtime-evidence/hidden-diagnostics/release-verify-output.txt
+          if-no-files-found: warn
+          retention-days: 14
