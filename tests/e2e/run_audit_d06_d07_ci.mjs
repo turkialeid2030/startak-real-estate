@@ -15,7 +15,7 @@ let server,browser;
 const assert=(condition,message)=>{if(!condition)throw Error(message);};
 try{
  server=await preview({preview:{host:'127.0.0.1',port:4173,strictPort:false}});
- const url='http://127.0.0.1:'+server.httpServer.address().port+'/';
+ const url='http://127.0.0.1:'+server.httpServer.address().port+'/?ownerView=advanced';
  browser=await chromium.launch({headless:true,executablePath:findChromiumExecutable(),args:['--no-sandbox']});
  const page=await browser.newPage({locale:'ar-SA',timezoneId:'UTC',viewport:{width:1280,height:900},acceptDownloads:true});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
