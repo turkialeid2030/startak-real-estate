@@ -13,7 +13,8 @@ const {verifyPersonalFinancialStudy}=require('../../src/app/personal-financial-s
 const {appendReceivablesEvent}=require('../../src/residential-income-acquisition/receivables-ledger');
 const {readLocalReviewJournal}=require('../../src/storage/local-review-journal');
 const namespace=require('../../src/storage/browser-local-storage-provider').NAMESPACE;
-const BASE=process.env.STARTAK_E2E_URL||'http://127.0.0.1:4173';
+const BASE=new URL(process.env.STARTAK_E2E_URL||'http://127.0.0.1:4173').origin;
+const ADVANCED_URL=new URL('/?ownerView=advanced',BASE).href;
 const DIR='runtime-evidence/remaining-audit';let checks=0;
 const ok=(condition,message)=>{assert.ok(condition,message);checks++;};
 async function download(page,locator){const pending=page.waitForEvent('download');await locator.click();const file=await pending;return fs.readFile(await file.path(),'utf8');}
@@ -47,7 +48,7 @@ async function textContrast(locator){return locator.evaluate(el=>{
    page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(r.method()==='POST'&&!r.url().startsWith(BASE))external.push(r.url());});
    const seed={id:'audit-remaining',name:'SOURCE TEST / العقار',mode:'building',inputs:gold['RE-GOLD-002_existing_building'].inputs,savedAt:'2026-10-10T00:00:00Z'};
    await context.addInitScript(({namespace,seed})=>{localStorage.setItem('startak.locale','ar-SA');if(!localStorage.getItem(namespace+'remaining-seeded')){localStorage.setItem(namespace+'deal:'+seed.id,JSON.stringify(seed));localStorage.setItem(namespace+'deals-index',JSON.stringify([{id:seed.id,name:seed.name,mode:seed.mode,savedAt:seed.savedAt}]));localStorage.setItem(namespace+'remaining-seeded','true');}}, {namespace,seed});
-   await page.goto(BASE,{waitUntil:'domcontentloaded'});
+   await page.goto(ADVANCED_URL,{waitUntil:'domcontentloaded'});
    const documentPanel=page.getByTestId('local-document-evidence-intake');await expect(documentPanel).toBeVisible({timeout:30000});
    const untranslated=await page.getByText('نص يحتاج استكمال التعريب؛ الأصل:',{exact:false}).allTextContents();
    if(untranslated.length) console.log('ARABIC_SURFACE_UNTRANSLATED_SAMPLES='+JSON.stringify(untranslated.slice(0,30)));
