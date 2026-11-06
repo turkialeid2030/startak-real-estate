@@ -14,7 +14,7 @@ const MARKET_LABELS={
   landArea:'مساحة الأرض وفق المصدر (م²)',right:'الحق العقاري (يحتاج تحقق)',
   unknown:'غير متحقق',full:'ملكية كاملة',usufruct:'حق انتفاع',longLease:'حق تأجير طويل المدة',otherRight:'حق آخر',
   marketResults:'مؤشرات دراسة السوق المستقلة',capital:'القيمة السوقية الاسترشادية (ريال)',
-  annualRent:'الأجرة السنوية الاسترشادية (ريال)',marketBlocked:'تدقيق مرتبط يوقف عرض المؤشرات.',
+  annualRent:'الأجرة السنوية الاسترشادية (ريال)',marketBlocked:'تدقيق مرتبط يوقف عرض المؤشرات.',marketIdentityMissing:'أكمل غرض دراسة السوق وتاريخ التقييم الصحيح واسم العقار وإقرار نوع الحق قبل عرض أي مؤشر استرشادي.',
   evidenceStatus:'سجلات المقارنة المؤهلة: بيع',rentEvidence:'إيجار',
   marketCaution:'نتائج حسابية بحثية غير معتمدة مهنيًا. القيمة والأجرة مستقلتان، ولا تعني نتيجة الجدوى اعتماد تقييم العقار.'
  },
@@ -26,7 +26,7 @@ const MARKET_LABELS={
   landArea:'Land area from source (sqm)',right:'Property interest (needs verification)',
   unknown:'Unverified',full:'Full ownership',usufruct:'Usufruct',longLease:'Long leasehold',otherRight:'Other interest',
   marketResults:'Independent market research indications',capital:'Indicative capital value (SAR)',
-  annualRent:'Indicative annual market rent (SAR)',marketBlocked:'Linked review blocks market indications.',
+  annualRent:'Indicative annual market rent (SAR)',marketBlocked:'Linked review blocks market indications.',marketIdentityMissing:'Complete the market-study purpose, valid valuation date, property name and declared interest before viewing provisional figures.',
   evidenceStatus:'Eligible comparable records: sales',rentEvidence:'leases',
   marketCaution:'Non-certified research calculations. Capital value and rent are independent; financial feasibility does not certify property valuation.'
  }
@@ -175,6 +175,7 @@ export default function OwnerFiveStepWizard({locale='ar-SA',step=0,onStepChange,
    <section data-testid="owner-market-results" className="mt-4 border-t border-slate-600 pt-4">
     <h3 className="text-sm font-semibold">{mt.marketResults}</h3>
     {governedMarket?.blocked&&<p data-testid="owner-market-linked-hold" role="alert" className="mt-2 text-xs text-rose-300">{mt.marketBlocked}</p>}
+    {governedMarket?.identityHold&&<p data-testid="owner-market-identity-hold" role="alert" className="mt-2 text-xs text-amber-200">{mt.marketIdentityMissing}</p>}
     <dl className="mt-2 grid gap-3 sm:grid-cols-2">
      <Metric locale={locale} testId="owner-market-capital-indication" label={mt.capital} value={governedMarket?.saleIndicationSar}/>
      <Metric locale={locale} testId="owner-market-rent-indication" label={mt.annualRent} value={governedMarket?.annualRentIndicationSar}/>
