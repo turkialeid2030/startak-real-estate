@@ -5,6 +5,32 @@ const WORDS={
  ar:{title:'ستارتك',current:'الخطوة الحالية',missing:'ما ينقص',advance:'الوضع المتقدم',simple:'الوضع المبسط',previous:'السابق',next:'التالي',study:'نوع الدراسة',building:'مبنى قائم',land:'أرض وتطوير',name:'اسم العقار أو المشروع',length:'طول الأرض (م)',width:'عرض الأرض (م)',age:'عمر المبنى (سنة)',price:'قيمة شراء المبنى (ريال)',landPrice:'سعر الأرض للمتر (ريال)',rent:'الإيجار السنوي للمتر (ريال)',construction:'تكلفة الإنشاء للمتر (ريال)',occupancy:'الإشغال (%)',discount:'معدل الخصم (%)',hurdle:'العائد المستهدف (%)',holding:'مدة الاحتفاظ (سنة)',exit:'معدل رسملة التخارج (%)',market:'راجع أدلة السوق والمصادر قبل اعتماد النتيجة.',evidence:'أدخل أدلة المقارنات ومراجعها في اللوحة الموجودة أدناه. الأسعار المعروضة ليست صفقات منفذة موثقة تلقائيًا.',assumption:'هذه بيانات افتراضية للتجربة حتى تستبدلها ببيانات العقار ومراجعها.',invalid:'راجع المدخلات غير الصالحة. الحساب القديم لا يصلح للاعتماد.',notReady:'لا توجد نتيجة صالحة بالمدخلات الحالية.',provisional:'نتائج حسابية غير معتمدة مهنيًا؛ لم تُتحقق أدلة السوق مستقلاً.',irr:'العائد الداخلي',npv:'صافي القيمة الحالية',income:'قيمة الدخل الاسترشادية',none:'لا توجد حقول أساسية ناقصة؛ تبقى مراجعة الأدلة والافتراضات مطلوبة.',purposeBoundary:'هذا الاختيار يحدد النموذج المالي فقط؛ غرض التقييم للبيع أو الشراء أو إعادة التأجير وتاريخ التقييم يُحددان بصورة مستقلة داخل دراسة السوق، ولا يثبتان صحة حسابات الجدوى.',language:'الإنجليزية'},
  en:{title:'Startak',current:'Current step',missing:'What is missing',advance:'Advanced mode',simple:'Simple mode',previous:'Back',next:'Next',study:'Study type',building:'Existing building',land:'Land development',name:'Property or project name',length:'Land length (m)',width:'Land width (m)',age:'Building age (years)',price:'Building purchase price (SAR)',landPrice:'Land price per sqm (SAR)',rent:'Annual rent per sqm (SAR)',construction:'Construction cost per sqm (SAR)',occupancy:'Occupancy (%)',discount:'Discount rate (%)',hurdle:'Target return (%)',holding:'Holding period (years)',exit:'Exit capitalization rate (%)',market:'Review market evidence and sources before relying on the result.',evidence:'Use the market evidence panel below to review comparables and source references. Listing prices are not verified executed sales.',assumption:'Current values are example assumptions until replaced with the property evidence.',invalid:'Invalid inputs require review. Do not rely on previous calculations.',notReady:'No valid result for the current inputs.',provisional:'Calculations are not a certified valuation; market evidence is not independently verified.',irr:'IRR',npv:'NPV',income:'Indicative income value',none:'No missing basic fields; market evidence and assumptions still need review.',purposeBoundary:'This choice selects only the financial model. Sale, purchase or whole-property reletting purpose and valuation date are controlled separately in the market study; neither establishes the validity of the other.',language:'العربية'}
 };
+const MARKET_LABELS={
+ ar:{
+  purpose:'غرض دراسة القيمة السوقية',date:'تاريخ القيمة المطلوب دراستها',
+  purchase:'دراسة شراء أو استحواذ',portfolio:'مراجعة محفظة أصول',rentStudy:'دراسة أجرة سوقية',
+  finance:'مراجعة تمويلية غير رسمية',other:'دراسة شخصية أخرى',choose:'اختر الغرض',
+  marketName:'اسم العقار في دراسة السوق',city:'المدينة',district:'الحي',location:'الموقع أو الإحداثيات',
+  landArea:'مساحة الأرض وفق المصدر (م²)',right:'الحق العقاري (يحتاج تحقق)',
+  unknown:'غير متحقق',full:'ملكية كاملة',usufruct:'حق انتفاع',longLease:'حق تأجير طويل المدة',otherRight:'حق آخر',
+  marketResults:'مؤشرات دراسة السوق المستقلة',capital:'القيمة السوقية الاسترشادية (ريال)',
+  annualRent:'الأجرة السنوية الاسترشادية (ريال)',marketBlocked:'تدقيق مرتبط يوقف عرض المؤشرات.',
+  evidenceStatus:'سجلات المقارنة المؤهلة: بيع',rentEvidence:'إيجار',
+  marketCaution:'نتائج حسابية بحثية غير معتمدة مهنيًا. القيمة والأجرة مستقلتان، ولا تعني نتيجة الجدوى اعتماد تقييم العقار.'
+ },
+ en:{
+  purpose:'Market-study purpose',date:'Market valuation date',
+  purchase:'Purchase or acquisition study',portfolio:'Portfolio review',rentStudy:'Market rental study',
+  finance:'Informal financing review',other:'Other personal research',choose:'Choose purpose',
+  marketName:'Property name in market study',city:'City',district:'District',location:'Location or coordinates',
+  landArea:'Land area from source (sqm)',right:'Property interest (needs verification)',
+  unknown:'Unverified',full:'Full ownership',usufruct:'Usufruct',longLease:'Long leasehold',otherRight:'Other interest',
+  marketResults:'Independent market research indications',capital:'Indicative capital value (SAR)',
+  annualRent:'Indicative annual market rent (SAR)',marketBlocked:'Linked review blocks market indications.',
+  evidenceStatus:'Eligible comparable records: sales',rentEvidence:'leases',
+  marketCaution:'Non-certified research calculations. Capital value and rent are independent; financial feasibility does not certify property valuation.'
+ }
+};
 const okPositive=v=>Number.isFinite(Number(v))&&Number(v)>0;
 const fieldId=key=>'owner-'+key;
 function OwnerNumber({id,value,onChange,percent=false,locale}){
@@ -38,11 +64,16 @@ function GovernedRate({id,label,value,onCommit,locale}){
   {invalid&&<span role="alert" className="block text-xs text-rose-300">{locale==='ar-SA'?'معدل رسملة التخارج غير صالح':'Invalid exit capitalization rate'}</span>}
  </label>;
 }
-export default function OwnerFiveStepWizard({locale='ar-SA',step=0,onStepChange,mode,onModeChange,inputs,onChangeInput,results,validationError,onAdvanced,onLocaleSwitch,onExitCapTextCommit}){
- const lang=locale==='ar-SA'?'ar':'en',t=WORDS[lang],focusRef=useRef(null);
+export default function OwnerFiveStepWizard({locale='ar-SA',step=0,onStepChange,mode,onModeChange,inputs,onChangeInput,results,validationError,onAdvanced,onLocaleSwitch,onExitCapTextCommit,marketSubject=null,onMarketSubjectChange=()=>{},marketSummary=null}){
+ const lang=locale==='ar-SA'?'ar':'en',t=WORDS[lang],mt=MARKET_LABELS[lang],focusRef=useRef(null);
+ const market=marketSubject||{};
+ const governedMarket=marketSummary?.subjectKey===JSON.stringify(market)?marketSummary:null;
  const gapItems=useMemo(()=>{
   const gaps=[],add=(s,k,label)=>gaps.push({s,k,label});
   if(!String(inputs.projectTitle||'').trim())add(1,'projectTitle',t.name);
+  if(!market.valuationPurpose)add(0,'valuationPurpose',mt.purpose);
+  if(!market.valuationDate)add(0,'valuationDate',mt.date);
+  if(!market.propertyRight||market.propertyRight==='UNKNOWN')add(1,'propertyRight',mt.right);
   if(!okPositive(inputs.landLength))add(1,'landLength',t.length);
   if(!okPositive(inputs.landWidth))add(1,'landWidth',t.width);
   if(mode==='building'){
@@ -57,7 +88,7 @@ export default function OwnerFiveStepWizard({locale='ar-SA',step=0,onStepChange,
   gaps.push({s:2,k:'market-evidence',label:t.market});
   if(validationError)gaps.push({s:4,k:'results',label:t.invalid});
   return gaps;
- },[inputs,mode,validationError,lang]);
+ },[inputs,mode,validationError,lang,marketSubject]);
  useEffect(()=>{const id=focusRef.current;if(!id)return;const el=document.getElementById(fieldId(id));if(el){el.scrollIntoView({block:'center'});el.focus({preventScroll:true});}focusRef.current=null;},[step]);
  const navigate=(s,key)=>{focusRef.current=key;onStepChange(s);};
  const number=(key,label,percent=false)=><label key={key} className="block text-sm text-slate-100" htmlFor={fieldId(key)}>{label}
@@ -86,13 +117,47 @@ export default function OwnerFiveStepWizard({locale='ar-SA',step=0,onStepChange,
   {step===0&&<div className="mt-5"><h3 className="text-sm font-semibold">{t.study}</h3><div className="mt-2 grid gap-2 sm:grid-cols-2">
    {[['building',t.building],['land',t.land]].map(([value,label])=><button type="button" key={value} aria-pressed={mode===value}
     className={'min-h-[48px] rounded-lg border p-3 text-start '+(mode===value?'border-amber-400 bg-amber-900/40':'border-slate-600 bg-slate-800')}
-    onClick={()=>onModeChange(value)}>{label}</button>)}</div><p className="mt-3 text-xs text-slate-300">{t.assumption}</p><p data-testid="owner-purpose-boundary" className="mt-2 text-xs text-amber-100">{t.purposeBoundary}</p></div>}
+    onClick={()=>onModeChange(value)}>{label}</button>)}</div><p className="mt-3 text-xs text-slate-300">{t.assumption}</p><p data-testid="owner-purpose-boundary" className="mt-2 text-xs text-amber-100">{t.purposeBoundary}</p>
+    <div className="mt-4 grid gap-3 sm:grid-cols-2" data-testid="owner-market-purpose">
+     <label htmlFor={fieldId('valuationPurpose')} className="block text-sm">{mt.purpose}
+      <select id={fieldId('valuationPurpose')} data-testid="owner-valuation-purpose" className="mt-1 min-h-[44px] w-full rounded-lg border border-slate-500 bg-slate-950 p-3" value={market.valuationPurpose||''}
+       onChange={e=>onMarketSubjectChange('valuationPurpose',e.target.value)}>
+       {[['',mt.choose],['ACQUISITION',mt.purchase],['PORTFOLIO_REVIEW',mt.portfolio],['RENT_STUDY',mt.rentStudy],['FINANCING_REVIEW',mt.finance],['OTHER',mt.other]].map(([value,label])=><option key={value} value={value}>{label}</option>)}
+      </select>
+     </label>
+     <label htmlFor={fieldId('valuationDate')} className="block text-sm">{mt.date}
+      <input id={fieldId('valuationDate')} data-testid="owner-valuation-date" type="date" dir="ltr"
+       className="mt-1 min-h-[44px] w-full rounded-lg border border-slate-500 bg-slate-950 p-3"
+       value={market.valuationDate||''} onChange={e=>onMarketSubjectChange('valuationDate',e.target.value)}/>
+     </label>
+    </div></div>}
   {step===1&&<div className="mt-5 grid gap-4 sm:grid-cols-2" data-testid="owner-property-inputs">
    <label htmlFor={fieldId('projectTitle')} className="sm:col-span-2 text-sm">{t.name}
     <input id={fieldId('projectTitle')} type="text" data-testid={fieldId('projectTitle')} className="mt-1 min-h-[44px] w-full rounded-lg border border-slate-500 bg-slate-950 p-3 text-base"
      value={inputs.projectTitle||''} onChange={e=>onChangeInput('projectTitle',e.target.value)}/></label>
    {number('landLength',t.length)}{number('landWidth',t.width)}
    {mode==='building'&&number('buildingAge',t.age)}
+   <div className="sm:col-span-2 border-t border-slate-700 pt-3 text-xs text-amber-100">{mt.marketName} — {mt.marketCaution}</div>
+   <label className="block text-sm sm:col-span-2">{mt.marketName}
+    <input data-testid="owner-market-name" type="text" className="mt-1 min-h-[44px] w-full rounded-lg border border-slate-500 bg-slate-950 p-3"
+     value={market.name||''} onChange={e=>onMarketSubjectChange('name',e.target.value)}/></label>
+   <label className="block text-sm">{mt.city}
+    <input data-testid="owner-market-city" type="text" className="mt-1 min-h-[44px] w-full rounded-lg border border-slate-500 bg-slate-950 p-3"
+     value={market.city||''} onChange={e=>onMarketSubjectChange('city',e.target.value)}/></label>
+   <label className="block text-sm">{mt.district}
+    <input data-testid="owner-market-district" type="text" className="mt-1 min-h-[44px] w-full rounded-lg border border-slate-500 bg-slate-950 p-3"
+     value={market.district||''} onChange={e=>onMarketSubjectChange('district',e.target.value)}/></label>
+   <label className="block text-sm sm:col-span-2">{mt.location}
+    <input data-testid="owner-market-location" type="text" className="mt-1 min-h-[44px] w-full rounded-lg border border-slate-500 bg-slate-950 p-3"
+     value={market.location||''} onChange={e=>onMarketSubjectChange('location',e.target.value)}/></label>
+   <label className="block text-sm">{mt.landArea}
+    <input data-testid="owner-market-land-area" type="text" inputMode="decimal" className="mt-1 min-h-[44px] w-full rounded-lg border border-slate-500 bg-slate-950 p-3"
+     value={market.landArea||''} onChange={e=>onMarketSubjectChange('landArea',e.target.value)}/></label>
+   <label className="block text-sm">{mt.right}
+    <select data-testid="owner-property-right" className="mt-1 min-h-[44px] w-full rounded-lg border border-slate-500 bg-slate-950 p-3"
+     value={market.propertyRight||'UNKNOWN'} onChange={e=>onMarketSubjectChange('propertyRight',e.target.value)}>
+     {[['UNKNOWN',mt.unknown],['FULL_OWNERSHIP',mt.full],['USUFRUCT',mt.usufruct],['LONG_LEASE',mt.longLease],['OTHER',mt.otherRight]].map(([value,label])=><option key={value} value={value}>{label}</option>)}
+    </select></label>
   </div>}
   {step===2&&<div id={fieldId('market-evidence')} tabIndex={-1} data-testid="owner-evidence-instructions" className="mt-5 rounded-lg border border-slate-600 p-4 text-sm leading-7">{t.evidence}</div>}
   {step===3&&<div className="mt-5 grid gap-4 sm:grid-cols-2" data-testid="owner-model-inputs">
@@ -107,6 +172,16 @@ export default function OwnerFiveStepWizard({locale='ar-SA',step=0,onStepChange,
     <Metric locale={locale} label={t.npv} value={results.npv}/>
     <Metric locale={locale} label={t.income} value={results.marketValueByIncomeCap}/></dl>:<p>{t.notReady}</p>}
    <p className="mt-3 text-xs text-slate-300">{t.provisional}</p>
+   <section data-testid="owner-market-results" className="mt-4 border-t border-slate-600 pt-4">
+    <h3 className="text-sm font-semibold">{mt.marketResults}</h3>
+    {governedMarket?.blocked&&<p data-testid="owner-market-linked-hold" role="alert" className="mt-2 text-xs text-rose-300">{mt.marketBlocked}</p>}
+    <dl className="mt-2 grid gap-3 sm:grid-cols-2">
+     <Metric locale={locale} label={mt.capital} value={governedMarket?.saleIndicationSar}/>
+     <Metric locale={locale} label={mt.annualRent} value={governedMarket?.annualRentIndicationSar}/>
+    </dl>
+    <p className="mt-2 text-xs text-slate-300">{mt.evidenceStatus}: {governedMarket?.eligibleSalesCount??0} — {mt.rentEvidence}: {governedMarket?.eligibleRentalsCount??0}.</p>
+    <p className="mt-2 text-xs text-amber-100">{mt.marketCaution}</p>
+   </section>
   </div>}
   <div className="mt-6 flex justify-between gap-3">
    <button type="button" onClick={()=>onStepChange(Math.max(0,step-1))} disabled={step===0} className="min-h-[44px] rounded-lg border border-slate-600 px-5 disabled:opacity-40">{t.previous}</button>
