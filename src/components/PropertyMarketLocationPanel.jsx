@@ -110,20 +110,28 @@ function ComparisonTable({ title, kind, rows, setRows, assetType }) {
     <button type="button" className="mt-3 rounded-lg border border-amber-600 px-3 py-2 text-xs text-amber-100" onClick={()=>setRows(old=>old.length>=15?old:[...old,createRow()])}>{en?'+ Add comparable':'+ إضافة مقارنة'}</button>
   </section>;
 }
-export default function PropertyMarketLocationPanel({financialStudy=null}) {
+export const createInitialMarketSubject = () => ({
+  name:'',assetType:'RESIDENTIAL_COMPOUND',landSubtype:'',city:'الرياض',district:'',location:'',
+  landArea:'',builtArea:'',rentableArea:'',buildingCount:'',unitCount:'',floorCount:'',
+  roomCount:'',shopCount:'',parkingCount:'',warehouseCount:'',clearHeight:'',loadingDocks:'',
+  historicalAnnualRent:'',leaseHistory:'UNKNOWN',urbanBoundary:'UNKNOWN',
+  valuationPurpose:'',valuationDate:'',propertyRight:'UNKNOWN',
+  zoningClassification:'',inspectionStatus:'NOT_INSPECTED',inspectionDate:'',
+});
+export default function PropertyMarketLocationPanel({
+  financialStudy=null,ownerSubject=null,onOwnerSubjectChange=null,onOwnerMarketSummaryChange=null
+}) {
   const {locale}=useLocale();
   const english=locale==='en';
   const L=value=>coreMarketLabel(value,locale);
   const money=n=>Number.isFinite(n)?new Intl.NumberFormat(english?'en-US':'ar-SA',{maximumFractionDigits:0}).format(n)+(english?' SAR':' ر.س'):(english?'Not calculable':'غير قابل للحساب');
   const {setSubject:setSessionSubject,link:appraisalLink,invalidateLink}=useAppraisalReviewSession();
-  const [subject,setSubject]=useState({
-    name:'',assetType:'RESIDENTIAL_COMPOUND',landSubtype:'',city:'الرياض',district:'',location:'',
-    landArea:'',builtArea:'',rentableArea:'',buildingCount:'',unitCount:'',floorCount:'',
-    roomCount:'',shopCount:'',parkingCount:'',warehouseCount:'',clearHeight:'',loadingDocks:'',
-    historicalAnnualRent:'',leaseHistory:'UNKNOWN',urbanBoundary:'UNKNOWN',
-    valuationPurpose:'',valuationDate:'',propertyRight:'UNKNOWN',
-    zoningClassification:'',inspectionStatus:'NOT_INSPECTED',inspectionDate:'',
-  });
+  // Keep legacy standalone mounting unchanged, while the owner wizard and
+  // detailed market study share one canonical source when controlled by App.
+  const [localSubject,setLocalSubject]=useState(createInitialMarketSubject);
+  const controlledOwner=ownerSubject!==null&&typeof onOwnerSubjectChange==='function';
+  const subject=controlledOwner?ownerSubject:localSubject;
+  const setSubject=controlledOwner?onOwnerSubjectChange:setLocalSubject;
   const [assumptions,setAssumptions]=useState({occupancy:'0.9',expenseRatio:'0.20',capRate:'0.075'});
   const [sales,setSales]=useState(Array.from({length:3},createRow));
   const [rentals,setRentals]=useState(Array.from({length:3},createRow));
@@ -216,6 +224,23 @@ export default function PropertyMarketLocationPanel({financialStudy=null}) {
   const appraisalQuality=useMemo(()=>evaluateAppraisalReportQuality({
     subject,marketReport:report,readiness:valuationReadiness,asOf:new Date(asOfMs),
   }),[subject,report,valuationReadiness,asOfMs]);
+  // Read-only bridge; figures come exclusively from the existing governed
+  // market engine. A linked appraisal HOLD must never leak stale indications
+  // into the simplified result screen.
+  const ownerMarketSummary=useMemo(()=>({
+    saleIndicationSar:appraisalBinding.blockExport?null:
+      (Number.isFinite(valuationReadiness.preliminaryValueSar)?valuationReadiness.preliminaryValueSar:null),
+    annualRentIndicationSar:appraisalBinding.blockExport?null:
+      (Number.isFinite(valuationReadiness.newAnnualMarketRentSar)?valuationReadiness.newAnnualMarketRentSar:null),
+    status:valuationReadiness.status||'UNVERIFIED',
+    linkedReviewStatus:appraisalBinding.status,
+    blocked:Boolean(appraisalBinding.blockExport),
+    eligibleSalesCount:report.eligibleSalesCount,
+    eligibleRentalsCount:report.eligibleRentalsCount,
+  }),[valuationReadiness,appraisalBinding,report]);
+  useEffect(()=>{
+    if(typeof onOwnerMarketSummaryChange==='function')onOwnerMarketSummaryChange(ownerMarketSummary);
+  },[onOwnerMarketSummaryChange,ownerMarketSummary]);
   const coords=extractCoordinates(subject.location);
   const publicNeighborhood=useMemo(()=>deriveDistrictSnapshot(publicRecords,{
     city:subject.city,district:subject.district,
