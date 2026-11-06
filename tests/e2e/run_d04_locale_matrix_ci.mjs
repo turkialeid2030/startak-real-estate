@@ -15,7 +15,7 @@ try{
  page.on('pageerror',e=>errors.push(e.message));
  const seeds=['building','land'].map((mode,i)=>({id:'SYNTH-D04-'+mode,name:'SYNTH-D04 / العقار '+mode,mode,inputs:gold[i?'RE-GOLD-001_land_development':'RE-GOLD-002_existing_building'].inputs,savedAt:'2026-10-30T00:00:00.000Z'}));
  await page.addInitScript(({namespace,seeds})=>{localStorage.setItem('startak.presentation.locale','ar-SA');for(const s of seeds)localStorage.setItem(namespace+'deal:'+s.id,JSON.stringify(s));localStorage.setItem(namespace+'deals-index',JSON.stringify(seeds.map(({inputs,...s})=>s)));},{namespace,seeds});
- await page.goto('http://127.0.0.1:4177/',{waitUntil:'domcontentloaded'});
+ await page.goto('http://127.0.0.1:4177/?ownerView=advanced',{waitUntil:'domcontentloaded'});
  await expect(page.getByTestId('canonical-case-workspace-panel')).toBeVisible({timeout:30000});
  let locale='ar-SA';
  const setLocale=async next=>{if(next!==locale){await page.getByTestId('locale-switch').click();locale=next;}await expect(page.locator('html')).toHaveAttribute('dir',locale==='en'?'ltr':'rtl');};

@@ -21,7 +21,8 @@ async function download(page,selector){
  const errors=[];
  page.on('pageerror',e=>errors.push(e.message));
  try{
-  await page.goto(BASE,{waitUntil:'domcontentloaded',timeout:30000});
+  const advancedUrl=new URL(BASE);advancedUrl.searchParams.set('ownerView','advanced');
+  await page.goto(advancedUrl.href,{waitUntil:'domcontentloaded',timeout:30000});
   const panel=page.getByTestId('c75-personal-research-workspace');
   await expect(panel).toBeVisible({timeout:25000});
   await expect(panel).toHaveAttribute('dir','rtl');

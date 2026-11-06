@@ -50,7 +50,8 @@ try{
   async(route)=>{await route.fulfill({status:200,body:openQuarterFixture,
     headers:{'content-type':'text/csv; charset=utf-8','access-control-allow-origin':'*'}});});
 
- await page.goto(url,{waitUntil:'domcontentloaded'});
+ const legacyUrl=new URL(url);legacyUrl.searchParams.set('ownerView','advanced');
+ await page.goto(legacyUrl.href,{waitUntil:'domcontentloaded'});
  const panel=page.locator('[data-testid="location-market-study"]');
  await panel.waitFor({state:'visible'});
  mark('PANEL_MOUNT',await panel.isVisible());
