@@ -30,6 +30,7 @@ import SaudiNationalIntelligenceSourcesPanel from './SaudiNationalIntelligenceSo
 import ResearchEvidenceFusionPanel from './ResearchEvidenceFusionPanel.jsx';
 import ChallengerBenchmarkResearchPanel from './ChallengerBenchmarkResearchPanel.jsx';
 const {toPublicSample}=require('../market/suhail-national-neighborhood-research');
+const {createInitialMarketSubject}=require('../market/initial-market-subject');
 
 const INPUT = 'w-full rounded-lg border border-slate-600 bg-[#101c30] px-3 py-2 text-sm text-slate-100';
 const createRow = () => ({ assetType:'',landSubtype:'',sourceRecordId:'', status:'ASKING', price:'', annualRent:'', builtArea:'', landArea:'',
@@ -110,14 +111,6 @@ function ComparisonTable({ title, kind, rows, setRows, assetType }) {
     <button type="button" className="mt-3 rounded-lg border border-amber-600 px-3 py-2 text-xs text-amber-100" onClick={()=>setRows(old=>old.length>=15?old:[...old,createRow()])}>{en?'+ Add comparable':'+ إضافة مقارنة'}</button>
   </section>;
 }
-export const createInitialMarketSubject = () => ({
-  name:'',assetType:'RESIDENTIAL_COMPOUND',landSubtype:'',city:'الرياض',district:'',location:'',
-  landArea:'',builtArea:'',rentableArea:'',buildingCount:'',unitCount:'',floorCount:'',
-  roomCount:'',shopCount:'',parkingCount:'',warehouseCount:'',clearHeight:'',loadingDocks:'',
-  historicalAnnualRent:'',leaseHistory:'UNKNOWN',urbanBoundary:'UNKNOWN',
-  valuationPurpose:'',valuationDate:'',propertyRight:'UNKNOWN',
-  zoningClassification:'',inspectionStatus:'NOT_INSPECTED',inspectionDate:'',
-});
 export default function PropertyMarketLocationPanel({
   financialStudy=null,ownerSubject=null,onOwnerSubjectChange=null,onOwnerMarketSummaryChange=null
 }) {
