@@ -75,7 +75,7 @@ async function textContrast(locator){return locator.evaluate(el=>{
    await expect(documentPanel).toContainText('1500.00');checks++;
    await documentPanel.getByTestId('manual-transcription').locator('summary').click();
    await page.getByTestId('manual-text').fill('1500');await page.getByTestId('manual-page').fill('1');await page.getByTestId('manual-reviewerRef').fill('TRANSCRIBER');await page.getByTestId('manual-note').fill('Rent column page 1');await page.getByTestId('apply-manual-transcription').click();
-   await expect(documentPanel).toContainText('MANUAL_TRANSCRIPTION_UNVERIFIED');checks++;
+   await expect(documentPanel.locator('[data-diagnostic-code="MANUAL_TRANSCRIPTION_UNVERIFIED"]')).toContainText('هذا المحتوى نُقل يدويًا');checks++;
    const qualification=page.getByTestId('local-evidence-qualification');await page.getByTestId('evidence-atom-select').selectOption({index:1});
    // Existing qualification controls use stable test IDs.
    await page.getByTestId('semantic-key-input').fill('market.rent');
@@ -92,10 +92,10 @@ async function textContrast(locator){return locator.evaluate(el=>{
    await page.reload();await page.getByTestId('document-case-id').fill('CASE-LOCAL-AUDIT');await page.getByTestId('local-document-file-input').setInputFiles({name:'English source - عقار.pdf',mimeType:'application/pdf',buffer:pdfFixture()});
    await expect(page.getByTestId('saved-evidence-journal')).toBeVisible({timeout:25000});checks++;
    await expect(page.getByTestId('local-evidence-workflow-status')).toHaveAttribute('data-verification-status','VERIFICATION_NOT_COMPLETE');checks++;
-   // DiagnosticText intentionally preserves both the localized explanation and
-   // stable machine code. Verify both without treating either as approval.
+   // DiagnosticText preserves an internal reason attribute and a localized explanation;
+   // neither is approval and the raw code must not appear in owner-visible text.
    await expect(page.getByTestId('local-evidence-workflow-status')).toContainText('التحقق غير مكتمل');checks++;
-   await expect(page.getByTestId('local-evidence-workflow-status').locator('code')).toHaveText('VERIFICATION_NOT_COMPLETE');checks++;
+   await expect(page.getByTestId('local-evidence-workflow-status').locator('[data-diagnostic-code="VERIFICATION_NOT_COMPLETE"]')).toContainText('التحقق غير مكتمل');checks++;
    await page.getByTitle(ar.actions.savedDeals,{exact:true}).click();await page.getByRole('dialog').getByRole('button',{name:seed.name,exact:true}).click();
    // Full-engine lower-price evidence must match the current exported inputs
    // on all three browsers, including the explicit-zero-debt case.
