@@ -101,3 +101,4 @@ export default function OwnerFiveStepWizard({locale='ar-SA',step=0,onStepChange,
    <button type="button" onClick={()=>onStepChange(Math.min(4,step+1))} disabled={step===4} className="min-h-[44px] rounded-lg bg-amber-700 px-5 disabled:opacity-40">{t.next}</button>
   </div>
  </section>;
+}
