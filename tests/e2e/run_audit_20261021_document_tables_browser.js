@@ -22,8 +22,8 @@ async function download(page,button){const pending=page.waitForEvent('download')
       page.on('console',m=>{if(m.type()==='error'&&/Content Security Policy|Refused to|wasm/i.test(m.text()))violations.push(m.text());});
       // Apply the actual production CSP to local preview, never relax an
       // existing policy on the public site.
-      await context.route(BASE+'/',async route=>{const response=await route.fetch({ignoreHTTPSErrors:preview.local}),headers=response.headers();if(!headers['content-security-policy'])headers['content-security-policy']=policy;await route.fulfill({response,headers});});
-      await page.goto(BASE+'/',{waitUntil:'domcontentloaded'});
+      await context.route(BASE+'/?ownerView=advanced',async route=>{const response=await route.fetch({ignoreHTTPSErrors:preview.local}),headers=response.headers();if(!headers['content-security-policy'])headers['content-security-policy']=policy;await route.fulfill({response,headers});});
+      await page.goto(BASE+'/?ownerView=advanced',{waitUntil:'domcontentloaded'});
       await expect(page.getByTestId('local-document-evidence-intake')).toBeVisible({timeout:30000});
       const caseId=`SYNTHETIC-TABLE-${name}-${width}`;
       await page.getByTestId('document-case-id').fill(caseId);
