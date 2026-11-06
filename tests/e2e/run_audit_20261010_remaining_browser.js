@@ -194,7 +194,7 @@ async function textContrast(locator){return locator.evaluate(el=>{
    await collection.getByLabel(ar.riai.rentCollected,{exact:true}).fill('121');
    await expect(confirmed).not.toBeChecked();checks++;
    await collection.getByRole('button',{name:ar.riai.addCollectionRecord,exact:true}).click();
-   await expect(operating).toContainText('EXPLICIT_VERIFICATION_CONFIRMATION_REQUIRED');checks++;
+   await expect(operating.locator('[data-diagnostic-code="EXPLICIT_VERIFICATION_CONFIRMATION_REQUIRED"]')).toContainText('راجع البيانات وأكد مراجعتها بعد آخر تغيير قبل الحفظ.');await expect(operating).not.toContainText('EXPLICIT_VERIFICATION_CONFIRMATION_REQUIRED');checks++;
    await confirmed.check();await collection.getByRole('button',{name:ar.riai.addCollectionRecord,exact:true}).click();
    await expect(operating).toContainText(ar.riai.collectionAddSuccess);checks++;
    const exportedOperating=JSON.parse(await download(page,page.getByRole('button',{name:ar.riai.exportOperatingCase,exact:true})));
