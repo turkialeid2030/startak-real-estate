@@ -31,6 +31,7 @@ import ResearchEvidenceFusionPanel from './ResearchEvidenceFusionPanel.jsx';
 import ChallengerBenchmarkResearchPanel from './ChallengerBenchmarkResearchPanel.jsx';
 const {toPublicSample}=require('../market/suhail-national-neighborhood-research');
 const {createInitialMarketSubject}=require('../market/initial-market-subject');
+const {marketIdentityGate}=require('../market/owner-market-identity-gate');
 
 const INPUT = 'w-full rounded-lg border border-slate-600 bg-[#101c30] px-3 py-2 text-sm text-slate-100';
 const createRow = () => ({ assetType:'',landSubtype:'',sourceRecordId:'', status:'ASKING', price:'', annualRent:'', builtArea:'', landArea:'',
@@ -217,22 +218,28 @@ export default function PropertyMarketLocationPanel({
   const appraisalQuality=useMemo(()=>evaluateAppraisalReportQuality({
     subject,marketReport:report,readiness:valuationReadiness,asOf:new Date(asOfMs),
   }),[subject,report,valuationReadiness,asOfMs]);
+  // No single-market-study output is shown as an owner result until the
+  // personal research purpose, valuation date, right and name are explicit.
+  // Declaring an interest does NOT certify the underlying property right.
+  const ownerIdentityGate=useMemo(()=>marketIdentityGate(subject),[subject]);
   // Read-only bridge; figures come exclusively from the existing governed
   // market engine. A linked appraisal HOLD must never leak stale indications
   // into the simplified result screen.
   const ownerMarketSummary=useMemo(()=>({
     // Prevent old results flashing after a subject edit before React effects run.
     subjectKey:JSON.stringify(subject),
-    saleIndicationSar:appraisalBinding.blockExport?null:
+    saleIndicationSar:appraisalBinding.blockExport||!ownerIdentityGate.allow?null:
       (Number.isFinite(valuationReadiness.preliminaryValueSar)?valuationReadiness.preliminaryValueSar:null),
-    annualRentIndicationSar:appraisalBinding.blockExport?null:
+    annualRentIndicationSar:appraisalBinding.blockExport||!ownerIdentityGate.allow?null:
       (Number.isFinite(valuationReadiness.newAnnualMarketRentSar)?valuationReadiness.newAnnualMarketRentSar:null),
-    status:valuationReadiness.status||'UNVERIFIED',
+    status:ownerIdentityGate.allow?(valuationReadiness.status||'UNVERIFIED'):'HOLD_INCOMPLETE_OWNER_IDENTITY',
+    identityHold:!ownerIdentityGate.allow,
+    identityIssues:ownerIdentityGate.issues,
     linkedReviewStatus:appraisalBinding.status,
     blocked:Boolean(appraisalBinding.blockExport),
     eligibleSalesCount:report.eligibleSalesCount,
     eligibleRentalsCount:report.eligibleRentalsCount,
-  }),[subject,valuationReadiness,appraisalBinding,report]);
+  }),[subject,ownerIdentityGate,valuationReadiness,appraisalBinding,report]);
   useEffect(()=>{
     if(typeof onOwnerMarketSummaryChange==='function')onOwnerMarketSummaryChange(ownerMarketSummary);
   },[onOwnerMarketSummaryChange,ownerMarketSummary]);
