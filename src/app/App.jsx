@@ -13,7 +13,7 @@ import {
   MapPin, AlertTriangle, Bookmark, Save, Trash2,
 } from "lucide-react";
 import ResidentialIncomeAcquisitionPanel from "../components/ResidentialIncomeAcquisitionPanel.jsx";
-import PropertyMarketLocationPanel from "../components/PropertyMarketLocationPanel.jsx";
+import PropertyMarketLocationPanel, {createInitialMarketSubject} from "../components/PropertyMarketLocationPanel.jsx";
 import ValuationIntelligencePanel from "../components/ValuationIntelligencePanel.jsx";
 import PersonalInvestmentResearchPanel from "../components/PersonalInvestmentResearchPanel.jsx";
 import PaybackDisclosurePanel from "../components/PaybackDisclosurePanel.jsx";
@@ -1624,6 +1624,10 @@ export default function App() {
   // Presentation state only. The valuation and saved-deal state remains canonical.
   const [ownerView,setOwnerView]=useState(()=>new URLSearchParams(window.location.search).get('ownerView')==='advanced'?'advanced':'simple');
   const [ownerStep,setOwnerStep]=useState(0);
+  // One market-study subject, shared across simple and advanced owner views.
+  // Its financial inputs remain separate until an explicit reviewed bridge.
+  const [ownerMarketSubject,setOwnerMarketSubject]=useState(createInitialMarketSubject);
+  const [ownerMarketSummary,setOwnerMarketSummary]=useState(null);
   useEffect(()=>{
     document.body.dataset.startakOwnerView=ownerView;
     document.body.dataset.startakOwnerStep=String(ownerStep);
@@ -2136,6 +2140,8 @@ export default function App() {
       `}</style>
       <OwnerFiveStepWizard locale={locale} step={ownerStep} onStepChange={setOwnerStep}
         mode={mode} onModeChange={switchStudyMode} inputs={inputs}
+        marketSubject={ownerMarketSubject} marketSummary={ownerMarketSummary}
+        onMarketSubjectChange={(key,value)=>setOwnerMarketSubject(prior=>({...prior,[key]:value}))}
         onChangeInput={(key,value)=>(mode==='building'?setBuildingInputs:setLandInputs)(prior=>({...prior,[key]:value}))}
         results={results} validationError={activeValidationError}
         onAdvanced={()=>setOwnerView('advanced')}
@@ -2312,7 +2318,11 @@ export default function App() {
 
         </div>
         <div className="owner-market-evidence">
-        <PropertyMarketLocationPanel financialStudy={{
+        <PropertyMarketLocationPanel
+          ownerSubject={ownerMarketSubject}
+          onOwnerSubjectChange={setOwnerMarketSubject}
+          onOwnerMarketSummaryChange={setOwnerMarketSummary}
+          financialStudy={{
           mode,inputs,results,validationError:activeValidationError,
           dealName:activeDealName||inputs.projectTitle||''
         }} />
