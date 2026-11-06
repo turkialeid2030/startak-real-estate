@@ -46,10 +46,10 @@ function OwnerNumber({id,value,onChange,percent=false,locale}){
   {!valid&&<small role="alert" className="block text-rose-300">{locale==='ar-SA'?'أدخل رقمًا صالحًا':'Enter a valid number'}</small>}
  </>;
 }
-function Metric({label,value,locale,percent=false}){
+function Metric({label,value,locale,percent=false,testId}){
  const valid=typeof value==='number'&&Number.isFinite(value);
  return <div className="min-w-0 rounded-lg border border-slate-700 bg-slate-950 p-3"><dt className="text-sm text-slate-300">{label}</dt>
-  <dd className="mt-1 text-lg font-semibold text-amber-100" dir="auto">{valid?new Intl.NumberFormat(locale==='ar-SA'?'ar-SA':'en-US',{maximumFractionDigits:percent?3:0}).format(percent?value*100:value)+(percent?'%':''):'—'}</dd>
+  <dd data-testid={testId} className="mt-1 text-lg font-semibold text-amber-100" dir="auto">{valid?new Intl.NumberFormat(locale==='ar-SA'?'ar-SA':'en-US',{maximumFractionDigits:percent?3:0}).format(percent?value*100:value)+(percent?'%':''):'—'}</dd>
  </div>;
 }
 function GovernedRate({id,label,value,onCommit,locale}){
@@ -176,8 +176,8 @@ export default function OwnerFiveStepWizard({locale='ar-SA',step=0,onStepChange,
     <h3 className="text-sm font-semibold">{mt.marketResults}</h3>
     {governedMarket?.blocked&&<p data-testid="owner-market-linked-hold" role="alert" className="mt-2 text-xs text-rose-300">{mt.marketBlocked}</p>}
     <dl className="mt-2 grid gap-3 sm:grid-cols-2">
-     <Metric locale={locale} label={mt.capital} value={governedMarket?.saleIndicationSar}/>
-     <Metric locale={locale} label={mt.annualRent} value={governedMarket?.annualRentIndicationSar}/>
+     <Metric locale={locale} testId="owner-market-capital-indication" label={mt.capital} value={governedMarket?.saleIndicationSar}/>
+     <Metric locale={locale} testId="owner-market-rent-indication" label={mt.annualRent} value={governedMarket?.annualRentIndicationSar}/>
     </dl>
     <p className="mt-2 text-xs text-slate-300">{mt.evidenceStatus}: {governedMarket?.eligibleSalesCount??0} — {mt.rentEvidence}: {governedMarket?.eligibleRentalsCount??0}.</p>
     <p className="mt-2 text-xs text-amber-100">{mt.marketCaution}</p>
