@@ -2139,7 +2139,14 @@ export default function App() {
         onChangeInput={(key,value)=>(mode==='building'?setBuildingInputs:setLandInputs)(prior=>({...prior,[key]:value}))}
         results={results} validationError={activeValidationError}
         onAdvanced={()=>setOwnerView('advanced')}
-        onLocaleSwitch={()=>setLocale(locale==='ar-SA'?'en':'ar-SA')} />
+        onLocaleSwitch={()=>setLocale(locale==='ar-SA'?'en':'ar-SA')}
+        onExitCapTextCommit={rawText=>{
+          try{
+            const next=applyExitCapInputText({inputs:buildingInputs,rawText,min:0.04,max:0.14});
+            setBuildingInputs(next.inputs);
+            return {ok:next.inputValid!==false,displayValue:next.displayValue,code:next.errorCode};
+          }catch(error){return {ok:false,code:error?.code||'OPTIONAL_PERCENT_INVALID'};}
+        }} />
       {ownerView==='advanced'&&<button type="button" data-testid="owner-simple-mode" onClick={()=>setOwnerView('simple')}
         className="mb-3 min-h-[44px] rounded-lg border border-amber-400 px-4 text-sm text-amber-100">
         {locale==='ar-SA'?'الوضع المبسط':'Simple mode'}
