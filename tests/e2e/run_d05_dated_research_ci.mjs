@@ -9,7 +9,7 @@ let server,browser;
 const ok=(v,msg)=>{if(!v)throw Error(msg);};
 try {
  server=await preview({preview:{host:'127.0.0.1',port:4173,strictPort:false}});
- const url='http://127.0.0.1:'+server.httpServer.address().port+'/';
+ const url='http://127.0.0.1:'+server.httpServer.address().port+'/?ownerView=advanced';
  browser=await chromium.launch({headless:true,executablePath:findChromiumExecutable(),
   args:['--no-sandbox','--disable-gpu']});
  const page=await browser.newPage({viewport:{width:1280,height:900},locale:'ar-SA'});

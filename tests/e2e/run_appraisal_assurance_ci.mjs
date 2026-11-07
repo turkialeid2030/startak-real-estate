@@ -22,7 +22,8 @@ try {
    id:'SYN-CASE-LINK',name:'أصل اختباري',mode:'building',inputs:{},
    savedAt:'2026-01-01T00:00:00.000Z'}));
  });
- await page.goto(url,{waitUntil:'domcontentloaded'});
+ const legacyUrl=new URL(url);legacyUrl.searchParams.set('ownerView','advanced');
+ await page.goto(legacyUrl.href,{waitUntil:'domcontentloaded'});
  const work=page.getByTestId('appraisal-assurance-workbench');
  await work.waitFor({state:'visible'});
  await work.getByTestId('appraisal-assurance-toggle').click();

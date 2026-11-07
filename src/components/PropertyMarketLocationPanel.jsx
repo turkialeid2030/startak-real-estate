@@ -30,6 +30,8 @@ import SaudiNationalIntelligenceSourcesPanel from './SaudiNationalIntelligenceSo
 import ResearchEvidenceFusionPanel from './ResearchEvidenceFusionPanel.jsx';
 import ChallengerBenchmarkResearchPanel from './ChallengerBenchmarkResearchPanel.jsx';
 const {toPublicSample}=require('../market/suhail-national-neighborhood-research');
+const {createInitialMarketSubject}=require('../market/initial-market-subject');
+const {marketIdentityGate}=require('../market/owner-market-identity-gate');
 
 const INPUT = 'w-full rounded-lg border border-slate-600 bg-[#101c30] px-3 py-2 text-sm text-slate-100';
 const createRow = () => ({ assetType:'',landSubtype:'',sourceRecordId:'', status:'ASKING', price:'', annualRent:'', builtArea:'', landArea:'',
@@ -73,12 +75,12 @@ function ComparisonTable({ title, kind, rows, setRows, assetType }) {
   const L=v=>coreMarketLabel(v,locale);
   const isSale = kind==='sale';
   const update=(i,key,value)=>setRows(old=>old.map((r,j)=>j===i?{...r,[key]:value}:r));
-  return <section className="rounded-xl border border-slate-700 p-3">
+  return <section tabIndex={-1} data-testid={"market-comparables-"+kind} className="rounded-xl border border-slate-700 p-3 focus:outline-2 focus:outline-offset-2 focus:outline-amber-400">
     <h4 className="font-semibold text-sm text-amber-200">{L(title)}</h4>
     <p className="text-xs text-slate-400 mt-1">{en
       ? 'At least three user-declared executed comparables of the same asset type within 365 days, within 5 km or explicitly matching the district. The comparable area must be 50%–200% of the subject on the same area basis. Duplicate source transaction IDs and asking listings are excluded. Matching type and location does not independently verify title or source.'
       : 'يلزم ثلاث مقارنات منفّذة على الأقل من نفس نوع العقار، خلال آخر 365 يومًا، بموقع يبعد 5 كم كحد أقصى أو تطابق معلن على مستوى الحي فقط. يشترط أن تكون مساحة المقارنة بين 50% و200% من مساحة الأصل على أساس المساحة نفسه. تُستبعد الصفقة المكررة بمعرّفها لدى المصدر نفسه، ولا تدخل عروض الأسعار في الحساب. تطابق النوع والموقع لا يُثبت الصك أو صحة المصدر مستقلاً.'}</p>
-    {rows.map((row,i)=><div key={i} className="border-b border-slate-700 py-3">
+    {rows.map((row,i)=><div key={i} data-testid={"market-comparable-"+kind+"-"+i} className="border-b border-slate-700 py-3">
       <div className="flex items-center justify-between mb-2">
         <strong className="text-xs text-slate-200">{en?'Comparable ':'المقارنة '}{i+1}</strong>
         {rows.length>3&&<button type="button" className="text-xs text-rose-300" onClick={()=>setRows(old=>old.filter((_,j)=>j!==i))}>{en?'Remove':'حذف'}</button>}
@@ -110,20 +112,20 @@ function ComparisonTable({ title, kind, rows, setRows, assetType }) {
     <button type="button" className="mt-3 rounded-lg border border-amber-600 px-3 py-2 text-xs text-amber-100" onClick={()=>setRows(old=>old.length>=15?old:[...old,createRow()])}>{en?'+ Add comparable':'+ إضافة مقارنة'}</button>
   </section>;
 }
-export default function PropertyMarketLocationPanel({financialStudy=null}) {
+export default function PropertyMarketLocationPanel({
+  financialStudy=null,ownerSubject=null,onOwnerSubjectChange=null,onOwnerMarketSummaryChange=null
+}) {
   const {locale}=useLocale();
   const english=locale==='en';
   const L=value=>coreMarketLabel(value,locale);
   const money=n=>Number.isFinite(n)?new Intl.NumberFormat(english?'en-US':'ar-SA',{maximumFractionDigits:0}).format(n)+(english?' SAR':' ر.س'):(english?'Not calculable':'غير قابل للحساب');
   const {setSubject:setSessionSubject,link:appraisalLink,invalidateLink}=useAppraisalReviewSession();
-  const [subject,setSubject]=useState({
-    name:'',assetType:'RESIDENTIAL_COMPOUND',landSubtype:'',city:'الرياض',district:'',location:'',
-    landArea:'',builtArea:'',rentableArea:'',buildingCount:'',unitCount:'',floorCount:'',
-    roomCount:'',shopCount:'',parkingCount:'',warehouseCount:'',clearHeight:'',loadingDocks:'',
-    historicalAnnualRent:'',leaseHistory:'UNKNOWN',urbanBoundary:'UNKNOWN',
-    valuationPurpose:'',valuationDate:'',propertyRight:'UNKNOWN',
-    zoningClassification:'',inspectionStatus:'NOT_INSPECTED',inspectionDate:'',
-  });
+  // Keep legacy standalone mounting unchanged, while the owner wizard and
+  // detailed market study share one canonical source when controlled by App.
+  const [localSubject,setLocalSubject]=useState(createInitialMarketSubject);
+  const controlledOwner=ownerSubject!==null&&typeof onOwnerSubjectChange==='function';
+  const subject=controlledOwner?ownerSubject:localSubject;
+  const setSubject=controlledOwner?onOwnerSubjectChange:setLocalSubject;
   const [assumptions,setAssumptions]=useState({occupancy:'0.9',expenseRatio:'0.20',capRate:'0.075'});
   const [sales,setSales]=useState(Array.from({length:3},createRow));
   const [rentals,setRentals]=useState(Array.from({length:3},createRow));
@@ -216,6 +218,37 @@ export default function PropertyMarketLocationPanel({financialStudy=null}) {
   const appraisalQuality=useMemo(()=>evaluateAppraisalReportQuality({
     subject,marketReport:report,readiness:valuationReadiness,asOf:new Date(asOfMs),
   }),[subject,report,valuationReadiness,asOfMs]);
+  // No single-market-study output is shown as an owner result until the
+  // personal research purpose, valuation date, right and name are explicit.
+  // Declaring an interest does NOT certify the underlying property right.
+  const ownerIdentityGate=useMemo(()=>marketIdentityGate(subject),[subject]);
+  // Read-only bridge; figures come exclusively from the existing governed
+  // market engine. A linked appraisal HOLD must never leak stale indications
+  // into the simplified result screen.
+  const ownerMarketSummary=useMemo(()=>({
+    // Prevent old results flashing after a subject edit before React effects run.
+    subjectKey:JSON.stringify(subject),
+    saleIndicationSar:appraisalBinding.blockExport||!ownerIdentityGate.allow?null:
+      (Number.isFinite(valuationReadiness.preliminaryValueSar)?valuationReadiness.preliminaryValueSar:null),
+    annualRentIndicationSar:appraisalBinding.blockExport||!ownerIdentityGate.allow?null:
+      (Number.isFinite(valuationReadiness.newAnnualMarketRentSar)?valuationReadiness.newAnnualMarketRentSar:null),
+    status:ownerIdentityGate.allow?(valuationReadiness.status||'UNVERIFIED'):'HOLD_INCOMPLETE_OWNER_IDENTITY',
+    identityHold:!ownerIdentityGate.allow,
+    identityIssues:ownerIdentityGate.issues,
+    linkedReviewStatus:appraisalBinding.status,
+    blocked:Boolean(appraisalBinding.blockExport),
+    eligibleSalesCount:report.eligibleSalesCount,
+    eligibleRentalsCount:report.eligibleRentalsCount,
+    // Pass through the existing governance gate's reason codes, never
+    // synthesize evidence status from the wizard or infer verification.
+    issues:[...valuationReadiness.issues],
+    notices:[...valuationReadiness.notices],
+    rentSource:valuationReadiness.rentSource,
+    marketDataIndependentlyVerified:false,
+  }),[subject,ownerIdentityGate,valuationReadiness,appraisalBinding,report]);
+  useEffect(()=>{
+    if(typeof onOwnerMarketSummaryChange==='function')onOwnerMarketSummaryChange(ownerMarketSummary);
+  },[onOwnerMarketSummaryChange,ownerMarketSummary]);
   const coords=extractCoordinates(subject.location);
   const publicNeighborhood=useMemo(()=>deriveDistrictSnapshot(publicRecords,{
     city:subject.city,district:subject.district,
@@ -574,8 +607,8 @@ export default function PropertyMarketLocationPanel({financialStudy=null}) {
       <h3 className="font-bold text-amber-100">{L("نتيجة الحساب وقت الطلب — ليست تثمينًا مهنيًا")}</h3>
       <p className="text-xs text-slate-300 mt-1">{latestWindow}{L(". وقت الحساب:")} {report.asOf.slice(0,19).replace('T',' ')} {L("بالتوقيت العالمي")}</p>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
-        <div><span className="text-xs text-slate-400">{L("القيمة التقديرية الحسابية اليوم")}</span><strong className="block text-lg">{money(valuationReadiness.preliminaryValueSar)}</strong></div>
-        <div><span className="text-xs text-slate-400">{L("الإيجار السوقي السنوي المحتمل")}</span><strong className="block text-lg">{money(valuationReadiness.newAnnualMarketRentSar)}</strong></div>
+        <div><span className="text-xs text-slate-400">{L("القيمة التقديرية الحسابية اليوم")}</span><strong data-testid="market-canonical-capital-indication" className="block text-lg">{money(valuationReadiness.preliminaryValueSar)}</strong></div>
+        <div><span className="text-xs text-slate-400">{L("الإيجار السوقي السنوي المحتمل")}</span><strong data-testid="market-canonical-rent-indication" className="block text-lg">{money(valuationReadiness.newAnnualMarketRentSar)}</strong></div>
         <div><span className="text-xs text-slate-400">{L("الإيجار السنوي المتوقع تحصيله بعد الإشغال")}</span><strong className="block text-lg">{money(report.expectedCollectedAnnualRentSar)}</strong></div>
         <div><span className="text-xs text-slate-400">{L("مؤشر البيع بالمقارنات")}</span><strong className="block">{money(report.saleIndicationSar)}</strong></div>
         <div><span className="text-xs text-slate-400">{L("مؤشر الدخل بالرسملة")}</span><strong className="block">{money(report.incomeIndicationSar)}</strong></div>
@@ -594,7 +627,7 @@ export default function PropertyMarketLocationPanel({financialStudy=null}) {
         {L("مدى أسعار بيع المتر المقبولة:")} {money(report.saleDispersion.min)} {L("إلى")} {money(report.saleDispersion.max)}{L(". الاتساع النسبي للمدى:")} {(report.saleDispersion.spreadToMedian*100).toFixed(1)}{L("% — لا يمثل حد ثقة إحصائيًا.")}
       </p>}
       <p className="text-xs text-slate-300 mt-3">{L("مقارنات البيع المقبولة:")} {report.eligibleSalesCount} {L("من")} {allSales.length} {L("(مستبعد")} {report.excludedSalesCount}{L(") | عقود الإيجار المقبولة:")} {report.eligibleRentalsCount} {L("من")} {allRentals.length} {L("(مستبعد")} {report.excludedRentalsCount}{L(") | مشروعات قريبة بمصدر معلن:")} {report.nearbyProjects.length}</p>
-      <p className="text-xs text-slate-300 mt-2">{L("مقارنات بلا إحداثيات للقطعة، قُبلت فقط على أساس تطابق الحي والمدينة: بيع")} {report.districtOnlySalesCount}{L("، إيجار")} {report.districtOnlyRentalsCount}{L(". تقريبي ولا يثبت البعد الحقيقي عن العقار.")}</p>
+      <p data-testid="market-evidence-district-only" className="text-xs text-slate-300 mt-2">{L("مقارنات بلا إحداثيات للقطعة، قُبلت فقط على أساس تطابق الحي والمدينة: بيع")} {report.districtOnlySalesCount}{L("، إيجار")} {report.districtOnlyRentalsCount}{L(". تقريبي ولا يثبت البعد الحقيقي عن العقار.")}</p>
       <p className="text-xs text-amber-200 mt-2">{L("الأثر الافتراضي للمشروعات على القيمة، منفصل عن الأساس:")} {money(report.projectScenarioSar)}{L(". يتطلب إثباتًا مستقلًا لعلاقة التأثير وليس مجرد قرب المشروع.")}</p>
       <p className="text-xs text-rose-200 mt-2">
         {L("الإيجار المسموح نظاميًا: غير محسوب آليًا.")} {report.rentRegulation==='EXISTING_RENT_FREEZE_REQUIRES_EJAR_REVIEW'

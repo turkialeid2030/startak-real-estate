@@ -11,7 +11,8 @@ const BASE=process.env.STARTAK_E2E_URL||'http://127.0.0.1:4173';
  const page=await context.newPage(),errors=[];
  page.on('pageerror',e=>errors.push(e.message));
  try{
-  await page.goto(BASE,{waitUntil:'domcontentloaded',timeout:30000});
+  const advancedUrl=new URL(BASE);advancedUrl.searchParams.set('ownerView','advanced');
+  await page.goto(advancedUrl.href,{waitUntil:'domcontentloaded',timeout:30000});
   const universe=page.getByTestId('personal-asset-universe-panel');
   await expect(universe).toBeVisible({timeout:30000});
   await expect(universe).toHaveAttribute('dir','rtl');
