@@ -1,6 +1,7 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 const {parseNumericText}=require('../validation/numeric-text');
 const {coreMarketAssetOptions}=require('../i18n/market-study-core-labels');
+const {ownerMarketEvidenceGuidance}=require('../market/owner-market-evidence-guidance');
 const STEPS=[['الغرض','Purpose'],['العقار','Property'],['أدلة السوق','Market evidence'],['النموذج','Model'],['النتيجة','Results']];
 const WORDS={
  ar:{title:'ستارتك',current:'الخطوة الحالية',missing:'ما ينقص',advance:'الوضع المتقدم',simple:'الوضع المبسط',previous:'السابق',next:'التالي',study:'نوع الدراسة',building:'مبنى قائم',land:'أرض وتطوير',name:'اسم العقار أو المشروع',length:'طول الأرض (م)',width:'عرض الأرض (م)',age:'عمر المبنى (سنة)',price:'قيمة شراء المبنى (ريال)',landPrice:'سعر الأرض للمتر (ريال)',rent:'الإيجار السنوي للمتر (ريال)',construction:'تكلفة الإنشاء للمتر (ريال)',occupancy:'الإشغال (%)',discount:'معدل الخصم (%)',hurdle:'العائد المستهدف (%)',holding:'مدة الاحتفاظ (سنة)',exit:'معدل رسملة التخارج (%)',market:'راجع أدلة السوق والمصادر قبل اعتماد النتيجة.',evidence:'أدخل أدلة المقارنات ومراجعها في اللوحة الموجودة أدناه. الأسعار المعروضة ليست صفقات منفذة موثقة تلقائيًا.',assumption:'هذه بيانات افتراضية للتجربة حتى تستبدلها ببيانات العقار ومراجعها.',invalid:'راجع المدخلات غير الصالحة. الحساب القديم لا يصلح للاعتماد.',notReady:'لا توجد نتيجة صالحة بالمدخلات الحالية.',provisional:'نتائج حسابية غير معتمدة مهنيًا؛ لم تُتحقق أدلة السوق مستقلاً.',irr:'العائد الداخلي',npv:'صافي القيمة الحالية',income:'قيمة الدخل الاسترشادية',none:'لا توجد حقول أساسية ناقصة؛ تبقى مراجعة الأدلة والافتراضات مطلوبة.',purposeBoundary:'هذا الاختيار يحدد النموذج المالي فقط؛ غرض التقييم للبيع أو الشراء أو إعادة التأجير وتاريخ التقييم يُحددان بصورة مستقلة داخل دراسة السوق، ولا يثبتان صحة حسابات الجدوى.',language:'الإنجليزية'},
@@ -16,7 +17,7 @@ const MARKET_LABELS={
   unknown:'غير متحقق',full:'ملكية كاملة',usufruct:'حق انتفاع',longLease:'حق تأجير طويل المدة',otherRight:'حق آخر',
   marketResults:'مؤشرات دراسة السوق المستقلة',capital:'القيمة السوقية الاسترشادية (ريال)',
   annualRent:'الأجرة السنوية الاسترشادية (ريال)',marketBlocked:'تدقيق مرتبط يوقف عرض المؤشرات.',marketIdentityMissing:'أكمل غرض دراسة السوق وتاريخ التقييم الصحيح واسم العقار وإقرار نوع الحق قبل عرض أي مؤشر استرشادي.',
-  evidenceStatus:'سجلات المقارنة المؤهلة: بيع',rentEvidence:'إيجار',openSales:'فتح مقارنات البيع المنفذة',openRentals:'فتح عقود الإيجار المنفذة',evidenceScope:'تُدخل المقارنات في لوحة البحث السوقي الأصلية. لا تُحتسب عروض الطلب، ويلزم مراجعة المصدر والحق في استعمال البيانات.',
+  evidenceStatus:'سجلات المقارنة المؤهلة: بيع',rentEvidence:'إيجار',openSales:'فتح مقارنات البيع المنفذة',openRentals:'فتح عقود الإيجار المنفذة',evidenceScope:'تُدخل المقارنات في لوحة البحث السوقي الأصلية. لا تُحتسب عروض الطلب، ويلزم مراجعة المصدر والحق في استعمال البيانات.',readinessTitle:'متطلبات الدراسة السوقية غير المحسومة',readinessPending:'يُحدّث تقرير الأدلة؛ راجع اللوحة التفصيلية.',sourceUnverified:'مقارنات المستخدم لا تثبت صحة المصدر أو ملكية العقار أو حق استخدام البيانات.',
   marketCaution:'نتائج حسابية بحثية غير معتمدة مهنيًا. القيمة والأجرة مستقلتان، ولا تعني نتيجة الجدوى اعتماد تقييم العقار.'
  },
  en:{
@@ -28,7 +29,7 @@ const MARKET_LABELS={
   unknown:'Unverified',full:'Full ownership',usufruct:'Usufruct',longLease:'Long leasehold',otherRight:'Other interest',
   marketResults:'Independent market research indications',capital:'Indicative capital value (SAR)',
   annualRent:'Indicative annual market rent (SAR)',marketBlocked:'Linked review blocks market indications.',marketIdentityMissing:'Complete the market-study purpose, valid valuation date, property name and declared interest before viewing provisional figures.',
-  evidenceStatus:'Eligible comparable records: sales',rentEvidence:'leases',openSales:'Open executed-sale comparables',openRentals:'Open executed-lease comparables',evidenceScope:'These controls open the original market-study evidence forms. Asking listings do not count as executed transactions; source and reuse rights require review.',
+  evidenceStatus:'Eligible comparable records: sales',rentEvidence:'leases',openSales:'Open executed-sale comparables',openRentals:'Open executed-lease comparables',evidenceScope:'These controls open the original market-study evidence forms. Asking listings do not count as executed transactions; source and reuse rights require review.',readinessTitle:'Outstanding market-study requirements',readinessPending:'Evidence report is updating; review the detailed panel.',sourceUnverified:'User-supplied comparables do not establish source validity, property title or data reuse rights.',
   marketCaution:'Non-certified research calculations. Capital value and rent are independent; financial feasibility does not certify property valuation.'
  }
 };
@@ -53,6 +54,16 @@ function Metric({label,value,locale,percent=false,testId}){
   <dd data-testid={testId} className="mt-1 text-lg font-semibold text-amber-100" dir="auto">{valid?new Intl.NumberFormat(locale==='ar-SA'?'ar-SA':'en-US',{maximumFractionDigits:percent?3:0}).format(percent?value*100:value)+(percent?'%':''):'—'}</dd>
  </div>;
 }
+function OwnerMarketReadiness({guidance,mt}){
+ return <div data-testid="owner-evidence-review" className="mt-3 rounded-lg border border-slate-600 p-3 text-xs">
+  <h4 className="font-semibold text-amber-100">{mt.readinessTitle}</h4>
+  {!guidance.available?<p data-testid="owner-evidence-pending" className="mt-2 text-slate-300">{mt.readinessPending}</p>:
+   <ul className="mt-2 list-disc space-y-1 ps-5">
+    {guidance.items.map(item=><li key={item.key} data-testid="owner-evidence-note" className={item.kind==='hold'?'text-rose-200':'text-slate-200'}>{item.description}</li>)}
+   </ul>}
+  {guidance.unverified&&<p data-testid="owner-evidence-unverified" className="mt-2 text-amber-200">{mt.sourceUnverified}</p>}
+ </div>;
+}
 function GovernedRate({id,label,value,onCommit,locale}){
  const format=v=>Number.isFinite(Number(v))?String(Number(v)*100):'';
  const [draft,setDraft]=useState(()=>format(value)),[invalid,setInvalid]=useState(false);
@@ -69,6 +80,7 @@ export default function OwnerFiveStepWizard({locale='ar-SA',step=0,onStepChange,
  const lang=locale==='ar-SA'?'ar':'en',t=WORDS[lang],mt=MARKET_LABELS[lang],focusRef=useRef(null);
  const market=marketSubject||{};
  const governedMarket=marketSummary?.subjectKey===JSON.stringify(market)?marketSummary:null;
+ const evidenceGuidance=ownerMarketEvidenceGuidance(governedMarket,locale);
  const gapItems=useMemo(()=>{
   const gaps=[],add=(s,k,label)=>gaps.push({s,k,label});
   if(!String(inputs.projectTitle||'').trim())add(1,'projectTitle',t.name);
@@ -192,6 +204,7 @@ export default function OwnerFiveStepWizard({locale='ar-SA',step=0,onStepChange,
    <p>{t.evidence}</p>
    <p data-testid="owner-evidence-counts" className="mt-2 text-xs text-slate-300">{mt.evidenceStatus}: {governedMarket?.eligibleSalesCount??0} — {mt.rentEvidence}: {governedMarket?.eligibleRentalsCount??0}.</p>
    <p className="mt-2 text-xs text-amber-100">{mt.evidenceScope}</p>
+   <OwnerMarketReadiness guidance={evidenceGuidance} mt={mt}/>
    <div className="mt-3 flex flex-wrap gap-2">
     <button type="button" data-testid="owner-open-sales" className="min-h-[44px] rounded-lg border border-amber-500 px-3 py-2 text-sm" onClick={()=>openEvidence('sale')}>{mt.openSales}</button>
     <button type="button" data-testid="owner-open-rentals" className="min-h-[44px] rounded-lg border border-amber-500 px-3 py-2 text-sm" onClick={()=>openEvidence('rent')}>{mt.openRentals}</button>
@@ -218,6 +231,7 @@ export default function OwnerFiveStepWizard({locale='ar-SA',step=0,onStepChange,
      <Metric locale={locale} testId="owner-market-rent-indication" label={mt.annualRent} value={governedMarket?.annualRentIndicationSar}/>
     </dl>
     <p className="mt-2 text-xs text-slate-300">{mt.evidenceStatus}: {governedMarket?.eligibleSalesCount??0} — {mt.rentEvidence}: {governedMarket?.eligibleRentalsCount??0}.</p>
+    <OwnerMarketReadiness guidance={evidenceGuidance} mt={mt}/>
     <p className="mt-2 text-xs text-amber-100">{mt.marketCaution}</p>
    </section>
   </div>}
