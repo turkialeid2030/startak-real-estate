@@ -65,6 +65,11 @@ const {expect}=require('@playwright/test');
   await eq(ownerRent,money(520000));
   await expect(page.getByTestId('owner-market-results')).toContainText('بيع: 2');
   checks++;
+  // An outstanding requirement selected on Results must bring the owner
+  // directly to the original sale editor, not only the generic evidence step.
+  await page.getByTestId('owner-market-results').getByTestId('owner-review-NO_EXECUTED_SALE_COMPARABLES').click();
+  await expect(page.getByTestId('owner-current-step')).toContainText('(3/5)');checks++;
+  await expect(page.getByTestId('market-comparables-sale')).toBeFocused();checks++;
   // The simple evidence step must link to the original, live comparable forms;
   // its counts must reflect the *qualified* sale and rent cohorts, not rows.
   await page.getByTestId('owner-step-2').click();
@@ -113,6 +118,9 @@ const {expect}=require('@playwright/test');
   await page.getByTestId('owner-step-4').click();
   await eq(ownerCap,money(5000000));
   await eq(ownerRent,'—');
+  await page.getByTestId('owner-market-results').getByTestId('owner-review-NO_EXECUTED_RENT_COMPARABLES').click();
+  await expect(page.getByTestId('owner-current-step')).toContainText('(3/5)');checks++;
+  await expect(page.getByTestId('market-comparables-rent')).toBeFocused();checks++;
   // Restoring the lease restores the original pair.
   await page.getByTestId('owner-advanced-mode').click();
   await page.getByTestId('market-comparable-rent-0').locator('select').nth(1).selectOption('EXECUTED');
