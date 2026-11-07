@@ -239,6 +239,12 @@ export default function PropertyMarketLocationPanel({
     blocked:Boolean(appraisalBinding.blockExport),
     eligibleSalesCount:report.eligibleSalesCount,
     eligibleRentalsCount:report.eligibleRentalsCount,
+    // Pass through the existing governance gate's reason codes, never
+    // synthesize evidence status from the wizard or infer verification.
+    issues:[...valuationReadiness.issues],
+    notices:[...valuationReadiness.notices],
+    rentSource:valuationReadiness.rentSource,
+    marketDataIndependentlyVerified:false,
   }),[subject,ownerIdentityGate,valuationReadiness,appraisalBinding,report]);
   useEffect(()=>{
     if(typeof onOwnerMarketSummaryChange==='function')onOwnerMarketSummaryChange(ownerMarketSummary);
