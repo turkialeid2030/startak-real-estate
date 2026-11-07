@@ -117,7 +117,7 @@ export default function OwnerFiveStepWizard({locale='ar-SA',step=0,onStepChange,
   if(!target||!Number.isInteger(target.step)||typeof target.key!=='string')return;
   if(target.step===2&&target.key.startsWith('market-comparables-')){
    // Step two exposes the existing source editor; no parallel evidence state.
-   if(step!==2){onStepChange(2);return;}
+   if(step!==2){navigate(2,target.key);return;}
    const group=document.querySelector('[data-testid="'+target.key+'"]');
    if(group){group.scrollIntoView({block:'start'});group.focus({preventScroll:true});}
    return;
