@@ -31,6 +31,26 @@ const MESSAGES=Object.freeze({
  TENANCY_LEGAL_REVIEW_REQUIRED:['الأجرة النظامية تتطلب مراجعة مستقلة للعقود والضوابط.','Legally collectible rent requires independent lease and rules review.'],
  RENT_CLASS_EVIDENCE_INCOMPLETE:['مقارنات شرائح الوحدات أو مساحاتها غير مكتملة.','Unit-segment rental evidence or areas are incomplete.']
 });
+// Navigation is strictly a convenience: a button never changes an evidence
+// decision, a market value, a transaction or the linked professional review.
+const TARGETS=Object.freeze({
+ MARKET_PURPOSE_REQUIRED:{step:0,key:'valuationPurpose'},
+ VALUATION_DATE_REQUIRED_OR_INVALID:{step:0,key:'valuationDate'},
+ FUTURE_VALUATION_DATE_NOT_SUPPORTED:{step:0,key:'valuationDate'},
+ VALUATION_DATE_INVALID:{step:0,key:'valuationDate'},
+ PROPERTY_RIGHT_DECLARATION_REQUIRED:{step:1,key:'owner-property-right'},
+ MARKET_SUBJECT_NAME_REQUIRED:{step:1,key:'owner-market-name'},
+ ASSET_TYPE_UNSUPPORTED:{step:1,key:'owner-market-asset-type'},
+ LOCATION_EVIDENCE_MISSING:{step:1,key:'owner-market-location'},
+ LAND_AREA_MISSING:{step:1,key:'owner-market-land-area'},
+ BUILT_AREA_MISSING:{step:1,key:'owner-market-built-area'},
+ RENTABLE_AREA_MISSING:{step:1,key:'owner-market-rentable-area'},
+ BUILDING_COUNT_MISSING:{step:1,key:'owner-market-building-count'},
+ UNIT_COUNT_MISSING:{step:1,key:'owner-market-unit-count'},
+ HOTEL_ROOM_COUNT_MISSING:{step:1,key:'owner-market-room-count'},
+ NO_EXECUTED_SALE_COMPARABLES:{step:2,key:'market-comparables-sale'},
+ NO_EXECUTED_RENT_COMPARABLES:{step:2,key:'market-comparables-rent'},
+});
 function ownerMarketEvidenceGuidance(summary,locale='ar-SA'){
  const english=locale==='en';
  if(!summary||typeof summary!=='object'||!Array.isArray(summary.issues)||!Array.isArray(summary.notices)){
@@ -47,7 +67,8 @@ function ownerMarketEvidenceGuidance(summary,locale='ar-SA'){
   // they still surface a conservative generic warning rather than vanish.
   const message=m?m[english?1:0]:
     (english?'Additional market review requirement remains unresolved.':'يوجد شرط إضافي لمراجعة الدراسة السوقية لم يُستوفَ.');
-  items.push({key:reason,description:message,kind:summary.issues.includes(reason)||
+  items.push({key:reason,description:message,target:TARGETS[reason]||null,
+    kind:summary.issues.includes(reason)||
     (Array.isArray(summary.identityIssues)&&summary.identityIssues.includes(reason))?'hold':'review'});
  }
  return {available:true,items,unverified:summary.marketDataIndependentlyVerified!==true};
