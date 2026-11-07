@@ -74,6 +74,10 @@ const {expect}=require('@playwright/test');
   await expect(page.getByTestId('market-comparables-sale')).toBeFocused();checks++;
   await page.getByTestId('owner-open-rentals').click();
   await expect(page.getByTestId('market-comparables-rent')).toBeFocused();checks++;
+  await expect(page.getByTestId('owner-evidence-review')).toContainText('ثلاث مقارنات بيع');checks++;
+  await expect(page.getByTestId('owner-evidence-unverified')).toBeVisible();checks++;
+  const reasonsBefore=await page.getByTestId('owner-evidence-review').textContent();
+  assert.ok(!reasonsBefore.includes('NO_EXECUTED_SALE_COMPARABLES'),'raw governance code exposed');checks++;
   // With a third executed sale the separate sale and income estimates agree
   // within the existing 20% method-reconciliation gate; no synthetic result
   // becomes professionally certified.
@@ -88,6 +92,9 @@ const {expect}=require('@playwright/test');
   await eq(ownerRent,money(520000));
   await expect(page.getByTestId('owner-market-results')).toContainText('بيع: 3');
   checks++;
+  const solvedSaleReason=page.getByTestId('owner-market-results').getByTestId('owner-evidence-review');
+  await expect(solvedSaleReason).not.toContainText('ثلاث مقارنات بيع');checks++;
+  await expect(solvedSaleReason).toContainText('مصادر الصفقات');checks++;
   // Removing a valid lease suppresses rental indication independently;
   // capital indication must not be transformed into a fictional rent.
   await page.getByTestId('owner-advanced-mode').click();
@@ -127,6 +134,7 @@ const {expect}=require('@playwright/test');
   await page.getByTestId('owner-market-location').fill('NO_VALID_COORDINATES');
   await page.getByTestId('owner-step-4').click();
   await eq(ownerCap,'—');await eq(ownerRent,'—');
+  await expect(page.getByTestId('owner-market-results').getByTestId('owner-evidence-review')).toContainText('إحداثيات العقار');checks++;
   assert.equal(pageErrors.length,0,'browser runtime errors '+pageErrors.join(';'));checks++;
   console.log('OWNER_MARKET_INDEPENDENT_EVIDENCE=PASS browser='+browserName+' assertions='+checks+' synthetic_only=true professional_approval=false');
  }finally{await page.close();await browser.close();}
