@@ -11,6 +11,7 @@
  * It must never be called independently verified market valuation.
  */
 import {readFile} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
 
 const REQUIRED_IRR = '0.1444715207802304';
 const NONNEGATIVE_INTEGER = value => Number.isSafeInteger(value) && value >= 0;
@@ -122,6 +123,17 @@ try {
     process.exit(2);
   }
   if(!/^[a-f0-9]{64}$/i.test(irr.sourceSha256))fail('IRR_SOURCE_DIGEST_INVALID');
+  // A syntactically valid digest is not provenance. Hash the exact, private
+  // on-disk source bytes and compare; never log their content or absolute path.
+  let originalBytes;
+  try{originalBytes=await readFile(irr.sourceArtifact);}
+  catch{
+    mark('IRR_BASELINE=BLOCKED_SOURCE_ARTIFACT_UNAVAILABLE');
+    process.exit(2);
+  }
+  const observedSha256=createHash('sha256').update(originalBytes).digest('hex');
+  if(observedSha256!==irr.sourceSha256.toLowerCase())fail('IRR_SOURCE_DIGEST_MISMATCH');
+  mark('IRR_SOURCE_BYTES=PASS','sha256_matches=true independent_authenticity_unverified=true');
   if(irr.engineOutput!==REQUIRED_IRR)fail('IRR_BASELINE_MISMATCH');
   mark('IRR_BASELINE=PROVISIONAL_MATCH','exact_value=true provenance_requires_independent_review=true');
   mark('OVERALL=HOLD','external_and_professional_authority_not_established');
