@@ -17,7 +17,7 @@ const MARKET_LABELS={
   unknown:'غير متحقق',full:'ملكية كاملة',usufruct:'حق انتفاع',longLease:'حق تأجير طويل المدة',otherRight:'حق آخر',
   marketResults:'مؤشرات دراسة السوق المستقلة',capital:'القيمة السوقية الاسترشادية (ريال)',
   annualRent:'الأجرة السنوية الاسترشادية (ريال)',marketBlocked:'تدقيق مرتبط يوقف عرض المؤشرات.',marketIdentityMissing:'أكمل غرض دراسة السوق وتاريخ التقييم الصحيح واسم العقار وإقرار نوع الحق قبل عرض أي مؤشر استرشادي.',
-  evidenceStatus:'سجلات المقارنة المؤهلة: بيع',rentEvidence:'إيجار',openSales:'فتح مقارنات البيع المنفذة',openRentals:'فتح عقود الإيجار المنفذة',evidenceScope:'تُدخل المقارنات في لوحة البحث السوقي الأصلية. لا تُحتسب عروض الطلب، ويلزم مراجعة المصدر والحق في استعمال البيانات.',readinessTitle:'متطلبات الدراسة السوقية غير المحسومة',readinessPending:'يُحدّث تقرير الأدلة؛ راجع اللوحة التفصيلية.',sourceUnverified:'مقارنات المستخدم لا تثبت صحة المصدر أو ملكية العقار أو حق استخدام البيانات.',
+  evidenceStatus:'سجلات المقارنة المؤهلة: بيع',rentEvidence:'إيجار',openSales:'فتح مقارنات البيع المنفذة',openRentals:'فتح عقود الإيجار المنفذة',evidenceScope:'تُدخل المقارنات في لوحة البحث السوقي الأصلية. لا تُحتسب عروض الطلب، ويلزم مراجعة المصدر والحق في استعمال البيانات.',readinessTitle:'متطلبات الدراسة السوقية غير المحسومة',readinessPending:'يُحدّث تقرير الأدلة؛ راجع اللوحة التفصيلية.',sourceUnverified:'مقارنات المستخدم لا تثبت صحة المصدر أو ملكية العقار أو حق استخدام البيانات.',goToInput:'الانتقال للحقل',
   marketCaution:'نتائج حسابية بحثية غير معتمدة مهنيًا. القيمة والأجرة مستقلتان، ولا تعني نتيجة الجدوى اعتماد تقييم العقار.'
  },
  en:{
@@ -29,7 +29,7 @@ const MARKET_LABELS={
   unknown:'Unverified',full:'Full ownership',usufruct:'Usufruct',longLease:'Long leasehold',otherRight:'Other interest',
   marketResults:'Independent market research indications',capital:'Indicative capital value (SAR)',
   annualRent:'Indicative annual market rent (SAR)',marketBlocked:'Linked review blocks market indications.',marketIdentityMissing:'Complete the market-study purpose, valid valuation date, property name and declared interest before viewing provisional figures.',
-  evidenceStatus:'Eligible comparable records: sales',rentEvidence:'leases',openSales:'Open executed-sale comparables',openRentals:'Open executed-lease comparables',evidenceScope:'These controls open the original market-study evidence forms. Asking listings do not count as executed transactions; source and reuse rights require review.',readinessTitle:'Outstanding market-study requirements',readinessPending:'Evidence report is updating; review the detailed panel.',sourceUnverified:'User-supplied comparables do not establish source validity, property title or data reuse rights.',
+  evidenceStatus:'Eligible comparable records: sales',rentEvidence:'leases',openSales:'Open executed-sale comparables',openRentals:'Open executed-lease comparables',evidenceScope:'These controls open the original market-study evidence forms. Asking listings do not count as executed transactions; source and reuse rights require review.',readinessTitle:'Outstanding market-study requirements',readinessPending:'Evidence report is updating; review the detailed panel.',sourceUnverified:'User-supplied comparables do not establish source validity, property title or data reuse rights.',goToInput:'Go to field',
   marketCaution:'Non-certified research calculations. Capital value and rent are independent; financial feasibility does not certify property valuation.'
  }
 };
@@ -54,12 +54,16 @@ function Metric({label,value,locale,percent=false,testId}){
   <dd data-testid={testId} className="mt-1 text-lg font-semibold text-amber-100" dir="auto">{valid?new Intl.NumberFormat(locale==='ar-SA'?'ar-SA':'en-US',{maximumFractionDigits:percent?3:0}).format(percent?value*100:value)+(percent?'%':''):'—'}</dd>
  </div>;
 }
-function OwnerMarketReadiness({guidance,mt}){
+function OwnerMarketReadiness({guidance,mt,onNavigate}){
  return <div data-testid="owner-evidence-review" className="mt-3 rounded-lg border border-slate-600 p-3 text-xs">
   <h4 className="font-semibold text-amber-100">{mt.readinessTitle}</h4>
   {!guidance.available?<p data-testid="owner-evidence-pending" className="mt-2 text-slate-300">{mt.readinessPending}</p>:
    <ul className="mt-2 list-disc space-y-1 ps-5">
-    {guidance.items.map(item=><li key={item.key} data-testid="owner-evidence-note" className={item.kind==='hold'?'text-rose-200':'text-slate-200'}>{item.description}</li>)}
+    {guidance.items.map(item=><li key={item.key} data-testid="owner-evidence-note" className={item.kind==='hold'?'text-rose-200':'text-slate-200'}>
+      <span>{item.description}</span>
+      {item.target&&onNavigate&&<button type="button" data-testid={'owner-review-'+item.key}
+        onClick={()=>onNavigate(item.target)} className="ms-2 min-h-[40px] rounded border border-amber-500 px-2 text-amber-100">{mt.goToInput}</button>}
+     </li>)}
    </ul>}
   {guidance.unverified&&<p data-testid="owner-evidence-unverified" className="mt-2 text-amber-200">{mt.sourceUnverified}</p>}
  </div>;
@@ -102,8 +106,28 @@ export default function OwnerFiveStepWizard({locale='ar-SA',step=0,onStepChange,
   if(validationError)gaps.push({s:4,k:'results',label:t.invalid});
   return gaps;
  },[inputs,mode,validationError,lang,marketSubject]);
- useEffect(()=>{const id=focusRef.current;if(!id)return;const el=document.getElementById(fieldId(id));if(el){el.scrollIntoView({block:'center'});el.focus({preventScroll:true});}focusRef.current=null;},[step]);
+ useEffect(()=>{const id=focusRef.current;if(!id)return;
+  // The authored navigation mapping, not user-provided fields, owns the target.
+  const el=document.getElementById(fieldId(id))||document.querySelector('[data-testid="'+id+'"]');
+  if(el){el.scrollIntoView({block:'center'});el.focus({preventScroll:true});}
+  focusRef.current=null;
+ },[step]);
  const navigate=(s,key)=>{focusRef.current=key;onStepChange(s);};
+ const goToMarketRequirement=target=>{
+  if(!target||!Number.isInteger(target.step)||typeof target.key!=='string')return;
+  if(target.step===2&&target.key.startsWith('market-comparables-')){
+   // Step two exposes the existing source editor; no parallel evidence state.
+   if(step!==2){onStepChange(2);return;}
+   const group=document.querySelector('[data-testid="'+target.key+'"]');
+   if(group){group.scrollIntoView({block:'start'});group.focus({preventScroll:true});}
+   return;
+  }
+  if(target.step===step){
+   const field=document.getElementById(fieldId(target.key))||
+    document.querySelector('[data-testid="'+target.key+'"]');
+   if(field){field.scrollIntoView({block:'center'});field.focus({preventScroll:true});}
+  }else navigate(target.step,target.key);
+ };
  // The original comparable inputs are mounted once under the wizard.
  // Focus them rather than creating parallel evidence rows or market state.
  const openEvidence=kind=>{
@@ -204,7 +228,7 @@ export default function OwnerFiveStepWizard({locale='ar-SA',step=0,onStepChange,
    <p>{t.evidence}</p>
    <p data-testid="owner-evidence-counts" className="mt-2 text-xs text-slate-300">{mt.evidenceStatus}: {governedMarket?.eligibleSalesCount??0} — {mt.rentEvidence}: {governedMarket?.eligibleRentalsCount??0}.</p>
    <p className="mt-2 text-xs text-amber-100">{mt.evidenceScope}</p>
-   <OwnerMarketReadiness guidance={evidenceGuidance} mt={mt}/>
+   <OwnerMarketReadiness guidance={evidenceGuidance} mt={mt} onNavigate={goToMarketRequirement}/>
    <div className="mt-3 flex flex-wrap gap-2">
     <button type="button" data-testid="owner-open-sales" className="min-h-[44px] rounded-lg border border-amber-500 px-3 py-2 text-sm" onClick={()=>openEvidence('sale')}>{mt.openSales}</button>
     <button type="button" data-testid="owner-open-rentals" className="min-h-[44px] rounded-lg border border-amber-500 px-3 py-2 text-sm" onClick={()=>openEvidence('rent')}>{mt.openRentals}</button>
@@ -231,7 +255,7 @@ export default function OwnerFiveStepWizard({locale='ar-SA',step=0,onStepChange,
      <Metric locale={locale} testId="owner-market-rent-indication" label={mt.annualRent} value={governedMarket?.annualRentIndicationSar}/>
     </dl>
     <p className="mt-2 text-xs text-slate-300">{mt.evidenceStatus}: {governedMarket?.eligibleSalesCount??0} — {mt.rentEvidence}: {governedMarket?.eligibleRentalsCount??0}.</p>
-    <OwnerMarketReadiness guidance={evidenceGuidance} mt={mt}/>
+    <OwnerMarketReadiness guidance={evidenceGuidance} mt={mt} onNavigate={goToMarketRequirement}/>
     <p className="mt-2 text-xs text-amber-100">{mt.marketCaution}</p>
    </section>
   </div>}
