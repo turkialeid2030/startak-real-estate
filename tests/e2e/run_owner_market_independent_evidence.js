@@ -78,6 +78,13 @@ const {expect}=require('@playwright/test');
   await expect(page.getByTestId('owner-evidence-unverified')).toBeVisible();checks++;
   const reasonsBefore=await page.getByTestId('owner-evidence-review').textContent();
   assert.ok(!reasonsBefore.includes('NO_EXECUTED_SALE_COMPARABLES'),'raw governance code exposed');checks++;
+  // Simple mode must localize the governed evidence reason, preserving the
+  // same live research state and never exposing internal status identifiers.
+  await page.getByTestId('owner-language').click();
+  await expect(page.getByTestId('owner-evidence-review')).toContainText('At least three engine-qualified executed sale comparables');checks++;
+  await expect(page.getByTestId('owner-evidence-unverified')).toContainText('User-supplied comparables');checks++;
+  await page.getByTestId('owner-language').click();
+  await expect(page.getByTestId('owner-evidence-review')).toContainText('ثلاث مقارنات بيع');checks++;
   // With a third executed sale the separate sale and income estimates agree
   // within the existing 20% method-reconciliation gate; no synthetic result
   // becomes professionally certified.
