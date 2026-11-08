@@ -156,6 +156,12 @@ const {expect}=require('@playwright/test');
   await page.getByTestId('owner-step-4').click();
   await expect(page.getByTestId('owner-market-results-evidence-scope-hold')).toBeVisible();checks++;
   await eq(ownerCap,'—');await eq(ownerRent,'—');
+  // The advanced detail card must also quarantine the old subject amounts.
+  await page.getByTestId('owner-advanced-mode').click();
+  await eq(page.getByTestId('market-canonical-capital-indication'),'غير قابل للحساب');
+  await eq(page.getByTestId('market-canonical-rent-indication'),'غير قابل للحساب');
+  await page.getByTestId('owner-simple-mode').click();
+  await page.getByTestId('owner-step-4').click();
   await page.getByTestId('owner-market-review-comparables').click();
   await expect(page.getByTestId('owner-market-evidence-scope-hold')).toBeVisible();checks++;
   await expect(page.getByTestId('market-evidence-scope-hold')).toBeVisible();checks++;
