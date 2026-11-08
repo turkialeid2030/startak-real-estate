@@ -20,8 +20,17 @@ const {expect}=require('@playwright/test');
    await expect(button).toBeVisible();assertions++;
    // Market-purpose controls must write the SAME subject used by the
    // previously existing detailed research panel, never a parallel estimate.
+   await page.getByTestId('owner-missing-list').getByRole('button',{name:'تاريخ القيمة المطلوب دراستها'}).click();
+   await expect(page.getByTestId('owner-valuation-date')).toBeFocused();assertions++;
    await page.getByTestId('owner-valuation-purpose').selectOption('RENT_STUDY');
+   await page.getByTestId('owner-valuation-date').fill('2099-01-01');
+   await expect(page.getByTestId('owner-missing-list').getByRole('button',{name:'تاريخ القيمة المطلوب دراستها'})).toBeVisible();assertions++;
    await page.getByTestId('owner-valuation-date').fill('2026-10-15');
+   await page.getByTestId('owner-missing-list').getByRole('button',{name:'اسم العقار في دراسة السوق'}).click();
+   await expect(page.getByTestId('owner-market-name')).toBeFocused();assertions++;
+   await page.getByTestId('owner-step-0').click();
+   await page.getByTestId('owner-missing-list').getByRole('button',{name:'الحق العقاري (يحتاج تحقق)'}).click();
+   await expect(page.getByTestId('owner-property-right')).toBeFocused();assertions++;
    await page.getByTestId('owner-step-1').click();
    await page.getByTestId('owner-market-name').fill('SYNTHETIC-SUBJECT-'+width);
    await page.getByTestId('owner-market-land-area').fill('1234');
