@@ -73,17 +73,21 @@ function OwnerMarketReadiness({guidance,mt,onNavigate}){
 function GovernedRate({id,label,value,onCommit,locale,invalidAr='معدل رسملة التخارج غير صالح',invalidEn='Invalid exit capitalization rate'}){
  const format=v=>Number.isFinite(Number(v))?String(Number(v)*100):'';
  const [draft,setDraft]=useState(()=>format(value)),[invalid,setInvalid]=useState(false);
- const rejectedCommit=useRef(false);
- // Preserve the owner's rejected text while the canonical controller stores
- // an invalid NaN (fail-closed). Valid restoration or a later valid commit
- // still synchronizes the canonical value back into the editor.
+ const rejectedCommit=useRef({active:false,canonical:null});
+ // The canonical validator preserves rejected numeric percentages as their
+ // out-of-range decimal (e.g. 120% -> 1.2), not always NaN. Match that exact
+ // rejected value before deciding whether an external reset is safe to render.
  useEffect(()=>{
-  if(rejectedCommit.current&&Number.isNaN(value))return;
-  rejectedCommit.current=false;setDraft(format(value));setInvalid(false);
+  const pending=rejectedCommit.current;
+  if(pending.active&&Object.is(value,pending.canonical))return;
+  rejectedCommit.current={active:false,canonical:null};
+  setDraft(format(value));setInvalid(false);
  },[value]);
  const commit=()=>{
+  const parsed=parseNumericText(draft);
   const result=onCommit(draft),rejected=result?.ok===false;
-  rejectedCommit.current=rejected;setInvalid(rejected);
+  rejectedCommit.current={active:rejected,canonical:parsed.ok?parsed.value/100:NaN};
+  setInvalid(rejected);
  };
  return <label htmlFor={id} className="block text-sm text-slate-100">{label}
   <input id={id} data-testid={id} type="text" inputMode="decimal" value={draft}
