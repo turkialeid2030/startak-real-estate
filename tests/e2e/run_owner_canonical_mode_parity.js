@@ -40,6 +40,37 @@ const {expect}=require('@playwright/test');
    console.log('OWNER_CANONICAL_MODE_PARITY=PASS scenario='+label);
    await page.getByTestId('owner-simple-mode').click();
   }
-  console.log('OWNER_CANONICAL_MODE_PARITY=PASS assertions='+checked+' scenarios='+scenarios.length);
+  // Explicitly exercise the second canonical financial engine. A building-only
+  // view-parity check does not prove that land/development uses the correct
+  // financial inputs or that the two mode workspaces stay isolated.
+  await page.getByTestId('owner-advanced-mode').click();
+  const buildingBefore=await exportReport();
+  assert.equal(buildingBefore.financial.mode,'building','baseline must be building engine');checked++;
+  await page.getByTestId('owner-simple-mode').click();
+  await page.getByTestId('owner-step-0').click();
+  await page.getByRole('button',{name:'أرض وتطوير',exact:true}).click();
+  await page.getByTestId('owner-step-3').click();
+  await page.getByTestId('owner-landPricePerSqm').fill('22001');
+  await page.getByTestId('owner-marketRentPerSqm').fill('1901');
+  await page.getByTestId('owner-advanced-mode').click();
+  const landBefore=await exportReport();
+  assert.equal(landBefore.financial.mode,'land','land selection must reach the land financial engine');checked++;
+  assert.equal(landBefore.financial.inputs.landPricePerSqm,22001,'land price must be canonical');checked++;
+  assert.equal(landBefore.financial.inputs.marketRentPerSqm,1901,'land rent must be canonical');checked++;
+  await page.getByTestId('owner-simple-mode').click();
+  await expect(page.getByTestId('owner-landPricePerSqm')).toHaveValue('22001');
+  await expect(page.getByTestId('owner-marketRentPerSqm')).toHaveValue('1901');
+  await page.getByTestId('owner-advanced-mode').click();
+  const landAfter=await exportReport();
+  parity(landBefore,landAfter,'land-development-view-switch');
+  console.log('OWNER_CANONICAL_MODE_PARITY=PASS scenario=land-development-view-switch');
+  await page.getByTestId('owner-simple-mode').click();
+  await page.getByTestId('owner-step-0').click();
+  await page.getByRole('button',{name:'مبنى قائم',exact:true}).click();
+  await page.getByTestId('owner-advanced-mode').click();
+  const buildingAfter=await exportReport();
+  parity(buildingBefore,buildingAfter,'building-land-workspace-isolation');
+  console.log('OWNER_CANONICAL_MODE_PARITY=PASS scenario=building-land-workspace-isolation');
+  console.log('OWNER_CANONICAL_MODE_PARITY=PASS assertions='+checked+' scenarios='+(scenarios.length+2));
  }finally{await context.close();await browser.close();}
 })().catch(error=>{console.error('OWNER_CANONICAL_MODE_PARITY=FAIL',error.stack||error);process.exitCode=1;});
