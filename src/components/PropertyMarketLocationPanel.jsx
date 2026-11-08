@@ -633,26 +633,26 @@ export default function PropertyMarketLocationPanel({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
         <div><span className="text-xs text-slate-400">{L("القيمة التقديرية الحسابية اليوم")}</span><strong data-testid="market-canonical-capital-indication" className="block text-lg">{money(evidenceScopeHold?null:valuationReadiness.preliminaryValueSar)}</strong></div>
         <div><span className="text-xs text-slate-400">{L("الإيجار السوقي السنوي المحتمل")}</span><strong data-testid="market-canonical-rent-indication" className="block text-lg">{money(evidenceScopeHold?null:valuationReadiness.newAnnualMarketRentSar)}</strong></div>
-        <div><span className="text-xs text-slate-400">{L("الإيجار السنوي المتوقع تحصيله بعد الإشغال")}</span><strong className="block text-lg">{money(report.expectedCollectedAnnualRentSar)}</strong></div>
-        <div><span className="text-xs text-slate-400">{L("مؤشر البيع بالمقارنات")}</span><strong className="block">{money(report.saleIndicationSar)}</strong></div>
-        <div><span className="text-xs text-slate-400">{L("مؤشر الدخل بالرسملة")}</span><strong className="block">{money(report.incomeIndicationSar)}</strong></div>
-        <div><span className="text-xs text-slate-400">{L("متوسط الإيجار السوقي لكل وحدة (تقريبي)")}</span><strong className="block">{money(report.averageMarketAnnualRentPerUnitSar)}</strong></div>
+        <div><span className="text-xs text-slate-400">{L("الإيجار السنوي المتوقع تحصيله بعد الإشغال")}</span><strong className="block text-lg">{money(evidenceScopeHold?null:report.expectedCollectedAnnualRentSar)}</strong></div>
+        <div><span className="text-xs text-slate-400">{L("مؤشر البيع بالمقارنات")}</span><strong className="block">{money(evidenceScopeHold?null:report.saleIndicationSar)}</strong></div>
+        <div><span className="text-xs text-slate-400">{L("مؤشر الدخل بالرسملة")}</span><strong className="block">{money(evidenceScopeHold?null:report.incomeIndicationSar)}</strong></div>
+        <div><span className="text-xs text-slate-400">{L("متوسط الإيجار السوقي لكل وحدة (تقريبي)")}</span><strong className="block">{money(evidenceScopeHold?null:report.averageMarketAnnualRentPerUnitSar)}</strong></div>
       </div>
       <p className="mt-2 text-xs text-amber-200">{L("مستوى الثقة:")} {report.confidence==='NO_SUPPORTED_PRIMARY_VALUE'?
         L('لا توجد قيمة أولية مؤهلة') :report.confidence==='UNRECONCILED_METHODS_NO_PRIMARY_VALUE'?
         L('إيقاف النتيجة الموحدة بسبب اختلاف جوهري بين المنهجيات') : L('مؤشر أولي غير متحقق مهنيًا')}.
         {report.specialistReason?L(' يلزم نموذج قطاعي متكامل للأصل المتخصص قبل إنتاج سعر رئيسي.'):''}
       </p>
-      {report.methodGapPct!==null&&<p className="mt-2 text-xs text-slate-300">
+      {!evidenceScopeHold&&report.methodGapPct!==null&&<p className="mt-2 text-xs text-slate-300">
         {L("فارق مؤشري السوق والدخل:")} {report.methodGapPct.toFixed(1)}{L("% من الأكبر؛")}
         {report.materialMethodGap?L(' لا يُسمح باحتساب المتوسط كقيمة واحدة حتى تفسير الفرق ومراجعته.'):L(' للتوثيق والتحقق من ملاءمة المنهجين.')}
       </p>}
-      {report.saleDispersion&&<p className="mt-1 text-xs text-slate-300">
+      {!evidenceScopeHold&&report.saleDispersion&&<p className="mt-1 text-xs text-slate-300">
         {L("مدى أسعار بيع المتر المقبولة:")} {money(report.saleDispersion.min)} {L("إلى")} {money(report.saleDispersion.max)}{L(". الاتساع النسبي للمدى:")} {(report.saleDispersion.spreadToMedian*100).toFixed(1)}{L("% — لا يمثل حد ثقة إحصائيًا.")}
       </p>}
       <p className="text-xs text-slate-300 mt-3">{L("مقارنات البيع المقبولة:")} {report.eligibleSalesCount} {L("من")} {allSales.length} {L("(مستبعد")} {report.excludedSalesCount}{L(") | عقود الإيجار المقبولة:")} {report.eligibleRentalsCount} {L("من")} {allRentals.length} {L("(مستبعد")} {report.excludedRentalsCount}{L(") | مشروعات قريبة بمصدر معلن:")} {report.nearbyProjects.length}</p>
       <p data-testid="market-evidence-district-only" className="text-xs text-slate-300 mt-2">{L("مقارنات بلا إحداثيات للقطعة، قُبلت فقط على أساس تطابق الحي والمدينة: بيع")} {report.districtOnlySalesCount}{L("، إيجار")} {report.districtOnlyRentalsCount}{L(". تقريبي ولا يثبت البعد الحقيقي عن العقار.")}</p>
-      <p className="text-xs text-amber-200 mt-2">{L("الأثر الافتراضي للمشروعات على القيمة، منفصل عن الأساس:")} {money(report.projectScenarioSar)}{L(". يتطلب إثباتًا مستقلًا لعلاقة التأثير وليس مجرد قرب المشروع.")}</p>
+      <p className="text-xs text-amber-200 mt-2">{L("الأثر الافتراضي للمشروعات على القيمة، منفصل عن الأساس:")} {money(evidenceScopeHold?null:report.projectScenarioSar)}{L(". يتطلب إثباتًا مستقلًا لعلاقة التأثير وليس مجرد قرب المشروع.")}</p>
       <p className="text-xs text-rose-200 mt-2">
         {L("الإيجار المسموح نظاميًا: غير محسوب آليًا.")} {report.rentRegulation==='EXISTING_RENT_FREEZE_REQUIRES_EJAR_REVIEW'
           ? L('راجع قيمة آخر عقد إيجار والضوابط الخاصة بالرياض قبل التسعير التعاقدي.')
