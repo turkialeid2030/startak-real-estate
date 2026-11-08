@@ -160,6 +160,8 @@ const {expect}=require('@playwright/test');
   await page.getByTestId('owner-advanced-mode').click();
   await eq(page.getByTestId('market-canonical-capital-indication'),'غير قابل للحساب');
   await eq(page.getByTestId('market-canonical-rent-indication'),'غير قابل للحساب');
+  await expect(page.getByTestId('valuation-quality-gates')).toHaveCount(0);checks++;
+  await expect(page.getByTestId('cross-method-reconciliation')).toHaveCount(0);checks++;
   await page.getByTestId('personal-market-study-export').click();
   await expect(page.getByTestId('market-study-action-notice')).toContainText('هوية عقار سابقة');checks++;
   await page.getByTestId('owner-simple-mode').click();
