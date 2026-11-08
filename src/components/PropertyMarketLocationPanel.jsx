@@ -345,7 +345,8 @@ export default function PropertyMarketLocationPanel({
 
   const saveLinkedStudy=async()=>{
     if(linkedSaveBusy)return;
-    if(appraisalBinding.blockExport||evidenceScopeHold){setSavedDealStudyStatus({kind:'SIDECAR_BLOCKED'});return;}
+    if(evidenceScopeHold){setSavedDealStudyStatus({kind:'SIDECAR_SCOPE_HOLD'});return;}
+    if(appraisalBinding.blockExport){setSavedDealStudyStatus({kind:'SIDECAR_BLOCKED'});return;}
     if(linkedDealNameConflict){setSavedDealStudyStatus({kind:'SIDECAR_NAME_MISMATCH'});return;}
     if(!selectedSavedDealId){setSavedDealStudyStatus({kind:'DEAL_REQUIRED'});return;}
     if(!linkedDealIdentityAcknowledged){setSavedDealStudyStatus({kind:'IDENTITY_CONFIRM_REQUIRED'});return;}
@@ -391,7 +392,8 @@ export default function PropertyMarketLocationPanel({
     }catch(error){if(currentRead(token))setMessage({kind:'STUDY_RESTORE_FAILED',params:{code:String(error.message||'STUDY_INVALID')}});}
   };
   const exportJson=()=>{
-    if(appraisalBinding.blockExport||evidenceScopeHold){
+    if(evidenceScopeHold){setMessage({kind:'STUDY_EXPORT_SCOPE_HOLD'});return;}
+    if(appraisalBinding.blockExport){
       setMessage({kind:'STUDY_EXPORT_BLOCKED'});
       return;
     }
