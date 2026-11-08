@@ -32,6 +32,7 @@ import ChallengerBenchmarkResearchPanel from './ChallengerBenchmarkResearchPanel
 const {toPublicSample}=require('../market/suhail-national-neighborhood-research');
 const {createInitialMarketSubject}=require('../market/initial-market-subject');
 const {marketIdentityGate}=require('../market/owner-market-identity-gate');
+const {marketEvidenceSubjectKey,hasResearchComparables}=require('../market/owner-market-evidence-scope');
 
 const INPUT = 'w-full rounded-lg border border-slate-600 bg-[#101c30] px-3 py-2 text-sm text-slate-100';
 const createRow = () => ({ assetType:'',landSubtype:'',sourceRecordId:'', status:'ASKING', price:'', annualRent:'', builtArea:'', landArea:'',
@@ -127,6 +128,7 @@ export default function PropertyMarketLocationPanel({
   const subject=controlledOwner?ownerSubject:localSubject;
   const setSubject=controlledOwner?onOwnerSubjectChange:setLocalSubject;
   const [assumptions,setAssumptions]=useState({occupancy:'0.9',expenseRatio:'0.20',capRate:'0.075'});
+  const [evidenceBoundSubjectKey,setEvidenceBoundSubjectKey]=useState(null);
   const [sales,setSales]=useState(Array.from({length:3},createRow));
   const [rentals,setRentals]=useState(Array.from({length:3},createRow));
   const [projects,setProjects]=useState([blankProject()]);
@@ -204,6 +206,17 @@ export default function PropertyMarketLocationPanel({
   const asOfMs=studyAsOf.asOf.getTime();
   const allSales=useMemo(()=>[...sales,...importedSales],[sales,importedSales]);
   const allRentals=useMemo(()=>[...rentals,...importedRentals],[rentals,importedRentals]);
+  const evidenceSubjectKey=useMemo(()=>marketEvidenceSubjectKey(subject),[subject]);
+  const hasCompared=useMemo(()=>hasResearchComparables(allSales,allRentals),[allSales,allRentals]);
+  // A row must remain attributed to its original subject. Changing name,
+  // property interest, classification or parcel identity never transfers an
+  // already entered comparable silently to another subject, even at the same
+  // coordinates. A deliberate user reconfirmation is required.
+  useLayoutEffect(()=>{
+    if(!hasCompared){if(evidenceBoundSubjectKey!==null)setEvidenceBoundSubjectKey(null);}
+    else if(evidenceBoundSubjectKey===null)setEvidenceBoundSubjectKey(evidenceSubjectKey);
+  },[hasCompared,evidenceBoundSubjectKey,evidenceSubjectKey]);
+  const evidenceScopeHold=hasCompared&&evidenceBoundSubjectKey!==evidenceSubjectKey;
   const report=useMemo(()=>evaluateMarketStudy({subject,sales:allSales,rentals:allRentals,projects,assumptions,asOf:new Date(asOfMs)}),
     [subject,allSales,allRentals,projects,assumptions,asOfMs]);
   const askingVsExecutedCohorts=useMemo(()=>reviewAskingVsExecuted({
@@ -228,11 +241,12 @@ export default function PropertyMarketLocationPanel({
   const ownerMarketSummary=useMemo(()=>({
     // Prevent old results flashing after a subject edit before React effects run.
     subjectKey:JSON.stringify(subject),
-    saleIndicationSar:appraisalBinding.blockExport||!ownerIdentityGate.allow?null:
+    saleIndicationSar:appraisalBinding.blockExport||!ownerIdentityGate.allow||evidenceScopeHold?null:
       (Number.isFinite(valuationReadiness.preliminaryValueSar)?valuationReadiness.preliminaryValueSar:null),
-    annualRentIndicationSar:appraisalBinding.blockExport||!ownerIdentityGate.allow?null:
+    annualRentIndicationSar:appraisalBinding.blockExport||!ownerIdentityGate.allow||evidenceScopeHold?null:
       (Number.isFinite(valuationReadiness.newAnnualMarketRentSar)?valuationReadiness.newAnnualMarketRentSar:null),
-    status:ownerIdentityGate.allow?(valuationReadiness.status||'UNVERIFIED'):'HOLD_INCOMPLETE_OWNER_IDENTITY',
+    status:!ownerIdentityGate.allow?'HOLD_INCOMPLETE_OWNER_IDENTITY':evidenceScopeHold?'HOLD_COMPARABLE_SUBJECT_CHANGED':(valuationReadiness.status||'UNVERIFIED'),
+    evidenceScopeHold,
     identityHold:!ownerIdentityGate.allow,
     identityIssues:ownerIdentityGate.issues,
     linkedReviewStatus:appraisalBinding.status,
@@ -245,7 +259,7 @@ export default function PropertyMarketLocationPanel({
     notices:[...valuationReadiness.notices],
     rentSource:valuationReadiness.rentSource,
     marketDataIndependentlyVerified:false,
-  }),[subject,ownerIdentityGate,valuationReadiness,appraisalBinding,report]);
+  }),[subject,ownerIdentityGate,evidenceScopeHold,valuationReadiness,appraisalBinding,report]);
   useEffect(()=>{
     if(typeof onOwnerMarketSummaryChange==='function')onOwnerMarketSummaryChange(ownerMarketSummary);
   },[onOwnerMarketSummaryChange,ownerMarketSummary]);
@@ -331,7 +345,7 @@ export default function PropertyMarketLocationPanel({
 
   const saveLinkedStudy=async()=>{
     if(linkedSaveBusy)return;
-    if(appraisalBinding.blockExport){setSavedDealStudyStatus({kind:'SIDECAR_BLOCKED'});return;}
+    if(appraisalBinding.blockExport||evidenceScopeHold){setSavedDealStudyStatus({kind:'SIDECAR_BLOCKED'});return;}
     if(linkedDealNameConflict){setSavedDealStudyStatus({kind:'SIDECAR_NAME_MISMATCH'});return;}
     if(!selectedSavedDealId){setSavedDealStudyStatus({kind:'DEAL_REQUIRED'});return;}
     if(!linkedDealIdentityAcknowledged){setSavedDealStudyStatus({kind:'IDENTITY_CONFIRM_REQUIRED'});return;}
@@ -377,7 +391,7 @@ export default function PropertyMarketLocationPanel({
     }catch(error){if(currentRead(token))setMessage({kind:'STUDY_RESTORE_FAILED',params:{code:String(error.message||'STUDY_INVALID')}});}
   };
   const exportJson=()=>{
-    if(appraisalBinding.blockExport){
+    if(appraisalBinding.blockExport||evidenceScopeHold){
       setMessage({kind:'STUDY_EXPORT_BLOCKED'});
       return;
     }
@@ -409,6 +423,16 @@ export default function PropertyMarketLocationPanel({
         ? 'Enter an unshortened Google Maps coordinate link or coordinates. This tool does not fetch live executed transactions and uses only manually supplied comparables; outputs are unverified research scenarios.'
         : 'أدخل رابط خرائط جوجل غير المختصر المتضمن إحداثيات العقار أو الإحداثيات مباشرة. هذه الحاسبة لا تجلب معاملات حية تلقائيًا؛ تعالج فقط مقارنات مثبتة المصدر يضيفها المستخدم وتُظهر نتائج سيناريو غير معتمدة.'}
     </p>
+    {evidenceScopeHold&&<section role="alert" data-testid="market-evidence-scope-hold" className="mt-3 rounded-xl border border-rose-500 p-3 text-sm">
+      <p className="text-rose-200">{english?
+        'The property identity changed after market comparables were entered. Previous rows are retained for review, but market figures and valuation-result export are blocked until you confirm they apply to this property. This does not verify their sources.':
+        'تغيّرت هوية العقار بعد إدخال مقارنات السوق. بقيت الصفوف للمراجعة، لكن مؤشرات القيمة والإيجار وتصدير نتائج الدراسة محجوبة حتى تؤكد أن المقارنات تخص العقار الحالي. التأكيد لا يوثّق صحة المصادر.'}</p>
+      <button type="button" data-testid="market-evidence-subject-reconfirm"
+        className="mt-2 min-h-[44px] rounded-lg border border-amber-400 px-3 text-amber-100"
+        onClick={()=>setEvidenceBoundSubjectKey(evidenceSubjectKey)}>{english?
+          'I reviewed these comparables and confirm they relate to this property':
+          'راجعت المقارنات وأؤكد ارتباطها بهذا العقار'}</button>
+    </section>}
     <div data-testid="market-financial-identity-bridge" className="mt-4 rounded-xl border border-amber-800 p-3 text-xs">
       <h3 className="font-semibold text-amber-100"><code translate="no">D06</code> — {english?'Optional property identity link from the financial study':'ربط اختياري لهوية العقار من الدراسة المالية'}</h3>
       <p className="mt-2 text-slate-300">
@@ -607,8 +631,8 @@ export default function PropertyMarketLocationPanel({
       <h3 className="font-bold text-amber-100">{L("نتيجة الحساب وقت الطلب — ليست تثمينًا مهنيًا")}</h3>
       <p className="text-xs text-slate-300 mt-1">{latestWindow}{L(". وقت الحساب:")} {report.asOf.slice(0,19).replace('T',' ')} {L("بالتوقيت العالمي")}</p>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
-        <div><span className="text-xs text-slate-400">{L("القيمة التقديرية الحسابية اليوم")}</span><strong data-testid="market-canonical-capital-indication" className="block text-lg">{money(valuationReadiness.preliminaryValueSar)}</strong></div>
-        <div><span className="text-xs text-slate-400">{L("الإيجار السوقي السنوي المحتمل")}</span><strong data-testid="market-canonical-rent-indication" className="block text-lg">{money(valuationReadiness.newAnnualMarketRentSar)}</strong></div>
+        <div><span className="text-xs text-slate-400">{L("القيمة التقديرية الحسابية اليوم")}</span><strong data-testid="market-canonical-capital-indication" className="block text-lg">{money(evidenceScopeHold?null:valuationReadiness.preliminaryValueSar)}</strong></div>
+        <div><span className="text-xs text-slate-400">{L("الإيجار السوقي السنوي المحتمل")}</span><strong data-testid="market-canonical-rent-indication" className="block text-lg">{money(evidenceScopeHold?null:valuationReadiness.newAnnualMarketRentSar)}</strong></div>
         <div><span className="text-xs text-slate-400">{L("الإيجار السنوي المتوقع تحصيله بعد الإشغال")}</span><strong className="block text-lg">{money(report.expectedCollectedAnnualRentSar)}</strong></div>
         <div><span className="text-xs text-slate-400">{L("مؤشر البيع بالمقارنات")}</span><strong className="block">{money(report.saleIndicationSar)}</strong></div>
         <div><span className="text-xs text-slate-400">{L("مؤشر الدخل بالرسملة")}</span><strong className="block">{money(report.incomeIndicationSar)}</strong></div>
