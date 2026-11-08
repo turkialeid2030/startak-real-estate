@@ -22,11 +22,12 @@ const {expect}=require('@playwright/test');
  };
  try{
   await page.goto(process.env.STARTAK_E2E_URL||'http://127.0.0.1:4173/',{waitUntil:'networkidle'});
-  const scenarios=[['default',null,null],['purchase-price','buildingPrice','140000001'],['site-length','landLength','101'],['occupancy','occupancyRate','97']];
+  const scenarios=[['default',null,null],['purchase-price','buildingPrice','140000001'],['site-length','landLength','101'],['occupancy','occupancyRate','97'],['explicit-exit-cost','exitTransferFeeRate','3']];
   for(const [label,key,value] of scenarios){
    if(key!==null){
     await page.getByTestId('owner-step-'+(key==='landLength'?1:3)).click();
     await page.getByTestId('owner-'+key).fill(value);
+    if(key==='exitTransferFeeRate')await page.getByTestId('owner-'+key).press('Tab');
    }
    await page.getByTestId('owner-advanced-mode').click();
    await expect(page.getByTestId('owner-simple-mode')).toBeVisible();
