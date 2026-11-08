@@ -2162,6 +2162,13 @@ export default function App() {
             setBuildingInputs(next.inputs);
             return {ok:next.inputValid!==false,displayValue:next.displayValue,code:next.errorCode};
           }catch(error){return {ok:false,code:error?.code||'OPTIONAL_PERCENT_INVALID'};}
+        }}
+        onExitTransactionCostTextCommit={rawText=>{
+          try{
+            const next=applyExitTransactionCostInputText({inputs:buildingInputs,rawText,min:0,max:1});
+            setBuildingInputs(next.inputs);
+            return {ok:next.inputValid!==false,displayValue:next.displayValue,code:next.errorCode};
+          }catch(error){return {ok:false,code:error?.code||'OPTIONAL_PERCENT_INVALID'};}
         }} />
       {ownerView==='advanced'&&<button type="button" data-testid="owner-simple-mode" onClick={()=>setOwnerView('simple')}
         className="mb-3 min-h-[44px] rounded-lg border border-amber-400 px-4 text-sm text-amber-100">
