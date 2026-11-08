@@ -105,12 +105,17 @@ const {expect}=require('@playwright/test');
    await expect(page.getByTestId('owner-projectTitle')).toHaveValue('STAR-OWNER-CASE-'+width);assertions++;
    // Same canonical value remains after repeated view changes.
    await page.getByTestId('owner-step-3').click();
+   const exitCost=page.getByTestId('owner-exitTransferFeeRate');
+   await expect(exitCost).toHaveValue('');assertions++;
+   await exitCost.fill('3');await exitCost.press('Tab');
+   await expect(exitCost).toHaveValue('3');assertions++;
    const purchase=page.getByTestId('owner-buildingPrice');
    const purchaseOriginal=await purchase.inputValue();
    await purchase.fill('140000001');
    await page.getByTestId('owner-advanced-mode').click();
    await page.getByTestId('owner-simple-mode').click();
    await expect(page.getByTestId('owner-buildingPrice')).toHaveValue('140000001');assertions++;
+   await expect(page.getByTestId('owner-exitTransferFeeRate')).toHaveValue('3');assertions++;
    await purchase.fill(purchaseOriginal);
    await page.getByTestId('owner-step-4').click();
    await expect(page.getByTestId('owner-results')).toBeVisible();assertions++;
