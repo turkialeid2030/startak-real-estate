@@ -2,6 +2,7 @@ import React,{useEffect,useMemo,useRef,useState} from 'react';
 const {parseNumericText}=require('../validation/numeric-text');
 const {coreMarketAssetOptions}=require('../i18n/market-study-core-labels');
 const {ownerMarketEvidenceGuidance}=require('../market/owner-market-evidence-guidance');
+const {marketIdentityGate}=require('../market/owner-market-identity-gate');
 const STEPS=[['الغرض','Purpose'],['العقار','Property'],['أدلة السوق','Market evidence'],['النموذج','Model'],['النتيجة','Results']];
 const WORDS={
  ar:{title:'ستارتك',current:'الخطوة الحالية',missing:'ما ينقص',advance:'الوضع المتقدم',simple:'الوضع المبسط',previous:'السابق',next:'التالي',study:'نوع الدراسة',building:'مبنى قائم',land:'أرض وتطوير',name:'اسم العقار أو المشروع',length:'طول الأرض (م)',width:'عرض الأرض (م)',age:'عمر المبنى (سنة)',price:'قيمة شراء المبنى (ريال)',landPrice:'سعر الأرض للمتر (ريال)',rent:'الإيجار السنوي للمتر (ريال)',construction:'تكلفة الإنشاء للمتر (ريال)',occupancy:'الإشغال (%)',discount:'معدل الخصم (%)',hurdle:'العائد المستهدف (%)',holding:'مدة الاحتفاظ (سنة)',exit:'معدل رسملة التخارج (%)',market:'راجع أدلة السوق والمصادر قبل اعتماد النتيجة.',evidence:'أدخل أدلة المقارنات ومراجعها في اللوحة الموجودة أدناه. الأسعار المعروضة ليست صفقات منفذة موثقة تلقائيًا.',assumption:'هذه بيانات افتراضية للتجربة حتى تستبدلها ببيانات العقار ومراجعها.',invalid:'راجع المدخلات غير الصالحة. الحساب القديم لا يصلح للاعتماد.',notReady:'لا توجد نتيجة صالحة بالمدخلات الحالية.',provisional:'نتائج حسابية غير معتمدة مهنيًا؛ لم تُتحقق أدلة السوق مستقلاً.',irr:'العائد الداخلي',npv:'صافي القيمة الحالية',income:'قيمة الدخل الاسترشادية',none:'لا توجد حقول أساسية ناقصة؛ تبقى مراجعة الأدلة والافتراضات مطلوبة.',purposeBoundary:'هذا الاختيار يحدد النموذج المالي فقط؛ غرض التقييم للبيع أو الشراء أو إعادة التأجير وتاريخ التقييم يُحددان بصورة مستقلة داخل دراسة السوق، ولا يثبتان صحة حسابات الجدوى.',language:'الإنجليزية'},
@@ -88,9 +89,13 @@ export default function OwnerFiveStepWizard({locale='ar-SA',step=0,onStepChange,
  const gapItems=useMemo(()=>{
   const gaps=[],add=(s,k,label)=>gaps.push({s,k,label});
   if(!String(inputs.projectTitle||'').trim())add(1,'projectTitle',t.name);
-  if(!market.valuationPurpose)add(0,'valuationPurpose',mt.purpose);
-  if(!market.valuationDate)add(0,'valuationDate',mt.date);
-  if(!market.propertyRight||market.propertyRight==='UNKNOWN')add(1,'propertyRight',mt.right);
+  // The same canonical identity gate that hides unqualified market indicators
+  // must drive the owner's missing-fields list (including invalid/future dates).
+  const mandate=marketIdentityGate(market);
+  if(mandate.issues.includes('MARKET_PURPOSE_REQUIRED'))add(0,'valuationPurpose',mt.purpose);
+  if(mandate.issues.includes('VALUATION_DATE_REQUIRED_OR_INVALID')||mandate.issues.includes('FUTURE_VALUATION_DATE_NOT_SUPPORTED'))add(0,'valuationDate',mt.date);
+  if(mandate.issues.includes('PROPERTY_RIGHT_DECLARATION_REQUIRED'))add(1,'propertyRight',mt.right);
+  if(mandate.issues.includes('MARKET_SUBJECT_NAME_REQUIRED'))add(1,'name',mt.marketName);
   if(!okPositive(inputs.landLength))add(1,'landLength',t.length);
   if(!okPositive(inputs.landWidth))add(1,'landWidth',t.width);
   if(mode==='building'){
@@ -112,7 +117,15 @@ export default function OwnerFiveStepWizard({locale='ar-SA',step=0,onStepChange,
   if(el){el.scrollIntoView({block:'center'});el.focus({preventScroll:true});}
   focusRef.current=null;
  },[step]);
- const navigate=(s,key)=>{focusRef.current=key;onStepChange(s);};
+ const navigate=(s,key)=>{
+  if(s===step){
+   // React does not fire the step effect for a no-op state update.
+   const el=document.getElementById(fieldId(key))||document.querySelector('[data-testid="'+key+'"]');
+   if(el){el.scrollIntoView({block:'center'});el.focus({preventScroll:true});}
+   return;
+  }
+  focusRef.current=key;onStepChange(s);
+ };
  const goToMarketRequirement=target=>{
   if(!target||!Number.isInteger(target.step)||typeof target.key!=='string')return;
   if(target.step===2&&target.key.startsWith('market-comparables-')){
@@ -184,7 +197,7 @@ export default function OwnerFiveStepWizard({locale='ar-SA',step=0,onStepChange,
    {mode==='building'&&number('buildingAge',t.age)}
    <div className="sm:col-span-2 border-t border-slate-700 pt-3 text-xs text-amber-100">{mt.marketName} — {mt.marketCaution}</div>
    <label className="block text-sm sm:col-span-2">{mt.marketName}
-    <input data-testid="owner-market-name" type="text" className="mt-1 min-h-[44px] w-full rounded-lg border border-slate-500 bg-slate-950 p-3"
+    <input id={fieldId('name')} data-testid="owner-market-name" type="text" className="mt-1 min-h-[44px] w-full rounded-lg border border-slate-500 bg-slate-950 p-3"
      value={market.name||''} onChange={e=>onMarketSubjectChange('name',e.target.value)}/></label>
    <label className="block text-sm">{mt.city}
     <input data-testid="owner-market-city" type="text" className="mt-1 min-h-[44px] w-full rounded-lg border border-slate-500 bg-slate-950 p-3"
@@ -199,7 +212,7 @@ export default function OwnerFiveStepWizard({locale='ar-SA',step=0,onStepChange,
     <input data-testid="owner-market-land-area" type="text" inputMode="decimal" className="mt-1 min-h-[44px] w-full rounded-lg border border-slate-500 bg-slate-950 p-3"
      value={market.landArea||''} onChange={e=>onMarketSubjectChange('landArea',e.target.value)}/></label>
    <label className="block text-sm">{mt.right}
-    <select data-testid="owner-property-right" className="mt-1 min-h-[44px] w-full rounded-lg border border-slate-500 bg-slate-950 p-3"
+    <select id={fieldId('propertyRight')} data-testid="owner-property-right" className="mt-1 min-h-[44px] w-full rounded-lg border border-slate-500 bg-slate-950 p-3"
      value={market.propertyRight||'UNKNOWN'} onChange={e=>onMarketSubjectChange('propertyRight',e.target.value)}>
      {[['UNKNOWN',mt.unknown],['FULL_OWNERSHIP',mt.full],['USUFRUCT',mt.usufruct],['LONG_LEASE',mt.longLease],['OTHER',mt.otherRight]].map(([value,label])=><option key={value} value={value}>{label}</option>)}
     </select></label>
