@@ -16,7 +16,7 @@ const MARKET_LABELS={
   landArea:'مساحة الأرض وفق المصدر (م²)',assetType:'نوع العقار في دراسة السوق',builtArea:'إجمالي المساحات المبنية (م²)',rentableArea:'المساحة التأجيرية (م²)',buildingCount:'عدد المباني',unitCount:'عدد الوحدات',roomCount:'عدد الغرف الفندقية',sectorNote:'نوع العقار اختيار بحثي لا يثبت الاستخدام المعتمد أو الملكية، ولا يعني أن النموذج المالي يدعم هذا القطاع تخصصيًا.',right:'الحق العقاري (يحتاج تحقق)',
   unknown:'غير متحقق',full:'ملكية كاملة',usufruct:'حق انتفاع',longLease:'حق تأجير طويل المدة',otherRight:'حق آخر',
   marketResults:'مؤشرات دراسة السوق المستقلة',capital:'القيمة السوقية الاسترشادية (ريال)',
-  annualRent:'الأجرة السنوية الاسترشادية (ريال)',marketBlocked:'تدقيق مرتبط يوقف عرض المؤشرات.',marketIdentityMissing:'أكمل غرض دراسة السوق وتاريخ التقييم الصحيح واسم العقار وإقرار نوع الحق قبل عرض أي مؤشر استرشادي.',
+  annualRent:'الأجرة السنوية الاسترشادية (ريال)',marketBlocked:'تدقيق مرتبط يوقف عرض المؤشرات.',marketIdentityMissing:'أكمل غرض دراسة السوق وتاريخ التقييم الصحيح واسم العقار وإقرار نوع الحق قبل عرض أي مؤشر استرشادي.',marketSubjectChanged:'المقارنات أدخلت لعقار سابق. راجع ارتباط كل صف ومصدر بالعقار الحالي ثم أكّد ذلك في لوحة أدلة السوق قبل عرض المؤشرات.',marketReviewEvidence:'مراجعة المقارنات في أدلة السوق',
   evidenceStatus:'سجلات المقارنة المؤهلة: بيع',rentEvidence:'إيجار',openSales:'فتح مقارنات البيع المنفذة',openRentals:'فتح عقود الإيجار المنفذة',evidenceScope:'تُدخل المقارنات في لوحة البحث السوقي الأصلية. لا تُحتسب عروض الطلب، ويلزم مراجعة المصدر والحق في استعمال البيانات.',readinessTitle:'متطلبات الدراسة السوقية غير المحسومة',readinessPending:'يُحدّث تقرير الأدلة؛ راجع اللوحة التفصيلية.',sourceUnverified:'مقارنات المستخدم لا تثبت صحة المصدر أو ملكية العقار أو حق استخدام البيانات.',goToInput:'الانتقال للحقل',
   marketCaution:'نتائج حسابية بحثية غير معتمدة مهنيًا. القيمة والأجرة مستقلتان، ولا تعني نتيجة الجدوى اعتماد تقييم العقار.'
  },
@@ -28,7 +28,7 @@ const MARKET_LABELS={
   landArea:'Land area from source (sqm)',assetType:'Market-study asset class',builtArea:'Total built area (sqm)',rentableArea:'Rentable area (sqm)',buildingCount:'Buildings',unitCount:'Units',roomCount:'Hotel rooms',sectorNote:'Asset class is a research choice, not verification of permitted use, ownership, or a specialist financial engine.',right:'Property interest (needs verification)',
   unknown:'Unverified',full:'Full ownership',usufruct:'Usufruct',longLease:'Long leasehold',otherRight:'Other interest',
   marketResults:'Independent market research indications',capital:'Indicative capital value (SAR)',
-  annualRent:'Indicative annual market rent (SAR)',marketBlocked:'Linked review blocks market indications.',marketIdentityMissing:'Complete the market-study purpose, valid valuation date, property name and declared interest before viewing provisional figures.',
+  annualRent:'Indicative annual market rent (SAR)',marketBlocked:'Linked review blocks market indications.',marketIdentityMissing:'Complete the market-study purpose, valid valuation date, property name and declared interest before viewing provisional figures.',marketSubjectChanged:'Comparables were entered for a different property identity. Review the rows and their sources and reconfirm their use for this property in Market Evidence before provisional indicators return.',marketReviewEvidence:'Review comparables in Market Evidence',
   evidenceStatus:'Eligible comparable records: sales',rentEvidence:'leases',openSales:'Open executed-sale comparables',openRentals:'Open executed-lease comparables',evidenceScope:'These controls open the original market-study evidence forms. Asking listings do not count as executed transactions; source and reuse rights require review.',readinessTitle:'Outstanding market-study requirements',readinessPending:'Evidence report is updating; review the detailed panel.',sourceUnverified:'User-supplied comparables do not establish source validity, property title or data reuse rights.',goToInput:'Go to field',
   marketCaution:'Non-certified research calculations. Capital value and rent are independent; financial feasibility does not certify property valuation.'
  }
@@ -228,6 +228,7 @@ export default function OwnerFiveStepWizard({locale='ar-SA',step=0,onStepChange,
    <p>{t.evidence}</p>
    <p data-testid="owner-evidence-counts" className="mt-2 text-xs text-slate-300">{mt.evidenceStatus}: {governedMarket?.eligibleSalesCount??0} — {mt.rentEvidence}: {governedMarket?.eligibleRentalsCount??0}.</p>
    <p className="mt-2 text-xs text-amber-100">{mt.evidenceScope}</p>
+   {governedMarket?.evidenceScopeHold&&<p data-testid="owner-market-evidence-scope-hold" role="alert" className="mt-2 text-xs text-rose-200">{mt.marketSubjectChanged}</p>}
    <OwnerMarketReadiness guidance={evidenceGuidance} mt={mt} onNavigate={goToMarketRequirement}/>
    <div className="mt-3 flex flex-wrap gap-2">
     <button type="button" data-testid="owner-open-sales" className="min-h-[44px] rounded-lg border border-amber-500 px-3 py-2 text-sm" onClick={()=>openEvidence('sale')}>{mt.openSales}</button>
@@ -250,6 +251,11 @@ export default function OwnerFiveStepWizard({locale='ar-SA',step=0,onStepChange,
     <h3 className="text-sm font-semibold">{mt.marketResults}</h3>
     {governedMarket?.blocked&&<p data-testid="owner-market-linked-hold" role="alert" className="mt-2 text-xs text-rose-300">{mt.marketBlocked}</p>}
     {governedMarket?.identityHold&&<p data-testid="owner-market-identity-hold" role="alert" className="mt-2 text-xs text-amber-200">{mt.marketIdentityMissing}</p>}
+    {governedMarket?.evidenceScopeHold&&<div data-testid="owner-market-results-evidence-scope-hold" role="alert" className="mt-2 text-xs text-rose-200">
+     <p>{mt.marketSubjectChanged}</p>
+     <button type="button" data-testid="owner-market-review-comparables" onClick={()=>onStepChange(2)}
+      className="mt-2 min-h-[44px] rounded border border-amber-500 px-3 text-amber-100">{mt.marketReviewEvidence}</button>
+    </div>}
     <dl className="mt-2 grid gap-3 sm:grid-cols-2">
      <Metric locale={locale} testId="owner-market-capital-indication" label={mt.capital} value={governedMarket?.saleIndicationSar}/>
      <Metric locale={locale} testId="owner-market-rent-indication" label={mt.annualRent} value={governedMarket?.annualRentIndicationSar}/>
