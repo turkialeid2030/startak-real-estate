@@ -106,11 +106,25 @@ export default function OwnerFiveStepWizard({locale='ar-SA',step=0,onStepChange,
    if(!okPositive(inputs.marketRentPerSqm))add(3,'marketRentPerSqm',t.rent);
   }
   if(!okPositive(inputs.exitCapRate))add(3,'exitCapRate',t.exit);
-  // Current panel retains evidence qualification logic. This is a review task, not invented missing data.
+  // Show *only* original engine hard holds which have an existing user-editable
+  // correction target. Do not manufacture a "fix" for professional review,
+  // source authenticity, legal rights, or a future unknown gate.
+  const identityReasons=new Set([
+   'MARKET_PURPOSE_REQUIRED','VALUATION_DATE_REQUIRED_OR_INVALID',
+   'FUTURE_VALUATION_DATE_NOT_SUPPORTED','PROPERTY_RIGHT_DECLARATION_REQUIRED',
+   'MARKET_SUBJECT_NAME_REQUIRED'
+  ]);
+  for(const item of evidenceGuidance.items){
+   if(item.kind!=='hold'||!item.target||identityReasons.has(item.key))continue;
+   gaps.push({s:item.target.step,k:'requirement-'+item.key,
+    label:item.description,target:item.target,reason:item.key});
+  }
+  // Evidence and expert review remain required even when the editable list
+  // has been completed; they cannot be cleared by client-side navigation.
   gaps.push({s:2,k:'market-evidence',label:t.market});
   if(validationError)gaps.push({s:4,k:'results',label:t.invalid});
   return gaps;
- },[inputs,mode,validationError,lang,marketSubject]);
+ },[inputs,mode,validationError,lang,marketSubject,governedMarket]);
  useEffect(()=>{const id=focusRef.current;if(!id)return;
   // The authored navigation mapping, not user-provided fields, owns the target.
   const el=document.getElementById(fieldId(id))||document.querySelector('[data-testid="'+id+'"]');
@@ -169,7 +183,9 @@ export default function OwnerFiveStepWizard({locale='ar-SA',step=0,onStepChange,
   {step===0&&<div className="mt-5" data-testid="owner-missing-list">
    <h3 className="text-base font-semibold">{t.missing}</h3>
    {gapItems.length?<ul className="mt-3 space-y-2">{gapItems.map(x=><li key={x.k}>
-    <button type="button" className="min-h-[44px] w-full rounded-lg border border-slate-600 bg-slate-800 p-3 text-start text-sm" onClick={()=>navigate(x.s,x.k)}>{x.label}</button>
+    <button type="button" data-testid={x.reason?'owner-missing-reason-'+x.reason:undefined}
+     className="min-h-[44px] w-full rounded-lg border border-slate-600 bg-slate-800 p-3 text-start text-sm"
+     onClick={()=>x.target?goToMarketRequirement(x.target):navigate(x.s,x.k)}>{x.label}</button>
    </li>)}</ul>:<p className="mt-3 text-sm">{t.none}</p>}
   </div>}
   {step===0&&<div className="mt-5"><h3 className="text-sm font-semibold">{t.study}</h3><div className="mt-2 grid gap-2 sm:grid-cols-2">
