@@ -668,14 +668,14 @@ export default function PropertyMarketLocationPanel({
       appraisalBinding.status==='LINKED_REVIEW_REQUIRED'?L('تم الربط بإقرار المستخدم — مراجعة غير معتمدة'):
       L('HOLD — تعارض تدقيق أو تغيير بيانات الهوية؛ تمنع القيمة الموحدة والتصدير البحثي حتى التسوية')}.
     </div>
-    <ValuationQualityPanel readiness={valuationReadiness} quality={appraisalQuality} studyAsOf={studyAsOf}/>
+    {!evidenceScopeHold&&<ValuationQualityPanel readiness={valuationReadiness} quality={appraisalQuality} studyAsOf={studyAsOf}/>}
     <MarketOfferResearchPanel subject={subject} offers={marketOffers} setOffers={setMarketOffers} asOf={studyAsOf.asOf}/>
     <TransactionCohortAndUnitMixPanel subject={subject} sales={allSales} askingOffers={marketOffers} asOf={studyAsOf.asOf}
        unitMix={unitMix} setUnitMix={setUnitMix} leaseComparables={leaseComparables}
        setLeaseComparables={setLeaseComparables} rentAssumptions={rentAssumptions}
        setRentAssumptions={setRentAssumptions}/>
     <ProfessionalComparableReviewPanel subject={subject} sales={allSales}/>
-    <CrossMethodEvidencePanel subject={subject} report={report}/>
+    {!evidenceScopeHold&&<CrossMethodEvidencePanel subject={subject} report={report}/>}
     <section data-testid="saved-deal-market-study-link"
       className="mt-5 rounded-xl border border-slate-600 bg-[#14263C] p-4">
       <h3 className="text-sm font-semibold text-amber-100">{L("ربط الدراسة البحثية بصفقة محفوظة في STARTAK")}</h3>
