@@ -22,6 +22,18 @@ const {expect}=require('@playwright/test');
    // previously existing detailed research panel, never a parallel estimate.
    await page.getByTestId('owner-missing-list').getByRole('button',{name:'تاريخ القيمة المطلوب دراستها'}).click();
    await expect(page.getByTestId('owner-valuation-date')).toBeFocused();assertions++;
+   // The original market-readiness reason (not a newly invented requirement)
+   // must surface in the first-step list and navigate to the existing field.
+   await expect(page.getByTestId('owner-missing-reason-LOCATION_EVIDENCE_MISSING')).toBeVisible();assertions++;
+   await page.getByTestId('owner-missing-reason-LOCATION_EVIDENCE_MISSING').click();
+   await expect(page.getByTestId('owner-market-location')).toBeFocused();assertions++;
+   await page.getByTestId('owner-step-0').click();
+   await expect(page.getByTestId('owner-missing-reason-NO_EXECUTED_SALE_COMPARABLES')).toBeVisible();assertions++;
+   await page.getByTestId('owner-missing-reason-NO_EXECUTED_SALE_COMPARABLES').click();
+   await expect(page.getByTestId('market-comparables-sale')).toBeFocused();assertions++;
+   await page.getByTestId('owner-step-0').click();
+   // Independent verification and specialist methodology have no fake button.
+   await expect(page.locator('[data-testid^="owner-missing-reason-SOURCE_INDEPENDENCE_NOT_VERIFIED"]')).toHaveCount(0);assertions++;
    await page.getByTestId('owner-valuation-purpose').selectOption('RENT_STUDY');
    await page.getByTestId('owner-valuation-date').fill('2099-01-01');
    await expect(page.getByTestId('owner-missing-list').getByRole('button',{name:'تاريخ القيمة المطلوب دراستها'})).toBeVisible();assertions++;
