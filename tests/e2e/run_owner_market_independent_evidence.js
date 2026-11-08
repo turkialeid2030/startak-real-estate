@@ -148,6 +148,26 @@ const {expect}=require('@playwright/test');
   await page.getByTestId('owner-property-right').selectOption('FULL_OWNERSHIP');
   await page.getByTestId('owner-step-4').click();
   await eq(ownerCap,money(independentValue));await eq(ownerRent,money(520000));
+  // Two properties at the same coordinates can share an asset class and
+  // comparable eligibility. Such evidence must NEVER silently migrate to a
+  // new named subject. The original rows are retained but values/export HOLD.
+  await page.getByTestId('owner-step-1').click();
+  await page.getByTestId('owner-market-name').fill('SYNTHETIC-SECOND-PROPERTY');
+  await page.getByTestId('owner-step-4').click();
+  await expect(page.getByTestId('owner-market-results-evidence-scope-hold')).toBeVisible();checks++;
+  await eq(ownerCap,'—');await eq(ownerRent,'—');
+  await page.getByTestId('owner-market-review-comparables').click();
+  await expect(page.getByTestId('owner-market-evidence-scope-hold')).toBeVisible();checks++;
+  await expect(page.getByTestId('market-evidence-scope-hold')).toBeVisible();checks++;
+  await page.getByTestId('market-evidence-subject-reconfirm').click();
+  await expect(page.getByTestId('market-evidence-scope-hold')).toHaveCount(0);checks++;
+  await page.getByTestId('owner-step-4').click();
+  await eq(ownerCap,money(independentValue));await eq(ownerRent,money(520000));
+  await page.getByTestId('owner-step-0').click();
+  await page.getByTestId('owner-valuation-date').fill('2026-10-20');
+  await page.getByTestId('owner-step-4').click();
+  await expect(page.getByTestId('owner-market-results-evidence-scope-hold')).toHaveCount(0);checks++;
+  await eq(ownerCap,money(independentValue));await eq(ownerRent,money(520000));
   // Stale market values are quarantined immediately after the shared subject
   // changes, and missing coordinates cancel comparable eligibility.
   await page.getByTestId('owner-step-1').click();
