@@ -5,7 +5,7 @@ const { chromium, expect } = require('@playwright/test');
 const gold = require('../reference/RE-GOLD-baseline.json');
 const ar = require('../../src/i18n/locales/ar-SA');
 const { verifyPersonalFinancialStudy } = require('../../src/app/personal-financial-study');
-const BASE = process.env.STARTAK_E2E_URL || 'http://127.0.0.1:4173';
+const BASE = (()=>{const url=new URL(process.env.STARTAK_E2E_URL||'http://127.0.0.1:4173');url.searchParams.set('ownerView','advanced');return url.href;})();
 const NAME = 'AUDIT ONLY 20261010 OFFICE / عقار';
 const PROJECT = 'DRAFT-F06-NOT-APPLIED';
 const namespace = require('../../src/storage/browser-local-storage-provider').NAMESPACE;

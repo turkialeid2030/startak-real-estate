@@ -32,9 +32,12 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <LocaleProvider defaultLocale="ar-SA">
       <AppraisalReviewSessionProvider>
+      <div className="owner-advanced-only">
       <ComplianceBoundaryNotice />
       <AssetSupportPanel />
+      </div>
       <App />
+      <div className="owner-advanced-only">
       <ExitCapGuidanceEnhancer />
       <WorkspaceErrorBoundary surface="documents">
         <Suspense fallback={<p role="status" className="p-4 text-slate-200">جارٍ تحميل مساحة المستندات…</p>}>
@@ -46,6 +49,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <CanonicalCaseWorkspacePanel />
         </Suspense>
       </WorkspaceErrorBoundary>
+      </div>
       <StrictArabicSurfaceGuard />
       </AppraisalReviewSessionProvider>
     </LocaleProvider>

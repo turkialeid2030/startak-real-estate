@@ -2,7 +2,7 @@ import RentalCalendarPanel from "../components/RentalCalendarPanel.jsx";
 import CapitalizationBasisPanel from "../components/CapitalizationBasisPanel.jsx";
 import InputProvenancePanel from "../components/InputProvenancePanel.jsx";
 import OwnerDatedScenarioPanel from "../components/OwnerDatedScenarioPanel.jsx";
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import {
   ComposedChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   ReferenceLine,
@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import ResidentialIncomeAcquisitionPanel from "../components/ResidentialIncomeAcquisitionPanel.jsx";
 import PropertyMarketLocationPanel from "../components/PropertyMarketLocationPanel.jsx";
+const {createInitialMarketSubject}=require('../market/initial-market-subject');
 import ValuationIntelligencePanel from "../components/ValuationIntelligencePanel.jsx";
 import PersonalInvestmentResearchPanel from "../components/PersonalInvestmentResearchPanel.jsx";
 import PaybackDisclosurePanel from "../components/PaybackDisclosurePanel.jsx";
@@ -21,6 +22,7 @@ import PersonalResearchReadinessPanel from "../components/PersonalResearchReadin
 import PurchasePriceAlternative from "../components/PurchasePriceAlternative.jsx";
 import PurchaseCeilingCertificate from "../components/PurchaseCeilingCertificate.jsx";
 import NumericTextInput from '../components/NumericTextInput.jsx';
+import OwnerFiveStepWizard from '../components/OwnerFiveStepWizard.jsx';
 import CurrentCalculationBoundary from '../components/CurrentCalculationBoundary.js';
 import { ZakatInputSection, ZakatCashFlowPanel } from "../components/ZakatLayerPanel.jsx";
 
@@ -1620,6 +1622,27 @@ function DealsPanel({
 // ============================================================
 export default function App() {
   const { t, dir, locale, setLocale } = useLocale();
+  // Presentation state only. The valuation and saved-deal state remains canonical.
+  const [ownerView,setOwnerView]=useState(()=>new URLSearchParams(window.location.search).get('ownerView')==='advanced'?'advanced':'simple');
+  const [ownerStep,setOwnerStep]=useState(0);
+  // One market-study subject, shared across simple and advanced owner views.
+  // Its financial inputs remain separate until an explicit reviewed bridge.
+  const [ownerMarketSubject,setOwnerMarketSubject]=useState(createInitialMarketSubject);
+  const [ownerMarketSummary,setOwnerMarketSummary]=useState(null);
+  // The market study's rolling as-of timestamp can refresh per render.
+  // Only propagate changed, user-visible summary fields; otherwise an
+  // App -> market panel -> App feedback cycle can starve lazy workspaces.
+  const updateOwnerMarketSummary=useCallback(next=>{
+    setOwnerMarketSummary(previous=>{
+      if(previous!==null&&next!==null&&JSON.stringify(previous)===JSON.stringify(next))return previous;
+      return next;
+    });
+  },[]);
+  useEffect(()=>{
+    document.body.dataset.startakOwnerView=ownerView;
+    document.body.dataset.startakOwnerStep=String(ownerStep);
+    return ()=>{delete document.body.dataset.startakOwnerView;delete document.body.dataset.startakOwnerStep;};
+  },[ownerView,ownerStep]);
   useEffect(() => {
     document.documentElement.lang = locale;
     document.documentElement.dir = dir;
@@ -2119,9 +2142,41 @@ export default function App() {
   return (
     <div dir={dir} className="rf-root min-h-screen" style={{ background: COLORS.ink }}>
       <style>{GLOBAL_STYLE}</style>
+      <style>{`
+        body[data-startak-owner-view="simple"] .owner-advanced-only {display:none !important;}
+        body[data-startak-owner-view="simple"] .owner-market-evidence {display:none !important;}
+        body[data-startak-owner-view="simple"][data-startak-owner-step="2"] .owner-market-evidence {display:block !important;}
+        body[data-startak-owner-view="advanced"] .owner-wizard {display:none !important;}
+      `}</style>
+      <OwnerFiveStepWizard locale={locale} step={ownerStep} onStepChange={setOwnerStep}
+        mode={mode} onModeChange={switchStudyMode} inputs={inputs}
+        marketSubject={ownerMarketSubject} marketSummary={ownerMarketSummary}
+        onMarketSubjectChange={(key,value)=>setOwnerMarketSubject(prior=>({...prior,[key]:value}))}
+        onChangeInput={(key,value)=>(mode==='building'?setBuildingInputs:setLandInputs)(prior=>({...prior,[key]:value}))}
+        results={results} validationError={activeValidationError}
+        onAdvanced={()=>setOwnerView('advanced')}
+        onLocaleSwitch={()=>setLocale(locale==='ar-SA'?'en':'ar-SA')}
+        onExitCapTextCommit={rawText=>{
+          try{
+            const next=applyExitCapInputText({inputs:buildingInputs,rawText,min:0.04,max:0.14});
+            setBuildingInputs(next.inputs);
+            return {ok:next.inputValid!==false,displayValue:next.displayValue,code:next.errorCode};
+          }catch(error){return {ok:false,code:error?.code||'OPTIONAL_PERCENT_INVALID'};}
+        }}
+        onExitTransactionCostTextCommit={rawText=>{
+          try{
+            const next=applyExitTransactionCostInputText({inputs:buildingInputs,rawText,min:0,max:1});
+            setBuildingInputs(next.inputs);
+            return {ok:next.inputValid!==false,displayValue:next.displayValue,code:next.errorCode};
+          }catch(error){return {ok:false,code:error?.code||'OPTIONAL_PERCENT_INVALID'};}
+        }} />
+      {ownerView==='advanced'&&<button type="button" data-testid="owner-simple-mode" onClick={()=>setOwnerView('simple')}
+        className="mb-3 min-h-[44px] rounded-lg border border-amber-400 px-4 text-sm text-amber-100">
+        {locale==='ar-SA'?'الوضع المبسط':'Simple mode'}
+      </button>}
       <div className="max-w-7xl mx-auto px-4 py-6 md:px-8 md:py-8">
         {/* HEADER */}
-        <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
+        <header className="owner-advanced-only flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
           <div>
             <div className="text-[11px] tracking-[0.2em]" style={{ color: COLORS.brass }}>
               {t("app.title")} · {t("app.subtitle")}
@@ -2177,6 +2232,7 @@ export default function App() {
           </div>
         </header>
 
+        <div className="owner-advanced-only">
         <DealsPanel
           open={dealsPanelOpen}
           onClose={() => setDealsPanelOpen(false)}
@@ -2199,6 +2255,8 @@ export default function App() {
           restoreRecoveryRequired={restoreRecoveryRequired}
         />
 
+        </div>
+        <div className="owner-advanced-only">
         <PersonalResearchReadinessPanel
           mode={mode}
           results={results}
@@ -2275,10 +2333,18 @@ export default function App() {
           </main>
         </div>
 
-        <PropertyMarketLocationPanel financialStudy={{
+        </div>
+        <div className="owner-market-evidence">
+        <PropertyMarketLocationPanel
+          ownerSubject={ownerMarketSubject}
+          onOwnerSubjectChange={setOwnerMarketSubject}
+          onOwnerMarketSummaryChange={updateOwnerMarketSummary}
+          financialStudy={{
           mode,inputs,results,validationError:activeValidationError,
           dealName:activeDealName||inputs.projectTitle||''
         }} />
+        </div>
+        <div className="owner-advanced-only">
 
         <div hidden={mode !== "building"} data-testid="building-valuation-draft-container">
           <ValuationIntelligencePanel
@@ -2333,6 +2399,7 @@ export default function App() {
             {' '}<span data-testid="methodology-criteria-count">{t("globalApp.currentCriteriaCount", { count: Number.isInteger(results.totalCriteria) && !activeValidationError ? results.totalCriteria : '—' })}</span>
           </div>
         </footer>
+        </div>
       </div>
     </div>
   );

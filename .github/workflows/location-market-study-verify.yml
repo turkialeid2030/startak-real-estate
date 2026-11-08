@@ -188,7 +188,7 @@ jobs:
     permissions:
       contents: read
     env:
-      STARTAK_E2E_URL: http://127.0.0.1:4173
+      STARTAK_E2E_URL: http://127.0.0.1:4173/?ownerView=advanced
       STARTAK_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - name: Checkout exact unmerged candidate

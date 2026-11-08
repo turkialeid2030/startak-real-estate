@@ -1,0 +1,65 @@
+name: Owner Five-Step Staging Verify
+on:
+  push:
+    branches:
+      - feature/owner-five-step-wizard-staging-20261106
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  owner-five-step:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e
+      options: --user 1001
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Production build
+        run: npm run build
+      - name: Canonical regression and release verification
+        run: npm run release:verify
+      - name: Assert private golden-case gate fails closed without the authorized source
+        shell: bash
+        run: |
+          set +e
+          output=$(node tools/verify-owner-external-golden-17.mjs 2>&1)
+          status=$?
+          set -e
+          printf '%s\n' "$output"
+          test "$status" -eq 2
+          printf '%s\n' "$output" | grep -Fq 'STARTAK_PRIVATE_GOLDEN_SOURCE=BLOCKED_NOT_SUPPLIED'
+      - name: Owner five-step browser acceptance and screenshots
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p runtime-evidence/owner-five-step
+          npm run preview -- --host 127.0.0.1 --port 4173 --strictPort >runtime-evidence/owner-five-step/vite.log 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
+          for i in $(seq 1 45); do
+            if curl --fail --silent http://127.0.0.1:4173/ -o /dev/null; then break; fi
+            sleep 1
+          done
+          STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_owner_five_step_staging.js 2>&1 | tee runtime-evidence/owner-five-step/acceptance.log
+          STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_owner_canonical_mode_parity.js 2>&1 | tee runtime-evidence/owner-five-step/parity.log
+          for browser in chromium firefox webkit; do
+            STARTAK_BROWSER="$browser" STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_owner_market_independent_evidence.js 2>&1 | tee "runtime-evidence/owner-five-step/independent-evidence-$browser.log"
+          done
+      - name: Upload evidence and mobile screenshots
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: owner-five-step-staging-evidence
+          path: runtime-evidence/owner-five-step
+          if-no-files-found: warn
