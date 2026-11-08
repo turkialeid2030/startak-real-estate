@@ -70,16 +70,26 @@ function OwnerMarketReadiness({guidance,mt,onNavigate}){
   {guidance.unverified&&<p data-testid="owner-evidence-unverified" className="mt-2 text-amber-200">{mt.sourceUnverified}</p>}
  </div>;
 }
-function GovernedRate({id,label,value,onCommit,locale}){
+function GovernedRate({id,label,value,onCommit,locale,invalidAr='معدل رسملة التخارج غير صالح',invalidEn='Invalid exit capitalization rate'}){
  const format=v=>Number.isFinite(Number(v))?String(Number(v)*100):'';
  const [draft,setDraft]=useState(()=>format(value)),[invalid,setInvalid]=useState(false);
- useEffect(()=>{setDraft(format(value));setInvalid(false);},[value]);
- const commit=()=>{const result=onCommit(draft);setInvalid(result?.ok===false);};
+ const rejectedCommit=useRef(false);
+ // Preserve the owner's rejected text while the canonical controller stores
+ // an invalid NaN (fail-closed). Valid restoration or a later valid commit
+ // still synchronizes the canonical value back into the editor.
+ useEffect(()=>{
+  if(rejectedCommit.current&&Number.isNaN(value))return;
+  rejectedCommit.current=false;setDraft(format(value));setInvalid(false);
+ },[value]);
+ const commit=()=>{
+  const result=onCommit(draft),rejected=result?.ok===false;
+  rejectedCommit.current=rejected;setInvalid(rejected);
+ };
  return <label htmlFor={id} className="block text-sm text-slate-100">{label}
   <input id={id} data-testid={id} type="text" inputMode="decimal" value={draft}
    aria-invalid={invalid} onChange={event=>setDraft(event.target.value)} onBlur={commit}
    className="mt-1 min-h-[44px] w-full rounded-lg border border-slate-500 bg-slate-950 p-3 text-base text-white"/>
-  {invalid&&<span role="alert" className="block text-xs text-rose-300">{locale==='ar-SA'?'معدل رسملة التخارج غير صالح':'Invalid exit capitalization rate'}</span>}
+  {invalid&&<span role="alert" className="block text-xs text-rose-300">{locale==='ar-SA'?invalidAr:invalidEn}</span>}
  </label>;
 }
 export default function OwnerFiveStepWizard({locale='ar-SA',step=0,onStepChange,mode,onModeChange,inputs,onChangeInput,results,validationError,onAdvanced,onLocaleSwitch,onExitCapTextCommit,onExitTransactionCostTextCommit,marketSubject=null,onMarketSubjectChange=()=>{},marketSummary=null}){
@@ -273,7 +283,8 @@ export default function OwnerFiveStepWizard({locale='ar-SA',step=0,onStepChange,
    {mode==='building'?<>{number('discountRate',t.discount,true)}{number('holdPeriod',t.holding)}</>:<>{number('hurdleRate',t.hurdle,true)}{number('operatingPeriod',t.holding)}</>}
    {mode==='building'&&onExitCapTextCommit?<GovernedRate id={fieldId('exitCapRate')} label={t.exit} value={inputs.exitCapRate} onCommit={onExitCapTextCommit} locale={locale}/>:number('exitCapRate',t.exit,true)}
    {mode==='building'&&(onExitTransactionCostTextCommit?
-    <GovernedRate id={fieldId('exitTransferFeeRate')} label={t.exitTransactionCost} value={inputs.exitTransferFeeRate} onCommit={onExitTransactionCostTextCommit} locale={locale}/>:null)}
+    <GovernedRate id={fieldId('exitTransferFeeRate')} label={t.exitTransactionCost} value={inputs.exitTransferFeeRate} onCommit={onExitTransactionCostTextCommit} locale={locale}
+     invalidAr="تكلفة نقل الملكية عند التخارج غير صالحة" invalidEn="Invalid exit transfer cost"/>:null)}
   </div>}
   {step===4&&<div id={fieldId('results')} tabIndex={-1} data-testid="owner-results" className="mt-5">
    {validationError?<p role="alert" className="text-sm text-rose-300">{t.invalid}</p>:results?<dl className="grid gap-3 sm:grid-cols-2">
