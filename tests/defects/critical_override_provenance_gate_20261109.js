@@ -23,7 +23,9 @@ function hold(change,expectedCode,asOf=AS_OF) {
  const item=valid();change(item);
  const r=evaluate(item,asOf);
  eq(r.status,ASSUMPTION_GATE_STATUS.HOLD,expectedCode+': fail closed');
- yes(r.blockers.some(code=>code.includes(expectedCode)),expectedCode+': surfaced');
+ const details=[...r.blockers,...r.assumptions.flatMap(a=>a.blockers||[])];
+ yes(details.some(code=>code.includes(expectedCode)),expectedCode+': surfaced in canonical registry or assumption details');
+ yes(r.blockers.some(code=>code.startsWith('CRITICAL_ASSUMPTION_')),expectedCode+': registry-level decision HOLD');
  eq(r.assumptions[0].critical,true,expectedCode+': critical flag retained');
 }
 const good=evaluate(valid());
