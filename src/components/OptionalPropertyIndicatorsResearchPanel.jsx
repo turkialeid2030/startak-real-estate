@@ -109,7 +109,7 @@ export default function OptionalPropertyIndicatorsResearchPanel({locale='ar-SA',
     <label className="text-xs" htmlFor="optional-source-ref">
      {ar?'مرجع المستند المصرح به (ليس تحققًا مستقلًا)':'Declared document reference (not verified)'}
      <input id="optional-source-ref" data-testid="optional-source-ref" value={sourceReference}
-      onChange={e=>{setSourceReference(e.target.value);reset();}} maxLength={160} placeholder="DOC-REFERENCE"
+      onChange={e=>{setSourceReference(e.target.value);reset();}} maxLength={160} placeholder={ar?'رقم المستند أو مرجعه':'DOC-REFERENCE'}
       className="mt-1 min-h-[44px] w-full rounded-lg border border-slate-500 bg-slate-950 p-2 text-sm"/>
     </label>
     <label className="text-xs" htmlFor="optional-source-date">
