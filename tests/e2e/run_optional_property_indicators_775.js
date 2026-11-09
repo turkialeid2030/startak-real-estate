@@ -23,6 +23,7 @@ const {expect}=require('@playwright/test');
    await expect(panel).toBeVisible();assertions++;
    await panel.locator('summary').click();
    await expect(page.getByTestId('optional-uncertified-notice')).toBeVisible();assertions++;
+   await expect(page.getByTestId('optional-source-ref')).toHaveAttribute('placeholder','رقم المستند أو مرجعه');assertions++;
    await page.getByTestId('optional-calculate').click();
    await expect(page.getByTestId('optional-result')).toHaveAttribute('data-status','HOLD_INVALID_OR_INCOMPLETE');assertions++;
    await expect(page.getByTestId('optional-result')).toContainText('SOURCE_REFERENCE_REQUIRED');assertions++;
