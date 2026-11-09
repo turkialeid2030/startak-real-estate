@@ -160,7 +160,10 @@ function calculateOptionalPropertyIndicator(id,inputs){
         const r=rate(inputs.discountRate,'DISCOUNT_RATE');
         const n=inputs.periodYears;
         if(!Number.isInteger(n)||n<1||n>1000)throw 'EAA_PERIOD_YEARS_INVALID';
-        value=r===0?npv/n:npv*r/(1-Math.pow(1+r,-n));
+        // expm1/log1p preserve precision as the annual rate approaches zero.
+        // The direct 1-(1+r)^-n expression cancels to 0 at tiny positive r.
+        const annuityDenominator=r===0?0:-Math.expm1(-n*Math.log1p(r));
+        value=r===0?npv/n:npv*r/annuityDenominator;
         break;
       }
       default:throw 'UNSUPPORTED_INDICATOR';
@@ -170,4 +173,29 @@ function calculateOptionalPropertyIndicator(id,inputs){
     return hold(id,typeof code==='string'?code:'INDICATOR_COMPUTATION_FAILED');
   }
 }
-module.exports={VERSION,INDICATORS,calculateOptionalPropertyIndicator};
+// A reference and owner attestation establish provenance *declaration* only;
+// neither proves the data independently, nor overrides any appraisal HOLD.
+function calculateDeclaredOptionalResearchIndicator(id,inputs,provenance){
+  if(!provenance||typeof provenance!=='object'||Array.isArray(provenance))
+    return hold(id,'SOURCE_DECLARATION_REQUIRED');
+  const ref=provenance.sourceReference;
+  if(typeof ref!=='string'||ref.trim().length<6||ref.length>160)
+    return hold(id,'SOURCE_REFERENCE_REQUIRED');
+  const date=provenance.sourceDate;
+  if(typeof date!=='string'||!/^\\d{4}-\\d{2}-\\d{2}$/.test(date))
+    return hold(id,'SOURCE_DATE_REQUIRED');
+  const parsed=new Date(date+'T00:00:00.000Z');
+  if(!Number.isFinite(parsed.getTime())||parsed.toISOString().slice(0,10)!==date)
+    return hold(id,'SOURCE_DATE_INVALID');
+  if(date>new Date().toISOString().slice(0,10))
+    return hold(id,'SOURCE_DATE_IN_FUTURE');
+  if(provenance.userAttested!==true)
+    return hold(id,'EXPLICIT_USER_ATTESTATION_REQUIRED');
+  const value=calculateOptionalPropertyIndicator(id,inputs);
+  return Object.freeze({...value,
+    sourceReference:ref.trim(),sourceDate:date,
+    provenanceStatus:'USER_ATTESTED_NOT_INDEPENDENTLY_VERIFIED',
+    sourceStatus:'USER_DECLARED_UNVERIFIED',
+    professionalApproval:false,transactionAuthorized:false});
+}
+module.exports={VERSION,INDICATORS,calculateOptionalPropertyIndicator,calculateDeclaredOptionalResearchIndicator};
