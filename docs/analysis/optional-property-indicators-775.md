@@ -4,8 +4,8 @@
 
 ## Isolation and usage
 - Implementation: `src/analysis/optional-property-indicators.js`, exported `calculateOptionalPropertyIndicator(id,explicitInputs)`.
-- No imports from canonical valuation engines, report exports, Deal lifecycle, portfolio decision cockpit, or production deployment rules; no API routes or UI added in this change.
-- Output states: `CALCULATED_UNVERIFIED` for a mathematically calculated educational indicator, `HOLD_INVALID_OR_INCOMPLETE` with `value:null` and `reasonCode` otherwise.
+- No imports from canonical valuation engines, report exports, Deal lifecycle, portfolio decision cockpit, or production deployment rules. A **separate collapsible manual-input UI** is displayed inside the personal research area by `src/components/OptionalPropertyIndicatorsResearchPanel.jsx`; no routes, report columns, valuation equations, or saved-deal fields are added.
+- Output states: `CALCULATED_UNVERIFIED` for a mathematically calculated educational indicator, `HOLD_INVALID_OR_INCOMPLETE` with `value:null` and `reasonCode` otherwise. The UI uses `calculateDeclaredOptionalResearchIndicator` to require a **user-supplied** source reference, a real nonfuture source date and explicit attestation. These are assertions, not independent evidence verification.
 - Always: `professionalApproval:false`, `transactionAuthorized:false`, and `sourceStatus:USER_DECLARED_UNVERIFIED`. These indicators may not amend valuation conclusions or override release governance.
 
 ## Seven specifically scoped indicators
@@ -30,9 +30,13 @@
 - No compounded portfolio return, CAPM, listed-company ratios, ratio of shareholders' equity, ROIC, or WACC are implemented by this module.
 
 ## Acceptance
-- The targeted defect test `tests/defects/optional_property_indicators_775.js` is automatically picked up by the canonical `tools/release-verify.js` test discovery for every PR.
+- The targeted defect test `tests/defects/optional_property_indicators_775.js` is automatically picked up by the canonical `tools/release-verify.js` test discovery for every PR. The browser test `tests/e2e/run_optional_property_indicators_775.js` is executed by `.github/workflows/optional-property-indicators-775-verify.yml` on relevant PR changes.
 - Test vectors cover each indicator; reciprocal relation; zero rate; negative CoC and EAA; annual payback interpolation and terminal sale; later negative MIRR contribution; arithmetic and source/authorization semantics; rejection of missing, numeric-text, nonfinite, negative future PI inflows, unsupported DPP capital calls, no IRR-style root, invalid periods, and zero divisors.
-- Passing these tests is only **engineering** acceptance of an independent library. No deployment, formula registry replacement, UI adoption, or professional approval is implied.
-- Before integrating into an owner report: require explicit provenance for each input, source dates, cash-flow timing, professional review of property-rights and asset type, accurate units and separated investor-equity vs property-NOI scope, and original 17-case actual-engine parity under authorized source access.
+- Passing these tests is only **engineering** acceptance of the optional library and isolated personal-research UI. No deployment, formula registry replacement, canonical appraisal adoption, or professional approval is implied.
+- Before integrating into any formal owner report: require independently checked provenance for each input, source dates, cash-flow timing, professional review of property-rights and asset type, accurate units and separated investor-equity vs property-NOI scope, and original 17-case actual-engine parity under authorized source access.
 
 **Release:** HOLD_NOT_AUTHORIZED. No changes to `main`, original portfolio formulas or published assets.
+
+## 9 November 2026 — research UI boundary
+
+The user selects an indicator, manually enters amounts/annual rates, supplies an identifying source reference and its date, then affirms the data are user declared. The selected metric, numeric fields, reference and attestation are reset on metric changes; any input edit clears stale computed output. Source dates are format/chronology checked, **not independently authenticated**. The selected indicator is not auto-seeded from saved deal values; no personal JSON/HTML study export incorporates any of these optional numbers or source references. A linked appraisal-review HOLD disables calculation in the supplemental panel. Negative/blank, zero-denominator and unsupported cashflow shapes remain fail-closed. Browser acceptance must verify canonical study input fingerprint and calculations unchanged before and after using the panel.
