@@ -71,6 +71,7 @@ function validatePersistedAssumptionRegistry(value) {
     [
       'label', 'unit', 'sourceType', 'sourceReference', 'sourceDate', 'geography',
       'assetType', 'owner', 'reviewer', 'expiresAt', 'overrideReason',
+      'approver', 'approvalReference', 'approvedAt', 'approvalStatus',
     ].forEach((field) => validateOptionalString(item[field], field, index));
   });
 
