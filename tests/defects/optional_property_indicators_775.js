@@ -1,6 +1,6 @@
 'use strict';
 const assert=require('node:assert/strict');
-const {VERSION,INDICATORS,calculateOptionalPropertyIndicator:calc}=
+const {VERSION,INDICATORS,calculateOptionalPropertyIndicator:calc,calculateDeclaredOptionalResearchIndicator:declared}=
   require('../../src/analysis/optional-property-indicators');
 let assertions=0;
 function eq(actual,expected,label){assert.equal(actual,expected,label);assertions++;}
@@ -51,6 +51,30 @@ near(ok('EQUIVALENT_ANNUAL_ANNUITY',{npvSar:100,discountRate:.1,periodYears:2}).
   100*.1/(1-1/(1.1*1.1)),'EAA');
 near(ok('EQUIVALENT_ANNUAL_ANNUITY',{npvSar:-100,discountRate:0,periodYears:5}).value,
   -20,'EAA zero discount limit and negative NPV');
+near(ok('EQUIVALENT_ANNUAL_ANNUITY',{npvSar:100,discountRate:1e-20,periodYears:5}).value,
+  20,'EAA tiny positive rate avoids catastrophic cancellation',1e-10);
+const input={grossAnnualRentSar:120000,purchasePriceSar:2000000};
+const provenance={sourceReference:'DOC-TEST-775',sourceDate:'2025-11-01',userAttested:true};
+const withDeclaration=declared('GROSS_RENTAL_YIELD',input,provenance);
+eq(withDeclaration.status,'CALCULATED_UNVERIFIED','attested source still unverified');
+eq(withDeclaration.sourceStatus,'USER_DECLARED_UNVERIFIED','declared source not certified');
+eq(withDeclaration.provenanceStatus,'USER_ATTESTED_NOT_INDEPENDENTLY_VERIFIED','attested provenance only');
+eq(withDeclaration.sourceReference,'DOC-TEST-775','retained user reference');
+eq(withDeclaration.sourceDate,'2025-11-01','retained source date');
+eq(withDeclaration.professionalApproval,false,'no professional attestation inferred');
+eq(withDeclaration.transactionAuthorized,false,'no transaction authority inferred');
+function holdDeclared(provenanceInput,reason){
+ const out=declared('GROSS_RENTAL_YIELD',input,provenanceInput);
+ eq(out.status,'HOLD_INVALID_OR_INCOMPLETE','declared HOLD');
+ eq(out.reasonCode,reason,'declared HOLD reason');
+ eq(out.value,null,'no sourced invented value');
+}
+holdDeclared(null,'SOURCE_DECLARATION_REQUIRED');
+holdDeclared({...provenance,sourceReference:'a'},'SOURCE_REFERENCE_REQUIRED');
+holdDeclared({...provenance,sourceDate:'not-a-date'},'SOURCE_DATE_REQUIRED');
+holdDeclared({...provenance,sourceDate:'2025-02-30'},'SOURCE_DATE_INVALID');
+holdDeclared({...provenance,sourceDate:'2099-02-10'},'SOURCE_DATE_IN_FUTURE');
+holdDeclared({...provenance,userAttested:false},'EXPLICIT_USER_ATTESTATION_REQUIRED');
 // Zero denominator, text coercion, missing data and nonfinite numbers must never generate output.
 reject('GROSS_RENTAL_YIELD',{grossAnnualRentSar:12,purchasePriceSar:0},'PURCHASE_PRICE_POSITIVE_REQUIRED');
 reject('GROSS_RENT_MULTIPLIER',{grossAnnualRentSar:0,purchasePriceSar:20},'GROSS_ANNUAL_RENT_POSITIVE_REQUIRED');
