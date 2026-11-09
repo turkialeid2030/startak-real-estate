@@ -64,6 +64,11 @@ function normalizeAssumption(raw, options = {}) {
   const confidence = Object.values(CONFIDENCE).includes(raw.confidence) ? raw.confidence : CONFIDENCE.UNSUPPORTED;
   const sourceReference = typeof raw.sourceReference === 'string' ? raw.sourceReference.trim() : '';
   const sourceType = typeof raw.sourceType === 'string' ? raw.sourceType.trim() : '';
+  const criticalOverride = critical && raw.override === true;
+  const approver = typeof raw.approver === 'string' ? raw.approver.trim() : '';
+  const approvalReference = typeof raw.approvalReference === 'string' ? raw.approvalReference.trim() : '';
+  const approvalStatus = typeof raw.approvalStatus === 'string' ? raw.approvalStatus.trim() : '';
+  const approvedAt = toDate(raw.approvedAt);
   const owner = typeof raw.owner === 'string' ? raw.owner.trim() : '';
   const reviewer = typeof raw.reviewer === 'string' ? raw.reviewer.trim() : '';
   const id = typeof raw.id === 'string' ? raw.id.trim() : '';
@@ -74,6 +79,22 @@ function normalizeAssumption(raw, options = {}) {
   if (!sourceReference || !sourceType || !sourceDate) blockers.push('SOURCE_EVIDENCE_REQUIRED');
   if (!owner) blockers.push('ASSUMPTION_OWNER_REQUIRED');
   if (raw.override === true && (!raw.overrideReason || !String(raw.overrideReason).trim())) blockers.push('OVERRIDE_REASON_REQUIRED');
+
+  // P25-compatible fail-closed review boundary for a *critical override*.
+  // A user's claim of approval is not independent attestation; even a complete
+  // registry entry remains REVIEW, never an automatic decision authorization.
+  // Unrelated assumptions and noncritical overrides preserve their old contract.
+  if (criticalOverride) {
+    if (!isFiniteNumber(raw.value)) blockers.push('CRITICAL_OVERRIDE_NUMERIC_VALUE_REQUIRED');
+    if (!asOf) blockers.push('CRITICAL_OVERRIDE_AS_OF_DATE_INVALID');
+    if (sourceDate && asOf && sourceDate.getTime() > asOf.getTime()) blockers.push('CRITICAL_OVERRIDE_SOURCE_DATE_IN_FUTURE');
+    if (raw.expiresAt && !expiresAt) blockers.push('CRITICAL_OVERRIDE_EXPIRY_DATE_INVALID');
+    if (!approver) blockers.push('CRITICAL_OVERRIDE_APPROVER_REQUIRED');
+    if (!approvalReference) blockers.push('CRITICAL_OVERRIDE_APPROVAL_REFERENCE_REQUIRED');
+    if (!approvedAt) blockers.push('CRITICAL_OVERRIDE_APPROVAL_DATE_REQUIRED');
+    else if (asOf && approvedAt.getTime() > asOf.getTime()) blockers.push('CRITICAL_OVERRIDE_APPROVAL_DATE_IN_FUTURE');
+    if (approvalStatus !== 'APPROVED') blockers.push('CRITICAL_OVERRIDE_APPROVAL_STATUS_REQUIRED');
+  }
 
   let status = ASSUMPTION_SUPPORT_STATUS.SUPPORTED;
   if (blockers.length) status = ASSUMPTION_SUPPORT_STATUS.UNSUPPORTED;
@@ -97,6 +118,12 @@ function normalizeAssumption(raw, options = {}) {
     expiresAt: expiresAt ? expiresAt.toISOString() : null,
     override: raw.override === true,
     overrideReason: raw.override === true ? String(raw.overrideReason || '').trim() || null : null,
+    ...(criticalOverride ? {
+      approver: approver || null,
+      approvalReference: approvalReference || null,
+      approvedAt: approvedAt ? approvedAt.toISOString() : null,
+      approvalStatus: approvalStatus || null,
+    } : {}),
     status,
     blockers,
   };
