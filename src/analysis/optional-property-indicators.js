@@ -182,7 +182,7 @@ function calculateDeclaredOptionalResearchIndicator(id,inputs,provenance){
   if(typeof ref!=='string'||ref.trim().length<6||ref.length>160)
     return hold(id,'SOURCE_REFERENCE_REQUIRED');
   const date=provenance.sourceDate;
-  if(typeof date!=='string'||!/^\\d{4}-\\d{2}-\\d{2}$/.test(date))
+  if(typeof date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(date))
     return hold(id,'SOURCE_DATE_REQUIRED');
   const parsed=new Date(date+'T00:00:00.000Z');
   if(!Number.isFinite(parsed.getTime())||parsed.toISOString().slice(0,10)!==date)
