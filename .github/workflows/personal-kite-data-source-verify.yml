@@ -35,8 +35,8 @@ jobs:
         run: node tests/defects/personal_kite_source_gateway_20261110.js
       - name: Build current source tree
         run: npm run build
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+      - name: Install Chromium, Firefox and WebKit
+        run: npx playwright install --with-deps chromium firefox webkit
       - name: Browser verify data source and existing document intake
         shell: bash
         run: |
