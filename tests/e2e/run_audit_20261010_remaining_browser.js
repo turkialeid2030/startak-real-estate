@@ -105,6 +105,13 @@ async function textContrast(locator){return locator.evaluate(el=>{
    await expect(workflowReason).not.toContainText('VERIFICATION_NOT_COMPLETE');checks++;
    await expect(workflowReason).toHaveAttribute('data-diagnostic-code','VERIFICATION_NOT_COMPLETE');checks++;
    await page.getByTitle(ar.actions.savedDeals,{exact:true}).click();await page.getByRole('dialog').getByRole('button',{name:seed.name,exact:true}).click();
+   // Active saved property, document case and verification journal now share one
+   // scoped case identity. Previously loaded manual-case evidence must vanish
+   // rather than silently contaminate the newly selected real-estate study.
+   await expect(page.getByTestId('document-linked-case')).toHaveAttribute('data-bound','saved-deal');checks++;
+   await expect(page.getByTestId('document-case-id')).toHaveValue(seed.id);checks++;
+   await expect(page.getByTestId('document-case-id')).toBeDisabled();checks++;
+   await expect(page.getByTestId('local-document-digest')).toHaveCount(0);checks++;
    // Full-engine lower-price evidence must match the current exported inputs
    // on all three browsers, including the explicit-zero-debt case.
    const hurdle=page.getByLabel(sanitizeArabicUiText(ar.inputBuilding.discountRate),{exact:false}).first();
