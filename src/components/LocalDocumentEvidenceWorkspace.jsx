@@ -14,7 +14,13 @@ export default function LocalDocumentEvidenceWorkspace() {
  const {linkedCase}=usePersonalCaseSession();
  const L=value=>assuranceLabel(value,locale);
  const [manualCaseId,setManualCaseId]=useState('');
- const caseId=linkedCase?.caseId||manualCaseId.trim()||null;
+ const [manualOverride,setManualOverride]=useState(false);
+ const caseId=manualOverride?manualCaseId.trim()||null:
+   (linkedCase?.caseId||manualCaseId.trim()||null);
+ useEffect(()=>{
+   // A selected-deal switch always wins over an older manual override.
+   setManualOverride(false);setManualCaseId('');
+ },[linkedCase?.caseId]);
   const [intakeRecord, setIntakeRecord] = useState(null);
   const [candidate, setCandidate] = useState(null);
   const [verificationRecord, setVerificationRecord] = useState(null);
@@ -42,16 +48,17 @@ export default function LocalDocumentEvidenceWorkspace() {
     <div data-testid="local-document-evidence-workspace" dir={dir}>
       <label className="mx-auto mt-6 block max-w-7xl px-4 text-xs text-slate-200">{L("معرّف الحالة للمستندات المرتبطة — اختياري")}
         <input aria-label={L("معرّف الحالة للمستندات")} data-testid="document-case-id" maxLength="160"
-         value={linkedCase?.caseId||manualCaseId} disabled={!!linkedCase}
-         onChange={e=>setManualCaseId(e.target.value)}
-         className="mt-2 block w-full rounded border border-slate-600 bg-slate-950 p-2 disabled:opacity-70"/>
+         value={manualOverride?manualCaseId:(linkedCase?.caseId||manualCaseId)}
+         onChange={e=>{setManualOverride(true);setManualCaseId(e.target.value);}}
+         className="mt-2 block w-full rounded border border-slate-600 bg-slate-950 p-2"/>
       </label>
-      <p data-testid="document-linked-case" data-bound={linkedCase?'saved-deal':'manual-or-unlinked'}
+      <p data-testid="document-linked-case"
+       data-bound={linkedCase?(manualOverride?'manual-override':'saved-deal'):'manual-or-unlinked'}
        className="mx-auto max-w-7xl px-4 text-xs text-amber-200">
-       {linkedCase ? (locale==='en'
-         ? 'Documents are linked to the selected saved property study. Change the saved case to switch context.'
-         : 'المستندات مرتبطة بملف العقار المحفوظ المختار. تغيير ملف الدراسة يغيّر نطاق المستندات.')
-         : (locale==='en'?'No saved property selected. Enter a case ID to scope documents.':'لا يوجد ملف عقاري محفوظ مختار. أدخل معرّف حالة لربط المستندات.')}
+       {linkedCase ? (manualOverride
+        ? (locale==='en'?'Manual case override: documents now use the case ID typed above, not the selected saved property.':'تم تعديل نطاق المستندات يدويًا؛ يُستخدم معرّف الحالة المكتوب لا الملف العقاري المحفوظ.')
+        : (locale==='en'?'Documents initially follow the selected saved property. Edit the case ID only when intentionally using another case.':'المستندات مرتبطة مبدئيًا بالعقار المحفوظ المختار. غيّر معرّف الحالة فقط عند الرغبة في فتح حالة أخرى.'))
+        : (locale==='en'?'No saved property selected. Enter a case ID to scope documents.':'لا يوجد ملف عقاري محفوظ مختار. أدخل معرّف حالة لربط المستندات.')}
       </p>
       <LocalDocumentEvidenceIntakePanel key={caseId||'unlinked'} caseId={caseId} onRecordChange={handleIntakeChange} />
       <LocalEvidenceQualificationPanel intakeRecord={intakeRecord} preferredAtomId={selectedAtomId} onCandidateChange={handleCandidateChange} />
