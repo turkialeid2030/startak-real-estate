@@ -10,6 +10,7 @@ const { STUDY_TYPE, STUDY_TYPE_TO_LEGACY_MODE } = require('../contracts/study-ty
 const { buildFinancialTimingBasis } = require('../contracts/financial-timing-basis');
 const { validateEngineInputs } = require('../validation/numeric-safety');
 const { validateSupportedFinancialHorizons } = require('../validation/financial-horizon-support');
+const { V2_APPROVED_ASSUMPTIONS } = require('../assumptions/assumption-model');
 
 const PRICE_BASIS_VERSION = 'PRICE_BASIS_V1';
 const COST_APPROACH_INDICATION_BASIS = 'UNDEPRECIATED_REPLACEMENT_COST_NEW_PLUS_LAND_INPUT';
@@ -117,10 +118,23 @@ function normalizeZeroDebtEconomics(studyType, inputs, result) {
  * canonical financing remediation. assumptionModelVersion is deal-envelope
  * metadata and is never injected into the economic inputs object.
  */
-function calculateInvestmentCase({ studyType, inputs, leverageEnabled, assumptionModelVersion }) {
+function calculateInvestmentCase({ studyType, inputs, leverageEnabled, assumptionModelVersion, assumptionRegistry }) {
   if (studyType !== STUDY_TYPE.EXISTING_BUILDING && studyType !== STUDY_TYPE.LAND_DEVELOPMENT) {
     throw new Error(`calculateInvestmentCase: unknown studyType "${studyType}" -- must be one of ${Object.values(STUDY_TYPE).join(', ')}`);
   }
+
+  // P25 migration safety boundary: the current engine DOES NOT implement the
+  // historical governed economic override transport. An explicit critical
+  // override in a caller's registry must never be silently ignored while the
+  // baseline output is presented as a decision about the overridden values.
+  // Calculations remain baseline-only, and decision authority fails closed.
+  const criticalOverrideRequested=Array.isArray(assumptionRegistry)&&assumptionRegistry.some(
+    item=>item&&typeof item==='object'&&!Array.isArray(item)
+      &&item.override===true
+      &&(item.critical===true||Object.prototype.hasOwnProperty.call(V2_APPROVED_ASSUMPTIONS,item.id))
+  );
+  const invalidRegistryProvided=assumptionRegistry!==undefined&&assumptionRegistry!==null
+    &&!Array.isArray(assumptionRegistry);
 
   const leverageOverrideProvided = leverageEnabled !== undefined;
   const requestedLeverageEnabled = leverageOverrideProvided
@@ -197,12 +211,36 @@ function calculateInvestmentCase({ studyType, inputs, leverageEnabled, assumptio
   // Its arithmetic is replacement cost new plus the user-entered land-value
   // indication; it does not use building age, determine market value, or create
   // an accredited valuation. Do not invent depreciation/obsolescence economics.
-  return {
+  const result={
     ...economicResult,
     ...canonicalMetadata,
     priceBasis: buildPriceBasis(studyType),
     // P26 metadata: this does not alter NPV, IRR, cashflows or lending authority.
     timingBasis: buildFinancialTimingBasis(studyType),
+  };
+  if(!criticalOverrideRequested&&!invalidRegistryProvided)return result;
+  const blocker=criticalOverrideRequested
+    ? 'CRITICAL_OVERRIDE_NOT_APPLIED_IN_CANONICAL_ENGINE'
+    : 'ASSUMPTION_REGISTRY_ARRAY_REQUIRED';
+  // The raw baseline cashflows remain available for research/audit, but no
+  // critical override gets applied, no unverified economic preview is labeled
+  // approved, and no investment verdict/criteria may be inferred.
+  return {
+    ...result,
+    analyticalResultsOnly:true,
+    decisionStatus:'INCOMPLETE_INPUTS',
+    verdict:'INCOMPLETE_INPUTS',
+    criticalAssumptionOverrideGovernance:{
+      status:'HOLD_UNSUPPORTED_OVERRIDE_PATH',
+      decisionReady:false,approvalVerified:false,baselineOnly:true,
+      blockers:[blocker],
+    },
+    appliedCriticalAssumptionOverrides:false,
+    incompleteInputs:[...new Set([...(Array.isArray(result.incompleteInputs)?result.incompleteInputs:[]),
+      'criticalAssumptionOverrideDocumentation'])],
+    decisionBlockers:[...new Set([...(Array.isArray(result.decisionBlockers)?result.decisionBlockers:[]),blocker])],
+    metCount:null,totalCriteria:null,criteriaDetail:null,
+    failedHardGates:[],failedSoftCriteria:null,
   };
 }
 
