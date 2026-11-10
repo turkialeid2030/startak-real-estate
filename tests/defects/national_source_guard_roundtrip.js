@@ -14,6 +14,12 @@ let checks=0;const ok=(v,m)=>{assert.ok(v,m);checks++;};
   const file=path.resolve(__dirname,'../../src/components',name+'.jsx');let source=fs.readFileSync(file,'utf8');
   const main=source.match(/export default function (\w+)/)[1];
   source=source.replace(/^import React(?:,\s*\{([^}]+)\})? from 'react';$/gm,(_,hooks)=>'const React=require("react");'+(hooks?'const {'+hooks+'}=React;':''));
+  // This test covers legacy source labels and Arabic stability only. The
+  // asynchronous Kite research component has its own real-browser acceptance.
+  if(name==='SaudiNationalIntelligenceSourcesPanel'){
+    source=source.replace(/^import KitePersonalTransactionsPanel from '\.\/KitePersonalTransactionsPanel\.jsx';$/m,
+      'const KitePersonalTransactionsPanel=()=>null;');
+  }
   source=source.replaceAll('export default function ','function ').replace(/^export \{[^}]+\};$/gm,'');
   const {code}=await transformWithOxc(source,file,{jsx:{runtime:'classic'}}),module={exports:{}};
   new Function('require','module','exports',code+'\nmodule.exports='+main+';')(createRequire(file),module,module.exports);return module.exports;
