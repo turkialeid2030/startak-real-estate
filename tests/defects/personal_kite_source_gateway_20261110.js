@@ -45,7 +45,7 @@ async function run(){
  eq((await r.json()).code,'LAND_USE_INVALID','land class whitelist');
  r=await m.onRequestGet(context(request('&month_from=2026-12&month_to=2025-10')));
  eq(r.status,400,'reversed month period denied');
- r=await m.onRequestGet(context(request('','', 'POST')));
+ r=await m.onRequest(context(request('','', 'POST')));
  eq(r.status,405,'read only endpoint');
  r=await m.onRequestGet(context(request('',TOKEN,'GET',{'sec-fetch-site':'cross-site'})));
  eq(r.status,403,'cross-site call denied');
