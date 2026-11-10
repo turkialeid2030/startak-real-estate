@@ -40,7 +40,7 @@ const {expect}=require('@playwright/test');
    await expect(page.getByTestId('kite-status')).toHaveAttribute('data-status','LIVE_OPEN_DATA_RESEARCH_NOT_VERIFIED');checks++;
    await expect(page.getByTestId('kite-results')).toContainText('الملقا');checks++;
    await expect(page.getByTestId('kite-attribution')).toBeVisible();checks++;
-   await expect(page.getByTestId('national-summary')).toContainText('2').catch(()=>{});
+   await expect(page.getByTestId('national-summary')).toContainText('الصفوف المستوردة: 1');checks++;
    await expect(page.getByTestId('national-source-filter')).toHaveValue('KITE_MOJ_QUARTERLY');checks++;
    assert.equal(requests.length,1,'one authenticated source call');checks++;
    assert.equal(requests[0].authorization,'Bearer '+owner,'owner token only to same-origin gateway');checks++;
