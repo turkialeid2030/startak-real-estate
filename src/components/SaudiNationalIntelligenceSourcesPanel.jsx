@@ -166,7 +166,7 @@ export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange}
   </div>
   <p className="mt-2 text-xs text-slate-400">
    {tr('المعروض ','Showing ')}{Math.min(filtered.length,50)} {tr('من ','of ')}{filtered.length}
-   {tr(' سجل بحثي. اتصال Kite مشروط بمفاتيح وتحقق استجابة حية؛ لا يوجد ربط آلي مؤكد ببقية الجهات أو تحقق مستقل من الصكوك ودقة التقييم الآلي.',
+   {tr(' سجل بحثي. اتصال كايت مشروط بمفاتيح وتحقق استجابة حية؛ لا يوجد ربط آلي مؤكد ببقية الجهات أو تحقق مستقل من الصكوك ودقة التقييم الآلي.',
    ' research rows. Kite requires configured credentials and a verified live response; other official and AVM sources remain unconnected and evidence is unverified.')}
   </p>
   {en&&<p data-testid="national-language-scope" className="mt-2 text-xs text-amber-200">
