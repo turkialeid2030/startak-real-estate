@@ -1,0 +1,63 @@
+name: Personal Data Gateway and Document Flow Verify
+on:
+  push:
+    branches: [integration/personal-data-pipeline-20261110]
+  pull_request:
+    paths:
+      - "functions/api/personal-data/**"
+      - "src/market/kite-personal-market-research.js"
+      - "src/market/saudi-national-intelligence-sources.js"
+      - "src/components/KitePersonalTransactionsPanel.jsx"
+      - "src/components/SaudiNationalIntelligenceSourcesPanel.jsx"
+      - "tests/defects/personal_kite_source_gateway_20261110.js"
+      - "tests/e2e/run_personal_kite_source_browser.js"
+      - ".github/workflows/personal-kite-data-source-verify.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  personal-data-and-documents:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact source SHA
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Test bounded personal data source and attribution
+        run: node tests/defects/personal_kite_source_gateway_20261110.js
+      - name: Build current source tree
+        run: npm run build
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Browser verify data source and existing document intake
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p runtime-evidence/personal-data
+          npm run preview -- --host 127.0.0.1 --port 4173 --strictPort >runtime-evidence/personal-data/preview.log 2>&1 &
+          srv_pid=$!
+          trap 'kill "$srv_pid" 2>/dev/null || true' EXIT
+          for i in $(seq 1 40); do
+            if curl --fail --silent http://127.0.0.1:4173/ -o /dev/null; then break; fi
+            sleep 1
+          done
+          STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_personal_kite_source_browser.js | tee runtime-evidence/personal-data/kite-browser.log
+          STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_audit_20261010_remaining_browser.js | tee runtime-evidence/personal-data/document-browser.log
+          STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_audit_20261020_local_ocr_browser.js | tee runtime-evidence/personal-data/ocr-browser.log
+      - name: Full source regression
+        run: node tools/release-verify.js
+      - name: Upload test logs for review
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: personal-data-workflow-evidence
+          path: runtime-evidence/personal-data
+          if-no-files-found: warn
