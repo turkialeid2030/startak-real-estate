@@ -40,6 +40,10 @@ const {expect}=require('@playwright/test');
    await expect(page.getByTestId('kite-status')).toHaveAttribute('data-status','LIVE_OPEN_DATA_RESEARCH_NOT_VERIFIED');checks++;
    await expect(page.getByTestId('kite-results')).toContainText('الملقا');checks++;
    await expect(page.getByTestId('kite-attribution')).toBeVisible();checks++;
+   // Open-government-data licence must be visible, not just screen-reader JSON.
+   await expect(page.getByTestId('kite-attribution-visible')).toBeVisible();checks++;
+   await expect(page.getByTestId('kite-attribution-visible')).toContainText('MOJ open data');checks++;
+   await expect(page.getByTestId('kite-attribution-visible')).toContainText('ODC Attribution');checks++;
    await expect(page.getByTestId('national-summary')).toContainText('الصفوف المستوردة: 1');checks++;
    await expect(page.getByTestId('national-source-filter')).toHaveValue('KITE_MOJ_QUARTERLY');checks++;
    assert.equal(requests.length,1,'one authenticated source call');checks++;
