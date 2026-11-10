@@ -23,6 +23,7 @@ import PurchasePriceAlternative from "../components/PurchasePriceAlternative.jsx
 import PurchaseCeilingCertificate from "../components/PurchaseCeilingCertificate.jsx";
 import NumericTextInput from '../components/NumericTextInput.jsx';
 import OwnerFiveStepWizard from '../components/OwnerFiveStepWizard.jsx';
+import {usePersonalCaseSession} from '../components/PersonalCaseSessionContext.jsx';
 import CurrentCalculationBoundary from '../components/CurrentCalculationBoundary.js';
 import { ZakatInputSection, ZakatCashFlowPanel } from "../components/ZakatLayerPanel.jsx";
 
@@ -1622,6 +1623,7 @@ function DealsPanel({
 // ============================================================
 export default function App() {
   const { t, dir, locale, setLocale } = useLocale();
+  const {setLinkedCase}=usePersonalCaseSession();
   // Presentation state only. The valuation and saved-deal state remains canonical.
   const [ownerView,setOwnerView]=useState(()=>new URLSearchParams(window.location.search).get('ownerView')==='advanced'?'advanced':'simple');
   const [ownerStep,setOwnerStep]=useState(0);
@@ -1767,6 +1769,11 @@ export default function App() {
   const [restoreRecoveryRequired,setRestoreRecoveryRequired]=useState(false);
   const [dealsError, setDealsError] = useState(null);
   const activeDealName = activeDealId ? (savedDeals.find((d) => d.id === activeDealId) || {}).name : null;
+  useEffect(()=>{
+    // A saved deal is the only automatic case identity. Blank/draft studies
+    // remain unlinked until they are saved or manually scoped in Documents.
+    setLinkedCase(activeDealId?{caseId:activeDealId,name:activeDealName||'',mode}:null);
+  },[activeDealId,activeDealName,mode,setLinkedCase]);
   const switchStudyMode = (nextMode) => {
     if(savedOperationRef.current)return;
     if (nextMode === mode) return;
