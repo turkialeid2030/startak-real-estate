@@ -64,7 +64,10 @@ function buildAssumptionModelDisclosure(version) {
       label_ar: 'إصدار الافتراضات V2',
       label_en: 'Assumption Model V2',
       legacyCompatibility: false,
-      userApprovedAssumptions: true,
+      // A selected baseline is not independently recorded user approval.
+      userApprovedAssumptions: false,
+      approvalEvidenceStatus: 'NOT_SUPPLIED',
+      canonicalDefaultsAreApprovalEvidence: false,
     });
   }
   return Object.freeze({
@@ -73,6 +76,8 @@ function buildAssumptionModelDisclosure(version) {
     label_en: 'Legacy Assumption Model (Compatibility)',
     legacyCompatibility: true,
     userApprovedAssumptions: false,
+    approvalEvidenceStatus: 'NOT_SUPPLIED',
+    canonicalDefaultsAreApprovalEvidence: false,
   });
 }
 

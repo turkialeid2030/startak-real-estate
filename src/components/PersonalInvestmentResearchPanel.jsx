@@ -3,6 +3,7 @@ import {useAppraisalReviewSession} from './AppraisalReviewSessionContext.jsx';
 const {evaluatePersonalReportExport,assertPersonalReportExportAllowed}=require('../market/appraisal-report-export-gate');
 import DiagnosticText from './DiagnosticText.jsx';
 import OperatingFinancialComparison from './OperatingFinancialComparison';
+import OptionalPropertyIndicatorsResearchPanel from './OptionalPropertyIndicatorsResearchPanel.jsx';
 const {researchActionText}=require('../i18n/research-action-presentation');
 const {financialAndValuationLabels}=require('../app/personal-study-status-clarity');
 const {
@@ -179,6 +180,7 @@ export default function PersonalInvestmentResearchPanel({
         </div>
         {message&&<div data-testid="personal-study-action-notice" data-diagnostic-content translate="no" role="status" className="mt-2 text-xs text-slate-200">{researchActionText(message,locale)}</div>}
       </div>
+      <OptionalPropertyIndicatorsResearchPanel locale={locale} blocked={reportExportGate.blocked}/>
     </section>
   );
 }
