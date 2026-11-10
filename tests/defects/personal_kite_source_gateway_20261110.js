@@ -85,6 +85,17 @@ async function run(){
  eq(dup.duplicates,2,'deduplicate repeated source results');
  const invalid=structuredClone(body);invalid.records[0].month='2099-06';
  eq(normalizeKiteResearch(invalid).skipped.length,1,'future monthly records rejected');
+ // Never silently translate unknown land-use classes into 'other', or accept
+ // missing upstream IDs, even when their other price fields look plausible.
+ const poisoned=structuredClone(source);
+ poisoned.data=[{...source.data[0],land_use:'apartment'},
+                {...source.data[0],id:''}];
+ r=await m.onRequestGet({request:request(),env:{STARTAK_PERSONAL_SOURCE_TOKEN:TOKEN,KITE_DATA_API_KEY:API_KEY},
+  data:{fetchImpl:async()=>new Response(JSON.stringify(poisoned),{status:200})}});
+ eq(r.status,200,'malformed source rows do not fail the whole research page');
+ const quarantine=await r.json();
+ eq(quarantine.records.length,0,'unknown land-use and missing id cannot be imported');
+ eq(quarantine.rejectedRecords,2,'rejected provenance records counted');
  const noAttribution=structuredClone(source);delete noAttribution.attribution;
  r=await m.onRequestGet({request:request(),env:{STARTAK_PERSONAL_SOURCE_TOKEN:TOKEN,KITE_DATA_API_KEY:API_KEY},
   data:{fetchImpl:async()=>new Response(JSON.stringify(noAttribution),{status:200})}});

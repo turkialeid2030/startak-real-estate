@@ -122,6 +122,8 @@ export default function KitePersonalTransactionsPanel({locale='ar-SA',onResearch
     {tr('المصدر: بيانات وزارة العدل الفصلية المفتوحة (تقدم عبر كايت). راجع إشعار النسب الأصلي: ','Source: MOJ quarterly open data via Kite. Original attribution: ')}
     <a data-user-content translate="no" href="https://platform.kite.sa/docs/reference/transactions-search" target="_blank"
      rel="noopener noreferrer" className="text-sky-300 underline">Kite / MOJ — ODC Attribution</a>
+    <span data-testid="kite-attribution-visible" data-user-content translate="no"
+     className="mt-2 block whitespace-pre-wrap break-all rounded border border-slate-700 bg-slate-950 p-2 text-xs leading-5">{JSON.stringify(attribution,null,2)}</span>
     <span className="sr-only" translate="no" data-diagnostic-content data-testid="kite-attribution-json">{JSON.stringify(attribution)}</span>
    </p>}
  </section>;
