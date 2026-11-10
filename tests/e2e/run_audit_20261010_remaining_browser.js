@@ -110,7 +110,8 @@ async function textContrast(locator){return locator.evaluate(el=>{
    // rather than silently contaminate the newly selected real-estate study.
    await expect(page.getByTestId('document-linked-case')).toHaveAttribute('data-bound','saved-deal');checks++;
    await expect(page.getByTestId('document-case-id')).toHaveValue(seed.id);checks++;
-   await expect(page.getByTestId('document-case-id')).toBeDisabled();checks++;
+   await expect(page.getByTestId('document-case-id')).toBeEnabled();checks++;
+   await expect(page.getByTestId('document-linked-case')).toContainText('المستندات مرتبطة مبدئيًا');checks++;
    await expect(page.getByTestId('local-document-digest')).toHaveCount(0);checks++;
    // Full-engine lower-price evidence must match the current exported inputs
    // on all three browsers, including the explicit-zero-debt case.
