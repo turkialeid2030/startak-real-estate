@@ -57,8 +57,8 @@ try{
  mark('PANEL_MOUNT',await panel.isVisible());
  const nationalSources=panel.getByTestId('national-intelligence-sources');
  await nationalSources.waitFor({state:'visible'});
- assert((await nationalSources.getByTestId('national-sources-links').locator('a').count())===11,
-  'Eleven distinct public real estate source reference URLs must be visible');
+ assert((await nationalSources.getByTestId('national-sources-links').locator('a').count())===12,
+  'Twelve distinct public real estate source reference URLs must be visible');
  const official= nationalSources.getByTestId('national-official-entrypoints');
  await official.waitFor({state:'visible'});
  assert((await official.locator('a').count())===4,'four distinct official REGA/MOJ verification destinations required');
