@@ -65,13 +65,17 @@ function normalizeRow(x){
  const month=safeString(x.month,7);
  if(!/^20\d{2}-(0[1-9]|1[0-2])$/.test(month||''))return null;
  const price=positive(x.price_sar);if(price===null)return null;
+ // Provider contract requires a stable opaque id and an explicit land-use class.
+ // Never turn an unknown/malformed class into 'other': that would mislabel sales.
+ const id=safeString(x.id,128);
+ if(!id||!LAND_USE.has(x.land_use))return null;
  const area=positive(x.area_sqm);
  return {
-  id:safeString(x.id,128)||null,month,
+  id,month,
   sourceQuarter:safeString(x.source_quarter,18),
   city:safeString(x.city,80),cityNameAr:safeString(x.city_name_ar,100),
   districtNameAr:safeString(x.district_name_ar,140),
-  landUse:LAND_USE.has(x.land_use)?x.land_use:'other',
+  landUse:x.land_use,
   priceSar:price,areaSqm:area,pricePerSqmSar:positive(x.price_per_sqm_sar),
   propertyCount:int(x.property_count),
   coverageFlag:safeString(x.coverage_flag,60),
