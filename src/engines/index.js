@@ -133,6 +133,9 @@ function calculateInvestmentCase({ studyType, inputs, leverageEnabled, assumptio
       &&item.override===true
       &&(item.critical===true||Object.prototype.hasOwnProperty.call(V2_APPROVED_ASSUMPTIONS,item.id))
   );
+  const anyOverrideRequested=Array.isArray(assumptionRegistry)&&assumptionRegistry.some(
+    item=>item&&typeof item==='object'&&!Array.isArray(item)&&item.override===true
+  );
   const invalidRegistryProvided=assumptionRegistry!==undefined&&assumptionRegistry!==null
     &&!Array.isArray(assumptionRegistry);
 
@@ -218,10 +221,12 @@ function calculateInvestmentCase({ studyType, inputs, leverageEnabled, assumptio
     // P26 metadata: this does not alter NPV, IRR, cashflows or lending authority.
     timingBasis: buildFinancialTimingBasis(studyType),
   };
-  if(!criticalOverrideRequested&&!invalidRegistryProvided)return result;
+  if(!anyOverrideRequested&&!invalidRegistryProvided)return result;
   const blocker=criticalOverrideRequested
     ? 'CRITICAL_OVERRIDE_NOT_APPLIED_IN_CANONICAL_ENGINE'
-    : 'ASSUMPTION_REGISTRY_ARRAY_REQUIRED';
+    : anyOverrideRequested
+      ? 'ASSUMPTION_OVERRIDE_NOT_APPLIED_IN_CANONICAL_ENGINE'
+      : 'ASSUMPTION_REGISTRY_ARRAY_REQUIRED';
   // The raw baseline cashflows remain available for research/audit, but no
   // critical override gets applied, no unverified economic preview is labeled
   // approved, and no investment verdict/criteria may be inferred.
