@@ -62,9 +62,9 @@ export default function KitePersonalTransactionsPanel({locale='ar-SA',onResearch
  const message=error?(ERROR_TEXT[error]||[tr('تعذر استرجاع بيانات المصدر.','Data retrieval failed.'),'Data retrieval failed.'])[en?1:0]:null;
  return <section data-testid="kite-personal-transactions" dir={en?'ltr':'rtl'}
    className="mt-4 rounded-xl border border-amber-700 bg-slate-900 p-3 text-slate-100">
-  <h4 className="text-sm font-semibold">{tr('الصفقات المسجلة — تغذية Kite API المباشرة (بحث شخصي)','Registered transactions — Kite live API (personal research)')}</h4>
+  <h4 className="text-sm font-semibold">{tr('الصفقات المسجلة — تغذية مباشرة من كايت (بحث شخصي)','Registered transactions — Kite live API (personal research)')}</h4>
   <p className="mt-2 text-xs leading-6 text-amber-100" data-testid="kite-coverage-warning">
-    {tr('مصدرها بيانات وزارة العدل الفصلية المفتوحة عبر Kite: بيانات أشهر لا أيام، وتصنيف استعمال الأرض لا نوع المبنى. مدينة الرياض بعد 18 مايو 2026 غير مغطاة بهذا المسار، وبعض صفقات 2024–2026 تمثل كتابات العدل فقط. لا تُستخدم وحدها لتقييم العقار.',
+    {tr('مصدرها بيانات وزارة العدل الفصلية المفتوحة عبر كايت: بيانات أشهر لا أيام، وتصنيف استعمال الأرض لا نوع المبنى. مدينة الرياض بعد 18 مايو 2026 غير مغطاة بهذا المسار، وبعض صفقات 2024–2026 تمثل كتابات العدل فقط. لا تُستخدم وحدها لتقييم العقار.',
      'MOJ quarterly open data via Kite: month precision, land-use rather than building type. Riyadh city after May 18, 2026 is not covered; some 2024–2026 data are notary-only. Never rely on this alone to value a property.')}
   </p>
   <div className="mt-3 grid gap-3 sm:grid-cols-3">
@@ -85,7 +85,7 @@ export default function KitePersonalTransactionsPanel({locale='ar-SA',onResearch
     <label className="text-xs">{tr('إلى شهر','Month to')}
       <input type="month" value={to} onChange={update(setTo)} data-testid="kite-to"
        className="mt-1 w-full rounded bg-slate-800 p-2" dir="ltr"/></label>
-    <label className="text-xs">{tr('رمز مالك المنصة — لا يُخزن ولا يُرسل إلى Kite','Owner token — not stored or sent to Kite')}
+    <label className="text-xs">{tr('رمز مالك المنصة — لا يُخزن ولا يُرسل إلى المزود','Owner token — not stored or sent to Kite')}
       <input type="password" autoComplete="off" spellCheck={false}
        value={ownerToken} onChange={update(setOwnerToken)} data-testid="kite-owner-token"
        className="mt-1 w-full rounded bg-slate-800 p-2" placeholder={tr('رمز الوصول الشخصي','Personal access token')}/></label>
@@ -119,10 +119,10 @@ export default function KitePersonalTransactionsPanel({locale='ar-SA',onResearch
     </tr>)}</tbody></table>
   </div>}
   {attribution&&<p data-testid="kite-attribution" className="mt-3 text-xs text-slate-300">
-    {tr('المصدر: بيانات وزارة العدل الفصلية المفتوحة (تقدم عبر Kite). راجع إشعار النسب الأصلي: ','Source: MOJ quarterly open data via Kite. Original attribution: ')}
-    <a href="https://platform.kite.sa/docs/reference/transactions-search" target="_blank"
+    {tr('المصدر: بيانات وزارة العدل الفصلية المفتوحة (تقدم عبر كايت). راجع إشعار النسب الأصلي: ','Source: MOJ quarterly open data via Kite. Original attribution: ')}
+    <a data-user-content translate="no" href="https://platform.kite.sa/docs/reference/transactions-search" target="_blank"
      rel="noopener noreferrer" className="text-sky-300 underline">Kite / MOJ — ODC Attribution</a>
-    <span className="sr-only" data-testid="kite-attribution-json">{JSON.stringify(attribution)}</span>
+    <span className="sr-only" translate="no" data-diagnostic-content data-testid="kite-attribution-json">{JSON.stringify(attribution)}</span>
    </p>}
  </section>;
 }
