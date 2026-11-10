@@ -91,6 +91,10 @@ function buildAssumptionDisclosureEnvelope({
     }),
     legacyCompatibility: modelDisclosure.legacyCompatibility,
     userApprovedAssumptions: modelDisclosure.userApprovedAssumptions,
+    approvalEvidenceStatus: modelDisclosure.approvalEvidenceStatus,
+    canonicalDefaultsAreApprovalEvidence: false,
+    // Backward-compatible V2 configuration keys; these are not a signed
+    // approval list and must not authorize underwriting or transactions.
     approvedAssumptionKeys,
     exitCapSource,
     exitCapNotice,
