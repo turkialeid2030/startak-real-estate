@@ -212,6 +212,24 @@ for (const caseRef of corpus.cases) {
     assert.equal(result.assumptionModelDisclosure.userApprovedAssumptions, false, `${caseRef.id}: no invented approval`);
     assert.equal(result.criticalAssumptionOverrideGovernance.status, expected.criticalOverrideGovernanceStatus);
     assert.equal(result.criticalAssumptionOverrideGovernance.decisionReady, true);
+    assert.equal(result.criticalAssumptionOverrideGovernance.approvalAuthorized, false);
+    assert.equal(result.criticalAssumptionOverrideGovernance.transactionAuthorized, false);
+    // Baseline disclosure is not authority to apply an undocumented override.
+    // The live P25 economic path is not yet integrated; reject the request,
+    // preserve unmodified baseline cashflows and suppress investment verdict.
+    const blocked = calculateInvestmentCase({
+      ...request,
+      assumptionRegistry: [{ id: 'maintenanceRate', critical: true,
+        override: true, value: 0.2 }],
+    });
+    assert.equal(blocked.criticalAssumptionOverrideGovernance.status,
+      'HOLD_UNSUPPORTED_OVERRIDE_PATH', `${caseRef.id}: override not applied`);
+    assert.equal(blocked.criticalAssumptionOverrideGovernance.decisionReady, false);
+    assert.equal(blocked.appliedCriticalAssumptionOverrides, false);
+    assert.equal(blocked.analyticalResultsOnly, true);
+    assert.equal(blocked.verdict, 'INCOMPLETE_INPUTS');
+    assert.deepEqual(blocked.cashflows, result.cashflows,
+      `${caseRef.id}: baseline cashflows unchanged by rejected override`);
   }
 
   assert.equal(result.financingEngineVersion ?? null, expected.financingEngineVersion, `${caseRef.id}: financing engine version`);
