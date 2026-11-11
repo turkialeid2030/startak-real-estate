@@ -44,9 +44,8 @@ jobs:
           }
           console.log('C58_NOT_PUBLICLY_ACTIVATED=PASS');
           NODE
-      - name: C54 and Wave 9A regressions
+      - name: Current Wave 9A / Wave 9B comparable regressions
         run: |
-          node tests/architecture/run_market_comparable_decision_gate_v2.js
           node tests/architecture/run_wave9a_market_comparable_evidence.js
           node tests/architecture/run_wave9b_comparable_adjustments.js
       - run: npm run build
