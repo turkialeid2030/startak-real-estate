@@ -86,6 +86,10 @@ checkHold({evidenceRecords:[{...a.record,amountSar:9999999},b.record]},'WAVE9A_R
 checkHold({sourceReceipts:[{...a.receipt,sourceArtifactSha256:'f'.repeat(64)},b.receipt]},'CAPTURE_RECEIPT_HASH_INVALID');
 checkHold({sourceReceipts:[{...a.receipt,sourcePropertyRef:'WRONG',receiptHashSha256:hash({...a.receipt,sourcePropertyRef:'WRONG'})},b.receipt]},'CAPTURE_RECEIPT_HASH_INVALID');
 checkHold({sourceRights:[{...a.rights,allowedUses:['BROWSE_ONLY']},b.rights]},'SOURCE_RIGHTS_DOCUMENT_NOT_QUALIFIED');
+checkHold({sourceRights:[{...a.rights,prohibitedUses:'BROWSE_ONLY'},b.rights]},'SOURCE_RIGHTS_DOCUMENT_NOT_QUALIFIED');
+checkHold({sourceRights:[{...a.rights,prohibitedUses:{}},b.rights]},'SOURCE_RIGHTS_DOCUMENT_NOT_QUALIFIED');
+checkHold({sourceRights:[{...a.rights,prohibitedUses:null},b.rights]},'SOURCE_RIGHTS_DOCUMENT_NOT_QUALIFIED');
+checkHold({sourceRights:[{...a.rights,prohibitedUses:['INTERNAL_VALUATION']},b.rights]},'SOURCE_RIGHTS_DOCUMENT_NOT_QUALIFIED');
 checkHold({sourceRights:[{...a.rights,suspended:true},b.rights]},'SOURCE_RIGHTS_DOCUMENT_NOT_QUALIFIED');
 checkHold({sourceRights:[{...a.rights,validUntil:'2026-08-01'},b.rights]},'SOURCE_RIGHTS_DOCUMENT_NOT_QUALIFIED');
 checkHold({comparables:[a.comparable,{...b.comparable,transactionStatus:TRANSACTION_STATUS.ASKING_SALE}]},'NOT_EXECUTED');
