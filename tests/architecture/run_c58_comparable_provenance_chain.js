@@ -72,6 +72,56 @@ assert.equal(valid.status,STATUS.READY_FOR_INDEPENDENT_SOURCE_AUTHENTICATION);
 assert.equal(valid.details.length,2);
 assert.equal(valid.independentSourceAuthenticityEstablished,false);
 assert.equal(valid.sourceRightsIndependentlyAuthenticated,false);
+// Sale and lease source records are not interchangeable: MARKET_RENT only
+// accepts executed lease evidence, even if sale prices carry valid hashes.
+function rentData(id,identity,amount){
+  const baseSale=data(id,identity,amount,TRANSACTION_STATUS.EXECUTED_LEASE);
+  const record=createComparableEvidenceRecord({
+    comparableId:id,caseId:'C58-CASE',sourcePropertyRef:'PROPERTY-'+id,
+    assetType:'OFFICE',transactionType:MARKET_TRANSACTION_TYPE.RENT,
+    evidenceLevel:MARKET_EVIDENCE_LEVEL.VERIFIED_TRANSACTION,
+    sourceName:'Synthetic lease provenance',sourceRef:'SA-TRANSACTION-SOURCE-'+id,
+    sourceDate:'2026-08-18',transactionDate:'2026-08-15',
+    location:{city:'Riyadh',district:'Olaya'},areaSqm:100,amountSar:amount,
+    verification:{status:MARKET_VERIFICATION_STATUS.VERIFIED,
+      verifiedAt:'2026-08-20',verifiedByRef:'TEST-REVIEWER',evidenceRef:'TEST-RENT-'+id},
+    capturedAt:'2026-08-21',
+  });
+  const comparable=createComparable({
+    comparableId:id,unitValue:record.unitValueSarPerSqm,
+    transactionStatus:TRANSACTION_STATUS.EXECUTED_LEASE,
+    evidenceGrade:EVIDENCE_GRADE.B_VERIFIED_TRANSACTION,
+    sourceRef:record.sourceRef,transactionDate:record.transactionDate,
+  });
+  const receipt={...baseSale.receipt,recordHashSha256:record.comparableHashSha256};
+  delete receipt.receiptHashSha256;
+  receipt.receiptHashSha256=hash(receipt);
+  return {record,comparable,receipt,rights:baseSale.rights};
+}
+const rentA=rentData('RENT-A','LEASE-501',120000),rentB=rentData('RENT-B','LEASE-502',150000);
+const rentScope={
+  ...base,basis:BASIS_OF_VALUE.MARKET_RENT,
+  comparables:[rentA.comparable,rentB.comparable],
+  evidenceRecords:[rentA.record,rentB.record],
+  sourceReceipts:[rentA.receipt,rentB.receipt],
+  sourceRights:[rentA.rights,rentB.rights],
+};
+const rentChain=evaluateComparableProvenanceChain(rentScope);
+assert.equal(rentChain.status,STATUS.READY_FOR_INDEPENDENT_SOURCE_AUTHENTICATION);
+assert.equal(rentChain.independentSourceAuthenticityEstablished,false);
+const rentPreliminary=calculateSourceBoundMarketIndication({
+  comparables:rentScope.comparables,basis:BASIS_OF_VALUE.MARKET_RENT,
+  valuationDate:date,subjectArea:100,weightingPolicy:WEIGHTING_POLICY.EQUAL,
+  provenance:rentScope,
+});
+assert.equal(rentPreliminary.status,INDICATION_STATUS.HOLD_EVIDENCE_CONFLICT);
+assert.equal(rentPreliminary.value,135000);
+const misclassifiedLease=evaluateComparableProvenanceChain({
+  ...rentScope,comparables:[rentA.comparable,b.comparable],
+});
+assert.equal(misclassifiedLease.status,STATUS.HOLD);
+assert(misclassifiedLease.blockers.some(x=>x.includes('NOT_EXECUTED_OR_WRONG_TRANSACTION_BASIS')));
+
 const diagnostic=calculateSourceBoundMarketIndication({
   comparables:base.comparables,basis:base.basis,valuationDate:base.valuationDate,
   subjectArea:100,weightingPolicy:WEIGHTING_POLICY.EQUAL,
