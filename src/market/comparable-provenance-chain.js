@@ -68,7 +68,8 @@ function sourceRightValid(right, sourceRef, date, asOf) {
     Date.parse(right.validFrom) <= Date.parse(date) &&
     Date.parse(right.validUntil) >= Date.parse(asOf) &&
     Array.isArray(right.allowedUses) && right.allowedUses.includes('INTERNAL_VALUATION') &&
-    right.prohibitedUses && !right.prohibitedUses.includes?.('INTERNAL_VALUATION') &&
+    Array.isArray(right.prohibitedUses) &&
+    !right.prohibitedUses.includes('INTERNAL_VALUATION') &&
     right.suspended !== true;
 }
 
