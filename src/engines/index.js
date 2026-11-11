@@ -214,9 +214,36 @@ function calculateInvestmentCase({ studyType, inputs, leverageEnabled, assumptio
   // Its arithmetic is replacement cost new plus the user-entered land-value
   // indication; it does not use building age, determine market value, or create
   // an accredited valuation. Do not invent depreciation/obsolescence economics.
+  // P25/P27 continuity: when the caller has requested NO overrides,
+  // explicitly disclose that fact. This is not a permission grant or
+  // acceptance of any supplied override and does not change the economics.
+  // Future P25 economic transport must be independently qualified, never
+  // inferred from a status-only baseline marker.
+  const noOverrideBaseline=(studyType===STUDY_TYPE.EXISTING_BUILDING
+    && assumptionModelVersion==='V2'
+    && !anyOverrideRequested && !invalidRegistryProvided)
+    ? Object.freeze({
+      version:'P25_BASELINE_NO_OVERRIDE_DISCLOSURE_V1',
+      modelVersion:'V2',
+      status:'NO_OVERRIDES',
+      decisionReady:true,
+      hasCriticalOverrides:false,
+      hasIncompleteCriticalOverrides:false,
+      appliedCriticalAssumptionOverrides:false,
+      approvalAuthorized:false,
+      transactionAuthorized:false,
+      externalProfessionalValuationAuthorized:false,
+      resolvedOverrides:Object.freeze({}),
+      overrides:Object.freeze([]),
+      blockers:Object.freeze([]),
+      notice_ar:null,
+      notice_en:null,
+    })
+    : null;
   const result={
     ...economicResult,
     ...canonicalMetadata,
+    ...(noOverrideBaseline?{criticalAssumptionOverrideGovernance:noOverrideBaseline}:{}),
     priceBasis: buildPriceBasis(studyType),
     // P26 metadata: this does not alter NPV, IRR, cashflows or lending authority.
     timingBasis: buildFinancialTimingBasis(studyType),
