@@ -43,6 +43,11 @@ async function run(){
  eq(r.status,400,'unspecified query params denied');
  r=await m.onRequestGet(context(request('&land_use=forged')));
  eq((await r.json()).code,'LAND_USE_INVALID','land class whitelist');
+ r=await m.onRequestGet(context(request('&city=jeddah')));
+ eq(r.status,400,'duplicate city is ambiguous and denied');
+ eq((await r.json()).code,'QUERY_PARAMETER_DUPLICATED','duplicate query reason');
+ r=await m.onRequestGet(context(request('&month_from=2026-01&month_from=2026-02')));
+ eq((await r.json()).code,'QUERY_PARAMETER_DUPLICATED','duplicate month cannot bypass scope');
  r=await m.onRequestGet(context(request('&month_from=2026-12&month_to=2025-10')));
  eq(r.status,400,'reversed month period denied');
  r=await m.onRequest(context(request('','', 'POST')));
@@ -50,7 +55,7 @@ async function run(){
  r=await m.onRequestGet(context(request('',TOKEN,'GET',{'sec-fetch-site':'cross-site'})));
  eq(r.status,403,'cross-site call denied');
  eq(called,0,'all denied requests prevent outbound call');
- r=await m.onRequestGet(context(request('&land_use=residential&month_from=2026-01&price_per_sqm_min=100')));
+ r=await m.onRequestGet(context(request('&month_from=2026-01&price_per_sqm_min=100')));
  eq(r.status,200,'authorized request with valid filters');
  const body=await r.json();
  eq(body.ok,true,'gateway confirmed provider response');eq(body.liveConnected,true,'connected only on live provider response');
@@ -96,6 +101,25 @@ async function run(){
  const quarantine=await r.json();
  eq(quarantine.records.length,0,'unknown land-use and missing id cannot be imported');
  eq(quarantine.rejectedRecords,2,'rejected provenance records counted');
+ // The provider may return rows violating requested city, period, land use,
+ // minimum price and present date. Such observations must never be imported.
+ const outOfScope=structuredClone(source);
+ outOfScope.data=[
+   {...source.data[0],city:'jeddah'},
+   {...source.data[0],land_use:'commercial'},
+   {...source.data[0],month:'2026-07'},
+   {...source.data[0],price_per_sqm_sar:50},
+   {...source.data[0],month:'2099-06'},
+   source.data[0],
+ ];
+ r=await m.onRequestGet({request:request('&land_use=residential&month_from=2026-01&month_to=2026-06&price_per_sqm_min=100'),
+  env:{STARTAK_PERSONAL_SOURCE_TOKEN:TOKEN,KITE_DATA_API_KEY:API_KEY},
+  data:{fetchImpl:async()=>new Response(JSON.stringify(outOfScope),{status:200})}});
+ eq(r.status,200,'bounded mixed-scope provider page remains processable');
+ const scoped=await r.json();
+ eq(scoped.records.length,1,'only exact requested city, period, class and price retained');
+ eq(scoped.records[0].id,'opaque-quarterly-1','legitimate scoped observation preserved');
+ eq(scoped.rejectedRecords,5,'all out-of-scope and future observations counted');
  const noAttribution=structuredClone(source);delete noAttribution.attribution;
  r=await m.onRequestGet({request:request(),env:{STARTAK_PERSONAL_SOURCE_TOKEN:TOKEN,KITE_DATA_API_KEY:API_KEY},
   data:{fetchImpl:async()=>new Response(JSON.stringify(noAttribution),{status:200})}});
