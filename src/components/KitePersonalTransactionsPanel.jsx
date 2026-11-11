@@ -19,11 +19,12 @@ export default function KitePersonalTransactionsPanel({locale='ar-SA',onResearch
  const [city,setCity]=useState('riyadh'),[landUse,setLandUse]=useState('');
  const [from,setFrom]=useState(''),[to,setTo]=useState(''),[minSqm,setMinSqm]=useState('100');
  const [items,setItems]=useState([]),[attribution,setAttribution]=useState(null);
+ const [rejectedRecords,setRejectedRecords]=useState(0);
  const [nextCursor,setNextCursor]=useState(null),[busy,setBusy]=useState(false);
  const [error,setError]=useState(null),[lastStatus,setLastStatus]=useState('NOT_CONNECTED');
  const requestId=useRef(0),abort=useRef(null);
  const invalidate=()=>{requestId.current++;abort.current?.abort();setBusy(false);setItems([]);
-  setNextCursor(null);setAttribution(null);setError(null);setLastStatus('NOT_CONNECTED');};
+  setNextCursor(null);setAttribution(null);setRejectedRecords(0);setError(null);setLastStatus('NOT_CONNECTED');};
  const update=(setter)=>(e)=>{invalidate();setter(e.target.value)};
  async function search(cursor=null){
   if(busy)return;
@@ -49,6 +50,9 @@ export default function KitePersonalTransactionsPanel({locale='ar-SA',onResearch
    // certified market valuation overwrite, even when a page is imported.
    const next=cursor?[...items,...study.rows]:study.rows;
    setItems(next);setAttribution(study.attribution);
+   const rejected=Number.isSafeInteger(payload.rejectedRecords)&&payload.rejectedRecords>=0
+     ?payload.rejectedRecords:0;
+   setRejectedRecords(cursor?rejectedRecords+rejected:rejected);
    setLastStatus('LIVE_OPEN_DATA_RESEARCH_NOT_VERIFIED');
    setNextCursor(payload.nextCursor||null);
    onResearchRows?.(study.rows);
@@ -104,6 +108,10 @@ export default function KitePersonalTransactionsPanel({locale='ar-SA',onResearch
       ?tr('وصلت استجابة حية، ولكن الصفقات غير مؤهلة تلقائيًا للمقارنة أو القرار.','Live response received; sale rows are not automatically qualified comparables.')
       :tr('لم يثبت اتصال المزود بعد؛ يلزم إعداد المفاتيح على الخادم.','Source connection not confirmed; server-side keys required.')}
   </p>
+  {rejectedRecords>0&&<p role="status" data-testid="kite-rejected-records" className="mt-2 text-xs text-amber-200">
+    {tr('استُبعدت سجلات لا تتطابق مع نطاق البحث أو تفتقد بيانات مصدر لازمة: ',
+      'Excluded records outside the selected scope or lacking required source evidence: ')}{rejectedRecords}
+  </p>}
   {items.length>0&&<div data-testid="kite-results" className="mt-3 max-w-full overflow-x-auto">
    <p className="mb-2 text-xs">{tr('صفوف بحثية: ','Research rows: ')}{items.length}</p>
    <table className="min-w-[720px] w-full text-xs"><thead><tr className="border-b border-slate-600">
