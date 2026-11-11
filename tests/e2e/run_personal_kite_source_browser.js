@@ -24,7 +24,7 @@ const {expect}=require('@playwright/test');
       priceSar:1500000,areaSqm:500,pricePerSqmSar:3000,propertyCount:1,
       dayKnown:false,professionalAppraisal:false}],
      attribution:{source:'MOJ open data',license:'ODC Attribution'},
-     nextCursor:null,caveats:['MONTH_ONLY_NOT_EXACT_TRANSACTION_DAY'],
+     nextCursor:null,rejectedRecords:2,caveats:['MONTH_ONLY_NOT_EXACT_TRANSACTION_DAY'],
      independentEvidenceVerified:false,professionalValuationAuthorized:false,
     })});
    });
@@ -39,6 +39,7 @@ const {expect}=require('@playwright/test');
    await page.getByTestId('kite-search').click();
    await expect(page.getByTestId('kite-status')).toHaveAttribute('data-status','LIVE_OPEN_DATA_RESEARCH_NOT_VERIFIED');checks++;
    await expect(page.getByTestId('kite-results')).toContainText('الملقا');checks++;
+   await expect(page.getByTestId('kite-rejected-records')).toContainText('2');checks++;
    await expect(page.getByTestId('kite-attribution')).toBeVisible();checks++;
    // Open-government-data licence must be visible, not just screen-reader JSON.
    await expect(page.getByTestId('kite-attribution-visible')).toBeVisible();checks++;
