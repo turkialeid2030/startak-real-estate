@@ -21,7 +21,10 @@ const int=v=>Number.isSafeInteger(v)&&v>=1?v:null;
 function parseRequest(url){
  const u=new URL(url);
  const known=new Set(['city','land_use','month_from','month_to','price_per_sqm_min','cursor']);
- if([...u.searchParams.keys()].some(k=>!known.has(k)))return {error:'QUERY_PARAMETER_NOT_ALLOWED'};
+ const queryKeys=[...u.searchParams.keys()];
+ if(queryKeys.some(k=>!known.has(k)))return {error:'QUERY_PARAMETER_NOT_ALLOWED'};
+ // Duplicated query keys are ambiguous between clients, proxies and providers.
+ if(new Set(queryKeys).size!==queryKeys.length)return {error:'QUERY_PARAMETER_DUPLICATED'};
  const city=(u.searchParams.get('city')||'').trim().toLowerCase();
  if(!/^[a-z_]{2,40}$/.test(city))return {error:'CITY_SLUG_INVALID'};
  const use=u.searchParams.get('land_use')||'';
@@ -44,7 +47,8 @@ function parseRequest(url){
  if(mt)upstream.searchParams.set('month_to',mt);
  if(rawPrice)upstream.searchParams.set('price_per_sqm_min',rawPrice);
  if(cursor)upstream.searchParams.set('cursor',cursor);
- return {city,upstream:upstream.toString()};
+ return {city,landUse:use,monthFrom:mf,monthTo:mt,
+  minPricePerSqm:rawPrice?Number(rawPrice):null,upstream:upstream.toString()};
 }
 async function isAuthorized(request,expected){
  if(typeof expected!=='string'||expected.length<32)return false;
@@ -60,9 +64,19 @@ async function isAuthorized(request,expected){
  for(let i=0;i<left.length;i++)different|=left[i]^right[i];
  return different===0;
 }
-function normalizeRow(x){
+function normalizeRow(x,scope){
  if(!x||typeof x!=='object'||Array.isArray(x))return null;
  const month=safeString(x.month,7);
+ // Fail closed if the data provider returns another city, land use, date range,
+ // or below-threshold price. Provider-side filtering alone is not verification.
+ const sourceCity=safeString(x.city,80)?.trim().toLowerCase();
+ if(!sourceCity||sourceCity!==scope.city||!month||month>scope.nowMonth||
+    (scope.monthFrom&&month<scope.monthFrom)||
+    (scope.monthTo&&month>scope.monthTo)||
+    (scope.landUse&&x.land_use!==scope.landUse))return null;
+ if(scope.minPricePerSqm!==null&&
+    (positive(x.price_per_sqm_sar)===null||
+     x.price_per_sqm_sar<scope.minPricePerSqm))return null;
  if(!/^20\d{2}-(0[1-9]|1[0-2])$/.test(month||''))return null;
  const price=positive(x.price_sar);if(price===null)return null;
  // Provider contract requires a stable opaque id and an explicit land-use class.
@@ -132,7 +146,8 @@ export async function onRequestGet(context){
   return denied('KITE_SCHEMA_OR_ATTRIBUTION_INVALID',502);
  const originalAttribution=JSON.stringify(source.attribution);
  if(originalAttribution.length>10000)return denied('KITE_ATTRIBUTION_TOO_LARGE',502);
- const records=source.data.slice(0,25).map(normalizeRow).filter(Boolean);
+ const scope={...parsed,nowMonth:new Date().toISOString().slice(0,7)};
+ const records=source.data.slice(0,25).map(x=>normalizeRow(x,scope)).filter(Boolean);
  const pagination=source.pagination||{};
  const next=safeString(pagination.next_cursor||pagination.nextCursor,500);
  return json({
