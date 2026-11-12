@@ -5,6 +5,7 @@ on:
       - 'src/components/ValuationIntelligencePanel.jsx'
       - 'src/components/DataFreshnessPanel.jsx'
       - 'tests/e2e/fixtures/startak-re-freshness.*'
+      - 'tests/e2e/fixtures/vite-freshness.config.mjs'
       - 'tests/e2e/run_startak_re_freshness_visible_browser.js'
       - '.github/workflows/startak-re-freshness-ui-verify.yml'
   workflow_dispatch:
@@ -27,18 +28,21 @@ jobs:
       - run: npm ci
       - name: Ensure Chromium available
         run: npx playwright install --with-deps chromium
-      - name: Launch isolated unbundled Vite HTML harness (no production data)
+      - name: Bundle synthetic HTML with the production CJS transform
+        run: npx vite build --config tests/e2e/fixtures/vite-freshness.config.mjs
+      - name: Serve built isolated HTML harness (no production data)
         run: |
-          nohup npm run dev:unbundled-diagnostic -- --host 127.0.0.1 --port 4175 --strictPort > /tmp/startak-freshness-dev.log 2>&1 &
-          echo $! > /tmp/startak-freshness-dev.pid
+          nohup npx vite preview --outDir dist-freshness-harness --host 127.0.0.1 --port 4175 --strictPort > /tmp/startak-freshness-preview.log 2>&1 &
+          echo $! > /tmp/startak-freshness-preview.pid
           for i in $(seq 1 80); do
-            if curl --fail --silent http://127.0.0.1:4175/tests/e2e/fixtures/startak-re-freshness.html > /dev/null; then
-              echo "VITE_FRESHNESS_HARNESS=READY"
+            if curl --fail --silent http://127.0.0.1:4175/tests/e2e/fixtures/startak-re-freshness.html | grep -Fq "Source Freshness Regression"; then
+              echo "VITE_FRESHNESS_BUNDLED_HARNESS=READY"
               exit 0
             fi
             sleep 1
           done
-          cat /tmp/startak-freshness-dev.log
+          find dist-freshness-harness -maxdepth 5 -type f | head -60
+          cat /tmp/startak-freshness-preview.log
           exit 1
       - name: Chromium Arabic/English mobile/desktop actual rendered component
         run: node tests/e2e/run_startak_re_freshness_visible_browser.js
