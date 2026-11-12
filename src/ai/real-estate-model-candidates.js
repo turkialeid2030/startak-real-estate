@@ -1,6 +1,6 @@
 'use strict';
 // STARTAK REAL ESTATE ONLY. Research candidates, not a live-provider router.
-const POLICY_VERSION = 'STARTAK_RE_AI_CANDIDATES_20261112_V1';
+const POLICY_VERSION = 'STARTAK_RE_AI_CANDIDATES_20261112_V2';
 const PROVIDER = Object.freeze({OPENAI:'OPENAI',ANTHROPIC:'ANTHROPIC',GOOGLE:'GOOGLE'});
 const TASK = Object.freeze({
   FINANCIAL_CHALLENGE:'FINANCIAL_CHALLENGE',
@@ -18,8 +18,11 @@ const source = Object.freeze({
   ANTHROPIC:'https://platform.claude.com/docs/en/models/overview',
   GOOGLE:'https://ai.google.dev/gemini-api/docs/models'
 });
-const entry=(id,provider,tasks,sourceUrl,preview=false)=>Object.freeze({
+const entry=(id,provider,tasks,sourceUrl,preview=false,restrictions={})=>Object.freeze({
  id,provider,tasks:Object.freeze(tasks),sourceUrl,preview,
+ zeroDataRetentionNotAvailableByDefault:restrictions.zeroDataRetentionNotAvailableByDefault===true,
+ minimumDocumentedRetentionDays:restrictions.minimumDocumentedRetentionDays??null,
+ documentedModelReleaseDate:restrictions.documentedModelReleaseDate??null,
  modelExistenceVerifiedInPublicDocs:true,
  customerAccountAvailabilityVerified:false,
  saudiInferenceResidencyVerified:false,
@@ -32,6 +35,8 @@ const CANDIDATES=Object.freeze([
  entry('gpt-6-astra',PROVIDER.OPENAI,[TASK.FINANCIAL_CHALLENGE,TASK.EVIDENCE_AND_DOCUMENT_REVIEW],source.OPENAI),
  entry('gpt-6.1-sol',PROVIDER.OPENAI,[TASK.FINANCIAL_CHALLENGE,TASK.SOURCE_SUMMARIZATION],source.OPENAI),
  entry('gpt-6.1-terra',PROVIDER.OPENAI,[TASK.EVIDENCE_AND_DOCUMENT_REVIEW,TASK.SOURCE_SUMMARIZATION],source.OPENAI),
+ entry('gpt-6-luna',PROVIDER.OPENAI,[TASK.BOUNDED_HIGH_VOLUME_CLASSIFICATION,TASK.SOURCE_SUMMARIZATION],source.OPENAI),
+ entry('claude-fable-5-2',PROVIDER.ANTHROPIC,[TASK.FINANCIAL_CHALLENGE,TASK.EVIDENCE_AND_DOCUMENT_REVIEW],source.ANTHROPIC,false,{zeroDataRetentionNotAvailableByDefault:true,minimumDocumentedRetentionDays:30,documentedModelReleaseDate:'2026-11-09'}),
  entry('claude-opus-5-5',PROVIDER.ANTHROPIC,[TASK.FINANCIAL_CHALLENGE,TASK.EVIDENCE_AND_DOCUMENT_REVIEW],source.ANTHROPIC),
  entry('claude-sonnet-5-5',PROVIDER.ANTHROPIC,[TASK.EVIDENCE_AND_DOCUMENT_REVIEW,TASK.SOURCE_SUMMARIZATION],source.ANTHROPIC),
  entry('claude-haiku-5-5',PROVIDER.ANTHROPIC,[TASK.BOUNDED_HIGH_VOLUME_CLASSIFICATION],source.ANTHROPIC),
@@ -44,7 +49,8 @@ function listResearchCandidates(task){
 }
 function assessActivation({modelId,task,dataClass,verifiedRights=false,
  independentEvaluatorApproved=false,contractualNoTraining=false,
- regionEvidenceVerified=false,piiDlpApproved=false,ownerApproved=false}={}){
+ regionEvidenceVerified=false,piiDlpApproved=false,ownerApproved=false,
+ vendorRetentionExceptionVerified=false}={}){
  const candidate=CANDIDATES.find(m=>m.id===modelId);
  const blockers=[];
  if(!candidate)blockers.push('MODEL_ID_NOT_IN_VERIFIED_CANDIDATE_CATALOG');
@@ -58,6 +64,8 @@ function assessActivation({modelId,task,dataClass,verifiedRights=false,
  if(!piiDlpApproved)blockers.push('DLP_AND_PRIVACY_NOT_APPROVED');
  if(!ownerApproved)blockers.push('OWNER_APPROVAL_NOT_VERIFIED');
  if(candidate?.preview)blockers.push('PREVIEW_MODEL_NOT_STABLE_FOR_PRODUCTION');
+ if(candidate?.zeroDataRetentionNotAvailableByDefault && !vendorRetentionExceptionVerified)
+  blockers.push('ZERO_DATA_RETENTION_UNAVAILABLE_WITHOUT_VENDOR_EXCEPTION');
  // No production invocation path is activated by this advisory-only catalog.
  blockers.push('PRODUCTION_PROVIDER_ACTIVATION_OUTSIDE_CATALOG_SCOPE');
  return Object.freeze({
