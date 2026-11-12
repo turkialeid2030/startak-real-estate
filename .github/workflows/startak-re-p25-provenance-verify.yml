@@ -1,0 +1,43 @@
+name: STARTAK RE P25 Provenance Standalone
+on:
+  pull_request:
+    paths:
+      - 'src/assumptions/critical-assumption-override-governance.js'
+      - 'tests/defects/startak_re_p25_provenance_standalone_20261112.js'
+      - '.github/workflows/startak-re-p25-provenance-verify.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Independent P25 evidence contract
+        run: node tests/defects/startak_re_p25_provenance_standalone_20261112.js
+      - name: P27 current model independent four-case economics (unchanged)
+        run: node tests/defects/current_model_reference_corpus_p27_v2.js
+      - name: Preserve canonical engine and UI from unreviewed override transport
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs');
+          for(const path of ['src/app/App.jsx','src/engines/index.js','src/main.jsx']){
+            const source=fs.readFileSync(path,'utf8');
+            if(source.includes("require('../assumptions/critical-assumption-override-governance')")
+              ||source.includes("require('./critical-assumption-override-governance')")){
+              throw Error('P25_ECONOMIC_OVERRIDE_PATH_NOT_REQUALIFIED:'+path);
+            }
+          }
+          console.log('P25_LIVE_ENGINE_TRANSPORT_NOT_AUTOMATICALLY_ENABLED=PASS');
+          NODE
+      - name: Canonical Release Verify
+        run: npm run release:verify
