@@ -81,10 +81,12 @@ async function seedAndLoad(page,record){
    page.on('pageerror',e=>errors.push(String(e)));
    for(const {name,days,status,warning} of [
     {name:'fresh',days:-1,status:'CURRENT',warning:'حديث'},
+    {name:'aging',days:-45,status:'AGING',warning:'متقادم نسبيًا'},
     {name:'stale',days:-400,status:'STALE',warning:'تحديث المصدر'},
     {name:'future',days:60,status:'UNKNOWN',warning:'مستقبلي'},
+    {name:'missing',days:null,status:'UNKNOWN',warning:'غير صالح'},
    ]){
-    const record=fixture(isoDays(days));
+    const record=fixture(days === null ? null : isoDays(days));
     await seedAndLoad(page,record);
     const panel=page.getByTestId('valuation-data-freshness');
     try{
