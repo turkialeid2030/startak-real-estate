@@ -1,0 +1,48 @@
+name: STARTAK RE Legacy Freshness and Governed Report Safety
+on:
+  pull_request:
+    paths:
+      - 'src/decision-governance/**'
+      - 'src/components/DataFreshnessPanel.jsx'
+      - 'src/components/GuidedDecisionStatusPanel.jsx'
+      - 'src/components/GovernedReportExportPanel.jsx'
+      - 'tests/defects/startak_re_governed_report_freshness_20261112.js'
+      - '.github/workflows/startak-re-governed-report-freshness-verify.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Verify exact checked-out SHA
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Fresh, stale, missing and future source boundaries
+        run: node tests/defects/startak_re_governed_report_freshness_20261112.js
+      - name: Block unreviewed reactivation in live UI
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs');
+          for(const f of ['src/main.jsx','src/app/App.jsx']){
+            const s=fs.readFileSync(f,'utf8');
+            for(const name of ['DataFreshnessPanel','GuidedDecisionStatusPanel','GovernedReportExportPanel']){
+              if(s.includes(name))throw Error('UNQUALIFIED_HISTORIC_REPORT_CONTROL_EXPOSED:'+f+':'+name);
+            }
+          }
+          console.log('STARTAK_RE_REPORT_UI_REACTIVATION_HOLD=PASS');
+          NODE
+      - name: Canonical full regression, build and dependency audit
+        run: npm run release:verify
