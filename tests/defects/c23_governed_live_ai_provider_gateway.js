@@ -104,6 +104,30 @@ function fixture() {
   assert(grounded.draft.includes('72%'));
   assert.strictEqual(grounded.deterministicDecisionState,'HOLD');
 
+  // C48: adding personal data to the *request's retrieval inventory* must
+  // prevent provider invocation even if the grounding manifest cites only
+  // internally classified business information and the profile lists personal.
+  const pp=profile({profileId:'PROFILE-C23-PERSONAL',
+    allowedDataClasses:[DATA_CLASS.PUBLIC,DATA_CLASS.INTERNAL_BUSINESS,DATA_CLASS.PERSONAL_DATA]});
+  const pr=request(pp,{requestId:'REQ-C23-PERSONAL',
+    retrievalItems:[...f.request.retrievalItems,{
+      evidenceId:'PERSONAL-TENANT-RECORD',evidenceHashSha256:HA,
+      sourceReference:'PRIVATE-SOURCE-NOT_FOR_EXTERNAL_TRANSFER',
+      dataClass:DATA_CLASS.PERSONAL_DATA,
+      knownAt:'2026-10-01T08:00:00Z',validUntil:'2026-10-03T12:00:00Z',
+      untrustedContent:false,instructionLikeContentDetected:false
+    }]
+  });
+  const pm=manifest(pr,{manifestId:'GROUND-C23-PERSONAL'});
+  const pi=invocation(pp,pr,pm,f.providerAuthorization,{invocationId:'INV-C23-PERSONAL'});
+  const personalReadiness=evaluateProviderReadiness({
+    modelProfile:pp,request:pr,groundingManifest:pm,
+    providerAuthorization:f.providerAuthorization,invocation:pi,asOf:AS_OF
+  });
+  assert.strictEqual(personalReadiness.providerInvocationReady,false);
+  assert.strictEqual(personalReadiness.status,STATUS.HOLD_SECURITY);
+  assert(personalReadiness.blockers.includes('C23_PRIVACY_PERSONAL_DATA_EXTERNAL_TRANSFER_NOT_AUTHORIZED'));
+
   const unsupportedAmount=response(f.invocation,{responseId:'RESP-BAD-AMOUNT',claims:[{claimId:'BAD',text:'The price is 9999.',groundingItemIds:['ASKING-METRIC'],assertedLiterals:['9999']}]});
   const badAmount=validateProofGroundedProviderResponse({...f,providerResponse:unsupportedAmount});
   assert.strictEqual(badAmount.status,STATUS.HOLD_UNSUPPORTED_OUTPUT);
