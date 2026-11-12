@@ -105,7 +105,7 @@ async function seedAndLoad(page,record){
       'legacy governed export not authorized in modern UI');checks++;
     assert.deepEqual(errors,[],name+' must not crash current App');checks++;
     if(name==='future'){
-     await page.getByRole('button',{name:'الإنجليزية',exact:true}).click();
+     await page.getByTitle('Switch to English',{exact:true}).click();
      await expect(panel).toContainText('Evidence Source Freshness');checks++;
      await expect(panel).toContainText('invalid or future date');checks++;
     }
