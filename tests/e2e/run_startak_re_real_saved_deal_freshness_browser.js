@@ -106,7 +106,8 @@ async function seedAndLoad(page,record){
     assert.equal((await page.getByTestId('governed-report-export').count()),0,
       'legacy governed export not authorized in modern UI');checks++;
     assert.deepEqual(errors,[],name+' must not crash current App');checks++;
-    if(name==='future'){
+    // Change locale only after the final saved-deal reload in this viewport.
+    if(name==='missing'){
      // The actual owner workflow may return to simple mode after a saved
      // case is loaded; the language control is only displayed in advanced.
      const switcher=page.getByTestId('locale-switch');
