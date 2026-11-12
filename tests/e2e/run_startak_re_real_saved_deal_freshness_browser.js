@@ -107,7 +107,18 @@ async function seedAndLoad(page,record){
       'legacy governed export not authorized in modern UI');checks++;
     assert.deepEqual(errors,[],name+' must not crash current App');checks++;
     if(name==='future'){
-     await page.getByTitle('Switch to English',{exact:true}).click();
+     // The actual owner workflow may return to simple mode after a saved
+     // case is loaded; the language control is only displayed in advanced.
+     const switcher=page.getByTestId('locale-switch');
+     if(!(await switcher.isVisible())){
+       const advanced=page.getByTestId('owner-advanced-mode');
+       await expect(advanced).toBeVisible({timeout:12000});
+       await advanced.click();
+     }
+     await expect(switcher).toBeVisible({timeout:12000});
+     if((await page.locator('html').getAttribute('lang'))!=='en'){
+       await switcher.click();
+     }
      await expect(panel).toContainText('Evidence Source Freshness');checks++;
      await expect(panel).toContainText('invalid or future date');checks++;
     }
