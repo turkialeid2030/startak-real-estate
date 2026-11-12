@@ -20,7 +20,15 @@ assert(!src.includes('<GovernedReportExportPanel')); // export must remain unaut
      'http://127.0.0.1:4175/tests/e2e/fixtures/startak-re-freshness.html',
      {waitUntil:'networkidle'});
    const panel=page.getByTestId('valuation-data-freshness');
-   await expect(panel).toBeVisible({timeout:25000});checks++;
+   try { await expect(panel).toBeVisible({timeout:15000}); } catch(e) {
+     const body=(await page.locator('body').innerText().catch(()=>'' )).slice(0,4500);
+     const documentHtml=(await page.content()).slice(0,5000);
+     console.error('FRESHNESS_HARNESS_DIAGNOSTIC',JSON.stringify({
+       url:page.url(),width,errors,body,documentHtml,
+     }));
+     throw e;
+   }
+   checks++;
    await expect(panel).toHaveAttribute('data-freshness-status','CURRENT');checks++;
    await expect(panel).toContainText('حداثة مصادر الأدلة');checks++;
    await expect(panel).toContainText('حديث');checks++;
