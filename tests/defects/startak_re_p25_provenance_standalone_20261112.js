@@ -36,7 +36,8 @@ const testFail=(record,expectedCode)=>{
  const x=govern({assumptionModelVersion:'V2',assumptionRegistry:[record],asOf});
  assert.equal(x.decisionReady,false,expectedCode);
  assert(x.blockers.includes(expectedCode),JSON.stringify(x.blockers));
- assert.equal(x.resolvedOverrides.maintenanceRate,0.085);
+ if(typeof record.value==='number'&&Number.isFinite(record.value)) assert.equal(x.resolvedOverrides.maintenanceRate,0.085);
+ else assert.equal(x.resolvedOverrides.maintenanceRate,undefined);
  return x;
 };
 testFail({...good,sourceDate:'2026-11-25T00:00:00Z'},'CRITICAL_OVERRIDE_SOURCE_DATE_IN_FUTURE:maintenanceRate');
