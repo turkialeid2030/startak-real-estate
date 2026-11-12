@@ -1,0 +1,47 @@
+name: STARTAK RE C4 C5 C6 Source-Bound Human Review
+on:
+  pull_request:
+    paths:
+      - 'src/contracts/governed-deal-decision.js'
+      - 'src/contracts/governed-human-review.js'
+      - 'src/contracts/valuation-reconciliation.js'
+      - 'src/app/governed-decision-operational.js'
+      - 'src/decision-intelligence/governed-deal-decision.js'
+      - 'src/decision-intelligence/governed-human-review.js'
+      - 'tests/defects/startak_re_c4_c6_standalone_review_20261112.js'
+      - 'tests/fixtures/c6-governed-saved-deal.js'
+      - '.github/workflows/startak-re-c4-c6-human-review-verify.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact source SHA
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: C4/C5/C6 isolated decision review and tamper regression
+        run: node tests/defects/startak_re_c4_c6_standalone_review_20261112.js
+      - name: Ensure no live review or export routes accidentally enabled
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs');
+          for(const p of ['src/app/App.jsx','src/main.jsx','src/app/valuation-saved-deal-bridge.js']){
+            const s=fs.readFileSync(p,'utf8');
+            for(const f of ['governed-human-review','governed-deal-decision','governed-decision-operational']){
+              if(s.includes(f)) throw Error('LEGACY_REVIEW_NOT_AUTHORIZED_IN_MODERN_UI:'+p+':'+f);
+            }
+          }
+          console.log('STARTAK_RE_C4_C6_UI_AUTHORITY_HOLD=PASS');
+          NODE
+      - name: Canonical release verification
+        run: npm run release:verify
