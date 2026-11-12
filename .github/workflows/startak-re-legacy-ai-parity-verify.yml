@@ -10,6 +10,9 @@ on:
       - 'tests/defects/c23_governed_live_ai_provider_gateway.js'
       - 'tests/defects/c24_integrated_case_property_orchestration.js'
       - 'tests/defects/c26_governed_operator_workspace_rbac.js'
+      - 'src/components/IntegratedCaseReviewPanel.jsx'
+      - 'src/presentation/integrated-case-review.js'
+      - 'tests/defects/c26_integrated_case_review_ui.js'
       - 'tests/defects/c29_governed_shadow_simulation_uat_harness.js'
       - 'tests/defects/startak_re_ai_model_candidates_20261112.js'
       - 'docs/recovery/**'
@@ -44,6 +47,7 @@ jobs:
         run: |
           node tests/defects/c24_integrated_case_property_orchestration.js
           node tests/defects/c26_governed_operator_workspace_rbac.js
+          node tests/defects/c26_integrated_case_review_ui.js
           node tests/defects/c29_governed_shadow_simulation_uat_harness.js
       - name: AI candidates deny activation until proof
         run: node tests/defects/startak_re_ai_model_candidates_20261112.js
