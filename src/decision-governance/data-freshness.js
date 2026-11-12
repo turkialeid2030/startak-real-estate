@@ -12,7 +12,10 @@ function ageInDays(sourceDate, asOf) {
   const source = parseDate(sourceDate);
   const now = parseDate(asOf);
   if (!source || !now) return null;
-  return Math.max(0, Math.floor((now - source) / 86400000));
+  // A future-dated source cannot be treated as zero-days-old/current evidence.
+  // Refuse temporal inconsistencies rather than silently clamping negatives.
+  if (source.getTime() > now.getTime()) return null;
+  return Math.floor((now - source) / 86400000);
 }
 
 function evaluateDataFreshness(source = {}, { asOf = new Date().toISOString(), agingAfterDays = 30, staleAfterDays = 90 } = {}) {
@@ -35,7 +38,10 @@ function evaluateDataFreshness(source = {}, { asOf = new Date().toISOString(), a
     sourceReference: source.sourceUrl || source.reference || null,
     manualOrAutomated: source.manualOrAutomated || null,
     verifiedBy: source.verifiedBy || null,
-    materialMarketIndicatorAllowed: Boolean(source.sourceName && source.sourceDate && freshnessStatus !== FRESHNESS_STATUS.UNKNOWN),
+    // Historical age is informative, but a stale/unknown indicator cannot
+    // underpin a CURRENT market-value/rent claim or governed report export.
+    materialMarketIndicatorAllowed: Boolean(source.sourceName && source.sourceDate &&
+      (freshnessStatus === FRESHNESS_STATUS.CURRENT || freshnessStatus === FRESHNESS_STATUS.AGING)),
   });
 }
 
