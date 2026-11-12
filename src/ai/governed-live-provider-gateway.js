@@ -314,6 +314,14 @@ function baseBlockers({ modelProfile, request, groundingManifest, providerAuthor
     if (Date.parse(item.validUntil) < Date.parse(asOf)) blockers.push(`C23_WINDOW_GROUNDING_STALE:${item.itemId}`);
     if (!modelProfile.allowedDataClasses.includes(item.dataClass)) blockers.push(`C23_SECURITY_DATA_CLASS_NOT_ALLOWED:${item.itemId}`);
   }
+  // C48: do not mistake an internally signed no-training packet for lawful
+  // authorization to transfer personal/deed/tenant evidence to an external
+  // AI model. Check the complete C22 retrieval envelope, not merely selected
+  // grounding items, so ungrounded personal source material also fails closed.
+  if (request.retrievalItems.some(item => item.dataClass === DATA_CLASS.PERSONAL_DATA)
+      || groundingManifest.items.some(item => item.dataClass === DATA_CLASS.PERSONAL_DATA)) {
+    blockers.push('C23_PRIVACY_PERSONAL_DATA_EXTERNAL_TRANSFER_NOT_AUTHORIZED');
+  }
   if (providerAuthorization.environment !== ENVIRONMENT.ISOLATED_NON_PRODUCTION) blockers.push('C23_PROVIDER_ENVIRONMENT_NOT_ALLOWED');
   if (providerAuthorization.trainingUseCustomerData !== false) blockers.push('C23_SECURITY_CUSTOMER_DATA_TRAINING');
   if (providerAuthorization.productionDeploymentAuthorized !== false || providerAuthorization.publicAiAuthorized !== false || providerAuthorization.transactionAuthorized !== false || providerAuthorization.approvalAuthorized !== false) blockers.push('C23_SECURITY_AUTHORITY_INJECTION');
@@ -324,7 +332,7 @@ function classify(blockers) {
   if (blockers.some((b) => b.startsWith('C23_INTEGRITY_'))) return STATUS.HOLD_INTEGRITY;
   if (blockers.some((b) => b.startsWith('C23_CONTEXT_'))) return STATUS.HOLD_CONTEXT;
   if (blockers.some((b) => b.startsWith('C23_WINDOW_'))) return STATUS.HOLD_WINDOW;
-  if (blockers.some((b) => b.startsWith('C23_SECURITY_'))) return STATUS.HOLD_SECURITY;
+  if (blockers.some((b) => b.startsWith('C23_SECURITY_') || b.startsWith('C23_PRIVACY_'))) return STATUS.HOLD_SECURITY;
   if (blockers.some((b) => b.startsWith('C23_PROVIDER_'))) return STATUS.HOLD_PROVIDER;
   if (blockers.some((b) => b.startsWith('C23_UNSUPPORTED_'))) return STATUS.HOLD_UNSUPPORTED_OUTPUT;
   return STATUS.HOLD_EVIDENCE;
