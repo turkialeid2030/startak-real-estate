@@ -27,7 +27,8 @@ const COPY = Object.freeze({
     stale: 'قديم',
     unknown: 'غير معروف',
     allDated: 'جميع مصادر الأدلة الحالية تحمل تاريخ مصدر صالحًا.',
-    missingDates: 'يوجد دليل واحد أو أكثر بدون تاريخ مصدر صالح؛ لا يُعامل كمؤشر سوق مادي موثق.',
+    missingDates: 'يوجد مصدر بتاريخ غير صالح أو مستقبلي؛ لا يُعامل كمؤشر سوق حديث أو موثق.',
+    staleDates: 'يوجد دليل قديم يتطلب تحديث المصدر قبل استخدامه في تقرير سوقي محكوم.',
   }),
   en: Object.freeze({
     title: 'Evidence Source Freshness',
@@ -41,7 +42,8 @@ const COPY = Object.freeze({
     stale: 'Stale',
     unknown: 'Unknown',
     allDated: 'All current evidence sources carry a valid source date.',
-    missingDates: 'One or more evidence items lack a valid source date and are not treated as documented material market indicators.',
+    missingDates: 'A source has an invalid or future date and is not treated as current verified market evidence.',
+    staleDates: 'At least one stale source needs renewal before use in a governed market report.',
   }),
 });
 
@@ -66,6 +68,7 @@ export default function DataFreshnessPanel({ locale = 'ar-SA', valuationCase = n
   return (
     <section
       data-testid="valuation-data-freshness"
+      data-freshness-status={summary.status}
       className="rounded-2xl mt-4 p-4 md:p-5"
       style={{ background: COLORS.panelRaised, border: `1px solid ${COLORS.hairline}` }}
     >
@@ -100,7 +103,7 @@ export default function DataFreshnessPanel({ locale = 'ar-SA', valuationCase = n
             ))}
           </div>
           <div className="text-[10px] mt-3 leading-relaxed" style={{ color: summary.allMaterialSourcesDated ? COLORS.positive : COLORS.caution }}>
-            {summary.allMaterialSourcesDated ? copy.allDated : copy.missingDates}
+            {summary.allMaterialSourcesDated ? copy.allDated : summary.status === 'STALE' ? copy.staleDates : copy.missingDates}
           </div>
         </>
       )}
