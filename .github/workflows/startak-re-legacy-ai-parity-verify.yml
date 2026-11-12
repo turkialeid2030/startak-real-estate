@@ -1,0 +1,72 @@
+name: STARTAK RE Legacy AI and Operator Parity Verify
+on:
+  pull_request:
+    paths:
+      - 'src/ai/**'
+      - 'src/orchestration/governed-case-property-orchestrator.js'
+      - 'src/operator/governed-operator-workspace.js'
+      - 'src/simulation/governed-shadow-simulation.js'
+      - 'tests/defects/c22_governed_generative_intelligence.js'
+      - 'tests/defects/c23_governed_live_ai_provider_gateway.js'
+      - 'tests/defects/c24_integrated_case_property_orchestration.js'
+      - 'tests/defects/c26_governed_operator_workspace_rbac.js'
+      - 'tests/defects/c29_governed_shadow_simulation_uat_harness.js'
+      - 'tests/defects/startak_re_ai_model_candidates_20261112.js'
+      - 'docs/recovery/**'
+      - '.github/workflows/startak-re-legacy-ai-parity-verify.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  parity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact feature HEAD
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Assert exact HEAD SHA
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Verify original C22 C23 AI grounding controls
+        run: |
+          node tests/defects/c22_governed_generative_intelligence.js
+          node tests/defects/c23_governed_live_ai_provider_gateway.js
+      - name: Verify original C24 C26 C29 governance controls
+        run: |
+          node tests/defects/c24_integrated_case_property_orchestration.js
+          node tests/defects/c26_governed_operator_workspace_rbac.js
+          node tests/defects/c29_governed_shadow_simulation_uat_harness.js
+      - name: AI candidates deny activation until proof
+        run: node tests/defects/startak_re_ai_model_candidates_20261112.js
+      - name: Ensure none of the restored legacy modules is auto-exposed to public or owner UI
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const files=['src/app/App.jsx','src/main.jsx','functions/api/riai/ai-assist.js'];
+          const markers=[
+            'governed-generative-intelligence',
+            'governed-live-provider-gateway',
+            'proof-grounded-ai-runtime',
+            'governed-case-property-orchestrator',
+            'governed-operator-workspace',
+            'governed-shadow-simulation'
+          ];
+          for(const path of files){
+            const source=fs.readFileSync(path,'utf8');
+            for(const marker of markers){
+              if(source.includes(marker))throw Error('UNREVIEWED_LEGACY_ACTIVATION:'+path+':'+marker);
+            }
+          }
+          console.log('STARTAK_RE_NO_AUTO_PROVIDER_OR_OWNER_ACTIVATION=PASS');
+          NODE
+      - name: Canonical full release tests
+        run: npm run release:verify
