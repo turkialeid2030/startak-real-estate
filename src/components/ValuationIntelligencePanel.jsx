@@ -3,6 +3,7 @@ import ValuationIntelligenceBasePanel from './ValuationIntelligenceBasePanel.jsx
 import PersonalInvestmentResearchPanel from './PersonalInvestmentResearchPanel.jsx';
 import ValuationAdvancedPanel from './ValuationAdvancedPanel.jsx';
 import CriticalEvidenceRequirementsPanel from './CriticalEvidenceRequirementsPanel.jsx';
+import DataFreshnessPanel from './DataFreshnessPanel.jsx';
 import PersonalAssetUniversePanel from './PersonalAssetUniversePanel.jsx';
 import PersonalSaudiSaleCsvPanel from './PersonalSaudiSaleCsvPanel.jsx';
 import PropertyMarketValuationWorkbench from './PropertyMarketValuationWorkbench.jsx';
@@ -43,6 +44,8 @@ export default function ValuationIntelligencePanel(props) {
             editorDraft={valuationEditorDraft?.critical}
             onChangeEditorDraft={draft => onChangeValuationEditorDraft?.('critical', draft)}
           />
+          {/* Read-only provenance/age transparency. No decision or export authority. */}
+          <DataFreshnessPanel locale={locale} valuationCase={valuationCase} />
         </>
       ) : null}
     </>
