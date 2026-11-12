@@ -1,0 +1,46 @@
+name: STARTAK RE Browser Source Freshness UI
+on:
+  pull_request:
+    paths:
+      - 'src/components/ValuationIntelligencePanel.jsx'
+      - 'src/components/DataFreshnessPanel.jsx'
+      - 'tests/e2e/fixtures/startak-re-freshness.*'
+      - 'tests/e2e/run_startak_re_freshness_visible_browser.js'
+      - '.github/workflows/startak-re-freshness-ui-verify.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Ensure Chromium available
+        run: npx playwright install --with-deps chromium
+      - name: Launch isolated Vite test harness (no production data)
+        run: |
+          nohup npm run dev -- --host 127.0.0.1 --port 4175 --strictPort > /tmp/startak-freshness-dev.log 2>&1 &
+          echo $! > /tmp/startak-freshness-dev.pid
+          for i in $(seq 1 80); do
+            if curl --fail --silent http://127.0.0.1:4175/tests/e2e/fixtures/startak-re-freshness.html > /dev/null; then
+              echo "VITE_FRESHNESS_HARNESS=READY"
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/startak-freshness-dev.log
+          exit 1
+      - name: Chromium Arabic/English mobile/desktop actual rendered component
+        run: node tests/e2e/run_startak_re_freshness_visible_browser.js
+      - name: Full release and dependency verification
+        run: npm run release:verify
