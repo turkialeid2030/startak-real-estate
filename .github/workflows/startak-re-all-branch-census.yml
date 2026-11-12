@@ -1,0 +1,33 @@
+name: STARTAK RE All Branch Path Census
+on:
+  pull_request:
+    paths:
+      - 'tools/audit-startak-re-legacy-branch-trees.js'
+      - 'docs/recovery/STARTAK_RE_BRANCH_CENSUS_20261112.json'
+      - '.github/workflows/startak-re-all-branch-census.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  census:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Fetch all retained real-estate branches (trees only, no blobs)
+        run: |
+          git -c protocol.version=2 fetch --no-tags --filter=blob:none --depth=1 origin '+refs/heads/*:refs/remotes/origin/*'
+      - name: Examine branch tree paths (no source execution)
+        run: node tools/audit-startak-re-legacy-branch-trees.js
+      - name: Publish structural parity candidate inventory
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: startak-re-legacy-branch-path-audit
+          path: artifacts/startak-re-legacy-path-parity.json
+          if-no-files-found: error
+          retention-days: 30
