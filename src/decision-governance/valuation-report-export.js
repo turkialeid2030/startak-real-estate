@@ -37,6 +37,15 @@ function evaluateGovernedValuationReportReadiness({ runtime, valuationCase, asOf
   if (freshness.evidenceCount === 0) {
     return Object.freeze({ ready: false, reasonCode: 'VALUATION_EVIDENCE_REQUIRED', freshness });
   }
+  // Source names and dates are not sufficient when a record is stale,
+  // future-dated or unparseable. Future dates otherwise appeared "CURRENT"
+  // in the historic age clamping logic.
+  if (freshness.items.some((item) => item.freshnessStatus === 'STALE')) {
+    return Object.freeze({ ready: false, reasonCode: 'REPORT_STALE_MARKET_SOURCE', freshness });
+  }
+  if (freshness.items.some((item) => item.freshnessStatus === 'UNKNOWN')) {
+    return Object.freeze({ ready: false, reasonCode: 'REPORT_SOURCE_DATE_UNVERIFIED_OR_FUTURE', freshness });
+  }
   if (!freshness.allMaterialSourcesDated) {
     return Object.freeze({ ready: false, reasonCode: 'REPORT_SOURCE_DATE_REQUIRED', freshness });
   }
