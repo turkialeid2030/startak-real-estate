@@ -166,6 +166,14 @@ const {expect}=require('@playwright/test');
    await page.getByTestId('market-evidence-subject-reconfirm').click();
    await expect(page.getByTestId('market-evidence-scope-hold')).toHaveCount(0);checks++;
    await expect(page.getByTestId('market-limited-interest-hold')).toBeVisible();checks++;
+   // An unsupported right must not slip through independent sub-panels or
+   // an alternate market-research HTML/JSON export surface.
+   await expect(page.getByTestId('cohort-unit-mix')).toBeHidden();checks++;
+   await expect(page.getByTestId('professional-comparables')).toBeHidden();checks++;
+   await expect(page.getByTestId('fusion-limited-interest-hold')).toBeVisible();checks++;
+   await expect(page.getByTestId('fusion-export')).toBeDisabled();checks++;
+   await expect(page.getByTestId('fusion-export-html')).toBeDisabled();checks++;
+   await expect(page.getByTestId('fusion-scenario-annex')).toContainText('لا توجد قيمة تصورية مكتملة');checks++;
    await eq(page.getByTestId('market-canonical-capital-indication'),'غير قابل للحساب');
    await eq(page.getByTestId('market-canonical-rent-indication'),'غير قابل للحساب');
    await expect(page.getByTestId('valuation-quality-gates')).toHaveCount(0);checks++;
@@ -184,6 +192,11 @@ const {expect}=require('@playwright/test');
   await expect(page.getByTestId('market-evidence-subject-reconfirm')).toBeVisible();checks++;
   await page.getByTestId('market-evidence-subject-reconfirm').click();
   await expect(page.getByTestId('market-limited-interest-hold')).toHaveCount(0);checks++;
+  await expect(page.getByTestId('cohort-unit-mix')).toBeVisible();checks++;
+  await expect(page.getByTestId('professional-comparables')).toBeVisible();checks++;
+  await expect(page.getByTestId('fusion-limited-interest-hold')).toHaveCount(0);checks++;
+  await expect(page.getByTestId('fusion-export')).toBeEnabled();checks++;
+  await expect(page.getByTestId('fusion-export-html')).toBeEnabled();checks++;
   await eq(page.getByTestId('market-canonical-capital-indication'),money(independentValue)+' ر.س');
   await eq(page.getByTestId('market-canonical-rent-indication'),money(520000)+' ر.س');
   await page.getByTestId('owner-simple-mode').click();
