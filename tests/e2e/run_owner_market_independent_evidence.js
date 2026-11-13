@@ -207,7 +207,7 @@ const {expect}=require('@playwright/test');
   // that editor rather than copy its old manually adjusted unit price.
   await page.getByTestId('owner-advanced-mode').click();
   const professional=page.getByTestId('professional-comparables');
-  await professional.locator('summary').click();
+  await professional.locator('summary').first().click();
   const adjusted=professional.getByLabel('سعر المتر قبل التسوية (ر.س)').first();
   await adjusted.fill('1234');
   await expect(adjusted).toHaveValue('1234');checks++;
