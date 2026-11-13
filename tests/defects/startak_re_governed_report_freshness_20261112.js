@@ -14,6 +14,7 @@ const runtime=Object.freeze({
 });
 const evidence=(date)=>({
  caseId:'SYNTHETIC-CASE-RE',
+ projectId:'SYNTHETIC-ORG',
  evidence:{saleComparable:{
   sourceType:'SYNTHETIC_EXECUTED_SALE_PROVENANCE',
   sourceRef:'SYNTHETIC_SOURCE_NOT_EXTERNAL_AUTHENTICATION',
@@ -44,9 +45,52 @@ assert.throws(()=>buildGovernedValuationReport({runtime,valuationCase:future,gen
  e=>e&&e.code==='REPORT_SOURCE_DATE_UNVERIFIED_OR_FUTURE');
 const noDate=evidence(null);
 assert.equal(evaluateGovernedValuationReportReadiness({runtime,valuationCase:noDate,asOf:at}).ready,false);
-const noEvidence={caseId:'SYNTHETIC-CASE-RE',evidence:{}};
+const noEvidence={caseId:'SYNTHETIC-CASE-RE',projectId:'SYNTHETIC-ORG',evidence:{}};
 assert.equal(evaluateGovernedValuationReportReadiness({runtime,valuationCase:noEvidence,asOf:at}).reasonCode,'VALUATION_EVIDENCE_REQUIRED');
 assert.equal(evaluateGovernedValuationReportReadiness({runtime:null,valuationCase:valid,asOf:at}).reasonCode,'VALUATION_RUNTIME_REQUIRED');
+// Cross-property or cross-tenant reuse of perfectly dated, "VERIFIED" records
+// is still invalid and cannot create an apparently source-backed report.
+const changedCase={...valid,caseId:'ANOTHER-CASE'};
+assert.equal(evaluateGovernedValuationReportReadiness({runtime,valuationCase:changedCase,asOf:at}).reasonCode,
+ 'REPORT_CASE_BINDING_MISMATCH');
+assert.throws(()=>buildGovernedValuationReport({runtime,valuationCase:changedCase,generatedAt:at}),
+ e=>e?.code==='REPORT_CASE_BINDING_MISMATCH');
+const changedProject={...valid,projectId:'ANOTHER-TENANT'};
+assert.equal(evaluateGovernedValuationReportReadiness({runtime,valuationCase:changedProject,asOf:at}).reasonCode,
+ 'REPORT_PROJECT_BINDING_MISMATCH');
+assert.throws(()=>buildGovernedValuationReport({runtime,valuationCase:changedProject,generatedAt:at}),
+ e=>e?.code==='REPORT_PROJECT_BINDING_MISMATCH');
+assert.equal(evaluateGovernedValuationReportReadiness({
+ runtime,valuationCase:{...valid,caseId:''},asOf:at
+}).reasonCode,'REPORT_CASE_BINDING_REQUIRED');
+assert.equal(evaluateGovernedValuationReportReadiness({
+ runtime,valuationCase:{...valid,projectId:undefined},asOf:at
+}).reasonCode,'REPORT_PROJECT_BINDING_REQUIRED');
+const replaceSource=(changes)=>({...valid,evidence:{
+ saleComparable:{...valid.evidence.saleComparable,...changes}
+}});
+assert.equal(evaluateGovernedValuationReportReadiness({
+ runtime,valuationCase:replaceSource({sourceType:''}),asOf:at
+}).reasonCode,'REPORT_EVIDENCE_SOURCE_PROVENANCE_REQUIRED');
+assert.equal(evaluateGovernedValuationReportReadiness({
+ runtime,valuationCase:replaceSource({sourceRef:'  '}),asOf:at
+}).reasonCode,'REPORT_EVIDENCE_SOURCE_PROVENANCE_REQUIRED');
+assert.equal(evaluateGovernedValuationReportReadiness({
+ runtime,valuationCase:replaceSource({status:'UNVERIFIED'}),asOf:at
+}).reasonCode,'REPORT_EVIDENCE_STATUS_NOT_VERIFIED');
+assert.equal(evaluateGovernedValuationReportReadiness({
+ runtime,valuationCase:replaceSource({status:'VERIFIED_BY_USER_ONLY'}),asOf:at
+}).reasonCode,'REPORT_EVIDENCE_STATUS_NOT_VERIFIED');
+assert.equal(evaluateGovernedValuationReportReadiness({
+ runtime,valuationCase:{...valid,evidence:{
+  ...valid.evidence,malformedRecord:'record as string, not typed source'
+ }},asOf:at
+}).reasonCode,'REPORT_EVIDENCE_DESCRIPTOR_INVALID');
+const secondUnverified={...valid,evidence:{
+ ...valid.evidence,second:{...valid.evidence.saleComparable,status:'PENDING'}
+}};
+assert.equal(evaluateGovernedValuationReportReadiness({runtime,valuationCase:secondUnverified,asOf:at}).reasonCode,
+ 'REPORT_EVIDENCE_STATUS_NOT_VERIFIED');
 const sourceMissingName=evaluateDataFreshness({sourceDate:'2026-11-09T10:00:00.000Z'},{asOf:at});
 assert.equal(sourceMissingName.materialMarketIndicatorAllowed,false);
 const futureNamed=evaluateDataFreshness({sourceName:'Synthetic future',sourceDate:'2026-12-09T10:00:00.000Z'},{asOf:at});
