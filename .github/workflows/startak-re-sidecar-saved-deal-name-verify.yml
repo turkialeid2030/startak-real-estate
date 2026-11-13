@@ -6,6 +6,7 @@ on:
       - 'src/components/PropertyMarketLocationPanel.jsx'
       - 'src/i18n/market-study-core-labels.js'
       - 'tests/valuation/appraisal-sidecar-gate.test.js'
+      - 'tests/architecture/run_saved_deal_research_sidecar.js'
       - 'tests/e2e/run_location_market_study_ci.mjs'
       - '.github/workflows/startak-re-sidecar-saved-deal-name-verify.yml'
   workflow_dispatch:
@@ -36,6 +37,8 @@ jobs:
       - run: npm ci
       - name: Assert Saved Deal record and sidecar bind to same named property
         run: node tests/valuation/appraisal-sidecar-gate.test.js
+      - name: Verify unapproved sidecar serialization remains isolated from Saved Deals
+        run: node tests/architecture/run_saved_deal_research_sidecar.js
       - name: Production-equivalent build
         run: npm run build
       - name: Real owner-browser sidecar, restore and report path
