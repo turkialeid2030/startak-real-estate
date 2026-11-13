@@ -1,0 +1,46 @@
+name: STARTAK RE Report Case and Source Binding Verify
+on:
+  pull_request:
+    paths:
+      - 'src/decision-governance/valuation-report-export.js'
+      - 'tests/defects/startak_re_governed_report_freshness_20261112.js'
+      - 'docs/capabilities/STARTAK_RE_REPORT_BINDING_20261113.md'
+      - '.github/workflows/startak-re-report-source-binding-verify.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact candidate source head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Verify exact HEAD
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Validate report case, tenant and source integrity and reject tampered evidence
+        run: node tests/defects/startak_re_governed_report_freshness_20261112.js
+      - name: Ensure legacy report export is not activated without current owner permissions
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          for (const path of ['src/app/App.jsx','src/main.jsx','src/components/ValuationIntelligencePanel.jsx']) {
+            const source = fs.readFileSync(path,'utf8');
+            if (source.includes('GovernedReportExportPanel')) {
+              throw Error('UNREVIEWED_GOVERNED_EXPORT_ACTIVATION:'+path);
+            }
+          }
+          console.log('STARTAK_RE_REPORT_EXPORT_NOT_AUTO_ACTIVATED=PASS');
+          NODE
+      - name: Canonical full release regression
+        run: npm run release:verify
