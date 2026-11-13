@@ -25,6 +25,48 @@ let n=0;const check=async(label,fn)=>{await fn();n++;console.log('PASS '+label);
   const saved=await saveResearchSidecar({storage,dealId:deal.id,studyJson:study(),identityConfirmed:true});
   assert.equal(saved.appraisalReviewStatus,'NOT_LINKED');
  });
+ await check('unlinked sidecar cannot write a DIFFERENT named property to same-mode Saved Deal',async()=>{
+  const {storage,map}=makeStorage();
+  await assert.rejects(()=>saveResearchSidecar({storage,dealId:deal.id,
+   studyJson:study({...subject,name:'SYNTH-UNRELATED-PROPERTY'}),
+   identityConfirmed:true}),
+   /SIDECAR_SAVED_DEAL_SUBJECT_NAME_MISMATCH/);
+  assert.equal(map.has(sidecarKey(deal.id)),false);
+ });
+ await check('blank property title is not a same-property attestation',async()=>{
+  const {storage,map}=makeStorage();
+  await assert.rejects(()=>saveResearchSidecar({storage,dealId:deal.id,
+   studyJson:study({...subject,name:''}),identityConfirmed:true}),
+   /SIDECAR_SAVED_DEAL_SUBJECT_NAME_MISMATCH/);
+  assert.equal(map.has(sidecarKey(deal.id)),false);
+ });
+ await check('normalized equivalent property name is allowed as personal inputs only',async()=>{
+  const {storage}=makeStorage();
+  const saved=await saveResearchSidecar({storage,dealId:deal.id,
+   studyJson:study({...subject,name:'   أصل   اختبار مستقل  '}),
+   identityConfirmed:true});
+  assert.equal(saved.researchScope,'PERSONAL_UNVERIFIED_INPUTS_ONLY');
+  assert.equal((await loadResearchSidecar({storage,dealId:deal.id})).certification,'NOT_AUTHORIZED');
+ });
+ await check('renamed canonical deal cannot silently load old property sidecar',async()=>{
+  const {storage,map}=makeStorage();
+  await saveResearchSidecar({storage,dealId:deal.id,studyJson:study(),
+   identityConfirmed:true});
+  map.set('deal:'+deal.id,JSON.stringify({...deal,name:'SYNTH-RENAMED-UNRELATED-PROPERTY'}));
+  map.set('deals-index',JSON.stringify([{id:deal.id,name:'SYNTH-RENAMED-UNRELATED-PROPERTY'}]));
+  await assert.rejects(()=>loadResearchSidecar({storage,dealId:deal.id}),
+   /SIDECAR_SAVED_DEAL_SUBJECT_NAME_MISMATCH/);
+ });
+ await check('tampered stored study subject cannot be reattached by matching ID alone',async()=>{
+  const {storage,map}=makeStorage();
+  await saveResearchSidecar({storage,dealId:deal.id,studyJson:study(),
+   identityConfirmed:true});
+  const key=sidecarKey(deal.id),envelope=JSON.parse(map.get(key));
+  envelope.studyInputs.subject.name='SYNTH-DIFFERENT-TAMPERED-PROPERTY';
+  map.set(key,JSON.stringify(envelope));
+  await assert.rejects(()=>loadResearchSidecar({storage,dealId:deal.id}),
+   /SIDECAR_SAVED_DEAL_SUBJECT_NAME_MISMATCH/);
+ });
  await check('linked arithmetic HOLD is rejected at persistence boundary, not merely button UI',async()=>{
   const {storage,map}=makeStorage();
   await assert.rejects(()=>saveResearchSidecar({storage,dealId:deal.id,studyJson:study(),
