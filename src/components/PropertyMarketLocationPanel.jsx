@@ -235,6 +235,11 @@ export default function PropertyMarketLocationPanel({
   // personal research purpose, valuation date, right and name are explicit.
   // Declaring an interest does NOT certify the underlying property right.
   const ownerIdentityGate=useMemo(()=>marketIdentityGate(subject),[subject]);
+  // The general whole-property formula does not price a term-limited or
+  // otherwise restricted interest. Quarantine all owner-facing figures and
+  // results exports even when the user reconfirms the same comparables.
+  const interestScopeHold=ownerIdentityGate.issues.includes('SPECIAL_INTEREST_VALUATION_REQUIRED');
+  const presentationScopeHold=evidenceScopeHold||interestScopeHold;
   // Read-only bridge; figures come exclusively from the existing governed
   // market engine. A linked appraisal HOLD must never leak stale indications
   // into the simplified result screen.
@@ -393,6 +398,7 @@ export default function PropertyMarketLocationPanel({
   };
   const exportJson=()=>{
     if(evidenceScopeHold){setMessage({kind:'STUDY_EXPORT_SCOPE_HOLD'});return;}
+    if(interestScopeHold){setMessage({kind:'STUDY_EXPORT_SPECIAL_INTEREST_HOLD'});return;}
     if(appraisalBinding.blockExport){
       setMessage({kind:'STUDY_EXPORT_BLOCKED'});
       return;
@@ -632,29 +638,30 @@ export default function PropertyMarketLocationPanel({
     <div className="mt-5 rounded-xl border border-amber-700/60 bg-[#1B2B43] p-4">
       <h3 className="font-bold text-amber-100">{L("نتيجة الحساب وقت الطلب — ليست تثمينًا مهنيًا")}</h3>
       <p className="text-xs text-slate-300 mt-1">{latestWindow}{L(". وقت الحساب:")} {report.asOf.slice(0,19).replace('T',' ')} {L("بالتوقيت العالمي")}</p>
+      {interestScopeHold&&<p data-testid="market-limited-interest-hold" role="alert" className="mt-2 text-xs text-rose-200">{L('المؤشرات العامة محجوبة لهذا الحق: يلزم نموذج متخصص لحق الانتفاع أو الإيجار طويل المدة أو الحق الآخر، مع التحقق من المدة والحقوق والالتزامات.')}</p>}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
-        <div><span className="text-xs text-slate-400">{L("القيمة التقديرية الحسابية اليوم")}</span><strong data-testid="market-canonical-capital-indication" className="block text-lg">{money(evidenceScopeHold?null:valuationReadiness.preliminaryValueSar)}</strong></div>
-        <div><span className="text-xs text-slate-400">{L("الإيجار السوقي السنوي المحتمل")}</span><strong data-testid="market-canonical-rent-indication" className="block text-lg">{money(evidenceScopeHold?null:valuationReadiness.newAnnualMarketRentSar)}</strong></div>
-        <div><span className="text-xs text-slate-400">{L("الإيجار السنوي المتوقع تحصيله بعد الإشغال")}</span><strong className="block text-lg">{money(evidenceScopeHold?null:report.expectedCollectedAnnualRentSar)}</strong></div>
-        <div><span className="text-xs text-slate-400">{L("مؤشر البيع بالمقارنات")}</span><strong className="block">{money(evidenceScopeHold?null:report.saleIndicationSar)}</strong></div>
-        <div><span className="text-xs text-slate-400">{L("مؤشر الدخل بالرسملة")}</span><strong className="block">{money(evidenceScopeHold?null:report.incomeIndicationSar)}</strong></div>
-        <div><span className="text-xs text-slate-400">{L("متوسط الإيجار السوقي لكل وحدة (تقريبي)")}</span><strong className="block">{money(evidenceScopeHold?null:report.averageMarketAnnualRentPerUnitSar)}</strong></div>
+        <div><span className="text-xs text-slate-400">{L("القيمة التقديرية الحسابية اليوم")}</span><strong data-testid="market-canonical-capital-indication" className="block text-lg">{money(presentationScopeHold?null:valuationReadiness.preliminaryValueSar)}</strong></div>
+        <div><span className="text-xs text-slate-400">{L("الإيجار السوقي السنوي المحتمل")}</span><strong data-testid="market-canonical-rent-indication" className="block text-lg">{money(presentationScopeHold?null:valuationReadiness.newAnnualMarketRentSar)}</strong></div>
+        <div><span className="text-xs text-slate-400">{L("الإيجار السنوي المتوقع تحصيله بعد الإشغال")}</span><strong className="block text-lg">{money(presentationScopeHold?null:report.expectedCollectedAnnualRentSar)}</strong></div>
+        <div><span className="text-xs text-slate-400">{L("مؤشر البيع بالمقارنات")}</span><strong className="block">{money(presentationScopeHold?null:report.saleIndicationSar)}</strong></div>
+        <div><span className="text-xs text-slate-400">{L("مؤشر الدخل بالرسملة")}</span><strong className="block">{money(presentationScopeHold?null:report.incomeIndicationSar)}</strong></div>
+        <div><span className="text-xs text-slate-400">{L("متوسط الإيجار السوقي لكل وحدة (تقريبي)")}</span><strong className="block">{money(presentationScopeHold?null:report.averageMarketAnnualRentPerUnitSar)}</strong></div>
       </div>
       <p className="mt-2 text-xs text-amber-200">{L("مستوى الثقة:")} {report.confidence==='NO_SUPPORTED_PRIMARY_VALUE'?
         L('لا توجد قيمة أولية مؤهلة') :report.confidence==='UNRECONCILED_METHODS_NO_PRIMARY_VALUE'?
         L('إيقاف النتيجة الموحدة بسبب اختلاف جوهري بين المنهجيات') : L('مؤشر أولي غير متحقق مهنيًا')}.
         {report.specialistReason?L(' يلزم نموذج قطاعي متكامل للأصل المتخصص قبل إنتاج سعر رئيسي.'):''}
       </p>
-      {!evidenceScopeHold&&report.methodGapPct!==null&&<p className="mt-2 text-xs text-slate-300">
+      {!presentationScopeHold&&report.methodGapPct!==null&&<p className="mt-2 text-xs text-slate-300">
         {L("فارق مؤشري السوق والدخل:")} {report.methodGapPct.toFixed(1)}{L("% من الأكبر؛")}
         {report.materialMethodGap?L(' لا يُسمح باحتساب المتوسط كقيمة واحدة حتى تفسير الفرق ومراجعته.'):L(' للتوثيق والتحقق من ملاءمة المنهجين.')}
       </p>}
-      {!evidenceScopeHold&&report.saleDispersion&&<p className="mt-1 text-xs text-slate-300">
+      {!presentationScopeHold&&report.saleDispersion&&<p className="mt-1 text-xs text-slate-300">
         {L("مدى أسعار بيع المتر المقبولة:")} {money(report.saleDispersion.min)} {L("إلى")} {money(report.saleDispersion.max)}{L(". الاتساع النسبي للمدى:")} {(report.saleDispersion.spreadToMedian*100).toFixed(1)}{L("% — لا يمثل حد ثقة إحصائيًا.")}
       </p>}
       <p className="text-xs text-slate-300 mt-3">{L("مقارنات البيع المقبولة:")} {report.eligibleSalesCount} {L("من")} {allSales.length} {L("(مستبعد")} {report.excludedSalesCount}{L(") | عقود الإيجار المقبولة:")} {report.eligibleRentalsCount} {L("من")} {allRentals.length} {L("(مستبعد")} {report.excludedRentalsCount}{L(") | مشروعات قريبة بمصدر معلن:")} {report.nearbyProjects.length}</p>
       <p data-testid="market-evidence-district-only" className="text-xs text-slate-300 mt-2">{L("مقارنات بلا إحداثيات للقطعة، قُبلت فقط على أساس تطابق الحي والمدينة: بيع")} {report.districtOnlySalesCount}{L("، إيجار")} {report.districtOnlyRentalsCount}{L(". تقريبي ولا يثبت البعد الحقيقي عن العقار.")}</p>
-      <p className="text-xs text-amber-200 mt-2">{L("الأثر الافتراضي للمشروعات على القيمة، منفصل عن الأساس:")} {money(evidenceScopeHold?null:report.projectScenarioSar)}{L(". يتطلب إثباتًا مستقلًا لعلاقة التأثير وليس مجرد قرب المشروع.")}</p>
+      <p className="text-xs text-amber-200 mt-2">{L("الأثر الافتراضي للمشروعات على القيمة، منفصل عن الأساس:")} {money(presentationScopeHold?null:report.projectScenarioSar)}{L(". يتطلب إثباتًا مستقلًا لعلاقة التأثير وليس مجرد قرب المشروع.")}</p>
       <p className="text-xs text-rose-200 mt-2">
         {L("الإيجار المسموح نظاميًا: غير محسوب آليًا.")} {report.rentRegulation==='EXISTING_RENT_FREEZE_REQUIRES_EJAR_REVIEW'
           ? L('راجع قيمة آخر عقد إيجار والضوابط الخاصة بالرياض قبل التسعير التعاقدي.')
@@ -668,14 +675,18 @@ export default function PropertyMarketLocationPanel({
       appraisalBinding.status==='LINKED_REVIEW_REQUIRED'?L('تم الربط بإقرار المستخدم — مراجعة غير معتمدة'):
       L('HOLD — تعارض تدقيق أو تغيير بيانات الهوية؛ تمنع القيمة الموحدة والتصدير البحثي حتى التسوية')}.
     </div>
-    {!evidenceScopeHold&&<ValuationQualityPanel readiness={valuationReadiness} quality={appraisalQuality} studyAsOf={studyAsOf}/>}
+    {!presentationScopeHold&&<ValuationQualityPanel readiness={valuationReadiness} quality={appraisalQuality} studyAsOf={studyAsOf}/>}
     <MarketOfferResearchPanel subject={subject} offers={marketOffers} setOffers={setMarketOffers} asOf={studyAsOf.asOf}/>
+    <div className={interestScopeHold?'hidden':''} aria-hidden={interestScopeHold}>
     <TransactionCohortAndUnitMixPanel subject={subject} sales={allSales} askingOffers={marketOffers} asOf={studyAsOf.asOf}
        unitMix={unitMix} setUnitMix={setUnitMix} leaseComparables={leaseComparables}
        setLeaseComparables={setLeaseComparables} rentAssumptions={rentAssumptions}
        setRentAssumptions={setRentAssumptions}/>
+    </div>
+    <div className={interestScopeHold?'hidden':''} aria-hidden={interestScopeHold}>
     <ProfessionalComparableReviewPanel subject={subject} sales={allSales}/>
-    {!evidenceScopeHold&&<CrossMethodEvidencePanel subject={subject} report={report}/>}
+    </div>
+    {!presentationScopeHold&&<CrossMethodEvidencePanel subject={subject} report={report}/>}
     <section data-testid="saved-deal-market-study-link"
       className="mt-5 rounded-xl border border-slate-600 bg-[#14263C] p-4">
       <h3 className="text-sm font-semibold text-amber-100">{L("ربط الدراسة البحثية بصفقة محفوظة في STARTAK")}</h3>
@@ -734,7 +745,7 @@ export default function PropertyMarketLocationPanel({
       <a className="rounded-lg border border-slate-600 px-4 py-2 text-xs text-sky-300" target="_blank" rel="noopener noreferrer" href="https://srem.moj.gov.sa/">{L("الصفقات المسجلة — وزارة العدل")}</a>
       <a className="rounded-lg border border-slate-600 px-4 py-2 text-xs text-sky-300" target="_blank" rel="noopener noreferrer" href="https://opendata.rcrc.gov.sa/">{L("بيانات ومشاريع مدينة الرياض المكانية")}</a>
     </div>
-    <ResearchEvidenceFusionPanel subject={subject} feeds={researchFeeds}
+    <ResearchEvidenceFusionPanel subject={subject} feeds={researchFeeds} limitedInterestHold={interestScopeHold}
       asOf={studyAsOf.asOf.toISOString().slice(0,10)}
       marketReport={report} readiness={valuationReadiness}
       publicNeighborhood={publicNeighborhood} publicLoadMeta={publicLoadMeta}

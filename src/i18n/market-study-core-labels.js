@@ -44,6 +44,7 @@ const EN=Object.freeze({
  'حق انتفاع':'Usufruct right',
  'حق تأجير طويل المدة':'Long leasehold',
  'حق آخر':'Other right',
+ 'المؤشرات العامة محجوبة لهذا الحق: يلزم نموذج متخصص لحق الانتفاع أو الإيجار طويل المدة أو الحق الآخر، مع التحقق من المدة والحقوق والالتزامات.':'Generic whole-property indications are withheld for this interest. Specialist rights valuation must cover term, rights and obligations.',
  'لم تتم المعاينة':'Not inspected',
  'مراجعة صور أو موقع فقط':'Remote images/site review only',
  'تمت معاينة ميدانية — إقرار المستخدم':'On-site inspection — user attestation only',

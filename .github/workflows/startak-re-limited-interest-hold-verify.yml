@@ -1,0 +1,64 @@
+name: STARTAK RE Limited Interest Research HOLD Verify
+on:
+  pull_request:
+    paths:
+      - 'src/market/owner-market-identity-gate.js'
+      - 'src/market/owner-market-evidence-guidance.js'
+      - 'src/components/PropertyMarketLocationPanel.jsx'
+      - 'src/components/ResearchEvidenceFusionPanel.jsx'
+      - 'src/i18n/market-study-core-labels.js'
+      - 'src/i18n/research-action-presentation.js'
+      - 'tests/defects/owner_market_identity_gate.js'
+      - 'tests/e2e/run_owner_market_independent_evidence.js'
+      - '.github/workflows/startak-re-limited-interest-hold-verify.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e
+      options: --user 1001
+    timeout-minutes: 40
+    steps:
+      - name: Checkout exact candidate SHA
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Assert candidate identity
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Characterize noncertified property-interest identity gate
+        run: node tests/defects/owner_market_identity_gate.js
+      - run: npm run build
+      - name: Check real owner market journey on Chromium, Firefox and WebKit
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p runtime-evidence/limited-interest
+          npm run preview -- --host 127.0.0.1 --port 4173 --strictPort >runtime-evidence/limited-interest/preview.log 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
+          for i in $(seq 1 45); do
+            if curl --fail --silent http://127.0.0.1:4173/ -o /dev/null; then break; fi
+            sleep 1
+          done
+          for browser in chromium firefox webkit; do
+            STARTAK_BROWSER="$browser" STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_owner_market_independent_evidence.js 2>&1 | tee "runtime-evidence/limited-interest/$browser.log"
+          done
+      - name: Preserve anonymized evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: startak-re-limited-interest-hold
+          path: runtime-evidence/limited-interest
+          if-no-files-found: warn

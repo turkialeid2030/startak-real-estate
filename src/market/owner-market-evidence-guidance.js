@@ -8,6 +8,7 @@ const MESSAGES=Object.freeze({
  VALUATION_DATE_REQUIRED_OR_INVALID:['أدخل تاريخ تقييم صحيحًا.','Enter a valid valuation date.'],
  FUTURE_VALUATION_DATE_NOT_SUPPORTED:['لا تستخدم تاريخ تقييم مستقبلي.','Do not use a future valuation date.'],
  PROPERTY_RIGHT_DECLARATION_REQUIRED:['حدد نوع الحق العقاري المعلن للمراجعة.','Declare the property interest for review.'],
+ SPECIAL_INTEREST_VALUATION_REQUIRED:['يتطلب حق الانتفاع أو التأجير طويل المدة أو الحق الآخر منهج تقييم متخصصًا لمدته والتزاماته؛ لا تستخدم مؤشرات ملكية العقار الكاملة.','Usufruct, long leasehold or other limited interests require an interest-specific method covering term and obligations. Do not reuse whole-property ownership indications.'],
  MARKET_SUBJECT_NAME_REQUIRED:['أدخل اسم العقار.','Enter the property name.'],
  ASSET_TYPE_UNSUPPORTED:['تحقق من نوع العقار المدعوم.','Confirm a supported property category.'],
  LOCATION_EVIDENCE_MISSING:['أدخل إحداثيات العقار أو رابط خرائط يحدد موقعه.','Add parcel coordinates or a map link showing the location.'],
