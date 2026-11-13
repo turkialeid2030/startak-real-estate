@@ -44,16 +44,33 @@ function normalizeAssumptionModelVersion(value) {
   throw error;
 }
 
-function applyAssumptionModel(inputs, version) {
+function applyAssumptionModel(inputs, version, context = {}) {
   if (!inputs || typeof inputs !== 'object' || Array.isArray(inputs)) {
     throw new TypeError('inputs must be an object');
   }
   const normalizedVersion = normalizeAssumptionModelVersion(version);
   if (normalizedVersion === ASSUMPTION_MODEL_VERSION.LEGACY) return { ...inputs };
-  return {
+  const baseline = {
     ...inputs,
     ...V2_APPROVED_ASSUMPTIONS,
   };
+  // Used exclusively for the non-authorizing P25 sensitivity simulation.
+  // A public deal JSON cannot provide this trusted in-process context. This
+  // is NOT authentication; only the isolated simulator may request a
+  // scenario, and neither it nor these numbers grant transaction authority.
+  const overrides = context && context.p25ResearchOverrides;
+  if (overrides === undefined) return baseline;
+  if (!overrides || typeof overrides !== 'object' || Array.isArray(overrides)) {
+    throw new TypeError('P25_RESEARCH_OVERRIDES_OBJECT_REQUIRED');
+  }
+  for (const [key, value] of Object.entries(overrides)) {
+    if (!Object.prototype.hasOwnProperty.call(V2_APPROVED_ASSUMPTIONS, key)
+        || typeof value !== 'number' || !Number.isFinite(value)) {
+      throw new TypeError('P25_RESEARCH_OVERRIDE_INVALID:'+key);
+    }
+    baseline[key] = value;
+  }
+  return baseline;
 }
 
 function buildAssumptionModelDisclosure(version) {
