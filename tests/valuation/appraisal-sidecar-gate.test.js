@@ -50,6 +50,13 @@ let n=0;const check=async(label,fn)=>{await fn();n++;console.log('PASS '+label);
   await assert.rejects(()=>loadResearchSidecar({storage,dealId:deal.id}),
    /SAVED_DEAL_INDEX_RECORD_NAME_MISMATCH/);
  });
+ await check('owner Saved Deal selector rejects duplicate keys before selection',async()=>{
+  const {storage,map}=makeStorage();
+  map.set('deals-index',JSON.stringify([{id:deal.id,name:deal.name},
+   {id:deal.id,name:'SYN-OTHER-PROPERTY'}]));
+  const {listCanonicalDeals}=require('../../src/market/saved-deal-study-sidecar');
+  await assert.rejects(()=>listCanonicalDeals(storage),/SAVED_DEAL_INDEX_DUPLICATE_ID/);
+ });
  await check('existing sidecar cannot restore with duplicate indexed deal IDs',async()=>{
   const {storage,map}=makeStorage();
   await saveResearchSidecar({storage,dealId:deal.id,
