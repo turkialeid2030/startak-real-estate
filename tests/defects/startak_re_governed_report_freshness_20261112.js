@@ -66,6 +66,65 @@ assert.equal(evaluateGovernedValuationReportReadiness({
 assert.equal(evaluateGovernedValuationReportReadiness({
  runtime,valuationCase:{...valid,projectId:undefined},asOf:at
 }).reasonCode,'REPORT_PROJECT_BINDING_REQUIRED');
+// Case ID and project ID alone are not tenant identity. A reused identifier
+// in another institutional tenant must never pass report preflight.
+const scopedRuntime={...runtime,tenantId:'TENANT-ALPHA',organizationId:'ORG-ALPHA'};
+const scopedCase={...valid,tenantId:'TENANT-ALPHA',organizationId:'ORG-ALPHA'};
+assert.equal(evaluateGovernedValuationReportReadiness({
+ runtime:scopedRuntime,valuationCase:scopedCase,asOf:at
+}).ready,true);
+assert.equal(buildGovernedValuationReport({
+ runtime:scopedRuntime,valuationCase:scopedCase,generatedAt:at
+}).transactionAuthority,'ANALYSIS_ONLY');
+for(const [field,prefix] of [
+ ['tenantId','REPORT_TENANT_BINDING'],
+ ['organizationId','REPORT_ORGANIZATION_BINDING']
+]){
+ assert.equal(evaluateGovernedValuationReportReadiness({
+  runtime:scopedRuntime,valuationCase:{...scopedCase,[field]:undefined},asOf:at
+ }).reasonCode,prefix+'_REQUIRED');
+ assert.equal(evaluateGovernedValuationReportReadiness({
+  runtime,valuationCase:{...valid,[field]:'SPOOFED-SCOPE'},asOf:at
+ }).reasonCode,prefix+'_REQUIRED');
+ assert.equal(evaluateGovernedValuationReportReadiness({
+  runtime:scopedRuntime,valuationCase:{...scopedCase,[field]:'OTHER-SCOPE'},asOf:at
+ }).reasonCode,prefix+'_MISMATCH');
+ assert.throws(()=>buildGovernedValuationReport({
+  runtime:scopedRuntime,valuationCase:{...scopedCase,[field]:'OTHER-SCOPE'},generatedAt:at
+ }),e=>e?.code===prefix+'_MISMATCH');
+}
+const scopedEvidence={...scopedCase,evidence:{saleComparable:{
+ ...scopedCase.evidence.saleComparable,caseId:scopedCase.caseId,
+ projectId:scopedCase.projectId,tenantId:scopedCase.tenantId,
+ organizationId:scopedCase.organizationId
+}}};
+assert.equal(evaluateGovernedValuationReportReadiness({
+ runtime:scopedRuntime,valuationCase:scopedEvidence,asOf:at
+}).ready,true);
+for(const [field,prefix] of [
+ ['caseId','REPORT_EVIDENCE_CASE'],
+ ['projectId','REPORT_EVIDENCE_PROJECT'],
+ ['tenantId','REPORT_EVIDENCE_TENANT'],
+ ['organizationId','REPORT_EVIDENCE_ORGANIZATION']
+]){
+ for(const bad of ['OTHER-SCOPE','',42]){
+  const tampered={...scopedEvidence,evidence:{saleComparable:{
+   ...scopedEvidence.evidence.saleComparable,[field]:bad
+  }}};
+  assert.equal(evaluateGovernedValuationReportReadiness({
+   runtime:scopedRuntime,valuationCase:tampered,asOf:at
+  }).reasonCode,prefix+'_BINDING_MISMATCH');
+  assert.throws(()=>buildGovernedValuationReport({
+   runtime:scopedRuntime,valuationCase:tampered,generatedAt:at
+  }),e=>e?.code===prefix+'_BINDING_MISMATCH');
+ }
+}
+// A receipt cannot invent a scope that the enclosing report did not carry.
+assert.equal(evaluateGovernedValuationReportReadiness({
+ runtime,valuationCase:{...valid,evidence:{saleComparable:{
+  ...valid.evidence.saleComparable,tenantId:'UNBOUND-TENANT'
+ }}},asOf:at
+}).reasonCode,'REPORT_EVIDENCE_TENANT_BINDING_MISMATCH');
 const replaceSource=(changes)=>({...valid,evidence:{
  saleComparable:{...valid.evidence.saleComparable,...changes}
 }});
