@@ -81,7 +81,19 @@ function createTitleFact({
 // Required title facts are inputs to analysis, not authenticated legal findings.
 // Reject malformed values and conflicting independently tagged observations before
 // allowing a single verified/observed record to satisfy an essential field.
-function comparableRequiredTitleValue(value) {
+function comparableRequiredTitleValue(value, key) {
+  // A malformed/negative parcel area must not qualify merely because it was
+  // tagged VERIFIED, nor may an arbitrary number substitute for a deed ID.
+  if (key === 'propertyAreaSqm') {
+    return typeof value === 'number' && Number.isFinite(value) && value > 0
+      ? 'areaSqm:' + value
+      : null;
+  }
+  if (REQUIRED_TITLE_FACTS.includes(key)) {
+    return typeof value === 'string' && value.trim()
+      ? 'string:' + value.normalize('NFKC').trim().replace(/\s+/g, ' ')
+      : null;
+  }
   if (typeof value === 'string' && value.trim()) {
     return 'string:' + value.normalize('NFKC').trim().replace(/\s+/g, ' ');
   }
@@ -134,7 +146,7 @@ function assessTitleFacts({ caseId, propertyId, facts, requiredFacts = REQUIRED_
       checks.push({ key, status: 'UNQUALIFIED' });
       continue;
     }
-    const values = qualified.map((entry) => comparableRequiredTitleValue(entry.value));
+    const values = qualified.map((entry) => comparableRequiredTitleValue(entry.value, key));
     if (values.includes(null)) {
       blockers.push({ key, code: 'INVALID_REQUIRED_TITLE_FACT_VALUE' });
       checks.push({ key, status: 'INVALID_VALUE' });
