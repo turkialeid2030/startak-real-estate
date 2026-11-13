@@ -74,6 +74,14 @@ let n=0;const check=async(label,fn)=>{await fn();n++;console.log('PASS '+label);
   assert.equal(saved.researchScope,'PERSONAL_UNVERIFIED_INPUTS_ONLY'); // research only
   assert.equal((await loadResearchSidecar({storage,dealId:deal.id})).certification,'NOT_AUTHORIZED');
  });
+ await check('index inconsistency has bilingual user-facing explanation, not raw codes',async()=>{
+  const {researchActionText}=require('../../src/i18n/research-action-presentation');
+  const ar=researchActionText({kind:'SIDECAR_INDEX_CONFLICT'},'ar-SA');
+  const en=researchActionText({kind:'SIDECAR_INDEX_CONFLICT'},'en');
+  assert.match(ar,/سجل الصفقات المحفوظة/);
+  assert.match(en,/Saved Deals index/);
+  assert.ok(!ar.includes('SAVED_DEAL_INDEX_')&&!en.includes('SAVED_DEAL_INDEX_'));
+ });
  await check('unlinked sidecar cannot write a DIFFERENT named property to same-mode Saved Deal',async()=>{
   const {storage,map}=makeStorage();
   await assert.rejects(()=>saveResearchSidecar({storage,dealId:deal.id,
