@@ -2,7 +2,7 @@
 // Restrictive *presentation* gate for the simplified owner experience.
 // Does not certify property rights, evidence authenticity or current market
 // value. The existing market and governance engines remain authoritative.
-const PURPOSES=new Set(['ACQUISITION','PORTFOLIO_REVIEW','RENT_STUDY','FINANCING_REVIEW','OTHER']);
+const PURPOSES=new Set(['ACQUISITION','SALE_STUDY','PORTFOLIO_REVIEW','RENT_STUDY','FINANCING_REVIEW','OTHER']);
 const RIGHTS=new Set(['FULL_OWNERSHIP','USUFRUCT','LONG_LEASE','OTHER']);
 const datePattern=/^\d{4}-\d{2}-\d{2}$/;
 function marketIdentityGate(subject,now=new Date()){
