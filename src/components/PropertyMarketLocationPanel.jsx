@@ -694,7 +694,7 @@ export default function PropertyMarketLocationPanel({
     <div className={presentationScopeHold?'hidden':''} aria-hidden={presentationScopeHold}>
     <ProfessionalComparableReviewPanel key={evidenceSubjectKey} subject={subject} sales={allSales}/>
     </div>
-    {!presentationScopeHold&&<CrossMethodEvidencePanel subject={subject} report={report}/>}
+    <CrossMethodEvidencePanel key={evidenceSubjectKey} subject={subject} report={report} resultScopeHold={presentationScopeHold}/>
     <section data-testid="saved-deal-market-study-link"
       className="mt-5 rounded-xl border border-slate-600 bg-[#14263C] p-4">
       <h3 className="text-sm font-semibold text-amber-100">{L("ربط الدراسة البحثية بصفقة محفوظة في STARTAK")}</h3>
