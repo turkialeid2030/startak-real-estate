@@ -148,6 +148,47 @@ const {expect}=require('@playwright/test');
   await page.getByTestId('owner-property-right').selectOption('FULL_OWNERSHIP');
   await page.getByTestId('owner-step-4').click();
   await eq(ownerCap,money(independentValue));await eq(ownerRent,money(520000));
+  // A whole-property comparables engine is NOT a usufruct / long-lease /
+  // other restricted-interest valuation engine. Reconfirming comparables
+  // cannot remove the rights-specific hold, even though the underlying
+  // whole-property calculation is mathematically non-null.
+  for(const right of ['USUFRUCT','LONG_LEASE','OTHER']){
+   await page.getByTestId('owner-step-1').click();
+   await page.getByTestId('owner-property-right').selectOption(right);
+   await page.getByTestId('owner-step-4').click();
+   await expect(page.getByTestId('owner-market-identity-hold')).toBeVisible();checks++;
+   await eq(ownerCap,'—');await eq(ownerRent,'—');
+   await expect(page.getByTestId('owner-market-results').getByTestId('owner-evidence-review'))
+    .toContainText('منهج تقييم متخصص');checks++;
+   await page.getByTestId('owner-advanced-mode').click();
+   // Scope binding and limited-interest methodology are independent holds.
+   await expect(page.getByTestId('market-evidence-subject-reconfirm')).toBeVisible();checks++;
+   await page.getByTestId('market-evidence-subject-reconfirm').click();
+   await expect(page.getByTestId('market-evidence-scope-hold')).toHaveCount(0);checks++;
+   await expect(page.getByTestId('market-limited-interest-hold')).toBeVisible();checks++;
+   await eq(page.getByTestId('market-canonical-capital-indication'),'غير قابل للحساب');
+   await eq(page.getByTestId('market-canonical-rent-indication'),'غير قابل للحساب');
+   await expect(page.getByTestId('valuation-quality-gates')).toHaveCount(0);checks++;
+   await expect(page.getByTestId('cross-method-reconciliation')).toHaveCount(0);checks++;
+   await page.getByTestId('personal-market-study-export').click();
+   await expect(page.getByTestId('market-study-action-notice')).toContainText('منهجًا متخصصًا');checks++;
+   await page.getByTestId('owner-simple-mode').click();
+   await page.getByTestId('owner-step-4').click();
+   await eq(ownerCap,'—');await eq(ownerRent,'—');
+  }
+  // Restore the full-property research subject. Rebinding the saved rows is
+  // still necessary because a property-interest switch changes their scope.
+  await page.getByTestId('owner-step-1').click();
+  await page.getByTestId('owner-property-right').selectOption('FULL_OWNERSHIP');
+  await page.getByTestId('owner-advanced-mode').click();
+  await expect(page.getByTestId('market-evidence-subject-reconfirm')).toBeVisible();checks++;
+  await page.getByTestId('market-evidence-subject-reconfirm').click();
+  await expect(page.getByTestId('market-limited-interest-hold')).toHaveCount(0);checks++;
+  await eq(page.getByTestId('market-canonical-capital-indication'),money(independentValue)+' ر.س');
+  await eq(page.getByTestId('market-canonical-rent-indication'),money(520000)+' ر.س');
+  await page.getByTestId('owner-simple-mode').click();
+  await page.getByTestId('owner-step-4').click();
+  await eq(ownerCap,money(independentValue));await eq(ownerRent,money(520000));
   // Two properties at the same coordinates can share an asset class and
   // comparable eligibility. Such evidence must NEVER silently migrate to a
   // new named subject. The original rows are retained but values/export HOLD.
