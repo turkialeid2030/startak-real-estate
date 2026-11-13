@@ -1,0 +1,53 @@
+name: STARTAK RE C1 C2 Historic Source Requalification
+on:
+  pull_request:
+    paths:
+      - 'src/contracts/geospatial-evidence.js'
+      - 'src/geospatial/**'
+      - 'src/contracts/market-evidence.js'
+      - 'src/market/official-market-source-registry.js'
+      - 'src/market/market-evidence-governance.js'
+      - 'src/market/sandbox-market-evidence-draft.js'
+      - 'tests/defects/c1_*'
+      - 'tests/defects/c2_*'
+      - '.github/workflows/startak-re-c1-c2-source-verify.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: C1 official/sandbox geospatial evidence fail-closed regressions
+        run: |
+          node tests/defects/c1_official_geospatial_evidence_foundation.js
+          node tests/defects/c1_sandbox_evidence_draft.js
+      - name: C2 official/sandbox executed transaction provenance regressions
+        run: |
+          node tests/defects/c2_official_market_evidence_comparables_foundation.js
+          node tests/defects/c2_sandbox_market_evidence_draft.js
+      - name: Ensure research modules do not activate official provider feeds
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          for(const path of ['src/app/App.jsx','src/main.jsx']){
+            const s=fs.readFileSync(path,'utf8');
+            for(const marker of ['geospatial-evidence-governance','market-evidence-governance',
+              'sandbox-market-evidence-draft','sandbox-evidence-draft']){
+              if(s.includes(marker))throw Error('C1_C2_PUBLIC_UI_NOT_REVIEWED:'+marker);
+            }
+          }
+          console.log('STARTAK_RE_C1_C2_NOT_AUTO_ACTIVATED=PASS');
+          NODE
+      - name: Canonical Release Verify
+        run: npm run release:verify

@@ -1,0 +1,45 @@
+name: STARTAK RE Modern Saved-Deal Freshness Browser E2E
+on:
+  pull_request:
+    paths:
+      - 'tests/e2e/run_startak_re_real_saved_deal_freshness_browser.js'
+      - '.github/workflows/startak-re-modern-deal-freshness-e2e.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - name: Checkout exact PR source head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Production-mode Vite artifact build
+        run: npm run build
+      - name: Preview exact real App without source or paid provider access
+        run: |
+          nohup npx vite preview --host 127.0.0.1 --port 4173 --strictPort > /tmp/startak-re-modern-preview.log 2>&1 &
+          for i in $(seq 1 80); do
+            if curl --fail --silent http://127.0.0.1:4173/ | grep -Fq 'STARTAK Real Estate'; then
+              echo 'STARTAK_RE_REAL_APP_PREVIEW=READY'
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/startak-re-modern-preview.log
+          exit 1
+      - name: Load synthetic saved building study and check source age on actual App
+        env:
+          STARTAK_E2E_URL: http://127.0.0.1:4173
+        run: node tests/e2e/run_startak_re_real_saved_deal_freshness_browser.js
+      - name: Canonical source and package gate
+        run: npm run release:verify

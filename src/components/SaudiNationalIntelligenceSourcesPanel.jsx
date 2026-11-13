@@ -1,4 +1,5 @@
 import React,{useMemo,useState} from 'react';
+import KitePersonalTransactionsPanel from './KitePersonalTransactionsPanel.jsx';
 const ResearchCsvUpload=require('./ResearchCsvUpload');
 const {useLocale}=require('../i18n/LocaleContext.js');
 const {SOURCES,OFFICIAL_RESEARCH_ENTRYPOINTS,importNationalSourcesCsv,mergeNationalResearch,filterNationalResearch,
@@ -40,6 +41,22 @@ export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange}
  const summary=useMemo(()=>summarizeNationalResearch(records),[records]);
  const filtered=useMemo(()=>filterNationalResearch(records,{sourceId,city,evidenceClass}),
   [records,sourceId,city,evidenceClass]);
+ function ingestKite(rows){
+   try{
+    // Strictly research-side data. Existing case/comparable and decision inputs
+    // are not overwritten; a registered sale alone is not a property match.
+    const merged=mergeNationalResearch(records,rows);
+    setRecords(merged.records);onResearchChange?.(merged.records);
+    setSourceId('KITE_MOJ_QUARTERLY');setCity('');setEvidenceClass('');
+    setNotice({
+     ar:'استُرجع '+merged.added+' سجل بحثي عبر Kite؛ ليس تحققًا من صك العقار أو مطابقته. المكرر: '+merged.duplicates+'؛ المتعارض: '+merged.conflicts.length,
+     en:'Loaded '+merged.added+' Kite research rows; not deed or property-match verification. Duplicates: '+merged.duplicates+'; conflicts: '+merged.conflicts.length,
+    });
+   }catch(_){
+    setNotice({ar:'تعذر دمج السجلات البحثية دون تعارض. لم تُعدّل الدراسة.',
+      en:'Research records could not be merged safely. The study was not changed.'});
+   }
+ }
  async function importFile(file){
   if(!file)return;
   if(file.size>MAX_CSV_BYTES){setNotice({ar:'حجم الملف أكبر من الحد المسموح',en:'CSV file exceeds allowed size'});return;}
@@ -80,6 +97,7 @@ export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange}
      </a>)}
    </div>
   </div>
+  <KitePersonalTransactionsPanel locale={locale} onResearchRows={ingestKite}/>
   <p className="mt-3 text-xs text-slate-300 break-all">
    {en?'CSV schema: ':'صيغة CSV: '}<code>source,city,district,kind,recordId,eventDate,periodStart,periodEnd,metricName,metricValue,unit,sourceUrl,assetType</code>.
    {tr('ولتقديرات القيمة الآلية (اختياري):','Optional AVM fields:')} <code>rangeLowSar,rangeHighSar,confidenceLabel,modelAsOf</code>.
@@ -148,8 +166,8 @@ export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange}
   </div>
   <p className="mt-2 text-xs text-slate-400">
    {tr('المعروض ','Showing ')}{Math.min(filtered.length,50)} {tr('من ','of ')}{filtered.length}
-   {tr(' سجل بحثي. لا يوجد ربط API حي مؤكد، ولا تحقق مستقل من صكوك أو أسعار الصفقات أو دقة أي نموذج تقييم خارجي.',
-   ' research rows. No confirmed live API, independently checked land titles, executed sales or external AVM accuracy.')}
+   {tr(' سجل بحثي. اتصال كايت مشروط بمفاتيح وتحقق استجابة حية؛ لا يوجد ربط آلي مؤكد ببقية الجهات أو تحقق مستقل من الصكوك ودقة التقييم الآلي.',
+   ' research rows. Kite requires configured credentials and a verified live response; other official and AVM sources remain unconnected and evidence is unverified.')}
   </p>
   {en&&<p data-testid="national-language-scope" className="mt-2 text-xs text-amber-200">
     Provider names, descriptions and original official-site caveats retain source-language wording;

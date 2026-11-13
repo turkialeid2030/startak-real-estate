@@ -2,6 +2,7 @@ import './index.css';
 import React, {lazy,Suspense} from 'react';
 import WorkspaceErrorBoundary from './components/WorkspaceErrorBoundary.jsx';
 import {AppraisalReviewSessionProvider} from './components/AppraisalReviewSessionContext.jsx';
+import {PersonalCaseSessionProvider} from './components/PersonalCaseSessionContext.jsx';
 import AssetSupportPanel from './components/AssetSupportPanel.jsx';
 import ReactDOM from 'react-dom/client';
 import App from './app/App.jsx';
@@ -32,6 +33,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <LocaleProvider defaultLocale="ar-SA">
       <AppraisalReviewSessionProvider>
+      <PersonalCaseSessionProvider>
       <div className="owner-advanced-only">
       <ComplianceBoundaryNotice />
       <AssetSupportPanel />
@@ -51,6 +53,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       </WorkspaceErrorBoundary>
       </div>
       <StrictArabicSurfaceGuard />
+      </PersonalCaseSessionProvider>
       </AppraisalReviewSessionProvider>
     </LocaleProvider>
   </React.StrictMode>

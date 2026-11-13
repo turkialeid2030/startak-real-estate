@@ -1,0 +1,58 @@
+name: STARTAK RE C3M Whole Property Sales Comparison
+on:
+  pull_request:
+    paths:
+      - 'src/contracts/whole-property-sales-comparison.js'
+      - 'src/engines/valuation/whole-property-sales-comparison.js'
+      - 'src/valuation/whole-property-sales-comparison-input.js'
+      - 'src/valuation/sandbox-whole-property-sales-comparison-draft.js'
+      - 'tests/defects/c3m_*'
+      - 'docs/capabilities/C3M_WHOLE_PROPERTY_MARKET_SALES_COMPARISON_FOUNDATION.md'
+      - '.github/workflows/startak-re-c3m-whole-property-verify.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact feature SHA
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Verify expected commit
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Original C3M source-bound and negative suite
+        run: |
+          node tests/defects/c3m_whole_property_market_sales_comparison_foundation.js
+          node tests/defects/c3m_sandbox_whole_property_sales_comparison_draft.js
+      - name: Current C1 and C2 evidence regression
+        run: |
+          node tests/defects/c1_official_geospatial_evidence_foundation.js
+          node tests/defects/c2_official_market_evidence_comparables_foundation.js
+      - name: Require C3M isolated from production UI and canonical financial result
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs');
+          for(const path of ['src/app/App.jsx','src/main.jsx','src/engines/index.js']){
+            const s=fs.readFileSync(path,'utf8');
+            if(s.includes("require('./valuation/whole-property-sales-comparison')")
+              ||s.includes("require('./engines/valuation/whole-property-sales-comparison')")
+              ||s.includes("from '../engines/valuation/whole-property-sales-comparison'")
+              ||s.includes("calculateWholePropertySalesComparisonIndication")){
+                throw Error('C3M_UNREVIEWED_PUBLIC_OR_FINANCIAL_ACTIVATION:'+path);
+            }
+          }
+          console.log('STARTAK_RE_C3M_ISOLATED_NONPRODUCTION=PASS');
+          NODE
+      - name: Full financial, report and package regression
+        run: npm run release:verify

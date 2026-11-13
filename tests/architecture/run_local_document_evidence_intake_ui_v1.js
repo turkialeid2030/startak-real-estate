@@ -27,7 +27,9 @@ async function checkAsync(name, fn) {
   check('local document intake is mounted through the explicit composed application tree', () => {
     assert(main.includes("lazy(()=>import('./components/LocalDocumentEvidenceWorkspace.jsx'))"));
     assert(main.includes('<LocalDocumentEvidenceWorkspace />'));
-    assert(workspace.includes('<LocalDocumentEvidenceIntakePanel caseId={caseId.trim()||null} onRecordChange={handleIntakeChange} />'));
+    assert(workspace.includes("<LocalDocumentEvidenceIntakePanel key={caseId||'unlinked'} caseId={caseId} onRecordChange={handleIntakeChange} />"));
+    assert(workspace.includes('usePersonalCaseSession()'),'selected saved deal scopes document intake');
+    assert(workspace.includes('setIntakeRecord(null)'),'case switch clears stale intake records');
     assert(workspace.includes('setCandidate(null)'));
     assert(workspace.includes('setVerificationRecord(null)'));
     assert(!main.includes('window.__STARTAK_'));

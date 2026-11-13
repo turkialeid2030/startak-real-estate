@@ -1,0 +1,40 @@
+name: STARTAK RE Private Four Residual Contract
+on:
+  pull_request:
+    paths:
+      - 'tools/verify-owner-private-residual-4.mjs'
+      - 'tests/defects/startak_re_private_residual_four_contract_20261113.js'
+      - 'docs/capabilities/STARTAK_RE_PRIVATE_FOUR_RESIDUAL_METHODS_20261113.md'
+      - '.github/workflows/startak-re-residual-four-private-contract-verify.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - name: Checkout exact feature commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Verify exact commit
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: No private reference fixture committed to public source tree
+        run: |
+          test ! -e golden-cases-17.json
+          test ! -e tests/reference/golden-cases-17.json
+          test ! -e tests/fixtures/golden-cases-17.json
+          echo 'OWNER_PRIVATE_GOLDEN_SOURCE_NOT_PUBLISHED=PASS'
+      - name: Four source-method positive and adversarial synthetic cases
+        run: node tests/defects/startak_re_private_residual_four_contract_20261113.js
+      - name: Canonical release tests and dependency audit
+        run: npm run release:verify

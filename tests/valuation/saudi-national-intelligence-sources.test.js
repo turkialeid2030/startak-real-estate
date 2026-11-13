@@ -35,7 +35,8 @@ const csv=rows=>[fields.join(','),...rows.map(x=>x.join(','))].join('\n');
 const parse=rows=>importNationalSourcesCsv(csv(rows),{observedOn,asOf:new Date('2026-10-28T20:00:00Z')});
 const baseline=parse(lines);
 test('eleven references include Bayut TruValue and unreadable Manus session',()=>{
- assert.equal(SOURCES.length,11);assert.equal(baseline.records.length,11);assert.equal(baseline.rejected.length,0);
+ assert.equal(SOURCES.length,12);assert.equal(baseline.records.length,11);assert.equal(baseline.rejected.length,0);
+ assert.equal(SOURCES.find(s=>s.id==='KITE_MOJ_QUARTERLY')?.allowed[0],'THIRD_PARTY_REPORTED_SALE');
  assert.equal(new Set(baseline.records.map(x=>x.sourceId)).size,11);
 });
 test('official provenance alone never authorizes a certified executed sale',()=>{

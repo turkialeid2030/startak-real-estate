@@ -1,0 +1,3383 @@
+{
+  "schema": "STARTAK_RE_BRANCH_CENSUS_V1",
+  "captureDate": "2026-11-12",
+  "repository": "turkialeid2030/startak-real-estate",
+  "scope": "STARTAK_REAL_ESTATE_ONLY",
+  "totals": {
+    "branches": 631,
+    "pagesComplete": true,
+    "groupCount": 103
+  },
+  "warnings": [
+    "Branch names alone are not evidence of implemented or missing functions.",
+    "Default branch is not equivalent to staging; unmerged legacy features are not assumed safely migratable.",
+    "Branch census does not prove exhaustive code, UI, API, workflow, icon, form, model, or production feature parity.",
+    "Never copy property deeds or personal/private tenant data to public GitHub.",
+    "Do not merge historical branches wholesale or change main/production on this census."
+  ],
+  "branches": [
+    {
+      "name": "audit/c55-dated-development-engine-20261024",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "audit/c57-all-asset-sector-evidence-20261025",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "audit/c61-hospitality-industrial-operational-gates-20261025",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "audit/c61-specialist-gates-on-merged-market-20261025",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "audit/independent-financial-oracle-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "audit/independent-financial-oracle-v2",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "audit/independent-financial-reference-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "audit/n03-governed-private-alpha-source-intake-20261024",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "audit/n06-forward-holdout-20261024",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "audit/n06-slice-accuracy-gates-20261024",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "audit/personal-cashflow-npv-reconciliation-20261024",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "audit/price-basis-398-v2",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "audit/price-basis-398",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "audit/stress-bounds-v2",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "audit-20261010-financial-f01-f02-failclosed",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "audit-20261010-owner-study-f03-f07",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "audit-20261011-arabic-surface-polish",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "audit-20261012-documented-refunds",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "audit-20261013-charge-reductions",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "audit-20261013-deployed-diagnostics",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "audit-20261013-entry-release-coherence",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "audit-20261013-operating-payment-plan",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "audit-20261013-period-budget",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "audit-20261013-workspace-load-isolation",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "audit-20261014-bank-rent-matching",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "audit-20261014-cash-scenario",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "audit-20261014-intraperiod-liquidity",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "audit-20261014-lease-calendar",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "audit-20261014-statement-balances",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "audit-20261015-asset-delivery",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "audit-20261015-other-cash-flows",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "batch/20261027-n06-n08-external-gates-hardening",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "bootstrap/internal-main-governance-base",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c1-official-geospatial-evidence-foundation",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c2-official-market-evidence-comparables-foundation",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c2-official-market-evidence-foundation",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c2n-governed-non-api-source-acquisition",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c2s-source-intelligence-evidence-provenance-registry",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c3-governed-valuation-reconciliation-foundation",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c3i-c2s-governed-reconciliation-integration",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c3i-whole-property-market-reconciliation-integration",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c3m-whole-property-market-sales-comparison-foundation",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c4-governed-deal-decision-report-integration",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c5-governed-decision-ui-export-integration",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c6-browser-e2e-controlled-human-review",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c7-governed-correlated-monte-carlo",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c8-governed-title-survey-property-evidence",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c9-governed-urban-code-plot-feasibility",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c10-governed-market-interpretation-liquidity",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c11-governed-income-asset-intelligence",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c12-governed-regulatory-carry-cost",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c13-governed-encumbrance-mortgage-closing",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c14-governed-financing-optimization",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c15-governed-rental-regulation",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c16-governed-auction-acquisition",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c17-governed-raw-land-strategic-optionality",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c18-governed-subdivision-merge-review",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c19-governed-policy-shock-comparable-impact",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c20-governed-urban-growth-accessibility",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c21-governed-listing-transparency-amenity-utility",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c22-governed-generative-intelligence-orchestration",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c23-governed-live-ai-provider-gateway",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c24-integrated-case-property-orchestration",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c25-production-source-operational-readiness",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c26-governed-case-review-presentation-rbac",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c26-governed-operator-workspace-rbac",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c27-governed-observability-operational-safety",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c28-comprehensive-integration-qualification",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c29-governed-shadow-simulation-uat-harness",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c29-integrated-case-review-ui-closure",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c30-external-evidence-artifact-integrity",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c30-external-evidence-collection-pack",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c30-external-evidence-final-handoff",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c30-release-candidate-freeze-evidence-pack",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c31-canonical-evidence-readiness",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c32-evidence-acquisition-orchestration",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c33-evidence-request-outreach-handoff",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c34-single-accountable-owner",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c35-owner-execution-wave1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c36-rollback-evidence-review-handoff",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c37-rollback-independent-reviewer-designation",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c38-rollback-signed-review-intake",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c39-historical-evidence-reuse-audit",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c40-platform-exhaustive-integration-verification",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c41-full-platform-exhaustive-reliability-qualification",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c42-external-gate-closure-control",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c43-external-review-handoff-packets",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c44-current-source-rights-review-register",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c45-internal-source-rights-advisory-review",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c46-internal-security-review-and-hardening",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c47-internal-privacy-pdpl-readiness",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c48-internal-ai-provider-production-readiness",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c49-internal-official-source-data-rights-readiness",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c50-internal-human-uat-readiness",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c51-internal-historical-replay-readiness",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c51-private-alpha-governance-non-api-acquisition",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c52-private-alpha-governance-non-api-acquisition",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c53-private-alpha-source-acquisition-runtime",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c54-market-comparable-decision-gate-20261008",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c54-private-alpha-protected-access-control",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c55-governed-dated-development-residual-20261008",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c56-saudi-historical-validation-cohort-20261008",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c57-sector-e2e-evidence-coverage-20261008",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c58-comparable-provenance-chain-20261008",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c59-componentized-cost-obsolescence-20261008",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c60-income-rate-evidence-20261008",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c61-specialized-property-operating-hard-gates-20261008",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c62-live-valuation-evidence-boundary-20261008",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c63-chromium-valuation-live-e2e-20261008",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c64-land-development-live-chromium-20261008",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c65-arabic-institutional-hold-disclosure-20261008",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c66-vite-dev-commonjs-bootstrap-20261008",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c67-vite8-native-bundled-dev-chromium-20261008",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c68-native-bundled-react-hmr-e2e-20261008",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c69-specialist-valuation-live-hold-browser-20261008",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c70-live-specialist-evidence-intake-c61-gate-20261008",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c71-specialist-c5-c6-report-hard-gate-browser-20261008",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c72-real-browser-file-byte-sha256-specialist-20261008",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c73-2-transactional-postgres-custody-20261008",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c73-3a-authenticated-http-custody-gate-20261008",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c73-3b-encrypted-staging-evidence-vault-20261008",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c73-3c-external-custody-witness-20261008",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c73-3d-authenticated-restart-durable-witness-20261008",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c73-4-cryptographic-external-readiness-evidence-20261008",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c73-5-quorum-root-trust-registry-20261009",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c73-stage1-signed-custody-integrity-20261008",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c74-system-wide-real-browser-finance-adversarial-simulation-20261008",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c75-personal-mainline-20261009",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "c75-personal-property-research-workspace-20261009",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "chore/cloudflare-access-runtime-sync-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "chore/cloudflare-control-plane-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "chore/control-plane-owner-command-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "chore/integration-architecture-status-ia6",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "chore/production-ai-smoke-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "diagnose-378-arabic-v2-runtime",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "diagnostics/riai-atomic-spend-stress-20261104",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "docs/external-readiness-review-packs-2026-09-08",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "evidence/official-valuation-standards-2026-09-08",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "evidence/saudi-regulatory-context-2026-09-08",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "evidence/saudi-regulatory-source-verification-2026-09-08",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "evidence/source-evidence-convergence-2026-09-08",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "evidence/standards-and-licensing-source-verification-phase2-2026-09-08",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/assumption-model-v2-exported-migration",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/audit-20261011-contract-runoff",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/audit-20261012-lease-schedules",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/audit-20261012-receivables-ledger",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/controlled-spreadsheet-import-export-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/e2-saudi-legal-professional-applicability",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/e2b-external-review-credential-evidence",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/e2c-external-authority-validation",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/e2d-substantive-review-activation-proposal",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/e2e-rule-implementation-conformance-evidence",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/e2f-external-conformance-production-validation",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/e2g-human-release-authority-deployment-decision",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/e2h-execution-attestation-post-deploy-closeout",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/e2i-production-evidence-go-live-readiness-closeout",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/external-readiness-core-standards-sources",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/external-readiness-saudi-regulatory-privacy",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/external-readiness-taqeem-report-map",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/external-three-gates-readiness-20261026",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/final-engineering-release-candidate",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/financial-integrity-p0-2026-09-25",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/financial-integrity-p1-assumption-governance",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/financial-integrity-p2-noi-reconciliation",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/financial-integrity-p3-cap-governance",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/financial-integrity-p4-dcf-governance",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/financial-integrity-p5-workflow-reconciliation",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/financial-integrity-p6-validation-risk",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/financial-integrity-p7-monte-carlo",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/financial-integrity-p8-hbu-land-bid",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/financial-integrity-p9-portfolio-cockpit",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/financial-integrity-p10-exact-irr",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/governed-workbook-parser-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/governed-xlsx-adapter-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/integration-data-decision-architecture-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/local-document-tables-20261021",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/personal-13-sector-valuations-workbench-20261025",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/personal-financial-report-integrity-20261024",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/personal-financial-report-integrity-combined-20261024",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/personal-limited-property-interest-dcf-20261025",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/personal-limited-rights-dcf-after-case-archive-20261025",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/personal-phased-development-dcf-20261025",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/personal-research-integrity-20261024",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/personal-research-live-ui-20261024",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/personal-sector-case-archive-integrity-20261025",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/post-e2i-action-review-outcome-learning-path",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/post-e2i-canonical-in-app-case-workspace",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/post-e2i-canonical-workspace-ui-path",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/post-e2i-case-orchestration-integration",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/post-e2i-change-release-governance-handoff",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/post-e2i-engineering-change-qualification",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/post-e2i-executable-case-gap-closure",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/post-e2i-learning-change-control-registry",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/post-e2i-saved-deal-canonical-workspace-bridge",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/private-official-csv-market-intake-20261025",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/riai-atomic-quota-core-20261016",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/valuation-stage-orchestrator-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave2-assumption-version-exit-cap",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave3-post-release-production-validation",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave4-production-reliability-release-governance",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave5-saudi-compliance-guardrails",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave6-tenant-covenant-intelligence",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave7a-standards-foundation",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave7b-purpose-standards-router",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave7c-professional-assignment",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave7d-standards-provenance",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave8a-professional-evidence-chain",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave8b-inspection-measurement",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave8c-property-evidence-bridge",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave9a-market-comparable-evidence",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave9b-comparable-adjustments",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave9c-lease-income-evidence",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave9d-method-input-provenance",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave10a-hbu-planning",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave10b-esg-evidence",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave11a-cost-approach",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave11b-land-valuation",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave11c-development-residual",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave11d-development-sensitivity",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave12a-professional-income-noi",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave12b-direct-capitalization",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave12c-professional-dcf",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave12d-investment-financing-metrics",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave12e-regulated-context-routers",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave12f-financial-reporting-disclosures",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave13a-commercial-specialization",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave13b-commercial-method-readiness",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave13c-commercial-operating-metrics",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave13d-commercial-operating-stress",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave13e-commercial-closeout",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave14-standards-convergence",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave14a-specialized-asset-foundation",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave14b-hospitality-operating-metrics",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave14c-leisure-operating-metrics",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave14d-heritage-constraints",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave14e-specialized-forecast-assumptions",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave14f-specialized-operating-forecast",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave14g-specialized-interest-separation",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave14h-specialized-closeout",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave15a-professional-report-contract",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave15a-standards-governance-reconciliation",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave15b-professional-review",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave15c-report-conformance-qa",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave15d-reporting-closeout",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave16a-monte-carlo-governance",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave16b-tail-risk-thresholds",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave16c-portfolio-concentration",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave16d-investment-committee-governance",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave16e-decision-intelligence-closeout",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave17a-security-qualification",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave17a-security-qualification-evidence",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave17b-performance-resilience",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave17b-performance-resilience-qualification",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave17c-independent-release-qualification",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave17c-independent-release-qualification-v2",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave17d-engineering-closeout",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave17d-engineering-closeout-v2",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feat/wave-b2-user-entered-zakat-layer",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/ai-expert-challenger-orchestration-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/appraisal-assurance-p0-20261028",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/appraisal-input-gaps-20261030",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/audit-findings-d01-d07-20261028",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/c7-correlated-risk-requalification-20261111",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/c57-sector-research-report-from-live-methods-20261026",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/compliance-guard-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/compliance-safe-ui-cutover-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/compliance-safe-ui-verdict-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/controlled-pilot-readiness-v2",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/controlled-production-activation-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/decision-action-state-history-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/decision-feedback-loop-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/decision-intelligence-ui-surface-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/decision-intelligence-workspace-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/decision-quality-orchestrator-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/decision-reversal-max-price-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/document-intelligence-foundation",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/document-intelligence-foundation-final",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/document-intelligence-foundation-review",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/document-intelligence-foundation-v2",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/document-parser-adapters",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/due-diligence-actions-ic-dossier-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/end-to-end-study-orchestrator-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/evidence-quality-assumption-burden",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/evidence-to-calculation-traceability-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/evidence-verification-readiness-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/evidence-verification-ui-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/external-valuation-validation-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/formula-775-optional-indicators-20261109",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/human-committee-decision-outcome-feedback-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/human-go-live-decision-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/ic-dossier-action-workflow-ui-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/industrial-logistics-adapter-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/institutional-go-live-gate-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/local-document-evidence-intake-ui-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/location-market-valuation-20261027",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/manual-source-ingestion-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/market-evidence-qualification-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/next-best-due-diligence-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/outcome-monitoring-learning-ui-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/owner-five-step-wizard-staging-20261106",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/parsed-evidence-qualification-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/pilot-execution-evidence-pack-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/pilot-readiness-gate-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/portfolio-intelligence-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/post-deployment-human-review-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/post-production-deployment-evidence-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/post-rollback-human-review-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/postgres-rls-migration-generator-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/production-deployment-evidence-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/production-follow-up-action-closure-decision-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/production-follow-up-action-closure-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/production-readiness-audit-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/production-rollback-execution-evidence-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/production-security-readiness-gate-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/production-security-review-evidence-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/production-service-continuity-decision-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/production-service-continuity-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/professional-review-reliability-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/qcr-live-evidence-execution-board-20261027",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/reference-evidence-lineage-change-queue-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/regulatory-closure-evidence-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/riai-acquisition-basis",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/riai-ai-gateway-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/riai-ai-output-safety-v2",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/riai-ai-production-guard-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/riai-ai-ui-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/riai-decision-ui-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/riai-exit-strategy-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/riai-lifecycle-location-upside-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/riai-mark-to-market-stabilized-noi",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/riai-operating-case-persistence",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/riai-opex-capex-foundation",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/riai-rent-roll-collections-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/riai-rent-roll-occupancy-lease-timing",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/riai-residential-income-acquisition",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/riai-reverse-underwriting-v2",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/riai-strategic-asset-intelligence-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/riai-strategic-evidence-contract-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/riai-subdivision-due-diligence-gate-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/runtime-identity-verification-evidence-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/runtime-rls-verification-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/security-authorization-audit-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/security-evidence-attestation-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/security-evidence-trust-gate-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/security-readiness-orchestrator-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/security-tenant-boundary-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/semantic-evidence-mapping",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/source-activation-readiness-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/startak-re-legacy-c22-c23-ai-parity-20261112",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/underwriting-input-adoption-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/universal-evidence-orchestrator",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/universal-real-estate-project-model",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/universal-semantic-core-domains",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/valuation-intelligence-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/verified-identity-context-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/vertical-slice-orchestrator-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "feature/wave-c-remediation-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/ai-output-guard-remediation-v2",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/ai-request-lifecycle-20261019",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/asset-delivery-evidence-20261022",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/audit-20261011-capitalization-basis",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/audit-20261011-collections-integrity",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/audit-20261012-capital-row-precision",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/build-release-traceability-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/c55-arabic-phase-month-strict-intake-20261026",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/c57-sector-print-audit-comparable-provenance-reasons-20261027",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/c57-verified-json-report-input-restoration-20261027",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/c58-operating-horizon-fail-closed-20261027",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/c58-source-chain-contract-20261111",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/c63-current-native-bundled-dev-e2e-20261026",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/certified-purchase-ceiling-20261020",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/cloudflare-credential-fast-fail-2026-09-22",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/cloudflare-preflight-project-auth-2026-09-22",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/cloudflare-token-normalization-2026-09-22",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/current-production-deploy-operator-411",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/durable-local-recovery-20261021",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/financial-dated-returns-convergence-v2",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/financial-daycount-single-source",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/financial-engine-remediation-wave-a",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/financial-engine-remediation-wave-b",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/financial-engine-remediation-wave-b2-land",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/financial-formula-registry-daycount-audit",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/financial-horizon-failclosed-397",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/financial-precision-remediation-c1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/independent-financial-audit-dcf-dated-returns",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/independent-public-acceptance-concurrency-20261023",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/kite-request-scope-integrity-20261111",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/lease-lifecycle-closeout-20261020",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/local-ocr-intake-20261020",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/market-comparable-integrity-20261023",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/market-comparable-scope-isolation-20261023",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/market-evidence-review-chronology-20261024",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/n11-edge-asset-observation-20261022",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/n11-first-failure-all-manifest-responses-20261024",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/n11-manifest-mismatch-edge-forensics-20261024",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/n11-multi-observer-public-delivery-20261023",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/operating-reconciliation-20261019",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/operating-report-attachment-20261017",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/operating-report-details-20261017",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/owner-exact-public-acceptance-20261023",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/owner-study-hidden-diagnostic-code-20261105",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/p0-executed-comparable-explicit-status-archive-v2-20261026",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/p8-fresh-main-requalification",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/p9-fresh-main-requalification",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/p10-fresh-main-financial-integrity-closure",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/p27-current-model-reference-20261111",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/personal-kite-provenance-20261110",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/personal-rights-dcf-archive-20261025",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/pilot-evidence-integrity-v2",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/post-release-owner-control-plane-provenance",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/production-ai-smoke-governed-dual-mode-2026-09-22",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/production-asset-convergence-c55-20261025",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/protected-preview-audit-main-20261104",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/purchase-boundary-evidence-20261020",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/qcr-authority-boundary-program-validation-20261027",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/qcr-evidence-intake-hardening-and-external-rfps-20261027",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/qualify-purchase-boundary-20261018",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/reaudit-20261016-numeric-price-evidence",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/receivables-period-reconciliation-20261020",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/remaining-audit-20261019",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/riai-atomic-gateway-20261016",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/riai-audit-persistence-20261016",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/riai-bounded-body-20261016",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/riai-deterministic-minute-test-20261104",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/riai-provider-claims-20261017",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/saved-deals-restore-20261020",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/source-dated-returns-20261020",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/startak-audit-20261028",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/v2-exit-cap-guidance",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/wave0-p1-closure",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/wave1-required-inputs-nan-guard",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/wave2-strict-arabic-contract",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/wave-a-entrypoint-preserve-leverage",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix/378-preserve-v2-sanitizer-contract",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "fix-378-arabic-v2-sentinel-collision",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "governance/cleanup-internal-bootstrap-2026-09-21",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "governance/disable-production-autodeploy-2026-09-14",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "governance/e2f-cryptographic-verifier-hardening-2026-09-12",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "governance/environment-config-capture-2026-09-14",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "governance/environment-config-v3-false-preservation-2026-09-14",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "governance/exact-candidate-artifact-capture-2026-09-14",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "governance/finalize-fail-open-control-2026-09-14",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "governance/fix-cloudflare-project-patch-2026-09-14",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "governance/operator-templates-2026-09-16",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "governance/owner-command-env-capture-trigger-2026-09-14",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "governance/pin-e2f-crypto-verifier-2026-09-12",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "governance/production-deploy-trigger-2026-09-15",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "governance/production-environment-binding-2026-09-12",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "governance/production-posture-capture-2026-09-14",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "governance/reconcile-current-status-2026-09-21",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "governance/remediation-register-sync-p22",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "governance/report-remediation-register-2026-09-27",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "governance/successor-artifact-capture-75f824da",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "governance/successor-environment-capture-75f824da",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "governance/sync-candidate-capture-0a2f6dec",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "governance/sync-environment-capture-0a2f6dec",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "governance/trusted-main-bootstrap-2026-09-12",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "hardening/c55-timed-residual-cross-method-diagnostics-20261026",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "hardening/c56-independent-holdout-attestation-20261026",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "hardening/p26-current-main-financial-timing-20261026",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "hardening/production-security-a11y",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "integration/personal-data-pipeline-20261110",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "main",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "maintenance/inventory-all-github-actions-2026-09-21",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "maintenance/pin-commercial-actions-2026-09-21",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "maintenance/pin-critical-github-actions-2026-09-21",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "maintenance/pin-evidence-asset-actions-2026-09-21",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "maintenance/pin-final-nonproduction-actions-2026-09-22",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "maintenance/pin-production-compliance-actions-2026-09-21",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "maintenance/pin-production-verification-actions-2026-09-22",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "maintenance/pin-professional-actions-2026-09-21",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "maintenance/pin-specialized-actions-2026-09-21",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "maintenance/pin-standards-routing-actions-2026-09-21",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "maintenance/pin-valuation-evidence-actions-2026-09-21",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "maintenance/pin-valuation-method-actions-2026-09-21",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "maintenance/production-actions-node24-2026-09-22",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "monitoring/sentry-live",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "p11-external-source-backed-validation",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "p11b-irr-evidence-sufficiency",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "p11c-debt-service-dscr-reference",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "p12-price-basis-semantic-remediation",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "p13-zero-debt-leverage-neutrality",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "p14-riyadh-rent-regulation-semantics",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "p15-invalid-exit-cap-fail-closed-propagation",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "p16-financing-acquisition-cost-basis",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "p17-terminal-value-independent-validation",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "p18-rett-incidence-semantics",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "p19-irr-adaptive-positive-bracket",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "p20-land-ltc-capitalized-interest-disclosure",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "p21-coverage-ratio-semantics",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "p22-building-exit-cost-governance",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "p23-lease-roll-forward-governance",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "p24-1-bounded-decision-verdict",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "p24-cashflow-timing-convention-disclosure",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "p24-replacement-cost-valuation-semantics",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "p25-critical-assumption-override-governance",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "p26-financial-timing-basis-disclosure",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "p27-current-model-reference-corpus-governance",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "post-c30-browser-runtime-hardening",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "post-c30-vite-native-loader-compat",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/activation-authorization-operator",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/admin-operations-runtime",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/api-idor-bola-privileged-path",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/auth-persistence-runtime",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/authenticated-workspace-service",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/canonical-baseline-reconstitution",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/canonical-baseline-registry-contract",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/canonical-baseline-release-gate",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/canonical-e2i-signing-package",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/canonical-rebaseline-activation-plan",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/canonical-rebaseline-governance-decision",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/canonical-rebaseline-independent-review",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/canonical-rebaseline-review-attestation",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/canonical-rebaseline-reviewer-designation",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/canonical-rebaseline-reviewer-ledger",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/canonical-rebaseline-reviewer-lifecycle-lock",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/canonical-source-evidence-hardening",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/cloudflare-production-secret-boundary-hardening",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/composite-baseline-activation-change-contract",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/composite-baseline-cutover-rehearsal",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/composite-baseline-cutover-safety-guard",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/composite-baseline-evidence-operator",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/composite-baseline-evidence-verifier",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/composite-baseline-shadow-release-gate",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/controlled-backup-restore",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/controlled-baseline-activation-executor",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/controlled-dr-failover",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/controlled-observability-incident",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/controlled-postgres-migration-runner",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/decision-intelligence-runtime",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/dual-mode-canonical-registry-verifier",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/e2g-release-authority-decision-intake",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/e2h-execution-attestor-intake",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/e2i-external-evidence-request-dossier",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/e2i-readiness-evidence-intake",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/e2i-signed-external-evidence-preflight",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/external-canonical-evidence-operator",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/external-production-evidence-acquisition-package",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/final-production-operator-handoff",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/fresh-activation-change-contract",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/fresh-canonical-registry-release-gate",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/fresh-composite-cutover-rehearsal",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/fresh-composite-cutover-safety-guard",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/fresh-composite-evidence-verifier",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/fresh-composite-registry-candidate",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/fresh-composite-shadow-release-gate",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/fresh-composite-shadow-release-gate-final",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/fresh-composite-shadow-release-gate-stage",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/fresh-composite-shadow-release-gate-tmp",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/fresh-composite-shadow-release-gate-work",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/fresh-controlled-canonical-baseline-activation-executor",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/fresh-dual-mode-canonical-registry-verifier",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/fresh-human-incident-closeout-decision",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/fresh-owner-activation-authorization",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/fresh-post-activation-verification-rollback-trigger",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/fresh-post-rollback-verification-incident-closeout",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/fresh-reactivation-activation-plan",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/fresh-reactivation-governance-cycle",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/fresh-reactivation-independent-review-handoff",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/fresh-reactivation-review-attestation",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/fresh-reactivation-reviewer-lifecycle-lock",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/human-incident-closeout-attestation",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/human-incident-closeout-decision",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/independent-security-uat-evidence",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/investment-committee-runtime",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/main-merge-governance-gate-hardening",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/oidc-jwt-jwks-runtime",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/operational-upstream-packet-provenance-hardening",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/p79-external-production-readiness-handoff",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/post-activation-verification-rollback-trigger",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/post-rollback-verification-incident-closeout",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/postgres-rls-runtime-probe",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/postgres-workspace-persistence",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/production-ai-smoke-commit-correlation",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/production-derived-state-integrity-hardening",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/production-go-live-runbook",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/production-qualification-gate",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/production-secret-workflow-isolation",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/readiness-verifier-registry-intake-package",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/release-candidate-evidence-bundle",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/release-chain-provenance-hardening",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/reporting-runtime",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/runtime-production-readiness-hardening",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/server-http-api-boundary",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/server-runtime-composition",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/staging-postgres-qualification",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/successor-fresh-activation-change-contract",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/successor-fresh-activation-plan",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/successor-fresh-canonical-registry-release-gate",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/successor-fresh-composite-cutover-rehearsal",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/successor-fresh-composite-cutover-safety-guard",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/successor-fresh-composite-evidence-verifier",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/successor-fresh-composite-registry-candidate",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/successor-fresh-composite-shadow-release-gate",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/successor-fresh-controlled-canonical-baseline-activation",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/successor-fresh-dual-mode-canonical-registry-verifier",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/successor-fresh-independent-review-handoff",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/successor-fresh-owner-activation-authorization",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/successor-fresh-post-activation-verification-rollback-trigger",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/successor-fresh-reactivation-governance-cycle",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/successor-fresh-review-attestation",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "productization/successor-fresh-reviewer-lifecycle-lock",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "program/qualification-commercial-readiness-20261027",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "qa/hardening-preview-live-e2e",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "qa/production-live-comprehensive-20260830",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "qa/sentry-preview-verification",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "release/decision-governance-integrated-rc-2026-09-16",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "release/final-production-candidate",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "release/production-deployment-2026-09-15",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "release/qualified-main-integration-2026-09-12",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "release/successor-main-sync-2026-09-15",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "release/wave17-engineering-candidate",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "remediation/decision-integrity-wave-2026-09-14",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "security/remove-ambient-window-governance-injection-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "test/actual-browser-crash-recovery-20261021",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "test/comprehensive-platform-verification-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "test/comprehensive-platform-verification-v2",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "test/deep-platform-quality-verification-v1",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "test/production-acceptance-rights-phased-20261025",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "tmp-noop",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "wave/decision-governance-saudi-release-hardening-2026-09-15",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "wave/decision-governance-ui-integration-followup-2026-09-16",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "wave-7-foundation-standards-router",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "wave-7a-standards-registry-router-nonenforcing",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "wave-7b-assignment-scope-workflow-nonenforcing",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "wave-7c-standards-activation-lifecycle-nonenforcing",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "wave-7d-standards-historical-reproducibility-nonenforcing",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "wave-d-openai-responses-adapter",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "wave-d-production-ai-activation-gate",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "wave-d-production-ai-activation-gate-v2",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    },
+    {
+      "name": "wave-d-public-ai-turnstile-budget",
+      "inventoryState": "BRANCH_DISCOVERED_SOURCE_NOT_FUNCTIONALLY_AUDITED"
+    }
+  ],
+  "groupedBranchNames": {
+    "audit": [
+      "audit/c55-dated-development-engine-20261024",
+      "audit/c57-all-asset-sector-evidence-20261025",
+      "audit/c61-hospitality-industrial-operational-gates-20261025",
+      "audit/c61-specialist-gates-on-merged-market-20261025",
+      "audit/independent-financial-oracle-v1",
+      "audit/independent-financial-oracle-v2",
+      "audit/independent-financial-reference-v1",
+      "audit/n03-governed-private-alpha-source-intake-20261024",
+      "audit/n06-forward-holdout-20261024",
+      "audit/n06-slice-accuracy-gates-20261024",
+      "audit/personal-cashflow-npv-reconciliation-20261024",
+      "audit/price-basis-398-v2",
+      "audit/price-basis-398",
+      "audit/stress-bounds-v2",
+      "audit-20261010-financial-f01-f02-failclosed",
+      "audit-20261010-owner-study-f03-f07",
+      "audit-20261011-arabic-surface-polish",
+      "audit-20261012-documented-refunds",
+      "audit-20261013-charge-reductions",
+      "audit-20261013-deployed-diagnostics",
+      "audit-20261013-entry-release-coherence",
+      "audit-20261013-operating-payment-plan",
+      "audit-20261013-period-budget",
+      "audit-20261013-workspace-load-isolation",
+      "audit-20261014-bank-rent-matching",
+      "audit-20261014-cash-scenario",
+      "audit-20261014-intraperiod-liquidity",
+      "audit-20261014-lease-calendar",
+      "audit-20261014-statement-balances",
+      "audit-20261015-asset-delivery",
+      "audit-20261015-other-cash-flows"
+    ],
+    "other": [
+      "batch/20261027-n06-n08-external-gates-hardening",
+      "bootstrap/internal-main-governance-base",
+      "c2n-governed-non-api-source-acquisition",
+      "c2s-source-intelligence-evidence-provenance-registry",
+      "c3i-c2s-governed-reconciliation-integration",
+      "c3i-whole-property-market-reconciliation-integration",
+      "c3m-whole-property-market-sales-comparison-foundation",
+      "chore/cloudflare-access-runtime-sync-v1",
+      "chore/cloudflare-control-plane-v1",
+      "chore/control-plane-owner-command-v1",
+      "chore/integration-architecture-status-ia6",
+      "chore/production-ai-smoke-v1",
+      "diagnose-378-arabic-v2-runtime",
+      "diagnostics/riai-atomic-spend-stress-20261104",
+      "docs/external-readiness-review-packs-2026-09-08",
+      "evidence/official-valuation-standards-2026-09-08",
+      "evidence/saudi-regulatory-context-2026-09-08",
+      "evidence/saudi-regulatory-source-verification-2026-09-08",
+      "evidence/source-evidence-convergence-2026-09-08",
+      "evidence/standards-and-licensing-source-verification-phase2-2026-09-08",
+      "hardening/c55-timed-residual-cross-method-diagnostics-20261026",
+      "hardening/c56-independent-holdout-attestation-20261026",
+      "hardening/p26-current-main-financial-timing-20261026",
+      "hardening/production-security-a11y",
+      "main",
+      "maintenance/inventory-all-github-actions-2026-09-21",
+      "maintenance/pin-commercial-actions-2026-09-21",
+      "maintenance/pin-critical-github-actions-2026-09-21",
+      "maintenance/pin-evidence-asset-actions-2026-09-21",
+      "maintenance/pin-final-nonproduction-actions-2026-09-22",
+      "maintenance/pin-production-compliance-actions-2026-09-21",
+      "maintenance/pin-production-verification-actions-2026-09-22",
+      "maintenance/pin-professional-actions-2026-09-21",
+      "maintenance/pin-specialized-actions-2026-09-21",
+      "maintenance/pin-standards-routing-actions-2026-09-21",
+      "maintenance/pin-valuation-evidence-actions-2026-09-21",
+      "maintenance/pin-valuation-method-actions-2026-09-21",
+      "maintenance/production-actions-node24-2026-09-22",
+      "monitoring/sentry-live",
+      "p11b-irr-evidence-sufficiency",
+      "p11c-debt-service-dscr-reference",
+      "post-c30-browser-runtime-hardening",
+      "post-c30-vite-native-loader-compat",
+      "program/qualification-commercial-readiness-20261027",
+      "qa/hardening-preview-live-e2e",
+      "qa/production-live-comprehensive-20260830",
+      "qa/sentry-preview-verification",
+      "remediation/decision-integrity-wave-2026-09-14",
+      "test/actual-browser-crash-recovery-20261021",
+      "test/comprehensive-platform-verification-v1",
+      "test/comprehensive-platform-verification-v2",
+      "test/deep-platform-quality-verification-v1",
+      "test/production-acceptance-rights-phased-20261025",
+      "tmp-noop"
+    ],
+    "c1": [
+      "c1-official-geospatial-evidence-foundation"
+    ],
+    "c2": [
+      "c2-official-market-evidence-comparables-foundation",
+      "c2-official-market-evidence-foundation"
+    ],
+    "c3": [
+      "c3-governed-valuation-reconciliation-foundation"
+    ],
+    "c4": [
+      "c4-governed-deal-decision-report-integration"
+    ],
+    "c5": [
+      "c5-governed-decision-ui-export-integration"
+    ],
+    "c6": [
+      "c6-browser-e2e-controlled-human-review"
+    ],
+    "c7": [
+      "c7-governed-correlated-monte-carlo"
+    ],
+    "c8": [
+      "c8-governed-title-survey-property-evidence"
+    ],
+    "c9": [
+      "c9-governed-urban-code-plot-feasibility"
+    ],
+    "c10": [
+      "c10-governed-market-interpretation-liquidity"
+    ],
+    "c11": [
+      "c11-governed-income-asset-intelligence"
+    ],
+    "c12": [
+      "c12-governed-regulatory-carry-cost"
+    ],
+    "c13": [
+      "c13-governed-encumbrance-mortgage-closing"
+    ],
+    "c14": [
+      "c14-governed-financing-optimization"
+    ],
+    "c15": [
+      "c15-governed-rental-regulation"
+    ],
+    "c16": [
+      "c16-governed-auction-acquisition"
+    ],
+    "c17": [
+      "c17-governed-raw-land-strategic-optionality"
+    ],
+    "c18": [
+      "c18-governed-subdivision-merge-review"
+    ],
+    "c19": [
+      "c19-governed-policy-shock-comparable-impact"
+    ],
+    "c20": [
+      "c20-governed-urban-growth-accessibility"
+    ],
+    "c21": [
+      "c21-governed-listing-transparency-amenity-utility"
+    ],
+    "c22": [
+      "c22-governed-generative-intelligence-orchestration"
+    ],
+    "c23": [
+      "c23-governed-live-ai-provider-gateway"
+    ],
+    "c24": [
+      "c24-integrated-case-property-orchestration"
+    ],
+    "c25": [
+      "c25-production-source-operational-readiness"
+    ],
+    "c26": [
+      "c26-governed-case-review-presentation-rbac",
+      "c26-governed-operator-workspace-rbac"
+    ],
+    "c27": [
+      "c27-governed-observability-operational-safety"
+    ],
+    "c28": [
+      "c28-comprehensive-integration-qualification"
+    ],
+    "c29": [
+      "c29-governed-shadow-simulation-uat-harness",
+      "c29-integrated-case-review-ui-closure"
+    ],
+    "c30": [
+      "c30-external-evidence-artifact-integrity",
+      "c30-external-evidence-collection-pack",
+      "c30-external-evidence-final-handoff",
+      "c30-release-candidate-freeze-evidence-pack"
+    ],
+    "c31": [
+      "c31-canonical-evidence-readiness"
+    ],
+    "c32": [
+      "c32-evidence-acquisition-orchestration"
+    ],
+    "c33": [
+      "c33-evidence-request-outreach-handoff"
+    ],
+    "c34": [
+      "c34-single-accountable-owner"
+    ],
+    "c35": [
+      "c35-owner-execution-wave1"
+    ],
+    "c36": [
+      "c36-rollback-evidence-review-handoff"
+    ],
+    "c37": [
+      "c37-rollback-independent-reviewer-designation"
+    ],
+    "c38": [
+      "c38-rollback-signed-review-intake"
+    ],
+    "c39": [
+      "c39-historical-evidence-reuse-audit"
+    ],
+    "c40": [
+      "c40-platform-exhaustive-integration-verification"
+    ],
+    "c41": [
+      "c41-full-platform-exhaustive-reliability-qualification"
+    ],
+    "c42": [
+      "c42-external-gate-closure-control"
+    ],
+    "c43": [
+      "c43-external-review-handoff-packets"
+    ],
+    "c44": [
+      "c44-current-source-rights-review-register"
+    ],
+    "c45": [
+      "c45-internal-source-rights-advisory-review"
+    ],
+    "c46": [
+      "c46-internal-security-review-and-hardening"
+    ],
+    "c47": [
+      "c47-internal-privacy-pdpl-readiness"
+    ],
+    "c48": [
+      "c48-internal-ai-provider-production-readiness"
+    ],
+    "c49": [
+      "c49-internal-official-source-data-rights-readiness"
+    ],
+    "c50": [
+      "c50-internal-human-uat-readiness"
+    ],
+    "c51": [
+      "c51-internal-historical-replay-readiness",
+      "c51-private-alpha-governance-non-api-acquisition"
+    ],
+    "c52": [
+      "c52-private-alpha-governance-non-api-acquisition"
+    ],
+    "c53": [
+      "c53-private-alpha-source-acquisition-runtime"
+    ],
+    "c54": [
+      "c54-market-comparable-decision-gate-20261008",
+      "c54-private-alpha-protected-access-control"
+    ],
+    "c55": [
+      "c55-governed-dated-development-residual-20261008"
+    ],
+    "c56": [
+      "c56-saudi-historical-validation-cohort-20261008"
+    ],
+    "c57": [
+      "c57-sector-e2e-evidence-coverage-20261008"
+    ],
+    "c58": [
+      "c58-comparable-provenance-chain-20261008"
+    ],
+    "c59": [
+      "c59-componentized-cost-obsolescence-20261008"
+    ],
+    "c60": [
+      "c60-income-rate-evidence-20261008"
+    ],
+    "c61": [
+      "c61-specialized-property-operating-hard-gates-20261008"
+    ],
+    "c62": [
+      "c62-live-valuation-evidence-boundary-20261008"
+    ],
+    "c63": [
+      "c63-chromium-valuation-live-e2e-20261008"
+    ],
+    "c64": [
+      "c64-land-development-live-chromium-20261008"
+    ],
+    "c65": [
+      "c65-arabic-institutional-hold-disclosure-20261008"
+    ],
+    "c66": [
+      "c66-vite-dev-commonjs-bootstrap-20261008"
+    ],
+    "c67": [
+      "c67-vite8-native-bundled-dev-chromium-20261008"
+    ],
+    "c68": [
+      "c68-native-bundled-react-hmr-e2e-20261008"
+    ],
+    "c69": [
+      "c69-specialist-valuation-live-hold-browser-20261008"
+    ],
+    "c70": [
+      "c70-live-specialist-evidence-intake-c61-gate-20261008"
+    ],
+    "c71": [
+      "c71-specialist-c5-c6-report-hard-gate-browser-20261008"
+    ],
+    "c72": [
+      "c72-real-browser-file-byte-sha256-specialist-20261008"
+    ],
+    "c73": [
+      "c73-2-transactional-postgres-custody-20261008",
+      "c73-3a-authenticated-http-custody-gate-20261008",
+      "c73-3b-encrypted-staging-evidence-vault-20261008",
+      "c73-3c-external-custody-witness-20261008",
+      "c73-3d-authenticated-restart-durable-witness-20261008",
+      "c73-4-cryptographic-external-readiness-evidence-20261008",
+      "c73-5-quorum-root-trust-registry-20261009",
+      "c73-stage1-signed-custody-integrity-20261008"
+    ],
+    "c74": [
+      "c74-system-wide-real-browser-finance-adversarial-simulation-20261008"
+    ],
+    "c75": [
+      "c75-personal-mainline-20261009",
+      "c75-personal-property-research-workspace-20261009"
+    ],
+    "feat": [
+      "feat/assumption-model-v2-exported-migration",
+      "feat/audit-20261011-contract-runoff",
+      "feat/audit-20261012-lease-schedules",
+      "feat/audit-20261012-receivables-ledger",
+      "feat/controlled-spreadsheet-import-export-v1",
+      "feat/e2-saudi-legal-professional-applicability",
+      "feat/e2b-external-review-credential-evidence",
+      "feat/e2c-external-authority-validation",
+      "feat/e2d-substantive-review-activation-proposal",
+      "feat/e2e-rule-implementation-conformance-evidence",
+      "feat/e2f-external-conformance-production-validation",
+      "feat/e2g-human-release-authority-deployment-decision",
+      "feat/e2h-execution-attestation-post-deploy-closeout",
+      "feat/e2i-production-evidence-go-live-readiness-closeout",
+      "feat/external-readiness-core-standards-sources",
+      "feat/external-readiness-saudi-regulatory-privacy",
+      "feat/external-readiness-taqeem-report-map",
+      "feat/external-three-gates-readiness-20261026",
+      "feat/final-engineering-release-candidate",
+      "feat/financial-integrity-p0-2026-09-25",
+      "feat/financial-integrity-p1-assumption-governance",
+      "feat/financial-integrity-p2-noi-reconciliation",
+      "feat/financial-integrity-p3-cap-governance",
+      "feat/financial-integrity-p4-dcf-governance",
+      "feat/financial-integrity-p5-workflow-reconciliation",
+      "feat/financial-integrity-p6-validation-risk",
+      "feat/financial-integrity-p7-monte-carlo",
+      "feat/financial-integrity-p8-hbu-land-bid",
+      "feat/financial-integrity-p9-portfolio-cockpit",
+      "feat/financial-integrity-p10-exact-irr",
+      "feat/governed-workbook-parser-v1",
+      "feat/governed-xlsx-adapter-v1",
+      "feat/integration-data-decision-architecture-v1",
+      "feat/local-document-tables-20261021",
+      "feat/personal-13-sector-valuations-workbench-20261025",
+      "feat/personal-financial-report-integrity-20261024",
+      "feat/personal-financial-report-integrity-combined-20261024",
+      "feat/personal-limited-property-interest-dcf-20261025",
+      "feat/personal-limited-rights-dcf-after-case-archive-20261025",
+      "feat/personal-phased-development-dcf-20261025",
+      "feat/personal-research-integrity-20261024",
+      "feat/personal-research-live-ui-20261024",
+      "feat/personal-sector-case-archive-integrity-20261025",
+      "feat/post-e2i-action-review-outcome-learning-path",
+      "feat/post-e2i-canonical-in-app-case-workspace",
+      "feat/post-e2i-canonical-workspace-ui-path",
+      "feat/post-e2i-case-orchestration-integration",
+      "feat/post-e2i-change-release-governance-handoff",
+      "feat/post-e2i-engineering-change-qualification",
+      "feat/post-e2i-executable-case-gap-closure",
+      "feat/post-e2i-learning-change-control-registry",
+      "feat/post-e2i-saved-deal-canonical-workspace-bridge",
+      "feat/private-official-csv-market-intake-20261025",
+      "feat/riai-atomic-quota-core-20261016",
+      "feat/valuation-stage-orchestrator-v1",
+      "feat/wave2-assumption-version-exit-cap",
+      "feat/wave3-post-release-production-validation",
+      "feat/wave4-production-reliability-release-governance",
+      "feat/wave5-saudi-compliance-guardrails",
+      "feat/wave6-tenant-covenant-intelligence",
+      "feat/wave7a-standards-foundation",
+      "feat/wave7b-purpose-standards-router",
+      "feat/wave7c-professional-assignment",
+      "feat/wave7d-standards-provenance",
+      "feat/wave8a-professional-evidence-chain",
+      "feat/wave8b-inspection-measurement",
+      "feat/wave8c-property-evidence-bridge",
+      "feat/wave9a-market-comparable-evidence",
+      "feat/wave9b-comparable-adjustments",
+      "feat/wave9c-lease-income-evidence",
+      "feat/wave9d-method-input-provenance",
+      "feat/wave10a-hbu-planning",
+      "feat/wave10b-esg-evidence",
+      "feat/wave11a-cost-approach",
+      "feat/wave11b-land-valuation",
+      "feat/wave11c-development-residual",
+      "feat/wave11d-development-sensitivity",
+      "feat/wave12a-professional-income-noi",
+      "feat/wave12b-direct-capitalization",
+      "feat/wave12c-professional-dcf",
+      "feat/wave12d-investment-financing-metrics",
+      "feat/wave12e-regulated-context-routers",
+      "feat/wave12f-financial-reporting-disclosures",
+      "feat/wave13a-commercial-specialization",
+      "feat/wave13b-commercial-method-readiness",
+      "feat/wave13c-commercial-operating-metrics",
+      "feat/wave13d-commercial-operating-stress",
+      "feat/wave13e-commercial-closeout",
+      "feat/wave14-standards-convergence",
+      "feat/wave14a-specialized-asset-foundation",
+      "feat/wave14b-hospitality-operating-metrics",
+      "feat/wave14c-leisure-operating-metrics",
+      "feat/wave14d-heritage-constraints",
+      "feat/wave14e-specialized-forecast-assumptions",
+      "feat/wave14f-specialized-operating-forecast",
+      "feat/wave14g-specialized-interest-separation",
+      "feat/wave14h-specialized-closeout",
+      "feat/wave15a-professional-report-contract",
+      "feat/wave15a-standards-governance-reconciliation",
+      "feat/wave15b-professional-review",
+      "feat/wave15c-report-conformance-qa",
+      "feat/wave15d-reporting-closeout",
+      "feat/wave16a-monte-carlo-governance",
+      "feat/wave16b-tail-risk-thresholds",
+      "feat/wave16c-portfolio-concentration",
+      "feat/wave16d-investment-committee-governance",
+      "feat/wave16e-decision-intelligence-closeout",
+      "feat/wave17a-security-qualification",
+      "feat/wave17a-security-qualification-evidence",
+      "feat/wave17b-performance-resilience",
+      "feat/wave17b-performance-resilience-qualification",
+      "feat/wave17c-independent-release-qualification",
+      "feat/wave17c-independent-release-qualification-v2",
+      "feat/wave17d-engineering-closeout",
+      "feat/wave17d-engineering-closeout-v2",
+      "feat/wave-b2-user-entered-zakat-layer"
+    ],
+    "feature": [
+      "feature/ai-expert-challenger-orchestration-v1",
+      "feature/appraisal-assurance-p0-20261028",
+      "feature/appraisal-input-gaps-20261030",
+      "feature/audit-findings-d01-d07-20261028",
+      "feature/c7-correlated-risk-requalification-20261111",
+      "feature/c57-sector-research-report-from-live-methods-20261026",
+      "feature/compliance-guard-v1",
+      "feature/compliance-safe-ui-cutover-v1",
+      "feature/compliance-safe-ui-verdict-v1",
+      "feature/controlled-pilot-readiness-v2",
+      "feature/controlled-production-activation-v1",
+      "feature/decision-action-state-history-v1",
+      "feature/decision-feedback-loop-v1",
+      "feature/decision-intelligence-ui-surface-v1",
+      "feature/decision-intelligence-workspace-v1",
+      "feature/decision-quality-orchestrator-v1",
+      "feature/decision-reversal-max-price-v1",
+      "feature/document-intelligence-foundation",
+      "feature/document-intelligence-foundation-final",
+      "feature/document-intelligence-foundation-review",
+      "feature/document-intelligence-foundation-v2",
+      "feature/document-parser-adapters",
+      "feature/due-diligence-actions-ic-dossier-v1",
+      "feature/end-to-end-study-orchestrator-v1",
+      "feature/evidence-quality-assumption-burden",
+      "feature/evidence-to-calculation-traceability-v1",
+      "feature/evidence-verification-readiness-v1",
+      "feature/evidence-verification-ui-v1",
+      "feature/external-valuation-validation-v1",
+      "feature/formula-775-optional-indicators-20261109",
+      "feature/human-committee-decision-outcome-feedback-v1",
+      "feature/human-go-live-decision-v1",
+      "feature/ic-dossier-action-workflow-ui-v1",
+      "feature/industrial-logistics-adapter-v1",
+      "feature/institutional-go-live-gate-v1",
+      "feature/local-document-evidence-intake-ui-v1",
+      "feature/location-market-valuation-20261027",
+      "feature/manual-source-ingestion-v1",
+      "feature/market-evidence-qualification-v1",
+      "feature/next-best-due-diligence-v1",
+      "feature/outcome-monitoring-learning-ui-v1",
+      "feature/owner-five-step-wizard-staging-20261106",
+      "feature/parsed-evidence-qualification-v1",
+      "feature/pilot-execution-evidence-pack-v1",
+      "feature/pilot-readiness-gate-v1",
+      "feature/portfolio-intelligence-v1",
+      "feature/post-deployment-human-review-v1",
+      "feature/post-production-deployment-evidence-v1",
+      "feature/post-rollback-human-review-v1",
+      "feature/postgres-rls-migration-generator-v1",
+      "feature/production-deployment-evidence-v1",
+      "feature/production-follow-up-action-closure-decision-v1",
+      "feature/production-follow-up-action-closure-v1",
+      "feature/production-readiness-audit-v1",
+      "feature/production-rollback-execution-evidence-v1",
+      "feature/production-security-readiness-gate-v1",
+      "feature/production-security-review-evidence-v1",
+      "feature/production-service-continuity-decision-v1",
+      "feature/production-service-continuity-v1",
+      "feature/professional-review-reliability-v1",
+      "feature/qcr-live-evidence-execution-board-20261027",
+      "feature/reference-evidence-lineage-change-queue-v1",
+      "feature/regulatory-closure-evidence-v1",
+      "feature/riai-acquisition-basis",
+      "feature/riai-ai-gateway-v1",
+      "feature/riai-ai-output-safety-v2",
+      "feature/riai-ai-production-guard-v1",
+      "feature/riai-ai-ui-v1",
+      "feature/riai-decision-ui-v1",
+      "feature/riai-exit-strategy-v1",
+      "feature/riai-lifecycle-location-upside-v1",
+      "feature/riai-mark-to-market-stabilized-noi",
+      "feature/riai-operating-case-persistence",
+      "feature/riai-opex-capex-foundation",
+      "feature/riai-rent-roll-collections-v1",
+      "feature/riai-rent-roll-occupancy-lease-timing",
+      "feature/riai-residential-income-acquisition",
+      "feature/riai-reverse-underwriting-v2",
+      "feature/riai-strategic-asset-intelligence-v1",
+      "feature/riai-strategic-evidence-contract-v1",
+      "feature/riai-subdivision-due-diligence-gate-v1",
+      "feature/runtime-identity-verification-evidence-v1",
+      "feature/runtime-rls-verification-v1",
+      "feature/security-authorization-audit-v1",
+      "feature/security-evidence-attestation-v1",
+      "feature/security-evidence-trust-gate-v1",
+      "feature/security-readiness-orchestrator-v1",
+      "feature/security-tenant-boundary-v1",
+      "feature/semantic-evidence-mapping",
+      "feature/source-activation-readiness-v1",
+      "feature/startak-re-legacy-c22-c23-ai-parity-20261112",
+      "feature/underwriting-input-adoption-v1",
+      "feature/universal-evidence-orchestrator",
+      "feature/universal-real-estate-project-model",
+      "feature/universal-semantic-core-domains",
+      "feature/valuation-intelligence-v1",
+      "feature/verified-identity-context-v1",
+      "feature/vertical-slice-orchestrator-v1",
+      "feature/wave-c-remediation-v1"
+    ],
+    "fix": [
+      "fix/ai-output-guard-remediation-v2",
+      "fix/ai-request-lifecycle-20261019",
+      "fix/asset-delivery-evidence-20261022",
+      "fix/audit-20261011-capitalization-basis",
+      "fix/audit-20261011-collections-integrity",
+      "fix/audit-20261012-capital-row-precision",
+      "fix/build-release-traceability-v1",
+      "fix/c55-arabic-phase-month-strict-intake-20261026",
+      "fix/c57-sector-print-audit-comparable-provenance-reasons-20261027",
+      "fix/c57-verified-json-report-input-restoration-20261027",
+      "fix/c58-operating-horizon-fail-closed-20261027",
+      "fix/c58-source-chain-contract-20261111",
+      "fix/c63-current-native-bundled-dev-e2e-20261026",
+      "fix/certified-purchase-ceiling-20261020",
+      "fix/cloudflare-credential-fast-fail-2026-09-22",
+      "fix/cloudflare-preflight-project-auth-2026-09-22",
+      "fix/cloudflare-token-normalization-2026-09-22",
+      "fix/current-production-deploy-operator-411",
+      "fix/durable-local-recovery-20261021",
+      "fix/financial-dated-returns-convergence-v2",
+      "fix/financial-daycount-single-source",
+      "fix/financial-engine-remediation-wave-a",
+      "fix/financial-engine-remediation-wave-b",
+      "fix/financial-engine-remediation-wave-b2-land",
+      "fix/financial-formula-registry-daycount-audit",
+      "fix/financial-horizon-failclosed-397",
+      "fix/financial-precision-remediation-c1",
+      "fix/independent-financial-audit-dcf-dated-returns",
+      "fix/independent-public-acceptance-concurrency-20261023",
+      "fix/kite-request-scope-integrity-20261111",
+      "fix/lease-lifecycle-closeout-20261020",
+      "fix/local-ocr-intake-20261020",
+      "fix/market-comparable-integrity-20261023",
+      "fix/market-comparable-scope-isolation-20261023",
+      "fix/market-evidence-review-chronology-20261024",
+      "fix/n11-edge-asset-observation-20261022",
+      "fix/n11-first-failure-all-manifest-responses-20261024",
+      "fix/n11-manifest-mismatch-edge-forensics-20261024",
+      "fix/n11-multi-observer-public-delivery-20261023",
+      "fix/operating-reconciliation-20261019",
+      "fix/operating-report-attachment-20261017",
+      "fix/operating-report-details-20261017",
+      "fix/owner-exact-public-acceptance-20261023",
+      "fix/owner-study-hidden-diagnostic-code-20261105",
+      "fix/p0-executed-comparable-explicit-status-archive-v2-20261026",
+      "fix/p8-fresh-main-requalification",
+      "fix/p9-fresh-main-requalification",
+      "fix/p10-fresh-main-financial-integrity-closure",
+      "fix/p27-current-model-reference-20261111",
+      "fix/personal-kite-provenance-20261110",
+      "fix/personal-rights-dcf-archive-20261025",
+      "fix/pilot-evidence-integrity-v2",
+      "fix/post-release-owner-control-plane-provenance",
+      "fix/production-ai-smoke-governed-dual-mode-2026-09-22",
+      "fix/production-asset-convergence-c55-20261025",
+      "fix/protected-preview-audit-main-20261104",
+      "fix/purchase-boundary-evidence-20261020",
+      "fix/qcr-authority-boundary-program-validation-20261027",
+      "fix/qcr-evidence-intake-hardening-and-external-rfps-20261027",
+      "fix/qualify-purchase-boundary-20261018",
+      "fix/reaudit-20261016-numeric-price-evidence",
+      "fix/receivables-period-reconciliation-20261020",
+      "fix/remaining-audit-20261019",
+      "fix/riai-atomic-gateway-20261016",
+      "fix/riai-audit-persistence-20261016",
+      "fix/riai-bounded-body-20261016",
+      "fix/riai-deterministic-minute-test-20261104",
+      "fix/riai-provider-claims-20261017",
+      "fix/saved-deals-restore-20261020",
+      "fix/source-dated-returns-20261020",
+      "fix/startak-audit-20261028",
+      "fix/v2-exit-cap-guidance",
+      "fix/wave0-p1-closure",
+      "fix/wave1-required-inputs-nan-guard",
+      "fix/wave2-strict-arabic-contract",
+      "fix/wave-a-entrypoint-preserve-leverage",
+      "fix/378-preserve-v2-sanitizer-contract",
+      "fix-378-arabic-v2-sentinel-collision"
+    ],
+    "governance": [
+      "governance/cleanup-internal-bootstrap-2026-09-21",
+      "governance/disable-production-autodeploy-2026-09-14",
+      "governance/e2f-cryptographic-verifier-hardening-2026-09-12",
+      "governance/environment-config-capture-2026-09-14",
+      "governance/environment-config-v3-false-preservation-2026-09-14",
+      "governance/exact-candidate-artifact-capture-2026-09-14",
+      "governance/finalize-fail-open-control-2026-09-14",
+      "governance/fix-cloudflare-project-patch-2026-09-14",
+      "governance/operator-templates-2026-09-16",
+      "governance/owner-command-env-capture-trigger-2026-09-14",
+      "governance/pin-e2f-crypto-verifier-2026-09-12",
+      "governance/production-deploy-trigger-2026-09-15",
+      "governance/production-environment-binding-2026-09-12",
+      "governance/production-posture-capture-2026-09-14",
+      "governance/reconcile-current-status-2026-09-21",
+      "governance/remediation-register-sync-p22",
+      "governance/report-remediation-register-2026-09-27",
+      "governance/successor-artifact-capture-75f824da",
+      "governance/successor-environment-capture-75f824da",
+      "governance/sync-candidate-capture-0a2f6dec",
+      "governance/sync-environment-capture-0a2f6dec",
+      "governance/trusted-main-bootstrap-2026-09-12"
+    ],
+    "integration": [
+      "integration/personal-data-pipeline-20261110"
+    ],
+    "p11": [
+      "p11-external-source-backed-validation"
+    ],
+    "p12": [
+      "p12-price-basis-semantic-remediation"
+    ],
+    "p13": [
+      "p13-zero-debt-leverage-neutrality"
+    ],
+    "p14": [
+      "p14-riyadh-rent-regulation-semantics"
+    ],
+    "p15": [
+      "p15-invalid-exit-cap-fail-closed-propagation"
+    ],
+    "p16": [
+      "p16-financing-acquisition-cost-basis"
+    ],
+    "p17": [
+      "p17-terminal-value-independent-validation"
+    ],
+    "p18": [
+      "p18-rett-incidence-semantics"
+    ],
+    "p19": [
+      "p19-irr-adaptive-positive-bracket"
+    ],
+    "p20": [
+      "p20-land-ltc-capitalized-interest-disclosure"
+    ],
+    "p21": [
+      "p21-coverage-ratio-semantics"
+    ],
+    "p22": [
+      "p22-building-exit-cost-governance"
+    ],
+    "p23": [
+      "p23-lease-roll-forward-governance"
+    ],
+    "p24": [
+      "p24-1-bounded-decision-verdict",
+      "p24-cashflow-timing-convention-disclosure",
+      "p24-replacement-cost-valuation-semantics"
+    ],
+    "p25": [
+      "p25-critical-assumption-override-governance"
+    ],
+    "p26": [
+      "p26-financial-timing-basis-disclosure"
+    ],
+    "p27": [
+      "p27-current-model-reference-corpus-governance"
+    ],
+    "productization": [
+      "productization/activation-authorization-operator",
+      "productization/admin-operations-runtime",
+      "productization/api-idor-bola-privileged-path",
+      "productization/auth-persistence-runtime",
+      "productization/authenticated-workspace-service",
+      "productization/canonical-baseline-reconstitution",
+      "productization/canonical-baseline-registry-contract",
+      "productization/canonical-baseline-release-gate",
+      "productization/canonical-e2i-signing-package",
+      "productization/canonical-rebaseline-activation-plan",
+      "productization/canonical-rebaseline-governance-decision",
+      "productization/canonical-rebaseline-independent-review",
+      "productization/canonical-rebaseline-review-attestation",
+      "productization/canonical-rebaseline-reviewer-designation",
+      "productization/canonical-rebaseline-reviewer-ledger",
+      "productization/canonical-rebaseline-reviewer-lifecycle-lock",
+      "productization/canonical-source-evidence-hardening",
+      "productization/cloudflare-production-secret-boundary-hardening",
+      "productization/composite-baseline-activation-change-contract",
+      "productization/composite-baseline-cutover-rehearsal",
+      "productization/composite-baseline-cutover-safety-guard",
+      "productization/composite-baseline-evidence-operator",
+      "productization/composite-baseline-evidence-verifier",
+      "productization/composite-baseline-shadow-release-gate",
+      "productization/controlled-backup-restore",
+      "productization/controlled-baseline-activation-executor",
+      "productization/controlled-dr-failover",
+      "productization/controlled-observability-incident",
+      "productization/controlled-postgres-migration-runner",
+      "productization/decision-intelligence-runtime",
+      "productization/dual-mode-canonical-registry-verifier",
+      "productization/e2g-release-authority-decision-intake",
+      "productization/e2h-execution-attestor-intake",
+      "productization/e2i-external-evidence-request-dossier",
+      "productization/e2i-readiness-evidence-intake",
+      "productization/e2i-signed-external-evidence-preflight",
+      "productization/external-canonical-evidence-operator",
+      "productization/external-production-evidence-acquisition-package",
+      "productization/final-production-operator-handoff",
+      "productization/fresh-activation-change-contract",
+      "productization/fresh-canonical-registry-release-gate",
+      "productization/fresh-composite-cutover-rehearsal",
+      "productization/fresh-composite-cutover-safety-guard",
+      "productization/fresh-composite-evidence-verifier",
+      "productization/fresh-composite-registry-candidate",
+      "productization/fresh-composite-shadow-release-gate",
+      "productization/fresh-composite-shadow-release-gate-final",
+      "productization/fresh-composite-shadow-release-gate-stage",
+      "productization/fresh-composite-shadow-release-gate-tmp",
+      "productization/fresh-composite-shadow-release-gate-work",
+      "productization/fresh-controlled-canonical-baseline-activation-executor",
+      "productization/fresh-dual-mode-canonical-registry-verifier",
+      "productization/fresh-human-incident-closeout-decision",
+      "productization/fresh-owner-activation-authorization",
+      "productization/fresh-post-activation-verification-rollback-trigger",
+      "productization/fresh-post-rollback-verification-incident-closeout",
+      "productization/fresh-reactivation-activation-plan",
+      "productization/fresh-reactivation-governance-cycle",
+      "productization/fresh-reactivation-independent-review-handoff",
+      "productization/fresh-reactivation-review-attestation",
+      "productization/fresh-reactivation-reviewer-lifecycle-lock",
+      "productization/human-incident-closeout-attestation",
+      "productization/human-incident-closeout-decision",
+      "productization/independent-security-uat-evidence",
+      "productization/investment-committee-runtime",
+      "productization/main-merge-governance-gate-hardening",
+      "productization/oidc-jwt-jwks-runtime",
+      "productization/operational-upstream-packet-provenance-hardening",
+      "productization/p79-external-production-readiness-handoff",
+      "productization/post-activation-verification-rollback-trigger",
+      "productization/post-rollback-verification-incident-closeout",
+      "productization/postgres-rls-runtime-probe",
+      "productization/postgres-workspace-persistence",
+      "productization/production-ai-smoke-commit-correlation",
+      "productization/production-derived-state-integrity-hardening",
+      "productization/production-go-live-runbook",
+      "productization/production-qualification-gate",
+      "productization/production-secret-workflow-isolation",
+      "productization/readiness-verifier-registry-intake-package",
+      "productization/release-candidate-evidence-bundle",
+      "productization/release-chain-provenance-hardening",
+      "productization/reporting-runtime",
+      "productization/runtime-production-readiness-hardening",
+      "productization/server-http-api-boundary",
+      "productization/server-runtime-composition",
+      "productization/staging-postgres-qualification",
+      "productization/successor-fresh-activation-change-contract",
+      "productization/successor-fresh-activation-plan",
+      "productization/successor-fresh-canonical-registry-release-gate",
+      "productization/successor-fresh-composite-cutover-rehearsal",
+      "productization/successor-fresh-composite-cutover-safety-guard",
+      "productization/successor-fresh-composite-evidence-verifier",
+      "productization/successor-fresh-composite-registry-candidate",
+      "productization/successor-fresh-composite-shadow-release-gate",
+      "productization/successor-fresh-controlled-canonical-baseline-activation",
+      "productization/successor-fresh-dual-mode-canonical-registry-verifier",
+      "productization/successor-fresh-independent-review-handoff",
+      "productization/successor-fresh-owner-activation-authorization",
+      "productization/successor-fresh-post-activation-verification-rollback-trigger",
+      "productization/successor-fresh-reactivation-governance-cycle",
+      "productization/successor-fresh-review-attestation",
+      "productization/successor-fresh-reviewer-lifecycle-lock"
+    ],
+    "release": [
+      "release/decision-governance-integrated-rc-2026-09-16",
+      "release/final-production-candidate",
+      "release/production-deployment-2026-09-15",
+      "release/qualified-main-integration-2026-09-12",
+      "release/successor-main-sync-2026-09-15",
+      "release/wave17-engineering-candidate"
+    ],
+    "security": [
+      "security/remove-ambient-window-governance-injection-v1"
+    ],
+    "wave": [
+      "wave/decision-governance-saudi-release-hardening-2026-09-15",
+      "wave/decision-governance-ui-integration-followup-2026-09-16",
+      "wave-7-foundation-standards-router",
+      "wave-7a-standards-registry-router-nonenforcing",
+      "wave-7b-assignment-scope-workflow-nonenforcing",
+      "wave-7c-standards-activation-lifecycle-nonenforcing",
+      "wave-7d-standards-historical-reproducibility-nonenforcing",
+      "wave-d-openai-responses-adapter",
+      "wave-d-production-ai-activation-gate",
+      "wave-d-production-ai-activation-gate-v2",
+      "wave-d-public-ai-turnstile-budget"
+    ]
+  }
+}

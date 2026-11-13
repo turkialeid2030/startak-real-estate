@@ -11,6 +11,8 @@ const { buildFinancialTimingBasis } = require('../contracts/financial-timing-bas
 const { validateEngineInputs } = require('../validation/numeric-safety');
 const { validateSupportedFinancialHorizons } = require('../validation/financial-horizon-support');
 const { V2_APPROVED_ASSUMPTIONS } = require('../assumptions/assumption-model');
+const { evaluateP25ResearchScenario,P25_WHAT_IF_STATUS } = require('./p25-research-scenario');
+const P25_SCENARIO_MARKER = Symbol('p25-private-analytical-sensitivity');
 
 const PRICE_BASIS_VERSION = 'PRICE_BASIS_V1';
 const COST_APPROACH_INDICATION_BASIS = 'UNDEPRECIATED_REPLACEMENT_COST_NEW_PLUS_LAND_INPUT';
@@ -118,7 +120,9 @@ function normalizeZeroDebtEconomics(studyType, inputs, result) {
  * canonical financing remediation. assumptionModelVersion is deal-envelope
  * metadata and is never injected into the economic inputs object.
  */
-function calculateInvestmentCase({ studyType, inputs, leverageEnabled, assumptionModelVersion, assumptionRegistry }) {
+function calculateInvestmentCase({ studyType, inputs, leverageEnabled, assumptionModelVersion, assumptionRegistry }, internalScenarioToken) {
+  const scenarioOverrides = internalScenarioToken && internalScenarioToken.marker === P25_SCENARIO_MARKER
+    ? internalScenarioToken.overrides : undefined;
   if (studyType !== STUDY_TYPE.EXISTING_BUILDING && studyType !== STUDY_TYPE.LAND_DEVELOPMENT) {
     throw new Error(`calculateInvestmentCase: unknown studyType "${studyType}" -- must be one of ${Object.values(STUDY_TYPE).join(', ')}`);
   }
@@ -164,7 +168,7 @@ function calculateInvestmentCase({ studyType, inputs, leverageEnabled, assumptio
   validateEngineInputs(engineInputs, { studyType });
   validateSupportedFinancialHorizons(engineInputs, { studyType });
   const baseResult = studyType === STUDY_TYPE.EXISTING_BUILDING
-    ? calcExistingBuilding(engineInputs, { assumptionModelVersion })
+    ? calcExistingBuilding(engineInputs, { assumptionModelVersion, p25ResearchOverrides: scenarioOverrides })
     : calcLandDevelopment(engineInputs);
 
   // P22 / #402: acquisition transfer-cost economics and seller-borne exit-cost
@@ -214,9 +218,36 @@ function calculateInvestmentCase({ studyType, inputs, leverageEnabled, assumptio
   // Its arithmetic is replacement cost new plus the user-entered land-value
   // indication; it does not use building age, determine market value, or create
   // an accredited valuation. Do not invent depreciation/obsolescence economics.
+  // P25/P27 continuity: when the caller has requested NO overrides,
+  // explicitly disclose that fact. This is not a permission grant or
+  // acceptance of any supplied override and does not change the economics.
+  // Future P25 economic transport must be independently qualified, never
+  // inferred from a status-only baseline marker.
+  const noOverrideBaseline=(studyType===STUDY_TYPE.EXISTING_BUILDING
+    && assumptionModelVersion==='V2'
+    && !anyOverrideRequested && !invalidRegistryProvided)
+    ? Object.freeze({
+      version:'P25_BASELINE_NO_OVERRIDE_DISCLOSURE_V1',
+      modelVersion:'V2',
+      status:'NO_OVERRIDES',
+      decisionReady:true,
+      hasCriticalOverrides:false,
+      hasIncompleteCriticalOverrides:false,
+      appliedCriticalAssumptionOverrides:false,
+      approvalAuthorized:false,
+      transactionAuthorized:false,
+      externalProfessionalValuationAuthorized:false,
+      resolvedOverrides:Object.freeze({}),
+      overrides:Object.freeze([]),
+      blockers:Object.freeze([]),
+      notice_ar:null,
+      notice_en:null,
+    })
+    : null;
   const result={
     ...economicResult,
     ...canonicalMetadata,
+    ...(noOverrideBaseline?{criticalAssumptionOverrideGovernance:noOverrideBaseline}:{}),
     priceBasis: buildPriceBasis(studyType),
     // P26 metadata: this does not alter NPV, IRR, cashflows or lending authority.
     timingBasis: buildFinancialTimingBasis(studyType),
@@ -249,8 +280,18 @@ function calculateInvestmentCase({ studyType, inputs, leverageEnabled, assumptio
   };
 }
 
+function evaluateP25FinancialWhatIf(args) {
+  return evaluateP25ResearchScenario(args, {
+    runBaseline: terms => calculateInvestmentCase(terms),
+    runScenario: (terms, overrides) => calculateInvestmentCase(terms, {
+      marker: P25_SCENARIO_MARKER, overrides,
+    }),
+  });
+}
 module.exports = {
   calculateInvestmentCase,
+  evaluateP25FinancialWhatIf,
+  P25_WHAT_IF_STATUS,
   STUDY_TYPE,
   STUDY_TYPE_TO_LEGACY_MODE,
   VACANCY_MONTHS_MAP,

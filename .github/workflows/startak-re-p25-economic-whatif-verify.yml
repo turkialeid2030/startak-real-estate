@@ -1,0 +1,51 @@
+name: STARTAK RE P25 Governed Economic What-If
+on:
+  pull_request:
+    paths:
+      - 'src/assumptions/assumption-model.js'
+      - 'src/engines/index.js'
+      - 'src/engines/p25-research-scenario.js'
+      - 'src/engines/valuation/existing-building.js'
+      - 'tests/defects/startak_re_p25_real_economic_whatif_20261113.js'
+      - 'docs/capabilities/STARTAK_RE_P25_ECONOMIC_WHATIF_20261113.md'
+      - '.github/workflows/startak-re-p25-economic-whatif-verify.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - name: Checkout exact source commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Enforce exact source SHA
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Real V2 building financial impact, raw spoof and financial HOLD
+        run: node tests/defects/startak_re_p25_real_economic_whatif_20261113.js
+      - name: Existing standalone P25 source/expiry and duplicate validation
+        run: node tests/defects/startak_re_p25_provenance_standalone_20261112.js
+      - name: P27 immutable current-model independent economics reference
+        run: node tests/defects/current_model_reference_corpus_p27_v2.js
+      - name: Prevent owner UI from treating sensitivity as certified result
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs');
+          for(const p of ['src/app/App.jsx','src/components/ValuationIntelligencePanel.jsx','src/main.jsx']){
+            const c=fs.readFileSync(p,'utf8');
+            if(c.includes('evaluateP25FinancialWhatIf')) throw Error('UNREVIEWED_P25_UI_ACTIVATION:'+p);
+          }
+          console.log('STARTAK_RE_P25_WHATIF_UI_ISOLATED=PASS');
+          NODE
+      - name: Canonical Release Verify (no real property data)
+        run: npm run release:verify

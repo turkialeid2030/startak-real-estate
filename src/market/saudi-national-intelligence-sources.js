@@ -4,6 +4,9 @@
 // API scraping, account bypass, valuation authorization or private identity collection.
 const {rowsFromCsv,MAX_CSV_BYTES,MAX_CSV_ROWS}=require('./public-dataset-import');
 const SOURCES=Object.freeze([
+ {id:'KITE_MOJ_QUARTERLY',label:'Kite — بيانات وزارة العدل الفصلية المفتوحة',url:'https://platform.kite.sa/docs/reference/transactions-search',
+  domain:'platform.kite.sa',origin:'GOVERNMENT_OPEN_DATA_VIA_KITE',
+  allowed:['THIRD_PARTY_REPORTED_SALE']},
  {id:'REGA_REI',label:'مؤشرات الهيئة العامة للعقار',url:'https://rei.rega.gov.sa/ar',
   domain:'rei.rega.gov.sa',origin:'SA_GOV_OFFICIAL',allowed:['OFFICIAL_AGGREGATE','OFFICIAL_REPORTED_SALE']},
  {id:'MOJ_SREM',label:'البورصة العقارية — وزارة العدل',url:'https://srem.moj.gov.sa/',
