@@ -4,6 +4,7 @@ on:
     paths:
       - 'src/components/PropertyMarketLocationPanel.jsx'
       - 'src/components/MarketOfferResearchPanel.jsx'
+      - 'src/components/CrossMethodEvidencePanel.jsx'
       - 'src/components/ResearchEvidenceFusionPanel.jsx'
       - 'tests/e2e/run_owner_market_independent_evidence.js'
       - '.github/workflows/startak-re-secondary-subject-scope-verify.yml'
