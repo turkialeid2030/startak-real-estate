@@ -34,6 +34,7 @@ const EN=Object.freeze({
  'اختر نوع العقار':'Select asset type',
  'اختر الغرض':'Select purpose',
  'دراسة شراء أو استحواذ':'Acquisition research',
+ 'دراسة بيع أو تخارج — بحث غير معتمد':'Sale or disposal research — non-certified',
  'مراجعة محفظة أصول':'Portfolio review',
  'دراسة أجرة سوقية':'Market rent research',
  'مراجعة تمويلية غير رسمية':'Informal financing research',
