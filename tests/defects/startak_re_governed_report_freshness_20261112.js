@@ -45,7 +45,7 @@ assert.throws(()=>buildGovernedValuationReport({runtime,valuationCase:future,gen
  e=>e&&e.code==='REPORT_SOURCE_DATE_UNVERIFIED_OR_FUTURE');
 const noDate=evidence(null);
 assert.equal(evaluateGovernedValuationReportReadiness({runtime,valuationCase:noDate,asOf:at}).ready,false);
-const noEvidence={caseId:'SYNTHETIC-CASE-RE',evidence:{}};
+const noEvidence={caseId:'SYNTHETIC-CASE-RE',projectId:'SYNTHETIC-ORG',evidence:{}};
 assert.equal(evaluateGovernedValuationReportReadiness({runtime,valuationCase:noEvidence,asOf:at}).reasonCode,'VALUATION_EVIDENCE_REQUIRED');
 assert.equal(evaluateGovernedValuationReportReadiness({runtime:null,valuationCase:valid,asOf:at}).reasonCode,'VALUATION_RUNTIME_REQUIRED');
 // Cross-property or cross-tenant reuse of perfectly dated, "VERIFIED" records
