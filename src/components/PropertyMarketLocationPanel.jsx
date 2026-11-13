@@ -684,7 +684,7 @@ export default function PropertyMarketLocationPanel({
       L('HOLD — تعارض تدقيق أو تغيير بيانات الهوية؛ تمنع القيمة الموحدة والتصدير البحثي حتى التسوية')}.
     </div>
     {!presentationScopeHold&&<ValuationQualityPanel readiness={valuationReadiness} quality={appraisalQuality} studyAsOf={studyAsOf}/>}
-    <MarketOfferResearchPanel subject={subject} offers={marketOffers} setOffers={setMarketOffers} asOf={studyAsOf.asOf}/>
+    <MarketOfferResearchPanel subject={subject} offers={marketOffers} setOffers={setMarketOffers} asOf={studyAsOf.asOf} subjectScopeHold={presentationScopeHold}/>
     <div className={presentationScopeHold?'hidden':''} aria-hidden={presentationScopeHold}>
     <TransactionCohortAndUnitMixPanel subject={subject} sales={allSales} askingOffers={marketOffers} asOf={studyAsOf.asOf}
        unitMix={unitMix} setUnitMix={setUnitMix} leaseComparables={leaseComparables}
