@@ -7,6 +7,7 @@ const {evaluateBoundReview}=require('./appraisal-study-binding');
 const SIDECAR_KIND='STARTAK_PERSONAL_MARKET_STUDY_SAVED_DEAL_LINK_V1';
 const PREFIX='market-study-sidecar:v1:';
 const MAX_SIDECAR_CHARS=2_100_000;
+const normalizePropertyName=name=>String(name??'').normalize('NFKC').trim().replace(/\s+/g,' ').toLocaleLowerCase('ar');
 function validId(id){
  if(typeof id!=='string'||id.length<1||id.length>128||
    !/^[a-zA-Z0-9_\-.:]+$/.test(id))throw Error('SAVED_DEAL_ID_INVALID');
@@ -20,16 +21,25 @@ async function readCanonicalDeal(storage,dealId){
  if(typeof indexRaw!=='string'||indexRaw.length>1_000_000)throw Error('SAVED_DEAL_INDEX_UNAVAILABLE');
  let index;
  try{index=JSON.parse(indexRaw)}catch{throw Error('SAVED_DEAL_INDEX_INVALID');}
- if(!Array.isArray(index)||!index.some(x=>x&&x.id===id))throw Error('SAVED_DEAL_NOT_IN_INDEX');
+ if(!Array.isArray(index)||index.length>5000)throw Error('SAVED_DEAL_INDEX_INVALID');
+ const matches=index.filter(x=>x&&x.id===id);
+ if(matches.length===0)throw Error('SAVED_DEAL_NOT_IN_INDEX');
+ if(matches.length!==1)throw Error('SAVED_DEAL_INDEX_DUPLICATE_ID');
  const original=await storage.get('deal:'+id);
  if(typeof original!=='string')throw Error('SAVED_DEAL_NOT_FOUND');
  let deal;
  try{deal=JSON.parse(original)}catch{throw Error('SAVED_DEAL_JSON_INVALID');}
  validateSavedDealRecord(deal);
  if(deal.id!==undefined&&deal.id!==id)throw Error('SAVED_DEAL_ID_MISMATCH');
+ // The selection comes from deals-index, whereas the record is loaded from
+ // deal:<id>. A partial rename, stale index or duplicate ID must never let
+ // research inputs bind to a record other than the one shown to the owner.
+ const shownName=normalizePropertyName(matches[0].name);
+ const canonicalName=normalizePropertyName(deal.name);
+ if(!shownName||!canonicalName||shownName!==canonicalName)
+  throw Error('SAVED_DEAL_INDEX_RECORD_NAME_MISMATCH');
  return {deal,id};
 }
-const normalizePropertyName=name=>String(name??'').normalize('NFKC').trim().replace(/\s+/g,' ').toLocaleLowerCase('ar');
 // This local research sidecar has NO external deed/parcel verification. Deal
 // identity and imported study identity must at least agree at save and restore
 // time, even without a linked appraisal. A user checkbox alone is not proof.
