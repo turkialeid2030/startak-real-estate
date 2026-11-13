@@ -1,0 +1,59 @@
+name: STARTAK RE Saved Deal Sidecar Name Guard Verify
+on:
+  pull_request:
+    paths:
+      - 'src/market/saved-deal-study-sidecar.js'
+      - 'src/components/PropertyMarketLocationPanel.jsx'
+      - 'src/i18n/market-study-core-labels.js'
+      - 'tests/valuation/appraisal-sidecar-gate.test.js'
+      - 'tests/architecture/run_saved_deal_research_sidecar.js'
+      - 'tests/defects/market_current_async_scope.js'
+      - 'tests/e2e/run_location_market_study_ci.mjs'
+      - '.github/workflows/startak-re-sidecar-saved-deal-name-verify.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e
+      options: --user 1001
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Assert candidate HEAD SHA
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Assert Saved Deal record and sidecar bind to same named property
+        run: node tests/valuation/appraisal-sidecar-gate.test.js
+      - name: Verify unapproved sidecar serialization remains isolated from Saved Deals
+        run: node tests/architecture/run_saved_deal_research_sidecar.js
+      - name: Verify latest-case asynchronous sidecar save/restore gating
+        run: node tests/defects/market_current_async_scope.js
+      - name: Production-equivalent build
+        run: npm run build
+      - name: Real owner-browser sidecar, restore and report path
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p runtime-evidence/saved-sidecar-name
+          node tests/e2e/run_location_market_study_ci.mjs 2>&1 | tee runtime-evidence/saved-sidecar-name/owner-journey.log
+      - name: Preserve non-personal synthetic test evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: startak-re-saved-sidecar-name-evidence
+          path: runtime-evidence/saved-sidecar-name
+          if-no-files-found: warn

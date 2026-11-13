@@ -29,6 +29,16 @@ async function readCanonicalDeal(storage,dealId){
  if(deal.id!==undefined&&deal.id!==id)throw Error('SAVED_DEAL_ID_MISMATCH');
  return {deal,id};
 }
+const normalizePropertyName=name=>String(name??'').normalize('NFKC').trim().replace(/\s+/g,' ').toLocaleLowerCase('ar');
+// This local research sidecar has NO external deed/parcel verification. Deal
+// identity and imported study identity must at least agree at save and restore
+// time, even without a linked appraisal. A user checkbox alone is not proof.
+function requireMatchingDealSubjectName(studySubject,deal){
+ const studyName=normalizePropertyName(studySubject?.name);
+ const dealName=normalizePropertyName(deal?.name);
+ if(!studyName||!dealName||studyName!==dealName)
+  throw Error('SIDECAR_SAVED_DEAL_SUBJECT_NAME_MISMATCH');
+}
 function subjectCompatible(studySubject,mode){
  if(mode==='land'&&studySubject.assetType!=='LAND')throw Error('SAVED_DEAL_SUBJECT_TYPE_MISMATCH');
  if(mode==='building'&&studySubject.assetType==='LAND')throw Error('SAVED_DEAL_SUBJECT_TYPE_MISMATCH');
@@ -55,6 +65,7 @@ async function saveResearchSidecar({storage,dealId,studyJson,identityConfirmed=f
  if(!overwrite&&await storage.get(sidecarKey(id))!==null)throw Error('SIDECAR_EXISTS_CONFIRM_OVERWRITE');
  subjectCompatible(restored.subject,deal.mode);
  const appraisalReviewStatus=appraisalSidecarGate({studySubject:restored.subject,deal,appraisalLink});
+ requireMatchingDealSubjectName(restored.subject,deal);
  const timestamp=clock().toISOString();
  const envelope={
   schemaVersion:1,kind:SIDECAR_KIND,
@@ -86,6 +97,7 @@ async function loadResearchSidecar({storage,dealId}){
  const input=JSON.stringify({kind:'STARTAK_PERSONAL_MARKET_STUDY',...envelope.studyInputs});
  const study=parsePersonalMarketStudy(input).study;
  subjectCompatible(study.subject,deal.mode);
+ requireMatchingDealSubjectName(study.subject,deal);
  return {found:true,dealId:id,savedAt:envelope.savedAt,
   study,recalculateRequired:true,certification:'NOT_AUTHORIZED'};
 }

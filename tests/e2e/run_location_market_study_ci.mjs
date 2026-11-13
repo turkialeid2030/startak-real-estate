@@ -209,6 +209,7 @@ try{
  assert((await valuation.innerText()).includes('غير قابل للحساب'),'empty comparable must fail closed');
  mark('NO_DEFAULT_FAKE_MARKET_VALUE',true);
  const fill=async(label,value)=>panel.getByLabel(label,{exact:false}).first().fill(value);
+ await fill('اسم العقار','مجمع تجريبي محفوظ');
  await fill('الحي','الملقا');
  await fill('رابط موقع العقار من خرائط جوجل أو الإحداثيات','24.75,46.65');
  await fill('مساحة الأرض (م²)','10000');
@@ -405,6 +406,15 @@ try{
  const linked=panel.locator('[data-testid="saved-deal-market-study-link"]');
  await linked.getByRole('button',{name:'تحديث قائمة الصفقات المحفوظة'}).click();
  await linked.getByLabel('اختيار الصفقة لربط دراسة السوق').selectOption('SYNTH-MKT-BUILD-01');
+ // The owner checkbox must NEVER bypass a different named asset even when
+ // no professional appraisal was linked to this user-authored research.
+ await fill('اسم العقار','SYNTHETIC-DIFFERENT-PROPERTY');
+ await linked.getByTestId('appraisal-sidecar-name-mismatch').waitFor();
+ assert(await linked.getByRole('button',{name:'حفظ ملحق الدراسة للصفقة المختارة'}).isDisabled(),
+  'different named owner subject must disable sidecar persistence with no appraisal link');
+ await fill('اسم العقار','مجمع تجريبي محفوظ');
+ await linked.getByTestId('appraisal-sidecar-name-mismatch').waitFor({state:'detached'});
+ mark('RESEARCH_SIDECAR_STANDALONE_DEAL_NAME_MISMATCH_HOLD',true);
  const savedDealBefore=await page.evaluate(()=>
   localStorage.getItem('STARTAK_REAL_ESTATE:SAVED_DEALS:deal:SYNTH-MKT-BUILD-01'));
  await linked.getByLabel('أؤكد أن الدراسة تخص العقار نفسه').check();

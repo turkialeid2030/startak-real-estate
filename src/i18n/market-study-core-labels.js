@@ -33,6 +33,7 @@ const EN=Object.freeze({
  'عدد المحلات والمعارض التجارية':'Number of shops and retail units',
  'اختر نوع العقار':'Select asset type',
  'اختر الغرض':'Select purpose',
+ 'لا يمكن حفظ ملحق الدراسة لهذه الصفقة: اسم الصفقة المحفوظة يختلف عن اسم عقار الدراسة. راجع الهوية وصحح الاسم قبل الربط؛ الإقرار وحده لا يثبت ملكية الأصل.':'Research sidecar cannot be saved to this deal: the saved deal name differs from the study property name. Review and correct the identity before linking; user attestation alone does not prove ownership.',
  'دراسة شراء أو استحواذ':'Acquisition research',
  'دراسة بيع أو تخارج — بحث غير معتمد':'Sale or disposal research — non-certified',
  'مراجعة محفظة أصول':'Portfolio review',
