@@ -17,8 +17,10 @@ check(marketIdentityGate(valid,at).allow,'complete synthetic research mandate');
 for(const purpose of ['ACQUISITION','SALE_STUDY','PORTFOLIO_REVIEW','RENT_STUDY','FINANCING_REVIEW','OTHER']){
  check(marketIdentityGate({...valid,valuationPurpose:purpose},at).allow,'documented market purpose '+purpose);
 }
-for(const right of ['FULL_OWNERSHIP','USUFRUCT','LONG_LEASE','OTHER']){
- check(marketIdentityGate({...valid,propertyRight:right},at).allow,'declared right '+right);
+check(marketIdentityGate({...valid,propertyRight:'FULL_OWNERSHIP'},at).allow,
+ 'declared full ownership remains research-eligible but not certified');
+for(const right of ['USUFRUCT','LONG_LEASE','OTHER']){
+ refused({propertyRight:right},'SPECIAL_INTEREST_VALUATION_REQUIRED');
 }
 refused({valuationPurpose:''},'MARKET_PURPOSE_REQUIRED');
 refused({valuationPurpose:'SALE_OR_CERTIFIED_VALUATION'},'MARKET_PURPOSE_REQUIRED');
