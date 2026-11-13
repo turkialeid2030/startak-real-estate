@@ -5,6 +5,7 @@ on:
       - 'src/market/owner-market-identity-gate.js'
       - 'src/market/owner-market-evidence-guidance.js'
       - 'src/components/PropertyMarketLocationPanel.jsx'
+      - 'src/components/ResearchEvidenceFusionPanel.jsx'
       - 'src/i18n/market-study-core-labels.js'
       - 'src/i18n/research-action-presentation.js'
       - 'tests/defects/owner_market_identity_gate.js'
