@@ -485,7 +485,7 @@ export default function PropertyMarketLocationPanel({
       <Field title="اسم العقار" value={subject.name} onChange={v=>updateSubject('name',v)} />
       <Select title="غرض دراسة التقييم" value={subject.valuationPurpose}
         onChange={v=>updateSubject('valuationPurpose',v)}
-        options={ [['','اختر الغرض'],['ACQUISITION','دراسة شراء أو استحواذ'],
+        options={ [['','اختر الغرض'],['ACQUISITION','دراسة شراء أو استحواذ'],['SALE_STUDY','دراسة بيع أو تخارج — بحث غير معتمد'],
          ['PORTFOLIO_REVIEW','مراجعة محفظة أصول'],['RENT_STUDY','دراسة أجرة سوقية'],
          ['FINANCING_REVIEW','مراجعة تمويلية غير رسمية'],['OTHER','دراسة شخصية أخرى']] }/>
       <Field title="تاريخ القيمة المطلوب دراستها" type="date" value={subject.valuationDate}
