@@ -22,6 +22,7 @@ const MESSAGES=Object.freeze({
  IDENTITY_CONFIRM_REQUIRED:['أكد أن الدراسة تخص العقار نفسه قبل الحفظ.','Confirm that the study concerns the same property before saving.'],
  SIDECAR_SAVED:['تم حفظ ملحق الدراسة البحثية للصفقة {{dealId}} دون تغيير ملف الصفقة المالي الرئيسي أو منحه اعتمادًا مهنيًا.','Research sidecar saved for {{dealId}}. The canonical financial deal was not modified or professionally certified.'],
  SIDECAR_OVERWRITE_REQUIRED:['هذه الصفقة مرتبطة بدراسة سابقة؛ فعّل موافقة الاستبدال ثم أعد الحفظ.','This deal already has a study. Explicitly confirm replacement before saving.'],
+ SIDECAR_INDEX_CONFLICT:['تعذر حفظ أو استعادة ملحق الدراسة: سجل الصفقات المحفوظة لا يطابق بيانات الصفقة الفعلية، أو يحتوي رقم صفقة مكررًا. راجع سجل الصفقات وصححه ثم أعد المحاولة.','Cannot save or restore the study: the Saved Deals index disagrees with the actual deal record or contains a duplicate deal ID. Correct the Saved Deals record and retry.'],
  SIDECAR_SAVE_FAILED:['تعذر الربط: {{code}}','Link failed: {{code}}'],
  SIDECAR_NOT_FOUND:['لا توجد دراسة بحثية مرتبطة بهذه الصفقة.','No research study is linked to this deal.'],
  SIDECAR_RESTORED:['استُعيدت مدخلات الملحق المرتبط بالصفقة {{dealId}}. أعادت المنصة احتساب المؤشرات، ولا يُستعاد أي اعتماد أو سعر معتمد من الملف.','Inputs restored from the sidecar for {{dealId}}. Indicators were recalculated; no approval or certified value is restored from the file.'],

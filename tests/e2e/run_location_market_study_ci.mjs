@@ -434,6 +434,22 @@ try{
  await linked.getByRole('button',{name:'حفظ ملحق الدراسة للصفقة المختارة'}).click();
  await linked.getByText('هذه الصفقة مرتبطة بدراسة سابقة',{exact:false}).waitFor();
  mark('RESEARCH_SIDECAR_OVERWRITE_REQUIRES_EXPLICIT_CONSENT',true);
+ // The selector uses deals-index, but the sidecar must bind to the current
+ // canonical deal:<id>. A stale index name or duplicate ID is not proof.
+ const indexKey='STARTAK_REAL_ESTATE:SAVED_DEALS:deals-index';
+ const originalDealIndex=await page.evaluate(k=>localStorage.getItem(k),indexKey);
+ await page.evaluate(k=>localStorage.setItem(k,JSON.stringify([
+  {id:'SYNTH-MKT-BUILD-01',name:'SYNTHETIC-STALE-INDEX-PROPERTY'}])),indexKey);
+ await linked.getByRole('button',{name:'استعادة ملحق الدراسة المرتبط'}).click();
+ await linked.getByText('سجل الصفقات المحفوظة لا يطابق',{exact:false}).waitFor();
+ mark('RESEARCH_SIDECAR_STALE_DEAL_INDEX_HOLD',true);
+ await page.evaluate(k=>localStorage.setItem(k,JSON.stringify([
+  {id:'SYNTH-MKT-BUILD-01',name:'مجمع تجريبي محفوظ'},
+  {id:'SYNTH-MKT-BUILD-01',name:'مجمع تجريبي محفوظ'}])),indexKey);
+ await linked.getByRole('button',{name:'استعادة ملحق الدراسة المرتبط'}).click();
+ await linked.getByText('سجل الصفقات المحفوظة لا يطابق',{exact:false}).waitFor();
+ mark('RESEARCH_SIDECAR_DUPLICATE_DEAL_ID_HOLD',true);
+ await page.evaluate(([k,v])=>localStorage.setItem(k,v),[indexKey,originalDealIndex]);
  await linked.getByRole('button',{name:'استعادة ملحق الدراسة المرتبط'}).click();
  await linked.getByText('استُعيدت مدخلات الملحق المرتبط بالصفقة',{exact:false}).waitFor();
  mark('CANONICAL_DEAL_RESEARCH_RESTORE_RECALCULATES',true);

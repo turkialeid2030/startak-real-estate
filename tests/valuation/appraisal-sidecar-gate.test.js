@@ -25,6 +25,63 @@ let n=0;const check=async(label,fn)=>{await fn();n++;console.log('PASS '+label);
   const saved=await saveResearchSidecar({storage,dealId:deal.id,studyJson:study(),identityConfirmed:true});
   assert.equal(saved.appraisalReviewStatus,'NOT_LINKED');
  });
+ await check('stale index name cannot select a different canonical same-ID Saved Deal',async()=>{
+  const {storage,map}=makeStorage();
+  map.set('deals-index',JSON.stringify([{id:deal.id,name:'SYN-OTHER-PROPERTY'}]));
+  await assert.rejects(()=>saveResearchSidecar({storage,dealId:deal.id,
+   studyJson:study(),identityConfirmed:true}),
+   /SAVED_DEAL_INDEX_RECORD_NAME_MISMATCH/);
+  assert.equal(map.has(sidecarKey(deal.id)),false);
+ });
+ await check('duplicate Saved Deal ID in index fails closed before sidecar write',async()=>{
+  const {storage,map}=makeStorage();
+  map.set('deals-index',JSON.stringify([{id:deal.id,name:deal.name},
+   {id:deal.id,name:'SYN-OTHER-PROPERTY'}]));
+  await assert.rejects(()=>saveResearchSidecar({storage,dealId:deal.id,
+   studyJson:study(),identityConfirmed:true}),
+   /SAVED_DEAL_INDEX_DUPLICATE_ID/);
+  assert.equal(map.has(sidecarKey(deal.id)),false);
+ });
+ await check('existing sidecar cannot restore when index name changes but record stays old',async()=>{
+  const {storage,map}=makeStorage();
+  await saveResearchSidecar({storage,dealId:deal.id,
+   studyJson:study(),identityConfirmed:true});
+  map.set('deals-index',JSON.stringify([{id:deal.id,name:'SYN-STALE-INDEX-NAME'}]));
+  await assert.rejects(()=>loadResearchSidecar({storage,dealId:deal.id}),
+   /SAVED_DEAL_INDEX_RECORD_NAME_MISMATCH/);
+ });
+ await check('owner Saved Deal selector rejects duplicate keys before selection',async()=>{
+  const {storage,map}=makeStorage();
+  map.set('deals-index',JSON.stringify([{id:deal.id,name:deal.name},
+   {id:deal.id,name:'SYN-OTHER-PROPERTY'}]));
+  const {listCanonicalDeals}=require('../../src/market/saved-deal-study-sidecar');
+  await assert.rejects(()=>listCanonicalDeals(storage),/SAVED_DEAL_INDEX_DUPLICATE_ID/);
+ });
+ await check('existing sidecar cannot restore with duplicate indexed deal IDs',async()=>{
+  const {storage,map}=makeStorage();
+  await saveResearchSidecar({storage,dealId:deal.id,
+   studyJson:study(),identityConfirmed:true});
+  map.set('deals-index',JSON.stringify([{id:deal.id,name:deal.name},
+   {id:deal.id,name:deal.name}]));
+  await assert.rejects(()=>loadResearchSidecar({storage,dealId:deal.id}),
+   /SAVED_DEAL_INDEX_DUPLICATE_ID/);
+ });
+ await check('benign Unicode and whitespace index normalization does not lose same asset study',async()=>{
+  const {storage,map}=makeStorage();
+  map.set('deals-index',JSON.stringify([{id:deal.id,name:'   أصل    اختبار مستقل '}]));
+  const saved=await saveResearchSidecar({storage,dealId:deal.id,
+   studyJson:study(),identityConfirmed:true});
+  assert.equal(saved.researchScope,'PERSONAL_UNVERIFIED_INPUTS_ONLY'); // research only
+  assert.equal((await loadResearchSidecar({storage,dealId:deal.id})).certification,'NOT_AUTHORIZED');
+ });
+ await check('index inconsistency has bilingual user-facing explanation, not raw codes',async()=>{
+  const {researchActionText}=require('../../src/i18n/research-action-presentation');
+  const ar=researchActionText({kind:'SIDECAR_INDEX_CONFLICT'},'ar-SA');
+  const en=researchActionText({kind:'SIDECAR_INDEX_CONFLICT'},'en');
+  assert.match(ar,/سجل الصفقات المحفوظة/);
+  assert.match(en,/Saved Deals index/);
+  assert.ok(!ar.includes('SAVED_DEAL_INDEX_')&&!en.includes('SAVED_DEAL_INDEX_'));
+ });
  await check('unlinked sidecar cannot write a DIFFERENT named property to same-mode Saved Deal',async()=>{
   const {storage,map}=makeStorage();
   await assert.rejects(()=>saveResearchSidecar({storage,dealId:deal.id,

@@ -376,7 +376,7 @@ export default function PropertyMarketLocationPanel({
     }catch(error){
       if(!currentRead(token))return;
       const reason=String(error.code||error.message);
-      setSavedDealStudyStatus({kind:reason==='SIDECAR_EXISTS_CONFIRM_OVERWRITE'?'SIDECAR_OVERWRITE_REQUIRED':'SIDECAR_SAVE_FAILED',params:{code:reason}});
+      setSavedDealStudyStatus({kind:reason==='SIDECAR_EXISTS_CONFIRM_OVERWRITE'?'SIDECAR_OVERWRITE_REQUIRED':/^(SAVED_DEAL_INDEX_RECORD_NAME_MISMATCH|SAVED_DEAL_INDEX_DUPLICATE_ID)$/.test(reason)?'SIDECAR_INDEX_CONFLICT':'SIDECAR_SAVE_FAILED',params:{code:reason}});
     }finally{if(readMounted.current)setLinkedSaveBusy(false);}
   };
   const loadLinkedStudy=async()=>{
@@ -389,7 +389,7 @@ export default function PropertyMarketLocationPanel({
       applyResearchStudy(result.study);
       setSavedDealStudyStatus({kind:'SIDECAR_RESTORED',params:{dealId:result.dealId}});
       setReplaceLinkedStudy(false);
-    }catch(error){if(currentRead(token))setSavedDealStudyStatus({kind:'SIDECAR_RESTORE_FAILED',params:{code:String(error.code||error.message)}});}
+    }catch(error){if(currentRead(token)){const reason=String(error.code||error.message);setSavedDealStudyStatus({kind:/^(SAVED_DEAL_INDEX_RECORD_NAME_MISMATCH|SAVED_DEAL_INDEX_DUPLICATE_ID)$/.test(reason)?'SIDECAR_INDEX_CONFLICT':'SIDECAR_RESTORE_FAILED',params:{code:reason}});}}
     finally{if(currentRead(token))setLinkedStudyBusy(false);}
   };
   const restoreJson=async file=>{
