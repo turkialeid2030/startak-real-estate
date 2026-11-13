@@ -102,7 +102,7 @@ const chosen=(text,pending)=>({name:'synthetic.txt',size:text.length,text:()=>pe
  await settle(beforeRestore,Error('SYNTH_OLD_NETWORK'),true);
  ok(!byId('market-open-data-load').disabled&&!byId('open-data-action-notice').textContent,'Old public failure cannot repopulate restored case');
  const linked=byId('saved-deal-market-study-link');
- await click(linked.querySelector('button'));await settle(dealReads.at(-1),[{id:'SYNTH-A',name:'A'},{id:'SYNTH-B',name:'B'}]);
+ await click(linked.querySelector('button'));await settle(dealReads.at(-1),[{id:'SYNTH-A',name:'A'},{id:'SYNTH-B',name:'SYNTH-SIDECAR-WINS'}]);
  const dealSelect=linked.querySelector('select');await change(dealSelect,'SYNTH-A');
  const loadButton=()=>[...linked.querySelectorAll('button')].at(-1);
  await click(loadButton());const sideA=sidecarReads.at(-1);await change(dealSelect,'SYNTH-B');
@@ -114,7 +114,14 @@ const chosen=(text,pending)=>({name:'synthetic.txt',size:text.length,text:()=>pe
  const oldFile=defer();await restore('SYNTH-LATE-FILE',oldFile);await click(loadButton());const winningSide=sidecarReads.at(-1);
  await settle(winningSide,{found:true,dealId:'SYNTH-B',study:snapshot(study('SYNTH-SIDECAR-WINS')).study});await settle(oldFile,study('SYNTH-LATE-FILE'));
  ok(nameInput().value==='SYNTH-SIDECAR-WINS','Sidecar restore cancels older JSON restore');
- const identity=linked.querySelectorAll('input[type=checkbox]')[0];await change(identity,true);
+ const identity=linked.querySelectorAll('input[type=checkbox]')[0];
+ await change(nameInput(),'SYNTH-UNRELATED-OTHER-PROPERTY');
+ await change(identity,true);
+ ok([...linked.querySelectorAll('button')].at(-2).disabled &&
+    linked.querySelector('[data-testid="appraisal-sidecar-name-mismatch"]')!==null,
+    'Unrelated property name cannot start a save despite same-property checkbox');
+ await change(nameInput(),'SYNTH-SIDECAR-WINS');
+ await change(identity,true);
  await click([...linked.querySelectorAll('button')].at(-2));const pendingSave=savedWrites.at(-1);
  ok(pendingSave&&JSON.parse(pendingSave.args.studyJson).subject.name==='SYNTH-SIDECAR-WINS','Save captures exact authorized input snapshot');
  await change(nameInput(),'SYNTH-EDIT-WHILE-SAVING');
