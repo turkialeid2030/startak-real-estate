@@ -202,6 +202,24 @@ const {expect}=require('@playwright/test');
   await page.getByTestId('owner-simple-mode').click();
   await page.getByTestId('owner-step-4').click();
   await eq(ownerCap,money(independentValue));await eq(ownerRent,money(520000));
+  // The independent professional-adjustment editor is a property-specific
+  // local draft. Changing the property in the SAME advanced view must reset
+  // that editor rather than copy its old manually adjusted unit price.
+  await page.getByTestId('owner-advanced-mode').click();
+  const professional=page.getByTestId('professional-comparables');
+  await professional.locator('summary').click();
+  const adjusted=professional.getByLabel('سعر المتر قبل التسوية (ر.س)').first();
+  await adjusted.fill('1234');
+  await expect(adjusted).toHaveValue('1234');checks++;
+  await panel.getByLabel('اسم العقار',{exact:true}).fill('SYNTHETIC-SECOND-PROPERTY');
+  await expect(adjusted).toHaveValue('');checks++;
+  await expect(professional).toBeHidden();checks++;
+  await expect(page.getByTestId('cohort-unit-mix')).toBeHidden();checks++;
+  await expect(page.getByTestId('fusion-evidence-scope-hold')).toBeVisible();checks++;
+  await expect(page.getByTestId('fusion-export')).toBeDisabled();checks++;
+  await expect(page.getByTestId('fusion-export-html')).toBeDisabled();checks++;
+  await expect(page.getByTestId('fusion-scenario-annex')).toContainText('لا توجد قيمة تصورية مكتملة');checks++;
+  await page.getByTestId('owner-simple-mode').click();
   // Two properties at the same coordinates can share an asset class and
   // comparable eligibility. Such evidence must NEVER silently migrate to a
   // new named subject. The original rows are retained but values/export HOLD.
@@ -225,6 +243,11 @@ const {expect}=require('@playwright/test');
   await expect(page.getByTestId('market-evidence-scope-hold')).toBeVisible();checks++;
   await page.getByTestId('market-evidence-subject-reconfirm').click();
   await expect(page.getByTestId('market-evidence-scope-hold')).toHaveCount(0);checks++;
+  await expect(page.getByTestId('cohort-unit-mix')).toBeVisible();checks++;
+  await expect(page.getByTestId('professional-comparables')).toBeVisible();checks++;
+  await expect(page.getByTestId('fusion-evidence-scope-hold')).toHaveCount(0);checks++;
+  await expect(page.getByTestId('fusion-export')).toBeEnabled();checks++;
+  await expect(page.getByTestId('fusion-export-html')).toBeEnabled();checks++;
   await page.getByTestId('owner-step-4').click();
   await eq(ownerCap,money(independentValue));await eq(ownerRent,money(520000));
   await page.getByTestId('owner-step-0').click();
