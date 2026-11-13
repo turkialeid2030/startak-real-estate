@@ -1,0 +1,61 @@
+name: STARTAK RE Owner Sale Study Purpose Verify
+on:
+  pull_request:
+    paths:
+      - 'src/market/owner-market-identity-gate.js'
+      - 'src/components/OwnerFiveStepWizard.jsx'
+      - 'src/components/PropertyMarketLocationPanel.jsx'
+      - 'src/i18n/market-study-core-labels.js'
+      - 'tests/defects/owner_market_identity_gate.js'
+      - 'tests/e2e/run_owner_five_step_staging.js'
+      - '.github/workflows/owner-sale-study-purpose-verify.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  owner-sale-research:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e
+      options: --user 1001
+    timeout-minutes: 40
+    steps:
+      - name: Checkout exactly this candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Verify exact SHA
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Validate research purpose and fail-closed unrecognized approval claims
+        run: node tests/defects/owner_market_identity_gate.js
+      - name: Verify existing financial and property-market regression
+        run: npm run release:verify
+      - name: Exercise real owner application at 390, 768 and 1440 pixels
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p runtime-evidence/owner-sale-study
+          npm run preview -- --host 127.0.0.1 --port 4173 --strictPort >runtime-evidence/owner-sale-study/preview.log 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
+          for i in $(seq 1 45); do
+            if curl --fail --silent http://127.0.0.1:4173/ -o /dev/null; then break; fi
+            sleep 1
+          done
+          STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_owner_five_step_staging.js 2>&1 | tee runtime-evidence/owner-sale-study/acceptance.log
+      - name: Preserve test artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: startak-re-owner-sale-study-evidence
+          path: runtime-evidence/owner-sale-study
+          if-no-files-found: warn
