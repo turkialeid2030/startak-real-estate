@@ -14,7 +14,7 @@ function refused(mod,reason){
  check(result.issues.includes(reason),'specific issue: '+reason);
 }
 check(marketIdentityGate(valid,at).allow,'complete synthetic research mandate');
-for(const purpose of ['ACQUISITION','PORTFOLIO_REVIEW','RENT_STUDY','FINANCING_REVIEW','OTHER']){
+for(const purpose of ['ACQUISITION','SALE_STUDY','PORTFOLIO_REVIEW','RENT_STUDY','FINANCING_REVIEW','OTHER']){
  check(marketIdentityGate({...valid,valuationPurpose:purpose},at).allow,'documented market purpose '+purpose);
 }
 for(const right of ['FULL_OWNERSHIP','USUFRUCT','LONG_LEASE','OTHER']){
@@ -22,6 +22,9 @@ for(const right of ['FULL_OWNERSHIP','USUFRUCT','LONG_LEASE','OTHER']){
 }
 refused({valuationPurpose:''},'MARKET_PURPOSE_REQUIRED');
 refused({valuationPurpose:'SALE_OR_CERTIFIED_VALUATION'},'MARKET_PURPOSE_REQUIRED');
+// Research purpose is supported, but a certified/transaction authorization claim is not.
+check(marketIdentityGate({...valid,valuationPurpose:'SALE_STUDY'},at).allow,
+ 'SALE_STUDY is a declared, non-certified market-research purpose');
 refused({valuationDate:''},'VALUATION_DATE_REQUIRED_OR_INVALID');
 refused({valuationDate:'2026-02-30'},'VALUATION_DATE_REQUIRED_OR_INVALID');
 refused({valuationDate:'2026-11-07'},'FUTURE_VALUATION_DATE_NOT_SUPPORTED');
