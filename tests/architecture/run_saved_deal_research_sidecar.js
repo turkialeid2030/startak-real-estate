@@ -13,7 +13,7 @@ const landDeal={id:'DEAL-LAND-01',name:'Synthetic land',mode:'land',inputs:{}};
 const buildingDeal={id:'DEAL-BUILD-02',name:'Synthetic compound',mode:'building',inputs:{}};
 const createStudy=(assetType)=>JSON.stringify({
  kind:'STARTAK_PERSONAL_MARKET_STUDY',
- subject:{assetType,name:'Synthetic',city:'الرياض',district:'الملقا',
+ subject:{assetType,name:assetType==='LAND'?landDeal.name:buildingDeal.name,city:'الرياض',district:'الملقا',
  location:'24.75,46.65',landArea:'2000',unitCount:'10',builtArea:'3500'},
  assumptions:{occupancy:'0.90',expenseRatio:'0.20',capRate:'0.075'},
  sales:[],rentals:[],projects:[],marketOffers:[],unitMix:[],leaseComparables:[],
