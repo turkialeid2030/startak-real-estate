@@ -27,7 +27,7 @@ const FINANCIAL_MODEL_VERSION = 'BUILDING_WAVE_A_2.0';
 
 function calcExistingBuilding(rawInp, context = {}) {
   const assumptionModelVersion = context.assumptionModelVersion;
-  const inp = applyAssumptionModel(rawInp, assumptionModelVersion);
+  const inp = applyAssumptionModel(rawInp, assumptionModelVersion, { p25ResearchOverrides: context.p25ResearchOverrides });
   validateEngineInputs(inp);
   const assumptionModelDisclosure = buildAssumptionModelDisclosure(assumptionModelVersion);
   const exitCapResolution = resolveExitCapRate(inp, { assumptionModelVersion });
