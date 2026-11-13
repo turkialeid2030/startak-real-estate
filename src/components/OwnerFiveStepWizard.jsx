@@ -11,7 +11,7 @@ const WORDS={
 const MARKET_LABELS={
  ar:{
   purpose:'غرض دراسة القيمة السوقية',date:'تاريخ القيمة المطلوب دراستها',
-  purchase:'دراسة شراء أو استحواذ',portfolio:'مراجعة محفظة أصول',rentStudy:'دراسة أجرة سوقية',
+  purchase:'دراسة شراء أو استحواذ',sale:'دراسة بيع أو تخارج — بحث غير معتمد',portfolio:'مراجعة محفظة أصول',rentStudy:'دراسة أجرة سوقية',
   finance:'مراجعة تمويلية غير رسمية',other:'دراسة شخصية أخرى',choose:'اختر الغرض',
   marketName:'اسم العقار في دراسة السوق',city:'المدينة',district:'الحي',location:'الموقع أو الإحداثيات',
   landArea:'مساحة الأرض وفق المصدر (م²)',assetType:'نوع العقار في دراسة السوق',builtArea:'إجمالي المساحات المبنية (م²)',rentableArea:'المساحة التأجيرية (م²)',buildingCount:'عدد المباني',unitCount:'عدد الوحدات',roomCount:'عدد الغرف الفندقية',sectorNote:'نوع العقار اختيار بحثي لا يثبت الاستخدام المعتمد أو الملكية، ولا يعني أن النموذج المالي يدعم هذا القطاع تخصصيًا.',right:'الحق العقاري (يحتاج تحقق)',
@@ -23,7 +23,7 @@ const MARKET_LABELS={
  },
  en:{
   purpose:'Market-study purpose',date:'Market valuation date',
-  purchase:'Purchase or acquisition study',portfolio:'Portfolio review',rentStudy:'Market rental study',
+  purchase:'Purchase or acquisition study',sale:'Sale or disposal research — non-certified',portfolio:'Portfolio review',rentStudy:'Market rental study',
   finance:'Informal financing review',other:'Other personal research',choose:'Choose purpose',
   marketName:'Property name in market study',city:'City',district:'District',location:'Location or coordinates',
   landArea:'Land area from source (sqm)',assetType:'Market-study asset class',builtArea:'Total built area (sqm)',rentableArea:'Rentable area (sqm)',buildingCount:'Buildings',unitCount:'Units',roomCount:'Hotel rooms',sectorNote:'Asset class is a research choice, not verification of permitted use, ownership, or a specialist financial engine.',right:'Property interest (needs verification)',
@@ -213,7 +213,7 @@ export default function OwnerFiveStepWizard({locale='ar-SA',step=0,onStepChange,
      <label htmlFor={fieldId('valuationPurpose')} className="block text-sm">{mt.purpose}
       <select id={fieldId('valuationPurpose')} data-testid="owner-valuation-purpose" className="mt-1 min-h-[44px] w-full rounded-lg border border-slate-500 bg-slate-950 p-3" value={market.valuationPurpose||''}
        onChange={e=>onMarketSubjectChange('valuationPurpose',e.target.value)}>
-       {[['',mt.choose],['ACQUISITION',mt.purchase],['PORTFOLIO_REVIEW',mt.portfolio],['RENT_STUDY',mt.rentStudy],['FINANCING_REVIEW',mt.finance],['OTHER',mt.other]].map(([value,label])=><option key={value} value={value}>{label}</option>)}
+       {[['',mt.choose],['ACQUISITION',mt.purchase],['SALE_STUDY',mt.sale],['PORTFOLIO_REVIEW',mt.portfolio],['RENT_STUDY',mt.rentStudy],['FINANCING_REVIEW',mt.finance],['OTHER',mt.other]].map(([value,label])=><option key={value} value={value}>{label}</option>)}
       </select>
      </label>
      <label htmlFor={fieldId('valuationDate')} className="block text-sm">{mt.date}
