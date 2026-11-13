@@ -197,7 +197,7 @@ export default function PropertyMarketLocationPanel({
   useEffect(()=>{setSessionSubject(subject);},[subject,setSessionSubject]);
   const appraisalBinding=useMemo(()=>evaluateBoundReview({subject,link:appraisalLink}),[subject,appraisalLink]);
   const selectedDeal=useMemo(()=>savedDeals.find(deal=>deal.id===selectedSavedDealId)||null,[savedDeals,selectedSavedDealId]);
-  const linkedDealNameConflict=Boolean(appraisalLink&&selectedDeal&&
+  const linkedDealNameConflict=Boolean(selectedDeal&&
     String(selectedDeal.name).trim().replace(/\s+/g,' ').toLocaleLowerCase('ar')!==
     String(subject.name).trim().replace(/\s+/g,' ').toLocaleLowerCase('ar'));
   const updateSubject=(key,value)=>setSubject(current=>({...current,[key]:value}));
@@ -717,7 +717,7 @@ export default function PropertyMarketLocationPanel({
           </select>
         </label>
       </div>
-      {linkedDealNameConflict&&<p data-testid="appraisal-sidecar-name-mismatch" role="alert" className="mt-2 text-xs text-rose-200">{L("تعذر ربط تقرير التقييم بهذه الصفقة: اسم الصفقة المحفوظة مختلف عن اسم العقار الجاري دراسته. يلزم تصحيح الربط بعد التحقق من هوية الأصل.")}</p>}
+      {linkedDealNameConflict&&<p data-testid="appraisal-sidecar-name-mismatch" role="alert" className="mt-2 text-xs text-rose-200">{L("لا يمكن حفظ ملحق الدراسة أو استعادته لهذه الصفقة: اسم الصفقة المحفوظة يختلف عن اسم عقار الدراسة. راجع الهوية وصحح الاسم قبل الربط؛ الإقرار وحده لا يثبت ملكية الأصل.")}</p>}
       <label className="mt-3 min-h-[40px] inline-flex items-center gap-2 text-xs text-slate-300">
         <input type="checkbox" className="h-6 w-6" checked={linkedDealIdentityAcknowledged}
           onChange={e=>setLinkedDealIdentityAcknowledged(e.target.checked)}/>
