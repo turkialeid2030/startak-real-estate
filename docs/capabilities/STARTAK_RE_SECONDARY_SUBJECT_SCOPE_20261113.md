@@ -18,3 +18,5 @@ None of these ancillary research views or manually entered prices is evidence of
 Synthetic Playwright end-to-end on Chromium/Firefox/WebKit must verify adjusted-price reset while staying in the advanced view, old-case export denial, blank scenario on changed property, source rebinding controls, and ability to continue on the new case. Exact HEAD `Release Verify` and browser evidence are needed before marking engineering qualified.
 
 Not in scope: true original 17+4 property fixture parity; server authorization; user-specific tenancy isolation; independent ownership, property boundaries or source rights; licensed Saudi appraisal; report-signoff; historic 504-path functionality equivalence; Q01–Q12 signed independent evidence; publication, merge or commercial use. `COMMERCIAL_GO_LIVE=HOLD_NOT_AUTHORIZED`.
+
+6. Retain individually-entered market listing/asking offer input rows, but suppress their qualifying unit-price display and derived asking-price medians while the current property subject is mismatched or has an unsupported limited interest. Restore them only after scope is valid. Asking prices remain distinct from completed transactions.
