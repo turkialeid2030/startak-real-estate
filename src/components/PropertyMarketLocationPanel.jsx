@@ -717,7 +717,7 @@ export default function PropertyMarketLocationPanel({
           </select>
         </label>
       </div>
-      {linkedDealNameConflict&&<p data-testid="appraisal-sidecar-name-mismatch" role="alert" className="mt-2 text-xs text-rose-200">{L("لا يمكن حفظ ملحق الدراسة أو استعادته لهذه الصفقة: اسم الصفقة المحفوظة يختلف عن اسم عقار الدراسة. راجع الهوية وصحح الاسم قبل الربط؛ الإقرار وحده لا يثبت ملكية الأصل.")}</p>}
+      {linkedDealNameConflict&&<p data-testid="appraisal-sidecar-name-mismatch" role="alert" className="mt-2 text-xs text-rose-200">{L("لا يمكن حفظ ملحق الدراسة لهذه الصفقة: اسم الصفقة المحفوظة يختلف عن اسم عقار الدراسة. راجع الهوية وصحح الاسم قبل الربط؛ الإقرار وحده لا يثبت ملكية الأصل.")}</p>}
       <label className="mt-3 min-h-[40px] inline-flex items-center gap-2 text-xs text-slate-300">
         <input type="checkbox" className="h-6 w-6" checked={linkedDealIdentityAcknowledged}
           onChange={e=>setLinkedDealIdentityAcknowledged(e.target.checked)}/>
