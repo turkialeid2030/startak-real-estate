@@ -65,6 +65,15 @@ const {expect}=require('@playwright/test');
    await expect(canonicalMarket.getByLabel('عدد العمائر/المباني')).toHaveValue('2');assertions++;
    await expect(canonicalMarket.getByLabel('عدد الوحدات (شقق/مكاتب/معارض)')).toHaveValue('18');assertions++;
    await canonicalMarket.getByLabel('المدينة',{exact:true}).fill('جدة');
+   // Sale/disposal is a separate research purpose, not a professional approval.
+   // Switching views must preserve the one canonical market subject.
+   await canonicalMarket.getByLabel('غرض دراسة التقييم').selectOption('SALE_STUDY');
+   await expect(canonicalMarket.getByLabel('غرض دراسة التقييم')).toHaveValue('SALE_STUDY');assertions++;
+   await page.getByTestId('owner-simple-mode').click();
+   await page.getByTestId('owner-step-0').click();
+   await expect(page.getByTestId('owner-valuation-purpose')).toHaveValue('SALE_STUDY');assertions++;
+   await page.getByTestId('owner-advanced-mode').click();
+   await expect(canonicalMarket.getByLabel('غرض دراسة التقييم')).toHaveValue('SALE_STUDY');assertions++;
    await canonicalMarket.getByLabel('غرض دراسة التقييم').selectOption('ACQUISITION');
    await page.getByTestId('owner-simple-mode').click();
    await page.getByTestId('owner-step-0').click();
