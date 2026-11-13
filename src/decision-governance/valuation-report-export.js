@@ -33,6 +33,44 @@ function evaluateGovernedValuationReportReadiness({ runtime, valuationCase, asOf
   if (!valuationCase || typeof valuationCase !== 'object' || Array.isArray(valuationCase)) {
     return Object.freeze({ ready: false, reasonCode: 'VALUATION_CASE_REQUIRED', freshness: null });
   }
+  // A dated descriptor is not evidence for an unrelated case or tenant.
+  // Bind the report to the *same* named case before considering source age.
+  const validRef = (value) => typeof value === 'string' && value.trim().length > 0 && value.trim() === value;
+  if (!validRef(runtime.caseId) || !validRef(valuationCase.caseId)) {
+    return Object.freeze({ ready: false, reasonCode: 'REPORT_CASE_BINDING_REQUIRED', freshness: null });
+  }
+  if (runtime.caseId !== valuationCase.caseId) {
+    return Object.freeze({ ready: false, reasonCode: 'REPORT_CASE_BINDING_MISMATCH', freshness: null });
+  }
+  // If either side supplies an organization/project binding, both must agree.
+  if (runtime.projectId != null || valuationCase.projectId != null) {
+    if (!validRef(runtime.projectId) || !validRef(valuationCase.projectId)) {
+      return Object.freeze({ ready: false, reasonCode: 'REPORT_PROJECT_BINDING_REQUIRED', freshness: null });
+    }
+    if (runtime.projectId !== valuationCase.projectId) {
+      return Object.freeze({ ready: false, reasonCode: 'REPORT_PROJECT_BINDING_MISMATCH', freshness: null });
+    }
+  }
+
+  // Unnamed or unreferenced evidence must never be laundered into a
+  // source-backed market report by virtue of having a recent date.
+  const records = valuationCase.evidence;
+  if (!records || typeof records !== 'object' || Array.isArray(records)) {
+    return Object.freeze({ ready: false, reasonCode: 'VALUATION_EVIDENCE_REQUIRED', freshness: null });
+  }
+  for (const descriptor of Object.values(records)) {
+    if (!descriptor || typeof descriptor !== 'object' || Array.isArray(descriptor)) {
+      return Object.freeze({ ready: false, reasonCode: 'REPORT_EVIDENCE_DESCRIPTOR_INVALID', freshness: null });
+    }
+    if (!validRef(descriptor.sourceType) || !validRef(descriptor.sourceRef)) {
+      return Object.freeze({ ready: false, reasonCode: 'REPORT_EVIDENCE_SOURCE_PROVENANCE_REQUIRED', freshness: null });
+    }
+    // A declared VERIFIED flag is only a preflight field, not independent
+    // authentication of land registry / agency sources or commercial rights.
+    if (descriptor.status !== 'VERIFIED') {
+      return Object.freeze({ ready: false, reasonCode: 'REPORT_EVIDENCE_STATUS_NOT_VERIFIED', freshness: null });
+    }
+  }
   const freshness = evaluateValuationEvidenceFreshness(valuationCase, { asOf });
   if (freshness.evidenceCount === 0) {
     return Object.freeze({ ready: false, reasonCode: 'VALUATION_EVIDENCE_REQUIRED', freshness });
