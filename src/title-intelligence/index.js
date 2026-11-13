@@ -78,6 +78,30 @@ function createTitleFact({
   });
 }
 
+// Required title facts are inputs to analysis, not authenticated legal findings.
+// Reject malformed values and conflicting independently tagged observations before
+// allowing a single verified/observed record to satisfy an essential field.
+function comparableRequiredTitleValue(value, key) {
+  // A malformed/negative parcel area must not qualify merely because it was
+  // tagged VERIFIED, nor may an arbitrary number substitute for a deed ID.
+  if (key === 'propertyAreaSqm') {
+    return typeof value === 'number' && Number.isFinite(value) && value > 0
+      ? 'areaSqm:' + value
+      : null;
+  }
+  if (REQUIRED_TITLE_FACTS.includes(key)) {
+    return typeof value === 'string' && value.trim()
+      ? 'string:' + value.normalize('NFKC').trim().replace(/\s+/g, ' ')
+      : null;
+  }
+  if (typeof value === 'string' && value.trim()) {
+    return 'string:' + value.normalize('NFKC').trim().replace(/\s+/g, ' ');
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) return 'number:' + value;
+  if (typeof value === 'boolean') return 'boolean:' + value;
+  return null;
+}
+
 function assessTitleFacts({ caseId, propertyId, facts, requiredFacts = REQUIRED_TITLE_FACTS }) {
   requiredString(caseId, 'caseId');
   requiredString(propertyId, 'propertyId');
@@ -115,10 +139,32 @@ function assessTitleFacts({ caseId, propertyId, facts, requiredFacts = REQUIRED_
       checks.push({ key, status: 'CONFLICT' });
       continue;
     }
-    const usable = entries.find((entry) => [TITLE_FACT_STATUS.VERIFIED, TITLE_FACT_STATUS.OBSERVED].includes(entry.status));
-    if (!usable) {
+    const qualified = entries.filter((entry) =>
+      [TITLE_FACT_STATUS.VERIFIED, TITLE_FACT_STATUS.OBSERVED].includes(entry.status));
+    if (qualified.length === 0) {
       blockers.push({ key, code: 'QUALIFIED_TITLE_EVIDENCE_REQUIRED' });
       checks.push({ key, status: 'UNQUALIFIED' });
+      continue;
+    }
+    const values = qualified.map((entry) => comparableRequiredTitleValue(entry.value, key));
+    if (values.includes(null)) {
+      blockers.push({ key, code: 'INVALID_REQUIRED_TITLE_FACT_VALUE' });
+      checks.push({ key, status: 'INVALID_VALUE' });
+      continue;
+    }
+    if (new Set(values).size > 1) {
+      // A second VERIFIED/OBSERVED record is not silently discarded merely
+      // because neither source explicitly marked itself CONFLICT.
+      blockers.push({ key, code: 'UNRESOLVED_TITLE_FACT_CONFLICT' });
+      checks.push({ key, status: 'CONFLICT' });
+      continue;
+    }
+    const usable = qualified.find((entry) =>
+      typeof entry.sourceRef === 'string' && entry.sourceRef.trim() &&
+      typeof entry.observedAt === 'string' && entry.observedAt.trim());
+    if (!usable) {
+      blockers.push({ key, code: 'REQUIRED_TITLE_SOURCE_PROVENANCE_MISSING' });
+      checks.push({ key, status: 'NO_SOURCE_PROVENANCE' });
       continue;
     }
     checks.push({ key, status: 'SATISFIED', sourceRef: usable.sourceRef, observedAt: usable.observedAt });
