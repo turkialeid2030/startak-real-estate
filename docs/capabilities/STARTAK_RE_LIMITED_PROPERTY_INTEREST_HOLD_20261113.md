@@ -22,3 +22,23 @@ The existing owner market gate treated `USUFRUCT`, `LONG_LEASE` and `OTHER` as e
 ## Acceptance and disposition
 `SOURCE_PRESENT -> SOURCE_TEST_PASS -> REAL_BROWSER_3X -> EXACT_SHA_RELEASE_VERIFY -> STAGING_REVIEW -> INDEPENDENT_PROOF -> RELEASE_AUTHORITY`.
 Do not close #774/#622 or the source/auth/privacy/valuer/Q01–Q12 gates from this PR alone.
+
+## Supplemental research surfaces — bypass review
+The isolated main market card was not the only view displaying generic
+whole-property scenarios. The advanced owner page also mounts the
+`TransactionCohortAndUnitMixPanel`, `ProfessionalComparableReviewPanel`
+and `ResearchEvidenceFusionPanel`.
+
+The first two are kept **mounted with state retained**, but their user-facing
+value and income analysis is hidden while the selected interest requires a
+specialist method. The fused market research panel retains source-health,
+identity, and provenance review but suppresses the scenario annex; both
+research HTML/JSON export buttons are disabled and their handlers also reject
+programmatic event clicks while the hold is active. New three-browser tests
+check these surfaces and their restoration when returning to a full-interest
+research case with independent source rebinding.
+
+This is a front-end **presentation and research-export safeguard**. It does not
+authenticate rights at the server or prove that all legacy offline/API report
+surfaces enforce the same restriction. The per-surface enterprise rights
+authorization and professional-value analysis gates remain open.
