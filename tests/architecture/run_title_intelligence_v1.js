@@ -84,6 +84,29 @@ assert.strictEqual(invalidRequiredValue.status, TITLE_RESULT_STATUS.HOLD_EVIDENC
 assert.ok(invalidRequiredValue.blockers.some((item) =>
   item.key === 'ownerName' && item.code === 'INVALID_REQUIRED_TITLE_FACT_VALUE'));
 
+// Required deed/parcel geometry cannot become "sufficient" through non-numeric
+// or non-positive area values, even with a nominal source reference.
+for (const invalidArea of [-1, 0, 'not supplied']) {
+  const areaRejected = assessTitleFacts({
+    caseId: 'CASE-TITLE-001',
+    propertyId: 'PROPERTY-001',
+    facts: [
+      ...completeFacts.filter((item) => item.key !== 'propertyAreaSqm'),
+      fact('propertyAreaSqm', invalidArea),
+    ],
+  });
+  assert.strictEqual(areaRejected.status, TITLE_RESULT_STATUS.HOLD_EVIDENCE);
+  assert.ok(areaRejected.blockers.some((item) =>
+    item.key === 'propertyAreaSqm' && item.code === 'INVALID_REQUIRED_TITLE_FACT_VALUE'));
+}
+const malformedId = assessTitleFacts({
+  caseId: 'CASE-TITLE-001', propertyId: 'PROPERTY-001',
+  facts: [...completeFacts.filter((item) => item.key !== 'parcelOrPlotId'), fact('parcelOrPlotId', 1234)],
+});
+assert.strictEqual(malformedId.status, TITLE_RESULT_STATUS.HOLD_EVIDENCE);
+assert.ok(malformedId.blockers.some((item) =>
+  item.key === 'parcelOrPlotId' && item.code === 'INVALID_REQUIRED_TITLE_FACT_VALUE'));
+
 // Text-only Unicode normalization and whitespace variation are not by
 // themselves contradictory documentary owner names.
 const compatibleNames = assessTitleFacts({
