@@ -52,6 +52,24 @@ function evaluateGovernedValuationReportReadiness({ runtime, valuationCase, asOf
     }
   }
 
+  // Independent tenant / organization identifiers are not interchangeable
+  // with projectId: multiple tenants may legitimately reuse case/project IDs.
+  // If either side declares a scope, both sides must carry the exact same
+  // nonblank identifier. Never silently discard a one-sided tenant binding.
+  for (const [field, prefix] of [
+    ['tenantId', 'REPORT_TENANT_BINDING'],
+    ['organizationId', 'REPORT_ORGANIZATION_BINDING'],
+  ]) {
+    if (runtime[field] != null || valuationCase[field] != null) {
+      if (!validRef(runtime[field]) || !validRef(valuationCase[field])) {
+        return Object.freeze({ ready: false, reasonCode: prefix + '_REQUIRED', freshness: null });
+      }
+      if (runtime[field] !== valuationCase[field]) {
+        return Object.freeze({ ready: false, reasonCode: prefix + '_MISMATCH', freshness: null });
+      }
+    }
+  }
+
   // Unnamed or unreferenced evidence must never be laundered into a
   // source-backed market report by virtue of having a recent date.
   const records = valuationCase.evidence;
@@ -61,6 +79,23 @@ function evaluateGovernedValuationReportReadiness({ runtime, valuationCase, asOf
   for (const descriptor of Object.values(records)) {
     if (!descriptor || typeof descriptor !== 'object' || Array.isArray(descriptor)) {
       return Object.freeze({ ready: false, reasonCode: 'REPORT_EVIDENCE_DESCRIPTOR_INVALID', freshness: null });
+    }
+    // When a source carries its own case/project/tenant/organization scope,
+    // reject a cross-scope receipt even if it is recent and marked VERIFIED.
+    // Missing external source scope still requires independently trusted
+    // custody before any professional or production authorization.
+    for (const [field, prefix] of [
+      ['caseId', 'REPORT_EVIDENCE_CASE'],
+      ['projectId', 'REPORT_EVIDENCE_PROJECT'],
+      ['tenantId', 'REPORT_EVIDENCE_TENANT'],
+      ['organizationId', 'REPORT_EVIDENCE_ORGANIZATION'],
+    ]) {
+      if (descriptor[field] != null) {
+        if (!validRef(descriptor[field]) || !validRef(valuationCase[field]) ||
+            descriptor[field] !== valuationCase[field]) {
+          return Object.freeze({ ready: false, reasonCode: prefix + '_BINDING_MISMATCH', freshness: null });
+        }
+      }
     }
     if (!validRef(descriptor.sourceType) || !validRef(descriptor.sourceRef)) {
       return Object.freeze({ ready: false, reasonCode: 'REPORT_EVIDENCE_SOURCE_PROVENANCE_REQUIRED', freshness: null });
