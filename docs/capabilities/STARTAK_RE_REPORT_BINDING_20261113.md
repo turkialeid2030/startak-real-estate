@@ -22,3 +22,30 @@ Previously, `evaluateGovernedValuationReportReadiness` in `src/decision-governan
 **Important limitation:** `status='VERIFIED'` is a *data field declared by the caller*, NOT an independent official-record authentication, legal source permission or an approved professional appraisal. The builder remains isolated; no live owner save/export UI has been activated. This fix cannot substitute for server-authenticated tenant and provider rights checks, human licensed-valuer sign-off, signed UAT, and production release authorization.
 
 `REPORT_SOURCE_BINDING=SOURCE_TEST_REQUIRED`, `EXTERNAL_PROVIDER_AUTHENTICITY=NOT_PROVEN`, `P25_FULL_ECONOMIC_OVERRIDES=OPEN`, `17_PRIVATE_REAL_CASE_ENGINE_PARITY=OPEN`, `MAIN_UNCHANGED`, `COMMERCIAL_GO_LIVE=HOLD_NOT_AUTHORIZED`.
+
+## Additional scope-identity hardening — 13 November 2026
+
+The previous projectId check did not cover a separately declared `tenantId` or
+`organizationId`. Two tenants can reuse the same project or case identifiers
+within separate identity namespaces. This independent follow-up explicitly
+checks the symmetric binding for both fields: when either the runtime or the
+valuation case carries an identifier, both must carry the exact same nonblank
+identifier. A missing side fails with `REPORT_TENANT_BINDING_REQUIRED` or
+`REPORT_ORGANIZATION_BINDING_REQUIRED`; a mismatch fails with
+`REPORT_TENANT_BINDING_MISMATCH` or
+`REPORT_ORGANIZATION_BINDING_MISMATCH`.
+
+When any evidence descriptor declares `caseId`, `projectId`, `tenantId`
+or `organizationId`, it must match the surrounding valuation case's exact
+nonblank identifier. Spoofed, malformed or unmatched descriptor identifiers
+fail with `REPORT_EVIDENCE_<SCOPE>_BINDING_MISMATCH` instead of inheriting
+case-level trust. Synthetic adversarial tests cover missing, mismatched and
+nonstring claims and the non-authorizing analytical export response.
+
+**Scope limitation:** This additional check does not invent identity when both
+records omit tenant/organization fields. It cannot authenticate a caller-supplied
+`VERIFIED` flag and does not connect to live IAM or an encrypted vault.
+`src/decision-governance/valuation-report-export.js` remains isolated from
+the production owner application. Actual authenticated tenant-scoped custody,
+independent source-rights confirmation, professional review and Q01–Q12 remain
+mandatory; no main merge or Cloudflare release is authorized.
