@@ -63,6 +63,6 @@ assert.deepEqual(statuses,{
   SAFE_RETIREMENT_REVIEW:1,
 });
 assert.deepEqual(priorities,{P2:6,P1:28,P0:23});
-assert.equal(entries.filter(x=>x.inspection==='LEGACY_API_INSPECTED').length,20);
-console.log('STARTAK_RE_HISTORIC_SOURCE_REGISTER=PASS rows=57 legacy_api_inspected=20 path_only=37;');
+assert.equal(entries.filter(x=>x.inspection==='LEGACY_API_INSPECTED').length,57);
+console.log('STARTAK_RE_HISTORIC_SOURCE_REGISTER=PASS rows=57 legacy_api_inspected=57 path_only=0;');
 console.log('SOURCE_PATH_PARITY_CLAIM=FALSE FUNCTIONAL_PARITY_CLAIM=FALSE PRODUCTION_AUTHORITY=FALSE');
