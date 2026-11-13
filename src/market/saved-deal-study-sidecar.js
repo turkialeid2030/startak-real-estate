@@ -118,7 +118,15 @@ async function listCanonicalDeals(storage){
  if(typeof index!=='string'||index.length>1_000_000)throw Error('SAVED_DEAL_INDEX_INVALID');
  let parsed;try{parsed=JSON.parse(index)}catch{throw Error('SAVED_DEAL_INDEX_INVALID');}
  if(!Array.isArray(parsed)||parsed.length>5000)throw Error('SAVED_DEAL_INDEX_INVALID');
- return parsed.filter(x=>x&&typeof x.id==='string'&&typeof x.name==='string')
+ const deals=parsed.filter(x=>x&&typeof x.id==='string'&&typeof x.name==='string')
   .map(x=>({id:x.id,name:x.name})).filter(x=>{try{validId(x.id);return true;}catch{return false;}});
+ // Do not render two indistinguishable selections with the same canonical key.
+ // The transaction read gate rejects them too; fail before owner selection.
+ const ids=new Set();
+ for(const item of deals){
+  if(ids.has(item.id))throw Error('SAVED_DEAL_INDEX_DUPLICATE_ID');
+  ids.add(item.id);
+ }
+ return deals;
 }
 module.exports={SIDECAR_KIND,sidecarKey,listCanonicalDeals,appraisalSidecarGate,saveResearchSidecar,loadResearchSidecar};
