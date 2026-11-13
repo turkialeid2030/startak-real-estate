@@ -23,6 +23,12 @@ function marketIdentityGate(subject,now=new Date()){
     if(date>today)issues.push('FUTURE_VALUATION_DATE_NOT_SUPPORTED');
   }
   if(!RIGHTS.has(subject.propertyRight))issues.push('PROPERTY_RIGHT_DECLARATION_REQUIRED');
+  else if(subject.propertyRight!=='FULL_OWNERSHIP'){
+    // General whole-property sale and rent comparables do not price the
+    // duration, restrictions, reversion or obligations of a limited interest.
+    // A mere user-selected right is not a licensed specialist-rights model.
+    issues.push('SPECIAL_INTEREST_VALUATION_REQUIRED');
+  }
   if(typeof subject.name!=='string'||!subject.name.trim())issues.push('MARKET_SUBJECT_NAME_REQUIRED');
   return {allow:issues.length===0,issues};
 }
