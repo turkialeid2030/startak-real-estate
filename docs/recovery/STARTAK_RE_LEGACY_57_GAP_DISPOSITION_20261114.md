@@ -7,7 +7,7 @@
 - This expanded examination retrieves source trees from **10 representatives**: C75 personal `8bc8ecf`, W12 DCF `7d309cb`, W14 specialist `c5907bd`, W16 decision `eb1fa24`, W17 closeout `1770fbe`, RIAI AI `5dec02e`, RIAI strategy `4145fdc`, universal model `03d9d08`, productization baseline `292363d`, productization release `ec47957`. Source head is the #800 SHA above.
 - Recorded the **immutable Git blob ID** of each exact historic file absent from the modern candidate and which sampled family contains it.
 - **57 distinct old source paths absent at identical paths** across sampled trees: **53 from C75** and **4 new candidates** (3 from W17, 1 from RIAI strategy). This is neither an exhaustive all-branch functional comparison nor 57 proven missing capabilities.
-- 20 historic source APIs were directly opened and inspected: C8 title/survey, C9 planning, C10 market interpretation, C11 income, C12 costs, C13 settlement, C14 financing offers, C15 rental rules, C16 auction, C18 subdivision, C19 policy shock, C2N source acquisition, C3 reconciliation, C5 decision UI, C6 human review UI, C73 Postgres custody, Wave17 release/security/performance and RIAI strategic intelligence. **37 remaining paths are verified only at Git tree/path level**.
+- All **57 historic source modules** were opened and their exported entrypoints, dependencies and capability/authority boundaries inspected, including: C8 title/survey, C9 planning, C10 market interpretation, C11 income, C12 costs, C13 settlement, C14 financing offers, C15 rental rules, C16 auction, C18 subdivision, C19 policy shock, C2N source acquisition, C3 reconciliation, C5 decision UI, C6 human review UI, C73 Postgres custody, Wave17 release/security/performance and RIAI strategic intelligence. **Source inspection does not establish runtime functionality, exact calculation equivalence, UI mounting, licensed provider access or production readiness.**
 - For 56 rows, a current **existing path** has been associated as a *candidate research anchor*, **not a replacement, equivalent API, mounted UI, security implementation, valid current model or accepted case**. The former crypto shim is not proposed for reinstatement.
 - No private deed, report, tenant identity, source material, approved valuer information or golden expected property value is committed in this audit.
 
@@ -18,8 +18,8 @@
 | Historic C73 staging/custody contract | **10** | Historical code expressly does not establish a production vault; do **not** copy into browser or declare cloud custody |
 | Old browser crypto shim, safe-retirement review | **1** | Do not restore unsafe ambient shim to make an old module run |
 | **Total** | **57** | Non-identical source paths; may be fewer or more distinct features |
-| API-inspected historical files | **20** | Source-level comparison started; not yet functionality-certified |
-| Tree-only historical files | **37** | Detailed source/behavior inspection remains due |
+| API-inspected historical files | **57** | All candidate historical entrypoints inspected; no runtime-equivalence claim |
+| Tree-only historical files | **0** | Modern counterpart behavior, end-to-end and independent sign-off remain due |
 
 **Suggested triage, not engineering-completion statistics:** P0 = 23 path entries; P1 = 28; P2 = 6. Some paths refer to the same functional contract; do not use this as a count of 57 issues, nor add the 14 G-gates and 36 Q-evidence as though disjoint.
 
@@ -36,6 +36,16 @@
 10. **W17 qualification**: old `independent-release.js`, `performance-resilience.js`, `security-qualification-envelope.js` had exact-SHA, current evidence and cross-qualification composition; modern qualification files are candidate anchors only. No signoff or performance/penetration test can be inferred.
 11. **RIAI strategic asset**: old `calculateStrategicAssetIntelligence` separated lifecycle, attraction, catalysts and subdivision, without authorizing any price or investment decision. Modern `strategic-evidence-governance.js` / lifecycle files need source-aware, non-forecast parity check.
 
+## Additional inspected historical source findings (not verified equivalents)
+- **C62/C69 institutional decision:** the old `assessInstitutionalValuationDecisionBoundary` examined comparable provenance and depreciation attribution and could withhold institutional report export. The modern `valuation-decision-gate.js` is an audit anchor only; require exact evidence flow and negative export test.
+- **C64 land and C70–C72 specialist:** old `assessLandDevelopmentInstitutionalBoundary` explicitly held land professional authority, and `specializeUnsupportedValuationCase` plus `normalizeSpecialistReferenceIntake` separated specialist reference data from approved evidence. The old local document SHA module expressly warned that byte hashes are not authenticity, malware inspection, source rights or uploaded evidence. Re-test the modern local intake and valuation-report surfaces against these failure cases.
+- **C20 growth/accessibility, C21 amenities, C17 raw land:** the historic models took source-bound professionally governed assessments and explicitly disclaimed guaranteed uplift or certified prices. Modern geospatial and listing research are not allowed to turn such claims into automatic appreciation/IRR deltas without source-approved economic assumptions.
+- **C25/C49 source readiness:** source acquisition, rights reviews and external source authorization were separate gates, not interchangeable with a source provider's identity or data freshness. Modern `activation-readiness.js` and source registries need legal-rights, scope, expiry, final URL, executed-vs-offer and retention tests.
+- **C50/C51 historical qualification:** the old real-human UAT readiness and historical cohort verification require signed independent evidence, trusted replay protocols and explicitly rejected future/contaminated data. Historical source code is not independent acceptance data.
+- **C73 operational nuance:** the old encrypted staging vault, HTTP gateway, quorum root trust, witnessed signed custody and restart-persistent witness were all explicitly staging/test contracts. Signatures and SHA hashes alone do not prove source authenticity or secure production custody. Their absence on an exact path must not be addressed by migrating test-only servers or weakening tenant authorization.
+
+**Depth correction:** all **57/57 historical code entrypoints have now been inspected**. The actual modern candidate equivalents and representative live workflows have **not** been tested for comprehensive parity; all 57 dispositions remain open.
+
 ## Internal pipeline outside historic-path triage
 - The canonical owner wizard is **partially** joined to the market study; the app has separate study purpose, market date and asset right, yet #774 still demands full five-step valuation/evidence/save/report/economic and browser acceptance.
 - Original private `golden-cases-17.json` is **readable through the user's Library**, containing 17 property cases and four *additional calculations*, not four additional standalone property appraisal reports. Independent execution of the **documented generic mathematical formula** reproduces 17/17 values and 17/17 rent outputs, but those rent references are calculated from `marketValue * rentalYieldPct` and therefore do **not** prove market rent or execution of the production engine. The private raw bytes could not be materialized in the current working container, so full exact-engine parity against those originals is still **OPEN**. Keep them outside this public repo.
@@ -51,7 +61,7 @@
 ## Execution register / RACI (proposed)
 | Workstream | Responsible | Accountable | Evidence for closure |
 | --- | --- | --- | --- |
-| P0: classify 37 tree-only source modules; establish 57 source API contracts | Platform engineer / QA | Product technical owner | Per-row source review, API signature, equivalent feature path or explicit retirement, negative tests |
+| P0: reconcile 57 inspected historical APIs with modern code and live behavior | Platform engineer / QA | Product technical owner | Per-row modern API mapping, equivalent feature path or explicit retirement, negative tests |
 | P0: C8+C9+identity, C3 and all 17+4 reference calculations | Real estate engine developer and QA | Professional valuation lead | Correct same-asset inputs, real source rights, actual engine/oracle diff SAR and report |
 | P0: C73 custody, C26 RBAC, W17 qualifications | Security engineer, platform SRE | Security lead | Trusted identity/tenant tests, operational vault evidence, cryptography/KMS, DR, pen test, independent review |
 | P1: specialist finance, income, auctions, regulations, parcel options | Finance engineer + legal + specialist valuer | Valuation methodology owner | Repeatable technical calculations, independent licensed source and professional evaluation |
@@ -62,5 +72,5 @@
 
 ## Machine-readable and CI
 - [57-row source inventory](STARTAK_RE_HISTORIC_SOURCE_CANDIDATES_20261114.csv): historic path, immutable blob, sampled branch, candidate modern source anchor, audit depth, HOLD classification, priority, case acceptance.
-- `tests/architecture/run_startak_re_historic_source_parity_register.js` verifies register schema, unique rows, 57 exact path absences, 56 existing modern anchors, 20 source-inspected vs 37 tree-only and that no row claims functional qualification. This is a **consistency/regression test for the audit metadata**, not a proof of functional equivalence.
+- `tests/architecture/run_startak_re_historic_source_parity_register.js` verifies register schema, unique rows, 57 exact path absences, 56 existing modern anchors, 57 historical source APIs inspected and that no row claims functional qualification. This is a **consistency/regression test for the audit metadata**, not a proof of functional equivalence.
 - **Final state:** all 57 triage entries remain OPEN until evidence. Commercial `HOLD_NOT_AUTHORIZED`. Current main unchanged.
