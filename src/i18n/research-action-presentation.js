@@ -30,6 +30,7 @@ const MESSAGES=Object.freeze({
  STUDY_RESTORE_FAILED:['فشل استيراد ملف الدراسة: {{code}}','Study import failed: {{code}}'],
  STUDY_EXPORT_BLOCKED:['تم منع تصدير الدراسة بسبب تعارض أو انتهاء صلاحية ربط تدقيق التقرير. راجع المطابقة والتدقيق أولاً.','Study export is blocked by an appraisal conflict or stale link. Reconcile identity and review the audit first.'],
  STUDY_EXPORT_SCOPE_HOLD:['تصدير نتائج الدراسة محجوب لأن المقارنات مرتبطة بهوية عقار سابقة. راجع المقارنات وأكّد ارتباطها بالعقار الحالي أولاً.','Results export is blocked: comparables were entered for a different property identity. Review and explicitly reconfirm their association first.'],
+ STUDY_EXPORT_SPECIAL_INTEREST_HOLD:['تصدير نتائج التقييم محجوب: الحق العقاري المحدود يتطلب منهجًا متخصصًا ولم يُعتمد له حساب القيمة العامة.','Valuation results export is blocked: this limited property interest requires a specialist method; generic whole-property values are not applicable.'],
  STUDY_EXPORT_REQUESTED:['تم إعداد ملف الدراسة وإرسال طلب تنزيله إلى المتصفح؛ يرجى التحقق من قائمة التنزيلات.','Study file prepared and download requested. Check the browser download list.'],
  STUDY_EXPORT_FAILED:['تعذر إعداد ملف الدراسة للتنزيل. رمز الخطأ: {{code}}','Study download could not be prepared. Diagnostic code: {{code}}'],
  BRIDGE_FAILED:['لم تُنسخ بيانات الهوية: {{code}}','Property fields not copied: {{code}}'],
