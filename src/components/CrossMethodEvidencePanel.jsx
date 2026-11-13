@@ -29,10 +29,11 @@ function F({title,value,onChange}) {
  <input aria-label={L(title)} className={FIELD} value={value} onChange={e=>onChange(e.target.value)} dir="auto"/>
  </label>;
 }
-export default function CrossMethodEvidencePanel({subject,report}){
+export default function CrossMethodEvidencePanel({subject,report,resultScopeHold=false}){
  const {locale}=useLocale();const en=locale==='en';
  const L=(value,code)=>advancedMarketLabel(value,locale,code);
- const money=value=>advancedMarketMoney(value,locale);
+ // Preserve reviewer inputs while masking ALL scenario values on HOLD.
+ const money=value=>advancedMarketMoney(resultScopeHold?null:value,locale);
 
  const [v,setV]=useState(initial);
  const set=(k,value)=>setV(p=>({...p,[k]:value}));
@@ -66,6 +67,7 @@ export default function CrossMethodEvidencePanel({subject,report}){
  return <details dir={en?'ltr':'rtl'} data-testid="cross-method-reconciliation"
   className="mt-5 rounded-xl border border-slate-600 bg-[#182941] p-3 text-slate-100">
   <summary className="cursor-pointer min-h-[44px] text-sm font-bold text-amber-100">{L("تدقيق اختلاف المنهجيات والإيجار السوقي — تكلفة / سوق / دخل")}</summary>
+  {resultScopeHold&&<p data-testid="cross-method-scope-hold" role="alert" className="mt-3 text-xs text-rose-200">{en?'Property-source binding or property-interest methodology is on HOLD. Inputs remain editable; reconciled values are withheld.':'ارتباط أدلة العقار أو منهجية تقييم الحق في حالة إيقاف. تبقى حقول الإدخال متاحة، لكن تُحجب نتائج المقارنة والتسوية.'}</p>}
   <p className="mt-3 text-xs text-slate-300 leading-6">{L("يجري هذا الفحص إعادة حساب السيناريوهات الثلاثة بصورة مستقلة، ويكشف الفروق الجوهرية بين القيمة بأسلوب السوق وتكلفة الإحلال والدخل. الإيجار المستمد من مقارنات مستقلة يُفصل عن «نسبة من قيمة العقار»؛ ولا يُعتمد متوسط آلي بين المنهجيات.")}</p>
   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-4">
    {details.map(([k,title])=><F key={k} title={title} value={v[k]} onChange={x=>set(k,x)}/>)}
@@ -89,15 +91,15 @@ export default function CrossMethodEvidencePanel({subject,report}){
    <p>{L("إيجار مقارنات السوق:")} <strong>{money(evidence.metrics.comparableMarketAnnualRentSar)}</strong></p>
    <p>{L("الإيجار المحسوب كنسبة من قيمة التكلفة:")} <strong>{money(evidence.metrics.valuePercentageAnnualRentSar)}</strong></p>
    <p>{L("فارق الإيجارين:")} <strong>{money(evidence.metrics.annualRentGapSar)}</strong>{L("— ليس مبررًا لتغيير الإيجار تلقائيًا.")}</p>
-   <p>{L("نسبة المساحة التأجيرية إلى المبنية:")} {Number.isFinite(evidence.metrics.rentableEfficiencyPct)?
+   <p>{L("نسبة المساحة التأجيرية إلى المبنية:")} {!resultScopeHold&&Number.isFinite(evidence.metrics.rentableEfficiencyPct)?
      evidence.metrics.rentableEfficiencyPct+'%':L('غير متاحة')}.</p>
    <p>{L("إجمالي تكلفة الإنشاء قبل الإهلاك:")} {money(cost.grossBuildingBeforeDepreciationSar)}.
     {L('صافي المباني بعد الإهلاك:')} {money(cost.netBuildingValueSar)}.</p>
-   {evidence.differences.length>0&&<div className="mt-2 space-y-1">
+   {!resultScopeHold&&evidence.differences.length>0&&<div className="mt-2 space-y-1">
     {evidence.differences.map((x,i)=><p key={i}>{L("فرق")} {en?({market:'Market',cost:'Cost',income:'Income'}[x.first]||x.first):({market:'السوق',cost:'التكلفة',income:'الدخل'}[x.first]||x.first)} {L('و')} {en?({market:'Market',cost:'Cost',income:'Income'}[x.second]||x.second):({market:'السوق',cost:'التكلفة',income:'الدخل'}[x.second]||x.second)}:
      {money(x.absoluteGapSar)} ({x.gapPctOfHigher}% {L('من الأكبر')})</p>)}
    </div>}
-   <p className="mt-2 font-semibold text-amber-200">{L("بوابة التدقيق:")} {evidence.status==='RECONCILIATION_HOLD'?L('وقف التسوية الآلية بسبب فرق جوهري'):
+   <p className="mt-2 font-semibold text-amber-200">{L("بوابة التدقيق:")} {resultScopeHold?(en?'HOLD — inputs for review only':'إيقاف — مدخلات للمراجعة فقط'):evidence.status==='RECONCILIATION_HOLD'?L('وقف التسوية الآلية بسبب فرق جوهري'):
     evidence.status==='INSUFFICIENT_METHODS'?L('أدخل منهجين مكتملين على الأقل'):L('للمراجعة البشرية فقط')}.
    </p>
    {evidence.issues.filter(k=>k!=='SOURCE_EVIDENCE_NOT_INDEPENDENTLY_VERIFIED').length>0&&

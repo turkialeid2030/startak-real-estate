@@ -7,9 +7,11 @@ const {useLocale}=require('../i18n/LocaleContext.js');
 const {researchActionText}=require('../i18n/research-action-presentation');
 const {researchSourceLabel}=require('../i18n/research-source-presentation');
 export default function ResearchEvidenceFusionPanel({subject={},feeds={},asOf='2026-10-28',
- readinessStatus='NOT_TESTED',marketReport=null,readiness=null,publicNeighborhood=null,publicLoadMeta=null,limitedInterestHold=false}){
+ readinessStatus='NOT_TESTED',marketReport=null,readiness=null,publicNeighborhood=null,publicLoadMeta=null,limitedInterestHold=false,evidenceScopeHold=false}){
  const {locale}=useLocale();
  const en=locale==='en';
+ const researchResultHold=limitedInterestHold||evidenceScopeHold;
+ const exportHoldReason=limitedInterestHold?'STUDY_EXPORT_SPECIAL_INTEREST_HOLD':'STUDY_EXPORT_SCOPE_HOLD';
  const [message,setMessage]=useState('');
  const result=useMemo(()=>buildUnifiedResearch({subject,feeds,asOf}),[subject,feeds,asOf]);
  const bundle=useMemo(()=>researchReportBundle(result,{
@@ -21,7 +23,7 @@ export default function ResearchEvidenceFusionPanel({subject={},feeds={},asOf='2
   {kind:'REVIEW_TASK',text:'يلزم التحقق من الصفقات والموقع والحقوق ودراسة الدخل والمخاطر قبل اتخاذ قرار الشراء.',evidenceIds:[]}
  ]});
  const exportHtml=()=>{
-  if(limitedInterestHold){setMessage({kind:'STUDY_EXPORT_SPECIAL_INTEREST_HOLD'});return;}
+  if(researchResultHold){setMessage({kind:exportHoldReason});return;}
   try{
    const html=renderResearchBriefHtml(bundle,{locale});
    const blob=new Blob([html],{type:'text/html;charset=utf-8'});
@@ -32,7 +34,7 @@ export default function ResearchEvidenceFusionPanel({subject={},feeds={},asOf='2
   }catch(e){setMessage({kind:'RESEARCH_HTML_FAILED',params:{code:String(e?.message||e)}});}
  };
  const exportJson=()=>{
-  if(limitedInterestHold){setMessage({kind:'STUDY_EXPORT_SPECIAL_INTEREST_HOLD'});return;}
+  if(researchResultHold){setMessage({kind:exportHoldReason});return;}
   try{
    const blob=new Blob([JSON.stringify({...bundle,aiAdvisory:safeMemo},null,2)],
     {type:'application/json;charset=utf-8'});
@@ -69,6 +71,7 @@ export default function ResearchEvidenceFusionPanel({subject={},feeds={},asOf='2
   <p data-testid="fusion-risk-codes" className="mt-2 text-xs text-amber-200">
     {en?'Evidence limitations: ':'قيود الفحص: '}{result.risks.map(code=><span key={code}><DiagnosticText code={code} locale={locale}/>{' | '}</span>)}
   </p>
+  {evidenceScopeHold&&<p data-testid="fusion-evidence-scope-hold" role="alert" className="mt-3 text-xs text-rose-200">{en?'Prior comparable and research evidence belongs to a different property subject. Scenario and report exports are withheld until explicit case rebinding.':'مقارنات وأدلة البحث السابقة مرتبطة بهوية عقار مختلفة. تُحجب السيناريوهات والتقارير حتى مراجعة ارتباط الأدلة بالعقار الحالي وإعادة تأكيده.'}</p>}
   {limitedInterestHold&&<p data-testid="fusion-limited-interest-hold" role="alert" className="mt-3 text-xs text-rose-200">{en?'General whole-property scenario and research exports are withheld for this limited interest pending a specialist rights methodology.':'مؤشرات العقار الكاملة وتصدير حزم البحث محجوبة لهذا الحق المحدود حتى اعتماد منهجية متخصصة للحقوق.'}</p>}
   <div className="mt-3 rounded border border-slate-700 p-3 text-xs">
    <p className="font-bold">{en?'Appraisal and investment review':'مراجعة التقييم والاستثمار'}</p>
@@ -86,7 +89,7 @@ export default function ResearchEvidenceFusionPanel({subject={},feeds={},asOf='2
    </p>
    <p data-testid="fusion-scenario-annex" className="mt-2">
     {en?'Current arithmetic scenario annex (unverified inputs):':'ملحق سيناريو الحسابات الحالية (مدخلات غير موثقة):'}
-    {!limitedInterestHold&&Number.isFinite(bundle.scenarioAnnex.previewValuesSar.todayValueScenarioSar)?
+    {!researchResultHold&&Number.isFinite(bundle.scenarioAnnex.previewValuesSar.todayValueScenarioSar)?
      (en?' Scenario amount ':' القيمة التصورية ')+new Intl.NumberFormat(en?'en-US':'ar-SA').format(
        bundle.scenarioAnnex.previewValuesSar.todayValueScenarioSar)+(en?' SAR':' ريال'):(en?' No complete scenario value':' لا توجد قيمة تصورية مكتملة')}.
     {en?'Not a certified market value or approved purchase cap.':'لا تعادل القيمة السوقية المعتمدة ولا سقف شراء.'}
@@ -105,9 +108,9 @@ export default function ResearchEvidenceFusionPanel({subject={},feeds={},asOf='2
    <p className="text-amber-200">{en?'Decision: hold the investment until independent verification. No certified value or purchase cap.':'القرار: تعليق الاستثمار لحين التحقق المستقل؛ لا قيمة أو سقف شراء معتمد.'}</p>
   </div>
   <div className="mt-3 flex flex-wrap gap-2">
-   <button type="button" data-testid="fusion-export" disabled={limitedInterestHold} onClick={exportJson}
+   <button type="button" data-testid="fusion-export" disabled={researchResultHold} onClick={exportJson}
     className="rounded border border-slate-500 px-3 py-2 text-xs">{en?'Export research JSON':'تصدير حزمة البحث JSON'}</button>
-   <button type="button" data-testid="fusion-export-html" disabled={limitedInterestHold} onClick={exportHtml}
+   <button type="button" data-testid="fusion-export-html" disabled={researchResultHold} onClick={exportHtml}
     className="rounded border border-slate-500 px-3 py-2 text-xs">{en?'English property research HTML':'تقرير بحث عقاري واستثماري عربي HTML'}</button>
   </div>
   {message&&<p data-testid="research-export-action-notice" data-diagnostic-content translate="no" role="status" className="mt-2 text-xs text-sky-200">{researchActionText(message,locale)}</p>}

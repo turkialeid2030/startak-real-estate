@@ -35,7 +35,7 @@ const rejectLabels={
  UNIT_PRICE_IMPLAUSIBLE:'سعر المتر غير منطقي',DUPLICATE_SOURCE:'إعلان مكرر',LAND_SUBTYPE_UNVERIFIED:'تصنيف الأرض غير معلوم أو لا يطابق الأرض المراد تقييمها',
  INVESTMENT_STRUCTURE_REQUIRES_SEPARATE_UNDERWRITING:'الفرصة الاستثمارية تحتاج دراسة لشروطها والتدفقات؛ ليست مقارنة سعر متر',
 };
-export default function MarketOfferResearchPanel({subject,offers,setOffers,asOf}) {
+export default function MarketOfferResearchPanel({subject,offers,setOffers,asOf,subjectScopeHold=false}) {
  const {locale}=useLocale();const en=locale==='en';
  const L=(value,code)=>advancedMarketLabel(value,locale,code);
  const money=value=>advancedMarketMoney(value,locale);
@@ -62,7 +62,8 @@ export default function MarketOfferResearchPanel({subject,offers,setOffers,asOf}
  return <details dir={en?'ltr':'rtl'} data-testid="asking-offer-research"
    className="mt-5 rounded-xl border border-slate-600 bg-[#16273C] p-3 md:p-4 text-slate-100">
    <summary className="cursor-pointer min-h-[44px] text-sm font-bold text-amber-100">{L("عروض السوق المعلنة — عقار والمنصات العقارية الأخرى (ليست صفقات منفذة)")}</summary>
-   <p className="mt-3 text-xs text-slate-300 leading-6">{L("افتح موقع عقار أو مصدرًا آخر للاطلاع، ثم أضف رابط الإعلان وسعره ومساحته وموقعه أو استورد ملف CSV لديك حق استخدامه. لا تجلب STARTAK الإعلانات آليًا من مواقع خاصة في هذا الإصدار، ولا تخزن أرقام تواصل المعلنين. العروض المعلنة تستخدم لتحليل المنافسة والسعر المطلوب، ولا تتحول إلى قيمة بيع منفذة أو إيجار متعاقد عليه.")}</p>
+   {subjectScopeHold&&<p data-testid="market-offers-subject-hold" role="alert" className="mt-3 text-xs text-rose-200">{en?'Old asking-offer rows are retained for review, but their derived unit prices and medians are withheld until they are re-linked to this property.':'بقيت عروض الطلب السابقة للمراجعة، لكن متوسطاتها وأسعار المتر المشتقة محجوبة حتى مراجعة ارتباطها بهوية العقار الحالية.'}</p>}
+ <p className="mt-3 text-xs text-slate-300 leading-6">{L("افتح موقع عقار أو مصدرًا آخر للاطلاع، ثم أضف رابط الإعلان وسعره ومساحته وموقعه أو استورد ملف CSV لديك حق استخدامه. لا تجلب STARTAK الإعلانات آليًا من مواقع خاصة في هذا الإصدار، ولا تخزن أرقام تواصل المعلنين. العروض المعلنة تستخدم لتحليل المنافسة والسعر المطلوب، ولا تتحول إلى قيمة بيع منفذة أو إيجار متعاقد عليه.")}</p>
    <div className="flex flex-wrap gap-2 mt-3">
     <a href="https://sa.aqar.fm/" className="inline-flex min-h-[40px] items-center rounded-lg border border-amber-600 px-3 py-2 text-xs text-sky-200"
      target="_blank" rel="noopener noreferrer">{L("استعراض إعلانات عقار")}</a>
@@ -123,7 +124,7 @@ export default function MarketOfferResearchPanel({subject,offers,setOffers,asOf}
      </div>
      {!!research.reviewed[i]?.issues?.length&&<p className="mt-2 text-xs text-amber-200">{L("غير مؤهل للمقارنة حاليًا:")} {research.reviewed[i].issues.map(x=>L(rejectLabels[x]||x)).join('؛ ')}
      </p>}
-     {research.reviewed[i]?.accepted&&<p className="mt-2 text-xs text-slate-300">{L("السعر المطلوب لكل م²:")} {money(research.reviewed[i].unitAskingSar)}.
+     {!subjectScopeHold&&research.reviewed[i]?.accepted&&<p className="mt-2 text-xs text-slate-300">{L("السعر المطلوب لكل م²:")} {money(research.reviewed[i].unitAskingSar)}.
       {research.reviewed[i].spatialMatch==='SAME_DISTRICT_APPROXIMATION'?L(' تطابق على مستوى الحي فقط؛ المسافة غير مؤكدة.'):''}
      </p>}
     </div>)}
@@ -135,12 +136,12 @@ export default function MarketOfferResearchPanel({subject,offers,setOffers,asOf}
    <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
     <div className="rounded-xl border border-slate-600 p-3">
      <p className="text-xs text-slate-300">{L("مؤشر سعر البيع المطلوب /م²")}</p>
-     <strong className="block mt-1 text-base text-amber-100">{money(research.askingSales.medianAskingSarPerSqm)}</strong>
+     <strong className="block mt-1 text-base text-amber-100">{money(subjectScopeHold?null:research.askingSales.medianAskingSarPerSqm)}</strong>
      <p className="text-xs mt-1 text-slate-300">{L("عروض مؤهلة:")} {research.askingSales.acceptedOffers} ({L('الحد الأدنى 3')})</p>
     </div>
     <div className="rounded-xl border border-slate-600 p-3">
      <p className="text-xs text-slate-300">{L("مؤشر الإيجار المطلوب سنويًا /م²")}</p>
-     <strong className="block mt-1 text-base text-amber-100">{money(research.askingRentalsAnnual.medianAskingSarPerSqm)}</strong>
+     <strong className="block mt-1 text-base text-amber-100">{money(subjectScopeHold?null:research.askingRentalsAnnual.medianAskingSarPerSqm)}</strong>
      <p className="text-xs mt-1 text-slate-300">{L("عروض مؤهلة:")} {research.askingRentalsAnnual.acceptedOffers} ({L('الحد الأدنى 3')})</p>
     </div>
    </div>

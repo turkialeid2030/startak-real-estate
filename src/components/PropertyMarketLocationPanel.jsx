@@ -207,7 +207,15 @@ export default function PropertyMarketLocationPanel({
   const allSales=useMemo(()=>[...sales,...importedSales],[sales,importedSales]);
   const allRentals=useMemo(()=>[...rentals,...importedRentals],[rentals,importedRentals]);
   const evidenceSubjectKey=useMemo(()=>marketEvidenceSubjectKey(subject),[subject]);
-  const hasCompared=useMemo(()=>hasResearchComparables(allSales,allRentals),[allSales,allRentals]);
+  // Subject binding covers supplementary owner-entered research, not only
+  // the canonical sale/rental table. No empty editor defaults count as evidence.
+  const hasCompared=useMemo(()=>hasResearchComparables(
+    [...allSales,...marketOffers,...leaseComparables],allRentals)||
+    unitMix.some(row=>row&&['unitType','unitCount','areaPerUnitSqm'].some(
+      k=>String(row[k]??'').trim()!==''))||
+    projects.some(row=>row&&['name','location','sourceUrl','impactPct'].some(
+      k=>String(row[k]??'').trim()!=='')),
+  [allSales,allRentals,marketOffers,leaseComparables,unitMix,projects]);
   // A row must remain attributed to its original subject. Changing name,
   // property interest, classification or parcel identity never transfers an
   // already entered comparable silently to another subject, even at the same
@@ -676,17 +684,17 @@ export default function PropertyMarketLocationPanel({
       L('HOLD — تعارض تدقيق أو تغيير بيانات الهوية؛ تمنع القيمة الموحدة والتصدير البحثي حتى التسوية')}.
     </div>
     {!presentationScopeHold&&<ValuationQualityPanel readiness={valuationReadiness} quality={appraisalQuality} studyAsOf={studyAsOf}/>}
-    <MarketOfferResearchPanel subject={subject} offers={marketOffers} setOffers={setMarketOffers} asOf={studyAsOf.asOf}/>
-    <div className={interestScopeHold?'hidden':''} aria-hidden={interestScopeHold}>
+    <MarketOfferResearchPanel subject={subject} offers={marketOffers} setOffers={setMarketOffers} asOf={studyAsOf.asOf} subjectScopeHold={presentationScopeHold}/>
+    <div className={presentationScopeHold?'hidden':''} aria-hidden={presentationScopeHold}>
     <TransactionCohortAndUnitMixPanel subject={subject} sales={allSales} askingOffers={marketOffers} asOf={studyAsOf.asOf}
        unitMix={unitMix} setUnitMix={setUnitMix} leaseComparables={leaseComparables}
        setLeaseComparables={setLeaseComparables} rentAssumptions={rentAssumptions}
        setRentAssumptions={setRentAssumptions}/>
     </div>
-    <div className={interestScopeHold?'hidden':''} aria-hidden={interestScopeHold}>
-    <ProfessionalComparableReviewPanel subject={subject} sales={allSales}/>
+    <div className={presentationScopeHold?'hidden':''} aria-hidden={presentationScopeHold}>
+    <ProfessionalComparableReviewPanel key={evidenceSubjectKey} subject={subject} sales={allSales}/>
     </div>
-    {!presentationScopeHold&&<CrossMethodEvidencePanel subject={subject} report={report}/>}
+    <CrossMethodEvidencePanel key={evidenceSubjectKey} subject={subject} report={report} resultScopeHold={presentationScopeHold}/>
     <section data-testid="saved-deal-market-study-link"
       className="mt-5 rounded-xl border border-slate-600 bg-[#14263C] p-4">
       <h3 className="text-sm font-semibold text-amber-100">{L("ربط الدراسة البحثية بصفقة محفوظة في STARTAK")}</h3>
@@ -745,7 +753,7 @@ export default function PropertyMarketLocationPanel({
       <a className="rounded-lg border border-slate-600 px-4 py-2 text-xs text-sky-300" target="_blank" rel="noopener noreferrer" href="https://srem.moj.gov.sa/">{L("الصفقات المسجلة — وزارة العدل")}</a>
       <a className="rounded-lg border border-slate-600 px-4 py-2 text-xs text-sky-300" target="_blank" rel="noopener noreferrer" href="https://opendata.rcrc.gov.sa/">{L("بيانات ومشاريع مدينة الرياض المكانية")}</a>
     </div>
-    <ResearchEvidenceFusionPanel subject={subject} feeds={researchFeeds} limitedInterestHold={interestScopeHold}
+    <ResearchEvidenceFusionPanel subject={subject} feeds={researchFeeds} limitedInterestHold={interestScopeHold} evidenceScopeHold={evidenceScopeHold}
       asOf={studyAsOf.asOf.toISOString().slice(0,10)}
       marketReport={report} readiness={valuationReadiness}
       publicNeighborhood={publicNeighborhood} publicLoadMeta={publicLoadMeta}
