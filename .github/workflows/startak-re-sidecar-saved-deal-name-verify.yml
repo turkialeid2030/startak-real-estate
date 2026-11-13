@@ -7,6 +7,7 @@ on:
       - 'src/i18n/market-study-core-labels.js'
       - 'tests/valuation/appraisal-sidecar-gate.test.js'
       - 'tests/architecture/run_saved_deal_research_sidecar.js'
+      - 'tests/defects/market_current_async_scope.js'
       - 'tests/e2e/run_location_market_study_ci.mjs'
       - '.github/workflows/startak-re-sidecar-saved-deal-name-verify.yml'
   workflow_dispatch:
@@ -39,6 +40,8 @@ jobs:
         run: node tests/valuation/appraisal-sidecar-gate.test.js
       - name: Verify unapproved sidecar serialization remains isolated from Saved Deals
         run: node tests/architecture/run_saved_deal_research_sidecar.js
+      - name: Verify latest-case asynchronous sidecar save/restore gating
+        run: node tests/defects/market_current_async_scope.js
       - name: Production-equivalent build
         run: npm run build
       - name: Real owner-browser sidecar, restore and report path
