@@ -10,6 +10,8 @@ on:
       - 'functions/api/**'
       - 'tests/architecture/run_authenticated_canonical_workspace_service_v1.js'
       - 'tests/architecture/run_canonical_workspace_product_runtime_v1.js'
+      - 'tests/architecture/run_authenticated_investment_committee_runtime_v1.js'
+      - 'tests/architecture/run_authenticated_reporting_runtime_v1.js'
       - 'tests/runtime/run_canonical_workspace_http_api_tests.js'
       - '.github/workflows/security-hardening-v1-verify.yml'
       - 'docs/security/SECURITY-HARDENING-V1-STARTAK-RE-20261118.md'
@@ -43,6 +45,8 @@ jobs:
           node tests/architecture/run_authenticated_canonical_workspace_service_v1.js
           node tests/architecture/run_canonical_workspace_product_runtime_v1.js
           node tests/runtime/run_canonical_workspace_http_api_tests.js
+          node tests/architecture/run_authenticated_investment_committee_runtime_v1.js
+          node tests/architecture/run_authenticated_reporting_runtime_v1.js
       - name: Identity and tenant negative regressions
         run: |
           node tests/architecture/run_oidc_jwt_jwks_authentication_v1.js
