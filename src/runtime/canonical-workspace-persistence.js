@@ -45,6 +45,20 @@ function parseEnvelope(raw, { tenantId, workspaceId }) {
   return parsed;
 }
 
+// Workspaces are private to their originating verified actor unless a trusted
+// tenant ADMIN inspects/maintains them. An older envelope without an attested
+// owner is quarantined from all non-admin identities until a separately
+// approved migration establishes ownership. Do not infer ownership from the
+// mutable updatedBy audit field or an arbitrary workspace payload.
+function requireWorkspaceRecordAccess(envelope, identity) {
+  if (identity.roles.includes('ADMIN')) return;
+  if (typeof envelope.ownerActorId !== 'string'
+    || !envelope.ownerActorId.trim()
+    || envelope.ownerActorId !== identity.actorId) {
+    fail('WORKSPACE_RECORD_ACCESS_DENIED');
+  }
+}
+
 /**
  * Creates the durable-workspace persistence boundary used by authenticated runtime code.
  *
@@ -117,10 +131,12 @@ function createCanonicalWorkspacePersistence({
       workspaceId: normalizedWorkspaceId,
     });
     if (raw == null) return null;
-    return deepFreeze(parseEnvelope(String(raw), {
+    const envelope = parseEnvelope(String(raw), {
       tenantId: identity.tenantId,
       workspaceId: normalizedWorkspaceId,
-    }));
+    });
+    requireWorkspaceRecordAccess(envelope, identity);
+    return deepFreeze(envelope);
   }
 
   async function save({
@@ -149,6 +165,9 @@ function createCanonicalWorkspacePersistence({
       : parseEnvelope(currentRaw, { tenantId: identity.tenantId, workspaceId });
     const currentVersion = current ? current.version : 0;
 
+    // Authorize the individual object before exposing its version or
+    // attempting a write; tenant-match plus role alone is not sufficient.
+    if (current) requireWorkspaceRecordAccess(current, identity);
     if (expectedVersion !== currentVersion) fail('WORKSPACE_VERSION_CONFLICT');
     if (current && (
       current.workspace.projectId !== workspace.projectId
@@ -179,6 +198,10 @@ function createCanonicalWorkspacePersistence({
       version: currentVersion + 1,
       updatedAt: timestamp,
       updatedBy: identity.actorId,
+      // Never take record ownership from caller-supplied workspace attributes.
+      // ADMIN edits preserve original ownership; legacy ownerless records stay
+      // quarantined pending independently authorized backfill.
+      ownerActorId: current ? (current.ownerActorId || null) : identity.actorId,
       workspace,
       history: [...(current ? current.history : []), auditEvent],
       authority: {
@@ -213,7 +236,7 @@ function createCanonicalWorkspacePersistence({
       productionPersistenceValidated: false,
       externalDatabaseDeploymentRequired: true,
     }),
-    semantics: 'This runtime boundary requires atomic storage and scopes records from verified tenant identity. Structured tenant-aware providers are preferred for server/database persistence. The boundary does not prove that a production database, RLS policy, backup, restore, encryption, or disaster-recovery control has been deployed or independently validated.',
+    semantics: 'This runtime enforces verified tenant isolation and per-record actor ownership; same-tenant ADMIN can access, legacy unattested ownership is quarantined for non-admins. Structured tenant-aware providers are preferred. This does not prove actual IdP, database RLS, backup, DR or production authorization.',
   });
 }
 
