@@ -50,13 +50,36 @@ function parseEnvelope(raw, { tenantId, workspaceId }) {
 // owner is quarantined from all non-admin identities until a separately
 // approved migration establishes ownership. Do not infer ownership from the
 // mutable updatedBy audit field or an arbitrary workspace payload.
-function requireWorkspaceRecordAccess(envelope, identity) {
+async function requireWorkspaceRecordAccess(envelope, identity, action, trustedRecordGrantResolver) {
   if (identity.roles.includes('ADMIN')) return;
-  if (typeof envelope.ownerActorId !== 'string'
-    || !envelope.ownerActorId.trim()
-    || envelope.ownerActorId !== identity.actorId) {
+  const owner = envelope.ownerActorId;
+  if (typeof owner !== 'string' || !owner.trim()) {
     fail('WORKSPACE_RECORD_ACCESS_DENIED');
   }
+  if (owner === identity.actorId) return;
+  // An explicitly bound human review grant may authorize one actor to READ
+  // one named workspace. Never infer a grant from shared tenant membership,
+  // IC_MEMBER role alone, report content or user-provided workspace fields.
+  if (typeof trustedRecordGrantResolver === 'function') {
+    let grant;
+    try {
+      grant = await trustedRecordGrantResolver(Object.freeze({
+        tenantId: identity.tenantId,
+        workspaceId: envelope.workspaceId,
+        projectId: envelope.workspace.projectId,
+        caseId: envelope.workspace.caseId,
+        ownerActorId: owner,
+        actorId: identity.actorId,
+        roles: Object.freeze([...identity.roles]),
+        action,
+      }));
+    } catch (_) {
+      fail('WORKSPACE_RECORD_ACCESS_DENIED');
+    }
+    if (grant && grant.allowed === true
+      && typeof grant.grantRef === 'string' && grant.grantRef.trim()) return;
+  }
+  fail('WORKSPACE_RECORD_ACCESS_DENIED');
 }
 
 /**
@@ -72,10 +95,16 @@ function createCanonicalWorkspacePersistence({
   storageProvider,
   namespace = 'startak:canonical-workspace:v1',
   now = () => new Date().toISOString(),
+  // Only trusted server-side wiring may inject a record-specific, action-bound
+  // grant resolver; HTTP payloads, JWT roles, and workspace content never can.
+  trustedRecordGrantResolver = null,
 } = {}) {
   const hasScopedGet = Boolean(storageProvider && typeof storageProvider.getScoped === 'function');
   const hasGenericGet = Boolean(storageProvider && typeof storageProvider.get === 'function');
   if (!hasScopedGet && !hasGenericGet) throw new TypeError('storageProvider.get or storageProvider.getScoped is required');
+  if (trustedRecordGrantResolver !== null && typeof trustedRecordGrantResolver !== 'function') {
+    throw new TypeError('trustedRecordGrantResolver must be a function or null');
+  }
   const normalizedNamespace = requiredString(namespace, 'namespace');
 
   const hasScopedCompareAndSet = typeof storageProvider.compareAndSetScoped === 'function';
@@ -135,7 +164,7 @@ function createCanonicalWorkspacePersistence({
       tenantId: identity.tenantId,
       workspaceId: normalizedWorkspaceId,
     });
-    requireWorkspaceRecordAccess(envelope, identity);
+    await requireWorkspaceRecordAccess(envelope, identity, 'READ', trustedRecordGrantResolver);
     return deepFreeze(envelope);
   }
 
@@ -167,7 +196,7 @@ function createCanonicalWorkspacePersistence({
 
     // Authorize the individual object before exposing its version or
     // attempting a write; tenant-match plus role alone is not sufficient.
-    if (current) requireWorkspaceRecordAccess(current, identity);
+    if (current) await requireWorkspaceRecordAccess(current, identity, 'WRITE', trustedRecordGrantResolver);
     if (expectedVersion !== currentVersion) fail('WORKSPACE_VERSION_CONFLICT');
     if (current && (
       current.workspace.projectId !== workspace.projectId
@@ -236,7 +265,7 @@ function createCanonicalWorkspacePersistence({
       productionPersistenceValidated: false,
       externalDatabaseDeploymentRequired: true,
     }),
-    semantics: 'This runtime enforces verified tenant isolation and per-record actor ownership; same-tenant ADMIN can access, legacy unattested ownership is quarantined for non-admins. Structured tenant-aware providers are preferred. This does not prove actual IdP, database RLS, backup, DR or production authorization.',
+    semantics: 'This runtime enforces tenant and per-record ownership; a separately injected trusted server-side resolver can grant exact-workspace/actor/action review access. A common role/tenant or caller-declared grant never suffices. ADMIN remains scoped to the authenticated tenant; unowned legacy records are quarantined. This does not prove deployment of a grant registry, IdP, RLS, backups or production authorization.',
   });
 }
 
