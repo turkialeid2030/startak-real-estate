@@ -27,7 +27,7 @@
 **Impact if deployed as-is:** reading a peer workspace and overwriting a same-tenant peer's record when its ID/version are known. No real incident has been established.
 **Remediation (in this branch):**
 1. On first save, persist `ownerActorId` from verified identity `sub` in the **server-owned envelope**, not request JSON.
-2. On every load and on every existing-record save, enforce `ownerActorId === identity.actorId` unless the independently verified identity has tenant `ADMIN` role. Retain tenant-scoped physical storage checks even for ADMIN.
+2. On every load and on every existing-record save, enforce `ownerActorId === identity.actorId` unless the independently verified identity has tenant `ADMIN` role **or** a separately trusted, per-record, per-actor, per-action grant resolver returns a documented positive grant. Retain tenant-scoped physical storage checks even for ADMIN and delegated reviewers. Do not infer review rights from `IC_MEMBER` role alone. The grant resolver is not wired into the default server composition; real assignment registry remains external evidence.
 3. Refuse access to legacy envelopes without an **attested ownerActorId** for non-admins. Do not infer owner from mutable `updatedBy`; manual provenance-backed migration remains a separate approval requirement.
 4. Keep `ownerActorId` unchanged for administrative edits. Unauthorized read/write maps to identical generic HTTP `404 WORKSPACE_NOT_FOUND` to reduce enumeration.
 5. Preserve JWT validation, other policy and financial data code, original records, workspaces and version CAS operations.
@@ -40,7 +40,7 @@
 | Tenant ADMIN (verified token) | Allow | Allow within tenant | Allow | Allow within tenant | Deny/absent due tenant isolation |
 | ANALYST (verified, owner) | Allow | Deny | Allow | Deny | Deny/absent |
 | VIEWER (verified, owner) | Allow | Deny | Deny | Deny | Deny/absent |
-| IC_MEMBER (verified, owner) | Allow | Deny | Deny | Deny | Deny/absent |
+| IC_MEMBER (verified, owner) | Allow | Deny absent explicit trusted record grant; allow only granted READ for designated workspace | Deny | Deny | Deny/absent |
 | Platform owner | **Not implemented/verified as separate server role** | Deny unless explicitly granted | Not established | Not established | No omnipotent implicit access |
 | Client / supplier / auditor role | No verified mapping in canonical workspace API | Default Deny | Default Deny | Default Deny | Default Deny |
 | AI tool/service | No workspace credential or independent grant from the gateway itself | Default Deny | Default Deny | Default Deny | Default Deny |
@@ -55,16 +55,18 @@ Notes: a role is taken from cryptographically verified OIDC claims by the server
 - `tests/architecture/run_authenticated_canonical_workspace_service_v1.js`: signed synthetic JWT owner, peer VIEWER and ANALYST, tenant ADMIN, overwrite/lookup.
 - `tests/architecture/run_canonical_workspace_product_runtime_v1.js`: owner downgrade, ADMIN read, quarantine prior unowned envelopes.
 - `tests/runtime/run_canonical_workspace_http_api_tests.js`: real loopback Node HTTP, generic 404 on peer read/write (service stub for this particular assertion).
+- `tests/architecture/run_authenticated_investment_committee_runtime_v1.js` and `tests/architecture/run_authenticated_reporting_runtime_v1.js`: explicit *synthetic, trusted, READ-only, resource-specific* reviewer grants preserve intended IC/report paths while denying peer/sibling access; there is **no production reviewer assignment registry deployment evidence**.
+- `tests/architecture/run_canonical_workspace_product_runtime_v1.js`: additionally verifies delegated READ never confers WRITE even with ANALYST role.
 - `.github/workflows/security-hardening-v1-verify.yml`: focused CI tests and high-severity dependency audit, with explicit external qualification HOLD.
 
 ## 6. Required verification — evidence status
 | Control | Evidence standard | Status at report creation |
 |---|---|---|
-| Same-tenant object authorization | Exact-head regression, signed synthetic test principals | PENDING GitHub CI |
-| Node loopback REST 404 behavior | Exact-head HTTP regression | PENDING GitHub CI |
-| JWT / tenant / RBAC source regression | Exact-head CI | PENDING GitHub CI |
-| Cloudflare AI / Kite gateway negative tests | Stubbed upstream CI | PENDING GitHub CI; NOT real provider |
-| Dependency vulnerability gate | `npm audit --audit-level=high` exact-head | PENDING GitHub CI |
+| Same-tenant object authorization | Exact-head regression, signed synthetic test principals | 2026-11-18 GitHub security CI: PASS; latest committed follow-up regression requalification required |
+| Node loopback REST 404 behavior | Exact-head HTTP regression | PASS in security CI; release verification on latest HEAD pending |
+| JWT / tenant / RBAC source regression | Exact-head CI | PASS in scoped security run; latest HEAD pending |
+| Cloudflare AI / Kite gateway negative tests | Stubbed upstream CI | PASS scoped security run, NOT real provider |
+| Dependency vulnerability gate | `npm audit --omit=dev --audit-level=high` | PASS production dependency subset; full build tool audit FAIL: 5 HIGH via picomatch chain (issue #804); release blocked |
 | SAST with independent scanner | Tool execution and saved results | NOT RUN |
 | Comprehensive historical secret scan | Independent secret scanner / security access | NOT RUN |
 | Multi-tenant live PostgreSQL RLS & IDOR | Real isolated database, real operator IdP, separate test accounts | BLOCKED: no tenant/DB/IdP credentials or environment |
@@ -75,6 +77,9 @@ Notes: a role is taken from cryptographically verified OIDC claims by the server
 | Production GO sign-off | Signed independent evidence Q01–Q12, owners and authorities | NOT QUALIFIED |
 
 A successful release regression or code gate **must not** be transformed into an external-authentication, production data-isolation or Saudi compliance certificate.
+
+### Independent release regression discovery
+The first integrated exact-head Release Verify `44284091308` reported **638/640 regression checks PASS**, with failures in the legitimate IC reviewer and report revalidation flows following the initial restrictive owner check. This drove a second remediation: an *explicit, trusted, actor/workspace/case/action-bound READ grant* for designated human reviewers, rather than blanket role access or removal of authorization. Regression requalification on the latest head is pending as of this report amendment. Full npm audit also blocks Release Verify. Do not claim engineering completion while any new test is failing.
 
 ## 7. Risks / release hold
 - **P0 external:** live authentication and revocation; server-deployed RLS and owner-bound query tests with tenant A/B; staff-level and project-level role/ACL; owner/admin console data plane; data/backup/file authorization.
