@@ -12,6 +12,7 @@ on:
       - 'tests/architecture/run_canonical_workspace_product_runtime_v1.js'
       - 'tests/architecture/run_authenticated_investment_committee_runtime_v1.js'
       - 'tests/architecture/run_authenticated_reporting_runtime_v1.js'
+      - 'tools/security/generate-isolated-postgres-rls-fixture.js'
       - 'tests/runtime/run_canonical_workspace_http_api_tests.js'
       - '.github/workflows/security-hardening-v1-verify.yml'
       - 'docs/security/SECURITY-HARDENING-V1-STARTAK-RE-20261118.md'
@@ -28,6 +29,18 @@ jobs:
   scoped-security-gates:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-test-only-not-production
+          POSTGRES_DB: startak_rls_ci
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Checkout exact proposed commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -52,6 +65,10 @@ jobs:
           node tests/architecture/run_oidc_jwt_jwks_authentication_v1.js
           node tests/architecture/run_tenant_boundary_security_v1.js
           node tests/architecture/run_authorization_audit_security_v1.js
+      - name: Isolated real PostgreSQL 16 tenant RLS negative test (disposable CI database)
+        run: |
+          node tools/security/generate-isolated-postgres-rls-fixture.js > "$RUNNER_TEMP/startak-rls-ci.sql"
+          docker exec -i "${{ job.services.postgres.id }}" psql -X -v ON_ERROR_STOP=1 -U postgres -d startak_rls_ci < "$RUNNER_TEMP/startak-rls-ci.sql"
       - name: Cloudflare AI and personal-source guard regressions
         run: |
           node tests/runtime/run_riai_public_ai_security.js
