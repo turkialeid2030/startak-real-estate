@@ -1,0 +1,61 @@
+name: STARTAK RE Security Hardening V1
+
+on:
+  pull_request:
+    paths:
+      - 'src/security/**'
+      - 'src/runtime/**'
+      - 'src/server/**'
+      - 'src/storage/**'
+      - 'functions/api/**'
+      - 'tests/architecture/run_authenticated_canonical_workspace_service_v1.js'
+      - 'tests/architecture/run_canonical_workspace_product_runtime_v1.js'
+      - 'tests/runtime/run_canonical_workspace_http_api_tests.js'
+      - '.github/workflows/security-hardening-v1-verify.yml'
+      - 'docs/security/SECURITY-HARDENING-V1-STARTAK-RE-20261118.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-hardening-v1-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scoped-security-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact proposed commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Authenticated same-tenant object authorization tests
+        run: |
+          node tests/architecture/run_authenticated_canonical_workspace_service_v1.js
+          node tests/architecture/run_canonical_workspace_product_runtime_v1.js
+          node tests/runtime/run_canonical_workspace_http_api_tests.js
+      - name: Identity and tenant negative regressions
+        run: |
+          node tests/architecture/run_oidc_jwt_jwks_authentication_v1.js
+          node tests/architecture/run_tenant_boundary_security_v1.js
+          node tests/architecture/run_authorization_audit_security_v1.js
+      - name: Cloudflare AI and personal-source guard regressions
+        run: |
+          node tests/runtime/run_riai_public_ai_security.js
+          node tests/defects/personal_kite_source_gateway_20261110.js
+      - name: Locked dependency high severity audit
+        run: npm audit --audit-level=high
+      - name: Scope declaration
+        run: |
+          echo 'SECURITY_HARDENING_V1_SOURCE_TESTS_COMPLETED=true'
+          echo 'REAL_EXTERNAL_IDP_DB_RLS_TENANT_E2E_VERIFIED=false'
+          echo 'PRODUCTION_SECURITY_GO_LIVE=HOLD_NOT_AUTHORIZED'
