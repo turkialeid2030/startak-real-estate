@@ -107,6 +107,40 @@ async function main() {
 
   const otherTenantResult = await runtime.loadWorkspace({ identityContext: otherTenant, workspaceId: 'WS-001' });
   await check(async () => assert.strictEqual(otherTenantResult, null));
+  await check(async () => assert.strictEqual(storedV1.ownerActorId, 'user-1'));
+  const peer = identityContext({ sub: 'peer-analyst', tenantId: 'tenant-a', roles: ['ANALYST'] });
+  const admin = identityContext({ sub: 'tenant-admin', tenantId: 'tenant-a', roles: ['ADMIN'] });
+  const downgradedOwner = identityContext({ sub: 'user-1', tenantId: 'tenant-a', roles: ['VIEWER'] });
+
+  await check(async () => assert.rejects(
+    runtime.loadWorkspace({ identityContext: peer, workspaceId: 'WS-001' }),
+    (e) => e.code === 'WORKSPACE_RECORD_ACCESS_DENIED',
+  ));
+  await check(async () => assert.strictEqual(
+    (await runtime.loadWorkspace({ identityContext: downgradedOwner, workspaceId: 'WS-001' })).ownerActorId, 'user-1',
+  ));
+  await check(async () => assert.strictEqual(
+    (await runtime.loadWorkspace({ identityContext: admin, workspaceId: 'WS-001' })).ownerActorId, 'user-1',
+  ));
+
+  // An old unowned envelope cannot be assigned to whoever happens to request
+  // it first. Quarantine non-admin access until an authorized backfill.
+  const legacyWorkspaceId = 'WS-LEGACY-001';
+  const legacyKey = [...provider.values.keys()][0].replace(/WS-001$/, legacyWorkspaceId);
+  provider.values.set(legacyKey, JSON.stringify({
+    schemaVersion: 1, version: 1, tenantId: 'tenant-a',
+    workspaceId: legacyWorkspaceId,
+    workspace: { ...workspace, workspaceId: legacyWorkspaceId },
+    history: [],
+  }));
+  await check(async () => assert.rejects(
+    runtime.loadWorkspace({ identityContext: analyst, workspaceId: legacyWorkspaceId }),
+    (e) => e.code === 'WORKSPACE_RECORD_ACCESS_DENIED',
+  ));
+  await check(async () => assert.strictEqual(
+    (await runtime.loadWorkspace({ identityContext: admin, workspaceId: legacyWorkspaceId })).ownerActorId, undefined,
+  ));
+
   await check(async () => assert.ok([...provider.values.keys()].every((key) => key.includes('tenant-a'))));
 
   await check(async () => assert.rejects(
