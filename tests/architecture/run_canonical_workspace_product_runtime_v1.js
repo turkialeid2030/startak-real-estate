@@ -141,6 +141,43 @@ async function main() {
     (await runtime.loadWorkspace({ identityContext: admin, workspaceId: legacyWorkspaceId })).ownerActorId, undefined,
   ));
 
+  // An explicitly server-wired reviewer may READ exactly one record, but
+  // never derive a WRITE grant from that access, even with ANALYST role.
+  const delegatedPersistence = createCanonicalWorkspacePersistence({
+    storageProvider: provider,
+    trustedRecordGrantResolver: async (scope) => ({
+      allowed: scope.tenantId === 'tenant-a'
+        && scope.workspaceId === 'WS-001'
+        && scope.ownerActorId === 'user-1'
+        && scope.actorId === 'reviewer-1'
+        && scope.action === 'READ'
+        && scope.roles.includes('IC_MEMBER'),
+      grantRef: 'SYNTHETIC-REVIEW-ASSIGNMENT-001',
+    }),
+  });
+  const delegatedRuntime = createCanonicalWorkspaceRuntime({ persistence: delegatedPersistence });
+  const reviewer = identityContext({
+    sub: 'reviewer-1', tenantId: 'tenant-a', roles: ['IC_MEMBER', 'ANALYST'],
+  });
+  await check(async () => assert.strictEqual(
+    (await delegatedRuntime.loadWorkspace({ identityContext: reviewer, workspaceId: 'WS-001' })).ownerActorId,
+    'user-1',
+  ));
+  await check(async () => assert.rejects(
+    delegatedRuntime.saveWorkspace({
+      identityContext: reviewer,
+      workspace: canonicalWorkspace('reviewer-1'),
+      expectedVersion: 1,
+      operationId: 'REVIEWER-WRITE-FORGED',
+      occurredAt: '2026-09-09T12:12:00Z',
+    }),
+    (e) => e.code === 'WORKSPACE_RECORD_ACCESS_DENIED',
+  ));
+  await check(async () => assert.rejects(
+    delegatedRuntime.loadWorkspace({ identityContext: reviewer, workspaceId: legacyWorkspaceId }),
+    (e) => e.code === 'WORKSPACE_RECORD_ACCESS_DENIED',
+  ));
+
   await check(async () => assert.ok([...provider.values.keys()].every((key) => key.includes('tenant-a'))));
 
   await check(async () => assert.rejects(
