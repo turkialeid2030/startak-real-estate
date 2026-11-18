@@ -119,6 +119,8 @@ function classifyError(error) {
   if (['WORKSPACE_VERSION_CONFLICT', 'WORKSPACE_CONCURRENT_WRITE_CONFLICT'].includes(code)) {
     return { statusCode: 409, code };
   }
+  // Do not disclose peer record existence in an IDOR denial.
+  if (code === 'WORKSPACE_RECORD_ACCESS_DENIED') return { statusCode: 404, code: 'WORKSPACE_NOT_FOUND' };
   if (code === 'WORKSPACE_NOT_FOUND') return { statusCode: 404, code };
   if (code === 'REQUEST_BODY_TOO_LARGE') return { statusCode: 413, code };
   if (code === 'UNSUPPORTED_MEDIA_TYPE') return { statusCode: 415, code };
