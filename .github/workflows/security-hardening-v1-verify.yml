@@ -52,10 +52,12 @@ jobs:
         run: |
           node tests/runtime/run_riai_public_ai_security.js
           node tests/defects/personal_kite_source_gateway_20261110.js
-      - name: Locked dependency high severity audit
-        run: npm audit --audit-level=high
-      - name: Scope declaration
+      - name: Production dependency graph audit (not a waiver for dev/build tools)
+        run: npm audit --omit=dev --audit-level=high
+      - name: Explicit external-evidence boundary
         run: |
           echo 'SECURITY_HARDENING_V1_SOURCE_TESTS_COMPLETED=true'
           echo 'REAL_EXTERNAL_IDP_DB_RLS_TENANT_E2E_VERIFIED=false'
           echo 'PRODUCTION_SECURITY_GO_LIVE=HOLD_NOT_AUTHORIZED'
+      - name: Full dependency graph high severity audit (mandatory blocking)
+        run: npm audit --audit-level=high
