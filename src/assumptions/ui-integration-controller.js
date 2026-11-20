@@ -231,7 +231,14 @@ function buildUiDisclosureViewModel({ governance, locale = 'ar-SA' }) {
     badge: disclosure.badge[language],
     assumptionModelVersion: disclosure.assumptionModelVersion,
     legacyCompatibility: disclosure.legacyCompatibility,
+    // Keep the legacy populated key list, but expose actual evidence status
+    // separately so UI clients do not infer approval from numeric defaults.
     approvedAssumptionKeys: disclosure.approvedAssumptionKeys,
+    canonicalDefaultAssumptionKeys: disclosure.canonicalDefaultAssumptionKeys,
+    independentlyApprovedAssumptionKeys: disclosure.independentlyApprovedAssumptionKeys,
+    canonicalDefaultsAreApprovalEvidence: false,
+    userApprovedAssumptions: false,
+    approvalEvidenceStatus: disclosure.approvalEvidenceStatus,
     exitCapSource: disclosure.exitCapSource,
     exitCapNotice,
     exitCapInputRequired: governance.exitCapInputRequired,
