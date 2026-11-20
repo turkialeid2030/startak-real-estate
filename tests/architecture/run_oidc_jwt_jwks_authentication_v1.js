@@ -315,6 +315,50 @@ function verify(token, overrides = {}) {
     (await streamedValidProvider.getJwks()).keys[0].kid, KID,
   ));
 
+  // A fetch started before explicit invalidation must not repopulate a
+  // revoked signing-key cache or hand its old JWKS to an awaiting verifier.
+  const staleResolvers = [];
+  const deferredResponse = () => ({
+    ok: true, status: 200,
+    headers: { get: (name) => name.toLowerCase() === 'content-type' ? 'application/json' : null },
+    text: async () => JSON.stringify(jwks),
+  });
+  const invalidateProvider = createRemoteJwksProvider({
+    issuer: ISSUER, jwksUri: 'https://issuer.example/rotation-jwks',
+    fetchImpl: () => new Promise((resolve) => staleResolvers.push(resolve)),
+  });
+  const staleRequest = invalidateProvider.getJwks();
+  const staleRefusal = assert.rejects(staleRequest, /JWKS_FETCH_SUPERSEDED_OR_INVALIDATED/);
+  invalidateProvider.invalidate();
+  const freshRequest = invalidateProvider.getJwks();
+  await checkAsync(async () => {
+    assert.strictEqual(staleResolvers.length, 2);
+    staleResolvers[1](deferredResponse());
+    assert.strictEqual((await freshRequest).keys[0].kid, KID);
+    staleResolvers[0](deferredResponse());
+    await staleRefusal;
+  });
+
+  // A forced key rotation also supersedes older in-flight fetches; old
+  // responses may not replace the newer trusted keyset in the cache.
+  const refreshResolvers = [];
+  const forcedProvider = createRemoteJwksProvider({
+    issuer: ISSUER, jwksUri: 'https://issuer.example/force-refresh-jwks',
+    fetchImpl: () => new Promise((resolve) => refreshResolvers.push(resolve)),
+  });
+  const oldPending = forcedProvider.getJwks();
+  const oldRejected = assert.rejects(oldPending, /JWKS_FETCH_SUPERSEDED_OR_INVALIDATED/);
+  const rotated = forcedProvider.getJwks({ forceRefresh: true });
+  await checkAsync(async () => {
+    assert.strictEqual(refreshResolvers.length, 2);
+    refreshResolvers[1](deferredResponse());
+    assert.strictEqual((await rotated).keys[0].kid, KID);
+    refreshResolvers[0](deferredResponse());
+    await oldRejected;
+    assert.strictEqual((await forcedProvider.getJwks()).keys[0].kid, KID);
+    assert.strictEqual(refreshResolvers.length, 2);
+  });
+
   console.log(`OIDC_JWT_JWKS_AUTHENTICATION_V1: PASS (${checks} checks)`);
 })().catch((error) => {
   console.error(error);
