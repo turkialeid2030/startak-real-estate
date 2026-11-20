@@ -253,6 +253,24 @@ function verify(token, overrides = {}) {
     await assert.rejects(() => badProvider.getJwks(), /JWKS_PRIVATE_KEY_MATERIAL_REJECTED/);
   });
 
+  for (const [field, value] of [
+    ['d', ''], ['p', 'private-prime'], ['q', 'private-prime'],
+    ['dp', 'private-exponent'], ['dq', 'private-exponent'], ['qi', 'crt-inverse'],
+    ['oth', []], ['k', 'symmetric-material'],
+  ]) {
+    const privatePartProvider = createRemoteJwksProvider({
+      issuer: ISSUER, jwksUri: 'https://issuer.example/private-field-test',
+      fetchImpl: async () => ({
+        ok: true, status: 200,
+        headers: { get: (name) => name.toLowerCase() === 'content-type' ? 'application/json' : null },
+        text: async () => JSON.stringify({ keys: [{ ...trustedJwk, [field]: value }] }),
+      }),
+    });
+    await checkAsync(async () => assert.rejects(
+      privatePartProvider.getJwks(), /JWKS_PRIVATE_KEY_MATERIAL_REJECTED/,
+    ));
+  }
+
   // A content-length header must be enforced before the response body is read.
   const oversizeDeclaredProvider = createRemoteJwksProvider({
     issuer: ISSUER, jwksUri: 'https://issuer.example/oversized-content-length',
