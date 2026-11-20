@@ -1670,6 +1670,9 @@ export default function App() {
   const inputProvenance=provenanceByMode[mode];
   const [rentalByMode,setRentalByMode]=useState({building:null,land:null});
   const rentalContext=rentalByMode[mode];
+  // Preserve historical assumption provenance alongside deal inputs.
+  const [assumptionRegistryByMode,setAssumptionRegistryByMode]=useState({building:null,land:null});
+  const activeAssumptionRegistry=assumptionRegistryByMode[mode];
   const residentialIncomeAcquisitionView = useMemo(
     () => createResidentialIncomeAcquisitionViewModel(residentialIncomeOperatingCase),
     [residentialIncomeOperatingCase],
@@ -1711,6 +1714,7 @@ export default function App() {
         mode: UI_MODE.BUILDING,
         inputs: buildingInputs,
         assumptionModelVersion: buildingAssumptionModelVersion,
+        assumptionRegistry: assumptionRegistryByMode.building,
       });
       lastValidBuildingUiState.current = state;
       if (buildingValidationError) setBuildingValidationError(null);
@@ -1724,7 +1728,7 @@ export default function App() {
       }
       throw e;
     }
-  }, [buildingInputs, buildingAssumptionModelVersion]);
+  }, [buildingInputs, buildingAssumptionModelVersion, assumptionRegistryByMode.building]);
 
   const landUiState = useMemo(() => {
     try {
@@ -1732,6 +1736,7 @@ export default function App() {
         mode: UI_MODE.LAND,
         inputs: landInputs,
         assumptionModelVersion: landAssumptionModelVersion,
+        assumptionRegistry: assumptionRegistryByMode.land,
       });
       lastValidLandUiState.current = state;
       if (landValidationError) setLandValidationError(null);
@@ -1745,7 +1750,7 @@ export default function App() {
       }
       throw e;
     }
-  }, [landInputs, landAssumptionModelVersion]);
+  }, [landInputs, landAssumptionModelVersion, assumptionRegistryByMode.land]);
 
   const buildingResults = buildingUiState.results;
   const landResults = landUiState.results;
@@ -1854,6 +1859,7 @@ export default function App() {
     setMode(builtInMode);
     setProvenanceByMode(current=>({...current,[builtInMode]:null}));
     setRentalByMode(current=>({...current,[builtInMode]:null}));
+    setAssumptionRegistryByMode(current=>({...current,[builtInMode]:null}));
     if (builtInMode === UI_MODE.BUILDING) {
       const workspace = createUiWorkspace({ mode: UI_MODE.BUILDING, defaultInputs: DEFAULT_BUILDING_INPUTS });
       setBuildingInputs(workspace.inputs);
@@ -1892,6 +1898,7 @@ export default function App() {
       setMode(hydrated.mode);
       setProvenanceByMode(current=>({...current,[hydrated.mode]:record.inputProvenance||null}));
       setRentalByMode(current=>({...current,[hydrated.mode]:record.rentalContext||null}));
+      setAssumptionRegistryByMode(current=>({...current,[hydrated.mode]:hydrated.assumptionRegistry}));
       if (hydrated.mode === UI_MODE.BUILDING) {
         setBuildingInputs(hydrated.inputs);
         setBuildingAssumptionModelVersion(hydrated.assumptionModelVersion);
@@ -1920,6 +1927,7 @@ export default function App() {
   const recordWithExtensions = (record) => {
     let extended = inputProvenance ? {...record,inputProvenance} : record;
     if(rentalContext) extended={...extended,rentalContext};
+    if (activeAssumptionRegistry != null) extended={...extended,assumptionRegistry:activeAssumptionRegistry};
     if (record.mode === "building" && residentialIncomeOperatingCase) {
       extended = { ...extended, operatingCase: residentialIncomeOperatingCase };
     }
@@ -2055,6 +2063,7 @@ export default function App() {
           modeContexts.current[draftMode] = { activeDealId: null, zakatCase: null };
           setProvenanceByMode(current=>({...current,[draftMode]:null}));
           setRentalByMode(current=>({...current,[draftMode]:null}));
+          setAssumptionRegistryByMode(current=>({...current,[draftMode]:null}));
           if (draftMode === 'building' && mode !== 'building') {
             setValuationCase(null);
             setValuationEditorDraft(null);
@@ -2066,6 +2075,7 @@ export default function App() {
       if (activeDealId === id) {
         setProvenanceByMode(current=>({...current,[mode]:null}));
         setRentalByMode(current=>({...current,[mode]:null}));
+        setAssumptionRegistryByMode(current=>({...current,[mode]:null}));
         setActiveDealId(null);
         if (mode === 'building') {
           setResidentialIncomeOperatingCase(null);
