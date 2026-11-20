@@ -175,10 +175,18 @@ function assessOperatingUnderwritingReadiness(operatingCase) {
   requireLineageKind(interest.legalReviewRef, LINEAGE_KIND.LEGAL_REVIEW, 'INVALID_LEGAL_REVIEW_LINEAGE_KIND', 'propertyInterest.legalReviewRef');
   if (!interest.titleAssessment) {
     addUnique(evidenceGaps, { code: 'TITLE_ASSESSMENT_REQUIRED', field: 'propertyInterest.titleAssessment', refId: interest.titleAssessmentRef });
-  } else if (interest.titleAssessment.status === TITLE_RESULT_STATUS.HOLD_EVIDENCE) {
+  } else if (interest.titleAssessment.status === TITLE_RESULT_STATUS.HOLD_EVIDENCE
+    || (Array.isArray(interest.titleAssessment.blockers) && interest.titleAssessment.blockers.length > 0)) {
+    // Never let a forged or stale LEGAL_REVIEW_REQUIRED label mask an
+    // incomplete deed/ownership/parcel assessment.
     addUnique(evidenceGaps, { code: 'TITLE_EVIDENCE_HOLD', field: 'propertyInterest.titleAssessment', refId: interest.titleAssessmentRef });
+    if (interest.titleAssessment.status === TITLE_RESULT_STATUS.LEGAL_REVIEW_REQUIRED) {
+      addUnique(dueDiligence, { code: 'TITLE_LEGAL_REVIEW_REQUIRED', field: 'propertyInterest.titleAssessment', refId: interest.titleAssessmentRef });
+    }
   } else if (interest.titleAssessment.status === TITLE_RESULT_STATUS.LEGAL_REVIEW_REQUIRED) {
     addUnique(dueDiligence, { code: 'TITLE_LEGAL_REVIEW_REQUIRED', field: 'propertyInterest.titleAssessment', refId: interest.titleAssessmentRef });
+  } else if (interest.titleAssessment.status !== TITLE_RESULT_STATUS.FACTS_SUFFICIENT_FOR_ANALYSIS) {
+    addUnique(evidenceGaps, { code: 'TITLE_ASSESSMENT_STATUS_UNRECOGNIZED', field: 'propertyInterest.titleAssessment', refId: interest.titleAssessmentRef });
   }
   if (TIME_LIMITED_INTEREST_TYPES.includes(interest.interestType)) {
     if (!interest.commencementDate || !interest.expiryDate) {
