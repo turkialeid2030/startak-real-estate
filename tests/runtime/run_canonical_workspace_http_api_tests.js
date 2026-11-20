@@ -312,6 +312,9 @@ async function json(response) {
       assert.strictEqual(response.headers.get('access-control-allow-origin'), 'https://app.startak.example');
       assert.strictEqual(response.headers.get('access-control-allow-methods'), 'GET, PUT, OPTIONS');
       assert.strictEqual(response.headers.get('access-control-allow-headers'), 'authorization, content-type');
+      assert.strictEqual(response.headers.get('content-length'), null);
+      assert.strictEqual(response.headers.get('content-type'), null);
+      assert.strictEqual(await response.text(), '');
     });
 
     await test('PRODUCTIZATION-P10-15', async () => {
