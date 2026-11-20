@@ -55,6 +55,10 @@ function parseEnvelope(raw, { tenantId, workspaceId }) {
   if (parsed.schemaVersion !== 1 || !Number.isInteger(parsed.version) || parsed.version < 1) fail('WORKSPACE_PERSISTENCE_CORRUPT_RECORD');
   if (parsed.tenantId !== tenantId || parsed.workspaceId !== workspaceId) fail('WORKSPACE_PERSISTENCE_SCOPE_VIOLATION');
   if (!parsed.workspace || typeof parsed.workspace !== 'object' || parsed.workspace.workspaceId !== workspaceId) fail('WORKSPACE_PERSISTENCE_CORRUPT_RECORD');
+  // A legacy/current payload may omit workspace.tenantId, but it must never
+  // contradict the authoritative tenant of its storage envelope when present.
+  if (Object.prototype.hasOwnProperty.call(parsed.workspace, 'tenantId')
+    && parsed.workspace.tenantId !== tenantId) fail('WORKSPACE_PERSISTENCE_CORRUPT_RECORD');
   assertExecutableCaseIdentity(parsed.workspace, true);
   if (!Array.isArray(parsed.history)) fail('WORKSPACE_PERSISTENCE_CORRUPT_RECORD');
   return parsed;
