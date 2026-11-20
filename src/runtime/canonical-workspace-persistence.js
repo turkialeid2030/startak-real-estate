@@ -30,6 +30,20 @@ function storageKey(namespace, tenantId, workspaceId) {
   return `${namespace}:${encodeURIComponent(tenantId)}:${encodeURIComponent(workspaceId)}`;
 }
 
+// A case must not claim a different project or case identifier inside its
+// executable payload. Legacy payloads can omit these optional inner fields,
+// but any declared identity must match the authenticated outer workspace.
+function assertExecutableCaseIdentity(workspace, persisted = false) {
+  const executableCase = workspace && workspace.executableCase;
+  if (!executableCase || typeof executableCase !== 'object' || Array.isArray(executableCase)) return;
+  for (const field of ['projectId', 'caseId']) {
+    if (Object.prototype.hasOwnProperty.call(executableCase, field)
+      && executableCase[field] !== workspace[field]) {
+      fail(persisted ? 'WORKSPACE_PERSISTENCE_CORRUPT_RECORD' : 'WORKSPACE_RESOURCE_IDENTITY_MISMATCH');
+    }
+  }
+}
+
 function parseEnvelope(raw, { tenantId, workspaceId }) {
   let parsed;
   try {
@@ -41,6 +55,7 @@ function parseEnvelope(raw, { tenantId, workspaceId }) {
   if (parsed.schemaVersion !== 1 || !Number.isInteger(parsed.version) || parsed.version < 1) fail('WORKSPACE_PERSISTENCE_CORRUPT_RECORD');
   if (parsed.tenantId !== tenantId || parsed.workspaceId !== workspaceId) fail('WORKSPACE_PERSISTENCE_SCOPE_VIOLATION');
   if (!parsed.workspace || typeof parsed.workspace !== 'object' || parsed.workspace.workspaceId !== workspaceId) fail('WORKSPACE_PERSISTENCE_CORRUPT_RECORD');
+  assertExecutableCaseIdentity(parsed.workspace, true);
   if (!Array.isArray(parsed.history)) fail('WORKSPACE_PERSISTENCE_CORRUPT_RECORD');
   return parsed;
 }
@@ -194,6 +209,9 @@ function createCanonicalWorkspacePersistence({
     const identity = requireVerifiedIdentityContext(identityContext);
     if (!workspace || typeof workspace !== 'object' || Array.isArray(workspace)) throw new TypeError('workspace is required');
     const workspaceId = requiredString(workspace.workspaceId, 'workspace.workspaceId');
+    requiredString(workspace.projectId, 'workspace.projectId');
+    requiredString(workspace.caseId, 'workspace.caseId');
+    assertExecutableCaseIdentity(workspace);
     const opId = requiredString(operationId, 'operationId');
     if (!Number.isInteger(expectedVersion) || expectedVersion < 0) throw new TypeError('expectedVersion must be an integer >= 0');
     if (!hasAtomicCompareAndSet) fail('ATOMIC_PERSISTENCE_REQUIRED');
