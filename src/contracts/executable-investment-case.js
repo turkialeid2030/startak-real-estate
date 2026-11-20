@@ -94,7 +94,11 @@ function createLifecycleCoverage(caseSections) {
       ? caseSections[key].status
       : 'NOT_EVALUATED';
     statuses[key] = status;
-    if (status === 'NOT_EVALUATED' || status === 'PLANNED' || status === 'FOUNDATION_ONLY') {
+    // Financial figures can be technically calculated yet blocked by
+    // unqualified saved assumption overrides. An analytical HOLD must never
+    // count as a complete lifecycle section for decision/report readiness.
+    if (status === 'NOT_EVALUATED' || status === 'PLANNED'
+      || status === 'FOUNDATION_ONLY' || status === 'ANALYTICAL_HOLD') {
       unresolved.push(key);
     } else {
       evaluated.push(key);
