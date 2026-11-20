@@ -389,3 +389,11 @@
 - [بوابة الأمن #44789046911](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44789046911) **PASS** على الالتزام `b4c9df28e51c0ce53c8c468d1facc16f32ee618e`، وفيها `44` تحققًا وقتيًا لسجلات العقار، و`40` تحققًا لوحدة JWT/OIDC/JWKS، وتجربة عزل مؤسسات بقاعدة PostgreSQL حقيقية مؤقتة.
 - **الحدود:** الـ`WeakSet` ليس تحقق JWT تشفيريًا ولا يثبت مزوّد الهوية في الإنتاج أو إلغاء الجلسات أو تشفير المستودع أو المعالجة داخل السعودية. وبوابة Q05 الرسمية ما زالت **0/3 توقيعات تحقق مستقلة**. لا تغيير في `main` أو الإطلاق.
 - [Release Verify #44789046919](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44789046919) و[One Batch #44789046975](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44789046975) يتطلبان فحص نتيجة الالتزام النهائي نفسه قبل إصدار حكم على كامل الدفعة.
+
+
+### ملحق إثبات: Release Verify على مرشح الهوية الجديد
+
+- على الالتزام `b4c9df28e51c0ce53c8c468d1facc16f32ee618e`، أظهرت [Release Verify #44789046919](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44789046919) **SUCCESS**: `REGRESSION_TOTAL=642 PASSED=642`، `TEST_DISCOVERY_AND_REGRESSION=PASS`، `PRODUCTION_BUILD=PASS`، `VERIFY_PACKAGE=PASS`، `NPM_AUDIT_RELEASE_THRESHOLD=PASS`.
+- [Security Hardening #44789046911](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44789046911) و[Owner Browser #44789047136](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44789047136) و[D04 #44789046950](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44789046950) و[Monte Carlo #44789047018](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44789047018) و[Wave 17A #44789046932](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44789046932) **SUCCESS** لنفس الرأس.
+- [One Batch #44789046975](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44789046975) بانتظار فحص سجل النتيجة النهائية؛ لا يغيّر انتهاء CI وحده غياب الأدلة المستقلة في Q01–Q12.
+- **ما لا يُستنتج:** نجاح CI لا يثبت امتلاك المستودع للملفات المصدرية المرخصة ولا التقييمات الحقيقية على محرك STARTAK، ولا اختبار A/B للهوية في الإنتاج، ولا رأي مثمّن معتمد. القرار الإنتاجي ما زال `HOLD_NOT_AUTHORIZED`.
