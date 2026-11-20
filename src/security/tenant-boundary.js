@@ -40,7 +40,7 @@ function normalizeIdentity(identity) {
 
 function assertTenantScopedAccess({ identity, resourceTenantId, action = 'READ' } = {}) {
   const normalized = normalizeIdentity(identity);
-  const targetTenant = String(resourceTenantId || '').trim();
+  const targetTenant = typeof resourceTenantId === 'string' ? resourceTenantId.trim() : '';
   if (!normalized || !targetTenant) {
     return Object.freeze({ status: TENANT_SECURITY_STATUS.HOLD_IDENTITY, allowed: false, reason: 'IDENTITY_OR_RESOURCE_TENANT_MISSING' });
   }
@@ -84,8 +84,11 @@ function bindTenantToRecord(record, identity) {
     error.code = 'IDENTITY_OR_RESOURCE_TENANT_MISSING';
     throw error;
   }
-  if (!record || typeof record !== 'object') throw new TypeError('record is required');
-  if (record.tenantId && String(record.tenantId) !== normalized.tenantId) {
+  if (!record || typeof record !== 'object' || Array.isArray(record)) throw new TypeError('record is required');
+  // Reject non-string record tenancy rather than accepting an object whose
+  // toString() happens to equal the authenticated tenant ID.
+  if (record.tenantId != null && record.tenantId !== ''
+    && (typeof record.tenantId !== 'string' || record.tenantId.trim() !== normalized.tenantId)) {
     const error = new Error('CROSS_TENANT_WRITE_DENIED');
     error.code = 'CROSS_TENANT_WRITE_DENIED';
     throw error;
