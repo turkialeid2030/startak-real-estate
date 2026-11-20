@@ -95,7 +95,10 @@ function hydrateUiDeal({ record, defaultInputs }) {
   });
 }
 
-function calculateUiInvestmentState({ mode, inputs, assumptionModelVersion, includePurchaseAlternative = true }) {
+function calculateUiInvestmentState({
+  mode, inputs, assumptionModelVersion, assumptionRegistry = null,
+  includePurchaseAlternative = true,
+}) {
   assertMode(mode);
   assertPlainObject(inputs, 'inputs');
   const version = normalizeAssumptionModelVersion(assumptionModelVersion);
@@ -104,6 +107,7 @@ function calculateUiInvestmentState({ mode, inputs, assumptionModelVersion, incl
     inputs,
     leverageEnabled: Boolean(inputs.leverageEnabled),
     assumptionModelVersion: version,
+    assumptionRegistry,
   });
   const purchasePriceQualification = mode === UI_MODE.BUILDING
     ? qualifyPurchaseBoundary(inputs, version, calculatedResults.maxJustifiedPrice) : null;
@@ -121,15 +125,25 @@ function calculateUiInvestmentState({ mode, inputs, assumptionModelVersion, incl
       })
     : null;
 
+  const requestedRegistryOverride = assumptionRegistry !== null && assumptionRegistry !== undefined
+    && (!Array.isArray(assumptionRegistry)
+      || assumptionRegistry.some(item => item && typeof item === 'object' && item.override === true));
+  const assumptionOverrideHold = requestedRegistryOverride
+    || results.decisionStatus === 'INCOMPLETE_INPUTS'
+      && results.criticalAssumptionOverrideGovernance?.decisionReady === false;
   return Object.freeze({
     mode,
     assumptionModelVersion: version,
+    assumptionRegistry: assumptionRegistry == null ? null : assumptionRegistry,
+    assumptionOverrideHold,
     results,
     governance,
-    sensitivityReady: governance ? governance.sensitivityReady : true,
-    sensitivityRenderPolicy: governance
-      ? governance.sensitivity.renderPolicy
-      : 'RENDER_SENSITIVITY_OUTPUTS',
+    sensitivityReady: !assumptionOverrideHold && (governance ? governance.sensitivityReady : true),
+    sensitivityRenderPolicy: assumptionOverrideHold
+      ? 'HOLD_INCOMPLETE_ASSUMPTION_OVERRIDE'
+      : governance
+        ? governance.sensitivity.renderPolicy
+        : 'RENDER_SENSITIVITY_OUTPUTS',
     exitCapInputRequired: governance ? governance.exitCapInputRequired : false,
     exitTransactionCostInputRequired: governance ? governance.exitTransactionCostInputRequired : false,
     leaseRollForwardRequired: governance ? governance.leaseRollForwardRequired : false,
