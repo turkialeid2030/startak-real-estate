@@ -215,6 +215,12 @@ function createCanonicalWorkspacePersistence({
     const workspaceId = requiredString(workspace.workspaceId, 'workspace.workspaceId');
     requiredString(workspace.projectId, 'workspace.projectId');
     requiredString(workspace.caseId, 'workspace.caseId');
+    // Direct callers of persistence must obey the verified tenant contract,
+    // even when they bypass the normal runtime and HTTP validation layers.
+    if (Object.prototype.hasOwnProperty.call(workspace, 'tenantId')
+      && workspace.tenantId !== identity.tenantId) {
+      fail('WORKSPACE_TENANT_SCOPE_MISMATCH');
+    }
     assertExecutableCaseIdentity(workspace);
     const opId = requiredString(operationId, 'operationId');
     if (!Number.isInteger(expectedVersion) || expectedVersion < 0) throw new TypeError('expectedVersion must be an integer >= 0');
