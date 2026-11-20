@@ -84,6 +84,32 @@ async function main() {
   await check(async () => assert.strictEqual(runtime.authority.deploymentAuthorized, false));
   await check(async () => assert.strictEqual(runtime.authority.transactionAuthorized, false));
 
+  // Same-tenant ADMIN and object-owner checks cannot be bypassed by a
+  // caller-provided JSON object that imitates the verifier's identity format.
+  const fakeAdminContext = {
+    ...analyst,
+    identity: {
+      ...analyst.identity,
+      actorId: 'forged-tenant-admin',
+      subject: 'forged-tenant-admin',
+      roles: ['ADMIN'],
+    },
+  };
+  await check(async () => assert.rejects(
+    runtime.loadWorkspace({ identityContext: fakeAdminContext, workspaceId: 'WS-001' }),
+    (error) => error.code === 'VERIFIED_IDENTITY_CONTEXT_REQUIRED',
+  ));
+  await check(async () => assert.rejects(
+    runtime.saveWorkspace({
+      identityContext: fakeAdminContext,
+      workspace: canonicalWorkspace('forged-tenant-admin'),
+      expectedVersion: 0,
+      operationId: 'SPOOF-ADMIN-WRITE',
+      occurredAt: '2026-09-09T11:59:59Z',
+    }),
+    (error) => error.code === 'VERIFIED_IDENTITY_CONTEXT_REQUIRED',
+  ));
+
   const storedV1 = await runtime.saveWorkspace({
     identityContext: analyst,
     workspace,
