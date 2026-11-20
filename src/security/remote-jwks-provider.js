@@ -28,7 +28,13 @@ function normalizeJwks(value) {
   }
   const keys = value.keys.map((key, index) => {
     if (!key || typeof key !== 'object' || Array.isArray(key)) throw new Error(`JWKS_KEY_INVALID:${index}`);
-    if (key.d) throw new Error(`JWKS_PRIVATE_KEY_MATERIAL_REJECTED:${index}`);
+    // A public JWKS may contain only public JWK parameters. Refuse any
+    // RSA private component, including an empty-valued "d" or p/q factors,
+    // rather than relying on the truthiness of just the private exponent.
+    const privateFields = ['d', 'p', 'q', 'dp', 'dq', 'qi', 'oth', 'k'];
+    if (privateFields.some((field) => Object.prototype.hasOwnProperty.call(key, field))) {
+      throw new Error(`JWKS_PRIVATE_KEY_MATERIAL_REJECTED:${index}`);
+    }
     if (typeof key.kid !== 'string' || key.kid.trim() === '') throw new Error(`JWKS_KID_REQUIRED:${index}`);
     return Object.freeze({ ...key });
   });
