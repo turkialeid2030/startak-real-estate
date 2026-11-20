@@ -20,6 +20,20 @@ check(() => assert.deepStrictEqual(normalizeIdentity(identityA).roles, ['ANALYST
 check(() => assert.strictEqual(normalizeIdentity(subjectOnly).actorId, 'U3'));
 check(() => assert.strictEqual(normalizeIdentity(matchingPrincipal).actorId, 'U4'));
 check(() => assert.strictEqual(normalizeIdentity(mismatchedPrincipal), null));
+
+const objectRoleForgery = { actorId:'U2', tenantId:'T1', roles:[{ toString:()=> 'ADMIN' }] };
+const objectActorForgery = { actorId:{ toString:()=> 'ADMIN' }, tenantId:'T1', roles:['ADMIN'] };
+const numericTenantForgery = { actorId:'U2', tenantId:42, roles:['ADMIN'] };
+check(() => assert.strictEqual(normalizeIdentity(objectRoleForgery), null));
+check(() => assert.strictEqual(normalizeIdentity(objectActorForgery), null));
+check(() => assert.strictEqual(normalizeIdentity(numericTenantForgery), null));
+check(() => assert.strictEqual(normalizeIdentity({actorId:'U2',tenantId:'T1',roles:['ADMIN','']}), null));
+check(() => assert.strictEqual(normalizeIdentity({actorId:'U2',tenantId:'T1',roles:['ANALYST',null]}), null));
+check(() => assert.strictEqual(
+  assertTenantScopedAccess({identity:objectRoleForgery,resourceTenantId:'T1'}).status,
+  TENANT_SECURITY_STATUS.HOLD_IDENTITY,
+));
+
 check(() => assert.strictEqual(assertTenantScopedAccess({ identity: mismatchedPrincipal, resourceTenantId: 'T1' }).status, TENANT_SECURITY_STATUS.HOLD_IDENTITY));
 check(() => assert.strictEqual(assertTenantScopedAccess({ identity: identityA, resourceTenantId: 'T1' }).status, TENANT_SECURITY_STATUS.AUTHORIZED));
 check(() => assert.strictEqual(assertTenantScopedAccess({ identity: identityA, resourceTenantId: 'T1' }).allowed, true));
