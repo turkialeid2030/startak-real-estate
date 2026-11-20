@@ -504,3 +504,19 @@
 - **تصحيح التقييم الوظيفي:** تبيّن أن النسخة الحديثة لا تعرض `data-reason-code` الأبوي، لكنها تستخدم `DiagnosticText.jsx` لإخراج وصف عربي/إنجليزي ورمز موثق في `data-diagnostic-code` داخل العنصر، واختبارات المتصفح الحالية تغطي `OCR_PAGE_INVALID` و`MANUAL_TRANSCRIPTION_UNVERIFIED` و`VERIFICATION_NOT_COMPLETE` وتمنع ظهور الكود للمستخدم. إذًا **الوظيفة نفسها موجودة**، وما تبقى من #772 هو مطابقة عقد DOM القديم أو إثبات عدم الحاجة إليه، ومراجعة سير العمل المستقل، وليس إعادة إنشاء التعريب.
 - [سجل الفروق وخطة عدم فقد وظائف OCR](https://github.com/turkialeid2030/startak-real-estate/blob/audit/startak-re-master-work-register-20261120/docs/audit/STARTAK_RE_PR772_PR773_SIBLING_DIFF_RECONCILIATION_20261120.md) يحدد قواعد الترحيل والاختبارات المطلوبة؛ [issue #337](https://github.com/turkialeid2030/startak-real-estate/issues/337) مُحدّث. حالة #772 Draft/mergeable=false، ولا دمج أو حذف أو إغلاق تلقائي.
 - ما زال إثبات مطابقة الـ57 مسار تاريخي وبقية اختلافات ملفات 110 PRs وموافقات المراجعين **OPEN**.
+
+
+## 22. W19/W24: استقراء فروق الملفات لكافة طلبات الدمج الـ110
+
+- **ما نُفذ:** جُلبت وأُحللت بيانات `diff` من **110/110 PR مفتوحًا** بما يعادل نحو **8.5 مليون حرف من تغييرات Git** تغطي **849 مسار ملف فريدًا**؛ وتتضمن 86 طلبًا يمس الشفرة `src/`. [سجل جميع الفروق والتداخلات لكل PR](https://github.com/turkialeid2030/startak-real-estate/blob/audit/startak-re-master-work-register-20261120/docs/audit/STARTAK_RE_ALL_110_PR_DIFF_OVERLAP_TRIAGE_20261120.md).
+- أُعيد حساب بنية الاعتماديات بمنهج خطوتين للتأكد من عدم الالتباس: **106 علاقات أبوّة بين طلبات مفتوحة، 4 جذور، 0 دورات، أقصى عمق 90**؛ تتركز عائلتان رئيسيتان في #463 (91 طلبًا) و#767 (15 طلبًا).
+- **أُغلق فرعيًا:** اكتشاف بيانات الاعتماديات وفروق الملفات للـ110 كاملة، لا مراجعة التكافؤ الوظيفي لكل تعديل ولا الدمج؛ أي تداخل في المسار لا يثبت دمجًا متعارضًا. [issue #337](https://github.com/turkialeid2030/startak-real-estate/issues/337) محدث، ويبقى **W19/W24 OPEN** للقرار والمراجعة وحماية الوظائف.
+- يجب مراجعة أساس #461 و#772 المعطلين تقنيًا في بعض اللقطات، دون اعتبار تقرير GitHub `mergeable` المستمر في التغير حكمًا نهائيًا أو تفويض حذف.
+
+## 23. W01/Q05: قوة RSA وحد تنزيل JWKS والتحقق السلبي
+
+- **إصلاح أمني:** `src/security/oidc-jwt-verifier.js` يرفض مفاتيح توقيع JWT RSA ذات طول أقل من **2048 بت**، حتى وإن نجح `crypto.verify` رياضيًا. `src/security/remote-jwks-provider.js` يفحص `Content-Length` ويضع حدًا أقصى لكل جزء من استجابة JWKS عبر Web Streams، ويلغي القراءة إذا تجاوز الحد، بدل تنزيل المحتوى كاملًا قبل التحقق.
+- **اختبارات:** ست حالات سلبية وإيجابية جديدة. الفحص الأول على الالتزام `f6ef82440a7873dd1dae60c28296b686b1874069` **FAIL حقيقي** لأن ترويسة `Content-Length` في محاكاة HTTP كانت تُعيد `application/json` بدل `null`؛ سبّب ذلك إخفاق بوابات Security وC7 وWave17A التابعة لاختبارات الإصدار. صُححت المحاكاة دون تخفيف الضابط، في `761d002048bc6ca3fae05a61ed9538670535c866`.
+- **دليل المصادقة بعد التصحيح:** [Security CI #44804527935](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44804527935) **SUCCESS**، منها `OIDC_JWT_JWKS_AUTHENTICATION_V1: PASS (46 checks)`، و`CANONICAL_WORKSPACE_PRODUCT_RUNTIME_V1: PASS (59 checks)`، و`AUTHENTICATED_WORKSPACE_HTTP_E2E_V1: PASS (20 synthetic loopback checks; NO LIVE IdP/DB)`، وRLS Postgres معزول PASS، وتبعيات اليوم بلا تنبيهات.
+- **تأهيل الإصدار الكلي:** الرجوع لنتائج [Release Verify #44804527805](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44804527805) و[One Batch #44804527933](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44804527933) على الالتزام نفسه، مع تفسير بوابة الاعتماد منفصلة.
+- **لا إغلاق Q05 فعليًا:** الاستضافة الفعلية وIdP/JWKS الآمن وMFA والتراخيص والحقوق وعزل A/B في الإنتاج وخزنة الوثائق والاستعادة والاختراق المستقل لا تزال تحتاج إلى أدلة مستقلة. `Q05=0/3`, `QCR=0/36`، `HOLD_NOT_AUTHORIZED`.
