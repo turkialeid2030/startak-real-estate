@@ -65,6 +65,18 @@ function createSavedDealDomainOutputs({ savedDeal, inputs, uiState, projectId, c
       leveredIRR: uiState.results.leveredIRR,
       leveredNPV: uiState.results.leveredNPV,
     },
+    // The canonical lifecycle uses "finance" as its qualified section;
+    // setting financialModel.status alone is NOT sufficient to keep the
+    // lifecycle from treating an unsupported historical override as complete.
+    ...(uiState.assumptionOverrideHold ? {
+      finance: {
+        ...sharedIdentity,
+        status: 'ANALYTICAL_HOLD',
+        source: 'UNQUALIFIED_HISTORICAL_ASSUMPTION_OVERRIDE',
+        decisionStatus: 'INCOMPLETE_INPUTS',
+        transactionAuthorized: false,
+      },
+    } : {}),
     valuation: hasValuationCase
       ? {
           ...sharedIdentity,
