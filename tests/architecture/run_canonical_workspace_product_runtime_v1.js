@@ -235,6 +235,53 @@ async function main() {
   ));
   provider.values.set(originalKey, intactRaw);
 
+  // A direct persistence caller must not create an apparent professional
+  // issuance or release approval by bypassing the runtime validation.
+  await check(async () => assert.rejects(
+    persistence.save({
+      identityContext: analyst,
+      workspace: {
+        ...workspace,
+        authority: { ...workspace.authority, releaseAuthorized: true },
+      },
+      expectedVersion: 1,
+      operationId: 'DIRECT-FORGED-RELEASE',
+    }),
+    (error) => error.code === 'WORKSPACE_AUTHORITY_INVARIANT_VIOLATION',
+  ));
+  await check(async () => assert.rejects(
+    persistence.save({
+      identityContext: analyst,
+      workspace: {
+        ...workspace,
+        authority: { ...workspace.authority, professionalReportExternalIssuanceAuthorized: true },
+      },
+      expectedVersion: 1,
+      operationId: 'DIRECT-FORGED-VALUATION-ISSUANCE',
+    }),
+    (error) => error.code === 'WORKSPACE_AUTHORITY_INVARIANT_VIOLATION',
+  ));
+  const elevatedStoredEnvelope = JSON.parse(intactRaw);
+  elevatedStoredEnvelope.workspace = {
+    ...elevatedStoredEnvelope.workspace,
+    authority: { ...elevatedStoredEnvelope.workspace.authority, transactionAuthorized: true },
+  };
+  provider.values.set(originalKey, JSON.stringify(elevatedStoredEnvelope));
+  await check(async () => assert.rejects(
+    persistence.load({ identityContext: analyst, workspaceId: 'WS-001' }),
+    (error) => error.code === 'WORKSPACE_PERSISTENCE_CORRUPT_RECORD',
+  ));
+  await check(async () => assert.rejects(
+    persistence.save({
+      identityContext: analyst,
+      workspace,
+      expectedVersion: 1,
+      operationId: 'DIRECT-CORRUPT-RELEASE-UPDATE',
+    }),
+    (error) => error.code === 'WORKSPACE_PERSISTENCE_CORRUPT_RECORD',
+  ));
+  provider.values.set(originalKey, intactRaw);
+
   const loaded = await runtime.loadWorkspace({ identityContext: analyst, workspaceId: 'WS-001' });
   await check(async () => assert.strictEqual(loaded.version, 1));
   await check(async () => assert.strictEqual(loaded.workspace.workspaceId, 'WS-001'));
