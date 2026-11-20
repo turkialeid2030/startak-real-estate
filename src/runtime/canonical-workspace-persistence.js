@@ -44,6 +44,26 @@ function assertExecutableCaseIdentity(workspace, persisted = false) {
   }
 }
 
+// Reserve professional and production authority to signed external governance.
+// Callers of persistence can otherwise bypass the runtime's authority guard;
+// any stored record asserting a forbidden authority is quarantined on read.
+function assertWorkspaceAuthorityBoundary(workspace, persisted = false) {
+  const authority = workspace && workspace.authority;
+  const reserved = [
+    'professionalReportExternalIssuanceAuthorized',
+    'releaseAuthorized',
+    'mergeAuthorized',
+    'deploymentAuthorized',
+    'transactionAuthorized',
+  ];
+  if (!authority || typeof authority !== 'object' || Array.isArray(authority)
+    || reserved.some((field) => authority[field] !== false)) {
+    fail(persisted
+      ? 'WORKSPACE_PERSISTENCE_CORRUPT_RECORD'
+      : 'WORKSPACE_AUTHORITY_INVARIANT_VIOLATION');
+  }
+}
+
 function parseEnvelope(raw, { tenantId, workspaceId }) {
   let parsed;
   try {
@@ -60,6 +80,7 @@ function parseEnvelope(raw, { tenantId, workspaceId }) {
   if (Object.prototype.hasOwnProperty.call(parsed.workspace, 'tenantId')
     && parsed.workspace.tenantId !== tenantId) fail('WORKSPACE_PERSISTENCE_CORRUPT_RECORD');
   assertExecutableCaseIdentity(parsed.workspace, true);
+  assertWorkspaceAuthorityBoundary(parsed.workspace, true);
   if (!Array.isArray(parsed.history)) fail('WORKSPACE_PERSISTENCE_CORRUPT_RECORD');
   return parsed;
 }
@@ -222,6 +243,7 @@ function createCanonicalWorkspacePersistence({
       fail('WORKSPACE_TENANT_SCOPE_MISMATCH');
     }
     assertExecutableCaseIdentity(workspace);
+    assertWorkspaceAuthorityBoundary(workspace);
     const opId = requiredString(operationId, 'operationId');
     if (!Number.isInteger(expectedVersion) || expectedVersion < 0) throw new TypeError('expectedVersion must be an integer >= 0');
     if (!hasAtomicCompareAndSet) fail('ATOMIC_PERSISTENCE_REQUIRED');
