@@ -469,3 +469,10 @@
 - [Security #44800558086](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44800558086) **SUCCESS** على `8e3131bbe71720a7905c75d74a6c7a9b17b3a020`: `AUTHENTICATED_WORKSPACE_HTTP_E2E_V1: PASS (20 synthetic loopback checks; NO LIVE IdP/DB)`؛ اختبار PostgreSQL 16 الواقعي في قاعدة GitHub مؤقتة مستقلًا PASS؛ اختبارات JWT 40 PASS؛ تدقيق npm في البيئة الحالية دون تنبيهات. هذا **ليس** اختبار IdP/HTTP/Postgres الإنتاجي المتصل، ولا يقدم وثيقة Q05 المعتمدة.
 - بانتظار القراءة النهائية لبوابات نفس الالتزام: [Release Verify #44800557471](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44800557471) و[One Batch #44800557478](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44800557478) وبقية المتصفحات.
 - **قرار حاكم:** W01 وW21 ما زالا غير مغلقين للتشغيل، `Q05=0/3` و`QCR=0/36`؛ `HOLD_NOT_AUTHORIZED`، لا دمج ولا نشر ولا حسابات أو بيانات عملاء حقيقية.
+
+
+### إثبات إعادة تأهيل 643/643 للمرشح المتكامل
+
+- مرشح الأمن الحالي `8e3131bbe71720a7905c75d74a6c7a9b17b3a020`، [Release Verify #44800557471](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44800557471) **SUCCESS**: `REGRESSION_TOTAL=643 PASSED=643`، `TEST_DISCOVERY_AND_REGRESSION=PASS`، `PRODUCTION_BUILD=PASS`، `VERIFY_PACKAGE=PASS`، `NPM_AUDIT_RELEASE_THRESHOLD=PASS`، `critical=0 high=0 moderate=0 low=0` في التبعية التي فُحصت.
+- [Security #44800558086](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44800558086) و[D04 #44800557511](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44800557511) و[C7 #44800557595](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44800557595) و[Wave17A #44800557548](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44800557548) و[Owner Browser #44800557530](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44800557530): **SUCCESS** على نفس الالتزام.
+- [One Batch #44800557478](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44800557478) لا تزال بوابة مستقلة للسماح الخارجي، لا تكفي نتائج Release Verify للبت بدلًا عنها. الاستمرار `HOLD_NOT_AUTHORIZED` إلى حين حسم Q01–Q12 والاختبارات الحية.
