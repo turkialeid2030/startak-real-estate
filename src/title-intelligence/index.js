@@ -108,6 +108,15 @@ function assessTitleFacts({ caseId, propertyId, facts, requiredFacts = REQUIRED_
   if (!Array.isArray(facts)) throw new TypeError('facts must be an array');
   if (!Array.isArray(requiredFacts)) throw new TypeError('requiredFacts must be an array');
 
+  // The default deed/owner/parcel facts are a mandatory minimum.  An optional
+  // caller-supplied list may ADD professional requirements, but may never
+  // subtract the statutory/core facts by passing [] or a narrower subset.
+  // Deduplicate the union so one fact cannot be double-counted in the report.
+  const effectiveRequiredFacts = [...new Set([
+    ...REQUIRED_TITLE_FACTS,
+    ...requiredFacts.map((key) => requiredString(key, 'requiredFacts entry')),
+  ])];
+
   const isolated = [];
   for (const fact of facts) {
     if (!fact || fact.caseId !== caseId || fact.propertyId !== propertyId) {
@@ -127,7 +136,7 @@ function assessTitleFacts({ caseId, propertyId, facts, requiredFacts = REQUIRED_
   const legalReviewFlags = [];
   const checks = [];
 
-  for (const key of requiredFacts) {
+  for (const key of effectiveRequiredFacts) {
     const entries = byKey.get(key) || [];
     if (entries.length === 0) {
       blockers.push({ key, code: 'REQUIRED_TITLE_FACT_MISSING' });

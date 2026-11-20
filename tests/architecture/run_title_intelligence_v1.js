@@ -148,6 +148,45 @@ assert.throws(() => assessTitleFacts({
   facts: [createTitleFact({ caseId: 'OTHER-CASE', propertyId: 'PROPERTY-001', key: 'documentId', value: 'X', status: TITLE_FACT_STATUS.VERIFIED, sourceType: 'SYNTHETIC' })],
 }), /PROPERTY_OR_CASE_ISOLATION_VIOLATION/);
 
+// A custom requiredFacts filter must never bypass the deed, owner, parcel,
+// city or positive land-area floor. Formerly requiredFacts:[] made an empty
+// case appear FACTS_SUFFICIENT_FOR_ANALYSIS with no supporting deed evidence.
+const emptyOverride = assessTitleFacts({
+  caseId: 'CASE-TITLE-001', propertyId: 'PROPERTY-001',
+  facts: [], requiredFacts: [],
+});
+assert.strictEqual(emptyOverride.status, TITLE_RESULT_STATUS.HOLD_EVIDENCE);
+for (const key of ['documentId', 'ownerName', 'propertyAreaSqm', 'city', 'parcelOrPlotId']) {
+  assert.ok(emptyOverride.blockers.some((entry) =>
+    entry.key === key && entry.code === 'REQUIRED_TITLE_FACT_MISSING'));
+}
+const narrowOverride = assessTitleFacts({
+  caseId: 'CASE-TITLE-001', propertyId: 'PROPERTY-001',
+  facts: [completeFacts[0]], requiredFacts: ['documentId'],
+});
+assert.strictEqual(narrowOverride.status, TITLE_RESULT_STATUS.HOLD_EVIDENCE);
+assert.ok(narrowOverride.blockers.some((item) =>
+  item.key === 'ownerName' && item.code === 'REQUIRED_TITLE_FACT_MISSING'));
+
+const additionalMissing = assessTitleFacts({
+  caseId: 'CASE-TITLE-001', propertyId: 'PROPERTY-001',
+  facts: completeFacts, requiredFacts: ['surveyDocumentId', 'documentId', 'surveyDocumentId'],
+});
+assert.strictEqual(additionalMissing.status, TITLE_RESULT_STATUS.HOLD_EVIDENCE);
+assert.strictEqual(additionalMissing.blockers.filter((item) =>
+  item.key === 'surveyDocumentId').length, 1);
+const additionalSatisfied = assessTitleFacts({
+  caseId: 'CASE-TITLE-001', propertyId: 'PROPERTY-001',
+  facts: [...completeFacts, fact('surveyDocumentId', 'SYNTHETIC-SURVEY-001')],
+  requiredFacts: ['surveyDocumentId'],
+});
+assert.strictEqual(additionalSatisfied.status, TITLE_RESULT_STATUS.FACTS_SUFFICIENT_FOR_ANALYSIS);
+assert.throws(() => assessTitleFacts({
+  caseId: 'CASE-TITLE-001', propertyId: 'PROPERTY-001',
+  facts: completeFacts, requiredFacts: [''],
+}), /requiredFacts entry must be a non-empty string/);
+console.log('MANDATORY_TITLE_FACT_FLOOR=PASS');
+
 console.log('TITLE_INTELLIGENCE_V1=PASS');
 console.log('TITLE_FACTS_DO_NOT_CREATE_LEGAL_CONCLUSION=PASS');
 console.log('TITLE_CONFLICTS_FAIL_CLOSED=PASS');
