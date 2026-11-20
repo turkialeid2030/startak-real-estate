@@ -30,4 +30,4 @@ assert.ok(!/\s--host(?:\s|=|$)/.test(pkg.scripts['dev:bundled']), 'BUNDLED_DEV_M
 // A published npm advisory for picomatch <=4.0.7 remains open; do not
 // collapse this separate vulnerability into Vite patch success.
 console.log('VITE_8_2_6_SECURITY_PATCH_FLOOR=PASS');
-console.log('PICOMATCH_UNPATCHED_ADVISORY_REMAINS=HOLD');
+console.log('PICOMATCH_GHSA_FC5Q_39XC_VJPF_WITHDRAWN_2026_11_18_REVIEW_HISTORICAL_CVE_SEPARATELY');
