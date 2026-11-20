@@ -184,6 +184,57 @@ async function main() {
     1,
   ));
 
+  // The persistence API is also exposed to trusted internal integrations.
+  // Such direct callers must never bypass the JWT-derived tenant boundary.
+  await check(async () => assert.rejects(
+    persistence.save({
+      identityContext: analyst,
+      workspace: { ...workspace, tenantId: 'tenant-b' },
+      expectedVersion: 1,
+      operationId: 'DIRECT-FORGED-TENANT',
+    }),
+    (error) => error.code === 'WORKSPACE_TENANT_SCOPE_MISMATCH',
+  ));
+  await check(async () => assert.rejects(
+    persistence.save({
+      identityContext: analyst,
+      workspace: { ...workspace, tenantId: null },
+      expectedVersion: 1,
+      operationId: 'DIRECT-NULL-TENANT',
+    }),
+    (error) => error.code === 'WORKSPACE_TENANT_SCOPE_MISMATCH',
+  ));
+  const directValid = await persistence.save({
+    identityContext: analyst,
+    workspace: { ...workspace, workspaceId: 'WS-DIRECT-CONSISTENT', tenantId: 'tenant-a' },
+    expectedVersion: 0,
+    operationId: 'DIRECT-MATCHED-TENANT',
+  });
+  await check(async () => assert.strictEqual(directValid.tenantId, 'tenant-a'));
+  await check(async () => assert.strictEqual(
+    (await runtime.loadWorkspace({
+      identityContext: analyst, workspaceId: 'WS-DIRECT-CONSISTENT',
+    })).workspace.tenantId,
+    'tenant-a',
+  ));
+  const foreignNested = JSON.parse(intactRaw);
+  foreignNested.workspace = { ...foreignNested.workspace, tenantId: 'tenant-b' };
+  provider.values.set(originalKey, JSON.stringify(foreignNested));
+  await check(async () => assert.rejects(
+    persistence.load({ identityContext: analyst, workspaceId: 'WS-001' }),
+    (error) => error.code === 'WORKSPACE_PERSISTENCE_CORRUPT_RECORD',
+  ));
+  await check(async () => assert.rejects(
+    persistence.save({
+      identityContext: analyst,
+      workspace,
+      expectedVersion: 1,
+      operationId: 'DIRECT-FORGED-STORED-TENANT',
+    }),
+    (error) => error.code === 'WORKSPACE_PERSISTENCE_CORRUPT_RECORD',
+  ));
+  provider.values.set(originalKey, intactRaw);
+
   const loaded = await runtime.loadWorkspace({ identityContext: analyst, workspaceId: 'WS-001' });
   await check(async () => assert.strictEqual(loaded.version, 1));
   await check(async () => assert.strictEqual(loaded.workspace.workspaceId, 'WS-001'));
