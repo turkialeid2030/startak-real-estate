@@ -32,6 +32,25 @@ check(() => assert.throws(() => requireAuthorizedAction({ identity: mismatchedPr
 check(() => assert.throws(() => normalizePolicy({ VIEW_CASE: [] }), /at least one role/));
 check(() => assert.throws(() => normalizePolicy({ VIEW_CASE: [''] }), /at least one role/));
 
+check(() => assert.throws(
+  () => normalizePolicy({ MANAGE_POLICY: [{toString:()=> 'ADMIN'}] }),
+  /valid non-empty strings only/,
+));
+check(() => assert.throws(
+  () => normalizePolicy({ MANAGE_POLICY: ['ADMIN', null] }),
+  /valid non-empty strings only/,
+));
+check(() => assert.throws(
+  () => normalizePolicy({ MANAGE_POLICY: ['ADMIN', ' '] }),
+  /valid non-empty strings only/,
+));
+check(() => assert.strictEqual(authorizeAction({
+  identity: {actorId:'U2',tenantId:'T1',roles:[{toString:()=> 'ADMIN'}]},
+  action: 'MANAGE_POLICY',
+  policy,
+}).status, AUTHZ_STATUS.HOLD_IDENTITY));
+
+
 check(() => assert.strictEqual(Object.getPrototypeOf(policy), null));
 check(() => assert.strictEqual(
   authorizeAction({ identity: analyst, action: 'toString', policy }).reason, 'ACTION_NOT_IN_POLICY',
