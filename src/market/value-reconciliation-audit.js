@@ -13,10 +13,16 @@ function detailedReplacementCost({landArea,landPricePerSqm,components,
   const errors=[],warnings=[];
   const land=valid(landArea,0.0001),landUnit=valid(landPricePerSqm,0.0001);
   if(land===null||landUnit===null)errors.push('LAND_COST_INPUTS_REQUIRED');
-  if(!Array.isArray(components)||!components.length||components.length>30)
-    errors.push('BUILDING_COMPONENTS_REQUIRED');
+  const componentRows=Array.isArray(components)&&components.length>0&&components.length<=30
+    ?components:[];
+  if(!componentRows.length)errors.push('BUILDING_COMPONENTS_REQUIRED');
   let buildingDirectCost=0;
-  for(const [i,row] of (Array.isArray(components)?components:[]).entries()){
+  for(const [i,row] of componentRows.entries()){
+    // A malformed row must produce a governed INCOMPLETE result rather than
+    // an uncaught TypeError during customer-facing cost-study calculations.
+    if(!row||typeof row!=='object'||Array.isArray(row)){
+      errors.push('BUILDING_COMPONENT_INVALID_'+i);continue;
+    }
     const area=valid(row.area,0.0001),rate=valid(row.ratePerSqm,0.0001);
     if(area===null||rate===null){errors.push('BUILDING_COMPONENT_INVALID_'+i);continue;}
     buildingDirectCost+=area*rate;
@@ -46,6 +52,15 @@ function detailedReplacementCost({landArea,landPricePerSqm,components,
   const depreciationAmount=grossBuilding*depreciation/100;
   const buildingAfterDepreciation=grossBuilding-depreciationAmount;
   const unroundedValue=landValue+buildingAfterDepreciation;
+  // Individually finite fields can still overflow when multiplied. Neither
+  // Infinity nor economically meaningless oversized totals may become a
+  // displayed SAR amount or a comparable valuation indication.
+  if([landValue,buildingDirectCost,extraCosts,grossBuilding,
+      depreciationAmount,buildingAfterDepreciation,unroundedValue].some(
+        value=>!Number.isFinite(value)||value<0||value>1e15)){
+    return {status:'INCOMPLETE',issues:['COST_TOTAL_OUT_OF_RANGE'],
+      valueSar:null,certified:false};
+  }
   if(depreciation>=60)warnings.push('HIGH_DEPRECIATION_REQUIRES_CONDITION_REPORT');
   if(totalExtraRate>25)warnings.push('SOFT_COST_RATE_REQUIRES_EVIDENCE');
   return {
