@@ -44,12 +44,24 @@ function buildDecisionControlGate({
   if (!evidenceReady) blockers.push({ domain: 'EVIDENCE', code: evidenceOrchestration.readiness ? evidenceOrchestration.readiness.status : 'EVIDENCE_READINESS_MISSING' });
   checks.push({ domain: 'EVIDENCE', status: evidenceReady ? 'PASS' : 'HOLD' });
 
-  if (titleAssessment.status === 'LEGAL_REVIEW_REQUIRED') {
+  // Treat the required-fact blockers as a hard HOLD even if an upstream
+  // payload has a stale LEGAL_REVIEW_REQUIRED or "facts sufficient" status.
+  const titleEvidenceIncomplete = Array.isArray(titleAssessment.blockers)
+    && titleAssessment.blockers.length > 0;
+  if (titleEvidenceIncomplete || (
+    titleAssessment.status !== 'LEGAL_REVIEW_REQUIRED'
+    && titleAssessment.status !== 'FACTS_SUFFICIENT_FOR_ANALYSIS'
+  )) {
+    blockers.push({ domain: 'TITLE', code: titleEvidenceIncomplete
+      ? 'HOLD_EVIDENCE' : titleAssessment.status });
+    checks.push({ domain: 'TITLE', status: 'HOLD' });
+    if (titleAssessment.status === 'LEGAL_REVIEW_REQUIRED'
+      || (Array.isArray(titleAssessment.legalReviewFlags) && titleAssessment.legalReviewFlags.length > 0)) {
+      professionalReview.push({ domain: 'TITLE', code: 'LEGAL_REVIEW_REQUIRED' });
+    }
+  } else if (titleAssessment.status === 'LEGAL_REVIEW_REQUIRED') {
     professionalReview.push({ domain: 'TITLE', code: 'LEGAL_REVIEW_REQUIRED' });
     checks.push({ domain: 'TITLE', status: 'PROFESSIONAL_REVIEW_REQUIRED' });
-  } else if (titleAssessment.status !== 'FACTS_SUFFICIENT_FOR_ANALYSIS') {
-    blockers.push({ domain: 'TITLE', code: titleAssessment.status });
-    checks.push({ domain: 'TITLE', status: 'HOLD' });
   } else {
     checks.push({ domain: 'TITLE', status: 'PASS_FACTUAL_ONLY' });
   }
@@ -99,12 +111,15 @@ function buildDecisionControlGate({
   if (!engineQualified) blockers.push({ domain: 'ENGINE', code: 'HOLD_NO_QUALIFIED_ENGINE' });
   checks.push({ domain: 'ENGINE', status: engineQualified ? 'QUALIFIED' : 'HOLD_NO_QUALIFIED_ENGINE' });
 
+  // An independent professional-review requirement does not resolve a
+  // simultaneous data, policy, regulatory or engine hard blocker. Preserve
+  // the legal-review queue in professionalReview, but report the hard hold.
   let status = CONTROL_GATE_STATUS.READY_FOR_ANALYTICAL_UNDERWRITING;
-  if (professionalReview.length > 0) status = CONTROL_GATE_STATUS.PROFESSIONAL_REVIEW_REQUIRED;
-  else if (blockers.some((item) => item.domain === 'REGULATORY' && item.code === 'REQUIREMENT_TRIGGERED')) status = CONTROL_GATE_STATUS.REGULATORY_REQUIREMENT_TRIGGERED;
+  if (blockers.some((item) => item.domain === 'REGULATORY' && item.code === 'REQUIREMENT_TRIGGERED')) status = CONTROL_GATE_STATUS.REGULATORY_REQUIREMENT_TRIGGERED;
   else if (blockers.some((item) => item.code === 'HOLD_POLICY')) status = CONTROL_GATE_STATUS.HOLD_POLICY;
   else if (blockers.some((item) => item.code === 'HOLD_NO_QUALIFIED_ENGINE')) status = CONTROL_GATE_STATUS.HOLD_NO_QUALIFIED_ENGINE;
   else if (blockers.length > 0) status = CONTROL_GATE_STATUS.HOLD_EVIDENCE;
+  else if (professionalReview.length > 0) status = CONTROL_GATE_STATUS.PROFESSIONAL_REVIEW_REQUIRED;
 
   return freeze({
     schemaVersion: 1,

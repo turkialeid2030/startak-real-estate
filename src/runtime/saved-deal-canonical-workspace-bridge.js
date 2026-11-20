@@ -44,21 +44,39 @@ function createSavedDealDomainOutputs({ savedDeal, inputs, uiState, projectId, c
       : { ...sharedIdentity, status: 'NOT_EVALUATED' },
     assumptions: {
       ...sharedIdentity,
-      status: 'IMPLEMENTED',
+      status: uiState.assumptionOverrideHold ? 'ANALYTICAL_HOLD' : 'IMPLEMENTED',
       source: 'VALIDATED_SAVED_DEAL_INPUTS',
       assumptionModelVersion: uiState.assumptionModelVersion,
+      // Only absence of source evidence is recorded; no fabricated approval.
+      overrideRegistryPresent: savedDeal.assumptionRegistry != null,
+      overrideDocumentationHold: uiState.assumptionOverrideHold,
       items: { ...inputs },
     },
     financialModel: {
       ...sharedIdentity,
-      status: 'IMPLEMENTED',
+      status: uiState.assumptionOverrideHold ? 'ANALYTICAL_HOLD' : 'IMPLEMENTED',
       source: 'CANONICAL_CALCULATION_ENGINE',
+      decisionStatus: uiState.results.decisionStatus || null,
+      analyticalResultsOnly: uiState.results.analyticalResultsOnly === true,
+      unsupportedAssumptionOverride: uiState.assumptionOverrideHold,
       cashflows: Array.isArray(uiState.results.cashflows) ? uiState.results.cashflows.slice() : [],
       irr: uiState.results.irr,
       npv: uiState.results.npv,
       leveredIRR: uiState.results.leveredIRR,
       leveredNPV: uiState.results.leveredNPV,
     },
+    // The canonical lifecycle uses "finance" as its qualified section;
+    // setting financialModel.status alone is NOT sufficient to keep the
+    // lifecycle from treating an unsupported historical override as complete.
+    ...(uiState.assumptionOverrideHold ? {
+      finance: {
+        ...sharedIdentity,
+        status: 'ANALYTICAL_HOLD',
+        source: 'UNQUALIFIED_HISTORICAL_ASSUMPTION_OVERRIDE',
+        decisionStatus: 'INCOMPLETE_INPUTS',
+        transactionAuthorized: false,
+      },
+    } : {}),
     valuation: hasValuationCase
       ? {
           ...sharedIdentity,
@@ -102,6 +120,9 @@ function createCanonicalWorkspaceFromSavedDeal({
     mode: savedDeal.mode,
     inputs,
     assumptionModelVersion: savedDeal.assumptionModelVersion,
+    // Legacy override provenance must reach the canonical decision gate.
+    // Baseline economics must not masquerade as an approved overridden case.
+    assumptionRegistry: savedDeal.assumptionRegistry ?? null,
   });
 
   const standardsContext = savedDeal.standardsSnapshotVersion

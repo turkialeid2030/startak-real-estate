@@ -117,6 +117,22 @@ const compatibleNames = assessTitleFacts({
 assert.strictEqual(compatibleNames.status, TITLE_RESULT_STATUS.FACTS_SUFFICIENT_FOR_ANALYSIS);
 assert.strictEqual(compatibleNames.legalConclusion, null);
 
+// A legal finding must not mask the lack of essential deed/owner proof.
+const missingOwnerAndMortgage = assessTitleFacts({
+  caseId: 'CASE-TITLE-001',
+  propertyId: 'PROPERTY-001',
+  facts: [
+    ...completeFacts.filter((item) => item.key !== 'ownerName'),
+    fact('mortgageDetected', true, TITLE_FACT_STATUS.OBSERVED),
+  ],
+});
+assert.strictEqual(missingOwnerAndMortgage.status, TITLE_RESULT_STATUS.HOLD_EVIDENCE);
+assert.ok(missingOwnerAndMortgage.blockers.some((item) =>
+  item.key === 'ownerName' && item.code === 'REQUIRED_TITLE_FACT_MISSING'));
+assert.ok(missingOwnerAndMortgage.legalReviewFlags.some((item) =>
+  item.key === 'mortgageDetected'));
+assert.strictEqual(missingOwnerAndMortgage.legalConclusion, null);
+
 const legalFlag = assessTitleFacts({
   caseId: 'CASE-TITLE-001',
   propertyId: 'PROPERTY-001',

@@ -170,6 +170,56 @@ async function main() {
     (error) => error && error.code === 'WORKSPACE_ATTRIBUTION_MISMATCH',
   ));
 
+  // SECURITY-HARDENING-V1: same-tenant IDOR must fail on the actual
+  // authenticated service path, not only at the browser/navigation layer.
+  // Both tokens are independently RSA-signed synthetic test principals.
+  const peerAnalystToken = token({ sub: 'analyst-2', tenantId: 'tenant-a', roles: ['ANALYST'] });
+  const adminToken = token({ sub: 'admin-1', tenantId: 'tenant-a', roles: ['ADMIN'] });
+
+  await check(async () => assert.rejects(
+    service.loadWorkspace({
+      authorizationHeader: `Bearer ${viewerToken}`,
+      workspaceId: 'WS-AUTH-001',
+      nowEpochSeconds: NOW,
+    }),
+    (error) => error && error.code === 'WORKSPACE_RECORD_ACCESS_DENIED',
+  ));
+  await check(async () => assert.rejects(
+    service.loadWorkspace({
+      authorizationHeader: `Bearer ${peerAnalystToken}`,
+      workspaceId: 'WS-AUTH-001',
+      nowEpochSeconds: NOW,
+    }),
+    (error) => error && error.code === 'WORKSPACE_RECORD_ACCESS_DENIED',
+  ));
+  await check(async () => assert.rejects(
+    service.saveWorkspace({
+      authorizationHeader: `Bearer ${peerAnalystToken}`,
+      workspace: workspace('analyst-2'),
+      expectedVersion: 1,
+      operationId: 'SAME-TENANT-IDOR-WRITE',
+      occurredAt: '2026-09-09T12:36:00Z',
+      nowEpochSeconds: NOW,
+    }),
+    (error) => error && error.code === 'WORKSPACE_RECORD_ACCESS_DENIED',
+  ));
+
+  // Tenant-scoped ADMIN may inspect the record without changing its owner.
+  const adminRead = await service.loadWorkspace({
+    authorizationHeader: `Bearer ${adminToken}`,
+    workspaceId: 'WS-AUTH-001',
+    nowEpochSeconds: NOW,
+  });
+  await check(async () => assert.strictEqual(adminRead.data.ownerActorId, 'analyst-1'));
+  await check(async () => assert.strictEqual(adminRead.data.updatedBy, 'analyst-1'));
+
+  const ownerReadAfterAttack = await service.loadWorkspace({
+    authorizationHeader: `Bearer ${analystToken}`,
+    workspaceId: 'WS-AUTH-001',
+    nowEpochSeconds: NOW,
+  });
+  await check(async () => assert.strictEqual(ownerReadAfterAttack.data.version, 1));
+
   await check(async () => assert.ok([...provider.values.keys()].every((key) => key.includes('tenant-a'))));
 
   console.log(`AUTHENTICATED_CANONICAL_WORKSPACE_SERVICE_V1: PASS (${checks} checks)`);

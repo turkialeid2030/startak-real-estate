@@ -33,6 +33,7 @@ function createService() {
       if (authorizationHeader !== 'Bearer good-token') throw coded('AUTHENTICATION_REQUIRED', 'do-not-leak-token-details');
       if (workspaceId === 'missing') return { status: 'OK', data: null };
       if (workspaceId === 'forbidden') throw coded('ROLE_NOT_AUTHORIZED', 'ROLE_NOT_AUTHORIZED: analyst details');
+      if (workspaceId === 'record-denied') throw coded('WORKSPACE_RECORD_ACCESS_DENIED', 'peer workspace exists');
       if (workspaceId === 'explode') throw new Error('database password=super-secret');
       return {
         status: 'OK',
@@ -48,6 +49,7 @@ function createService() {
       calls.push({ method: 'save', authorizationHeader, workspace, expectedVersion, operationId, occurredAt });
       if (authorizationHeader !== 'Bearer good-token') throw coded('AUTHENTICATION_REQUIRED');
       if (operationId === 'conflict') throw coded('WORKSPACE_VERSION_CONFLICT');
+      if (operationId === 'record-denied') throw coded('WORKSPACE_RECORD_ACCESS_DENIED', 'peer workspace exists');
       return {
         status: 'OK',
         data: {
@@ -146,6 +148,32 @@ async function json(response) {
       assert.strictEqual(response.status, 403);
       assert.strictEqual(body.error.code, 'FORBIDDEN');
       assert.ok(!JSON.stringify(body).includes('analyst details'));
+    });
+
+    await test('SECURITY-HARDENING-HTTP-01', async () => {
+      const response = await fetch(`${baseUrl}/v1/workspaces/record-denied`, {
+        headers: { authorization: 'Bearer good-token' },
+      });
+      const body = await json(response);
+      assert.strictEqual(response.status, 404);
+      assert.strictEqual(body.error.code, 'WORKSPACE_NOT_FOUND');
+      assert.ok(!JSON.stringify(body).includes('peer workspace exists'));
+    });
+
+    await test('SECURITY-HARDENING-HTTP-02', async () => {
+      const response = await fetch(`${baseUrl}/v1/workspaces/record-denied`, {
+        method: 'PUT',
+        headers: { authorization: 'Bearer good-token', 'content-type': 'application/json' },
+        body: JSON.stringify({
+          workspace: { workspaceId: 'record-denied' },
+          expectedVersion: 1,
+          operationId: 'record-denied',
+        }),
+      });
+      const body = await json(response);
+      assert.strictEqual(response.status, 404);
+      assert.strictEqual(body.error.code, 'WORKSPACE_NOT_FOUND');
+      assert.ok(!JSON.stringify(body).includes('peer workspace exists'));
     });
 
     await test('PRODUCTIZATION-P10-06', async () => {
@@ -284,6 +312,9 @@ async function json(response) {
       assert.strictEqual(response.headers.get('access-control-allow-origin'), 'https://app.startak.example');
       assert.strictEqual(response.headers.get('access-control-allow-methods'), 'GET, PUT, OPTIONS');
       assert.strictEqual(response.headers.get('access-control-allow-headers'), 'authorization, content-type');
+      assert.strictEqual(response.headers.get('content-length'), null);
+      assert.strictEqual(response.headers.get('content-type'), null);
+      assert.strictEqual(await response.text(), '');
     });
 
     await test('PRODUCTIZATION-P10-15', async () => {

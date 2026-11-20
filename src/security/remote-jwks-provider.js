@@ -28,12 +28,62 @@ function normalizeJwks(value) {
   }
   const keys = value.keys.map((key, index) => {
     if (!key || typeof key !== 'object' || Array.isArray(key)) throw new Error(`JWKS_KEY_INVALID:${index}`);
-    if (key.d) throw new Error(`JWKS_PRIVATE_KEY_MATERIAL_REJECTED:${index}`);
+    // A public JWKS may contain only public JWK parameters. Refuse any
+    // RSA private component, including an empty-valued "d" or p/q factors,
+    // rather than relying on the truthiness of just the private exponent.
+    const privateFields = ['d', 'p', 'q', 'dp', 'dq', 'qi', 'oth', 'k'];
+    if (privateFields.some((field) => Object.prototype.hasOwnProperty.call(key, field))) {
+      throw new Error(`JWKS_PRIVATE_KEY_MATERIAL_REJECTED:${index}`);
+    }
     if (typeof key.kid !== 'string' || key.kid.trim() === '') throw new Error(`JWKS_KID_REQUIRED:${index}`);
     return Object.freeze({ ...key });
   });
   if (keys.length === 0) throw new Error('JWKS_KEYS_REQUIRED');
   return Object.freeze({ keys: Object.freeze(keys) });
+}
+
+// Enforce a streaming byte cap when the transport supports Web Streams.
+// Checking the size *after* response.text() is too late to prevent a hostile
+// oversized JWKS response from consuming substantial server memory.
+async function readBoundedJwksResponse(response, maxBytes) {
+  const rawLength = typeof response.headers?.get === 'function'
+    ? response.headers.get('content-length')
+    : null;
+  if (rawLength != null && String(rawLength).trim() !== '') {
+    const declaredLength = Number(rawLength);
+    if (!Number.isSafeInteger(declaredLength) || declaredLength < 0) {
+      throw new Error('JWKS_CONTENT_LENGTH_INVALID');
+    }
+    if (declaredLength > maxBytes) throw new Error('JWKS_RESPONSE_TOO_LARGE');
+  }
+  if (!response.body || typeof response.body.getReader !== 'function') {
+    // Compatibility for injected deterministic test transports that provide
+    // only text(). Production Fetch responses use the bounded stream below.
+    const result = await response.text();
+    if (typeof result !== 'string' || !result.length) throw new Error('JWKS_EMPTY_RESPONSE');
+    if (Buffer.byteLength(result, 'utf8') > maxBytes) throw new Error('JWKS_RESPONSE_TOO_LARGE');
+    return result;
+  }
+  const reader = response.body.getReader();
+  const chunks = [];
+  let total = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!(value instanceof Uint8Array)) throw new Error('JWKS_RESPONSE_CHUNK_INVALID');
+      total += value.byteLength;
+      if (total > maxBytes) throw new Error('JWKS_RESPONSE_TOO_LARGE');
+      chunks.push(Buffer.from(value));
+    }
+  } catch (error) {
+    await reader.cancel().catch(() => {});
+    throw error;
+  } finally {
+    reader.releaseLock();
+  }
+  if (!total) throw new Error('JWKS_EMPTY_RESPONSE');
+  return Buffer.concat(chunks, total).toString('utf8');
 }
 
 /**
@@ -67,6 +117,9 @@ function createRemoteJwksProvider({
   let cached = null;
   let cachedAt = 0;
   let inFlight = null;
+  // Monotonic epoch prevents a previously started HTTP response from
+  // restoring keys after invalidation or an explicit key rotation refresh.
+  let cacheEpoch = 0;
 
   async function fetchJwks() {
     const response = await fetchImpl(configuredJwksUri, {
@@ -84,9 +137,7 @@ function createRemoteJwksProvider({
       throw new Error('JWKS_CONTENT_TYPE_INVALID');
     }
 
-    const text = await response.text();
-    if (typeof text !== 'string' || text.length === 0) throw new Error('JWKS_EMPTY_RESPONSE');
-    if (Buffer.byteLength(text, 'utf8') > maxJwksBytes) throw new Error('JWKS_RESPONSE_TOO_LARGE');
+    const text = await readBoundedJwksResponse(response, maxJwksBytes);
 
     let parsed;
     try {
@@ -103,8 +154,12 @@ function createRemoteJwksProvider({
     if (!forceRefresh && cached && current - cachedAt < cacheTtlMs) return cached;
     if (!forceRefresh && inFlight) return inFlight;
 
+    const requestEpoch = ++cacheEpoch;
     const request = fetchJwks()
       .then((jwks) => {
+        if (cacheEpoch !== requestEpoch) {
+          throw new Error('JWKS_FETCH_SUPERSEDED_OR_INVALIDATED');
+        }
         cached = jwks;
         cachedAt = Number(nowMs());
         return jwks;
@@ -117,6 +172,9 @@ function createRemoteJwksProvider({
   }
 
   function invalidate() {
+    // A pending response is never trusted after revocation/invalidation:
+    // the original getJwks() promise rejects rather than issuing old keys.
+    cacheEpoch++;
     cached = null;
     cachedAt = 0;
     inFlight = null;

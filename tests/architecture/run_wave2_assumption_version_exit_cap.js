@@ -181,7 +181,19 @@ function run() {
   assert.strictEqual(v2Disclosure.badge.ar, 'إصدار الافتراضات V2');
   assert.strictEqual(v2Disclosure.badge.en, 'Assumption Model V2');
   assert.strictEqual(v2Disclosure.transactionAuthorized, false);
+  // Code defaults are not an audited external approval; never label them
+  // as approved in UI/API/export, including on a newly selected V2 model.
   assert.deepStrictEqual(v2Disclosure.approvedAssumptionKeys, Object.keys(V2_APPROVED_ASSUMPTIONS));
+  assert.deepStrictEqual(v2Disclosure.canonicalDefaultAssumptionKeys, Object.keys(V2_APPROVED_ASSUMPTIONS));
+  assert.deepStrictEqual(v2Disclosure.independentlyApprovedAssumptionKeys, []);
+  assert.deepStrictEqual(v2Disclosure.exportMetadata.approvedAssumptionKeys, Object.keys(V2_APPROVED_ASSUMPTIONS));
+  assert.deepStrictEqual(v2Disclosure.exportMetadata.canonicalDefaultAssumptionKeys, Object.keys(V2_APPROVED_ASSUMPTIONS));
+  assert.deepStrictEqual(v2Disclosure.exportMetadata.independentlyApprovedAssumptionKeys, []);
+  assert.strictEqual(v2Disclosure.canonicalDefaultsAreApprovalEvidence, false);
+  assert.strictEqual(v2Disclosure.exportMetadata.canonicalDefaultsAreApprovalEvidence, false);
+  assert.strictEqual(v2Disclosure.approvalEvidenceStatus, 'NOT_SUPPLIED');
+  assert.strictEqual(v2Disclosure.userApprovedAssumptions, false);
+  assert.strictEqual(v2Disclosure.schemaVersion, 3);
 
   const legacyDisclosure = buildAssumptionDisclosureEnvelope({
     assumptionModelVersion: ASSUMPTION_MODEL_VERSION.LEGACY,

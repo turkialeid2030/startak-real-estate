@@ -32,6 +32,50 @@ check(() => assert.throws(() => requireAuthorizedAction({ identity: mismatchedPr
 check(() => assert.throws(() => normalizePolicy({ VIEW_CASE: [] }), /at least one role/));
 check(() => assert.throws(() => normalizePolicy({ VIEW_CASE: [''] }), /at least one role/));
 
+check(() => assert.throws(
+  () => normalizePolicy({ MANAGE_POLICY: [{toString:()=> 'ADMIN'}] }),
+  /valid non-empty strings only/,
+));
+check(() => assert.throws(
+  () => normalizePolicy({ MANAGE_POLICY: ['ADMIN', null] }),
+  /valid non-empty strings only/,
+));
+check(() => assert.throws(
+  () => normalizePolicy({ MANAGE_POLICY: ['ADMIN', ' '] }),
+  /valid non-empty strings only/,
+));
+check(() => assert.strictEqual(authorizeAction({
+  identity: {actorId:'U2',tenantId:'T1',roles:[{toString:()=> 'ADMIN'}]},
+  action: 'MANAGE_POLICY',
+  policy,
+}).status, AUTHZ_STATUS.HOLD_IDENTITY));
+
+
+check(() => assert.strictEqual(Object.getPrototypeOf(policy), null));
+check(() => assert.strictEqual(
+  authorizeAction({ identity: analyst, action: 'toString', policy }).reason, 'ACTION_NOT_IN_POLICY',
+));
+check(() => assert.strictEqual(
+  authorizeAction({ identity: analyst, action: 'constructor', policy }).reason, 'ACTION_NOT_IN_POLICY',
+));
+check(() => assert.strictEqual(
+  authorizeAction({ identity: analyst, action: '__proto__', policy }).reason, 'ACTION_NOT_IN_POLICY',
+));
+check(() => assert.throws(
+  () => normalizePolicy(JSON.parse('{"__proto__":["ADMIN"]}')),
+  /reserved policy action/,
+));
+check(() => assert.throws(
+  () => normalizePolicy(JSON.parse('{"constructor":["ADMIN"]}')),
+  /reserved policy action/,
+));
+check(() => assert.strictEqual(authorizeAction({
+  identity: analyst,
+  action: 'VIEW_CASE',
+  policy: Object.assign(Object.create(null), {VIEW_CASE:['ANALYST']}),
+}).allowed, true));
+
+
 const denied = authorizeAction({ identity: viewer, action: 'EDIT_CASE', policy });
 const event = createSecurityAuditEvent({
   eventId: 'EVT-1',
@@ -53,6 +97,31 @@ check(() => assert.strictEqual(Object.prototype.hasOwnProperty.call(event.metada
 check(() => assert.strictEqual(Object.prototype.hasOwnProperty.call(event.metadata, 'authorizationHeader'), false));
 check(() => assert.ok(Object.isFrozen(event)));
 check(() => assert.ok(Object.isFrozen(event.metadata)));
+
+const untrustedMetadata = JSON.parse(
+  '{"__proto__":{"role":"ADMIN"},"constructor":"pollution","prototype":"poison","requestId":"R2","source":"json-input"}',
+);
+const safeEvent = createSecurityAuditEvent({
+  eventId: 'EVT-UNTRUSTED-METADATA',
+  occurredAt: '2026-09-01T00:00:00Z',
+  identity: viewer,
+  action: 'VIEW_CASE',
+  resourceType: 'CASE',
+  resourceId: 'C2',
+  decision: 'ALLOW',
+  reason: 'SYNTHETIC_TEST',
+  metadata: untrustedMetadata,
+});
+check(() => assert.strictEqual(Object.getPrototypeOf(safeEvent.metadata), null));
+check(() => assert.strictEqual(Object.prototype.hasOwnProperty.call(safeEvent.metadata, '__proto__'), false));
+check(() => assert.strictEqual(Object.prototype.hasOwnProperty.call(safeEvent.metadata, 'constructor'), false));
+check(() => assert.strictEqual(Object.prototype.hasOwnProperty.call(safeEvent.metadata, 'prototype'), false));
+check(() => assert.strictEqual(safeEvent.metadata.requestId, 'R2'));
+check(() => assert.strictEqual(safeEvent.metadata.source, 'json-input'));
+check(() => assert.strictEqual(({}).role, undefined));
+check(() => assert.ok(!JSON.stringify(safeEvent).includes('pollution')));
+check(() => assert.ok(Object.isFrozen(safeEvent.metadata)));
+
 
 const mismatchEvent = createSecurityAuditEvent({
   eventId: 'EVT-2',

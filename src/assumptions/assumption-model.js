@@ -5,13 +5,17 @@ const ASSUMPTION_MODEL_VERSION = Object.freeze({
   V2: 'V2',
 });
 
-const V2_APPROVED_ASSUMPTIONS = Object.freeze({
+// Canonical numeric baseline for model V2; not committee, lender, user or
+// valuer approval. Keep the old name only as a compatibility alias.
+const V2_CANONICAL_ASSUMPTIONS = Object.freeze({
   maintenanceRate: 0.05,
   managementFeeRate: 0.035,
   fixedOpexPerSqm: 40,
   replacementReservePerSqm: 20,
   opexGrowthRate: 0.02,
 });
+
+const V2_APPROVED_ASSUMPTIONS = V2_CANONICAL_ASSUMPTIONS;
 
 const V2_ASSUMPTION_LABELS = Object.freeze({
   maintenanceRate: Object.freeze({
@@ -100,6 +104,7 @@ function buildAssumptionModelDisclosure(version) {
 
 module.exports = {
   ASSUMPTION_MODEL_VERSION,
+  V2_CANONICAL_ASSUMPTIONS,
   V2_APPROVED_ASSUMPTIONS,
   V2_ASSUMPTION_LABELS,
   normalizeAssumptionModelVersion,

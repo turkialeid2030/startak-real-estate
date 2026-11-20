@@ -1,5 +1,11 @@
 'use strict';
 
+// This guards the in-process object boundary: JSON/request-body objects that
+// imitate VERIFIED_CONTEXT must not become authenticated application identities.
+// It is NOT cryptographic JWT verification; only trusted server-side callers
+// may create a context from claims verified by the upstream identity layer.
+const issuedVerifiedContexts = new WeakSet();
+
 const IDENTITY_STATUS = Object.freeze({
   VERIFIED_CONTEXT: 'VERIFIED_CONTEXT',
   HOLD_TOKEN_VERIFICATION: 'HOLD_TOKEN_VERIFICATION',
@@ -21,6 +27,9 @@ function freeze(value) {
 
 function isVerifiedIdentityContext(context) {
   if (!context || typeof context !== 'object') return false;
+  // A structurally identical (or JSON-cloned) object is not an issued identity.
+  // Stronger issuer/JWKS/revocation/session checks remain separate obligations.
+  if (!issuedVerifiedContexts.has(context)) return false;
   if (context.status !== IDENTITY_STATUS.VERIFIED_CONTEXT || context.authorizationReady !== true) return false;
   const identity = context.identity;
   if (!identity || typeof identity !== 'object') return false;
@@ -133,7 +142,7 @@ function createVerifiedIdentityContext({
     verificationRef: tokenVerificationEvidence.verificationRef || null,
   });
 
-  return freeze({
+  const issuedContext = freeze({
     status: IDENTITY_STATUS.VERIFIED_CONTEXT,
     reasonCodes: [],
     identity,
@@ -147,8 +156,10 @@ function createVerifiedIdentityContext({
       mfaCheckedHere: false,
       requiresTrustedServerVerifier: true,
     },
-    semantics: 'This module only converts externally verified identity claims into an application context. The verified sub claim is the canonical actorId. Production OIDC/JWT validation, issuer/audience/JWKS/revocation/session/MFA controls must be implemented and evidenced by the trusted server identity layer.',
+    semantics: 'This module only converts externally verified identity claims into an application context. Its same-process WeakSet provenance check rejects copied or caller-constructed identity objects but DOES NOT prove token signatures or a live IdP. The verified sub claim is the canonical actorId. Production OIDC/JWT validation, issuer/audience/JWKS/revocation/session/MFA controls must be implemented and evidenced by the trusted server identity layer.',
   });
+  issuedVerifiedContexts.add(issuedContext);
+  return issuedContext;
 }
 
 module.exports = {

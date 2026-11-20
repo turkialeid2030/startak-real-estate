@@ -7,17 +7,27 @@ const TENANT_SECURITY_STATUS = Object.freeze({
 });
 
 function normalizeIdentity(identity) {
-  if (!identity || typeof identity !== 'object') return null;
-  const explicitActorId = String(identity.actorId || '').trim();
-  const subject = String(identity.subject || '').trim();
+  if (!identity || typeof identity !== 'object' || Array.isArray(identity)) return null;
+  // Never coerce a caller-provided object into an actor, tenant or role.
+  // In particular, String({toString:()=> 'ADMIN'}) must not create an
+  // administrator authorization from an untrusted identity structure.
+  if ((identity.actorId != null && typeof identity.actorId !== 'string')
+    || (identity.subject != null && typeof identity.subject !== 'string')
+    || typeof identity.tenantId !== 'string'
+    || (identity.roles != null && !Array.isArray(identity.roles))
+    || (Array.isArray(identity.roles)
+      && identity.roles.some((role) => typeof role !== 'string' || !role.trim()))) return null;
+
+  const explicitActorId = (identity.actorId || '').trim();
+  const subject = (identity.subject || '').trim();
   if (explicitActorId && subject && explicitActorId !== subject) return null;
 
   const actorId = explicitActorId || subject;
-  const tenantId = String(identity.tenantId || '').trim();
+  const tenantId = identity.tenantId.trim();
   if (!actorId || !tenantId) return null;
 
   const roles = Array.isArray(identity.roles)
-    ? [...new Set(identity.roles.map((role) => String(role).trim()).filter(Boolean))]
+    ? [...new Set(identity.roles.map((role) => role.trim()))]
     : [];
 
   return Object.freeze({
@@ -30,7 +40,7 @@ function normalizeIdentity(identity) {
 
 function assertTenantScopedAccess({ identity, resourceTenantId, action = 'READ' } = {}) {
   const normalized = normalizeIdentity(identity);
-  const targetTenant = String(resourceTenantId || '').trim();
+  const targetTenant = typeof resourceTenantId === 'string' ? resourceTenantId.trim() : '';
   if (!normalized || !targetTenant) {
     return Object.freeze({ status: TENANT_SECURITY_STATUS.HOLD_IDENTITY, allowed: false, reason: 'IDENTITY_OR_RESOURCE_TENANT_MISSING' });
   }
@@ -74,8 +84,11 @@ function bindTenantToRecord(record, identity) {
     error.code = 'IDENTITY_OR_RESOURCE_TENANT_MISSING';
     throw error;
   }
-  if (!record || typeof record !== 'object') throw new TypeError('record is required');
-  if (record.tenantId && String(record.tenantId) !== normalized.tenantId) {
+  if (!record || typeof record !== 'object' || Array.isArray(record)) throw new TypeError('record is required');
+  // Reject non-string record tenancy rather than accepting an object whose
+  // toString() happens to equal the authenticated tenant ID.
+  if (record.tenantId != null && record.tenantId !== ''
+    && (typeof record.tenantId !== 'string' || record.tenantId.trim() !== normalized.tenantId)) {
     const error = new Error('CROSS_TENANT_WRITE_DENIED');
     error.code = 'CROSS_TENANT_WRITE_DENIED';
     throw error;

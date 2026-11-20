@@ -20,6 +20,20 @@ check(() => assert.deepStrictEqual(normalizeIdentity(identityA).roles, ['ANALYST
 check(() => assert.strictEqual(normalizeIdentity(subjectOnly).actorId, 'U3'));
 check(() => assert.strictEqual(normalizeIdentity(matchingPrincipal).actorId, 'U4'));
 check(() => assert.strictEqual(normalizeIdentity(mismatchedPrincipal), null));
+
+const objectRoleForgery = { actorId:'U2', tenantId:'T1', roles:[{ toString:()=> 'ADMIN' }] };
+const objectActorForgery = { actorId:{ toString:()=> 'ADMIN' }, tenantId:'T1', roles:['ADMIN'] };
+const numericTenantForgery = { actorId:'U2', tenantId:42, roles:['ADMIN'] };
+check(() => assert.strictEqual(normalizeIdentity(objectRoleForgery), null));
+check(() => assert.strictEqual(normalizeIdentity(objectActorForgery), null));
+check(() => assert.strictEqual(normalizeIdentity(numericTenantForgery), null));
+check(() => assert.strictEqual(normalizeIdentity({actorId:'U2',tenantId:'T1',roles:['ADMIN','']}), null));
+check(() => assert.strictEqual(normalizeIdentity({actorId:'U2',tenantId:'T1',roles:['ANALYST',null]}), null));
+check(() => assert.strictEqual(
+  assertTenantScopedAccess({identity:objectRoleForgery,resourceTenantId:'T1'}).status,
+  TENANT_SECURITY_STATUS.HOLD_IDENTITY,
+));
+
 check(() => assert.strictEqual(assertTenantScopedAccess({ identity: mismatchedPrincipal, resourceTenantId: 'T1' }).status, TENANT_SECURITY_STATUS.HOLD_IDENTITY));
 check(() => assert.strictEqual(assertTenantScopedAccess({ identity: identityA, resourceTenantId: 'T1' }).status, TENANT_SECURITY_STATUS.AUTHORIZED));
 check(() => assert.strictEqual(assertTenantScopedAccess({ identity: identityA, resourceTenantId: 'T1' }).allowed, true));
@@ -27,6 +41,16 @@ check(() => assert.strictEqual(assertTenantScopedAccess({ identity: identityA, r
 check(() => assert.strictEqual(assertTenantScopedAccess({ identity: identityA, resourceTenantId: 'T2' }).reason, 'CROSS_TENANT_ACCESS_DENIED'));
 check(() => assert.strictEqual(assertTenantScopedAccess({ identity: null, resourceTenantId: 'T1' }).status, TENANT_SECURITY_STATUS.HOLD_IDENTITY));
 check(() => assert.strictEqual(assertTenantScopedAccess({ identity: identityA, resourceTenantId: '' }).allowed, false));
+const coercedTargetTenant = { toString: () => 'T1' };
+check(() => assert.strictEqual(assertTenantScopedAccess({
+  identity: identityA, resourceTenantId: coercedTargetTenant,
+}).status, TENANT_SECURITY_STATUS.HOLD_IDENTITY));
+check(() => assert.throws(() => requireTenantScopedAccess({
+  identity: identityA, resourceTenantId: coercedTargetTenant,
+}), (e) => e.code === 'IDENTITY_OR_RESOURCE_TENANT_MISSING'));
+check(() => assert.strictEqual(assertTenantScopedAccess({
+  identity: identityA, resourceTenantId: 1,
+}).allowed, false));
 check(() => assert.throws(() => requireTenantScopedAccess({ identity: identityB, resourceTenantId: 'T1', action: 'WRITE' }), (e) => e.code === 'CROSS_TENANT_ACCESS_DENIED'));
 
 const bound = bindTenantToRecord({ caseId: 'C1' }, identityA);
@@ -36,5 +60,18 @@ check(() => assert.ok(Object.isFrozen(bound)));
 check(() => assert.throws(() => bindTenantToRecord({ caseId: 'C2', tenantId: 'T2' }, identityA), (e) => e.code === 'CROSS_TENANT_WRITE_DENIED'));
 check(() => assert.throws(() => bindTenantToRecord({ caseId: 'C3' }, null), (e) => e.code === 'IDENTITY_OR_RESOURCE_TENANT_MISSING'));
 check(() => assert.throws(() => bindTenantToRecord({ caseId: 'C4' }, mismatchedPrincipal), (e) => e.code === 'IDENTITY_OR_RESOURCE_TENANT_MISSING'));
+const coercedRecordTenant = { toString: () => 'T1' };
+check(() => assert.throws(
+  () => bindTenantToRecord({caseId:'C5', tenantId:coercedRecordTenant}, identityA),
+  (e) => e.code === 'CROSS_TENANT_WRITE_DENIED',
+));
+check(() => assert.throws(
+  () => bindTenantToRecord([{caseId:'C6'}], identityA),
+  (e) => e instanceof TypeError,
+));
+check(() => assert.strictEqual(
+  bindTenantToRecord({caseId:'C7', tenantId:'T1'}, identityA).tenantId,
+  'T1',
+));
 
 console.log(`TENANT_BOUNDARY_SECURITY_V1: PASS (${checks} checks)`);

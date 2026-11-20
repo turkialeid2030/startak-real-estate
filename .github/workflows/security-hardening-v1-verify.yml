@@ -1,0 +1,96 @@
+name: STARTAK RE Security Hardening V1
+
+on:
+  pull_request:
+    paths:
+      - 'src/security/**'
+      - 'src/runtime/**'
+      - 'src/server/**'
+      - 'src/storage/**'
+      - 'functions/api/**'
+      - 'tests/architecture/run_authenticated_canonical_workspace_service_v1.js'
+      - 'tests/architecture/run_canonical_workspace_product_runtime_v1.js'
+      - 'tests/architecture/run_authenticated_investment_committee_runtime_v1.js'
+      - 'tests/architecture/run_authenticated_reporting_runtime_v1.js'
+      - 'tests/architecture/run_vite_security_patch_floor_v1.js'
+      - 'tests/architecture/run_private_golden_residual_reference_v1.js'
+      - 'tools/private-golden-residual-reference.cjs'
+      - 'tools/verify-owner-external-golden-17.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tools/security/generate-isolated-postgres-rls-fixture.js'
+      - 'tests/runtime/run_canonical_workspace_http_api_tests.js'
+      - 'tests/runtime/run_authenticated_workspace_http_e2e_v1.js'
+      - '.github/workflows/security-hardening-v1-verify.yml'
+      - 'docs/security/SECURITY-HARDENING-V1-STARTAK-RE-20261118.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-hardening-v1-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scoped-security-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-test-only-not-production
+          POSTGRES_DB: startak_rls_ci
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout exact proposed commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Authenticated same-tenant object authorization tests
+        run: |
+          node tests/architecture/run_authenticated_canonical_workspace_service_v1.js
+          node tests/architecture/run_canonical_workspace_product_runtime_v1.js
+          node tests/runtime/run_canonical_workspace_http_api_tests.js
+          node tests/runtime/run_authenticated_workspace_http_e2e_v1.js
+          node tests/architecture/run_authenticated_investment_committee_runtime_v1.js
+          node tests/architecture/run_authenticated_reporting_runtime_v1.js
+      - name: Identity and tenant negative regressions
+        run: |
+          node tests/architecture/run_oidc_jwt_jwks_authentication_v1.js
+          node tests/architecture/run_tenant_boundary_security_v1.js
+          node tests/architecture/run_authorization_audit_security_v1.js
+      - name: Private golden auxiliary arithmetic gate (synthetic only; no private data)
+        run: node tests/architecture/run_private_golden_residual_reference_v1.js
+      - name: Isolated real PostgreSQL 16 tenant RLS negative test (disposable CI database)
+        run: |
+          node tools/security/generate-isolated-postgres-rls-fixture.js > "$RUNNER_TEMP/startak-rls-ci.sql"
+          docker exec -i "${{ job.services.postgres.id }}" psql -X -v ON_ERROR_STOP=1 -U postgres -d startak_rls_ci < "$RUNNER_TEMP/startak-rls-ci.sql"
+      - name: Cloudflare AI and personal-source guard regressions
+        run: |
+          node tests/runtime/run_riai_public_ai_security.js
+          node tests/defects/personal_kite_source_gateway_20261110.js
+      - name: Vite 8.2 / Rolldown patched security floor
+        run: node tests/architecture/run_vite_security_patch_floor_v1.js
+      - name: Production dependency graph audit (not a waiver for dev/build tools)
+        run: npm audit --omit=dev --audit-level=high
+      - name: Explicit external-evidence boundary
+        run: |
+          echo 'SECURITY_HARDENING_V1_SOURCE_TESTS_COMPLETED=true'
+          echo 'REAL_EXTERNAL_IDP_DB_RLS_TENANT_E2E_VERIFIED=false'
+          echo 'PRODUCTION_SECURITY_GO_LIVE=HOLD_NOT_AUTHORIZED'
+      - name: Full dependency graph high severity audit (mandatory blocking)
+        run: npm audit --audit-level=high

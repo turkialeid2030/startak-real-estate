@@ -95,7 +95,10 @@ function hydrateUiDeal({ record, defaultInputs }) {
   });
 }
 
-function calculateUiInvestmentState({ mode, inputs, assumptionModelVersion, includePurchaseAlternative = true }) {
+function calculateUiInvestmentState({
+  mode, inputs, assumptionModelVersion, assumptionRegistry = null,
+  includePurchaseAlternative = true,
+}) {
   assertMode(mode);
   assertPlainObject(inputs, 'inputs');
   const version = normalizeAssumptionModelVersion(assumptionModelVersion);
@@ -104,14 +107,27 @@ function calculateUiInvestmentState({ mode, inputs, assumptionModelVersion, incl
     inputs,
     leverageEnabled: Boolean(inputs.leverageEnabled),
     assumptionModelVersion: version,
+    assumptionRegistry,
   });
-  const purchasePriceQualification = mode === UI_MODE.BUILDING
+  const requestedRegistryOverride = assumptionRegistry !== null && assumptionRegistry !== undefined
+    && (!Array.isArray(assumptionRegistry)
+      || assumptionRegistry.some(item => item && typeof item === 'object' && item.override === true));
+  const assumptionOverrideHold = requestedRegistryOverride
+    || (calculatedResults.decisionStatus === 'INCOMPLETE_INPUTS'
+      && calculatedResults.criticalAssumptionOverrideGovernance?.decisionReady === false);
+  // An unqualified historical override must not leave a baseline-derived
+  // purchase ceiling or certificate visible as if the override was applied.
+  const priceQualified = mode === UI_MODE.BUILDING && !assumptionOverrideHold;
+  const purchasePriceQualification = priceQualified
     ? qualifyPurchaseBoundary(inputs, version, calculatedResults.maxJustifiedPrice) : null;
-  const purchaseAlternative = mode === UI_MODE.BUILDING && includePurchaseAlternative
+  const purchaseAlternative = priceQualified && includePurchaseAlternative
     ? findVerifiedPurchaseAlternative(inputs, version, purchasePriceQualification) : null;
   const results = mode === UI_MODE.BUILDING ? { ...calculatedResults, purchasePriceQualification,
-    ...(includePurchaseAlternative ? { purchaseAlternative,
-      purchaseCeilingCertificate: certifyPurchaseCeiling(inputs, version, purchasePriceQualification.qualifiedPrice ?? purchaseAlternative.price),
+    ...(includePurchaseAlternative ? {
+      purchaseAlternative,
+      purchaseCeilingCertificate: priceQualified
+        ? certifyPurchaseCeiling(inputs, version, purchasePriceQualification.qualifiedPrice ?? purchaseAlternative.price)
+        : null,
     } : {}),
   } : calculatedResults;
   const governance = mode === UI_MODE.BUILDING
@@ -120,16 +136,19 @@ function calculateUiInvestmentState({ mode, inputs, assumptionModelVersion, incl
         financialResults: results,
       })
     : null;
-
   return Object.freeze({
     mode,
     assumptionModelVersion: version,
+    assumptionRegistry: assumptionRegistry == null ? null : assumptionRegistry,
+    assumptionOverrideHold,
     results,
     governance,
-    sensitivityReady: governance ? governance.sensitivityReady : true,
-    sensitivityRenderPolicy: governance
-      ? governance.sensitivity.renderPolicy
-      : 'RENDER_SENSITIVITY_OUTPUTS',
+    sensitivityReady: !assumptionOverrideHold && (governance ? governance.sensitivityReady : true),
+    sensitivityRenderPolicy: assumptionOverrideHold
+      ? 'HOLD_INCOMPLETE_ASSUMPTION_OVERRIDE'
+      : governance
+        ? governance.sensitivity.renderPolicy
+        : 'RENDER_SENSITIVITY_OUTPUTS',
     exitCapInputRequired: governance ? governance.exitCapInputRequired : false,
     exitTransactionCostInputRequired: governance ? governance.exitTransactionCostInputRequired : false,
     leaseRollForwardRequired: governance ? governance.leaseRollForwardRequired : false,
@@ -231,7 +250,14 @@ function buildUiDisclosureViewModel({ governance, locale = 'ar-SA' }) {
     badge: disclosure.badge[language],
     assumptionModelVersion: disclosure.assumptionModelVersion,
     legacyCompatibility: disclosure.legacyCompatibility,
+    // Keep the legacy populated key list, but expose actual evidence status
+    // separately so UI clients do not infer approval from numeric defaults.
     approvedAssumptionKeys: disclosure.approvedAssumptionKeys,
+    canonicalDefaultAssumptionKeys: disclosure.canonicalDefaultAssumptionKeys,
+    independentlyApprovedAssumptionKeys: disclosure.independentlyApprovedAssumptionKeys,
+    canonicalDefaultsAreApprovalEvidence: false,
+    userApprovedAssumptions: false,
+    approvalEvidenceStatus: disclosure.approvalEvidenceStatus,
     exitCapSource: disclosure.exitCapSource,
     exitCapNotice,
     exitCapInputRequired: governance.exitCapInputRequired,

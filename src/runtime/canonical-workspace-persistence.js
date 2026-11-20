@@ -30,6 +30,40 @@ function storageKey(namespace, tenantId, workspaceId) {
   return `${namespace}:${encodeURIComponent(tenantId)}:${encodeURIComponent(workspaceId)}`;
 }
 
+// A case must not claim a different project or case identifier inside its
+// executable payload. Legacy payloads can omit these optional inner fields,
+// but any declared identity must match the authenticated outer workspace.
+function assertExecutableCaseIdentity(workspace, persisted = false) {
+  const executableCase = workspace && workspace.executableCase;
+  if (!executableCase || typeof executableCase !== 'object' || Array.isArray(executableCase)) return;
+  for (const field of ['projectId', 'caseId']) {
+    if (Object.prototype.hasOwnProperty.call(executableCase, field)
+      && executableCase[field] !== workspace[field]) {
+      fail(persisted ? 'WORKSPACE_PERSISTENCE_CORRUPT_RECORD' : 'WORKSPACE_RESOURCE_IDENTITY_MISMATCH');
+    }
+  }
+}
+
+// Reserve professional and production authority to signed external governance.
+// Callers of persistence can otherwise bypass the runtime's authority guard;
+// any stored record asserting a forbidden authority is quarantined on read.
+function assertWorkspaceAuthorityBoundary(workspace, persisted = false) {
+  const authority = workspace && workspace.authority;
+  const reserved = [
+    'professionalReportExternalIssuanceAuthorized',
+    'releaseAuthorized',
+    'mergeAuthorized',
+    'deploymentAuthorized',
+    'transactionAuthorized',
+  ];
+  if (!authority || typeof authority !== 'object' || Array.isArray(authority)
+    || reserved.some((field) => authority[field] !== false)) {
+    fail(persisted
+      ? 'WORKSPACE_PERSISTENCE_CORRUPT_RECORD'
+      : 'WORKSPACE_AUTHORITY_INVARIANT_VIOLATION');
+  }
+}
+
 function parseEnvelope(raw, { tenantId, workspaceId }) {
   let parsed;
   try {
@@ -40,9 +74,74 @@ function parseEnvelope(raw, { tenantId, workspaceId }) {
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) fail('WORKSPACE_PERSISTENCE_CORRUPT_RECORD');
   if (parsed.schemaVersion !== 1 || !Number.isInteger(parsed.version) || parsed.version < 1) fail('WORKSPACE_PERSISTENCE_CORRUPT_RECORD');
   if (parsed.tenantId !== tenantId || parsed.workspaceId !== workspaceId) fail('WORKSPACE_PERSISTENCE_SCOPE_VIOLATION');
-  if (!parsed.workspace || typeof parsed.workspace !== 'object' || parsed.workspace.workspaceId !== workspaceId) fail('WORKSPACE_PERSISTENCE_CORRUPT_RECORD');
+  if (!parsed.workspace || typeof parsed.workspace !== 'object' || Array.isArray(parsed.workspace)
+    || parsed.workspace.workspaceId !== workspaceId
+    || parsed.workspace.schemaVersion !== 1
+    || typeof parsed.workspace.projectId !== 'string' || !parsed.workspace.projectId.trim()
+    || typeof parsed.workspace.caseId !== 'string' || !parsed.workspace.caseId.trim()
+    || !parsed.workspace.executableCase || typeof parsed.workspace.executableCase !== 'object'
+    || Array.isArray(parsed.workspace.executableCase)) fail('WORKSPACE_PERSISTENCE_CORRUPT_RECORD');
+  // A legacy/current payload may omit workspace.tenantId, but it must never
+  // contradict the authoritative tenant of its storage envelope when present.
+  if (Object.prototype.hasOwnProperty.call(parsed.workspace, 'tenantId')
+    && parsed.workspace.tenantId !== tenantId) fail('WORKSPACE_PERSISTENCE_CORRUPT_RECORD');
+  assertExecutableCaseIdentity(parsed.workspace, true);
+  assertWorkspaceAuthorityBoundary(parsed.workspace, true);
   if (!Array.isArray(parsed.history)) fail('WORKSPACE_PERSISTENCE_CORRUPT_RECORD');
   return parsed;
+}
+
+// Workspaces are private to their originating verified actor unless a trusted
+// tenant ADMIN inspects/maintains them. An older envelope without an attested
+// owner is quarantined from all non-admin identities until a separately
+// approved migration establishes ownership. Do not infer ownership from the
+// mutable updatedBy audit field or an arbitrary workspace payload.
+async function requireWorkspaceRecordAccess(envelope, identity, action, trustedRecordGrantResolver) {
+  if (identity.roles.includes('ADMIN')) return;
+  const owner = envelope.ownerActorId;
+  if (typeof owner !== 'string' || !owner.trim()) {
+    fail('WORKSPACE_RECORD_ACCESS_DENIED');
+  }
+  if (owner === identity.actorId) return;
+  // An explicitly bound human review grant may authorize one actor to READ
+  // one named workspace. Never infer a grant from shared tenant membership,
+  // IC_MEMBER role alone, report content or user-provided workspace fields.
+  // Defense in depth: a reviewer assignment can NEVER authorize mutation,
+  // even if a trusted resolver erroneously returns allowed=true for WRITE.
+  // Owner and verified same-tenant ADMIN writes were handled above.
+  if (action === 'READ' && typeof trustedRecordGrantResolver === 'function') {
+    // The resolver must attest the exact, server-verified target tuple in
+    // its return value. A stale grant from another record or a bare "allow"
+    // is not an authorization, even when generated by trusted server wiring.
+    const grantScope = Object.freeze({
+      tenantId: identity.tenantId,
+      workspaceId: envelope.workspaceId,
+      projectId: envelope.workspace.projectId,
+      caseId: envelope.workspace.caseId,
+      ownerActorId: owner,
+      actorId: identity.actorId,
+      roles: Object.freeze([...identity.roles]),
+      action,
+    });
+    let grant;
+    try {
+      grant = await trustedRecordGrantResolver(grantScope);
+    } catch (_) {
+      fail('WORKSPACE_RECORD_ACCESS_DENIED');
+    }
+    const scopeFields = [
+      'tenantId', 'workspaceId', 'projectId',
+      'caseId', 'ownerActorId', 'actorId', 'action',
+    ];
+    if (grant && grant.allowed === true
+      && typeof grant.grantRef === 'string' && grant.grantRef.trim()
+      && scopeFields.every((field) => (
+        typeof grantScope[field] === 'string'
+        && grantScope[field].trim()
+        && grant[field] === grantScope[field]
+      ))) return;
+  }
+  fail('WORKSPACE_RECORD_ACCESS_DENIED');
 }
 
 /**
@@ -58,10 +157,16 @@ function createCanonicalWorkspacePersistence({
   storageProvider,
   namespace = 'startak:canonical-workspace:v1',
   now = () => new Date().toISOString(),
+  // Only trusted server-side wiring may inject a record-specific, action-bound
+  // grant resolver; HTTP payloads, JWT roles, and workspace content never can.
+  trustedRecordGrantResolver = null,
 } = {}) {
   const hasScopedGet = Boolean(storageProvider && typeof storageProvider.getScoped === 'function');
   const hasGenericGet = Boolean(storageProvider && typeof storageProvider.get === 'function');
   if (!hasScopedGet && !hasGenericGet) throw new TypeError('storageProvider.get or storageProvider.getScoped is required');
+  if (trustedRecordGrantResolver !== null && typeof trustedRecordGrantResolver !== 'function') {
+    throw new TypeError('trustedRecordGrantResolver must be a function or null');
+  }
   const normalizedNamespace = requiredString(namespace, 'namespace');
 
   const hasScopedCompareAndSet = typeof storageProvider.compareAndSetScoped === 'function';
@@ -117,10 +222,12 @@ function createCanonicalWorkspacePersistence({
       workspaceId: normalizedWorkspaceId,
     });
     if (raw == null) return null;
-    return deepFreeze(parseEnvelope(String(raw), {
+    const envelope = parseEnvelope(String(raw), {
       tenantId: identity.tenantId,
       workspaceId: normalizedWorkspaceId,
-    }));
+    });
+    await requireWorkspaceRecordAccess(envelope, identity, 'READ', trustedRecordGrantResolver);
+    return deepFreeze(envelope);
   }
 
   async function save({
@@ -133,6 +240,27 @@ function createCanonicalWorkspacePersistence({
     const identity = requireVerifiedIdentityContext(identityContext);
     if (!workspace || typeof workspace !== 'object' || Array.isArray(workspace)) throw new TypeError('workspace is required');
     const workspaceId = requiredString(workspace.workspaceId, 'workspace.workspaceId');
+    requiredString(workspace.projectId, 'workspace.projectId');
+    requiredString(workspace.caseId, 'workspace.caseId');
+    // Direct internal callers must not bypass schema and actor attribution
+    // checks that the higher-level runtime already performs.
+    if (workspace.schemaVersion !== 1) fail('UNSUPPORTED_WORKSPACE_SCHEMA');
+    if (!workspace.executableCase || typeof workspace.executableCase !== 'object'
+      || Array.isArray(workspace.executableCase)) fail('INVALID_CANONICAL_WORKSPACE');
+    const declaredActorId = workspace.attribution?.actorId;
+    if (declaredActorId != null
+      && (typeof declaredActorId !== 'string' || !declaredActorId.trim()
+        || declaredActorId.trim() !== identity.actorId)) {
+      fail('WORKSPACE_ATTRIBUTION_MISMATCH');
+    }
+    // Direct callers of persistence must obey the verified tenant contract,
+    // even when they bypass the normal runtime and HTTP validation layers.
+    if (Object.prototype.hasOwnProperty.call(workspace, 'tenantId')
+      && workspace.tenantId !== identity.tenantId) {
+      fail('WORKSPACE_TENANT_SCOPE_MISMATCH');
+    }
+    assertExecutableCaseIdentity(workspace);
+    assertWorkspaceAuthorityBoundary(workspace);
     const opId = requiredString(operationId, 'operationId');
     if (!Number.isInteger(expectedVersion) || expectedVersion < 0) throw new TypeError('expectedVersion must be an integer >= 0');
     if (!hasAtomicCompareAndSet) fail('ATOMIC_PERSISTENCE_REQUIRED');
@@ -149,6 +277,9 @@ function createCanonicalWorkspacePersistence({
       : parseEnvelope(currentRaw, { tenantId: identity.tenantId, workspaceId });
     const currentVersion = current ? current.version : 0;
 
+    // Authorize the individual object before exposing its version or
+    // attempting a write; tenant-match plus role alone is not sufficient.
+    if (current) await requireWorkspaceRecordAccess(current, identity, 'WRITE', trustedRecordGrantResolver);
     if (expectedVersion !== currentVersion) fail('WORKSPACE_VERSION_CONFLICT');
     if (current && (
       current.workspace.projectId !== workspace.projectId
@@ -179,6 +310,10 @@ function createCanonicalWorkspacePersistence({
       version: currentVersion + 1,
       updatedAt: timestamp,
       updatedBy: identity.actorId,
+      // Never take record ownership from caller-supplied workspace attributes.
+      // ADMIN edits preserve original ownership; legacy ownerless records stay
+      // quarantined pending independently authorized backfill.
+      ownerActorId: current ? (current.ownerActorId || null) : identity.actorId,
       workspace,
       history: [...(current ? current.history : []), auditEvent],
       authority: {
@@ -213,7 +348,7 @@ function createCanonicalWorkspacePersistence({
       productionPersistenceValidated: false,
       externalDatabaseDeploymentRequired: true,
     }),
-    semantics: 'This runtime boundary requires atomic storage and scopes records from verified tenant identity. Structured tenant-aware providers are preferred for server/database persistence. The boundary does not prove that a production database, RLS policy, backup, restore, encryption, or disaster-recovery control has been deployed or independently validated.',
+    semantics: 'This runtime enforces tenant and per-record ownership; a separately injected trusted server-side resolver can grant exact-workspace/actor/action review access. A common role/tenant or caller-declared grant never suffices. ADMIN remains scoped to the authenticated tenant; unowned legacy records are quarantined. This does not prove deployment of a grant registry, IdP, RLS, backups or production authorization.',
   });
 }
 

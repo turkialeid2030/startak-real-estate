@@ -100,14 +100,20 @@ function securityHeaders() {
 }
 
 function writeJson(res, statusCode, body, extraHeaders = {}) {
-  const payload = JSON.stringify(body);
+  // RFC 9110: 204 responses cannot carry response content. Sending a
+  // nonzero Content-Length for an OPTIONS preflight can confuse clients or
+  // intermediaries even when Node silently suppresses the body.
+  const noContent = statusCode === 204 || statusCode === 304;
+  const payload = noContent ? null : JSON.stringify(body);
   res.writeHead(statusCode, {
     ...securityHeaders(),
-    'content-type': 'application/json; charset=utf-8',
-    'content-length': Buffer.byteLength(payload, 'utf8'),
+    ...(!noContent ? {
+      'content-type': 'application/json; charset=utf-8',
+      'content-length': Buffer.byteLength(payload, 'utf8'),
+    } : {}),
     ...extraHeaders,
   });
-  res.end(payload);
+  res.end(noContent ? undefined : payload);
 }
 
 function classifyError(error) {
@@ -119,6 +125,8 @@ function classifyError(error) {
   if (['WORKSPACE_VERSION_CONFLICT', 'WORKSPACE_CONCURRENT_WRITE_CONFLICT'].includes(code)) {
     return { statusCode: 409, code };
   }
+  // Do not disclose peer record existence in an IDOR denial.
+  if (code === 'WORKSPACE_RECORD_ACCESS_DENIED') return { statusCode: 404, code: 'WORKSPACE_NOT_FOUND' };
   if (code === 'WORKSPACE_NOT_FOUND') return { statusCode: 404, code };
   if (code === 'REQUEST_BODY_TOO_LARGE') return { statusCode: 413, code };
   if (code === 'UNSUPPORTED_MEDIA_TYPE') return { statusCode: 415, code };
@@ -131,6 +139,12 @@ function classifyError(error) {
     'INVALID_REQUEST_URL',
     'QUERY_PARAMETERS_NOT_ALLOWED',
     'WORKSPACE_ROUTE_BODY_MISMATCH',
+    'WORKSPACE_TENANT_SCOPE_MISMATCH',
+    'WORKSPACE_ATTRIBUTION_MISMATCH',
+    'WORKSPACE_RESOURCE_IDENTITY_MISMATCH',
+    'WORKSPACE_AUTHORITY_INVARIANT_VIOLATION',
+    'UNSUPPORTED_WORKSPACE_SCHEMA',
+    'INVALID_CANONICAL_WORKSPACE',
   ].includes(code)) {
     return { statusCode: 400, code: code || 'BAD_REQUEST' };
   }

@@ -117,6 +117,37 @@ function verify(token, overrides = {}) {
     allowedAlgorithms: ['HS256'],
   }), /unsupported JWT algorithm/));
 
+  // A correctly signed RSA-1024 JWT is still unacceptable for issuer trust.
+  // Verifying its mathematics alone would allow a weak identity signing key.
+  const weakKeys = crypto.generateKeyPairSync('rsa', { modulusLength: 1024 });
+  const weakKid = 'weak-test-rsa-1024';
+  const weakHeader = b64urlJson({ alg: 'RS256', typ: 'JWT', kid: weakKid });
+  const weakPayload = b64urlJson({
+    iss: ISSUER, aud: AUDIENCE, sub: 'actor-123', tenant_id: TENANT,
+    roles: ['ANALYST'], iat: NOW - 30, nbf: NOW - 30, exp: NOW + 300,
+  });
+  const weakInput = `${weakHeader}.${weakPayload}`;
+  const weakSignature = crypto.sign(
+    'RSA-SHA256', Buffer.from(weakInput, 'ascii'), weakKeys.privateKey,
+  ).toString('base64url');
+  const weakJwks = { keys: [{
+    ...weakKeys.publicKey.export({ format: 'jwk' }),
+    kid: weakKid, alg: 'RS256', use: 'sig',
+  }] };
+  const weakJwt = `${weakInput}.${weakSignature}`;
+  check(() => assert.strictEqual(
+    crypto.verify('RSA-SHA256', Buffer.from(weakInput, 'ascii'), weakKeys.publicKey,
+      Buffer.from(weakSignature, 'base64url')), true,
+  ));
+  check(() => assert.strictEqual(
+    verify(weakJwt, { jwks: weakJwks }).status,
+    JWT_VERIFICATION_STATUS.HOLD_SIGNATURE,
+  ));
+  check(() => assert.strictEqual(
+    verify(weakJwt, { jwks: weakJwks }).authorizationReady,
+    false,
+  ));
+
   const duplicateJwks = { keys: [trustedJwk, { ...trustedJwk }] };
   check(() => assert.strictEqual(verify(validToken, { jwks: duplicateJwks }).status, JWT_VERIFICATION_STATUS.HOLD_SIGNING_KEY));
 
@@ -214,12 +245,118 @@ function verify(token, overrides = {}) {
     fetchImpl: async () => ({
       ok: true,
       status: 200,
-      headers: { get: () => 'application/json' },
+      headers: { get: (name) => name.toLowerCase() === 'content-type' ? 'application/json' : null },
       text: async () => JSON.stringify({ keys: [{ ...privateJwk, kid: 'private', alg: 'RS256' }] }),
     }),
   });
   await checkAsync(async () => {
     await assert.rejects(() => badProvider.getJwks(), /JWKS_PRIVATE_KEY_MATERIAL_REJECTED/);
+  });
+
+  for (const [field, value] of [
+    ['d', ''], ['p', 'private-prime'], ['q', 'private-prime'],
+    ['dp', 'private-exponent'], ['dq', 'private-exponent'], ['qi', 'crt-inverse'],
+    ['oth', []], ['k', 'symmetric-material'],
+  ]) {
+    const privatePartProvider = createRemoteJwksProvider({
+      issuer: ISSUER, jwksUri: 'https://issuer.example/private-field-test',
+      fetchImpl: async () => ({
+        ok: true, status: 200,
+        headers: { get: (name) => name.toLowerCase() === 'content-type' ? 'application/json' : null },
+        text: async () => JSON.stringify({ keys: [{ ...trustedJwk, [field]: value }] }),
+      }),
+    });
+    await checkAsync(async () => assert.rejects(
+      privatePartProvider.getJwks(), /JWKS_PRIVATE_KEY_MATERIAL_REJECTED/,
+    ));
+  }
+
+  // A content-length header must be enforced before the response body is read.
+  const oversizeDeclaredProvider = createRemoteJwksProvider({
+    issuer: ISSUER, jwksUri: 'https://issuer.example/oversized-content-length',
+    maxJwksBytes: 1024,
+    fetchImpl: async () => ({
+      ok: true, status: 200,
+      headers: { get: (name) => ({
+        'content-type': 'application/json', 'content-length': '2048',
+      })[name.toLowerCase()] || null },
+      text: async () => { throw new Error('body should not have been read'); },
+    }),
+  });
+  await checkAsync(async () => assert.rejects(
+    oversizeDeclaredProvider.getJwks(), /JWKS_RESPONSE_TOO_LARGE/,
+  ));
+
+  // Real Web Streams are checked on every chunk; no full text() allocation is
+  // required when an adversarial JWKS origin sends more than its allowed cap.
+  const oversizeStreamProvider = createRemoteJwksProvider({
+    issuer: ISSUER, jwksUri: 'https://issuer.example/oversized-stream',
+    maxJwksBytes: 1024,
+    fetchImpl: async () => new Response(new ReadableStream({
+      start(controller) {
+        controller.enqueue(Buffer.from('x'.repeat(700)));
+        controller.enqueue(Buffer.from('x'.repeat(700)));
+        controller.close();
+      },
+    }), { status: 200, headers: { 'content-type': 'application/json' } }),
+  });
+  await checkAsync(async () => assert.rejects(
+    oversizeStreamProvider.getJwks(), /JWKS_RESPONSE_TOO_LARGE/,
+  ));
+
+  const streamedValidProvider = createRemoteJwksProvider({
+    issuer: ISSUER, jwksUri: 'https://issuer.example/valid-stream',
+    maxJwksBytes: 1024,
+    fetchImpl: async () => new Response(JSON.stringify(jwks), {
+      status: 200, headers: { 'content-type': 'application/json' },
+    }),
+  });
+  await checkAsync(async () => assert.strictEqual(
+    (await streamedValidProvider.getJwks()).keys[0].kid, KID,
+  ));
+
+  // A fetch started before explicit invalidation must not repopulate a
+  // revoked signing-key cache or hand its old JWKS to an awaiting verifier.
+  const staleResolvers = [];
+  const deferredResponse = () => ({
+    ok: true, status: 200,
+    headers: { get: (name) => name.toLowerCase() === 'content-type' ? 'application/json' : null },
+    text: async () => JSON.stringify(jwks),
+  });
+  const invalidateProvider = createRemoteJwksProvider({
+    issuer: ISSUER, jwksUri: 'https://issuer.example/rotation-jwks',
+    fetchImpl: () => new Promise((resolve) => staleResolvers.push(resolve)),
+  });
+  const staleRequest = invalidateProvider.getJwks();
+  const staleRefusal = assert.rejects(staleRequest, /JWKS_FETCH_SUPERSEDED_OR_INVALIDATED/);
+  invalidateProvider.invalidate();
+  const freshRequest = invalidateProvider.getJwks();
+  await checkAsync(async () => {
+    assert.strictEqual(staleResolvers.length, 2);
+    staleResolvers[1](deferredResponse());
+    assert.strictEqual((await freshRequest).keys[0].kid, KID);
+    staleResolvers[0](deferredResponse());
+    await staleRefusal;
+  });
+
+  // A forced key rotation also supersedes older in-flight fetches; old
+  // responses may not replace the newer trusted keyset in the cache.
+  const refreshResolvers = [];
+  const forcedProvider = createRemoteJwksProvider({
+    issuer: ISSUER, jwksUri: 'https://issuer.example/force-refresh-jwks',
+    fetchImpl: () => new Promise((resolve) => refreshResolvers.push(resolve)),
+  });
+  const oldPending = forcedProvider.getJwks();
+  const oldRejected = assert.rejects(oldPending, /JWKS_FETCH_SUPERSEDED_OR_INVALIDATED/);
+  const rotated = forcedProvider.getJwks({ forceRefresh: true });
+  await checkAsync(async () => {
+    assert.strictEqual(refreshResolvers.length, 2);
+    refreshResolvers[1](deferredResponse());
+    assert.strictEqual((await rotated).keys[0].kid, KID);
+    refreshResolvers[0](deferredResponse());
+    await oldRejected;
+    assert.strictEqual((await forcedProvider.getJwks()).keys[0].kid, KID);
+    assert.strictEqual(refreshResolvers.length, 2);
   });
 
   console.log(`OIDC_JWT_JWKS_AUTHENTICATION_V1: PASS (${checks} checks)`);

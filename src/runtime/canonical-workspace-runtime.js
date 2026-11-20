@@ -24,6 +24,12 @@ function assertCanonicalWorkspace(workspace, identity) {
   for (const key of ['workspaceId', 'projectId', 'caseId']) {
     if (typeof workspace[key] !== 'string' || workspace[key].trim() === '') throw new TypeError(`workspace.${key} must be a non-empty string`);
   }
+  // A caller can include tenantId in workspace content, but that declaration
+  // must never contradict the server-verified JWT tenant.
+  if (Object.prototype.hasOwnProperty.call(workspace, 'tenantId')
+    && workspace.tenantId !== identity.tenantId) {
+    fail('WORKSPACE_TENANT_SCOPE_MISMATCH');
+  }
   if (workspace.schemaVersion !== 1) fail('UNSUPPORTED_WORKSPACE_SCHEMA');
   if (!workspace.executableCase || typeof workspace.executableCase !== 'object') fail('INVALID_CANONICAL_WORKSPACE');
   if (!workspace.authority || typeof workspace.authority !== 'object') fail('INVALID_CANONICAL_WORKSPACE');

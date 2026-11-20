@@ -174,6 +174,21 @@ async function main() {
   const persistence = createCanonicalWorkspacePersistence({
     storageProvider: provider,
     now: () => '2026-09-09T16:00:00Z',
+    // Synthetic trusted server-side reviewer assignment. This exact grant
+    // is bound to one actor, tenant, workspace, case and READ action only.
+    trustedRecordGrantResolver: async (scope) => ({
+      // Synthetic grant record echoes the strictly verified tuple; a live
+      // resolver must independently retrieve and validate the actual assignment.
+      ...scope,
+      allowed: scope.tenantId === 'tenant-a'
+        && scope.workspaceId === 'WS-REPORT-001'
+        && scope.caseId === 'CASE-REPORT-001'
+        && scope.actorId === 'ic-1'
+        && scope.ownerActorId === 'analyst-1'
+        && scope.roles.includes('IC_MEMBER')
+        && scope.action === 'READ',
+      grantRef: 'SYNTHETIC-REPORT-REVIEW-001',
+    }),
   });
   const runtime = createCanonicalWorkspaceRuntime({ persistence });
   const workspaceService = createAuthenticatedCanonicalWorkspaceService({
