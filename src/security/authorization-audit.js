@@ -10,8 +10,14 @@ const AUTHZ_STATUS = Object.freeze({
 
 function normalizePolicy(policy) {
   if (!policy || typeof policy !== 'object') throw new TypeError('policy is required');
-  const normalized = {};
+  // Never inherit Object.prototype methods (toString, constructor, etc.) as
+  // authorization actions. JSON-derived policies may contain "__proto__",
+  // which would otherwise mutate a plain object's prototype during assignment.
+  const normalized = Object.create(null);
   for (const [action, roles] of Object.entries(policy)) {
+    if (['__proto__', 'prototype', 'constructor'].includes(action)) {
+      throw new TypeError('reserved policy action is not allowed');
+    }
     if (!Array.isArray(roles) || roles.length === 0) throw new TypeError(`policy action ${action} must list at least one role`);
     normalized[String(action)] = Object.freeze([...new Set(roles.map((role) => String(role).trim()).filter(Boolean))]);
     if (normalized[String(action)].length === 0) throw new TypeError(`policy action ${action} must list at least one role`);
@@ -25,7 +31,8 @@ function authorizeAction({ identity, action, policy } = {}) {
 
   const { actorId, tenantId, roles } = normalizedIdentity;
   const rules = normalizePolicy(policy);
-  const requiredRoles = rules[String(action)];
+  const requiredRoles = Object.prototype.hasOwnProperty.call(rules, String(action))
+    ? rules[String(action)] : null;
   if (!requiredRoles) return Object.freeze({ status: AUTHZ_STATUS.DENY, allowed: false, reason: 'ACTION_NOT_IN_POLICY', actorId, tenantId, action: String(action) });
   const matchedRoles = roles.filter((role) => requiredRoles.includes(role));
   if (matchedRoles.length === 0) return Object.freeze({ status: AUTHZ_STATUS.DENY, allowed: false, reason: 'ROLE_NOT_AUTHORIZED', actorId, tenantId, action: String(action) });
