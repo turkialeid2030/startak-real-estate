@@ -31,6 +31,46 @@ const titleReview = buildDecisionControlGate({ profile, evidenceOrchestration: e
 assert.strictEqual(titleReview.status, CONTROL_GATE_STATUS.PROFESSIONAL_REVIEW_REQUIRED);
 assert.strictEqual(titleReview.canRunAnalyticalUnderwriting, false);
 
+// Even if a caller supplies LEGAL_REVIEW_REQUIRED, unresolved title fact
+// blockers cannot be converted into professional-review-only readiness.
+const legalAndIncompleteTitle = buildDecisionControlGate({
+  profile, evidenceOrchestration: evidence(),
+  titleAssessment: {
+    caseId: 'CASE-1', status: 'LEGAL_REVIEW_REQUIRED',
+    blockers: [{ key: 'ownerName', code: 'REQUIRED_TITLE_FACT_MISSING' }],
+    legalReviewFlags: [{ key: 'mortgageDetected', code: 'LEGAL_INTERPRETATION_REQUIRED' }],
+  },
+  tenantAssessment: tenantPass, regulatoryAssessment: regulatoryPass,
+});
+assert.strictEqual(legalAndIncompleteTitle.status, CONTROL_GATE_STATUS.HOLD_EVIDENCE);
+assert.ok(legalAndIncompleteTitle.blockers.some((item) =>
+  item.domain === 'TITLE' && item.code === 'HOLD_EVIDENCE'));
+assert.ok(legalAndIncompleteTitle.professionalReview.some((item) =>
+  item.domain === 'TITLE'));
+assert.strictEqual(legalAndIncompleteTitle.canRunAnalyticalUnderwriting, false);
+
+const falselySufficientTitle = buildDecisionControlGate({
+  profile, evidenceOrchestration: evidence(),
+  titleAssessment: {
+    caseId: 'CASE-1', status: 'FACTS_SUFFICIENT_FOR_ANALYSIS',
+    blockers: [{ key: 'parcelOrPlotId', code: 'UNRESOLVED_TITLE_FACT_CONFLICT' }],
+  },
+  tenantAssessment: tenantPass, regulatoryAssessment: regulatoryPass,
+});
+assert.strictEqual(falselySufficientTitle.status, CONTROL_GATE_STATUS.HOLD_EVIDENCE);
+assert.strictEqual(falselySufficientTitle.canRunAnalyticalUnderwriting, false);
+
+// Professional review and missing unrelated diligence can coexist. The hard
+// missing tenant assessment must remain visible as the top-level HOLD.
+const legalWithMissingTenant = buildDecisionControlGate({
+  profile, evidenceOrchestration: evidence(),
+  titleAssessment: { caseId: 'CASE-1', status: 'LEGAL_REVIEW_REQUIRED' },
+  tenantAssessment: null, regulatoryAssessment: regulatoryPass,
+});
+assert.strictEqual(legalWithMissingTenant.status, CONTROL_GATE_STATUS.HOLD_EVIDENCE);
+assert.ok(legalWithMissingTenant.professionalReview.some((item) => item.domain === 'TITLE'));
+assert.ok(legalWithMissingTenant.blockers.some((item) => item.code === 'TENANT_ASSESSMENT_REQUIRED'));
+
 const staleRegulation = buildDecisionControlGate({ profile, evidenceOrchestration: evidence(), titleAssessment: titlePass, tenantAssessment: tenantPass, regulatoryAssessment: { overallStatus: 'REGULATORY_REVIEW_REQUIRED' } });
 assert.strictEqual(staleRegulation.status, CONTROL_GATE_STATUS.PROFESSIONAL_REVIEW_REQUIRED);
 
