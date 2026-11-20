@@ -501,6 +501,6 @@
 ## 21. W16/W19: مطابقة فرعي OCR #772 و#773 دون إسقاط وظائف
 
 - اكتمل **فحص فروق الملفات الخمسة لـPR #772** ومقارنتها بأسماء ملفات PR #773 والفروع الحديثة. هناك ملفا اختبارات متداخلان، وثلاثة ملفات فريدة تتضمن خصائص `data-reason-code` وتدقيق متصفح مستقل.
-- **لم تُنقل الخصائص بعد:** فحص المصدر الحالي في الفرع الأمني لم يجد سمات `data-reason-code` في واجهتي `LocalDocumentEvidenceIntakePanel.jsx` و`LocalDocumentEvidenceWorkspace.jsx`. ولذلك لا يجوز اعتبار #772 منسوخًا أو مغلقًا بمجرد أن #773 نجح على فرع تابع.
+- **تصحيح التقييم الوظيفي:** تبيّن أن النسخة الحديثة لا تعرض `data-reason-code` الأبوي، لكنها تستخدم `DiagnosticText.jsx` لإخراج وصف عربي/إنجليزي ورمز موثق في `data-diagnostic-code` داخل العنصر، واختبارات المتصفح الحالية تغطي `OCR_PAGE_INVALID` و`MANUAL_TRANSCRIPTION_UNVERIFIED` و`VERIFICATION_NOT_COMPLETE` وتمنع ظهور الكود للمستخدم. إذًا **الوظيفة نفسها موجودة**، وما تبقى من #772 هو مطابقة عقد DOM القديم أو إثبات عدم الحاجة إليه، ومراجعة سير العمل المستقل، وليس إعادة إنشاء التعريب.
 - [سجل الفروق وخطة عدم فقد وظائف OCR](https://github.com/turkialeid2030/startak-real-estate/blob/audit/startak-re-master-work-register-20261120/docs/audit/STARTAK_RE_PR772_PR773_SIBLING_DIFF_RECONCILIATION_20261120.md) يحدد قواعد الترحيل والاختبارات المطلوبة؛ [issue #337](https://github.com/turkialeid2030/startak-real-estate/issues/337) مُحدّث. حالة #772 Draft/mergeable=false، ولا دمج أو حذف أو إغلاق تلقائي.
 - ما زال إثبات مطابقة الـ57 مسار تاريخي وبقية اختلافات ملفات 110 PRs وموافقات المراجعين **OPEN**.
