@@ -42,6 +42,16 @@ function run() {
   assert.ok(!/(^|[^.\w])isFinite\(/m.test(source));
   assert.ok(source.includes('cumulativeAvailable'));
 
+  // Historical P25 assumption evidence from saved deals must reach the
+  // current decision engine; the UI cannot drop it and show a baseline verdict.
+  assert.ok(source.includes('assumptionRegistryByMode'));
+  assert.ok(source.includes('assumptionRegistry: assumptionRegistryByMode.building'));
+  assert.ok(source.includes('assumptionRegistry: assumptionRegistryByMode.land'));
+  assert.ok(source.includes('hydrated.assumptionRegistry'));
+  assert.ok(source.includes('activeAssumptionRegistry'));
+  assert.ok(source.includes('data-testid="historical-assumption-override-hold"'));
+  assert.ok(source.includes('activeUiState.assumptionOverrideHold'));
+
   // UI wiring cannot grant execution authority.
   assert.ok(!source.includes('transactionAuthorized: true'));
 
