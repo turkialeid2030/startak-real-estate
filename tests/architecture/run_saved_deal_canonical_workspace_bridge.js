@@ -121,4 +121,36 @@ assert.throws(() => createCanonicalWorkspaceFromSavedDeal({
   caseId: 'CASE-X',
 }), /projectProfile\.projectId must be a non-empty string/);
 
+
+// A historical P25 override must never be dropped by the saved-deal ->
+// canonical bridge and silently relabeled as an investment-ready financial
+// model. Legacy provenance remains in the stored deal for remediation.
+const unsupportedHistorical = createCanonicalWorkspaceFromSavedDeal({
+  savedDeal: {
+    ...savedDeal,
+    id: 'deal-p25-unapproved',
+    assumptionModelVersion: 'V2',
+    assumptionRegistry: [{
+      id: 'maintenanceRate',
+      value: 0.06,
+      critical: true,
+      override: true,
+      overrideReason: 'Synthetic pending financial override',
+      approvalStatus: 'PENDING',
+    }],
+  },
+  workspaceId: 'WORKSPACE-P25-PENDING',
+  projectProfile,
+  caseId: 'CASE-P25-PENDING',
+  attribution: { actorId: 'USER-001', actorRole: 'ANALYST' },
+});
+assert.equal(unsupportedHistorical.executableCase.financialModel.status, 'ANALYTICAL_HOLD');
+assert.equal(unsupportedHistorical.executableCase.financialModel.decisionStatus, 'INCOMPLETE_INPUTS');
+assert.equal(unsupportedHistorical.executableCase.financialModel.analyticalResultsOnly, true);
+assert.equal(unsupportedHistorical.executableCase.financialModel.unsupportedAssumptionOverride, true);
+assert.equal(unsupportedHistorical.executableCase.assumptions.overrideRegistryPresent, true);
+assert.equal(unsupportedHistorical.executableCase.assumptions.overrideDocumentationHold, true);
+assert.equal(unsupportedHistorical.authority.transactionAuthorized, false);
+assert.equal(unsupportedHistorical.orchestration.transactionAuthorized, false);
+
 console.log('SAVED_DEAL_CANONICAL_WORKSPACE_BRIDGE=PASS');
