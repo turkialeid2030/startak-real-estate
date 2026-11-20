@@ -2,7 +2,7 @@
 
 const {
   ASSUMPTION_MODEL_VERSION,
-  V2_APPROVED_ASSUMPTIONS,
+  V2_CANONICAL_ASSUMPTIONS,
   buildAssumptionModelDisclosure,
   normalizeAssumptionModelVersion,
 } = require('./assumption-model');
@@ -51,9 +51,12 @@ function buildAssumptionDisclosureEnvelope({
 } = {}) {
   const version = normalizeAssumptionModelVersion(assumptionModelVersion);
   const modelDisclosure = buildAssumptionModelDisclosure(version);
-  const approvedAssumptionKeys = version === ASSUMPTION_MODEL_VERSION.V2
-    ? Object.freeze(Object.keys(V2_APPROVED_ASSUMPTIONS))
+  const canonicalDefaultAssumptionKeys = version === ASSUMPTION_MODEL_VERSION.V2
+    ? Object.freeze(Object.keys(V2_CANONICAL_ASSUMPTIONS))
     : Object.freeze([]);
+  // Baseline assumptions only demonstrate code defaults, not any external
+  // approval. In particular, export metadata must not imply signoff.
+  const approvedAssumptionKeys = Object.freeze([]);
 
   let exitCapNotice = null;
   if (exitCapSource === EXIT_CAP_SOURCE.LEGACY_DERIVED) exitCapNotice = EXIT_CAP_DISCLOSURE.LEGACY_DERIVED;
@@ -83,7 +86,7 @@ function buildAssumptionDisclosureEnvelope({
     && leaseRollForwardStatus === LEASE_ROLL_FORWARD_STATUS.MISSING_REQUIRED;
 
   return Object.freeze({
-    schemaVersion: 3,
+    schemaVersion: 4,
     assumptionModelVersion: version,
     badge: Object.freeze({
       ar: modelDisclosure.label_ar,
@@ -93,10 +96,10 @@ function buildAssumptionDisclosureEnvelope({
     userApprovedAssumptions: modelDisclosure.userApprovedAssumptions,
     approvalEvidenceStatus: modelDisclosure.approvalEvidenceStatus,
     canonicalDefaultsAreApprovalEvidence: false,
-    // Backward-compatible V2 configuration keys; these are not a signed
-    // approval list and must not authorize underwriting or transactions.
+    // The deprecated approved-list field is always empty unless a separate
+    // professional approval contract is established and independently verified.
     approvedAssumptionKeys,
-    canonicalDefaultAssumptionKeys: approvedAssumptionKeys,
+    canonicalDefaultAssumptionKeys,
     exitCapSource,
     exitCapNotice,
     requiresExplicitExitCap,
@@ -110,6 +113,9 @@ function buildAssumptionDisclosureEnvelope({
       assumptionModelVersion: version,
       legacyCompatibility: modelDisclosure.legacyCompatibility,
       approvedAssumptionKeys,
+      canonicalDefaultAssumptionKeys,
+      canonicalDefaultsAreApprovalEvidence: false,
+      approvalEvidenceStatus: modelDisclosure.approvalEvidenceStatus,
       exitCapSource,
       exitCapRequired: requiresExplicitExitCap,
       exitTransactionCostSource,
@@ -118,7 +124,7 @@ function buildAssumptionDisclosureEnvelope({
       leaseRollForwardRequired: requiresLeaseRollForward,
     }),
     transactionAuthorized: false,
-    semantics: 'Disclosure metadata for dashboards, cash-flow views, sensitivity views, and exports. It describes the active assumption model plus exit-cap, exit-transaction-cost, and contractual lease-roll-forward provenance; it does not determine statutory tax incidence, invent post-expiry lease economics, or authorize a transaction.',
+    semantics: 'Disclosure metadata for dashboards, cash-flow views, sensitivity views, and exports. Canonical baseline numeric defaults are not signed user, committee, valuer, lender or tax approval. The approvedAssumptionKeys list is empty without independently verified evidence. This metadata does not determine statutory tax incidence, invent post-expiry lease economics, or authorize a transaction or commercial launch.',
   });
 }
 
