@@ -32,6 +32,31 @@ check(() => assert.throws(() => requireAuthorizedAction({ identity: mismatchedPr
 check(() => assert.throws(() => normalizePolicy({ VIEW_CASE: [] }), /at least one role/));
 check(() => assert.throws(() => normalizePolicy({ VIEW_CASE: [''] }), /at least one role/));
 
+check(() => assert.strictEqual(Object.getPrototypeOf(policy), null));
+check(() => assert.strictEqual(
+  authorizeAction({ identity: analyst, action: 'toString', policy }).reason, 'ACTION_NOT_IN_POLICY',
+));
+check(() => assert.strictEqual(
+  authorizeAction({ identity: analyst, action: 'constructor', policy }).reason, 'ACTION_NOT_IN_POLICY',
+));
+check(() => assert.strictEqual(
+  authorizeAction({ identity: analyst, action: '__proto__', policy }).reason, 'ACTION_NOT_IN_POLICY',
+));
+check(() => assert.throws(
+  () => normalizePolicy(JSON.parse('{"__proto__":["ADMIN"]}')),
+  /reserved policy action/,
+));
+check(() => assert.throws(
+  () => normalizePolicy(JSON.parse('{"constructor":["ADMIN"]}')),
+  /reserved policy action/,
+));
+check(() => assert.strictEqual(authorizeAction({
+  identity: analyst,
+  action: 'VIEW_CASE',
+  policy: Object.assign(Object.create(null), {VIEW_CASE:['ANALYST']}),
+}).allowed, true));
+
+
 const denied = authorizeAction({ identity: viewer, action: 'EDIT_CASE', policy });
 const event = createSecurityAuditEvent({
   eventId: 'EVT-1',
