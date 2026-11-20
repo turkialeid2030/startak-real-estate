@@ -476,3 +476,16 @@
 - مرشح الأمن الحالي `8e3131bbe71720a7905c75d74a6c7a9b17b3a020`، [Release Verify #44800557471](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44800557471) **SUCCESS**: `REGRESSION_TOTAL=643 PASSED=643`، `TEST_DISCOVERY_AND_REGRESSION=PASS`، `PRODUCTION_BUILD=PASS`، `VERIFY_PACKAGE=PASS`، `NPM_AUDIT_RELEASE_THRESHOLD=PASS`، `critical=0 high=0 moderate=0 low=0` في التبعية التي فُحصت.
 - [Security #44800558086](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44800558086) و[D04 #44800557511](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44800557511) و[C7 #44800557595](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44800557595) و[Wave17A #44800557548](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44800557548) و[Owner Browser #44800557530](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44800557530): **SUCCESS** على نفس الالتزام.
 - [One Batch #44800557478](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44800557478) لا تزال بوابة مستقلة للسماح الخارجي، لا تكفي نتائج Release Verify للبت بدلًا عنها. الاستمرار `HOLD_NOT_AUTHORIZED` إلى حين حسم Q01–Q12 والاختبارات الحية.
+
+
+## 19. W19/W24: اكتمل اكتشاف الاعتماديات لجميع PRs الـ110
+
+**تحديث أحدث يحلّ محل قيد «96 طلبًا غير مفحوصة» الوارد في القسم 17:** استُعيدت بيانات `head/base` وDraft وmergeable والـSHA لجميع [طلبات الدمج الـ110 المفتوحة](https://github.com/turkialeid2030/startak-real-estate/blob/audit/startak-re-master-work-register-20261120/docs/audit/STARTAK_RE_ALL_110_PR_DEPENDENCY_GRAPH_20261120.md) مباشرة من GitHub.
+
+- **110 طلبات مفتوحة**، بينها **106 Draft** و**4 غير مسودات**؛ **106 روابط اعتماد أب-فرع مباشرة**، و**4 جذور** بلا أب مفتوح في قائمة اليوم، و**0 دورات مرئية**.
+- جذور السلاسل المفتوحة: [#461](https://github.com/turkialeid2030/startak-real-estate/pull/461) (قاعدته `main`)؛ [#463](https://github.com/turkialeid2030/startak-real-estate/pull/463) (قاعدته `p26-financial-timing-basis-disclosure`؛ يلزم فحص تاريخ الفرع)؛ [#763](https://github.com/turkialeid2030/startak-real-estate/pull/763) (`main`)؛ [#767](https://github.com/turkialeid2030/startak-real-estate/pull/767) (`main`).
+- أحجام العائلات: #463 = **91 PR** (أقصى عمق اعتماديات **90**)، #767 = **15 PR**، #763 = **3 PR**، #461 = **1 PR**. هذه ليست موجات دمج معتمدة، بل بنية علاقات لمراجعة تسلسلها.
+- **Mergeable=false** حاليًا: [#461](https://github.com/turkialeid2030/startak-real-estate/pull/461) و[#772](https://github.com/turkialeid2030/startak-real-estate/pull/772). قد تتغير حالة الدمج مع تغيير القواعد أو الرؤوس؛ ولا يجوز تفسيرها سببيًا دون فحص الفروق والتعارض.
+- **أُنجز ضمن W19/W24:** الجرد الكامل، ربط رؤوس الفروع واعتمادياتها، وتحديد الأولويات البنيوية. **لم ينجز:** مراجعة الـ110 فروق ومطابقة الوظائف، والحصول على موافقات أصحاب الصلاحية، وخطة الدمج المجازة والمختبرة؛ تظل W19/W24 مفتوحتين حتى تتوفر الأدلة.
+- تبقى نتائج [Release Verify #44800557471](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44800557471) `643/643 PASS` على مرشح الأمن وحده؛ هذه النتيجة لا تسري تلقائيًا على كل الـ110 PRs غير المدمجة ولا تمنح إذن إطلاق أو تقييم مهني.
+- **قرار الحوكمة:** `HOLD_NOT_AUTHORIZED`، لا دمج ولا إغلاق عشوائي ولا حذف فرع ولا نشر.
