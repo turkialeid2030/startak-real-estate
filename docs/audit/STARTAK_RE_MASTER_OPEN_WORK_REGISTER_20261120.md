@@ -551,3 +551,11 @@
 
 - ظهر إخفاق حقيقي في [P27 #44807320372](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44807320372) لأن أول تعديل أفرغ الحقل التاريخي `approvedAssumptionKeys` خلافًا لاختبار التوافق المحدد في `p27_v2_approval_disclosure_20261110.js` (642/643). رُدّت الدلالة القديمة **كتوافق للقراءة فقط** وأضيف حقل منفصل للاعتماد المستقل، مع الحفاظ على الدليل الرافض لأي اعتماد مستنتج. ينبغي **فحص نتائج CI على التزام التصحيح `531cf552beb608a4f48f5e793cf1fb5a911dfca5`** قبل وصف المشكلة بأنها مغلقة هندسيًا.
 - لا يعد إصلاح حقل الإفصاح إغلاقًا لمسار Q03 أو كفاية لمطابقة الفرضيات المالية مع الدفاتر أو العقود الفعلية؛ `HOLD_NOT_AUTHORIZED`.
+
+
+## 23. الإفصاح المالي في واجهة المستخدم واعتماد P27
+
+- بعد التصحيح التوافقي، أضيف تمرير حقول `canonicalDefaultAssumptionKeys` و`independentlyApprovedAssumptionKeys=[]` و`approvalEvidenceStatus=NOT_SUPPLIED` و`userApprovedAssumptions=false` من عقد الإفصاح إلى `buildUiDisclosureViewModel`. لا يتم تغيير معادلات أو معدلات V2.
+- أضيفت **7 تأكيدات مباشرة** في `p27_v2_approval_disclosure_20261110.js` لفحص ظهور الفرق بين الاسم التوافقي القديم للمعاملات الافتراضية وبين الاعتماد المهني المستقل في الـUI وبيانات التصدير.
+- **الالتزام الجديد:** `3da3532a6a39221db1f4612a92839468cfd621e5` على مسودة [PR #803](https://github.com/turkialeid2030/startak-real-estate/pull/803). يجب انتظار/فحص نتائج الالتزام نفسه: [P27 #44808624683](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44808624683)، [P25 #44808624697](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44808624697)، [Release #44808624729](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44808624729)، [Security #44808624642](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44808624642)، [One Batch #44808624671](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44808624671).
+- النتيجة الوظيفية المستقلة لثلاث مجموعات اختبارات P25 التاريخية غير المثبتة، وبيانات الحسابات الفعلية واعتمادات Q03، لا تزال مفتوحة، وكذلك قرار الإطلاق `HOLD_NOT_AUTHORIZED`.
