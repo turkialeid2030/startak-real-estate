@@ -58,10 +58,14 @@ function createSecurityAuditEvent({ eventId, occurredAt, identity, action, resou
   const tenantId = normalizedIdentity?.tenantId || '';
   if (!id || !timestamp || !action || !resourceType || !resourceId || !decision || !reason) throw new TypeError('security audit event missing required fields');
   if (!['ALLOW', 'DENY', 'HOLD_IDENTITY'].includes(String(decision))) throw new TypeError('invalid security audit decision');
-  const safeMetadata = {};
+  // Metadata may originate from parsed JSON. A plain {} would treat
+  // "__proto__" as a prototype setter; reserve prototype-related keys and
+  // store only inert own fields in a null-prototype audit object.
+  const safeMetadata = Object.create(null);
   for (const [key, value] of Object.entries(metadata || {})) {
-    if (/token|password|secret|authorization|cookie|session/i.test(key)) continue;
-    safeMetadata[String(key)] = value == null ? null : String(value);
+    if (/token|password|secret|authorization|cookie|session/i.test(key)
+      || ['__proto__', 'prototype', 'constructor'].includes(key)) continue;
+    safeMetadata[key] = value == null ? null : String(value);
   }
   return Object.freeze({
     schemaVersion: 1,
