@@ -457,3 +457,15 @@
 - **آخر حزمة هندسية مؤهلة:** `1aeb0c2a7bb8e7b77f66491616128562380d9f88`. [Release Verify #44794398298](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44794398298) **PASS 642/642**، وبقية خمس بوابات مستقلة ناجحة؛ [One Batch #44794398570](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44794398570) أعلن `ALL_STAGES_ENGINEERING=PASS` و`ALL_STAGES_DECISION=HOLD_NOT_AUTHORIZED` مع `exit 2` متعمد. لا إخفاق هندسي في هذه الدفعة؛ الاعتماد الخارجي ما زال حائلًا للإطلاق.
 - **Q01–Q12:** فُحصت القضايا مباشرة، ما زال لكل مسار `0/3` اعتماد مستقل و`NO PERSON APPOINTED` للدور المهني؛ لا يجوز اختراع تعيين أو إغلاق قبل تفويض حقيقي.
 - **القرار:** `HOLD_NOT_AUTHORIZED`، لا حذف فروع ولا إغلاق قضايا ولا دمج ولا نشر إنتاجي.
+
+
+## 18. W21 الاستلام المستقل وW01 اختبار HTTP–JWT المتكامل
+
+**المراجع:** [QCR #747](https://github.com/turkialeid2030/startak-real-estate/issues/747)؛ [Q05 #754](https://github.com/turkialeid2030/startak-real-estate/issues/754)؛ [PR #803](https://github.com/turkialeid2030/startak-real-estate/pull/803)؛ [PR #805](https://github.com/turkialeid2030/startak-real-estate/pull/805).
+
+- **W21 تقدّم توثيقي:** أُنشئ [سجل استلام واعتماد الأدلة الـ36](https://github.com/turkialeid2030/startak-real-estate/blob/audit/startak-re-master-work-register-20261120/docs/audit/STARTAK_RE_QCR_36_INDEPENDENT_EVIDENCE_INTAKE_20261120.md) مع المعرفات الحرفية المطلوبة في قضايا Q01–Q12 وحقول المراجع/التعيين/التحقق والتوقيع. قضايا Q01–Q12 كلها OPEN، `0/3` لكل قضية و`NO PERSON APPOINTED`. لا تعيين أشخاص ولا تلقي مستندات حقيقية ولا توقيع؛ **W21 غير مغلق**.
+- **W01 تقدّم هندسي:** إضافة اختبار متكامل بين JWT RS256 حقيقي التوقيع بمفاتيح تولدت للاختبار، وHTTP loopback، وصلاحيات الموظف، والحفظ الذري المعزول بالمؤسسة في ذاكرة اختبارية مؤقتة. رفض وصول الزميل، وخلط مؤسستين على رقم سجل واحد، وتجاوز الصلاحيات والمشروع والحالة والمؤسسة من الطلب.
+- **ضوابط أضيفت:** منع حفظ `workspace.tenantId` الذي يخالف المؤسسة المؤكدة من JWT، وحجر سجلات الحفظ الفاسدة التي تحتوي مؤسسة داخلية متعارضة، وإرجاع 400 بأكواد ثابتة دون كشف تفاصيل عند خطأ المستخدم بدلًا من 500.
+- [Security #44800558086](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44800558086) **SUCCESS** على `8e3131bbe71720a7905c75d74a6c7a9b17b3a020`: `AUTHENTICATED_WORKSPACE_HTTP_E2E_V1: PASS (20 synthetic loopback checks; NO LIVE IdP/DB)`؛ اختبار PostgreSQL 16 الواقعي في قاعدة GitHub مؤقتة مستقلًا PASS؛ اختبارات JWT 40 PASS؛ تدقيق npm في البيئة الحالية دون تنبيهات. هذا **ليس** اختبار IdP/HTTP/Postgres الإنتاجي المتصل، ولا يقدم وثيقة Q05 المعتمدة.
+- بانتظار القراءة النهائية لبوابات نفس الالتزام: [Release Verify #44800557471](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44800557471) و[One Batch #44800557478](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44800557478) وبقية المتصفحات.
+- **قرار حاكم:** W01 وW21 ما زالا غير مغلقين للتشغيل، `Q05=0/3` و`QCR=0/36`؛ `HOLD_NOT_AUTHORIZED`، لا دمج ولا نشر ولا حسابات أو بيانات عملاء حقيقية.
