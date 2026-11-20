@@ -146,6 +146,9 @@ async function main() {
   const delegatedPersistence = createCanonicalWorkspacePersistence({
     storageProvider: provider,
     trustedRecordGrantResolver: async (scope) => ({
+      // Synthetic grant record echoes the strictly verified tuple; a live
+      // resolver must independently retrieve and validate the actual assignment.
+      ...scope,
       allowed: scope.tenantId === 'tenant-a'
         && scope.workspaceId === 'WS-001'
         && scope.ownerActorId === 'user-1'
@@ -203,6 +206,35 @@ async function main() {
     (e) => e.code === 'WORKSPACE_RECORD_ACCESS_DENIED',
   ));
   await check(async () => assert.deepStrictEqual(observedResolverActions, []));
+  await check(async () => assert.rejects(
+    permissiveReviewRuntime.loadWorkspace({
+      identityContext: reviewer,
+      workspaceId: 'WS-001',
+    }),
+    (e) => e.code === 'WORKSPACE_RECORD_ACCESS_DENIED',
+  ));
+  // Even a signed, explicit allow response is rejected when it names a
+  // different workspace. The grant's target tuple must exactly match.
+  const wrongScopePersistence = createCanonicalWorkspacePersistence({
+    storageProvider: provider,
+    trustedRecordGrantResolver: async (scope) => ({
+      ...scope,
+      workspaceId: 'WS-OTHER-CASE',
+      allowed: true,
+      grantRef: 'SYNTHETIC-OTHER-WORKSPACE-GRANT',
+    }),
+  });
+  const wrongScopeRuntime = createCanonicalWorkspaceRuntime({
+    persistence: wrongScopePersistence,
+  });
+  await check(async () => assert.rejects(
+    wrongScopeRuntime.loadWorkspace({
+      identityContext: reviewer,
+      workspaceId: 'WS-001',
+    }),
+    (e) => e.code === 'WORKSPACE_RECORD_ACCESS_DENIED',
+  ));
+
   await check(async () => assert.strictEqual(
     (await runtime.loadWorkspace({ identityContext: analyst, workspaceId: 'WS-001' })).version,
     1,
