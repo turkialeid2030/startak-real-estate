@@ -245,7 +245,7 @@ function verify(token, overrides = {}) {
     fetchImpl: async () => ({
       ok: true,
       status: 200,
-      headers: { get: () => 'application/json' },
+      headers: { get: (name) => name.toLowerCase() === 'content-type' ? 'application/json' : null },
       text: async () => JSON.stringify({ keys: [{ ...privateJwk, kid: 'private', alg: 'RS256' }] }),
     }),
   });
