@@ -9,6 +9,7 @@ const {
 const {buildAssumptionDisclosureEnvelope}=
   require('../../src/assumptions/assumption-disclosure');
 const {EXIT_CAP_SOURCE}=require('../../src/engines/valuation/exit-cap-resolver');
+const {buildUiDisclosureViewModel}=require('../../src/assumptions/ui-integration-controller');
 
 let checks=0;
 function equal(actual,expected,label){assert.deepStrictEqual(actual,expected,label);checks++}
@@ -37,6 +38,32 @@ equal(envelope.canonicalDefaultAssumptionKeys,Object.keys(V2_APPROVED_ASSUMPTION
   'configuration defaults still discoverable');
 equal(envelope.approvedAssumptionKeys,envelope.canonicalDefaultAssumptionKeys,
   'legacy key retained only for compatibility');
+
+equal(envelope.independentlyApprovedAssumptionKeys,[],
+  'no independent approvals may be inferred from code defaults');
+equal(envelope.exportMetadata.independentlyApprovedAssumptionKeys,[],
+  'export must expose explicitly empty independent approval evidence');
+const ui = buildUiDisclosureViewModel({
+  governance: {
+    disclosure: envelope,
+    sensitivity: { status:'HOLD_INCOMPLETE_INPUTS', renderPolicy:{} },
+    sensitivityReady:false,
+    exitCapInputRequired:true,
+    exitTransactionCostInputRequired:false,
+    leaseRollForwardRequired:false,
+  },
+});
+equal(ui.approvedAssumptionKeys,envelope.approvedAssumptionKeys,
+  'deprecated UI key remains backward-compatible');
+equal(ui.canonicalDefaultAssumptionKeys,envelope.canonicalDefaultAssumptionKeys,
+  'UI explicitly labels canonical numeric defaults');
+equal(ui.independentlyApprovedAssumptionKeys,[],
+  'UI cannot imply signed financial assumptions');
+equal(ui.userApprovedAssumptions,false,
+  'UI requires real user/committee approval evidence');
+equal(ui.approvalEvidenceStatus,'NOT_SUPPLIED',
+  'UI exposes absent approval evidence as such');
+
 equal(envelope.requiresExplicitExitCap,true,'financial hard gate stays closed');
 const legacyEnvelope=buildAssumptionDisclosureEnvelope({
  assumptionModelVersion:ASSUMPTION_MODEL_VERSION.LEGACY,
