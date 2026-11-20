@@ -13,22 +13,30 @@
 
 | File from #772 | Overlap with #773 | Verified content of #772 diff | State in current `security/hardening-v1` source | Recommendation |
 |---|---|---|---|---|
-| `src/components/LocalDocumentEvidenceIntakePanel.jsx` | No | Add `data-reason-code` to OCR alert, parser reason and warning rows | No `data-reason-code` currently found in this file | **PORT/TEST PENDING**, preserve message localization and machine-readable code separately |
-| `src/components/LocalDocumentEvidenceWorkspace.jsx` | No | Add `data-reason-code` to visually hidden verification-workflow status | Existing `data-verification-status`, missing `data-reason-code` | **PORT/TEST PENDING**, validate UI behavior and downstream readers |
-| `tests/e2e/run_audit_20261010_remaining_browser.js` | **Yes** | Replace raw diagnostic-code text checks with Arabic explanation plus `data-reason-code` checks | Latest branch contains old raw-code checks and lacks `data-reason-code` assertions | **RECONCILE TEST PATCH** with #773 advanced-mode routing, not an unreviewed cherry-pick |
-| `tests/e2e/run_audit_20261020_local_ocr_browser.js` | **Yes** | Assert localized Arabic OCR-page error and `data-reason-code='OCR_PAGE_INVALID'` | Latest branch retains old raw diagnostic text check; #773 altered advanced-mode routing | **RECONCILE TEST PATCH** with #773 navigation and current Arabic copies |
+| `src/components/LocalDocumentEvidenceIntakePanel.jsx` | No | Add `data-reason-code` to OCR alert, parser reason and warning rows | `DiagnosticText.jsx` already emits **nested `data-diagnostic-code`** with localized Arabic/English text for OCR and manual warnings; parent `data-reason-code` alias is absent | **FUNCTIONAL EQUIVALENT FOR DIAGNOSTIC CONTENT; ATTRIBUTE-API DIFFERENCE**. Only port alias if a verified consumer requires it |
+| `src/components/LocalDocumentEvidenceWorkspace.jsx` | No | Add `data-reason-code` to visually hidden verification-workflow status | Parent already exposes `data-verification-status`; child `DiagnosticText` emits `data-diagnostic-code='VERIFICATION_NOT_COMPLETE'` with localized explanation | **FUNCTIONAL EQUIVALENT FOR TESTED OUTPUT; ATTRIBUTE-API DIFFERENCE**. Determine if parent selector compatibility is required |
+| `tests/e2e/run_audit_20261010_remaining_browser.js` | **Yes** | Replace raw diagnostic-code text checks with Arabic explanation plus `data-reason-code` checks | **Newer test already asserts** localized warnings, absence of raw code in text and nested `data-diagnostic-code` for `MANUAL_TRANSCRIPTION_UNVERIFIED` and `VERIFICATION_NOT_COMPLETE` | **FUNCTIONAL REGRESSION COVERAGE PRESENT** with newer advanced-mode routing; alias parity still unproven |
+| `tests/e2e/run_audit_20261020_local_ocr_browser.js` | **Yes** | Assert localized Arabic OCR-page error and `data-reason-code='OCR_PAGE_INVALID'` | **Newer test already asserts** localized error message, no raw `OCR_PAGE_INVALID` in text, and nested `data-diagnostic-code='OCR_PAGE_INVALID'`; #773 advanced-mode routing retained | **FUNCTIONAL REGRESSION COVERAGE PRESENT**; validate any external reliance on old parent attribute before closure |
 | `.github/workflows/owner-hidden-diagnostics-verification.yml` | No | Dedicated pinned-browser OCR/manual diagnostics and canonical release-test job | Workflow does not exist on latest security branch | **WORKFLOW COVERAGE REVIEW PENDING**; avoid duplicating already-present release/locale/owner CI without evidence |
 
 ## Review protocol and no-loss acceptance
 
 1. Compare the complete content of each file with both branches and evaluate semantic differences against today's application, not against outdated screenshots.
-2. Port the tiny JSX metadata attributes *only* after confirming exact diagnostic-code contracts and whether they may expose sensitive values (no customer text in attributes).
-3. Preserve #773 advanced-mode navigation and its dependent follow-on changes. Bring over E2E assertions only after validating current localized output; run all browsers and test both widths where feasible.
+2. **Do not blindly port** parent JSX attributes. `DiagnosticText.jsx` already emits nested `data-diagnostic-code` and localized text. Check whether any consumer actually requires the old parent-level `data-reason-code` name; if not, prefer the tested equivalent contract without duplicating metadata.
+3. Retain the current E2E assertions validating localized Arabic explanations, no raw diagnostic strings in text, and nested `data-diagnostic-code`. Re-run them across supported browsers/widths after any future consumer-contract change; preserve #773 advanced-mode navigation.
 4. Decide whether the dedicated workflow adds meaningful coverage over existing D04/One Batch/owner browser CI; keep immutable source/PR review evidence either way.
 5. Record a reviewer-approved disposition for #772 after exact-head tests; **do not close, delete, rebase, merge, or retarget it automatically**.
 
 ## Governance
 
 - This is a **verified difference review**, not completion of historical function parity for all 57 paths (W16) or all 110 PRs (W19/W24).
-- #772's state remains unresolved; it carries source changes not demonstrably present on #803.
+- #772's **exact DOM attribute name** is not present on #803, but its **user-facing localized diagnostic content and machine-readable code are demonstrably covered through `DiagnosticText` and current browser regression assertions**. Do not call this a missing feature without evidence of an external `data-reason-code` consumer; the separate workflow and formal PR disposition remain to review.
 - Production and professional go-live authority: `HOLD_NOT_AUTHORIZED`.
+
+## Follow-up verification: modern equivalent diagnostic contract
+
+- Current `src/components/DiagnosticText.jsx`: wraps localized content in a `<span data-diagnostic-content data-diagnostic-code={diagnostic.code}>`, without displaying the internal code to the user.
+- Current `src/i18n/diagnostic-presentation.js`: includes the Arabic messages for `OCR_PAGE_INVALID` and `MANUAL_TRANSCRIPTION_UNVERIFIED` that #772 required.
+- Current `run_audit_20261010_remaining_browser.js`: asserts `[data-diagnostic-code="MANUAL_TRANSCRIPTION_UNVERIFIED"]` and `[data-diagnostic-code="VERIFICATION_NOT_COMPLETE"]`, checks localized visible text, and forbids raw code in visible content.
+- Current `run_audit_20261020_local_ocr_browser.js`: similarly checks `OCR_PAGE_INVALID` via nested `data-diagnostic-code` with localized text and no raw code exposure.
+- Therefore the earlier description "OCR diagnostic functionality missing from modern branch" was too strong and **is superseded by this verification**. The DOM selector/API name differs; old `data-reason-code` contract and dedicated workflow migration are not presumed required or waived.
