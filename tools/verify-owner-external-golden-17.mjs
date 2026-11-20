@@ -92,9 +92,17 @@ try {
   const fixture=await load('fixture');
   const ids=validateCases(fixture);
   mark('REFERENCE_FORMULA=PASS','cases=17 fixture_self_consistency=true source_authenticity_unverified=true independent_market_verified=false');
-  const residual=verifyResidualCases(fixture);
-  mark('AUXILIARY_REFERENCE=PASS',
-    'cases='+residual.cases+' hotel=2 unit_income=1 commercial_downstream_only=1 engine_parity=false source_bytes_verified=false');
+  // Some historical 17-case fixture formats legitimately omit the optional
+  // four auxiliary cases. Do not break the 17-case source/hash/IRR checks:
+  // mark those auxiliary cases BLOCKED, not PASS. An explicitly supplied
+  // residualCases field must validate all four or fail closed.
+  if (Object.prototype.hasOwnProperty.call(fixture, 'residualCases')) {
+    const residual=verifyResidualCases(fixture);
+    mark('AUXILIARY_REFERENCE=PASS',
+      'cases='+residual.cases+' hotel=2 unit_income=1 commercial_downstream_only=1 engine_parity=false source_bytes_verified=false');
+  } else {
+    mark('AUXILIARY_REFERENCE=BLOCKED_NOT_SUPPLIED', 'cases=0 optional_legacy_fixture=true');
+  }
   if(!opts.has('engine-results')){
     mark('ENGINE_PARITY=BLOCKED_NOT_SUPPLIED');
     process.exit(2);
