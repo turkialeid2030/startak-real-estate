@@ -397,3 +397,14 @@
 - [Security Hardening #44789046911](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44789046911) و[Owner Browser #44789047136](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44789047136) و[D04 #44789046950](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44789046950) و[Monte Carlo #44789047018](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44789047018) و[Wave 17A #44789046932](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44789046932) **SUCCESS** لنفس الرأس.
 - [One Batch #44789046975](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44789046975) بانتظار فحص سجل النتيجة النهائية؛ لا يغيّر انتهاء CI وحده غياب الأدلة المستقلة في Q01–Q12.
 - **ما لا يُستنتج:** نجاح CI لا يثبت امتلاك المستودع للملفات المصدرية المرخصة ولا التقييمات الحقيقية على محرك STARTAK، ولا اختبار A/B للهوية في الإنتاج، ولا رأي مثمّن معتمد. القرار الإنتاجي ما زال `HOLD_NOT_AUTHORIZED`.
+
+
+## 14. إصلاحات سياسات الهوية وسلامة السجل الأمني
+
+**20 نوفمبر 2026 — تحديث W01/Q05.**
+
+- **سلامة بيانات السجل الأمني:** استُخدم `Object.create(null)` عند تجميع `metadata` مع منع `__proto__` و`constructor` و`prototype` للحيلولة دون تفسير مفاتيح JSON كتعريفات لكائن JavaScript؛ مع الاحتفاظ بفلتر إخفاء الرموز والأسرار. تسعة اختبارات معزولة تغطي حقن المفاتيح والتحقق من عدم التغيير في السجل.
+- **الهوية وحدود المؤسسة:** `normalizeIdentity` لم يعد يحوّل معرّفات المستخدمين والمؤسسات أو الأدوار من كائنات وقيم غير نصية إلى سلاسل قابلة لتمثيل `ADMIN`. `normalizePolicy` يرفض أدوار السياسات غير النصية أو الفارغة؛ وأضيفت 6 اختبارات لحاجز المؤسسة و4 لاختبار سياسات الصلاحيات.
+- **إثبات الأمان:** الالتزام المرشح `7d042969511069d070ca2453f4e18bb6435e3a34` في [PR #803](https://github.com/turkialeid2030/startak-real-estate/pull/803). [Security CI #44791621552](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44791621552) **PASS**: `TENANT_BOUNDARY_SECURITY_V1: 24 checks`؛ `AUTHORIZATION_AUDIT_SECURITY_V1: 43 checks`؛ `CANONICAL_WORKSPACE_PRODUCT_RUNTIME_V1: 44 checks`؛ Postgres 16 RLS معزول PASS؛ فحص npm دون تنبيهات في هذه الدفعة.
+- **معلّق:** نتائج [Release Verify #44791621336](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44791621336) و[One Batch #44791621316](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44791621316) يجب التثبت من اكتمالهما على الرأس نفسه. الاختبارات الاصطناعية لا تثبت اختراقًا مستقلًا أو ربط IdP حقيقيًا أو تشفيرًا إنتاجيًا أو Q05 الإغلاق المستقل 3/3.
+- **الحكم:** `Q05 0/3 independently accepted`، وإطلاق `HOLD_NOT_AUTHORIZED`، و`main` دون تعديل أو دمج.
