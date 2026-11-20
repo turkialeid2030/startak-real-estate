@@ -107,6 +107,12 @@ function verifyRs256(signingInput, signature, jwk) {
   } catch (_) {
     return false;
   }
+  // A signature made with an RSA-1024 key can verify mathematically, but
+  // such a key is not acceptable for an authentication trust boundary.
+  // Require a 2048-bit modulus independently of whatever JWKS declares.
+  if (publicKey.asymmetricKeyType !== 'rsa'
+    || !Number.isInteger(publicKey.asymmetricKeyDetails?.modulusLength)
+    || publicKey.asymmetricKeyDetails.modulusLength < 2048) return false;
   try {
     return crypto.verify('RSA-SHA256', Buffer.from(signingInput, 'ascii'), publicKey, signature);
   } catch (_) {
