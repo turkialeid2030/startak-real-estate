@@ -392,6 +392,37 @@ assert.strictEqual(assumptionReadiness.status, OPERATING_UNDERWRITING_STATUS.REA
 assert.ok(assumptionReadiness.assumptions.some((item) => item.field === 'unit.rentableArea'));
 assert.strictEqual(assumptionCase.units[0].rentableArea.verificationStatus, OPERATING_INPUT_STATUS.ASSUMED);
 
+// A stale/injected title status cannot turn missing deed evidence into a
+// due-diligence-only disposition for an income-producing investment case.
+const controlledTitleCase = buildOperatingCase({ caseId: 'CASE-RIAI-MIXED-TITLE-HOLD' });
+const titleWithHiddenBlocker = {
+  ...controlledTitleCase.propertyInterest.titleAssessment,
+  status: 'LEGAL_REVIEW_REQUIRED',
+  blockers: [{ key: 'ownerName', code: 'REQUIRED_TITLE_FACT_MISSING' }],
+};
+const blockedTitleCase = {
+  ...controlledTitleCase,
+  propertyInterest: {
+    ...controlledTitleCase.propertyInterest,
+    titleAssessment: titleWithHiddenBlocker,
+  },
+};
+const blockedTitleReadiness = assessOperatingUnderwritingReadiness(blockedTitleCase);
+assert.strictEqual(blockedTitleReadiness.status, OPERATING_UNDERWRITING_STATUS.INSUFFICIENT_EVIDENCE);
+assert.ok(blockedTitleReadiness.evidenceGaps.some((entry) => entry.code === 'TITLE_EVIDENCE_HOLD'));
+assert.ok(blockedTitleReadiness.dueDiligence.some((entry) => entry.code === 'TITLE_LEGAL_REVIEW_REQUIRED'));
+
+const unknownTitleStatusReadiness = assessOperatingUnderwritingReadiness({
+  ...controlledTitleCase,
+  propertyInterest: {
+    ...controlledTitleCase.propertyInterest,
+    titleAssessment: { ...controlledTitleCase.propertyInterest.titleAssessment, status: 'UNKNOWN_TITLE_STATUS' },
+  },
+});
+assert.strictEqual(unknownTitleStatusReadiness.status, OPERATING_UNDERWRITING_STATUS.INSUFFICIENT_EVIDENCE);
+assert.ok(unknownTitleStatusReadiness.evidenceGaps.some((entry) =>
+  entry.code === 'TITLE_ASSESSMENT_STATUS_UNRECOGNIZED'));
+
 // Time-limited usufruct is preserved as a bounded interest and cannot imply freehold terminal value.
 const usufruct = buildOperatingCase({
   caseId: 'CASE-RIAI-USUFRUCT',
