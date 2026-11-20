@@ -109,13 +109,25 @@ function calculateUiInvestmentState({
     assumptionModelVersion: version,
     assumptionRegistry,
   });
-  const purchasePriceQualification = mode === UI_MODE.BUILDING
+  const requestedRegistryOverride = assumptionRegistry !== null && assumptionRegistry !== undefined
+    && (!Array.isArray(assumptionRegistry)
+      || assumptionRegistry.some(item => item && typeof item === 'object' && item.override === true));
+  const assumptionOverrideHold = requestedRegistryOverride
+    || (calculatedResults.decisionStatus === 'INCOMPLETE_INPUTS'
+      && calculatedResults.criticalAssumptionOverrideGovernance?.decisionReady === false);
+  // An unqualified historical override must not leave a baseline-derived
+  // purchase ceiling or certificate visible as if the override was applied.
+  const priceQualified = mode === UI_MODE.BUILDING && !assumptionOverrideHold;
+  const purchasePriceQualification = priceQualified
     ? qualifyPurchaseBoundary(inputs, version, calculatedResults.maxJustifiedPrice) : null;
-  const purchaseAlternative = mode === UI_MODE.BUILDING && includePurchaseAlternative
+  const purchaseAlternative = priceQualified && includePurchaseAlternative
     ? findVerifiedPurchaseAlternative(inputs, version, purchasePriceQualification) : null;
   const results = mode === UI_MODE.BUILDING ? { ...calculatedResults, purchasePriceQualification,
-    ...(includePurchaseAlternative ? { purchaseAlternative,
-      purchaseCeilingCertificate: certifyPurchaseCeiling(inputs, version, purchasePriceQualification.qualifiedPrice ?? purchaseAlternative.price),
+    ...(includePurchaseAlternative ? {
+      purchaseAlternative,
+      purchaseCeilingCertificate: priceQualified
+        ? certifyPurchaseCeiling(inputs, version, purchasePriceQualification.qualifiedPrice ?? purchaseAlternative.price)
+        : null,
     } : {}),
   } : calculatedResults;
   const governance = mode === UI_MODE.BUILDING
@@ -124,13 +136,6 @@ function calculateUiInvestmentState({
         financialResults: results,
       })
     : null;
-
-  const requestedRegistryOverride = assumptionRegistry !== null && assumptionRegistry !== undefined
-    && (!Array.isArray(assumptionRegistry)
-      || assumptionRegistry.some(item => item && typeof item === 'object' && item.override === true));
-  const assumptionOverrideHold = requestedRegistryOverride
-    || results.decisionStatus === 'INCOMPLETE_INPUTS'
-      && results.criticalAssumptionOverrideGovernance?.decisionReady === false;
   return Object.freeze({
     mode,
     assumptionModelVersion: version,
