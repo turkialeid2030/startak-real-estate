@@ -408,3 +408,10 @@
 - **إثبات الأمان:** الالتزام المرشح `7d042969511069d070ca2453f4e18bb6435e3a34` في [PR #803](https://github.com/turkialeid2030/startak-real-estate/pull/803). [Security CI #44791621552](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44791621552) **PASS**: `TENANT_BOUNDARY_SECURITY_V1: 24 checks`؛ `AUTHORIZATION_AUDIT_SECURITY_V1: 43 checks`؛ `CANONICAL_WORKSPACE_PRODUCT_RUNTIME_V1: 44 checks`؛ Postgres 16 RLS معزول PASS؛ فحص npm دون تنبيهات في هذه الدفعة.
 - **معلّق:** نتائج [Release Verify #44791621336](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44791621336) و[One Batch #44791621316](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44791621316) يجب التثبت من اكتمالهما على الرأس نفسه. الاختبارات الاصطناعية لا تثبت اختراقًا مستقلًا أو ربط IdP حقيقيًا أو تشفيرًا إنتاجيًا أو Q05 الإغلاق المستقل 3/3.
 - **الحكم:** `Q05 0/3 independently accepted`، وإطلاق `HOLD_NOT_AUTHORIZED`، و`main` دون تعديل أو دمج.
+
+
+### ملحق نتيجة Release Verify لالتزام W01
+
+- الالتزام `7d042969511069d070ca2453f4e18bb6435e3a34`: [Release Verify #44791621336](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44791621336) **SUCCESS**، و`REGRESSION_TOTAL=642 PASSED=642`، `PRODUCTION_BUILD=PASS`، `VERIFY_PACKAGE=PASS`، `NPM_AUDIT_RELEASE_THRESHOLD=PASS`؛ عدد التنبيهات المصنفة حاليًا 0.
+- [بوابة أمن #44791621552](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44791621552) **SUCCESS** في اختبارات أدوار المؤسسة والسجل الأمني وعزل PostgreSQL المعزول؛ [C7 #44791621274](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44791621274)، [Wave17A #44791621267](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44791621267)، و[متصفح المالك #44791621305](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44791621305) **SUCCESS**.
+- **لا تغيير في الاعتماد:** بيانات المصدر السعودي والـ17 حالة الخاصة والربط الحقيقي لـIdP والتخزين والنسخ الاحتياطية والأدلة المهنية للـ12 حزمة ما زالت غير مكتملة. `GO/HOLD=HOLD_NOT_AUTHORIZED`.
