@@ -18,9 +18,11 @@ function normalizePolicy(policy) {
     if (['__proto__', 'prototype', 'constructor'].includes(action)) {
       throw new TypeError('reserved policy action is not allowed');
     }
-    if (!Array.isArray(roles) || roles.length === 0) throw new TypeError(`policy action ${action} must list at least one role`);
-    normalized[String(action)] = Object.freeze([...new Set(roles.map((role) => String(role).trim()).filter(Boolean))]);
-    if (normalized[String(action)].length === 0) throw new TypeError(`policy action ${action} must list at least one role`);
+    if (!Array.isArray(roles) || roles.length === 0
+      || roles.some((role) => typeof role !== 'string' || !role.trim())) {
+      throw new TypeError(`policy action ${action} must list at least one valid string role`);
+    }
+    normalized[action] = Object.freeze([...new Set(roles.map((role) => role.trim()))]);
   }
   return Object.freeze(normalized);
 }
