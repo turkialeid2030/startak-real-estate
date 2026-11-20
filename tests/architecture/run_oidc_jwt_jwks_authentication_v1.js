@@ -253,6 +253,50 @@ function verify(token, overrides = {}) {
     await assert.rejects(() => badProvider.getJwks(), /JWKS_PRIVATE_KEY_MATERIAL_REJECTED/);
   });
 
+  // A content-length header must be enforced before the response body is read.
+  const oversizeDeclaredProvider = createRemoteJwksProvider({
+    issuer: ISSUER, jwksUri: 'https://issuer.example/oversized-content-length',
+    maxJwksBytes: 1024,
+    fetchImpl: async () => ({
+      ok: true, status: 200,
+      headers: { get: (name) => ({
+        'content-type': 'application/json', 'content-length': '2048',
+      })[name.toLowerCase()] || null },
+      text: async () => { throw new Error('body should not have been read'); },
+    }),
+  });
+  await checkAsync(async () => assert.rejects(
+    oversizeDeclaredProvider.getJwks(), /JWKS_RESPONSE_TOO_LARGE/,
+  ));
+
+  // Real Web Streams are checked on every chunk; no full text() allocation is
+  // required when an adversarial JWKS origin sends more than its allowed cap.
+  const oversizeStreamProvider = createRemoteJwksProvider({
+    issuer: ISSUER, jwksUri: 'https://issuer.example/oversized-stream',
+    maxJwksBytes: 1024,
+    fetchImpl: async () => new Response(new ReadableStream({
+      start(controller) {
+        controller.enqueue(Buffer.from('x'.repeat(700)));
+        controller.enqueue(Buffer.from('x'.repeat(700)));
+        controller.close();
+      },
+    }), { status: 200, headers: { 'content-type': 'application/json' } }),
+  });
+  await checkAsync(async () => assert.rejects(
+    oversizeStreamProvider.getJwks(), /JWKS_RESPONSE_TOO_LARGE/,
+  ));
+
+  const streamedValidProvider = createRemoteJwksProvider({
+    issuer: ISSUER, jwksUri: 'https://issuer.example/valid-stream',
+    maxJwksBytes: 1024,
+    fetchImpl: async () => new Response(JSON.stringify(jwks), {
+      status: 200, headers: { 'content-type': 'application/json' },
+    }),
+  });
+  await checkAsync(async () => assert.strictEqual(
+    (await streamedValidProvider.getJwks()).keys[0].kid, KID,
+  ));
+
   console.log(`OIDC_JWT_JWKS_AUTHENTICATION_V1: PASS (${checks} checks)`);
 })().catch((error) => {
   console.error(error);
