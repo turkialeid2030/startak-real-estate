@@ -181,9 +181,12 @@ function assessTitleFacts({ caseId, propertyId, facts, requiredFacts = REQUIRED_
     }
   }
 
+  // Missing, contradictory or untraceable core title facts are a hard hold.
+  // A mortgage/easement flag may require legal review as well, but must never
+  // downgrade an evidence blocker to a softer review-only status.
   let status = TITLE_RESULT_STATUS.FACTS_SUFFICIENT_FOR_ANALYSIS;
-  if (legalReviewFlags.length > 0) status = TITLE_RESULT_STATUS.LEGAL_REVIEW_REQUIRED;
-  else if (blockers.length > 0) status = TITLE_RESULT_STATUS.HOLD_EVIDENCE;
+  if (blockers.length > 0) status = TITLE_RESULT_STATUS.HOLD_EVIDENCE;
+  else if (legalReviewFlags.length > 0) status = TITLE_RESULT_STATUS.LEGAL_REVIEW_REQUIRED;
 
   return freeze({
     schemaVersion: 1,
