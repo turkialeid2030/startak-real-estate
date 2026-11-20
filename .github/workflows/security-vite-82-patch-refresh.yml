@@ -1,0 +1,77 @@
+name: STARTAK RE Vite 8.2 security patch refresh (isolated branch)
+
+on:
+  push:
+    branches:
+      - security/hardening-v1
+    paths:
+      - '.github/workflows/security-vite-82-patch-refresh.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch-vite-on-security-branch:
+    if: github.repository == 'turkialeid2030/startak-real-estate' && github.ref == 'refs/heads/security/hardening-v1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: startak-re-security-vite-patch-refresh
+      cancel-in-progress: false
+    steps:
+      - name: Checkout isolated security branch with commit write capability
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: security/hardening-v1
+          fetch-depth: 1
+          persist-credentials: true
+
+      - name: Setup pinned supported Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Rebuild lockfile for patched Vite 8.2.6 only
+        run: |
+          set -euo pipefail
+          node -e "const p=require('./package.json');if(p.devDependencies.vite!=='8.2.4')throw Error('UNEXPECTED_VITE_BASELINE');"
+          npm install --package-lock-only --save-dev --save-exact vite@8.2.6 --ignore-scripts --no-audit --no-fund
+          node - <<'NODE'
+          const assert = require('node:assert/strict');
+          const p = require('./package.json');
+          const lock = require('./package-lock.json');
+          assert.equal(p.devDependencies.vite, '8.2.6');
+          assert.equal(lock.packages[''].devDependencies.vite, '8.2.6');
+          assert.equal(lock.packages['node_modules/vite'].version, '8.2.6');
+          console.log('VITE_PATCH_MANIFEST_LOCK_MATCH=PASS');
+          NODE
+          git diff --check
+
+      - name: Install exactly patched lockfile
+        run: npm ci
+
+      - name: Prove production build and object authorization compatibility before commit
+        run: |
+          set -euo pipefail
+          npm run build
+          node tests/architecture/run_authenticated_canonical_workspace_service_v1.js
+          node tests/architecture/run_canonical_workspace_product_runtime_v1.js
+          node tests/architecture/run_authenticated_investment_committee_runtime_v1.js
+          node tests/architecture/run_authenticated_reporting_runtime_v1.js
+          node tests/runtime/run_canonical_workspace_http_api_tests.js
+          npm audit --omit=dev --audit-level=high
+
+      - name: Commit verified package and lockfile on security branch only
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- package.json package-lock.json
+          git diff --cached --check
+          git diff --cached --quiet && { echo 'PATCH_NO_CHANGE'; exit 1; }
+          git commit -m "fix(deps): pin Vite 8.2.6 security patch with regenerated lockfile"
+          git push origin HEAD:refs/heads/security/hardening-v1
+          echo 'SECURITY_BRANCH_PATCH_COMMITTED=true'
+          echo 'FULL_NPM_AUDIT_STILL_REQUIRED=true'
+          echo 'PRODUCTION_RELEASE_AUTHORIZED=false'
