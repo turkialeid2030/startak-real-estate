@@ -117,6 +117,37 @@ function verify(token, overrides = {}) {
     allowedAlgorithms: ['HS256'],
   }), /unsupported JWT algorithm/));
 
+  // A correctly signed RSA-1024 JWT is still unacceptable for issuer trust.
+  // Verifying its mathematics alone would allow a weak identity signing key.
+  const weakKeys = crypto.generateKeyPairSync('rsa', { modulusLength: 1024 });
+  const weakKid = 'weak-test-rsa-1024';
+  const weakHeader = b64urlJson({ alg: 'RS256', typ: 'JWT', kid: weakKid });
+  const weakPayload = b64urlJson({
+    iss: ISSUER, aud: AUDIENCE, sub: 'actor-123', tenant_id: TENANT,
+    roles: ['ANALYST'], iat: NOW - 30, nbf: NOW - 30, exp: NOW + 300,
+  });
+  const weakInput = `${weakHeader}.${weakPayload}`;
+  const weakSignature = crypto.sign(
+    'RSA-SHA256', Buffer.from(weakInput, 'ascii'), weakKeys.privateKey,
+  ).toString('base64url');
+  const weakJwks = { keys: [{
+    ...weakKeys.publicKey.export({ format: 'jwk' }),
+    kid: weakKid, alg: 'RS256', use: 'sig',
+  }] };
+  const weakJwt = `${weakInput}.${weakSignature}`;
+  check(() => assert.strictEqual(
+    crypto.verify('RSA-SHA256', Buffer.from(weakInput, 'ascii'), weakKeys.publicKey,
+      Buffer.from(weakSignature, 'base64url')), true,
+  ));
+  check(() => assert.strictEqual(
+    verify(weakJwt, { jwks: weakJwks }).status,
+    JWT_VERIFICATION_STATUS.HOLD_SIGNATURE,
+  ));
+  check(() => assert.strictEqual(
+    verify(weakJwt, { jwks: weakJwks }).authorizationReady,
+    false,
+  ));
+
   const duplicateJwks = { keys: [trustedJwk, { ...trustedJwk }] };
   check(() => assert.strictEqual(verify(validToken, { jwks: duplicateJwks }).status, JWT_VERIFICATION_STATUS.HOLD_SIGNING_KEY));
 
