@@ -12,6 +12,8 @@
  */
 import {readFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
+import {createRequire} from 'node:module';
+const {verifyResidualCases} = createRequire(import.meta.url)('./private-golden-residual-reference.cjs');
 
 const REQUIRED_IRR = '0.1444715207802304';
 const NONNEGATIVE_INTEGER = value => Number.isSafeInteger(value) && value >= 0;
@@ -90,6 +92,9 @@ try {
   const fixture=await load('fixture');
   const ids=validateCases(fixture);
   mark('REFERENCE_FORMULA=PASS','cases=17 fixture_self_consistency=true source_authenticity_unverified=true independent_market_verified=false');
+  const residual=verifyResidualCases(fixture);
+  mark('AUXILIARY_REFERENCE=PASS',
+    'cases='+residual.cases+' hotel=2 unit_income=1 commercial_downstream_only=1 engine_parity=false source_bytes_verified=false');
   if(!opts.has('engine-results')){
     mark('ENGINE_PARITY=BLOCKED_NOT_SUPPLIED');
     process.exit(2);
