@@ -159,6 +159,9 @@ async function main() {
     // Synthetic trusted server-side reviewer assignment. This exact grant
     // is bound to one actor, tenant, workspace, case and READ action only.
     trustedRecordGrantResolver: async (scope) => ({
+      // Synthetic grant record echoes the strictly verified tuple; a live
+      // resolver must independently retrieve and validate the actual assignment.
+      ...scope,
       allowed: scope.tenantId === 'tenant-a'
         && scope.workspaceId === 'WS-IC-001'
         && scope.caseId === 'CASE-IC-001'
