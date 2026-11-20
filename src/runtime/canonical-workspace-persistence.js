@@ -60,7 +60,10 @@ async function requireWorkspaceRecordAccess(envelope, identity, action, trustedR
   // An explicitly bound human review grant may authorize one actor to READ
   // one named workspace. Never infer a grant from shared tenant membership,
   // IC_MEMBER role alone, report content or user-provided workspace fields.
-  if (typeof trustedRecordGrantResolver === 'function') {
+  // Defense in depth: a reviewer assignment can NEVER authorize mutation,
+  // even if a trusted resolver erroneously returns allowed=true for WRITE.
+  // Owner and verified same-tenant ADMIN writes were handled above.
+  if (action === 'READ' && typeof trustedRecordGrantResolver === 'function') {
     let grant;
     try {
       grant = await trustedRecordGrantResolver(Object.freeze({
