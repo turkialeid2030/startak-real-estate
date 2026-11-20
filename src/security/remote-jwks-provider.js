@@ -117,6 +117,9 @@ function createRemoteJwksProvider({
   let cached = null;
   let cachedAt = 0;
   let inFlight = null;
+  // Monotonic epoch prevents a previously started HTTP response from
+  // restoring keys after invalidation or an explicit key rotation refresh.
+  let cacheEpoch = 0;
 
   async function fetchJwks() {
     const response = await fetchImpl(configuredJwksUri, {
@@ -151,8 +154,12 @@ function createRemoteJwksProvider({
     if (!forceRefresh && cached && current - cachedAt < cacheTtlMs) return cached;
     if (!forceRefresh && inFlight) return inFlight;
 
+    const requestEpoch = ++cacheEpoch;
     const request = fetchJwks()
       .then((jwks) => {
+        if (cacheEpoch !== requestEpoch) {
+          throw new Error('JWKS_FETCH_SUPERSEDED_OR_INVALIDATED');
+        }
         cached = jwks;
         cachedAt = Number(nowMs());
         return jwks;
@@ -165,6 +172,9 @@ function createRemoteJwksProvider({
   }
 
   function invalidate() {
+    // A pending response is never trusted after revocation/invalidation:
+    // the original getJwks() promise rejects rather than issuing old keys.
+    cacheEpoch++;
     cached = null;
     cachedAt = 0;
     inFlight = null;
