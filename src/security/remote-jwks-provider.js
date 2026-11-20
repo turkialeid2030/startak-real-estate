@@ -36,6 +36,50 @@ function normalizeJwks(value) {
   return Object.freeze({ keys: Object.freeze(keys) });
 }
 
+// Enforce a streaming byte cap when the transport supports Web Streams.
+// Checking the size *after* response.text() is too late to prevent a hostile
+// oversized JWKS response from consuming substantial server memory.
+async function readBoundedJwksResponse(response, maxBytes) {
+  const rawLength = typeof response.headers?.get === 'function'
+    ? response.headers.get('content-length')
+    : null;
+  if (rawLength != null && String(rawLength).trim() !== '') {
+    const declaredLength = Number(rawLength);
+    if (!Number.isSafeInteger(declaredLength) || declaredLength < 0) {
+      throw new Error('JWKS_CONTENT_LENGTH_INVALID');
+    }
+    if (declaredLength > maxBytes) throw new Error('JWKS_RESPONSE_TOO_LARGE');
+  }
+  if (!response.body || typeof response.body.getReader !== 'function') {
+    // Compatibility for injected deterministic test transports that provide
+    // only text(). Production Fetch responses use the bounded stream below.
+    const result = await response.text();
+    if (typeof result !== 'string' || !result.length) throw new Error('JWKS_EMPTY_RESPONSE');
+    if (Buffer.byteLength(result, 'utf8') > maxBytes) throw new Error('JWKS_RESPONSE_TOO_LARGE');
+    return result;
+  }
+  const reader = response.body.getReader();
+  const chunks = [];
+  let total = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!(value instanceof Uint8Array)) throw new Error('JWKS_RESPONSE_CHUNK_INVALID');
+      total += value.byteLength;
+      if (total > maxBytes) throw new Error('JWKS_RESPONSE_TOO_LARGE');
+      chunks.push(Buffer.from(value));
+    }
+  } catch (error) {
+    await reader.cancel().catch(() => {});
+    throw error;
+  } finally {
+    reader.releaseLock();
+  }
+  if (!total) throw new Error('JWKS_EMPTY_RESPONSE');
+  return Buffer.concat(chunks, total).toString('utf8');
+}
+
 /**
  * Creates a pinned remote JWKS provider. The JWKS URI is configuration, not token-
  * controlled input. Redirects are rejected to avoid silently moving the trust root.
@@ -84,9 +128,7 @@ function createRemoteJwksProvider({
       throw new Error('JWKS_CONTENT_TYPE_INVALID');
     }
 
-    const text = await response.text();
-    if (typeof text !== 'string' || text.length === 0) throw new Error('JWKS_EMPTY_RESPONSE');
-    if (Buffer.byteLength(text, 'utf8') > maxJwksBytes) throw new Error('JWKS_RESPONSE_TOO_LARGE');
+    const text = await readBoundedJwksResponse(response, maxJwksBytes);
 
     let parsed;
     try {
