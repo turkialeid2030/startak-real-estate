@@ -369,3 +369,14 @@
 - **عدم تجاوز حدود الإثبات:** تعذرت إتاحة نسخة خام مصرح بها للملف الخاص إلى البيئة التنفيذية؛ لذلك لا نملك تحقق SHA لبايتات الأصل ولا مخرجات تشغيل محرك STARTAK على الـ17 حالة. `ENGINE_PARITY=BLOCKED` و`IRR_PROVENANCE=BLOCKED`. لم يُرفع أي من بيانات التقييم الخاصة إلى المستودع.
 - **فاحص W06 الجديد:** `tools/private-golden-residual-reference.cjs` مع `tests/architecture/run_private_golden_residual_reference_v1.js`؛ [بوابة #44715752901](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44715752901) سجلت **PASS في 17 اختبارًا اصطناعيًا** للتحقق من رفض الفروق الحسابية والأوزان والمُدخلات غير السليمة، دون محاكاة ملكية المصدر أو اعتماد المهني.
 - **إطلاق المنتج:** لا تزال أدلة Q01–Q12 مؤجلة وقرار `HOLD_NOT_AUTHORIZED` نافذًا. لا دمج إلى `main`، ولا نشر، ولا تفويض قيمة تقييم مهني أو استخدام بيانات العملاء دون الموافقات الواقعية.
+
+
+## 12. إعادة التأهيل النهائي للفرع الأمني — 20 نوفمبر 2026
+
+- عُثر على عيب في إدارة أسماء إجراءات التفويض؛ نُفذ فصل جدول الإجراءات عن JavaScript Object.prototype وإضافة 7 اختبارات سلبية وإيجابية. [Security #44715146663](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44715146663): PASS.
+- أُضيف فاحص رياضي مساعد للحالات الخاصة الأربع؛ 17 اختبارًا اصطناعيًا PASS، دون نسخة رسمية من بايتات الملف المرجعي، أو نتائج تشغيل حقيقية لمحرك ستارتك. أثار إدخاله تراجعًا أصليًا في اختبار ملف 17-only (`641/642`)، وحُل بالتمييز `AUXILIARY_REFERENCE=BLOCKED_NOT_SUPPLIED` عند غياب الأربع بدل رفض تدفق الـ17 القديم، مع رفض صريح للسجلات الأربع إذا كانت مُقدمة لكنها غير متسقة.
+- **مرشح الإصلاح النهائي:** [PR #803](https://github.com/turkialeid2030/startak-real-estate/pull/803)، الالتزام `fd395bcd320cef55c2fb88517f1e196522fdba84`، يظل Draft غير مدمج.
+- [Release Verify #44716312091](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44716312091) **PASS**: `REGRESSION_TOTAL=642 PASSED=642`، البناء والحزمة وفحص npm PASS، `0` تنبيهات أمنية مصنفة حسب المصدر الحالي.
+- [Security #44716312358](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44716312358) و[Wave17A #44716312121](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44716312121) و[C7 Monte Carlo #44716312249](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44716312249) و[D04 #44716312314](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44716312314) و[فحص متصفح المالك #44716312085](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44716312085): PASS.
+- [One Batch #44716312272](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44716312272): التحقق من قراره النهائي مستقل ويجب الرجوع للسجل الحي؛ حواجز الاعتماد البشري والبيانات المصرح بها ما زالت مفتوحة.
+- **لا يغيّر ذلك قاعدة الإغلاق**: W01/W03 على بيئة حقيقية، W06 مطابقة المصدر الأصلي بمحرك المنصة، W07 حقوق البيانات، W20 الامتثال، W21 Q01–Q12، وW23 قرار GO/NO-GO لم تستوفِ إثباتاتها. **HOLD_NOT_AUTHORIZED** للإنتاج.
