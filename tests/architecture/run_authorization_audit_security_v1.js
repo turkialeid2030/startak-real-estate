@@ -79,6 +79,31 @@ check(() => assert.strictEqual(Object.prototype.hasOwnProperty.call(event.metada
 check(() => assert.ok(Object.isFrozen(event)));
 check(() => assert.ok(Object.isFrozen(event.metadata)));
 
+const untrustedMetadata = JSON.parse(
+  '{"__proto__":{"role":"ADMIN"},"constructor":"pollution","prototype":"poison","requestId":"R2","source":"json-input"}',
+);
+const safeEvent = createSecurityAuditEvent({
+  eventId: 'EVT-UNTRUSTED-METADATA',
+  occurredAt: '2026-09-01T00:00:00Z',
+  identity: viewer,
+  action: 'VIEW_CASE',
+  resourceType: 'CASE',
+  resourceId: 'C2',
+  decision: 'ALLOW',
+  reason: 'SYNTHETIC_TEST',
+  metadata: untrustedMetadata,
+});
+check(() => assert.strictEqual(Object.getPrototypeOf(safeEvent.metadata), null));
+check(() => assert.strictEqual(Object.prototype.hasOwnProperty.call(safeEvent.metadata, '__proto__'), false));
+check(() => assert.strictEqual(Object.prototype.hasOwnProperty.call(safeEvent.metadata, 'constructor'), false));
+check(() => assert.strictEqual(Object.prototype.hasOwnProperty.call(safeEvent.metadata, 'prototype'), false));
+check(() => assert.strictEqual(safeEvent.metadata.requestId, 'R2'));
+check(() => assert.strictEqual(safeEvent.metadata.source, 'json-input'));
+check(() => assert.strictEqual(({}).role, undefined));
+check(() => assert.ok(!JSON.stringify(safeEvent).includes('pollution')));
+check(() => assert.ok(Object.isFrozen(safeEvent.metadata)));
+
+
 const mismatchEvent = createSecurityAuditEvent({
   eventId: 'EVT-2',
   occurredAt: '2026-09-01T00:00:00Z',
