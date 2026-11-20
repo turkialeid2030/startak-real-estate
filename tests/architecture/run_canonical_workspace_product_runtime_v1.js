@@ -178,6 +178,36 @@ async function main() {
     (e) => e.code === 'WORKSPACE_RECORD_ACCESS_DENIED',
   ));
 
+  // Explicit negative regression for a misconfigured trusted resolver:
+  // reviewer READ grants must NEVER escalate to WRITE even if the resolver
+  // mistakenly says allowed=true for every requested action.
+  const observedResolverActions = [];
+  const permissiveReviewPersistence = createCanonicalWorkspacePersistence({
+    storageProvider: provider,
+    trustedRecordGrantResolver: async (scope) => {
+      observedResolverActions.push(scope.action);
+      return { allowed: true, grantRef: 'SYNTHETIC-MISCONFIGURED-REVIEWER-GRANT' };
+    },
+  });
+  const permissiveReviewRuntime = createCanonicalWorkspaceRuntime({
+    persistence: permissiveReviewPersistence,
+  });
+  await check(async () => assert.rejects(
+    permissiveReviewRuntime.saveWorkspace({
+      identityContext: reviewer,
+      workspace: canonicalWorkspace('reviewer-1'),
+      expectedVersion: 1,
+      operationId: 'REVIEWER-WRITE-OVERPERMISSIVE-GRANT',
+      occurredAt: '2026-09-09T12:13:00Z',
+    }),
+    (e) => e.code === 'WORKSPACE_RECORD_ACCESS_DENIED',
+  ));
+  await check(async () => assert.deepStrictEqual(observedResolverActions, []));
+  await check(async () => assert.strictEqual(
+    (await runtime.loadWorkspace({ identityContext: analyst, workspaceId: 'WS-001' })).version,
+    1,
+  ));
+
   await check(async () => assert.ok([...provider.values.keys()].every((key) => key.includes('tenant-a'))));
 
   await check(async () => assert.rejects(
