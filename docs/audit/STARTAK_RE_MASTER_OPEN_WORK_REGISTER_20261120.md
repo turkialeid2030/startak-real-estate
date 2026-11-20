@@ -5,8 +5,8 @@
 ## 1. ملخص الحصر وطريقة القراءة
 
 - **قضايا مفتوحة في GitHub:** 98 قضية مستقلة برقم مرجعي، لكنها قد تتكرر موضوعيًا مع المهام الرئيسية أو طلبات الدمج.
-- **طلبات دمج مفتوحة:** 109 PR مرصودًا عبر فترات سبتمبر/أكتوبر/نوفمبر 2026، كثير منها مسودات أو فروع مترابطة؛ لا يعني العدد وجود 109 وظيفة مستقلة أو جاهزة للدمج.
-- **المجموع الخام للقيود المفتوحة:** 207 قيدًا (قضية أو PR)، **لا يُستخدم باعتباره عدد عيوب أو نسبة إنجاز المشروع**.
+- **طلبات دمج مفتوحة:** 110 PR مرصودًا عبر فترات سبتمبر/أكتوبر/نوفمبر 2026، كثير منها مسودات أو فروع مترابطة؛ لا يعني العدد وجود 109 وظيفة مستقلة أو جاهزة للدمج.
+- **المجموع الخام للقيود المفتوحة:** 208 قيدًا (قضية أو PR)، **لا يُستخدم باعتباره عدد عيوب أو نسبة إنجاز المشروع**.
 - **مرجعية الأولوية:** P0 يمنع إطلاقًا تجاريًا أو تشغيلاً فعليًا عند غياب دليل؛ P1 يقيّد تأهيل الوظيفة أو القطاع؛ P2 تحسين حوكمي/تقني غير مانع إذا عُزل النطاق رسميًا.
 - **قاعدة الإغلاق:** OPEN في GitHub يعني أن القيد لم يغلق رسميًا؛ قد تتوفر شفرة أو اختبار PASS في فرع. لا يعني وجود PR تنفيذًا إنتاجيًا، ولا يتحول نجاح CI إلى اعتماد مهني/قانوني.
 
@@ -315,7 +315,7 @@
 - [PR #766](https://github.com/turkialeid2030/startak-real-estate/pull/766) — STARTAK D01–D07 — bilingual research reports and current-case evidence integrity
 - [PR #767](https://github.com/turkialeid2030/startak-real-estate/pull/767) — Add whole-property sale/rent journey and appraisal evidence controls
 
-### نوفمبر 2026 (13 PR)
+### نوفمبر 2026 (14 PR)
 
 - [PR #772](https://github.com/turkialeid2030/startak-real-estate/pull/772) — test(ui): retain hidden OCR/manual diagnostic reason codes with Arabic assertions
 - [PR #773](https://github.com/turkialeid2030/startak-real-estate/pull/773) — Draft: Five-step owner intake — dependent on #767 (no merge/deploy)
@@ -330,6 +330,7 @@
 - [PR #801](https://github.com/turkialeid2030/startak-real-estate/pull/801) — audit(STARTAK RE): reconcile 57 historic source paths with modern anchors and protected closure gates
 - [PR #802](https://github.com/turkialeid2030/startak-real-estate/pull/802) — fix(STARTAK RE): reject implicit title-source conflicts and untraceable required facts
 - [PR #803](https://github.com/turkialeid2030/startak-real-estate/pull/803) — security(STARTAK RE): enforce same-tenant workspace object ownership and deny peer IDOR
+- [PR #805](https://github.com/turkialeid2030/startak-real-estate/pull/805) — docs(audit): 98 open issues, 110 open PRs, 24 WBS and QCR closure register
 
 ## 8. RACI والإغلاق بأدلة
 
@@ -353,7 +354,7 @@
 ## 10. ملاحظات الحصر
 
 - حصر القضايا: نتيجة البحث عن GitHub issues بحالة open في المستودع، عدده 98.
-- حصر PR: ثلاث استعلامات غير متداخلة حسب شهر الإنشاء: سبتمبر 16، أكتوبر 80، نوفمبر (حتى 20) 13؛ **المجموع 109**.
+- حصر PR: ثلاث استعلامات غير متداخلة حسب شهر الإنشاء: سبتمبر 16، أكتوبر 80، نوفمبر (حتى 20) 14؛ **المجموع 110**.
 - لا توجد في هذه القوائم أدلة على دمج أي PR مفتوح أو توثيق صلاحيات التشغيل. راجع دائمًا الحالة الحية قبل تغيير القرار.
 - السجل يعكس حالة GitHub في 20 نوفمبر 2026؛ وضع الأدلة القانونية والبيانات في أنظمة خارج GitHub لم يُفحص لعدم توفر حسابات مخولة.
 
@@ -444,3 +445,15 @@
 - [Security #44794398423](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44794398423) و[D04 #44794398196](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44794398196) و[C7 #44794398422](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44794398422) و[Wave17A #44794398430](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44794398430) و[Owner Browser #44794398418](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44794398418): **SUCCESS** على الالتزام نفسه.
 - نتيجة [One Batch #44794398570](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44794398570) تحتاج قراءة قرار الحوكمة النهائي منفصلًا؛ تسجيل `HOLD_NOT_AUTHORIZED` ليس خرقًا هندسيًا ولا يجوز تجاوزه دون التوقيعات.
 - **قرار الإطلاق: HOLD_NOT_AUTHORIZED.** مطابقة 17 تقريرًا خاصًا بمخرجات المحرك، وبيانات صفقات سعودية مرخصة، وIdP/JWKS، واختبارات A/B الحقيقية وقاعدة البيانات، وأدلة DR وQ01–Q12 ما تزال بحاجة إلى أدلة مستقلة؛ لا `merge` ولا `deploy`.
+
+
+## 17. تحديث حصر PRs واعتماديات المسارات — 20 نوفمبر 2026
+
+- **بحث مباشر مؤكد:** قضايا GitHub = **98** مفتوحة؛ طلبات الدمج = **110** مفتوحة (16 سبتمبر، 80 أكتوبر، 14 نوفمبر)، بزيادة PR #805 عن الحصر القديم. المجموع الخام **208 قيود مفتوحة غير مستقلة**، وليس 208 عيوبًا.
+- **مخرج W19/W24 منفذ:** أُنشئ [سجل جميع الـ110 PRs ومصفوفة اعتماديات نوفمبر](https://github.com/turkialeid2030/startak-real-estate/blob/audit/startak-re-master-work-register-20261120/docs/audit/STARTAK_RE_OPEN_PR_CATALOG_NOV_DEPENDENCIES_20261120.md) على فرع التدقيق، دون دمج أو تعديل `main`.
+- جرى فحص `head/base` و`draft/mergeable` لـ14 PR من نوفمبر مع #767 و#764. أظهرت العينة أن الطلبات الـ14 جميعها تشير إلى أب مفتوح داخل هذه العينة، مع تفرع #772/#773 من #767، وامتداد #773 → #776 → #777 → #795 → #796 → #797 → #798 → #799 → #800 → #801 → #802 → #803 → #805. هذا **مسار مراجعة** وليس إذن دمج.
+- [PR #772](https://github.com/turkialeid2030/startak-real-estate/pull/772) ظهر **Draft / mergeable=false** بينما #773 على الفرع الأساسي نفسه mergeable=true؛ ملفات OCR/المتصفح المشتركة بحاجة لفحص اختلافات قبل تقرير `REBASE` أو `PORT` أو `HOLD`. لم يُحسم السبب الجذري لتعذر الدمج؛ لم تُجر أي تغييرات على PR #772.
+- **لم يكتمل:** رسم الاعتماديات التفصيلي لـ96 PR أقدم، فحص جميع الفروق/اختبارات SHA/المراجعات والحقوق، وخطة الدمج المعتمدة. لا إغلاق شكلي لـW19/W24.
+- **آخر حزمة هندسية مؤهلة:** `1aeb0c2a7bb8e7b77f66491616128562380d9f88`. [Release Verify #44794398298](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44794398298) **PASS 642/642**، وبقية خمس بوابات مستقلة ناجحة؛ [One Batch #44794398570](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44794398570) أعلن `ALL_STAGES_ENGINEERING=PASS` و`ALL_STAGES_DECISION=HOLD_NOT_AUTHORIZED` مع `exit 2` متعمد. لا إخفاق هندسي في هذه الدفعة؛ الاعتماد الخارجي ما زال حائلًا للإطلاق.
+- **Q01–Q12:** فُحصت القضايا مباشرة، ما زال لكل مسار `0/3` اعتماد مستقل و`NO PERSON APPOINTED` للدور المهني؛ لا يجوز اختراع تعيين أو إغلاق قبل تفويض حقيقي.
+- **القرار:** `HOLD_NOT_AUTHORIZED`، لا حذف فروع ولا إغلاق قضايا ولا دمج ولا نشر إنتاجي.
