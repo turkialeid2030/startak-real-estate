@@ -2281,6 +2281,20 @@ export default function App() {
           validationError={activeValidationError}
           locale={locale}
         />
+        {activeUiState.assumptionOverrideHold ? (
+          <div role="alert" data-testid="historical-assumption-override-hold"
+            className="rounded-2xl mb-3 px-4 py-3"
+            style={{ background: "rgba(220,80,80,0.12)", border: "1px solid rgba(220,80,80,0.4)" }}>
+            <div className="text-sm font-semibold" style={{ color: "#e08080" }}>
+              {locale === "en" ? "Financial approval HOLD — historical assumption override" : "تعليق الاعتماد المالي — تجاوز افتراض محفوظ"}
+            </div>
+            <div className="text-xs mt-1" style={{ color: COLORS.slate }}>
+              {locale === "en"
+                ? "The saved override is not supported by the qualified canonical decision engine. Baseline cash flows are analytical only; purchase ceilings, professional valuation issuance and transaction decisions are not authorized."
+                : "تجاوز الافتراض المحفوظ غير مؤهل في محرك القرار المعتمد. التدفقات الأساسية للتحليل فقط، ولا يجوز إصدار حد شراء أو تقرير تقييم مهني أو قرار استثماري بالاعتماد عليها."}
+            </div>
+          </div>
+        ) : null}
         <CurrentCalculationBoundary invalid={Boolean(activeValidationError)} locale={locale}>
           <KPIRibbon mode={mode} results={results} leverageEnabled={inputs.leverageEnabled} />
         </CurrentCalculationBoundary>
