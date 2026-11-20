@@ -424,3 +424,15 @@
 - [Security CI #44792920639](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44792920639) **PASS** على `d5b29437618f7dfa227b6dc9ebdf2b6848c5ec67`، منها `TENANT_BOUNDARY_SECURITY_V1: PASS (30 checks)` و`AUTHORIZATION_AUDIT_SECURITY_V1: PASS (43 checks)` وPostgreSQL 16 RLS المعزول PASS.
 - لا تثبت هذه النتائج ربط IdP/HTTP/DB الحقيقي أو اختبار اختراق مستقل أو تشفير إنتاجي. `Q05` ما زالت **0/3** اعتمادات مستقلة و`HOLD_NOT_AUTHORIZED` إلى حين استكمال أدلة التشغيل.
 - [Release Verify #44792920636](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44792920636) و[One Batch #44792920841](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44792920841): راجع سجلاتهما النهائية على نفس الالتزام قبل تغيير وصف جاهزية الدفعة.
+
+
+## 16. منع تضارب معرّفات الحالة والمشروع داخل البيانات المحفوظة
+
+**الالتزام الهندسي:** `1aeb0c2a7bb8e7b77f66491616128562380d9f88` على فرع `security/hardening-v1` / [PR #803](https://github.com/turkialeid2030/startak-real-estate/pull/803).
+
+- عُثر على اختلاف في قواعد نطاق الحالة: `authenticated-decision-intelligence-service.js` كان يفحص تطابق `workspace.executableCase.projectId/caseId` مع `workspace.projectId/caseId`، بينما `canonical-workspace-persistence.js` لم يطبق الشرط على جميع طلبات الحفظ والقراءة.
+- أضيف حاجز يمنع حفظ `executableCase` ذي `projectId` أو `caseId` مختلفين عن المعرفات الخارجية، ويرفض تحديث السجلات المحفوظة المتناقضة، ويوقف استرجاعها كـ`WORKSPACE_PERSISTENCE_CORRUPT_RECORD`. الحقول الداخلية غير الموجودة في ملف قديم لا تُخترع ولا تعتبر دليلًا على اكتمال المطابقة.
+- أضيفت 5 اختبارات تكامل اصطناعية؛ [Security Hardening #44794398423](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44794398423) **PASS**: `CANONICAL_WORKSPACE_PRODUCT_RUNTIME_V1: PASS (49 checks)`، `TENANT_BOUNDARY_SECURITY_V1: PASS (30 checks)`، `AUTHORIZATION_AUDIT_SECURITY_V1: PASS (43 checks)`، وقاعدة PostgreSQL 16 مؤقتة معزولة PASS؛ صفر تنبيهات npm في الفحص الحالي.
+- **حدود الدليل:** هذا ضبط لاتساق الهوية المنطقية في الكود، وليس شهادة ملكية أو دقة مالية أو تحقق من نتائج الـ17 حالات العقارية الحقيقية، ولا تشغيلًا أمام عملاء. لا تتغير Q01–Q12 أو مراجعة المثمّن أو جاهزية الإنتاج.
+- يجب الرجوع إلى النتائج النهائية على نفس الالتزام لـ[Release Verify #44794398298](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44794398298) و[One Batch Qualification #44794398570](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44794398570) وبقية بوابات المتصفح قبل اعتبار الدفعة مؤهلة تقنيًا.
+- تستمر الحالة `HOLD_NOT_AUTHORIZED`، دون دمج أو تعديل `main` أو نشر إنتاجي.
