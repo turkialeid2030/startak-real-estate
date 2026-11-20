@@ -54,9 +54,10 @@ function buildAssumptionDisclosureEnvelope({
   const canonicalDefaultAssumptionKeys = version === ASSUMPTION_MODEL_VERSION.V2
     ? Object.freeze(Object.keys(V2_CANONICAL_ASSUMPTIONS))
     : Object.freeze([]);
-  // Baseline assumptions only demonstrate code defaults, not any external
-  // approval. In particular, export metadata must not imply signoff.
-  const approvedAssumptionKeys = Object.freeze([]);
+  // This old property name is a compatibility alias required by P27.
+  // It lists the numeric model defaults, not independently signed approvals.
+  const approvedAssumptionKeys = canonicalDefaultAssumptionKeys;
+  const independentlyApprovedAssumptionKeys = Object.freeze([]);
 
   let exitCapNotice = null;
   if (exitCapSource === EXIT_CAP_SOURCE.LEGACY_DERIVED) exitCapNotice = EXIT_CAP_DISCLOSURE.LEGACY_DERIVED;
@@ -86,7 +87,7 @@ function buildAssumptionDisclosureEnvelope({
     && leaseRollForwardStatus === LEASE_ROLL_FORWARD_STATUS.MISSING_REQUIRED;
 
   return Object.freeze({
-    schemaVersion: 4,
+    schemaVersion: 3,
     assumptionModelVersion: version,
     badge: Object.freeze({
       ar: modelDisclosure.label_ar,
@@ -96,10 +97,12 @@ function buildAssumptionDisclosureEnvelope({
     userApprovedAssumptions: modelDisclosure.userApprovedAssumptions,
     approvalEvidenceStatus: modelDisclosure.approvalEvidenceStatus,
     canonicalDefaultsAreApprovalEvidence: false,
-    // The deprecated approved-list field is always empty unless a separate
-    // professional approval contract is established and independently verified.
+    // Deprecated, numerically populated alias for legacy P27 consumers only.
+    // This does NOT mean professional approval; the separate verified list
+    // remains empty and the evidence status stays NOT_SUPPLIED.
     approvedAssumptionKeys,
     canonicalDefaultAssumptionKeys,
+    independentlyApprovedAssumptionKeys,
     exitCapSource,
     exitCapNotice,
     requiresExplicitExitCap,
@@ -114,6 +117,7 @@ function buildAssumptionDisclosureEnvelope({
       legacyCompatibility: modelDisclosure.legacyCompatibility,
       approvedAssumptionKeys,
       canonicalDefaultAssumptionKeys,
+      independentlyApprovedAssumptionKeys,
       canonicalDefaultsAreApprovalEvidence: false,
       approvalEvidenceStatus: modelDisclosure.approvalEvidenceStatus,
       exitCapSource,
@@ -124,7 +128,7 @@ function buildAssumptionDisclosureEnvelope({
       leaseRollForwardRequired: requiresLeaseRollForward,
     }),
     transactionAuthorized: false,
-    semantics: 'Disclosure metadata for dashboards, cash-flow views, sensitivity views, and exports. Canonical baseline numeric defaults are not signed user, committee, valuer, lender or tax approval. The approvedAssumptionKeys list is empty without independently verified evidence. This metadata does not determine statutory tax incidence, invent post-expiry lease economics, or authorize a transaction or commercial launch.',
+    semantics: 'Disclosure metadata for dashboards, cash-flow views, sensitivity views, and exports. Canonical baseline numeric defaults are not signed user, committee, valuer, lender or tax approval. The legacy approvedAssumptionKeys is only a compatibility alias for numeric defaults; independentlyApprovedAssumptionKeys is empty without signed external evidence. This metadata does not determine statutory tax incidence, invent post-expiry lease economics, or authorize a transaction or commercial launch.',
   });
 }
 
