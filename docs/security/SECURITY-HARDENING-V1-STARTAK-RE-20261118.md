@@ -103,3 +103,20 @@ The first integrated exact-head Release Verify `44284091308` reported **638/640 
 | Production release | Independent reviewer / release manager | Authorized owner/decision committee | All P0 controls, rollback, external signed GO |
 
 **Decision: HOLD / NO MAIN MERGE / NO PRODUCTION DEPLOYMENT.** This change narrows a particular proposed server-route BOLA risk; no platform-wide claim of security completion is made.
+
+
+## 2026-11-20 — dependency/security release requalification (supersedes earlier audit-gate status)
+**Scope:** isolated PR #803 / security branch only. Earlier five HIGH npm audit findings and the PENDING statuses above are historical November 18 results; **do not treat them as current for this release candidate**.
+
+### Remediation actually committed
+- Vite `8.2.4` -> `8.2.6` with regenerated `package-lock.json` on the security branch ([commit `0b29ccd8`](https://github.com/turkialeid2030/startak-real-estate/commit/0b29ccd8feb6247d6a4613e774da8840736db302)); Rolldown `1.2.5` -> `1.2.19`. Mitigates `GHSA-p4f5-76q4-ffq7` dev-server RCE in vulnerable Vite 8.2.4 when exposed to the network. No forced downgrade of major Vite version.
+- `tests/architecture/run_vite_security_patch_floor_v1.js` asserts pinned patched versions, trusted package lockfile and no explicit network binding via `dev` scripts.
+- `GHSA-fc5q-39xc-vjpf` regarding `picomatch` was **withdrawn by GitHub on November 18, 2026**. No patch to `picomatch@4.0.7` is claimed; the historical five HIGH npm audit results ceased being reported after withdrawal, not because we removed the package or patched its implementation. An external `CVE-2026-112366` entry may persist elsewhere; do not interpret an advisory withdrawal as mathematical proof that all crafted glob patterns are harmless. Track new reviewed advisories and prevent untrusted glob input to dev tooling.
+
+### Executed exact-head evidence before this documentation addendum
+- [GitHub Security Hardening V1 run #44669746230](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44669746230): **SUCCESS** with signed synthetic JWT same-tenant BOLA/read-only reviewer tests, isolated **real PostgreSQL 16** tenant A/B RLS positive/negative SQL, Cloudflare AI/Kite negative gateway mocks, `VITE_8_2_6_SECURITY_PATCH_FLOOR=PASS`, `npm audit --omit=dev --audit-level=high` and full `npm audit --audit-level=high` both **PASS / zero current vulnerabilities**.
+- [GitHub Release Verify run #44669746231](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44669746231): **SUCCESS**, `REGRESSION_TOTAL=641 PASSED=641`, `TEST_DISCOVERY_AND_REGRESSION=PASS`, `PRODUCTION_BUILD=PASS`, `VERIFY_PACKAGE=PASS`, and `NPM_AUDIT_RELEASE_THRESHOLD=PASS (critical=0 high=0 moderate=0 low=0)`.
+- Exact implementation snapshot qualified in these runs: `5608a30032a3dcd6790b3ff1d041fd5fe9522def`. This addendum and historical-advisory log correction change the branch SHA; re-run exact-head CI after the documentation update to establish the final checkpoint. Do not carry forward the earlier run as proof for a later untested code SHA.
+
+### Final status / reserved external gates
+**Engineering source/builder qualification:** PASS only for scoped tested routes and exact SHA. **Commercial release and production:** `HOLD_NOT_AUTHORIZED`, no main merge or deployment, until real IdP/revocation/tenant A/B HTTP-to-deployed PostgreSQL RLS, per-record authorization in deployed system, encrypted files/ACLs/backup/DR, real AI retrieval access control, independent source-rights and appraisal reviews, full 17-case private parity, PDPL/NCA applicability and Q01–Q12 signed human approvals are independently evidenced.
