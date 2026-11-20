@@ -282,6 +282,53 @@ async function main() {
   ));
   provider.values.set(originalKey, intactRaw);
 
+  // Direct persistence must preserve the same canonical schema and
+  // attribution contract as the verified-authentication runtime.
+  await check(async () => assert.rejects(
+    persistence.save({
+      identityContext: analyst,
+      workspace: { ...workspace, schemaVersion: 99 },
+      expectedVersion: 1,
+      operationId: 'DIRECT-FORGED-SCHEMA',
+    }),
+    (error) => error.code === 'UNSUPPORTED_WORKSPACE_SCHEMA',
+  ));
+  await check(async () => assert.rejects(
+    persistence.save({
+      identityContext: analyst,
+      workspace: { ...workspace, attribution: { actorId: 'tenant-admin' } },
+      expectedVersion: 1,
+      operationId: 'DIRECT-FORGED-ATTRIBUTION',
+    }),
+    (error) => error.code === 'WORKSPACE_ATTRIBUTION_MISMATCH',
+  ));
+  await check(async () => assert.rejects(
+    persistence.save({
+      identityContext: analyst,
+      workspace: { ...workspace, executableCase: [] },
+      expectedVersion: 1,
+      operationId: 'DIRECT-ARRAY-EXECUTABLE-CASE',
+    }),
+    (error) => error.code === 'INVALID_CANONICAL_WORKSPACE',
+  ));
+  const malformedSchemaEnvelope = JSON.parse(intactRaw);
+  malformedSchemaEnvelope.workspace = { ...malformedSchemaEnvelope.workspace, schemaVersion: 99 };
+  provider.values.set(originalKey, JSON.stringify(malformedSchemaEnvelope));
+  await check(async () => assert.rejects(
+    persistence.load({ identityContext: analyst, workspaceId: 'WS-001' }),
+    (error) => error.code === 'WORKSPACE_PERSISTENCE_CORRUPT_RECORD',
+  ));
+  provider.values.set(originalKey, intactRaw);
+  const missingCaseEnvelope = JSON.parse(intactRaw);
+  missingCaseEnvelope.workspace = { ...missingCaseEnvelope.workspace };
+  delete missingCaseEnvelope.workspace.caseId;
+  provider.values.set(originalKey, JSON.stringify(missingCaseEnvelope));
+  await check(async () => assert.rejects(
+    persistence.load({ identityContext: analyst, workspaceId: 'WS-001' }),
+    (error) => error.code === 'WORKSPACE_PERSISTENCE_CORRUPT_RECORD',
+  ));
+  provider.values.set(originalKey, intactRaw);
+
   const loaded = await runtime.loadWorkspace({ identityContext: analyst, workspaceId: 'WS-001' });
   await check(async () => assert.strictEqual(loaded.version, 1));
   await check(async () => assert.strictEqual(loaded.workspace.workspaceId, 'WS-001'));
