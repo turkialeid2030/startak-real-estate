@@ -567,3 +567,21 @@
 - [Security #44808624642](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44808624642)، [C7 #44808624696](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44808624696)، [Wave17A #44808624795](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44808624795)، [D04 #44808624641](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44808624641)، و[Owner Browser #44808624667](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44808624667) **SUCCESS** على الرأس نفسه.
 - [One Batch #44808624671](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44808624671) يحتاج قراءة السجل النهائي المستقل وتوقيع الجهات الموكلة؛ لا يغيّر `643/643 PASS` قرار `HOLD_NOT_AUTHORIZED`.
 - **قيد الإغلاق:** اجتاز تصحيح إفصاح P27 اختباراته الهندسية مع الحفاظ على التوافق التاريخي، لكن لا توجد في Q03 مستندات مالية/اعتمادات مهنية مستقلة تقبل تقييمات فعلية. وفجوة اختبارات P25 القديمة الثلاثة ما زالت غير مغلقة، فلا تعتبر W10/W16 مغلقتين تمامًا.
+
+
+## 24. استعادة ضوابط P25 التاريخية ومطابقة فروع 763/764/766
+
+### 24.1 نتيجة هندسية مثبتة (W10/W16/W01)
+
+- أُضيفت **3 اختبارات تكافؤ سلبية P25** في الفرع الأمني: تاريخ وصلاحية الاعتماد (10 حالات)، حماية المحرك والنتائج المرجعية ورفض محاولات التجاوز (11 حالة)، ومسار UI/حفظ الصفقة/الرفض (10 حالات). هذه **اختبارات مُعاد تكييفها** مع المحرك الحديث وليست إعادة تمكين صامتة للمحرك القديم المصرّح ظاهريًا بواسطة حقول مصدرها المستخدم.
+- تم إصلاح فقدان `assumptionRegistry` عند استرجاع الصفقة المحفوظة، وربطه بالواجهة و`calculateUiInvestmentState` و`saved-deal-canonical-workspace-bridge`؛ وتحويل النتائج التي تتضمن تجاوزًا ماليًا غير مؤهل إلى `ANALYTICAL_HOLD`، وعدم إظهار حد شراء أو شهادته في هذه الحالة. يوجد تنبيه مالي ثنائي اللغة للمستخدم.
+- منع مسار دورة الحياة من احتساب قسم `finance` مكتملًا في حالة `ANALYTICAL_HOLD`، مع اختبار من الصفقة المحفوظة إلى الملف الموحد يثبت `LIFECYCLE_GAPS_REMAIN`.
+- **الدليل:** الالتزام `6dc9821d25acbca3fb331917717f59fb589ee58d`؛ [Release Verify #44810919072](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44810919072) **SUCCESS: 646/646**، بناء الإنتاج PASS، فحص الحزمة PASS، وتدقيق npm `critical=0 high=0 moderate=0 low=0` في التشغيل الحالي. [P25 #44810918737](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44810918737)، [P27 #44810918772](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44810918772)، [D04 #44810919210](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44810919210)، [Security #44810918586](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44810918586) كذلك SUCCESS. **One Batch** ما تزال بوابة مستقلة للحوكمة ومطالبة بالتوقيعات.
+- [تقرير P25 التاريخي](https://github.com/turkialeid2030/startak-real-estate/blob/audit/startak-re-master-work-register-20261120/docs/audit/STARTAK_RE_P25_LEGACY_SAFE_PARITY_CLOSURE_20261120.md) يُبقي اعتماد الاقتصاديات الفعلية للتجاوزات القديمة **معلقًا** إلى حين تصميم صلاحية توقيع ومراجعة مالية مستقلة؛ PR #461 لا يزال مفتوحًا.
+
+### 24.2 تاريخ الفروع العقارية والبحوث (W16/W19)
+
+- ثُبت عبر GitHub Compare أن رؤوس [#763](https://github.com/turkialeid2030/startak-real-estate/pull/763)، [#764](https://github.com/turkialeid2030/startak-real-estate/pull/764)، [#766](https://github.com/turkialeid2030/startak-real-estate/pull/766) أسلاف مباشرة لمرشح الأمن (`behind_by=0` مع `ahead_by=548/428/346` بالتتابع). هذا إثبات **احتواء تاريخ مصدر**، وليس إثبات تكافؤ وظيفي لكافة الخدمات.
+- استُبدل سير معاينة ثابت قديم بتاريخ أكتوبر بسير `authenticated-preview-delivery-manual.yml` أكثر تحفظًا: اختبارات PR بلا أسرار، ودخول Cloudflare محمي في تشغيل يدوي مصرح به على `main`. اختبار صلاحية البيئة الحقيقية يبقى مفتوحًا.
+- [تقرير أصل الفروع وسير Cloudflare](https://github.com/turkialeid2030/startak-real-estate/blob/audit/startak-re-master-work-register-20261120/docs/audit/STARTAK_RE_LEGACY_763_764_766_ANCESTRY_AND_PREVIEW_GATE_20261120.md) جزء من سجل W16/W19.
+- **حدود الإغلاق:** ملف المسارات التاريخية الـ57 لا يثبت تكافؤها العملي؛ ملف الحالات العقارية الـ17 والأربع حسابات الإضافية لم يُشغل أمام المحرك الحقيقي مع اعتماد مثمّن؛ قاعدة الإنتاج/هوية المستخدمين والتخزين المشفر وقبول Q01–Q12 المستقل لم يثبت. القرار **`HOLD_NOT_AUTHORIZED`**، لا دمج ولا نشر ولا إغلاق صوري.
