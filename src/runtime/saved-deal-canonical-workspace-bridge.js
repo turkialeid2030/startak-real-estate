@@ -102,6 +102,9 @@ function createCanonicalWorkspaceFromSavedDeal({
     mode: savedDeal.mode,
     inputs,
     assumptionModelVersion: savedDeal.assumptionModelVersion,
+    // Legacy override provenance must reach the canonical decision gate.
+    // Baseline economics must not masquerade as an approved overridden case.
+    assumptionRegistry: savedDeal.assumptionRegistry ?? null,
   });
 
   const standardsContext = savedDeal.standardsSnapshotVersion
