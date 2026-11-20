@@ -35,7 +35,7 @@ check('stale area or report source hash malformation blocks',()=>{
 check('no link preserves legacy research and cannot certify report',()=>{
  const v=evaluateBoundReview({subject});
  assert.equal(v.status,'NOT_LINKED');assert.equal(v.appraisalReview,null);
- const l=bindReview({subject,appraisal,documentDigest:sha,review:{status:'REVIEW_REQUIRED'},confirmed:true});
+ const l=bindReview({subject,appraisal,documentDigest:sha,review:{status:'REVIEW_REQUIRED',issues:[]},confirmed:true});
  assert.equal(l.link.professionalUseAuthorized,false);
  assert.equal(evaluateBoundReview({subject,link:l.link}).blockExport,false);
 });
@@ -68,5 +68,49 @@ check('malformed falsey and primitive links cannot masquerade as a missing link'
   assert.equal(r.status,'STALE_OR_UNMATCHED_LINK');
  }
  assert.equal(evaluateBoundReview({subject,link:null}).blockExport,false);
+});
+check('impossible Gregorian date cannot bind title/report identity',()=>{
+ const wrong={...subject,valuationDate:'2026-02-30'};
+ const wrongReport={...appraisal,valuationDate:'2026-02-30'};
+ const result=validateIdentity({subject:wrong,appraisal:wrongReport,
+   documentDigest:sha,confirmed:true});
+ assert.equal(result.status,'HOLD');
+ assert.ok(result.reasons.includes('STUDY_IDENTITY_INCOMPLETE'));
+ assert.ok(result.reasons.includes('APPRAISAL_IDENTITY_INCOMPLETE'));
+ assert.equal(bindReview({subject,appraisal:null,documentDigest:sha,
+   confirmed:true,review:{status:'REVIEW_REQUIRED',issues:[]}}).status,'HOLD');
+});
+check('missing or malformed audit findings are not completed reviewer work',()=>{
+ for(const review of [
+   {status:'REVIEW_REQUIRED'},
+   {status:'REVIEW_REQUIRED',issues:null},
+   {status:'REVIEW_REQUIRED',issues:'safe'},
+   {status:'REVIEW_REQUIRED',issues:[null]},
+   {status:'REVIEW_REQUIRED',issues:[{code:'UNMAPPED_BLOCK',severity:'BLOCK'}]},
+   {status:'REVIEW_REQUIRED',issues:[{code:'VALID_OBSERVATION'}]},
+ ]) {
+   const result=bindReview({subject,appraisal,documentDigest:sha,review,confirmed:true});
+   assert.equal(result.status,'HOLD');
+   assert.equal(result.link,null);
+ }
+ const valid=bindReview({subject,appraisal,documentDigest:sha,
+   review:{status:'REVIEW_REQUIRED',issues:[{code:'SYNTHETIC_NOTE',severity:'REVIEW'}]},
+   confirmed:true});
+ assert.equal(valid.status,'LINKED_REVIEW_REQUIRED');
+});
+check('crafted link cannot spoof review trace or professional authority',()=>{
+ const valid=bindReview({subject,appraisal,documentDigest:sha,
+   confirmed:true,review:{status:'REVIEW_REQUIRED',issues:[]}}).link;
+ assert.ok(valid);
+ for(const changes of [
+   {issues:undefined},{issues:null},{issues:[null]},
+   {reportId:''},{independentlyVerified:true},
+   {professionalUseAuthorized:true},
+   {issues:['CIRCULAR_VALUATION']},
+ ]) {
+   const result=evaluateBoundReview({subject,link:{...valid,...changes}});
+   assert.equal(result.status,'STALE_OR_UNMATCHED_LINK');
+   assert.equal(result.blockExport,true);
+ }
 });
 console.log('SUCCESS '+count+'/'+count+' independent binding tests');
