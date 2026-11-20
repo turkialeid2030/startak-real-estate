@@ -4,6 +4,13 @@
 const {number}=require('./appraisal-assurance');
 const name=x=>String(x||'').trim().replace(/\s+/g,' ').toLocaleLowerCase('ar');
 const digest=x=>typeof x==='string'&&/^[a-f0-9]{64}$/i.test(x)?x.toLowerCase():null;
+// ISO-shaped values such as 2026-02-30 are not real calendar dates and
+// cannot bind an appraisal source to a property study.
+const calendarDate=x=>{
+ if(typeof x!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(x))return false;
+ const d=new Date(x+'T00:00:00.000Z');
+ return Number.isFinite(d.getTime())&&d.toISOString().slice(0,10)===x;
+};
 function snapshot(subject={}){
  const area=number(subject.landArea);
  return {
@@ -20,14 +27,14 @@ function validateIdentity({subject={},appraisal={},documentDigest,confirmed=fals
  const errors=[],current=snapshot(subject);
  const report=snapshot({
   name:appraisal?.property?.name,assetType:appraisal?.property?.assetType,
-  landArea:appraisal?.property?.areaSqm,valuationDate:appraisal.valuationDate,
+  landArea:appraisal?.property?.areaSqm,valuationDate:appraisal?.valuationDate,
  });
  if(!current.name||!current.assetType||current.areaSqm===null||
-    !/^\d{4}-\d{2}-\d{2}$/.test(current.valuationDate))errors.push('STUDY_IDENTITY_INCOMPLETE');
+    !calendarDate(current.valuationDate))errors.push('STUDY_IDENTITY_INCOMPLETE');
  if(!report.name||!report.assetType||report.areaSqm===null||
-    !/^\d{4}-\d{2}-\d{2}$/.test(report.valuationDate))errors.push('APPRAISAL_IDENTITY_INCOMPLETE');
+    !calendarDate(report.valuationDate))errors.push('APPRAISAL_IDENTITY_INCOMPLETE');
  if(!same(current,report))errors.push('PROPERTY_IDENTITY_MISMATCH');
- if(!String(appraisal.reportId||'').trim())errors.push('APPRAISAL_REPORT_ID_REQUIRED');
+ if(!String(appraisal?.reportId||'').trim())errors.push('APPRAISAL_REPORT_ID_REQUIRED');
  if(!digest(documentDigest))errors.push('SOURCE_PDF_SHA256_REQUIRED');
  if(confirmed!==true)errors.push('EXPLICIT_SAME_PROPERTY_ATTESTATION_REQUIRED');
  return {status:errors.length?'HOLD':'MATCHED_USER_ATTESTED_NOT_INDEPENDENTLY_VERIFIED',
@@ -36,12 +43,17 @@ function validateIdentity({subject={},appraisal={},documentDigest,confirmed=fals
 function bindReview({subject,appraisal,documentDigest,review,confirmed}={}){
  const match=validateIdentity({subject,appraisal,documentDigest,confirmed});
  if(match.status==='HOLD')return {status:'HOLD',reasons:match.reasons,link:null};
+ // An absent issues array is not an explicitly completed review. Only
+ // structured review findings are accepted; any BLOCK finding requires HOLD.
  if(!review||!['HOLD','REVIEW_REQUIRED'].includes(review.status)||
-   (review.status==='REVIEW_REQUIRED'&&Array.isArray(review.issues)&&review.issues.some(x=>x?.severity==='BLOCK')))
+    !Array.isArray(review.issues)||review.issues.length>1000||
+    review.issues.some(x=>!x||typeof x!=='object'||Array.isArray(x)||
+      typeof x.code!=='string'||!x.code.trim()||
+      (review.status==='REVIEW_REQUIRED'&&!['REVIEW','INFO'].includes(x.severity))))
    return {status:'HOLD',reasons:['VALID_APPRAISAL_AUDIT_REQUIRED'],link:null};
  const link=Object.freeze({
   kind:'STARTAK_APPRAISAL_SESSION_REVIEW_V1',documentDigest:digest(documentDigest),
-  reportId:String(appraisal.reportId).trim(),subjectSnapshot:match.subjectSnapshot,
+  reportId:String(appraisal?.reportId).trim(),subjectSnapshot:match.subjectSnapshot,
   reviewStatus:review.status,issues:Object.freeze((Array.isArray(review.issues)?review.issues:[])
     .map(x=>String(x.code||'')).filter(Boolean)),
   independentlyVerified:false,professionalUseAuthorized:false, 
@@ -57,8 +69,15 @@ function evaluateBoundReview({subject={},link=null}={}){
  if(link.invalidated===true||link.kind!=='STARTAK_APPRAISAL_SESSION_REVIEW_V1'||!digest(link.documentDigest)||
     !same(snapshot(subject),link.subjectSnapshot||{}))
   return {status:'STALE_OR_UNMATCHED_LINK',appraisalReview:{status:'HOLD'},blockExport:true,reasons:['APPRAISAL_LINK_IDENTITY_OR_SOURCE_CHANGED']};
+ // A client-side link is not a signature, credential or permission grant.
+ // Reject missing/malformed review receipts and forged professional flags
+ // before evaluating any REVIEW_REQUIRED draft-export request.
  if(!['HOLD','REVIEW_REQUIRED'].includes(link.reviewStatus)||
-    (link.reviewStatus==='REVIEW_REQUIRED'&&Array.isArray(link.issues)&&
+    typeof link.reportId!=='string'||!link.reportId.trim()||
+    link.independentlyVerified!==false||link.professionalUseAuthorized!==false||
+    !Array.isArray(link.issues)||link.issues.length>1000||
+    link.issues.some(x=>typeof x!=='string'||!x.trim())||
+    (link.reviewStatus==='REVIEW_REQUIRED'&&
       link.issues.some(x=>['CIRCULAR_VALUATION','INCOME_CAPITALIZATION_MISMATCH',
         'NOI_RECONCILIATION_MISMATCH','RENT_PERCENTAGE_ARITHMETIC_MISMATCH',
         'SPECIALIST_EVIDENCE_HOLD','INVALID_NUMERIC_INPUT','APPRAISAL_INPUT_CONFLICT',
