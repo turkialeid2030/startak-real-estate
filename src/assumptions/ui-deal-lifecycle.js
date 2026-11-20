@@ -9,6 +9,7 @@ const {
   createNewV2DealRecord,
   upgradeDealToV2,
 } = require('./deal-assumption-envelope');
+const { assumptionRegistryFromSavedDeal } = require('./saved-deal-assumption-registry');
 
 function assertPlainObject(value, name) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -60,6 +61,9 @@ function hydrateSavedDealForUi(record, defaultInputs) {
   return {
     assumptionModelVersion,
     inputs,
+    // Preserve signed/unsigned provenance exactly. Never silently discard a
+    // saved assumption override and show baseline economics as its verdict.
+    assumptionRegistry: assumptionRegistryFromSavedDeal(record),
     legacyCompatibility: assumptionModelVersion === ASSUMPTION_MODEL_VERSION.LEGACY,
     explicitUpgradeRequired: assumptionModelVersion === ASSUMPTION_MODEL_VERSION.LEGACY,
     transactionAuthorized: false,
