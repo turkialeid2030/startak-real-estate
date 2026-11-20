@@ -20,7 +20,7 @@ function normalizePolicy(policy) {
     }
     if (!Array.isArray(roles) || roles.length === 0
       || roles.some((role) => typeof role !== 'string' || !role.trim())) {
-      throw new TypeError(`policy action ${action} must list at least one valid string role`);
+      throw new TypeError(`policy action ${action} must list at least one role (valid non-empty strings only)`);
     }
     normalized[action] = Object.freeze([...new Set(roles.map((role) => role.trim()))]);
   }
