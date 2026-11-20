@@ -415,3 +415,12 @@
 - الالتزام `7d042969511069d070ca2453f4e18bb6435e3a34`: [Release Verify #44791621336](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44791621336) **SUCCESS**، و`REGRESSION_TOTAL=642 PASSED=642`، `PRODUCTION_BUILD=PASS`، `VERIFY_PACKAGE=PASS`، `NPM_AUDIT_RELEASE_THRESHOLD=PASS`؛ عدد التنبيهات المصنفة حاليًا 0.
 - [بوابة أمن #44791621552](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44791621552) **SUCCESS** في اختبارات أدوار المؤسسة والسجل الأمني وعزل PostgreSQL المعزول؛ [C7 #44791621274](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44791621274)، [Wave17A #44791621267](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44791621267)، و[متصفح المالك #44791621305](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44791621305) **SUCCESS**.
 - **لا تغيير في الاعتماد:** بيانات المصدر السعودي والـ17 حالة الخاصة والربط الحقيقي لـIdP والتخزين والنسخ الاحتياطية والأدلة المهنية للـ12 حزمة ما زالت غير مكتملة. `GO/HOLD=HOLD_NOT_AUTHORIZED`.
+
+
+## 15. تدقيق تطابق نوع معرّف المؤسسة على السجل
+
+- **W01 / Q05، 20 نوفمبر 2026:** استُبدل قبول `String(resourceTenantId)` بشرط النوع النصي الصريح في `assertTenantScopedAccess`. لم يعد مسموحًا بتحويل كائن له `toString` يساوي رقم المؤسسة إلى سياق وصول مصرح به. ويمنع `bindTenantToRecord` تمرير مصفوفة أو `tenantId` غير نصي داخل سجل عقار؛ ويحتفظ بالتمرير الصحيح للمعرّف النصي.
+- أضيفت **6 حالات سلبية/إيجابية** لاختبار بيانات المؤسسة المزورة والسجل الصحيح.
+- [Security CI #44792920639](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44792920639) **PASS** على `d5b29437618f7dfa227b6dc9ebdf2b6848c5ec67`، منها `TENANT_BOUNDARY_SECURITY_V1: PASS (30 checks)` و`AUTHORIZATION_AUDIT_SECURITY_V1: PASS (43 checks)` وPostgreSQL 16 RLS المعزول PASS.
+- لا تثبت هذه النتائج ربط IdP/HTTP/DB الحقيقي أو اختبار اختراق مستقل أو تشفير إنتاجي. `Q05` ما زالت **0/3** اعتمادات مستقلة و`HOLD_NOT_AUTHORIZED` إلى حين استكمال أدلة التشغيل.
+- [Release Verify #44792920636](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44792920636) و[One Batch #44792920841](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44792920841): راجع سجلاتهما النهائية على نفس الالتزام قبل تغيير وصف جاهزية الدفعة.
