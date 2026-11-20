@@ -99,6 +99,19 @@ check('decision HOLD blocks UI sensitivity presentation', () => {
   assert.equal(scoped.sensitivityReady, false);
   assert.equal(scoped.sensitivityRenderPolicy, 'HOLD_INCOMPLETE_ASSUMPTION_OVERRIDE');
 });
+const withFinancialWidgets = calculateUiInvestmentState({
+  mode: UI_MODE.BUILDING, inputs: hydrated.inputs,
+  assumptionRegistry: hydrated.assumptionRegistry,
+  assumptionModelVersion: ASSUMPTION_MODEL_VERSION.V2,
+});
+check('unreviewed overrides do not emit baseline purchase ceilings', () => {
+  assert.equal(withFinancialWidgets.purchasePriceQualification, undefined);
+  assert.equal(withFinancialWidgets.results.purchasePriceQualification, null);
+  assert.equal(withFinancialWidgets.results.purchaseAlternative, null);
+  assert.equal(withFinancialWidgets.results.purchaseCeilingCertificate, null);
+  assert.equal(withFinancialWidgets.results.decisionStatus, 'INCOMPLETE_INPUTS');
+});
+
 check('canonical baseline disclosure is never independent financial approval', () => {
   const ui = buildUiDisclosureViewModel({ governance: scoped.governance, locale: 'ar-SA' });
   assert.equal(ui.userApprovedAssumptions, false);
