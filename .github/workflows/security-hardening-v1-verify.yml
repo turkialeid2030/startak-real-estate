@@ -13,6 +13,9 @@ on:
       - 'tests/architecture/run_authenticated_investment_committee_runtime_v1.js'
       - 'tests/architecture/run_authenticated_reporting_runtime_v1.js'
       - 'tests/architecture/run_vite_security_patch_floor_v1.js'
+      - 'tests/architecture/run_private_golden_residual_reference_v1.js'
+      - 'tools/private-golden-residual-reference.cjs'
+      - 'tools/verify-owner-external-golden-17.mjs'
       - 'package.json'
       - 'package-lock.json'
       - 'tools/security/generate-isolated-postgres-rls-fixture.js'
@@ -68,6 +71,8 @@ jobs:
           node tests/architecture/run_oidc_jwt_jwks_authentication_v1.js
           node tests/architecture/run_tenant_boundary_security_v1.js
           node tests/architecture/run_authorization_audit_security_v1.js
+      - name: Private golden auxiliary arithmetic gate (synthetic only; no private data)
+        run: node tests/architecture/run_private_golden_residual_reference_v1.js
       - name: Isolated real PostgreSQL 16 tenant RLS negative test (disposable CI database)
         run: |
           node tools/security/generate-isolated-postgres-rls-fixture.js > "$RUNNER_TEMP/startak-rls-ci.sql"
