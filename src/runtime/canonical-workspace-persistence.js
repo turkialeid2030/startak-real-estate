@@ -74,7 +74,13 @@ function parseEnvelope(raw, { tenantId, workspaceId }) {
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) fail('WORKSPACE_PERSISTENCE_CORRUPT_RECORD');
   if (parsed.schemaVersion !== 1 || !Number.isInteger(parsed.version) || parsed.version < 1) fail('WORKSPACE_PERSISTENCE_CORRUPT_RECORD');
   if (parsed.tenantId !== tenantId || parsed.workspaceId !== workspaceId) fail('WORKSPACE_PERSISTENCE_SCOPE_VIOLATION');
-  if (!parsed.workspace || typeof parsed.workspace !== 'object' || parsed.workspace.workspaceId !== workspaceId) fail('WORKSPACE_PERSISTENCE_CORRUPT_RECORD');
+  if (!parsed.workspace || typeof parsed.workspace !== 'object' || Array.isArray(parsed.workspace)
+    || parsed.workspace.workspaceId !== workspaceId
+    || parsed.workspace.schemaVersion !== 1
+    || typeof parsed.workspace.projectId !== 'string' || !parsed.workspace.projectId.trim()
+    || typeof parsed.workspace.caseId !== 'string' || !parsed.workspace.caseId.trim()
+    || !parsed.workspace.executableCase || typeof parsed.workspace.executableCase !== 'object'
+    || Array.isArray(parsed.workspace.executableCase)) fail('WORKSPACE_PERSISTENCE_CORRUPT_RECORD');
   // A legacy/current payload may omit workspace.tenantId, but it must never
   // contradict the authoritative tenant of its storage envelope when present.
   if (Object.prototype.hasOwnProperty.call(parsed.workspace, 'tenantId')
@@ -236,6 +242,17 @@ function createCanonicalWorkspacePersistence({
     const workspaceId = requiredString(workspace.workspaceId, 'workspace.workspaceId');
     requiredString(workspace.projectId, 'workspace.projectId');
     requiredString(workspace.caseId, 'workspace.caseId');
+    // Direct internal callers must not bypass schema and actor attribution
+    // checks that the higher-level runtime already performs.
+    if (workspace.schemaVersion !== 1) fail('UNSUPPORTED_WORKSPACE_SCHEMA');
+    if (!workspace.executableCase || typeof workspace.executableCase !== 'object'
+      || Array.isArray(workspace.executableCase)) fail('INVALID_CANONICAL_WORKSPACE');
+    const declaredActorId = workspace.attribution?.actorId;
+    if (declaredActorId != null
+      && (typeof declaredActorId !== 'string' || !declaredActorId.trim()
+        || declaredActorId.trim() !== identity.actorId)) {
+      fail('WORKSPACE_ATTRIBUTION_MISMATCH');
+    }
     // Direct callers of persistence must obey the verified tenant contract,
     // even when they bypass the normal runtime and HTTP validation layers.
     if (Object.prototype.hasOwnProperty.call(workspace, 'tenantId')
