@@ -100,14 +100,20 @@ function securityHeaders() {
 }
 
 function writeJson(res, statusCode, body, extraHeaders = {}) {
-  const payload = JSON.stringify(body);
+  // RFC 9110: 204 responses cannot carry response content. Sending a
+  // nonzero Content-Length for an OPTIONS preflight can confuse clients or
+  // intermediaries even when Node silently suppresses the body.
+  const noContent = statusCode === 204 || statusCode === 304;
+  const payload = noContent ? null : JSON.stringify(body);
   res.writeHead(statusCode, {
     ...securityHeaders(),
-    'content-type': 'application/json; charset=utf-8',
-    'content-length': Buffer.byteLength(payload, 'utf8'),
+    ...(!noContent ? {
+      'content-type': 'application/json; charset=utf-8',
+      'content-length': Buffer.byteLength(payload, 'utf8'),
+    } : {}),
     ...extraHeaders,
   });
-  res.end(payload);
+  res.end(noContent ? undefined : payload);
 }
 
 function classifyError(error) {
