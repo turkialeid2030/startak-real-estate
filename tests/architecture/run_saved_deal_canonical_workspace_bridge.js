@@ -148,6 +148,10 @@ assert.equal(unsupportedHistorical.executableCase.financialModel.status, 'ANALYT
 assert.equal(unsupportedHistorical.executableCase.financialModel.decisionStatus, 'INCOMPLETE_INPUTS');
 assert.equal(unsupportedHistorical.executableCase.financialModel.analyticalResultsOnly, true);
 assert.equal(unsupportedHistorical.executableCase.financialModel.unsupportedAssumptionOverride, true);
+assert.equal(unsupportedHistorical.executableCase.finance.status, 'ANALYTICAL_HOLD');
+assert.ok(unsupportedHistorical.executableCase.lifecycleCoverage.unresolved.includes('finance'));
+assert.equal(unsupportedHistorical.executableCase.lifecycleCoverage.status, 'LIFECYCLE_GAPS_REMAIN');
+
 assert.equal(unsupportedHistorical.executableCase.assumptions.overrideRegistryPresent, true);
 assert.equal(unsupportedHistorical.executableCase.assumptions.overrideDocumentationHold, true);
 assert.equal(unsupportedHistorical.authority.transactionAuthorized, false);
