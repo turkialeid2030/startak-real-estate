@@ -44,6 +44,7 @@ try{
  const valid=run();
  check(valid.status===2,'even a matching synthetic artifact never authorizes release: '+valid.stderr);
  check(valid.stdout.includes('IRR_SOURCE_BYTES=PASS'),'actual source bytes are hashed');
+ check(valid.stdout.includes('AUXILIARY_REFERENCE=BLOCKED_NOT_SUPPLIED'),'legacy 17-only fixture must explicitly HOLD the optional 4 auxiliary cases');
  check(valid.stdout.includes('ENGINE_PARITY=BLOCKED_TRUSTED_EXECUTION_PROOF_REQUIRED'),'untrusted result JSON does not prove actual engine execution');
  check(valid.stdout.includes('OVERALL=HOLD'),'release remains HOLD despite synthetic match');
  fs.writeFileSync(provenance,JSON.stringify({...meta,sourceSha256:'0'.repeat(64)}));
