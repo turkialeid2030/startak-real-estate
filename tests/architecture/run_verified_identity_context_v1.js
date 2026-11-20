@@ -45,6 +45,30 @@ check(() => assert.strictEqual(verified.claimBoundary.requiresTrustedServerVerif
 check(() => assert.strictEqual(isVerifiedIdentityContext(verified), true));
 check(() => assert.strictEqual(requireVerifiedIdentityContext(verified), verified.identity));
 
+const serializedClone = JSON.parse(JSON.stringify(verified));
+check(() => assert.strictEqual(isVerifiedIdentityContext(serializedClone), false));
+check(() => assert.throws(
+  () => requireVerifiedIdentityContext(serializedClone),
+  (error) => error.code === 'VERIFIED_IDENTITY_CONTEXT_REQUIRED',
+));
+const shapeMatchedForgedContext = {
+  status: IDENTITY_STATUS.VERIFIED_CONTEXT,
+  authorizationReady: true,
+  identity: {
+    actorId: 'attacker-1', subject: 'attacker-1',
+    tenantId: 'tenant-a', roles: ['ADMIN'],
+  },
+};
+check(() => assert.strictEqual(isVerifiedIdentityContext(shapeMatchedForgedContext), false));
+check(() => assert.throws(
+  () => requireVerifiedIdentityContext(shapeMatchedForgedContext),
+  (error) => error.code === 'VERIFIED_IDENTITY_CONTEXT_REQUIRED',
+));
+// Even a shallow clone with precisely the same verified actor and roles is
+// not an issued identity context; proof must not survive serialization.
+check(() => assert.strictEqual(isVerifiedIdentityContext({ ...verified }), false));
+
+
 const forgedMismatch = {
   ...verified,
   identity: { ...verified.identity, actorId: 'forged-user', subject: 'user-1' },
