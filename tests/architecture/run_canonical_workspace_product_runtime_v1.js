@@ -127,6 +127,63 @@ async function main() {
   await check(async () => assert.strictEqual(storedV1.authority.transactionAuthorized, false));
   await check(async () => assert.ok(Object.isFrozen(storedV1)));
 
+  // Source identity within a case must match the workspace scope. An inner
+  // project/case mismatch is not a harmless display difference: downstream
+  // decision reports can otherwise attribute one asset's figures to another.
+  await check(async () => assert.rejects(
+    runtime.saveWorkspace({
+      identityContext: analyst,
+      workspace: {
+        ...workspace,
+        executableCase: { ...workspace.executableCase, projectId: 'PROJECT-FORGED' },
+      },
+      expectedVersion: 1,
+      operationId: 'OP-FORGED-INNER-PROJECT',
+    }),
+    (error) => error.code === 'WORKSPACE_RESOURCE_IDENTITY_MISMATCH',
+  ));
+  await check(async () => assert.rejects(
+    persistence.save({
+      identityContext: analyst,
+      workspace: {
+        ...workspace,
+        executableCase: { ...workspace.executableCase, caseId: 'CASE-FORGED' },
+      },
+      expectedVersion: 1,
+      operationId: 'OP-FORGED-INNER-CASE',
+    }),
+    (error) => error.code === 'WORKSPACE_RESOURCE_IDENTITY_MISMATCH',
+  ));
+  // Persisted data is independently checked on read. A corrupt inner case
+  // cannot silently flow to reviewers, even if the outer tenant/workspace
+  // and record ownership still match the current user.
+  const originalKey = [...provider.values.keys()].find((key) => key.endsWith(':WS-001'));
+  const intactRaw = provider.values.get(originalKey);
+  const corrupted = JSON.parse(intactRaw);
+  corrupted.workspace = {
+    ...corrupted.workspace,
+    executableCase: { ...corrupted.workspace.executableCase, caseId: 'CASE-OTHER-ASSET' },
+  };
+  provider.values.set(originalKey, JSON.stringify(corrupted));
+  await check(async () => assert.rejects(
+    runtime.loadWorkspace({ identityContext: analyst, workspaceId: 'WS-001' }),
+    (error) => error.code === 'WORKSPACE_PERSISTENCE_CORRUPT_RECORD',
+  ));
+  await check(async () => assert.rejects(
+    runtime.saveWorkspace({
+      identityContext: analyst,
+      workspace,
+      expectedVersion: 1,
+      operationId: 'OP-CORRUPT-SOURCE-SAVE',
+    }),
+    (error) => error.code === 'WORKSPACE_PERSISTENCE_CORRUPT_RECORD',
+  ));
+  provider.values.set(originalKey, intactRaw);
+  await check(async () => assert.strictEqual(
+    (await runtime.loadWorkspace({ identityContext: analyst, workspaceId: 'WS-001' })).version,
+    1,
+  ));
+
   const loaded = await runtime.loadWorkspace({ identityContext: analyst, workspaceId: 'WS-001' });
   await check(async () => assert.strictEqual(loaded.version, 1));
   await check(async () => assert.strictEqual(loaded.workspace.workspaceId, 'WS-001'));
