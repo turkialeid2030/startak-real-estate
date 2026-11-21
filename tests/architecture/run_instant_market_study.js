@@ -116,4 +116,38 @@ assert.equal(hotel.todayValueScenarioSar,null,'hotel business cannot be valued u
 assert.equal(hotel.marketAnnualRentPotentialSar,null,'hotel rooms require ADR/RevPAR not simple residential rent');
 assert.equal(hotel.confidence,'NO_SUPPORTED_PRIMARY_VALUE');
 assert.equal(hotel.issues.includes('SPECIALIST_ASSET_REQUIRES_SECTOR_UNDERWRITING'),true);
+// Integrity of subject, comparable, cost and rent amounts: never strip
+// arbitrary comma/space characters and silently concatenate digits.
+assert.equal(number('١٬٠٠٠'),1000);
+assert.equal(number('1,000'),1000);
+assert.equal(number('١٬٢٠٠٫٥'),1200.5);
+for(const invalid of ['1,2','1 2','1,00,000','١٬٢','١ ٢',1e20]){
+  assert.equal(number(invalid),null,'invalid numeric value must fail: '+invalid);
+}
+const malformedSubject=study({
+  subject:{...subject,builtArea:'3,0,000'},
+  rentals:balancedRentals,
+});
+assert.equal(malformedSubject.saleIndicationSar,null);
+assert.equal(malformedSubject.todayValueScenarioSar,malformedSubject.incomeIndicationSar===null?null:malformedSubject.incomeIndicationSar,
+  'malformed building area cannot produce sale comparable extrapolation');
+assert.ok(malformedSubject.issues.includes('COMPARISON_AREA_REQUIRED'));
+const malformedSale=study({
+ sales:[sales[0],sales[1],{...sales[2],price:'114,0,00000'}],
+ rentals:balancedRentals,
+});
+assert.equal(malformedSale.eligibleSalesCount,2,'one malformed sale must be excluded, not repriced');
+assert.equal(malformedSale.saleIndicationSar,null);
+const malformedRent=study({
+ sales,rentals:[balancedRentals[0],balancedRentals[1],{...balancedRentals[2],annualRent:'14 000000'}],
+});
+assert.equal(malformedRent.eligibleRentalsCount,2,'one malformed rent must be excluded, not repriced');
+assert.equal(malformedRent.marketAnnualRentPotentialSar,null);
+const arabicSale=study({
+  sales:sales.map((r,i)=>({...r,price:['١٢٠٬٠٠٠٬٠٠٠','١٢٦٬٠٠٠٬٠٠٠','١١٤٬٠٠٠٬٠٠٠'][i],
+    builtArea:'٢٠٬٠٠٠'})),
+});
+assert.equal(arabicSale.eligibleSalesCount,3);
+assert.equal(arabicSale.saleIndicationSar,180e6);
+
 console.log('STARTAK location market scenario tests: PASS (all assertions)');
