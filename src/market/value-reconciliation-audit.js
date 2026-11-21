@@ -145,7 +145,7 @@ function reconcileValuationMethods({marketValueSar,costValueSar,incomeValueSar,
     if(efficiency<.5)issues.push('LOW_NLA_EFFICIENCY_REQUIRES_SURVEY');
   }
   if(sourceStatus!=='VERIFIED_INDEPENDENTLY')issues.push('SOURCE_EVIDENCE_NOT_INDEPENDENTLY_VERIFIED');
-  const severe=issues.some(x=>/MATERIAL_|ARITHMETIC_MISMATCH|NLA_EXCEEDS|OUT_OF_RANGE/.test(x));
+  const severe=issues.some(x=>/MATERIAL_|ARITHMETIC_MISMATCH|NLA_EXCEEDS|OUT_OF_RANGE|METHOD_VALUE_INVALID_/.test(x));
   return {
     status:severe?'RECONCILIATION_HOLD':entries.length<2?'INSUFFICIENT_METHODS':'REVIEW_REQUIRED',
     methodsSar:Object.fromEntries(entries.map(([k,v])=>[k,money(v)])),
