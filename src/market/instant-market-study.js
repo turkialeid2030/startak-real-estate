@@ -83,7 +83,28 @@ function sourceAvailable(url) {
   try { const x = new URL(url); return x.protocol === 'https:' && !x.username && !x.password; }
   catch { return false; }
 }
-function evaluateMarketStudy({ subject, sales = [], rentals = [], projects = [], assumptions = {}, asOf = new Date() }) {
+function evaluateMarketStudy(input = {}) {
+  // Imported research archives and untrusted callers may supply explicit null
+  // or the wrong container types, bypassing destructuring defaults. Never
+  // dereference them or treat missing sale/lease cohorts as verified evidence.
+  const payload=input&&typeof input==='object'&&!Array.isArray(input)?input:{};
+  let {subject, sales = [], rentals = [], projects = [], assumptions = {}, asOf = new Date()} = payload;
+  const structureIssues=[];
+  if(!subject||typeof subject!=='object'||Array.isArray(subject)){
+    subject={};structureIssues.push('MARKET_SUBJECT_STRUCTURE_INVALID');
+  }
+  if(!sales||!Array.isArray(sales)||sales.length>2000){
+    sales=[];structureIssues.push('MARKET_SALES_STRUCTURE_INVALID_OR_EXCESSIVE');
+  }
+  if(!rentals||!Array.isArray(rentals)||rentals.length>2000){
+    rentals=[];structureIssues.push('MARKET_RENTALS_STRUCTURE_INVALID_OR_EXCESSIVE');
+  }
+  if(!projects||!Array.isArray(projects)||projects.length>200){
+    projects=[];structureIssues.push('MARKET_PROJECTS_STRUCTURE_INVALID_OR_EXCESSIVE');
+  }
+  if(!assumptions||typeof assumptions!=='object'||Array.isArray(assumptions)){
+    assumptions={};structureIssues.push('MARKET_ASSUMPTIONS_STRUCTURE_INVALID');
+  }
   const now = asOf instanceof Date ? asOf : new Date(asOf);
   if (!Number.isFinite(now.getTime())) throw new Error('AS_OF_INVALID');
   const type = subject && subject.assetType;
@@ -95,7 +116,7 @@ function evaluateMarketStudy({ subject, sales = [], rentals = [], projects = [],
   const buildings = number(subject?.buildingCount), units = number(subject?.unitCount);
   const occupancy = number(assumptions.occupancy), expenseRatio = number(assumptions.expenseRatio);
   const capRate = number(assumptions.capRate);
-  const issues = [];
+  const issues = [...structureIssues];
   if (!Object.prototype.hasOwnProperty.call(ASSET_TYPES, type)) issues.push('ASSET_TYPE_REQUIRED');
   if (!location) issues.push('COORDINATES_REQUIRED');
   if (!(basisArea > 0)) issues.push('COMPARISON_AREA_REQUIRED');
@@ -176,7 +197,7 @@ function evaluateMarketStudy({ subject, sales = [], rentals = [], projects = [],
       Math.abs(saleIndication-incomeIndication)/Math.max(saleIndication,incomeIndication)*100:null;
   const materialMethodGap=methodGapPct!==null&&methodGapPct>=20;
   if(materialMethodGap)issues.push('MATERIAL_MARKET_INCOME_GAP_REQUIRES_RECONCILIATION');
-  const todayValueScenario = !specialistAsset && !materialMethodGap && values.length ?
+  const todayValueScenario = !structureIssues.length && !specialistAsset && !materialMethodGap && values.length ?
     values.reduce((x,y)=>x+y, 0)/values.length : null;
   if(specialistReason) issues.push(specialistReason);
   const confidence = !values.length || specialistAsset?'NO_SUPPORTED_PRIMARY_VALUE':
