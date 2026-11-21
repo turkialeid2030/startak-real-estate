@@ -150,4 +150,31 @@ const arabicSale=study({
 assert.equal(arabicSale.eligibleSalesCount,3);
 assert.equal(arabicSale.saleIndicationSar,180e6);
 
+// Imported archives and malformed API objects must not crash a market
+// scenario or silently calculate a primary amount from incomplete cohorts.
+const malformedRoot=evaluateMarketStudy(null);
+assert.equal(malformedRoot.todayValueScenarioSar,null);
+assert.ok(malformedRoot.issues.includes('MARKET_SUBJECT_STRUCTURE_INVALID'));
+for(const [patch,reason] of [
+ [{subject:null},'MARKET_SUBJECT_STRUCTURE_INVALID'],
+ [{subject:[]},'MARKET_SUBJECT_STRUCTURE_INVALID'],
+ [{sales:null},'MARKET_SALES_STRUCTURE_INVALID_OR_EXCESSIVE'],
+ [{rentals:false},'MARKET_RENTALS_STRUCTURE_INVALID_OR_EXCESSIVE'],
+ [{projects:'not-array'},'MARKET_PROJECTS_STRUCTURE_INVALID_OR_EXCESSIVE'],
+ [{assumptions:null},'MARKET_ASSUMPTIONS_STRUCTURE_INVALID'],
+ [{assumptions:[]},'MARKET_ASSUMPTIONS_STRUCTURE_INVALID'],
+ [{sales:Array(2001).fill(sales[0])},'MARKET_SALES_STRUCTURE_INVALID_OR_EXCESSIVE'],
+ [{rentals:Array(2001).fill(rentals[0])},'MARKET_RENTALS_STRUCTURE_INVALID_OR_EXCESSIVE'],
+ [{projects:Array(201).fill({})},'MARKET_PROJECTS_STRUCTURE_INVALID_OR_EXCESSIVE'],
+]){
+ const output=study(patch);
+ assert.equal(output.todayValueScenarioSar,null,reason+' must fail closed');
+ assert.ok(output.issues.includes(reason),reason+' must be explained');
+ assert.equal(output.independentlyVerified,false);
+ assert.equal(output.certifiedMarketValue,false);
+}
+const normalAfterMalformed=study({rentals:balancedRentals});
+assert.equal(normalAfterMalformed.todayValueScenarioSar,180e6,
+  'normal source data must remain compatible after malformed archive input');
+
 console.log('STARTAK location market scenario tests: PASS (all assertions)');
