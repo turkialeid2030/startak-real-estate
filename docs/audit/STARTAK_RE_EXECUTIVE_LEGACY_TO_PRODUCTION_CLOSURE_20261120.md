@@ -181,3 +181,10 @@
 - [PR #813 Release Verify #44923285279](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44923285279) يجب أن يثبت استكشاف الاختبار الجديد على SHA الأخير قبل قبول التدقيق الآلي؛ لا يُحتسب النجاح في الجد وحده.
 
 **القرار المستمر:** `HOLD_NOT_AUTHORIZED` لأي دمج شامل إلى `main` أو نشر تجاري. ما لم يكن لدى مسؤول التوقيع أدلة Q01–Q12 والمراجعة المستقلة وحقوق البيانات والاختبار الإنتاجي، فلا يصح إغلاق W/G/Q.
+
+### نتيجة التأهيل النهائي للمرشح الهندسي #813
+
+- `#813` SHA `98b4e44a1397017182fa98fda1c6fb0bac734a20`: [Release Verify #44923285279](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44923285279) = **SUCCESS** رسميًا، ووفق سجل job: `REGRESSION_TOTAL=649 PASSED=649`، `PRODUCTION_BUILD: PASS`، `VERIFY_PACKAGE: PASS`، `NPM_AUDIT_RELEASE_THRESHOLD: PASS`، `RELEASE_VERIFY_RESULT=PASS`.
+- اختبار `run_legacy_57_manifest_integrity.js` أصبح ضمن الاكتشاف القياسي `TEST_DISCOVERY_AND_REGRESSION`. الزيادة من 648 إلى 649 اختبارًا مسجّلًا لا تمثل 57 اختبار تكافؤ وظيفي: الاختبار الجديد يحرس هوية 57 مسارًا، ووجود 46 مرساة، والحالات التاريخية 10+1.
+- جرد PR عبر GitHub `/pulls?state=open` في 3 صفحات: **118 PR مفتوحًا** بعد PR #811–#813، وليس 118 عيبًا منفصلًا. ومسارات Q01–Q12 تعطي **0/36 اعتمادًا مستقلاً و0/12 تعيين مسؤول بالاسم** كما هو مسجل بكل issue على حدة.
+- [One Batch #44923285288](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44923285288) مستقل؛ إذا قرر `HOLD_NOT_AUTHORIZED` فلن تُرقى اختبارات الشفرة تلقائيًا إلى صلاحية إطلاق. `main` والنشر الإنتاجي خارج هذه الفروع.
