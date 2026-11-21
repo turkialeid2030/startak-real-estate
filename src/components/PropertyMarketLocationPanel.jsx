@@ -655,7 +655,9 @@ export default function PropertyMarketLocationPanel({
         <div><span className="text-xs text-slate-400">{L("مؤشر الدخل بالرسملة")}</span><strong className="block">{money(presentationScopeHold?null:report.incomeIndicationSar)}</strong></div>
         <div><span className="text-xs text-slate-400">{L("متوسط الإيجار السوقي لكل وحدة (تقريبي)")}</span><strong className="block">{money(presentationScopeHold?null:report.averageMarketAnnualRentPerUnitSar)}</strong></div>
       </div>
-      <p className="mt-2 text-xs text-amber-200">{L("مستوى الثقة:")} {report.confidence==='NO_SUPPORTED_PRIMARY_VALUE'?
+      <p className="mt-2 text-xs text-amber-200">{L("مستوى الثقة:")} {report.confidence==='INVALID_MARKET_INPUT_STRUCTURE'?
+        (locale==='en'?'Invalid market-study data; primary indication withheld':'مدخلات الدراسة السوقية غير صالحة؛ القيمة الموحدة محجوبة') :
+        report.confidence==='NO_SUPPORTED_PRIMARY_VALUE'?
         L('لا توجد قيمة أولية مؤهلة') :report.confidence==='UNRECONCILED_METHODS_NO_PRIMARY_VALUE'?
         L('إيقاف النتيجة الموحدة بسبب اختلاف جوهري بين المنهجيات') : L('مؤشر أولي غير متحقق مهنيًا')}.
         {report.specialistReason?L(' يلزم نموذج قطاعي متكامل للأصل المتخصص قبل إنتاج سعر رئيسي.'):''}
