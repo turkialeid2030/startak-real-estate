@@ -46,14 +46,14 @@ function verifyLegacyManifest(csv,{fileExists}){
   if(!/^[a-f0-9]{40}$/i.test(sourceBlob))fail('SOURCE_BLOB_INVALID');
   // Never accept traversal, absolute paths or root dot segments from a
   // purported source manifest, even if the caller uses a real fs.existsSync.
-  if(!/^src\/[A-Za-z0-9_./-]+\.js$/.test(old)||old.includes('..')||
+  if(!/^src\/[A-Za-z0-9_./-]+\.(?:js|jsx)$/.test(old)||old.includes('..')||
      fileExists(old))fail('OLD_PATH_NOT_ABSENT_OR_INVALID');
   if(!Object.hasOwn(STATUS,status))fail('STATUS_UNRECOGNIZED');
   counts[status]=(counts[status]||0)+1;
   if(inspection!=='LEGACY_API_INSPECTED')fail('INSPECTION_INVALID');
   if(!['P0','P1','P2'].includes(priority))fail('PRIORITY_INVALID');
   if(status==='MODERN_ANCHOR_EXISTS_PARITY_UNVERIFIED'){
-    if(!/^src\/[A-Za-z0-9_./-]+\.js$/.test(modernAnchor)||
+    if(!/^src\/[A-Za-z0-9_./-]+\.(?:js|jsx)$/.test(modernAnchor)||
        modernAnchor.includes('..')||!fileExists(modernAnchor))
       fail('MODERN_ANCHOR_MISSING');
   }
