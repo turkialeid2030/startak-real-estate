@@ -201,3 +201,9 @@
 - تحديث `tests/architecture/run_instant_market_study.js` لاختبار قيمة بيع مضروبة في مساحة، وقيمة إيجار مضروبة في مساحة تأجيرية، وNOI مقابل معدل رسملة ضئيل، ومبالغ مقارنات مفرطة، وحالة إيجابية صحيحة، دون إدخال بيانات خاصة أو تعديل المرجع الأصلي 17+4.
 - الالتزام `8a9a3e2a0c7ee9fc89c6285e2bcf7a21a08cb5cb` يجب أن يجتاز [Release Verify #44960152308](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44960152308) و[One Batch #44960152402](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44960152402) قبل اعتماد الأثر الهندسي. هذه الروابط لا تُثبت نتيجة ناجحة ما لم تغلق CI.
 - الترحيل الوظيفي لمحتوى الـ57 ملفًا تاريخيًا، ومطابقة 17+4 في محرك إنتاج فعلي، وحقوق المصادر وقبول Q01–Q12، والتحقق الأمني والتوقيع الإنساني جميعها **مفتوحة**. لا تصريح دمج أو نشر تجاري تلقائي.
+
+### إثبات التأهيل الهندسي على PR #814 — 22 نوفمبر 2026
+
+- [Release Verify #44960152308](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44960152308) اكتمل **SUCCESS** على SHA نفسه `8a9a3e2a0c7ee9fc89c6285e2bcf7a21a08cb5cb`: `REGRESSION_TOTAL=649 PASSED=649`، `PRODUCTION_BUILD=PASS`، `VERIFY_PACKAGE=PASS`، `NPM_AUDIT_RELEASE_THRESHOLD=PASS`، `RELEASE_VERIFY_RESULT=PASS`. اكتملت أيضًا بنجاح فحوص الموقع والتعريب والمقارنات ودليل المصادر والحفظ ونطاق التصدير والحقوق المحدودة على الرأس نفسه.
+- [One Batch #44960152402](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44960152402) هو بوابة مستقلة يجب تسجيل قرارها بعد انتهاء التشغيل، ولا يغير مجرد مرور Release Verify سياسة `HOLD_NOT_AUTHORIZED`.
+- الجرد الحي لصفحات GitHub: **98 قضية مفتوحة و119 طلب دمج مفتوح**؛ هذه أعداد عناصر مراجعة قد تتداخل، وليست 217 عيبًا مستقلًا. يبقى PR #814 مسودة غير مدمجة.
