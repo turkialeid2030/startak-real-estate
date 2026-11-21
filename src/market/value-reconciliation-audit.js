@@ -1,10 +1,16 @@
 'use strict';
 // Auditable, non-certified cross-method valuation and market-rent checks.
 // Pure functions; no client valuation inputs, source reports or personal data.
-const {number}=require('./instant-market-study');
+// Use the canonical strict Arabic/English numeric parser. The exploratory
+// location engine intentionally strips arbitrary commas/whitespace; using it
+// for financial audits silently reinterpreted "1,2" as 12 SAR or "1 2" as 12.
+const {parseNumericText}=require('../validation/numeric-text');
 const valid=(v,min=0,max=1e15)=>{
-  const n=number(v);return n!==null&&Number.isFinite(n)&&n>=min&&n<=max?n:null;
+  const parsed=parseNumericText(v);
+  const n=parsed.ok?parsed.value:null;
+  return n!==null&&Number.isFinite(n)&&n>=min&&n<=max?n:null;
 };
+const supplied=v=>v!==undefined&&v!==null&&v!=='';
 const money=v=>Math.round((v+Number.EPSILON)*100)/100;
 const gap=(a,b)=>a>0&&b>0?Math.abs(a-b)/Math.max(a,b):null;
 function detailedReplacementCost({landArea,landPricePerSqm,components,
@@ -86,14 +92,22 @@ function reconcileValuationMethods({marketValueSar,costValueSar,incomeValueSar,
     else if(v!==undefined&&v!==null&&v!=='')issues.push('METHOD_VALUE_INVALID_'+k);
   }
   const noi=valid(annualNoiSar,0),cap=valid(capitalizationRatePct,0.000001,100);
+  if(supplied(annualNoiSar)&&noi===null)issues.push('ANNUAL_NOI_INVALID');
+  if(supplied(capitalizationRatePct)&&cap===null)issues.push('CAPITALIZATION_RATE_INVALID');
   if(noi!==null&&cap!==null){
     const derived=noi/(cap/100);
-    metrics.impliedIncomeValueSar=money(derived);
-    if(rawMethods.income!==undefined){
-      metrics.incomeCalculationErrorSar=money(rawMethods.income-derived);
-      if(gap(rawMethods.income,derived)>0.000001)
-        issues.push('CAPITALIZED_INCOME_ARITHMETIC_MISMATCH');
-    }else rawMethods.income=derived;
+    // A zero NOI cannot support a positive income indication, and a tiny
+    // cap-rate must not turn bounded inputs into an unbounded SAR estimate.
+    if(!Number.isFinite(derived)||derived<=0||derived>1e15){
+      issues.push('CAPITALIZED_INCOME_VALUE_INVALID_OR_OUT_OF_RANGE');
+    }else{
+      metrics.impliedIncomeValueSar=money(derived);
+      if(rawMethods.income!==undefined){
+        metrics.incomeCalculationErrorSar=money(rawMethods.income-derived);
+        if(gap(rawMethods.income,derived)>0.000001)
+          issues.push('CAPITALIZED_INCOME_ARITHMETIC_MISMATCH');
+      }else rawMethods.income=derived;
+    }
   }
   const pairs=[];
   const entries=Object.entries(rawMethods);
@@ -106,16 +120,35 @@ function reconcileValuationMethods({marketValueSar,costValueSar,incomeValueSar,
     else if(pct>=.10)issues.push('VALUATION_METHOD_GAP_10PCT');
   }
   const nla=valid(rentableArea,0.0001),rentRate=valid(marketRentPerSqmYear,0.0001);
-  if(nla!==null&&rentRate!==null)
-    metrics.comparableMarketAnnualRentSar=money(nla*rentRate);
+  if(supplied(rentableArea)&&nla===null)issues.push('RENTABLE_AREA_INVALID');
+  if(supplied(marketRentPerSqmYear)&&rentRate===null)issues.push('MARKET_RENT_PER_SQM_INVALID');
+  if(nla!==null&&rentRate!==null){
+    const annualRent=nla*rentRate;
+    if(!Number.isFinite(annualRent)||annualRent>1e15)
+      issues.push('MARKET_ANNUAL_RENT_OUT_OF_RANGE');
+    else metrics.comparableMarketAnnualRentSar=money(annualRent);
+  }
   let rentFromValue=valid(annualRentFromValueSar,0.0001);
   const valueForRent=valid(baseValueSar,0.0001);
   const rentPct=valid(annualRentPctOfValue,0,100);
-  if(rentFromValue===null&&valueForRent!==null&&rentPct!==null)
+  if(supplied(annualRentFromValueSar)&&rentFromValue===null)
+    issues.push('ANNUAL_RENT_FROM_VALUE_INVALID');
+  if(supplied(baseValueSar)&&valueForRent===null)
+    issues.push('BASE_VALUE_FOR_RENT_INVALID');
+  if(supplied(annualRentPctOfValue)&&rentPct===null)
+    issues.push('ANNUAL_RENT_PERCENTAGE_INVALID');
+  // Never silently replace an explicitly invalid rent amount with a
+  // percentage-derived estimate. A blank input may request the fallback.
+  if(!supplied(annualRentFromValueSar)&&rentFromValue===null&&
+      valueForRent!==null&&rentPct!==null)
     rentFromValue=valueForRent*rentPct/100;
   if(rentFromValue!==null)metrics.valuePercentageAnnualRentSar=money(rentFromValue);
-  if(rentFromValue!==null&&nla!==null)
-    metrics.impliedRentSarPerSqmYear=money(rentFromValue/nla);
+  if(rentFromValue!==null&&nla!==null){
+    const impliedRate=rentFromValue/nla;
+    if(!Number.isFinite(impliedRate)||impliedRate>1e15)
+      issues.push('IMPLIED_RENT_RATE_OUT_OF_RANGE');
+    else metrics.impliedRentSarPerSqmYear=money(impliedRate);
+  }
   if(rentFromValue!==null&&metrics.comparableMarketAnnualRentSar!==undefined){
     const amount=metrics.comparableMarketAnnualRentSar;
     metrics.annualRentGapSar=money(rentFromValue-amount);
@@ -123,6 +156,10 @@ function reconcileValuationMethods({marketValueSar,costValueSar,incomeValueSar,
     if(gap(rentFromValue,amount)>=.05)issues.push('RENT_METHODOLOGY_GAP_REQUIRES_RECONCILIATION');
   }
   const oer=valid(operatingExpenseRatio,0,1),gfa=valid(fullBuildingArea,0.0001);
+  if(supplied(operatingExpenseRatio)&&oer===null)
+    issues.push('OPERATING_EXPENSE_RATIO_INVALID');
+  if(supplied(fullBuildingArea)&&gfa===null)
+    issues.push('FULL_BUILDING_AREA_INVALID');
   if(oer===0&&rawMethods.income!==undefined)issues.push('ZERO_OPEX_NEEDS_TRIPLE_NET_LEASE_EVIDENCE');
   if(nla!==null&&gfa!==null){
     const efficiency=nla/gfa;
@@ -131,9 +168,9 @@ function reconcileValuationMethods({marketValueSar,costValueSar,incomeValueSar,
     if(efficiency<.5)issues.push('LOW_NLA_EFFICIENCY_REQUIRES_SURVEY');
   }
   if(sourceStatus!=='VERIFIED_INDEPENDENTLY')issues.push('SOURCE_EVIDENCE_NOT_INDEPENDENTLY_VERIFIED');
-  const severe=issues.some(x=>/MATERIAL_|ARITHMETIC_MISMATCH|NLA_EXCEEDS/.test(x));
+  const severe=issues.some(x=>/MATERIAL_|ARITHMETIC_MISMATCH|NLA_EXCEEDS|OUT_OF_RANGE|(?:^METHOD_VALUE_INVALID_|_INVALID$)/.test(x));
   return {
-    status:entries.length<2?'INSUFFICIENT_METHODS':severe?'RECONCILIATION_HOLD':'REVIEW_REQUIRED',
+    status:severe?'RECONCILIATION_HOLD':entries.length<2?'INSUFFICIENT_METHODS':'REVIEW_REQUIRED',
     methodsSar:Object.fromEntries(entries.map(([k,v])=>[k,money(v)])),
     differences:pairs,metrics,issues:[...new Set(issues)],
     certified:false,automaticPrimaryValueSar:null,

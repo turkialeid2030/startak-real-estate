@@ -32,4 +32,19 @@ mustHold({landArea:1e15,landPricePerSqm:1e15},
  'COST_TOTAL_OUT_OF_RANGE');
 assert.equal(detailedReplacementCost(baseline).valueSar,3728000,
  'synthetic baseline unchanged after rejected input');
+// Canonically grouped Saudi inputs remain usable, but ambiguous punctuation
+// must not change land or building costs behind the owner's back.
+const arabic=detailedReplacementCost({
+ ...baseline,landArea:'١٬٠٠٠',landPricePerSqm:'٢٬٠٠٠',
+ components:[{area:'١٬٢٠٠',ratePerSqm:'١٬٨٠٠'}],
+ depreciationPct:'٢٠',
+});
+assert.equal(arabic.status,'ILLUSTRATIVE_UNVERIFIED');
+assert.equal(arabic.valueSar,3728000);
+for(const invalid of ['1,2','1 2','1,00,000','١٬٢']){
+ mustHold({landPricePerSqm:invalid},'LAND_COST_INPUTS_REQUIRED');
+ mustHold({components:[{area:1200,ratePerSqm:invalid}]},
+  'BUILDING_COMPONENT_INVALID_0');
+}
+
 console.log('REPLACEMENT_COST_BOUNDARY=PASS synthetic_only=true');
