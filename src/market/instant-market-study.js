@@ -19,13 +19,14 @@ const ASSET_TYPES = Object.freeze({
   LAND: 'أرض',
 });
 
+// Use the same strict canonical Arabic/English numeric grammar as the
+// governed financial engines. Stripping every comma or whitespace formerly
+// converted malformed "1,2" and "1 2" to 12, corrupting size and sale/rent
+// comparable inputs without a validation error.
+const {parseNumericText}=require('../validation/numeric-text');
 function number(value) {
-  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
-  if (typeof value !== 'string' || !value.trim()) return null;
-  let s = value.trim().replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
-    .replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
-    .replace(/[\u066C\u00A0\s,]/g, '').replace(/\u066B/g, '.');
-  return /^-?\d+(?:\.\d+)?$/.test(s) ? Number(s) : null;
+  const parsed=parseNumericText(value);
+  return parsed.ok?parsed.value:null;
 }
 function validCoordinate(lat, lng) {
   return Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
