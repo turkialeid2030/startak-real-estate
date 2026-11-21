@@ -169,6 +169,7 @@ for(const [patch,reason] of [
 ]){
  const output=study(patch);
  assert.equal(output.todayValueScenarioSar,null,reason+' must fail closed');
+ assert.equal(output.confidence,'INVALID_MARKET_INPUT_STRUCTURE');
  assert.ok(output.issues.includes(reason),reason+' must be explained');
  assert.equal(output.independentlyVerified,false);
  assert.equal(output.certifiedMarketValue,false);
