@@ -178,4 +178,48 @@ const normalAfterMalformed=study({rentals:balancedRentals});
 assert.equal(normalAfterMalformed.todayValueScenarioSar,180e6,
   'normal source data must remain compatible after malformed archive input');
 
+
+// Monetary upper-bound enforcement: valid individual inputs can still
+// multiply/divide into invalid SAR indications. Never publish such outputs.
+const almostQuadrillionSale=sales.map(r=>({...r,price:'900000000000000'}));
+const overflowSale=study({sales:almostQuadrillionSale,rentals:balancedRentals});
+assert.equal(overflowSale.eligibleSalesCount,3);
+assert.equal(overflowSale.saleIndicationSar,null,'sale amount * subject basis can exceed SAR bound');
+assert.ok(overflowSale.issues.includes('SALE_INDICATION_OUT_OF_RANGE'));
+assert.equal(overflowSale.incomeIndicationSar,180e6);
+assert.equal(overflowSale.todayValueScenarioSar,null,'cannot default to the other method after sale overflow');
+assert.equal(overflowSale.confidence,'MARKET_CALCULATION_OUT_OF_RANGE');
+
+const almostQuadrillionRent=rentals.map(r=>({...r,annualRent:'900000000000000'}));
+const overflowRent=study({rentals:almostQuadrillionRent});
+assert.equal(overflowRent.eligibleRentalsCount,3);
+assert.equal(overflowRent.marketAnnualRentPotentialSar,null,'rent rate * subject NLA may exceed SAR bound');
+assert.equal(overflowRent.incomeIndicationSar,null);
+assert.ok(overflowRent.issues.includes('MARKET_ANNUAL_RENT_OUT_OF_RANGE'));
+assert.equal(overflowRent.todayValueScenarioSar,null,'no primary output after rent arithmetic overflow');
+
+const overflowCap=study({
+ assumptions:{...assumptions,capRate:'0.000000000001'},
+});
+assert.equal(overflowCap.incomeIndicationSar,null,'NOI / tiny cap rate must be bounded');
+assert.ok(overflowCap.issues.includes('INCOME_INDICATION_OUT_OF_RANGE'));
+assert.equal(overflowCap.todayValueScenarioSar,null,'sale value does not hide invalid income denominator');
+assert.equal(overflowCap.confidence,'MARKET_CALCULATION_OUT_OF_RANGE');
+
+const extremeSale=sales.map(r=>({...r,price:'2000000000000000'}));
+const excludedExtremeSale=study({sales:extremeSale,rentals:balancedRentals});
+assert.equal(excludedExtremeSale.eligibleSalesCount,0,'source amounts above bound are not valid comparables');
+assert.ok(excludedExtremeSale.issues.includes('SALE_AMOUNT_OUT_OF_RANGE'));
+assert.equal(excludedExtremeSale.saleIndicationSar,null);
+assert.equal(excludedExtremeSale.todayValueScenarioSar,null,'a valid second method cannot override corrupt comparable cohort');
+const extremeRent=rentals.map(r=>({...r,annualRent:'2000000000000000'}));
+const excludedExtremeRent=study({rentals:extremeRent});
+assert.equal(excludedExtremeRent.eligibleRentalsCount,0);
+assert.ok(excludedExtremeRent.issues.includes('RENT_AMOUNT_OUT_OF_RANGE'));
+assert.equal(excludedExtremeRent.todayValueScenarioSar,null);
+const ordinaryControl=study({rentals:balancedRentals});
+assert.equal(ordinaryControl.todayValueScenarioSar,180e6,'ordinary market comparisons remain compatible');
+assert.equal(ordinaryControl.confidence,'PRELIMINARY_UNVERIFIED_REQUIRES_INDEPENDENT_REVIEW');
+assert.equal(ordinaryControl.certifiedMarketValue,false);
+
 console.log('STARTAK location market scenario tests: PASS (all assertions)');
