@@ -79,4 +79,40 @@ assert.equal(arabicFormatted.methodsSar.income,10000000);
 assert.equal(arabicFormatted.methodsSar.market,10000000);
 assert.ok(!arabicFormatted.issues.includes('CAPITALIZED_INCOME_VALUE_INVALID_OR_OUT_OF_RANGE'));
 
+// Do not let malformed optional financial fields silently disappear while
+// market and cost indications produce a non-HOLD result.
+for(const [field,value,reason] of [
+ ['annualNoiSar','1,2','ANNUAL_NOI_INVALID'],
+ ['capitalizationRatePct','8,5','CAPITALIZATION_RATE_INVALID'],
+ ['rentableArea','1 000','RENTABLE_AREA_INVALID'],
+ ['marketRentPerSqmYear','1,2','MARKET_RENT_PER_SQM_INVALID'],
+ ['annualRentFromValueSar','1,2','ANNUAL_RENT_FROM_VALUE_INVALID'],
+ ['annualRentPctOfValue','2,5','ANNUAL_RENT_PERCENTAGE_INVALID'],
+ ['baseValueSar','1,2','BASE_VALUE_FOR_RENT_INVALID'],
+ ['operatingExpenseRatio','3,5','OPERATING_EXPENSE_RATIO_INVALID'],
+ ['fullBuildingArea','1 000','FULL_BUILDING_AREA_INVALID'],
+]){
+ const out=reconcileValuationMethods({
+  marketValueSar:10000000,costValueSar:10000000,
+  [field]:value,sourceStatus:'VERIFIED_INDEPENDENTLY',
+ });
+ assert.equal(out.status,'RECONCILIATION_HOLD',field);
+ assert.ok(out.issues.includes(reason),field+':'+out.issues.join(','));
+}
+const noSilentFallback=reconcileValuationMethods({
+ marketValueSar:10000000,costValueSar:10000000,
+ annualRentFromValueSar:'1,2',baseValueSar:10000000,
+ annualRentPctOfValue:5,rentableArea:1000,marketRentPerSqmYear:500,
+});
+assert.equal(noSilentFallback.status,'RECONCILIATION_HOLD');
+assert.equal(noSilentFallback.metrics.valuePercentageAnnualRentSar,undefined);
+assert.ok(noSilentFallback.issues.includes('ANNUAL_RENT_FROM_VALUE_INVALID'));
+const blankCanUseFallback=reconcileValuationMethods({
+ marketValueSar:10000000,costValueSar:10000000,
+ annualRentFromValueSar:'',baseValueSar:10000000,
+ annualRentPctOfValue:5,
+});
+assert.equal(blankCanUseFallback.metrics.valuePercentageAnnualRentSar,500000);
+assert.equal(blankCanUseFallback.status,'REVIEW_REQUIRED');
+
 console.log('VALUATION_RECONCILIATION_ARITHMETIC_BOUNDARY=PASS synthetic_only=true certified=false');
