@@ -1,9 +1,14 @@
 'use strict';
 // Auditable, non-certified cross-method valuation and market-rent checks.
 // Pure functions; no client valuation inputs, source reports or personal data.
-const {number}=require('./instant-market-study');
+// Use the canonical strict Arabic/English numeric parser. The exploratory
+// location engine intentionally strips arbitrary commas/whitespace; using it
+// for financial audits silently reinterpreted "1,2" as 12 SAR or "1 2" as 12.
+const {parseNumericText}=require('../validation/numeric-text');
 const valid=(v,min=0,max=1e15)=>{
-  const n=number(v);return n!==null&&Number.isFinite(n)&&n>=min&&n<=max?n:null;
+  const parsed=parseNumericText(v);
+  const n=parsed.ok?parsed.value:null;
+  return n!==null&&Number.isFinite(n)&&n>=min&&n<=max?n:null;
 };
 const money=v=>Math.round((v+Number.EPSILON)*100)/100;
 const gap=(a,b)=>a>0&&b>0?Math.abs(a-b)/Math.max(a,b):null;
