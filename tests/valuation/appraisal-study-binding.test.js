@@ -113,4 +113,39 @@ check('crafted link cannot spoof review trace or professional authority',()=>{
    assert.equal(result.blockExport,true);
  }
 });
+check('null source and malformed subjects do not throw or satisfy property identity',()=>{
+ const validLink=bindReview({subject,appraisal,documentDigest:sha,
+   confirmed:true,review:{status:'REVIEW_REQUIRED',issues:[]}}).link;
+ for(const bad of [null,[],0,false,'PROPERTY',{}]){
+   const identity=validateIdentity({subject:bad,appraisal,
+     documentDigest:sha,confirmed:true});
+   assert.equal(identity.status,'HOLD');
+   const gate=evaluateBoundReview({subject:bad,link:validLink});
+   assert.equal(gate.blockExport,true);
+   assert.equal(gate.status,'STALE_OR_UNMATCHED_LINK');
+ }
+ assert.equal(validateIdentity({subject:null,appraisal:null,
+   documentDigest:sha,confirmed:true}).status,'HOLD');
+});
+check('object identities cannot pass by toString coercion',()=>{
+ for(const [key,object] of [
+   ['name',{toString:()=>subject.name}],
+   ['assetType',{toString:()=>subject.assetType}],
+   ['valuationDate',{toString:()=>subject.valuationDate}],
+ ]){
+   const altered={...subject,[key]:object};
+   const result=validateIdentity({subject:altered,appraisal,
+     documentDigest:sha,confirmed:true});
+   assert.equal(result.status,'HOLD',key);
+   assert.ok(result.reasons.includes('STUDY_IDENTITY_INCOMPLETE'),key);
+ }
+ const badReport={...appraisal,reportId:{toString:()=>appraisal.reportId}};
+ assert.ok(validateIdentity({subject,appraisal:badReport,
+   documentDigest:sha,confirmed:true}).reasons.includes('APPRAISAL_REPORT_ID_REQUIRED'));
+ const badProperty={...appraisal,property:{...appraisal.property,name:{toString:()=>subject.name}}};
+ assert.ok(validateIdentity({subject,appraisal:badProperty,
+   documentDigest:sha,confirmed:true}).reasons.includes('APPRAISAL_IDENTITY_INCOMPLETE'));
+ assert.equal(validateIdentity({subject,appraisal,documentDigest:sha,
+   confirmed:true}).status,'MATCHED_USER_ATTESTED_NOT_INDEPENDENTLY_VERIFIED');
+});
 console.log('SUCCESS '+count+'/'+count+' independent binding tests');
