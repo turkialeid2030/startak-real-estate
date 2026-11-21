@@ -50,4 +50,15 @@ assert.equal(excessImpliedRentRate.status,'RECONCILIATION_HOLD');
 assert.ok(excessImpliedRentRate.issues.includes('IMPLIED_RENT_RATE_OUT_OF_RANGE'));
 assert.equal(excessImpliedRentRate.metrics.impliedRentSarPerSqmYear,undefined);
 
+// An explicitly supplied but malformed market value must not be silently
+// omitted while other method indications create a soft REVIEW_REQUIRED.
+const malformedMethod=reconcileValuationMethods({
+ marketValueSar:'not-a-price',costValueSar:10000000,
+ incomeValueSar:10000000,sourceStatus:'VERIFIED_INDEPENDENTLY',
+});
+assert.equal(malformedMethod.status,'RECONCILIATION_HOLD');
+assert.ok(malformedMethod.issues.includes('METHOD_VALUE_INVALID_market'));
+assert.equal(malformedMethod.methodsSar.market,undefined);
+assert.equal(malformedMethod.certified,false);
+
 console.log('VALUATION_RECONCILIATION_ARITHMETIC_BOUNDARY=PASS synthetic_only=true certified=false');
