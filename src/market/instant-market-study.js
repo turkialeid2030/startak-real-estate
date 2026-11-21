@@ -200,7 +200,8 @@ function evaluateMarketStudy(input = {}) {
   const todayValueScenario = !structureIssues.length && !specialistAsset && !materialMethodGap && values.length ?
     values.reduce((x,y)=>x+y, 0)/values.length : null;
   if(specialistReason) issues.push(specialistReason);
-  const confidence = !values.length || specialistAsset?'NO_SUPPORTED_PRIMARY_VALUE':
+  const confidence = structureIssues.length?'INVALID_MARKET_INPUT_STRUCTURE':
+    !values.length || specialistAsset?'NO_SUPPORTED_PRIMARY_VALUE':
     materialMethodGap?'UNRECONCILED_METHODS_NO_PRIMARY_VALUE':
     'PRELIMINARY_UNVERIFIED_REQUIRES_INDEPENDENT_REVIEW';
   const saleDispersion = saleUnitValues.length>=3 ? {
