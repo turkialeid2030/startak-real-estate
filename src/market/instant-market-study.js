@@ -159,6 +159,11 @@ function evaluateMarketStudy(input = {}) {
   };
   const admissible = (row, amountKey, areaKey) => {
     const amount = number(row?.[amountKey]), area = number(row?.[areaKey]);
+    if(amount!==null&&amount>MAX_RESEARCH_SAR){
+      const reason=amountKey==='price'?'SALE_AMOUNT_OUT_OF_RANGE':'RENT_AMOUNT_OUT_OF_RANGE';
+      if(!issues.includes(reason))issues.push(reason);
+      return false;
+    }
     const targetArea = amountKey === 'price' ? basisArea : lettableArea;
     // Comparables with grossly different sizes must not be extrapolated as
     // a like-for-like whole-asset sale/lease without an adjustment study.
