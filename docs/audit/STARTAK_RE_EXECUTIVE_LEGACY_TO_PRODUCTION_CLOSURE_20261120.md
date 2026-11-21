@@ -134,3 +134,12 @@
 - **الاختبارات الجديدة:** `tests/valuation/reconciliation-arithmetic-boundary.test.js` و`tests/valuation/replacement-cost-boundary.test.js` تغطي الحساب الصحيح والأرقام العربية وسلبية الإدخال والنسب والإجماليات؛ ضمان عدم استخدام بيانات العملاء.
 - **الالتزام الأحدث:** `f3d96bcec5b5094ca7c144ce7ede0a10f2112573` في [PR #810](https://github.com/turkialeid2030/startak-real-estate/pull/810)، [Release Verify #44846692447](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44846692447) و[One Batch #44846692486](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44846692486). يتعين تسجيل النتائج الفعلية للـSHA الأخير؛ أي نجاح سابق لا يغني عنه.
 - **مطابقة تاريخ الفروع:** راجع GitHub API التسلسل من رأس #803 إلى رأس #810: `ahead=17`، `behind=0`، سبعة مسارات متغيرة برمجيًا/اختباريًا فقط. لا تغيير `main`، ولا إسقاط لبوابات التوثيق/المهنية/النشر.
+
+### الحالة المرجعية المساعدة 4/4 — مراجعة حسابية مستقلة من النص المفهرس
+
+أعيد فتح نسخة Library باسم `golden-cases-17.json` وفُحصت الأربع حالات `residualCases` مقابل الصيغ البرمجية المعلنة في `tools/private-golden-residual-reference.cjs`:
+- فندقان مستقلان: 2/2 اتساق حساب إيراد الغرف الموسمي، صافي الدخل، القيمة الرأسمالية، الخصم وقيمة الأرض المتبقية.
+- أصل متعدد الوحدات: 1/1 اتساق إيرادات الوحدات والإشغال والتكاليف ورسملة NOI.
+- أصل تجاري: 1/1 اتساق حساب **الجزء اللاحق فقط** (الأوزان/القيمة الحالية/سعر المتر/المزج مع قيمة السوق) باستخدام `expected.scenarioLand[]` كما ورد في المصدر دون التحقق من إعادة بنائه من GDV والإنشاءات.
+
+تصنيف هذه المراجعة `INDEXED_TEXT_REFERENCE_ARITHMETIC=PASS` فقط. `RAW_SOURCE_BYTE_PROVENANCE=BLOCKED`، `TRUSTED_STARTAK_ENGINE_EXECUTION=BLOCKED`، `INDEPENDENT_SAUDI_MARKET_EVIDENCE=BLOCKED`، `LICENSED_VALUER_SIGNOFF=BLOCKED`، `IRR_PROVENANCE=BLOCKED`. لا يمكن رفع أو تسريب الملفات أو اعتماد الإطلاق لهذا السبب.
