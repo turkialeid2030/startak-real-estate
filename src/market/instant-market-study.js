@@ -2,6 +2,7 @@
 // No network calls, no inferred transactions, no implicit professional approval.
 'use strict';
 
+const MAX_RESEARCH_SAR=1e15;
 const ASSET_TYPES = Object.freeze({
   RESIDENTIAL_COMPOUND: 'مجمع سكني',
   RESIDENTIAL_BUILDING: 'عمارة سكنية',
@@ -117,6 +118,14 @@ function evaluateMarketStudy(input = {}) {
   const occupancy = number(assumptions.occupancy), expenseRatio = number(assumptions.expenseRatio);
   const capRate = number(assumptions.capRate);
   const issues = [...structureIssues];
+  const boundedSar=(candidate,reason)=>{
+    if(candidate===null)return null;
+    if(!Number.isFinite(candidate)||candidate<0||candidate>MAX_RESEARCH_SAR){
+      issues.push(reason);
+      return null;
+    }
+    return candidate;
+  };
   if (!Object.prototype.hasOwnProperty.call(ASSET_TYPES, type)) issues.push('ASSET_TYPE_REQUIRED');
   if (!location) issues.push('COORDINATES_REQUIRED');
   if (!(basisArea > 0)) issues.push('COMPARISON_AREA_REQUIRED');
@@ -150,6 +159,11 @@ function evaluateMarketStudy(input = {}) {
   };
   const admissible = (row, amountKey, areaKey) => {
     const amount = number(row?.[amountKey]), area = number(row?.[areaKey]);
+    if(amount!==null&&amount>MAX_RESEARCH_SAR){
+      const reason=amountKey==='price'?'SALE_AMOUNT_OUT_OF_RANGE':'RENT_AMOUNT_OUT_OF_RANGE';
+      if(!issues.includes(reason))issues.push(reason);
+      return false;
+    }
     const targetArea = amountKey === 'price' ? basisArea : lettableArea;
     // Comparables with grossly different sizes must not be extrapolated as
     // a like-for-like whole-asset sale/lease without an adjustment study.
@@ -157,7 +171,8 @@ function evaluateMarketStudy(input = {}) {
     const sizeComparable = sizeRatio !== null && sizeRatio >= 0.5 && sizeRatio <= 2;
     const landSubtypeMatches=type!=='LAND'||!subject?.landSubtype||
       (row?.landSubtype && row.landSubtype===subject.landSubtype);
-    return Boolean(location && amount > 0 && area > 0 && sizeComparable && landSubtypeMatches &&
+    return Boolean(location && amount > 0 && amount <= MAX_RESEARCH_SAR &&
+      area > 0 && sizeComparable && landSubtypeMatches &&
       row?.assetType === type && row?.status === 'EXECUTED' &&
       sourceAvailable(row?.sourceUrl) && dateIsCurrent(row?.date, now, ageLimit) &&
       spatialMatch(row));
@@ -180,15 +195,22 @@ function evaluateMarketStudy(input = {}) {
   const eligibleRentals = needsIncomeInputs ? uniqueEligible(rentals, 'annualRent', 'rentableArea') : [];
   const saleUnitValues = eligibleSales.map(r => number(r.price) / number(type === 'LAND' ? r.landArea : r.builtArea));
   const rentUnitValues = eligibleRentals.map(r => number(r.annualRent) / number(r.rentableArea));
-  const perSqmSale = eligibleSales.length >= 3 ? median(saleUnitValues) : null;
-  const perSqmRent = eligibleRentals.length >= 3 ? median(rentUnitValues) : null;
-  const saleIndication = perSqmSale !== null && basisArea > 0 ? perSqmSale * basisArea : null;
+  const perSqmSale = eligibleSales.length >= 3 ?
+    boundedSar(median(saleUnitValues),'SALE_UNIT_RATE_OUT_OF_RANGE') : null;
+  const perSqmRent = eligibleRentals.length >= 3 ?
+    boundedSar(median(rentUnitValues),'RENT_UNIT_RATE_OUT_OF_RANGE') : null;
+  const saleIndication = perSqmSale !== null && basisArea > 0 ?
+    boundedSar(perSqmSale * basisArea,'SALE_INDICATION_OUT_OF_RANGE') : null;
   // Hotels, fuel stations, healthcare and industrial properties may include business or fit-out value:
   // a generic NLA rental model is not sufficient for an economic rent conclusion.
-  const marketRentPotential = !specialistAsset && perSqmRent !== null && lettableArea > 0 ? perSqmRent * lettableArea : null;
-  const annualOccupiedRent = marketRentPotential !== null && occupancy >= 0 && occupancy <= 1 ? marketRentPotential * occupancy : null;
-  const annualNOI = annualOccupiedRent !== null && expenseRatio >= 0 && expenseRatio < 1 ? annualOccupiedRent * (1 - expenseRatio) : null;
-  const incomeIndication = annualNOI !== null && capRate > 0 && capRate < 1 ? annualNOI / capRate : null;
+  const marketRentPotential = !specialistAsset && perSqmRent !== null && lettableArea > 0 ?
+    boundedSar(perSqmRent * lettableArea,'MARKET_ANNUAL_RENT_OUT_OF_RANGE') : null;
+  const annualOccupiedRent = marketRentPotential !== null && occupancy >= 0 && occupancy <= 1 ?
+    boundedSar(marketRentPotential * occupancy,'OCCUPIED_RENT_OUT_OF_RANGE') : null;
+  const annualNOI = annualOccupiedRent !== null && expenseRatio >= 0 && expenseRatio < 1 ?
+    boundedSar(annualOccupiedRent * (1 - expenseRatio),'NOI_OUT_OF_RANGE') : null;
+  const incomeIndication = annualNOI !== null && capRate > 0 && capRate < 1 ?
+    boundedSar(annualNOI / capRate,'INCOME_INDICATION_OUT_OF_RANGE') : null;
   const values = [saleIndication, incomeIndication].filter(x => x !== null);
   // The two methods are INDEPENDENT indicators. An unexplained >=20% spread
   // requires an explicit human reconciliation; do not average away a material conflict.
@@ -197,10 +219,13 @@ function evaluateMarketStudy(input = {}) {
       Math.abs(saleIndication-incomeIndication)/Math.max(saleIndication,incomeIndication)*100:null;
   const materialMethodGap=methodGapPct!==null&&methodGapPct>=20;
   if(materialMethodGap)issues.push('MATERIAL_MARKET_INCOME_GAP_REQUIRES_RECONCILIATION');
-  const todayValueScenario = !structureIssues.length && !specialistAsset && !materialMethodGap && values.length ?
+  const overRange=issues.some(reason=>reason.endsWith('_OUT_OF_RANGE'));
+  const todayValueScenario = !structureIssues.length && !overRange &&
+    !specialistAsset && !materialMethodGap && values.length ?
     values.reduce((x,y)=>x+y, 0)/values.length : null;
   if(specialistReason) issues.push(specialistReason);
   const confidence = structureIssues.length?'INVALID_MARKET_INPUT_STRUCTURE':
+    overRange?'MARKET_CALCULATION_OUT_OF_RANGE':
     !values.length || specialistAsset?'NO_SUPPORTED_PRIMARY_VALUE':
     materialMethodGap?'UNRECONCILED_METHODS_NO_PRIMARY_VALUE':
     'PRELIMINARY_UNVERIFIED_REQUIRES_INDEPENDENT_REVIEW';
@@ -225,7 +250,7 @@ function evaluateMarketStudy(input = {}) {
     .filter(v => v !== null && v >= -0.1 && v <= 0.1);
   const overallScenarioImpact = Math.max(-0.2, Math.min(0.2, impacts.reduce((a,b)=>a+b,0)));
   const projectScenario = todayValueScenario !== null && impacts.length ?
-    todayValueScenario * (1 + overallScenarioImpact) : null;
+    boundedSar(todayValueScenario * (1 + overallScenarioImpact),'PROJECT_SCENARIO_OUT_OF_RANGE') : null;
   const inRiyadh = String(subject?.city || '').trim() === 'الرياض';
   const rentRegulation = !inRiyadh || subject?.urbanBoundary !== 'YES' ? 'SCOPE_VERIFICATION_REQUIRED' :
     subject?.leaseHistory === 'FIRST_LEASE' ? 'FIRST_LEASE_TERMS_REQUIRE_REVIEW' :
