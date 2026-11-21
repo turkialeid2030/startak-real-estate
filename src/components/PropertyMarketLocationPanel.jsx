@@ -657,6 +657,8 @@ export default function PropertyMarketLocationPanel({
       </div>
       <p className="mt-2 text-xs text-amber-200">{L("مستوى الثقة:")} {report.confidence==='INVALID_MARKET_INPUT_STRUCTURE'?
         (locale==='en'?'Invalid market-study data; primary indication withheld':'مدخلات الدراسة السوقية غير صالحة؛ القيمة الموحدة محجوبة') :
+        report.confidence==='MARKET_CALCULATION_OUT_OF_RANGE'?
+        (locale==='en'?'Out-of-range market arithmetic; primary indication withheld':'نتائج حسابية خارج النطاق؛ القيمة السوقية الموحدة محجوبة') :
         report.confidence==='NO_SUPPORTED_PRIMARY_VALUE'?
         L('لا توجد قيمة أولية مؤهلة') :report.confidence==='UNRECONCILED_METHODS_NO_PRIMARY_VALUE'?
         L('إيقاف النتيجة الموحدة بسبب اختلاف جوهري بين المنهجيات') : L('مؤشر أولي غير متحقق مهنيًا')}.
