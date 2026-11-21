@@ -143,3 +143,10 @@
 - أصل تجاري: 1/1 اتساق حساب **الجزء اللاحق فقط** (الأوزان/القيمة الحالية/سعر المتر/المزج مع قيمة السوق) باستخدام `expected.scenarioLand[]` كما ورد في المصدر دون التحقق من إعادة بنائه من GDV والإنشاءات.
 
 تصنيف هذه المراجعة `INDEXED_TEXT_REFERENCE_ARITHMETIC=PASS` فقط. `RAW_SOURCE_BYTE_PROVENANCE=BLOCKED`، `TRUSTED_STARTAK_ENGINE_EXECUTION=BLOCKED`، `INDEPENDENT_SAUDI_MARKET_EVIDENCE=BLOCKED`، `LICENSED_VALUER_SIGNOFF=BLOCKED`، `IRR_PROVENANCE=BLOCKED`. لا يمكن رفع أو تسريب الملفات أو اعتماد الإطلاق لهذا السبب.
+
+### نتائج التأهيل على الالتزام الأخير وأدلة الأطراف الخارجية
+
+- **PR #810 HEAD `f3d96bcec5b5094ca7c144ce7ede0a10f2112573`**: [Release Verify #44846692447](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44846692447) = **SUCCESS** حسب سجلات العمل؛ `648/648` اختبارات، بناء الإنتاج PASS، التحقق من الحزمة PASS، تدقيق اعتماديات npm PASS. كما نجحت التعريبات وLocation Market Study وComparable Adjustments وMethod Provenance وLease Income. لا يستخدم اجتياز هذه الخطوات لتغيير قرار النشر.
+- **One Batch #44846692486** قيد التنفيذ عند هذه المراجعة؛ لا تُسجل نتيجة نهائية له قبل إغلاق التنفيذ. الإنتاج والدمج باقيان `HOLD_NOT_AUTHORIZED` حتى استيفاء بوابات خارجية.
+- **التحقق الحي من #750–#761:** القضايا الاثنتا عشرة كلها OPEN وتذكر حرفيًا `Current independently verified closure: 0/3` و`NO PERSON APPOINTED`. المحصلة وفق سجلات GitHub: **0/36 اعتمادًا مستقلًا** و**0/12 تعيينًا بالاسم**. لا يجوز الاستدلال من ذلك على عدم وجود ملفات خاصة خارج GitHub؛ إذ يتطلب ذلك مراجعة منظومة حفظها المخولة.
+- **تدقيق توثيق الإغلاق:** تحديث [Issue #747](https://github.com/turkialeid2030/startak-real-estate/issues/747) بأدلة التدقيق المستقل للمسارات الاثني عشر، وتحديث #774 بالأربع حالات المرجعية الحسابية، و#622 بمسار العيوب/الأدلة الجديد. لا إغلاق صوري لأي بند.
