@@ -119,3 +119,8 @@
 - [QCR #747](https://github.com/turkialeid2030/startak-real-estate/issues/747) ما زال مفتوحًا، ويتضمن **12 مسارًا Q01–Q12**؛ لا يمكن اعتماد 36 مستندًا مهنيًا بمجرد وجود مراجع SHA أو اختبار محاكاة. وتظل مسارات #648 الخاصة بالهوية والخزنة الفعلية والبيانات السعودية والموافقة المهنية والحقوق والـUAT والـGo/No-Go خارج نطاق الإغلاق البرمجي.
 
 **تصنيف القرار:** PASS هندسي للالتزامات التي اجتازت اختبارها فعلاً؛ HOLD لما عدا ذلك؛ لا تغيير `main` ولا نشر إنتاجي. لا بيانات خاصة مرفوعة إلى المستودع العام.
+
+### إثبات CI الفعلي للمرشح #809 وسجل التحقق #810
+- `#809` exact SHA `99b537f89c55363630232d4d6c5a6099cc7f1581`: [Release Verify #44845795266](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44845795266) **SUCCESS**؛ `REGRESSION_TOTAL=647 PASSED=647`، Build/Package/npm audit threshold PASS، D04 Locale PASS، وإضافات مصدر/مقارنات/دخل إيجاري PASS. One Batch مستقل ولم يصدر تصريح إنتاجي.
+- `#810` final exact SHA `a2d587aacc643e11783cfb00d3d1ed33be022965`: [Release Verify #44846034023](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44846034023) و[One Batch #44846034031](https://github.com/turkialeid2030/startak-real-estate/actions/runs/44846034031) جاريان عند زمن تحديث السجل. لا تُنسب له نتيجة الفرع السابق. يتضمن استبعاد طريقة تقييم مدخلة بقيمة غير صالحة مع HOLD.
+- واجهة الخمس خطوات في `OwnerFiveStepWizard.jsx` تتضمن الآن حقول الغرض وتاريخ التقييم ونوع الحق والمقارنة السوقية ونتيجة قيمة/أجرة منفصلتين؛ اختبارات Chromium اصطناعية موجودة `run_owner_five_step_staging.js` و`run_owner_market_independent_evidence.js` و`run_owner_canonical_mode_parity.js`. هذا يصحح وصف الثغرة المصدرية التاريخي **جزئيًا** دون اكتمال قبول المصدر الحقيقي أو الحفظ/الاستعادة المهنية والقطاعات والـ17 حالة.
