@@ -2,7 +2,7 @@
 // This is a session-only, restrictive research linkage; no deed verification, certified value,
 // stored personal details, or permission to alter canonical Saved Deals.
 const {number}=require('./appraisal-assurance');
-const name=x=>String(x||'').trim().replace(/\s+/g,' ').toLocaleLowerCase('ar');
+const name=x=>typeof x==='string'?x.trim().replace(/\s+/g,' ').toLocaleLowerCase('ar'):'';
 const digest=x=>typeof x==='string'&&/^[a-f0-9]{64}$/i.test(x)?x.toLowerCase():null;
 // ISO-shaped values such as 2026-02-30 are not real calendar dates and
 // cannot bind an appraisal source to a property study.
@@ -12,11 +12,16 @@ const calendarDate=x=>{
  return Number.isFinite(d.getTime())&&d.toISOString().slice(0,10)===x;
 };
 function snapshot(subject={}){
- const area=number(subject.landArea);
+ // Identity properties are user supplied, not trusted stringifiable objects.
+ // Null, arrays and invalid field types must fail the identity gate rather
+ // than throw or become "[object Object]" on both sides of a comparison.
+ const source=subject&&typeof subject==='object'&&!Array.isArray(subject)?subject:{};
+ const area=number(source.landArea);
  return {
-  name:name(subject.name),assetType:String(subject.assetType||'').trim(),
+  name:name(source.name),
+  assetType:typeof source.assetType==='string'?source.assetType.trim():'',
   areaSqm:area!==null&&area>0?area:null,
-  valuationDate:String(subject.valuationDate||'').trim(),
+  valuationDate:typeof source.valuationDate==='string'?source.valuationDate.trim():'',
  };
 }
 function same(a,b){
@@ -34,7 +39,7 @@ function validateIdentity({subject={},appraisal={},documentDigest,confirmed=fals
  if(!report.name||!report.assetType||report.areaSqm===null||
     !calendarDate(report.valuationDate))errors.push('APPRAISAL_IDENTITY_INCOMPLETE');
  if(!same(current,report))errors.push('PROPERTY_IDENTITY_MISMATCH');
- if(!String(appraisal?.reportId||'').trim())errors.push('APPRAISAL_REPORT_ID_REQUIRED');
+ if(typeof appraisal?.reportId!=='string'||!appraisal.reportId.trim())errors.push('APPRAISAL_REPORT_ID_REQUIRED');
  if(!digest(documentDigest))errors.push('SOURCE_PDF_SHA256_REQUIRED');
  if(confirmed!==true)errors.push('EXPLICIT_SAME_PROPERTY_ATTESTATION_REQUIRED');
  return {status:errors.length?'HOLD':'MATCHED_USER_ATTESTED_NOT_INDEPENDENTLY_VERIFIED',
