@@ -61,4 +61,22 @@ assert.ok(malformedMethod.issues.includes('METHOD_VALUE_INVALID_market'));
 assert.equal(malformedMethod.methodsSar.market,undefined);
 assert.equal(malformedMethod.certified,false);
 
+// Grouping must not alter financial facts by erasing arbitrary punctuation.
+for(const invalid of ['1,2','1 2','1,00,000','١٬٢','١ ٢']){
+ const out=reconcileValuationMethods({
+  marketValueSar:invalid,costValueSar:10000000,incomeValueSar:10000000,
+  sourceStatus:'VERIFIED_INDEPENDENTLY',
+ });
+ assert.equal(out.status,'RECONCILIATION_HOLD');
+ assert.ok(out.issues.includes('METHOD_VALUE_INVALID_market'));
+ assert.equal(out.methodsSar.market,undefined);
+}
+const arabicFormatted=reconcileValuationMethods({
+ marketValueSar:'١٠٬٠٠٠٬٠٠٠',costValueSar:'١٠٬٠٠٠٬٠٠٠',
+ annualNoiSar:'٨٠٠٬٠٠٠',capitalizationRatePct:'٨',
+});
+assert.equal(arabicFormatted.methodsSar.income,10000000);
+assert.equal(arabicFormatted.methodsSar.market,10000000);
+assert.ok(!arabicFormatted.issues.includes('CAPITALIZED_INCOME_VALUE_INVALID_OR_OUT_OF_RANGE'));
+
 console.log('VALUATION_RECONCILIATION_ARITHMETIC_BOUNDARY=PASS synthetic_only=true certified=false');
