@@ -16,7 +16,7 @@ assert.match(code,/data-testid="market-open-umaps"/);
 assert.match(code,/href=\{OFFICIAL_SOURCE_REGISTRY\.BALADY_URBAN_MAPS\.publicReferenceUrl\}/);
 assert.match(code,/target="_blank" rel="noopener noreferrer"/);
 const locale=fs.readFileSync(path.join(__dirname,'../../src/i18n/market-study-core-labels.js'),'utf8');
-assert.match(code,/L\('فتح الخرائط الحضرية الرسمية \(UMAPS\)'\)/);
+assert.match(code,/L\('فتح الخرائط الحضرية الرسمية'\)/);
 assert.match(code,/L\('للمراجعة البلدية اليدوية/);
 assert.match(locale,/Open official Urban Maps \(UMAPS\)/);
 assert.match(locale,/No property details are sent by this link/);
