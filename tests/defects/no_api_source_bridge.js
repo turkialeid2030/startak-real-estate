@@ -81,7 +81,9 @@ assert.throws(()=>mergeReferences([],Array(MAX_REFERENCES+1).fill(ref).map((r,i)
 }))),/NOAPI_MAX_REFERENCES/);
 const jsx=fs.readFileSync(path.join(__dirname,'../../src/components/NoApiSourceBridgePanel.jsx'),'utf8');
 const host=fs.readFileSync(path.join(__dirname,'../../src/components/SaudiNationalIntelligenceSourcesPanel.jsx'),'utf8');
-assert.match(host,/<NoApiSourceBridgePanel\/>/);
+// Require the mounted bridge to pass its local source-register state back
+// to the review host; props added by the evidence qualification gate are valid.
+assert.match(host,/<NoApiSourceBridgePanel\b[^>]*\bonReferencesChange=\{setManualReferences\}[^>]*\/>/);
 assert.match(jsx,/data-testid="noapi-source-select"/);
 assert.match(jsx,/data-testid="noapi-add-link"/);
 assert.match(jsx,/data-testid="noapi-export"/);
