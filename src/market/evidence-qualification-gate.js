@@ -155,18 +155,32 @@ function qualifiedResearchIntake({records=[],references=[],subject={},asOf=new D
    bucket:'MANUAL_REFERENCE',reasons:Object.freeze(reasons),
    marketValuationEligible:false});
  });
- const seen=new Map(),duplicates=[],crossProviderCandidates=[];
+ const sourceSeen=new Map(),crossSeen=new Map(),duplicates=[],crossProviderCandidates=[];
  for(const f of findings){
   if(!f.referenceId||!f.sourceId)continue;
   const record=records[f.index];
-  const key=[norm(record.city),norm(record.district),
+  // Same provider + reference must be unique even if the provider's CSV
+  // later changes amount, date, locale, district or property type.
+  const sameKey=f.sourceId+'|'+norm(f.referenceId);
+  const previous=sourceSeen.get(sameKey);
+  if(previous){
+   const before=records[previous.index];
+   const same=['metricValue','metricUnit','eventDate','evidenceClass',
+    'assetType','city','district'].every(k=>before[k]===record[k]);
+   duplicates.push({first:previous.index,second:f.index,
+    reason:same?'DUPLICATE_SOURCE_RECORD_ID':'CONFLICTING_SOURCE_RECORD_ID'});
+  }else sourceSeen.set(sameKey,f);
+  // Across providers a shared printed reference is a *candidate* only when
+  // city, district and event date also match. Different IDs are never
+  // automatically merged based on a similar amount or nearby location.
+  const crossKey=[norm(record.city),norm(record.district),
     norm(record.eventDate||''),norm(f.referenceId)].join('|');
-  const group=seen.get(key)||[];
-  for(const previous of group){
-   if(previous.sourceId===f.sourceId)duplicates.push({first:previous.index,second:f.index,reason:'DUPLICATE_SOURCE_RECORD_ID'});
-   else crossProviderCandidates.push({first:previous.index,second:f.index,reason:'POSSIBLE_CROSS_PROVIDER_SAME_TRANSACTION'});
+  const group=crossSeen.get(crossKey)||[];
+  for(const prev of group){
+   if(prev.sourceId!==f.sourceId)crossProviderCandidates.push({
+    first:prev.index,second:f.index,reason:'POSSIBLE_CROSS_PROVIDER_SAME_TRANSACTION'});
   }
-  group.push(f);seen.set(key,group);
+  group.push(f);crossSeen.set(crossKey,group);
  }
  const totals=Object.freeze({
   importedRows:records.length,manualReferences:references.length,
