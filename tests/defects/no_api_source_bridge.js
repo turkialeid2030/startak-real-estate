@@ -7,7 +7,7 @@ const {
  captureReference,mergeReferences,exportReferences,importReferences,
 }=require('../../src/market/no-api-source-bridge');
 
-assert.ok(SOURCES.length>=20,'core previously supplied source destinations must be covered');
+assert.equal(SOURCES.length,35,'historical source inventory must cover all thirty-five reviewed destinations');
 assert.equal(BY_ID.UMAPS.url,'https://umaps.momah.gov.sa/');
 assert.equal(BY_ID.REGA.mode,'REFERENCE_ONLY');
 assert.equal(BY_ID.MOJ_OPEN.mode,'LICENSE_REVIEW_FOR_FILE');
