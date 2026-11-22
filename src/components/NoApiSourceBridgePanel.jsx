@@ -7,7 +7,7 @@ const {
 
 const FIELD='mt-1 w-full rounded-md border border-slate-600 bg-slate-900 p-2 text-sm text-slate-100';
 const TODAY=()=>new Date().toISOString().slice(0,10);
-export default function NoApiSourceBridgePanel(){
+export default function NoApiSourceBridgePanel({onReferencesChange}){
  const {locale}=useLocale(),en=locale==='en';
  const tr=(ar,english)=>en?english:ar;
  const [sourceId,setSourceId]=useState('MOJ_OPEN');
@@ -26,6 +26,7 @@ export default function NoApiSourceBridgePanel(){
    const item=captureReference({sourceId,sourceUrl,city,district,observedOn});
    const merged=mergeReferences(references,[item]);
    setReferences(merged.references);
+   onReferencesChange?.(merged.references);
    setNotice({ar:merged.duplicates?'المرجع مسجل مسبقًا ولم يُكرر.':'سُجل رابط بحثي يدوي غير متحقق؛ لم تُنقل أي قيمة إلى التقييم.',
     en:merged.duplicates?'Duplicate research link was not added.':'Manual unverified research link added; no valuation input was changed.'});
   }catch(_){setNotice({ar:'تعذر تسجيل المرجع: تحقق من الموقع الرسمي وتاريخ الاطلاع والحقول.',
@@ -51,6 +52,7 @@ export default function NoApiSourceBridgePanel(){
    const imported=importReferences(await file.text());
    const merged=mergeReferences(references,imported.references);
    setReferences(merged.references);
+   onReferencesChange?.(merged.references);
    setNotice({ar:'تم استيراد المراجع دون منحها صلاحية اعتماد. المكرر: '+merged.duplicates,
     en:'Reference list imported without approving any source. Duplicates: '+merged.duplicates});
   }catch(_){setNotice({ar:'ملف المراجع غير صالح أو يحتوي على حقول اعتماد غير مسموحة.',
