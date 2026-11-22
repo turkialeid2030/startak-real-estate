@@ -530,11 +530,9 @@ export default function PropertyMarketLocationPanel({
           <a className="underline text-sky-300 hover:text-sky-200"
             href={OFFICIAL_SOURCE_REGISTRY.BALADY_URBAN_MAPS.publicReferenceUrl}
             target="_blank" rel="noopener noreferrer" data-testid="market-open-umaps">
-            {english?'Open official Urban Maps (UMAPS)':'فتح الخرائط الحضرية الرسمية (UMAPS)'}
+            {L('فتح الخرائط الحضرية الرسمية (UMAPS)')}
           </a>
-          <span className="ms-2">{english
-            ? 'Manual municipal land-use and planning review only; login may be required. No property details are sent by this link, and map display is not certified evidence.'
-            : 'للمراجعة البلدية اليدوية للاستعمالات والاشتراطات. قد يلزم تسجيل الدخول؛ لا يُرسل الرابط بيانات العقار ولا يُعد العرض اعتمادًا تنظيميًا.'}</span>
+          <span className="ms-2">{L('للمراجعة البلدية اليدوية للاستعمالات والاشتراطات. قد يلزم تسجيل الدخول؛ لا يُرسل الرابط بيانات العقار ولا يُعد العرض اعتمادًا تنظيميًا.')}</span>
         </div>
       </div>
       <Field title="مساحة الأرض (م²)" value={subject.landArea} onChange={v=>updateSubject('landArea',v)}/>
