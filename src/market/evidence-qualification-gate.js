@@ -39,8 +39,12 @@ function secureSourceUrl(value,source){
  try{
   const url=new URL(value);
   const hostname=url.hostname.toLowerCase(),domain=source.domain.toLowerCase();
+  const declaredHost=new URL(source.url).hostname.toLowerCase();
+  // A provider may officially publish from a fixed subdomain, e.g. the
+  // registered ai.grem.capital service. Trust only the explicitly registered
+  // origin, not every arbitrary subdomain matching a suffix.
   return url.protocol==='https:'&&!url.username&&!url.password&&!url.port&&
-   (hostname===domain||hostname==='www.'+domain);
+   (hostname===declaredHost||hostname===domain||hostname==='www.'+domain);
  }catch{return false;}
 }
 function inspectRecord(record,i,{subject,asOf}){
