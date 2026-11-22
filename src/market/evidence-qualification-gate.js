@@ -113,9 +113,15 @@ function inspectRecord(record,i,{subject,asOf}){
  const safeReference=codeOnly(record.recordId)?record.recordId.slice(0,80):'';
  return Object.freeze({
   index:i,sourceId:source?.id||null,evidenceClass:record.evidenceClass||null,
-  bucket,status:reasons.some(r=>r==='UNREGISTERED_SOURCE'||
-   r==='SOURCE_CLASS_SCOPE_INVALID'||r==='SOURCE_URL_UNTRUSTED'||
-   r==='UNTRUSTED_AUTHORITY_CLAIM'||r==='RECORD_OBJECT_REQUIRED')?'REJECTED':'HOLD_REVIEW',
+  bucket,status:reasons.some(r=>[
+    'UNREGISTERED_SOURCE','SOURCE_CLASS_SCOPE_INVALID','SOURCE_URL_UNTRUSTED',
+    'UNTRUSTED_AUTHORITY_CLAIM','RECORD_OBJECT_REQUIRED','RESEARCH_PROVENANCE_REQUIRED',
+    'LOCATION_REQUIRED','OBSERVATION_DATE_INVALID','EVENT_DATE_INVALID',
+    'AGGREGATE_PERIOD_INVALID','METRIC_OUT_OF_RANGE',
+    'TRANSACTION_ID_DATE_REQUIRED','SALE_PRICE_UNIT_INVALID',
+    'AVM_AMOUNT_UNIT_INVALID','AGGREGATE_PERIOD_REQUIRED',
+    'NOTE_WITH_NUMERIC_CLAIM','INVALID_RESEARCH_CATEGORY',
+   ].includes(r))?'REJECTED':'HOLD_REVIEW',
   referenceId:safeReference||null,city:codeOnly(record.city)?record.city:null,
   district:codeOnly(record.district)?record.district:null,
   observedOn:isoDate(record.observedOn)?record.observedOn:null,
