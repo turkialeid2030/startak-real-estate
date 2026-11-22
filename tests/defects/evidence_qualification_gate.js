@@ -69,6 +69,8 @@ assert.equal(result.referenceFindings[0].status,'HOLD_REVIEW');
 const duplicates=evaluate([sale,{...sale}]);
 assert.equal(duplicates.totals.duplicatePairs,1);
 assert.equal(duplicates.duplicates[0].reason,'DUPLICATE_SOURCE_RECORD_ID');
+assert.ok(Object.isFrozen(duplicates.duplicates[0]),'duplicate metadata cannot be modified after qualification');
+assert.ok(Object.isFrozen(result.crossProviderCandidates[0]),'cross-provider candidate metadata cannot be modified after qualification');
 assert.equal(duplicates.totals.crossProviderReviewPairs,0);
 const priceConflict=evaluate([sale,{...sale,metricValue:9900000,eventDate:'2026-11-18'}]);
 assert.equal(priceConflict.totals.duplicatePairs,1);
@@ -107,6 +109,11 @@ assert.ok(oversized.findings[0].reasons.includes('METRIC_OUT_OF_RANGE'));
 const badRef=evaluate([],[{...manual,decisionReady:true}]);
 assert.equal(badRef.referenceFindings[0].status,'REJECTED');
 assert.equal(badRef.certifiedMarketValueSar,null);
+for(const flag of ['licenseVerified','propertyIdentityVerified','professionalReportAuthorized','contentCopied']){
+ const forged=evaluate([],[{...manual,[flag]:true}]);
+ assert.equal(forged.referenceFindings[0].status,'REJECTED',
+  'manual source cannot assert its own '+flag);
+}
 const protoRef=evaluate([],[{...manual,sourceId:'constructor'}]);
 assert.equal(protoRef.referenceFindings[0].status,'REJECTED');
 assert.equal(evaluate([]).decision,'HOLD_EXTERNAL_VERIFICATION_REQUIRED');
@@ -126,6 +133,14 @@ assert.ok(!JSON.stringify(dossier).includes('2400000'),
 assert.ok(!JSON.stringify(dossier).includes('umaps.momah.gov.sa'),
  'review dossier never copies manually viewed URLs or login fragments');
 assert.throws(()=>portableReviewDossier({...result,decision:'READY'}),/QUALIFICATION_DOSSIER_INPUT_INVALID/);
+// A caller cannot counterfeit a genuine pre-valuation review simply by
+// copying the version and HOLD label and inserting sensitive data.
+assert.throws(()=>portableReviewDossier({...result,findings:[{
+ ...result.findings[0],reasons:['owner: personal@example.invalid', 'price: 2400000']
+}]}),/QUALIFICATION_DOSSIER_INPUT_INVALID/);
+assert.throws(()=>portableReviewDossier(JSON.parse(JSON.stringify(result))),
+ /QUALIFICATION_DOSSIER_INPUT_INVALID/);
+assert.equal(JSON.parse(portableReviewDossier(result)).decision,'HOLD_EXTERNAL_VERIFICATION_REQUIRED');
 const panel=fs.readFileSync(path.join(__dirname,'../../src/components/EvidenceQualificationReviewPanel.jsx'),'utf8');
 const national=fs.readFileSync(path.join(__dirname,'../../src/components/SaudiNationalIntelligenceSourcesPanel.jsx'),'utf8');
 const property=fs.readFileSync(path.join(__dirname,'../../src/components/PropertyMarketLocationPanel.jsx'),'utf8');
