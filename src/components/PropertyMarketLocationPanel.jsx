@@ -530,7 +530,7 @@ export default function PropertyMarketLocationPanel({
           <a className="underline text-sky-300 hover:text-sky-200"
             href={OFFICIAL_SOURCE_REGISTRY.BALADY_URBAN_MAPS.publicReferenceUrl}
             target="_blank" rel="noopener noreferrer" data-testid="market-open-umaps">
-            {L('فتح الخرائط الحضرية الرسمية (UMAPS)')}
+            {L('فتح الخرائط الحضرية الرسمية')}
           </a>
           <span className="ms-2">{L('للمراجعة البلدية اليدوية للاستعمالات والاشتراطات. قد يلزم تسجيل الدخول؛ لا يُرسل الرابط بيانات العقار ولا يُعد العرض اعتمادًا تنظيميًا.')}</span>
         </div>
