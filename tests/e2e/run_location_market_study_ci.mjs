@@ -57,6 +57,39 @@ try{
  mark('PANEL_MOUNT',await panel.isVisible());
  const nationalSources=panel.getByTestId('national-intelligence-sources');
  await nationalSources.waitFor({state:'visible'});
+ // Real-browser workflow: an authenticated government portal is opened only
+ // as a link. A manual reference is kept locally, never a certified value.
+ const noapi=nationalSources.getByTestId('no-api-source-bridge');
+ await noapi.waitFor({state:'visible'});
+ await noapi.getByTestId('noapi-source-select').selectOption('UMAPS');
+ assert((await noapi.getByTestId('noapi-open-source').getAttribute('href'))===
+   'https://umaps.momah.gov.sa/','portal link must be the official exact host');
+ assert((await noapi.getByTestId('noapi-open-source').getAttribute('rel'))===
+   'noopener noreferrer','external link must isolate browser opener');
+ await noapi.getByTestId('noapi-source-url').fill(
+   'https://umaps.momah.gov.sa/manual/research?session=private#marker');
+ await noapi.getByTestId('noapi-observed-on').fill('2026-10-28');
+ await noapi.getByTestId('noapi-city').fill('الرياض');
+ await noapi.getByTestId('noapi-district').fill('الملقا');
+ await noapi.getByTestId('noapi-add-link').click();
+ assert((await noapi.getByTestId('noapi-reference-count').innerText()).includes('1'),
+   'manual research note was not recorded');
+ const [manualDownload]=await Promise.all([
+  page.waitForEvent('download'),noapi.getByTestId('noapi-export').click()]);
+ const manualJson=JSON.parse(fs.readFileSync(await manualDownload.path(),'utf8'));
+ assert(manualJson.references.length===1,'exactly one note should export');
+ assert(manualJson.references[0].sourceUrl==='https://umaps.momah.gov.sa/manual/research',
+   'all query/session and fragment parameters must be stripped');
+ assert(!JSON.stringify(manualJson).includes('decisionReady')&&
+  !JSON.stringify(manualJson).includes('valuationSar'),
+  'manual export cannot contain approval or market value fields');
+ await noapi.getByTestId('noapi-import').setInputFiles({
+  name:'synthetic-noapi-reference.json',mimeType:'application/json',
+  buffer:Buffer.from(JSON.stringify(manualJson)),
+ });
+ assert((await noapi.getByTestId('noapi-reference-count').innerText()).includes('1'),
+  'importing an existing reference must dedupe without changing value');
+ mark('NO_API_MANUAL_UMAPS_REFERENCE_EXPORT_AND_RESTORE_REAL_CHROMIUM',true);
  assert((await nationalSources.getByTestId('national-sources-links').locator('a').count())===12,
   'Twelve distinct public real estate source reference URLs must be visible');
  const official= nationalSources.getByTestId('national-official-entrypoints');
