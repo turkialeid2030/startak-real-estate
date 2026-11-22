@@ -31,6 +31,22 @@ assert.equal(sample.price,1800000);
 assert.equal(sample.priceSqm,3000);
 assert.equal(sample.propertyType,'');
 assert.equal(sample.subtypeVerified,false);
+// An open data mirror is not trusted just because its CSV is machine readable.
+// Strict grouping is mandatory for correct money, area and unit prices.
+const badCsv=[
+ 'المدينة,المدينة / الحي,تاريخ الصفقة ميلادي,الرقم المرجعي للصفقة,السعر,المساحة',
+ 'الرياض,الرياض/الملقا,2026/02/15,BAD-COMMA,"1,2",600',
+ 'الرياض,الرياض/الملقا,2026/02/16,BAD-SPACE,1 2,600',
+ 'الرياض,الرياض/الملقا,2026/02/17,BAD-AREA,1800000,"6,0"',
+ 'الرياض,الرياض/الملقا,2026/02/18,GOOD-ARABIC,"١٬٨٠٠٬٠٠٠",٦٠٠',
+].join('\n');
+const bounded=parseQuarter(badCsv,{quarter:'2026-Q1',asOf});
+assert.equal(bounded.records.length,1);
+assert.equal(bounded.excludedInvalid,3);
+assert.equal(bounded.records[0].reference,'GOOD-ARABIC');
+assert.equal(bounded.records[0].price,1800000);
+assert.equal(bounded.records[0].area,600);
+
 const result=deriveDistrictSnapshot(data.records,{city:'الرياض',district:'الملقا',classification:'سكني',asOf});
 assert.equal(result.count,3,'deduplicate registration id');
 assert.equal(result.medianPriceSqm,4000);
