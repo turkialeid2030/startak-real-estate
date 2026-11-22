@@ -776,7 +776,7 @@ export default function PropertyMarketLocationPanel({
     <SuhailNationalResearchPanel key={'suhail-'+researchSessionEpoch} onResearchChange={rows=>setResearchFeeds(f=>({...f,suhail:rows}))}/>
     <SaudiListingSourcesResearchPanel key={'listings-'+researchSessionEpoch} onResearchChange={rows=>setResearchFeeds(f=>({...f,listings:rows}))}/>
     <EarthNationalResearchPanel key={'earth-'+researchSessionEpoch} onResearchChange={rows=>setResearchFeeds(f=>({...f,earth:rows}))}/>
-    <SaudiNationalIntelligenceSourcesPanel key={'national-'+researchSessionEpoch} onResearchChange={rows=>setResearchFeeds(f=>({...f,national:rows}))}/>
+    <SaudiNationalIntelligenceSourcesPanel key={'national-'+researchSessionEpoch} subject={subject} onResearchChange={rows=>setResearchFeeds(f=>({...f,national:rows}))}/>
     {message&&<p data-testid="market-study-action-notice" data-diagnostic-content translate="no" role="status" className="text-xs text-slate-200 mt-2">{researchActionText(message,locale)}</p>}
   </section>;
 }
