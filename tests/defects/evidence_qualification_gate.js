@@ -61,6 +61,8 @@ assert.equal(result.findings[0].marketValuationEligible,false);
 assert.equal(result.findings[2].bucket,'AGGREGATE_CONTEXT');
 assert.ok(result.findings[2].warnings.includes('AREA_STATISTIC_NOT_PROPERTY_COMPARABLE'));
 assert.equal(result.findings[3].bucket,'EXTERNAL_MODEL_BENCHMARK');
+assert.equal(result.findings[3].status,'HOLD_REVIEW',
+ 'explicit registered ai.grem.capital hostname remains a known research source');
 assert.ok(result.findings[3].warnings.includes('AVM_IS_NOT_AN_EXECUTED_TRANSACTION'));
 assert.equal(result.referenceFindings[0].status,'HOLD_REVIEW');
 
@@ -77,6 +79,7 @@ assert.equal(differentCity.marketValuationEligible,false);
 
 for(const corrupt of [
  {...sale,sourceUrl:'https://rei.rega.gov.sa.attacker.test/'},
+ {...avm,sourceUrl:'https://evil.grem.capital/'},
  {...sale,sourceUrl:'http://rei.rega.gov.sa/'},
  {...sale,sourceUrl:'https://username:secret@rei.rega.gov.sa/'},
  {...sale,sourceUrl:'https://rei.rega.gov.sa:8443/'},
