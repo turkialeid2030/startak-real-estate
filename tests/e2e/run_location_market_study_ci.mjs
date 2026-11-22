@@ -90,6 +90,13 @@ try{
  assert((await noapi.getByTestId('noapi-reference-count').innerText()).includes('1'),
   'importing an existing reference must dedupe without changing value');
  mark('NO_API_MANUAL_UMAPS_REFERENCE_EXPORT_AND_RESTORE_REAL_CHROMIUM',true);
+ const qualification=nationalSources.getByTestId('evidence-qualification-gate');
+ await qualification.waitFor({state:'visible'});
+ assert((await qualification.getByTestId('qualification-decision').innerText())
+   .includes('تعليق الاعتماد'),'research source must not certify the current property');
+ assert((await qualification.getByTestId('qualification-summary').innerText()).includes('1'),
+  'owner-selected UMAPS manual reference should contribute to the HOLD review counts');
+ mark('QUALIFICATION_MANUAL_REFERENCE_HOLD_REAL_CHROMIUM',true);
  assert((await nationalSources.getByTestId('national-sources-links').locator('a').count())===12,
   'Twelve distinct public real estate source reference URLs must be visible');
  const official= nationalSources.getByTestId('national-official-entrypoints');
@@ -119,6 +126,18 @@ try{
  await nationalSources.getByTestId('national-import-csv').setInputFiles({
   name:'synthetic-nine-sources.csv',mimeType:'text/csv',buffer:Buffer.from(nationalResearchCSV)});
  await nationalSources.getByTestId('national-import-status').filter({hasText:'أضيف 3'}).waitFor();
+ const [qualificationFile]=await Promise.all([
+  page.waitForEvent('download'),qualification.getByTestId('qualification-download-review').click()]);
+ const review=JSON.parse(fs.readFileSync(await qualificationFile.path(),'utf8'));
+ assert(review.sourceReview.length===3&&review.referenceReview.length===1,
+  'review docket should combine the actual imported research with the captured UMAPS reference');
+ assert(review.decision==='HOLD_EXTERNAL_VERIFICATION_REQUIRED'&&
+  review.certifiedMarketValueSar===null&&review.certifiedMarketRentSar===null,
+  'no imported CSV entry may grant a certified value or annual market rent');
+ assert(!JSON.stringify(review).includes('4500000')&&
+  !JSON.stringify(review).includes('umaps.momah.gov.sa'),
+  'review docket must exclude unlicensed sale amounts and manual property links');
+ mark('CSV_TO_QUALIFICATION_REVIEW_HOLD_AND_DATA_MINIMIZATION_REAL_CHROMIUM',true);
  await nationalSources.getByTestId('national-source-filter').selectOption('GREM_AI');
  assert((await nationalSources.locator('tbody tr').count())===1,
   'AVM provider must be isolated as an estimate rather than an executed sale');
