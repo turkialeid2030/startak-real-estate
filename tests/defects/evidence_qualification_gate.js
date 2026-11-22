@@ -68,7 +68,13 @@ assert.equal(result.referenceFindings[0].status,'HOLD_REVIEW');
 
 const duplicates=evaluate([sale,{...sale}]);
 assert.equal(duplicates.totals.duplicatePairs,1);
+assert.equal(duplicates.duplicates[0].reason,'DUPLICATE_SOURCE_RECORD_ID');
 assert.equal(duplicates.totals.crossProviderReviewPairs,0);
+const priceConflict=evaluate([sale,{...sale,metricValue:9900000,eventDate:'2026-11-18'}]);
+assert.equal(priceConflict.totals.duplicatePairs,1);
+assert.equal(priceConflict.duplicates[0].reason,'CONFLICTING_SOURCE_RECORD_ID',
+ 'changing the event date or price must not bypass source-ID conflict detection');
+assert.equal(priceConflict.totals.independentlyQualifiedComparables,0);
 const differentCity=evaluate([{
  ...sale,city:'جدة',district:'الصفا',assetType:'APARTMENT',
 }]);
