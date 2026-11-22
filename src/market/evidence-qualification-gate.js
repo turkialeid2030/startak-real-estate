@@ -6,6 +6,9 @@ const {BY_ID}=require('./saudi-national-intelligence-sources');
 const {BY_ID:MANUAL_SOURCES}=require('./no-api-source-bridge');
 
 const VERSION='STARTAK_RE_EVIDENCE_QUALIFICATION_GATE_V1';
+// Only results created by this module can become exportable review dossiers.
+// An imported/forged object with a matching version and HOLD marker is not proof.
+const ISSUED_RESULTS=new WeakSet();
 const MAX_ROWS=1500, MAX_REFERENCES=100, MAX_DOSSIER_BYTES=256*1024;
 const BUCKET=Object.freeze({
  OFFICIAL_AGGREGATE:'AGGREGATE_CONTEXT',
@@ -148,6 +151,8 @@ function qualifiedResearchIntake({records=[],references=[],subject={},asOf=new D
   if(!r||typeof r!=='object'||Array.isArray(r)||!source||
     r.evidenceClass!=='RESEARCH_REFERENCE_ONLY'||r.sourceAuthenticated!==false||
     r.decisionReady!==false||r.productionConnectorUsed!==false||
+    r.licenseVerified!==false||r.propertyIdentityVerified!==false||
+    r.professionalReportAuthorized!==false||r.contentCopied!==false||
     r.valuationSar!==null||r.annualRentSar!==null)
    reasons.unshift('INVALID_OR_AUTHORITY_FORGED_MANUAL_REFERENCE');
   return Object.freeze({index:i,sourceId:source?.id||null,
@@ -193,23 +198,29 @@ function qualifiedResearchIntake({records=[],references=[],subject={},asOf=new D
   crossProviderReviewPairs:crossProviderCandidates.length,
   independentlyQualifiedComparables:0,professionalValuations:0,
  });
- return Object.freeze({
+ const outcome=Object.freeze({
   version:VERSION,asOf:today,subjectScope:subject.city&&subject.district?
    'DISTRICT_RESEARCH_CONTEXT_ONLY':'PROPERTY_IDENTITY_UNBOUND',
   decision:'HOLD_EXTERNAL_VERIFICATION_REQUIRED',marketValuationEligible:false,
   certifiedMarketValueSar:null,certifiedMarketRentSar:null,
   professionalReportAuthorized:false,productionDataConnectorEnabled:false,
   totals,findings:Object.freeze(findings),referenceFindings:Object.freeze(referenceFindings),
-  duplicates:Object.freeze(duplicates),crossProviderCandidates:Object.freeze(crossProviderCandidates),
+  // Freeze the nested rows as well as their collection so exported review
+  // metadata cannot be tampered with after qualification.
+  duplicates:Object.freeze(duplicates.map(item=>Object.freeze(item))),
+  crossProviderCandidates:Object.freeze(crossProviderCandidates.map(item=>Object.freeze(item))),
   nextEvidenceRequired:Object.freeze([
    'DATASET_LICENSE_AND_RIGHTS_EVIDENCE','ORIGINAL_TRANSACTION_OR_LEASE_RECORD',
    'PARCEL_TITLE_AND_INTEREST_MATCH','AREA_BASIS_AND_DATE_VALIDATION',
    'INDEPENDENT_VALUER_AND_COMPLIANCE_REVIEW','HOLDOUT_VALIDATION_AND_UAT',
   ]),
  });
+ ISSUED_RESULTS.add(outcome);
+ return outcome;
 }
 function portableReviewDossier(result){
- if(!result||result.version!==VERSION||result.decision!=='HOLD_EXTERNAL_VERIFICATION_REQUIRED')
+ if(!result||!ISSUED_RESULTS.has(result)||result.version!==VERSION||
+  result.decision!=='HOLD_EXTERNAL_VERIFICATION_REQUIRED')
   throw Error('QUALIFICATION_DOSSIER_INPUT_INVALID');
  const safe={
   version:VERSION,asOf:result.asOf,decision:result.decision,
