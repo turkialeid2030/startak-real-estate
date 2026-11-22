@@ -83,6 +83,25 @@ assert.equal(sourceSupportsEvidenceType('BALADY_URBAN_MAPS', GEOSPATIAL_EVIDENCE
 assert.equal(sourceSupportsEvidenceType('REAL_ESTATE_REGISTRY', GEOSPATIAL_EVIDENCE_TYPE.ZONING_BUILDABILITY), false);
 assert.equal(officialUrlMatchesSource('REAL_ESTATE_REGISTRY', 'https://www.rer.sa/'), true);
 assert.equal(officialUrlMatchesSource('REAL_ESTATE_REGISTRY', 'https://example.com/'), false);
+assert.equal(OFFICIAL_SOURCE_REGISTRY.BALADY_URBAN_MAPS.publicReferenceUrl,
+  'https://umaps.momah.gov.sa/');
+assert.equal(OFFICIAL_SOURCE_REGISTRY.BALADY_URBAN_MAPS.machineAccessStatus,
+  'PUBLIC_API_NOT_VERIFIED');
+assert.equal(OFFICIAL_SOURCE_REGISTRY.BALADY_URBAN_MAPS.productionAdapterEnabled, false);
+assert.equal(officialUrlMatchesSource('BALADY_URBAN_MAPS','https://umaps.momah.gov.sa/'),true);
+assert.equal(officialUrlMatchesSource('BALADY_URBAN_MAPS','https://umaps.momah.gov.sa/?q=example'),true);
+assert.equal(officialUrlMatchesSource('BALADY_URBAN_MAPS','https://balady.gov.sa/'),true);
+for (const bad of [
+  'http://umaps.momah.gov.sa/',
+  'https://user:password@umaps.momah.gov.sa/',
+  'https://umaps.momah.gov.sa:8443/',
+  'https://umaps.momah.gov.sa.attacker.example/',
+  'https://attacker.example/?redirect=https://umaps.momah.gov.sa/',
+  'javascript:alert(1)',
+]) {
+  assert.equal(officialUrlMatchesSource('BALADY_URBAN_MAPS',bad),false,
+    'UMAPS source reference must use a secure official HTTPS origin: '+bad);
+}
 for (const source of Object.values(OFFICIAL_SOURCE_REGISTRY)) {
   assert.equal(source.productionAdapterEnabled, false, `${source.id}: live production adapter must remain disabled in C1 foundation`);
 }
