@@ -23,7 +23,7 @@ const EN=Object.freeze({
  'المدينة':'City',
  'الحي':'District',
  'رابط موقع العقار من خرائط جوجل أو الإحداثيات':'Google Maps property URL or coordinates',
- 'فتح الخرائط الحضرية الرسمية (UMAPS)':'Open official Urban Maps (UMAPS)',
+ 'فتح الخرائط الحضرية الرسمية':'Open official Urban Maps (UMAPS)',
  'للمراجعة البلدية اليدوية للاستعمالات والاشتراطات. قد يلزم تسجيل الدخول؛ لا يُرسل الرابط بيانات العقار ولا يُعد العرض اعتمادًا تنظيميًا.':'Manual municipal land-use and planning review only; login may be required. No property details are sent by this link, and map display is not certified evidence.',
  'مساحة الأرض (م²)':'Land area (sqm)',
  'إجمالي المساحات المبنية لكل المباني (م²)':'Total built area of all buildings (sqm)',
