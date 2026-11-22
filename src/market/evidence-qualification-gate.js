@@ -50,8 +50,8 @@ function inspectRecord(record,i,{subject,asOf}){
    reasons:Object.freeze(['RECORD_OBJECT_REQUIRED']),warnings:Object.freeze([]),
    marketValuationEligible:false});
  }
- const source=BY_ID[record.sourceId];
- const bucket=BUCKET[record.evidenceClass]||'INVALID';
+ const source=own(BY_ID,record.sourceId)?BY_ID[record.sourceId]:null;
+ const bucket=own(BUCKET,record.evidenceClass)?BUCKET[record.evidenceClass]:'INVALID';
  if(!source)reasons.push('UNREGISTERED_SOURCE');
  if(!source?.allowed.includes(record.evidenceClass)||bucket==='INVALID')
   reasons.push('SOURCE_CLASS_SCOPE_INVALID');
@@ -132,7 +132,7 @@ function qualifiedResearchIntake({records=[],references=[],subject={},asOf=new D
   throw Error('QUALIFICATION_SUBJECT_INVALID');
  const findings=records.map((r,i)=>inspectRecord(r,i,{subject,asOf:today}));
  const referenceFindings=references.map((r,i)=>{
-  const source=MANUAL_SOURCES[r?.sourceId];
+  const source=own(MANUAL_SOURCES,r?.sourceId)?MANUAL_SOURCES[r.sourceId]:null;
   const reasons=['REFERENCE_ONLY_NOT_A_TRANSACTION',
    'DATASET_LICENSE_AND_RIGHTS_NOT_INDEPENDENTLY_VERIFIED'];
   if(!r||typeof r!=='object'||Array.isArray(r)||!source||
