@@ -1,6 +1,7 @@
 import React,{useMemo,useState} from 'react';
 import KitePersonalTransactionsPanel from './KitePersonalTransactionsPanel.jsx';
 import NoApiSourceBridgePanel from './NoApiSourceBridgePanel.jsx';
+import EvidenceQualificationReviewPanel from './EvidenceQualificationReviewPanel.jsx';
 const ResearchCsvUpload=require('./ResearchCsvUpload');
 const {useLocale}=require('../i18n/LocaleContext.js');
 const {SOURCES,OFFICIAL_RESEARCH_ENTRYPOINTS,importNationalSourcesCsv,mergeNationalResearch,filterNationalResearch,
@@ -27,7 +28,7 @@ const classEn={
  EXTERNAL_AVM_ESTIMATE:'External automated valuation estimate',
  RESEARCH_NOTE:'Research reference without numeric value'
 };
-export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange}){
+export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange,subject={}}){
  const {locale}=useLocale();
  const en=locale==='en';
  const tr=(ar,translation)=>en?translation:ar;
@@ -35,6 +36,7 @@ export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange}
  const evidenceClassLabels=en?classEn:classLabel;
  const metrics=en?metricEn:metricAr;
  const [records,setRecords]=useState([]);
+ const [manualReferences,setManualReferences]=useState([]);
  const [sourceId,setSourceId]=useState(''),[city,setCity]=useState('');
  const [evidenceClass,setEvidenceClass]=useState('');
  const [observedOn,setObservedOn]=useState(()=>new Date().toISOString().slice(0,10));
@@ -98,7 +100,8 @@ export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange}
      </a>)}
    </div>
   </div>
-  <NoApiSourceBridgePanel/>
+  <NoApiSourceBridgePanel onReferencesChange={setManualReferences}/>
+  <EvidenceQualificationReviewPanel records={records} references={manualReferences} subject={subject}/>
   <KitePersonalTransactionsPanel locale={locale} onResearchRows={ingestKite}/>
   <p className="mt-3 text-xs text-slate-300 break-all">
    {en?'CSV schema: ':'صيغة CSV: '}<code>source,city,district,kind,recordId,eventDate,periodStart,periodEnd,metricName,metricValue,unit,sourceUrl,assetType</code>.
