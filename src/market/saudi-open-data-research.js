@@ -3,6 +3,7 @@
 // Source: MOJ datasets mirrored unchanged by civillizard/Saudi-Real-Estate-Data
 // Attribution: Saudi Ministry of Justice / Saudi Open Data License.
 // These records are NOT reliable property-subtype comparables.
+const {parseNumericText}=require('../validation/numeric-text');
 const OPEN_QUARTERS = Object.freeze(['2025-Q3','2025-Q4','2026-Q1']);
 const DATA_ROOT = 'https://raw.githubusercontent.com/civillizard/Saudi-Real-Estate-Data/main/moj/sales/';
 const SOURCE_REPOSITORY = 'https://github.com/civillizard/Saudi-Real-Estate-Data';
@@ -34,10 +35,10 @@ const ALIASES=Object.freeze({
   propertyType:['نوع العقار','propertytype'],
 });
 function asNumber(v){
-  const s=String(v??'').trim().replace(/[٠-٩]/g,c=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(c)))
-    .replace(/[۰-۹]/g,c=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(c)))
-    .replace(/[,٬\s]/g,'').replace(/٫/g,'.');
-  return /^\d+(\.\d+)?$/.test(s)?Number(s):NaN;
+  // Do not strip arbitrary commas or whitespace: a malformed "1,2" or
+  // "1 2" was previously converted into 12 in public CSV ingestion.
+  const result=parseNumericText(v);
+  return result.ok?result.value:NaN;
 }
 function isoDate(s){
   const raw=String(s??'').trim().replace(/[٠-٩]/g,c=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(c)))

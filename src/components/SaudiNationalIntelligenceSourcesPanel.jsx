@@ -1,5 +1,6 @@
 import React,{useMemo,useState} from 'react';
 import KitePersonalTransactionsPanel from './KitePersonalTransactionsPanel.jsx';
+import NoApiSourceBridgePanel from './NoApiSourceBridgePanel.jsx';
 const ResearchCsvUpload=require('./ResearchCsvUpload');
 const {useLocale}=require('../i18n/LocaleContext.js');
 const {SOURCES,OFFICIAL_RESEARCH_ENTRYPOINTS,importNationalSourcesCsv,mergeNationalResearch,filterNationalResearch,
@@ -97,6 +98,7 @@ export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange}
      </a>)}
    </div>
   </div>
+  <NoApiSourceBridgePanel/>
   <KitePersonalTransactionsPanel locale={locale} onResearchRows={ingestKite}/>
   <p className="mt-3 text-xs text-slate-300 break-all">
    {en?'CSV schema: ':'صيغة CSV: '}<code>source,city,district,kind,recordId,eventDate,periodStart,periodEnd,metricName,metricValue,unit,sourceUrl,assetType</code>.

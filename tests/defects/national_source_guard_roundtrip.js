@@ -19,6 +19,11 @@ let checks=0;const ok=(v,m)=>{assert.ok(v,m);checks++;};
   if(name==='SaudiNationalIntelligenceSourcesPanel'){
     source=source.replace(/^import KitePersonalTransactionsPanel from '\.\/KitePersonalTransactionsPanel\.jsx';$/m,
       'const KitePersonalTransactionsPanel=()=>null;');
+    // The no-API link-only bridge has its own model/security tests and a real
+    // Chromium owner journey. This source-label-only test deliberately stubs
+    // auxiliary child components instead of evaluating their ES-module imports.
+    source=source.replace(/^import NoApiSourceBridgePanel from '\.\/NoApiSourceBridgePanel\.jsx';$/m,
+      'const NoApiSourceBridgePanel=()=>null;');
   }
   source=source.replaceAll('export default function ','function ').replace(/^export \{[^}]+\};$/gm,'');
   const {code}=await transformWithOxc(source,file,{jsx:{runtime:'classic'}}),module={exports:{}};
