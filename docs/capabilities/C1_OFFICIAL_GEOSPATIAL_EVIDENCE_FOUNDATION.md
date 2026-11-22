@@ -161,3 +161,17 @@ Current authority boundaries remain:
 - `TRANSACTION_AUTHORITY = FALSE`
 - `PUBLIC_AI = FALSE`
 - `CANONICAL_BASELINE_ACTIVATION_AUTHORIZED = FALSE`
+
+## UMAPS government portal registered for manual source review — 2026-11-22
+
+- **Direct official portal:** https://umaps.momah.gov.sa/
+- **Authority's public service description:** https://momah.gov.sa/ar/e-services/urban-maps
+- **Verified public service scope (not a data license):** Saudi urban/geospatial layers with streets, parcels, services, land-use classifications, areas and building regulations; users may inspect, measure and share displayed information.
+- **Observed access boundary:** portal presents username/password or unified-login authentication. The public service description does **not** prove a public programmatic API, a commercial bulk-extraction license, unattended machine access or verified property-specific data.
+- **C1 registry implementation:** `BALADY_URBAN_MAPS` accepts exact secure host `umaps.momah.gov.sa` in addition to existing Balady domains. `publicReferenceUrl` points directly to the official portal. `machineAccessStatus=PUBLIC_API_NOT_VERIFIED`, `productionAdapterEnabled=false`.
+- **Property study UI:** a read-only external UMAPS link beside the user-entered location opens the official site in a separate tab; the link never appends a subject ID, coordinates, title, token, parcel number or user data. It does **not** embed or scrape the government's app.
+- **Owner workflow:** manually use the official map to review *plan ID, parcel ID, use, building regulations, roads and municipal constraints* for a subject; save a **source-specific dated review/reference** via the existing governed evidence path. All manual imports start `UNVERIFIED`. A separately appointed reviewer must resolve parcel identity against an authorized title/plan document, verify intended use and effective regulatory rules, establish a governed freshness policy and authenticate the source before an evidence gate can change status. Location/land-use display is **not proof of legal title or certified zoning**.
+- **Security:** source-reference matching now requires HTTPS, an exact registered hostname, default TLS port and no URL userinfo; fake subdomains, HTTP and credential-embedded URLs fail. Browser credentials and session cookies must never be copied into Startak's source registry.
+- **Data rights:** no permission to reproduce, republish, systematically extract or cache urban map layers is inferred. The Ministry's general open-data policy must not be treated as a UMAPS API authorization or blanket commercial redistribution license. Request a written usage/API agreement and privacy/security review before enabling any live adapter.
+
+**Acceptance scope:** link and source-host validation under synthetic tests, no production integration, `COMMERCIAL_GO_LIVE=HOLD`, and no binding municipal determination.

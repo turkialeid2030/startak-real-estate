@@ -97,4 +97,42 @@ assert.throws(
   /does not match registered official domains/,
 );
 
+// UMAPS may be cited by an owner as a municipal research source only.
+// Merely knowing the official URL must never certify zoning or title data.
+const umapsDraft=createSandboxGeospatialEvidenceDraft({
+ ...raw,
+ id:'synthetic-umaps-land-use',
+ evidenceType:GEOSPATIAL_EVIDENCE_TYPE.LAND_USE,
+ normalizedValue:{useCode:'UNVERIFIED_INPUT'},
+ sourceId:'BALADY_URBAN_MAPS',
+ sourceReference:'SYNTHETIC-MANUAL-UMAPS-LOOKUP',
+ sourceUrl:'https://umaps.momah.gov.sa/',
+});
+assert.equal(umapsDraft.sourceId,'BALADY_URBAN_MAPS');
+assert.equal(umapsDraft.verificationStatus,GEOSPATIAL_VERIFICATION_STATUS.UNVERIFIED);
+assert.equal(umapsDraft.resolutionMethod,GEOSPATIAL_RESOLUTION_METHOD.USER_SUPPLIED);
+assert.equal(umapsDraft.productionConnectorUsed,false);
+assert.equal(umapsDraft.decisionReady,false);
+const umapsReview=evaluateGeospatialEvidenceBundle({
+ subjectId:'deal-001',
+ evidenceRecords:[umapsDraft],
+ asOf:'2026-09-29T13:00:00.000Z',
+ requiredEvidenceTypes:[GEOSPATIAL_EVIDENCE_TYPE.LAND_USE],
+ trustedVerifierIds:['TRUSTED-C1-VERIFIER'],
+ governedFreshnessPolicyIds:['C1-TEST-FRESHNESS-POLICY'],
+});
+assert.equal(umapsReview.status,GEOSPATIAL_GATE_STATUS.HOLD_EVIDENCE);
+assert.ok(umapsReview.blockers.includes('C1_VERIFIED_EVIDENCE_REQUIRED:LAND_USE'));
+assert.ok(umapsReview.blockers.includes('C1_REQUIRED_EVIDENCE_MISSING:LAND_USE'));
+assert.equal(umapsReview.bindingZoningDetermination,false);
+assert.equal(umapsReview.transactionAuthorized,false);
+assert.throws(()=>createSandboxGeospatialEvidenceDraft({
+ ...raw,evidenceType:GEOSPATIAL_EVIDENCE_TYPE.LAND_USE,
+ sourceId:'BALADY_URBAN_MAPS',sourceUrl:'http://umaps.momah.gov.sa/',
+}),/does not match registered official domains/);
+assert.throws(()=>createSandboxGeospatialEvidenceDraft({
+ ...raw,evidenceType:GEOSPATIAL_EVIDENCE_TYPE.LAND_USE,
+ sourceId:'BALADY_URBAN_MAPS',sourceUrl:'https://user:secret@umaps.momah.gov.sa/',
+}),/does not match registered official domains/);
+
 console.log('C1_SANDBOX_EVIDENCE_DRAFT=PASS');

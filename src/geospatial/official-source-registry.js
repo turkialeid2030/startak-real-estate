@@ -48,8 +48,9 @@ const OFFICIAL_SOURCE_REGISTRY = Object.freeze({
     id: 'BALADY_URBAN_MAPS',
     authorityScope: 'MUNICIPAL_URBAN_PLANNING',
     organization: 'Ministry of Municipalities and Housing / Balady',
-    officialDomains: Object.freeze(['balady.gov.sa', 'www.balady.gov.sa']),
-    publicReferenceUrl: 'https://www.balady.gov.sa/',
+    officialDomains: Object.freeze(['balady.gov.sa', 'www.balady.gov.sa', 'umaps.momah.gov.sa']),
+    publicReferenceUrl: 'https://umaps.momah.gov.sa/',
+    officialServiceDescriptionUrl: 'https://momah.gov.sa/ar/e-services/urban-maps',
     machineAccessStatus: MACHINE_ACCESS_STATUS.PUBLIC_API_NOT_VERIFIED,
     productionAdapterEnabled: false,
     supportedEvidenceTypes: Object.freeze([
@@ -61,7 +62,7 @@ const OFFICIAL_SOURCE_REGISTRY = Object.freeze({
       GEOSPATIAL_EVIDENCE_TYPE.SERVICE_CONTEXT,
       GEOSPATIAL_EVIDENCE_TYPE.POINTS_OF_INTEREST,
     ]),
-    notes: 'Balady publicly describes Urban Maps as a government digital map covering road networks, land uses/classifications/areas and building requirements. No public production API contract is inferred from the web service description.',
+    notes: 'The Ministry officially describes UMAPS Urban Maps for parcels, plans, roads, land uses, municipal classifications and building requirements. The user-provided live portal is umaps.momah.gov.sa and presents authentication, including unified sign-in. Viewing/access and open-data descriptions do not establish UMAPS bulk reuse rights, API credentials, an unattended machine endpoint or authority to certify parcel zoning; no production adapter is enabled.',
   }),
 
   REAL_ESTATE_REGISTRY: Object.freeze({
@@ -94,8 +95,12 @@ function officialUrlMatchesSource(sourceId, urlText) {
   const source = getOfficialSource(sourceId);
   if (!source || typeof urlText !== 'string' || !urlText.trim()) return false;
   try {
-    const hostname = new URL(urlText.trim()).hostname.toLowerCase();
-    return source.officialDomains.includes(hostname);
+    const url = new URL(urlText.trim());
+    // A hostname alone is insufficient for trusted source references: an
+    // attacker can otherwise supply HTTP, embedded credentials or custom
+    // services on the trusted host. Only an HTTPS official-origin URL qualifies.
+    return url.protocol === 'https:' && !url.username && !url.password &&
+      !url.port && source.officialDomains.includes(url.hostname.toLowerCase());
   } catch (_) {
     return false;
   }

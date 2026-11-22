@@ -9,6 +9,7 @@ const {coreMarketLabel,coreMarketAssetOptions,formatBridgeFields,marketOptionLab
 const {proposeFinancialToMarketIdentity,applyFinancialToMarketIdentity}=
   require('../market/financial-to-market-identity');
 const { ASSET_TYPES, extractCoordinates, evaluateMarketStudy } = require('../market/instant-market-study');
+const {OFFICIAL_SOURCE_REGISTRY}=require('../geospatial/official-source-registry');
 const { prepareImportCsv,MAX_CSV_BYTES } = require('../market/public-dataset-import');
 const {readOpenQuarters,deriveDistrictSnapshot,OPEN_QUARTERS}=require('../market/saudi-open-data-research');
 import ProfessionalComparableReviewPanel from './ProfessionalComparableReviewPanel.jsx';
@@ -524,7 +525,16 @@ export default function PropertyMarketLocationPanel({
       <Field title="المدينة" value={subject.city} onChange={v=>updateSubject('city',v)}/>
       <Field title="الحي" value={subject.district} onChange={v=>updateSubject('district',v)}/>
       <div className="md:col-span-2"><Field title="رابط موقع العقار من خرائط جوجل أو الإحداثيات" value={subject.location}
-        onChange={v=>updateSubject('location',v)} placeholder="https://www.google.com/maps/@24.7,46.7,17z"/></div>
+        onChange={v=>updateSubject('location',v)} placeholder="https://www.google.com/maps/@24.7,46.7,17z"/>
+        <div className="mt-2 text-xs text-slate-300" data-testid="market-umaps-official-reference">
+          <a className="underline text-sky-300 hover:text-sky-200"
+            href={OFFICIAL_SOURCE_REGISTRY.BALADY_URBAN_MAPS.publicReferenceUrl}
+            target="_blank" rel="noopener noreferrer" data-testid="market-open-umaps">
+            {L('فتح الخرائط الحضرية الرسمية')}
+          </a>
+          <span className="ms-2">{L('للمراجعة البلدية اليدوية للاستعمالات والاشتراطات. قد يلزم تسجيل الدخول؛ لا يُرسل الرابط بيانات العقار ولا يُعد العرض اعتمادًا تنظيميًا.')}</span>
+        </div>
+      </div>
       <Field title="مساحة الأرض (م²)" value={subject.landArea} onChange={v=>updateSubject('landArea',v)}/>
       <Field title="إجمالي المساحات المبنية لكل المباني (م²)" value={subject.builtArea} onChange={v=>updateSubject('builtArea',v)}/>
       <Field title="إجمالي المساحة القابلة للتأجير (م²)" value={subject.rentableArea} onChange={v=>updateSubject('rentableArea',v)}/>
