@@ -111,7 +111,7 @@ export default function NoApiSourceBridgePanel({onReferencesChange}){
    </button>
    <label className="rounded border border-slate-600 px-3 py-2 text-slate-200">
     {tr('استعادة سجل المراجع','Restore reference register')}
-    <input data-testid="noapi-import" type="file" accept=".json,application/json" className="block max-w-48 mt-1 text-xs"
+    <input data-testid="noapi-import" type="file" accept=".json,application/json" className="block max-w-48 min-h-[40px] mt-1 rounded border border-slate-500 p-2 text-xs"
      onChange={async e=>{const file=e.target.files?.[0];e.target.value='';await restore(file);}}/>
    </label>
   </div>
