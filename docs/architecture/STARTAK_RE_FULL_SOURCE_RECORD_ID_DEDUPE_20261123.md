@@ -32,3 +32,8 @@ The former `reportedSaleCandidates`, `aggregates` and `externalAvms` totals also
 - New synthetic regression cases prove different pipe-separated city/district tuples cannot falsely match, identical tuples still produce a review candidate, and imported private marker values in an invalid evidence class do not appear in the portable JSON review dossier.
 
 All of these remain deterministic **pre-valuation review** controls. They neither authenticate any source record nor authorize market valuation. Real Saudi transaction/license/parcel evidence, independent professional acceptance, UAT and release decision remain externally OPEN.
+
+## Exact source identifiers and blank-field guard
+The duplicate matcher formerly folded the source record ID through `norm()` (lowercasing and Arabic letter substitutions), which can collapse distinct authoritative reference IDs. Source IDs now retain their published spelling and case (trimmed only at boundaries) in the matching tuple; the redacted display preview remains unchanged. In parallel, whitespace-only transaction IDs or city/district values are now rejected rather than counted as reviewable sale records. Negative tests cover case-distinct IDs, Arabic orthographic variants and blank fields.
+
+**Risk trade-off:** exact matching intentionally favors avoiding false positive equivalence. Providers using different reference formats may require independent human reconciliation, and no automated match certifies the transaction.
