@@ -6,6 +6,7 @@
 const {
   TITLE_FACT_STATUS, TITLE_RESULT_STATUS, assessTitleFacts,
 } = require('./index');
+const { strictCalendarDateMs } = require('../validation/strict-calendar-instant');
 
 const STATUS = Object.freeze({
   CANDIDATE_FOR_INDEPENDENT_REVIEW: 'CANDIDATE_FOR_INDEPENDENT_REVIEW',
@@ -28,9 +29,7 @@ function canonicalValue(key, value) {
     ? 'text:' + value.normalize('NFKC').trim().replace(/\s+/g, ' ') : null;
 }
 function dateMs(input) {
-  if (typeof input !== 'string' || !/^\d{4}-\d{2}-\d{2}(?:T.*)?$/.test(input)) return NaN;
-  const ms = Date.parse(input);
-  return Number.isFinite(ms) ? ms : NaN;
+  return strictCalendarDateMs(input);
 }
 function result(status, caseId, propertyId, asOf, blockers, checks) {
   return Object.freeze({

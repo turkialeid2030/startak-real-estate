@@ -54,7 +54,8 @@ const titleFacts=[...deedFacts,...surveyFacts];
 const titleFreshnessPolicy={DEED:90,SURVEY:90};
 function run(overrides={}){
  return assessGuardedPlotEnvelope({caseId,propertyRef,planningEvidenceSet:plan(),geometry,
- evaluatedAt,maxAreaDifferenceSqm:0.5,titleFacts,titleFreshnessPolicy,...overrides});
+ evaluatedAt,maxAreaDifferenceSqm:0.5,titleFacts,titleFreshnessPolicy,
+ geometryMaxAgeDays:90,...overrides});
 }
 let count=0;function test(name,fn){fn();count++;console.log('C9_GUARDED_'+name+'=PASS');}
 test('CALCULATIONS_AND_AUTHORITY_BOUNDARY',()=>{
@@ -132,5 +133,20 @@ test('DEED_AND_SURVEY_MATCH_EACH_OTHER_BUT_NOT_GEOMETRY',()=>{
 });
 test('UNVERIFIED_SOURCE_IDENTITY_HOLD',()=>{
  assert.equal(run({titleFacts:[...deedFacts,...surveyFacts.map(x=>({...x,status:'UNVERIFIED'}))]}).status,STATUS.HOLD_TITLE);
+});
+test('GEOMETRY_FRESHNESS_POLICY_REQUIRED',()=>{
+ assert.throws(()=>run({geometryMaxAgeDays:undefined}),/EXPLICIT_GEOMETRY_FRESHNESS_POLICY_REQUIRED/);
+});
+test('STALE_GEOMETRY_REJECTED',()=>{
+ assert.equal(run({geometry:{...geometry,observedAt:'2025-11-03'}}).status,STATUS.HOLD_GEOMETRY);
+});
+test('INVALID_CALENDAR_GEOMETRY_REJECTED',()=>{
+ assert.equal(run({geometry:{...geometry,observedAt:'2026-02-30'}}).status,STATUS.HOLD_GEOMETRY);
+});
+test('GEOMETRY_REF_MUST_MATCH_C8_SURVEY',()=>{
+ assert.equal(run({geometry:{...geometry,sourceRef:'ANOTHER_SURVEY'}}).status,STATUS.HOLD_GEOMETRY);
+});
+test('INVALID_CALENDAR_ASOF_REJECTED',()=>{
+ assert.throws(()=>run({evaluatedAt:'2026-02-30'}),/EVALUATION_DATE_REQUIRED/);
 });
 console.log('GUARDED_PLOT_ENVELOPE_V1=PASS checks='+count+' synthetic=true license_proven=false');

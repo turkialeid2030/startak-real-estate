@@ -88,5 +88,19 @@ check('NO_SILENT_FRESHNESS_DEFAULT',()=>{
 check('MALFORMED_ASOF_REJECTED',()=>{
   assert.throws(()=>run([...deed,...survey],{asOf:'not a date'}),/VALUATION_DATE_REQUIRED/);
 });
+check('CALENDAR_INVALID_ASOF_REJECTED',()=>{
+ assert.throws(()=>run([...deed,...survey],{asOf:'2026-02-30'}),/VALUATION_DATE_REQUIRED/);
+});
+check('CALENDAR_INVALID_SOURCE_REJECTED',()=>{
+ const invalid=[...deed,...survey.map(x=>f(x.key,x.value,{role:'SURVEY',ref:'SURVEY-B',day:'2026-02-30'}))];
+ assert.equal(run(invalid).status,STATUS.HOLD_TEMPORAL_EVIDENCE);
+});
+check('TIMESTAMP_REQUIRES_TIMEZONE',()=>{
+ assert.throws(()=>run([...deed,...survey],{asOf:'2026-11-23T00:00:00'}),/VALUATION_DATE_REQUIRED/);
+});
+check('LEAP_DAY_ALLOWED',()=>{
+ assert.equal(run([...deed,...survey],{asOf:'2028-02-29T00:00:00Z',
+  maxAgeDaysBySourceType:{DEED:1000,SURVEY:1000}}).status,STATUS.CANDIDATE_FOR_INDEPENDENT_REVIEW);
+});
 console.log('TITLE_CROSS_DOCUMENT_CONSISTENCY_V1=PASS checks='+total+
   ' synthetic_only=true production_source_rights=false legal_opinion=false');

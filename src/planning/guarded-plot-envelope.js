@@ -3,6 +3,7 @@
 // This module never authenticates an issuer, grants a permit, selects HBU,
 // certifies a valuation or writes any financial engine input.
 const crypto = require('node:crypto');
+const { strictCalendarDateMs } = require('../validation/strict-calendar-instant');
 const { assessTitleCrossDocumentConsistency } = require('../title-intelligence/cross-document-consistency');
 const {
   PLANNING_CONSTRAINT_TYPE: TYPE,
@@ -24,7 +25,7 @@ function stable(value){
   return Object.fromEntries(Object.keys(value).sort().map(k=>[k,stable(value[k])]));
 }
 function sha(value){return crypto.createHash('sha256').update(JSON.stringify(stable(value))).digest('hex');}
-function validDate(s){return typeof s==='string'&&/^\d{4}-\d{2}-\d{2}(?:T.*)?$/.test(s)&&Number.isFinite(Date.parse(s));}
+function validDate(s){return Number.isFinite(strictCalendarDateMs(s));}
 function positive(v){return typeof v==='number'&&Number.isFinite(v)&&v>0;}
 function nonnegative(v){return typeof v==='number'&&Number.isFinite(v)&&v>=0;}
 function freeze(value){
@@ -46,12 +47,13 @@ function output(status,caseId,propertyRef,reasons,calculations=null,sourceRefs=[
 }
 function assessGuardedPlotEnvelope({
   caseId,propertyRef,planningEvidenceSet,geometry,evaluatedAt,maxAreaDifferenceSqm,
-  titleFacts,titleFreshnessPolicy,
+  titleFacts,titleFreshnessPolicy,geometryMaxAgeDays,
 }={}){
   if(typeof caseId!=='string'||!caseId.trim()||
      typeof propertyRef!=='string'||!propertyRef.trim())throw Error('CASE_PROPERTY_ID_REQUIRED');
   if(!validDate(evaluatedAt))throw Error('EVALUATION_DATE_REQUIRED');
   if(!nonnegative(maxAreaDifferenceSqm))throw Error('EXPLICIT_AREA_TOLERANCE_REQUIRED');
+  if(!nonnegative(geometryMaxAgeDays))throw Error('EXPLICIT_GEOMETRY_FRESHNESS_POLICY_REQUIRED');
   const bad=(status,...reasons)=>output(status,caseId,propertyRef,reasons);
   if(!planningEvidenceSet||typeof planningEvidenceSet!=='object'||
      planningEvidenceSet.caseId!==caseId||planningEvidenceSet.propertyRef!==propertyRef)
@@ -65,7 +67,7 @@ function assessGuardedPlotEnvelope({
      planningEvidenceSet.readyForHbuLegalReview!==true)
     return bad(STATUS.HOLD_UPSTREAM,'PLANNING_EVIDENCE_NOT_READY');
   if(!validDate(planningEvidenceSet.valuationDate)||
-     Date.parse(planningEvidenceSet.valuationDate)!==Date.parse(evaluatedAt))
+     strictCalendarDateMs(planningEvidenceSet.valuationDate)!==strictCalendarDateMs(evaluatedAt))
     return bad(STATUS.HOLD_BINDING,'PLANNING_VALUATION_DATE_MISMATCH');
   const required=[TYPE.FAR,TYPE.BCR,TYPE.SETBACK];
   if(!required.every(type=>planningEvidenceSet.requiredConstraintTypes?.includes(type)))
@@ -90,9 +92,12 @@ function assessGuardedPlotEnvelope({
     return bad(STATUS.HOLD_CONSTRAINTS,'EXPLICIT_FOUR_SIDE_SETBACKS_REQUIRED');
   if(!geometry||geometry.caseId!==caseId||geometry.propertyRef!==propertyRef||
      typeof geometry.sourceRef!=='string'||!geometry.sourceRef.trim()||
-     !validDate(geometry.observedAt)||Date.parse(geometry.observedAt)>Date.parse(evaluatedAt)||
+     !validDate(geometry.observedAt)||strictCalendarDateMs(geometry.observedAt)>strictCalendarDateMs(evaluatedAt)||
      !positive(geometry.widthM)||!positive(geometry.depthM)||!positive(geometry.landAreaSqm))
     return bad(STATUS.HOLD_GEOMETRY,'SURVEYED_RECTANGLE_INPUTS_MISSING_OR_INVALID');
+  if((strictCalendarDateMs(evaluatedAt)-strictCalendarDateMs(geometry.observedAt))>
+     geometryMaxAgeDays*86400000)
+    return bad(STATUS.HOLD_GEOMETRY,'SURVEY_GEOMETRY_SOURCE_STALE');
   const area=geometry.widthM*geometry.depthM;
   if(!Number.isFinite(area)||Math.abs(area-geometry.landAreaSqm)>maxAreaDifferenceSqm)
     return bad(STATUS.HOLD_GEOMETRY,'RECTANGLE_AREA_DIFFERS_FROM_DECLARED_AREA');
@@ -113,6 +118,11 @@ function assessGuardedPlotEnvelope({
   }
   if(title.status!=='CANDIDATE_FOR_INDEPENDENT_REVIEW')
     return bad(STATUS.HOLD_TITLE,'DEED_SURVEY_IDENTITY_UNRESOLVED:'+title.status);
+  const validSurveyRefs=new Set(titleFacts.filter(f=>
+    (f.key==='propertyAreaSqm'||f.key==='parcelOrPlotId')&&
+    f.sourceType==='SURVEY'&&f.status==='VERIFIED').map(f=>f.sourceRef));
+  if(!validSurveyRefs.has(geometry.sourceRef))
+    return bad(STATUS.HOLD_GEOMETRY,'SURVEY_GEOMETRY_SOURCE_REFERENCE_MISMATCH');
   const titleAreas=titleFacts.filter(f=>f.key==='propertyAreaSqm'&&
       f.status==='VERIFIED').map(f=>f.value);
   if(titleAreas.length<2||!titleAreas.every(v=>positive(v)&&
