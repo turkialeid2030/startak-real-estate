@@ -49,7 +49,7 @@ check('SAME_REFERENCE_NO_INDEPENDENCE',()=>{
 });
 check('DIFFERENT_AREA_CONFLICT',()=>{
   const a=run([...deed,f('propertyAreaSqm',1001,{role:'SURVEY',ref:'SURVEY-B'}),survey[1]]);
-  assert.equal(a.status,STATUS.HOLD_CORE_TITLE_FACTS);
+  assert.equal(a.status,STATUS.HOLD_CROSS_DOCUMENT_CONFLICT);
   assert.ok(a.blockers.some(x=>x.includes('UNRESOLVED_TITLE_FACT_CONFLICT')));
 });
 check('SURVEY_STALE_HOLD',()=>{

@@ -68,7 +68,9 @@ function assessTitleCrossDocumentConsistency({
   // parcel and area alone. This base check also fails on contradictory values.
   const core = assessTitleFacts({ caseId, propertyId, facts });
   if (core.status === TITLE_RESULT_STATUS.HOLD_EVIDENCE) {
-    return result(STATUS.HOLD_CORE_TITLE_FACTS, caseId, propertyId, asOf,
+    const coreConflict = core.blockers.some(x => x.code === 'UNRESOLVED_TITLE_FACT_CONFLICT');
+    return result(coreConflict ? STATUS.HOLD_CROSS_DOCUMENT_CONFLICT
+      : STATUS.HOLD_CORE_TITLE_FACTS, caseId, propertyId, asOf,
       core.blockers.map(x => x.key + ':' + x.code), []);
   }
   if (core.status === TITLE_RESULT_STATUS.LEGAL_REVIEW_REQUIRED) {
