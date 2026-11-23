@@ -24,8 +24,8 @@ let checks=0;const ok=(v,m)=>{assert.ok(v,m);checks++;};
     // auxiliary child components instead of evaluating their ES-module imports.
     source=source.replace(/^import NoApiSourceBridgePanel from '\.\/NoApiSourceBridgePanel\.jsx';$/m,
       'const NoApiSourceBridgePanel=()=>null;');
-     source=source.replace(/^import PersonalNoApiManualEntryPanel from '\\.\\/PersonalNoApiManualEntryPanel\\.jsx';$/m,
-       'const PersonalNoApiManualEntryPanel=()=>null;');
+    source=source.replace(/^import PersonalNoApiManualEntryPanel from '\.\/PersonalNoApiManualEntryPanel\.jsx';$/m,
+      'const PersonalNoApiManualEntryPanel=()=>null;');
     // Label-only test: the evidence review stage is separately tested and
     // must not be evaluated through this legacy CommonJS JSX loader.
     source=source.replace(/^import EvidenceQualificationReviewPanel from '\.\/EvidenceQualificationReviewPanel\.jsx';$/m,
