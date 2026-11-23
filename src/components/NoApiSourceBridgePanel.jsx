@@ -6,14 +6,20 @@ const {
 }=require('../market/no-api-source-bridge');
 
 const FIELD='mt-1 w-full rounded-md border border-slate-600 bg-slate-900 p-2 text-sm text-slate-100';
-const TODAY=()=>new Date().toISOString().slice(0,10);
-export default function NoApiSourceBridgePanel({onReferencesChange}){
+const TODAY=()=>{
+ const parts=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Riyadh',
+  year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
+ const p=key=>parts.find(x=>x.type===key)?.value;
+ return [p('year'),p('month'),p('day')].join('-');
+};
+export default function NoApiSourceBridgePanel({onReferencesChange,subject={}}){
  const {locale}=useLocale(),en=locale==='en';
  const tr=(ar,english)=>en?english:ar;
- const [sourceId,setSourceId]=useState('MOJ_OPEN');
+ const [sourceId,setSourceId]=useState('REGA_DEALS');
  const [entrypointId,setEntrypointId]=useState('');
- const [sourceUrl,setSourceUrl]=useState(BY_ID.MOJ_OPEN.url);
- const [city,setCity]=useState(''),[district,setDistrict]=useState('');
+ const [sourceUrl,setSourceUrl]=useState(BY_ID.REGA_DEALS.url);
+ const [city,setCity]=useState(()=>typeof subject.city==='string'?subject.city.trim():'');
+ const [district,setDistrict]=useState(()=>typeof subject.district==='string'?subject.district.trim():'');
  const [observedOn,setObservedOn]=useState(TODAY);
  const [references,setReferences]=useState([]);
  const [notice,setNotice]=useState(null);
@@ -29,6 +35,18 @@ export default function NoApiSourceBridgePanel({onReferencesChange}){
   const ep=BY_ENTRYPOINT_ID[id];
   if(id&&(!ep||ep.sourceId!==sourceId))return;
   setEntrypointId(id);setSourceUrl(ep?.url||src.url);setNotice(null);
+ }
+ function copyCurrentPropertyLocation(){
+  const nextCity=typeof subject?.city==='string'?subject.city.trim():'';
+  const nextDistrict=typeof subject?.district==='string'?subject.district.trim():'';
+  if(!nextCity||!nextDistrict){
+   setNotice({ar:'أكمل المدينة والحي في بطاقة العقار، أو أدخلهما يدويًا هنا.',
+    en:'Enter the property city and district, or fill them in here.'});
+   return;
+  }
+  setCity(nextCity);setDistrict(nextDistrict);
+  setNotice({ar:'استُخدمت مدينة العقار وحيّه كبيانات سياقية للمرجع.',
+   en:'Current property city and district were used for research context.'});
  }
  function addReference(){
   try{
@@ -69,9 +87,9 @@ export default function NoApiSourceBridgePanel({onReferencesChange}){
  }
  return <section data-testid="no-api-source-bridge" className="mt-4 rounded-xl border border-sky-700 bg-slate-950 p-3 text-slate-100" dir={en?'ltr':'rtl'}>
   <h4 className="text-sm font-semibold">{tr('ربط المواقع العقارية دون واجهة تقنية','Real estate sources without an API')}</h4>
-  <p className="mt-1 text-xs text-amber-200">
-   {tr('المسار الأول: افتح المصدر بنفسك وسجّل رابط المراجعة وتاريخها. لا نسحب بيانات الموقع ولا نسجّل دخولك، ولا نعدّ المرجع صفقة أو تقييمًا معتمدًا.',
-   'Path one: open the provider yourself, and record its reference and review date. We do not scrape the site or sign in for you. A link is not a verified sale or appraisal.')}
+  <p className="mt-1 text-xs text-slate-300">
+   {tr('افتح صفحة المصدر وسجّل الرابط والموقع وتاريخ الاطلاع؛ تحفظ المراجع في جلسة بحثك الشخصية دون API.',
+   'Open a source page and save its URL, location and review date in your personal research session, without an API.')}
   </p>
   <p data-testid="noapi-navigation-only" className="mt-2 text-xs text-sky-200">
    {tr('اختر صفحة الخدمة الدقيقة وافتحها بنفسك في موقع الجهة؛ لا يجلب ستارتك محتواها ولا يرسل إليها بيانات العقار.',
@@ -119,7 +137,11 @@ export default function NoApiSourceBridgePanel({onReferencesChange}){
     <input data-testid="noapi-observed-on" type="date" className={FIELD}
      value={observedOn} max={TODAY()} onChange={e=>setObservedOn(e.target.value)}/>
    </label>
-   <div className="flex items-end">
+   <div className="flex items-end gap-2 flex-wrap">
+    <button type="button" data-testid="noapi-use-property-location" onClick={copyCurrentPropertyLocation}
+     className="rounded border border-slate-500 px-3 py-2 text-xs text-sky-200">
+     {tr('استخدام موقع العقار الحالي','Use property location')}
+    </button>
     <button type="button" data-testid="noapi-add-link" onClick={addReference}
      className="rounded border border-sky-600 px-3 py-2 text-xs text-sky-200">
      {tr('إضافة مرجع بحثي','Add research reference')}
