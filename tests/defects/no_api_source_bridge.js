@@ -123,7 +123,7 @@ const jsx=fs.readFileSync(path.join(__dirname,'../../src/components/NoApiSourceB
 const host=fs.readFileSync(path.join(__dirname,'../../src/components/SaudiNationalIntelligenceSourcesPanel.jsx'),'utf8');
 // Require the mounted bridge to pass its local source-register state back
 // to the review host; props added by the evidence qualification gate are valid.
-assert.match(host,/<NoApiSourceBridgePanel\b[^>]*\bonReferencesChange=\{setManualReferences\}[^>]*\/>/);
+assert.match(host,/<NoApiSourceBridgePanel\b[^>]*\bonReferencesChange=\{changeManualReferences\}[^>]*\/>/);
 assert.match(jsx,/data-testid="noapi-source-select"/);
 assert.match(jsx,/data-testid="noapi-entrypoint-select"/);
 assert.match(jsx,/data-testid="noapi-navigation-only"/);
@@ -131,6 +131,7 @@ assert.match(jsx,/href=\{originalPage\}/);
 assert.match(jsx,/setSourceUrl\(ep\?\.url\|\|src\.url\)/);
 assert.match(jsx,/data-testid="noapi-add-link"/);
 assert.match(jsx,/data-testid="noapi-use-property-location"/);
+assert.match(jsx,/disabled=\{disabled\}/);
 assert.match(host,/subject=\{subject\}/);
 assert.match(jsx,/data-testid="noapi-export"/);
 assert.match(jsx,/data-testid="noapi-import"/);
