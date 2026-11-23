@@ -327,6 +327,15 @@ try{
  await panel.getByLabel('حالة المعاينة الفعلية').selectOption('ON_SITE');
  await fill('تاريخ المعاينة الميدانية','2026-10-26');
  mark('LOCATION_PROPERTY_COMPOSITION',((await panel.innerText()).includes('الإحداثيات المستخرجة')));
+ // This same browser deliberately captured manual source records before the
+ // owner supplied a property name/parcel. The owner must explicitly decide
+ // whether to retain them for the now-defined property; no silent reuse.
+ await panel.getByTestId('market-evidence-scope-hold').waitFor({state:'visible'});
+ assert(await nationalSources.getByTestId('personal-noapi-subject-scope-hold').isVisible(),
+  'manual national records originally entered for an unnamed property must remain isolated');
+ await panel.getByTestId('market-evidence-subject-reconfirm').click();
+ await panel.getByTestId('market-evidence-scope-hold').waitFor({state:'hidden'});
+ mark('OWNER_EARLY_SOURCE_RESEARCH_RECONFIRMED_FOR_DEFINED_PROPERTY',true);
  const autoResearch=panel.locator('[data-testid="public-moJ-research"]');
  await autoResearch.getByRole('button',{name:'جلب الصفقات المفتوحة الآن وتحليل الحي'}).click();
  await autoResearch.getByText(/صفقات الحي المؤهلة حسب التصنيف العام: 3/).waitFor();
@@ -588,6 +597,76 @@ try{
   'Arabic evidence brief must be available as a properly labelled research document');
  mark('ARABIC_RESEARCH_REPORT_HTML_EXPORT',true);
  mark('UNIFIED_RESEARCH_EVIDENCE_JOIN_AND_SAFE_EXPORT',true);
+ // Personal source linking does not need a provider API, broker token or
+ // scraped page. In a real browser, the owner manually captures the source
+ // record and backs up/restores the research data as local JSON only.
+ const personalNoApi=nationalSources.getByTestId('personal-noapi-market-entry');
+ await personalNoApi.waitFor({state:'visible'});
+ const providerCalls=[];
+ page.on('request',req=>{
+  if(req.url().startsWith('https://rei.rega.gov.sa/'))providerCalls.push(req.url());
+ });
+ await personalNoApi.getByTestId('personal-noapi-source').selectOption('REGA_REI');
+ await personalNoApi.getByTestId('personal-noapi-kind').selectOption('OFFICIAL_REPORTED_SALE');
+ await personalNoApi.getByTestId('personal-noapi-city').fill('الرياض');
+ await personalNoApi.getByTestId('personal-noapi-district').fill('الملقا');
+ await personalNoApi.getByTestId('personal-noapi-observed').fill('2026-10-28');
+ await personalNoApi.getByTestId('personal-noapi-record-id').fill('NOAPI-OWNER-BROWSER-001');
+ await personalNoApi.getByTestId('personal-noapi-event-date').fill('2026-10-27');
+ await personalNoApi.getByTestId('personal-noapi-value').fill('2,500,000');
+ await personalNoApi.getByTestId('personal-noapi-add').click();
+ await personalNoApi.getByTestId('personal-noapi-status').getByText('أُضيف',{exact:false}).waitFor();
+ assert((await nationalSources.getByTestId('national-source-filter').inputValue())==='REGA_REI',
+  'manual owner-reported sale should be visible under its original source');
+ assert(providerCalls.length===0,'manual source intake must not contact provider APIs or scrape websites');
+ const [personalResearchDownload]=await Promise.all([
+  page.waitForEvent('download'),
+  nationalSources.getByTestId('personal-noapi-download-research').click()
+ ]);
+ const portable=JSON.parse(fs.readFileSync(await personalResearchDownload.path(),'utf8'));
+ const captured=portable.records.find(r=>r.recordId==='NOAPI-OWNER-BROWSER-001');
+ assert(captured&&captured.metricValue===2500000&&captured.sourceId==='REGA_REI'&&
+  captured.marketValuationEligible===false&&captured.executedTransactionRecord===false,
+  'manual browser observation must round-trip as research-only source record');
+ assert(!JSON.stringify(portable).includes('personalAccessToken'),
+  'portable research JSON must not include credentials');
+ await nationalSources.getByTestId('personal-noapi-restore-research').setInputFiles({
+  name:'startak-personal-market-research.json',mimeType:'application/json',
+  buffer:Buffer.from(JSON.stringify(portable)),
+ });
+ await nationalSources.getByTestId('national-import-status').getByText('استُعيد',{exact:false}).waitFor();
+ assert((await nationalSources.getByTestId('national-import-status').innerText()).includes('مكرر'),
+  'restoring the same manual market rows must deduplicate them');
+ const forged=structuredClone(portable);
+ forged.records.find(r=>r.recordId==='NOAPI-OWNER-BROWSER-001').marketValuationEligible=true;
+ await nationalSources.getByTestId('personal-noapi-restore-research').setInputFiles({
+  name:'forged-personal-market-research.json',mimeType:'application/json',
+  buffer:Buffer.from(JSON.stringify(forged)),
+ });
+ await nationalSources.getByTestId('national-import-status').getByText('غير صالح',{exact:false}).waitFor();
+ assert(providerCalls.length===0,
+  'download, restore and rejected restore may not communicate with the market provider');
+ mark('OWNER_NO_API_TYPED_RESEARCH_BROWSER_AND_PORTABLE_RESTORE',true);
+ // Research captured for one owner case cannot silently attach to another.
+ await fill('اسم العقار','SYNTHETIC-NOAPI-DIFFERENT-PROPERTY');
+ await nationalSources.getByTestId('personal-noapi-subject-scope-hold').waitFor({state:'visible'});
+ assert(await nationalSources.getByTestId('personal-noapi-add').isDisabled(),
+  'owner must not capture further source rows for a different subject');
+ assert(await nationalSources.getByTestId('noapi-add-link').isDisabled(),
+  'no-API link capture must remain bound to the original property');
+ const [backupBeforeReset]=await Promise.all([page.waitForEvent('download'),
+  nationalSources.getByTestId('personal-noapi-download-research').click()]);
+ const previous=JSON.parse(fs.readFileSync(await backupBeforeReset.path(),'utf8'));
+ assert(previous.records.some(r=>r.recordId==='NOAPI-OWNER-BROWSER-001'),
+  'owner must be able to export the old property research before clearing');
+ await nationalSources.getByTestId('personal-noapi-clear-for-new-property').click();
+ await nationalSources.getByTestId('personal-noapi-subject-scope-hold').waitFor({state:'hidden'});
+ assert(await nationalSources.getByTestId('personal-noapi-add').isEnabled(),
+  'user may enter new property research after explicit reset');
+ assert((await nationalSources.getByTestId('national-summary').innerText())
+  .includes('الصفوف المستوردة: 0'),
+  'previous property research cannot remain in a different property');
+ mark('OWNER_NO_API_CROSS_PROPERTY_SCOPE_HOLD_AND_EXPLICIT_RESET',true);
  await page.setViewportSize({width:390,height:844});
  const geom=await page.evaluate(()=>({width:document.documentElement.scrollWidth,
  viewport:document.documentElement.clientWidth}));

@@ -54,6 +54,17 @@ const valid={
 };
 const ref=captureReference(valid,{asOf:AS_OF});
 assert.equal(ref.sourceUrl,'https://umaps.momah.gov.sa/some/public/page');
+assert.throws(()=>captureReference({...valid,sourceId:'constructor'},{asOf:AS_OF}),
+ /NOAPI_SOURCE_UNKNOWN/,'prototype-chain identifiers are not providers');
+assert.throws(()=>captureReference(valid,{asOf:new Date(NaN)}),/NOAPI_DATE_INVALID/,
+ 'invalid Date must have a controlled validation error');
+const pipeDistinct=mergeReferences([],[
+ {...valid,city:'A|B',district:'C',sourceUrl:'https://umaps.momah.gov.sa/one'},
+ {...valid,city:'A',district:'B|C',sourceUrl:'https://umaps.momah.gov.sa/one'},
+]);
+assert.equal(pipeDistinct.references.length,2,
+ 'manual city/district values cannot collide through delimiter concatenation');
+assert.equal(pipeDistinct.duplicates,0);
 assert.equal(ref.evidenceClass,'RESEARCH_REFERENCE_ONLY');
 assert.equal(ref.sourceAuthenticated,false);
 assert.equal(ref.licenseVerified,false);
@@ -112,13 +123,16 @@ const jsx=fs.readFileSync(path.join(__dirname,'../../src/components/NoApiSourceB
 const host=fs.readFileSync(path.join(__dirname,'../../src/components/SaudiNationalIntelligenceSourcesPanel.jsx'),'utf8');
 // Require the mounted bridge to pass its local source-register state back
 // to the review host; props added by the evidence qualification gate are valid.
-assert.match(host,/<NoApiSourceBridgePanel\b[^>]*\bonReferencesChange=\{setManualReferences\}[^>]*\/>/);
+assert.match(host,/<NoApiSourceBridgePanel\b[^>]*\bonReferencesChange=\{changeManualReferences\}[^>]*\/>/);
 assert.match(jsx,/data-testid="noapi-source-select"/);
 assert.match(jsx,/data-testid="noapi-entrypoint-select"/);
 assert.match(jsx,/data-testid="noapi-navigation-only"/);
 assert.match(jsx,/href=\{originalPage\}/);
 assert.match(jsx,/setSourceUrl\(ep\?\.url\|\|src\.url\)/);
 assert.match(jsx,/data-testid="noapi-add-link"/);
+assert.match(jsx,/data-testid="noapi-use-property-location"/);
+assert.match(jsx,/disabled=\{disabled\}/);
+assert.match(host,/subject=\{subject\}/);
 assert.match(jsx,/data-testid="noapi-export"/);
 assert.match(jsx,/data-testid="noapi-import"/);
 assert.match(jsx,/target="_blank" rel="noopener noreferrer"/);

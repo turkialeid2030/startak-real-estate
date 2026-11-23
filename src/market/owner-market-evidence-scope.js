@@ -23,7 +23,12 @@ function hasEnteredComparable(row){
   'builtArea','landArea','date','location','city','district','sourceUrl']
   .some(key=>String(row[key]??'').trim()!=='');
 }
+function hasCapturedOwnerResearch(feeds){
+ // Default Suhail sample is not an owner-entered comparable.
+ return Boolean(feeds&&typeof feeds==='object'&&
+  ['national','earth','listings'].some(k=>Array.isArray(feeds[k])&&feeds[k].length>0));
+}
 function hasResearchComparables(sales=[],rentals=[]){
  return [sales,rentals].some(rows=>Array.isArray(rows)&&rows.some(hasEnteredComparable));
 }
-module.exports={marketEvidenceSubjectKey,hasEnteredComparable,hasResearchComparables};
+module.exports={marketEvidenceSubjectKey,hasEnteredComparable,hasResearchComparables,hasCapturedOwnerResearch};

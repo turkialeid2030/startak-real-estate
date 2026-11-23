@@ -123,9 +123,17 @@ function safeUrl(url,source){
 }
 function captureReference(raw,{asOf=new Date()}={}){
  if(!raw||typeof raw!=='object'||Array.isArray(raw))throw Error('NOAPI_INPUT_INVALID');
- const source=BY_ID[raw.sourceId];
+ const source=Object.prototype.hasOwnProperty.call(BY_ID,raw.sourceId)?
+  BY_ID[raw.sourceId]:null;
  if(!source)throw Error('NOAPI_SOURCE_UNKNOWN');
- const today=asOf instanceof Date?asOf.toISOString().slice(0,10):safeDate(asOf,'9999-12-31');
+ let today;
+ if(asOf instanceof Date){
+  if(!Number.isFinite(asOf.getTime()))throw Error('NOAPI_DATE_INVALID');
+  const parts=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Riyadh',
+   year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(asOf);
+  const part=type=>parts.find(x=>x.type===type)?.value;
+  today=[part('year'),part('month'),part('day')].join('-');
+ }else today=safeDate(asOf,'9999-12-31');
  const observedOn=safeDate(raw.observedOn,today);
  const city=cleanText(raw.city||'',100),district=cleanText(raw.district||'',100);
  // Research may be nationwide, but the city/district must then remain
@@ -148,7 +156,8 @@ function mergeReferences(current,incoming){
   // Ignore all authority flags supplied from outside; reconstruct canonical
   // non-authorizing records from a strict small allowlist only.
   const item=captureReference(r);
-  const id=[item.sourceId,item.sourceUrl,item.city,item.district,item.observedOn].join('|');
+  const id=JSON.stringify([item.sourceId,item.sourceUrl,item.city,
+   item.district,item.observedOn]);
   if(ids.has(id)){duplicates++;continue;}
   if(result.length===MAX_REFERENCES)throw Error('NOAPI_MAX_REFERENCES');
   ids.add(id);result.push(item);

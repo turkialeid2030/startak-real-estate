@@ -225,4 +225,25 @@ assert.equal(aggregateWithSeriesId.records[0].evidenceClass,'THIRD_PARTY_AGGREGA
 assert.equal(aggregateWithSeriesId.verifiedSales,0);
 assert.equal(aggregateWithSeriesId.autoValuationEnabled,false);
 
+
+// Riyadh reaches a calendar day three hours before UTC.
+const beforeSaudiMidnight=importNationalSourcesCsv([
+ header,row('https://rei.rega.gov.sa/ar/advanced-search/deals'),
+].join('\n'),{observedOn:'2026-11-23',
+ asOf:new Date('2026-11-22T22:30:00.000Z')});
+assert.equal(beforeSaudiMidnight.records.length,1,
+ 'Saudi local 01:30 on 23 Nov must not be rejected by a UTC date');
+assert.equal(beforeSaudiMidnight.rejected.length,0);
+assert.throws(()=>importNationalSourcesCsv([
+ header,row('https://rei.rega.gov.sa/ar/advanced-search/deals'),
+].join('\n'),{observedOn:'2026-11-23',
+ asOf:new Date('2026-11-22T20:30:00.000Z')}),
+ /NATIONAL_RESEARCH_OBSERVATION_INVALID/,
+ 'Saudi local 23:30 on 22 Nov must reject a next-day observation');
+assert.throws(()=>importNationalSourcesCsv([
+ header,row('https://rei.rega.gov.sa/ar/advanced-search/deals'),
+].join('\n'),{observedOn:'2026-11-23',asOf:new Date(NaN)}),
+ /NATIONAL_RESEARCH_OBSERVATION_INVALID/,
+ 'invalid native dates must fail through controlled observation validation');
+
 console.log('NATIONAL_RESEARCH_URL_PRIVACY_GATE=PASS');

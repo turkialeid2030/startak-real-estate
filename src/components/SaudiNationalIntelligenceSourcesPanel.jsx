@@ -1,12 +1,16 @@
 import React,{useMemo,useState} from 'react';
 import KitePersonalTransactionsPanel from './KitePersonalTransactionsPanel.jsx';
 import NoApiSourceBridgePanel from './NoApiSourceBridgePanel.jsx';
+import PersonalNoApiManualEntryPanel from './PersonalNoApiManualEntryPanel.jsx';
 import EvidenceQualificationReviewPanel from './EvidenceQualificationReviewPanel.jsx';
 const ResearchCsvUpload=require('./ResearchCsvUpload');
 const {useLocale}=require('../i18n/LocaleContext.js');
 const {SOURCES,OFFICIAL_RESEARCH_ENTRYPOINTS,importNationalSourcesCsv,mergeNationalResearch,filterNationalResearch,
  summarizeNationalResearch}=require('../market/saudi-national-intelligence-sources');
 const {MAX_CSV_BYTES}=require('../market/public-dataset-import');
+const {marketEvidenceSubjectKey}=require('../market/owner-market-evidence-scope');
+const {MAX_PORTABLE_BYTES:MAX_PERSONAL_BYTES,exportPersonalResearch,importPersonalResearch}=
+ require('../market/personal-noapi-research-register');
 const confidenceAr={HIGH:'مرتفعة',MEDIUM:'متوسطة',LOW:'منخفضة'};
 const metricAr={estimated_value_sar:'القيمة المقدرة',sale_price_sar:'سعر بيع منشور',
  deal_count:'عدد الصفقات',deal_value_sar:'إجمالي قيمة الصفقات',
@@ -42,14 +46,37 @@ export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange,
  const [evidenceClass,setEvidenceClass]=useState('');
  const [observedOn,setObservedOn]=useState(()=>new Date().toISOString().slice(0,10));
  const [notice,setNotice]=useState('');
+ const [boundSubjectKey,setBoundSubjectKey]=useState(null);
+ const [resetEpoch,setResetEpoch]=useState(0);
+ const currentSubjectKey=useMemo(()=>marketEvidenceSubjectKey(subject),[subject]);
+ const capturedRows=records.length>0||manualReferences.length>0;
+ const scopeHold=Boolean(capturedRows&&boundSubjectKey!==null&&
+  boundSubjectKey!==currentSubjectKey);
+ const scopeNotice={ar:'تغيّرت هوية العقار بعد تسجيل بيانات البحث. نزّل نسخة من سجل العقار السابق قبل إفراغه للبدء بالعقار الجديد.',
+  en:'Property identity changed after research entry. Download the old property register before clearing it for the new property.'};
+ function changeManualReferences(next){
+  if(scopeHold){setNotice(scopeNotice);return;}
+  if(next.length&&!boundSubjectKey)setBoundSubjectKey(currentSubjectKey);
+  setManualReferences(next);
+ }
+ function clearForNewProperty(){
+  setRecords([]);setManualReferences([]);setBoundSubjectKey(null);
+  setResetEpoch(n=>n+1);
+  setSourceId('');setCity('');setEvidenceClass('');
+  onResearchChange?.([]);
+  setNotice({ar:'أُفرغ سجل البحث السابق؛ يمكنك الآن بدء سجل العقار الحالي.',
+   en:'The previous property research was cleared. You can now start a register for the current property.'});
+ }
  const summary=useMemo(()=>summarizeNationalResearch(records),[records]);
  const filtered=useMemo(()=>filterNationalResearch(records,{sourceId,city,evidenceClass}),
   [records,sourceId,city,evidenceClass]);
  function ingestKite(rows){
+   if(scopeHold){setNotice(scopeNotice);return;}
    try{
     // Strictly research-side data. Existing case/comparable and decision inputs
     // are not overwritten; a registered sale alone is not a property match.
     const merged=mergeNationalResearch(records,rows);
+    if(merged.records.length&&!boundSubjectKey)setBoundSubjectKey(currentSubjectKey);
     setRecords(merged.records);onResearchChange?.(merged.records);
     setSourceId('KITE_MOJ_QUARTERLY');setCity('');setEvidenceClass('');
     setNotice({
@@ -61,8 +88,58 @@ export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange,
       en:'Research records could not be merged safely. The study was not changed.'});
    }
  }
+ function ingestPersonal(rows){
+  if(scopeHold)throw Error('PERSONAL_RESEARCH_SUBJECT_CHANGED');
+  // Owner-operated observation input uses the exact same canonical research
+  // merger as local CSV intake. The financial model is not updated here.
+  const merged=mergeNationalResearch(records,rows);
+  if(merged.records.length&&!boundSubjectKey)setBoundSubjectKey(currentSubjectKey);
+  setRecords(merged.records);onResearchChange?.(merged.records);
+  setSourceId(rows[0]?.sourceId||'');setCity('');setEvidenceClass('');
+  setNotice({ar:'أُضيف بحث شخصي: '+merged.added+'؛ مكرر: '+merged.duplicates+
+    '؛ متعارض: '+merged.conflicts.length,
+   en:'Personal research added: '+merged.added+'; duplicates: '+merged.duplicates+
+    '; conflicts: '+merged.conflicts.length});
+  return merged;
+ }
+ function downloadPersonalResearch(){
+  try{
+   const contents=exportPersonalResearch(records);
+   const blob=new Blob([contents],{type:'application/json;charset=utf-8'});
+   const downloadUrl=URL.createObjectURL(blob);
+   const link=document.createElement('a');
+   link.href=downloadUrl;link.download='startak-personal-market-research.json';
+   document.body.appendChild(link);link.click();link.remove();
+   URL.revokeObjectURL(downloadUrl);
+   setNotice({ar:'تم تنزيل '+records.length+' سجلًا بحثيًا إلى جهازك.',
+    en:'Downloaded '+records.length+' research records to your device.'});
+  }catch(_){
+   setNotice({ar:'تعذر تنزيل سجل البحث؛ افحص البيانات أو الحجم.',
+    en:'Could not export the research register; check records or file size.'});
+  }
+ }
+ async function restorePersonalResearch(file){
+  if(!file)return;
+  if(scopeHold){setNotice(scopeNotice);return;}
+  try{
+   if(file.size>MAX_PERSONAL_BYTES)throw Error('PERSONAL_RESEARCH_FILE_TOO_LARGE');
+   const incoming=importPersonalResearch(await file.text());
+   const merged=mergeNationalResearch(records,incoming);
+   if(merged.records.length&&!boundSubjectKey)setBoundSubjectKey(currentSubjectKey);
+   setRecords(merged.records);onResearchChange?.(merged.records);
+   setSourceId('');setCity('');setEvidenceClass('');
+   setNotice({ar:'استُعيد '+merged.added+' سجلًا؛ مكرر '+merged.duplicates+
+     '، تعارض '+merged.conflicts.length+'.',
+    en:'Restored '+merged.added+' records; duplicates '+merged.duplicates+
+     ', conflicts '+merged.conflicts.length+'.'});
+  }catch(_){
+   setNotice({ar:'ملف سجل البحث غير صالح، أو يحتوي على بيانات غير مطابقة.',
+    en:'Invalid research register or incompatible research records.'});
+  }
+ }
  async function importFile(file){
   if(!file)return;
+  if(scopeHold){setNotice(scopeNotice);return;}
   if(file.size>MAX_CSV_BYTES){setNotice({ar:'حجم الملف أكبر من الحد المسموح',en:'CSV file exceeds allowed size'});return;}
   if(!rightsAcknowledged){
    setNotice({ar:'الاستيراد موقوف: أقر بحق إعادة استخدام مجموعة البيانات أولًا. هذا الإقرار ليس إثبات ترخيص.',
@@ -74,6 +151,7 @@ export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange,
   try{
    const fresh=importNationalSourcesCsv(await file.text(),{observedOn});
    const merged=mergeNationalResearch(records,fresh.records);
+   if(merged.records.length&&!boundSubjectKey)setBoundSubjectKey(currentSubjectKey);
    setRecords(merged.records);onResearchChange?.(merged.records);setSourceId('');setCity('');setEvidenceClass('');
    setNotice({en:'Imported '+merged.added+'; duplicates '+merged.duplicates+
       '; conflicts '+merged.conflicts.length+'; excluded '+fresh.rejected.length+
@@ -108,9 +186,35 @@ export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange,
      </a>)}
    </div>
   </div>
-  <NoApiSourceBridgePanel onReferencesChange={setManualReferences}/>
+  {scopeHold&&<section role="alert" data-testid="personal-noapi-subject-scope-hold"
+    className="mt-3 rounded-lg border border-rose-500 p-3 text-xs text-rose-100">
+    <p>{en?scopeNotice.en:scopeNotice.ar}</p>
+    <button type="button" onClick={clearForNewProperty}
+      data-testid="personal-noapi-clear-for-new-property"
+      className="mt-2 rounded border border-amber-400 px-3 py-2 text-amber-100">
+      {tr('إفراغ بيانات البحث السابق وبدء عقار جديد','Clear previous property research and start a new one')}
+    </button>
+   </section>}
+  <NoApiSourceBridgePanel key={'links-'+resetEpoch} onReferencesChange={changeManualReferences}
+    subject={subject} disabled={scopeHold}/>
+  <PersonalNoApiManualEntryPanel key={'entry-'+resetEpoch} subject={subject}
+    onResearchRows={ingestPersonal} disabled={scopeHold}/>
+  <div data-testid="personal-noapi-research-files" className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+   <button type="button" data-testid="personal-noapi-download-research"
+    onClick={downloadPersonalResearch}
+    className="rounded border border-slate-500 px-3 py-2 text-sky-200">
+    {tr('تنزيل سجل البحث الشخصي','Download my research register')}
+   </button>
+   <label className="rounded border border-slate-500 px-3 py-2 text-sky-200">
+    {tr('استعادة سجل البحث من ملف','Restore research from a file')}
+    <input data-testid="personal-noapi-restore-research" type="file" disabled={scopeHold}
+     accept=".json,application/json"
+     className="mt-1 block min-h-[40px] max-w-56 rounded border border-slate-600 p-1 text-xs"
+     onChange={async e=>{const file=e.target.files?.[0];e.target.value='';await restorePersonalResearch(file);}}/>
+   </label>
+  </div>
   <EvidenceQualificationReviewPanel records={records} references={manualReferences} subject={subject}/>
-  <KitePersonalTransactionsPanel locale={locale} onResearchRows={ingestKite}/>
+  <KitePersonalTransactionsPanel key={'kite-'+resetEpoch} locale={locale} onResearchRows={ingestKite}/>
   <p className="mt-3 text-xs text-slate-300 break-all">
    {en?'CSV schema: ':'صيغة CSV: '}<code>source,city,district,kind,recordId,eventDate,periodStart,periodEnd,metricName,metricValue,unit,sourceUrl,assetType</code>.
    {tr('ولتقديرات القيمة الآلية (اختياري):','Optional AVM fields:')} <code>rangeLowSar,rangeHighSar,confidenceLabel,modelAsOf</code>.

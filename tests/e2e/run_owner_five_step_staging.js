@@ -64,6 +64,10 @@ const {expect}=require('@playwright/test');
    await expect(canonicalMarket.getByLabel('إجمالي المساحة القابلة للتأجير (م²)')).toHaveValue('1200');assertions++;
    await expect(canonicalMarket.getByLabel('عدد العمائر/المباني')).toHaveValue('2');assertions++;
    await expect(canonicalMarket.getByLabel('عدد الوحدات (شقق/مكاتب/معارض)')).toHaveValue('18');assertions++;
+   // Canonical property city and supplemental personal research city must
+   // have distinct accessible names to prevent editing the wrong property.
+   await expect(canonicalMarket.getByLabel('المدينة',{exact:true})).toHaveCount(1);assertions++;
+   await expect(canonicalMarket.getByLabel('مدينة المعلومة السوقية',{exact:true})).toHaveCount(1);assertions++;
    await canonicalMarket.getByLabel('المدينة',{exact:true}).fill('جدة');
    // Sale/disposal is a separate research purpose, not a professional approval.
    // Switching views must preserve the one canonical market subject.
