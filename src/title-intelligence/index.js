@@ -212,6 +212,7 @@ function assessTitleFacts({ caseId, propertyId, facts, requiredFacts = REQUIRED_
 }
 
 module.exports = {
+  assessTitleCrossDocumentConsistency: (...args) => require('./cross-document-consistency').assessTitleCrossDocumentConsistency(...args),
   TITLE_FACT_STATUS,
   TITLE_RESULT_STATUS,
   REQUIRED_TITLE_FACTS,
