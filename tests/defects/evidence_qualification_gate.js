@@ -4,6 +4,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const {
  qualifiedResearchIntake,portableReviewDossier,VERSION,MAX_ROWS,
+ MAX_CROSS_PROVIDER_PAIR_SAMPLES,
 }=require('../../src/market/evidence-qualification-gate');
 const {captureReference}=require('../../src/market/no-api-source-bridge');
 const day='2026-11-22';
@@ -53,6 +54,8 @@ assert.equal(result.totals.independentlyQualifiedComparables,0);
 assert.equal(result.totals.professionalValuations,0);
 assert.equal(result.totals.crossProviderReviewPairs,1,
  'same original deal reference displayed by REGA and MOJ must never count twice as proof');
+assert.equal(result.totals.crossProviderReviewPairsSampled,1);
+assert.equal(result.totals.crossProviderPairsTruncated,false);
 assert.equal(result.findings[0].bucket,'REPORTED_SALE_CANDIDATE');
 assert.ok(result.findings[0].reasons.includes('TRANSACTION_ORIGIN_NOT_AUTHENTICATED'));
 assert.ok(result.findings[0].reasons.includes('DATASET_LICENSE_AND_RIGHTS_NOT_INDEPENDENTLY_VERIFIED'));
@@ -72,6 +75,25 @@ assert.equal(duplicates.duplicates[0].reason,'DUPLICATE_SOURCE_RECORD_ID');
 assert.ok(Object.isFrozen(duplicates.duplicates[0]),'duplicate metadata cannot be modified after qualification');
 assert.ok(Object.isFrozen(result.crossProviderCandidates[0]),'cross-provider candidate metadata cannot be modified after qualification');
 assert.equal(duplicates.totals.crossProviderReviewPairs,0);
+// Worst-case source repetition previously built a quadratic-size list with
+// 562,500 pair objects. Count all pairs but retain bounded review samples.
+const repetitive=evaluate([
+ ...Array(750).fill(sale),
+ ...Array(750).fill(moj),
+],[]);
+assert.equal(repetitive.totals.importedRows,MAX_ROWS);
+assert.equal(repetitive.totals.crossProviderReviewPairs,750*750);
+assert.equal(repetitive.totals.crossProviderReviewPairsSampled,
+ MAX_CROSS_PROVIDER_PAIR_SAMPLES);
+assert.equal(repetitive.crossProviderCandidates.length,
+ MAX_CROSS_PROVIDER_PAIR_SAMPLES);
+assert.equal(repetitive.totals.crossProviderPairsTruncated,true);
+assert.equal(repetitive.marketValuationEligible,false);
+const repetitiveDossier=JSON.parse(portableReviewDossier(repetitive));
+assert.equal(repetitiveDossier.totals.crossProviderReviewPairs,750*750);
+assert.equal(repetitiveDossier.totals.crossProviderPairsTruncated,true);
+assert.ok(repetitiveDossier.crossProviderReviewPairs.length<=MAX_CROSS_PROVIDER_PAIR_SAMPLES);
+
 const priceConflict=evaluate([sale,{...sale,metricValue:9900000,eventDate:'2026-11-18'}]);
 assert.equal(priceConflict.totals.duplicatePairs,1);
 assert.equal(priceConflict.duplicates[0].reason,'CONFLICTING_SOURCE_RECORD_ID',
