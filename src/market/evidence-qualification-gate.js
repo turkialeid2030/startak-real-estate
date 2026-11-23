@@ -62,7 +62,9 @@ function inspectRecord(record,i,{subject,asOf}){
    marketValuationEligible:false});
  }
  const source=own(BY_ID,record.sourceId)?BY_ID[record.sourceId]:null;
- const bucket=own(BUCKET,record.evidenceClass)?BUCKET[record.evidenceClass]:'INVALID';
+ const validEvidenceClass=typeof record.evidenceClass==='string'&&
+  own(BUCKET,record.evidenceClass);
+ const bucket=validEvidenceClass?BUCKET[record.evidenceClass]:'INVALID';
  if(!source)reasons.push('UNREGISTERED_SOURCE');
  if(!source?.allowed.includes(record.evidenceClass)||bucket==='INVALID')
   reasons.push('SOURCE_CLASS_SCOPE_INVALID');
@@ -123,7 +125,9 @@ function inspectRecord(record,i,{subject,asOf}){
  reasons.push('INDEPENDENT_REVIEW_AND_SOURCE_EVIDENCE_REQUIRED');
  const safeReference=codeOnly(record.recordId)?record.recordId.slice(0,80):'';
  return Object.freeze({
-  index:i,sourceId:source?.id||null,evidenceClass:record.evidenceClass||null,
+  index:i,sourceId:source?.id||null,
+  // Never reflect arbitrary imported evidenceClass objects/text into review exports.
+  evidenceClass:validEvidenceClass?record.evidenceClass:null,
   bucket,status:reasons.some(r=>[
     'UNREGISTERED_SOURCE','SOURCE_CLASS_SCOPE_INVALID','SOURCE_URL_UNTRUSTED',
     'UNTRUSTED_AUTHORITY_CLAIM','RECORD_OBJECT_REQUIRED','RESEARCH_PROVENANCE_REQUIRED',
@@ -187,7 +191,7 @@ function qualifiedResearchIntake({records=[],references=[],subject={},asOf=new D
   if(!fullReferenceId||!f.sourceId)continue;
   // Same provider + full source reference must be unique even if the
   // imported amounts, date, locale, district or asset type later change.
-  const sameKey=f.sourceId+'|'+fullReferenceId;
+  const sameKey=JSON.stringify([f.sourceId,fullReferenceId]);
   const previous=sourceSeen.get(sameKey);
   if(previous){
    const before=records[previous.index];
@@ -199,8 +203,10 @@ function qualifiedResearchIntake({records=[],references=[],subject={},asOf=new D
   // Across providers a shared printed reference is a *candidate* only when
   // city, district and event date also match. Different IDs are never
   // automatically merged based on a similar amount or nearby location.
-  const crossKey=[norm(record.city),norm(record.district),
-    norm(record.eventDate||''),fullReferenceId].join('|');
+  // Structured tuple encoding avoids ambiguous delimiter collisions when
+  // user-entered city/district/record IDs themselves contain pipe characters.
+  const crossKey=JSON.stringify([norm(record.city),norm(record.district),
+    norm(record.eventDate||''),fullReferenceId]);
   // Aggregate occurrences by source rather than enumerating the Cartesian
   // product. Total pair count remains exact, while review examples are capped.
   let group=crossSeen.get(crossKey);
