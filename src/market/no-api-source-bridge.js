@@ -58,9 +58,9 @@ const sources=[
  ['CMA','هيئة السوق المالية','Capital Market Authority','https://cma.gov.sa/Pages/default.aspx',['cma.gov.sa','www.cma.gov.sa'],'PROFESSIONAL_REFERENCE'],
  ['SAUDI_EXCHANGE','تداول السعودية','Saudi Exchange','https://www.saudiexchange.sa/',['saudiexchange.sa','www.saudiexchange.sa'],'REFERENCE_ONLY'],
  ['VISION2030','رؤية السعودية 2030','Saudi Vision 2030','https://www.vision2030.gov.sa/ar/',['vision2030.gov.sa','www.vision2030.gov.sa'],'REFERENCE_ONLY'],
- ['GOOGLE_MAPS','خرائط Google','Google Maps','https://www.google.com/maps',['www.google.com'],'REFERENCE_ONLY'],
- ['OSM','خريطة OpenStreetMap','OpenStreetMap','https://www.openstreetmap.org/',['openstreetmap.org','www.openstreetmap.org'],'REFERENCE_ONLY'],
- ['MAPBOX','خرائط Mapbox','Mapbox maps','https://www.mapbox.com/',['mapbox.com','www.mapbox.com'],'REFERENCE_ONLY'],
+ ['GOOGLE_MAPS','خرائط جوجل','Google Maps','https://www.google.com/maps',['www.google.com'],'REFERENCE_ONLY'],
+ ['OSM','خريطة أوبن ستريت ماب','OpenStreetMap','https://www.openstreetmap.org/',['openstreetmap.org','www.openstreetmap.org'],'REFERENCE_ONLY'],
+ ['MAPBOX','خرائط ماب بوكس','Mapbox maps','https://www.mapbox.com/',['mapbox.com','www.mapbox.com'],'REFERENCE_ONLY'],
  ['GOOGLE_EARTH_ENGINE','جوجل إيرث إنجن','Google Earth Engine','https://earthengine.google.com/',['earthengine.google.com'],'REFERENCE_ONLY'],
 ];
 const SOURCES=Object.freeze(sources.map(([id,nameAr,nameEn,url,hosts,mode])=>
