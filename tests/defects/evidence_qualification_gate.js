@@ -339,7 +339,12 @@ const national=fs.readFileSync(path.join(__dirname,'../../src/components/SaudiNa
 const property=fs.readFileSync(path.join(__dirname,'../../src/components/PropertyMarketLocationPanel.jsx'),'utf8');
 const manualPanel=fs.readFileSync(path.join(__dirname,'../../src/components/NoApiSourceBridgePanel.jsx'),'utf8');
 assert.match(national,/<EvidenceQualificationReviewPanel records=\{records\} references=\{manualReferences\} subject=\{subject\}\/>/);
-assert.match(national,/NoApiSourceBridgePanel onReferencesChange=\{setManualReferences\}/);
+assert.match(national,/NoApiSourceBridgePanel[^>]*onReferencesChange=\{changeManualReferences\}/,
+ 'manual sources must pass through the property-bound guard');
+assert.match(national,/personal-noapi-subject-scope-hold/,
+ 'changing owner property identity must suspend prior source capture');
+assert.match(national,/personal-noapi-clear-for-new-property/,
+ 'owner must explicitly clear old property research before adding to a new case');
 assert.match(property,/subject=\{subject\} onResearchChange=/);
 assert.match(manualPanel,/onReferencesChange\?\.\(merged.references\)/);
 assert.match(panel,/data-testid="qualification-decision"/);
