@@ -118,10 +118,16 @@ function assessGuardedPlotEnvelope({
   }
   if(title.status!=='CANDIDATE_FOR_INDEPENDENT_REVIEW')
     return bad(STATUS.HOLD_TITLE,'DEED_SURVEY_IDENTITY_UNRESOLVED:'+title.status);
-  const validSurveyRefs=new Set(titleFacts.filter(f=>
-    (f.key==='propertyAreaSqm'||f.key==='parcelOrPlotId')&&
-    f.sourceType==='SURVEY'&&f.status==='VERIFIED').map(f=>f.sourceRef));
-  if(!validSurveyRefs.has(geometry.sourceRef))
+  // The geometry must come from one survey ref covering BOTH parcel identity
+  // and area. Matching an additional area-only survey ref is insufficient.
+  const surveyAreaRefs=new Set(titleFacts.filter(f=>
+    f.key==='propertyAreaSqm'&&f.sourceType==='SURVEY'&&
+    f.status==='VERIFIED').map(f=>f.sourceRef));
+  const surveyParcelRefs=new Set(titleFacts.filter(f=>
+    f.key==='parcelOrPlotId'&&f.sourceType==='SURVEY'&&
+    f.status==='VERIFIED').map(f=>f.sourceRef));
+  if(!surveyAreaRefs.has(geometry.sourceRef)||
+     !surveyParcelRefs.has(geometry.sourceRef))
     return bad(STATUS.HOLD_GEOMETRY,'SURVEY_GEOMETRY_SOURCE_REFERENCE_MISMATCH');
   const titleAreas=titleFacts.filter(f=>f.key==='propertyAreaSqm'&&
       f.status==='VERIFIED').map(f=>f.value);

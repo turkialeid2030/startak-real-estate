@@ -160,4 +160,11 @@ test('OBSERVED_OWNER_CANNOT_FEED_PLOT',()=>{
   ?{...x,status:TITLE_FACT_STATUS.OBSERVED}:x);
  assert.equal(run({titleFacts:[...owner,...surveyFacts]}).status,STATUS.HOLD_TITLE);
 });
+test('GEOMETRY_AREA_ONLY_SURVEY_REF_REJECTED',()=>{
+ const altArea=fact('propertyAreaSqm',2000,'SURVEY','SURVEY-ALT');
+ const result=run({titleFacts:[...titleFacts,altArea],
+   geometry:{...geometry,sourceRef:'SURVEY-ALT'}});
+ assert.equal(result.status,STATUS.HOLD_GEOMETRY);
+ assert.ok(result.blockers.includes('SURVEY_GEOMETRY_SOURCE_REFERENCE_MISMATCH'));
+});
 console.log('GUARDED_PLOT_ENVELOPE_V1=PASS checks='+count+' synthetic=true license_proven=false');
