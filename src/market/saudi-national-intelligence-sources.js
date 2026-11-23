@@ -222,9 +222,17 @@ function mergeNationalResearch(existing,incoming,{limit=1500}={}){
  const records=[],seen=new Map(),conflicts=[];let duplicates=0,added=0;
  for(const [source,values] of [['existing',existing],['incoming',incoming]]){
   for(const x of values){
-   if(!BY_ID[x?.sourceId]?.allowed.includes(x.evidenceClass)||x.personalResearch!==true||
+   const registered=BY_ID[x?.sourceId];
+   const canonicalUrl=registered?officialUrl(x.sourceUrl,registered):null;
+   // Merge is a second independent trust boundary for restored/untrusted rows:
+   // never preserve session-bearing links or allow imported approval flags.
+   if(!registered?.allowed.includes(x.evidenceClass)||x.personalResearch!==true||
+    x.country!=='SA'||x.origin!==registered.origin||
+    x.officialSourcePage!==(registered.origin==='SA_GOV_OFFICIAL')||
     x.marketValuationEligible!==false||x.executedTransactionRecord!==false||
-    !officialUrl(x.sourceUrl,BY_ID[x.sourceId]))
+    x.sourceRecordAuthenticated!==false||x.independentMarketPriceVerified!==false||
+    x.professionalReportAuthorized!==false||
+    !canonicalUrl||x.sourceUrl!==canonicalUrl)
     throw Error('NATIONAL_RESEARCH_UNTRUSTED_RECORD');
    const key=identity(x),last=seen.get(key);
    if(last){
