@@ -159,11 +159,11 @@ export default function PersonalNoApiManualEntryPanel({subject={},onResearchRows
     {tr('الربط بحسب المدينة والحي؛ لا يُستنتج رقم صك أو قطعة.',
     'Linked as location research by city/district, not by a presumed deed or parcel.')}
    </p>
-   <label className="text-xs">{tr('المدينة','City')}
+   <label className="text-xs">{tr('مدينة المعلومة السوقية','Research observation city')}
     <input data-testid="personal-noapi-city" className={INPUT} value={city} maxLength={120}
      onChange={e=>setCity(e.target.value)}/>
    </label>
-   <label className="text-xs">{tr('الحي','District')}
+   <label className="text-xs">{tr('حي المعلومة السوقية','Research observation district')}
     <input data-testid="personal-noapi-district" className={INPUT} value={district} maxLength={120}
      onChange={e=>setDistrict(e.target.value)}/>
    </label>
