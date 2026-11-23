@@ -174,11 +174,17 @@ function qualifiedResearchIntake({records=[],references=[],subject={},asOf=new D
  const sourceSeen=new Map(),crossSeen=new Map(),duplicates=[],crossProviderCandidates=[];
  let crossProviderPairCount=0;
  for(const f of findings){
-  if(!f.referenceId||!f.sourceId)continue;
   const record=records[f.index];
-  // Same provider + reference must be unique even if the provider's CSV
-  // later changes amount, date, locale, district or property type.
-  const sameKey=f.sourceId+'|'+norm(f.referenceId);
+  // The 80-character referenceId in a finding is a display-safe preview,
+  // NOT a unique transaction identifier. Use the full validated source ID
+  // (up to 130 characters) for same-source and cross-provider matching.
+  // Distinct long transaction IDs may share their first 80 characters.
+  const fullReferenceId=codeOnly(record.recordId)&&record.recordId?
+   norm(record.recordId):'';
+  if(!fullReferenceId||!f.sourceId)continue;
+  // Same provider + full source reference must be unique even if the
+  // imported amounts, date, locale, district or asset type later change.
+  const sameKey=f.sourceId+'|'+fullReferenceId;
   const previous=sourceSeen.get(sameKey);
   if(previous){
    const before=records[previous.index];
@@ -191,7 +197,7 @@ function qualifiedResearchIntake({records=[],references=[],subject={},asOf=new D
   // city, district and event date also match. Different IDs are never
   // automatically merged based on a similar amount or nearby location.
   const crossKey=[norm(record.city),norm(record.district),
-    norm(record.eventDate||''),norm(f.referenceId)].join('|');
+    norm(record.eventDate||''),fullReferenceId].join('|');
   // Aggregate occurrences by source rather than enumerating the Cartesian
   // product. Total pair count remains exact, while review examples are capped.
   let group=crossSeen.get(crossKey);
