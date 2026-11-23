@@ -120,6 +120,7 @@ export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange,
  }
  async function restorePersonalResearch(file){
   if(!file)return;
+  if(scopeHold){setNotice(scopeNotice);return;}
   try{
    if(file.size>MAX_PERSONAL_BYTES)throw Error('PERSONAL_RESEARCH_FILE_TOO_LARGE');
    const incoming=importPersonalResearch(await file.text());
@@ -213,7 +214,7 @@ export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange,
    </label>
   </div>
   <EvidenceQualificationReviewPanel records={records} references={manualReferences} subject={subject}/>
-  <KitePersonalTransactionsPanel locale={locale} onResearchRows={ingestKite}/>
+  <KitePersonalTransactionsPanel key={'kite-'+resetEpoch} locale={locale} onResearchRows={ingestKite}/>
   <p className="mt-3 text-xs text-slate-300 break-all">
    {en?'CSV schema: ':'صيغة CSV: '}<code>source,city,district,kind,recordId,eventDate,periodStart,periodEnd,metricName,metricValue,unit,sourceUrl,assetType</code>.
    {tr('ولتقديرات القيمة الآلية (اختياري):','Optional AVM fields:')} <code>rangeLowSar,rangeHighSar,confidenceLabel,modelAsOf</code>.
