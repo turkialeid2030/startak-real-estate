@@ -75,6 +75,18 @@ assert.equal(duplicates.duplicates[0].reason,'DUPLICATE_SOURCE_RECORD_ID');
 assert.ok(Object.isFrozen(duplicates.duplicates[0]),'duplicate metadata cannot be modified after qualification');
 assert.ok(Object.isFrozen(result.crossProviderCandidates[0]),'cross-provider candidate metadata cannot be modified after qualification');
 assert.equal(duplicates.totals.crossProviderReviewPairs,0);
+
+const prefix='T'.repeat(80);
+const separate=evaluate([{...sale,recordId:prefix+'A'},{...sale,recordId:prefix+'B'}],[]);
+assert.equal(separate.totals.duplicatePairs,0);
+assert.equal(separate.findings[0].referenceId,separate.findings[1].referenceId);
+const across=evaluate([{...sale,recordId:prefix+'A'},{...moj,recordId:prefix+'B'}],[]);
+assert.equal(across.totals.crossProviderReviewPairs,0);
+const actual=evaluate([{...sale,recordId:prefix+'A'},{...sale,recordId:prefix+'A'},{...moj,recordId:prefix+'A'}],[]);
+assert.equal(actual.totals.duplicatePairs,1);
+assert.equal(actual.totals.crossProviderReviewPairs,2);
+assert.equal(actual.marketValuationEligible,false);
+
 // Worst-case source repetition previously built a quadratic-size list with
 // 562,500 pair objects. Count all pairs but retain bounded review samples.
 const repetitive=evaluate([
