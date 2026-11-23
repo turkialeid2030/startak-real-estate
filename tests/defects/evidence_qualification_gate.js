@@ -89,10 +89,16 @@ assert.equal(repetitive.crossProviderCandidates.length,
  MAX_CROSS_PROVIDER_PAIR_SAMPLES);
 assert.equal(repetitive.totals.crossProviderPairsTruncated,true);
 assert.equal(repetitive.marketValuationEligible,false);
-const repetitiveDossier=JSON.parse(portableReviewDossier(repetitive));
-assert.equal(repetitiveDossier.totals.crossProviderReviewPairs,750*750);
-assert.equal(repetitiveDossier.totals.crossProviderPairsTruncated,true);
-assert.ok(repetitiveDossier.crossProviderReviewPairs.length<=MAX_CROSS_PROVIDER_PAIR_SAMPLES);
+// The 256 KiB export limit is a separate fail-closed boundary.
+assert.throws(()=>portableReviewDossier(repetitive),/QUALIFICATION_DOSSIER_TOO_LARGE/);
+// A smaller batch still demonstrates that truncated pair evidence is
+// exported together with an accurate, explicit total.
+const sampled=evaluate([...Array(40).fill(sale),...Array(40).fill(moj)],[]);
+const sampledDossier=JSON.parse(portableReviewDossier(sampled));
+assert.equal(sampledDossier.totals.crossProviderReviewPairs,40*40);
+assert.equal(sampledDossier.totals.crossProviderReviewPairsSampled,MAX_CROSS_PROVIDER_PAIR_SAMPLES);
+assert.equal(sampledDossier.totals.crossProviderPairsTruncated,true);
+assert.equal(sampledDossier.crossProviderReviewPairs.length,MAX_CROSS_PROVIDER_PAIR_SAMPLES);
 
 const priceConflict=evaluate([sale,{...sale,metricValue:9900000,eventDate:'2026-11-18'}]);
 assert.equal(priceConflict.totals.duplicatePairs,1);
