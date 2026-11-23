@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const { strictCalendarDateMs } = require('../validation/strict-calendar-instant');
 
 const PLANNING_CONSTRAINT_TYPE = Object.freeze({
   ZONING_CLASSIFICATION: 'ZONING_CLASSIFICATION',
@@ -54,9 +55,9 @@ function assertEnum(value, enumeration, field) {
 
 function iso(value, field) {
   assertNonEmpty(value, field);
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) throw new TypeError(`${field} must be a valid date/time`);
-  return d.toISOString();
+  const ms = strictCalendarDateMs(value);
+  if (!Number.isFinite(ms)) throw new TypeError(`${field} must be a valid date/time`);
+  return new Date(ms).toISOString();
 }
 
 function stableClone(value) {
