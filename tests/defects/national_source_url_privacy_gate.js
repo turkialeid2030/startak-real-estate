@@ -80,4 +80,26 @@ for(const invalidSourceId of ['__proto__','constructor','toString','valueOf','ha
   'restored rows cannot resolve Object.prototype as an authentic source');
 }
 
+
+// Distinct city/district tuples containing '|' must not be misclassified as
+// the same source record or suppress one research row.
+const a={...valid,recordId:'PIPE-1',city:'الرياض|شمال',district:'الملز'};
+const b={...valid,recordId:'PIPE-1',city:'الرياض',district:'شمال|الملز'};
+const separate=mergeNationalResearch([],[a,b]);
+assert.equal(separate.records.length,2);
+assert.equal(separate.conflicts.length,0);
+const duplicated=mergeNationalResearch([],[a,{...a}]);
+assert.equal(duplicated.records.length,1);
+assert.equal(duplicated.duplicates,1);
+for(const override of [
+ {metricValue:'2400000'},{metricValue:NaN},{metricValue:Infinity},
+ {metricValue:-1},{metricValue:1e17},{metricName:'estimated_value_sar'},
+ {metricUnit:'SAR_PER_SQM'},{city:'   '},{district:''},
+ {recordId:''},{recordId:100},{recordId:'T'.repeat(131)},
+]){
+ assert.throws(()=>mergeNationalResearch([],[{...valid,...override}]),
+  /NATIONAL_RESEARCH_UNTRUSTED_RECORD/,
+  'restored market research metric, city, district and ID are untrusted');
+}
+
 console.log('NATIONAL_RESEARCH_URL_PRIVACY_GATE=PASS');

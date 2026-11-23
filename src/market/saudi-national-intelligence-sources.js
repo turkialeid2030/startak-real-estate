@@ -209,8 +209,11 @@ function importNationalSourcesCsv(csv,{observedOn,asOf=new Date()}={}){
   independentVerifiedExecutedSales:0,marketValuationEligible:false};
 }
 function identity(row){
- return [row.sourceId,row.evidenceClass,row.recordId||'',norm(row.city),norm(row.district),
-  row.periodStart||'',row.periodEnd||'',row.metricName||'',row.observedOn].join('|');
+ // Structured tuple keys prevent collisions when fields contain the pipe
+ // separator; keep source record IDs in their original exact spelling.
+ return JSON.stringify([row.sourceId,row.evidenceClass,row.recordId||'',
+  norm(row.city),norm(row.district),row.periodStart||'',row.periodEnd||'',
+  row.metricName||'',row.observedOn]);
 }
 function equivalent(a,b){
  return ['sourceId','evidenceClass','sourceUrl','city','district','assetType',
@@ -237,6 +240,24 @@ function mergeNationalResearch(existing,incoming,{limit=1500}={}){
     x.professionalReportAuthorized!==false||
     !canonicalUrl||x.sourceUrl!==canonicalUrl)
     throw Error('NATIONAL_RESEARCH_UNTRUSTED_RECORD');
+   // Imported, restored and provider-supplied records remain untrusted at
+   // this boundary. Never allow values to be coerced into sale evidence.
+   const aggregate=x.evidenceClass==='OFFICIAL_AGGREGATE'||
+    x.evidenceClass==='THIRD_PARTY_AGGREGATE';
+   const note=x.evidenceClass==='RESEARCH_NOTE';
+   const expectedMetric=note?
+    x.metricName===null&&x.metricUnit===null&&x.metricValue===null:
+    allowedMetrics[x.evidenceClass]?.includes(x.metricName)&&
+    unitByMetric[x.metricName]===x.metricUnit&&
+    typeof x.metricValue==='number'&&Number.isFinite(x.metricValue)&&
+    (aggregate?x.metricValue>=0:x.metricValue>0)&&x.metricValue<=1e16;
+   if(!expectedMetric||typeof x.city!=='string'||!x.city.trim()||
+      x.city.length>120||typeof x.district!=='string'||!x.district.trim()||
+      x.district.length>120||
+      (x.recordId!==null&&(typeof x.recordId!=='string'||x.recordId.length>130))||
+      (x.evidenceClass.endsWith('REPORTED_SALE')&&
+       (typeof x.recordId!=='string'||!x.recordId.trim())))
+     throw Error('NATIONAL_RESEARCH_UNTRUSTED_RECORD');
    const key=identity(x),last=seen.get(key);
    if(last){
     if(equivalent(last,x)){duplicates++;continue;}
