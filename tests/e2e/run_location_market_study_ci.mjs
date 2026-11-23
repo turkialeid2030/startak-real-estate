@@ -327,6 +327,15 @@ try{
  await panel.getByLabel('حالة المعاينة الفعلية').selectOption('ON_SITE');
  await fill('تاريخ المعاينة الميدانية','2026-10-26');
  mark('LOCATION_PROPERTY_COMPOSITION',((await panel.innerText()).includes('الإحداثيات المستخرجة')));
+ // This same browser deliberately captured manual source records before the
+ // owner supplied a property name/parcel. The owner must explicitly decide
+ // whether to retain them for the now-defined property; no silent reuse.
+ await panel.getByTestId('market-evidence-scope-hold').waitFor({state:'visible'});
+ assert(await nationalSources.getByTestId('personal-noapi-subject-scope-hold').isVisible(),
+  'manual national records originally entered for an unnamed property must remain isolated');
+ await panel.getByTestId('market-evidence-subject-reconfirm').click();
+ await panel.getByTestId('market-evidence-scope-hold').waitFor({state:'hidden'});
+ mark('OWNER_EARLY_SOURCE_RESEARCH_RECONFIRMED_FOR_DEFINED_PROPERTY',true);
  const autoResearch=panel.locator('[data-testid="public-moJ-research"]');
  await autoResearch.getByRole('button',{name:'جلب الصفقات المفتوحة الآن وتحليل الحي'}).click();
  await autoResearch.getByText(/صفقات الحي المؤهلة حسب التصنيف العام: 3/).waitFor();
