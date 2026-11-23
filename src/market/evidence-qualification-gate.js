@@ -3,7 +3,7 @@
 // title authority, transaction certifier or market valuation methodology.
 // It never upgrades imported source claims into verified comparable evidence.
 const {BY_ID}=require('./saudi-national-intelligence-sources');
-const {BY_ID:MANUAL_SOURCES}=require('./no-api-source-bridge');
+const {BY_ID:MANUAL_SOURCES,captureReference}=require('./no-api-source-bridge');
 
 const VERSION='STARTAK_RE_EVIDENCE_QUALIFICATION_GATE_V1';
 // Only results created by this module can become exportable review dossiers.
@@ -140,6 +140,18 @@ function inspectRecord(record,i,{subject,asOf}){
   marketValuationEligible:false,professionalReportAuthorized:false,
   transactionAuthenticated:false});
 }
+// Imported/manual-reference arrays are untrusted even when they come from a UI.
+// Rebuild the complete canonical record using the same strict host/date/text
+// validation as the no-API bridge; arbitrary authority metadata is forbidden.
+function manualReferenceIsCanonical(r,asOf){
+ if(!r||typeof r!=='object'||Array.isArray(r))return false;
+ try{
+  const expected=captureReference(r,{asOf:new Date(asOf+'T00:00:00.000Z')});
+  const keys=Object.keys(expected);
+  return Object.keys(r).length===keys.length&&
+   keys.every(k=>own(r,k)&&r[k]===expected[k]);
+ }catch{return false;}
+}
 function qualifiedResearchIntake({records=[],references=[],subject={},asOf=new Date()}={}){
  const today=parseAsOf(asOf);
  if(!Array.isArray(records)||records.length>MAX_ROWS)throw Error('QUALIFICATION_RECORD_LIMIT');
@@ -152,12 +164,7 @@ function qualifiedResearchIntake({records=[],references=[],subject={},asOf=new D
   const source=own(MANUAL_SOURCES,r?.sourceId)?MANUAL_SOURCES[r.sourceId]:null;
   const reasons=['REFERENCE_ONLY_NOT_A_TRANSACTION',
    'DATASET_LICENSE_AND_RIGHTS_NOT_INDEPENDENTLY_VERIFIED'];
-  if(!r||typeof r!=='object'||Array.isArray(r)||!source||
-    r.evidenceClass!=='RESEARCH_REFERENCE_ONLY'||r.sourceAuthenticated!==false||
-    r.decisionReady!==false||r.productionConnectorUsed!==false||
-    r.licenseVerified!==false||r.propertyIdentityVerified!==false||
-    r.professionalReportAuthorized!==false||r.contentCopied!==false||
-    r.valuationSar!==null||r.annualRentSar!==null)
+  if(!source||!manualReferenceIsCanonical(r,today))
    reasons.unshift('INVALID_OR_AUTHORITY_FORGED_MANUAL_REFERENCE');
   return Object.freeze({index:i,sourceId:source?.id||null,
    status:reasons.includes('INVALID_OR_AUTHORITY_FORGED_MANUAL_REFERENCE')?'REJECTED':'HOLD_REVIEW',
