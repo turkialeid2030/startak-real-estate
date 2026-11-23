@@ -3,6 +3,9 @@
 // tenant boundary, KMS, PDPL retention policy and audit persistence must be supplied.
 const crypto=require('node:crypto');
 const VERSION='STARTAK_PRIVATE_APPRAISAL_VAULT_CONTRACT_V1';
+// New envelopes authenticate the immutable metadata with GCM AAD.
+// Old envelopes lacking this marker must undergo a controlled, verified migration.
+const ENVELOPE_AUTH_VERSION=2;
 const SHA=/^[a-f0-9]{64}$/i, REF=/^[a-zA-Z0-9_.:-]{2,128}$/;
 const digest=b=>crypto.createHash('sha256').update(b).digest('hex');
 function privateRef(s,label){if(typeof s!=='string'||!REF.test(s))throw Error(label+'_INVALID');return s;}
@@ -19,6 +22,15 @@ async function role(requestActor,tenant,caseRef,permitted,authorizeActor,action)
     !context.caseRefs.includes(caseRef))
    throw Error('EVIDENCE_ACCESS_DENIED');
  return context;
+}
+function authenticatedEnvelopeMetadata(v){
+ // Fixed field order avoids a canonicalization mismatch between put and read.
+ return Buffer.from(JSON.stringify([
+  v.version,v.envelopeAuthVersion,v.tenantId,v.evidenceRef,v.caseRef,
+  v.sha256,v.uploadedByActorRef,v.uploadedAt,
+  v.legalReuseRightsVerified,v.independentlyProfessionallyReviewed,
+  v.releaseAuthorized,v.storageAdapterSecurityVerified,
+ ]));
 }
 function keyFrom(keyProvider,tenant){
  const k=keyProvider(tenant);
@@ -41,15 +53,17 @@ function makePrivateAppraisalVault({adapter,keyProvider,authorizeActor,clock=()=
    throw Error('EVIDENCE_SOURCE_DIGEST_MISMATCH');
   const storageKey=idOf(tenantId,evidenceRef);
   if(await adapter.get(storageKey)!==null)throw Error('EVIDENCE_IMMUTABLE_REF_ALREADY_EXISTS');
-  const iv=crypto.randomBytes(12),aad=Buffer.from([VERSION,tenantId,evidenceRef,caseRef].join('|'));
-  const cipher=crypto.createCipheriv('aes-256-gcm',keyFrom(keyProvider,tenantId),iv);
-  cipher.setAAD(aad);
-  const enc=Buffer.concat([cipher.update(sourceBytes),cipher.final()]);
-  const core={version:VERSION,tenantId,evidenceRef,caseRef,sha256:sha,iv:iv.toString('base64'),
-   tag:cipher.getAuthTag().toString('base64'),ciphertext:enc.toString('base64'),
+  const metadata={version:VERSION,envelopeAuthVersion:ENVELOPE_AUTH_VERSION,
+   tenantId,evidenceRef,caseRef,sha256:sha,
    uploadedByActorRef:identity.actorId,uploadedAt:clock().toISOString(),
    legalReuseRightsVerified:false,independentlyProfessionallyReviewed:false,
    releaseAuthorized:false,storageAdapterSecurityVerified:false};
+  const iv=crypto.randomBytes(12);
+  const cipher=crypto.createCipheriv('aes-256-gcm',keyFrom(keyProvider,tenantId),iv);
+  cipher.setAAD(authenticatedEnvelopeMetadata(metadata));
+  const enc=Buffer.concat([cipher.update(sourceBytes),cipher.final()]);
+  const core={...metadata,iv:iv.toString('base64'),
+   tag:cipher.getAuthTag().toString('base64'),ciphertext:enc.toString('base64')};
   // Atomic insert prevents parallel reviewers from silently overwriting the same immutable ref.
   if(await adapter.putIfAbsent(storageKey,JSON.stringify(core))!==true)
    throw Error('EVIDENCE_IMMUTABLE_REF_ALREADY_EXISTS');
@@ -68,9 +82,16 @@ function makePrivateAppraisalVault({adapter,keyProvider,authorizeActor,clock=()=
   if(v?.version!==VERSION||v.tenantId!==tenantId||v.evidenceRef!==evidenceRef||
    !REF.test(v.caseRef||'')||!SHA.test(v.sha256||''))throw Error('EVIDENCE_CONTEXT_TAMPERED');
   if(v.caseRef!==caseRef)throw Error('EVIDENCE_CASE_SCOPE_MISMATCH');
+  if(v.envelopeAuthVersion!==ENVELOPE_AUTH_VERSION)
+   throw Error('EVIDENCE_LEGACY_ENVELOPE_REQUIRES_AUTHENTICATED_MIGRATION');
+  if(!REF.test(v.uploadedByActorRef||'')||typeof v.uploadedAt!=='string'||!v.uploadedAt||
+     v.legalReuseRightsVerified!==false||
+     v.independentlyProfessionallyReviewed!==false||
+     v.releaseAuthorized!==false||v.storageAdapterSecurityVerified!==false)
+   throw Error('EVIDENCE_ENVELOPE_METADATA_INVALID');
   try{
    const dec=crypto.createDecipheriv('aes-256-gcm',keyFrom(keyProvider,tenantId),Buffer.from(v.iv,'base64'));
-   dec.setAAD(Buffer.from([VERSION,tenantId,evidenceRef,v.caseRef].join('|')));
+   dec.setAAD(authenticatedEnvelopeMetadata(v));
    dec.setAuthTag(Buffer.from(v.tag,'base64'));
    const bytes=Buffer.concat([dec.update(Buffer.from(v.ciphertext,'base64')),dec.final()]);
    if(digest(bytes)!==v.sha256)throw Error('EVIDENCE_BYTES_DIGEST_TAMPERED');
@@ -81,4 +102,4 @@ function makePrivateAppraisalVault({adapter,keyProvider,authorizeActor,clock=()=
  }
  return Object.freeze({put,read,version:VERSION,institutionalDeploymentVerified:false});
 }
-module.exports={VERSION,makePrivateAppraisalVault};
+module.exports={VERSION,ENVELOPE_AUTH_VERSION,makePrivateAppraisalVault};

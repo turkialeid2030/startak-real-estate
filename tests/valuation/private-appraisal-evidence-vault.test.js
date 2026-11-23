@@ -64,6 +64,40 @@ const read=(actor=makeActor('reviewer'),other={})=>v.read({actor,tenantId:'t1',
  await t('record is immutable; admin cannot overwrite existing ref',async()=>{
   await assert.rejects(put(makeActor('admin')),/IMMUTABLE_REF/);
  });
+ await t('sealed envelope metadata remains GCM-authenticated',async()=>{
+  const entry=[...map.entries()][0],originalStored=entry[1];
+  const originalRecord=JSON.parse(originalStored);
+  assert.equal(originalRecord.envelopeAuthVersion,2);
+  for(const [field,fake] of [
+   ['uploadedByActorRef','SYN-FORGED'],
+   ['uploadedAt','2027-01-01T00:00:00Z'],
+   ['sha256','f'.repeat(64)],
+   ['legalReuseRightsVerified',true],
+   ['releaseAuthorized',true],
+  ]){
+   try{
+    map.set(entry[0],JSON.stringify({...originalRecord,[field]:fake}));
+    await assert.rejects(read(),/EVIDENCE_(DECRYPTION_OR_INTEGRITY_FAILED|ENVELOPE_METADATA_INVALID)/);
+   }finally{map.set(entry[0],originalStored);}
+  }
+  const valid=await read();assert.deepEqual(valid.sourceBytes,original);
+ });
+ await t('legacy unauthenticated metadata requires verified migration',async()=>{
+  const entry=[...map.entries()][0],old=entry[1];
+  try{
+   const val=JSON.parse(old);delete val.envelopeAuthVersion;
+   map.set(entry[0],JSON.stringify(val));
+   await assert.rejects(read(),/LEGACY_ENVELOPE_REQUIRES_AUTHENTICATED_MIGRATION/);
+  }finally{map.set(entry[0],old);}
+ });
+ await t('mutated authenticated metadata marker cannot decrypt',async()=>{
+  const entry=[...map.entries()][0],old=entry[1];
+  try{
+   const val=JSON.parse(old);val.envelopeAuthVersion=3;
+   map.set(entry[0],JSON.stringify(val));
+   await assert.rejects(read(),/LEGACY_ENVELOPE_REQUIRES_AUTHENTICATED_MIGRATION/);
+  }finally{map.set(entry[0],old);}
+ });
  await t('ciphertext tampering detected',async()=>{
   const entry=[...map.entries()][0],json=JSON.parse(entry[1]);
   json.ciphertext=Buffer.from('attack').toString('base64');map.set(entry[0],JSON.stringify(json));
