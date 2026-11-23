@@ -174,6 +174,9 @@ function qualifiedResearchIntake({records=[],references=[],subject={},asOf=new D
  const sourceSeen=new Map(),crossSeen=new Map(),duplicates=[],crossProviderCandidates=[];
  let crossProviderPairCount=0;
  for(const f of findings){
+  // Rejected/unauthorized imports remain visible in rejected intake totals,
+  // but must not contaminate transaction-duplicate review candidates.
+  if(f.status==='REJECTED'||f.bucket!=='REPORTED_SALE_CANDIDATE')continue;
   const record=records[f.index];
   // The 80-character referenceId in a finding is a display-safe preview,
   // NOT a unique transaction identifier. Use the full validated source ID
