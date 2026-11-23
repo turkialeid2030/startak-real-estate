@@ -61,6 +61,32 @@ try{
  // as a link. A manual reference is kept locally, never a certified value.
  const noapi=nationalSources.getByTestId('no-api-source-bridge');
  await noapi.waitFor({state:'visible'});
+ // Real user-facing navigation between exact historic provider service pages;
+ // choosing a page never creates an authenticated sale or makes an API call.
+ for(const probe of [
+   {source:'SUHAIL',entry:'SUHAIL_TRANSACTIONS',
+    href:'https://www.suhail.ai/Riyadh/transactions'},
+   {source:'SUHAIL',entry:'SUHAIL_METRICS',
+    href:'https://www.suhail.ai/Riyadh/metrics'},
+   {source:'EARTH',entry:'EARTH_VALUE',
+    href:'https://map.earthapp.com.sa/value'},
+   {source:'EARTH',entry:'EARTH_OFFERS',
+    href:'https://map.earthapp.com.sa/offers'},
+   {source:'REGA_DEALS',entry:'REGA_CLEANED',
+    href:'https://rei.rega.gov.sa/ar/advanced-search/deals'},
+   {source:'AQAR',entry:'AQAR_OFFERS',
+    href:'https://sa.aqar.fm/'},
+ ]){
+  await noapi.getByTestId('noapi-source-select').selectOption(probe.source);
+  await noapi.getByTestId('noapi-entrypoint-select').selectOption(probe.entry);
+  assert(await noapi.getByTestId('noapi-open-source').getAttribute('href')===probe.href,
+    'selected provider deep link must be exact: '+probe.entry);
+  assert(await noapi.getByTestId('noapi-source-url').inputValue()===probe.href,
+    'selected provider must populate the local research-reference URL');
+  assert((await noapi.getByTestId('noapi-reference-count').innerText()).includes('0'),
+    'page navigation alone must not create a qualified research reference');
+ }
+ mark('NO_API_OWNER_DEEP_LINK_NAVIGATION_REAL_CHROMIUM',true);
  await noapi.getByTestId('noapi-source-select').selectOption('UMAPS');
  assert((await noapi.getByTestId('noapi-open-source').getAttribute('href'))===
    'https://umaps.momah.gov.sa/','portal link must be the official exact host');
