@@ -527,7 +527,7 @@ export default function PropertyMarketLocationPanel({
       <div className="md:col-span-2"><Field title="رابط موقع العقار من خرائط جوجل أو الإحداثيات" value={subject.location}
         onChange={v=>updateSubject('location',v)} placeholder="https://www.google.com/maps/@24.7,46.7,17z"/>
         <div className="mt-2 text-xs text-slate-300" data-testid="market-umaps-official-reference">
-          <a className="underline text-sky-300 hover:text-sky-200"
+          <a className="inline-flex min-h-[40px] items-center rounded px-2 underline text-sky-300 hover:text-sky-200"
             href={OFFICIAL_SOURCE_REGISTRY.BALADY_URBAN_MAPS.publicReferenceUrl}
             target="_blank" rel="noopener noreferrer" data-testid="market-open-umaps">
             {L('فتح الخرائط الحضرية الرسمية')}

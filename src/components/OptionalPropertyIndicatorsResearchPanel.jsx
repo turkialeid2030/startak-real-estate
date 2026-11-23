@@ -146,13 +146,15 @@ export default function OptionalPropertyIndicatorsResearchPanel({locale='ar-SA',
      </label>}
     </>}
    </div>
-   <label className="mt-4 flex items-start gap-2 text-xs">
-    <input type="checkbox" data-testid="optional-user-attested" checked={userAttested}
+   <label className="mt-4 flex min-h-[40px] items-center gap-3 text-xs">
+    <input type="checkbox" className="h-6 w-6 shrink-0" data-testid="optional-user-attested" checked={userAttested}
      onChange={e=>{setUserAttested(e.target.checked);reset();}}/>
     {ar?'أقر بأن البيانات أُدخلت مني؛ ولا أزعم اعتماد المستند أو صحة المخرجات مهنيًا':
       'I entered these data; neither the source nor output is professionally verified'}
    </label>
-   <button type="button" data-testid="optional-calculate" onClick={calculate} disabled={blocked}
+   <button type="button" data-testid="optional-calculate"
+    aria-label={ar?'حساب المؤشر الاختياري':'Calculate optional indicator'}
+    onClick={calculate} disabled={blocked}
     className="mt-4 min-h-[44px] rounded-lg border border-amber-500 px-4 py-2 text-sm disabled:opacity-50">
     {ar?'حساب المؤشر الاختياري':'Calculate optional indicator'}
    </button>
