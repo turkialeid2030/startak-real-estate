@@ -12,7 +12,7 @@ const TODAY=()=>{
  const p=key=>parts.find(x=>x.type===key)?.value;
  return [p('year'),p('month'),p('day')].join('-');
 };
-export default function NoApiSourceBridgePanel({onReferencesChange,subject={}}){
+export default function NoApiSourceBridgePanel({onReferencesChange,subject={},disabled=false}){
  const {locale}=useLocale(),en=locale==='en';
  const tr=(ar,english)=>en?english:ar;
  const [sourceId,setSourceId]=useState('REGA_DEALS');
@@ -49,6 +49,7 @@ export default function NoApiSourceBridgePanel({onReferencesChange,subject={}}){
    en:'Current property city and district were used for research context.'});
  }
  function addReference(){
+  if(disabled)return;
   try{
    const item=captureReference({sourceId,sourceUrl,city,district,observedOn});
    const merged=mergeReferences(references,[item]);
@@ -73,7 +74,7 @@ export default function NoApiSourceBridgePanel({onReferencesChange,subject={}}){
   }catch(_){setNotice({ar:'تعذر تصدير الملف.','en':'Could not export reference file.'});}
  }
  async function restore(file){
-  if(!file)return;
+  if(!file||disabled)return;
   try{
    if(file.size>MAX_PORTABLE_BYTES)throw Error('NOAPI_FILE_TOO_LARGE');
    const imported=importReferences(await file.text());
@@ -142,7 +143,7 @@ export default function NoApiSourceBridgePanel({onReferencesChange,subject={}}){
      className="rounded border border-slate-500 px-3 py-2 text-xs text-sky-200">
      {tr('استخدام موقع العقار الحالي','Use property location')}
     </button>
-    <button type="button" data-testid="noapi-add-link" onClick={addReference}
+    <button type="button" data-testid="noapi-add-link" disabled={disabled} onClick={addReference}
      className="rounded border border-sky-600 px-3 py-2 text-xs text-sky-200">
      {tr('إضافة مرجع بحثي','Add research reference')}
     </button>
@@ -155,7 +156,7 @@ export default function NoApiSourceBridgePanel({onReferencesChange,subject={}}){
    </button>
    <label className="rounded border border-slate-600 px-3 py-2 text-slate-200">
     {tr('استعادة سجل المراجع','Restore reference register')}
-    <input data-testid="noapi-import" type="file" accept=".json,application/json" className="block max-w-48 min-h-[40px] mt-1 rounded border border-slate-500 p-2 text-xs"
+    <input data-testid="noapi-import" type="file" disabled={disabled} accept=".json,application/json" className="block max-w-48 min-h-[40px] mt-1 rounded border border-slate-500 p-2 text-xs"
      onChange={async e=>{const file=e.target.files?.[0];e.target.value='';await restore(file);}}/>
    </label>
   </div>
