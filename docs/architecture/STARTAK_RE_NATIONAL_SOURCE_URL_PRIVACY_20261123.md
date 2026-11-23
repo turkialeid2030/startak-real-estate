@@ -16,3 +16,6 @@
 These changes protect research record handling, **not** customer data licensed ingestion, authentic property transactions, professional valuations or production tenant authorization. No source acquisition through automation/API/scraping is added. 57 old route behavioral parity, private 17+4 case engine/UI parity, Q01–Q12 independent signoffs, live IdP/KMS/RLS/vault, Cloudflare RCA and production permission remain open in #622.
 
 **Accept only actual exact-head CI success.** This patch may not be merged into `main`, nor deployed commercially, until the linked independent release/security gates pass and accountable people sign off.
+
+## Prototype-chain lookup safety
+The original source lookup used `BY_ID[untrustedSourceId]`, where special keys such as `__proto__`, `constructor` and `toString` resolve inherited properties even on a frozen registry. This could throw during CSV processing rather than reject the adversarial row, and could confuse restored-source matching. Both import and merge now require `Object.prototype.hasOwnProperty.call(BY_ID, sourceId)` before accepting the source. Regression mixes a forged row with a valid row and verifies only the invalid row is rejected, plus strict restored-row refusal for five prototype keys.

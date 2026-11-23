@@ -66,4 +66,18 @@ for(const override of [
   /NATIONAL_RESEARCH_UNTRUSTED_RECORD/,
   'restored research cannot bypass source and authority validation');
 }
+// Prototype-chain property names are not registered providers. A malicious
+// source ID must reject only its row, not abort a batch containing good data.
+const cleanLink='https://rei.rega.gov.sa/ar/advanced-search/deals';
+for(const invalidSourceId of ['__proto__','constructor','toString','valueOf','hasOwnProperty']){
+ const mixed=[header,row(cleanLink).replace(/^REGA_REI,/,invalidSourceId+','),row(cleanLink)].join('\n');
+ const result=importNationalSourcesCsv(mixed,{asOf,observedOn});
+ assert.equal(result.records.length,1,'valid research row must survive bad source ID');
+ assert.equal(result.rejected.length,1,'prototype property source must be rejected');
+ assert.ok(result.rejected[0].issues.includes('SOURCE_NOT_REGISTERED'));
+ assert.throws(()=>mergeNationalResearch([],[{...valid,sourceId:invalidSourceId}]),
+  /NATIONAL_RESEARCH_UNTRUSTED_RECORD/,
+  'restored rows cannot resolve Object.prototype as an authentic source');
+}
+
 console.log('NATIONAL_RESEARCH_URL_PRIVACY_GATE=PASS');

@@ -138,7 +138,9 @@ function importNationalSourcesCsv(csv,{observedOn,asOf=new Date()}={}){
  const accepted=[],rejected=[];
  for(const row of records){
   const cell=name=>index[name]>=0?String(row.columns[columns[index[name]]]??'').trim():'';
-  const source=BY_ID[cell('source')],kind=cell('kind');
+  const sourceId=cell('source');
+  const source=Object.prototype.hasOwnProperty.call(BY_ID,sourceId)?BY_ID[sourceId]:null;
+  const kind=cell('kind');
   const city=cell('city'),district=cell('district'),recordId=cell('recordId');
   const metricName=cell('metricName'),unit=cell('unit'),assetType=cell('assetType');
   const val=metric(cell('metricValue'));
@@ -222,7 +224,8 @@ function mergeNationalResearch(existing,incoming,{limit=1500}={}){
  const records=[],seen=new Map(),conflicts=[];let duplicates=0,added=0;
  for(const [source,values] of [['existing',existing],['incoming',incoming]]){
   for(const x of values){
-   const registered=BY_ID[x?.sourceId];
+   const registered=Object.prototype.hasOwnProperty.call(BY_ID,x?.sourceId)?
+    BY_ID[x.sourceId]:null;
    const canonicalUrl=registered?officialUrl(x.sourceUrl,registered):null;
    // Merge is a second independent trust boundary for restored/untrusted rows:
    // never preserve session-bearing links or allow imported approval flags.
