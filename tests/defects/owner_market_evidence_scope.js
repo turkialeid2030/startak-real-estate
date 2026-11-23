@@ -1,6 +1,6 @@
 'use strict';
 const assert=require('node:assert/strict');
-const {marketEvidenceSubjectKey:subjectKey,hasResearchComparables:entered}=require('../../src/market/owner-market-evidence-scope');
+const {marketEvidenceSubjectKey:subjectKey,hasResearchComparables:entered,hasCapturedOwnerResearch}=require('../../src/market/owner-market-evidence-scope');
 let count=0;const check=(value,why)=>{assert.ok(value,why);count++};
 const original={name:'SYNTHETIC A',assetType:'RESIDENTIAL_COMPOUND',city:'الرياض',district:'افتراضي',
  location:'24.7136,46.6753',propertyRight:'FULL_OWNERSHIP',valuationDate:'2026-10-15'};
@@ -22,4 +22,12 @@ check(entered([{sourceRecordId:'SYNTH-CASE'}],[]),'entered market source binds s
 check(entered([], [{annualRent:'500000'}]),'entered rental binds subject');
 check(entered([{assetType:'RESIDENTIAL_COMPOUND'}],[]),'partially entered comparison binds subject conservatively');
 check(!entered([{status:'ASKING'}],[]),'ASKING default alone is not user research');
+check(!hasCapturedOwnerResearch({suhail:[{sourceId:'SAMPLE'}],national:[],earth:[],listings:[]}),
+ 'default Suhail sample does not bind a user property');
+check(hasCapturedOwnerResearch({national:[{sourceId:'REGA_REI'}]}),
+ 'national no-API research binds the property');
+check(hasCapturedOwnerResearch({earth:[{sourceId:'EARTH'}]}),
+ 'Earth owner research binds the property');
+check(hasCapturedOwnerResearch({listings:[{sourceId:'AQAR'}]}),
+ 'listing owner research binds the property');
 console.log('OWNER_MARKET_EVIDENCE_SCOPE=PASS assertions='+count+' synthetic_only=true');
