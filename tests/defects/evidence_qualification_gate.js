@@ -294,8 +294,8 @@ assert.throws(()=>qualifiedResearchIntake({subject:[],asOf:day}),/QUALIFICATION_
 for(const subject of [
  {city:'   ',district:'الملز'}, {city:'الرياض',district:'   '},
  {city:123,district:'الملز'}, {city:'الرياض',district:456},
- {city:'الرياض\\u0000',district:'الملز'},
- {city:'الرياض',district:'الملز\\u001f'},
+ {city:'الرياض\u0000',district:'الملز'},
+ {city:'الرياض',district:'الملز\u001f'},
  {city:'الرياض',district:'الملز'.repeat(45)},
 ]){
  const output=evaluate([sale],[],subject);
