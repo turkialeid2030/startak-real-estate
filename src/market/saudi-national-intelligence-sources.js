@@ -73,12 +73,16 @@ function officialUrl(value,src){
  if(typeof value!=='string'||value.length>2000)return null;
  try{
   const u=new URL(value);
-  if(u.protocol!=='https:'||u.username||u.password||
-   !(u.hostname===src.domain||u.hostname.endsWith('.'+src.domain)))return null;
-  u.hash='';
-  for(const k of [...u.searchParams.keys()])
-   if(k.toLowerCase().startsWith('utm_')||['gclid','fbclid'].includes(k.toLowerCase()))
-    u.searchParams.delete(k);
+  const registered=new URL(src.url).hostname.toLowerCase();
+  const domain=src.domain.toLowerCase(),host=u.hostname.toLowerCase();
+  // Research sources are registered exact hosts, not every arbitrary
+  // subdomain of a broad provider root. No alternate ports or credentials.
+  if(u.protocol!=='https:'||u.username||u.password||u.port||
+   ![registered,domain,'www.'+domain].includes(host))return null;
+  // Imported CSV URLs are untrusted: arbitrary query keys can contain
+  // access/session tokens and personal information. Keep only the safe
+  // canonical page path; the source record ID remains a separate field.
+  u.search='';u.hash='';
   return u.toString();
  }catch{return null;}
 }
