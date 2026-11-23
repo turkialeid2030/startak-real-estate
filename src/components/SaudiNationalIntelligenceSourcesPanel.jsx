@@ -8,6 +8,8 @@ const {useLocale}=require('../i18n/LocaleContext.js');
 const {SOURCES,OFFICIAL_RESEARCH_ENTRYPOINTS,importNationalSourcesCsv,mergeNationalResearch,filterNationalResearch,
  summarizeNationalResearch}=require('../market/saudi-national-intelligence-sources');
 const {MAX_CSV_BYTES}=require('../market/public-dataset-import');
+const {MAX_PORTABLE_BYTES:MAX_PERSONAL_BYTES,exportPersonalResearch,importPersonalResearch}=
+ require('../market/personal-noapi-research-register');
 const confidenceAr={HIGH:'مرتفعة',MEDIUM:'متوسطة',LOW:'منخفضة'};
 const metricAr={estimated_value_sar:'القيمة المقدرة',sale_price_sar:'سعر بيع منشور',
  deal_count:'عدد الصفقات',deal_value_sar:'إجمالي قيمة الصفقات',
@@ -74,6 +76,39 @@ export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange,
     '; conflicts: '+merged.conflicts.length});
   return merged;
  }
+ function downloadPersonalResearch(){
+  try{
+   const contents=exportPersonalResearch(records);
+   const blob=new Blob([contents],{type:'application/json;charset=utf-8'});
+   const downloadUrl=URL.createObjectURL(blob);
+   const link=document.createElement('a');
+   link.href=downloadUrl;link.download='startak-personal-market-research.json';
+   document.body.appendChild(link);link.click();link.remove();
+   URL.revokeObjectURL(downloadUrl);
+   setNotice({ar:'تم تنزيل '+records.length+' سجلًا بحثيًا إلى جهازك.',
+    en:'Downloaded '+records.length+' research records to your device.'});
+  }catch(_){
+   setNotice({ar:'تعذر تنزيل سجل البحث؛ افحص البيانات أو الحجم.',
+    en:'Could not export the research register; check records or file size.'});
+  }
+ }
+ async function restorePersonalResearch(file){
+  if(!file)return;
+  try{
+   if(file.size>MAX_PERSONAL_BYTES)throw Error('PERSONAL_RESEARCH_FILE_TOO_LARGE');
+   const incoming=importPersonalResearch(await file.text());
+   const merged=mergeNationalResearch(records,incoming);
+   setRecords(merged.records);onResearchChange?.(merged.records);
+   setSourceId('');setCity('');setEvidenceClass('');
+   setNotice({ar:'استُعيد '+merged.added+' سجلًا؛ مكرر '+merged.duplicates+
+     '، تعارض '+merged.conflicts.length+'.',
+    en:'Restored '+merged.added+' records; duplicates '+merged.duplicates+
+     ', conflicts '+merged.conflicts.length+'.'});
+  }catch(_){
+   setNotice({ar:'ملف سجل البحث غير صالح، أو يحتوي على بيانات غير مطابقة.',
+    en:'Invalid research register or incompatible research records.'});
+  }
+ }
  async function importFile(file){
   if(!file)return;
   if(file.size>MAX_CSV_BYTES){setNotice({ar:'حجم الملف أكبر من الحد المسموح',en:'CSV file exceeds allowed size'});return;}
@@ -123,6 +158,20 @@ export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange,
   </div>
   <NoApiSourceBridgePanel onReferencesChange={setManualReferences} subject={subject}/>
   <PersonalNoApiManualEntryPanel subject={subject} onResearchRows={ingestPersonal}/>
+  <div data-testid="personal-noapi-research-files" className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+   <button type="button" data-testid="personal-noapi-download-research"
+    onClick={downloadPersonalResearch}
+    className="rounded border border-slate-500 px-3 py-2 text-sky-200">
+    {tr('تنزيل سجل البحث الشخصي','Download my research register')}
+   </button>
+   <label className="rounded border border-slate-500 px-3 py-2 text-sky-200">
+    {tr('استعادة سجل البحث من ملف','Restore research from a file')}
+    <input data-testid="personal-noapi-restore-research" type="file"
+     accept=".json,application/json"
+     className="mt-1 block min-h-[40px] max-w-56 rounded border border-slate-600 p-1 text-xs"
+     onChange={async e=>{const file=e.target.files?.[0];e.target.value='';await restorePersonalResearch(file);}}/>
+   </label>
+  </div>
   <EvidenceQualificationReviewPanel records={records} references={manualReferences} subject={subject}/>
   <KitePersonalTransactionsPanel locale={locale} onResearchRows={ingestKite}/>
   <p className="mt-3 text-xs text-slate-300 break-all">
