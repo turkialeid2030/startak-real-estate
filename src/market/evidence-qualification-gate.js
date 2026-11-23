@@ -62,7 +62,9 @@ function inspectRecord(record,i,{subject,asOf}){
    marketValuationEligible:false});
  }
  const source=own(BY_ID,record.sourceId)?BY_ID[record.sourceId]:null;
- const bucket=own(BUCKET,record.evidenceClass)?BUCKET[record.evidenceClass]:'INVALID';
+ const validEvidenceClass=typeof record.evidenceClass==='string'&&
+  own(BUCKET,record.evidenceClass);
+ const bucket=validEvidenceClass?BUCKET[record.evidenceClass]:'INVALID';
  if(!source)reasons.push('UNREGISTERED_SOURCE');
  if(!source?.allowed.includes(record.evidenceClass)||bucket==='INVALID')
   reasons.push('SOURCE_CLASS_SCOPE_INVALID');
@@ -73,7 +75,8 @@ function inspectRecord(record,i,{subject,asOf}){
   'independentMarketPriceVerified','marketValuationEligible',
   'professionalReportAuthorized','transactionAuthorized','licenseVerified'];
  if(claims.some(k=>record[k]===true))reasons.push('UNTRUSTED_AUTHORITY_CLAIM');
- if(!codeOnly(record.city)||!record.city||!codeOnly(record.district)||!record.district)
+ if(!codeOnly(record.city)||!record.city.trim()||
+    !codeOnly(record.district)||!record.district.trim())
   reasons.push('LOCATION_REQUIRED');
  if(!isoDate(record.observedOn)||record.observedOn>asOf)
   reasons.push('OBSERVATION_DATE_INVALID');
@@ -90,7 +93,7 @@ function inspectRecord(record,i,{subject,asOf}){
  if(number!==null&&(typeof number!=='number'||!Number.isFinite(number)||
    number<0||number>1e15))reasons.push('METRIC_OUT_OF_RANGE');
  if(bucket==='REPORTED_SALE_CANDIDATE'){
-  if(!codeOnly(record.recordId)||!record.recordId||!isoDate(record.eventDate))
+  if(!codeOnly(record.recordId)||!record.recordId.trim()||!isoDate(record.eventDate))
    reasons.push('TRANSACTION_ID_DATE_REQUIRED');
   if(record.metricName!==EXPECTED_METRIC[record.evidenceClass]||
    record.metricUnit!=='SAR'||!(number>0))
@@ -121,9 +124,12 @@ function inspectRecord(record,i,{subject,asOf}){
  // acknowledgement, or any "approved" flag in an imported CSV.
  reasons.push('DATASET_LICENSE_AND_RIGHTS_NOT_INDEPENDENTLY_VERIFIED');
  reasons.push('INDEPENDENT_REVIEW_AND_SOURCE_EVIDENCE_REQUIRED');
- const safeReference=codeOnly(record.recordId)?record.recordId.slice(0,80):'';
+ const safeReference=codeOnly(record.recordId)&&record.recordId.trim()?
+  record.recordId.slice(0,80):'';
  return Object.freeze({
-  index:i,sourceId:source?.id||null,evidenceClass:record.evidenceClass||null,
+  index:i,sourceId:source?.id||null,
+  // Never reflect arbitrary imported evidenceClass objects/text into review exports.
+  evidenceClass:validEvidenceClass?record.evidenceClass:null,
   bucket,status:reasons.some(r=>[
     'UNREGISTERED_SOURCE','SOURCE_CLASS_SCOPE_INVALID','SOURCE_URL_UNTRUSTED',
     'UNTRUSTED_AUTHORITY_CLAIM','RECORD_OBJECT_REQUIRED','RESEARCH_PROVENANCE_REQUIRED',
@@ -174,11 +180,22 @@ function qualifiedResearchIntake({records=[],references=[],subject={},asOf=new D
  const sourceSeen=new Map(),crossSeen=new Map(),duplicates=[],crossProviderCandidates=[];
  let crossProviderPairCount=0;
  for(const f of findings){
-  if(!f.referenceId||!f.sourceId)continue;
+  // Rejected/unauthorized imports remain visible in rejected intake totals,
+  // but must not contaminate transaction-duplicate review candidates.
+  if(f.status==='REJECTED'||f.bucket!=='REPORTED_SALE_CANDIDATE')continue;
   const record=records[f.index];
-  // Same provider + reference must be unique even if the provider's CSV
-  // later changes amount, date, locale, district or property type.
-  const sameKey=f.sourceId+'|'+norm(f.referenceId);
+  // The 80-character referenceId in a finding is a display-safe preview,
+  // NOT a unique transaction identifier. Use the full validated source ID
+  // (up to 130 characters) for same-source and cross-provider matching.
+  // Distinct long transaction IDs may share their first 80 characters.
+  // Published reference IDs are exact identifiers: lowercasing/Arabic folding
+  // could merge distinct IDs even though source records differ.
+  const fullReferenceId=codeOnly(record.recordId)&&record.recordId.trim()?
+   record.recordId.trim():'';
+  if(!fullReferenceId||!f.sourceId)continue;
+  // Same provider + full source reference must be unique even if the
+  // imported amounts, date, locale, district or asset type later change.
+  const sameKey=JSON.stringify([f.sourceId,fullReferenceId]);
   const previous=sourceSeen.get(sameKey);
   if(previous){
    const before=records[previous.index];
@@ -190,8 +207,10 @@ function qualifiedResearchIntake({records=[],references=[],subject={},asOf=new D
   // Across providers a shared printed reference is a *candidate* only when
   // city, district and event date also match. Different IDs are never
   // automatically merged based on a similar amount or nearby location.
-  const crossKey=[norm(record.city),norm(record.district),
-    norm(record.eventDate||''),norm(f.referenceId)].join('|');
+  // Structured tuple encoding avoids ambiguous delimiter collisions when
+  // user-entered city/district/record IDs themselves contain pipe characters.
+  const crossKey=JSON.stringify([norm(record.city),norm(record.district),
+    norm(record.eventDate||''),fullReferenceId]);
   // Aggregate occurrences by source rather than enumerating the Cartesian
   // product. Total pair count remains exact, while review examples are capped.
   let group=crossSeen.get(crossKey);
@@ -216,9 +235,14 @@ function qualifiedResearchIntake({records=[],references=[],subject={},asOf=new D
  }
  const totals=Object.freeze({
   importedRows:records.length,manualReferences:references.length,
-  reportedSaleCandidates:findings.filter(f=>f.bucket==='REPORTED_SALE_CANDIDATE').length,
-  aggregates:findings.filter(f=>f.bucket==='AGGREGATE_CONTEXT').length,
-  externalAvms:findings.filter(f=>f.bucket==='EXTERNAL_MODEL_BENCHMARK').length,
+  // Category summaries refer only to reviewable records, never REJECTED imports.
+  // The raw intake and rejection totals still preserve the full audit trail.
+  reportedSaleCandidates:findings.filter(f=>
+    f.bucket==='REPORTED_SALE_CANDIDATE'&&f.status==='HOLD_REVIEW').length,
+  aggregates:findings.filter(f=>
+    f.bucket==='AGGREGATE_CONTEXT'&&f.status==='HOLD_REVIEW').length,
+  externalAvms:findings.filter(f=>
+    f.bucket==='EXTERNAL_MODEL_BENCHMARK'&&f.status==='HOLD_REVIEW').length,
   rejected:findings.filter(f=>f.status==='REJECTED').length+
    referenceFindings.filter(f=>f.status==='REJECTED').length,
   duplicatePairs:duplicates.length,

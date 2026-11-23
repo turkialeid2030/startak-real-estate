@@ -75,6 +75,73 @@ assert.equal(duplicates.duplicates[0].reason,'DUPLICATE_SOURCE_RECORD_ID');
 assert.ok(Object.isFrozen(duplicates.duplicates[0]),'duplicate metadata cannot be modified after qualification');
 assert.ok(Object.isFrozen(result.crossProviderCandidates[0]),'cross-provider candidate metadata cannot be modified after qualification');
 assert.equal(duplicates.totals.crossProviderReviewPairs,0);
+
+const prefix='T'.repeat(80);
+const separate=evaluate([{...sale,recordId:prefix+'A'},{...sale,recordId:prefix+'B'}],[]);
+assert.equal(separate.totals.duplicatePairs,0);
+assert.equal(separate.findings[0].referenceId,separate.findings[1].referenceId);
+const across=evaluate([{...sale,recordId:prefix+'A'},{...moj,recordId:prefix+'B'}],[]);
+assert.equal(across.totals.crossProviderReviewPairs,0);
+const actual=evaluate([{...sale,recordId:prefix+'A'},{...sale,recordId:prefix+'A'},{...moj,recordId:prefix+'A'}],[]);
+assert.equal(actual.totals.duplicatePairs,1);
+assert.equal(actual.totals.crossProviderReviewPairs,2);
+assert.equal(actual.marketValuationEligible,false);
+
+const pipeSeparatedLocations=evaluate([
+ {...sale,recordId:'PIPE-128',city:'الرياض|شمال',district:'الملز'},
+ {...moj,recordId:'PIPE-128',city:'الرياض',district:'شمال|الملز'},
+],[]);
+assert.equal(pipeSeparatedLocations.findings[0].status,'HOLD_REVIEW');
+assert.equal(pipeSeparatedLocations.findings[1].status,'HOLD_REVIEW');
+assert.equal(pipeSeparatedLocations.totals.crossProviderReviewPairs,0,
+ 'different city/district tuples must never collide when fields contain pipes');
+const realPipeLocationMatch=evaluate([
+ {...sale,recordId:'PIPE-128',city:'الرياض|شمال',district:'الملز'},
+ {...moj,recordId:'PIPE-128',city:'الرياض|شمال',district:'الملز'},
+],[]);
+assert.equal(realPipeLocationMatch.totals.crossProviderReviewPairs,1,
+ 'identical full location tuples with delimiters remain possible duplicate candidates');
+
+const caseDistinct=evaluate([
+ {...sale,recordId:'CASE-AbC'},
+ {...sale,recordId:'CASE-abc'},
+ {...moj,recordId:'CASE-abc'},
+],[]);
+assert.equal(caseDistinct.totals.duplicatePairs,0,
+ 'distinct case-sensitive published IDs must not collapse into one reference');
+assert.equal(caseDistinct.totals.crossProviderReviewPairs,1);
+const arabicDistinct=evaluate([
+ {...sale,recordId:'SA-ة'},
+ {...sale,recordId:'SA-ه'},
+],[]);
+assert.equal(arabicDistinct.totals.duplicatePairs,0,
+ 'distinct source-specific Arabic ID characters must preserve exact identity');
+const blankIdentifiers=evaluate([
+ {...sale,recordId:'   '},
+ {...sale,city:'   '},
+ {...sale,district:'   '},
+],[]);
+assert.equal(blankIdentifiers.totals.rejected,3);
+assert.equal(blankIdentifiers.totals.reportedSaleCandidates,0);
+assert.equal(blankIdentifiers.totals.duplicatePairs,0);
+assert.equal(blankIdentifiers.marketValuationEligible,false);
+
+// An imported invalid category must not export arbitrary nested metadata or
+// user-provided text into a portable reviewer dossier.
+const sensitiveMarker='PRIVATE_UNTRUSTED_SOURCE_CATEGORY_FIELD_901';
+const forgedCategory=evaluate([
+ {...sale,evidenceClass:{internal:sensitiveMarker}},
+ {...sale,evidenceClass:sensitiveMarker},
+],[]);
+assert.equal(forgedCategory.totals.rejected,2);
+assert.ok(forgedCategory.findings.every(f=>f.evidenceClass===null));
+const categoryDossier=portableReviewDossier(forgedCategory);
+assert.ok(!categoryDossier.includes(sensitiveMarker),
+ 'review dossier must not leak untrusted evidence class content');
+assert.equal(forgedCategory.marketValuationEligible,false);
+assert.equal(forgedCategory.certifiedMarketValueSar,null);
+
+
 // Worst-case source repetition previously built a quadratic-size list with
 // 562,500 pair objects. Count all pairs but retain bounded review samples.
 const repetitive=evaluate([
@@ -101,6 +168,56 @@ assert.ok(sampledDossier.totals.crossProviderReviewPairsSampled<=MAX_CROSS_PROVI
 assert.equal(sampledDossier.totals.crossProviderPairsTruncated,true);
 assert.equal(sampledDossier.crossProviderReviewPairs.length,
  sampledDossier.totals.crossProviderReviewPairsSampled);
+
+const rejectedSameSource=evaluate([
+ sale,{...sale,sourceUrl:'https://rei.rega.gov.sa.attacker.example/'},
+],[]);
+assert.equal(rejectedSameSource.findings[1].status,'REJECTED');
+assert.equal(rejectedSameSource.totals.rejected,1);
+assert.equal(rejectedSameSource.totals.duplicatePairs,0,
+ 'a rejected source URL must not contaminate same-source transaction matching');
+const rejectedCrossSource=evaluate([
+ sale,{...moj,professionalReportAuthorized:true},
+],[]);
+assert.equal(rejectedCrossSource.findings[1].status,'REJECTED');
+assert.equal(rejectedCrossSource.totals.crossProviderReviewPairs,0,
+ 'a forged professional claim must not count as another source corroborating a sale');
+const rejectedOnly=evaluate([
+ {...sale,marketValuationEligible:true},
+ {...sale,sourceRecordAuthenticated:true},
+],[]);
+assert.equal(rejectedOnly.totals.rejected,2);
+assert.equal(rejectedOnly.totals.duplicatePairs,0);
+const nonSaleReference=evaluate([
+ sale,{...index,recordId:'T-123'},
+],[]);
+assert.equal(nonSaleReference.findings[1].bucket,'AGGREGATE_CONTEXT');
+assert.equal(nonSaleReference.totals.duplicatePairs,0,
+ 'an aggregate statistics row cannot masquerade as a duplicate executed transaction');
+assert.equal(nonSaleReference.totals.independentlyQualifiedComparables,0);
+assert.equal(nonSaleReference.marketValuationEligible,false);
+
+const rejectedCategorySummary=evaluate([
+ {...sale,sourceUrl:'https://wrong.example.invalid/'},
+ {...index,sourceRecordAuthenticated:true},
+ {...avm,professionalReportAuthorized:true},
+],[]);
+assert.equal(rejectedCategorySummary.totals.importedRows,3);
+assert.equal(rejectedCategorySummary.totals.rejected,3);
+assert.equal(rejectedCategorySummary.totals.reportedSaleCandidates,0);
+assert.equal(rejectedCategorySummary.totals.aggregates,0);
+assert.equal(rejectedCategorySummary.totals.externalAvms,0);
+assert.equal(rejectedCategorySummary.totals.duplicatePairs,0);
+assert.equal(rejectedCategorySummary.totals.crossProviderReviewPairs,0);
+assert.equal(rejectedCategorySummary.certifiedMarketValueSar,null);
+const mixedReviewable=evaluate([sale,{...sale,sourceRecordAuthenticated:true},index,avm],[]);
+assert.equal(mixedReviewable.totals.importedRows,4);
+assert.equal(mixedReviewable.totals.rejected,1);
+assert.equal(mixedReviewable.totals.reportedSaleCandidates,1);
+assert.equal(mixedReviewable.totals.aggregates,1);
+assert.equal(mixedReviewable.totals.externalAvms,1);
+assert.equal(mixedReviewable.marketValuationEligible,false);
+
 
 const priceConflict=evaluate([sale,{...sale,metricValue:9900000,eventDate:'2026-11-18'}]);
 assert.equal(priceConflict.totals.duplicatePairs,1);
