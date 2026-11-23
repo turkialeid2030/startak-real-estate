@@ -102,6 +102,30 @@ const realPipeLocationMatch=evaluate([
 assert.equal(realPipeLocationMatch.totals.crossProviderReviewPairs,1,
  'identical full location tuples with delimiters remain possible duplicate candidates');
 
+const caseDistinct=evaluate([
+ {...sale,recordId:'CASE-AbC'},
+ {...sale,recordId:'CASE-abc'},
+ {...moj,recordId:'CASE-abc'},
+],[]);
+assert.equal(caseDistinct.totals.duplicatePairs,0,
+ 'distinct case-sensitive published IDs must not collapse into one reference');
+assert.equal(caseDistinct.totals.crossProviderReviewPairs,1);
+const arabicDistinct=evaluate([
+ {...sale,recordId:'SA-ة'},
+ {...sale,recordId:'SA-ه'},
+],[]);
+assert.equal(arabicDistinct.totals.duplicatePairs,0,
+ 'distinct source-specific Arabic ID characters must preserve exact identity');
+const blankIdentifiers=evaluate([
+ {...sale,recordId:'   '},
+ {...sale,city:'   '},
+ {...sale,district:'   '},
+],[]);
+assert.equal(blankIdentifiers.totals.rejected,3);
+assert.equal(blankIdentifiers.totals.reportedSaleCandidates,0);
+assert.equal(blankIdentifiers.totals.duplicatePairs,0);
+assert.equal(blankIdentifiers.marketValuationEligible,false);
+
 // An imported invalid category must not export arbitrary nested metadata or
 // user-provided text into a portable reviewer dossier.
 const sensitiveMarker='PRIVATE_UNTRUSTED_SOURCE_CATEGORY_FIELD_901';
