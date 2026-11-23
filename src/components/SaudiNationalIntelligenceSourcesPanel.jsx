@@ -1,6 +1,7 @@
 import React,{useMemo,useState} from 'react';
 import KitePersonalTransactionsPanel from './KitePersonalTransactionsPanel.jsx';
 import NoApiSourceBridgePanel from './NoApiSourceBridgePanel.jsx';
+import PersonalNoApiManualEntryPanel from './PersonalNoApiManualEntryPanel.jsx';
 import EvidenceQualificationReviewPanel from './EvidenceQualificationReviewPanel.jsx';
 const ResearchCsvUpload=require('./ResearchCsvUpload');
 const {useLocale}=require('../i18n/LocaleContext.js');
@@ -61,6 +62,18 @@ export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange,
       en:'Research records could not be merged safely. The study was not changed.'});
    }
  }
+ function ingestPersonal(rows){
+  // Owner-operated observation input uses the exact same canonical research
+  // merger as local CSV intake. The financial model is not updated here.
+  const merged=mergeNationalResearch(records,rows);
+  setRecords(merged.records);onResearchChange?.(merged.records);
+  setSourceId(rows[0]?.sourceId||'');setCity('');setEvidenceClass('');
+  setNotice({ar:'أُضيف بحث شخصي: '+merged.added+'؛ مكرر: '+merged.duplicates+
+    '؛ متعارض: '+merged.conflicts.length,
+   en:'Personal research added: '+merged.added+'; duplicates: '+merged.duplicates+
+    '; conflicts: '+merged.conflicts.length});
+  return merged;
+ }
  async function importFile(file){
   if(!file)return;
   if(file.size>MAX_CSV_BYTES){setNotice({ar:'حجم الملف أكبر من الحد المسموح',en:'CSV file exceeds allowed size'});return;}
@@ -108,7 +121,8 @@ export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange,
      </a>)}
    </div>
   </div>
-  <NoApiSourceBridgePanel onReferencesChange={setManualReferences}/>
+  <NoApiSourceBridgePanel onReferencesChange={setManualReferences} subject={subject}/>
+  <PersonalNoApiManualEntryPanel subject={subject} onResearchRows={ingestPersonal}/>
   <EvidenceQualificationReviewPanel records={records} references={manualReferences} subject={subject}/>
   <KitePersonalTransactionsPanel locale={locale} onResearchRows={ingestKite}/>
   <p className="mt-3 text-xs text-slate-300 break-all">
