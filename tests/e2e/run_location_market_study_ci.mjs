@@ -254,7 +254,17 @@ try{
  await catalogs.getByTestId('listing-source-csv').setInputFiles({
   name:'synthetic-source-research.csv',mimeType:'text/csv',buffer:Buffer.from(researchCsv)
  });
+ await catalogs.getByTestId('listing-import-notice').filter({hasText:'استيراد العروض موقوف'}).waitFor();
+ assert((await catalogs.getByTestId('listing-research-scope').innerText()).includes('السجلات المستوردة: 0'),
+  'no listing records may be imported without a per-file rights declaration');
+ await catalogs.getByTestId('listing-csv-rights-acknowledgement').check();
+ await catalogs.getByTestId('listing-source-csv').setInputFiles({
+  name:'synthetic-source-research.csv',mimeType:'text/csv',buffer:Buffer.from(researchCsv)
+ });
  await catalogs.getByTestId('listing-import-notice').filter({hasText:'أُضيف 3'}).waitFor();
+ assert(!(await catalogs.getByTestId('listing-csv-rights-acknowledgement').isChecked()),
+  'listing source rights declaration must reset after one import');
+ mark('LISTING_CSV_PER_BATCH_RIGHTS_ACKNOWLEDGEMENT_REAL_CHROMIUM',true);
  await catalogs.getByTestId('listing-platform-filter').selectOption('DEAL');
  assert((await catalogs.locator('tbody tr').count())===1,'Deal requester must not merge into sales');
  assert((await catalogs.locator('tbody').innerText()).includes('طلب عقاري'),
