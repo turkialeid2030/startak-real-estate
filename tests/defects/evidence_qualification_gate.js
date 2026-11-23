@@ -142,6 +142,28 @@ assert.equal(nonSaleReference.totals.duplicatePairs,0,
 assert.equal(nonSaleReference.totals.independentlyQualifiedComparables,0);
 assert.equal(nonSaleReference.marketValuationEligible,false);
 
+const rejectedCategorySummary=evaluate([
+ {...sale,sourceUrl:'https://wrong.example.invalid/'},
+ {...index,sourceRecordAuthenticated:true},
+ {...avm,professionalReportAuthorized:true},
+],[]);
+assert.equal(rejectedCategorySummary.totals.importedRows,3);
+assert.equal(rejectedCategorySummary.totals.rejected,3);
+assert.equal(rejectedCategorySummary.totals.reportedSaleCandidates,0);
+assert.equal(rejectedCategorySummary.totals.aggregates,0);
+assert.equal(rejectedCategorySummary.totals.externalAvms,0);
+assert.equal(rejectedCategorySummary.totals.duplicatePairs,0);
+assert.equal(rejectedCategorySummary.totals.crossProviderReviewPairs,0);
+assert.equal(rejectedCategorySummary.certifiedMarketValueSar,null);
+const mixedReviewable=evaluate([sale,{...sale,sourceRecordAuthenticated:true},index,avm],[]);
+assert.equal(mixedReviewable.totals.importedRows,4);
+assert.equal(mixedReviewable.totals.rejected,1);
+assert.equal(mixedReviewable.totals.reportedSaleCandidates,1);
+assert.equal(mixedReviewable.totals.aggregates,1);
+assert.equal(mixedReviewable.totals.externalAvms,1);
+assert.equal(mixedReviewable.marketValuationEligible,false);
+
+
 const priceConflict=evaluate([sale,{...sale,metricValue:9900000,eventDate:'2026-11-18'}]);
 assert.equal(priceConflict.totals.duplicatePairs,1);
 assert.equal(priceConflict.duplicates[0].reason,'CONFLICTING_SOURCE_RECORD_ID',
