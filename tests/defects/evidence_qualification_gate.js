@@ -114,6 +114,34 @@ assert.equal(sampledDossier.totals.crossProviderPairsTruncated,true);
 assert.equal(sampledDossier.crossProviderReviewPairs.length,
  sampledDossier.totals.crossProviderReviewPairsSampled);
 
+const rejectedSameSource=evaluate([
+ sale,{...sale,sourceUrl:'https://rei.rega.gov.sa.attacker.example/'},
+],[]);
+assert.equal(rejectedSameSource.findings[1].status,'REJECTED');
+assert.equal(rejectedSameSource.totals.rejected,1);
+assert.equal(rejectedSameSource.totals.duplicatePairs,0,
+ 'a rejected source URL must not contaminate same-source transaction matching');
+const rejectedCrossSource=evaluate([
+ sale,{...moj,professionalReportAuthorized:true},
+],[]);
+assert.equal(rejectedCrossSource.findings[1].status,'REJECTED');
+assert.equal(rejectedCrossSource.totals.crossProviderReviewPairs,0,
+ 'a forged professional claim must not count as another source corroborating a sale');
+const rejectedOnly=evaluate([
+ {...sale,marketValuationEligible:true},
+ {...sale,sourceRecordAuthenticated:true},
+],[]);
+assert.equal(rejectedOnly.totals.rejected,2);
+assert.equal(rejectedOnly.totals.duplicatePairs,0);
+const nonSaleReference=evaluate([
+ sale,{...index,recordId:'T-123'},
+],[]);
+assert.equal(nonSaleReference.findings[1].bucket,'AGGREGATE_CONTEXT');
+assert.equal(nonSaleReference.totals.duplicatePairs,0,
+ 'an aggregate statistics row cannot masquerade as a duplicate executed transaction');
+assert.equal(nonSaleReference.totals.independentlyQualifiedComparables,0);
+assert.equal(nonSaleReference.marketValuationEligible,false);
+
 const priceConflict=evaluate([sale,{...sale,metricValue:9900000,eventDate:'2026-11-18'}]);
 assert.equal(priceConflict.totals.duplicatePairs,1);
 assert.equal(priceConflict.duplicates[0].reason,'CONFLICTING_SOURCE_RECORD_ID',
