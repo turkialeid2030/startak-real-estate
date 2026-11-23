@@ -10,6 +10,10 @@ const VERSION='STARTAK_RE_EVIDENCE_QUALIFICATION_GATE_V1';
 // An imported/forged object with a matching version and HOLD marker is not proof.
 const ISSUED_RESULTS=new WeakSet();
 const MAX_ROWS=1500, MAX_REFERENCES=100, MAX_DOSSIER_BYTES=256*1024;
+// An adversarial batch can repeat one transaction across 1500 records and
+// produce hundreds of thousands of cross-provider pairings. Preserve exact
+// counts but retain only bounded review examples; never materialize all pairs.
+const MAX_CROSS_PROVIDER_PAIR_SAMPLES=1024;
 const BUCKET=Object.freeze({
  OFFICIAL_AGGREGATE:'AGGREGATE_CONTEXT',
  THIRD_PARTY_AGGREGATE:'AGGREGATE_CONTEXT',
@@ -161,6 +165,7 @@ function qualifiedResearchIntake({records=[],references=[],subject={},asOf=new D
    marketValuationEligible:false});
  });
  const sourceSeen=new Map(),crossSeen=new Map(),duplicates=[],crossProviderCandidates=[];
+ let crossProviderPairCount=0;
  for(const f of findings){
   if(!f.referenceId||!f.sourceId)continue;
   const record=records[f.index];
@@ -180,12 +185,27 @@ function qualifiedResearchIntake({records=[],references=[],subject={},asOf=new D
   // automatically merged based on a similar amount or nearby location.
   const crossKey=[norm(record.city),norm(record.district),
     norm(record.eventDate||''),norm(f.referenceId)].join('|');
-  const group=crossSeen.get(crossKey)||[];
-  for(const prev of group){
-   if(prev.sourceId!==f.sourceId)crossProviderCandidates.push({
-    first:prev.index,second:f.index,reason:'POSSIBLE_CROSS_PROVIDER_SAME_TRANSACTION'});
+  // Aggregate occurrences by source rather than enumerating the Cartesian
+  // product. Total pair count remains exact, while review examples are capped.
+  let group=crossSeen.get(crossKey);
+  if(!group){
+   group={total:0,bySource:new Map(),firstBySource:new Map()};
+   crossSeen.set(crossKey,group);
   }
-  group.push(f);crossSeen.set(crossKey,group);
+  const sameSourceCount=group.bySource.get(f.sourceId)||0;
+  const newCrossPairs=group.total-sameSourceCount;
+  crossProviderPairCount+=newCrossPairs;
+  if(newCrossPairs>0&&crossProviderCandidates.length<MAX_CROSS_PROVIDER_PAIR_SAMPLES){
+   for(const [otherSource,prev] of group.firstBySource){
+    if(otherSource===f.sourceId)continue;
+    crossProviderCandidates.push({
+     first:prev.index,second:f.index,reason:'POSSIBLE_CROSS_PROVIDER_SAME_TRANSACTION'});
+    if(crossProviderCandidates.length>=MAX_CROSS_PROVIDER_PAIR_SAMPLES)break;
+   }
+  }
+  group.total++;
+  group.bySource.set(f.sourceId,sameSourceCount+1);
+  if(!group.firstBySource.has(f.sourceId))group.firstBySource.set(f.sourceId,f);
  }
  const totals=Object.freeze({
   importedRows:records.length,manualReferences:references.length,
@@ -195,7 +215,9 @@ function qualifiedResearchIntake({records=[],references=[],subject={},asOf=new D
   rejected:findings.filter(f=>f.status==='REJECTED').length+
    referenceFindings.filter(f=>f.status==='REJECTED').length,
   duplicatePairs:duplicates.length,
-  crossProviderReviewPairs:crossProviderCandidates.length,
+  crossProviderReviewPairs:crossProviderPairCount,
+  crossProviderReviewPairsSampled:crossProviderCandidates.length,
+  crossProviderPairsTruncated:crossProviderPairCount>crossProviderCandidates.length,
   independentlyQualifiedComparables:0,professionalValuations:0,
  });
  const outcome=Object.freeze({
@@ -238,4 +260,5 @@ function portableReviewDossier(result){
  return value;
 }
 module.exports={VERSION,BUCKET,MAX_ROWS,MAX_REFERENCES,
+ MAX_CROSS_PROVIDER_PAIR_SAMPLES,
  qualifiedResearchIntake,portableReviewDossier};
