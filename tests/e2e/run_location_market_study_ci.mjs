@@ -638,6 +638,26 @@ try{
  assert(providerCalls.length===0,
   'download, restore and rejected restore may not communicate with the market provider');
  mark('OWNER_NO_API_TYPED_RESEARCH_BROWSER_AND_PORTABLE_RESTORE',true);
+ // Research captured for one owner case cannot silently attach to another.
+ await fill('اسم العقار','SYNTHETIC-NOAPI-DIFFERENT-PROPERTY');
+ await nationalSources.getByTestId('personal-noapi-subject-scope-hold').waitFor({state:'visible'});
+ assert(await nationalSources.getByTestId('personal-noapi-add').isDisabled(),
+  'owner must not capture further source rows for a different subject');
+ assert(await nationalSources.getByTestId('noapi-add-link').isDisabled(),
+  'no-API link capture must remain bound to the original property');
+ const [backupBeforeReset]=await Promise.all([page.waitForEvent('download'),
+  nationalSources.getByTestId('personal-noapi-download-research').click()]);
+ const previous=JSON.parse(fs.readFileSync(await backupBeforeReset.path(),'utf8'));
+ assert(previous.records.some(r=>r.recordId==='NOAPI-OWNER-BROWSER-001'),
+  'owner must be able to export the old property research before clearing');
+ await nationalSources.getByTestId('personal-noapi-clear-for-new-property').click();
+ await nationalSources.getByTestId('personal-noapi-subject-scope-hold').waitFor({state:'hidden'});
+ assert(await nationalSources.getByTestId('personal-noapi-add').isEnabled(),
+  'user may enter new property research after explicit reset');
+ assert((await nationalSources.getByTestId('national-summary').innerText())
+  .includes('الصفوف المستوردة: 0'),
+  'previous property research cannot remain in a different property');
+ mark('OWNER_NO_API_CROSS_PROPERTY_SCOPE_HOLD_AND_EXPLICIT_RESET',true);
  await page.setViewportSize({width:390,height:844});
  const geom=await page.evaluate(()=>({width:document.documentElement.scrollWidth,
  viewport:document.documentElement.clientWidth}));
