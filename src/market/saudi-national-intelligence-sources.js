@@ -221,6 +221,36 @@ function equivalent(a,b){
  'providerRangeLowSar','providerRangeHighSar','providerStatedConfidence','modelAsOf']
   .every(key=>a[key]===b[key]);
 }
+function validRestoredResearchDates(x,today){
+ // A saved/provider row is not exempt from CSV intake temporal rules.
+ // Kite quarterly observations legitimately have month-level periods,
+ // not a fabricated day-specific eventDate.
+ const observed=x.observedOn;
+ if(typeof observed!=='string'||date(observed)!==observed||observed>today)return false;
+ const fields=['periodStart','periodEnd','eventDate','modelAsOf'];
+ if(fields.some(k=>x[k]!==null&&(typeof x[k]!=='string'||date(x[k])!==x[k])))return false;
+ const category=x.evidenceClass;
+ if(category==='RESEARCH_NOTE')return fields.every(k=>x[k]===null);
+ if(category==='OFFICIAL_AGGREGATE'||category==='THIRD_PARTY_AGGREGATE')
+  return !!x.periodStart&&!!x.periodEnd&&x.periodStart<=x.periodEnd&&
+   x.periodEnd<=observed&&x.eventDate===null&&x.modelAsOf===null;
+ if(category==='EXTERNAL_AVM_ESTIMATE')
+  return x.eventDate===null&&x.periodStart===null&&x.periodEnd===null&&
+   (x.modelAsOf===null||x.modelAsOf<=observed);
+ if(category==='OFFICIAL_REPORTED_SALE'||category==='THIRD_PARTY_REPORTED_SALE'){
+  if(x.sourceId==='KITE_MOJ_QUARTERLY'){
+   if(x.eventDate!==null||x.modelAsOf!==null||x.dayKnown!==false||
+      !x.periodStart||!x.periodEnd||x.periodStart>observed)return false;
+   const year=Number(x.periodStart.slice(0,4)),month=Number(x.periodStart.slice(5,7));
+   const lastDay=String(new Date(Date.UTC(year,month,0)).getUTCDate()).padStart(2,'0');
+   return x.periodStart.endsWith('-01')&&
+    x.periodEnd===x.periodStart.slice(0,7)+'-'+lastDay;
+  }
+  return !!x.eventDate&&x.eventDate<=observed&&x.periodStart===null&&
+   x.periodEnd===null&&x.modelAsOf===null;
+ }
+ return false;
+}
 function mergeNationalResearch(existing,incoming,{limit=1500}={}){
  if(!Array.isArray(existing)||!Array.isArray(incoming)||!Number.isInteger(limit)||
   limit<1||limit>1500)throw Error('NATIONAL_RESEARCH_MERGE_INPUT_INVALID');
@@ -251,7 +281,8 @@ function mergeNationalResearch(existing,incoming,{limit=1500}={}){
     unitByMetric[x.metricName]===x.metricUnit&&
     typeof x.metricValue==='number'&&Number.isFinite(x.metricValue)&&
     (aggregate?x.metricValue>=0:x.metricValue>0)&&x.metricValue<=1e16;
-   if(!expectedMetric||typeof x.city!=='string'||!x.city.trim()||
+   if(!validRestoredResearchDates(x,new Date().toISOString().slice(0,10))||
+      !expectedMetric||typeof x.city!=='string'||!x.city.trim()||
       x.city.length>120||typeof x.district!=='string'||!x.district.trim()||
       x.district.length>120||
       (x.recordId!==null&&(typeof x.recordId!=='string'||x.recordId.length>130))||

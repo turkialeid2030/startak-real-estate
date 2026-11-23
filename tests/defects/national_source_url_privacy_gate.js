@@ -102,4 +102,56 @@ for(const override of [
   'restored market research metric, city, district and ID are untrusted');
 }
 
+
+// Restored research rows must never gain credibility from fabricated dates.
+// Test both aggregate chronology and the monthly-only Kite representation.
+for(const tamper of [
+ {observedOn:'2099-11-20'},{observedOn:'2026-02-30'},
+ {observedOn:'2026-11-21',eventDate:'2026-11-22'},
+ {eventDate:'2099-11-22'},{eventDate:'2026-02-30'},
+ {periodStart:'2026-11-01'},{periodEnd:'2026-11-30'},
+ {modelAsOf:'2026-11-20'},
+]){
+ assert.throws(()=>mergeNationalResearch([],[{...valid,...tamper}]),
+  /NATIONAL_RESEARCH_UNTRUSTED_RECORD/,
+  'invalid future, malformed or class-inconsistent dates cannot survive restore');
+}
+const aggregateSource='PASEETAH,THIRD_PARTY_AGGREGATE,الرياض,الملز,,,'+
+ 'deal_count,40,COUNT,https://paseetah.com/,LAND';
+const aggregateHeaders='source,kind,city,district,recordId,eventDate,metricName,'+
+ 'metricValue,unit,sourceUrl,assetType,periodStart,periodEnd';
+const importedAggregate=importNationalSourcesCsv(
+ [aggregateHeaders,aggregateSource+',2026-10-01,2026-10-31'].join('\n'),
+ {asOf,observedOn});
+assert.equal(importedAggregate.records.length,1);
+const agg=importedAggregate.records[0];
+assert.equal(mergeNationalResearch([],[agg]).added,1);
+for(const tamper of [
+ {periodStart:null},{periodEnd:null},
+ {periodStart:'2026-11-01'},{periodEnd:'2026-11-22'},
+ {eventDate:'2026-10-01'},{modelAsOf:'2026-10-01'},
+]){
+ assert.throws(()=>mergeNationalResearch([],[{...agg,...tamper}]),
+  /NATIONAL_RESEARCH_UNTRUSTED_RECORD/,
+  'aggregate periods and observation dates must be consistent');
+}
+const {normalizeKiteResearch}=require('../../src/market/kite-personal-market-research');
+const kite=normalizeKiteResearch({
+ ok:true,provider:'KITE',dataset:'MOJ_QUARTERLY_OPEN_NOTARY_SALES',
+ retrievedAt:'2026-11-20T12:00:00Z',attribution:{source:'test only'},
+ records:[{id:'KITE-Q-1',month:'2026-10',cityNameAr:'الرياض',
+ districtNameAr:'الملز',priceSar:2500000,landUse:'residential'}],
+}).rows[0];
+assert.equal(mergeNationalResearch([],[kite]).added,1,
+ 'legitimate Kite month-level record must remain accepted without invented sale day');
+for(const tamper of [
+ {dayKnown:true},{periodStart:'2026-09-01'},
+ {periodEnd:'2026-11-30'},{eventDate:'2026-10-02'},
+ {observedOn:'2099-10-20'},
+]){
+ assert.throws(()=>mergeNationalResearch([],[{...kite,...tamper}]),
+  /NATIONAL_RESEARCH_UNTRUSTED_RECORD/,
+  'forged Kite month or day-specific event date must fail closed');
+}
+
 console.log('NATIONAL_RESEARCH_URL_PRIVACY_GATE=PASS');
