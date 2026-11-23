@@ -25,6 +25,18 @@ const METRICS={
 };
 const ASSET_TYPES=['LAND','RESIDENTIAL_LAND','APARTMENT','VILLA','FLOOR',
  'OFFICE','RETAIL','WAREHOUSE','HOTEL','INDUSTRIAL'];
+const ASSET_LABELS=Object.freeze({
+ LAND:['أرض','Land'],
+ RESIDENTIAL_LAND:['أرض سكنية','Residential land'],
+ APARTMENT:['شقة','Apartment'],
+ VILLA:['فيلا','Villa'],
+ FLOOR:['دور','Floor'],
+ OFFICE:['مكتب','Office'],
+ RETAIL:['تجاري','Retail'],
+ WAREHOUSE:['مستودع','Warehouse'],
+ HOTEL:['فندق','Hotel'],
+ INDUSTRIAL:['صناعي','Industrial'],
+});
 function riyadhToday(){
  const parts=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Riyadh',
   year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
@@ -118,7 +130,7 @@ export default function PersonalNoApiManualEntryPanel({subject={},onResearchRows
    <label className="text-xs">{tr('الجهة / المصدر','Research provider')}
     <select data-testid="personal-noapi-source" className={INPUT} value={sourceId}
       onChange={e=>changeSource(e.target.value)}>
-      {SOURCES.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}
+      {SOURCES.map(s=><option key={s.id} value={s.id} data-user-content translate="no">{s.label}</option>)}
     </select>
    </label>
    <label className="text-xs">{tr('نوع المعلومة','Observation type')}
@@ -157,7 +169,9 @@ export default function PersonalNoApiManualEntryPanel({subject={},onResearchRows
    <label className="text-xs">{tr('نوع العقار','Asset type')}
     <select data-testid="personal-noapi-asset" className={INPUT} value={assetType}
      onChange={e=>setAssetType(e.target.value)}>
-     {ASSET_TYPES.map(type=><option key={type} value={type}>{type}</option>)}
+     {ASSET_TYPES.map(type=><option key={type} value={type}>
+      {ASSET_LABELS[type][en?1:0]}
+     </option>)}
     </select>
    </label>
    <label className="text-xs">{tr('تاريخ اطلاعك على المعلومة','Date reviewed')}
