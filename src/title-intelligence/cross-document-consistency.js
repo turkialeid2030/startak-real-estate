@@ -4,7 +4,7 @@
 // references and dates are supplied by the caller and are NOT authenticated
 // by this module. Never use this as a legal title or appraisal authorization.
 const {
-  TITLE_FACT_STATUS, TITLE_RESULT_STATUS, assessTitleFacts,
+  TITLE_FACT_STATUS, TITLE_RESULT_STATUS, REQUIRED_TITLE_FACTS, assessTitleFacts,
 } = require('./index');
 const { strictCalendarDateMs } = require('../validation/strict-calendar-instant');
 
@@ -77,6 +77,16 @@ function assessTitleCrossDocumentConsistency({
       core.legalReviewFlags.map(x => x.key + ':' + x.code), []);
   }
   const sources = [], temporal = [], conflicts = [], checks = [];
+  // A title core fact tagged merely OBSERVED, or supplied by a survey rather
+  // than an independently referenced DEED, cannot upgrade to a C8 candidate.
+  // The base assessTitleFacts API remains more permissive for analysis only.
+  for (const key of REQUIRED_TITLE_FACTS) {
+    const eligible = facts.some(f => f.key === key &&
+      f.status === TITLE_FACT_STATUS.VERIFIED && f.sourceType === 'DEED' &&
+      typeof f.sourceRef === 'string' && Boolean(f.sourceRef.trim()));
+    if (!eligible) sources.push('VERIFIED_DEED_CORE_FACT_REQUIRED:' + key);
+  }
+  const pairedSourceRefs = {DEED:new Map(),SURVEY:new Map()};
   // No qualified source may be dated in the future, beyond its explicit age
   // budget or missing its reference, even when the required paired keys match.
   for (const fact of facts) {
@@ -110,6 +120,7 @@ function assessTitleCrossDocumentConsistency({
     if (values.includes(null)) sources.push('PAIR_VALUE_INVALID:' + key);
     else if (new Set(values).size > 1) conflicts.push('DEED_SURVEY_VALUE_CONFLICT:' + key);
     const refs = byRole.map(entries => new Set(entries.map(f => f.sourceRef).filter(Boolean)));
+    ROLES.forEach((role,i) => pairedSourceRefs[role].set(key, refs[i]));
     if (refs[0].size && refs[1].size && [...refs[0]].some(ref => refs[1].has(ref))) {
       sources.push('SOURCE_REFERENCE_NOT_INDEPENDENT:' + key);
     }
@@ -119,6 +130,23 @@ function assessTitleCrossDocumentConsistency({
       consensusEstablished: values.length >= 2 && !values.includes(null) && new Set(values).size === 1,
     });
   }
+  // A verified deed or survey must be able to substantiate both property
+  // identity and measured area. Mixing independent records across the two
+  // paired keys may be useful for research but cannot qualify a plot envelope.
+  const commonRefs={};
+  for(const role of ROLES){
+    const sets=PAIRED_KEYS.map(key=>pairedSourceRefs[role].get(key)||new Set());
+    commonRefs[role]=new Set([...sets[0]].filter(ref=>sets.slice(1).every(s=>s.has(ref))));
+    if(!commonRefs[role].size)
+      sources.push('CROSS_KEY_VERIFIED_SOURCE_REQUIRED:'+role);
+  }
+  // Distinct source roles cannot share the same actual reference anywhere,
+  // even when each key separately had a different deed/survey reference.
+  const byRoleRefs=Object.fromEntries(ROLES.map(role=>[role,new Set(facts.filter(f=>
+    f.sourceType===role && f.status===TITLE_FACT_STATUS.VERIFIED &&
+    typeof f.sourceRef==='string' && f.sourceRef.trim()).map(f=>f.sourceRef))]));
+  if([...byRoleRefs.DEED].some(ref=>byRoleRefs.SURVEY.has(ref)))
+    sources.push('DEED_SURVEY_GLOBAL_REFERENCE_COLLISION');
   // A disagreement outranks missing provenance; both remain explicit blockers.
   const blockers = [...conflicts, ...temporal, ...sources];
   const status = conflicts.length ? STATUS.HOLD_CROSS_DOCUMENT_CONFLICT

@@ -149,4 +149,15 @@ test('GEOMETRY_REF_MUST_MATCH_C8_SURVEY',()=>{
 test('INVALID_CALENDAR_ASOF_REJECTED',()=>{
  assert.throws(()=>run({evaluatedAt:'2026-02-30'}),/EVALUATION_DATE_REQUIRED/);
 });
+test('SURVEY_SOURCE_MIXED_PAIR_CANNOT_FEED_PLOT',()=>{
+ const wrongSurvey=[surveyFacts[0],fact('parcelOrPlotId','SYNTHETIC-PARCEL','SURVEY','SECOND-SURVEY')];
+ const result=run({titleFacts:[...deedFacts,...wrongSurvey]});
+ assert.equal(result.status,STATUS.HOLD_TITLE);
+ assert.equal(result.financialEngineInputsWritten,false);
+});
+test('OBSERVED_OWNER_CANNOT_FEED_PLOT',()=>{
+ const owner=deedFacts.map(x=>x.key==='ownerName'
+  ?{...x,status:TITLE_FACT_STATUS.OBSERVED}:x);
+ assert.equal(run({titleFacts:[...owner,...surveyFacts]}).status,STATUS.HOLD_TITLE);
+});
 console.log('GUARDED_PLOT_ENVELOPE_V1=PASS checks='+count+' synthetic=true license_proven=false');

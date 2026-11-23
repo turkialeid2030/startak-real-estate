@@ -102,5 +102,41 @@ check('LEAP_DAY_ALLOWED',()=>{
  assert.equal(run([...deed,...survey],{asOf:'2028-02-29T00:00:00Z',
   maxAgeDaysBySourceType:{DEED:1000,SURVEY:1000}}).status,STATUS.CANDIDATE_FOR_INDEPENDENT_REVIEW);
 });
+check('OBSERVED_CORE_OWNER_NOT_VERIFIED_HOLD',()=>{
+  const observedOwner=deed.map(x=>x.key==='ownerName'?f(x.key,x.value,{status:TITLE_FACT_STATUS.OBSERVED}):x);
+  const a=run([...observedOwner,...survey]);
+  assert.equal(a.status,STATUS.HOLD_SOURCE_REQUIREMENTS);
+  assert.ok(a.blockers.some(x=>x.includes('VERIFIED_DEED_CORE_FACT_REQUIRED:ownerName')));
+});
+check('SURVEY_ONLY_OWNER_NOT_DEED_HOLD',()=>{
+  const withoutOwner=deed.filter(x=>x.key!=='ownerName');
+  const foreignOwner=f('ownerName','Test Owner',{role:'SURVEY',ref:'SURVEY-B'});
+  const a=run([...withoutOwner,foreignOwner,...survey]);
+  assert.equal(a.status,STATUS.HOLD_SOURCE_REQUIREMENTS);
+  assert.ok(a.blockers.some(x=>x.includes('VERIFIED_DEED_CORE_FACT_REQUIRED:ownerName')));
+});
+check('SURVEY_PARCEL_AND_AREA_MUST_SHARE_SOURCE_REF',()=>{
+  const independentParcel=f('parcelOrPlotId','PLOT-1',{role:'SURVEY',ref:'SURVEY-C'});
+  const a=run([...deed,survey[0],independentParcel]);
+  assert.equal(a.status,STATUS.HOLD_SOURCE_REQUIREMENTS);
+  assert.ok(a.blockers.includes('CROSS_KEY_VERIFIED_SOURCE_REQUIRED:SURVEY'));
+});
+check('CROSS_ROLE_SOURCE_COLLISION_ACROSS_KEYS_HOLD',()=>{
+  const mixedDeed=deed.map(x=>x.key==='parcelOrPlotId'
+    ?f(x.key,x.value,{ref:'SURVEY-B'}):x);
+  const mixedSurvey=[
+   f('propertyAreaSqm',1000,{role:'SURVEY',ref:'SURVEY-B'}),
+   f('parcelOrPlotId','PLOT-1',{role:'SURVEY',ref:'SURVEY-C'}),
+  ];
+  const a=run([...mixedDeed,...mixedSurvey]);
+  assert.equal(a.status,STATUS.HOLD_SOURCE_REQUIREMENTS);
+  assert.ok(a.blockers.includes('DEED_SURVEY_GLOBAL_REFERENCE_COLLISION'));
+});
+check('EXTRA_DEED_SURVEY_COLLISION_REJECTED',()=>{
+  const foreign=f('extraNote','synthetic',{role:'SURVEY',ref:'DEED-A'});
+  const a=run([...deed,...survey,foreign]);
+  assert.equal(a.status,STATUS.HOLD_SOURCE_REQUIREMENTS);
+  assert.ok(a.blockers.includes('DEED_SURVEY_GLOBAL_REFERENCE_COLLISION'));
+});
 console.log('TITLE_CROSS_DOCUMENT_CONSISTENCY_V1=PASS checks='+total+
   ' synthetic_only=true production_source_rights=false legal_opinion=false');
