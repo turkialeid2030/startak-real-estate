@@ -76,6 +76,10 @@ try{
     href:'https://rei.rega.gov.sa/ar/advanced-search/deals'},
    {source:'AQAR',entry:'AQAR_OFFERS',
     href:'https://sa.aqar.fm/'},
+   {source:'INFATH',entry:'INFATH_AUCTIONS',
+    href:'https://infath.gov.sa/auctions'},
+   {source:'SBC',entry:'SBC_CODE',
+    href:'https://www.sbc.gov.sa/ar/Pages/default.aspx'},
  ]){
   await noapi.getByTestId('noapi-source-select').selectOption(probe.source);
   await noapi.getByTestId('noapi-entrypoint-select').selectOption(probe.entry);

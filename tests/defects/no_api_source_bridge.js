@@ -8,9 +8,9 @@ const {
 }=require('../../src/market/no-api-source-bridge');
 const AS_OF_FOR_ENDPOINTS=new Date('2026-11-22T12:00:00Z');
 
-assert.equal(SOURCES.length,41,'35 historic + 6 already-registered listing providers');
-assert.equal(SOURCE_ENTRYPOINTS.length,17);
-assert.equal(new Set(SOURCE_ENTRYPOINTS.map(ep=>ep.id)).size,17);
+assert.equal(SOURCES.length,53,'35 historic + 6 listing + 12 ancillary references');
+assert.equal(SOURCE_ENTRYPOINTS.length,19);
+assert.equal(new Set(SOURCE_ENTRYPOINTS.map(ep=>ep.id)).size,19);
 for(const ep of SOURCE_ENTRYPOINTS){
  const source=BY_ID[ep.sourceId],url=new URL(ep.url);
  assert.ok(source,'UNREGISTERED_ENDPOINT_PROVIDER');
@@ -30,6 +30,13 @@ assert.equal(BY_ENTRYPOINT_ID.EARTH_VALUE.url,'https://map.earthapp.com.sa/value
 assert.equal(BY_ENTRYPOINT_ID.EARTH_OFFERS.url,'https://map.earthapp.com.sa/offers');
 assert.equal(BY_ENTRYPOINT_ID.EARTH_TRANSACTIONS.url,'https://earthapp.com.sa/transaction');
 assert.equal(BY_ENTRYPOINT_ID.AQAR_OFFERS.url,'https://sa.aqar.fm/');
+assert.equal(BY_ENTRYPOINT_ID.INFATH_AUCTIONS.url,'https://infath.gov.sa/auctions');
+assert.equal(BY_ENTRYPOINT_ID.SBC_CODE.url,'https://www.sbc.gov.sa/ar/Pages/default.aspx');
+for(const id of ['SBC','SGS','INFATH','ZATCA','SAMA','CMA','SAUDI_EXCHANGE',
+ 'VISION2030','GOOGLE_MAPS','OSM','MAPBOX','GOOGLE_EARTH_ENGINE']){
+ assert.ok(BY_ID[id]&&BY_ID[id].productionAdapterEnabled===false);
+ assert.equal(BY_ID[id].dataLicenseVerified,false);
+}
 assert.equal(BY_ID.UMAPS.url,'https://umaps.momah.gov.sa/');
 assert.equal(BY_ID.REGA.mode,'REFERENCE_ONLY');
 assert.equal(BY_ID.MOJ_OPEN.mode,'LICENSE_REVIEW_FOR_FILE');

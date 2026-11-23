@@ -48,6 +48,20 @@ const sources=[
  ['WASALT','وصلت — العقارات','Wasalt listings','https://wasalt.sa/AR',['wasalt.sa','www.wasalt.sa'],'REFERENCE_ONLY'],
  ['SAKANI','سكني — المشاريع','Sakani projects','https://sakani.sa/',['sakani.sa','www.sakani.sa'],'REFERENCE_ONLY'],
  ['DEAL','ديل — الطلبات','Deal listings','https://dealapp.sa/',['dealapp.sa','www.dealapp.sa'],'REFERENCE_ONLY'],
+ // Ancillary official and geospatial references from the older project plan;
+ // not verified transaction datasets and not machine-readable data adapters.
+ ['SBC','المركز السعودي لكود البناء','Saudi Building Code','https://www.sbc.gov.sa/ar/Pages/default.aspx',['sbc.gov.sa','www.sbc.gov.sa'],'PROFESSIONAL_REFERENCE'],
+ ['SGS','هيئة المساحة الجيولوجية السعودية','Saudi Geological Survey','https://sgs.gov.sa/',['sgs.gov.sa','www.sgs.gov.sa'],'PROFESSIONAL_REFERENCE'],
+ ['INFATH','إنفاذ — المزادات','Infath auctions','https://infath.gov.sa/auctions',['infath.gov.sa','www.infath.gov.sa'],'REFERENCE_ONLY'],
+ ['ZATCA','هيئة الزكاة والضريبة والجمارك','ZATCA','https://zatca.gov.sa/',['zatca.gov.sa','www.zatca.gov.sa'],'PROFESSIONAL_REFERENCE'],
+ ['SAMA','البنك المركزي السعودي','Saudi Central Bank','https://www.sama.gov.sa/ar-sa/Pages/default.aspx',['sama.gov.sa','www.sama.gov.sa'],'REFERENCE_ONLY'],
+ ['CMA','هيئة السوق المالية','Capital Market Authority','https://cma.gov.sa/Pages/default.aspx',['cma.gov.sa','www.cma.gov.sa'],'PROFESSIONAL_REFERENCE'],
+ ['SAUDI_EXCHANGE','تداول السعودية','Saudi Exchange','https://www.saudiexchange.sa/',['saudiexchange.sa','www.saudiexchange.sa'],'REFERENCE_ONLY'],
+ ['VISION2030','رؤية السعودية 2030','Saudi Vision 2030','https://www.vision2030.gov.sa/ar/',['vision2030.gov.sa','www.vision2030.gov.sa'],'REFERENCE_ONLY'],
+ ['GOOGLE_MAPS','خرائط Google','Google Maps','https://www.google.com/maps',['www.google.com'],'REFERENCE_ONLY'],
+ ['OSM','خريطة OpenStreetMap','OpenStreetMap','https://www.openstreetmap.org/',['openstreetmap.org','www.openstreetmap.org'],'REFERENCE_ONLY'],
+ ['MAPBOX','خرائط Mapbox','Mapbox maps','https://www.mapbox.com/',['mapbox.com','www.mapbox.com'],'REFERENCE_ONLY'],
+ ['GOOGLE_EARTH_ENGINE','جوجل إيرث إنجن','Google Earth Engine','https://earthengine.google.com/',['earthengine.google.com'],'REFERENCE_ONLY'],
 ];
 const SOURCES=Object.freeze(sources.map(([id,nameAr,nameEn,url,hosts,mode])=>
  Object.freeze({id,nameAr,nameEn,url,hosts:Object.freeze(hosts),mode,
@@ -72,7 +86,9 @@ const SOURCE_ENTRYPOINTS=Object.freeze([
  Object.freeze({"id":"UMAPS_PORTAL","sourceId":"UMAPS","nameAr":"الخرائط الحضرية الرسمية","nameEn":"Official urban maps","url":"https://umaps.momah.gov.sa/","kind":"MUNICIPAL_RESEARCH","automaticDataExtraction":false,"valuationAuthorized":false}),
  Object.freeze({"id":"TAQEEM_FACILITIES","sourceId":"TAQEEM","nameAr":"دليل منشآت تقييم","nameEn":"Taqeem facilities","url":"https://taqeem.gov.sa/facilities","kind":"PROFESSIONAL_RESEARCH","automaticDataExtraction":false,"valuationAuthorized":false}),
  Object.freeze({"id":"AQAR_OFFERS","sourceId":"AQAR","nameAr":"إعلانات عقار","nameEn":"Aqar listings","url":"https://sa.aqar.fm/","kind":"ASKING_RESEARCH","automaticDataExtraction":false,"valuationAuthorized":false}),
- Object.freeze({"id":"BAYUT_VALUATION","sourceId":"BAYUT","nameAr":"التقييم الاسترشادي — بيوت","nameEn":"Bayut TrueValue","url":"https://www.bayut.sa/property-market-analysis/tru-value/","kind":"EXTERNAL_ESTIMATE_RESEARCH","automaticDataExtraction":false,"valuationAuthorized":false})
+ Object.freeze({"id":"BAYUT_VALUATION","sourceId":"BAYUT","nameAr":"التقييم الاسترشادي — بيوت","nameEn":"Bayut TrueValue","url":"https://www.bayut.sa/property-market-analysis/tru-value/","kind":"EXTERNAL_ESTIMATE_RESEARCH","automaticDataExtraction":false,"valuationAuthorized":false}),
+ Object.freeze({"id":"INFATH_AUCTIONS","sourceId":"INFATH","nameAr":"مزادات إنفاذ","nameEn":"Infath auctions","url":"https://infath.gov.sa/auctions","kind":"AUCTION_RESEARCH_NOT_EXECUTED","automaticDataExtraction":false,"valuationAuthorized":false}),
+ Object.freeze({"id":"SBC_CODE","sourceId":"SBC","nameAr":"الكود السعودي للبناء","nameEn":"Saudi Building Code portal","url":"https://www.sbc.gov.sa/ar/Pages/default.aspx","kind":"BUILDING_CODE_REFERENCE","automaticDataExtraction":false,"valuationAuthorized":false})
 ]);
 const BY_ENTRYPOINT_ID=Object.freeze(Object.fromEntries(SOURCE_ENTRYPOINTS.map(e=>[e.id,e])));
 for(const ep of SOURCE_ENTRYPOINTS){
