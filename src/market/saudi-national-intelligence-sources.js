@@ -73,12 +73,16 @@ function officialUrl(value,src){
  if(typeof value!=='string'||value.length>2000)return null;
  try{
   const u=new URL(value);
-  if(u.protocol!=='https:'||u.username||u.password||
-   !(u.hostname===src.domain||u.hostname.endsWith('.'+src.domain)))return null;
-  u.hash='';
-  for(const k of [...u.searchParams.keys()])
-   if(k.toLowerCase().startsWith('utm_')||['gclid','fbclid'].includes(k.toLowerCase()))
-    u.searchParams.delete(k);
+  const registered=new URL(src.url).hostname.toLowerCase();
+  const domain=src.domain.toLowerCase(),host=u.hostname.toLowerCase();
+  // Research sources are registered exact hosts, not every arbitrary
+  // subdomain of a broad provider root. No alternate ports or credentials.
+  if(u.protocol!=='https:'||u.username||u.password||u.port||
+   ![registered,domain,'www.'+domain].includes(host))return null;
+  // Imported CSV URLs are untrusted: arbitrary query keys can contain
+  // access/session tokens and personal information. Keep only the safe
+  // canonical page path; the source record ID remains a separate field.
+  u.search='';u.hash='';
   return u.toString();
  }catch{return null;}
 }
@@ -134,7 +138,9 @@ function importNationalSourcesCsv(csv,{observedOn,asOf=new Date()}={}){
  const accepted=[],rejected=[];
  for(const row of records){
   const cell=name=>index[name]>=0?String(row.columns[columns[index[name]]]??'').trim():'';
-  const source=BY_ID[cell('source')],kind=cell('kind');
+  const sourceId=cell('source');
+  const source=Object.prototype.hasOwnProperty.call(BY_ID,sourceId)?BY_ID[sourceId]:null;
+  const kind=cell('kind');
   const city=cell('city'),district=cell('district'),recordId=cell('recordId');
   const metricName=cell('metricName'),unit=cell('unit'),assetType=cell('assetType');
   const val=metric(cell('metricValue'));
@@ -203,8 +209,11 @@ function importNationalSourcesCsv(csv,{observedOn,asOf=new Date()}={}){
   independentVerifiedExecutedSales:0,marketValuationEligible:false};
 }
 function identity(row){
- return [row.sourceId,row.evidenceClass,row.recordId||'',norm(row.city),norm(row.district),
-  row.periodStart||'',row.periodEnd||'',row.metricName||'',row.observedOn].join('|');
+ // Structured tuple keys prevent collisions when fields contain the pipe
+ // separator; keep source record IDs in their original exact spelling.
+ return JSON.stringify([row.sourceId,row.evidenceClass,row.recordId||'',
+  norm(row.city),norm(row.district),row.periodStart||'',row.periodEnd||'',
+  row.metricName||'',row.observedOn]);
 }
 function equivalent(a,b){
  return ['sourceId','evidenceClass','sourceUrl','city','district','assetType',
@@ -212,16 +221,101 @@ function equivalent(a,b){
  'providerRangeLowSar','providerRangeHighSar','providerStatedConfidence','modelAsOf']
   .every(key=>a[key]===b[key]);
 }
+function validRestoredResearchDates(x,today){
+ // A saved/provider row is not exempt from CSV intake temporal rules.
+ // Kite quarterly observations legitimately have month-level periods,
+ // not a fabricated day-specific eventDate.
+ const observed=x.observedOn;
+ if(typeof observed!=='string'||date(observed)!==observed||observed>today)return false;
+ const fields=['periodStart','periodEnd','eventDate','modelAsOf'];
+ if(fields.some(k=>x[k]!==null&&(typeof x[k]!=='string'||date(x[k])!==x[k])))return false;
+ const category=x.evidenceClass;
+ if(category==='RESEARCH_NOTE')return fields.every(k=>x[k]===null);
+ if(category==='OFFICIAL_AGGREGATE'||category==='THIRD_PARTY_AGGREGATE')
+  return !!x.periodStart&&!!x.periodEnd&&x.periodStart<=x.periodEnd&&
+   x.periodEnd<=observed&&x.eventDate===null&&x.modelAsOf===null;
+ if(category==='EXTERNAL_AVM_ESTIMATE')
+  return x.eventDate===null&&x.periodStart===null&&x.periodEnd===null&&
+   (x.modelAsOf===null||x.modelAsOf<=observed);
+ if(category==='OFFICIAL_REPORTED_SALE'||category==='THIRD_PARTY_REPORTED_SALE'){
+  if(x.sourceId==='KITE_MOJ_QUARTERLY'){
+   if(x.eventDate!==null||x.modelAsOf!==null||x.dayKnown!==false||
+      !x.periodStart||!x.periodEnd||x.periodStart>observed)return false;
+   const year=Number(x.periodStart.slice(0,4)),month=Number(x.periodStart.slice(5,7));
+   const lastDay=String(new Date(Date.UTC(year,month,0)).getUTCDate()).padStart(2,'0');
+   return x.periodStart.endsWith('-01')&&
+    x.periodEnd===x.periodStart.slice(0,7)+'-'+lastDay;
+  }
+  return !!x.eventDate&&x.eventDate<=observed&&x.periodStart===null&&
+   x.periodEnd===null&&x.modelAsOf===null;
+ }
+ return false;
+}
+// Reapply the intake's class-specific AVM/metadata guard when working with
+// rehydrated or provider-supplied objects. A prior CSV parse is not a trust
+// boundary for later object mutations.
+function validRestoredResearchMetadata(x){
+ const avm=x.evidenceClass==='EXTERNAL_AVM_ESTIMATE';
+ const low=x.providerRangeLowSar,high=x.providerRangeHighSar;
+ const confidence=x.providerStatedConfidence;
+ if(!avm){
+  // No price-range/confidence claims may be smuggled into an aggregate, sale
+  // or research note without the matching AVM evidence class.
+  if(low!==null||high!==null||confidence!==null)return false;
+  if(x.evidenceClass==='RESEARCH_NOTE'&&x.recordId!==null)return false;
+  return true;
+ }
+ if((low===null)!==(high===null))return false;
+ if(low!==null){
+  if(typeof low!=='number'||!Number.isFinite(low)||low<=0||low>1e16||
+     typeof high!=='number'||!Number.isFinite(high)||high<=0||high>1e16||
+     low>high||x.metricValue<low||x.metricValue>high)return false;
+ }
+ if(confidence!==null&&!['HIGH','MEDIUM','LOW'].includes(confidence))return false;
+ if(typeof x.recordId!=='string'||!x.recordId.trim())return false;
+ if(x.sourceId==='BAYUT_TRUVALUE'&&!BAYUT_SUPPORTED_ASSETS.includes(x.assetType))
+  return false;
+ return true;
+}
 function mergeNationalResearch(existing,incoming,{limit=1500}={}){
  if(!Array.isArray(existing)||!Array.isArray(incoming)||!Number.isInteger(limit)||
   limit<1||limit>1500)throw Error('NATIONAL_RESEARCH_MERGE_INPUT_INVALID');
  const records=[],seen=new Map(),conflicts=[];let duplicates=0,added=0;
  for(const [source,values] of [['existing',existing],['incoming',incoming]]){
   for(const x of values){
-   if(!BY_ID[x?.sourceId]?.allowed.includes(x.evidenceClass)||x.personalResearch!==true||
+   const registered=Object.prototype.hasOwnProperty.call(BY_ID,x?.sourceId)?
+    BY_ID[x.sourceId]:null;
+   const canonicalUrl=registered?officialUrl(x.sourceUrl,registered):null;
+   // Merge is a second independent trust boundary for restored/untrusted rows:
+   // never preserve session-bearing links or allow imported approval flags.
+   if(!registered?.allowed.includes(x.evidenceClass)||x.personalResearch!==true||
+    x.country!=='SA'||x.origin!==registered.origin||
+    x.officialSourcePage!==(registered.origin==='SA_GOV_OFFICIAL')||
     x.marketValuationEligible!==false||x.executedTransactionRecord!==false||
-    !officialUrl(x.sourceUrl,BY_ID[x.sourceId]))
+    x.sourceRecordAuthenticated!==false||x.independentMarketPriceVerified!==false||
+    x.professionalReportAuthorized!==false||
+    !canonicalUrl||x.sourceUrl!==canonicalUrl)
     throw Error('NATIONAL_RESEARCH_UNTRUSTED_RECORD');
+   // Imported, restored and provider-supplied records remain untrusted at
+   // this boundary. Never allow values to be coerced into sale evidence.
+   const aggregate=x.evidenceClass==='OFFICIAL_AGGREGATE'||
+    x.evidenceClass==='THIRD_PARTY_AGGREGATE';
+   const note=x.evidenceClass==='RESEARCH_NOTE';
+   const expectedMetric=note?
+    x.metricName===null&&x.metricUnit===null&&x.metricValue===null:
+    allowedMetrics[x.evidenceClass]?.includes(x.metricName)&&
+    unitByMetric[x.metricName]===x.metricUnit&&
+    typeof x.metricValue==='number'&&Number.isFinite(x.metricValue)&&
+    (aggregate?x.metricValue>=0:x.metricValue>0)&&x.metricValue<=1e16;
+   if(!validRestoredResearchMetadata(x)||
+      !validRestoredResearchDates(x,new Date().toISOString().slice(0,10))||
+      !expectedMetric||typeof x.city!=='string'||!x.city.trim()||
+      x.city.length>120||typeof x.district!=='string'||!x.district.trim()||
+      x.district.length>120||
+      (x.recordId!==null&&(typeof x.recordId!=='string'||x.recordId.length>130))||
+      (x.evidenceClass.endsWith('REPORTED_SALE')&&
+       (typeof x.recordId!=='string'||!x.recordId.trim())))
+     throw Error('NATIONAL_RESEARCH_UNTRUSTED_RECORD');
    const key=identity(x),last=seen.get(key);
    if(last){
     if(equivalent(last,x)){duplicates++;continue;}
