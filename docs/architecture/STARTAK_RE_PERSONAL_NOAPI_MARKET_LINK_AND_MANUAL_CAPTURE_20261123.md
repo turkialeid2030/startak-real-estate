@@ -28,3 +28,6 @@ The selected **source names are third-party proper-name labels**, not user-facin
 
 ## Monthly Kite data are not a manual exact-day sale
 The initial manual source dropdown accidentally exposed `KITE_MOJ_QUARTERLY` as a day-specific reported-sale type even though Kite records are **month-only** (`eventDate=null`, `dayKnown=false`). Passing such a row through the day-specific canonical CSV import either fails or misstates its provenance. This was corrected by showing **exactly eleven** sources which support the manual entry schema and explicitly refusing Kite in `buildPersonalNoApiResearchEntry`. Kite's separate month-only intake and the local portable Kite research restore remain unchanged; no API is required by this new personal workflow.
+
+## Saudi midnight chronology consistency
+The manual research UI and no-API reference panel already used Riyadh-local calendar days, while `importNationalSourcesCsv` with Date-valued `asOf` and `mergeNationalResearch` used UTC. Between 00:00 and 02:59 in Riyadh, valid same-day research could be rejected. Canonical CSV intake and merge now use an `Asia/Riyadh` date helper, computed once per merge; explicit string `asOf` stays unchanged. Synthetic regression covers before/after Saudi midnight and Invalid Date. The personal manual workflow remains independent of vendor APIs.

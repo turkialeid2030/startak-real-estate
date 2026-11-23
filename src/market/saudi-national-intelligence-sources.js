@@ -59,6 +59,14 @@ function date(v){const x=String(v??'').trim().replace(/[٠-٩]/g,c=>String('٠١
  .replace(/[۰-۹]/g,c=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(c)));
  if(!/^\d{4}-\d\d-\d\d$/.test(x))return null;
  const t=Date.parse(x+'T00:00:00Z');return Number.isFinite(t)&&new Date(t).toISOString().slice(0,10)===x?x:null;}
+function riyadhResearchDate(instant){
+ // A Saudi owner's observation day may differ from UTC for three hours.
+ if(!(instant instanceof Date)||!Number.isFinite(instant.getTime()))return null;
+ const parts=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Riyadh',
+  year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(instant);
+ const get=type=>parts.find(p=>p.type===type)?.value;
+ return [get('year'),get('month'),get('day')].join('-');
+}
 function metric(v){
  if(v===undefined||v===null||!String(v).trim())return null;
  let s=String(v).trim().replace(/[٠-٩]/g,c=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(c)))
@@ -124,7 +132,7 @@ function importNationalSourcesCsv(csv,{observedOn,asOf=new Date()}={}){
  if(typeof csv!=='string'||new TextEncoder().encode(csv).length>MAX_CSV_BYTES)
   throw Error('NATIONAL_RESEARCH_CSV_SIZE');
  const observation=date(observedOn);
- const today=asOf instanceof Date?asOf.toISOString().slice(0,10):date(asOf);
+ const today=asOf instanceof Date?riyadhResearchDate(asOf):date(asOf);
  if(!observation||!today||observation>today)throw Error('NATIONAL_RESEARCH_OBSERVATION_INVALID');
  const {columns,records}=rowsFromCsv(csv);
  if(records.length>MAX_CSV_ROWS)throw Error('NATIONAL_RESEARCH_ROWS_LIMIT');
@@ -281,6 +289,7 @@ function mergeNationalResearch(existing,incoming,{limit=1500}={}){
  if(!Array.isArray(existing)||!Array.isArray(incoming)||!Number.isInteger(limit)||
   limit<1||limit>1500)throw Error('NATIONAL_RESEARCH_MERGE_INPUT_INVALID');
  const records=[],seen=new Map(),conflicts=[];let duplicates=0,added=0;
+ const today=riyadhResearchDate(new Date());
  for(const [source,values] of [['existing',existing],['incoming',incoming]]){
   for(const x of values){
    const registered=Object.prototype.hasOwnProperty.call(BY_ID,x?.sourceId)?
@@ -308,7 +317,7 @@ function mergeNationalResearch(existing,incoming,{limit=1500}={}){
     typeof x.metricValue==='number'&&Number.isFinite(x.metricValue)&&
     (aggregate?x.metricValue>=0:x.metricValue>0)&&x.metricValue<=1e16;
    if(!validRestoredResearchMetadata(x)||
-      !validRestoredResearchDates(x,new Date().toISOString().slice(0,10))||
+      !validRestoredResearchDates(x,today)||
       !expectedMetric||typeof x.city!=='string'||!x.city.trim()||
       x.city.length>120||typeof x.district!=='string'||!x.district.trim()||
       x.district.length>120||
