@@ -251,6 +251,32 @@ function validRestoredResearchDates(x,today){
  }
  return false;
 }
+// Reapply the intake's class-specific AVM/metadata guard when working with
+// rehydrated or provider-supplied objects. A prior CSV parse is not a trust
+// boundary for later object mutations.
+function validRestoredResearchMetadata(x){
+ const avm=x.evidenceClass==='EXTERNAL_AVM_ESTIMATE';
+ const low=x.providerRangeLowSar,high=x.providerRangeHighSar;
+ const confidence=x.providerStatedConfidence;
+ if(!avm){
+  // No price-range/confidence claims may be smuggled into an aggregate, sale
+  // or research note without the matching AVM evidence class.
+  if(low!==null||high!==null||confidence!==null)return false;
+  if(x.evidenceClass==='RESEARCH_NOTE'&&x.recordId!==null)return false;
+  return true;
+ }
+ if((low===null)!==(high===null))return false;
+ if(low!==null){
+  if(typeof low!=='number'||!Number.isFinite(low)||low<=0||low>1e16||
+     typeof high!=='number'||!Number.isFinite(high)||high<=0||high>1e16||
+     low>high||x.metricValue<low||x.metricValue>high)return false;
+ }
+ if(confidence!==null&&!['HIGH','MEDIUM','LOW'].includes(confidence))return false;
+ if(typeof x.recordId!=='string'||!x.recordId.trim())return false;
+ if(x.sourceId==='BAYUT_TRUVALUE'&&!BAYUT_SUPPORTED_ASSETS.includes(x.assetType))
+  return false;
+ return true;
+}
 function mergeNationalResearch(existing,incoming,{limit=1500}={}){
  if(!Array.isArray(existing)||!Array.isArray(incoming)||!Number.isInteger(limit)||
   limit<1||limit>1500)throw Error('NATIONAL_RESEARCH_MERGE_INPUT_INVALID');
@@ -281,7 +307,8 @@ function mergeNationalResearch(existing,incoming,{limit=1500}={}){
     unitByMetric[x.metricName]===x.metricUnit&&
     typeof x.metricValue==='number'&&Number.isFinite(x.metricValue)&&
     (aggregate?x.metricValue>=0:x.metricValue>0)&&x.metricValue<=1e16;
-   if(!validRestoredResearchDates(x,new Date().toISOString().slice(0,10))||
+   if(!validRestoredResearchMetadata(x)||
+      !validRestoredResearchDates(x,new Date().toISOString().slice(0,10))||
       !expectedMetric||typeof x.city!=='string'||!x.city.trim()||
       x.city.length>120||typeof x.district!=='string'||!x.district.trim()||
       x.district.length>120||

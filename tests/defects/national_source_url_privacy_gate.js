@@ -154,4 +154,66 @@ for(const tamper of [
   'forged Kite month or day-specific event date must fail closed');
 }
 
+
+// Restored evidence must preserve AVM value ranges, model claims and the
+// registered provider's supported sector list; never turn a changed object
+// into a valid price benchmark through merge().
+const avmHeaders='source,kind,city,district,recordId,eventDate,metricName,'+
+ 'metricValue,unit,sourceUrl,assetType,rangeLowSar,rangeHighSar,'+
+ 'confidenceLabel,modelAsOf';
+const avmEntry='GREM_AI,EXTERNAL_AVM_ESTIMATE,الرياض,الملز,AVM-01,,'+
+ 'estimated_value_sar,3000000,SAR,https://ai.grem.capital/ar,LAND,'+
+ '2700000,3300000,HIGH,2026-11-19';
+const avmResult=importNationalSourcesCsv(
+ [avmHeaders,avmEntry].join('\n'),{observedOn,asOf});
+assert.equal(avmResult.records.length,1);
+assert.equal(avmResult.rejected.length,0);
+const actualAvm=avmResult.records[0];
+assert.equal(mergeNationalResearch([],[actualAvm]).added,1);
+for(const override of [
+ {providerRangeLowSar:undefined},
+ {providerRangeLowSar:'2700000'},
+ {providerRangeHighSar:NaN},
+ {providerRangeHighSar:Infinity},
+ {providerRangeLowSar:0},
+ {providerRangeHighSar:1e17},
+ {providerRangeLowSar:3400000},
+ {providerRangeHighSar:2900000},
+ {providerStatedConfidence:'CERTIFIED'},
+ {providerStatedConfidence:12},
+ {recordId:null},
+]){
+ assert.throws(()=>mergeNationalResearch([],[{...actualAvm,...override}]),
+  /NATIONAL_RESEARCH_UNTRUSTED_RECORD/,
+  'provider AVM range, confidence and reference must remain validated on restore');
+}
+const bayutResult=importNationalSourcesCsv([
+ avmHeaders,
+ 'BAYUT_TRUVALUE,EXTERNAL_AVM_ESTIMATE,الرياض,الملز,BAYUT-AVM-01,,'+
+ 'estimated_value_sar,3500000,SAR,https://www.bayut.sa/property-market-analysis/tru-value/,'+
+ 'APARTMENT,3400000,3600000,MEDIUM,2026-11-19',
+].join('\n'),{observedOn,asOf});
+assert.equal(bayutResult.records.length,1);
+assert.equal(mergeNationalResearch([],[bayutResult.records[0]]).added,1);
+assert.throws(()=>mergeNationalResearch([],[{
+ ...bayutResult.records[0],assetType:'HOTEL',
+}]),/NATIONAL_RESEARCH_UNTRUSTED_RECORD/,
+ 'Bayut unsupported property classes cannot pass restored review');
+for(const override of [
+ {providerRangeLowSar:1},{providerRangeHighSar:2},
+ {providerStatedConfidence:'CERTIFIED'},
+]){
+ assert.throws(()=>mergeNationalResearch([],[{...valid,...override}]),
+  /NATIONAL_RESEARCH_UNTRUSTED_RECORD/,
+  'reported sale must not inherit AVM metadata');
+}
+for(const override of [
+ {providerRangeLowSar:2},{providerRangeHighSar:2},
+ {providerStatedConfidence:'HIGH'},{recordId:'FORGED-TRANSACTION'},
+]){
+ assert.throws(()=>mergeNationalResearch([],[{...agg,...override}]),
+  /NATIONAL_RESEARCH_UNTRUSTED_RECORD/,
+  'aggregate research must not acquire a forged AVM/sale identity');
+}
+
 console.log('NATIONAL_RESEARCH_URL_PRIVACY_GATE=PASS');
