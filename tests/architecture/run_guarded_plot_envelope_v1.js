@@ -131,6 +131,6 @@ test('DEED_AND_SURVEY_MATCH_EACH_OTHER_BUT_NOT_GEOMETRY',()=>{
  assert.equal(run({titleFacts:[...deed,...survey]}).status,STATUS.HOLD_TITLE);
 });
 test('UNVERIFIED_SOURCE_IDENTITY_HOLD',()=>{
- assert.equal(run({titleFacts:[...deedFacts,...surveyFacts.map(x=>({...x,status:'UNVERIFIED'})]}).status,STATUS.HOLD_TITLE);
+ assert.equal(run({titleFacts:[...deedFacts,...surveyFacts.map(x=>({...x,status:'UNVERIFIED'}))]}).status,STATUS.HOLD_TITLE);
 });
 console.log('GUARDED_PLOT_ENVELOPE_V1=PASS checks='+count+' synthetic=true license_proven=false');
