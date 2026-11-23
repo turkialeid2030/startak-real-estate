@@ -225,9 +225,14 @@ function qualifiedResearchIntake({records=[],references=[],subject={},asOf=new D
  }
  const totals=Object.freeze({
   importedRows:records.length,manualReferences:references.length,
-  reportedSaleCandidates:findings.filter(f=>f.bucket==='REPORTED_SALE_CANDIDATE').length,
-  aggregates:findings.filter(f=>f.bucket==='AGGREGATE_CONTEXT').length,
-  externalAvms:findings.filter(f=>f.bucket==='EXTERNAL_MODEL_BENCHMARK').length,
+  // Category summaries refer only to reviewable records, never REJECTED imports.
+  // The raw intake and rejection totals still preserve the full audit trail.
+  reportedSaleCandidates:findings.filter(f=>
+    f.bucket==='REPORTED_SALE_CANDIDATE'&&f.status==='HOLD_REVIEW').length,
+  aggregates:findings.filter(f=>
+    f.bucket==='AGGREGATE_CONTEXT'&&f.status==='HOLD_REVIEW').length,
+  externalAvms:findings.filter(f=>
+    f.bucket==='EXTERNAL_MODEL_BENCHMARK'&&f.status==='HOLD_REVIEW').length,
   rejected:findings.filter(f=>f.status==='REJECTED').length+
    referenceFindings.filter(f=>f.status==='REJECTED').length,
   duplicatePairs:duplicates.length,
