@@ -37,6 +37,10 @@ const codeOnly=v=>typeof v==='string'&&v.length<=130&&
  !/[\u0000-\u001f\u007f<>]/.test(v);
 const uniq=a=>[...new Set(a)];
 const parseAsOf=asOf=>{
+ // Invalid Date values must fail with the same controlled validation error
+ // as malformed date strings, rather than leaking a RangeError to the UI.
+ if(asOf instanceof Date&&!Number.isFinite(asOf.getTime()))
+  throw Error('QUALIFICATION_AS_OF_INVALID');
  const date=asOf instanceof Date?asOf.toISOString().slice(0,10):asOf;
  if(!isoDate(date))throw Error('QUALIFICATION_AS_OF_INVALID');
  return date;
@@ -252,7 +256,11 @@ function qualifiedResearchIntake({records=[],references=[],subject={},asOf=new D
   independentlyQualifiedComparables:0,professionalValuations:0,
  });
  const outcome=Object.freeze({
-  version:VERSION,asOf:today,subjectScope:subject.city&&subject.district?
+  version:VERSION,asOf:today,
+  // Truthiness is not evidence of usable subject location: whitespace,
+  // nonstrings and control characters cannot establish a district scope.
+  subjectScope:codeOnly(subject.city)&&!!subject.city.trim()&&
+   codeOnly(subject.district)&&!!subject.district.trim()?
    'DISTRICT_RESEARCH_CONTEXT_ONLY':'PROPERTY_IDENTITY_UNBOUND',
   decision:'HOLD_EXTERNAL_VERIFICATION_REQUIRED',marketValuationEligible:false,
   certifiedMarketValueSar:null,certifiedMarketRentSar:null,

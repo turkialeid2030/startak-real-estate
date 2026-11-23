@@ -289,6 +289,31 @@ assert.throws(()=>evaluate('invalid'),/QUALIFICATION_RECORD_LIMIT/);
 assert.throws(()=>evaluate(Array(MAX_ROWS+1).fill(sale)),/QUALIFICATION_RECORD_LIMIT/);
 assert.throws(()=>qualifiedResearchIntake({subject:[],asOf:day}),/QUALIFICATION_SUBJECT_INVALID/);
 
+// Review scope is contextual only and requires both usable location fields.
+// A truthy whitespace string, number, or control character is not evidence.
+for(const subject of [
+ {city:'   ',district:'الملز'}, {city:'الرياض',district:'   '},
+ {city:123,district:'الملز'}, {city:'الرياض',district:456},
+ {city:'الرياض\\u0000',district:'الملز'},
+ {city:'الرياض',district:'الملز\\u001f'},
+ {city:'الرياض',district:'الملز'.repeat(45)},
+]){
+ const output=evaluate([sale],[],subject);
+ assert.equal(output.subjectScope,'PROPERTY_IDENTITY_UNBOUND',
+  'malformed subject location cannot be represented as scoped district research');
+ assert.equal(output.decision,'HOLD_EXTERNAL_VERIFICATION_REQUIRED');
+ assert.equal(output.certifiedMarketValueSar,null);
+ assert.equal(output.certifiedMarketRentSar,null);
+}
+assert.equal(evaluate([sale],[],{city:' الرياض ',district:' الملز '}).subjectScope,
+ 'DISTRICT_RESEARCH_CONTEXT_ONLY','valid bounded subject location keeps research scope');
+assert.throws(()=>qualifiedResearchIntake({asOf:new Date(NaN)}),
+ /QUALIFICATION_AS_OF_INVALID/,'invalid Date must fail through controlled validation');
+assert.throws(()=>qualifiedResearchIntake({asOf:new Date('invalid date')}),
+ /QUALIFICATION_AS_OF_INVALID/);
+assert.throws(()=>qualifiedResearchIntake({asOf:'2026-02-30'}),
+ /QUALIFICATION_AS_OF_INVALID/);
+
 const dossier=JSON.parse(portableReviewDossier(result));
 assert.equal(dossier.decision,'HOLD_EXTERNAL_VERIFICATION_REQUIRED');
 assert.equal(dossier.certifiedMarketValueSar,null);
