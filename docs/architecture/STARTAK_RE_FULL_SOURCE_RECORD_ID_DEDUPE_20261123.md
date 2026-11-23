@@ -15,3 +15,8 @@
 
 ## Authority and release boundary
 Values remain in `HOLD_EXTERNAL_VERIFICATION_REQUIRED`: zero independently certified comparables, zero approved market values/rents, no qualified valuation, no report publication. No genuine transaction, data-licensing, title/parcel, date/rights, professional sign-off or live tenant UAT evidence is created by this patch. Preserve the 57 historic path parity, 17+4 case validation, Q01–Q12 reviews and issue #622 external controls as OPEN.
+
+## Second verified defect: rejected records contaminated duplication totals
+The matching loop previously processed any registered source and syntactically valid record ID, even if the qualification finding had already been **REJECTED** (e.g. untrusted URL or forged approval flag). It could also mix non-sale research with reported-sale transaction identifiers in the same-provider duplicate totals. That gave a misleading review count, even though no rejected record was authorized for valuation.
+
+**Additional correction:** only `HOLD_REVIEW` findings in `REPORTED_SALE_CANDIDATE` enter transaction duplicate matching. Rejected rows remain visible through `totals.rejected` and individual `findings`; aggregate statistics, research notes and external AVM estimates are not counted as executed-sale duplicate candidates. Negative tests include hostile URL, forged professional authority, two rejected rows and an aggregate record with a coinciding identifier. This is a pre-valuation triage correction, not authentication of even the remaining accepted source records.
