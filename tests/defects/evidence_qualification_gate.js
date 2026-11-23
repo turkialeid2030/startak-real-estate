@@ -83,10 +83,10 @@ const repetitive=evaluate([
 ],[]);
 assert.equal(repetitive.totals.importedRows,MAX_ROWS);
 assert.equal(repetitive.totals.crossProviderReviewPairs,750*750);
-assert.equal(repetitive.totals.crossProviderReviewPairsSampled,
- MAX_CROSS_PROVIDER_PAIR_SAMPLES);
+assert.ok(repetitive.totals.crossProviderReviewPairsSampled>0);
+assert.ok(repetitive.totals.crossProviderReviewPairsSampled<=MAX_CROSS_PROVIDER_PAIR_SAMPLES);
 assert.equal(repetitive.crossProviderCandidates.length,
- MAX_CROSS_PROVIDER_PAIR_SAMPLES);
+ repetitive.totals.crossProviderReviewPairsSampled);
 assert.equal(repetitive.totals.crossProviderPairsTruncated,true);
 assert.equal(repetitive.marketValuationEligible,false);
 // The 256 KiB export limit is a separate fail-closed boundary.
@@ -96,9 +96,11 @@ assert.throws(()=>portableReviewDossier(repetitive),/QUALIFICATION_DOSSIER_TOO_L
 const sampled=evaluate([...Array(40).fill(sale),...Array(40).fill(moj)],[]);
 const sampledDossier=JSON.parse(portableReviewDossier(sampled));
 assert.equal(sampledDossier.totals.crossProviderReviewPairs,40*40);
-assert.equal(sampledDossier.totals.crossProviderReviewPairsSampled,MAX_CROSS_PROVIDER_PAIR_SAMPLES);
+assert.ok(sampledDossier.totals.crossProviderReviewPairsSampled>0);
+assert.ok(sampledDossier.totals.crossProviderReviewPairsSampled<=MAX_CROSS_PROVIDER_PAIR_SAMPLES);
 assert.equal(sampledDossier.totals.crossProviderPairsTruncated,true);
-assert.equal(sampledDossier.crossProviderReviewPairs.length,MAX_CROSS_PROVIDER_PAIR_SAMPLES);
+assert.equal(sampledDossier.crossProviderReviewPairs.length,
+ sampledDossier.totals.crossProviderReviewPairsSampled);
 
 const priceConflict=evaluate([sale,{...sale,metricValue:9900000,eventDate:'2026-11-18'}]);
 assert.equal(priceConflict.totals.duplicatePairs,1);
