@@ -33,7 +33,7 @@ import ChallengerBenchmarkResearchPanel from './ChallengerBenchmarkResearchPanel
 const {toPublicSample}=require('../market/suhail-national-neighborhood-research');
 const {createInitialMarketSubject}=require('../market/initial-market-subject');
 const {marketIdentityGate}=require('../market/owner-market-identity-gate');
-const {marketEvidenceSubjectKey,hasResearchComparables}=require('../market/owner-market-evidence-scope');
+const {marketEvidenceSubjectKey,hasResearchComparables,hasCapturedOwnerResearch}=require('../market/owner-market-evidence-scope');
 
 const INPUT = 'w-full rounded-lg border border-slate-600 bg-[#101c30] px-3 py-2 text-sm text-slate-100';
 const createRow = () => ({ assetType:'',landSubtype:'',sourceRecordId:'', status:'ASKING', price:'', annualRent:'', builtArea:'', landArea:'',
@@ -215,8 +215,9 @@ export default function PropertyMarketLocationPanel({
     unitMix.some(row=>row&&['unitType','unitCount','areaPerUnitSqm'].some(
       k=>String(row[k]??'').trim()!==''))||
     projects.some(row=>row&&['name','location','sourceUrl','impactPct'].some(
-      k=>String(row[k]??'').trim()!=='')),
-  [allSales,allRentals,marketOffers,leaseComparables,unitMix,projects]);
+      k=>String(row[k]??'').trim()!==''))||
+    hasCapturedOwnerResearch(researchFeeds),
+  [allSales,allRentals,marketOffers,leaseComparables,unitMix,projects,researchFeeds]);
   // A row must remain attributed to its original subject. Changing name,
   // property interest, classification or parcel identity never transfers an
   // already entered comparable silently to another subject, even at the same
