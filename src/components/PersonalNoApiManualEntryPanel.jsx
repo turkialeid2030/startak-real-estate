@@ -43,7 +43,7 @@ function riyadhToday(){
  const val=k=>parts.find(p=>p.type===k)?.value;
  return [val('year'),val('month'),val('day')].join('-');
 }
-export default function PersonalNoApiManualEntryPanel({subject={},onResearchRows}){
+export default function PersonalNoApiManualEntryPanel({subject={},onResearchRows,disabled=false}){
  const {locale}=useLocale(),en=locale==='en';
  const tr=(ar,english)=>en?english:ar;
  const [sourceId,setSourceId]=useState('PASEETAH');
@@ -94,6 +94,7 @@ export default function PersonalNoApiManualEntryPanel({subject={},onResearchRows
    en:'Current property city and district were copied into the manual research form.'});
  }
  function add(){
+  if(disabled)return;
   try{
    if(typeof onResearchRows!=='function')throw Error('PERSONAL_NOAPI_RESEARCH_TARGET_MISSING');
    const row=buildPersonalNoApiResearchEntry({
@@ -237,7 +238,7 @@ export default function PersonalNoApiManualEntryPanel({subject={},onResearchRows
    </>}
   </div>
   <div className="mt-3 flex items-center gap-3">
-   <button type="button" data-testid="personal-noapi-add" onClick={add}
+   <button type="button" data-testid="personal-noapi-add" disabled={disabled} onClick={add}
     className="rounded-md bg-sky-700 px-4 py-2 text-xs font-semibold text-white">
     {tr('إضافة إلى بحثي','Add to my research')}
    </button>
