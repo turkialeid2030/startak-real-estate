@@ -3,6 +3,7 @@
 // This module never authenticates an issuer, grants a permit, selects HBU,
 // certifies a valuation or writes any financial engine input.
 const crypto = require('node:crypto');
+const { assessTitleCrossDocumentConsistency } = require('../title-intelligence/cross-document-consistency');
 const {
   PLANNING_CONSTRAINT_TYPE: TYPE,
   PLANNING_EVIDENCE_STATUS,
@@ -14,6 +15,7 @@ const STATUS=Object.freeze({
   HOLD_BINDING:'HOLD_BINDING',
   HOLD_CONSTRAINTS:'HOLD_CONSTRAINTS',
   HOLD_GEOMETRY:'HOLD_GEOMETRY',
+  HOLD_TITLE:'HOLD_TITLE',
   INFEASIBLE:'INFEASIBLE',
 });
 function stable(value){
@@ -44,6 +46,7 @@ function output(status,caseId,propertyRef,reasons,calculations=null,sourceRefs=[
 }
 function assessGuardedPlotEnvelope({
   caseId,propertyRef,planningEvidenceSet,geometry,evaluatedAt,maxAreaDifferenceSqm,
+  titleFacts,titleFreshnessPolicy,
 }={}){
   if(typeof caseId!=='string'||!caseId.trim()||
      typeof propertyRef!=='string'||!propertyRef.trim())throw Error('CASE_PROPERTY_ID_REQUIRED');
@@ -93,6 +96,28 @@ function assessGuardedPlotEnvelope({
   const area=geometry.widthM*geometry.depthM;
   if(!Number.isFinite(area)||Math.abs(area-geometry.landAreaSqm)>maxAreaDifferenceSqm)
     return bad(STATUS.HOLD_GEOMETRY,'RECTANGLE_AREA_DIFFERS_FROM_DECLARED_AREA');
+  // The historic C9 contract must not ignore identity and deed/survey
+  // differences. Reuse the modern guarded C8 consistency function; its
+  // qualified labels remain caller assertions, never professional proof.
+  if(!Array.isArray(titleFacts)||!titleFreshnessPolicy||
+     typeof titleFreshnessPolicy!=='object'||Array.isArray(titleFreshnessPolicy))
+    return bad(STATUS.HOLD_TITLE,'TITLE_SOURCE_PAIR_REQUIRED');
+  let title;
+  try {
+    title=assessTitleCrossDocumentConsistency({
+      caseId,propertyId:propertyRef,facts:titleFacts,
+      asOf:evaluatedAt,maxAgeDaysBySourceType:titleFreshnessPolicy,
+    });
+  } catch (_) {
+    return bad(STATUS.HOLD_TITLE,'TITLE_SOURCE_PAIR_INVALID');
+  }
+  if(title.status!=='CANDIDATE_FOR_INDEPENDENT_REVIEW')
+    return bad(STATUS.HOLD_TITLE,'DEED_SURVEY_IDENTITY_UNRESOLVED:'+title.status);
+  const titleAreas=titleFacts.filter(f=>f.key==='propertyAreaSqm'&&
+      f.status==='VERIFIED').map(f=>f.value);
+  if(titleAreas.length<2||!titleAreas.every(v=>positive(v)&&
+      Math.abs(v-geometry.landAreaSqm)<=maxAreaDifferenceSqm))
+    return bad(STATUS.HOLD_TITLE,'DEED_SURVEY_AREA_GEOMETRY_MISMATCH');
   const width=geometry.widthM-sb.left-sb.right;
   const depth=geometry.depthM-sb.front-sb.rear;
   const setbackFootprint=Math.max(0,width)*Math.max(0,depth);
