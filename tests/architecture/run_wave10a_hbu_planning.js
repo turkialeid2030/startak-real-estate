@@ -94,6 +94,18 @@ const records = [
   planningRecord(PLANNING_CONSTRAINT_TYPE.DEVELOPMENT_CONDITION, 'SYNTHETIC_ACCESS_CONDITION'),
 ];
 
+throwsWith(() => planningRecord(PLANNING_CONSTRAINT_TYPE.FAR, 4, {
+ sourceEffectiveDate: '2026-02-30',
+}), 'sourceEffectiveDate must be a valid date/time', 'invalid Gregorian source effective date cannot roll into March');
+throwsWith(() => planningRecord(PLANNING_CONSTRAINT_TYPE.FAR, 4, {
+ capturedAt: '2026-11-23T10:00:00',
+}), 'capturedAt must be a valid date/time', 'planning capture timestamp must include timezone');
+throwsWith(() => assessPlanningEvidenceSet({
+ caseId: CASE_ID, propertyRef: PROPERTY_REF, valuationDate: '2026-02-30',
+ records, requiredConstraintTypes: REQUIRED,
+ allowedAuthorityClasses: [PLANNING_AUTHORITY_CLASS.OFFICIAL_AUTHORITY],
+ cardinalityByType: CARDINALITY,
+}), 'valuationDate must be a valid date/time', 'invalid planning valuation calendar day must not be normalized');
 check(records.every((record) => verifyPlanningEvidenceIntegrity(record)), 'planning records have deterministic integrity hashes');
 check(records.every((record) => record.legalOpinionEstablished === false && record.planningComplianceEstablished === false), 'planning evidence does not manufacture legal/compliance conclusions');
 check(records.every((record) => record.transactionAuthorized === false), 'planning evidence never authorizes a transaction');

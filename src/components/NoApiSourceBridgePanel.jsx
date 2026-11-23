@@ -1,31 +1,41 @@
 import React,{useState} from 'react';
 const {useLocale}=require('../i18n/LocaleContext.js');
 const {
- SOURCES,BY_ID,MAX_PORTABLE_BYTES,captureReference,mergeReferences,
+ SOURCES,BY_ID,SOURCE_ENTRYPOINTS,BY_ENTRYPOINT_ID,MAX_PORTABLE_BYTES,captureReference,mergeReferences,
  exportReferences,importReferences,
 }=require('../market/no-api-source-bridge');
 
 const FIELD='mt-1 w-full rounded-md border border-slate-600 bg-slate-900 p-2 text-sm text-slate-100';
 const TODAY=()=>new Date().toISOString().slice(0,10);
-export default function NoApiSourceBridgePanel(){
+export default function NoApiSourceBridgePanel({onReferencesChange}){
  const {locale}=useLocale(),en=locale==='en';
  const tr=(ar,english)=>en?english:ar;
  const [sourceId,setSourceId]=useState('MOJ_OPEN');
+ const [entrypointId,setEntrypointId]=useState('');
  const [sourceUrl,setSourceUrl]=useState(BY_ID.MOJ_OPEN.url);
  const [city,setCity]=useState(''),[district,setDistrict]=useState('');
  const [observedOn,setObservedOn]=useState(TODAY);
  const [references,setReferences]=useState([]);
  const [notice,setNotice]=useState(null);
  const src=BY_ID[sourceId];
+ const availableEntrypoints=SOURCE_ENTRYPOINTS.filter(ep=>ep.sourceId===sourceId);
+ const activeEndpoint=BY_ENTRYPOINT_ID[entrypointId];
+ const originalPage=activeEndpoint?.sourceId===sourceId?activeEndpoint.url:src.url;
  function changeSource(id){
   const next=BY_ID[id];if(!next)return;
-  setSourceId(id);setSourceUrl(next.url);setNotice(null);
+  setSourceId(id);setEntrypointId('');setSourceUrl(next.url);setNotice(null);
+ }
+ function changeEntrypoint(id){
+  const ep=BY_ENTRYPOINT_ID[id];
+  if(id&&(!ep||ep.sourceId!==sourceId))return;
+  setEntrypointId(id);setSourceUrl(ep?.url||src.url);setNotice(null);
  }
  function addReference(){
   try{
    const item=captureReference({sourceId,sourceUrl,city,district,observedOn});
    const merged=mergeReferences(references,[item]);
    setReferences(merged.references);
+   onReferencesChange?.(merged.references);
    setNotice({ar:merged.duplicates?'المرجع مسجل مسبقًا ولم يُكرر.':'سُجل رابط بحثي يدوي غير متحقق؛ لم تُنقل أي قيمة إلى التقييم.',
     en:merged.duplicates?'Duplicate research link was not added.':'Manual unverified research link added; no valuation input was changed.'});
   }catch(_){setNotice({ar:'تعذر تسجيل المرجع: تحقق من الموقع الرسمي وتاريخ الاطلاع والحقول.',
@@ -51,6 +61,7 @@ export default function NoApiSourceBridgePanel(){
    const imported=importReferences(await file.text());
    const merged=mergeReferences(references,imported.references);
    setReferences(merged.references);
+   onReferencesChange?.(merged.references);
    setNotice({ar:'تم استيراد المراجع دون منحها صلاحية اعتماد. المكرر: '+merged.duplicates,
     en:'Reference list imported without approving any source. Duplicates: '+merged.duplicates});
   }catch(_){setNotice({ar:'ملف المراجع غير صالح أو يحتوي على حقول اعتماد غير مسموحة.',
@@ -62,14 +73,27 @@ export default function NoApiSourceBridgePanel(){
    {tr('المسار الأول: افتح المصدر بنفسك وسجّل رابط المراجعة وتاريخها. لا نسحب بيانات الموقع ولا نسجّل دخولك، ولا نعدّ المرجع صفقة أو تقييمًا معتمدًا.',
    'Path one: open the provider yourself, and record its reference and review date. We do not scrape the site or sign in for you. A link is not a verified sale or appraisal.')}
   </p>
+  <p data-testid="noapi-navigation-only" className="mt-2 text-xs text-sky-200">
+   {tr('اختر صفحة الخدمة الدقيقة وافتحها بنفسك في موقع الجهة؛ لا يجلب ستارتك محتواها ولا يرسل إليها بيانات العقار.',
+    'Choose a specific provider page and open it yourself; Startak does not retrieve its content or send your property details.')}
+  </p>
   <div className="mt-3 grid gap-2 sm:grid-cols-2">
    <label className="text-xs">{tr('مصدر البحث','Research source')}
     <select className={FIELD} data-testid="noapi-source-select" value={sourceId} onChange={e=>changeSource(e.target.value)}>
      {SOURCES.map(s=><option value={s.id} key={s.id}>{en?s.nameEn:s.nameAr}</option>)}
     </select>
    </label>
+   <label className="text-xs">{tr('صفحة الخدمة التفصيلية','Specific service page')}
+    <select data-testid="noapi-entrypoint-select" className={FIELD}
+     value={entrypointId} onChange={e=>changeEntrypoint(e.target.value)}>
+     <option value="">{tr('الصفحة الرئيسية','Provider home page')}</option>
+     {availableEntrypoints.map(ep=><option key={ep.id} value={ep.id}>
+      {en?ep.nameEn:ep.nameAr}
+     </option>)}
+    </select>
+   </label>
    <div className="flex flex-col justify-end gap-1 text-xs">
-    <a data-testid="noapi-open-source" href={src.url} target="_blank" rel="noopener noreferrer"
+    <a data-testid="noapi-open-source" href={originalPage} target="_blank" rel="noopener noreferrer"
       className="w-fit rounded border border-slate-500 px-3 py-2 text-sky-300">
       {tr('فتح الموقع الأصلي','Open original site')}
     </a>
@@ -109,7 +133,7 @@ export default function NoApiSourceBridgePanel(){
    </button>
    <label className="rounded border border-slate-600 px-3 py-2 text-slate-200">
     {tr('استعادة سجل المراجع','Restore reference register')}
-    <input data-testid="noapi-import" type="file" accept=".json,application/json" className="block max-w-48 mt-1 text-xs"
+    <input data-testid="noapi-import" type="file" accept=".json,application/json" className="block max-w-48 min-h-[40px] mt-1 rounded border border-slate-500 p-2 text-xs"
      onChange={async e=>{const file=e.target.files?.[0];e.target.value='';await restore(file);}}/>
    </label>
   </div>

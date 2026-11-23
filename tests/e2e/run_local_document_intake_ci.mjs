@@ -23,7 +23,8 @@ function record(id, passed, detail = null) {
 try {
   previewServer = await preview({ preview: { host: '127.0.0.1', port: 4173, strictPort: false } });
   const addr = previewServer.httpServer.address();
-  const url = `http://127.0.0.1:${addr.port}/`;
+  // This suite exercises the advanced workspace, not the separate default five-step owner flow.
+  const url = `http://127.0.0.1:${addr.port}/?ownerView=advanced`;
   result.preview_url = url;
 
   browser = await chromium.launch({ headless: true, executablePath: EXECUTABLE, args: ['--no-sandbox', '--disable-gpu'] });
@@ -39,6 +40,7 @@ try {
   page.on('request', (request) => requests.push(request.url()));
 
   await page.goto(url, { waitUntil: 'networkidle' });
+  await page.locator('body[data-startak-owner-view="advanced"]').waitFor({ state: 'attached' });
   const panel = page.getByTestId('local-document-evidence-intake');
   record('DOC-E2E-01-PANEL', await panel.isVisible(), `count=${await panel.count()}`);
   const bodyAr = await panel.innerText();

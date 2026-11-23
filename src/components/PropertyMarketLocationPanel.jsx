@@ -527,7 +527,7 @@ export default function PropertyMarketLocationPanel({
       <div className="md:col-span-2"><Field title="رابط موقع العقار من خرائط جوجل أو الإحداثيات" value={subject.location}
         onChange={v=>updateSubject('location',v)} placeholder="https://www.google.com/maps/@24.7,46.7,17z"/>
         <div className="mt-2 text-xs text-slate-300" data-testid="market-umaps-official-reference">
-          <a className="underline text-sky-300 hover:text-sky-200"
+          <a className="inline-flex min-h-[40px] items-center rounded px-2 underline text-sky-300 hover:text-sky-200"
             href={OFFICIAL_SOURCE_REGISTRY.BALADY_URBAN_MAPS.publicReferenceUrl}
             target="_blank" rel="noopener noreferrer" data-testid="market-open-umaps">
             {L('فتح الخرائط الحضرية الرسمية')}
@@ -776,7 +776,7 @@ export default function PropertyMarketLocationPanel({
     <SuhailNationalResearchPanel key={'suhail-'+researchSessionEpoch} onResearchChange={rows=>setResearchFeeds(f=>({...f,suhail:rows}))}/>
     <SaudiListingSourcesResearchPanel key={'listings-'+researchSessionEpoch} onResearchChange={rows=>setResearchFeeds(f=>({...f,listings:rows}))}/>
     <EarthNationalResearchPanel key={'earth-'+researchSessionEpoch} onResearchChange={rows=>setResearchFeeds(f=>({...f,earth:rows}))}/>
-    <SaudiNationalIntelligenceSourcesPanel key={'national-'+researchSessionEpoch} onResearchChange={rows=>setResearchFeeds(f=>({...f,national:rows}))}/>
+    <SaudiNationalIntelligenceSourcesPanel key={'national-'+researchSessionEpoch} subject={subject} onResearchChange={rows=>setResearchFeeds(f=>({...f,national:rows}))}/>
     {message&&<p data-testid="market-study-action-notice" data-diagnostic-content translate="no" role="status" className="text-xs text-slate-200 mt-2">{researchActionText(message,locale)}</p>}
   </section>;
 }

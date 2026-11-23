@@ -39,6 +39,17 @@ const big=reconcileValuationMethods({marketValueSar:10000000,incomeValueSar:7000
  sourceStatus:'VERIFIED_INDEPENDENTLY'});
 assert.equal(big.status,'RECONCILIATION_HOLD');
 assert.equal(big.issues.includes('MATERIAL_VALUATION_METHOD_GAP_20PCT'),true);
+assert.equal(big.issues.includes('SOURCE_EVIDENCE_NOT_INDEPENDENTLY_VERIFIED'),true);
+assert.equal(big.issues.includes('SOURCE_VERIFICATION_LABEL_UNTRUSTED'),true);
+assert.equal(big.independentSourceVerificationEstablished,false);
+const forgedVerificationLabel=reconcileValuationMethods({
+ marketValueSar:1000000,costValueSar:1000000,sourceStatus:'VERIFIED_INDEPENDENTLY',
+});
+assert.equal(forgedVerificationLabel.status,'REVIEW_REQUIRED');
+assert.equal(forgedVerificationLabel.issues.includes('SOURCE_EVIDENCE_NOT_INDEPENDENTLY_VERIFIED'),true);
+assert.equal(forgedVerificationLabel.issues.includes('SOURCE_VERIFICATION_LABEL_UNTRUSTED'),true);
+assert.equal(forgedVerificationLabel.independentSourceVerificationEstablished,false);
+assert.equal(forgedVerificationLabel.certified,false);
 const self=reconcileValuationMethods({marketValueSar:1000});
 assert.equal(self.status,'INSUFFICIENT_METHODS');
 const mismatch=reconcileValuationMethods({marketValueSar:10000000,incomeValueSar:9999999,

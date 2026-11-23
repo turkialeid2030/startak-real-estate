@@ -149,6 +149,7 @@ try{
   assert((await panel.locator('h3').innerText()).includes(title),'D04 source heading: '+title);
  }
  await listings.getByTestId('listing-observed-on').fill('2026-10-28');
+ await listings.getByTestId('listing-csv-rights-acknowledgement').check();
  await listings.getByTestId('listing-source-csv').setInputFiles({name:'synthetic-listings.csv',mimeType:'text/csv',
   buffer:Buffer.from('source,city,district,kind,priceSar,areaSqm,listingUrl,listingId,assetType,listingDate\n'+
    'DEAL,الرياض,الملقا,BUYER_REQUEST,100000,100,https://dealapp.sa/request/synthetic-d04,SYNTH-D04,LAND,2026-10-01')});

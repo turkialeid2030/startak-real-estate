@@ -61,6 +61,36 @@ try{
  // as a link. A manual reference is kept locally, never a certified value.
  const noapi=nationalSources.getByTestId('no-api-source-bridge');
  await noapi.waitFor({state:'visible'});
+ // Real user-facing navigation between exact historic provider service pages;
+ // choosing a page never creates an authenticated sale or makes an API call.
+ for(const probe of [
+   {source:'SUHAIL',entry:'SUHAIL_TRANSACTIONS',
+    href:'https://www.suhail.ai/Riyadh/transactions'},
+   {source:'SUHAIL',entry:'SUHAIL_METRICS',
+    href:'https://www.suhail.ai/Riyadh/metrics'},
+   {source:'EARTH',entry:'EARTH_VALUE',
+    href:'https://map.earthapp.com.sa/value'},
+   {source:'EARTH',entry:'EARTH_OFFERS',
+    href:'https://map.earthapp.com.sa/offers'},
+   {source:'REGA_DEALS',entry:'REGA_CLEANED',
+    href:'https://rei.rega.gov.sa/ar/advanced-search/deals'},
+   {source:'AQAR',entry:'AQAR_OFFERS',
+    href:'https://sa.aqar.fm/'},
+   {source:'INFATH',entry:'INFATH_AUCTIONS',
+    href:'https://infath.gov.sa/auctions'},
+   {source:'SBC',entry:'SBC_CODE',
+    href:'https://www.sbc.gov.sa/ar/Pages/default.aspx'},
+ ]){
+  await noapi.getByTestId('noapi-source-select').selectOption(probe.source);
+  await noapi.getByTestId('noapi-entrypoint-select').selectOption(probe.entry);
+  assert(await noapi.getByTestId('noapi-open-source').getAttribute('href')===probe.href,
+    'selected provider deep link must be exact: '+probe.entry);
+  assert(await noapi.getByTestId('noapi-source-url').inputValue()===probe.href,
+    'selected provider must populate the local research-reference URL');
+  assert((await noapi.getByTestId('noapi-reference-count').innerText()).includes('0'),
+    'page navigation alone must not create a qualified research reference');
+ }
+ mark('NO_API_OWNER_DEEP_LINK_NAVIGATION_REAL_CHROMIUM',true);
  await noapi.getByTestId('noapi-source-select').selectOption('UMAPS');
  assert((await noapi.getByTestId('noapi-open-source').getAttribute('href'))===
    'https://umaps.momah.gov.sa/','portal link must be the official exact host');
@@ -90,6 +120,13 @@ try{
  assert((await noapi.getByTestId('noapi-reference-count').innerText()).includes('1'),
   'importing an existing reference must dedupe without changing value');
  mark('NO_API_MANUAL_UMAPS_REFERENCE_EXPORT_AND_RESTORE_REAL_CHROMIUM',true);
+ const qualification=nationalSources.getByTestId('evidence-qualification-gate');
+ await qualification.waitFor({state:'visible'});
+ assert((await qualification.getByTestId('qualification-decision').innerText())
+   .includes('تعليق الاعتماد'),'research source must not certify the current property');
+ assert((await qualification.getByTestId('qualification-summary').innerText()).includes('1'),
+  'owner-selected UMAPS manual reference should contribute to the HOLD review counts');
+ mark('QUALIFICATION_MANUAL_REFERENCE_HOLD_REAL_CHROMIUM',true);
  assert((await nationalSources.getByTestId('national-sources-links').locator('a').count())===12,
   'Twelve distinct public real estate source reference URLs must be visible');
  const official= nationalSources.getByTestId('national-official-entrypoints');
@@ -116,9 +153,31 @@ try{
   'MOJ_SREM,الخبر,العليا,OFFICIAL_REPORTED_SALE,SYN-TRAN-1,2026-10-22,,,sale_price_sar,4500000,SAR,https://srem.moj.gov.sa/,LAND',
  ].join('\n');
  await nationalSources.getByTestId('national-observed-on').fill('2026-10-28');
+ // A browser user may not upload an unlicensed CSV without acknowledging rights.
+ await nationalSources.getByTestId('national-import-csv').setInputFiles({
+  name:'synthetic-nine-sources.csv',mimeType:'text/csv',buffer:Buffer.from(nationalResearchCSV)});
+ await nationalSources.getByTestId('national-import-status').filter({hasText:'الاستيراد موقوف'}).waitFor();
+ assert((await nationalSources.getByTestId('national-summary').innerText()).includes('الصفوف المستوردة: 0'),
+   'No research rows should import without manual rights acknowledgement');
+ await nationalSources.getByTestId('national-csv-rights-acknowledgement').check();
  await nationalSources.getByTestId('national-import-csv').setInputFiles({
   name:'synthetic-nine-sources.csv',mimeType:'text/csv',buffer:Buffer.from(nationalResearchCSV)});
  await nationalSources.getByTestId('national-import-status').filter({hasText:'أضيف 3'}).waitFor();
+ assert(!(await nationalSources.getByTestId('national-csv-rights-acknowledgement').isChecked()),
+   'New file must require new declaration');
+ mark('NO_API_RESEARCH_CSV_RIGHTS_PER_FILE_REAL_CHROMIUM',true);
+ const [qualificationFile]=await Promise.all([
+  page.waitForEvent('download'),qualification.getByTestId('qualification-download-review').click()]);
+ const review=JSON.parse(fs.readFileSync(await qualificationFile.path(),'utf8'));
+ assert(review.sourceReview.length===3&&review.referenceReview.length===1,
+  'review docket should combine the actual imported research with the captured UMAPS reference');
+ assert(review.decision==='HOLD_EXTERNAL_VERIFICATION_REQUIRED'&&
+  review.certifiedMarketValueSar===null&&review.certifiedMarketRentSar===null,
+  'no imported CSV entry may grant a certified value or annual market rent');
+ assert(!JSON.stringify(review).includes('4500000')&&
+  !JSON.stringify(review).includes('umaps.momah.gov.sa'),
+  'review docket must exclude unlicensed sale amounts and manual property links');
+ mark('CSV_TO_QUALIFICATION_REVIEW_HOLD_AND_DATA_MINIMIZATION_REAL_CHROMIUM',true);
  await nationalSources.getByTestId('national-source-filter').selectOption('GREM_AI');
  assert((await nationalSources.locator('tbody tr').count())===1,
   'AVM provider must be isolated as an estimate rather than an executed sale');
@@ -134,6 +193,7 @@ try{
  assert((await nationalSources.getByTestId('national-summary').innerText()).includes('الصفقات الفردية المثبتة: 0'),
   'Imported public-facing MOJ research cannot self-certify an executed deal');
  mark('NINE_NATIONAL_SOURCES_TYPED_RESEARCH_UI_AND_NO_AUTOVALUATION',true);
+ await nationalSources.getByTestId('national-csv-rights-acknowledgement').check();
  const truCsv=[
  'source,city,district,kind,recordId,eventDate,periodStart,periodEnd,metricName,metricValue,unit,sourceUrl,assetType,rangeLowSar,rangeHighSar,confidenceLabel',
  'BAYUT_TRUVALUE,مكة المكرمة,العوالي,EXTERNAL_AVM_ESTIMATE,SYN-T-1,,,,estimated_value_sar,1800000,SAR,https://www.bayut.sa/property-market-analysis/tru-value/,APARTMENT,1700000,1900000,HIGH'
@@ -194,7 +254,17 @@ try{
  await catalogs.getByTestId('listing-source-csv').setInputFiles({
   name:'synthetic-source-research.csv',mimeType:'text/csv',buffer:Buffer.from(researchCsv)
  });
+ await catalogs.getByTestId('listing-import-notice').filter({hasText:'استيراد العروض موقوف'}).waitFor();
+ assert((await catalogs.getByTestId('listing-research-scope').innerText()).includes('السجلات المستوردة: 0'),
+  'no listing records may be imported without a per-file rights declaration');
+ await catalogs.getByTestId('listing-csv-rights-acknowledgement').check();
+ await catalogs.getByTestId('listing-source-csv').setInputFiles({
+  name:'synthetic-source-research.csv',mimeType:'text/csv',buffer:Buffer.from(researchCsv)
+ });
  await catalogs.getByTestId('listing-import-notice').filter({hasText:'أُضيف 3'}).waitFor();
+ assert(!(await catalogs.getByTestId('listing-csv-rights-acknowledgement').isChecked()),
+  'listing source rights declaration must reset after one import');
+ mark('LISTING_CSV_PER_BATCH_RIGHTS_ACKNOWLEDGEMENT_REAL_CHROMIUM',true);
  await catalogs.getByTestId('listing-platform-filter').selectOption('DEAL');
  assert((await catalogs.locator('tbody tr').count())===1,'Deal requester must not merge into sales');
  assert((await catalogs.locator('tbody').innerText()).includes('طلب عقاري'),

@@ -22,7 +22,8 @@ function mark(key, passed, detail = null) {
 try {
   previewServer = await preview({ preview: { host: '127.0.0.1', port: 4173, strictPort: false } });
   const addr = previewServer.httpServer.address();
-  const url = `http://127.0.0.1:${addr.port}/`;
+  // This suite exercises the advanced workspace, not the separate default five-step owner flow.
+  const url = `http://127.0.0.1:${addr.port}/?ownerView=advanced`;
   results.previewUrl = url;
 
   const httpCheck = await fetch(url);
@@ -42,12 +43,13 @@ try {
   page.on('requestfailed', (req) => failedRequests.push(req.url()));
 
   await page.goto(url, { waitUntil: 'domcontentloaded' });
+  await page.locator('body[data-startak-owner-view="advanced"]').waitFor({ state: 'attached' });
   await page.locator('#root').waitFor({ state: 'attached' });
   const rootHtml = await page.locator('#root').innerHTML();
   mark('BROWSER_APP_BOOT', rootHtml.length > 100, `htmlLength=${rootHtml.length}`);
   mark('AR_SA_RUNTIME', (await page.locator('html').getAttribute('dir')) === 'rtl');
 
-  await page.getByText('مبنى قائم', { exact: true }).click();
+  await page.locator('header.owner-advanced-only').getByRole('button', { name: 'مبنى قائم', exact: true }).click();
   await page.waitForTimeout(250);
   const buildingBodyBefore = await page.locator('body').innerText();
   const buildingInput = page.locator('input[type="text"], input[inputmode="decimal"]').first();
@@ -59,7 +61,7 @@ try {
   const buildingBodyAfter = await page.locator('body').innerText();
   mark('EXISTING_BUILDING_E2E', buildingAfter !== buildingBefore && buildingBodyAfter !== buildingBodyBefore);
 
-  await page.getByText('أرض + تطوير', { exact: true }).click();
+  await page.locator('header.owner-advanced-only').getByRole('button', { name: 'أرض + تطوير', exact: true }).click();
   await page.waitForTimeout(250);
   const landBodyBefore = await page.locator('body').innerText();
   const landInput = page.locator('input[type="text"], input[inputmode="decimal"]').first();

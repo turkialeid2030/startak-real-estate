@@ -1,0 +1,149 @@
+name: STARTAK RE Exact-Head Expanded Verification
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/startak-re-exact-head-matrix.yml'
+      - 'docs/quality/STARTAK_RE_EXACT_HEAD_EXPANDED_TEST_PLAN_20261123.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: startak-re-expanded-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deep-platform:
+    name: Deep platform and browser/UX coverage
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e
+      options: --user 1001
+    env:
+      EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Confirm exact source
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Verify pinned Playwright binary
+        run: |
+          node - <<'JS'
+          const fs = require('node:fs');
+          const { chromium } = require('playwright');
+          if (require('playwright/package.json').version !== '1.62.1') throw new Error('PLAYWRIGHT_VERSION_MISMATCH');
+          if (!fs.existsSync(chromium.executablePath())) throw new Error('PINNED_CHROMIUM_NOT_FOUND');
+          console.log('EXACT_HEAD_PLAYWRIGHT=PASS');
+          JS
+      - name: Run deep and comprehensive verification with five financial seeds
+        run: node tools/deep-platform-verify.js
+      - name: Preserve non-sensitive deep test outputs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: startak-re-expanded-deep-${{ env.EXPECTED_HEAD_SHA }}
+          path: |
+            runtime-evidence/deep-platform/
+            runtime-evidence/e2e/
+          if-no-files-found: warn
+
+  security-and-rls:
+    name: Tenant, authentication, HTTP and PostgreSQL RLS negatives
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-test-only-not-production
+          POSTGRES_DB: startak_rls_ci
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Confirm exact source
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+      - run: npm ci
+      - name: Authenticated tenant-bound API regression and forgery negatives
+        run: |
+          node tests/architecture/run_authenticated_canonical_workspace_service_v1.js
+          node tests/architecture/run_canonical_workspace_product_runtime_v1.js
+          node tests/runtime/run_canonical_workspace_http_api_tests.js
+          node tests/runtime/run_authenticated_workspace_http_e2e_v1.js
+          node tests/architecture/run_authenticated_investment_committee_runtime_v1.js
+          node tests/architecture/run_authenticated_reporting_runtime_v1.js
+          node tests/architecture/run_oidc_jwt_jwks_authentication_v1.js
+          node tests/architecture/run_tenant_boundary_security_v1.js
+          node tests/architecture/run_authorization_audit_security_v1.js
+      - name: Disposable PostgreSQL 16 RLS isolation negative tests
+        run: |
+          node tools/security/generate-isolated-postgres-rls-fixture.js > "$RUNNER_TEMP/startak-rls-ci.sql"
+          docker exec -i "${{ job.services.postgres.id }}" psql -X -v ON_ERROR_STOP=1 -U postgres -d startak_rls_ci < "$RUNNER_TEMP/startak-rls-ci.sql"
+      - name: AI, market-source and dependency security guards
+        run: |
+          node tests/runtime/run_riai_public_ai_security.js
+          node tests/defects/personal_kite_source_gateway_20261110.js
+          node tests/architecture/run_vite_security_patch_floor_v1.js
+          npm audit --audit-level=high
+      - name: Explicit live environment limitation
+        run: |
+          echo "EXACT_HEAD_SECURITY_CI=ENGINEERING_CHECKS_ONLY"
+          echo "REAL_IDP_AND_PRODUCTION_TENANTS_VERIFIED=false"
+          echo "PRODUCTION_SECURITY_GO=HOLD_NOT_AUTHORIZED"
+
+  release-governance:
+    name: Signed-release and professional fail-closed controls
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.EXPECTED_HEAD_SHA }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Confirm exact source
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD_SHA"
+      - run: npm ci
+      - name: Release authority, regulation, evidence and readiness negatives
+        run: |
+          node tests/architecture/run_e2g_human_release_authority_deployment_decision.js
+          node tests/architecture/run_e2i_production_evidence_go_live_readiness.js
+          node tests/architecture/run_production_readiness_audit_v1.js
+          node tests/architecture/run_regulatory_closure_claim_boundary_v1.js
+      - name: Legacy 57 and private 17+4 synthetic contracts
+        run: |
+          node tests/architecture/run_legacy_57_manifest_integrity.js
+          node tests/architecture/run_private_golden_residual_reference_v1.js
+      - name: Explicit independent evidence limitation
+        run: |
+          echo "SIGNED_EXTERNAL_REVIEW_PAPERS_VERIFIED=false"
+          echo "ORIGINAL_PRIVATE_17_PLUS_4_EXECUTED=false"
+          echo "MAIN_MERGE_AND_PRODUCTION_GO=HOLD_NOT_AUTHORIZED"

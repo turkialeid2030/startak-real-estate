@@ -80,7 +80,8 @@ async function enterBuildingLeaseYears(page, value = '6') {
 try {
   previewServer = await preview({ preview: { host: '127.0.0.1', port: 4173, strictPort: false } });
   const addr = previewServer.httpServer.address();
-  const url = `http://127.0.0.1:${addr.port}/`;
+  // This suite exercises the advanced workspace, not the separate default five-step owner flow.
+  const url = `http://127.0.0.1:${addr.port}/?ownerView=advanced`;
   result.preview_url = url;
 
   const httpCheck = await fetch(url);
@@ -99,12 +100,13 @@ try {
   page.on('response', (r) => { if (r.status() >= 400) httpErrors.push({ status: r.status(), url: r.url() }); });
 
   await page.goto(url, { waitUntil: 'domcontentloaded' });
+  await page.locator('body[data-startak-owner-view="advanced"]').waitFor({ state: 'attached' });
   await page.locator('#root').waitFor({ state: 'attached' });
   const rootHtml = await page.locator('#root').innerHTML();
   const dir = await page.locator('html').getAttribute('dir');
   record('E2E-01-BOOT', rootHtml.length > 100 && dir === 'rtl', `htmlLen=${rootHtml.length} dir=${dir}`);
 
-  await page.getByText('مبنى قائم', { exact: true }).click();
+  await page.locator('header.owner-advanced-only').getByRole('button', { name: 'مبنى قائم', exact: true }).click();
   await page.waitForTimeout(200);
   const firstB = page.locator('input[type="text"], input[inputmode="decimal"]').first();
   const bodyBeforeB = await page.locator('body').innerText();
@@ -131,7 +133,7 @@ try {
     `leaseYears=${await leaseYearsB.inputValue()} exitCap=${await exitCapB.inputValue()} exitCost=${await exitCostB.inputValue()} safeVerdict=${SAFE_ANALYTICAL_VERDICT_RE.test(bodyAfterB)} legacyVerdict=${LEGACY_INVESTMENT_VERDICT_RE.test(bodyAfterB)}`
   );
 
-  await page.getByText('أرض + تطوير', { exact: true }).click();
+  await page.locator('header.owner-advanced-only').getByRole('button', { name: 'أرض + تطوير', exact: true }).click();
   await page.waitForTimeout(200);
   const firstL = page.locator('input[type="text"], input[inputmode="decimal"]').first();
   const bodyBeforeL = await page.locator('body').innerText();
@@ -145,7 +147,7 @@ try {
     `safeVerdict=${SAFE_ANALYTICAL_VERDICT_RE.test(bodyAfterL)} legacyVerdict=${LEGACY_INVESTMENT_VERDICT_RE.test(bodyAfterL)}`
   );
 
-  await page.getByText('مبنى قائم', { exact: true }).click();
+  await page.locator('header.owner-advanced-only').getByRole('button', { name: 'مبنى قائم', exact: true }).click();
   await page.waitForTimeout(250);
   // Discover/open the visible section header first. Collapsed controls are
   // deliberately absent from the accessibility tree and cannot be anchors.

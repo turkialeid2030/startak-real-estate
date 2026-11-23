@@ -41,11 +41,62 @@ const sources=[
  ['FIN','دورة طرق التقييم العقاري','Real estate valuation methodology course','https://fin.com.sa/ar/courses/real-estate-appraisal-methods/info',['fin.com.sa','www.fin.com.sa'],'PROFESSIONAL_REFERENCE'],
  ['EHSIBHA','احسبها — أدوات حسابية','Ehsibha research','https://ehsibha.sa/ive',['ehsibha.sa','www.ehsibha.sa'],'REFERENCE_ONLY'],
  ['THREE_QAR','ثري عقار — استشارات ذكية','Three Qar research','https://3qar.ai/',['3qar.ai','www.3qar.ai'],'REFERENCE_ONLY'],
+ // Sites already tracked by the independent user-operated listing CSV registry.
+ ['AQAR','عقار — العروض','Aqar listings','https://sa.aqar.fm/',['sa.aqar.fm'],'REFERENCE_ONLY'],
+ ['HARAJ','حراج — العروض','Haraj listings','https://haraj.com.sa/',['haraj.com.sa','www.haraj.com.sa'],'REFERENCE_ONLY'],
+ ['PROPERTY_FINDER','بروبرتي فايندر','Property Finder listings','https://www.propertyfinder.sa/',['propertyfinder.sa','www.propertyfinder.sa'],'REFERENCE_ONLY'],
+ ['WASALT','وصلت — العقارات','Wasalt listings','https://wasalt.sa/AR',['wasalt.sa','www.wasalt.sa'],'REFERENCE_ONLY'],
+ ['SAKANI','سكني — المشاريع','Sakani projects','https://sakani.sa/',['sakani.sa','www.sakani.sa'],'REFERENCE_ONLY'],
+ ['DEAL','ديل — الطلبات','Deal listings','https://dealapp.sa/',['dealapp.sa','www.dealapp.sa'],'REFERENCE_ONLY'],
+ // Ancillary official and geospatial references from the older project plan;
+ // not verified transaction datasets and not machine-readable data adapters.
+ ['SBC','المركز السعودي لكود البناء','Saudi Building Code','https://www.sbc.gov.sa/ar/Pages/default.aspx',['sbc.gov.sa','www.sbc.gov.sa'],'PROFESSIONAL_REFERENCE'],
+ ['SGS','هيئة المساحة الجيولوجية السعودية','Saudi Geological Survey','https://sgs.gov.sa/',['sgs.gov.sa','www.sgs.gov.sa'],'PROFESSIONAL_REFERENCE'],
+ ['INFATH','إنفاذ — المزادات','Infath auctions','https://infath.gov.sa/auctions',['infath.gov.sa','www.infath.gov.sa'],'REFERENCE_ONLY'],
+ ['ZATCA','هيئة الزكاة والضريبة والجمارك','ZATCA','https://zatca.gov.sa/',['zatca.gov.sa','www.zatca.gov.sa'],'PROFESSIONAL_REFERENCE'],
+ ['SAMA','البنك المركزي السعودي','Saudi Central Bank','https://www.sama.gov.sa/ar-sa/Pages/default.aspx',['sama.gov.sa','www.sama.gov.sa'],'REFERENCE_ONLY'],
+ ['CMA','هيئة السوق المالية','Capital Market Authority','https://cma.gov.sa/Pages/default.aspx',['cma.gov.sa','www.cma.gov.sa'],'PROFESSIONAL_REFERENCE'],
+ ['SAUDI_EXCHANGE','تداول السعودية','Saudi Exchange','https://www.saudiexchange.sa/',['saudiexchange.sa','www.saudiexchange.sa'],'REFERENCE_ONLY'],
+ ['VISION2030','رؤية السعودية 2030','Saudi Vision 2030','https://www.vision2030.gov.sa/ar/',['vision2030.gov.sa','www.vision2030.gov.sa'],'REFERENCE_ONLY'],
+ ['GOOGLE_MAPS','خرائط جوجل','Google Maps','https://www.google.com/maps',['www.google.com'],'REFERENCE_ONLY'],
+ ['OSM','خريطة أوبن ستريت ماب','OpenStreetMap','https://www.openstreetmap.org/',['openstreetmap.org','www.openstreetmap.org'],'REFERENCE_ONLY'],
+ ['MAPBOX','خرائط ماب بوكس','Mapbox maps','https://www.mapbox.com/',['mapbox.com','www.mapbox.com'],'REFERENCE_ONLY'],
+ ['GOOGLE_EARTH_ENGINE','جوجل إيرث إنجن','Google Earth Engine','https://earthengine.google.com/',['earthengine.google.com'],'REFERENCE_ONLY'],
 ];
 const SOURCES=Object.freeze(sources.map(([id,nameAr,nameEn,url,hosts,mode])=>
  Object.freeze({id,nameAr,nameEn,url,hosts:Object.freeze(hosts),mode,
   productionAdapterEnabled:false,dataLicenseVerified:false})));
 const BY_ID=Object.freeze(Object.fromEntries(SOURCES.map(s=>[s.id,s])));
+// Specific service links from previously supplied research. They are NOT
+// authenticated data feeds or authority to reproduce third-party content.
+const SOURCE_ENTRYPOINTS=Object.freeze([
+ Object.freeze({"id":"REGA_DAILY","sourceId":"REGA","nameAr":"الصفقات اليومية","nameEn":"Raw daily sales","url":"https://rei.rega.gov.sa/ar/advanced-search/live","kind":"OFFICIAL_RESEARCH","automaticDataExtraction":false,"valuationAuthorized":false}),
+ Object.freeze({"id":"REGA_CLEANED","sourceId":"REGA_DEALS","nameAr":"صفقات البيع المنقحة","nameEn":"Cleaned sales research","url":"https://rei.rega.gov.sa/ar/advanced-search/deals","kind":"OFFICIAL_RESEARCH","automaticDataExtraction":false,"valuationAuthorized":false}),
+ Object.freeze({"id":"REGA_RENTAL","sourceId":"REGA_RENTS","nameAr":"المؤشرات الإيجارية","nameEn":"Rental indicators","url":"https://rei.rega.gov.sa/ar/advanced-search/rental-market","kind":"AGGREGATE_RESEARCH","automaticDataExtraction":false,"valuationAuthorized":false}),
+ Object.freeze({"id":"REGA_ADS","sourceId":"REGA","nameAr":"المعروض المرخص","nameEn":"Licensed advertised supply","url":"https://rei.rega.gov.sa/ar/advanced-search/ads-supply-market","kind":"ASKING_RESEARCH","automaticDataExtraction":false,"valuationAuthorized":false}),
+ Object.freeze({"id":"MOJ_REPORTS","sourceId":"MOJ_OPEN","nameAr":"تقارير وزارة العدل","nameEn":"MOJ open reports","url":"https://www.moj.gov.sa/ar/OpenData/Pages/reports.aspx","kind":"LICENSE_REVIEW","automaticDataExtraction":false,"valuationAuthorized":false}),
+ Object.freeze({"id":"MOJ_POLICY","sourceId":"MOJ_OPEN","nameAr":"سياسة البيانات المفتوحة","nameEn":"Open data terms","url":"https://www.moj.gov.sa/ar/OpenData/Pages/OpenDataPolicy.aspx","kind":"LICENSE_REVIEW","automaticDataExtraction":false,"valuationAuthorized":false}),
+ Object.freeze({"id":"SUHAIL_TRANSACTIONS","sourceId":"SUHAIL","nameAr":"صفقات سهيل — الرياض","nameEn":"Suhail transactions Riyadh","url":"https://www.suhail.ai/Riyadh/transactions","kind":"THIRD_PARTY_RESEARCH","automaticDataExtraction":false,"valuationAuthorized":false}),
+ Object.freeze({"id":"SUHAIL_METRICS","sourceId":"SUHAIL","nameAr":"مؤشرات سهيل — الرياض","nameEn":"Suhail metrics Riyadh","url":"https://www.suhail.ai/Riyadh/metrics","kind":"THIRD_PARTY_RESEARCH","automaticDataExtraction":false,"valuationAuthorized":false}),
+ Object.freeze({"id":"EARTH_TRANSACTIONS","sourceId":"EARTH","nameAr":"صفقات أرض","nameEn":"Earth transactions","url":"https://earthapp.com.sa/transaction","kind":"THIRD_PARTY_RESEARCH","automaticDataExtraction":false,"valuationAuthorized":false}),
+ Object.freeze({"id":"EARTH_MAP_DEALS","sourceId":"EARTH","nameAr":"صفقات أرض على الخريطة","nameEn":"Earth map deals","url":"https://map.earthapp.com.sa/deals","kind":"THIRD_PARTY_RESEARCH","automaticDataExtraction":false,"valuationAuthorized":false}),
+ Object.freeze({"id":"EARTH_VALUE","sourceId":"EARTH","nameAr":"قيم أرضك","nameEn":"Earth land estimate","url":"https://map.earthapp.com.sa/value","kind":"EXTERNAL_ESTIMATE_RESEARCH","automaticDataExtraction":false,"valuationAuthorized":false}),
+ Object.freeze({"id":"EARTH_OFFERS","sourceId":"EARTH","nameAr":"العروض في أرض","nameEn":"Earth offers","url":"https://map.earthapp.com.sa/offers","kind":"ASKING_RESEARCH","automaticDataExtraction":false,"valuationAuthorized":false}),
+ Object.freeze({"id":"EARTH_CHARTS","sourceId":"EARTH","nameAr":"مؤشرات أرض","nameEn":"Earth market charts","url":"https://map.earthapp.com.sa/charts","kind":"AGGREGATE_RESEARCH","automaticDataExtraction":false,"valuationAuthorized":false}),
+ Object.freeze({"id":"UMAPS_PORTAL","sourceId":"UMAPS","nameAr":"الخرائط الحضرية الرسمية","nameEn":"Official urban maps","url":"https://umaps.momah.gov.sa/","kind":"MUNICIPAL_RESEARCH","automaticDataExtraction":false,"valuationAuthorized":false}),
+ Object.freeze({"id":"TAQEEM_FACILITIES","sourceId":"TAQEEM","nameAr":"دليل منشآت تقييم","nameEn":"Taqeem facilities","url":"https://taqeem.gov.sa/facilities","kind":"PROFESSIONAL_RESEARCH","automaticDataExtraction":false,"valuationAuthorized":false}),
+ Object.freeze({"id":"AQAR_OFFERS","sourceId":"AQAR","nameAr":"إعلانات عقار","nameEn":"Aqar listings","url":"https://sa.aqar.fm/","kind":"ASKING_RESEARCH","automaticDataExtraction":false,"valuationAuthorized":false}),
+ Object.freeze({"id":"BAYUT_VALUATION","sourceId":"BAYUT","nameAr":"التقييم الاسترشادي — بيوت","nameEn":"Bayut TrueValue","url":"https://www.bayut.sa/property-market-analysis/tru-value/","kind":"EXTERNAL_ESTIMATE_RESEARCH","automaticDataExtraction":false,"valuationAuthorized":false}),
+ Object.freeze({"id":"INFATH_AUCTIONS","sourceId":"INFATH","nameAr":"مزادات إنفاذ","nameEn":"Infath auctions","url":"https://infath.gov.sa/auctions","kind":"AUCTION_RESEARCH_NOT_EXECUTED","automaticDataExtraction":false,"valuationAuthorized":false}),
+ Object.freeze({"id":"SBC_CODE","sourceId":"SBC","nameAr":"الكود السعودي للبناء","nameEn":"Saudi Building Code portal","url":"https://www.sbc.gov.sa/ar/Pages/default.aspx","kind":"BUILDING_CODE_REFERENCE","automaticDataExtraction":false,"valuationAuthorized":false})
+]);
+const BY_ENTRYPOINT_ID=Object.freeze(Object.fromEntries(SOURCE_ENTRYPOINTS.map(e=>[e.id,e])));
+for(const ep of SOURCE_ENTRYPOINTS){
+ const owner=BY_ID[ep.sourceId],u=new URL(ep.url);
+ if(!owner||u.protocol!=='https:'||u.username||u.password||u.port||
+    !owner.hosts.includes(u.hostname.toLowerCase()))
+  throw Error('NOAPI_ENTRYPOINT_UNSAFE:'+ep.id);
+}
 function cleanText(x,max=100){
  if(typeof x!=='string')throw Error('NOAPI_TEXT_TYPE_INVALID');
  const t=x.trim();
@@ -133,5 +184,5 @@ function importReferences(json){
  }
  return mergeReferences([],payload.references);
 }
-module.exports={VERSION,SOURCES,BY_ID,MAX_REFERENCES,MAX_PORTABLE_BYTES,
+module.exports={VERSION,SOURCES,BY_ID,SOURCE_ENTRYPOINTS,BY_ENTRYPOINT_ID,MAX_REFERENCES,MAX_PORTABLE_BYTES,
  captureReference,mergeReferences,exportReferences,importReferences};

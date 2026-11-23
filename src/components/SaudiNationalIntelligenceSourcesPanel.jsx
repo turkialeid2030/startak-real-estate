@@ -1,6 +1,7 @@
 import React,{useMemo,useState} from 'react';
 import KitePersonalTransactionsPanel from './KitePersonalTransactionsPanel.jsx';
 import NoApiSourceBridgePanel from './NoApiSourceBridgePanel.jsx';
+import EvidenceQualificationReviewPanel from './EvidenceQualificationReviewPanel.jsx';
 const ResearchCsvUpload=require('./ResearchCsvUpload');
 const {useLocale}=require('../i18n/LocaleContext.js');
 const {SOURCES,OFFICIAL_RESEARCH_ENTRYPOINTS,importNationalSourcesCsv,mergeNationalResearch,filterNationalResearch,
@@ -27,7 +28,7 @@ const classEn={
  EXTERNAL_AVM_ESTIMATE:'External automated valuation estimate',
  RESEARCH_NOTE:'Research reference without numeric value'
 };
-export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange}){
+export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange,subject={}}){
  const {locale}=useLocale();
  const en=locale==='en';
  const tr=(ar,translation)=>en?translation:ar;
@@ -35,6 +36,8 @@ export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange}
  const evidenceClassLabels=en?classEn:classLabel;
  const metrics=en?metricEn:metricAr;
  const [records,setRecords]=useState([]);
+ const [manualReferences,setManualReferences]=useState([]);
+ const [rightsAcknowledged,setRightsAcknowledged]=useState(false);
  const [sourceId,setSourceId]=useState(''),[city,setCity]=useState('');
  const [evidenceClass,setEvidenceClass]=useState('');
  const [observedOn,setObservedOn]=useState(()=>new Date().toISOString().slice(0,10));
@@ -61,6 +64,13 @@ export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange}
  async function importFile(file){
   if(!file)return;
   if(file.size>MAX_CSV_BYTES){setNotice({ar:'حجم الملف أكبر من الحد المسموح',en:'CSV file exceeds allowed size'});return;}
+  if(!rightsAcknowledged){
+   setNotice({ar:'الاستيراد موقوف: أقر بحق إعادة استخدام مجموعة البيانات أولًا. هذا الإقرار ليس إثبات ترخيص.',
+    en:'Import blocked: acknowledge permission to reuse this dataset first. This does not verify a provider licence.'});
+   return;
+  }
+  setRightsAcknowledged(false);
+
   try{
    const fresh=importNationalSourcesCsv(await file.text(),{observedOn});
    const merged=mergeNationalResearch(records,fresh.records);
@@ -98,7 +108,8 @@ export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange}
      </a>)}
    </div>
   </div>
-  <NoApiSourceBridgePanel/>
+  <NoApiSourceBridgePanel onReferencesChange={setManualReferences}/>
+  <EvidenceQualificationReviewPanel records={records} references={manualReferences} subject={subject}/>
   <KitePersonalTransactionsPanel locale={locale} onResearchRows={ingestKite}/>
   <p className="mt-3 text-xs text-slate-300 break-all">
    {en?'CSV schema: ':'صيغة CSV: '}<code>source,city,district,kind,recordId,eventDate,periodStart,periodEnd,metricName,metricValue,unit,sourceUrl,assetType</code>.
@@ -114,7 +125,13 @@ export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange}
    </label>
    <div className="rounded border border-slate-600 p-2 text-xs">
     <p className="mb-1 text-slate-200">{tr('استيراد CSV بحثي','Import research CSV')}</p>
-    <ResearchCsvUpload testId="national-import-csv" locale={locale} onChange={async e=>{const file=e.target.files?.[0];e.target.value='';await importFile(file);}}/>
+    <label className="mb-2 flex max-w-sm items-start gap-2 text-xs text-amber-200">
+      <input type="checkbox" data-testid="national-csv-rights-acknowledgement"
+       checked={rightsAcknowledged} onChange={e=>setRightsAcknowledged(e.target.checked)} className="mt-1"/>
+      <span>{tr('أقر بأن لدي حق استخدام ملف البيانات بحثيًا، ولا يحتوي بيانات شخصية غير مصرح بها؛ إقراري لا يثبت رخصة الجهة.',
+        'I acknowledge permission to use this file for research without unauthorized personal data. This is not provider licence verification.')}</span>
+     </label>
+     <ResearchCsvUpload testId="national-import-csv" locale={locale} onChange={async e=>{const file=e.target.files?.[0];e.target.value='';await importFile(file);}}/>
    </div>
    <label className="text-xs">{tr('المدينة','City')}
     <select data-testid="national-city-filter" value={city} onChange={e=>setCity(e.target.value)}

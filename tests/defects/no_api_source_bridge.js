@@ -3,11 +3,40 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const {
- VERSION,SOURCES,BY_ID,MAX_REFERENCES,MAX_PORTABLE_BYTES,
+ VERSION,SOURCES,BY_ID,SOURCE_ENTRYPOINTS,BY_ENTRYPOINT_ID,MAX_REFERENCES,MAX_PORTABLE_BYTES,
  captureReference,mergeReferences,exportReferences,importReferences,
 }=require('../../src/market/no-api-source-bridge');
+const AS_OF_FOR_ENDPOINTS=new Date('2026-11-22T12:00:00Z');
 
-assert.equal(SOURCES.length,35,'historical source inventory must cover all thirty-five reviewed destinations');
+assert.equal(SOURCES.length,53,'35 historic + 6 listing + 12 ancillary references');
+assert.equal(SOURCE_ENTRYPOINTS.length,19);
+assert.equal(new Set(SOURCE_ENTRYPOINTS.map(ep=>ep.id)).size,19);
+for(const ep of SOURCE_ENTRYPOINTS){
+ const source=BY_ID[ep.sourceId],url=new URL(ep.url);
+ assert.ok(source,'UNREGISTERED_ENDPOINT_PROVIDER');
+ assert.equal(url.protocol,'https:');
+ assert.ok(source.hosts.includes(url.hostname.toLowerCase()),'CROSS_PROVIDER_ENTRYPOINT');
+ assert.equal(ep.automaticDataExtraction,false);
+ assert.equal(ep.valuationAuthorized,false);
+ const manual=captureReference({sourceId:ep.sourceId,sourceUrl:ep.url,
+   observedOn:'2026-11-21'},{asOf:AS_OF_FOR_ENDPOINTS});
+ assert.equal(manual.evidenceClass,'RESEARCH_REFERENCE_ONLY');
+ assert.equal(manual.sourceAuthenticated,false);
+ assert.equal(manual.valuationSar,null);
+}
+assert.equal(BY_ENTRYPOINT_ID.SUHAIL_TRANSACTIONS.url,'https://www.suhail.ai/Riyadh/transactions');
+assert.equal(BY_ENTRYPOINT_ID.SUHAIL_METRICS.url,'https://www.suhail.ai/Riyadh/metrics');
+assert.equal(BY_ENTRYPOINT_ID.EARTH_VALUE.url,'https://map.earthapp.com.sa/value');
+assert.equal(BY_ENTRYPOINT_ID.EARTH_OFFERS.url,'https://map.earthapp.com.sa/offers');
+assert.equal(BY_ENTRYPOINT_ID.EARTH_TRANSACTIONS.url,'https://earthapp.com.sa/transaction');
+assert.equal(BY_ENTRYPOINT_ID.AQAR_OFFERS.url,'https://sa.aqar.fm/');
+assert.equal(BY_ENTRYPOINT_ID.INFATH_AUCTIONS.url,'https://infath.gov.sa/auctions');
+assert.equal(BY_ENTRYPOINT_ID.SBC_CODE.url,'https://www.sbc.gov.sa/ar/Pages/default.aspx');
+for(const id of ['SBC','SGS','INFATH','ZATCA','SAMA','CMA','SAUDI_EXCHANGE',
+ 'VISION2030','GOOGLE_MAPS','OSM','MAPBOX','GOOGLE_EARTH_ENGINE']){
+ assert.ok(BY_ID[id]&&BY_ID[id].productionAdapterEnabled===false);
+ assert.equal(BY_ID[id].dataLicenseVerified,false);
+}
 assert.equal(BY_ID.UMAPS.url,'https://umaps.momah.gov.sa/');
 assert.equal(BY_ID.REGA.mode,'REFERENCE_ONLY');
 assert.equal(BY_ID.MOJ_OPEN.mode,'LICENSE_REVIEW_FOR_FILE');
@@ -81,11 +110,17 @@ assert.throws(()=>mergeReferences([],Array(MAX_REFERENCES+1).fill(ref).map((r,i)
 }))),/NOAPI_MAX_REFERENCES/);
 const jsx=fs.readFileSync(path.join(__dirname,'../../src/components/NoApiSourceBridgePanel.jsx'),'utf8');
 const host=fs.readFileSync(path.join(__dirname,'../../src/components/SaudiNationalIntelligenceSourcesPanel.jsx'),'utf8');
-assert.match(host,/<NoApiSourceBridgePanel\/>/);
+// Require the mounted bridge to pass its local source-register state back
+// to the review host; props added by the evidence qualification gate are valid.
+assert.match(host,/<NoApiSourceBridgePanel\b[^>]*\bonReferencesChange=\{setManualReferences\}[^>]*\/>/);
 assert.match(jsx,/data-testid="noapi-source-select"/);
+assert.match(jsx,/data-testid="noapi-entrypoint-select"/);
+assert.match(jsx,/data-testid="noapi-navigation-only"/);
+assert.match(jsx,/href=\{originalPage\}/);
+assert.match(jsx,/setSourceUrl\(ep\?\.url\|\|src\.url\)/);
 assert.match(jsx,/data-testid="noapi-add-link"/);
 assert.match(jsx,/data-testid="noapi-export"/);
 assert.match(jsx,/data-testid="noapi-import"/);
 assert.match(jsx,/target="_blank" rel="noopener noreferrer"/);
 assert.doesNotMatch(jsx,/fetch\(|axios|document\.cookie|localStorage|sessionStorage/i);
-console.log('STARTAK_NOAPI_SOURCE_BRIDGE=PASS manual_links='+SOURCES.length+' source_copy=false verified=0');
+console.log('STARTAK_NOAPI_SOURCE_BRIDGE=PASS manual_links='+SOURCES.length+' detailed_pages='+SOURCE_ENTRYPOINTS.length+' source_copy=false verified=0');

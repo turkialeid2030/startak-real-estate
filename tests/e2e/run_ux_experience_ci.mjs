@@ -110,7 +110,8 @@ async function viewportAudit(page, name, width, height) {
 try {
   previewServer = await preview({ preview: { host: '127.0.0.1', port: 4173, strictPort: false } });
   const addr = previewServer.httpServer.address();
-  const url = `http://127.0.0.1:${addr.port}/`;
+  // This suite exercises the advanced workspace, not the separate default five-step owner flow.
+  const url = `http://127.0.0.1:${addr.port}/?ownerView=advanced`;
   browser = await chromium.launch({ executablePath: EXECUTABLE, headless: true, args: ['--no-sandbox', '--disable-gpu'] });
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, locale: 'ar-SA' });
   const page = await context.newPage();
@@ -122,6 +123,7 @@ try {
   page.on('pageerror', (err) => pageErrors.push(err.message));
 
   await page.goto(url, { waitUntil: 'domcontentloaded' });
+  await page.locator('body[data-startak-owner-view="advanced"]').waitFor({ state: 'attached' });
   await page.locator('#root').waitFor({ state: 'attached' });
   await page.waitForTimeout(250);
 
@@ -181,7 +183,9 @@ try {
 
   const coreViews = ['مبنى قائم', 'أرض + تطوير', 'التدفقات النقدية', 'تحليل الحساسية', 'لوحة المؤشرات'];
   for (const label of coreViews) {
-    const locator = page.getByText(label, { exact: true }).first();
+    const locator = ['مبنى قائم', 'أرض + تطوير'].includes(label)
+      ? page.locator('header.owner-advanced-only').getByRole('button', { name: label, exact: true })
+      : page.getByText(label, { exact: true }).first();
     const exists = await locator.count();
     record(`NAV_${label}_PRESENT`, exists > 0);
     if (exists > 0) {
@@ -194,7 +198,7 @@ try {
     }
   }
 
-  await page.getByText('مبنى قائم', { exact: true }).first().click();
+  await page.locator('header.owner-advanced-only').getByRole('button', { name: 'مبنى قائم', exact: true }).click();
   await page.waitForTimeout(200);
   const editable = page.locator('input[type="text"], input[inputmode="decimal"], input[type="number"]').first();
   if (await editable.count()) {
