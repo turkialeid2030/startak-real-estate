@@ -3,7 +3,10 @@
 // automation or credential access. Research observations are never promoted to
 // authenticated sales, independently priced rent or certified appraisals.
 const {SOURCES,importNationalSourcesCsv}=require('./saudi-national-intelligence-sources');
-const BY_SOURCE=Object.freeze(Object.fromEntries(SOURCES.map(x=>[x.id,x])));
+// Kite has month-only source observations and a separate optional connector;
+ // it cannot be entered through the day-specific no-API reported-sale form.
+const PERSONAL_SOURCES=Object.freeze(SOURCES.filter(x=>x.id!=='KITE_MOJ_QUARTERLY'));
+const BY_SOURCE=Object.freeze(Object.fromEntries(PERSONAL_SOURCES.map(x=>[x.id,x])));
 const METRIC_UNITS=Object.freeze({
  sale_price_sar:'SAR',estimated_value_sar:'SAR',
  deal_count:'COUNT',deal_value_sar:'SAR',avg_sale_sar:'SAR',
@@ -69,5 +72,5 @@ function buildPersonalNoApiResearchEntry(data,{asOf=new Date()}={}){
   throw Error('PERSONAL_NOAPI_UNEXPECTED_AUTHORITY');
  return row;
 }
-module.exports={BY_SOURCE,METRIC_UNITS,AGGREGATE_METRICS,COLUMNS,
+module.exports={PERSONAL_SOURCES,BY_SOURCE,METRIC_UNITS,AGGREGATE_METRICS,COLUMNS,
  buildPersonalNoApiResearchEntry};

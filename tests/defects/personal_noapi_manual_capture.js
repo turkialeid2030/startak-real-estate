@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const {
- BY_SOURCE,METRIC_UNITS,AGGREGATE_METRICS,buildPersonalNoApiResearchEntry,
+ PERSONAL_SOURCES,BY_SOURCE,METRIC_UNITS,AGGREGATE_METRICS,buildPersonalNoApiResearchEntry,
 }=require('../../src/market/personal-noapi-manual-entry');
 const {mergeNationalResearch}=require('../../src/market/saudi-national-intelligence-sources');
 const asOf='2026-11-22',observedOn='2026-11-20';
@@ -109,6 +109,13 @@ for(const change of [
   confidenceLabel:'MEDIUM',modelAsOf:'2026-11-19',...change,
  }),/PERSONAL_NOAPI_CAPTURE_REJECTED/);
 }
+assert.equal(PERSONAL_SOURCES.length,11);
+assert.ok(!PERSONAL_SOURCES.some(s=>s.id==='KITE_MOJ_QUARTERLY'));
+assert.equal(BY_SOURCE.KITE_MOJ_QUARTERLY,undefined);
+assert.throws(()=>pick({sourceId:'KITE_MOJ_QUARTERLY',
+ kind:'THIRD_PARTY_REPORTED_SALE',recordId:'MONTH-NO-DAY',
+ eventDate:'2026-10-01',metricValue:'1000000'}),
+ /PERSONAL_NOAPI_SOURCE_UNAVAILABLE/);
 assert.equal(METRIC_UNITS.avg_rent_sar,'SAR');
 assert.ok(AGGREGATE_METRICS.includes('avg_rent_sar'));
 assert.ok(BY_SOURCE.REGA_REI.allowed.includes('OFFICIAL_REPORTED_SALE'));

@@ -1,9 +1,9 @@
 import React,{useState} from 'react';
 const {useLocale}=require('../i18n/LocaleContext.js');
 const {
- BY_SOURCE,AGGREGATE_METRICS,buildPersonalNoApiResearchEntry,
+ PERSONAL_SOURCES,BY_SOURCE,AGGREGATE_METRICS,buildPersonalNoApiResearchEntry,
 }=require('../market/personal-noapi-manual-entry');
-const {SOURCES}=require('../market/saudi-national-intelligence-sources');
+
 
 const INPUT='mt-1 w-full min-w-0 rounded-md border border-slate-600 bg-slate-900 px-2 py-2 text-sm text-slate-100';
 const KINDS={
@@ -130,7 +130,7 @@ export default function PersonalNoApiManualEntryPanel({subject={},onResearchRows
    <label className="text-xs">{tr('الجهة / المصدر','Research provider')}
     <select data-testid="personal-noapi-source" className={INPUT} value={sourceId}
       onChange={e=>changeSource(e.target.value)}>
-      {SOURCES.map(s=><option key={s.id} value={s.id} data-user-content translate="no">{s.label}</option>)}
+      {PERSONAL_SOURCES.map(s=><option key={s.id} value={s.id} data-user-content translate="no">{s.label}</option>)}
     </select>
    </label>
    <label className="text-xs">{tr('نوع المعلومة','Observation type')}
