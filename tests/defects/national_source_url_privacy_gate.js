@@ -209,11 +209,20 @@ for(const override of [
 }
 for(const override of [
  {providerRangeLowSar:2},{providerRangeHighSar:2},
- {providerStatedConfidence:'HIGH'},{recordId:'FORGED-TRANSACTION'},
+ {providerStatedConfidence:'HIGH'},
 ]){
  assert.throws(()=>mergeNationalResearch([],[{...agg,...override}]),
   /NATIONAL_RESEARCH_UNTRUSTED_RECORD/,
-  'aggregate research must not acquire a forged AVM/sale identity');
+  'aggregate research must not acquire AVM metadata');
 }
+// A source may legitimately publish a series identifier for an aggregate.
+// It is an aggregate reference, never evidence of an executed sale.
+const aggregateWithSeriesId=mergeNationalResearch([],[{
+ ...agg,recordId:'SERIES-2026-10',
+}]);
+assert.equal(aggregateWithSeriesId.added,1);
+assert.equal(aggregateWithSeriesId.records[0].evidenceClass,'THIRD_PARTY_AGGREGATE');
+assert.equal(aggregateWithSeriesId.verifiedSales,0);
+assert.equal(aggregateWithSeriesId.autoValuationEnabled,false);
 
 console.log('NATIONAL_RESEARCH_URL_PRIVACY_GATE=PASS');
