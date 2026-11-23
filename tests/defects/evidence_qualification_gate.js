@@ -87,6 +87,37 @@ assert.equal(actual.totals.duplicatePairs,1);
 assert.equal(actual.totals.crossProviderReviewPairs,2);
 assert.equal(actual.marketValuationEligible,false);
 
+const pipeSeparatedLocations=evaluate([
+ {...sale,recordId:'PIPE-128',city:'الرياض|شمال',district:'الملز'},
+ {...moj,recordId:'PIPE-128',city:'الرياض',district:'شمال|الملز'},
+],[]);
+assert.equal(pipeSeparatedLocations.findings[0].status,'HOLD_REVIEW');
+assert.equal(pipeSeparatedLocations.findings[1].status,'HOLD_REVIEW');
+assert.equal(pipeSeparatedLocations.totals.crossProviderReviewPairs,0,
+ 'different city/district tuples must never collide when fields contain pipes');
+const realPipeLocationMatch=evaluate([
+ {...sale,recordId:'PIPE-128',city:'الرياض|شمال',district:'الملز'},
+ {...moj,recordId:'PIPE-128',city:'الرياض|شمال',district:'الملز'},
+],[]);
+assert.equal(realPipeLocationMatch.totals.crossProviderReviewPairs,1,
+ 'identical full location tuples with delimiters remain possible duplicate candidates');
+
+// An imported invalid category must not export arbitrary nested metadata or
+// user-provided text into a portable reviewer dossier.
+const sensitiveMarker='PRIVATE_UNTRUSTED_SOURCE_CATEGORY_FIELD_901';
+const forgedCategory=evaluate([
+ {...sale,evidenceClass:{internal:sensitiveMarker}},
+ {...sale,evidenceClass:sensitiveMarker},
+],[]);
+assert.equal(forgedCategory.totals.rejected,2);
+assert.ok(forgedCategory.findings.every(f=>f.evidenceClass===null));
+const categoryDossier=portableReviewDossier(forgedCategory);
+assert.ok(!categoryDossier.includes(sensitiveMarker),
+ 'review dossier must not leak untrusted evidence class content');
+assert.equal(forgedCategory.marketValuationEligible,false);
+assert.equal(forgedCategory.certifiedMarketValueSar,null);
+
+
 // Worst-case source repetition previously built a quadratic-size list with
 // 562,500 pair objects. Count all pairs but retain bounded review samples.
 const repetitive=evaluate([
