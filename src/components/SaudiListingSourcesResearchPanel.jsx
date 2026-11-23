@@ -19,10 +19,17 @@ export default function SaudiListingSourcesResearchPanel({onResearchChange}){
  const [observedOn,setObservedOn]=useState(()=>new Date().toISOString().slice(0,10));
  const [notice,setNotice]=useState('');
  const [batchIssues,setBatchIssues]=useState([]);
+ const [rightsAcknowledged,setRightsAcknowledged]=useState(false);
  const summary=useMemo(()=>listingResearchSummary(records),[records]);
  const filtered=useMemo(()=>filterListingResearch(records,{city,sourceId:platform,kind}),[records,city,platform,kind]);
  const onFile=async file=>{
   if(!file)return;
+  if(!rightsAcknowledged){
+   setNotice({ar:'استيراد العروض موقوف: أقر بحق استخدام الملف أولًا. الإقرار لا يثبت الترخيص.',
+    en:'Listings import blocked: acknowledge permission for this file first. A declaration is not licence verification.'});
+   return;
+  }
+  setRightsAcknowledged(false);
   if(file.size>MAX_CSV_BYTES){setNotice({ar:'حجم ملف CSV يتجاوز الحد البحثي',en:'CSV exceeds the research size limit'});return;}
   try{
    const parsed=parseListingResearchCsv(await file.text(),{observedOn});
@@ -51,7 +58,12 @@ export default function SaudiListingSourcesResearchPanel({onResearchChange}){
    </label>
    <div className="rounded border border-slate-600 p-2 text-xs">
     <p className="mb-1 text-slate-200">{L("إضافة CSV بحثي للعروض")}</p>
-    <ResearchCsvUpload testId="listing-source-csv" locale={locale} onChange={async e=>{const file=e.target.files?.[0];e.target.value='';await onFile(file);}}/>
+    <label className="mb-2 flex max-w-sm items-start gap-2 text-xs text-amber-200">
+      <input type="checkbox" data-testid="listing-csv-rights-acknowledgement"
+       checked={rightsAcknowledged} onChange={e=>setRightsAcknowledged(e.target.checked)} className="mt-1"/>
+      <span>{en?'I acknowledge permission to reuse this listing file for research and no unauthorized personal data. My declaration does not verify a licence.':'أقر بحق استخدام ملف العروض بحثيًا وعدم تضمينه بيانات شخصية غير مصرح بها؛ الإقرار ليس إثبات رخصة من الموقع.'}</span>
+     </label>
+     <ResearchCsvUpload testId="listing-source-csv" locale={locale} onChange={async e=>{const file=e.target.files?.[0];e.target.value='';await onFile(file);}}/>
    </div>
    <label className="text-xs">{L("المدينة")}<select data-testid="listing-city-filter" value={city} onChange={e=>setCity(e.target.value)}
      className="mt-1 block rounded border border-slate-600 bg-slate-900 p-2">

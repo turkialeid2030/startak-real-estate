@@ -153,9 +153,19 @@ try{
   'MOJ_SREM,الخبر,العليا,OFFICIAL_REPORTED_SALE,SYN-TRAN-1,2026-10-22,,,sale_price_sar,4500000,SAR,https://srem.moj.gov.sa/,LAND',
  ].join('\n');
  await nationalSources.getByTestId('national-observed-on').fill('2026-10-28');
+ // A browser user may not upload an unlicensed CSV without acknowledging rights.
+ await nationalSources.getByTestId('national-import-csv').setInputFiles({
+  name:'synthetic-nine-sources.csv',mimeType:'text/csv',buffer:Buffer.from(nationalResearchCSV)});
+ await nationalSources.getByTestId('national-import-status').filter({hasText:'الاستيراد موقوف'}).waitFor();
+ assert((await nationalSources.getByTestId('national-summary').innerText()).includes('الصفوف المستوردة: 0'),
+   'No research rows should import without manual rights acknowledgement');
+ await nationalSources.getByTestId('national-csv-rights-acknowledgement').check();
  await nationalSources.getByTestId('national-import-csv').setInputFiles({
   name:'synthetic-nine-sources.csv',mimeType:'text/csv',buffer:Buffer.from(nationalResearchCSV)});
  await nationalSources.getByTestId('national-import-status').filter({hasText:'أضيف 3'}).waitFor();
+ assert(!(await nationalSources.getByTestId('national-csv-rights-acknowledgement').isChecked()),
+   'New file must require new declaration');
+ mark('NO_API_RESEARCH_CSV_RIGHTS_PER_FILE_REAL_CHROMIUM',true);
  const [qualificationFile]=await Promise.all([
   page.waitForEvent('download'),qualification.getByTestId('qualification-download-review').click()]);
  const review=JSON.parse(fs.readFileSync(await qualificationFile.path(),'utf8'));
@@ -183,6 +193,7 @@ try{
  assert((await nationalSources.getByTestId('national-summary').innerText()).includes('الصفقات الفردية المثبتة: 0'),
   'Imported public-facing MOJ research cannot self-certify an executed deal');
  mark('NINE_NATIONAL_SOURCES_TYPED_RESEARCH_UI_AND_NO_AUTOVALUATION',true);
+ await nationalSources.getByTestId('national-csv-rights-acknowledgement').check();
  const truCsv=[
  'source,city,district,kind,recordId,eventDate,periodStart,periodEnd,metricName,metricValue,unit,sourceUrl,assetType,rangeLowSar,rangeHighSar,confidenceLabel',
  'BAYUT_TRUVALUE,مكة المكرمة,العوالي,EXTERNAL_AVM_ESTIMATE,SYN-T-1,,,,estimated_value_sar,1800000,SAR,https://www.bayut.sa/property-market-analysis/tru-value/,APARTMENT,1700000,1900000,HIGH'

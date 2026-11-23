@@ -37,6 +37,7 @@ export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange,
  const metrics=en?metricEn:metricAr;
  const [records,setRecords]=useState([]);
  const [manualReferences,setManualReferences]=useState([]);
+ const [rightsAcknowledged,setRightsAcknowledged]=useState(false);
  const [sourceId,setSourceId]=useState(''),[city,setCity]=useState('');
  const [evidenceClass,setEvidenceClass]=useState('');
  const [observedOn,setObservedOn]=useState(()=>new Date().toISOString().slice(0,10));
@@ -62,6 +63,12 @@ export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange,
  }
  async function importFile(file){
   if(!file)return;
+  if(!rightsAcknowledged){
+   setNotice({ar:'الاستيراد موقوف: أقر بحق إعادة استخدام مجموعة البيانات أولًا. هذا الإقرار ليس إثبات ترخيص.',
+    en:'Import blocked: acknowledge permission to reuse this dataset first. This does not verify a provider licence.'});
+   return;
+  }
+  setRightsAcknowledged(false);
   if(file.size>MAX_CSV_BYTES){setNotice({ar:'حجم الملف أكبر من الحد المسموح',en:'CSV file exceeds allowed size'});return;}
   try{
    const fresh=importNationalSourcesCsv(await file.text(),{observedOn});
@@ -117,7 +124,13 @@ export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange,
    </label>
    <div className="rounded border border-slate-600 p-2 text-xs">
     <p className="mb-1 text-slate-200">{tr('استيراد CSV بحثي','Import research CSV')}</p>
-    <ResearchCsvUpload testId="national-import-csv" locale={locale} onChange={async e=>{const file=e.target.files?.[0];e.target.value='';await importFile(file);}}/>
+    <label className="mb-2 flex max-w-sm items-start gap-2 text-xs text-amber-200">
+      <input type="checkbox" data-testid="national-csv-rights-acknowledgement"
+       checked={rightsAcknowledged} onChange={e=>setRightsAcknowledged(e.target.checked)} className="mt-1"/>
+      <span>{tr('أقر بأن لدي حق استخدام ملف البيانات بحثيًا، ولا يحتوي بيانات شخصية غير مصرح بها؛ إقراري لا يثبت رخصة الجهة.',
+        'I acknowledge permission to use this file for research without unauthorized personal data. This is not provider licence verification.')}</span>
+     </label>
+     <ResearchCsvUpload testId="national-import-csv" locale={locale} onChange={async e=>{const file=e.target.files?.[0];e.target.value='';await importFile(file);}}/>
    </div>
    <label className="text-xs">{tr('المدينة','City')}
     <select data-testid="national-city-filter" value={city} onChange={e=>setCity(e.target.value)}
