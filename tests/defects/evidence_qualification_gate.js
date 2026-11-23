@@ -144,6 +144,27 @@ for(const flag of ['licenseVerified','propertyIdentityVerified','professionalRep
  assert.equal(forged.referenceFindings[0].status,'REJECTED',
   'manual source cannot assert its own '+flag);
 }
+// The qualification gate must never accept an arbitrary imported object
+// merely because its authority flags look like a captureReference result.
+// Validate source URL/host, date, method, type, and extra fields again.
+for(const altered of [
+ {...manual,sourceUrl:'https://umaps.momah.gov.sa.attacker.example/'},
+ {...manual,sourceUrl:'https://umaps.momah.gov.sa/?session=private'},
+ {...manual,sourceUrl:'http://umaps.momah.gov.sa/'},
+ {...manual,observedOn:'2026-11-23'},
+ {...manual,observedOn:'2026-02-30'},
+ {...manual,city:'<script>'},
+ {...manual,mode:'VERIFIED_TRANSACTION'},
+ {...manual,method:'PROVIDER_AUTHENTICATED'},
+ {...manual,personalResearch:false},
+ {...manual,unsupportedAuthority:'APPROVED'},
+]){
+ const checked=evaluate([],[altered]);
+ assert.equal(checked.referenceFindings[0].status,'REJECTED',
+  'tampered no-API manual reference must be rejected at qualification boundary');
+ assert.equal(checked.marketValuationEligible,false);
+}
+assert.equal(evaluate([],[manual]).referenceFindings[0].status,'HOLD_REVIEW');
 const protoRef=evaluate([],[{...manual,sourceId:'constructor'}]);
 assert.equal(protoRef.referenceFindings[0].status,'REJECTED');
 assert.equal(evaluate([]).decision,'HOLD_EXTERNAL_VERIFICATION_REQUIRED');
