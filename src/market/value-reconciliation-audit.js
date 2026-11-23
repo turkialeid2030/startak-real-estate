@@ -167,13 +167,21 @@ function reconcileValuationMethods({marketValueSar,costValueSar,incomeValueSar,
     if(efficiency>1)issues.push('NLA_EXCEEDS_GFA');
     if(efficiency<.5)issues.push('LOW_NLA_EFFICIENCY_REQUIRES_SURVEY');
   }
-  if(sourceStatus!=='VERIFIED_INDEPENDENTLY')issues.push('SOURCE_EVIDENCE_NOT_INDEPENDENTLY_VERIFIED');
+  // sourceStatus is a caller-supplied label, not independently verified
+  // provenance. The audit module never receives or checks issuer signatures,
+  // data-rights licenses, independent verifier credentials, or source bytes.
+  // Therefore even the literal VERIFIED_INDEPENDENTLY must not silence HOLD
+  // evidence warnings or imply source authentication.
+  issues.push('SOURCE_EVIDENCE_NOT_INDEPENDENTLY_VERIFIED');
+  if(sourceStatus==='VERIFIED_INDEPENDENTLY')
+    issues.push('SOURCE_VERIFICATION_LABEL_UNTRUSTED');
   const severe=issues.some(x=>/MATERIAL_|ARITHMETIC_MISMATCH|NLA_EXCEEDS|OUT_OF_RANGE|(?:^METHOD_VALUE_INVALID_|_INVALID$)/.test(x));
   return {
     status:severe?'RECONCILIATION_HOLD':entries.length<2?'INSUFFICIENT_METHODS':'REVIEW_REQUIRED',
     methodsSar:Object.fromEntries(entries.map(([k,v])=>[k,money(v)])),
     differences:pairs,metrics,issues:[...new Set(issues)],
-    certified:false,automaticPrimaryValueSar:null,
+    certified:false,independentSourceVerificationEstablished:false,
+    automaticPrimaryValueSar:null,
     methodDecision:'Independent methods are not averaged or arbitrarily weighted; source validity, rights, economic assumptions and reconciled professional rationale are required.',
   };
 }
