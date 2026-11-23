@@ -63,13 +63,14 @@ export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange,
  }
  async function importFile(file){
   if(!file)return;
+  if(file.size>MAX_CSV_BYTES){setNotice({ar:'حجم الملف أكبر من الحد المسموح',en:'CSV file exceeds allowed size'});return;}
   if(!rightsAcknowledged){
    setNotice({ar:'الاستيراد موقوف: أقر بحق إعادة استخدام مجموعة البيانات أولًا. هذا الإقرار ليس إثبات ترخيص.',
     en:'Import blocked: acknowledge permission to reuse this dataset first. This does not verify a provider licence.'});
    return;
   }
   setRightsAcknowledged(false);
-  if(file.size>MAX_CSV_BYTES){setNotice({ar:'حجم الملف أكبر من الحد المسموح',en:'CSV file exceeds allowed size'});return;}
+
   try{
    const fresh=importNationalSourcesCsv(await file.text(),{observedOn});
    const merged=mergeNationalResearch(records,fresh.records);

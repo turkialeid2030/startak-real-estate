@@ -24,13 +24,14 @@ export default function SaudiListingSourcesResearchPanel({onResearchChange}){
  const filtered=useMemo(()=>filterListingResearch(records,{city,sourceId:platform,kind}),[records,city,platform,kind]);
  const onFile=async file=>{
   if(!file)return;
+  if(file.size>MAX_CSV_BYTES){setNotice({ar:'حجم ملف CSV يتجاوز الحد البحثي',en:'CSV exceeds the research size limit'});return;}
   if(!rightsAcknowledged){
    setNotice({ar:'استيراد العروض موقوف: أقر بحق استخدام الملف أولًا. الإقرار لا يثبت الترخيص.',
     en:'Listings import blocked: acknowledge permission for this file first. A declaration is not licence verification.'});
    return;
   }
   setRightsAcknowledged(false);
-  if(file.size>MAX_CSV_BYTES){setNotice({ar:'حجم ملف CSV يتجاوز الحد البحثي',en:'CSV exceeds the research size limit'});return;}
+
   try{
    const parsed=parseListingResearchCsv(await file.text(),{observedOn});
    const merged=mergeListingResearch(records,parsed.records);
