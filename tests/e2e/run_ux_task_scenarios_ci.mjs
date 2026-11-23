@@ -111,7 +111,8 @@ async function enterBuildingLeaseYears(page, act, value = '6') {
 try {
   previewServer = await preview({ preview: { host: '127.0.0.1', port: 4173, strictPort: false } });
   const addr = previewServer.httpServer.address();
-  const url = `http://127.0.0.1:${addr.port}/`;
+  // This suite exercises the advanced workspace, not the separate default five-step owner flow.
+  const url = `http://127.0.0.1:${addr.port}/?ownerView=advanced`;
   browser = await chromium.launch({ executablePath: EXECUTABLE, headless: true, args: ['--no-sandbox', '--disable-gpu'] });
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, locale: 'ar-SA' });
   const page = await context.newPage();
@@ -120,11 +121,12 @@ try {
   page.on('console', (msg) => { if (msg.type() === 'error') report.consoleErrors.push(msg.text()); });
 
   await page.goto(url, { waitUntil: 'domcontentloaded' });
+  await page.locator('body[data-startak-owner-view="advanced"]').waitFor({ state: 'attached' });
   await page.locator('#root').waitFor({ state: 'attached' });
   await page.waitForTimeout(250);
 
   await runTask('NOVICE_EXISTING_BUILDING_REVIEW', page, async (act) => {
-    await act(() => page.getByText('مبنى قائم', { exact: true }).first().click());
+    await act(() => page.locator('header.owner-advanced-only').getByRole('button', { name: 'مبنى قائم', exact: true }).click());
     const input = page.locator('input[type="text"], input[inputmode="decimal"]').first();
     const original = await input.inputValue();
     await act(() => input.fill('120'));
@@ -148,7 +150,7 @@ try {
     await act(() => page.getByText('التدفقات النقدية', { exact: true }).first().click());
     await page.waitForTimeout(200);
     if ((await page.locator('body').innerText()).length < 500) throw new Error('cash-flow view lacks meaningful visible content');
-    await act(() => page.getByText('مبنى قائم', { exact: true }).first().click());
+    await act(() => page.locator('header.owner-advanced-only').getByRole('button', { name: 'مبنى قائم', exact: true }).click());
     await input.fill(original || '100');
     await input.blur();
     return {
@@ -161,7 +163,7 @@ try {
   });
 
   await runTask('NOVICE_LAND_DEVELOPMENT_REVIEW', page, async (act) => {
-    await act(() => page.getByText('أرض + تطوير', { exact: true }).first().click());
+    await act(() => page.locator('header.owner-advanced-only').getByRole('button', { name: 'أرض + تطوير', exact: true }).click());
     await page.waitForTimeout(150);
     const inputs = page.locator('input[type="text"], input[inputmode="decimal"]');
     if ((await inputs.count()) < 2) throw new Error('land workflow does not expose enough editable inputs');
@@ -178,14 +180,14 @@ try {
     await act(() => page.getByText('لوحة المؤشرات', { exact: true }).first().click());
     await page.waitForTimeout(200);
     const decision = await safeDecisionVisible(page);
-    await act(() => page.getByText('أرض + تطوير', { exact: true }).first().click());
+    await act(() => page.locator('header.owner-advanced-only').getByRole('button', { name: 'أرض + تطوير', exact: true }).click());
     await first.fill(oldFirst || '30'); await first.blur();
     await second.fill(oldSecond || '60'); await second.blur();
     return { decision, taskGoal: 'edit land assumptions, inspect sensitivity, read analytical state' };
   });
 
   await runTask('FINANCING_DISCOVERY_AND_REVERSIBILITY', page, async (act) => {
-    await act(() => page.getByText('مبنى قائم', { exact: true }).first().click());
+    await act(() => page.locator('header.owner-advanced-only').getByRole('button', { name: 'مبنى قائم', exact: true }).click());
     await page.waitForTimeout(150);
     const header = page.getByRole('button', { name: /التمويل العقاري/ }).first();
     const section = header.locator('xpath=ancestor::div[contains(@class,"rounded-2xl") and contains(@class,"overflow-hidden")][1]');
@@ -214,7 +216,7 @@ try {
 
   await runTask('MOBILE_CRITICAL_PATH', page, async (act) => {
     await act(() => page.setViewportSize({ width: 390, height: 844 }));
-    await act(() => page.getByText('أرض + تطوير', { exact: true }).first().click());
+    await act(() => page.locator('header.owner-advanced-only').getByRole('button', { name: 'أرض + تطوير', exact: true }).click());
     await act(() => page.getByText('تحليل الحساسية', { exact: true }).first().click());
     await page.waitForTimeout(250);
     await act(() => page.getByText('لوحة المؤشرات', { exact: true }).first().click());
