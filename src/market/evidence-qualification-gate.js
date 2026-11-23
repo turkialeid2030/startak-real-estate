@@ -75,7 +75,8 @@ function inspectRecord(record,i,{subject,asOf}){
   'independentMarketPriceVerified','marketValuationEligible',
   'professionalReportAuthorized','transactionAuthorized','licenseVerified'];
  if(claims.some(k=>record[k]===true))reasons.push('UNTRUSTED_AUTHORITY_CLAIM');
- if(!codeOnly(record.city)||!record.city||!codeOnly(record.district)||!record.district)
+ if(!codeOnly(record.city)||!record.city.trim()||
+    !codeOnly(record.district)||!record.district.trim())
   reasons.push('LOCATION_REQUIRED');
  if(!isoDate(record.observedOn)||record.observedOn>asOf)
   reasons.push('OBSERVATION_DATE_INVALID');
@@ -92,7 +93,7 @@ function inspectRecord(record,i,{subject,asOf}){
  if(number!==null&&(typeof number!=='number'||!Number.isFinite(number)||
    number<0||number>1e15))reasons.push('METRIC_OUT_OF_RANGE');
  if(bucket==='REPORTED_SALE_CANDIDATE'){
-  if(!codeOnly(record.recordId)||!record.recordId||!isoDate(record.eventDate))
+  if(!codeOnly(record.recordId)||!record.recordId.trim()||!isoDate(record.eventDate))
    reasons.push('TRANSACTION_ID_DATE_REQUIRED');
   if(record.metricName!==EXPECTED_METRIC[record.evidenceClass]||
    record.metricUnit!=='SAR'||!(number>0))
@@ -123,7 +124,8 @@ function inspectRecord(record,i,{subject,asOf}){
  // acknowledgement, or any "approved" flag in an imported CSV.
  reasons.push('DATASET_LICENSE_AND_RIGHTS_NOT_INDEPENDENTLY_VERIFIED');
  reasons.push('INDEPENDENT_REVIEW_AND_SOURCE_EVIDENCE_REQUIRED');
- const safeReference=codeOnly(record.recordId)?record.recordId.slice(0,80):'';
+ const safeReference=codeOnly(record.recordId)&&record.recordId.trim()?
+  record.recordId.slice(0,80):'';
  return Object.freeze({
   index:i,sourceId:source?.id||null,
   // Never reflect arbitrary imported evidenceClass objects/text into review exports.
@@ -186,8 +188,10 @@ function qualifiedResearchIntake({records=[],references=[],subject={},asOf=new D
   // NOT a unique transaction identifier. Use the full validated source ID
   // (up to 130 characters) for same-source and cross-provider matching.
   // Distinct long transaction IDs may share their first 80 characters.
-  const fullReferenceId=codeOnly(record.recordId)&&record.recordId?
-   norm(record.recordId):'';
+  // Published reference IDs are exact identifiers: lowercasing/Arabic folding
+  // could merge distinct IDs even though source records differ.
+  const fullReferenceId=codeOnly(record.recordId)&&record.recordId.trim()?
+   record.recordId.trim():'';
   if(!fullReferenceId||!f.sourceId)continue;
   // Same provider + full source reference must be unique even if the
   // imported amounts, date, locale, district or asset type later change.
