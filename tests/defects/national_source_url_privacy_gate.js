@@ -1,0 +1,69 @@
+'use strict';
+const assert=require('node:assert/strict');
+const {importNationalSourcesCsv,mergeNationalResearch}=require('../../src/market/saudi-national-intelligence-sources');
+const {qualifiedResearchIntake,portableReviewDossier}=require('../../src/market/evidence-qualification-gate');
+
+const asOf=new Date('2026-11-22T00:00:00.000Z');
+const observedOn='2026-11-20';
+const header='source,kind,city,district,recordId,eventDate,metricName,metricValue,unit,sourceUrl,assetType';
+const row=url=>'REGA_REI,OFFICIAL_REPORTED_SALE,الرياض,الملز,NAT-123,2026-11-19,sale_price_sar,2400000,SAR,'+url+',LAND';
+function imported(url){
+ return importNationalSourcesCsv([header,row(url)].join('\n'),{asOf,observedOn});
+}
+const clean=imported('https://rei.rega.gov.sa/ar/advanced-search/deals');
+assert.equal(clean.rejected.length,0);
+assert.equal(clean.records.length,1);
+const dirty='https://rei.rega.gov.sa/ar/advanced-search/deals?session=PRIVATE_TOKEN_987&owner_email=user%40example.invalid#auth=PRIVATE_TOKEN_987';
+const scrubbed=imported(dirty);
+assert.equal(scrubbed.rejected.length,0);
+assert.equal(scrubbed.records.length,1);
+assert.equal(scrubbed.records[0].sourceUrl,clean.records[0].sourceUrl);
+assert.ok(!JSON.stringify(scrubbed.records).includes('PRIVATE_TOKEN_987'));
+assert.ok(!JSON.stringify(scrubbed.records).includes('user%40example.invalid'));
+assert.equal(scrubbed.records[0].sourceRecordAuthenticated,false);
+assert.equal(scrubbed.records[0].marketValuationEligible,false);
+const valid=scrubbed.records[0];
+
+const merged=mergeNationalResearch([],scrubbed.records);
+assert.equal(merged.records.length,1);
+assert.equal(merged.records[0].sourceUrl,clean.records[0].sourceUrl);
+assert.equal(merged.verifiedSales,0);
+assert.equal(merged.autoValuationEnabled,false);
+const qualified=qualifiedResearchIntake({
+ records:merged.records,references:[],subject:{city:'الرياض',district:'الملز',assetType:'LAND'},asOf,
+});
+assert.equal(qualified.decision,'HOLD_EXTERNAL_VERIFICATION_REQUIRED');
+assert.equal(qualified.totals.reportedSaleCandidates,1);
+assert.equal(qualified.totals.independentlyQualifiedComparables,0);
+assert.equal(qualified.certifiedMarketValueSar,null);
+assert.ok(!portableReviewDossier(qualified).includes('PRIVATE_TOKEN_987'));
+
+for(const url of [
+ 'https://unexpected.rei.rega.gov.sa/ar/advanced-search/deals',
+ 'https://rei.rega.gov.sa:8443/ar/advanced-search/deals',
+ 'http://rei.rega.gov.sa/ar/advanced-search/deals',
+ 'https://rei.rega.gov.sa.attacker.invalid/ar/advanced-search/deals',
+ 'https://user:secret@rei.rega.gov.sa/ar/advanced-search/deals',
+]){
+ const result=imported(url);
+ assert.equal(result.records.length,0,'invalid source URL must be excluded: '+url);
+ assert.ok(result.rejected[0].issues.includes('SOURCE_URL_UNTRUSTED'));
+}
+for(const override of [
+ {sourceUrl:dirty},
+ {sourceUrl:'https://rei.rega.gov.sa:8443/ar/advanced-search/deals'},
+ {sourceRecordAuthenticated:true},
+ {independentMarketPriceVerified:true},
+ {professionalReportAuthorized:true},
+ {marketValuationEligible:true},
+ {executedTransactionRecord:true},
+ {origin:'THIRD_PARTY_AVM'},
+ {country:'US'},
+ {officialSourcePage:false},
+ {personalResearch:false},
+]){
+ assert.throws(()=>mergeNationalResearch([],[{...valid,...override}]),
+  /NATIONAL_RESEARCH_UNTRUSTED_RECORD/,
+  'restored research cannot bypass source and authority validation');
+}
+console.log('NATIONAL_RESEARCH_URL_PRIVACY_GATE=PASS');
