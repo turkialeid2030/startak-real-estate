@@ -86,6 +86,12 @@ export default function EvidenceQualificationReviewPanel({records=[],references=
      {tr('قيم سوقية معتمدة','Certified market values')}: <strong>0</strong>
     </div>
    </div>
+   {count.crossProviderPairsTruncated&&<p className="mt-2 text-xs text-amber-200"
+     data-testid="qualification-cross-provider-pairs-truncated">
+     {tr('عدد أزواج الصفقات المشتبه بتكرارها كامل، لكن ملف المراجعة يحتوي على عينة محدودة من الأزواج: ',
+       'The duplicate-pair count is complete, but the review file contains only a bounded sample of pairs: ')}
+     {count.crossProviderReviewPairsSampled} / {count.crossProviderReviewPairs}
+   </p>}
    <p className="mt-3 text-xs text-slate-300">
     {tr('هذه النتائج فحص أولي للهوية والتواريخ والتكرار ونوع الدليل؛ لا تثبت سعر البيع أو حق إعادة الاستخدام أو الملكية.',
      'These are preliminary identity/date/duplicate/evidence-type checks; they do not authenticate sale price, reuse rights or title.')}
