@@ -5,7 +5,7 @@ const {reviewLocalUrbanGrowth,MAX_BYTES}=require('../geospatial/local-urban-grow
 const READY='READY_FOR_PROFESSIONAL_URBAN_GROWTH_ACCESSIBILITY_REVIEW';
 export default function LocalUrbanGrowthReviewPanel(){
  const {locale}=useLocale(),en=locale==='en',t=(ar,english)=>en?english:ar;
- const {linkedCase}=usePersonalCaseSession();
+ const {linkedCase,researchScope,publishResearchScope}=usePersonalCaseSession();
  const [caseId,setCase]=useState(''),[property,setProperty]=useState(''),[scope,setScope]=useState(''),[date,setDate]=useState(''),[result,setResult]=useState(null),[busy,setBusy]=useState(false);
  const epoch=useRef(0),fileRef=useRef(null);
  const clear=()=>{epoch.current++;setResult(null);setBusy(false);if(fileRef.current)fileRef.current.value='';};
@@ -28,6 +28,11 @@ export default function LocalUrbanGrowthReviewPanel(){
  <h3 className="text-sm font-semibold">{t('النمو العمراني وتغير الوصول إلى الخدمات','Urban growth and accessibility change')}</h3>
  <p className="mt-2 text-xs text-amber-200">{t('مقارنة بحثية بين قياسات مستوردة متجانسة. لا تحسب المسارات أو تقدر القيمة أو تثبت أصالة المصدر. المشروعات المستقبلية سياق مستقل ولا تعامل كخدمات قائمة.','Research comparison of imported like-for-like observations. No route calculation, valuation or source authentication. Future projects are separate context, not existing services.')}</p>
  <div className="mt-3 grid gap-2 md:grid-cols-4">{fields.map(([label,value,set,id])=><label key={id} className="text-xs">{label}<input data-testid={id} type={id==='urban-growth-date'?'date':'text'} maxLength={160} readOnly={id==='urban-growth-case'&&!!linkedCase} value={value} onChange={e=>{clear();set(e.target.value);}} className="mt-1 block w-full rounded border border-slate-700 bg-slate-950 p-2"/></label>)}</div>
+ {linkedCase&&caseId===linkedCase.caseId&&<div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+ <button type="button" data-testid="urban-growth-share-scope" disabled={busy||!scope.trim()||!date} onClick={()=>publishResearchScope({caseId,marketScopeRef:scope.trim(),asOfDate:date})} className="rounded border border-slate-700 px-3 py-2 disabled:opacity-50">{t('مشاركة النطاق والتاريخ مع أدوات البحث','Share scope and date with research tools')}</button>
+ <button type="button" data-testid="urban-growth-apply-scope" disabled={busy||!researchScope||researchScope.caseId!==caseId} onClick={()=>{if(researchScope?.caseId!==caseId)return;clear();setScope(researchScope.marketScopeRef);setDate(researchScope.asOfDate);}} className="rounded border border-slate-700 px-3 py-2 disabled:opacity-50">{t('استخدام النطاق والتاريخ المشترك','Apply shared scope and date')}</button>
+ {researchScope?.caseId===caseId&&<span data-user-content>{researchScope.marketScopeRef} / {researchScope.asOfDate}</span>}
+ </div>}
  <label className="mt-3 block text-xs">{t('استيراد القياسات وأزواج المقارنة والسياسة','Import observations, comparison pairs and policy')}<input ref={fileRef} type="file" data-testid="urban-growth-file" accept=".json,application/json" disabled={busy||!ready} onChange={e=>load(e.target.files?.[0])} className="mt-1 block w-full"/></label>
  <p className="mt-2 text-xs text-slate-400">{t('لا تحفظ الملفات تلقائيًا ولا ترفع إلى الخادم.','Files are not automatically stored or uploaded.')}</p>
  <button type="button" data-testid="urban-growth-reset" onClick={clear} className="mt-2 rounded border border-slate-700 px-3 py-2 text-xs">{t('مسح التحليل','Clear review')}</button>
