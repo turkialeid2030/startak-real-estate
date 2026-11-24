@@ -13,11 +13,11 @@ const OWNER=Object.freeze({financial:'FINANCE',operational:'ASSET_OPERATIONS',pr
 const COUNTS=new Set(['maintenanceDue','maintenanceOnTime','maintenanceCompleted','qualityEligibleCompleted','reopenedWithinReviewWindow','adminCompleted','adminDue','adminOnTime','controlsDue','controlsCompletedOnTime']);
 const SIGNED=new Set(['cashAvailableForDebtServiceSar']);
 const MAX=1e12;
-const plain=v=>!!v&&typeof v==='object'&&!Array.isArray(v);
+const plain=v=>!!v&&typeof v==='object'&&!Array.isArray(v)&&(Object.getPrototypeOf(v)===Object.prototype||Object.getPrototypeOf(v)===null);
 const ref=v=>typeof v==='string'&&v.trim()===v&&v.length>0&&v.length<=160;
 const date=v=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&Number.isFinite(Date.parse(v))&&new Date(v+'T00:00:00Z').toISOString().slice(0,10)===v;
 const finite=v=>typeof v==='number'&&Number.isFinite(v);
-const ratio=(a,b)=>finite(a)&&finite(b)&&b>0?a/b:null;
+const ratio=(a,b)=>{if(!finite(a)||!finite(b)||b<=0)return null;const v=a/b;return finite(v)&&Math.abs(v)<=MAX?v:null;};
 const delta=(a,b)=>finite(a)&&finite(b)?a-b:null;
 const isPresent=v=>v!==null&&v!==undefined;
 const hold=blockers=>({version:VERSION,status:'HOLD',blockers,metrics:[],coverage:null,sourceAuthenticityIndependentlyVerified:false,valuationChanged:false,transactionAuthorized:false,spendingAuthorized:false,productionAuthorized:false});
@@ -52,6 +52,11 @@ function evaluateEfficiency(input,expected={}){
    if(!plain(entry)||!plain(entry.values)||!ref(entry.sourceRef)||!date(entry.reviewedAt)||entry.reviewedAt<periodEnd||entry.reviewedAt>asOfDate||entry.caseId!==caseId||entry.propertyRef!==propertyRef||entry.marketScopeRef!==marketScopeRef||entry.measurementBasisRef!==measurementBasisRef||entry.periodStart!==periodStart||entry.periodEnd!==periodEnd){errors.push('EFFICIENCY_EVIDENCE_SCOPE:'+group);continue;}
    if(Object.keys(entry.values).some(k=>!fields.includes(k))){errors.push('EFFICIENCY_UNKNOWN_FIELD:'+group);continue;}
    lineage[group]={sourceRef:entry.sourceRef,reviewedAt:entry.reviewedAt,measurementBasisRef,periodStart,periodEnd};
+   if(group==='financial'&&['budgetRevenueSar','budgetOperatingExpensesSar'].some(k=>isPresent(entry.values[k]))){
+    const b=entry.budget;
+    if(!plain(b)||!ref(b.sourceRef)||!date(b.approvedAt)||b.approvedAt>periodStart||b.caseId!==caseId||b.propertyRef!==propertyRef||b.marketScopeRef!==marketScopeRef||b.periodStart!==periodStart||b.periodEnd!==periodEnd||b.measurementBasisRef!==measurementBasisRef)errors.push('EFFICIENCY_BUDGET_APPROVAL_OR_SCOPE_INVALID');
+    else lineage[group].budget={sourceRef:b.sourceRef,approvedAt:b.approvedAt};
+   }
    for(const k of fields){
     const v=entry.values[k];
     if(!isPresent(v)){values[k]=null;continue;}
@@ -64,8 +69,8 @@ function evaluateEfficiency(input,expected={}){
   }
   for(const [output,hours] of [['maintenanceCompleted','maintenanceLaborHours'],['adminCompleted','adminLaborHours']])if(values[hours]===0&&values[output]>0)errors.push('EFFICIENCY_OUTPUT_WITH_ZERO_HOURS:'+output);
   for(const [key,target] of Object.entries(targets)){
-   if(!defs.some(d=>d[0]===key)||!plain(target)||!finite(target.value)||Math.abs(target.value)>MAX||!ref(target.sourceRef)||!date(target.approvedAt)||target.approvedAt>periodStart)errors.push('EFFICIENCY_INVALID_TARGET:'+key);
-   else {const d=defs.find(x=>x[0]===key);if(d[2]==='RATIO'&&key!=='surplusMargin'&&(target.value<0||(['collectionRate','occupancy','maintenanceSla','maintenanceReopenRate','adminSla','controlTimeliness'].includes(key)&&target.value>1)))errors.push('EFFICIENCY_INVALID_TARGET_RANGE:'+key);}
+   if(!defs.some(d=>d[0]===key)||!plain(target)||!finite(target.value)||Math.abs(target.value)>MAX||!ref(target.sourceRef)||!date(target.approvedAt)||target.approvedAt>periodStart||target.caseId!==caseId||target.propertyRef!==propertyRef||target.marketScopeRef!==marketScopeRef||target.periodStart!==periodStart||target.periodEnd!==periodEnd||target.measurementBasisRef!==measurementBasisRef)errors.push('EFFICIENCY_INVALID_TARGET:'+key);
+   else {const d=defs.find(x=>x[0]===key);if((key==='surplusMargin'&&target.value>1)||(d[2]==='RATIO'&&key!=='surplusMargin'&&(target.value<0||(['collectionRate','occupancy','maintenanceSla','maintenanceReopenRate','adminSla','controlTimeliness'].includes(key)&&target.value>1)))||(['SAR_PER_SQM_DAY','COUNT_PER_HOUR'].includes(d[2])&&target.value<0))errors.push('EFFICIENCY_INVALID_TARGET_RANGE:'+key);}
   }
   if(errors.length)return hold(errors);
   const metrics=defs.map(([id,axis,unit,direction,calc])=>{
@@ -73,7 +78,7 @@ function evaluateEfficiency(input,expected={}){
    const usable=finite(value);
    const variance=usable&&target?value-target.value:null;
    const status=!usable?'UNAVAILABLE':!target?'NOT_TARGETED':(direction==='HIGHER'?variance>=0:variance<=0)?'ON_TARGET':'OFF_TARGET';
-   return {id,axis,unit,direction,ownerRole:OWNER[axis],value:usable?value:null,target:target?target.value:null,targetSourceRef:target?.sourceRef??null,variance,status,sourceRef:lineage[axis]?.sourceRef??null};
+   return {id,axis,unit,direction,ownerRole:OWNER[axis],value:usable?value:null,target:target?target.value:null,targetSourceRef:target?.sourceRef??null,variance,status,sourceRef:lineage[axis]?.sourceRef??null,budgetSourceRef:['revenueVariance','expenseVariance'].includes(id)?lineage.financial?.budget?.sourceRef??null:null};
   });
   const available=metrics.filter(x=>x.value!==null).length;
   const warnings=[];
@@ -81,6 +86,7 @@ function evaluateEfficiency(input,expected={}){
   if(values.effectiveRevenueSar===0)warnings.push('ZERO_REVENUE_MARGIN_UNAVAILABLE');
   if(values.operatingExpensesSar===0)warnings.push('ZERO_EXPENSE_REQUIRES_REVIEW');
   if(metrics.find(x=>x.id==='maintenanceOutputPerHour').value!==null&&metrics.find(x=>x.id==='maintenanceReopenRate').value===null)warnings.push('PRODUCTIVITY_WITHOUT_QUALITY_GUARDRAIL');
+  if(metrics.find(x=>x.id==='adminOutputPerHour').value!==null&&metrics.find(x=>x.id==='adminSla').value===null)warnings.push('ADMIN_PRODUCTIVITY_WITHOUT_TIMELINESS_GUARDRAIL');
   if(values.maintenanceExpenseSar!==null&&values.operatingExpensesSar!==null&&finite(values.maintenanceExpenseSar)&&finite(values.operatingExpensesSar)&&values.maintenanceExpenseSar>values.operatingExpensesSar)warnings.push('MAINTENANCE_EXPENSE_EXCEEDS_REPORTED_OPEX_CHECK_CLASSIFICATION');
   return {version:VERSION,status:available===0?'NO_MEASURABLE_KPI':available===metrics.length?'COMPLETE_RESEARCH_REVIEW':'PARTIAL_RESEARCH_REVIEW',blockers:[],caseId,propertyRef,marketScopeRef,periodStart,periodEnd,asOfDate,measurementBasisRef,coverage:{available,total:metrics.length,targeted:metrics.filter(x=>x.target!==null&&x.value!==null).length},lineage,metrics,warnings,sourceAuthenticityIndependentlyVerified:false,accountingOpinionEstablished:false,valuationChanged:false,transactionAuthorized:false,spendingAuthorized:false,productionAuthorized:false};
  }catch{return hold(['EFFICIENCY_INPUT_INVALID']);}
