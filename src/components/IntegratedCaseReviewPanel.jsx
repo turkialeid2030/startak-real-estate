@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import LocalDepreciationReviewPanel from './LocalDepreciationReviewPanel.jsx';
 const { useLocale } = require('../i18n/LocaleContext.js');
 const {
   UI_ROLE,
@@ -206,7 +205,6 @@ export default function IntegratedCaseReviewPanel() {
 
         {message ? <div data-testid="integrated-review-message" className={`mt-3 text-xs ${message.ok ? 'text-emerald-300' : 'text-amber-300'}`}>{message.value}</div> : null}
       </div>
-      <LocalDepreciationReviewPanel />
     </section>
   );
 }
