@@ -4,6 +4,7 @@ const {useLocale}=require('../i18n/LocaleContext.js');
 const {MAX_BYTES,reviewSupplementalText,blankSupplementalInput}=require('../engines/financial/supplemental-research-input');
 const browserStorage=require('../storage/browser-local-storage-provider');
 const {saveEncryptedSupplementalDraft,loadEncryptedSupplementalDraft,deleteEncryptedSupplementalDraft}=require('../engines/financial/encrypted-supplemental-draft');
+const {validateOpeningPortfolioSnapshot}=require('../portfolio/opening-return-snapshot');
 const METHODS={annual:['العوائد والاسترداد المخصوم','Annual returns and discounted payback'],gross:['عائد الإيجار الإجمالي ومضاعفه','Gross rent yield and multiplier'],wacc:['تكلفة رأس المال','Weighted average cost of capital'],breakEven:['نقطة التعادل وهامش الأمان','Break-even and margin of safety'],holding:['عائد الاحتفاظ والنمو والعائد الحقيقي','Holding, growth and real returns'],portfolio:['عائد المحفظة','Portfolio return']};
 const LABELS={DISCOUNTED_PAYBACK_PERIOD_END:['الاسترداد المخصوم عند نهاية السنة','Discounted payback at year end'],PROFITABILITY_INDEX_CONVENTIONAL:['مؤشر الربحية للتدفقات التقليدية','Conventional profitability index'],EQUIVALENT_ANNUAL_ANNUITY:['القيمة السنوية المكافئة','Equivalent annual annuity'],GROSS_RENTAL_YIELD:['عائد الإيجار الإجمالي','Gross rental yield'],GROSS_RENT_MULTIPLIER:['مضاعف الإيجار الإجمالي','Gross rent multiplier'],WACC:['تكلفة رأس المال المرجحة','WACC'],PROJECT_BREAK_EVEN_UNITS:['تعادل المشروع بالوحدات','Break-even units'],PROJECT_BREAK_EVEN_REVENUE:['إيراد التعادل','Break-even revenue'],MARGIN_OF_SAFETY:['هامش الأمان','Margin of safety'],HOLDING_PERIOD_RETURN:['عائد فترة الاحتفاظ','Holding period return'],VALUE_ONLY_CAGR:['النمو السنوي المركب للقيمة دون التوزيعات','Value-only CAGR'],REAL_HOLDING_PERIOD_RETURN:['العائد الحقيقي لفترة الاحتفاظ','Real holding return'],PORTFOLIO_HOLDING_PERIOD_RETURN:['عائد المحفظة لفترة الاحتفاظ','Portfolio holding return']};
 const REASONS={NOT_RECOVERED_WITHIN_STUDY:['لم يتحقق الاسترداد خلال الدراسة','Not recovered during study'],NON_CONVENTIONAL_CASHFLOWS:['تدفقات غير تقليدية','Non-conventional cash flows'],ZERO_GROSS_RENT:['الإيجار الإجمالي صفر','Zero gross rent'],NON_POSITIVE_CONTRIBUTION:['هامش المساهمة غير موجب','Non-positive contribution'],ZERO_REVENUE:['الإيراد صفر','Zero revenue'],INFLATION_NOT_SUPPLIED:['لم يقدم معدل التضخم','Inflation not supplied']};
@@ -12,8 +13,9 @@ export default function LocalSupplementalResearchPanel(){
  const {linkedCase,researchScope}=usePersonalCaseSession();
  const [method,setMethod]=useState('annual'),[caseId,setCase]=useState(''),[property,setProperty]=useState(''),[asOfDate,setDate]=useState(''),[portfolioId,setPortfolio]=useState(''),[assets,setAssets]=useState(''),[result,setResult]=useState(null),[busy,setBusy]=useState(false);
  const [source,setSource]=useState(null),[passphrase,setPassphrase]=useState(''),[confirmed,setConfirmed]=useState(false),[overwrite,setOverwrite]=useState(false),[confirmDelete,setConfirmDelete]=useState(false),[notice,setNotice]=useState('');
- const epoch=useRef(0),fileRef=useRef(null);
- function clear(){epoch.current++;setResult(null);setSource(null);setPassphrase('');setConfirmed(false);setOverwrite(false);setConfirmDelete(false);setNotice('');setBusy(false);if(fileRef.current)fileRef.current.value='';}
+ const [snapshotText,setSnapshotText]=useState(null),[snapshotNotice,setSnapshotNotice]=useState('');
+ const epoch=useRef(0),fileRef=useRef(null),snapshotRef=useRef(null);
+ function clear(preserveSnapshot=false){if(preserveSnapshot!==true){setSnapshotText(null);setSnapshotNotice('');if(snapshotRef.current)snapshotRef.current.value='';}epoch.current++;setResult(null);setSource(null);setPassphrase('');setConfirmed(false);setOverwrite(false);setConfirmDelete(false);setNotice('');setBusy(false);if(fileRef.current)fileRef.current.value='';}
  useLayoutEffect(()=>{clear();setCase(linkedCase?.caseId||'');setProperty('');setDate('');setPortfolio('');setAssets('');},[linkedCase?.caseId,linkedCase?.name,linkedCase?.mode]);
  useEffect(()=>()=>{epoch.current++;},[]);
  const isPortfolio=method==='portfolio',assetIds=assets.split('\n').map(x=>x.trim()).filter(Boolean);
@@ -22,20 +24,27 @@ export default function LocalSupplementalResearchPanel(){
  const change=setter=>e=>{clear();setter(e.target.value);};
  function download(name,data){const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
  async function load(file){
-  clear();const token=epoch.current;if(!file)return;setBusy(true);
+  clear(true);const token=epoch.current;if(!file)return;setBusy(true);
   try{const raw=file.size>MAX_BYTES?null:await file.text();if(epoch.current===token){const next=reviewSupplementalText({method,text:raw,expected});setResult(next);if(next.status==='ANALYTICAL_ONLY'&&next.metrics.some(m=>Number.isFinite(m.value)))setSource(raw);}}
   catch{if(epoch.current===token)setResult({status:'HOLD',metrics:[],blockers:['RESEARCH_FILE_READ_FAILED']});}
   finally{if(epoch.current===token)setBusy(false);}
  }
  const usable=result?.status==='ANALYTICAL_ONLY';
  const linked=!isPortfolio&&!!linkedCase&&caseId===linkedCase.caseId;
+ const custodyReady=linked||(isPortfolio&&!!snapshotText);
+ async function loadSnapshot(file){
+  clear();const token=epoch.current;if(!file)return;setBusy(true);
+  try{const raw=file.size>MAX_BYTES?null:await file.text();validateOpeningPortfolioSnapshot(raw,expected);if(epoch.current===token){setSnapshotText(raw);setSnapshotNotice('valid');}}
+  catch{if(epoch.current===token)setSnapshotNotice('invalid');}
+  finally{if(epoch.current===token)setBusy(false);}
+ }
  async function persist(action){
-  if(!linked||!ready||passphrase.length<12)return;
+  if(!custodyReady||!ready||passphrase.length<12)return;
   if(!browserStorage.isAvailable()){setNotice('failed');return;}
   const token=++epoch.current;setBusy(true);setNotice('');
   if(action==='load'){setResult(null);setSource(null);}
   try{
-   const opts={storage:browserStorage,dealId:linkedCase.caseId,propertyRef:property.trim(),asOfDate,method,passphrase,isCurrent:()=>epoch.current===token};
+   const opts={storage:browserStorage,dealId:linkedCase?.caseId,propertyRef:property.trim(),asOfDate,method,portfolioId:portfolioId.trim(),assetIds,snapshotText,passphrase,isCurrent:()=>epoch.current===token};
    if(action==='save'){await saveEncryptedSupplementalDraft({...opts,text:source,confirmed,overwrite});if(epoch.current===token)setNotice('saved');}
    else if(action==='delete'){const removed=await deleteEncryptedSupplementalDraft({...opts,confirmDelete});if(epoch.current===token){setResult(null);setSource(null);setNotice(removed.deleted?'deleted':'missing');}}
    else{const restored=await loadEncryptedSupplementalDraft(opts);if(epoch.current!==token)return;if(restored.found){setResult(restored.result);setSource(restored.text);setNotice('loaded');}else setNotice('missing');}
@@ -55,18 +64,23 @@ export default function LocalSupplementalResearchPanel(){
  <label className="mt-3 block text-xs">{t('استيراد المدخلات بعد استكمالها','Import completed inputs')}<input ref={fileRef} data-testid="supplemental-file" type="file" accept=".json,application/json" disabled={!ready||busy} onChange={e=>load(e.target.files?.[0])} className="mt-1 block w-full"/></label>
  {busy&&<p role="status">{t('جارٍ التحقق','Checking')}</p>}
  {result&&<p data-testid="supplemental-status" data-status={result.status} className="mt-2 text-xs">{usable?t('نتائج تحليلية غير معتمدة','Non-authorizing analytical results'):t('المدخلات غير صالحة أو غير مكتملة','Invalid or incomplete inputs')}</p>}
- {linked&&<div data-testid="supplemental-local-custody" className="mt-3 rounded border border-slate-700 p-3 text-xs">
- <h4 className="font-semibold">{t('مسودة مالية مشفرة للصفقة النشطة','Encrypted financial draft for active deal')}</h4>
- <p data-user-content>{linkedCase.name}</p>
- <p className="mt-2 text-amber-200">{t('مسودة محلية واحدة لكل طريقة وصفقة؛ يلزم نفس العقار والتاريخ وعبارة المرور. لا مزامنة ولا استعادة لعبارة المرور.','One local draft per method and deal; same property, date and passphrase required. No synchronization or passphrase recovery.')}</p>
+ {isPortfolio&&<div className="mt-3 text-xs">
+ <label>{t('استيراد لقطة المحفظة المستقلة لبداية الفترة','Import independent opening portfolio snapshot')}<input ref={snapshotRef} data-testid="supplemental-opening-snapshot" type="file" accept=".json,application/json" disabled={!ready||busy} onChange={e=>loadSnapshot(e.target.files?.[0])} className="mt-1 block w-full"/></label>
+ <p className="mt-1 text-amber-200">{t('يلزم سجل المحفظة الموجود من محرك التركيز، بالقيم المهنية في بداية الفترة. البصمة تثبت اتساق المحتوى لا صحة المصدر.','Requires an existing concentration-engine snapshot with opening professional value indications. The hash checks consistency, not source authenticity.')}</p>
+ <p role="status" data-testid="supplemental-snapshot-status">{snapshotNotice==='valid'?t('تم التحقق من اتساق لقطة البداية','Opening snapshot consistency verified'):snapshotNotice==='invalid'?t('لقطة البداية غير صالحة أو غير مطابقة','Opening snapshot invalid or mismatched'):''}</p>
+ </div>}
+ {custodyReady&&<div data-testid="supplemental-local-custody" className="mt-3 rounded border border-slate-700 p-3 text-xs">
+ <h4 className="font-semibold">{t('مسودة مالية محلية مشفرة','Encrypted local financial draft')}</h4>
+ <p data-user-content>{isPortfolio?portfolioId:linkedCase.name}</p>
+ <p className="mt-2 text-amber-200">{t('مسودة محلية لكل طريقة وصفقة أو محفظة؛ يلزم النطاق نفسه والتاريخ وعبارة المرور، وللمحفظة نفس لقطة البداية. لا مزامنة ولا استعادة لعبارة المرور.','One local draft per method/deal or portfolio; same scope, date and passphrase required, and the same opening snapshot for a portfolio. No synchronization or passphrase recovery.')}</p>
  <label className="mt-2 block">{t('عبارة مرور خاصة لا تقل عن ١٢ حرفًا','Private passphrase, at least 12 characters')}<input data-testid="supplemental-passphrase" type="password" autoComplete="new-password" maxLength={256} disabled={busy} value={passphrase} onChange={e=>setPassphrase(e.target.value)} className="mt-1 block w-full rounded border border-slate-700 bg-slate-950 p-2"/></label>
- <label className="mt-2 block"><input data-testid="supplemental-consent" type="checkbox" checked={confirmed} disabled={busy} onChange={e=>setConfirmed(e.target.checked)}/> {t('أقر بنطاق العقار وأوافق على الحفظ المحلي المشفر','I attest the property scope and consent to encrypted local storage')}</label>
+ <label className="mt-2 block"><input data-testid="supplemental-consent" type="checkbox" checked={confirmed} disabled={busy} onChange={e=>setConfirmed(e.target.checked)}/> {t('أقر بنطاق التحليل وأوافق على الحفظ المحلي المشفر','I attest the analysis scope and consent to encrypted local storage')}</label>
  <label className="mt-2 block"><input data-testid="supplemental-overwrite" type="checkbox" checked={overwrite} disabled={busy} onChange={e=>setOverwrite(e.target.checked)}/> {t('أوافق على استبدال المسودة السابقة','Replace existing draft')}</label>
  <label className="mt-2 block"><input data-testid="supplemental-delete-consent" type="checkbox" checked={confirmDelete} disabled={busy} onChange={e=>setConfirmDelete(e.target.checked)}/> {t('أوافق على حذف المسودة بعد فتحها','Confirm deletion after unlock')}</label>
  <div className="mt-2 flex flex-wrap gap-2">{[['save',t('حفظ مشفر','Encrypt and save'),!usable||!source||!confirmed],['load',t('فتح وإعادة احتساب','Unlock and recalculate'),false],['delete',t('حذف المسودة','Delete draft'),!confirmDelete]].map(([action,label,blocked])=><button type="button" key={action} data-testid={'supplemental-encrypted-'+action} disabled={busy||!ready||passphrase.length<12||blocked} onClick={()=>persist(action)} className="rounded border border-slate-700 px-3 py-2 disabled:opacity-50">{label}</button>)}</div>
  <p role="status" data-testid="supplemental-storage-notice">{({saved:t('تم التحقق من الحفظ المحلي المشفر','Encrypted local save verified'),loaded:t('استعيدت المدخلات وأعيد الحساب','Inputs restored and recalculated'),deleted:t('تم التحقق من حذف المسودة','Draft deletion verified'),missing:t('لا توجد مسودة محفوظة','No saved draft'),exists:t('يلزم إقرار الاستبدال','Existing draft requires overwrite consent'),failed:t('تعذر الحفظ أو فتح المسودة','Save or unlock failed')})[notice]||''}</p>
  </div>}
- {isPortfolio&&<p className="mt-2 text-xs text-amber-200">{t('حفظ المحفظة المشفر غير متاح حتى ربطها بسجل محفظة مستقل.','Encrypted portfolio custody is unavailable until linked to an independent portfolio record.')}</p>}
+ {isPortfolio&&!snapshotText&&<p className="mt-2 text-xs text-amber-200">{t('الحفظ والاستعادة مشروطان بلقطة بداية مطابقة.','Save and restore require a matching opening snapshot.')}</p>}
  {usable&&<div data-testid="supplemental-result" className="mt-3"><div className="overflow-x-auto"><table className="w-full text-xs"><thead><tr><th className="p-2 text-start">{t('المؤشر','Metric')}</th><th className="p-2 text-start">{t('النتيجة','Result')}</th></tr></thead><tbody>{result.metrics.map(m=><tr data-testid={'supplemental-metric-'+m.id} key={m.id} className="border-t border-slate-800"><td className="p-2">{LABELS[m.id]?.[en?1:0]}</td><td className="p-2">{m.id==='PROFITABILITY_INDEX_CONVENTIONAL'&&Number.isFinite(m.value)?new Intl.NumberFormat(en?'en-SA':'ar-SA',{maximumFractionDigits:4}).format(m.value):number(m.value,m.unit)} {REASONS[m.reason]?.[en?1:0]||''}</td></tr>)}</tbody></table></div>
  <p className="mt-2 text-xs text-slate-400">{t('التقرير يتضمن أساس الاحتساب والمراجع والفترة؛ ليس تقرير تقييم مهني.','The draft includes calculation basis, sources and period; not a professional valuation report.')}</p>
  <button data-testid="supplemental-report" type="button" onClick={()=>download('supplemental-research-report.json',{...result,kind:'LOCAL_RESEARCH_DRAFT'})} className="mt-3 rounded border border-slate-700 px-3 py-2 text-xs">{t('تصدير مسودة التحليل','Export research draft')}</button></div>}
