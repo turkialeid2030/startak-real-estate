@@ -11,6 +11,7 @@ import ComplianceBoundaryNotice from './components/ComplianceBoundaryNotice.jsx'
 import ExitCapGuidanceEnhancer from './components/ExitCapGuidanceEnhancer.jsx';
 const CanonicalCaseWorkspacePanel=lazy(()=>import('./components/CanonicalCaseWorkspacePanel.jsx'));
 const LocalDepreciationReviewPanel=lazy(()=>import('./components/LocalDepreciationReviewPanel.jsx'));
+const LocalQuotedFinancingPanel=lazy(()=>import('./components/LocalQuotedFinancingPanel.jsx'));
 import StrictArabicSurfaceGuard from './components/StrictArabicSurfaceGuard.jsx';
 const { LocaleProvider } = require('./i18n/LocaleContext.js');
 const { installRuntimeBuildMetadata } = require('./runtime/build-metadata.js');
@@ -50,6 +51,11 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <WorkspaceErrorBoundary surface="local-depreciation">
         <Suspense fallback={<p role="status" className="p-4 text-slate-200">جارٍ تحميل مراجعة الإهلاك…</p>}>
           <div className="mx-auto w-full max-w-7xl px-4"><LocalDepreciationReviewPanel /></div>
+        </Suspense>
+      </WorkspaceErrorBoundary>
+      <WorkspaceErrorBoundary surface="local-financing">
+        <Suspense fallback={<p role="status" className="p-4 text-slate-200">…</p>}>
+          <div className="mx-auto w-full max-w-7xl px-4"><LocalQuotedFinancingPanel /></div>
         </Suspense>
       </WorkspaceErrorBoundary>
       <WorkspaceErrorBoundary surface="canonical">
