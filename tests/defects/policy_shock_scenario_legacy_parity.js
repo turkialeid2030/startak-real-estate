@@ -1,19 +1,7 @@
 'use strict';
 const assert=require('node:assert/strict');
 const crypto=require('node:crypto');
-const {createComparableEvidenceRecord}=require('../../src/market/comparable-evidence');
-const {REVIEW_STATUS:S,SHOCK_CLASS:C,EVIDENCE_STATE:E,IMPACT_ACTION:A,ADJUSTMENT_DIRECTION:D,ADJUSTMENT_METHOD:M,createPolicyShockEvidence,createProfessionalComparableImpact,createPolicyShockReviewPolicy,evaluateGovernedPolicyShockComparableImpact:evaluate}=require('../../src/market/policy-shock-scenario-review');
-const caseId='SYNTH-C19',marketScopeRef='SYNTH-MARKET',asOf='2026-10-31';
-const makeComparable=(id,patch={})=>createComparableEvidenceRecord({comparableId:id,caseId,sourcePropertyRef:'PROP-'+id,assetType:'OFFICE',transactionType:'SALE',evidenceLevel:'VERIFIED_TRANSACTION',sourceName:'Synthetic source',sourceRef:'SYNTH-SOURCE-'+id,sourceDate:'2026-10-04',transactionDate:'2026-10-01',location:{city:'SYNTH-CITY',district:'SYNTH-DISTRICT'},areaSqm:100,amountSar:100000,verification:{status:'VERIFIED',verifiedByRef:'SYNTH-VERIFIER',verifiedAt:'2026-10-05',evidenceRef:'SYNTH-REVIEW'},capturedAt:'2026-10-06',...patch});
-const makeShock=(id,patch={})=>createPolicyShockEvidence({shockEvidenceId:id,caseId,marketScopeRef,shockClass:C.TRANSFER_COST_TAX_OR_FEE,evidenceState:E.SATISFIED,sourceCapability:'SYNTH-CAPABILITY',sourceRecordId:'SYNTH-SOURCE-'+id,sourceRecordHashSha256:'a'.repeat(64),sourceStatus:'SYNTH-REVIEWED',sourceReference:'SYNTH-REF',knownAt:'2026-10-07',effectiveAt:'2027-01-01',reviewedByRef:'SYNTH-REVIEWER',reviewEvidenceRef:'SYNTH-REVIEW',reviewedAt:'2026-10-08',validUntil:'2026-12-31',...patch});
-const c1=makeComparable('C1'),c2=makeComparable('C2',{amountSar:200000});
-const s1=makeShock('S1'),s2=makeShock('S2',{shockClass:C.FINANCING_OR_RATE_ENVIRONMENT});
-const makeImpact=(c,s,action,patch={})=>createProfessionalComparableImpact({impactId:c.comparableId+'-'+s.shockEvidenceId,caseId,comparableId:c.comparableId,comparableHashSha256:c.comparableHashSha256,shockEvidenceHashSha256:s.shockEvidenceHashSha256,action,rationaleRef:'SYNTH-RATIONALE',preparedByRef:'SYNTH-PREPARER',preparedAt:'2026-10-09',reviewedByRef:'SYNTH-REVIEWER',reviewedAt:'2026-10-10',reviewEvidenceRef:'SYNTH-REVIEW',validUntil:'2026-12-31',...patch});
-const impacts=[makeImpact(c1,s1,A.APPLY_SCENARIO_ADJUSTMENT,{adjustmentDirection:D.INCREASE,adjustmentMethod:M.PERCENT_OF_BASE,adjustmentMagnitude:.1}),makeImpact(c1,s2,A.REVIEW_ONLY),makeImpact(c2,s1,A.APPLY_SCENARIO_ADJUSTMENT,{adjustmentDirection:D.DECREASE,adjustmentMethod:M.AMOUNT_SAR_PER_SQM,adjustmentMagnitude:200}),makeImpact(c2,s2,A.PROFESSIONAL_SCENARIO_EXCLUSION)];
-function args(patch={},policyPatch={}){
- const input={asOf,comparables:[c1,c2],shockEvidence:[s1,s2],impacts,...patch};
- return {...input,reviewPolicy:createPolicyShockReviewPolicy({policyId:'SYNTH-POLICY',caseId,marketScopeRef,allowedShockClasses:Object.values(C),allowedImpactActions:Object.values(A),comparableHashesSha256:[...new Set(input.comparables.map(x=>x.comparableHashSha256))],shockEvidenceHashesSha256:[...new Set(input.shockEvidence.map(x=>x.shockEvidenceHashSha256))],impactHashesSha256:[...new Set(input.impacts.map(x=>x.impactHashSha256))],requireFullComparableShockMatrix:true,targetAssetType:'OFFICE',targetCity:'SYNTH-CITY',targetTransactionType:'SALE',maxAgeDays:90,reviewedByRef:'SYNTH-REVIEWER',reviewEvidenceRef:'SYNTH-POLICY-REVIEW',reviewedAt:'2026-10-11',validUntil:'2026-12-31',...policyPatch})};
-}
+const {args,caseId,marketScopeRef,asOf,c1,c2,s1,s2,impacts,makeImpact,makeShock,makeComparable,evaluate,S,A,C,D,M,E}=require('../fixtures/synthetic-policy-shock');
 const result=evaluate(args());
 assert.equal(result.status,S.READY_FOR_PROFESSIONAL_POLICY_SHOCK_REVIEW,JSON.stringify(result.blockers));
 assert.deepEqual(result.scenarioImpacts.map(x=>[x.impactId,x.baseUnitValueSarPerSqm,x.scenarioDeltaSarPerSqm,x.scenarioUnitValueSarPerSqm]),[['C1-S1',1000,100,1100],['C1-S2',1000,null,null],['C2-S1',2000,-200,1800],['C2-S2',2000,null,null]]);
@@ -41,3 +29,21 @@ for(const input of cases){const r=evaluate(input);assert.notEqual(r.status,S.REA
 assert.throws(()=>args({}, {requireFullComparableShockMatrix:false}),/FULL_MATRIX_REQUIRED/);
 assert.throws(()=>makeShock('BAD',{knownAt:'2026-02-30'}),/valid UTC/);
 console.log('C19_POLICY_SHOCK_SCENARIO_REVIEW=PASS synthetic_only=true negative_cases='+(cases.length+2));
+
+const {reviewLocalPolicyShock}=require('../../src/market/local-policy-shock-review');
+(async()=>{
+ const opts={expectedCaseId:caseId,expectedMarketScopeRef:marketScopeRef,expectedAssetType:'OFFICE',expectedCity:'SYNTH-CITY',expectedTransactionType:'SALE',asOfDate:asOf};
+ const local=await reviewLocalPolicyShock({...opts,text:JSON.stringify({...args(),report:{transactionAuthorized:true}})});
+ assert.equal(local.status,result.status,JSON.stringify(local.blockers));
+ assert.deepEqual(local.scenarioImpacts,result.scenarioImpacts);
+ assert.equal(local.transactionAuthorized,false);
+ for(const bad of cases){
+  const h=await reviewLocalPolicyShock({...opts,text:JSON.stringify(bad)});
+  assert.notEqual(h.status,S.READY_FOR_PROFESSIONAL_POLICY_SHOCK_REVIEW);
+  assert.deepEqual(h.scenarioImpacts,[]);
+  assert.equal(h.transactionAuthorized,false);
+ }
+ const wrong=await reviewLocalPolicyShock({...opts,expectedCity:'OTHER',text:JSON.stringify(args())});
+ assert.equal(wrong.blockers[0],'C19_EXPECTED_SCOPE_OR_DATE_MISMATCH');
+ console.log('C19_NATIVE_WEBCRYPTO_PARITY=PASS synthetic_only=true');
+})().catch(e=>{console.error(e);process.exitCode=1;});
