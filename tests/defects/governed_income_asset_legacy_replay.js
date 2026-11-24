@@ -48,3 +48,24 @@ const failures=[
 for(const x of failures){const held=evaluate(x);assert.notEqual(held.status,S.READY_FOR_PROFESSIONAL_INCOME_ASSET_REVIEW);assert.equal(held.metrics,null);assert.equal(held.transactionAuthorized,false);}
 assert.throws(()=>assessment('A',{assessedAt:'2026-02-30'}),/valid UTC/);
 console.log('C11_INCOME_ASSET_LEGACY_REPLAY=PASS synthetic_only=true negative_cases='+failures.length);
+
+const {reviewLocalIncomeAsset}=require('../../src/income/local-income-asset-review');
+(async()=>{
+ const opts={expectedCaseId:caseId,expectedPropertyRef:propertyRef,asOfDate};
+ const local=await reviewLocalIncomeAsset({...opts,text:JSON.stringify({...args(),report:{transactionAuthorized:true}})});
+ assert.equal(local.status,result.status,JSON.stringify(local.blockers));
+ assert.deepEqual(local.metrics,result.metrics);
+ assert.deepEqual(local.tenants,result.tenants);
+ assert.deepEqual(local.expiryConcentration,result.expiryConcentration);
+ assert.deepEqual(local.riskFlags,result.riskFlags);
+ assert.equal(local.transactionAuthorized,false);
+ for(const x of failures){
+  const h=await reviewLocalIncomeAsset({...opts,text:JSON.stringify(x)});
+  assert.notEqual(h.status,S.READY_FOR_PROFESSIONAL_INCOME_ASSET_REVIEW);
+  assert.equal(h.metrics,null);
+  assert.equal(h.transactionAuthorized,false);
+ }
+ const wrong=await reviewLocalIncomeAsset({...opts,expectedPropertyRef:'OTHER',text:JSON.stringify(args())});
+ assert.equal(wrong.blockers[0],'C11_EXPECTED_SCOPE_OR_DATE_MISMATCH');
+ console.log('C11_NATIVE_WEBCRYPTO_PARITY=PASS synthetic_only=true actual_browser_pending=true');
+})().catch(e=>{console.error(e);process.exitCode=1;});
