@@ -157,13 +157,14 @@ function measurements({ conflict = false } = {}) {
 }
 
 function completedInspection(measurementRecords) {
-  const gate = reconcileMeasurementRecords({
+  const measurementInputs={
     caseId: CASE_ID,
     records: measurementRecords,
     materialTypes: [MEASUREMENT_TYPE.LAND_AREA],
     toleranceByType: { LAND_AREA: { absoluteSqm: 2 } },
     minimumIndependentSourcesByType: { LAND_AREA: 2 },
-  });
+  };
+  const gate=reconcileMeasurementRecords(measurementInputs);
   let record = createInspectionCase({
     inspectionId: INSPECTION_ID, caseId: CASE_ID, propertyRef: PROPERTY_REF,
     valuationDate: '2026-09-07T00:00:00Z', plannedAt: '2026-09-07T08:00:00Z', leadInspectorRef: 'USER:INSPECTOR', scope: 'Synthetic inspection scope',
@@ -188,7 +189,7 @@ function completedInspection(measurementRecords) {
   record = submitPostInspectionReview(record, {
     endedAt: '2026-09-07T09:00:00Z', reviewedByRef: 'USER:REVIEWER', reviewEvidenceRef: 'review://inspection',
     acknowledgements: { observationsReviewed: true, mediaReviewed: true, measurementsReviewed: true, materialConflictsReviewed: true, accountabilityAccepted: true },
-    measurementGate: gate,
+    measurementGate: gate,measurementInputs,
   });
   if (!gate.readyForInspectionCompletion) return record;
   return completeInspection(record, { completedAt: '2026-09-07T09:05:00Z' });
