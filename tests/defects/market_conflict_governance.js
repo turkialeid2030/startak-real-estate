@@ -15,12 +15,17 @@ for(const type of Object.keys(ASSET_TYPES)){
    let sales=saleConflict?[...rows,{...rows[0],price:3000000}]:rows;
    let rentals=income?(rentConflict?[...rows,{...rows[0],annualRent:300000}]:rows):[];
    if(reverse){sales=[...sales].reverse();rentals=[...rentals].reverse();}
-   const report=evaluateMarketStudy({subject,sales,rentals,assumptions,asOf});
+   const projects=[{name:'Synthetic project',status:'OPERATING',location:subject.location,sourceUrl:'https://example.org/synthetic/project',impactPct:0.05}];
+   const report=evaluateMarketStudy({subject,sales,rentals,assumptions,asOf,projects});
+   assert.equal(report.todayValueScenarioSar,null);
+   assert.equal(report.projectScenarioSar,null);
+   assert.equal(report.confidence,'UNRESOLVED_SOURCE_RECORD_CONFLICT');
    assert.equal(report.eligibleSalesCount,saleConflict?3:4);
    assert.equal(report.eligibleRentalsCount,income?(rentConflict?3:4):0);
    assert.equal(report.saleIndicationSar,1000000);
    const gate=auditValuationReadiness({subject,report,sales,rentals,asOf});
    assert.equal(gate.preliminaryValueSar,null);
+   assert.equal(gate.permittedExport,'HOLD_SOURCE_RECORD_CONFLICT');
    assert.equal(gate.status,'HOLD_INSUFFICIENT_OR_CONFLICTING_EVIDENCE');
    assert.equal(gate.rawMarketIndicationSar,1000000);
    assert.equal(gate.certifiedValueSar,null);
@@ -47,6 +52,7 @@ for(const type of Object.keys(ASSET_TYPES)){
  const gate=auditValuationReadiness({subject,report,sales:rows,rentals:income?rows:[],asOf});
  assert.ok(!gate.issues.includes('SALE_SOURCE_RECORD_CONFLICT'));assert.ok(!gate.issues.includes('RENT_SOURCE_RECORD_CONFLICT'));
  assert.equal(gate.certifiedValueSar,null);
+ assert.equal(gate.permittedExport,'PERSONAL_RESEARCH_DRAFT_ONLY');
  cases++;
 }
 console.log('MARKET_CONFLICT_GOVERNANCE=PASS scenarios='+cases+' synthetic_only=true');
