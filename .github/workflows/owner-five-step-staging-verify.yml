@@ -8,6 +8,11 @@ on:
       - '.github/workflows/owner-five-step-staging-verify.yml'
       - 'src/components/OwnerFiveStepWizard.jsx'
       - 'src/components/LocalDepreciationReviewPanel.jsx'
+      - 'src/components/LocalQuotedFinancingPanel.jsx'
+      - 'src/financing/**'
+      - 'tests/e2e/run_quoted_financing_browser.js'
+      - 'tests/fixtures/synthetic-quoted-financing.js'
+      - 'tests/defects/quoted_financing_comparison_legacy_parity.js'
       - 'src/main.jsx'
       - 'src/cost/**'
       - 'src/engines/valuation/cost-approach*.js'
@@ -88,6 +93,9 @@ jobs:
           done
           for browser in chromium firefox webkit; do
             STARTAK_BROWSER="$browser" STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_component_depreciation_browser.js 2>&1 | tee "runtime-evidence/owner-five-step/depreciation-$browser.log"
+          done
+          for browser in chromium firefox webkit; do
+            STARTAK_BROWSER="$browser" STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_quoted_financing_browser.js 2>&1 | tee "runtime-evidence/owner-five-step/financing-$browser.log"
           done
           STARTAK_E2E_URL=http://127.0.0.1:4173/?ownerView=advanced node tests/e2e/run_audit_20261010_remaining_browser.js 2>&1 | tee runtime-evidence/owner-five-step/legacy-diagnostics.log
           STARTAK_E2E_URL=http://127.0.0.1:4173/?ownerView=advanced node tests/e2e/run_audit_20261020_local_ocr_browser.js 2>&1 | tee runtime-evidence/owner-five-step/legacy-ocr.log
