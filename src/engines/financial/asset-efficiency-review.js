@@ -49,7 +49,7 @@ function evaluateEfficiency(input,expected={}){
   for(const [group,fields] of Object.entries(GROUPS)){
    const entry=groups[group];
    if(entry===undefined||entry===null){fields.forEach(k=>values[k]=null);continue;}
-   if(!plain(entry)||!plain(entry.values)||!ref(entry.sourceRef)||!date(entry.reviewedAt)||entry.reviewedAt<periodEnd||entry.reviewedAt>asOfDate||entry.measurementBasisRef!==measurementBasisRef||entry.periodStart!==periodStart||entry.periodEnd!==periodEnd){errors.push('EFFICIENCY_EVIDENCE_SCOPE:'+group);continue;}
+   if(!plain(entry)||!plain(entry.values)||!ref(entry.sourceRef)||!date(entry.reviewedAt)||entry.reviewedAt<periodEnd||entry.reviewedAt>asOfDate||entry.caseId!==caseId||entry.propertyRef!==propertyRef||entry.marketScopeRef!==marketScopeRef||entry.measurementBasisRef!==measurementBasisRef||entry.periodStart!==periodStart||entry.periodEnd!==periodEnd){errors.push('EFFICIENCY_EVIDENCE_SCOPE:'+group);continue;}
    if(Object.keys(entry.values).some(k=>!fields.includes(k))){errors.push('EFFICIENCY_UNKNOWN_FIELD:'+group);continue;}
    lineage[group]={sourceRef:entry.sourceRef,reviewedAt:entry.reviewedAt,measurementBasisRef,periodStart,periodEnd};
    for(const k of fields){
