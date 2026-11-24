@@ -1,5 +1,6 @@
-import React,{useState} from 'react';
+import React,{useLayoutEffect,useRef,useState} from 'react';
 const {useLocale}=require('../i18n/LocaleContext.js');
+const {marketEvidenceSubjectKey}=require('../market/owner-market-evidence-scope');
 const {
  SOURCES,BY_ID,SOURCE_ENTRYPOINTS,BY_ENTRYPOINT_ID,MAX_PORTABLE_BYTES,captureReference,mergeReferences,
  exportReferences,importReferences,
@@ -22,6 +23,9 @@ export default function NoApiSourceBridgePanel({onReferencesChange,subject={},di
  const [district,setDistrict]=useState(()=>typeof subject.district==='string'?subject.district.trim():'');
  const [observedOn,setObservedOn]=useState(TODAY);
  const [references,setReferences]=useState(()=>initialReferences);
+ const readEpoch=useRef(0);
+ const subjectKey=marketEvidenceSubjectKey(subject);
+ useLayoutEffect(()=>()=>{readEpoch.current++;},[subjectKey,disabled,references]);
  const [notice,setNotice]=useState(null);
  const src=BY_ID[sourceId];
  const availableEntrypoints=SOURCE_ENTRYPOINTS.filter(ep=>ep.sourceId===sourceId);
@@ -77,7 +81,10 @@ export default function NoApiSourceBridgePanel({onReferencesChange,subject={},di
   if(!file||disabled)return;
   try{
    if(file.size>MAX_PORTABLE_BYTES)throw Error('NOAPI_FILE_TOO_LARGE');
-   const imported=importReferences(await file.text());
+   const token=++readEpoch.current;
+   const text=await file.text();
+   if(token!==readEpoch.current)return;
+   const imported=importReferences(text);
    const merged=mergeReferences(references,imported.references);
    setReferences(merged.references);
    onReferencesChange?.(merged.references);
