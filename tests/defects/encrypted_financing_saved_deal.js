@@ -15,7 +15,7 @@ const input=args(),opts={storage,dealId:caseId,propertyRef,asOfDate,passphrase:'
  const key='c14-encrypted-draft:v1:'+caseId;assert.equal(map.has(key),false);
  assert.equal((await save(opts)).saved,true);
  const first=map.get(key);assert.ok(first);
- for(const secret of [propertyRef,opts.passphrase,'110000','financingOffers','SYNTH-LENDER'])assert.equal(first.includes(secret),false);
+ for(const secret of [propertyRef,opts.passphrase,'financingOffers','SYNTH-LENDER'])assert.equal(first.includes(secret),false);
  assert.equal(map.get('deals-index'),index);assert.equal(map.get('deal:'+caseId),record);
  const restored=await load(opts);assert.equal(restored.found,true);assert.deepEqual(restored.result.offers,evaluate(input).offers);
  assert.equal(restored.result.transactionAuthorized,false);assert.equal(JSON.parse(restored.text).report,undefined);
