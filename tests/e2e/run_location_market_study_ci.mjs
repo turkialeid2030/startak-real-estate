@@ -336,6 +336,23 @@ try{
  await panel.getByTestId('market-evidence-subject-reconfirm').click();
  await panel.getByTestId('market-evidence-scope-hold').waitFor({state:'hidden'});
  mark('OWNER_EARLY_SOURCE_RESEARCH_RECONFIRMED_FOR_DEFINED_PROPERTY',true);
+ // Generic reconfirmation cannot silently reassign the national register.
+ await panel.getByTestId('personal-market-study-export').click();
+ await panel.getByText('تصدير نتائج الدراسة محجوب',{exact:false}).waitFor();
+ await nationalSources.getByTestId('personal-noapi-clear-for-new-property').click();
+ await nationalSources.getByTestId('personal-noapi-subject-scope-hold').waitFor({state:'hidden'});
+ await noapi.getByTestId('noapi-import').setInputFiles({
+   name:'current-property-reference.json',mimeType:'application/json',
+   buffer:Buffer.from(JSON.stringify(manualJson)),
+ });
+ await nationalSources.getByTestId('national-observed-on').fill('2026-10-28');
+ await nationalSources.getByTestId('national-csv-rights-acknowledgement').check();
+ await nationalSources.getByTestId('national-import-csv').setInputFiles({
+   name:'current-property-market.csv',mimeType:'text/csv',
+   buffer:Buffer.from(nationalResearchCSV.split('\n').slice(0,2).join('\n')),
+ });
+ await nationalSources.getByTestId('national-import-status').filter({hasText:'أضيف 1'}).waitFor();
+ mark('UNIFIED_REGISTER_BLOCKS_CROSS_PROPERTY_EXPORT_AND_EXPLICIT_NEW_CAPTURE',true);
  const autoResearch=panel.locator('[data-testid="public-moJ-research"]');
  await autoResearch.getByRole('button',{name:'جلب الصفقات المفتوحة الآن وتحليل الحي'}).click();
  await autoResearch.getByText(/صفقات الحي المؤهلة حسب التصنيف العام: 3/).waitFor();
@@ -483,6 +500,11 @@ try{
  const saved=await download.path();
  const exported=JSON.parse(fs.readFileSync(saved,'utf8'));
  assert(exported.kind==='STARTAK_PERSONAL_MARKET_STUDY','missing study identity');
+ assert(exported.nationalResearch?.records?.records?.length===1&&
+   exported.nationalResearch?.references?.references?.length===1,
+   'study JSON must include the property-bound national record and manual reference');
+ assert(exported.nationalResearch.records.records[0].marketValuationEligible===false,
+   'portable research cannot become authorized by study export');
  assert(exported.unitMix?.length===1&&exported.leaseComparables?.length===3,
   'segmented unit mix and lease comparables missing from exported study');
  assert(exported.segmentedMarketRents?.grossPotentialNewAnnualRentSar===17000000,
@@ -512,8 +534,12 @@ try{
  mark('REIMPORT_PERSONAL_STUDY_RESTORES_INPUTS_AND_RECALCULATES_RESULTS',true);
  const resetFusion=panel.getByTestId('research-evidence-fusion');
  const resetText=await resetFusion.getByTestId('fusion-statistics').innerText();
- assert(resetText.includes('السجلات البحثية: 10'),
-  'Restoring study must quarantine imports from previous case and retain only public Suhail sample');
+ assert(resetText.includes('السجلات البحثية: 11'),
+   'restore must retain the current national row and public sample, not old case Earth/listing imports');
+ assert((await nationalSources.getByTestId('national-summary').innerText()).includes('الصفوف المستوردة: 1'),
+   'restored national records must be visible in the actual panel');
+ assert((await noapi.getByTestId('noapi-reference-count').innerText()).includes('1'),
+   'restored manual reference must be visible in the actual panel');
  mark('RESTORED_CASE_RESEARCH_CONTEXT_ISOLATION',true);
  const linked=panel.locator('[data-testid="saved-deal-market-study-link"]');
  await linked.getByRole('button',{name:'تحديث قائمة الصفقات المحفوظة'}).click();
@@ -537,6 +563,7 @@ try{
  const decoded=JSON.parse(sidecar);
  assert(decoded.researchScope==='PERSONAL_UNVERIFIED_INPUTS_ONLY'&&decoded.studyInputs.unitMix.length===1,
   'research must be linked solely as unapproved inputs');
+ assert(JSON.stringify(decoded.studyInputs.nationalResearch)===JSON.stringify(exported.nationalResearch),'saved-deal sidecar must retain the same scoped register');
  assert(decoded.studyInputs.appraisalQuality===undefined&&decoded.studyInputs.report===undefined,
   'certified outputs must not persist in canonical sidecar');
  assert((await page.evaluate(()=>localStorage.getItem(
@@ -564,6 +591,9 @@ try{
  await page.evaluate(([k,v])=>localStorage.setItem(k,v),[indexKey,originalDealIndex]);
  await linked.getByRole('button',{name:'استعادة ملحق الدراسة المرتبط'}).click();
  await linked.getByText('استُعيدت مدخلات الملحق المرتبط بالصفقة',{exact:false}).waitFor();
+ assert((await nationalSources.getByTestId('national-summary').innerText()).includes('الصفوف المستوردة: 1'),'sidecar restores actual national panel');
+ assert((await noapi.getByTestId('noapi-reference-count').innerText()).includes('1'),'sidecar restores actual references');
+ mark('UNIFIED_NATIONAL_REGISTER_BROWSER_AND_SIDECAR_ROUNDTRIP',true);
  mark('CANONICAL_DEAL_RESEARCH_RESTORE_RECALCULATES',true);
 
 
