@@ -7,6 +7,16 @@ on:
         description: 'Exact 40-character main commit SHA authorized for production activation'
         required: true
         type: string
+      model:
+        description: 'Explicit reviewed OpenAI API model; separate price and token qualification required'
+        required: true
+        type: choice
+        default: gpt-6.2-sol
+        options:
+          - gpt-6.2-sol
+          - gpt-6.2-astra
+          - gpt-6.1-terra
+          - gpt-6-luna
       confirm_production_mutation:
         description: 'Type I_AUTHORIZE_STARTAK_PRODUCTION_MUTATION to permit production mutation'
         required: true
@@ -33,7 +43,7 @@ jobs:
       AI_PROVIDER_PROTOCOL: OPENAI_RESPONSES
       AI_PROVIDER_URL: https://api.openai.com/v1/responses
       AI_ALLOWED_HOSTS: api.openai.com
-      AI_MODEL: gpt-5.6-terra
+      AI_MODEL: ${{ inputs.model }}
       AI_GLOBAL_TOKEN_BUDGET_PER_DAY: '100000'
       TURNSTILE_WIDGET_NAME: STARTAK RIAI Public AI
 
@@ -74,12 +84,32 @@ jobs:
             echo 'RIAI_AI_PROVIDER_KEY is not present in Cloudflare Production.'; exit 1;
           }
           echo 'OpenAI provider secret is present in Cloudflare Production; value was not read or printed.'
+          case "$AI_MODEL" in
+            gpt-6.2-sol) floor=10 ;;
+            gpt-6.2-astra) floor=40 ;;
+            gpt-6.1-terra) floor=5 ;;
+            gpt-6-luna) floor=1 ;;
+            *) echo 'Model is not in reviewed catalog.'; exit 1 ;;
+          esac
+          now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          jq -e --arg model "$AI_MODEL" --arg now "$now" --argjson floor "$floor" '
+            .result.deployment_configs.production.env_vars as $e |
+            $e.RIAI_AI_MODEL_POLICY_VERSION.value == "GPT6_20261124" and
+            $e.RIAI_AI_PRICE_BOUND_MODEL.value == $model and
+            (($e.RIAI_AI_MAX_USD_MICROS_PER_TOKEN.value | tonumber) >= $floor) and
+            (($e.RIAI_AI_GLOBAL_USD_MICROS_PER_DAY.value | tonumber) > 0) and
+            (($e.RIAI_AI_FIXED_USD_MICROS_PER_REQUEST.value | tonumber) >= 0) and
+            (($e.RIAI_AI_INPUT_TOKEN_UPPER_BOUND.value | tonumber) > 0) and
+            ($e.RIAI_AI_PRICE_BOUND_EXPIRES_AT.value > $now)
+          ' <<<"$project_json" >/dev/null || { echo 'Model-specific pricing, token bound or policy not qualified; no mutation performed.'; exit 1; }
+          echo 'Model-specific configuration preflight passed; live model access still requires a separate synthetic canary.'
 
       - name: Reconcile safe OpenAI production variables
         shell: bash
         run: |
           set -euo pipefail
           auth=(-H "Authorization: Bearer ${CF_API_TOKEN}" -H 'Content-Type: application/json')
+          touch /tmp/startak-ai-mutation-attempted
           payload="$(jq -n --arg protocol "$AI_PROVIDER_PROTOCOL" --arg url "$AI_PROVIDER_URL" --arg hosts "$AI_ALLOWED_HOSTS" --arg model "$AI_MODEL" --arg budget "$AI_GLOBAL_TOKEN_BUDGET_PER_DAY" '{deployment_configs:{production:{env_vars:{RIAI_AI_PROVIDER_PROTOCOL:{type:"plain_text",value:$protocol},RIAI_AI_PROVIDER_URL:{type:"plain_text",value:$url},RIAI_AI_ALLOWED_HOSTS:{type:"plain_text",value:$hosts},RIAI_AI_MODEL:{type:"plain_text",value:$model},RIAI_AI_GLOBAL_TOKEN_BUDGET_PER_DAY:{type:"plain_text",value:$budget}}}}}')"
           response="$(curl -fsS -X PATCH "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/${CF_PROJECT_NAME}" --data "$payload")"
           jq -e '.success == true' <<<"$response" >/dev/null
@@ -203,6 +233,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          if [[ ! -f /tmp/authorized-production-sha || ! -f /tmp/startak-ai-mutation-attempted ]]; then echo 'No authorized mutation attempted; no rollback mutation permitted.'; exit 0; fi
           if [[ -z "${CF_API_TOKEN:-}" || -z "${CF_ACCOUNT_ID:-}" ]]; then
             echo '::error::Cannot attempt public-AI disable because Cloudflare credentials are unavailable.'
             exit 1
