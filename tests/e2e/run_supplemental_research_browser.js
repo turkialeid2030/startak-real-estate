@@ -42,6 +42,26 @@ const {chromium,firefox,webkit,expect}=require('@playwright/test');
   await verify('portfolio',portfolio,{PORTFOLIO_HOLDING_PERIOD_RETURN:0.0025});
   await el('assets').fill('A\nC');await expect(el('result')).toHaveCount(0);await load(portfolio);await expect(el('status')).toHaveAttribute('data-status','HOLD');checks+=2;
   await page.reload();await expect(panel).toBeVisible();await expect(el('result')).toHaveCount(0);checks++;
+  if(locale==='ar-SA'){
+   const {NAMESPACE}=require('../../src/storage/browser-local-storage-provider'),ar=require('../../src/i18n/locales/ar-SA'),gold=require('../reference/RE-GOLD-baseline.json');
+   const seeds=[{id:scope.caseId,name:'SYNTH-FIN-LINKED'},{id:'SYNTH-FIN-OTHER',name:'SYNTH-FIN-OTHER-LINKED'}].map(x=>({...x,mode:'building',inputs:gold['RE-GOLD-002_existing_building'].inputs,savedAt:'2026-10-10T00:00:00Z'}));
+   await page.evaluate(({namespace,seeds})=>{for(const s of seeds)localStorage.setItem(namespace+'deal:'+s.id,JSON.stringify(s));localStorage.setItem(namespace+'deals-index',JSON.stringify(seeds.map(({inputs,...s})=>s)));},{namespace:NAMESPACE,seeds});
+   await page.reload();
+   const bind=async s=>{await page.getByTitle(ar.actions.savedDeals,{exact:true}).click();await page.getByRole('dialog').getByRole('button',{name:s.name,exact:true}).click();await expect(el('case')).toHaveValue(s.id);};
+   const records=()=>page.evaluate(({namespace,seeds})=>seeds.map(s=>localStorage.getItem(namespace+'deal:'+s.id)),{namespace:NAMESPACE,seeds});
+   await bind(seeds[0]);const before=await records();
+   await el('method').selectOption('gross');await el('property').fill(scope.propertyRef);await el('date').fill(scope.asOfDate);await load(gross);await expect(el('result')).toBeVisible();
+   await el('passphrase').fill('synthetic-browser-finance-42');await expect(el('encrypted-save')).toBeDisabled();await el('consent').check();await el('encrypted-save').click();
+   await expect(el('storage-notice')).toContainText('تم التحقق من الحفظ المحلي المشفر',{timeout:15000});checks+=2;
+   const key=NAMESPACE+'supplemental-encrypted-draft:v1:'+scope.caseId+':gross';
+   const raw=await page.evaluate(k=>localStorage.getItem(k),key);assert.ok(raw&&!raw.includes(scope.propertyRef)&&!raw.includes('annualGrossRent'));checks++;
+   await bind(seeds[1]);await expect(el('result')).toHaveCount(0);checks++;
+   await page.reload();await bind(seeds[0]);await el('method').selectOption('gross');await el('property').fill(scope.propertyRef);await el('date').fill(scope.asOfDate);
+   await el('passphrase').fill('incorrect-browser-passphrase');await el('encrypted-load').click();await expect(el('storage-notice')).toContainText('تعذر الحفظ أو فتح المسودة',{timeout:15000});await expect(el('result')).toHaveCount(0);checks++;
+   await el('passphrase').fill('synthetic-browser-finance-42');await el('encrypted-load').click();await expect(el('result')).toBeVisible({timeout:15000});const restored=await download('report');assert.equal(restored.metrics[0].value,0.08);checks++;
+   await el('passphrase').fill('synthetic-browser-finance-42');await expect(el('encrypted-delete')).toBeDisabled();await el('delete-consent').check();await el('encrypted-delete').click();await expect(el('storage-notice')).toContainText('تم التحقق من حذف المسودة',{timeout:15000});checks++;
+   assert.equal(await page.evaluate(k=>localStorage.getItem(k),key),null);assert.deepEqual(await records(),before);checks+=2;
+  }
   assert.equal(errors.length,0,errors.join(';'));checks++;await page.close();
  }}finally{await browser.close();}
  console.log('SUPPLEMENTAL_RESEARCH_BROWSER=PASS browser='+name+' checks='+checks+' synthetic_only=true');
