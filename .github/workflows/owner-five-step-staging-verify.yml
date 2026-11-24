@@ -11,6 +11,15 @@ on:
       - 'src/components/LocalQuotedFinancingPanel.jsx'
       - 'src/components/LocalIncomeAssetReviewPanel.jsx'
       - 'src/components/LocalMarketIndicatorPanel.jsx'
+      - 'src/components/LocalPolicyShockReviewPanel.jsx'
+      - 'src/market/comparable-evidence*.js'
+      - 'src/market/policy-shock-scenario-review*.js'
+      - 'src/market/local-policy-shock-review.js'
+      - 'src/market/encrypted-policy-shock-draft.js'
+      - 'tests/defects/encrypted_policy_shock_saved_deal.js'
+      - 'tests/e2e/run_policy_shock_review_browser.js'
+      - 'tests/fixtures/synthetic-policy-shock.js'
+      - 'tests/defects/policy_shock_scenario_legacy_parity.js'
       - 'src/market/market-indicator-policy-review*.js'
       - 'src/market/market-evidence-governance*.js'
       - 'src/market/local-market-indicator-review.js'
@@ -117,6 +126,9 @@ jobs:
           done
           for browser in chromium firefox webkit; do
             STARTAK_BROWSER="$browser" STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_market_indicator_review_browser.js 2>&1 | tee "runtime-evidence/owner-five-step/market-indicators-$browser.log"
+          done
+          for browser in chromium firefox webkit; do
+            STARTAK_BROWSER="$browser" STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_policy_shock_review_browser.js 2>&1 | tee "runtime-evidence/owner-five-step/policy-shock-$browser.log"
           done
           STARTAK_E2E_URL=http://127.0.0.1:4173/?ownerView=advanced node tests/e2e/run_audit_20261010_remaining_browser.js 2>&1 | tee runtime-evidence/owner-five-step/legacy-diagnostics.log
           STARTAK_E2E_URL=http://127.0.0.1:4173/?ownerView=advanced node tests/e2e/run_audit_20261020_local_ocr_browser.js 2>&1 | tee runtime-evidence/owner-five-step/legacy-ocr.log
