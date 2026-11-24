@@ -46,6 +46,11 @@ assert.equal(evaluate().status,'REVIEW');
 assert.equal(evaluate({sourceDate:'2026-10-20',approvedAt:'2026-10-21'}).status,'REVIEW');
 assert.equal(evaluate({expiresAt:null}).status,'REVIEW');
 assert.equal(evaluate({expiresAt:'2026-10-27'}).status,'HOLD');
+const expiredBeforeApproval=evaluate({expiresAt:'2026-10-20'});
+assert.equal(expiredBeforeApproval.status,'HOLD');
+assert.equal(expiredBeforeApproval.assumptions[0].status,'UNSUPPORTED');
+assert.ok(expiredBeforeApproval.assumptions[0].blockers.includes('CRITICAL_OVERRIDE_EXPIRY_PRECEDES_APPROVAL'));
+assert.ok(expiredBeforeApproval.assumptions[0].blockers.includes('CRITICAL_ASSUMPTION_STALE:maintenanceRate'));
 for(const [patch,code] of [
  [{sourceDate:'2026-02-30'},'SOURCE_EVIDENCE_REQUIRED'],
  [{sourceDate:'10/20/2026'},'SOURCE_EVIDENCE_REQUIRED'],
