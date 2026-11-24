@@ -262,4 +262,25 @@ throwsWith(() => buildPropertyEvidencePacket({
   evidenceRecords: goodEvidence, measurementRecords: goodMeasurements, materialPropertyKeys: ['property.land_area'], materialMeasurementTypes: [MEASUREMENT_TYPE.LAND_AREA],
 }), 'PROPERTY_CASE_ISOLATION_VIOLATION', 'cross-case inspection/evidence cannot be bridged');
 
+
+const packet=(overrides={})=>buildPropertyEvidencePacket({
+ caseId:CASE_ID,propertyRef:PROPERTY_REF,assignmentRef:'ASSIGNMENT-001',assignment:assignment(),inspection:goodInspection,
+ evidenceRecords:goodEvidence,measurementRecords:goodMeasurements,materialPropertyKeys:['property.land_area'],materialMeasurementTypes:[MEASUREMENT_TYPE.LAND_AREA],
+ evidenceToleranceByKey:{'property.land_area':{absolute:2}},measurementToleranceByType:{LAND_AREA:{absoluteSqm:2}},
+ minimumPropertySourceRoles:2,minimumMeasurementSourcesByType:{LAND_AREA:2},...overrides});
+const makeMeasurement=(r,overrides={})=>createMeasurementRecord({...r,valueSqm:r.value,...overrides});
+check(packet({measurementRecords:[goodMeasurements[0],{...goodMeasurements[1],value:1000}]}).status===PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_MEASUREMENT,'tampered measurement rejected');
+check(packet({measurementRecords:[goodMeasurements[0],makeMeasurement(goodMeasurements[1],{inspectionId:'OTHER'})]}).status===PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_MEASUREMENT,'foreign inspection rejected');
+check(packet({measurementRecords:[goodMeasurements[0],makeMeasurement(goodMeasurements[1],{measuredAt:'2026-09-08'})]}).status===PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_MEASUREMENT,'post-completion measurement rejected');
+check(packet({inspection:{...goodInspection,valuationDate:'2026-09-06'}}).status===PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_INSPECTION,'valuation date mismatch rejected');
+check(packet({inspection:{...goodInspection,completedAt:'2026-09-08'}}).status===PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_INSPECTION,'post-report inspection rejected');
+const otherLand=goodMeasurements.map(r=>makeMeasurement(r,{valueSqm:1200}));
+check(packet({measurementRecords:otherLand}).status===PROPERTY_EVIDENCE_PACKET_STATUS.MATERIAL_PROPERTY_DATA_CONFLICT,'individually consistent but mutually contradictory evidence layers blocked');
+check(packet({measurementRecords:[goodMeasurements[0],makeMeasurement(goodMeasurements[1],{measurementStandardRef:'OTHER'})]}).status===PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_MEASUREMENT,'different measurement standards blocked');
+check(packet({measurementRecords:[goodMeasurements[0],makeMeasurement(goodMeasurements[1],{sourceEvidenceRef:goodMeasurements[0].sourceEvidenceRef})]}).status===PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_MEASUREMENT,'duplicate source reference rejected');
+check(packet({measurementRecords:[goodMeasurements[0],makeMeasurement(goodMeasurements[1],{measurementId:goodMeasurements[0].measurementId})]}).status===PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_MEASUREMENT,'duplicate measurement id rejected');
+const wide=[makeMeasurement(goodMeasurements[0],{valueSqm:1000}),makeMeasurement(goodMeasurements[1],{valueSqm:998}),makeMeasurement(goodMeasurements[1],{measurementId:'M-THIRD',source:'SURVEY',sourceEvidenceRef:'evidence://third',valueSqm:1002})];
+check(packet({measurementRecords:wide}).status===PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_MEASUREMENT,'nontransitive tolerance cannot hide conflicting extremes');
+check(ready.evidenceFacts.every(x=>x.factHashSha256&&x.reviewBindingSha256),'packet retains full fact and review digests');
+check(!!ready.measurementGateHashSha256&&!!ready.propertyDataGateHashSha256,'both gate results bound in packet');
 console.log(`WAVE_8C_PROPERTY_EVIDENCE_BRIDGE=PASS checks=${checks}`);
