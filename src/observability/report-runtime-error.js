@@ -5,14 +5,31 @@
 
 const { getBuildMetadata } = require('../runtime/build-metadata.js');
 
-const ALLOWED_ENVELOPE_FIELDS = ['appVersion', 'buildHash', 'timestamp', 'category', 'message', 'surface', 'locale', 'userAgent'];
+const ALLOWED_ENVELOPE_FIELDS = Object.freeze(['appVersion', 'buildHash', 'timestamp', 'category', 'message', 'surface', 'locale']);
 const SENTRY_DSN = 'https://bd62d30796feffcafda5b70c53c72604@o4512003775004672.ingest.de.sentry.io/4512003802005584';
 const SENTRY_INGEST_HOST = 'o4512003775004672.ingest.de.sentry.io';
 
+const CATEGORIES = Object.freeze({
+  window_error:'Runtime error',
+  unhandled_rejection:'Unhandled rejection',
+  'workspace-unavailable':'Supplementary workspace unavailable',
+  unknown:'STARTAK runtime error',
+});
+const SURFACES = new Set(['global','documents','canonical','local-urban-growth','local-asset-efficiency','local-policy-shock']);
 function sanitizeEnvelope(raw) {
-  const safe = {};
-  for (const key of ALLOWED_ENVELOPE_FIELDS) if (key in raw) safe[key] = raw[key];
-  return safe;
+  // Drop arbitrary values, not just unknown field names. Exception messages
+  // may contain document text, financial inputs, URLs or identity data.
+  const build = getBuildMetadata();
+  const category = typeof raw?.category==='string'&&Object.hasOwn(CATEGORIES,raw.category)?raw.category:'unknown';
+  return {
+    appVersion:/^\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]{1,64})?$/.test(build.appVersion)?build.appVersion:'unknown',
+    buildHash:/^[a-f0-9]{40}$/.test(build.sourceCommit||'')?build.sourceCommit:'unverified',
+    timestamp:new Date().toISOString(),
+    category,
+    message:CATEGORIES[category],
+    surface:SURFACES.has(raw?.surface)?raw.surface:'unknown',
+    locale:['ar-SA','en'].includes(raw?.locale)?raw.locale:'unknown',
+  };
 }
 
 let reportInFlight = false;
@@ -30,14 +47,9 @@ function loadSentryClient() {
         defaultIntegrations: false,
         attachStacktrace: false,
         beforeSend(event) {
-          const safeTags = {};
-          for (const key of ['appVersion', 'buildHash', 'category', 'surface', 'locale']) {
-            const value = event?.tags?.[key];
-            if (value != null) safeTags[key] = String(value).slice(0, 200);
-          }
-          const safeMessage = typeof event?.message === 'string'
-            ? event.message.slice(0, 500)
-            : 'STARTAK runtime error';
+          const envelope=sanitizeEnvelope(event?.tags);
+          const safeTags=Object.fromEntries(['appVersion','buildHash','category','surface','locale'].map(k=>[k,envelope[k]]));
+          const safeMessage=envelope.message;
           return {
             event_id: event?.event_id,
             timestamp: event?.timestamp,
@@ -45,7 +57,7 @@ function loadSentryClient() {
             level: 'error',
             message: safeMessage,
             tags: safeTags,
-            extra: event?.extra?.reportedAt ? { reportedAt: String(event.extra.reportedAt).slice(0, 64) } : undefined,
+            extra: { reportedAt: envelope.timestamp },
             environment: build.buildEnvironment,
             release: build.buildId,
           };
@@ -77,17 +89,7 @@ function reportRuntimeError(event) {
   if (reportInFlight) return;
   reportInFlight = true;
   try {
-    const build = getBuildMetadata();
-    const envelope = sanitizeEnvelope({
-      appVersion: build.appVersion,
-      buildHash: build.sourceCommit || build.buildId,
-      timestamp: new Date().toISOString(),
-      category: event?.category || 'unknown',
-      message: (event?.message || '').slice(0, 500),
-      surface: event?.surface,
-      locale: event?.locale,
-      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
-    });
+    const envelope = sanitizeEnvelope(event);
     sendToProvider(envelope);
   } catch (e) {
     // Telemetry must never crash the app it is reporting about.
@@ -98,11 +100,11 @@ function reportRuntimeError(event) {
 
 function installGlobalHandlers() {
   if (typeof window === 'undefined') return;
-  window.addEventListener('error', (e) => {
-    reportRuntimeError({ category: 'window_error', message: e?.message, surface: 'global' });
+  window.addEventListener('error', () => {
+    reportRuntimeError({ category: 'window_error', surface: 'global' });
   });
-  window.addEventListener('unhandledrejection', (e) => {
-    reportRuntimeError({ category: 'unhandled_rejection', message: String(e?.reason?.message || e?.reason || 'unknown'), surface: 'global' });
+  window.addEventListener('unhandledrejection', () => {
+    reportRuntimeError({ category: 'unhandled_rejection', surface: 'global' });
   });
 }
 
