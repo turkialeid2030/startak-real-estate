@@ -7,7 +7,7 @@ const {saveEncryptedPolicyShockDraft,loadEncryptedPolicyShockDraft}=require('../
 const READY='READY_FOR_PROFESSIONAL_POLICY_SHOCK_REVIEW';
 export default function LocalPolicyShockReviewPanel(){
  const {locale}=useLocale(),en=locale==='en',t=(ar,english)=>en?english:ar;
- const {linkedCase}=usePersonalCaseSession();
+ const {linkedCase,researchScope,publishResearchScope}=usePersonalCaseSession();
  const [caseId,setCase]=useState(''),[scope,setScope]=useState(''),[asset,setAsset]=useState(''),[city,setCity]=useState(''),[transaction,setTransaction]=useState(''),[date,setDate]=useState(''),[result,setResult]=useState(null),[busy,setBusy]=useState(false);
  const [source,setSource]=useState(null),[passphrase,setPassphrase]=useState(''),[confirmed,setConfirmed]=useState(false),[overwrite,setOverwrite]=useState(false),[notice,setNotice]=useState('');
  const epoch=useRef(0),fileRef=useRef(null);
@@ -46,6 +46,11 @@ export default function LocalPolicyShockReviewPanel(){
  <p className="mt-2 text-xs text-amber-200">{t('كل صف سيناريو مستقل وفق أثر أدخله المراجع. لا تجمع السيناريوهات ولا تعدل القيمة المرجعية ولا تثبت انطباق الأنظمة أو أصالة المصادر.','Each row is a separate scenario based on a supplied professional impact. Scenarios are not combined, do not alter the baseline value and do not establish legal applicability or source authenticity.')}</p>
  <div className="mt-3 grid gap-2 md:grid-cols-3">{fields.map(([label,value,set,id])=><label key={id} className="text-xs">{label}<input data-testid={id} type={id==='policy-shock-date'?'date':'text'} maxLength={160} readOnly={id==='policy-shock-case'&&!!linkedCase} value={value} onChange={e=>{clear();set(e.target.value);}} className="mt-1 block w-full rounded border border-slate-700 bg-slate-950 p-2"/></label>)}
  <label className="text-xs">{t('نوع الصفقة','Transaction type')}<select data-testid="policy-shock-transaction" value={transaction} onChange={e=>{clear();setTransaction(e.target.value);}} className="mt-1 block w-full rounded border border-slate-700 bg-slate-950 p-2"><option value="">{t('اختر النوع','Select type')}</option><option value="SALE">{t('بيع','Sale')}</option><option value="RENT">{t('إيجار','Rent')}</option></select></label></div>
+ {linkedCase&&caseId===linkedCase.caseId&&<div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+ <button type="button" data-testid="policy-shock-share-scope" disabled={busy||!scope.trim()||!date} onClick={()=>publishResearchScope({caseId,marketScopeRef:scope.trim(),asOfDate:date})} className="rounded border border-slate-700 px-3 py-2 disabled:opacity-50">{t('مشاركة النطاق والتاريخ مع أدوات البحث','Share scope and date with research tools')}</button>
+ <button type="button" data-testid="policy-shock-apply-scope" disabled={busy||!researchScope||researchScope.caseId!==caseId} onClick={()=>{if(researchScope?.caseId!==caseId)return;clear();setScope(researchScope.marketScopeRef);setDate(researchScope.asOfDate);}} className="rounded border border-slate-700 px-3 py-2 disabled:opacity-50">{t('استخدام النطاق والتاريخ المشترك','Apply shared scope and date')}</button>
+ {researchScope?.caseId===caseId&&<span data-user-content>{researchScope.marketScopeRef} / {researchScope.asOfDate}</span>}
+ </div>}
  <label className="mt-3 block text-xs">{t('استيراد المقارنات والأدلة والآثار وسياسة المراجعة','Import comparables, evidence, impacts and review policy')}<input ref={fileRef} type="file" data-testid="policy-shock-file" accept=".json,application/json" disabled={busy||!ready} onChange={e=>load(e.target.files?.[0])} className="mt-1 block w-full"/></label>
  <p className="mt-2 text-xs text-slate-400">{t('لا تحفظ الملفات تلقائيًا ولا ترفع إلى الخادم.','Files are not automatically stored or uploaded.')}</p>
  <button type="button" data-testid="policy-shock-reset" onClick={clear} className="mt-2 rounded border border-slate-700 px-3 py-2 text-xs">{t('مسح التحليل','Clear review')}</button>
