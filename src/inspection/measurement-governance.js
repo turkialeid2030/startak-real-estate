@@ -1,6 +1,7 @@
 'use strict';
 
-const crypto = require('crypto');
+const crypto = require('node:crypto');
+const {strictCalendarDateMs}=require('../validation/strict-calendar-instant');
 
 const MEASUREMENT_TYPE = Object.freeze({
   LAND_AREA: 'LAND_AREA',
@@ -42,7 +43,7 @@ function assertEnum(value, enumeration, field) {
 
 function iso(value, field) {
   if (!nonEmpty(value)) throw new TypeError(`${field} is required`);
-  const date = new Date(value);
+  const date = new Date(strictCalendarDateMs(value));
   if (Number.isNaN(date.getTime())) throw new TypeError(`${field} must be a valid date/time`);
   return date.toISOString();
 }
@@ -100,6 +101,13 @@ function createMeasurementRecord({
   return freeze(record);
 }
 
+function verifyMeasurementRecord(record){
+ try{
+  const rebuilt=createMeasurementRecord({...record,valueSqm:record.value});
+  const stable=v=>Array.isArray(v)?v.map(stable):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,stable(v[k])])):v;
+  return JSON.stringify(stable(record))===JSON.stringify(stable(rebuilt));
+ }catch{return false;}
+}
 function withinTolerance(a, b, tolerance) {
   const absolute = Number.isFinite(tolerance?.absoluteSqm) ? Math.max(0, tolerance.absoluteSqm) : 0;
   const relative = Number.isFinite(tolerance?.relative) ? Math.max(0, tolerance.relative) : 0;
@@ -117,7 +125,7 @@ function reconcileMeasurementRecords({
   minimumIndependentSourcesByType = {},
 } = {}) {
   assertNonEmpty(caseId, 'caseId');
-  if (!Array.isArray(records)) throw new TypeError('records must be an array');
+  if (!Array.isArray(records)||records.length>5000) throw new TypeError('records must be a bounded array');
   if (!Array.isArray(materialTypes) || materialTypes.length === 0) throw new TypeError('materialTypes must be a non-empty array');
   for (const type of materialTypes) assertEnum(type, MEASUREMENT_TYPE, 'materialTypes[]');
   for (const record of records) {
@@ -125,6 +133,8 @@ function reconcileMeasurementRecords({
     if (record.unit !== 'SQM') throw new TypeError('MEASUREMENT_UNIT_UNSUPPORTED: only SQM is accepted by this canonical model');
   }
 
+  const invalidIds=new Set(records.filter(r=>!verifyMeasurementRecord(r)).map(r=>r.measurementId));
+  const duplicateIds=new Set(records.map(r=>r.measurementId)).size!==records.length;
   const checks = [];
   const conflicts = [];
   const insufficient = [];
@@ -135,13 +145,12 @@ function reconcileMeasurementRecords({
     const minimumSources = Number.isInteger(minimumIndependentSourcesByType[type])
       ? Math.max(1, minimumIndependentSourcesByType[type])
       : 1;
-    const evidenceInsufficient = group.length === 0 || sources.length < minimumSources;
+    const evidenceInsufficient = group.length === 0 || sources.length < minimumSources||duplicateIds||group.some(r=>invalidIds.has(r.measurementId))||new Set(group.map(r=>r.sourceEvidenceRef)).size<minimumSources;
     if (evidenceInsufficient) insufficient.push({ type, sourceCount: sources.length, requiredSourceCount: minimumSources });
 
     let conflict = false;
     if (group.length > 1) {
-      const reference = group[0].value;
-      conflict = group.slice(1).some((record) => !withinTolerance(reference, record.value, toleranceByType[type] || {}));
+      conflict = new Set(group.map(r=>r.measurementStandardRef)).size!==1||group.some((a,i)=>group.slice(i+1).some(b=>!withinTolerance(a.value,b.value,toleranceByType[type]||{})));
       if (conflict) {
         conflicts.push({
           type,
@@ -161,7 +170,7 @@ function reconcileMeasurementRecords({
       requiredSourceCount: minimumSources,
       evidenceInsufficient,
       conflict,
-      consensusValueSqm: !conflict && group.length ? group[0].value : null,
+      consensusValueSqm: !conflict && !evidenceInsufficient && group.length ? group[0].value : null,
     });
   }
 
@@ -190,5 +199,6 @@ module.exports = {
   MEASUREMENT_SOURCE,
   MEASUREMENT_RECONCILIATION_STATUS,
   createMeasurementRecord,
+  verifyMeasurementRecord,
   reconcileMeasurementRecords,
 };
