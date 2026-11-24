@@ -16,7 +16,7 @@
 
 - معاينة الالتزام: https://950c2d2e.startak-real-estate.pages.dev
 - معاينة الفرع: https://feat-startak-re-personal-noa.startak-real-estate.pages.dev
-- سجل فحص GitHub: https://github.com/turkialeid2030/startak-real-estate/commit/96c4743fd06456aff28ca3a8c67ebf53e3a3aba4/checks?check_suite_id=137942496109
+- سجل فحص GitHub: https://dash.cloudflare.com/?to=/3b436e86b7a7e92adebe407dce12550e/pages/view/startak-real-estate/950c2d2e-ac15-4898-94ae-ad30b01a1e31
 
 **تدقيق العبارة السابقة:** الصحيح أن **نشر معاينة فرعية مُثبت**؛ وليس صحيحًا الجزم بأنه لم توجد أي عملية نشر حديثة. ولا يثبت هذا السجل أن `main` تغير أو أن رابط الإنتاج تغير أو أن المعاينة كانت قابلة للدخول أو حفظت واستعادت ملفات المستخدم. محاولة فحص URL بوسيلة ويب مستقلة عادت **غير قابلة للوصول من هذه الأداة**؛ لا أستنتج من ذلك عطل الموقع أو سلامته. يلزم اختبار دخول مؤذون وGET/manifest وفتح وحفظ/إعادة فتح للمعاينة الحالية.
 
