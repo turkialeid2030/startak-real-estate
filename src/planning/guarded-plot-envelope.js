@@ -7,7 +7,7 @@ const { strictCalendarDateMs } = require('../validation/strict-calendar-instant'
 const { assessTitleCrossDocumentConsistency } = require('../title-intelligence/cross-document-consistency');
 const {
   PLANNING_CONSTRAINT_TYPE: TYPE,
-  PLANNING_EVIDENCE_STATUS,
+  PLANNING_EVIDENCE_STATUS, PLANNING_AUTHORITY_CLASS, assessPlanningEvidenceSet,
 } = require('./planning-evidence');
 
 const STATUS=Object.freeze({
@@ -47,7 +47,7 @@ function output(status,caseId,propertyRef,reasons,calculations=null,sourceRefs=[
 }
 function assessGuardedPlotEnvelope({
   caseId,propertyRef,planningEvidenceSet,geometry,evaluatedAt,maxAreaDifferenceSqm,
-  titleFacts,titleFreshnessPolicy,geometryMaxAgeDays,
+  titleFacts,titleFreshnessPolicy,geometryMaxAgeDays,planningRecords,
 }={}){
   if(typeof caseId!=='string'||!caseId.trim()||
      typeof propertyRef!=='string'||!propertyRef.trim())throw Error('CASE_PROPERTY_ID_REQUIRED');
@@ -72,13 +72,14 @@ function assessGuardedPlotEnvelope({
   const required=[TYPE.FAR,TYPE.BCR,TYPE.SETBACK];
   if(!required.every(type=>planningEvidenceSet.requiredConstraintTypes?.includes(type)))
     return bad(STATUS.HOLD_CONSTRAINTS,'MANDATORY_PLANNING_CONSTRAINT_NOT_REQUIRED');
+  if(!Array.isArray(planningEvidenceSet.trace))return bad(STATUS.HOLD_CONSTRAINTS,'PLANNING_TRACE_INVALID');
   const picks={},sourceRefs=[];
   for(const type of required){
     const traces=(planningEvidenceSet.trace||[]).filter(x=>x.type===type);
     if(traces.length!==1||!Array.isArray(traces[0].values)||traces[0].values.length!==1)
       return bad(STATUS.HOLD_CONSTRAINTS,'MISSING_OR_AMBIGUOUS_CONSTRAINT:'+type);
     const x=traces[0].values[0];
-    if(typeof x.evidenceId!=='string'||!x.evidenceId||
+    if(!x||typeof x.evidenceId!=='string'||!x.evidenceId||
        typeof x.sourceRef!=='string'||!x.sourceRef)
       return bad(STATUS.HOLD_CONSTRAINTS,'SOURCE_PROVENANCE_MISSING:'+type);
     picks[type]=x;sourceRefs.push({type,evidenceId:x.evidenceId,sourceRef:x.sourceRef});
@@ -134,6 +135,26 @@ function assessGuardedPlotEnvelope({
   if(titleAreas.length<2||!titleAreas.every(v=>positive(v)&&
       Math.abs(v-geometry.landAreaSqm)<=maxAreaDifferenceSqm))
     return bad(STATUS.HOLD_TITLE,'DEED_SURVEY_AREA_GEOMETRY_MISMATCH');
+  // A hash of a submitted READY set alone cannot prove its semantic validity.
+  // Recompute from the original normalized records, never trust a rehashed trace.
+  if(!Array.isArray(planningRecords)||planningRecords.length<3||planningRecords.length>5000)
+    return bad(STATUS.HOLD_BINDING,'ORIGINAL_PLANNING_RECORDS_REQUIRED');
+  try{
+    const allowed=planningEvidenceSet.allowedAuthorityClasses;
+    if(!Array.isArray(allowed)||allowed.some(a=>![PLANNING_AUTHORITY_CLASS.OFFICIAL_AUTHORITY,PLANNING_AUTHORITY_CLASS.VERIFIED_PROFESSIONAL].includes(a)))
+      return bad(STATUS.HOLD_UPSTREAM,'PLANNING_AUTHORITY_POLICY_NOT_ELIGIBLE');
+    const replay=assessPlanningEvidenceSet({caseId,propertyRef,valuationDate:evaluatedAt,records:planningRecords,
+      requiredConstraintTypes:planningEvidenceSet.requiredConstraintTypes,
+      allowedAuthorityClasses:allowed,cardinalityByType:planningEvidenceSet.cardinalityByType});
+    if(replay.planningEvidenceSetHashSha256!==planningEvidenceSetHashSha256||!replay.readyForHbuLegalReview)
+      return bad(STATUS.HOLD_BINDING,'PLANNING_EVIDENCE_SET_REPLAY_MISMATCH');
+    const selected=new Set(sourceRefs.map(x=>x.evidenceId));
+    if(planningRecords.some(r=>selected.has(r.evidenceId)&&
+        (!validDate(r.capturedAt)||!validDate(r.verification?.verifiedAt)||
+         strictCalendarDateMs(r.capturedAt)>strictCalendarDateMs(evaluatedAt)||
+         strictCalendarDateMs(r.verification.verifiedAt)>strictCalendarDateMs(evaluatedAt))))
+      return bad(STATUS.HOLD_UPSTREAM,'PLANNING_EVIDENCE_NOT_KNOWN_AT_EVALUATION');
+  }catch{return bad(STATUS.HOLD_BINDING,'PLANNING_EVIDENCE_REPLAY_INVALID');}
   const width=geometry.widthM-sb.left-sb.right;
   const depth=geometry.depthM-sb.front-sb.rear;
   const setbackFootprint=Math.max(0,width)*Math.max(0,depth);
