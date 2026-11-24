@@ -184,18 +184,31 @@ function evaluateMarketStudy(input = {}) {
       spatialMatch(row));
   };
   const uniqueEligible = (rows,amountKey,areaKey) => {
-    const seen = new Set();
-    return rows.filter(row => {
-      if (!admissible(row,amountKey,areaKey)) return false;
+    const groups = new Map();
+    const conflicts = new Set();
+    for (const row of rows) {
+      if (!admissible(row,amountKey,areaKey)) continue;
       const stableId = String(row.sourceRecordId || '').trim();
-      // A transaction ID is unique within its SOURCE HOST, even when
-      // copied into a different listing/detail URL from the same provider.
       const sourceHost = new URL(row.sourceUrl).hostname.toLowerCase();
       const key = stableId ? sourceHost + '|id|' + stableId :
-        [row.sourceUrl,row.date,row.assetType,row[amountKey],row[areaKey],row.location,row.city,row.district].join('|');
-      if (seen.has(key)) return false;
-      seen.add(key);return true;
-    });
+        JSON.stringify([row.sourceUrl,row.date,row.assetType,number(row[amountKey]),number(row[areaKey]),row.location,row.city,row.district]);
+      // An identical same-source record counts once, but inconsistent economic
+      // or location facts under that identity cannot be resolved by row order.
+      const point = extractCoordinates(row.location || '');
+      const normalize = v => String(v || '').trim().replace(/\s+/g,' ').toLowerCase();
+      const signature = JSON.stringify([
+        row.date,row.assetType,number(row[amountKey]),number(row[areaKey]),
+        row.assetType==='LAND' ? String(row.landSubtype || '') : '',
+        point ? [point.lat,point.lng] : [normalize(row.city),normalize(row.district)]
+      ]);
+      if (!groups.has(key)) groups.set(key,{row,signature});
+      else if (groups.get(key).signature !== signature) conflicts.add(key);
+    }
+    if(conflicts.size){
+      const reason=amountKey==='price'?'SALE_SOURCE_RECORD_CONFLICT':'RENT_SOURCE_RECORD_CONFLICT';
+      if(!issues.includes(reason))issues.push(reason);
+    }
+    return [...groups].filter(([key])=>!conflicts.has(key)).map(([,entry])=>entry.row);
   };
   const eligibleSales = uniqueEligible(sales, 'price', type === 'LAND' ? 'landArea' : 'builtArea');
   const eligibleRentals = needsIncomeInputs ? uniqueEligible(rentals, 'annualRent', 'rentableArea') : [];
