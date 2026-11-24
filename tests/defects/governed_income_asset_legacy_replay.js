@@ -2,7 +2,7 @@
 const assert=require('node:assert/strict');
 const crypto=require('node:crypto');
 const {createLeaseEvidenceRecord,createVerifiedRentRollSnapshot,reconcileLeaseIncomeEvidence}=require('../../src/market/lease-income-evidence');
-const {INCOME_ASSET_STATUS:S,POLICY_VERSION,createGovernedTenantStrengthAssessment,tenantAssessmentBindings,computeIncomeAssetReviewPolicyHash,evaluateGovernedIncomeAssetIntelligence:evaluate}=require('../../src/income/governed-income-asset-intelligence');
+const {INCOME_ASSET_STATUS:S,POLICY_VERSION,createGovernedTenantStrengthAssessment,tenantAssessmentBindings,computeIncomeAssetReviewPolicyHash,evaluateGovernedIncomeAssetIntelligence:evaluate}=require('../../src/income/contractual-income-asset-review');
 const caseId='SYNTH-C11',propertyRef='SYNTH-PROPERTY',asOfDate='2026-10-31';
 const verification={status:'VERIFIED',verifiedByRef:'SYNTH-REVIEWER',verifiedAt:'2026-10-25',evidenceRef:'SYNTH-REVIEW'};
 const makeLease=(leaseId,tenantRef,areaSqm,rent,expiryDate,patch={})=>createLeaseEvidenceRecord({leaseId,caseId,propertyRef,unitRef:'UNIT-'+leaseId,tenantRef,leaseInterestRef:'INTEREST-'+leaseId,areaSqm,baseAnnualRentSar:rent,contractedAnnualRentSarAsOfDate:rent,startDate:'2025-01-01',expiryDate,escalation:{type:'NONE'},sourceClass:'VERIFIED_EXECUTED_LEASE',sourceRef:'SYNTH-SOURCE',sourceDocumentHashSha256:'a'.repeat(64),verification,capturedAt:'2026-10-20',...patch});
