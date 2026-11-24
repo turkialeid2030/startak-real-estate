@@ -205,4 +205,12 @@ check(completed.completedAt === '2026-09-07T09:05:00.000Z', 'completion timestam
 check(completed.certifiedValuationEstablished === false, 'inspection completion does not certify valuation');
 check(completed.transactionAuthorized === false, 'inspection completion does not authorize transaction');
 
+
+const reviewInput={endedAt:'2026-09-07T09:00:00Z',reviewedByRef:'USER:REVIEWER-01',reviewEvidenceRef:'evidence://post-review/pass',acknowledgements:{observationsReviewed:true,mediaReviewed:true,measurementsReviewed:true,materialConflictsReviewed:true,accountabilityAccepted:true},measurementGate,measurementInputs};
+check(!submitPostInspectionReview(inspectionWithPassMedia,{...reviewInput,measurementInputs:undefined}).postInspectionReview.readyToComplete,'original measurement records required');
+check(!submitPostInspectionReview(inspectionWithPassMedia,{...reviewInput,measurementGate:{caseId:CASE_ID,status:'CLEAR'}}).postInspectionReview.readyToComplete,'asserted CLEAR cannot substitute replay');
+check(!submitPostInspectionReview(inspectionWithPassMedia,{...reviewInput,endedAt:'2026-09-07T08:04:00Z'}).postInspectionReview.readyToComplete,'observations or media after review rejected');
+throwsWith(()=>completeInspection({...readyReview,postInspectionReview:{...readyReview.postInspectionReview,reviewedByRef:'OTHER'}},{completedAt:'2026-09-07T09:05:00Z'}),'INSPECTION_REVIEW_BINDING_INVALID','altered reviewer cannot complete');
+throwsWith(()=>addInspectionMedia(inspection,{...passMedia,contentHashSha256:'0'.repeat(64)}),'INSPECTION_MEDIA_INTEGRITY_INVALID','tampered media rejected before attachment');
+throwsWith(()=>reconcileMeasurementRecords({...measurementInputs,toleranceByType:{LAND_AREA:{relative:2}}}),'MEASUREMENT_POLICY_INVALID','invalid relative tolerance rejected');
 console.log(`WAVE_8B_INSPECTION_MEASUREMENT=PASS checks=${checks}`);
