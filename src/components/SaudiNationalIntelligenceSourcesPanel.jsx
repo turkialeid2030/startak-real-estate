@@ -1,4 +1,4 @@
-import React,{useLayoutEffect,useMemo,useState} from 'react';
+import React,{useLayoutEffect,useMemo,useRef,useState} from 'react';
 import KitePersonalTransactionsPanel from './KitePersonalTransactionsPanel.jsx';
 import NoApiSourceBridgePanel from './NoApiSourceBridgePanel.jsx';
 import PersonalNoApiManualEntryPanel from './PersonalNoApiManualEntryPanel.jsx';
@@ -50,6 +50,9 @@ export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange,
  const [resetEpoch,setResetEpoch]=useState(0);
  const currentSubjectKey=useMemo(()=>marketEvidenceSubjectKey(subject),[subject]);
  const capturedRows=records.length>0||manualReferences.length>0;
+ const readEpoch=useRef(0);
+ // Ignore late async file reads after case switches, clears, edits or unmounts.
+ useLayoutEffect(()=>()=>{readEpoch.current++;},[currentSubjectKey,records,manualReferences,resetEpoch]);
  // Publish the complete bound register after state changes. Unmounted async
  // readers cannot publish a previous case through this layout effect.
  useLayoutEffect(()=>{
@@ -65,6 +68,7 @@ export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange,
   setManualReferences(next);
  }
  function clearForNewProperty(){
+  readEpoch.current++;
   setRecords([]);setManualReferences([]);setBoundSubjectKey(null);
   setResetEpoch(n=>n+1);
   setSourceId('');setCity('');setEvidenceClass('');
@@ -128,7 +132,10 @@ export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange,
   if(scopeHold){setNotice(scopeNotice);return;}
   try{
    if(file.size>MAX_PERSONAL_BYTES)throw Error('PERSONAL_RESEARCH_FILE_TOO_LARGE');
-   const incoming=importPersonalResearch(await file.text());
+   const token=++readEpoch.current;
+   const text=await file.text();
+   if(token!==readEpoch.current)return;
+   const incoming=importPersonalResearch(text);
    const merged=mergeNationalResearch(records,incoming);
    if(merged.records.length&&!boundSubjectKey)setBoundSubjectKey(currentSubjectKey);
    setRecords(merged.records);onResearchChange?.(merged.records);
@@ -154,7 +161,10 @@ export default function SaudiNationalIntelligenceSourcesPanel({onResearchChange,
   setRightsAcknowledged(false);
 
   try{
-   const fresh=importNationalSourcesCsv(await file.text(),{observedOn});
+   const token=++readEpoch.current;
+   const text=await file.text();
+   if(token!==readEpoch.current)return;
+   const fresh=importNationalSourcesCsv(text,{observedOn});
    const merged=mergeNationalResearch(records,fresh.records);
    if(merged.records.length&&!boundSubjectKey)setBoundSubjectKey(currentSubjectKey);
    setRecords(merged.records);onResearchChange?.(merged.records);setSourceId('');setCity('');setEvidenceClass('');
