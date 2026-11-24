@@ -14,6 +14,8 @@ on:
       - 'src/market/market-indicator-policy-review*.js'
       - 'src/market/market-evidence-governance*.js'
       - 'src/market/local-market-indicator-review.js'
+      - 'src/market/encrypted-market-indicator-draft.js'
+      - 'tests/defects/encrypted_market_indicator_saved_deal.js'
       - 'tests/e2e/run_market_indicator_review_browser.js'
       - 'tests/fixtures/synthetic-market-indicators.js'
       - 'tests/defects/market_indicator_policy_legacy_parity.js'
