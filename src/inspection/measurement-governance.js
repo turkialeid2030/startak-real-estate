@@ -145,7 +145,7 @@ function reconcileMeasurementRecords({
     const minimumSources = Number.isInteger(minimumIndependentSourcesByType[type])
       ? Math.max(1, minimumIndependentSourcesByType[type])
       : 1;
-    const evidenceInsufficient = group.length === 0 || sources.length < minimumSources||duplicateIds||group.some(r=>invalidIds.has(r.measurementId))||new Set(group.map(r=>r.sourceEvidenceRef)).size<minimumSources;
+    const evidenceInsufficient = group.length === 0 || sources.length < minimumSources||duplicateIds||invalidIds.size>0||new Set(group.map(r=>r.sourceEvidenceRef)).size<minimumSources;
     if (evidenceInsufficient) insufficient.push({ type, sourceCount: sources.length, requiredSourceCount: minimumSources });
 
     let conflict = false;
