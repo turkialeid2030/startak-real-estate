@@ -57,6 +57,7 @@ async function secureLoopbackPreview(){
    await upload('synthetic.png','image/png',pngTextFixture());
    await expect(page.getByTestId('local-ocr-layout').getByRole('radio',{name:'تلقائي',exact:true})).toBeChecked();checks++;
    await expect(page.getByTestId('local-document-parser-reason')).toHaveAttribute('data-parser-reason','IMAGE_OCR_NOT_RUN');checks++;
+   await expect(page.getByTestId('local-document-parser-reason')).toHaveAttribute('data-reason-code','IMAGE_OCR_NOT_RUN');checks++;
    await page.getByTestId('local-ocr-start').click();await expect(page.getByTestId('local-document-parser-status')).toHaveAttribute('data-parser-status','PARSED',{timeout:65000});checks++;
    const extracted=await download(page,page.getByTestId('local-ocr-export'));
    ok(extracted.intakeRecord.result.atoms.some(a=>a.rawValue.includes('1234.50')),'actual OCR retains clean synthetic decimal');
@@ -101,6 +102,7 @@ async function secureLoopbackPreview(){
    await expect(page.getByTestId('local-ocr-layout').getByRole('radio',{name:'تلقائي',exact:true})).toBeChecked();checks++;
    await expect(page.getByTestId('local-ocr-export')).toHaveCount(0);await expect(page.getByTestId('local-ocr-source-preview')).toHaveCount(0);await expect(page.getByTestId('local-document-parser-status')).toHaveCount(0);checks+=3;
    await page.getByTestId('local-ocr-page').fill('3');await page.getByTestId('local-ocr-start').click();
+   await expect(panel.getByRole('alert')).toHaveAttribute('data-reason-code','OCR_PAGE_INVALID');checks++;
    const ocrInvalid=panel.getByRole('alert').locator('[data-diagnostic-code="OCR_PAGE_INVALID"]');
    await expect(ocrInvalid).toContainText('أدخل رقم صفحة صحيحًا',{timeout:15000});checks++;
    await expect(ocrInvalid).not.toContainText('OCR_PAGE_INVALID');checks++;
