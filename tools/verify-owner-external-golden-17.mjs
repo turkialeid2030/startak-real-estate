@@ -99,8 +99,9 @@ try {
   // only, never copied case identifiers, prices, addresses or report text.
   const moduleCases=fixture.cases.map(replayPropertyCase);
   if(moduleCases.some(x=>!x.valueMatches||!x.derivedRentMatches))fail('CURRENT_MODULE_REPLAY_MISMATCH');
-  mark('CURRENT_VALUATION_MODULE_REPLAY=PASS',
-    'cases=17 derived_rent_only=true fixture_sha256='+fixtureSha256+' source_authenticity_unverified=true browser_parity=false');
+  const executedModuleCount=moduleCases.filter(x=>x.moduleExecuted).length;
+  mark('CURRENT_VALUATION_MODULE_REPLAY='+(executedModuleCount===17?'PASS':'PARTIAL'),
+    'cases='+executedModuleCount+'/17 adopted_land_only='+ (17-executedModuleCount)+' derived_rent_only=true fixture_sha256='+fixtureSha256+' source_authenticity_unverified=true browser_parity=false');
   // Some historical 17-case fixture formats legitimately omit the optional
   // four auxiliary cases. Do not break the 17-case source/hash/IRR checks:
   // mark those auxiliary cases BLOCKED, not PASS. An explicitly supplied
