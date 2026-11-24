@@ -142,6 +142,58 @@ async function main() {
     assert.strictEqual(incompleteResponse.status, 502);
     assert.strictEqual(incompletePayload.code, 'AI_PROVIDER_RESPONSE_INCOMPLETE');
 
+
+    const profiles={'gpt-6.2-sol':10,'gpt-6.2-astra':40,'gpt-6.1-terra':5,'gpt-6-luna':1};
+    const modern=(model,patch={})=>env({RIAI_AI_MODEL:model,...require('../fixtures/riai-money-bound')(model),RIAI_AI_MODEL_POLICY_VERSION:'GPT6_20261124',RIAI_AI_MAX_USD_MICROS_PER_TOKEN:String(profiles[model]),RIAI_AI_REASONING_EFFORT:'low',...patch});
+    let modernCalls=0;
+    global.fetch=async(url,options)=>{
+      modernCalls++;
+      const body=JSON.parse(options.body);
+      assert(Object.hasOwn(profiles,body.model));
+      assert.strictEqual(body.store,false);
+      assert.strictEqual(body.reasoning.effort,'low');
+      assert.strictEqual(body.instructions,undefined);
+      assert.strictEqual(body.input[0].role,'developer');
+      assert(body.input[0].content[0].text.includes('evidence-disciplined'));
+      assert.strictEqual(body.input[1].role,'user');
+      assert.strictEqual(body.input[1].content[0].text,JSON.stringify(snapshot()));
+      assert.strictEqual(body.text.format.strict,true);
+      assert.strictEqual(body.temperature,undefined);
+      assert.strictEqual(options.redirect,'error');
+      return jsonResponse({status:'completed',model:body.model,usage:{input_tokens:100,output_tokens:80,total_tokens:180},output:[{type:'message',content:[{type:'output_text',text:JSON.stringify(providerResult())}]}]});
+    };
+    for(const model of Object.keys(profiles)){
+      const res=await onRequestPost({request:request(),env:modern(model)});
+      const data=await res.json();
+      assert.strictEqual(res.status,200,JSON.stringify(data));
+      assert.strictEqual(data.providerReportedModel,model);
+      assert.strictEqual(data.modelPolicyVersion,'GPT6_20261124');
+      assert.strictEqual(data.result.transactionAuthorized,false);
+    }
+    for(const [model,patch,code] of [
+      ['gpt-6.2-sol',{RIAI_AI_MODEL_POLICY_VERSION:''},'AI_MODEL_POLICY_NOT_CONFIGURED'],
+      ['gpt-6.2-sol',{RIAI_AI_MAX_USD_MICROS_PER_TOKEN:'1'},'AI_MODEL_PRICE_BOUND_BELOW_CATALOG'],
+      ['gpt-6.2-sol',{RIAI_AI_REASONING_EFFORT:'max'},'AI_MODEL_REASONING_EFFORT_INVALID'],
+      ['gpt-6.2-sol',{RIAI_AI_PROVIDER_PROTOCOL:'CHAT_COMPLETIONS'},'AI_MODEL_REQUIRES_NATIVE_RESPONSES'],
+      ['gpt-6.2-sol',{RIAI_AI_PROVIDER_URL:'https://api.openai.com/v1/chat/completions'},'AI_MODEL_REQUIRES_NATIVE_RESPONSES'],
+      ['gpt-6-unreviewed',{},'AI_MODEL_NOT_QUALIFIED'],
+      ['gpt-6.2-sol',{RIAI_AI_PRICE_BOUND_MODEL:'gpt-5.6-terra'},'AI_MONETARY_BOUND_NOT_CONFIGURED'],
+    ]){
+      const res=await onRequestPost({request:request(),env:modern(model,patch)});
+      assert.strictEqual(res.status,503);
+      assert.strictEqual((await res.json()).code,code);
+    }
+    assert.strictEqual(modernCalls,4);
+    for(const [payload,code] of [
+      [{status:'completed',model:'gpt-6-luna'},'AI_PROVIDER_MODEL_MISMATCH'],
+      [{status:'completed',model:'gpt-6.2-sol'},'AI_PROVIDER_USAGE_UNVERIFIED'],
+    ]){
+      global.fetch=async()=>jsonResponse(payload);
+      const res=await onRequestPost({request:request(),env:modern('gpt-6.2-sol')});
+      assert.strictEqual(res.status,502);
+      assert.strictEqual((await res.json()).code,code);
+    }
+    console.log('RIAI_GPT6_MODEL_REFRESH=PASS mocked_provider_only=true');
     console.log('RIAI_OPENAI_RESPONSES_ADAPTER=PASS');
     console.log('OPENAI_RESPONSES_STRUCTURED_OUTPUT=PASS');
     console.log('OPENAI_RESPONSES_STORE_FALSE=PASS');
