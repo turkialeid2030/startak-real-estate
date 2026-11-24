@@ -46,6 +46,26 @@ const {fixture,scope,expectedValues}=require('../defects/asset_efficiency_four_a
    await el('efficiency-share-scope').click();await el('urban-growth-apply-scope').click();await expect(el('urban-growth-scope')).toHaveValue(scope.marketScopeRef);await expect(el('urban-growth-date')).toHaveValue(scope.asOfDate);checks++;
    await bind(seeds[1]);await expect(el('efficiency-result')).toHaveCount(0);await expect(el('efficiency-apply-scope')).toBeDisabled();checks++;
    await fill([['property',scope.propertyRef],['scope',scope.marketScopeRef],['date',scope.asOfDate]]);await load(fixture());await expect(el('efficiency-status')).toHaveAttribute('data-status','HOLD');checks++;
+
+   await bind(seeds[0]);await fill([['property',scope.propertyRef],['scope',scope.marketScopeRef],['date',scope.asOfDate]]);
+   await load(fixture());await expect(el('efficiency-result')).toBeVisible();checks++;
+   await el('efficiency-passphrase').fill('synthetic-browser-efficiency-42');
+   await expect(el('efficiency-encrypted-save')).toBeDisabled();checks++;
+   await el('efficiency-consent').check();await el('efficiency-encrypted-save').click();
+   await expect(el('efficiency-storage-notice')).toContainText('تم التحقق من الحفظ المحلي المشفر',{timeout:15000});checks++;
+   const raw=await page.evaluate(({namespace,id})=>localStorage.getItem(namespace+'efficiency-encrypted-draft:v1:'+id),{namespace:NAMESPACE,id:scope.caseId});
+   assert.ok(raw&&!raw.includes(scope.propertyRef)&&!raw.includes('groups'));checks++;
+   await page.reload();await bind(seeds[0]);await fill([['property',scope.propertyRef],['scope',scope.marketScopeRef],['date',scope.asOfDate]]);
+   await el('efficiency-passphrase').fill('incorrect-browser-passphrase');await el('efficiency-encrypted-load').click();
+   await expect(el('efficiency-storage-notice')).toContainText('تعذر الحفظ أو فتح المسودة',{timeout:15000});await expect(el('efficiency-result')).toHaveCount(0);checks++;
+   await el('efficiency-passphrase').fill('synthetic-browser-efficiency-42');await el('efficiency-encrypted-load').click();
+   await expect(el('efficiency-result')).toBeVisible({timeout:15000});checks++;
+   const restoredDl=page.waitForEvent('download');await el('efficiency-report').click();const restored=JSON.parse(await fs.readFile(await (await restoredDl).path(),'utf8'));
+   assert.deepEqual(restored.metrics,report.metrics);checks++;
+   await el('efficiency-passphrase').fill('synthetic-browser-efficiency-42');await expect(el('efficiency-encrypted-delete')).toBeDisabled();checks++;
+   await el('efficiency-delete-consent').check();await el('efficiency-encrypted-delete').click();await expect(el('efficiency-storage-notice')).toContainText('تم التحقق من حذف المسودة',{timeout:15000});checks++;
+   await expect(el('efficiency-result')).toHaveCount(0);checks++;
+   assert.equal(await page.evaluate(({namespace,id})=>localStorage.getItem(namespace+'efficiency-encrypted-draft:v1:'+id),{namespace:NAMESPACE,id:scope.caseId}),null);checks++;
    assert.deepEqual(await records(),before);checks++;
   }
   assert.equal(errors.length,0,errors.join(';'));checks++;await page.close();
