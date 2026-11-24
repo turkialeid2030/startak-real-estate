@@ -125,6 +125,7 @@ function buildChainPayload(record) {
     recordId: record.recordId,
     caseId: record.caseId,
     factProjection: record.factProjection,
+    factHashSha256:record.factHashSha256,
     sourceRole: record.sourceRole,
     sourceReference: record.sourceReference,
     evidenceLink: record.evidenceLink,
@@ -169,6 +170,7 @@ function createProfessionalEvidenceChainRecord({
     caseId: factProjection.caseId,
     fact,
     factProjection,
+    factHashSha256:sha256(fact),
     sourceRole,
     sourceReference: sourceReference.trim(),
     evidenceLink: evidenceLink.trim(),
@@ -195,6 +197,7 @@ function validateProfessionalEvidenceChainIntegrity(record) {
     if(record.schemaVersion!==1||record.caseId!==record.fact?.caseId||
       record.transactionAuthorized!==false||record.certifiedValuationEstablished!==false||
       sha256(projectFactForChain(record.fact))!==sha256(record.factProjection)||
+      record.factHashSha256!==sha256(record.fact)||
       sha256(buildChainPayload(record))!==record.chainHashSha256.toLowerCase())return false;
     const rebuilt=createProfessionalEvidenceChainRecord(record);
     if(rebuilt.chainHashSha256!==record.chainHashSha256)return false;
