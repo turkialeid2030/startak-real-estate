@@ -36,7 +36,8 @@ export default function LocalDepreciationReviewPanel(){
  const ok=result?.status===STATUS.READY_FOR_INDEPENDENT_PROFESSIONAL_REVIEW;
  const linked=!!linkedCase&&linkedCase.mode==='building'&&caseId===linkedCase.caseId;
  async function persist(action){
-  if(!linked||!propertyRef.trim()||passphrase.length<12||!browserStorage.isAvailable())return;
+  if(!linked||!propertyRef.trim()||passphrase.length<12)return;
+  if(!browserStorage.isAvailable()){setStorageNotice('failed');return;}
   const token=++epoch.current;setBusy(true);setStorageNotice('');
   if(action==='load'){setResult(null);setSource(null);}
   try{
@@ -72,8 +73,8 @@ export default function LocalDepreciationReviewPanel(){
  <p className="mt-2" data-user-content>{linkedCase.name}</p>
  <p className="mt-2 text-amber-200">{t('لا مزامنة ولا استعادة لكلمة المرور. لا يُعد هذا مخزنًا مؤسسيًا أو نسخة احتياطية. احتفظ بنسخة خارج المتصفح.','No synchronization or password recovery. This is not an institutional vault or backup. Retain an external copy.')}</p>
  <label className="mt-2 block">{t('عبارة مرور خاصة لا تقل عن ١٢ حرفًا','Private passphrase, at least 12 characters')}<input type="password" autoComplete="new-password" maxLength={256} disabled={busy} value={passphrase} onChange={e=>setPassphrase(e.target.value)} data-testid="depreciation-passphrase" className="mt-1 block w-full rounded border border-slate-700 bg-slate-950 p-2"/></label>
- <label className="mt-2 block"><input type="checkbox" checked={confirmed} disabled={busy} onChange={e=>setConfirmed(e.target.checked)}/> {t('أقر بأن مرجع العقار يخص الصفقة النشطة وأوافق على الحفظ المشفر محليًا','I attest the property reference belongs to this deal and consent to encrypted local storage')}</label>
- <label className="mt-2 block"><input type="checkbox" checked={overwrite} disabled={busy} onChange={e=>setOverwrite(e.target.checked)}/> {t('أوافق على استبدال المسودة الموجودة إن وجدت','Replace existing draft if present')}</label>
+ <label className="mt-2 block"><input type="checkbox" data-testid="depreciation-consent" checked={confirmed} disabled={busy} onChange={e=>setConfirmed(e.target.checked)}/> {t('أقر بأن مرجع العقار يخص الصفقة النشطة وأوافق على الحفظ المشفر محليًا','I attest the property reference belongs to this deal and consent to encrypted local storage')}</label>
+ <label className="mt-2 block"><input type="checkbox" data-testid="depreciation-overwrite" checked={overwrite} disabled={busy} onChange={e=>setOverwrite(e.target.checked)}/> {t('أوافق على استبدال المسودة الموجودة إن وجدت','Replace existing draft if present')}</label>
  <div className="mt-2 flex flex-wrap gap-2"><button type="button" data-testid="depreciation-encrypted-save" disabled={busy||!ok||!confirmed||passphrase.length<12} onClick={()=>persist('save')} className="rounded border border-slate-700 px-3 py-2">{t('حفظ مشفر','Encrypt and save')}</button><button type="button" data-testid="depreciation-encrypted-load" disabled={busy||!propertyRef.trim()||passphrase.length<12} onClick={()=>persist('load')} className="rounded border border-slate-700 px-3 py-2">{t('فتح وإعادة احتساب','Unlock and recalculate')}</button></div>
  <p role="status" data-testid="depreciation-storage-notice">{({saved:t('تم التحقق من الحفظ المحلي المشفر','Encrypted local save verified'),loaded:t('استعيدت المدخلات وأعيد الحساب','Inputs restored and recalculated'),missing:t('لا توجد مسودة محفوظة','No saved draft'),exists:t('توجد مسودة؛ يلزم إقرار الاستبدال','Existing draft requires overwrite consent'),failed:t('تعذر الحفظ أو فتح المسودة؛ تحقق من الهوية والعبارة ومساحة التخزين','Save or unlock failed; check scope, passphrase and storage')})[storageNotice]||''}</p>
  </div>}
