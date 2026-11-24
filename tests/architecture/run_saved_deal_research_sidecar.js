@@ -6,6 +6,12 @@ const {
 const {encodeNationalStudyRegister,decodeNationalStudyRegister}=require('../../src/market/market-study-state');
 const {marketEvidenceSubjectKey}=require('../../src/market/owner-market-evidence-scope');
 const {captureReference}=require('../../src/market/no-api-source-bridge');
+const {encodeSupplementalStudyRegister,decodeSupplementalStudyRegister}=require('../../src/market/supplemental-study-register');
+const {parsePersonalMarketStudy,MAX_BYTES}=require('../../src/market/market-study-state');
+const {toPublicSample,parseResearchCsv}=require('../../src/market/suhail-national-neighborhood-research');
+const {importEarthResearchCsv}=require('../../src/market/earth-national-research');
+const {parseListingResearchCsv}=require('../../src/market/saudi-listing-source-research');
+const {hasCapturedOwnerResearch}=require('../../src/market/owner-market-evidence-scope');
 const store=new Map();
 const storage={
  get:async k=>store.has(k)?store.get(k):null,
@@ -57,6 +63,34 @@ const createStudy=(assetType)=>JSON.stringify({
  assert.equal(Object.hasOwn(restored.study,'report'),false);
  assert.equal(Object.hasOwn(restored.study,'appraisalQuality'),false);
  const withRegister=JSON.parse(createStudy('RESIDENTIAL_COMPOUND'));
+ const observedOn='2026-10-28', asOf='2026-10-29';
+ const suhail= parseResearchCsv('city,district,transferCount,totalValueSar,residentialSarSqm\nالرياض,الملقا,2,1500000,5000',{observedOn}).records;
+ const earth=importEarthResearchCsv('city,district,recordId,eventDate,amountSar,areaSqm\nالرياض,الملقا,EARTH-1,2026-10-27,5000000,1000',{featureId:'TRANSACTION_TABLE',observedOn,asOf}).records;
+ const listings=parseListingResearchCsv('source,city,district,kind,priceSar,areaSqm,listingUrl,listingId,assetType,listingDate\nAQAR,الرياض,الملقا,SALE_OFFER,1500000,300,https://sa.aqar.fm/a/100,100,RESIDENTIAL_VILLA,2026-10-26',{observedOn,asOf}).records;
+ assert.equal(suhail.length,1);assert.equal(earth.length,1);assert.equal(listings.length,1);
+ const feeds={suhail:[...toPublicSample(),...suhail],earth,listings};
+ const boundKey=marketEvidenceSubjectKey(withRegister.subject);
+ assert.equal(hasCapturedOwnerResearch({suhail:toPublicSample()}),false);
+ assert.equal(hasCapturedOwnerResearch({suhail:feeds.suhail}),true);
+ const envelope=encodeSupplementalStudyRegister(withRegister.subject,feeds,boundKey);
+ withRegister.supplementalResearch=envelope;
+ assert.equal(envelope.suhail.length,1);
+ assert.deepEqual(decodeSupplementalStudyRegister(withRegister.subject,envelope),feeds);
+ assert.equal(encodeSupplementalStudyRegister(withRegister.subject,{suhail:toPublicSample()},boundKey),undefined);
+ assert.equal(decodeSupplementalStudyRegister(withRegister.subject,undefined).suhail.length,10);
+ assert.throws(()=>encodeSupplementalStudyRegister({...withRegister.subject,name:'OTHER'},feeds,boundKey),/STUDY_SUPPLEMENTAL_SUBJECT_MISMATCH/);
+ assert.throws(()=>parsePersonalMarketStudy('ع'.repeat(MAX_BYTES/2+1)),/STUDY_SIZE_LIMIT/);
+ for(const mutate of [
+  e=>{e.subjectKey='other';},e=>{e.schemaVersion=2;},
+  e=>{e.suhail[0].recordClass='NEIGHBORHOOD_AGGREGATE_INDEXED_UNVERIFIED';},
+  e=>{e.suhail[0].transferCount=-1;},e=>{e.suhail[0].sourceUrl='https://suhail.ai/?token=secret';},
+  e=>{e.earth[0].officialRegistryVerified=true;},e=>{e.earth[0].evidenceKind='ASKING_OFFER';},
+  e=>{e.listings[0].professionalReportAuthorized=true;},e=>{e.listings[0].listingUrl='https://example.com/123';},
+  e=>{e.listings[0].unknownField='secret';},e=>{e.listings.push(e.listings[0]);},
+ ]) {
+  const changed=structuredClone(envelope);mutate(changed);
+  assert.throws(()=>decodeSupplementalStudyRegister(withRegister.subject,changed),/STUDY_SUPPLEMENTAL_/);
+ }
  const reference=captureReference({sourceId:'REGA_DEALS',city:'الرياض',district:'الملقا',observedOn:'2026-10-27'});
  withRegister.nationalResearch=encodeNationalStudyRegister(withRegister.subject,
    {subjectKey:marketEvidenceSubjectKey(withRegister.subject),records:[],references:[reference]});
@@ -64,6 +98,8 @@ const createStudy=(assetType)=>JSON.stringify({
    identityConfirmed:true,overwrite:true});
  const restoredRegisterStudy=(await loadResearchSidecar({storage,dealId:buildingDeal.id})).study;
  assert.deepEqual(restoredRegisterStudy.nationalResearch,withRegister.nationalResearch);
+ assert.deepEqual(restoredRegisterStudy.supplementalResearch,envelope);
+ assert.deepEqual(decodeSupplementalStudyRegister(restoredRegisterStudy.subject,restoredRegisterStudy.supplementalResearch),feeds);
  assert.equal(decodeNationalStudyRegister(restoredRegisterStudy.subject,restoredRegisterStudy.nationalResearch).references[0].decisionReady,false);
  assert.equal(store.get('deal:'+buildingDeal.id),beforeBuilding);
  const tampered=JSON.parse(store.get(sidecarKey(buildingDeal.id)));
