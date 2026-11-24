@@ -17,6 +17,7 @@ const LocalMarketIndicatorPanel=lazy(()=>import('./components/LocalMarketIndicat
 const LocalPolicyShockReviewPanel=lazy(()=>import('./components/LocalPolicyShockReviewPanel.jsx'));
 const LocalUrbanGrowthReviewPanel=lazy(()=>import('./components/LocalUrbanGrowthReviewPanel.jsx'));
 const LocalAssetEfficiencyPanel=lazy(()=>import('./components/LocalAssetEfficiencyPanel.jsx'));
+const LocalSupplementalResearchPanel=lazy(()=>import('./components/LocalSupplementalResearchPanel.jsx'));
 import StrictArabicSurfaceGuard from './components/StrictArabicSurfaceGuard.jsx';
 const { LocaleProvider } = require('./i18n/LocaleContext.js');
 const { installRuntimeBuildMetadata } = require('./runtime/build-metadata.js');
@@ -86,6 +87,11 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <WorkspaceErrorBoundary surface="local-asset-efficiency">
         <Suspense fallback={<p role="status" className="p-4 text-slate-200">…</p>}>
           <div className="mx-auto w-full max-w-7xl px-4"><LocalAssetEfficiencyPanel /></div>
+        </Suspense>
+      </WorkspaceErrorBoundary>
+      <WorkspaceErrorBoundary surface="local-supplemental-finance">
+        <Suspense fallback={<p role="status" className="p-4 text-slate-200">…</p>}>
+          <div className="mx-auto w-full max-w-7xl px-4"><LocalSupplementalResearchPanel /></div>
         </Suspense>
       </WorkspaceErrorBoundary>
       <WorkspaceErrorBoundary surface="canonical">
