@@ -243,12 +243,14 @@ function evaluateMarketStudy(input = {}) {
   const materialMethodGap=methodGapPct!==null&&methodGapPct>=20;
   if(materialMethodGap)issues.push('MATERIAL_MARKET_INCOME_GAP_REQUIRES_RECONCILIATION');
   const overRange=issues.some(reason=>reason.endsWith('_OUT_OF_RANGE'));
-  const todayValueScenario = !structureIssues.length && !overRange &&
+  const sourceConflict = issues.includes('SALE_SOURCE_RECORD_CONFLICT') || issues.includes('RENT_SOURCE_RECORD_CONFLICT');
+  const todayValueScenario = !structureIssues.length && !overRange && !sourceConflict &&
     !specialistAsset && !materialMethodGap && values.length ?
     values.reduce((x,y)=>x+y, 0)/values.length : null;
   if(specialistReason) issues.push(specialistReason);
   const confidence = structureIssues.length?'INVALID_MARKET_INPUT_STRUCTURE':
     overRange?'MARKET_CALCULATION_OUT_OF_RANGE':
+    sourceConflict?'UNRESOLVED_SOURCE_RECORD_CONFLICT':
     !values.length || specialistAsset?'NO_SUPPORTED_PRIMARY_VALUE':
     materialMethodGap?'UNRECONCILED_METHODS_NO_PRIMARY_VALUE':
     'PRELIMINARY_UNVERIFIED_REQUIRES_INDEPENDENT_REVIEW';
@@ -297,7 +299,7 @@ function evaluateMarketStudy(input = {}) {
     rentRegulation, issues,
     hasLiveLicensedFeed: false, independentlyVerified: false, certifiedMarketValue: false,
     evidenceStatus: 'USER_ENTERED_UNVERIFIED',
-    methodology: 'Median of at least three recent (<=365 days), same-type, user-supplied executed transactions or leases: within 5 km where coordinates are available, otherwise only same declared city and district. District approximation disclosed. Two independent methods may be averaged solely for an illustrative scenario if their gap is below 20%; at or above 20% the primary value is withheld for explicit reconciliation. Subject land/built/rentable areas must use matching bases, and comparisons outside 50–200% of subject area are excluded from the simple extrapolation. Same-source record IDs deduplicated across URLs. No automatic project uplift.',
+    methodology: 'Median of at least three recent (<=365 days), same-type, user-supplied executed transactions or leases: within 5 km where coordinates are available, otherwise only same declared city and district. District approximation disclosed. Two independent methods may be averaged solely for an illustrative scenario if their gap is below 20%; at or above 20% the primary value is withheld for explicit reconciliation. Subject land/built/rentable areas must use matching bases, and comparisons outside 50–200% of subject area are excluded from the simple extrapolation. Same-source record IDs deduplicated across URLs; conflicting identities withhold the combined value and project-impact scenario pending reconciliation. No automatic project uplift.',
   };
 }
 module.exports = { ASSET_TYPES, number, extractCoordinates, distanceKm, evaluateMarketStudy };
