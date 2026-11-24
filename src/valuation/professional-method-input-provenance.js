@@ -528,9 +528,10 @@ function buildProfessionalMethodInputPacket(options={}){
  }catch{return methodHold('METHOD_SOURCE_REPLAY_INVALID');}
  const candidate=buildProfessionalMethodInputCandidate(options);
  if(!candidate.readyForCanonicalEngineAdoptionReview)return candidate;
- const {methodInputPacketHashSha256,...body}=candidate;
- const verified={...body,sourceReplayEstablished:true,sourceReplayPolicyHashSha256:sha256(sourcePolicy),sourceReplayInputHashSha256:sha256(sourceInputs),independentlyAuthenticatedSources:false};
- return deepFreeze({...verified,methodInputPacketHashSha256:sha256(verified)});
+ try{
+  const verified={...candidate,sourceReplayEstablished:true,sourceReplayPolicyHashSha256:sha256(sourcePolicy),sourceReplayInputHashSha256:sha256(sourceInputs),independentlyAuthenticatedSources:false};
+  return deepFreeze({...verified,sourceReplayBindingSha256:sha256(verified)});
+ }catch{return methodHold('METHOD_SOURCE_BINDING_INVALID');}
 }
 
 module.exports = {
