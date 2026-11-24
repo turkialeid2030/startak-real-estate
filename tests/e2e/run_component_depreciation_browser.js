@@ -45,6 +45,44 @@ const {assessCostDepreciationAttribution}=require('../../src/cost/component-depr
    await load({...saved,packet:{...saved.packet,landValueInput:{...saved.packet.landValueInput,valueSar:1}}});
    await expect(page.getByTestId('depreciation-status')).toHaveAttribute('data-status','HOLD_DEPRECIATION_CAUSES_OR_EVIDENCE');checks++;
    await expect(page.getByTestId('depreciation-result')).toHaveCount(0);checks++;
+   if(locale==='ar-SA'){
+    const {NAMESPACE}=require('../../src/storage/browser-local-storage-provider');
+    const ar=require('../../src/i18n/locales/ar-SA');
+    const gold=require('../reference/RE-GOLD-baseline.json');
+    const seed={id:scope.caseId,name:'SYNTH-C59-ENCRYPTED',mode:'building',inputs:gold['RE-GOLD-002_existing_building'].inputs,savedAt:'2026-10-10T00:00:00Z'};
+    await page.evaluate(({namespace,seed})=>{
+     localStorage.setItem(namespace+'deal:'+seed.id,JSON.stringify(seed));
+     localStorage.setItem(namespace+'deals-index',JSON.stringify([{id:seed.id,name:seed.name,mode:seed.mode,savedAt:seed.savedAt}]));
+    },{namespace:NAMESPACE,seed});
+    await page.reload();
+    await page.getByTitle(ar.actions.savedDeals,{exact:true}).click();
+    await page.getByRole('dialog').getByRole('button',{name:seed.name,exact:true}).click();
+    await expect(page.getByTestId('depreciation-local-custody')).toBeVisible();checks++;
+    await expect(page.getByTestId('depreciation-case')).toHaveValue(scope.caseId);checks++;
+    await page.getByTestId('depreciation-property').fill(scope.propertyRef);
+    await load(args);await expect(page.getByTestId('depreciation-result')).toBeVisible();checks++;
+    const before=await page.evaluate(({namespace,id})=>localStorage.getItem(namespace+'deal:'+id),{namespace:NAMESPACE,id:seed.id});
+    await page.getByTestId('depreciation-passphrase').fill('synthetic-browser-passphrase-42');
+    await expect(page.getByTestId('depreciation-encrypted-save')).toBeDisabled();checks++;
+    await page.getByTestId('depreciation-consent').check();
+    await page.getByTestId('depreciation-encrypted-save').click();
+    await expect(page.getByTestId('depreciation-storage-notice')).toContainText('تم التحقق من الحفظ المحلي المشفر',{timeout:15000});checks++;
+    const stored=await page.evaluate(({namespace,id})=>localStorage.getItem(namespace+'c59-encrypted-draft:v1:'+id),{namespace:NAMESPACE,id:seed.id});
+    assert.ok(stored&&!stored.includes(scope.propertyRef)&&!stored.includes('allocations'));checks++;
+    assert.equal(await page.evaluate(({namespace,id})=>localStorage.getItem(namespace+'deal:'+id),{namespace:NAMESPACE,id:seed.id}),before);checks++;
+    await page.reload();
+    await page.getByTitle(ar.actions.savedDeals,{exact:true}).click();
+    await page.getByRole('dialog').getByRole('button',{name:seed.name,exact:true}).click();
+    await page.getByTestId('depreciation-property').fill(scope.propertyRef);
+    await page.getByTestId('depreciation-passphrase').fill('incorrect-browser-passphrase');
+    await page.getByTestId('depreciation-encrypted-load').click();
+    await expect(page.getByTestId('depreciation-storage-notice')).toContainText('تعذر الحفظ أو فتح المسودة',{timeout:15000});checks++;
+    await expect(page.getByTestId('depreciation-result')).toHaveCount(0);checks++;
+    await page.getByTestId('depreciation-passphrase').fill('synthetic-browser-passphrase-42');
+    await page.getByTestId('depreciation-encrypted-load').click();
+    await expect(page.getByTestId('depreciation-result')).toBeVisible({timeout:15000});checks++;
+    const restoredReport=await download('depreciation-report');assert.equal(restoredReport.costApproachValueIndicationSar,expected.costApproachValueIndicationSar);checks++;
+   }
    assert.equal(errors.length,0,errors.join(';'));checks++;
    await page.close();
   }
