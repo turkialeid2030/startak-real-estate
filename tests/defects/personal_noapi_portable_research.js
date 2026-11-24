@@ -75,7 +75,8 @@ const ui=fs.readFileSync(path.join(__dirname,'../../src/components/SaudiNational
 assert.match(ui,/data-testid="personal-noapi-download-research"/);
 assert.match(ui,/data-testid="personal-noapi-restore-research"/);
 assert.match(ui,/exportPersonalResearch\(records\)/);
-assert.match(ui,/importPersonalResearch\(await file\.text\(\)\)/);
+assert.match(ui,/const text=await file\.text\(\);\s*if\(token!==readEpoch\.current\)return;\s*const incoming=importPersonalResearch\(text\);/);
+assert.match(ui,/useLayoutEffect\(\(\)=>\(\)=>\{readEpoch\.current\+\+;\}/);
 assert.match(ui,/mergeNationalResearch\(records,incoming\)/);
 assert.doesNotMatch(ui,/localStorage|sessionStorage|document\.cookie/);
 console.log('PERSONAL_NOAPI_PORTABLE_RESEARCH=PASS rows=3 kite_month_only=true import=local export=local approvals=0');
