@@ -2,6 +2,30 @@
 // Carefully restore user-authored study INPUTS from local JSON.
 // Computed report/valuation/certification fields in the file are intentionally ignored.
 const {ASSET_TYPES}=require('./instant-market-study');
+const {marketEvidenceSubjectKey}=require('./owner-market-evidence-scope');
+const {exportPersonalResearch,importPersonalResearch}=require('./personal-noapi-research-register');
+const {exportReferences,importReferences}=require('./no-api-source-bridge');
+// This envelope contains only user-asserted research. Subject binding is
+// an integrity check, not proof of property identity or source authenticity.
+function encodeNationalStudyRegister(subject,register){
+ if(register==null)return undefined;
+ if(register.subjectKey!==marketEvidenceSubjectKey(subject))
+  throw Error('STUDY_NATIONAL_SUBJECT_MISMATCH');
+ return {schemaVersion:1,subjectKey:register.subjectKey,
+  records:JSON.parse(exportPersonalResearch(register.records)),
+  references:JSON.parse(exportReferences(register.references))};
+}
+function decodeNationalStudyRegister(subject,envelope){
+ if(envelope===undefined)return null; // legacy study without research
+ if(!envelope||typeof envelope!=='object'||Array.isArray(envelope)||
+  Object.keys(envelope).sort().join(',')!=='records,references,schemaVersion,subjectKey'||
+  envelope.schemaVersion!==1)throw Error('STUDY_NATIONAL_SCHEMA_INVALID');
+ if(envelope.subjectKey!==marketEvidenceSubjectKey(subject))
+  throw Error('STUDY_NATIONAL_SUBJECT_MISMATCH');
+ return {subjectKey:envelope.subjectKey,
+  records:importPersonalResearch(JSON.stringify(envelope.records)),
+  references:importReferences(JSON.stringify(envelope.references)).references};
+}
 const KIND='STARTAK_PERSONAL_MARKET_STUDY',MAX_BYTES=2*1024*1024;
 const subjectKeys='name assetType landSubtype city district location landArea builtArea rentableArea buildingCount unitCount floorCount roomCount shopCount parkingCount warehouseCount clearHeight loadingDocks historicalAnnualRent leaseHistory urbanBoundary valuationPurpose valuationDate propertyRight zoningClassification inspectionStatus inspectionDate'.split(' ');
 const marketKeys='occupancy expenseRatio capRate'.split(' ');
@@ -58,9 +82,14 @@ function parsePersonalMarketStudy(value){
   leaseComparables:rows(data,'leaseComparables',leaseKeys),
   rentAssumptions,
  };
+ // Keep the portable representation on sidecar round trips; never trust imported authority.
+ if(data.nationalResearch!==undefined){
+  study.nationalResearch=encodeNationalStudyRegister(subject,
+   decodeNationalStudyRegister(subject,data.nationalResearch));
+ }
  // Never trust report, appraisedAmount, approved, certified, independentlyVerified,
  // or persisted computed results from import; all calculations MUST be recomputed.
  return {study,restoredFrom:'USER_SUPPLIED_JSON',
   verified:false,discardedComputedOutputs:true};
 }
-module.exports={KIND,MAX_BYTES,parsePersonalMarketStudy};
+module.exports={KIND,MAX_BYTES,parsePersonalMarketStudy,encodeNationalStudyRegister,decodeNationalStudyRegister};
