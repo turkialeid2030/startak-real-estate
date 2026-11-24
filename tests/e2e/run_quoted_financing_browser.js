@@ -50,6 +50,52 @@ const {args,caseId,propertyRef,asOfDate,evaluate,S}=require('../fixtures/synthet
    await expect(page.getByTestId('financing-result')).toHaveCount(0);checks++;
    await load(input);
    await expect(page.getByTestId('financing-status')).toHaveAttribute('data-status','HOLD_LOCAL_FINANCING_REVIEW');checks++;
+   if(locale==='ar-SA'){
+    const {NAMESPACE}=require('../../src/storage/browser-local-storage-provider');
+    const ar=require('../../src/i18n/locales/ar-SA');
+    const gold=require('../reference/RE-GOLD-baseline.json');
+    const seed={id:caseId,name:'SYNTH-C14-ENCRYPTED',mode:'building',inputs:gold['RE-GOLD-002_existing_building'].inputs,savedAt:'2026-10-10T00:00:00Z'};
+    await page.evaluate(({namespace,seed})=>{
+     localStorage.setItem(namespace+'deal:'+seed.id,JSON.stringify(seed));
+     localStorage.setItem(namespace+'deals-index',JSON.stringify([{id:seed.id,name:seed.name,mode:seed.mode,savedAt:seed.savedAt}]));
+    },{namespace:NAMESPACE,seed});
+    async function bind(){
+     await page.reload();
+     await page.getByTitle(ar.actions.savedDeals,{exact:true}).click();
+     await page.getByRole('dialog').getByRole('button',{name:seed.name,exact:true}).click();
+     await expect(page.getByTestId('financing-local-custody')).toBeVisible();
+     await expect(page.getByTestId('financing-case')).toHaveValue(caseId);
+     await page.getByTestId('financing-property').fill(propertyRef);
+     await page.getByTestId('financing-date').fill(asOfDate);
+    }
+    await bind();checks++;
+    await load(input);await expect(page.getByTestId('financing-result')).toBeVisible();checks++;
+    const canonical=()=>page.evaluate(({namespace,id})=>localStorage.getItem(namespace+'deal:'+id),{namespace:NAMESPACE,id:caseId});
+    const before=await canonical();
+    await page.getByTestId('financing-passphrase').fill('synthetic-browser-finance-42');
+    await expect(page.getByTestId('financing-encrypted-save')).toBeDisabled();checks++;
+    await page.getByTestId('financing-consent').check();
+    await page.getByTestId('financing-encrypted-save').click();
+    await expect(page.getByTestId('financing-storage-notice')).toContainText('تم التحقق من الحفظ المحلي المشفر',{timeout:15000});checks++;
+    const raw=await page.evaluate(({namespace,id})=>localStorage.getItem(namespace+'c14-encrypted-draft:v1:'+id),{namespace:NAMESPACE,id:caseId});
+    assert.ok(raw&&!raw.includes(propertyRef)&&!raw.includes('financingOffers'));checks++;
+    assert.equal(await canonical(),before);checks++;
+    await bind();checks++;
+    await page.getByTestId('financing-passphrase').fill('incorrect-browser-passphrase');
+    await expect(page.getByTestId('financing-encrypted-load')).toBeEnabled();
+    await page.getByTestId('financing-encrypted-load').click();
+    await expect(page.getByTestId('financing-storage-notice')).toContainText('تعذر الحفظ أو فتح المسودة',{timeout:15000});checks++;
+    await expect(page.getByTestId('financing-result')).toHaveCount(0);checks++;
+    await page.getByTestId('financing-passphrase').fill('synthetic-browser-finance-42');
+    await page.getByTestId('financing-encrypted-load').click();
+    await expect(page.getByTestId('financing-result')).toBeVisible({timeout:15000});checks++;
+    const pendingRestore=page.waitForEvent('download');
+    await page.getByTestId('financing-report').click();
+    const restored=JSON.parse(await fs.readFile(await (await pendingRestore).path(),'utf8'));
+    assert.deepEqual(restored.offers,expected.offers);checks++;
+    assert.equal(restored.transactionAuthorized,false);checks++;
+    assert.equal(await canonical(),before);checks++;
+   }
    assert.equal(errors.length,0,errors.join(';'));checks++;
    await page.close();
   }
