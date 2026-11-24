@@ -18,7 +18,7 @@ const {
 const {
   INSPECTION_STATE,
   REQUIRED_OBSERVATION_CATEGORIES,
-  MEDIA_MANIPULATION_STATUS,
+  MEDIA_MANIPULATION_STATUS,verifyCompletedInspection,
 } = require('../inspection/inspection-lifecycle');
 const {
   MEASUREMENT_RECONCILIATION_STATUS,
@@ -203,13 +203,14 @@ function buildPropertyEvidencePacket({
       (r.source==='INSPECTION'&&r.inspectionId!==inspection.inspectionId)||
       !Number.isFinite(strictCalendarDateMs(r.measuredAt))||strictCalendarDateMs(r.measuredAt)>strictCalendarDateMs(inspection.completedAt)))
     return hold(PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_MEASUREMENT,['MEASUREMENT_INSPECTION_BINDING_OR_DATE_INVALID'],{caseId,propertyRef});
-  const measurementGate = reconcileMeasurementRecords({
+  const measurementInputs={
     caseId,
     records: measurementRecords,
     materialTypes: materialMeasurementTypes,
     toleranceByType: measurementToleranceByType,
     minimumIndependentSourcesByType: minimumMeasurementSourcesByType,
-  });
+  };
+  const measurementGate=reconcileMeasurementRecords(measurementInputs);
   if (measurementGate.status !== MEASUREMENT_RECONCILIATION_STATUS.CLEAR) {
     return hold(PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_MEASUREMENT, [measurementGate.status], { caseId, propertyRef });
   }
@@ -258,6 +259,7 @@ function buildPropertyEvidencePacket({
        landMeasurements.some(m=>Math.abs(m.value-r.fact.normalizedValue)>Math.max(abs,Math.max(Math.abs(m.value),Math.abs(r.fact.normalizedValue),1)*rel))))
       return hold(PROPERTY_EVIDENCE_PACKET_STATUS.MATERIAL_PROPERTY_DATA_CONFLICT,['DOCUMENT_MEASUREMENT_LAND_AREA_CONFLICT'],{caseId,propertyRef});
   }
+  if(!verifyCompletedInspection(inspection,measurementInputs))return hold(PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_INSPECTION,['INSPECTION_REVIEW_REPLAY_MISMATCH'],{caseId,propertyRef});
   const evidenceFacts = verifiedEvidenceRecords.map(projectVerifiedEvidenceFact);
   const measurements = measurementRecords.map(projectMeasurement);
   const assignmentHashSha256 = hash(assignment);
@@ -280,6 +282,7 @@ function buildPropertyEvidencePacket({
     assignmentHashSha256,
     inspectionId: inspection.inspectionId,
     inspectionHashSha256,
+    inspectionReviewBindingSha256:inspection.reviewBindingSha256,
     valuationDate: assignment.valuation_date,
     reportDate: assignment.report_date,
     jurisdiction: assignment.asset.jurisdiction,
