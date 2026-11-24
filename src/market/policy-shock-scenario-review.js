@@ -449,10 +449,14 @@ function evaluateGovernedPolicyShockComparableImpact(input={}){
    if(!verifyShockEvidenceIntegrity(shock)||authorityInjection(shock)||createPolicyShockEvidence(shock).shockEvidenceHashSha256!==shock.shockEvidenceHashSha256)return hold('C19_SHOCK_REPLAY_MISMATCH');
   }
   const shockByHash=new Map(shockEvidence.map(s=>[s.shockEvidenceHashSha256,s]));
+  const comparableByHash=new Map(comparables.map(c=>[c?.comparableHashSha256,c]));
+  if(shockEvidence.some(s=>Date.parse(s.reviewedAt)>Date.parse(policy.reviewedAt))||impacts.some(i=>Date.parse(i?.reviewedAt)>Date.parse(policy.reviewedAt)))return hold('C19_POLICY_BEFORE_EVIDENCE_REVIEW',REVIEW_STATUS.HOLD_WINDOW);
   for(const impact of impacts){
    if(!verifyComparableImpactIntegrity(impact)||authorityInjection(impact)||createProfessionalComparableImpact(impact).impactHashSha256!==impact.impactHashSha256)return hold('C19_IMPACT_REPLAY_MISMATCH');
    const shock=shockByHash.get(impact.shockEvidenceHashSha256);
    if(shock&&Date.parse(impact.preparedAt)<Date.parse(shock.knownAt))return hold('C19_IMPACT_BEFORE_SHOCK_KNOWN',REVIEW_STATUS.HOLD_WINDOW);
+   const comparable=comparableByHash.get(impact.comparableHashSha256);
+   if(comparable&&Date.parse(impact.preparedAt)<Date.parse(comparable.capturedAt))return hold('C19_IMPACT_BEFORE_COMPARABLE_CAPTURE',REVIEW_STATUS.HOLD_WINDOW);
   }
   for(const c of comparables){
    if(!verifyComparableIntegrity(c)||authorityInjection(c))return hold('C19_COMPARABLE_INTEGRITY');
