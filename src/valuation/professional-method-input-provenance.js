@@ -1,6 +1,7 @@
 'use strict';
 
-const crypto = require('crypto');
+const crypto = require('node:crypto');
+const {strictCalendarDateMs}=require('../validation/strict-calendar-instant');
 const {
   PROPERTY_EVIDENCE_PACKET_STATUS,
 } = require('../property/property-evidence-bridge');
@@ -62,7 +63,7 @@ function assertEnum(value, enumeration, field) {
 
 function iso(value, field) {
   assertNonEmpty(value, field);
-  const date = new Date(value);
+  const date = new Date(strictCalendarDateMs(value));
   if (Number.isNaN(date.getTime())) throw new TypeError(`${field} must be a valid date/time`);
   return date.toISOString();
 }
@@ -75,6 +76,7 @@ function stableClone(value) {
   if (Array.isArray(value)) return value.map(stableClone);
   if (!value || typeof value !== 'object') return value;
   return Object.keys(value).sort().reduce((out, key) => {
+    if(['__proto__','constructor','prototype'].includes(key))throw TypeError('METHOD_INPUT_UNSAFE_KEY');
     out[key] = stableClone(value[key]);
     return out;
   }, {});
@@ -96,14 +98,19 @@ function daysBetween(earlier, later) {
 
 function verifyProfessionalRateInputIntegrity(rate) {
   if (!rate || typeof rate !== 'object' || !/^[a-f0-9]{64}$/i.test(String(rate.rateInputHashSha256 || ''))) return false;
-  const { rateInputHashSha256, ...payload } = rate;
-  return sha256(payload) === rateInputHashSha256.toLowerCase();
+  try{
+    const {rateInputHashSha256,...payload}=rate;
+    return sha256(payload)===rateInputHashSha256&&createProfessionalRateInput(rate).rateInputHashSha256===rateInputHashSha256;
+  }catch{return false;}
 }
 
 function verifyMarketAnalysisSubjectBindingIntegrity(binding) {
   if (!binding || typeof binding !== 'object' || !/^[a-f0-9]{64}$/i.test(String(binding.bindingHashSha256 || ''))) return false;
-  const { bindingHashSha256, ...payload } = binding;
-  return sha256(payload) === bindingHashSha256.toLowerCase();
+  try{
+    const {bindingHashSha256,...payload}=binding;
+    const replay=createMarketAnalysisSubjectBinding({...binding,marketAdjustmentAnalysis:{caseId:binding.caseId,analysisHashSha256:binding.marketAdjustmentAnalysisHashSha256}});
+    return sha256(payload)===bindingHashSha256&&replay.bindingHashSha256===bindingHashSha256;
+  }catch{return false;}
 }
 
 function createProfessionalRateInput({
@@ -235,11 +242,24 @@ function assertUpstreamIdentity(packet, caseId, propertyRef, kind) {
   }
 }
 
+function verifyWholeRecordHash(record,key){
+ try{const {[key]:digest,...payload}=record;return typeof digest==='string'&&/^[a-f0-9]{64}$/.test(digest)&&sha256(payload)===digest;}catch{return false;}
+}
+const PROPERTY_PACKET_RESULT_FIELDS=['status','reasons','professionalValuationWorkflowReady','automaticUnderwritingAdoption','financialEngineInputsWritten','certifiedValuationEstablished','transactionAuthorized','semantics'];
+function verifyPropertyPacketContent(packet){
+ try{
+  if(!Array.isArray(packet.reasons)||packet.reasons.length!==0||
+    ['automaticUnderwritingAdoption','financialEngineInputsWritten','certifiedValuationEstablished','transactionAuthorized'].some(k=>packet[k]!==false))return false;
+  const core=Object.fromEntries(Object.entries(packet).filter(([k])=>k!=='packetHashSha256'&&!PROPERTY_PACKET_RESULT_FIELDS.includes(k)));
+  return sha256(core)===packet.packetHashSha256;
+ }catch{return false;}
+}
 function validatePropertyEvidencePacket(propertyEvidencePacket, caseId, propertyRef) {
   assertUpstreamIdentity(propertyEvidencePacket, caseId, propertyRef, 'propertyEvidencePacket');
   assertSha256(propertyEvidencePacket.packetHashSha256, 'propertyEvidencePacket.packetHashSha256');
   return propertyEvidencePacket.status === PROPERTY_EVIDENCE_PACKET_STATUS.READY_FOR_PROFESSIONAL_VALUATION_WORKFLOW
-    && propertyEvidencePacket.professionalValuationWorkflowReady === true;
+    && propertyEvidencePacket.professionalValuationWorkflowReady === true
+    && verifyPropertyPacketContent(propertyEvidencePacket);
 }
 
 function buildProfessionalMethodInputPacket({
@@ -262,7 +282,7 @@ function buildProfessionalMethodInputPacket({
   assertNonEmpty(preparedByRef, 'preparedByRef');
   assertNonEmpty(preparationEvidenceRef, 'preparationEvidenceRef');
   const preparedAtIso = iso(preparedAt, 'preparedAt');
-  if (!Array.isArray(rateInputs)) throw new TypeError('rateInputs must be an array');
+  if (!Array.isArray(rateInputs)||rateInputs.length>50) throw new TypeError('rateInputs must be a bounded array');
   if (!maximumRateAgeDaysByType || typeof maximumRateAgeDaysByType !== 'object' || Array.isArray(maximumRateAgeDaysByType)) {
     throw new TypeError('maximumRateAgeDaysByType must be an object');
   }
@@ -288,7 +308,11 @@ function buildProfessionalMethodInputPacket({
       return hold(METHOD_INPUT_STATUS.HOLD_METHOD_EVIDENCE, ['MARKET_ANALYSIS_SUBJECT_BINDING_AFTER_METHOD_INPUT_PREPARATION'], { caseId, propertyRef, method });
     }
     if (marketAdjustmentAnalysis.status !== ADJUSTMENT_ANALYSIS_STATUS.READY_FOR_RECONCILIATION
-        || marketAdjustmentAnalysis.reconciliationReady !== true) {
+        || marketAdjustmentAnalysis.reconciliationReady !== true||!verifyWholeRecordHash(marketAdjustmentAnalysis,'analysisHashSha256')||
+        marketAdjustmentAnalysis.automaticValuationWeighting!==false||marketAdjustmentAnalysis.valuationConclusionProduced!==false||marketAdjustmentAnalysis.transactionAuthorized!==false||
+        !Array.isArray(marketAdjustmentAnalysis.indications)||marketAdjustmentAnalysis.indications.length===0||marketAdjustmentAnalysis.indications.length>5000||
+        new Set(marketAdjustmentAnalysis.indications.map(x=>x?.comparableId)).size!==marketAdjustmentAnalysis.indications.length||
+        marketAdjustmentAnalysis.indications.some(x=>!nonEmpty(x?.comparableId)||!Number.isFinite(x.adjustedUnitValueSarPerSqm)||x.adjustedUnitValueSarPerSqm<=0)) {
       return hold(METHOD_INPUT_STATUS.HOLD_METHOD_EVIDENCE, ['MARKET_ADJUSTMENT_ANALYSIS_NOT_READY'], { caseId, propertyRef, method });
     }
   }
@@ -297,7 +321,10 @@ function buildProfessionalMethodInputPacket({
     assertUpstreamIdentity(incomeEvidencePacket, caseId, propertyRef, 'incomeEvidencePacket');
     assertSha256(incomeEvidencePacket.incomeEvidencePacketHashSha256, 'incomeEvidencePacket.incomeEvidencePacketHashSha256');
     if (incomeEvidencePacket.status !== LEASE_INCOME_GATE_STATUS.READY_FOR_INCOME_ANALYSIS_HANDOFF
-        || incomeEvidencePacket.readyForIncomeAnalysisHandoff !== true) {
+        || incomeEvidencePacket.readyForIncomeAnalysisHandoff !== true||!verifyWholeRecordHash(incomeEvidencePacket,'incomeEvidencePacketHashSha256')||
+        incomeEvidencePacket.noiCalculated!==false||incomeEvidencePacket.automaticDCFAdoption!==false||incomeEvidencePacket.financialEngineInputsWritten!==false||incomeEvidencePacket.transactionAuthorized!==false||
+        !Number.isSafeInteger(incomeEvidencePacket.activeLeaseCount)||incomeEvidencePacket.activeLeaseCount<0||
+        ![incomeEvidencePacket.occupiedAreaSqm,incomeEvidencePacket.annualContractRentSar].every(x=>Number.isFinite(x)&&x>=0)) {
       return hold(METHOD_INPUT_STATUS.HOLD_METHOD_EVIDENCE, ['INCOME_EVIDENCE_PACKET_NOT_READY'], { caseId, propertyRef, method });
     }
   }
