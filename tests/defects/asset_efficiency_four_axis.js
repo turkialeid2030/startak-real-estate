@@ -4,7 +4,7 @@ const {evaluateEfficiency,reviewEfficiencyText}=require('../../src/engines/finan
 const scope={caseId:'SYNTH-EFF',propertyRef:'SYNTH-PROP',marketScopeRef:'SYNTH-SCOPE',asOfDate:'2026-10-31'};
 function fixture(){
  const periodStart='2026-09-01',periodEnd='2026-09-30',measurementBasisRef='SYNTH-MONTHLY-BASIS';
- const group=(sourceRef,values)=>({sourceRef,values,reviewedAt:'2026-10-10',periodStart,periodEnd,measurementBasisRef});
+ const group=(sourceRef,values)=>({...scope,sourceRef,values,reviewedAt:'2026-10-10',periodStart,periodEnd,measurementBasisRef});
  return {...scope,periodStart,periodEnd,measurementBasisRef,groups:{
  financial:group('SYNTH-GL',{effectiveRevenueSar:1000000,operatingExpensesSar:300000,budgetRevenueSar:950000,budgetOperatingExpensesSar:280000,receivablesDueSar:800000,collectionsAgainstDueSar:760000,cashAvailableForDebtServiceSar:600000,debtServiceSar:400000}),
  operational:group('SYNTH-OPS',{availableAreaDays:30000,occupiedAreaDays:24000,maintenanceDue:100,maintenanceOnTime:90,maintenanceExpenseSar:60000}),
@@ -23,7 +23,7 @@ if(require.main===module){
  const cases=[
   y=>y.propertyRef='OTHER',y=>y.periodEnd='2026-11-01',y=>y.periodStart='2026-02-30',
   y=>y.groups.financial.reviewedAt='2026-09-01',y=>y.groups.financial.reviewedAt='2026-11-01',
-  y=>y.groups.operational.measurementBasisRef='OTHER',y=>y.groups.operational.periodEnd='2026-09-29',
+  y=>y.groups.operational.propertyRef='OTHER',y=>y.groups.operational.caseId='OTHER',y=>y.groups.operational.marketScopeRef='OTHER',y=>y.groups.operational.measurementBasisRef='OTHER',y=>y.groups.operational.periodEnd='2026-09-29',
   y=>y.groups.financial.values.collectionsAgainstDueSar=900000,y=>y.groups.operational.values.occupiedAreaDays=30001,
   y=>y.groups.operational.values.maintenanceOnTime=101,y=>y.groups.productivity.values.reopenedWithinReviewWindow=81,
   y=>y.groups.productivity.values.qualityEligibleCompleted=101,y=>y.groups.productivity.values.maintenanceLaborHours=0,
