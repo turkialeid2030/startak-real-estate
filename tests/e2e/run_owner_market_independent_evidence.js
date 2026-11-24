@@ -3,6 +3,7 @@
 // All data below are deliberately synthetic; NO private licensed fixture or
 // real transaction has been included in this public test.
 const assert=require('node:assert/strict');
+const fs=require('node:fs/promises');
 const engines=require('playwright');
 const browserName=process.env.STARTAK_BROWSER||'chromium';
 if(!['chromium','firefox','webkit'].includes(browserName))throw Error('BROWSER_UNSUPPORTED');
@@ -11,7 +12,7 @@ const {expect}=require('@playwright/test');
  const browser=await engines[browserName].launch({
   headless:true,...(browserName==='chromium'?{args:['--no-sandbox']}:{}),
  });
- const page=await browser.newPage({viewport:{width:390,height:844},locale:'ar-SA'});
+ const page=await browser.newPage({viewport:{width:390,height:844},locale:'ar-SA',acceptDownloads:true});
  const base=process.env.STARTAK_E2E_URL||'http://127.0.0.1:4173/';
  const money=x=>new Intl.NumberFormat('ar-SA',{maximumFractionDigits:0}).format(x);
  const ownerCap=page.getByTestId('owner-market-capital-indication');
@@ -128,6 +129,18 @@ const {expect}=require('@playwright/test');
   await page.getByTestId('owner-step-4').click();
   await eq(ownerCap,money(independentValue));
   await eq(ownerRent,money(520000));
+  // Persist the exact inputs from the original market engine. A restored
+  // five-step result must be recomputed, not populated from report numbers.
+  await page.getByTestId('owner-advanced-mode').click();
+  const downloadPromise=page.waitForEvent('download');
+  await page.getByTestId('personal-market-study-export').click();
+  const downloaded=await downloadPromise;
+  const study=JSON.parse(await fs.readFile(await downloaded.path(),'utf8'));
+  assert.equal(study.subject.name,'SYNTHETIC-RESEARCH-OWNER');checks++;
+  assert.equal(study.subject.valuationDate,'2026-10-15');checks++;
+  assert.equal(study.subject.propertyRight,'FULL_OWNERSHIP');checks++;
+  assert.equal(study.sales.length,3);assert.equal(study.rentals.length,3);checks+=2;
+  await page.getByTestId('owner-simple-mode').click();
   // Missing valuation mandate must not yield numbers from a previously valid
   // property. This is distinct from an external appraisal-review HOLD.
   await page.getByTestId('owner-step-0').click();
@@ -272,6 +285,29 @@ const {expect}=require('@playwright/test');
   await expect(page.getByTestId('owner-market-results').getByTestId('owner-evidence-review')).toContainText('إحداثيات العقار');checks++;
   await page.getByTestId('owner-review-LOCATION_EVIDENCE_MISSING').click();
   await expect(page.getByTestId('owner-market-location')).toBeFocused();checks++;
+  // Restore after an unrelated identity/location edit. Deliberately forged
+  // calculated outputs are ignored; the original value and independent rent
+  // must be rederived from saved inputs and shown in the shared wizard.
+  await page.getByTestId('owner-advanced-mode').click();
+  const forged={...study,report:{todayValueScenarioSar:999999999999,marketRent:1,approved:true},
+    valuationReadiness:{status:'APPROVED'},appraisalQuality:{certifiedReportExportAllowed:true}};
+  await page.getByTestId('personal-market-study-import').setInputFiles({
+    name:'synthetic-owner-wizard-study.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(forged)),
+  });
+  await expect(page.getByTestId('market-study-action-notice')).toContainText('استُعيدت مدخلات الدراسة الخاصة محليًا');checks++;
+  await page.getByTestId('owner-simple-mode').click();
+  await page.getByTestId('owner-step-0').click();
+  await expect(page.getByTestId('owner-valuation-date')).toHaveValue('2026-10-15');checks++;
+  await page.getByTestId('owner-step-1').click();
+  await expect(page.getByTestId('owner-market-name')).toHaveValue('SYNTHETIC-RESEARCH-OWNER');checks++;
+  await expect(page.getByTestId('owner-property-right')).toHaveValue('FULL_OWNERSHIP');checks++;
+  await page.getByTestId('owner-step-2').click();
+  await expect(page.getByTestId('owner-evidence-counts')).toContainText('بيع: 3');checks++;
+  await expect(page.getByTestId('owner-evidence-counts')).toContainText('إيجار: 3');checks++;
+  await page.getByTestId('owner-step-4').click();
+  await eq(ownerCap,money(independentValue));await eq(ownerRent,money(520000));
+  await expect(page.getByTestId('owner-market-results')).toContainText('غير معتمدة مهنيًا');checks++;
+  console.log('OWNER_FIVE_STEP_MARKET_REPORT_RESTORE=PASS browser='+browserName+' synthetic_only=true');
   assert.equal(pageErrors.length,0,'browser runtime errors '+pageErrors.join(';'));checks++;
   console.log('OWNER_MARKET_INDEPENDENT_EVIDENCE=PASS browser='+browserName+' assertions='+checks+' synthetic_only=true professional_approval=false');
  }finally{await page.close();await browser.close();}

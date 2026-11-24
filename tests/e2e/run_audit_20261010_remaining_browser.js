@@ -76,6 +76,7 @@ async function textContrast(locator){return locator.evaluate(el=>{
    await expect(documentPanel).toContainText('1500.00');checks++;
    await documentPanel.getByTestId('manual-transcription').locator('summary').click();
    await page.getByTestId('manual-text').fill('1500');await page.getByTestId('manual-page').fill('1');await page.getByTestId('manual-reviewerRef').fill('TRANSCRIBER');await page.getByTestId('manual-note').fill('Rent column page 1');await page.getByTestId('apply-manual-transcription').click();
+   await expect(documentPanel.locator('li[data-reason-code="MANUAL_TRANSCRIPTION_UNVERIFIED"]')).toHaveCount(1);checks++;
    const manualWarning=documentPanel.locator('[data-diagnostic-code="MANUAL_TRANSCRIPTION_UNVERIFIED"]');
    await expect(manualWarning).toContainText('هذا المحتوى نُقل يدويًا');checks++;
    await expect(manualWarning).not.toContainText('MANUAL_TRANSCRIPTION_UNVERIFIED');checks++;
@@ -100,6 +101,7 @@ async function textContrast(locator){return locator.evaluate(el=>{
    // DiagnosticText preserves an internal reason attribute and a localized explanation;
    // neither is approval and the raw code must not appear in owner-visible text.
    await expect(page.getByTestId('local-evidence-workflow-status')).toContainText('التحقق غير مكتمل');checks++;
+   await expect(page.getByTestId('local-evidence-workflow-status')).toHaveAttribute('data-reason-code','VERIFICATION_NOT_COMPLETE');checks++;
    const workflowReason=page.getByTestId('local-evidence-workflow-status').locator('[data-diagnostic-code="VERIFICATION_NOT_COMPLETE"]');
    await expect(workflowReason).toContainText('التحقق غير مكتمل');checks++;
    await expect(workflowReason).not.toContainText('VERIFICATION_NOT_COMPLETE');checks++;
