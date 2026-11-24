@@ -43,3 +43,17 @@ Existing chat-completions providers continue to use the original request and res
 ## Production recommendation
 
 For a controlled authenticated pilot, keep Cloudflare Access as the access mode and use OpenAI Responses mode when selecting current OpenAI models. Do not enable public Turnstile mode merely to activate the provider; public access is an independent exposure decision.
+
+
+## Governed GPT-6 refresh — 2026-11-24
+
+Catalog and migration references:
+- https://developers.openai.com/api/docs/models
+- https://developers.openai.com/api/docs/guides/latest-model
+
+Reviewed standard API price floors in integer USD micros per token (conservative maximum of published input/output rates, rounded upward): gpt-6.2-sol 10; gpt-6.2-astra 40; gpt-6.1-terra 5; gpt-6-luna 1. These floors are not an invoice, live entitlement, full price quote or an authorization to spend. A separate unexpired operator-qualified ceiling must cover all applicable charges and processing overhead.
+
+Default candidate for qualitative RIAI narrative: gpt-6.2-sol. Other profiles are explicit operator selections, not automatic routing or fallbacks. Require native Responses endpoint, RIAI_AI_MODEL_POLICY_VERSION=GPT6_20261124, RIAI_AI_REASONING_EFFORT=low (or medium), model-specific monetary and token bounds, atomic quota, audit and existing access/privacy gates. For modern profiles stable governance is a developer input before sanitized user snapshot; store=false, strict JSON schema, no tools or raw documents. Reported model must match selected alias or date-suffixed snapshot of the same model, and usage totals must reconcile. No automatic retries or fallback on provider failure.
+
+The production activation workflow is still explicit main-only exact-SHA manual dispatch, and is a public AI activation workflow, not a private pilot workflow. Do not run it for a private pilot. Model choice does not approve public access, data export, or production deployment. Live provider acceptance, actual project model permissions, latency, output quality in Arabic/English, refusal handling, budget reconciliation, data transfer and retention arrangements are still unqualified. Use synthetic cases first; never send private appraisal documents or tenant identity to qualify the model. GPT-6.2 is not an independent valuer; the deterministic calculation engine remains authoritative.
+
