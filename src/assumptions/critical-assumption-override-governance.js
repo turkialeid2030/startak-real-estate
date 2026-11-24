@@ -45,8 +45,8 @@ function validDateString(value) {
 
 function resolveAsOf(value) {
   if (value === undefined || value === null) return new Date();
-  const parsed = value instanceof Date ? new Date(value.getTime()) : new Date(value);
-  if (!Number.isFinite(parsed.getTime())) {
+  const parsed = value instanceof Date ? new Date(value.getTime()) : parseDateString(value);
+  if (!parsed||!Number.isFinite(parsed.getTime())) {
     throw new TypeError('asOf must be a valid date');
   }
   return parsed;
@@ -196,6 +196,7 @@ function buildCriticalAssumptionOverrideGovernance({ assumptionRegistry, assumpt
         approvalReference: approvalReference || null,
         approvedAt: parsedApprovedAt ? parsedApprovedAt.toISOString() : null,
         approvalStatus: approvalStatus || null,
+        expiresAt: parsedExpiresAt ? parsedExpiresAt.toISOString() : null,
       },
     };
     overrides.push(detail);
