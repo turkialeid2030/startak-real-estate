@@ -194,4 +194,17 @@ check(isolationThrown, 'cross-case property evidence is rejected');
 const routineExtracted = chainFor(makeFact({ id: 'F10', hashChar: '1' }), EVIDENCE_SOURCE_ROLE.CLIENT_PROVIDED, EVIDENCE_SENSITIVITY_CLASS.ROUTINE);
 check(assessProfessionalEvidenceAdmissibility({ record: routineExtracted, target: ADMISSIBILITY_TARGET.ANALYSIS_ONLY }).status === ADMISSIBILITY_STATUS.READY_WITH_LIMITATIONS, 'routine extracted evidence can remain analysis-only with explicit limitations');
 
+
+check(!validateProfessionalEvidenceChainIntegrity({...approved,fact:{...approved.fact,normalizedValue:9000}}),'changing fact outside original projection rejected');
+check(!validateProfessionalEvidenceChainIntegrity({...approved,fact:{...approved.fact,caseId:'OTHER'}}),'cross-case fact replacement rejected');
+check(!validateProfessionalEvidenceChainIntegrity({...approved,professionalReview:{...approved.professionalReview,outcome:'REJECTED'}}),'review outcome modification rejected');
+check(!validateProfessionalEvidenceChainIntegrity({...approved,professionalReview:{...approved.professionalReview,reviewedByRef:'OTHER'}}),'reviewer modification rejected');
+check(!validateProfessionalEvidenceChainIntegrity({...verifiedNoReview,professionalReview:approved.professionalReview}),'unbound review insertion rejected');
+check(!validateProfessionalEvidenceChainIntegrity({...approved,professionalReview:null}),'review removal with residual binding rejected');
+check(!validateProfessionalEvidenceChainIntegrity({...approved,transactionAuthorized:true}),'authority injection rejected');
+check(!validateProfessionalEvidenceChainIntegrity({...approved,professionalReview:{...approved.professionalReview,acknowledgements:{sourceViewed:true}}}),'incomplete review acknowledgements rejected');
+assert.throws(()=>chainFor({...makeFact({id:'BAD'}),capturedAt:'2026-02-30'}),/valid ISO/);checks++;
+assert.throws(()=>chainFor({...makeFact({id:'BAD'}),extraction:{method:'STRUCTURED_PARSE',confidence:NaN}}),/confidence/);checks++;
+assert.throws(()=>recordProfessionalEvidenceReview({record:verifiedNoReview,review:{...approved.professionalReview,reviewedAt:'2026-09-07T09:01:00Z'}}),/TIMELINE_INVALID/);checks++;
+check(validateProfessionalEvidenceChainIntegrity(JSON.parse(JSON.stringify(approved))),'serialized reviewed evidence retains binding');
 console.log(`WAVE_8A_PROFESSIONAL_EVIDENCE_CHAIN=PASS checks=${checks}`);
