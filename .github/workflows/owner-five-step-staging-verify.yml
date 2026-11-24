@@ -15,6 +15,8 @@ on:
       - 'src/components/LocalUrbanGrowthReviewPanel.jsx'
       - 'src/geospatial/urban-growth-accessibility-review*.js'
       - 'src/geospatial/local-urban-growth-review.js'
+      - 'src/geospatial/encrypted-urban-growth-draft.js'
+      - 'tests/defects/encrypted_urban_growth_saved_deal.js'
       - 'tests/e2e/run_urban_growth_review_browser.js'
       - 'tests/fixtures/synthetic-urban-growth.js'
       - 'tests/defects/urban_growth_accessibility_legacy_parity.js'
