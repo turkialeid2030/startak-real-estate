@@ -15,6 +15,8 @@ on:
       - 'src/market/comparable-evidence*.js'
       - 'src/market/policy-shock-scenario-review*.js'
       - 'src/market/local-policy-shock-review.js'
+      - 'src/market/encrypted-policy-shock-draft.js'
+      - 'tests/defects/encrypted_policy_shock_saved_deal.js'
       - 'tests/e2e/run_policy_shock_review_browser.js'
       - 'tests/fixtures/synthetic-policy-shock.js'
       - 'tests/defects/policy_shock_scenario_legacy_parity.js'
