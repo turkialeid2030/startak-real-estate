@@ -14,6 +14,7 @@ import {readFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {createRequire} from 'node:module';
 const {verifyResidualCases} = createRequire(import.meta.url)('./private-golden-residual-reference.cjs');
+const {replayPropertyCase,replayPrivateFixture} = createRequire(import.meta.url)('./private-golden-engine-replay.cjs');
 
 const REQUIRED_IRR = '0.1444715207802304';
 const NONNEGATIVE_INTEGER = value => Number.isSafeInteger(value) && value >= 0;
@@ -89,15 +90,27 @@ function validateCases(fixture){
   return ids;
 }
 try {
-  const fixture=await load('fixture');
+  const fixtureBytes=await readFile(opts.get('fixture'));
+  const fixture=JSON.parse(fixtureBytes.toString('utf8'));
+  const fixtureSha256=createHash('sha256').update(fixtureBytes).digest('hex');
   const ids=validateCases(fixture);
   mark('REFERENCE_FORMULA=PASS','cases=17 fixture_self_consistency=true source_authenticity_unverified=true independent_market_verified=false');
+  // Re-run the actual current valuation modules; the private output is counts
+  // only, never copied case identifiers, prices, addresses or report text.
+  const moduleCases=fixture.cases.map(replayPropertyCase);
+  if(moduleCases.some(x=>!x.valueMatches||!x.derivedRentMatches))fail('CURRENT_MODULE_REPLAY_MISMATCH');
+  mark('CURRENT_VALUATION_MODULE_REPLAY=PASS',
+    'cases=17 derived_rent_only=true fixture_sha256='+fixtureSha256+' source_authenticity_unverified=true browser_parity=false');
   // Some historical 17-case fixture formats legitimately omit the optional
   // four auxiliary cases. Do not break the 17-case source/hash/IRR checks:
   // mark those auxiliary cases BLOCKED, not PASS. An explicitly supplied
   // residualCases field must validate all four or fail closed.
   if (Object.prototype.hasOwnProperty.call(fixture, 'residualCases')) {
     const residual=verifyResidualCases(fixture);
+    const replay=replayPrivateFixture(fixture);
+    if(replay.auxiliaryEngineMatches!==3||replay.commercialScenarioBasisBlocked!==1)
+      fail('CURRENT_AUXILIARY_MODULE_REPLAY_MISMATCH');
+    mark('CURRENT_AUXILIARY_MODULE_REPLAY=PARTIAL','cases=3/4 commercial_scenario_basis_unverified=true');
     mark('AUXILIARY_REFERENCE=PASS',
       'cases='+residual.cases+' hotel=2 unit_income=1 commercial_downstream_only=1 engine_parity=false source_bytes_verified=false');
   } else {
