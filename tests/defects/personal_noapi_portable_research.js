@@ -75,7 +75,32 @@ const ui=fs.readFileSync(path.join(__dirname,'../../src/components/SaudiNational
 assert.match(ui,/data-testid="personal-noapi-download-research"/);
 assert.match(ui,/data-testid="personal-noapi-restore-research"/);
 assert.match(ui,/exportPersonalResearch\(records\)/);
-assert.match(ui,/importPersonalResearch\(await file\.text\(\)\)/);
+assert.match(ui,/const text=await file\.text\(\);\s*if\(token!==readEpoch\.current\)return;\s*const incoming=importPersonalResearch\(text\);/);
+assert.match(ui,/useLayoutEffect\(\(\)=>\(\)=>\{readEpoch\.current\+\+;\}/);
 assert.match(ui,/mergeNationalResearch\(records,incoming\)/);
 assert.doesNotMatch(ui,/localStorage|sessionStorage|document\.cookie/);
 console.log('PERSONAL_NOAPI_PORTABLE_RESEARCH=PASS rows=3 kite_month_only=true import=local export=local approvals=0');
+
+ // Unified study and sidecar parser preserve a versioned, property-bound register.
+const {encodeNationalStudyRegister,decodeNationalStudyRegister,parsePersonalMarketStudy}=require('../../src/market/market-study-state');
+const {marketEvidenceSubjectKey}=require('../../src/market/owner-market-evidence-scope');
+const {captureReference}=require('../../src/market/no-api-source-bridge');
+const studySubject={name:'Synthetic unified study',assetType:'LAND',city:'الرياض',district:'الملز',propertyRight:'FREEHOLD'};
+const reference=captureReference({sourceId:'REGA_DEALS',observedOn,city:'الرياض',district:'الملز'},{asOf});
+const bound={subjectKey:marketEvidenceSubjectKey(studySubject),records:original,references:[reference]};
+const portable=encodeNationalStudyRegister(studySubject,bound);
+const studyInput={kind:'STARTAK_PERSONAL_MARKET_STUDY',subject:studySubject,nationalResearch:portable};
+const restoredStudy=parsePersonalMarketStudy(JSON.stringify(studyInput)).study;
+const restoredRegister=decodeNationalStudyRegister(restoredStudy.subject,restoredStudy.nationalResearch);
+assert.equal(restoredRegister.records.length,3);
+assert.equal(restoredRegister.references.length,1);
+assert.equal(restoredRegister.records[2].dayKnown,false);
+assert.equal(restoredRegister.references[0].decisionReady,false);
+assert.deepEqual(restoredStudy.nationalResearch,portable);
+assert.equal(decodeNationalStudyRegister(studySubject,undefined),null);
+assert.throws(()=>encodeNationalStudyRegister({...studySubject,name:'Other'},bound),/STUDY_NATIONAL_SUBJECT_MISMATCH/);
+assert.throws(()=>parsePersonalMarketStudy(JSON.stringify({...studyInput,subject:{...studySubject,name:'Other'}})),/STUDY_NATIONAL_SUBJECT_MISMATCH/);
+const forgedStudy=JSON.parse(JSON.stringify(studyInput));
+forgedStudy.nationalResearch.records.records[0].professionalReportAuthorized=true;
+assert.throws(()=>parsePersonalMarketStudy(JSON.stringify(forgedStudy)),/PERSONAL_RESEARCH_|NATIONAL_RESEARCH_/);
+console.log('UNIFIED_NATIONAL_STUDY_REGISTER=PASS');

@@ -3,6 +3,9 @@ const assert=require('node:assert/strict');
 const {
  listCanonicalDeals,sidecarKey,saveResearchSidecar,loadResearchSidecar,
 }=require('../../src/market/saved-deal-study-sidecar');
+const {encodeNationalStudyRegister,decodeNationalStudyRegister}=require('../../src/market/market-study-state');
+const {marketEvidenceSubjectKey}=require('../../src/market/owner-market-evidence-scope');
+const {captureReference}=require('../../src/market/no-api-source-bridge');
 const store=new Map();
 const storage={
  get:async k=>store.has(k)?store.get(k):null,
@@ -53,6 +56,20 @@ const createStudy=(assetType)=>JSON.stringify({
  assert.equal(restored.recalculateRequired,true);
  assert.equal(Object.hasOwn(restored.study,'report'),false);
  assert.equal(Object.hasOwn(restored.study,'appraisalQuality'),false);
+ const withRegister=JSON.parse(createStudy('RESIDENTIAL_COMPOUND'));
+ const reference=captureReference({sourceId:'REGA_DEALS',city:'الرياض',district:'الملقا',observedOn:'2026-10-27'});
+ withRegister.nationalResearch=encodeNationalStudyRegister(withRegister.subject,
+   {subjectKey:marketEvidenceSubjectKey(withRegister.subject),records:[],references:[reference]});
+ await saveResearchSidecar({storage,dealId:buildingDeal.id,studyJson:JSON.stringify(withRegister),
+   identityConfirmed:true,overwrite:true});
+ const restoredRegisterStudy=(await loadResearchSidecar({storage,dealId:buildingDeal.id})).study;
+ assert.deepEqual(restoredRegisterStudy.nationalResearch,withRegister.nationalResearch);
+ assert.equal(decodeNationalStudyRegister(restoredRegisterStudy.subject,restoredRegisterStudy.nationalResearch).references[0].decisionReady,false);
+ assert.equal(store.get('deal:'+buildingDeal.id),beforeBuilding);
+ const tampered=JSON.parse(store.get(sidecarKey(buildingDeal.id)));
+ tampered.studyInputs.nationalResearch.subjectKey='other property';
+ store.set(sidecarKey(buildingDeal.id),JSON.stringify(tampered));
+ await assert.rejects(()=>loadResearchSidecar({storage,dealId:buildingDeal.id}),/STUDY_NATIONAL_SUBJECT_MISMATCH/);
  await assert.rejects(()=>saveResearchSidecar({storage,dealId:buildingDeal.id,
   studyJson:createStudy('RESIDENTIAL_COMPOUND'),identityConfirmed:true}),/SIDECAR_EXISTS_CONFIRM_OVERWRITE/);
  await saveResearchSidecar({storage,dealId:buildingDeal.id,

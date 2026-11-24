@@ -345,7 +345,9 @@ assert.match(national,/personal-noapi-subject-scope-hold/,
  'changing owner property identity must suspend prior source capture');
 assert.match(national,/personal-noapi-clear-for-new-property/,
  'owner must explicitly clear old property research before adding to a new case');
-assert.match(property,/subject=\{subject\} onResearchChange=/);
+assert.match(property,/subject=\{subject\} initialRegister=\{nationalRegister\} onRegisterChange=\{changeNationalRegister\}/);
+assert.match(property,/nationalResearch:encodeNationalStudyRegister\(subject,nationalRegister\)/);
+assert.match(property,/evidenceScopeHold\|\|nationalRegisterHold/);
 assert.match(manualPanel,/onReferencesChange\?\.\(merged.references\)/);
 assert.match(panel,/data-testid="qualification-decision"/);
 assert.match(panel,/data-testid="qualification-download-review"/);
