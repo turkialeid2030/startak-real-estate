@@ -18,6 +18,27 @@ for(const type of Object.keys(ASSET_TYPES)){
   run(name,{sales:rows.map(x=>({...x,...patch})),rentals:rows.map(x=>({...x,...patch}))},v=>{assert.equal(v.eligibleSalesCount,0);assert.equal(v.eligibleRentalsCount,0);assert.equal(v.todayValueScenarioSar,null);});
  }
  run('duplicate',{sales:rows.map(x=>({...x,sourceRecordId:'same'})),rentals:rows.map(x=>({...x,sourceRecordId:'same'}))},v=>{assert.equal(v.eligibleSalesCount,1);assert.equal(v.eligibleRentalsCount,income?1:0);assert.equal(v.todayValueScenarioSar,null);});
+ // Same transaction ID with different economics is not an independent comparable.
+ const duplicateConflict=(key)=>[rows[0],{...rows[0],sourceUrl:'https://example.org/synthetic/conflict-copy',[key]:rows[0][key]*3},rows[1],rows[2]];
+ for(const reverse of [false,true]){
+  const conflict=duplicateConflict('price');
+  run('conflicting sale '+reverse,{sales:reverse?[...conflict].reverse():conflict,rentals:[]},v=>{
+   assert.equal(v.eligibleSalesCount,2);assert.equal(v.saleIndicationSar,null);
+   assert.equal(v.todayValueScenarioSar,null);assert.ok(v.issues.includes('SALE_SOURCE_RECORD_CONFLICT'));
+  });
+  const exact=[rows[0],{...rows[0],sourceUrl:'https://example.org/synthetic/exact-copy'},rows[1],rows[2]];
+  run('exact duplicate '+reverse,{sales:reverse?[...exact].reverse():exact,rentals:[]},v=>{
+   assert.equal(v.eligibleSalesCount,3);assert.equal(v.saleIndicationSar,1000000);
+   assert.ok(!v.issues.includes('SALE_SOURCE_RECORD_CONFLICT'));
+  });
+  if(income){
+   const conflictRent=duplicateConflict('annualRent');
+   run('conflicting rent '+reverse,{sales:[],rentals:reverse?[...conflictRent].reverse():conflictRent},v=>{
+    assert.equal(v.eligibleRentalsCount,2);assert.equal(v.marketAnnualRentPotentialSar,null);
+    assert.equal(v.todayValueScenarioSar,null);assert.ok(v.issues.includes('RENT_SOURCE_RECORD_CONFLICT'));
+   });
+  }
+ }
  if(income){
   for(const field of ['occupancy','expenseRatio','capRate']){
    for(const bad of [undefined,null,'','bad',NaN,Infinity,-0.1,1.1]){
