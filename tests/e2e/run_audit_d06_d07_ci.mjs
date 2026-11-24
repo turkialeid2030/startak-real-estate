@@ -66,7 +66,7 @@ try{
  assert(await market.getByTestId('market-subject-asset-type').inputValue()==='OFFICE_TOWER',
   'D06 asset class must be the expressly chosen option');
  const switchToEnglish=page.getByTestId('locale-switch');
- assert(await switchToEnglish.getAttribute('aria-label')==='Switch to English','D04 language switch accessible name');
+ assert(await switchToEnglish.getAttribute('aria-label')==='التبديل إلى الإنجليزية','D04 Arabic accessible name for language switch');
  await switchToEnglish.click();
  await market.getByTestId('market-partial-locale-notice').waitFor();
  assert(await market.getAttribute('dir')==='ltr','D04 core market panel direction switches to LTR');
