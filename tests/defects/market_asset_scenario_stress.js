@@ -26,6 +26,18 @@ for(const type of Object.keys(ASSET_TYPES)){
    assert.equal(v.eligibleSalesCount,2);assert.equal(v.saleIndicationSar,null);
    assert.equal(v.todayValueScenarioSar,null);assert.ok(v.issues.includes('SALE_SOURCE_RECORD_CONFLICT'));
   });
+  for(const [kind,patch] of [['stale',{date:'2024-01-01'}],['asking',{status:'ASKING'}],['area',{builtArea:3000,landArea:3000,rentableArea:3000}],['location',{location:'25.7,46.7'}],['malformed',{price:'bad',annualRent:'bad'}]]){
+   const inconsistent=[...rows,{...rows[0],...patch,sourceUrl:'https://example.org/synthetic/ineligible-copy'}];
+   const cohort=reverse?[...inconsistent].reverse():inconsistent;
+   run('excluded conflicting sale '+kind+' '+reverse,{sales:cohort,rentals:[]},v=>{
+    assert.equal(v.eligibleSalesCount,2);assert.equal(v.saleIndicationSar,null);
+    assert.equal(v.todayValueScenarioSar,null);assert.ok(v.issues.includes('SALE_SOURCE_RECORD_CONFLICT'));
+   });
+   if(income)run('excluded conflicting rent '+kind+' '+reverse,{sales:[],rentals:cohort},v=>{
+    assert.equal(v.eligibleRentalsCount,2);assert.equal(v.marketAnnualRentPotentialSar,null);
+    assert.equal(v.todayValueScenarioSar,null);assert.ok(v.issues.includes('RENT_SOURCE_RECORD_CONFLICT'));
+   });
+  }
   const exact=[rows[0],{...rows[0],sourceUrl:'https://example.org/synthetic/exact-copy'},rows[1],rows[2]];
   run('exact duplicate '+reverse,{sales:reverse?[...exact].reverse():exact,rentals:[]},v=>{
    assert.equal(v.eligibleSalesCount,3);assert.equal(v.saleIndicationSar,1000000);
