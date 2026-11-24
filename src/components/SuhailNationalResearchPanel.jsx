@@ -1,13 +1,15 @@
-import React,{useMemo,useState} from 'react';
+import React,{useLayoutEffect,useMemo,useRef,useState} from 'react';
 const ResearchCsvUpload=require('./ResearchCsvUpload');
 const {SOURCE_URL,toPublicSample,parseResearchCsv,mergeNeighborhoodResearch,selectNeighborhoodRows,researchSummary,MAX_BYTES}=
  require('../market/suhail-national-neighborhood-research');
 const {useLocale}=require('../i18n/LocaleContext.js');
-export default function SuhailNationalResearchPanel({onResearchChange}){
+export default function SuhailNationalResearchPanel({onResearchChange,initialRecords,subjectKey}){
  const {locale}=useLocale();
  const en=locale==='en';
  const fmt=v=>Number.isFinite(v)?new Intl.NumberFormat(en?'en-US':'ar-SA').format(v):(en?'No data':'لا تتوفر بيانات');
- const [records,setRecords]=useState(()=>toPublicSample());
+ const [records,setRecords]=useState(()=>initialRecords||toPublicSample());
+ const readEpoch=useRef(0);
+ useLayoutEffect(()=>()=>{readEpoch.current++;},[subjectKey,records]);
  const [city,setCity]=useState('');
  const [district,setDistrict]=useState('');
  const [note,setNote]=useState('');
@@ -19,7 +21,9 @@ export default function SuhailNationalResearchPanel({onResearchChange}){
   if(!file)return;
   if(file.size>MAX_BYTES){setNote(en?'CSV exceeds the import limit.':'حجم ملف البيانات أكبر من الحد البحثي المسموح');return;}
   try{
+   const token=++readEpoch.current;
    const s=await file.text();
+   if(token!==readEpoch.current)return;
    const result=parseResearchCsv(s,{sourceUrl:datasetUrl,observedOn});
    const combined=mergeNeighborhoodResearch(records,result.records);
    setRecords(combined.records);onResearchChange?.(combined.records);setCity('');setDistrict('');

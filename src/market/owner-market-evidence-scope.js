@@ -26,7 +26,8 @@ function hasEnteredComparable(row){
 function hasCapturedOwnerResearch(feeds){
  // Default Suhail sample is not an owner-entered comparable.
  return Boolean(feeds&&typeof feeds==='object'&&
-  ['national','earth','listings'].some(k=>Array.isArray(feeds[k])&&feeds[k].length>0));
+  (['national','earth','listings'].some(k=>Array.isArray(feeds[k])&&feeds[k].length>0)||
+   (Array.isArray(feeds.suhail)&&feeds.suhail.some(r=>r?.recordClass==='USER_IMPORTED_NEIGHBORHOOD_AGGREGATE_UNVERIFIED'))));
 }
 function hasResearchComparables(sales=[],rentals=[]){
  return [sales,rentals].some(rows=>Array.isArray(rows)&&rows.some(hasEnteredComparable));

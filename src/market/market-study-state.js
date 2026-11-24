@@ -2,6 +2,7 @@
 // Carefully restore user-authored study INPUTS from local JSON.
 // Computed report/valuation/certification fields in the file are intentionally ignored.
 const {ASSET_TYPES}=require('./instant-market-study');
+const {encodeSupplementalStudyRegister,decodeSupplementalStudyRegister}=require('./supplemental-study-register');
 const {marketEvidenceSubjectKey}=require('./owner-market-evidence-scope');
 const {exportPersonalResearch,importPersonalResearch}=require('./personal-noapi-research-register');
 const {exportReferences,importReferences}=require('./no-api-source-bridge');
@@ -57,7 +58,7 @@ function rows(o,key,fields){
  return data.map(r=>pickStrings(r,fields));
 }
 function parsePersonalMarketStudy(value){
- if(typeof value!=='string'||value.length>MAX_BYTES)throw Error('STUDY_SIZE_LIMIT');
+ if(typeof value!=='string'||new TextEncoder().encode(value).length>MAX_BYTES)throw Error('STUDY_SIZE_LIMIT');
  let data;
  try{data=JSON.parse(value)}catch{throw Error('STUDY_JSON_INVALID');}
  if(!data||typeof data!=='object'||Array.isArray(data)||data.kind!==KIND)
@@ -86,6 +87,10 @@ function parsePersonalMarketStudy(value){
  if(data.nationalResearch!==undefined){
   study.nationalResearch=encodeNationalStudyRegister(subject,
    decodeNationalStudyRegister(subject,data.nationalResearch));
+ }
+ if(data.supplementalResearch!==undefined){
+  study.supplementalResearch=encodeSupplementalStudyRegister(subject,
+   decodeSupplementalStudyRegister(subject,data.supplementalResearch),marketEvidenceSubjectKey(subject));
  }
  // Never trust report, appraisedAmount, approved, certified, independentlyVerified,
  // or persisted computed results from import; all calculations MUST be recomputed.

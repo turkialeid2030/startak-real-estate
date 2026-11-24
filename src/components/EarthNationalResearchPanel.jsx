@@ -1,4 +1,4 @@
-import React,{useMemo,useState} from 'react';
+import React,{useLayoutEffect,useMemo,useRef,useState} from 'react';
 const ResearchCsvUpload=require('./ResearchCsvUpload');
 const {FEATURES,importEarthResearchCsv,mergeEarthResearch,filterEarthResearch,
  earthResearchSummary}=require('../market/earth-national-research');
@@ -10,11 +10,13 @@ const LABELS={REPORTED_SALE:'صفقة منشورة غير متحقق منها',
  ASKING_OFFER:'عرض معلن',VALUE_INDICATION:'قيمة استرشادية',
  PLANNING_CONTEXT:'معلومات مخطط',MARKET_AGGREGATE:'مؤشر مجمع',
  GEOGRAPHIC_CONTEXT:'معلومات مكانية',REGISTRY_CONTEXT:'بيانات سجل معروضة'};
-export default function EarthNationalResearchPanel({onResearchChange}){
+export default function EarthNationalResearchPanel({onResearchChange,initialRecords,subjectKey}){
  const {locale}=useLocale();const en=locale==='en';
  const L=value=>researchSourceLabel(value,locale);
  const fmt=value=>researchNumber(value,locale);
- const [records,setRecords]=useState([]);
+ const [records,setRecords]=useState(()=>initialRecords||[]);
+ const readEpoch=useRef(0);
+ useLayoutEffect(()=>()=>{readEpoch.current++;},[subjectKey,records]);
  const [featureId,setFeatureId]=useState('TRANSACTION_TABLE');
  const [observedOn,setObservedOn]=useState(()=>new Date().toISOString().slice(0,10));
  const [city,setCity]=useState(''),[filterFeature,setFilterFeature]=useState('');
@@ -25,7 +27,10 @@ export default function EarthNationalResearchPanel({onResearchChange}){
   if(!file)return;
   if(file.size>MAX_CSV_BYTES){setNotice({ar:'الملف يتجاوز الحد البحثي',en:'CSV exceeds the research size limit'});return;}
   try{
-   const parsed=importEarthResearchCsv(await file.text(),{featureId,observedOn});
+   const token=++readEpoch.current;
+   const csv=await file.text();
+   if(token!==readEpoch.current)return;
+   const parsed=importEarthResearchCsv(csv,{featureId,observedOn});
    const merged=mergeEarthResearch(records,parsed.records);
    setRecords(merged.records);onResearchChange?.(merged.records);setCity('');setFilterFeature('');
    setNotice({ar:'أضيف '+merged.added+' سجلًا؛ مكرر '+merged.duplicates+'؛ متعارض '+merged.conflicts.length+'؛ مستبعد '+parsed.rejected.length+'. لا توجد صفقات أو صكوك مؤكدة من هذا الاستيراد.',

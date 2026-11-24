@@ -503,6 +503,8 @@ try{
  assert(exported.nationalResearch?.records?.records?.length===1&&
    exported.nationalResearch?.references?.references?.length===1,
    'study JSON must include the property-bound national record and manual reference');
+ assert(exported.supplementalResearch?.suhail?.length===2&&exported.supplementalResearch?.earth?.length===2&&exported.supplementalResearch?.listings?.length===3,
+   'full study must include all imported supplemental provider records but not the built-in sample');
  assert(exported.nationalResearch.records.records[0].marketValuationEligible===false,
    'portable research cannot become authorized by study export');
  assert(exported.unitMix?.length===1&&exported.leaseComparables?.length===3,
@@ -534,8 +536,12 @@ try{
  mark('REIMPORT_PERSONAL_STUDY_RESTORES_INPUTS_AND_RECALCULATES_RESULTS',true);
  const resetFusion=panel.getByTestId('research-evidence-fusion');
  const resetText=await resetFusion.getByTestId('fusion-statistics').innerText();
- assert(resetText.includes('السجلات البحثية: 11'),
-   'restore must retain the current national row and public sample, not old case Earth/listing imports');
+ assert(resetText.includes('السجلات البحثية: 18'),
+   'restore must include 10 public sample rows, 7 supplemental rows and one national row');
+ assert((await earth.getByTestId('earth-summary').innerText()).includes('صفقات منفذة مؤكدة: 0'),'restored Earth evidence remains unverified');
+ assert(await earth.locator('tbody tr').count()===2,'Earth records must rehydrate the visible table');
+ assert(await catalogs.locator('tbody tr').count()===3,'listing records must rehydrate the visible table');
+ assert(await national.locator('tbody tr').count()===12,'Suhail imported rows and built-in sample must rehydrate the visible table');
  assert((await nationalSources.getByTestId('national-summary').innerText()).includes('الصفوف المستوردة: 1'),
    'restored national records must be visible in the actual panel');
  assert((await noapi.getByTestId('noapi-reference-count').innerText()).includes('1'),
@@ -564,6 +570,7 @@ try{
  assert(decoded.researchScope==='PERSONAL_UNVERIFIED_INPUTS_ONLY'&&decoded.studyInputs.unitMix.length===1,
   'research must be linked solely as unapproved inputs');
  assert(JSON.stringify(decoded.studyInputs.nationalResearch)===JSON.stringify(exported.nationalResearch),'saved-deal sidecar must retain the same scoped register');
+ assert(JSON.stringify(decoded.studyInputs.supplementalResearch)===JSON.stringify(exported.supplementalResearch),'saved-deal sidecar must retain all supplemental research');
  assert(decoded.studyInputs.appraisalQuality===undefined&&decoded.studyInputs.report===undefined,
   'certified outputs must not persist in canonical sidecar');
  assert((await page.evaluate(()=>localStorage.getItem(
@@ -593,6 +600,10 @@ try{
  await linked.getByText('استُعيدت مدخلات الملحق المرتبط بالصفقة',{exact:false}).waitFor();
  assert((await nationalSources.getByTestId('national-summary').innerText()).includes('الصفوف المستوردة: 1'),'sidecar restores actual national panel');
  assert((await noapi.getByTestId('noapi-reference-count').innerText()).includes('1'),'sidecar restores actual references');
+ assert(await earth.locator('tbody tr').count()===2,'sidecar restores Earth table');
+ assert(await catalogs.locator('tbody tr').count()===3,'sidecar restores listing table');
+ assert(await national.locator('tbody tr').count()===12,'sidecar restores Suhail table');
+ mark('SUPPLEMENTAL_PROVIDER_REGISTER_BROWSER_AND_SIDECAR_ROUNDTRIP',true);
  mark('UNIFIED_NATIONAL_REGISTER_BROWSER_AND_SIDECAR_ROUNDTRIP',true);
  mark('CANONICAL_DEAL_RESEARCH_RESTORE_RECALCULATES',true);
 

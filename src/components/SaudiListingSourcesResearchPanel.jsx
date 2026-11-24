@@ -1,4 +1,4 @@
-import React,{useMemo,useState} from 'react';
+import React,{useLayoutEffect,useMemo,useRef,useState} from 'react';
 const ResearchCsvUpload=require('./ResearchCsvUpload');
 const {SOURCES,parseListingResearchCsv,mergeListingResearch,filterListingResearch,
  listingResearchSummary}=require('../market/saudi-listing-source-research');
@@ -8,11 +8,13 @@ const {MAX_CSV_BYTES}=require('../market/public-dataset-import');
 const KIND_LABELS={SALE_OFFER:'عرض بيع',RENT_OFFER:'عرض إيجار',
  PROJECT_INDICATIVE:'مشروع / سعر استرشادي',AUCTION_ASK:'سعر مزاد معلن',
  BUYER_REQUEST:'طلب عقاري / ميزانية'};
-export default function SaudiListingSourcesResearchPanel({onResearchChange}){
+export default function SaudiListingSourcesResearchPanel({onResearchChange,initialRecords,subjectKey}){
  const {locale}=useLocale();const en=locale==='en';
  const L=value=>researchSourceLabel(value,locale);
  const fmt=value=>researchNumber(value,locale);
- const [records,setRecords]=useState([]);
+ const [records,setRecords]=useState(()=>initialRecords||[]);
+ const readEpoch=useRef(0);
+ useLayoutEffect(()=>()=>{readEpoch.current++;},[subjectKey,records]);
  const [city,setCity]=useState('');
  const [platform,setPlatform]=useState('');
  const [kind,setKind]=useState('');
@@ -33,7 +35,10 @@ export default function SaudiListingSourcesResearchPanel({onResearchChange}){
   setRightsAcknowledged(false);
 
   try{
-   const parsed=parseListingResearchCsv(await file.text(),{observedOn});
+   const token=++readEpoch.current;
+   const csv=await file.text();
+   if(token!==readEpoch.current)return;
+   const parsed=parseListingResearchCsv(csv,{observedOn});
    const merged=mergeListingResearch(records,parsed.records);
    setRecords(merged.records);onResearchChange?.(merged.records);
    setCity('');setPlatform('');setKind('');
