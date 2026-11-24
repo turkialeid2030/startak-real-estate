@@ -1373,6 +1373,8 @@ function ModeSwitch({ mode, setMode }) {
           <button
             key={o.key}
             type="button"
+            data-testid={`study-mode-${o.key}`}
+            aria-pressed={active}
             onClick={() => setMode(o.key)}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-medium transition-colors"
             style={{
@@ -1404,6 +1406,8 @@ function Tabs({ value, onChange }) {
           <button
             key={t.key}
             type="button"
+            data-testid={`financial-tab-${t.key}`}
+            aria-pressed={active}
             onClick={() => onChange(t.key)}
             className="flex-1 rf-display text-xs md:text-sm font-semibold py-2 rounded-lg transition-colors"
             style={{
@@ -2212,6 +2216,7 @@ export default function App() {
               data-testid="locale-switch"
               onClick={() => setLocale(locale === "ar-SA" ? "en" : "ar-SA")}
               title={locale === "ar-SA" ? "Switch to English" : "التبديل إلى العربية"}
+              aria-label={locale === "ar-SA" ? "Switch to English" : "التبديل إلى العربية"}
               className="relative p-2.5 rounded-xl text-xs font-semibold"
               style={{ background: COLORS.panelRaised, border: `1px solid ${COLORS.hairline}`, color: COLORS.slate }}
             >
