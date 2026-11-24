@@ -6,7 +6,7 @@ const {
   deepFreeze,
 } = require('./contracts');
 const { reconcileEvidenceFacts, assertCaseIsolation } = require('./reconciliation');
-const { EVIDENCE_SOURCE_ROLE } = require('./professional-evidence-chain');
+const { EVIDENCE_SOURCE_ROLE,assessProfessionalEvidenceAdmissibility,ADMISSIBILITY_TARGET,ADMISSIBILITY_STATUS } = require('./professional-evidence-chain');
 
 const PROPERTY_DATA_GATE_STATUS = Object.freeze({
   CLEAR: 'CLEAR',
@@ -19,7 +19,7 @@ function nonEmpty(value) {
 }
 
 function assertEvidenceRecords(records, caseId) {
-  if (!Array.isArray(records)) throw new TypeError('evidenceRecords must be an array');
+  if (!Array.isArray(records)||records.length>5000) throw new TypeError('evidenceRecords must be a bounded array');
   const facts = [];
   for (const record of records) {
     if (!record || typeof record !== 'object' || !record.fact) throw new TypeError('each evidence record must contain fact');
@@ -63,7 +63,13 @@ function evaluateMaterialPropertyDataConflicts({
   const conflicts = [];
   const missingEvidence = [];
   const checks = reconciliations.map((result) => {
-    const roles = sourceRolesForKey(evidenceRecords, result.key);
+    const relevant=evidenceRecords.filter(record=>record.fact.key===result.key);
+    const admitted=relevant.filter(record=>assessProfessionalEvidenceAdmissibility({record,target:ADMISSIBILITY_TARGET.ENGINE_INPUT}).status===ADMISSIBILITY_STATUS.READY);
+    const roles = sourceRolesForKey(admitted, result.key);
+    const independentContentCount=new Set(admitted.map(r=>r.fact.documentHashSha256.toLowerCase())).size;
+    const independentReferenceCount=new Set(admitted.map(r=>r.sourceReference)).size;
+    const crossRoleCollision=admitted.some((r,i)=>admitted.slice(i+1).some(s=>r.sourceRole!==s.sourceRole&&
+      (r.fact.documentHashSha256.toLowerCase()===s.fact.documentHashSha256.toLowerCase()||r.sourceReference===s.sourceReference)));
     const material = result.materiality === MATERIALITY.MATERIAL || uniqueMaterialKeys.includes(result.key);
     const conflicting = result.status === RECONCILIATION_STATUS.CONFLICT
       || result.status === RECONCILIATION_STATUS.UNIT_MISMATCH;
@@ -78,7 +84,9 @@ function evaluateMaterialPropertyDataConflicts({
     }
 
     const insufficient = result.status === RECONCILIATION_STATUS.MISSING
-      || roles.length < minimumIndependentSourceRoles;
+      || roles.length < minimumIndependentSourceRoles
+      || independentContentCount<minimumIndependentSourceRoles||independentReferenceCount<minimumIndependentSourceRoles
+      ||crossRoleCollision||admitted.length!==relevant.length;
     if (material && insufficient) {
       missingEvidence.push({
         key: result.key,
@@ -94,6 +102,8 @@ function evaluateMaterialPropertyDataConflicts({
       material,
       sourceRoles: roles,
       sourceRoleCount: roles.length,
+      independentContentCount,independentReferenceCount,crossRoleCollision,
+      unqualifiedRecordCount:relevant.length-admitted.length,
       conflict: material && conflicting,
       evidenceInsufficient: material && insufficient,
     };
@@ -116,6 +126,7 @@ function evaluateMaterialPropertyDataConflicts({
     financialEngineAdoptionAllowed: status === PROPERTY_DATA_GATE_STATUS.CLEAR,
     transactionAuthorized: false,
     certifiedValuationEstablished: false,
+    independentlyAuthenticatedSources:false,
     semantics: status === PROPERTY_DATA_GATE_STATUS.MATERIAL_PROPERTY_DATA_CONFLICT
       ? 'Material property data conflicts across submitted evidence remain unresolved. No source winner is selected automatically; professional valuation progression and engine adoption are blocked until accountable human reconciliation resolves the conflict.'
       : 'This gate evaluates caller-declared material property data across evidence source roles. CLEAR is an evidence-consistency state only and does not establish title validity, legal opinion, licensed valuation status, or transaction authority.',
