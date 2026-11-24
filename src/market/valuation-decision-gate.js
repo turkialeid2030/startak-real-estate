@@ -41,6 +41,8 @@ const reasonText=Object.freeze({
   NO_EXECUTED_RENT_COMPARABLES:'لا توجد ثلاث عقود إيجار مؤهلة',
   SOURCE_INDEPENDENCE_NOT_VERIFIED:'لم يتم إثبات صحة المصادر والحقوق العقارية من جهة مستقلة',
   DISTRICT_APPROXIMATION_USED:'بعض المقارنات على مستوى الحي فقط لا على مستوى موقع القطعة',
+  SALE_SOURCE_RECORD_CONFLICT:'تعارض في سجلات البيع ذات معرّف المصدر نفسه؛ راجع السجلات قبل اعتماد مؤشر موحد',
+  RENT_SOURCE_RECORD_CONFLICT:'تعارض في سجلات الإيجار ذات معرّف المصدر نفسه؛ راجع السجلات قبل اعتماد مؤشر الإيجار',
   METHODS_UNRECONCILED:'القيمة السوقية وقيمة الدخل تختلفان اختلافًا جوهريًا',
   RENT_ESTIMATES_UNRECONCILED:'يوجد فرق جوهري بين الإيجار العام وإيجار فئات الوحدات',
   TENANCY_LEGAL_REVIEW_REQUIRED:'الأجرة الممكن تحصيلها نظاميًا تحتاج مراجعة العقود والضوابط',
@@ -104,6 +106,11 @@ function auditValuationReadiness({subject={},report={},segmentedRent=null,sales=
  if(salesQualified<3)add(reasons,'NO_EXECUTED_SALE_COMPARABLES');
  if(INCOME_REQUIRED.has(type)&&rentQualified<3)add(notices,'NO_EXECUTED_RENT_COMPARABLES');
  if(report?.materialMethodGap)add(reasons,'METHODS_UNRECONCILED');
+ const marketIssues=Array.isArray(report?.issues)?report.issues:[];
+ const saleSourceConflict=marketIssues.includes('SALE_SOURCE_RECORD_CONFLICT');
+ const rentSourceConflict=marketIssues.includes('RENT_SOURCE_RECORD_CONFLICT');
+ if(saleSourceConflict)add(reasons,'SALE_SOURCE_RECORD_CONFLICT');
+ if(rentSourceConflict)add(reasons,'RENT_SOURCE_RECORD_CONFLICT');
  // Optional, restrictive-only bridge: a review can BLOCK but never authorize a price or export.
  if(appraisalReview!==null&&appraisalReview!==undefined){
   if(appraisalReview?.status==='REVIEW_REQUIRED')add(notices,'APPRAISAL_REVIEW_PENDING');
@@ -126,8 +133,8 @@ function auditValuationReadiness({subject={},report={},segmentedRent=null,sales=
  if(rentConflict)add(reasons,'RENT_ESTIMATES_UNRECONCILED');
  if(segmentedRent&&segmentedRent.status==='HOLD_INCOMPLETE_UNIT_EVIDENCE')
   add(notices,'RENT_CLASS_EVIDENCE_INCOMPLETE');
- const recommendedRent=rentConflict?null:unitRent!==null?unitRent:baseRent;
- const rentSource=rentConflict?'CONFLICT_REQUIRES_REVIEW':
+ const recommendedRent=rentConflict||rentSourceConflict?null:unitRent!==null?unitRent:baseRent;
+ const rentSource=rentConflict||rentSourceConflict?'CONFLICT_REQUIRES_REVIEW':
   unitRent!==null?'SEGMENTED_EXECUTED_LEASE_COMPARABLES':
   baseRent!==null?'WHOLE_ASSET_EXECUTED_LEASE_COMPARABLES':'NO_SUPPORTED_RENT';
  const canShowSinglePrice=Boolean(!reasons.length&&
