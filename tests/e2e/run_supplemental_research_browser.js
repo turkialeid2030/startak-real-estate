@@ -40,6 +40,23 @@ const {chromium,firefox,webkit,expect}=require('@playwright/test');
   const member={...holding,portfolioId:'SYNTH-PORTFOLIO',currency:'SAR'};
   const portfolio={scope:'PORTFOLIO',currency:'SAR',portfolioId:'SYNTH-PORTFOLIO',asOfDate:scope.asOfDate,periodStart:holding.periodStart,periodEnd:holding.periodEnd,members:[{...member,assetId:'A'},{...member,assetId:'B',openingValue:3000,closingValue:2700,cashDistributions:0}]};
   await verify('portfolio',portfolio,{PORTFOLIO_HOLDING_PERIOD_RETURN:0.0025});
+  if(locale==='ar-SA'){
+   await expect(el('local-custody')).toHaveCount(0);
+   const {createPortfolioMember,createPortfolioSnapshot}=require('../../src/portfolio/portfolio-concentration');
+   const start=holding.periodStart;
+   const mk=(assetId,exposureAmount,allocationWeight)=>createPortfolioMember({memberId:'M-'+assetId,assetId,caseId:'CASE-'+assetId,propertyRef:'PROP-'+assetId,assetClass:'building',geography:'synthetic',sector:'synthetic',exposureAmount,currency:'SAR',exposureBasis:'PROFESSIONAL_VALUE_INDICATION',allocationWeight,sourceArtifactId:'ART-'+assetId,sourceArtifactHashSha256:'a'.repeat(64),sourceArtifactClassification:'RESEARCH',sourceAsOfDate:start,membershipRationale:'Synthetic fixture',evidenceRefs:['SYNTH-SOURCE'],preparedBy:'test-preparer',reviewedBy:'test-reviewer',preparedAt:start+'T00:00:00Z',reviewedAt:start+'T01:00:00Z'});
+   const snapshot=createPortfolioSnapshot({snapshotId:'SYNTH-OPENING',portfolioId:'SYNTH-PORTFOLIO',portfolioName:'Synthetic portfolio',asOfDate:start,currency:'SAR',weightBasis:'CURRENT_EXPOSURE',maximumSourceAgeDays:0,members:[mk('A',1000,0.25),mk('B',3000,0.75)],createdAt:start+'T02:00:00Z'});
+   const importSnapshot=data=>el('opening-snapshot').setInputFiles({name:'synthetic-opening.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(data))});
+   await importSnapshot({...snapshot,portfolioName:'tampered'});await expect(el('snapshot-status')).toContainText('غير صالحة');await expect(el('local-custody')).toHaveCount(0);checks+=2;
+   await importSnapshot(snapshot);await expect(el('snapshot-status')).toContainText('تم التحقق');await expect(el('local-custody')).toBeVisible();checks+=2;
+   await load(portfolio);await expect(el('result')).toBeVisible();
+   await el('passphrase').fill('synthetic-portfolio-passphrase');await el('consent').check();await el('encrypted-save').click();
+   await expect(el('storage-notice')).toContainText('تم التحقق من الحفظ المحلي المشفر',{timeout:15000});checks++;
+   await el('passphrase').fill('synthetic-portfolio-passphrase');await el('encrypted-load').click();
+   await expect(el('storage-notice')).toContainText('استعيدت المدخلات وأعيد الحساب',{timeout:15000});const savedReturn=await download('report');assert.equal(savedReturn.metrics[0].value,0.0025);checks++;
+   await el('passphrase').fill('synthetic-portfolio-passphrase');await el('delete-consent').check();await el('encrypted-delete').click();await expect(el('storage-notice')).toContainText('تم التحقق من حذف المسودة',{timeout:15000});checks++;
+   await load(portfolio);await expect(el('result')).toBeVisible();
+  }
   await el('assets').fill('A\nC');await expect(el('result')).toHaveCount(0);await load(portfolio);await expect(el('status')).toHaveAttribute('data-status','HOLD');checks+=2;
   await page.reload();await expect(panel).toBeVisible();await expect(el('result')).toHaveCount(0);checks++;
   if(locale==='ar-SA'){
