@@ -12,7 +12,7 @@ const TODAY=()=>{
  const p=key=>parts.find(x=>x.type===key)?.value;
  return [p('year'),p('month'),p('day')].join('-');
 };
-export default function NoApiSourceBridgePanel({onReferencesChange,subject={},disabled=false}){
+export default function NoApiSourceBridgePanel({onReferencesChange,subject={},disabled=false,initialReferences=[]}){
  const {locale}=useLocale(),en=locale==='en';
  const tr=(ar,english)=>en?english:ar;
  const [sourceId,setSourceId]=useState('REGA_DEALS');
@@ -21,7 +21,7 @@ export default function NoApiSourceBridgePanel({onReferencesChange,subject={},di
  const [city,setCity]=useState(()=>typeof subject.city==='string'?subject.city.trim():'');
  const [district,setDistrict]=useState(()=>typeof subject.district==='string'?subject.district.trim():'');
  const [observedOn,setObservedOn]=useState(TODAY);
- const [references,setReferences]=useState([]);
+ const [references,setReferences]=useState(()=>initialReferences);
  const [notice,setNotice]=useState(null);
  const src=BY_ID[sourceId];
  const availableEntrypoints=SOURCE_ENTRYPOINTS.filter(ep=>ep.sourceId===sourceId);
