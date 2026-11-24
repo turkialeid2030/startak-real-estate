@@ -129,4 +129,4 @@ async function listCanonicalDeals(storage){
  }
  return deals;
 }
-module.exports={SIDECAR_KIND,sidecarKey,listCanonicalDeals,appraisalSidecarGate,saveResearchSidecar,loadResearchSidecar};
+module.exports={SIDECAR_KIND,sidecarKey,listCanonicalDeals,readCanonicalDeal,appraisalSidecarGate,saveResearchSidecar,loadResearchSidecar};

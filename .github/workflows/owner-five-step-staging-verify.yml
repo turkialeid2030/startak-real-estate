@@ -7,6 +7,13 @@ on:
     paths:
       - '.github/workflows/owner-five-step-staging-verify.yml'
       - 'src/components/OwnerFiveStepWizard.jsx'
+      - 'src/components/LocalDepreciationReviewPanel.jsx'
+      - 'src/main.jsx'
+      - 'src/cost/**'
+      - 'src/engines/valuation/cost-approach*.js'
+      - 'tests/e2e/run_component_depreciation_browser.js'
+      - 'tests/fixtures/synthetic-component-depreciation.js'
+      - 'tests/defects/component_depreciation_review_legacy_parity.js'
       - 'src/components/PropertyMarketLocationPanel.jsx'
       - 'src/components/LocalDocumentEvidenceIntakePanel.jsx'
       - 'src/components/LocalDocumentEvidenceWorkspace.jsx'
@@ -78,6 +85,9 @@ jobs:
           STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_owner_canonical_mode_parity.js 2>&1 | tee runtime-evidence/owner-five-step/parity.log
           for browser in chromium firefox webkit; do
             STARTAK_BROWSER="$browser" STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_owner_market_independent_evidence.js 2>&1 | tee "runtime-evidence/owner-five-step/independent-evidence-$browser.log"
+          done
+          for browser in chromium firefox webkit; do
+            STARTAK_BROWSER="$browser" STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_component_depreciation_browser.js 2>&1 | tee "runtime-evidence/owner-five-step/depreciation-$browser.log"
           done
           STARTAK_E2E_URL=http://127.0.0.1:4173/?ownerView=advanced node tests/e2e/run_audit_20261010_remaining_browser.js 2>&1 | tee runtime-evidence/owner-five-step/legacy-diagnostics.log
           STARTAK_E2E_URL=http://127.0.0.1:4173/?ownerView=advanced node tests/e2e/run_audit_20261020_local_ocr_browser.js 2>&1 | tee runtime-evidence/owner-five-step/legacy-ocr.log
