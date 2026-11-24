@@ -30,7 +30,7 @@ const gold=require('../reference/RE-GOLD-baseline.json');
    await page.goto(url.href);
    const market=page.getByTestId('location-market-study'),fusion=page.getByTestId('research-evidence-fusion');
    await expect(market).toBeVisible();
-   const subject={name,assetType:'RESIDENTIAL_BUILDING',city:'الرياض',district:'SYNTH',location:'24.7,46.7',landArea:1000,builtArea:1000,rentableArea:800,buildingCount:1,unitCount:10,valuationDate:'2026-10-28',propertyRight:'FULL_OWNERSHIP'};
+   const subject={name,assetType:'RESIDENTIAL_BUILDING',city:'الرياض',district:'SYNTH',location:'24.7,46.7',landArea:1000,builtArea:1000,rentableArea:800,buildingCount:1,unitCount:10,valuationPurpose:'ACQUISITION',valuationDate:'2026-10-28',propertyRight:'FULL_OWNERSHIP'};
    const rows=Array.from({length:4},(_,i)=>({assetType:subject.assetType,status:'EXECUTED',date:'2026-10-27',sourceUrl:'https://example.org/synthetic/row-'+i,sourceRecordId:'row-'+i,location:subject.location,builtArea:1000,rentableArea:800,price:1000000,annualRent:100000}));
    const clean={kind:'STARTAK_PERSONAL_MARKET_STUDY',subject,assumptions:{occupancy:1,expenseRatio:0.2,capRate:0.08},sales:rows,rentals:rows,projects:[{name:'Synthetic project',status:'OPERATING',location:subject.location,sourceUrl:'https://example.org/synthetic/project',impactPct:0.05}]};
    const bad={...clean,sales:[...rows,{...rows[0],price:3000000}],rentals:[...rows,{...rows[0],annualRent:300000}],report:{todayValueScenarioSar:999999999,certifiedMarketValue:true},valuationReadiness:{preliminaryValueSar:999999999}};
