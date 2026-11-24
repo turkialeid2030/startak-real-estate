@@ -1,6 +1,6 @@
 'use strict';
 // Supplemental research analytics only. Never an input to canonical valuation.
-const {computeNPV}=require('./index');
+const {computeNPV,precision}=require('./index');
 const {strictCalendarDateMs}=require('../../validation/strict-calendar-instant');
 const VERSION='RE_SUPPLEMENTAL_RETURN_RESEARCH_V1';
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
@@ -39,12 +39,24 @@ function evaluateAnnualReturnResearch(input,expected){
  }
  const cashflows=Array.from(f.values),rate=r.value,n=cashflows.length-1;
  try{
+  // The canonical NPV engine uses SAR halalas. Reject fractional-halalah
+  // cashflows rather than mixing an unrounded PI denominator with rounded NPV.
+  if(!cashflows.every(v=>precision.money(v)===v))return result(input,'HOLD',[],['RETURN_CASHFLOW_PRECISION_INVALID']);
   const npv=computeNPV(rate,cashflows);
   const conventional=cashflows.slice(1).every(v=>v>=0);
   let recovery=null;
   // Period-end crossing, not fractional-year interpolation; includes terminal
   // proceeds only if the submitted basis explicitly includes them.
-  for(let t=1;t<=n;t++){if(computeNPV(rate,cashflows.slice(0,t+1))>=0){recovery=t;break;}}
+  // Compare cumulative discounted cashflows before rounding to halalas.
+  // Exact rational numerator on the canonical 12-decimal rate grid prevents
+  // a small negative balance being reported as recovered merely by rounding.
+  const rateScale=precision.RATE_SCALE,discountBase=rateScale+precision.toRate(rate);
+  let numerator=precision.toMoney(cashflows[0]),scalePower=1n;
+  for(let t=1;t<=n;t++){
+   scalePower*=rateScale;
+   numerator=numerator*discountBase+precision.toMoney(cashflows[t])*scalePower;
+   if(numerator>=0n){recovery=t;break;}
+  }
   const pi=conventional?(npv-cashflows[0])/(-cashflows[0]):null;
   const annuityFactor=rate===0?n:-Math.expm1(-n*Math.log1p(rate))/rate;
   const eaa=npv/annuityFactor;
