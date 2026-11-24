@@ -29,6 +29,12 @@ function cleanString(value) {
 function parseDateString(value) {
   const text = cleanString(value);
   if (!text) return null;
+  // Reject ambiguous locale dates and impossible calendar dates before Date
+  // normalization (e.g. 2026-02-30 is not evidence dated in March).
+  const m=/^(\d{4}-\d{2}-\d{2})(?:T([01]\d|2[0-3]):([0-5]\d):([0-5]\d)(?:\.\d{1,3})?(Z|[+-](?:[01]\d|2[0-3]):[0-5]\d))?$/.exec(text);
+  if(!m)return null;
+  const day=new Date(m[1]+'T00:00:00.000Z');
+  if(!Number.isFinite(day.getTime())||day.toISOString().slice(0,10)!==m[1])return null;
   const parsed = new Date(text);
   return Number.isFinite(parsed.getTime()) ? parsed : null;
 }
@@ -161,6 +167,13 @@ function buildCriticalAssumptionOverrideGovernance({ assumptionRegistry, assumpt
       itemBlockers.push(`CRITICAL_OVERRIDE_EXPIRY_DATE_INVALID:${id}`);
     } else if (parsedExpiresAt && parsedExpiresAt.getTime() < asOfDate.getTime()) {
       itemBlockers.push(`CRITICAL_OVERRIDE_EXPIRED:${id}`);
+    }
+
+    if(parsedSourceDate&&parsedApprovedAt&&parsedApprovedAt.getTime()<parsedSourceDate.getTime()){
+      itemBlockers.push(`CRITICAL_OVERRIDE_APPROVAL_PRECEDES_SOURCE:${id}`);
+    }
+    if(parsedExpiresAt&&parsedApprovedAt&&parsedExpiresAt.getTime()<parsedApprovedAt.getTime()){
+      itemBlockers.push(`CRITICAL_OVERRIDE_EXPIRY_PRECEDES_APPROVAL:${id}`);
     }
 
     const baselineValue = V2_CANONICAL_ASSUMPTIONS[id];
