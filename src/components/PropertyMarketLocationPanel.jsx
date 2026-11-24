@@ -1,5 +1,5 @@
 import DiagnosticText from './DiagnosticText.jsx';
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {useAppraisalReviewSession} from './AppraisalReviewSessionContext.jsx';
 const {researchActionText}=require('../i18n/research-action-presentation');
 const {evaluateBoundReview}=require('../market/appraisal-study-binding');
@@ -17,7 +17,7 @@ import CrossMethodEvidencePanel from './CrossMethodEvidencePanel.jsx';
 import MarketOfferResearchPanel from './MarketOfferResearchPanel.jsx';
 import TransactionCohortAndUnitMixPanel from './TransactionCohortAndUnitMixPanel.jsx';
 const {reviewAskingVsExecuted,evaluateUnitMixRents}=require('../market/transaction-cohort-unit-mix');
-const {MAX_BYTES:MAX_STUDY_BYTES,parsePersonalMarketStudy}=require('../market/market-study-state');
+const {MAX_BYTES:MAX_STUDY_BYTES,parsePersonalMarketStudy,encodeNationalStudyRegister,decodeNationalStudyRegister}=require('../market/market-study-state');
 const {createStorageProvider}=require('../storage/create-storage-provider');
 const {listCanonicalDeals,saveResearchSidecar,loadResearchSidecar}=require('../market/saved-deal-study-sidecar');
 const {resolveStudyAsOf}=require('../market/study-asof');
@@ -147,6 +147,11 @@ export default function PropertyMarketLocationPanel({
   const [publicLoadMeta,setPublicLoadMeta]=useState(null);
   const [publicLoading,setPublicLoading]=useState(false);
   const [researchFeeds,setResearchFeeds]=useState(()=>({suhail:toPublicSample(),listings:[],earth:[],national:[]}));
+  const [nationalRegister,setNationalRegister]=useState(null);
+  const changeNationalRegister=useCallback(register=>{
+    setNationalRegister(register);
+    setResearchFeeds(f=>({...f,national:register?.records||[]}));
+  },[]);
   const [researchSessionEpoch,setResearchSessionEpoch]=useState(0);
 
 
@@ -191,7 +196,7 @@ export default function PropertyMarketLocationPanel({
     setLinkedStudyBusy(false);
   },[subject,assumptions,sales,rentals,projects,marketOffers,unitMix,
     leaseComparables,rentAssumptions,importedSales,importedRentals,
-    importSource,rightsConfirmed,selectedSavedDealId,researchSessionEpoch]);
+    importSource,rightsConfirmed,selectedSavedDealId,researchSessionEpoch,nationalRegister]);
   useLayoutEffect(()=>{
     setLinkedDealIdentityAcknowledged(false);setReplaceLinkedStudy(false);
   },[subject,selectedSavedDealId,researchSessionEpoch]);
@@ -227,6 +232,7 @@ export default function PropertyMarketLocationPanel({
     else if(evidenceBoundSubjectKey===null)setEvidenceBoundSubjectKey(evidenceSubjectKey);
   },[hasCompared,evidenceBoundSubjectKey,evidenceSubjectKey]);
   const evidenceScopeHold=hasCompared&&evidenceBoundSubjectKey!==evidenceSubjectKey;
+  const nationalRegisterHold=Boolean(nationalRegister&&nationalRegister.subjectKey!==evidenceSubjectKey);
   const report=useMemo(()=>evaluateMarketStudy({subject,sales:allSales,rentals:allRentals,projects,assumptions,asOf:new Date(asOfMs)}),
     [subject,allSales,allRentals,projects,assumptions,asOfMs]);
   const askingVsExecutedCohorts=useMemo(()=>reviewAskingVsExecuted({
@@ -323,8 +329,10 @@ export default function PropertyMarketLocationPanel({
   const makeResearchInputJson=()=>JSON.stringify({
     kind:'STARTAK_PERSONAL_MARKET_STUDY',subject,assumptions,
     sales:allSales,rentals:allRentals,projects,marketOffers,unitMix,leaseComparables,rentAssumptions,
+    nationalResearch:encodeNationalStudyRegister(subject,nationalRegister),
   });
   const applyResearchStudy=restored=>{
+    const restoredRegister=decodeNationalStudyRegister(restored.subject,restored.nationalResearch);
     revokeReads('sale','rent','public','restore','sidecar');
     setPublicLoading(false);setLinkedStudyBusy(false);
     // Loading/importing a study is a new review event, even when the identity fields match.
@@ -343,7 +351,9 @@ export default function PropertyMarketLocationPanel({
     setPublicRecords([]);setPublicLoadMeta(null);setPublicLoadStatus('');
     // Restored study is a new case context. Quarantine old source imports:
     // the UI must not implicitly carry previous case-specific research across deals.
-    setResearchFeeds({suhail:toPublicSample(),listings:[],earth:[],national:[]});
+    setNationalRegister(restoredRegister);
+    setResearchFeeds({suhail:toPublicSample(),listings:[],earth:[],national:restoredRegister?.records||[]});
+    setEvidenceBoundSubjectKey(marketEvidenceSubjectKey(restored.subject));
     setResearchSessionEpoch(n=>n+1);
     setImportSource('');setRightsConfirmed(false);setImportStatus('');
   };
@@ -360,7 +370,7 @@ export default function PropertyMarketLocationPanel({
 
   const saveLinkedStudy=async()=>{
     if(linkedSaveBusy)return;
-    if(evidenceScopeHold){setSavedDealStudyStatus({kind:'SIDECAR_SCOPE_HOLD'});return;}
+    if(evidenceScopeHold||nationalRegisterHold){setSavedDealStudyStatus({kind:'SIDECAR_SCOPE_HOLD'});return;}
     if(appraisalBinding.blockExport){setSavedDealStudyStatus({kind:'SIDECAR_BLOCKED'});return;}
     if(linkedDealNameConflict){setSavedDealStudyStatus({kind:'SIDECAR_NAME_MISMATCH'});return;}
     if(!selectedSavedDealId){setSavedDealStudyStatus({kind:'DEAL_REQUIRED'});return;}
@@ -407,15 +417,14 @@ export default function PropertyMarketLocationPanel({
     }catch(error){if(currentRead(token))setMessage({kind:'STUDY_RESTORE_FAILED',params:{code:String(error.message||'STUDY_INVALID')}});}
   };
   const exportJson=()=>{
-    if(evidenceScopeHold){setMessage({kind:'STUDY_EXPORT_SCOPE_HOLD'});return;}
+    if(evidenceScopeHold||nationalRegisterHold){setMessage({kind:'STUDY_EXPORT_SCOPE_HOLD'});return;}
     if(interestScopeHold){setMessage({kind:'STUDY_EXPORT_SPECIAL_INTEREST_HOLD'});return;}
     if(appraisalBinding.blockExport){
       setMessage({kind:'STUDY_EXPORT_BLOCKED'});
       return;
     }
     try {
-      const blob=new Blob([JSON.stringify({kind:'STARTAK_PERSONAL_MARKET_STUDY',subject,assumptions,
-        sales:allSales,rentals:allRentals,projects,marketOffers,unitMix,leaseComparables,rentAssumptions,
+      const blob=new Blob([JSON.stringify({...JSON.parse(makeResearchInputJson()),
         askingVsExecutedCohorts,segmentedMarketRents,valuationReadiness,appraisalQuality,
         studyAsOf:{date:studyAsOf.date,origin:studyAsOf.origin,issues:studyAsOf.issues},report,
         exportedAt:new Date().toISOString()},null,2)],{type:'application/json'});
@@ -777,7 +786,7 @@ export default function PropertyMarketLocationPanel({
     <SuhailNationalResearchPanel key={'suhail-'+researchSessionEpoch} onResearchChange={rows=>setResearchFeeds(f=>({...f,suhail:rows}))}/>
     <SaudiListingSourcesResearchPanel key={'listings-'+researchSessionEpoch} onResearchChange={rows=>setResearchFeeds(f=>({...f,listings:rows}))}/>
     <EarthNationalResearchPanel key={'earth-'+researchSessionEpoch} onResearchChange={rows=>setResearchFeeds(f=>({...f,earth:rows}))}/>
-    <SaudiNationalIntelligenceSourcesPanel key={'national-'+researchSessionEpoch} subject={subject} onResearchChange={rows=>setResearchFeeds(f=>({...f,national:rows}))}/>
+    <SaudiNationalIntelligenceSourcesPanel key={'national-'+researchSessionEpoch} subject={subject} initialRegister={nationalRegister} onRegisterChange={changeNationalRegister}/>
     {message&&<p data-testid="market-study-action-notice" data-diagnostic-content translate="no" role="status" className="text-xs text-slate-200 mt-2">{researchActionText(message,locale)}</p>}
   </section>;
 }
