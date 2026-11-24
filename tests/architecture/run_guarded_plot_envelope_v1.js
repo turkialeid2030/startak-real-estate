@@ -188,4 +188,22 @@ test('REHASHED_AUTHORITY_INJECTION_REJECTED',()=>{
  v.planningEvidenceHashSha256=require('node:crypto').createHash('sha256').update(JSON.stringify(stable(v))).digest('hex');return v;});
  assert.equal(plan(invalid).status,'HOLD_CONFLICT');
 });
+test('FRAGMENTED_DEED_CORE_REJECTED',()=>{
+ const fragment=deedFacts.map(f=>f.key==='ownerName'?{...f,sourceRef:'SECOND-DEED'}:f);
+ assert.equal(run({titleFacts:[...fragment,...surveyFacts]}).status,STATUS.HOLD_TITLE);
+});
+test('UNVERIFIED_OR_STRING_LEGAL_FINDING_REJECTED',()=>{
+ for(const finding of [{...fact('mortgageDetected',false),status:'UNVERIFIED'},fact('mortgageDetected','false'),fact('easementDetected',null)]){
+  const r=run({titleFacts:[...titleFacts,finding]});assert.equal(r.status,STATUS.HOLD_TITLE);
+  assert.equal(r.transactionAuthorized,false);
+ }
+});
+test('DEED_REFERENCE_WHITESPACE_REJECTED',()=>{
+ const bad=titleFacts.map(f=>f.key==='ownerName'?{...f,sourceRef:' '+f.sourceRef}:f);
+ assert.equal(run({titleFacts:bad}).status,STATUS.HOLD_TITLE);
+});
+test('NO_LEGAL_CLEARANCE_INFERRED',()=>{
+ const review=require('../../src/title-intelligence').assessTitleCrossDocumentConsistency({caseId,propertyId:propertyRef,facts:titleFacts,asOf:evaluatedAt,maxAgeDaysBySourceType:titleFreshnessPolicy});
+ assert.equal(review.absenceOfEncumbrancesEstablished,false);assert.equal(review.professionalEvidenceChainIndependentlyVerified,false);
+});
 console.log('GUARDED_PLOT_ENVELOPE_V1=PASS checks='+count+' synthetic=true license_proven=false');
