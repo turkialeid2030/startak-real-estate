@@ -117,6 +117,12 @@ function evaluateMarketStudy(input = {}) {
   const buildings = number(subject?.buildingCount), units = number(subject?.unitCount);
   const occupancy = number(assumptions.occupancy), expenseRatio = number(assumptions.expenseRatio);
   const capRate = number(assumptions.capRate);
+  // Numeric parsing returns null for absent or malformed data. JavaScript's
+  // relational comparison coerces null to zero; only an explicit finite
+  // numeric value may enter the income calculations.
+  const occupancyValid = Number.isFinite(occupancy) && occupancy >= 0 && occupancy <= 1;
+  const expenseRatioValid = Number.isFinite(expenseRatio) && expenseRatio >= 0 && expenseRatio < 1;
+  const capRateValid = Number.isFinite(capRate) && capRate > 0 && capRate < 1;
   const issues = [...structureIssues];
   const boundedSar=(candidate,reason)=>{
     if(candidate===null)return null;
@@ -135,9 +141,9 @@ function evaluateMarketStudy(input = {}) {
   if (needsIncomeInputs && !(lettableArea > 0)) issues.push('RENTABLE_AREA_REQUIRED');
   if (needsBuildingUnitCounts && (!Number.isInteger(buildings) || buildings <= 0)) issues.push('BUILDING_COUNT_REQUIRED');
   if (needsBuildingUnitCounts && (!Number.isInteger(units) || units <= 0)) issues.push('UNIT_COUNT_REQUIRED');
-  if (needsIncomeInputs && !(occupancy >= 0 && occupancy <= 1)) issues.push('OCCUPANCY_INVALID');
-  if (needsIncomeInputs && !(expenseRatio >= 0 && expenseRatio < 1)) issues.push('EXPENSE_RATIO_INVALID');
-  if (needsIncomeInputs && !(capRate > 0 && capRate < 1)) issues.push('CAP_RATE_INVALID');
+  if (needsIncomeInputs && !occupancyValid) issues.push('OCCUPANCY_INVALID');
+  if (needsIncomeInputs && !expenseRatioValid) issues.push('EXPENSE_RATIO_INVALID');
+  if (needsIncomeInputs && !capRateValid) issues.push('CAP_RATE_INVALID');
   if (!(number(subject?.landArea)>0))issues.push('LAND_AREA_REQUIRED');
   if (type!=='LAND' && !(number(subject?.builtArea)>0))issues.push('BUILT_AREA_REQUIRED');
   if (type==='HOTEL' && !(number(subject?.roomCount)>0))issues.push('HOTEL_ROOM_COUNT_REQUIRED');
@@ -205,11 +211,11 @@ function evaluateMarketStudy(input = {}) {
   // a generic NLA rental model is not sufficient for an economic rent conclusion.
   const marketRentPotential = !specialistAsset && perSqmRent !== null && lettableArea > 0 ?
     boundedSar(perSqmRent * lettableArea,'MARKET_ANNUAL_RENT_OUT_OF_RANGE') : null;
-  const annualOccupiedRent = marketRentPotential !== null && occupancy >= 0 && occupancy <= 1 ?
+  const annualOccupiedRent = marketRentPotential !== null && occupancyValid ?
     boundedSar(marketRentPotential * occupancy,'OCCUPIED_RENT_OUT_OF_RANGE') : null;
-  const annualNOI = annualOccupiedRent !== null && expenseRatio >= 0 && expenseRatio < 1 ?
+  const annualNOI = annualOccupiedRent !== null && expenseRatioValid ?
     boundedSar(annualOccupiedRent * (1 - expenseRatio),'NOI_OUT_OF_RANGE') : null;
-  const incomeIndication = annualNOI !== null && capRate > 0 && capRate < 1 ?
+  const incomeIndication = annualNOI !== null && capRateValid ?
     boundedSar(annualNOI / capRate,'INCOME_INDICATION_OUT_OF_RANGE') : null;
   const values = [saleIndication, incomeIndication].filter(x => x !== null);
   // The two methods are INDEPENDENT indicators. An unexplained >=20% spread
