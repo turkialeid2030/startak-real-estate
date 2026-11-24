@@ -59,4 +59,13 @@ const saved=withAssumptionRegistry({id:'p25-parity',name:'Synthetic P25',mode:'b
 assert.deepEqual(assumptionRegistryFromSavedDeal(saved),[incomplete]);
 assert.equal(assumptionRegistryFromSavedDeal(saved)[0].sourceReference,undefined);
 assert.equal(run(undefined).irr,baseline.irr);
+assert.equal(whatIf.scenarioAsOf,asOf);
+assert.equal(whatIf.overrideProvenance[0].provenance.expiresAt,complete.expiresAt);
+assert.equal(whatIf.overrideProvenance[0].provenance.approvalReference,complete.approvalReference);
+for(const bad of [undefined,null,'2026-02-30','10/28/2026','2026-10-28T00:00:00',0]){
+ const result=evaluateP25FinancialWhatIf({...terms,assumptionRegistry:[complete],asOf:bad});
+ assert.equal(result.status,P25_WHAT_IF_STATUS.INVALID);
+ assert.ok(result.reasonCodes.includes('P25_EXPLICIT_VALID_SCENARIO_DATE_REQUIRED'));
+ assert.equal(result.whatIf,null);
+}
 console.log('P25_HISTORICAL_ECONOMIC_GOVERNANCE_PARITY=PASS baseline_preserved=true canonical_override=false');
