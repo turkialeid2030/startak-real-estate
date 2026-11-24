@@ -232,7 +232,7 @@ try {
 
   await runTask('LANGUAGE_DIRECTION_SWITCH', page, async (act) => {
     await act(() => page.setViewportSize({ width: 1440, height: 900 }));
-    const en = page.getByRole('button', { name: 'EN', exact: true }).first();
+    const en = page.getByTestId('locale-switch');
     if ((await en.count()) === 0) throw new Error('English language control not discoverable through governed EN label');
     await act(() => en.click());
     await page.waitForTimeout(220);
