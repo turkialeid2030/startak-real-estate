@@ -3,7 +3,7 @@
 const { normalizeAssumptionModelVersion } = require('./assumption-model');
 const {parseNumericText}=require('../validation/numeric-text');
 const { buildAssumptionDisclosureEnvelope } = require('./assumption-disclosure');
-const { assessSensitivityReadiness } = require('../sensitivity/readiness');
+const { assessSensitivityReadiness,EXIT_DEPENDENT_METRICS } = require('../sensitivity/readiness');
 const { EXIT_CAP_SOURCE } = require('../engines/valuation/exit-cap-resolver');
 const { EXIT_TRANSACTION_COST_SOURCE } = require('../engines/valuation/exit-transaction-cost-resolver');
 const { LEASE_ROLL_FORWARD_STATUS } = require('../engines/valuation/existing-building-lease-roll-forward-governance');
@@ -67,10 +67,18 @@ function buildUiAssumptionGovernance({ assumptionModelVersion, financialResults 
     exitTransactionCostSource,
     leaseRollForwardStatus,
   });
-  const sensitivity = assessSensitivityReadiness({
+  const criticalOverrideHold=financialResults.criticalAssumptionOverrideGovernance?.decisionReady===false;
+  const baseSensitivity = assessSensitivityReadiness({
     financialModelStatus: financialResults.financialModelStatus,
     exitCapSource,
   });
+  const sensitivity=criticalOverrideHold?Object.freeze({
+    ...baseSensitivity,status:'HOLD_INCOMPLETE_INPUTS',ready:false,
+    reasonCodes:Object.freeze([...new Set([...baseSensitivity.reasonCodes,'ASSUMPTION_OVERRIDE_NOT_QUALIFIED'])]),
+    blockedMetrics:Object.freeze([...new Set([...baseSensitivity.blockedMetrics,...EXIT_DEPENDENT_METRICS])]),
+    renderPolicy:'SHOW_CONTROLLED_UNAVAILABLE_STATE',numericPlaceholder:null,transactionAuthorized:false,
+    semantics:'Canonical override path is not qualified; baseline metrics cannot stand in for overridden economics.',
+  }):baseSensitivity;
   const exitCapInputRequired = disclosure.requiresExplicitExitCap
     && exitCapSource === EXIT_CAP_SOURCE.MISSING_REQUIRED;
   const exitTransactionCostInputRequired = disclosure.requiresExplicitExitTransactionCost
@@ -85,7 +93,13 @@ function buildUiAssumptionGovernance({ assumptionModelVersion, financialResults 
     exitCapInputRequired,
     exitTransactionCostInputRequired,
     leaseRollForwardRequired,
-    sensitivityReady: sensitivity.status === 'READY'
+    criticalOverrideHold,
+    criticalOverrideStatus:criticalOverrideHold?'HOLD_UNQUALIFIED_OVERRIDE':null,
+    criticalOverrideNotice:criticalOverrideHold?Object.freeze({
+      ar:'تعديل الافتراضات غير مؤهل في المحرك المرجعي؛ الأرقام الأساسية ليست نتائج التعديل ولا تمنح صلاحية قرار.',
+      en:'Assumption override is not qualified in the canonical engine; baseline figures are not override results or decision authority.',
+    }):null,
+    sensitivityReady: !criticalOverrideHold && sensitivity.status === 'READY'
       && !exitCapInputRequired
       && !exitTransactionCostInputRequired
       && !leaseRollForwardRequired,
