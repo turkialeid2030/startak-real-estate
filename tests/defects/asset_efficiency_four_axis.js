@@ -4,13 +4,14 @@ const {evaluateEfficiency,reviewEfficiencyText}=require('../../src/engines/finan
 const scope={caseId:'SYNTH-EFF',propertyRef:'SYNTH-PROP',marketScopeRef:'SYNTH-SCOPE',asOfDate:'2026-10-31'};
 function fixture(){
  const periodStart='2026-09-01',periodEnd='2026-09-30',measurementBasisRef='SYNTH-MONTHLY-BASIS';
+ const approval={...scope,periodStart,periodEnd,measurementBasisRef,sourceRef:'SYNTH-PLAN',approvedAt:'2026-08-31'};
  const group=(sourceRef,values)=>({...scope,sourceRef,values,reviewedAt:'2026-10-10',periodStart,periodEnd,measurementBasisRef});
  return {...scope,periodStart,periodEnd,measurementBasisRef,groups:{
- financial:group('SYNTH-GL',{effectiveRevenueSar:1000000,operatingExpensesSar:300000,budgetRevenueSar:950000,budgetOperatingExpensesSar:280000,receivablesDueSar:800000,collectionsAgainstDueSar:760000,cashAvailableForDebtServiceSar:600000,debtServiceSar:400000}),
+ financial:{...group('SYNTH-GL',{effectiveRevenueSar:1000000,operatingExpensesSar:300000,budgetRevenueSar:950000,budgetOperatingExpensesSar:280000,receivablesDueSar:800000,collectionsAgainstDueSar:760000,cashAvailableForDebtServiceSar:600000,debtServiceSar:400000}),budget:{...approval}},
  operational:group('SYNTH-OPS',{availableAreaDays:30000,occupiedAreaDays:24000,maintenanceDue:100,maintenanceOnTime:90,maintenanceExpenseSar:60000}),
  productivity:group('SYNTH-TIMESHEETS',{maintenanceCompleted:100,maintenanceLaborHours:200,qualityEligibleCompleted:80,reopenedWithinReviewWindow:4,adminCompleted:80,adminLaborHours:40}),
  administrative:group('SYNTH-CONTROLS',{adminDue:100,adminOnTime:95,controlsDue:20,controlsCompletedOnTime:18})
- },targets:{collectionRate:{value:.96,sourceRef:'SYNTH-PLAN',approvedAt:'2026-08-31'},expenseVariance:{value:0,sourceRef:'SYNTH-PLAN',approvedAt:'2026-08-31'},occupancy:{value:.8,sourceRef:'SYNTH-PLAN',approvedAt:'2026-08-31'},maintenanceReopenRate:{value:.06,sourceRef:'SYNTH-PLAN',approvedAt:'2026-08-31'}}};
+ },targets:{collectionRate:{...approval,value:.96},expenseVariance:{...approval,value:0},occupancy:{...approval,value:.8},maintenanceReopenRate:{...approval,value:.06}}};
 }
 const expectedValues=[700000,.7,.3,50000,20000,.95,1.5,.8,.9,2,.5,.05,2,.95,.9];
 if(require.main===module){
@@ -18,7 +19,7 @@ if(require.main===module){
  assert.equal(r.status,'COMPLETE_RESEARCH_REVIEW');assert.deepEqual(r.metrics.map(m=>m.value),expectedValues);
  assert.equal(get('collectionRate').status,'OFF_TARGET');assert.equal(get('expenseVariance').status,'OFF_TARGET');assert.equal(get('occupancy').status,'ON_TARGET');assert.equal(get('maintenanceReopenRate').status,'ON_TARGET');
  assert.deepEqual(r.coverage,{available:15,total:15,targeted:4});
- assert.equal(r.valuationChanged,false);assert.equal(r.spendingAuthorized,false);
+ assert.equal(get('expenseVariance').budgetSourceRef,'SYNTH-PLAN');assert.equal(r.valuationChanged,false);assert.equal(r.spendingAuthorized,false);
  assert.deepEqual(reviewEfficiencyText({text:JSON.stringify({...x,report:{spendingAuthorized:true}}),...scope}),r);
  const cases=[
   y=>y.propertyRef='OTHER',y=>y.periodEnd='2026-11-01',y=>y.periodStart='2026-02-30',
@@ -30,6 +31,7 @@ if(require.main===module){
   y=>y.groups.administrative.values.adminOnTime=101,y=>y.groups.administrative.values.controlsCompletedOnTime=21,
   y=>y.groups.administrative.values.adminDue=1.5,y=>y.groups.financial.values.operatingExpensesSar=-1,
   y=>y.groups.financial.values.effectiveRevenueSar='1000000',y=>y.groups.financial.values.unexpected=1,
+  y=>delete y.groups.financial.budget,y=>y.groups.financial.budget.approvedAt='2026-09-02',y=>y.groups.financial.budget.propertyRef='OTHER',y=>y.groups.financial.budget.periodEnd='2026-09-29',y=>y.targets.collectionRate.propertyRef='OTHER',y=>y.targets.collectionRate.caseId='OTHER',y=>y.targets.collectionRate.measurementBasisRef='OTHER',y=>y.targets.collectionRate.periodEnd='2026-09-29',
   y=>y.targets.collectionRate.approvedAt='2026-09-02',y=>y.targets.collectionRate.value=1.1,
   y=>y.targets.fake={value:1,sourceRef:'SYNTH',approvedAt:'2026-08-31'}
  ];
