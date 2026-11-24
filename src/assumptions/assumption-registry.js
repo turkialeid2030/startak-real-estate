@@ -114,6 +114,12 @@ function normalizeAssumption(raw, options = {}) {
   let status = ASSUMPTION_SUPPORT_STATUS.SUPPORTED;
   if (blockers.length) status = ASSUMPTION_SUPPORT_STATUS.UNSUPPORTED;
   else if (expiresAt && asOf && expiresAt.getTime() < asOf.getTime()) status = ASSUMPTION_SUPPORT_STATUS.STALE;
+  // Preserve the established stale diagnostic when a separate chronology or
+  // provenance blocker takes precedence in the primary support status.
+  if (criticalOverride && status === ASSUMPTION_SUPPORT_STATUS.UNSUPPORTED
+      && expiresAt && asOf && expiresAt.getTime() < asOf.getTime()) {
+    blockers.push(`CRITICAL_ASSUMPTION_STALE:${id || 'UNKNOWN'}`);
+  }
 
   const normalized = {
     id,
