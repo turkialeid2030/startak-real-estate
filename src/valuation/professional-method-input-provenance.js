@@ -262,7 +262,7 @@ function validatePropertyEvidencePacket(propertyEvidencePacket, caseId, property
     && verifyPropertyPacketContent(propertyEvidencePacket);
 }
 
-function buildProfessionalMethodInputPacket({
+function buildProfessionalMethodInputCandidate({
   caseId,
   propertyRef,
   method,
@@ -442,6 +442,8 @@ function buildProfessionalMethodInputPacket({
     ...core,
     methodInputPacketHashSha256: sha256(core),
     status: METHOD_INPUT_STATUS.READY_FOR_CANONICAL_ENGINE_ADOPTION_REVIEW,
+    sourceReplayEstablished:false,
+    independentlyAuthenticatedSources:false,
     reasons: [],
     readyForCanonicalEngineAdoptionReview: true,
     explicitHumanAdoptionRequired: true,
@@ -457,6 +459,80 @@ function buildProfessionalMethodInputPacket({
   });
 }
 
+
+/** Strict handoff: regenerate all upstream calculations from supplied normalized source records.
+ * This establishes semantic replay, not independent authentication or adoption authority. */
+function buildProfessionalMethodInputPacket(options={}){
+ const {caseId,propertyRef,method,propertyEvidencePacket,sourceInputs,preparedAt}=options;
+ const context={caseId,propertyRef,method};
+ const deny=(status,code)=>hold(status,[code],context);
+ const propertyHold=code=>deny(METHOD_INPUT_STATUS.HOLD_PROPERTY_EVIDENCE,code);
+ const methodHold=code=>deny(METHOD_INPUT_STATUS.HOLD_METHOD_EVIDENCE,code);
+ const market=require('../market');
+ const {buildPropertyEvidencePacket}=require('../property/property-evidence-bridge');
+ const equal=(a,b)=>sha256(a)===sha256(b);
+ const bounded=a=>Array.isArray(a)&&a.length<=5000;
+ const cutoff=strictCalendarDateMs(preparedAt);
+ const known=d=>Number.isFinite(strictCalendarDateMs(d))&&strictCalendarDateMs(d)<=cutoff;
+ const validDate=d=>Number.isFinite(strictCalendarDateMs(d));
+ const p=sourceInputs?.property;
+ if(!p||!bounded(p.evidenceRecords)||!bounded(p.measurementRecords)||p.caseId!==caseId||p.propertyRef!==propertyRef)
+  return propertyHold('ORIGINAL_PROPERTY_SOURCE_INPUTS_REQUIRED');
+ try{
+  if(!Number.isFinite(cutoff)||!known(p.inspection?.completedAt)||!known(p.assignment?.report_date)||
+     p.evidenceRecords.some(r=>!known(r.createdAt)||!known(r.fact?.capturedAt)||!known(r.fact?.verification?.verifiedAt)||!known(r.professionalReview?.reviewedAt))||
+     p.measurementRecords.some(r=>!known(r.measuredAt)))return propertyHold('PROPERTY_SOURCES_NOT_KNOWN_AT_PREPARATION');
+  const replay=buildPropertyEvidencePacket(p);
+  if(replay.status!==PROPERTY_EVIDENCE_PACKET_STATUS.READY_FOR_PROFESSIONAL_VALUATION_WORKFLOW||!equal(replay,propertyEvidencePacket))return propertyHold('PROPERTY_SOURCE_REPLAY_MISMATCH');
+ }catch{return propertyHold('PROPERTY_SOURCE_REPLAY_INVALID');}
+ const valuationMs=strictCalendarDateMs(propertyEvidencePacket.valuationDate);
+ let sourcePolicy;
+ try{
+  if(method===VALUATION_METHOD.SALES_COMPARISON){
+   const m=sourceInputs?.market;
+   if(!m||!bounded(m.records)||!bounded(m.adjustmentRecords)||!m.qualityPolicy||!m.selectionInput||!m.adjustmentPolicy)return methodHold('ORIGINAL_MARKET_SOURCE_INPUTS_REQUIRED');
+   const q=m.qualityPolicy,s=m.selectionInput,ap=m.adjustmentPolicy;
+   if(strictCalendarDateMs(q.asOfDate)!==valuationMs||q.targetTransactionType!=='SALE'||q.targetAssetType!==propertyEvidencePacket.assetType||!nonEmpty(q.targetCity)||
+     !Number.isSafeInteger(q.minimumComparableCount)||q.minimumComparableCount<2||!Number.isSafeInteger(s.minimumSelectedCount)||s.minimumSelectedCount<2||
+     ![market.MARKET_EVIDENCE_LEVEL.VERIFIED_TRANSACTION,market.MARKET_EVIDENCE_LEVEL.CONFIRMED_TRANSACTION].filter(Boolean).includes(q.minimumEvidenceLevel)||
+     !known(s.selectedAt)||!known(options.marketAnalysisSubjectBinding?.boundAt)||strictCalendarDateMs(options.marketAnalysisSubjectBinding.boundAt)<strictCalendarDateMs(s.selectedAt))
+    return methodHold('MARKET_SOURCE_SCOPE_OR_POLICY_INVALID');
+   for(const r of m.records){
+    market.assertComparableRecordIntegrity(r);
+    const location={...r.location};if(location.lat===null)delete location.lat;if(location.long===null)delete location.long;
+    if(!equal(r,market.createComparableEvidenceRecord({...r,location}))||!known(r.capturedAt)||!validDate(r.transactionDate)||!validDate(r.sourceDate)||
+       strictCalendarDateMs(r.capturedAt)>strictCalendarDateMs(s.selectedAt)||r.sourcePropertyRef===propertyRef)return methodHold('MARKET_SOURCE_RECORD_INVALID');
+   }
+   for(const r of m.adjustmentRecords){
+    if(!equal(r,market.createComparableAdjustmentRecord(r))||!known(r.reviewedAt)||!validDate(r.preparedAt)||
+      strictCalendarDateMs(r.preparedAt)<strictCalendarDateMs(s.selectedAt)||strictCalendarDateMs(r.reviewedAt)>strictCalendarDateMs(options.marketAnalysisSubjectBinding.boundAt))return methodHold('MARKET_ADJUSTMENT_SOURCE_INVALID');
+   }
+   const quality=market.evaluateComparableSetQuality({...q,caseId,records:m.records});
+   const selection=market.recordProfessionalComparableSelection({...s,caseId,records:m.records,qualityGate:quality});
+   const analysis=market.buildComparableAdjustmentAnalysis({...ap,caseId,selection,records:m.records,adjustmentRecords:m.adjustmentRecords});
+   if(analysis.status!==ADJUSTMENT_ANALYSIS_STATUS.READY_FOR_RECONCILIATION||!equal(analysis,options.marketAdjustmentAnalysis))return methodHold('MARKET_SOURCE_REPLAY_MISMATCH');
+   sourcePolicy={qualityPolicy:q,selectionInput:s,adjustmentPolicy:ap};
+  }else if([VALUATION_METHOD.DIRECT_CAPITALIZATION,VALUATION_METHOD.DISCOUNTED_CASH_FLOW].includes(method)){
+   const l=sourceInputs?.income;
+   if(!l||!bounded(l.leaseRecords)||!l.rentRollSnapshot||!l.policy)return methodHold('ORIGINAL_INCOME_SOURCE_INPUTS_REQUIRED');
+   const q=l.policy;
+   if(strictCalendarDateMs(q.asOfDate)!==valuationMs||q.requireVerifiedActiveLeases!==true||
+     ![q.annualRentToleranceSar,q.occupiedAreaToleranceSqm].every(x=>Number.isFinite(x)&&x>=0))return methodHold('INCOME_SOURCE_SCOPE_OR_POLICY_INVALID');
+   if(!equal(l.rentRollSnapshot,market.createVerifiedRentRollSnapshot(l.rentRollSnapshot))||!known(l.rentRollSnapshot.capturedAt)||!known(l.rentRollSnapshot.verification?.verifiedAt))return methodHold('RENT_ROLL_SOURCE_INVALID');
+   for(const r of l.leaseRecords)if(!equal(r,market.createLeaseEvidenceRecord(r))||!known(r.capturedAt)||
+    !validDate(r.startDate)||!validDate(r.expiryDate)||(r.verification.status==='VERIFIED'&&!known(r.verification.verifiedAt)))return methodHold('LEASE_SOURCE_INVALID');
+   const replay=market.reconcileLeaseIncomeEvidence({...q,caseId,propertyRef,leaseRecords:l.leaseRecords,rentRollSnapshot:l.rentRollSnapshot});
+   if(replay.status!==LEASE_INCOME_GATE_STATUS.READY_FOR_INCOME_ANALYSIS_HANDOFF||!equal(replay,options.incomeEvidencePacket))return methodHold('INCOME_SOURCE_REPLAY_MISMATCH');
+   sourcePolicy=q;
+  }else return methodHold('METHOD_SOURCE_REPLAY_UNSUPPORTED');
+ }catch{return methodHold('METHOD_SOURCE_REPLAY_INVALID');}
+ const candidate=buildProfessionalMethodInputCandidate(options);
+ if(!candidate.readyForCanonicalEngineAdoptionReview)return candidate;
+ const {methodInputPacketHashSha256,...body}=candidate;
+ const verified={...body,sourceReplayEstablished:true,sourceReplayPolicyHashSha256:sha256(sourcePolicy),sourceReplayInputHashSha256:sha256(sourceInputs),independentlyAuthenticatedSources:false};
+ return deepFreeze({...verified,methodInputPacketHashSha256:sha256(verified)});
+}
+
 module.exports = {
   VALUATION_METHOD,
   RATE_INPUT_TYPE,
@@ -469,4 +545,5 @@ module.exports = {
   createMarketAnalysisSubjectBinding,
   verifyMarketAnalysisSubjectBindingIntegrity,
   buildProfessionalMethodInputPacket,
+  buildProfessionalMethodInputCandidate,
 };
