@@ -207,4 +207,15 @@ assert.throws(()=>chainFor({...makeFact({id:'BAD'}),capturedAt:'2026-02-30'}),/v
 assert.throws(()=>chainFor({...makeFact({id:'BAD'}),extraction:{method:'STRUCTURED_PARSE',confidence:NaN}}),/confidence/);checks++;
 assert.throws(()=>recordProfessionalEvidenceReview({record:verifiedNoReview,review:{...approved.professionalReview,reviewedAt:'2026-09-07T09:01:00Z'}}),/TIMELINE_INVALID/);checks++;
 check(validateProfessionalEvidenceChainIntegrity(JSON.parse(JSON.stringify(approved))),'serialized reviewed evidence retains binding');
+
+check(!validateProfessionalEvidenceChainIntegrity({...approved,fact:{...approved.fact,materiality:'SUPPORTING'}}),'fact materiality modification rejected');
+check(!validateProfessionalEvidenceChainIntegrity({...approved,fact:{...approved.fact,rawValue:'OTHER'}}),'raw value modification rejected');
+const gateFor=records=>evaluateMaterialPropertyDataConflicts({caseId:'CASE-8A-001',evidenceRecords:records,materialKeys:['property.land_area'],minimumIndependentSourceRoles:2});
+const duplicatedContent=approve(chainFor(makeFact({id:'F11',verified:true,authorityVerified:true,value:1000,hashChar:'b'}),EVIDENCE_SOURCE_ROLE.SURVEY));
+check(gateFor([deedArea,duplicatedContent]).status===PROPERTY_DATA_GATE_STATUS.HOLD_INSUFFICIENT_EVIDENCE,'same document content cannot count as independent sources');
+const sameReference=approve(createProfessionalEvidenceChainRecord({...inspectionArea,sourceReference:deedArea.sourceReference}));
+check(gateFor([deedArea,sameReference]).status===PROPERTY_DATA_GATE_STATUS.HOLD_INSUFFICIENT_EVIDENCE,'same source reference cannot count twice across roles');
+check(gateFor([deedArea,{...inspectionArea,professionalReview:null}]).status===PROPERTY_DATA_GATE_STATUS.HOLD_INSUFFICIENT_EVIDENCE,'unbound review cannot clear property gate');
+check(gateFor([deedArea,chainFor(makeFact({id:'F12',verified:true,value:1000,hashChar:'2'}),EVIDENCE_SOURCE_ROLE.SURVEY)]).status===PROPERTY_DATA_GATE_STATUS.HOLD_INSUFFICIENT_EVIDENCE,'unreviewed material source cannot clear property gate');
+check(clearGate.independentlyAuthenticatedSources===false,'no external authentication inferred');
 console.log(`WAVE_8A_PROFESSIONAL_EVIDENCE_CHAIN=PASS checks=${checks}`);
