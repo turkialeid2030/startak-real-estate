@@ -430,6 +430,7 @@ export default function PropertyMarketLocationPanel({
   const exportJson=()=>{
     if(evidenceScopeHold||nationalRegisterHold){setMessage({kind:'STUDY_EXPORT_SCOPE_HOLD'});return;}
     if(interestScopeHold){setMessage({kind:'STUDY_EXPORT_SPECIAL_INTEREST_HOLD'});return;}
+    if(valuationReadiness.permittedExport==='HOLD_SOURCE_RECORD_CONFLICT'){setMessage({kind:'STUDY_EXPORT_SOURCE_CONFLICT_HOLD'});return;}
     if(appraisalBinding.blockExport){
       setMessage({kind:'STUDY_EXPORT_BLOCKED'});
       return;
@@ -691,6 +692,8 @@ export default function PropertyMarketLocationPanel({
         (locale==='en'?'Invalid market-study data; primary indication withheld':'مدخلات الدراسة السوقية غير صالحة؛ القيمة الموحدة محجوبة') :
         report.confidence==='MARKET_CALCULATION_OUT_OF_RANGE'?
         (locale==='en'?'Out-of-range market arithmetic; primary indication withheld':'نتائج حسابية خارج النطاق؛ القيمة السوقية الموحدة محجوبة') :
+        report.confidence==='UNRESOLVED_SOURCE_RECORD_CONFLICT'?
+        (english?'Unresolved comparable source conflict; combined value withheld':'تعارض غير محسوم في مصادر المقارنات؛ القيمة الموحدة محجوبة') :
         report.confidence==='NO_SUPPORTED_PRIMARY_VALUE'?
         L('لا توجد قيمة أولية مؤهلة') :report.confidence==='UNRECONCILED_METHODS_NO_PRIMARY_VALUE'?
         L('إيقاف النتيجة الموحدة بسبب اختلاف جوهري بين المنهجيات') : L('مؤشر أولي غير متحقق مهنيًا')}.
