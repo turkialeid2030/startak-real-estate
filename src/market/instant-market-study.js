@@ -187,28 +187,32 @@ function evaluateMarketStudy(input = {}) {
     const groups = new Map();
     const conflicts = new Set();
     for (const row of rows) {
-      if (!admissible(row,amountKey,areaKey)) continue;
-      const stableId = String(row.sourceRecordId || '').trim();
+      const eligible = admissible(row,amountKey,areaKey);
+      // Inspect a stable provider identity before filtering by eligibility.
+      // A contradictory status, date, amount or area is not resolved merely
+      // because one copy would have been excluded from this cohort.
+      if (!sourceAvailable(row?.sourceUrl)) continue;
+      const stableId = String(row?.sourceRecordId || '').trim();
+      if (!stableId && !eligible) continue;
       const sourceHost = new URL(row.sourceUrl).hostname.toLowerCase();
       const key = stableId ? sourceHost + '|id|' + stableId :
         JSON.stringify([row.sourceUrl,row.date,row.assetType,number(row[amountKey]),number(row[areaKey]),row.location,row.city,row.district]);
-      // An identical same-source record counts once, but inconsistent economic
-      // or location facts under that identity cannot be resolved by row order.
       const point = extractCoordinates(row.location || '');
       const normalize = v => String(v || '').trim().replace(/\s+/g,' ').toLowerCase();
       const signature = JSON.stringify([
-        row.date,row.assetType,number(row[amountKey]),number(row[areaKey]),
+        row.status,row.date,row.assetType,number(row[amountKey]),number(row[areaKey]),
         row.assetType==='LAND' ? String(row.landSubtype || '') : '',
         point ? [point.lat,point.lng] : [normalize(row.city),normalize(row.district)]
       ]);
-      if (!groups.has(key)) groups.set(key,{row,signature});
+      if (!groups.has(key)) groups.set(key,{row,signature,eligible});
       else if (groups.get(key).signature !== signature) conflicts.add(key);
+      else if (eligible && !groups.get(key).eligible) groups.set(key,{row,signature,eligible});
     }
     if(conflicts.size){
       const reason=amountKey==='price'?'SALE_SOURCE_RECORD_CONFLICT':'RENT_SOURCE_RECORD_CONFLICT';
       if(!issues.includes(reason))issues.push(reason);
     }
-    return [...groups].filter(([key])=>!conflicts.has(key)).map(([,entry])=>entry.row);
+    return [...groups].filter(([key,entry])=>entry.eligible&&!conflicts.has(key)).map(([,entry])=>entry.row);
   };
   const eligibleSales = uniqueEligible(sales, 'price', type === 'LAND' ? 'landArea' : 'builtArea');
   const eligibleRentals = needsIncomeInputs ? uniqueEligible(rentals, 'annualRent', 'rentableArea') : [];
