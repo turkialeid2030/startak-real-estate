@@ -64,7 +64,7 @@ try {
   const arBody = await page.locator('body').innerText();
   record('COMPLIANCE_PROD_NO_LEGACY_IMPERATIVE_AR', !LEGACY_IMPERATIVE_RE.test(arBody));
 
-  const englishButton = page.getByRole('button', { name: 'EN' }).first();
+  const englishButton = page.getByTestId('locale-switch');
   record('COMPLIANCE_PROD_EN_SWITCH_PRESENT', (await englishButton.count()) > 0);
   if ((await englishButton.count()) > 0) {
     await englishButton.click();
