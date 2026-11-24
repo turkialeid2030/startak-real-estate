@@ -284,4 +284,14 @@ const wide=[makeMeasurement(goodMeasurements[0],{valueSqm:1000}),makeMeasurement
 check(packet({measurementRecords:wide}).status===PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_MEASUREMENT,'nontransitive tolerance cannot hide conflicting extremes');
 check(ready.evidenceFacts.every(x=>x.factHashSha256&&x.reviewBindingSha256),'packet retains full fact and review digests');
 check(!!ready.measurementGateHashSha256&&!!ready.propertyDataGateHashSha256,'both gate results bound in packet');
+
+check(packet({inspection:JSON.parse(JSON.stringify(goodInspection))}).status===PROPERTY_EVIDENCE_PACKET_STATUS.READY_FOR_PROFESSIONAL_VALUATION_WORKFLOW,'serialized inspection replays');
+check(packet({inspection:{...goodInspection,observations:goodInspection.observations.map((o,i)=>i===0?{...o,note:'changed after review'}:o)}}).status===PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_INSPECTION,'changed field observation rejected');
+check(packet({inspection:{...goodInspection,postInspectionReview:{...goodInspection.postInspectionReview,reviewedByRef:'OTHER'}}}).status===PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_INSPECTION,'reviewer substitution rejected');
+check(packet({inspection:{...goodInspection,media:goodInspection.media.map(m=>({...m,contentHashSha256:'0'.repeat(64)}))}}).status===PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_INSPECTION,'media content hash replacement rejected');
+check(packet({measurementRecords:[goodMeasurements[0],makeMeasurement(goodMeasurements[1],{valueSqm:1000})]}).status===PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_INSPECTION,'even within-tolerance changed measurement needs renewed review');
+check(packet({measurementToleranceByType:{LAND_AREA:{absoluteSqm:3}}}).status===PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_INSPECTION,'changed tolerance requires renewed review');
+check(packet({minimumMeasurementSourcesByType:{LAND_AREA:1}}).status===PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_INSPECTION,'lower source requirement requires renewed review');
+check(packet({inspection:{...goodInspection,reviewBindingSha256:undefined}}).status===PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_INSPECTION,'legacy unbound review held');
+check(ready.inspectionReviewBindingSha256===goodInspection.reviewBindingSha256,'handoff preserves inspection review digest');
 console.log(`WAVE_8C_PROPERTY_EVIDENCE_BRIDGE=PASS checks=${checks}`);
