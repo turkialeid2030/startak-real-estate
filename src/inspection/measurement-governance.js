@@ -57,6 +57,15 @@ function freeze(value) {
 function hash(value) {
   return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
+function canonical(v){
+ if(Array.isArray(v))return v.map(canonical);
+ if(v&&typeof v==='object')return Object.fromEntries(Object.keys(v).sort().map(k=>{
+  if(['__proto__','constructor','prototype'].includes(k))throw TypeError('MEASUREMENT_UNSAFE_KEY');
+  return [k,canonical(v[k])];
+ }));
+ return v;
+}
+const digest=v=>hash(canonical(v));
 
 function createMeasurementRecord({
   measurementId,
@@ -133,6 +142,16 @@ function reconcileMeasurementRecords({
     if (record.unit !== 'SQM') throw new TypeError('MEASUREMENT_UNIT_UNSUPPORTED: only SQM is accepted by this canonical model');
   }
 
+  const policy={materialTypes:[...new Set(materialTypes)].sort(),toleranceByType:{},minimumIndependentSourcesByType:{}};
+  for(const type of policy.materialTypes){
+   const tolerance=toleranceByType[type]??{},min=minimumIndependentSourcesByType[type]??1;
+   if(!tolerance||typeof tolerance!=='object'||Array.isArray(tolerance)||Object.keys(tolerance).some(k=>!['absoluteSqm','relative'].includes(k))||
+    Object.values(tolerance).some(v=>typeof v!=='number'||!Number.isFinite(v)||v<0)||
+    (tolerance.relative??0)>1||!Number.isSafeInteger(min)||min<1||min>Object.keys(MEASUREMENT_SOURCE).length)
+     throw TypeError('MEASUREMENT_POLICY_INVALID');
+   policy.toleranceByType[type]={absoluteSqm:tolerance.absoluteSqm??0,relative:tolerance.relative??0};
+   policy.minimumIndependentSourcesByType[type]=min;
+  }
   const invalidIds=new Set(records.filter(r=>!verifyMeasurementRecord(r)).map(r=>r.measurementId));
   const duplicateIds=new Set(records.map(r=>r.measurementId)).size!==records.length;
   const checks = [];
@@ -142,9 +161,7 @@ function reconcileMeasurementRecords({
   for (const type of [...new Set(materialTypes)]) {
     const group = records.filter((record) => record.type === type);
     const sources = [...new Set(group.map((record) => record.source))];
-    const minimumSources = Number.isInteger(minimumIndependentSourcesByType[type])
-      ? Math.max(1, minimumIndependentSourcesByType[type])
-      : 1;
+    const minimumSources=policy.minimumIndependentSourcesByType[type];
     const evidenceInsufficient = group.length === 0 || sources.length < minimumSources||duplicateIds||invalidIds.size>0||new Set(group.map(r=>r.sourceEvidenceRef)).size<minimumSources;
     if (evidenceInsufficient) insufficient.push({ type, sourceCount: sources.length, requiredSourceCount: minimumSources });
 
@@ -178,9 +195,11 @@ function reconcileMeasurementRecords({
   if (conflicts.length) status = MEASUREMENT_RECONCILIATION_STATUS.MEASUREMENT_CONFLICT;
   else if (insufficient.length) status = MEASUREMENT_RECONCILIATION_STATUS.HOLD_INSUFFICIENT_EVIDENCE;
 
-  return freeze({
-    schemaVersion: 1,
+  const core={
+    schemaVersion: 2,
     caseId,
+    measurementRecordsHashSha256:digest(records),
+    policy,
     status,
     checks,
     conflicts,
@@ -191,14 +210,22 @@ function reconcileMeasurementRecords({
     transactionAuthorized: false,
     certifiedValuationEstablished: false,
     semantics: 'Measurement reconciliation compares evidence already expressed in canonical square metres. No silent unit conversion, standard substitution, or source winner selection is performed.',
-  });
+  };
+  return freeze({...core,measurementGateHashSha256:digest(core)});
 }
 
+function verifyMeasurementGate(gate,inputs){
+ try{
+  const replay=reconcileMeasurementRecords(inputs);
+  return replay.status===MEASUREMENT_RECONCILIATION_STATUS.CLEAR&&digest(gate)===digest(replay);
+ }catch{return false;}
+}
 module.exports = {
   MEASUREMENT_TYPE,
   MEASUREMENT_SOURCE,
   MEASUREMENT_RECONCILIATION_STATUS,
   createMeasurementRecord,
   verifyMeasurementRecord,
+  verifyMeasurementGate,
   reconcileMeasurementRecords,
 };
