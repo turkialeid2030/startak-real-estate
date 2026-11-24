@@ -215,4 +215,30 @@ expectThrow(() => slo(WORKLOADS[0], { maxErrorRatePct: 101 }), /between 0 and 10
 expectThrow(() => qualification(evaluations, runs, resiliences, { requiredWorkloadClasses: [WORKLOADS[0], WORKLOADS[0]] }), /must not contain duplicates/);
 expectThrow(() => qualification(evaluations, runs, resiliences, { requiredResilienceScenarios: [SCENARIOS[0], SCENARIOS[0]] }), /must not contain duplicates/);
 
+
+ // A digest alone does not prove the semantic correctness of a submitted outcome.
+ const forgedEval={...slowEval,status:q.PERFORMANCE_STATUS.PASS,failureCodes:[]};
+ const evalCore={sloId:forgedEval.sloId,sloHashSha256:forgedEval.sloHashSha256,runId:forgedEval.runId,runEvidenceHashSha256:forgedEval.runEvidenceHashSha256,workloadClass:forgedEval.workloadClass,status:forgedEval.status,failureCodes:[]};
+ function stable(v){if(Array.isArray(v))return v.map(stable);if(v&&typeof v==='object')return Object.fromEntries(Object.keys(v).sort().map(k=>[k,stable(v[k])]));return v;}
+ forgedEval.evaluationHashSha256=sha(JSON.stringify(stable(evalCore)));
+ check(()=>assert.strictEqual(qualification([forgedEval,...evaluations.slice(1)],failedRuns,resiliences).status,q.PERFORMANCE_QUALIFICATION_STATUS.HOLD_EVIDENCE_INTEGRITY));
+ const missingSlo={...evaluations[0]};delete missingSlo.sloEvidence;
+ check(()=>assert.strictEqual(qualification([missingSlo,...evaluations.slice(1)],runs,resiliences).status,q.PERFORMANCE_QUALIFICATION_STATUS.HOLD_EVIDENCE_INTEGRITY));
+ check(()=>assert.strictEqual(qualification([evaluations[0],...evaluations],runs,resiliences).status,q.PERFORMANCE_QUALIFICATION_STATUS.HOLD_EVIDENCE_INTEGRITY));
+ check(()=>assert.strictEqual(qualification(evaluations,[runs[0],...runs],resiliences).status,q.PERFORMANCE_QUALIFICATION_STATUS.HOLD_EVIDENCE_INTEGRITY));
+ const forgedRes={...lateRecovery,status:'PASS',failureCodes:[]};
+ const resCore={...forgedRes};
+ for(const k of ['resilienceEvidenceHashSha256','objectivesCallerSupplied','objectivesInventedByThisModule','productionResilienceValidated','deploymentAuthorized'])delete resCore[k];
+ forgedRes.resilienceEvidenceHashSha256=sha(JSON.stringify(stable(resCore)));
+ check(()=>assert.strictEqual(q.verifyResilienceEvidence(forgedRes).valid,false));
+ check(()=>assert.strictEqual(qualification(evaluations,runs,[forgedRes,...resiliences.slice(1)]).status,q.PERFORMANCE_QUALIFICATION_STATUS.HOLD_EVIDENCE_INTEGRITY));
+ expectThrow(()=>slo(WORKLOADS[0],{maxP95LatencyMs:1000,maxP99LatencyMs:900}),/THRESHOLD_ORDER/);
+ expectThrow(()=>slo(WORKLOADS[0],{minimumSampleCount:1.5}),/SAMPLE_COUNT_INVALID/);
+ expectThrow(()=>run(WORKLOADS[0],{sampleCount:1.5}),/COUNTS_MUST_BE_INTEGERS/);
+ expectThrow(()=>run(WORKLOADS[0],{concurrentUsers:1.5}),/COUNTS_MUST_BE_INTEGERS/);
+ const lateSlo=slo(WORKLOADS[0],{effectiveAt:'2026-09-09T00:00:00Z',reviewedAt:'2026-09-10T00:00:00Z'});
+ check(()=>assert.strictEqual(q.evaluatePerformanceRun({slo:lateSlo,runEvidence:runs[0]}).failureCodes.includes('SLO_NOT_APPROVED_BEFORE_RUN'),true));
+ const noObservation={...resiliences[0]};delete noObservation.duplicateSideEffectsObserved;
+ expectThrow(()=>q.createResilienceEvidence(noObservation),/OBSERVATION_FLAGS_REQUIRED/);
+
 console.log(`WAVE_17B_PERFORMANCE_RESILIENCE_QUALIFICATION=PASS checks=${checks}`);
