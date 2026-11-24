@@ -18,7 +18,8 @@ const {
   verifyProfessionalRateInputIntegrity,
   createMarketAnalysisSubjectBinding,
   verifyMarketAnalysisSubjectBindingIntegrity,
-  buildProfessionalMethodInputPacket,
+  buildProfessionalMethodInputCandidate:buildProfessionalMethodInputPacket,
+  buildProfessionalMethodInputPacket:buildStrictMethodPacket,
 } = require('../../src/valuation/professional-method-input-provenance');
 
 let checks = 0;
