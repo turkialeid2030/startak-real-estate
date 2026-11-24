@@ -27,4 +27,8 @@ for(const [patch,code] of [
  assert.ok(result.blockers.includes(code+':maintenanceRate'),code);
  assert.equal(result.resolvedOverrides.maintenanceRate,0.06,'structural numeric delta must remain available for audit');
 }
+for(const bad of ['2026-02-30','10/28/2026','2026-10-28T00:00:00',0]){
+ assert.throws(()=>buildCriticalAssumptionOverrideGovernance({assumptionModelVersion:'V2',assumptionRegistry:[row],asOf:bad}),/asOf must be a valid date/);
+}
+assert.equal(run({}).overrides[0].provenance.expiresAt,row.expiresAt);
 console.log('P25_HISTORICAL_TEMPORAL_GOVERNANCE_PARITY=PASS');
