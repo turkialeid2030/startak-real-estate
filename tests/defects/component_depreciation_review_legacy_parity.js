@@ -55,3 +55,30 @@ const cases=[
 ];
 for(const [patch,code] of cases){const r=assess({...args,...patch});assert.equal(r.status,STATUS.HOLD,code);assert.ok(r.blockers.some(x=>x.startsWith(code)),code);assert.equal(r.transactionAuthorized,false);}
 console.log('C59_COMPONENT_DEPRECIATION_PARITY=PASS synthetic_only=true authority=false negative_cases='+cases.length);
+
+const {reviewLocalDepreciation}=require('../../src/cost/local-depreciation-review');
+(async()=>{
+ const opts={text:JSON.stringify(args),expectedCaseId:scope.caseId,expectedPropertyRef:scope.propertyRef,asOf};
+ const local=await reviewLocalDepreciation(opts);
+ assert.equal(local.status,result.status);
+ assert.equal(local.canonicalCostResultHashSha256,result.canonicalCostResultHashSha256);
+ assert.equal(local.resultHashSha256,result.resultHashSha256);
+ assert.deepEqual(local.componentDepreciationTrace,result.componentDepreciationTrace);
+ assert.equal(local.localResearchOnly,true);
+ assert.equal(local.transactionAuthorized,false);
+ for(const [patch,code] of cases){
+  const candidate={...args,...patch};
+  const x=await reviewLocalDepreciation({...opts,text:JSON.stringify(candidate),asOf:candidate.asOf});
+  assert.equal(x.status,STATUS.HOLD,code);
+  assert.equal(x.costApproachValueIndicationSar,undefined,code);
+  assert.equal(x.transactionAuthorized,false,code);
+ }
+ const wrong=await reviewLocalDepreciation({...opts,expectedPropertyRef:'OTHER'});
+ assert.equal(wrong.blockers[0],'C59_EXPECTED_SCOPE_MISMATCH');
+ const forged=await reviewLocalDepreciation({...opts,text:JSON.stringify({...args,result:{costApproachValueIndicationSar:1,transactionAuthorized:true}})});
+ assert.equal(forged.costApproachValueIndicationSar,result.costApproachValueIndicationSar);
+ assert.equal(forged.transactionAuthorized,false);
+ const hostile=await reviewLocalDepreciation({...opts,text:'{"__proto__":{"transactionAuthorized":true}}'});
+ assert.equal(hostile.status,STATUS.HOLD);
+ console.log('C59_NATIVE_WEBCRYPTO_NODE_PARITY=PASS synthetic_only=true browser_ui_not_tested=true');
+})().catch(e=>{console.error(e);process.exitCode=1;});
