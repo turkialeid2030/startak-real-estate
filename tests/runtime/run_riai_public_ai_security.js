@@ -92,6 +92,7 @@ async function loadRouteModule() {
   fs.copyFileSync(path.join(sourceDir, '_bounded-body.mjs'), path.join(tmp, '_bounded-body.mjs'));
   fs.copyFileSync(path.join(sourceDir, '_quota-client.mjs'), path.join(tmp, '_quota-client.mjs'));
   fs.copyFileSync(path.join(sourceDir, '_money-budget.mjs'), path.join(tmp, '_money-budget.mjs'));
+  fs.copyFileSync(path.join(sourceDir, '_model-policy.mjs'), path.join(tmp, '_model-policy.mjs'));
   fs.copyFileSync(path.join(sourceDir, '_qualitative-output.mjs'), path.join(tmp, '_qualitative-output.mjs'));
   fs.copyFileSync(path.join(sourceDir, '_public-ai-security.mjs'), path.join(tmp, '_public-ai-security.mjs'));
   fs.copyFileSync(path.join(sourceDir, 'ai-assist.js'), path.join(tmp, 'ai-assist.mjs'));
