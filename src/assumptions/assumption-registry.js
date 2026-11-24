@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const {strictCalendarDateMs} = require('../validation/strict-calendar-instant');
 
 const ASSUMPTION_SUPPORT_STATUS = Object.freeze({
   SUPPORTED: 'SUPPORTED',
@@ -51,24 +52,36 @@ function toDate(value) {
   return Number.isFinite(date.getTime()) ? date : null;
 }
 
+// Critical override evidence must never be silently repaired by Date coercion.
+function strictEvidenceDate(value) {
+  const ms = typeof value === 'string' ? strictCalendarDateMs(value.trim()) : NaN;
+  return Number.isFinite(ms) ? new Date(ms) : null;
+}
+
 function normalizeAssumption(raw, options = {}) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
     return deepFreeze({ status: ASSUMPTION_SUPPORT_STATUS.INVALID, blockers: ['ASSUMPTION_OBJECT_REQUIRED'] });
   }
 
-  const asOf = toDate(options.asOf || new Date());
-  const sourceDate = toDate(raw.sourceDate);
-  const expiresAt = toDate(raw.expiresAt);
-  const evidenceCount = Number.isInteger(raw.evidenceCount) && raw.evidenceCount >= 0 ? raw.evidenceCount : 0;
   const critical = raw.critical === true;
+  const criticalOverride = critical && raw.override === true;
+  const dateParser = criticalOverride ? strictEvidenceDate : toDate;
+  const reference = options.asOf ?? new Date();
+  const asOf = criticalOverride
+    ? (reference instanceof Date ? toDate(reference) : strictEvidenceDate(reference))
+    : toDate(options.asOf || new Date());
+  const sourceDate = dateParser(raw.sourceDate);
+  const expiresAt = dateParser(raw.expiresAt);
+  const expirySupplied = raw.expiresAt !== undefined && raw.expiresAt !== null
+    && (typeof raw.expiresAt !== 'string' || raw.expiresAt.trim() !== '');
+  const evidenceCount = Number.isInteger(raw.evidenceCount) && raw.evidenceCount >= 0 ? raw.evidenceCount : 0;
   const confidence = Object.values(CONFIDENCE).includes(raw.confidence) ? raw.confidence : CONFIDENCE.UNSUPPORTED;
   const sourceReference = typeof raw.sourceReference === 'string' ? raw.sourceReference.trim() : '';
   const sourceType = typeof raw.sourceType === 'string' ? raw.sourceType.trim() : '';
-  const criticalOverride = critical && raw.override === true;
   const approver = typeof raw.approver === 'string' ? raw.approver.trim() : '';
   const approvalReference = typeof raw.approvalReference === 'string' ? raw.approvalReference.trim() : '';
   const approvalStatus = typeof raw.approvalStatus === 'string' ? raw.approvalStatus.trim() : '';
-  const approvedAt = toDate(raw.approvedAt);
+  const approvedAt = dateParser(raw.approvedAt);
   const owner = typeof raw.owner === 'string' ? raw.owner.trim() : '';
   const reviewer = typeof raw.reviewer === 'string' ? raw.reviewer.trim() : '';
   const id = typeof raw.id === 'string' ? raw.id.trim() : '';
@@ -88,11 +101,13 @@ function normalizeAssumption(raw, options = {}) {
     if (!isFiniteNumber(raw.value)) blockers.push('CRITICAL_OVERRIDE_NUMERIC_VALUE_REQUIRED');
     if (!asOf) blockers.push('CRITICAL_OVERRIDE_AS_OF_DATE_INVALID');
     if (sourceDate && asOf && sourceDate.getTime() > asOf.getTime()) blockers.push('CRITICAL_OVERRIDE_SOURCE_DATE_IN_FUTURE');
-    if (raw.expiresAt && !expiresAt) blockers.push('CRITICAL_OVERRIDE_EXPIRY_DATE_INVALID');
+    if (expirySupplied && !expiresAt) blockers.push('CRITICAL_OVERRIDE_EXPIRY_DATE_INVALID');
     if (!approver) blockers.push('CRITICAL_OVERRIDE_APPROVER_REQUIRED');
     if (!approvalReference) blockers.push('CRITICAL_OVERRIDE_APPROVAL_REFERENCE_REQUIRED');
     if (!approvedAt) blockers.push('CRITICAL_OVERRIDE_APPROVAL_DATE_REQUIRED');
     else if (asOf && approvedAt.getTime() > asOf.getTime()) blockers.push('CRITICAL_OVERRIDE_APPROVAL_DATE_IN_FUTURE');
+    if (sourceDate && approvedAt && approvedAt.getTime() < sourceDate.getTime()) blockers.push('CRITICAL_OVERRIDE_APPROVAL_PRECEDES_SOURCE');
+    if (expiresAt && approvedAt && expiresAt.getTime() < approvedAt.getTime()) blockers.push('CRITICAL_OVERRIDE_EXPIRY_PRECEDES_APPROVAL');
     if (approvalStatus !== 'APPROVED') blockers.push('CRITICAL_OVERRIDE_APPROVAL_STATUS_REQUIRED');
   }
 
