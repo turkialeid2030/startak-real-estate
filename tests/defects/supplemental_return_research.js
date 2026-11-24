@@ -34,6 +34,16 @@ for(const patch of [{value:undefined},{value:-0.01},{value:1.1},{value:'0.1'},{u
  assert.equal(annual({...input,discountRate:{...rate,...patch}},scope).status,'HOLD');
 }
 assert.equal(annual(input,{...scope,caseId:'OTHER'}).status,'HOLD');
+// QA15: no false recovery when initial investment or discounted balance rounds to zero.
+for(const values of [[-0.004,0],[-1000,600.001,600],[-0.005,0.01]]){
+ const rejected=annual({...input,cashflows:{...cf,values}},scope);
+ assert.equal(rejected.status,'HOLD');assert.ok(rejected.blockers.includes('RETURN_CASHFLOW_PRECISION_INVALID'));assert.equal(rejected.metrics.length,0);
+}
+for(const [values,discount,expected] of [[[-0.01,0],0,null],[[-0.01,0.01],0,1],[[-0.01,0.01],0.1,null],[[-1,0.5,0.5],0,2],[[-1000,1100],0.1,1],[[-1000,1099.99],0.1,null]]){
+ const tested=annual({...input,cashflows:{...cf,values},discountRate:{...rate,value:discount}},scope);
+ assert.equal(tested.status,'ANALYTICAL_ONLY');assert.equal(value(tested,'DISCOUNTED_PAYBACK_PERIOD_END'),expected);assert.equal(tested.transactionAuthorized,false);
+}
+
 const price={...evidence,unit:'SAR',basis:'PURCHASE_PRICE',value:2000000};
 const rent={...evidence,unit:'SAR_PER_YEAR',basis:'CONTRACTUAL_GROSS_RENT',value:160000,periodStart:'2027-01-01',periodEndExclusive:'2028-01-01'};
 const gi={...context,price,annualGrossRent:rent};
