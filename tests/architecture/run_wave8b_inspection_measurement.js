@@ -124,13 +124,14 @@ throwsWith(() => createMeasurementRecord({
   source: MEASUREMENT_SOURCE.INSPECTION, sourceEvidenceRef: 'e', measurementStandardRef: '', measurementMethod: 'M', measuredByRef: 'U', measuredAt: '2026-09-07T08:00:00Z',
 }), 'measurementStandardRef', 'measurement standard reference cannot be omitted');
 
-const measurementGate = reconcileMeasurementRecords({
+const measurementInputs={
   caseId: CASE_ID,
   records: [titleArea, inspectionArea],
   materialTypes: [MEASUREMENT_TYPE.LAND_AREA],
   toleranceByType: { LAND_AREA: { absoluteSqm: 3 } },
   minimumIndependentSourcesByType: { LAND_AREA: 2 },
-});
+};
+const measurementGate=reconcileMeasurementRecords(measurementInputs);
 check(measurementGate.status === MEASUREMENT_RECONCILIATION_STATUS.CLEAR, 'measurements within tolerance reconcile CLEAR');
 check(measurementGate.readyForInspectionCompletion === true, 'clear measurement gate can support inspection completion');
 check(measurementGate.checks[0].sourceCount === 2, 'measurement gate recognizes independent source classes');
@@ -184,7 +185,7 @@ const inspectionWithFlag = addInspectionMedia(inspectionWithPassMedia, flaggedMe
 const blockedReview = submitPostInspectionReview(inspectionWithFlag, {
   endedAt: '2026-09-07T09:00:00Z', reviewedByRef: 'USER:REVIEWER-01', reviewEvidenceRef: 'evidence://post-review/blocked',
   acknowledgements: { observationsReviewed: true, mediaReviewed: true, measurementsReviewed: true, materialConflictsReviewed: true, accountabilityAccepted: true },
-  measurementGate,
+  measurementGate,measurementInputs,
 });
 check(blockedReview.postInspectionReview.readyToComplete === false, 'flagged media blocks inspection completion');
 check(blockedReview.postInspectionReview.blockers.includes('INSPECTION_MEDIA_INTEGRITY_NOT_CLEARED'), 'media blocker is explicit');
@@ -193,7 +194,7 @@ throwsWith(() => completeInspection(blockedReview, { completedAt: '2026-09-07T09
 const readyReview = submitPostInspectionReview(inspectionWithPassMedia, {
   endedAt: '2026-09-07T09:00:00Z', reviewedByRef: 'USER:REVIEWER-01', reviewEvidenceRef: 'evidence://post-review/pass',
   acknowledgements: { observationsReviewed: true, mediaReviewed: true, measurementsReviewed: true, materialConflictsReviewed: true, accountabilityAccepted: true },
-  measurementGate,
+  measurementGate,measurementInputs,
 });
 check(readyReview.state === INSPECTION_STATE.POST_INSPECTION_REVIEW, 'successful field work moves to post-inspection review');
 check(readyReview.postInspectionReview.readyToComplete === true, 'complete observation/media/measurement packet is completion-ready');
