@@ -30,3 +30,7 @@ All restored modules require actual acceptance at exact SHA. Do not translate sy
 ## Evidence references
 - #622 master issue; #774 private reference cases; #775 finance formulas; #648 private vault; #619 C59 and #628 C62 acceptance.
 - #824 scoped source persistence; #825 P25; #826 owner wizard/private replay; #827–832 restored historic functions; #833 AI/C20; #834 efficiency and live model canary.
+
+
+## Follow-up C8/C9 closure checkpoint
+Exact 16e760c9184fae4b22259dff9abb782f0ac451e3 Release Verify 678/678, run 45474775944; security and D04 success. Further C8 changes in 43e46af17ba874ff75be58dbe2a705ebd3e8c095 require a single deed reference covering the five core facts, normalized source references, bounded fact count, recognized statuses, and explicit verified boolean values for any supplied legal finding. Missing findings never establish absence of encumbrances. C8 candidate remains unauthenticated, not a professional evidence-chain or legal clearance. C9 negative coverage extended in 89d64e837e8feed66217e572102c2fc999430409. LEG-023 historic professional chain/tolerance/policy compatibility is still partial; do not mark independently accepted. Exact new CI and caller integration required.
