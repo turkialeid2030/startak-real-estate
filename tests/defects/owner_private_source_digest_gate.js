@@ -43,6 +43,8 @@ try{
  fs.writeFileSync(provenance,JSON.stringify(meta));
  const valid=run();
  check(valid.status===2,'even a matching synthetic artifact never authorizes release: '+valid.stderr);
+ check(valid.stdout.includes('CURRENT_VALUATION_MODULE_REPLAY=PARTIAL cases=0/17 adopted_land_only=17'),'adopted-only legacy data never counts as an engine execution');
+ check(!valid.stdout.includes('CURRENT_VALUATION_MODULE_REPLAY=PASS'),'no false module PASS');
  check(valid.stdout.includes('IRR_SOURCE_BYTES=PASS'),'actual source bytes are hashed');
  check(valid.stdout.includes('AUXILIARY_REFERENCE=BLOCKED_NOT_SUPPLIED'),'legacy 17-only fixture must explicitly HOLD the optional 4 auxiliary cases');
  check(valid.stdout.includes('ENGINE_PARITY=BLOCKED_TRUSTED_EXECUTION_PROOF_REQUIRED'),'untrusted result JSON does not prove actual engine execution');
