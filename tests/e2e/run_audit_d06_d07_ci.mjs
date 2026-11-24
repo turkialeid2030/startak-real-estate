@@ -65,7 +65,9 @@ try{
   'D06 must preserve city rather than pretend the title verifies location');
  assert(await market.getByTestId('market-subject-asset-type').inputValue()==='OFFICE_TOWER',
   'D06 asset class must be the expressly chosen option');
- await page.getByRole('button',{name:'EN',exact:true}).click();
+ const switchToEnglish=page.getByTestId('locale-switch');
+ assert(await switchToEnglish.getAttribute('aria-label')==='Switch to English','D04 language switch accessible name');
+ await switchToEnglish.click();
  await market.getByTestId('market-partial-locale-notice').waitFor();
  assert(await market.getAttribute('dir')==='ltr','D04 core market panel direction switches to LTR');
  assert((await market.locator('h2').first().innerText()).includes('Property location'),
