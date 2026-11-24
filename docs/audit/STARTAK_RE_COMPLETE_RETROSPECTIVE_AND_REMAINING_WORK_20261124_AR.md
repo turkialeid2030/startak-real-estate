@@ -10,6 +10,16 @@
 
 **ما لم يُنجز:** [#822](https://github.com/turkialeid2030/startak-real-estate/pull/822) ما زال Draft/unmerged؛ `main` عند `b8ab7d3156a751ca57dec93ba9d9a7ad230b1566`، والمرشح يتقدم عنه بـ**854 commit** دون تأخر (`ahead=854 / behind=0`، تشمل سلسلة تطوير متراكمة). لا يوجد دليل في سجلات CI على نشر الالتزام الحديث في بيئة الإنتاج. توجد أدلة تاريخية لنشر PR [#700](https://github.com/turkialeid2030/startak-real-estate/pull/700) و[#701](https://github.com/turkialeid2030/startak-real-estate/pull/701) بتاريخ 21 أكتوبر موثقة في [#658](https://github.com/turkialeid2030/startak-real-estate/issues/658)، ولا يجوز نقل إثبات ذلك الإصدار إلى الإصدار الحديث.
 
+## 1.1. استدراك التحقق من معاينة Cloudflare Pages
+
+على الالتزام الحديث نفسه `96c4743fd06456aff28ca3a8c67ebf53e3a3aba4`، أظهر استعلام GitHub `commits/{sha}/check-runs` أن خدمة **Cloudflare Pages** سجلت نتيجة `completed/success`، تحت **Check Run ID 137942496109**، واسم الإصدار `950c2d2e-ac15-4898-94ae-ad30b01a1e31`، مع النص المباشر **Deployed successfully** وتاريخ الإكمال **23 نوفمبر 2026، 19:09:17 UTC**. وهذان الرابطان صادران من نتيجة Cloudflare نفسها:
+
+- معاينة الالتزام: https://950c2d2e.startak-real-estate.pages.dev
+- معاينة الفرع: https://feat-startak-re-personal-noa.startak-real-estate.pages.dev
+- سجل فحص GitHub: https://github.com/turkialeid2030/startak-real-estate/commit/96c4743fd06456aff28ca3a8c67ebf53e3a3aba4/checks?check_suite_id=137942496109
+
+**تدقيق العبارة السابقة:** الصحيح أن **نشر معاينة فرعية مُثبت**؛ وليس صحيحًا الجزم بأنه لم توجد أي عملية نشر حديثة. ولا يثبت هذا السجل أن `main` تغير أو أن رابط الإنتاج تغير أو أن المعاينة كانت قابلة للدخول أو حفظت واستعادت ملفات المستخدم. محاولة فحص URL بوسيلة ويب مستقلة عادت **غير قابلة للوصول من هذه الأداة**؛ لا أستنتج من ذلك عطل الموقع أو سلامته. يلزم اختبار دخول مؤذون وGET/manifest وفتح وحفظ/إعادة فتح للمعاينة الحالية.
+
 ## 2. سجل الإنجازات الزمنية مع حد الإثبات
 
 | الفترة | المخرجات المثبتة | الحدود |
