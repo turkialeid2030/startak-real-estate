@@ -52,15 +52,15 @@ function replayPropertyCase(row){
   const result=calculateDepreciatedReplacementCost({landValue:indicated,directReplacementCost:direct,indirectCosts:indirect,
    depreciationRate:depreciation,landEvidence:evidence,replacementCostEvidence:evidence,depreciationEvidence:evidence});
   indicated=result.value;
- }else if(!landComparisonInvoked){
-  // The current cost approach requires a positive improvement cost.
-  // Never disguise an adopted land value as a replayed cost calculation.
-  fail('PRIVATE_REPLAY_LAND_ONLY_ENGINE_MAPPING_REQUIRED');
  }
+ // An adopted land rate with no improvements is valid in older fixtures,
+ // but neither valuation engine has run. Preserve the arithmetic result
+ // separately from module execution; never count it as an engine match.
  const value=round(indicated,1000);
  const derivedRent=value*number(row.rentalYieldPct,0,100)/100;
  return Object.freeze({valueMatches:matches(value,row.expected.marketValue),
-  derivedRentMatches:matches(derivedRent,row.expected.marketRent),costInvoked,landComparisonInvoked});
+  derivedRentMatches:matches(derivedRent,row.expected.marketRent),costInvoked,landComparisonInvoked,
+  moduleExecuted:costInvoked||landComparisonInvoked});
 }
 function capitalise(gross,opexPct,capPct){
  const opex=gross*pct(opexPct);
@@ -100,11 +100,12 @@ function replayPrivateFixture(fixture){
  const ids=[...fixture.cases,...fixture.residualCases].map(x=>x.id);
  if(ids.some(x=>typeof x!=='string'||!x.trim())||new Set(ids).size!==ids.length)fail('PRIVATE_REPLAY_IDS_INVALID');
  const report={propertyCases:17,valueMatches:0,derivedRentMatches:0,costModuleCases:0,landComparableModuleCases:0,
-  auxiliaryCases:4,auxiliaryEngineMatches:0,commercialScenarioBasisBlocked:0,caseMismatchOrdinals:[],auxiliaryMismatchOrdinals:[]};
+  auxiliaryCases:4,auxiliaryEngineMatches:0,commercialScenarioBasisBlocked:0,propertyModuleCases:0,adoptedLandOnlyCases:0,caseMismatchOrdinals:[],auxiliaryMismatchOrdinals:[]};
  for(const [i,row] of fixture.cases.entries()){
   const v=replayPropertyCase(row);
   report.valueMatches+=Number(v.valueMatches);report.derivedRentMatches+=Number(v.derivedRentMatches);
   report.costModuleCases+=Number(v.costInvoked);report.landComparableModuleCases+=Number(v.landComparisonInvoked);
+  report.propertyModuleCases+=Number(v.moduleExecuted);report.adoptedLandOnlyCases+=Number(!v.moduleExecuted);
   if(!v.valueMatches||!v.derivedRentMatches)report.caseMismatchOrdinals.push(i+1);
  }
  for(const [i,row] of fixture.residualCases.entries()){
