@@ -77,7 +77,7 @@ try {
  await panel.getByTestId('dated-calculate').click();
  ok((await panel.getByTestId('dated-review-result').innerText()).includes('HOLD_'),
   'malformed numeric text must hold');
- await page.getByRole('button',{name:'EN',exact:true}).click();
+ await page.getByTestId('locale-switch').click();
  ok((await panel.locator('h2').innerText()).includes('Optional dated return research'),
   'English owner study labels visible on language switch');
  ok(await panel.getByTestId('dated-row-amount-1').inputValue()==='1e3',
