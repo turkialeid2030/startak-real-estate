@@ -155,7 +155,7 @@ function auditValuationReadiness({subject={},report={},segmentedRent=null,sales=
    historicAnnualRentUsed:false,
    legalAnnualRentSar:null,certifiedValueSar:null,
    hasPropertyLevelRightsProof:false,hasIndependentlyValidatedMarketTransactions:false,
-   permittedExport:'PERSONAL_RESEARCH_DRAFT_ONLY',
+   permittedExport:saleSourceConflict||rentSourceConflict?'HOLD_SOURCE_RECORD_CONFLICT':'PERSONAL_RESEARCH_DRAFT_ONLY',
    publishableProfessionalReport:false,
    evidenceCounts:{
     saleRows:Array.isArray(sales)?sales.length:0,
