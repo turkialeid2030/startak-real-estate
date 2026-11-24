@@ -78,4 +78,12 @@ r=portfolio(pi,ps);near(value(r,'PORTFOLIO_HOLDING_PERIOD_RETURN'),0.0025);near(
 for(const patch of [{assetId:'A'},{assetId:'C'},{currency:'USD'},{externalCapitalFlows:true},{periodStart:'2025-11-24'},{portfolioId:'OTHER'},{sourceDate:'2026-11-23'}])assert.equal(portfolio({...pi,members:[pi.members[0],{...pi.members[1],...patch}]},ps).status,'HOLD');
 assert.equal(portfolio(pi,{...ps,assetIds:['A','C']}).status,'HOLD');
 assert.equal(portfolio({...pi,members:[pi.members[0]]},ps).status,'HOLD');
+const {reviewSupplementalText,blankSupplementalInput,MAX_BYTES}=require('../../src/engines/financial/supplemental-research-input');
+assert.equal(reviewSupplementalText({method:'annual',text:JSON.stringify(input),expected:scope}).status,'ANALYTICAL_ONLY');
+assert.equal(reviewSupplementalText({method:'annual',text:JSON.stringify(blankSupplementalInput('annual',scope)),expected:scope}).status,'HOLD');
+assert.equal(reviewSupplementalText({method:'portfolio',text:JSON.stringify(blankSupplementalInput('portfolio',ps)),expected:ps}).status,'HOLD');
+for(const [method,raw] of [['constructor','{}'],['annual','{"__proto__":{}}'],['annual','{broken'],['annual',' '.repeat(MAX_BYTES+1)]]){
+ const rejected=reviewSupplementalText({method,text:raw,expected:scope});
+ assert.equal(rejected.status,'HOLD');assert.equal(rejected.transactionAuthorized,false);assert.deepEqual(rejected.metrics,[]);
+}
 console.log('SUPPLEMENTAL_RETURN_RESEARCH=PASS');
