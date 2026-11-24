@@ -19,7 +19,11 @@ export default function LocalDepreciationReviewPanel(){
    const raw=await file.text();
    const next=await reviewLocalDepreciation({text:raw,expectedCaseId:caseId.trim(),expectedPropertyRef:propertyRef.trim()});
    if(epoch.current!==token)return;
-   setResult(next);if(next.status===STATUS.READY_FOR_INDEPENDENT_PROFESSIONAL_REVIEW)setSource(raw);
+   setResult(next);if(next.status===STATUS.READY_FOR_INDEPENDENT_PROFESSIONAL_REVIEW){
+    const parsed=JSON.parse(raw);
+    const {packet,allocations,omissionReviews,ageLifeChecks=[]}=parsed;
+    setSource(JSON.stringify({packet,allocations,omissionReviews,ageLifeChecks}));
+   }
   }catch{if(epoch.current===token)setResult({status:STATUS.HOLD,blockers:['C59_LOCAL_REVIEW_FAILED']});}
   finally{if(epoch.current===token)setBusy(false);}
  }
@@ -37,10 +41,10 @@ export default function LocalDepreciationReviewPanel(){
  <button type="button" data-testid="depreciation-reset" onClick={clear} className="mt-2 rounded border border-slate-700 px-3 py-2 text-xs">{t('مسح المراجعة','Clear review')}</button>
  {busy&&<p role="status" className="text-xs">{t('جارٍ التحقق المحلي','Checking locally')}</p>}
  {result&&<div data-testid="depreciation-status" className="mt-3 text-xs" data-status={result.status}>{ok?t('مطابقة حسابية فقط — مراجعة مستقلة مطلوبة','Arithmetic reconciled only — independent review required'):t('معلّق — لم تُعرض نتائج حسابية','HOLD — calculation results suppressed')}</div>}
- {result&&!ok&&<ul className="mt-2 text-xs text-amber-200">{result.blockers.map(code=><li key={code} className="break-all">{code}</li>)}</ul>}
+ {result&&!ok&&<ul className="mt-2 text-xs text-amber-200">{result.blockers.map(code=><li key={code} className="break-all"><code>{code}</code></li>)}</ul>}
  {ok&&<div data-testid="depreciation-result" className="mt-3">
  <div className="grid gap-2 md:grid-cols-3 text-xs">{[[t('قيمة الأرض','Land value'),result.landValueSar],[t('تكلفة التحسينات الجديدة','Improvement cost new'),result.improvementCostNewSar],[t('الإهلاك المتراكم','Accrued depreciation'),result.accruedDepreciationSar],[t('مؤشر طريقة التكلفة غير المعتمد','Uncertified cost indication'),result.costApproachValueIndicationSar]].map(([label,value])=><div key={label} className="rounded border border-slate-700 p-2">{label}<strong className="block mt-1">{money(value)}</strong></div>)}</div>
- <div className="mt-3 overflow-x-auto"><table className="w-full min-w-[600px] text-xs"><thead><tr>{[t('المكون','Component'),t('التكلفة الجديدة','Cost new'),t('مادي','Physical'),t('وظيفي','Functional'),t('خارجي','External'),t('القيمة المتبقية','Residual')].map(x=><th key={x} className="p-2 text-start">{x}</th>)}</tr></thead><tbody>{result.componentDepreciationTrace.map(r=><tr key={r.componentId} className="border-t border-slate-800"><td className="p-2 break-all">{r.componentId}</td>{[r.costNewSar,r.physicalLossSar,r.functionalLossSar,r.externalLossSar,r.residualImprovementValueSar].map((v,i)=><td key={i} className="p-2">{money(v)}</td>)}</tr>)}</tbody></table></div>
+ <div className="mt-3 overflow-x-auto"><table className="w-full min-w-[600px] text-xs"><thead><tr>{[t('المكون','Component'),t('التكلفة الجديدة','Cost new'),t('مادي','Physical'),t('وظيفي','Functional'),t('خارجي','External'),t('القيمة المتبقية','Residual')].map(x=><th key={x} className="p-2 text-start">{x}</th>)}</tr></thead><tbody>{result.componentDepreciationTrace.map(r=><tr key={r.componentId} className="border-t border-slate-800"><td className="p-2 break-all" data-user-content>{r.componentId}</td>{[r.costNewSar,r.physicalLossSar,r.functionalLossSar,r.externalLossSar,r.residualImprovementValueSar].map((v,i)=><td key={i} className="p-2">{money(v)}</td>)}</tr>)}</tbody></table></div>
  <div className="mt-3 flex flex-wrap gap-2"><button type="button" data-testid="depreciation-save" onClick={()=>download(source,'local-depreciation-inputs.json')} className="rounded border border-slate-700 px-3 py-2 text-xs">{t('حفظ المدخلات لإعادة الاستيراد','Save inputs for reimport')}</button><button type="button" data-testid="depreciation-report" onClick={()=>download(JSON.stringify({schemaVersion:1,kind:'LOCAL_RESEARCH_DRAFT',...result},null,2),'local-depreciation-research-draft.json')} className="rounded border border-slate-700 px-3 py-2 text-xs">{t('تصدير مسودة النتائج','Export draft results')}</button></div>
  </div>}
  </section>;
