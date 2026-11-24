@@ -2,6 +2,7 @@ import { readBoundedText } from './_bounded-body.mjs';
 import { qualitativeOutputError } from './_qualitative-output.mjs';
 import { reserveGatewayQuota, settleGatewayQuota, verifiedUsage } from './_quota-client.mjs';
 import { monetaryReservation } from './_money-budget.mjs';
+import { resolveModernModel, matchesReportedModel } from './_model-policy.mjs';
 import {
   enforceSnapshotDataDiscipline,
   resolveRateLimitConfig,
@@ -286,16 +287,16 @@ function providerResponseSchema() {
   };
 }
 
-function buildProviderRequest(protocol, model, snapshot, outputBudget) {
+function buildProviderRequest(protocol, model, snapshot, outputBudget, modelPolicy) {
   if (protocol === PROVIDER_PROTOCOL.OPENAI_RESPONSES) {
     return {
       model,
       store: false,
-      instructions: systemPrompt(),
-      input: [{
-        role: 'user',
-        content: [{ type: 'input_text', text: JSON.stringify(snapshot) }],
-      }],
+      ...(modelPolicy?.profile ? { reasoning:{effort:modelPolicy.effort} } : { instructions:systemPrompt() }),
+      input: [
+        ...(modelPolicy?.profile ? [{role:'developer',content:[{type:'input_text',text:systemPrompt()}]}] : []),
+        {role:'user',content:[{type:'input_text',text:JSON.stringify(snapshot)}]},
+      ],
       max_output_tokens: outputBudget.value,
       text: {
         format: {
@@ -524,7 +525,9 @@ async function handleRequestPost(context) {
   const outputBudget = providerOutputBudget(env);
   if (outputBudget.error) return json({ ok: false, code: outputBudget.error, aiModelUsed: false }, 503);
 
-  const providerRequest = buildProviderRequest(protocol.value, model, body.decisionSnapshot, outputBudget);
+  const modelPolicy=resolveModernModel({env,model,protocol:protocol.value,url:provider.url});
+  if(modelPolicy.error)return json({ok:false,code:modelPolicy.error,aiModelUsed:false},503);
+  const providerRequest = buildProviderRequest(protocol.value, model, body.decisionSnapshot, outputBudget,modelPolicy);
   const dailyTokens = resolveTokenBudgetConfig(env).globalPerDay;
   if (!Number.isSafeInteger(dailyTokens) || dailyTokens <= 0) return json({ok:false,code:'AI_TOKEN_BUDGET_NOT_CONFIGURED',aiModelUsed:false},503);
   // Operator must qualify this bound for the configured model/protocol, including hidden overhead.
@@ -565,6 +568,7 @@ async function handleRequestPost(context) {
       headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
       body: JSON.stringify(providerRequest),
       signal: controller.signal,
+      redirect:'error',
     });
   } catch (error) {
     clearTimeout(timer);
@@ -599,6 +603,10 @@ async function handleRequestPost(context) {
     await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'PROVIDER_FAILED', reasonCode: 'AI_PROVIDER_RESPONSE_INVALID_JSON', model, tokenLimit: outputBudget.value, startedAt });
     return json({ ok: false, code: 'AI_PROVIDER_RESPONSE_INVALID_JSON', aiModelUsed: false }, 502);
   }
+  if(modelPolicy.profile&&!matchesReportedModel(model,providerPayload?.model)){
+    await recordAudit(context,{access,snapshot:body.decisionSnapshot,outcome:'PROVIDER_FAILED',reasonCode:'AI_PROVIDER_MODEL_MISMATCH',model,tokenLimit:outputBudget.value,startedAt});
+    return json({ok:false,code:'AI_PROVIDER_MODEL_MISMATCH',aiModelUsed:false,providerRequestAttempted:true,automaticRetryAllowed:false},502);
+  }
   const actualTokens = verifiedUsage(providerPayload, protocol.value);
   if (actualTokens !== null) {
     const settlement = await settleGatewayQuota(env.RIAI_AI_QUOTA, {id:context.invocationId,actualTokens});
@@ -606,6 +614,10 @@ async function handleRequestPost(context) {
       await recordAudit(context, {access,snapshot:body.decisionSnapshot,outcome:'QUOTA_SETTLEMENT_FAILED',reasonCode:settlement.code,model,startedAt});
       return json({ok:false,code:settlement.code,providerRequestAttempted:true,automaticRetryAllowed:false},503);
     }
+  }
+  if(modelPolicy.profile&&actualTokens===null){
+    await recordAudit(context,{access,snapshot:body.decisionSnapshot,outcome:'PROVIDER_FAILED',reasonCode:'AI_PROVIDER_USAGE_UNVERIFIED',model,tokenLimit:outputBudget.value,startedAt});
+    return json({ok:false,code:'AI_PROVIDER_USAGE_UNVERIFIED',aiModelUsed:false,providerRequestAttempted:true,automaticRetryAllowed:false},502);
   }
   const extracted = extractProviderJson(providerPayload, protocol.value);
   if (extracted.error) {
@@ -633,6 +645,7 @@ async function handleRequestPost(context) {
     schemaVersion: 1,
     aiModelUsed: true,
     model,
+    ...(modelPolicy.profile?{providerReportedModel:providerPayload.model,modelPolicyVersion:'GPT6_20261124',reasoningEffort:modelPolicy.effort}:{}),
     providerProtocol: protocol.value,
     generatedAt: new Date().toISOString(),
     advisoryOnly: true,
