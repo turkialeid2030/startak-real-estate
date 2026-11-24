@@ -142,6 +142,9 @@ function buildCriticalAssumptionOverrideGovernance({ assumptionRegistry, assumpt
     const approvedAt = cleanString(item.approvedAt);
     const approvalStatus = cleanString(item.approvalStatus);
     const expiresAt = cleanString(item.expiresAt);
+    // A provided non-string expiry is malformed evidence, not an omitted expiry.
+    const expirySupplied = item.expiresAt !== undefined && item.expiresAt !== null
+      && (typeof item.expiresAt !== 'string' || expiresAt !== '');
 
     const parsedSourceDate = parseDateString(sourceDate);
     const parsedApprovedAt = parseDateString(approvedAt);
@@ -163,7 +166,7 @@ function buildCriticalAssumptionOverrideGovernance({ assumptionRegistry, assumpt
     if (approvalStatus !== CRITICAL_ASSUMPTION_APPROVAL_STATUS.APPROVED) {
       itemBlockers.push(`CRITICAL_OVERRIDE_APPROVAL_STATUS_REQUIRED:${id}`);
     }
-    if (expiresAt && !parsedExpiresAt) {
+    if (expirySupplied && !parsedExpiresAt) {
       itemBlockers.push(`CRITICAL_OVERRIDE_EXPIRY_DATE_INVALID:${id}`);
     } else if (parsedExpiresAt && parsedExpiresAt.getTime() < asOfDate.getTime()) {
       itemBlockers.push(`CRITICAL_OVERRIDE_EXPIRED:${id}`);
