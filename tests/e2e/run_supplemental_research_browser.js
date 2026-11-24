@@ -30,6 +30,11 @@ const {chromium,firefox,webkit,expect}=require('@playwright/test');
   await verify('annual',{...base,cashflows:{...evidence,timing:'ANNUAL_END_OF_YEAR',basis:'OPERATING_ONLY',values:[-1000,600,600]},discountRate:{...evidence,unit:'ANNUAL_RATIO',value:0}},{DISCOUNTED_PAYBACK_PERIOD_END:2,PROFITABILITY_INDEX_CONVENTIONAL:1.2,EQUIVALENT_ANNUAL_ANNUITY:100});
   const gross={...base,price:{...evidence,unit:'SAR',basis:'PURCHASE_PRICE',value:2000000},annualGrossRent:{...evidence,unit:'SAR_PER_YEAR',basis:'CONTRACTUAL_GROSS_RENT',periodStart:'2027-01-01',periodEndExclusive:'2028-01-01',value:160000}};
   await verify('gross',gross,{GROSS_RENTAL_YIELD:0.08,GROSS_RENT_MULTIPLIER:12.5});
+  const draftAppendix=await download('appendix');assert.equal(draftAppendix.analysis.metrics[0].value,0.08);assert.equal(draftAppendix.reportReference,null);assert.equal(draftAppendix.canonicalReportModified,false);assert.match(draftAppendix.appendixHashSha256,/^[a-f0-9]{64}$/);checks+=4;
+  await el('reference-report').setInputFiles({name:'invalid-report.json',mimeType:'application/json',buffer:Buffer.from('{}')});
+  await expect(el('appendix')).toBeDisabled();checks++;
+  await load(gross);await expect(el('result')).toBeVisible();await expect(el('appendix')).toBeEnabled();checks++;
+
   await el('property').fill('OTHER');await expect(el('result')).toHaveCount(0);await load(gross);await expect(el('status')).toHaveAttribute('data-status','HOLD');await expect(el('report')).toHaveCount(0);checks+=3;
   await fill();
   await verify('wacc',{...base,capital:{...evidence,basis:'MARKET_VALUE_CAPITAL_STRUCTURE',unit:'SAR_AND_ANNUAL_RATIOS',taxShieldBasis:'NO_TAX_SHIELD',debt:400,equity:600,costOfDebt:0.05,costOfEquity:0.12,effectiveTaxShieldRate:0}},{WACC:0.092});
