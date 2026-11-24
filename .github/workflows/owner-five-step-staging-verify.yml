@@ -15,6 +15,8 @@ on:
       - 'src/components/LocalUrbanGrowthReviewPanel.jsx'
       - 'src/components/LocalAssetEfficiencyPanel.jsx'
       - 'src/engines/financial/asset-efficiency-review.js'
+      - 'src/engines/financial/encrypted-efficiency-draft.js'
+      - 'tests/defects/encrypted_efficiency_saved_deal.js'
       - 'tests/defects/asset_efficiency_four_axis.js'
       - 'tests/e2e/run_asset_efficiency_browser.js'
       - 'src/geospatial/urban-growth-accessibility-review*.js'
