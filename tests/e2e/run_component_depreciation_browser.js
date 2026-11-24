@@ -73,8 +73,15 @@ const {assessCostDepreciationAttribution}=require('../../src/cost/component-depr
     await page.reload();
     await page.getByTitle(ar.actions.savedDeals,{exact:true}).click();
     await page.getByRole('dialog').getByRole('button',{name:seed.name,exact:true}).click();
+    // Wait for the asynchronous saved-deal session to finish binding before
+    // filling fields; the identity transition deliberately clears old inputs.
+    await expect(page.getByTestId('depreciation-local-custody')).toBeVisible();
+    await expect(page.getByTestId('depreciation-case')).toHaveValue(scope.caseId);
     await page.getByTestId('depreciation-property').fill(scope.propertyRef);
+    await expect(page.getByTestId('depreciation-property')).toHaveValue(scope.propertyRef);
     await page.getByTestId('depreciation-passphrase').fill('incorrect-browser-passphrase');
+    await expect(page.getByTestId('depreciation-passphrase')).toHaveValue('incorrect-browser-passphrase');
+    await expect(page.getByTestId('depreciation-encrypted-load')).toBeEnabled();
     await page.getByTestId('depreciation-encrypted-load').click();
     await expect(page.getByTestId('depreciation-storage-notice')).toContainText('تعذر الحفظ أو فتح المسودة',{timeout:15000});checks++;
     await expect(page.getByTestId('depreciation-result')).toHaveCount(0);checks++;
