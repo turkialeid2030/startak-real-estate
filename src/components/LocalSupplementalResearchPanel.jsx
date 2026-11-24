@@ -5,6 +5,7 @@ const {MAX_BYTES,reviewSupplementalText,blankSupplementalInput}=require('../engi
 const browserStorage=require('../storage/browser-local-storage-provider');
 const {saveEncryptedSupplementalDraft,loadEncryptedSupplementalDraft,deleteEncryptedSupplementalDraft}=require('../engines/financial/encrypted-supplemental-draft');
 const {validateOpeningPortfolioSnapshot}=require('../portfolio/opening-return-snapshot');
+const {buildSupplementalAppendix,reportReference}=require('../reporting/supplemental-research-appendix');
 const METHODS={annual:['العوائد والاسترداد المخصوم','Annual returns and discounted payback'],gross:['عائد الإيجار الإجمالي ومضاعفه','Gross rent yield and multiplier'],wacc:['تكلفة رأس المال','Weighted average cost of capital'],breakEven:['نقطة التعادل وهامش الأمان','Break-even and margin of safety'],holding:['عائد الاحتفاظ والنمو والعائد الحقيقي','Holding, growth and real returns'],portfolio:['عائد المحفظة','Portfolio return']};
 const LABELS={DISCOUNTED_PAYBACK_PERIOD_END:['الاسترداد المخصوم عند نهاية السنة','Discounted payback at year end'],PROFITABILITY_INDEX_CONVENTIONAL:['مؤشر الربحية للتدفقات التقليدية','Conventional profitability index'],EQUIVALENT_ANNUAL_ANNUITY:['القيمة السنوية المكافئة','Equivalent annual annuity'],GROSS_RENTAL_YIELD:['عائد الإيجار الإجمالي','Gross rental yield'],GROSS_RENT_MULTIPLIER:['مضاعف الإيجار الإجمالي','Gross rent multiplier'],WACC:['تكلفة رأس المال المرجحة','WACC'],PROJECT_BREAK_EVEN_UNITS:['تعادل المشروع بالوحدات','Break-even units'],PROJECT_BREAK_EVEN_REVENUE:['إيراد التعادل','Break-even revenue'],MARGIN_OF_SAFETY:['هامش الأمان','Margin of safety'],HOLDING_PERIOD_RETURN:['عائد فترة الاحتفاظ','Holding period return'],VALUE_ONLY_CAGR:['النمو السنوي المركب للقيمة دون التوزيعات','Value-only CAGR'],REAL_HOLDING_PERIOD_RETURN:['العائد الحقيقي لفترة الاحتفاظ','Real holding return'],PORTFOLIO_HOLDING_PERIOD_RETURN:['عائد المحفظة لفترة الاحتفاظ','Portfolio holding return']};
 const REASONS={NOT_RECOVERED_WITHIN_STUDY:['لم يتحقق الاسترداد خلال الدراسة','Not recovered during study'],NON_CONVENTIONAL_CASHFLOWS:['تدفقات غير تقليدية','Non-conventional cash flows'],ZERO_GROSS_RENT:['الإيجار الإجمالي صفر','Zero gross rent'],NON_POSITIVE_CONTRIBUTION:['هامش المساهمة غير موجب','Non-positive contribution'],ZERO_REVENUE:['الإيراد صفر','Zero revenue'],INFLATION_NOT_SUPPLIED:['لم يقدم معدل التضخم','Inflation not supplied']};
@@ -14,8 +15,9 @@ export default function LocalSupplementalResearchPanel(){
  const [method,setMethod]=useState('annual'),[caseId,setCase]=useState(''),[property,setProperty]=useState(''),[asOfDate,setDate]=useState(''),[portfolioId,setPortfolio]=useState(''),[assets,setAssets]=useState(''),[result,setResult]=useState(null),[busy,setBusy]=useState(false);
  const [source,setSource]=useState(null),[passphrase,setPassphrase]=useState(''),[confirmed,setConfirmed]=useState(false),[overwrite,setOverwrite]=useState(false),[confirmDelete,setConfirmDelete]=useState(false),[notice,setNotice]=useState('');
  const [snapshotText,setSnapshotText]=useState(null),[snapshotNotice,setSnapshotNotice]=useState('');
- const epoch=useRef(0),fileRef=useRef(null),snapshotRef=useRef(null);
- function clear(preserveSnapshot=false){if(preserveSnapshot!==true){setSnapshotText(null);setSnapshotNotice('');if(snapshotRef.current)snapshotRef.current.value='';}epoch.current++;setResult(null);setSource(null);setPassphrase('');setConfirmed(false);setOverwrite(false);setConfirmDelete(false);setNotice('');setBusy(false);if(fileRef.current)fileRef.current.value='';}
+ const [reportText,setReportText]=useState(null),[appendixNotice,setAppendixNotice]=useState('');
+ const epoch=useRef(0),fileRef=useRef(null),snapshotRef=useRef(null),reportRef=useRef(null);
+ function clear(preserveSnapshot=false){setReportText(null);setAppendixNotice('');if(reportRef.current)reportRef.current.value='';if(preserveSnapshot!==true){setSnapshotText(null);setSnapshotNotice('');if(snapshotRef.current)snapshotRef.current.value='';}epoch.current++;setResult(null);setSource(null);setPassphrase('');setConfirmed(false);setOverwrite(false);setConfirmDelete(false);setNotice('');setBusy(false);if(fileRef.current)fileRef.current.value='';}
  useLayoutEffect(()=>{clear();setCase(linkedCase?.caseId||'');setProperty('');setDate('');setPortfolio('');setAssets('');},[linkedCase?.caseId,linkedCase?.name,linkedCase?.mode]);
  useEffect(()=>()=>{epoch.current++;},[]);
  const isPortfolio=method==='portfolio',assetIds=assets.split('\n').map(x=>x.trim()).filter(Boolean);
@@ -51,6 +53,16 @@ export default function LocalSupplementalResearchPanel(){
   }catch(e){if(epoch.current===token)setNotice(e?.message==='SUPPLEMENTAL_EXISTING_DRAFT_CONFIRM_OVERWRITE'?'exists':'failed');}
   finally{if(epoch.current===token){setBusy(false);setPassphrase('');setConfirmed(false);setOverwrite(false);setConfirmDelete(false);}}
  }
+ async function loadReference(file){
+  const token=++epoch.current;setReportText(null);setAppendixNotice('');if(!file)return;setBusy(true);
+  try{const raw=file.size>MAX_BYTES?null:await file.text();reportReference(raw,expected);if(epoch.current===token){setReportText(raw);setAppendixNotice('linked');}}
+  catch{if(epoch.current===token)setAppendixNotice('invalid');}
+  finally{if(epoch.current===token)setBusy(false);}
+ }
+ function exportAppendix(){
+  try{const a=buildSupplementalAppendix({method,text:source,expected,reportText,snapshotText});download('supplemental-research-appendix.json',a);setAppendixNotice('exported');}
+  catch{setAppendixNotice('invalid');}
+ }
  const number=(v,u)=>!Number.isFinite(v)?'—':new Intl.NumberFormat(en?'en-SA':'ar-SA',u==='RATIO'&&!result?.metrics?.some(m=>m.value===v&&m.id==='PROFITABILITY_INDEX_CONVENTIONAL')||['ANNUAL_RATIO','PERIOD_RATIO'].includes(u)?{style:'percent',maximumFractionDigits:3}:u.startsWith('SAR')?{style:'currency',currency:'SAR',maximumFractionDigits:2}:{maximumFractionDigits:4}).format(v);
  const fields=isPortfolio?[[t('معرف المحفظة','Portfolio ID'),portfolioId,setPortfolio,'portfolio']]:[[t('معرف الحالة','Case ID'),caseId,setCase,'case'],[t('مرجع العقار','Property reference'),property,setProperty,'property']];
  return <section data-testid="local-supplemental-research" dir={en?'ltr':'rtl'} className="mt-4 rounded-xl border border-slate-700 bg-slate-950/30 p-3 text-slate-100">
@@ -83,6 +95,10 @@ export default function LocalSupplementalResearchPanel(){
  {isPortfolio&&!snapshotText&&<p className="mt-2 text-xs text-amber-200">{t('الحفظ والاستعادة مشروطان بلقطة بداية مطابقة.','Save and restore require a matching opening snapshot.')}</p>}
  {usable&&<div data-testid="supplemental-result" className="mt-3"><div className="overflow-x-auto"><table className="w-full text-xs"><thead><tr><th className="p-2 text-start">{t('المؤشر','Metric')}</th><th className="p-2 text-start">{t('النتيجة','Result')}</th></tr></thead><tbody>{result.metrics.map(m=><tr data-testid={'supplemental-metric-'+m.id} key={m.id} className="border-t border-slate-800"><td className="p-2">{LABELS[m.id]?.[en?1:0]}</td><td className="p-2">{m.id==='PROFITABILITY_INDEX_CONVENTIONAL'&&Number.isFinite(m.value)?new Intl.NumberFormat(en?'en-SA':'ar-SA',{maximumFractionDigits:4}).format(m.value):number(m.value,m.unit)} {REASONS[m.reason]?.[en?1:0]||''}</td></tr>)}</tbody></table></div>
  <p className="mt-2 text-xs text-slate-400">{t('التقرير يتضمن أساس الاحتساب والمراجع والفترة؛ ليس تقرير تقييم مهني.','The draft includes calculation basis, sources and period; not a professional valuation report.')}</p>
+ {!isPortfolio&&source&&<label className="mt-3 block text-xs">{t('اختياري: ربط الملحق بنسخة التقرير المرجعي المطابقة','Optional: link appendix to matching reference report')}<input ref={reportRef} data-testid="supplemental-reference-report" type="file" accept=".json,application/json" disabled={busy} onChange={e=>loadReference(e.target.files?.[0])} className="mt-1 block w-full"/></label>}
+ <p className="mt-2 text-xs text-amber-200">{t('الملحق مستقل وغير معتمد؛ ربط البصمة لا يثبت هوية مُصدر التقرير ولا يرفع حالة اعتماده.','Separate uncertified appendix; digest linkage does not authenticate the report issuer or upgrade QA.')}</p>
+ <button data-testid="supplemental-appendix" type="button" disabled={busy||!source||(!isPortfolio&&appendixNotice==='invalid')} onClick={exportAppendix} className="mt-3 rounded border border-slate-700 px-3 py-2 text-xs disabled:opacity-50">{t('تصدير الملحق التحليلي الموثق بالبصمة','Export digest-linked analytical appendix')}</button>
+ <p role="status" data-testid="supplemental-appendix-status" className="text-xs">{({linked:t('تمت مطابقة مرجع التقرير','Reference report matched'),invalid:t('تعذر مطابقة المرجع أو المدخلات','Reference or input mismatch'),exported:t('تم إنشاء الملحق المستقل','Separate appendix generated')})[appendixNotice]||''}</p>
  <button data-testid="supplemental-report" type="button" onClick={()=>download('supplemental-research-report.json',{...result,kind:'LOCAL_RESEARCH_DRAFT'})} className="mt-3 rounded border border-slate-700 px-3 py-2 text-xs">{t('تصدير مسودة التحليل','Export research draft')}</button></div>}
  </section>;
 }
