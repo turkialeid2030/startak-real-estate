@@ -153,6 +153,12 @@ export default function PropertyMarketLocationPanel({
     setResearchFeeds(f=>({...f,national:register?.records||[]}));
   },[]);
   const [researchSessionEpoch,setResearchSessionEpoch]=useState(0);
+  const liveResearchSessionEpoch=useRef(0);
+  const updateSupplementalFeed=(feed,rows)=>{
+    // Async CSV readers from an unmounted previous study cannot repopulate the current one.
+    if(liveResearchSessionEpoch.current!==researchSessionEpoch)return;
+    setResearchFeeds(f=>({...f,[feed]:rows}));
+  };
 
 
   const [bridgeConfirmed,setBridgeConfirmed]=useState(false);
@@ -354,7 +360,8 @@ export default function PropertyMarketLocationPanel({
     setNationalRegister(restoredRegister);
     setResearchFeeds({suhail:toPublicSample(),listings:[],earth:[],national:restoredRegister?.records||[]});
     setEvidenceBoundSubjectKey(marketEvidenceSubjectKey(restored.subject));
-    setResearchSessionEpoch(n=>n+1);
+    liveResearchSessionEpoch.current++;
+    setResearchSessionEpoch(liveResearchSessionEpoch.current);
     setImportSource('');setRightsConfirmed(false);setImportStatus('');
   };
   const refreshCanonicalDeals=async()=>{
@@ -777,15 +784,15 @@ export default function PropertyMarketLocationPanel({
       <a className="rounded-lg border border-slate-600 px-4 py-2 text-xs text-sky-300" target="_blank" rel="noopener noreferrer" href="https://srem.moj.gov.sa/">{L("الصفقات المسجلة — وزارة العدل")}</a>
       <a className="rounded-lg border border-slate-600 px-4 py-2 text-xs text-sky-300" target="_blank" rel="noopener noreferrer" href="https://opendata.rcrc.gov.sa/">{L("بيانات ومشاريع مدينة الرياض المكانية")}</a>
     </div>
-    <ResearchEvidenceFusionPanel subject={subject} feeds={researchFeeds} limitedInterestHold={interestScopeHold} evidenceScopeHold={evidenceScopeHold}
+    <ResearchEvidenceFusionPanel subject={subject} feeds={researchFeeds} limitedInterestHold={interestScopeHold} evidenceScopeHold={evidenceScopeHold||nationalRegisterHold}
       asOf={studyAsOf.asOf.toISOString().slice(0,10)}
       marketReport={report} readiness={valuationReadiness}
       publicNeighborhood={publicNeighborhood} publicLoadMeta={publicLoadMeta}
       readinessStatus={valuationReadiness.status}/>
     <ChallengerBenchmarkResearchPanel/>
-    <SuhailNationalResearchPanel key={'suhail-'+researchSessionEpoch} onResearchChange={rows=>setResearchFeeds(f=>({...f,suhail:rows}))}/>
-    <SaudiListingSourcesResearchPanel key={'listings-'+researchSessionEpoch} onResearchChange={rows=>setResearchFeeds(f=>({...f,listings:rows}))}/>
-    <EarthNationalResearchPanel key={'earth-'+researchSessionEpoch} onResearchChange={rows=>setResearchFeeds(f=>({...f,earth:rows}))}/>
+    <SuhailNationalResearchPanel key={'suhail-'+researchSessionEpoch} onResearchChange={rows=>updateSupplementalFeed('suhail',rows)}/>
+    <SaudiListingSourcesResearchPanel key={'listings-'+researchSessionEpoch} onResearchChange={rows=>updateSupplementalFeed('listings',rows)}/>
+    <EarthNationalResearchPanel key={'earth-'+researchSessionEpoch} onResearchChange={rows=>updateSupplementalFeed('earth',rows)}/>
     <SaudiNationalIntelligenceSourcesPanel key={'national-'+researchSessionEpoch} subject={subject} initialRegister={nationalRegister} onRegisterChange={changeNationalRegister}/>
     {message&&<p data-testid="market-study-action-notice" data-diagnostic-content translate="no" role="status" className="text-xs text-slate-200 mt-2">{researchActionText(message,locale)}</p>}
   </section>;
