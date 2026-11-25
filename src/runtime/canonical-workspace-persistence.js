@@ -240,6 +240,17 @@ function createCanonicalWorkspacePersistence({
     const identity = requireVerifiedIdentityContext(identityContext);
     if (!identity.roles.some(role => ['ANALYST','ADMIN'].includes(role))) fail('ROLE_NOT_AUTHORIZED');
     if (!workspace || typeof workspace !== 'object' || Array.isArray(workspace)) throw new TypeError('workspace is required');
+    // Validate and persist the same detached JSON snapshot. A caller can
+    // otherwise mutate the original object while providerGet is awaited,
+    // changing tenant, project, attribution or authority after validation.
+    try {
+      workspace = JSON.parse(JSON.stringify(workspace));
+    } catch (_) {
+      fail('INVALID_CANONICAL_WORKSPACE');
+    }
+    if (!workspace || typeof workspace !== 'object' || Array.isArray(workspace)) {
+      fail('INVALID_CANONICAL_WORKSPACE');
+    }
     const workspaceId = requiredString(workspace.workspaceId, 'workspace.workspaceId');
     requiredString(workspace.projectId, 'workspace.projectId');
     requiredString(workspace.caseId, 'workspace.caseId');
