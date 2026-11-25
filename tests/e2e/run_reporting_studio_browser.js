@@ -58,6 +58,13 @@ const fixture={reportRef:'SYNTHETIC-ONLY',valuationDate:'2026-01-01',landAreaSqm
    await expect(exp).toBeEnabled();
    const esgHtml=await download(exp);assert.ok(esgHtml.includes(locale==='en'?'Property ESG research screening':'الفحص البحثي للعوامل البيئية والاجتماعية والحوكمة'));assert.ok(!esgHtml.includes('<script>'));
    await input.fill(JSON.stringify({...esg,factors:[{...esg.factors[0],sourceRef:null}]}));await audit.click();await expect(exp).toBeDisabled();await expect(panel.getByTestId('studio-audit-result')).toHaveCount(0);
+   const rentalButton=panel.getByTestId('studio-load-rental-example');
+   await panel.locator('details').filter({has:rentalButton}).locator('summary').click();await rentalButton.click();await expect(exp).toBeDisabled();await audit.click();
+   await expect(panel.getByTestId('studio-audit-result')).toContainText('110000');await expect(panel.getByTestId('studio-audit-result')).toContainText('97020');await expect(exp).toBeEnabled();
+   const rentHtml=await download(exp);assert.ok(rentHtml.includes(locale==='en'?'Independent rental research indication':'تقدير بحثي مستقل للقيمة الإيجارية'));assert.ok(!rentHtml.includes('<script>'));
+   const rentFixture=JSON.parse(await input.inputValue());await input.fill(JSON.stringify({...rentFixture,comparables:rentFixture.comparables.map(c=>({...c,status:'ASKING'}))}));await expect(exp).toBeDisabled();await audit.click();
+   await expect(panel.getByTestId('studio-audit-result')).toContainText(locale==='en'?'No aggregate estimate due to insufficient or conflicting evidence':'لا يوجد تقدير إجمالي بسبب نقص الأدلة أو تعارضها');
+   const holdHtml=await download(exp);assert.ok(holdHtml.includes(locale==='en'?'Held for insufficient or conflicting evidence':'معلق لعدم كفاية الأدلة أو تعارضها'));
    await input.fill('{}');await expect(exp).toBeDisabled();await expect(panel.getByTestId('studio-audit-result')).toHaveCount(0);
    await audit.click();await expect(exp).toBeDisabled();await expect(panel.getByTestId('studio-notice')).toBeVisible();
    assert.deepEqual(errors,[]);
