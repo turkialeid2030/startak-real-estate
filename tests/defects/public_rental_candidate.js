@@ -16,3 +16,14 @@ test('tampered digest denied',()=>assert.throws(()=>validate(dir,{...m,files:[{.
 test('wrong period denied',()=>assert.throws(()=>validate(dir,{...m,files:[{...m.files[0],year:2027}]}),/SCOPE_MISMATCH/));
 test('incomplete national coverage denied',()=>assert.throws(()=>validate(dir,{...m,files:[m.files[0]]},true),/COVERAGE_INCOMPLETE/));
 console.log('PUBLIC_RENT_CANDIDATE_RULES=PASS cases='+n);
+
+const {splitKnownMixed}=require('../../tools/split-public-rental-period');
+const {HEADER}=require('../../src/reporting/public-rent-reference');
+const old='2025,1,عسير,أبها,حي تجريبي,شقة,سكني,3,20000,150',current='2026,1,عسير,أبها,حي تجريبي,شقة,سكني,5,22000,160';
+const make=rows=>Buffer.from('\uFEFF'+HEADER.join(',')+'\r\n'+rows.join('\r\n')+'\r\n');
+test('known mixed period exact overlap reconciled',()=>{const r=splitKnownMixed(make([old,current]),make([current]),'aseer',2025,1);assert.equal(r.provenance.retainedRows,1);assert.equal(r.provenance.excludedDuplicateRows,1);assert.ok(r.derived.equals(make([old])));});
+test('unknown mixed period denied',()=>assert.throws(()=>splitKnownMixed(make([old,current]),make([current]),'riyadh',2025,1),/PERIOD_MISMATCH/));
+test('conflicting overlap denied',()=>assert.throws(()=>splitKnownMixed(make([old,current]),make([current.replace('22000','23000')]),'aseer',2025,1),/MIXED_OVERLAP_CONFLICT/));
+test('duplicate multiplicity must match',()=>assert.throws(()=>splitKnownMixed(make([old,current,current]),make([current]),'aseer',2025,1),/MIXED_OVERLAP_CONFLICT/));
+test('unexpected period denied',()=>assert.throws(()=>splitKnownMixed(make([old,current,current.replace('2026,1','2026,2')]),make([current]),'aseer',2025,1),/MIXED_UNEXPECTED_PERIOD/));
+console.log('PUBLIC_RENT_MIXED_RULES=PASS totalCandidateCases='+n);
