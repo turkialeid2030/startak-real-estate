@@ -1,7 +1,7 @@
 const {governanceEvidenceLabel}=require('../i18n/governance-evidence-presentation');
 import DiagnosticText from './DiagnosticText.jsx';
 import LocalDocumentTablePanel from './LocalDocumentTablePanel.jsx';
-import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
+import React, { useLayoutEffect, useId, useMemo, useRef, useState } from 'react';
 
 const { createManualTranscription } = require('../document-intelligence/manual-transcription');
 const { parseDocument } = require('../document-intelligence/parsers');
@@ -76,7 +76,7 @@ export default function LocalDocumentEvidenceIntakePanel({ onRecordChange = null
   const [manual, setManual] = useState(emptyManual);
   const [ocrSource,setOcrSource]=useState(null),[ocrPage,setOcrPage]=useState('1'),[ocrPreview,setOcrPreview]=useState(null),[ocrLayout,setOcrLayout]=useState('AUTO');
   const requestRef = useRef({id:0,controller:null,ocrActive:false});
-  useEffect(() => { requestRef.current.id++; requestRef.current.controller?.abort();requestRef.current.ocrActive=false; setBusy(false); setRecord(null); setError(null);setOcrSource(null);setOcrPage('1');setOcrLayout('AUTO');setOcrPreview(null);setManual(emptyManual()); if(fileInputRef.current)fileInputRef.current.value=''; publishRecord(null); return () => {requestRef.current.id++;requestRef.current.controller?.abort();}; }, [suppliedCaseId]);
+  useLayoutEffect(() => { requestRef.current.id++; requestRef.current.controller?.abort();requestRef.current.ocrActive=false; setBusy(false); setRecord(null); setError(null);setOcrSource(null);setOcrPage('1');setOcrLayout('AUTO');setOcrPreview(null);setManual(emptyManual()); if(fileInputRef.current)fileInputRef.current.value=''; publishRecord(null); return () => {requestRef.current.id++;requestRef.current.controller?.abort();}; }, [suppliedCaseId]);
 
   const publishRecord = (nextRecord, selectedAtomId = null) => {
     if (typeof onRecordChange === 'function') onRecordChange(nextRecord, selectedAtomId);
@@ -247,7 +247,7 @@ export default function LocalDocumentEvidenceIntakePanel({ onRecordChange = null
   };
 
   return (
-    <section data-testid="local-document-evidence-intake" dir={dir} className="mx-auto mt-6 w-full max-w-7xl px-4 pb-8 md:px-8">
+    <section data-testid="local-document-evidence-intake" data-case-scope={suppliedCaseId||''} dir={dir} className="mx-auto mt-6 w-full max-w-7xl px-4 pb-8 md:px-8">
       <div className="rounded-2xl border border-slate-700/70 bg-[#101a2d] p-4 shadow-2xl shadow-black/20 md:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="max-w-3xl">
