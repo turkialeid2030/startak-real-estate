@@ -29,7 +29,11 @@ jobs:
           node tests/defects/public_rental_candidate.js
           node tools/refresh-public-rental-data.js
           node tools/build-public-rental-candidate.js
+      - name: Check dataset-specific reuse evidence (no owner approval flag)
+        id: rights
+        run: node tools/check-public-rental-reuse.js
       - name: Propose data-only review candidate (never merge)
+        if: steps.rights.outputs.publishable == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           BASE_BRANCH: ${{ github.event.repository.default_branch }}
