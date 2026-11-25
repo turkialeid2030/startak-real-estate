@@ -311,7 +311,9 @@
       "requirement": "الاختبارات الانحدارية",
       "status": "NOT TESTED",
       "environment": null,
-      "evidence": [],
+      "evidence": [
+        "Release Verify #3330 at 11dd115666e9f545cc67d18b5242dca9c63c2540: 708/708 regression; #3331 reported success at a06db001859c0c28f3bf5153c9de886703e64481. Full V5 requirement coverage not yet reconciled."
+      ],
       "owner": "CTO / CISO",
       "phase": "PRE_LAUNCH_APPLICABILITY_REVIEW",
       "acceptance": "Evidence for all applicable V5 requirements; exact candidate and relevant environment; no unresolved mandatory failure",
@@ -381,26 +383,30 @@
     {
       "id": "G32",
       "requirement": "تأمين الأسرار",
-      "status": "NOT TESTED",
-      "environment": null,
-      "evidence": [],
+      "status": "BLOCKED",
+      "environment": "CI",
+      "evidence": [
+        "Reachable-history scan #1 (run 45655090202), head a06db001859c0c28f3bf5153c9de886703e64481: scanner completed with unresolved matches; private triage required. No credential validity or exposure incident established."
+      ],
       "owner": "SRE / CTO",
       "phase": "PRE_LAUNCH_APPLICABILITY_REVIEW",
       "acceptance": "Evidence for all applicable V5 requirements; exact candidate and relevant environment; no unresolved mandatory failure",
       "testMethod": "Map applicable control to independent source, positive/negative cases and relevant runtime; record exact SHA and raw outcome",
-      "residualRisk": "Scope not yet fully qualified"
+      "residualRisk": "Private classification, provider-side revocation/rotation where applicable, scope reconciliation and re-scan remain mandatory."
     },
     {
       "id": "G33",
       "requirement": "فحص تاريخ Git",
-      "status": "NOT TESTED",
-      "environment": null,
-      "evidence": [],
+      "status": "BLOCKED",
+      "environment": "CI",
+      "evidence": [
+        "Reachable-history scan #1 (run 45655090202), head a06db001859c0c28f3bf5153c9de886703e64481: scanner completed with unresolved matches; private triage required. No credential validity or exposure incident established."
+      ],
       "owner": "SRE / CTO",
       "phase": "PRE_LAUNCH_APPLICABILITY_REVIEW",
       "acceptance": "Evidence for all applicable V5 requirements; exact candidate and relevant environment; no unresolved mandatory failure",
       "testMethod": "Map applicable control to independent source, positive/negative cases and relevant runtime; record exact SHA and raw outcome",
-      "residualRisk": "Scope not yet fully qualified"
+      "residualRisk": "Private classification, provider-side revocation/rotation where applicable, scope reconciliation and re-scan remain mandatory."
     },
     {
       "id": "G34",
@@ -711,14 +717,16 @@
     {
       "id": "G59",
       "requirement": "إغلاق ثغرات الأسرار",
-      "status": "NOT TESTED",
-      "environment": null,
-      "evidence": [],
+      "status": "BLOCKED",
+      "environment": "CI",
+      "evidence": [
+        "Reachable-history scan #1 (run 45655090202), head a06db001859c0c28f3bf5153c9de886703e64481: scanner completed with unresolved matches; private triage required. No credential validity or exposure incident established."
+      ],
       "owner": "CISO / Data Protection",
       "phase": "PRE_LAUNCH_APPLICABILITY_REVIEW",
       "acceptance": "Evidence for all applicable V5 requirements; exact candidate and relevant environment; no unresolved mandatory failure",
       "testMethod": "Map applicable control to independent source, positive/negative cases and relevant runtime; record exact SHA and raw outcome",
-      "residualRisk": "Scope not yet fully qualified"
+      "residualRisk": "Private classification, provider-side revocation/rotation where applicable, scope reconciliation and re-scan remain mandatory."
     },
     {
       "id": "G60",
