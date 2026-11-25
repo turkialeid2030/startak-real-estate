@@ -9,6 +9,7 @@ const SCHEMAS=Object.freeze({
  HOSPITALITY:schema(HOTEL_FIELDS),
  INDUSTRIAL_LOGISTICS:schema(['landAreaSqm','builtAreaSqm','netLeasableAreaSqm','clearHeightMeters','powerCapacityKva','annualRentSar','landlordExpensesSar'],['assetId','subtype','customSubtype','leaseStructure','internalInspectionStatus','buildingPermitStatus'],['tenantOpexConfirmed']),
  HEALTHCARE:CAP,EDUCATION:CAP,PARKING:CAP,DATA_CENTER:CAP,
+ FUEL_STATION:schema(['annualLitres','sellingPricePerLitre','purchaseCostPerLitre','annualNonFuelRevenueSar','annualNonFuelDirectCostSar','annualOperatingExpensesSar','annualPropertyRentSar','annualEnvironmentalReserveSar'],[],['nonFuelSeparated','propertyRentSeparated','environmentalReviewDeclared']),
  MIXED_USE:schema(['totalLeasableAreaSqm','commonExpensesSar'],[],['sharedExpensesAllocatedOnce']),
  SPECIAL_PURPOSE:schema(['landValueSar','replacementCostSar','physicalLossSar','functionalLossSar','externalLossSar'],['propertyRightRef'],['lossCausesDistinct','businessAssetsExcluded']),
 });
