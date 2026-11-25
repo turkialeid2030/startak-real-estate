@@ -15,7 +15,7 @@ for(const [factor,pillar] of Object.entries(FACTORS)){
  ok(Object.hasOwn(ESG_FACTOR,factor));ok(Object.hasOwn(ESG_PILLAR,pillar));
  for(const outcome of STATES){
   const f={...evidence,factor,pillar,outcome,impactChannels:['MATERIAL','POTENTIALLY_MATERIAL'].includes(outcome)?['OWNER_OPEX']:[]};
-  const v=run({...base,factors:[f]});eq(v.factors.find(x=>x.factor===factor).outcome,outcome);eq(v.missingFactorCount,10);eq(v.factors.length,11);eq(v.factors.find(x=>x.factor===factor).sourceAuthenticated,false);
+  const v=run({...base,factors:[f]});eq(v.factors.find(x=>x.factor===factor).outcome,outcome);eq(v.missingFactorCount,10);eq(v.factors.length,11);eq(v.factors.find(x=>x.factor===factor).sourceAuthenticated,false);eq(v.factors.find(x=>x.factor===factor).reviewRequired,['UNKNOWN','MATERIAL','POTENTIALLY_MATERIAL'].includes(outcome));
  }
 }
 const complete=run({...base,factors:Object.entries(FACTORS).map(([factor,pillar])=>({...evidence,factor,pillar,outcome:'NOT_MATERIAL',impactChannels:[]}))});eq(complete.missingFactorCount,0);eq(complete.counts.NOT_MATERIAL,11);eq(complete.professionalMaterialityEstablished,false);
