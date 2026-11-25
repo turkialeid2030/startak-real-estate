@@ -31,3 +31,19 @@ for(const f of manifest.files){
 }
 assert.ok(total>=32641);assert.ok(historicalRiyadh>=12495);
 console.log('PUBLIC_RENT_NATIONAL=PASS regions=13 rows='+total);
+
+const {buildRentalTrend}=require('../../src/reporting/public-rent-trend');
+const scope={region:'الرياض',city:'الرياض',district:'الملقا',kind:'شقة',classification:'سكني'};
+const historical=parsePublicRentCsv(fs.readFileSync('public/market-data/Rental-indicators-in-Riyadh-region-1st-Q-2025.csv','utf8'));
+const series=buildRentalTrend([...historical,...rows],scope);
+assert.equal(series.length,2);
+assert.equal(series[0].rentSar,53248.04);assert.equal(series[1].rentSar,53921.96);
+assert.equal(series[1].rentYoYPct,1.27);assert.equal(series[1].rentPerSqmYoYPct,.23);
+const row=rows.find(r=>r.city===scope.city&&r.district===scope.district&&r.kind===scope.kind&&r.classification===scope.classification);
+assert.equal(buildRentalTrend([row,row],scope)[0].status,'AMBIGUOUS');
+assert.equal(buildRentalTrend([{...row,count:2}],scope)[0].rentSar,null);
+assert.equal(buildRentalTrend([{...row,reportedRentSar:null,reportedRentPerSqmSar:null}],scope)[0].status,'NO_PRICE');
+assert.equal(buildRentalTrend([row],scope)[0].rentYoYPct,null);
+assert.equal(buildRentalTrend([row],{...scope,city:'جدة'}).length,0);
+assert.throws(()=>buildRentalTrend([row],{...scope,kind:''}),/SCOPE_REQUIRED/);
+console.log('PUBLIC_RENT_TREND=PASS real source comparison and guarded scenarios');
