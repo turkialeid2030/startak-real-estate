@@ -6,10 +6,12 @@ const fs=require('node:fs');
 const path=require('node:path');
 const EXPECTED_HEADER='id,old,source_blob,versions,domain,modern_anchor,status,inspection,priority,acceptance';
 const STATUS={
- MODERN_ANCHOR_EXISTS_PARITY_UNVERIFIED:46,
+ MODERN_ANCHOR_EXISTS_PARITY_UNVERIFIED:43,
+ RESTORED_SOURCE_PARITY_UNVERIFIED:3,
  OLD_STAGING_CONTRACT_NOT_PRODUCTION_VAULT:10,
  SAFE_RETIREMENT_REVIEW:1,
 };
+const RESTORED=Object.freeze({'LEG-002':'src/app/institutional-valuation-decision-boundary.js','LEG-014':'src/cost/depreciation-attribution-gate.js','LEG-054':'src/valuation-intelligence/market-rate-provenance.js'});
 const MANIFEST='docs/recovery/STARTAK_RE_HISTORIC_SOURCE_CANDIDATES_20261114.csv';
 function fail(reason){throw Error('LEGACY_57_'+reason);}
 function csvFields(line){
@@ -46,13 +48,15 @@ function verifyLegacyManifest(csv,{fileExists}){
   if(!/^[a-f0-9]{40}$/i.test(sourceBlob))fail('SOURCE_BLOB_INVALID');
   // Never accept traversal, absolute paths or root dot segments from a
   // purported source manifest, even if the caller uses a real fs.existsSync.
-  if(!/^src\/[A-Za-z0-9_./-]+\.(?:js|jsx)$/.test(old)||old.includes('..')||
-     fileExists(old))fail('OLD_PATH_NOT_ABSENT_OR_INVALID');
+  if(!/^src\/[A-Za-z0-9_./-]+\.(?:js|jsx)$/.test(old)||old.includes('..'))fail('OLD_PATH_NOT_ABSENT_OR_INVALID');
+  if(status==='RESTORED_SOURCE_PARITY_UNVERIFIED'){
+   if(RESTORED[id]!==old||!fileExists(old))fail('RESTORED_PATH_MISMATCH');
+  }else if(Object.hasOwn(RESTORED,id)||fileExists(old))fail('OLD_PATH_NOT_ABSENT_OR_INVALID');
   if(!Object.hasOwn(STATUS,status))fail('STATUS_UNRECOGNIZED');
   counts[status]=(counts[status]||0)+1;
   if(inspection!=='LEGACY_API_INSPECTED')fail('INSPECTION_INVALID');
   if(!['P0','P1','P2'].includes(priority))fail('PRIORITY_INVALID');
-  if(status==='MODERN_ANCHOR_EXISTS_PARITY_UNVERIFIED'){
+  if(['MODERN_ANCHOR_EXISTS_PARITY_UNVERIFIED','RESTORED_SOURCE_PARITY_UNVERIFIED'].includes(status)){
     if(!/^src\/[A-Za-z0-9_./-]+\.(?:js|jsx)$/.test(modernAnchor)||
        modernAnchor.includes('..')||!fileExists(modernAnchor))
       fail('MODERN_ANCHOR_MISSING');
@@ -63,7 +67,8 @@ function verifyLegacyManifest(csv,{fileExists}){
  }
  return Object.freeze({
   sourcePaths:57,uniqueSourcePaths:seenOld.size,
-  modernAnchorsPresent:counts.MODERN_ANCHOR_EXISTS_PARITY_UNVERIFIED,
+  modernAnchorsPresent:counts.MODERN_ANCHOR_EXISTS_PARITY_UNVERIFIED+counts.RESTORED_SOURCE_PARITY_UNVERIFIED,
+  restoredSourcePaths:counts.RESTORED_SOURCE_PARITY_UNVERIFIED,
   oldStagingNotProduction:counts.OLD_STAGING_CONTRACT_NOT_PRODUCTION_VAULT,
   oldCryptoRequiresRetirement:counts.SAFE_RETIREMENT_REVIEW,
   equivalentFeaturesVerified:0, // This check has NO capability/functional authority.
