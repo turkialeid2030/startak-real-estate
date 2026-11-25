@@ -9,6 +9,8 @@ function ok(v){assert.ok(v);checks++;}
 function denied(v){assert.throws(()=>reviewExternalReport(v));checks++;cases++;}
 function run(v){const out=reviewExternalReport(v);cases++;eq(out.professionalValuationCertified,false);eq(out.sourceAuthenticated,false);eq(out.canonicalModelUpdated,false);eq(out.transactionAuthorized,false);return out;}
 const a=run(base);eq(a.comparables[0].firstRateSar,900);eq(a.comparables[0].adjustedRateSar,720);eq(a.weightedRateSar,960);eq(a.componentCostSar,510000);eq(a.buildingFloorAreaSqm,500);eq(a.fullPrecisionPhysicalDepSar,102000);eq(a.replayedFinalValueSar,1368000);eq(a.issues.length,0);
+const fraction=run({...base,comparables:[{...base.comparables[0],rawRateSar:1000.01,firstAdjustment:0,secondAdjustment:0,weight:.333333},{...base.comparables[1],rawRateSar:1000.02,weight:.666667}],adoptedLandRateSar:1000.02,declaredFinalValueSar:1408020});
+eq(fraction.weightedRateSar,1000.02);ok(Math.abs(fraction.weightedBeforeFinalRoundingSar-1000.01666667)<1e-8);eq(fraction.landRateImpactSar,3.33);
 const flags=[
  [{identityConflict:true},'IDENTITY_CONFLICT_DECLARED'],[{incomeEvidenceAvailable:false},'INCOME_EVIDENCE_MISSING'],[{adoptedLandRateSar:961},'ADOPTED_RATE_DIFF_UNEXPLAINED'],[{adoptedLandRateSar:961,roundingReason:'declared round'},'ADOPTED_RATE_DIFF_DOCUMENTED_UNVERIFIED'],[{declaredBuildingCostSar:500000},'BUILDING_COST_MISMATCH'],[{declaredDepreciationSar:100000},'DECLARED_DEPRECIATION_MISMATCH'],[{effectiveAge:11},'AGE_LIFE_PRECISION_DIFFERENCE'],[{declaredFinalValueSar:1},'FINAL_VALUE_MISMATCH'],[{declaredDepreciationSar:600000},'DEPRECIATION_EXCEEDS_COST']
 ];
