@@ -1,0 +1,26 @@
+'use strict';
+const assert=require('node:assert/strict');
+const {VERSION,SOURCES}=require('../../src/reporting/saudi-rent-indicator-snapshot');
+const {emptyHistory,appendIndicator,importHistory,reviewHistory,MAX_BYTES}=require('../../src/reporting/saudi-rent-indicator-history');
+const x={version:VERSION,sourceId:'REGA',sourceUrl:SOURCES.REGA.url,sourceRef:'SYNTHETIC-1',attribution:'SYNTHETIC TEST ONLY',city:'الرياض',district:'حي تجريبي',kind:'OFFICE',subtype:'GRADE-A',areaBasis:'NLA',periodStart:'2025-10-01',periodEnd:'2025-12-31',publishedDate:'2026-01-01',observedDate:'2026-01-02',priceSource:'REGISTERED',metric:'MEAN_ANNUAL_SAR_PER_SQM',valueSar:100,sampleCount:20,vatBasis:'EXCLUDED',declaredVatRate:null,vatRef:null};
+const ctx={city:x.city,district:x.district,kind:x.kind,subtype:x.subtype,areaBasis:x.areaBasis,asOf:'2026-01-05'};
+let n=0;
+function test(name,fn){fn();n++;console.log('PASS '+name);}
+const empty=emptyHistory(), one=appendIndicator(empty,x);
+test('empty archive immutable',()=>{assert.equal(empty.records.length,0);assert.equal(one.records.length,1);});
+test('replay exact duplicate',()=>assert.deepEqual(appendIndicator(one,x),one));
+test('reordered object keys idempotent',()=>assert.deepEqual(appendIndicator(one,Object.fromEntries(Object.entries(x).reverse())),one));
+test('same observation conflicting value denied',()=>assert.throws(()=>appendIndicator(one,{...x,valueSar:120}),/HISTORY_OBSERVATION_CONFLICT/));
+test('revision on later observation retained',()=>assert.equal(appendIndicator(one,{...x,observedDate:'2026-01-03',valueSar:120}).records.length,2));
+test('portable roundtrip',()=>assert.deepEqual(importHistory(JSON.stringify(one)),one));
+test('tampering denied',()=>assert.throws(()=>importHistory(JSON.stringify({...one,records:[{...x,valueSar:120}]})),/HISTORY_HASH_MISMATCH/));
+test('extra fields denied',()=>assert.throws(()=>appendIndicator(one,{...x,tenantName:'not allowed'}),/HISTORY_RECORD_INVALID/));
+test('oversize denied',()=>assert.throws(()=>importHistory(' '.repeat(MAX_BYTES+1)),/HISTORY_SIZE/));
+test('future evidence excluded',()=>assert.equal(reviewHistory(one,{...ctx,asOf:'2026-01-01'}).observations.length,0));
+test('other district excluded',()=>assert.equal(reviewHistory(one,{...ctx,district:'OTHER'}).observations.length,0));
+test('reference does not become property estimate',()=>{const r=reviewHistory(one,ctx);assert.equal(r.observations[0].referenceMetricExVatSar,100);assert.equal(r.sourceAuthenticated,false);assert.equal(r.sourceLicenseVerified,false);assert.equal(r.liveSourceConnected,false);assert.equal(r.propertyRentEstimateSar,null);assert.deepEqual(r.individualLeaseComparables,[]);assert.equal(r.canonicalModelUpdated,false);});
+test('stale record visible without normalized metric',()=>{const r=reviewHistory(one,{...ctx,asOf:'2027-01-01'});assert.equal(r.observations[0].referenceMetricExVatSar,null);assert.ok(r.observations[0].flags.includes('STALE_PERIOD_REVIEW'));});
+test('invalid context rejected for empty archive',()=>assert.throws(()=>reviewHistory(empty,{...ctx,asOf:'2026-02-30'}),/HISTORY_CONTEXT_INVALID/));
+test('invalid source denied',()=>assert.throws(()=>appendIndicator(empty,{...x,sourceUrl:'https://evil.example/'})));
+test('asking reference remains non-comparable',()=>{const a=appendIndicator(empty,{...x,priceSource:'ASKING'});assert.equal(reviewHistory(a,ctx).observations[0].referenceMetricExVatSar,null);});
+console.log('RENT_INDICATOR_HISTORY=PASS cases='+n);
