@@ -117,6 +117,12 @@ function evaluateMarketStudy(input = {}) {
   const buildings = number(subject?.buildingCount), units = number(subject?.unitCount);
   const occupancy = number(assumptions.occupancy), expenseRatio = number(assumptions.expenseRatio);
   const capRate = number(assumptions.capRate);
+  // Numeric parsing returns null for absent or malformed data. JavaScript's
+  // relational comparison coerces null to zero; only an explicit finite
+  // numeric value may enter the income calculations.
+  const occupancyValid = Number.isFinite(occupancy) && occupancy >= 0 && occupancy <= 1;
+  const expenseRatioValid = Number.isFinite(expenseRatio) && expenseRatio >= 0 && expenseRatio < 1;
+  const capRateValid = Number.isFinite(capRate) && capRate > 0 && capRate < 1;
   const issues = [...structureIssues];
   const boundedSar=(candidate,reason)=>{
     if(candidate===null)return null;
@@ -135,9 +141,9 @@ function evaluateMarketStudy(input = {}) {
   if (needsIncomeInputs && !(lettableArea > 0)) issues.push('RENTABLE_AREA_REQUIRED');
   if (needsBuildingUnitCounts && (!Number.isInteger(buildings) || buildings <= 0)) issues.push('BUILDING_COUNT_REQUIRED');
   if (needsBuildingUnitCounts && (!Number.isInteger(units) || units <= 0)) issues.push('UNIT_COUNT_REQUIRED');
-  if (needsIncomeInputs && !(occupancy >= 0 && occupancy <= 1)) issues.push('OCCUPANCY_INVALID');
-  if (needsIncomeInputs && !(expenseRatio >= 0 && expenseRatio < 1)) issues.push('EXPENSE_RATIO_INVALID');
-  if (needsIncomeInputs && !(capRate > 0 && capRate < 1)) issues.push('CAP_RATE_INVALID');
+  if (needsIncomeInputs && !occupancyValid) issues.push('OCCUPANCY_INVALID');
+  if (needsIncomeInputs && !expenseRatioValid) issues.push('EXPENSE_RATIO_INVALID');
+  if (needsIncomeInputs && !capRateValid) issues.push('CAP_RATE_INVALID');
   if (!(number(subject?.landArea)>0))issues.push('LAND_AREA_REQUIRED');
   if (type!=='LAND' && !(number(subject?.builtArea)>0))issues.push('BUILT_AREA_REQUIRED');
   if (type==='HOTEL' && !(number(subject?.roomCount)>0))issues.push('HOTEL_ROOM_COUNT_REQUIRED');
@@ -178,18 +184,35 @@ function evaluateMarketStudy(input = {}) {
       spatialMatch(row));
   };
   const uniqueEligible = (rows,amountKey,areaKey) => {
-    const seen = new Set();
-    return rows.filter(row => {
-      if (!admissible(row,amountKey,areaKey)) return false;
-      const stableId = String(row.sourceRecordId || '').trim();
-      // A transaction ID is unique within its SOURCE HOST, even when
-      // copied into a different listing/detail URL from the same provider.
+    const groups = new Map();
+    const conflicts = new Set();
+    for (const row of rows) {
+      const eligible = admissible(row,amountKey,areaKey);
+      // Inspect a stable provider identity before filtering by eligibility.
+      // A contradictory status, date, amount or area is not resolved merely
+      // because one copy would have been excluded from this cohort.
+      if (!sourceAvailable(row?.sourceUrl)) continue;
+      const stableId = String(row?.sourceRecordId || '').trim();
+      if (!stableId && !eligible) continue;
       const sourceHost = new URL(row.sourceUrl).hostname.toLowerCase();
       const key = stableId ? sourceHost + '|id|' + stableId :
-        [row.sourceUrl,row.date,row.assetType,row[amountKey],row[areaKey],row.location,row.city,row.district].join('|');
-      if (seen.has(key)) return false;
-      seen.add(key);return true;
-    });
+        JSON.stringify([row.sourceUrl,row.date,row.assetType,number(row[amountKey]),number(row[areaKey]),row.location,row.city,row.district]);
+      const point = extractCoordinates(row.location || '');
+      const normalize = v => String(v || '').trim().replace(/\s+/g,' ').toLowerCase();
+      const signature = JSON.stringify([
+        row.status,row.date,row.assetType,number(row[amountKey]),number(row[areaKey]),
+        row.assetType==='LAND' ? String(row.landSubtype || '') : '',
+        point ? [point.lat,point.lng] : [normalize(row.city),normalize(row.district)]
+      ]);
+      if (!groups.has(key)) groups.set(key,{row,signature,eligible});
+      else if (groups.get(key).signature !== signature) conflicts.add(key);
+      else if (eligible && !groups.get(key).eligible) groups.set(key,{row,signature,eligible});
+    }
+    if(conflicts.size){
+      const reason=amountKey==='price'?'SALE_SOURCE_RECORD_CONFLICT':'RENT_SOURCE_RECORD_CONFLICT';
+      if(!issues.includes(reason))issues.push(reason);
+    }
+    return [...groups].filter(([key,entry])=>entry.eligible&&!conflicts.has(key)).map(([,entry])=>entry.row);
   };
   const eligibleSales = uniqueEligible(sales, 'price', type === 'LAND' ? 'landArea' : 'builtArea');
   const eligibleRentals = needsIncomeInputs ? uniqueEligible(rentals, 'annualRent', 'rentableArea') : [];
@@ -205,11 +228,11 @@ function evaluateMarketStudy(input = {}) {
   // a generic NLA rental model is not sufficient for an economic rent conclusion.
   const marketRentPotential = !specialistAsset && perSqmRent !== null && lettableArea > 0 ?
     boundedSar(perSqmRent * lettableArea,'MARKET_ANNUAL_RENT_OUT_OF_RANGE') : null;
-  const annualOccupiedRent = marketRentPotential !== null && occupancy >= 0 && occupancy <= 1 ?
+  const annualOccupiedRent = marketRentPotential !== null && occupancyValid ?
     boundedSar(marketRentPotential * occupancy,'OCCUPIED_RENT_OUT_OF_RANGE') : null;
-  const annualNOI = annualOccupiedRent !== null && expenseRatio >= 0 && expenseRatio < 1 ?
+  const annualNOI = annualOccupiedRent !== null && expenseRatioValid ?
     boundedSar(annualOccupiedRent * (1 - expenseRatio),'NOI_OUT_OF_RANGE') : null;
-  const incomeIndication = annualNOI !== null && capRate > 0 && capRate < 1 ?
+  const incomeIndication = annualNOI !== null && capRateValid ?
     boundedSar(annualNOI / capRate,'INCOME_INDICATION_OUT_OF_RANGE') : null;
   const values = [saleIndication, incomeIndication].filter(x => x !== null);
   // The two methods are INDEPENDENT indicators. An unexplained >=20% spread
@@ -220,12 +243,14 @@ function evaluateMarketStudy(input = {}) {
   const materialMethodGap=methodGapPct!==null&&methodGapPct>=20;
   if(materialMethodGap)issues.push('MATERIAL_MARKET_INCOME_GAP_REQUIRES_RECONCILIATION');
   const overRange=issues.some(reason=>reason.endsWith('_OUT_OF_RANGE'));
-  const todayValueScenario = !structureIssues.length && !overRange &&
+  const sourceConflict = issues.includes('SALE_SOURCE_RECORD_CONFLICT') || issues.includes('RENT_SOURCE_RECORD_CONFLICT');
+  const todayValueScenario = !structureIssues.length && !overRange && !sourceConflict &&
     !specialistAsset && !materialMethodGap && values.length ?
     values.reduce((x,y)=>x+y, 0)/values.length : null;
   if(specialistReason) issues.push(specialistReason);
   const confidence = structureIssues.length?'INVALID_MARKET_INPUT_STRUCTURE':
     overRange?'MARKET_CALCULATION_OUT_OF_RANGE':
+    sourceConflict?'UNRESOLVED_SOURCE_RECORD_CONFLICT':
     !values.length || specialistAsset?'NO_SUPPORTED_PRIMARY_VALUE':
     materialMethodGap?'UNRECONCILED_METHODS_NO_PRIMARY_VALUE':
     'PRELIMINARY_UNVERIFIED_REQUIRES_INDEPENDENT_REVIEW';
@@ -274,7 +299,7 @@ function evaluateMarketStudy(input = {}) {
     rentRegulation, issues,
     hasLiveLicensedFeed: false, independentlyVerified: false, certifiedMarketValue: false,
     evidenceStatus: 'USER_ENTERED_UNVERIFIED',
-    methodology: 'Median of at least three recent (<=365 days), same-type, user-supplied executed transactions or leases: within 5 km where coordinates are available, otherwise only same declared city and district. District approximation disclosed. Two independent methods may be averaged solely for an illustrative scenario if their gap is below 20%; at or above 20% the primary value is withheld for explicit reconciliation. Subject land/built/rentable areas must use matching bases, and comparisons outside 50–200% of subject area are excluded from the simple extrapolation. Same-source record IDs deduplicated across URLs. No automatic project uplift.',
+    methodology: 'Median of at least three recent (<=365 days), same-type, user-supplied executed transactions or leases: within 5 km where coordinates are available, otherwise only same declared city and district. District approximation disclosed. Two independent methods may be averaged solely for an illustrative scenario if their gap is below 20%; at or above 20% the primary value is withheld for explicit reconciliation. Subject land/built/rentable areas must use matching bases, and comparisons outside 50–200% of subject area are excluded from the simple extrapolation. Same-source record IDs deduplicated across URLs; conflicting identities withhold the combined value and project-impact scenario pending reconciliation. No automatic project uplift.',
   };
 }
 module.exports = { ASSET_TYPES, number, extractCoordinates, distanceKm, evaluateMarketStudy };

@@ -17,7 +17,8 @@ export function resolveModernModel({env,model,protocol,url}){
  const profile=MODEL_PROFILES[model];
  if(protocol!=='OPENAI_RESPONSES'||url.href!=='https://api.openai.com/v1/responses')return {error:'AI_MODEL_REQUIRES_NATIVE_RESPONSES'};
  if(env.RIAI_AI_MODEL_POLICY_VERSION!=='GPT6_20261124')return {error:'AI_MODEL_POLICY_NOT_CONFIGURED'};
- if(Number(env.RIAI_AI_MAX_USD_MICROS_PER_TOKEN)<profile.minimumMicrosPerToken)return {error:'AI_MODEL_PRICE_BOUND_BELOW_CATALOG'};
+ const priceBound=Number(env.RIAI_AI_MAX_USD_MICROS_PER_TOKEN);
+ if(!Number.isSafeInteger(priceBound)||priceBound<profile.minimumMicrosPerToken)return {error:'AI_MODEL_PRICE_BOUND_BELOW_CATALOG'};
  const effort=env.RIAI_AI_REASONING_EFFORT||profile.effort;
  if(!['low','medium'].includes(effort))return {error:'AI_MODEL_REASONING_EFFORT_INVALID'};
  return {profile,effort};

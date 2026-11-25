@@ -1,6 +1,8 @@
 'use strict';
 
-const crypto = require('crypto');
+const crypto = require('node:crypto');
+const {strictCalendarDateMs}=require('../validation/strict-calendar-instant');
+const {verifyMeasurementGate,reconcileMeasurementRecords}=require('./measurement-governance');
 
 const INSPECTION_STATE = Object.freeze({
   DRAFT: 'DRAFT',
@@ -48,7 +50,7 @@ function assertNonEmpty(value, field) {
 
 function iso(value, field) {
   if (!nonEmpty(value)) throw new TypeError(`${field} is required`);
-  const date = new Date(value);
+  const date = new Date(strictCalendarDateMs(value));
   if (Number.isNaN(date.getTime())) throw new TypeError(`${field} must be a valid date/time`);
   return date.toISOString();
 }
@@ -61,7 +63,7 @@ function validateGps(gps, field = 'gps') {
   if (!gps || typeof gps !== 'object') throw new TypeError(`${field} is required`);
   if (typeof gps.lat !== 'number' || !Number.isFinite(gps.lat) || gps.lat < -90 || gps.lat > 90) throw new TypeError(`${field}.lat is invalid`);
   if (typeof gps.long !== 'number' || !Number.isFinite(gps.long) || gps.long < -180 || gps.long > 180) throw new TypeError(`${field}.long is invalid`);
-  if (gps.accuracyMeters !== undefined && (!Number.isFinite(gps.accuracyMeters) || gps.accuracyMeters < 0)) throw new TypeError(`${field}.accuracyMeters is invalid`);
+  if (gps.accuracyMeters != null && (!Number.isFinite(gps.accuracyMeters) || gps.accuracyMeters < 0)) throw new TypeError(`${field}.accuracyMeters is invalid`);
   return Object.freeze({ lat: gps.lat, long: gps.long, accuracyMeters: gps.accuracyMeters ?? null });
 }
 
@@ -69,6 +71,15 @@ function hash(value) {
   return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
 
+function canonical(v){
+ if(Array.isArray(v))return v.map(canonical);
+ if(v&&typeof v==='object')return Object.fromEntries(Object.keys(v).sort().map(k=>{
+  if(['__proto__','constructor','prototype'].includes(k))throw TypeError('INSPECTION_UNSAFE_KEY');
+  return [k,canonical(v[k])];
+ }));
+ return v;
+}
+const digest=v=>hash(canonical(v));
 function freeze(value) {
   if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
   for (const child of Object.values(value)) freeze(child);
@@ -148,7 +159,7 @@ function addInspectionObservation(inspection, { observationId, category, note, o
   assertNonEmpty(evidenceRef, 'evidenceRef');
   const at = iso(observedAt, 'observedAt');
   if (Date.parse(at) < Date.parse(inspection.startedAt)) throw new TypeError('OBSERVATION_PREDATES_INSPECTION');
-  if (inspection.observations.some((item) => item.observationId === observationId)) throw new TypeError('DUPLICATE_OBSERVATION_ID');
+  if (inspection.observations.some((item) => item.observationId === observationId.trim())) throw new TypeError('DUPLICATE_OBSERVATION_ID');
   const observation = freeze({
     observationId: observationId.trim(),
     category,
@@ -156,7 +167,7 @@ function addInspectionObservation(inspection, { observationId, category, note, o
     observedAt: at,
     gps: validateGps(gps, 'observation.gps'),
     evidenceRef: evidenceRef.trim(),
-    applicable: Boolean(applicable),
+    applicable: typeof applicable==='boolean'?applicable:(()=>{throw TypeError('OBSERVATION_APPLICABILITY_INVALID');})(),
   });
   return freeze({ ...inspection, observations: [...inspection.observations, observation] });
 }
@@ -188,12 +199,13 @@ function createInspectionMediaRecord({ mediaId, caseId, inspectionId, fileRef, c
 function addInspectionMedia(inspection, media) {
   if (inspection?.state !== INSPECTION_STATE.IN_PROGRESS) throw new TypeError('INSPECTION_NOT_IN_PROGRESS');
   if (!media || media.caseId !== inspection.caseId || media.inspectionId !== inspection.inspectionId) throw new TypeError('INSPECTION_MEDIA_CASE_OR_ID_MISMATCH');
+  if(digest(media)!==digest(createInspectionMediaRecord(media)))throw TypeError('INSPECTION_MEDIA_INTEGRITY_INVALID');
   if (Date.parse(media.capturedAt) < Date.parse(inspection.startedAt)) throw new TypeError('MEDIA_PREDATES_INSPECTION');
   if (inspection.media.some((item) => item.mediaId === media.mediaId)) throw new TypeError('DUPLICATE_MEDIA_ID');
   return freeze({ ...inspection, media: [...inspection.media, media] });
 }
 
-function submitPostInspectionReview(inspection, { endedAt, reviewedByRef, reviewEvidenceRef, acknowledgements, measurementGate }) {
+function submitPostInspectionReview(inspection, { endedAt, reviewedByRef, reviewEvidenceRef, acknowledgements, measurementGate, measurementInputs }) {
   if (inspection?.state !== INSPECTION_STATE.IN_PROGRESS) throw new TypeError('INSPECTION_NOT_IN_PROGRESS');
   const at = iso(endedAt, 'endedAt');
   if (Date.parse(at) < Date.parse(inspection.startedAt)) throw new TypeError('INSPECTION_END_PREDATES_START');
@@ -209,9 +221,11 @@ function submitPostInspectionReview(inspection, { endedAt, reviewedByRef, review
   if (missingCategories.length) blockers.push(`MISSING_OBSERVATION_CATEGORIES:${missingCategories.join(',')}`);
   if (inspection.media.length === 0) blockers.push('INSPECTION_MEDIA_REQUIRED');
   if (mediaFailures.length) blockers.push('INSPECTION_MEDIA_INTEGRITY_NOT_CLEARED');
-  if (!measurementGate || measurementGate.status !== 'CLEAR' || measurementGate.caseId !== inspection.caseId) blockers.push('MEASUREMENT_GATE_NOT_CLEAR');
+  if (!measurementGate || measurementGate.caseId !== inspection.caseId||!verifyMeasurementGate(measurementGate,measurementInputs)) blockers.push('MEASUREMENT_GATE_NOT_CLEAR');
+  if(inspection.observations.some(o=>Date.parse(o.observedAt)>Date.parse(at))||inspection.media.some(m=>Date.parse(m.capturedAt)>Date.parse(at)))blockers.push('FIELD_EVIDENCE_AFTER_REVIEW');
+  if(measurementInputs?.records?.some(m=>Date.parse(m.measuredAt)>Date.parse(at)||(m.inspectionId!==null&&m.inspectionId!==inspection.inspectionId)||(m.source==='INSPECTION'&&m.inspectionId!==inspection.inspectionId)))blockers.push('MEASUREMENT_NOT_BOUND_TO_REVIEW');
 
-  return freeze({
+  const reviewed={
     ...inspection,
     state: INSPECTION_STATE.POST_INSPECTION_REVIEW,
     postInspectionReview: {
@@ -222,16 +236,20 @@ function submitPostInspectionReview(inspection, { endedAt, reviewedByRef, review
       missingObservationCategories: Object.freeze(missingCategories),
       mediaIntegrityFailures: Object.freeze(mediaFailures.map((item) => item.mediaId)),
       measurementGateStatus: measurementGate?.status || null,
+      measurementGateHashSha256:measurementGate?.measurementGateHashSha256??null,
       blockers: Object.freeze(blockers),
       readyToComplete: blockers.length === 0,
     },
-  });
+  };
+  return freeze({...reviewed,reviewBindingSha256:digest(reviewed)});
 }
 
 function completeInspection(inspection, { completedAt }) {
   if (inspection?.state !== INSPECTION_STATE.POST_INSPECTION_REVIEW || inspection.postInspectionReview?.readyToComplete !== true) {
     throw new TypeError('INSPECTION_COMPLETION_BLOCKED');
   }
+  const {reviewBindingSha256,...reviewed}=inspection;
+  if(reviewBindingSha256!==digest(reviewed))throw TypeError('INSPECTION_REVIEW_BINDING_INVALID');
   const at = iso(completedAt, 'completedAt');
   if (Date.parse(at) < Date.parse(inspection.postInspectionReview.endedAt)) throw new TypeError('INSPECTION_COMPLETION_TIMELINE_INVALID');
   return freeze({
@@ -241,6 +259,20 @@ function completeInspection(inspection, { completedAt }) {
   });
 }
 
+function verifyCompletedInspection(inspection,measurementInputs){
+ try{
+  if(!inspection||inspection.state!==INSPECTION_STATE.COMPLETED||!Array.isArray(inspection.observations)||!Array.isArray(inspection.media)||inspection.observations.length>5000||inspection.media.length>5000)return false;
+  let replay=createInspectionCase(inspection);
+  replay=qualifyPreInspection(replay,inspection.preInspection);
+  replay=startInspection(replay,inspection);
+  for(const o of inspection.observations)replay=addInspectionObservation(replay,o);
+  for(const m of inspection.media)replay=addInspectionMedia(replay,m);
+  const measurementGate=reconcileMeasurementRecords(measurementInputs);
+  replay=submitPostInspectionReview(replay,{...inspection.postInspectionReview,measurementGate,measurementInputs});
+  replay=completeInspection(replay,inspection);
+  return digest(replay)===digest(inspection);
+ }catch{return false;}
+}
 module.exports = {
   INSPECTION_STATE,
   OBSERVATION_CATEGORY,
@@ -254,4 +286,5 @@ module.exports = {
   addInspectionMedia,
   submitPostInspectionReview,
   completeInspection,
+  verifyCompletedInspection,
 };

@@ -157,13 +157,14 @@ function measurements({ conflict = false } = {}) {
 }
 
 function completedInspection(measurementRecords) {
-  const gate = reconcileMeasurementRecords({
+  const measurementInputs={
     caseId: CASE_ID,
     records: measurementRecords,
     materialTypes: [MEASUREMENT_TYPE.LAND_AREA],
     toleranceByType: { LAND_AREA: { absoluteSqm: 2 } },
     minimumIndependentSourcesByType: { LAND_AREA: 2 },
-  });
+  };
+  const gate=reconcileMeasurementRecords(measurementInputs);
   let record = createInspectionCase({
     inspectionId: INSPECTION_ID, caseId: CASE_ID, propertyRef: PROPERTY_REF,
     valuationDate: '2026-09-07T00:00:00Z', plannedAt: '2026-09-07T08:00:00Z', leadInspectorRef: 'USER:INSPECTOR', scope: 'Synthetic inspection scope',
@@ -188,7 +189,7 @@ function completedInspection(measurementRecords) {
   record = submitPostInspectionReview(record, {
     endedAt: '2026-09-07T09:00:00Z', reviewedByRef: 'USER:REVIEWER', reviewEvidenceRef: 'review://inspection',
     acknowledgements: { observationsReviewed: true, mediaReviewed: true, measurementsReviewed: true, materialConflictsReviewed: true, accountabilityAccepted: true },
-    measurementGate: gate,
+    measurementGate: gate,measurementInputs,
   });
   if (!gate.readyForInspectionCompletion) return record;
   return completeInspection(record, { completedAt: '2026-09-07T09:05:00Z' });
@@ -262,4 +263,35 @@ throwsWith(() => buildPropertyEvidencePacket({
   evidenceRecords: goodEvidence, measurementRecords: goodMeasurements, materialPropertyKeys: ['property.land_area'], materialMeasurementTypes: [MEASUREMENT_TYPE.LAND_AREA],
 }), 'PROPERTY_CASE_ISOLATION_VIOLATION', 'cross-case inspection/evidence cannot be bridged');
 
+
+const packet=(overrides={})=>buildPropertyEvidencePacket({
+ caseId:CASE_ID,propertyRef:PROPERTY_REF,assignmentRef:'ASSIGNMENT-001',assignment:assignment(),inspection:goodInspection,
+ evidenceRecords:goodEvidence,measurementRecords:goodMeasurements,materialPropertyKeys:['property.land_area'],materialMeasurementTypes:[MEASUREMENT_TYPE.LAND_AREA],
+ evidenceToleranceByKey:{'property.land_area':{absolute:2}},measurementToleranceByType:{LAND_AREA:{absoluteSqm:2}},
+ minimumPropertySourceRoles:2,minimumMeasurementSourcesByType:{LAND_AREA:2},...overrides});
+const makeMeasurement=(r,overrides={})=>createMeasurementRecord({...r,valueSqm:r.value,...overrides});
+check(packet({measurementRecords:[goodMeasurements[0],{...goodMeasurements[1],value:1000}]}).status===PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_MEASUREMENT,'tampered measurement rejected');
+check(packet({measurementRecords:[goodMeasurements[0],makeMeasurement(goodMeasurements[1],{inspectionId:'OTHER'})]}).status===PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_MEASUREMENT,'foreign inspection rejected');
+check(packet({measurementRecords:[goodMeasurements[0],makeMeasurement(goodMeasurements[1],{measuredAt:'2026-09-08'})]}).status===PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_MEASUREMENT,'post-completion measurement rejected');
+check(packet({inspection:{...goodInspection,valuationDate:'2026-09-06'}}).status===PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_INSPECTION,'valuation date mismatch rejected');
+check(packet({inspection:{...goodInspection,completedAt:'2026-09-08'}}).status===PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_INSPECTION,'post-report inspection rejected');
+const otherLand=goodMeasurements.map(r=>makeMeasurement(r,{valueSqm:1200}));
+check(packet({measurementRecords:otherLand}).status===PROPERTY_EVIDENCE_PACKET_STATUS.MATERIAL_PROPERTY_DATA_CONFLICT,'individually consistent but mutually contradictory evidence layers blocked');
+check(packet({measurementRecords:[goodMeasurements[0],makeMeasurement(goodMeasurements[1],{measurementStandardRef:'OTHER'})]}).status===PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_MEASUREMENT,'different measurement standards blocked');
+check(packet({measurementRecords:[goodMeasurements[0],makeMeasurement(goodMeasurements[1],{sourceEvidenceRef:goodMeasurements[0].sourceEvidenceRef})]}).status===PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_MEASUREMENT,'duplicate source reference rejected');
+check(packet({measurementRecords:[goodMeasurements[0],makeMeasurement(goodMeasurements[1],{measurementId:goodMeasurements[0].measurementId})]}).status===PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_MEASUREMENT,'duplicate measurement id rejected');
+const wide=[makeMeasurement(goodMeasurements[0],{valueSqm:1000}),makeMeasurement(goodMeasurements[1],{valueSqm:998}),makeMeasurement(goodMeasurements[1],{measurementId:'M-THIRD',source:'SURVEY',sourceEvidenceRef:'evidence://third',valueSqm:1002})];
+check(packet({measurementRecords:wide}).status===PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_MEASUREMENT,'nontransitive tolerance cannot hide conflicting extremes');
+check(ready.evidenceFacts.every(x=>x.factHashSha256&&x.reviewBindingSha256),'packet retains full fact and review digests');
+check(!!ready.measurementGateHashSha256&&!!ready.propertyDataGateHashSha256,'both gate results bound in packet');
+
+check(packet({inspection:JSON.parse(JSON.stringify(goodInspection))}).status===PROPERTY_EVIDENCE_PACKET_STATUS.READY_FOR_PROFESSIONAL_VALUATION_WORKFLOW,'serialized inspection replays');
+check(packet({inspection:{...goodInspection,observations:goodInspection.observations.map((o,i)=>i===0?{...o,note:'changed after review'}:o)}}).status===PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_INSPECTION,'changed field observation rejected');
+check(packet({inspection:{...goodInspection,postInspectionReview:{...goodInspection.postInspectionReview,reviewedByRef:'OTHER'}}}).status===PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_INSPECTION,'reviewer substitution rejected');
+check(packet({inspection:{...goodInspection,media:goodInspection.media.map(m=>({...m,contentHashSha256:'0'.repeat(64)}))}}).status===PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_INSPECTION,'media content hash replacement rejected');
+check(packet({measurementRecords:[goodMeasurements[0],makeMeasurement(goodMeasurements[1],{valueSqm:1000})]}).status===PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_INSPECTION,'even within-tolerance changed measurement needs renewed review');
+check(packet({measurementToleranceByType:{LAND_AREA:{absoluteSqm:3}}}).status===PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_INSPECTION,'changed tolerance requires renewed review');
+check(packet({minimumMeasurementSourcesByType:{LAND_AREA:1}}).status===PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_INSPECTION,'lower source requirement requires renewed review');
+check(packet({inspection:{...goodInspection,reviewBindingSha256:undefined}}).status===PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_INSPECTION,'legacy unbound review held');
+check(ready.inspectionReviewBindingSha256===goodInspection.reviewBindingSha256,'handoff preserves inspection review digest');
 console.log(`WAVE_8C_PROPERTY_EVIDENCE_BRIDGE=PASS checks=${checks}`);

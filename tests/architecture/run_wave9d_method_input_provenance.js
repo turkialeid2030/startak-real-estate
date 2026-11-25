@@ -18,7 +18,8 @@ const {
   verifyProfessionalRateInputIntegrity,
   createMarketAnalysisSubjectBinding,
   verifyMarketAnalysisSubjectBindingIntegrity,
-  buildProfessionalMethodInputPacket,
+  buildProfessionalMethodInputCandidate:buildProfessionalMethodInputPacket,
+  buildProfessionalMethodInputPacket:buildStrictMethodPacket,
 } = require('../../src/valuation/professional-method-input-provenance');
 
 let checks = 0;
@@ -37,8 +38,11 @@ const PROPERTY_REF = 'PROPERTY-9D-001';
 const VALUATION_DATE = '2026-09-07T00:00:00.000Z';
 const PREPARED_AT = '2026-09-07T12:00:00.000Z';
 
+const stable=v=>Array.isArray(v)?v.map(stable):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,stable(v[k])])):v;
+const hash=v=>require('node:crypto').createHash('sha256').update(JSON.stringify(stable(v))).digest('hex');
+const bind=(record,key)=>{const {[key]:ignored,...payload}=record;return {...payload,[key]:hash(payload)};};
 function propertyPacket(overrides = {}) {
-  return {
+  const record={
     schemaVersion: 1,
     caseId: CASE_ID,
     propertyRef: PROPERTY_REF,
@@ -49,13 +53,16 @@ function propertyPacket(overrides = {}) {
     status: PROPERTY_EVIDENCE_PACKET_STATUS.READY_FOR_PROFESSIONAL_VALUATION_WORKFLOW,
     professionalValuationWorkflowReady: true,
     financialEngineInputsWritten: false,
+    automaticUnderwritingAdoption:false,certifiedValuationEstablished:false,reasons:[],
     transactionAuthorized: false,
     ...overrides,
   };
+  const excluded=['packetHashSha256','status','reasons','professionalValuationWorkflowReady','automaticUnderwritingAdoption','financialEngineInputsWritten','certifiedValuationEstablished','transactionAuthorized','semantics'];
+  return {...record,packetHashSha256:hash(Object.fromEntries(Object.entries(record).filter(([k])=>!excluded.includes(k))))};
 }
 
 function marketAnalysis(overrides = {}) {
-  return {
+  return bind({
     schemaVersion: 1,
     caseId: CASE_ID,
     analysisHashSha256: 'b'.repeat(64),
@@ -66,13 +73,13 @@ function marketAnalysis(overrides = {}) {
       { comparableId: 'C2', adjustedUnitValueSarPerSqm: 10200, valuationWeight: null },
     ],
     automaticValuationWeighting: false,
-    valuationConclusionProduced: false,
+    valuationConclusionProduced: false,transactionAuthorized:false,
     ...overrides,
-  };
+  },'analysisHashSha256');
 }
 
 function incomePacket(overrides = {}) {
-  return {
+  return bind({
     schemaVersion: 1,
     caseId: CASE_ID,
     propertyRef: PROPERTY_REF,
@@ -83,9 +90,9 @@ function incomePacket(overrides = {}) {
     occupiedAreaSqm: 1000,
     annualContractRentSar: 1050000,
     noiCalculated: false,
-    automaticDCFAdoption: false,
+    automaticDCFAdoption: false,financialEngineInputsWritten:false,transactionAuthorized:false,
     ...overrides,
-  };
+  },'incomeEvidencePacketHashSha256');
 }
 
 function rate(type, value, id, overrides = {}) {
@@ -358,4 +365,59 @@ throwsWith(() => buildProfessionalMethodInputPacket({
   preparationEvidenceRef: 'review://cross-case',
 }), 'CASE_OR_PROPERTY_ISOLATION_VIOLATION:rateInput', 'cross-case rate input is rejected');
 
+const direct=(overrides={})=>buildProfessionalMethodInputPacket({caseId:CASE_ID,propertyRef:PROPERTY_REF,method:VALUATION_METHOD.DIRECT_CAPITALIZATION,propertyEvidencePacket:propertyPacket(),incomeEvidencePacket:incomePacket(),rateInputs:[capRate],maximumRateAgeDaysByType:{MARKET_CAP_RATE:30},preparedByRef:'USER:VALUER',preparedAt:PREPARED_AT,preparationEvidenceRef:'review://test',...overrides});
+const salesReview=(overrides={})=>buildProfessionalMethodInputPacket({caseId:CASE_ID,propertyRef:PROPERTY_REF,method:VALUATION_METHOD.SALES_COMPARISON,propertyEvidencePacket:propertyPacket(),marketAdjustmentAnalysis:analysis,marketAnalysisSubjectBinding:subjectBinding,preparedByRef:'USER:VALUER',preparedAt:PREPARED_AT,preparationEvidenceRef:'review://test',...overrides});
+check(direct({propertyEvidencePacket:{...propertyPacket(),purpose:'CHANGED'}}).status===METHOD_INPUT_STATUS.HOLD_PROPERTY_EVIDENCE,'property content change rejected');
+check(direct({propertyEvidencePacket:propertyPacket({transactionAuthorized:true})}).status===METHOD_INPUT_STATUS.HOLD_PROPERTY_EVIDENCE,'injected transaction authority rejected');
+check(direct({incomeEvidencePacket:{...incomePacket(),annualContractRentSar:9999999}}).status===METHOD_INPUT_STATUS.HOLD_METHOD_EVIDENCE,'rent changed without digest rejected');
+check(direct({incomeEvidencePacket:incomePacket({annualContractRentSar:-1})}).status===METHOD_INPUT_STATUS.HOLD_METHOD_EVIDENCE,'rehashed negative rent rejected');
+check(direct({incomeEvidencePacket:incomePacket({activeLeaseCount:1.5})}).status===METHOD_INPUT_STATUS.HOLD_METHOD_EVIDENCE,'rehashed fractional leases rejected');
+check(salesReview({marketAdjustmentAnalysis:{...analysis,indications:[{comparableId:'C1',adjustedUnitValueSarPerSqm:999999}]}}).status===METHOD_INPUT_STATUS.HOLD_METHOD_EVIDENCE,'changed comparison rejected');
+const negativeAnalysis=marketAnalysis({indications:[{comparableId:'C1',adjustedUnitValueSarPerSqm:-1}]});
+const negativeBinding=createMarketAnalysisSubjectBinding({...subjectBinding,marketAdjustmentAnalysis:negativeAnalysis});
+check(salesReview({marketAdjustmentAnalysis:negativeAnalysis,marketAnalysisSubjectBinding:negativeBinding}).status===METHOD_INPUT_STATUS.HOLD_METHOD_EVIDENCE,'rehashed negative comparable rejected');
+check(!verifyProfessionalRateInputIntegrity(bind({...capRate,value:-1},'rateInputHashSha256')),'rehashed invalid rate rejected');
+check(!verifyProfessionalRateInputIntegrity(bind({...capRate,transactionAuthorized:true},'rateInputHashSha256')),'rehashed authority injection rejected');
+check(!verifyProfessionalRateInputIntegrity(bind({...capRate,reviewedAt:'2026-02-30'},'rateInputHashSha256')),'rehashed invalid calendar date rejected');
+check(!verifyMarketAnalysisSubjectBindingIntegrity(bind({...subjectBinding,automaticallyInferred:true},'bindingHashSha256')),'rehashed inferred binding rejected');
+check(direct({rateInputs:[bind({...capRate,value:2},'rateInputHashSha256')]}).status===METHOD_INPUT_STATUS.HOLD_RATE_PROVENANCE,'method packet rejects rehashed invalid rate');
+
+const f=require('../fixtures/synthetic-method-source-replay');
+const clone=x=>JSON.parse(JSON.stringify(x));
+const sourceInputs={property:f.property,income:f.income,market:f.market};
+const scopedRates=[capRate,discountRate,exitCapRate].map(r=>createProfessionalRateInput({...r,caseId:f.caseId,propertyRef:f.propertyRef}));
+const base={caseId:f.caseId,propertyRef:f.propertyRef,propertyEvidencePacket:f.propertyEvidencePacket,sourceInputs,preparedAt:PREPARED_AT,preparedByRef:'USER:VALUER',preparationEvidenceRef:'review://strict'};
+const strictDirect=(o={})=>buildStrictMethodPacket({...base,method:VALUATION_METHOD.DIRECT_CAPITALIZATION,incomeEvidencePacket:f.incomeEvidencePacket,rateInputs:[scopedRates[0]],maximumRateAgeDaysByType:{MARKET_CAP_RATE:30},...o});
+const strictDcf=(o={})=>buildStrictMethodPacket({...base,method:VALUATION_METHOD.DISCOUNTED_CASH_FLOW,incomeEvidencePacket:f.incomeEvidencePacket,rateInputs:scopedRates.slice(1),maximumRateAgeDaysByType:{DISCOUNT_RATE:30,EXIT_CAP_RATE:30},...o});
+const strictBinding=createMarketAnalysisSubjectBinding({...subjectBinding,caseId:f.caseId,propertyRef:f.propertyRef,marketAdjustmentAnalysis:f.marketAdjustmentAnalysis});
+const strictSales=(o={})=>buildStrictMethodPacket({...base,method:VALUATION_METHOD.SALES_COMPARISON,marketAdjustmentAnalysis:f.marketAdjustmentAnalysis,marketAnalysisSubjectBinding:strictBinding,...o});
+const directReplay=strictDirect(),dcfReplay=strictDcf(),salesReplay=strictSales();
+for(const r of [directReplay,dcfReplay,salesReplay]){
+ check(r.sourceReplayEstablished===true,'strict replay expected: '+JSON.stringify(r.reasons));
+ check(r.independentlyAuthenticatedSources===false&&r.financialEngineInputsWritten===false&&r.transactionAuthorized===false,'no authority inferred');
+ const {sourceReplayBindingSha256,...rest}=r;
+ check(sourceReplayBindingSha256===hash(rest),'full replay binding hash');
+}
+check(directReplay.methodEvidence.annualContractRentSar===1050000&&directReplay.candidateCanonicalRateBindings.marketCapRate===.08,'replayed income and rate');
+check(dcfReplay.candidateCanonicalRateBindings.discountRate===.1&&dcfReplay.candidateCanonicalRateBindings.exitCapRate===.085,'separate DCF rates');
+check(salesReplay.methodEvidence.adjustedComparableIndications.map(r=>r.adjustedUnitValueSarPerSqm).join(',')==='10300,10290','replayed comparable adjustments');
+check(strictDirect({sourceInputs:undefined}).status===METHOD_INPUT_STATUS.HOLD_PROPERTY_EVIDENCE,'original property source required');
+check(strictDirect({sourceInputs:{property:f.property}}).status===METHOD_INPUT_STATUS.HOLD_METHOD_EVIDENCE,'original income source required');
+check(strictSales({sourceInputs:{property:f.property}}).status===METHOD_INPUT_STATUS.HOLD_METHOD_EVIDENCE,'original market source required');
+const badProperty=clone(sourceInputs);badProperty.property.measurementRecords[0].value=1100;
+check(strictDirect({sourceInputs:badProperty}).status===METHOD_INPUT_STATUS.HOLD_PROPERTY_EVIDENCE,'changed source measurement held');
+const future=clone(sourceInputs);future.property.evidenceRecords[0].createdAt='2026-09-08T00:00:00Z';
+check(strictDirect({sourceInputs:future}).status===METHOD_INPUT_STATUS.HOLD_PROPERTY_EVIDENCE,'future evidence held');
+const badLease=clone(sourceInputs);badLease.income.leaseRecords[0]=bind({...badLease.income.leaseRecords[0],contractedAnnualRentSarAsOfDate:-1},'leaseEvidenceHashSha256');
+check(strictDirect({sourceInputs:badLease}).status===METHOD_INPUT_STATUS.HOLD_METHOD_EVIDENCE,'rehashed invalid lease held');
+check(strictDirect({incomeEvidencePacket:bind({...f.incomeEvidencePacket,annualContractRentSar:2000000},'incomeEvidencePacketHashSha256')}).status===METHOD_INPUT_STATUS.HOLD_METHOD_EVIDENCE,'rehashed income summary held');
+const wrongDate=clone(sourceInputs);wrongDate.income.policy.asOfDate='2026-09-08T00:00:00Z';
+check(strictDcf({sourceInputs:wrongDate}).status===METHOD_INPUT_STATUS.HOLD_METHOD_EVIDENCE,'wrong income date held');
+const weak=clone(sourceInputs);weak.income.policy.requireVerifiedActiveLeases=false;
+check(strictDirect({sourceInputs:weak}).status===METHOD_INPUT_STATUS.HOLD_METHOD_EVIDENCE,'weakened verification held');
+const badMarket=clone(sourceInputs);badMarket.market.qualityPolicy.targetAssetType='LAND';
+check(strictSales({sourceInputs:badMarket}).status===METHOD_INPUT_STATUS.HOLD_METHOD_EVIDENCE,'wrong market scope held');
+const changedAnalysis=bind({...f.marketAdjustmentAnalysis,indications:f.marketAdjustmentAnalysis.indications.map(x=>({...x,adjustedUnitValueSarPerSqm:20000}))},'analysisHashSha256');
+check(strictSales({marketAdjustmentAnalysis:changedAnalysis}).status===METHOD_INPUT_STATUS.HOLD_METHOD_EVIDENCE,'rehashed market summary held');
+check(directCap.sourceReplayEstablished===false,'legacy candidate remains preliminary');
 console.log(`WAVE_9D_METHOD_INPUT_PROVENANCE=PASS checks=${checks}`);

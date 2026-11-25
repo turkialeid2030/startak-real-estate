@@ -311,4 +311,26 @@ check(() => assert.deepStrictEqual(tamperedQa.blockingCodes, ['REPORT_INTEGRITY_
 check(() => assert.strictEqual(tamperedQa.certifiedValuationAuthorized, false));
 check(() => assert.strictEqual(tamperedQa.transactionAuthorized, false));
 
+// Supplemental research never joins the canonical artifact set or changes QA.
+const {buildSupplementalAppendix}=require('../../src/reporting/supplemental-research-appendix');
+const expected={caseId:report.caseId,propertyRef:report.propertyRef,asOfDate:report.valuationDate};
+const e={caseId:expected.caseId,propertyRef:expected.propertyRef,sourceRef:'SYNTH-RESEARCH',sourceDate:expected.asOfDate};
+const input={...expected,scope:'PROPERTY',currency:'SAR',cashflows:{...e,timing:'ANNUAL_END_OF_YEAR',basis:'OPERATING_ONLY',values:[-1000,600,600]},discountRate:{...e,unit:'ANNUAL_RATIO',value:0}};
+const opts={method:'annual',text:JSON.stringify(input),expected,reportText:JSON.stringify(report)};
+const before=JSON.stringify(report);
+const appendix=buildSupplementalAppendix(opts);
+check(()=>assert.equal(appendix.reportReference.reportHashSha256,report.reportHashSha256));
+check(()=>assert.equal(appendix.reportReference.qaStatus,report.qaStatus));
+check(()=>assert.equal(appendix.analysis.metrics.find(x=>x.id==='PROFITABILITY_INDEX_CONVENTIONAL').value,1.2));
+check(()=>assert.equal(appendix.sourceTextSha256,sha256(opts.text)));
+check(()=>assert.equal(appendix.canonicalReportModified,false));
+check(()=>assert.equal(appendix.reportQaUpgraded,false));
+check(()=>assert.equal(appendix.externalIssuanceAuthorized,false));
+check(()=>assert.equal(appendix.transactionAuthorized,false));
+check(()=>assert.equal(JSON.stringify(report),before));
+check(()=>assert.equal(buildSupplementalAppendix({...opts,reportText:null}).reportReference,null));
+check(()=>assert.equal(buildSupplementalAppendix({...opts,reportText:JSON.stringify(missingInspection)}).reportReference.qaStatus,'REPORT_BLOCKED'));
+check(()=>assert.throws(()=>buildSupplementalAppendix({...opts,reportText:JSON.stringify(tamperedReport)}),/APPENDIX_REPORT_INVALID/));
+check(()=>assert.throws(()=>buildSupplementalAppendix({...opts,reportText:JSON.stringify(createProfessionalReportContract(baseInput({propertyRef:'OTHER',artifactReferences:[],methodAssessments:[]})))}),/APPENDIX_REPORT_SCOPE_MISMATCH/));
+check(()=>assert.throws(()=>buildSupplementalAppendix({...opts,text:'{}'}),/APPENDIX_RESEARCH_HOLD/));
 console.log(`WAVE_15A_PROFESSIONAL_REPORT_CONTRACT=PASS checks=${checks}`);

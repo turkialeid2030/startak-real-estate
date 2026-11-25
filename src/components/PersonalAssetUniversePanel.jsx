@@ -1,5 +1,7 @@
 import React, {useState} from 'react';
 import PersonalSectorValuationWorkbench from './PersonalSectorValuationWorkbench.jsx';
+import LocalSectorOperatingResearchPanel from './LocalSectorOperatingResearchPanel.jsx';
+import LocalSectorPropertyDcfPanel from './LocalSectorPropertyDcfPanel.jsx';
 import PersonalLimitedInterestDcfPanel from './PersonalLimitedInterestDcfPanel.jsx';
 import PersonalPhasedDevelopmentDcfPanel from './PersonalPhasedDevelopmentDcfPanel.jsx';
 import ExternalThreeGatesReadinessPanel from './ExternalThreeGatesReadinessPanel.jsx';
@@ -9,6 +11,8 @@ const {ALL_SECTORS,SOURCE_CHANNELS,researchSectorRoute}=
 export default function PersonalAssetUniversePanel({locale='ar-SA'}) {
   const ar=locale!=='en';
   const [assetClass,setAssetClass]=useState('RESIDENTIAL');
+  const [specialSubtype,setSpecialSubtype]=useState('SPECIAL_PURPOSE');
+  const operatingClass=assetClass==='SPECIAL_PURPOSE'?specialSubtype:assetClass;
   const route=researchSectorRoute(assetClass);
   const sector=route.sector;
   return (
@@ -26,7 +30,7 @@ export default function PersonalAssetUniversePanel({locale='ar-SA'}) {
       </label>
       <select id="personal-asset-universe-class" data-testid="personal-asset-universe-select"
         className="w-full mt-2 rounded-lg p-2 text-sm" style={{color:'#172033',background:'#F3F3F1'}}
-        value={assetClass} onChange={event=>setAssetClass(event.target.value)}>
+        value={assetClass} onChange={event=>{setSpecialSubtype('SPECIAL_PURPOSE');setAssetClass(event.target.value);}}>
         {Object.values(ALL_SECTORS).map(s=><option value={s.id} key={s.id}>{ar?s.ar:s.en}</option>)}
       </select>
       <div className="mt-3 text-sm" data-testid="personal-asset-route-status" style={{color:'#E8C78D'}}>
@@ -41,6 +45,9 @@ export default function PersonalAssetUniversePanel({locale='ar-SA'}) {
         {ar?sector.evidenceAr:sector.evidenceEn}
       </p>
       <ExternalThreeGatesReadinessPanel locale={locale}/>
+      {assetClass==='SPECIAL_PURPOSE'&&<label className="block text-xs mt-3">{ar?'نوع الأصل الخاص':'Special-purpose subtype'}<select data-testid="special-purpose-subtype" className="block w-full p-2 rounded mt-1" style={{background:'#F3F3F1',color:'#172033'}} value={specialSubtype} onChange={e=>setSpecialSubtype(e.target.value)}><option value="SPECIAL_PURPOSE">{ar?'أصل خاص عام':'General special-purpose asset'}</option><option value="FUEL_STATION">{ar?'محطة وقود':'Fuel station'}</option></select></label>}
+      <LocalSectorOperatingResearchPanel key={operatingClass+'-operating'} assetClass={operatingClass} locale={locale}/>
+      <LocalSectorPropertyDcfPanel key={operatingClass+'-dcf'} assetClass={operatingClass} locale={locale}/>
       <PersonalSectorValuationWorkbench key={assetClass} assetClass={assetClass} locale={locale}/>
       <PersonalLimitedInterestDcfPanel key={assetClass+'-rights'} assetClass={assetClass} locale={locale}/>
       {assetClass==='LAND'&&<PersonalPhasedDevelopmentDcfPanel key="land-development" locale={locale}/> }

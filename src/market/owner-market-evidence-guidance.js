@@ -23,6 +23,8 @@ const MESSAGES=Object.freeze({
  MIXED_USE_SEGMENT_VALUATION_REQUIRED:['قيّم شرائح الاستخدام المختلط على حدة.','Value each mixed-use segment separately.'],
  NO_EXECUTED_SALE_COMPARABLES:['يلزم ثلاث مقارنات بيع منفذة مؤهلة على الأقل وفق ضوابط المحرك.','At least three engine-qualified executed sale comparables are required.'],
  NO_EXECUTED_RENT_COMPARABLES:['يلزم ثلاثة عقود إيجار منفذة مؤهلة على الأقل وفق ضوابط المحرك.','At least three engine-qualified executed leases are required.'],
+ SALE_SOURCE_RECORD_CONFLICT:['راجع سجلات البيع المتعارضة لدى المصدر نفسه وصححها قبل اعتماد مؤشر القيمة.','Reconcile conflicting sale records from the same source before using the combined value.'],
+ RENT_SOURCE_RECORD_CONFLICT:['راجع سجلات الإيجار المتعارضة لدى المصدر نفسه وصححها قبل اعتماد مؤشر الإيجار.','Reconcile conflicting lease records from the same source before using the rent indication.'],
  METHODS_UNRECONCILED:['يوجد تعارض جوهري بين مؤشري السوق والدخل يتطلب تسوية.','A material market-versus-income discrepancy requires reconciliation.'],
  RENT_ESTIMATES_UNRECONCILED:['تعارض جوهري بين إيجار الأصل وإيجار شرائح الوحدات يحتاج تسوية.','A material whole-asset versus unit-segment rent gap requires reconciliation.'],
  APPRAISAL_AUDIT_HOLD:['تدقيق تقرير التقييم مرتبط بحالة إيقاف.','A linked appraisal review blocks this indication.'],
@@ -51,6 +53,8 @@ const TARGETS=Object.freeze({
  HOTEL_ROOM_COUNT_MISSING:{step:1,key:'owner-market-room-count'},
  NO_EXECUTED_SALE_COMPARABLES:{step:2,key:'market-comparables-sale'},
  NO_EXECUTED_RENT_COMPARABLES:{step:2,key:'market-comparables-rent'},
+ SALE_SOURCE_RECORD_CONFLICT:{step:2,key:'market-comparables-sale'},
+ RENT_SOURCE_RECORD_CONFLICT:{step:2,key:'market-comparables-rent'},
 });
 function ownerMarketEvidenceGuidance(summary,locale='ar-SA'){
  const english=locale==='en';

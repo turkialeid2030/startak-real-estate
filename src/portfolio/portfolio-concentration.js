@@ -1,6 +1,6 @@
 'use strict';
 
-const crypto = require('crypto');
+const {sha256Hex}=require('../crypto/sha256');
 
 const WEIGHT_BASIS = Object.freeze({
   CURRENT_EXPOSURE: 'CURRENT_EXPOSURE',
@@ -36,7 +36,7 @@ function canonicalize(value) {
 }
 
 function hashObject(value) {
-  return crypto.createHash('sha256').update(JSON.stringify(canonicalize(value))).digest('hex');
+  return sha256Hex(JSON.stringify(canonicalize(value)));
 }
 
 function deepFreeze(value) {

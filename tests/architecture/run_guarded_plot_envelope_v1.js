@@ -29,11 +29,13 @@ function records(overrides={}){
    verifiedAt:'2026-11-02',verificationEvidenceRef:'SYNTHETIC-RECEIPT'},
  }));
 }
+const originalRecords=new WeakMap();
 function plan(input=records(),opt={}){
- return assessPlanningEvidenceSet({caseId,propertyRef,valuationDate:evaluatedAt,
+ const set=assessPlanningEvidenceSet({caseId,propertyRef,valuationDate:evaluatedAt,
  records:input,requiredConstraintTypes:opt.required||required,
  allowedAuthorityClasses:[AUTH.OFFICIAL_AUTHORITY],
  cardinalityByType:Object.fromEntries((opt.required||required).map(x=>[x,CARD.SINGLE]))});
+ originalRecords.set(set,input);return set;
 }
 const geometry={caseId,propertyRef,sourceRef:'SYNTHETIC-SURVEY',observedAt:'2026-11-03',
  widthM:40,depthM:50,landAreaSqm:2000};
@@ -53,7 +55,8 @@ const surveyFacts=[
 const titleFacts=[...deedFacts,...surveyFacts];
 const titleFreshnessPolicy={DEED:90,SURVEY:90};
 function run(overrides={}){
- return assessGuardedPlotEnvelope({caseId,propertyRef,planningEvidenceSet:plan(),geometry,
+ const set=overrides.planningEvidenceSet||plan();
+ return assessGuardedPlotEnvelope({caseId,propertyRef,planningEvidenceSet:set,planningRecords:originalRecords.get(set),geometry,
  evaluatedAt,maxAreaDifferenceSqm:0.5,titleFacts,titleFreshnessPolicy,
  geometryMaxAgeDays:90,...overrides});
 }
@@ -166,5 +169,41 @@ test('GEOMETRY_AREA_ONLY_SURVEY_REF_REJECTED',()=>{
    geometry:{...geometry,sourceRef:'SURVEY-ALT'}});
  assert.equal(result.status,STATUS.HOLD_GEOMETRY);
  assert.ok(result.blockers.includes('SURVEY_GEOMETRY_SOURCE_REFERENCE_MISMATCH'));
+});
+test('ORIGINAL_RECORDS_REQUIRED',()=>{assert.equal(run({planningRecords:undefined}).status,STATUS.HOLD_BINDING);});
+test('REHASHED_TRACE_REJECTED',()=>{
+ const set=plan(),fake=JSON.parse(JSON.stringify(set));delete fake.planningEvidenceSetHashSha256;
+ fake.trace.find(x=>x.type===TYPE.FAR).values[0].value=20;
+ const stable=v=>Array.isArray(v)?v.map(stable):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,stable(v[k])])):v;
+ fake.planningEvidenceSetHashSha256=require('node:crypto').createHash('sha256').update(JSON.stringify(stable(fake))).digest('hex');
+ assert.equal(run({planningEvidenceSet:fake,planningRecords:originalRecords.get(set)}).status,STATUS.HOLD_BINDING);
+});
+test('FUTURE_VERIFICATION_REJECTED',()=>{
+ const future=records().map(r=>createPlanningEvidenceRecord({...r,verification:{...r.verification,verifiedAt:'2026-11-24'}}));
+ assert.equal(run({planningEvidenceSet:plan(future)}).status,STATUS.HOLD_UPSTREAM);
+});
+test('REHASHED_AUTHORITY_INJECTION_REJECTED',()=>{
+ const invalid=records().map(r=>{const v={...r,transactionAuthorized:true};delete v.planningEvidenceHashSha256;
+ const stable=x=>Array.isArray(x)?x.map(stable):x&&typeof x==='object'?Object.fromEntries(Object.keys(x).sort().map(k=>[k,stable(x[k])])):x;
+ v.planningEvidenceHashSha256=require('node:crypto').createHash('sha256').update(JSON.stringify(stable(v))).digest('hex');return v;});
+ assert.equal(plan(invalid).status,'HOLD_CONFLICT');
+});
+test('FRAGMENTED_DEED_CORE_REJECTED',()=>{
+ const fragment=deedFacts.map(f=>f.key==='ownerName'?{...f,sourceRef:'SECOND-DEED'}:f);
+ assert.equal(run({titleFacts:[...fragment,...surveyFacts]}).status,STATUS.HOLD_TITLE);
+});
+test('UNVERIFIED_OR_STRING_LEGAL_FINDING_REJECTED',()=>{
+ for(const finding of [{...fact('mortgageDetected',false),status:'UNVERIFIED'},fact('mortgageDetected','false'),fact('easementDetected',null)]){
+  const r=run({titleFacts:[...titleFacts,finding]});assert.equal(r.status,STATUS.HOLD_TITLE);
+  assert.equal(r.transactionAuthorized,false);
+ }
+});
+test('DEED_REFERENCE_WHITESPACE_REJECTED',()=>{
+ const bad=titleFacts.map(f=>f.key==='ownerName'?{...f,sourceRef:' '+f.sourceRef}:f);
+ assert.equal(run({titleFacts:bad}).status,STATUS.HOLD_TITLE);
+});
+test('NO_LEGAL_CLEARANCE_INFERRED',()=>{
+ const review=require('../../src/title-intelligence').assessTitleCrossDocumentConsistency({caseId,propertyId:propertyRef,facts:titleFacts,asOf:evaluatedAt,maxAgeDaysBySourceType:titleFreshnessPolicy});
+ assert.equal(review.absenceOfEncumbrancesEstablished,false);assert.equal(review.professionalEvidenceChainIndependentlyVerified,false);
 });
 console.log('GUARDED_PLOT_ENVELOPE_V1=PASS checks='+count+' synthetic=true license_proven=false');

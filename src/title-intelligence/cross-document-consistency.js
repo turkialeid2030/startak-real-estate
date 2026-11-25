@@ -4,7 +4,7 @@
 // references and dates are supplied by the caller and are NOT authenticated
 // by this module. Never use this as a legal title or appraisal authorization.
 const {
-  TITLE_FACT_STATUS, TITLE_RESULT_STATUS, REQUIRED_TITLE_FACTS, assessTitleFacts,
+  TITLE_FACT_STATUS, TITLE_RESULT_STATUS, REQUIRED_TITLE_FACTS, LEGAL_SENSITIVE_FACTS, assessTitleFacts,
 } = require('./index');
 const { strictCalendarDateMs } = require('../validation/strict-calendar-instant');
 
@@ -38,6 +38,8 @@ function result(status, caseId, propertyId, asOf, blockers, checks) {
     checks: Object.freeze(checks.map(x => Object.freeze(x))),
     verifiedSourceRights: false,
     independentlyAuthenticatedSources: false,
+    absenceOfEncumbrancesEstablished: false,
+    professionalEvidenceChainIndependentlyVerified: false,
     legalTitleValidityEstablished: false,
     valuationCertified: false,
     transactionAuthorized: false,
@@ -51,7 +53,7 @@ function assessTitleCrossDocumentConsistency({
   if (typeof caseId !== 'string' || !caseId.trim() || typeof propertyId !== 'string' || !propertyId.trim()) {
     throw new TypeError('CASE_AND_PROPERTY_REQUIRED');
   }
-  if (!Array.isArray(facts)) throw new TypeError('TITLE_FACTS_ARRAY_REQUIRED');
+  if (!Array.isArray(facts)||facts.length>5000) throw new TypeError('TITLE_FACTS_ARRAY_REQUIRED_OR_LIMIT');
   const asOfMs = dateMs(asOf);
   if (!Number.isFinite(asOfMs)) throw new TypeError('VALUATION_DATE_REQUIRED');
   if (!maxAgeDaysBySourceType || typeof maxAgeDaysBySourceType !== 'object' || Array.isArray(maxAgeDaysBySourceType)) {
@@ -65,6 +67,18 @@ function assessTitleCrossDocumentConsistency({
   }
   // The five mandatory core title facts cannot be bypassed by pairing a
   // parcel and area alone. This base check also fails on contradictory values.
+  // A supplied legal finding must not be silently ignored because its value
+  // is a string, unknown, or unverified. Absence of a finding is not clearance.
+  const malformed=[];
+  for(const f of facts){
+    if(!f||typeof f!=='object'||f.caseId!==caseId||f.propertyId!==propertyId)
+      throw new TypeError('PROPERTY_OR_CASE_ISOLATION_VIOLATION');
+    if(typeof f.key!=='string'||!f.key.trim()||!Object.values(TITLE_FACT_STATUS).includes(f.status))
+      malformed.push('TITLE_FACT_SCHEMA_INVALID');
+    if(f.sourceRef!=null&&(typeof f.sourceRef!=='string'||f.sourceRef.trim()!==f.sourceRef||!f.sourceRef||f.sourceRef.length>512))
+      malformed.push('TITLE_SOURCE_REFERENCE_INVALID');
+  }
+  if(malformed.length)return result(STATUS.HOLD_SOURCE_REQUIREMENTS,caseId,propertyId,asOf,malformed,[]);
   const core = assessTitleFacts({ caseId, propertyId, facts });
   if (core.status === TITLE_RESULT_STATUS.HOLD_EVIDENCE) {
     const coreConflict = core.blockers.some(x => x.code === 'UNRESOLVED_TITLE_FACT_CONFLICT');
@@ -76,6 +90,10 @@ function assessTitleCrossDocumentConsistency({
     return result(STATUS.HOLD_LEGAL_REVIEW, caseId, propertyId, asOf,
       core.legalReviewFlags.map(x => x.key + ':' + x.code), []);
   }
+  const unresolvedLegal=facts.filter(f=>LEGAL_SENSITIVE_FACTS.has(f.key)&&
+    (f.status!==TITLE_FACT_STATUS.VERIFIED||typeof f.value!=='boolean'));
+  if(unresolvedLegal.length)return result(STATUS.HOLD_LEGAL_REVIEW,caseId,propertyId,asOf,
+    unresolvedLegal.map(f=>'LEGAL_FINDING_REQUIRES_VERIFIED_BOOLEAN:'+f.key),[]);
   const sources = [], temporal = [], conflicts = [], checks = [];
   // A title core fact tagged merely OBSERVED, or supplied by a survey rather
   // than an independently referenced DEED, cannot upgrade to a C8 candidate.
@@ -86,6 +104,10 @@ function assessTitleCrossDocumentConsistency({
       typeof f.sourceRef === 'string' && Boolean(f.sourceRef.trim()));
     if (!eligible) sources.push('VERIFIED_DEED_CORE_FACT_REQUIRED:' + key);
   }
+  const completeDeedRefs=REQUIRED_TITLE_FACTS.map(key=>new Set(facts.filter(f=>
+    f.key===key&&f.status===TITLE_FACT_STATUS.VERIFIED&&f.sourceType==='DEED'&&f.sourceRef).map(f=>f.sourceRef)));
+  if(![...completeDeedRefs[0]].some(ref=>completeDeedRefs.every(s=>s.has(ref))))
+    sources.push('SINGLE_COMPLETE_DEED_SOURCE_REQUIRED');
   const pairedSourceRefs = {DEED:new Map(),SURVEY:new Map()};
   // No qualified source may be dated in the future, beyond its explicit age
   // budget or missing its reference, even when the required paired keys match.

@@ -13,6 +13,16 @@ on:
       - 'src/components/LocalMarketIndicatorPanel.jsx'
       - 'src/components/LocalPolicyShockReviewPanel.jsx'
       - 'src/components/LocalUrbanGrowthReviewPanel.jsx'
+      - 'src/components/LocalAssetEfficiencyPanel.jsx'
+      - 'src/components/LocalSupplementalResearchPanel.jsx'
+      - 'src/engines/financial/supplemental-*.js'
+      - 'tests/defects/supplemental_return_research.js'
+      - 'tests/e2e/run_supplemental_research_browser.js'
+      - 'src/engines/financial/asset-efficiency-review.js'
+      - 'src/engines/financial/encrypted-efficiency-draft.js'
+      - 'tests/defects/encrypted_efficiency_saved_deal.js'
+      - 'tests/defects/asset_efficiency_four_axis.js'
+      - 'tests/e2e/run_asset_efficiency_browser.js'
       - 'src/geospatial/urban-growth-accessibility-review*.js'
       - 'src/geospatial/local-urban-growth-review.js'
       - 'src/geospatial/encrypted-urban-growth-draft.js'
@@ -140,6 +150,10 @@ jobs:
           done
           for browser in chromium firefox webkit; do
             STARTAK_BROWSER="$browser" STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_urban_growth_review_browser.js 2>&1 | tee "runtime-evidence/owner-five-step/urban-growth-$browser.log"
+          done
+          for browser in chromium firefox webkit; do
+            STARTAK_BROWSER="$browser" STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_asset_efficiency_browser.js 2>&1 | tee "runtime-evidence/owner-five-step/asset-efficiency-$browser.log"
+            STARTAK_BROWSER="$browser" STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_supplemental_research_browser.js 2>&1 | tee "runtime-evidence/owner-five-step/supplemental-research-$browser.log"
           done
           STARTAK_E2E_URL=http://127.0.0.1:4173/?ownerView=advanced node tests/e2e/run_audit_20261010_remaining_browser.js 2>&1 | tee runtime-evidence/owner-five-step/legacy-diagnostics.log
           STARTAK_E2E_URL=http://127.0.0.1:4173/?ownerView=advanced node tests/e2e/run_audit_20261020_local_ocr_browser.js 2>&1 | tee runtime-evidence/owner-five-step/legacy-ocr.log

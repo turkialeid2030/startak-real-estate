@@ -1,6 +1,7 @@
 'use strict';
 // Isolated analytical sensitivity runner. This is NOT an approval workflow.
 const { STUDY_TYPE } = require('../contracts/study-type');
+const {strictCalendarDateMs}=require('../validation/strict-calendar-instant');
 const { V2_APPROVED_ASSUMPTIONS } = require('../assumptions/assumption-model');
 const {
   buildCriticalAssumptionOverrideGovernance,
@@ -57,8 +58,11 @@ function evaluateP25ResearchScenario({
       || item.override !== true || !recognized.includes(item.id))) {
     return deny(['P25_UNKNOWN_OR_MALFORMED_OVERRIDE_FORBIDDEN']);
   }
+  const asOfMs=typeof asOf==='string'?strictCalendarDateMs(asOf):NaN;
+  if(!Number.isFinite(asOfMs))return deny(['P25_EXPLICIT_VALID_SCENARIO_DATE_REQUIRED']);
+  const scenarioAsOf=new Date(asOfMs).toISOString();
   const governance = buildCriticalAssumptionOverrideGovernance({
-    assumptionRegistry,assumptionModelVersion,asOf,
+    assumptionRegistry,assumptionModelVersion,asOf:scenarioAsOf,
   });
   if (!governance.hasCriticalOverrides || governance.decisionReady !== true
       || governance.status !== 'READY') {
@@ -93,6 +97,8 @@ function evaluateP25ResearchScenario({
       'P25_WHAT_IF_IS_NOT_AN_INVESTMENT_VERDICT',
     ]),
     structuralReview:governance.status,
+    scenarioAsOf,
+    overrideProvenance:governance.overrides,
     comparedAssumptionKeys:Object.freeze(Object.keys(overrides)),
     baseline:base,whatIf,deltas,
     independentApprovalVerified:false,professionalValuationAuthorized:false,

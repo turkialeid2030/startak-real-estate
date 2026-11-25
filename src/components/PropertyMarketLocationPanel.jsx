@@ -34,6 +34,7 @@ const {toPublicSample}=require('../market/suhail-national-neighborhood-research'
 const {encodeSupplementalStudyRegister,decodeSupplementalStudyRegister}=require('../market/supplemental-study-register');
 const {createInitialMarketSubject}=require('../market/initial-market-subject');
 const {marketIdentityGate}=require('../market/owner-market-identity-gate');
+const {ownerMarketEvidenceGuidance}=require('../market/owner-market-evidence-guidance');
 const {marketEvidenceSubjectKey,hasResearchComparables,hasCapturedOwnerResearch}=require('../market/owner-market-evidence-scope');
 
 const INPUT = 'w-full rounded-lg border border-slate-600 bg-[#101c30] px-3 py-2 text-sm text-slate-100';
@@ -81,8 +82,8 @@ function ComparisonTable({ title, kind, rows, setRows, assetType }) {
   return <section tabIndex={-1} data-testid={"market-comparables-"+kind} className="rounded-xl border border-slate-700 p-3 focus:outline-2 focus:outline-offset-2 focus:outline-amber-400">
     <h4 className="font-semibold text-sm text-amber-200">{L(title)}</h4>
     <p className="text-xs text-slate-400 mt-1">{en
-      ? 'At least three user-declared executed comparables of the same asset type within 365 days, within 5 km or explicitly matching the district. The comparable area must be 50%–200% of the subject on the same area basis. Duplicate source transaction IDs and asking listings are excluded. Matching type and location does not independently verify title or source.'
-      : 'يلزم ثلاث مقارنات منفّذة على الأقل من نفس نوع العقار، خلال آخر 365 يومًا، بموقع يبعد 5 كم كحد أقصى أو تطابق معلن على مستوى الحي فقط. يشترط أن تكون مساحة المقارنة بين 50% و200% من مساحة الأصل على أساس المساحة نفسه. تُستبعد الصفقة المكررة بمعرّفها لدى المصدر نفسه، ولا تدخل عروض الأسعار في الحساب. تطابق النوع والموقع لا يُثبت الصك أو صحة المصدر مستقلاً.'}</p>
+      ? 'At least three user-declared executed comparables of the same asset type within 365 days, within 5 km or explicitly matching the district. The comparable area must be 50%–200% of the subject on the same area basis. Identical records from the same source count once; conflicting records sharing a source transaction ID are excluded. Asking listings are excluded. Matching type and location does not independently verify title or source.'
+      : 'يلزم ثلاث مقارنات منفّذة على الأقل من نفس نوع العقار، خلال آخر 365 يومًا، بموقع يبعد 5 كم كحد أقصى أو تطابق معلن على مستوى الحي فقط. يشترط أن تكون مساحة المقارنة بين 50% و200% من مساحة الأصل على أساس المساحة نفسه. تُحتسب السجلات المطابقة لدى المصدر نفسه مرة واحدة، وتُستبعد السجلات المتعارضة ذات معرّف الصفقة نفسه. ولا تدخل عروض الأسعار في الحساب. تطابق النوع والموقع لا يُثبت الصك أو صحة المصدر مستقلاً.'}</p>
     {rows.map((row,i)=><div key={i} data-testid={"market-comparable-"+kind+"-"+i} className="border-b border-slate-700 py-3">
       <div className="flex items-center justify-between mb-2">
         <strong className="text-xs text-slate-200">{en?'Comparable ':'المقارنة '}{i+1}</strong>
@@ -429,6 +430,7 @@ export default function PropertyMarketLocationPanel({
   const exportJson=()=>{
     if(evidenceScopeHold||nationalRegisterHold){setMessage({kind:'STUDY_EXPORT_SCOPE_HOLD'});return;}
     if(interestScopeHold){setMessage({kind:'STUDY_EXPORT_SPECIAL_INTEREST_HOLD'});return;}
+    if(valuationReadiness.permittedExport==='HOLD_SOURCE_RECORD_CONFLICT'){setMessage({kind:'STUDY_EXPORT_SOURCE_CONFLICT_HOLD'});return;}
     if(appraisalBinding.blockExport){
       setMessage({kind:'STUDY_EXPORT_BLOCKED'});
       return;
@@ -690,6 +692,8 @@ export default function PropertyMarketLocationPanel({
         (locale==='en'?'Invalid market-study data; primary indication withheld':'مدخلات الدراسة السوقية غير صالحة؛ القيمة الموحدة محجوبة') :
         report.confidence==='MARKET_CALCULATION_OUT_OF_RANGE'?
         (locale==='en'?'Out-of-range market arithmetic; primary indication withheld':'نتائج حسابية خارج النطاق؛ القيمة السوقية الموحدة محجوبة') :
+        report.confidence==='UNRESOLVED_SOURCE_RECORD_CONFLICT'?
+        (english?'Unresolved comparable source conflict; combined value withheld':'تعارض غير محسوم في مصادر المقارنات؛ القيمة الموحدة محجوبة') :
         report.confidence==='NO_SUPPORTED_PRIMARY_VALUE'?
         L('لا توجد قيمة أولية مؤهلة') :report.confidence==='UNRECONCILED_METHODS_NO_PRIMARY_VALUE'?
         L('إيقاف النتيجة الموحدة بسبب اختلاف جوهري بين المنهجيات') : L('مؤشر أولي غير متحقق مهنيًا')}.
@@ -710,7 +714,7 @@ export default function PropertyMarketLocationPanel({
           ? L('راجع قيمة آخر عقد إيجار والضوابط الخاصة بالرياض قبل التسعير التعاقدي.')
           : L('يلزم التحقق من النطاق العمراني وتاريخ التأجير وضوابط العلاقة الإيجارية.')}
       </p>
-      {!!report.issues.length&&<p className="mt-2 text-xs text-amber-300">{L("بيانات بحاجة لاستكمال:")} {report.issues.map(x=>L(labelMap[x]||x)).join(english?'; ':'؛ ')}.</p>}
+      {!!report.issues.length&&<p data-testid="market-research-issues" role="status" className="mt-2 text-xs text-amber-300">{L("بيانات بحاجة لاستكمال:")} {report.issues.map(x=>['SALE_SOURCE_RECORD_CONFLICT','RENT_SOURCE_RECORD_CONFLICT'].includes(x)?ownerMarketEvidenceGuidance({issues:[x],notices:[]},locale).items[0].description:L(labelMap[x]||x)).join(english?'; ':'؛ ')}.</p>}
       <p className="mt-2 text-xs text-slate-400">{L("بيانات مقارنة يُقر بها المستخدم ولم يُتحقق منها مستقلاً. لا توجد تغذية لحظية مرخّصة متصلة. لا تستعمل هذه النتيجة كتقييم رسمي أو أساس قرار شراء ملزم.")}</p>
     </div>
     <div data-testid="appraisal-market-link-status" data-status={appraisalBinding.status} role="status" className="mt-3 rounded border border-slate-600 p-3 text-xs text-slate-200">

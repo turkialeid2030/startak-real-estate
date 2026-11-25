@@ -59,6 +59,14 @@ holds({...core,valuationDate:'2026-02-30',income},'VALUATION_DATE_INVALID');
 holds({...core,propertyRight:'WAQF_RESTRICTED',income},'RESTRICTED_PROPERTY_INTEREST_REQUIRES_SPECIFIC_CASHFLOW_MODEL');
 holds({...core,propertyRight:'LEASEHOLD',income},'RESTRICTED_PROPERTY_INTEREST_REQUIRES_SPECIFIC_CASHFLOW_MODEL');
 holds({...core,assetClass:'FAKE',income},'UNKNOWN_ASSET_CLASS');
+for(const invalid of ['toString','constructor','__proto__','hasOwnProperty','valueOf','',null,undefined,42,['OFFICE'],{}]){
+ const rejected=run({...core,assetClass:invalid,cost});
+ eq(rejected.status,STATUS.HOLD);
+ eq(rejected.methods.length,0);
+ eq(rejected.provisionalReconciledAmountSar,null);
+ assert.ok(rejected.reasonCodes.includes('UNKNOWN_ASSET_CLASS'));count++;
+ eq(rejected.transactionAuthorized,false);
+}
 holds({...core,market:{...market,comparables:market.comparables.slice(0,2)}},'AT_LEAST_THREE_EXECUTED_COMPARABLES_REQUIRED');
 holds({...core,market:{...market,comparables:[...market.comparables.slice(0,2),{...market.comparables[2],transactionStatus:'ASKING_SALE'}]}},
  'MARKET_COMPARABLE_IDENTITY_DATE_OR_STATUS_INVALID');

@@ -10,8 +10,9 @@ export default function ResearchEvidenceFusionPanel({subject={},feeds={},asOf='2
  readinessStatus='NOT_TESTED',marketReport=null,readiness=null,publicNeighborhood=null,publicLoadMeta=null,limitedInterestHold=false,evidenceScopeHold=false}){
  const {locale}=useLocale();
  const en=locale==='en';
- const researchResultHold=limitedInterestHold||evidenceScopeHold;
- const exportHoldReason=limitedInterestHold?'STUDY_EXPORT_SPECIAL_INTEREST_HOLD':'STUDY_EXPORT_SCOPE_HOLD';
+ const sourceConflictHold=readiness?.permittedExport==='HOLD_SOURCE_RECORD_CONFLICT';
+ const researchResultHold=limitedInterestHold||evidenceScopeHold||sourceConflictHold;
+ const exportHoldReason=limitedInterestHold?'STUDY_EXPORT_SPECIAL_INTEREST_HOLD':evidenceScopeHold?'STUDY_EXPORT_SCOPE_HOLD':'STUDY_EXPORT_SOURCE_CONFLICT_HOLD';
  const [message,setMessage]=useState('');
  const result=useMemo(()=>buildUnifiedResearch({subject,feeds,asOf}),[subject,feeds,asOf]);
  const bundle=useMemo(()=>researchReportBundle(result,{
@@ -73,6 +74,7 @@ export default function ResearchEvidenceFusionPanel({subject={},feeds={},asOf='2
   </p>
   {evidenceScopeHold&&<p data-testid="fusion-evidence-scope-hold" role="alert" className="mt-3 text-xs text-rose-200">{en?'Prior comparable and research evidence belongs to a different property subject. Scenario and report exports are withheld until explicit case rebinding.':'مقارنات وأدلة البحث السابقة مرتبطة بهوية عقار مختلفة. تُحجب السيناريوهات والتقارير حتى مراجعة ارتباط الأدلة بالعقار الحالي وإعادة تأكيده.'}</p>}
   {limitedInterestHold&&<p data-testid="fusion-limited-interest-hold" role="alert" className="mt-3 text-xs text-rose-200">{en?'General whole-property scenario and research exports are withheld for this limited interest pending a specialist rights methodology.':'مؤشرات العقار الكاملة وتصدير حزم البحث محجوبة لهذا الحق المحدود حتى اعتماد منهجية متخصصة للحقوق.'}</p>}
+  {sourceConflictHold&&<p data-testid="fusion-source-conflict-hold" role="alert" className="mt-3 text-xs text-rose-200">{researchActionText({kind:exportHoldReason},locale)}</p>}
   <div className="mt-3 rounded border border-slate-700 p-3 text-xs">
    <p className="font-bold">{en?'Appraisal and investment review':'مراجعة التقييم والاستثمار'}</p>
    <p className="mt-1">{en?'Certified market value is unavailable from these research inputs.':'حسابات السوق المعتمدة: غير متاحة من هذه البيانات البحثية.'}</p>

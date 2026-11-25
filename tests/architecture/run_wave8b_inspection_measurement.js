@@ -124,13 +124,14 @@ throwsWith(() => createMeasurementRecord({
   source: MEASUREMENT_SOURCE.INSPECTION, sourceEvidenceRef: 'e', measurementStandardRef: '', measurementMethod: 'M', measuredByRef: 'U', measuredAt: '2026-09-07T08:00:00Z',
 }), 'measurementStandardRef', 'measurement standard reference cannot be omitted');
 
-const measurementGate = reconcileMeasurementRecords({
+const measurementInputs={
   caseId: CASE_ID,
   records: [titleArea, inspectionArea],
   materialTypes: [MEASUREMENT_TYPE.LAND_AREA],
   toleranceByType: { LAND_AREA: { absoluteSqm: 3 } },
   minimumIndependentSourcesByType: { LAND_AREA: 2 },
-});
+};
+const measurementGate=reconcileMeasurementRecords(measurementInputs);
 check(measurementGate.status === MEASUREMENT_RECONCILIATION_STATUS.CLEAR, 'measurements within tolerance reconcile CLEAR');
 check(measurementGate.readyForInspectionCompletion === true, 'clear measurement gate can support inspection completion');
 check(measurementGate.checks[0].sourceCount === 2, 'measurement gate recognizes independent source classes');
@@ -184,7 +185,7 @@ const inspectionWithFlag = addInspectionMedia(inspectionWithPassMedia, flaggedMe
 const blockedReview = submitPostInspectionReview(inspectionWithFlag, {
   endedAt: '2026-09-07T09:00:00Z', reviewedByRef: 'USER:REVIEWER-01', reviewEvidenceRef: 'evidence://post-review/blocked',
   acknowledgements: { observationsReviewed: true, mediaReviewed: true, measurementsReviewed: true, materialConflictsReviewed: true, accountabilityAccepted: true },
-  measurementGate,
+  measurementGate,measurementInputs,
 });
 check(blockedReview.postInspectionReview.readyToComplete === false, 'flagged media blocks inspection completion');
 check(blockedReview.postInspectionReview.blockers.includes('INSPECTION_MEDIA_INTEGRITY_NOT_CLEARED'), 'media blocker is explicit');
@@ -193,7 +194,7 @@ throwsWith(() => completeInspection(blockedReview, { completedAt: '2026-09-07T09
 const readyReview = submitPostInspectionReview(inspectionWithPassMedia, {
   endedAt: '2026-09-07T09:00:00Z', reviewedByRef: 'USER:REVIEWER-01', reviewEvidenceRef: 'evidence://post-review/pass',
   acknowledgements: { observationsReviewed: true, mediaReviewed: true, measurementsReviewed: true, materialConflictsReviewed: true, accountabilityAccepted: true },
-  measurementGate,
+  measurementGate,measurementInputs,
 });
 check(readyReview.state === INSPECTION_STATE.POST_INSPECTION_REVIEW, 'successful field work moves to post-inspection review');
 check(readyReview.postInspectionReview.readyToComplete === true, 'complete observation/media/measurement packet is completion-ready');
@@ -204,4 +205,12 @@ check(completed.completedAt === '2026-09-07T09:05:00.000Z', 'completion timestam
 check(completed.certifiedValuationEstablished === false, 'inspection completion does not certify valuation');
 check(completed.transactionAuthorized === false, 'inspection completion does not authorize transaction');
 
+
+const reviewInput={endedAt:'2026-09-07T09:00:00Z',reviewedByRef:'USER:REVIEWER-01',reviewEvidenceRef:'evidence://post-review/pass',acknowledgements:{observationsReviewed:true,mediaReviewed:true,measurementsReviewed:true,materialConflictsReviewed:true,accountabilityAccepted:true},measurementGate,measurementInputs};
+check(!submitPostInspectionReview(inspectionWithPassMedia,{...reviewInput,measurementInputs:undefined}).postInspectionReview.readyToComplete,'original measurement records required');
+check(!submitPostInspectionReview(inspectionWithPassMedia,{...reviewInput,measurementGate:{caseId:CASE_ID,status:'CLEAR'}}).postInspectionReview.readyToComplete,'asserted CLEAR cannot substitute replay');
+check(!submitPostInspectionReview(inspectionWithPassMedia,{...reviewInput,endedAt:'2026-09-07T08:04:00Z'}).postInspectionReview.readyToComplete,'observations or media after review rejected');
+throwsWith(()=>completeInspection({...readyReview,postInspectionReview:{...readyReview.postInspectionReview,reviewedByRef:'OTHER'}},{completedAt:'2026-09-07T09:05:00Z'}),'INSPECTION_REVIEW_BINDING_INVALID','altered reviewer cannot complete');
+throwsWith(()=>addInspectionMedia(inspection,{...passMedia,contentHashSha256:'0'.repeat(64)}),'INSPECTION_MEDIA_INTEGRITY_INVALID','tampered media rejected before attachment');
+throwsWith(()=>reconcileMeasurementRecords({...measurementInputs,toleranceByType:{LAND_AREA:{relative:2}}}),'MEASUREMENT_POLICY_INVALID','invalid relative tolerance rejected');
 console.log(`WAVE_8B_INSPECTION_MEASUREMENT=PASS checks=${checks}`);

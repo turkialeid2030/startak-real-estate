@@ -1,6 +1,7 @@
 'use strict';
 
-const crypto = require('crypto');
+const crypto = require('node:crypto');
+const {strictCalendarDateMs}=require('../validation/strict-calendar-instant');
 const {
   TRUTH_STATUS,
   VERIFICATION_STATUS,
@@ -67,7 +68,7 @@ function assertNonEmpty(value, field) {
 }
 
 function canonicalIso(value, field) {
-  const d = new Date(value);
+  const d = new Date(strictCalendarDateMs(value));
   if (!isNonEmpty(value) || Number.isNaN(d.getTime())) throw new TypeError(`${field} must be a valid ISO-compatible date/time`);
   return d.toISOString();
 }
@@ -76,6 +77,7 @@ function stableClone(value) {
   if (Array.isArray(value)) return value.map(stableClone);
   if (!value || typeof value !== 'object') return value;
   return Object.keys(value).sort().reduce((out, key) => {
+    if(['__proto__','constructor','prototype'].includes(key))throw new TypeError('EVIDENCE_UNSAFE_KEY');
     out[key] = stableClone(value[key]);
     return out;
   }, {});
@@ -94,7 +96,7 @@ function projectFactForChain(fact) {
   if (!fact.extraction || !isNonEmpty(fact.extraction.method) || typeof fact.extraction.confidence !== 'number') {
     throw new TypeError('fact extraction method/confidence are required');
   }
-  if (fact.extraction.confidence < 0 || fact.extraction.confidence > 1) throw new TypeError('fact extraction confidence must be between 0 and 1');
+  if (!Number.isFinite(fact.extraction.confidence)||fact.extraction.confidence < 0 || fact.extraction.confidence > 1) throw new TypeError('fact extraction confidence must be between 0 and 1');
   return {
     factId: fact.factId,
     caseId: fact.caseId,
@@ -123,6 +125,7 @@ function buildChainPayload(record) {
     recordId: record.recordId,
     caseId: record.caseId,
     factProjection: record.factProjection,
+    factHashSha256:record.factHashSha256,
     sourceRole: record.sourceRole,
     sourceReference: record.sourceReference,
     evidenceLink: record.evidenceLink,
@@ -167,6 +170,7 @@ function createProfessionalEvidenceChainRecord({
     caseId: factProjection.caseId,
     fact,
     factProjection,
+    factHashSha256:sha256(fact),
     sourceRole,
     sourceReference: sourceReference.trim(),
     evidenceLink: evidenceLink.trim(),
@@ -190,21 +194,33 @@ function validateProfessionalEvidenceChainIntegrity(record) {
   if (!record || typeof record !== 'object') return false;
   if (!isNonEmpty(record.chainHashSha256) || !/^[a-f0-9]{64}$/i.test(record.chainHashSha256)) return false;
   try {
-    return sha256(buildChainPayload(record)) === record.chainHashSha256.toLowerCase();
+    if(record.schemaVersion!==1||record.caseId!==record.fact?.caseId||
+      record.transactionAuthorized!==false||record.certifiedValuationEstablished!==false||
+      sha256(projectFactForChain(record.fact))!==sha256(record.factProjection)||
+      record.factHashSha256!==sha256(record.fact)||
+      sha256(buildChainPayload(record))!==record.chainHashSha256.toLowerCase())return false;
+    const rebuilt=createProfessionalEvidenceChainRecord(record);
+    if(rebuilt.chainHashSha256!==record.chainHashSha256)return false;
+    if(record.professionalReview===null)return record.reviewBindingSha256===undefined;
+    const review=normalizeReview(record,record.professionalReview);
+    return sha256(review)===sha256(record.professionalReview)&&
+      record.reviewBindingSha256===sha256({chainHashSha256:record.chainHashSha256,review});
+
   } catch (_) {
     return false;
   }
 }
 
-function recordProfessionalEvidenceReview({ record, review }) {
-  if (!validateProfessionalEvidenceChainIntegrity(record)) throw new TypeError('EVIDENCE_CHAIN_INTEGRITY_FAILED');
+function normalizeReview(record,review) {
   if (!review || typeof review !== 'object') throw new TypeError('review is required');
   assertNonEmpty(review.reviewId, 'review.reviewId');
   assertNonEmpty(review.reviewedByRef, 'review.reviewedByRef');
   assertNonEmpty(review.reviewEvidenceRef, 'review.reviewEvidenceRef');
   assertEnum(review.outcome, PROFESSIONAL_REVIEW_OUTCOME, 'review.outcome');
   const reviewedAt = canonicalIso(review.reviewedAt, 'review.reviewedAt');
-  if (Date.parse(reviewedAt) < Date.parse(record.createdAt)) {
+  const verifiedAt=record.fact?.verification?.verifiedAt;
+  if (Date.parse(reviewedAt) < Date.parse(record.createdAt)||
+      (verifiedAt!=null&&(!Number.isFinite(strictCalendarDateMs(verifiedAt))||Date.parse(reviewedAt)<strictCalendarDateMs(verifiedAt)))) {
     throw new TypeError('EVIDENCE_REVIEW_TIMELINE_INVALID');
   }
   const acknowledgements = review.acknowledgements || {};
@@ -214,16 +230,18 @@ function recordProfessionalEvidenceReview({ record, review }) {
   }
 
   return deepFreeze({
-    ...record,
-    professionalReview: {
       reviewId: review.reviewId.trim(),
       outcome: review.outcome,
       reviewedByRef: review.reviewedByRef.trim(),
       reviewEvidenceRef: review.reviewEvidenceRef.trim(),
       reviewedAt,
       acknowledgements: Object.freeze(Object.fromEntries(required.map((key) => [key, true]))),
-    },
   });
+}
+function recordProfessionalEvidenceReview({record,review}){
+  if(!validateProfessionalEvidenceChainIntegrity(record))throw new TypeError('EVIDENCE_CHAIN_INTEGRITY_FAILED');
+  const professionalReview=normalizeReview(record,review);
+  return deepFreeze({...record,professionalReview,reviewBindingSha256:sha256({chainHashSha256:record.chainHashSha256,review:professionalReview})});
 }
 
 function assessProfessionalEvidenceAdmissibility({ record, target = ADMISSIBILITY_TARGET.ANALYSIS_ONLY } = {}) {

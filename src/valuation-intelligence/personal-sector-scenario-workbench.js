@@ -72,7 +72,7 @@ function evaluatePersonalSectorScenarios({
  income=null,cost=null,market=null,reconciliationPolicy=null,
 }={}){
  const blockers=[];
- if(!ALL_SECTORS[assetClass])blockers.push('UNKNOWN_ASSET_CLASS');
+ if(typeof assetClass!=='string'||!Object.prototype.hasOwnProperty.call(ALL_SECTORS,assetClass))blockers.push('UNKNOWN_ASSET_CLASS');
  if(typeof city!=='string'||!city.trim()||city.length>130)blockers.push('CITY_REQUIRED');
  if(typeof propertySubtype!=='string'||!propertySubtype.trim()||propertySubtype.length>140)blockers.push('PROPERTY_SUBTYPE_REQUIRED');
  if(!properDate(valuationDate))blockers.push('VALUATION_DATE_INVALID');

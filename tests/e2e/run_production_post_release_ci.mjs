@@ -201,7 +201,7 @@ try {
       && !/NaN|undefined/.test(sensitivityReady)
   );
 
-  const englishButton = page.getByRole('button', { name: 'EN' }).first();
+  const englishButton = page.getByTestId('locale-switch');
   record('PROD_LANGUAGE_SWITCH_DISCOVERABLE', (await englishButton.count()) > 0);
   if ((await englishButton.count()) > 0) {
     await englishButton.click();

@@ -64,6 +64,7 @@ function stableClone(value) {
   if (Array.isArray(value)) return value.map(stableClone);
   if (!value || typeof value !== 'object') return value;
   return Object.keys(value).sort().reduce((out, key) => {
+    if(['__proto__','constructor','prototype'].includes(key))throw new TypeError('PLANNING_UNSAFE_KEY');
     out[key] = stableClone(value[key]);
     return out;
   }, {});
@@ -85,8 +86,11 @@ function valuesEqual(a, b) {
 
 function verifyPlanningEvidenceIntegrity(record) {
   if (!record || typeof record !== 'object' || !/^[a-f0-9]{64}$/i.test(String(record.planningEvidenceHashSha256 || ''))) return false;
-  const { planningEvidenceHashSha256, ...payload } = record;
-  return sha256(payload) === record.planningEvidenceHashSha256.toLowerCase();
+  try{
+    const {planningEvidenceHashSha256,...payload}=record;
+    if(sha256(payload)!==planningEvidenceHashSha256.toLowerCase())return false;
+    return createPlanningEvidenceRecord(record).planningEvidenceHashSha256===planningEvidenceHashSha256;
+  }catch{return false;}
 }
 
 function createPlanningEvidenceRecord({

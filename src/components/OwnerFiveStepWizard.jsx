@@ -193,7 +193,7 @@ export default function OwnerFiveStepWizard({locale='ar-SA',step=0,onStepChange,
   </div>
   <h2 className="mt-4 text-base font-semibold" data-testid="owner-current-step">{t.current}: {stepName} ({step+1}/5)</h2>
   <nav className="mt-3 grid grid-cols-5 gap-1" aria-label={t.current}>
-   {STEPS.map((pair,index)=><button key={index} type="button" data-testid={'owner-step-'+index} aria-current={step===index?'step':undefined}
+   {STEPS.map((pair,index)=><button key={index} type="button" data-testid={'owner-step-'+index} aria-label={pair[lang==='ar'?0:1]} aria-current={step===index?'step':undefined}
      onClick={()=>onStepChange(index)} className={'min-h-[44px] rounded-lg p-1 text-xs '+(step===index?'bg-amber-700 text-white':'bg-slate-700 text-slate-100')}>
      <span className="block">{index+1}</span><span className="hidden sm:block">{pair[lang==='ar'?0:1]}</span></button>)}
   </nav>

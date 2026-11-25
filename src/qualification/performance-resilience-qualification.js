@@ -135,6 +135,7 @@ function createPerformanceSlo(input = {}) {
     reviewedAt: reviewed.value,
   };
 
+  if(core.maxP95LatencyMs>core.maxP99LatencyMs||!Number.isSafeInteger(core.minimumSampleCount))throw new TypeError('SLO_THRESHOLD_ORDER_OR_SAMPLE_COUNT_INVALID');
   return Object.freeze({ ...core, sloHashSha256: sha256Object(core), callerSuppliedThresholds: true, thresholdsInventedByThisModule: false });
 }
 
@@ -156,6 +157,7 @@ function verifyPerformanceSlo(slo) {
       reviewedBy: requiredString(slo.reviewedBy, 'reviewedBy'),
       reviewedAt: requiredTimestamp(slo.reviewedAt, 'reviewedAt').value,
     };
+    if(core.maxP95LatencyMs>core.maxP99LatencyMs||!Number.isSafeInteger(core.minimumSampleCount)||Date.parse(core.reviewedAt)<Date.parse(core.effectiveAt))return Object.freeze({valid:false,reasonCode:'SLO_THRESHOLD_OR_CHRONOLOGY_INVALID'});
     const expectedHash = sha256Object(core);
     return Object.freeze({ valid: slo.sloHashSha256 === expectedHash, reasonCode: slo.sloHashSha256 === expectedHash ? null : 'SLO_HASH_MISMATCH', expectedHash });
   } catch (error) {
@@ -171,6 +173,7 @@ function createPerformanceRunEvidence(input = {}) {
   if (reviewed.millis < finished.millis) throw new TypeError('reviewedAt must be on or after finishedAt');
 
   const sampleCount = positiveNumber(input.sampleCount, 'sampleCount');
+  if(!Number.isSafeInteger(sampleCount)||!Number.isSafeInteger(input.concurrentUsers))throw new TypeError('RUN_COUNTS_MUST_BE_INTEGERS');
   const p50 = nonNegativeNumber(input.p50LatencyMs, 'p50LatencyMs');
   const p95 = nonNegativeNumber(input.p95LatencyMs, 'p95LatencyMs');
   const p99 = nonNegativeNumber(input.p99LatencyMs, 'p99LatencyMs');
@@ -229,6 +232,7 @@ function verifyPerformanceRunEvidence(record) {
       reviewedAt: requiredTimestamp(record.reviewedAt, 'reviewedAt').value,
       evidenceRefs: [...stringArray(record.evidenceRefs, 'evidenceRefs')],
     };
+    if(!Number.isSafeInteger(core.sampleCount)||!Number.isSafeInteger(core.concurrentUsers))return Object.freeze({valid:false,reasonCode:'RUN_COUNTS_MUST_BE_INTEGERS'});
     if (!(core.p50LatencyMs <= core.p95LatencyMs && core.p95LatencyMs <= core.p99LatencyMs)) return Object.freeze({ valid: false, reasonCode: 'LATENCY_PERCENTILE_ORDER_INVALID' });
     if (Date.parse(core.finishedAt) < Date.parse(core.startedAt) || Date.parse(core.reviewedAt) < Date.parse(core.finishedAt)) return Object.freeze({ valid: false, reasonCode: 'RUN_TIME_ORDER_INVALID' });
     const expectedHash = sha256Object(core);
@@ -246,6 +250,7 @@ function evaluatePerformanceRun({ slo, runEvidence } = {}) {
   if (slo.workloadClass !== runEvidence.workloadClass) throw new TypeError('slo and runEvidence workloadClass must match');
 
   const failures = [];
+  if(Date.parse(slo.effectiveAt)>Date.parse(runEvidence.startedAt)||Date.parse(slo.reviewedAt)>Date.parse(runEvidence.startedAt))failures.push('SLO_NOT_APPROVED_BEFORE_RUN');
   if (runEvidence.sampleCount < slo.minimumSampleCount) failures.push('MINIMUM_SAMPLE_COUNT_NOT_MET');
   if (runEvidence.p95LatencyMs > slo.maxP95LatencyMs) failures.push('P95_LATENCY_EXCEEDED');
   if (runEvidence.p99LatencyMs > slo.maxP99LatencyMs) failures.push('P99_LATENCY_EXCEEDED');
@@ -261,7 +266,7 @@ function evaluatePerformanceRun({ slo, runEvidence } = {}) {
     status: failures.length === 0 ? PERFORMANCE_STATUS.PASS : PERFORMANCE_STATUS.FAIL,
     failureCodes: failures,
   };
-  return Object.freeze({ ...core, evaluationHashSha256: sha256Object(core), thresholdsInventedByThisModule: false, deploymentAuthorized: false });
+  return Object.freeze({ ...core, evaluationHashSha256: sha256Object(core), sloEvidence:Object.freeze({...slo}), thresholdsInventedByThisModule: false, deploymentAuthorized: false });
 }
 
 function createResilienceEvidence(input = {}) {
@@ -289,6 +294,7 @@ function createResilienceEvidence(input = {}) {
     reviewedAt: reviewed.value,
     evidenceRefs: stringArray(input.evidenceRefs, 'evidenceRefs'),
   };
+  if(typeof input.duplicateSideEffectsObserved!=='boolean'||typeof input.unreconciledDataCorruptionObserved!=='boolean')throw new TypeError('RESILIENCE_OBSERVATION_FLAGS_REQUIRED');
   const failureCodes = [];
   if (core.observedRecoveryTimeSeconds > core.maximumRecoveryTimeSeconds) failureCodes.push('RECOVERY_TIME_OBJECTIVE_EXCEEDED');
   if (core.observedDataLossSeconds > core.maximumDataLossSeconds) failureCodes.push('DATA_LOSS_OBJECTIVE_EXCEEDED');
@@ -324,6 +330,9 @@ function verifyResilienceEvidence(record) {
       status: requiredEnum(record.status, PERFORMANCE_STATUS, 'status'),
       failureCodes: Array.isArray(record.failureCodes) ? [...record.failureCodes] : [],
     };
+    if(typeof record.duplicateSideEffectsObserved!=='boolean'||typeof record.unreconciledDataCorruptionObserved!=='boolean'||Date.parse(core.reviewedAt)<Date.parse(core.observedAt))return Object.freeze({valid:false,reasonCode:'RESILIENCE_OBSERVATION_OR_TIME_INVALID'});
+    const rebuilt=createResilienceEvidence(core);
+    if(rebuilt.status!==core.status||JSON.stringify(rebuilt.failureCodes)!==JSON.stringify(core.failureCodes))return Object.freeze({valid:false,reasonCode:'RESILIENCE_OUTCOME_REPLAY_MISMATCH'});
     const expectedHash = sha256Object(core);
     return Object.freeze({ valid: record.resilienceEvidenceHashSha256 === expectedHash, reasonCode: record.resilienceEvidenceHashSha256 === expectedHash ? null : 'RESILIENCE_HASH_MISMATCH', expectedHash });
   } catch (error) {
@@ -347,7 +356,9 @@ function buildPerformanceResilienceQualification(input = {}) {
 
   let status = PERFORMANCE_QUALIFICATION_STATUS.READY_FOR_INDEPENDENT_PERFORMANCE_VALIDATION;
   const issues = [];
-  const runsById = new Map(input.runEvidenceRecords.map((record) => [record.runId, record]));
+  const runsById = new Map(input.runEvidenceRecords.map((record) => [record?.runId, record]));
+  const evaluationIds=new Set();
+  if(runsById.size!==input.runEvidenceRecords.length||new Set(input.resilienceEvidenceRecords.map(r=>r?.resilienceEvidenceId)).size!==input.resilienceEvidenceRecords.length){status=PERFORMANCE_QUALIFICATION_STATUS.HOLD_EVIDENCE_INTEGRITY;issues.push('DUPLICATE_EVIDENCE_IDS');}
 
   for (const record of input.runEvidenceRecords) {
     const check = verifyPerformanceRunEvidence(record);
@@ -372,10 +383,19 @@ function buildPerformanceResilienceQualification(input = {}) {
   }
 
   for (const evaluation of input.performanceEvaluations) {
-    const run = runsById.get(evaluation.runId);
-    if (!run || evaluation.runEvidenceHashSha256 !== run.runEvidenceHashSha256) {
+    const run = runsById.get(evaluation?.runId);
+    if (!run || evaluation.runEvidenceHashSha256 !== run.runEvidenceHashSha256 || evaluationIds.has(evaluation.runId)) {
       status = PERFORMANCE_QUALIFICATION_STATUS.HOLD_EVIDENCE_INTEGRITY;
-      issues.push(`EVALUATION_RUN_BINDING_INVALID:${evaluation.runId || 'UNKNOWN'}`);
+      issues.push('EVALUATION_RUN_BINDING_INVALID:'+(evaluation?.runId||'UNKNOWN'));
+      continue;
+    }
+    evaluationIds.add(evaluation.runId);
+    try{
+      const replay=evaluatePerformanceRun({slo:evaluation.sloEvidence,runEvidence:run});
+      if(replay.evaluationHashSha256!==evaluation.evaluationHashSha256||replay.status!==evaluation.status||replay.workloadClass!==evaluation.workloadClass||replay.sloId!==evaluation.sloId||replay.sloHashSha256!==evaluation.sloHashSha256||JSON.stringify(replay.failureCodes)!==JSON.stringify(evaluation.failureCodes))throw Error('replay mismatch');
+    }catch{
+      status=PERFORMANCE_QUALIFICATION_STATUS.HOLD_EVIDENCE_INTEGRITY;
+      issues.push('EVALUATION_SLO_REPLAY_INVALID:'+evaluation.runId);
     }
   }
 

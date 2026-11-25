@@ -1,6 +1,7 @@
 'use strict';
 
-const crypto = require('crypto');
+const crypto = require('node:crypto');
+const {strictCalendarDateMs}=require('../validation/strict-calendar-instant');
 
 const MEASUREMENT_TYPE = Object.freeze({
   LAND_AREA: 'LAND_AREA',
@@ -42,7 +43,7 @@ function assertEnum(value, enumeration, field) {
 
 function iso(value, field) {
   if (!nonEmpty(value)) throw new TypeError(`${field} is required`);
-  const date = new Date(value);
+  const date = new Date(strictCalendarDateMs(value));
   if (Number.isNaN(date.getTime())) throw new TypeError(`${field} must be a valid date/time`);
   return date.toISOString();
 }
@@ -56,6 +57,15 @@ function freeze(value) {
 function hash(value) {
   return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
+function canonical(v){
+ if(Array.isArray(v))return v.map(canonical);
+ if(v&&typeof v==='object')return Object.fromEntries(Object.keys(v).sort().map(k=>{
+  if(['__proto__','constructor','prototype'].includes(k))throw TypeError('MEASUREMENT_UNSAFE_KEY');
+  return [k,canonical(v[k])];
+ }));
+ return v;
+}
+const digest=v=>hash(canonical(v));
 
 function createMeasurementRecord({
   measurementId,
@@ -100,6 +110,13 @@ function createMeasurementRecord({
   return freeze(record);
 }
 
+function verifyMeasurementRecord(record){
+ try{
+  const rebuilt=createMeasurementRecord({...record,valueSqm:record.value});
+  const stable=v=>Array.isArray(v)?v.map(stable):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,stable(v[k])])):v;
+  return JSON.stringify(stable(record))===JSON.stringify(stable(rebuilt));
+ }catch{return false;}
+}
 function withinTolerance(a, b, tolerance) {
   const absolute = Number.isFinite(tolerance?.absoluteSqm) ? Math.max(0, tolerance.absoluteSqm) : 0;
   const relative = Number.isFinite(tolerance?.relative) ? Math.max(0, tolerance.relative) : 0;
@@ -117,7 +134,7 @@ function reconcileMeasurementRecords({
   minimumIndependentSourcesByType = {},
 } = {}) {
   assertNonEmpty(caseId, 'caseId');
-  if (!Array.isArray(records)) throw new TypeError('records must be an array');
+  if (!Array.isArray(records)||records.length>5000) throw new TypeError('records must be a bounded array');
   if (!Array.isArray(materialTypes) || materialTypes.length === 0) throw new TypeError('materialTypes must be a non-empty array');
   for (const type of materialTypes) assertEnum(type, MEASUREMENT_TYPE, 'materialTypes[]');
   for (const record of records) {
@@ -125,6 +142,18 @@ function reconcileMeasurementRecords({
     if (record.unit !== 'SQM') throw new TypeError('MEASUREMENT_UNIT_UNSUPPORTED: only SQM is accepted by this canonical model');
   }
 
+  const policy={materialTypes:[...new Set(materialTypes)].sort(),toleranceByType:{},minimumIndependentSourcesByType:{}};
+  for(const type of policy.materialTypes){
+   const tolerance=toleranceByType[type]??{},min=minimumIndependentSourcesByType[type]??1;
+   if(!tolerance||typeof tolerance!=='object'||Array.isArray(tolerance)||Object.keys(tolerance).some(k=>!['absoluteSqm','relative'].includes(k))||
+    Object.values(tolerance).some(v=>typeof v!=='number'||!Number.isFinite(v)||v<0)||
+    (tolerance.relative??0)>1||!Number.isSafeInteger(min)||min<1||min>Object.keys(MEASUREMENT_SOURCE).length)
+     throw TypeError('MEASUREMENT_POLICY_INVALID');
+   policy.toleranceByType[type]={absoluteSqm:tolerance.absoluteSqm??0,relative:tolerance.relative??0};
+   policy.minimumIndependentSourcesByType[type]=min;
+  }
+  const invalidIds=new Set(records.filter(r=>!verifyMeasurementRecord(r)).map(r=>r.measurementId));
+  const duplicateIds=new Set(records.map(r=>r.measurementId)).size!==records.length;
   const checks = [];
   const conflicts = [];
   const insufficient = [];
@@ -132,16 +161,13 @@ function reconcileMeasurementRecords({
   for (const type of [...new Set(materialTypes)]) {
     const group = records.filter((record) => record.type === type);
     const sources = [...new Set(group.map((record) => record.source))];
-    const minimumSources = Number.isInteger(minimumIndependentSourcesByType[type])
-      ? Math.max(1, minimumIndependentSourcesByType[type])
-      : 1;
-    const evidenceInsufficient = group.length === 0 || sources.length < minimumSources;
+    const minimumSources=policy.minimumIndependentSourcesByType[type];
+    const evidenceInsufficient = group.length === 0 || sources.length < minimumSources||duplicateIds||invalidIds.size>0||new Set(group.map(r=>r.sourceEvidenceRef)).size<minimumSources;
     if (evidenceInsufficient) insufficient.push({ type, sourceCount: sources.length, requiredSourceCount: minimumSources });
 
     let conflict = false;
     if (group.length > 1) {
-      const reference = group[0].value;
-      conflict = group.slice(1).some((record) => !withinTolerance(reference, record.value, toleranceByType[type] || {}));
+      conflict = new Set(group.map(r=>r.measurementStandardRef)).size!==1||group.some((a,i)=>group.slice(i+1).some(b=>!withinTolerance(a.value,b.value,toleranceByType[type]||{})));
       if (conflict) {
         conflicts.push({
           type,
@@ -161,7 +187,7 @@ function reconcileMeasurementRecords({
       requiredSourceCount: minimumSources,
       evidenceInsufficient,
       conflict,
-      consensusValueSqm: !conflict && group.length ? group[0].value : null,
+      consensusValueSqm: !conflict && !evidenceInsufficient && group.length ? group[0].value : null,
     });
   }
 
@@ -169,9 +195,11 @@ function reconcileMeasurementRecords({
   if (conflicts.length) status = MEASUREMENT_RECONCILIATION_STATUS.MEASUREMENT_CONFLICT;
   else if (insufficient.length) status = MEASUREMENT_RECONCILIATION_STATUS.HOLD_INSUFFICIENT_EVIDENCE;
 
-  return freeze({
-    schemaVersion: 1,
+  const core={
+    schemaVersion: 2,
     caseId,
+    measurementRecordsHashSha256:digest(records),
+    policy,
     status,
     checks,
     conflicts,
@@ -182,13 +210,22 @@ function reconcileMeasurementRecords({
     transactionAuthorized: false,
     certifiedValuationEstablished: false,
     semantics: 'Measurement reconciliation compares evidence already expressed in canonical square metres. No silent unit conversion, standard substitution, or source winner selection is performed.',
-  });
+  };
+  return freeze({...core,measurementGateHashSha256:digest(core)});
 }
 
+function verifyMeasurementGate(gate,inputs){
+ try{
+  const replay=reconcileMeasurementRecords(inputs);
+  return replay.status===MEASUREMENT_RECONCILIATION_STATUS.CLEAR&&digest(gate)===digest(replay);
+ }catch{return false;}
+}
 module.exports = {
   MEASUREMENT_TYPE,
   MEASUREMENT_SOURCE,
   MEASUREMENT_RECONCILIATION_STATUS,
   createMeasurementRecord,
+  verifyMeasurementRecord,
+  verifyMeasurementGate,
   reconcileMeasurementRecords,
 };

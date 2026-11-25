@@ -1,6 +1,7 @@
 'use strict';
 
-const crypto = require('crypto');
+const crypto = require('node:crypto');
+const {strictCalendarDateMs}=require('../validation/strict-calendar-instant');
 const {
   ASSIGNMENT_STATUS,
   evaluateProfessionalAssignment,
@@ -17,7 +18,7 @@ const {
 const {
   INSPECTION_STATE,
   REQUIRED_OBSERVATION_CATEGORIES,
-  MEDIA_MANIPULATION_STATUS,
+  MEDIA_MANIPULATION_STATUS,verifyCompletedInspection,
 } = require('../inspection/inspection-lifecycle');
 const {
   MEASUREMENT_RECONCILIATION_STATUS,
@@ -50,6 +51,7 @@ function stableClone(value) {
   if (Array.isArray(value)) return value.map(stableClone);
   if (!value || typeof value !== 'object') return value;
   return Object.keys(value).sort().reduce((out, key) => {
+    if(['__proto__','constructor','prototype'].includes(key))throw new TypeError('PROPERTY_EVIDENCE_UNSAFE_KEY');
     out[key] = stableClone(value[key]);
     return out;
   }, {});
@@ -119,6 +121,8 @@ function projectVerifiedEvidenceFact(record) {
     evidenceLink: record.evidenceLink,
     chainHashSha256: record.chainHashSha256,
     professionalReviewRef: record.professionalReview?.reviewEvidenceRef || null,
+    factHashSha256:record.factHashSha256,
+    reviewBindingSha256:record.reviewBindingSha256??null,
   };
 }
 
@@ -189,13 +193,24 @@ function buildPropertyEvidencePacket({
     return hold(PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_INSPECTION, inspectionReasons, { caseId, propertyRef });
   }
 
-  const measurementGate = reconcileMeasurementRecords({
+  const reportEnd= strictCalendarDateMs(assignment.report_date);
+  const reportCutoff= /^\d{4}-\d{2}-\d{2}$/.test(assignment.report_date)?reportEnd+86400000-1:reportEnd;
+  if(!Number.isFinite(reportCutoff)||!Number.isFinite(strictCalendarDateMs(assignment.valuation_date))||
+      strictCalendarDateMs(inspection.valuationDate)!==strictCalendarDateMs(assignment.valuation_date)||
+      !Number.isFinite(strictCalendarDateMs(inspection.completedAt))||strictCalendarDateMs(inspection.completedAt)>reportCutoff)
+    return hold(PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_INSPECTION,['INSPECTION_ASSIGNMENT_DATE_MISMATCH'],{caseId,propertyRef});
+  if(measurementRecords.some(r=>(r.inspectionId!==null&&r.inspectionId!==inspection.inspectionId)||
+      (r.source==='INSPECTION'&&r.inspectionId!==inspection.inspectionId)||
+      !Number.isFinite(strictCalendarDateMs(r.measuredAt))||strictCalendarDateMs(r.measuredAt)>strictCalendarDateMs(inspection.completedAt)))
+    return hold(PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_MEASUREMENT,['MEASUREMENT_INSPECTION_BINDING_OR_DATE_INVALID'],{caseId,propertyRef});
+  const measurementInputs={
     caseId,
     records: measurementRecords,
     materialTypes: materialMeasurementTypes,
     toleranceByType: measurementToleranceByType,
     minimumIndependentSourcesByType: minimumMeasurementSourcesByType,
-  });
+  };
+  const measurementGate=reconcileMeasurementRecords(measurementInputs);
   if (measurementGate.status !== MEASUREMENT_RECONCILIATION_STATUS.CLEAR) {
     return hold(PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_MEASUREMENT, [measurementGate.status], { caseId, propertyRef });
   }
@@ -207,7 +222,8 @@ function buildPropertyEvidencePacket({
       record,
       target: ADMISSIBILITY_TARGET.PROFESSIONAL_REPORT,
     });
-    if (result.status !== ADMISSIBILITY_STATUS.READY) {
+    const dates=[record.fact?.capturedAt,record.fact?.verification?.verifiedAt,record.createdAt,...(record.professionalReview?[record.professionalReview.reviewedAt]:[])];
+    if (result.status !== ADMISSIBILITY_STATUS.READY||dates.some(d=>!Number.isFinite(strictCalendarDateMs(d))||strictCalendarDateMs(d)>reportCutoff)) {
       inadmissibleEvidence.push({ recordId: record.recordId || null, status: result.status, reasons: result.reasons || [] });
     } else {
       verifiedEvidenceRecords.push(record);
@@ -231,6 +247,19 @@ function buildPropertyEvidencePacket({
     return hold(PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_EVIDENCE, [propertyDataGate.status], { caseId, propertyRef });
   }
 
+  // Independent document reconciliation and measurement reconciliation can
+  // each pass while disagreeing with each other. Compare their shared land area.
+  const landFacts=verifiedEvidenceRecords.filter(r=>r.fact.key==='property.land_area');
+  const landMeasurements=measurementRecords.filter(r=>r.type==='LAND_AREA');
+  if(landFacts.length&&landMeasurements.length){
+    const tol=measurementToleranceByType.LAND_AREA||{};
+    const abs=Number.isFinite(tol.absoluteSqm)?Math.max(0,tol.absoluteSqm):0;
+    const rel=Number.isFinite(tol.relative)?Math.max(0,tol.relative):0;
+    if(landFacts.some(r=>r.fact.valueType!=='NUMBER'||typeof r.fact.normalizedValue!=='number'||!Number.isFinite(r.fact.normalizedValue)||r.fact.normalizedValue<=0||String(r.fact.unit).toLowerCase()!=='sqm'||
+       landMeasurements.some(m=>Math.abs(m.value-r.fact.normalizedValue)>Math.max(abs,Math.max(Math.abs(m.value),Math.abs(r.fact.normalizedValue),1)*rel))))
+      return hold(PROPERTY_EVIDENCE_PACKET_STATUS.MATERIAL_PROPERTY_DATA_CONFLICT,['DOCUMENT_MEASUREMENT_LAND_AREA_CONFLICT'],{caseId,propertyRef});
+  }
+  if(!verifyCompletedInspection(inspection,measurementInputs))return hold(PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_INSPECTION,['INSPECTION_REVIEW_REPLAY_MISMATCH'],{caseId,propertyRef});
   const evidenceFacts = verifiedEvidenceRecords.map(projectVerifiedEvidenceFact);
   const measurements = measurementRecords.map(projectMeasurement);
   const assignmentHashSha256 = hash(assignment);
@@ -253,6 +282,7 @@ function buildPropertyEvidencePacket({
     assignmentHashSha256,
     inspectionId: inspection.inspectionId,
     inspectionHashSha256,
+    inspectionReviewBindingSha256:inspection.reviewBindingSha256,
     valuationDate: assignment.valuation_date,
     reportDate: assignment.report_date,
     jurisdiction: assignment.asset.jurisdiction,
@@ -265,6 +295,8 @@ function buildPropertyEvidencePacket({
     measurements,
     propertyDataGateStatus: propertyDataGate.status,
     measurementGateStatus: measurementGate.status,
+    measurementGateHashSha256:hash(measurementGate),
+    propertyDataGateHashSha256:hash(propertyDataGate),
   };
 
   return deepFreeze({

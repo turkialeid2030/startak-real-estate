@@ -84,7 +84,10 @@ const COPY = Object.freeze({
     configError: 'تعذر تطبيق إعدادات التقييم',
     runtimeError: 'تعذر تشغيل طبقة التقييم لهذه الحالة. بقيت الدراسة الأساسية دون تغيير.',
     currentStatus: 'حالة التقييم',
-    finalValue: 'القيمة النهائية المؤهلة',
+    finalValue: 'مؤشر القيمة الحسابي الأولي (غير معتمد)',
+    institutionalHold: 'الاعتماد الاستثماري والتقييم المهني والتصدير الرسمي: معلّق',
+    institutionalNote: 'لا تمنح الحسابات أو الأدلة التي أدخلها المستخدم صلاحية اعتماد. يلزم التحقق المستقل من هوية العقار ومصادر الأدلة ومراجعة مختص. التقرير الشخصي منفصل.',
+    institutionalReasons: 'موانع الاعتماد المؤسسي',
     reasons: 'أسباب التعليق / عدم الإتاحة',
     evidenceGaps: 'فجوات الأدلة أو المدخلات',
     methods: 'المناهج',
@@ -163,7 +166,10 @@ const COPY = Object.freeze({
     configError: 'Valuation configuration could not be applied',
     runtimeError: 'The valuation layer could not run for this case. The base study remains unchanged.',
     currentStatus: 'Valuation status',
-    finalValue: 'Qualified final value',
+    finalValue: 'Preliminary arithmetic indication (not certified)',
+    institutionalHold: 'Institutional investment approval, professional appraisal and official export: HOLD',
+    institutionalNote: 'Calculations and user-declared evidence confer no approval authority. Independent property identity, source verification and specialist review remain required. Personal research export is separate.',
+    institutionalReasons: 'Institutional approval blockers',
     reasons: 'Hold / unavailability reasons',
     evidenceGaps: 'Evidence or input gaps',
     methods: 'Methods',
@@ -214,6 +220,7 @@ const ADVANCED_FIELDS = Object.freeze([
   'evidence',
   'criticalEvidenceRequirements',
   'reconciliationPolicy',
+  'institutionalEvidence',
 ]);
 
 function copyForLocale(locale) {
@@ -368,6 +375,7 @@ export default function ValuationIntelligencePanel({
 
   const presentation = runtime?.presentation || null;
   const stage = runtime?.stage || null;
+  const institutionalDecision = runtime?.institutionalDecision || null;
   const isLegacyOnly = !valuationCase || runtime?.mode === VALUATION_RUNTIME_MODE.LEGACY_ONLY;
   const finalValue = presentation ? money(presentation.finalValue, locale) : null;
 
@@ -445,6 +453,11 @@ export default function ValuationIntelligencePanel({
         </div>
       ) : presentation ? (
         <div className="mt-4 space-y-4">
+          <div data-testid="valuation-institutional-hold" data-decision="HOLD" role="status" className="rounded-xl border border-amber-700 p-3 text-xs text-amber-200">
+            <div className="font-semibold">{text.institutionalHold}</div>
+            <p className="mt-1">{text.institutionalNote}</p>
+            {institutionalDecision?.blockers?.length ? <details className="mt-2"><summary>{text.institutionalReasons}</summary><ul className="list-disc ps-4 mt-1">{institutionalDecision.blockers.slice(0,20).map(code=><li key={code}><DiagnosticText locale={locale} code={code}/></li>)}</ul></details> : null}
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="rounded-xl px-3 py-3" style={{ background: COLORS.panelRaised, border: `1px solid ${COLORS.hairlineSoft}` }}>
               <div className="text-[10px] mb-1" style={{ color: COLORS.slateDim }}>{text.currentStatus}</div>

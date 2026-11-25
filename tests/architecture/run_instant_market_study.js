@@ -79,8 +79,18 @@ const duplicateWithAlternateUrl=study({sales:[
   {...sales[1],sourceRecordId:'DUPLICATE-ONE',sourceUrl:'https://rei.rega.gov.sa/details/other-url'},
   {...sales[2],sourceRecordId:'UNIQUE-TWO'}
 ]});
-assert.equal(duplicateWithAlternateUrl.eligibleSalesCount,2,'same-source deal ID cannot count twice via different URLs');
+assert.equal(duplicateWithAlternateUrl.eligibleSalesCount,1,'conflicting economics and locations for one source ID exclude both records');
 assert.equal(duplicateWithAlternateUrl.saleIndicationSar,null);
+assert.equal(duplicateWithAlternateUrl.todayValueScenarioSar,null);
+assert.ok(duplicateWithAlternateUrl.issues.includes('SALE_SOURCE_RECORD_CONFLICT'));
+const exactDuplicateWithAlternateUrl=study({sales:[
+  {...sales[0],sourceRecordId:'DUPLICATE-ONE'},
+  {...sales[0],sourceRecordId:'DUPLICATE-ONE',sourceUrl:'https://rei.rega.gov.sa/details/other-url'},
+  {...sales[2],sourceRecordId:'UNIQUE-TWO'}
+]});
+assert.equal(exactDuplicateWithAlternateUrl.eligibleSalesCount,2,'identical same-source transaction counts once across URLs');
+assert.equal(exactDuplicateWithAlternateUrl.saleIndicationSar,null);
+assert.ok(!exactDuplicateWithAlternateUrl.issues.includes('SALE_SOURCE_RECORD_CONFLICT'));
 const wrongType=study({sales:[...sales.slice(0,2),{...sales[2],assetType:'OFFICE_TOWER'}]});
 assert.equal(wrongType.saleIndicationSar,null);
 const asking=study({sales:[...sales.slice(0,2),{...sales[2],status:'ASKING'}]});
