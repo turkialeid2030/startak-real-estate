@@ -43,6 +43,14 @@ const fixture={reportRef:'SYNTHETIC-ONLY',valuationDate:'2026-01-01',landAreaSqm
    await expect(panel.getByTestId('studio-audit-result')).toContainText('100000');
    await expect(panel.getByTestId('studio-audit-result')).toContainText(locale==='en'?'Reported difference is not market growth':'لا يمثل فرق القيمة نمو السوق');
    const historyHtml=await download(exp);assert.ok(historyHtml.includes(locale==='en'?'Property report history comparison':'مقارنة تقارير الأصل عبر الزمن'));
+   const row=(year,patch={})=>({year,propertyRentSar:0,ownerOpexSar:0,sustainingCapexSar:0,demolitionSar:0,constructionSar:0,otherDevelopmentSar:0,netExitSar:0,...patch});
+   const development={version:'OWNER_REDEVELOPMENT_RESEARCH_V1',propertyRef:'SYNTH-P',valuationDate:'2026-01-05',currentState:'IMPROVED',propertyRight:'FREEHOLD',identityRef:'SYNTH-ID',currentNetSaleSar:1000000,saleAssumptionRef:'SYNTH-SALE',years:3,discountRate:0,planningStatus:'ASSUMPTION_ONLY',planningRef:'SYNTH-PLAN',environmentalRef:'SYNTH-ENV',costRef:'SYNTH-COST',incomeRef:'SYNTH-RENT',exitRef:'SYNTH-EXIT',propertyIncomeOnly:true,noDuplicateCosts:true,demolitionYear:0,completionYear:1,retain:[row(0),row(1,{propertyRentSar:100000,ownerOpexSar:20000}),row(2,{propertyRentSar:100000,ownerOpexSar:20000}),row(3,{propertyRentSar:100000,ownerOpexSar:20000,netExitSar:1000000})],redevelop:[row(0,{demolitionSar:50000}),row(1,{constructionSar:400000}),row(2,{propertyRentSar:150000,ownerOpexSar:30000}),row(3,{propertyRentSar:150000,ownerOpexSar:30000,netExitSar:1800000})],stress:{incomeReduction:.1,costIncrease:.1,exitReduction:.1}};
+   await input.fill(JSON.stringify(development));await expect(exp).toBeDisabled();await audit.click();
+   await expect(panel.getByTestId('studio-audit-result')).toContainText('1590000');
+   await expect(panel.getByTestId('studio-audit-result')).toContainText('590000');
+   await expect(exp).toBeEnabled();
+   const developmentHtml=await download(exp);assert.ok(developmentHtml.includes(locale==='en'?'Hold, sell and redevelopment feasibility':'جدوى الاحتفاظ والبيع وإعادة التطوير'));assert.ok(!developmentHtml.includes('<script>'));
+   await input.fill(JSON.stringify({...development,redevelop:development.redevelop.map((p,i)=>i===1?{...p,propertyRentSar:10000}:p)}));await expect(exp).toBeDisabled();await audit.click();await expect(exp).toBeDisabled();await expect(panel.getByTestId('studio-audit-result')).toHaveCount(0);
    await input.fill('{}');await expect(exp).toBeDisabled();await expect(panel.getByTestId('studio-audit-result')).toHaveCount(0);
    await audit.click();await expect(exp).toBeDisabled();await expect(panel.getByTestId('studio-notice')).toBeVisible();
    assert.deepEqual(errors,[]);
