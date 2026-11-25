@@ -1,7 +1,7 @@
-import React,{useState} from 'react';
-const {STATUS,SUPPORTED_SECTORS,evaluateLocalSectorOperations}=require('../specialized-assets/local-sector-operating-research');
+import React,{useState,useRef,useLayoutEffect} from 'react';
+const {STATUS,SUPPORTED_SECTORS}=require('../specialized-assets/local-sector-operating-research');
+const {MAX_BYTES,calculateStudy,createInputArchive,createOperatingReport,restoreStudyFile}=require('../specialized-assets/local-sector-operating-archive');
 const {INDUSTRIAL_SUBTYPE,LEASE_STRUCTURE,INTERNAL_INSPECTION_STATUS,BUILDING_PERMIT_STATUS}=require('../valuation-intelligence/adapters/industrial-logistics');
-const {parseNumericText}=require('../validation/numeric-text');
 const F=(key,ar,en,kind='number',options=null)=>({key,ar,en,kind,options});
 const hotel=[
  F('availableRoomNights','الليالي المتاحة','Available room nights'),F('occupiedRoomNights','الليالي المشغولة','Occupied room nights'),
@@ -38,9 +38,12 @@ const metricsLabels={
  segmentCount:['عدد الشرائح','Segments','num'],totalLeasableAreaSqm:['المساحة التأجيرية','Leasable area','num'],totalPropertyRevenueSar:['إيراد العقار الكلي','Total property revenue','sar'],totalPropertyExpensesSar:['مصروفات العقار الكلية','Total property expenses','sar'],
  totalDeclaredLossSar:['إجمالي الفاقد المصرح به','Declared total loss','sar'],remainingImprovementCostSar:['تكلفة التحسينات المتبقية','Remaining improvement cost','sar'],declaredLandAmountSar:['مبلغ الأرض المصرح به','Declared land amount','sar']};
 const optionAr={WAREHOUSE:'مستودع',DISTRIBUTION_CENTER:'مركز توزيع',COLD_STORAGE:'تبريد',LIGHT_INDUSTRIAL:'صناعي خفيف',FACTORY:'مصنع',WORKSHOP:'ورشة',YARD:'ساحة',OTHER:'آخر',GROSS:'إجمالي',NET:'صافي',TRIPLE_NET:'صافي ثلاثي',TENANT_BORNE_OPEX:'مصروفات على المستأجر',UNKNOWN:'غير محدد',FULL_INTERNAL:'داخلية كاملة',LIMITED_INTERNAL:'داخلية محدودة',EXTERNAL_ONLY:'خارجية فقط',NOT_INSPECTED:'لم تتم المعاينة',VERIFIED:'مراجعة بحسب الإقرار',PROVIDED_UNVERIFIED:'مقدمة غير متحققة',MISSING:'غير متوفرة',NOT_APPLICABLE:'لا تنطبق'};
-const convert=(values,fields)=>Object.fromEntries(fields.map(f=>{const raw=values[f.key]??'';if(f.kind==='number'){const parsed=parseNumericText(raw);return [f.key,parsed.ok?parsed.value:null];}return [f.key,f.kind==='check'?raw===true:raw];}));
 export default function LocalSectorOperatingResearchPanel({assetClass,locale='ar-SA'}){
  const ar=locale!=='en',[values,setValues]=useState({}),[segments,setSegments]=useState([{},{}]),[output,setOutput]=useState(null);
+ const [notice,setNotice]=useState(''),epoch=useRef(0),fileRef=useRef(null),mounted=useRef(true);
+ useLayoutEffect(()=>{mounted.current=true;return()=>{mounted.current=false;epoch.current++;};},[]);
+ const invalidate=()=>{epoch.current++;setOutput(null);setNotice('');};
+ const state=()=>({assetClass,values,segments:assetClass==='MIXED_USE'?segments:[]});
  if(!SUPPORTED_SECTORS.includes(assetClass))return null;
  const fields=assetClass==='HOSPITALITY'?hotel:assetClass==='INDUSTRIAL_LOGISTICS'?industrial:assetClass==='MIXED_USE'?mixed:assetClass==='SPECIAL_PURPOSE'?special:capacity(assetClass);
  const input=(field,raw,change,prefix='')=>{
@@ -50,17 +53,58 @@ export default function LocalSectorOperatingResearchPanel({assetClass,locale='ar
    {field.kind==='check'?<input data-testid={id} type="checkbox" className="ms-2" checked={raw===true} onChange={e=>change(e.target.checked)}/>:field.kind==='select'?<select data-testid={id} className="block w-full p-2 mt-1 rounded-md" style={style} value={raw??''} onChange={e=>change(e.target.value)}><option value="">{ar?'اختر':'Select'}</option>{field.options.map(o=><option key={o} value={o}>{ar?(optionAr[o]||o):o.replaceAll('_',' ')}</option>)}</select>:<input data-testid={id} className="block w-full p-2 mt-1 rounded-md" style={style} inputMode={field.kind==='number'?'decimal':'text'} value={raw??''} onChange={e=>change(e.target.value)}/>}
   </label>;
  };
- const calculate=()=>{try{const args=convert(values,fields);if(assetClass==='MIXED_USE')args.segments=segments.map(s=>convert(s,segmentFields));setOutput(evaluateLocalSectorOperations({assetClass,inputs:args}));}catch{setOutput({status:STATUS.HOLD,issues:['INPUTS_REQUIRED'],metrics:null});}};
+ const calculate=()=>{epoch.current++;setNotice('');try{setOutput(calculateStudy(state()));}catch{setOutput({status:STATUS.HOLD,issues:['INPUTS_REQUIRED'],metrics:null});}};
+ const notices={
+  INPUTS_EXPORTED:['أُنشئ ملف المدخلات فقط؛ لا يتضمن نتيجة أو صلاحية.','Inputs-only file created; no result or authority included.'],
+  REPORT_EXPORTED:['أُنشئ تقرير بحث تشغيلي غير معتمد بعد إعادة الحساب.','Unverified operating research report created after recomputation.'],
+  INPUTS_RESTORED:['استُعيدت المدخلات فقط. أعد الحساب.','Inputs restored only. Recalculate.'],
+  REPORT_RESTORED:['طابقت إعادة الحساب التقرير؛ استُعيدت المدخلات فقط. أعد الحساب.','Report recomputation matched; inputs only restored. Recalculate.'],
+  REJECTED:['تعذر التحقق من الملف أو نوع القطاع أو النتيجة. بقيت المدخلات دون تغيير.','File, sector or result validation failed. Inputs unchanged.'],
+  EXPORT_FAILED:['تعذر إنشاء الملف. تحقق من المدخلات وأعد الحساب قبل تصدير النتائج.','Could not create file. Check inputs and recalculate before exporting results.']};
+ const download=(report)=>{
+  epoch.current++;setNotice('');
+  try{
+   const file=report?createOperatingReport(state()):createInputArchive(state());
+   if(report&&(!output||JSON.stringify(output)!==JSON.stringify(file.result)))throw Error('STALE_RESULT');
+   const url=URL.createObjectURL(new Blob([JSON.stringify(file,null,2)],{type:'application/json;charset=utf-8'}));
+   const a=document.createElement('a');a.href=url;a.download='startak-specialist-'+assetClass.toLowerCase()+(report?'-report.json':'-inputs.json');
+   try{document.body.appendChild(a);a.click();}finally{a.remove();URL.revokeObjectURL(url);}
+   setNotice(report?'REPORT_EXPORTED':'INPUTS_EXPORTED');
+  }catch{setNotice('EXPORT_FAILED');}
+ };
+ const restore=async e=>{
+  const file=e.target.files?.[0];if(fileRef.current)fileRef.current.value='';if(!file)return;
+  const op=++epoch.current;setNotice('');
+  const current=()=>mounted.current&&epoch.current===op;
+  try{
+   if(file.size<=0||file.size>MAX_BYTES)throw Error('SIZE');
+   const raw=await file.arrayBuffer();if(!current())return;
+   const result=restoreStudyFile(JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(raw)),{expectedAssetClass:assetClass});
+   if(!current())return;
+   setValues(result.studyInputs.values);setSegments(assetClass==='MIXED_USE'?result.studyInputs.segments:[{},{}]);setOutput(null);
+   setNotice(result.sourceKind==='RECOMPUTED_REPORT'?'REPORT_RESTORED':'INPUTS_RESTORED');
+  }catch{if(current())setNotice('REJECTED');}
+ };
  const fmt=(v,kind)=>new Intl.NumberFormat(ar?'ar-SA':'en-SA',kind==='pct'?{style:'percent',maximumFractionDigits:2}:{maximumFractionDigits:2}).format(v)+(kind==='sar'?(ar?' ر.س':' SAR'):'');
  return <section data-testid="local-sector-operating-research" dir={ar?'rtl':'ltr'} className="mt-4 rounded-xl border border-slate-600 p-3">
   <h4 className="font-semibold text-sm text-amber-200">{ar?'محرك التحليل التشغيلي التخصصي':'Specialist operating research engine'}</h4>
   <p className="text-xs mt-2 text-slate-300">{ar?'أدخل بيانات الفترة نفسها. هذه مؤشرات بحثية محلية لا تثبت صحة المصدر، ولا تنقل فائض النشاط إلى صافي دخل العقار أو قيمة التقييم تلقائيًا.':'Use figures from the same period. Local research diagnostics only; no source certification or automatic adoption of operating surplus as property NOI or value.'}</p>
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">{fields.map(f=>input(f,values[f.key],v=>{setValues(old=>({...old,[f.key]:v}));setOutput(null);} ))}</div>
-  {assetClass==='MIXED_USE'&&<div className="mt-3 space-y-3">{segments.map((seg,i)=><div key={i} className="border border-slate-600 rounded p-2"><div className="text-xs">{ar?'الشريحة':'Segment'} {i+1}</div><div className="grid grid-cols-1 md:grid-cols-2 gap-2">{segmentFields.map(f=>input(f,seg[f.key],v=>{setSegments(old=>old.map((s,j)=>i===j?{...s,[f.key]:v}:s));setOutput(null);},'segment-'+i+'-'))}</div></div>)}<div className="flex flex-wrap gap-2"><button type="button" data-testid="specialist-add-segment" disabled={segments.length>=20} onClick={()=>{setSegments(s=>[...s,{}]);setOutput(null);}} className="border rounded p-2 text-xs">{ar?'إضافة شريحة':'Add segment'}</button><button type="button" data-testid="specialist-remove-segment" disabled={segments.length<=2} onClick={()=>{setSegments(s=>s.slice(0,-1));setOutput(null);}} className="border rounded p-2 text-xs">{ar?'حذف آخر شريحة':'Remove last segment'}</button></div></div>}
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">{fields.map(f=>input(f,values[f.key],v=>{invalidate();setValues(old=>({...old,[f.key]:v}));} ))}</div>
+  {assetClass==='MIXED_USE'&&<div className="mt-3 space-y-3">{segments.map((seg,i)=><div key={i} className="border border-slate-600 rounded p-2"><div className="text-xs">{ar?'الشريحة':'Segment'} {i+1}</div><div className="grid grid-cols-1 md:grid-cols-2 gap-2">{segmentFields.map(f=>input(f,seg[f.key],v=>{invalidate();setSegments(old=>old.map((s,j)=>i===j?{...s,[f.key]:v}:s));},'segment-'+i+'-'))}</div></div>)}<div className="flex flex-wrap gap-2"><button type="button" data-testid="specialist-add-segment" disabled={segments.length>=20} onClick={()=>{invalidate();setSegments(s=>[...s,{}]);}} className="border rounded p-2 text-xs">{ar?'إضافة شريحة':'Add segment'}</button><button type="button" data-testid="specialist-remove-segment" disabled={segments.length<=2} onClick={()=>{invalidate();setSegments(s=>s.slice(0,-1));}} className="border rounded p-2 text-xs">{ar?'حذف آخر شريحة':'Remove last segment'}</button></div></div>}
   <button type="button" data-testid="specialist-calculate" onClick={calculate} className="mt-4 p-3 rounded-lg bg-slate-100 text-slate-900 text-sm">{ar?'احسب المؤشرات التخصصية':'Calculate specialist metrics'}</button>
   {output&&<div data-testid="specialist-result" data-status={output.status} role="status" className="mt-3 text-xs">
    {output.status===STATUS.HOLD?<ul className="text-amber-200 list-disc ps-4">{output.issues.map(code=><li key={code}>{issueLabels[code]?.[ar?0:1]||code}</li>)}</ul>:<><div className="text-slate-200">{ar?'مؤشرات تشغيلية غير معتمدة':'Unverified operating diagnostics'}</div><dl className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">{Object.entries(output.metrics).filter(([k,v])=>metricsLabels[k]&&typeof v==='number').map(([k,v])=><div key={k} className="border border-slate-600 rounded p-2"><dt>{metricsLabels[k][ar?0:1]}</dt><dd data-testid={'specialist-metric-'+k} className="font-semibold mt-1">{fmt(v,metricsLabels[k][2])}</dd></div>)}</dl>{assetClass==='INDUSTRIAL_LOGISTICS'&&<p className="mt-2 text-amber-200">{ar?'المعاينة والرخص والالتزامات البيئية ومواصفات الأصل تحتاج مراجعة مستقلة.':'Inspection, permits, environmental liabilities and specifications require independent review.'}</p>}</>}
   </div>}
+  <div className="mt-4 border-t border-slate-600 pt-3 space-y-2">
+   <p className="text-xs text-slate-300">{ar?'ملفات محلية غير مشفرة. احفظها في مكان آمن. بصمة SHA-256 للتحقق من الاتساق وليست توقيعًا رقميًا أو إثباتًا لهوية المصدر.':'Local files are not encrypted. Store securely. SHA-256 checks consistency; it is not a digital signature or proof of source identity.'}</p>
+   <div className="flex flex-wrap gap-2">
+    <button type="button" data-testid="specialist-export-inputs" onClick={()=>download(false)} className="border rounded p-2 text-xs">{ar?'حفظ المدخلات JSON':'Save inputs JSON'}</button>
+    <button type="button" data-testid="specialist-export-report" disabled={output?.status!==STATUS.READY} onClick={()=>download(true)} className="border rounded p-2 text-xs disabled:opacity-50">{ar?'تصدير تقرير بحثي JSON':'Export research report JSON'}</button>
+    <button type="button" data-testid="specialist-import-button" onClick={()=>fileRef.current?.click()} className="border rounded p-2 text-xs">{ar?'استعادة المدخلات من ملف':'Restore inputs from file'}</button>
+    <input type="file" ref={fileRef} data-testid="specialist-import-file" accept=".json,application/json" className="hidden" onChange={restore}/>
+   </div>
+   {notice&&<p data-testid="specialist-file-notice" role="status" className="text-xs text-slate-200">{notices[notice]?.[ar?0:1]}</p>}
+  </div>
   <p data-testid="specialist-authority-hold" className="text-xs mt-3 text-amber-200">{ar?'الاعتماد المهني والتصدير الرسمي والقرار الاستثماري: معلّق.':'Professional valuation, official export and investment authorization: HOLD.'}</p>
  </section>;
 }
