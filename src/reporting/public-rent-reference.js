@@ -19,7 +19,7 @@ function parsePublicRentCsv(raw){
   if(c==='"'){if(v)throw Error('PUBLIC_RENT_QUOTE');quoted=true;}else v+=c;
  }
  if(quoted)throw Error('PUBLIC_RENT_QUOTE');if(row.length||v||closed)end();
- const h=rows.shift();if(!h||h.length!==HEADER.length||h.some((s,i)=>s!==HEADER[i]))throw Error('PUBLIC_RENT_HEADER');
+ const h=rows.shift();if(!h||h.length!==HEADER.length||h.slice(0,8).some((s,i)=>s!==HEADER[i])||!((h[8]===HEADER[8]&&h[9]===HEADER[9])||(h[8]==='متوسط الايجار'&&h[9]==='متوسط الايجار لكل متر مربع')))throw Error('PUBLIC_RENT_HEADER');
  if(!rows.length||rows.length>20000)throw Error('PUBLIC_RENT_COUNT');
  const number=s=>{if(!/^\d+(\.\d+)?$/.test(s))return null;const n=Number(s);return Number.isFinite(n)?n:null;};
  return rows.map((r,i)=>{
