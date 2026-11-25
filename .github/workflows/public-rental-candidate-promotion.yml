@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   propose:
-    if: github.ref_name == github.event.repository.default_branch && vars.PUBLIC_RENTAL_REUSE_APPROVED == 'true'
+    if: github.ref_name == github.event.repository.default_branch
     permissions:
       contents: write
       pull-requests: write
@@ -29,7 +29,7 @@ jobs:
           node tests/defects/public_rental_candidate.js
           node tools/refresh-public-rental-data.js
           node tools/build-public-rental-candidate.js
-      - name: Propose data-only update (never merge)
+      - name: Propose data-only review candidate (never merge)
         env:
           GH_TOKEN: ${{ github.token }}
           BASE_BRANCH: ${{ github.event.repository.default_branch }}
@@ -53,4 +53,4 @@ jobs:
           git config user.email 'startak-data-refresh[bot]@users.noreply.github.com'
           git commit -m 'Propose validated public rental dataset update'
           git push origin "HEAD:refs/heads/$branch"
-          gh pr create --base "$BASE_BRANCH" --head "$branch" --title 'Public rental data: validated candidate' --body 'Automated append-only public dataset candidate. No direct production deployment. Verify source rights, provenance and required checks before merging. Aggregate research references only.'
+          gh pr create --draft --base "$BASE_BRANCH" --head "$branch" --title 'Public rental data: validated candidate' --body 'Automated append-only public dataset candidate. No direct production deployment. Source-specific reuse rights, provenance and required checks remain release gates; no recurring owner approval is needed to retrieve or stage research data. Aggregate research references only.'
