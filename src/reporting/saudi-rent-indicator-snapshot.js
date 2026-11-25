@@ -8,7 +8,7 @@ const VERSION='SAUDI_RENT_INDICATOR_SNAPSHOT_V1';
 const SOURCES=Object.freeze({
  REGA:{url:'https://rei.rega.gov.sa/en/advanced-search/rental-market',kind:'OFFICIAL_AGGREGATE_REFERENCE'},
  KITE_REGISTERED:{url:'https://platform.kite.sa/docs/reference/official-registered-rents',kind:'DOCUMENTED_REGISTERED_AGGREGATE_ENDPOINT'},
- KITE_COMMERCIAL:{url:'https://platform.kite.sa/docs/reference/market-commercial-rents',kind:'DOCUMENTED_COMMERCIAL_AGGREGATE_ENDPOINT'}
+ KITE_COMMERCIAL:{url:'https://platform.kite.sa/docs/reference/market-commercial-rents',kind:'DOCUMENTED_COMMERCIAL_ASKING_AGGREGATE_ENDPOINT'}
 });
 const exact=(v,k)=>v!==null&&typeof v==='object'&&Object.getPrototypeOf(v)===Object.prototype&&Object.keys(v).length===k.length&&k.every(x=>Object.hasOwn(v,x));
 const txt=v=>typeof v==='string'&&v.trim().length>0&&v.length<=500&&!/[\u0000-\u001f\u007f]/.test(v);
@@ -27,7 +27,7 @@ function permittedSource(id,url){
 function reviewRentIndicator(x,context){
  if(!exact(x,['version','sourceId','sourceUrl','sourceRef','attribution','city','district','kind','subtype','areaBasis','periodStart','periodEnd','publishedDate','observedDate','priceSource','metric','valueSar','sampleCount','vatBasis','declaredVatRate','vatRef'])||x.version!==VERSION||!permittedSource(x.sourceId,x.sourceUrl)||!['sourceRef','attribution','city','district','subtype'].every(k=>txt(x[k]))||!KINDS.includes(x.kind)||!['NLA','LAND_AREA','WHOLE_LEASE_AREA'].includes(x.areaBasis)||(x.kind==='LAND')!==(x.areaBasis==='LAND_AREA')||!['periodStart','periodEnd','publishedDate','observedDate'].every(k=>day(x[k]))||x.periodStart>x.periodEnd||x.periodEnd>x.publishedDate||x.publishedDate>x.observedDate||!['REGISTERED','ASKING','UNKNOWN'].includes(x.priceSource)||!['MEAN_ANNUAL_SAR_PER_UNIT','MEAN_ANNUAL_SAR_PER_SQM','MEDIAN_ANNUAL_SAR_PER_SQM'].includes(x.metric)||!amount(x.valueSar)||!Number.isSafeInteger(x.sampleCount)||x.sampleCount<1||!['EXCLUDED','INCLUDED','UNKNOWN'].includes(x.vatBasis))throw Error('INDICATOR_INVALID');
  if(x.sourceId==='KITE_REGISTERED'&&(x.priceSource!=='REGISTERED'||!['APARTMENT','VILLA','RESIDENTIAL_BUILDING','RESIDENTIAL_COMPOUND'].includes(x.kind)||x.metric==='MEDIAN_ANNUAL_SAR_PER_SQM'))throw Error('INDICATOR_SOURCE_SCOPE_INVALID');
- if(x.sourceId==='KITE_COMMERCIAL'&&(!['OFFICE','RETAIL_SHOP','SHOWROOM','MALL_UNIT','MALL_WHOLE','WAREHOUSE','LOGISTICS','FACTORY','OTHER_PROPERTY'].includes(x.kind)||x.metric==='MEAN_ANNUAL_SAR_PER_UNIT'))throw Error('INDICATOR_SOURCE_SCOPE_INVALID');
+ if(x.sourceId==='KITE_COMMERCIAL'&&(x.priceSource!=='ASKING'||!['OFFICE','RETAIL_SHOP','SHOWROOM','MALL_UNIT','MALL_WHOLE','WAREHOUSE','LOGISTICS','FACTORY','OTHER_PROPERTY'].includes(x.kind)||x.metric==='MEAN_ANNUAL_SAR_PER_UNIT'))throw Error('INDICATOR_SOURCE_SCOPE_INVALID');
  if(x.vatBasis==='INCLUDED'?(typeof x.declaredVatRate!=='number'||!Number.isFinite(x.declaredVatRate)||x.declaredVatRate<0||x.declaredVatRate>.5||P.fromRate(P.toRate(x.declaredVatRate))!==x.declaredVatRate||!txt(x.vatRef)):(x.declaredVatRate!==null||x.vatRef!==null))throw Error('INDICATOR_VAT_INVALID');
  if(!exact(context,['city','district','kind','subtype','areaBasis','asOf'])||!['city','district','subtype'].every(k=>txt(context[k]))||!day(context.asOf)||!KINDS.includes(context.kind)||!['NLA','LAND_AREA','WHOLE_LEASE_AREA'].includes(context.areaBasis))throw Error('INDICATOR_CONTEXT_INVALID');
  const flags=[];

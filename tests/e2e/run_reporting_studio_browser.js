@@ -79,6 +79,9 @@ const fixture={reportRef:'SYNTHETIC-ONLY',valuationDate:'2026-01-01',landAreaSqm
    await calc.click();await expect(rentResult).toContainText(locale==='en'?'Held: insufficient or conflicting evidence':'معلق: أدلة غير كافية أو متعارضة');
    const indicator={version:'SAUDI_RENT_INDICATOR_SNAPSHOT_V1',sourceId:'REGA',sourceUrl:'https://rei.rega.gov.sa/en/advanced-search/rental-market',sourceRef:'SYNTH',attribution:'SYNTHETIC ONLY',city:'SYNTH-CITY',district:'SYNTH-DISTRICT',kind:'OFFICE',subtype:'GRADE-A',areaBasis:'NLA',periodStart:'2025-10-01',periodEnd:'2025-12-31',publishedDate:'2026-01-02',observedDate:'2026-01-03',priceSource:'REGISTERED',metric:'MEAN_ANNUAL_SAR_PER_SQM',valueSar:115,sampleCount:20,vatBasis:'INCLUDED',declaredVatRate:.15,vatRef:'SYNTH-VAT'};
    await fill('rental-indicator-input',JSON.stringify(indicator));await ws.getByTestId('rental-indicator-review').click();
+   await ws.getByTestId('rental-history-add').click();await ws.getByTestId('rental-history-add').click();
+   await expect(ws.getByTestId('rental-history-count')).toContainText('1');
+   await ws.getByTestId('rental-history-review').click();await expect(ws.getByTestId('rental-history-result')).toContainText(locale==='en'?'REGA':'الهيئة العامة للعقار');
    await expect(ws.getByTestId('rental-indicator-result')).toContainText('SYNTHETIC ONLY');await expect(ws.getByTestId('rental-indicator-result')).toContainText(locale==='en'?'Not a property rental estimate':'لا يمثل هذا المؤشر قيمة إيجارية للعقار');
    await expect(rentResult).toContainText(locale==='en'?'Held: insufficient or conflicting evidence':'معلق: أدلة غير كافية أو متعارضة');
    for(let i=0;i<3;i++){
@@ -87,6 +90,7 @@ const fixture={reportRef:'SYNTHETIC-ONLY',valuationDate:'2026-01-01',landAreaSqm
     for(const [k,v] of Object.entries({status:'EXECUTED',kind:'OFFICE',areaBasis:'NLA',periodMonths:'12',vatBasis:'EXCLUDED'}))await select(prefix+k,v);
     await ws.getByTestId(prefix+'rentOnly').check();await ws.getByTestId(prefix+'usageRightsDeclared').check();
    }
+   await expect(ws.getByTestId('rental-history-result')).toHaveCount(0);await expect(ws.getByTestId('rental-history-count')).toContainText('1');
    await expect(ws.getByTestId('rental-indicator-result')).toHaveCount(0);await expect(rentExport).toBeDisabled();await calc.click();
    const fmt=n=>n.toLocaleString(locale==='en'?'en-US':'ar-SA',{maximumFractionDigits:2});
    await expect(rentResult).toContainText(fmt(110000));await expect(rentResult).toContainText(fmt(97020));await expect(rentExport).toBeEnabled();
