@@ -191,6 +191,8 @@ const EN = Object.freeze({
   'مذكور — غير متحقق': 'Declared — unverified',
   'يتطلب مراجعة خارجية': 'External review required', 'ناقص / غير مثبت': 'Missing / unverified',
   'لا يوجد اعتماد آلي ولا إتاحة لتصدير تقرير تثمين مهني. التصدير المتاح ملف دراسة شخصية فقط.': 'No automatic certification or professional appraisal export. Available exports are personal research drafts only.',
+  'تعارض في سجلات البيع ذات معرّف المصدر نفسه؛ راجع السجلات قبل اعتماد مؤشر موحد': 'Conflicting sale records share a source identifier; reconcile the records before using a combined indication.',
+  'تعارض في سجلات الإيجار ذات معرّف المصدر نفسه؛ راجع السجلات قبل اعتماد مؤشر الإيجار': 'Conflicting rental records share a source identifier; reconcile the records before using a rental indication.',
   'نوع العقار غير مدعوم': 'Unsupported asset type',
   'إحداثيات العقار مطلوبة للمراجعة المكانية': 'Property coordinates are required for spatial review',
   'تاريخ التقييم المدخل غير صالح': 'The entered valuation date is invalid',
