@@ -81,7 +81,7 @@ const fixture={reportRef:'SYNTHETIC-ONLY',valuationDate:'2026-01-01',landAreaSqm
    await fill('rental-indicator-input',JSON.stringify(indicator));await ws.getByTestId('rental-indicator-review').click();
    await ws.getByTestId('rental-history-add').click();await ws.getByTestId('rental-history-add').click();
    await expect(ws.getByTestId('rental-history-count')).toContainText('1');
-   await ws.getByTestId('rental-history-review').click();await expect(ws.getByTestId('rental-history-result')).toContainText('REGA');
+   await ws.getByTestId('rental-history-review').click();await expect(ws.getByTestId('rental-history-result')).toContainText(locale==='en'?'REGA':'الهيئة العامة للعقار');
    await expect(ws.getByTestId('rental-indicator-result')).toContainText('SYNTHETIC ONLY');await expect(ws.getByTestId('rental-indicator-result')).toContainText(locale==='en'?'Not a property rental estimate':'لا يمثل هذا المؤشر قيمة إيجارية للعقار');
    await expect(rentResult).toContainText(locale==='en'?'Held: insufficient or conflicting evidence':'معلق: أدلة غير كافية أو متعارضة');
    for(let i=0;i<3;i++){
