@@ -6,12 +6,14 @@ const path=require('node:path');
 const {evaluateLocalSectorOperations,STATUS}=require('../../src/specialized-assets/local-sector-operating-research');
 const {restoreStudyFile}=require('../../src/specialized-assets/local-sector-operating-archive');
 const {sha256Hex}=require('../../src/crypto/sha256');
+const {UNITS,STATUS:DCF_STATUS,evaluateSectorPropertyDcf}=require('../../src/specialized-assets/sector-property-dcf');
 const hotel={availableRoomNights:36500,occupiedRoomNights:25550,roomsRevenueSar:12775000,foodBeverageRevenueSar:2000000,otherOperatingRevenueSar:225000,departmentalExpensesSar:4000000,undistributedOperatingExpensesSar:3000000,managementAndFranchiseFeesSar:500000,ffeReserveSar:500000};
 const industrial={assetId:'SYNTH-01',subtype:'WAREHOUSE',landAreaSqm:2000,builtAreaSqm:1500,netLeasableAreaSqm:1200,clearHeightMeters:10,powerCapacityKva:400,leaseStructure:'GROSS',internalInspectionStatus:'NOT_INSPECTED',buildingPermitStatus:'PROVIDED_UNVERIFIED',annualRentSar:600000,landlordExpensesSar:120000};
 const cap={capacity:100,usedCapacity:80,annualOperatingRevenueSar:1000000,annualOperatingExpensesSar:700000};
 const special={propertyRightRef:'SYNTH-RIGHT',landValueSar:2000000,replacementCostSar:1000000,physicalLossSar:100000,functionalLossSar:50000,externalLossSar:50000,lossCausesDistinct:true,businessAssetsExcluded:true};
 const mixed={totalLeasableAreaSqm:1500,commonExpensesSar:50000,sharedExpensesAllocatedOnce:true,segments:[{id:'office',areaSqm:1000,annualPropertyRevenueSar:1000000,annualDirectExpensesSar:100000,propertyIncomeOnly:true},{id:'retail',areaSqm:500,annualPropertyRevenueSar:500000,annualDirectExpensesSar:50000,propertyIncomeOnly:true}]};
-const cases=[['HOSPITALITY',hotel,'revParSar','availableRoomNights','sar'],['INDUSTRIAL_LOGISTICS',industrial,'annualRentPerLeasableSqm','netLeasableAreaSqm','sar'],...['HEALTHCARE','EDUCATION','PARKING','DATA_CENTER'].map(c=>[c,cap,'utilizationRate','capacity','pct']),['MIXED_USE',mixed,'declaredNetPropertyIncomeSar','totalLeasableAreaSqm','sar'],['SPECIAL_PURPOSE',special,'remainingImprovementCostSar','replacementCostSar','sar']];
+const fuel={annualLitres:1000000,sellingPricePerLitre:2,purchaseCostPerLitre:1.8,annualNonFuelRevenueSar:500000,annualNonFuelDirectCostSar:300000,annualOperatingExpensesSar:100000,annualPropertyRentSar:120000,annualEnvironmentalReserveSar:20000,nonFuelSeparated:true,propertyRentSeparated:true,environmentalReviewDeclared:true};
+const cases=[['HOSPITALITY',hotel,'revParSar','availableRoomNights','sar'],['INDUSTRIAL_LOGISTICS',industrial,'annualRentPerLeasableSqm','netLeasableAreaSqm','sar'],...['HEALTHCARE','EDUCATION','PARKING','DATA_CENTER'].map(c=>[c,cap,'utilizationRate','capacity','pct']),['MIXED_USE',mixed,'declaredNetPropertyIncomeSar','totalLeasableAreaSqm','sar'],['SPECIAL_PURPOSE',special,'remainingImprovementCostSar','replacementCostSar','sar'],['FUEL_STATION',fuel,'operatingSurplusSar','sellingPricePerLitre','sar']];
 (async()=>{
  const browserName=process.env.STARTAK_BROWSER||'chromium';
  const browser=await ({chromium,firefox,webkit}[browserName]).launch({headless:true});
@@ -26,10 +28,11 @@ const cases=[['HOSPITALITY',hotel,'revParSar','availableRoomNights','sar'],['IND
    if(!['127.0.0.1','localhost'].includes(url.hostname))throw Error('LOCAL_PREVIEW_REQUIRED');
    await ctx.route('**/*',route=>{const u=new URL(route.request().url());return u.origin===url.origin||['blob:','data:'].includes(u.protocol)?route.continue():route.abort();});
    await page.goto(url.href);
-   const select=page.getByTestId('personal-asset-universe-select'),panel=page.getByTestId('local-sector-operating-research');
+   const select=page.getByTestId('personal-asset-universe-select');
+   const choose=async cls=>{await select.selectOption(cls==='FUEL_STATION'?'SPECIAL_PURPOSE':cls);if(cls==='FUEL_STATION'||cls==='SPECIAL_PURPOSE')await page.getByTestId('special-purpose-subtype').selectOption(cls);};
    await expect(select).toBeVisible();
    for(const [assetClass,inputs,metric,invalidField,kind] of cases){
-    await select.selectOption(assetClass);await expect(panel).toBeVisible();
+    await choose(assetClass);const panel=page.getByTestId(assetClass==='FUEL_STATION'?'fuel-station-operating-research':'local-sector-operating-research');await expect(panel).toBeVisible();
     await expect(panel.getByTestId('specialist-result')).toHaveCount(0);
     const calc=panel.getByTestId('specialist-calculate');
     const exportReport=panel.getByTestId('specialist-export-report'),exportInputs=panel.getByTestId('specialist-export-inputs');
@@ -85,7 +88,35 @@ const cases=[['HOSPITALITY',hotel,'revParSar','availableRoomNights','sar'],['IND
     await expect(exportReport).toBeDisabled();
     checks+=12;scenarios++;
    }
-   await select.selectOption('OTHER');await expect(panel).toHaveCount(0);checks++;
+   for(const [assetClass,unit] of Object.entries(UNITS)){
+    await choose(assetClass);
+    const panel=page.getByTestId('sector-property-dcf');
+    await expect(panel).toBeVisible();
+    await expect(panel.getByTestId('sector-dcf-result')).toHaveCount(0);
+    const calc=panel.getByTestId('sector-dcf-calculate');
+    await calc.click();await expect(panel.getByTestId('sector-dcf-result')).toHaveAttribute('data-status',DCF_STATUS.HOLD);
+    const quantity=unit==='WHOLE_PROPERTY'?1:10;
+    const input={propertyRight:'FREEHOLD',propertyRef:'SYNTH-PROPERTY',leaseAssumptionRef:'SYNTH-LEASE',valuationDate:'2026-11-25',years:5,quantity,annualRentPerUnitSar:1000000/quantity,leasedFraction:.9,collectionFraction:.95,annualOwnerExpensesSar:100000,annualSustainingCapexSar:20000,rentGrowth:0,expenseGrowth:0,purchasePriceSar:3000000,acquisitionCostsSar:100000,discountRate:.1,terminalMode:'EXPLICIT_NET_SALE',terminalNetSaleSar:3000000,terminalEvidenceRef:'SYNTH-NET-SALE',stressRevenueReduction:.2,stressExpenseIncrease:.1,stressDiscountIncrease:.02,propertyIncomeOnly:true,businessAssetsExcluded:true,...(assetClass==='MIXED_USE'?{mixedAllocationConfirmed:true}:{}),...(assetClass==='FUEL_STATION'?{environmentalObligationsReviewed:true}:{})};
+    for(const [key,v] of Object.entries(input)){
+     const el=panel.getByTestId('sector-dcf-'+key);
+     if(typeof v==='boolean')await el.setChecked(v);
+     else if(await el.evaluate(e=>e.tagName==='SELECT'))await el.selectOption(String(v));
+     else await el.fill(String(v));
+    }
+    await expect(panel.getByTestId('sector-dcf-result')).toHaveCount(0);
+    await calc.click();await expect(panel.getByTestId('sector-dcf-result')).toHaveAttribute('data-status',DCF_STATUS.READY);
+    const expected=evaluateSectorPropertyDcf({assetClass,...input});
+    for(const [id,value] of [['npv',expected.investmentNpvSar],['irr',expected.irr],['stress',expected.scenarios.downside.npvSar]]){
+     const formatted=new Intl.NumberFormat(ar?'ar-SA':'en-SA',id==='irr'?{style:'percent',maximumFractionDigits:2}:{maximumFractionDigits:2}).format(value);
+     await expect(panel.getByTestId('sector-dcf-metric-'+id)).toHaveText(formatted);
+    }
+    await panel.getByTestId('sector-dcf-propertyIncomeOnly').uncheck();
+    await expect(panel.getByTestId('sector-dcf-result')).toHaveCount(0);
+    await calc.click();await expect(panel.getByTestId('sector-dcf-result')).toHaveAttribute('data-status',DCF_STATUS.HOLD);
+    await expect(panel.getByTestId('sector-dcf-metric-npv')).toHaveCount(0);
+    checks+=11;scenarios++;
+   }
+   await select.selectOption('OTHER');await expect(page.getByTestId('local-sector-operating-research')).toHaveCount(0);await expect(page.getByTestId('fuel-station-operating-research')).toHaveCount(0);await expect(page.getByTestId('sector-property-dcf')).toHaveCount(0);checks+=3;
    assert.deepEqual(errors,[]);checks++;
    const dir=path.join('runtime-evidence','sector-operating-browser',browserName);
    await fs.mkdir(dir,{recursive:true});await page.screenshot({path:path.join(dir,locale+'-'+width+'.png'),fullPage:false});
