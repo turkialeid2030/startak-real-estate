@@ -8,6 +8,7 @@ on:
       - 'tests/defects/land_history_report.js'
       - 'tests/defects/owner_redevelopment_research.js'
       - 'tests/defects/property_esg_screening.js'
+      - 'tests/defects/saudi_rental_intelligence.js'
       - '.github/workflows/reporting-studio-browser.yml'
   workflow_dispatch:
 permissions:
@@ -42,6 +43,7 @@ jobs:
       - run: node tests/defects/land_history_report.js
       - run: node tests/defects/owner_redevelopment_research.js
       - run: node tests/defects/property_esg_screening.js
+      - run: node tests/defects/saudi_rental_intelligence.js
       - run: node tests/architecture/run_wave10b_esg_evidence.js
       - run: npm run build
       - name: Verify reporting studio journeys
