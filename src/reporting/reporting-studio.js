@@ -7,6 +7,7 @@ const {VERSION:REDEVELOPMENT_VERSION,evaluateRedevelopment}=require('./owner-red
 const {sha256Hex}=require('../crypto/sha256');
 const {VERSION:ESG_VERSION,screenEsg}=require('./property-esg-screening');
 const {VERSION:RENT_VERSION,evaluateRentalIntelligence}=require('./saudi-rental-intelligence');
+const {specialistReview}=require('./rental-specialist-review');
 const MODES=Object.freeze(['OWNER','TECHNICAL']);
 const h=v=>String(v??'—').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const LABELS={
@@ -123,6 +124,9 @@ function renderRentalIntelligence(inputs,{locale='ar-SA'}={}){
  body+='<h2>'+h(s.id+' / '+s.kind)+'</h2>'+table([[l('التصنيف الفرعي','Subtype'),s.subtype],[l('أساس المساحة','Area basis'),s.areaBasis],[l('المساحة الإجمالية','Total area'),fmt(s.totalAreaSqm)],[l('عدد الوحدات','Unit count'),s.unitCount],[l('عدد العقود المصرح بتنفيذها','Declared executed leases'),s.executedCount],[l('عدد العروض','Asking offers'),s.askingCount],[l('وسيط سعر العرض دون تسوية','Unadjusted asking median'),fmt(s.offerMedianRateSar)],...metrics(s.result),[l('إيجار الوحدة السنوي','Annual rent per unit'),fmt(s.result?.annualRentPerUnitSar)],[l('سعر المتر الشهري','SAR per sqm per month'),fmt(s.result?.rateSarPerSqmMonth)]])
  +'<h3>'+l('أدلة المقارنة والتسويات','Comparable evidence and adjustments')+'</h3><table><thead><tr>'+[l('مرجع العقد والمصدر','Contract and source'),l('التاريخ والرصد','Date and observed'),l('الإيجار السنوي دون الضريبة والمساحة','Annual rent ex VAT and area'),l('سعر المتر قبل وبعد التسوية','Raw and adjusted rate'),l('حالة الضريبة والتسويات','VAT declaration and adjustments')].map(v=>'<th>'+h(v)+'</th>').join('')+'</tr></thead><tbody>'+[...s.executed,...s.offers].map(c=>'<tr>'+[c.contractRef+' / '+c.status+' / '+c.sourceUrl+' / '+c.sourceRecordId,c.date+' / '+c.observedDate,fmt(c.annualRentExVatSar)+' / '+fmt(c.areaSqm),fmt(c.rawRateSar)+' → '+fmt(c.adjustedRateSar),c.vatBasis+' / '+(c.vatRef??'—')+' / '+c.adjustments.map(a=>a.category+': '+fmt(a.fraction*100)+'% / '+a.evidenceRef).join('; ')].map(v=>'<td>'+h(v)+'</td>').join('')+'</tr>').join('')+'</tbody></table><h3>'+l('أسباب الاستبعاد','Exclusions')+'</h3>'+table(Object.entries(s.excluded));
  }
+ const specialist=specialistReview(r);
+ body+='<h2>'+l('متطلبات الأدلة التخصصية','Specialist evidence checklist')+'</h2><p class="notice">'+l('قائمة تحقق غير مثبتة ولا تولّد تسويات تلقائية.','Unverified checklist; does not generate adjustments.')+'</p>'+table(specialist.evidence.map(e=>[e.id+' / '+e.kind,e.requiredEvidence.join(' / ')]));
+ body+='<h2>'+l('حساسية التحصيل والإيجار','Rent and collection sensitivity')+'</h2><p class="notice">'+l('افتراضات اختبار ثابتة وليست توقعات السوق أو صافي الدخل.','Fixed what-if assumptions, not market forecasts or NOI.')+'</p>'+table(specialist.scenarios.map(x=>[x.id+' | '+fmt(x.rentDelta*100)+'% / '+fmt(x.occupancyDelta*100)+'pp / '+fmt(x.collectionDelta*100)+'pp',fmt(x.annual)+' / '+fmt(x.collected)]));
  body+='<h2>'+l('الملاحظات','Findings')+'</h2>'+table(r.issues.map(i=>[i.ref+' / '+i.severity,issueLabel(i.code,locale)]))+'<small>SHA-256: '+h(r.reviewHashSha256)+'</small>';
  return {html:wrap(l('تقدير بحثي مستقل للقيمة الإيجارية','Independent rental research indication'),body,locale),report:r};
 }
