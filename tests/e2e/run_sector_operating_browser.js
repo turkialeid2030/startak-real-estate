@@ -8,6 +8,7 @@ const {restoreStudyFile}=require('../../src/specialized-assets/local-sector-oper
 const {sha256Hex}=require('../../src/crypto/sha256');
 const {UNITS,STATUS:DCF_STATUS,evaluateSectorPropertyDcf}=require('../../src/specialized-assets/sector-property-dcf');
 const {restoreDcfStudy}=require('../../src/specialized-assets/sector-property-dcf-archive');
+const {STATUS:RISK_STATUS,evaluateSectorFinancingRisk}=require('../../src/specialized-assets/sector-financing-risk-research');
 const hotel={availableRoomNights:36500,occupiedRoomNights:25550,roomsRevenueSar:12775000,foodBeverageRevenueSar:2000000,otherOperatingRevenueSar:225000,departmentalExpensesSar:4000000,undistributedOperatingExpensesSar:3000000,managementAndFranchiseFeesSar:500000,ffeReserveSar:500000};
 const industrial={assetId:'SYNTH-01',subtype:'WAREHOUSE',landAreaSqm:2000,builtAreaSqm:1500,netLeasableAreaSqm:1200,clearHeightMeters:10,powerCapacityKva:400,leaseStructure:'GROSS',internalInspectionStatus:'NOT_INSPECTED',buildingPermitStatus:'PROVIDED_UNVERIFIED',annualRentSar:600000,landlordExpensesSar:120000};
 const cap={capacity:100,usedCapacity:80,annualOperatingRevenueSar:1000000,annualOperatingExpensesSar:700000};
@@ -112,6 +113,33 @@ const cases=[['HOSPITALITY',hotel,'revParSar','availableRoomNights','sar'],['IND
      const formatted=new Intl.NumberFormat(ar?'ar-SA':'en-SA',id==='irr'?{style:'percent',maximumFractionDigits:2}:{maximumFractionDigits:2}).format(value);
      await expect(panel.getByTestId('sector-dcf-metric-'+id)).toHaveText(formatted);
     }
+    const riskPanel=panel.getByTestId('sector-financing-risk');
+    await expect(riskPanel).toBeVisible();
+    await riskPanel.getByTestId('sector-risk-calculate').click();
+    await expect(riskPanel.getByTestId('sector-risk-result')).toHaveAttribute('data-status',RISK_STATUS.HOLD);
+    const financing={mode:'FIXED_RATE_AMORTIZING_PROXY',financingAssumptionRef:'SYNTH-FINANCE',taxCashflowAssumptionRef:'SYNTH-TAX',principalSar:1200000,upfrontFinanceFeeSar:10000,annualRate:0,tenorYears:10,equityDiscountRate:.1,annualAdditionalTaxSar:5000,exitAdditionalTaxSar:25000,additionalTaxCashflowsConfirmed:true,noDuplicateCostsConfirmed:true};
+    const risk={assumptionRef:'SYNTH-RISK',seed:123456,samples:64,rentVariation:.2,expenseVariation:.1,saleVariation:.2};
+    await riskPanel.getByTestId('sector-risk-mode').selectOption(financing.mode);
+    for(const [prefix,values] of [['f-',financing],['r-',risk]])for(const [k,v] of Object.entries(values)){
+     if(k==='mode')continue;
+     const el=riskPanel.getByTestId('sector-risk-'+prefix+k);
+     if(typeof v==='boolean')await el.setChecked(v);else await el.fill(String(v));
+    }
+    await riskPanel.getByTestId('sector-risk-calculate').click();
+    await expect(riskPanel.getByTestId('sector-risk-result')).toHaveAttribute('data-status',RISK_STATUS.READY);
+    const raw=Object.fromEntries(Object.entries(input).map(([k,v])=>[k,typeof v==='boolean'?v:String(v)]));
+    const riskExpected=evaluateSectorFinancingRisk({study:{assetClass,raw},financing,risk});
+    assert.equal(riskExpected.status,RISK_STATUS.READY);
+    for(const [id,value] of [['equity',riskExpected.initialEquitySar],['npv',riskExpected.equityNpvSar],['p10',riskExpected.simulation.p10NpvSar],['p50',riskExpected.simulation.p50NpvSar],['p90',riskExpected.simulation.p90NpvSar]]){
+     const formatted=new Intl.NumberFormat(ar?'ar-SA':'en-SA',{maximumFractionDigits:2}).format(value);
+     await expect(riskPanel.getByTestId('sector-risk-metric-'+id)).toHaveText(formatted);
+    }
+    await riskPanel.getByTestId('sector-risk-r-seed').fill('0');
+    await expect(riskPanel.getByTestId('sector-risk-result')).toHaveCount(0);
+    await riskPanel.getByTestId('sector-risk-calculate').click();
+    await expect(riskPanel.getByTestId('sector-risk-result')).toHaveAttribute('data-status',RISK_STATUS.HOLD);
+    await expect(riskPanel.getByTestId('sector-risk-metric-npv')).toHaveCount(0);
+    checks+=12;
     await expect(reportButton).toBeEnabled();
     const download=async button=>{const pending=page.waitForEvent('download');await button.click();const file=await pending;return JSON.parse(await fs.readFile(await file.path(),'utf8'));};
     const importFile=async file=>panel.getByTestId('sector-dcf-import-file').setInputFiles({name:'synthetic-dcf.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(file))});
@@ -132,6 +160,7 @@ const cases=[['HOSPITALITY',hotel,'revParSar','availableRoomNights','sar'],['IND
      await expect(panel.getByTestId('sector-dcf-metric-npv')).toHaveText(formatted);
     }
     await panel.getByTestId('sector-dcf-propertyIncomeOnly').uncheck();
+    await expect(panel.getByTestId('sector-financing-risk')).toHaveCount(0);checks++;
     await expect(panel.getByTestId('sector-dcf-result')).toHaveCount(0);
     await calc.click();await expect(panel.getByTestId('sector-dcf-result')).toHaveAttribute('data-status',DCF_STATUS.HOLD);
     await expect(panel.getByTestId('sector-dcf-metric-npv')).toHaveCount(0);
