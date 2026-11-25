@@ -7,6 +7,8 @@ on:
       - 'tools/split-public-rental-period.js'
       - 'tools/stage-rental-geography.js'
       - 'src/reporting/public-rent-geography.js'
+      - 'src/reporting/rental-specialist-review.js'
+      - 'tests/defects/rental_specialist_review.js'
       - 'src/reporting/public-rent-aggregate-backtest.js'
       - 'tests/defects/public_rent_aggregate_backtest.js'
       - 'tools/check-public-rental-reuse.js'
@@ -39,6 +41,8 @@ jobs:
         run: node tests/defects/public_rental_candidate.js
       - name: Verify research forecast and real historical holdout
         run: node tests/defects/public_rent_aggregate_backtest.js
+      - name: Verify specialist evidence and mixed-use sensitivity
+        run: node tests/defects/rental_specialist_review.js
       - name: Verify geometry and match rules
         run: node tests/defects/public_rent_geography.js
       - name: Retrieve published regional files
