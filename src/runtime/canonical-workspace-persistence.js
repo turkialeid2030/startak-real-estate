@@ -252,8 +252,14 @@ function createCanonicalWorkspacePersistence({
       fail('INVALID_CANONICAL_WORKSPACE');
     }
     const workspaceId = requiredString(workspace.workspaceId, 'workspace.workspaceId');
-    requiredString(workspace.projectId, 'workspace.projectId');
-    requiredString(workspace.caseId, 'workspace.caseId');
+    const projectId = requiredString(workspace.projectId, 'workspace.projectId');
+    const caseId = requiredString(workspace.caseId, 'workspace.caseId');
+    // Reject noncanonical resource identifiers rather than persisting a record
+    // whose payload and storage key disagree or whose project identity is ambiguous.
+    if (workspace.workspaceId !== workspaceId || workspace.projectId !== projectId
+      || workspace.caseId !== caseId) {
+      fail('WORKSPACE_RESOURCE_IDENTITY_MISMATCH');
+    }
     // Direct internal callers must not bypass schema and actor attribution
     // checks that the higher-level runtime already performs.
     if (workspace.schemaVersion !== 1) fail('UNSUPPORTED_WORKSPACE_SCHEMA');
