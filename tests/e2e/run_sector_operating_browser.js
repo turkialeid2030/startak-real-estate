@@ -7,6 +7,7 @@ const {evaluateLocalSectorOperations,STATUS}=require('../../src/specialized-asse
 const {restoreStudyFile}=require('../../src/specialized-assets/local-sector-operating-archive');
 const {sha256Hex}=require('../../src/crypto/sha256');
 const {UNITS,STATUS:DCF_STATUS,evaluateSectorPropertyDcf}=require('../../src/specialized-assets/sector-property-dcf');
+const {restoreDcfStudy}=require('../../src/specialized-assets/sector-property-dcf-archive');
 const hotel={availableRoomNights:36500,occupiedRoomNights:25550,roomsRevenueSar:12775000,foodBeverageRevenueSar:2000000,otherOperatingRevenueSar:225000,departmentalExpensesSar:4000000,undistributedOperatingExpensesSar:3000000,managementAndFranchiseFeesSar:500000,ffeReserveSar:500000};
 const industrial={assetId:'SYNTH-01',subtype:'WAREHOUSE',landAreaSqm:2000,builtAreaSqm:1500,netLeasableAreaSqm:1200,clearHeightMeters:10,powerCapacityKva:400,leaseStructure:'GROSS',internalInspectionStatus:'NOT_INSPECTED',buildingPermitStatus:'PROVIDED_UNVERIFIED',annualRentSar:600000,landlordExpensesSar:120000};
 const cap={capacity:100,usedCapacity:80,annualOperatingRevenueSar:1000000,annualOperatingExpensesSar:700000};
@@ -93,7 +94,8 @@ const cases=[['HOSPITALITY',hotel,'revParSar','availableRoomNights','sar'],['IND
     const panel=page.getByTestId('sector-property-dcf');
     await expect(panel).toBeVisible();
     await expect(panel.getByTestId('sector-dcf-result')).toHaveCount(0);
-    const calc=panel.getByTestId('sector-dcf-calculate');
+    const calc=panel.getByTestId('sector-dcf-calculate'),reportButton=panel.getByTestId('sector-dcf-export-report');
+    await expect(reportButton).toBeDisabled();
     await calc.click();await expect(panel.getByTestId('sector-dcf-result')).toHaveAttribute('data-status',DCF_STATUS.HOLD);
     const quantity=unit==='WHOLE_PROPERTY'?1:10;
     const input={propertyRight:'FREEHOLD',propertyRef:'SYNTH-PROPERTY',leaseAssumptionRef:'SYNTH-LEASE',valuationDate:'2026-11-25',years:5,quantity,annualRentPerUnitSar:1000000/quantity,leasedFraction:.9,collectionFraction:.95,annualOwnerExpensesSar:100000,annualSustainingCapexSar:20000,rentGrowth:0,expenseGrowth:0,purchasePriceSar:3000000,acquisitionCostsSar:100000,discountRate:.1,terminalMode:'EXPLICIT_NET_SALE',terminalNetSaleSar:3000000,terminalEvidenceRef:'SYNTH-NET-SALE',stressRevenueReduction:.2,stressExpenseIncrease:.1,stressDiscountIncrease:.02,propertyIncomeOnly:true,businessAssetsExcluded:true,...(assetClass==='MIXED_USE'?{mixedAllocationConfirmed:true}:{}),...(assetClass==='FUEL_STATION'?{environmentalObligationsReviewed:true}:{})};
@@ -110,11 +112,31 @@ const cases=[['HOSPITALITY',hotel,'revParSar','availableRoomNights','sar'],['IND
      const formatted=new Intl.NumberFormat(ar?'ar-SA':'en-SA',id==='irr'?{style:'percent',maximumFractionDigits:2}:{maximumFractionDigits:2}).format(value);
      await expect(panel.getByTestId('sector-dcf-metric-'+id)).toHaveText(formatted);
     }
+    await expect(reportButton).toBeEnabled();
+    const download=async button=>{const pending=page.waitForEvent('download');await button.click();const file=await pending;return JSON.parse(await fs.readFile(await file.path(),'utf8'));};
+    const importFile=async file=>panel.getByTestId('sector-dcf-import-file').setInputFiles({name:'synthetic-dcf.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(file))});
+    const archive=await download(panel.getByTestId('sector-dcf-export-inputs')),report=await download(reportButton);
+    assert.equal(Object.hasOwn(archive,'result'),false);
+    assert.equal(report.result.investmentNpvSar,expected.investmentNpvSar);
+    assert.equal(report.transactionAuthorized,false);
+    assert.equal(restoreDcfStudy(report,{expectedAssetClass:assetClass}).resultsRestored,false);
+    const forged=JSON.parse(JSON.stringify(report));forged.result.investmentNpvSar=999999999;
+    const {sha256,...body}=forged;forged.sha256=sha256Hex(JSON.stringify(body));
+    await importFile(forged);await expect(panel.getByTestId('sector-dcf-file-notice')).toContainText(ar?'رُفض الملف':'File rejected');
+    await expect(panel.getByTestId('sector-dcf-result')).toHaveAttribute('data-status',DCF_STATUS.READY);
+    for(const file of [archive,report]){
+     await importFile(file);await expect(panel.getByTestId('sector-dcf-file-notice')).toContainText(ar?'استُعيدت المدخلات فقط':'Inputs restored only');
+     await expect(panel.getByTestId('sector-dcf-result')).toHaveCount(0);await expect(reportButton).toBeDisabled();
+     await calc.click();await expect(panel.getByTestId('sector-dcf-result')).toHaveAttribute('data-status',DCF_STATUS.READY);
+     const formatted=new Intl.NumberFormat(ar?'ar-SA':'en-SA',{maximumFractionDigits:2}).format(expected.investmentNpvSar);
+     await expect(panel.getByTestId('sector-dcf-metric-npv')).toHaveText(formatted);
+    }
     await panel.getByTestId('sector-dcf-propertyIncomeOnly').uncheck();
     await expect(panel.getByTestId('sector-dcf-result')).toHaveCount(0);
     await calc.click();await expect(panel.getByTestId('sector-dcf-result')).toHaveAttribute('data-status',DCF_STATUS.HOLD);
     await expect(panel.getByTestId('sector-dcf-metric-npv')).toHaveCount(0);
-    checks+=11;scenarios++;
+    await expect(reportButton).toBeDisabled();
+    checks+=30;scenarios++;
    }
    await select.selectOption('OTHER');await expect(page.getByTestId('local-sector-operating-research')).toHaveCount(0);await expect(page.getByTestId('fuel-station-operating-research')).toHaveCount(0);await expect(page.getByTestId('sector-property-dcf')).toHaveCount(0);checks+=3;
    assert.deepEqual(errors,[]);checks++;
