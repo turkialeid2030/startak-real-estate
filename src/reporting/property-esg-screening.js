@@ -27,7 +27,7 @@ function screenEsg(x){
   if(['NOT_APPLICABLE','NOT_MATERIAL','UNKNOWN'].includes(f.outcome)&&f.impactChannels.length)throw Error('ESG_SCREEN_CHANNEL_MISMATCH');
   if(['MATERIAL','POTENTIALLY_MATERIAL'].includes(f.outcome)&&!f.impactChannels.length)throw Error('ESG_SCREEN_CHANNEL_REQUIRED');
   const ageDays=noSource?null:(Date.parse(x.valuationDate)-Date.parse(f.sourceDate))/86400000;
-  let reviewRequired=f.outcome==='UNKNOWN';
+  let reviewRequired=['UNKNOWN','MATERIAL','POTENTIALLY_MATERIAL'].includes(f.outcome);
   if(ageDays!==null&&ageDays<0){add('ESG_FUTURE_SOURCE','CRITICAL',f.factor);reviewRequired=true;}
   if(ageDays!==null&&ageDays>365){add('ESG_STALE_SOURCE_REVIEW','WARNING',f.factor);reviewRequired=true;}
   if(f.validTo!==null&&f.validTo<x.valuationDate){add('ESG_EXPIRED_SOURCE','CRITICAL',f.factor);reviewRequired=true;}
