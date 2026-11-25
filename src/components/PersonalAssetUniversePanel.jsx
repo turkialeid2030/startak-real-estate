@@ -43,6 +43,7 @@ export default function PersonalAssetUniversePanel({locale='ar-SA'}) {
       </p>
       <ExternalThreeGatesReadinessPanel locale={locale}/>
       <LocalSectorOperatingResearchPanel key={assetClass+'-operating'} assetClass={assetClass} locale={locale}/>
+      {assetClass==='SPECIAL_PURPOSE'&&<LocalSectorOperatingResearchPanel key="fuel-station-operating" assetClass="FUEL_STATION" locale={locale}/>}
       <PersonalSectorValuationWorkbench key={assetClass} assetClass={assetClass} locale={locale}/>
       <PersonalLimitedInterestDcfPanel key={assetClass+'-rights'} assetClass={assetClass} locale={locale}/>
       {assetClass==='LAND'&&<PersonalPhasedDevelopmentDcfPanel key="land-development" locale={locale}/> }
