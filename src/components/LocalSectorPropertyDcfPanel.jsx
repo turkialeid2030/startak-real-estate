@@ -1,6 +1,6 @@
-import React,{useState} from 'react';
-const {UNITS,STATUS,evaluateSectorPropertyDcf}=require('../specialized-assets/sector-property-dcf');
-const {parseNumericText}=require('../validation/numeric-text');
+import React,{useState,useRef,useLayoutEffect} from 'react';
+const {UNITS,STATUS}=require('../specialized-assets/sector-property-dcf');
+const {MAX_BYTES,calculateDcfStudy,createDcfInputArchive,createDcfResearchReport,restoreDcfStudy}=require('../specialized-assets/sector-property-dcf-archive');
 const F=(key,ar,en,kind='number')=>({key,ar,en,kind});
 const fields=[
  F('propertyRef','مرجع العقار','Property reference','text'),F('leaseAssumptionRef','مرجع عقد أو افتراض الإيجار','Lease or rental assumption reference','text'),
@@ -22,14 +22,33 @@ const fields=[
 const labels={SECTOR_UNSUPPORTED:['القطاع غير مدعوم','Unsupported sector'],PROPERTY_SCOPE_OR_EVIDENCE_REQUIRED:['أكمل مرجع العقار والإيجار والتاريخ وأكد الملكية الكاملة وفصل النشاط','Complete property and lease references, date, freehold and income separation'],HORIZON_OR_CAPACITY_INVALID:['راجع مدة الاستثمار ووحدات الإيجار','Check holding period and rental units'],MONEY_INVALID:['راجع المبالغ بالريال والهللة وسقف المبالغ','Check SAR/halala amounts and bounds'],RATE_INVALID:['راجع المعدلات ونطاقاتها','Check rates and bounds'],TERMINAL_ASSUMPTION_INVALID:['حدد البيع الصافي ومرجعه أو اختر عدم البيع وأدخل صفرًا','Choose supported net sale with reference, or no sale and zero'],MIXED_USE_ALLOCATION_REQUIRED:['توزيع الاستخدامات مطلوب','Mixed-use allocation required'],FUEL_ENVIRONMENTAL_REVIEW_REQUIRED:['مراجعة الالتزامات البيئية مطلوبة','Environmental review required'],CALCULATION_RANGE_INVALID:['النتيجة خارج نطاق الحساب المدعوم','Calculation outside supported range']};
 const unitAr={UNIT:'وحدة',SQM:'متر مربع',ROOM_KEY:'غرفة فندقية',BED:'سرير',SEAT:'مقعد',SPACE:'موقف',MW_IT:'ميجاوات تقنية',WHOLE_PROPERTY:'العقار كاملًا (الكمية 1)'};
 export default function LocalSectorPropertyDcfPanel({assetClass,locale='ar-SA'}){
- const ar=locale!=='en',[raw,setRaw]=useState({}),[out,setOut]=useState(null);
+ const ar=locale!=='en',[raw,setRaw]=useState({}),[out,setOut]=useState(null),[notice,setNotice]=useState('');
+ const epoch=useRef(0),fileRef=useRef(null),mounted=useRef(true);
+ useLayoutEffect(()=>{mounted.current=true;return()=>{mounted.current=false;epoch.current++;};},[]);
  if(!Object.hasOwn(UNITS,assetClass))return null;
- const change=(key,v)=>{setRaw(s=>({...s,[key]:v}));setOut(null);};
+ const change=(key,v)=>{epoch.current++;setNotice('');setRaw(s=>({...s,[key]:v}));setOut(null);};
  const applicable=fields.filter(f=>(f.key!=='mixedAllocationConfirmed'||assetClass==='MIXED_USE')&&(f.key!=='environmentalObligationsReviewed'||assetClass==='FUEL_STATION'));
- const calculate=()=>{
-  const input={assetClass,propertyRight:raw.propertyRight??'',terminalMode:raw.terminalMode??''};
-  for(const f of applicable){const v=raw[f.key];if(f.kind==='number'){const p=parseNumericText(v??'');input[f.key]=p.ok?p.value:null;}else input[f.key]=f.kind==='check'?v===true:v??'';}
-  setOut(evaluateSectorPropertyDcf(input));
+ const state=()=>({assetClass,raw});
+ const calculate=()=>{epoch.current++;setNotice('');try{setOut(calculateDcfStudy(state()));}catch{setOut({status:STATUS.HOLD,issues:['PROPERTY_SCOPE_OR_EVIDENCE_REQUIRED']});}};
+ const notices={SAVED:['حُفظت المدخلات فقط.','Inputs only saved.'],REPORT:['صُدّر التقرير البحثي بعد إعادة الحساب.','Research report exported after recomputation.'],RESTORED:['استُعيدت المدخلات فقط؛ أعد الحساب.','Inputs restored only; recalculate.'],REJECTED:['رُفض الملف؛ لم تتغير المدخلات.','File rejected; inputs unchanged.'],FAILED:['تعذر التصدير؛ راجع المدخلات والنتائج.','Export failed; check inputs and results.']};
+ const download=report=>{
+  epoch.current++;setNotice('');
+  try{const file=report?createDcfResearchReport(state()):createDcfInputArchive(state());
+   if(report&&(!out||JSON.stringify(out)!==JSON.stringify(file.result)))throw Error('STALE_RESULT');
+   const url=URL.createObjectURL(new Blob([JSON.stringify(file,null,2)],{type:'application/json;charset=utf-8'}));
+   const a=document.createElement('a');a.href=url;a.download='startak-sector-dcf-'+assetClass.toLowerCase()+(report?'-report.json':'-inputs.json');
+   try{document.body.appendChild(a);a.click();}finally{a.remove();URL.revokeObjectURL(url);}
+   setNotice(report?'REPORT':'SAVED');
+  }catch{setNotice('FAILED');}
+ };
+ const restore=async e=>{
+  const file=e.target.files?.[0];if(fileRef.current)fileRef.current.value='';if(!file)return;
+  const op=++epoch.current;setNotice('');const current=()=>mounted.current&&epoch.current===op;
+  try{if(file.size<=0||file.size>MAX_BYTES)throw Error('SIZE');
+   const bytes=await file.arrayBuffer();if(!current())return;
+   const restored=restoreDcfStudy(JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes)),{expectedAssetClass:assetClass});
+   if(!current())return;setRaw(restored.studyInputs.raw);setOut(null);setNotice('RESTORED');
+  }catch{if(current())setNotice('REJECTED');}
  };
  const fmt=(v,kind='money')=>v===null?'—':new Intl.NumberFormat(ar?'ar-SA':'en-SA',kind==='rate'?{style:'percent',maximumFractionDigits:2}:{maximumFractionDigits:2}).format(v);
  const style={background:'#F4F5F5',color:'#192336'};
@@ -49,6 +68,16 @@ export default function LocalSectorPropertyDcfPanel({assetClass,locale='ar-SA'})
  </dl>{out.irr===null&&<p>{ar?'لا يوجد عائد داخلي وحيد مؤهل ضمن حدود الحل.':'No qualified unique IRR within solver bounds.'}</p>}
  <div className="overflow-x-auto mt-3"><table className="w-full text-xs"><thead><tr>{(ar?['السنة','الإيجار المحصل','مصروفات المالك','NOI','CAPEX','صافي البيع','التدفق','الضغط']:['Year','Collected rent','Owner OPEX','NOI','CAPEX','Net sale','Cash flow','Stress']).map(x=><th className="p-1" key={x}>{x}</th>)}</tr></thead><tbody>{out.periods.map(p=><tr key={p.year}>{[p.year,p.collectedPropertyRentSar,p.ownerExpensesSar,p.propertyNoiSar,p.sustainingCapexSar,p.terminalNetSaleSar,p.cashflowSar,p.stressCashflowSar].map((v,i)=><td key={i} className="p-1">{fmt(v)}</td>)}</tr>)}</tbody></table></div></>}
  </div>}
+ <div className="mt-3 pt-3 border-t border-slate-600 space-y-2">
+ <p className="text-xs text-slate-300">{ar?'الملفات محلية غير مشفرة؛ البصمة للتحقق من الاتساق وليست توقيعًا أو اعتمادًا.':'Local files are unencrypted; the digest verifies consistency, not identity or certification.'}</p>
+ <div className="flex flex-wrap gap-2">
+ <button type="button" data-testid="sector-dcf-export-inputs" className="border rounded p-2 text-xs" onClick={()=>download(false)}>{ar?'حفظ مدخلات DCF':'Save DCF inputs'}</button>
+ <button type="button" data-testid="sector-dcf-export-report" disabled={out?.status!==STATUS.READY} className="border rounded p-2 text-xs disabled:opacity-50" onClick={()=>download(true)}>{ar?'تصدير تقرير DCF البحثي':'Export DCF research report'}</button>
+ <button type="button" data-testid="sector-dcf-import-button" className="border rounded p-2 text-xs" onClick={()=>fileRef.current?.click()}>{ar?'استعادة المدخلات':'Restore inputs'}</button>
+ <input type="file" ref={fileRef} data-testid="sector-dcf-import-file" accept=".json,application/json" className="hidden" onChange={restore}/>
+ </div>
+ {notice&&<p role="status" data-testid="sector-dcf-file-notice" className="text-xs">{notices[notice]?.[ar?0:1]}</p>}
+ </div>
  <p className="text-amber-200 text-xs mt-3">{ar?'لا اعتماد مهني أو قرار شراء؛ الافتراضات ومصادرها غير متحققة مستقلًا.':'No appraisal or purchase authority; assumptions and sources are not independently verified.'}</p>
  </section>;
 }
