@@ -3,6 +3,7 @@ import {useAppraisalReviewSession} from './AppraisalReviewSessionContext.jsx';
 const {evaluatePersonalReportExport,assertPersonalReportExportAllowed}=require('../market/appraisal-report-export-gate');
 import DiagnosticText from './DiagnosticText.jsx';
 import ProfessionalReportingStudio from './ProfessionalReportingStudio.jsx';
+import RentalIntelligenceWorkspace from './RentalIntelligenceWorkspace.jsx';
 import OperatingFinancialComparison from './OperatingFinancialComparison';
 import OptionalPropertyIndicatorsResearchPanel from './OptionalPropertyIndicatorsResearchPanel.jsx';
 const {researchActionText}=require('../i18n/research-action-presentation');
@@ -182,6 +183,7 @@ export default function PersonalInvestmentResearchPanel({
         {message&&<div data-testid="personal-study-action-notice" data-diagnostic-content translate="no" role="status" className="mt-2 text-xs text-slate-200">{researchActionText(message,locale)}</div>}
       </div>
       <OptionalPropertyIndicatorsResearchPanel locale={locale} blocked={reportExportGate.blocked}/>
+      <RentalIntelligenceWorkspace key={'rent-'+JSON.stringify([runtime?.caseId??null,runtime?.projectId??null])} locale={locale}/>
       <ProfessionalReportingStudio key={JSON.stringify([runtime?.caseId??null,runtime?.projectId??null])} runtime={runtime} valuationCase={valuationCase} locale={locale}/>
     </section>
   );
