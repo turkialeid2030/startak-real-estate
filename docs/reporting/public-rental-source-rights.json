@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "officialCatalog": "https://rega.gov.sa/البيانات-المفتوحة/",
+  "nationalPolicy": "https://my.gov.sa/content/open-Data",
+  "indicatorTerms": "https://rei.rega.gov.sa/ar/terms-and-conditions",
+  "status": "SOURCE_SPECIFIC_PROOF_PENDING",
+  "datasets": [],
+  "policy": {
+    "ownerApprovalRequired": false,
+    "commerciallyLicensedData": "USE_WITHOUT_ADDITIONAL_PERMISSION_WITHIN_LICENSE",
+    "officialOpenData": "USE_WITH_ATTRIBUTION_AND_LICENSE_NOTICES",
+    "publicIndicators": "REFERENCE_AND_ANALYZE_PUBLISHED_FACTS_WITHIN_APPLICABLE_TERMS; NO_UNVERIFIED_BULK_COPY_OR_DERIVATIVE_REDISTRIBUTION",
+    "otherSources": "USE_WITHIN_APPLICABLE_RIGHTS_AND_ACCESS_TERMS",
+    "unknownRights": "DISCOVER_AUTHORIZED_ALTERNATIVE_WITHOUT_BLOCKING_OTHER_SOURCES"
+  },
+  "officialCatalogLatest": "https://rega.gov.sa/البيانات-المفتوحة/أحدث-البيانات-المفتوحة/",
+  "catalogVerifiedOn": "2026-11-25",
+  "catalogScope": "City-level rental aggregates, 2019–2024; not proof of license for mirror district-quarter files.",
+  "indicatorTermsUpdated": "2026-06-25"
+}

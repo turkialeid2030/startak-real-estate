@@ -1,0 +1,63 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),crypto=require('node:crypto');
+const {parsePublicRentCsv,selectPublicRents}=require('../../src/reporting/public-rent-reference');
+const raw=fs.readFileSync('public/market-data/rega-riyadh-q1-2026.csv');
+assert.equal(crypto.createHash('sha1').update('blob '+raw.length+'\0').update(raw).digest('hex'),'be8c22ec87c7688cdaefeec86538fb1bab8bc254');
+const rows=parsePublicRentCsv(raw.toString('utf8'));
+assert.equal(rows.length,3534);
+assert.ok(rows.every(r=>r.year===2026&&r.quarter===1&&r.vatBasis==='UNKNOWN'));
+const malqa=selectPublicRents(rows,'الرياض','الملقا');
+assert.ok(malqa.length>=3);
+assert.equal(malqa.find(r=>r.kind==='شقة').count,3330);
+assert.equal(malqa.find(r=>r.kind==='شقة').reportedRentSar,53921.96);
+assert.equal(malqa.find(r=>r.kind==='مكتب').reportedRentSar,null);
+assert.equal(selectPublicRents(rows,'الرياض','').length,0);
+assert.equal(selectPublicRents(rows,'جدة','الملقا').length,0);
+assert.throws(()=>parsePublicRentCsv('bad'));
+console.log('PUBLIC_RENT_REAL_DATA=PASS rows='+rows.length+' districtRows='+malqa.length);
+
+const manifest=JSON.parse(fs.readFileSync('public/market-data/rental-manifest.json','utf8'));
+assert.ok(manifest.files.length>=65&&manifest.files.length<=260);
+assert.equal(new Set(manifest.files.map(f=>f.region.toLowerCase())).size,13);
+let total=0;const periods=new Set();let historicalRiyadh=0;
+for(const f of manifest.files){
+ const id=f.region.toLowerCase()+':'+f.year+':'+f.quarter;assert.ok(!periods.has(id));periods.add(id);
+ const raw=fs.readFileSync('public/market-data/'+f.filename);
+ assert.equal(crypto.createHash('sha1').update('blob '+raw.length+'\0').update(raw).digest('hex'),f.gitBlobSha);
+ const records=parsePublicRentCsv(raw.toString('utf8'));
+ assert.equal(records.length,f.rows);
+ assert.ok(records.every(r=>r.year===f.year&&r.quarter===f.quarter&&r.vatBasis==='UNKNOWN'));
+ total+=records.length;if(f.region.toLowerCase()==='riyadh'&&f.year===2025)historicalRiyadh+=records.length;
+}
+assert.ok(total>=90497);assert.ok(historicalRiyadh>=12495);
+for(const year of [2025,2026])for(const quarter of (year===2025?[1,2,3,4]:[1]))assert.equal(new Set(manifest.files.filter(f=>f.year===year&&f.quarter===quarter).map(f=>f.region.toLowerCase())).size,13);
+assert.equal(manifest.files.filter(f=>f.derivation?.method==='EXACT_PERIOD_ROW_FILTER_V1'&&f.year===2025).length,4);
+console.log('PUBLIC_RENT_NATIONAL=PASS regions=13 rows='+total);
+
+const {buildRentalTrend}=require('../../src/reporting/public-rent-trend');
+const scope={region:'الرياض',city:'الرياض',district:'الملقا',kind:'شقة',classification:'سكني'};
+const historical=parsePublicRentCsv(fs.readFileSync('public/market-data/Rental-indicators-in-Riyadh-region-1st-Q-2025.csv','utf8'));
+const series=buildRentalTrend([...historical,...rows],scope);
+assert.equal(series.length,2);
+assert.equal(series[0].rentSar,53248.04);assert.equal(series[1].rentSar,53921.96);
+assert.equal(series[1].rentYoYPct,1.27);assert.equal(series[1].rentPerSqmYoYPct,.23);
+const row=rows.find(r=>r.city===scope.city&&r.district===scope.district&&r.kind===scope.kind&&r.classification===scope.classification);
+assert.equal(buildRentalTrend([row,row],scope)[0].status,'AMBIGUOUS');
+assert.equal(buildRentalTrend([{...row,count:2}],scope)[0].rentSar,null);
+assert.equal(buildRentalTrend([{...row,reportedRentSar:null,reportedRentPerSqmSar:null}],scope)[0].status,'NO_PRICE');
+assert.equal(buildRentalTrend([row],scope)[0].rentYoYPct,null);
+assert.equal(buildRentalTrend([row],{...scope,city:'جدة'}).length,0);
+assert.throws(()=>buildRentalTrend([row],{...scope,kind:''}),/SCOPE_REQUIRED/);
+console.log('PUBLIC_RENT_TREND=PASS real source comparison and guarded scenarios');
+
+const {buildDistrictRentMatrix}=require('../../src/reporting/public-rent-district-matrix');
+const matrixScope={region:'الرياض',city:'الرياض',kind:'شقة',classification:'سكني',year:2026,quarter:1};
+const matrix=buildDistrictRentMatrix(rows,matrixScope);
+assert.ok(matrix.comparableDistricts>=3);
+assert.equal(matrix.geometryAvailable,false);assert.equal(matrix.valuationEligible,false);
+assert.equal(matrix.districts.find(d=>d.district==='الملقا').reportedRentPerSqmSar,433.73);
+assert.ok(matrix.districts.every(d=>d.relativeBand===null||[0,1,2,3,4].includes(d.relativeBand)));
+assert.equal(buildDistrictRentMatrix([row,row],matrixScope).districts[0].status,'AMBIGUOUS');
+assert.equal(buildDistrictRentMatrix([{...row,count:1}],matrixScope).districts[0].relativeBand,null);
+assert.equal(buildDistrictRentMatrix([row],{...matrixScope,quarter:2}).districts.length,0);
+console.log('PUBLIC_RENT_DISTRICT_MATRIX=PASS real district comparison and guarded bands');

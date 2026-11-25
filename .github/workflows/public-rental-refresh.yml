@@ -1,0 +1,60 @@
+name: Public Rental Data Refresh
+on:
+  pull_request:
+    paths:
+      - 'tools/refresh-public-rental-data.js'
+      - 'tools/build-public-rental-candidate.js'
+      - 'tools/split-public-rental-period.js'
+      - 'tools/stage-rental-geography.js'
+      - 'src/reporting/public-rent-geography.js'
+      - 'src/reporting/public-rent-aggregate-backtest.js'
+      - 'tests/defects/public_rent_aggregate_backtest.js'
+      - 'tools/check-public-rental-reuse.js'
+      - 'src/reporting/public-rent-district-matrix.js'
+      - 'tests/defects/public_rent_geography.js'
+      - 'tests/defects/public_rental_candidate.js'
+      - 'src/reporting/public-rent-reference.js'
+      - 'public/market-data/**'
+      - 'tests/defects/public_rent_reference.js'
+      - '.github/workflows/public-rental-refresh.yml'
+  workflow_dispatch:
+  schedule:
+    - cron: '25 2 * * 0'
+permissions:
+  contents: read
+jobs:
+  refresh:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24'
+      - name: Verify real seeded data
+        run: node tests/defects/public_rent_reference.js
+      - name: Verify candidate rules
+        run: node tests/defects/public_rental_candidate.js
+      - name: Verify research forecast and real historical holdout
+        run: node tests/defects/public_rent_aggregate_backtest.js
+      - name: Verify geometry and match rules
+        run: node tests/defects/public_rent_geography.js
+      - name: Retrieve published regional files
+        run: node tools/refresh-public-rental-data.js
+      - name: Build validated publication candidate
+        run: node tools/build-public-rental-candidate.js
+      - name: Stage real Riyadh geography for source-rights review
+        run: node tools/stage-rental-geography.js
+      - name: Preserve retrieved files and provenance
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: public-rental-refresh-${{ github.run_id }}
+          path: |
+            runtime-evidence/rental-public-refresh
+            runtime-evidence/rental-candidate
+            runtime-evidence/rental-geography-candidate
+          if-no-files-found: warn
+          retention-days: 90

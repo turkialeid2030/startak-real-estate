@@ -1,0 +1,94 @@
+{
+  "version": 1,
+  "observedDate": "2026-11-25",
+  "publisher": "SAMA",
+  "originalStatisticalSource": "GASTAT",
+  "sourceUrl": "https://www.sama.gov.sa/_layouts/15/download.aspx?SourceUrl=%2Fen-US%2FPublications%2FEconomicReports%2FInflationReports%2FInflation_Q2_2026-En.pdf",
+  "sourceLocator": "Inflation Report Q2 2026, printed page 12, section 4-3 and chart 10",
+  "extractionMethod": "MANUAL_REVIEW_PUBLISHED_TEXT",
+  "visualVerification": "UNAVAILABLE_SCREENSHOT_FETCH",
+  "metric": "REAL_ESTATE_PRICE_INDEX_YOY_PERCENT",
+  "baseYear": 2023,
+  "financialInputEligible": false,
+  "propertyEstimateEligible": false,
+  "records": [
+    {
+      "period": "2025-Q2",
+      "level": "NATIONAL",
+      "scope": "ALL",
+      "valuePct": 3.2
+    },
+    {
+      "period": "2025-Q3",
+      "level": "NATIONAL",
+      "scope": "ALL",
+      "valuePct": 1.3
+    },
+    {
+      "period": "2025-Q4",
+      "level": "NATIONAL",
+      "scope": "ALL",
+      "valuePct": -0.7
+    },
+    {
+      "period": "2026-Q1",
+      "level": "NATIONAL",
+      "scope": "ALL",
+      "valuePct": -1.6
+    },
+    {
+      "period": "2026-Q2",
+      "level": "NATIONAL",
+      "scope": "ALL",
+      "valuePct": 1.3
+    },
+    {
+      "period": "2026-Q2",
+      "level": "NATIONAL",
+      "scope": "RESIDENTIAL",
+      "valuePct": 2.6
+    },
+    {
+      "period": "2026-Q2",
+      "level": "NATIONAL",
+      "scope": "COMMERCIAL",
+      "valuePct": -3.2
+    },
+    {
+      "period": "2026-Q2",
+      "level": "NATIONAL",
+      "scope": "AGRICULTURAL",
+      "valuePct": 11.3
+    },
+    {
+      "period": "2026-Q2",
+      "level": "REGION",
+      "scope": "AL_JAWF",
+      "valuePct": 10.4
+    },
+    {
+      "period": "2026-Q2",
+      "level": "REGION",
+      "scope": "NORTHERN_BORDERS",
+      "valuePct": 4.6
+    },
+    {
+      "period": "2026-Q2",
+      "level": "REGION",
+      "scope": "RIYADH",
+      "valuePct": 4.2
+    },
+    {
+      "period": "2026-Q2",
+      "level": "REGION",
+      "scope": "HAIL",
+      "valuePct": -10.1
+    },
+    {
+      "period": "2026-Q2",
+      "level": "REGION",
+      "scope": "AL_QASSIM",
+      "valuePct": -5.4
+    }
+  ]
+}

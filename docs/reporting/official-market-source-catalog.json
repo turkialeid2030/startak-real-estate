@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "observedDate": "2026-11-25",
+  "sources": [
+    {
+      "id": "REGA_OPEN_RENT",
+      "publisher": "REGA",
+      "catalog": "https://rega.gov.sa/en/open-data/lates-open-data/",
+      "hosts": [
+        "rega.gov.sa",
+        "www.rega.gov.sa",
+        "open.data.gov.sa"
+      ],
+      "scope": "CITY_RENT_AGGREGATE",
+      "match": "rental|rent|lease|إيجار|ايجار",
+      "format": [
+        "csv",
+        "xlsx",
+        "xls"
+      ],
+      "cadence": "quarterly",
+      "seeds": []
+    },
+    {
+      "id": "GASTAT_REPI",
+      "publisher": "GASTAT",
+      "catalog": "https://www.stats.gov.sa/ar/statistics-tabs?category=121920&tab=436312",
+      "hosts": [
+        "stats.gov.sa",
+        "www.stats.gov.sa"
+      ],
+      "scope": "REAL_ESTATE_PRICE_INDEX",
+      "match": "REPI|RPI|real.estate|أسعار العقارات",
+      "format": [
+        "xlsx",
+        "xls",
+        "csv",
+        "pdf"
+      ],
+      "cadence": "quarterly",
+      "seeds": [
+        "https://www.stats.gov.sa/documents/20117/2435267/REPI_Q1_2026_AR_EN_%281%29.xlsx_fixed_13592925/bca1712e-6726-073d-8c05-50e84fbf8d08?t=1776338579204"
+      ]
+    },
+    {
+      "id": "SAMA_FINANCE",
+      "publisher": "SAMA",
+      "catalog": "https://www.sama.gov.sa/en-US/Statistics/Pages/MonthlyStatistics.aspx",
+      "hosts": [
+        "sama.gov.sa",
+        "www.sama.gov.sa"
+      ],
+      "scope": "FINANCE_MACRO_STATISTICS",
+      "match": "Monthly_Statistical_Bulletin|Monthly_Bulletin|monthly.bulletin",
+      "format": [
+        "pdf",
+        "xlsx",
+        "xls",
+        "xlsm",
+        "csv"
+      ],
+      "cadence": "monthly",
+      "seeds": [
+        "https://www.sama.gov.sa/en-US/Statistics/MonthlyStatistics/Monthly_Statistical_Bulletin_For_Sep_2026.pdf"
+      ]
+    }
+  ]
+}
