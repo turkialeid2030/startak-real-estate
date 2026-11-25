@@ -5,6 +5,10 @@ on:
       - 'tools/discover-official-market-sources.js'
       - 'tools/stage-public-city-rent.js'
       - 'src/reporting/public-city-rent.js'
+      - 'src/reporting/public-city-rent-rolling.js'
+      - 'src/reporting/public-rent-aggregate-backtest.js'
+      - 'tools/backtest-public-city-rent.js'
+      - 'tests/defects/public_city_rent_rolling.js'
       - 'docs/reporting/public-city-rent-source-manifest.json'
       - 'tests/defects/public_city_rent.js'
       - 'docs/reporting/official-market-source-catalog.json'
@@ -28,14 +32,20 @@ jobs:
           node-version: '24'
       - name: Verify city schema guards
         run: node tests/defects/public_city_rent.js
+      - name: Verify city rolling holdout guards
+        run: node tests/defects/public_city_rent_rolling.js
       - name: Stage city history with pinned source hashes
         run: node tools/stage-public-city-rent.js
-      - name: Preserve city staging manifest
+      - name: Backtest real city history on 20 historical quarters
+        run: node tools/backtest-public-city-rent.js
+      - name: Preserve city staging manifest and aggregate backtest
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: public-city-rent-manifest-${{ github.run_id }}
-          path: runtime-evidence/public-city-rent/manifest.json
+          path: |
+            runtime-evidence/public-city-rent/manifest.json
+            runtime-evidence/public-city-rent/rolling-backtest.json
           retention-days: 90
           if-no-files-found: warn
   discover:
