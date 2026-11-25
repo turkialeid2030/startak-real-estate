@@ -76,7 +76,7 @@ export default function LocalDocumentEvidenceIntakePanel({ onRecordChange = null
   const [manual, setManual] = useState(emptyManual);
   const [ocrSource,setOcrSource]=useState(null),[ocrPage,setOcrPage]=useState('1'),[ocrPreview,setOcrPreview]=useState(null),[ocrLayout,setOcrLayout]=useState('AUTO');
   const requestRef = useRef({id:0,controller:null,ocrActive:false});
-  useEffect(() => { requestRef.current.id++; requestRef.current.controller?.abort();requestRef.current.ocrActive=false; setBusy(false); setRecord(null); setError(null);setOcrSource(null);setOcrPage('1');setOcrLayout('AUTO');setOcrPreview(null);setManual(emptyManual()); publishRecord(null); return () => {requestRef.current.id++;requestRef.current.controller?.abort();}; }, [suppliedCaseId]);
+  useEffect(() => { requestRef.current.id++; requestRef.current.controller?.abort();requestRef.current.ocrActive=false; setBusy(false); setRecord(null); setError(null);setOcrSource(null);setOcrPage('1');setOcrLayout('AUTO');setOcrPreview(null);setManual(emptyManual()); if(fileInputRef.current)fileInputRef.current.value=''; publishRecord(null); return () => {requestRef.current.id++;requestRef.current.controller?.abort();}; }, [suppliedCaseId]);
 
   const publishRecord = (nextRecord, selectedAtomId = null) => {
     if (typeof onRecordChange === 'function') onRecordChange(nextRecord, selectedAtomId);
@@ -271,7 +271,7 @@ export default function LocalDocumentEvidenceIntakePanel({ onRecordChange = null
                 accept=".xlsx,.pptx,.pdf,.docx,.png,.jpg,.jpeg,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.openxmlformats-officedocument.presentationml.presentation,image/png,image/jpeg"
                 className="sr-only"
                 disabled={busy}
-                onChange={(event) => handleFile(event.target.files?.[0] || null)}
+                onChange={(event) => {const file=event.target.files?.[0]||null;event.target.value='';void handleFile(file);}}
               />
             {busy ? <button type="button" onClick={reset} className="rounded-lg border border-slate-600 px-3 py-2 text-xs text-slate-200">{l.cancel}</button> : null}
             {record || error ? (
