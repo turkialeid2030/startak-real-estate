@@ -4,6 +4,8 @@ on:
     paths:
       - 'src/**'
       - 'tests/e2e/run_reporting_studio_browser.js'
+      - 'tests/defects/reporting_studio.js'
+      - 'tests/defects/land_history_report.js'
       - '.github/workflows/reporting-studio-browser.yml'
   workflow_dispatch:
 permissions:
@@ -35,6 +37,7 @@ jobs:
         run: test "$(git rev-parse HEAD)" = "$STARTAK_SOURCE_COMMIT"
       - run: npm ci
       - run: node tests/defects/reporting_studio.js
+      - run: node tests/defects/land_history_report.js
       - run: npm run build
       - name: Verify reporting studio journeys
         shell: bash
