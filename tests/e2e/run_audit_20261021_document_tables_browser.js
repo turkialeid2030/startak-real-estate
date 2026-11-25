@@ -29,8 +29,14 @@ async function download(page,button){const pending=page.waitForEvent('download')
       await page.getByTestId('document-case-id').fill(caseId);
       const bytes=nativeTablePdfFixture({pages:2}),digest=createHash('sha256').update(bytes).digest('hex');
       const upload=async(buffer=bytes)=>{
-        await page.getByTestId('local-document-file-input').setInputFiles({name:'synthetic-table.pdf',mimeType:'application/pdf',buffer});
-        await expect(page.getByTestId('table-page')).toBeVisible({timeout:20000});
+        const expectedScope=await page.getByTestId('document-case-id').inputValue();
+        const intake=page.getByTestId('local-document-evidence-intake');
+        await expect(intake).toHaveAttribute('data-case-scope',expectedScope.trim());
+        const file=intake.getByTestId('local-document-file-input');
+        await expect(file).toBeEnabled();
+        await file.setInputFiles({name:'synthetic-table.pdf',mimeType:'application/pdf',buffer});
+        try{await expect(page.getByTestId('table-page')).toBeVisible({timeout:20000});}
+        catch(error){await fs.writeFile(`${DIR}/${name}-${width}-intake-failure.json`,JSON.stringify({scope:expectedScope,actualScope:await intake.getAttribute('data-case-scope'),text:await intake.innerText(),errors,violations},null,2));await page.screenshot({path:`${DIR}/${name}-${width}-intake-failure.png`});throw error;}
       };
       const fillGrid=async()=>{
         await page.getByTestId('table-direction').selectOption('ltr');
