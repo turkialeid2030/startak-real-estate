@@ -4,6 +4,8 @@ const {chromium,firefox,webkit,expect}=require('@playwright/test');
 const fs=require('node:fs/promises');
 const path=require('node:path');
 const {evaluateLocalSectorOperations,STATUS}=require('../../src/specialized-assets/local-sector-operating-research');
+const {restoreStudyFile}=require('../../src/specialized-assets/local-sector-operating-archive');
+const {sha256Hex}=require('../../src/crypto/sha256');
 const hotel={availableRoomNights:36500,occupiedRoomNights:25550,roomsRevenueSar:12775000,foodBeverageRevenueSar:2000000,otherOperatingRevenueSar:225000,departmentalExpensesSar:4000000,undistributedOperatingExpensesSar:3000000,managementAndFranchiseFeesSar:500000,ffeReserveSar:500000};
 const industrial={assetId:'SYNTH-01',subtype:'WAREHOUSE',landAreaSqm:2000,builtAreaSqm:1500,netLeasableAreaSqm:1200,clearHeightMeters:10,powerCapacityKva:400,leaseStructure:'GROSS',internalInspectionStatus:'NOT_INSPECTED',buildingPermitStatus:'PROVIDED_UNVERIFIED',annualRentSar:600000,landlordExpensesSar:120000};
 const cap={capacity:100,usedCapacity:80,annualOperatingRevenueSar:1000000,annualOperatingExpensesSar:700000};
@@ -16,7 +18,7 @@ const cases=[['HOSPITALITY',hotel,'revParSar','availableRoomNights','sar'],['IND
  let checks=0,scenarios=0;
  try{
  for(const width of [390,768,1366])for(const locale of ['ar-SA','en']){
-  const ar=locale==='ar-SA',ctx=await browser.newContext({viewport:{width,height:900},locale});
+  const ar=locale==='ar-SA',ctx=await browser.newContext({viewport:{width,height:900},locale,acceptDownloads:true});
   try{
    const page=await ctx.newPage(),errors=[];page.on('pageerror',e=>errors.push(String(e)));
    await page.addInitScript(l=>localStorage.setItem('startak.presentation.locale',l),locale);
@@ -30,6 +32,8 @@ const cases=[['HOSPITALITY',hotel,'revParSar','availableRoomNights','sar'],['IND
     await select.selectOption(assetClass);await expect(panel).toBeVisible();
     await expect(panel.getByTestId('specialist-result')).toHaveCount(0);
     const calc=panel.getByTestId('specialist-calculate');
+    const exportReport=panel.getByTestId('specialist-export-report'),exportInputs=panel.getByTestId('specialist-export-inputs');
+    await expect(exportReport).toBeDisabled();
     await calc.click();await expect(panel.getByTestId('specialist-result')).toHaveAttribute('data-status',STATUS.HOLD);
     const fill=async(obj,prefix='')=>{
      for(const [key,value] of Object.entries(obj)){
@@ -48,11 +52,38 @@ const cases=[['HOSPITALITY',hotel,'revParSar','availableRoomNights','sar'],['IND
     const formatted=new Intl.NumberFormat(ar?'ar-SA':'en-SA',kind==='pct'?{style:'percent',maximumFractionDigits:2}:{maximumFractionDigits:2}).format(expected)+(kind==='sar'?(ar?' ر.س':' SAR'):'');
     await expect(panel.getByTestId('specialist-metric-'+metric)).toHaveText(formatted);
     await expect(panel.getByTestId('specialist-authority-hold')).toBeVisible();
+    await expect(exportReport).toBeEnabled();
+    const download=async button=>{const pending=page.waitForEvent('download');await button.click();const file=await pending;return JSON.parse(await fs.readFile(await file.path(),'utf8'));};
+    const importFile=async file=>panel.getByTestId('specialist-import-file').setInputFiles({name:'synthetic.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(file))});
+    const archive=await download(exportInputs),report=await download(exportReport);
+    assert.equal(Object.hasOwn(archive,'result'),false);
+    assert.equal(report.result.propertyValueSar,null);
+    assert.equal(report.professionalValuationCertified,false);
+    assert.equal(report.transactionAuthorized,false);
+    assert.equal(restoreStudyFile(report,{expectedAssetClass:assetClass}).resultsRestored,false);
+    const forged=JSON.parse(JSON.stringify(report));forged.result.propertyValueSar=123456789;
+    const {sha256,...body}=forged;forged.sha256=sha256Hex(JSON.stringify(body));
+    await importFile(forged);
+    await expect(panel.getByTestId('specialist-file-notice')).toContainText(ar?'تعذر التحقق':'validation failed');
+    await expect(panel.getByTestId('specialist-metric-'+metric)).toHaveText(formatted);
+    await importFile(archive);
+    await expect(panel.getByTestId('specialist-file-notice')).toContainText(ar?'استُعيدت المدخلات فقط':'Inputs restored only');
+    await expect(panel.getByTestId('specialist-result')).toHaveCount(0);
+    await expect(exportReport).toBeDisabled();
+    await calc.click();
+    await expect(panel.getByTestId('specialist-metric-'+metric)).toHaveText(formatted);
+    await importFile(report);
+    await expect(panel.getByTestId('specialist-file-notice')).toContainText(ar?'طابقت إعادة الحساب':'Report recomputation matched');
+    await expect(panel.getByTestId('specialist-result')).toHaveCount(0);
+    await expect(exportReport).toBeDisabled();
+    await calc.click();await expect(panel.getByTestId('specialist-metric-'+metric)).toHaveText(formatted);
+    checks+=18;
     await panel.getByTestId('specialist-'+invalidField).fill('0');
     await expect(panel.getByTestId('specialist-result')).toHaveCount(0);
     await calc.click();await expect(panel.getByTestId('specialist-result')).toHaveAttribute('data-status',STATUS.HOLD);
     await expect(panel.getByTestId('specialist-metric-'+metric)).toHaveCount(0);
-    checks+=10;scenarios++;
+    await expect(exportReport).toBeDisabled();
+    checks+=12;scenarios++;
    }
    await select.selectOption('OTHER');await expect(panel).toHaveCount(0);checks++;
    assert.deepEqual(errors,[]);checks++;
