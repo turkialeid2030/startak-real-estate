@@ -6,9 +6,14 @@ const {VERSION:HISTORY_VERSION,compareReportedHistory}=require('./property-lifec
 const {VERSION:REDEVELOPMENT_VERSION,evaluateRedevelopment}=require('./owner-redevelopment-research');
 const {sha256Hex}=require('../crypto/sha256');
 const {VERSION:ESG_VERSION,screenEsg}=require('./property-esg-screening');
+const {VERSION:RENT_VERSION,evaluateRentalIntelligence}=require('./saudi-rental-intelligence');
 const MODES=Object.freeze(['OWNER','TECHNICAL']);
 const h=v=>String(v??'—').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const LABELS={
+ RENT_SOURCE_CONFLICT:['تعارض سجلات المقارنات الإيجارية','Conflicting rental source records'],
+ RENT_INSUFFICIENT_EXECUTED_EVIDENCE:['أدلة العقود المنفذة غير كافية أو متعارضة','Insufficient or conflicting executed lease evidence'],
+ RENT_LOCAL_DECLARED_EVIDENCE_ONLY:['بيانات محلية مصرح بها وغير متحققة مستقلًا','Local declared inputs; not independently verified'],
+ RENT_LEGAL_LIMIT_NOT_DETERMINED:['الأجرة النظامية لم تحدد','Legal rent limit not determined'],
  ESG_FUTURE_SOURCE:['مصدر لاحق لتاريخ التقييم','Source after valuation date'],
  ESG_STALE_SOURCE_REVIEW:['مصدر قديم يحتاج مراجعة','Stale source needs review'],
  ESG_EXPIRED_SOURCE:['انتهاء صلاحية المصدر','Expired source'],
@@ -58,6 +63,7 @@ function renderStudio({runtime=null,valuationCase=null,mode='OWNER',locale='ar-S
  return {html:wrap(label('دراسة عقارية بحثية','Real estate research study'),body,locale),report:r};
 }
 function renderExternalReview(inputs,{locale='ar-SA'}={}){
+ if(inputs?.version===RENT_VERSION)return renderRentalIntelligence(inputs,{locale});
  if(inputs?.version===ESG_VERSION)return renderEsgScreening(inputs,{locale});
  if(inputs?.version===REDEVELOPMENT_VERSION)return renderRedevelopment(inputs,{locale});
  if(inputs?.version===LAND_VERSION||inputs?.version===HISTORY_VERSION)return renderExtendedReview(inputs,{locale});
@@ -107,5 +113,17 @@ function renderEsgScreening(inputs,{locale='ar-SA'}={}){
  +'<h2>'+l('العوامل والأدلة المصرح بها','Declared factors and evidence')+'</h2><table><thead><tr>'+[l('العامل','Factor'),l('الحالة','Outcome'),l('المبرر','Rationale'),l('المصدر والتاريخ والصلاحية','Source, date, validity'),l('قنوات التأثير المحتملة','Potential impact channels')].map(v=>'<th>'+h(v)+'</th>').join('')+'</tr></thead><tbody>'+r.factors.map(f=>'<tr>'+[lab(f.pillar)+' / '+lab(f.factor),lab(f.outcome),f.rationale,[f.sourceClass,f.sourceRef,f.sourceDate,f.validTo].map(v=>v??'—').join(' / '),f.impactChannels.map(lab).join(' / ')||'—'].map(v=>'<td>'+h(v)+'</td>').join('')+'</tr>').join('')+'</tbody></table>'
  +'<h2>'+l('الملاحظات','Findings')+'</h2>'+table(r.issues.map(i=>[lab(i.ref)+' / '+i.severity,issueLabel(i.code,locale)]))+'<p>'+l('لا يُعدل هذا الفحص قيمة الأصل ولا مدخلات المحرك المالي. المسار المهني للتحقق من الأدلة والأهمية وربطها بالسوق مستقل.','This screening does not adjust property value or financial model inputs. Professional evidence, materiality and market linkage are separate.')+'</p><small>SHA-256: '+h(r.reviewHashSha256)+'</small>';
  return {html:wrap(l('الفحص البحثي للعوامل البيئية والاجتماعية والحوكمة','Property ESG research screening'),body,locale),report:r};
+}
+function renderRentalIntelligence(inputs,{locale='ar-SA'}={}){
+ const r=evaluateRentalIntelligence(inputs),ar=locale!=='en',l=(a,b)=>ar?a:b,fmt=v=>v===null||v===undefined?'—':new Intl.NumberFormat(ar?'ar-SA':'en-US',{maximumFractionDigits:2}).format(v);
+ const metrics=m=>[[l('الإيجار السنوي دون الضريبة','Annual rent ex VAT'),fmt(m?.annualRentExVatSar)],[l('الإيجار الشهري دون الضريبة','Monthly rent ex VAT'),fmt(m?.monthlyRentExVatSar)],[l('ريال للمتر سنويًا','SAR per sqm per year'),fmt(m?.rateSarPerSqmYear)],[l('أدنى مؤشر من المقارنات المعدلة','Observed adjusted low'),fmt(m?.observedAdjustedMinAnnualSar)],[l('أعلى مؤشر من المقارنات المعدلة','Observed adjusted high'),fmt(m?.observedAdjustedMaxAnnualSar)],[l('الإيجار بعد الشغور المفترض','Occupied rent'),fmt(m?.occupiedRentSar)],[l('التحصيل المتوقع قبل المصروفات','Expected collections before expenses'),fmt(m?.expectedCollectionsSar)],[l('الفرق عن الإيجار التعاقدي المدخل','Gap vs entered contract rent'),fmt(m?.contractGapSar)]];
+ let body=table([[l('مرجع الأصل','Property reference'),r.propertyRef],[l('المدينة','City'),r.city],[l('الحي','District'),r.district],[l('تاريخ التقدير','As-of date'),r.valuationDate],[l('حالة التقدير','Research status'),r.total?l('مؤشر بحثي غير متحقق','Unverified research indication'):l('معلق لعدم كفاية الأدلة أو تعارضها','Held for insufficient or conflicting evidence')],...metrics(r.total)])
+ +'<p class="notice">'+l('لا يوجد اتصال حي بالمصادر. جميع العقود والمقارنات مصرح بها من المدخلات ولم تتحقق المنصة منها. نطاق القيم هو أدنى وأعلى المقارنات المعدلة وليس نطاق ثقة إحصائيًا. لا يتم تحديد الأجرة النظامية أو الضريبة المطبقة على الأصل.','No live source connection. All lease and comparable records are user-declared, not authenticated. Range is observed adjusted min/max, not a statistical confidence interval. No legal rent or applicable property VAT rate is established.')+'</p>';
+ for(const s of r.segments){
+ body+='<h2>'+h(s.id+' / '+s.kind)+'</h2>'+table([[l('التصنيف الفرعي','Subtype'),s.subtype],[l('أساس المساحة','Area basis'),s.areaBasis],[l('المساحة الإجمالية','Total area'),fmt(s.totalAreaSqm)],[l('عدد الوحدات','Unit count'),s.unitCount],[l('عدد العقود المصرح بتنفيذها','Declared executed leases'),s.executedCount],[l('عدد العروض','Asking offers'),s.askingCount],[l('وسيط سعر العرض دون تسوية','Unadjusted asking median'),fmt(s.offerMedianRateSar)],...metrics(s.result),[l('إيجار الوحدة السنوي','Annual rent per unit'),fmt(s.result?.annualRentPerUnitSar)],[l('سعر المتر الشهري','SAR per sqm per month'),fmt(s.result?.rateSarPerSqmMonth)]])
+ +'<h3>'+l('أدلة المقارنة والتسويات','Comparable evidence and adjustments')+'</h3><table><thead><tr>'+[l('مرجع العقد والمصدر','Contract and source'),l('التاريخ والرصد','Date and observed'),l('الإيجار السنوي دون الضريبة والمساحة','Annual rent ex VAT and area'),l('سعر المتر قبل وبعد التسوية','Raw and adjusted rate'),l('حالة الضريبة والتسويات','VAT declaration and adjustments')].map(v=>'<th>'+h(v)+'</th>').join('')+'</tr></thead><tbody>'+[...s.executed,...s.offers].map(c=>'<tr>'+[c.contractRef+' / '+c.status+' / '+c.sourceUrl+' / '+c.sourceRecordId,c.date+' / '+c.observedDate,fmt(c.annualRentExVatSar)+' / '+fmt(c.areaSqm),fmt(c.rawRateSar)+' → '+fmt(c.adjustedRateSar),c.vatBasis+' / '+(c.vatRef??'—')+' / '+c.adjustments.map(a=>a.category+': '+fmt(a.fraction*100)+'% / '+a.evidenceRef).join('; ')].map(v=>'<td>'+h(v)+'</td>').join('')+'</tr>').join('')+'</tbody></table><h3>'+l('أسباب الاستبعاد','Exclusions')+'</h3>'+table(Object.entries(s.excluded));
+ }
+ body+='<h2>'+l('الملاحظات','Findings')+'</h2>'+table(r.issues.map(i=>[i.ref+' / '+i.severity,issueLabel(i.code,locale)]))+'<small>SHA-256: '+h(r.reviewHashSha256)+'</small>';
+ return {html:wrap(l('تقدير بحثي مستقل للقيمة الإيجارية','Independent rental research indication'),body,locale),report:r};
 }
 module.exports={MODES,issueLabel,esgLabel,renderStudio,renderExternalReview};
