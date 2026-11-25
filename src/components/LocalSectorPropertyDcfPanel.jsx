@@ -1,4 +1,5 @@
 import React,{useState,useRef,useLayoutEffect} from 'react';
+import SectorFinancingRiskPanel from './SectorFinancingRiskPanel.jsx';
 const {UNITS,STATUS}=require('../specialized-assets/sector-property-dcf');
 const {MAX_BYTES,calculateDcfStudy,createDcfInputArchive,createDcfResearchReport,restoreDcfStudy}=require('../specialized-assets/sector-property-dcf-archive');
 const F=(key,ar,en,kind='number')=>({key,ar,en,kind});
@@ -68,6 +69,7 @@ export default function LocalSectorPropertyDcfPanel({assetClass,locale='ar-SA'})
  </dl>{out.irr===null&&<p>{ar?'لا يوجد عائد داخلي وحيد مؤهل ضمن حدود الحل.':'No qualified unique IRR within solver bounds.'}</p>}
  <div className="overflow-x-auto mt-3"><table className="w-full text-xs"><thead><tr>{(ar?['السنة','الإيجار المحصل','مصروفات المالك','NOI','CAPEX','صافي البيع','التدفق','الضغط']:['Year','Collected rent','Owner OPEX','NOI','CAPEX','Net sale','Cash flow','Stress']).map(x=><th className="p-1" key={x}>{x}</th>)}</tr></thead><tbody>{out.periods.map(p=><tr key={p.year}>{[p.year,p.collectedPropertyRentSar,p.ownerExpensesSar,p.propertyNoiSar,p.sustainingCapexSar,p.terminalNetSaleSar,p.cashflowSar,p.stressCashflowSar].map((v,i)=><td key={i} className="p-1">{fmt(v)}</td>)}</tr>)}</tbody></table></div></>}
  </div>}
+ {out?.status===STATUS.READY&&<SectorFinancingRiskPanel key={JSON.stringify(state())} study={state()} locale={locale}/>}
  <div className="mt-3 pt-3 border-t border-slate-600 space-y-2">
  <p className="text-xs text-slate-300">{ar?'الملفات محلية غير مشفرة؛ البصمة للتحقق من الاتساق وليست توقيعًا أو اعتمادًا.':'Local files are unencrypted; the digest verifies consistency, not identity or certification.'}</p>
  <div className="flex flex-wrap gap-2">
