@@ -8,7 +8,7 @@ const plain=v=>v!==null&&typeof v==='object'&&Object.getPrototypeOf(v)===Object.
 const exact=(v,keys)=>plain(v)&&Object.keys(v).length===keys.length&&keys.every(k=>Object.hasOwn(v,k));
 const money=v=>typeof v==='number'&&Number.isFinite(v)&&v>=0&&v<=1e12&&P.money(v)===v;
 const signed=v=>typeof v==='number'&&Number.isFinite(v)&&Math.abs(v)<=1&&P.fromRate(P.toRate(v))===v;
-const positive=v=>typeof v==='number'&&Number.isFinite(v)&&v>0&&v<=1e9;
+const positive=v=>typeof v==='number'&&Number.isFinite(v)&&v>0&&v<=1e9&&P.fromRate(P.toRate(v))===v;
 const text=v=>typeof v==='string'&&v.trim().length>0&&v.length<=200;
 const day=v=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&Number.isFinite(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v;
 function fail(code){throw Error(code);}
@@ -35,8 +35,11 @@ function reviewExternalReport(x){
  });
  const weight=comps.reduce((s,c)=>s+P.toRate(c.weight),0n);
  if(weight!==P.RATE_SCALE)fail('REVIEW_WEIGHT_SUM_INVALID');
- const weighted=P.moneyAdd(...comps.map(c=>c.contributionSar));
- const landDelta=P.moneyMulRate(P.moneySub(x.adoptedLandRateSar,weighted),x.landAreaSqm);
+ // Preserve the pre-round weighted numerator; never sum rounded display contributions.
+ const weightedNumerator=comps.reduce((sum,c)=>sum+P.toMoney(c.adjustedRateSar)*P.toRate(c.weight),0n);
+ const weighted=P.fromMoney(P.roundDiv(weightedNumerator,P.RATE_SCALE));
+ const weightedBeforeFinalRoundingSar=Number(weightedNumerator)/Number(P.RATE_SCALE)/100;
+ const landDelta=P.fromMoney(P.roundDiv((P.toMoney(x.adoptedLandRateSar)*P.RATE_SCALE-weightedNumerator)*P.toRate(x.landAreaSqm),P.RATE_SCALE*P.RATE_SCALE));
  if(landDelta!==0)add(x.roundingReason.trim()?'ADOPTED_RATE_DIFF_DOCUMENTED_UNVERIFIED':'ADOPTED_RATE_DIFF_UNEXPLAINED',x.roundingReason.trim()?'WARNING':'CRITICAL','land');
  const componentIds=new Set();
  const components=x.components.map(c=>{
@@ -56,7 +59,7 @@ function reviewExternalReport(x){
  if(!money(land)||!money(replay)||!Number.isFinite(landDelta)||Math.abs(landDelta)>1e12)fail('REVIEW_RANGE_INVALID');
  if(x.declaredDepreciationSar>cost)add('DEPRECIATION_EXCEEDS_COST','CRITICAL','depreciation');
  if(replay!==x.declaredFinalValueSar)add('FINAL_VALUE_MISMATCH','CRITICAL','final');
- const out={version:VERSION,scope:'TRANSCRIBED_EXTERNAL_REPORT_ARITHMETIC_ONLY',reportRef:x.reportRef,valuationDate:x.valuationDate,sourcePage:x.sourcePage,comparables:comps,components,weightedRateSar:weighted,adoptedRateSar:x.adoptedLandRateSar,roundingReason:x.roundingReason,landRateImpactSar:landDelta,landValueSar:land,componentCostSar:cost,buildingFloorAreaSqm:components.filter(c=>['FLOOR','ANNEX'].includes(c.kind)).reduce((s,c)=>s+c.quantity,0),physicalRatio,fullPrecisionPhysicalDepSar:fullDep,declaredRatePhysicalDepSar:roundedDep,declaredDepreciationSar:x.declaredDepreciationSar,replayedFinalValueSar:replay,declaredFinalValueSar:x.declaredFinalValueSar,issues,sourceAuthenticated:false,professionalValuationCertified:false,transactionAuthorized:false,canonicalModelUpdated:false};
+ const out={version:VERSION,scope:'TRANSCRIBED_EXTERNAL_REPORT_ARITHMETIC_ONLY',reportRef:x.reportRef,valuationDate:x.valuationDate,sourcePage:x.sourcePage,comparables:comps,components,weightedRateSar:weighted,weightedBeforeFinalRoundingSar,roundingPolicy:'ROUND_EACH_ADJUSTED_RATE_TO_HALALA; WEIGHT_BEFORE_FINAL_RATE_ROUNDING; LAND_IMPACT_USES_UNROUNDED_WEIGHTED_RATE',adoptedRateSar:x.adoptedLandRateSar,roundingReason:x.roundingReason,landRateImpactSar:landDelta,landValueSar:land,componentCostSar:cost,buildingFloorAreaSqm:components.filter(c=>['FLOOR','ANNEX'].includes(c.kind)).reduce((s,c)=>s+c.quantity,0),physicalRatio,fullPrecisionPhysicalDepSar:fullDep,declaredRatePhysicalDepSar:roundedDep,declaredDepreciationSar:x.declaredDepreciationSar,replayedFinalValueSar:replay,declaredFinalValueSar:x.declaredFinalValueSar,issues,sourceAuthenticated:false,professionalValuationCertified:false,transactionAuthorized:false,canonicalModelUpdated:false};
  return {...out,reviewHashSha256:sha256Hex(JSON.stringify(out))};
 }
 module.exports={VERSION,reviewExternalReport};
