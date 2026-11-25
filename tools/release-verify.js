@@ -106,9 +106,14 @@ step('VERIFY_PACKAGE', () => {
 step('NPM_AUDIT_RELEASE_THRESHOLD', () => {
   let out;
   try { out = execFileSync('npm', ['audit', '--json'], { cwd: ROOT, encoding: 'utf8' }); }
-  catch (e) { out = e.stdout; }
-  const data = JSON.parse(out);
-  const v = data.metadata?.vulnerabilities || {};
+  catch (e) {
+    if (!e.stdout || e.signal || e.status !== 1) throw new Error('NPM_AUDIT_EXECUTION_FAILED');
+    out = e.stdout;
+  }
+  let data;
+  try { data = JSON.parse(out); }
+  catch (_) { throw new Error('NPM_AUDIT_JSON_INVALID'); }
+  const v = require('./npm-audit-response-gate').requireAuditCounts(data);
   console.log(`  critical=${v.critical||0} high=${v.high||0} moderate=${v.moderate||0} low=${v.low||0}`);
   // Emit only public npm package/advisory identifiers and remediation range.
   // Never print the whole audit payload or registry auth, token, headers or config.

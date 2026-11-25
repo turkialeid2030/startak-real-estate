@@ -18,7 +18,18 @@ export default function ProfessionalReportingStudio({runtime,valuationCase,local
   assertPersonalReportExportAllowed({subject,link});
   const url=URL.createObjectURL(new Blob([html],{type:'text/html;charset=utf-8'}));
   const a=document.createElement('a');a.href=url;a.download=name;
-  try{document.body.appendChild(a);a.click();}finally{a.remove();URL.revokeObjectURL(url);}
+  let dispatched=false;
+  try{
+   document.body.appendChild(a);
+   a.click();
+   dispatched=true;
+  }finally{
+   a.remove();
+   // WebKit can resolve the blob URL asynchronously after the click returns.
+   // Revoke failed dispatches immediately and successful ones after a bounded grace period.
+   if(dispatched)window.setTimeout(()=>URL.revokeObjectURL(url),10000);
+   else URL.revokeObjectURL(url);
+  }
  };
  const generate=()=>{try{download(renderStudio({runtime,valuationCase,mode,locale}).html,'startak-research-'+mode.toLowerCase()+'.html');setNotice('EXPORTED');}catch{setNotice('INVALID');}};
  const audit=()=>{setReview(null);setNotice('');try{if(new TextEncoder().encode(raw).length>65536)throw Error('SIZE');const out=renderExternalReview(JSON.parse(raw),{locale});setReview(out.report);setNotice('REVIEWED');}catch{setNotice('INVALID');}};

@@ -144,10 +144,14 @@ async function main() {
       assert.strictEqual(r.code, 404);
       assert.strictEqual(r.body.error.code, 'WORKSPACE_NOT_FOUND');
     });
-    await check('HTTP-JWT-E2E-07-in-tenant-admin-read', async () => {
+    await check('HTTP-JWT-E2E-07-in-tenant-admin-read-denied', async () => {
       const r = await req({ token: admin });
-      assert.strictEqual(r.code, 200);
-      assert.strictEqual(r.body.data.ownerActorId, 'owner-a');
+      assert.strictEqual(r.code, 404);
+      assert.strictEqual(r.body.error.code, 'WORKSPACE_NOT_FOUND');
+      assert.ok(!JSON.stringify(r.body).includes('owner-a'));
+      const w=await req({token:admin,method:'PUT',body:savePayload('admin-a','ADMIN-PEER-WRITE',{},1)});
+      assert.strictEqual(w.code,404);
+      assert.strictEqual(w.body.error.code,'WORKSPACE_NOT_FOUND');
     });
     await check('HTTP-JWT-E2E-08-other-tenant-does-not-read-a', async () => {
       const r = await req({ token: b });

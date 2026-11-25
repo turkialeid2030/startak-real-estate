@@ -347,12 +347,17 @@ async function main() {
   await check(async () => assert.strictEqual(
     (await runtime.loadWorkspace({ identityContext: downgradedOwner, workspaceId: 'WS-001' })).ownerActorId, 'user-1',
   ));
-  await check(async () => assert.strictEqual(
-    (await runtime.loadWorkspace({ identityContext: admin, workspaceId: 'WS-001' })).ownerActorId, 'user-1',
+  await check(async () => assert.rejects(
+    runtime.loadWorkspace({ identityContext: admin, workspaceId: 'WS-001' }),
+    (e) => e.code === 'WORKSPACE_RECORD_ACCESS_DENIED',
   ));
+  await check(async () => assert.rejects(persistence.save({identityContext: admin,workspace:canonicalWorkspace('tenant-admin'),expectedVersion:1,operationId:'ADMIN-PEER-WRITE'}),e=>e.code==='WORKSPACE_RECORD_ACCESS_DENIED'));
+  await check(async () => assert.rejects(persistence.save({identityContext:downgradedOwner,workspace:canonicalWorkspace('user-1'),expectedVersion:1,operationId:'VIEWER-DIRECT-WRITE'}),e=>e.code==='ROLE_NOT_AUTHORIZED'));
+  const unrelatedRole=identityContext({sub:'user-1',tenantId:'tenant-a',roles:['UNMAPPED_ROLE']});
+  await check(async () => assert.rejects(persistence.load({identityContext:unrelatedRole,workspaceId:'WS-001'}),e=>e.code==='ROLE_NOT_AUTHORIZED'));
 
   // An old unowned envelope cannot be assigned to whoever happens to request
-  // it first. Quarantine non-admin access until an authorized backfill.
+  // it first. Quarantine all access until an authorized backfill.
   const legacyWorkspaceId = 'WS-LEGACY-001';
   const legacyKey = [...provider.values.keys()][0].replace(/WS-001$/, legacyWorkspaceId);
   provider.values.set(legacyKey, JSON.stringify({
@@ -365,8 +370,9 @@ async function main() {
     runtime.loadWorkspace({ identityContext: analyst, workspaceId: legacyWorkspaceId }),
     (e) => e.code === 'WORKSPACE_RECORD_ACCESS_DENIED',
   ));
-  await check(async () => assert.strictEqual(
-    (await runtime.loadWorkspace({ identityContext: admin, workspaceId: legacyWorkspaceId })).ownerActorId, undefined,
+  await check(async () => assert.rejects(
+    runtime.loadWorkspace({ identityContext: admin, workspaceId: legacyWorkspaceId }),
+    (e) => e.code === 'WORKSPACE_RECORD_ACCESS_DENIED',
   ));
 
   // An explicitly server-wired reviewer may READ exactly one record, but
