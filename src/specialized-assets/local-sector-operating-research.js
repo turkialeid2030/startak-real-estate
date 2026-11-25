@@ -7,7 +7,7 @@ const {createIndustrialLogisticsAssetSpec,profileIndustrialLogisticsAsset,derive
 const STATUS=Object.freeze({HOLD:'HOLD',READY:'OPERATING_RESEARCH_ONLY'});
 const HOTEL_FIELDS=['availableRoomNights','occupiedRoomNights','roomsRevenueSar','foodBeverageRevenueSar','otherOperatingRevenueSar','departmentalExpensesSar','undistributedOperatingExpensesSar','managementAndFranchiseFeesSar','ffeReserveSar'];
 const CAPACITY_SECTORS=Object.freeze({HEALTHCARE:'BED',EDUCATION:'SEAT',PARKING:'SPACE',DATA_CENTER:'MW_IT'});
-const SUPPORTED_SECTORS=Object.freeze(['HOSPITALITY','INDUSTRIAL_LOGISTICS',...Object.keys(CAPACITY_SECTORS),'MIXED_USE','SPECIAL_PURPOSE']);
+const SUPPORTED_SECTORS=Object.freeze(['HOSPITALITY','INDUSTRIAL_LOGISTICS',...Object.keys(CAPACITY_SECTORS),'MIXED_USE','SPECIAL_PURPOSE','FUEL_STATION']);
 const num=(v,max=1e13)=>typeof v==='number'&&Number.isFinite(v)&&v>=0&&v<=max;
 const pos=(v,max)=>num(v,max)&&v>0;
 const filled=v=>typeof v==='string'&&v.trim().length>0&&v.length<=200;
@@ -37,6 +37,16 @@ function evaluateLocalSectorOperations({assetClass,inputs}={}){
    const profile=profileIndustrialLogisticsAsset(spec);
    metrics={coverageRatio:profile.coverageRatio,leasableEfficiency:profile.leasableEfficiency,annualRentPerLeasableSqm:x.annualRentSar===0?0:deriveAnnualRentPerSqm({annualRent:x.annualRentSar,netLeasableAreaSqm:x.netLeasableAreaSqm}),declaredNetPropertyIncomeSar:x.annualRentSar-x.landlordExpensesSar,operationalSpecCompleteness:profile.operationalSpecCompleteness,missingOperationalSpecs:[...profile.missingOperationalSpecs],warnings:[...profile.warnings]};
   }catch{return result(assetClass,['INDUSTRIAL_SPEC_INVALID']);}
+ }else if(assetClass==='FUEL_STATION'){
+  if(!num(x.annualLitres,1e10)||!pos(x.sellingPricePerLitre,100)||!num(x.purchaseCostPerLitre,100)||
+   !['annualNonFuelRevenueSar','annualNonFuelDirectCostSar','annualOperatingExpensesSar','annualPropertyRentSar','annualEnvironmentalReserveSar'].every(k=>num(x[k]))||
+   x.nonFuelSeparated!==true||x.propertyRentSeparated!==true||x.environmentalReviewDeclared!==true)
+   return result(assetClass,['FUEL_STATION_OPERATING_INPUTS_INVALID']);
+  const fuelRevenue=x.annualLitres*x.sellingPricePerLitre,fuelPurchase=x.annualLitres*x.purchaseCostPerLitre;
+  if(!num(fuelRevenue)||!num(fuelPurchase))return result(assetClass,['FUEL_STATION_OPERATING_INPUTS_INVALID']);
+  const fuelMarginSar=fuelRevenue-fuelPurchase,nonFuelMarginSar=x.annualNonFuelRevenueSar-x.annualNonFuelDirectCostSar;
+  metrics={fuelRevenueSar:fuelRevenue,fuelMarginSar,nonFuelMarginSar,contributionPerLitreSar:x.sellingPricePerLitre-x.purchaseCostPerLitre,
+   operatingSurplusSar:fuelMarginSar+nonFuelMarginSar-x.annualOperatingExpensesSar-x.annualPropertyRentSar-x.annualEnvironmentalReserveSar};
  }else if(Object.hasOwn(CAPACITY_SECTORS,assetClass)){
   const integral=assetClass!=='DATA_CENTER';
   if(!pos(x.capacity,1e9)||!num(x.usedCapacity,1e9)||x.usedCapacity>x.capacity||(integral&&(!Number.isSafeInteger(x.capacity)||!Number.isSafeInteger(x.usedCapacity)))||!num(x.annualOperatingRevenueSar)||!num(x.annualOperatingExpensesSar))
