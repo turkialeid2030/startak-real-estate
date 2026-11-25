@@ -5,9 +5,17 @@ const {VERSION:LAND_VERSION,reviewVacantLand}=require('./vacant-land-report-revi
 const {VERSION:HISTORY_VERSION,compareReportedHistory}=require('./property-lifecycle-review');
 const {VERSION:REDEVELOPMENT_VERSION,evaluateRedevelopment}=require('./owner-redevelopment-research');
 const {sha256Hex}=require('../crypto/sha256');
+const {VERSION:ESG_VERSION,screenEsg}=require('./property-esg-screening');
 const MODES=Object.freeze(['OWNER','TECHNICAL']);
 const h=v=>String(v??'—').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const LABELS={
+ ESG_FUTURE_SOURCE:['مصدر لاحق لتاريخ التقييم','Source after valuation date'],
+ ESG_STALE_SOURCE_REVIEW:['مصدر قديم يحتاج مراجعة','Stale source needs review'],
+ ESG_EXPIRED_SOURCE:['انتهاء صلاحية المصدر','Expired source'],
+ ESG_ASSUMED_SOURCE:['مصدر افتراضي','Assumed source'],
+ ESG_UNKNOWN_FACTOR:['عامل غير محسوم','Unknown factor'],
+ ESG_MISSING_FACTOR:['عامل لم يدخل','Missing factor'],
+ ESG_MATERIALITY_REVIEW_REQUIRED:['الأهمية تحتاج مراجعة مستقلة','Materiality requires independent review'],
  REDEVELOPMENT_ASSUMPTIONS_UNVERIFIED:['افتراضات التطوير غير متحققة مستقلًا','Redevelopment assumptions independently unverified'],
  REPORT_CHRONOLOGY_CONFLICT:['تعارض تسلسل تواريخ التقرير','Report chronology conflict'],
  VALUATION_DATE_CONFLICT:['اختلاف تاريخ التقييم بين الأقسام','Conflicting valuation dates'],
@@ -50,6 +58,7 @@ function renderStudio({runtime=null,valuationCase=null,mode='OWNER',locale='ar-S
  return {html:wrap(label('دراسة عقارية بحثية','Real estate research study'),body,locale),report:r};
 }
 function renderExternalReview(inputs,{locale='ar-SA'}={}){
+ if(inputs?.version===ESG_VERSION)return renderEsgScreening(inputs,{locale});
  if(inputs?.version===REDEVELOPMENT_VERSION)return renderRedevelopment(inputs,{locale});
  if(inputs?.version===LAND_VERSION||inputs?.version===HISTORY_VERSION)return renderExtendedReview(inputs,{locale});
  const r=reviewExternalReport(inputs),ar=locale!=='en',l=(a,b)=>ar?a:b,fmt=v=>new Intl.NumberFormat(ar?'ar-SA':'en-US',{maximumFractionDigits:2}).format(v);
@@ -84,4 +93,19 @@ function renderRedevelopment(inputs,{locale='ar-SA'}={}){
  body+='<h2>'+l('المصادر والافتراضات','Sources and assumptions')+'</h2>'+table(Object.entries(r.references))+'<h2>'+l('نطاق الضغط','Stress assumptions')+'</h2>'+table([[l('انخفاض الإيجار','Rent reduction'),fmt(r.stress.incomeReduction*100)+'%'],[l('ارتفاع التكلفة','Cost increase'),fmt(r.stress.costIncrease*100)+'%'],[l('انخفاض صافي التخارج','Exit reduction'),fmt(r.stress.exitReduction*100)+'%']])+'<h2>'+l('الملاحظات','Findings')+'</h2>'+table(r.issues.map(i=>[i.severity,issueLabel(i.code,locale)]))+'<p>'+l('نموذج للمالك الحالي قبل التمويل والضرائب. البيع الآن تكلفة فرصة بديلة، وليس استحواذًا جديدًا. لا يثبت جدوى نظامية أو إذن هدم أو قرار تطوير.','Existing-owner model before financing and tax. Sell-now proceeds are an opportunity cost, not a new acquisition. No legal feasibility, demolition permit or development decision established.')+'</p><small>SHA-256: '+h(r.reviewHashSha256)+'</small>';
  return {html:wrap(title,body,locale),report:r};
 }
-module.exports={MODES,issueLabel,renderStudio,renderExternalReview};
+const ESG_LABELS={
+ ENVIRONMENTAL:['البيئة','Environmental'],SOCIAL:['الاجتماعية','Social'],GOVERNANCE:['الحوكمة','Governance'],
+ ENERGY_PERFORMANCE:['أداء الطاقة','Energy performance'],WATER_EFFICIENCY:['كفاءة المياه','Water efficiency'],GHG_EMISSIONS:['انبعاثات غازات الدفيئة','Greenhouse gas emissions'],CLIMATE_PHYSICAL_RISK:['المخاطر المناخية المادية','Physical climate risk'],RESILIENCE_ADAPTATION:['المرونة والتكيف','Resilience and adaptation'],INDOOR_ENVIRONMENT_QUALITY:['جودة البيئة الداخلية','Indoor environmental quality'],ACCESSIBILITY_INCLUSION:['الوصول والشمول','Accessibility and inclusion'],HEALTH_SAFETY:['الصحة والسلامة','Health and safety'],COMMUNITY_IMPACT:['الأثر المجتمعي','Community impact'],GOVERNANCE_COMPLIANCE:['الحوكمة والامتثال','Governance and compliance'],CERTIFICATION_RATING:['الشهادات والتصنيفات','Certifications and ratings'],OTHER:['أخرى','Other'],
+ UNKNOWN:['غير معلوم','Unknown'],NOT_APPLICABLE:['غير منطبق وفق التصريح','Declared not applicable'],NOT_MATERIAL:['غير جوهري وفق التصريح','Declared not material'],POTENTIALLY_MATERIAL:['محتمل الأهمية','Potentially material'],MATERIAL:['جوهري وفق التصريح','Declared material'],
+ RENT:['الإيجار','Rent'],OCCUPANCY:['الإشغال','Occupancy'],OWNER_OPEX:['مصروفات المالك','Owner OPEX'],CAPEX:['النفقات الرأسمالية','CAPEX'],MARKETABILITY:['قابلية التسويق','Marketability'],LEGAL_OR_SAFETY_RISK:['المخاطر النظامية أو السلامة','Legal or safety risk']
+};
+function esgLabel(code,locale){return ESG_LABELS[code]?.[locale==='en'?1:0]||code;}
+function renderEsgScreening(inputs,{locale='ar-SA'}={}){
+ const r=screenEsg(inputs),ar=locale!=='en',l=(a,b)=>ar?a:b,lab=k=>esgLabel(k,locale);
+ const body=table([[l('مرجع الأصل','Property reference'),r.propertyRef],[l('تاريخ التقييم','Valuation date'),r.valuationDate],[l('عوامل غير مدخلة','Missing factors'),r.missingFactorCount],[l('عوامل تحتاج متابعة في الفحص','Factors flagged for screening follow-up'),r.reviewRequiredCount],...Object.entries(r.counts).map(([k,v])=>[lab(k),v])])
+ +'<p class="notice">'+l('جميع النتائج تصريحات غير متحققة مستقلًا، ولا تمثل درجة استدامة أو شهادة امتثال أو أثرًا ماليًا معتمدًا. حد مراجعة قدم المصدر في هذا الفحص 365 يومًا وليس متطلبًا مهنيًا عامًا.','All outcomes are independently unverified declarations, not a sustainability score, compliance certificate or established value effect. The 365-day screening age flag is not a universal professional requirement.')+'</p>'
+ +'<h2>'+l('العوامل والأدلة المصرح بها','Declared factors and evidence')+'</h2><table><thead><tr>'+[l('العامل','Factor'),l('الحالة','Outcome'),l('المبرر','Rationale'),l('المصدر والتاريخ والصلاحية','Source, date, validity'),l('قنوات التأثير المحتملة','Potential impact channels')].map(v=>'<th>'+h(v)+'</th>').join('')+'</tr></thead><tbody>'+r.factors.map(f=>'<tr>'+[lab(f.pillar)+' / '+lab(f.factor),lab(f.outcome),f.rationale,[f.sourceClass,f.sourceRef,f.sourceDate,f.validTo].map(v=>v??'—').join(' / '),f.impactChannels.map(lab).join(' / ')||'—'].map(v=>'<td>'+h(v)+'</td>').join('')+'</tr>').join('')+'</tbody></table>'
+ +'<h2>'+l('الملاحظات','Findings')+'</h2>'+table(r.issues.map(i=>[lab(i.ref)+' / '+i.severity,issueLabel(i.code,locale)]))+'<p>'+l('لا يُعدل هذا الفحص قيمة الأصل ولا مدخلات المحرك المالي. المسار المهني للتحقق من الأدلة والأهمية وربطها بالسوق مستقل.','This screening does not adjust property value or financial model inputs. Professional evidence, materiality and market linkage are separate.')+'</p><small>SHA-256: '+h(r.reviewHashSha256)+'</small>';
+ return {html:wrap(l('الفحص البحثي للعوامل البيئية والاجتماعية والحوكمة','Property ESG research screening'),body,locale),report:r};
+}
+module.exports={MODES,issueLabel,esgLabel,renderStudio,renderExternalReview};
