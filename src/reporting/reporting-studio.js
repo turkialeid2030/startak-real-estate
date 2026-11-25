@@ -1,10 +1,24 @@
 'use strict';
 const {buildPersonalResearchReport}=require('../app/personal-investment-research-report');
 const {reviewExternalReport}=require('./external-report-review');
+const {VERSION:LAND_VERSION,reviewVacantLand}=require('./vacant-land-report-review');
+const {VERSION:HISTORY_VERSION,compareReportedHistory}=require('./property-lifecycle-review');
 const {sha256Hex}=require('../crypto/sha256');
 const MODES=Object.freeze(['OWNER','TECHNICAL']);
 const h=v=>String(v??'—').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const LABELS={
+ REPORT_CHRONOLOGY_CONFLICT:['تعارض تسلسل تواريخ التقرير','Report chronology conflict'],
+ VALUATION_DATE_CONFLICT:['اختلاف تاريخ التقييم بين الأقسام','Conflicting valuation dates'],
+ BUILDING_RIGHTS_UNVERIFIED:['حقوق البناء غير متحققة','Building rights unverified'],
+ ADJUSTMENT_BASIS_MISSING:['مبرر التسوية غير متوفر','Adjustment evidence missing'],
+ EXECUTED_NEGOTIATION_REVIEW:['راجع خصم التفاوض لصفقة منفذة','Review negotiation on executed transaction'],
+ OBSERVATION_DATE_UNKNOWN:['تاريخ الرصد غير معروف','Observation date unknown'],
+ POST_VALUATION_OBSERVATION:['رصد لاحق لتاريخ التقييم','Post-valuation observation'],
+ OBSERVATION_BEFORE_RECORD_DATE:['تاريخ الرصد يسبق تاريخ السجل','Observation before record date'],
+ NO_EXECUTED_COMPARABLES:['لا توجد صفقات مصرح بأنها منفذة','No declared executed comparables'],
+ HISTORY_IDENTITY_UNRESOLVED:['هوية الأصل غير محسومة','Property identity unresolved'],
+ HISTORY_NONCOMPARABLE_BASES:['اختلاف حالة الأصل أو أسس التقييم','Different property state or valuation bases'],
+ HISTORY_COMPONENT_SUM_MISMATCH:['فرق مجموع مكونات القيمة','Reported component sum mismatch'],
  IDENTITY_CONFLICT_DECLARED:['تعارض هوية العقار المصرح به','Declared property identity conflict'],
  INCOME_EVIDENCE_MISSING:['أدلة الدخل غير متوفرة','Income evidence missing'],
  FUTURE_COMPARABLE:['مقارنة لاحقة لتاريخ التقييم','Future-dated comparable'],
@@ -34,8 +48,25 @@ function renderStudio({runtime=null,valuationCase=null,mode='OWNER',locale='ar-S
  return {html:wrap(label('دراسة عقارية بحثية','Real estate research study'),body,locale),report:r};
 }
 function renderExternalReview(inputs,{locale='ar-SA'}={}){
+ if(inputs?.version===LAND_VERSION||inputs?.version===HISTORY_VERSION)return renderExtendedReview(inputs,{locale});
  const r=reviewExternalReport(inputs),ar=locale!=='en',l=(a,b)=>ar?a:b,fmt=v=>new Intl.NumberFormat(ar?'ar-SA':'en-US',{maximumFractionDigits:2}).format(v);
  const body='<h2>'+l('ملخص مراجعة تقرير خارجي','External report review summary')+'</h2>'+table([[l('مرجع التقرير','Report reference'),r.reportRef],[l('تاريخ التقييم','Valuation date'),r.valuationDate],[l('السعر المرجح قبل التقريب النهائي','Weighted land rate before final rounding'),new Intl.NumberFormat(ar?'ar-SA':'en-US',{maximumFractionDigits:8}).format(r.weightedBeforeFinalRoundingSar)],[l('السعر المرجح حسابيًا','Replayed weighted land rate'),fmt(r.weightedRateSar)],[l('السعر المعتمد خارجيًا','Externally adopted rate'),fmt(r.adoptedRateSar)],[l('أثر فرق السعر قبل تقريب سعر المتر','Land rate impact before rate rounding'),fmt(r.landRateImpactSar)],[l('قاعدة التقريب','Rounding policy'),l('تسويات سعر المتر إلى هللتين عشريتين؛ الأوزان قبل التقريب النهائي؛ الأثر محسوب من السعر المرجح غير المقرب.','Adjusted rates rounded to halalas; weights before final rounding; impact based on unrounded weighted rate.')],[l('تكلفة المكونات','Component cost'),fmt(r.componentCostSar)],[l('الإهلاك بالدقة الكاملة','Full-precision physical depreciation'),fmt(r.fullPrecisionPhysicalDepSar)],[l('القيمة المعلنة','Declared value'),fmt(r.declaredFinalValueSar)],[l('إعادة احتساب القيمة المعلنة','Replayed declared value'),fmt(r.replayedFinalValueSar)]])+'<h2>'+l('التسويات المتتابعة','Sequential adjustments')+'</h2>'+table(r.comparables.map(c=>[c.id+' / p.'+c.page,fmt(c.rawRateSar)+' → '+fmt(c.firstRateSar)+' → '+fmt(c.adjustedRateSar)+' | '+fmt(c.contributionSar)]))+'<h2>'+l('مكونات التكلفة','Cost components')+'</h2>'+table(r.components.map(c=>[c.id+' / p.'+c.page,fmt(c.quantity)+' '+c.unit+' × '+fmt(c.unitCostSar)+' = '+fmt(c.costSar)]))+'<h2>'+l('الملاحظات','Findings')+'</h2>'+table(r.issues.map(i=>[i.severity+' / '+i.ref,issueLabel(i.code,locale)]))+'<p>'+l('المصدر منقول يدويًا وغير متحقق مستقلًا. لا يعتمد أي رقم في المحرك الأساسي.','Manually transcribed inputs; independently unverified. No canonical model adoption.')+'</p><small>SHA-256: '+h(r.reviewHashSha256)+'</small>';
  return {html:wrap(l('مراجعة حسابية لتقرير خارجي','External report arithmetic review'),body,locale),report:r};
+}
+function renderExtendedReview(inputs,{locale='ar-SA'}={}){
+ const ar=locale!=='en',l=(a,b)=>ar?a:b,fmt=v=>v===null?'—':new Intl.NumberFormat(ar?'ar-SA':'en-US',{maximumFractionDigits:8}).format(v);
+ const land=inputs.version===LAND_VERSION,r=land?reviewVacantLand(inputs):compareReportedHistory(inputs);
+ const title=land?l('مراجعة تقرير أرض فضاء','Vacant land report review'):l('مقارنة تقارير الأصل عبر الزمن','Property report history comparison');
+ let body;
+ if(land){
+ body=table([[l('مرجع التقرير','Report reference'),r.reportRef],[l('تاريخ المعاينة','Inspection date'),r.inspectionDate],[l('تاريخ التقييم','Valuation date'),r.valuationDate],[l('تاريخ الإصدار','Issue date'),r.issueDate],[l('تاريخ جدول التسويات','Worksheet date'),r.worksheetDate],[l('تاريخ القيود','Limitations date'),r.limitationsDate],[l('السعر المرجح قبل التقريب','Weighted rate before rounding'),fmt(r.weightedBeforeFinalRoundingSar)],[l('القيمة قبل اعتماد السعر المقرب','Weighted land value'),fmt(r.weightedLandValueSar)],[l('السعر المعتمد','Adopted rate'),fmt(r.adoptedRateSar)],[l('أثر فرق السعر','Land rate impact'),fmt(r.landRateImpactSar)],[l('القيمة المعلنة','Declared value'),fmt(r.declaredFinalValueSar)],[l('القيمة المعاد احتسابها','Replayed declared value'),fmt(r.replayedFinalValueSar)],[l('أساس حقوق البناء','Planning evidence'),r.planningEvidence+' / '+r.planningRef],[l('الأدوار المفترضة','Assumed floors'),fmt(r.assumedFloors)]])
+ +'<h2>'+l('المقارنات والتسويات','Comparables and adjustments')+'</h2>'+table(r.comparables.map(c=>[c.id+' / '+c.transactionStatus+' / p.'+c.page,fmt(c.rawRateSar)+' → '+fmt(c.firstRateSar)+' → '+fmt(c.adjustedRateSar)+' | '+c.date+' | '+c.sourceRef+' | '+c.adjustments.map(a=>a.category+': '+fmt(a.fraction*100)+'% / '+a.evidenceRef).join(' ; ')]))
+ +'<h2>'+l('الحساسية المصرح بها — ليست فترة ثقة إحصائية','Declared sensitivity — not a confidence interval')+'</h2>'+table([[l('الحد الأدنى','Low'),fmt(r.uncertainty.lowSar)],[l('الحد الأعلى','High'),fmt(r.uncertainty.highSar)],[l('مرجع الافتراض','Assumption reference'),r.uncertainty.sourceRef]]);
+ }else{
+ body=table([[l('مرجع الأصل','Property reference'),r.propertyRef],[l('مرجع الهوية','Identity reference'),r.identityEvidenceRef],[l('مرجع التحول','Transition reference'),r.transitionEvidenceRef],[l('التقييم السابق','Before'),r.before.valuationDate+' / '+r.before.state+' / '+r.before.basis+' / '+r.before.purpose+' / '+r.before.propertyRight+' / '+r.before.method+' / '+fmt(r.before.reportedValueSar)],[l('التقييم اللاحق','After'),r.after.valuationDate+' / '+r.after.state+' / '+r.after.basis+' / '+r.after.purpose+' / '+r.after.propertyRight+' / '+r.after.method+' / '+fmt(r.after.reportedValueSar)],[l('فرق القيم المعلنة','Reported value difference'),fmt(r.reportedDeltaSar)],[l('نسبة الفرق المعلن','Reported difference percentage'),r.reportedDeltaFraction===null?'—':fmt(r.reportedDeltaFraction*100)+'%'],[l('الحقول المتغيرة','Changed fields'),r.changedFields.join(', ')]])
+ +'<p>'+l('فرق القيم لا يمثل نمو السوق أو عائد الاستثمار، ولم يتم إثبات الهوية أو التحول مستقلًا.','Reported difference is not market growth or investment return; identity and transition not independently verified.')+'</p>';
+ }
+ body+='<h2>'+l('الملاحظات','Findings')+'</h2>'+table(r.issues.map(i=>[i.severity+' / '+i.ref,issueLabel(i.code,locale)]))+'<p>'+l('مراجعة تشخيصية لبيانات منقولة؛ لا اعتماد للقيمة أو الحقوق أو الصفقات.','Diagnostic review of transcribed inputs; no certification of value, rights or transactions.')+'</p><small>SHA-256: '+h(r.reviewHashSha256)+'</small>';
+ return {html:wrap(title,body,locale),report:r};
 }
 module.exports={MODES,issueLabel,renderStudio,renderExternalReview};
