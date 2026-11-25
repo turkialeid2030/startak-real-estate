@@ -1,0 +1,14 @@
+'use strict';
+const assert=require('node:assert/strict');
+const {evaluateContractHoldout}=require('../../src/reporting/rental-contract-holdout');
+const row={contractRef:'TEST-C',propertyRef:'TEST-P',sourceRef:'TEST-S',predictionRef:'TEST-PR',kind:'OFFICE',predictedAt:'2026-01-01',executedAt:'2026-02-01',status:'EXECUTED',measure:'ANNUAL_PROPERTY_RENT_EX_VAT_SAR',actual:100,predicted:120};
+const x={modelRef:'TEST-MODEL',trainingCutoff:'2025-12-31',asOf:'2026-03-01',trainingPropertyRefs:['TEST-TRAIN'],rows:[row]};
+const r=evaluateContractHoldout(x);assert.equal(r.overall.maeSar,20);assert.equal(r.overall.mapePct,20);assert.equal(r.overall.within20Pct,100);assert.equal(r.propertyAvmQualified,false);
+assert.throws(()=>evaluateContractHoldout({...x,trainingPropertyRefs:['TEST-P']}),/LEAKAGE/);
+assert.throws(()=>evaluateContractHoldout({...x,rows:[row,row]}),/DUPLICATE/);
+assert.throws(()=>evaluateContractHoldout({...x,rows:[{...row,predictedAt:row.executedAt}]}),/ROW/);
+assert.throws(()=>evaluateContractHoldout({...x,rows:[{...row,executedAt:'2026-04-01'}]}),/ROW/);
+assert.throws(()=>evaluateContractHoldout({...x,rows:[{...row,status:'ASKING'}]}),/ROW/);
+assert.throws(()=>evaluateContractHoldout({...x,rows:[{...row,measure:'CITY_AGGREGATE'}]}),/ROW/);
+assert.throws(()=>evaluateContractHoldout({...x,rows:[{...row,actual:0}]}),/ROW/);
+console.log('RENTAL_CONTRACT_HOLDOUT_RULES=PASS cases=11 synthetic-test-only');

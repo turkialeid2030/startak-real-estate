@@ -8,6 +8,9 @@ on:
       - 'tools/stage-rental-geography.js'
       - 'src/reporting/public-rent-geography.js'
       - 'src/reporting/rental-specialist-review.js'
+      - 'src/reporting/rental-contract-holdout.js'
+      - 'tools/evaluate-rental-contract-holdout.js'
+      - 'tests/defects/rental_contract_holdout.js'
       - 'tests/defects/rental_specialist_review.js'
       - 'src/reporting/public-rent-aggregate-backtest.js'
       - 'tests/defects/public_rent_aggregate_backtest.js'
@@ -43,6 +46,8 @@ jobs:
         run: node tests/defects/public_rent_aggregate_backtest.js
       - name: Verify specialist evidence and mixed-use sensitivity
         run: node tests/defects/rental_specialist_review.js
+      - name: Verify contract holdout evaluation guards
+        run: node tests/defects/rental_contract_holdout.js
       - name: Verify geometry and match rules
         run: node tests/defects/public_rent_geography.js
       - name: Retrieve published regional files
