@@ -18,7 +18,7 @@ console.log('PUBLIC_RENT_REAL_DATA=PASS rows='+rows.length+' districtRows='+malq
 
 const manifest=JSON.parse(fs.readFileSync('public/market-data/rental-manifest.json','utf8'));
 assert.ok(manifest.files.length>=17&&manifest.files.length<=260);
-assert.equal(new Set(manifest.files.map(f=>f.region)).size,13);
+assert.equal(new Set(manifest.files.map(f=>f.region.toLowerCase())).size,13);
 let total=0;const periods=new Set();let historicalRiyadh=0;
 for(const f of manifest.files){
  const id=f.region.toLowerCase()+':'+f.year+':'+f.quarter;assert.ok(!periods.has(id));periods.add(id);
