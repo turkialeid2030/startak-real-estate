@@ -200,6 +200,66 @@ async function main() {
     }
 
     {
+      const invalidIssuers = [
+        'https://cloudflareaccess.com',
+        'https://team.cloudflareaccess.com:8443',
+        'https://team.cloudflareaccess.com/alternate',
+        'https://team.cloudflareaccess.com/?unexpected=1',
+        'https://team.cloudflareaccess.com/#unexpected',
+        'https://placeholder@team.cloudflareaccess.com',
+      ];
+      let calls = 0;
+      global.fetch = async () => { calls++; throw new Error('must not run'); };
+      for (const issuer of invalidIssuers) {
+        const result = await parse(await mod.onRequestPost({
+          request: makeRequest({ accessToken: 'synthetic-invalid-assertion' }),
+          env: baseEnv({ RIAI_AI_ACCESS_ISSUER: issuer, RIAI_AI_ACCESS_AUD: 'audience' }),
+        }));
+        assert.strictEqual(result.status, 503);
+        assert.strictEqual(result.payload.code, 'AI_ACCESS_ISSUER_INVALID');
+      }
+      assert.strictEqual(calls, 0);
+    }
+
+    {
+      const issuer = 'https://team.cloudflareaccess.com';
+      const segment = value => Buffer.from(JSON.stringify(value)).toString('base64url');
+      const assertion = [
+        segment({ alg: 'RS256', kid: 'synthetic-key' }),
+        segment({ iss: issuer, aud: 'audience', sub: 'synthetic-actor', exp: Math.floor(Date.now() / 1000) + 120 }),
+        'synthetic',
+      ].join('.');
+      let calls = 0;
+      global.fetch = async (url, options) => {
+        calls++;
+        assert.strictEqual(String(url), issuer + '/cdn-cgi/access/certs');
+        assert.strictEqual(options.redirect, 'error');
+        return new Response(null, { status: 302 });
+      };
+      const result = await parse(await mod.onRequestPost({
+        request: makeRequest({ accessToken: assertion }),
+        env: baseEnv({ RIAI_AI_ACCESS_ISSUER: issuer + '/', RIAI_AI_ACCESS_AUD: 'audience' }),
+      }));
+      assert.strictEqual(result.status, 503);
+      assert.strictEqual(result.payload.code, 'AI_ACCESS_CERTS_UNAVAILABLE');
+      assert.strictEqual(calls, 1);
+    }
+
+    {
+      let calls = 0;
+      global.fetch = async (url, options) => {
+        calls++;
+        assert.strictEqual(String(url), 'https://challenges.cloudflare.com/turnstile/v0/siteverify');
+        assert.strictEqual(options.redirect, 'error');
+        return new Response(null, { status: 307 });
+      };
+      const result = await parse(await mod.onRequestPost({ request: makeRequest(), env: baseEnv() }));
+      assert.strictEqual(result.status, 503);
+      assert.strictEqual(result.payload.code, 'AI_TURNSTILE_UNAVAILABLE');
+      assert.strictEqual(calls, 1);
+    }
+
+    {
       const env = baseEnv({ RIAI_AI_GLOBAL_TOKEN_BUDGET_PER_DAY: '1' });
       let providerCalls = 0;
       global.fetch = async (url) => {
@@ -291,7 +351,7 @@ async function main() {
     }
 
     console.log('RIAI_PUBLIC_AI_SECURITY_TESTS=PASS');
-    console.log('RIAI_PUBLIC_AI_SECURITY_CASES=12');
+    console.log('RIAI_PUBLIC_AI_SECURITY_CASES=15');
   } finally {
     global.fetch = originalFetch;
     fs.rmSync(tmp, { recursive: true, force: true });
