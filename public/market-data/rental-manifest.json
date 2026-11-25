@@ -1,0 +1,126 @@
+{
+  "version": 1,
+  "observedDate": "2026-11-25",
+  "publisher": "REGA via independent community mirror",
+  "mirror": "https://github.com/civillizard/Saudi-Real-Estate-Data",
+  "licenseNotice": "https://github.com/civillizard/Saudi-Real-Estate-Data/blob/main/LICENSE-DATA-AR.md",
+  "files": [
+    {
+      "region": "AlBaha",
+      "filename": "Rental-indicators-in-AlBaha-region-1st-Q-2026.csv",
+      "sourcePath": "rega/quarterlies/rental/Rental-indicators-in-AlBaha-region-1st-Q-2026.csv",
+      "gitBlobSha": "9132b589a041cc67037c58a1e8c93d1b2944ee8e",
+      "rows": 505,
+      "year": 2026,
+      "quarter": 1
+    },
+    {
+      "region": "AlJawf",
+      "filename": "Rental-indicators-in-AlJawf-region-1st-Q-2026.csv",
+      "sourcePath": "rega/quarterlies/rental/Rental-indicators-in-AlJawf-region-1st-Q-2026.csv",
+      "gitBlobSha": "fa195597bfd3552124dc499855799db7bb133ee4",
+      "rows": 420,
+      "year": 2026,
+      "quarter": 1
+    },
+    {
+      "region": "AlQassim",
+      "filename": "Rental-indicators-in-AlQassim-region-1st-Q-2026.csv",
+      "sourcePath": "rega/quarterlies/rental/Rental-indicators-in-AlQassim-region-1st-Q-2026.csv",
+      "gitBlobSha": "4360fc19e13ad797e4e0eedd933eda584fe79693",
+      "rows": 1648,
+      "year": 2026,
+      "quarter": 1
+    },
+    {
+      "region": "Aseer",
+      "filename": "Rental-indicators-in-Aseer-region-1st-Q-2026.csv",
+      "sourcePath": "rega/quarterlies/rental/Rental-indicators-in-Aseer-region-1st-Q-2026.csv",
+      "gitBlobSha": "203486cb9ff484c1fb6fe39758b622133ef94b88",
+      "rows": 2681,
+      "year": 2026,
+      "quarter": 1
+    },
+    {
+      "region": "EP",
+      "filename": "Rental-indicators-in-EP-1st-Q-2026.csv",
+      "sourcePath": "rega/quarterlies/rental/Rental-indicators-in-EP-1st-Q-2026.csv",
+      "gitBlobSha": "fc7c59dc20a6b43b8a7af72809b8086efb760a93",
+      "rows": 3237,
+      "year": 2026,
+      "quarter": 1
+    },
+    {
+      "region": "Hail",
+      "filename": "Rental-indicators-in-Hail-region-1st-Q-2026.csv",
+      "sourcePath": "rega/quarterlies/rental/Rental-indicators-in-Hail-region-1st-Q-2026.csv",
+      "gitBlobSha": "ca9b7a9961407fe9bec0234abfbf485ec7a58ca6",
+      "rows": 810,
+      "year": 2026,
+      "quarter": 1
+    },
+    {
+      "region": "Jazan",
+      "filename": "Rental-indicators-in-Jazan-region-1st-Q-2026.csv",
+      "sourcePath": "rega/quarterlies/rental/Rental-indicators-in-Jazan-region-1st-Q-2026.csv",
+      "gitBlobSha": "3bc40574f2bdbc7aa38530b2ed7d6069cabbc1e4",
+      "rows": 1695,
+      "year": 2026,
+      "quarter": 1
+    },
+    {
+      "region": "Madinah",
+      "filename": "Rental-indicators-in-Madinah-region-1st-Q-2026.csv",
+      "sourcePath": "rega/quarterlies/rental/Rental-indicators-in-Madinah-region-1st-Q-2026.csv",
+      "gitBlobSha": "be5f1b9dfea90540fe9735609b02d4c1f8c0dbbe",
+      "rows": 1158,
+      "year": 2026,
+      "quarter": 1
+    },
+    {
+      "region": "Makkah",
+      "filename": "Rental-indicators-in-Makkah-region-1st-Q-2026.csv",
+      "sourcePath": "rega/quarterlies/rental/Rental-indicators-in-Makkah-region-1st-Q-2026.csv",
+      "gitBlobSha": "ce560f4362a229f030efdcd44bb9215e63d16e57",
+      "rows": 3102,
+      "year": 2026,
+      "quarter": 1
+    },
+    {
+      "region": "NB",
+      "filename": "Rental-indicators-in-NB-region-1stQ-2026.csv",
+      "sourcePath": "rega/quarterlies/rental/Rental-indicators-in-NB-region-1stQ-2026.csv",
+      "gitBlobSha": "80d3cdad76a53e7d812fd52e4a2ad748c7c0a1a1",
+      "rows": 360,
+      "year": 2026,
+      "quarter": 1
+    },
+    {
+      "region": "Najran",
+      "filename": "Rental-indicators-in-Najran-region-1st-Q-2026.csv",
+      "sourcePath": "rega/quarterlies/rental/Rental-indicators-in-Najran-region-1st-Q-2026.csv",
+      "gitBlobSha": "7b129c2ab33f2fbb99b1b48b85ab9426b62c0e57",
+      "rows": 463,
+      "year": 2026,
+      "quarter": 1
+    },
+    {
+      "region": "Riyadh",
+      "filename": "rega-riyadh-q1-2026.csv",
+      "sourcePath": "rega/quarterlies/rental/Rental-indicators-in-Riyadh-region-1st-Q-2026.csv",
+      "gitBlobSha": "be8c22ec87c7688cdaefeec86538fb1bab8bc254",
+      "rows": 3534,
+      "year": 2026,
+      "quarter": 1
+    },
+    {
+      "region": "Tabuk",
+      "filename": "Rental-indicators-in-Tabuk-region-1st-Q-2026.csv",
+      "sourcePath": "rega/quarterlies/rental/Rental-indicators-in-Tabuk-region-1st-Q-2026.csv",
+      "gitBlobSha": "c0dd7fff1145501e4ea28e1c8856b27a32783cb8",
+      "rows": 533,
+      "year": 2026,
+      "quarter": 1
+    }
+  ]
+}
