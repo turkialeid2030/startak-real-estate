@@ -91,13 +91,12 @@ function parseEnvelope(raw, { tenantId, workspaceId }) {
   return parsed;
 }
 
-// Workspaces are private to their originating verified actor unless a trusted
-// tenant ADMIN inspects/maintains them. An older envelope without an attested
-// owner is quarantined from all non-admin identities until a separately
+// Workspaces are private to their originating verified actor, including against
+// tenant administrators absent explicit record grants. An older envelope without an attested
+// owner is quarantined from all identities until a separately
 // approved migration establishes ownership. Do not infer ownership from the
 // mutable updatedBy audit field or an arbitrary workspace payload.
 async function requireWorkspaceRecordAccess(envelope, identity, action, trustedRecordGrantResolver) {
-  if (identity.roles.includes('ADMIN')) return;
   const owner = envelope.ownerActorId;
   if (typeof owner !== 'string' || !owner.trim()) {
     fail('WORKSPACE_RECORD_ACCESS_DENIED');
@@ -108,7 +107,7 @@ async function requireWorkspaceRecordAccess(envelope, identity, action, trustedR
   // IC_MEMBER role alone, report content or user-provided workspace fields.
   // Defense in depth: a reviewer assignment can NEVER authorize mutation,
   // even if a trusted resolver erroneously returns allowed=true for WRITE.
-  // Owner and verified same-tenant ADMIN writes were handled above.
+  // Only the verified owner can write.
   if (action === 'READ' && typeof trustedRecordGrantResolver === 'function') {
     // The resolver must attest the exact, server-verified target tuple in
     // its return value. A stale grant from another record or a bare "allow"
@@ -214,6 +213,7 @@ function createCanonicalWorkspacePersistence({
 
   async function load({ identityContext, workspaceId } = {}) {
     const identity = requireVerifiedIdentityContext(identityContext);
+    if (!identity.roles.some(role => ['VIEWER','ANALYST','IC_MEMBER','ADMIN'].includes(role))) fail('ROLE_NOT_AUTHORIZED');
     const normalizedWorkspaceId = requiredString(workspaceId, 'workspaceId');
     const key = storageKey(normalizedNamespace, identity.tenantId, normalizedWorkspaceId);
     const raw = await providerGet({
@@ -238,6 +238,7 @@ function createCanonicalWorkspacePersistence({
     occurredAt,
   } = {}) {
     const identity = requireVerifiedIdentityContext(identityContext);
+    if (!identity.roles.some(role => ['ANALYST','ADMIN'].includes(role))) fail('ROLE_NOT_AUTHORIZED');
     if (!workspace || typeof workspace !== 'object' || Array.isArray(workspace)) throw new TypeError('workspace is required');
     const workspaceId = requiredString(workspace.workspaceId, 'workspace.workspaceId');
     requiredString(workspace.projectId, 'workspace.projectId');
@@ -311,7 +312,7 @@ function createCanonicalWorkspacePersistence({
       updatedAt: timestamp,
       updatedBy: identity.actorId,
       // Never take record ownership from caller-supplied workspace attributes.
-      // ADMIN edits preserve original ownership; legacy ownerless records stay
+      // Existing records preserve original ownership; legacy ownerless records stay
       // quarantined pending independently authorized backfill.
       ownerActorId: current ? (current.ownerActorId || null) : identity.actorId,
       workspace,
@@ -348,7 +349,7 @@ function createCanonicalWorkspacePersistence({
       productionPersistenceValidated: false,
       externalDatabaseDeploymentRequired: true,
     }),
-    semantics: 'This runtime enforces tenant and per-record ownership; a separately injected trusted server-side resolver can grant exact-workspace/actor/action review access. A common role/tenant or caller-declared grant never suffices. ADMIN remains scoped to the authenticated tenant; unowned legacy records are quarantined. This does not prove deployment of a grant registry, IdP, RLS, backups or production authorization.',
+    semantics: 'This runtime enforces tenant and per-record ownership; a separately injected trusted server-side resolver can grant exact-workspace/actor/action review access. A common role/tenant or caller-declared grant never suffices. ADMIN has no blanket record access; unowned legacy records are quarantined. This does not prove deployment of a grant registry, IdP, RLS, backups or production authorization.',
   });
 }
 

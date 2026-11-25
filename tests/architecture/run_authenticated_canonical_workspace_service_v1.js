@@ -204,14 +204,9 @@ async function main() {
     (error) => error && error.code === 'WORKSPACE_RECORD_ACCESS_DENIED',
   ));
 
-  // Tenant-scoped ADMIN may inspect the record without changing its owner.
-  const adminRead = await service.loadWorkspace({
-    authorizationHeader: `Bearer ${adminToken}`,
-    workspaceId: 'WS-AUTH-001',
-    nowEpochSeconds: NOW,
-  });
-  await check(async () => assert.strictEqual(adminRead.data.ownerActorId, 'analyst-1'));
-  await check(async () => assert.strictEqual(adminRead.data.updatedBy, 'analyst-1'));
+  // Tenant ADMIN must not inspect a peer record without an explicit grant.
+  await check(async () => assert.rejects(service.loadWorkspace({authorizationHeader:`Bearer ${adminToken}`,workspaceId:'WS-AUTH-001',nowEpochSeconds:NOW}),e=>e.code==='WORKSPACE_RECORD_ACCESS_DENIED'));
+  await check(async () => assert.rejects(service.saveWorkspace({authorizationHeader:`Bearer ${adminToken}`,workspace:workspace('admin-1'),expectedVersion:1,operationId:'ADMIN-PEER-WRITE',nowEpochSeconds:NOW}),e=>e.code==='WORKSPACE_RECORD_ACCESS_DENIED'));
 
   const ownerReadAfterAttack = await service.loadWorkspace({
     authorizationHeader: `Bearer ${analystToken}`,
