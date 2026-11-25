@@ -9,6 +9,9 @@ on:
       - 'src/reporting/public-rent-geography.js'
       - 'src/reporting/rental-specialist-review.js'
       - 'src/reporting/rental-contract-holdout.js'
+      - 'src/reporting/rental-compliance-screen.js'
+      - 'src/components/RentalComplianceScreen.jsx'
+      - 'tests/defects/rental_compliance_screen.js'
       - 'tools/evaluate-rental-contract-holdout.js'
       - 'tests/defects/rental_contract_holdout.js'
       - 'tests/defects/rental_specialist_review.js'
@@ -48,6 +51,8 @@ jobs:
         run: node tests/defects/rental_specialist_review.js
       - name: Verify contract holdout evaluation guards
         run: node tests/defects/rental_contract_holdout.js
+      - name: Verify declared rent regulation and VAT screening
+        run: node tests/defects/rental_compliance_screen.js
       - name: Verify geometry and match rules
         run: node tests/defects/public_rent_geography.js
       - name: Retrieve published regional files
