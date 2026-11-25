@@ -22,10 +22,11 @@ const fmtRate=r=>P.fromMoney(P.roundDiv(r*100n,P.RATE_SCALE));
 function evaluateRentalIntelligence(x){
  if(!exact(x,['version','propertyRef','valuationDate','city','district','location','segmentsNonOverlapping','comparables','segments'])||x.version!==VERSION||!['propertyRef','city','district'].every(k=>text(x[k]))||!day(x.valuationDate)||x.segmentsNonOverlapping!==true||!point(x.location)||!Array.isArray(x.segments)||x.segments.length<1||x.segments.length>50||!Array.isArray(x.comparables)||x.comparables.length>500)fail('RENT_SCOPE_INVALID');
  const issues=[],add=(code,severity,ref)=>issues.push({code,severity,ref});
- const ids=new Set();
+ const ids=new Set(),currentContractRefs=new Set();
  for(const s of x.segments){
   if(!exact(s,['id','kind','subtype','areaBasis','areaPerUnitSqm','unitCount','propertyRight','occupancy','collection','contractAnnualExVatSar','contractRef'])||!text(s.id)||ids.has(s.id)||!KINDS.includes(s.kind)||!text(s.subtype)||!['NLA','LAND_AREA','WHOLE_LEASE_AREA'].includes(s.areaBasis)||(s.kind==='LAND')!==(s.areaBasis==='LAND_AREA')||!rate(s.areaPerUnitSqm,.01,1e8)||!Number.isInteger(s.unitCount)||s.unitCount<1||s.unitCount>100000||s.propertyRight!=='FREEHOLD_PROPERTY_LEASE'||!rate(s.occupancy,0,1)||!rate(s.collection,0,1)||!(s.contractAnnualExVatSar===null||money(s.contractAnnualExVatSar))||!(s.contractAnnualExVatSar===null?s.contractRef===null:text(s.contractRef)))fail('RENT_SEGMENT_INVALID');
   if(s.areaPerUnitSqm*s.unitCount>1e9)fail('RENT_AREA_RANGE');
+  if(s.contractRef!==null){if(currentContractRefs.has(s.contractRef))fail('RENT_CURRENT_CONTRACT_DUPLICATE');currentContractRefs.add(s.contractRef);}
   ids.add(s.id);
  }
  const byRecord=new Map(),byContract=new Map(),conflicts=new Set(),unique=[];
@@ -61,7 +62,7 @@ function evaluateRentalIntelligence(x){
    const annual=P.fromMoney(P.roundDiv(P.toMoney(c.rentAmountSar)*12n*P.RATE_SCALE,BigInt(c.periodMonths)*vat));
    if(!money(annual)||annual===0){reject('AMOUNT_RANGE');continue;}
    const raw=unitRate(annual,c.areaSqm),adjusted=P.roundDiv(raw*(P.RATE_SCALE+c.total),P.RATE_SCALE);
-   if(adjusted<=0n||adjusted>1000000n*P.RATE_SCALE){reject('RATE_RANGE');continue;}
+   if(adjusted<=0n||fmtRate(adjusted)<=0||adjusted>1000000n*P.RATE_SCALE){reject('RATE_RANGE');continue;}
    const detail={contractRef:c.contractRef,sourceUrl:c.sourceUrl,sourceRecordId:c.sourceRecordId,status:c.status,date:c.date,observedDate:c.observedDate,annualRentExVatSar:annual,areaSqm:c.areaSqm,rawRateSar:fmtRate(raw),adjustedRateSar:fmtRate(adjusted),adjustments:c.adjustments,locationMatch:x.location&&c.location?'DISTRICT_AND_DISTANCE':'DISTRICT_DECLARED_ONLY',vatBasis:c.vatBasis,declaredVatRate:c.declaredVatRate,vatRef:c.vatRef};
    (c.status==='EXECUTED'?accepted:offers).push({detail,adjusted,raw});
   }
@@ -84,11 +85,11 @@ function evaluateRentalIntelligence(x){
   const annual=sum('annualRentExVatSar'),area=segments.reduce((a,s)=>a+P.toRate(s.totalAreaSqm),0n);
   if(!money(annual)||!money(sum('observedAdjustedMaxAnnualSar'))||area>1000000000n*P.RATE_SCALE)fail('RENT_RESULT_RANGE');
   const comparableAreaBasis=segments.every(s=>s.areaBasis===segments[0].areaBasis);
-  total={annualRentExVatSar:annual,monthlyRentExVatSar:P.moneyDivInt(annual,12),totalAreaSqm:P.fromRate(area),areaBasis:comparableAreaBasis?segments[0].areaBasis:null,rateSarPerSqmYear:comparableAreaBasis?fmtRate(unitRate(annual,P.fromRate(area))):null,expectedCollectionsSar:sum('expectedCollectionsSar'),occupiedRentSar:sum('occupiedRentSar'),observedAdjustedMinAnnualSar:sum('observedAdjustedMinAnnualSar'),observedAdjustedMaxAnnualSar:sum('observedAdjustedMaxAnnualSar'),contractGapSar:segments.every(s=>s.result.contractGapSar!==null)?sum('contractGapSar'):null};
+  total={annualRentExVatSar:annual,monthlyRentExVatSar:P.moneyDivInt(annual,12),totalAreaSqm:comparableAreaBasis?P.fromRate(area):null,areaBasis:comparableAreaBasis?segments[0].areaBasis:null,rateSarPerSqmYear:comparableAreaBasis?fmtRate(unitRate(annual,P.fromRate(area))):null,expectedCollectionsSar:sum('expectedCollectionsSar'),occupiedRentSar:sum('occupiedRentSar'),observedAdjustedMinAnnualSar:sum('observedAdjustedMinAnnualSar'),observedAdjustedMaxAnnualSar:sum('observedAdjustedMaxAnnualSar'),contractGapSar:segments.every(s=>s.result.contractGapSar!==null)?sum('contractGapSar'):null};
  }
  add('RENT_LOCAL_DECLARED_EVIDENCE_ONLY','WARNING','scope');
  add('RENT_LEGAL_LIMIT_NOT_DETERMINED','WARNING','legal');
- const out={version:VERSION,scope:'LOCAL_DECLARED_PROPERTY_RENT_RESEARCH_ONLY',propertyRef:x.propertyRef,valuationDate:x.valuationDate,city:x.city,district:x.district,segments,total,status:total?'RESEARCH_INDICATION':'HOLD_INSUFFICIENT_OR_CONFLICTING_DATA',rangeKind:'OBSERVED_ADJUSTED_MIN_MAX_NOT_CONFIDENCE_INTERVAL',legalRentExVatSar:null,applicableVatRate:null,liveSourceConnected:false,sourceAuthenticated:false,professionalValuationCertified:false,transactionAuthorized:false,canonicalModelUpdated:false,issues};
+ const out={version:VERSION,scope:'LOCAL_DECLARED_PROPERTY_RENT_RESEARCH_ONLY',propertyRef:x.propertyRef,valuationDate:x.valuationDate,city:x.city,district:x.district,segments,total,status:total?'RESEARCH_INDICATION':'HOLD_INSUFFICIENT_OR_CONFLICTING_DATA',rentConvention:'DECLARED_NOMINAL_RENT_ONLY_ANNUALIZED_NOT_EFFECTIVE_LEASE_RENT',rangeKind:'OBSERVED_ADJUSTED_MIN_MAX_NOT_CONFIDENCE_INTERVAL',legalRentExVatSar:null,applicableVatRate:null,liveSourceConnected:false,sourceAuthenticated:false,professionalValuationCertified:false,transactionAuthorized:false,canonicalModelUpdated:false,issues};
  return {...out,reviewHashSha256:sha256Hex(JSON.stringify(out))};
 }
 module.exports={VERSION,KINDS,ADJUSTMENTS,evaluateRentalIntelligence};
