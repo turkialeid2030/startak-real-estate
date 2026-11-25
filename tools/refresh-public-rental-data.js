@@ -29,7 +29,7 @@ async function main(){
   const id=key+':'+y+':'+q;if(periods.has(id)&&periods.get(id).file!==entry.file)throw Error('DUPLICATE_PERIOD_PATH');periods.set(id,entry);
  }
  if(latest.size!==13||periods.size>260)throw Error('REGISTRY_SCOPE');
- const manifest={version:1,observedAt:new Date().toISOString(),publisher:'REGA (community mirror, not independently authenticated)',mirror:'https://github.com/civillizard/Saudi-Real-Estate-Data',licenseNotice:'https://github.com/civillizard/Saudi-Real-Estate-Data/blob/main/LICENSE-DATA-AR.md',status:'RESEARCH_ONLY',files:[],errors:[]};
+ const manifest={version:1,observedAt:new Date().toISOString(),observedDate:new Date().toISOString().slice(0,10),publisher:'REGA (community mirror, not independently authenticated)',mirror:'https://github.com/civillizard/Saudi-Real-Estate-Data',licenseNotice:'https://github.com/civillizard/Saudi-Real-Estate-Data/blob/main/LICENSE-DATA-AR.md',status:'RESEARCH_ONLY',files:[],errors:[]};
  for(const [periodKey,entry] of periods){
   const region=periodKey.split(':')[0];
   try{
@@ -37,11 +37,12 @@ async function main(){
    if(!rows.every(r=>r.year===entry.year&&r.quarter===entry.quarter))throw Error('PERIOD_MISMATCH');
    const name=path.basename(entry.file);
    await fs.writeFile(path.join(OUT,name),raw);
-   manifest.files.push({region,filename:name,url:ROOT+entry.file,sha256:crypto.createHash('sha256').update(raw).digest('hex'),rows:rows.length,year:entry.year,quarter:entry.quarter,vatBasis:'UNKNOWN'});
+   manifest.files.push({region,filename:name,sourcePath:entry.file,gitBlobSha:crypto.createHash('sha1').update('blob '+raw.length+'\0').update(raw).digest('hex'),url:ROOT+entry.file,sha256:crypto.createHash('sha256').update(raw).digest('hex'),rows:rows.length,year:entry.year,quarter:entry.quarter,vatBasis:'UNKNOWN'});
   }catch(e){manifest.errors.push({region,file:entry.file,error:e.message});}
  }
- await fs.writeFile(path.join(OUT,'manifest.json'),JSON.stringify(manifest,null,2));
+ await fs.writeFile(path.join(OUT,'rental-manifest.json'),JSON.stringify(manifest,null,2));
  console.log('PUBLIC_RENT_REFRESH files='+manifest.files.length+' failures='+manifest.errors.length+' rows='+manifest.files.reduce((n,f)=>n+f.rows,0));
+ for(const error of manifest.errors)console.error('PUBLIC_RENT_FILE_FAILED',JSON.stringify(error));
  if(!manifest.files.length||manifest.errors.length)process.exitCode=1;
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});
