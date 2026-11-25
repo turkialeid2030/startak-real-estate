@@ -1,0 +1,16 @@
+'use strict';
+const assert=require('node:assert/strict');
+const {evaluateCityRolling}=require('../../src/reporting/public-city-rent-rolling');
+const scope={region:'الرياض',city:'الرياض',category:'شقة - سكني',geographyLevel:'CITY',reportedDealCount:10,propertyEstimateEligible:false};
+const rows=[];for(let year=2019;year<=2024;year++)for(let quarter=1;quarter<=4;quarter++)rows.push({...scope,year,quarter,reportedAverageSar:100+(year-2019)*10+quarter});
+const a=evaluateCityRolling(rows);
+assert.equal(a.quarters.length,20);assert.equal(a.development.n,16);assert.equal(a.holdout.n,4);assert.equal(a.geographyLevel,'CITY');
+assert.equal(a.productionModelSelected,false);assert.equal(a.financialInputEligible,false);
+const shifted=rows.map(r=>r.year===2024?{...r,reportedAverageSar:r.reportedAverageSar*10}:r);
+assert.deepEqual(evaluateCityRolling(shifted).development,a.development);
+assert.equal(evaluateCityRolling(shifted).developmentMapeCandidate,a.developmentMapeCandidate);
+assert.throws(()=>evaluateCityRolling([{...rows[0],geographyLevel:'DISTRICT'}]),/SCOPE/);
+assert.throws(()=>evaluateCityRolling([{...rows[0],propertyEstimateEligible:true}]),/SCOPE/);
+assert.throws(()=>evaluateCityRolling([{...rows[0],reportedAverageSar:0}]),/SCOPE/);
+assert.equal(evaluateCityRolling([rows[0]]).developmentMapeCandidate,null);
+console.log('PUBLIC_CITY_ROLLING_RULES=PASS cases=12');
