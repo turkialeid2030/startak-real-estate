@@ -20,7 +20,7 @@ const unitRate=(annual,area)=>P.roundDiv(P.toMoney(annual)*P.RATE_SCALE*P.RATE_S
 const toAnnual=(r,area)=>P.fromMoney(P.roundDiv(r*P.toRate(area)*100n,P.RATE_SCALE*P.RATE_SCALE));
 const fmtRate=r=>P.fromMoney(P.roundDiv(r*100n,P.RATE_SCALE));
 function evaluateRentalIntelligence(x){
- if(!exact(x,['version','propertyRef','valuationDate','city','district','location','segments','comparables'])||x.version!==VERSION||!['propertyRef','city','district'].every(k=>text(x[k]))||!day(x.valuationDate)||!point(x.location)||!Array.isArray(x.segments)||x.segments.length<1||x.segments.length>50||!Array.isArray(x.comparables)||x.comparables.length>500)fail('RENT_SCOPE_INVALID');
+ if(!exact(x,['version','propertyRef','valuationDate','city','district','location','segmentsNonOverlapping','comparables','segments'])||x.version!==VERSION||!['propertyRef','city','district'].every(k=>text(x[k]))||!day(x.valuationDate)||x.segmentsNonOverlapping!==true||!point(x.location)||!Array.isArray(x.segments)||x.segments.length<1||x.segments.length>50||!Array.isArray(x.comparables)||x.comparables.length>500)fail('RENT_SCOPE_INVALID');
  const issues=[],add=(code,severity,ref)=>issues.push({code,severity,ref});
  const ids=new Set();
  for(const s of x.segments){
@@ -35,7 +35,7 @@ function evaluateRentalIntelligence(x){
   const seen=new Set();let total=0n;
   for(const a of c.adjustments){if(!exact(a,['category','fraction','evidenceRef'])||!ADJUSTMENTS.includes(a.category)||seen.has(a.category)||!rate(a.fraction,-.5,.5)||!text(a.evidenceRef))fail('RENT_ADJUSTMENT_INVALID');seen.add(a.category);total+=P.toRate(a.fraction);}
   if(total< -P.RATE_SCALE/2n||total>P.RATE_SCALE/2n)fail('RENT_ADJUSTMENT_TOTAL_RANGE');
-  const signature=JSON.stringify([c.status,c.kind,norm(c.subtype),norm(c.city),norm(c.district),c.location,c.areaBasis,c.areaSqm,c.propertyRight,c.date,c.rentAmountSar,c.periodMonths,c.vatBasis,c.declaredVatRate,c.rentOnly,c.usageRightsDeclared,[...c.adjustments].sort((a,b)=>a.category.localeCompare(b.category))]);
+  const signature=JSON.stringify([c.status,c.kind,norm(c.subtype),norm(c.city),norm(c.district),c.location,c.areaBasis,c.areaSqm,c.propertyRight,c.date,c.observedDate,c.rentAmountSar,c.periodMonths,c.vatBasis,c.declaredVatRate,c.rentOnly,c.usageRightsDeclared,[...c.adjustments].sort((a,b)=>a.category.localeCompare(b.category))]);
   const key=new URL(c.sourceUrl).hostname.toLowerCase()+'|'+c.sourceRecordId;
   const oldRecord=byRecord.get(key),oldContract=byContract.get(c.contractRef);
   if(oldRecord&&(oldRecord.signature!==signature||oldRecord.contractRef!==c.contractRef)){conflicts.add(c.contractRef);conflicts.add(oldRecord.contractRef);}
