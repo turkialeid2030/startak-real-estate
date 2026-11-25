@@ -3,11 +3,19 @@
 // No changes to the deployed bundle; a separate controlled PR promotes it.
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const {parsePublicRentCsv}=require('../src/reporting/public-rent-reference');
+const {splitKnownMixed}=require('./split-public-rental-period');
 const REGIONS={albaha:'الباحة',aljawf:'الجوف',alqassim:'القصيم',aseer:'عسير',ep:'المنطقة الشرقية',hail:'حائل',jazan:'جازان',madinah:'المدينة المنورة',makkah:'مكة المكرمة',nb:'الحدود الشمالية',najran:'نجران',riyadh:'الرياض',tabuk:'تبوك'};
 const norm=s=>s.trim().replace(/[أإآٱ]/g,'ا').replace(/ه$/,'ة').replace(/\s+/g,' ');
 const key=f=>f.region.toLowerCase()+':'+f.year+':'+f.quarter;
 const blob=b=>crypto.createHash('sha1').update('blob '+b.length+'\0').update(b).digest('hex');
 const fileName=/^[A-Za-z0-9-]+\.csv$/;
+function evidencePaths(dir,f){
+ const d=f.derivation;if(!d)return null;
+ if(d.method!=='EXACT_PERIOD_ROW_FILTER_V1'||!/^rega\/quarterlies\/rental\/Rental-indicators-in-[A-Za-z0-9-]+\.csv$/.test(d.overlapSourcePath))throw Error('CANDIDATE_DERIVATION_INVALID');
+ const original='raw-'+path.basename(f.sourcePath),reference='reference-'+path.basename(d.overlapSourcePath);
+ const resolve=(name,source)=>fs.existsSync(path.join(dir,name))?path.join(dir,name):path.join(dir,'originals',path.basename(source));
+ return {original,reference,originalPath:resolve(original,f.sourcePath),referencePath:resolve(reference,d.overlapSourcePath)};
+}
 function validate(dir,manifest,complete=false){
  if(manifest.version!==1||!Array.isArray(manifest.files)||manifest.files.length<1||manifest.files.length>260||manifest.errors?.length)throw Error('CANDIDATE_MANIFEST_INVALID');
  const ids=new Set(),names=new Set(),regions=new Set();
@@ -16,6 +24,12 @@ function validate(dir,manifest,complete=false){
   const raw=fs.readFileSync(path.join(dir,f.filename));
   if(raw.length>4*1024*1024||blob(raw)!==f.gitBlobSha)throw Error('CANDIDATE_DIGEST_MISMATCH');
   if(f.sha256&&crypto.createHash('sha256').update(raw).digest('hex')!==f.sha256)throw Error('CANDIDATE_DIGEST_MISMATCH');
+  if(f.derivation){
+   const ep=evidencePaths(dir,f),original=fs.readFileSync(ep.originalPath),reference=fs.readFileSync(ep.referencePath);
+   if(original.length>4*1024*1024||reference.length>4*1024*1024)throw Error('CANDIDATE_DERIVATION_SIZE');
+   const replay=splitKnownMixed(original,reference,f.region.toLowerCase(),f.year,f.quarter);
+   if(!replay.derived.equals(raw)||Object.entries(replay.provenance).some(([k,v])=>f.derivation[k]!==v))throw Error('CANDIDATE_DERIVATION_MISMATCH');
+  }
   const rows=parsePublicRentCsv(new TextDecoder('utf-8',{fatal:true}).decode(raw));
   if(rows.length!==f.rows||!rows.every(r=>r.year===f.year&&r.quarter===f.quarter&&norm(r.region)===norm(REGIONS[f.region.toLowerCase()])))throw Error('CANDIDATE_SCOPE_MISMATCH');
   ids.add(key(f));names.add(f.filename);regions.add(f.region.toLowerCase());
@@ -41,7 +55,11 @@ function build(existingDir,retrievedDir,out){
  const {result,added}=plan(existing,retrieved);
  if(fs.existsSync(out))throw Error('CANDIDATE_OUTPUT_EXISTS');
  fs.mkdirSync(out,{recursive:true});
- for(const {entry,origin} of result)fs.copyFileSync(path.join(origin==='existing'?existingDir:retrievedDir,entry.filename),path.join(out,entry.filename),fs.constants.COPYFILE_EXCL);
+ for(const {entry,origin} of result){
+  const dir=origin==='existing'?existingDir:retrievedDir;
+  fs.copyFileSync(path.join(dir,entry.filename),path.join(out,entry.filename),fs.constants.COPYFILE_EXCL);
+  if(entry.derivation){const ep=evidencePaths(dir,entry);fs.copyFileSync(ep.originalPath,path.join(out,ep.original),fs.constants.COPYFILE_EXCL);fs.copyFileSync(ep.referencePath,path.join(out,ep.reference),fs.constants.COPYFILE_EXCL);}
+ }
  const manifest={version:1,observedDate:added?retrieved.observedDate:existing.observedDate,publisher:existing.publisher,mirror:existing.mirror,licenseNotice:existing.licenseNotice,files:result.map(r=>r.entry)};
  fs.writeFileSync(path.join(out,'rental-manifest.json'),JSON.stringify(manifest,null,2)+'\n');
  validate(out,manifest,true);
