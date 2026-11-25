@@ -89,7 +89,7 @@ export default function LocalSectorOperatingResearchPanel({assetClass,locale='ar
   }catch{if(current())setNotice('REJECTED');}
  };
  const fmt=(v,kind)=>new Intl.NumberFormat(ar?'ar-SA':'en-SA',kind==='pct'?{style:'percent',maximumFractionDigits:2}:{maximumFractionDigits:2}).format(v)+(kind==='sar'?(ar?' ر.س':' SAR'):'');
- return <section data-testid="local-sector-operating-research" dir={ar?'rtl':'ltr'} className="mt-4 rounded-xl border border-slate-600 p-3">
+ return <section data-testid={assetClass==='FUEL_STATION'?'fuel-station-operating-research':'local-sector-operating-research'} dir={ar?'rtl':'ltr'} className="mt-4 rounded-xl border border-slate-600 p-3">
   <h4 className="font-semibold text-sm text-amber-200">{assetClass==='FUEL_STATION'?(ar?'محرك تشغيل محطات الوقود':'Fuel station operating research'):(ar?'محرك التحليل التشغيلي التخصصي':'Specialist operating research engine')}</h4>
   <p className="text-xs mt-2 text-slate-300">{ar?'أدخل بيانات الفترة نفسها. هذه مؤشرات بحثية محلية لا تثبت صحة المصدر، ولا تنقل فائض النشاط إلى صافي دخل العقار أو قيمة التقييم تلقائيًا.':'Use figures from the same period. Local research diagnostics only; no source certification or automatic adoption of operating surplus as property NOI or value.'}</p>
   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">{fields.map(f=>input(f,values[f.key],v=>{invalidate();setValues(old=>({...old,[f.key]:v}));} ))}</div>
