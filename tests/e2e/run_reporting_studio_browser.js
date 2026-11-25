@@ -31,6 +31,18 @@ const fixture={reportRef:'SYNTHETIC-ONLY',valuationDate:'2026-01-01',landAreaSqm
    await expect(exp).toBeEnabled();
    const html=await download(exp);
    assert.ok(html.includes('&lt;script&gt;'));assert.ok(!html.includes('<script>'));assert.ok(html.includes('SHA-256'));
+   const land={version:'VACANT_LAND_REPORT_REVIEW_V1',reportRef:'SYNTH-LAND',valuationDate:'2026-01-05',inspectionDate:'2026-01-04',issueDate:'2026-01-06',worksheetDate:'2026-01-06',limitationsDate:'2026-01-05',landAreaSqm:1000,adoptedLandRateSar:1100,roundingReason:'SYNTH',declaredFinalValueSar:1100000,planningEvidence:'CLIENT_ASSUMPTION',planningRef:'SYNTH',assumedFloors:3,uncertaintyFraction:.1,uncertaintyRef:'SYNTH',comparables:[{id:'C1',date:'2026-01-06',observedDate:null,areaSqm:100,rawRateSar:1000,weight:1,transactionStatus:'ASKING',sourceRef:'SYNTH',page:1,adjustments:[{category:'FRONTAGES',stage:2,fraction:.1,evidenceRef:'SYNTH'}]}],sourcePage:2};
+   await input.fill(JSON.stringify(land));await expect(exp).toBeDisabled();await audit.click();
+   await expect(panel.getByTestId('studio-audit-result')).toContainText('1100000');
+   await expect(panel.getByTestId('studio-audit-result')).toContainText('990000');
+   await expect(exp).toBeEnabled();
+   const landHtml=await download(exp);assert.ok(landHtml.includes(locale==='en'?'Vacant land report review':'مراجعة تقرير أرض فضاء'));assert.ok(!landHtml.includes('<script>'));
+   const before={reportRef:'SYNTH-A',propertyRef:'SYNTH-P',valuationDate:'2025-01-01',issueDate:'2025-01-02',landAreaSqm:1000,state:'IMPROVED',basis:'FAIR_VALUE',purpose:'FINANCIAL_REPORTING',propertyRight:'FREEHOLD',method:'COST',reportedValueSar:900000,landValueSar:null,improvementValueSar:null,sourcePage:1};
+   const history={version:'PROPERTY_LIFECYCLE_REVIEW_V1',propertyRef:'SYNTH-P',identityEvidenceRef:'SYNTH-ID',identityMatchDeclared:true,transitionEvidenceRef:'SYNTH-TRANSITION',before,after:{...before,reportRef:'SYNTH-B',valuationDate:'2026-01-05',issueDate:'2026-01-06',state:'VACANT_LAND',basis:'MARKET_VALUE',purpose:'SALE',method:'MARKET',reportedValueSar:1000000,landValueSar:1000000,improvementValueSar:0}};
+   await input.fill(JSON.stringify(history));await expect(exp).toBeDisabled();await audit.click();
+   await expect(panel.getByTestId('studio-audit-result')).toContainText('100000');
+   await expect(panel.getByTestId('studio-audit-result')).toContainText(locale==='en'?'Reported difference is not market growth':'لا يمثل فرق القيمة نمو السوق');
+   const historyHtml=await download(exp);assert.ok(historyHtml.includes(locale==='en'?'Property report history comparison':'مقارنة تقارير الأصل عبر الزمن'));
    await input.fill('{}');await expect(exp).toBeDisabled();await expect(panel.getByTestId('studio-audit-result')).toHaveCount(0);
    await audit.click();await expect(exp).toBeDisabled();await expect(panel.getByTestId('studio-notice')).toBeVisible();
    assert.deepEqual(errors,[]);
