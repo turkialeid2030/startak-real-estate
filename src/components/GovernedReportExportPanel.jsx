@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import ProfessionalReportingStudio from './ProfessionalReportingStudio.jsx';
 
 const {
   evaluateGovernedValuationReportReadiness,
@@ -107,6 +108,7 @@ export default function GovernedReportExportPanel({ locale = 'ar-SA', runtime = 
           {message.text}
         </div>
       ) : null}
+      <ProfessionalReportingStudio key={JSON.stringify([runtime?.caseId??null,runtime?.projectId??null])} runtime={runtime} valuationCase={valuationCase} locale={locale}/>
     </section>
   );
 }
