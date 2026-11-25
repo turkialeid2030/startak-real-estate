@@ -1,6 +1,8 @@
 'use strict';
 const assert=require('node:assert/strict');
 const {UNITS,STATUS,evaluateSectorPropertyDcf}=require('../../src/specialized-assets/sector-property-dcf');
+const {normalizeState,calculateDcfStudy,createDcfInputArchive,createDcfResearchReport,restoreDcfStudy}=require('../../src/specialized-assets/sector-property-dcf-archive');
+const {sha256Hex}=require('../../src/crypto/sha256');
 const {evaluateLocalSectorOperations}=require('../../src/specialized-assets/local-sector-operating-research');
 const {createInputArchive,createOperatingReport,restoreStudyFile,calculateStudy}=require('../../src/specialized-assets/local-sector-operating-archive');
 let checks=0,cases=0;
@@ -40,5 +42,29 @@ const date='2026-11-25T00:00:00.000Z';
 for(const file of [createInputArchive(state,{createdAt:date}),createOperatingReport(state,{createdAt:date})]){
  cases++;const restored=restoreStudyFile(file,{expectedAssetClass:'FUEL_STATION'});eq(restored.resultsRestored,false);eq(restored.authorityRestored,false);near(calculateStudy(restored.studyInputs).metrics.operatingSurplusSar,160000);
  assert.throws(()=>restoreStudyFile(file,{expectedAssetClass:'SPECIAL_PURPOSE'}));checks++;
+}
+for(const [assetClass,unit] of Object.entries(UNITS)){
+ const quantity=unit==='WHOLE_PROPERTY'?1:10;
+ const input={...base,quantity,annualRentPerUnitSar:1000000/quantity};
+ if(assetClass!=='MIXED_USE')delete input.mixedAllocationConfirmed;
+ if(assetClass!=='FUEL_STATION')delete input.environmentalObligationsReviewed;
+ const raw=Object.fromEntries(Object.entries(input).map(([k,v])=>[k,typeof v==='boolean'?v:String(v)]));
+ const state={assetClass,raw},report=createDcfResearchReport(state,{createdAt:date}),archive=createDcfInputArchive(state,{createdAt:date}),options={expectedAssetClass:assetClass};
+ const deny=(v)=>{assert.throws(()=>restoreDcfStudy(v,options));checks++;cases++;};
+ for(const file of [report,archive]){
+  const restored=restoreDcfStudy(JSON.parse(JSON.stringify(file)),options);
+  eq(restored.resultsRestored,false);eq(restored.authorityRestored,false);eq(JSON.stringify(restored.studyInputs),JSON.stringify(normalizeState(state)));
+  eq(JSON.stringify(calculateDcfStudy(restored.studyInputs)),JSON.stringify(report.result));cases++;
+  assert.throws(()=>restoreDcfStudy(file,{expectedAssetClass:assetClass==='OFFICE'?'RETAIL':'OFFICE'}));checks++;cases++;
+  deny({...file,sha256:'0'.repeat(64)});
+  deny({...file,createdAt:'2026-02-30T00:00:00.000Z'});
+ }
+ eq(Object.hasOwn(archive,'result'),false);eq(report.transactionAuthorized,false);
+ const forged=JSON.parse(JSON.stringify(report));forged.result.investmentNpvSar=999999999;
+ const {sha256,...body}=forged;deny({...body,sha256:sha256Hex(JSON.stringify(body))});
+ const malicious={...body,transactionAuthorized:true};deny({...malicious,sha256:sha256Hex(JSON.stringify(malicious))});
+ const blank={assetClass,raw:{}};eq(calculateDcfStudy(restoreDcfStudy(createDcfInputArchive(blank,{createdAt:date}),options).studyInputs).status,STATUS.HOLD);cases++;
+ assert.throws(()=>createDcfResearchReport(blank,{createdAt:date}));checks++;cases++;
+ assert.throws(()=>createDcfInputArchive({assetClass,raw:{...raw,operatingBusinessProfit:'1000000'}},{createdAt:date}));checks++;cases++;
 }
 console.log('SECTOR_DCF_FUEL=PASS cases='+cases+' checks='+checks+' scope=PERSONAL_ONLY');
