@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'tools/refresh-public-rental-data.js'
+      - 'tools/build-public-rental-candidate.js'
+      - 'tests/defects/public_rental_candidate.js'
       - 'src/reporting/public-rent-reference.js'
       - 'public/market-data/**'
       - 'tests/defects/public_rent_reference.js'
@@ -25,13 +27,19 @@ jobs:
           node-version: '24'
       - name: Verify real seeded data
         run: node tests/defects/public_rent_reference.js
+      - name: Verify candidate rules
+        run: node tests/defects/public_rental_candidate.js
       - name: Retrieve published regional files
         run: node tools/refresh-public-rental-data.js
+      - name: Build validated publication candidate
+        run: node tools/build-public-rental-candidate.js
       - name: Preserve retrieved files and provenance
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: public-rental-refresh-${{ github.run_id }}
-          path: runtime-evidence/rental-public-refresh
+          path: |
+            runtime-evidence/rental-public-refresh
+            runtime-evidence/rental-candidate
           if-no-files-found: warn
           retention-days: 90
