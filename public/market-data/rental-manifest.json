@@ -121,6 +121,42 @@
       "rows": 533,
       "year": 2026,
       "quarter": 1
+    },
+    {
+      "region": "Riyadh",
+      "filename": "Rental-indicators-in-Riyadh-region-1st-Q-2025.csv",
+      "sourcePath": "rega/quarterlies/rental/Rental-indicators-in-Riyadh-region-1st-Q-2025.csv",
+      "gitBlobSha": "1e412d13d40544bb7a097d4f8b5401ebbf5bde2e",
+      "rows": 3230,
+      "year": 2025,
+      "quarter": 1
+    },
+    {
+      "region": "Riyadh",
+      "filename": "Rental-indicators-in-Riyadh-region-2nd-Q-2025.csv",
+      "sourcePath": "rega/quarterlies/rental/Rental-indicators-in-Riyadh-region-2nd-Q-2025.csv",
+      "gitBlobSha": "413dc34a8fa71e1868f8c05d794c80deda2356ff",
+      "rows": 2969,
+      "year": 2025,
+      "quarter": 2
+    },
+    {
+      "region": "Riyadh",
+      "filename": "Rental-indicators-in-Riyadh-region-3rd-Q-2025.csv",
+      "sourcePath": "rega/quarterlies/rental/Rental-indicators-in-Riyadh-region-3rd-Q-2025.csv",
+      "gitBlobSha": "0e99eb47c2d983e69c55719d55e8131aeafb43d5",
+      "rows": 2866,
+      "year": 2025,
+      "quarter": 3
+    },
+    {
+      "region": "Riyadh",
+      "filename": "Rental-indicators-in-Riyadh-region-4th-Q-2025.csv",
+      "sourcePath": "rega/quarterlies/rental/Rental-indicators-in-Riyadh-region-4th-Q-2025.csv",
+      "gitBlobSha": "4e8c9840b257933b927276854cb362502e8c02c2",
+      "rows": 3430,
+      "year": 2025,
+      "quarter": 4
     }
   ]
 }
