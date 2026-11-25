@@ -1,0 +1,16 @@
+'use strict';
+const assert=require('node:assert/strict');
+const {allowed,findFiles,identify}=require('../../tools/discover-official-market-sources');
+const s={catalog:'https://www.stats.gov.sa/catalog',hosts:['www.stats.gov.sa'],match:'REPI',format:['xlsx','pdf'],seeds:[]};
+const h='<a href="/documents/REPI.xlsx_fixed/123?t=1&amp;x=2">index</a><a href="https://evil.example/REPI.xlsx">bad</a><a href="/other.xlsx">unrelated</a><a href="/REPI.pdf">index</a>';
+assert.deepEqual(findFiles(h,s),['https://www.stats.gov.sa/documents/REPI.xlsx_fixed/123?t=1&x=2','https://www.stats.gov.sa/REPI.pdf']);
+assert.equal(allowed('http://www.stats.gov.sa/REPI.xlsx',s),null);
+assert.equal(allowed('https://www.stats.gov.sa.evil.example/REPI.xlsx',s),null);
+assert.equal(allowed('https://user@www.stats.gov.sa/REPI.xlsx',s),null);
+assert.equal(allowed('https://www.stats.gov.sa:8443/REPI.xlsx',s),null);
+assert.equal(identify(Buffer.from('%PDF-1.7')),'PDF');
+assert.equal(identify(Buffer.from([80,75,3,4])),'ZIP_CONTAINER_UNVERIFIED');
+assert.equal(identify(Buffer.from('<html>error</html>')),null);
+assert.equal(identify(Buffer.from('a,b\n1,2\n')),'CSV_CANDIDATE');
+assert.equal(identify(Buffer.from('{"error":1}')),null);
+console.log('OFFICIAL_MARKET_DISCOVERY_RULES=PASS cases=10');
