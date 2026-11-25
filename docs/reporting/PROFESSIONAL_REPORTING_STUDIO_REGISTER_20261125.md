@@ -38,3 +38,21 @@ Status codes: FOUNDATION = existing component, integration unqualified; PARTIAL 
 ## Verification
 
 Run node tests/defects/reporting_studio.js; browser workflow reporting-studio-browser.yml executes the same regression and the three-engine local-preview acceptance across two locales and three widths. Counts refer to the actual execution environment, not overall project completion.
+
+## Expanded approved scope PR21–PR30 (2026-11-25)
+Private reference corpus: 15 reports / 991 pages as inventoried, not all independently reviewed. The private reports and source values remain outside this public repository.
+
+| Package | State | Implemented / remaining |
+|---|---|---|
+| PR21 | PARTIAL | two dated property snapshots with physical state and declared transition evidence; full lifecycle event ledger and persistence open |
+| PR22 | PARTIAL | identity-bound reported-value comparison with changed basis, purpose, right and method; full historical registry open |
+| PR23 | OPEN | demolition and redevelopment feasibility, permit and cost evidence not implemented in this increment |
+| PR24 | PARTIAL | reported delta only; market attribution explicitly unavailable, component sum checks; causal decomposition open |
+| PR25 | PARTIAL | ASKING / EXECUTED / UNKNOWN separated, no executed comparables warning, distinct source references; actual market verification and admission open |
+| PR26 | PARTIAL | staged building-rights adjustment, declared planning evidence, duplicate category rejection; independently verified zoning and capacity open |
+| PR27 | PARTIAL | inspection, valuation, issue, worksheet, limitations and comparable/observation date checks; source authenticity open |
+| PR28 | PARTIAL | declared symmetric sensitivity, explicitly not a confidence interval; calibrated uncertainty open |
+| PR29 | PARTIAL | local transcribed review only, existing linked appraisal export gate retained; institutional rights and confidential storage open |
+| PR30 | PARTIAL | synthetic permanent tests and private in-memory arithmetic replay; original-document attestation and full corpus page-level review open |
+
+Vacant-land diagnostic accepts no building-cost inputs, supports two sequential stages of unique categorized adjustments, preserves weighted numerator before final rate rounding, and distinguishes declared source labels from verified evidence. It does not adopt a valuation or establish transaction authority. Historical comparison never infers market growth from reported deltas. Studio exports remain local printable HTML through the existing download gate. Native new candidate build/browser execution and independent evidence remain pending. Exact isolated module replay: existing reporting 40 cases/141 checks, new land/history 41 cases/148 checks, total 81/289. Private transcribed arithmetic reproduced all four adjusted rates and declared final value; exact aggregate reconciliation, no confidential fixture committed. No package closed or release authorization.
