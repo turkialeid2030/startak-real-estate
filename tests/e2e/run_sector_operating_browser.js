@@ -9,6 +9,7 @@ const {sha256Hex}=require('../../src/crypto/sha256');
 const {UNITS,STATUS:DCF_STATUS,evaluateSectorPropertyDcf}=require('../../src/specialized-assets/sector-property-dcf');
 const {restoreDcfStudy}=require('../../src/specialized-assets/sector-property-dcf-archive');
 const {STATUS:RISK_STATUS,evaluateSectorFinancingRisk}=require('../../src/specialized-assets/sector-financing-risk-research');
+const {restoreRiskFile,createRiskReport}=require('../../src/specialized-assets/sector-financing-risk-archive');
 const hotel={availableRoomNights:36500,occupiedRoomNights:25550,roomsRevenueSar:12775000,foodBeverageRevenueSar:2000000,otherOperatingRevenueSar:225000,departmentalExpensesSar:4000000,undistributedOperatingExpensesSar:3000000,managementAndFranchiseFeesSar:500000,ffeReserveSar:500000};
 const industrial={assetId:'SYNTH-01',subtype:'WAREHOUSE',landAreaSqm:2000,builtAreaSqm:1500,netLeasableAreaSqm:1200,clearHeightMeters:10,powerCapacityKva:400,leaseStructure:'GROSS',internalInspectionStatus:'NOT_INSPECTED',buildingPermitStatus:'PROVIDED_UNVERIFIED',annualRentSar:600000,landlordExpensesSar:120000};
 const cap={capacity:100,usedCapacity:80,annualOperatingRevenueSar:1000000,annualOperatingExpensesSar:700000};
@@ -134,12 +135,38 @@ const cases=[['HOSPITALITY',hotel,'revParSar','availableRoomNights','sar'],['IND
      const formatted=new Intl.NumberFormat(ar?'ar-SA':'en-SA',{maximumFractionDigits:2}).format(value);
      await expect(riskPanel.getByTestId('sector-risk-metric-'+id)).toHaveText(formatted);
     }
+    const riskReportButton=riskPanel.getByTestId('sector-risk-export-report');
+    await expect(riskReportButton).toBeEnabled();
+    const riskDownload=async button=>{const pending=page.waitForEvent('download');await button.click();const file=await pending;return JSON.parse(await fs.readFile(await file.path(),'utf8'));};
+    const riskImport=async file=>riskPanel.getByTestId('sector-risk-import-file').setInputFiles({name:'synthetic-risk.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(file))});
+    const riskArchive=await riskDownload(riskPanel.getByTestId('sector-risk-export-inputs')),riskReport=await riskDownload(riskReportButton);
+    assert.equal(Object.hasOwn(riskArchive,'result'),false);
+    assert.equal(riskReport.result.equityNpvSar,riskExpected.equityNpvSar);
+    assert.equal(riskReport.financeApproved,false);
+    assert.equal(restoreRiskFile(riskReport,{assetClass,raw}).baseInputsRestored,false);
+    const riskForged=JSON.parse(JSON.stringify(riskReport));riskForged.result.equityNpvSar=999999999;
+    const {sha256:riskDigest,...riskBody}=riskForged;riskForged.sha256=sha256Hex(JSON.stringify(riskBody));
+    const otherProperty=createRiskReport({assetClass,raw:{...raw,propertyRef:'OTHER-PROPERTY'}},riskArchive.overlayInputs,{createdAt:riskReport.createdAt});
+    for(const file of [riskForged,otherProperty]){
+     await riskImport(file);await expect(riskPanel.getByTestId('sector-risk-file-notice')).toContainText(ar?'رُفض الملف':'File rejected');
+     await expect(riskPanel.getByTestId('sector-risk-result')).toHaveAttribute('data-status',RISK_STATUS.READY);
+    }
+    for(const file of [riskArchive,riskReport]){
+     await riskImport(file);await expect(riskPanel.getByTestId('sector-risk-file-notice')).toContainText(ar?'استُعيدت مدخلات التمويل':'Overlay inputs only restored');
+     await expect(riskPanel.getByTestId('sector-risk-result')).toHaveCount(0);await expect(riskReportButton).toBeDisabled();
+     await riskPanel.getByTestId('sector-risk-calculate').click();
+     await expect(riskPanel.getByTestId('sector-risk-result')).toHaveAttribute('data-status',RISK_STATUS.READY);
+     await expect(riskPanel.getByTestId('sector-risk-metric-npv')).toHaveText(new Intl.NumberFormat(ar?'ar-SA':'en-SA',{maximumFractionDigits:2}).format(riskExpected.equityNpvSar));
+    }
+    await expect(panel.getByTestId('sector-dcf-metric-npv')).toHaveText(new Intl.NumberFormat(ar?'ar-SA':'en-SA',{maximumFractionDigits:2}).format(expected.investmentNpvSar));
+    checks+=20;
     await riskPanel.getByTestId('sector-risk-r-seed').fill('0');
     await expect(riskPanel.getByTestId('sector-risk-result')).toHaveCount(0);
     await riskPanel.getByTestId('sector-risk-calculate').click();
     await expect(riskPanel.getByTestId('sector-risk-result')).toHaveAttribute('data-status',RISK_STATUS.HOLD);
     await expect(riskPanel.getByTestId('sector-risk-metric-npv')).toHaveCount(0);
-    checks+=12;
+    await expect(riskReportButton).toBeDisabled();
+    checks+=13;
     await expect(reportButton).toBeEnabled();
     const download=async button=>{const pending=page.waitForEvent('download');await button.click();const file=await pending;return JSON.parse(await fs.readFile(await file.path(),'utf8'));};
     const importFile=async file=>panel.getByTestId('sector-dcf-import-file').setInputFiles({name:'synthetic-dcf.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(file))});
