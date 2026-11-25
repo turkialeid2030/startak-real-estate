@@ -13,6 +13,7 @@ const good=verifyLegacyManifest(source,{fileExists:exists});
 assert.equal(good.sourcePaths,57);
 assert.equal(good.uniqueSourcePaths,57);
 assert.equal(good.modernAnchorsPresent,46);
+assert.equal(good.restoredSourcePaths,3);
 assert.equal(good.oldStagingNotProduction,10);
 assert.equal(good.oldCryptoRequiresRetirement,1);
 assert.equal(good.equivalentFeaturesVerified,0);
@@ -33,5 +34,7 @@ rejects(source.trimEnd().split(/\r?\n/).slice(0,-1).join('\n'),'ROW_COUNT_INVALI
 assert.throws(()=>verifyLegacyManifest(source,{fileExists:p=>
  p==='src/acquisition/governed-auction-acquisition.js'||exists(p)}),
  /LEGACY_57_OLD_PATH_NOT_ABSENT_OR_INVALID/);
-console.log('LEGACY_57_MANIFEST_INTEGRITY=PASS rows=57 modern_anchors=46 '+
- 'old_staging=10 safe_retire=1 parity_unverified=true synthetic_negatives=7');
+assert.throws(()=>verifyLegacyManifest(source,{fileExists:p=>p!=='src/app/institutional-valuation-decision-boundary.js'&&exists(p)}),/LEGACY_57_RESTORED_PATH_MISMATCH/);
+rejects(source.replace('"LEG-002","src/app/institutional-valuation-decision-boundary.js"','"LEG-002","src/app/unrelated.js"'),'RESTORED_PATH_MISMATCH');
+console.log('LEGACY_57_MANIFEST_INTEGRITY=PASS rows=57 modern_anchors=46 restored_unqualified=3 '+
+ 'old_staging=10 safe_retire=1 parity_unverified=true synthetic_negatives=9');
