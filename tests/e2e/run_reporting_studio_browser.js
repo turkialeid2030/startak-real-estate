@@ -51,6 +51,13 @@ const fixture={reportRef:'SYNTHETIC-ONLY',valuationDate:'2026-01-01',landAreaSqm
    await expect(exp).toBeEnabled();
    const developmentHtml=await download(exp);assert.ok(developmentHtml.includes(locale==='en'?'Hold, sell and redevelopment feasibility':'جدوى الاحتفاظ والبيع وإعادة التطوير'));assert.ok(!developmentHtml.includes('<script>'));
    await input.fill(JSON.stringify({...development,redevelop:development.redevelop.map((p,i)=>i===1?{...p,propertyRentSar:10000}:p)}));await expect(exp).toBeDisabled();await audit.click();await expect(exp).toBeDisabled();await expect(panel.getByTestId('studio-audit-result')).toHaveCount(0);
+   const esg={version:'PROPERTY_ESG_SCREENING_V1',propertyRef:'SYNTH-P',valuationDate:'2026-01-05',factors:[{factor:'ENERGY_PERFORMANCE',pillar:'ENVIRONMENTAL',outcome:'MATERIAL',rationale:'SYNTHETIC',sourceClass:'CLIENT_PROVIDED',sourceRef:'SYNTH',sourceDate:'2026-01-01',validTo:null,impactChannels:['OWNER_OPEX']}]};
+   await input.fill(JSON.stringify(esg));await expect(exp).toBeDisabled();await audit.click();
+   await expect(panel.getByTestId('studio-audit-result')).toContainText(locale==='en'?'Unknown factors':'عوامل غير معلومة');
+   await expect(panel.getByTestId('studio-audit-result')).toContainText('10');
+   await expect(exp).toBeEnabled();
+   const esgHtml=await download(exp);assert.ok(esgHtml.includes(locale==='en'?'Property ESG research screening':'الفحص البحثي للعوامل البيئية والاجتماعية والحوكمة'));assert.ok(!esgHtml.includes('<script>'));
+   await input.fill(JSON.stringify({...esg,factors:[{...esg.factors[0],sourceRef:null}]}));await audit.click();await expect(exp).toBeDisabled();await expect(panel.getByTestId('studio-audit-result')).toHaveCount(0);
    await input.fill('{}');await expect(exp).toBeDisabled();await expect(panel.getByTestId('studio-audit-result')).toHaveCount(0);
    await audit.click();await expect(exp).toBeDisabled();await expect(panel.getByTestId('studio-notice')).toBeVisible();
    assert.deepEqual(errors,[]);
