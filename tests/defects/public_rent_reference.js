@@ -17,7 +17,7 @@ assert.throws(()=>parsePublicRentCsv('bad'));
 console.log('PUBLIC_RENT_REAL_DATA=PASS rows='+rows.length+' districtRows='+malqa.length);
 
 const manifest=JSON.parse(fs.readFileSync('public/market-data/rental-manifest.json','utf8'));
-assert.ok(manifest.files.length>=17&&manifest.files.length<=260);
+assert.ok(manifest.files.length>=65&&manifest.files.length<=260);
 assert.equal(new Set(manifest.files.map(f=>f.region.toLowerCase())).size,13);
 let total=0;const periods=new Set();let historicalRiyadh=0;
 for(const f of manifest.files){
@@ -29,7 +29,9 @@ for(const f of manifest.files){
  assert.ok(records.every(r=>r.year===f.year&&r.quarter===f.quarter&&r.vatBasis==='UNKNOWN'));
  total+=records.length;if(f.region.toLowerCase()==='riyadh'&&f.year===2025)historicalRiyadh+=records.length;
 }
-assert.ok(total>=32641);assert.ok(historicalRiyadh>=12495);
+assert.ok(total>=90497);assert.ok(historicalRiyadh>=12495);
+for(const year of [2025,2026])for(const quarter of (year===2025?[1,2,3,4]:[1]))assert.equal(new Set(manifest.files.filter(f=>f.year===year&&f.quarter===quarter).map(f=>f.region.toLowerCase())).size,13);
+assert.equal(manifest.files.filter(f=>f.derivation?.method==='EXACT_PERIOD_ROW_FILTER_V1'&&f.year===2025).length,4);
 console.log('PUBLIC_RENT_NATIONAL=PASS regions=13 rows='+total);
 
 const {buildRentalTrend}=require('../../src/reporting/public-rent-trend');
