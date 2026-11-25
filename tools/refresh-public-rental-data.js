@@ -2,6 +2,7 @@
 // Fetch public files only, without tokens or provider API. No writes to source tree.
 const fs=require('node:fs/promises'),path=require('node:path'),crypto=require('node:crypto');
 const {parsePublicRentCsv}=require('../src/reporting/public-rent-reference');
+const {splitKnownMixed}=require('./split-public-rental-period');
 const ROOT='https://raw.githubusercontent.com/civillizard/Saudi-Real-Estate-Data/main/';
 const OUT='runtime-evidence/rental-public-refresh';
 const LIMIT=4*1024*1024;
@@ -33,11 +34,21 @@ async function main(){
  for(const [periodKey,entry] of periods){
   const region=periodKey.split(':')[0];
   try{
-   const raw=await get(entry.file),rows=parsePublicRentCsv(new TextDecoder('utf-8',{fatal:true}).decode(raw));
-   if(!rows.every(r=>r.year===entry.year&&r.quarter===entry.quarter))throw Error('PERIOD_MISMATCH');
-   const name=path.basename(entry.file);
+   let raw=await get(entry.file),rows=parsePublicRentCsv(new TextDecoder('utf-8',{fatal:true}).decode(raw)),derivation=null;
+   const originalName=path.basename(entry.file);
+   let name=originalName;
+   if(!rows.every(r=>r.year===entry.year&&r.quarter===entry.quarter)){
+    const overlap=periods.get(region+':2026:1');if(!overlap)throw Error('PERIOD_MISMATCH');
+    const reference=await get(overlap.file);
+    await fs.mkdir(path.join(OUT,'originals'),{recursive:true});
+    await fs.writeFile(path.join(OUT,'originals',originalName),raw);
+    await fs.writeFile(path.join(OUT,'originals',path.basename(overlap.file)),reference);
+    const split=splitKnownMixed(raw,reference,region,entry.year,entry.quarter);
+    raw=split.derived;derivation={...split.provenance,overlapSourcePath:overlap.file};name=originalName.replace(/\.csv$/,'-period-filtered.csv');
+    rows=parsePublicRentCsv(new TextDecoder('utf-8',{fatal:true}).decode(raw));
+   }
    await fs.writeFile(path.join(OUT,name),raw);
-   manifest.files.push({region,filename:name,sourcePath:entry.file,gitBlobSha:crypto.createHash('sha1').update('blob '+raw.length+'\0').update(raw).digest('hex'),url:ROOT+entry.file,sha256:crypto.createHash('sha256').update(raw).digest('hex'),rows:rows.length,year:entry.year,quarter:entry.quarter,vatBasis:'UNKNOWN'});
+   manifest.files.push({region,filename:name,sourcePath:entry.file,gitBlobSha:crypto.createHash('sha1').update('blob '+raw.length+'\0').update(raw).digest('hex'),url:ROOT+entry.file,sha256:crypto.createHash('sha256').update(raw).digest('hex'),rows:rows.length,year:entry.year,quarter:entry.quarter,vatBasis:'UNKNOWN',...(derivation?{derivation}:{})});
   }catch(e){manifest.errors.push({region,file:entry.file,error:e.message});}
  }
  await fs.writeFile(path.join(OUT,'rental-manifest.json'),JSON.stringify(manifest,null,2));
