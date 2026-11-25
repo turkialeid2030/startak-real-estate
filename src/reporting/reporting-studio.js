@@ -3,10 +3,12 @@ const {buildPersonalResearchReport}=require('../app/personal-investment-research
 const {reviewExternalReport}=require('./external-report-review');
 const {VERSION:LAND_VERSION,reviewVacantLand}=require('./vacant-land-report-review');
 const {VERSION:HISTORY_VERSION,compareReportedHistory}=require('./property-lifecycle-review');
+const {VERSION:REDEVELOPMENT_VERSION,evaluateRedevelopment}=require('./owner-redevelopment-research');
 const {sha256Hex}=require('../crypto/sha256');
 const MODES=Object.freeze(['OWNER','TECHNICAL']);
 const h=v=>String(v??'—').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const LABELS={
+ REDEVELOPMENT_ASSUMPTIONS_UNVERIFIED:['افتراضات التطوير غير متحققة مستقلًا','Redevelopment assumptions independently unverified'],
  REPORT_CHRONOLOGY_CONFLICT:['تعارض تسلسل تواريخ التقرير','Report chronology conflict'],
  VALUATION_DATE_CONFLICT:['اختلاف تاريخ التقييم بين الأقسام','Conflicting valuation dates'],
  BUILDING_RIGHTS_UNVERIFIED:['حقوق البناء غير متحققة','Building rights unverified'],
@@ -48,6 +50,7 @@ function renderStudio({runtime=null,valuationCase=null,mode='OWNER',locale='ar-S
  return {html:wrap(label('دراسة عقارية بحثية','Real estate research study'),body,locale),report:r};
 }
 function renderExternalReview(inputs,{locale='ar-SA'}={}){
+ if(inputs?.version===REDEVELOPMENT_VERSION)return renderRedevelopment(inputs,{locale});
  if(inputs?.version===LAND_VERSION||inputs?.version===HISTORY_VERSION)return renderExtendedReview(inputs,{locale});
  const r=reviewExternalReport(inputs),ar=locale!=='en',l=(a,b)=>ar?a:b,fmt=v=>new Intl.NumberFormat(ar?'ar-SA':'en-US',{maximumFractionDigits:2}).format(v);
  const body='<h2>'+l('ملخص مراجعة تقرير خارجي','External report review summary')+'</h2>'+table([[l('مرجع التقرير','Report reference'),r.reportRef],[l('تاريخ التقييم','Valuation date'),r.valuationDate],[l('السعر المرجح قبل التقريب النهائي','Weighted land rate before final rounding'),new Intl.NumberFormat(ar?'ar-SA':'en-US',{maximumFractionDigits:8}).format(r.weightedBeforeFinalRoundingSar)],[l('السعر المرجح حسابيًا','Replayed weighted land rate'),fmt(r.weightedRateSar)],[l('السعر المعتمد خارجيًا','Externally adopted rate'),fmt(r.adoptedRateSar)],[l('أثر فرق السعر قبل تقريب سعر المتر','Land rate impact before rate rounding'),fmt(r.landRateImpactSar)],[l('قاعدة التقريب','Rounding policy'),l('تسويات سعر المتر إلى هللتين عشريتين؛ الأوزان قبل التقريب النهائي؛ الأثر محسوب من السعر المرجح غير المقرب.','Adjusted rates rounded to halalas; weights before final rounding; impact based on unrounded weighted rate.')],[l('تكلفة المكونات','Component cost'),fmt(r.componentCostSar)],[l('الإهلاك بالدقة الكاملة','Full-precision physical depreciation'),fmt(r.fullPrecisionPhysicalDepSar)],[l('القيمة المعلنة','Declared value'),fmt(r.declaredFinalValueSar)],[l('إعادة احتساب القيمة المعلنة','Replayed declared value'),fmt(r.replayedFinalValueSar)]])+'<h2>'+l('التسويات المتتابعة','Sequential adjustments')+'</h2>'+table(r.comparables.map(c=>[c.id+' / p.'+c.page,fmt(c.rawRateSar)+' → '+fmt(c.firstRateSar)+' → '+fmt(c.adjustedRateSar)+' | '+fmt(c.contributionSar)]))+'<h2>'+l('مكونات التكلفة','Cost components')+'</h2>'+table(r.components.map(c=>[c.id+' / p.'+c.page,fmt(c.quantity)+' '+c.unit+' × '+fmt(c.unitCostSar)+' = '+fmt(c.costSar)]))+'<h2>'+l('الملاحظات','Findings')+'</h2>'+table(r.issues.map(i=>[i.severity+' / '+i.ref,issueLabel(i.code,locale)]))+'<p>'+l('المصدر منقول يدويًا وغير متحقق مستقلًا. لا يعتمد أي رقم في المحرك الأساسي.','Manually transcribed inputs; independently unverified. No canonical model adoption.')+'</p><small>SHA-256: '+h(r.reviewHashSha256)+'</small>';
@@ -67,6 +70,18 @@ function renderExtendedReview(inputs,{locale='ar-SA'}={}){
  +'<p>'+l('فرق القيم لا يمثل نمو السوق أو عائد الاستثمار، ولم يتم إثبات الهوية أو التحول مستقلًا.','Reported difference is not market growth or investment return; identity and transition not independently verified.')+'</p>';
  }
  body+='<h2>'+l('الملاحظات','Findings')+'</h2>'+table(r.issues.map(i=>[i.severity+' / '+i.ref,issueLabel(i.code,locale)]))+'<p>'+l('مراجعة تشخيصية لبيانات منقولة؛ لا اعتماد للقيمة أو الحقوق أو الصفقات.','Diagnostic review of transcribed inputs; no certification of value, rights or transactions.')+'</p><small>SHA-256: '+h(r.reviewHashSha256)+'</small>';
+ return {html:wrap(title,body,locale),report:r};
+}
+function renderRedevelopment(inputs,{locale='ar-SA'}={}){
+ const r=evaluateRedevelopment(inputs),ar=locale!=='en',l=(a,b)=>ar?a:b,fmt=v=>v===null?'—':new Intl.NumberFormat(ar?'ar-SA':'en-US',{maximumFractionDigits:2}).format(v);
+ const title=l('جدوى الاحتفاظ والبيع وإعادة التطوير','Hold, sell and redevelopment feasibility');
+ let body=table([[l('مرجع العقار','Property reference'),r.propertyRef],[l('تاريخ الدراسة','Study date'),r.valuationDate],[l('الحالة الحالية','Current state'),r.currentState],[l('مدة المقارنة','Common horizon'),r.years],[l('معدل الخصم','Discount rate'),fmt(r.discountRate*100)+'%'],[l('سنة الهدم أو بدء المشروع','Demolition or start year'),r.demolitionYear],[l('سنة اكتمال الإنشاء','Completion year'),r.completionYear],[l('حالة دليل التخطيط','Planning evidence'),r.planningStatus]])
+ +'<h2>'+l('مقارنة البدائل بالقيمة الحالية','Present value comparison')+'</h2>'+table([[l('البيع الآن — صافي المتحصل','Sell now — net proceeds'),fmt(r.sell.presentValueSar)],[l('الاحتفاظ — القيمة الحالية','Retain — present value'),fmt(r.retain.presentValueSar)],[l('إعادة التطوير — القيمة الحالية','Redevelop — present value'),fmt(r.redevelop.presentValueSar)],[l('فرق التطوير مقابل الاحتفاظ','Redevelopment vs retain'),fmt(r.redevelopmentIncrementVsRetainSar)]]);
+ for(const [name,m] of [[l('الاحتفاظ','Retain'),r.retain],[l('إعادة التطوير','Redevelop'),r.redevelop]]){
+ body+='<h2>'+h(name)+'</h2>'+table([[l('صافي القيمة الحالية مقابل البيع الآن','Incremental NPV vs sell now'),fmt(m.incrementalNpvSar)],[l('صافي القيمة الحالية تحت الضغط مقابل البيع','Stress incremental NPV vs sell now'),fmt(m.stressIncrementalNpvSar)],[l('العائد على تكلفة الفرصة','Opportunity-cost IRR'),m.opportunityCostIrr===null?'—':fmt(m.opportunityCostIrr*100)+'%'],[l('موثوقية العائد','IRR reliability'),m.irrReliability]])
+ +'<table><thead><tr>'+[l('السنة','Year'),l('الإيجار','Rent'),l('التشغيل','OPEX'),l('الصيانة الرأسمالية','CAPEX'),l('الهدم','Demolition'),l('الإنشاء','Construction'),l('تكاليف أخرى','Other cost'),l('صافي البيع','Net exit'),l('التدفق','Cashflow'),l('تدفق الضغط','Stress cashflow')].map(v=>'<th>'+h(v)+'</th>').join('')+'</tr></thead><tbody>'+m.periods.map(p=>'<tr>'+[p.year,p.propertyRentSar,p.ownerOpexSar,p.sustainingCapexSar,p.demolitionSar,p.constructionSar,p.otherDevelopmentSar,p.netExitSar,p.cashflowSar,p.stressCashflowSar].map(v=>'<td>'+h(fmt(v))+'</td>').join('')+'</tr>').join('')+'</tbody></table>';
+ }
+ body+='<h2>'+l('المصادر والافتراضات','Sources and assumptions')+'</h2>'+table(Object.entries(r.references))+'<h2>'+l('نطاق الضغط','Stress assumptions')+'</h2>'+table([[l('انخفاض الإيجار','Rent reduction'),fmt(r.stress.incomeReduction*100)+'%'],[l('ارتفاع التكلفة','Cost increase'),fmt(r.stress.costIncrease*100)+'%'],[l('انخفاض صافي التخارج','Exit reduction'),fmt(r.stress.exitReduction*100)+'%']])+'<h2>'+l('الملاحظات','Findings')+'</h2>'+table(r.issues.map(i=>[i.severity,issueLabel(i.code,locale)]))+'<p>'+l('نموذج للمالك الحالي قبل التمويل والضرائب. البيع الآن تكلفة فرصة بديلة، وليس استحواذًا جديدًا. لا يثبت جدوى نظامية أو إذن هدم أو قرار تطوير.','Existing-owner model before financing and tax. Sell-now proceeds are an opportunity cost, not a new acquisition. No legal feasibility, demolition permit or development decision established.')+'</p><small>SHA-256: '+h(r.reviewHashSha256)+'</small>';
  return {html:wrap(title,body,locale),report:r};
 }
 module.exports={MODES,issueLabel,renderStudio,renderExternalReview};
