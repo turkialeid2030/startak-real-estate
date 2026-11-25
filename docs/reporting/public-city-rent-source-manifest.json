@@ -1,0 +1,91 @@
+{
+  "version": 1,
+  "scope": "CITY_AGGREGATE",
+  "years": [
+    2019,
+    2024
+  ],
+  "source": "https://github.com/civillizard/Saudi-Real-Estate-Data",
+  "officialCatalog": "https://rega.gov.sa/البيانات-المفتوحة/أحدث-البيانات-المفتوحة/",
+  "sourceSpecificRightsVerified": false,
+  "files": [
+    {
+      "sourcePath": "rega/Rental-indicators-for-Cities-in-Riyadh-region.csv",
+      "gitBlobSha": "cd7244e6f321439f8c4cf4bd2911e2b1fc822cdc",
+      "expectedRows": 4486,
+      "region": "الرياض"
+    },
+    {
+      "sourcePath": "rega/Rental-indicators-for-cities-Asir-region.csv",
+      "gitBlobSha": "62ef325f6cefa877fe30c1f368699712bf1966fb",
+      "expectedRows": 2162,
+      "region": "عسير"
+    },
+    {
+      "sourcePath": "rega/Rental-indicators-for-cities-in-Al-Baha-region.csv",
+      "gitBlobSha": "ca6048811398537980c65efeed41a3540e385efb",
+      "expectedRows": 890,
+      "region": "الباحة"
+    },
+    {
+      "sourcePath": "rega/Rental-indicators-for-cities-in-Al-jawf-region.csv",
+      "gitBlobSha": "e13a4583ebdbbc50a17f0cedb9b44bee8e35493e",
+      "expectedRows": 715,
+      "region": "الجوف"
+    },
+    {
+      "sourcePath": "rega/Rental-indicators-for-cities-in-Eastern-Province.csv",
+      "gitBlobSha": "15b52544541e692efe82c0d2586c33db228b1a14",
+      "expectedRows": 2383,
+      "region": "المنطقة الشرقية"
+    },
+    {
+      "sourcePath": "rega/Rental-indicators-for-cities-in-Hail-region.csv",
+      "gitBlobSha": "69c0279059f945c1f06cdfb595b6d2f525952074",
+      "expectedRows": 725,
+      "region": "حائل"
+    },
+    {
+      "sourcePath": "rega/Rental-indicators-for-cities-in-Jazan-region.csv",
+      "gitBlobSha": "81c5730795bb2140eeb8f6a298ec0ec91d98dc36",
+      "expectedRows": 1251,
+      "region": "جازان"
+    },
+    {
+      "sourcePath": "rega/Rental-indicators-for-cities-in-Madinah-region.csv",
+      "gitBlobSha": "6fe65bdf4ae8e2fbba9895c10aad0731a42fae2f",
+      "expectedRows": 847,
+      "region": "المدينة المنورة"
+    },
+    {
+      "sourcePath": "rega/Rental-indicators-for-cities-in-Makkah-region.csv",
+      "gitBlobSha": "7947ce695cb3d80081938f2275446bbb872e38af",
+      "expectedRows": 2066,
+      "region": "مكة المكرمة"
+    },
+    {
+      "sourcePath": "rega/Rental-indicators-for-cities-in-N-B-region.csv",
+      "gitBlobSha": "dfa77562d93f7bf3b678dab483b39e146c928ce7",
+      "expectedRows": 770,
+      "region": "الحدود الشماليه"
+    },
+    {
+      "sourcePath": "rega/Rental-indicators-for-cities-in-Najran-region.csv",
+      "gitBlobSha": "1bfc7c8c8974d8547c4192d2c45265efa3b2d741",
+      "expectedRows": 613,
+      "region": "نجران"
+    },
+    {
+      "sourcePath": "rega/Rental-indicators-for-cities-in-Qassim-region.csv",
+      "gitBlobSha": "356df60d52f8355ff7e12384e6c461d95e71bb82",
+      "expectedRows": 2241,
+      "region": "القصيم"
+    },
+    {
+      "sourcePath": "rega/Rental-indicators-for-cities-in-Tabuk-region.csv",
+      "gitBlobSha": "e23741a366b571263c0f24c41f2d941e08b99c6e",
+      "expectedRows": 805,
+      "region": "تبوك"
+    }
+  ]
+}
