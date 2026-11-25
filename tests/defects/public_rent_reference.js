@@ -49,3 +49,15 @@ assert.equal(buildRentalTrend([row],scope)[0].rentYoYPct,null);
 assert.equal(buildRentalTrend([row],{...scope,city:'جدة'}).length,0);
 assert.throws(()=>buildRentalTrend([row],{...scope,kind:''}),/SCOPE_REQUIRED/);
 console.log('PUBLIC_RENT_TREND=PASS real source comparison and guarded scenarios');
+
+const {buildDistrictRentMatrix}=require('../../src/reporting/public-rent-district-matrix');
+const matrixScope={region:'الرياض',city:'الرياض',kind:'شقة',classification:'سكني',year:2026,quarter:1};
+const matrix=buildDistrictRentMatrix(rows,matrixScope);
+assert.ok(matrix.comparableDistricts>=3);
+assert.equal(matrix.geometryAvailable,false);assert.equal(matrix.valuationEligible,false);
+assert.equal(matrix.districts.find(d=>d.district==='الملقا').reportedRentPerSqmSar,433.73);
+assert.ok(matrix.districts.every(d=>d.relativeBand===null||[0,1,2,3,4].includes(d.relativeBand)));
+assert.equal(buildDistrictRentMatrix([row,row],matrixScope).districts[0].status,'AMBIGUOUS');
+assert.equal(buildDistrictRentMatrix([{...row,count:1}],matrixScope).districts[0].relativeBand,null);
+assert.equal(buildDistrictRentMatrix([row],{...matrixScope,quarter:2}).districts.length,0);
+console.log('PUBLIC_RENT_DISTRICT_MATRIX=PASS real district comparison and guarded bands');
