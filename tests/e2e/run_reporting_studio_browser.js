@@ -59,7 +59,7 @@ const fixture={reportRef:'SYNTHETIC-ONLY',valuationDate:'2026-01-01',landAreaSqm
    const esgHtml=await download(exp);assert.ok(esgHtml.includes(locale==='en'?'Property ESG research screening':'الفحص البحثي للعوامل البيئية والاجتماعية والحوكمة'));assert.ok(!esgHtml.includes('<script>'));
    await input.fill(JSON.stringify({...esg,factors:[{...esg.factors[0],sourceRef:null}]}));await audit.click();await expect(exp).toBeDisabled();await expect(panel.getByTestId('studio-audit-result')).toHaveCount(0);
    const rentalButton=panel.getByTestId('studio-load-rental-example');
-   await panel.locator('details').filter({has:rentalButton}).locator('summary').click();await rentalButton.click();await expect(exp).toBeDisabled();await audit.click();
+   await rentalButton.locator('xpath=ancestor::details[1]/summary').click();await rentalButton.click();await expect(exp).toBeDisabled();await audit.click();
    await expect(panel.getByTestId('studio-audit-result')).toContainText('110000');await expect(panel.getByTestId('studio-audit-result')).toContainText('97020');await expect(exp).toBeEnabled();
    const rentHtml=await download(exp);assert.ok(rentHtml.includes(locale==='en'?'Independent rental research indication':'تقدير بحثي مستقل للقيمة الإيجارية'));assert.ok(!rentHtml.includes('<script>'));
    const rentFixture=JSON.parse(await input.inputValue());await input.fill(JSON.stringify({...rentFixture,comparables:rentFixture.comparables.map(c=>({...c,status:'ASKING'}))}));await expect(exp).toBeDisabled();await audit.click();
@@ -81,6 +81,8 @@ const fixture={reportRef:'SYNTHETIC-ONLY',valuationDate:'2026-01-01',landAreaSqm
    await fill('rental-indicator-input',JSON.stringify(indicator));await ws.getByTestId('rental-indicator-review').click();
    await ws.getByTestId('rental-history-add').click();await ws.getByTestId('rental-history-add').click();
    await expect(ws.getByTestId('rental-history-count')).toContainText('1');
+   const offlineFields=Object.keys(indicator).filter(k=>k!=='version');const offlineCsv=offlineFields.join(',')+'\n'+offlineFields.map(k=>JSON.stringify(String(indicator[k]??''))).join(',');
+   await fill('rental-offline-raw',offlineCsv);await expect(ws.getByTestId('rental-offline-preview')).toBeDisabled();await ws.getByTestId('rental-offline-authorized').check();await ws.getByTestId('rental-offline-preview').click();await expect(ws.getByTestId('rental-offline-result')).toBeVisible();await ws.getByTestId('rental-offline-commit').click();await expect(ws.getByTestId('rental-history-count')).toContainText('1');
    await ws.getByTestId('rental-history-review').click();await expect(ws.getByTestId('rental-history-result')).toContainText(locale==='en'?'REGA':'الهيئة العامة للعقار');
    await expect(ws.getByTestId('rental-indicator-result')).toContainText('SYNTHETIC ONLY');await expect(ws.getByTestId('rental-indicator-result')).toContainText(locale==='en'?'Not a property rental estimate':'لا يمثل هذا المؤشر قيمة إيجارية للعقار');
    await expect(rentResult).toContainText(locale==='en'?'Held: insufficient or conflicting evidence':'معلق: أدلة غير كافية أو متعارضة');

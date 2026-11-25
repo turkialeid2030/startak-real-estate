@@ -11,6 +11,7 @@ on:
       - 'tests/defects/saudi_rental_intelligence.js'
       - 'tests/defects/rental_workspace_indicators.js'
       - 'tests/defects/rent_indicator_history.js'
+      - 'tests/defects/rent_offline_import.js'
       - '.github/workflows/reporting-studio-browser.yml'
   workflow_dispatch:
 permissions:
@@ -48,6 +49,7 @@ jobs:
       - run: node tests/defects/saudi_rental_intelligence.js
       - run: node tests/defects/rental_workspace_indicators.js
       - run: node tests/defects/rent_indicator_history.js
+      - run: node tests/defects/rent_offline_import.js
       - run: node tests/architecture/run_wave10b_esg_evidence.js
       - run: npm run build
       - name: Verify reporting studio journeys

@@ -1,0 +1,27 @@
+'use strict';
+const assert=require('node:assert/strict');
+const {COLUMNS,prepareIndicatorImport}=require('../../src/reporting/saudi-rent-offline-import');
+const {emptyHistory}=require('../../src/reporting/saudi-rent-indicator-history');
+const x={sourceId:'REGA',sourceUrl:'https://rei.rega.gov.sa/en/advanced-search/rental-market',sourceRef:'SYNTHETIC',attribution:'SYNTHETIC, TEST',city:'الرياض',district:'حي تجريبي',kind:'OFFICE',subtype:'GRADE-A',areaBasis:'NLA',periodStart:'2025-10-01',periodEnd:'2025-12-31',publishedDate:'2026-01-01',observedDate:'2026-01-02',priceSource:'REGISTERED',metric:'MEAN_ANNUAL_SAR_PER_SQM',valueSar:100,sampleCount:20,vatBasis:'EXCLUDED',declaredVatRate:'',vatRef:''};
+const line=(r,d)=>COLUMNS.map(k=>'"'+String(r[k]).replace(/"/g,'""')+'"').join(d);
+const csv=(rs,d=',')=>COLUMNS.join(d)+'\r\n'+rs.map(r=>line(r,d)).join('\r\n');
+const base=emptyHistory();let n=0;
+const run=(raw,d=',',a=base,authorized=true)=>prepareIndicatorImport(raw,d,a,authorized);
+function test(name,fn){fn();n++;console.log('PASS '+name);}
+test('quoted comma and Arabic UTF8',()=>{const a=run('\uFEFF'+csv([x]));assert.equal(a.addedRows,1);assert.equal(a.archive.records[0].attribution,x.attribution);assert.equal(a.archive.records[0].city,x.city);assert.equal(a.propertyRentEstimateSar,null);assert.equal(a.liveSourceConnected,false);assert.equal(a.sourceLicenseVerified,false);});
+test('TSV',()=>assert.equal(run(csv([x],'\t'),'\t').addedRows,1));
+test('semicolon',()=>assert.equal(run(csv([x],';'),';').addedRows,1));
+test('duplicate idempotent',()=>{const a=run(csv([x,x]));assert.equal(a.addedRows,1);assert.equal(a.duplicateRows,1);});
+test('existing duplicate',()=>assert.equal(run(csv([x]),',',run(csv([x])).archive).duplicateRows,1));
+test('authorization required',()=>assert.throws(()=>run(csv([x]),',',base,false),/PERMISSION/));
+test('citywide denied',()=>assert.throws(()=>run(csv([{...x,district:'جميع الأحياء'}])),/DISTRICT_REQUIRED/));
+test('missing district denied',()=>assert.throws(()=>run(csv([{...x,district:''}])),/DISTRICT_REQUIRED/));
+test('bad header denied',()=>assert.throws(()=>run(csv([x]).replace('sourceId','tenantName')),/HEADER/));
+test('conflicting row atomic',()=>{assert.throws(()=>run(csv([x,{...x,valueSar:120}])),/CONFLICT/);assert.equal(base.records.length,0);});
+test('invalid date atomic',()=>assert.throws(()=>run(csv([x,{...x,observedDate:'2026-02-30'}])),/IMPORT_RECORD_2/));
+test('formula number denied',()=>assert.throws(()=>run(csv([{...x,valueSar:'=2+2'}])),/IMPORT_NUMBER/));
+test('unclosed quote denied',()=>assert.throws(()=>run(COLUMNS.join(',')+'\n"oops'),/QUOTE/));
+test('no data denied',()=>assert.throws(()=>run(COLUMNS.join(',')),/EMPTY/));
+test('asking cannot become registered',()=>assert.throws(()=>run(csv([{...x,sourceId:'KITE_COMMERCIAL',sourceUrl:'https://platform.kite.sa/docs/reference/market-commercial-rents'}])),/SCOPE/));
+test('limit',()=>assert.throws(()=>run(csv(Array(251).fill(x))),/LIMIT/));
+console.log('RENT_OFFLINE_IMPORT=PASS cases='+n);
