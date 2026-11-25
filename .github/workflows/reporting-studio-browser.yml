@@ -1,0 +1,69 @@
+name: Professional Reporting Studio Acceptance
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'tests/e2e/run_reporting_studio_browser.js'
+      - 'tests/defects/reporting_studio.js'
+      - 'tests/defects/land_history_report.js'
+      - 'tests/defects/owner_redevelopment_research.js'
+      - 'tests/defects/property_esg_screening.js'
+      - 'tests/defects/saudi_rental_intelligence.js'
+      - '.github/workflows/reporting-studio-browser.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  reporting:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e
+      options: --user 1001
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    timeout-minutes: 30
+    env:
+      STARTAK_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+      STARTAK_BROWSER: ${{ matrix.browser }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Bind exact source
+        run: test "$(git rev-parse HEAD)" = "$STARTAK_SOURCE_COMMIT"
+      - run: npm ci
+      - run: node tests/defects/reporting_studio.js
+      - run: node tests/defects/land_history_report.js
+      - run: node tests/defects/owner_redevelopment_research.js
+      - run: node tests/defects/property_esg_screening.js
+      - run: node tests/defects/saudi_rental_intelligence.js
+      - run: node tests/architecture/run_wave10b_esg_evidence.js
+      - run: npm run build
+      - name: Verify reporting studio journeys
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p runtime-evidence/reporting-studio-browser
+          npm run preview -- --host 127.0.0.1 --port 4173 --strictPort >runtime-evidence/reporting-studio-browser/preview.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          for i in $(seq 1 45); do
+            if curl -fsS http://127.0.0.1:4173/ -o /dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:4173/ -o /dev/null
+          STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_reporting_studio_browser.js 2>&1 | tee runtime-evidence/reporting-studio-browser/browser.log
+      - name: Retain browser evidence (including failures)
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: reporting-studio-browser-${{ matrix.browser }}
+          path: runtime-evidence/reporting-studio-browser
+          if-no-files-found: error
