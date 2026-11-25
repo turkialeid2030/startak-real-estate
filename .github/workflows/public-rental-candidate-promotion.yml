@@ -1,0 +1,56 @@
+name: Public Rental Candidate Promotion
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '25 3 * * 0'
+permissions:
+  contents: read
+concurrency:
+  group: public-rental-candidate-promotion
+  cancel-in-progress: false
+jobs:
+  propose:
+    if: github.ref_name == github.event.repository.default_branch && vars.PUBLIC_RENTAL_REUSE_APPROVED == 'true'
+    permissions:
+      contents: write
+      pull-requests: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24'
+      - name: Retrieve and validate public data
+        run: |
+          node tests/defects/public_rent_reference.js
+          node tests/defects/public_rental_candidate.js
+          node tools/refresh-public-rental-data.js
+          node tools/build-public-rental-candidate.js
+      - name: Propose data-only update (never merge)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_BRANCH: ${{ github.event.repository.default_branch }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh pr list --state open --json headRefName --jq '.[].headRefName' | grep -q '^automation/public-rental-candidate-'; then
+            echo 'An earlier data candidate is still open; no new PR.'
+            exit 0
+          fi
+          cp runtime-evidence/rental-candidate/*.csv public/market-data/
+          cp runtime-evidence/rental-candidate/rental-manifest.json public/market-data/
+          node tests/defects/public_rent_reference.js
+          node tests/defects/public_rental_candidate.js
+          git add -- public/market-data
+          if git diff --cached --quiet; then echo 'No data changes'; exit 0; fi
+          git diff --cached --name-only | awk '!/^public\/market-data\/[^/]+$/{bad=1} END{exit bad}'
+          branch="automation/public-rental-candidate-${GITHUB_RUN_ID}"
+          git switch -c "$branch"
+          git config user.name 'startak-data-refresh[bot]'
+          git config user.email 'startak-data-refresh[bot]@users.noreply.github.com'
+          git commit -m 'Propose validated public rental dataset update'
+          git push origin "HEAD:refs/heads/$branch"
+          gh pr create --base "$BASE_BRANCH" --head "$branch" --title 'Public rental data: validated candidate' --body 'Automated append-only public dataset candidate. No direct production deployment. Verify source rights, provenance and required checks before merging. Aggregate research references only.'
