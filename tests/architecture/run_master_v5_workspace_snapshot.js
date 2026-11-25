@@ -27,6 +27,14 @@ async function main(){
   assert.deepEqual((await p.load({identityContext:identity,workspaceId:'W'})).workspace,make());checks++;
   assert.equal(await p.load({identityContext:identity,workspaceId:'OTHER'}),null);checks++;
  }
+ for(const field of ['workspaceId','projectId','caseId']){
+  for(const form of ['leading','trailing']){
+   const noncanonical=make();
+   noncanonical[field]=form==='leading'?' '+noncanonical[field]:noncanonical[field]+' ';
+   await assert.rejects(p.save({identityContext:identity,workspace:noncanonical,expectedVersion:2,operationId:'noncanonical-'+field+'-'+form}),e=>e.code==='WORKSPACE_RESOURCE_IDENTITY_MISMATCH');checks++;
+   assert.deepEqual((await p.load({identityContext:identity,workspaceId:'W'})).workspace,make());checks++;
+  }
+ }
  const invalid=make();invalid.toJSON=()=>({...make(),authority:{...authority(),releaseAuthorized:true}});
  await assert.rejects(p.save({identityContext:identity,workspace:invalid,expectedVersion:2,operationId:'invalid'}),e=>e.code==='WORKSPACE_AUTHORITY_INVARIANT_VIOLATION');checks++;
  const cyclic=make();cyclic.self=cyclic;
