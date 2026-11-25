@@ -7,6 +7,7 @@ const {
   orchestrateValuationStage,
 } = require('../valuation-intelligence');
 const { createValuationPresentation } = require('./valuation-presentation');
+const { assessInstitutionalValuationDecisionBoundary } = require('./institutional-valuation-decision-boundary');
 
 const VALUATION_RUNTIME_MODE = Object.freeze({
   LEGACY_ONLY: SAVED_DEAL_VALUATION_MODE.LEGACY_ONLY,
@@ -65,6 +66,11 @@ function evaluateExistingBuildingValuation({
 
   const stage = orchestrateValuationStage(request);
   const presentation = createValuationPresentation(stage);
+  // The arithmetic stage remains a personal research indication; institutional
+  // authority is separately evaluated on every configured runtime invocation.
+  const institutionalDecision = assessInstitutionalValuationDecisionBoundary({
+    request, stage, institutionalEvidence: valuationCase.institutionalEvidence || null,
+  });
 
   return Object.freeze({
     schemaVersion: 1,
@@ -73,6 +79,7 @@ function evaluateExistingBuildingValuation({
     projectId: valuationCase.projectId,
     stage,
     presentation,
+    institutionalDecision,
     semantics: 'Valuation V1 is additive to the unchanged existing-building legacy calculation. It consumes the already-computed legacy result through a controlled adapter and does not replace or mutate the canonical legacy engine output.',
   });
 }
