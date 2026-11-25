@@ -9,6 +9,10 @@ on:
       - 'src/storage/**'
       - 'functions/api/**'
       - 'tests/architecture/run_master_v5_private_workspace.js'
+      - 'tests/architecture/run_master_v5_workspace_snapshot.js'
+      - 'tests/architecture/run_npm_audit_response_gate.js'
+      - 'tools/npm-audit-response-gate.js'
+      - 'tools/release-verify.js'
       - 'tests/architecture/run_authenticated_canonical_workspace_service_v1.js'
       - 'tests/architecture/run_canonical_workspace_product_runtime_v1.js'
       - 'tests/architecture/run_authenticated_investment_committee_runtime_v1.js'
@@ -64,6 +68,8 @@ jobs:
       - name: Authenticated same-tenant object authorization tests
         run: |
           node tests/architecture/run_master_v5_private_workspace.js
+          node tests/architecture/run_master_v5_workspace_snapshot.js
+          node tests/architecture/run_npm_audit_response_gate.js
           node tests/architecture/run_authenticated_canonical_workspace_service_v1.js
           node tests/architecture/run_canonical_workspace_product_runtime_v1.js
           node tests/runtime/run_canonical_workspace_http_api_tests.js
