@@ -78,6 +78,7 @@ function buildPersonalResearchReport({runtime=null,valuationCase=null,generatedA
   ...codes(stage?.evidenceGaps),
   ...codes(runtime?.specialistRoute?.blockers),
  ];
+ if(runtime?.institutionalDecision?.readyForInstitutionalDecision===false)warnings.push('C62_INSTITUTIONAL_APPROVAL_AND_OFFICIAL_EXPORT_WITHHELD');
  if(!stage)warnings.push('NO_QUALIFIED_VALUATION_STAGE');
  if(!valuationCase)warnings.push('PERSONAL_VALUATION_CONFIGURATION_REQUIRED');
  const core={
