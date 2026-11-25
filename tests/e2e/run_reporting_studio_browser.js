@@ -67,6 +67,31 @@ const fixture={reportRef:'SYNTHETIC-ONLY',valuationDate:'2026-01-01',landAreaSqm
    const holdHtml=await download(exp);assert.ok(holdHtml.includes(locale==='en'?'Held for insufficient or conflicting evidence':'معلق لعدم كفاية الأدلة أو تعارضها'));
    await input.fill('{}');await expect(exp).toBeDisabled();await expect(panel.getByTestId('studio-audit-result')).toHaveCount(0);
    await audit.click();await expect(exp).toBeDisabled();await expect(panel.getByTestId('studio-notice')).toBeVisible();
+   const ws=page.getByTestId('rental-workspace');
+   await expect(ws).toBeVisible();await expect(ws).toHaveAttribute('dir',locale==='en'?'ltr':'rtl');
+   const fill=(k,v)=>ws.getByTestId(k).fill(v),select=(k,v)=>ws.getByTestId(k).selectOption(v);
+   const calc=ws.getByTestId('rental-calculate'),rentExport=ws.getByTestId('rental-export'),rentResult=ws.getByTestId('rental-result');
+   await expect(rentExport).toBeDisabled();await calc.click();await expect(ws.getByTestId('rental-error')).toBeVisible();
+   for(const [k,v] of Object.entries({'rental-property':'SYNTH-P','rental-date':'2026-01-05','rental-city':'SYNTH-CITY','rental-district':'SYNTH-DISTRICT'}))await fill(k,v);
+   await ws.getByTestId('rental-disjoint').check();
+   for(const [k,v] of Object.entries({id:'S1',subtype:'GRADE-A',areaPerUnitSqm:'100',unitCount:'10',occupancy:'90',collection:'98'}))await fill('rental-seg-0-'+k,v);
+   await select('rental-seg-0-kind','OFFICE');await select('rental-seg-0-areaBasis','NLA');
+   await calc.click();await expect(rentResult).toContainText(locale==='en'?'Held: insufficient or conflicting evidence':'معلق: أدلة غير كافية أو متعارضة');
+   const indicator={version:'SAUDI_RENT_INDICATOR_SNAPSHOT_V1',sourceId:'REGA',sourceUrl:'https://rei.rega.gov.sa/en/advanced-search/rental-market',sourceRef:'SYNTH',attribution:'SYNTHETIC ONLY',city:'SYNTH-CITY',district:'SYNTH-DISTRICT',kind:'OFFICE',subtype:'GRADE-A',areaBasis:'NLA',periodStart:'2025-10-01',periodEnd:'2025-12-31',publishedDate:'2026-01-02',observedDate:'2026-01-03',priceSource:'REGISTERED',metric:'MEAN_ANNUAL_SAR_PER_SQM',valueSar:115,sampleCount:20,vatBasis:'INCLUDED',declaredVatRate:.15,vatRef:'SYNTH-VAT'};
+   await fill('rental-indicator-input',JSON.stringify(indicator));await ws.getByTestId('rental-indicator-review').click();
+   await expect(ws.getByTestId('rental-indicator-result')).toContainText('SYNTHETIC ONLY');await expect(ws.getByTestId('rental-indicator-result')).toContainText(locale==='en'?'Not a property rental estimate':'لا يمثل هذا المؤشر قيمة إيجارية للعقار');
+   await expect(rentResult).toContainText(locale==='en'?'Held: insufficient or conflicting evidence':'معلق: أدلة غير كافية أو متعارضة');
+   for(let i=0;i<3;i++){
+    await ws.getByTestId('rental-add-comparable').click();const prefix='rental-comp-'+i+'-';
+    for(const [k,v] of Object.entries({sourceUrl:'https://example.com/synthetic',sourceRecordId:'R'+i,contractRef:'C'+i,subtype:'GRADE-A',city:'SYNTH-CITY',district:'SYNTH-DISTRICT',areaSqm:'100',date:'2026-01-01',observedDate:'2026-01-02',rentAmountSar:String(10000+i*1000)}))await fill(prefix+k,v);
+    for(const [k,v] of Object.entries({status:'EXECUTED',kind:'OFFICE',areaBasis:'NLA',periodMonths:'12',vatBasis:'EXCLUDED'}))await select(prefix+k,v);
+    await ws.getByTestId(prefix+'rentOnly').check();await ws.getByTestId(prefix+'usageRightsDeclared').check();
+   }
+   await expect(ws.getByTestId('rental-indicator-result')).toHaveCount(0);await expect(rentExport).toBeDisabled();await calc.click();
+   const fmt=n=>n.toLocaleString(locale==='en'?'en-US':'ar-SA',{maximumFractionDigits:2});
+   await expect(rentResult).toContainText(fmt(110000));await expect(rentResult).toContainText(fmt(97020));await expect(rentExport).toBeEnabled();
+   const rentalWorkspaceHtml=await download(rentExport);assert.ok(rentalWorkspaceHtml.includes('SHA-256'));assert.ok(!rentalWorkspaceHtml.includes('<script>'));
+   await select('rental-comp-2-status','ASKING');await expect(rentExport).toBeDisabled();await expect(rentResult).toHaveCount(0);await calc.click();await expect(rentResult).toContainText(locale==='en'?'Held: insufficient or conflicting evidence':'معلق: أدلة غير كافية أو متعارضة');
    assert.deepEqual(errors,[]);
    const dir=path.join('runtime-evidence','reporting-studio-browser',engine);await fs.mkdir(dir,{recursive:true});await page.screenshot({path:path.join(dir,locale+'-'+width+'.png')});configs++;
   }finally{await ctx.close();}
