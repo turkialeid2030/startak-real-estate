@@ -5,6 +5,10 @@ on:
       - 'tools/refresh-public-rental-data.js'
       - 'tools/build-public-rental-candidate.js'
       - 'tools/split-public-rental-period.js'
+      - 'tools/stage-rental-geography.js'
+      - 'src/reporting/public-rent-geography.js'
+      - 'src/reporting/public-rent-district-matrix.js'
+      - 'tests/defects/public_rent_geography.js'
       - 'tests/defects/public_rental_candidate.js'
       - 'src/reporting/public-rent-reference.js'
       - 'public/market-data/**'
@@ -30,10 +34,14 @@ jobs:
         run: node tests/defects/public_rent_reference.js
       - name: Verify candidate rules
         run: node tests/defects/public_rental_candidate.js
+      - name: Verify geometry and match rules
+        run: node tests/defects/public_rent_geography.js
       - name: Retrieve published regional files
         run: node tools/refresh-public-rental-data.js
       - name: Build validated publication candidate
         run: node tools/build-public-rental-candidate.js
+      - name: Stage real Riyadh geography for source-rights review
+        run: node tools/stage-rental-geography.js
       - name: Preserve retrieved files and provenance
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
@@ -42,5 +50,6 @@ jobs:
           path: |
             runtime-evidence/rental-public-refresh
             runtime-evidence/rental-candidate
+            runtime-evidence/rental-geography-candidate
           if-no-files-found: warn
           retention-days: 90
