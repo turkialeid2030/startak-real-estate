@@ -4,6 +4,7 @@ const {evaluatePersonalReportExport,assertPersonalReportExportAllowed}=require('
 const {KINDS,ADJUSTMENTS}=require('../reporting/saudi-rental-intelligence');
 const {buildRentalWorkspaceInput,parseLocalRentalJson}=require('../reporting/rental-workspace-input');
 const {SOURCES,reviewRentIndicator}=require('../reporting/saudi-rent-indicator-snapshot');
+const {emptyHistory,appendIndicator,importHistory,reviewHistory,MAX_BYTES}=require('../reporting/saudi-rent-indicator-history');
 const {renderExternalReview,issueLabel}=require('../reporting/reporting-studio');
 const kindNames={APARTMENT:'شقة',VILLA:'فيلا',RESIDENTIAL_BUILDING:'عمارة سكنية',RESIDENTIAL_COMPOUND:'مجمع سكني',OFFICE:'مكتب',RETAIL_SHOP:'محل تجاري',SHOWROOM:'معرض',MALL_UNIT:'وحدة مول',MALL_WHOLE:'مول كامل',WAREHOUSE:'مستودع',LOGISTICS:'مجمع لوجستي',FACTORY:'مصنع',LAND:'أرض',HOTEL_PROPERTY:'عقار فندقي',FUEL_STATION_PROPERTY:'عقار محطة وقود',SCHOOL_PROPERTY:'عقار مدرسة',HEALTHCARE_PROPERTY:'عقار صحي',DATA_CENTER_PROPERTY:'عقار مركز بيانات',PARKING_PROPERTY:'مواقف',OTHER_PROPERTY:'عقار آخر'};
 const segment=()=>({id:'',kind:'',subtype:'',areaBasis:'',areaPerUnitSqm:'',unitCount:'',occupancy:'',collection:'',contractAnnualExVatSar:'',contractRef:''});
@@ -17,8 +18,9 @@ function Field({label,value,onChange,options,type='text',id}){
 function Check({label,value,onChange,id}){return <label className="flex gap-2 items-start text-xs"><input type="checkbox" data-testid={id} checked={value} onChange={e=>onChange(e.target.checked)}/>{label}</label>;}
 export default function RentalIntelligenceWorkspace({locale='ar-SA'}){
  const ar=locale!=='en',t=(a,b)=>ar?a:b,[state,setState]=useState(blank),[prepared,setPrepared]=useState(null),[error,setError]=useState(false),[indicatorRaw,setIndicatorRaw]=useState(''),[indicator,setIndicator]=useState(null),[indicatorError,setIndicatorError]=useState(false),[segmentIndex,setSegmentIndex]=useState('0');
+ const [history,setHistory]=useState(emptyHistory),[historyRaw,setHistoryRaw]=useState(''),[historyView,setHistoryView]=useState(null),[historyError,setHistoryError]=useState(false);
  const {subject,link}=useAppraisalReviewSession(),gate=evaluatePersonalReportExport({subject,link});
- const clear=()=>{setPrepared(null);setError(false);setIndicator(null);setIndicatorError(false);};
+ const clear=()=>{setPrepared(null);setError(false);setIndicator(null);setIndicatorError(false);setHistoryView(null);setHistoryError(false);};
  const change=(fn)=>{clear();setState(fn);};
  const top=(k,v)=>change(s=>({...s,[k]:v}));
  const row=(key,i,k,v)=>change(s=>({...s,[key]:s[key].map((a,j)=>i===j?{...a,[k]:v}:a)}));
@@ -31,6 +33,8 @@ export default function RentalIntelligenceWorkspace({locale='ar-SA'}){
  const calculate=()=>{setPrepared(null);setError(false);try{const input=buildRentalWorkspaceInput(state),out=renderExternalReview(input,{locale});setPrepared({input,hash:out.report.reviewHashSha256,report:out.report});}catch{setError(true);}};
  const exportReport=()=>{try{assertPersonalReportExportAllowed({subject,link});if(!prepared)throw Error('REQUIRED');const input=buildRentalWorkspaceInput(state),out=renderExternalReview(input,{locale});if(out.report.reviewHashSha256!==prepared.hash)throw Error('STALE');const url=URL.createObjectURL(new Blob([out.html],{type:'text/html;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='startak-rental-research.html';try{document.body.appendChild(a);a.click();}finally{a.remove();URL.revokeObjectURL(url);}}catch{setError(true);}};
  const reviewIndicator=()=>{setIndicator(null);setIndicatorError(false);try{const s=state.segments[Number(segmentIndex)];if(!s)throw Error('SEGMENT');setIndicator(reviewRentIndicator(parseLocalRentalJson(indicatorRaw),{city:state.city,district:state.district,kind:s.kind,subtype:s.subtype,areaBasis:s.areaBasis,asOf:state.valuationDate}));}catch{setIndicatorError(true);}};
+ const archiveContext=()=>{const s=state.segments[Number(segmentIndex)];if(!s)throw Error('SEGMENT');return {city:state.city,district:state.district,kind:s.kind,subtype:s.subtype,areaBasis:s.areaBasis,asOf:state.valuationDate};};
+ const historyAction=fn=>{setHistoryError(false);setHistoryView(null);try{fn();}catch{setHistoryError(true);}};
  const sampleIndicator={version:'SAUDI_RENT_INDICATOR_SNAPSHOT_V1',sourceId:'REGA',sourceUrl:SOURCES.REGA.url,sourceRef:'SYNTH-REFERENCE',attribution:'SYNTHETIC EXAMPLE ONLY',city:'SYNTH-CITY',district:'SYNTH-DISTRICT',kind:'OFFICE',subtype:'SYNTH-GRADE',areaBasis:'NLA',periodStart:'2025-10-01',periodEnd:'2025-12-31',publishedDate:'2026-01-02',observedDate:'2026-01-03',priceSource:'REGISTERED',metric:'MEAN_ANNUAL_SAR_PER_SQM',valueSar:100,sampleCount:10,vatBasis:'EXCLUDED',declaredVatRate:null,vatRef:null};
  return <section dir={ar?'rtl':'ltr'} data-testid="rental-workspace" className="mt-4 rounded-xl border border-slate-600 p-4">
  <h3 className="font-semibold">{t('محرك القيمة الإيجارية — مساحة عمل مستقلة','Rental Intelligence — independent workspace')}</h3>
@@ -89,11 +93,24 @@ export default function RentalIntelligenceWorkspace({locale='ar-SA'}){
  <h4 className="mt-4 font-medium">{t('مؤشرات الحي الرسمية والتجارية — مرجع منفصل','Official and commercial neighborhood indicators — separate reference')}</h4>
  <p className="text-xs">{t('روابط مرجعية فقط. لا تُحوّل المؤشرات المجمعة إلى عقود فردية ولا تُستخدم لإنتاج قيمة عقار تلقائيًا.','Reference links only. Aggregate indicators never become individual leases or automatically estimate property rent.')}</p>
  <div className="flex flex-wrap gap-3 text-sm mt-2">{Object.entries(SOURCES).map(([k,v])=><a key={k} href={v.url} target="_blank" rel="noreferrer noopener" className="underline">{k}</a>)}</div>
- <Field label={t('المكون المراد مقارنة المؤشر به','Segment for indicator scope')} value={segmentIndex} onChange={v=>{setSegmentIndex(v);setIndicator(null);setIndicatorError(false);}} options={state.segments.map((s,i)=>[String(i),s.id||String(i+1)])}/>
+ <Field label={t('المكون المراد مقارنة المؤشر به','Segment for indicator scope')} value={segmentIndex} onChange={v=>{setSegmentIndex(v);setIndicator(null);setIndicatorError(false);setHistoryView(null);setHistoryError(false);}} options={state.segments.map((s,i)=>[String(i),s.id||String(i+1)])}/>
  <details className="mt-2 text-xs"><summary>{t('مخطط إدخال مؤشر مجمع (مثال اصطناعي)','Aggregate input schema (synthetic example)')}</summary><pre className="whitespace-pre-wrap break-all">{JSON.stringify(sampleIndicator,null,2)}</pre></details>
  <label className="block mt-2 text-xs">{t('ألصق سجل المؤشر المجمع مع الإسناد للمصدر','Paste aggregate indicator record with attribution')}<textarea className={className} data-testid="rental-indicator-input" rows={5} maxLength={65536} value={indicatorRaw} onChange={e=>{setIndicatorRaw(e.target.value);setIndicator(null);setIndicatorError(false);}}/></label>
  <button type="button" className={button+' mt-2'} data-testid="rental-indicator-review" onClick={reviewIndicator}>{t('مراجعة المؤشر المرجعي','Review reference indicator')}</button>
  {indicatorError&&<p role="alert" data-testid="rental-indicator-error">{t('تعذر التحقق من بنية المؤشر أو نطاقه','Invalid indicator schema or scope')}</p>}
  {indicator&&<div data-testid="rental-indicator-result" className="mt-2 text-xs"><p>{t('المؤشر المرجعي دون الضريبة','Reference metric ex VAT')}: {amount(indicator.referenceMetricExVatSar)} — {indicator.input.metric}</p><p>{t('العينة','Sample')}: {indicator.input.sampleCount} — {indicator.input.periodStart} / {indicator.input.periodEnd}</p><p>{indicator.input.attribution}</p><p>{indicator.flags.join(' / ')||t('لا ملاحظات على البنية؛ المصدر غير متحقق مستقلًا','No schema flags; source independently unverified')}</p><p>{t('لا يمثل هذا المؤشر قيمة إيجارية للعقار','Not a property rental estimate')}</p></div>}
+ <h4 className="mt-4 font-medium">{t('أرشيف المؤشرات التاريخية — محلي','Historical indicator archive — local')}</h4>
+ <p className="text-xs">{t('السجلات المصرح بها غير مصادق عليها. الأرشيف في ذاكرة الجلسة فقط؛ انسخ النص لحفظه خارج المنصة. لا تدخل بيانات شخصية أو سرية. بصمة الملف تكشف التغيير ولا تثبت أصالة المصدر.','Declared, unauthenticated records. Session memory only; copy the archive text for external retention. Do not enter personal or confidential data. A hash detects changes, not source authenticity.')}</p>
+ <p data-testid="rental-history-count" className="text-sm">{t('السجلات','Records')}: {history.records.length}</p>
+ <div className="flex flex-wrap gap-2 mt-2">
+ <button type="button" data-testid="rental-history-add" className={button} disabled={!indicator} onClick={()=>historyAction(()=>{setHistory(appendIndicator(history,indicator.input));setHistoryRaw('');})}>{t('حفظ المؤشر في الأرشيف','Archive reviewed indicator')}</button>
+ <button type="button" data-testid="rental-history-review" className={button} onClick={()=>historyAction(()=>setHistoryView(reviewHistory(history,archiveContext())))}>{t('عرض تاريخ النطاق الحالي','Review current scope history')}</button>
+ <button type="button" className={button} onClick={()=>historyAction(()=>setHistoryRaw(JSON.stringify(history)))}>{t('إعداد نص الأرشيف للنسخ','Prepare archive text for copying')}</button>
+ <button type="button" className={button} disabled={!historyRaw} onClick={()=>historyAction(()=>{if(history.records.length)throw Error('CLEAR_FIRST');setHistory(importHistory(historyRaw));setHistoryRaw('');})}>{t('استعادة إلى أرشيف فارغ','Restore into empty archive')}</button>
+ <button type="button" className={button} onClick={()=>{setHistory(emptyHistory());setHistoryRaw('');setHistoryView(null);setHistoryError(false);}}>{t('مسح الأرشيف المحلي','Clear local archive')}</button>
+ </div>
+ <label className="block mt-2 text-xs">{t('نص الأرشيف المحلي','Local archive text')}<textarea className={className} rows={4} maxLength={MAX_BYTES} value={historyRaw} onChange={e=>setHistoryRaw(e.target.value)}/></label>
+ {historyError&&<p role="alert" data-testid="rental-history-error">{t('تعذر إكمال العملية: تحقق من السجل والنطاق والبصمة، أو امسح الأرشيف قبل الاستعادة.','Operation failed: check record, scope and hash, or clear archive before restoring.')}</p>}
+ {historyView&&<div data-testid="rental-history-result" className="mt-2 text-xs"><p>{t('عدد الرصدات ضمن النطاق','Observations in scope')}: {historyView.observations.length}</p><ul>{historyView.observations.map((r,i)=><li key={i}>{r.input.sourceId} — {r.input.periodStart} / {r.input.periodEnd} — {r.input.observedDate} — {r.input.metric} — {amount(r.referenceMetricExVatSar)} — {r.flags.join(' / ')||t('غير مصادق عليه','Unauthenticated')}</li>)}</ul></div>}
  </section>;
 }
