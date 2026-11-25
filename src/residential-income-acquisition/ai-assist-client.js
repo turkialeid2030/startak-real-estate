@@ -54,6 +54,8 @@ async function performReview(viewModel, options = {}) {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       credentials: 'same-origin',
+      mode: 'same-origin',
+      redirect: 'error',
       cache: 'no-store',
       body: JSON.stringify(requestBody),
       signal: options.signal,
