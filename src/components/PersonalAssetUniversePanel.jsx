@@ -1,5 +1,6 @@
 import React, {useState} from 'react';
 import PersonalSectorValuationWorkbench from './PersonalSectorValuationWorkbench.jsx';
+import LocalSectorOperatingResearchPanel from './LocalSectorOperatingResearchPanel.jsx';
 import PersonalLimitedInterestDcfPanel from './PersonalLimitedInterestDcfPanel.jsx';
 import PersonalPhasedDevelopmentDcfPanel from './PersonalPhasedDevelopmentDcfPanel.jsx';
 import ExternalThreeGatesReadinessPanel from './ExternalThreeGatesReadinessPanel.jsx';
@@ -41,6 +42,7 @@ export default function PersonalAssetUniversePanel({locale='ar-SA'}) {
         {ar?sector.evidenceAr:sector.evidenceEn}
       </p>
       <ExternalThreeGatesReadinessPanel locale={locale}/>
+      <LocalSectorOperatingResearchPanel key={assetClass+'-operating'} assetClass={assetClass} locale={locale}/>
       <PersonalSectorValuationWorkbench key={assetClass} assetClass={assetClass} locale={locale}/>
       <PersonalLimitedInterestDcfPanel key={assetClass+'-rights'} assetClass={assetClass} locale={locale}/>
       {assetClass==='LAND'&&<PersonalPhasedDevelopmentDcfPanel key="land-development" locale={locale}/> }
