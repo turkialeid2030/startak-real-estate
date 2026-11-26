@@ -75,3 +75,6 @@ P20 requires a structurally complete P19 result with matching plan, evidence and
 ### P9 candidate binding
 
 P9 includes the independent qualification's commit and digest only after its integrity check. P20 requires all three canonical gate states, the explicit full non-authority field set, the external-evidence boundary, three evidence references and the independent qualification's exact commit to match the P20 candidate. The manifest retains digests of the P9 references, not their raw values. This is structural consistency checking, not proof of independent provenance or production authority.
+
+### V6.10 handoff re-verification
+The unresolved external blocker register explicitly includes GIT_HISTORY_SECRET_SCAN_REMEDIATION_AND_ROTATION. Blocker identifiers are bounded; explicit authority overrides (even null) are prohibited. Rejected P19 inputs do not expose purported verified refs/counts. `verifyReleaseCandidateManifest(manifest, sourceInput, asOf)` reconstructs the expected ready-for-review manifest from separate source inputs and rechecks P19 freshness at the requested review time. This is structural verification only, not source authentication or human approval. Previously generated manifests need regeneration under the amended blocker contract.
