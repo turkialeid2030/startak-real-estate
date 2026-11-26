@@ -51,4 +51,14 @@ const fableWithEvidence=assessActivation({
 assert.equal(fableWithEvidence.externalProviderCallAuthorized,false);
 assert.equal(fableWithEvidence.status,'HOLD_NOT_AUTHORIZED');
 assert(fableWithEvidence.blockerCodes.includes('PRODUCTION_PROVIDER_ACTIVATION_OUTSIDE_CATALOG_SCOPE'));
+const claims=['verifiedRights','independentEvaluatorApproved','contractualNoTraining','regionEvidenceVerified','piiDlpApproved','ownerApproved','vendorRetentionExceptionVerified'];
+const expected=['SOURCE_RIGHTS_NOT_VERIFIED','MODEL_BENCHMARK_NOT_INDEPENDENTLY_APPROVED','PROVIDER_NO_TRAINING_CONTRACT_NOT_VERIFIED','PROCESSING_REGION_NOT_VERIFIED','DLP_AND_PRIVACY_NOT_APPROVED','OWNER_APPROVAL_NOT_VERIFIED','ZERO_DATA_RETENTION_UNAVAILABLE_WITHOUT_VENDOR_EXCEPTION'];
+for(const value of ['false',1,{},[]]){
+  const forged=assessActivation({modelId:'claude-fable-5-2',task:TASK.FINANCIAL_CHALLENGE,dataClass:DATA_CLASS.PUBLIC_SYNTHETIC,...Object.fromEntries(claims.map(k=>[k,value]))});
+  for(const code of expected)assert(forged.blockerCodes.includes(code));
+  assert.strictEqual(forged.externalProviderCallAuthorized,false);
+}
+const invalid=assessActivation({modelId:'unlisted',task:{private:'DO_NOT_ECHO'},dataClass:'DO_NOT_ECHO'});
+assert.strictEqual(invalid.task,null);assert.strictEqual(invalid.dataClass,null);assert(!JSON.stringify(invalid).includes('DO_NOT_ECHO'));
+console.log('STARTAK_RE_V614_CANDIDATE_EVIDENCE_TYPES=PASS cases=5');
 console.log('STARTAK_RE_AI_MODEL_CANDIDATES_HOLD=PASS');

@@ -193,6 +193,35 @@ async function main() {
       assert.strictEqual(res.status,502);
       assert.strictEqual((await res.json()).code,code);
     }
+    const goodText=JSON.stringify(providerResult());
+    const msg=(content,extra={})=>({type:'message',role:'assistant',content,...extra});
+    const outputText=text=>({type:'output_text',text});
+    const modernBase={status:'completed',model:'gpt-6.2-sol',usage:{input_tokens:100,output_tokens:80,total_tokens:180}};
+    const badOutputs=[
+      [{output:[msg([outputText(goodText),{type:'refusal',refusal:'DECLINED'}])]},'AI_PROVIDER_REFUSAL'],
+      [{output_text:goodText,output:[msg([{type:'refusal',refusal:'DECLINED'}])]},'AI_PROVIDER_REFUSAL'],
+      [{output_text:goodText,output:[msg([outputText('{}')])]},'AI_PROVIDER_RESPONSE_UNSUPPORTED'],
+      [{output:[msg([outputText(goodText),outputText(goodText)])]},'AI_PROVIDER_RESPONSE_UNSUPPORTED'],
+      [{output:[msg([outputText(goodText)]),msg([outputText(goodText)])]},'AI_PROVIDER_RESPONSE_UNSUPPORTED'],
+      [{output:[msg([outputText(goodText)],{role:'user'})]},'AI_PROVIDER_RESPONSE_UNSUPPORTED'],
+      [{output:[msg([outputText(goodText)],{status:'incomplete'})]},'AI_PROVIDER_RESPONSE_UNSUPPORTED'],
+      [{output:[{type:'function_call'},msg([outputText(goodText)])]},'AI_PROVIDER_RESPONSE_UNSUPPORTED'],
+      [{status:undefined,output:[msg([outputText(goodText)])]},'AI_PROVIDER_RESPONSE_UNSUPPORTED']
+    ];
+    for(const [patch,code] of badOutputs){
+      global.fetch=async()=>jsonResponse({...modernBase,...patch});
+      const res=await onRequestPost({request:request(),env:modern('gpt-6.2-sol')});
+      const data=await res.json();
+      assert.strictEqual(res.status,502,JSON.stringify(data));assert.strictEqual(data.code,code);assert.strictEqual(data.aiModelUsed,false);assert.strictEqual(data.result,undefined);
+    }
+    let malformedUrlCalls=0;
+    global.fetch=async()=>{malformedUrlCalls++;return jsonResponse({});};
+    for(const url of ['https://user:pass@api.openai.com/v1/responses','https://api.openai.com:8443/v1/responses','https://api.openai.com/v1/responses#fragment']){
+      const res=await onRequestPost({request:request(),env:env({RIAI_AI_PROVIDER_URL:url})});
+      assert.strictEqual(res.status,503);assert.strictEqual((await res.json()).code,'AI_PROVIDER_URL_INVALID');
+    }
+    assert.strictEqual(malformedUrlCalls,0);
+    console.log('RIAI_V614_PROVIDER_RESPONSE_BOUNDARY=PASS cases=9 url_cases=3 mocked_provider_only=true');
     console.log('RIAI_GPT6_MODEL_REFRESH=PASS mocked_provider_only=true');
     console.log('RIAI_OPENAI_RESPONSES_ADAPTER=PASS');
     console.log('OPENAI_RESPONSES_STRUCTURED_OUTPUT=PASS');
