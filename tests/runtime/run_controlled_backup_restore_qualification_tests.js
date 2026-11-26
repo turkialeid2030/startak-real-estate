@@ -81,6 +81,8 @@ function baseInput(overrides = {}) {
 
 function backupResult(overrides = {}) {
   return {
+    sourceDatabaseRef:'staging-db-ref',
+    sourceDatabaseName:'startak_staging',
     artifactId: 'backup-artifact-001',
     artifactHashSha256: 'c'.repeat(64),
     artifactSizeBytes: 1024,
@@ -93,6 +95,8 @@ function backupResult(overrides = {}) {
 
 function restoreResult(overrides = {}) {
   return {
+    restoreTargetDatabaseRef:'staging-restore-db-ref',
+    restoreTargetDatabaseName:'startak_staging_restore',
     restoredArtifactHashSha256: 'c'.repeat(64),
     startedAt: '2026-09-09T16:02:00.000Z',
     finishedAt: '2026-09-09T16:05:00.000Z',
@@ -102,6 +106,9 @@ function restoreResult(overrides = {}) {
 
 function verificationResult(overrides = {}) {
   return {
+    sourceDatabaseRef:'staging-db-ref',
+    restoreTargetDatabaseRef:'staging-restore-db-ref',
+    observedAt:'2026-09-09T16:05:20.000Z',
     sourceRecordCount: 100,
     restoredRecordCount: 100,
     sourceFingerprintSha256: 'd'.repeat(64),
@@ -180,7 +187,7 @@ function assertAuthorityClosed(result) {
     assert.strictEqual(result.verification.fingerprintsMatch, true);
     assert.strictEqual(result.resilienceEvidence.scenario, RESILIENCE_SCENARIO.BACKUP_RESTORE);
     assert.strictEqual(result.resilienceEvidence.status, PERFORMANCE_STATUS.PASS);
-    assert.strictEqual(result.resilienceEvidence.observedRecoveryTimeSeconds, 180);
+    assert.strictEqual(result.resilienceEvidence.observedRecoveryTimeSeconds, 200);
     assert.strictEqual(result.resilienceEvidence.observedDataLossSeconds, 0);
     assertAuthorityClosed(result);
   });
@@ -210,6 +217,7 @@ function assertAuthorityClosed(result) {
   await test('PRODUCTIZATION-P16-08', async () => {
     const { qualify } = buildHarness({
       restoreValue: restoreResult({ finishedAt: '2026-09-09T16:20:00.000Z' }),
+      verificationValue:verificationResult({observedAt:'2026-09-09T16:20:20Z'}),
     });
     const result = await qualify(baseInput({ assessedAt: '2026-09-09T16:25:00.000Z' }));
     assert.strictEqual(result.status, BACKUP_RESTORE_STATUS.HOLD_RECOVERY_OBJECTIVE);
@@ -286,6 +294,41 @@ function assertAuthorityClosed(result) {
     const c=await buildHarness({verificationValue:verificationResult({restoredRecordCount:98})}).qualify(baseInput());
     const e=await buildHarness({verificationValue:verificationResult({restoredRecordCount:99})}).qualify(baseInput());
     assert.strictEqual(c.status,e.status);assert.notStrictEqual(c.bundleHashSha256,e.bundleHashSha256);
+  });
+  for(const [id,patch,status,next] of [
+    ['SOURCE-IDENTITY',{backupValue:backupResult({sourceDatabaseName:'other'})},BACKUP_RESTORE_STATUS.HOLD_BACKUP,'restore'],
+    ['FUTURE-BACKUP',{backupValue:backupResult({finishedAt:'2026-09-09T16:11:00Z'})},BACKUP_RESTORE_STATUS.HOLD_BACKUP,'restore'],
+    ['TARGET-IDENTITY',{restoreValue:restoreResult({restoreTargetDatabaseRef:'other'})},BACKUP_RESTORE_STATUS.HOLD_RESTORE,'verify'],
+    ['FUTURE-RESTORE',{restoreValue:restoreResult({finishedAt:'2026-09-09T16:11:00Z'})},BACKUP_RESTORE_STATUS.HOLD_RESTORE,'verify'],
+    ['VERIFY-IDENTITY',{verificationValue:verificationResult({sourceDatabaseRef:'other'})},BACKUP_RESTORE_STATUS.HOLD_VERIFICATION,null],
+    ['VERIFY-NO-TIME',{verificationValue:verificationResult({observedAt:undefined})},BACKUP_RESTORE_STATUS.HOLD_VERIFICATION,null],
+    ['VERIFY-PRE-RESTORE',{verificationValue:verificationResult({observedAt:'2026-09-09T16:04:00Z'})},BACKUP_RESTORE_STATUS.HOLD_VERIFICATION,null],
+    ['VERIFY-FUTURE',{verificationValue:verificationResult({observedAt:'2026-09-09T16:11:00Z'})},BACKUP_RESTORE_STATUS.HOLD_VERIFICATION,null],
+    ['RESTORED-AFTER-SNAPSHOT',{verificationValue:verificationResult({latestRestoredDataAt:'2026-09-09T16:00:31Z'})},BACKUP_RESTORE_STATUS.HOLD_VERIFICATION,null]
+  ])await test('P16-'+id,async()=>{
+    const {qualify,calls}=buildHarness(patch);
+    const out=await qualify(baseInput());
+    assert.strictEqual(out.status,status);if(next)assert.strictEqual(calls[next].length,0);assertAuthorityClosed(out);
+  });
+  await test('P16-RTO-INCLUDES-VERIFICATION',async()=>{
+    const {qualify}=buildHarness();
+    const out=await qualify(baseInput({recoveryObjectives:{maximumRecoveryTimeSeconds:190,maximumDataLossSeconds:60,objectiveSourceRef:'policy://staging'}}));
+    assert.strictEqual(out.status,BACKUP_RESTORE_STATUS.HOLD_RECOVERY_OBJECTIVE);
+    assert.strictEqual(out.resilienceEvidence.observedRecoveryTimeSeconds,200);
+  });
+  await test('P16-LIVE-REJECTS-STALE-BACKUP',async()=>{
+    const {qualify,calls}=buildHarness();
+    const out=await qualify(baseInput({assessedAt:undefined}));
+    assert.strictEqual(out.status,BACKUP_RESTORE_STATUS.HOLD_BACKUP);assert.strictEqual(calls.restore.length,0);
+  });
+  await test('P16-FUTURE-CUTOFF',async()=>{
+    const {qualify,calls}=buildHarness();
+    await assert.rejects(()=>qualify(baseInput({assessedAt:'2999-01-01T00:00:00Z'})),/must not be in the future/);
+    assert.strictEqual(calls.backup.length,0);
+  });
+  await test('P16-UNSAFE-COUNT',async()=>{
+    const {qualify}=buildHarness({verificationValue:verificationResult({sourceRecordCount:Number.MAX_SAFE_INTEGER+1,restoredRecordCount:Number.MAX_SAFE_INTEGER+1})});
+    assert.strictEqual((await qualify(baseInput())).status,BACKUP_RESTORE_STATUS.HOLD_VERIFICATION);
   });
   const failed = results.filter((entry) => entry[1] !== 'PASS');
   console.log(`PRODUCTIZATION_P16_BACKUP_RESTORE_QUALIFICATION_RESULT=${failed.length === 0 ? 'PASS' : 'FAIL'} ${results.filter((entry) => entry[1] === 'PASS').length}/${results.length}`);
