@@ -71,3 +71,7 @@ P20 must not be interpreted as permission to merge or deploy.
 ### P19 handoff integrity
 
 P20 requires a structurally complete P19 result with matching plan, evidence and bundle digests, explicit zero open Critical/High findings, a bound UAT scenario count and scenario-plan/result digests. Freshness is rechecked at P20 review time. Hashes are not signatures; external authenticity, scenario-level source evidence and independent authority remain unresolved external requirements.
+
+### P9 candidate binding
+
+P9 includes the independent qualification's commit and digest only after its integrity check. P20 requires all three canonical gate states, the explicit full non-authority field set, the external-evidence boundary, three evidence references and the independent qualification's exact commit to match the P20 candidate. The manifest retains digests of the P9 references, not their raw values. This is structural consistency checking, not proof of independent provenance or production authority.

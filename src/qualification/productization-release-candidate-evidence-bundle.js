@@ -124,15 +124,36 @@ function assertNoAuthorityOverride(value = {}) {
   }
 }
 
-function productionQualificationReady(value) {
+const P9_AUTHORITY_KEYS=Object.freeze([
+  'releaseAuthorized','mergeAuthorized','deploymentAuthorized','goLiveAuthorized','transactionAuthorized',
+  'productionAuthenticationValidated','productionPersistenceValidated','productionSecurityValidated',
+  'productionPerformanceValidated','legalApprovalEstablished','certifiedValuationEstablished'
+]);
+const SHA256_RE=/^[a-f0-9]{64}$/i;
+function productionQualificationReady(value, target) {
+  const gates=value?.gates,refs=value?.evidenceRefs,boundary=value?.evidenceBoundary;
   return Boolean(
-    value
-    && typeof value === 'object'
-    && value.status === PRODUCTION_QUALIFICATION_STATUS.READY_FOR_EXISTING_RELEASE_GOVERNANCE_REVIEW
-    && value.releaseGovernanceReviewEligible === true
-    && value.humanReleaseAuthorityApprovalRequired === true
-    && value.authority
-    && Object.values(value.authority).every((item) => item === false)
+    value && typeof value==='object'
+    && value.status===PRODUCTION_QUALIFICATION_STATUS.READY_FOR_EXISTING_RELEASE_GOVERNANCE_REVIEW
+    && value.releaseGovernanceReviewEligible===true
+    && value.humanReleaseAuthorityApprovalRequired===true
+    && value.nextStep==='EXISTING_RELEASE_GOVERNANCE_REVIEW'
+    && Array.isArray(value.reasonCodes)&&value.reasonCodes.length===0
+    && gates?.productionReadiness?.status==='READY_FOR_PRODUCTION_REVIEW'
+    && gates.productionReadiness.ready===true
+    && gates?.independentReleaseQualification?.status==='READY_FOR_RELEASE_AUTHORITY_REVIEW'
+    && gates.independentReleaseQualification.ready===true
+    && gates.independentReleaseQualification.integrityValid===true
+    && gates.independentReleaseQualification.exactCommitSha===target.exactCommitSha
+    && SHA256_RE.test(gates.independentReleaseQualification.qualificationHashSha256||'')
+    && gates?.institutionalGoLiveReview?.status==='READY_FOR_HUMAN_GO_LIVE_DECISION'
+    && gates.institutionalGoLiveReview.ready===true
+    && ['productionReadinessRef','independentReleaseQualificationRef','institutionalGoLiveRef'].every(k=>typeof refs?.[k]==='string'&&refs[k].trim().length>0)
+    && boundary?.independentReleaseIntegrityVerified===true
+    && boundary.externalEvidenceRequired===true
+    && ['productionEvidenceValidatedByThisService','productionReadinessProvenanceVerifiedByThisService','institutionalEvidenceProvenanceVerifiedByThisService','productionAuthenticationValidated','productionPersistenceValidated'].every(k=>boundary[k]===false)
+    && value.authority && Object.keys(value.authority).length===P9_AUTHORITY_KEYS.length
+    && P9_AUTHORITY_KEYS.every(k=>Object.hasOwn(value.authority,k)&&value.authority[k]===false)
   );
 }
 
@@ -158,7 +179,8 @@ function safeProductionQualificationSummary(value) {
     status: typeof value.status === 'string' ? value.status : null,
     releaseGovernanceReviewEligible: value.releaseGovernanceReviewEligible === true,
     humanReleaseAuthorityApprovalRequired: value.humanReleaseAuthorityApprovalRequired === true,
-    nextStep: typeof value.nextStep === 'string' ? value.nextStep : null,
+    nextStep: ['EXISTING_RELEASE_GOVERNANCE_REVIEW','COMPLETE_EXTERNAL_QUALIFICATION_EVIDENCE'].includes(value.nextStep) ? value.nextStep : null,
+    evidenceReferenceDigests: Object.fromEntries(['productionReadinessRef','independentReleaseQualificationRef','institutionalGoLiveRef'].map(k=>[k,typeof value.evidenceRefs?.[k]==='string'&&value.evidenceRefs[k].trim()?sha256Object(value.evidenceRefs[k].trim()):null])),
     gates: {
       productionReadiness: {
         status: typeof value.gates?.productionReadiness?.status === 'string' ? value.gates.productionReadiness.status : null,
@@ -168,6 +190,8 @@ function safeProductionQualificationSummary(value) {
         status: typeof value.gates?.independentReleaseQualification?.status === 'string' ? value.gates.independentReleaseQualification.status : null,
         ready: value.gates?.independentReleaseQualification?.ready === true,
         integrityValid: value.gates?.independentReleaseQualification?.integrityValid === true,
+        exactCommitSha: COMMIT_SHA_RE.test(value.gates?.independentReleaseQualification?.exactCommitSha||'') ? value.gates.independentReleaseQualification.exactCommitSha : null,
+        qualificationHashSha256: SHA256_RE.test(value.gates?.independentReleaseQualification?.qualificationHashSha256||'') ? value.gates.independentReleaseQualification.qualificationHashSha256 : null,
       },
       institutionalGoLiveReview: {
         status: typeof value.gates?.institutionalGoLiveReview?.status === 'string' ? value.gates.institutionalGoLiveReview.status : null,
@@ -181,9 +205,9 @@ function safeSecurityUatSummary(value) {
   if (!value || typeof value !== 'object') return null;
   return freeze({
     status: typeof value.status === 'string' ? value.status : null,
-    evidenceBundleRef: typeof value.evidenceBundleRef === 'string' ? value.evidenceBundleRef : null,
-    pentestEvidenceRef: typeof value.pentestEvidenceRef === 'string' ? value.pentestEvidenceRef : null,
-    uatEvidenceRef: typeof value.uatEvidenceRef === 'string' ? value.uatEvidenceRef : null,
+    evidenceBundleRef: typeof value.evidenceBundleRef === 'string' && /^sha256:[a-f0-9]{64}$/i.test(value.evidenceBundleRef) ? value.evidenceBundleRef : null,
+    pentestEvidenceRef: typeof value.pentestEvidenceRef === 'string' && /^sha256:[a-f0-9]{64}$/i.test(value.pentestEvidenceRef) ? value.pentestEvidenceRef : null,
+    uatEvidenceRef: typeof value.uatEvidenceRef === 'string' && /^sha256:[a-f0-9]{64}$/i.test(value.uatEvidenceRef) ? value.uatEvidenceRef : null,
     openCriticalFindings: Number.isInteger(value.pentest?.openFindingCounts?.CRITICAL) ? value.pentest.openFindingCounts.CRITICAL : null,
     openHighFindings: Number.isInteger(value.pentest?.openFindingCounts?.HIGH) ? value.pentest.openFindingCounts.HIGH : null,
     uatFailedScenarios: Number.isInteger(value.uat?.failedScenarios) ? value.uat.failedScenarios : null,
@@ -212,7 +236,7 @@ function buildProductizationReleaseCandidateEvidenceBundle(input = {}) {
   const issues = [];
   let status = RELEASE_CANDIDATE_STATUS.READY_FOR_EXISTING_RELEASE_GOVERNANCE_REVIEW;
 
-  if (!productionQualificationReady(input.productionQualification)) {
+  if (!productionQualificationReady(input.productionQualification, target)) {
     status = RELEASE_CANDIDATE_STATUS.HOLD_PRODUCTION_QUALIFICATION;
     issues.push('PRODUCTION_QUALIFICATION_NOT_READY');
   } else if (!securityUatReady(input.securityUatEvidence, target, reviewed.value)) {

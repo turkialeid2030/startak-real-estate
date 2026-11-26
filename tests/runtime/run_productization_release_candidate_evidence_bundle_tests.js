@@ -36,9 +36,12 @@ function productionQualification(overrides = {}) {
     releaseGovernanceReviewEligible: true,
     humanReleaseAuthorityApprovalRequired: true,
     nextStep: NEXT_STEP.EXISTING_RELEASE_GOVERNANCE_REVIEW,
+    reasonCodes:[],
+    evidenceRefs:{productionReadinessRef:'SYNTH-P9-READINESS',independentReleaseQualificationRef:'SYNTH-P9-INDEPENDENT',institutionalGoLiveRef:'SYNTH-P9-INSTITUTIONAL'},
+    evidenceBoundary:{productionEvidenceValidatedByThisService:false,productionReadinessProvenanceVerifiedByThisService:false,independentReleaseIntegrityVerified:true,institutionalEvidenceProvenanceVerifiedByThisService:false,productionAuthenticationValidated:false,productionPersistenceValidated:false,externalEvidenceRequired:true},
     gates: {
       productionReadiness: { status: 'READY_FOR_PRODUCTION_REVIEW', ready: true },
-      independentReleaseQualification: { status: 'READY_FOR_RELEASE_AUTHORITY_REVIEW', ready: true, integrityValid: true },
+      independentReleaseQualification: { status: 'READY_FOR_RELEASE_AUTHORITY_REVIEW', ready: true, integrityValid: true,exactCommitSha:COMMIT,qualificationHashSha256:'1'.repeat(64) },
       institutionalGoLiveReview: { status: 'READY_FOR_HUMAN_GO_LIVE_DECISION', ready: true },
     },
     authority: {
@@ -224,6 +227,39 @@ function assertAuthorityClosed(result) {
     assert.strictEqual(result.securityUatEvidence.uatScenarioCount,1);
     assert.strictEqual(result.securityUatEvidence.uatScenarioPlanHashSha256,valid.uat.scenarioBinding.planHashSha256);
     assertAuthorityClosed(result);
+  });
+
+  const p9=productionQualification();
+  const invalidP9=[
+    {authority:{}},
+    {authority:{...p9.authority,releaseAuthorized:true}},
+    {reasonCodes:['UNRESOLVED']},
+    {gates:{...p9.gates,productionReadiness:{...p9.gates.productionReadiness,ready:false}}},
+    {gates:{...p9.gates,independentReleaseQualification:{...p9.gates.independentReleaseQualification,exactCommitSha:'d'.repeat(40)}}},
+    {gates:{...p9.gates,independentReleaseQualification:{...p9.gates.independentReleaseQualification,qualificationHashSha256:null}}},
+    {gates:{...p9.gates,independentReleaseQualification:{...p9.gates.independentReleaseQualification,integrityValid:false}}},
+    {gates:{...p9.gates,institutionalGoLiveReview:{...p9.gates.institutionalGoLiveReview,ready:false}}},
+    {evidenceRefs:{}},
+    {evidenceBoundary:{...p9.evidenceBoundary,externalEvidenceRequired:false}},
+    {nextStep:'COMPLETE_EXTERNAL_QUALIFICATION_EVIDENCE'}
+  ];
+  for(const [i,patch] of invalidP9.entries())await test('PRODUCTIZATION-P20-INVALID-P9-'+i,async()=>{
+    const result=buildProductizationReleaseCandidateEvidenceBundle(input({productionQualification:productionQualification(patch)}));
+    assert.strictEqual(result.status,RELEASE_CANDIDATE_STATUS.HOLD_PRODUCTION_QUALIFICATION);
+    assertAuthorityClosed(result);
+  });
+  await test('PRODUCTIZATION-P20-P9-IDENTITY-SUMMARY',async()=>{
+    const out=buildProductizationReleaseCandidateEvidenceBundle(input());
+    assert.strictEqual(out.productionQualification.gates.independentReleaseQualification.exactCommitSha,COMMIT);
+    assert.strictEqual(out.productionQualification.gates.independentReleaseQualification.qualificationHashSha256,'1'.repeat(64));
+    assert.strictEqual(out.productionQualification.evidenceReferenceDigests.productionReadinessRef.length,64);
+    assert.ok(!JSON.stringify(out).includes('SYNTH-P9-READINESS'));
+  });
+  await test('PRODUCTIZATION-P20-REJECTED-REF-MINIMIZATION',async()=>{
+    const out=buildProductizationReleaseCandidateEvidenceBundle(input({securityUatEvidence:securityUat({evidenceBundleRef:'SYNTH-PRIVATE-REF-NOT-FOR-OUTPUT'})}));
+    assert.strictEqual(out.status,RELEASE_CANDIDATE_STATUS.HOLD_SECURITY_UAT_EVIDENCE);
+    assert.strictEqual(out.securityUatEvidence.evidenceBundleRef,null);
+    assert.ok(!JSON.stringify(out).includes('SYNTH-PRIVATE-REF-NOT-FOR-OUTPUT'));
   });
 
   const failed = results.filter((entry) => entry[1] !== 'PASS');
