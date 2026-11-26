@@ -218,6 +218,7 @@ function makeResult({ status, plan, authorization, metrics, alert, incident }) {
     schemaVersion: 1,
     status,
     planHashSha256: plan.planHashSha256,
+    reviewedAt: plan.assessmentMode==='LIVE_CLOCK'?new Date().toISOString():plan.assessedAt,
     drFailoverQualificationRef: plan.drFailoverQualificationRef,
     authorizationAccepted: authorization?.accepted === true,
     authorizationRef: authorization ? `sha256:${sha256Object(authorization)}` : null,
@@ -408,9 +409,11 @@ function verifyCompletedObservabilityQualification(value,asOf){
   const objectives=normalizeObjectives(plan.monitoringObjectives);
   if(sha256Object(objectives)!==sha256Object(plan.monitoringObjectives))return false;
   const when=(v)=>requiredTimestamp(v,'evidence timestamp').millis;
-  const assessed=when(plan.assessedAt),review=when(asOf);
+  const assessed=when(plan.assessedAt),review=when(asOf),completed=when(value.reviewedAt);
   if(!['RETROSPECTIVE_CUTOFF','LIVE_CLOCK'].includes(plan.assessmentMode))return false;
-  const cutoff=plan.assessmentMode==='LIVE_CLOCK'?review:assessed;
+  if(assessed>completed||completed>review||completed>Date.now())return false;
+  if(plan.assessmentMode==='RETROSPECTIVE_CUTOFF'&&value.reviewedAt!==plan.assessedAt)return false;
+  const cutoff=completed;
   const expectedScope=scopeRef({environment:plan.environment,serviceRef:plan.serviceRef,exactCommitSha:plan.exactCommitSha,probeId:plan.probeId});
   if([metrics,alert,incident].some(stage=>stage?.scopeRef!==expectedScope)||incident.linkedAlertIdRef!==alert.alertIdRef)return false;
   if(assessed>review||authorization.accepted!==true||
@@ -434,7 +437,7 @@ function verifyCompletedObservabilityQualification(value,asOf){
      incident.acknowledgeSecondsFromDelivery>objectives.maximumIncidentAcknowledgeSeconds||
      ['incidentRef','runbookRef','onCallOwnerRef','escalationPolicyRef'].some(k=>!isHashRef(incident[k])))return false;
   // Pure verification: never freeze or otherwise mutate caller-owned evidence.
-  const core={schemaVersion:1,status:value.status,planHashSha256,drFailoverQualificationRef:plan.drFailoverQualificationRef,
+  const core={schemaVersion:1,status:value.status,planHashSha256,reviewedAt:value.reviewedAt,drFailoverQualificationRef:plan.drFailoverQualificationRef,
     authorizationAccepted:true,authorizationRef:'sha256:'+sha256Object(authorization),
     metricsRef:'sha256:'+sha256Object(metrics),alertRef:'sha256:'+sha256Object(alert),
     incidentRef:'sha256:'+sha256Object(incident)};

@@ -379,6 +379,47 @@ function assertAuthorityClosed(result) {
     assert.strictEqual(verifyCompletedObservabilityQualification(out,baseInput().assessedAt),true);
     assert.strictEqual(verifyCompletedObservabilityQualification({...out,incident:{...out.incident,linkedAlertIdRef:'sha256:'+'0'.repeat(64)}},baseInput().assessedAt),false);
   });
+  await test('P18-V621-RETROSPECTIVE-COMPLETION-BINDING',async()=>{
+    const {qualify}=harness();const out=await qualify(baseInput({execute:true}));
+    assert.strictEqual(out.reviewedAt,out.plan.assessedAt);
+    assert.strictEqual(verifyCompletedObservabilityQualification(out,baseInput().assessedAt),true);
+    const crypto=require('node:crypto');
+    const canonical=v=>Array.isArray(v)?v.map(canonical):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,canonical(v[k])])):v;
+    const digest=v=>crypto.createHash('sha256').update(JSON.stringify(canonical(v))).digest('hex');
+    const rehash=patch=>{
+      const modified={...out,...patch};
+      const core=Object.fromEntries(['schemaVersion','status','planHashSha256','reviewedAt','drFailoverQualificationRef','authorizationAccepted','authorizationRef','metricsRef','alertRef','incidentRef'].map(k=>[k,modified[k]]));
+      modified.evidenceHashSha256=digest(core);modified.evidenceRef='sha256:'+modified.evidenceHashSha256;return modified;
+    };
+    for(const reviewedAt of [undefined,'2026-09-09T16:11:00Z','2026-09-09T16:13:00Z','2999-01-01T00:00:00Z']){
+      assert.strictEqual(verifyCompletedObservabilityQualification(rehash({reviewedAt}),baseInput().assessedAt),false);
+    }
+    assert.strictEqual(verifyCompletedObservabilityQualification(out,'2026-09-09T16:11:59Z'),false);
+  });
+  await test('P18-V621-LIVE-COMPLETION-BOUNDARY',async()=>{
+    const now=()=>new Date().toISOString();
+    const qualify=createControlledObservabilityIncidentQualification({
+      metricsExecutor:async()=>{const at=now();return metricsResult({observedAt:at,latestSampleAt:at});},
+      alertExecutor:async()=>{const at=now();return alertResult({triggeredAt:at,deliveredAt:at});},
+      incidentExecutor:async()=>{const at=now();return incidentResult({openedAt:at,acknowledgedAt:at,resolvedAt:at});}
+    });
+    const out=await qualify(baseInput({execute:true,assessedAt:undefined}));
+    assert.strictEqual(out.status,OBSERVABILITY_STATUS.OBSERVABILITY_INCIDENT_EVIDENCE_COMPLETE_NOT_PRODUCTION_CERTIFIED);
+    assert.strictEqual(out.plan.assessmentMode,'LIVE_CLOCK');
+    assert.ok(Date.parse(out.reviewedAt)>=Date.parse(out.incident.resolvedAt));
+    assert.strictEqual(verifyCompletedObservabilityQualification(out,now()),true);
+    const crypto=require('node:crypto');
+    const canonical=v=>Array.isArray(v)?v.map(canonical):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,canonical(v[k])])):v;
+    const digest=v=>crypto.createHash('sha256').update(JSON.stringify(canonical(v))).digest('hex');
+    const forgedResolved=new Date(Date.parse(out.reviewedAt)+1000).toISOString();
+    const incident={...out.incident,resolvedAt:forgedResolved};
+    const modified={...out,incident,incidentRef:'sha256:'+digest(incident)};
+    const core=Object.fromEntries(['schemaVersion','status','planHashSha256','reviewedAt','drFailoverQualificationRef','authorizationAccepted','authorizationRef','metricsRef','alertRef','incidentRef'].map(k=>[k,modified[k]]));
+    modified.evidenceHashSha256=digest(core);modified.evidenceRef='sha256:'+modified.evidenceHashSha256;
+    assert.strictEqual(verifyCompletedObservabilityQualification(modified,new Date(Date.parse(forgedResolved)+1000).toISOString()),false);
+    assertAuthorityClosed(out);
+  });
+  console.log('P18_V621_COMPLETION_WINDOW=CHECKED retrospective_and_live=true');
   const failed = results.filter((entry) => entry[1] !== 'PASS');
   console.log(`PRODUCTIZATION_P18_OBSERVABILITY_INCIDENT_RESULT=${failed.length === 0 ? 'PASS' : 'FAIL'} ${results.filter((entry) => entry[1] === 'PASS').length}/${results.length}`);
   if (failed.length > 0) process.exit(1);
