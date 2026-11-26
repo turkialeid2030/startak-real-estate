@@ -222,6 +222,20 @@ async function main() {
     }
     assert.strictEqual(malformedUrlCalls,0);
     console.log('RIAI_V614_PROVIDER_RESPONSE_BOUNDARY=PASS cases=9 url_cases=3 mocked_provider_only=true');
+    const strictCases=[
+      [{unexpected:'unknown'},'AI_RESPONSE_SCHEMA_INVALID'],
+      [{riskFlags:[{code:'Buy',severity:'HIGH',rationale:'Review evidence'}]},'AUTOMATIC_DECISION_LANGUAGE_PROHIBITED'],
+      [{riskFlags:[{code:'X'.repeat(121),severity:'HIGH',rationale:'Review evidence'}]},'riskFlags_INVALID'],
+      [{riskFlags:[{code:'RISK',severity:'HIGH',rationale:'Review evidence',extra:'unknown'}]},'riskFlags_INVALID'],
+      [{earlyWarningIndicators:[{indicator:'X'.repeat(221),whyItMatters:'Review evidence'}]},'earlyWarningIndicators_INVALID'],
+      [{decisionBoundary:'X'.repeat(501)},'decisionBoundary_INVALID']
+    ];
+    for(const [patch,code] of strictCases){
+      global.fetch=async()=>jsonResponse({...modernBase,output:[msg([outputText(JSON.stringify({...providerResult(),...patch}))])]});
+      const res=await onRequestPost({request:request(),env:modern('gpt-6.2-sol')});const data=await res.json();
+      assert.strictEqual(res.status,502,JSON.stringify(data));assert.strictEqual(data.code,code);assert.strictEqual(data.result,undefined);
+    }
+    console.log('RIAI_V615_SERVER_OUTPUT_BOUNDARY=PASS cases=6 mocked_provider_only=true');
     console.log('RIAI_GPT6_MODEL_REFRESH=PASS mocked_provider_only=true');
     console.log('RIAI_OPENAI_RESPONSES_ADAPTER=PASS');
     console.log('OPENAI_RESPONSES_STRUCTURED_OUTPUT=PASS');

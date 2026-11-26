@@ -135,10 +135,14 @@ function validateTextList(value, field) {
   return null;
 }
 
+function validBoundedText(value,max){return typeof value==='string'&&value.trim().length>0&&value.length<=max;}
+function exactFields(value,keys){return !!value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).length===keys.length&&keys.every(k=>Object.hasOwn(value,k));}
+const NARRATIVE_FIELDS=['executiveObservations','riskFlags','evidenceGaps','dueDiligenceQuestions','scenarioChecks','earlyWarningIndicators','decisionBoundary'];
 function sanitizeProviderOutput(payload) {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return { error: 'AI_RESPONSE_OBJECT_REQUIRED' };
   const qualitativeError = qualitativeOutputError(payload);
   if (qualitativeError) return { error: qualitativeError };
+  if(!exactFields(payload,NARRATIVE_FIELDS))return {error:'AI_RESPONSE_SCHEMA_INVALID'};
   for (const field of ['executiveObservations', 'evidenceGaps', 'dueDiligenceQuestions', 'scenarioChecks']) {
     const error = validateTextList(payload[field], field);
     if (error) return { error };
@@ -147,18 +151,18 @@ function sanitizeProviderOutput(payload) {
   if (!Array.isArray(payload.riskFlags) || payload.riskFlags.length > MAX_ITEMS) return { error: 'riskFlags_INVALID' };
   const riskFlags = [];
   for (const item of payload.riskFlags) {
-    if (!item || typeof item !== 'object' || !ALLOWED_SEVERITY.has(item.severity)) return { error: 'riskFlags_INVALID' };
+    if (!exactFields(item,['code','severity','rationale']) || !ALLOWED_SEVERITY.has(item.severity)||!validBoundedText(item.code,120)||!validBoundedText(item.rationale,MAX_TEXT)) return { error: 'riskFlags_INVALID' };
     const code = trimText(item.code, 120);
     const rationale = trimText(item.rationale);
     if (!code || !rationale) return { error: 'riskFlags_INVALID' };
-    if (containsForbiddenDecisionLanguage(rationale)) return { error: 'AUTOMATIC_DECISION_LANGUAGE_PROHIBITED' };
+    if (containsForbiddenDecisionLanguage(code+' '+rationale)) return { error: 'AUTOMATIC_DECISION_LANGUAGE_PROHIBITED' };
     riskFlags.push({ code, severity: item.severity, rationale });
   }
 
   if (!Array.isArray(payload.earlyWarningIndicators) || payload.earlyWarningIndicators.length > MAX_ITEMS) return { error: 'earlyWarningIndicators_INVALID' };
   const earlyWarningIndicators = [];
   for (const item of payload.earlyWarningIndicators) {
-    if (!item || typeof item !== 'object') return { error: 'earlyWarningIndicators_INVALID' };
+    if (!exactFields(item,['indicator','whyItMatters'])||!validBoundedText(item.indicator,220)||!validBoundedText(item.whyItMatters,MAX_TEXT)) return { error: 'earlyWarningIndicators_INVALID' };
     const indicator = trimText(item.indicator, 220);
     const whyItMatters = trimText(item.whyItMatters);
     if (!indicator || !whyItMatters) return { error: 'earlyWarningIndicators_INVALID' };
@@ -167,7 +171,7 @@ function sanitizeProviderOutput(payload) {
   }
 
   const decisionBoundary = trimText(payload.decisionBoundary);
-  if (!decisionBoundary) return { error: 'decisionBoundary_INVALID' };
+  if (!validBoundedText(payload.decisionBoundary,MAX_TEXT)) return { error: 'decisionBoundary_INVALID' };
   if (containsForbiddenDecisionLanguage(decisionBoundary)) return { error: 'AUTOMATIC_DECISION_LANGUAGE_PROHIBITED' };
 
   return {

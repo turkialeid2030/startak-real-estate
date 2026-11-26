@@ -23,5 +23,11 @@ class FakeKV { constructor(){ this.map=new Map(); } async get(k){ return this.ma
   assert.equal((await g.writeAuditRecord({store:{put:()=>new Promise(()=>{})},record,timeoutMs:10})).code,'AI_AUDIT_WRITE_TIMEOUT');
   assert.equal((await g.writeAuditRecord({store:{put:()=>{throw new Error('test');}},record})).code,'AI_AUDIT_WRITE_FAILED');
   assert.equal((await g.writeAuditRecord({store:{put:()=>{throw null;}},record})).code,'AI_AUDIT_WRITE_FAILED');
+  assert.equal(g.enforceSnapshotDataDiscipline({...valid,signals:{amount:Number.MAX_SAFE_INTEGER+1}}).code,'SNAPSHOT_UNSAFE_INTEGER');
+  for(const key of ['__proto__','constructor','prototype']){
+    const bad=JSON.parse('{"signals":{"'+key+'":"SYNTHETIC"}}');
+    assert.equal(g.enforceSnapshotDataDiscipline(bad).code,'SNAPSHOT_KEY_NOT_PERMITTED');
+  }
+  console.log('RIAI_V615_SNAPSHOT_BOUNDARY=PASS cases=4');
   console.log('RIAI_GUARDRAILS_UNIT=PASS');
 })().catch((e)=>{ console.error(e); process.exit(1); });
