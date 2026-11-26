@@ -127,4 +127,24 @@ const replay2 = evaluateOperatorWorkspaceAction({session: viewer, workspaceActio
 assert.strictEqual(replay1.auditEvent.auditEventHashSha256, replay2.auditEvent.auditEventHashSha256);
 assert.strictEqual(replay1.resultHashSha256, replay2.resultHashSha256);
 
+// Exact canonical envelopes, MFA and causal action timing.
+const noMfa=session(ROLE.ANALYST,{mfaVerified:false});
+const mfaResult=evaluateOperatorWorkspaceAction({session:noMfa,workspaceAction:action(noMfa,ACTION.VIEW_CASE),caseSnapshot:CASE,asOf:AS_OF});
+assert.strictEqual(mfaResult.status,STATUS.DENIED_PERMISSION);
+assert.strictEqual(mfaResult.blocker,'C26_PERMISSION_MFA_REQUIRED');
+const futureAction=action(analyst,ACTION.VIEW_CASE,{}, {requestedAt:'2026-10-01T17:30:00Z'});
+assert.strictEqual(evaluateOperatorWorkspaceAction({session:analyst,workspaceAction:futureAction,caseSnapshot:CASE,asOf:AS_OF}).status,STATUS.HOLD_TEMPORAL);
+for(const [s,a] of [[{...analyst,approvalAuthorized:true},action(analyst,ACTION.VIEW_CASE)],[analyst,{...action(analyst,ACTION.VIEW_CASE),transactionAuthorized:true}],[{...analyst,issuedAt:'invalid'},action(analyst,ACTION.VIEW_CASE)],[analyst,{...action(analyst,ACTION.VIEW_CASE),requestedAt:'invalid'}]]){
+  assert.strictEqual(evaluateOperatorWorkspaceAction({session:s,workspaceAction:a,caseSnapshot:CASE,asOf:AS_OF}).status,STATUS.HOLD_INTEGRITY);
+}
+for(const payload of [JSON.parse('{"__proto__":{"unexpected":true}}'),{nested:{constructor:'invalid'}},{value:NaN},{value:Number.MAX_SAFE_INTEGER+1},{value:undefined}]){
+  assert.throws(()=>action(analyst,ACTION.SUBMIT_ANALYST_NOTE,payload),/C26_PAYLOAD_/);
+}
+const rawPayload={nested:{note:'review'}};
+const immutable=action(analyst,ACTION.SUBMIT_ANALYST_NOTE,rawPayload);
+rawPayload.nested.note='changed';
+assert.strictEqual(immutable.payload.nested.note,'review');
+assert.ok(Object.isFrozen(immutable.payload.nested));
+assert.strictEqual(evaluateOperatorWorkspaceAction({session:analyst,workspaceAction:immutable,caseSnapshot:CASE,asOf:AS_OF}).status,STATUS.ALLOWED);
+console.log('C26_V611_OPERATOR_SESSION_ACTION_GUARDS=PASS synthetic_session=true');
 console.log('C26_GOVERNED_OPERATOR_WORKSPACE_RBAC=PASS');

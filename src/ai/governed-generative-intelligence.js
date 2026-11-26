@@ -55,7 +55,7 @@ function iso(value, field) {
 function stable(value) {
   if (Array.isArray(value)) return value.map(stable);
   if (!value || typeof value !== 'object') return value;
-  return Object.keys(value).sort().reduce((out, key) => { out[key] = stable(value[key]); return out; }, {});
+  return Object.fromEntries(Object.keys(value).sort().map(key=>[key,stable(value[key])]));
 }
 function sha256(value) {
   try { return crypto.createHash('sha256').update(JSON.stringify(stable(value))).digest('hex'); }
@@ -101,7 +101,7 @@ function createGovernedModelProfile(x = {}) {
   if (!allowedDataClasses.length || allowedDataClasses.some((v) => !Object.values(DATA_CLASS).includes(v))) throw new TypeError('C22_PROFILE_DATA_CLASSES_INVALID');
   if (x.trainingUseCustomerData !== false) throw new TypeError('C22_PROFILE_TRAINING_USE_MUST_BE_FALSE');
   if (x.publicAiAllowed !== false || x.transactionAuthority !== false || x.approvalAuthority !== false) throw new TypeError('C22_PROFILE_AUTHORITY_MUST_BE_FALSE');
-  if (typeof x.maxOutputTokens !== 'number' || !Number.isInteger(x.maxOutputTokens) || x.maxOutputTokens <= 0) throw new TypeError('C22_PROFILE_MAX_OUTPUT_TOKENS_INVALID');
+  if (typeof x.maxOutputTokens !== 'number' || !Number.isSafeInteger(x.maxOutputTokens) || x.maxOutputTokens <= 0) throw new TypeError('C22_PROFILE_MAX_OUTPUT_TOKENS_INVALID');
   if (typeof x.temperature !== 'number' || !Number.isFinite(x.temperature) || x.temperature < 0 || x.temperature > 2) throw new TypeError('C22_PROFILE_TEMPERATURE_INVALID');
   const reviewedAt = iso(x.reviewedAt, 'reviewedAt');
   const validUntil = iso(x.validUntil, 'validUntil');

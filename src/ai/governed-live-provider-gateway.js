@@ -8,6 +8,7 @@ const {
   createGovernedModelProfile,
   createGovernedAiRequest,
   DATA_CLASS,
+  DEPLOYMENT_MODE,
 } = require('./governed-generative-intelligence');
 
 const CAPABILITY = 'C23_GOVERNED_LIVE_AI_PROVIDER_GATEWAY_V1';
@@ -199,7 +200,7 @@ function createProviderAuthorization(x = {}) {
   ];
   required.forEach((f) => { if (!nonEmpty(x[f])) throw new TypeError(`${f} must be a non-empty string`); });
   if (x.environment !== ENVIRONMENT.ISOLATED_NON_PRODUCTION) throw new TypeError('C23_PROVIDER_ENVIRONMENT_NOT_ALLOWED');
-  const evidenceHashesSha256 = uniqueStrings(x.evidenceHashesSha256 || [], 'evidenceHashesSha256');
+  const evidenceHashesSha256 = uniqueStrings((x.evidenceHashesSha256 || []).map(h=>requireHash(h,'authorization evidence hash')), 'evidenceHashesSha256');
   if (evidenceHashesSha256.length < 6 || evidenceHashesSha256.some((h) => !HASH_RE.test(h))) throw new TypeError('C23_PROVIDER_AUTH_EVIDENCE_HASHES_REQUIRED');
   if (x.trainingUseCustomerData !== false) throw new TypeError('C23_PROVIDER_CUSTOMER_TRAINING_MUST_BE_FALSE');
   const reviewedAt = iso(x.reviewedAt, 'reviewedAt');
@@ -290,7 +291,7 @@ function createProviderResponseEnvelope(x = {}) {
   if (x.providerResult !== PROVIDER_RESULT.SUCCESS) throw new TypeError('C23_PROVIDER_RESPONSE_SUCCESS_REQUIRED');
   const claims = normalizeProviderClaims(x.claims);
   const generatedAt = iso(x.generatedAt, 'generatedAt');
-  if (x.overrideDeterministicGateRequested === true || x.followedUntrustedInstructions === true || x.autonomousActionExecuted === true) throw new TypeError('C23_PROVIDER_UNSAFE_RESPONSE_FLAGS');
+  if (['overrideDeterministicGateRequested','followedUntrustedInstructions','autonomousActionExecuted'].some(k=>x[k]!==false)) throw new TypeError('C23_PROVIDER_UNSAFE_RESPONSE_FLAGS');
   const core = {
     schemaVersion: 1,
     responseId: x.responseId.trim(),
@@ -349,8 +350,12 @@ function baseBlockers({ modelProfile, request, groundingManifest, providerAuthor
     blockers.push('C23_INTEGRITY_REQUEST_PROFILE_SCHEMA');
     return blockers;
   }
+  if (modelProfile.deploymentMode===DEPLOYMENT_MODE.SIMULATION_ONLY) blockers.push('C23_SECURITY_SIMULATION_ONLY_PROFILE');
   if (!modelProfile.allowedTaskClasses.includes(request.taskClass)) blockers.push('C23_SECURITY_TASK_CLASS_NOT_ALLOWED');
   const at = Date.parse(asOf);
+  const invocationStart=Date.parse(invocation.createdAt);
+  if([modelProfile.reviewedAt,request.createdAt,groundingManifest.reviewedAt,providerAuthorization.reviewedAt].some(v=>Date.parse(v)>invocationStart))blockers.push('C23_WINDOW_INVOCATION_PREDATES_PREREQUISITES');
+  if(Date.parse(modelProfile.reviewedAt)>Date.parse(request.createdAt)||Date.parse(request.createdAt)>Date.parse(groundingManifest.reviewedAt))blockers.push('C23_WINDOW_REVIEW_SEQUENCE_INVALID');
   const startTimes = [modelProfile.reviewedAt,request.createdAt];
   const endTimes = [modelProfile.validUntil,request.validUntil];
   if (startTimes.some(value=>!Number.isFinite(Date.parse(value)) || Date.parse(value)>at))
@@ -389,6 +394,7 @@ function baseBlockers({ modelProfile, request, groundingManifest, providerAuthor
     if(item.deterministicOutputHashSha256 && !deterministicHashes.has(item.deterministicOutputHashSha256.toLowerCase()))
       blockers.push('C23_EVIDENCE_DETERMINISTIC_SOURCE_NOT_BOUND_TO_REQUEST:'+item.itemId);
     if (item.caseId !== request.caseId || item.propertyRef !== request.propertyRef) blockers.push(`C23_CONTEXT_GROUNDING_ITEM:${item.itemId}`);
+    if(Date.parse(item.knownAt)>Date.parse(groundingManifest.reviewedAt))blockers.push('C23_WINDOW_GROUNDING_POSTDATES_REVIEW:'+item.itemId);
     if (Date.parse(item.knownAt) > Date.parse(asOf)) blockers.push(`C23_WINDOW_GROUNDING_FUTURE:${item.itemId}`);
     if (Date.parse(item.validUntil) < Date.parse(asOf)) blockers.push(`C23_WINDOW_GROUNDING_STALE:${item.itemId}`);
     if (!modelProfile.allowedDataClasses.includes(item.dataClass)) blockers.push(`C23_SECURITY_DATA_CLASS_NOT_ALLOWED:${item.itemId}`);

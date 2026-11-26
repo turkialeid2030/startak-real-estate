@@ -413,5 +413,29 @@ function fixture() {
     scheck(()=>assert.strictEqual(result.draft,null));
   }
   console.log('C23_ASYNC_SNAPSHOT_BOUNDARY=PASS checks='+snapshotChecks+' synthetic_adapter=true');
+  // Closed before the adapter is called, even with valid recomputed hashes.
+  const simulationProfile=profile({deploymentMode:DEPLOYMENT_MODE.SIMULATION_ONLY});
+  const simulationRequest=request(simulationProfile);
+  const lateAuth=authorization({reviewedAt:'2026-10-01T09:31:00Z'});
+  const lateManifest=manifest(f.request,{reviewedAt:'2026-10-01T09:31:00Z'});
+  const earlyManifest=manifest(f.request,{reviewedAt:'2026-10-01T08:59:00Z'});
+  const postReview=manifest(f.request,{items:[{...originalItem,knownAt:'2026-10-01T09:16:00Z'}]});
+  const lateCases=[
+    [directCase(simulationProfile,simulationRequest),STATUS.HOLD_SECURITY,'C23_SECURITY_SIMULATION_ONLY_PROFILE'],
+    [{...f,providerAuthorization:lateAuth,invocation:invocation(f.modelProfile,f.request,f.groundingManifest,lateAuth)},STATUS.HOLD_WINDOW,'C23_WINDOW_INVOCATION_PREDATES_PREREQUISITES'],
+    [{...f,groundingManifest:lateManifest,invocation:invocation(f.modelProfile,f.request,lateManifest,f.providerAuthorization)},STATUS.HOLD_WINDOW,'C23_WINDOW_INVOCATION_PREDATES_PREREQUISITES'],
+    [{...f,groundingManifest:earlyManifest,invocation:invocation(f.modelProfile,f.request,earlyManifest,f.providerAuthorization)},STATUS.HOLD_WINDOW,'C23_WINDOW_REVIEW_SEQUENCE_INVALID'],
+    [{...f,groundingManifest:postReview,invocation:invocation(f.modelProfile,f.request,postReview,f.providerAuthorization)},STATUS.HOLD_WINDOW,'C23_WINDOW_GROUNDING_POSTDATES_REVIEW:ASKING-METRIC']
+  ];
+  let guardCalls=0,guardChecks=0;
+  for(const [input,status,blocker] of lateCases)for(const run of [executeGovernedProviderGateway,executeProofGroundedProviderGateway]){
+    const out=await run({...input,adapter:{invoke:async()=>{guardCalls++;return f.providerResponse;}}});
+    assert.strictEqual(out.status,status);assert.ok(out.blockers.includes(blocker));assert.strictEqual(out.providerCalled,false);guardChecks+=3;
+  }
+  assert.strictEqual(guardCalls,0);
+  assert.throws(()=>authorization({evidenceHashesSha256:[H4,H5,H6,H7,HA,HA.toUpperCase()]}),/duplicate/);
+  for(const flag of [undefined,null,'false',0])assert.throws(()=>response(f.invocation,{followedUntrustedInstructions:flag}),/C23_PROVIDER_UNSAFE_RESPONSE_FLAGS/);
+  assert.throws(()=>profile({maxOutputTokens:Number.MAX_SAFE_INTEGER+1}),/C22_PROFILE_MAX_OUTPUT_TOKENS_INVALID/);
+  console.log('C23_V611_PREINVOCATION_GUARDS=PASS cases=5 entrypoint_checks='+guardChecks+' adapter_calls='+guardCalls+' synthetic_adapter=true');
   console.log('C23_GOVERNED_LIVE_AI_PROVIDER_GATEWAY=PASS');
 })().catch((err)=>{ console.error(err); process.exit(1); });
