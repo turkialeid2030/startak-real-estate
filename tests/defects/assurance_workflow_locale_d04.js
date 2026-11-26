@@ -20,7 +20,14 @@ const ok=(condition,message)=>{assert.ok(condition,message);checks++;};
   ok(english.trim()&&!/[\u0600-\u06ff]/.test(english),'English system label: '+arabic);
   ok(assuranceLabel(arabic,'ar-SA')===arabic,'Arabic system label remains unchanged');
  }
- for(const value of Object.values(reasonText))ok(assuranceLabel(value,'en')!==value,'Every quality-gate reason is translated');
+ for(const [code,value] of Object.entries(reasonText))ok(assuranceLabel(value,'en')!==value,'Every quality-gate reason is translated: '+code);
+ const invalidNumeric=auditValuationReadiness({subject:{assetType:'LAND',location:'24.75,46.65',landArea:'1000'},report:{eligibleSalesCount:Infinity,marketAnnualRentPotentialSar:-1,todayValueScenarioSar:1000000},asOf:'2026-01-01T12:00:00Z'});
+ for(const [code,english] of [['COMPARABLE_COUNT_INVALID','Invalid comparable count'],['RENT_INDICATION_INVALID','Invalid rental indication']]){
+  ok(invalidNumeric.issues.includes(code),'Numeric boundary issue: '+code);
+  ok(invalidNumeric.issueDescriptions.includes(reasonText[code]),'Arabic numeric reason: '+code);
+  ok(assuranceLabel(reasonText[code],'en')===english,'English numeric reason: '+code);
+ }
+ ok(invalidNumeric.preliminaryValueSar===null&&invalidNumeric.newAnnualMarketRentSar===null&&invalidNumeric.publishableProfessionalReport===false,'Invalid numerical data stays held in either locale');
  const subject={name:'اسم المصدر العربي HOLD',assetType:'RESIDENTIAL_COMPOUND',landArea:'1200.5',valuationDate:'2026-01-01'};
  const readiness=auditValuationReadiness({subject,report:{},asOf:'2026-01-01T12:00:00Z'});
  const quality=evaluateAppraisalReportQuality({subject,readiness,asOf:'2026-01-01T12:00:00Z'});

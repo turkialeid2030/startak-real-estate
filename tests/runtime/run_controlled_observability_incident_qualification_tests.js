@@ -295,6 +295,30 @@ function assertAuthorityClosed(result) {
     assert.strictEqual((await qualify(baseInput({execute:true}))).status,OBSERVABILITY_STATUS.HOLD_ALERT_DELIVERY);
     assert.strictEqual(calls.incident,0);
   });
+  await test('P18-VERIFIER-READ-ONLY',async()=>{
+    const {qualify}=harness();
+    const result=JSON.parse(JSON.stringify(await qualify(baseInput({execute:true}))));
+    const before=JSON.stringify(result);
+    assert.strictEqual(verifyCompletedObservabilityQualification(result,baseInput().assessedAt),true);
+    assert.strictEqual(JSON.stringify(result),before);
+    for(const record of [result,result.plan,result.authorization,result.metrics,result.alert,result.incident])
+      assert.strictEqual(Object.isFrozen(record),false);
+  });
+  await test('P18-FUTURE-AUTH-CLOSED-RECORD',async()=>{
+    const {qualify,calls}=harness();
+    const result=await qualify(baseInput({execute:true,authorization:authorization({approvedAt:'2026-09-10T00:00:00Z'})}));
+    assert.strictEqual(result.status,OBSERVABILITY_STATUS.HOLD_AUTHORIZATION);
+    assert.strictEqual(result.authorizationAccepted,false);
+    assert.strictEqual(result.authorization.accepted,false);
+    assert.strictEqual(result.authorization.approvedAt,null);
+    assert.strictEqual(calls.metrics,0);
+  });
+  await test('P18-DR-HASH-NONSTRING',async()=>{
+    const {qualify,calls}=harness();
+    const result=await qualify(baseInput({execute:true,drFailoverQualification:drQualification({executionHashSha256:['d'.repeat(64)]})}));
+    assert.strictEqual(result.status,OBSERVABILITY_STATUS.HOLD_DR_FAILOVER_QUALIFICATION);
+    assert.strictEqual(calls.metrics,0);
+  });
   const failed = results.filter((entry) => entry[1] !== 'PASS');
   console.log(`PRODUCTIZATION_P18_OBSERVABILITY_INCIDENT_RESULT=${failed.length === 0 ? 'PASS' : 'FAIL'} ${results.filter((entry) => entry[1] === 'PASS').length}/${results.length}`);
   if (failed.length > 0) process.exit(1);

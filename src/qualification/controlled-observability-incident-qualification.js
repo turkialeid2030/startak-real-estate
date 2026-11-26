@@ -130,6 +130,7 @@ function normalizeAuthorization(value, target) {
     && normalized.reviewedBy
     && normalized.approvedBy !== normalized.reviewedBy
     && approvedAtValid
+    && Date.parse(normalized.approvedAt)<=target.assessedAtMillis
     && normalized.changeControlRef
     && normalized.environment === target.environment
     && normalized.serviceRef === target.serviceRef
@@ -258,7 +259,8 @@ function createControlledObservabilityIncidentQualification({
     const drComplete = Boolean(
       drFailoverQualification
       && drFailoverQualification.status === DR_FAILOVER_STATUS.DR_FAILOVER_EVIDENCE_COMPLETE_NOT_PRODUCTION_CERTIFIED
-      && /^[a-f0-9]{64}$/i.test(drFailoverQualification.executionHashSha256 || '')
+      && typeof drFailoverQualification.executionHashSha256==='string'
+      && /^[a-f0-9]{64}$/i.test(drFailoverQualification.executionHashSha256)
       && drFailoverQualification.plan?.environment === env
       && drFailoverQualification.plan?.exactCommitSha === commitSha,
     );
@@ -286,8 +288,8 @@ function createControlledObservabilityIncidentQualification({
       return makeResult({ status: OBSERVABILITY_STATUS.DRY_RUN_READY, plan });
     }
 
-    const auth = normalizeAuthorization(authorization, { environment: env, serviceRef: service, exactCommitSha: commitSha });
-    if (!auth?.accepted || Date.parse(auth.approvedAt)>assessed.millis) {
+    const auth = normalizeAuthorization(authorization, { environment: env, serviceRef: service, exactCommitSha: commitSha, assessedAtMillis: assessed.millis });
+    if (!auth?.accepted) {
       return makeResult({ status: OBSERVABILITY_STATUS.HOLD_AUTHORIZATION, plan, authorization: auth });
     }
 
@@ -409,8 +411,13 @@ function verifyCompletedObservabilityQualification(value,asOf){
      incident.acknowledgeSecondsFromDelivery!==(ack-delivered)/1000||
      incident.acknowledgeSecondsFromDelivery>objectives.maximumIncidentAcknowledgeSeconds||
      ['incidentRef','runbookRef','onCallOwnerRef','escalationPolicyRef'].some(k=>!HASH_REF_RE.test(incident[k])))return false;
-  const expected=makeResult({status:value.status,plan,authorization,metrics,alert,incident});
-  return ['authorizationRef','metricsRef','alertRef','incidentRef','evidenceHashSha256','evidenceRef'].every(k=>value[k]===expected[k]);
+  // Pure verification: never freeze or otherwise mutate caller-owned evidence.
+  const core={schemaVersion:1,status:value.status,planHashSha256,drFailoverQualificationRef:plan.drFailoverQualificationRef,
+    authorizationAccepted:true,authorizationRef:'sha256:'+sha256Object(authorization),
+    metricsRef:'sha256:'+sha256Object(metrics),alertRef:'sha256:'+sha256Object(alert),
+    incidentRef:'sha256:'+sha256Object(incident)};
+  const digest=sha256Object(core);
+  return Object.keys(core).every(k=>value[k]===core[k])&&value.evidenceHashSha256===digest&&value.evidenceRef==='sha256:'+digest;
  }catch{return false;}
 }
 

@@ -205,6 +205,8 @@ const EN = Object.freeze({
   'عدد الغرف الفندقية غير مكتمل': 'Hotel room count is incomplete',
   'الأصل يحتاج نموذجًا متخصصًا، ولا يجوز استخدام إيجار المتر العام': 'A specialist model is required; generic rent per sqm cannot be used',
   'المشروع متعدد الاستخدامات يتطلب حساب كل شريحة على حدة': 'Mixed-use property requires separate calculations for each segment',
+  'عدد المقارنات غير صالح': 'Invalid comparable count',
+  'القيمة الإيجارية غير صالحة': 'Invalid rental indication',
   'لا توجد ثلاث مقارنات بيع منفذة مؤهلة': 'Fewer than three qualifying executed-sale comparables',
   'لا توجد ثلاث عقود إيجار مؤهلة': 'Fewer than three qualifying lease comparables',
   'لم يتم إثبات صحة المصادر والحقوق العقارية من جهة مستقلة': 'Sources and property rights have not been independently verified',
