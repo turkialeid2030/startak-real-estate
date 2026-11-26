@@ -6,6 +6,7 @@ const {
 } = require('../runtime/production-qualification-service');
 const {
   SECURITY_UAT_STATUS,
+  verifyCompletedSecurityUatBundle,
 } = require('./independent-security-uat-evidence-gate');
 
 const RELEASE_CANDIDATE_STATUS = Object.freeze({
@@ -135,11 +136,12 @@ function productionQualificationReady(value) {
   );
 }
 
-function securityUatReady(value, target) {
+function securityUatReady(value, target, asOf) {
   return Boolean(
     value
     && typeof value === 'object'
     && value.status === SECURITY_UAT_STATUS.INDEPENDENT_SECURITY_UAT_EVIDENCE_COMPLETE_NOT_RELEASE_AUTHORIZED
+    && verifyCompletedSecurityUatBundle(value, asOf)
     && value.plan?.environment === target.environment
     && value.plan?.serviceRef === target.serviceRef
     && value.plan?.exactCommitSha === target.exactCommitSha
@@ -185,6 +187,8 @@ function safeSecurityUatSummary(value) {
     openCriticalFindings: Number.isInteger(value.pentest?.openFindingCounts?.CRITICAL) ? value.pentest.openFindingCounts.CRITICAL : null,
     openHighFindings: Number.isInteger(value.pentest?.openFindingCounts?.HIGH) ? value.pentest.openFindingCounts.HIGH : null,
     uatFailedScenarios: Number.isInteger(value.uat?.failedScenarios) ? value.uat.failedScenarios : null,
+    uatScenarioCount: Number.isSafeInteger(value.uat?.scenarioBinding?.scenarioCount) ? value.uat.scenarioBinding.scenarioCount : null,
+    uatScenarioPlanHashSha256: /^[a-f0-9]{64}$/i.test(value.uat?.scenarioBinding?.planHashSha256 || '') ? value.uat.scenarioBinding.planHashSha256 : null,
   });
 }
 
@@ -211,10 +215,11 @@ function buildProductizationReleaseCandidateEvidenceBundle(input = {}) {
   if (!productionQualificationReady(input.productionQualification)) {
     status = RELEASE_CANDIDATE_STATUS.HOLD_PRODUCTION_QUALIFICATION;
     issues.push('PRODUCTION_QUALIFICATION_NOT_READY');
-  } else if (!securityUatReady(input.securityUatEvidence, target)) {
+  } else if (!securityUatReady(input.securityUatEvidence, target, reviewed.value)) {
     const hasExpectedStatus = input.securityUatEvidence?.status === SECURITY_UAT_STATUS.INDEPENDENT_SECURITY_UAT_EVIDENCE_COMPLETE_NOT_RELEASE_AUTHORIZED;
-    status = hasExpectedStatus ? RELEASE_CANDIDATE_STATUS.HOLD_SCOPE_MISMATCH : RELEASE_CANDIDATE_STATUS.HOLD_SECURITY_UAT_EVIDENCE;
-    issues.push(hasExpectedStatus ? 'SECURITY_UAT_TARGET_SCOPE_MISMATCH' : 'SECURITY_UAT_EVIDENCE_NOT_READY');
+    const scopeMismatch=hasExpectedStatus&&(input.securityUatEvidence?.plan?.environment!==target.environment||input.securityUatEvidence?.plan?.serviceRef!==target.serviceRef||input.securityUatEvidence?.plan?.exactCommitSha!==target.exactCommitSha);
+    status=scopeMismatch?RELEASE_CANDIDATE_STATUS.HOLD_SCOPE_MISMATCH:RELEASE_CANDIDATE_STATUS.HOLD_SECURITY_UAT_EVIDENCE;
+    issues.push(scopeMismatch?'SECURITY_UAT_TARGET_SCOPE_MISMATCH':'SECURITY_UAT_EVIDENCE_NOT_READY_OR_INVALID');
   }
 
   const missingBlockers = REQUIRED_OPEN_EXTERNAL_BLOCKERS.filter((item) => !blockers.includes(item));
