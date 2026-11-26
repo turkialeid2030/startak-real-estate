@@ -345,6 +345,36 @@ function assertAuthorityClosed(result) {
     assert.notStrictEqual(first.plan.planHashSha256,changed.plan.planHashSha256);
     assert.notStrictEqual(first.plan.planHashSha256,later.plan.planHashSha256);
   });
+  for (const [name, patch, status, flag] of [
+    ['PREFLIGHT-FLAG', {preflightOverrides:{latestPrimaryDataAt:'2026-09-10T00:00:00Z'}}, DR_FAILOVER_STATUS.HOLD_PREFLIGHT, 'preflightReady'],
+    ['FAILOVER-FLAG', {failoverOverrides:{startedAt:'2026-09-09T15:54:00Z'}}, DR_FAILOVER_STATUS.HOLD_FAILOVER, 'failoverTargetActivated'],
+    ['VERIFY-FLAG', {failoverVerificationOverrides:{observedAt:'2026-09-09T16:00:19Z',latestPrimaryDataAt:'2026-09-09T16:00:18Z',latestActiveDataAt:'2026-09-09T16:00:17Z'}}, DR_FAILOVER_STATUS.HOLD_FAILOVER_VERIFICATION, 'failoverVerified'],
+    ['FAILBACK-FLAG', {failbackOverrides:{startedAt:'2026-09-09T16:00:29Z'}}, DR_FAILOVER_STATUS.HOLD_FAILBACK, 'failbackTargetActivated'],
+    ['FAILBACK-VERIFY-FLAG', {failbackVerificationOverrides:{observedAt:'2026-09-09T16:01:09Z',latestPrimaryDataAt:'2026-09-09T16:01:08Z',latestActiveDataAt:'2026-09-09T16:01:08Z'}}, DR_FAILOVER_STATUS.HOLD_FAILBACK_VERIFICATION, 'failbackVerified'],
+    ['MISSING-DUPLICATE-FLAG', {failoverVerificationOverrides:{duplicateSideEffectsObserved:undefined}}, DR_FAILOVER_STATUS.HOLD_FAILOVER_VERIFICATION, 'failoverVerified'],
+    ['INVALID-CORRUPTION-FLAG', {failbackVerificationOverrides:{unreconciledDataCorruptionObserved:'false'}}, DR_FAILOVER_STATUS.HOLD_FAILBACK_VERIFICATION, 'failbackVerified']
+  ]) await test('P17-'+name, async()=>{
+    const {qualify}=harness(patch);
+    const out=await qualify(baseInput({execute:true}));
+    assert.strictEqual(out.status,status);
+    assert.strictEqual(out[flag],false);
+    assertAuthorityClosed(out);
+  });
+  await test('P17-HOLD-EVIDENCE-BINDING',async()=>{
+    const a=await harness({preflightOverrides:{replicationHealthy:false,replicationLagSeconds:5}}).qualify(baseInput({execute:true}));
+    const b=await harness({preflightOverrides:{replicationHealthy:false,replicationLagSeconds:6}}).qualify(baseInput({execute:true}));
+    assert.strictEqual(a.status,b.status);
+    assert.strictEqual(a.plan.planHashSha256,b.plan.planHashSha256);
+    assert.notStrictEqual(a.stageEvidenceHashSha256,b.stageEvidenceHashSha256);
+    assert.notStrictEqual(a.executionHashSha256,b.executionHashSha256);
+    assertAuthorityClosed(a);assertAuthorityClosed(b);
+  });
+  await test('P17-INVALID-BACKUP-REFERENCE',async()=>{
+    const out=await harness().qualify(baseInput({backupRestoreQualification:backupRestoreQualification({bundleHashSha256:['b'.repeat(64)]}),execute:true}));
+    assert.strictEqual(out.status,DR_FAILOVER_STATUS.HOLD_BACKUP_RESTORE_QUALIFICATION);
+    assert.strictEqual(out.backupRestoreQualificationRef,null);
+    assertAuthorityClosed(out);
+  });
   const failed = results.filter((entry) => entry[1] !== 'PASS');
   console.log(`PRODUCTIZATION_P17_CONTROLLED_DR_FAILOVER_RESULT=${failed.length === 0 ? 'PASS' : 'FAIL'} ${results.filter((entry) => entry[1] === 'PASS').length}/${results.length}`);
   if (failed.length > 0) process.exit(1);

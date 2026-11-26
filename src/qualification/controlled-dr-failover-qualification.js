@@ -189,6 +189,9 @@ function normalizeVerificationResult(value, field, expectedRef, expectedName) {
   const latestPrimary = requiredTimestamp(value.latestPrimaryDataAt, `${field}.latestPrimaryDataAt`);
   const latestActive = requiredTimestamp(value.latestActiveDataAt, `${field}.latestActiveDataAt`);
   if(latestPrimary.millis>observed.millis||latestActive.millis>observed.millis)throw new TypeError(`${field} data timestamps must not follow observation`);
+  for (const flag of ['duplicateSideEffectsObserved', 'unreconciledDataCorruptionObserved']) {
+    if (typeof value[flag] !== 'boolean') throw new TypeError(`${field}.${flag} must be an explicit boolean`);
+  }
   const sourceCount = nonNegativeInteger(value.sourceRecordCount, `${field}.sourceRecordCount`);
   const activeCount = nonNegativeInteger(value.activeRecordCount, `${field}.activeRecordCount`);
   const sourceFingerprint = requiredSha256(value.sourceFingerprintSha256, `${field}.sourceFingerprintSha256`);
@@ -222,9 +225,9 @@ function makeResult({ status, plan, authorization, preflight, failover, failover
     planHashSha256: plan.planHashSha256,
     backupRestoreQualificationRef: plan.backupRestoreQualificationRef,
     authorizationAccepted: authorization?.accepted === true,
-    preflightReady: preflight?.ready === true,
-    failoverTargetActivated: failover?.expectedTargetActivated === true,
-    failoverVerified: failoverVerification ? Boolean(
+    preflightReady: preflight?.ready === true && status !== DR_FAILOVER_STATUS.HOLD_PREFLIGHT,
+    failoverTargetActivated: failover?.expectedTargetActivated === true && status !== DR_FAILOVER_STATUS.HOLD_FAILOVER,
+    failoverVerified: failoverVerification && status !== DR_FAILOVER_STATUS.HOLD_FAILOVER_VERIFICATION ? Boolean(
       failoverVerification.expectedTargetActive
       && failoverVerification.readPathHealthy
       && failoverVerification.writePathHealthy
@@ -232,8 +235,8 @@ function makeResult({ status, plan, authorization, preflight, failover, failover
       && failoverVerification.fingerprintsMatch
       && !failoverVerification.unreconciledDataCorruptionObserved
     ) : false,
-    failbackTargetActivated: failback?.expectedTargetActivated === true,
-    failbackVerified: failbackVerification ? Boolean(
+    failbackTargetActivated: failback?.expectedTargetActivated === true && status !== DR_FAILOVER_STATUS.HOLD_FAILBACK,
+    failbackVerified: failbackVerification && status !== DR_FAILOVER_STATUS.HOLD_FAILBACK_VERIFICATION ? Boolean(
       failbackVerification.expectedTargetActive
       && failbackVerification.readPathHealthy
       && failbackVerification.writePathHealthy
@@ -242,6 +245,15 @@ function makeResult({ status, plan, authorization, preflight, failover, failover
       && !failbackVerification.unreconciledDataCorruptionObserved
     ) : false,
     resilienceEvidenceRef: resilienceEvidence ? `sha256:${resilienceEvidence.resilienceEvidenceHashSha256}` : null,
+    // Bind sanitized stage observations even when execution stops before resilience evidence exists.
+    stageEvidenceHashSha256: sha256Object({
+      authorization: authorization || null,
+      preflight: preflight || null,
+      failover: failover || null,
+      failoverVerification: failoverVerification || null,
+      failback: failback || null,
+      failbackVerification: failbackVerification || null,
+    }),
   };
   const executionHashSha256 = sha256Object(executionCore);
   return freeze({
@@ -302,8 +314,8 @@ function createControlledDrFailoverQualification({
       && backupRestoreQualification.plan?.sourceDatabaseRef === primaryRef
       && backupRestoreQualification.plan?.exactCommitSha === commitSha,
     );
-    const backupRestoreQualificationRef = backupRestoreQualification?.bundleHashSha256
-      ? `sha256:${backupRestoreQualification.bundleHashSha256}`
+    const backupRestoreQualificationRef = backupRestoreComplete
+      ? `sha256:${backupRestoreQualification.bundleHashSha256.toLowerCase()}`
       : null;
 
     const planCore = {
