@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'src/ai/provider-production-readiness.js'
+      - 'tools/regression-test-discovery.js'
+      - 'tests/architecture/run_regression_discovery_gate.js'
       - 'tests/ai/run_c48_internal_ai_provider_production_readiness.js'
       - 'release/evidence/c48-internal-ai-provider-production-readiness.json'
       - 'docs/C48_INTERNAL_AI_PROVIDER_PRODUCTION_READINESS.md'

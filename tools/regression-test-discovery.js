@@ -5,7 +5,7 @@ const path = require('node:path');
 // Keep both release and package verification on the same mandatory suite.
 const SUITES = Object.freeze([
   ['characterization', true], ['architecture', true], ['i18n', true],
-  ['saved-deals', true], ['defects', false], ['runtime', false], ['valuation', false],
+  ['saved-deals', true], ['ai', true], ['defects', false], ['runtime', false], ['valuation', false],
 ].map(Object.freeze));
 
 function discoverRegressionTests(root) {
