@@ -55,7 +55,7 @@ function requiredTimestamp(value, field) {
 }
 
 function nonNegativeInteger(value, field) {
-  if (!Number.isInteger(value) || value < 0) throw new TypeError(`${field} must be a non-negative integer`);
+  if (!Number.isSafeInteger(value) || value < 0) throw new TypeError(`${field} must be a non-negative safe integer`);
   return value;
 }
 
@@ -103,7 +103,12 @@ function normalizeEnvironment(value) {
 function normalizeFindingCounts(value, field) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError(`${field} must be an object`);
   const result = {};
-  for (const severity of SEVERITIES) result[severity] = nonNegativeInteger(value[severity] ?? 0, `${field}.${severity}`);
+  // Missing severity data is not evidence of zero findings.
+  if (Object.keys(value).some(key => !SEVERITIES.includes(key))) throw new TypeError('unsupported finding severity');
+  for (const severity of SEVERITIES) {
+    if (!Object.hasOwn(value, severity)) throw new TypeError('missing finding severity');
+    result[severity] = nonNegativeInteger(value[severity], `${field}.${severity}`);
+  }
   return freeze(result);
 }
 
@@ -233,6 +238,8 @@ function createIndependentSecurityUatEvidenceGate() {
     const observabilityComplete = Boolean(
       observabilityQualification
       && observabilityQualification.status === OBSERVABILITY_STATUS.OBSERVABILITY_INCIDENT_EVIDENCE_COMPLETE_NOT_PRODUCTION_CERTIFIED
+      && typeof observabilityQualification.evidenceHashSha256 === 'string'
+      && SHA256_RE.test(observabilityQualification.evidenceHashSha256)
       && observabilityQualification.plan?.environment === env
       && observabilityQualification.plan?.serviceRef === service
       && observabilityQualification.plan?.exactCommitSha === commitSha,
@@ -274,9 +281,11 @@ function createIndependentSecurityUatEvidenceGate() {
 
     const staleIssues = [];
     const maxAgeMs = maxAgeDays * 86400000;
-    for (const [name, reviewedAt] of [['PENTEST', pentest.reviewedAt], ['UAT', uat.reviewedAt]]) {
-      const age = assessed.millis - Date.parse(reviewedAt);
-      if (age < 0 || age > maxAgeMs) staleIssues.push(`${name}_EVIDENCE_OUTSIDE_FRESHNESS`);
+    // A later review does not refresh the date on which the tests ran.
+    for (const [name, evidence] of [['PENTEST', pentest], ['UAT', uat]]) {
+      const age = assessed.millis - Date.parse(evidence.completedAt);
+      if (age < 0 || age > maxAgeMs || Date.parse(evidence.reviewedAt) > assessed.millis)
+        staleIssues.push(`${name}_EVIDENCE_OUTSIDE_FRESHNESS`);
     }
     if (staleIssues.length > 0) return makeResult({ status: SECURITY_UAT_STATUS.HOLD_STALE_EVIDENCE, plan, pentest, uat, issues: staleIssues });
 

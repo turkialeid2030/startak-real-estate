@@ -171,6 +171,42 @@ function fixture() {
   const executed=await executeProofGroundedProviderGateway({...f,adapter});
   assert.strictEqual(executed.providerCalled,true); assert.strictEqual(calls,1); assert.strictEqual(executed.providerResponse.responseHashSha256,f.providerResponse.responseHashSha256);
 
+  // The public execution result may expose only a validated grounded draft.
+  assert.strictEqual(executed.status,STATUS.READY_FOR_HUMAN_GROUNDED_DRAFT_REVIEW);
+  assert.strictEqual(executed.groundedDraftReviewReady,true);
+  assert.strictEqual(executed.transactionAuthorized,false);
+  assert.strictEqual(executed.providerResponse.draftOnly,true);
+
+  const invalidResponses=[
+    [{providerResult:PROVIDER_RESULT.SUCCESS},STATUS.HOLD_INTEGRITY],
+    [unsupportedAmount,STATUS.HOLD_UNSUPPORTED_OUTPUT],
+    [wrongState,STATUS.HOLD_SECURITY],
+    [response(f.invocation,{generatedAt:'2026-10-01T09:00:00Z'}),STATUS.HOLD_WINDOW],
+  ];
+  for(const [invalid,expected] of invalidResponses){
+    const out=await executeProofGroundedProviderGateway({...f,adapter:{invoke:async()=>invalid}});
+    assert.strictEqual(out.status,expected);
+    assert.strictEqual(out.providerCalled,true);
+    assert.strictEqual(out.providerInvocationReady,false);
+    assert.strictEqual(out.groundedDraftReviewReady,false);
+    assert.strictEqual(out.providerResponse,null);
+    assert.strictEqual(out.draft,null);
+    assert.strictEqual(out.transactionAuthorized,false);
+  }
+  // An unkeyed digest is not a signature. Rehashing a noncanonical authority
+  // flag must not make the response structurally eligible.
+  const crypto=require('node:crypto');
+  const stable=v=>Array.isArray(v)?v.map(stable):v&&typeof v==='object'
+    ?Object.fromEntries(Object.keys(v).sort().map(k=>[k,stable(v[k])])):v;
+  const forged={...f.providerResponse,transactionAuthorized:true};
+  delete forged.responseHashSha256;
+  forged.responseHashSha256=crypto.createHash('sha256').update(JSON.stringify(stable(forged))).digest('hex');
+  const forgedResult=await executeProofGroundedProviderGateway({...f,adapter:{invoke:async()=>forged}});
+  assert.strictEqual(forgedResult.status,STATUS.HOLD_INTEGRITY);
+  assert.strictEqual(forgedResult.providerResponse,null);
+  assert.strictEqual(forgedResult.transactionAuthorized,false);
+  console.log('C23_EXECUTION_OUTPUT_BOUNDARY=PASS checks=35 synthetic_adapter=true');
+
   const err=await executeGovernedProviderGateway({...f,adapter:{invoke:async()=>{throw new Error('network');}}});
   assert.strictEqual(err.status,STATUS.HOLD_PROVIDER); assert(err.blockers.includes('C23_PROVIDER_NETWORK_ERROR'));
 
@@ -189,6 +225,45 @@ function fixture() {
   const invStale=invocation(f.modelProfile,f.request,stale,f.providerAuthorization,{invocationId:'INV-STALE'});
   const staleHold=evaluateProofGroundedProviderReadiness({...f,groundingManifest:stale,invocation:invStale});
   assert.strictEqual(staleHold.status,STATUS.HOLD_WINDOW); assert(staleHold.blockers.includes('C23_WINDOW_GROUNDING_STALE:STALE'));
+
+  // Direct C23 entrypoint must enforce C22 context and evidence constraints,
+  // even if the optional proof-grounded wrapper is not used.
+  const directCase=(p,req,m=manifest(req))=>({
+    ...f,modelProfile:p,request:req,groundingManifest:m,
+    invocation:invocation(p,req,m,f.providerAuthorization)
+  });
+  const oldProfile=profile({validUntil:'2026-10-01T12:00:00Z'});
+  const futureProfile=profile({reviewedAt:'2026-10-01T14:00:00Z'});
+  const otherProfile=profile({profileId:'OTHER-PROFILE'});
+  const expiredRequest=request(f.modelProfile,{validUntil:'2026-10-01T12:00:00Z'});
+  const futureRequest=request(f.modelProfile,{createdAt:'2026-10-01T14:00:00Z'});
+  const wrongTask=request(f.modelProfile,{taskClass:TASK_CLASS.GAP_ANALYSIS});
+  const alterRetrieval=fields=>request(f.modelProfile,{retrievalItems:f.request.retrievalItems.map(i=>
+    i.evidenceId==='EVIDENCE-DOCUMENT'?{...i,...fields}:i)});
+  const directCases=[
+    [directCase(oldProfile,request(oldProfile)),STATUS.HOLD_WINDOW,'C23_WINDOW_PROFILE_REQUEST_STALE_OR_INVALID'],
+    [directCase(futureProfile,request(futureProfile)),STATUS.HOLD_WINDOW,'C23_WINDOW_PROFILE_REQUEST_FUTURE_OR_INVALID'],
+    [directCase(otherProfile,f.request),STATUS.HOLD_INTEGRITY,'C23_INTEGRITY_PROFILE_BINDING'],
+    [directCase(f.modelProfile,expiredRequest),STATUS.HOLD_WINDOW,'C23_WINDOW_PROFILE_REQUEST_STALE_OR_INVALID'],
+    [directCase(f.modelProfile,futureRequest),STATUS.HOLD_WINDOW,'C23_WINDOW_PROFILE_REQUEST_FUTURE_OR_INVALID'],
+    [directCase(f.modelProfile,wrongTask),STATUS.HOLD_SECURITY,'C23_SECURITY_TASK_CLASS_NOT_ALLOWED'],
+    [directCase(f.modelProfile,alterRetrieval({dataClass:DATA_CLASS.CONFIDENTIAL_BUSINESS})),STATUS.HOLD_SECURITY,'C23_SECURITY_RETRIEVAL_DATA_CLASS_NOT_ALLOWED:EVIDENCE-DOCUMENT'],
+    [directCase(f.modelProfile,alterRetrieval({validUntil:'2026-10-01T12:00:00Z'})),STATUS.HOLD_WINDOW,'C23_WINDOW_RETRIEVAL_STALE_OR_INVALID:EVIDENCE-DOCUMENT'],
+    [directCase(f.modelProfile,alterRetrieval({knownAt:'2026-10-01T14:00:00Z'})),STATUS.HOLD_WINDOW,'C23_WINDOW_RETRIEVAL_FUTURE_OR_INVALID:EVIDENCE-DOCUMENT'],
+    [{...f,groundingManifest:badSource,invocation:invBad},STATUS.HOLD_EVIDENCE,'C23_EVIDENCE_SOURCE_NOT_BOUND_TO_REQUEST:UNBOUND'],
+    [directCase(f.modelProfile,request(f.modelProfile,{deterministicOutputHashesSha256:[HA]})),STATUS.HOLD_EVIDENCE,'C23_EVIDENCE_DETERMINISTIC_SOURCE_NOT_BOUND_TO_REQUEST:UTILITY-METRIC'],
+  ];
+  let directCalls=0;
+  for(const [input,status,blocker] of directCases){
+    const out=await executeGovernedProviderGateway({...input,adapter:{invoke:async()=>{directCalls++;return f.providerResponse;}}});
+    assert.strictEqual(out.status,status);
+    assert.ok(out.blockers.includes(blocker));
+    assert.strictEqual(out.providerInvocationReady,false);
+    assert.strictEqual(out.providerCalled,false);
+    assert.strictEqual(out.providerResponse,null);
+  }
+  assert.strictEqual(directCalls,0);
+  console.log('C23_DIRECT_INPUT_BOUNDARY=PASS checks=56 cases=11 synthetic_adapter=true');
 
   const tampered={...f.groundingManifest,preparedByRef:'TAMPERED'};
   const integrity=evaluateProviderReadiness({...f,groundingManifest:tampered});

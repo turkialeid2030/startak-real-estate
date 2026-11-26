@@ -25,6 +25,7 @@ const failures=[
  [args([a,b],{requireEqualComparisonPrincipal:false}),S.HOLD_COMPARABILITY],
  [args([a,offer('B',{rateDisclosureRef:null})]),S.HOLD_COMPARABILITY],
  [args([a,offer('B',{quoteValidUntil:'2026-10-30'})]),S.HOLD_INTEGRITY],
+ [args([a,offer('B',{sourceReviewAfter:'2026-10-30'})]),S.HOLD_INTEGRITY],
  [args([a,offer('B',{reviewedAt:'2026-10-19'})]),S.HOLD_INTEGRITY],
  [args([a,rehash(b,{sourceVerifiedAt:'2026-02-30T00:00:00.000Z'})]),S.HOLD_INTEGRITY],
  [args([a,offer('B',{repaymentSchedule:[payment('p1','2029-11-01',1100000)]})]),S.HOLD_INTEGRITY],
@@ -32,6 +33,12 @@ const failures=[
  [args([a,b],{offerBindings:[]}),S.HOLD_INTEGRITY],
 ];
 for(const [input,status] of failures){const x=evaluate(input);assert.equal(x.status,status);assert.deepEqual(x.analyticalOrdering,[]);assert.equal(x.transactionAuthorized,false);}
+const dueBeforeFunding=evaluate(args([a,offer('B',{sourceReviewAfter:'2026-10-30'})]));
+assert.ok(dueBeforeFunding.blockers.includes('C14_SOURCE_REVIEW_DUE_BEFORE_TARGET_FUNDING:B'));
+assert.deepEqual(dueBeforeFunding.offers,[]);
+const dueOnFunding=evaluate(args([a,offer('B',{sourceReviewAfter:'2026-11-01'})]));
+assert.equal(dueOnFunding.status,S.READY_FOR_PROFESSIONAL_FINANCING_REVIEW);
+assert.equal(dueOnFunding.transactionAuthorized,false);
 assert.throws(()=>offer('BAD',{quotedFundingDate:'2026-02-30'}),/valid UTC/);
 console.log('C14_QUOTED_FINANCING_COMPARISON=PASS synthetic_only=true independent_authority=false negative_cases='+failures.length);
 

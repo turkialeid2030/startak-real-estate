@@ -475,6 +475,8 @@ function evaluateGovernedFinancingOptions(x = {}) {
       evidenceBlockers.push(`C14_OFFER_DATES_INVALID:${id}`); continue;
     }
     if (sv > asOf || sr < asOf || sr < sv) { evidenceBlockers.push(`C14_SOURCE_STALE_OR_FUTURE:${id}`); continue; }
+    // A currently fresh quote source must remain review-current through the intended funding date.
+    if (sr < targetFunding) { evidenceBlockers.push(`C14_SOURCE_REVIEW_DUE_BEFORE_TARGET_FUNDING:${id}`); continue; }
     if (rv < sv || rv > asOf) { evidenceBlockers.push(`C14_REVIEW_AFTER_AS_OF:${id}`); continue; }
     if (vu < targetFunding) { evidenceBlockers.push(`C14_EVIDENCE_EXPIRES_BEFORE_TARGET_FUNDING:${id}`); continue; }
     if (quotedFunding !== targetFunding) { evidenceBlockers.push(`C14_QUOTED_FUNDING_DATE_MISMATCH:${id}`); continue; }

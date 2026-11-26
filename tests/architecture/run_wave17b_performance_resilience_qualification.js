@@ -241,4 +241,28 @@ expectThrow(() => qualification(evaluations, runs, resiliences, { requiredResili
  const noObservation={...resiliences[0]};delete noObservation.duplicateSideEffectsObserved;
  expectThrow(()=>q.createResilienceEvidence(noObservation),/OBSERVATION_FLAGS_REQUIRED/);
 
+// Conflicting current-scope evidence must not be hidden by a passing observation.
+const additionalSlow=run(WORKLOADS[0],{runId:'RUN-ADDITIONAL-SLOW',p95LatencyMs:700,p99LatencyMs:800});
+const additionalSlowEval=q.evaluatePerformanceRun({slo:slos[0],runEvidence:additionalSlow});
+const mixedPerf=qualification([...evaluations,additionalSlowEval],[...runs,additionalSlow],resiliences);
+check(()=>assert.strictEqual(mixedPerf.status,q.PERFORMANCE_QUALIFICATION_STATUS.HOLD_PERFORMANCE_SLO));
+check(()=>assert.ok(mixedPerf.issues.includes('FAILING_WORKLOAD_EVIDENCE:'+WORKLOADS[0])));
+const additionalFailedRes=resilience(SCENARIOS[0],{resilienceEvidenceId:'RES-ADDITIONAL-FAILED',observedRecoveryTimeSeconds:600});
+const mixedRes=qualification(evaluations,runs,[...resiliences,additionalFailedRes]);
+check(()=>assert.strictEqual(mixedRes.status,q.PERFORMANCE_QUALIFICATION_STATUS.HOLD_RESILIENCE_OBJECTIVE));
+check(()=>assert.ok(mixedRes.issues.includes('FAILING_RESILIENCE_EVIDENCE:'+SCENARIOS[0])));
+
+// Reviewing stale measurements again must not make them fresh.
+const reviewedOldRun=run(WORKLOADS[0],{startedAt:'2026-08-01T04:00:00Z',finishedAt:'2026-08-01T04:10:00Z',reviewedAt:'2026-09-08T05:00:00Z'});
+const reviewedOldEval=q.evaluatePerformanceRun({slo:slos[0],runEvidence:reviewedOldRun});
+check(()=>assert.strictEqual(qualification([reviewedOldEval,...evaluations.slice(1)],[reviewedOldRun,...runs.slice(1)],resiliences).status,q.PERFORMANCE_QUALIFICATION_STATUS.HOLD_STALE_EVIDENCE));
+const reviewedOldRes=resilience(SCENARIOS[0],{observedAt:'2026-08-01T04:00:00Z',reviewedAt:'2026-09-08T05:30:00Z'});
+check(()=>assert.strictEqual(qualification(evaluations,runs,[reviewedOldRes,...resiliences.slice(1)]).status,q.PERFORMANCE_QUALIFICATION_STATUS.HOLD_STALE_EVIDENCE));
+const futureReviewedRun=run(WORKLOADS[0],{reviewedAt:'2026-09-09T00:00:00Z'});
+const futureReviewedEval=q.evaluatePerformanceRun({slo:slos[0],runEvidence:futureReviewedRun});
+check(()=>assert.strictEqual(qualification([futureReviewedEval,...evaluations.slice(1)],[futureReviewedRun,...runs.slice(1)],resiliences).status,q.PERFORMANCE_QUALIFICATION_STATUS.HOLD_STALE_EVIDENCE));
+const futureReviewedRes=resilience(SCENARIOS[0],{reviewedAt:'2026-09-09T00:00:00Z'});
+check(()=>assert.strictEqual(qualification(evaluations,runs,[futureReviewedRes,...resiliences.slice(1)]).status,q.PERFORMANCE_QUALIFICATION_STATUS.HOLD_STALE_EVIDENCE));
+check(()=>assert.strictEqual(mixedPerf.deploymentAuthorized,false));
+check(()=>assert.strictEqual(mixedRes.productionResilienceValidated,false));
 console.log(`WAVE_17B_PERFORMANCE_RESILIENCE_QUALIFICATION=PASS checks=${checks}`);

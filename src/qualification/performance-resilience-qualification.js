@@ -371,8 +371,9 @@ function buildPerformanceResilienceQualification(input = {}) {
       status = PERFORMANCE_QUALIFICATION_STATUS.HOLD_SCOPE_MISMATCH;
       issues.push(`RUN_SCOPE_MISMATCH:${record.runId}`);
     }
-    const ageDays = (assessed.millis - Date.parse(record.reviewedAt)) / 86400000;
-    if (ageDays < 0 || ageDays > maximumEvidenceAgeDays) {
+    // A recent review must not renew the age of old measured results.
+    const ageDays = (assessed.millis - Date.parse(record.finishedAt)) / 86400000;
+    if (ageDays < 0 || ageDays > maximumEvidenceAgeDays || Date.parse(record.reviewedAt) > assessed.millis) {
       status = PERFORMANCE_QUALIFICATION_STATUS.HOLD_STALE_EVIDENCE;
       issues.push(`RUN_EVIDENCE_OUTSIDE_FRESHNESS:${record.runId}`);
     }
@@ -407,9 +408,10 @@ function buildPerformanceResilienceQualification(input = {}) {
         issues.push(`MISSING_REQUIRED_WORKLOAD:${workload}`);
         break;
       }
-      if (!candidates.some((evaluation) => evaluation.status === PERFORMANCE_STATUS.PASS)) {
+      // A passing run cannot silently supersede a failing submitted run.
+      if (candidates.some((evaluation) => evaluation.status !== PERFORMANCE_STATUS.PASS)) {
         status = PERFORMANCE_QUALIFICATION_STATUS.HOLD_PERFORMANCE_SLO;
-        issues.push(`NO_PASSING_WORKLOAD_EVIDENCE:${workload}`);
+        issues.push(`FAILING_WORKLOAD_EVIDENCE:${workload}`);
         break;
       }
     }
@@ -426,8 +428,8 @@ function buildPerformanceResilienceQualification(input = {}) {
       status = PERFORMANCE_QUALIFICATION_STATUS.HOLD_SCOPE_MISMATCH;
       issues.push(`RESILIENCE_SCOPE_MISMATCH:${record.resilienceEvidenceId}`);
     }
-    const ageDays = (assessed.millis - Date.parse(record.reviewedAt)) / 86400000;
-    if (ageDays < 0 || ageDays > maximumEvidenceAgeDays) {
+    const ageDays = (assessed.millis - Date.parse(record.observedAt)) / 86400000;
+    if (ageDays < 0 || ageDays > maximumEvidenceAgeDays || Date.parse(record.reviewedAt) > assessed.millis) {
       status = PERFORMANCE_QUALIFICATION_STATUS.HOLD_STALE_EVIDENCE;
       issues.push(`RESILIENCE_EVIDENCE_OUTSIDE_FRESHNESS:${record.resilienceEvidenceId}`);
     }
@@ -445,9 +447,9 @@ function buildPerformanceResilienceQualification(input = {}) {
         issues.push(`MISSING_REQUIRED_RESILIENCE_SCENARIO:${scenario}`);
         break;
       }
-      if (!candidates.some((record) => record.status === PERFORMANCE_STATUS.PASS)) {
+      if (candidates.some((record) => record.status !== PERFORMANCE_STATUS.PASS)) {
         status = PERFORMANCE_QUALIFICATION_STATUS.HOLD_RESILIENCE_OBJECTIVE;
-        issues.push(`NO_PASSING_RESILIENCE_EVIDENCE:${scenario}`);
+        issues.push(`FAILING_RESILIENCE_EVIDENCE:${scenario}`);
         break;
       }
     }

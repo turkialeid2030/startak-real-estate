@@ -287,7 +287,14 @@ function createProviderResponseEnvelope(x = {}) {
   };
   return freeze({ ...core, responseHashSha256: sha256(core) });
 }
-function verifyProviderResponseEnvelope(r) { return integrity(r, 'responseHashSha256'); }
+function verifyProviderResponseEnvelope(r) {
+  // A caller can recompute an ordinary hash; verify the canonical schema and
+  // non-authority flags as well as integrity before accepting the envelope.
+  try {
+    return integrity(r, 'responseHashSha256') &&
+      createProviderResponseEnvelope(r).responseHashSha256 === r.responseHashSha256;
+  } catch (_) { return false; }
+}
 
 function baseBlockers({ modelProfile, request, groundingManifest, providerAuthorization, invocation, asOf }) {
   const blockers = [];
@@ -300,7 +307,7 @@ function baseBlockers({ modelProfile, request, groundingManifest, providerAuthor
 
   if (request.caseId !== groundingManifest.caseId || request.propertyRef !== groundingManifest.propertyRef || request.caseId !== invocation.caseId || request.propertyRef !== invocation.propertyRef) blockers.push('C23_CONTEXT_CASE_PROPERTY_MISMATCH');
   if (groundingManifest.requestHashSha256 !== request.requestHashSha256 || invocation.requestHashSha256 !== request.requestHashSha256) blockers.push('C23_INTEGRITY_REQUEST_BINDING');
-  if (invocation.modelProfileHashSha256 !== modelProfile.modelProfileHashSha256) blockers.push('C23_INTEGRITY_PROFILE_BINDING');
+  if (invocation.modelProfileHashSha256 !== modelProfile.modelProfileHashSha256 || request.modelProfileHashSha256 !== modelProfile.modelProfileHashSha256) blockers.push('C23_INTEGRITY_PROFILE_BINDING');
   if (invocation.groundingManifestHashSha256 !== groundingManifest.manifestHashSha256) blockers.push('C23_INTEGRITY_GROUNDING_BINDING');
   if (invocation.providerAuthorizationHashSha256 !== providerAuthorization.authorizationHashSha256) blockers.push('C23_INTEGRITY_PROVIDER_AUTH_BINDING');
   if (invocation.promptTemplateHashSha256 !== request.promptTemplateHashSha256) blockers.push('C23_INTEGRITY_PROMPT_BINDING');
@@ -308,7 +315,39 @@ function baseBlockers({ modelProfile, request, groundingManifest, providerAuthor
   if (providerAuthorization.providerId !== modelProfile.providerId || providerAuthorization.modelId !== modelProfile.modelId || providerAuthorization.modelVersionRef !== modelProfile.modelVersionRef) blockers.push('C23_PROVIDER_MODEL_BINDING_MISMATCH');
   if (Date.parse(providerAuthorization.validUntil) < Date.parse(asOf) || Date.parse(groundingManifest.validUntil) < Date.parse(asOf) || Date.parse(invocation.validUntil) < Date.parse(asOf)) blockers.push('C23_WINDOW_RECORD_STALE');
   if (Date.parse(providerAuthorization.reviewedAt) > Date.parse(asOf) || Date.parse(groundingManifest.reviewedAt) > Date.parse(asOf) || Date.parse(invocation.createdAt) > Date.parse(asOf)) blockers.push('C23_WINDOW_RECORD_FUTURE');
+  // Direct gateway callers must meet the same input constraints as the C22
+  // review layer. Validate all retrieval records, including unused sources.
+  if (!Array.isArray(modelProfile.allowedTaskClasses) || !Array.isArray(modelProfile.allowedDataClasses) ||
+      !Array.isArray(request.retrievalItems) || !Array.isArray(request.deterministicOutputHashesSha256)) {
+    blockers.push('C23_INTEGRITY_REQUEST_PROFILE_SCHEMA');
+    return blockers;
+  }
+  if (!modelProfile.allowedTaskClasses.includes(request.taskClass)) blockers.push('C23_SECURITY_TASK_CLASS_NOT_ALLOWED');
+  const at = Date.parse(asOf);
+  const startTimes = [modelProfile.reviewedAt,request.createdAt];
+  const endTimes = [modelProfile.validUntil,request.validUntil];
+  if (startTimes.some(value=>!Number.isFinite(Date.parse(value)) || Date.parse(value)>at))
+    blockers.push('C23_WINDOW_PROFILE_REQUEST_FUTURE_OR_INVALID');
+  if (endTimes.some(value=>!Number.isFinite(Date.parse(value)) || Date.parse(value)<at))
+    blockers.push('C23_WINDOW_PROFILE_REQUEST_STALE_OR_INVALID');
+  const retrievalHashes=new Set();
+  for(const item of request.retrievalItems){
+    if(!item || typeof item !== 'object' || !HASH_RE.test(item.evidenceHashSha256 || '')){
+      blockers.push('C23_INTEGRITY_RETRIEVAL_SCHEMA');continue;
+    }
+    retrievalHashes.add(item.evidenceHashSha256.toLowerCase());
+    if(!modelProfile.allowedDataClasses.includes(item.dataClass)) blockers.push('C23_SECURITY_RETRIEVAL_DATA_CLASS_NOT_ALLOWED:'+item.evidenceId);
+    if(!Number.isFinite(Date.parse(item.knownAt)) || Date.parse(item.knownAt)>at)
+      blockers.push('C23_WINDOW_RETRIEVAL_FUTURE_OR_INVALID:'+item.evidenceId);
+    if(!Number.isFinite(Date.parse(item.validUntil)) || Date.parse(item.validUntil)<at)
+      blockers.push('C23_WINDOW_RETRIEVAL_STALE_OR_INVALID:'+item.evidenceId);
+  }
+  const deterministicHashes=new Set(request.deterministicOutputHashesSha256.map(h=>String(h).toLowerCase()));
   for (const item of groundingManifest.items) {
+    if(item.evidenceHashSha256 && !retrievalHashes.has(item.evidenceHashSha256.toLowerCase()))
+      blockers.push('C23_EVIDENCE_SOURCE_NOT_BOUND_TO_REQUEST:'+item.itemId);
+    if(item.deterministicOutputHashSha256 && !deterministicHashes.has(item.deterministicOutputHashSha256.toLowerCase()))
+      blockers.push('C23_EVIDENCE_DETERMINISTIC_SOURCE_NOT_BOUND_TO_REQUEST:'+item.itemId);
     if (item.caseId !== request.caseId || item.propertyRef !== request.propertyRef) blockers.push(`C23_CONTEXT_GROUNDING_ITEM:${item.itemId}`);
     if (Date.parse(item.knownAt) > Date.parse(asOf)) blockers.push(`C23_WINDOW_GROUNDING_FUTURE:${item.itemId}`);
     if (Date.parse(item.validUntil) < Date.parse(asOf)) blockers.push(`C23_WINDOW_GROUNDING_STALE:${item.itemId}`);
@@ -318,7 +357,7 @@ function baseBlockers({ modelProfile, request, groundingManifest, providerAuthor
   // authorization to transfer personal/deed/tenant evidence to an external
   // AI model. Check the complete C22 retrieval envelope, not merely selected
   // grounding items, so ungrounded personal source material also fails closed.
-  if (request.retrievalItems.some(item => item.dataClass === DATA_CLASS.PERSONAL_DATA)
+  if (request.retrievalItems.some(item => item?.dataClass === DATA_CLASS.PERSONAL_DATA)
       || groundingManifest.items.some(item => item.dataClass === DATA_CLASS.PERSONAL_DATA)) {
     blockers.push('C23_PRIVACY_PERSONAL_DATA_EXTERNAL_TRANSFER_NOT_AUTHORIZED');
   }
@@ -369,6 +408,7 @@ function validateGroundedProviderResponse(input = {}) {
     if (response.providerId !== providerAuthorization.providerId || response.modelId !== providerAuthorization.modelId || response.modelVersionRef !== providerAuthorization.modelVersionRef) blockers.push('C23_PROVIDER_RESPONSE_MODEL_MISMATCH');
     if (response.echoDeterministicDecisionState !== request.deterministicDecisionState) blockers.push('C23_SECURITY_DETERMINISTIC_GATE_OVERRIDE');
     if (Date.parse(response.generatedAt) > Date.parse(asOf)) blockers.push('C23_WINDOW_RESPONSE_FUTURE');
+    if (Date.parse(response.generatedAt) < Date.parse(invocation.createdAt)) blockers.push('C23_WINDOW_RESPONSE_PREDATES_INVOCATION');
     const itemById = new Map(groundingManifest.items.map((i) => [i.itemId, i]));
     for (const claim of response.claims) {
       const boundValues = new Set();
@@ -416,7 +456,17 @@ async function executeGovernedProviderGateway(input = {}) {
       const code = raw && Object.values(PROVIDER_RESULT).includes(raw.providerResult) ? raw.providerResult : PROVIDER_RESULT.SCHEMA_ERROR;
       return freeze({ ...readiness, status: STATUS.HOLD_PROVIDER, providerInvocationReady: false, blockers: [`C23_PROVIDER_${code}`], providerCalled: true, providerResponse: null });
     }
-    return freeze({ ...readiness, providerCalled: true, providerResponse: raw });
+    // SUCCESS is only the transport outcome, not grounded-output acceptance.
+    // Detach and canonicalize the response before exposing any model content.
+    let snapshot;
+    try { snapshot = structuredClone(raw); }
+    catch (_) { return freeze({ ...readiness, status: STATUS.HOLD_PROVIDER, providerInvocationReady: false, blockers: ['C23_PROVIDER_SCHEMA_ERROR'], providerCalled: true, providerResponse: null }); }
+    const checked = validateGroundedProviderResponse({ ...input, providerResponse: snapshot });
+    if (!checked.groundedDraftReviewReady) {
+      return freeze({ ...readiness, ...checked, providerInvocationReady: false, providerCalled: true, providerResponse: null });
+    }
+    const canonical = createProviderResponseEnvelope(snapshot);
+    return freeze({ ...readiness, ...checked, providerCalled: true, providerResponse: canonical });
   } catch (_) {
     return freeze({ ...readiness, status: STATUS.HOLD_PROVIDER, providerInvocationReady: false, blockers: ['C23_PROVIDER_NETWORK_ERROR'], providerCalled: true, providerResponse: null });
   }

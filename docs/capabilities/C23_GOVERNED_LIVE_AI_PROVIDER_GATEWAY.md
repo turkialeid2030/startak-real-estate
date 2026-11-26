@@ -19,14 +19,14 @@ Every item carries case/property identity, canonical value, source reference, da
 ## Provider authorization
 A provider invocation is technically eligible only from `ISOLATED_NON_PRODUCTION` and only when an exact-hashed authorization packet contains explicit references for security, privacy/DLP, contract approval, data residency, retention, no customer-data training, prompt registry, role authorization, environment authorization and a kill switch. The packet also requires multiple evidence hashes and has an explicit validity window.
 
-No API key or provider credential is stored in this repository. A runtime adapter is injected from the deployment environment. There is no silent provider fallback.
+A runtime adapter is injected from the deployment environment. There is no silent provider fallback. The direct gateway also enforces model/request binding, task allowlists, request/profile validity windows, all retrieval records' classification and freshness, and exact grounding source-hash membership before invoking any adapter. These structural checks do not authenticate independent approval or replace the private credential review.
 
 ## Generated output contract
 Provider output is structured claims only. Each claim must identify grounding item IDs and declared asserted literals. The gateway independently extracts numeric, percentage and ISO-date literals from claim text and checks them against the declaration; every declared literal must then match a value in the claim's exact grounding items.
 
 Therefore a model cannot make an unsupported amount, percentage, count or date acceptable merely by placing it in natural-language text or by self-declaring it.
 
-The final user-visible draft is constructed only from validated structured claim text. An invalid claim suppresses the entire draft.
+The final user-visible draft is constructed only from validated structured claim text. An invalid claim suppresses the entire draft. The execution entrypoint validates and canonicalizes the detached response before returning provider content. Transport SUCCESS alone never establishes a grounded draft. Responses predating their invocation, noncanonical authority flags, and integrity failures are held without returning provider content. An ordinary digest is not a trusted signature or evidence of live provider identity.
 
 ## Deterministic authority boundary
 The provider must echo the deterministic decision state from the C22 request. Any attempt to change `HOLD`, `REJECT`, `NOT_EVALUATED` or another deterministic state is a security hold. C23 never grants transaction, approval, autonomous-action, public-AI, production-deployment or commercial-go-live authority.
