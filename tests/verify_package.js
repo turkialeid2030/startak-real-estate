@@ -2,29 +2,26 @@
 // Proves the package is fully self-contained: builds, runs every regression
 // test, confirms zero external /mnt/user-data dependency, and verifies the
 // source-bound release manifest emitted into the built artifact.
-const { execSync } = require('child_process');
+const { execSync, execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const { createHash } = require('crypto');
 const pkg = require('../package.json');
-const glob = (dir, ext) => fs.readdirSync(dir).filter((f) => f.endsWith(ext)).map((f) => path.join(dir, f));
+const ROOT = path.resolve(__dirname, '..');
+const { discoverRegressionTests } = require('../tools/regression-test-discovery');
 
 console.log('=== STEP 1: build ===');
 execSync('npm run build', { stdio: 'inherit' });
 
 console.log('');
 console.log('=== STEP 2: full regression ===');
-const testDirs = ['tests/characterization', 'tests/architecture', 'tests/defects', 'tests/runtime', 'tests/valuation'];
-let total = 0, passed = 0;
+const tests = discoverRegressionTests(ROOT);
+const total = tests.length;
+let passed = 0;
 const failures = [];
-for (const dir of testDirs) {
-  if (!fs.existsSync(dir)) continue;
-  for (const f of glob(dir, '.js')) {
-    if (!f.includes('run_') && !dir.includes('defects') && !dir.includes('runtime') && !dir.includes('valuation')) continue;
-    total++;
-    try { execSync(`node ${f}`, { stdio: 'pipe' }); passed++; }
-    catch (e) { failures.push(f); }
-  }
+for (const file of tests) {
+  try { execFileSync(process.execPath, [path.join(ROOT, file)], { cwd: ROOT, stdio: 'pipe' }); passed++; }
+  catch (_) { failures.push(file); }
 }
 console.log(`REGRESSION_TOTAL=${total} PASSED=${passed} FAILED=${total - passed}`);
 if (failures.length) console.log('FAILED_FILES:', failures.join(', '));
