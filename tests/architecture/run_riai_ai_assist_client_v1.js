@@ -24,13 +24,14 @@ const viewModel = {
 let capturedUrl = null;
 let capturedOptions = null;
 const fetchImpl = async (url, options) => {
+  if(options.method==='GET')return {ok:true,status:200,async json(){return {schemaVersion:1,publicAiEnabled:false};}};
   capturedUrl = url;
   capturedOptions = options;
   return {
     ok: true,
     status: 200,
     async json() {
-      return {
+      const payload = {
         ok: true,
         aiModelUsed: true,
         model: 'configured-model',
@@ -47,6 +48,10 @@ const fetchImpl = async (url, options) => {
           decisionBoundary: 'Advisory narrative only; no transaction is authorized.',
         },
       };
+      const request=JSON.parse(options.body);
+      const hash=value=>require('node:crypto').createHash('sha256').update(JSON.stringify(value)).digest('hex');
+      payload.requestBinding={version:1,clientRequestId:request.clientRequestId,snapshotHashSha256:hash(request.decisionSnapshot),resultHashSha256:hash(payload.result)};
+      return payload;
     },
   };
 };
@@ -82,6 +87,17 @@ const fetchImpl = async (url, options) => {
   assert.strictEqual(unavailable.reasonCode, 'AI_PROVIDER_NOT_CONFIGURED');
   assert.strictEqual(unavailable.aiModelUsed, false);
 
+  assert.match(result.requestBinding.snapshotHashSha256,/^[a-f0-9]{64}$/);
+  const oldId=result.requestBinding.clientRequestId;
+  const second=await requestResidentialIncomeAiAssist(viewModel,{fetchImpl});
+  assert.notStrictEqual(second.requestBinding.clientRequestId,oldId);
+  for(const patch of [p=>delete p.requestBinding,p=>p.requestBinding.clientRequestId=oldId,p=>p.requestBinding.snapshotHashSha256='a'.repeat(64),p=>p.requestBinding.resultHashSha256='b'.repeat(64),p=>p.requestBinding.version=2,p=>p.result.executiveObservations=['Changed result.']]){
+    const bad=await requestResidentialIncomeAiAssist(viewModel,{turnstileToken:'synthetic',fetchImpl:async(url,options)=>{
+      const res=await fetchImpl(url,options);const payload=await res.json();patch(payload);return {ok:true,status:200,async json(){return payload;}};
+    }});
+    assert.strictEqual(bad.status,AI_ASSIST_CLIENT_STATUS.INVALID_RESPONSE);assert.strictEqual(bad.reasonCode,'AI_ASSIST_REQUEST_BINDING_INVALID');assert.strictEqual(bad.result,null);
+  }
+  console.log('RIAI_V617_CLIENT_REQUEST_BINDING=PASS negative_cases=6 unique_request_check=1');
   console.log('RIAI_AI_ASSIST_CLIENT_V1=PASS');
   console.log('SAME_ORIGIN_AI_ENDPOINT_ONLY=PASS');
   console.log('RAW_CASE_AND_PII_NOT_TRANSMITTED=PASS');
