@@ -193,6 +193,54 @@ function normalizeUatEvidence(value) {
   }
 }
 
+// A caller-supplied plan is not an authenticated external approval. Bind the
+// exact candidate, service, time window and individual role/scenario outcomes
+// rather than accepting a matching aggregate count alone.
+function createUatScenarioPlan(input = {}) {
+  const prepared = requiredTimestamp(input.preparedAt,'uatPlan.preparedAt');
+  const expires = requiredTimestamp(input.validUntil,'uatPlan.validUntil');
+  if (expires.millis < prepared.millis) throw new TypeError('UAT_PLAN_WINDOW_INVALID');
+  if (!Array.isArray(input.scenarios) || input.scenarios.length < 1 || input.scenarios.length > 10000)
+    throw new TypeError('UAT_PLAN_SCENARIOS_REQUIRED');
+  const ids = new Set();
+  const scenarios = input.scenarios.map(item=>{
+    const scenarioId=requiredString(item?.scenarioId,'scenarioId');
+    if(ids.has(scenarioId))throw new TypeError('UAT_PLAN_DUPLICATE_SCENARIO');
+    ids.add(scenarioId);
+    return {scenarioId,userRole:requiredString(item.userRole,'userRole'),expectedOutcomeHashSha256:requiredSha256(item.expectedOutcomeHashSha256,'expectedOutcomeHashSha256')};
+  }).sort((a,b)=>a.scenarioId.localeCompare(b.scenarioId));
+  const core={schemaVersion:1,environment:normalizeEnvironment(input.environment),serviceRef:requiredString(input.serviceRef,'serviceRef'),exactCommitSha:requiredCommitSha(input.exactCommitSha),preparedAt:prepared.value,validUntil:expires.value,scenarios};
+  return freeze({...core,planHashSha256:sha256Object(core)});
+}
+function validateUatScenarioBinding(planInput, rawUat, uat, target) {
+  try {
+    const plan=createUatScenarioPlan(planInput);
+    if(plan.planHashSha256!==planInput.planHashSha256 || rawUat.scenarioPlanHashSha256!==plan.planHashSha256)
+      return {issue:'UAT_SCENARIO_PLAN_HASH_MISMATCH'};
+    if(plan.environment!==target.environment||plan.serviceRef!==target.serviceRef||plan.exactCommitSha!==target.exactCommitSha)
+      return {issue:'UAT_SCENARIO_PLAN_SCOPE_MISMATCH'};
+    if(Date.parse(plan.preparedAt)>Date.parse(uat.startedAt)||Date.parse(plan.validUntil)<Date.parse(uat.completedAt))
+      return {issue:'UAT_SCENARIO_PLAN_WINDOW_MISMATCH'};
+    if(!Array.isArray(rawUat.scenarioResults)||rawUat.scenarioResults.length!==plan.scenarios.length||uat.requiredScenarios!==plan.scenarios.length)
+      return {issue:'UAT_SCENARIO_COVERAGE_MISMATCH'};
+    const expected=new Map(plan.scenarios.map(s=>[s.scenarioId,s]));
+    const rows=[];
+    for(const result of rawUat.scenarioResults){
+      const id=requiredString(result?.scenarioId,'scenarioId');
+      const item=expected.get(id);
+      if(!item)return {issue:'UAT_SCENARIO_COVERAGE_MISMATCH'};
+      expected.delete(id);
+      if(result.userRole!==item.userRole||result.expectedOutcomeHashSha256!==item.expectedOutcomeHashSha256)
+        return {issue:'UAT_SCENARIO_ROLE_OR_OUTCOME_MISMATCH'};
+      if(result.passed!==true)return {issue:'UAT_SCENARIO_FAILURE_PRESENT'};
+      rows.push({scenarioId:id,userRole:item.userRole,expectedOutcomeHashSha256:item.expectedOutcomeHashSha256,actualObservationHashSha256:requiredSha256(result.actualObservationHashSha256,'actualObservationHashSha256'),passed:true});
+    }
+    rows.sort((a,b)=>a.scenarioId.localeCompare(b.scenarioId));
+    if(expected.size)return {issue:'UAT_SCENARIO_COVERAGE_MISMATCH'};
+    return {planHashSha256:plan.planHashSha256,scenarioResultsHashSha256:sha256Object(rows),scenarioCount:rows.length};
+  }catch{return {issue:'UAT_SCENARIO_PLAN_OR_RESULTS_INVALID'};}
+}
+
 function makeResult({ status, plan, pentest, uat, issues = [] }) {
   const evidenceCore = {
     schemaVersion: 1,
@@ -228,6 +276,7 @@ function createIndependentSecurityUatEvidenceGate() {
     maximumEvidenceAgeDays = 30,
     pentestEvidence,
     uatEvidence,
+    uatScenarioPlan,
   } = {}) {
     const env = normalizeEnvironment(environment);
     const service = requiredString(serviceRef, 'serviceRef');
@@ -329,11 +378,13 @@ function createIndependentSecurityUatEvidenceGate() {
     if (uat.failedScenarios !== 0 || uat.passedScenarios !== uat.requiredScenarios) uatIssues.push('UAT_SCENARIOS_NOT_ALL_PASSING');
     if (uatIssues.length > 0) return makeResult({ status: SECURITY_UAT_STATUS.HOLD_UAT_EVIDENCE, plan, pentest, uat, issues: uatIssues });
 
+    const binding=validateUatScenarioBinding(uatScenarioPlan,uatEvidence,uat,plan);
+    if(binding.issue)return makeResult({status:SECURITY_UAT_STATUS.HOLD_UAT_EVIDENCE,plan,pentest,uat,issues:[binding.issue]});
     return makeResult({
       status: SECURITY_UAT_STATUS.INDEPENDENT_SECURITY_UAT_EVIDENCE_COMPLETE_NOT_RELEASE_AUTHORIZED,
       plan,
       pentest,
-      uat,
+      uat:freeze({...uat,scenarioBinding:binding}),
     });
   };
 }
@@ -344,6 +395,7 @@ module.exports = {
   SECURITY_UAT_STATUS,
   AUTHORITY,
   SEVERITIES,
+  createUatScenarioPlan,
   createIndependentSecurityUatEvidenceGate,
   evaluateIndependentSecurityUatEvidence,
 };

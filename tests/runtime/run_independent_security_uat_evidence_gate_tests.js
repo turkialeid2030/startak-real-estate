@@ -6,6 +6,7 @@ const {
 } = require('../../src/qualification/controlled-observability-incident-qualification');
 const {
   SECURITY_UAT_STATUS,
+  createUatScenarioPlan,
   evaluateIndependentSecurityUatEvidence,
 } = require('../../src/qualification/independent-security-uat-evidence-gate');
 
@@ -65,6 +66,13 @@ function pentest(overrides = {}) {
   };
 }
 
+const scenarioPlan=createUatScenarioPlan({
+  environment:'staging',serviceRef:'startak-staging-api',exactCommitSha:COMMIT,
+  preparedAt:'2026-09-01T00:00:00Z',validUntil:'2026-09-09T00:00:00Z',
+  scenarios:Array.from({length:24},(_,i)=>({scenarioId:'SYNTH-'+String(i+1).padStart(2,'0'),userRole:i%2?'ANALYST':'VIEWER',expectedOutcomeHashSha256:'e'.repeat(64)}))
+});
+const scenarioResults=scenarioPlan.scenarios.map(s=>({...s,actualObservationHashSha256:'f'.repeat(64),passed:true}));
+
 function uat(overrides = {}) {
   return {
     status: 'PASS',
@@ -78,6 +86,8 @@ function uat(overrides = {}) {
     criticalWorkflowCoverageComplete: true,
     tenantBoundaryAcceptanceComplete: true,
     authorizationWorkflowAcceptanceComplete: true,
+    scenarioPlanHashSha256:scenarioPlan.planHashSha256,
+    scenarioResults,
     requiredScenarios: 24,
     passedScenarios: 24,
     failedScenarios: 0,
@@ -99,6 +109,7 @@ function input(overrides = {}) {
     maximumEvidenceAgeDays: 30,
     pentestEvidence: pentest(),
     uatEvidence: uat(),
+    uatScenarioPlan:scenarioPlan,
     ...overrides,
   };
 }
@@ -270,6 +281,40 @@ function assertAuthorityClosed(result) {
     assert.ok(out.issues.includes('UAT_EVIDENCE_OUTSIDE_FRESHNESS'));
     assertAuthorityClosed(out);
   });
+
+  await test('PRODUCTIZATION-P19-SCENARIO-BINDING-VALID',async()=>{
+    const out=evaluateIndependentSecurityUatEvidence(input());
+    assert.strictEqual(out.uat.scenarioBinding.scenarioCount,24);
+    assert.strictEqual(out.uat.scenarioBinding.planHashSha256,scenarioPlan.planHashSha256);
+    assert.strictEqual(out.uat.scenarioBinding.scenarioResultsHashSha256.length,64);
+    assert.ok(!JSON.stringify(out).includes('SYNTH-01'));
+    assertAuthorityClosed(out);
+  });
+  const invalidScenarioCases=[
+    [{uatScenarioPlan:undefined},'UAT_SCENARIO_PLAN_OR_RESULTS_INVALID'],
+    [{uatEvidence:uat({scenarioPlanHashSha256:'0'.repeat(64)})},'UAT_SCENARIO_PLAN_HASH_MISMATCH'],
+    [{uatEvidence:uat({scenarioResults:[...scenarioResults.slice(0,23),scenarioResults[0]]})},'UAT_SCENARIO_COVERAGE_MISMATCH'],
+    [{uatEvidence:uat({scenarioResults:[{...scenarioResults[0],userRole:'ADMIN'},...scenarioResults.slice(1)]})},'UAT_SCENARIO_ROLE_OR_OUTCOME_MISMATCH'],
+    [{uatEvidence:uat({scenarioResults:[{...scenarioResults[0],expectedOutcomeHashSha256:'0'.repeat(64)},...scenarioResults.slice(1)]})},'UAT_SCENARIO_ROLE_OR_OUTCOME_MISMATCH'],
+    [{uatEvidence:uat({scenarioResults:[{...scenarioResults[0],passed:false},...scenarioResults.slice(1)]})},'UAT_SCENARIO_FAILURE_PRESENT'],
+    [{uatEvidence:uat({scenarioResults:[{...scenarioResults[0],actualObservationHashSha256:null},...scenarioResults.slice(1)]})},'UAT_SCENARIO_PLAN_OR_RESULTS_INVALID'],
+    [{uatEvidence:uat({scenarioResults:scenarioResults.slice(1)})},'UAT_SCENARIO_COVERAGE_MISMATCH'],
+  ];
+  for(const [index,[patch,issue]] of invalidScenarioCases.entries())await test('PRODUCTIZATION-P19-SCENARIO-BINDING-'+index,async()=>{
+    const out=evaluateIndependentSecurityUatEvidence(input(patch));
+    assert.strictEqual(out.status,SECURITY_UAT_STATUS.HOLD_UAT_EVIDENCE);
+    assert.ok(out.issues.includes(issue));
+    assertAuthorityClosed(out);
+  });
+  for(const [index,patch] of [{exactCommitSha:'0'.repeat(40)},{preparedAt:'2026-09-07T00:00:00Z'}].entries()){
+    const other=createUatScenarioPlan({...scenarioPlan,...patch});
+    await test('PRODUCTIZATION-P19-SCENARIO-PLAN-SCOPE-WINDOW-'+index,async()=>{
+      const out=evaluateIndependentSecurityUatEvidence(input({uatScenarioPlan:other,uatEvidence:uat({scenarioPlanHashSha256:other.planHashSha256})}));
+      assert.strictEqual(out.status,SECURITY_UAT_STATUS.HOLD_UAT_EVIDENCE);
+      assert.ok(out.issues.includes(index===0?'UAT_SCENARIO_PLAN_SCOPE_MISMATCH':'UAT_SCENARIO_PLAN_WINDOW_MISMATCH'));
+      assertAuthorityClosed(out);
+    });
+  }
 
   const failed = results.filter((entry) => entry[1] !== 'PASS');
   console.log(`PRODUCTIZATION_P19_INDEPENDENT_SECURITY_UAT_RESULT=${failed.length === 0 ? 'PASS' : 'FAIL'} ${results.filter((entry) => entry[1] === 'PASS').length}/${results.length}`);

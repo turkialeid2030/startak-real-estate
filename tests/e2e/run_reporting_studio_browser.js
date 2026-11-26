@@ -18,7 +18,18 @@ const fixture={reportRef:'SYNTHETIC-ONLY',valuationDate:'2026-01-01',landAreaSqm
    await page.goto(url.href);
    const panel=page.getByTestId('professional-reporting-studio');
    await expect(panel).toBeVisible();await expect(panel).toHaveAttribute('dir',locale==='en'?'ltr':'rtl');
-   const download=async button=>{const pending=page.waitForEvent('download');await button.click();const file=await pending;return fs.readFile(await file.path(),'utf8');};
+   let downloadIndex=0;
+   const download=async button=>{
+    const label=engine+':'+locale+':'+width+':'+(++downloadIndex)+':'+await button.getAttribute('data-testid');
+    console.log('REPORT_DOWNLOAD_START '+label);
+    // Attach handlers concurrently: a failed click or download must fail the test.
+    const [file]=await Promise.all([page.waitForEvent('download'),button.click()]);
+    assert.equal(await file.failure(),null,'Download failed '+label);
+    const html=await fs.readFile(await file.path(),'utf8');
+    assert.ok(html.length>0,'Empty download '+label);
+    console.log('REPORT_DOWNLOAD_PASS '+label);
+    return html;
+   };
    for(const mode of ['OWNER','TECHNICAL']){
     await panel.getByTestId('studio-mode').selectOption(mode);
     const html=await download(panel.getByTestId('studio-export'));
