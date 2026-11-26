@@ -70,31 +70,44 @@ async function withClient(pool, fn) {
   }
 }
 
-async function withTransaction(pool, tenantSetting, tenantId, fn) {
-  return withClient(pool, async (client) => {
-    let began = false;
-    try {
-      await client.query('BEGIN');
-      began = true;
-      if (typeof pool.verifyTransactionIdentity === 'function') await pool.verifyTransactionIdentity(client);
-      if (tenantId != null) {
-        await client.query('SELECT set_config($1, $2, true) AS tenant_context', [tenantSetting, tenantId]);
-      }
-      const result = await fn(client);
-      await client.query('COMMIT');
-      began = false;
-      return result;
-    } catch (error) {
-      if (began) {
-        try { await client.query('ROLLBACK'); } catch (_) { /* preserve original error */ }
-      }
-      throw error;
-    }
-  });
-}
+const confirmedStatementDenial = Symbol('confirmedStatementDenial');
 
-function denialError(error) {
-  return Boolean(error && String(error.code || '') === '42501');
+async function withTransaction(pool, tenantSetting, tenantId, fn) {
+  const client=await pool.connect();
+  if (!client || typeof client.query!=='function' || typeof client.release!=='function') throw new TypeError('invalid runtime client');
+  let began=false, discard=false, phase='begin';
+  try {
+    await client.query('BEGIN');
+    began=true;
+    phase='identity';
+    if(typeof pool.verifyTransactionIdentity==='function') await pool.verifyTransactionIdentity(client);
+    if(tenantId!=null){
+      phase='context';
+      const result=await client.query('SELECT set_config($1, $2, true) AS tenant_context',[tenantSetting,tenantId]);
+      if(result?.rows?.length!==1||result.rows[0].tenant_context!==tenantId)throw new Error('TENANT_CONTEXT_NOT_CONFIRMED');
+    }
+    phase='statement';
+    const result=await fn(client);
+    phase='commit';
+    await client.query('COMMIT');
+    began=false;
+    return result;
+  }catch(error){
+    let rollbackConfirmed=false;
+    if(phase==='begin'||phase==='commit')discard=true;
+    if(began){
+      try{await client.query('ROLLBACK');rollbackConfirmed=true;}
+      catch(_){discard=true;}
+    }
+    if(phase==='statement'&&rollbackConfirmed&&error?.code==='42501'){
+      const denied=new Error('STATEMENT_PERMISSION_DENIED');
+      denied[confirmedStatementDenial]=true;
+      throw denied;
+    }
+    throw new Error('RUNTIME_TRANSACTION_NOT_CONFIRMED');
+  }finally{
+    client.release(discard?true:undefined);
+  }
 }
 
 async function expectRlsWriteDenial(pool, tenantSetting, tenantId, sql, params) {
@@ -102,7 +115,7 @@ async function expectRlsWriteDenial(pool, tenantSetting, tenantId, sql, params) 
     await withTransaction(pool, tenantSetting, tenantId, (client) => client.query(sql, params));
     return false;
   } catch (error) {
-    if (denialError(error)) return true;
+    if (error?.[confirmedStatementDenial]===true) return true;
     throw error;
   }
 }
@@ -178,11 +191,16 @@ async function runPostgresRuntimeRlsProbe({
   const setting = assertTenantSetting(tenantSetting);
   const qualified = `${schema}.${table}`;
 
-  const tenantA = `rls_probe_a:${runId}`;
-  const tenantB = `rls_probe_b:${runId}`;
-  const primaryId = `rls-probe:${runId}:primary`;
-  const crossInsertId = `rls-probe:${runId}:cross-insert`;
-  const missingInsertId = `rls-probe:${runId}:missing-insert`;
+  // Caller run IDs are correlation labels, not unique execution identities.
+  // A fresh cryptographic nonce prevents a retry or concurrent run from sharing
+  // temporary tenant/workspace keys or cleaning up another run's rows.
+  const probeInstanceId=crypto.randomUUID();
+  const scopeId=`${runId}:${probeInstanceId}`;
+  const tenantA = `rls_probe_a:${scopeId}`;
+  const tenantB = `rls_probe_b:${scopeId}`;
+  const primaryId = `rls-probe:${scopeId}:primary`;
+  const crossInsertId = `rls-probe:${scopeId}:cross-insert`;
+  const missingInsertId = `rls-probe:${scopeId}:missing-insert`;
   const cleanupIds = [primaryId, crossInsertId, missingInsertId];
 
   const checks = {
@@ -244,7 +262,7 @@ async function runPostgresRuntimeRlsProbe({
 
     if (checks.runtimeRoleIsSuperuser || checks.runtimeRoleBypassesRls || !checks.forceRlsEnabled) {
       const status = statusFromChecks(checks);
-      const evidenceCore = { schemaVersion: 1, status, environment: env, targetDatabaseRef: databaseRef, probeRunId: runId, testedAt: timestamp, checks };
+      const evidenceCore = { schemaVersion: 1, status, environment: env, targetDatabaseRef: databaseRef, probeRunId: runId, probeInstanceId, testedAt: timestamp, checks };
       const probeHashSha256 = digestEvidence(evidenceCore);
       return freeze({
         ...evidenceCore,
@@ -306,6 +324,10 @@ async function runPostgresRuntimeRlsProbe({
       `SELECT workspace_id FROM ${qualified} WHERE tenant_id = $1 AND workspace_id = $2`,
       [tenantA, primaryId],
     ));
+    const missingUpdate = await withTransaction(guardedPool,setting,null,(client)=>client.query(
+      `UPDATE ${qualified} SET updated_at = updated_at WHERE tenant_id = $1 AND workspace_id = $2 RETURNING workspace_id`,[tenantA,primaryId]));
+    const missingDelete = await withTransaction(guardedPool,setting,null,(client)=>client.query(
+      `DELETE FROM ${qualified} WHERE tenant_id = $1 AND workspace_id = $2 RETURNING workspace_id`,[tenantA,primaryId]));
     const missingInsertDenied = await expectRlsWriteDenial(
       guardedPool,
       setting,
@@ -327,6 +349,8 @@ async function runPostgresRuntimeRlsProbe({
     );
     checks.missingTenantContextDenied = Boolean(
       missingSelect?.rowCount === 0
+      && missingUpdate?.rowCount === 0
+      && missingDelete?.rowCount === 0
       && missingInsertDenied,
     );
   } catch (_) {
@@ -356,7 +380,7 @@ async function runPostgresRuntimeRlsProbe({
         // On the passing isolation path, cleanup of the primary row is also the same-tenant DELETE check.
         // If a broken cross-tenant policy already deleted that row, preserve the more material cross-tenant
         // failure instead of misclassifying the result as a cleanup failure.
-        if (checks.crossTenantCrudDenied) {
+        if (checks.crossTenantCrudDenied && checks.missingTenantContextDenied) {
           checks.sameTenantCrudAllowed = checks.sameTenantCrudAllowed && primaryDeleteObserved;
         }
       } catch (_) {
@@ -374,6 +398,7 @@ async function runPostgresRuntimeRlsProbe({
     environment: env,
     targetDatabaseRef: databaseRef,
     probeRunId: runId,
+    probeInstanceId,
     testedAt: timestamp,
     tableRef: `${schema}.${table}`,
     runtimeRole,
