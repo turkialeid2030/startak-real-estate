@@ -28,6 +28,7 @@ function rlsDenied() {
 function createFakePool({
   superuser = false,
   bypassRls = false,
+  databaseName = 'startak_staging',
   forceRls = true,
   permissiveCrossTenant = false,
   allowMissingContext = false,
@@ -73,7 +74,7 @@ function createFakePool({
           }
           if (sql.startsWith('SELECT current_user AS role_name')) {
             if (failRoleQuery) throw new Error('database password=should-not-leak');
-            return { rowCount: 1, rows: [{ role_name: 'startak_runtime', rolsuper: superuser, rolbypassrls: bypassRls }] };
+            return { rowCount: 1, rows: [{ role_name: 'startak_runtime', rolsuper: superuser, rolbypassrls: bypassRls, database_name: databaseName }] };
           }
           if (sql.startsWith('SELECT c.relrowsecurity')) {
             return { rowCount: 1, rows: [{ relrowsecurity: forceRls, relforcerowsecurity: forceRls }] };
@@ -217,6 +218,26 @@ function probeInput(pool, overrides = {}) {
     );
   });
 
+  await test('P12-BOUND-DATABASE',async()=>{
+    const pool=createFakePool();
+    const out=await runPostgresRuntimeRlsProbe(probeInput(pool,{expectedDatabaseName:'startak_staging'}));
+    assert.strictEqual(out.status,RLS_PROBE_STATUS.PASS_NOT_PRODUCTION_CERTIFIED);
+    assert.strictEqual(out.checks.runtimeDatabaseMatchesExpected,true);
+  });
+  for(const [id,patch] of [['WRONG-DATABASE',{databaseName:'other_db'}],['MISSING-SUPERUSER',{superuser:null}],['MALFORMED-BYPASS',{bypassRls:'false'}]]) await test('P12-'+id,async()=>{
+    const pool=createFakePool(patch);
+    const out=await runPostgresRuntimeRlsProbe(probeInput(pool,{expectedDatabaseName:'startak_staging'}));
+    assert.strictEqual(out.status,RLS_PROBE_STATUS.HOLD_PROBE_EXECUTION);
+    assert.strictEqual(out.mutationExecuted,false);
+    assert.strictEqual(pool.state.rows.size,0);
+    assert.ok(!pool.state.queries.some(q=>q.sql.startsWith('INSERT')));
+  });
+  await test('P12-ENVIRONMENT-AND-TIME',async()=>{
+    const pool=createFakePool();
+    await assert.rejects(()=>runPostgresRuntimeRlsProbe(probeInput(pool,{environment:'production'})),/environment must be staging or preproduction/);
+    await assert.rejects(()=>runPostgresRuntimeRlsProbe(probeInput(pool,{testedAt:'not-a-date'})),/valid timestamp/);
+    assert.strictEqual(pool.state.connects,0);
+  });
   const failed = results.filter((entry) => entry[1] !== 'PASS');
   console.log(`PRODUCTIZATION_P12_POSTGRES_RLS_PROBE_RESULT=${failed.length === 0 ? 'PASS' : 'FAIL'} ${results.filter((entry) => entry[1] === 'PASS').length}/${results.length}`);
   if (failed.length > 0) process.exit(1);

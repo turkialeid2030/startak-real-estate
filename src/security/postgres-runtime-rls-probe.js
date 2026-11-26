@@ -154,6 +154,7 @@ function digestEvidence(value) {
 async function runPostgresRuntimeRlsProbe({
   pool,
   expectedRuntimeRole,
+  expectedDatabaseName,
   environment,
   targetDatabaseRef,
   probeRunId,
@@ -165,9 +166,12 @@ async function runPostgresRuntimeRlsProbe({
   if (!pool || typeof pool.connect !== 'function') throw new TypeError('pool.connect is required');
   const runtimeRole = assertIdentifier(expectedRuntimeRole, 'expectedRuntimeRole');
   const env = requiredString(environment, 'environment');
+  if (!['staging','preproduction'].includes(env.toLowerCase())) throw new TypeError('RLS probe environment must be staging or preproduction');
+  const databaseName = expectedDatabaseName == null ? null : assertIdentifier(expectedDatabaseName, 'expectedDatabaseName');
   const databaseRef = requiredString(targetDatabaseRef, 'targetDatabaseRef');
   const runId = normalizeProbeRunId(probeRunId);
   const timestamp = requiredString(testedAt, 'testedAt');
+  if (!Number.isFinite(Date.parse(timestamp))) throw new TypeError('testedAt must be a valid timestamp');
   const schema = assertIdentifier(schemaName, 'schemaName');
   const table = assertIdentifier(tableName, 'tableName');
   const setting = assertTenantSetting(tenantSetting);
@@ -182,6 +186,7 @@ async function runPostgresRuntimeRlsProbe({
 
   const checks = {
     runtimeRoleMatchesExpected: false,
+    runtimeDatabaseMatchesExpected: null,
     runtimeRoleIsSuperuser: false,
     runtimeRoleBypassesRls: false,
     forceRlsEnabled: false,
@@ -199,11 +204,14 @@ async function runPostgresRuntimeRlsProbe({
   try {
     const roleRows = await withClient(pool, async (client) => {
       const result = await client.query(
-        'SELECT current_user AS role_name, r.rolsuper, r.rolbypassrls FROM pg_roles r WHERE r.rolname = current_user',
+        'SELECT current_user AS role_name, r.rolsuper, r.rolbypassrls, current_database() AS database_name FROM pg_roles r WHERE r.rolname = current_user',
       );
       return Array.isArray(result?.rows) ? result.rows : [];
     });
     if (roleRows.length !== 1) throw new Error('ROLE_METADATA_UNAVAILABLE');
+    if (typeof roleRows[0].rolsuper !== 'boolean' || typeof roleRows[0].rolbypassrls !== 'boolean') throw new Error('ROLE_METADATA_INCOMPLETE');
+    checks.runtimeDatabaseMatchesExpected = databaseName === null ? null : roleRows[0].database_name === databaseName;
+    if (databaseName !== null && !checks.runtimeDatabaseMatchesExpected) throw new Error('RUNTIME_DATABASE_MISMATCH');
     checks.runtimeRoleMatchesExpected = roleRows[0].role_name === runtimeRole;
     checks.runtimeRoleIsSuperuser = roleRows[0].rolsuper === true;
     checks.runtimeRoleBypassesRls = roleRows[0].rolbypassrls === true;

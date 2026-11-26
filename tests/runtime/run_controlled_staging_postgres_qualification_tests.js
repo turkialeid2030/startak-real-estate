@@ -33,6 +33,10 @@ function migrationResult(status = MIGRATION_STATUS.APPLIED_NOT_PRODUCTION_CERTIF
     schemaVersion: 1,
     status,
     plan: {
+      environment: 'staging',
+      targetDatabaseRef: 'staging-db-ref',
+      expectedDatabaseName: 'startak_staging',
+      runtimeRole: 'startak_runtime',
       planHashSha256: 'a'.repeat(64),
       schemaHashSha256: 'b'.repeat(64),
       rlsHashSha256: 'c'.repeat(64),
@@ -48,7 +52,14 @@ function rlsProbeResult(status = RLS_PROBE_STATUS.PASS_NOT_PRODUCTION_CERTIFIED)
     status,
     evidenceRef: `sha256:${'d'.repeat(64)}`,
     probeHashSha256: 'd'.repeat(64),
+    environment: 'staging',
+    targetDatabaseRef: 'staging-db-ref',
+    runtimeRole: 'startak_runtime',
+    probeRunId: 'probe-1',
+    testedAt: '2026-09-09T15:45:00.000Z',
     checks: {
+      runtimeRoleMatchesExpected:true,
+      runtimeDatabaseMatchesExpected:true,
       runtimeRoleIsSuperuser: false,
       runtimeRoleBypassesRls: false,
       forceRlsEnabled: true,
@@ -224,6 +235,41 @@ function assertAuthorityClosed(result) {
     assert.strictEqual(calls.probe.length, 0);
   });
 
+  await test('P14-DRY-RUN-NOT-FALSE-PASS',async()=>{
+    const {qualify}=buildHarness({migrationValue:null});
+    const out=await qualify(baseInput({execute:false}));
+    assert.strictEqual(out.status,STAGING_QUALIFICATION_STATUS.HOLD_MIGRATION);
+  });
+  await test('P14-PREFLIGHT-BEFORE-MUTATION',async()=>{
+    const {qualify,calls}=buildHarness();
+    await assert.rejects(()=>qualify(baseInput({execute:true,runtimePool:null})),/runtimePool.connect is required/);
+    await assert.rejects(()=>qualify(baseInput({execute:true,runtimePool:runtimePool(),testedAt:'bad'})),/valid timestamp/);
+    assert.strictEqual(calls.migration.length,0);
+  });
+  for(const [id,patch] of [['WRONG-DB',{targetDatabaseRef:'other'}],['WRONG-ROLE',{runtimeRole:'other'}],['INVALID-DIGEST',{planHashSha256:['a'.repeat(64)]}]]) await test('P14-MIGRATION-'+id,async()=>{
+    const m=migrationResult();Object.assign(m.plan,patch);
+    const {qualify,calls}=buildHarness({migrationValue:m});
+    const out=await qualify(baseInput({execute:true,runtimePool:runtimePool()}));
+    assert.strictEqual(out.status,STAGING_QUALIFICATION_STATUS.HOLD_MIGRATION);
+    assert.strictEqual(calls.probe.length,0);assertAuthorityClosed(out);
+  });
+  for(const [id,patch] of [['CLEANUP',{cleanupComplete:false}],['MISSING-SUPERUSER',{runtimeRoleIsSuperuser:undefined}],['MISSING-BYPASS',{runtimeRoleBypassesRls:null}],['DB-MISMATCH',{runtimeDatabaseMatchesExpected:false}],['ROLE-MISMATCH',{runtimeRoleMatchesExpected:false}]]) await test('P14-PROBE-'+id,async()=>{
+    const probe=rlsProbeResult();Object.assign(probe.checks,patch);
+    const {qualify}=buildHarness({probeValue:probe});
+    const out=await qualify(baseInput({execute:true,runtimePool:runtimePool(),privilegedPathEvidence:privilegedEvidence()}));
+    assert.strictEqual(out.status,STAGING_QUALIFICATION_STATUS.HOLD_RUNTIME_RLS);assertAuthorityClosed(out);
+  });
+  for(const [id,patch] of [['WRONG-TARGET',{targetDatabaseRef:'other'}],['WRONG-IDENTITY',{probeRunId:'other'}],['WRONG-DIGEST',{evidenceRef:'sha256:'+ 'e'.repeat(64)}]]) await test('P14-EVIDENCE-'+id,async()=>{
+    const probe=Object.assign(rlsProbeResult(),patch);
+    const {qualify}=buildHarness({probeValue:probe});
+    const out=await qualify(baseInput({execute:true,runtimePool:runtimePool(),privilegedPathEvidence:privilegedEvidence()}));
+    assert.strictEqual(out.status,STAGING_QUALIFICATION_STATUS.HOLD_RUNTIME_RLS);
+  });
+  for(const testedAt of ['invalid','2026-09-10T00:00:00Z']) await test('P14-PRIVILEGED-TIME-'+testedAt,async()=>{
+    const {qualify}=buildHarness();
+    const out=await qualify(baseInput({execute:true,runtimePool:runtimePool(),privilegedPathEvidence:privilegedEvidence({testedAt})}));
+    assert.strictEqual(out.status,STAGING_QUALIFICATION_STATUS.HOLD_PRIVILEGED_PATH_EVIDENCE);
+  });
   const failed = results.filter((entry) => entry[1] !== 'PASS');
   console.log(`PRODUCTIZATION_P14_STAGING_POSTGRES_QUALIFICATION_RESULT=${failed.length === 0 ? 'PASS' : 'FAIL'} ${results.filter((entry) => entry[1] === 'PASS').length}/${results.length}`);
   if (failed.length > 0) process.exit(1);

@@ -58,7 +58,7 @@ function sha256(value) {
   return crypto.createHash('sha256').update(String(value), 'utf8').digest('hex');
 }
 
-function normalizePrivilegedPathEvidence(value, { environment, targetDatabaseRef, runtimeRole }) {
+function normalizePrivilegedPathEvidence(value, { environment, targetDatabaseRef, runtimeRole, assessedAt }) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const evidenceRef = typeof value.evidenceRef === 'string' ? value.evidenceRef.trim() : '';
   const testedAt = typeof value.testedAt === 'string' ? value.testedAt.trim() : '';
@@ -70,7 +70,8 @@ function normalizePrivilegedPathEvidence(value, { environment, targetDatabaseRef
     value.status === 'PASS'
     && value.ownerOrAdminPathTested === true
     && evidenceRef
-    && testedAt
+    && Number.isFinite(Date.parse(testedAt))
+    && Date.parse(testedAt) <= Date.parse(assessedAt)
     && reviewedBy
     && evidenceEnvironment === environment
     && evidenceTarget === targetDatabaseRef
@@ -158,6 +159,10 @@ function createControlledStagingPostgresQualification({
     const databaseRef = requiredString(targetDatabaseRef, 'targetDatabaseRef');
     const normalizedRuntimeRole = requiredString(runtimeRole, 'runtimeRole');
     const timestamp = requiredString(testedAt, 'testedAt');
+    if (!Number.isFinite(Date.parse(timestamp))) throw new TypeError('testedAt must be a valid timestamp');
+    if (execute === true && (!runtimePool || typeof runtimePool.connect !== 'function')) {
+      throw new TypeError('runtimePool.connect is required before migration execution');
+    }
 
     const migration = await migrationRunner({
       migrationPool,
@@ -173,9 +178,18 @@ function createControlledStagingPostgresQualification({
       tenantSetting,
     });
 
+    const migrationPlanValid = migration?.plan?.environment === env
+      && migration?.plan?.targetDatabaseRef === databaseRef
+      && migration?.plan?.expectedDatabaseName === expectedDatabaseName
+      && migration?.plan?.runtimeRole === normalizedRuntimeRole
+      && typeof migration?.plan?.planHashSha256 === 'string'
+      && /^[a-f0-9]{64}$/i.test(migration.plan.planHashSha256)
+      && migration.productionQualified === false
+      && migration.authority?.releaseAuthorized === false;
     if (execute !== true) {
       return result({
-        status: STAGING_QUALIFICATION_STATUS.DRY_RUN_READY,
+        status: migrationPlanValid && migration.status === MIGRATION_STATUS.DRY_RUN_READY
+          ? STAGING_QUALIFICATION_STATUS.DRY_RUN_READY : STAGING_QUALIFICATION_STATUS.HOLD_MIGRATION,
         environment: env,
         targetDatabaseRef: databaseRef,
         migration,
@@ -185,7 +199,7 @@ function createControlledStagingPostgresQualification({
       });
     }
 
-    if (!migration || migration.status !== MIGRATION_STATUS.APPLIED_NOT_PRODUCTION_CERTIFIED) {
+    if (!migrationPlanValid || migration.status !== MIGRATION_STATUS.APPLIED_NOT_PRODUCTION_CERTIFIED) {
       return result({
         status: STAGING_QUALIFICATION_STATUS.HOLD_MIGRATION,
         environment: env,
@@ -197,13 +211,10 @@ function createControlledStagingPostgresQualification({
       });
     }
 
-    if (!runtimePool || typeof runtimePool.connect !== 'function') {
-      throw new TypeError('runtimePool.connect is required after successful migration execution');
-    }
-
     const rlsProbe = await rlsProbeRunner({
       pool: runtimePool,
       expectedRuntimeRole: normalizedRuntimeRole,
+      expectedDatabaseName,
       environment: env,
       targetDatabaseRef: databaseRef,
       probeRunId,
@@ -213,7 +224,23 @@ function createControlledStagingPostgresQualification({
       tenantSetting,
     });
 
-    if (!rlsProbe || rlsProbe.status !== RLS_PROBE_STATUS.PASS_NOT_PRODUCTION_CERTIFIED) {
+    const probeValid = rlsProbe?.status === RLS_PROBE_STATUS.PASS_NOT_PRODUCTION_CERTIFIED
+      && rlsProbe.environment === env
+      && rlsProbe.targetDatabaseRef === databaseRef
+      && rlsProbe.runtimeRole === normalizedRuntimeRole
+      && rlsProbe.testedAt === timestamp
+      && rlsProbe.probeRunId === probeRunId
+      && typeof rlsProbe.probeHashSha256 === 'string'
+      && /^[a-f0-9]{64}$/i.test(rlsProbe.probeHashSha256)
+      && rlsProbe.evidenceRef === `sha256:${rlsProbe.probeHashSha256}`
+      && rlsProbe.productionSecurityVerifiedByThisModule === false
+      && rlsProbe.authority?.releaseAuthorized === false
+      && rlsProbe.checks?.runtimeRoleMatchesExpected === true
+      && rlsProbe.checks?.runtimeDatabaseMatchesExpected === true
+      && rlsProbe.checks?.runtimeRoleIsSuperuser === false
+      && rlsProbe.checks?.runtimeRoleBypassesRls === false
+      && rlsProbe.checks?.cleanupComplete === true;
+    if (!probeValid) {
       return result({
         status: STAGING_QUALIFICATION_STATUS.HOLD_RUNTIME_RLS,
         environment: env,
@@ -229,6 +256,7 @@ function createControlledStagingPostgresQualification({
       environment: env,
       targetDatabaseRef: databaseRef,
       runtimeRole: normalizedRuntimeRole,
+      assessedAt: timestamp,
     });
 
     const checks = {
