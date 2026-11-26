@@ -197,6 +197,14 @@ function normalizeUatEvidence(value) {
 // A caller-supplied plan is not an authenticated external approval. Bind the
 // exact candidate, service, time window and individual role/scenario outcomes
 // rather than accepting a matching aggregate count alone.
+function scenarioIdentity(item){
+  return {scenarioRef:hashRef('scenario:'+item.scenarioId,'scenarioId'),roleRef:hashRef('role:'+item.userRole,'userRole'),expectedOutcomeHashSha256:item.expectedOutcomeHashSha256};
+}
+function sortScenarioRefs(rows){return rows.sort((a,b)=>a.scenarioRef<b.scenarioRef?-1:a.scenarioRef>b.scenarioRef?1:0);}
+function scenarioPlanWitness(plan){
+  const {schemaVersion,environment,serviceRef,exactCommitSha,preparedAt,validUntil}=plan;
+  return {schemaVersion,environment,serviceRef,exactCommitSha,preparedAt,validUntil,scenarios:sortScenarioRefs(plan.scenarios.map(scenarioIdentity))};
+}
 function createUatScenarioPlan(input = {}) {
   const prepared = requiredTimestamp(input.preparedAt,'uatPlan.preparedAt');
   const expires = requiredTimestamp(input.validUntil,'uatPlan.validUntil');
@@ -211,7 +219,7 @@ function createUatScenarioPlan(input = {}) {
     return {scenarioId,userRole:requiredString(item.userRole,'userRole'),expectedOutcomeHashSha256:requiredSha256(item.expectedOutcomeHashSha256,'expectedOutcomeHashSha256')};
   }).sort((a,b)=>a.scenarioId.localeCompare(b.scenarioId));
   const core={schemaVersion:1,environment:normalizeEnvironment(input.environment),serviceRef:requiredString(input.serviceRef,'serviceRef'),exactCommitSha:requiredCommitSha(input.exactCommitSha),preparedAt:prepared.value,validUntil:expires.value,scenarios};
-  return freeze({...core,planHashSha256:sha256Object(core)});
+  return freeze({...core,planHashSha256:sha256Object(scenarioPlanWitness(core))});
 }
 function validateUatScenarioBinding(planInput, rawUat, uat, target) {
   try {
@@ -234,14 +242,37 @@ function validateUatScenarioBinding(planInput, rawUat, uat, target) {
       if(result.userRole!==item.userRole||result.expectedOutcomeHashSha256!==item.expectedOutcomeHashSha256)
         return {issue:'UAT_SCENARIO_ROLE_OR_OUTCOME_MISMATCH'};
       if(result.passed!==true)return {issue:'UAT_SCENARIO_FAILURE_PRESENT'};
-      rows.push({scenarioId:id,userRole:item.userRole,expectedOutcomeHashSha256:item.expectedOutcomeHashSha256,actualObservationHashSha256:requiredSha256(result.actualObservationHashSha256,'actualObservationHashSha256'),passed:true});
+      rows.push({...scenarioIdentity(item),actualObservationHashSha256:requiredSha256(result.actualObservationHashSha256,'actualObservationHashSha256'),passed:true});
     }
-    rows.sort((a,b)=>a.scenarioId.localeCompare(b.scenarioId));
+    sortScenarioRefs(rows);
     if(expected.size)return {issue:'UAT_SCENARIO_COVERAGE_MISMATCH'};
-    return {planHashSha256:plan.planHashSha256,scenarioResultsHashSha256:sha256Object(rows),scenarioCount:rows.length};
+    return {planHashSha256:plan.planHashSha256,scenarioResultsHashSha256:sha256Object(rows),scenarioCount:rows.length,planWitness:scenarioPlanWitness(plan),resultWitness:rows};
   }catch{return {issue:'UAT_SCENARIO_PLAN_OR_RESULTS_INVALID'};}
 }
 
+function exactKeys(value,keys){return !!value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).length===keys.length&&keys.every(k=>Object.hasOwn(value,k));}
+function verifyUatScenarioWitness(binding,uat,target){
+ try{
+  if(!exactKeys(binding,['planHashSha256','scenarioResultsHashSha256','scenarioCount','planWitness','resultWitness']))return false;
+  const p=binding.planWitness,rows=binding.resultWitness;
+  if(!exactKeys(p,['schemaVersion','environment','serviceRef','exactCommitSha','preparedAt','validUntil','scenarios'])||p.schemaVersion!==1||
+    p.environment!==target.environment||p.serviceRef!==target.serviceRef||p.exactCommitSha!==target.exactCommitSha)return false;
+  const prepared=requiredTimestamp(p.preparedAt,'preparedAt').millis,expires=requiredTimestamp(p.validUntil,'validUntil').millis;
+  if(prepared>expires||prepared>Date.parse(uat.startedAt)||expires<Date.parse(uat.completedAt))return false;
+  if(!Array.isArray(p.scenarios)||!Array.isArray(rows)||p.scenarios.length!==binding.scenarioCount||rows.length!==binding.scenarioCount||rows.length<1||rows.length>10000)return false;
+  if(sha256Object(p)!==binding.planHashSha256||sha256Object(rows)!==binding.scenarioResultsHashSha256)return false;
+  let previous='';
+  for(let i=0;i<rows.length;i++){
+    const item=p.scenarios[i],row=rows[i];
+    if(!exactKeys(item,['scenarioRef','roleRef','expectedOutcomeHashSha256'])||!exactKeys(row,['scenarioRef','roleRef','expectedOutcomeHashSha256','actualObservationHashSha256','passed'])||
+       !isHashRef(item.scenarioRef)||!isHashRef(item.roleRef)||item.scenarioRef<=previous||
+       !isDigest(item.expectedOutcomeHashSha256)||row.scenarioRef!==item.scenarioRef||row.roleRef!==item.roleRef||row.expectedOutcomeHashSha256!==item.expectedOutcomeHashSha256||
+       !isDigest(row.actualObservationHashSha256)||row.passed!==true)return false;
+    previous=item.scenarioRef;
+  }
+  return true;
+ }catch{return false;}
+}
 function makeResult({ status, plan, pentest, uat, issues = [] }) {
   const evidenceCore = {
     schemaVersion: 1,
@@ -430,7 +461,7 @@ function verifyCompletedSecurityUatBundle(value, asOf) {
     const binding=uat.scenarioBinding;
     if(!binding||!isDigest(binding.planHashSha256)||!isDigest(binding.scenarioResultsHashSha256)||
        !Number.isSafeInteger(uat.requiredScenarios)||uat.requiredScenarios<1||
-       binding.scenarioCount!==uat.requiredScenarios||uat.passedScenarios!==uat.requiredScenarios||uat.failedScenarios!==0)return false;
+       binding.scenarioCount!==uat.requiredScenarios||uat.passedScenarios!==uat.requiredScenarios||uat.failedScenarios!==0||!verifyUatScenarioWitness(binding,uat,plan))return false;
     const assessed=requiredTimestamp(plan.assessedAt,'plan.assessedAt').millis;
     const at=requiredTimestamp(asOf,'asOf').millis;
     const maxAge=nonNegativeNumber(plan.maximumEvidenceAgeDays,'maximumEvidenceAgeDays')*86400000;

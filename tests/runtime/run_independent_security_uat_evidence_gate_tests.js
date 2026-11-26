@@ -358,6 +358,41 @@ function assertAuthorityClosed(result) {
       assert.strictEqual(verifyCompletedSecurityUatBundle(out,input().assessedAt),false);
     }
   });
+  await test('P19-V622-REVERIFIABLE-WITNESS',async()=>{
+    const out=evaluateIndependentSecurityUatEvidence(input());
+    const b=out.uat.scenarioBinding;
+    assert.strictEqual(b.planWitness.scenarios.length,24);assert.strictEqual(b.resultWitness.length,24);
+    assert.strictEqual(verifyCompletedSecurityUatBundle(out,input().assessedAt),true);
+    assert.ok(!JSON.stringify(b).includes('SYNTH-01'));assert.ok(!JSON.stringify(b).includes('ANALYST'));
+    assert.ok(Object.isFrozen(b.planWitness.scenarios)&&Object.isFrozen(b.resultWitness[0]));
+    const crypto=require('node:crypto');
+    const canonical=v=>Array.isArray(v)?v.map(canonical):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,canonical(v[k])])):v;
+    const digest=v=>crypto.createHash('sha256').update(JSON.stringify(canonical(v))).digest('hex');
+    const patches=[
+      {planWitness:undefined},
+      {resultWitness:undefined},
+      {resultWitness:b.resultWitness.slice(1)},
+      {resultWitness:[b.resultWitness[0],b.resultWitness[0],...b.resultWitness.slice(2)]},
+      {resultWitness:[{...b.resultWitness[0],roleRef:'sha256:'+'0'.repeat(64)},...b.resultWitness.slice(1)]},
+      {resultWitness:[{...b.resultWitness[0],expectedOutcomeHashSha256:'0'.repeat(64)},...b.resultWitness.slice(1)]},
+      {resultWitness:[{...b.resultWitness[0],passed:false},...b.resultWitness.slice(1)]},
+      {resultWitness:[{...b.resultWitness[0],actualObservationHashSha256:null},...b.resultWitness.slice(1)]},
+      {planWitness:{...b.planWitness,exactCommitSha:'0'.repeat(40)}},
+      {planWitness:{...b.planWitness,preparedAt:'2026-09-07T00:00:00Z'}},
+      {planWitness:{...b.planWitness,validUntil:'2026-09-06T10:00:00Z'}}
+    ];
+    for(const patch of patches){
+      const binding={...b,...patch};
+      if(binding.planWitness)binding.planHashSha256=digest(binding.planWitness);
+      if(binding.resultWitness)binding.scenarioResultsHashSha256=digest(binding.resultWitness);
+      const uat={...out.uat,scenarioBinding:binding};
+      const modified={...out,uat,uatEvidenceRef:'sha256:'+digest(uat)};
+      const core=Object.fromEntries(['schemaVersion','status','planHashSha256','observabilityQualificationRef','pentestEvidenceRef','uatEvidenceRef','issues'].map(k=>[k,modified[k]]));
+      modified.evidenceBundleHashSha256=digest(core);modified.evidenceBundleRef='sha256:'+modified.evidenceBundleHashSha256;
+      assert.strictEqual(verifyCompletedSecurityUatBundle(modified,input().assessedAt),false);
+    }
+  });
+  console.log('P19_V622_WITNESS_REVALIDATION=CHECKED negative_cases=11 synthetic_evidence=true');
   const failed = results.filter((entry) => entry[1] !== 'PASS');
   console.log(`PRODUCTIZATION_P19_INDEPENDENT_SECURITY_UAT_RESULT=${failed.length === 0 ? 'PASS' : 'FAIL'} ${results.filter((entry) => entry[1] === 'PASS').length}/${results.length}`);
   if (failed.length > 0) process.exit(1);
