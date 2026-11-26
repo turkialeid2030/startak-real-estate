@@ -13,6 +13,9 @@ const MAX_TEXT = 500;
 const FORBIDDEN_DECISION_PATTERNS = [
   /\b(buy|sell|approve|reject|invest|proceed|do not proceed)\b/i,
   /(?<![\p{L}\p{N}_])(?:اشتر|اشتري|بع|بيع|وافق|ارفض|استثمر|نفذ الصفقة|لا تنفذ الصفقة)(?![\p{L}\p{N}_])/u,
+  /\b(?:we recommend|recommendation is to|it is advisable to|favorable opportunity to)\b[^.\n]{0,60}\b(?:buy|purchase|acquire|acquisition|invest|proceed)\b/i,
+  /(?<![\p{L}\p{N}_])(?:نوصي|نقترح|يوصى|يُنصح|الأنسب|من الأفضل)(?:\s+\S+){0,4}?\s*(?:بالشراء|بالبيع|بالاستحواذ|بالتملك|بالاستثمار|بتنفيذ\s+الصفقة|بالمضي\s+في\s+الصفقة|بإتمام\s+الصفقة)/u,
+  /(?<![\p{L}\p{N}_])(?:فرصة|الفرصة)(?:\s+\S+){0,4}?\s*مواتية(?:\s+\S+){0,4}?\s*(?:للشراء|للتملك|للاستحواذ|للاستثمار|للمضي\s+في\s+الصفقة)/u,
 ];
 
 function finite(value) {
@@ -186,11 +189,40 @@ function validateTextList(value, field) {
   return { ok: true };
 }
 
+function validBoundedText(value,max){return typeof value==='string'&&value.trim().length>0&&value.length<=max;}
+function exactFields(value,keys){return !!value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).length===keys.length&&keys.every(k=>Object.hasOwn(value,k));}
+const NARRATIVE_FIELDS=['executiveObservations','riskFlags','evidenceGaps','dueDiligenceQuestions','scenarioChecks','earlyWarningIndicators','decisionBoundary'];
+// This provider channel carries qualitative observations only. Financial values
+// remain in the deterministic report, never in generated narrative.
+const QUANTITY = /\p{N}|\b(?:hundred|thousand|million|billion|trillion|percent)\b|(?:مليون|ملايين|مليار|مليارات|تريليون|مئة|مائة|ألف|آلاف|بالمئة|بالمائة)|[%٪]/iu;
+function qualitativeOutputError(payload) {
+  const stack = [payload];
+  let nodes = 0;
+  while (stack.length) {
+    if (++nodes > 2000) return 'AI_OUTPUT_STRUCTURE_TOO_LARGE';
+    const value = stack.pop();
+    if (typeof value === 'number' || (typeof value === 'string' && QUANTITY.test(value.normalize('NFKC')))) return 'AI_UNSOURCED_NUMERIC_CLAIM';
+    if (value && typeof value === 'object') {
+      if (Object.hasOwn(value, 'financialClaims')) return 'AI_FINANCIAL_CLAIM_CHANNEL_UNSUPPORTED';
+      stack.push(...Object.values(value));
+    }
+  }
+  return null;
+}
+
 function validateResidentialIncomeAiAssistResponse(payload) {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     return Object.freeze({ status: AI_ASSIST_STATUS.INVALID, reasonCode: 'AI_RESPONSE_OBJECT_REQUIRED', value: null });
   }
 
+  const invalid=reasonCode=>Object.freeze({status:AI_ASSIST_STATUS.INVALID,reasonCode,value:null});
+  const boundary={schemaVersion:1,investmentRecommendation:null,investmentDecision:null,legalConclusion:null,transactionAuthorized:false};
+  const allowed=new Set([...NARRATIVE_FIELDS,...Object.keys(boundary)]);
+  if(Object.keys(payload).some(k=>!allowed.has(k)))return invalid('AI_RESPONSE_SCHEMA_INVALID');
+  for(const [key,value] of Object.entries(boundary))if(Object.hasOwn(payload,key)&&payload[key]!==value)return invalid('AI_RESPONSE_GOVERNANCE_INVALID');
+  const narrative=Object.fromEntries(NARRATIVE_FIELDS.map(k=>[k,payload[k]]));
+  const qualitativeError=qualitativeOutputError(narrative);
+  if(qualitativeError)return invalid(qualitativeError);
   for (const field of ['executiveObservations', 'evidenceGaps', 'dueDiligenceQuestions', 'scenarioChecks']) {
     const result = validateTextList(payload[field], field);
     if (!result.ok) return Object.freeze({ status: AI_ASSIST_STATUS.INVALID, reasonCode: result.reasonCode, value: null });
@@ -201,12 +233,12 @@ function validateResidentialIncomeAiAssistResponse(payload) {
   }
   const riskFlags = [];
   for (const item of payload.riskFlags) {
-    if (!item || typeof item !== 'object' || !ALLOWED_SEVERITY.has(item.severity)) {
+    if (!exactFields(item,['code','severity','rationale'])||!ALLOWED_SEVERITY.has(item.severity)||!validBoundedText(item.code,120)||!validBoundedText(item.rationale,MAX_TEXT)) {
       return Object.freeze({ status: AI_ASSIST_STATUS.INVALID, reasonCode: 'riskFlags_INVALID', value: null });
     }
     const code = trimText(item.code, 120);
     const rationale = trimText(item.rationale, MAX_TEXT);
-    if (!code || !rationale || FORBIDDEN_DECISION_PATTERNS.some((pattern) => pattern.test(rationale))) {
+    if (!code || !rationale || FORBIDDEN_DECISION_PATTERNS.some((pattern) => pattern.test(code+' '+rationale))) {
       return Object.freeze({ status: AI_ASSIST_STATUS.INVALID, reasonCode: 'riskFlags_INVALID', value: null });
     }
     riskFlags.push({ code, severity: item.severity, rationale });
@@ -217,7 +249,7 @@ function validateResidentialIncomeAiAssistResponse(payload) {
   }
   const earlyWarningIndicators = [];
   for (const item of payload.earlyWarningIndicators) {
-    if (!item || typeof item !== 'object') return Object.freeze({ status: AI_ASSIST_STATUS.INVALID, reasonCode: 'earlyWarningIndicators_INVALID', value: null });
+    if (!exactFields(item,['indicator','whyItMatters'])||!validBoundedText(item.indicator,220)||!validBoundedText(item.whyItMatters,MAX_TEXT)) return Object.freeze({ status: AI_ASSIST_STATUS.INVALID, reasonCode: 'earlyWarningIndicators_INVALID', value: null });
     const indicator = trimText(item.indicator, 220);
     const whyItMatters = trimText(item.whyItMatters, MAX_TEXT);
     if (!indicator || !whyItMatters || FORBIDDEN_DECISION_PATTERNS.some((pattern) => pattern.test(`${indicator} ${whyItMatters}`))) {
@@ -227,7 +259,7 @@ function validateResidentialIncomeAiAssistResponse(payload) {
   }
 
   const decisionBoundary = trimText(payload.decisionBoundary, MAX_TEXT);
-  if (!decisionBoundary) return Object.freeze({ status: AI_ASSIST_STATUS.INVALID, reasonCode: 'decisionBoundary_INVALID', value: null });
+  if (!validBoundedText(payload.decisionBoundary,MAX_TEXT)) return Object.freeze({ status: AI_ASSIST_STATUS.INVALID, reasonCode: 'decisionBoundary_INVALID', value: null });
   if (FORBIDDEN_DECISION_PATTERNS.some((pattern) => pattern.test(decisionBoundary))) {
     return Object.freeze({ status: AI_ASSIST_STATUS.INVALID, reasonCode: 'AUTOMATIC_DECISION_LANGUAGE_PROHIBITED', value: null });
   }

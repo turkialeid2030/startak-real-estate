@@ -18,6 +18,7 @@ function enforceSnapshotDataDiscipline(snapshot, limits = SNAPSHOT_LIMITS) {
     if (value === null || typeof value === 'boolean') continue;
     if (typeof value === 'number') {
       if (!Number.isFinite(value)) return fail('SNAPSHOT_NON_FINITE_NUMBER', path);
+      if(Number.isInteger(value)&&!Number.isSafeInteger(value))return fail('SNAPSHOT_UNSAFE_INTEGER',path);
       continue;
     }
     if (typeof value === 'string') {
@@ -31,6 +32,7 @@ function enforceSnapshotDataDiscipline(snapshot, limits = SNAPSHOT_LIMITS) {
     }
     if (typeof value === 'object') {
       for (const [key, child] of Object.entries(value)) {
+        if(['__proto__','prototype','constructor'].includes(key))return fail('SNAPSHOT_KEY_NOT_PERMITTED',path);
         if (!SNAPSHOT_TOKEN_PATTERN.test(key)) return fail('SNAPSHOT_KEY_NOT_PERMITTED', path ? `${path}.${key}` : key);
         stack.push({ value: child, depth: depth + 1, path: path ? `${path}.${key}` : key });
       }

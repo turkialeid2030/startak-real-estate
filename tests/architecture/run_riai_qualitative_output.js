@@ -9,5 +9,24 @@ const assert=require('node:assert/strict');
  const request=new Request('https://example.com');
  const oversized=await verifyTurnstile({request,env:{RIAI_TURNSTILE_SECRET_KEY:'synthetic'},token:'synthetic',fetchImpl:async()=>new Response('x'.repeat(16385))});
  assert.equal(oversized.code,'AI_TURNSTILE_RESPONSE_INVALID');
+ const {validateResidentialIncomeAiAssistResponse:validate}=require('../../src/residential-income-acquisition/ai-assist-contract');
+ const good={executiveObservations:['Review evidence.'],riskFlags:[],evidenceGaps:[],dueDiligenceQuestions:[],scenarioChecks:[],earlyWarningIndicators:[],decisionBoundary:'Advisory only.'};
+ assert.equal(validate(good).status,'VALID');
+ assert.equal(validate({...good,schemaVersion:1,investmentRecommendation:null,investmentDecision:null,legalConclusion:null,transactionAuthorized:false}).status,'VALID');
+ const cases=[
+  {executiveObservations:['القيمة ١٠٠ ريال']},
+  {executiveObservations:['Market value is one million SAR']},
+  {executiveObservations:['نوصي بالشراء']},
+  {riskFlags:[{code:'Buy',severity:'HIGH',rationale:'Review evidence'}]},
+  {riskFlags:[{code:'X'.repeat(121),severity:'HIGH',rationale:'Review evidence'}]},
+  {riskFlags:[{code:'RISK',severity:'HIGH',rationale:'Review evidence',extra:'unknown'}]},
+  {earlyWarningIndicators:[{indicator:'X'.repeat(221),whyItMatters:'Review evidence'}]},
+  {decisionBoundary:'X'.repeat(501)},
+  {transactionAuthorized:true},
+  {investmentRecommendation:'APPROVE'},
+  {unexpected:'unknown'}
+ ];
+ for(const patch of cases){const result=validate({...good,...patch});assert.equal(result.status,'INVALID');assert.equal(result.value,null);}
+ console.log('RIAI_V615_CLIENT_OUTPUT_BOUNDARY=PASS negative_cases=11 positive_cases=2');
  console.log('RIAI_QUALITATIVE_OUTPUT=PASS');
 })().catch(e=>{console.error(e);process.exitCode=1;});
