@@ -24,3 +24,10 @@ Exact head 760922c84da38e5901f461502bd478d3c6e5a78e, census 45813122224: 696/696
 
 ## V6-LEG-002 — restored institutional valuation boundary
 LEG-002 source and current personal research gate inspected; C62 remains a distinct institutional HOLD boundary, not equivalent to the personal research gate. Hardened malformed asset-class/method/evidence input handling, duplicate method detection and diagnostic value suppression when no method is available or the upstream flag is not boolean true. Added 60 synthetic assertions to the existing C62 runtime suite. No institutional authority, official report export, production UAT or complete functional parity claimed. Other unregistered path identities remain pending restricted review; selected historical tree checks did not establish them and API batching hit a call limit.
+
+## V6 consolidated batch — restored calculation and readiness controls
+Baseline 8d313abd744f30951684154195f4e750ed6d6957. Parent reporting run 45813497485 completed 180/180 actual synthetic downloads, 28 lifecycle checks; root cause of prior intermittent WebKit timeout remains unproven. Census 45813946153 confirmed 696/696 and 457 unregistered candidates.
+- LEG-014/C59: reject malformed allocations, normalize duplicate cause identifiers, enforce nonnegative residual component values even within aggregate reconciliation tolerance, compute age-life diagnostic ratio before multiplying. 7 new checks.
+- LEG-054/C60: reject duplicate trimmed transaction refs, review predating the transaction, unsafe policy counts, nonfinite NOI bridge and stress values. 7 new checks.
+- Modern valuation readiness: validate comparable counts as safe nonnegative integers, reject invalid rents, reconcile zero/positive rent discrepancies. 25 new checks.
+These changes are a consolidated 39-check synthetic regression addition. They do not establish complete historical parity or professional valuation certification. Exact-head CI pending; gate statuses unchanged.
