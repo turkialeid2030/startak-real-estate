@@ -230,6 +230,47 @@ function assertAuthorityClosed(result) {
     assert.strictEqual(result.status, SECURITY_UAT_STATUS.INDEPENDENT_SECURITY_UAT_EVIDENCE_COMPLETE_NOT_RELEASE_AUTHORIZED);
   });
 
+  // Incomplete, null, unknown, or unsafe finding counts cannot mean zero.
+  const missingHigh = {...pentest().openFindingCounts};
+  delete missingHigh.HIGH;
+  const incompleteCases = [
+    pentest({openFindingCounts: missingHigh}),
+    pentest({findingCounts: {}}),
+    pentest({openFindingCounts: {...pentest().openFindingCounts, CRITICAL: null}}),
+    pentest({openFindingCounts: {...pentest().openFindingCounts, UNKNOWN: 1}}),
+    pentest({findingCounts: {...pentest().findingCounts, HIGH: Number.MAX_SAFE_INTEGER + 1}}),
+  ];
+  for (const [index, record] of incompleteCases.entries()) {
+    await test('PRODUCTIZATION-P19-MISSING-COUNTS-'+index, async()=>{
+      const out=evaluateIndependentSecurityUatEvidence(input({pentestEvidence:record}));
+      assert.strictEqual(out.status,SECURITY_UAT_STATUS.HOLD_PENTEST_EVIDENCE);
+      assertAuthorityClosed(out);
+    });
+  }
+  await test('PRODUCTIZATION-P19-OBSERVABILITY-HASH', async()=>{
+    const out=evaluateIndependentSecurityUatEvidence(input({observabilityQualification:observability({evidenceHashSha256:undefined})}));
+    assert.strictEqual(out.status,SECURITY_UAT_STATUS.HOLD_OBSERVABILITY_QUALIFICATION);
+    assertAuthorityClosed(out);
+  });
+  await test('PRODUCTIZATION-P19-OLD-PENTEST-NEW-REVIEW', async()=>{
+    const out=evaluateIndependentSecurityUatEvidence(input({pentestEvidence:pentest({startedAt:'2026-07-01T08:00:00Z',completedAt:'2026-07-02T08:00:00Z'})}));
+    assert.strictEqual(out.status,SECURITY_UAT_STATUS.HOLD_STALE_EVIDENCE);
+    assert.ok(out.issues.includes('PENTEST_EVIDENCE_OUTSIDE_FRESHNESS'));
+    assertAuthorityClosed(out);
+  });
+  await test('PRODUCTIZATION-P19-OLD-UAT-NEW-REVIEW', async()=>{
+    const out=evaluateIndependentSecurityUatEvidence(input({uatEvidence:uat({startedAt:'2026-07-01T08:00:00Z',completedAt:'2026-07-02T08:00:00Z'})}));
+    assert.strictEqual(out.status,SECURITY_UAT_STATUS.HOLD_STALE_EVIDENCE);
+    assert.ok(out.issues.includes('UAT_EVIDENCE_OUTSIDE_FRESHNESS'));
+    assertAuthorityClosed(out);
+  });
+  await test('PRODUCTIZATION-P19-FUTURE-REVIEW', async()=>{
+    const out=evaluateIndependentSecurityUatEvidence(input({uatEvidence:uat({reviewedAt:'2026-09-10T00:00:00Z'})}));
+    assert.strictEqual(out.status,SECURITY_UAT_STATUS.HOLD_STALE_EVIDENCE);
+    assert.ok(out.issues.includes('UAT_EVIDENCE_OUTSIDE_FRESHNESS'));
+    assertAuthorityClosed(out);
+  });
+
   const failed = results.filter((entry) => entry[1] !== 'PASS');
   console.log(`PRODUCTIZATION_P19_INDEPENDENT_SECURITY_UAT_RESULT=${failed.length === 0 ? 'PASS' : 'FAIL'} ${results.filter((entry) => entry[1] === 'PASS').length}/${results.length}`);
   if (failed.length > 0) process.exit(1);
