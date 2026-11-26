@@ -29,6 +29,7 @@ const AUTHORITY = Object.freeze({
 });
 
 const HASH_REF_RE=/^sha256:[a-f0-9]{64}$/;
+const isHashRef=value=>typeof value==='string'&&HASH_REF_RE.test(value);
 const COMMIT_SHA_RE = /^[a-f0-9]{40}$/i;
 
 function requiredString(value, field) {
@@ -64,10 +65,7 @@ function freeze(value) {
 function canonicalize(value) {
   if (Array.isArray(value)) return value.map(canonicalize);
   if (value && typeof value === 'object') {
-    return Object.keys(value).sort().reduce((result, key) => {
-      if (value[key] !== undefined) result[key] = canonicalize(value[key]);
-      return result;
-    }, {});
+    return Object.fromEntries(Object.keys(value).sort().filter(key=>value[key]!==undefined).map(key=>[key,canonicalize(value[key])]));
   }
   return value;
 }
@@ -384,7 +382,7 @@ function verifyCompletedObservabilityQualification(value,asOf){
   const {planHashSha256,...planCore}=plan;
   if(plan.schemaVersion!==1||plan.environment!=='staging'||requiredCommitSha(plan.exactCommitSha)!==plan.exactCommitSha||
      !requiredString(plan.serviceRef,'serviceRef')||!requiredString(plan.probeId,'probeId')||
-     !HASH_REF_RE.test(plan.drFailoverQualificationRef)||value.drFailoverQualificationRef!==plan.drFailoverQualificationRef||
+     !isHashRef(plan.drFailoverQualificationRef)||value.drFailoverQualificationRef!==plan.drFailoverQualificationRef||
      JSON.stringify(plan.executionOrder)!==JSON.stringify(['metricsInspection','syntheticAlert','incidentAcknowledgementAndRunbook'])||
      sha256Object(planCore)!==planHashSha256||value.planHashSha256!==planHashSha256)return false;
   const objectives=normalizeObjectives(plan.monitoringObjectives);
@@ -393,24 +391,24 @@ function verifyCompletedObservabilityQualification(value,asOf){
   const assessed=when(plan.assessedAt),review=when(asOf);
   if(assessed>review||authorization.accepted!==true||
      !requiredString(authorization.approvedBy,'approvedBy')||!requiredString(authorization.reviewedBy,'reviewedBy')||
-     authorization.approvedBy===authorization.reviewedBy||!requiredString(authorization.changeControlRef,'changeControlRef'))return false;
+     authorization.approvedBy.trim()===authorization.reviewedBy.trim()||!requiredString(authorization.changeControlRef,'changeControlRef'))return false;
   const approved=when(authorization.approvedAt),observed=when(metrics.observedAt),latest=when(metrics.latestSampleAt);
   if(approved>observed||latest>observed||observed>assessed||
      metrics.queryHealthy!==true||metrics.freshnessSeconds!==(observed-latest)/1000||
      metrics.freshnessSeconds>objectives.maximumMetricFreshnessSeconds||
      !Array.isArray(metrics.missingRequiredSignals)||metrics.missingRequiredSignals.length||
-     JSON.stringify(metrics.requiredSignalChecks)!==JSON.stringify(objectives.requiredSignals.map(signal=>({signal,present:true})))||
-     !HASH_REF_RE.test(metrics.metricsBackendRef))return false;
+     !Array.isArray(metrics.requiredSignalChecks)||sha256Object(metrics.requiredSignalChecks)!==sha256Object(objectives.requiredSignals.map(signal=>({signal,present:true})))||
+     !isHashRef(metrics.metricsBackendRef))return false;
   const triggered=when(alert.triggeredAt),delivered=when(alert.deliveredAt);
   if(observed>triggered||triggered>delivered||delivered>assessed||alert.deliveryConfirmed!==true||
      alert.deliverySeconds!==(delivered-triggered)/1000||alert.deliverySeconds>objectives.maximumAlertDeliverySeconds||
-     ['alertIdRef','routeRef','receiverRef'].some(k=>!HASH_REF_RE.test(alert[k])))return false;
+     ['alertIdRef','routeRef','receiverRef'].some(k=>!isHashRef(alert[k])))return false;
   const opened=when(incident.openedAt),ack=when(incident.acknowledgedAt),resolved=when(incident.resolvedAt);
   if(delivered>opened||opened>ack||ack>resolved||resolved>assessed||
      incident.acknowledgementConfirmed!==true||incident.runbookAvailable!==true||
      incident.acknowledgeSecondsFromDelivery!==(ack-delivered)/1000||
      incident.acknowledgeSecondsFromDelivery>objectives.maximumIncidentAcknowledgeSeconds||
-     ['incidentRef','runbookRef','onCallOwnerRef','escalationPolicyRef'].some(k=>!HASH_REF_RE.test(incident[k])))return false;
+     ['incidentRef','runbookRef','onCallOwnerRef','escalationPolicyRef'].some(k=>!isHashRef(incident[k])))return false;
   // Pure verification: never freeze or otherwise mutate caller-owned evidence.
   const core={schemaVersion:1,status:value.status,planHashSha256,drFailoverQualificationRef:plan.drFailoverQualificationRef,
     authorizationAccepted:true,authorizationRef:'sha256:'+sha256Object(authorization),

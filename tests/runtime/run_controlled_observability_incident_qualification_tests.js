@@ -319,6 +319,18 @@ function assertAuthorityClosed(result) {
     assert.strictEqual(result.status,OBSERVABILITY_STATUS.HOLD_DR_FAILOVER_QUALIFICATION);
     assert.strictEqual(calls.metrics,0);
   });
+  await test('P18-VERIFIER-CANONICAL-SIGNAL-FIELD-ORDER',async()=>{
+    const {qualify}=harness();
+    const original=await qualify(baseInput({execute:true}));
+    const reordered={...original,metrics:{...original.metrics,requiredSignalChecks:original.metrics.requiredSignalChecks.map(({signal,present})=>({present,signal}))}};
+    assert.strictEqual(verifyCompletedObservabilityQualification(reordered,baseInput().assessedAt),true);
+  });
+  await test('P18-VERIFIER-REFERENCE-TYPE-AND-REVIEWER',async()=>{
+    const {qualify}=harness();
+    const original=await qualify(baseInput({execute:true}));
+    assert.strictEqual(verifyCompletedObservabilityQualification({...original,metrics:{...original.metrics,metricsBackendRef:[original.metrics.metricsBackendRef]}},baseInput().assessedAt),false);
+    assert.strictEqual(verifyCompletedObservabilityQualification({...original,authorization:{...original.authorization,reviewedBy:' '+original.authorization.approvedBy+' '}},baseInput().assessedAt),false);
+  });
   const failed = results.filter((entry) => entry[1] !== 'PASS');
   console.log(`PRODUCTIZATION_P18_OBSERVABILITY_INCIDENT_RESULT=${failed.length === 0 ? 'PASS' : 'FAIL'} ${results.filter((entry) => entry[1] === 'PASS').length}/${results.length}`);
   if (failed.length > 0) process.exit(1);
