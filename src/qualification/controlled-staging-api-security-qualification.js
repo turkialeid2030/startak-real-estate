@@ -84,7 +84,7 @@ function sha256(value) {
 
 function normalizeResponse(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError('requestExecutor must return an object');
-  const statusCode = Number(value.statusCode);
+  const statusCode = value.statusCode;
   if (!Number.isInteger(statusCode) || statusCode < 100 || statusCode > 599) {
     throw new TypeError('requestExecutor response statusCode must be an HTTP status');
   }
@@ -196,16 +196,25 @@ function createControlledStagingApiSecurityQualification({
     const adminHeader = requiredBearerHeader(adminAuthorizationHeader, 'adminAuthorizationHeader');
     const nonAdminHeader = requiredBearerHeader(nonAdminAuthorizationHeader, 'nonAdminAuthorizationHeader');
     const timestamp = requiredString(testedAt, 'testedAt');
+    if (!Number.isFinite(Date.parse(timestamp))) throw new TypeError('testedAt must be a valid timestamp');
+    const credentialValues = [tenantAHeader, tenantBHeader, adminHeader, nonAdminHeader].map(header => header.replace(/^Bearer\s+/i, ''));
+    if (new Set(credentialValues).size !== credentialValues.length) {
+      throw new TypeError('qualification requires distinct role credentials');
+    }
     const opId = requiredString(operationId, 'operationId');
 
     const postgresComplete = Boolean(
       postgresQualification
       && postgresQualification.status === STAGING_QUALIFICATION_STATUS.STAGING_EVIDENCE_COMPLETE_NOT_PRODUCTION_CERTIFIED
       && postgresQualification.environment === env
-      && postgresQualification.targetDatabaseRef === databaseRef,
+      && postgresQualification.targetDatabaseRef === databaseRef
+      && typeof postgresQualification.evidenceBundle?.bundleHashSha256 === 'string'
+      && /^[a-f0-9]{64}$/i.test(postgresQualification.evidenceBundle.bundleHashSha256)
+      && postgresQualification.productionQualified === false
+      && postgresQualification.authority?.releaseAuthorized === false,
     );
-    const postgresQualificationRef = postgresQualification?.evidenceBundle?.bundleHashSha256
-      ? `sha256:${postgresQualification.evidenceBundle.bundleHashSha256}`
+    const postgresQualificationRef = postgresComplete
+      ? `sha256:${postgresQualification.evidenceBundle.bundleHashSha256.toLowerCase()}`
       : null;
 
     if (!postgresComplete) {
@@ -294,7 +303,10 @@ function createControlledStagingApiSecurityQualification({
         occurredAt: timestamp,
       });
       adminAllowed = Boolean(adminResult && adminResult.readOnly === true && adminResult.secretsExposed === false);
-      adminScopeMatched = Boolean(adminResult?.scope?.workspaceId === wsId && adminResult?.scope?.tenantId);
+      const tenantId = tenantAResponse.body?.data?.tenantId ?? tenantAResponse.body?.data?.workspace?.tenantId;
+      adminScopeMatched = Boolean(adminResult?.scope?.workspaceId === wsId
+        && typeof tenantId === 'string' && tenantId.trim()
+        && adminResult?.scope?.tenantId === tenantId);
     } catch (error) {
       adminFailureCode = sanitizeErrorCode(error);
     }
