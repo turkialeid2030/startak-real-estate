@@ -13,14 +13,17 @@ const auditToolPath = 'tools/verify-protected-preview.mjs';
 const dependencyPath = 'tools/verify-deployed-assets.mjs';
 
 const canonical = read('tools/release-verify.js');
-verify(/runPrefixDirs\s*=\s*\[[^\]]*['"]architecture['"]/.test(canonical),
-  'canonical release verifier must discover tests/architecture');
-verify(/f\.startsWith\(['"]run_['"]\)/.test(canonical),
-  'canonical release verifier must discover run_ tests');
+const packageVerifier = read('tests/verify_package.js');
+const { discoverRegressionTests } = require('../../tools/regression-test-discovery');
+const discovered = discoverRegressionTests(ROOT).map(file => file.split(path.sep).join('/'));
+verify(canonical.includes("require('./regression-test-discovery').discoverRegressionTests(ROOT)"),
+  'canonical release verifier must invoke shared mandatory discovery');
+verify(packageVerifier.includes('discoverRegressionTests(ROOT)'),
+  'package verifier must invoke shared mandatory discovery');
 verify(path.basename(testPath).startsWith('run_') && testPath.endsWith('.js'),
   'protected preview test must follow canonical discovery naming');
-verify(fs.existsSync(path.join(ROOT,testPath)),
-  'protected preview test must be present in canonical discovery folder');
+verify(discovered.filter(file => file === testPath).length === 1,
+  'protected preview test must be discovered exactly once in canonical suite');
 verify(fs.existsSync(path.join(ROOT,dependencyPath)),
   'asset verification dependency must be present');
 verify(fs.existsSync(path.join(ROOT,auditToolPath)),
