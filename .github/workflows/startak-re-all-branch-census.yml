@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'tools/audit-startak-re-legacy-branch-trees.js'
+      - 'tools/legacy-branch-scope.js'
+      - 'tests/architecture/run_legacy_branch_scope.js'
       - 'docs/recovery/STARTAK_RE_BRANCH_CENSUS_20261112.json'
       - '.github/workflows/startak-re-all-branch-census.yml'
   workflow_dispatch:
@@ -20,14 +22,18 @@ jobs:
           fetch-depth: 1
       - name: Fetch all retained real-estate branches (trees only, no blobs)
         run: |
+          git ls-remote --heads origin > "$RUNNER_TEMP/startak-legacy-heads.txt"
           git -c protocol.version=2 fetch --no-tags --filter=blob:none --depth=1 origin '+refs/heads/*:refs/remotes/origin/*'
-      - name: Examine branch tree paths (no source execution)
-        run: node tools/audit-startak-re-legacy-branch-trees.js
-      - name: Publish structural parity candidate inventory
+      - name: Verify scope reconciliation (synthetic fixtures)
+        run: node tests/architecture/run_legacy_branch_scope.js
+      - name: Examine branch tree paths (no legacy source execution)
+        run: |
+          STARTAK_BRANCH_ADVERTISEMENT_FILE="$RUNNER_TEMP/startak-legacy-heads.txt" node tools/audit-startak-re-legacy-branch-trees.js
+      - name: Publish structural parity aggregate only
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: startak-re-legacy-branch-path-audit
-          path: artifacts/startak-re-legacy-path-parity.json
+          path: artifacts/startak-re-legacy-path-summary.json
           if-no-files-found: error
           retention-days: 30

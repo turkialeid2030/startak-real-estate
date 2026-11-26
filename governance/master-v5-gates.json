@@ -143,7 +143,9 @@
       "requirement": "دقة الحسابات",
       "status": "NOT TESTED",
       "environment": null,
-      "evidence": [],
+      "evidence": [
+        "CI head 40ff1b78a9b1ee485fbef80baed6125cefaed847: run 45781628145 PASS 713/713 including synthetic valuation-percentage arithmetic regression. Lease evidence 45781628176 PASS 33 checks. Independent comprehensive financial oracle and real source rights remain open."
+      ],
       "owner": "CTO / QA",
       "phase": "PRE_LAUNCH_APPLICABILITY_REVIEW",
       "acceptance": "Evidence for all applicable V5 requirements; exact candidate and relevant environment; no unresolved mandatory failure",
@@ -179,7 +181,9 @@
       "requirement": "المحركات المالية",
       "status": "NOT TESTED",
       "environment": null,
-      "evidence": [],
+      "evidence": [
+        "CI head 40ff1b78a9b1ee485fbef80baed6125cefaed847: run 45781628145 PASS 713/713 including synthetic valuation-percentage arithmetic regression. Lease evidence 45781628176 PASS 33 checks. Independent comprehensive financial oracle and real source rights remain open."
+      ],
       "owner": "CTO / QA",
       "phase": "PRE_LAUNCH_APPLICABILITY_REVIEW",
       "acceptance": "Evidence for all applicable V5 requirements; exact candidate and relevant environment; no unresolved mandatory failure",
@@ -312,13 +316,14 @@
       "status": "NOT TESTED",
       "environment": null,
       "evidence": [
-        "Release Verify #3330 at 11dd115666e9f545cc67d18b5242dca9c63c2540: 708/708 regression; #3331 reported success at a06db001859c0c28f3bf5153c9de886703e64481. Full V5 requirement coverage not yet reconciled."
+        "Release Verify #3330 at 11dd115666e9f545cc67d18b5242dca9c63c2540: 708/708 regression; #3331 reported success at a06db001859c0c28f3bf5153c9de886703e64481. Full V5 requirement coverage not yet reconciled.",
+        "CI head 341c9fd12921178d2f564db2051fa9c5d0e8c29b: Release Verify run 45782648175 PASS 713/713; package PASS; audit 0 critical/high/moderate/low."
       ],
       "owner": "CTO / CISO",
       "phase": "PRE_LAUNCH_APPLICABILITY_REVIEW",
       "acceptance": "Evidence for all applicable V5 requirements; exact candidate and relevant environment; no unresolved mandatory failure",
       "testMethod": "Map applicable control to independent source, positive/negative cases and relevant runtime; record exact SHA and raw outcome",
-      "residualRisk": "Scope not yet fully qualified"
+      "residualRisk": "Full V5 test traceability and final candidate qualification remain open."
     },
     {
       "id": "G27",
@@ -386,7 +391,8 @@
       "status": "BLOCKED",
       "environment": "CI",
       "evidence": [
-        "Reachable-history scan #1 (run 45655090202), head a06db001859c0c28f3bf5153c9de886703e64481: scanner completed with unresolved matches; private triage required. No credential validity or exposure incident established."
+        "Reachable-history scan #1 (run 45655090202), head a06db001859c0c28f3bf5153c9de886703e64481: scanner completed with unresolved matches; private triage required. No credential validity or exposure incident established.",
+        "CI head 341c9fd12921178d2f564db2051fa9c5d0e8c29b: run 45782648353, exact tracked snapshot materialization 12 checks PASS, 2526 blobs, 5433 reachable commits. Both scopes HOLD pending private classification. No confirmed compromise."
       ],
       "owner": "SRE / CTO",
       "phase": "PRE_LAUNCH_APPLICABILITY_REVIEW",
@@ -400,7 +406,8 @@
       "status": "BLOCKED",
       "environment": "CI",
       "evidence": [
-        "Reachable-history scan #1 (run 45655090202), head a06db001859c0c28f3bf5153c9de886703e64481: scanner completed with unresolved matches; private triage required. No credential validity or exposure incident established."
+        "Reachable-history scan #1 (run 45655090202), head a06db001859c0c28f3bf5153c9de886703e64481: scanner completed with unresolved matches; private triage required. No credential validity or exposure incident established.",
+        "CI head 341c9fd12921178d2f564db2051fa9c5d0e8c29b: run 45782648353, exact tracked snapshot materialization 12 checks PASS, 2526 blobs, 5433 reachable commits. Both scopes HOLD pending private classification. No confirmed compromise."
       ],
       "owner": "SRE / CTO",
       "phase": "PRE_LAUNCH_APPLICABILITY_REVIEW",
@@ -720,7 +727,8 @@
       "status": "BLOCKED",
       "environment": "CI",
       "evidence": [
-        "Reachable-history scan #1 (run 45655090202), head a06db001859c0c28f3bf5153c9de886703e64481: scanner completed with unresolved matches; private triage required. No credential validity or exposure incident established."
+        "Reachable-history scan #1 (run 45655090202), head a06db001859c0c28f3bf5153c9de886703e64481: scanner completed with unresolved matches; private triage required. No credential validity or exposure incident established.",
+        "CI head 341c9fd12921178d2f564db2051fa9c5d0e8c29b: run 45782648353, exact tracked snapshot materialization 12 checks PASS, 2526 blobs, 5433 reachable commits. Both scopes HOLD pending private classification. No confirmed compromise."
       ],
       "owner": "CISO / Data Protection",
       "phase": "PRE_LAUNCH_APPLICABILITY_REVIEW",
@@ -1363,7 +1371,9 @@
       "requirement": "المطابقة المالية",
       "status": "NOT TESTED",
       "environment": null,
-      "evidence": [],
+      "evidence": [
+        "CI head 40ff1b78a9b1ee485fbef80baed6125cefaed847: run 45781628145 PASS 713/713 including synthetic valuation-percentage arithmetic regression. Lease evidence 45781628176 PASS 33 checks. Independent comprehensive financial oracle and real source rights remain open."
+      ],
       "owner": "CTO / Governance",
       "phase": "PRE_LAUNCH_APPLICABILITY_REVIEW",
       "acceptance": "Evidence for all applicable V5 requirements; exact candidate and relevant environment; no unresolved mandatory failure",

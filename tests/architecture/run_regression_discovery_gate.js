@@ -18,6 +18,8 @@ try {
   const expected = SUITES.flatMap(([name,prefixed]) =>
     (prefixed?['run_a.js','run_b.js']:['helper.js','run_a.js','run_b.js']).map(file=>path.join('tests',name,file)));
   assert.deepEqual(discoverRegressionTests(root),expected); checks++;
+  assert.ok(discoverRegressionTests(root).includes(path.join('tests','ai','run_a.js'))); checks++;
+  assert.ok(!discoverRegressionTests(root).includes(path.join('tests','ai','helper.js'))); checks++;
   assert.equal(Object.isFrozen(discoverRegressionTests(root)),true); checks++;
   for(const [name] of SUITES){
     const dir=path.join(root,'tests',name), backup=dir+'-backup';
