@@ -237,6 +237,36 @@ const {
   assert.ok(Object.isFrozen(bundle.accessGrant.permissions));
   assert.ok(Object.isFrozen(bundle.caseResult.auditLineage[0]));
   assert.strictEqual((await validateIntegratedReviewBundle({...bundle,caseResult:{stageSummary:[null]}},'2026-10-01T20:00:00Z')).valid,false);
+  const {createStagePacket,createOrchestrationPolicy,evaluateCaseOrchestration,STAGE_ID,STAGE_STATUS}=require('../../src/orchestration/governed-case-property-orchestrator');
+  const required=STAGE_ID.SOURCE_ACQUISITION_PROVENANCE,optional=STAGE_ID.GEOSPATIAL_EVIDENCE;
+  const policy=createOrchestrationPolicy({policyId:'SYNTH-POLICY',reviewedByRef:'SYNTH-REVIEWER',reviewEvidenceRef:'SYNTH-EVIDENCE',requiredStageIds:[required],optionalStageIds:[optional],allowedCapabilityRefsByStage:{[required]:['SYNTH-CAP'],[optional]:['SYNTH-CAP']},reviewedAt:'2026-10-01T17:00:00Z',validUntil:'2026-10-02T18:00:00Z'});
+  const packet=(stageId,status)=>createStagePacket({stageId,caseId:caseResult.caseId,propertyRef:caseResult.propertyRef,capabilityRef:'SYNTH-CAP',status,inputHashSha256:stageInput,outputHashSha256:stageOutput,lineageHashesSha256:[lineage],blockers:status==='READY'?[]:['SYNTH-MISSING'],riskFlags:[],evaluatedAt:'2026-10-01T17:30:00Z',validUntil:'2026-10-02T18:00:00Z',transactionAuthorized:false,approvalAuthorized:false,publicAiAuthorized:false,autonomousActionExecuted:false});
+  const actualCases=[
+    [[packet(required,STAGE_STATUS.READY)],'READY_FOR_HUMAN_CASE_REVIEW'],
+    [[packet(required,STAGE_STATUS.READY),packet(optional,STAGE_STATUS.HOLD)],'READY_FOR_HUMAN_CASE_REVIEW'],
+    [[packet(required,STAGE_STATUS.HOLD)],'HOLD'],
+    [[packet(required,STAGE_STATUS.NOT_EVALUATED)],'NOT_EVALUATED'],
+    [[packet(optional,STAGE_STATUS.READY)],'HOLD'],
+    [[], 'HOLD']
+  ];
+  for(const [stagePackets,status] of actualCases){
+    const realResult=evaluateCaseOrchestration({executionId:'SYNTH-EXEC',caseId:caseResult.caseId,propertyRef:caseResult.propertyRef,asOf:caseResult.asOf,policy,stagePackets});
+    assert.strictEqual(realResult.status,status);
+    const realBundle=await createIntegratedReviewBundle({bundleId:'SYNTH-BUNDLE',createdAt:'2026-10-01T19:00:00Z',caseResult:realResult,accessGrant:reviewerGrant,evidenceHashesSha256:collectCaseEvidenceHashes(realResult)});
+    const view=await buildIntegratedReviewPresentation({bundle:realBundle,locale:'ar-SA',asOf:'2026-10-01T20:00:00Z'});
+    assert.strictEqual(view.trusted,true);assert.strictEqual(view.status,status);assert.strictEqual(view.approvalAuthorized,false);assert.strictEqual(view.commercialGoLive,'HOLD');
+  }
+  for(const patch of [{blockers:[]},{riskFlags:[42]},{unexpected:'SYNTH'},{stageSummary:[{...caseResult.stageSummary[0],unexpected:true}]},{auditLineage:[{...caseResult.auditLineage[0],unexpected:true}]}]){
+    const bad=await rehash(caseResult,'resultHashSha256',patch);
+    await assert.rejects(()=>createIntegratedReviewBundle({...bundle,caseResult:bad}),/C26_UI_C24_RESULT_INVALID/);
+  }
+  for(const bad of [{...bundle,extra:'SYNTH'},{...bundle,aiDraft:false}]){
+    assert.strictEqual((await validateIntegratedReviewBundle(bad,'2026-10-01T20:00:00Z')).valid,false);
+  }
+  await assert.rejects(()=>createIntegratedReviewBundle({...bundle,transactionAuthorized:'false'}),/C26_UI_AUTHORITY_INJECTION_FORBIDDEN/);
+  await assert.rejects(()=>createReviewAccessGrant({...reviewerGrant,approvalAuthorized:0}),/C26_UI_AUTHORITY_INJECTION_FORBIDDEN/);
+  await assert.rejects(()=>createAiDraftEnvelope({...aiDraft,publicAiAuthorized:null}),/C26_UI_AUTHORITY_INJECTION_FORBIDDEN/);
+  console.log('C26_V619_ACTUAL_ORCHESTRATOR_HANDOFF=PASS scenarios=6 negative_cases=10 synthetic_policy=true');
   console.log('C26_V613_REVIEW_HANDOFF_BOUNDARY=PASS negative_cases=14 snapshot_checks=4 synthetic_review=true');
   console.log('C26_INTEGRATED_CASE_REVIEW_UI_SOURCE_RECOVERY=PASS_UNACTIVATED');
 })().catch((error) => {

@@ -36,6 +36,9 @@ function stableJson(value) { return JSON.stringify(canonicalize(value)); }
 function deepFreeze(value){if(value&&typeof value==='object'){Object.values(value).forEach(deepFreeze);Object.freeze(value);}return value;}
 function snapshot(value){return deepFreeze(structuredClone(value));}
 function sameRecord(a,b){return stableJson(a)===stableJson(b);}
+function exactKeys(value,keys){return !!value&&typeof value==='object'&&!Array.isArray(value)&&Object.keys(value).length===keys.length&&keys.every(k=>Object.hasOwn(value,k));}
+function uniqueTextList(value){return Array.isArray(value)&&value.every(v=>typeof v==='string'&&v.trim()===v&&v.length>0)&&new Set(value).size===value.length;}
+function authorityFieldsSafe(value,fields){return fields.every(k=>!Object.hasOwn(value,k)||value[k]===false);}
 const isHash=v=>typeof v==='string'&&SHA256_RE.test(v);
 async function sha256Hex(value) {
   const runtimeCrypto = globalThis.crypto;
@@ -79,7 +82,7 @@ async function createReviewAccessGrant(input) {
   const expected = ROLE_PERMISSIONS[input.role].slice().sort();
   const supplied = [...(input.permissions || [])].sort();
   if (!sameArray(expected, supplied)) throw new Error('C26_UI_PERMISSION_SET_MISMATCH');
-  if (input.transactionAuthorized === true || input.approvalAuthorized === true || input.publicAiAuthorized === true || input.productionDeploymentAuthorized === true) throw new Error('C26_UI_AUTHORITY_INJECTION_FORBIDDEN');
+  if (!authorityFieldsSafe(input,['transactionAuthorized','approvalAuthorized','publicAiAuthorized','productionDeploymentAuthorized'])) throw new Error('C26_UI_AUTHORITY_INJECTION_FORBIDDEN');
   const material = accessGrantMaterial({
     grantId: requireText(input.grantId, 'C26_UI_GRANT_ID_REQUIRED'),
     subjectRef: requireText(input.subjectRef, 'C26_UI_SUBJECT_REQUIRED'),
@@ -122,7 +125,7 @@ function aiDraftMaterial(input) {
 async function createAiDraftEnvelope(input) {
   if (!input || typeof input !== 'object') throw new Error('C26_UI_AI_DRAFT_REQUIRED');
   if (!Object.values(AI_VALIDATION_STATUS).includes(input.validationStatus)) throw new Error('C26_UI_AI_VALIDATION_STATUS_UNKNOWN');
-  if (input.transactionAuthorized === true || input.approvalAuthorized === true || input.publicAiAuthorized === true) throw new Error('C26_UI_AUTHORITY_INJECTION_FORBIDDEN');
+  if (!authorityFieldsSafe(input,['transactionAuthorized','approvalAuthorized','publicAiAuthorized'])) throw new Error('C26_UI_AUTHORITY_INJECTION_FORBIDDEN');
   const ready = input.validationStatus === AI_VALIDATION_STATUS.GROUNDED_REVIEW_READY;
   if (!ready && ((typeof input.draftText === 'string' && input.draftText.trim()) || input.responseHashSha256 || (input.groundingEvidenceHashesSha256 || []).length)) throw new Error('C26_UI_UNGROUNDED_AI_CONTENT_FORBIDDEN');
   const material = aiDraftMaterial({
@@ -165,17 +168,19 @@ async function verifyC24CaseResult(caseResult) {
     if(caseResult.capability!=='C24_INTEGRATED_CASE_PROPERTY_ORCHESTRATION_V1'||caseResult.policyVersion!=='C24_CASE_ORCHESTRATION_POLICY_V1'||caseResult.aiOverrideApplied!==false||caseResult.humanCaseReviewReady!==(caseResult.status==='READY_FOR_HUMAN_CASE_REVIEW'))return false;
     for(const key of ['caseId','propertyRef','executionId'])requireText(caseResult[key],key);
     requireIso(caseResult.asOf,'caseResult.asOf');
-    if(!isHash(caseResult.inputFingerprintSha256)||!Array.isArray(caseResult.blockers)||!Array.isArray(caseResult.riskFlags)||!Array.isArray(caseResult.stageSummary)||!Array.isArray(caseResult.auditLineage))return false;
+    if(!exactKeys(caseResult,['capability','policyVersion','executionId','caseId','propertyRef','marketScopeRef','asOf','status','blockers','riskFlags','stageSummary','inputFingerprintSha256','auditLineage','humanCaseReviewReady','aiOverrideApplied','transactionAuthorized','approvalAuthorized','publicAiAuthorized','autonomousActionExecuted','productionDeploymentAuthorized','commercialGoLive','resultHashSha256']))return false;
+    if(!isHash(caseResult.inputFingerprintSha256)||!uniqueTextList(caseResult.blockers)||!uniqueTextList(caseResult.riskFlags)||!Array.isArray(caseResult.stageSummary)||!Array.isArray(caseResult.auditLineage))return false;
+    if(caseResult.status!=='READY_FOR_HUMAN_CASE_REVIEW'&&!caseResult.blockers.length)return false;
     if(caseResult.status==='READY_FOR_HUMAN_CASE_REVIEW'&&(!caseResult.stageSummary.length||caseResult.blockers.length))return false;
     const byId=new Map();
     for(const stage of caseResult.stageSummary){
-      if(!stage||typeof stage.stageId!=='string'||!stage.stageId.trim()||byId.has(stage.stageId)||typeof stage.capabilityRef!=='string'||!stage.capabilityRef.trim()||!['READY','HOLD','NOT_EVALUATED'].includes(stage.status)||!Array.isArray(stage.blockers)||stage.blockers.some(b=>typeof b!=='string'||!b.trim())||((stage.status==='READY')!==(stage.blockers.length===0))||!isHash(stage.stagePacketHashSha256)||!isHash(stage.outputHashSha256))return false;
+      if(!exactKeys(stage,['stageId','capabilityRef','status','blockers','stagePacketHashSha256','outputHashSha256'])||typeof stage.stageId!=='string'||!stage.stageId.trim()||byId.has(stage.stageId)||typeof stage.capabilityRef!=='string'||!stage.capabilityRef.trim()||!['READY','HOLD','NOT_EVALUATED'].includes(stage.status)||!uniqueTextList(stage.blockers)||((stage.status==='READY')!==(stage.blockers.length===0))||!isHash(stage.stagePacketHashSha256)||!isHash(stage.outputHashSha256))return false;
       byId.set(stage.stageId,stage);
     }
     if(caseResult.auditLineage.length!==byId.size)return false;
     for(const item of caseResult.auditLineage){
       const stage=byId.get(item?.stageId);
-      if(!stage||item.capabilityRef!==stage.capabilityRef||item.stagePacketHashSha256!==stage.stagePacketHashSha256||item.outputHashSha256!==stage.outputHashSha256||!isHash(item.inputHashSha256)||!Array.isArray(item.lineageHashesSha256)||!item.lineageHashesSha256.length||item.lineageHashesSha256.some(h=>!isHash(h))||new Set(item.lineageHashesSha256).size!==item.lineageHashesSha256.length)return false;
+      if(!stage||!exactKeys(item,['stageId','capabilityRef','inputHashSha256','outputHashSha256','lineageHashesSha256','stagePacketHashSha256'])||item.capabilityRef!==stage.capabilityRef||item.stagePacketHashSha256!==stage.stagePacketHashSha256||item.outputHashSha256!==stage.outputHashSha256||!isHash(item.inputHashSha256)||!Array.isArray(item.lineageHashesSha256)||!item.lineageHashesSha256.length||item.lineageHashesSha256.some(h=>!isHash(h))||new Set(item.lineageHashesSha256).size!==item.lineageHashesSha256.length)return false;
       byId.delete(item.stageId);
     }
     return byId.size===0&&(await sha256Hex(without(caseResult,'resultHashSha256')))===caseResult.resultHashSha256;
@@ -203,6 +208,7 @@ function reviewBundleMaterial(input) {
 async function createIntegratedReviewBundle(input) {
   if (!input || typeof input !== 'object') throw new Error('C26_UI_REVIEW_BUNDLE_REQUIRED');
   input=snapshot(input);
+  if(!authorityFieldsSafe(input,['transactionAuthorized','approvalAuthorized','publicAiAuthorized','productionDeploymentAuthorized'])||(Object.hasOwn(input,'commercialGoLive')&&input.commercialGoLive!=='HOLD'))throw new Error('C26_UI_AUTHORITY_INJECTION_FORBIDDEN');
   if (!(await verifyC24CaseResult(input.caseResult))) throw new Error('C26_UI_C24_RESULT_INVALID');
   const createdAt = requireIso(input.createdAt, 'C26_UI_BUNDLE_CREATED_AT_INVALID');
   if(Date.parse(createdAt)<Date.parse(input.caseResult.asOf))throw new Error('C26_UI_BUNDLE_PREDATES_CASE');
@@ -233,7 +239,8 @@ async function validateBundleSnapshot(bundle, asOf) {
   const at = (() => { try { return requireIso(asOf, 'C26_UI_AS_OF_INVALID'); } catch (_) { return null; } })();
   if (!at) blockers.push('C26_UI_AS_OF_INVALID');
   if (!bundle || typeof bundle !== 'object') return { valid: false, blockers: ['C26_UI_REVIEW_BUNDLE_REQUIRED'] };
-  if (!isHash(bundle.bundleHashSha256) || (await sha256Hex(reviewBundleMaterial(bundle))) !== bundle.bundleHashSha256 || bundle.schemaVersion!==1) blockers.push('C26_UI_BUNDLE_INTEGRITY_FAILED');
+  const material=reviewBundleMaterial(bundle);
+  if (!isHash(bundle.bundleHashSha256) || (await sha256Hex(material)) !== bundle.bundleHashSha256 || !sameRecord(bundle,{...material,bundleHashSha256:bundle.bundleHashSha256}) || bundle.schemaVersion!==1) blockers.push('C26_UI_BUNDLE_INTEGRITY_FAILED');
   const created=Date.parse(bundle.createdAt);
   if(typeof bundle.createdAt!=='string'||!Number.isFinite(created)||created<Date.parse(bundle.caseResult?.asOf)||created>Date.parse(at))blockers.push('C26_UI_BUNDLE_WINDOW_INVALID');
   if(!at||!(await verifyReviewAccessGrant(bundle.accessGrant,bundle.createdAt)))blockers.push('C26_UI_ACCESS_GRANT_INVALID_AT_CREATION');
