@@ -4,6 +4,9 @@ on:
     paths:
       - 'tools/audit-startak-re-legacy-branch-trees.js'
       - 'tools/legacy-branch-scope.js'
+      - 'tools/legacy-path-triage.js'
+      - 'tests/architecture/run_legacy_path_triage.js'
+      - 'docs/recovery/STARTAK_RE_HISTORIC_SOURCE_CANDIDATES_20261114.csv'
       - 'tests/architecture/run_legacy_branch_scope.js'
       - 'docs/recovery/STARTAK_RE_BRANCH_CENSUS_20261112.json'
       - '.github/workflows/startak-re-all-branch-census.yml'
@@ -25,7 +28,9 @@ jobs:
           git ls-remote --heads origin > "$RUNNER_TEMP/startak-legacy-heads.txt"
           git -c protocol.version=2 fetch --no-tags --filter=blob:none --depth=1 origin '+refs/heads/*:refs/remotes/origin/*'
       - name: Verify scope reconciliation (synthetic fixtures)
-        run: node tests/architecture/run_legacy_branch_scope.js
+        run: |
+          node tests/architecture/run_legacy_branch_scope.js
+          node tests/architecture/run_legacy_path_triage.js
       - name: Examine branch tree paths (no legacy source execution)
         run: |
           STARTAK_BRANCH_ADVERTISEMENT_FILE="$RUNNER_TEMP/startak-legacy-heads.txt" node tools/audit-startak-re-legacy-branch-trees.js

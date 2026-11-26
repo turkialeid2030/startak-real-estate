@@ -9,7 +9,9 @@ const FILE='docs/recovery/STARTAK_RE_BRANCH_CENSUS_20261112.json';
 const outPath='artifacts/startak-re-legacy-path-parity.json';
 const summaryPath='artifacts/startak-re-legacy-path-summary.json';
 const {parseBranchAdvertisement,reconcileBranchScope}=require('./legacy-branch-scope');
+const {readHistoricRegister,triageLegacyPaths}=require('./legacy-path-triage');
 const census=JSON.parse(fs.readFileSync(FILE,'utf8'));
+const historicRegister=readHistoricRegister(fs.readFileSync('docs/recovery/STARTAK_RE_HISTORIC_SOURCE_CANDIDATES_20261114.csv','utf8'));
 if(census.repository!=='turkialeid2030/startak-real-estate'||census.scope!=='STARTAK_REAL_ESTATE_ONLY')
  throw Error('REPOSITORY_SCOPE_MISMATCH');
 function git(...args){return cp.execFileSync('git',args,{encoding:'buffer',maxBuffer:96*1024*1024,timeout:90000});}
@@ -68,6 +70,7 @@ for(const name of scope.names){
  byBranch.push({name,sourceHead:oldHead,sourcePaths:old.size,oldOnlyPathCount:oldOnly.length,sharedChangedPathCount:changed.length,sharedIdenticalPathCount:identical,oldOnlyCategories:kinds,comparisonState:'PATH_ONLY_REQUIRES_BEHAVIORAL_REVIEW'});
 }
 const candidates=[...byPath.values()].sort((a,b)=>b.sourceBranchNames.length-a.sourceBranchNames.length||a.path.localeCompare(b.path));
+const triage=triageLegacyPaths(current,candidates,historicRegister);
 const sums={};
 for(const c of candidates)sums[c.category]=(sums[c.category]||0)+1;
 const result={
@@ -76,6 +79,7 @@ const result={
  totalCensusBranches:scope.names.length,baselineBranches:scope.baselineCount,advertisedBranches:scope.advertisedCount,newlyDiscoveredBranches:scope.newlyDiscoveredCount,missingBaselineBranches:scope.missingBaselineCount,branchesWithFetchedTrees:reachable,missingBranchTrees:missingRefs,
  currentPaths:current.size,legacyOnlyUniquePathCandidates:candidates.length,
  legacyOnlyPathCategoryCounts:sums,
+ structuralTriage:triage.summary,
  warnings:[
   'This is a comprehensive path-level inventory ONLY, NOT function, API, UI, model or tested parity.',
   'A file absent from current HEAD may have been renamed/reimplemented elsewhere; never equate with missing behavior.',
@@ -83,7 +87,7 @@ const result={
   'Any 404/unfetched refs remain open and are never silently marked checked.',
   'Do not merge, publish, or activate anything based on file similarity.'
  ],
- byBranch,oldOnlyPathCandidates:candidates
+ byBranch,oldOnlyPathCandidates:triage.details
 };
 fs.mkdirSync(path.dirname(outPath),{recursive:true});
 // Detailed historical filenames and blob references stay local; public CI uploads only counts.
@@ -100,5 +104,11 @@ console.log('FETCHED_BRANCH_TREES='+reachable);
 console.log('UNFETCHED_BRANCH_TREES='+missingRefs);
 console.log('LEGACY_ONLY_PATH_CANDIDATES='+candidates.length);
 console.log('CURRENT_PATHS='+current.size);
+for(const [key,count] of Object.entries(triage.summary.classes))console.log('LEGACY_TRIAGE_'+key+'='+count);
+console.log('LEGACY_TRIAGE_PATH_VARIANT_PAIRS='+triage.summary.pathVariantPairs);
+console.log('LEGACY_TRIAGE_UNMATCHED_PATH_VARIANT_PAIRS='+triage.summary.unmatchedPathVariantPairs);
+console.log('LEGACY_TRIAGE_REGISTERED_PATHS='+triage.summary.registeredPaths);
+console.log('LEGACY_TRIAGE_REGISTERED_EXACT_VARIANTS='+triage.summary.registeredExactVariants);
+console.log('LEGACY_TRIAGE_UNREGISTERED_PATHS='+triage.summary.unregisteredCandidatePaths);
 console.log('ALL_BRANCH_FUNCTIONAL_PARITY=NOT_PROVEN');
 if(missingRefs>0)process.exitCode=2;
