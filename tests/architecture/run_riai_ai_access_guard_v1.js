@@ -20,7 +20,13 @@ assert(gateway.includes("new URL('/cdn-cgi/access/certs', issuerResult.issuer)")
 assert(gateway.includes('crypto.subtle.importKey'));
 assert(gateway.includes('crypto.subtle.verify'));
 assert(gateway.includes("{ name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }"));
-assert(gateway.includes("host === 'cloudflareaccess.com' || host.endsWith('.cloudflareaccess.com')"));
+// The stricter issuer contract rejects the bare provider domain and non-origin URLs.
+assert(gateway.includes("!host.endsWith('.cloudflareaccess.com')"));
+assert(!gateway.includes("host === 'cloudflareaccess.com' || host.endsWith('.cloudflareaccess.com')"));
+assert(gateway.includes("issuer.username || issuer.password || issuer.port || issuer.pathname !== '/'"));
+assert(gateway.includes("issuer.search || issuer.hash"));
+assert(gateway.includes("signal: controller.signal, redirect: 'error'"));
+assert(publicSecurity.includes("redirect: 'error'"));
 assert(gateway.includes("issuer.protocol !== 'https:'"));
 assert(gateway.includes('AI_ACCESS_TOKEN_SIGNATURE_INVALID'));
 assert(gateway.includes('AI_ACCESS_TOKEN_AUDIENCE_INVALID'));

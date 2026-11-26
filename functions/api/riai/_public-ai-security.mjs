@@ -53,6 +53,7 @@ async function verifyTurnstile({ request, env = {}, token, fetchImpl = fetch } =
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
       body: form.toString(),
       signal: controller.signal,
+      redirect: 'error',
     });
   } catch (_) {
     clearTimeout(timer);

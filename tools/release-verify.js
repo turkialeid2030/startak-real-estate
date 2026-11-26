@@ -60,33 +60,14 @@ function printFailureDiagnostic(error) {
 }
 
 step('TEST_DISCOVERY_AND_REGRESSION', () => {
-  const runPrefixDirs = ['characterization', 'architecture', 'i18n', 'saved-deals'];
-  const allJsDirs = ['defects', 'runtime', 'valuation'];
-  let total = 0, passed = 0;
-  for (const dir of runPrefixDirs) {
-    const full = path.join(ROOT, 'tests', dir);
-    if (!fs.existsSync(full)) continue;
-    for (const f of fs.readdirSync(full)) {
-      if (!f.endsWith('.js') || !f.startsWith('run_')) continue;
-      total++;
-      try { execFileSync('node', [path.join(full, f)], { stdio: 'pipe' }); passed++; }
-      catch (e) {
-        console.log(`  FAILING TEST: tests/${dir}/${f}`);
-        printFailureDiagnostic(e);
-      }
-    }
-  }
-  for (const dir of allJsDirs) {
-    const full = path.join(ROOT, 'tests', dir);
-    if (!fs.existsSync(full)) continue;
-    for (const f of fs.readdirSync(full)) {
-      if (!f.endsWith('.js')) continue;
-      total++;
-      try { execFileSync('node', [path.join(full, f)], { stdio: 'pipe' }); passed++; }
-      catch (e) {
-        console.log(`  FAILING TEST: tests/${dir}/${f}`);
-        printFailureDiagnostic(e);
-      }
+  const tests = require('./regression-test-discovery').discoverRegressionTests(ROOT);
+  const total = tests.length;
+  let passed = 0;
+  for (const file of tests) {
+    try { execFileSync(process.execPath, [path.join(ROOT, file)], { cwd: ROOT, stdio: 'pipe' }); passed++; }
+    catch (e) {
+      console.log(`  FAILING TEST: ${file}`);
+      printFailureDiagnostic(e);
     }
   }
   console.log(`  REGRESSION_TOTAL=${total} PASSED=${passed}`);

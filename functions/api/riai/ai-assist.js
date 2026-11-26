@@ -379,7 +379,9 @@ function validateAccessIssuer(rawIssuer) {
   let issuer;
   try { issuer = new URL(rawIssuer); } catch (_) { return { error: 'AI_ACCESS_ISSUER_INVALID' }; }
   const host = issuer.hostname.toLowerCase();
-  if (issuer.protocol !== 'https:' || !(host === 'cloudflareaccess.com' || host.endsWith('.cloudflareaccess.com'))) {
+  if (issuer.protocol !== 'https:' || !host.endsWith('.cloudflareaccess.com')
+    || issuer.username || issuer.password || issuer.port || issuer.pathname !== '/'
+    || issuer.search || issuer.hash) {
     return { error: 'AI_ACCESS_ISSUER_INVALID' };
   }
   return { issuer, normalized: normalizeIssuer(issuer.toString()) };
@@ -424,7 +426,7 @@ async function verifyCloudflareAccess(request, env) {
   const timer = setTimeout(() => controller.abort(), ACCESS_CERT_TIMEOUT_MS);
   let certResponse;
   try {
-    certResponse = await fetch(certUrl, { method: 'GET', headers: { accept: 'application/json' }, signal: controller.signal });
+    certResponse = await fetch(certUrl, { method: 'GET', headers: { accept: 'application/json' }, signal: controller.signal, redirect: 'error' });
   } catch (_) {
     clearTimeout(timer);
     return { ok: false, status: 503, code: 'AI_ACCESS_CERTS_UNAVAILABLE' };
