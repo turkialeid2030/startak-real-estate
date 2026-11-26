@@ -94,7 +94,7 @@ function independentQualification({ securityStatus = SECURITY_READY, performance
     independenceType: INDEPENDENCE_TYPE.EXTERNAL_THIRD_PARTY,
     independenceAttestedByReviewer: true,
     conflictDeclared: false,
-    reviewedScope: ['security', 'performance', 'release-evidence'],
+    reviewedScope: ['SECURITY', 'PERFORMANCE_RESILIENCE', 'RELEASE_REGRESSION'],
     reviewReportRef: 'review-report-1',
     reviewReportHashSha256: '2'.repeat(64),
     decision: REVIEW_DECISION.PASS,
