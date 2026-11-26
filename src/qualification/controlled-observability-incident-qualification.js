@@ -149,7 +149,8 @@ function normalizeMetricsResult(value, objectives) {
   const latest = requiredTimestamp(value.latestSampleAt, 'metrics.latestSampleAt');
   if (latest.millis > observed.millis) throw new TypeError('metrics.latestSampleAt must not be after metrics.observedAt');
   if (!Array.isArray(value.availableSignals)) throw new TypeError('metrics.availableSignals must be an array');
-  const available = new Set(value.availableSignals.filter((item) => typeof item === 'string').map((item) => item.trim()).filter(Boolean));
+  if(value.availableSignals.some(item=>typeof item!=='string'||!item.trim()))throw new TypeError('metrics.availableSignals must contain nonempty strings');
+  const available = new Set(value.availableSignals.map(item=>item.trim()));
   const requiredSignalChecks = objectives.requiredSignals.map((signal) => Object.freeze({ signal, present: available.has(signal) }));
   const missingRequiredSignals = requiredSignalChecks.filter((item) => !item.present).map((item) => item.signal);
   const freshnessSeconds = (observed.millis - latest.millis) / 1000;
@@ -260,10 +261,12 @@ function createControlledObservabilityIncidentQualification({
       && typeof drFailoverQualification.executionHashSha256==='string'
       && /^[a-f0-9]{64}$/i.test(drFailoverQualification.executionHashSha256)
       && drFailoverQualification.plan?.environment === env
-      && drFailoverQualification.plan?.exactCommitSha === commitSha,
+      && drFailoverQualification.plan?.exactCommitSha === commitSha
+      && drFailoverQualification.productionQualified === false
+      && drFailoverQualification.authority?.releaseAuthorized === false,
     );
-    const drFailoverQualificationRef = drFailoverQualification?.executionHashSha256
-      ? `sha256:${drFailoverQualification.executionHashSha256}`
+    const drFailoverQualificationRef = drComplete
+      ? `sha256:${drFailoverQualification.executionHashSha256.toLowerCase()}`
       : null;
 
     const planCore = {

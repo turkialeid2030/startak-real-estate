@@ -85,6 +85,9 @@ function baseInput(overrides = {}) {
 
 function preflightResult(overrides = {}) {
   return {
+    primaryDatabaseRef:'primary-ref',
+    standbyDatabaseRef:'standby-ref',
+    observedAt:'2026-09-09T15:59:56.000Z',
     primaryHealthy: true,
     standbyReachable: true,
     replicationHealthy: true,
@@ -140,6 +143,7 @@ function verificationResult(phase, overrides = {}) {
   return {
     observedAt: '2026-09-09T16:01:20.000Z',
     latestPrimaryDataAt: '2026-09-09T16:01:18.000Z',
+    latestStandbyDataAt:'2026-09-09T16:01:18.000Z',
     latestActiveDataAt: '2026-09-09T16:01:18.000Z',
     activeDatabaseRef: 'primary-ref',
     activeDatabaseName: 'startak_primary',
@@ -389,7 +393,7 @@ function assertAuthorityClosed(result) {
     assert.strictEqual(calls.preflight,0);assertAuthorityClosed(out);
   });
   await test('P17-FAILOVER-BEFORE-PREFLIGHT-DATA',async()=>{
-    const {qualify,calls}=harness({preflightOverrides:{latestPrimaryDataAt:'2026-09-09T16:00:01Z'}});
+    const {qualify,calls}=harness({preflightOverrides:{latestPrimaryDataAt:'2026-09-09T16:00:01Z',latestStandbyDataAt:'2026-09-09T16:00:00Z',observedAt:'2026-09-09T16:00:02Z'}});
     const out=await qualify(baseInput({execute:true}));
     assert.strictEqual(out.status,DR_FAILOVER_STATUS.HOLD_FAILOVER);
     assert.strictEqual(calls.failback,0);
@@ -399,6 +403,32 @@ function assertAuthorityClosed(result) {
     const out=await qualify(baseInput({execute:true,recoveryObjectives:{maximumRecoveryTimeSeconds:40,maximumDataLossSeconds:5,objectiveSourceRef:'policy://dr'}}));
     assert.strictEqual(out.status,DR_FAILOVER_STATUS.HOLD_RECOVERY_OBJECTIVE);
     assert.strictEqual(out.resilienceEvidence.observedRecoveryTimeSeconds,50);
+  });
+  for(const [id,patch] of [
+    ['WRONG-TARGET',{standbyDatabaseRef:'other'}],
+    ['MISSING-OBSERVATION',{observedAt:undefined}],
+    ['REPORTED-LAG',{replicationLagSeconds:6}],
+    ['WATERMARK-LAG',{latestStandbyDataAt:'2026-09-09T15:59:49Z'}]
+  ])await test('P17-PREFLIGHT-'+id,async()=>{
+    const {qualify,calls}=harness({preflightOverrides:patch});
+    const out=await qualify(baseInput({execute:true}));
+    assert.strictEqual(out.status,DR_FAILOVER_STATUS.HOLD_PREFLIGHT);
+    assert.strictEqual(calls.failover,0);assert.strictEqual(out.preflightReady,false);
+  });
+  await test('P17-FAILBACK-RPO',async()=>{
+    const {qualify}=harness({failbackVerificationOverrides:{latestStandbyDataAt:'2026-09-09T16:01:18Z',latestActiveDataAt:'2026-09-09T16:01:10Z'}});
+    const out=await qualify(baseInput({execute:true}));
+    assert.strictEqual(out.status,DR_FAILOVER_STATUS.HOLD_RECOVERY_OBJECTIVE);
+    assert.strictEqual(out.resilienceEvidence.observedDataLossSeconds,8);
+  });
+  await test('P17-FAILBACK-MISSING-SOURCE-WATERMARK',async()=>{
+    const {qualify}=harness({failbackVerificationOverrides:{latestStandbyDataAt:undefined}});
+    assert.strictEqual((await qualify(baseInput({execute:true}))).status,DR_FAILOVER_STATUS.HOLD_FAILBACK_VERIFICATION);
+  });
+  await test('P17-LIVE-STALE-PREFLIGHT',async()=>{
+    const {qualify,calls}=harness();
+    const out=await qualify(baseInput({execute:true,assessedAt:undefined}));
+    assert.strictEqual(out.status,DR_FAILOVER_STATUS.HOLD_PREFLIGHT);assert.strictEqual(calls.failover,0);
   });
   const failed = results.filter((entry) => entry[1] !== 'PASS');
   console.log(`PRODUCTIZATION_P17_CONTROLLED_DR_FAILOVER_RESULT=${failed.length === 0 ? 'PASS' : 'FAIL'} ${results.filter((entry) => entry[1] === 'PASS').length}/${results.length}`);

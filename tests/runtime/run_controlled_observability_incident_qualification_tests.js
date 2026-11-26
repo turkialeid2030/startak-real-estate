@@ -28,6 +28,8 @@ function drQualification(overrides = {}) {
   return {
     status: DR_FAILOVER_STATUS.DR_FAILOVER_EVIDENCE_COMPLETE_NOT_PRODUCTION_CERTIFIED,
     executionHashSha256: 'd'.repeat(64),
+    productionQualified:false,
+    authority:{releaseAuthorized:false},
     plan: {
       environment: 'staging',
       exactCommitSha: COMMIT_SHA,
@@ -330,6 +332,18 @@ function assertAuthorityClosed(result) {
     const original=await qualify(baseInput({execute:true}));
     assert.strictEqual(verifyCompletedObservabilityQualification({...original,metrics:{...original.metrics,metricsBackendRef:[original.metrics.metricsBackendRef]}},baseInput().assessedAt),false);
     assert.strictEqual(verifyCompletedObservabilityQualification({...original,authorization:{...original.authorization,reviewedBy:' '+original.authorization.approvedBy+' '}},baseInput().assessedAt),false);
+  });
+  for(const [id,patch] of [['PRODUCTION',{productionQualified:true}],['RELEASE',{authority:{releaseAuthorized:true}}],['MISSING-AUTHORITY',{authority:undefined}]])await test('P18-UPSTREAM-'+id,async()=>{
+    const {qualify,calls}=harness();
+    const out=await qualify(baseInput({execute:true,drFailoverQualification:drQualification(patch)}));
+    assert.strictEqual(out.status,OBSERVABILITY_STATUS.HOLD_DR_FAILOVER_QUALIFICATION);
+    assert.strictEqual(out.drFailoverQualificationRef,null);
+    assert.strictEqual(calls.metrics,0);
+  });
+  await test('P18-MALFORMED-SIGNALS',async()=>{
+    const {qualify,calls}=harness({metricsOverrides:{availableSignals:['availability','error-rate','latency',null]}});
+    const out=await qualify(baseInput({execute:true}));
+    assert.strictEqual(out.status,OBSERVABILITY_STATUS.HOLD_METRICS);assert.strictEqual(calls.alert,0);
   });
   const failed = results.filter((entry) => entry[1] !== 'PASS');
   console.log(`PRODUCTIZATION_P18_OBSERVABILITY_INCIDENT_RESULT=${failed.length === 0 ? 'PASS' : 'FAIL'} ${results.filter((entry) => entry[1] === 'PASS').length}/${results.length}`);

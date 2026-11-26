@@ -68,7 +68,7 @@ function nonNegativeNumber(value, field) {
 }
 
 function nonNegativeInteger(value, field) {
-  if (!Number.isInteger(value) || value < 0) throw new TypeError(`${field} must be a non-negative integer`);
+  if (!Number.isSafeInteger(value) || value < 0) throw new TypeError(`${field} must be a non-negative integer`);
   return value;
 }
 
@@ -152,11 +152,18 @@ function normalizeAuthorization(value, target) {
   });
 }
 
-function normalizePreflightResult(value) {
+function normalizePreflightResult(value,primaryRef,standbyRef) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError('preflightExecutor result must be an object');
+  if(value.primaryDatabaseRef!==primaryRef||value.standbyDatabaseRef!==standbyRef)throw new TypeError('preflight target identity mismatch');
+  const observed=requiredTimestamp(value.observedAt,'preflight.observedAt');
   const primaryLatest = requiredTimestamp(value.latestPrimaryDataAt, 'preflight.latestPrimaryDataAt');
   const standbyLatest = requiredTimestamp(value.latestStandbyDataAt, 'preflight.latestStandbyDataAt');
+  if(primaryLatest.millis>observed.millis||standbyLatest.millis>observed.millis)throw new TypeError('preflight data timestamp exceeds observation');
   return freeze({
+    primaryDatabaseRef:primaryRef,
+    standbyDatabaseRef:standbyRef,
+    observedAt:observed.value,
+    observedWatermarkLagSeconds:Math.max(0,(primaryLatest.millis-standbyLatest.millis)/1000),
     primaryHealthy: value.primaryHealthy === true,
     standbyReachable: value.standbyReachable === true,
     replicationHealthy: value.replicationHealthy === true,
@@ -188,6 +195,8 @@ function normalizeVerificationResult(value, field, expectedRef, expectedName) {
   const observed = requiredTimestamp(value.observedAt, `${field}.observedAt`);
   const latestPrimary = requiredTimestamp(value.latestPrimaryDataAt, `${field}.latestPrimaryDataAt`);
   const latestActive = requiredTimestamp(value.latestActiveDataAt, `${field}.latestActiveDataAt`);
+  const latestStandby = field==='failbackVerification'?requiredTimestamp(value.latestStandbyDataAt,`${field}.latestStandbyDataAt`):null;
+  if(latestStandby&&latestStandby.millis>observed.millis)throw new TypeError('failback standby watermark exceeds observation');
   if(latestPrimary.millis>observed.millis||latestActive.millis>observed.millis)throw new TypeError(`${field} data timestamps must not follow observation`);
   for (const flag of ['duplicateSideEffectsObserved', 'unreconciledDataCorruptionObserved']) {
     if (typeof value[flag] !== 'boolean') throw new TypeError(`${field}.${flag} must be an explicit boolean`);
@@ -202,6 +211,7 @@ function normalizeVerificationResult(value, field, expectedRef, expectedName) {
     observedAt: observed.value,
     latestPrimaryDataAt: latestPrimary.value,
     latestActiveDataAt: latestActive.value,
+    ...(latestStandby?{latestStandbyDataAt:latestStandby.value}:{}),
     activeDatabaseRef,
     activeDatabaseName,
     expectedTargetActive: activeDatabaseRef === expectedRef && activeDatabaseName === expectedName,
@@ -307,6 +317,7 @@ function createControlledDrFailoverQualification({
     // adapter execution the cutoff must advance after each asynchronous stage.
     const retrospective = assessedAt !== undefined;
     const assessed = requiredTimestamp(retrospective ? assessedAt : new Date().toISOString(), 'assessedAt');
+    if (retrospective && assessed.millis > Date.now()) throw new TypeError('assessedAt must not be in the future');
     const evidenceCutoff = () => retrospective ? assessed.millis : Date.now();
 
     const backupRestoreComplete = Boolean(
@@ -376,11 +387,11 @@ function createControlledDrFailoverQualification({
         standbyDatabaseRef: standbyRef,
         standbyDatabaseName: standbyName,
         planHashSha256: plan.planHashSha256,
-      }));
+      }),primaryRef,standbyRef);
     } catch (_) {
       return makeResult({ status: DR_FAILOVER_STATUS.HOLD_PREFLIGHT, plan, authorization: auth });
     }
-    if (!preflight.ready || Date.parse(preflight.latestPrimaryDataAt)>evidenceCutoff() || Date.parse(preflight.latestStandbyDataAt)>evidenceCutoff()) {
+    if (!preflight.ready || Date.parse(preflight.observedAt)>evidenceCutoff() || Date.parse(preflight.observedAt)<Math.max(Date.parse(auth.approvedAt),retrospective?-Infinity:assessed.millis) || Math.max(preflight.replicationLagSeconds,preflight.observedWatermarkLagSeconds)>objectives.maximumDataLossSeconds) {
       return makeResult({ status: DR_FAILOVER_STATUS.HOLD_PREFLIGHT, plan, authorization: auth, preflight });
     }
 
@@ -397,7 +408,7 @@ function createControlledDrFailoverQualification({
     } catch (_) {
       return makeResult({ status: DR_FAILOVER_STATUS.HOLD_FAILOVER, plan, authorization: auth, preflight });
     }
-    if (!failover.expectedTargetActivated || Date.parse(failover.startedAt)<Math.max(Date.parse(auth.approvedAt),Date.parse(preflight.latestPrimaryDataAt),Date.parse(preflight.latestStandbyDataAt)) || Date.parse(failover.finishedAt)>evidenceCutoff()) {
+    if (!failover.expectedTargetActivated || Date.parse(failover.startedAt)<Math.max(Date.parse(auth.approvedAt),Date.parse(preflight.observedAt)) || Date.parse(failover.finishedAt)>evidenceCutoff()) {
       return makeResult({ status: DR_FAILOVER_STATUS.HOLD_FAILOVER, plan, authorization: auth, preflight, failover });
     }
 
@@ -478,7 +489,9 @@ function createControlledDrFailoverQualification({
     const failbackVerifiedAt = requiredTimestamp(failbackVerification.observedAt,'failbackVerification.observedAt');
     // Conservative qualification objective: the slower of the two transitions.
     const observedRecoveryTimeSeconds = Math.max(failoverVerifiedAt.millis-failoverStarted.millis,failbackVerifiedAt.millis-failbackStarted.millis)/1000;
-    const observedDataLossSeconds = Math.max(0, (latestPrimary.millis - latestActive.millis) / 1000);
+    const failbackSource=requiredTimestamp(failbackVerification.latestStandbyDataAt,'failbackVerification.latestStandbyDataAt');
+    const failbackTarget=requiredTimestamp(failbackVerification.latestActiveDataAt,'failbackVerification.latestActiveDataAt');
+    const observedDataLossSeconds = Math.max(0,latestPrimary.millis-latestActive.millis,failbackSource.millis-failbackTarget.millis)/1000;
     const duplicateSideEffectsObserved = Boolean(
       failoverVerification.duplicateSideEffectsObserved || failbackVerification.duplicateSideEffectsObserved,
     );

@@ -316,6 +316,20 @@ function assertAuthorityClosed(result) {
     assert.strictEqual(out.status,BACKUP_RESTORE_STATUS.HOLD_RECOVERY_OBJECTIVE);
     assert.strictEqual(out.resilienceEvidence.observedRecoveryTimeSeconds,200);
   });
+  await test('P16-LIVE-REJECTS-STALE-BACKUP',async()=>{
+    const {qualify,calls}=buildHarness();
+    const out=await qualify(baseInput({assessedAt:undefined}));
+    assert.strictEqual(out.status,BACKUP_RESTORE_STATUS.HOLD_BACKUP);assert.strictEqual(calls.restore.length,0);
+  });
+  await test('P16-FUTURE-CUTOFF',async()=>{
+    const {qualify,calls}=buildHarness();
+    await assert.rejects(()=>qualify(baseInput({assessedAt:'2999-01-01T00:00:00Z'})),/must not be in the future/);
+    assert.strictEqual(calls.backup.length,0);
+  });
+  await test('P16-UNSAFE-COUNT',async()=>{
+    const {qualify}=buildHarness({verificationValue:verificationResult({sourceRecordCount:Number.MAX_SAFE_INTEGER+1,restoredRecordCount:Number.MAX_SAFE_INTEGER+1})});
+    assert.strictEqual((await qualify(baseInput())).status,BACKUP_RESTORE_STATUS.HOLD_VERIFICATION);
+  });
   const failed = results.filter((entry) => entry[1] !== 'PASS');
   console.log(`PRODUCTIZATION_P16_BACKUP_RESTORE_QUALIFICATION_RESULT=${failed.length === 0 ? 'PASS' : 'FAIL'} ${results.filter((entry) => entry[1] === 'PASS').length}/${results.length}`);
   if (failed.length > 0) process.exit(1);

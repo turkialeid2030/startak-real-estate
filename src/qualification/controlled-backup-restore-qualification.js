@@ -66,7 +66,7 @@ function nonNegativeNumber(value, field) {
 }
 
 function nonNegativeInteger(value, field) {
-  if (!Number.isInteger(value) || value < 0) throw new TypeError(`${field} must be a non-negative integer`);
+  if (!Number.isSafeInteger(value) || value < 0) throw new TypeError(`${field} must be a non-negative integer`);
   return value;
 }
 
@@ -276,6 +276,7 @@ function createControlledBackupRestoreQualification({
     // adapter execution the cutoff must advance after each asynchronous stage.
     const retrospective = assessedAt !== undefined;
     const assessed = requiredTimestamp(retrospective ? assessedAt : new Date().toISOString(), 'assessedAt');
+    if (retrospective && assessed.millis > Date.now()) throw new TypeError('assessedAt must not be in the future');
     const evidenceCutoff = () => retrospective ? assessed.millis : Date.now();
     const normalizedEvidenceId = requiredString(evidenceId, 'evidenceId');
 
@@ -347,7 +348,7 @@ function createControlledBackupRestoreQualification({
       return makeResult({ status: BACKUP_RESTORE_STATUS.HOLD_BACKUP, plan, authorization: auth });
     }
 
-    if (Date.parse(backup.startedAt) < Date.parse(auth.approvedAt) || Date.parse(backup.finishedAt)>evidenceCutoff()) {
+    if (Date.parse(backup.startedAt) < Math.max(Date.parse(auth.approvedAt),retrospective ? -Infinity : assessed.millis) || Date.parse(backup.finishedAt)>evidenceCutoff()) {
       return makeResult({ status: BACKUP_RESTORE_STATUS.HOLD_BACKUP, plan, authorization: auth, backup });
     }
     let restore;
