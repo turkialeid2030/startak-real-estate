@@ -29,6 +29,8 @@ function createFakePool({
   superuser = false,
   bypassRls = false,
   databaseName = 'startak_staging',
+  driftAfterFirstIdentity = false,
+  missingContextMetadata = false,
   forceRls = true,
   permissiveCrossTenant = false,
   allowMissingContext = false,
@@ -36,6 +38,7 @@ function createFakePool({
   failRoleQuery = false,
 } = {}) {
   const rows = new Map();
+  let identityChecks=0;
   const state = {
     rows,
     connects: 0,
@@ -74,13 +77,15 @@ function createFakePool({
           }
           if (sql.startsWith('SELECT current_user AS role_name')) {
             if (failRoleQuery) throw new Error('database password=should-not-leak');
+            identityChecks++;
+            if(driftAfterFirstIdentity&&identityChecks>1)return {rows:[{role_name:'wrong_role',rolsuper:false,rolbypassrls:false,database_name:'other_db'}]};
             return { rowCount: 1, rows: [{ role_name: 'startak_runtime', rolsuper: superuser, rolbypassrls: bypassRls, database_name: databaseName }] };
           }
           if (sql.startsWith('SELECT c.relrowsecurity')) {
             return { rowCount: 1, rows: [{ relrowsecurity: forceRls, relforcerowsecurity: forceRls }] };
           }
           if (sql.startsWith('SELECT nullif(current_setting')) {
-            return { rowCount: 1, rows: [{ tenant_context: txTenant || null }] };
+            return missingContextMetadata?{rowCount:0,rows:[]}:{ rowCount: 1, rows: [{ tenant_context: txTenant || null }] };
           }
 
           const tenantId = params[0];
@@ -237,6 +242,19 @@ function probeInput(pool, overrides = {}) {
     await assert.rejects(()=>runPostgresRuntimeRlsProbe(probeInput(pool,{environment:'production'})),/environment must be staging or preproduction/);
     await assert.rejects(()=>runPostgresRuntimeRlsProbe(probeInput(pool,{testedAt:'not-a-date'})),/valid timestamp/);
     assert.strictEqual(pool.state.connects,0);
+  });
+  await test('P12-TRANSACTION-IDENTITY-DRIFT',async()=>{
+    const pool=createFakePool({driftAfterFirstIdentity:true});
+    const out=await runPostgresRuntimeRlsProbe(probeInput(pool,{expectedDatabaseName:'startak_staging'}));
+    assert.strictEqual(out.status,RLS_PROBE_STATUS.HOLD_PROBE_EXECUTION);
+    assert.strictEqual(out.mutationExecuted,false);
+    assert.ok(!pool.state.queries.some(q=>q.sql.startsWith('INSERT')));
+  });
+  await test('P12-MISSING-CONTEXT-METADATA',async()=>{
+    const pool=createFakePool({missingContextMetadata:true});
+    const out=await runPostgresRuntimeRlsProbe(probeInput(pool,{expectedDatabaseName:'startak_staging'}));
+    assert.strictEqual(out.status,RLS_PROBE_STATUS.HOLD_CONTEXT_RESET);
+    assert.strictEqual(out.checks.tenantContextResetBetweenRequests,false);
   });
   const failed = results.filter((entry) => entry[1] !== 'PASS');
   console.log(`PRODUCTIZATION_P12_POSTGRES_RLS_PROBE_RESULT=${failed.length === 0 ? 'PASS' : 'FAIL'} ${results.filter((entry) => entry[1] === 'PASS').length}/${results.length}`);

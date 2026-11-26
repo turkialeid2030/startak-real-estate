@@ -76,6 +76,7 @@ async function withTransaction(pool, tenantSetting, tenantId, fn) {
     try {
       await client.query('BEGIN');
       began = true;
+      if (typeof pool.verifyTransactionIdentity === 'function') await pool.verifyTransactionIdentity(client);
       if (tenantId != null) {
         await client.query('SELECT set_config($1, $2, true) AS tenant_context', [tenantSetting, tenantId]);
       }
@@ -200,6 +201,7 @@ async function runPostgresRuntimeRlsProbe({
 
   let mutationStarted = false;
   let executionFailure = false;
+  let guardedPool = null;
 
   try {
     const roleRows = await withClient(pool, async (client) => {
@@ -217,7 +219,19 @@ async function runPostgresRuntimeRlsProbe({
     checks.runtimeRoleBypassesRls = roleRows[0].rolbypassrls === true;
     if (!checks.runtimeRoleMatchesExpected) throw new Error('RUNTIME_ROLE_MISMATCH');
 
-    const tableRows = await withClient(pool, async (client) => {
+    // Bind every subsequent transaction to the expected runtime role and, when
+    // specified, the database name. Validate inside BEGIN for transaction pools.
+    const checkedPool = {
+      connect: () => pool.connect(),
+      async verifyTransactionIdentity(client) {
+        const result=await client.query('SELECT current_user AS role_name, r.rolsuper, r.rolbypassrls, current_database() AS database_name FROM pg_roles r WHERE r.rolname = current_user');
+        const row=result?.rows?.length===1?result.rows[0]:null;
+        if(!row||row.role_name!==runtimeRole||row.rolsuper!==false||row.rolbypassrls!==false||
+          (databaseName!==null&&row.database_name!==databaseName))throw new Error('RUNTIME_TRANSACTION_IDENTITY_MISMATCH');
+      }
+    };
+    guardedPool=checkedPool;
+    const tableRows = await withTransaction(checkedPool, setting, null, async (client) => {
       const result = await client.query(
         'SELECT c.relrowsecurity, c.relforcerowsecurity FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = $1 AND c.relname = $2 AND c.relkind = $3',
         [schema, table, 'r'],
@@ -244,53 +258,55 @@ async function runPostgresRuntimeRlsProbe({
 
     mutationStarted = true;
     const payload = buildPayload({ tenantId: tenantA, workspaceId: primaryId, probeRunId: runId, testedAt: timestamp });
-    const insertResult = await withTransaction(pool, setting, tenantA, (client) => client.query(
+    const insertResult = await withTransaction(guardedPool, setting, tenantA, (client) => client.query(
       `INSERT INTO ${qualified} (tenant_id, workspace_id, version, payload, updated_at) VALUES ($1, $2, 1, $3::jsonb, now()) RETURNING workspace_id`,
       [tenantA, primaryId, payload],
     ));
     const inserted = insertResult?.rowCount === 1;
 
-    const sameTenantSelect = await withTransaction(pool, setting, tenantA, (client) => client.query(
+    const sameTenantSelect = await withTransaction(guardedPool, setting, tenantA, (client) => client.query(
       `SELECT workspace_id FROM ${qualified} WHERE tenant_id = $1 AND workspace_id = $2`,
       [tenantA, primaryId],
     ));
-    const sameTenantUpdate = await withTransaction(pool, setting, tenantA, (client) => client.query(
+    const sameTenantUpdate = await withTransaction(guardedPool, setting, tenantA, (client) => client.query(
       `UPDATE ${qualified} SET updated_at = updated_at WHERE tenant_id = $1 AND workspace_id = $2 RETURNING workspace_id`,
       [tenantA, primaryId],
     ));
 
-    const contextReset = await withTransaction(pool, setting, null, (client) => client.query(
+    const contextReset = await withTransaction(guardedPool, setting, null, (client) => client.query(
       'SELECT nullif(current_setting($1, true), \'\') AS tenant_context',
       [setting],
     ));
-    checks.tenantContextResetBetweenRequests = contextReset?.rows?.[0]?.tenant_context == null;
+    checks.tenantContextResetBetweenRequests = contextReset?.rows?.length===1
+      && Object.prototype.hasOwnProperty.call(contextReset.rows[0],'tenant_context')
+      && contextReset.rows[0].tenant_context===null;
 
-    const crossSelect = await withTransaction(pool, setting, tenantB, (client) => client.query(
+    const crossSelect = await withTransaction(guardedPool, setting, tenantB, (client) => client.query(
       `SELECT workspace_id FROM ${qualified} WHERE tenant_id = $1 AND workspace_id = $2`,
       [tenantA, primaryId],
     ));
-    const crossUpdate = await withTransaction(pool, setting, tenantB, (client) => client.query(
+    const crossUpdate = await withTransaction(guardedPool, setting, tenantB, (client) => client.query(
       `UPDATE ${qualified} SET updated_at = updated_at WHERE tenant_id = $1 AND workspace_id = $2 RETURNING workspace_id`,
       [tenantA, primaryId],
     ));
-    const crossDelete = await withTransaction(pool, setting, tenantB, (client) => client.query(
+    const crossDelete = await withTransaction(guardedPool, setting, tenantB, (client) => client.query(
       `DELETE FROM ${qualified} WHERE tenant_id = $1 AND workspace_id = $2 RETURNING workspace_id`,
       [tenantA, primaryId],
     ));
     const crossInsertDenied = await expectRlsWriteDenial(
-      pool,
+      guardedPool,
       setting,
       tenantB,
       `INSERT INTO ${qualified} (tenant_id, workspace_id, version, payload, updated_at) VALUES ($1, $2, 1, $3::jsonb, now()) RETURNING workspace_id`,
       [tenantA, crossInsertId, buildPayload({ tenantId: tenantA, workspaceId: crossInsertId, probeRunId: runId, testedAt: timestamp })],
     );
 
-    const missingSelect = await withTransaction(pool, setting, null, (client) => client.query(
+    const missingSelect = await withTransaction(guardedPool, setting, null, (client) => client.query(
       `SELECT workspace_id FROM ${qualified} WHERE tenant_id = $1 AND workspace_id = $2`,
       [tenantA, primaryId],
     ));
     const missingInsertDenied = await expectRlsWriteDenial(
-      pool,
+      guardedPool,
       setting,
       null,
       `INSERT INTO ${qualified} (tenant_id, workspace_id, version, payload, updated_at) VALUES ($1, $2, 1, $3::jsonb, now()) RETURNING workspace_id`,
@@ -319,7 +335,7 @@ async function runPostgresRuntimeRlsProbe({
       try {
         let primaryDeleteObserved = false;
         for (const workspaceId of cleanupIds) {
-          const result = await withTransaction(pool, setting, tenantA, (client) => client.query(
+          const result = await withTransaction(guardedPool, setting, tenantA, (client) => client.query(
             `DELETE FROM ${qualified} WHERE tenant_id = $1 AND workspace_id = $2 RETURNING workspace_id`,
             [tenantA, workspaceId],
           ));
@@ -328,7 +344,7 @@ async function runPostgresRuntimeRlsProbe({
 
         let allProbeRowsGone = true;
         for (const workspaceId of cleanupIds) {
-          const result = await withTransaction(pool, setting, tenantA, (client) => client.query(
+          const result = await withTransaction(guardedPool, setting, tenantA, (client) => client.query(
             `SELECT workspace_id FROM ${qualified} WHERE tenant_id = $1 AND workspace_id = $2`,
             [tenantA, workspaceId],
           ));
