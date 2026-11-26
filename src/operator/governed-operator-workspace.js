@@ -70,10 +70,7 @@ const FORBIDDEN_AUTHORITY_KEYS = new Set([
 function canonicalize(value) {
   if (Array.isArray(value)) return value.map(canonicalize);
   if (value && typeof value === 'object') {
-    return Object.keys(value).sort().reduce((out, key) => {
-      out[key] = canonicalize(value[key]);
-      return out;
-    }, {});
+    return Object.fromEntries(Object.keys(value).sort().map(key=>[key,canonicalize(value[key])]));
   }
   return value;
 }
@@ -172,9 +169,31 @@ function actionMaterial(input) {
   };
 }
 
+// Validate JSON payloads before hashing. Reject non-JSON values, ambiguous
+// numeric values and prototype-sensitive keys; detach and recursively freeze.
+function validatePayload(value,depth=0){
+  if(depth>32)throw new Error('C26_PAYLOAD_DEPTH_INVALID');
+  if(value===null||typeof value==='string'||typeof value==='boolean')return;
+  if(typeof value==='number'&&Number.isFinite(value)&&(!Number.isInteger(value)||Number.isSafeInteger(value)))return;
+  if(!value||typeof value!=='object')throw new Error('C26_PAYLOAD_JSON_REQUIRED');
+  if(Array.isArray(value)){
+    for(let i=0;i<value.length;i++){if(!Object.hasOwn(value,i))throw new Error('C26_PAYLOAD_JSON_REQUIRED');validatePayload(value[i],depth+1);}
+    return;
+  }
+  if(![Object.prototype,null].includes(Object.getPrototypeOf(value)))throw new Error('C26_PAYLOAD_JSON_REQUIRED');
+  for(const key of Object.keys(value)){
+    if(['__proto__','constructor','prototype'].includes(key))throw new Error('C26_PAYLOAD_KEY_FORBIDDEN');
+    validatePayload(value[key],depth+1);
+  }
+}
+function freezePayload(value){
+  if(value&&typeof value==='object'){Object.values(value).forEach(freezePayload);Object.freeze(value);}
+  return value;
+}
 function createWorkspaceAction(input) {
   if (!input || typeof input !== 'object') throw new Error('C26_ACTION_REQUIRED');
   if (!Object.values(ACTION).includes(input.action)) throw new Error('C26_ACTION_UNKNOWN');
+  if(input.payload!==undefined)validatePayload(input.payload);
   if (hasForbiddenAuthorityKey(input.payload)) throw new Error('C26_AUTHORITY_INJECTION_FORBIDDEN');
   if (input.transactionAuthorized === true || input.approvalAuthorized === true ||
       input.publicAiAuthorized === true || input.productionDeploymentAuthorized === true ||
@@ -189,7 +208,7 @@ function createWorkspaceAction(input) {
     payloadHashSha256: sha256(payload),
     requestedAt: requireIso(input.requestedAt, 'C26_ACTION_REQUESTED_AT_INVALID'),
   });
-  return Object.freeze({ ...action, payload: canonicalize(payload), actionHashSha256: sha256(action) });
+  return Object.freeze({ ...action, payload: freezePayload(canonicalize(payload)), actionHashSha256: sha256(action) });
 }
 
 function auditEvent({ status, blocker, session, workspaceAction, caseSnapshot, evaluatedAt }) {
@@ -226,18 +245,20 @@ function evaluateOperatorWorkspaceAction({ session, workspaceAction, caseSnapsho
 
   const expectedPermissionHash = Object.values(ROLE).includes(session.role)
     ? sha256(ROLE_PERMISSIONS[session.role].slice().sort()) : null;
-  const expectedSessionHash = sha256(sessionMaterial(session));
-  const expectedActionHash = sha256(actionMaterial(workspaceAction));
+  let canonicalSession=false,canonicalAction=false;
+  try {
+    canonicalSession=stableJson(session)===stableJson(createOperatorSession(session));
+    canonicalAction=stableJson(workspaceAction)===stableJson(createWorkspaceAction(workspaceAction));
+  }catch{/* malformed records fail closed */}
+
 
   if (!Object.values(ROLE).includes(session.role) ||
       session.permissionSetHashSha256 !== expectedPermissionHash ||
-      session.sessionHashSha256 !== expectedSessionHash ||
-      workspaceAction.actionHashSha256 !== expectedActionHash ||
-      workspaceAction.payloadHashSha256 !== sha256(workspaceAction.payload)) {
+      !canonicalSession || !canonicalAction) {
     status = STATUS.HOLD_INTEGRITY;
     blocker = 'C26_INTEGRITY_AUTHORIZATION_OR_ACTION_TAMPERED';
   } else if (Date.parse(asOf) < Date.parse(session.issuedAt) || Date.parse(asOf) > Date.parse(session.validUntil) ||
-             Date.parse(workspaceAction.requestedAt) < Date.parse(session.issuedAt) || Date.parse(workspaceAction.requestedAt) > Date.parse(session.validUntil)) {
+             Date.parse(workspaceAction.requestedAt) < Date.parse(session.issuedAt) || Date.parse(workspaceAction.requestedAt) > Date.parse(session.validUntil) || Date.parse(workspaceAction.requestedAt)>Date.parse(asOf)) {
     status = STATUS.HOLD_TEMPORAL;
     blocker = 'C26_TEMPORAL_SESSION_NOT_VALID';
   } else if (session.caseId !== caseSnapshot.caseId || session.propertyRef !== caseSnapshot.propertyRef ||
@@ -248,6 +269,9 @@ function evaluateOperatorWorkspaceAction({ session, workspaceAction, caseSnapsho
   } else if (hasForbiddenAuthorityKey(workspaceAction.payload)) {
     status = STATUS.HOLD_AUTHORITY_INJECTION;
     blocker = 'C26_AUTHORITY_INJECTION_FORBIDDEN';
+  } else if (session.mfaVerified!==true) {
+    status=STATUS.DENIED_PERMISSION;
+    blocker='C26_PERMISSION_MFA_REQUIRED';
   } else if (!ROLE_PERMISSIONS[session.role].includes(workspaceAction.action)) {
     status = STATUS.DENIED_PERMISSION;
     blocker = `C26_PERMISSION_DENIED:${session.role}:${workspaceAction.action}`;
