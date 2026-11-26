@@ -262,6 +262,31 @@ function assertAuthorityClosed(result) {
     assert.ok(!JSON.stringify(out).includes('SYNTH-PRIVATE-REF-NOT-FOR-OUTPUT'));
   });
 
+  await test('P20-MONITORING-EXPIRES-FIRST',async()=>{
+    const out=buildProductizationReleaseCandidateEvidenceBundle(input({assembledAt:'2026-10-05T00:00:00Z',reviewedAt:'2026-10-05T01:00:00Z'}));
+    assert.strictEqual(out.status,RELEASE_CANDIDATE_STATUS.HOLD_SECURITY_UAT_EVIDENCE);assertAuthorityClosed(out);
+  });
+  await test('P20-ASSEMBLED-BEFORE-P19',async()=>{
+    const out=buildProductizationReleaseCandidateEvidenceBundle(input({assembledAt:'2026-09-09T11:00:00Z'}));
+    assert.strictEqual(out.status,RELEASE_CANDIDATE_STATUS.HOLD_SECURITY_UAT_EVIDENCE);assertAuthorityClosed(out);
+  });
+  await test('P20-FUTURE-REVIEW',async()=>{
+    assert.throws(()=>buildProductizationReleaseCandidateEvidenceBundle(input({reviewedAt:'2999-01-01T00:00:00Z'})),/must not be in the future/);
+  });
+  await test('P20-P9-DIGEST-TYPE',async()=>{
+    const out=buildProductizationReleaseCandidateEvidenceBundle(input({productionQualification:productionQualification({gates:{...p9.gates,independentReleaseQualification:{...p9.gates.independentReleaseQualification,qualificationHashSha256:['1'.repeat(64)]}}})}));
+    assert.strictEqual(out.status,RELEASE_CANDIDATE_STATUS.HOLD_PRODUCTION_QUALIFICATION);
+    assert.strictEqual(out.productionQualification.gates.independentReleaseQualification.qualificationHashSha256,null);
+  });
+  await test('P20-STATUS-MINIMIZATION',async()=>{
+    const out=buildProductizationReleaseCandidateEvidenceBundle(input({productionQualification:productionQualification({status:'SYNTH-PRIVATE-STATUS',gates:{...p9.gates,productionReadiness:{status:'SYNTH-PRIVATE-STATUS',ready:false}}}),securityUatEvidence:securityUat({status:'SYNTH-PRIVATE-STATUS'})}));
+    assert.ok(!JSON.stringify(out).includes('SYNTH-PRIVATE-STATUS'));assertAuthorityClosed(out);
+  });
+  await test('P20-MONITORING-TIME-SUMMARY',async()=>{
+    const out=buildProductizationReleaseCandidateEvidenceBundle(input());
+    assert.strictEqual(out.securityUatEvidence.observabilityCompletedAt,'2026-09-04T11:01:20.000Z');
+    assert.strictEqual(out.status,RELEASE_CANDIDATE_STATUS.READY_FOR_EXISTING_RELEASE_GOVERNANCE_REVIEW);
+  });
   const failed = results.filter((entry) => entry[1] !== 'PASS');
   console.log(`PRODUCTIZATION_P20_RELEASE_CANDIDATE_EVIDENCE_RESULT=${failed.length === 0 ? 'PASS' : 'FAIL'} ${results.filter((entry) => entry[1] === 'PASS').length}/${results.length}`);
   if (failed.length > 0) process.exit(1);

@@ -130,6 +130,9 @@ const P9_AUTHORITY_KEYS=Object.freeze([
   'productionPerformanceValidated','legalApprovalEstablished','certifiedValuationEstablished'
 ]);
 const SHA256_RE=/^[a-f0-9]{64}$/i;
+const isDigest=value=>typeof value==='string'&&SHA256_RE.test(value);
+const isCommit=value=>typeof value==='string'&&COMMIT_SHA_RE.test(value);
+const safeStatus=(value,allowed)=>allowed.includes(value)?value:null;
 function productionQualificationReady(value, target) {
   const gates=value?.gates,refs=value?.evidenceRefs,boundary=value?.evidenceBoundary;
   return Boolean(
@@ -145,7 +148,7 @@ function productionQualificationReady(value, target) {
     && gates.independentReleaseQualification.ready===true
     && gates.independentReleaseQualification.integrityValid===true
     && gates.independentReleaseQualification.exactCommitSha===target.exactCommitSha
-    && SHA256_RE.test(gates.independentReleaseQualification.qualificationHashSha256||'')
+    && isDigest(gates.independentReleaseQualification.qualificationHashSha256)
     && gates?.institutionalGoLiveReview?.status==='READY_FOR_HUMAN_GO_LIVE_DECISION'
     && gates.institutionalGoLiveReview.ready===true
     && ['productionReadinessRef','independentReleaseQualificationRef','institutionalGoLiveRef'].every(k=>typeof refs?.[k]==='string'&&refs[k].trim().length>0)
@@ -176,25 +179,25 @@ function securityUatReady(value, target, asOf) {
 function safeProductionQualificationSummary(value) {
   if (!value || typeof value !== 'object') return null;
   return freeze({
-    status: typeof value.status === 'string' ? value.status : null,
+    status: safeStatus(value.status,Object.values(PRODUCTION_QUALIFICATION_STATUS)),
     releaseGovernanceReviewEligible: value.releaseGovernanceReviewEligible === true,
     humanReleaseAuthorityApprovalRequired: value.humanReleaseAuthorityApprovalRequired === true,
     nextStep: ['EXISTING_RELEASE_GOVERNANCE_REVIEW','COMPLETE_EXTERNAL_QUALIFICATION_EVIDENCE'].includes(value.nextStep) ? value.nextStep : null,
     evidenceReferenceDigests: Object.fromEntries(['productionReadinessRef','independentReleaseQualificationRef','institutionalGoLiveRef'].map(k=>[k,typeof value.evidenceRefs?.[k]==='string'&&value.evidenceRefs[k].trim()?sha256Object(value.evidenceRefs[k].trim()):null])),
     gates: {
       productionReadiness: {
-        status: typeof value.gates?.productionReadiness?.status === 'string' ? value.gates.productionReadiness.status : null,
+        status: safeStatus(value.gates?.productionReadiness?.status,['READY_FOR_PRODUCTION_REVIEW']),
         ready: value.gates?.productionReadiness?.ready === true,
       },
       independentReleaseQualification: {
-        status: typeof value.gates?.independentReleaseQualification?.status === 'string' ? value.gates.independentReleaseQualification.status : null,
+        status: safeStatus(value.gates?.independentReleaseQualification?.status,['READY_FOR_RELEASE_AUTHORITY_REVIEW']),
         ready: value.gates?.independentReleaseQualification?.ready === true,
         integrityValid: value.gates?.independentReleaseQualification?.integrityValid === true,
-        exactCommitSha: COMMIT_SHA_RE.test(value.gates?.independentReleaseQualification?.exactCommitSha||'') ? value.gates.independentReleaseQualification.exactCommitSha : null,
-        qualificationHashSha256: SHA256_RE.test(value.gates?.independentReleaseQualification?.qualificationHashSha256||'') ? value.gates.independentReleaseQualification.qualificationHashSha256 : null,
+        exactCommitSha: isCommit(value.gates?.independentReleaseQualification?.exactCommitSha) ? value.gates.independentReleaseQualification.exactCommitSha : null,
+        qualificationHashSha256: isDigest(value.gates?.independentReleaseQualification?.qualificationHashSha256) ? value.gates.independentReleaseQualification.qualificationHashSha256 : null,
       },
       institutionalGoLiveReview: {
-        status: typeof value.gates?.institutionalGoLiveReview?.status === 'string' ? value.gates.institutionalGoLiveReview.status : null,
+        status: safeStatus(value.gates?.institutionalGoLiveReview?.status,['READY_FOR_HUMAN_GO_LIVE_DECISION']),
         ready: value.gates?.institutionalGoLiveReview?.ready === true,
       },
     },
@@ -204,7 +207,7 @@ function safeProductionQualificationSummary(value) {
 function safeSecurityUatSummary(value) {
   if (!value || typeof value !== 'object') return null;
   return freeze({
-    status: typeof value.status === 'string' ? value.status : null,
+    status: safeStatus(value.status,Object.values(SECURITY_UAT_STATUS)),
     evidenceBundleRef: typeof value.evidenceBundleRef === 'string' && /^sha256:[a-f0-9]{64}$/i.test(value.evidenceBundleRef) ? value.evidenceBundleRef : null,
     pentestEvidenceRef: typeof value.pentestEvidenceRef === 'string' && /^sha256:[a-f0-9]{64}$/i.test(value.pentestEvidenceRef) ? value.pentestEvidenceRef : null,
     uatEvidenceRef: typeof value.uatEvidenceRef === 'string' && /^sha256:[a-f0-9]{64}$/i.test(value.uatEvidenceRef) ? value.uatEvidenceRef : null,
@@ -212,7 +215,8 @@ function safeSecurityUatSummary(value) {
     openHighFindings: Number.isInteger(value.pentest?.openFindingCounts?.HIGH) ? value.pentest.openFindingCounts.HIGH : null,
     uatFailedScenarios: Number.isInteger(value.uat?.failedScenarios) ? value.uat.failedScenarios : null,
     uatScenarioCount: Number.isSafeInteger(value.uat?.scenarioBinding?.scenarioCount) ? value.uat.scenarioBinding.scenarioCount : null,
-    uatScenarioPlanHashSha256: /^[a-f0-9]{64}$/i.test(value.uat?.scenarioBinding?.planHashSha256 || '') ? value.uat.scenarioBinding.planHashSha256 : null,
+    uatScenarioPlanHashSha256: isDigest(value.uat?.scenarioBinding?.planHashSha256) ? value.uat.scenarioBinding.planHashSha256 : null,
+    observabilityCompletedAt:typeof value.plan?.observabilityCompletedAt==='string'&&Number.isFinite(Date.parse(value.plan.observabilityCompletedAt))?new Date(Date.parse(value.plan.observabilityCompletedAt)).toISOString():null,
   });
 }
 
@@ -226,6 +230,7 @@ function buildProductizationReleaseCandidateEvidenceBundle(input = {}) {
   const assembled = requiredTimestamp(input.assembledAt, 'assembledAt');
   const reviewed = requiredTimestamp(input.reviewedAt, 'reviewedAt');
   if (reviewed.millis < assembled.millis) throw new TypeError('reviewedAt must be on or after assembledAt');
+  if (reviewed.millis > Date.now()) throw new TypeError('reviewedAt must not be in the future');
   const assembledBy = requiredString(input.assembledBy, 'assembledBy');
   const reviewedBy = requiredString(input.reviewedBy, 'reviewedBy');
   const blockers = normalizeBlockers(input.openExternalBlockers);
@@ -239,7 +244,7 @@ function buildProductizationReleaseCandidateEvidenceBundle(input = {}) {
   if (!productionQualificationReady(input.productionQualification, target)) {
     status = RELEASE_CANDIDATE_STATUS.HOLD_PRODUCTION_QUALIFICATION;
     issues.push('PRODUCTION_QUALIFICATION_NOT_READY');
-  } else if (!securityUatReady(input.securityUatEvidence, target, reviewed.value)) {
+  } else if (!securityUatReady(input.securityUatEvidence, target, reviewed.value) || !securityUatReady(input.securityUatEvidence, target, assembled.value)) {
     const hasExpectedStatus = input.securityUatEvidence?.status === SECURITY_UAT_STATUS.INDEPENDENT_SECURITY_UAT_EVIDENCE_COMPLETE_NOT_RELEASE_AUTHORIZED;
     const scopeMismatch=hasExpectedStatus&&(input.securityUatEvidence?.plan?.environment!==target.environment||input.securityUatEvidence?.plan?.serviceRef!==target.serviceRef||input.securityUatEvidence?.plan?.exactCommitSha!==target.exactCommitSha);
     status=scopeMismatch?RELEASE_CANDIDATE_STATUS.HOLD_SCOPE_MISMATCH:RELEASE_CANDIDATE_STATUS.HOLD_SECURITY_UAT_EVIDENCE;

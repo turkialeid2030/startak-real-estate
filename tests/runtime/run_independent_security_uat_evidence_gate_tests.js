@@ -7,6 +7,7 @@ const {
 const {
   SECURITY_UAT_STATUS,
   createUatScenarioPlan,
+  verifyCompletedSecurityUatBundle,
   evaluateIndependentSecurityUatEvidence,
 } = require('../../src/qualification/independent-security-uat-evidence-gate');
 
@@ -327,6 +328,35 @@ function assertAuthorityClosed(result) {
     const out=evaluateIndependentSecurityUatEvidence(input({observabilityQualification:observability({evidenceHashSha256:['d'.repeat(64)]})}));
     assert.strictEqual(out.status,SECURITY_UAT_STATUS.HOLD_OBSERVABILITY_QUALIFICATION);
     assert.strictEqual(out.observabilityQualificationRef,null);
+  });
+  await test('P19-BOUND-MONITORING-COMPLETION',async()=>{
+    const out=evaluateIndependentSecurityUatEvidence(input());
+    assert.strictEqual(out.plan.observabilityCompletedAt,observability().incident.resolvedAt);
+    assert.strictEqual(verifyCompletedSecurityUatBundle(out,input().assessedAt),true);
+    assert.strictEqual(verifyCompletedSecurityUatBundle(out,'2026-10-05T00:00:00Z'),false);
+  });
+  await test('P19-FUTURE-ASSESSMENT',async()=>{
+    assert.throws(()=>evaluateIndependentSecurityUatEvidence(input({assessedAt:'2999-01-01T00:00:00Z'})),/must not be in the future/);
+  });
+  await test('P19-VERIFIER-REHASHED-SEMANTIC-CONFLICTS',async()=>{
+    const crypto=require('node:crypto');
+    const canonical=v=>Array.isArray(v)?v.map(canonical):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,canonical(v[k])])):v;
+    const digest=v=>crypto.createHash('sha256').update(JSON.stringify(canonical(v))).digest('hex');
+    const original=evaluateIndependentSecurityUatEvidence(input());
+    for(const change of [
+      {pentest:{...original.pentest,reviewedByRef:original.pentest.preparedByRef}},
+      {uat:{...original.uat,reviewedByRef:original.uat.businessOwnerRef}},
+      {pentest:{...original.pentest,reportHashSha256:[original.pentest.reportHashSha256]}},
+      {uat:{...original.uat,scenarioBinding:{...original.uat.scenarioBinding,planHashSha256:[original.uat.scenarioBinding.planHashSha256]}}},
+      {plan:{...original.plan,observabilityCompletedAt:'2026-07-01T00:00:00Z'}}
+    ]){
+      const out={...original,...change};const {planHashSha256:ignored,...planCore}=out.plan;
+      out.plan={...planCore,planHashSha256:digest(planCore)};out.planHashSha256=out.plan.planHashSha256;
+      out.pentestEvidenceRef='sha256:'+digest(out.pentest);out.uatEvidenceRef='sha256:'+digest(out.uat);
+      const core=Object.fromEntries(['schemaVersion','status','planHashSha256','observabilityQualificationRef','pentestEvidenceRef','uatEvidenceRef','issues'].map(k=>[k,out[k]]));
+      out.evidenceBundleHashSha256=digest(core);out.evidenceBundleRef='sha256:'+out.evidenceBundleHashSha256;
+      assert.strictEqual(verifyCompletedSecurityUatBundle(out,input().assessedAt),false);
+    }
   });
   const failed = results.filter((entry) => entry[1] !== 'PASS');
   console.log(`PRODUCTIZATION_P19_INDEPENDENT_SECURITY_UAT_RESULT=${failed.length === 0 ? 'PASS' : 'FAIL'} ${results.filter((entry) => entry[1] === 'PASS').length}/${results.length}`);

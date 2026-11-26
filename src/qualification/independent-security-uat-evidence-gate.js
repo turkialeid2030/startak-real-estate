@@ -29,6 +29,8 @@ const AUTHORITY = Object.freeze({
 
 const SHA256_RE = /^[a-f0-9]{64}$/i;
 const COMMIT_SHA_RE = /^[a-f0-9]{40}$/i;
+const isDigest=value=>typeof value==='string'&&SHA256_RE.test(value);
+const isHashRef=value=>typeof value==='string'&&/^sha256:[a-f0-9]{64}$/.test(value);
 const SEVERITIES = Object.freeze(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO']);
 
 function requiredString(value, field) {
@@ -283,6 +285,7 @@ function createIndependentSecurityUatEvidenceGate() {
     const service = requiredString(serviceRef, 'serviceRef');
     const commitSha = requiredCommitSha(exactCommitSha);
     const assessed = requiredTimestamp(assessedAt, 'assessedAt');
+    if(assessed.millis>Date.now())throw new TypeError('assessedAt must not be in the future');
     const maxAgeDays = nonNegativeNumber(maximumEvidenceAgeDays, 'maximumEvidenceAgeDays');
 
     const observabilityComplete = Boolean(
@@ -306,6 +309,7 @@ function createIndependentSecurityUatEvidenceGate() {
       assessedAt: assessed.value,
       maximumEvidenceAgeDays: maxAgeDays,
       observabilityQualificationRef,
+      observabilityCompletedAt:observabilityComplete?observabilityQualification.incident.resolvedAt:null,
       requiredIndependentEvidence: ['penetrationTest', 'userAcceptanceTesting'],
       releaseAuthorityFromThisGate: false,
     };
@@ -332,7 +336,7 @@ function createIndependentSecurityUatEvidenceGate() {
     const staleIssues = [];
     const maxAgeMs = maxAgeDays * 86400000;
     if(!Number.isFinite(maxAgeMs))return makeResult({status:SECURITY_UAT_STATUS.HOLD_STALE_EVIDENCE,plan,pentest,uat,issues:['EVIDENCE_FRESHNESS_WINDOW_INVALID']});
-    if(assessed.millis-Date.parse(observabilityQualification.incident.resolvedAt)>maxAgeMs)staleIssues.push('OBSERVABILITY_EVIDENCE_OUTSIDE_FRESHNESS');
+    if(assessed.millis-Date.parse(plan.observabilityCompletedAt)>maxAgeMs)staleIssues.push('OBSERVABILITY_EVIDENCE_OUTSIDE_FRESHNESS');
     // A later review does not refresh the date on which the tests ran.
     for (const [name, evidence] of [['PENTEST', pentest], ['UAT', uat]]) {
       const age = assessed.millis - Date.parse(evidence.completedAt);
@@ -403,10 +407,13 @@ function verifyCompletedSecurityUatBundle(value, asOf) {
        !value.authority||Object.keys(value.authority).length!==Object.keys(AUTHORITY).length||
        Object.keys(AUTHORITY).some(key=>value.authority[key]!==false))return false;
     const {planHashSha256,...planCore}=plan;
-    if(!SHA256_RE.test(planHashSha256)||sha256Object(planCore)!==planHashSha256||
+    if(!isDigest(planHashSha256)||sha256Object(planCore)!==planHashSha256||
+       plan.schemaVersion!==1||plan.environment!=='staging'||requiredCommitSha(plan.exactCommitSha)!==plan.exactCommitSha||
+       requiredString(plan.serviceRef,'serviceRef')!==plan.serviceRef||
+       JSON.stringify(plan.requiredIndependentEvidence)!==JSON.stringify(['penetrationTest','userAcceptanceTesting'])||
        value.planHashSha256!==planHashSha256||plan.releaseAuthorityFromThisGate!==false||
        value.observabilityQualificationRef!==plan.observabilityQualificationRef||
-       !/^sha256:[a-f0-9]{64}$/i.test(plan.observabilityQualificationRef))return false;
+       !isHashRef(plan.observabilityQualificationRef))return false;
     if(!pentest||!uat||value.pentestEvidenceRef!==`sha256:${sha256Object(pentest)}`||
        value.uatEvidenceRef!==`sha256:${sha256Object(uat)}`)return false;
     const evidenceCore={schemaVersion:1,status:value.status,planHashSha256,observabilityQualificationRef:value.observabilityQualificationRef,pentestEvidenceRef:value.pentestEvidenceRef,uatEvidenceRef:value.uatEvidenceRef,issues};
@@ -418,14 +425,19 @@ function verifyCompletedSecurityUatBundle(value, asOf) {
        ((total.CRITICAL>0||total.HIGH>0)&&pentest.retestCompletedForRemediatedCriticalHigh!==true))return false;
     if(pentest.status!=='PASS'||['independentAssessorAttested','scopeIncludesAuthentication','scopeIncludesTenantIsolation','scopeIncludesApiAuthorization','scopeIncludesServerRuntime','reviewerSeparateFromPreparer'].some(key=>pentest[key]!==true))return false;
     if(uat.status!=='PASS'||['reviewerSeparateFromBusinessOwner','criticalWorkflowCoverageComplete','tenantBoundaryAcceptanceComplete','authorizationWorkflowAcceptanceComplete'].some(key=>uat[key]!==true))return false;
+    if(['reportRef','testerOrganizationRef','preparedByRef','reviewedByRef'].some(key=>!isHashRef(pentest[key]))||
+       !isDigest(pentest.reportHashSha256)||pentest.preparedByRef===pentest.reviewedByRef||
+       ['acceptanceRef','businessOwnerRef','reviewedByRef'].some(key=>!isHashRef(uat[key]))||
+       !isDigest(uat.acceptanceArtifactHashSha256)||uat.businessOwnerRef===uat.reviewedByRef)return false;
     const binding=uat.scenarioBinding;
-    if(!binding||!SHA256_RE.test(binding.planHashSha256)||!SHA256_RE.test(binding.scenarioResultsHashSha256)||
+    if(!binding||!isDigest(binding.planHashSha256)||!isDigest(binding.scenarioResultsHashSha256)||
        !Number.isSafeInteger(uat.requiredScenarios)||uat.requiredScenarios<1||
        binding.scenarioCount!==uat.requiredScenarios||uat.passedScenarios!==uat.requiredScenarios||uat.failedScenarios!==0)return false;
     const assessed=requiredTimestamp(plan.assessedAt,'plan.assessedAt').millis;
     const at=requiredTimestamp(asOf,'asOf').millis;
     const maxAge=nonNegativeNumber(plan.maximumEvidenceAgeDays,'maximumEvidenceAgeDays')*86400000;
-    if(!Number.isFinite(maxAge)||assessed>at)return false;
+    const monitored=requiredTimestamp(plan.observabilityCompletedAt,'observabilityCompletedAt').millis;
+    if(!Number.isFinite(maxAge)||assessed>at||at>Date.now()||monitored>assessed||at-monitored>maxAge)return false;
     for(const evidence of [pentest,uat]){
       if(evidence.environment!==plan.environment||evidence.serviceRef!==plan.serviceRef||evidence.exactCommitSha!==plan.exactCommitSha)return false;
       const started=requiredTimestamp(evidence.startedAt,'startedAt').millis;
