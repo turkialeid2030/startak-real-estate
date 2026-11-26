@@ -143,7 +143,12 @@ function normalizeAuthorization(value, target) {
   });
 }
 
-function normalizeMetricsResult(value, objectives) {
+function scopeRef(scope) {return 'sha256:'+sha256Object(scope);}
+function requireScope(value,scope){
+  if(Object.keys(scope).some(key=>value[key]!==scope[key]))throw new TypeError('operational evidence scope mismatch');
+  return scopeRef(scope);
+}
+function normalizeMetricsResult(value, objectives, scope) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError('metricsExecutor result must be an object');
   const observed = requiredTimestamp(value.observedAt, 'metrics.observedAt');
   const latest = requiredTimestamp(value.latestSampleAt, 'metrics.latestSampleAt');
@@ -155,6 +160,7 @@ function normalizeMetricsResult(value, objectives) {
   const missingRequiredSignals = requiredSignalChecks.filter((item) => !item.present).map((item) => item.signal);
   const freshnessSeconds = (observed.millis - latest.millis) / 1000;
   return freeze({
+    scopeRef:requireScope(value,scope),
     observedAt: observed.value,
     latestSampleAt: latest.value,
     freshnessSeconds,
@@ -165,12 +171,13 @@ function normalizeMetricsResult(value, objectives) {
   });
 }
 
-function normalizeAlertResult(value) {
+function normalizeAlertResult(value,scope) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError('alertExecutor result must be an object');
   const triggered = requiredTimestamp(value.triggeredAt, 'alert.triggeredAt');
   const delivered = requiredTimestamp(value.deliveredAt, 'alert.deliveredAt');
   if (delivered.millis < triggered.millis) throw new TypeError('alert.deliveredAt must be on or after alert.triggeredAt');
   return freeze({
+    scopeRef:requireScope(value,scope),
     triggeredAt: triggered.value,
     deliveredAt: delivered.value,
     deliverySeconds: (delivered.millis - triggered.millis) / 1000,
@@ -181,7 +188,7 @@ function normalizeAlertResult(value) {
   });
 }
 
-function normalizeIncidentResult(value, alert) {
+function normalizeIncidentResult(value, alert, scope) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError('incidentExecutor result must be an object');
   const opened = requiredTimestamp(value.openedAt, 'incident.openedAt');
   const acknowledged = requiredTimestamp(value.acknowledgedAt, 'incident.acknowledgedAt');
@@ -191,6 +198,8 @@ function normalizeIncidentResult(value, alert) {
   if (acknowledged.millis < opened.millis) throw new TypeError('incident.acknowledgedAt must be on or after incident.openedAt');
   if (resolved.millis < acknowledged.millis) throw new TypeError('incident.resolvedAt must be on or after incident.acknowledgedAt');
   return freeze({
+    scopeRef:requireScope(value,scope),
+    linkedAlertIdRef: hashReference(value.alertId,'incident.alertId'),
     openedAt: opened.value,
     acknowledgedAt: acknowledged.value,
     resolvedAt: resolved.value,
@@ -246,14 +255,18 @@ function createControlledObservabilityIncidentQualification({
     authorization,
     execute = false,
     probeId = 'p18-observability-incident',
-    assessedAt = new Date().toISOString(),
+    assessedAt,
   } = {}) {
     const env = normalizeEnvironment(environment);
     const service = requiredString(serviceRef, 'serviceRef');
     const commitSha = requiredCommitSha(exactCommitSha);
     const objectives = normalizeObjectives(monitoringObjectives);
     const normalizedProbeId = requiredString(probeId, 'probeId');
-    const assessed = requiredTimestamp(assessedAt, 'assessedAt');
+    const retrospective=assessedAt!==undefined;
+    const assessed=requiredTimestamp(retrospective?assessedAt:new Date().toISOString(),'assessedAt');
+    if(retrospective&&assessed.millis>Date.now())throw new TypeError('assessedAt must not be in the future');
+    const evidenceCutoff=()=>retrospective?assessed.millis:Date.now();
+    const scope={environment:env,serviceRef:service,exactCommitSha:commitSha,probeId:normalizedProbeId};
 
     const drComplete = Boolean(
       drFailoverQualification
@@ -276,6 +289,7 @@ function createControlledObservabilityIncidentQualification({
       exactCommitSha: commitSha,
       probeId: normalizedProbeId,
       assessedAt: assessed.value,
+      assessmentMode:retrospective?'RETROSPECTIVE_CUTOFF':'LIVE_CLOCK',
       monitoringObjectives: objectives,
       drFailoverQualificationRef,
       executionOrder: ['metricsInspection', 'syntheticAlert', 'incidentAcknowledgementAndRunbook'],
@@ -304,14 +318,15 @@ function createControlledObservabilityIncidentQualification({
         environment: env,
         serviceRef: service,
         exactCommitSha: commitSha,
+        probeId:normalizedProbeId,
         requiredSignals: objectives.requiredSignals,
         planHashSha256: plan.planHashSha256,
-      }), objectives);
+      }), objectives,scope);
     } catch (_) {
       return makeResult({ status: OBSERVABILITY_STATUS.HOLD_METRICS, plan, authorization: auth });
     }
 
-    if (!metrics.queryHealthy || metrics.missingRequiredSignals.length > 0 || Date.parse(metrics.observedAt)<Date.parse(auth.approvedAt) || Date.parse(metrics.observedAt)>assessed.millis) {
+    if (!metrics.queryHealthy || metrics.missingRequiredSignals.length > 0 || Date.parse(metrics.observedAt)<Math.max(Date.parse(auth.approvedAt),retrospective?-Infinity:assessed.millis) || Date.parse(metrics.observedAt)>evidenceCutoff()) {
       return makeResult({ status: OBSERVABILITY_STATUS.HOLD_METRICS, plan, authorization: auth, metrics });
     }
     if (metrics.freshnessSeconds > objectives.maximumMetricFreshnessSeconds) {
@@ -324,13 +339,14 @@ function createControlledObservabilityIncidentQualification({
         environment: env,
         serviceRef: service,
         probeId: normalizedProbeId,
+        exactCommitSha:commitSha,
         planHashSha256: plan.planHashSha256,
-      }));
+      }),scope);
     } catch (_) {
       return makeResult({ status: OBSERVABILITY_STATUS.HOLD_ALERT_DELIVERY, plan, authorization: auth, metrics });
     }
 
-    if (!alert.deliveryConfirmed || Date.parse(alert.triggeredAt)<Date.parse(metrics.observedAt) || Date.parse(alert.deliveredAt)>assessed.millis) {
+    if (!alert.deliveryConfirmed || Date.parse(alert.triggeredAt)<Date.parse(metrics.observedAt) || Date.parse(alert.deliveredAt)>evidenceCutoff()) {
       return makeResult({ status: OBSERVABILITY_STATUS.HOLD_ALERT_DELIVERY, plan, authorization: auth, metrics, alert });
     }
     if (alert.deliverySeconds > objectives.maximumAlertDeliverySeconds) {
@@ -344,20 +360,21 @@ function createControlledObservabilityIncidentQualification({
         serviceRef: service,
         probeId: normalizedProbeId,
         alertIdRef: alert.alertIdRef,
+        exactCommitSha:commitSha,
         planHashSha256: plan.planHashSha256,
-      }), alert);
+      }), alert,scope);
     } catch (_) {
       return makeResult({ status: OBSERVABILITY_STATUS.HOLD_INCIDENT_RESPONSE, plan, authorization: auth, metrics, alert });
     }
 
-    if (!incident.acknowledgementConfirmed || !incident.runbookAvailable) {
+    if (!incident.acknowledgementConfirmed || !incident.runbookAvailable || incident.linkedAlertIdRef!==alert.alertIdRef) {
       return makeResult({ status: OBSERVABILITY_STATUS.HOLD_INCIDENT_RESPONSE, plan, authorization: auth, metrics, alert, incident });
     }
     if (incident.acknowledgeSecondsFromDelivery > objectives.maximumIncidentAcknowledgeSeconds) {
       return makeResult({ status: OBSERVABILITY_STATUS.HOLD_OBJECTIVES, plan, authorization: auth, metrics, alert, incident });
     }
 
-    if (assessed.millis < Date.parse(incident.resolvedAt)) {
+    if (evidenceCutoff() < Date.parse(incident.resolvedAt)) {
       return makeResult({ status: OBSERVABILITY_STATUS.HOLD_INCIDENT_RESPONSE, plan, authorization: auth, metrics, alert, incident });
     }
 
@@ -392,22 +409,26 @@ function verifyCompletedObservabilityQualification(value,asOf){
   if(sha256Object(objectives)!==sha256Object(plan.monitoringObjectives))return false;
   const when=(v)=>requiredTimestamp(v,'evidence timestamp').millis;
   const assessed=when(plan.assessedAt),review=when(asOf);
+  if(!['RETROSPECTIVE_CUTOFF','LIVE_CLOCK'].includes(plan.assessmentMode))return false;
+  const cutoff=plan.assessmentMode==='LIVE_CLOCK'?review:assessed;
+  const expectedScope=scopeRef({environment:plan.environment,serviceRef:plan.serviceRef,exactCommitSha:plan.exactCommitSha,probeId:plan.probeId});
+  if([metrics,alert,incident].some(stage=>stage?.scopeRef!==expectedScope)||incident.linkedAlertIdRef!==alert.alertIdRef)return false;
   if(assessed>review||authorization.accepted!==true||
      !requiredString(authorization.approvedBy,'approvedBy')||!requiredString(authorization.reviewedBy,'reviewedBy')||
      authorization.approvedBy.trim()===authorization.reviewedBy.trim()||!requiredString(authorization.changeControlRef,'changeControlRef'))return false;
   const approved=when(authorization.approvedAt),observed=when(metrics.observedAt),latest=when(metrics.latestSampleAt);
-  if(approved>observed||latest>observed||observed>assessed||
+  if(approved>assessed||approved>observed||latest>observed||observed>cutoff||(plan.assessmentMode==='LIVE_CLOCK'&&observed<assessed)||
      metrics.queryHealthy!==true||metrics.freshnessSeconds!==(observed-latest)/1000||
      metrics.freshnessSeconds>objectives.maximumMetricFreshnessSeconds||
      !Array.isArray(metrics.missingRequiredSignals)||metrics.missingRequiredSignals.length||
      !Array.isArray(metrics.requiredSignalChecks)||sha256Object(metrics.requiredSignalChecks)!==sha256Object(objectives.requiredSignals.map(signal=>({signal,present:true})))||
      !isHashRef(metrics.metricsBackendRef))return false;
   const triggered=when(alert.triggeredAt),delivered=when(alert.deliveredAt);
-  if(observed>triggered||triggered>delivered||delivered>assessed||alert.deliveryConfirmed!==true||
+  if(observed>triggered||triggered>delivered||delivered>cutoff||alert.deliveryConfirmed!==true||
      alert.deliverySeconds!==(delivered-triggered)/1000||alert.deliverySeconds>objectives.maximumAlertDeliverySeconds||
      ['alertIdRef','routeRef','receiverRef'].some(k=>!isHashRef(alert[k])))return false;
   const opened=when(incident.openedAt),ack=when(incident.acknowledgedAt),resolved=when(incident.resolvedAt);
-  if(delivered>opened||opened>ack||ack>resolved||resolved>assessed||
+  if(delivered>opened||opened>ack||ack>resolved||resolved>cutoff||
      incident.acknowledgementConfirmed!==true||incident.runbookAvailable!==true||
      incident.acknowledgeSecondsFromDelivery!==(ack-delivered)/1000||
      incident.acknowledgeSecondsFromDelivery>objectives.maximumIncidentAcknowledgeSeconds||

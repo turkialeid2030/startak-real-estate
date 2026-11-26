@@ -318,6 +318,16 @@ function assertAuthorityClosed(result) {
     const out=evaluateIndependentSecurityUatEvidence(input({maximumEvidenceAgeDays:Number.MAX_VALUE}));
     assert.strictEqual(out.status,SECURITY_UAT_STATUS.HOLD_STALE_EVIDENCE);
   });
+  await test('P19-STALE-OBSERVABILITY',async()=>{
+    const out=evaluateIndependentSecurityUatEvidence(input({maximumEvidenceAgeDays:4}));
+    assert.strictEqual(out.status,SECURITY_UAT_STATUS.HOLD_STALE_EVIDENCE);
+    assert.ok(out.issues.includes('OBSERVABILITY_EVIDENCE_OUTSIDE_FRESHNESS'));assertAuthorityClosed(out);
+  });
+  await test('P19-INVALID-UPSTREAM-REFERENCE',async()=>{
+    const out=evaluateIndependentSecurityUatEvidence(input({observabilityQualification:observability({evidenceHashSha256:['d'.repeat(64)]})}));
+    assert.strictEqual(out.status,SECURITY_UAT_STATUS.HOLD_OBSERVABILITY_QUALIFICATION);
+    assert.strictEqual(out.observabilityQualificationRef,null);
+  });
   const failed = results.filter((entry) => entry[1] !== 'PASS');
   console.log(`PRODUCTIZATION_P19_INDEPENDENT_SECURITY_UAT_RESULT=${failed.length === 0 ? 'PASS' : 'FAIL'} ${results.filter((entry) => entry[1] === 'PASS').length}/${results.length}`);
   if (failed.length > 0) process.exit(1);

@@ -78,8 +78,11 @@ function baseInput(overrides = {}) {
   };
 }
 
+const SCOPE={environment:'staging',serviceRef:'canonical-workspace-api',exactCommitSha:COMMIT_SHA,probeId:'obs-probe-18'};
 function metricsResult(overrides = {}) {
   return {
+    ...SCOPE,
+
     observedAt: '2026-09-09T16:10:00.000Z',
     latestSampleAt: '2026-09-09T16:09:55.000Z',
     queryHealthy: true,
@@ -92,6 +95,8 @@ function metricsResult(overrides = {}) {
 
 function alertResult(overrides = {}) {
   return {
+    ...SCOPE,
+
     triggeredAt: '2026-09-09T16:10:10.000Z',
     deliveredAt: '2026-09-09T16:10:14.000Z',
     deliveryConfirmed: true,
@@ -105,6 +110,9 @@ function alertResult(overrides = {}) {
 
 function incidentResult(overrides = {}) {
   return {
+    ...SCOPE,
+    alertId:'alert-secret-id-18',
+
     openedAt: '2026-09-09T16:10:15.000Z',
     acknowledgedAt: '2026-09-09T16:10:35.000Z',
     resolvedAt: '2026-09-09T16:11:20.000Z',
@@ -344,6 +352,32 @@ function assertAuthorityClosed(result) {
     const {qualify,calls}=harness({metricsOverrides:{availableSignals:['availability','error-rate','latency',null]}});
     const out=await qualify(baseInput({execute:true}));
     assert.strictEqual(out.status,OBSERVABILITY_STATUS.HOLD_METRICS);assert.strictEqual(calls.alert,0);
+  });
+  for(const [id,patch,status,next] of [
+    ['METRICS-SERVICE',{metricsOverrides:{serviceRef:'other'}},OBSERVABILITY_STATUS.HOLD_METRICS,'alert'],
+    ['METRICS-COMMIT',{metricsOverrides:{exactCommitSha:'3'.repeat(40)}},OBSERVABILITY_STATUS.HOLD_METRICS,'alert'],
+    ['ALERT-PROBE',{alertOverrides:{probeId:'other'}},OBSERVABILITY_STATUS.HOLD_ALERT_DELIVERY,'incident'],
+    ['INCIDENT-SCOPE',{incidentOverrides:{environment:'production'}},OBSERVABILITY_STATUS.HOLD_INCIDENT_RESPONSE,null],
+    ['INCIDENT-ALERT',{incidentOverrides:{alertId:'other'}},OBSERVABILITY_STATUS.HOLD_INCIDENT_RESPONSE,null]
+  ])await test('P18-'+id,async()=>{
+    const {qualify,calls}=harness(patch);
+    const out=await qualify(baseInput({execute:true}));assert.strictEqual(out.status,status);
+    if(next)assert.strictEqual(calls[next],0);assertAuthorityClosed(out);
+  });
+  await test('P18-FUTURE-CUTOFF',async()=>{
+    const {qualify,calls}=harness();
+    await assert.rejects(()=>qualify(baseInput({execute:true,assessedAt:'2999-01-01T00:00:00Z'})),/must not be in the future/);
+    assert.strictEqual(calls.metrics,0);
+  });
+  await test('P18-LIVE-STALE-METRICS',async()=>{
+    const {qualify,calls}=harness();
+    const out=await qualify(baseInput({execute:true,assessedAt:undefined}));
+    assert.strictEqual(out.status,OBSERVABILITY_STATUS.HOLD_METRICS);assert.strictEqual(calls.alert,0);
+  });
+  await test('P18-VERIFIER-LINKED-ALERT',async()=>{
+    const {qualify}=harness();const out=await qualify(baseInput({execute:true}));
+    assert.strictEqual(verifyCompletedObservabilityQualification(out,baseInput().assessedAt),true);
+    assert.strictEqual(verifyCompletedObservabilityQualification({...out,incident:{...out.incident,linkedAlertIdRef:'sha256:'+'0'.repeat(64)}},baseInput().assessedAt),false);
   });
   const failed = results.filter((entry) => entry[1] !== 'PASS');
   console.log(`PRODUCTIZATION_P18_OBSERVABILITY_INCIDENT_RESULT=${failed.length === 0 ? 'PASS' : 'FAIL'} ${results.filter((entry) => entry[1] === 'PASS').length}/${results.length}`);
