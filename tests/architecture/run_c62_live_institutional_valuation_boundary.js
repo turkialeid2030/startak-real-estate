@@ -147,6 +147,34 @@ assert(panel.includes('مؤشر القيمة الحسابي الأولي (غير
 assert(panel.includes('institutionalDecision.blockers'));
 const source=fs.readFileSync(path.join(__dirname,'../../src/app/existing-building-valuation-runtime.js'),'utf8');
 assert(source.includes('const institutionalDecision = assessInstitutionalValuationDecisionBoundary('));
+// Restored boundary must stay total for malformed serializable records and
+// must never display an indication without an available valuation method.
+let restoredBoundaryChecks=0;
+const checkBoundary=fn=>{fn();restoredBoundaryChecks++;};
+for(const classes of [null,{},'HOSPITALITY',[],['UNKNOWN'],['OFFICE','OFFICE'],Array(1)]){
+ const held=assessInstitutionalValuationDecisionBoundary({request:{...request,projectProfile:{...request.projectProfile,assetClasses:classes}},stage});
+ checkBoundary(()=>assert.equal(held.status,STATUS.HOLD));
+ checkBoundary(()=>assert.equal(held.arithmeticPreliminaryValueSar,null));
+ checkBoundary(()=>assert.equal(held.publicValuationReportExportAuthorized,false));
+ checkBoundary(()=>assert.match(held.decisionEvidenceHashSha256,/^[a-f0-9]{64}$/));
+}
+for(const methods of [[null],[{}],[{method:'UNKNOWN',state:'AVAILABLE'}],[{method:VALUATION_METHOD.INCOME_DIRECT_CAPITALIZATION,state:'UNKNOWN'}],[stage.methods[0],stage.methods[0]],Array(1)]){
+ const held=assessInstitutionalValuationDecisionBoundary({request,stage:{...stage,methods}});
+ checkBoundary(()=>assert.equal(held.status,STATUS.HOLD));
+ checkBoundary(()=>assert.equal(held.arithmeticPreliminaryValueSar,null));
+ checkBoundary(()=>assert.equal(held.transactionAuthorized,false));
+}
+for(const patch of [{methods:[]},{methods:[{...stage.methods[0],state:'HOLD'}]},{readyForDecisionControl:'true'},{finalValue:Infinity}]){
+ const held=assessInstitutionalValuationDecisionBoundary({request,stage:{...stage,...patch}});
+ checkBoundary(()=>assert.equal(held.arithmeticPreliminaryValueSar,null));
+ checkBoundary(()=>assert.equal(held.finalValueSar,null));
+}
+for(const evidence of [[],true,'invalid']){
+ const held=assessInstitutionalValuationDecisionBoundary({request,stage,institutionalEvidence:evidence});
+ checkBoundary(()=>assert.equal(held.arithmeticPreliminaryValueSar,null));
+ checkBoundary(()=>assert.equal(held.publicValuationReportExportAuthorized,false));
+}
+console.log('C62_RESTORED_INPUT_BOUNDARY=PASS checks='+restoredBoundaryChecks+' synthetic_only=true');
 console.log('C62_ACTUAL_EXISTING_BUILDING_RUNTIME_BOUNDARY=PASS');
 console.log('C62_REAL_EXTERNAL_SOURCE_AUTHENTICATION=FALSE');
 console.log('C62_FULL_REAL_BROWSER_UAT_OR_OFFICIAL_EXPORT=FALSE');
