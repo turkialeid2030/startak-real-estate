@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const {normalizeNumericText}=require('../validation/numeric-text');
 const {
   verifyProfileIntegrity,
   verifyRequestIntegrity,
@@ -86,20 +87,33 @@ function integrity(record, hashField) {
 const ARABIC_DIGITS = Object.freeze({ '٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9','۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'7','۸':'8','۹':'9' });
 function normalizeDigits(text) { return String(text).replace(/[٠-٩۰-۹]/g, (d) => ARABIC_DIGITS[d]); }
 function canonicalLiteral(value) {
-  let v = normalizeDigits(String(value)).trim();
-  if (!v) throw new TypeError('C23_GROUNDING_CANONICAL_VALUE_REQUIRED');
-  if (/^[+-]?[0-9][0-9,]*(?:\.[0-9]+)?%$/.test(v)) return v.replace(/,/g, '');
-  if (/^[+-]?[0-9][0-9,]*(?:\.[0-9]+)?$/.test(v)) return v.replace(/,/g, '');
+  if(typeof value!=='string'&&typeof value!=='number')throw new TypeError('C23_GROUNDING_CANONICAL_VALUE_REQUIRED');
+  const v=normalizeDigits(String(value)).trim().replace(/[−﹣－]/g,'-').replace(/٪/g,'%');
+  if(!v)throw new TypeError('C23_GROUNDING_CANONICAL_VALUE_REQUIRED');
+  // Keep numeric normalization lexical: Number conversion could merge distinct
+  // high-precision source literals. Reject malformed numeric-only strings.
+  if(/^[+\-0-9,.٬٫%\s]+$/.test(v)&&/\d/.test(v)){
+    const percent=v.endsWith('%');
+    const raw=(percent?v.slice(0,-1):v).trim().replace(/^\+/,'');
+    const parsed=normalizeNumericText(raw);
+    if(!parsed.ok)throw new TypeError('C23_NUMERIC_LITERAL_AMBIGUOUS');
+    return parsed.normalized+(percent?'%':'');
+  }
   return v;
 }
 function extractAssertedLiterals(text) {
-  const normalized = normalizeDigits(String(text));
-  const found = new Set();
-  const dates = normalized.match(/\b\d{4}-\d{2}-\d{2}\b/g) || [];
-  dates.forEach((d) => found.add(d));
-  const scrubbed = normalized.replace(/\b\d{4}-\d{2}-\d{2}\b/g, ' ');
-  const numbers = scrubbed.match(/[+-]?\d[\d,]*(?:\.\d+)?%?/g) || [];
-  numbers.forEach((n) => found.add(canonicalLiteral(n)));
+  const normalized=normalizeDigits(String(text)).replace(/[−﹣－]/g,'-').replace(/٪/g,'%');
+  const found=new Set();
+  const dates=normalized.match(/\b\d{4}-\d{2}-\d{2}\b/g)||[];
+  dates.forEach(d=>found.add(d));
+  const scrubbed=normalized.replace(/\b\d{4}-\d{2}-\d{2}\b/g,' ');
+  // Do not split malformed grouping, decimal marks, or exponent notation into
+  // individually grounded numbers. Ordinary trailing sentence punctuation is
+  // excluded; spaced digit groups are ambiguous in this restricted contract.
+  if(/\d[ \t\u00a0\u202f]+\d/.test(scrubbed)||/\d[eE][+-]?\d/.test(scrubbed))
+    throw new TypeError('C23_NUMERIC_LITERAL_AMBIGUOUS');
+  const numbers=scrubbed.match(/[+-]?(?:\d(?:[\d,.٬٫]*\d)?|[.٫]\d+)(?:[ \t\u00a0\u202f]*%)?/g)||[];
+  numbers.forEach(n=>found.add(canonicalLiteral(n)));
   return [...found].sort();
 }
 
@@ -418,7 +432,9 @@ function validateGroundedProviderResponse(input = {}) {
         else boundValues.add(item.canonicalValue);
       }
       const declared = new Set(claim.assertedLiterals.map(canonicalLiteral));
-      const extracted = extractAssertedLiterals(claim.text);
+      let extracted;
+      try{extracted=extractAssertedLiterals(claim.text);}
+      catch{blockers.push(`C23_UNSUPPORTED_AMBIGUOUS_NUMERIC_LITERAL:${claim.claimId}`);continue;}
       for (const literal of extracted) if (!declared.has(literal)) blockers.push(`C23_UNSUPPORTED_UNDECLARED_LITERAL:${claim.claimId}:${literal}`);
       for (const literal of declared) if (!boundValues.has(literal)) blockers.push(`C23_UNSUPPORTED_LITERAL_NOT_GROUNDED:${claim.claimId}:${literal}`);
     }

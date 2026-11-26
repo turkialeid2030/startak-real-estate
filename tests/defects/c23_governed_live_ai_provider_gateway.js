@@ -7,6 +7,7 @@ const {
 } = require('../../src/ai/governed-generative-intelligence');
 const {
   STATUS, ENVIRONMENT, GROUNDING_KIND, PROVIDER_RESULT,
+  canonicalLiteral, extractAssertedLiterals,
   createGroundingManifest, createProviderAuthorization, createProviderInvocationEnvelope,
   createProviderResponseEnvelope, validateGroundedProviderResponse,
   evaluateProviderReadiness, executeGovernedProviderGateway,
@@ -127,6 +128,30 @@ function fixture() {
   assert.strictEqual(personalReadiness.providerInvocationReady,false);
   assert.strictEqual(personalReadiness.status,STATUS.HOLD_SECURITY);
   assert(personalReadiness.blockers.includes('C23_PRIVACY_PERSONAL_DATA_EXTERNAL_TRANSFER_NOT_AUTHORIZED'));
+
+  // Arabic/English numeric notation must preserve the same exact value,
+  // while ambiguous grouping must never be interpreted as a different amount.
+  let numericChecks=0;
+  const ncheck=fn=>{fn();numericChecks++;};
+  for(const [raw,expected] of [['2,000','2000'],['٢٬٠٠٠','2000'],['۷۲٪','72%'],['٧٢ ٪','72%'],['١٢٫٥','12.5'],['−١٢٫٥','-12.5'],['+2000','2000'],['.5','.5']]){
+    ncheck(()=>assert.strictEqual(canonicalLiteral(raw),expected));
+  }
+  for(const raw of ['1,2','١٬٢','1,,2','1,00,000','1 2','1.2٫3','1,000٬000']){
+    ncheck(()=>assert.throws(()=>canonicalLiteral(raw),/C23_NUMERIC_LITERAL_AMBIGUOUS/));
+  }
+  ncheck(()=>assert.deepStrictEqual(extractAssertedLiterals('The price is 2,000, and the ratio is 72%.'),['2000','72%']));
+  ncheck(()=>assert.deepStrictEqual(extractAssertedLiterals('السعر ٢٬٠٠٠ والنسبة ٧٢ ٪.'),['2000','72%']));
+  const localized=response(f.invocation,{claims:[{claimId:'LOCALIZED',text:'السعر ٢٬٠٠٠ والنسبة ٧٢ ٪.',groundingItemIds:['ASKING-METRIC','UTILITY-METRIC'],assertedLiterals:['٢٬٠٠٠','٧٢٪']}]});
+  ncheck(()=>assert.strictEqual(validateProofGroundedProviderResponse({...f,providerResponse:localized}).status,STATUS.READY_FOR_HUMAN_GROUNDED_DRAFT_REVIEW));
+  for(const text of ['The price is 2,0,0,0.','السعر ٢٬٠٠','The price is 2 000.','The price is 2e3.','The price is 2,,000.']){
+    const invalid=response(f.invocation,{claims:[{claimId:'AMBIGUOUS',text,groundingItemIds:['ASKING-METRIC'],assertedLiterals:['2000']}]});
+    const checked=await executeGovernedProviderGateway({...f,adapter:{invoke:async()=>invalid}});
+    ncheck(()=>assert.strictEqual(checked.status,STATUS.HOLD_UNSUPPORTED_OUTPUT));
+    ncheck(()=>assert.strictEqual(checked.draft,null));
+    ncheck(()=>assert.strictEqual(checked.providerResponse,null));
+    ncheck(()=>assert.ok(checked.blockers.includes('C23_UNSUPPORTED_AMBIGUOUS_NUMERIC_LITERAL:AMBIGUOUS')));
+  }
+  console.log('C23_NUMERIC_GROUNDING_BOUNDARY=PASS checks='+numericChecks+' synthetic_adapter=true');
 
   const unsupportedAmount=response(f.invocation,{responseId:'RESP-BAD-AMOUNT',claims:[{claimId:'BAD',text:'The price is 9999.',groundingItemIds:['ASKING-METRIC'],assertedLiterals:['9999']}]});
   const badAmount=validateProofGroundedProviderResponse({...f,providerResponse:unsupportedAmount});
