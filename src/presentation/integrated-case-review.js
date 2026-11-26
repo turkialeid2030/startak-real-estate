@@ -28,11 +28,15 @@ const ROLE_PERMISSIONS = Object.freeze({
 function canonicalize(value) {
   if (Array.isArray(value)) return value.map(canonicalize);
   if (value && typeof value === 'object') {
-    return Object.keys(value).sort().reduce((out, key) => { out[key] = canonicalize(value[key]); return out; }, {});
+    return Object.fromEntries(Object.keys(value).sort().map(key=>[key,canonicalize(value[key])]));
   }
   return value;
 }
 function stableJson(value) { return JSON.stringify(canonicalize(value)); }
+function deepFreeze(value){if(value&&typeof value==='object'){Object.values(value).forEach(deepFreeze);Object.freeze(value);}return value;}
+function snapshot(value){return deepFreeze(structuredClone(value));}
+function sameRecord(a,b){return stableJson(a)===stableJson(b);}
+const isHash=v=>typeof v==='string'&&SHA256_RE.test(v);
 async function sha256Hex(value) {
   const runtimeCrypto = globalThis.crypto;
   if (!runtimeCrypto?.subtle) throw new Error('C26_UI_CRYPTO_UNAVAILABLE');
@@ -88,7 +92,7 @@ async function createReviewAccessGrant(input) {
     validUntil: requireIso(input.validUntil, 'C26_UI_VALID_UNTIL_INVALID'),
   });
   if (Date.parse(material.validUntil) <= Date.parse(material.issuedAt)) throw new Error('C26_UI_GRANT_WINDOW_INVALID');
-  return Object.freeze({ ...material, accessGrantHashSha256: await sha256Hex(material) });
+  return deepFreeze({ ...material, accessGrantHashSha256: await sha256Hex(material) });
 }
 async function verifyReviewAccessGrant(grant, asOf) {
   if (!grant || typeof grant !== 'object' || !Object.values(UI_ROLE).includes(grant.role)) return false;
@@ -96,7 +100,7 @@ async function verifyReviewAccessGrant(grant, asOf) {
   if (!sameArray(expected, grant.permissions)) return false;
   if (!SHA256_RE.test(grant.accessGrantHashSha256 || '') || !SHA256_RE.test(grant.authorizationEvidenceHashSha256 || '')) return false;
   if (grant.transactionAuthorized !== false || grant.approvalAuthorized !== false || grant.publicAiAuthorized !== false || grant.productionDeploymentAuthorized !== false) return false;
-  if (await sha256Hex(accessGrantMaterial(grant)) !== grant.accessGrantHashSha256) return false;
+  try{if(!sameRecord(grant,await createReviewAccessGrant(grant)))return false;}catch{return false;}
   const at = Date.parse(asOf);
   return Number.isFinite(at) && at >= Date.parse(grant.issuedAt) && at <= Date.parse(grant.validUntil);
 }
@@ -131,14 +135,14 @@ async function createAiDraftEnvelope(input) {
     draftText: ready ? requireText(input.draftText, 'C26_UI_AI_DRAFT_TEXT_REQUIRED') : null,
   });
   if (ready && material.groundingEvidenceHashesSha256.length === 0) throw new Error('C26_UI_AI_GROUNDING_REQUIRED');
-  return Object.freeze({ ...material, aiDraftHashSha256: await sha256Hex(material) });
+  return deepFreeze({ ...material, aiDraftHashSha256: await sha256Hex(material) });
 }
 async function verifyAiDraftEnvelope(aiDraft) {
   if (!aiDraft || typeof aiDraft !== 'object' || !Object.values(AI_VALIDATION_STATUS).includes(aiDraft.validationStatus)) return false;
   if (!SHA256_RE.test(aiDraft.aiDraftHashSha256 || '')) return false;
   if (aiDraft.transactionAuthorized !== false || aiDraft.approvalAuthorized !== false || aiDraft.publicAiAuthorized !== false) return false;
   if (aiDraft.validationStatus !== AI_VALIDATION_STATUS.GROUNDED_REVIEW_READY && (aiDraft.draftText || aiDraft.responseHashSha256 || (aiDraft.groundingEvidenceHashesSha256 || []).length)) return false;
-  return (await sha256Hex(aiDraftMaterial(aiDraft))) === aiDraft.aiDraftHashSha256;
+  try{return sameRecord(aiDraft,await createAiDraftEnvelope(aiDraft));}catch{return false;}
 }
 
 function collectCaseEvidenceHashes(caseResult) {
@@ -157,7 +161,25 @@ async function verifyC24CaseResult(caseResult) {
   if (!C24_STATUS.has(caseResult.status)) return false;
   if (!SHA256_RE.test(caseResult.resultHashSha256 || '')) return false;
   if (caseResult.transactionAuthorized !== false || caseResult.approvalAuthorized !== false || caseResult.publicAiAuthorized !== false || caseResult.autonomousActionExecuted !== false || caseResult.productionDeploymentAuthorized !== false || caseResult.commercialGoLive !== 'HOLD') return false;
-  return (await sha256Hex(without(caseResult, 'resultHashSha256'))) === caseResult.resultHashSha256;
+  try{
+    if(caseResult.capability!=='C24_INTEGRATED_CASE_PROPERTY_ORCHESTRATION_V1'||caseResult.policyVersion!=='C24_CASE_ORCHESTRATION_POLICY_V1'||caseResult.aiOverrideApplied!==false||caseResult.humanCaseReviewReady!==(caseResult.status==='READY_FOR_HUMAN_CASE_REVIEW'))return false;
+    for(const key of ['caseId','propertyRef','executionId'])requireText(caseResult[key],key);
+    requireIso(caseResult.asOf,'caseResult.asOf');
+    if(!isHash(caseResult.inputFingerprintSha256)||!Array.isArray(caseResult.blockers)||!Array.isArray(caseResult.riskFlags)||!Array.isArray(caseResult.stageSummary)||!Array.isArray(caseResult.auditLineage))return false;
+    if(caseResult.status==='READY_FOR_HUMAN_CASE_REVIEW'&&(!caseResult.stageSummary.length||caseResult.blockers.length))return false;
+    const byId=new Map();
+    for(const stage of caseResult.stageSummary){
+      if(!stage||typeof stage.stageId!=='string'||!stage.stageId.trim()||byId.has(stage.stageId)||typeof stage.capabilityRef!=='string'||!stage.capabilityRef.trim()||!['READY','HOLD','NOT_EVALUATED'].includes(stage.status)||!Array.isArray(stage.blockers)||stage.blockers.some(b=>typeof b!=='string'||!b.trim())||((stage.status==='READY')!==(stage.blockers.length===0))||!isHash(stage.stagePacketHashSha256)||!isHash(stage.outputHashSha256))return false;
+      byId.set(stage.stageId,stage);
+    }
+    if(caseResult.auditLineage.length!==byId.size)return false;
+    for(const item of caseResult.auditLineage){
+      const stage=byId.get(item?.stageId);
+      if(!stage||item.capabilityRef!==stage.capabilityRef||item.stagePacketHashSha256!==stage.stagePacketHashSha256||item.outputHashSha256!==stage.outputHashSha256||!isHash(item.inputHashSha256)||!Array.isArray(item.lineageHashesSha256)||!item.lineageHashesSha256.length||item.lineageHashesSha256.some(h=>!isHash(h))||new Set(item.lineageHashesSha256).size!==item.lineageHashesSha256.length)return false;
+      byId.delete(item.stageId);
+    }
+    return byId.size===0&&(await sha256Hex(without(caseResult,'resultHashSha256')))===caseResult.resultHashSha256;
+  }catch{return false;}
 }
 
 function reviewBundleMaterial(input) {
@@ -180,8 +202,10 @@ function reviewBundleMaterial(input) {
 }
 async function createIntegratedReviewBundle(input) {
   if (!input || typeof input !== 'object') throw new Error('C26_UI_REVIEW_BUNDLE_REQUIRED');
+  input=snapshot(input);
   if (!(await verifyC24CaseResult(input.caseResult))) throw new Error('C26_UI_C24_RESULT_INVALID');
   const createdAt = requireIso(input.createdAt, 'C26_UI_BUNDLE_CREATED_AT_INVALID');
+  if(Date.parse(createdAt)<Date.parse(input.caseResult.asOf))throw new Error('C26_UI_BUNDLE_PREDATES_CASE');
   if (!(await verifyReviewAccessGrant(input.accessGrant, createdAt))) throw new Error('C26_UI_ACCESS_GRANT_INVALID');
   if (input.accessGrant.caseId !== input.caseResult.caseId || input.accessGrant.propertyRef !== input.caseResult.propertyRef) throw new Error('C26_UI_CONTEXT_MISMATCH');
   const evidenceHashesSha256 = sortedUniqueSha(input.evidenceHashesSha256, 'C26_UI_EVIDENCE_HASH_INVALID');
@@ -191,7 +215,7 @@ async function createIntegratedReviewBundle(input) {
   if (input.aiDraft) {
     if (!(await verifyAiDraftEnvelope(input.aiDraft))) throw new Error('C26_UI_AI_DRAFT_INVALID');
     if (input.aiDraft.caseId !== input.caseResult.caseId || input.aiDraft.propertyRef !== input.caseResult.propertyRef) throw new Error('C26_UI_AI_CONTEXT_MISMATCH');
-    if ((input.aiDraft.groundingEvidenceHashesSha256 || []).some((h) => !evidenceHashesSha256.includes(h))) throw new Error('C26_UI_AI_GROUNDING_NOT_BOUND_TO_EVIDENCE');
+    if ((input.aiDraft.groundingEvidenceHashesSha256 || []).some((h) => !requiredEvidence.includes(h))) throw new Error('C26_UI_AI_GROUNDING_NOT_BOUND_TO_EVIDENCE');
     aiDraft = input.aiDraft;
   }
   const material = reviewBundleMaterial({
@@ -199,26 +223,32 @@ async function createIntegratedReviewBundle(input) {
     caseId: input.caseResult.caseId, propertyRef: input.caseResult.propertyRef,
     caseResult: input.caseResult, accessGrant: input.accessGrant, evidenceHashesSha256, aiDraft,
   });
-  return Object.freeze({ ...material, bundleHashSha256: await sha256Hex(material) });
+  return deepFreeze({ ...material, bundleHashSha256: await sha256Hex(material) });
 }
-async function validateIntegratedReviewBundle(bundle, asOf) {
+async function validateIntegratedReviewBundle(bundle,asOf){
+  try{return await validateBundleSnapshot(snapshot(bundle),asOf);}catch{return {valid:false,blockers:['C26_UI_BUNDLE_INTEGRITY_FAILED']};}
+}
+async function validateBundleSnapshot(bundle, asOf) {
   const blockers = [];
   const at = (() => { try { return requireIso(asOf, 'C26_UI_AS_OF_INVALID'); } catch (_) { return null; } })();
   if (!at) blockers.push('C26_UI_AS_OF_INVALID');
   if (!bundle || typeof bundle !== 'object') return { valid: false, blockers: ['C26_UI_REVIEW_BUNDLE_REQUIRED'] };
-  if (!SHA256_RE.test(bundle.bundleHashSha256 || '') || (await sha256Hex(reviewBundleMaterial(bundle))) !== bundle.bundleHashSha256) blockers.push('C26_UI_BUNDLE_INTEGRITY_FAILED');
+  if (!isHash(bundle.bundleHashSha256) || (await sha256Hex(reviewBundleMaterial(bundle))) !== bundle.bundleHashSha256 || bundle.schemaVersion!==1) blockers.push('C26_UI_BUNDLE_INTEGRITY_FAILED');
+  const created=Date.parse(bundle.createdAt);
+  if(typeof bundle.createdAt!=='string'||!Number.isFinite(created)||created<Date.parse(bundle.caseResult?.asOf)||created>Date.parse(at))blockers.push('C26_UI_BUNDLE_WINDOW_INVALID');
+  if(!at||!(await verifyReviewAccessGrant(bundle.accessGrant,bundle.createdAt)))blockers.push('C26_UI_ACCESS_GRANT_INVALID_AT_CREATION');
   if (!(await verifyC24CaseResult(bundle.caseResult))) blockers.push('C26_UI_C24_RESULT_INVALID');
   if (bundle.caseId !== bundle.caseResult?.caseId || bundle.propertyRef !== bundle.caseResult?.propertyRef) blockers.push('C26_UI_CONTEXT_MISMATCH');
   if (!at || !(await verifyReviewAccessGrant(bundle.accessGrant, at))) blockers.push('C26_UI_ACCESS_GRANT_INVALID');
   if (bundle.accessGrant?.caseId !== bundle.caseId || bundle.accessGrant?.propertyRef !== bundle.propertyRef) blockers.push('C26_UI_ACCESS_CONTEXT_MISMATCH');
   let evidence = [];
   try { evidence = sortedUniqueSha(bundle.evidenceHashesSha256, 'C26_UI_EVIDENCE_HASH_INVALID'); } catch (e) { blockers.push(e.message); }
-  const requiredEvidence = bundle.caseResult ? collectCaseEvidenceHashes(bundle.caseResult) : [];
+  const requiredEvidence = (await verifyC24CaseResult(bundle.caseResult)) ? collectCaseEvidenceHashes(bundle.caseResult) : [];
   if (requiredEvidence.some((h) => !evidence.includes(h))) blockers.push('C26_UI_C24_LINEAGE_INCOMPLETE');
   if (bundle.aiDraft) {
     if (!(await verifyAiDraftEnvelope(bundle.aiDraft))) blockers.push('C26_UI_AI_DRAFT_INVALID');
     if (bundle.aiDraft.caseId !== bundle.caseId || bundle.aiDraft.propertyRef !== bundle.propertyRef) blockers.push('C26_UI_AI_CONTEXT_MISMATCH');
-    if ((bundle.aiDraft.groundingEvidenceHashesSha256 || []).some((h) => !evidence.includes(h))) blockers.push('C26_UI_AI_GROUNDING_NOT_BOUND_TO_EVIDENCE');
+    if ((bundle.aiDraft.groundingEvidenceHashesSha256 || []).some((h) => !requiredEvidence.includes(h))) blockers.push('C26_UI_AI_GROUNDING_NOT_BOUND_TO_EVIDENCE');
   }
   if (bundle.transactionAuthorized !== false || bundle.approvalAuthorized !== false || bundle.publicAiAuthorized !== false || bundle.productionDeploymentAuthorized !== false || bundle.commercialGoLive !== 'HOLD') blockers.push('C26_UI_AUTHORITY_INJECTION_FORBIDDEN');
   return { valid: blockers.length === 0, blockers: [...new Set(blockers)].sort() };
@@ -251,6 +281,7 @@ function presentationMaterial(input) {
 }
 async function buildIntegratedReviewPresentation({ bundle, locale = 'ar-SA', asOf }) {
   const generatedAt = requireIso(asOf, 'C26_UI_AS_OF_INVALID');
+  try{bundle=snapshot(bundle);}catch{return Object.freeze({trusted:false,status:'UNTRUSTED',blockers:['C26_UI_BUNDLE_INTEGRITY_FAILED'],transactionAuthorized:false,approvalAuthorized:false,publicAiAuthorized:false,productionDeploymentAuthorized:false,commercialGoLive:'HOLD'});}
   const validation = await validateIntegratedReviewBundle(bundle, generatedAt);
   if (!validation.valid) {
     return Object.freeze({ trusted: false, status: 'UNTRUSTED', blockers: validation.blockers, transactionAuthorized: false, approvalAuthorized: false, publicAiAuthorized: false, productionDeploymentAuthorized: false, commercialGoLive: 'HOLD' });
@@ -269,10 +300,15 @@ async function buildIntegratedReviewPresentation({ bundle, locale = 'ar-SA', asO
     aiDraftBoundary: Object.freeze({ validationStatus: bundle.aiDraft?.validationStatus || 'NOT_SUPPLIED', visible: aiReady, label: 'DRAFT / HUMAN REVIEW REQUIRED' }),
     aiDraft: aiReady ? Object.freeze({ draftId: bundle.aiDraft.draftId, draftText: bundle.aiDraft.draftText, responseHashSha256: bundle.aiDraft.responseHashSha256, groundingEvidenceHashesSha256: [...bundle.aiDraft.groundingEvidenceHashesSha256] }) : null,
   });
-  return Object.freeze({ ...material, presentationHashSha256: await sha256Hex(material) });
+  return deepFreeze({ ...material, presentationHashSha256: await sha256Hex(material) });
 }
-async function verifyPresentation(presentation) {
-  return !!presentation && presentation.trusted === true && SHA256_RE.test(presentation.presentationHashSha256 || '') && (await sha256Hex(presentationMaterial(presentation))) === presentation.presentationHashSha256;
+async function verifyPresentation(presentation,bundle,operationAt) {
+  try{
+    if(!presentation||presentation.trusted!==true||!isHash(presentation.presentationHashSha256)||!['en','ar-SA'].includes(presentation.locale))return false;
+    if(Date.parse(presentation.generatedAt)>Date.parse(operationAt))return false;
+    const expected=await buildIntegratedReviewPresentation({bundle,locale:presentation.locale,asOf:presentation.generatedAt});
+    return expected.trusted===true&&sameRecord(presentation,expected);
+  }catch{return false;}
 }
 
 function reviewRecordMaterial(input) {
@@ -298,7 +334,8 @@ function reviewRecordMaterial(input) {
 }
 async function recordHumanReviewDisposition({ bundle, presentation, subjectRef, disposition, note, recordedAt }) {
   const at = requireIso(recordedAt, 'C26_UI_REVIEW_RECORDED_AT_INVALID');
-  if (!(await verifyPresentation(presentation))) throw new Error('C26_UI_PRESENTATION_INVALID');
+  bundle=snapshot(bundle);presentation=snapshot(presentation);
+  if (!(await verifyPresentation(presentation,bundle,at))) throw new Error('C26_UI_PRESENTATION_INVALID');
   if (!(await validateIntegratedReviewBundle(bundle, at)).valid) throw new Error('C26_UI_REVIEW_BUNDLE_INVALID');
   if (bundle.accessGrant.role !== UI_ROLE.REVIEWER || !bundle.accessGrant.permissions.includes(UI_PERMISSION.RECORD_HUMAN_DISPOSITION)) throw new Error('C26_UI_REVIEW_PERMISSION_DENIED');
   if (bundle.accessGrant.subjectRef !== requireText(subjectRef, 'C26_UI_SUBJECT_REQUIRED')) throw new Error('C26_UI_REVIEW_SUBJECT_MISMATCH');
@@ -337,12 +374,15 @@ function exportMaterial(input) {
 }
 async function createDraftReviewExport({ bundle, presentation, reviewRecord = null, generatedAt }) {
   const at = requireIso(generatedAt, 'C26_UI_EXPORT_GENERATED_AT_INVALID');
-  if (!(await verifyPresentation(presentation))) throw new Error('C26_UI_PRESENTATION_INVALID');
+  bundle=snapshot(bundle);presentation=snapshot(presentation);reviewRecord=snapshot(reviewRecord);
+  if (!(await verifyPresentation(presentation,bundle,at))) throw new Error('C26_UI_PRESENTATION_INVALID');
   if (!(await validateIntegratedReviewBundle(bundle, at)).valid) throw new Error('C26_UI_REVIEW_BUNDLE_INVALID');
   if (!bundle.accessGrant.permissions.includes(UI_PERMISSION.EXPORT_DRAFT_REVIEW)) throw new Error('C26_UI_EXPORT_PERMISSION_DENIED');
   if (reviewRecord) {
-    if (!SHA256_RE.test(reviewRecord.reviewRecordHashSha256 || '') || (await sha256Hex(reviewRecordMaterial(reviewRecord))) !== reviewRecord.reviewRecordHashSha256) throw new Error('C26_UI_REVIEW_RECORD_INVALID');
-    if (reviewRecord.caseResultHashSha256 !== bundle.caseResult.resultHashSha256 || reviewRecord.presentationHashSha256 !== presentation.presentationHashSha256 || reviewRecord.accessGrantHashSha256 !== bundle.accessGrant.accessGrantHashSha256) throw new Error('C26_UI_REVIEW_RECORD_BINDING_INVALID');
+    if(!isHash(reviewRecord.reviewRecordHashSha256)||Date.parse(reviewRecord.recordedAt)>Date.parse(at))throw new Error('C26_UI_REVIEW_RECORD_INVALID');
+    let expected;
+    try{expected=await recordHumanReviewDisposition({bundle,presentation,subjectRef:reviewRecord.subjectRef,disposition:reviewRecord.disposition,note:reviewRecord.note,recordedAt:reviewRecord.recordedAt});}catch{throw new Error('C26_UI_REVIEW_RECORD_INVALID');}
+    if(!sameRecord(reviewRecord,expected))throw new Error('C26_UI_REVIEW_RECORD_BINDING_INVALID');
   }
   const material = exportMaterial({
     generatedAt: at, locale: presentation.locale, caseId: bundle.caseId, propertyRef: bundle.propertyRef,

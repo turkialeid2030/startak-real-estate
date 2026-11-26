@@ -207,6 +207,37 @@ const {
   assert.doesNotMatch(mainSource, /import IntegratedCaseReviewPanel from ['"]\.\/components\/IntegratedCaseReviewPanel\.jsx['"]/);
   assert.doesNotMatch(mainSource, /<IntegratedCaseReviewPanel\s*\/>/);
 
+  const reviewArgs={bundle,presentation,subjectRef:reviewerGrant.subjectRef,disposition:REVIEW_DISPOSITION.ACKNOWLEDGED,note:'Review',recordedAt:'2026-10-01T20:10:00Z'};
+  const exportArgs={bundle,presentation,reviewRecord,generatedAt:'2026-10-01T20:20:00Z'};
+  const anotherBundle=await createIntegratedReviewBundle({...bundle,bundleId:'ANOTHER-BUNDLE'});
+  await assert.rejects(()=>recordHumanReviewDisposition({...reviewArgs,bundle:anotherBundle}),/C26_UI_PRESENTATION_INVALID/);
+  await assert.rejects(()=>createDraftReviewExport({...exportArgs,bundle:anotherBundle}),/C26_UI_PRESENTATION_INVALID/);
+  await assert.rejects(()=>recordHumanReviewDisposition({...reviewArgs,recordedAt:'2026-10-01T19:30:00Z'}),/C26_UI_PRESENTATION_INVALID/);
+  await assert.rejects(()=>createDraftReviewExport({...exportArgs,generatedAt:'2026-10-01T20:05:00Z'}),/C26_UI_REVIEW_RECORD_INVALID/);
+  const rehash=async(record,field,patch)=>{const core={...record,...patch};delete core[field];return {...core,[field]:await sha256Hex(core)};};
+  const falseView=await rehash(presentation,'presentationHashSha256',{status:'READY_FOR_HUMAN_CASE_REVIEW'});
+  await assert.rejects(()=>recordHumanReviewDisposition({...reviewArgs,presentation:falseView}),/C26_UI_PRESENTATION_INVALID/);
+  const falseReview=await rehash(reviewRecord,'reviewRecordHashSha256',{deterministicStateAfter:'READY_FOR_HUMAN_CASE_REVIEW'});
+  await assert.rejects(()=>createDraftReviewExport({...exportArgs,reviewRecord:falseReview}),/C26_UI_REVIEW_RECORD_BINDING_INVALID/);
+  await assert.rejects(()=>createIntegratedReviewBundle({...bundle,createdAt:'2026-10-01T17:00:00Z'}),/C26_UI_BUNDLE_PREDATES_CASE/);
+  assert.strictEqual((await validateIntegratedReviewBundle(bundle,'2026-10-01T18:30:00Z')).valid,false);
+  const unboundHash=await h('UNBOUND-SUPPLEMENTAL');
+  const unboundDraft=await createAiDraftEnvelope({...aiDraft,groundingEvidenceHashesSha256:[unboundHash]});
+  await assert.rejects(()=>createIntegratedReviewBundle({...bundle,evidenceHashesSha256:[...evidenceHashesSha256,unboundHash],aiDraft:unboundDraft}),/C26_UI_AI_GROUNDING_NOT_BOUND_TO_EVIDENCE/);
+  for(const patch of [{auditLineage:[]},{humanCaseReviewReady:true},{aiOverrideApplied:true},{stageSummary:null}]){
+    const badCase=await rehash(caseResult,'resultHashSha256',patch);
+    await assert.rejects(()=>createIntegratedReviewBundle({...bundle,caseResult:badCase}),/C26_UI_C24_RESULT_INVALID/);
+  }
+  const mutable=structuredClone(bundle);
+  const building=buildIntegratedReviewPresentation({bundle:mutable,asOf:'2026-10-01T20:00:00Z'});
+  mutable.caseResult.status='READY_FOR_HUMAN_CASE_REVIEW';
+  const isolated=await building;
+  assert.strictEqual(isolated.status,'HOLD');
+  assert.ok(Object.isFrozen(isolated.stageSummary[0]));
+  assert.ok(Object.isFrozen(bundle.accessGrant.permissions));
+  assert.ok(Object.isFrozen(bundle.caseResult.auditLineage[0]));
+  assert.strictEqual((await validateIntegratedReviewBundle({...bundle,caseResult:{stageSummary:[null]}},'2026-10-01T20:00:00Z')).valid,false);
+  console.log('C26_V613_REVIEW_HANDOFF_BOUNDARY=PASS negative_cases=14 snapshot_checks=4 synthetic_review=true');
   console.log('C26_INTEGRATED_CASE_REVIEW_UI_SOURCE_RECOVERY=PASS_UNACTIVATED');
 })().catch((error) => {
   console.error(error);
