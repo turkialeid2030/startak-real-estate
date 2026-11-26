@@ -26,7 +26,7 @@ Provider output is structured claims only. Each claim must identify grounding it
 
 Therefore a model cannot make an unsupported amount, percentage, count or date acceptable merely by placing it in natural-language text or by self-declaring it.
 
-The final user-visible draft is constructed only from validated structured claim text. An invalid claim suppresses the entire draft.
+The final user-visible draft is constructed only from validated structured claim text. An invalid claim suppresses the entire draft. The execution entrypoint validates and canonicalizes the detached response before returning provider content. Transport SUCCESS alone never establishes a grounded draft. Responses predating their invocation, noncanonical authority flags, and integrity failures are held without returning provider content. An ordinary digest is not a trusted signature or evidence of live provider identity.
 
 ## Deterministic authority boundary
 The provider must echo the deterministic decision state from the C22 request. Any attempt to change `HOLD`, `REJECT`, `NOT_EVALUATED` or another deterministic state is a security hold. C23 never grants transaction, approval, autonomous-action, public-AI, production-deployment or commercial-go-live authority.

@@ -171,6 +171,42 @@ function fixture() {
   const executed=await executeProofGroundedProviderGateway({...f,adapter});
   assert.strictEqual(executed.providerCalled,true); assert.strictEqual(calls,1); assert.strictEqual(executed.providerResponse.responseHashSha256,f.providerResponse.responseHashSha256);
 
+  // The public execution result may expose only a validated grounded draft.
+  assert.strictEqual(executed.status,STATUS.READY_FOR_HUMAN_GROUNDED_DRAFT_REVIEW);
+  assert.strictEqual(executed.groundedDraftReviewReady,true);
+  assert.strictEqual(executed.transactionAuthorized,false);
+  assert.strictEqual(executed.providerResponse.draftOnly,true);
+
+  const invalidResponses=[
+    [{providerResult:PROVIDER_RESULT.SUCCESS},STATUS.HOLD_INTEGRITY],
+    [unsupportedAmount,STATUS.HOLD_UNSUPPORTED_OUTPUT],
+    [wrongState,STATUS.HOLD_SECURITY],
+    [response(f.invocation,{generatedAt:'2026-10-01T09:00:00Z'}),STATUS.HOLD_WINDOW],
+  ];
+  for(const [invalid,expected] of invalidResponses){
+    const out=await executeProofGroundedProviderGateway({...f,adapter:{invoke:async()=>invalid}});
+    assert.strictEqual(out.status,expected);
+    assert.strictEqual(out.providerCalled,true);
+    assert.strictEqual(out.providerInvocationReady,false);
+    assert.strictEqual(out.groundedDraftReviewReady,false);
+    assert.strictEqual(out.providerResponse,null);
+    assert.strictEqual(out.draft,null);
+    assert.strictEqual(out.transactionAuthorized,false);
+  }
+  // An unkeyed digest is not a signature. Rehashing a noncanonical authority
+  // flag must not make the response structurally eligible.
+  const crypto=require('node:crypto');
+  const stable=v=>Array.isArray(v)?v.map(stable):v&&typeof v==='object'
+    ?Object.fromEntries(Object.keys(v).sort().map(k=>[k,stable(v[k])])):v;
+  const forged={...f.providerResponse,transactionAuthorized:true};
+  delete forged.responseHashSha256;
+  forged.responseHashSha256=crypto.createHash('sha256').update(JSON.stringify(stable(forged))).digest('hex');
+  const forgedResult=await executeProofGroundedProviderGateway({...f,adapter:{invoke:async()=>forged}});
+  assert.strictEqual(forgedResult.status,STATUS.HOLD_INTEGRITY);
+  assert.strictEqual(forgedResult.providerResponse,null);
+  assert.strictEqual(forgedResult.transactionAuthorized,false);
+  console.log('C23_EXECUTION_OUTPUT_BOUNDARY=PASS checks=35 synthetic_adapter=true');
+
   const err=await executeGovernedProviderGateway({...f,adapter:{invoke:async()=>{throw new Error('network');}}});
   assert.strictEqual(err.status,STATUS.HOLD_PROVIDER); assert(err.blockers.includes('C23_PROVIDER_NETWORK_ERROR'));
 

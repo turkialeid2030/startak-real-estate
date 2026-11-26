@@ -287,7 +287,14 @@ function createProviderResponseEnvelope(x = {}) {
   };
   return freeze({ ...core, responseHashSha256: sha256(core) });
 }
-function verifyProviderResponseEnvelope(r) { return integrity(r, 'responseHashSha256'); }
+function verifyProviderResponseEnvelope(r) {
+  // A caller can recompute an ordinary hash; verify the canonical schema and
+  // non-authority flags as well as integrity before accepting the envelope.
+  try {
+    return integrity(r, 'responseHashSha256') &&
+      createProviderResponseEnvelope(r).responseHashSha256 === r.responseHashSha256;
+  } catch (_) { return false; }
+}
 
 function baseBlockers({ modelProfile, request, groundingManifest, providerAuthorization, invocation, asOf }) {
   const blockers = [];
@@ -369,6 +376,7 @@ function validateGroundedProviderResponse(input = {}) {
     if (response.providerId !== providerAuthorization.providerId || response.modelId !== providerAuthorization.modelId || response.modelVersionRef !== providerAuthorization.modelVersionRef) blockers.push('C23_PROVIDER_RESPONSE_MODEL_MISMATCH');
     if (response.echoDeterministicDecisionState !== request.deterministicDecisionState) blockers.push('C23_SECURITY_DETERMINISTIC_GATE_OVERRIDE');
     if (Date.parse(response.generatedAt) > Date.parse(asOf)) blockers.push('C23_WINDOW_RESPONSE_FUTURE');
+    if (Date.parse(response.generatedAt) < Date.parse(invocation.createdAt)) blockers.push('C23_WINDOW_RESPONSE_PREDATES_INVOCATION');
     const itemById = new Map(groundingManifest.items.map((i) => [i.itemId, i]));
     for (const claim of response.claims) {
       const boundValues = new Set();
@@ -416,7 +424,17 @@ async function executeGovernedProviderGateway(input = {}) {
       const code = raw && Object.values(PROVIDER_RESULT).includes(raw.providerResult) ? raw.providerResult : PROVIDER_RESULT.SCHEMA_ERROR;
       return freeze({ ...readiness, status: STATUS.HOLD_PROVIDER, providerInvocationReady: false, blockers: [`C23_PROVIDER_${code}`], providerCalled: true, providerResponse: null });
     }
-    return freeze({ ...readiness, providerCalled: true, providerResponse: raw });
+    // SUCCESS is only the transport outcome, not grounded-output acceptance.
+    // Detach and canonicalize the response before exposing any model content.
+    let snapshot;
+    try { snapshot = structuredClone(raw); }
+    catch (_) { return freeze({ ...readiness, status: STATUS.HOLD_PROVIDER, providerInvocationReady: false, blockers: ['C23_PROVIDER_SCHEMA_ERROR'], providerCalled: true, providerResponse: null }); }
+    const checked = validateGroundedProviderResponse({ ...input, providerResponse: snapshot });
+    if (!checked.groundedDraftReviewReady) {
+      return freeze({ ...readiness, ...checked, providerInvocationReady: false, providerCalled: true, providerResponse: null });
+    }
+    const canonical = createProviderResponseEnvelope(snapshot);
+    return freeze({ ...readiness, ...checked, providerCalled: true, providerResponse: canonical });
   } catch (_) {
     return freeze({ ...readiness, status: STATUS.HOLD_PROVIDER, providerInvocationReady: false, blockers: ['C23_PROVIDER_NETWORK_ERROR'], providerCalled: true, providerResponse: null });
   }
