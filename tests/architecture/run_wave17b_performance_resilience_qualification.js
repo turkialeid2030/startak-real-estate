@@ -86,6 +86,7 @@ function qualification(evaluations, runs, resiliences, overrides = {}) {
   return q.buildPerformanceResilienceQualification({
     qualificationId: overrides.qualificationId || 'W17B-Q-1',
     expectedEnvironment: overrides.expectedEnvironment || q.QUALIFICATION_ENVIRONMENT.CI_TEST,
+    expectedTargetRef: overrides.expectedTargetRef || 'W17B-CANDIDATE',
     exactCommitSha: overrides.exactCommitSha || COMMIT,
     assessedAt: overrides.assessedAt || '2026-09-08T08:00:00Z',
     maximumEvidenceAgeDays: overrides.maximumEvidenceAgeDays ?? 7,
@@ -265,4 +266,26 @@ const futureReviewedRes=resilience(SCENARIOS[0],{reviewedAt:'2026-09-09T00:00:00
 check(()=>assert.strictEqual(qualification(evaluations,runs,[futureReviewedRes,...resiliences.slice(1)]).status,q.PERFORMANCE_QUALIFICATION_STATUS.HOLD_STALE_EVIDENCE));
 check(()=>assert.strictEqual(mixedPerf.deploymentAuthorized,false));
 check(()=>assert.strictEqual(mixedRes.productionResilienceValidated,false));
+// A release candidate cannot combine measurements from different targets,
+// or omit the evaluation of an unfavorable supplied performance run.
+const wrongTargetRun=run(WORKLOADS[0],{targetRef:'OTHER-TARGET'});
+const wrongTargetEval=q.evaluatePerformanceRun({slo:slos[0],runEvidence:wrongTargetRun});
+const wrongTargetQ=qualification([wrongTargetEval,...evaluations.slice(1)],[wrongTargetRun,...runs.slice(1)],resiliences);
+check(()=>assert.strictEqual(wrongTargetQ.status,q.PERFORMANCE_QUALIFICATION_STATUS.HOLD_SCOPE_MISMATCH));
+check(()=>assert.ok(wrongTargetQ.issues.includes('RUN_SCOPE_MISMATCH:'+wrongTargetRun.runId)));
+const wrongTargetRes=resilience(SCENARIOS[0],{targetRef:'OTHER-TARGET'});
+check(()=>assert.strictEqual(qualification(evaluations,runs,[wrongTargetRes,...resiliences.slice(1)]).status,q.PERFORMANCE_QUALIFICATION_STATUS.HOLD_SCOPE_MISMATCH));
+check(()=>assert.strictEqual(qualification(evaluations,runs,resiliences,{expectedTargetRef:'OTHER-TARGET'}).status,q.PERFORMANCE_QUALIFICATION_STATUS.HOLD_SCOPE_MISMATCH));
+check(()=>assert.strictEqual(ready.expectedTargetRef,'W17B-CANDIDATE'));
+const orphan=qualification(evaluations,[...runs,additionalSlow],resiliences);
+check(()=>assert.strictEqual(orphan.status,q.PERFORMANCE_QUALIFICATION_STATUS.HOLD_EVIDENCE_INTEGRITY));
+check(()=>assert.ok(orphan.issues.includes('RUN_EVALUATION_MISSING:'+additionalSlow.runId)));
+for(const [e,r,z] of [[[null,...evaluations],runs,resiliences],[evaluations,[null,...runs],resiliences],[evaluations,runs,[null,...resiliences]]]){
+ const out=qualification(e,r,z);
+ check(()=>assert.strictEqual(out.status,q.PERFORMANCE_QUALIFICATION_STATUS.HOLD_EVIDENCE_INTEGRITY));
+ check(()=>assert.strictEqual(out.deploymentAuthorized,false));
+}
+check(()=>assert.strictEqual(q.verifyPerformanceResilienceQualification({...ready,deploymentAuthorized:true}).valid,false));
+check(()=>assert.strictEqual(q.verifyPerformanceResilienceQualification({...ready,expectedTargetRef:'OTHER-TARGET'}).valid,false));
+check(()=>assert.strictEqual(q.verifyPerformanceResilienceQualification({...ready,issues:{}}).valid,false));
 console.log(`WAVE_17B_PERFORMANCE_RESILIENCE_QUALIFICATION=PASS checks=${checks}`);

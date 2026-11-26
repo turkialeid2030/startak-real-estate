@@ -154,6 +154,7 @@ const resilienceRecords = scenarios.map(makeResilience);
 const perfQ = perf.buildPerformanceResilienceQualification({
   qualificationId: 'W17D-PERF-Q',
   expectedEnvironment: perf.QUALIFICATION_ENVIRONMENT.CI_TEST,
+  expectedTargetRef: 'W17-CANDIDATE',
   exactCommitSha: COMMIT,
   assessedAt: ASSESSED,
   maximumEvidenceAgeDays: 7,
