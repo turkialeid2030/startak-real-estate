@@ -109,5 +109,34 @@ assert.strictEqual(wrongKindResult.status,CAMPAIGN_STATUS.HOLD_CONTEXT);
 assert.ok(wrongKindResult.externalOpenTypes.includes(SCENARIO_TYPE.HISTORICAL_REPLAY));
 assert.throws(()=>scenario(SCENARIO_TYPE.HISTORICAL_REPLAY,{synthetic:undefined}),/C29_EXTERNAL_EVIDENCE_SCENARIO_CANNOT_BE_SYNTHETIC/);
 assert.throws(()=>scenario(SCENARIO_TYPE.MONTE_CARLO,{paymentInitiated:'false'}),/C29_REAL_SIDE_EFFECT_FORBIDDEN/);
+const externalTypes=[SCENARIO_TYPE.HISTORICAL_REPLAY,SCENARIO_TYPE.UAT_PROFESSIONAL_REVIEW].sort();
+const history=byType[SCENARIO_TYPE.HISTORICAL_REPLAY], historyKind='HISTORICAL_REPLAY_INPUT_AND_RESULT_EVIDENCE';
+const replaceObs=o=>completeObs.map(x=>x.scenarioId===o.scenarioId?o:x);
+const futureHistory=createSimulationObservation({...actualObservation(history,historyKind),observedAt:'2026-10-02T19:00:00Z'});
+const wrongHistory=scenario(SCENARIO_TYPE.HISTORICAL_REPLAY,{caseId:'OTHER-CASE'});
+const wrongHead=scenario(SCENARIO_TYPE.HISTORICAL_REPLAY,{candidateHeadSha:'a'.repeat(40)});
+const replaceHistory=s=>[...scenarios.filter(x=>x.scenarioType!==SCENARIO_TYPE.HISTORICAL_REPLAY),s];
+const replaceHistoryObs=s=>[...completeObs.filter(x=>x.scenarioId!==history.scenarioId),actualObservation(s,historyKind)];
+for(const out of [
+ campaign(scenarios,replaceObs(futureHistory)),
+ campaign(replaceHistory(wrongHistory),replaceHistoryObs(wrongHistory)),
+ campaign(replaceHistory(wrongHead),replaceHistoryObs(wrongHead)),
+ campaign(scenarios,[...completeObs,actualObservation(history,historyKind)]),
+ campaign(scenarios,completeObs.filter(o=>o.scenarioId!==history.scenarioId)),
+ campaign(scenarios,[...completeObs,null])
+]){
+ assert.strictEqual(out.technicalSimulationComplete,false);
+ assert.deepStrictEqual(out.externalOpenTypes,externalTypes);
+ assert.strictEqual(out.uatApproved,false);
+}
+for(const patch of [{productionPerformanceClaimed:true},{outputHashSha256:0},{reasonCode:'SYNTH-CONFLICT'},{evidenceRef:false}]){
+ assert.throws(()=>createSimulationObservation({...completeObs[0],...patch}),/C29_/);
+}
+assert.throws(()=>evaluateShadowCampaign({campaignId:'FUTURE',candidateHeadSha:HEAD,caseId:CASE,propertyRef:PROP,scenarios,observations:completeObs,evaluatedAt:'2099-01-01T00:00:00Z'}),/C29_CAMPAIGN_FUTURE_EVALUATION/);
+assert.ok(Object.isFrozen(complete.blockers)&&Object.isFrozen(complete.externalOpenTypes)&&Object.isFrozen(complete.scenarioHashesSha256)&&Object.isFrozen(complete.observationHashesSha256));
+const canonical=v=>Array.isArray(v)?v.map(canonical):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,canonical(v[k])])):v;
+const core={...complete};delete core.campaignHashSha256;
+assert.strictEqual(hash(JSON.stringify(canonical(core))),complete.campaignHashSha256);
+console.log('C29_V620_EXTERNAL_EVIDENCE_BOUNDARY=PASS negative_cases=11 immutable_digest_checks=2 synthetic_evidence=true');
 console.log('C29_V612_SCENARIO_OBSERVATION_BOUNDARY=PASS cases=14');
 console.log('C29_GOVERNED_SHADOW_SIMULATION_UAT_HARNESS=PASS');
