@@ -43,6 +43,56 @@ function enforceSnapshotDataDiscipline(snapshot, limits = SNAPSHOT_LIMITS) {
   return Object.freeze({ ok: true, nodes, bytes: new TextEncoder().encode(serialized).length });
 }
 
+
+// Explicit structural contract; string tokens are still untrusted and must pass
+// data-discipline and external privacy controls. This is not a DLP classifier.
+const scalarTypes=Object.freeze({token:'token',number:'number',count:'count',boolean:'boolean',date:'date',false:'false',true:'true'});
+const fields=(tokens='',numbers='',counts='',booleans='')=>Object.fromEntries([
+ ...tokens.split(' ').filter(Boolean).map(k=>[k,'token']),
+ ...numbers.split(' ').filter(Boolean).map(k=>[k,'number']),
+ ...counts.split(' ').filter(Boolean).map(k=>[k,'count']),
+ ...booleans.split(' ').filter(Boolean).map(k=>[k,'boolean'])
+]);
+const list=(item,max=8)=>({list:item,max});
+const issue={code:'token',field:'token'};
+const SNAPSHOT_SCHEMA=Object.freeze({
+ schemaVersion:'count',capability:'token',asOfDate:'date',readinessStatus:'token',
+ summary:fields('','','unitCount leaseCount tenantCount evidenceLineageCount'),
+ readiness:{...fields('','','blockerCount evidenceGapCount dueDiligenceCount'),blockers:list(issue),evidenceGaps:list(issue)},
+ strategicEvidence:{...fields('status','evidenceCoverage','strategicInputCount adoptedInputCount usableAdoptedInputCount'),issueCodes:list('token')},
+ acquisitionScore:{...fields('status','score scoreCoverage evidenceConfidence'),redFlags:list({code:'token',severity:'token'}),components:list(fields('key status','score weight'),64)},
+ lifecycle:fields('status','weightedConditionScore replacementCapexWithin3y replacementCapexWithin5y','criticalComponentsDueWithin3y'),
+ location:fields('status','currentLocationScore evidenceCoverage'),
+ forwardAttraction:fields('status direction','score','catalystCount'),
+ upside:fields('status','','eligibleCatalystCount verifiedFeasibleCount regulatoryVerificationRequiredCount prohibitedCount'),
+ subdivision:{...fields('status','evidenceCoverage','checkCount verifiedCheckCount passCount failCount missingCount','scenarioTestingEligible'),missingCheckTypes:list('token'),failedCheckTypes:list('token'),dueDiligenceCheckTypes:list('token'),authorityApprovalInferred:'false',automaticFinancializationAllowed:'false'},
+ pricing:fields('outcome bindingConstraint','purchasePrice maximumJustifiedPurchasePrice priceHeadroom'),
+ exitComparison:fields('benchmarkScenarioId highestModeledNpvScenarioId','highestModeledNpv','scenarioCount'),
+ scenarioReview:{...fields('status','','','reviewRequired automaticFinancializationApplied'),issueCodes:list('token')},
+ governance:{deterministicScoreRemainsAuthoritative:'true',automaticInvestmentRecommendationAllowed:'false',legalConclusionAllowed:'false',transactionAuthorizationAllowed:'false',rawOperatingCaseIncluded:'false',tenantNamesIncluded:'false',evidenceDocumentTextIncluded:'false'},
+ signals:fields('readinessStatus','','evidenceCount')
+});
+function enforceSnapshotSchema(snapshot){
+ const visit=(value,shape,depth=0)=>{
+  if(depth>8)return false;
+  if(value===null)return depth===1&&typeof shape==='object'&&!Object.hasOwn(shape,'list') || ['token','number','count','date'].includes(shape);
+  if(typeof shape==='string'){
+   if(shape==='token')return typeof value==='string'&&SNAPSHOT_TOKEN_PATTERN.test(value);
+   if(shape==='number')return typeof value==='number'&&Number.isFinite(value)&&(!Number.isInteger(value)||Number.isSafeInteger(value));
+   if(shape==='count')return Number.isSafeInteger(value)&&value>=0;
+   if(shape==='boolean')return typeof value==='boolean';
+   if(shape==='false')return value===false;
+   if(shape==='true')return value===true;
+   if(shape==='date')return typeof value==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(value))&&new Date(value+'T00:00:00Z').toISOString().slice(0,10)===value;
+   return false;
+  }
+  if(Object.hasOwn(shape,'list'))return Array.isArray(value)&&value.length<=shape.max&&value.every(item=>item!==null&&visit(item,shape.list,depth+1));
+  if(!value||typeof value!=='object'||Array.isArray(value))return false;
+  return Object.keys(value).every(key=>Object.hasOwn(shape,key)&&visit(value[key],shape[key],depth+1));
+ };
+ return visit(snapshot,SNAPSHOT_SCHEMA)?Object.freeze({ok:true}):fail('SNAPSHOT_SCHEMA_FIELD_OR_TYPE_INVALID');
+}
+
 const RATE_LIMIT_DEFAULTS = Object.freeze({ perSubjectPerMinute: 6, perSubjectPerDay: 60, globalPerDay: 2000, ttlSeconds: 90000 });
 function positiveInt(raw, fallback) { const value = Number(raw); return Number.isInteger(value) && value > 0 ? value : fallback; }
 function resolveRateLimitConfig(env = {}) {
@@ -86,4 +136,4 @@ async function writeAuditRecord({ store, record, ttlSeconds = 34560000, timeoutM
   finally { clearTimeout(timer); }
 }
 
-export { SNAPSHOT_TOKEN_PATTERN, SNAPSHOT_LIMITS, enforceSnapshotDataDiscipline, RATE_LIMIT_DEFAULTS, resolveRateLimitConfig, checkAndConsumeRateLimit, sha256Hex, buildAuditRecord, writeAuditRecord };
+export { SNAPSHOT_TOKEN_PATTERN, SNAPSHOT_LIMITS, enforceSnapshotDataDiscipline, enforceSnapshotSchema, RATE_LIMIT_DEFAULTS, resolveRateLimitConfig, checkAndConsumeRateLimit, sha256Hex, buildAuditRecord, writeAuditRecord };

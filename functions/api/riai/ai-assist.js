@@ -5,6 +5,7 @@ import { monetaryReservation } from './_money-budget.mjs';
 import { resolveModernModel, matchesReportedModel } from './_model-policy.mjs';
 import {
   enforceSnapshotDataDiscipline,
+  enforceSnapshotSchema,
   resolveRateLimitConfig,
   sha256Hex,
   buildAuditRecord,
@@ -532,6 +533,9 @@ async function handleRequestPost(context) {
   if (snapshotError) return json({ ok: false, code: snapshotError, aiModelUsed: false }, 400);
   const disciplineResult = enforceSnapshotDataDiscipline(body.decisionSnapshot);
   if (!disciplineResult.ok) return json({ ok: false, code: disciplineResult.code, aiModelUsed: false }, 400);
+
+  const schemaResult=enforceSnapshotSchema(body.decisionSnapshot);
+  if(!schemaResult.ok)return json({ok:false,code:schemaResult.code,aiModelUsed:false},400);
 
   const access = await resolveAccess(request, env, body);
   if (!access.ok) return json({ ok: false, code: access.code, aiModelUsed: false }, access.status);
