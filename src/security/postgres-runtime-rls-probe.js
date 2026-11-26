@@ -231,15 +231,16 @@ async function runPostgresRuntimeRlsProbe({
       }
     };
     guardedPool=checkedPool;
-    const tableRows = await withTransaction(checkedPool, setting, null, async (client) => {
+    const privilegedRole = checks.runtimeRoleIsSuperuser || checks.runtimeRoleBypassesRls;
+    const tableRows = privilegedRole ? [] : await withTransaction(checkedPool, setting, null, async (client) => {
       const result = await client.query(
         'SELECT c.relrowsecurity, c.relforcerowsecurity FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = $1 AND c.relname = $2 AND c.relkind = $3',
         [schema, table, 'r'],
       );
       return Array.isArray(result?.rows) ? result.rows : [];
     });
-    if (tableRows.length !== 1) throw new Error('RLS_TABLE_METADATA_UNAVAILABLE');
-    checks.forceRlsEnabled = tableRows[0].relrowsecurity === true && tableRows[0].relforcerowsecurity === true;
+    if (!privilegedRole && tableRows.length !== 1) throw new Error('RLS_TABLE_METADATA_UNAVAILABLE');
+    checks.forceRlsEnabled = tableRows[0]?.relrowsecurity === true && tableRows[0]?.relforcerowsecurity === true;
 
     if (checks.runtimeRoleIsSuperuser || checks.runtimeRoleBypassesRls || !checks.forceRlsEnabled) {
       const status = statusFromChecks(checks);
