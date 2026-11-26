@@ -320,6 +320,37 @@ function assertAuthorityClosed(result) {
     const rejected=input({openExternalBlockers:[]});
     assert.strictEqual(verifyReleaseCandidateManifest(buildProductizationReleaseCandidateEvidenceBundle(rejected),rejected,rejected.reviewedAt),false);
   });
+  await test('P20-V623-ALL-BLOCKERS-VISIBLE',async()=>{
+    const out=buildProductizationReleaseCandidateEvidenceBundle(input({productionQualification:productionQualification({reasonCodes:['UNRESOLVED']}),securityUatEvidence:securityUat({evidenceBundleHashSha256:'0'.repeat(64)}),openExternalBlockers:[],assembledBy:'same',reviewedBy:'same'}));
+    assert.strictEqual(out.status,RELEASE_CANDIDATE_STATUS.HOLD_PRODUCTION_QUALIFICATION);
+    assert.ok(out.issues.includes('PRODUCTION_QUALIFICATION_NOT_READY'));
+    assert.ok(out.issues.includes('SECURITY_UAT_EVIDENCE_NOT_READY_OR_INVALID'));
+    assert.ok(out.issues.includes('RELEASE_CANDIDATE_REQUIRES_SEPARATE_REVIEWER'));
+    assert.strictEqual(out.issues.filter(x=>x.startsWith('MISSING_OPEN_EXTERNAL_BLOCKER:')).length,REQUIRED_OPEN_EXTERNAL_BLOCKERS.length);
+    assert.ok(Object.values(out.productionQualification.evidenceReferenceDigests).every(x=>x===null));
+    for(const gate of Object.values(out.productionQualification.gates))assert.strictEqual(gate.ready,false);
+    assert.strictEqual(out.productionQualification.gates.independentReleaseQualification.integrityValid,false);
+    assert.strictEqual(out.productionQualification.gates.independentReleaseQualification.qualificationHashSha256,null);
+    assert.strictEqual(out.securityUatEvidence.uatScenarioResultsHashSha256,null);
+    assertAuthorityClosed(out);
+  });
+  await test('P20-V623-FULL-MANIFEST-DIGEST',async()=>{
+    const source=input();const out=buildProductizationReleaseCandidateEvidenceBundle(source);
+    const crypto=require('node:crypto');
+    const canonical=v=>Array.isArray(v)?v.map(canonical):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,canonical(v[k])])):v;
+    const digest=v=>crypto.createHash('sha256').update(JSON.stringify(canonical(v))).digest('hex');
+    const {manifestHashSha256,manifestRef,...core}=out;
+    assert.strictEqual(out.manifestDigestVersion,2);assert.strictEqual(digest(core),manifestHashSha256);
+    assert.strictEqual(manifestRef,'sha256:'+manifestHashSha256);
+    assert.strictEqual(out.securityUatEvidence.uatScenarioResultsHashSha256,source.securityUatEvidence.uat.scenarioBinding.scenarioResultsHashSha256);
+    assert.strictEqual(verifyReleaseCandidateManifest(JSON.parse(JSON.stringify(out)),source,source.reviewedAt),true);
+    for(const patch of [{authority:{...out.authority,releaseAuthorized:true}},{engineeringEvidenceBundleAssembled:false},{manifestDigestVersion:1},{extra:undefined},{securityUatEvidence:{...out.securityUatEvidence,extra:undefined}},{openExternalBlockers:Object.assign([...out.openExternalBlockers],{extra:true})},{securityUatEvidence:{...out.securityUatEvidence,uatScenarioResultsHashSha256:'0'.repeat(64)}}]){
+      const changed={...out,...patch};delete changed.manifestHashSha256;delete changed.manifestRef;
+      changed.manifestHashSha256=digest(changed);changed.manifestRef='sha256:'+changed.manifestHashSha256;
+      assert.strictEqual(verifyReleaseCandidateManifest(changed,source,source.reviewedAt),false);
+    }
+  });
+  console.log('P20_V623_COMPLETE_MANIFEST=CHECKED simultaneous_blockers=true rehashed_negative_cases=7 synthetic_evidence=true');
   const failed = results.filter((entry) => entry[1] !== 'PASS');
   console.log(`PRODUCTIZATION_P20_RELEASE_CANDIDATE_EVIDENCE_RESULT=${failed.length === 0 ? 'PASS' : 'FAIL'} ${results.filter((entry) => entry[1] === 'PASS').length}/${results.length}`);
   if (failed.length > 0) process.exit(1);
