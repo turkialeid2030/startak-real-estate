@@ -363,5 +363,55 @@ function fixture() {
     mcheck(()=>assert.strictEqual(out.transactionAuthorized,false));
   }
   console.log('C23_SOURCE_METADATA_BINDING=PASS checks='+metadataChecks+' synthetic_adapter=true');
+  // The adapter must receive a detached, immutable packet; later caller
+  // mutations cannot substitute a new authorization, source or invocation.
+  let snapshotChecks=0;
+  const scheck=fn=>{fn();snapshotChecks++;};
+  for(const entry of [executeGovernedProviderGateway,executeProofGroundedProviderGateway]){
+    const mutable=structuredClone(f);
+    let adapterPacket;
+    const result=await entry(Object.assign(mutable,{adapter:{invoke:async packet=>{
+      adapterPacket=packet;
+      // Preserve original response but replace the live caller's context
+      // while the provider is executing.
+      mutable.request={...mutable.request,caseId:'OTHER-CASE'};
+      mutable.providerAuthorization={...mutable.providerAuthorization,networkInvocationAuthorized:false};
+      mutable.invocation={...mutable.invocation,invocationId:'OTHER-INVOCATION'};
+      mutable.asOf='2026-12-01T00:00:00Z';
+      await Promise.resolve();
+      return f.providerResponse;
+    }}}));
+    scheck(()=>assert.strictEqual(result.status,STATUS.READY_FOR_HUMAN_GROUNDED_DRAFT_REVIEW));
+    scheck(()=>assert.strictEqual(result.asOf,new Date(AS_OF).toISOString()));
+    scheck(()=>assert.strictEqual(adapterPacket.request.caseId,f.request.caseId));
+    scheck(()=>assert.ok(Object.isFrozen(adapterPacket.request.retrievalItems[0])));
+    scheck(()=>assert.strictEqual(result.providerResponse.invocationHashSha256,f.invocation.invocationHashSha256));
+    scheck(()=>assert.strictEqual(result.transactionAuthorized,false));
+    const original=structuredClone(f);
+    const originalItem=original.groundingManifest.items[0];
+    Object.freeze(original.groundingManifest);
+    const isolated=await entry({...original,adapter:{invoke:async packet=>{
+      originalItem.canonicalValue='9999';
+      scheck(()=>assert.notStrictEqual(packet.groundingManifest.items[0],originalItem));
+      scheck(()=>assert.ok(Object.isFrozen(packet.groundingManifest.items[0])));
+      return f.providerResponse;
+    }}});
+    scheck(()=>assert.strictEqual(isolated.status,STATUS.READY_FOR_HUMAN_GROUNDED_DRAFT_REVIEW));
+    scheck(()=>assert.strictEqual(originalItem.canonicalValue,'9999'));
+    const invalid=await entry({...f,modelProfile:{...f.modelProfile,unexpected:()=>{}},adapter:{invoke:async()=>{throw Error('MUST_NOT_CALL');}}});
+    scheck(()=>assert.strictEqual(invalid.status,STATUS.HOLD_INTEGRITY));
+    scheck(()=>assert.strictEqual(invalid.providerCalled,false));
+    scheck(()=>assert.strictEqual(invalid.providerResponse,null));
+  }
+  const deniedAuth=authorization({networkInvocationAuthorized:false});
+  const deniedInvocation=invocation(f.modelProfile,f.request,f.groundingManifest,deniedAuth);
+  const deniedResponse=response(deniedInvocation);
+  for(const validator of [validateGroundedProviderResponse,validateProofGroundedProviderResponse]){
+    const result=validator({...f,providerAuthorization:deniedAuth,invocation:deniedInvocation,providerResponse:deniedResponse});
+    scheck(()=>assert.strictEqual(result.status,STATUS.HOLD_PROVIDER));
+    scheck(()=>assert.ok(result.blockers.includes('C23_PROVIDER_NETWORK_INVOCATION_NOT_AUTHORIZED')));
+    scheck(()=>assert.strictEqual(result.draft,null));
+  }
+  console.log('C23_ASYNC_SNAPSHOT_BOUNDARY=PASS checks='+snapshotChecks+' synthetic_adapter=true');
   console.log('C23_GOVERNED_LIVE_AI_PROVIDER_GATEWAY=PASS');
 })().catch((err)=>{ console.error(err); process.exit(1); });

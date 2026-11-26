@@ -401,6 +401,7 @@ function baseBlockers({ modelProfile, request, groundingManifest, providerAuthor
       || groundingManifest.items.some(item => item.dataClass === DATA_CLASS.PERSONAL_DATA)) {
     blockers.push('C23_PRIVACY_PERSONAL_DATA_EXTERNAL_TRANSFER_NOT_AUTHORIZED');
   }
+  if (providerAuthorization.networkInvocationAuthorized !== true) blockers.push('C23_PROVIDER_NETWORK_INVOCATION_NOT_AUTHORIZED');
   if (providerAuthorization.environment !== ENVIRONMENT.ISOLATED_NON_PRODUCTION) blockers.push('C23_PROVIDER_ENVIRONMENT_NOT_ALLOWED');
   if (providerAuthorization.trainingUseCustomerData !== false) blockers.push('C23_SECURITY_CUSTOMER_DATA_TRAINING');
   if (providerAuthorization.productionDeploymentAuthorized !== false || providerAuthorization.publicAiAuthorized !== false || providerAuthorization.transactionAuthorized !== false || providerAuthorization.approvalAuthorized !== false) blockers.push('C23_SECURITY_AUTHORITY_INJECTION');
@@ -420,7 +421,6 @@ function classify(blockers) {
 function evaluateProviderReadiness(input = {}) {
   const asOf = iso(input.asOf, 'asOf');
   const blockers = baseBlockers({ ...input, asOf });
-  if (input.providerAuthorization && input.providerAuthorization.networkInvocationAuthorized !== true) blockers.push('C23_PROVIDER_NETWORK_INVOCATION_NOT_AUTHORIZED');
   const unique = [...new Set(blockers)].sort();
   return freeze({
     capability: CAPABILITY,
@@ -488,12 +488,21 @@ function validateGroundedProviderResponse(input = {}) {
 }
 
 async function executeGovernedProviderGateway(input = {}) {
-  const readiness = evaluateProviderReadiness(input);
+  // Capture the exact validated packet once. Neither the caller nor the
+  // asynchronous adapter may replace records between readiness and review.
+  let packet;
+  try {
+    const {modelProfile,request,groundingManifest,providerAuthorization,invocation,asOf}=input;
+    packet=freeze(structuredClone({modelProfile,request,groundingManifest,providerAuthorization,invocation,asOf}));
+  } catch {
+    return freeze({capability:CAPABILITY,policyVersion:POLICY_VERSION,status:STATUS.HOLD_INTEGRITY,providerInvocationReady:false,groundedDraftReviewReady:false,blockers:['C23_INTEGRITY_INPUT_SNAPSHOT'],asOf:null,providerCalled:false,providerResponse:null,draft:null,claims:null,productionDeploymentAuthorized:false,publicAiAuthorized:false,transactionAuthorized:false,approvalAuthorized:false,commercialGoLive:'HOLD'});
+  }
+  const readiness = evaluateProviderReadiness(packet);
   if (!readiness.providerInvocationReady) return freeze({ ...readiness, providerCalled: false, providerResponse: null });
   const adapter = input.adapter;
   if (!adapter || typeof adapter.invoke !== 'function') return freeze({ ...readiness, status: STATUS.HOLD_PROVIDER, providerInvocationReady: false, blockers: ['C23_PROVIDER_ADAPTER_REQUIRED'], providerCalled: false, providerResponse: null });
   try {
-    const raw = await adapter.invoke(freeze({ invocation: input.invocation, request: input.request, groundingManifest: input.groundingManifest, modelProfile: input.modelProfile }));
+    const raw = await adapter.invoke(freeze({ invocation: packet.invocation, request: packet.request, groundingManifest: packet.groundingManifest, modelProfile: packet.modelProfile }));
     if (!raw || raw.providerResult !== PROVIDER_RESULT.SUCCESS) {
       const code = raw && Object.values(PROVIDER_RESULT).includes(raw.providerResult) ? raw.providerResult : PROVIDER_RESULT.SCHEMA_ERROR;
       return freeze({ ...readiness, status: STATUS.HOLD_PROVIDER, providerInvocationReady: false, blockers: [`C23_PROVIDER_${code}`], providerCalled: true, providerResponse: null });
@@ -503,7 +512,7 @@ async function executeGovernedProviderGateway(input = {}) {
     let snapshot;
     try { snapshot = structuredClone(raw); }
     catch (_) { return freeze({ ...readiness, status: STATUS.HOLD_PROVIDER, providerInvocationReady: false, blockers: ['C23_PROVIDER_SCHEMA_ERROR'], providerCalled: true, providerResponse: null }); }
-    const checked = validateGroundedProviderResponse({ ...input, providerResponse: snapshot });
+    const checked = validateGroundedProviderResponse({ ...packet, providerResponse: snapshot });
     if (!checked.groundedDraftReviewReady) {
       return freeze({ ...readiness, ...checked, providerInvocationReady: false, providerCalled: true, providerResponse: null });
     }
