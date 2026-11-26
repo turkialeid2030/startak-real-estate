@@ -184,22 +184,22 @@ function safeProductionQualificationSummary(value,verified) {
     releaseGovernanceReviewEligible: verified && value.releaseGovernanceReviewEligible === true,
     humanReleaseAuthorityApprovalRequired: value.humanReleaseAuthorityApprovalRequired === true,
     nextStep: ['EXISTING_RELEASE_GOVERNANCE_REVIEW','COMPLETE_EXTERNAL_QUALIFICATION_EVIDENCE'].includes(value.nextStep) ? value.nextStep : null,
-    evidenceReferenceDigests: Object.fromEntries(['productionReadinessRef','independentReleaseQualificationRef','institutionalGoLiveRef'].map(k=>[k,typeof value.evidenceRefs?.[k]==='string'&&value.evidenceRefs[k].trim()?sha256Object(value.evidenceRefs[k].trim()):null])),
+    evidenceReferenceDigests: Object.fromEntries(['productionReadinessRef','independentReleaseQualificationRef','institutionalGoLiveRef'].map(k=>[k,verified&&typeof value.evidenceRefs?.[k]==='string'&&value.evidenceRefs[k].trim()?sha256Object(value.evidenceRefs[k].trim()):null])),
     gates: {
       productionReadiness: {
         status: safeStatus(value.gates?.productionReadiness?.status,['READY_FOR_PRODUCTION_REVIEW']),
-        ready: value.gates?.productionReadiness?.ready === true,
+        ready: verified && value.gates?.productionReadiness?.ready === true,
       },
       independentReleaseQualification: {
         status: safeStatus(value.gates?.independentReleaseQualification?.status,['READY_FOR_RELEASE_AUTHORITY_REVIEW']),
-        ready: value.gates?.independentReleaseQualification?.ready === true,
-        integrityValid: value.gates?.independentReleaseQualification?.integrityValid === true,
-        exactCommitSha: isCommit(value.gates?.independentReleaseQualification?.exactCommitSha) ? value.gates.independentReleaseQualification.exactCommitSha : null,
-        qualificationHashSha256: isDigest(value.gates?.independentReleaseQualification?.qualificationHashSha256) ? value.gates.independentReleaseQualification.qualificationHashSha256 : null,
+        ready: verified && value.gates?.independentReleaseQualification?.ready === true,
+        integrityValid: verified && value.gates?.independentReleaseQualification?.integrityValid === true,
+        exactCommitSha: verified && isCommit(value.gates?.independentReleaseQualification?.exactCommitSha) ? value.gates.independentReleaseQualification.exactCommitSha : null,
+        qualificationHashSha256: verified && isDigest(value.gates?.independentReleaseQualification?.qualificationHashSha256) ? value.gates.independentReleaseQualification.qualificationHashSha256 : null,
       },
       institutionalGoLiveReview: {
         status: safeStatus(value.gates?.institutionalGoLiveReview?.status,['READY_FOR_HUMAN_GO_LIVE_DECISION']),
-        ready: value.gates?.institutionalGoLiveReview?.ready === true,
+        ready: verified && value.gates?.institutionalGoLiveReview?.ready === true,
       },
     },
   });
@@ -218,6 +218,7 @@ function safeSecurityUatSummary(value,verified) {
     uatFailedScenarios: verified && Number.isSafeInteger(value.uat?.failedScenarios) && value.uat.failedScenarios>=0 ? value.uat.failedScenarios : null,
     uatScenarioCount: verified && Number.isSafeInteger(value.uat?.scenarioBinding?.scenarioCount) && value.uat.scenarioBinding.scenarioCount>0 ? value.uat.scenarioBinding.scenarioCount : null,
     uatScenarioPlanHashSha256: verified && isDigest(value.uat?.scenarioBinding?.planHashSha256) ? value.uat.scenarioBinding.planHashSha256 : null,
+    uatScenarioResultsHashSha256:verified&&isDigest(value.uat?.scenarioBinding?.scenarioResultsHashSha256)?value.uat.scenarioBinding.scenarioResultsHashSha256:null,
     observabilityCompletedAt:verified && typeof value.plan?.observabilityCompletedAt==='string'&&Number.isFinite(Date.parse(value.plan.observabilityCompletedAt))?new Date(Date.parse(value.plan.observabilityCompletedAt)).toISOString():null,
   });
 }
@@ -248,21 +249,22 @@ function buildProductizationReleaseCandidateEvidenceBundle(input = {}) {
   if (!productionVerified) {
     status = RELEASE_CANDIDATE_STATUS.HOLD_PRODUCTION_QUALIFICATION;
     issues.push('PRODUCTION_QUALIFICATION_NOT_READY');
-  } else if (!securityVerified) {
+  }
+  if (!securityVerified) {
     const hasExpectedStatus = input.securityUatEvidence?.status === SECURITY_UAT_STATUS.INDEPENDENT_SECURITY_UAT_EVIDENCE_COMPLETE_NOT_RELEASE_AUTHORIZED;
     const scopeMismatch=hasExpectedStatus&&(input.securityUatEvidence?.plan?.environment!==target.environment||input.securityUatEvidence?.plan?.serviceRef!==target.serviceRef||input.securityUatEvidence?.plan?.exactCommitSha!==target.exactCommitSha);
-    status=scopeMismatch?RELEASE_CANDIDATE_STATUS.HOLD_SCOPE_MISMATCH:RELEASE_CANDIDATE_STATUS.HOLD_SECURITY_UAT_EVIDENCE;
+    if(status===RELEASE_CANDIDATE_STATUS.READY_FOR_EXISTING_RELEASE_GOVERNANCE_REVIEW)status=scopeMismatch?RELEASE_CANDIDATE_STATUS.HOLD_SCOPE_MISMATCH:RELEASE_CANDIDATE_STATUS.HOLD_SECURITY_UAT_EVIDENCE;
     issues.push(scopeMismatch?'SECURITY_UAT_TARGET_SCOPE_MISMATCH':'SECURITY_UAT_EVIDENCE_NOT_READY_OR_INVALID');
   }
 
   const missingBlockers = REQUIRED_OPEN_EXTERNAL_BLOCKERS.filter((item) => !blockers.includes(item));
-  if (missingBlockers.length > 0 && status === RELEASE_CANDIDATE_STATUS.READY_FOR_EXISTING_RELEASE_GOVERNANCE_REVIEW) {
-    status = RELEASE_CANDIDATE_STATUS.HOLD_EXTERNAL_BLOCKER_REGISTER;
+  if (missingBlockers.length > 0) {
+    if(status===RELEASE_CANDIDATE_STATUS.READY_FOR_EXISTING_RELEASE_GOVERNANCE_REVIEW)status = RELEASE_CANDIDATE_STATUS.HOLD_EXTERNAL_BLOCKER_REGISTER;
     issues.push(...missingBlockers.map((item) => `MISSING_OPEN_EXTERNAL_BLOCKER:${item}`));
   }
 
-  if (assembledBy === reviewedBy && status === RELEASE_CANDIDATE_STATUS.READY_FOR_EXISTING_RELEASE_GOVERNANCE_REVIEW) {
-    status = RELEASE_CANDIDATE_STATUS.HOLD_REVIEW_GOVERNANCE;
+  if (assembledBy === reviewedBy) {
+    if(status===RELEASE_CANDIDATE_STATUS.READY_FOR_EXISTING_RELEASE_GOVERNANCE_REVIEW)status = RELEASE_CANDIDATE_STATUS.HOLD_REVIEW_GOVERNANCE;
     issues.push('RELEASE_CANDIDATE_REQUIRES_SEPARATE_REVIEWER');
   }
 
@@ -282,13 +284,11 @@ function buildProductizationReleaseCandidateEvidenceBundle(input = {}) {
     status,
     issues,
   };
-  const manifestHashSha256 = sha256Object(core);
   const ready = status === RELEASE_CANDIDATE_STATUS.READY_FOR_EXISTING_RELEASE_GOVERNANCE_REVIEW;
 
-  return freeze({
+  const manifestCore={
     ...core,
-    manifestHashSha256,
-    manifestRef: `sha256:${manifestHashSha256}`,
+    manifestDigestVersion:2,
     releaseGovernanceReviewEligible: ready,
     engineeringEvidenceBundleAssembled: ready,
     externalBlockersRemainOpen: true,
@@ -298,9 +298,21 @@ function buildProductizationReleaseCandidateEvidenceBundle(input = {}) {
     semantics: ready
       ? 'READY_FOR_EXISTING_RELEASE_GOVERNANCE_REVIEW means the existing production-qualification composition and exact-commit P19 security/UAT evidence are assembled into a deterministic manifest, all required unresolved external blockers are explicitly registered, and a separate reviewer is recorded. It authorizes only entry into the existing human release-governance process; every listed external blocker remains open and all release/deployment authority remains false.'
       : 'HOLD means the release-candidate evidence manifest is incomplete, target scope is inconsistent, required external blockers are not explicitly registered, or review separation is missing. This module does not validate external evidence authenticity or authorize release, merge, deployment, go-live, or transactions.',
-  });
+  };
+  const manifestHashSha256=sha256Object(manifestCore);
+  return freeze({...manifestCore,manifestHashSha256,manifestRef:`sha256:${manifestHashSha256}`});
 }
 
+// Compare JSON structure before digest comparison; undefined extra keys and
+// non-JSON representations must not be silently ignored by canonicalization.
+function exactJsonShape(a,b){
+ if(a===null||b===null||typeof a!=='object'||typeof b!=='object')return a===b;
+ if(Array.isArray(a)!==Array.isArray(b))return false;
+ if(Object.getPrototypeOf(a)!==Object.getPrototypeOf(b)&&Object.getPrototypeOf(a)!==null)return false;
+ const keys=Reflect.ownKeys(a),expected=Reflect.ownKeys(b);
+ if(keys.length!==expected.length||keys.some(k=>typeof k!=='string'||!Object.hasOwn(b,k)))return false;
+ return keys.every(k=>{const desc=Object.getOwnPropertyDescriptor(a,k);return Object.hasOwn(desc,'value')&&exactJsonShape(desc.value,b[k]);});
+}
 // Verify by reconstruction from separately supplied source inputs, not by
 // accepting a self-reported digest. Recheck time-sensitive P19 evidence as of
 // the requested review time; this is structural integrity, not authentication.
@@ -312,7 +324,7 @@ function verifyReleaseCandidateManifest(manifest, sourceInput, asOf) {
     if(expected.status!==RELEASE_CANDIDATE_STATUS.READY_FOR_EXISTING_RELEASE_GOVERNANCE_REVIEW)return false;
     if(!securityUatReady(sourceInput.securityUatEvidence,expected,asOf))return false;
     // Exact normalized manifest including authority and non-claim flags.
-    return sha256Object(manifest)===sha256Object(expected);
+    return exactJsonShape(manifest,expected)&&sha256Object(manifest)===sha256Object(expected);
   }catch{return false;}
 }
 
