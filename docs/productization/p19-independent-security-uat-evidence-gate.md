@@ -42,15 +42,17 @@ The supplied record must include:
 - authorization-workflow acceptance
 - non-zero required scenario count
 - all required scenarios passing and zero failed scenarios
+- a canonical SHA-256-bound scenario plan scoped to the exact staging service and commit, prepared before execution and valid through completion
+- one passing result for each unique planned scenario, matching its role and expected-outcome digest, with an actual-observation digest; aggregate counts alone are insufficient
 - start, completion and review timestamps
 
 ## Freshness and scope
 
-P19 applies a caller-supplied maximum evidence age in days. Evidence reviewed in the future or older than the configured age is rejected. Pentest and UAT records must both match the exact target environment, service and commit.
+P19 applies a caller-supplied maximum evidence age in days. Evidence completed outside the configured age or reviewed in the future is rejected; re-review does not renew measurement freshness. All five total and open severity counts must be explicit non-negative safe integers. Pentest and UAT records must both match the exact target environment, service and commit.
 
 ## Data minimization
 
-Raw external report references, acceptance references, assessor names and reviewer identities are not returned. They are reduced to SHA-256 references. Unknown input fields such as passwords, tokens or provider metadata are not propagated.
+Raw external report references, acceptance references, assessor names and reviewer identities are not returned. They are reduced to SHA-256 references. Unknown input fields such as passwords, tokens or provider metadata are not propagated. Individual scenario identifiers and observation details are not returned; the accepted bundle includes only the scenario-plan and outcome digests and scenario count. A caller-supplied plan and digests do not prove independent approval or actual human participation.
 
 ## Successful state
 
