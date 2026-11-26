@@ -1,6 +1,7 @@
 import React,{useState} from 'react';
 import {useAppraisalReviewSession} from './AppraisalReviewSessionContext.jsx';
 const {evaluatePersonalReportExport,assertPersonalReportExportAllowed}=require('../market/appraisal-report-export-gate');
+const {dispatchLocalHtmlDownload}=require('../reporting/local-html-download');
 const {renderStudio,renderExternalReview,issueLabel,esgLabel}=require('../reporting/reporting-studio');
 const {FACTORS}=require('../reporting/property-esg-screening');
 const {KINDS}=require('../reporting/saudi-rental-intelligence');
@@ -16,26 +17,13 @@ export default function ProfessionalReportingStudio({runtime,valuationCase,local
  const gate=evaluatePersonalReportExport({subject,link});
  const download=(html,name)=>{
   assertPersonalReportExportAllowed({subject,link});
-  const url=URL.createObjectURL(new Blob([html],{type:'text/html;charset=utf-8'}));
-  const a=document.createElement('a');a.href=url;a.download=name;
-  let dispatched=false;
-  try{
-   document.body.appendChild(a);
-   a.click();
-   dispatched=true;
-  }finally{
-   a.remove();
-   // WebKit can resolve the blob URL asynchronously after the click returns.
-   // Revoke failed dispatches immediately and successful ones after a bounded grace period.
-   if(dispatched)window.setTimeout(()=>URL.revokeObjectURL(url),10000);
-   else URL.revokeObjectURL(url);
-  }
+  return dispatchLocalHtmlDownload(html,name);
  };
  const generate=()=>{try{download(renderStudio({runtime,valuationCase,mode,locale}).html,'startak-research-'+mode.toLowerCase()+'.html');setNotice('EXPORTED');}catch{setNotice('INVALID');}};
  const audit=()=>{setReview(null);setNotice('');try{if(new TextEncoder().encode(raw).length>65536)throw Error('SIZE');const out=renderExternalReview(JSON.parse(raw),{locale});setReview(out.report);setNotice('REVIEWED');}catch{setNotice('INVALID');}};
  const exportAudit=()=>{try{if(!review)throw Error('REVIEW_REQUIRED');const out=renderExternalReview(JSON.parse(raw),{locale});if(out.report.reviewHashSha256!==review.reviewHashSha256)throw Error('STALE');download(out.html,'startak-external-review.html');setNotice('EXPORTED');}catch{setNotice('INVALID');}};
  const style={background:'#f2f4f6',color:'#10243a'};
- const noticeText={EXPORTED:t('تم إنشاء ملف HTML محلي قابل للطباعة.','Local printable HTML created.'),INVALID:t('تعذر إنشاء التقرير؛ تحقق من بنية المدخلات والبيانات.','Report unavailable; check input structure and data.'),REVIEWED:t('اكتملت المراجعة الحسابية للبيانات المنقولة.','Arithmetic review of transcribed data complete.')};
+ const noticeText={EXPORTED:t('تم طلب تنزيل ملف HTML محلي قابل للطباعة.','Local printable HTML download requested.'),INVALID:t('تعذر إنشاء التقرير؛ تحقق من بنية المدخلات والبيانات.','Report unavailable; check input structure and data.'),REVIEWED:t('اكتملت المراجعة الحسابية للبيانات المنقولة.','Arithmetic review of transcribed data complete.')};
  return <section data-testid="professional-reporting-studio" className="mt-4 p-4 rounded-xl border border-slate-600" dir={ar?'rtl':'ltr'}>
  <h3 className="font-semibold text-amber-200">{t('مركز التقارير العقارية البحثية','Real estate research reporting studio')}</h3>
  <p className="text-xs mt-2">{t('مسودات بحثية غير معتمدة. لا يتجاوز هذا المسار بوابة التقرير المحكوم، ولا يثبت صلاحية مهنية.','Uncertified research drafts. This route does not bypass governed report export or establish professional authority.')}</p>

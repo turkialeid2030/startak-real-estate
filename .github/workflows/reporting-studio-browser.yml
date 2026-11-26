@@ -5,6 +5,7 @@ on:
       - 'src/**'
       - 'tests/e2e/run_reporting_studio_browser.js'
       - 'tests/defects/reporting_studio.js'
+      - 'tests/defects/local_html_download_lifecycle.js'
       - 'tests/defects/land_history_report.js'
       - 'tests/defects/owner_redevelopment_research.js'
       - 'tests/defects/property_esg_screening.js'
@@ -42,6 +43,7 @@ jobs:
       - name: Bind exact source
         run: test "$(git rev-parse HEAD)" = "$STARTAK_SOURCE_COMMIT"
       - run: npm ci
+      - run: node tests/defects/local_html_download_lifecycle.js
       - run: node tests/defects/reporting_studio.js
       - run: node tests/defects/land_history_report.js
       - run: node tests/defects/owner_redevelopment_research.js
