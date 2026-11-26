@@ -12,7 +12,7 @@ const valid=(v,min=0,max=1e15)=>{
 };
 const supplied=v=>v!==undefined&&v!==null&&v!=='';
 const money=v=>Math.round((v+Number.EPSILON)*100)/100;
-const gap=(a,b)=>a>0&&b>0?Math.abs(a-b)/Math.max(a,b):null;
+const gap=(a,b)=>a>=0&&b>=0&&Math.max(a,b)>0?Math.abs(a-b)/Math.max(a,b):null;
 function detailedReplacementCost({landArea,landPricePerSqm,components,
   feeRatesPct={},effectiveAgeYears,buildingLifeYears,depreciationPct,
   finalRoundingStep=1000}={}){
@@ -122,11 +122,12 @@ function reconcileValuationMethods({marketValueSar,costValueSar,incomeValueSar,
   const nla=valid(rentableArea,0.0001),rentRate=valid(marketRentPerSqmYear,0.0001);
   if(supplied(rentableArea)&&nla===null)issues.push('RENTABLE_AREA_INVALID');
   if(supplied(marketRentPerSqmYear)&&rentRate===null)issues.push('MARKET_RENT_PER_SQM_INVALID');
+  let rawComparableAnnualRent=null;
   if(nla!==null&&rentRate!==null){
     const annualRent=nla*rentRate;
     if(!Number.isFinite(annualRent)||annualRent>1e15)
       issues.push('MARKET_ANNUAL_RENT_OUT_OF_RANGE');
-    else metrics.comparableMarketAnnualRentSar=money(annualRent);
+    else {rawComparableAnnualRent=annualRent;metrics.comparableMarketAnnualRentSar=money(annualRent);}
   }
   let rentFromValue=valid(annualRentFromValueSar,0.0001);
   const valueForRent=valid(baseValueSar,0.0001);
@@ -163,8 +164,9 @@ function reconcileValuationMethods({marketValueSar,costValueSar,incomeValueSar,
       issues.push('IMPLIED_RENT_RATE_OUT_OF_RANGE');
     else metrics.impliedRentSarPerSqmYear=money(impliedRate);
   }
-  if(rentFromValue!==null&&metrics.comparableMarketAnnualRentSar!==undefined){
-    const amount=metrics.comparableMarketAnnualRentSar;
+  if(rentFromValue!==null&&rawComparableAnnualRent!==null){
+    // Compare unrounded amounts; rounding is for display only.
+    const amount=rawComparableAnnualRent;
     metrics.annualRentGapSar=money(rentFromValue-amount);
     metrics.annualRentGapPctOfComparable=amount>0?money((rentFromValue-amount)/amount*100):null;
     if(gap(rentFromValue,amount)>=.05)issues.push('RENT_METHODOLOGY_GAP_REQUIRES_RECONCILIATION');

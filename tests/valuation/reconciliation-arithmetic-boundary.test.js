@@ -140,4 +140,21 @@ assert.equal(rounded.status,'REVIEW_REQUIRED');
 const arabicRent=reconcileValuationMethods({...common,annualRentFromValueSar:'٥٠٠٬٠٠٠'});
 assert.equal(arabicRent.metrics.valuePercentageAnnualRentErrorSar,0);
 assert.equal(arabicRent.status,'REVIEW_REQUIRED');
+// A zero percentage-derived rent is not a missing observation.
+const zeroVsMarket=reconcileValuationMethods({...common,annualRentPctOfValue:0,rentableArea:1000,marketRentPerSqmYear:500});
+assert.equal(zeroVsMarket.metrics.valuePercentageAnnualRentSar,0);
+assert.equal(zeroVsMarket.metrics.comparableMarketAnnualRentSar,500000);
+assert.equal(zeroVsMarket.metrics.annualRentGapSar,-500000);
+assert.equal(zeroVsMarket.metrics.annualRentGapPctOfComparable,-100);
+assert.ok(zeroVsMarket.issues.includes('RENT_METHODOLOGY_GAP_REQUIRES_RECONCILIATION'));
+assert.equal(zeroVsMarket.certified,false);
+assert.equal(zeroVsMarket.automaticPrimaryValueSar,null);
+// A displayed rounded value must not be used as a calculation denominator.
+const small=reconcileValuationMethods({...common,rentableArea:0.001,marketRentPerSqmYear:1,annualRentFromValueSar:0.001,baseValueSar:undefined,annualRentPctOfValue:undefined});
+assert.equal(small.metrics.comparableMarketAnnualRentSar,0);
+assert.equal(small.metrics.annualRentGapPctOfComparable,0);
+assert.ok(!small.issues.includes('RENT_METHODOLOGY_GAP_REQUIRES_RECONCILIATION'));
+const smallConflict=reconcileValuationMethods({...common,rentableArea:0.001,marketRentPerSqmYear:1,annualRentFromValueSar:0.002,baseValueSar:undefined,annualRentPctOfValue:undefined});
+assert.equal(smallConflict.metrics.annualRentGapPctOfComparable,100);
+assert.ok(smallConflict.issues.includes('RENT_METHODOLOGY_GAP_REQUIRES_RECONCILIATION'));
 console.log('VALUATION_RECONCILIATION_ARITHMETIC_BOUNDARY=PASS synthetic_only=true certified=false');
