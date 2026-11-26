@@ -118,4 +118,21 @@ assert.throws(()=>createStagePacket({
   stageId:STAGE_ID.GEOSPATIAL_EVIDENCE,caseId:'C',propertyRef:'P',capabilityRef:'CAP',status:STAGE_STATUS.READY,inputHashSha256:hash('i'),outputHashSha256:hash('o'),lineageHashesSha256:[hash('l')],blockers:['ILLEGAL'],riskFlags:[],evaluatedAt:'2026-10-01T10:00:00Z',validUntil:'2026-10-02T10:00:00Z',transactionAuthorized:false,approvalAuthorized:false,publicAiAuthorized:false,autonomousActionExecuted:false,
 }),/C24_READY_STAGE_CANNOT_HAVE_BLOCKERS/);
 
+// Hash consistency alone cannot authorize an invalid stage or policy.
+const canonical=v=>Array.isArray(v)?v.map(canonical):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,canonical(v[k])])):v;
+const rehash=(r,field,patch)=>{const core={...r,...patch};delete core[field];return {...core,[field]:hash(JSON.stringify(canonical(core)))};};
+for(const patch of [{status:'UNKNOWN'},{blockers:['UNRESOLVED']},{riskFlags:null},{evaluatedAt:'invalid'},{lineageHashesSha256:[]},{transactionAuthorized:true}]){
+  const changed=rehash(readyPackets[0],'stagePacketHashSha256',patch);
+  const out=run([changed,...readyPackets.slice(1)]);
+  assert.strictEqual(out.status,OVERALL_STATUS.HOLD);assert.ok(out.blockers.includes('C24_INTEGRITY_STAGE_PACKET'));
+}
+const basePolicy=policy();
+for(const patch of [{requiredStageIds:[]},{allowedCapabilityRefsByStage:{}},{aiMayOverrideDeterministicState:true},{validUntil:'invalid'}]){
+  const out=run(readyPackets,{policy:rehash(basePolicy,'policyHashSha256',patch)});
+  assert.strictEqual(out.status,OVERALL_STATUS.HOLD);assert.ok(out.blockers.includes('C24_INTEGRITY_POLICY'));
+}
+assert.throws(()=>packet(stages[0],{lineageHashesSha256:['a'.repeat(64),'A'.repeat(64)]}),/duplicate/);
+assert.strictEqual(assessReplay({...ready,status:'HOLD'},replay).status,'INVALID');
+assert.strictEqual(assessReplay(rehash(ready,'resultHashSha256',{approvalAuthorized:true}),replay).status,'INVALID');
+console.log('C24_V612_CANONICAL_STAGE_POLICY_REPLAY=PASS stage_cases=6 policy_cases=4 replay_cases=2');
 console.log('C24_INTEGRATED_CASE_PROPERTY_ORCHESTRATION=PASS');

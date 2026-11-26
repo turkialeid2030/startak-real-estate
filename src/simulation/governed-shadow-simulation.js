@@ -32,7 +32,7 @@ const GIT_SHA_RE = /^[a-f0-9]{40}$/;
 
 function canonicalize(value) {
   if (Array.isArray(value)) return value.map(canonicalize);
-  if (value && typeof value === 'object') return Object.keys(value).sort().reduce((out, key) => { out[key] = canonicalize(value[key]); return out; }, {});
+  if (value && typeof value === 'object') return Object.fromEntries(Object.keys(value).sort().map(key=>[key,canonicalize(value[key])]));
   return value;
 }
 function stableJson(value) { return JSON.stringify(canonicalize(value)); }
@@ -42,8 +42,7 @@ function requireSha256(value, code) { if (typeof value !== 'string' || !SHA256_R
 function requireGitSha(value, code) { if (typeof value !== 'string' || !GIT_SHA_RE.test(value)) throw new Error(code); return value; }
 function requireIso(value, code) { requireText(value, code); if (Number.isNaN(Date.parse(value))) throw new Error(code); return value; }
 function sideEffectsFalse(input) {
-  return input.transactionExecuted !== true && input.bidSubmitted !== true && input.paymentInitiated !== true &&
-    input.filingSubmitted !== true && input.termsAccepted !== true && input.productionDeploymentExecuted !== true && input.autonomousActionExecuted !== true;
+  return ['transactionExecuted','bidSubmitted','paymentInitiated','filingSubmitted','termsAccepted','productionDeploymentExecuted','autonomousActionExecuted'].every(k=>!Object.hasOwn(input,k)||input[k]===false);
 }
 
 function scenarioMaterial(input) {
@@ -60,7 +59,7 @@ function createSimulationScenario(input) {
   if (!Object.values(SCENARIO_TYPE).includes(input.scenarioType)) throw new Error('C29_SCENARIO_TYPE_UNKNOWN');
   if (!sideEffectsFalse(input)) throw new Error('C29_REAL_SIDE_EFFECT_FORBIDDEN');
   const external = EXTERNAL_TYPES.has(input.scenarioType);
-  if (external && input.synthetic === true) throw new Error('C29_EXTERNAL_EVIDENCE_SCENARIO_CANNOT_BE_SYNTHETIC');
+  if (external && input.synthetic !== false) throw new Error('C29_EXTERNAL_EVIDENCE_SCENARIO_CANNOT_BE_SYNTHETIC');
   const material = scenarioMaterial({
     scenarioId: requireText(input.scenarioId, 'C29_SCENARIO_ID_REQUIRED'), scenarioType: input.scenarioType,
     caseId: requireText(input.caseId, 'C29_CASE_ID_REQUIRED'), propertyRef: requireText(input.propertyRef, 'C29_PROPERTY_REF_REQUIRED'),
@@ -104,8 +103,8 @@ function createSimulationObservation(input) {
   }
   return Object.freeze({ ...material, observationHashSha256: sha256(material) });
 }
-function verifyScenario(s) { return !!s && SHA256_RE.test(s.scenarioHashSha256 || '') && sha256(scenarioMaterial(s)) === s.scenarioHashSha256; }
-function verifyObservation(o) { return !!o && SHA256_RE.test(o.observationHashSha256 || '') && sha256(observationMaterial(o)) === o.observationHashSha256; }
+function verifyScenario(s) {try{return !!s&&stableJson(s)===stableJson(createSimulationScenario(s));}catch{return false;}}
+function verifyObservation(o) {try{return !!o&&stableJson(o)===stableJson(createSimulationObservation(o));}catch{return false;}}
 
 function evaluateShadowCampaign({ campaignId, candidateHeadSha, caseId, propertyRef, scenarios, observations, evaluatedAt }) {
   requireText(campaignId, 'C29_CAMPAIGN_ID_REQUIRED'); requireGitSha(candidateHeadSha, 'C29_CANDIDATE_HEAD_INVALID');
@@ -121,17 +120,23 @@ function evaluateShadowCampaign({ campaignId, candidateHeadSha, caseId, property
     if (scenario.caseId !== caseId || scenario.propertyRef !== propertyRef) blockers.push(`C29_CONTEXT_SCENARIO_MISMATCH:${scenario.scenarioId}`);
   }
   for (const type of Object.values(SCENARIO_TYPE)) if (!typeSeen.has(type)) blockers.push(`C29_MISSING_SCENARIO_TYPE:${type}`);
-  const observationByScenario = new Map();
+  const observationByScenario = new Map(), observationIds=new Set();
   for (const observation of observations) {
     if (!verifyObservation(observation)) { blockers.push('C29_INTEGRITY_OBSERVATION_TAMPERED'); continue; }
+    if(observationIds.has(observation.observationId))blockers.push('C29_DUPLICATE_OBSERVATION_ID');
+    observationIds.add(observation.observationId);
     if (observationByScenario.has(observation.scenarioId)) blockers.push(`C29_DUPLICATE_OBSERVATION:${observation.scenarioId}`); observationByScenario.set(observation.scenarioId, observation);
     const scenario = scenarioById.get(observation.scenarioId);
     if (!scenario || scenario.scenarioHashSha256 !== observation.scenarioHashSha256) blockers.push(`C29_CONTEXT_OBSERVATION_BINDING:${observation.scenarioId}`);
     if (observation.observedAt && Date.parse(observation.observedAt) > Date.parse(evaluatedAt)) blockers.push(`C29_FUTURE_OBSERVATION:${observation.scenarioId}`);
     if (scenario && EXTERNAL_TYPES.has(scenario.scenarioType) && observation.status === OBSERVATION_STATUS.COMPLETED_SYNTHETIC) blockers.push(`C29_EXTERNAL_SCENARIO_SYNTHETIC_RESULT:${scenario.scenarioType}`);
     if (scenario && !EXTERNAL_TYPES.has(scenario.scenarioType) && observation.status === OBSERVATION_STATUS.EVIDENCE_CAPTURED_ACTUAL) blockers.push(`C29_TECHNICAL_SCENARIO_MISLABELED_ACTUAL:${scenario.scenarioType}`);
+    if(scenario&&EXTERNAL_TYPES.has(scenario.scenarioType)&&observation.status===OBSERVATION_STATUS.EVIDENCE_CAPTURED_ACTUAL){
+      const expectedKind=scenario.scenarioType===SCENARIO_TYPE.HISTORICAL_REPLAY?'HISTORICAL_REPLAY_INPUT_AND_RESULT_EVIDENCE':'UAT_PROFESSIONAL_REVIEW_EVIDENCE';
+      if(observation.evidenceKind!==expectedKind)blockers.push('C29_CONTEXT_EXTERNAL_EVIDENCE_KIND:'+scenario.scenarioType);
+    }
   }
-  for (const scenario of scenarios) if (!observationByScenario.has(scenario.scenarioId)) blockers.push(`C29_MISSING_OBSERVATION:${scenario.scenarioId}`);
+  for (const scenario of scenarioById.values()) if (!observationByScenario.has(scenario.scenarioId)) blockers.push(`C29_MISSING_OBSERVATION:${scenario.scenarioId}`);
   let status;
   if (blockers.some((b) => b.startsWith('C29_INTEGRITY') || b.startsWith('C29_DUPLICATE') || b.startsWith('C29_HEAD_MISMATCH'))) status = CAMPAIGN_STATUS.HOLD_INTEGRITY;
   else if (blockers.some((b) => b.startsWith('C29_CONTEXT') || b.includes('MISLABELED') || b.includes('SYNTHETIC_RESULT'))) status = CAMPAIGN_STATUS.HOLD_CONTEXT;
@@ -142,8 +147,8 @@ function evaluateShadowCampaign({ campaignId, candidateHeadSha, caseId, property
     if (technicalOpen) status = CAMPAIGN_STATUS.HOLD_EVIDENCE;
     else status = scenarios.some((s) => EXTERNAL_TYPES.has(s.scenarioType) && observationByScenario.get(s.scenarioId).status === OBSERVATION_STATUS.NOT_EVALUATED) ? CAMPAIGN_STATUS.TECHNICALLY_COMPLETE_EXTERNAL_EVIDENCE_OPEN : CAMPAIGN_STATUS.TECHNICALLY_COMPLETE;
   }
-  const externalOpenTypes = scenarios.filter((s) => EXTERNAL_TYPES.has(s.scenarioType) && observationByScenario.get(s.scenarioId)?.status === OBSERVATION_STATUS.NOT_EVALUATED).map((s) => s.scenarioType).sort();
-  const material = { campaignId, candidateHeadSha, caseId, propertyRef, evaluatedAt, status, blockers: [...new Set(blockers)].sort(), externalOpenTypes, scenarioHashesSha256: scenarios.map((s) => s.scenarioHashSha256).filter(Boolean).sort(), observationHashesSha256: observations.map((o) => o.observationHashSha256).filter(Boolean).sort() };
+  const externalOpenTypes = [...EXTERNAL_TYPES].filter(type=>![...scenarioById.values()].some(s=>s.scenarioType===type&&observationByScenario.get(s.scenarioId)?.status===OBSERVATION_STATUS.EVIDENCE_CAPTURED_ACTUAL&&observationByScenario.get(s.scenarioId)?.scenarioHashSha256===s.scenarioHashSha256&&observationByScenario.get(s.scenarioId)?.evidenceKind===(type===SCENARIO_TYPE.HISTORICAL_REPLAY?'HISTORICAL_REPLAY_INPUT_AND_RESULT_EVIDENCE':'UAT_PROFESSIONAL_REVIEW_EVIDENCE'))).sort();
+  const material = { campaignId, candidateHeadSha, caseId, propertyRef, evaluatedAt, status, blockers: [...new Set(blockers)].sort(), externalOpenTypes, scenarioHashesSha256: scenarios.filter(verifyScenario).map(s=>s.scenarioHashSha256).sort(), observationHashesSha256: observations.filter(verifyObservation).map(o=>o.observationHashSha256).sort() };
   return Object.freeze({ ...material,
     technicalSimulationComplete: status === CAMPAIGN_STATUS.TECHNICALLY_COMPLETE || status === CAMPAIGN_STATUS.TECHNICALLY_COMPLETE_EXTERNAL_EVIDENCE_OPEN,
     historicalPerformanceEstablished: false, uatApproved: false, productionPerformanceClaimed: false,

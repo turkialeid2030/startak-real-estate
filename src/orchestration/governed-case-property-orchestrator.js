@@ -53,7 +53,7 @@ function iso(value, field) {
 function stable(value) {
   if (Array.isArray(value)) return value.map(stable);
   if (!value || typeof value !== 'object') return value;
-  return Object.keys(value).sort().reduce((out, key) => { out[key] = stable(value[key]); return out; }, {});
+  return Object.fromEntries(Object.keys(value).sort().map(key=>[key,stable(value[key])]));
 }
 function sha256(value) { return crypto.createHash('sha256').update(JSON.stringify(stable(value))).digest('hex'); }
 function without(value, fields) { const out = { ...value }; fields.forEach((f) => delete out[f]); return out; }
@@ -76,7 +76,7 @@ function hash(value, field) {
 function integrity(record, hashField) {
   if (!record || typeof record !== 'object' || Array.isArray(record)) return false;
   const h = clean(record[hashField]).toLowerCase();
-  return HASH_RE.test(h) && sha256(without(record, [hashField])) === h;
+  try{return HASH_RE.test(h) && sha256(without(record, [hashField])) === h;}catch{return false;}
 }
 function scopeRef(value) { return nonEmpty(value) ? value.trim() : null; }
 
@@ -86,7 +86,7 @@ function createStagePacket(x = {}) {
   if (!Object.values(STAGE_STATUS).includes(x.status)) throw new TypeError('C24_STAGE_STATUS_UNSUPPORTED');
   const inputHashSha256 = hash(x.inputHashSha256, 'inputHashSha256');
   const outputHashSha256 = hash(x.outputHashSha256, 'outputHashSha256');
-  const lineageHashesSha256 = uniqueStrings(x.lineageHashesSha256 || [], 'lineageHashesSha256');
+  const lineageHashesSha256 = uniqueStrings((x.lineageHashesSha256 || []).map(h=>hash(h,'lineage hash')), 'lineageHashesSha256');
   if (!lineageHashesSha256.length || lineageHashesSha256.some((h) => !HASH_RE.test(h))) throw new TypeError('C24_LINEAGE_HASHES_REQUIRED');
   const blockers = uniqueStrings(x.blockers || [], 'blockers');
   const riskFlags = uniqueStrings(x.riskFlags || [], 'riskFlags');
@@ -118,7 +118,7 @@ function createStagePacket(x = {}) {
   };
   return freeze({ ...core, stagePacketHashSha256: sha256(core) });
 }
-function verifyStagePacket(r) { return integrity(r, 'stagePacketHashSha256'); }
+function verifyStagePacket(r) { try{return integrity(r,'stagePacketHashSha256')&&createStagePacket(r).stagePacketHashSha256===r.stagePacketHashSha256;}catch{return false;} }
 
 function normalizeCapabilityBindings(requiredStageIds, optionalStageIds, bindings) {
   if (!bindings || typeof bindings !== 'object' || Array.isArray(bindings)) throw new TypeError('C24_CAPABILITY_BINDINGS_REQUIRED');
@@ -164,7 +164,7 @@ function createOrchestrationPolicy(x = {}) {
   };
   return freeze({ ...core, policyHashSha256: sha256(core) });
 }
-function verifyOrchestrationPolicy(r) { return integrity(r, 'policyHashSha256'); }
+function verifyOrchestrationPolicy(r) { try{return integrity(r,'policyHashSha256')&&createOrchestrationPolicy(r).policyHashSha256===r.policyHashSha256;}catch{return false;} }
 
 function evaluateCaseOrchestration(input = {}) {
   ['executionId','caseId','propertyRef'].forEach((f) => { if (!nonEmpty(input[f])) throw new TypeError(`${f} must be a non-empty string`); });
@@ -255,6 +255,7 @@ function evaluateCaseOrchestration(input = {}) {
 
 function assessReplay(previousResult, nextResult) {
   if (!previousResult || !nextResult || !nonEmpty(previousResult.executionId) || !nonEmpty(nextResult.executionId)) return freeze({ status: 'INVALID', conflict: true, reason: 'C24_REPLAY_RESULT_REQUIRED' });
+  if (![previousResult,nextResult].every(r=>integrity(r,'resultHashSha256')&&r.capability===CAPABILITY&&r.policyVersion===POLICY_VERSION&&Object.values(OVERALL_STATUS).includes(r.status)&&r.humanCaseReviewReady===(r.status===OVERALL_STATUS.READY_FOR_HUMAN_CASE_REVIEW)&&['aiOverrideApplied','transactionAuthorized','approvalAuthorized','publicAiAuthorized','autonomousActionExecuted','productionDeploymentAuthorized'].every(k=>r[k]===false)&&r.commercialGoLive==='HOLD')) return freeze({status:'INVALID',conflict:true,reason:'C24_REPLAY_RESULT_INTEGRITY'});
   if (previousResult.executionId !== nextResult.executionId) return freeze({ status: 'DISTINCT_EXECUTION', conflict: false, reason: null });
   if (previousResult.inputFingerprintSha256 !== nextResult.inputFingerprintSha256) return freeze({ status: 'CONFLICT', conflict: true, reason: 'C24_REPLAY_EXECUTION_ID_INPUT_CONFLICT' });
   if (previousResult.resultHashSha256 !== nextResult.resultHashSha256) return freeze({ status: 'CONFLICT', conflict: true, reason: 'C24_REPLAY_NONDETERMINISTIC_RESULT' });

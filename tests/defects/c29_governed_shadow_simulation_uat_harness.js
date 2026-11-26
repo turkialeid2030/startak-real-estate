@@ -90,4 +90,24 @@ assert.throws(()=>createSimulationObservation({observationId:'FAKE-HISTORY',scen
 assert.throws(()=>createSimulationObservation({observationId:'SYNTHETIC-PRETENDING-ACTUAL',scenarioId:byType[SCENARIO_TYPE.MONTE_CARLO].scenarioId,scenarioHashSha256:byType[SCENARIO_TYPE.MONTE_CARLO].scenarioHashSha256,status:OBSERVATION_STATUS.COMPLETED_SYNTHETIC,outputHashSha256:hash('x'),observedAt:'2026-10-01T19:00:00Z',evidenceRef:'FAKE',evidenceHashSha256:hash('fake'),evidenceKind:'PRODUCTION_RESULT'}),/C29_SYNTHETIC_OBSERVATION_MUST_NOT_POSE_AS_ACTUAL_EVIDENCE/);
 assert.throws(()=>createSimulationScenario({scenarioId:'BAD-GIT-HASH',scenarioType:SCENARIO_TYPE.MONTE_CARLO,caseId:CASE,propertyRef:PROP,candidateHeadSha:H('a'),governedInputHashSha256:hash('input'),synthetic:true}),/C29_CANDIDATE_HEAD_INVALID/);
 
+const campaign=(ss,oo)=>evaluateShadowCampaign({campaignId:'V612',candidateHeadSha:HEAD,caseId:CASE,propertyRef:PROP,scenarios:ss,observations:oo,evaluatedAt:AS_OF});
+for(const patch of [{transactionExecuted:true},{simulationOnly:false},{synthetic:false},{scenarioType:'UNKNOWN'}]){
+ const out=campaign([{...scenarios[0],...patch},...scenarios.slice(1)],partialObs);
+ assert.strictEqual(out.status,CAMPAIGN_STATUS.HOLD_INTEGRITY);
+}
+for(const patch of [{productionPerformanceClaimed:true},{paymentInitiated:true},{observedAt:'invalid'},{status:'UNKNOWN'}]){
+ const out=campaign(scenarios,[{...partialObs[0],...patch},...partialObs.slice(1)]);
+ assert.strictEqual(out.status,CAMPAIGN_STATUS.HOLD_INTEGRITY);
+}
+assert.strictEqual(campaign([null,...scenarios.slice(1)],partialObs).status,CAMPAIGN_STATUS.HOLD_INTEGRITY);
+assert.strictEqual(campaign(scenarios,[null,...partialObs.slice(1)]).status,CAMPAIGN_STATUS.HOLD_INTEGRITY);
+const duplicateId=syntheticObservation(byType[SCENARIO_TYPE.MONTE_CARLO],{observationId:partialObs[0].observationId});
+assert.strictEqual(campaign(scenarios,partialObs.map(o=>o.scenarioId===duplicateId.scenarioId?duplicateId:o)).status,CAMPAIGN_STATUS.HOLD_INTEGRITY);
+const wrongKind=actualObservation(byType[SCENARIO_TYPE.HISTORICAL_REPLAY],'UAT_PROFESSIONAL_REVIEW_EVIDENCE');
+const wrongKindResult=campaign(scenarios,completeObs.map(o=>o.scenarioId===wrongKind.scenarioId?wrongKind:o));
+assert.strictEqual(wrongKindResult.status,CAMPAIGN_STATUS.HOLD_CONTEXT);
+assert.ok(wrongKindResult.externalOpenTypes.includes(SCENARIO_TYPE.HISTORICAL_REPLAY));
+assert.throws(()=>scenario(SCENARIO_TYPE.HISTORICAL_REPLAY,{synthetic:undefined}),/C29_EXTERNAL_EVIDENCE_SCENARIO_CANNOT_BE_SYNTHETIC/);
+assert.throws(()=>scenario(SCENARIO_TYPE.MONTE_CARLO,{paymentInitiated:'false'}),/C29_REAL_SIDE_EFFECT_FORBIDDEN/);
+console.log('C29_V612_SCENARIO_OBSERVATION_BOUNDARY=PASS cases=14');
 console.log('C29_GOVERNED_SHADOW_SIMULATION_UAT_HARNESS=PASS');
