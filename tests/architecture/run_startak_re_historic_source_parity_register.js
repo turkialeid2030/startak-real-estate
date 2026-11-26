@@ -71,6 +71,8 @@ assert.deepEqual(statuses,{
   SAFE_RETIREMENT_REVIEW:1,
 });
 assert.deepEqual(priorities,{P2:6,P1:28,P0:23});
+assert.equal(entries.find(x=>x.id==='LEG-016').modern_anchor,
+ 'src/financing/quoted-financing-comparison.js');
 assert.equal(entries.find(x=>x.id==='LEG-022').modern_anchor,
  'src/planning/guarded-plot-envelope.js');
 assert.equal(entries.find(x=>x.id==='LEG-023').modern_anchor,
