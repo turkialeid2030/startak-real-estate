@@ -40,16 +40,27 @@ function createMigrationPool({
   rlsFailure = false,
   postcheckForceRls = true,
   preflightFailure = false,
+  transactionTargetMismatch = false,
+  commitFailure = false,
+  rollbackFailure = false,
 } = {}) {
   const calls = [];
+  let connections=0, identityChecks=0;
   return {
     calls,
+    get connections(){return connections;},
     async connect() {
+      connections++;
       return {
         async query(sql, params) {
           const text = String(sql);
           calls.push({ sql: text, params: params || null });
+          if (text==='BEGIN') return {rows:[]};
+          if (text==='COMMIT'){if(commitFailure)throw new Error('commit uncertain');return {rows:[]};}
+          if (text==='ROLLBACK'){if(rollbackFailure)throw new Error('rollback uncertain');return {rows:[]};}
           if (text === 'SELECT current_database() AS database_name, current_user AS role_name') {
+            identityChecks++;
+            if(transactionTargetMismatch&&identityChecks>1)return {rows:[{database_name:'other_db',role_name:roleName}]};
             if (preflightFailure) throw new Error('password=do-not-leak-preflight');
             return { rows: [{ database_name: databaseName, role_name: roleName }], rowCount: 1 };
           }
@@ -155,7 +166,11 @@ function assertAuthorityClosed(result) {
     assert.strictEqual(result.execution.rlsApplied, true);
     assert.strictEqual(result.execution.postcheckPassed, true);
     assert.strictEqual(result.execution.mutationExecuted, true);
-    assert.strictEqual(pool.calls.length, 4);
+    assert.strictEqual(pool.calls.length, 7);
+    assert.strictEqual(pool.connections,1);
+    assert.strictEqual(result.execution.transactionCommitted,true);
+    assert.strictEqual(pool.calls.at(-1).sql,'COMMIT');
+    assert.ok(pool.calls.filter(c=>c.sql.includes('migration')).every(c=>!/^\s*(BEGIN|COMMIT);\s*$/m.test(c.sql)));
     assertAuthorityClosed(result);
   });
 
@@ -179,8 +194,10 @@ function assertAuthorityClosed(result) {
       authorization: approval(),
     }));
     assert.strictEqual(result.status, MIGRATION_STATUS.HOLD_RLS_EXECUTION);
-    assert.strictEqual(result.execution.schemaApplied, true);
+    assert.strictEqual(result.execution.schemaApplied, false);
     assert.strictEqual(result.execution.rlsApplied, false);
+    assert.strictEqual(result.execution.rollbackConfirmed,true);
+    assert.strictEqual(pool.calls.at(-1).sql,'ROLLBACK');
     assert.ok(!JSON.stringify(result).includes('rls-failure'));
   });
 
@@ -192,8 +209,9 @@ function assertAuthorityClosed(result) {
       authorization: approval(),
     }));
     assert.strictEqual(result.status, MIGRATION_STATUS.HOLD_POSTCHECK);
-    assert.strictEqual(result.execution.rlsApplied, true);
+    assert.strictEqual(result.execution.rlsApplied, false);
     assert.strictEqual(result.execution.postcheckPassed, false);
+    assert.strictEqual(result.execution.rollbackConfirmed,true);
   });
 
   await test('PRODUCTIZATION-P13-10', async () => {
@@ -207,6 +225,26 @@ function assertAuthorityClosed(result) {
     );
   });
 
+  for(const approvedAt of ['invalid','2999-01-01T00:00:00Z']) await test('P13-AUTH-TIME-'+approvedAt,async()=>{
+    const pool=createMigrationPool();
+    const out=await runControlledCanonicalWorkspaceMigration(baseInput({migrationPool:pool,execute:true,authorization:approval({approvedAt})}));
+    assert.strictEqual(out.status,MIGRATION_STATUS.HOLD_AUTHORIZATION);
+    assert.strictEqual(pool.connections,0);
+  });
+  for(const [id,patch,expected] of [
+    ['TX-TARGET',{transactionTargetMismatch:true},MIGRATION_STATUS.HOLD_TARGET_MISMATCH],
+    ['COMMIT-UNKNOWN',{commitFailure:true},MIGRATION_STATUS.HOLD_TRANSACTION_OUTCOME],
+    ['ROLLBACK-UNKNOWN',{rlsFailure:true,rollbackFailure:true},MIGRATION_STATUS.HOLD_TRANSACTION_OUTCOME]
+  ]) await test('P13-'+id,async()=>{
+    const pool=createMigrationPool(patch);
+    const out=await runControlledCanonicalWorkspaceMigration(baseInput({migrationPool:pool,execute:true,authorization:approval()}));
+    assert.strictEqual(out.status,expected);
+    assert.strictEqual(out.execution.transactionCommitted,false);
+    assert.strictEqual(out.execution.mutationExecuted,false);
+    assert.strictEqual(out.execution.transactionOutcomeUnknown,id!=='TX-TARGET');
+    if(id==='TX-TARGET')assert.strictEqual(out.execution.mutationAttempted,false);
+    assertAuthorityClosed(out);
+  });
   const failed = results.filter((entry) => entry[1] !== 'PASS');
   console.log(`PRODUCTIZATION_P13_CONTROLLED_POSTGRES_MIGRATION_RESULT=${failed.length === 0 ? 'PASS' : 'FAIL'} ${results.filter((entry) => entry[1] === 'PASS').length}/${results.length}`);
   if (failed.length > 0) process.exit(1);

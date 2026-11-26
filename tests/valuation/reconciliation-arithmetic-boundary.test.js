@@ -1,6 +1,6 @@
 'use strict';
 const assert=require('node:assert/strict');
-const {reconcileValuationMethods}=require('../../src/market/value-reconciliation-audit');
+const {detailedReplacementCost,reconcileValuationMethods}=require('../../src/market/value-reconciliation-audit');
 
 const healthy=reconcileValuationMethods({
  marketValueSar:10000000,costValueSar:10000000,
@@ -157,4 +157,28 @@ assert.ok(!small.issues.includes('RENT_METHODOLOGY_GAP_REQUIRES_RECONCILIATION')
 const smallConflict=reconcileValuationMethods({...common,rentableArea:0.001,marketRentPerSqmYear:1,annualRentFromValueSar:0.002,baseValueSar:undefined,annualRentPctOfValue:undefined});
 assert.equal(smallConflict.metrics.annualRentGapPctOfComparable,100);
 assert.ok(smallConflict.issues.includes('RENT_METHODOLOGY_GAP_REQUIRES_RECONCILIATION'));
+// The final rounding step must not bypass the same monetary ceiling
+// that applies to intermediate replacement-cost calculations.
+const costInput={landArea:1e15,landPricePerSqm:1,components:[{area:1,ratePerSqm:1}],depreciationPct:100};
+for(const step of [999901,999902,999906]){
+ assert.ok(Math.round(1e15/step)*step>1e15);
+ const out=detailedReplacementCost({...costInput,finalRoundingStep:step});
+ assert.equal(out.status,'INCOMPLETE');
+ assert.equal(out.valueSar,null);
+ assert.deepEqual(out.issues,['COST_TOTAL_OUT_OF_RANGE']);
+ assert.equal(out.certified,false);
+}
+const exactLimit=detailedReplacementCost({...costInput,finalRoundingStep:1000});
+assert.equal(exactLimit.status,'ILLUSTRATIVE_UNVERIFIED');
+assert.equal(exactLimit.valueSar,1e15);
+assert.equal(exactLimit.certified,false);
+const belowLimit=detailedReplacementCost({...costInput,landArea:999999999000000,finalRoundingStep:999901});
+assert.equal(belowLimit.status,'ILLUSTRATIVE_UNVERIFIED');
+assert.ok(belowLimit.valueSar<=1e15);
+const ordinary=detailedReplacementCost({landArea:1000,landPricePerSqm:1250,components:[{area:500,ratePerSqm:2000}],feeRatesPct:{professional:10},depreciationPct:20,finalRoundingStep:1000});
+assert.equal(ordinary.status,'ILLUSTRATIVE_UNVERIFIED');
+assert.equal(ordinary.valueSar,2130000);
+assert.equal(ordinary.unroundedValueSar,2130000);
+assert.equal(ordinary.certified,false);
+console.log('REPLACEMENT_COST_ROUNDING_BOUNDARY=PASS checks=24 synthetic_only=true certified=false');
 console.log('VALUATION_RECONCILIATION_ARITHMETIC_BOUNDARY=PASS synthetic_only=true certified=false');

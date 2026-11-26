@@ -55,6 +55,7 @@ function assessCostDepreciationAttribution({
  const causeToType=new Map(),pairs=new Set();
  const trace=[];
  for(const row of allocations){
+   if(!row||typeof row!=='object'||Array.isArray(row)){blockers.push('INVALID_ALLOCATION_RECORD');continue;}
    const id=row?.depreciationId||'UNKNOWN';
    const rec=depreciation.get(id);
    if(!rec)blockers.push('UNMATCHED_DEPRECIATION_ID:'+id);
@@ -71,13 +72,14 @@ function assessCostDepreciationAttribution({
      &&!filled(row?.curabilityBasisRef))blockers.push('PHYSICAL_FUNCTIONAL_CURABILITY_EVIDENCE_REQUIRED:'+id);
    if(rec&&rec.type===DEPRECIATION_TYPE.EXTERNAL_OBSOLESCENCE&&!filled(row?.externalMarketImpactRef))
      blockers.push('EXTERNAL_MARKET_IMPACT_EVIDENCE_REQUIRED:'+id);
-   const key=row?.componentId+'|'+row?.causeId;
+   const key=JSON.stringify([row?.componentId,filled(row.causeId)?row.causeId.trim():null]);
    if(pairs.has(key))blockers.push('DUPLICATED_CAUSE_ON_SAME_COMPONENT:'+key);
    pairs.add(key);
    if(filled(row?.causeId)){
-     if(causeToType.has(row.causeId)&&causeToType.get(row.causeId)!==row.depreciationType)
-       blockers.push('DOUBLE_COUNT_CAUSE_BETWEEN_DEPRECIATION_TYPES:'+row.causeId);
-     else causeToType.set(row.causeId,row.depreciationType);
+     const normalizedCause=row.causeId.trim();
+     if(causeToType.has(normalizedCause)&&causeToType.get(normalizedCause)!==row.depreciationType)
+       blockers.push('DOUBLE_COUNT_CAUSE_BETWEEN_DEPRECIATION_TYPES:'+normalizedCause);
+     else causeToType.set(normalizedCause,row.depreciationType);
    }
    if(rec&&comp&&Number.isFinite(row?.amountSar)&&row.amountSar>0){
      totalByDep.set(id,(totalByDep.get(id)||0)+row.amountSar);
@@ -96,7 +98,7 @@ function assessCostDepreciationAttribution({
  }
  for(const comp of old.componentTrace){
    const allocated=totalByComponent.get(comp.componentId)||0;
-   if(allocated>comp.extendedCostSar+cent)
+   if(!Number.isFinite(allocated)||allocated>comp.extendedCostSar)
      blockers.push('COST_COMPONENT_DEPRECIATION_EXCEEDS_COST:'+comp.componentId);
  }
  const seenTypes=new Set();
@@ -124,7 +126,7 @@ function assessCostDepreciationAttribution({
    else ages.push({
      componentId:a.componentId,ageLifeRatio:a.effectiveAgeYears/a.totalEconomicLifeYears,
      estimatedPhysicalLossForDiagnosisOnlySar:
-      components.get(a.componentId)?.extendedCostSar*a.effectiveAgeYears/a.totalEconomicLifeYears,
+      components.get(a.componentId)?.extendedCostSar*(a.effectiveAgeYears/a.totalEconomicLifeYears),
      diagnosticOnly:true,
    });
  }

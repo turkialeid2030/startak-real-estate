@@ -221,6 +221,42 @@ function assertAuthorityClosed(result) {
     assert.ok(!JSON.stringify(first).includes('admin-token'));
   });
 
+  for (const [id, overrides] of [
+    ['INVALID-DIGEST', {evidenceBundle:{bundleHashSha256:['a'.repeat(64)]}}],
+    ['MISSING-DIGEST', {evidenceBundle:{}}],
+    ['PRODUCTION-CLAIM', {productionQualified:true}],
+    ['RELEASE-CLAIM', {authority:{releaseAuthorized:true}}]
+  ]) await test('P15-'+id, async()=>{
+    const {executor,calls}=successfulRequestExecutor();
+    const {inspector}=successfulAdminInspector();
+    const qualify=createControlledStagingApiSecurityQualification({requestExecutor:executor,adminInspector:inspector});
+    const out=await qualify(baseInput({postgresQualification:postgresQualification(overrides)}));
+    assert.strictEqual(out.status,API_SECURITY_STATUS.HOLD_POSTGRES_QUALIFICATION);
+    assert.strictEqual(out.postgresQualificationRef,null);
+    assert.strictEqual(calls.length,0);assertAuthorityClosed(out);
+  });
+  await test('P15-DISTINCT-CREDENTIALS-AND-DATE',async()=>{
+    const {executor,calls}=successfulRequestExecutor();
+    const {inspector}=successfulAdminInspector();
+    const qualify=createControlledStagingApiSecurityQualification({requestExecutor:executor,adminInspector:inspector});
+    await assert.rejects(()=>qualify(baseInput({tenantBAuthorizationHeader:'bearer tenant-a-token'})),/distinct role credentials/);
+    await assert.rejects(()=>qualify(baseInput({testedAt:'invalid'})),/valid timestamp/);
+    assert.strictEqual(calls.length,0);
+  });
+  await test('P15-STRICT-HTTP-STATUS',async()=>{
+    const {executor}=successfulRequestExecutor({crossTenant:{statusCode:'404',body:null}});
+    const {inspector}=successfulAdminInspector();
+    const qualify=createControlledStagingApiSecurityQualification({requestExecutor:executor,adminInspector:inspector});
+    assert.strictEqual((await qualify(baseInput())).status,API_SECURITY_STATUS.HOLD_API_EXECUTION);
+  });
+  await test('P15-WRONG-ADMIN-TENANT',async()=>{
+    const {executor}=successfulRequestExecutor();
+    const {inspector}=successfulAdminInspector({adminResult:{readOnly:true,secretsExposed:false,scope:{workspaceId:'workspace-1',tenantId:'tenant-b'}}});
+    const qualify=createControlledStagingApiSecurityQualification({requestExecutor:executor,adminInspector:inspector});
+    const out=await qualify(baseInput());
+    assert.strictEqual(out.status,API_SECURITY_STATUS.HOLD_ADMIN_APPLICATION_PATH);
+    assert.strictEqual(out.adminApplicationPathEvidence.checks.adminScopeMatchesWorkspace,false);
+  });
   const failed = results.filter((entry) => entry[1] !== 'PASS');
   console.log(`PRODUCTIZATION_P15_STAGING_API_SECURITY_QUALIFICATION_RESULT=${failed.length === 0 ? 'PASS' : 'FAIL'} ${results.filter((entry) => entry[1] === 'PASS').length}/${results.length}`);
   if (failed.length > 0) process.exit(1);

@@ -1,6 +1,6 @@
 'use strict';
 const assert=require('node:assert/strict');
-const {readHistoricRegister,triageLegacyPaths}=require('../../tools/legacy-path-triage');
+const {readHistoricRegister,triageLegacyPaths,parseLegacyTree,reviewBucket}=require('../../tools/legacy-path-triage');
 const a='a'.repeat(40),b='b'.repeat(40),c='c'.repeat(40),d='d'.repeat(40);
 const header='id,old,source_blob,versions,domain,modern_anchor,status,inspection,priority,acceptance';
 const csv=header+'\n"LEG-001","old/a.js","'+a+'","v1","UI","new/a.js","OPEN","PATH_ONLY","P1","review, test"\n"LEG-002","old/b.js","'+d+'","v2","UI","new/b.js","OPEN","PATH_ONLY","P1","review"';
@@ -32,4 +32,18 @@ check(()=>assert.throws(()=>triageLegacyPaths(current,[{path:'old/x',blobVariati
 check(()=>assert.throws(()=>readHistoricRegister(header),/HISTORIC_REGISTER_EMPTY/));
 check(()=>assert.throws(()=>readHistoricRegister(csv+'\n'+csv.split('\n')[1]),/HISTORIC_REGISTER_INVALID/));
 check(()=>assert.throws(()=>readHistoricRegister('unexpected'),/HISTORIC_REGISTER_INVALID/));
+const raw=Buffer.from('100644 blob '+a+'\tpath\nwith\ttab.js\0'+'120000 blob '+b+'\tsymlink\0');
+check(()=>assert.deepEqual([...parseLegacyTree(raw)],[['path\nwith\ttab.js',a],['symlink',b]]));
+check(()=>assert.equal(parseLegacyTree(Buffer.alloc(0)).size,0));
+for(const value of ['100644 blob '+a+'\tfile','160000 commit '+a+'\tsubmodule\0','invalid\0','100644 blob '+a+'\tfile\0'+'100644 blob '+b+'\tfile\0']){
+ check(()=>assert.throws(()=>parseLegacyTree(Buffer.from(value)),/LEGACY_TREE_INVALID/));
+}
+check(()=>assert.throws(()=>parseLegacyTree(Buffer.from([255,0]))));
+check(()=>assert.deepEqual(result.summary.unregisteredReviewBuckets,{P1_UNCLASSIFIED_REVIEW:1}));
+for(const [p,k] of [['src/security/session.js','P0_SECURITY_RUNTIME_DATA'],['src/ai/model.js','P1_AI_AGENTS_SIMULATION'],['src/financing/loan.js','P1_REAL_ESTATE_FINANCIAL'],['src/components/A.jsx','P1_OTHER_APPLICATION_SOURCE'],['tests/x.js','P1_TESTS_TOOLS_CI'],['docs/notes.md','P2_DOCUMENTATION_REVIEW'],['public/logo.svg','P2_ASSETS_GENERATED_REVIEW'],['package.json','P1_UNCLASSIFIED_REVIEW']]){
+ check(()=>assert.equal(reviewBucket(p),k));
+}
+const partition=triageLegacyPaths(current,[{path:'src/security/session.js',blobVariations:[c]},{path:'docs/notes.md',blobVariations:[d]}],register);
+check(()=>assert.equal(Object.values(partition.summary.unregisteredReviewBuckets).reduce((x,y)=>x+y,0),partition.summary.unregisteredCandidatePaths));
+check(()=>assert.ok(!JSON.stringify(partition.summary).includes('session.js')));
 console.log('LEGACY_PATH_TRIAGE=PASS checks='+checks+' functionalParity=NOT_PROVEN');

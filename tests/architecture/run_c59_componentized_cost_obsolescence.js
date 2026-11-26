@@ -169,6 +169,22 @@ has('LOSS_CLASS_UNREVIEWED',assessCostDepreciationAttribution({
  packet:noDepPacket,allocations:[],omissionReviews:[],asOf,
 }));
 has('INVALID_CANONICAL_COST_INPUT_PACKET',assess({packet:{...basePacket,valuationDate:'2024-01-01'}}));
+let batchChecks=0;
+const batchCheck=fn=>{fn();batchChecks++;};
+batchCheck(()=>has('INVALID_ALLOCATION_RECORD',assess({allocations:[...actualRows,null]})));
+batchCheck(()=>has('DOUBLE_COUNT_CAUSE_BETWEEN_DEPRECIATION_TYPES',assess({allocations:[...actualRows.slice(0,2),{...actualRows[2],causeId:' '+actualRows[0].causeId+' '}]})));
+batchCheck(()=>has('DUPLICATED_CAUSE_ON_SAME_COMPONENT',assess({allocations:[...actualRows,{...actualRows[0],causeId:' '+actualRows[0].causeId+' '}]})));
+const maximumSiteLoss=dep('DEP-SITE-FULL',DEPRECIATION_TYPE.EXTERNAL_OBSOLESCENCE,DEPRECIATION_METHOD.AMOUNT_SAR,500000);
+const fullSitePacket=packet({packetId:'C59-FULL-SITE',depreciationRecords:[maximumSiteLoss]});
+const fullSiteAllocation={...actualRows[2],depreciationId:'DEP-SITE-FULL',amountSar:500000};
+const fullSiteOmissions=Object.values(DEPRECIATION_TYPE).filter(type=>type!==DEPRECIATION_TYPE.EXTERNAL_OBSOLESCENCE).map(type=>({...omitted[0],type}));
+const fullSite=()=>({packet:fullSitePacket,allocations:[fullSiteAllocation],omissionReviews:fullSiteOmissions,asOf});
+batchCheck(()=>assert.equal(assessCostDepreciationAttribution(fullSite()).status,STATUS.READY_FOR_INDEPENDENT_PROFESSIONAL_REVIEW));
+batchCheck(()=>has('COST_COMPONENT_DEPRECIATION_EXCEEDS_COST',assessCostDepreciationAttribution({...fullSite(),allocations:[{...fullSiteAllocation,amountSar:500000.005}]})));
+const hugeAge=assess({ageLifeChecks:[{componentId:'STRUCTURE',effectiveAgeYears:1e308,totalEconomicLifeYears:1e308,inspectorEvidenceRef:'TEST',reviewerRef:'TEST'}]});
+batchCheck(()=>assert.equal(hugeAge.status,STATUS.READY_FOR_INDEPENDENT_PROFESSIONAL_REVIEW));
+batchCheck(()=>assert.equal(hugeAge.ageLifeDiagnosticOnly[0].estimatedPhysicalLossForDiagnosisOnlySar,5000000));
+console.log('V6_C59_ALLOCATION_BOUNDARY=PASS checks='+batchChecks+' synthetic_only=true');
 console.log('C59_COMPONENTIZED_COST_OBSOLESCENCE=PASS');
 console.log('C59_SAUDI_COST_EVIDENCE_EXTERNALLY_AUTHENTICATED=FALSE');
 console.log('C59_INDEPENDENT_COST_VALUATION_CERTIFIED=FALSE');

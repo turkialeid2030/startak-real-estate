@@ -67,6 +67,13 @@ function detailedReplacementCost({landArea,landPricePerSqm,components,
     return {status:'INCOMPLETE',issues:['COST_TOTAL_OUT_OF_RANGE'],
       valueSar:null,certified:false};
   }
+  // Rounding is itself an arithmetic operation and may cross the monetary
+  // ceiling even when every intermediate total is within the accepted range.
+  const roundedValue=Math.round(unroundedValue/rounding)*rounding;
+  if(!Number.isFinite(roundedValue)||roundedValue<0||roundedValue>1e15){
+    return {status:'INCOMPLETE',issues:['COST_TOTAL_OUT_OF_RANGE'],
+      valueSar:null,certified:false};
+  }
   if(depreciation>=60)warnings.push('HIGH_DEPRECIATION_REQUIRES_CONDITION_REPORT');
   if(totalExtraRate>25)warnings.push('SOFT_COST_RATE_REQUIRES_EVIDENCE');
   return {
@@ -76,7 +83,7 @@ function detailedReplacementCost({landArea,landPricePerSqm,components,
     depreciationPct:money(depreciation),depreciationSar:money(depreciationAmount),
     netBuildingValueSar:money(buildingAfterDepreciation),
     unroundedValueSar:money(unroundedValue),
-    valueSar:Math.round(unroundedValue/rounding)*rounding,
+    valueSar:roundedValue,
     finalRoundingStep:rounding,warnings,issues:[],certified:false,
   };
 }

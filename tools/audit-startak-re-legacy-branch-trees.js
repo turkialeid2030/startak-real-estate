@@ -9,7 +9,7 @@ const FILE='docs/recovery/STARTAK_RE_BRANCH_CENSUS_20261112.json';
 const outPath='artifacts/startak-re-legacy-path-parity.json';
 const summaryPath='artifacts/startak-re-legacy-path-summary.json';
 const {parseBranchAdvertisement,reconcileBranchScope}=require('./legacy-branch-scope');
-const {readHistoricRegister,triageLegacyPaths}=require('./legacy-path-triage');
+const {readHistoricRegister,triageLegacyPaths,parseLegacyTree}=require('./legacy-path-triage');
 const census=JSON.parse(fs.readFileSync(FILE,'utf8'));
 const historicRegister=readHistoricRegister(fs.readFileSync('docs/recovery/STARTAK_RE_HISTORIC_SOURCE_CANDIDATES_20261114.csv','utf8'));
 if(census.repository!=='turkialeid2030/startak-real-estate'||census.scope!=='STARTAK_REAL_ESTATE_ONLY')
@@ -21,16 +21,7 @@ if(!advertisedPath)throw Error('BRANCH_ADVERTISEMENT_REQUIRED');
 const advertised=parseBranchAdvertisement(fs.readFileSync(advertisedPath,'utf8'));
 const fetched=parseBranchAdvertisement(git('for-each-ref','--format=%(objectname)%09%(refname)','refs/remotes/origin/').toString('utf8'),'refs/remotes/origin/');
 const scope=reconcileBranchScope(census.branches.map(x=>x.name),advertised,fetched);
-function tree(ref){
- const raw=git('ls-tree','-r','-z',ref);
- const map=new Map();
- for(const item of raw.toString('utf8').split('\0')){
-  if(!item)continue;
-  const m=/^[0-7]{6} blob ([0-9a-f]{40})\t(.+)$/.exec(item);
-  if(m)map.set(m[2],m[1]);
- }
- return map;
-}
+function tree(ref){return parseLegacyTree(git('ls-tree','-r','-z',ref));}
 const current=tree('HEAD');
 const byPath=new Map(),byBranch=[];
 const classify=p=>{
@@ -91,7 +82,7 @@ const result={
 };
 fs.mkdirSync(path.dirname(outPath),{recursive:true});
 // Detailed historical filenames and blob references stay local; public CI uploads only counts.
-if(process.env.STARTAK_PRIVATE_PATH_DETAIL==='1')fs.writeFileSync(outPath,JSON.stringify(result,null,2),{mode:0o600});
+if(process.env.STARTAK_PRIVATE_PATH_DETAIL==='1')fs.writeFileSync(outPath,JSON.stringify(result,null,2),{mode:0o600,flag:'wx'});
 const {byBranch:privateBranches,oldOnlyPathCandidates:privatePaths,...summary}=result;
 fs.writeFileSync(summaryPath,JSON.stringify({...summary,detailPublished:false},null,2));
 console.log('STARTAK_RE_LEGACY_TREE_AUDIT=COMPLETE');
@@ -110,5 +101,6 @@ console.log('LEGACY_TRIAGE_UNMATCHED_PATH_VARIANT_PAIRS='+triage.summary.unmatch
 console.log('LEGACY_TRIAGE_REGISTERED_PATHS='+triage.summary.registeredPaths);
 console.log('LEGACY_TRIAGE_REGISTERED_EXACT_VARIANTS='+triage.summary.registeredExactVariants);
 console.log('LEGACY_TRIAGE_UNREGISTERED_PATHS='+triage.summary.unregisteredCandidatePaths);
+for(const [key,count] of Object.entries(triage.summary.unregisteredReviewBuckets))console.log('LEGACY_UNREGISTERED_'+key+'='+count);
 console.log('ALL_BRANCH_FUNCTIONAL_PARITY=NOT_PROVEN');
 if(missingRefs>0)process.exitCode=2;

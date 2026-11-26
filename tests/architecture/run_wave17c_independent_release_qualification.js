@@ -168,4 +168,22 @@ expectThrow(() => independentReview({ decision: 'UNKNOWN' }), /unsupported/);
 expectThrow(() => independentReview({ materialOpenFindings: -1 }), /non-negative integer/);
 expectThrow(() => qualification(rel, rev, { exactCommitSha: 'bad' }), /git commit SHA/);
 
+// Empty regressions and incomplete or premature reviews must never qualify.
+check(()=>assert.strictEqual(qualification(releaseEvidence({regressionTotal:0,regressionPassed:0}),rev).status,q.RELEASE_QUALIFICATION_STATUS.HOLD_RELEASE_VERIFICATION));
+expectThrow(()=>releaseEvidence({regressionTotal:Number.MAX_SAFE_INTEGER+1}),/non-negative integer/);
+for(const patch of [
+ {reviewedScope:['SECURITY']},
+ {reviewedScope:['SECURITY','PERFORMANCE_RESILIENCE','RELEASE_REGRESSION','SECURITY']},
+ {reviewedAt:'2026-09-08T06:59:59Z'},
+ {reviewerRef:rel.preparedBy}
+]){
+ const out=qualification(rel,independentReview(patch));
+ check(()=>assert.strictEqual(out.status,q.RELEASE_QUALIFICATION_STATUS.HOLD_INDEPENDENT_REVIEW));
+ check(()=>assert.strictEqual(out.releaseAuthorized,false));
+}
+check(()=>assert.strictEqual(q.verifyCanonicalReleaseEvidence({...rel,releaseAuthorized:true}).valid,false));
+check(()=>assert.strictEqual(q.verifyIndependentReviewRecord({...rev,reviewerCredentialsVerifiedByThisModule:true}).valid,false));
+check(()=>assert.strictEqual(q.verifyIndependentReleaseQualification({...ready,deploymentAuthorized:true}).valid,false));
+check(()=>assert.strictEqual(q.verifyIndependentReleaseQualification({...ready,issues:{}}).valid,false));
+check(()=>assert.strictEqual(q.verifyIndependentReleaseQualification({...ready,independentEngineeringReviewRecorded:false}).valid,false));
 console.log(`WAVE_17C_INDEPENDENT_RELEASE_QUALIFICATION=PASS checks=${checks}`);

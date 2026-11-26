@@ -94,7 +94,7 @@ function independentQualification({ securityStatus = SECURITY_READY, performance
     independenceType: INDEPENDENCE_TYPE.EXTERNAL_THIRD_PARTY,
     independenceAttestedByReviewer: true,
     conflictDeclared: false,
-    reviewedScope: ['security', 'performance', 'release-evidence'],
+    reviewedScope: ['SECURITY', 'PERFORMANCE_RESILIENCE', 'RELEASE_REGRESSION'],
     reviewReportRef: 'review-report-1',
     reviewReportHashSha256: '2'.repeat(64),
     decision: REVIEW_DECISION.PASS,
@@ -174,6 +174,8 @@ async function expectRejectCode(factory, code) {
     const result = evaluateProductionQualification(readyInput({ independentReleaseQualification: tampered }));
     assert.strictEqual(result.status, PRODUCTION_QUALIFICATION_STATUS.HOLD_EVIDENCE_INTEGRITY);
     assert.strictEqual(result.gates.independentReleaseQualification.integrityValid, false);
+    assert.strictEqual(result.gates.independentReleaseQualification.exactCommitSha,null);
+    assert.strictEqual(result.gates.independentReleaseQualification.qualificationHashSha256,null);
     assert.strictEqual(result.gates.independentReleaseQualification.integrityReasonCode, 'QUALIFICATION_HASH_MISMATCH');
   });
 
@@ -212,6 +214,8 @@ async function expectRejectCode(factory, code) {
     assert.strictEqual(result.gates.productionReadiness.ready, true);
     assert.strictEqual(result.gates.independentReleaseQualification.ready, true);
     assert.strictEqual(result.gates.independentReleaseQualification.integrityValid, true);
+    assert.strictEqual(result.gates.independentReleaseQualification.exactCommitSha,'a'.repeat(40));
+    assert.strictEqual(result.gates.independentReleaseQualification.qualificationHashSha256,independentQualification().qualificationHashSha256);
     assert.strictEqual(result.gates.institutionalGoLiveReview.ready, true);
     assert.strictEqual(result.evidenceBoundary.productionEvidenceValidatedByThisService, false);
     assert.strictEqual(result.evidenceBoundary.productionAuthenticationValidated, false);

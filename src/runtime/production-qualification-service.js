@@ -164,6 +164,8 @@ function buildResult({
         ready: independentReleaseIntegrity.ready,
         integrityValid: independentReleaseIntegrity.integrityValid,
         integrityReasonCode: independentReleaseIntegrity.integrityReasonCode,
+        exactCommitSha: independentReleaseIntegrity.integrityValid && /^[a-f0-9]{40}$/i.test(independentReleaseQualification?.exactCommitSha || '') ? independentReleaseQualification.exactCommitSha.toLowerCase() : null,
+        qualificationHashSha256: independentReleaseIntegrity.integrityValid && /^[a-f0-9]{64}$/i.test(independentReleaseQualification?.qualificationHashSha256 || '') ? independentReleaseQualification.qualificationHashSha256.toLowerCase() : null,
       },
       institutionalGoLiveReview: {
         status: statusOf(institutionalGoLiveGate),

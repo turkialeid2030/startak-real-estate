@@ -28,6 +28,8 @@ const AUTHORITY = Object.freeze({
   productionResilienceValidated: false,
 });
 
+const HASH_REF_RE=/^sha256:[a-f0-9]{64}$/;
+const isHashRef=value=>typeof value==='string'&&HASH_REF_RE.test(value);
 const COMMIT_SHA_RE = /^[a-f0-9]{40}$/i;
 
 function requiredString(value, field) {
@@ -63,10 +65,7 @@ function freeze(value) {
 function canonicalize(value) {
   if (Array.isArray(value)) return value.map(canonicalize);
   if (value && typeof value === 'object') {
-    return Object.keys(value).sort().reduce((result, key) => {
-      if (value[key] !== undefined) result[key] = canonicalize(value[key]);
-      return result;
-    }, {});
+    return Object.fromEntries(Object.keys(value).sort().filter(key=>value[key]!==undefined).map(key=>[key,canonicalize(value[key])]));
   }
   return value;
 }
@@ -129,6 +128,7 @@ function normalizeAuthorization(value, target) {
     && normalized.reviewedBy
     && normalized.approvedBy !== normalized.reviewedBy
     && approvedAtValid
+    && Date.parse(normalized.approvedAt)<=target.assessedAtMillis
     && normalized.changeControlRef
     && normalized.environment === target.environment
     && normalized.serviceRef === target.serviceRef
@@ -210,6 +210,7 @@ function makeResult({ status, plan, authorization, metrics, alert, incident }) {
     planHashSha256: plan.planHashSha256,
     drFailoverQualificationRef: plan.drFailoverQualificationRef,
     authorizationAccepted: authorization?.accepted === true,
+    authorizationRef: authorization ? `sha256:${sha256Object(authorization)}` : null,
     metricsRef: metrics ? `sha256:${sha256Object(metrics)}` : null,
     alertRef: alert ? `sha256:${sha256Object(alert)}` : null,
     incidentRef: incident ? `sha256:${sha256Object(incident)}` : null,
@@ -256,6 +257,8 @@ function createControlledObservabilityIncidentQualification({
     const drComplete = Boolean(
       drFailoverQualification
       && drFailoverQualification.status === DR_FAILOVER_STATUS.DR_FAILOVER_EVIDENCE_COMPLETE_NOT_PRODUCTION_CERTIFIED
+      && typeof drFailoverQualification.executionHashSha256==='string'
+      && /^[a-f0-9]{64}$/i.test(drFailoverQualification.executionHashSha256)
       && drFailoverQualification.plan?.environment === env
       && drFailoverQualification.plan?.exactCommitSha === commitSha,
     );
@@ -269,6 +272,7 @@ function createControlledObservabilityIncidentQualification({
       serviceRef: service,
       exactCommitSha: commitSha,
       probeId: normalizedProbeId,
+      assessedAt: assessed.value,
       monitoringObjectives: objectives,
       drFailoverQualificationRef,
       executionOrder: ['metricsInspection', 'syntheticAlert', 'incidentAcknowledgementAndRunbook'],
@@ -282,7 +286,7 @@ function createControlledObservabilityIncidentQualification({
       return makeResult({ status: OBSERVABILITY_STATUS.DRY_RUN_READY, plan });
     }
 
-    const auth = normalizeAuthorization(authorization, { environment: env, serviceRef: service, exactCommitSha: commitSha });
+    const auth = normalizeAuthorization(authorization, { environment: env, serviceRef: service, exactCommitSha: commitSha, assessedAtMillis: assessed.millis });
     if (!auth?.accepted) {
       return makeResult({ status: OBSERVABILITY_STATUS.HOLD_AUTHORIZATION, plan, authorization: auth });
     }
@@ -304,7 +308,7 @@ function createControlledObservabilityIncidentQualification({
       return makeResult({ status: OBSERVABILITY_STATUS.HOLD_METRICS, plan, authorization: auth });
     }
 
-    if (!metrics.queryHealthy || metrics.missingRequiredSignals.length > 0) {
+    if (!metrics.queryHealthy || metrics.missingRequiredSignals.length > 0 || Date.parse(metrics.observedAt)<Date.parse(auth.approvedAt) || Date.parse(metrics.observedAt)>assessed.millis) {
       return makeResult({ status: OBSERVABILITY_STATUS.HOLD_METRICS, plan, authorization: auth, metrics });
     }
     if (metrics.freshnessSeconds > objectives.maximumMetricFreshnessSeconds) {
@@ -323,7 +327,7 @@ function createControlledObservabilityIncidentQualification({
       return makeResult({ status: OBSERVABILITY_STATUS.HOLD_ALERT_DELIVERY, plan, authorization: auth, metrics });
     }
 
-    if (!alert.deliveryConfirmed) {
+    if (!alert.deliveryConfirmed || Date.parse(alert.triggeredAt)<Date.parse(metrics.observedAt) || Date.parse(alert.deliveredAt)>assessed.millis) {
       return makeResult({ status: OBSERVABILITY_STATUS.HOLD_ALERT_DELIVERY, plan, authorization: auth, metrics, alert });
     }
     if (alert.deliverySeconds > objectives.maximumAlertDeliverySeconds) {
@@ -365,8 +369,59 @@ function createControlledObservabilityIncidentQualification({
   };
 }
 
+
+ // Recompute the exact normalized staging envelope, not merely its status or
+ // digest syntax. This verifies structure and consistency, not signatures.
+function verifyCompletedObservabilityQualification(value,asOf){
+ try{
+  const {plan,authorization,metrics,alert,incident}=value;
+  if(value.schemaVersion!==1||value.status!==OBSERVABILITY_STATUS.OBSERVABILITY_INCIDENT_EVIDENCE_COMPLETE_NOT_PRODUCTION_CERTIFIED||
+     value.productionQualified!==false||value.authorizationAccepted!==true||
+     !value.authority||Object.keys(value.authority).length!==Object.keys(AUTHORITY).length||
+     Object.keys(AUTHORITY).some(k=>value.authority[k]!==false))return false;
+  const {planHashSha256,...planCore}=plan;
+  if(plan.schemaVersion!==1||plan.environment!=='staging'||requiredCommitSha(plan.exactCommitSha)!==plan.exactCommitSha||
+     !requiredString(plan.serviceRef,'serviceRef')||!requiredString(plan.probeId,'probeId')||
+     !isHashRef(plan.drFailoverQualificationRef)||value.drFailoverQualificationRef!==plan.drFailoverQualificationRef||
+     JSON.stringify(plan.executionOrder)!==JSON.stringify(['metricsInspection','syntheticAlert','incidentAcknowledgementAndRunbook'])||
+     sha256Object(planCore)!==planHashSha256||value.planHashSha256!==planHashSha256)return false;
+  const objectives=normalizeObjectives(plan.monitoringObjectives);
+  if(sha256Object(objectives)!==sha256Object(plan.monitoringObjectives))return false;
+  const when=(v)=>requiredTimestamp(v,'evidence timestamp').millis;
+  const assessed=when(plan.assessedAt),review=when(asOf);
+  if(assessed>review||authorization.accepted!==true||
+     !requiredString(authorization.approvedBy,'approvedBy')||!requiredString(authorization.reviewedBy,'reviewedBy')||
+     authorization.approvedBy.trim()===authorization.reviewedBy.trim()||!requiredString(authorization.changeControlRef,'changeControlRef'))return false;
+  const approved=when(authorization.approvedAt),observed=when(metrics.observedAt),latest=when(metrics.latestSampleAt);
+  if(approved>observed||latest>observed||observed>assessed||
+     metrics.queryHealthy!==true||metrics.freshnessSeconds!==(observed-latest)/1000||
+     metrics.freshnessSeconds>objectives.maximumMetricFreshnessSeconds||
+     !Array.isArray(metrics.missingRequiredSignals)||metrics.missingRequiredSignals.length||
+     !Array.isArray(metrics.requiredSignalChecks)||sha256Object(metrics.requiredSignalChecks)!==sha256Object(objectives.requiredSignals.map(signal=>({signal,present:true})))||
+     !isHashRef(metrics.metricsBackendRef))return false;
+  const triggered=when(alert.triggeredAt),delivered=when(alert.deliveredAt);
+  if(observed>triggered||triggered>delivered||delivered>assessed||alert.deliveryConfirmed!==true||
+     alert.deliverySeconds!==(delivered-triggered)/1000||alert.deliverySeconds>objectives.maximumAlertDeliverySeconds||
+     ['alertIdRef','routeRef','receiverRef'].some(k=>!isHashRef(alert[k])))return false;
+  const opened=when(incident.openedAt),ack=when(incident.acknowledgedAt),resolved=when(incident.resolvedAt);
+  if(delivered>opened||opened>ack||ack>resolved||resolved>assessed||
+     incident.acknowledgementConfirmed!==true||incident.runbookAvailable!==true||
+     incident.acknowledgeSecondsFromDelivery!==(ack-delivered)/1000||
+     incident.acknowledgeSecondsFromDelivery>objectives.maximumIncidentAcknowledgeSeconds||
+     ['incidentRef','runbookRef','onCallOwnerRef','escalationPolicyRef'].some(k=>!isHashRef(incident[k])))return false;
+  // Pure verification: never freeze or otherwise mutate caller-owned evidence.
+  const core={schemaVersion:1,status:value.status,planHashSha256,drFailoverQualificationRef:plan.drFailoverQualificationRef,
+    authorizationAccepted:true,authorizationRef:'sha256:'+sha256Object(authorization),
+    metricsRef:'sha256:'+sha256Object(metrics),alertRef:'sha256:'+sha256Object(alert),
+    incidentRef:'sha256:'+sha256Object(incident)};
+  const digest=sha256Object(core);
+  return Object.keys(core).every(k=>value[k]===core[k])&&value.evidenceHashSha256===digest&&value.evidenceRef==='sha256:'+digest;
+ }catch{return false;}
+}
+
 module.exports = {
   OBSERVABILITY_STATUS,
   AUTHORITY,
   createControlledObservabilityIncidentQualification,
+  verifyCompletedObservabilityQualification,
 };

@@ -28,17 +28,27 @@ function rlsDenied() {
 function createFakePool({
   superuser = false,
   bypassRls = false,
+  databaseName = 'startak_staging',
+  driftAfterFirstIdentity = false,
+  missingContextMetadata = false,
   forceRls = true,
   permissiveCrossTenant = false,
   allowMissingContext = false,
   leakContext = false,
   failRoleQuery = false,
+  rollbackFailure = false,
+  wrongContextResponse = false,
+  denyCommit = false,
+  missingUpdateOnly = false,
+  missingDeleteOnly = false,
 } = {}) {
   const rows = new Map();
+  let identityChecks=0;
   const state = {
     rows,
     connects: 0,
     releases: 0,
+    discarded: 0,
     queries: [],
     sessionTenant: null,
   };
@@ -57,29 +67,33 @@ function createFakePool({
           state.queries.push({ sql, params });
           if (sql === 'BEGIN') return { rowCount: null, rows: [] };
           if (sql === 'COMMIT') {
+            if(denyCommit&&txTenant?.startsWith('rls_probe_b:'))throw rlsDenied();
             if (leakContext) state.sessionTenant = txTenant;
             else state.sessionTenant = null;
             txTenant = leakContext ? state.sessionTenant : null;
             return { rowCount: null, rows: [] };
           }
           if (sql === 'ROLLBACK') {
+            if(rollbackFailure)throw new Error('rollback failed');
             if (!leakContext) state.sessionTenant = null;
             txTenant = leakContext ? state.sessionTenant : null;
             return { rowCount: null, rows: [] };
           }
           if (sql === 'SELECT set_config($1, $2, true) AS tenant_context') {
             txTenant = params[1];
-            return { rowCount: 1, rows: [{ tenant_context: txTenant }] };
+            return { rowCount: 1, rows: [{ tenant_context: wrongContextResponse?'wrong-context':txTenant }] };
           }
           if (sql.startsWith('SELECT current_user AS role_name')) {
             if (failRoleQuery) throw new Error('database password=should-not-leak');
-            return { rowCount: 1, rows: [{ role_name: 'startak_runtime', rolsuper: superuser, rolbypassrls: bypassRls }] };
+            identityChecks++;
+            if(driftAfterFirstIdentity&&identityChecks>1)return {rows:[{role_name:'wrong_role',rolsuper:false,rolbypassrls:false,database_name:'other_db'}]};
+            return { rowCount: 1, rows: [{ role_name: 'startak_runtime', rolsuper: superuser, rolbypassrls: bypassRls, database_name: databaseName }] };
           }
           if (sql.startsWith('SELECT c.relrowsecurity')) {
             return { rowCount: 1, rows: [{ relrowsecurity: forceRls, relforcerowsecurity: forceRls }] };
           }
           if (sql.startsWith('SELECT nullif(current_setting')) {
-            return { rowCount: 1, rows: [{ tenant_context: txTenant || null }] };
+            return missingContextMetadata?{rowCount:0,rows:[]}:{ rowCount: 1, rows: [{ tenant_context: txTenant || null }] };
           }
 
           const tenantId = params[0];
@@ -102,18 +116,18 @@ function createFakePool({
             return { rowCount: exists ? 1 : 0, rows: exists ? [{ workspace_id: workspaceId }] : [] };
           }
           if (sql.startsWith('UPDATE public.canonical_workspaces')) {
-            const exists = visible && rows.has(key(tenantId, workspaceId));
+            const exists = (visible||(txTenant==null&&missingUpdateOnly)) && rows.has(key(tenantId, workspaceId));
             return { rowCount: exists ? 1 : 0, rows: exists ? [{ workspace_id: workspaceId }] : [] };
           }
           if (sql.startsWith('DELETE FROM public.canonical_workspaces')) {
             const rowKey = key(tenantId, workspaceId);
-            const exists = visible && rows.has(rowKey);
+            const exists = (visible||(txTenant==null&&missingDeleteOnly)) && rows.has(rowKey);
             if (exists) rows.delete(rowKey);
             return { rowCount: exists ? 1 : 0, rows: exists ? [{ workspace_id: workspaceId }] : [] };
           }
           throw new Error(`unexpected SQL: ${sql}`);
         },
-        release() { state.releases += 1; },
+        release(discard) { state.releases += 1; if(discard===true)state.discarded++; },
       };
     },
   };
@@ -217,6 +231,68 @@ function probeInput(pool, overrides = {}) {
     );
   });
 
+  await test('P12-BOUND-DATABASE',async()=>{
+    const pool=createFakePool();
+    const out=await runPostgresRuntimeRlsProbe(probeInput(pool,{expectedDatabaseName:'startak_staging'}));
+    assert.strictEqual(out.status,RLS_PROBE_STATUS.PASS_NOT_PRODUCTION_CERTIFIED);
+    assert.strictEqual(out.checks.runtimeDatabaseMatchesExpected,true);
+  });
+  for(const [id,patch] of [['WRONG-DATABASE',{databaseName:'other_db'}],['MISSING-SUPERUSER',{superuser:null}],['MALFORMED-BYPASS',{bypassRls:'false'}]]) await test('P12-'+id,async()=>{
+    const pool=createFakePool(patch);
+    const out=await runPostgresRuntimeRlsProbe(probeInput(pool,{expectedDatabaseName:'startak_staging'}));
+    assert.strictEqual(out.status,RLS_PROBE_STATUS.HOLD_PROBE_EXECUTION);
+    assert.strictEqual(out.mutationExecuted,false);
+    assert.strictEqual(pool.state.rows.size,0);
+    assert.ok(!pool.state.queries.some(q=>q.sql.startsWith('INSERT')));
+  });
+  await test('P12-ENVIRONMENT-AND-TIME',async()=>{
+    const pool=createFakePool();
+    await assert.rejects(()=>runPostgresRuntimeRlsProbe(probeInput(pool,{environment:'production'})),/environment must be staging or preproduction/);
+    await assert.rejects(()=>runPostgresRuntimeRlsProbe(probeInput(pool,{testedAt:'not-a-date'})),/valid timestamp/);
+    assert.strictEqual(pool.state.connects,0);
+  });
+  await test('P12-TRANSACTION-IDENTITY-DRIFT',async()=>{
+    const pool=createFakePool({driftAfterFirstIdentity:true});
+    const out=await runPostgresRuntimeRlsProbe(probeInput(pool,{expectedDatabaseName:'startak_staging'}));
+    assert.strictEqual(out.status,RLS_PROBE_STATUS.HOLD_PROBE_EXECUTION);
+    assert.strictEqual(out.mutationExecuted,false);
+    assert.ok(!pool.state.queries.some(q=>q.sql.startsWith('INSERT')));
+  });
+  await test('P12-MISSING-CONTEXT-METADATA',async()=>{
+    const pool=createFakePool({missingContextMetadata:true});
+    const out=await runPostgresRuntimeRlsProbe(probeInput(pool,{expectedDatabaseName:'startak_staging'}));
+    assert.strictEqual(out.status,RLS_PROBE_STATUS.HOLD_CONTEXT_RESET);
+    assert.strictEqual(out.checks.tenantContextResetBetweenRequests,false);
+  });
+  await test('P12-REPEATED-RUN-ID-ISOLATION',async()=>{
+    const pool=createFakePool();
+    const first=await runPostgresRuntimeRlsProbe(probeInput(pool));
+    const second=await runPostgresRuntimeRlsProbe(probeInput(pool));
+    assert.strictEqual(first.status,RLS_PROBE_STATUS.PASS_NOT_PRODUCTION_CERTIFIED);
+    assert.strictEqual(second.status,first.status);
+    assert.strictEqual(first.probeRunId,second.probeRunId);
+    assert.notStrictEqual(first.probeInstanceId,second.probeInstanceId);
+    assert.notStrictEqual(first.evidenceRef,second.evidenceRef);
+    const primaryWrites=pool.state.queries.filter(q=>q.sql.startsWith('INSERT')&&q.params[1]?.endsWith(':primary'));
+    assert.strictEqual(primaryWrites.length,2);
+    assert.notStrictEqual(primaryWrites[0].params[0],primaryWrites[1].params[0]);
+    assert.strictEqual(pool.state.rows.size,0);
+  });
+  for(const [id,patch] of [['MISSING-UPDATE',{missingUpdateOnly:true}],['MISSING-DELETE',{missingDeleteOnly:true}]])await test('P12-'+id,async()=>{
+    const pool=createFakePool(patch);
+    const out=await runPostgresRuntimeRlsProbe(probeInput(pool));
+    assert.strictEqual(out.status,RLS_PROBE_STATUS.HOLD_MISSING_CONTEXT);
+    assert.strictEqual(out.checks.missingTenantContextDenied,false);
+    assert.strictEqual(out.checks.cleanupComplete,true);
+  });
+  for(const [id,patch] of [['ROLLBACK-FAILURE',{rollbackFailure:true}],['COMMIT-DENIAL',{denyCommit:true}],['CONTEXT-MISMATCH',{wrongContextResponse:true}]])await test('P12-'+id,async()=>{
+    const pool=createFakePool(patch);
+    const out=await runPostgresRuntimeRlsProbe(probeInput(pool));
+    assert.notStrictEqual(out.status,RLS_PROBE_STATUS.PASS_NOT_PRODUCTION_CERTIFIED);
+    assert.strictEqual(out.checks.crossTenantCrudDenied,false);
+    if(id!=='CONTEXT-MISMATCH')assert.ok(pool.state.discarded>0);
+    if(id==='CONTEXT-MISMATCH')assert.ok(!pool.state.queries.some(q=>q.sql.startsWith('INSERT')));
+  });
   const failed = results.filter((entry) => entry[1] !== 'PASS');
   console.log(`PRODUCTIZATION_P12_POSTGRES_RLS_PROBE_RESULT=${failed.length === 0 ? 'PASS' : 'FAIL'} ${results.filter((entry) => entry[1] === 'PASS').length}/${results.length}`);
   if (failed.length > 0) process.exit(1);

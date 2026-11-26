@@ -46,3 +46,13 @@ The exact-head C23 workflow must run:
 
 ## Non-goals
 No autonomous real-estate decision, certified valuation, legal opinion, purchase/sale/development approval, bid, payment, filing, transaction execution, Public AI or production deployment authorization is introduced by C23.
+
+
+### Retrieved-source metadata binding
+
+Each evidence-backed grounding item must match the source reference and data classification of the retrieval record with the same digest. Its knowledge time cannot precede that source's knowledge time, and its expiry cannot extend beyond the source expiry. A narrower valid interval is allowed. This consistency check is not authentication of the source or proof of authority to transfer its contents. Deterministic-output bindings still require separate evidence of output provenance.
+
+
+### Asynchronous packet isolation
+
+The execution entrypoint snapshots the five governed records and assessment timestamp before readiness validation. It sends only detached, deeply frozen request context to the adapter and reviews returned content against the same snapshot, not the caller's subsequently mutable input. Snapshot failure blocks execution. Both readiness and returned-draft validation require the network authorization flag. The snapshot uses the supplied assessment timestamp; it is not a wall-clock revocation service, provider authentication, or production transfer approval.

@@ -249,6 +249,44 @@ function assertAuthorityClosed(result) {
     assert.ok(first.resilienceEvidence.evidenceRefs.includes(`sha256:${'b'.repeat(64)}`));
   });
 
+  for (const [id,overrides] of [
+    ['WRONG-SOURCE',{targetDatabaseRef:'other-db'}],
+    ['MALFORMED-DIGEST',{bundleHashSha256:['b'.repeat(64)]}],
+    ['PRODUCTION-CLAIM',{productionQualified:true}],
+    ['RELEASE-CLAIM',{authority:{releaseAuthorized:true}}]
+  ]) await test('P16-'+id,async()=>{
+    const {qualify,calls}=buildHarness();
+    const out=await qualify(baseInput({apiSecurityQualification:apiSecurityQualification(overrides)}));
+    assert.strictEqual(out.status,BACKUP_RESTORE_STATUS.HOLD_API_SECURITY_QUALIFICATION);
+    assert.strictEqual(out.apiSecurityQualificationRef,null);
+    assert.strictEqual(calls.backup.length,0);assertAuthorityClosed(out);
+  });
+  await test('P16-FUTURE-AUTH',async()=>{
+    const {qualify,calls}=buildHarness();
+    const out=await qualify(baseInput({authorization:authorization({approvedAt:'2026-09-10T00:00:00Z'})}));
+    assert.strictEqual(out.status,BACKUP_RESTORE_STATUS.HOLD_AUTHORIZATION);assert.strictEqual(calls.backup.length,0);
+  });
+  for(const [id,patch,status,next] of [
+    ['EMPTY-BACKUP',{backupValue:backupResult({artifactSizeBytes:0})},BACKUP_RESTORE_STATUS.HOLD_BACKUP,'restore'],
+    ['BACKUP-PREAUTH',{backupValue:backupResult({startedAt:'2026-09-09T15:54:00Z'})},BACKUP_RESTORE_STATUS.HOLD_BACKUP,'restore'],
+    ['RESTORE-OVERLAP',{restoreValue:restoreResult({startedAt:'2026-09-09T16:00:59Z'})},BACKUP_RESTORE_STATUS.HOLD_RESTORE,'verify'],
+    ['FUTURE-DATA',{verificationValue:verificationResult({latestRestoredDataAt:'2026-09-10T00:00:00Z'})},BACKUP_RESTORE_STATUS.HOLD_VERIFICATION,null],
+    ['MISSING-RISK-FLAG',{verificationValue:verificationResult({duplicateSideEffectsObserved:undefined})},BACKUP_RESTORE_STATUS.HOLD_VERIFICATION,null],
+    ['INVALID-RISK-FLAG',{verificationValue:verificationResult({unreconciledDataCorruptionObserved:'false'})},BACKUP_RESTORE_STATUS.HOLD_VERIFICATION,null]
+  ]) await test('P16-'+id,async()=>{
+    const {qualify,calls}=buildHarness(patch);
+    const out=await qualify(baseInput());
+    assert.strictEqual(out.status,status);if(next)assert.strictEqual(calls[next].length,0);assertAuthorityClosed(out);
+  });
+  await test('P16-BIND-PLAN-AND-HOLD-EVIDENCE',async()=>{
+    const {qualify}=buildHarness();
+    const a=await qualify(baseInput({execute:false}));
+    const b=await qualify(baseInput({execute:false,evidenceId:'other'}));
+    assert.notStrictEqual(a.plan.planHashSha256,b.plan.planHashSha256);
+    const c=await buildHarness({verificationValue:verificationResult({restoredRecordCount:98})}).qualify(baseInput());
+    const e=await buildHarness({verificationValue:verificationResult({restoredRecordCount:99})}).qualify(baseInput());
+    assert.strictEqual(c.status,e.status);assert.notStrictEqual(c.bundleHashSha256,e.bundleHashSha256);
+  });
   const failed = results.filter((entry) => entry[1] !== 'PASS');
   console.log(`PRODUCTIZATION_P16_BACKUP_RESTORE_QUALIFICATION_RESULT=${failed.length === 0 ? 'PASS' : 'FAIL'} ${results.filter((entry) => entry[1] === 'PASS').length}/${results.length}`);
   if (failed.length > 0) process.exit(1);

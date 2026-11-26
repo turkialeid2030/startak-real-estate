@@ -66,4 +66,23 @@ assert.equal(Object.keys(ASSET_METHODS).length>=13,true);
 assert.equal(percentGap(200,150),25);
 assert.equal(evidenceRow(sale,'SALE',date).sourceVerifiedIndependently,false);
 assert.equal(evidenceRow({...sale,status:'ASKING'},'SALE',date).tier,'EXCLUDED_UNVERIFIED_OR_ASKING');
+let numericChecks=0;
+const checkNumeric=fn=>{fn();numericChecks++;};
+for(const count of [NaN,Infinity,-1,3.5,'3',Number.MAX_SAFE_INTEGER+1]){
+ const x=auditValuationReadiness({subject,report:{...report,eligibleSalesCount:count},asOf:date});
+ checkNumeric(()=>assert.equal(x.preliminaryValueSar,null));
+ checkNumeric(()=>assert.ok(x.issues.includes('COMPARABLE_COUNT_INVALID')));
+}
+for(const amount of [-1,Infinity,NaN,'2000']){
+ const x=auditValuationReadiness({subject,report:{...report,marketAnnualRentPotentialSar:amount},asOf:date});
+ checkNumeric(()=>assert.equal(x.newAnnualMarketRentSar,null));
+ checkNumeric(()=>assert.ok(x.issues.includes('RENT_INDICATION_INVALID')));
+}
+const zeroConflict=auditValuationReadiness({subject,report,segmentedRent:{...segmentation,grossPotentialNewAnnualRentSar:0},asOf:date});
+checkNumeric(()=>assert.equal(zeroConflict.newAnnualMarketRentSar,null));
+checkNumeric(()=>assert.equal(zeroConflict.rentGapPct,100));
+checkNumeric(()=>assert.ok(zeroConflict.issues.includes('RENT_ESTIMATES_UNRECONCILED')));
+checkNumeric(()=>assert.equal(percentGap(0,0),0));
+checkNumeric(()=>assert.equal(percentGap(-1,2),null));
+console.log('V6_VALUATION_NUMERIC_BOUNDARY=PASS checks='+numericChecks+' synthetic_only=true');
 console.log('STARTAK_PROPERTY_READINESS_AND_SOURCE_PROVENANCE=PASS');

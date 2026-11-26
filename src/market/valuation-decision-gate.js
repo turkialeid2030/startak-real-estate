@@ -37,6 +37,8 @@ const reasonText=Object.freeze({
   HOTEL_ROOM_COUNT_MISSING:'عدد الغرف الفندقية غير مكتمل',
   SPECIALIST_METHOD_REQUIRED:'الأصل يحتاج نموذجًا متخصصًا، ولا يجوز استخدام إيجار المتر العام',
   MIXED_USE_SEGMENT_VALUATION_REQUIRED:'المشروع متعدد الاستخدامات يتطلب حساب كل شريحة على حدة',
+  COMPARABLE_COUNT_INVALID:'عدد المقارنات غير صالح',
+  RENT_INDICATION_INVALID:'القيمة الإيجارية غير صالحة',
   NO_EXECUTED_SALE_COMPARABLES:'لا توجد ثلاث مقارنات بيع منفذة مؤهلة',
   NO_EXECUTED_RENT_COMPARABLES:'لا توجد ثلاث عقود إيجار مؤهلة',
   SOURCE_INDEPENDENCE_NOT_VERIFIED:'لم يتم إثبات صحة المصادر والحقوق العقارية من جهة مستقلة',
@@ -53,8 +55,8 @@ const reasonText=Object.freeze({
 function present(n){const v=number(n);return v!==null&&v>0;}
 function inRange(n){const v=number(n);return v!==null&&v>=0&&v<=1;}
 function percentGap(a,b){
- if(!Number.isFinite(a)||!Number.isFinite(b)||!(a>0&&b>0))return null;
- return Math.abs(a-b)/Math.max(a,b)*100;
+ if(!Number.isFinite(a)||!Number.isFinite(b)||a<0||b<0)return null;
+ const max=Math.max(a,b);return max===0?0:Math.abs(a-b)/max*100;
 }
 function evidenceRow(row,kind,now){
  const source=typeof row?.sourceUrl==='string'?row.sourceUrl.trim():'';
@@ -102,7 +104,10 @@ function auditValuationReadiness({subject={},report={},segmentedRent=null,sales=
  if(type==='HOTEL'&&!present(subject.roomCount))add(reasons,'HOTEL_ROOM_COUNT_MISSING');
  if(SPECIALIST.has(type))add(reasons,'SPECIALIST_METHOD_REQUIRED');
  if(type==='MIXED_USE')add(reasons,'MIXED_USE_SEGMENT_VALUATION_REQUIRED');
- const salesQualified=Number(report?.eligibleSalesCount||0),rentQualified=Number(report?.eligibleRentalsCount||0);
+ const validCount=n=>typeof n==='number'&&Number.isSafeInteger(n)&&n>=0;
+ const rawSales=report?.eligibleSalesCount??0,rawRent=report?.eligibleRentalsCount??0;
+ const salesQualified=validCount(rawSales)?rawSales:0,rentQualified=validCount(rawRent)?rawRent:0;
+ if(!validCount(rawSales)||!validCount(rawRent))add(reasons,'COMPARABLE_COUNT_INVALID');
  if(salesQualified<3)add(reasons,'NO_EXECUTED_SALE_COMPARABLES');
  if(INCOME_REQUIRED.has(type)&&rentQualified<3)add(notices,'NO_EXECUTED_RENT_COMPARABLES');
  if(report?.materialMethodGap)add(reasons,'METHODS_UNRECONCILED');
@@ -125,16 +130,20 @@ function auditValuationReadiness({subject={},report={},segmentedRent=null,sales=
  add(notices,'SOURCE_INDEPENDENCE_NOT_VERIFIED');
  const legal=report?.rentRegulation||'SCOPE_VERIFICATION_REQUIRED';
  if(legal!=='EXPLICITLY_LEGALLY_REVIEWED')add(notices,'TENANCY_LEGAL_REVIEW_REQUIRED');
- const baseRent=Number.isFinite(report.marketAnnualRentPotentialSar)?report.marketAnnualRentPotentialSar:null;
- const unitRent=segmentedRent?.status==='PRELIMINARY_SEGMENTED_RENT_UNVERIFIED' &&
-  Number.isFinite(segmentedRent.grossPotentialNewAnnualRentSar)?
-   segmentedRent.grossPotentialNewAnnualRentSar:null;
+ const rawBaseRent=report?.marketAnnualRentPotentialSar;
+ const hasSegmented=segmentedRent?.status==='PRELIMINARY_SEGMENTED_RENT_UNVERIFIED';
+ const rawUnitRent=hasSegmented?segmentedRent.grossPotentialNewAnnualRentSar:null;
+ const validRent=n=>Number.isFinite(n)&&n>=0;
+ const invalidRent=(rawBaseRent!=null&&!validRent(rawBaseRent))||(hasSegmented&&!validRent(rawUnitRent));
+ if(invalidRent)add(reasons,'RENT_INDICATION_INVALID');
+ const baseRent=validRent(rawBaseRent)?rawBaseRent:null;
+ const unitRent=validRent(rawUnitRent)?rawUnitRent:null;
  const rentGapPct=percentGap(baseRent,unitRent),rentConflict=rentGapPct!==null&&rentGapPct>=20;
  if(rentConflict)add(reasons,'RENT_ESTIMATES_UNRECONCILED');
  if(segmentedRent&&segmentedRent.status==='HOLD_INCOMPLETE_UNIT_EVIDENCE')
   add(notices,'RENT_CLASS_EVIDENCE_INCOMPLETE');
- const recommendedRent=rentConflict||rentSourceConflict?null:unitRent!==null?unitRent:baseRent;
- const rentSource=rentConflict||rentSourceConflict?'CONFLICT_REQUIRES_REVIEW':
+ const recommendedRent=invalidRent||rentConflict||rentSourceConflict?null:unitRent!==null?unitRent:baseRent;
+ const rentSource=invalidRent||rentConflict||rentSourceConflict?'CONFLICT_REQUIRES_REVIEW':
   unitRent!==null?'SEGMENTED_EXECUTED_LEASE_COMPARABLES':
   baseRent!==null?'WHOLE_ASSET_EXECUTED_LEASE_COMPARABLES':'NO_SUPPORTED_RENT';
  const canShowSinglePrice=Boolean(!reasons.length&&

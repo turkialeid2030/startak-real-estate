@@ -3,6 +3,7 @@
 const crypto = require('crypto');
 const {
   OBSERVABILITY_STATUS,
+  verifyCompletedObservabilityQualification,
 } = require('./controlled-observability-incident-qualification');
 
 const SECURITY_UAT_STATUS = Object.freeze({
@@ -286,7 +287,7 @@ function createIndependentSecurityUatEvidenceGate() {
 
     const observabilityComplete = Boolean(
       observabilityQualification
-      && observabilityQualification.status === OBSERVABILITY_STATUS.OBSERVABILITY_INCIDENT_EVIDENCE_COMPLETE_NOT_PRODUCTION_CERTIFIED
+      && verifyCompletedObservabilityQualification(observabilityQualification,assessed.value)
       && typeof observabilityQualification.evidenceHashSha256 === 'string'
       && SHA256_RE.test(observabilityQualification.evidenceHashSha256)
       && observabilityQualification.plan?.environment === env
@@ -330,6 +331,7 @@ function createIndependentSecurityUatEvidenceGate() {
 
     const staleIssues = [];
     const maxAgeMs = maxAgeDays * 86400000;
+    if(!Number.isFinite(maxAgeMs))return makeResult({status:SECURITY_UAT_STATUS.HOLD_STALE_EVIDENCE,plan,pentest,uat,issues:['EVIDENCE_FRESHNESS_WINDOW_INVALID']});
     // A later review does not refresh the date on which the tests ran.
     for (const [name, evidence] of [['PENTEST', pentest], ['UAT', uat]]) {
       const age = assessed.millis - Date.parse(evidence.completedAt);

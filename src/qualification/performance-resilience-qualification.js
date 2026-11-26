@@ -343,6 +343,7 @@ function verifyResilienceEvidence(record) {
 function buildPerformanceResilienceQualification(input = {}) {
   const qualificationId = requiredString(input.qualificationId, 'qualificationId');
   const environment = requiredEnum(input.expectedEnvironment, QUALIFICATION_ENVIRONMENT, 'expectedEnvironment');
+  const expectedTargetRef = requiredString(input.expectedTargetRef, 'expectedTargetRef');
   const exactCommitSha = requiredCommitSha(input.exactCommitSha, 'exactCommitSha');
   const assessed = requiredTimestamp(input.assessedAt, 'assessedAt');
   const maximumEvidenceAgeDays = nonNegativeNumber(input.maximumEvidenceAgeDays, 'maximumEvidenceAgeDays');
@@ -367,7 +368,7 @@ function buildPerformanceResilienceQualification(input = {}) {
       issues.push(`INVALID_RUN_EVIDENCE:${record?.runId || 'UNKNOWN'}:${check.reasonCode}`);
       continue;
     }
-    if (record.environment !== environment || record.exactCommitSha !== exactCommitSha) {
+    if (record.environment !== environment || record.exactCommitSha !== exactCommitSha || record.targetRef !== expectedTargetRef) {
       status = PERFORMANCE_QUALIFICATION_STATUS.HOLD_SCOPE_MISMATCH;
       issues.push(`RUN_SCOPE_MISMATCH:${record.runId}`);
     }
@@ -400,6 +401,13 @@ function buildPerformanceResilienceQualification(input = {}) {
     }
   }
 
+  for (const record of input.runEvidenceRecords) {
+    if (record && !evaluationIds.has(record.runId)) {
+      status = PERFORMANCE_QUALIFICATION_STATUS.HOLD_EVIDENCE_INTEGRITY;
+      issues.push('RUN_EVALUATION_MISSING:' + (record.runId || 'UNKNOWN'));
+    }
+  }
+
   if (status === PERFORMANCE_QUALIFICATION_STATUS.READY_FOR_INDEPENDENT_PERFORMANCE_VALIDATION) {
     for (const workload of requiredWorkloads) {
       const candidates = input.performanceEvaluations.filter((evaluation) => evaluation.workloadClass === workload);
@@ -424,7 +432,7 @@ function buildPerformanceResilienceQualification(input = {}) {
       issues.push(`INVALID_RESILIENCE_EVIDENCE:${record?.resilienceEvidenceId || 'UNKNOWN'}:${check.reasonCode}`);
       continue;
     }
-    if (record.environment !== environment || record.exactCommitSha !== exactCommitSha) {
+    if (record.environment !== environment || record.exactCommitSha !== exactCommitSha || record.targetRef !== expectedTargetRef) {
       status = PERFORMANCE_QUALIFICATION_STATUS.HOLD_SCOPE_MISMATCH;
       issues.push(`RESILIENCE_SCOPE_MISMATCH:${record.resilienceEvidenceId}`);
     }
@@ -458,14 +466,15 @@ function buildPerformanceResilienceQualification(input = {}) {
   const core = {
     qualificationId,
     expectedEnvironment: environment,
+    expectedTargetRef,
     exactCommitSha,
     assessedAt: assessed.value,
     maximumEvidenceAgeDays,
     requiredWorkloadClasses: requiredWorkloads,
     requiredResilienceScenarios: requiredScenarios,
-    performanceEvaluationHashesSha256: input.performanceEvaluations.map((item) => item.evaluationHashSha256 || null),
-    runEvidenceHashesSha256: input.runEvidenceRecords.map((item) => item.runEvidenceHashSha256 || null),
-    resilienceEvidenceHashesSha256: input.resilienceEvidenceRecords.map((item) => item.resilienceEvidenceHashSha256 || null),
+    performanceEvaluationHashesSha256: Array.from(input.performanceEvaluations, item => item?.evaluationHashSha256 || null),
+    runEvidenceHashesSha256: Array.from(input.runEvidenceRecords, item => item?.runEvidenceHashSha256 || null),
+    resilienceEvidenceHashesSha256: Array.from(input.resilienceEvidenceRecords, item => item?.resilienceEvidenceHashSha256 || null),
     status,
     issues,
   };
@@ -491,9 +500,27 @@ function buildPerformanceResilienceQualification(input = {}) {
 
 function verifyPerformanceResilienceQualification(record) {
   if (!record || typeof record !== 'object' || Array.isArray(record)) return Object.freeze({ valid: false, reasonCode: 'QUALIFICATION_OBJECT_REQUIRED' });
+  const invalid = reasonCode => Object.freeze({valid:false,reasonCode});
+  const arrays=['requiredWorkloadClasses','requiredResilienceScenarios','performanceEvaluationHashesSha256','runEvidenceHashesSha256','resilienceEvidenceHashesSha256','issues'];
+  if(arrays.some(key=>!Array.isArray(record[key])))return invalid('QUALIFICATION_SCHEMA_INVALID');
+  try {
+    requiredString(record.expectedTargetRef,'expectedTargetRef');
+    requiredCommitSha(record.exactCommitSha,'exactCommitSha');
+    requiredEnum(record.expectedEnvironment,QUALIFICATION_ENVIRONMENT,'expectedEnvironment');
+    requiredEnum(record.status,PERFORMANCE_QUALIFICATION_STATUS,'status');
+    if(['productionPerformanceValidated','productionResilienceValidated','capacityPlanEstablished','slaEstablished','mergeAuthorized','deploymentAuthorized','transactionAuthorized','thresholdsInventedByThisModule'].some(key=>record[key]!==false)||
+       ['callerSuppliedSlosRequired','callerSuppliedRecoveryObjectivesRequired','independentPerformanceValidationRequired','humanReleaseApprovalRequired'].some(key=>record[key]!==true))
+      return invalid('QUALIFICATION_AUTHORITY_INVALID');
+    if(record.status===PERFORMANCE_QUALIFICATION_STATUS.READY_FOR_INDEPENDENT_PERFORMANCE_VALIDATION){
+      if(record.issues.length||record.performanceEvaluationHashesSha256.length!==record.runEvidenceHashesSha256.length||
+         ['performanceEvaluationHashesSha256','runEvidenceHashesSha256','resilienceEvidenceHashesSha256'].some(key=>!record[key].length||record[key].some(hash=>typeof hash!=='string'||!SHA256_RE.test(hash))))
+        return invalid('QUALIFICATION_READY_EVIDENCE_INVALID');
+    }
+  }catch{return invalid('QUALIFICATION_SCHEMA_INVALID');}
   const core = {
     qualificationId: record.qualificationId,
     expectedEnvironment: record.expectedEnvironment,
+    expectedTargetRef: record.expectedTargetRef,
     exactCommitSha: record.exactCommitSha,
     assessedAt: record.assessedAt,
     maximumEvidenceAgeDays: record.maximumEvidenceAgeDays,

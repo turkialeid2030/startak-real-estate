@@ -76,6 +76,16 @@ held({entryCapRate:0.075,exitCapRate:0.07},'EXIT_CAP_COMPRESSION_NEEDS_PROFESSIO
 held({terminalNoiSar:0},'TERMINAL_NOI_REQUIRED');
 held({policy:{...policy,stressCapShockBps:900}},'STRESS_RANGE_INVALID');
 held({policy:null},'PREDECLARED_RATE_STRESS_AND_EVIDENCE_POLICY_REQUIRED');
+let boundaryChecks=0;
+const bcheck=fn=>{fn();boundaryChecks++;};
+bcheck(()=>held({comparables:[base.comparables[0],{...base.comparables[1],transactionRef:' T-1 '}]},'DUPLICATE'));
+bcheck(()=>held({comparables:[base.comparables[0],{...base.comparables[1],reviewedAt:'2026-05-31'}]},'PROVENANCE_REQUIRED'));
+bcheck(()=>held({policy:{...policy,minExecutedTransactions:Number.MAX_SAFE_INTEGER+1}},'POLICY_REQUIRED'));
+bcheck(()=>held({policy:{...policy,maxComparableAgeDays:Number.MAX_SAFE_INTEGER+1}},'POLICY_REQUIRED'));
+bcheck(()=>held({terminalNoiSar:Number.MAX_VALUE},'STRESS_RANGE_INVALID'));
+bcheck(()=>held({comparables:[base.comparables[0],{...base.comparables[1],grossAnnualRentalSar:Number.MAX_VALUE,normalizedNetAdjustmentsSar:Number.MAX_VALUE}]},'NOI_BRIDGE'));
+bcheck(()=>assert.equal(assessMarketRateProvenance({...base,comparables:[{...base.comparables[0],reviewedAt:base.comparables[0].transactionDate},base.comparables[1]]}).status,STATUS.READY_FOR_EXTERNAL_AUTHENTICATION));
+console.log('V6_C60_RATE_BOUNDARY=PASS checks='+boundaryChecks+' synthetic_only=true');
 console.log('C60_SAUDI_INCOME_RATE_PROVENANCE=PASS');
 console.log('C60_REAL_MARKET_RATES_EXTERNALLY_AUTHENTICATED=FALSE');
 console.log('C60_PUBLISHED_SAUDI_RATE_ACCURACY_ESTABLISHED=FALSE');

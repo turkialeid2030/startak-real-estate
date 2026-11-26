@@ -5,13 +5,32 @@ const fs=require('node:fs/promises');
 const path=require('node:path');
 const fixture={reportRef:'SYNTHETIC-ONLY',valuationDate:'2026-01-01',landAreaSqm:1000,comparables:[{id:'C1',date:'2025-12-01',areaSqm:900,rawRateSar:1000,firstAdjustment:-.1,secondAdjustment:-.2,weight:.5,transactionStatus:'EXECUTED',page:1},{id:'C2',date:'2025-12-01',areaSqm:1000,rawRateSar:1200,firstAdjustment:0,secondAdjustment:0,weight:.5,transactionStatus:'EXECUTED',page:1}],adoptedLandRateSar:960,roundingReason:'',components:[{id:'B1',kind:'FLOOR',quantity:500,unit:'SQM',unitCostSar:1000,page:2},{id:'B2',kind:'WALL',quantity:100,unit:'LINEAR_M',unitCostSar:100,page:2}],declaredBuildingCostSar:510000,effectiveAge:10,economicLife:50,declaredPhysicalRate:.2,declaredDepreciationSar:102000,declaredFinalValueSar:1368000,sourcePage:3,identityConflict:true,incomeEvidenceAvailable:false};
 (async()=>{
- const engine=process.env.STARTAK_BROWSER||'chromium',browser=await ({chromium,firefox,webkit}[engine]).launch({headless:true});
+ const engine=process.env.STARTAK_BROWSER||'chromium',browserType=({chromium,firefox,webkit})[engine];
  let configs=0;
- try{for(const width of [390,768,1366])for(const locale of ['ar-SA','en']){
-  const ctx=await browser.newContext({viewport:{width,height:900},locale,acceptDownloads:true});
+ // These configurations represent independent user sessions. A fresh process
+ // removes cross-context browser state from the acceptance matrix, without
+ // retrying clicks or dropping any of the repeated downloads in each session.
+ for(const width of [390,768,1366])for(const locale of ['ar-SA','en']){
+  const browser=await browserType.launch({headless:true});
+  let ctx;
   try{
+   ctx=await browser.newContext({viewport:{width,height:900},locale,acceptDownloads:true});
    const page=await ctx.newPage(),errors=[];page.on('pageerror',e=>errors.push(String(e)));
-   await page.addInitScript(l=>localStorage.setItem('startak.presentation.locale',l),locale);
+   await page.addInitScript(l=>{
+    localStorage.setItem('startak.presentation.locale',l);
+    const counts={pointerdown:0,pointerup:0,click:0,lastTarget:null,recent:[]};
+    Object.defineProperty(window,'__startakSyntheticDownloadEvents',{value:counts});
+    for(const eventName of ['pointerdown','pointerup','click'])document.addEventListener(eventName,event=>{
+      const target=event.target?.closest?.('[data-testid]');
+      const testId=target?.getAttribute('data-testid');
+      // Capture geometry and target identity, never input values or text.
+      counts.recent.push({type:eventName,target:testId||null,tag:event.target?.tagName||null,x:event.clientX,y:event.clientY,scrollY:window.scrollY});
+      if(counts.recent.length>12)counts.recent.shift();
+      if(['studio-export','studio-audit-export','rental-export'].includes(testId)){
+        counts[eventName]++;counts.lastTarget=testId;
+      }
+    },true);
+   },locale);
    const url=new URL('/?ownerView=advanced',process.env.STARTAK_E2E_URL||'http://127.0.0.1:4173');
    if(!['127.0.0.1','localhost'].includes(url.hostname))throw Error('LOCAL_PREVIEW_REQUIRED');
    await ctx.route('**/*',route=>{const u=new URL(route.request().url());return u.origin===url.origin||['blob:','data:'].includes(u.protocol)?route.continue():route.abort();});
@@ -23,8 +42,47 @@ const fixture={reportRef:'SYNTHETIC-ONLY',valuationDate:'2026-01-01',landAreaSqm
     const label=engine+':'+locale+':'+width+':'+(++downloadIndex)+':'+await button.getAttribute('data-testid');
     console.log('REPORT_DOWNLOAD_START '+label);
     // Attach handlers concurrently: a failed click or download must fail the test.
-    const [file]=await Promise.all([page.waitForEvent('download'),button.click()]);
+    await expect(button).toBeEnabled();
+    // Complete scrolling before the real pointer gesture. In a long mobile
+    // page a moving hit target can split pointerdown and pointerup.
+    await button.scrollIntoViewIfNeeded();
+    await expect.poll(async()=>button.evaluate(async el=>{
+      const rect=()=>{const r=el.getBoundingClientRect();return [r.x,r.y,r.width,r.height];};
+      const first=rect();
+      await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+      const second=rect();
+      const x=second[0]+second[2]/2,y=second[1]+second[3]/2;
+      return first.every((v,i)=>Math.abs(v-second[i])<0.5)&&second[2]>0&&second[3]>0&&
+        el.contains(document.elementFromPoint(x,y));
+    }),{message:'Stable, hittable report button '+label,timeout:5000}).toBe(true);
+    const before=await page.evaluate(()=>({anchors:document.querySelectorAll('a[data-startak-local-download]').length,events:{...window.__startakSyntheticDownloadEvents}}));
+    let file;
+    try{
+      [file]=await Promise.all([page.waitForEvent('download'),button.click()]);
+    }catch(error){
+      // Synthetic test only: capture state, never URL/content or customer data.
+      const state=await page.evaluate(()=>{
+        const anchors=[...document.querySelectorAll('a[data-startak-local-download]')];
+        return {anchorCount:anchors.length,lastAnchorConnected:anchors.at(-1)?.isConnected===true,
+          lastAnchorDisplay:anchors.length?getComputedStyle(anchors.at(-1)).display:null,
+          lastAnchorHasDownload:anchors.at(-1)?.hasAttribute('download')===true,
+          studioNoticeVisible:!!document.querySelector('[data-testid="studio-notice"]'),
+          studioNotice:document.querySelector('[data-testid="studio-notice"]')?.textContent||null,
+          events:{...window.__startakSyntheticDownloadEvents},
+          visibility:document.visibilityState,
+          userActivationActive:navigator.userActivation?.isActive??null};
+      }).catch(()=>({diagnosticsUnavailable:true}));
+      console.error('REPORT_DOWNLOAD_FAILURE '+label+' '+JSON.stringify({before,...state}));
+      const failureDir=path.join('runtime-evidence','reporting-studio-browser',engine);
+      await fs.mkdir(failureDir,{recursive:true});
+      await page.screenshot({path:path.join(failureDir,'failure-'+locale+'-'+width+'-'+downloadIndex+'.png')}).catch(()=>{});
+      throw error;
+    }
+    const after=await page.evaluate(()=>({...window.__startakSyntheticDownloadEvents}));
+    assert.equal(after.click,before.events.click+1,'Expected exactly one user click '+label);
+    assert.equal(after.lastTarget,await button.getAttribute('data-testid'),'Unexpected click target '+label);
     assert.equal(await file.failure(),null,'Download failed '+label);
+    assert.match(file.suggestedFilename(),/^startak-[a-z-]+\.html$/i,'Unexpected download filename '+label);
     const html=await fs.readFile(await file.path(),'utf8');
     assert.ok(html.length>0,'Empty download '+label);
     console.log('REPORT_DOWNLOAD_PASS '+label);
@@ -111,7 +169,7 @@ const fixture={reportRef:'SYNTHETIC-ONLY',valuationDate:'2026-01-01',landAreaSqm
    await select('rental-comp-2-status','ASKING');await expect(rentExport).toBeDisabled();await expect(rentResult).toHaveCount(0);await calc.click();await expect(rentResult).toContainText(locale==='en'?'Held: insufficient or conflicting evidence':'معلق: أدلة غير كافية أو متعارضة');
    assert.deepEqual(errors,[]);
    const dir=path.join('runtime-evidence','reporting-studio-browser',engine);await fs.mkdir(dir,{recursive:true});await page.screenshot({path:path.join(dir,locale+'-'+width+'.png')});configs++;
-  }finally{await ctx.close();}
- }}finally{await browser.close();}
+  }finally{try{if(ctx)await ctx.close();}finally{await browser.close();}}
+ }
  console.log('REPORTING_STUDIO_BROWSER=PASS configurations='+configs);
 })().catch(e=>{console.error(e);process.exitCode=1;});

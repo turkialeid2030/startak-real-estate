@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 const {dispatchLocalHtmlDownload,DOWNLOAD_GRACE_MS}=require('../../src/reporting/local-html-download');
 function fixture(fail=''){
  const events=[],timers=[];
- const anchor={click(){events.push('click');if(fail==='click')throw Error('click');},remove(){events.push('remove');}};
+ const anchor={style:{},attrs:{},setAttribute(k,v){this.attrs[k]=v;},click(){events.push('click');if(fail==='click')throw Error('click');},remove(){events.push('remove');}};
  const env={Blob,URL:{createObjectURL(blob){events.push('create');assert.equal(blob.type,'text/html;charset=utf-8');return 'blob:synthetic';},revokeObjectURL(url){assert.equal(url,'blob:synthetic');events.push('revoke');}},
  document:{createElement(){if(fail==='element')throw Error('element');return anchor;},body:{appendChild(){events.push('append');if(fail==='append')throw Error('append');}}},
  setTimeout(fn,ms){if(fail==='timer')throw Error('timer');timers.push({fn,ms});}};
@@ -15,7 +15,12 @@ const result=dispatchLocalHtmlDownload('<html>synthetic</html>','startak-test.ht
 check(()=>assert.deepEqual(f.events,['create','append','click']));
 check(()=>assert.equal(f.anchor.href,'blob:synthetic'));
 check(()=>assert.equal(f.anchor.download,'startak-test.html'));
-check(()=>assert.equal(f.anchor.hidden,true));
+check(()=>assert.equal(f.anchor.attrs['aria-hidden'],'true'));
+check(()=>assert.equal(f.anchor.attrs['data-startak-local-download'],'true'));
+check(()=>assert.equal(f.anchor.tabIndex,-1));
+check(()=>assert.equal(f.anchor.style.position,'fixed'));
+check(()=>assert.equal(f.anchor.style.pointerEvents,'none'));
+check(()=>assert.notEqual(f.anchor.hidden,true));
 check(()=>assert.equal(result.downloadConfirmed,false));
 check(()=>assert.equal(f.timers.length,1));
 check(()=>assert.equal(f.timers[0].ms,DOWNLOAD_GRACE_MS));

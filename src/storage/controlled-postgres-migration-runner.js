@@ -13,6 +13,7 @@ const MIGRATION_STATUS = Object.freeze({
   HOLD_SCHEMA_EXECUTION: 'HOLD_SCHEMA_EXECUTION',
   HOLD_RLS_EXECUTION: 'HOLD_RLS_EXECUTION',
   HOLD_POSTCHECK: 'HOLD_POSTCHECK',
+  HOLD_TRANSACTION_OUTCOME: 'HOLD_TRANSACTION_OUTCOME',
   APPLIED_NOT_PRODUCTION_CERTIFIED: 'APPLIED_NOT_PRODUCTION_CERTIFIED',
 });
 
@@ -86,7 +87,8 @@ function authorizationMatches({ authorization, environment, targetDatabaseRef, e
     && authorization.approved
     && authorization.allowMutation
     && authorization.approvedBy
-    && authorization.approvedAt
+    && Number.isFinite(Date.parse(authorization.approvedAt))
+    && Date.parse(authorization.approvedAt) <= Date.now()
     && authorization.changeRef
     && authorization.environment === environment
     && authorization.targetDatabaseRef === targetDatabaseRef
@@ -142,6 +144,19 @@ async function withClient(pool, fn) {
   } finally {
     client.release();
   }
+}
+
+// Generated scripts each have one explicit outer transaction. Execute their bodies
+// in the same checked transaction; fail closed if the generator contract changes.
+function transactionBody(sql) {
+  const lines = sql.split('\n');
+  const begin = lines.map((line,i)=>line.trim()==='BEGIN;'?i:-1).filter(i=>i>=0);
+  const commit = lines.map((line,i)=>line.trim()==='COMMIT;'?i:-1).filter(i=>i>=0);
+  if(begin.length!==1 || commit.length!==1 || begin[0]>=commit[0]
+    || lines.slice(0,begin[0]).concat(lines.slice(commit[0]+1)).some(line=>line.trim()&&!line.trim().startsWith('--'))) {
+    throw new Error('UNEXPECTED_GENERATED_TRANSACTION_BOUNDARY');
+  }
+  return lines.filter((_,i)=>i!==begin[0]&&i!==commit[0]).join('\n');
 }
 
 function resultBase({ status, plan, authorization, execution }) {
@@ -210,6 +225,10 @@ async function runControlledCanonicalWorkspaceMigration({
     schemaApplied: false,
     rlsApplied: false,
     postcheckPassed: false,
+    mutationAttempted: false,
+    transactionCommitted: false,
+    rollbackConfirmed: false,
+    transactionOutcomeUnknown: false,
   };
 
   if (execute !== true) {
@@ -237,94 +256,73 @@ async function runControlledCanonicalWorkspaceMigration({
 
   if (!migrationPool || typeof migrationPool.connect !== 'function') throw new TypeError('migrationPool.connect is required for execution');
 
-  let actualDatabaseName = null;
-  let actualMigrationRole = null;
+  const executionState = { ...initialExecution };
+  let status = MIGRATION_STATUS.HOLD_PREFLIGHT;
+  let client;
+  let began = false;
   try {
-    const preflight = await withClient(migrationPool, (client) => client.query(
-      'SELECT current_database() AS database_name, current_user AS role_name',
-    ));
-    actualDatabaseName = preflight?.rows?.[0]?.database_name || null;
-    actualMigrationRole = preflight?.rows?.[0]?.role_name || null;
+    const schemaBody = transactionBody(migration.schemaSql);
+    const rlsBody = transactionBody(migration.rlsMigration.sql);
+    client = await migrationPool.connect();
+    if (!client || typeof client.query !== 'function' || typeof client.release !== 'function') throw new TypeError('invalid migration client');
+    const preflight = await client.query('SELECT current_database() AS database_name, current_user AS role_name');
+    const actual = preflight?.rows?.length === 1 ? preflight.rows[0] : null;
+    executionState.actualDatabaseName = actual?.database_name || null;
+    executionState.actualMigrationRole = actual?.role_name || null;
+    if (executionState.actualDatabaseName !== databaseName || executionState.actualMigrationRole !== migrationRole) {
+      status = MIGRATION_STATUS.HOLD_TARGET_MISMATCH;
+    } else {
+      executionState.preflightPassed = true;
+      await client.query('BEGIN');
+      began = true;
+      // Recheck the target inside the transaction (also protects transaction pooling).
+      const bound = await client.query('SELECT current_database() AS database_name, current_user AS role_name');
+      if(bound?.rows?.length!==1 || bound.rows[0].database_name!==databaseName || bound.rows[0].role_name!==migrationRole){
+        status=MIGRATION_STATUS.HOLD_TARGET_MISMATCH;
+        throw new Error('TRANSACTION_TARGET_MISMATCH');
+      }
+      status = MIGRATION_STATUS.HOLD_SCHEMA_EXECUTION;
+      executionState.mutationAttempted = true;
+      await client.query(schemaBody);
+      status = MIGRATION_STATUS.HOLD_RLS_EXECUTION;
+      await client.query(rlsBody);
+      status = MIGRATION_STATUS.HOLD_POSTCHECK;
+      const postcheck = await client.query(
+        'SELECT c.relrowsecurity, c.relforcerowsecurity FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = $1 AND c.relname = $2 AND c.relkind = $3',
+        [schema, table, 'r'],
+      );
+      const row = postcheck?.rows?.length===1 ? postcheck.rows[0] : null;
+      if(!row || row.relrowsecurity!==true || row.relforcerowsecurity!==true) throw new Error('RLS_POSTCHECK_FAILED');
+      status = MIGRATION_STATUS.HOLD_TRANSACTION_OUTCOME;
+      await client.query('COMMIT');
+      began=false;
+      executionState.transactionCommitted=true;
+      executionState.mutationExecuted=true;
+      executionState.schemaApplied=true;
+      executionState.rlsApplied=true;
+      executionState.postcheckPassed=true;
+      status=MIGRATION_STATUS.APPLIED_NOT_PRODUCTION_CERTIFIED;
+    }
   } catch (_) {
-    return resultBase({
-      status: MIGRATION_STATUS.HOLD_PREFLIGHT,
-      plan,
-      authorization: normalizedAuthorization,
-      execution: initialExecution,
-    });
+    // A failed COMMIT can have an ambiguous outcome; a later ROLLBACK is not proof
+    // the server did not commit. Keep HOLD and require independent inspection.
+    if(status===MIGRATION_STATUS.HOLD_TRANSACTION_OUTCOME) executionState.transactionOutcomeUnknown=true;
+    if(began){
+      try{
+        await client.query('ROLLBACK');
+        if(!executionState.transactionOutcomeUnknown) executionState.rollbackConfirmed=true;
+      }catch(_){
+        executionState.transactionOutcomeUnknown=true;
+        status=MIGRATION_STATUS.HOLD_TRANSACTION_OUTCOME;
+      }
+    }
+  } finally {
+    if(client && typeof client.release==='function'){
+      try { client.release(executionState.transactionOutcomeUnknown ? true : undefined); }
+      catch(_) { /* do not promote an uncommitted outcome */ }
+    }
   }
-
-  if (actualDatabaseName !== databaseName || actualMigrationRole !== migrationRole) {
-    return resultBase({
-      status: MIGRATION_STATUS.HOLD_TARGET_MISMATCH,
-      plan,
-      authorization: normalizedAuthorization,
-      execution: {
-        ...initialExecution,
-        actualDatabaseName,
-        actualMigrationRole,
-      },
-    });
-  }
-
-  const executionState = {
-    ...initialExecution,
-    preflightPassed: true,
-    actualDatabaseName,
-    actualMigrationRole,
-  };
-
-  try {
-    await withClient(migrationPool, (client) => client.query(migration.schemaSql));
-    executionState.mutationExecuted = true;
-    executionState.schemaApplied = true;
-  } catch (_) {
-    return resultBase({
-      status: MIGRATION_STATUS.HOLD_SCHEMA_EXECUTION,
-      plan,
-      authorization: normalizedAuthorization,
-      execution: executionState,
-    });
-  }
-
-  try {
-    await withClient(migrationPool, (client) => client.query(migration.rlsMigration.sql));
-    executionState.rlsApplied = true;
-  } catch (_) {
-    return resultBase({
-      status: MIGRATION_STATUS.HOLD_RLS_EXECUTION,
-      plan,
-      authorization: normalizedAuthorization,
-      execution: executionState,
-    });
-  }
-
-  try {
-    const postcheck = await withClient(migrationPool, (client) => client.query(
-      'SELECT c.relrowsecurity, c.relforcerowsecurity FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = $1 AND c.relname = $2 AND c.relkind = $3',
-      [schema, table, 'r'],
-    ));
-    const row = postcheck?.rows?.[0];
-    executionState.postcheckPassed = Boolean(row && row.relrowsecurity === true && row.relforcerowsecurity === true);
-  } catch (_) {
-    executionState.postcheckPassed = false;
-  }
-
-  if (!executionState.postcheckPassed) {
-    return resultBase({
-      status: MIGRATION_STATUS.HOLD_POSTCHECK,
-      plan,
-      authorization: normalizedAuthorization,
-      execution: executionState,
-    });
-  }
-
-  return resultBase({
-    status: MIGRATION_STATUS.APPLIED_NOT_PRODUCTION_CERTIFIED,
-    plan,
-    authorization: normalizedAuthorization,
-    execution: executionState,
-  });
+  return resultBase({status,plan,authorization:normalizedAuthorization,execution:executionState});
 }
 
 module.exports = {

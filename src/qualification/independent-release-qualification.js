@@ -19,6 +19,7 @@ const RELEASE_QUALIFICATION_STATUS = Object.freeze({
   HOLD_EVIDENCE_INTEGRITY: 'HOLD_EVIDENCE_INTEGRITY',
 });
 
+const REQUIRED_REVIEW_SCOPE = Object.freeze(['SECURITY','PERFORMANCE_RESILIENCE','RELEASE_REGRESSION']);
 const SECURITY_READY = 'READY_FOR_INDEPENDENT_SECURITY_VALIDATION';
 const PERFORMANCE_READY = 'READY_FOR_INDEPENDENT_PERFORMANCE_VALIDATION';
 const SHA256_RE = /^[a-f0-9]{64}$/i;
@@ -45,7 +46,7 @@ function requiredTimestamp(value, field) {
   return { value: value2, millis };
 }
 function nonNegativeInteger(value, field) {
-  if (!Number.isInteger(value) || value < 0) throw new TypeError(`${field} must be a non-negative integer`);
+  if (!Number.isSafeInteger(value) || value < 0) throw new TypeError(`${field} must be a non-negative integer`);
   return value;
 }
 function bool(value, field) {
@@ -114,6 +115,7 @@ function verifyCanonicalReleaseEvidence(record) {
       reviewedAt: requiredTimestamp(record.reviewedAt, 'reviewedAt').value,
       evidenceRefs: stringArray(record.evidenceRefs, 'evidenceRefs'),
     };
+    if(record.releaseAuthorized!==false||record.deploymentAuthorized!==false)return {valid:false,reasonCode:'RELEASE_EVIDENCE_AUTHORITY_INVALID'};
     if (core.regressionPassed > core.regressionTotal) return { valid: false, reasonCode: 'REGRESSION_COUNTS_INVALID' };
     if (Date.parse(core.reviewedAt) < Date.parse(core.testedAt)) return { valid: false, reasonCode: 'RELEASE_REVIEW_TIME_INVALID' };
     const expectedHash = hash(core);
@@ -165,6 +167,10 @@ function verifyIndependentReviewRecord(record) {
       findingRefs: stringArray(record.findingRefs || [], 'findingRefs', true),
       reviewedAt: requiredTimestamp(record.reviewedAt, 'reviewedAt').value,
     };
+    if(!Object.values(INDEPENDENCE_TYPE).includes(core.independenceType)||!Object.values(REVIEW_DECISION).includes(core.decision))
+      return {valid:false,reasonCode:'INDEPENDENT_REVIEW_SCHEMA_INVALID'};
+    if(record.releaseAuthorized!==false||record.reviewerCredentialsVerifiedByThisModule!==false||record.reviewerIndependenceVerifiedByThisModule!==false)
+      return {valid:false,reasonCode:'INDEPENDENT_REVIEW_AUTHORITY_INVALID'};
     const expectedHash = hash(core);
     return { valid: record.independentReviewHashSha256 === expectedHash, reasonCode: record.independentReviewHashSha256 === expectedHash ? null : 'INDEPENDENT_REVIEW_HASH_MISMATCH', expectedHash };
   } catch (error) { return { valid: false, reasonCode: 'INDEPENDENT_REVIEW_SCHEMA_INVALID', error: error.message }; }
@@ -199,12 +205,18 @@ function buildIndependentReleaseQualification(input = {}) {
   } else if (performanceStatus !== PERFORMANCE_READY) {
     status = RELEASE_QUALIFICATION_STATUS.HOLD_PERFORMANCE_QUALIFICATION;
     issues.push(`PERFORMANCE_${performanceStatus}`);
-  } else if (!(releaseEvidence.regressionTotal === releaseEvidence.regressionPassed && releaseEvidence.testDiscoveryAndRegressionPass && releaseEvidence.productionBuildPass && releaseEvidence.packageVerificationPass && releaseEvidence.auditThresholdPass && releaseEvidence.canonicalSourceHashVerificationPass && releaseEvidence.releaseVerifyPass)) {
+  } else if (!(releaseEvidence.regressionTotal > 0 && releaseEvidence.regressionTotal === releaseEvidence.regressionPassed && releaseEvidence.testDiscoveryAndRegressionPass && releaseEvidence.productionBuildPass && releaseEvidence.packageVerificationPass && releaseEvidence.auditThresholdPass && releaseEvidence.canonicalSourceHashVerificationPass && releaseEvidence.releaseVerifyPass)) {
     status = RELEASE_QUALIFICATION_STATUS.HOLD_RELEASE_VERIFICATION;
     issues.push('CANONICAL_RELEASE_EVIDENCE_NOT_PASSING');
   } else if (releaseEvidence.preparedBy === releaseEvidence.reviewedBy) {
     status = RELEASE_QUALIFICATION_STATUS.HOLD_RELEASE_VERIFICATION;
     issues.push('RELEASE_EVIDENCE_NOT_INDEPENDENTLY_REVIEWED');
+  } else if (Date.parse(review.reviewedAt)<Date.parse(releaseEvidence.reviewedAt) || review.reviewerRef===releaseEvidence.preparedBy) {
+    status=RELEASE_QUALIFICATION_STATUS.HOLD_INDEPENDENT_REVIEW;
+    issues.push('INDEPENDENT_REVIEW_TIME_OR_REVIEWER_INVALID');
+  } else if (!REQUIRED_REVIEW_SCOPE.every(scope=>review.reviewedScope.includes(scope)) || new Set(review.reviewedScope).size!==review.reviewedScope.length) {
+    status=RELEASE_QUALIFICATION_STATUS.HOLD_INDEPENDENT_REVIEW;
+    issues.push('INDEPENDENT_REVIEW_SCOPE_INCOMPLETE_OR_DUPLICATE');
   } else if (!(review.independenceAttestedByReviewer === true && review.conflictDeclared === false && review.decision === REVIEW_DECISION.PASS && review.materialOpenFindings === 0)) {
     status = RELEASE_QUALIFICATION_STATUS.HOLD_INDEPENDENT_REVIEW;
     issues.push('INDEPENDENT_REVIEW_NOT_CLEAR_PASS');
@@ -246,6 +258,15 @@ function buildIndependentReleaseQualification(input = {}) {
 
 function verifyIndependentReleaseQualification(record) {
   if (!record || typeof record !== 'object' || Array.isArray(record)) return { valid: false, reasonCode: 'QUALIFICATION_OBJECT_REQUIRED' };
+  if(!Array.isArray(record.issues))return {valid:false,reasonCode:'QUALIFICATION_SCHEMA_INVALID'};
+  if(['reviewerCredentialsVerifiedByThisModule','reviewerIndependenceVerifiedByThisModule','productionSecurityValidated','productionPerformanceValidated','pdplComplianceEstablished','certifiedValuationAuthorityEstablished','releaseAuthorized','mergeAuthorized','deploymentAuthorized','transactionAuthorized'].some(key=>record[key]!==false)||record.humanReleaseAuthorityApprovalRequired!==true)
+    return {valid:false,reasonCode:'QUALIFICATION_AUTHORITY_INVALID'};
+  if(!Object.values(RELEASE_QUALIFICATION_STATUS).includes(record.status))return {valid:false,reasonCode:'QUALIFICATION_SCHEMA_INVALID'};
+  const ready=record.status===RELEASE_QUALIFICATION_STATUS.READY_FOR_RELEASE_AUTHORITY_REVIEW;
+  if(record.independentEngineeringReviewRecorded!==ready)return {valid:false,reasonCode:'QUALIFICATION_STATUS_INCONSISTENT'};
+  if(ready&&(record.issues.length!==0||record.securityQualificationStatus!==SECURITY_READY||record.performanceQualificationStatus!==PERFORMANCE_READY||
+     !COMMIT_SHA_RE.test(record.exactCommitSha||'')||['securityQualificationHashSha256','performanceQualificationHashSha256','releaseEvidenceHashSha256','independentReviewHashSha256'].some(key=>typeof record[key]!=='string'||!SHA256_RE.test(record[key]))))
+    return {valid:false,reasonCode:'QUALIFICATION_READY_EVIDENCE_INVALID'};
   const core = {
     qualificationId: record.qualificationId,
     exactCommitSha: record.exactCommitSha,

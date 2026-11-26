@@ -70,30 +70,44 @@ async function withClient(pool, fn) {
   }
 }
 
-async function withTransaction(pool, tenantSetting, tenantId, fn) {
-  return withClient(pool, async (client) => {
-    let began = false;
-    try {
-      await client.query('BEGIN');
-      began = true;
-      if (tenantId != null) {
-        await client.query('SELECT set_config($1, $2, true) AS tenant_context', [tenantSetting, tenantId]);
-      }
-      const result = await fn(client);
-      await client.query('COMMIT');
-      began = false;
-      return result;
-    } catch (error) {
-      if (began) {
-        try { await client.query('ROLLBACK'); } catch (_) { /* preserve original error */ }
-      }
-      throw error;
-    }
-  });
-}
+const confirmedStatementDenial = Symbol('confirmedStatementDenial');
 
-function denialError(error) {
-  return Boolean(error && String(error.code || '') === '42501');
+async function withTransaction(pool, tenantSetting, tenantId, fn) {
+  const client=await pool.connect();
+  if (!client || typeof client.query!=='function' || typeof client.release!=='function') throw new TypeError('invalid runtime client');
+  let began=false, discard=false, phase='begin';
+  try {
+    await client.query('BEGIN');
+    began=true;
+    phase='identity';
+    if(typeof pool.verifyTransactionIdentity==='function') await pool.verifyTransactionIdentity(client);
+    if(tenantId!=null){
+      phase='context';
+      const result=await client.query('SELECT set_config($1, $2, true) AS tenant_context',[tenantSetting,tenantId]);
+      if(result?.rows?.length!==1||result.rows[0].tenant_context!==tenantId)throw new Error('TENANT_CONTEXT_NOT_CONFIRMED');
+    }
+    phase='statement';
+    const result=await fn(client);
+    phase='commit';
+    await client.query('COMMIT');
+    began=false;
+    return result;
+  }catch(error){
+    let rollbackConfirmed=false;
+    if(phase==='begin'||phase==='commit')discard=true;
+    if(began){
+      try{await client.query('ROLLBACK');rollbackConfirmed=true;}
+      catch(_){discard=true;}
+    }
+    if(phase==='statement'&&rollbackConfirmed&&error?.code==='42501'){
+      const denied=new Error('STATEMENT_PERMISSION_DENIED');
+      denied[confirmedStatementDenial]=true;
+      throw denied;
+    }
+    throw new Error('RUNTIME_TRANSACTION_NOT_CONFIRMED');
+  }finally{
+    client.release(discard?true:undefined);
+  }
 }
 
 async function expectRlsWriteDenial(pool, tenantSetting, tenantId, sql, params) {
@@ -101,7 +115,7 @@ async function expectRlsWriteDenial(pool, tenantSetting, tenantId, sql, params) 
     await withTransaction(pool, tenantSetting, tenantId, (client) => client.query(sql, params));
     return false;
   } catch (error) {
-    if (denialError(error)) return true;
+    if (error?.[confirmedStatementDenial]===true) return true;
     throw error;
   }
 }
@@ -154,6 +168,7 @@ function digestEvidence(value) {
 async function runPostgresRuntimeRlsProbe({
   pool,
   expectedRuntimeRole,
+  expectedDatabaseName,
   environment,
   targetDatabaseRef,
   probeRunId,
@@ -165,23 +180,32 @@ async function runPostgresRuntimeRlsProbe({
   if (!pool || typeof pool.connect !== 'function') throw new TypeError('pool.connect is required');
   const runtimeRole = assertIdentifier(expectedRuntimeRole, 'expectedRuntimeRole');
   const env = requiredString(environment, 'environment');
+  if (!['staging','preproduction'].includes(env.toLowerCase())) throw new TypeError('RLS probe environment must be staging or preproduction');
+  const databaseName = expectedDatabaseName == null ? null : assertIdentifier(expectedDatabaseName, 'expectedDatabaseName');
   const databaseRef = requiredString(targetDatabaseRef, 'targetDatabaseRef');
   const runId = normalizeProbeRunId(probeRunId);
   const timestamp = requiredString(testedAt, 'testedAt');
+  if (!Number.isFinite(Date.parse(timestamp))) throw new TypeError('testedAt must be a valid timestamp');
   const schema = assertIdentifier(schemaName, 'schemaName');
   const table = assertIdentifier(tableName, 'tableName');
   const setting = assertTenantSetting(tenantSetting);
   const qualified = `${schema}.${table}`;
 
-  const tenantA = `rls_probe_a:${runId}`;
-  const tenantB = `rls_probe_b:${runId}`;
-  const primaryId = `rls-probe:${runId}:primary`;
-  const crossInsertId = `rls-probe:${runId}:cross-insert`;
-  const missingInsertId = `rls-probe:${runId}:missing-insert`;
+  // Caller run IDs are correlation labels, not unique execution identities.
+  // A fresh cryptographic nonce prevents a retry or concurrent run from sharing
+  // temporary tenant/workspace keys or cleaning up another run's rows.
+  const probeInstanceId=crypto.randomUUID();
+  const scopeId=`${runId}:${probeInstanceId}`;
+  const tenantA = `rls_probe_a:${scopeId}`;
+  const tenantB = `rls_probe_b:${scopeId}`;
+  const primaryId = `rls-probe:${scopeId}:primary`;
+  const crossInsertId = `rls-probe:${scopeId}:cross-insert`;
+  const missingInsertId = `rls-probe:${scopeId}:missing-insert`;
   const cleanupIds = [primaryId, crossInsertId, missingInsertId];
 
   const checks = {
     runtimeRoleMatchesExpected: false,
+    runtimeDatabaseMatchesExpected: null,
     runtimeRoleIsSuperuser: false,
     runtimeRoleBypassesRls: false,
     forceRlsEnabled: false,
@@ -195,33 +219,50 @@ async function runPostgresRuntimeRlsProbe({
 
   let mutationStarted = false;
   let executionFailure = false;
+  let guardedPool = null;
 
   try {
     const roleRows = await withClient(pool, async (client) => {
       const result = await client.query(
-        'SELECT current_user AS role_name, r.rolsuper, r.rolbypassrls FROM pg_roles r WHERE r.rolname = current_user',
+        'SELECT current_user AS role_name, r.rolsuper, r.rolbypassrls, current_database() AS database_name FROM pg_roles r WHERE r.rolname = current_user',
       );
       return Array.isArray(result?.rows) ? result.rows : [];
     });
     if (roleRows.length !== 1) throw new Error('ROLE_METADATA_UNAVAILABLE');
+    if (typeof roleRows[0].rolsuper !== 'boolean' || typeof roleRows[0].rolbypassrls !== 'boolean') throw new Error('ROLE_METADATA_INCOMPLETE');
+    checks.runtimeDatabaseMatchesExpected = databaseName === null ? null : roleRows[0].database_name === databaseName;
+    if (databaseName !== null && !checks.runtimeDatabaseMatchesExpected) throw new Error('RUNTIME_DATABASE_MISMATCH');
     checks.runtimeRoleMatchesExpected = roleRows[0].role_name === runtimeRole;
     checks.runtimeRoleIsSuperuser = roleRows[0].rolsuper === true;
     checks.runtimeRoleBypassesRls = roleRows[0].rolbypassrls === true;
     if (!checks.runtimeRoleMatchesExpected) throw new Error('RUNTIME_ROLE_MISMATCH');
 
-    const tableRows = await withClient(pool, async (client) => {
+    // Bind every subsequent transaction to the expected runtime role and, when
+    // specified, the database name. Validate inside BEGIN for transaction pools.
+    const checkedPool = {
+      connect: () => pool.connect(),
+      async verifyTransactionIdentity(client) {
+        const result=await client.query('SELECT current_user AS role_name, r.rolsuper, r.rolbypassrls, current_database() AS database_name FROM pg_roles r WHERE r.rolname = current_user');
+        const row=result?.rows?.length===1?result.rows[0]:null;
+        if(!row||row.role_name!==runtimeRole||row.rolsuper!==false||row.rolbypassrls!==false||
+          (databaseName!==null&&row.database_name!==databaseName))throw new Error('RUNTIME_TRANSACTION_IDENTITY_MISMATCH');
+      }
+    };
+    guardedPool=checkedPool;
+    const privilegedRole = checks.runtimeRoleIsSuperuser || checks.runtimeRoleBypassesRls;
+    const tableRows = privilegedRole ? [] : await withTransaction(checkedPool, setting, null, async (client) => {
       const result = await client.query(
         'SELECT c.relrowsecurity, c.relforcerowsecurity FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = $1 AND c.relname = $2 AND c.relkind = $3',
         [schema, table, 'r'],
       );
       return Array.isArray(result?.rows) ? result.rows : [];
     });
-    if (tableRows.length !== 1) throw new Error('RLS_TABLE_METADATA_UNAVAILABLE');
-    checks.forceRlsEnabled = tableRows[0].relrowsecurity === true && tableRows[0].relforcerowsecurity === true;
+    if (!privilegedRole && tableRows.length !== 1) throw new Error('RLS_TABLE_METADATA_UNAVAILABLE');
+    checks.forceRlsEnabled = tableRows[0]?.relrowsecurity === true && tableRows[0]?.relforcerowsecurity === true;
 
     if (checks.runtimeRoleIsSuperuser || checks.runtimeRoleBypassesRls || !checks.forceRlsEnabled) {
       const status = statusFromChecks(checks);
-      const evidenceCore = { schemaVersion: 1, status, environment: env, targetDatabaseRef: databaseRef, probeRunId: runId, testedAt: timestamp, checks };
+      const evidenceCore = { schemaVersion: 1, status, environment: env, targetDatabaseRef: databaseRef, probeRunId: runId, probeInstanceId, testedAt: timestamp, checks };
       const probeHashSha256 = digestEvidence(evidenceCore);
       return freeze({
         ...evidenceCore,
@@ -236,53 +277,59 @@ async function runPostgresRuntimeRlsProbe({
 
     mutationStarted = true;
     const payload = buildPayload({ tenantId: tenantA, workspaceId: primaryId, probeRunId: runId, testedAt: timestamp });
-    const insertResult = await withTransaction(pool, setting, tenantA, (client) => client.query(
+    const insertResult = await withTransaction(guardedPool, setting, tenantA, (client) => client.query(
       `INSERT INTO ${qualified} (tenant_id, workspace_id, version, payload, updated_at) VALUES ($1, $2, 1, $3::jsonb, now()) RETURNING workspace_id`,
       [tenantA, primaryId, payload],
     ));
     const inserted = insertResult?.rowCount === 1;
 
-    const sameTenantSelect = await withTransaction(pool, setting, tenantA, (client) => client.query(
+    const sameTenantSelect = await withTransaction(guardedPool, setting, tenantA, (client) => client.query(
       `SELECT workspace_id FROM ${qualified} WHERE tenant_id = $1 AND workspace_id = $2`,
       [tenantA, primaryId],
     ));
-    const sameTenantUpdate = await withTransaction(pool, setting, tenantA, (client) => client.query(
+    const sameTenantUpdate = await withTransaction(guardedPool, setting, tenantA, (client) => client.query(
       `UPDATE ${qualified} SET updated_at = updated_at WHERE tenant_id = $1 AND workspace_id = $2 RETURNING workspace_id`,
       [tenantA, primaryId],
     ));
 
-    const contextReset = await withTransaction(pool, setting, null, (client) => client.query(
+    const contextReset = await withTransaction(guardedPool, setting, null, (client) => client.query(
       'SELECT nullif(current_setting($1, true), \'\') AS tenant_context',
       [setting],
     ));
-    checks.tenantContextResetBetweenRequests = contextReset?.rows?.[0]?.tenant_context == null;
+    checks.tenantContextResetBetweenRequests = contextReset?.rows?.length===1
+      && Object.prototype.hasOwnProperty.call(contextReset.rows[0],'tenant_context')
+      && contextReset.rows[0].tenant_context===null;
 
-    const crossSelect = await withTransaction(pool, setting, tenantB, (client) => client.query(
+    const crossSelect = await withTransaction(guardedPool, setting, tenantB, (client) => client.query(
       `SELECT workspace_id FROM ${qualified} WHERE tenant_id = $1 AND workspace_id = $2`,
       [tenantA, primaryId],
     ));
-    const crossUpdate = await withTransaction(pool, setting, tenantB, (client) => client.query(
+    const crossUpdate = await withTransaction(guardedPool, setting, tenantB, (client) => client.query(
       `UPDATE ${qualified} SET updated_at = updated_at WHERE tenant_id = $1 AND workspace_id = $2 RETURNING workspace_id`,
       [tenantA, primaryId],
     ));
-    const crossDelete = await withTransaction(pool, setting, tenantB, (client) => client.query(
+    const crossDelete = await withTransaction(guardedPool, setting, tenantB, (client) => client.query(
       `DELETE FROM ${qualified} WHERE tenant_id = $1 AND workspace_id = $2 RETURNING workspace_id`,
       [tenantA, primaryId],
     ));
     const crossInsertDenied = await expectRlsWriteDenial(
-      pool,
+      guardedPool,
       setting,
       tenantB,
       `INSERT INTO ${qualified} (tenant_id, workspace_id, version, payload, updated_at) VALUES ($1, $2, 1, $3::jsonb, now()) RETURNING workspace_id`,
       [tenantA, crossInsertId, buildPayload({ tenantId: tenantA, workspaceId: crossInsertId, probeRunId: runId, testedAt: timestamp })],
     );
 
-    const missingSelect = await withTransaction(pool, setting, null, (client) => client.query(
+    const missingSelect = await withTransaction(guardedPool, setting, null, (client) => client.query(
       `SELECT workspace_id FROM ${qualified} WHERE tenant_id = $1 AND workspace_id = $2`,
       [tenantA, primaryId],
     ));
+    const missingUpdate = await withTransaction(guardedPool,setting,null,(client)=>client.query(
+      `UPDATE ${qualified} SET updated_at = updated_at WHERE tenant_id = $1 AND workspace_id = $2 RETURNING workspace_id`,[tenantA,primaryId]));
+    const missingDelete = await withTransaction(guardedPool,setting,null,(client)=>client.query(
+      `DELETE FROM ${qualified} WHERE tenant_id = $1 AND workspace_id = $2 RETURNING workspace_id`,[tenantA,primaryId]));
     const missingInsertDenied = await expectRlsWriteDenial(
-      pool,
+      guardedPool,
       setting,
       null,
       `INSERT INTO ${qualified} (tenant_id, workspace_id, version, payload, updated_at) VALUES ($1, $2, 1, $3::jsonb, now()) RETURNING workspace_id`,
@@ -302,6 +349,8 @@ async function runPostgresRuntimeRlsProbe({
     );
     checks.missingTenantContextDenied = Boolean(
       missingSelect?.rowCount === 0
+      && missingUpdate?.rowCount === 0
+      && missingDelete?.rowCount === 0
       && missingInsertDenied,
     );
   } catch (_) {
@@ -311,7 +360,7 @@ async function runPostgresRuntimeRlsProbe({
       try {
         let primaryDeleteObserved = false;
         for (const workspaceId of cleanupIds) {
-          const result = await withTransaction(pool, setting, tenantA, (client) => client.query(
+          const result = await withTransaction(guardedPool, setting, tenantA, (client) => client.query(
             `DELETE FROM ${qualified} WHERE tenant_id = $1 AND workspace_id = $2 RETURNING workspace_id`,
             [tenantA, workspaceId],
           ));
@@ -320,7 +369,7 @@ async function runPostgresRuntimeRlsProbe({
 
         let allProbeRowsGone = true;
         for (const workspaceId of cleanupIds) {
-          const result = await withTransaction(pool, setting, tenantA, (client) => client.query(
+          const result = await withTransaction(guardedPool, setting, tenantA, (client) => client.query(
             `SELECT workspace_id FROM ${qualified} WHERE tenant_id = $1 AND workspace_id = $2`,
             [tenantA, workspaceId],
           ));
@@ -331,7 +380,7 @@ async function runPostgresRuntimeRlsProbe({
         // On the passing isolation path, cleanup of the primary row is also the same-tenant DELETE check.
         // If a broken cross-tenant policy already deleted that row, preserve the more material cross-tenant
         // failure instead of misclassifying the result as a cleanup failure.
-        if (checks.crossTenantCrudDenied) {
+        if (checks.crossTenantCrudDenied && checks.missingTenantContextDenied) {
           checks.sameTenantCrudAllowed = checks.sameTenantCrudAllowed && primaryDeleteObserved;
         }
       } catch (_) {
@@ -349,6 +398,7 @@ async function runPostgresRuntimeRlsProbe({
     environment: env,
     targetDatabaseRef: databaseRef,
     probeRunId: runId,
+    probeInstanceId,
     testedAt: timestamp,
     tableRef: `${schema}.${table}`,
     runtimeRole,

@@ -7,6 +7,7 @@ const {
 } = require('../../src/ai/governed-generative-intelligence');
 const {
   STATUS, ENVIRONMENT, GROUNDING_KIND, PROVIDER_RESULT,
+  canonicalLiteral, extractAssertedLiterals,
   createGroundingManifest, createProviderAuthorization, createProviderInvocationEnvelope,
   createProviderResponseEnvelope, validateGroundedProviderResponse,
   evaluateProviderReadiness, executeGovernedProviderGateway,
@@ -127,6 +128,30 @@ function fixture() {
   assert.strictEqual(personalReadiness.providerInvocationReady,false);
   assert.strictEqual(personalReadiness.status,STATUS.HOLD_SECURITY);
   assert(personalReadiness.blockers.includes('C23_PRIVACY_PERSONAL_DATA_EXTERNAL_TRANSFER_NOT_AUTHORIZED'));
+
+  // Arabic/English numeric notation must preserve the same exact value,
+  // while ambiguous grouping must never be interpreted as a different amount.
+  let numericChecks=0;
+  const ncheck=fn=>{fn();numericChecks++;};
+  for(const [raw,expected] of [['2,000','2000'],['٢٬٠٠٠','2000'],['۷۲٪','72%'],['٧٢ ٪','72%'],['١٢٫٥','12.5'],['−١٢٫٥','-12.5'],['+2000','2000'],['.5','.5']]){
+    ncheck(()=>assert.strictEqual(canonicalLiteral(raw),expected));
+  }
+  for(const raw of ['1,2','١٬٢','1,,2','1,00,000','1 2','1.2٫3','1,000٬000']){
+    ncheck(()=>assert.throws(()=>canonicalLiteral(raw),/C23_NUMERIC_LITERAL_AMBIGUOUS/));
+  }
+  ncheck(()=>assert.deepStrictEqual(extractAssertedLiterals('The price is 2,000, and the ratio is 72%.'),['2000','72%']));
+  ncheck(()=>assert.deepStrictEqual(extractAssertedLiterals('السعر ٢٬٠٠٠ والنسبة ٧٢ ٪.'),['2000','72%']));
+  const localized=response(f.invocation,{claims:[{claimId:'LOCALIZED',text:'السعر ٢٬٠٠٠ والنسبة ٧٢ ٪.',groundingItemIds:['ASKING-METRIC','UTILITY-METRIC'],assertedLiterals:['٢٬٠٠٠','٧٢٪']}]});
+  ncheck(()=>assert.strictEqual(validateProofGroundedProviderResponse({...f,providerResponse:localized}).status,STATUS.READY_FOR_HUMAN_GROUNDED_DRAFT_REVIEW));
+  for(const text of ['The price is 2,0,0,0.','السعر ٢٬٠٠','The price is 2 000.','The price is 2e3.','The price is 2,,000.']){
+    const invalid=response(f.invocation,{claims:[{claimId:'AMBIGUOUS',text,groundingItemIds:['ASKING-METRIC'],assertedLiterals:['2000']}]});
+    const checked=await executeGovernedProviderGateway({...f,adapter:{invoke:async()=>invalid}});
+    ncheck(()=>assert.strictEqual(checked.status,STATUS.HOLD_UNSUPPORTED_OUTPUT));
+    ncheck(()=>assert.strictEqual(checked.draft,null));
+    ncheck(()=>assert.strictEqual(checked.providerResponse,null));
+    ncheck(()=>assert.ok(checked.blockers.includes('C23_UNSUPPORTED_AMBIGUOUS_NUMERIC_LITERAL:AMBIGUOUS')));
+  }
+  console.log('C23_NUMERIC_GROUNDING_BOUNDARY=PASS checks='+numericChecks+' synthetic_adapter=true');
 
   const unsupportedAmount=response(f.invocation,{responseId:'RESP-BAD-AMOUNT',claims:[{claimId:'BAD',text:'The price is 9999.',groundingItemIds:['ASKING-METRIC'],assertedLiterals:['9999']}]});
   const badAmount=validateProofGroundedProviderResponse({...f,providerResponse:unsupportedAmount});
@@ -269,5 +294,124 @@ function fixture() {
   const integrity=evaluateProviderReadiness({...f,groundingManifest:tampered});
   assert.strictEqual(integrity.status,STATUS.HOLD_INTEGRITY); assert(integrity.blockers.includes('C23_INTEGRITY_GROUNDING_MANIFEST'));
 
+  // An ordinary digest does not authorize a noncanonical record. Rehash
+  // manipulated fields, then ensure neither direct nor wrapper invokes AI.
+  const rehash=(record,field,patch)=>{
+    const core={...record,...patch};delete core[field];
+    return {...core,[field]:crypto.createHash('sha256').update(JSON.stringify(stable(core))).digest('hex')};
+  };
+  const alteredItem=rehash(f.groundingManifest.items[0],'recordHashSha256',{humanVerified:false});
+  const forgedInputs=[
+    [{modelProfile:rehash(f.modelProfile,'modelProfileHashSha256',{transactionAuthority:true})},'C23_INTEGRITY_MODEL_PROFILE'],
+    [{request:rehash(f.request,'requestHashSha256',{autonomousToolExecutionAllowed:true})},'C23_INTEGRITY_C22_REQUEST'],
+    [{groundingManifest:rehash(f.groundingManifest,'manifestHashSha256',{items:[alteredItem,...f.groundingManifest.items.slice(1)]})},'C23_INTEGRITY_GROUNDING_MANIFEST'],
+    [{providerAuthorization:rehash(f.providerAuthorization,'authorizationHashSha256',{securityReviewEvidenceRef:''})},'C23_INTEGRITY_PROVIDER_AUTHORIZATION'],
+    [{invocation:rehash(f.invocation,'invocationHashSha256',{toolsEnabled:true})},'C23_INTEGRITY_INVOCATION'],
+    [{request:{...f.request,retrievalItems:{}}},'C23_INTEGRITY_C22_REQUEST'],
+    [{request:{...f.request,retrievalItems:[null]}},'C23_INTEGRITY_C22_REQUEST'],
+    [{request:{...f.request,deterministicOutputHashesSha256:42}},'C23_INTEGRITY_C22_REQUEST'],
+    [{groundingManifest:{...f.groundingManifest,items:[null]}},'C23_INTEGRITY_GROUNDING_MANIFEST'],
+  ];
+  let canonicalChecks=0,malformedCalls=0;
+  const ccheck=fn=>{fn();canonicalChecks++;};
+  for(const [patch,blocker] of forgedInputs){
+    for(const entry of [executeGovernedProviderGateway,executeProofGroundedProviderGateway]){
+      const out=await entry({...f,...patch,adapter:{invoke:async()=>{malformedCalls++;return f.providerResponse;}}});
+      ccheck(()=>assert.strictEqual(out.status,STATUS.HOLD_INTEGRITY));
+      ccheck(()=>assert.ok(out.blockers.includes(blocker)));
+      ccheck(()=>assert.strictEqual(out.providerCalled,false));
+      ccheck(()=>assert.strictEqual(out.providerResponse,null));
+    }
+  }
+  ccheck(()=>assert.strictEqual(malformedCalls,0));
+  ccheck(()=>assert.strictEqual(canonicalLiteral('٢٠٢٦-١٠-٠١'),'2026-10-01'));
+  ccheck(()=>assert.throws(()=>canonicalLiteral('2026-02-30'),/C23_DATE_LITERAL_INVALID/));
+  const dateManifest=manifest(f.request,{items:[{...f.groundingManifest.items[0],itemId:'DATE-EVIDENCE',kind:GROUNDING_KIND.DATE,canonicalValue:'2026-10-01'}]});
+  const dateInvocation=invocation(f.modelProfile,f.request,dateManifest,f.providerAuthorization);
+  const dateResponse=response(dateInvocation,{claims:[{claimId:'DATE-VALID',text:'التاريخ ٢٠٢٦-١٠-٠١.',groundingItemIds:['DATE-EVIDENCE'],assertedLiterals:['2026-10-01']}]});
+  const dateResult=validateProofGroundedProviderResponse({...f,groundingManifest:dateManifest,invocation:dateInvocation,providerResponse:dateResponse});
+  ccheck(()=>assert.strictEqual(dateResult.status,STATUS.READY_FOR_HUMAN_GROUNDED_DRAFT_REVIEW));
+  ccheck(()=>assert.ok(dateResult.draft.includes('٢٠٢٦-١٠-٠١')));
+  console.log('C23_CANONICAL_INPUT_AND_DATE_BOUNDARY=PASS checks='+canonicalChecks+' synthetic_adapter=true');
+  // Matching source bytes do not authorize inconsistent source metadata.
+  let metadataChecks=0,metadataCalls=0;
+  const mcheck=fn=>{fn();metadataChecks++;};
+  const originalItem=f.groundingManifest.items.find(i=>i.itemId==='ASKING-METRIC');
+  const sourcePatch=patch=>manifest(f.request,{items:[{...originalItem,...patch}]});
+  const invalidMetadata=[
+    [{sourceReference:'DIFFERENT-SOURCE'},STATUS.HOLD_EVIDENCE,'C23_EVIDENCE_SOURCE_REFERENCE_MISMATCH:ASKING-METRIC'],
+    [{dataClass:DATA_CLASS.PUBLIC},STATUS.HOLD_SECURITY,'C23_SECURITY_SOURCE_DATA_CLASS_MISMATCH:ASKING-METRIC'],
+    [{knownAt:'2026-10-01T07:59:59Z'},STATUS.HOLD_EVIDENCE,'C23_EVIDENCE_SOURCE_VALIDITY_WINDOW_MISMATCH:ASKING-METRIC'],
+    [{validUntil:'2026-10-03T12:00:01Z'},STATUS.HOLD_EVIDENCE,'C23_EVIDENCE_SOURCE_VALIDITY_WINDOW_MISMATCH:ASKING-METRIC']
+  ];
+  for(const [patch,status,blocker] of invalidMetadata){
+    const m=sourcePatch(patch),i=invocation(f.modelProfile,f.request,m,f.providerAuthorization);
+    for(const entry of [executeGovernedProviderGateway,executeProofGroundedProviderGateway]){
+      const out=await entry({...f,groundingManifest:m,invocation:i,adapter:{invoke:async()=>{metadataCalls++;return f.providerResponse;}}});
+      mcheck(()=>assert.strictEqual(out.status,status));
+      mcheck(()=>assert.ok(out.blockers.includes(blocker)));
+      mcheck(()=>assert.strictEqual(out.providerCalled,false));
+      mcheck(()=>assert.strictEqual(out.providerResponse,null));
+    }
+  }
+  mcheck(()=>assert.strictEqual(metadataCalls,0));
+  const narrower=sourcePatch({knownAt:'2026-10-01T08:05:00Z',validUntil:'2026-10-02T10:00:00Z'});
+  const narrowerInvocation=invocation(f.modelProfile,f.request,narrower,f.providerAuthorization);
+  for(const entry of [evaluateProviderReadiness,evaluateProofGroundedProviderReadiness]){
+    const out=entry({...f,groundingManifest:narrower,invocation:narrowerInvocation});
+    mcheck(()=>assert.strictEqual(out.status,STATUS.READY_FOR_PROVIDER_INVOCATION));
+    mcheck(()=>assert.strictEqual(out.transactionAuthorized,false));
+  }
+  console.log('C23_SOURCE_METADATA_BINDING=PASS checks='+metadataChecks+' synthetic_adapter=true');
+  // The adapter must receive a detached, immutable packet; later caller
+  // mutations cannot substitute a new authorization, source or invocation.
+  let snapshotChecks=0;
+  const scheck=fn=>{fn();snapshotChecks++;};
+  for(const entry of [executeGovernedProviderGateway,executeProofGroundedProviderGateway]){
+    const mutable=structuredClone(f);
+    let adapterPacket;
+    const result=await entry(Object.assign(mutable,{adapter:{invoke:async packet=>{
+      adapterPacket=packet;
+      // Preserve original response but replace the live caller's context
+      // while the provider is executing.
+      mutable.request={...mutable.request,caseId:'OTHER-CASE'};
+      mutable.providerAuthorization={...mutable.providerAuthorization,networkInvocationAuthorized:false};
+      mutable.invocation={...mutable.invocation,invocationId:'OTHER-INVOCATION'};
+      mutable.asOf='2026-12-01T00:00:00Z';
+      await Promise.resolve();
+      return f.providerResponse;
+    }}}));
+    scheck(()=>assert.strictEqual(result.status,STATUS.READY_FOR_HUMAN_GROUNDED_DRAFT_REVIEW));
+    scheck(()=>assert.strictEqual(result.asOf,new Date(AS_OF).toISOString()));
+    scheck(()=>assert.strictEqual(adapterPacket.request.caseId,f.request.caseId));
+    scheck(()=>assert.ok(Object.isFrozen(adapterPacket.request.retrievalItems[0])));
+    scheck(()=>assert.strictEqual(result.providerResponse.invocationHashSha256,f.invocation.invocationHashSha256));
+    scheck(()=>assert.strictEqual(result.transactionAuthorized,false));
+    const original=structuredClone(f);
+    const originalItem=original.groundingManifest.items[0];
+    Object.freeze(original.groundingManifest);
+    const isolated=await entry({...original,adapter:{invoke:async packet=>{
+      originalItem.canonicalValue='9999';
+      scheck(()=>assert.notStrictEqual(packet.groundingManifest.items[0],originalItem));
+      scheck(()=>assert.ok(Object.isFrozen(packet.groundingManifest.items[0])));
+      return f.providerResponse;
+    }}});
+    scheck(()=>assert.strictEqual(isolated.status,STATUS.READY_FOR_HUMAN_GROUNDED_DRAFT_REVIEW));
+    scheck(()=>assert.strictEqual(originalItem.canonicalValue,'9999'));
+    const invalid=await entry({...f,modelProfile:{...f.modelProfile,unexpected:()=>{}},adapter:{invoke:async()=>{throw Error('MUST_NOT_CALL');}}});
+    scheck(()=>assert.strictEqual(invalid.status,STATUS.HOLD_INTEGRITY));
+    scheck(()=>assert.strictEqual(invalid.providerCalled,false));
+    scheck(()=>assert.strictEqual(invalid.providerResponse,null));
+  }
+  const deniedAuth=authorization({networkInvocationAuthorized:false});
+  const deniedInvocation=invocation(f.modelProfile,f.request,f.groundingManifest,deniedAuth);
+  const deniedResponse=response(deniedInvocation);
+  for(const validator of [validateGroundedProviderResponse,validateProofGroundedProviderResponse]){
+    const result=validator({...f,providerAuthorization:deniedAuth,invocation:deniedInvocation,providerResponse:deniedResponse});
+    scheck(()=>assert.strictEqual(result.status,STATUS.HOLD_PROVIDER));
+    scheck(()=>assert.ok(result.blockers.includes('C23_PROVIDER_NETWORK_INVOCATION_NOT_AUTHORIZED')));
+    scheck(()=>assert.strictEqual(result.draft,null));
+  }
+  console.log('C23_ASYNC_SNAPSHOT_BOUNDARY=PASS checks='+snapshotChecks+' synthetic_adapter=true');
   console.log('C23_GOVERNED_LIVE_AI_PROVIDER_GATEWAY=PASS');
 })().catch((err)=>{ console.error(err); process.exit(1); });

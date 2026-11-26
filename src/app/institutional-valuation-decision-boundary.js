@@ -72,11 +72,23 @@ function check(method,request,claims,assetClass){
  * Legacy numerical indications remain separate and unchanged for diagnostics.
  */
 function assessInstitutionalValuationDecisionBoundary({request,stage,institutionalEvidence=null}={}){
- if(!request||!stage||!request.projectProfile||!Array.isArray(stage.methods)){
-   return freeze({version:VERSION,status:STATUS.HOLD,blockers:['C62_LIVE_RUNTIME_INPUT_REQUIRED'],
-     readyForInstitutionalDecision:false,finalValueSar:null,publicValuationReportExportAuthorized:false,transactionAuthorized:false});
+ const isRecord=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
+ const classes=request?.projectProfile?.assetClasses;
+ if(!isRecord(request)||!isRecord(stage)||!isRecord(request.projectProfile)||
+   !Array.isArray(classes)||!classes.length||
+   Array.from(classes).some(c=>!Object.values(ASSET_CLASS).includes(c))||
+   new Set(classes).size!==classes.length||
+   !Array.isArray(stage.methods)||Array.from(stage.methods).some(m=>!isRecord(m)||
+      !Object.values(VALUATION_METHOD).includes(m.method)||!Object.values(METHOD_STATE).includes(m.state))||
+   new Set(stage.methods.map(m=>m.method)).size!==stage.methods.length||
+   (institutionalEvidence!==null&&!isRecord(institutionalEvidence))){
+   const invalid={version:VERSION,status:STATUS.HOLD,blockers:['C62_LIVE_RUNTIME_INPUT_REQUIRED'],
+     arithmeticPreliminaryValueSar:null,methodChecks:[],specialistStatus:null,
+     readyForInstitutionalDecision:false,finalValueSar:null,
+     realSaudiMarketAccuracyIndependentlyValidated:false,independentSourceAuthenticityVerified:false,
+     humanAppraisalApprovalEstablished:false,publicValuationReportExportAuthorized:false,transactionAuthorized:false};
+   return freeze({...invalid,decisionEvidenceHashSha256:sha(invalid)});
  }
- const classes=request.projectProfile.assetClasses||[];
  const candidateMethods=stage.methods.filter(m=>m&&m.state===METHOD_STATE.AVAILABLE);
  const methodChecks=candidateMethods.map(m=>check(m.method,request,institutionalEvidence,classes[0]));
  const required=classes.some(c=>[ASSET_CLASS.HOSPITALITY,ASSET_CLASS.INDUSTRIAL_LOGISTICS].includes(c));
@@ -116,7 +128,7 @@ function assessInstitutionalValuationDecisionBoundary({request,stage,institution
  const core={
    version:VERSION,status:STATUS.HOLD,
    caseId:request.caseId,projectId:request.projectId,
-   arithmeticPreliminaryValueSar:stage.readyForDecisionControl&&Number.isFinite(stage.finalValue)?stage.finalValue:null,
+   arithmeticPreliminaryValueSar:stage.readyForDecisionControl===true&&candidateMethods.length>0&&Number.isFinite(stage.finalValue)?stage.finalValue:null,
    methodChecks,specialistStatus:specialist?.status||null,
    blockers:[...new Set(blockers)],
    readyForInstitutionalDecision:false,finalValueSar:null,

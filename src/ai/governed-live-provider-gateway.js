@@ -1,9 +1,12 @@
 'use strict';
 
 const crypto = require('crypto');
+const {normalizeNumericText}=require('../validation/numeric-text');
 const {
   verifyProfileIntegrity,
   verifyRequestIntegrity,
+  createGovernedModelProfile,
+  createGovernedAiRequest,
   DATA_CLASS,
 } = require('./governed-generative-intelligence');
 
@@ -54,7 +57,7 @@ function iso(value, field) {
 function stable(value) {
   if (Array.isArray(value)) return value.map(stable);
   if (!value || typeof value !== 'object') return value;
-  return Object.keys(value).sort().reduce((out, key) => { out[key] = stable(value[key]); return out; }, {});
+  return Object.fromEntries(Object.keys(value).sort().map(key=>[key,stable(value[key])]));
 }
 function sha256(value) {
   return crypto.createHash('sha256').update(JSON.stringify(stable(value))).digest('hex');
@@ -80,26 +83,50 @@ function requireHash(value, field) {
 function integrity(record, hashField) {
   if (!record || typeof record !== 'object' || Array.isArray(record)) return false;
   const h = clean(record[hashField]).toLowerCase();
-  return HASH_RE.test(h) && sha256(without(record, [hashField])) === h;
+  try{return HASH_RE.test(h) && sha256(without(record, [hashField])) === h;}
+  catch{return false;}
+}
+function canonicalRecord(record, field, constructor, additionalCheck=()=>true){
+  try{return integrity(record,field)&&additionalCheck(record)&&constructor(record)[field]===record[field];}
+  catch{return false;}
 }
 
 const ARABIC_DIGITS = Object.freeze({ '٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9','۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'7','۸':'8','۹':'9' });
 function normalizeDigits(text) { return String(text).replace(/[٠-٩۰-۹]/g, (d) => ARABIC_DIGITS[d]); }
 function canonicalLiteral(value) {
-  let v = normalizeDigits(String(value)).trim();
-  if (!v) throw new TypeError('C23_GROUNDING_CANONICAL_VALUE_REQUIRED');
-  if (/^[+-]?[0-9][0-9,]*(?:\.[0-9]+)?%$/.test(v)) return v.replace(/,/g, '');
-  if (/^[+-]?[0-9][0-9,]*(?:\.[0-9]+)?$/.test(v)) return v.replace(/,/g, '');
+  if(typeof value!=='string'&&typeof value!=='number')throw new TypeError('C23_GROUNDING_CANONICAL_VALUE_REQUIRED');
+  const v=normalizeDigits(String(value)).trim().replace(/[−﹣－]/g,'-').replace(/٪/g,'%');
+  if(!v)throw new TypeError('C23_GROUNDING_CANONICAL_VALUE_REQUIRED');
+  // An ISO calendar date is a distinct literal, not a signed number.
+  if(/^\d{4}-\d{2}-\d{2}$/.test(v)){
+    const ms=Date.parse(v+'T00:00:00Z');
+    if(!Number.isFinite(ms)||new Date(ms).toISOString().slice(0,10)!==v)throw new TypeError('C23_DATE_LITERAL_INVALID');
+    return v;
+  }
+  // Keep numeric normalization lexical: Number conversion could merge distinct
+  // high-precision source literals. Reject malformed numeric-only strings.
+  if(/^[+\-0-9,.٬٫%\s]+$/.test(v)&&/\d/.test(v)){
+    const percent=v.endsWith('%');
+    const raw=(percent?v.slice(0,-1):v).trim().replace(/^\+/,'');
+    const parsed=normalizeNumericText(raw);
+    if(!parsed.ok)throw new TypeError('C23_NUMERIC_LITERAL_AMBIGUOUS');
+    return parsed.normalized+(percent?'%':'');
+  }
   return v;
 }
 function extractAssertedLiterals(text) {
-  const normalized = normalizeDigits(String(text));
-  const found = new Set();
-  const dates = normalized.match(/\b\d{4}-\d{2}-\d{2}\b/g) || [];
-  dates.forEach((d) => found.add(d));
-  const scrubbed = normalized.replace(/\b\d{4}-\d{2}-\d{2}\b/g, ' ');
-  const numbers = scrubbed.match(/[+-]?\d[\d,]*(?:\.\d+)?%?/g) || [];
-  numbers.forEach((n) => found.add(canonicalLiteral(n)));
+  const normalized=normalizeDigits(String(text)).replace(/[−﹣－]/g,'-').replace(/٪/g,'%');
+  const found=new Set();
+  const dates=normalized.match(/\b\d{4}-\d{2}-\d{2}\b/g)||[];
+  dates.forEach(d=>found.add(canonicalLiteral(d)));
+  const scrubbed=normalized.replace(/\b\d{4}-\d{2}-\d{2}\b/g,' ');
+  // Do not split malformed grouping, decimal marks, or exponent notation into
+  // individually grounded numbers. Ordinary trailing sentence punctuation is
+  // excluded; spaced digit groups are ambiguous in this restricted contract.
+  if(/\d[ \t\u00a0\u202f]+\d/.test(scrubbed)||/\d[eE][+-]?\d/.test(scrubbed))
+    throw new TypeError('C23_NUMERIC_LITERAL_AMBIGUOUS');
+  const numbers=scrubbed.match(/[+-]?(?:\d(?:[\d,.٬٫]*\d)?|[.٫]\d+)(?:[ \t\u00a0\u202f]*%)?/g)||[];
+  numbers.forEach(n=>found.add(canonicalLiteral(n)));
   return [...found].sort();
 }
 
@@ -162,7 +189,7 @@ function createGroundingManifest(x = {}) {
   };
   return freeze({ ...core, manifestHashSha256: sha256(core) });
 }
-function verifyGroundingManifest(r) { return integrity(r, 'manifestHashSha256') && Array.isArray(r.items) && r.items.every((i) => integrity(i, 'recordHashSha256')); }
+function verifyGroundingManifest(r) { return canonicalRecord(r,'manifestHashSha256',createGroundingManifest,v=>Array.isArray(v.items)&&v.items.every(i=>integrity(i,'recordHashSha256'))); }
 
 function createProviderAuthorization(x = {}) {
   const required = [
@@ -208,7 +235,7 @@ function createProviderAuthorization(x = {}) {
   };
   return freeze({ ...core, authorizationHashSha256: sha256(core) });
 }
-function verifyProviderAuthorization(r) { return integrity(r, 'authorizationHashSha256'); }
+function verifyProviderAuthorization(r) { return canonicalRecord(r,'authorizationHashSha256',createProviderAuthorization); }
 
 function createProviderInvocationEnvelope(x = {}) {
   ['invocationId','caseId','propertyRef','requestHashSha256','modelProfileHashSha256','groundingManifestHashSha256','providerAuthorizationHashSha256','promptTemplateHashSha256','deterministicDecisionState'].forEach((f) => {
@@ -237,7 +264,7 @@ function createProviderInvocationEnvelope(x = {}) {
   };
   return freeze({ ...core, invocationHashSha256: sha256(core) });
 }
-function verifyProviderInvocationEnvelope(r) { return integrity(r, 'invocationHashSha256'); }
+function verifyProviderInvocationEnvelope(r) { return canonicalRecord(r,'invocationHashSha256',createProviderInvocationEnvelope); }
 
 function normalizeProviderClaims(claims) {
   if (!Array.isArray(claims) || !claims.length) throw new TypeError('C23_PROVIDER_CLAIMS_REQUIRED');
@@ -298,8 +325,8 @@ function verifyProviderResponseEnvelope(r) {
 
 function baseBlockers({ modelProfile, request, groundingManifest, providerAuthorization, invocation, asOf }) {
   const blockers = [];
-  if (!verifyProfileIntegrity(modelProfile)) blockers.push('C23_INTEGRITY_MODEL_PROFILE');
-  if (!verifyRequestIntegrity(request)) blockers.push('C23_INTEGRITY_C22_REQUEST');
+  if (!canonicalRecord(modelProfile,'modelProfileHashSha256',createGovernedModelProfile,verifyProfileIntegrity)) blockers.push('C23_INTEGRITY_MODEL_PROFILE');
+  if (!canonicalRecord(request,'requestHashSha256',createGovernedAiRequest,verifyRequestIntegrity)) blockers.push('C23_INTEGRITY_C22_REQUEST');
   if (!verifyGroundingManifest(groundingManifest)) blockers.push('C23_INTEGRITY_GROUNDING_MANIFEST');
   if (!verifyProviderAuthorization(providerAuthorization)) blockers.push('C23_INTEGRITY_PROVIDER_AUTHORIZATION');
   if (!verifyProviderInvocationEnvelope(invocation)) blockers.push('C23_INTEGRITY_INVOCATION');
@@ -330,12 +357,12 @@ function baseBlockers({ modelProfile, request, groundingManifest, providerAuthor
     blockers.push('C23_WINDOW_PROFILE_REQUEST_FUTURE_OR_INVALID');
   if (endTimes.some(value=>!Number.isFinite(Date.parse(value)) || Date.parse(value)<at))
     blockers.push('C23_WINDOW_PROFILE_REQUEST_STALE_OR_INVALID');
-  const retrievalHashes=new Set();
+  const retrievalByHash=new Map();
   for(const item of request.retrievalItems){
     if(!item || typeof item !== 'object' || !HASH_RE.test(item.evidenceHashSha256 || '')){
       blockers.push('C23_INTEGRITY_RETRIEVAL_SCHEMA');continue;
     }
-    retrievalHashes.add(item.evidenceHashSha256.toLowerCase());
+    retrievalByHash.set(item.evidenceHashSha256.toLowerCase(),item);
     if(!modelProfile.allowedDataClasses.includes(item.dataClass)) blockers.push('C23_SECURITY_RETRIEVAL_DATA_CLASS_NOT_ALLOWED:'+item.evidenceId);
     if(!Number.isFinite(Date.parse(item.knownAt)) || Date.parse(item.knownAt)>at)
       blockers.push('C23_WINDOW_RETRIEVAL_FUTURE_OR_INVALID:'+item.evidenceId);
@@ -344,8 +371,21 @@ function baseBlockers({ modelProfile, request, groundingManifest, providerAuthor
   }
   const deterministicHashes=new Set(request.deterministicOutputHashesSha256.map(h=>String(h).toLowerCase()));
   for (const item of groundingManifest.items) {
-    if(item.evidenceHashSha256 && !retrievalHashes.has(item.evidenceHashSha256.toLowerCase()))
-      blockers.push('C23_EVIDENCE_SOURCE_NOT_BOUND_TO_REQUEST:'+item.itemId);
+    // A matching digest alone does not bind provenance metadata. A derived
+    // grounding entry may narrow its validity, but cannot extend the source
+    // window, predate knowledge of that source, or relabel its classification.
+    if(item.evidenceHashSha256){
+      const source=retrievalByHash.get(item.evidenceHashSha256.toLowerCase());
+      if(!source)blockers.push('C23_EVIDENCE_SOURCE_NOT_BOUND_TO_REQUEST:'+item.itemId);
+      else{
+        if(item.sourceReference!==source.sourceReference)
+          blockers.push('C23_EVIDENCE_SOURCE_REFERENCE_MISMATCH:'+item.itemId);
+        if(item.dataClass!==source.dataClass)
+          blockers.push('C23_SECURITY_SOURCE_DATA_CLASS_MISMATCH:'+item.itemId);
+        if(Date.parse(item.knownAt)<Date.parse(source.knownAt)||Date.parse(item.validUntil)>Date.parse(source.validUntil))
+          blockers.push('C23_EVIDENCE_SOURCE_VALIDITY_WINDOW_MISMATCH:'+item.itemId);
+      }
+    }
     if(item.deterministicOutputHashSha256 && !deterministicHashes.has(item.deterministicOutputHashSha256.toLowerCase()))
       blockers.push('C23_EVIDENCE_DETERMINISTIC_SOURCE_NOT_BOUND_TO_REQUEST:'+item.itemId);
     if (item.caseId !== request.caseId || item.propertyRef !== request.propertyRef) blockers.push(`C23_CONTEXT_GROUNDING_ITEM:${item.itemId}`);
@@ -361,6 +401,7 @@ function baseBlockers({ modelProfile, request, groundingManifest, providerAuthor
       || groundingManifest.items.some(item => item.dataClass === DATA_CLASS.PERSONAL_DATA)) {
     blockers.push('C23_PRIVACY_PERSONAL_DATA_EXTERNAL_TRANSFER_NOT_AUTHORIZED');
   }
+  if (providerAuthorization.networkInvocationAuthorized !== true) blockers.push('C23_PROVIDER_NETWORK_INVOCATION_NOT_AUTHORIZED');
   if (providerAuthorization.environment !== ENVIRONMENT.ISOLATED_NON_PRODUCTION) blockers.push('C23_PROVIDER_ENVIRONMENT_NOT_ALLOWED');
   if (providerAuthorization.trainingUseCustomerData !== false) blockers.push('C23_SECURITY_CUSTOMER_DATA_TRAINING');
   if (providerAuthorization.productionDeploymentAuthorized !== false || providerAuthorization.publicAiAuthorized !== false || providerAuthorization.transactionAuthorized !== false || providerAuthorization.approvalAuthorized !== false) blockers.push('C23_SECURITY_AUTHORITY_INJECTION');
@@ -380,7 +421,6 @@ function classify(blockers) {
 function evaluateProviderReadiness(input = {}) {
   const asOf = iso(input.asOf, 'asOf');
   const blockers = baseBlockers({ ...input, asOf });
-  if (input.providerAuthorization && input.providerAuthorization.networkInvocationAuthorized !== true) blockers.push('C23_PROVIDER_NETWORK_INVOCATION_NOT_AUTHORIZED');
   const unique = [...new Set(blockers)].sort();
   return freeze({
     capability: CAPABILITY,
@@ -418,7 +458,9 @@ function validateGroundedProviderResponse(input = {}) {
         else boundValues.add(item.canonicalValue);
       }
       const declared = new Set(claim.assertedLiterals.map(canonicalLiteral));
-      const extracted = extractAssertedLiterals(claim.text);
+      let extracted;
+      try{extracted=extractAssertedLiterals(claim.text);}
+      catch{blockers.push(`C23_UNSUPPORTED_AMBIGUOUS_NUMERIC_LITERAL:${claim.claimId}`);continue;}
       for (const literal of extracted) if (!declared.has(literal)) blockers.push(`C23_UNSUPPORTED_UNDECLARED_LITERAL:${claim.claimId}:${literal}`);
       for (const literal of declared) if (!boundValues.has(literal)) blockers.push(`C23_UNSUPPORTED_LITERAL_NOT_GROUNDED:${claim.claimId}:${literal}`);
     }
@@ -446,12 +488,21 @@ function validateGroundedProviderResponse(input = {}) {
 }
 
 async function executeGovernedProviderGateway(input = {}) {
-  const readiness = evaluateProviderReadiness(input);
+  // Capture the exact validated packet once. Neither the caller nor the
+  // asynchronous adapter may replace records between readiness and review.
+  let packet;
+  try {
+    const {modelProfile,request,groundingManifest,providerAuthorization,invocation,asOf}=input;
+    packet=freeze(structuredClone({modelProfile,request,groundingManifest,providerAuthorization,invocation,asOf}));
+  } catch {
+    return freeze({capability:CAPABILITY,policyVersion:POLICY_VERSION,status:STATUS.HOLD_INTEGRITY,providerInvocationReady:false,groundedDraftReviewReady:false,blockers:['C23_INTEGRITY_INPUT_SNAPSHOT'],asOf:null,providerCalled:false,providerResponse:null,draft:null,claims:null,productionDeploymentAuthorized:false,publicAiAuthorized:false,transactionAuthorized:false,approvalAuthorized:false,commercialGoLive:'HOLD'});
+  }
+  const readiness = evaluateProviderReadiness(packet);
   if (!readiness.providerInvocationReady) return freeze({ ...readiness, providerCalled: false, providerResponse: null });
   const adapter = input.adapter;
   if (!adapter || typeof adapter.invoke !== 'function') return freeze({ ...readiness, status: STATUS.HOLD_PROVIDER, providerInvocationReady: false, blockers: ['C23_PROVIDER_ADAPTER_REQUIRED'], providerCalled: false, providerResponse: null });
   try {
-    const raw = await adapter.invoke(freeze({ invocation: input.invocation, request: input.request, groundingManifest: input.groundingManifest, modelProfile: input.modelProfile }));
+    const raw = await adapter.invoke(freeze({ invocation: packet.invocation, request: packet.request, groundingManifest: packet.groundingManifest, modelProfile: packet.modelProfile }));
     if (!raw || raw.providerResult !== PROVIDER_RESULT.SUCCESS) {
       const code = raw && Object.values(PROVIDER_RESULT).includes(raw.providerResult) ? raw.providerResult : PROVIDER_RESULT.SCHEMA_ERROR;
       return freeze({ ...readiness, status: STATUS.HOLD_PROVIDER, providerInvocationReady: false, blockers: [`C23_PROVIDER_${code}`], providerCalled: true, providerResponse: null });
@@ -461,7 +512,7 @@ async function executeGovernedProviderGateway(input = {}) {
     let snapshot;
     try { snapshot = structuredClone(raw); }
     catch (_) { return freeze({ ...readiness, status: STATUS.HOLD_PROVIDER, providerInvocationReady: false, blockers: ['C23_PROVIDER_SCHEMA_ERROR'], providerCalled: true, providerResponse: null }); }
-    const checked = validateGroundedProviderResponse({ ...input, providerResponse: snapshot });
+    const checked = validateGroundedProviderResponse({ ...packet, providerResponse: snapshot });
     if (!checked.groundedDraftReviewReady) {
       return freeze({ ...readiness, ...checked, providerInvocationReady: false, providerCalled: true, providerResponse: null });
     }

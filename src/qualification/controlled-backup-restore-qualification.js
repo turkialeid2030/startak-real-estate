@@ -134,6 +134,7 @@ function normalizeAuthorization(value, target) {
     && normalized.approvedBy !== normalized.reviewedBy
     && normalized.changeControlRef
     && approvedAtValid
+    && Date.parse(normalized.approvedAt) <= target.assessedAtMillis
     && normalized.environment === target.environment
     && normalized.sourceDatabaseRef === target.sourceDatabaseRef
     && normalized.sourceDatabaseName === target.sourceDatabaseName
@@ -156,6 +157,7 @@ function normalizeBackupResult(value) {
   const snapshot = requiredTimestamp(value.sourceSnapshotAt, 'backup.sourceSnapshotAt');
   if (finished.millis < started.millis) throw new TypeError('backup.finishedAt must be on or after backup.startedAt');
   if (snapshot.millis < started.millis || snapshot.millis > finished.millis) throw new TypeError('backup.sourceSnapshotAt must be within the backup interval');
+  if (!Number.isSafeInteger(value.artifactSizeBytes) || value.artifactSizeBytes <= 0) throw new TypeError('backup.artifactSizeBytes must be a positive safe integer');
   return freeze({
     artifactId: requiredString(value.artifactId, 'backup.artifactId'),
     artifactHashSha256: requiredSha256(value.artifactHashSha256, 'backup.artifactHashSha256'),
@@ -184,6 +186,9 @@ function normalizeVerificationResult(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError('verificationExecutor result must be an object');
   const sourceLatest = requiredTimestamp(value.latestSourceDataAt, 'verification.latestSourceDataAt');
   const restoredLatest = requiredTimestamp(value.latestRestoredDataAt, 'verification.latestRestoredDataAt');
+  for (const flag of ['duplicateSideEffectsObserved','unreconciledDataCorruptionObserved']) {
+    if (typeof value[flag] !== 'boolean') throw new TypeError(`verification.${flag} must be an explicit boolean`);
+  }
   const sourceCount = nonNegativeInteger(value.sourceRecordCount, 'verification.sourceRecordCount');
   const restoredCount = nonNegativeInteger(value.restoredRecordCount, 'verification.restoredRecordCount');
   const sourceFingerprint = requiredSha256(value.sourceFingerprintSha256, 'verification.sourceFingerprintSha256');
@@ -211,6 +216,7 @@ function makeResult({ status, plan, authorization, backup, restore, verification
     authorizationAccepted: authorization?.accepted === true,
     backupArtifactRef: backup ? `sha256:${backup.artifactHashSha256}` : null,
     resilienceEvidenceRef: resilienceEvidence ? `sha256:${resilienceEvidence.resilienceEvidenceHashSha256}` : null,
+    stageEvidenceHashSha256: sha256Object({authorization:authorization||null,backup:backup||null,restore:restore||null,verification:verification||null}),
   };
   return freeze({
     ...core,
@@ -260,10 +266,15 @@ function createControlledBackupRestoreQualification({
     const apiSecurityComplete = Boolean(
       apiSecurityQualification
       && apiSecurityQualification.status === API_SECURITY_STATUS.STAGING_API_SECURITY_EVIDENCE_COMPLETE_NOT_PRODUCTION_CERTIFIED
-      && apiSecurityQualification.environment === env,
+      && apiSecurityQualification.environment === env
+      && apiSecurityQualification.targetDatabaseRef === sourceRef
+      && typeof apiSecurityQualification.bundleHashSha256 === 'string'
+      && SHA256_RE.test(apiSecurityQualification.bundleHashSha256)
+      && apiSecurityQualification.productionQualified === false
+      && apiSecurityQualification.authority?.releaseAuthorized === false,
     );
-    const apiSecurityQualificationRef = apiSecurityQualification?.bundleHashSha256
-      ? `sha256:${apiSecurityQualification.bundleHashSha256}`
+    const apiSecurityQualificationRef = apiSecurityComplete
+      ? `sha256:${apiSecurityQualification.bundleHashSha256.toLowerCase()}`
       : null;
 
     const planCore = {
@@ -274,6 +285,8 @@ function createControlledBackupRestoreQualification({
       restoreTargetDatabaseRef: restoreRef,
       restoreTargetDatabaseName: restoreName,
       exactCommitSha: commitSha,
+      assessedAt: assessed.value,
+      evidenceId: normalizedEvidenceId,
       recoveryObjectives: objectives,
       apiSecurityQualificationRef,
       executionOrder: ['backup', 'isolatedRestore', 'dataVerification', 'resilienceEvidence'],
@@ -294,6 +307,7 @@ function createControlledBackupRestoreQualification({
       sourceDatabaseName: sourceName,
       restoreTargetDatabaseRef: restoreRef,
       restoreTargetDatabaseName: restoreName,
+      assessedAtMillis: assessed.millis,
     };
     const auth = normalizeAuthorization(authorization, target);
     if (!auth?.accepted) {
@@ -316,6 +330,9 @@ function createControlledBackupRestoreQualification({
       return makeResult({ status: BACKUP_RESTORE_STATUS.HOLD_BACKUP, plan, authorization: auth });
     }
 
+    if (Date.parse(backup.startedAt) < Date.parse(auth.approvedAt)) {
+      return makeResult({ status: BACKUP_RESTORE_STATUS.HOLD_BACKUP, plan, authorization: auth, backup });
+    }
     let restore;
     try {
       restore = normalizeRestoreResult(await restoreExecutor({
@@ -329,7 +346,7 @@ function createControlledBackupRestoreQualification({
     } catch (_) {
       return makeResult({ status: BACKUP_RESTORE_STATUS.HOLD_RESTORE, plan, authorization: auth, backup });
     }
-    if (!restore.artifactHashMatchesBackup) {
+    if (!restore.artifactHashMatchesBackup || Date.parse(restore.startedAt) < Date.parse(backup.finishedAt)) {
       return makeResult({ status: BACKUP_RESTORE_STATUS.HOLD_RESTORE, plan, authorization: auth, backup, restore });
     }
 
@@ -347,7 +364,9 @@ function createControlledBackupRestoreQualification({
     }
 
     const integrityPass = Boolean(
-      verification.recordCountsMatch
+      Date.parse(verification.latestSourceDataAt) <= Date.parse(restore.finishedAt)
+      && Date.parse(verification.latestRestoredDataAt) <= Date.parse(restore.finishedAt)
+      && verification.recordCountsMatch
       && verification.fingerprintsMatch
       && !verification.unreconciledDataCorruptionObserved,
     );

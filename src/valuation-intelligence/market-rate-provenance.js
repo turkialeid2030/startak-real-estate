@@ -35,8 +35,8 @@ function assessMarketRateProvenance({
  if(!date(valuationDate)||!date(asOf)||(date(asOf)&&date(valuationDate)&&Date.parse(asOf)<Date.parse(valuationDate)))
    blockers.push('VALUATION_AND_ASOF_DATES_INVALID');
  if(!Array.isArray(comparables))return fail([...blockers,'MARKET_RATE_COMPARABLES_ARRAY_REQUIRED']);
- if(!policy||!Number.isInteger(policy.minExecutedTransactions)||policy.minExecutedTransactions<2||
-   !Number.isInteger(policy.maxComparableAgeDays)||policy.maxComparableAgeDays<0||
+ if(!policy||!Number.isSafeInteger(policy.minExecutedTransactions)||policy.minExecutedTransactions<2||
+   !Number.isSafeInteger(policy.maxComparableAgeDays)||policy.maxComparableAgeDays<0||
    !finite(policy.maxEntryMedianDeviationBps)||policy.maxEntryMedianDeviationBps<0||
    !finite(policy.maxRateReconciliationErrorBps)||policy.maxRateReconciliationErrorBps<0||
    !finite(policy.stressNoiShockPercent)||policy.stressNoiShockPercent<=0||policy.stressNoiShockPercent>=1||
@@ -47,9 +47,9 @@ function assessMarketRateProvenance({
  if(!finite(terminalNoiSar)||terminalNoiSar<=0)blockers.push('TERMINAL_NOI_REQUIRED');
  const seen=new Set(),rates=[];
  for(const [i,c] of comparables.entries()){
-   const id=c?.transactionRef||'UNKNOWN_'+i,recBlock=[];
-   if(!filled(c?.transactionRef)||seen.has(c.transactionRef))recBlock.push('DUPLICATE_OR_MISSING_UNDERLYING_TRANSACTION');
-   if(filled(c?.transactionRef))seen.add(c.transactionRef);
+   const id=filled(c?.transactionRef)?c.transactionRef.trim():'UNKNOWN_'+i,recBlock=[];
+   if(!filled(c?.transactionRef)||seen.has(id))recBlock.push('DUPLICATE_OR_MISSING_UNDERLYING_TRANSACTION');
+   if(filled(c?.transactionRef))seen.add(id);
    if(c?.transactionStatus!=='EXECUTED_SALE')recBlock.push('ASKING_OFFER_NOT_EXECUTED_SALE');
    if(c?.assetClass!==assetClass||c?.city!==city)recBlock.push('RATE_ASSET_MARKET_MISMATCH');
    if(!date(c?.transactionDate)||!date(valuationDate)||Date.parse(c.transactionDate)>Date.parse(valuationDate)||
@@ -57,14 +57,16 @@ function assessMarketRateProvenance({
       recBlock.push('RATE_MARKET_TIMING_STALE_OR_FUTURE');
    if(!filled(c?.sourceProviderRef)||!filled(c?.sourceEvidenceRef)||!HEX64.test(c?.sourceArtifactSha256||'')||
       !filled(c?.sourceRightsEvidenceRef)||!filled(c?.sourceVerificationReviewerRef)||!date(c?.reviewedAt)||
-      (date(asOf)&&date(c?.reviewedAt)&&Date.parse(c.reviewedAt)>Date.parse(asOf)))
+      (date(asOf)&&date(c?.reviewedAt)&&Date.parse(c.reviewedAt)>Date.parse(asOf))||
+      (date(c?.transactionDate)&&date(c?.reviewedAt)&&Date.parse(c.reviewedAt)<Date.parse(c.transactionDate)))
       recBlock.push('REAL_TRANSACTION_SOURCE_PROVENANCE_REQUIRED');
    if(c?.incomeBasis!=='NET_OPERATING_INCOME_ANNUAL_SAR'||c?.incomeTreatment!=='LANDLORD_NET_OPERATING'||
       !filled(c?.noiNormalizationEvidenceRef)||!filled(c?.leasingEvidenceRef))
       recBlock.push('NOI_DEFINITION_AND_RENT_ROLL_REQUIRED');
    const validValues=['priceSar','grossAnnualRentalSar','vacancyLossSar','landlordOperatingExpensesSar','normalizedNetAdjustmentsSar','annualNetOperatingIncomeSar']
      .every(k=>finite(c?.[k]));
-   if(!validValues||c.priceSar<=0||c.grossAnnualRentalSar<=0||c.vacancyLossSar<0||
+   const bridgedNoi=validValues?c.grossAnnualRentalSar-c.vacancyLossSar-c.landlordOperatingExpensesSar+c.normalizedNetAdjustmentsSar:NaN;
+   if(!validValues||!finite(bridgedNoi)||c.priceSar<=0||c.grossAnnualRentalSar<=0||c.vacancyLossSar<0||
      c.landlordOperatingExpensesSar<0||c.vacancyLossSar>=c.grossAnnualRentalSar||
      c.annualNetOperatingIncomeSar<=0||
      Math.abs(c.grossAnnualRentalSar-c.vacancyLossSar-c.landlordOperatingExpensesSar+
@@ -123,7 +125,7 @@ function assessMarketRateProvenance({
    {label:'LOW_NOI_HIGH_EXIT_CAP',noi:terminalNoiSar*(1-noiShock),rate:exitCapRate+capShock},
    {label:'HIGH_NOI_LOW_EXIT_CAP',noi:terminalNoiSar*(1+noiShock),rate:exitCapRate-capShock},
  ];
- if(stress.some(x=>x.rate<=0||x.rate>=1||x.noi<=0))
+ if(stress.some(x=>!finite(x.rate)||!finite(x.noi)||x.rate<=0||x.rate>=1||x.noi<=0||!finite(x.noi/x.rate)))
    return fail(['STRESS_RANGE_INVALID'],{qualifyingTransactions:rates.length,medianObservedCapRate:medianCap});
  const core={
    version:VERSION,status:STATUS.READY_FOR_EXTERNAL_AUTHENTICATION,
