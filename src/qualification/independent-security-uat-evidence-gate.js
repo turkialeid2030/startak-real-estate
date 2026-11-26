@@ -389,6 +389,51 @@ function createIndependentSecurityUatEvidenceGate() {
   };
 }
 
+// Structural integrity and semantic checks at the P19 -> P20 boundary.
+// This is not a signature, source authentication, or independent approval.
+function verifyCompletedSecurityUatBundle(value, asOf) {
+  try {
+    const {plan,pentest,uat,issues}=value;
+    if(value.status!==SECURITY_UAT_STATUS.INDEPENDENT_SECURITY_UAT_EVIDENCE_COMPLETE_NOT_RELEASE_AUTHORIZED||
+       value.schemaVersion!==1||!Array.isArray(issues)||issues.length||
+       value.productionQualified!==false||value.releaseCandidateAuthorityEstablished!==false||
+       !value.authority||Object.keys(value.authority).length!==Object.keys(AUTHORITY).length||
+       Object.keys(AUTHORITY).some(key=>value.authority[key]!==false))return false;
+    const {planHashSha256,...planCore}=plan;
+    if(!SHA256_RE.test(planHashSha256)||sha256Object(planCore)!==planHashSha256||
+       value.planHashSha256!==planHashSha256||plan.releaseAuthorityFromThisGate!==false||
+       value.observabilityQualificationRef!==plan.observabilityQualificationRef||
+       !/^sha256:[a-f0-9]{64}$/i.test(plan.observabilityQualificationRef))return false;
+    if(!pentest||!uat||value.pentestEvidenceRef!==`sha256:${sha256Object(pentest)}`||
+       value.uatEvidenceRef!==`sha256:${sha256Object(uat)}`)return false;
+    const evidenceCore={schemaVersion:1,status:value.status,planHashSha256,observabilityQualificationRef:value.observabilityQualificationRef,pentestEvidenceRef:value.pentestEvidenceRef,uatEvidenceRef:value.uatEvidenceRef,issues};
+    const expected=sha256Object(evidenceCore);
+    if(value.evidenceBundleHashSha256!==expected||value.evidenceBundleRef!==`sha256:${expected}`)return false;
+    const total=normalizeFindingCounts(pentest.findingCounts,'findingCounts');
+    const open=normalizeFindingCounts(pentest.openFindingCounts,'openFindingCounts');
+    if(SEVERITIES.some(key=>open[key]>total[key])||open.CRITICAL!==0||open.HIGH!==0||
+       ((total.CRITICAL>0||total.HIGH>0)&&pentest.retestCompletedForRemediatedCriticalHigh!==true))return false;
+    if(pentest.status!=='PASS'||['independentAssessorAttested','scopeIncludesAuthentication','scopeIncludesTenantIsolation','scopeIncludesApiAuthorization','scopeIncludesServerRuntime','reviewerSeparateFromPreparer'].some(key=>pentest[key]!==true))return false;
+    if(uat.status!=='PASS'||['reviewerSeparateFromBusinessOwner','criticalWorkflowCoverageComplete','tenantBoundaryAcceptanceComplete','authorizationWorkflowAcceptanceComplete'].some(key=>uat[key]!==true))return false;
+    const binding=uat.scenarioBinding;
+    if(!binding||!SHA256_RE.test(binding.planHashSha256)||!SHA256_RE.test(binding.scenarioResultsHashSha256)||
+       !Number.isSafeInteger(uat.requiredScenarios)||uat.requiredScenarios<1||
+       binding.scenarioCount!==uat.requiredScenarios||uat.passedScenarios!==uat.requiredScenarios||uat.failedScenarios!==0)return false;
+    const assessed=requiredTimestamp(plan.assessedAt,'plan.assessedAt').millis;
+    const at=requiredTimestamp(asOf,'asOf').millis;
+    const maxAge=nonNegativeNumber(plan.maximumEvidenceAgeDays,'maximumEvidenceAgeDays')*86400000;
+    if(!Number.isFinite(maxAge)||assessed>at)return false;
+    for(const evidence of [pentest,uat]){
+      if(evidence.environment!==plan.environment||evidence.serviceRef!==plan.serviceRef||evidence.exactCommitSha!==plan.exactCommitSha)return false;
+      const started=requiredTimestamp(evidence.startedAt,'startedAt').millis;
+      const completed=requiredTimestamp(evidence.completedAt,'completedAt').millis;
+      const reviewed=requiredTimestamp(evidence.reviewedAt,'reviewedAt').millis;
+      if(started>completed||completed>reviewed||reviewed>assessed||at-completed>maxAge)return false;
+    }
+    return true;
+  }catch{return false;}
+}
+
 const evaluateIndependentSecurityUatEvidence = createIndependentSecurityUatEvidenceGate();
 
 module.exports = {
@@ -396,6 +441,7 @@ module.exports = {
   AUTHORITY,
   SEVERITIES,
   createUatScenarioPlan,
+  verifyCompletedSecurityUatBundle,
   createIndependentSecurityUatEvidenceGate,
   evaluateIndependentSecurityUatEvidence,
 };

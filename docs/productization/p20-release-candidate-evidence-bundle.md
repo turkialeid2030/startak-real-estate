@@ -66,3 +66,8 @@ Even in the ready state:
 - human release authority is still required
 
 P20 must not be interpreted as permission to merge or deploy.
+
+
+### P19 handoff integrity
+
+P20 requires a structurally complete P19 result with matching plan, evidence and bundle digests, explicit zero open Critical/High findings, a bound UAT scenario count and scenario-plan/result digests. Freshness is rechecked at P20 review time. Hashes are not signatures; external authenticity, scenario-level source evidence and independent authority remain unresolved external requirements.

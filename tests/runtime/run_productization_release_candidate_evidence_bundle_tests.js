@@ -7,6 +7,8 @@ const {
 } = require('../../src/runtime/production-qualification-service');
 const {
   SECURITY_UAT_STATUS,
+  createUatScenarioPlan,
+  evaluateIndependentSecurityUatEvidence,
 } = require('../../src/qualification/independent-security-uat-evidence-gate');
 const {
   RELEASE_CANDIDATE_STATUS,
@@ -58,33 +60,19 @@ function productionQualification(overrides = {}) {
 }
 
 function securityUat(overrides = {}) {
-  return {
-    status: SECURITY_UAT_STATUS.INDEPENDENT_SECURITY_UAT_EVIDENCE_COMPLETE_NOT_RELEASE_AUTHORIZED,
-    plan: {
-      environment: 'staging',
-      serviceRef: 'startak-staging-api',
-      exactCommitSha: COMMIT,
-    },
-    evidenceBundleRef: `sha256:${'b'.repeat(64)}`,
-    pentestEvidenceRef: `sha256:${'c'.repeat(64)}`,
-    uatEvidenceRef: `sha256:${'d'.repeat(64)}`,
-    pentest: { openFindingCounts: { CRITICAL: 0, HIGH: 0 } },
-    uat: { failedScenarios: 0 },
-    productionQualified: false,
-    releaseCandidateAuthorityEstablished: false,
-    authority: {
-      releaseAuthorized: false,
-      mergeAuthorized: false,
-      deploymentAuthorized: false,
-      goLiveAuthorized: false,
-      transactionAuthorized: false,
-      productionSecurityValidated: false,
-      productionUatValidated: false,
-      externalEvidenceAuthenticityValidatedHere: false,
-    },
-    bearerToken: 'must-not-leak-token',
-    ...overrides,
-  };
+  const scope={environment:'staging',serviceRef:'startak-staging-api',exactCommitSha:COMMIT};
+  const timing={startedAt:'2026-09-05T08:00:00Z',completedAt:'2026-09-06T08:00:00Z',reviewedAt:'2026-09-07T08:00:00Z'};
+  const plan=createUatScenarioPlan({...scope,preparedAt:'2026-09-01T00:00:00Z',validUntil:'2026-09-08T00:00:00Z',scenarios:[{scenarioId:'SYNTH-01',userRole:'ANALYST',expectedOutcomeHashSha256:'e'.repeat(64)}]});
+  const counts={CRITICAL:0,HIGH:0,MEDIUM:0,LOW:0,INFO:0};
+  const result=evaluateIndependentSecurityUatEvidence({
+    ...scope,assessedAt:'2026-09-09T12:00:00Z',maximumEvidenceAgeDays:30,
+    observabilityQualification:{status:'OBSERVABILITY_INCIDENT_EVIDENCE_COMPLETE_NOT_PRODUCTION_CERTIFIED',plan:scope,evidenceHashSha256:'a'.repeat(64)},
+    pentestEvidence:{...scope,...timing,status:'PASS',reportRef:'SYNTH-REPORT',reportHashSha256:'b'.repeat(64),testerOrganization:'SYNTH-LAB',preparedBy:'TESTER',reviewedBy:'REVIEWER',independentAssessorAttested:true,scopeIncludesAuthentication:true,scopeIncludesTenantIsolation:true,scopeIncludesApiAuthorization:true,scopeIncludesServerRuntime:true,retestCompletedForRemediatedCriticalHigh:false,findingCounts:counts,openFindingCounts:counts},
+    uatScenarioPlan:plan,
+    uatEvidence:{...scope,...timing,status:'PASS',acceptanceRef:'SYNTH-UAT',acceptanceArtifactHashSha256:'c'.repeat(64),businessOwner:'OWNER',reviewedBy:'REVIEWER',criticalWorkflowCoverageComplete:true,tenantBoundaryAcceptanceComplete:true,authorizationWorkflowAcceptanceComplete:true,requiredScenarios:1,passedScenarios:1,failedScenarios:0,scenarioPlanHashSha256:plan.planHashSha256,scenarioResults:[{...plan.scenarios[0],actualObservationHashSha256:'f'.repeat(64),passed:true}]}
+  });
+  assert.strictEqual(result.status,SECURITY_UAT_STATUS.INDEPENDENT_SECURITY_UAT_EVIDENCE_COMPLETE_NOT_RELEASE_AUTHORIZED);
+  return {...result,bearerToken:'must-not-leak-token',...overrides};
 }
 
 function input(overrides = {}) {
@@ -208,6 +196,33 @@ function assertAuthorityClosed(result) {
     assert.strictEqual(result.securityUatEvidence.openHighFindings, 0);
     assert.strictEqual(result.securityUatEvidence.uatFailedScenarios, 0);
     assert.strictEqual(result.productionQualification.releaseGovernanceReviewEligible, true);
+    assertAuthorityClosed(result);
+  });
+
+  const valid=securityUat();
+  const badCases=[
+    {evidenceBundleHashSha256:'0'.repeat(64)},
+    {uat:{...valid.uat,scenarioBinding:undefined}},
+    {uat:{...valid.uat,failedScenarios:1}},
+    {pentest:{...valid.pentest,openFindingCounts:{...valid.pentest.openFindingCounts,HIGH:1}}},
+    {authority:{}},
+    {plan:{...valid.plan,maximumEvidenceAgeDays:9999}},
+    {issues:['UNRESOLVED']},
+  ];
+  for(const [i,patch] of badCases.entries())await test('PRODUCTIZATION-P20-INVALID-P19-'+i,async()=>{
+    const result=buildProductizationReleaseCandidateEvidenceBundle(input({securityUatEvidence:{...valid,...patch}}));
+    assert.strictEqual(result.status,RELEASE_CANDIDATE_STATUS.HOLD_SECURITY_UAT_EVIDENCE);
+    assertAuthorityClosed(result);
+  });
+  await test('PRODUCTIZATION-P20-STALE-P19',async()=>{
+    const result=buildProductizationReleaseCandidateEvidenceBundle(input({assembledAt:'2026-10-20T00:00:00Z',reviewedAt:'2026-10-20T01:00:00Z'}));
+    assert.strictEqual(result.status,RELEASE_CANDIDATE_STATUS.HOLD_SECURITY_UAT_EVIDENCE);
+    assertAuthorityClosed(result);
+  });
+  await test('PRODUCTIZATION-P20-BOUND-SCENARIO-SUMMARY',async()=>{
+    const result=buildProductizationReleaseCandidateEvidenceBundle(input());
+    assert.strictEqual(result.securityUatEvidence.uatScenarioCount,1);
+    assert.strictEqual(result.securityUatEvidence.uatScenarioPlanHashSha256,valid.uat.scenarioBinding.planHashSha256);
     assertAuthorityClosed(result);
   });
 
