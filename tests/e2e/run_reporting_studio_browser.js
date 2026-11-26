@@ -23,8 +23,30 @@ const fixture={reportRef:'SYNTHETIC-ONLY',valuationDate:'2026-01-01',landAreaSqm
     const label=engine+':'+locale+':'+width+':'+(++downloadIndex)+':'+await button.getAttribute('data-testid');
     console.log('REPORT_DOWNLOAD_START '+label);
     // Attach handlers concurrently: a failed click or download must fail the test.
-    const [file]=await Promise.all([page.waitForEvent('download'),button.click()]);
+    const before=await page.evaluate(()=>document.querySelectorAll('a[data-startak-local-download]').length);
+    let file;
+    try{
+      [file]=await Promise.all([page.waitForEvent('download'),button.click()]);
+    }catch(error){
+      // Synthetic test only: capture state, never URL/content or customer data.
+      const state=await page.evaluate(()=>{
+        const anchors=[...document.querySelectorAll('a[data-startak-local-download]')];
+        return {anchorCount:anchors.length,lastAnchorConnected:anchors.at(-1)?.isConnected===true,
+          lastAnchorDisplay:anchors.length?getComputedStyle(anchors.at(-1)).display:null,
+          lastAnchorHasDownload:anchors.at(-1)?.hasAttribute('download')===true,
+          studioNoticeVisible:!!document.querySelector('[data-testid="studio-notice"]'),
+          studioNotice:document.querySelector('[data-testid="studio-notice"]')?.textContent||null,
+          visibility:document.visibilityState,
+          userActivationActive:navigator.userActivation?.isActive??null};
+      }).catch(()=>({diagnosticsUnavailable:true}));
+      console.error('REPORT_DOWNLOAD_FAILURE '+label+' '+JSON.stringify({before,...state}));
+      const failureDir=path.join('runtime-evidence','reporting-studio-browser',engine);
+      await fs.mkdir(failureDir,{recursive:true});
+      await page.screenshot({path:path.join(failureDir,'failure-'+locale+'-'+width+'-'+downloadIndex+'.png')}).catch(()=>{});
+      throw error;
+    }
     assert.equal(await file.failure(),null,'Download failed '+label);
+    assert.match(file.suggestedFilename(),/^startak-[a-z-]+\.html$/i,'Unexpected download filename '+label);
     const html=await fs.readFile(await file.path(),'utf8');
     assert.ok(html.length>0,'Empty download '+label);
     console.log('REPORT_DOWNLOAD_PASS '+label);

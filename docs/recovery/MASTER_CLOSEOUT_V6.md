@@ -18,3 +18,6 @@ V6-LEG-001: add deterministic review buckets for all unregistered historical pat
 
 ## Remaining blockers
 Public repository settings and private secret classification are owner/security-controlled. Confirmed/suspected credentials require issuer-side remediation; no secrets in public artifacts. Live IdP, DB, hosting, AI providers, UAT, restore and independent reviewers require authorized environments and evidence. Never mark synthetic tests as production validation. No merge or deployment while mandatory gates remain blocked. 
+
+## 2026-11-26 verified recovery checkpoint
+Exact head 760922c84da38e5901f461502bd478d3c6e5a78e, census 45813122224: 696/696 branches, 40 structural tests, 511 absent paths, 54 registered absent paths with matching variant, 457 unregistered review candidates. Review buckets: 276 tests/tools/CI, 124 documentation, 37 unclassified, 18 other application, 1 real estate/financial, 1 security/runtime/data. These are structural path classifications; no automatic retirement or functional parity. V6-REPORT-002: recurrent WebKit failure remains open; keep anchor rendered offscreen, record failure-state diagnostics and synthetic screenshot, verify suggested download filename in addition to bytes. This is a compatibility hypothesis, not established root cause. No retries or skipped cases added.

@@ -15,7 +15,14 @@ function dispatchLocalHtmlDownload(html,filename,env=globalThis){
  }
  try{
   anchor=document.createElement('a');
-  anchor.href=url;anchor.download=filename;anchor.hidden=true;
+  anchor.href=url;anchor.download=filename;
+  // Keep the element in the render tree (not display:none). This removes a
+  // potential WebKit compatibility variable without changing the download
+  // authorization, user activation or bounded URL lifetime.
+  anchor.setAttribute('aria-hidden','true');
+  anchor.setAttribute('data-startak-local-download','true');
+  anchor.tabIndex=-1;
+  Object.assign(anchor.style,{position:'fixed',left:'-10000px',top:'0',width:'1px',height:'1px',pointerEvents:'none'});
   document.body.appendChild(anchor);
   anchor.click();
   env.setTimeout(release,DOWNLOAD_GRACE_MS);
