@@ -63,8 +63,23 @@ step('TEST_DISCOVERY_AND_REGRESSION', () => {
   const tests = require('./regression-test-discovery').discoverRegressionTests(ROOT);
   const total = tests.length;
   let passed = 0;
+  // Emit explicit execution evidence for selected security/recovery regressions.
+  // Never forward arbitrary stdout from tests; it may contain sensitive fixture data.
+  const evidenceTargets = new Set([
+    'tests/architecture/run_riai_ai_assist_client_v1.js',
+    'tests/architecture/run_riai_ai_gateway_guardrails_unit_v1.js',
+    'tests/architecture/run_riai_qualitative_output.js',
+    'tests/runtime/run_riai_openai_responses_adapter.js',
+    'tests/runtime/run_riai_client_redirect_boundary.js',
+    ...['postgres_runtime_rls_probe','controlled_backup_restore_qualification','controlled_dr_failover_qualification','controlled_observability_incident_qualification','independent_security_uat_evidence_gate','productization_release_candidate_evidence_bundle'].map(name=>'tests/runtime/run_'+name+'_tests.js'),
+  ]);
+  const executedEvidence = new Set();
   for (const file of tests) {
-    try { execFileSync(process.execPath, [path.join(ROOT, file)], { cwd: ROOT, stdio: 'pipe' }); passed++; }
+    try {
+      execFileSync(process.execPath, [path.join(ROOT, file)], { cwd: ROOT, stdio: 'pipe' }); passed++;
+      const normalized = file.split(path.sep).join('/');
+      if(evidenceTargets.has(normalized)){executedEvidence.add(normalized);console.log('  REGRESSION_EVIDENCE_PASS='+normalized);}
+    }
     catch (e) {
       console.log(`  FAILING TEST: ${file}`);
       printFailureDiagnostic(e);
@@ -72,6 +87,9 @@ step('TEST_DISCOVERY_AND_REGRESSION', () => {
   }
   console.log(`  REGRESSION_TOTAL=${total} PASSED=${passed}`);
   if (passed !== total) throw new Error(`${total - passed} test(s) failed`);
+  const missingEvidence=[...evidenceTargets].filter(file=>!executedEvidence.has(file));
+  if(missingEvidence.length)throw new Error('REQUIRED_REGRESSION_EVIDENCE_MISSING: '+missingEvidence.join(','));
+  console.log('  REQUIRED_REGRESSION_EVIDENCE_TOTAL='+executedEvidence.size);
 });
 
 step('PRODUCTION_BUILD', () => {
