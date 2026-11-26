@@ -292,7 +292,7 @@ function createControlledDrFailoverQualification({
     authorization,
     execute = false,
     drillId = 'p17-dr-failover',
-    assessedAt = new Date().toISOString(),
+    assessedAt,
   } = {}) {
     const env = normalizeEnvironment(environment);
     const primaryRef = requiredString(primaryDatabaseRef, 'primaryDatabaseRef');
@@ -303,7 +303,11 @@ function createControlledDrFailoverQualification({
     const commitSha = requiredCommitSha(exactCommitSha);
     const objectives = normalizeObjectives(recoveryObjectives);
     const normalizedDrillId = requiredString(drillId, 'drillId');
-    const assessed = requiredTimestamp(assessedAt, 'assessedAt');
+    // An explicit assessment is a retrospective evidence cutoff. In live
+    // adapter execution the cutoff must advance after each asynchronous stage.
+    const retrospective = assessedAt !== undefined;
+    const assessed = requiredTimestamp(retrospective ? assessedAt : new Date().toISOString(), 'assessedAt');
+    const evidenceCutoff = () => retrospective ? assessed.millis : Date.now();
 
     const backupRestoreComplete = Boolean(
       backupRestoreQualification
@@ -312,7 +316,10 @@ function createControlledDrFailoverQualification({
       && /^[a-f0-9]{64}$/i.test(backupRestoreQualification.bundleHashSha256)
       && backupRestoreQualification.plan?.environment === env
       && backupRestoreQualification.plan?.sourceDatabaseRef === primaryRef
-      && backupRestoreQualification.plan?.exactCommitSha === commitSha,
+      && backupRestoreQualification.plan?.sourceDatabaseName === primaryName
+      && backupRestoreQualification.plan?.exactCommitSha === commitSha
+      && backupRestoreQualification.productionQualified === false
+      && backupRestoreQualification.authority?.releaseAuthorized === false,
     );
     const backupRestoreQualificationRef = backupRestoreComplete
       ? `sha256:${backupRestoreQualification.bundleHashSha256.toLowerCase()}`
@@ -327,6 +334,7 @@ function createControlledDrFailoverQualification({
       standbyDatabaseName: standbyName,
       exactCommitSha: commitSha,
       assessedAt: assessed.value,
+      assessmentMode: retrospective ? 'RETROSPECTIVE_CUTOFF' : 'LIVE_CLOCK',
       drillId: normalizedDrillId,
       recoveryObjectives: objectives,
       backupRestoreQualificationRef,
@@ -372,7 +380,7 @@ function createControlledDrFailoverQualification({
     } catch (_) {
       return makeResult({ status: DR_FAILOVER_STATUS.HOLD_PREFLIGHT, plan, authorization: auth });
     }
-    if (!preflight.ready || Date.parse(preflight.latestPrimaryDataAt)>assessed.millis || Date.parse(preflight.latestStandbyDataAt)>assessed.millis) {
+    if (!preflight.ready || Date.parse(preflight.latestPrimaryDataAt)>evidenceCutoff() || Date.parse(preflight.latestStandbyDataAt)>evidenceCutoff()) {
       return makeResult({ status: DR_FAILOVER_STATUS.HOLD_PREFLIGHT, plan, authorization: auth, preflight });
     }
 
@@ -389,7 +397,7 @@ function createControlledDrFailoverQualification({
     } catch (_) {
       return makeResult({ status: DR_FAILOVER_STATUS.HOLD_FAILOVER, plan, authorization: auth, preflight });
     }
-    if (!failover.expectedTargetActivated || Date.parse(failover.startedAt)<Date.parse(auth.approvedAt) || Date.parse(failover.finishedAt)>assessed.millis) {
+    if (!failover.expectedTargetActivated || Date.parse(failover.startedAt)<Math.max(Date.parse(auth.approvedAt),Date.parse(preflight.latestPrimaryDataAt),Date.parse(preflight.latestStandbyDataAt)) || Date.parse(failover.finishedAt)>evidenceCutoff()) {
       return makeResult({ status: DR_FAILOVER_STATUS.HOLD_FAILOVER, plan, authorization: auth, preflight, failover });
     }
 
@@ -415,7 +423,7 @@ function createControlledDrFailoverQualification({
       && failoverVerification.fingerprintsMatch
       && !failoverVerification.unreconciledDataCorruptionObserved,
     );
-    if (!failoverIntegrityPass || Date.parse(failoverVerification.observedAt)<Date.parse(failover.finishedAt) || Date.parse(failoverVerification.observedAt)>assessed.millis) {
+    if (!failoverIntegrityPass || Date.parse(failoverVerification.observedAt)<Date.parse(failover.finishedAt) || Date.parse(failoverVerification.observedAt)>evidenceCutoff()) {
       return makeResult({ status: DR_FAILOVER_STATUS.HOLD_FAILOVER_VERIFICATION, plan, authorization: auth, preflight, failover, failoverVerification });
     }
 
@@ -432,7 +440,7 @@ function createControlledDrFailoverQualification({
     } catch (_) {
       return makeResult({ status: DR_FAILOVER_STATUS.HOLD_FAILBACK, plan, authorization: auth, preflight, failover, failoverVerification });
     }
-    if (!failback.expectedTargetActivated || Date.parse(failback.startedAt)<Date.parse(failoverVerification.observedAt) || Date.parse(failback.finishedAt)>assessed.millis) {
+    if (!failback.expectedTargetActivated || Date.parse(failback.startedAt)<Date.parse(failoverVerification.observedAt) || Date.parse(failback.finishedAt)>evidenceCutoff()) {
       return makeResult({ status: DR_FAILOVER_STATUS.HOLD_FAILBACK, plan, authorization: auth, preflight, failover, failoverVerification, failback });
     }
 
@@ -458,7 +466,7 @@ function createControlledDrFailoverQualification({
       && failbackVerification.fingerprintsMatch
       && !failbackVerification.unreconciledDataCorruptionObserved,
     );
-    if (!failbackIntegrityPass || Date.parse(failbackVerification.observedAt)<Date.parse(failback.finishedAt) || Date.parse(failbackVerification.observedAt)>assessed.millis) {
+    if (!failbackIntegrityPass || Date.parse(failbackVerification.observedAt)<Date.parse(failback.finishedAt) || Date.parse(failbackVerification.observedAt)>evidenceCutoff()) {
       return makeResult({ status: DR_FAILOVER_STATUS.HOLD_FAILBACK_VERIFICATION, plan, authorization: auth, preflight, failover, failoverVerification, failback, failbackVerification });
     }
 
@@ -466,7 +474,10 @@ function createControlledDrFailoverQualification({
     const failoverVerifiedAt = requiredTimestamp(failoverVerification.observedAt, 'failoverVerification.observedAt');
     const latestPrimary = requiredTimestamp(failoverVerification.latestPrimaryDataAt, 'failoverVerification.latestPrimaryDataAt');
     const latestActive = requiredTimestamp(failoverVerification.latestActiveDataAt, 'failoverVerification.latestActiveDataAt');
-    const observedRecoveryTimeSeconds = (failoverVerifiedAt.millis - failoverStarted.millis) / 1000;
+    const failbackStarted = requiredTimestamp(failback.startedAt,'failback.startedAt');
+    const failbackVerifiedAt = requiredTimestamp(failbackVerification.observedAt,'failbackVerification.observedAt');
+    // Conservative qualification objective: the slower of the two transitions.
+    const observedRecoveryTimeSeconds = Math.max(failoverVerifiedAt.millis-failoverStarted.millis,failbackVerifiedAt.millis-failbackStarted.millis)/1000;
     const observedDataLossSeconds = Math.max(0, (latestPrimary.millis - latestActive.millis) / 1000);
     const duplicateSideEffectsObserved = Boolean(
       failoverVerification.duplicateSideEffectsObserved || failbackVerification.duplicateSideEffectsObserved,
@@ -503,7 +514,7 @@ function createControlledDrFailoverQualification({
       observedAt: failbackVerification.observedAt,
       preparedBy: auth.approvedBy,
       reviewedBy: auth.reviewedBy,
-      reviewedAt: assessed.value,
+      reviewedAt: retrospective ? assessed.value : new Date().toISOString(),
       evidenceRefs: [
         `sha256:${plan.planHashSha256}`,
         backupRestoreQualificationRef,

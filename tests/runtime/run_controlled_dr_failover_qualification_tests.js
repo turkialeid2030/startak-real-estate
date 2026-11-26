@@ -32,9 +32,12 @@ function backupRestoreQualification(overrides = {}) {
   return {
     status: BACKUP_RESTORE_STATUS.BACKUP_RESTORE_EVIDENCE_COMPLETE_NOT_PRODUCTION_CERTIFIED,
     bundleHashSha256: 'b'.repeat(64),
+    productionQualified:false,
+    authority:{releaseAuthorized:false},
     plan: {
       environment: 'staging',
       sourceDatabaseRef: 'primary-ref',
+      sourceDatabaseName:'startak_primary',
       exactCommitSha: COMMIT_SHA,
     },
     ...overrides,
@@ -374,6 +377,28 @@ function assertAuthorityClosed(result) {
     assert.strictEqual(out.status,DR_FAILOVER_STATUS.HOLD_BACKUP_RESTORE_QUALIFICATION);
     assert.strictEqual(out.backupRestoreQualificationRef,null);
     assertAuthorityClosed(out);
+  });
+  for(const [id,patch] of [
+    ['SOURCE-NAME',{plan:{...backupRestoreQualification().plan,sourceDatabaseName:'other'}}],
+    ['PRODUCTION-CLAIM',{productionQualified:true}],
+    ['RELEASE-CLAIM',{authority:{releaseAuthorized:true}}]
+  ])await test('P17-'+id,async()=>{
+    const {qualify,calls}=harness();
+    const out=await qualify(baseInput({execute:true,backupRestoreQualification:backupRestoreQualification(patch)}));
+    assert.strictEqual(out.status,DR_FAILOVER_STATUS.HOLD_BACKUP_RESTORE_QUALIFICATION);
+    assert.strictEqual(calls.preflight,0);assertAuthorityClosed(out);
+  });
+  await test('P17-FAILOVER-BEFORE-PREFLIGHT-DATA',async()=>{
+    const {qualify,calls}=harness({preflightOverrides:{latestPrimaryDataAt:'2026-09-09T16:00:01Z'}});
+    const out=await qualify(baseInput({execute:true}));
+    assert.strictEqual(out.status,DR_FAILOVER_STATUS.HOLD_FAILOVER);
+    assert.strictEqual(calls.failback,0);
+  });
+  await test('P17-SLOW-FAILBACK-RTO',async()=>{
+    const {qualify}=harness({failbackVerificationOverrides:{observedAt:'2026-09-09T16:01:50Z'}});
+    const out=await qualify(baseInput({execute:true,recoveryObjectives:{maximumRecoveryTimeSeconds:40,maximumDataLossSeconds:5,objectiveSourceRef:'policy://dr'}}));
+    assert.strictEqual(out.status,DR_FAILOVER_STATUS.HOLD_RECOVERY_OBJECTIVE);
+    assert.strictEqual(out.resilienceEvidence.observedRecoveryTimeSeconds,50);
   });
   const failed = results.filter((entry) => entry[1] !== 'PASS');
   console.log(`PRODUCTIZATION_P17_CONTROLLED_DR_FAILOVER_RESULT=${failed.length === 0 ? 'PASS' : 'FAIL'} ${results.filter((entry) => entry[1] === 'PASS').length}/${results.length}`);

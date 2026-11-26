@@ -150,8 +150,9 @@ function normalizeAuthorization(value, target) {
   });
 }
 
-function normalizeBackupResult(value) {
+function normalizeBackupResult(value, sourceRef, sourceName) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError('backupExecutor result must be an object');
+  if(value.sourceDatabaseRef!==sourceRef || value.sourceDatabaseName!==sourceName)throw new TypeError('backup source identity mismatch');
   const started = requiredTimestamp(value.startedAt, 'backup.startedAt');
   const finished = requiredTimestamp(value.finishedAt, 'backup.finishedAt');
   const snapshot = requiredTimestamp(value.sourceSnapshotAt, 'backup.sourceSnapshotAt');
@@ -159,6 +160,8 @@ function normalizeBackupResult(value) {
   if (snapshot.millis < started.millis || snapshot.millis > finished.millis) throw new TypeError('backup.sourceSnapshotAt must be within the backup interval');
   if (!Number.isSafeInteger(value.artifactSizeBytes) || value.artifactSizeBytes <= 0) throw new TypeError('backup.artifactSizeBytes must be a positive safe integer');
   return freeze({
+    sourceDatabaseRef:sourceRef,
+    sourceDatabaseName:sourceName,
     artifactId: requiredString(value.artifactId, 'backup.artifactId'),
     artifactHashSha256: requiredSha256(value.artifactHashSha256, 'backup.artifactHashSha256'),
     artifactSizeBytes: nonNegativeInteger(value.artifactSizeBytes, 'backup.artifactSizeBytes'),
@@ -168,13 +171,16 @@ function normalizeBackupResult(value) {
   });
 }
 
-function normalizeRestoreResult(value, backup) {
+function normalizeRestoreResult(value, backup, restoreRef, restoreName) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError('restoreExecutor result must be an object');
+  if(value.restoreTargetDatabaseRef!==restoreRef || value.restoreTargetDatabaseName!==restoreName)throw new TypeError('restore target identity mismatch');
   const started = requiredTimestamp(value.startedAt, 'restore.startedAt');
   const finished = requiredTimestamp(value.finishedAt, 'restore.finishedAt');
   if (finished.millis < started.millis) throw new TypeError('restore.finishedAt must be on or after restore.startedAt');
   const restoredHash = requiredSha256(value.restoredArtifactHashSha256, 'restore.restoredArtifactHashSha256');
   return freeze({
+    restoreTargetDatabaseRef:restoreRef,
+    restoreTargetDatabaseName:restoreName,
     restoredArtifactHashSha256: restoredHash,
     artifactHashMatchesBackup: restoredHash === backup.artifactHashSha256,
     startedAt: started.value,
@@ -182,10 +188,13 @@ function normalizeRestoreResult(value, backup) {
   });
 }
 
-function normalizeVerificationResult(value) {
+function normalizeVerificationResult(value, sourceRef, restoreRef) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError('verificationExecutor result must be an object');
+  if(value.sourceDatabaseRef!==sourceRef || value.restoreTargetDatabaseRef!==restoreRef)throw new TypeError('verification database identity mismatch');
+  const observed = requiredTimestamp(value.observedAt,'verification.observedAt');
   const sourceLatest = requiredTimestamp(value.latestSourceDataAt, 'verification.latestSourceDataAt');
   const restoredLatest = requiredTimestamp(value.latestRestoredDataAt, 'verification.latestRestoredDataAt');
+  if(sourceLatest.millis>observed.millis || restoredLatest.millis>observed.millis)throw new TypeError('verification data timestamp exceeds observation');
   for (const flag of ['duplicateSideEffectsObserved','unreconciledDataCorruptionObserved']) {
     if (typeof value[flag] !== 'boolean') throw new TypeError(`verification.${flag} must be an explicit boolean`);
   }
@@ -194,6 +203,9 @@ function normalizeVerificationResult(value) {
   const sourceFingerprint = requiredSha256(value.sourceFingerprintSha256, 'verification.sourceFingerprintSha256');
   const restoredFingerprint = requiredSha256(value.restoredFingerprintSha256, 'verification.restoredFingerprintSha256');
   return freeze({
+    sourceDatabaseRef:sourceRef,
+    restoreTargetDatabaseRef:restoreRef,
+    observedAt:observed.value,
     sourceRecordCount: sourceCount,
     restoredRecordCount: restoredCount,
     recordCountsMatch: sourceCount === restoredCount,
@@ -250,7 +262,7 @@ function createControlledBackupRestoreQualification({
     authorization,
     execute = false,
     evidenceId = 'p16-backup-restore',
-    assessedAt = new Date().toISOString(),
+    assessedAt,
   } = {}) {
     const env = normalizeEnvironment(environment);
     const sourceRef = requiredString(sourceDatabaseRef, 'sourceDatabaseRef');
@@ -260,7 +272,11 @@ function createControlledBackupRestoreQualification({
     if (sourceRef === restoreRef || sourceName === restoreName) throw new TypeError('restore target must be isolated from the source database');
     const commitSha = requiredCommitSha(exactCommitSha);
     const objectives = normalizeObjectives(recoveryObjectives);
-    const assessed = requiredTimestamp(assessedAt, 'assessedAt');
+    // An explicit assessment is a retrospective evidence cutoff. In live
+    // adapter execution the cutoff must advance after each asynchronous stage.
+    const retrospective = assessedAt !== undefined;
+    const assessed = requiredTimestamp(retrospective ? assessedAt : new Date().toISOString(), 'assessedAt');
+    const evidenceCutoff = () => retrospective ? assessed.millis : Date.now();
     const normalizedEvidenceId = requiredString(evidenceId, 'evidenceId');
 
     const apiSecurityComplete = Boolean(
@@ -286,6 +302,7 @@ function createControlledBackupRestoreQualification({
       restoreTargetDatabaseName: restoreName,
       exactCommitSha: commitSha,
       assessedAt: assessed.value,
+      assessmentMode: retrospective ? 'RETROSPECTIVE_CUTOFF' : 'LIVE_CLOCK',
       evidenceId: normalizedEvidenceId,
       recoveryObjectives: objectives,
       apiSecurityQualificationRef,
@@ -325,12 +342,12 @@ function createControlledBackupRestoreQualification({
         sourceDatabaseRef: sourceRef,
         sourceDatabaseName: sourceName,
         planHashSha256: plan.planHashSha256,
-      }));
+      }),sourceRef,sourceName);
     } catch (_) {
       return makeResult({ status: BACKUP_RESTORE_STATUS.HOLD_BACKUP, plan, authorization: auth });
     }
 
-    if (Date.parse(backup.startedAt) < Date.parse(auth.approvedAt)) {
+    if (Date.parse(backup.startedAt) < Date.parse(auth.approvedAt) || Date.parse(backup.finishedAt)>evidenceCutoff()) {
       return makeResult({ status: BACKUP_RESTORE_STATUS.HOLD_BACKUP, plan, authorization: auth, backup });
     }
     let restore;
@@ -342,11 +359,11 @@ function createControlledBackupRestoreQualification({
         artifactId: backup.artifactId,
         artifactHashSha256: backup.artifactHashSha256,
         planHashSha256: plan.planHashSha256,
-      }), backup);
+      }), backup,restoreRef,restoreName);
     } catch (_) {
       return makeResult({ status: BACKUP_RESTORE_STATUS.HOLD_RESTORE, plan, authorization: auth, backup });
     }
-    if (!restore.artifactHashMatchesBackup || Date.parse(restore.startedAt) < Date.parse(backup.finishedAt)) {
+    if (!restore.artifactHashMatchesBackup || Date.parse(restore.startedAt) < Date.parse(backup.finishedAt) || Date.parse(restore.finishedAt)>evidenceCutoff()) {
       return makeResult({ status: BACKUP_RESTORE_STATUS.HOLD_RESTORE, plan, authorization: auth, backup, restore });
     }
 
@@ -358,14 +375,15 @@ function createControlledBackupRestoreQualification({
         restoreTargetDatabaseRef: restoreRef,
         backupArtifactId: backup.artifactId,
         planHashSha256: plan.planHashSha256,
-      }));
+      }),sourceRef,restoreRef);
     } catch (_) {
       return makeResult({ status: BACKUP_RESTORE_STATUS.HOLD_VERIFICATION, plan, authorization: auth, backup, restore });
     }
 
     const integrityPass = Boolean(
-      Date.parse(verification.latestSourceDataAt) <= Date.parse(restore.finishedAt)
-      && Date.parse(verification.latestRestoredDataAt) <= Date.parse(restore.finishedAt)
+      Date.parse(verification.observedAt) >= Date.parse(restore.finishedAt)
+      && Date.parse(verification.observedAt) <= evidenceCutoff()
+      && Date.parse(verification.latestRestoredDataAt) <= Date.parse(backup.sourceSnapshotAt)
       && verification.recordCountsMatch
       && verification.fingerprintsMatch
       && !verification.unreconciledDataCorruptionObserved,
@@ -375,10 +393,10 @@ function createControlledBackupRestoreQualification({
     }
 
     const restoreStarted = requiredTimestamp(restore.startedAt, 'restore.startedAt');
-    const restoreFinished = requiredTimestamp(restore.finishedAt, 'restore.finishedAt');
+    const verifiedAt = requiredTimestamp(verification.observedAt, 'verification.observedAt');
     const sourceLatest = requiredTimestamp(verification.latestSourceDataAt, 'verification.latestSourceDataAt');
     const restoredLatest = requiredTimestamp(verification.latestRestoredDataAt, 'verification.latestRestoredDataAt');
-    const observedRecoveryTimeSeconds = (restoreFinished.millis - restoreStarted.millis) / 1000;
+    const observedRecoveryTimeSeconds = (verifiedAt.millis - restoreStarted.millis) / 1000;
     const observedDataLossSeconds = Math.max(0, (sourceLatest.millis - restoredLatest.millis) / 1000);
 
     const resilienceEvidence = createResilienceEvidence({
@@ -396,10 +414,10 @@ function createControlledBackupRestoreQualification({
       objectiveSourceRef: objectives.objectiveSourceRef,
       sourceArtifactId: backup.artifactId,
       sourceArtifactHashSha256: backup.artifactHashSha256,
-      observedAt: restore.finishedAt,
+      observedAt: verification.observedAt,
       preparedBy: auth.approvedBy,
       reviewedBy: auth.reviewedBy,
-      reviewedAt: assessed.value,
+      reviewedAt: retrospective ? assessed.value : new Date().toISOString(),
       evidenceRefs: [
         `sha256:${plan.planHashSha256}`,
         apiSecurityQualificationRef,
