@@ -7,11 +7,18 @@ const cp=require('node:child_process');
 const path=require('node:path');
 const FILE='docs/recovery/STARTAK_RE_BRANCH_CENSUS_20261112.json';
 const outPath='artifacts/startak-re-legacy-path-parity.json';
+const summaryPath='artifacts/startak-re-legacy-path-summary.json';
+const {parseBranchAdvertisement,reconcileBranchScope}=require('./legacy-branch-scope');
 const census=JSON.parse(fs.readFileSync(FILE,'utf8'));
 if(census.repository!=='turkialeid2030/startak-real-estate'||census.scope!=='STARTAK_REAL_ESTATE_ONLY')
  throw Error('REPOSITORY_SCOPE_MISMATCH');
 function git(...args){return cp.execFileSync('git',args,{encoding:'buffer',maxBuffer:96*1024*1024,timeout:90000});}
 const HEAD=git('rev-parse','HEAD').toString('utf8').trim();
+const advertisedPath=process.env.STARTAK_BRANCH_ADVERTISEMENT_FILE;
+if(!advertisedPath)throw Error('BRANCH_ADVERTISEMENT_REQUIRED');
+const advertised=parseBranchAdvertisement(fs.readFileSync(advertisedPath,'utf8'));
+const fetched=parseBranchAdvertisement(git('for-each-ref','--format=%(objectname)%09%(refname)','refs/remotes/origin/').toString('utf8'),'refs/remotes/origin/');
+const scope=reconcileBranchScope(census.branches.map(x=>x.name),advertised,fetched);
 function tree(ref){
  const raw=git('ls-tree','-r','-z',ref);
  const map=new Map();
@@ -38,7 +45,7 @@ const classify=p=>{
  return 'OTHER';
 };
 let reachable=0,missingRefs=0;
-for(const {name} of census.branches){
+for(const name of scope.names){
  if(!/^[a-zA-Z0-9._\/-]+$/.test(name)||name.includes('..'))throw Error('INVALID_BRANCH_NAME_IN_CENSUS');
  const ref='refs/remotes/origin/'+name;
  let old,oldHead;
@@ -66,7 +73,7 @@ for(const c of candidates)sums[c.category]=(sums[c.category]||0)+1;
 const result={
  schema:'STARTAK_RE_PATH_LEVEL_LEGACY_AUDIT_V1',repository:census.repository,
  currentSha:HEAD,runDate:new Date().toISOString(),
- totalCensusBranches:census.branches.length,branchesWithFetchedTrees:reachable,missingBranchTrees:missingRefs,
+ totalCensusBranches:scope.names.length,baselineBranches:scope.baselineCount,advertisedBranches:scope.advertisedCount,newlyDiscoveredBranches:scope.newlyDiscoveredCount,missingBaselineBranches:scope.missingBaselineCount,branchesWithFetchedTrees:reachable,missingBranchTrees:missingRefs,
  currentPaths:current.size,legacyOnlyUniquePathCandidates:candidates.length,
  legacyOnlyPathCategoryCounts:sums,
  warnings:[
@@ -79,9 +86,16 @@ const result={
  byBranch,oldOnlyPathCandidates:candidates
 };
 fs.mkdirSync(path.dirname(outPath),{recursive:true});
-fs.writeFileSync(outPath,JSON.stringify(result,null,2));
+// Detailed historical filenames and blob references stay local; public CI uploads only counts.
+if(process.env.STARTAK_PRIVATE_PATH_DETAIL==='1')fs.writeFileSync(outPath,JSON.stringify(result,null,2),{mode:0o600});
+const {byBranch:privateBranches,oldOnlyPathCandidates:privatePaths,...summary}=result;
+fs.writeFileSync(summaryPath,JSON.stringify({...summary,detailPublished:false},null,2));
 console.log('STARTAK_RE_LEGACY_TREE_AUDIT=COMPLETE');
-console.log('CENSUS_BRANCHES='+census.branches.length);
+console.log('CENSUS_BRANCHES='+scope.names.length);
+console.log('BASELINE_BRANCHES='+scope.baselineCount);
+console.log('ADVERTISED_BRANCHES='+scope.advertisedCount);
+console.log('NEW_BRANCHES='+scope.newlyDiscoveredCount);
+console.log('MISSING_BASELINE_BRANCHES='+scope.missingBaselineCount);
 console.log('FETCHED_BRANCH_TREES='+reachable);
 console.log('UNFETCHED_BRANCH_TREES='+missingRefs);
 console.log('LEGACY_ONLY_PATH_CANDIDATES='+candidates.length);
