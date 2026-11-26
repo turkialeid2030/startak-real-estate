@@ -245,6 +245,22 @@ async function main() {
     }
     assert.strictEqual(schemaCalls,0);
     console.log('RIAI_V616_PREPROVIDER_SCHEMA=PASS cases=4 provider_calls=0');
+    const boundId='8e1b4ce7-dcbe-4bc1-8c0a-d8bb98242691';
+    const boundRequest=id=>new Request('http://localhost/api/riai/ai-assist',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({decisionSnapshot:snapshot(),clientRequestId:id})});
+    let bindingCalls=0;
+    global.fetch=async()=>{bindingCalls++;return jsonResponse({...modernBase,output:[msg([outputText(goodText)])]});};
+    for(const badId of ['not-a-uuid',42,null]){
+      const res=await onRequestPost({request:boundRequest(badId),env:modern('gpt-6.2-sol')});assert.strictEqual(res.status,400);assert.strictEqual((await res.json()).code,'AI_CLIENT_REQUEST_ID_INVALID');
+    }
+    assert.strictEqual(bindingCalls,0);
+    const boundEnv=modern('gpt-6.2-sol');
+    const boundRes=await onRequestPost({request:boundRequest(boundId),env:boundEnv});
+    const bound=await boundRes.json();assert.strictEqual(boundRes.status,200,JSON.stringify(bound));
+    const hash=value=>require('node:crypto').createHash('sha256').update(JSON.stringify(value)).digest('hex');
+    assert.deepStrictEqual(bound.requestBinding,{version:1,clientRequestId:boundId,snapshotHashSha256:hash(snapshot()),resultHashSha256:hash(bound.result)});
+    const audit=[...boundEnv.RIAI_AUDIT_KV.map.values()].map(JSON.parse).find(x=>x.outcome==='SUCCESS');
+    assert.strictEqual(audit.resultHash,bound.requestBinding.resultHashSha256);assert.strictEqual(audit.snapshotHash,bound.requestBinding.snapshotHashSha256);assert.strictEqual(audit.payloadStored,false);
+    console.log('RIAI_V617_SERVER_REQUEST_BINDING=PASS invalid_id_cases=3 audit_binding=1 mocked_provider_only=true');
     console.log('RIAI_GPT6_MODEL_REFRESH=PASS mocked_provider_only=true');
     console.log('RIAI_OPENAI_RESPONSES_ADAPTER=PASS');
     console.log('OPENAI_RESPONSES_STRUCTURED_OUTPUT=PASS');

@@ -10,6 +10,7 @@ const { readBoundedJson } = require('./bounded-json-client');
 
 const AI_ASSIST_ENDPOINT = '/api/riai/ai-assist';
 const CLIENT_TIMEOUT_MS = 20000;
+async function hashJson(value){const bytes=new TextEncoder().encode(JSON.stringify(value));const digest=await globalThis.crypto.subtle.digest('SHA-256',bytes);return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');}
 
 const AI_ASSIST_CLIENT_STATUS = Object.freeze({
   SUCCESS: 'SUCCESS',
@@ -34,6 +35,13 @@ async function performReview(viewModel, options = {}) {
     return Object.freeze({ status: AI_ASSIST_CLIENT_STATUS.UNAVAILABLE, reasonCode: 'FETCH_UNAVAILABLE', aiModelUsed: false, result: null });
   }
 
+  let clientRequestId,snapshotHashSha256,detachedSnapshot;
+  try{
+    detachedSnapshot=JSON.parse(JSON.stringify(snapshot.decisionSnapshot));
+    clientRequestId=globalThis.crypto.randomUUID();
+    snapshotHashSha256=await hashJson(detachedSnapshot);
+  }catch{return Object.freeze({status:AI_ASSIST_CLIENT_STATUS.UNAVAILABLE,reasonCode:'AI_ASSIST_BINDING_CRYPTO_UNAVAILABLE',aiModelUsed:false,result:null});}
+  if(options.signal?.aborted)throw new Error('AI_ASSIST_CANCELLED');
   const turnstile = await prepareTurnstileToken(fetchImpl, options);
   if (options.signal?.aborted) throw new Error('AI_ASSIST_CANCELLED');
   if (!turnstile.ok) {
@@ -45,7 +53,7 @@ async function performReview(viewModel, options = {}) {
     });
   }
 
-  const requestBody = { decisionSnapshot: snapshot.decisionSnapshot };
+  const requestBody = { decisionSnapshot: detachedSnapshot, clientRequestId };
   if (turnstile.token) requestBody.turnstileToken = turnstile.token;
 
   let response;
@@ -88,6 +96,10 @@ async function performReview(viewModel, options = {}) {
     return Object.freeze({ status: AI_ASSIST_CLIENT_STATUS.INVALID_RESPONSE, reasonCode: 'AI_ASSIST_GOVERNANCE_METADATA_INVALID', aiModelUsed: false, result: null });
   }
 
+  const binding=payload.requestBinding;
+  let bindingValid=false;
+  try{bindingValid=!!binding&&binding.version===1&&binding.clientRequestId===clientRequestId&&binding.snapshotHashSha256===snapshotHashSha256&&typeof binding.resultHashSha256==='string'&&binding.resultHashSha256===await hashJson(payload.result);}catch{}
+  if(!bindingValid)return Object.freeze({status:AI_ASSIST_CLIENT_STATUS.INVALID_RESPONSE,reasonCode:'AI_ASSIST_REQUEST_BINDING_INVALID',aiModelUsed:false,result:null});
   const validated = validateResidentialIncomeAiAssistResponse(payload.result);
   if (validated.status !== AI_ASSIST_STATUS.VALID) {
     return Object.freeze({ status: AI_ASSIST_CLIENT_STATUS.INVALID_RESPONSE, reasonCode: validated.reasonCode, aiModelUsed: false, result: null });
@@ -101,6 +113,7 @@ async function performReview(viewModel, options = {}) {
     generatedAt: typeof payload.generatedAt === 'string' ? payload.generatedAt : null,
     advisoryOnly: true,
     deterministicScoreRemainsAuthoritative: true,
+    requestBinding:Object.freeze({...binding}),
     result: validated.value,
   });
 }

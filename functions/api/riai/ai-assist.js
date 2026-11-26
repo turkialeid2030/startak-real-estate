@@ -102,14 +102,6 @@ async function recordAudit(context, details) {
   return result;
 }
 
-function summarizeSeverity(result) {
-  const counts = { LOW: 0, MEDIUM: 0, HIGH: 0 };
-  for (const item of (result && Array.isArray(result.riskFlags) ? result.riskFlags : [])) {
-    if (item && ALLOWED_SEVERITY.has(item.severity)) counts[item.severity] += 1;
-  }
-  return counts;
-}
-
 function containsForbiddenDecisionLanguage(value) {
   return FORBIDDEN_DECISION_PATTERNS.some((pattern) => pattern.test(String(value || '')));
 }
@@ -529,6 +521,7 @@ async function handleRequestPost(context) {
 
   let body;
   try { body = JSON.parse(text); } catch (_) { return json({ ok: false, code: 'INVALID_JSON', aiModelUsed: false }, 400); }
+  if(body&&Object.hasOwn(body,'clientRequestId')&&(typeof body.clientRequestId!=='string'||!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(body.clientRequestId)))return json({ok:false,code:'AI_CLIENT_REQUEST_ID_INVALID',aiModelUsed:false},400);
   const snapshotError = validateSnapshot(body && body.decisionSnapshot);
   if (snapshotError) return json({ ok: false, code: snapshotError, aiModelUsed: false }, 400);
   const disciplineResult = enforceSnapshotDataDiscipline(body.decisionSnapshot);
@@ -537,6 +530,7 @@ async function handleRequestPost(context) {
   const schemaResult=enforceSnapshotSchema(body.decisionSnapshot);
   if(!schemaResult.ok)return json({ok:false,code:schemaResult.code,aiModelUsed:false},400);
 
+  const snapshotHashSha256=await sha256Hex(JSON.stringify(body.decisionSnapshot));
   const access = await resolveAccess(request, env, body);
   if (!access.ok) return json({ ok: false, code: access.code, aiModelUsed: false }, access.status);
 
@@ -655,6 +649,7 @@ async function handleRequestPost(context) {
     return json({ ok: false, code: sanitized.error, aiModelUsed: false }, 502);
   }
 
+  const resultHashSha256=await sha256Hex(JSON.stringify(sanitized.value));
   await recordAudit(context, {
     access,
     snapshot: body.decisionSnapshot,
@@ -662,7 +657,7 @@ async function handleRequestPost(context) {
     model,
     tokenLimit: outputBudget.value,
     startedAt,
-    resultSummary: { severityCounts: summarizeSeverity(sanitized.value) },
+    resultSummary: sanitized.value, // audit stores only its digest, not the narrative
   });
 
   return json({
@@ -672,6 +667,7 @@ async function handleRequestPost(context) {
     model,
     ...(modelPolicy.profile?{providerReportedModel:providerPayload.model,modelPolicyVersion:'GPT6_20261124',reasoningEffort:modelPolicy.effort}:{}),
     providerProtocol: protocol.value,
+    requestBinding:Object.freeze({version:1,clientRequestId:body.clientRequestId??null,snapshotHashSha256,resultHashSha256}),
     generatedAt: new Date().toISOString(),
     advisoryOnly: true,
     deterministicScoreRemainsAuthoritative: true,
