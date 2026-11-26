@@ -14,6 +14,7 @@ const {
   RELEASE_CANDIDATE_STATUS,
   REQUIRED_OPEN_EXTERNAL_BLOCKERS,
   buildProductizationReleaseCandidateEvidenceBundle,
+  verifyReleaseCandidateManifest,
 } = require('../../src/qualification/productization-release-candidate-evidence-bundle');
 
 const results = [];
@@ -286,6 +287,38 @@ function assertAuthorityClosed(result) {
     const out=buildProductizationReleaseCandidateEvidenceBundle(input());
     assert.strictEqual(out.securityUatEvidence.observabilityCompletedAt,'2026-09-04T11:01:20.000Z');
     assert.strictEqual(out.status,RELEASE_CANDIDATE_STATUS.READY_FOR_EXISTING_RELEASE_GOVERNANCE_REVIEW);
+  });
+  await test('P20-SECRET-BLOCKER-REQUIRED',async()=>{
+    const out=buildProductizationReleaseCandidateEvidenceBundle(input({openExternalBlockers:REQUIRED_OPEN_EXTERNAL_BLOCKERS.filter(x=>x!=='GIT_HISTORY_SECRET_SCAN_REMEDIATION_AND_ROTATION')}));
+    assert.strictEqual(out.status,RELEASE_CANDIDATE_STATUS.HOLD_EXTERNAL_BLOCKER_REGISTER);
+    assert.ok(out.issues.includes('MISSING_OPEN_EXTERNAL_BLOCKER:GIT_HISTORY_SECRET_SCAN_REMEDIATION_AND_ROTATION'));
+  });
+  await test('P20-EXPLICIT-AUTHORITY-OVERRIDE',async()=>{
+    for(const patch of [{releaseAuthorized:null},{authority:{releaseAuthorized:false}},{mergeAuthorized:undefined}])
+      assert.throws(()=>buildProductizationReleaseCandidateEvidenceBundle(input(patch)),/CALLER_RELEASE_CANDIDATE_AUTHORITY_OVERRIDE_NOT_ALLOWED/);
+  });
+  await test('P20-INVALID-BLOCKER-IDENTIFIER',async()=>{
+    assert.throws(()=>buildProductizationReleaseCandidateEvidenceBundle(input({openExternalBlockers:[...REQUIRED_OPEN_EXTERNAL_BLOCKERS,'invalid blocker']})),/bounded blocker identifiers/);
+  });
+  await test('P20-REJECTED-SUMMARY-IS-NOT-VERIFIED',async()=>{
+    const out=buildProductizationReleaseCandidateEvidenceBundle(input({securityUatEvidence:securityUat({evidenceBundleHashSha256:'0'.repeat(64)})}));
+    assert.strictEqual(out.securityUatEvidence.structurallyVerified,false);
+    for(const key of ['evidenceBundleRef','pentestEvidenceRef','uatEvidenceRef','openCriticalFindings','openHighFindings','uatFailedScenarios','uatScenarioCount','uatScenarioPlanHashSha256','observabilityCompletedAt'])assert.strictEqual(out.securityUatEvidence[key],null);
+  });
+  await test('P20-MANIFEST-REBUILD-AND-FRESHNESS',async()=>{
+    const source=input();const out=buildProductizationReleaseCandidateEvidenceBundle(source);
+    assert.strictEqual(verifyReleaseCandidateManifest(out,source,source.reviewedAt),true);
+    assert.strictEqual(verifyReleaseCandidateManifest(out,source,'2026-10-05T00:00:00Z'),false);
+    assert.strictEqual(verifyReleaseCandidateManifest(out,source,'2026-09-09T16:01:00Z'),false);
+    assert.strictEqual(verifyReleaseCandidateManifest(out,source,'2999-01-01T00:00:00Z'),false);
+    assert.strictEqual(verifyReleaseCandidateManifest(out,input({candidateId:'OTHER'}),source.reviewedAt),false);
+  });
+  await test('P20-MANIFEST-TAMPER-REHASH',async()=>{
+    const source=input();const out=buildProductizationReleaseCandidateEvidenceBundle(source);
+    for(const patch of [{authority:{...out.authority,releaseAuthorized:true}},{openExternalBlockers:[]},{manifestHashSha256:'0'.repeat(64)},{engineeringEvidenceBundleAssembled:false},JSON.parse('{"__proto__":{"unexpected":true}}')])
+      assert.strictEqual(verifyReleaseCandidateManifest({...out,...patch},source,source.reviewedAt),false);
+    const rejected=input({openExternalBlockers:[]});
+    assert.strictEqual(verifyReleaseCandidateManifest(buildProductizationReleaseCandidateEvidenceBundle(rejected),rejected,rejected.reviewedAt),false);
   });
   const failed = results.filter((entry) => entry[1] !== 'PASS');
   console.log(`PRODUCTIZATION_P20_RELEASE_CANDIDATE_EVIDENCE_RESULT=${failed.length === 0 ? 'PASS' : 'FAIL'} ${results.filter((entry) => entry[1] === 'PASS').length}/${results.length}`);

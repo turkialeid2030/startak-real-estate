@@ -26,6 +26,7 @@ const REQUIRED_OPEN_EXTERNAL_BLOCKERS = Object.freeze([
   'PDPL_DATA_GOVERNANCE_AND_LEGAL_REVIEW',
   'SAUDI_PROFESSIONAL_LICENSING_AND_REPORTING_AUTHORITY',
   'CANONICAL_EXTERNAL_SOURCE_HASH_COMPARISON',
+  'GIT_HISTORY_SECRET_SCAN_REMEDIATION_AND_ROTATION',
   'HUMAN_RELEASE_AUTHORITY_APPROVAL',
   'MERGE_DEPLOY_GO_LIVE_AUTHORIZATION',
 ]);
@@ -76,10 +77,8 @@ function freeze(value) {
 function canonicalize(value) {
   if (Array.isArray(value)) return value.map(canonicalize);
   if (value && typeof value === 'object') {
-    return Object.keys(value).sort().reduce((result, key) => {
-      if (value[key] !== undefined) result[key] = canonicalize(value[key]);
-      return result;
-    }, {});
+    // Preserve all own JSON keys, including "__proto__", in the digest.
+    return Object.fromEntries(Object.keys(value).sort().filter(key=>value[key]!==undefined).map(key=>[key,canonicalize(value[key])]));
   }
   return value;
 }
@@ -97,6 +96,7 @@ function normalizeEnvironment(value) {
 function normalizeBlockers(value) {
   if (!Array.isArray(value)) throw new TypeError('openExternalBlockers must be an array');
   const normalized = value.map((item, index) => requiredString(item, `openExternalBlockers[${index}]`));
+  if(normalized.some(item=>! /^[A-Z][A-Z0-9_]{0,127}$/.test(item)))throw new TypeError('openExternalBlockers must be bounded blocker identifiers');
   if (new Set(normalized).size !== normalized.length) throw new TypeError('openExternalBlockers must not contain duplicates');
   return Object.freeze([...normalized].sort());
 }
@@ -117,7 +117,7 @@ function assertNoAuthorityOverride(value = {}) {
     'pdplComplianceEstablished',
     'certifiedValuationEstablished',
   ];
-  if (keys.some((key) => value[key] != null)) {
+  if (keys.some((key) => Object.hasOwn(value,key)) || Object.hasOwn(value,'authority')) {
     const error = new Error('CALLER_RELEASE_CANDIDATE_AUTHORITY_OVERRIDE_NOT_ALLOWED');
     error.code = 'CALLER_RELEASE_CANDIDATE_AUTHORITY_OVERRIDE_NOT_ALLOWED';
     throw error;
@@ -176,11 +176,12 @@ function securityUatReady(value, target, asOf) {
   );
 }
 
-function safeProductionQualificationSummary(value) {
+function safeProductionQualificationSummary(value,verified) {
   if (!value || typeof value !== 'object') return null;
   return freeze({
     status: safeStatus(value.status,Object.values(PRODUCTION_QUALIFICATION_STATUS)),
-    releaseGovernanceReviewEligible: value.releaseGovernanceReviewEligible === true,
+    structurallyVerified:verified,
+    releaseGovernanceReviewEligible: verified && value.releaseGovernanceReviewEligible === true,
     humanReleaseAuthorityApprovalRequired: value.humanReleaseAuthorityApprovalRequired === true,
     nextStep: ['EXISTING_RELEASE_GOVERNANCE_REVIEW','COMPLETE_EXTERNAL_QUALIFICATION_EVIDENCE'].includes(value.nextStep) ? value.nextStep : null,
     evidenceReferenceDigests: Object.fromEntries(['productionReadinessRef','independentReleaseQualificationRef','institutionalGoLiveRef'].map(k=>[k,typeof value.evidenceRefs?.[k]==='string'&&value.evidenceRefs[k].trim()?sha256Object(value.evidenceRefs[k].trim()):null])),
@@ -204,19 +205,20 @@ function safeProductionQualificationSummary(value) {
   });
 }
 
-function safeSecurityUatSummary(value) {
+function safeSecurityUatSummary(value,verified) {
   if (!value || typeof value !== 'object') return null;
   return freeze({
     status: safeStatus(value.status,Object.values(SECURITY_UAT_STATUS)),
-    evidenceBundleRef: typeof value.evidenceBundleRef === 'string' && /^sha256:[a-f0-9]{64}$/i.test(value.evidenceBundleRef) ? value.evidenceBundleRef : null,
-    pentestEvidenceRef: typeof value.pentestEvidenceRef === 'string' && /^sha256:[a-f0-9]{64}$/i.test(value.pentestEvidenceRef) ? value.pentestEvidenceRef : null,
-    uatEvidenceRef: typeof value.uatEvidenceRef === 'string' && /^sha256:[a-f0-9]{64}$/i.test(value.uatEvidenceRef) ? value.uatEvidenceRef : null,
-    openCriticalFindings: Number.isInteger(value.pentest?.openFindingCounts?.CRITICAL) ? value.pentest.openFindingCounts.CRITICAL : null,
-    openHighFindings: Number.isInteger(value.pentest?.openFindingCounts?.HIGH) ? value.pentest.openFindingCounts.HIGH : null,
-    uatFailedScenarios: Number.isInteger(value.uat?.failedScenarios) ? value.uat.failedScenarios : null,
-    uatScenarioCount: Number.isSafeInteger(value.uat?.scenarioBinding?.scenarioCount) ? value.uat.scenarioBinding.scenarioCount : null,
-    uatScenarioPlanHashSha256: isDigest(value.uat?.scenarioBinding?.planHashSha256) ? value.uat.scenarioBinding.planHashSha256 : null,
-    observabilityCompletedAt:typeof value.plan?.observabilityCompletedAt==='string'&&Number.isFinite(Date.parse(value.plan.observabilityCompletedAt))?new Date(Date.parse(value.plan.observabilityCompletedAt)).toISOString():null,
+    structurallyVerified:verified,
+    evidenceBundleRef: verified && typeof value.evidenceBundleRef === 'string' && /^sha256:[a-f0-9]{64}$/i.test(value.evidenceBundleRef) ? value.evidenceBundleRef : null,
+    pentestEvidenceRef: verified && typeof value.pentestEvidenceRef === 'string' && /^sha256:[a-f0-9]{64}$/i.test(value.pentestEvidenceRef) ? value.pentestEvidenceRef : null,
+    uatEvidenceRef: verified && typeof value.uatEvidenceRef === 'string' && /^sha256:[a-f0-9]{64}$/i.test(value.uatEvidenceRef) ? value.uatEvidenceRef : null,
+    openCriticalFindings: verified && Number.isSafeInteger(value.pentest?.openFindingCounts?.CRITICAL) && value.pentest.openFindingCounts.CRITICAL>=0 ? value.pentest.openFindingCounts.CRITICAL : null,
+    openHighFindings: verified && Number.isSafeInteger(value.pentest?.openFindingCounts?.HIGH) && value.pentest.openFindingCounts.HIGH>=0 ? value.pentest.openFindingCounts.HIGH : null,
+    uatFailedScenarios: verified && Number.isSafeInteger(value.uat?.failedScenarios) && value.uat.failedScenarios>=0 ? value.uat.failedScenarios : null,
+    uatScenarioCount: verified && Number.isSafeInteger(value.uat?.scenarioBinding?.scenarioCount) && value.uat.scenarioBinding.scenarioCount>0 ? value.uat.scenarioBinding.scenarioCount : null,
+    uatScenarioPlanHashSha256: verified && isDigest(value.uat?.scenarioBinding?.planHashSha256) ? value.uat.scenarioBinding.planHashSha256 : null,
+    observabilityCompletedAt:verified && typeof value.plan?.observabilityCompletedAt==='string'&&Number.isFinite(Date.parse(value.plan.observabilityCompletedAt))?new Date(Date.parse(value.plan.observabilityCompletedAt)).toISOString():null,
   });
 }
 
@@ -236,15 +238,17 @@ function buildProductizationReleaseCandidateEvidenceBundle(input = {}) {
   const blockers = normalizeBlockers(input.openExternalBlockers);
 
   const target = { environment, serviceRef, exactCommitSha };
-  const productionSummary = safeProductionQualificationSummary(input.productionQualification);
-  const securityUatSummary = safeSecurityUatSummary(input.securityUatEvidence);
+  const productionVerified=productionQualificationReady(input.productionQualification,target);
+  const securityVerified=securityUatReady(input.securityUatEvidence,target,assembled.value)&&securityUatReady(input.securityUatEvidence,target,reviewed.value);
+  const productionSummary = safeProductionQualificationSummary(input.productionQualification,productionVerified);
+  const securityUatSummary = safeSecurityUatSummary(input.securityUatEvidence,securityVerified);
   const issues = [];
   let status = RELEASE_CANDIDATE_STATUS.READY_FOR_EXISTING_RELEASE_GOVERNANCE_REVIEW;
 
-  if (!productionQualificationReady(input.productionQualification, target)) {
+  if (!productionVerified) {
     status = RELEASE_CANDIDATE_STATUS.HOLD_PRODUCTION_QUALIFICATION;
     issues.push('PRODUCTION_QUALIFICATION_NOT_READY');
-  } else if (!securityUatReady(input.securityUatEvidence, target, reviewed.value) || !securityUatReady(input.securityUatEvidence, target, assembled.value)) {
+  } else if (!securityVerified) {
     const hasExpectedStatus = input.securityUatEvidence?.status === SECURITY_UAT_STATUS.INDEPENDENT_SECURITY_UAT_EVIDENCE_COMPLETE_NOT_RELEASE_AUTHORIZED;
     const scopeMismatch=hasExpectedStatus&&(input.securityUatEvidence?.plan?.environment!==target.environment||input.securityUatEvidence?.plan?.serviceRef!==target.serviceRef||input.securityUatEvidence?.plan?.exactCommitSha!==target.exactCommitSha);
     status=scopeMismatch?RELEASE_CANDIDATE_STATUS.HOLD_SCOPE_MISMATCH:RELEASE_CANDIDATE_STATUS.HOLD_SECURITY_UAT_EVIDENCE;
@@ -297,9 +301,25 @@ function buildProductizationReleaseCandidateEvidenceBundle(input = {}) {
   });
 }
 
+// Verify by reconstruction from separately supplied source inputs, not by
+// accepting a self-reported digest. Recheck time-sensitive P19 evidence as of
+// the requested review time; this is structural integrity, not authentication.
+function verifyReleaseCandidateManifest(manifest, sourceInput, asOf) {
+  try {
+    const at=requiredTimestamp(asOf,'asOf').millis;
+    const expected=buildProductizationReleaseCandidateEvidenceBundle(sourceInput);
+    if(at>Date.now()||at<Date.parse(expected.reviewedAt))return false;
+    if(expected.status!==RELEASE_CANDIDATE_STATUS.READY_FOR_EXISTING_RELEASE_GOVERNANCE_REVIEW)return false;
+    if(!securityUatReady(sourceInput.securityUatEvidence,expected,asOf))return false;
+    // Exact normalized manifest including authority and non-claim flags.
+    return sha256Object(manifest)===sha256Object(expected);
+  }catch{return false;}
+}
+
 module.exports = {
   RELEASE_CANDIDATE_STATUS,
   REQUIRED_OPEN_EXTERNAL_BLOCKERS,
   AUTHORITY,
   buildProductizationReleaseCandidateEvidenceBundle,
+  verifyReleaseCandidateManifest,
 };
