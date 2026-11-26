@@ -5,6 +5,8 @@ const {normalizeNumericText}=require('../validation/numeric-text');
 const {
   verifyProfileIntegrity,
   verifyRequestIntegrity,
+  createGovernedModelProfile,
+  createGovernedAiRequest,
   DATA_CLASS,
 } = require('./governed-generative-intelligence');
 
@@ -55,7 +57,7 @@ function iso(value, field) {
 function stable(value) {
   if (Array.isArray(value)) return value.map(stable);
   if (!value || typeof value !== 'object') return value;
-  return Object.keys(value).sort().reduce((out, key) => { out[key] = stable(value[key]); return out; }, {});
+  return Object.fromEntries(Object.keys(value).sort().map(key=>[key,stable(value[key])]));
 }
 function sha256(value) {
   return crypto.createHash('sha256').update(JSON.stringify(stable(value))).digest('hex');
@@ -81,7 +83,12 @@ function requireHash(value, field) {
 function integrity(record, hashField) {
   if (!record || typeof record !== 'object' || Array.isArray(record)) return false;
   const h = clean(record[hashField]).toLowerCase();
-  return HASH_RE.test(h) && sha256(without(record, [hashField])) === h;
+  try{return HASH_RE.test(h) && sha256(without(record, [hashField])) === h;}
+  catch{return false;}
+}
+function canonicalRecord(record, field, constructor, additionalCheck=()=>true){
+  try{return integrity(record,field)&&additionalCheck(record)&&constructor(record)[field]===record[field];}
+  catch{return false;}
 }
 
 const ARABIC_DIGITS = Object.freeze({ '٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9','۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'7','۸':'8','۹':'9' });
@@ -90,6 +97,12 @@ function canonicalLiteral(value) {
   if(typeof value!=='string'&&typeof value!=='number')throw new TypeError('C23_GROUNDING_CANONICAL_VALUE_REQUIRED');
   const v=normalizeDigits(String(value)).trim().replace(/[−﹣－]/g,'-').replace(/٪/g,'%');
   if(!v)throw new TypeError('C23_GROUNDING_CANONICAL_VALUE_REQUIRED');
+  // An ISO calendar date is a distinct literal, not a signed number.
+  if(/^\d{4}-\d{2}-\d{2}$/.test(v)){
+    const ms=Date.parse(v+'T00:00:00Z');
+    if(!Number.isFinite(ms)||new Date(ms).toISOString().slice(0,10)!==v)throw new TypeError('C23_DATE_LITERAL_INVALID');
+    return v;
+  }
   // Keep numeric normalization lexical: Number conversion could merge distinct
   // high-precision source literals. Reject malformed numeric-only strings.
   if(/^[+\-0-9,.٬٫%\s]+$/.test(v)&&/\d/.test(v)){
@@ -105,7 +118,7 @@ function extractAssertedLiterals(text) {
   const normalized=normalizeDigits(String(text)).replace(/[−﹣－]/g,'-').replace(/٪/g,'%');
   const found=new Set();
   const dates=normalized.match(/\b\d{4}-\d{2}-\d{2}\b/g)||[];
-  dates.forEach(d=>found.add(d));
+  dates.forEach(d=>found.add(canonicalLiteral(d)));
   const scrubbed=normalized.replace(/\b\d{4}-\d{2}-\d{2}\b/g,' ');
   // Do not split malformed grouping, decimal marks, or exponent notation into
   // individually grounded numbers. Ordinary trailing sentence punctuation is
@@ -176,7 +189,7 @@ function createGroundingManifest(x = {}) {
   };
   return freeze({ ...core, manifestHashSha256: sha256(core) });
 }
-function verifyGroundingManifest(r) { return integrity(r, 'manifestHashSha256') && Array.isArray(r.items) && r.items.every((i) => integrity(i, 'recordHashSha256')); }
+function verifyGroundingManifest(r) { return canonicalRecord(r,'manifestHashSha256',createGroundingManifest,v=>Array.isArray(v.items)&&v.items.every(i=>integrity(i,'recordHashSha256'))); }
 
 function createProviderAuthorization(x = {}) {
   const required = [
@@ -222,7 +235,7 @@ function createProviderAuthorization(x = {}) {
   };
   return freeze({ ...core, authorizationHashSha256: sha256(core) });
 }
-function verifyProviderAuthorization(r) { return integrity(r, 'authorizationHashSha256'); }
+function verifyProviderAuthorization(r) { return canonicalRecord(r,'authorizationHashSha256',createProviderAuthorization); }
 
 function createProviderInvocationEnvelope(x = {}) {
   ['invocationId','caseId','propertyRef','requestHashSha256','modelProfileHashSha256','groundingManifestHashSha256','providerAuthorizationHashSha256','promptTemplateHashSha256','deterministicDecisionState'].forEach((f) => {
@@ -251,7 +264,7 @@ function createProviderInvocationEnvelope(x = {}) {
   };
   return freeze({ ...core, invocationHashSha256: sha256(core) });
 }
-function verifyProviderInvocationEnvelope(r) { return integrity(r, 'invocationHashSha256'); }
+function verifyProviderInvocationEnvelope(r) { return canonicalRecord(r,'invocationHashSha256',createProviderInvocationEnvelope); }
 
 function normalizeProviderClaims(claims) {
   if (!Array.isArray(claims) || !claims.length) throw new TypeError('C23_PROVIDER_CLAIMS_REQUIRED');
@@ -312,8 +325,8 @@ function verifyProviderResponseEnvelope(r) {
 
 function baseBlockers({ modelProfile, request, groundingManifest, providerAuthorization, invocation, asOf }) {
   const blockers = [];
-  if (!verifyProfileIntegrity(modelProfile)) blockers.push('C23_INTEGRITY_MODEL_PROFILE');
-  if (!verifyRequestIntegrity(request)) blockers.push('C23_INTEGRITY_C22_REQUEST');
+  if (!canonicalRecord(modelProfile,'modelProfileHashSha256',createGovernedModelProfile,verifyProfileIntegrity)) blockers.push('C23_INTEGRITY_MODEL_PROFILE');
+  if (!canonicalRecord(request,'requestHashSha256',createGovernedAiRequest,verifyRequestIntegrity)) blockers.push('C23_INTEGRITY_C22_REQUEST');
   if (!verifyGroundingManifest(groundingManifest)) blockers.push('C23_INTEGRITY_GROUNDING_MANIFEST');
   if (!verifyProviderAuthorization(providerAuthorization)) blockers.push('C23_INTEGRITY_PROVIDER_AUTHORIZATION');
   if (!verifyProviderInvocationEnvelope(invocation)) blockers.push('C23_INTEGRITY_INVOCATION');

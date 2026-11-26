@@ -294,5 +294,44 @@ function fixture() {
   const integrity=evaluateProviderReadiness({...f,groundingManifest:tampered});
   assert.strictEqual(integrity.status,STATUS.HOLD_INTEGRITY); assert(integrity.blockers.includes('C23_INTEGRITY_GROUNDING_MANIFEST'));
 
+  // An ordinary digest does not authorize a noncanonical record. Rehash
+  // manipulated fields, then ensure neither direct nor wrapper invokes AI.
+  const rehash=(record,field,patch)=>{
+    const core={...record,...patch};delete core[field];
+    return {...core,[field]:crypto.createHash('sha256').update(JSON.stringify(stable(core))).digest('hex')};
+  };
+  const alteredItem=rehash(f.groundingManifest.items[0],'recordHashSha256',{humanVerified:false});
+  const forgedInputs=[
+    [{modelProfile:rehash(f.modelProfile,'modelProfileHashSha256',{transactionAuthority:true})},'C23_INTEGRITY_MODEL_PROFILE'],
+    [{request:rehash(f.request,'requestHashSha256',{autonomousToolExecutionAllowed:true})},'C23_INTEGRITY_C22_REQUEST'],
+    [{groundingManifest:rehash(f.groundingManifest,'manifestHashSha256',{items:[alteredItem,...f.groundingManifest.items.slice(1)]})},'C23_INTEGRITY_GROUNDING_MANIFEST'],
+    [{providerAuthorization:rehash(f.providerAuthorization,'authorizationHashSha256',{securityReviewEvidenceRef:''})},'C23_INTEGRITY_PROVIDER_AUTHORIZATION'],
+    [{invocation:rehash(f.invocation,'invocationHashSha256',{toolsEnabled:true})},'C23_INTEGRITY_INVOCATION'],
+    [{request:{...f.request,retrievalItems:{}}},'C23_INTEGRITY_C22_REQUEST'],
+    [{request:{...f.request,retrievalItems:[null]}},'C23_INTEGRITY_C22_REQUEST'],
+    [{request:{...f.request,deterministicOutputHashesSha256:42}},'C23_INTEGRITY_C22_REQUEST'],
+    [{groundingManifest:{...f.groundingManifest,items:[null]}},'C23_INTEGRITY_GROUNDING_MANIFEST'],
+  ];
+  let canonicalChecks=0,malformedCalls=0;
+  const ccheck=fn=>{fn();canonicalChecks++;};
+  for(const [patch,blocker] of forgedInputs){
+    for(const entry of [executeGovernedProviderGateway,executeProofGroundedProviderGateway]){
+      const out=await entry({...f,...patch,adapter:{invoke:async()=>{malformedCalls++;return f.providerResponse;}}});
+      ccheck(()=>assert.strictEqual(out.status,STATUS.HOLD_INTEGRITY));
+      ccheck(()=>assert.ok(out.blockers.includes(blocker)));
+      ccheck(()=>assert.strictEqual(out.providerCalled,false));
+      ccheck(()=>assert.strictEqual(out.providerResponse,null));
+    }
+  }
+  ccheck(()=>assert.strictEqual(malformedCalls,0));
+  ccheck(()=>assert.strictEqual(canonicalLiteral('٢٠٢٦-١٠-٠١'),'2026-10-01'));
+  ccheck(()=>assert.throws(()=>canonicalLiteral('2026-02-30'),/C23_DATE_LITERAL_INVALID/));
+  const dateManifest=manifest(f.request,{items:[{...f.groundingManifest.items[0],itemId:'DATE-EVIDENCE',kind:GROUNDING_KIND.DATE,canonicalValue:'2026-10-01'}]});
+  const dateInvocation=invocation(f.modelProfile,f.request,dateManifest,f.providerAuthorization);
+  const dateResponse=response(dateInvocation,{claims:[{claimId:'DATE-VALID',text:'التاريخ ٢٠٢٦-١٠-٠١.',groundingItemIds:['DATE-EVIDENCE'],assertedLiterals:['2026-10-01']}]});
+  const dateResult=validateProofGroundedProviderResponse({...f,groundingManifest:dateManifest,invocation:dateInvocation,providerResponse:dateResponse});
+  ccheck(()=>assert.strictEqual(dateResult.status,STATUS.READY_FOR_HUMAN_GROUNDED_DRAFT_REVIEW));
+  ccheck(()=>assert.ok(dateResult.draft.includes('٢٠٢٦-١٠-٠١')));
+  console.log('C23_CANONICAL_INPUT_AND_DATE_BOUNDARY=PASS checks='+canonicalChecks+' synthetic_adapter=true');
   console.log('C23_GOVERNED_LIVE_AI_PROVIDER_GATEWAY=PASS');
 })().catch((err)=>{ console.error(err); process.exit(1); });

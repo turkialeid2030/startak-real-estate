@@ -15,7 +15,14 @@ const freeze = (value) => {
 };
 
 function groundingSourceBindingBlockers(request, groundingManifest) {
-  if (!request || !groundingManifest || !Array.isArray(groundingManifest.items)) return ['C23_INTEGRITY_GROUNDING_SOURCE_BINDING_INPUT'];
+  const validObject=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
+  if (!validObject(request)||!validObject(groundingManifest)||
+      !Array.isArray(groundingManifest.items)||!Array.isArray(request.retrievalItems)||
+      !Array.isArray(request.deterministicOutputHashesSha256)||
+      request.retrievalItems.some(i=>!validObject(i)||typeof i.evidenceHashSha256!=='string'||!HASH_RE.test(i.evidenceHashSha256))||
+      request.deterministicOutputHashesSha256.some(h=>typeof h!=='string'||!HASH_RE.test(h))||
+      groundingManifest.items.some(i=>!validObject(i)||typeof i.itemId!=='string'))
+    return ['C23_INTEGRITY_GROUNDING_SOURCE_BINDING_INPUT'];
   const evidence = new Set((request.retrievalItems || []).map((i) => String(i.evidenceHashSha256 || '').toLowerCase()).filter((h) => HASH_RE.test(h)));
   const deterministic = new Set((request.deterministicOutputHashesSha256 || []).map((h) => String(h).toLowerCase()).filter((h) => HASH_RE.test(h)));
   const blockers = [];
@@ -30,7 +37,7 @@ function withSourceBinding(result, blockers) {
   if (!blockers.length) return result;
   return freeze({
     ...result,
-    status: blockers.some((b) => b.startsWith('C23_INTEGRITY_')) ? STATUS.HOLD_INTEGRITY : STATUS.HOLD_EVIDENCE,
+    status: blockers.some((b) => b.startsWith('C23_INTEGRITY_')) ? STATUS.HOLD_INTEGRITY : result.status.startsWith('HOLD_') ? result.status : STATUS.HOLD_EVIDENCE,
     providerInvocationReady: false,
     groundedDraftReviewReady: false,
     blockers: [...new Set([...(result.blockers || []), ...blockers])].sort(),
