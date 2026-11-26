@@ -317,6 +317,34 @@ function assertAuthorityClosed(result) {
     assert.strictEqual(first.plan.backupRestoreQualificationRef, `sha256:${'b'.repeat(64)}`);
   });
 
+  for(const [name,patch,status] of [
+    ['BACKUP-HASH',{backupRestoreQualification:backupRestoreQualification({bundleHashSha256:['b'.repeat(64)]})},DR_FAILOVER_STATUS.HOLD_BACKUP_RESTORE_QUALIFICATION],
+    ['FUTURE-AUTH',{authorization:authorization({approvedAt:'2026-09-10T00:00:00Z'})},DR_FAILOVER_STATUS.HOLD_AUTHORIZATION]
+  ])await test('P17-'+name,async()=>{
+    const {qualify,calls}=harness();
+    const out=await qualify(baseInput({...patch,execute:true}));
+    assert.strictEqual(out.status,status);assert.strictEqual(calls.preflight,0);assertAuthorityClosed(out);
+  });
+  for(const [name,patch,status,next] of [
+    ['FUTURE-PREFLIGHT',{preflightOverrides:{latestPrimaryDataAt:'2026-09-10T00:00:00Z'}},DR_FAILOVER_STATUS.HOLD_PREFLIGHT,'failover'],
+    ['PREAUTH-FAILOVER',{failoverOverrides:{startedAt:'2026-09-09T15:54:00Z'}},DR_FAILOVER_STATUS.HOLD_FAILOVER,'failback'],
+    ['PREMATURE-VERIFICATION',{failoverVerificationOverrides:{observedAt:'2026-09-09T16:00:19Z',latestPrimaryDataAt:'2026-09-09T16:00:18Z',latestActiveDataAt:'2026-09-09T16:00:17Z'}},DR_FAILOVER_STATUS.HOLD_FAILOVER_VERIFICATION,'failback'],
+    ['FUTURE-DATA',{failoverVerificationOverrides:{latestPrimaryDataAt:'2026-09-10T00:00:00Z'}},DR_FAILOVER_STATUS.HOLD_FAILOVER_VERIFICATION,'failback'],
+    ['EARLY-FAILBACK',{failbackOverrides:{startedAt:'2026-09-09T16:00:29Z'}},DR_FAILOVER_STATUS.HOLD_FAILBACK,null],
+    ['EARLY-FAILBACK-VERIFICATION',{failbackVerificationOverrides:{observedAt:'2026-09-09T16:01:09Z',latestPrimaryDataAt:'2026-09-09T16:01:08Z',latestActiveDataAt:'2026-09-09T16:01:08Z'}},DR_FAILOVER_STATUS.HOLD_FAILBACK_VERIFICATION,null]
+  ])await test('P17-'+name,async()=>{
+    const {qualify,calls}=harness(patch);
+    const out=await qualify(baseInput({execute:true}));
+    assert.strictEqual(out.status,status);if(next)assert.strictEqual(calls[next],0);assertAuthorityClosed(out);
+  });
+  await test('P17-PLAN-BOUND-TIME-AND-DRILL',async()=>{
+    const {qualify}=harness();
+    const first=await qualify(baseInput());
+    const changed=await qualify(baseInput({drillId:'OTHER-DRILL'}));
+    const later=await qualify(baseInput({assessedAt:'2026-09-09T16:03:00Z'}));
+    assert.notStrictEqual(first.plan.planHashSha256,changed.plan.planHashSha256);
+    assert.notStrictEqual(first.plan.planHashSha256,later.plan.planHashSha256);
+  });
   const failed = results.filter((entry) => entry[1] !== 'PASS');
   console.log(`PRODUCTIZATION_P17_CONTROLLED_DR_FAILOVER_RESULT=${failed.length === 0 ? 'PASS' : 'FAIL'} ${results.filter((entry) => entry[1] === 'PASS').length}/${results.length}`);
   if (failed.length > 0) process.exit(1);

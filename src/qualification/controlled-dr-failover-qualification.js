@@ -135,6 +135,7 @@ function normalizeAuthorization(value, target) {
     && normalized.reviewedBy
     && normalized.approvedBy !== normalized.reviewedBy
     && approvedAtValid
+    && Date.parse(normalized.approvedAt)<=target.assessedAtMillis
     && normalized.changeControlRef
     && normalized.environment === target.environment
     && normalized.primaryDatabaseRef === target.primaryDatabaseRef
@@ -187,6 +188,7 @@ function normalizeVerificationResult(value, field, expectedRef, expectedName) {
   const observed = requiredTimestamp(value.observedAt, `${field}.observedAt`);
   const latestPrimary = requiredTimestamp(value.latestPrimaryDataAt, `${field}.latestPrimaryDataAt`);
   const latestActive = requiredTimestamp(value.latestActiveDataAt, `${field}.latestActiveDataAt`);
+  if(latestPrimary.millis>observed.millis||latestActive.millis>observed.millis)throw new TypeError(`${field} data timestamps must not follow observation`);
   const sourceCount = nonNegativeInteger(value.sourceRecordCount, `${field}.sourceRecordCount`);
   const activeCount = nonNegativeInteger(value.activeRecordCount, `${field}.activeRecordCount`);
   const sourceFingerprint = requiredSha256(value.sourceFingerprintSha256, `${field}.sourceFingerprintSha256`);
@@ -294,6 +296,8 @@ function createControlledDrFailoverQualification({
     const backupRestoreComplete = Boolean(
       backupRestoreQualification
       && backupRestoreQualification.status === BACKUP_RESTORE_STATUS.BACKUP_RESTORE_EVIDENCE_COMPLETE_NOT_PRODUCTION_CERTIFIED
+      && typeof backupRestoreQualification.bundleHashSha256==='string'
+      && /^[a-f0-9]{64}$/i.test(backupRestoreQualification.bundleHashSha256)
       && backupRestoreQualification.plan?.environment === env
       && backupRestoreQualification.plan?.sourceDatabaseRef === primaryRef
       && backupRestoreQualification.plan?.exactCommitSha === commitSha,
@@ -310,6 +314,8 @@ function createControlledDrFailoverQualification({
       standbyDatabaseRef: standbyRef,
       standbyDatabaseName: standbyName,
       exactCommitSha: commitSha,
+      assessedAt: assessed.value,
+      drillId: normalizedDrillId,
       recoveryObjectives: objectives,
       backupRestoreQualificationRef,
       executionOrder: ['preflight', 'failover', 'failoverVerification', 'failback', 'failbackVerification', 'resilienceEvidence'],
@@ -329,6 +335,7 @@ function createControlledDrFailoverQualification({
       primaryDatabaseName: primaryName,
       standbyDatabaseRef: standbyRef,
       standbyDatabaseName: standbyName,
+      assessedAtMillis: assessed.millis,
     };
     const auth = normalizeAuthorization(authorization, target);
     if (!auth?.accepted) {
@@ -353,7 +360,7 @@ function createControlledDrFailoverQualification({
     } catch (_) {
       return makeResult({ status: DR_FAILOVER_STATUS.HOLD_PREFLIGHT, plan, authorization: auth });
     }
-    if (!preflight.ready) {
+    if (!preflight.ready || Date.parse(preflight.latestPrimaryDataAt)>assessed.millis || Date.parse(preflight.latestStandbyDataAt)>assessed.millis) {
       return makeResult({ status: DR_FAILOVER_STATUS.HOLD_PREFLIGHT, plan, authorization: auth, preflight });
     }
 
@@ -370,7 +377,7 @@ function createControlledDrFailoverQualification({
     } catch (_) {
       return makeResult({ status: DR_FAILOVER_STATUS.HOLD_FAILOVER, plan, authorization: auth, preflight });
     }
-    if (!failover.expectedTargetActivated) {
+    if (!failover.expectedTargetActivated || Date.parse(failover.startedAt)<Date.parse(auth.approvedAt) || Date.parse(failover.finishedAt)>assessed.millis) {
       return makeResult({ status: DR_FAILOVER_STATUS.HOLD_FAILOVER, plan, authorization: auth, preflight, failover });
     }
 
@@ -396,7 +403,7 @@ function createControlledDrFailoverQualification({
       && failoverVerification.fingerprintsMatch
       && !failoverVerification.unreconciledDataCorruptionObserved,
     );
-    if (!failoverIntegrityPass) {
+    if (!failoverIntegrityPass || Date.parse(failoverVerification.observedAt)<Date.parse(failover.finishedAt) || Date.parse(failoverVerification.observedAt)>assessed.millis) {
       return makeResult({ status: DR_FAILOVER_STATUS.HOLD_FAILOVER_VERIFICATION, plan, authorization: auth, preflight, failover, failoverVerification });
     }
 
@@ -413,7 +420,7 @@ function createControlledDrFailoverQualification({
     } catch (_) {
       return makeResult({ status: DR_FAILOVER_STATUS.HOLD_FAILBACK, plan, authorization: auth, preflight, failover, failoverVerification });
     }
-    if (!failback.expectedTargetActivated) {
+    if (!failback.expectedTargetActivated || Date.parse(failback.startedAt)<Date.parse(failoverVerification.observedAt) || Date.parse(failback.finishedAt)>assessed.millis) {
       return makeResult({ status: DR_FAILOVER_STATUS.HOLD_FAILBACK, plan, authorization: auth, preflight, failover, failoverVerification, failback });
     }
 
@@ -439,7 +446,7 @@ function createControlledDrFailoverQualification({
       && failbackVerification.fingerprintsMatch
       && !failbackVerification.unreconciledDataCorruptionObserved,
     );
-    if (!failbackIntegrityPass) {
+    if (!failbackIntegrityPass || Date.parse(failbackVerification.observedAt)<Date.parse(failback.finishedAt) || Date.parse(failbackVerification.observedAt)>assessed.millis) {
       return makeResult({ status: DR_FAILOVER_STATUS.HOLD_FAILBACK_VERIFICATION, plan, authorization: auth, preflight, failover, failoverVerification, failback, failbackVerification });
     }
 
@@ -447,7 +454,7 @@ function createControlledDrFailoverQualification({
     const failoverVerifiedAt = requiredTimestamp(failoverVerification.observedAt, 'failoverVerification.observedAt');
     const latestPrimary = requiredTimestamp(failoverVerification.latestPrimaryDataAt, 'failoverVerification.latestPrimaryDataAt');
     const latestActive = requiredTimestamp(failoverVerification.latestActiveDataAt, 'failoverVerification.latestActiveDataAt');
-    const observedRecoveryTimeSeconds = Math.max(0, (failoverVerifiedAt.millis - failoverStarted.millis) / 1000);
+    const observedRecoveryTimeSeconds = (failoverVerifiedAt.millis - failoverStarted.millis) / 1000;
     const observedDataLossSeconds = Math.max(0, (latestPrimary.millis - latestActive.millis) / 1000);
     const duplicateSideEffectsObserved = Boolean(
       failoverVerification.duplicateSideEffectsObserved || failbackVerification.duplicateSideEffectsObserved,

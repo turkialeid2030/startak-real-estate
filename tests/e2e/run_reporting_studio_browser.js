@@ -18,11 +18,14 @@ const fixture={reportRef:'SYNTHETIC-ONLY',valuationDate:'2026-01-01',landAreaSqm
    const page=await ctx.newPage(),errors=[];page.on('pageerror',e=>errors.push(String(e)));
    await page.addInitScript(l=>{
     localStorage.setItem('startak.presentation.locale',l);
-    const counts={pointerdown:0,pointerup:0,click:0,lastTarget:null};
+    const counts={pointerdown:0,pointerup:0,click:0,lastTarget:null,recent:[]};
     Object.defineProperty(window,'__startakSyntheticDownloadEvents',{value:counts});
     for(const eventName of ['pointerdown','pointerup','click'])document.addEventListener(eventName,event=>{
       const target=event.target?.closest?.('[data-testid]');
       const testId=target?.getAttribute('data-testid');
+      // Capture geometry and target identity, never input values or text.
+      counts.recent.push({type:eventName,target:testId||null,tag:event.target?.tagName||null,x:event.clientX,y:event.clientY,scrollY:window.scrollY});
+      if(counts.recent.length>12)counts.recent.shift();
       if(['studio-export','studio-audit-export','rental-export'].includes(testId)){
         counts[eventName]++;counts.lastTarget=testId;
       }
@@ -40,6 +43,18 @@ const fixture={reportRef:'SYNTHETIC-ONLY',valuationDate:'2026-01-01',landAreaSqm
     console.log('REPORT_DOWNLOAD_START '+label);
     // Attach handlers concurrently: a failed click or download must fail the test.
     await expect(button).toBeEnabled();
+    // Complete scrolling before the real pointer gesture. In a long mobile
+    // page a moving hit target can split pointerdown and pointerup.
+    await button.scrollIntoViewIfNeeded();
+    await expect.poll(async()=>button.evaluate(async el=>{
+      const rect=()=>{const r=el.getBoundingClientRect();return [r.x,r.y,r.width,r.height];};
+      const first=rect();
+      await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+      const second=rect();
+      const x=second[0]+second[2]/2,y=second[1]+second[3]/2;
+      return first.every((v,i)=>Math.abs(v-second[i])<0.5)&&second[2]>0&&second[3]>0&&
+        el.contains(document.elementFromPoint(x,y));
+    }),{message:'Stable, hittable report button '+label,timeout:5000}).toBe(true);
     const before=await page.evaluate(()=>({anchors:document.querySelectorAll('a[data-startak-local-download]').length,events:{...window.__startakSyntheticDownloadEvents}}));
     let file;
     try{
