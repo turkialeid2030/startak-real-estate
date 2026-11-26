@@ -198,6 +198,7 @@ function allowedProviderUrl(env) {
   let url;
   try { url = new URL(rawUrl); } catch (_) { return { error: 'AI_PROVIDER_URL_INVALID' }; }
   if (url.protocol !== 'https:') return { error: 'AI_PROVIDER_HTTPS_REQUIRED' };
+  if(url.username||url.password||url.port||url.hash)return {error:'AI_PROVIDER_URL_INVALID'};
   if (!allowedHosts.includes(url.hostname.toLowerCase())) return { error: 'AI_PROVIDER_HOST_NOT_ALLOWED' };
   return { url };
 }
@@ -323,30 +324,44 @@ function buildProviderRequest(protocol, model, snapshot, outputBudget, modelPoli
 }
 
 function extractResponsesOutputText(payload) {
-  if (typeof payload?.output_text === 'string' && payload.output_text.trim()) return { value: payload.output_text };
-  let refusalSeen = false;
-  for (const item of (Array.isArray(payload?.output) ? payload.output : [])) {
-    if (!item || item.type !== 'message' || !Array.isArray(item.content)) continue;
-    for (const part of item.content) {
-      if (part && part.type === 'refusal') refusalSeen = true;
-      if (part && part.type === 'output_text' && typeof part.text === 'string' && part.text.trim()) return { value: part.text };
+  const parts=[];
+  let refusalSeen=false, invalid=false, messages=0;
+  if(payload?.output!==undefined&&!Array.isArray(payload.output))return {error:'AI_PROVIDER_RESPONSE_UNSUPPORTED'};
+  for(const item of payload?.output||[]){
+    if(!item||typeof item!=='object'){invalid=true;continue;}
+    if(item.type==='reasoning')continue;
+    if(item.type!=='message'||!Array.isArray(item.content)){invalid=true;continue;}
+    messages++;
+    if((item.role!==undefined&&item.role!=='assistant')||(item.status!==undefined&&item.status!=='completed'))invalid=true;
+    for(const part of item.content){
+      if(part?.type==='refusal'){refusalSeen=true;continue;}
+      if(part?.type==='output_text'&&typeof part.text==='string'&&part.text.trim())parts.push(part.text);
+      else invalid=true;
     }
   }
-  if (refusalSeen) return { error: 'AI_PROVIDER_REFUSAL' };
-  return { error: 'AI_PROVIDER_RESPONSE_UNSUPPORTED' };
+  if(refusalSeen)return {error:'AI_PROVIDER_REFUSAL'};
+  if(invalid||messages>1||parts.length>1)return {error:'AI_PROVIDER_RESPONSE_UNSUPPORTED'};
+  const alias=typeof payload?.output_text==='string'&&payload.output_text.trim()?payload.output_text:null;
+  if(alias&&parts.length&&alias.trim()!==parts[0].trim())return {error:'AI_PROVIDER_RESPONSE_UNSUPPORTED'};
+  const content=parts[0]||alias;
+  return content?{value:content}:{error:'AI_PROVIDER_RESPONSE_UNSUPPORTED'};
 }
 
-function extractProviderJson(payload) {
-  const protocol = arguments.length > 1 ? arguments[1] : PROVIDER_PROTOCOL.CHAT_COMPLETIONS;
+function extractProviderJson(payload,protocol=PROVIDER_PROTOCOL.CHAT_COMPLETIONS,strict=false) {
   let content;
   if (protocol === PROVIDER_PROTOCOL.OPENAI_RESPONSES) {
-    if (payload && payload.status === 'incomplete') return { error: 'AI_PROVIDER_RESPONSE_INCOMPLETE' };
-    if (payload && payload.status && payload.status !== 'completed') return { error: 'AI_PROVIDER_RESPONSE_UNSUPPORTED' };
+    if (payload?.status === 'incomplete') return { error: 'AI_PROVIDER_RESPONSE_INCOMPLETE' };
+    if ((strict||payload?.status!==undefined)&&payload?.status!=='completed') return { error: 'AI_PROVIDER_RESPONSE_UNSUPPORTED' };
     const extractedText = extractResponsesOutputText(payload);
-    if (extractedText.error) return extractedText;
+    if (extractedText.error) return { error: extractedText.error };
     content = extractedText.value;
   } else {
-    content = payload && payload.choices && payload.choices[0] && payload.choices[0].message && payload.choices[0].message.content;
+    if(!Array.isArray(payload?.choices)||payload.choices.length!==1)return {error:'AI_PROVIDER_RESPONSE_UNSUPPORTED'};
+    const choice=payload.choices[0],message=choice?.message;
+    if(message?.refusal)return {error:'AI_PROVIDER_REFUSAL'};
+    if(choice?.finish_reason==='length')return {error:'AI_PROVIDER_RESPONSE_INCOMPLETE'};
+    if((choice?.finish_reason!==undefined&&choice.finish_reason!=='stop')||message?.tool_calls?.length||message?.function_call)return {error:'AI_PROVIDER_RESPONSE_UNSUPPORTED'};
+    content=message?.content;
   }
   if (typeof content !== 'string' || !content.trim()) return { error: 'AI_PROVIDER_RESPONSE_UNSUPPORTED' };
   try { return { value: JSON.parse(content) }; } catch (_) { return { error: 'AI_PROVIDER_JSON_INVALID' }; }
@@ -621,7 +636,7 @@ async function handleRequestPost(context) {
     await recordAudit(context,{access,snapshot:body.decisionSnapshot,outcome:'PROVIDER_FAILED',reasonCode:'AI_PROVIDER_USAGE_UNVERIFIED',model,tokenLimit:outputBudget.value,startedAt});
     return json({ok:false,code:'AI_PROVIDER_USAGE_UNVERIFIED',aiModelUsed:false,providerRequestAttempted:true,automaticRetryAllowed:false},502);
   }
-  const extracted = extractProviderJson(providerPayload, protocol.value);
+  const extracted = extractProviderJson(providerPayload, protocol.value,Boolean(modelPolicy.profile));
   if (extracted.error) {
     await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'PROVIDER_FAILED', reasonCode: extracted.error, model, tokenLimit: outputBudget.value, startedAt });
     return json({ ok: false, code: extracted.error, aiModelUsed: false }, 502);

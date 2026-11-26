@@ -57,20 +57,20 @@ function assessActivation({modelId,task,dataClass,verifiedRights=false,
  if(!Object.values(TASK).includes(task))blockers.push('TASK_CLASS_UNSUPPORTED');
  if(candidate&&!candidate.tasks.includes(task))blockers.push('MODEL_TASK_NOT_BENCHMARKED');
  if(!Object.values(DATA_CLASS).includes(dataClass))blockers.push('DATA_CLASS_REQUIRED');
- if(!verifiedRights)blockers.push('SOURCE_RIGHTS_NOT_VERIFIED');
- if(!independentEvaluatorApproved)blockers.push('MODEL_BENCHMARK_NOT_INDEPENDENTLY_APPROVED');
- if(!contractualNoTraining)blockers.push('PROVIDER_NO_TRAINING_CONTRACT_NOT_VERIFIED');
- if(!regionEvidenceVerified)blockers.push('PROCESSING_REGION_NOT_VERIFIED');
- if(!piiDlpApproved)blockers.push('DLP_AND_PRIVACY_NOT_APPROVED');
- if(!ownerApproved)blockers.push('OWNER_APPROVAL_NOT_VERIFIED');
+ if(verifiedRights!==true)blockers.push('SOURCE_RIGHTS_NOT_VERIFIED');
+ if(independentEvaluatorApproved!==true)blockers.push('MODEL_BENCHMARK_NOT_INDEPENDENTLY_APPROVED');
+ if(contractualNoTraining!==true)blockers.push('PROVIDER_NO_TRAINING_CONTRACT_NOT_VERIFIED');
+ if(regionEvidenceVerified!==true)blockers.push('PROCESSING_REGION_NOT_VERIFIED');
+ if(piiDlpApproved!==true)blockers.push('DLP_AND_PRIVACY_NOT_APPROVED');
+ if(ownerApproved!==true)blockers.push('OWNER_APPROVAL_NOT_VERIFIED');
  if(candidate?.preview)blockers.push('PREVIEW_MODEL_NOT_STABLE_FOR_PRODUCTION');
- if(candidate?.zeroDataRetentionNotAvailableByDefault && !vendorRetentionExceptionVerified)
+ if(candidate?.zeroDataRetentionNotAvailableByDefault && vendorRetentionExceptionVerified!==true)
   blockers.push('ZERO_DATA_RETENTION_UNAVAILABLE_WITHOUT_VENDOR_EXCEPTION');
  // No production invocation path is activated by this advisory-only catalog.
  blockers.push('PRODUCTION_PROVIDER_ACTIVATION_OUTSIDE_CATALOG_SCOPE');
  return Object.freeze({
   policyVersion:POLICY_VERSION,
-  modelId:candidate?.id||null,task:task||null,dataClass:dataClass||null,
+  modelId:candidate?.id||null,task:Object.values(TASK).includes(task)?task:null,dataClass:Object.values(DATA_CLASS).includes(dataClass)?dataClass:null,
   status:'HOLD_NOT_AUTHORIZED',
   externalProviderCallAuthorized:false,
   transactionAuthority:false,valuationCertificateAuthorized:false,
