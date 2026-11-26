@@ -357,12 +357,12 @@ function baseBlockers({ modelProfile, request, groundingManifest, providerAuthor
     blockers.push('C23_WINDOW_PROFILE_REQUEST_FUTURE_OR_INVALID');
   if (endTimes.some(value=>!Number.isFinite(Date.parse(value)) || Date.parse(value)<at))
     blockers.push('C23_WINDOW_PROFILE_REQUEST_STALE_OR_INVALID');
-  const retrievalHashes=new Set();
+  const retrievalByHash=new Map();
   for(const item of request.retrievalItems){
     if(!item || typeof item !== 'object' || !HASH_RE.test(item.evidenceHashSha256 || '')){
       blockers.push('C23_INTEGRITY_RETRIEVAL_SCHEMA');continue;
     }
-    retrievalHashes.add(item.evidenceHashSha256.toLowerCase());
+    retrievalByHash.set(item.evidenceHashSha256.toLowerCase(),item);
     if(!modelProfile.allowedDataClasses.includes(item.dataClass)) blockers.push('C23_SECURITY_RETRIEVAL_DATA_CLASS_NOT_ALLOWED:'+item.evidenceId);
     if(!Number.isFinite(Date.parse(item.knownAt)) || Date.parse(item.knownAt)>at)
       blockers.push('C23_WINDOW_RETRIEVAL_FUTURE_OR_INVALID:'+item.evidenceId);
@@ -371,8 +371,21 @@ function baseBlockers({ modelProfile, request, groundingManifest, providerAuthor
   }
   const deterministicHashes=new Set(request.deterministicOutputHashesSha256.map(h=>String(h).toLowerCase()));
   for (const item of groundingManifest.items) {
-    if(item.evidenceHashSha256 && !retrievalHashes.has(item.evidenceHashSha256.toLowerCase()))
-      blockers.push('C23_EVIDENCE_SOURCE_NOT_BOUND_TO_REQUEST:'+item.itemId);
+    // A matching digest alone does not bind provenance metadata. A derived
+    // grounding entry may narrow its validity, but cannot extend the source
+    // window, predate knowledge of that source, or relabel its classification.
+    if(item.evidenceHashSha256){
+      const source=retrievalByHash.get(item.evidenceHashSha256.toLowerCase());
+      if(!source)blockers.push('C23_EVIDENCE_SOURCE_NOT_BOUND_TO_REQUEST:'+item.itemId);
+      else{
+        if(item.sourceReference!==source.sourceReference)
+          blockers.push('C23_EVIDENCE_SOURCE_REFERENCE_MISMATCH:'+item.itemId);
+        if(item.dataClass!==source.dataClass)
+          blockers.push('C23_SECURITY_SOURCE_DATA_CLASS_MISMATCH:'+item.itemId);
+        if(Date.parse(item.knownAt)<Date.parse(source.knownAt)||Date.parse(item.validUntil)>Date.parse(source.validUntil))
+          blockers.push('C23_EVIDENCE_SOURCE_VALIDITY_WINDOW_MISMATCH:'+item.itemId);
+      }
+    }
     if(item.deterministicOutputHashSha256 && !deterministicHashes.has(item.deterministicOutputHashSha256.toLowerCase()))
       blockers.push('C23_EVIDENCE_DETERMINISTIC_SOURCE_NOT_BOUND_TO_REQUEST:'+item.itemId);
     if (item.caseId !== request.caseId || item.propertyRef !== request.propertyRef) blockers.push(`C23_CONTEXT_GROUNDING_ITEM:${item.itemId}`);

@@ -333,5 +333,35 @@ function fixture() {
   ccheck(()=>assert.strictEqual(dateResult.status,STATUS.READY_FOR_HUMAN_GROUNDED_DRAFT_REVIEW));
   ccheck(()=>assert.ok(dateResult.draft.includes('٢٠٢٦-١٠-٠١')));
   console.log('C23_CANONICAL_INPUT_AND_DATE_BOUNDARY=PASS checks='+canonicalChecks+' synthetic_adapter=true');
+  // Matching source bytes do not authorize inconsistent source metadata.
+  let metadataChecks=0,metadataCalls=0;
+  const mcheck=fn=>{fn();metadataChecks++;};
+  const originalItem=f.groundingManifest.items.find(i=>i.itemId==='ASKING-METRIC');
+  const sourcePatch=patch=>manifest(f.request,{items:[{...originalItem,...patch}]});
+  const invalidMetadata=[
+    [{sourceReference:'DIFFERENT-SOURCE'},STATUS.HOLD_EVIDENCE,'C23_EVIDENCE_SOURCE_REFERENCE_MISMATCH:ASKING-METRIC'],
+    [{dataClass:DATA_CLASS.PUBLIC},STATUS.HOLD_SECURITY,'C23_SECURITY_SOURCE_DATA_CLASS_MISMATCH:ASKING-METRIC'],
+    [{knownAt:'2026-10-01T07:59:59Z'},STATUS.HOLD_EVIDENCE,'C23_EVIDENCE_SOURCE_VALIDITY_WINDOW_MISMATCH:ASKING-METRIC'],
+    [{validUntil:'2026-10-03T12:00:01Z'},STATUS.HOLD_EVIDENCE,'C23_EVIDENCE_SOURCE_VALIDITY_WINDOW_MISMATCH:ASKING-METRIC']
+  ];
+  for(const [patch,status,blocker] of invalidMetadata){
+    const m=sourcePatch(patch),i=invocation(f.modelProfile,f.request,m,f.providerAuthorization);
+    for(const entry of [executeGovernedProviderGateway,executeProofGroundedProviderGateway]){
+      const out=await entry({...f,groundingManifest:m,invocation:i,adapter:{invoke:async()=>{metadataCalls++;return f.providerResponse;}}});
+      mcheck(()=>assert.strictEqual(out.status,status));
+      mcheck(()=>assert.ok(out.blockers.includes(blocker)));
+      mcheck(()=>assert.strictEqual(out.providerCalled,false));
+      mcheck(()=>assert.strictEqual(out.providerResponse,null));
+    }
+  }
+  mcheck(()=>assert.strictEqual(metadataCalls,0));
+  const narrower=sourcePatch({knownAt:'2026-10-01T08:05:00Z',validUntil:'2026-10-02T10:00:00Z'});
+  const narrowerInvocation=invocation(f.modelProfile,f.request,narrower,f.providerAuthorization);
+  for(const entry of [evaluateProviderReadiness,evaluateProofGroundedProviderReadiness]){
+    const out=entry({...f,groundingManifest:narrower,invocation:narrowerInvocation});
+    mcheck(()=>assert.strictEqual(out.status,STATUS.READY_FOR_PROVIDER_INVOCATION));
+    mcheck(()=>assert.strictEqual(out.transactionAuthorized,false));
+  }
+  console.log('C23_SOURCE_METADATA_BINDING=PASS checks='+metadataChecks+' synthetic_adapter=true');
   console.log('C23_GOVERNED_LIVE_AI_PROVIDER_GATEWAY=PASS');
 })().catch((err)=>{ console.error(err); process.exit(1); });

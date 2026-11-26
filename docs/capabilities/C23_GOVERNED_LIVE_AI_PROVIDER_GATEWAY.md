@@ -46,3 +46,8 @@ The exact-head C23 workflow must run:
 
 ## Non-goals
 No autonomous real-estate decision, certified valuation, legal opinion, purchase/sale/development approval, bid, payment, filing, transaction execution, Public AI or production deployment authorization is introduced by C23.
+
+
+### Retrieved-source metadata binding
+
+Each evidence-backed grounding item must match the source reference and data classification of the retrieval record with the same digest. Its knowledge time cannot precede that source's knowledge time, and its expiry cannot extend beyond the source expiry. A narrower valid interval is allowed. This consistency check is not authentication of the source or proof of authority to transfer its contents. Deterministic-output bindings still require separate evidence of output provenance.
