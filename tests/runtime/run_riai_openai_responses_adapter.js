@@ -236,6 +236,15 @@ async function main() {
       assert.strictEqual(res.status,502,JSON.stringify(data));assert.strictEqual(data.code,code);assert.strictEqual(data.result,undefined);
     }
     console.log('RIAI_V615_SERVER_OUTPUT_BOUNDARY=PASS cases=6 mocked_provider_only=true');
+    let schemaCalls=0;
+    global.fetch=async()=>{schemaCalls++;return jsonResponse({});};
+    for(const patch of [{tenantId:'SYNTHETIC_ID'},{signals:{evidenceCount:-1}},{summary:{unitCount:'4'}},{pricing:{purchasePrice:{amount:12}}}]){
+      const req=new Request('http://localhost/api/riai/ai-assist',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({decisionSnapshot:{...snapshot(),...patch}})});
+      const res=await onRequestPost({request:req,env:modern('gpt-6.2-sol')});const data=await res.json();
+      assert.strictEqual(res.status,400,JSON.stringify(data));assert.strictEqual(data.code,'SNAPSHOT_SCHEMA_FIELD_OR_TYPE_INVALID');
+    }
+    assert.strictEqual(schemaCalls,0);
+    console.log('RIAI_V616_PREPROVIDER_SCHEMA=PASS cases=4 provider_calls=0');
     console.log('RIAI_GPT6_MODEL_REFRESH=PASS mocked_provider_only=true');
     console.log('RIAI_OPENAI_RESPONSES_ADAPTER=PASS');
     console.log('OPENAI_RESPONSES_STRUCTURED_OUTPUT=PASS');

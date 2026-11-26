@@ -29,5 +29,14 @@ class FakeKV { constructor(){ this.map=new Map(); } async get(k){ return this.ma
     assert.equal(g.enforceSnapshotDataDiscipline(bad).code,'SNAPSHOT_KEY_NOT_PERMITTED');
   }
   console.log('RIAI_V615_SNAPSHOT_BOUNDARY=PASS cases=4');
+  const schemaBase={...valid,asOfDate:'2026-09-03',summary:{unitCount:4},signals:{readinessStatus:'READY_WITH_ASSUMPTIONS',evidenceCount:3}};
+  assert.equal(g.enforceSnapshotSchema(schemaBase).ok,true);
+  const {buildResidentialIncomeAiDecisionSnapshot}=require('../../src/residential-income-acquisition/ai-assist-contract');
+  const browser=buildResidentialIncomeAiDecisionSnapshot({apiStatus:'CASE_LOADED',asOfDate:'2026-09-03',summary:{unitCount:2,leaseCount:1,tenantCount:1,evidenceLineageCount:4},blockers:[],evidenceGaps:[],dueDiligence:[]});
+  assert.equal(g.enforceSnapshotSchema(browser.decisionSnapshot).ok,true);
+  for(const patch of [{tenantName:'SYNTHETIC_ID'},{summary:{tenantId:'SYNTHETIC_ID'}},{summary:{unitCount:'4'}},{summary:{unitCount:-1}},{asOfDate:'2026-02-30'},{signals:{readinessStatus:{private:'SYNTHETIC_ID'}}},{readiness:{blockers:[{code:'GAP',documentRef:'SYNTHETIC_ID'}]}},{readiness:{blockers:Array.from({length:9},()=>({code:'GAP'}))}},{subdivision:{authorityApprovalInferred:true}},{governance:{...valid.governance,deterministicScoreRemainsAuthoritative:false}},{pricing:{purchasePrice:{amount:12}}}]){
+    assert.equal(g.enforceSnapshotSchema({...schemaBase,...patch}).code,'SNAPSHOT_SCHEMA_FIELD_OR_TYPE_INVALID');
+  }
+  console.log('RIAI_V616_SNAPSHOT_SCHEMA=PASS negative_cases=11 positive_cases=2');
   console.log('RIAI_GUARDRAILS_UNIT=PASS');
 })().catch((e)=>{ console.error(e); process.exit(1); });
