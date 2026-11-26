@@ -28,6 +28,7 @@ const AUTHORITY = Object.freeze({
   productionResilienceValidated: false,
 });
 
+const HASH_REF_RE=/^sha256:[a-f0-9]{64}$/;
 const COMMIT_SHA_RE = /^[a-f0-9]{40}$/i;
 
 function requiredString(value, field) {
@@ -210,6 +211,7 @@ function makeResult({ status, plan, authorization, metrics, alert, incident }) {
     planHashSha256: plan.planHashSha256,
     drFailoverQualificationRef: plan.drFailoverQualificationRef,
     authorizationAccepted: authorization?.accepted === true,
+    authorizationRef: authorization ? `sha256:${sha256Object(authorization)}` : null,
     metricsRef: metrics ? `sha256:${sha256Object(metrics)}` : null,
     alertRef: alert ? `sha256:${sha256Object(alert)}` : null,
     incidentRef: incident ? `sha256:${sha256Object(incident)}` : null,
@@ -256,6 +258,7 @@ function createControlledObservabilityIncidentQualification({
     const drComplete = Boolean(
       drFailoverQualification
       && drFailoverQualification.status === DR_FAILOVER_STATUS.DR_FAILOVER_EVIDENCE_COMPLETE_NOT_PRODUCTION_CERTIFIED
+      && /^[a-f0-9]{64}$/i.test(drFailoverQualification.executionHashSha256 || '')
       && drFailoverQualification.plan?.environment === env
       && drFailoverQualification.plan?.exactCommitSha === commitSha,
     );
@@ -269,6 +272,7 @@ function createControlledObservabilityIncidentQualification({
       serviceRef: service,
       exactCommitSha: commitSha,
       probeId: normalizedProbeId,
+      assessedAt: assessed.value,
       monitoringObjectives: objectives,
       drFailoverQualificationRef,
       executionOrder: ['metricsInspection', 'syntheticAlert', 'incidentAcknowledgementAndRunbook'],
@@ -283,7 +287,7 @@ function createControlledObservabilityIncidentQualification({
     }
 
     const auth = normalizeAuthorization(authorization, { environment: env, serviceRef: service, exactCommitSha: commitSha });
-    if (!auth?.accepted) {
+    if (!auth?.accepted || Date.parse(auth.approvedAt)>assessed.millis) {
       return makeResult({ status: OBSERVABILITY_STATUS.HOLD_AUTHORIZATION, plan, authorization: auth });
     }
 
@@ -304,7 +308,7 @@ function createControlledObservabilityIncidentQualification({
       return makeResult({ status: OBSERVABILITY_STATUS.HOLD_METRICS, plan, authorization: auth });
     }
 
-    if (!metrics.queryHealthy || metrics.missingRequiredSignals.length > 0) {
+    if (!metrics.queryHealthy || metrics.missingRequiredSignals.length > 0 || Date.parse(metrics.observedAt)<Date.parse(auth.approvedAt) || Date.parse(metrics.observedAt)>assessed.millis) {
       return makeResult({ status: OBSERVABILITY_STATUS.HOLD_METRICS, plan, authorization: auth, metrics });
     }
     if (metrics.freshnessSeconds > objectives.maximumMetricFreshnessSeconds) {
@@ -323,7 +327,7 @@ function createControlledObservabilityIncidentQualification({
       return makeResult({ status: OBSERVABILITY_STATUS.HOLD_ALERT_DELIVERY, plan, authorization: auth, metrics });
     }
 
-    if (!alert.deliveryConfirmed) {
+    if (!alert.deliveryConfirmed || Date.parse(alert.triggeredAt)<Date.parse(metrics.observedAt) || Date.parse(alert.deliveredAt)>assessed.millis) {
       return makeResult({ status: OBSERVABILITY_STATUS.HOLD_ALERT_DELIVERY, plan, authorization: auth, metrics, alert });
     }
     if (alert.deliverySeconds > objectives.maximumAlertDeliverySeconds) {
@@ -365,8 +369,54 @@ function createControlledObservabilityIncidentQualification({
   };
 }
 
+
+ // Recompute the exact normalized staging envelope, not merely its status or
+ // digest syntax. This verifies structure and consistency, not signatures.
+function verifyCompletedObservabilityQualification(value,asOf){
+ try{
+  const {plan,authorization,metrics,alert,incident}=value;
+  if(value.schemaVersion!==1||value.status!==OBSERVABILITY_STATUS.OBSERVABILITY_INCIDENT_EVIDENCE_COMPLETE_NOT_PRODUCTION_CERTIFIED||
+     value.productionQualified!==false||value.authorizationAccepted!==true||
+     !value.authority||Object.keys(value.authority).length!==Object.keys(AUTHORITY).length||
+     Object.keys(AUTHORITY).some(k=>value.authority[k]!==false))return false;
+  const {planHashSha256,...planCore}=plan;
+  if(plan.schemaVersion!==1||plan.environment!=='staging'||requiredCommitSha(plan.exactCommitSha)!==plan.exactCommitSha||
+     !requiredString(plan.serviceRef,'serviceRef')||!requiredString(plan.probeId,'probeId')||
+     !HASH_REF_RE.test(plan.drFailoverQualificationRef)||value.drFailoverQualificationRef!==plan.drFailoverQualificationRef||
+     JSON.stringify(plan.executionOrder)!==JSON.stringify(['metricsInspection','syntheticAlert','incidentAcknowledgementAndRunbook'])||
+     sha256Object(planCore)!==planHashSha256||value.planHashSha256!==planHashSha256)return false;
+  const objectives=normalizeObjectives(plan.monitoringObjectives);
+  if(sha256Object(objectives)!==sha256Object(plan.monitoringObjectives))return false;
+  const when=(v)=>requiredTimestamp(v,'evidence timestamp').millis;
+  const assessed=when(plan.assessedAt),review=when(asOf);
+  if(assessed>review||authorization.accepted!==true||
+     !requiredString(authorization.approvedBy,'approvedBy')||!requiredString(authorization.reviewedBy,'reviewedBy')||
+     authorization.approvedBy===authorization.reviewedBy||!requiredString(authorization.changeControlRef,'changeControlRef'))return false;
+  const approved=when(authorization.approvedAt),observed=when(metrics.observedAt),latest=when(metrics.latestSampleAt);
+  if(approved>observed||latest>observed||observed>assessed||
+     metrics.queryHealthy!==true||metrics.freshnessSeconds!==(observed-latest)/1000||
+     metrics.freshnessSeconds>objectives.maximumMetricFreshnessSeconds||
+     !Array.isArray(metrics.missingRequiredSignals)||metrics.missingRequiredSignals.length||
+     JSON.stringify(metrics.requiredSignalChecks)!==JSON.stringify(objectives.requiredSignals.map(signal=>({signal,present:true})))||
+     !HASH_REF_RE.test(metrics.metricsBackendRef))return false;
+  const triggered=when(alert.triggeredAt),delivered=when(alert.deliveredAt);
+  if(observed>triggered||triggered>delivered||delivered>assessed||alert.deliveryConfirmed!==true||
+     alert.deliverySeconds!==(delivered-triggered)/1000||alert.deliverySeconds>objectives.maximumAlertDeliverySeconds||
+     ['alertIdRef','routeRef','receiverRef'].some(k=>!HASH_REF_RE.test(alert[k])))return false;
+  const opened=when(incident.openedAt),ack=when(incident.acknowledgedAt),resolved=when(incident.resolvedAt);
+  if(delivered>opened||opened>ack||ack>resolved||resolved>assessed||
+     incident.acknowledgementConfirmed!==true||incident.runbookAvailable!==true||
+     incident.acknowledgeSecondsFromDelivery!==(ack-delivered)/1000||
+     incident.acknowledgeSecondsFromDelivery>objectives.maximumIncidentAcknowledgeSeconds||
+     ['incidentRef','runbookRef','onCallOwnerRef','escalationPolicyRef'].some(k=>!HASH_REF_RE.test(incident[k])))return false;
+  const expected=makeResult({status:value.status,plan,authorization,metrics,alert,incident});
+  return ['authorizationRef','metricsRef','alertRef','incidentRef','evidenceHashSha256','evidenceRef'].every(k=>value[k]===expected[k]);
+ }catch{return false;}
+}
+
 module.exports = {
   OBSERVABILITY_STATUS,
   AUTHORITY,
   createControlledObservabilityIncidentQualification,
+  verifyCompletedObservabilityQualification,
 };

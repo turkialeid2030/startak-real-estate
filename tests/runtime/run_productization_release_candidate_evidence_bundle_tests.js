@@ -69,7 +69,7 @@ function securityUat(overrides = {}) {
   const counts={CRITICAL:0,HIGH:0,MEDIUM:0,LOW:0,INFO:0};
   const result=evaluateIndependentSecurityUatEvidence({
     ...scope,assessedAt:'2026-09-09T12:00:00Z',maximumEvidenceAgeDays:30,
-    observabilityQualification:{status:'OBSERVABILITY_INCIDENT_EVIDENCE_COMPLETE_NOT_PRODUCTION_CERTIFIED',plan:scope,evidenceHashSha256:'a'.repeat(64)},
+    observabilityQualification:require('../fixtures/synthetic-observability-qualification').syntheticObservability(scope),
     pentestEvidence:{...scope,...timing,status:'PASS',reportRef:'SYNTH-REPORT',reportHashSha256:'b'.repeat(64),testerOrganization:'SYNTH-LAB',preparedBy:'TESTER',reviewedBy:'REVIEWER',independentAssessorAttested:true,scopeIncludesAuthentication:true,scopeIncludesTenantIsolation:true,scopeIncludesApiAuthorization:true,scopeIncludesServerRuntime:true,retestCompletedForRemediatedCriticalHigh:false,findingCounts:counts,openFindingCounts:counts},
     uatScenarioPlan:plan,
     uatEvidence:{...scope,...timing,status:'PASS',acceptanceRef:'SYNTH-UAT',acceptanceArtifactHashSha256:'c'.repeat(64),businessOwner:'OWNER',reviewedBy:'REVIEWER',criticalWorkflowCoverageComplete:true,tenantBoundaryAcceptanceComplete:true,authorizationWorkflowAcceptanceComplete:true,requiredScenarios:1,passedScenarios:1,failedScenarios:0,scenarioPlanHashSha256:plan.planHashSha256,scenarioResults:[{...plan.scenarios[0],actualObservationHashSha256:'f'.repeat(64),passed:true}]}

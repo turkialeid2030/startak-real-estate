@@ -26,17 +26,9 @@ async function test(id, fn) {
   }
 }
 
-function observability(overrides = {}) {
-  return {
-    status: OBSERVABILITY_STATUS.OBSERVABILITY_INCIDENT_EVIDENCE_COMPLETE_NOT_PRODUCTION_CERTIFIED,
-    evidenceHashSha256: 'd'.repeat(64),
-    plan: {
-      environment: 'staging',
-      serviceRef: 'startak-staging-api',
-      exactCommitSha: COMMIT,
-    },
-    ...overrides,
-  };
+const {syntheticObservability}=require('../fixtures/synthetic-observability-qualification');
+function observability(overrides={}){
+ return {...syntheticObservability({environment:'staging',serviceRef:'startak-staging-api',exactCommitSha:COMMIT}),...overrides};
 }
 
 function pentest(overrides = {}) {
@@ -316,6 +308,16 @@ function assertAuthorityClosed(result) {
     });
   }
 
+  for(const [i,patch] of [{metrics:null},{evidenceHashSha256:'0'.repeat(64)},{authorizationRef:'sha256:'+'0'.repeat(64)},{productionQualified:true},{authority:{}},{plan:{...observability().plan,assessedAt:'2026-09-10T00:00:00Z'}}].entries())
+    await test('P19-OBSERVABILITY-INTEGRITY-'+i,async()=>{
+      const out=evaluateIndependentSecurityUatEvidence(input({observabilityQualification:observability(patch)}));
+      assert.strictEqual(out.status,SECURITY_UAT_STATUS.HOLD_OBSERVABILITY_QUALIFICATION);
+      assertAuthorityClosed(out);
+    });
+  await test('P19-FRESHNESS-OVERFLOW',async()=>{
+    const out=evaluateIndependentSecurityUatEvidence(input({maximumEvidenceAgeDays:Number.MAX_VALUE}));
+    assert.strictEqual(out.status,SECURITY_UAT_STATUS.HOLD_STALE_EVIDENCE);
+  });
   const failed = results.filter((entry) => entry[1] !== 'PASS');
   console.log(`PRODUCTIZATION_P19_INDEPENDENT_SECURITY_UAT_RESULT=${failed.length === 0 ? 'PASS' : 'FAIL'} ${results.filter((entry) => entry[1] === 'PASS').length}/${results.length}`);
   if (failed.length > 0) process.exit(1);

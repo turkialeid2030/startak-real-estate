@@ -7,6 +7,7 @@ const {
 const {
   OBSERVABILITY_STATUS,
   createControlledObservabilityIncidentQualification,
+  verifyCompletedObservabilityQualification,
 } = require('../../src/qualification/controlled-observability-incident-qualification');
 
 const results = [];
@@ -269,6 +270,31 @@ function assertAuthorityClosed(result) {
     assert.strictEqual(calls.metrics, 0);
   });
 
+  await test('P18-VERIFIER-REAL-BUILDER',async()=>{
+    const {qualify}=harness();
+    const result=await qualify(baseInput({execute:true}));
+    assert.strictEqual(verifyCompletedObservabilityQualification(result,baseInput().assessedAt),true);
+    for(const patch of [{metrics:{...result.metrics,freshnessSeconds:0}},{authority:{...result.authority,releaseAuthorized:true}},{authorization:{...result.authorization,reviewedBy:result.authorization.approvedBy}},{alert:{...result.alert,deliverySeconds:0}},{incident:{...result.incident,runbookAvailable:false}}])
+      assert.strictEqual(verifyCompletedObservabilityQualification({...result,...patch},baseInput().assessedAt),false);
+  });
+  for(const [name,patch,expected] of [
+    ['DR-HASH',{drFailoverQualification:drQualification({executionHashSha256:'invalid'})},OBSERVABILITY_STATUS.HOLD_DR_FAILOVER_QUALIFICATION],
+    ['FUTURE-AUTH',{authorization:authorization({approvedAt:'2026-09-10T00:00:00Z'})},OBSERVABILITY_STATUS.HOLD_AUTHORIZATION]
+  ])await test('P18-'+name,async()=>{
+    const {qualify,calls}=harness();
+    assert.strictEqual((await qualify(baseInput({...patch,execute:true}))).status,expected);
+    assert.strictEqual(calls.metrics,0);
+  });
+  await test('P18-PREAUTH-METRICS',async()=>{
+    const {qualify,calls}=harness({metricsOverrides:{observedAt:'2026-09-09T16:04:00Z',latestSampleAt:'2026-09-09T16:03:55Z'}});
+    assert.strictEqual((await qualify(baseInput({execute:true}))).status,OBSERVABILITY_STATUS.HOLD_METRICS);
+    assert.strictEqual(calls.alert,0);
+  });
+  await test('P18-PREMETRICS-ALERT',async()=>{
+    const {qualify,calls}=harness({alertOverrides:{triggeredAt:'2026-09-09T16:09:50Z',deliveredAt:'2026-09-09T16:09:54Z'}});
+    assert.strictEqual((await qualify(baseInput({execute:true}))).status,OBSERVABILITY_STATUS.HOLD_ALERT_DELIVERY);
+    assert.strictEqual(calls.incident,0);
+  });
   const failed = results.filter((entry) => entry[1] !== 'PASS');
   console.log(`PRODUCTIZATION_P18_OBSERVABILITY_INCIDENT_RESULT=${failed.length === 0 ? 'PASS' : 'FAIL'} ${results.filter((entry) => entry[1] === 'PASS').length}/${results.length}`);
   if (failed.length > 0) process.exit(1);

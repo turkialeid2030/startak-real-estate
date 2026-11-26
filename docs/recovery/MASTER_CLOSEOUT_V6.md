@@ -31,3 +31,6 @@ Baseline 8d313abd744f30951684154195f4e750ed6d6957. Parent reporting run 45813497
 - LEG-054/C60: reject duplicate trimmed transaction refs, review predating the transaction, unsafe policy counts, nonfinite NOI bridge and stress values. 7 new checks.
 - Modern valuation readiness: validate comparable counts as safe nonnegative integers, reject invalid rents, reconcile zero/positive rent discrepancies. 25 new checks.
 These changes are a consolidated 39-check synthetic regression addition. They do not establish complete historical parity or professional valuation certification. Exact-head CI pending; gate statuses unchanged.
+
+## V6 consolidated operational evidence controls
+P18 validates DR digest shape, approval/observation/alert chronology and binds the assessed time plus authorization digest; P19 recomputes P18 normalized evidence references, verifies objectives and authority flags and rejects nonfinite freshness windows. P18 builder tests and P19/P20 synthetic fixture migration are included (5 new P18 test groups, 7 P19 groups). Structural verification does not establish DR source authenticity, independent identity, or real execution. Previous P18 envelopes require rebuilding. Exact-head CI pending.
