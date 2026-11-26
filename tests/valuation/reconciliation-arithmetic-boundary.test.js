@@ -115,4 +115,29 @@ const blankCanUseFallback=reconcileValuationMethods({
 assert.equal(blankCanUseFallback.metrics.valuePercentageAnnualRentSar,500000);
 assert.equal(blankCanUseFallback.status,'REVIEW_REQUIRED');
 
+// An explicit rent and its valuation-percentage calculation must agree.
+const common={marketValueSar:10000000,costValueSar:10000000,baseValueSar:10000000,annualRentPctOfValue:5};
+const inconsistent=reconcileValuationMethods({...common,annualRentFromValueSar:750000});
+assert.equal(inconsistent.status,'RECONCILIATION_HOLD');
+assert.equal(inconsistent.metrics.valuePercentageAnnualRentSar,750000);
+assert.equal(inconsistent.metrics.recomputedValuePercentageAnnualRentSar,500000);
+assert.equal(inconsistent.metrics.valuePercentageAnnualRentErrorSar,250000);
+assert.ok(inconsistent.issues.includes('VALUE_PERCENTAGE_ANNUAL_RENT_ARITHMETIC_MISMATCH'));
+assert.equal(inconsistent.automaticPrimaryValueSar,null);
+const consistent=reconcileValuationMethods({...common,annualRentFromValueSar:500000});
+assert.equal(consistent.status,'REVIEW_REQUIRED');
+assert.equal(consistent.metrics.valuePercentageAnnualRentErrorSar,0);
+assert.ok(!consistent.issues.includes('VALUE_PERCENTAGE_ANNUAL_RENT_ARITHMETIC_MISMATCH'));
+const negativeDifference=reconcileValuationMethods({...common,annualRentFromValueSar:499000});
+assert.equal(negativeDifference.status,'RECONCILIATION_HOLD');
+assert.equal(negativeDifference.metrics.valuePercentageAnnualRentErrorSar,-1000);
+const zeroRate=reconcileValuationMethods({...common,annualRentPctOfValue:0,annualRentFromValueSar:1});
+assert.equal(zeroRate.status,'RECONCILIATION_HOLD');
+assert.equal(zeroRate.metrics.recomputedValuePercentageAnnualRentSar,0);
+const rounded=reconcileValuationMethods({...common,baseValueSar:1000.12,annualRentPctOfValue:3,annualRentFromValueSar:30});
+assert.ok(!rounded.issues.includes('VALUE_PERCENTAGE_ANNUAL_RENT_ARITHMETIC_MISMATCH'));
+assert.equal(rounded.status,'REVIEW_REQUIRED');
+const arabicRent=reconcileValuationMethods({...common,annualRentFromValueSar:'٥٠٠٬٠٠٠'});
+assert.equal(arabicRent.metrics.valuePercentageAnnualRentErrorSar,0);
+assert.equal(arabicRent.status,'REVIEW_REQUIRED');
 console.log('VALUATION_RECONCILIATION_ARITHMETIC_BOUNDARY=PASS synthetic_only=true certified=false');

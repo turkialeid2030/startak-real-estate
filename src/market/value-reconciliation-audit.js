@@ -139,9 +139,23 @@ function reconcileValuationMethods({marketValueSar,costValueSar,incomeValueSar,
     issues.push('ANNUAL_RENT_PERCENTAGE_INVALID');
   // Never silently replace an explicitly invalid rent amount with a
   // percentage-derived estimate. A blank input may request the fallback.
-  if(!supplied(annualRentFromValueSar)&&rentFromValue===null&&
-      valueForRent!==null&&rentPct!==null)
-    rentFromValue=valueForRent*rentPct/100;
+  if(valueForRent!==null&&rentPct!==null){
+    const calculatedRent=valueForRent*(rentPct/100);
+    if(!Number.isFinite(calculatedRent)||calculatedRent<0||calculatedRent>1e15){
+      issues.push('VALUE_PERCENTAGE_ANNUAL_RENT_OUT_OF_RANGE');
+    }else if(!supplied(annualRentFromValueSar)&&rentFromValue===null){
+      rentFromValue=calculatedRent;
+    }else if(rentFromValue!==null){
+      // Both amounts describe the same method. Compare at SAR cent precision,
+      // allowing a bounded floating-point error for very large magnitudes.
+      const difference=rentFromValue-calculatedRent;
+      const tolerance=Math.max(0.01,4*Number.EPSILON*Math.max(rentFromValue,calculatedRent));
+      metrics.recomputedValuePercentageAnnualRentSar=money(calculatedRent);
+      metrics.valuePercentageAnnualRentErrorSar=money(difference);
+      if(Math.abs(difference)>tolerance)
+        issues.push('VALUE_PERCENTAGE_ANNUAL_RENT_ARITHMETIC_MISMATCH');
+    }
+  }
   if(rentFromValue!==null)metrics.valuePercentageAnnualRentSar=money(rentFromValue);
   if(rentFromValue!==null&&nla!==null){
     const impliedRate=rentFromValue/nla;
