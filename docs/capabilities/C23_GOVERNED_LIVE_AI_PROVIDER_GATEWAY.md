@@ -19,7 +19,7 @@ Every item carries case/property identity, canonical value, source reference, da
 ## Provider authorization
 A provider invocation is technically eligible only from `ISOLATED_NON_PRODUCTION` and only when an exact-hashed authorization packet contains explicit references for security, privacy/DLP, contract approval, data residency, retention, no customer-data training, prompt registry, role authorization, environment authorization and a kill switch. The packet also requires multiple evidence hashes and has an explicit validity window.
 
-No API key or provider credential is stored in this repository. A runtime adapter is injected from the deployment environment. There is no silent provider fallback.
+A runtime adapter is injected from the deployment environment. There is no silent provider fallback. The direct gateway also enforces model/request binding, task allowlists, request/profile validity windows, all retrieval records' classification and freshness, and exact grounding source-hash membership before invoking any adapter. These structural checks do not authenticate independent approval or replace the private credential review.
 
 ## Generated output contract
 Provider output is structured claims only. Each claim must identify grounding item IDs and declared asserted literals. The gateway independently extracts numeric, percentage and ISO-date literals from claim text and checks them against the declaration; every declared literal must then match a value in the claim's exact grounding items.
