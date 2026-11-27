@@ -77,6 +77,8 @@ step('TEST_DISCOVERY_AND_REGRESSION', () => {
     'tests/architecture/run_c14_shared_financing_precision.js',
     'tests/architecture/run_c11_historical_income_asset_recovery.js',
     'tests/architecture/run_c8_c9_input_boundary_hardening.js',
+    'tests/architecture/run_c17_c18_land_strategy_recovery.js',
+    'tests/architecture/run_guarded_plot_envelope_v1.js',
     'tests/architecture/run_legacy_57_manifest_integrity.js',
     'tests/architecture/run_startak_re_historic_source_parity_register.js',
     'tests/architecture/run_wave12b_direct_capitalization.js',
@@ -88,7 +90,10 @@ step('TEST_DISCOVERY_AND_REGRESSION', () => {
     ...['postgres_runtime_rls_probe','controlled_postgres_migration_runner','controlled_staging_postgres_qualification','controlled_staging_api_security_qualification','controlled_backup_restore_qualification','controlled_dr_failover_qualification','controlled_observability_incident_qualification','independent_security_uat_evidence_gate','productization_release_candidate_evidence_bundle'].map(name=>'tests/runtime/run_'+name+'_tests.js'),
   ]);
   const executedEvidence = new Set();
-  for (const file of tests) {
+  // Run named recovery/qualification evidence first, then all remaining tests exactly once.
+  // Failed early tests are still recorded; never skip the remaining regression suite.
+  const ordered=[...tests].sort((a,b)=>Number(evidenceTargets.has(b.split(path.sep).join('/')))-Number(evidenceTargets.has(a.split(path.sep).join('/'))));
+  for (const file of ordered) {
     try {
       execFileSync(process.execPath, [path.join(ROOT, file)], { cwd: ROOT, stdio: 'pipe' }); passed++;
       const normalized = file.split(path.sep).join('/');

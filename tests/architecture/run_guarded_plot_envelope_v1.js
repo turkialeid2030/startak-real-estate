@@ -138,7 +138,10 @@ test('UNVERIFIED_SOURCE_IDENTITY_HOLD',()=>{
  assert.equal(run({titleFacts:[...deedFacts,...surveyFacts.map(x=>({...x,status:'UNVERIFIED'}))]}).status,STATUS.HOLD_TITLE);
 });
 test('GEOMETRY_FRESHNESS_POLICY_REQUIRED',()=>{
- assert.throws(()=>run({geometryMaxAgeDays:undefined}),/EXPLICIT_GEOMETRY_FRESHNESS_POLICY_REQUIRED/);
+ const set=plan();
+ assert.throws(()=>assessGuardedPlotEnvelope({caseId,propertyRef,planningEvidenceSet:set,planningRecords:originalRecords.get(set),geometry,evaluatedAt,maxAreaDifferenceSqm:0.5,titleFacts,titleFreshnessPolicy}),/EXPLICIT_GEOMETRY_FRESHNESS_POLICY_REQUIRED/);
+ const rejected=run({geometryMaxAgeDays:undefined});
+ assert.equal(rejected.status,STATUS.HOLD_BINDING);assert.ok(rejected.blockers.includes('PLOT_INPUT_JSON_INVALID'));assert.equal(rejected.transactionAuthorized,false);
 });
 test('STALE_GEOMETRY_REJECTED',()=>{
  assert.equal(run({geometry:{...geometry,observedAt:'2025-11-03'}}).status,STATUS.HOLD_GEOMETRY);
