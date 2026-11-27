@@ -425,7 +425,7 @@ function buildWholePropertySalesComparisonInputPacket({
     const aliases=Object.freeze({GFA:'GROSS_BUILDING_AREA',GLA:'GROSS_LEASABLE_AREA',NLA:'NET_LEASABLE_AREA'});
     const rawType=cleanString(subjectMeasurement.type),rawUnit=cleanString(subjectMeasurement.unit);
     const normalizedType=bridgeBound&&Object.hasOwn(aliases,rawType)?aliases[rawType]:rawType;
-    const normalizedUnit=bridgeBound&&rawUnit==='SQM'?'sqm':rawUnit;
+    const normalizedUnit=bridgeBound&&rawUnit==='SQM'?'sqm':bridgeBound&&rawUnit==='COUNT'?'count':rawUnit;
     if (normalizedType !== expectedMeasurementType) subjectBlockers.push(`C3M_SUBJECT_MEASUREMENT_TYPE_MISMATCH:${cleanString(subjectMeasurement.type)}/${expectedMeasurementType}`);
     if (normalizedUnit !== expectedMeasurementUnit) subjectBlockers.push(`C3M_SUBJECT_MEASUREMENT_UNIT_MISMATCH:${cleanString(subjectMeasurement.unit)}/${expectedMeasurementUnit}`);
     if (!isValidBasisQuantity(subjectMeasurement.value, comparisonUnit)) subjectBlockers.push('C3M_SUBJECT_MEASUREMENT_VALUE_INVALID');

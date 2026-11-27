@@ -2,6 +2,7 @@
 
 const crypto = require('node:crypto');
 const {strictCalendarDateMs}=require('../validation/strict-calendar-instant');
+const {isPlainJson}=require('../validation/plain-json-boundary');
 
 const MEASUREMENT_TYPE = Object.freeze({
   LAND_AREA: 'LAND_AREA',
@@ -11,8 +12,13 @@ const MEASUREMENT_TYPE = Object.freeze({
   GLA: 'GLA',
   RENTABLE_AREA: 'RENTABLE_AREA',
   COMMON_AREA: 'COMMON_AREA',
+  SALEABLE_AREA: 'SALEABLE_AREA',
+  ROOM_KEY_COUNT: 'ROOM_KEY_COUNT',
+  RESIDENTIAL_UNIT_COUNT: 'RESIDENTIAL_UNIT_COUNT',
 });
 
+const COUNT_TYPES=Object.freeze([MEASUREMENT_TYPE.ROOM_KEY_COUNT,MEASUREMENT_TYPE.RESIDENTIAL_UNIT_COUNT]);
+const isCountType=t=>COUNT_TYPES.includes(t);
 const MEASUREMENT_SOURCE = Object.freeze({
   TITLE_DEED: 'TITLE_DEED',
   REAL_ESTATE_REGISTRY: 'REAL_ESTATE_REGISTRY',
@@ -83,6 +89,7 @@ function createMeasurementRecord({
   assertNonEmpty(measurementId, 'measurementId');
   assertNonEmpty(caseId, 'caseId');
   assertEnum(type, MEASUREMENT_TYPE, 'type');
+  if(isCountType(type))throw new TypeError('MEASUREMENT_COUNT_REQUIRES_EXPLICIT_COUNT_CONSTRUCTOR');
   assertEnum(source, MEASUREMENT_SOURCE, 'source');
   assertNonEmpty(sourceEvidenceRef, 'sourceEvidenceRef');
   assertNonEmpty(measurementStandardRef, 'measurementStandardRef');
@@ -110,9 +117,21 @@ function createMeasurementRecord({
   return freeze(record);
 }
 
+// Count is not an area. Preserve the existing area constructor and digests.
+function createCountMeasurementRecord(input){
+ if(!input||typeof input!=='object'||Array.isArray(input)||!isPlainJson(input))throw TypeError('MEASUREMENT_COUNT_INPUT_INVALID');
+ const {measurementId,caseId,inspectionId=null,type,valueCount,source,sourceEvidenceRef,measurementStandardRef,measurementMethod,measuredByRef,measuredAt}=input;
+ if(!isCountType(type)||!Number.isSafeInteger(valueCount)||valueCount<=0||Object.hasOwn(input,'valueSqm'))throw TypeError('MEASUREMENT_COUNT_POSITIVE_INTEGER_REQUIRED');
+ for(const [k,v] of Object.entries({measurementId,caseId,sourceEvidenceRef,measurementStandardRef,measurementMethod,measuredByRef}))assertNonEmpty(v,k);
+ assertEnum(source,MEASUREMENT_SOURCE,'source');
+ if(inspectionId!==null&&!nonEmpty(inspectionId))throw TypeError('inspectionId must be null or non-empty string');
+ const record={schemaVersion:1,measurementId:measurementId.trim(),caseId:caseId.trim(),inspectionId:inspectionId?inspectionId.trim():null,type,value:valueCount,unit:'COUNT',source,sourceEvidenceRef:sourceEvidenceRef.trim(),measurementStandardRef:measurementStandardRef.trim(),measurementMethod:measurementMethod.trim(),measuredByRef:measuredByRef.trim(),measuredAt:iso(measuredAt,'measuredAt')};
+ record.measurementHashSha256=hash(record);return freeze(record);
+}
 function verifyMeasurementRecord(record){
  try{
-  const rebuilt=createMeasurementRecord({...record,valueSqm:record.value});
+  if(!isPlainJson(record)||!record||typeof record!=='object'||Array.isArray(record))return false;
+  const rebuilt=isCountType(record.type)?createCountMeasurementRecord({...record,valueCount:record.value}):createMeasurementRecord({...record,valueSqm:record.value});
   const stable=v=>Array.isArray(v)?v.map(stable):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,stable(v[k])])):v;
   return JSON.stringify(stable(record))===JSON.stringify(stable(rebuilt));
  }catch{return false;}
@@ -139,17 +158,19 @@ function reconcileMeasurementRecords({
   for (const type of materialTypes) assertEnum(type, MEASUREMENT_TYPE, 'materialTypes[]');
   for (const record of records) {
     if (!record || record.caseId !== caseId) throw new TypeError('CASE_ISOLATION_VIOLATION: measurement record belongs to another case');
-    if (record.unit !== 'SQM') throw new TypeError('MEASUREMENT_UNIT_UNSUPPORTED: only SQM is accepted by this canonical model');
+    if(record.unit!==(isCountType(record.type)?'COUNT':'SQM'))throw new TypeError('MEASUREMENT_UNIT_UNSUPPORTED: measurement unit must match its governed type');
+    if(isCountType(record.type)&&!materialTypes.includes(record.type))throw TypeError('MEASUREMENT_COUNT_MUST_BE_MATERIAL');
   }
 
   const policy={materialTypes:[...new Set(materialTypes)].sort(),toleranceByType:{},minimumIndependentSourcesByType:{}};
   for(const type of policy.materialTypes){
    const tolerance=toleranceByType[type]??{},min=minimumIndependentSourcesByType[type]??1;
-   if(!tolerance||typeof tolerance!=='object'||Array.isArray(tolerance)||Object.keys(tolerance).some(k=>!['absoluteSqm','relative'].includes(k))||
+   const count=isCountType(type);
+   if(!tolerance||typeof tolerance!=='object'||Array.isArray(tolerance)||Object.keys(tolerance).some(k=>!(count?['absoluteCount','relative']:['absoluteSqm','relative']).includes(k))||
     Object.values(tolerance).some(v=>typeof v!=='number'||!Number.isFinite(v)||v<0)||
-    (tolerance.relative??0)>1||!Number.isSafeInteger(min)||min<1||min>Object.keys(MEASUREMENT_SOURCE).length)
+    (tolerance.relative??0)>1||!Number.isSafeInteger(min)||min<(count?2:1)||min>Object.keys(MEASUREMENT_SOURCE).length||(count&&((tolerance.absoluteCount??0)!==0||(tolerance.relative??0)!==0)))
      throw TypeError('MEASUREMENT_POLICY_INVALID');
-   policy.toleranceByType[type]={absoluteSqm:tolerance.absoluteSqm??0,relative:tolerance.relative??0};
+   policy.toleranceByType[type]=count?{absoluteCount:0,relative:0}:{absoluteSqm:tolerance.absoluteSqm??0,relative:tolerance.relative??0};
    policy.minimumIndependentSourcesByType[type]=min;
   }
   const invalidIds=new Set(records.filter(r=>!verifyMeasurementRecord(r)).map(r=>r.measurementId));
@@ -167,7 +188,7 @@ function reconcileMeasurementRecords({
 
     let conflict = false;
     if (group.length > 1) {
-      conflict = new Set(group.map(r=>r.measurementStandardRef)).size!==1||group.some((a,i)=>group.slice(i+1).some(b=>!withinTolerance(a.value,b.value,toleranceByType[type]||{})));
+      conflict = new Set(group.map(r=>r.measurementStandardRef)).size!==1||group.some((a,i)=>group.slice(i+1).some(b=>isCountType(type)?a.value!==b.value:!withinTolerance(a.value,b.value,toleranceByType[type]||{})));
       if (conflict) {
         conflicts.push({
           type,
@@ -187,7 +208,7 @@ function reconcileMeasurementRecords({
       requiredSourceCount: minimumSources,
       evidenceInsufficient,
       conflict,
-      consensusValueSqm: !conflict && !evidenceInsufficient && group.length ? group[0].value : null,
+      ...(isCountType(type)?{consensusValueCount:!conflict&&!evidenceInsufficient&&group.length?group[0].value:null,unit:'COUNT'}:{consensusValueSqm: !conflict && !evidenceInsufficient && group.length ? group[0].value : null}),
     });
   }
 
@@ -209,7 +230,7 @@ function reconcileMeasurementRecords({
     financialEngineAdoptionAllowed: status === MEASUREMENT_RECONCILIATION_STATUS.CLEAR,
     transactionAuthorized: false,
     certifiedValuationEstablished: false,
-    semantics: 'Measurement reconciliation compares evidence already expressed in canonical square metres. No silent unit conversion, standard substitution, or source winner selection is performed.',
+    semantics: policy.materialTypes.some(isCountType)?'Measurement reconciliation compares canonical square metres separately from exact positive integer counts. No unit conversion, count tolerance, standard substitution or source winner selection.':'Measurement reconciliation compares evidence already expressed in canonical square metres. No silent unit conversion, standard substitution, or source winner selection is performed.',
   };
   return freeze({...core,measurementGateHashSha256:digest(core)});
 }
@@ -225,6 +246,7 @@ module.exports = {
   MEASUREMENT_SOURCE,
   MEASUREMENT_RECONCILIATION_STATUS,
   createMeasurementRecord,
+  createCountMeasurementRecord,
   verifyMeasurementRecord,
   verifyMeasurementGate,
   reconcileMeasurementRecords,

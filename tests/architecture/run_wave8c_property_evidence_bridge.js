@@ -357,3 +357,40 @@ console.log(`WAVE_8C_PROPERTY_EVIDENCE_BRIDGE=PASS checks=${checks}`);
  function holdWhole55(d){const o=evaluateSourceInputReplay({...replayWhole55,sourceRebuildsByIndicationId:{W:{...wd55,methodInputDraft:d}}});check(o.status==='HOLD_SOURCE_INPUT_REPLAY'&&o.traces.length===0,JSON.stringify(o.blockers));}
  holdWhole55({...wholeDraft55,selectedAt:'2026-09-07T09:00:00Z'});holdWhole55({...wholeDraft55,adjustmentRecords:wholeDraft55.adjustmentRecords.map(x=>({...x,reviewedAt:'2026-09-08'}))});holdWhole55({...wholeDraft55,subjectMeasurementId:'M-TITLE'});holdWhole55({...wholeDraft55,comparableMeasurements:wholeDraft55.comparableMeasurements.map(x=>({...x,basisQuantity:500}))});
  console.log('V655_LAND_WHOLE_SOURCE_REPLAY=PASS synthetic=true sourceAuthority=false');
+
+ // V6.56 — exact counts in completed inspection -> property bridge -> C3M.
+ const {createCountMeasurementRecord,verifyMeasurementRecord}=require('../../src/inspection/measurement-governance');
+ function countFixture56(type,assetType,unit){
+   const count=(id,source,value=100)=>createCountMeasurementRecord({measurementId:id,caseId:CASE_ID,type,valueCount:value,source,sourceEvidenceRef:'evidence://'+id,measurementStandardRef:'SYNTH-COUNT',measurementMethod:source==='INSPECTION'?'SITE_COUNT':'APPROVED_RECORD_COUNT',measuredByRef:'V',measuredAt:source==='INSPECTION'?'2026-09-07T08:15:00Z':'2026-09-07T07:00:00Z',inspectionId:source==='INSPECTION'?INSPECTION_ID:null});
+   const counts=[count('COUNT-PLAN','APPROVED_PLAN'),count('COUNT-INSP','INSPECTION')];
+   const all=[...goodMeasurements,...counts],types=[MEASUREMENT_TYPE.LAND_AREA,type],tol={LAND_AREA:{absoluteSqm:2},[type]:{absoluteCount:0}},min={LAND_AREA:2,[type]:2};
+   const policy={caseId:CASE_ID,records:all,materialTypes:types,toleranceByType:tol,minimumIndependentSourcesByType:min};
+   const gate=reconcileMeasurementRecords(policy);
+   check(gate.readyForInspectionCompletion,'mixed area/count policy');
+   const cc=gate.checks.find(x=>x.type===type);
+   check(cc.consensusValueCount===100&&cc.unit==='COUNT'&&!Object.hasOwn(cc,'consensusValueSqm'),'count never exposed as square metres');
+   check(counts.every(verifyMeasurementRecord),'count integrity');
+   check(!verifyMeasurementRecord({...counts[0],unit:'SQM'}),'count unit tamper rejected');
+   check(!verifyMeasurementRecord({...counts[0],value:100.5}),'fractional count tamper rejected');
+   check(reconcileMeasurementRecords({...policy,records:[...goodMeasurements,counts[0],count('COUNT-INSP','INSPECTION',101)]}).status==='MEASUREMENT_CONFLICT','one-unit conflict is held');
+   check(reconcileMeasurementRecords({...policy,records:[...goodMeasurements,counts[0]]}).status==='HOLD_INSUFFICIENT_EVIDENCE','count needs two sources');
+   throwsWith(()=>reconcileMeasurementRecords({...policy,toleranceByType:{...tol,[type]:{absoluteCount:1}}}),'MEASUREMENT_POLICY_INVALID','count tolerance prohibited');
+   throwsWith(()=>reconcileMeasurementRecords({...policy,minimumIndependentSourcesByType:{...min,[type]:1}}),'MEASUREMENT_POLICY_INVALID','one-source policy prohibited');
+   throwsWith(()=>count('FRAC','INSPECTION',1.5),'MEASUREMENT_COUNT_POSITIVE_INTEGER_REQUIRED','fractional counts prohibited');
+   const property={...propertyDraft54,assignment:assignment({asset:{type:assetType,jurisdiction:'SAUDI_ARABIA',location:'SYNTHETIC_RIYADH_LOCATION'}}),inspection:completedInspection(all,{materialTypes:types,toleranceByType:tol,minimumIndependentSourcesByType:min}),measurementRecords:all,materialMeasurementTypes:types,measurementToleranceByType:tol,minimumMeasurementSourcesByType:min};
+   const propertyPacket=buildPropertyEvidencePacket(property);
+   check(propertyPacket.professionalValuationWorkflowReady===true,'count property bridge ready');
+   const marketEvidence={...market55,assetType,evidenceRecords:market55.evidenceRecords.map(x=>({...x,assetType}))};
+   const draft={...wholeDraft55,packetId:'COUNT-'+type,unitOfComparison:unit,subjectMeasurementId:'COUNT-PLAN',subjectPropertyEvidencePacket:propertyPacket,marketEvidence,marketContextBinding:{...wholeDraft55.marketContextBinding,assetType},comparableMeasurements:wholeDraft55.comparableMeasurements.map(x=>({...x,assetType,unitOfComparison:unit,basisQuantity:100})),governedReconciliationPolicies:{P:{...wholeDraft55.governedReconciliationPolicies.P,allowedUnitsOfComparison:[unit],allowedAssetTypes:[assetType]}}};
+   const packet=whole55.buildWholePropertySalesComparisonInputPacket(draft),result=calculateWholePropertySalesComparisonIndication(packet);
+   const input={...scope54,asOf:asOf55,methodIndications:[{id:'C',sourceResult:result}],methodInputPacketsByIndicationId:{C:packet},sourceRebuildsByIndicationId:{C:{methodInputDraft:draft,propertyEvidenceDraft:property}}};
+   const replay=evaluateSourceInputReplay(input);
+   check(replay.status==='READY_FOR_SOURCE_INPUT_REPLAY_REVIEW',JSON.stringify({blockers:replay.blockers,input:packet.blockers}));
+   check(result.valueIndicationSar===2000000&&result.subjectBasisQuantity===100&&result.transactionAuthorized===false,'count-basis arithmetic and no authority');
+   check(whole55.buildWholePropertySalesComparisonInputPacket({...draft,comparableMeasurements:draft.comparableMeasurements.map(x=>({...x,basisQuantity:100.5}))}).status!=='READY_FOR_CANONICAL_WHOLE_PROPERTY_SALES_CALCULATION','fractional comparable count held');
+ }
+ countFixture56('ROOM_KEY_COUNT','HOTEL','ROOM_KEY');
+ countFixture56('RESIDENTIAL_UNIT_COUNT','RESIDENTIAL','RESIDENTIAL_UNIT');
+ const sa56=createMeasurementRecord({measurementId:'SALEABLE',caseId:CASE_ID,type:'SALEABLE_AREA',valueSqm:120.5,source:'APPROVED_PLAN',sourceEvidenceRef:'PLAN',measurementStandardRef:'SYNTH-SALEABLE',measurementMethod:'PLAN_MEASURE',measuredByRef:'V',measuredAt:'2026-09-07'});
+ check(sa56.unit==='SQM'&&verifyMeasurementRecord(sa56),'saleable area distinct canonical record');
+ console.log('V656_COUNT_BASIS_SOURCE_REPLAY=PASS synthetic=true sourceAuthority=false');
