@@ -53,7 +53,15 @@ assert(gateway.includes("env.RIAI_AI_ALLOW_LOCAL_UNAUTHENTICATED === 'true'"));
 assert(gateway.includes("['localhost', '127.0.0.1', '::1'].includes(hostname)"));
 assert(!gateway.includes("RIAI_AI_ALLOW_LOCAL_UNAUTHENTICATED === 'true' ||"));
 
-assert(gateway.includes('if (accessAssertion)'));
+// An explicit assertion, even an empty one, must use the private Access path.
+const resolveAccessSource=gateway.slice(gateway.indexOf('async function resolveAccess(request, env, body)'),gateway.indexOf('async function handleRequestPost(context)'));
+assert(resolveAccessSource.includes("const accessAssertion = request.headers.get('cf-access-jwt-assertion');"));
+assert(/if\s*\(accessAssertion !== null\)\s*\{\s*return verifyCloudflareAccess\(request, env\);\s*\}/.test(resolveAccessSource));
+assert(!resolveAccessSource.includes('if (accessAssertion)'));
+assert(resolveAccessSource.indexOf('if (accessAssertion !== null)')<resolveAccessSource.indexOf('if (!publicAiEnabled(env))'));
+assert(gateway.includes("code:'AI_ACCESS_SUBJECT_INVALID'"));
+assert(gateway.includes('subject: payload.sub,'));
+assert(!gateway.includes('trimText(payload.email, 256) || null'));
 assert(gateway.includes('return verifyCloudflareAccess(request, env);'));
 assert(gateway.includes('if (!publicAiEnabled(env)) return verifyCloudflareAccess(request, env);'));
 assert(gateway.includes('verifyTurnstile({ request, env, token: body && body.turnstileToken })'));

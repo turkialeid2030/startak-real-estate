@@ -365,16 +365,18 @@ function extractProviderJson(payload,protocol=PROVIDER_PROTOCOL.CHAT_COMPLETIONS
 }
 
 function base64UrlToBytes(value) {
-  const normalized = String(value || '').replace(/-/g, '+').replace(/_/g, '/');
+  if(typeof value!=='string'||!/^[A-Za-z0-9_-]+$/.test(value))throw Error('JWT_ENCODING');
+  const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
   const padding = normalized.length % 4 ? '='.repeat(4 - (normalized.length % 4)) : '';
   const binary = atob(`${normalized}${padding}`);
+  if(btoa(binary).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_')!==value)throw Error('JWT_ENCODING');
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
   return bytes;
 }
 
 function decodeJwtJson(segment) {
-  try { return JSON.parse(new TextDecoder().decode(base64UrlToBytes(segment))); }
+  try { const parsed=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(base64UrlToBytes(segment)));return parsed&&typeof parsed==='object'&&!Array.isArray(parsed)?parsed:null; }
   catch (_) { return null; }
 }
 
@@ -384,7 +386,7 @@ function normalizeIssuer(value) {
 
 function accessAudienceMatches(actual, expected) {
   if (typeof actual === 'string') return actual === expected;
-  return Array.isArray(actual) && actual.includes(expected);
+  return Array.isArray(actual) && actual.length>0 && actual.every(value=>typeof value==='string'&&value.length>0) && actual.includes(expected);
 }
 
 function validateAccessIssuer(rawIssuer) {
@@ -417,21 +419,26 @@ async function verifyCloudflareAccess(request, env) {
   const issuerResult = validateAccessIssuer(issuerRaw);
   if (issuerResult.error) return { ok: false, status: 503, code: issuerResult.error };
 
-  const token = trimText(request.headers.get('cf-access-jwt-assertion'), 20000);
+  const token = request.headers.get('cf-access-jwt-assertion');
   if (!token) return { ok: false, status: 401, code: 'AI_ACCESS_REQUIRED' };
+  if(token.length>20000||token!==token.trim())return {ok:false,status:401,code:'AI_ACCESS_TOKEN_INVALID'};
   const parts = token.split('.');
   if (parts.length !== 3) return { ok: false, status: 401, code: 'AI_ACCESS_TOKEN_INVALID' };
   const header = decodeJwtJson(parts[0]);
   const payload = decodeJwtJson(parts[1]);
-  if (!header || !payload || header.alg !== 'RS256' || !trimText(header.kid, 512)) {
+  if (!header || !payload || header.alg !== 'RS256' || typeof header.kid!=='string' || !header.kid.trim() || header.kid.length>512 || header.crit!=null) {
     return { ok: false, status: 401, code: 'AI_ACCESS_TOKEN_INVALID' };
   }
 
   const now = Math.floor(Date.now() / 1000);
   if (!Number.isFinite(payload.exp) || payload.exp <= now - 30) return { ok: false, status: 401, code: 'AI_ACCESS_TOKEN_EXPIRED' };
-  if (Number.isFinite(payload.nbf) && payload.nbf > now + 30) return { ok: false, status: 401, code: 'AI_ACCESS_TOKEN_NOT_YET_VALID' };
-  if (normalizeIssuer(payload.iss) !== issuerResult.normalized) return { ok: false, status: 401, code: 'AI_ACCESS_TOKEN_ISSUER_INVALID' };
+  if (payload.nbf!=null&&(!Number.isFinite(payload.nbf)||payload.nbf>=payload.exp||payload.nbf>now+30)) return { ok: false, status: 401, code: 'AI_ACCESS_TOKEN_NOT_YET_VALID' };
+  if (payload.iat!=null&&(!Number.isFinite(payload.iat)||payload.iat>=payload.exp||payload.iat>now+30)) return {ok:false,status:401,code:'AI_ACCESS_TOKEN_INVALID'};
+  if (typeof payload.iss!=='string'||normalizeIssuer(payload.iss) !== issuerResult.normalized) return { ok: false, status: 401, code: 'AI_ACCESS_TOKEN_ISSUER_INVALID' };
   if (!accessAudienceMatches(payload.aud, expectedAud)) return { ok: false, status: 401, code: 'AI_ACCESS_TOKEN_AUDIENCE_INVALID' };
+  // Quota and audit identity must be the stable signed subject, never an email
+  // alias, coerced value, truncated identifier or a shared null principal.
+  if(typeof payload.sub!=='string'||!payload.sub.length||payload.sub.length>256||payload.sub!==payload.sub.trim()||/[\u0000-\u001f\u007f]/.test(payload.sub))return {ok:false,status:401,code:'AI_ACCESS_SUBJECT_INVALID'};
 
   const certUrl = new URL('/cdn-cgi/access/certs', issuerResult.issuer).toString();
   const controller = new AbortController();
@@ -453,14 +460,15 @@ async function verifyCloudflareAccess(request, env) {
   try { certPayload = JSON.parse(await readBoundedText(certResponse,{maxBytes:65536,timeoutMs:ACCESS_CERT_TIMEOUT_MS,signal:controller.signal})); }
   catch (_) { return { ok: false, status: 503, code: 'AI_ACCESS_CERTS_INVALID' }; }
   finally { clearTimeout(timer); }
-  const key = Array.isArray(certPayload && certPayload.keys)
-    ? certPayload.keys.find((candidate) => candidate && candidate.kid === header.kid)
-    : null;
-  if (!key) return { ok: false, status: 401, code: 'AI_ACCESS_SIGNING_KEY_NOT_FOUND' };
+  const matchingKeys=Array.isArray(certPayload?.keys)?certPayload.keys.filter(candidate=>candidate&&candidate.kid===header.kid):[];
+  if(!matchingKeys.length)return {ok:false,status:401,code:'AI_ACCESS_SIGNING_KEY_NOT_FOUND'};
+  const key=matchingKeys[0];
+  if(matchingKeys.length!==1||key.kty!=='RSA'||(key.alg!=null&&key.alg!=='RS256')||(key.use!=null&&key.use!=='sig')||['d','p','q','dp','dq','qi','oth','k'].some(field=>Object.hasOwn(key,field))||(Object.hasOwn(key,'key_ops')&&(!Array.isArray(key.key_ops)||!key.key_ops.includes('verify')||key.key_ops.some(op=>op!=='verify'))))return {ok:false,status:503,code:'AI_ACCESS_SIGNING_KEY_INVALID'};
 
   let cryptoKey;
   try {
     cryptoKey = await crypto.subtle.importKey('jwk', key, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
+    if(cryptoKey.algorithm.modulusLength<2048)throw Error('RSA_KEY_TOO_WEAK');
   } catch (_) {
     return { ok: false, status: 503, code: 'AI_ACCESS_SIGNING_KEY_INVALID' };
   }
@@ -477,20 +485,25 @@ async function verifyCloudflareAccess(request, env) {
     verified = false;
   }
   if (!verified) return { ok: false, status: 401, code: 'AI_ACCESS_TOKEN_SIGNATURE_INVALID' };
+  // Network retrieval and signature verification consume the same validity window.
+  const verifiedAt=Math.floor(Date.now()/1000);
+  if(payload.exp<=verifiedAt-30)return {ok:false,status:401,code:'AI_ACCESS_TOKEN_EXPIRED'};
+  if(verifiedAt<now)return {ok:false,status:503,code:'AI_ACCESS_CLOCK_REGRESSION'};
 
   return {
     ok: true,
     mode: 'CLOUDFLARE_ACCESS',
-    subjectPresent: Boolean(payload.sub),
-    subject: trimText(payload.sub, 256) || trimText(payload.email, 256) || null,
+    subjectPresent: true,
+    subject: payload.sub,
   };
 }
 
 async function resolveAccess(request, env, body) {
   if (isLocalDevelopment(request, env)) return verifyCloudflareAccess(request, env);
 
-  const accessAssertion = trimText(request.headers.get('cf-access-jwt-assertion'), 20000);
-  if (accessAssertion) {
+  const accessAssertion = request.headers.get('cf-access-jwt-assertion');
+  // An explicitly supplied assertion must not downgrade to public access.
+  if (accessAssertion !== null) {
     return verifyCloudflareAccess(request, env);
   }
 

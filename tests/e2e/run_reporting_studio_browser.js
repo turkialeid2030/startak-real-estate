@@ -100,6 +100,11 @@ const fixture={reportRef:'SYNTHETIC-ONLY',valuationDate:'2026-01-01',landAreaSqm
    await expect(exp).toBeEnabled();
    const html=await download(exp);
    assert.ok(html.includes('&lt;script&gt;'));assert.ok(!html.includes('<script>'));assert.ok(html.includes('SHA-256'));
+   // Start from a valid exported report, then submit an ambiguous row key.
+   // Old result and export must disappear, and the rejected review stays held.
+   await input.fill(JSON.stringify({...fixture,comparables:[{...fixture.comparables[0],id:' C2'},fixture.comparables[1]]}));
+   await expect(exp).toBeDisabled();await expect(panel.getByTestId('studio-audit-result')).toHaveCount(0);
+   await audit.click();await expect(exp).toBeDisabled();await expect(panel.getByTestId('studio-audit-result')).toHaveCount(0);await expect(panel.getByTestId('studio-notice')).toBeVisible();
    const land={version:'VACANT_LAND_REPORT_REVIEW_V1',reportRef:'SYNTH-LAND',valuationDate:'2026-01-05',inspectionDate:'2026-01-04',issueDate:'2026-01-06',worksheetDate:'2026-01-06',limitationsDate:'2026-01-05',landAreaSqm:1000,adoptedLandRateSar:1100,roundingReason:'SYNTH',declaredFinalValueSar:1100000,planningEvidence:'CLIENT_ASSUMPTION',planningRef:'SYNTH',assumedFloors:3,uncertaintyFraction:.1,uncertaintyRef:'SYNTH',comparables:[{id:'C1',date:'2026-01-06',observedDate:null,areaSqm:100,rawRateSar:1000,weight:1,transactionStatus:'ASKING',sourceRef:'SYNTH',page:1,adjustments:[{category:'FRONTAGES',stage:2,fraction:.1,evidenceRef:'SYNTH'}]}],sourcePage:2};
    await input.fill(JSON.stringify(land));await expect(exp).toBeDisabled();await audit.click();
    await expect(panel.getByTestId('studio-audit-result')).toContainText('1100000');

@@ -261,6 +261,63 @@ async function main() {
     const audit=[...boundEnv.RIAI_AUDIT_KV.map.values()].map(JSON.parse).find(x=>x.outcome==='SUCCESS');
     assert.strictEqual(audit.resultHash,bound.requestBinding.resultHashSha256);assert.strictEqual(audit.snapshotHash,bound.requestBinding.snapshotHashSha256);assert.strictEqual(audit.payloadStored,false);
     console.log('RIAI_V617_SERVER_REQUEST_BINDING=PASS invalid_id_cases=3 audit_binding=1 mocked_provider_only=true');
+    // Exercise the actual Cloudflare Access route with synthetic signed JWTs.
+    const c=require('node:crypto');
+    const rsa=c.generateKeyPairSync('rsa',{modulusLength:2048});
+    const weak=c.generateKeyPairSync('rsa',{modulusLength:1024});
+    const issuer='https://synthetic.cloudflareaccess.com',aud='synthetic-audience';
+    const jwk={...rsa.publicKey.export({format:'jwk'}),kid:'synthetic-signing-key',alg:'RS256',use:'sig'};
+    const weakJwk={...weak.publicKey.export({format:'jwk'}),kid:jwk.kid,alg:'RS256',use:'sig'};
+    const now=Math.floor(Date.now()/1000);
+    const token=(claims={},header={},pair=rsa)=>{
+      const enc=x=>Buffer.from(JSON.stringify(x)).toString('base64url');
+      const signed=enc({alg:'RS256',kid:jwk.kid,...header})+'.'+enc({iss:issuer,aud,sub:'synthetic-subject',exp:now+300,iat:now-10,...claims});
+      return signed+'.'+c.sign('sha256',Buffer.from(signed),pair.privateKey).toString('base64url');
+    };
+    const accessEnv=()=>env({RIAI_AI_ALLOW_LOCAL_UNAUTHENTICATED:'false',RIAI_AI_ACCESS_ISSUER:issuer,RIAI_AI_ACCESS_AUD:aud,RIAI_AI_PROVIDER_KEY:''});
+    const accessRequest=jwt=>new Request('https://synthetic.example/api/riai/ai-assist',{method:'POST',headers:{'content-type':'application/json','cf-access-jwt-assertion':jwt},body:JSON.stringify({decisionSnapshot:snapshot()})});
+    let nonCertCalls=0;
+    const testAccess=async(jwt,keys,expected,advance=false)=>{
+      const originalNow=Date.now;
+      let certCalls=0;
+      try{
+        global.fetch=async(url)=>{
+          if(String(url)!==issuer+'/cdn-cgi/access/certs'){nonCertCalls++;throw Error('unexpected external call');}
+          certCalls++;
+          if(advance)Date.now=()=> (now+90)*1000;
+          return jsonResponse({keys});
+        };
+        const res=await onRequestPost({request:accessRequest(jwt),env:accessEnv()});
+        const payload=await res.json();
+        assert.strictEqual(payload.code,expected,JSON.stringify(payload));
+        assert.strictEqual(payload.aiModelUsed,false);
+        return certCalls;
+      }finally{Date.now=originalNow;}
+    };
+    assert.strictEqual(await testAccess(token(),[jwk],'AI_PROVIDER_NOT_CONFIGURED'),1);
+    assert.strictEqual(await testAccess(token(),[jwk,jwk],'AI_ACCESS_SIGNING_KEY_INVALID'),1);
+    assert.strictEqual(await testAccess(token(),[{...jwk,d:''}],'AI_ACCESS_SIGNING_KEY_INVALID'),1);
+    assert.strictEqual(await testAccess(token(),[{...jwk,key_ops:['verify','sign']}],'AI_ACCESS_SIGNING_KEY_INVALID'),1);
+    assert.strictEqual(await testAccess(token({}, {},weak),[weakJwk],'AI_ACCESS_SIGNING_KEY_INVALID'),1);
+    assert.strictEqual(await testAccess(token({nbf:'invalid'}),[jwk],'AI_ACCESS_TOKEN_NOT_YET_VALID'),0);
+    assert.strictEqual(await testAccess(token({iat:now+300}),[jwk],'AI_ACCESS_TOKEN_INVALID'),0);
+    assert.strictEqual(await testAccess(token({}, {crit:['synthetic']}),[jwk],'AI_ACCESS_TOKEN_INVALID'),0);
+    assert.strictEqual(await testAccess(token({exp:now+1}),[jwk],'AI_ACCESS_TOKEN_EXPIRED',true),1);
+    assert.strictEqual(nonCertCalls,0);
+    console.log('RIAI_V75_ACCESS_CERT_BOUNDARY=PASS cases=9 provider_calls=0 synthetic_identity=true');
+    for(const sub of [undefined,null,0,'','  ',' synthetic-subject','x'.repeat(257),'synthetic\u0000subject']){
+      assert.strictEqual(await testAccess(token({sub,email:'synthetic@example.invalid'}),[jwk],'AI_ACCESS_SUBJECT_INVALID'),0);
+    }
+    assert.strictEqual(await testAccess(token({iss:[issuer]}),[jwk],'AI_ACCESS_TOKEN_ISSUER_INVALID'),0);
+    assert.strictEqual(await testAccess(token({aud:[aud,null]}),[jwk],'AI_ACCESS_TOKEN_AUDIENCE_INVALID'),0);
+    assert.strictEqual(await testAccess(token({aud:[aud,'other-synthetic-audience']}),[jwk],'AI_PROVIDER_NOT_CONFIGURED'),1);
+    assert.strictEqual(await testAccess('x'.repeat(20001),[jwk],'AI_ACCESS_TOKEN_INVALID'),0);
+    // An explicit blank assertion may not fall through to public Turnstile.
+    global.fetch=async()=>{nonCertCalls++;throw Error('unexpected network call');};
+    const blankAccess=await onRequestPost({request:accessRequest(''),env:{...accessEnv(),RIAI_PUBLIC_AI_ENABLED:'true'}});
+    assert.strictEqual((await blankAccess.json()).code,'AI_ACCESS_REQUIRED');
+    assert.strictEqual(nonCertCalls,0);
+    console.log('RIAI_V76_STABLE_SUBJECT_BOUNDARY=PASS cases=13 provider_calls=0 synthetic_identity=true');
     console.log('RIAI_GPT6_MODEL_REFRESH=PASS mocked_provider_only=true');
     console.log('RIAI_OPENAI_RESPONSES_ADAPTER=PASS');
     console.log('OPENAI_RESPONSES_STRUCTURED_OUTPUT=PASS');

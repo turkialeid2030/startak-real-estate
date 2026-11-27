@@ -359,6 +359,94 @@ function verify(token, overrides = {}) {
     assert.strictEqual(refreshResolvers.length, 2);
   });
 
+  // Rotation with an already-populated cache: readers join the refresh, not old keys.
+  let rotationCalls = 0;
+  let finishRotation;
+  const rotatedJwks = { keys: [{ ...trustedJwk, kid: 'rotated-test-key' }] };
+  const rotating = createRemoteJwksProvider({
+    issuer: ISSUER, jwksUri: 'https://issuer.example/jwks',
+    fetchImpl: async () => ++rotationCalls === 1 ? deferredResponse()
+      : new Promise(resolve => { finishRotation = resolve; }),
+  });
+  await checkAsync(async () => {
+    assert.strictEqual((await rotating.getJwks()).keys[0].kid, KID);
+    const refresh = rotating.getJwks({ forceRefresh: true });
+    const concurrent = rotating.getJwks();
+    finishRotation({ ...deferredResponse(), text: async () => JSON.stringify(rotatedJwks) });
+    assert.strictEqual((await refresh).keys[0].kid, 'rotated-test-key');
+    assert.strictEqual((await concurrent).keys[0].kid, 'rotated-test-key');
+    assert.strictEqual(rotationCalls, 2);
+  });
+  let timeoutCalls = 0;
+  let timedSignal;
+  const timeoutProvider = createRemoteJwksProvider({
+    issuer: ISSUER, jwksUri: 'https://issuer.example/jwks', requestTimeoutMs: 30,
+    fetchImpl: async (_url, options) => {
+      if (++timeoutCalls === 1) { timedSignal = options.signal; return new Promise(() => {}); }
+      return deferredResponse();
+    },
+  });
+  await checkAsync(async () => {
+    await assert.rejects(timeoutProvider.getJwks(), /JWKS_FETCH_TIMEOUT/);
+    assert.strictEqual(timedSignal.aborted, true);
+    assert.strictEqual((await timeoutProvider.getJwks()).keys[0].kid, KID);
+  });
+  const stalledBody = createRemoteJwksProvider({
+    issuer: ISSUER, jwksUri: 'https://issuer.example/jwks', requestTimeoutMs: 30,
+    fetchImpl: async () => ({ ...deferredResponse(), text: () => new Promise(() => {}) }),
+  });
+  await checkAsync(async () => assert.rejects(stalledBody.getJwks(), /JWKS_FETCH_TIMEOUT/));
+  let backwardsClock = 100;
+  const rollback = createRemoteJwksProvider({
+    issuer: ISSUER, jwksUri: 'https://issuer.example/jwks',
+    nowMs: () => backwardsClock, fetchImpl: async () => deferredResponse(),
+  });
+  await checkAsync(async () => {
+    await rollback.getJwks(); backwardsClock = 99;
+    await assert.rejects(rollback.getJwks(), /JWKS_CLOCK_REGRESSION/);
+    assert.strictEqual((await rollback.getJwks()).keys[0].kid, KID);
+  });
+  check(() => assert.throws(() => createRemoteJwksProvider({
+    issuer: ISSUER, jwksUri: 'https://issuer.example/jwks', requestTimeoutMs: 0,
+  }), /requestTimeoutMs/));
+  let failedRotationCalls = 0;
+  const failedRotation = createRemoteJwksProvider({
+    issuer: ISSUER, jwksUri: 'https://issuer.example/jwks',
+    fetchImpl: async () => { if (++failedRotationCalls > 1) throw Error('rotation unavailable'); return deferredResponse(); },
+  });
+  await checkAsync(async () => {
+    await failedRotation.getJwks();
+    await assert.rejects(failedRotation.getJwks({ forceRefresh: true }), /rotation unavailable/);
+    await assert.rejects(failedRotation.getJwks(), /rotation unavailable/);
+  });
+  // Canonical compact JWTs have exactly one base64url representation.
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+  const signedParts = validToken.split('.');
+  const sig = signedParts[2];
+  const idx = alphabet.indexOf(sig.at(-1));
+  const alternateSig = sig.slice(0,-1) + alphabet[idx ^ 1];
+  check(() => assert.deepStrictEqual(Buffer.from(alternateSig,'base64url'), Buffer.from(sig,'base64url')));
+  check(() => assert.strictEqual(verify([signedParts[0], signedParts[1], alternateSig].join('.')).status, JWT_VERIFICATION_STATUS.HOLD_SIGNATURE));
+  for (const keyOverride of [{d:''},{p:''},{k:''},{key_ops:'verify'},{key_ops:['verify','sign']}]) {
+    check(() => assert.strictEqual(verify(validToken,{jwks:{keys:[{...trustedJwk,...keyOverride}]}}).status, JWT_VERIFICATION_STATUS.HOLD_SIGNING_KEY));
+  }
+  check(() => assert.strictEqual(verify(validToken,{jwks:{keys:[{...trustedJwk,key_ops:['verify']}]}}).authorizationReady,true));
+  check(() => assert.strictEqual(verify(signJwt({exp:NOW+10,nbf:NOW+10}),{clockToleranceSeconds:60}).status, JWT_VERIFICATION_STATUS.HOLD_NOT_BEFORE));
+  check(() => assert.strictEqual(verify(signJwt({exp:NOW+10,iat:NOW+10}),{clockToleranceSeconds:60}).status, JWT_VERIFICATION_STATUS.HOLD_ISSUED_AT));
+  await checkAsync(async () => {
+    const originalNow=Date.now;
+    let clockMs=NOW*1000;
+    try {
+      Date.now=()=>clockMs;
+      const delayedAuthenticator=createOidcBearerAuthenticator({
+        issuer:ISSUER,audience:AUDIENCE,clockToleranceSeconds:0,
+        jwksProvider:{getJwks:async()=>{clockMs=(NOW+2)*1000;return jwks;}},
+      });
+      const result=await delayedAuthenticator.authenticate({authorizationHeader:'Bearer '+signJwt({exp:NOW+1}),requiredTenantId:TENANT});
+      assert.strictEqual(result.authorizationReady,false);
+      assert.strictEqual(result.tokenVerificationStatus,JWT_VERIFICATION_STATUS.HOLD_EXPIRY);
+    } finally { Date.now=originalNow; }
+  });
   console.log(`OIDC_JWT_JWKS_AUTHENTICATION_V1: PASS (${checks} checks)`);
 })().catch((error) => {
   console.error(error);

@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const { TextDecoder } = require('node:util');
 const { createVerifiedIdentityContext } = require('./verified-identity-context');
 
 const JWT_VERIFICATION_STATUS = Object.freeze({
@@ -56,7 +57,9 @@ function decodeJsonSegment(segment, field) {
   if (!/^[A-Za-z0-9_-]+$/.test(segment)) throw new Error(`INVALID_${field.toUpperCase()}_ENCODING`);
   let text;
   try {
-    text = Buffer.from(segment, 'base64url').toString('utf8');
+    const bytes = Buffer.from(segment, 'base64url');
+    if (bytes.toString('base64url') !== segment) throw new Error('noncanonical encoding');
+    text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
   } catch (_) {
     throw new Error(`INVALID_${field.toUpperCase()}_ENCODING`);
   }
@@ -93,8 +96,8 @@ function selectSigningKey(jwks, header) {
     if (key.kty !== 'RSA') return false;
     if (key.alg && key.alg !== header.alg) return false;
     if (key.use && key.use !== 'sig') return false;
-    if (Array.isArray(key.key_ops) && !key.key_ops.includes('verify')) return false;
-    if (key.d) return false;
+    if (Object.hasOwn(key, 'key_ops') && (!Array.isArray(key.key_ops) || !key.key_ops.includes('verify') || key.key_ops.some(op => op !== 'verify'))) return false;
+    if (['d','p','q','dp','dq','qi','oth','k'].some(field => Object.hasOwn(key, field))) return false;
     return true;
   });
   return candidates.length === 1 ? candidates[0] : null;
@@ -189,6 +192,7 @@ function verifyOidcJwt({
   try {
     if (!/^[A-Za-z0-9_-]+$/.test(parts[2])) throw new Error('bad signature encoding');
     signature = Buffer.from(parts[2], 'base64url');
+    if (signature.toString('base64url') !== parts[2]) throw new Error('noncanonical signature encoding');
   } catch (_) {
     return hold(JWT_VERIFICATION_STATUS.HOLD_SIGNATURE, 'JWT_SIGNATURE_ENCODING_INVALID');
   }
@@ -224,6 +228,12 @@ function verifyOidcJwt({
   }
   if (iat != null && iat > nowEpochSeconds + clockToleranceSeconds) {
     return hold(JWT_VERIFICATION_STATUS.HOLD_ISSUED_AT, 'JWT_IAT_IN_FUTURE', { cryptographicVerificationPerformedHere: true });
+  }
+  if (nbf != null && nbf >= exp) {
+    return hold(JWT_VERIFICATION_STATUS.HOLD_NOT_BEFORE, 'JWT_NBF_NOT_BEFORE_EXPIRY', { cryptographicVerificationPerformedHere: true });
+  }
+  if (iat != null && iat >= exp) {
+    return hold(JWT_VERIFICATION_STATUS.HOLD_ISSUED_AT, 'JWT_IAT_NOT_BEFORE_EXPIRY', { cryptographicVerificationPerformedHere: true });
   }
   if (maxTokenAgeSeconds != null) {
     if (iat == null || nowEpochSeconds - iat > maxTokenAgeSeconds + clockToleranceSeconds) {

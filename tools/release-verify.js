@@ -104,6 +104,7 @@ step('TEST_DISCOVERY_AND_REGRESSION', () => {
     'tests/architecture/run_c2n_c25_governed_source_recovery.js',
     'tests/architecture/run_structured_source_replay.js',
     'tests/architecture/run_v7_acceleration_contract.js',
+    'tests/architecture/run_v7_candidate_diff_census.js',
     'tests/architecture/run_v7_cross_lane_hardening.js',
     'tests/architecture/run_orphan_envelope_recovery.js',
     'tests/architecture/run_signed_witness_checkpoint.js',

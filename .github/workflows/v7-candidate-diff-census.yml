@@ -1,0 +1,37 @@
+name: V7 Candidate Diff Census
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+permissions:
+  contents: read
+jobs:
+  exact-tree-diff:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+      - name: Verify parser and local Git contract
+        run: node tests/architecture/run_v7_candidate_diff_census.js
+      - name: Read main tree and compare exact candidate
+        env:
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin refs/heads/main
+          BASE_SHA="$(git rev-parse FETCH_HEAD)"
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          node tools/v7-candidate-diff-census.js "$BASE_SHA" "$CANDIDATE_SHA"
+          # The name-status digest identifies changed paths only. Bind full tree
+          # manifests (path, mode, object ID) separately without printing paths.
+          manifest_digest() { git ls-tree -r -z --full-tree "$1" | sha256sum | cut -d ' ' -f 1; }
+          BASE_MANIFEST="$(manifest_digest "$BASE_SHA")"
+          CANDIDATE_MANIFEST="$(manifest_digest "$CANDIDATE_SHA")"
+          [[ "$BASE_MANIFEST" =~ ^[0-9a-f]{64}$ && "$CANDIDATE_MANIFEST" =~ ^[0-9a-f]{64}$ ]]
+          printf 'V7_TREE_MANIFEST_BINDING base=%s head=%s base_manifest_sha256=%s candidate_manifest_sha256=%s release_authorized=false\n' "$BASE_SHA" "$CANDIDATE_SHA" "$BASE_MANIFEST" "$CANDIDATE_MANIFEST"

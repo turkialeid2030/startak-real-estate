@@ -63,7 +63,7 @@ function createOidcBearerAuthenticator({
   async function authenticate({
     authorizationHeader,
     requiredTenantId,
-    nowEpochSeconds = Math.floor(Date.now() / 1000),
+    nowEpochSeconds,
     forceJwksRefresh = false,
   } = {}) {
     const token = extractBearerToken(authorizationHeader);
@@ -83,7 +83,9 @@ function createOidcBearerAuthenticator({
       jwks,
       requiredTenantId,
       allowedAlgorithms,
-      nowEpochSeconds,
+      // Use the verification-time clock, after potentially slow JWKS retrieval.
+      // Explicit time is reserved for trusted deterministic callers.
+      nowEpochSeconds: nowEpochSeconds === undefined ? Math.floor(Date.now() / 1000) : nowEpochSeconds,
       clockToleranceSeconds,
       maxTokenAgeSeconds,
     });

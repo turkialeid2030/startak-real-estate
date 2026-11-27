@@ -24,4 +24,15 @@ for(const locale of ['ar-SA','en'])for(const mode of ['OWNER','TECHNICAL']){
  eq(out.report.preliminaryValue,null);eq(out.report.professionalAppraisalClaim,false);eq(out.report.transactionAuthorityClaim,false);ok(out.html.includes('STARTAK REAL ESTATE'));ok(out.html.includes('default-src'));ok(out.html.includes(locale==='en'?'dir="ltr"':'dir="rtl"'));
  const review=renderExternalReview({...base,reportRef:'<script>alert(1)</script>'},{locale});ok(!review.html.includes('<script>'));ok(review.html.includes('&lt;script&gt;'));eq(review.report.professionalValuationCertified,false);
 }
+for(const id of [' C2','C2 ','C2\u200b','C2\u202e','e\u0301']){
+ denied({...base,comparables:[{...base.comparables[0],id},base.comparables[1]]});
+ denied({...base,components:[{...base.components[0],id},base.components[1]]});
+}
+let getterReads=0;
+const getter=Object.defineProperty({...base},'reportRef',{enumerable:true,get(){getterReads++;return 'SYNTHETIC';}});
+denied(getter);
+const versionGetter=Object.defineProperty({...base},'version',{enumerable:true,get(){getterReads++;return 'UNKNOWN';}});
+assert.throws(()=>renderExternalReview(versionGetter),/REVIEW_INPUT_INVALID/);eq(getterReads,0);
+denied({...base,comparables:[{...base.comparables[0],rawRateSar:1e12,firstAdjustment:1},base.comparables[1]]});
+assert.throws(()=>renderExternalReview({...base,comparables:Object.assign([...base.comparables],{hiddenExtra:true})}),/REVIEW_INPUT_INVALID/);checks++;
 console.log('REPORTING_STUDIO=PASS cases='+cases+' checks='+checks+' scope=LOCAL_RESEARCH_ONLY');
