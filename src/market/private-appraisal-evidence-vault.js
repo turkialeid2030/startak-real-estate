@@ -52,7 +52,7 @@ function versionedKey(record,tenant,expectedRef=null){
  if(!record||typeof record!=='object'||record.tenantId!==tenant||typeof record.keyRef!=='string'||!REF.test(record.keyRef)||!Buffer.isBuffer(record.keyBytes)||record.keyBytes.length!==32||(expectedRef!==null&&record.keyRef!==expectedRef))throw Error('EXTERNAL_KMS_KEY_SCOPE_OR_VERSION_INVALID');
  return {keyRef:record.keyRef,key:Buffer.from(record.keyBytes)};
 }
-function makePrivateAppraisalVault({adapter,keyProvider,keyring,authorizeActor,restoreInventoryProvider,restoreInventoryTrust,custodyTrust,clock=()=>new Date()}={}){
+function makePrivateAppraisalVault({adapter,keyProvider,keyring,authorizeActor,restoreInventoryProvider,restoreInventoryTrust,custodyTrust,requireStrictCustody=false,clock=()=>new Date()}={}){
  if(!adapter||typeof adapter.get!=='function'||typeof adapter.putIfAbsent!=='function'||
   (typeof keyProvider!=='function'&&!keyring)||typeof authorizeActor!=='function'||typeof clock!=='function'||
   (keyring!==undefined&&(!keyring||typeof keyring.activeKey!=='function'||typeof keyring.resolveKey!=='function'))||
@@ -60,6 +60,7 @@ function makePrivateAppraisalVault({adapter,keyProvider,keyring,authorizeActor,r
   (restoreInventoryTrust!==undefined&&(!restoreInventoryTrust||typeof restoreInventoryTrust.resolveSigner!=='function'||!Number.isSafeInteger(restoreInventoryTrust.maxAgeSeconds)||restoreInventoryTrust.maxAgeSeconds<1||restoreInventoryTrust.maxAgeSeconds>31536000))||
   (custodyTrust!==undefined&&(!custodyTrust||typeof custodyTrust.loadLedger!=='function'||typeof custodyTrust.loadCheckpoint!=='function'||typeof custodyTrust.resolveSigner!=='function'||!Number.isSafeInteger(custodyTrust.maxAgeSeconds)||custodyTrust.maxAgeSeconds<1||custodyTrust.maxAgeSeconds>31536000)))
   throw Error('TRUSTED_ADAPTER_KMS_AND_SERVER_AUTHORIZER_REQUIRED');
+ if(typeof requireStrictCustody!=='boolean'||(requireStrictCustody&&(!keyring||!custodyTrust||!restoreInventoryTrust||!restoreInventoryProvider)))throw Error('STRICT_CUSTODY_TRUST_DEPENDENCIES_REQUIRED');
  const idOf=storageId;
  async function writeKey(tenant){return keyring?versionedKey(await keyring.activeKey(tenant),tenant):{keyRef:null,key:keyFrom(keyProvider,tenant)};}
  async function readKey(tenant,v){if(v.envelopeAuthVersion===VERSIONED_KEY_ENVELOPE_AUTH_VERSION){if(!keyring)throw Error('EXTERNAL_VERSIONED_KMS_REQUIRED');return versionedKey(await keyring.resolveKey(tenant,v.keyRef),tenant,v.keyRef).key;}if(typeof keyProvider!=='function')throw Error('EXPLICIT_LEGACY_KEY_PROVIDER_REQUIRED');return keyFrom(keyProvider,tenant);}
@@ -129,6 +130,7 @@ function makePrivateAppraisalVault({adapter,keyProvider,keyring,authorizeActor,r
    throw Error('EVIDENCE_ENVELOPE_METADATA_INVALID');
   try{
    const iv=decodeCanonical(v.iv,12,12),tag=decodeCanonical(v.tag,16,16),encrypted=decodeCanonical(v.ciphertext,MAX_BYTES);
+   if(requireStrictCustody&&v.envelopeAuthVersion!==VERSIONED_KEY_ENVELOPE_AUTH_VERSION)throw Error('STRICT_CUSTODY_VERSIONED_ENVELOPE_REQUIRED');
    const key=await readKey(tenantId,v);
    let bytes;
    try{const dec=crypto.createDecipheriv('aes-256-gcm',key,iv);dec.setAAD(authenticatedEnvelopeMetadata(v));dec.setAuthTag(tag);bytes=Buffer.concat([dec.update(encrypted),dec.final()]);}
@@ -147,7 +149,7 @@ function makePrivateAppraisalVault({adapter,keyProvider,keyring,authorizeActor,r
    return {found:true,sourceBytes:bytes,sha256:v.sha256,caseRef:v.caseRef,
     ...(custodyProof?{custodyIntegrityVerified:true,custodyRevision:custodyProof.revision,custodyHeadHashSha256:custodyProof.headHashSha256}:{}),
     releaseAuthorized:false,professionalReviewVerified:false};
-  }catch(e){if(['EVIDENCE_BYTES_DIGEST_TAMPERED','EVIDENCE_CUSTODY_NOT_QUALIFIED'].includes(e.message))throw e;
+  }catch(e){if(['EVIDENCE_BYTES_DIGEST_TAMPERED','EVIDENCE_CUSTODY_NOT_QUALIFIED','STRICT_CUSTODY_VERSIONED_ENVELOPE_REQUIRED'].includes(e.message))throw e;
    throw Error('EVIDENCE_DECRYPTION_OR_INTEGRITY_FAILED');}
  }
  // Verify a restored adapter against an inventory from a separately supplied

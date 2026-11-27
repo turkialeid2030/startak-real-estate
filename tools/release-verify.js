@@ -94,6 +94,8 @@ step('TEST_DISCOVERY_AND_REGRESSION', () => {
     'tests/architecture/run_private_appraisal_vault_versioned_keys_restore.js',
     'tests/architecture/run_signed_restore_inventory.js',
     'tests/architecture/run_signed_evidence_custody.js',
+    'tests/architecture/run_custody_append_coordinator.js',
+    'tests/valuation/private-appraisal-evidence-vault.test.js',
     'tests/architecture/run_legacy_57_manifest_integrity.js',
     'tests/architecture/run_startak_re_historic_source_parity_register.js',
     'tests/architecture/run_wave12b_direct_capitalization.js',
