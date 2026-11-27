@@ -105,6 +105,7 @@ step('TEST_DISCOVERY_AND_REGRESSION', () => {
     'tests/architecture/run_structured_source_replay.js',
     'tests/architecture/run_v7_acceleration_contract.js',
     'tests/architecture/run_v7_cross_lane_hardening.js',
+    'tests/architecture/run_orphan_envelope_recovery.js',
     'tests/runtime/run_postgres_custody_store_tests.js',
     'tests/valuation/private-appraisal-evidence-vault.test.js',
     'tests/architecture/run_legacy_57_manifest_integrity.js',

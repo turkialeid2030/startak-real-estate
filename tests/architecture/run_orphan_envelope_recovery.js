@@ -1,0 +1,37 @@
+'use strict';
+const assert=require('node:assert/strict'),crypto=require('node:crypto');
+const {makePrivateAppraisalVault}=require('../../src/market/private-appraisal-evidence-vault');
+const {makeCustodyAppendCoordinator}=require('../../src/market/custody-append-coordinator');
+const kp=crypto.generateKeyPairSync('ed25519'),key=crypto.randomBytes(32),actor={id:'ADMIN-A'},reviewer={id:'REVIEWER-A'};
+const source=Buffer.from('synthetic orphan bytes'),sha256=crypto.createHash('sha256').update(source).digest('hex');
+const scope={tenantId:'TENANT-A',caseRef:'CASE-A',evidenceRef:'EVIDENCE-A',sha256};
+const input={actor,...scope,expectedSha256:sha256,changeControlRef:'CHG-A'};
+let raw=null,ledger=null,head=null,now='2026-09-01T00:00:00Z',approve=false,reviewerId='REVIEWER-A',signCount=0,witness=true;
+const authorizeActor=async({requestActor,tenantId,caseRef})=>(requestActor===actor||requestActor===reviewer)&&tenantId===scope.tenantId&&caseRef===scope.caseRef?{verifiedByServer:true,actorId:requestActor.id,tenantId,caseRefs:[caseRef],role:requestActor===actor?'DATA_ADMIN':'REVIEWER'}:null;
+const resolveSigner=async({tenantId,signerKeyRef})=>({tenantId,signerKeyRef,purpose:'EVIDENCE_CUSTODY_SIGNING',revoked:false,validFrom:'2026-01-01',validUntil:'2026-12-31',publicKey:kp.publicKey});
+const loadLedger=async()=>ledger,loadCheckpoint=async()=>head;
+const coordinator=makeCustodyAppendCoordinator({authorizeActor,loadLedger,loadCheckpoint,resolveSigner,signEvent:async({bytes})=>{signCount++;return crypto.sign(null,bytes,kp.privateKey).toString('base64');},compareAndAppend:async({expectedRevision,candidate})=>{if(ledger!==null||expectedRevision!==0)return false;ledger=candidate;return true;},advanceWitness:async({expectedRevision,nextCheckpoint})=>{if(!witness||head!==null||expectedRevision!==0)return false;head=nextCheckpoint;return true;},clock:()=>new Date(now)});
+const vault=makePrivateAppraisalVault({adapter:{get:async()=>raw,putIfAbsent:async(_k,x)=>{if(raw!==null)return false;raw=x;return true;}},authorizeActor,keyring:{activeKey:async tenantId=>({tenantId,keyRef:'KEY-A',keyBytes:key}),resolveKey:async tenantId=>({tenantId,keyRef:'KEY-A',keyBytes:key})},custodyTrust:{loadLedger,loadCheckpoint,resolveSigner,maxAgeSeconds:31536000},restoreInventoryProvider:async()=>null,restoreInventoryTrust:{resolveSigner,maxAgeSeconds:3600},requireStrictCustody:true,clock:()=>new Date(now),orphanRecovery:{coordinator,signerKeyRef:'SIGNER-A',authorizeRecovery:async x=>({...x,approved:approve,reviewerId,approvedAt:now})}});
+async function main(){
+ await vault.put({...input,sourceBytes:source});const original=raw;
+ await assert.rejects(()=>vault.read(input,()=>source),/EVIDENCE_CUSTODY_NOT_QUALIFIED/);
+ assert.equal((await vault.recoverOrphan(input)).reason,'ORPHAN_RECOVERY_APPROVAL_INVALID');
+ assert.equal((await vault.recoverOrphan({...input,actor:reviewer})).status,'HOLD_ORPHAN_RECOVERY');
+ approve=true;reviewerId=actor.id;assert.equal((await vault.recoverOrphan(input)).reason,'ORPHAN_RECOVERY_APPROVAL_INVALID');reviewerId='REVIEWER-A';
+ assert.equal((await vault.recoverOrphan({...input,expectedSha256:'b'.repeat(64)})).status,'HOLD_ORPHAN_RECOVERY');
+ assert.equal(signCount,0);
+ raw=JSON.stringify({...JSON.parse(original),uploadedByActorRef:'FORGED-ACTOR'});
+ assert.equal((await vault.recoverOrphan(input)).status,'HOLD_ORPHAN_RECOVERY');raw=original;
+ now='2026-09-02T00:00:00Z';
+ const outcomes=await Promise.all([vault.recoverOrphan(input),vault.recoverOrphan(input)]);
+ assert.equal(outcomes.filter(x=>x.status==='ORPHAN_RECOVERY_CONFIRMED_BY_PROVIDERS').length,1);
+ assert.ok(outcomes.every(x=>!Object.hasOwn(x,'sourceBytes')&&x.releaseAuthorized===false));assert.equal(raw,original);assert.equal(ledger.events.length,1);
+ const read=await vault.read(input);assert.deepEqual(read.sourceBytes,source);read.sourceBytes.fill(0);
+ assert.equal((await vault.recoverOrphan(input)).reason,'ORPHAN_RECOVERY_EXISTING_CUSTODY');
+ ledger=null;head=null;witness=false;
+ assert.equal((await vault.recoverOrphan(input)).reason,'ORPHAN_RECOVERY_CUSTODY_PENDING');
+ assert.equal((await vault.recoverOrphan(input)).reason,'ORPHAN_RECOVERY_EXISTING_CUSTODY');
+ await assert.rejects(()=>vault.read(input),/EVIDENCE_CUSTODY_NOT_QUALIFIED/);
+ console.log('ORPHAN_ENVELOPE_RECOVERY=PASS synthetic=true production=false');
+}
+main().catch(e=>{console.error(e);process.exitCode=1;});
