@@ -28,7 +28,7 @@ function clamp(value, min, max) { return Math.min(max, Math.max(min, value)); }
 
 function scoreOperatingStability(operatingMetrics) {
   const occupancy = operatingMetrics && operatingMetrics.occupancy && operatingMetrics.occupancy.physicalOccupancyByArea;
-  if (!finite(occupancy)) return null;
+  if (!finite(occupancy)||occupancy<0||occupancy>1) return null;
   return clamp(occupancy * 100, 0, 100);
 }
 
@@ -41,7 +41,7 @@ function benchmarkHold(exitComparison) {
 function scoreLeaseDurability(operatingMetrics, exitComparison) {
   const wale = operatingMetrics && operatingMetrics.leaseTiming && operatingMetrics.leaseTiming.waleYears;
   const hold = benchmarkHold(exitComparison);
-  if (!finite(wale) || !finite(hold) || hold <= 0) return null;
+  if (!finite(wale) || wale<0 || !finite(hold) || hold <= 0) return null;
   const base = clamp((wale / hold) * 100, 0, 100);
   const cliffs = Array.isArray(operatingMetrics.leaseTiming.leaseCliffs) ? operatingMetrics.leaseTiming.leaseCliffs.length : 0;
   const cliffPenalty = Math.min(cliffs * 5, 25);
@@ -50,18 +50,18 @@ function scoreLeaseDurability(operatingMetrics, exitComparison) {
 
 function scoreLifecycle(bundle) {
   const score = bundle && bundle.lifecycle && bundle.lifecycle.metrics && bundle.lifecycle.metrics.weightedConditionScore;
-  return finite(score) ? clamp(score, 0, 100) : null;
+  return finite(score)&&score>=0&&score<=100 ? score : null;
 }
 
 function scoreLocation(bundle) {
   const score = bundle && bundle.location && bundle.location.currentLocationScore;
-  return finite(score) ? clamp(score, 0, 100) : null;
+  return finite(score)&&score>=0&&score<=100 ? score : null;
 }
 
 function scoreForward(bundle) {
   const score = bundle && bundle.forwardAttraction && bundle.forwardAttraction.forwardAttractionScore;
-  if (!finite(score)) return null;
-  return clamp((score + 100) / 2, 0, 100);
+  if (!finite(score)||score< -100||score>100) return null;
+  return (score + 100) / 2;
 }
 
 function scorePriceDiscipline(reverseUnderwriting) {

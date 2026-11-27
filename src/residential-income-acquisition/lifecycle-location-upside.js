@@ -177,6 +177,11 @@ function usableString(input, allowed = null) {
     && (!allowed || allowed.has(input.value));
 }
 
+// Monetary totals must remain within the safe SAR/halala representable range.
+// Proxy outputs can contain fractional halalas but must remain finite and bounded.
+const MAX_SAFE_SAR=Number.MAX_SAFE_INTEGER/100;
+function safeMoney(value){return finite(value)&&Math.abs(value)<=MAX_SAFE_SAR;}
+function safeMoneyTotals(values){return values.every(safeMoney)&&safeMoney(values.reduce((a,b)=>a+Math.abs(b),0));}
 function lifecycleComponent(record, componentId, issues) {
   const missing = LIFECYCLE_REQUIRED.filter((attr) => !record[attr]);
   if (missing.length) {
@@ -186,7 +191,7 @@ function lifecycleComponent(record, componentId, issues) {
   if (!usableString(record.category)) issues.push({ code: 'LIFECYCLE_CATEGORY_NOT_ADOPTED', componentId, field: record.category.field });
   if (!usableNumber(record.conditionScore, 0, 100)) issues.push({ code: 'LIFECYCLE_CONDITION_SCORE_INVALID', componentId, field: record.conditionScore.field });
   if (!usableNumber(record.remainingUsefulLifeYears, 0, 200)) issues.push({ code: 'LIFECYCLE_RUL_INVALID', componentId, field: record.remainingUsefulLifeYears.field });
-  if (!usableNumber(record.replacementCost, 0)) issues.push({ code: 'LIFECYCLE_REPLACEMENT_COST_INVALID', componentId, field: record.replacementCost.field });
+  if (!usableNumber(record.replacementCost, 0, MAX_SAFE_SAR)) issues.push({ code: 'LIFECYCLE_REPLACEMENT_COST_INVALID', componentId, field: record.replacementCost.field });
   if (!usableNumber(record.replacementYearOffset, 0, 200) || !Number.isInteger(record.replacementYearOffset.value)) issues.push({ code: 'LIFECYCLE_REPLACEMENT_YEAR_INVALID', componentId, field: record.replacementYearOffset.field });
   if (!usableNumber(record.downtimeDays, 0, 3650)) issues.push({ code: 'LIFECYCLE_DOWNTIME_INVALID', componentId, field: record.downtimeDays.field });
   if (!usableString(record.criticality)) issues.push({ code: 'LIFECYCLE_CRITICALITY_NOT_ADOPTED', componentId, field: record.criticality.field });
@@ -240,6 +245,11 @@ function calculateLifecycleIntelligence(operatingCase) {
     });
   }
 
+  if(!safeMoneyTotals(components.map(x=>x.replacementCost)))return deepFreeze({
+    schemaVersion:1,caseId:operatingCase.caseId||null,status:INTELLIGENCE_STATUS.NOT_CALCULABLE,
+    issues:[...issues,{code:'LIFECYCLE_MONETARY_TOTAL_OUT_OF_RANGE'}],components:[],metrics:null,
+    engineeringConclusion:null,legalConclusion:null,semantics:'Monetary aggregate exceeded the safe calculation range.',
+  });
   const costWeight = components.reduce((sum, item) => sum + item.replacementCost, 0);
   const weightedConditionScore = costWeight > 0
     ? components.reduce((sum, item) => sum + (item.conditionScore * item.replacementCost), 0) / costWeight
@@ -447,10 +457,10 @@ function upsideCatalyst(record, catalystId, issues, subdivisionGate = null) {
   const statuses = new Set(Object.values(REGULATORY_STATUS));
   if (!usableString(record.type, types)) issues.push({ code: 'UPSIDE_TYPE_INVALID', catalystId, field: record.type.field });
   if (!usableString(record.regulatoryStatus, statuses)) issues.push({ code: 'UPSIDE_REGULATORY_STATUS_INVALID', catalystId, field: record.regulatoryStatus.field });
-  if (!usableNumber(record.capex, 0)) issues.push({ code: 'UPSIDE_CAPEX_INVALID', catalystId, field: record.capex.field });
+  if (!usableNumber(record.capex, 0, MAX_SAFE_SAR)) issues.push({ code: 'UPSIDE_CAPEX_INVALID', catalystId, field: record.capex.field });
   if (!usableNumber(record.executionPeriodYears, 0, 50)) issues.push({ code: 'UPSIDE_EXECUTION_INVALID', catalystId, field: record.executionPeriodYears.field });
-  if (!usableNumber(record.annualNoiLossDuringExecution, 0)) issues.push({ code: 'UPSIDE_NOI_LOSS_INVALID', catalystId, field: record.annualNoiLossDuringExecution.field });
-  if (!usableNumber(record.incrementalAnnualNoi, -1e15, 1e15)) issues.push({ code: 'UPSIDE_INCREMENTAL_NOI_INVALID', catalystId, field: record.incrementalAnnualNoi.field });
+  if (!usableNumber(record.annualNoiLossDuringExecution, 0, MAX_SAFE_SAR)) issues.push({ code: 'UPSIDE_NOI_LOSS_INVALID', catalystId, field: record.annualNoiLossDuringExecution.field });
+  if (!usableNumber(record.incrementalAnnualNoi, -MAX_SAFE_SAR, MAX_SAFE_SAR)) issues.push({ code: 'UPSIDE_INCREMENTAL_NOI_INVALID', catalystId, field: record.incrementalAnnualNoi.field });
   if (!usableNumber(record.probability, 0, 1)) issues.push({ code: 'UPSIDE_PROBABILITY_INVALID', catalystId, field: record.probability.field });
   if (issues.some((item) => item.catalystId === catalystId && item.code !== 'UPSIDE_CATALYST_FIELDS_MISSING')) return null;
 
@@ -477,6 +487,7 @@ function upsideCatalyst(record, catalystId, issues, subdivisionGate = null) {
   const incrementalAnnualNoi = record.incrementalAnnualNoi.value;
   const profitOnCostProxy = capex > 0 ? incrementalAnnualNoi / capex : null;
   const simplePaybackYears = capex > 0 && incrementalAnnualNoi > 0 ? capex / incrementalAnnualNoi : null;
+  if((profitOnCostProxy!==null&&!finite(profitOnCostProxy))||(simplePaybackYears!==null&&!finite(simplePaybackYears))){issues.push({code:'UPSIDE_RATIO_OUT_OF_RANGE',catalystId});return null;}
   return {
     catalystId,
     type,
@@ -535,6 +546,11 @@ function calculateUpsideIntelligence(operatingCase, { subdivisionGate = null } =
     });
   }
   const eligible = catalysts.filter((item) => !item.prohibited && item.effectiveProbability > 0);
+  if(!['capex','incrementalAnnualNoi','probabilityAdjustedIncrementalAnnualNoi','probabilityAdjustedCapexForExpectedValueOnly'].every(k=>safeMoneyTotals(eligible.map(x=>x[k]))))return deepFreeze({
+    schemaVersion:1,caseId:operatingCase.caseId||null,status:INTELLIGENCE_STATUS.NOT_CALCULABLE,
+    issues:[...issues,{code:'UPSIDE_MONETARY_TOTAL_OUT_OF_RANGE'}],catalysts:[],metrics:null,
+    legalConclusion:null,investmentRecommendation:null,semantics:'Monetary aggregate exceeded the safe calculation range.',
+  });
   const metrics = {
     catalystCount: catalysts.length,
     eligibleCatalystCount: eligible.length,

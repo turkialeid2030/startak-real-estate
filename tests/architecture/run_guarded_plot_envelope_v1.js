@@ -223,7 +223,7 @@ test('TOLERANCE_NEVER_INCREASES_CAPACITY',()=>{
  assert.match(r.sourceRefs.find(x=>x.type==='SOURCE_INPUT_REPLAY_BINDING').sourceRef,/^[0-9a-f]{64}$/);
 });
 test('REVIEWED_PROFILE_EXACT_SOURCE_REPLAY',()=>{
- const {createReviewedPlotProfile,evaluateReviewedPlotProfile}=require('../../src/planning/reviewed-plot-envelope');
+ const {createReviewedPlotProfile,evaluateReviewedPlotProfile}=require('../../src/planning');
  const set=plan(),input={caseId,propertyRef,planningEvidenceSet:set,planningRecords:originalRecords.get(set),geometry,evaluatedAt,maxAreaDifferenceSqm:0.5,titleFacts,titleFreshnessPolicy,geometryMaxAgeDays:90};
  const review={profileId:'SYNTH-PROFILE',reviewedByRef:'SYNTH-REVIEWER',interpretationEvidenceRef:'SYNTH-INTERPRETATION',reviewedAt:'2026-11-21'};
  const profile=createReviewedPlotProfile(input,review),result=evaluateReviewedPlotProfile(input,profile);
