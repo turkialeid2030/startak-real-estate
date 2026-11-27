@@ -66,20 +66,20 @@ function malformedProof(){return Object.freeze({status:STATUS.HOLD_INTEGRITY,pro
 function evaluateProofGroundedProviderReadiness(input = {}) {
   try{input=snapshotProofPacket(input);}catch{return malformedProof();}
   const bindings = groundingSourceBindingBlockers(input.request, input.groundingManifest);
-  return withSourceBinding(evaluateProviderReadiness(input), bindings);
+  try{return withSourceBinding(evaluateProviderReadiness(input), bindings);}catch{return malformedProof();}
 }
 
 function validateProofGroundedProviderResponse(input = {}) {
   try{input=snapshotProofPacket(input,true);}catch{return malformedProof();}
   const bindings = groundingSourceBindingBlockers(input.request, input.groundingManifest);
-  return withSourceBinding(validateGroundedProviderResponse(input), bindings);
+  try{return withSourceBinding(validateGroundedProviderResponse(input), bindings);}catch{return malformedProof();}
 }
 
 async function executeProofGroundedProviderGateway(input = {}) {
   try{input=snapshotProofPacket(input,false,true);}catch{return malformedProof();}
   const bindingBlockers = groundingSourceBindingBlockers(input.request, input.groundingManifest);
   if (bindingBlockers.length) {
-    const readiness = evaluateProviderReadiness(input);
+    let readiness;try{readiness=evaluateProviderReadiness(input);}catch{return malformedProof();}
     return withSourceBinding({ ...readiness, providerCalled: false, providerResponse: null }, bindingBlockers);
   }
   return executeGovernedProviderGateway(input);

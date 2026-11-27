@@ -458,5 +458,25 @@ function fixture() {
   }
   assert.strictEqual(getterCalls,0);
   console.log('C23_V636_PLAIN_JSON_BOUNDARY=PASS preinvoke_cases=5 entrypoints=2 response_cases=2 adapter_calls_for_invalid_input=0 getter_calls=0');
+  const duplicateRequest=request(f.modelProfile,{retrievalItems:[...f.request.retrievalItems,{...f.request.retrievalItems[0],evidenceId:'DUPLICATE-SOURCE',sourceReference:'OTHER-SOURCE'}]});
+  const duplicateManifest=manifest(duplicateRequest),duplicateInvocation=invocation(f.modelProfile,duplicateRequest,duplicateManifest,f.providerAuthorization);
+  let unsafeCalls=0;
+  for(const run of [executeGovernedProviderGateway,executeProofGroundedProviderGateway]){
+    const out=await run({...f,request:duplicateRequest,groundingManifest:duplicateManifest,invocation:duplicateInvocation,adapter:{invoke:async()=>{unsafeCalls++;return f.providerResponse;}}});
+    assert.strictEqual(out.status,STATUS.HOLD_INTEGRITY);assert.ok(out.blockers.includes('C23_INTEGRITY_RETRIEVAL_DIGEST_AMBIGUOUS'));assert.strictEqual(out.providerCalled,false);
+    const badTime=await run({...f,asOf:'2026-02-30',adapter:{invoke:async()=>{unsafeCalls++;return f.providerResponse;}}});assert.strictEqual(badTime.providerCalled,false);
+    const getterAdapter=Object.defineProperty({},'invoke',{get(){unsafeCalls++;return async()=>f.providerResponse;}});
+    const denied=await run({...f,adapter:getterAdapter});assert.strictEqual(denied.providerCalled,false);
+    const getterInput=Object.defineProperty({...f},'adapter',{get(){unsafeCalls++;return {invoke:async()=>f.providerResponse};}});
+    assert.strictEqual((await run(getterInput)).providerCalled,false);
+  }
+  assert.strictEqual(unsafeCalls,0);
+  const {createAiReportReviewHandoff}=require('../../src/ai/ai-report-review-handoff');
+  const reviewRequest={reviewRef:'REVIEW-1',reviewerRef:'INDEPENDENT-REVIEWER',caseId:f.request.caseId,propertyRef:f.request.propertyRef,requestedAt:AS_OF};
+  const handoff=createAiReportReviewHandoff({proofPacket:f,reviewRequest,asOf:AS_OF});
+  assert.strictEqual(handoff.reviewCandidateReady,true);assert.strictEqual(handoff.reportExportAuthorized,false);assert.strictEqual(handoff.draft,null);assert.strictEqual(handoff.deterministicDecisionState,'HOLD');
+  for(const patch of [{reviewerRef:f.groundingManifest.preparedByRef},{caseId:'OTHER'},{requestedAt:'2026-10-01T09:00:00Z'}])assert.strictEqual(createAiReportReviewHandoff({proofPacket:f,reviewRequest:{...reviewRequest,...patch},asOf:AS_OF}).reviewCandidateReady,false);
+  assert.strictEqual(createAiReportReviewHandoff({proofPacket:{...f,providerResponse:{...f.providerResponse,claims:[]}},reviewRequest,asOf:AS_OF}).reviewCandidateReady,false);
+  console.log('V7_AI_REVIEW_HANDOFF=PASS synthetic_adapter=true no_report_export=true');
   console.log('C23_GOVERNED_LIVE_AI_PROVIDER_GATEWAY=PASS');
 })().catch((err)=>{ console.error(err); process.exit(1); });
