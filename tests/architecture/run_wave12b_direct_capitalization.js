@@ -184,5 +184,15 @@ for(const patch of [{transactionAuthorized:true},{automaticRateDerivation:true},
 }
 equal(verifyProfessionalNoiResultIntegrity(JSON.parse(JSON.stringify(noi))),true,'V632 NOI roundtrip');
 equal(calculateDirectCapitalizationIndication(JSON.parse(JSON.stringify(input))).calculationHashSha256,result.calculationHashSha256,'V632 capitalization roundtrip');
+// V6.52 arithmetic replay does not treat a successful digest as source authentication.
+const {evaluateCanonicalMethodReplay}=require('../../src/valuation-reconciliation/canonical-method-replay');
+const replayInput={caseId,propertyRef,valuationDate,asOf:'2026-09-03T00:00:00Z',methodIndications:[{id:'D',sourceResult:result}],methodInputPacketsByIndicationId:{D:input}};
+const replay=evaluateCanonicalMethodReplay(replayInput);
+equal(replay.status,'READY_FOR_ARITHMETIC_REPLAY_REVIEW','C3 canonical arithmetic replay');
+equal(replay.traces[0].valueSar,10000000,'C3 canonical replay value');
+equal(replay.sourceAuthenticityIndependentlyVerified,false,'C3 source authentication not established');
+equal(evaluateCanonicalMethodReplay({...replayInput,methodIndications:[{id:'D',sourceResult:{...result,valueIndicationSar:999}}]}).status,'HOLD_METHOD_REPLAY','C3 reject changed result');
+equal(evaluateCanonicalMethodReplay({...replayInput,methodInputPacketsByIndicationId:{D:tamperedPacket}}).status,'HOLD_METHOD_REPLAY','C3 reject changed input');
+equal(evaluateCanonicalMethodReplay({...replayInput,asOf:valuationDate}).status,'HOLD_METHOD_REPLAY','C3 reject future prepared packet');
 console.log('W06_V632_NOI_AND_CAPITALIZATION=PASS negative_cases=18 positive_roundtrips=2');
 console.log(`WAVE_12B_DIRECT_CAPITALIZATION=PASS checks=${checks}`);
