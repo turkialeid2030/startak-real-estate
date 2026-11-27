@@ -85,6 +85,7 @@ step('TEST_DISCOVERY_AND_REGRESSION', () => {
     'tests/architecture/run_c3_c3i_reconciliation_recovery.js',
     'tests/architecture/run_wave8c_property_evidence_bridge.js',
     'tests/architecture/run_wave11b_land_valuation.js',
+    'tests/architecture/run_c21_listing_amenity_recovery.js',
     'tests/architecture/run_c58_comparable_provenance_chain.js',
     'tests/architecture/run_market_geospatial_record_boundary.js',
     'tests/architecture/run_guarded_plot_envelope_v1.js',
