@@ -5,6 +5,7 @@ const crypto=require('node:crypto');
 const {strictCalendarDateMs}=require('../validation/strict-calendar-instant');
 const {isPlainJson}=require('../validation/plain-json-boundary');
 const {verifySignedRestoreInventory}=require('./signed-restore-inventory');
+const {verifyCustodyChain}=require('./signed-evidence-custody');
 const MAX_BYTES=20*1024*1024;
 const VERSION='STARTAK_PRIVATE_APPRAISAL_VAULT_CONTRACT_V1';
 // New envelopes authenticate the immutable metadata with GCM AAD.
@@ -51,12 +52,13 @@ function versionedKey(record,tenant,expectedRef=null){
  if(!record||typeof record!=='object'||record.tenantId!==tenant||typeof record.keyRef!=='string'||!REF.test(record.keyRef)||!Buffer.isBuffer(record.keyBytes)||record.keyBytes.length!==32||(expectedRef!==null&&record.keyRef!==expectedRef))throw Error('EXTERNAL_KMS_KEY_SCOPE_OR_VERSION_INVALID');
  return {keyRef:record.keyRef,key:Buffer.from(record.keyBytes)};
 }
-function makePrivateAppraisalVault({adapter,keyProvider,keyring,authorizeActor,restoreInventoryProvider,restoreInventoryTrust,clock=()=>new Date()}={}){
+function makePrivateAppraisalVault({adapter,keyProvider,keyring,authorizeActor,restoreInventoryProvider,restoreInventoryTrust,custodyTrust,clock=()=>new Date()}={}){
  if(!adapter||typeof adapter.get!=='function'||typeof adapter.putIfAbsent!=='function'||
   (typeof keyProvider!=='function'&&!keyring)||typeof authorizeActor!=='function'||typeof clock!=='function'||
   (keyring!==undefined&&(!keyring||typeof keyring.activeKey!=='function'||typeof keyring.resolveKey!=='function'))||
   (restoreInventoryProvider!==undefined&&typeof restoreInventoryProvider!=='function')||
-  (restoreInventoryTrust!==undefined&&(!restoreInventoryTrust||typeof restoreInventoryTrust.resolveSigner!=='function'||!Number.isSafeInteger(restoreInventoryTrust.maxAgeSeconds)||restoreInventoryTrust.maxAgeSeconds<1||restoreInventoryTrust.maxAgeSeconds>31536000)))
+  (restoreInventoryTrust!==undefined&&(!restoreInventoryTrust||typeof restoreInventoryTrust.resolveSigner!=='function'||!Number.isSafeInteger(restoreInventoryTrust.maxAgeSeconds)||restoreInventoryTrust.maxAgeSeconds<1||restoreInventoryTrust.maxAgeSeconds>31536000))||
+  (custodyTrust!==undefined&&(!custodyTrust||typeof custodyTrust.loadLedger!=='function'||typeof custodyTrust.loadCheckpoint!=='function'||typeof custodyTrust.resolveSigner!=='function'||!Number.isSafeInteger(custodyTrust.maxAgeSeconds)||custodyTrust.maxAgeSeconds<1||custodyTrust.maxAgeSeconds>31536000)))
   throw Error('TRUSTED_ADAPTER_KMS_AND_SERVER_AUTHORIZER_REQUIRED');
  const idOf=storageId;
  async function writeKey(tenant){return keyring?versionedKey(await keyring.activeKey(tenant),tenant):{keyRef:null,key:keyFrom(keyProvider,tenant)};}
@@ -131,10 +133,21 @@ function makePrivateAppraisalVault({adapter,keyProvider,keyring,authorizeActor,r
    let bytes;
    try{const dec=crypto.createDecipheriv('aes-256-gcm',key,iv);dec.setAAD(authenticatedEnvelopeMetadata(v));dec.setAuthTag(tag);bytes=Buffer.concat([dec.update(encrypted),dec.final()]);}
    finally{key.fill(0);}
-   if(digest(bytes)!==v.sha256)throw Error('EVIDENCE_BYTES_DIGEST_TAMPERED');
+   if(digest(bytes)!==v.sha256){bytes.fill(0);throw Error('EVIDENCE_BYTES_DIGEST_TAMPERED');}
+   let custodyProof=null;
+   if(custodyTrust){
+    const expectedScope=Object.freeze({tenantId,caseRef,evidenceRef,sha256:v.sha256});
+    try{
+     const ledger=await custodyTrust.loadLedger(expectedScope);
+     const checkpoint=await custodyTrust.loadCheckpoint(expectedScope);
+     custodyProof=await verifyCustodyChain(ledger,{expectedScope,checkpoint,resolveSigner:custodyTrust.resolveSigner,maxAgeSeconds:custodyTrust.maxAgeSeconds,now:clock()});
+     if(!custodyProof.integrityVerified)throw Error('EVIDENCE_CUSTODY_NOT_QUALIFIED');
+    }catch{bytes.fill(0);throw Error('EVIDENCE_CUSTODY_NOT_QUALIFIED');}
+   }
    return {found:true,sourceBytes:bytes,sha256:v.sha256,caseRef:v.caseRef,
+    ...(custodyProof?{custodyIntegrityVerified:true,custodyRevision:custodyProof.revision,custodyHeadHashSha256:custodyProof.headHashSha256}:{}),
     releaseAuthorized:false,professionalReviewVerified:false};
-  }catch(e){if(e.message==='EVIDENCE_BYTES_DIGEST_TAMPERED')throw e;
+  }catch(e){if(['EVIDENCE_BYTES_DIGEST_TAMPERED','EVIDENCE_CUSTODY_NOT_QUALIFIED'].includes(e.message))throw e;
    throw Error('EVIDENCE_DECRYPTION_OR_INTEGRITY_FAILED');}
  }
  // Verify a restored adapter against an inventory from a separately supplied
