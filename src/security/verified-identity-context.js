@@ -110,6 +110,17 @@ function createVerifiedIdentityContext({
     });
   }
 
+  // An invalid server clock must never bypass the expiration comparison.
+  if (!Number.isFinite(nowEpochSeconds) || nowEpochSeconds < 0) {
+    return freeze({
+      status: IDENTITY_STATUS.HOLD_TOKEN_VERIFICATION,
+      reasonCodes: ['TOKEN_VERIFICATION_CLOCK_INVALID'],
+      identity: null,
+      authorizationReady: false,
+      productionIdentityVerifiedByThisModule: false,
+    });
+  }
+
   if (expiresAt <= nowEpochSeconds) {
     return freeze({
       status: IDENTITY_STATUS.HOLD_TOKEN_EXPIRED,
