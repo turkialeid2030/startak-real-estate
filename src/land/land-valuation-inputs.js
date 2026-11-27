@@ -132,7 +132,7 @@ function buildLandSalesComparisonInputPacket({
   if (!subjectMeasurement) {
     return hold(LAND_VALUATION_INPUT_STATUS.HOLD_SUBJECT_AREA, ['SUBJECT_LAND_AREA_MEASUREMENT_NOT_FOUND'], { caseId, propertyRef });
   }
-  if (subjectMeasurement.type !== LAND_AREA_MEASUREMENT_TYPE || subjectMeasurement.unit !== SQM_UNIT) {
+  if (subjectMeasurement.type !== LAND_AREA_MEASUREMENT_TYPE || ![SQM_UNIT,'SQM'].includes(subjectMeasurement.unit)) {
     return hold(LAND_VALUATION_INPUT_STATUS.HOLD_SUBJECT_AREA, ['SUBJECT_LAND_AREA_MEASUREMENT_MUST_BE_LAND_AREA_SQM'], { caseId, propertyRef });
   }
   positiveFinite(subjectMeasurement.value, 'subjectMeasurement.value');

@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const {isPlainJson}=require('../validation/plain-json-boundary');
 const {
   MARKET_EVIDENCE_TYPE,
   MARKET_GATE_STATUS,
@@ -100,7 +101,7 @@ function daysApart(aMs, bMs) {
 }
 
 function verifyPropertyEvidencePacketIntegrity(packet) {
-  if (!packet || typeof packet !== 'object' || Array.isArray(packet)) return false;
+  if (!isPlainJson(packet)||!packet || typeof packet !== 'object' || Array.isArray(packet)) return false;
   if (!HASH_RE.test(cleanString(packet.packetHashSha256))) return false;
   const core = {
     schemaVersion: packet.schemaVersion,
@@ -123,6 +124,12 @@ function verifyPropertyEvidencePacketIntegrity(packet) {
     propertyDataGateStatus: packet.propertyDataGateStatus,
     measurementGateStatus: packet.measurementGateStatus,
   };
+  const modern=['inspectionReviewBindingSha256','measurementGateHashSha256','propertyDataGateHashSha256'];
+  const present=modern.filter(k=>Object.hasOwn(packet,k));
+  // Match the actual bridge digest, retaining the historic read-only format.
+  // A partial modern digest is never accepted.
+  if(present.length&&present.length!==modern.length)return false;
+  for(const k of present){if(!HASH_RE.test(cleanString(packet[k])))return false;core[k]=packet[k];}
   return sha256(core) === cleanString(packet.packetHashSha256).toLowerCase();
 }
 
@@ -414,8 +421,13 @@ function buildWholePropertySalesComparisonInputPacket({
   const subjectBlockers = [];
   if (!subjectMeasurement) subjectBlockers.push('C3M_SUBJECT_MEASUREMENT_NOT_FOUND');
   else {
-    if (cleanString(subjectMeasurement.type) !== expectedMeasurementType) subjectBlockers.push(`C3M_SUBJECT_MEASUREMENT_TYPE_MISMATCH:${cleanString(subjectMeasurement.type)}/${expectedMeasurementType}`);
-    if (cleanString(subjectMeasurement.unit) !== expectedMeasurementUnit) subjectBlockers.push(`C3M_SUBJECT_MEASUREMENT_UNIT_MISMATCH:${cleanString(subjectMeasurement.unit)}/${expectedMeasurementUnit}`);
+    const bridgeBound=['inspectionReviewBindingSha256','measurementGateHashSha256','propertyDataGateHashSha256'].every(k=>HASH_RE.test(cleanString(propertyPacket[k])));
+    const aliases=Object.freeze({GFA:'GROSS_BUILDING_AREA',GLA:'GROSS_LEASABLE_AREA',NLA:'NET_LEASABLE_AREA'});
+    const rawType=cleanString(subjectMeasurement.type),rawUnit=cleanString(subjectMeasurement.unit);
+    const normalizedType=bridgeBound&&Object.hasOwn(aliases,rawType)?aliases[rawType]:rawType;
+    const normalizedUnit=bridgeBound&&rawUnit==='SQM'?'sqm':rawUnit;
+    if (normalizedType !== expectedMeasurementType) subjectBlockers.push(`C3M_SUBJECT_MEASUREMENT_TYPE_MISMATCH:${cleanString(subjectMeasurement.type)}/${expectedMeasurementType}`);
+    if (normalizedUnit !== expectedMeasurementUnit) subjectBlockers.push(`C3M_SUBJECT_MEASUREMENT_UNIT_MISMATCH:${cleanString(subjectMeasurement.unit)}/${expectedMeasurementUnit}`);
     if (!isValidBasisQuantity(subjectMeasurement.value, comparisonUnit)) subjectBlockers.push('C3M_SUBJECT_MEASUREMENT_VALUE_INVALID');
     if (!HASH_RE.test(cleanString(subjectMeasurement.measurementHashSha256))) subjectBlockers.push('C3M_SUBJECT_MEASUREMENT_HASH_REQUIRED');
     const measuredAtMs = toTimestamp(subjectMeasurement.measuredAt);

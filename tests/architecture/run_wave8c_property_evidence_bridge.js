@@ -156,13 +156,13 @@ function measurements({ conflict = false } = {}) {
   ];
 }
 
-function completedInspection(measurementRecords) {
+function completedInspection(measurementRecords,additionalPolicy={}) {
   const measurementInputs={
     caseId: CASE_ID,
     records: measurementRecords,
     materialTypes: [MEASUREMENT_TYPE.LAND_AREA],
     toleranceByType: { LAND_AREA: { absoluteSqm: 2 } },
-    minimumIndependentSourcesByType: { LAND_AREA: 2 },
+    minimumIndependentSourcesByType: { LAND_AREA: 2 },...additionalPolicy,
   };
   const gate=reconcileMeasurementRecords(measurementInputs);
   let record = createInspectionCase({
@@ -313,3 +313,47 @@ console.log(`WAVE_8C_PROPERTY_EVIDENCE_BRIDGE=PASS checks=${checks}`);
  function reject54(draft,propertyDraft=propertyDraft54){const o=evaluateSourceInputReplay({...replay54,sourceRebuildsByIndicationId:{C:{methodInputDraft:draft,propertyEvidenceDraft:propertyDraft}}});check(o.status==='HOLD_SOURCE_INPUT_REPLAY'&&o.traces.length===0,JSON.stringify(o));}
  reject54(costDraft54,null);reject54(costDraft54,{...propertyDraft54,propertyRef:'OTHER'});reject54(costDraft54,{...propertyDraft54,inspection:{...goodInspection,observations:[]}});reject54({...costDraft54,propertyEvidencePacket:{...ready,packetHashSha256:'a'.repeat(64)}});reject54({...costDraft54,costComponents:[{...costRecord54,unitCostSar:1}]});reject54({...costDraft54,landValueInput:{...value54,valueSar:1}});reject54({...costDraft54,depreciationRecords:[{...dep54,magnitude:0.9}]});
  console.log('V654_COST_SOURCE_REPLAY=PASS synthetic=true sourceAuthority=false');
+
+ // V6.55 — actual bridge -> land/whole-property calculation, no synthetic packet digest.
+ const cmp55=require('../../src/market/comparable-evidence'),adj55=require('../../src/market/comparable-adjustments');
+ const land55=require('../../src/land/land-valuation-inputs'),whole55=require('../../src/valuation/whole-property-sales-comparison-input');
+ const {calculateLandSalesComparisonIndication}=require('../../src/engines/valuation/land-sales-comparison');
+ const {calculateWholePropertySalesComparisonIndication}=require('../../src/engines/valuation/whole-property-sales-comparison');
+ const asOf55='2026-09-08T00:00:00Z',select55='2026-09-07T09:15:00Z',review55='2026-09-07T09:30:00Z',reconcile55='2026-09-07T10:00:00Z';
+ const propertyLand55={...propertyDraft54,assignment:assignment({asset:{type:'LAND',jurisdiction:'SAUDI_ARABIA',location:'SYNTHETIC_RIYADH_LOCATION'}})};
+ const landProperty55=buildPropertyEvidencePacket(propertyLand55);
+ const ids55=['L1','L2','L3'];
+ const rec55=ids55.map((id,i)=>cmp55.createComparableEvidenceRecord({comparableId:id,caseId:CASE_ID,sourcePropertyRef:'LAND-'+id,assetType:'LAND',transactionType:'SALE',evidenceLevel:'VERIFIED_TRANSACTION',sourceName:'SYNTHETIC',sourceRef:'SRC-'+id,sourceDate:'2026-08-01',transactionDate:'2026-07-31',capturedAt:'2026-08-03',location:{city:'RIYADH',district:'SYNTHETIC'},areaSqm:1000,amountSar:[1000000,1100000,900000][i],verification:{status:'VERIFIED',verifiedByRef:'R',verifiedAt:'2026-08-02',evidenceRef:'REV-'+id}}));
+ const rationale55=Object.fromEntries(ids55.map(id=>[id,'SYNTHETIC REVIEW']));
+ const q55={caseId:CASE_ID,asOfDate:scope54.valuationDate,maxAgeDays:365,minimumComparableCount:3,minimumEvidenceLevel:'VERIFIED_TRANSACTION',targetAssetType:'LAND',targetTransactionType:'SALE',targetCity:'RIYADH'};
+ const p55={caseId:CASE_ID,selectedComparableIds:ids55,selectionRationales:rationale55,selectedByRef:'V',selectionEvidenceRef:'SEL',selectedAt:select55,minimumSelectedCount:3};
+ const a55={caseId:CASE_ID,adjustmentRecords:ids55.map(id=>adj55.createComparableAdjustmentRecord({adjustmentId:'AD-'+id,caseId:CASE_ID,comparableId:id,factor:'LOCATION',direction:'NONE',method:'PERCENT_OF_BASE',magnitude:0,rationale:'SYNTHETIC NO ADJUSTMENT',evidenceRefs:['EVID'],confidence:'HIGH',preparedByRef:'V',preparedAt:select55,reviewedByRef:'R',reviewedAt:review55,reviewEvidenceRef:'REV'}))};
+ const gate55=cmp55.evaluateComparableSetQuality({...q55,records:rec55});
+ const selection55=adj55.recordProfessionalComparableSelection({...p55,records:rec55,qualityGate:gate55});
+ const analysis55=adj55.buildComparableAdjustmentAnalysis({...a55,records:rec55,selection:selection55});
+ const landDraft55={...scope54,packetId:'LAND55',propertyEvidencePacket:landProperty55,adjustmentAnalysis:analysis55,comparableRecords:rec55,subjectLandAreaMeasurementId:'M-TITLE',weights:{L1:0.5,L2:0.25,L3:0.25},weightRationales:rationale55,overallReconciliationRationale:'SYNTHETIC',reconciledByRef:'V',reconciledAt:reconcile55,reconciliationEvidenceRef:'RECON',minimumIndicationCount:3};
+ const lp55=land55.buildLandSalesComparisonInputPacket(landDraft55),lr55=calculateLandSalesComparisonIndication(lp55);
+ const ld55={methodInputDraft:landDraft55,propertyEvidenceDraft:propertyLand55,landMarketSource:{qualityDraft:q55,selectionDraft:p55,adjustmentDraft:a55}};
+ const replayLand55={...scope54,asOf:asOf55,methodIndications:[{id:'L',sourceResult:lr55}],methodInputPacketsByIndicationId:{L:lp55},sourceRebuildsByIndicationId:{L:ld55}};
+ const landOut55=evaluateSourceInputReplay(replayLand55);check(landOut55.status==='READY_FOR_SOURCE_INPUT_REPLAY_REVIEW',JSON.stringify(landOut55.blockers));check(lr55.landValueIndicationSar===1000000,'land source replay 1m');
+ function holdLand55(d){const o=evaluateSourceInputReplay({...replayLand55,sourceRebuildsByIndicationId:{L:d}});check(o.status==='HOLD_SOURCE_INPUT_REPLAY'&&o.traces.length===0,JSON.stringify(o.blockers));}
+ holdLand55({...ld55,landMarketSource:{...ld55.landMarketSource,qualityDraft:{...q55,targetCity:'OTHER'}}});
+ holdLand55({...ld55,landMarketSource:{...ld55.landMarketSource,adjustmentDraft:{...a55,adjustmentRecords:a55.adjustmentRecords.slice(1)}}});
+ holdLand55({...ld55,methodInputDraft:{...landDraft55,comparableRecords:[{...rec55[0],unitValueSarPerSqm:9999},...rec55.slice(1)]}});
+ // Actual GFA/SQM from the bridge, with explicit dual-source measurement policy.
+ const gfa55=[createMeasurementRecord({measurementId:'M-GFA-PLAN',caseId:CASE_ID,type:MEASUREMENT_TYPE.GFA,valueSqm:1000,source:MEASUREMENT_SOURCE.APPROVED_PLAN,sourceEvidenceRef:'evidence://plan/gfa',measurementStandardRef:'SYNTH-GFA',measurementMethod:'DOCUMENT_REPORTED_AREA',measuredByRef:'V',measuredAt:'2026-09-07T07:00:00Z'}),createMeasurementRecord({measurementId:'M-GFA-INSP',caseId:CASE_ID,inspectionId:INSPECTION_ID,type:MEASUREMENT_TYPE.GFA,valueSqm:1000,source:MEASUREMENT_SOURCE.INSPECTION,sourceEvidenceRef:'evidence://inspection/gfa',measurementStandardRef:'SYNTH-GFA',measurementMethod:'SITE_MEASUREMENT',measuredByRef:'V',measuredAt:'2026-09-07T08:15:00Z'})];
+ const all55=[...goodMeasurements,...gfa55],types55=[MEASUREMENT_TYPE.LAND_AREA,MEASUREMENT_TYPE.GFA],tol55={LAND_AREA:{absoluteSqm:2},GFA:{absoluteSqm:0}},min55={LAND_AREA:2,GFA:2};
+ const propertyWhole55={...propertyDraft54,inspection:completedInspection(all55,{materialTypes:types55,toleranceByType:tol55,minimumIndependentSourcesByType:min55}),measurementRecords:all55,materialMeasurementTypes:types55,measurementToleranceByType:tol55,minimumMeasurementSourcesByType:min55};
+ const wp55=buildPropertyEvidencePacket(propertyWhole55);check(whole55.verifyPropertyEvidencePacketIntegrity(wp55),'modern bridge digest verifies');
+ check(!whole55.verifyPropertyEvidencePacketIntegrity({...wp55,measurementGateHashSha256:'0'.repeat(64)}),'modern bridge gate digest tampering rejected');
+ const unit55='GROSS_BUILDING_AREA_SQM',marketScope55={marketContextId:'MARKET55',geographyKey:'SYNTHETIC_RIYADH',assetType:'OFFICE'},mid55=['M1','M2','M3'],mr55=Object.fromEntries(mid55.map(id=>[id,'SYNTHETIC REVIEW']));
+ const market55={...marketScope55,evidenceRecords:mid55.map((id,i)=>({...marketScope55,id:'E-'+id,evidenceType:'CLOSED_SALE_TRANSACTION',evidenceClass:'AUTHORITATIVE_CLOSED_TRANSACTION',normalizedValue:{amountSar:[2000000,2200000,1800000][i],areaSqm:1000},sourceId:'REGA_REAL_ESTATE_INDICATORS',sourceReference:'SYNTHETIC-'+id,sourceUrl:'https://rei.rega.gov.sa/ar/advanced-search/deals',transactionKey:'SALE-'+id,resolutionMethod:'OFFICIAL_TRANSACTION_RECORD',verificationStatus:'VERIFIED',verifiedBy:'R',verificationReference:'REV-'+id,freshnessPolicyId:'F',effectiveAt:'2026-08-01',observedAt:'2026-08-02',validUntil:'2026-10-01'})),trustedVerifierIds:['R'],governedFreshnessPolicyIds:['F'],minimumCountPolicyId:'MIN',governedMinimumCountPolicies:{MIN:{CLOSED_SALE_TRANSACTION:3}}};
+ const wholeDraft55={...scope54,packetId:'WHOLE55',asOf:asOf55,unitOfComparison:unit55,subjectMeasurementId:'M-GFA-PLAN',subjectPropertyEvidencePacket:wp55,marketEvidence:market55,marketContextBinding:{...marketScope55,bindingId:'B',propertyRef:PROPERTY_REF,boundBy:'R',bindingReference:'BIND',boundAt:'2026-09-07T09:10:00Z'},trustedMarketContextBinderIds:['R'],comparableMeasurements:mid55.map(id=>({comparableId:id,transactionKey:'SALE-'+id,sourcePropertyRef:'PROPERTY-'+id,assetType:'OFFICE',unitOfComparison:unit55,basisQuantity:1000,sourceRef:'MEASURE-'+id,effectiveAt:'2026-08-01',validUntil:'2026-10-01',verifiedBy:'R',verificationReference:'REV',verifiedAt:'2026-08-02'})),trustedMeasurementVerifierIds:['R'],selectedComparableIds:mid55,selectionRationales:mr55,selectedBy:'R',selectionReference:'SEL',selectedAt:select55,trustedComparableSelectorIds:['R'],adjustmentRecords:mid55.map(id=>({adjustmentId:'AD-'+id,comparableId:id,factor:'LOCATION',direction:'NONE',method:'PERCENT_OF_BASE',magnitude:0,rationale:'SYNTHETIC NO ADJUSTMENT',evidenceRefs:['EVID'],reviewedBy:'R',reviewReference:'REV',reviewedAt:review55})),trustedAdjustmentReviewerIds:['R'],reconciliationPolicyId:'P',governedReconciliationPolicies:{P:{allowedUnitsOfComparison:[unit55],allowedAssetTypes:['OFFICE'],minimumComparableCount:3,maxMeasurementTransactionDateGapDays:30,maxSingleComparableWeight:0.5,maxSingleAdjustmentPercent:0.2,maxNetAdjustmentPercent:0.25,maxGrossAdjustmentPercent:0.4,maxAdjustedUnitSpreadRatio:0.5,requireAllSelectedWeighted:true,requireAdjustmentDisposition:true}},weightsByComparableId:{M1:0.5,M2:0.25,M3:0.25},weightRationales:mr55,reconciledBy:'R',reconciliationReference:'REC',reconciledAt:reconcile55,trustedReconcilerIds:['R']};
+ const wi55=whole55.buildWholePropertySalesComparisonInputPacket(wholeDraft55),wr55=calculateWholePropertySalesComparisonIndication(wi55);
+ const wd55={methodInputDraft:wholeDraft55,propertyEvidenceDraft:propertyWhole55};
+ const replayWhole55={...scope54,asOf:asOf55,methodIndications:[{id:'W',sourceResult:wr55}],methodInputPacketsByIndicationId:{W:wi55},sourceRebuildsByIndicationId:{W:wd55}};
+ const outWhole55=evaluateSourceInputReplay(replayWhole55);check(outWhole55.status==='READY_FOR_SOURCE_INPUT_REPLAY_REVIEW',JSON.stringify({blockers:outWhole55.blockers,input:wi55.blockers}));check(wr55.valueIndicationSar===2000000,'whole property replay 2m');
+ check(evaluateSourceInputReplay(JSON.parse(JSON.stringify(replayWhole55))).status==='READY_FOR_SOURCE_INPUT_REPLAY_REVIEW','whole JSON replay');
+ function holdWhole55(d){const o=evaluateSourceInputReplay({...replayWhole55,sourceRebuildsByIndicationId:{W:{...wd55,methodInputDraft:d}}});check(o.status==='HOLD_SOURCE_INPUT_REPLAY'&&o.traces.length===0,JSON.stringify(o.blockers));}
+ holdWhole55({...wholeDraft55,selectedAt:'2026-09-07T09:00:00Z'});holdWhole55({...wholeDraft55,adjustmentRecords:wholeDraft55.adjustmentRecords.map(x=>({...x,reviewedAt:'2026-09-08'}))});holdWhole55({...wholeDraft55,subjectMeasurementId:'M-TITLE'});holdWhole55({...wholeDraft55,comparableMeasurements:wholeDraft55.comparableMeasurements.map(x=>({...x,basisQuantity:500}))});
+ console.log('V655_LAND_WHOLE_SOURCE_REPLAY=PASS synthetic=true sourceAuthority=false');

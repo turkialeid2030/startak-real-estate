@@ -55,9 +55,10 @@ function rebuildLandAdjustment(record,ctx,d,limit){
  const selection=adj.recordProfessionalComparableSelection({...p,records,qualityGate});
  required(selection.professionalSelectionRecorded===true,'LAND_SELECTION_NOT_READY');
  const adjustmentRecords=a.adjustmentRecords.map(x=>{
-   required(x.caseId===ctx.caseId&&before(x.preparedAt,limit)&&before(x.reviewedAt,limit),'LAND_ADJUSTMENT_WINDOW_INVALID');
+   required(x.caseId===ctx.caseId&&before(x.preparedAt,limit)&&before(x.reviewedAt,limit)&&strictCalendarDateMs(x.reviewedAt)>=strictCalendarDateMs(p.selectedAt),'LAND_ADJUSTMENT_WINDOW_INVALID');
    return canonicalRecord(adj.createComparableAdjustmentRecord,x,'LAND_ADJUSTMENT_CANONICAL_MISMATCH');
  });
+ required(selection.selectedComparableIds.every(id=>adjustmentRecords.some(x=>x.comparableId===id)),'LAND_EXPLICIT_ADJUSTMENT_DISPOSITION_REQUIRED');
  const analysis=adj.buildComparableAdjustmentAnalysis({...a,records,selection,adjustmentRecords});
  required(analysis.reconciliationReady===true&&equal(analysis,d.adjustmentAnalysis),'LAND_REBUILT_ADJUSTMENT_MISMATCH');
  return {records,analysis};
@@ -148,6 +149,7 @@ function evaluateSourceInputReplay(input={}){
        const limit=strictCalendarDateMs(d.reconciledAt);
        required(Number.isFinite(limit)&&limit>=date&&limit<=cutoff,'LAND_RECONCILIATION_WINDOW_INVALID');
        const propertyEvidencePacket=rebuildProperty(record,ctx,d.propertyEvidencePacket,limit);
+       required(propertyEvidencePacket.assetType==='LAND'&&record.propertyEvidenceDraft.materialMeasurementTypes.includes('LAND_AREA'),'LAND_SUBJECT_MEASUREMENT_NOT_GOVERNED');
        const market=rebuildLandAdjustment(record,ctx,d,limit);
        rebuilt=buildLandSalesComparisonInputPacket({...d,propertyEvidencePacket,comparableRecords:market.records,adjustmentAnalysis:market.analysis});
      }else if(v==='WHOLE_PROPERTY_SALES_COMPARISON_1.0'){
@@ -155,6 +157,13 @@ function evaluateSourceInputReplay(input={}){
        const limit=strictCalendarDateMs(d.reconciledAt);
        required(Number.isFinite(limit)&&limit>=date&&limit<=cutoff,'MARKET_RECONCILIATION_WINDOW_INVALID');
        const subjectPropertyEvidencePacket=rebuildProperty(record,ctx,d.subjectPropertyEvidencePacket,limit);
+       const measurement=subjectPropertyEvidencePacket.measurements.find(x=>x.measurementId===d.subjectMeasurementId);
+       required(measurement&&record.propertyEvidenceDraft.materialMeasurementTypes.includes(measurement.type),'MARKET_SUBJECT_MEASUREMENT_NOT_GOVERNED');
+       required(before(d.marketContextBinding?.boundAt,strictCalendarDateMs(d.selectedAt))&&before(d.selectedAt,limit),'MARKET_SELECTION_WINDOW_INVALID');
+       required(Array.isArray(d.comparableMeasurements)&&d.comparableMeasurements.length>0&&d.comparableMeasurements.length<=500&&Array.isArray(d.adjustmentRecords)&&d.adjustmentRecords.length<=2000&&Array.isArray(d.marketEvidence?.evidenceRecords)&&d.marketEvidence.evidenceRecords.length<=1000,'MARKET_SOURCE_COLLECTIONS_REQUIRED');
+       required(d.marketEvidence.evidenceRecords.every(x=>before(x.effectiveAt,date)&&before(x.observedAt,strictCalendarDateMs(d.selectedAt))&&Number.isFinite(strictCalendarDateMs(x.validUntil))),'MARKET_SOURCE_WINDOW_INVALID');
+       required(d.comparableMeasurements.every(x=>before(x.effectiveAt,date)&&before(x.verifiedAt,strictCalendarDateMs(d.selectedAt))&&Number.isFinite(strictCalendarDateMs(x.validUntil))),'MARKET_COMPARABLE_MEASUREMENT_WINDOW_INVALID');
+       required(d.adjustmentRecords.every(x=>before(x.reviewedAt,limit)&&strictCalendarDateMs(x.reviewedAt)>=strictCalendarDateMs(d.selectedAt)),'MARKET_ADJUSTMENT_WINDOW_INVALID');
        rebuilt=buildWholePropertySalesComparisonInputPacket({...d,subjectPropertyEvidencePacket});
      }else throw Error('UNSUPPORTED_MODEL');
      required(equal(rebuilt,packets[id]),'SOURCE_REBUILT_PACKET_MISMATCH');
