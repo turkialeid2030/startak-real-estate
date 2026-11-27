@@ -11,7 +11,7 @@ async function count(tx, key) {
 export async function reserveQuota(storage, input) {
   const { id, subjectHash, now, tokens, limits, money } = input || {};
   if (!storage || typeof storage.transaction !== 'function') return deny('ATOMIC_STORE_REQUIRED');
-  if (!/^[a-zA-Z0-9-]{16,80}$/.test(id || '') || !/^[a-f0-9]{64}$/.test(subjectHash || '') || !Number.isSafeInteger(now) || now < 0 || !positive(tokens)
+  if (typeof id !== 'string' || !/^[a-zA-Z0-9-]{16,80}$/.test(id) || typeof subjectHash !== 'string' || !/^[a-f0-9]{64}$/.test(subjectHash) || !Number.isSafeInteger(now) || now < 0 || !positive(tokens)
     || !limits || !['minute', 'subjectDay', 'globalDay', 'tokensDay'].every(key => positive(limits[key]))) return deny('INVALID_QUOTA_INPUT');
   if (money !== undefined && (!money || !positive(money.reservedUsdMicros) || !positive(money.limitUsdMicros)
     || typeof money.model !== 'string' || !money.model.trim() || money.model.length>200)) return deny('INVALID_MONETARY_INPUT');
@@ -47,12 +47,14 @@ export async function reserveQuota(storage, input) {
 // Missing/uncertain usage must not be refunded. Settle only server-verified usage.
 export async function settleQuota(storage, { id, actualTokens } = {}) {
   if (!storage || typeof storage.transaction !== 'function') return { settled: false, code: 'ATOMIC_STORE_REQUIRED' };
-  if (!/^[a-zA-Z0-9-]{16,80}$/.test(id || '') || !Number.isSafeInteger(actualTokens) || actualTokens < 0) return { settled: false, code: 'INVALID_USAGE' };
+  if (typeof id !== 'string' || !/^[a-zA-Z0-9-]{16,80}$/.test(id) || !Number.isSafeInteger(actualTokens) || actualTokens < 0) return { settled: false, code: 'INVALID_USAGE' };
   try {
     return await storage.transaction(async tx => {
       const key = `reservation:${id}`;
       const reservation = await tx.get(key);
       if (!reservation) return { settled: false, code: 'RESERVATION_NOT_FOUND' };
+      if (reservation.id !== id || !Number.isSafeInteger(reservation.day) || reservation.day < 0 || !positive(reservation.tokens)
+        || (reservation.state !== 'RESERVED' && reservation.state !== 'SETTLED')) return { settled: false, code: 'CORRUPT_RESERVATION_STATE' };
       if (reservation.state === 'SETTLED') return reservation.actualTokens === actualTokens
         ? { settled: true, replayed: true, overage: actualTokens > reservation.tokens }
         : { settled: false, code: 'SETTLEMENT_CONFLICT' };
