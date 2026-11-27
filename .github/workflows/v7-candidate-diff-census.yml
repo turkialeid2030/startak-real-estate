@@ -1,0 +1,32 @@
+name: V7 Candidate Diff Census
+on:
+  pull_request:
+    paths:
+      - 'tools/v7-candidate-diff-census.js'
+      - 'tests/architecture/run_v7_candidate_diff_census.js'
+      - '.github/workflows/v7-candidate-diff-census.yml'
+permissions:
+  contents: read
+jobs:
+  exact-tree-diff:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+      - name: Verify parser and local Git contract
+        run: node tests/architecture/run_v7_candidate_diff_census.js
+      - name: Read main tree and compare exact candidate
+        env:
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git fetch --no-tags --depth=1 origin refs/heads/main
+          BASE_SHA="$(git rev-parse FETCH_HEAD)"
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          node tools/v7-candidate-diff-census.js "$BASE_SHA" "$CANDIDATE_SHA"
