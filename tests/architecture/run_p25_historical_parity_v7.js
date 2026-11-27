@@ -56,4 +56,28 @@ for(const complete of [true,false])check(complete?'complete-ui-hold':'incomplete
  for(const locale of ['ar-SA','en']){const v=buildUiDisclosureViewModel({governance:state.governance,locale});assert.equal(v.criticalOverrideHold,true);assert.equal(v.criticalOverrideIndependentlyApproved,false);assert.equal(v.userApprovedAssumptions,false);assert.equal(v.canonicalDefaultsAreApprovalEvidence,false);assert.equal(v.transactionAuthorized,false);assert.equal(v.sensitivityReady,false);assert.ok(v.criticalOverrideNotice.includes(locale==='en'?'not qualified':'غير مؤهل'));}
 });
 check('saved-record-duplicate-rejected',()=>assert.throws(()=>withAssumptionRegistry({id:'synthetic'},[record,record]),e=>e.reasonCode==='DUPLICATE_ASSUMPTION_ID'));
+// The isolated scenario adapter must not serialize an overflow as null. This
+// tests the adapter boundary using injected executors, not real engine reachability.
+const {evaluateP25ResearchScenario}=require('../../src/engines/p25-research-scenario');
+const injected=(base,whatIf)=>evaluateP25ResearchScenario({...terms,assumptionRegistry:[record],asOf},{
+ runBaseline:()=>base,runScenario:()=>whatIf,
+});
+for(const key of ['NOI','npv','irr','netYieldOnCost','marketValueByIncomeCap','totalPurchaseCost','loanAmount','dscrMin','leveredNPV','leveredIRR']){
+ for(const sign of [-1,1])check('delta-overflow-'+key+'-'+sign,()=>{
+  const result=injected({[key]:sign*Number.MAX_VALUE},{[key]:-sign*Number.MAX_VALUE});
+  assert.equal(result.status,P25_WHAT_IF_STATUS.INVALID);
+  assert.ok(result.reasonCodes.includes('P25_FINANCIAL_SCENARIO_DELTA_NOT_FINITE'));
+  assert.equal(result.baseline,null);assert.equal(result.whatIf,null);assert.equal(result.deltas,null);
+  for(const flag of flags)assert.equal(result[flag],false);
+ });
+}
+for(const [i,[b,s,expected]] of [[100,120,20],[120,100,-20],[0,0,0],[0,Number.MAX_VALUE,Number.MAX_VALUE],[Number.MAX_VALUE,Number.MAX_VALUE,0],[null,100,null]].entries()){
+ check('delta-finite-control-'+i,()=>{
+  const result=injected({npv:b},{npv:s});
+  assert.equal(result.status,P25_WHAT_IF_STATUS.ANALYTICAL_HOLD);
+  assert.equal(result.deltas.npv,expected);
+  assert.equal(JSON.parse(JSON.stringify(result)).deltas.npv,expected);
+  for(const flag of flags)assert.equal(result[flag],false);
+ });
+}
 console.log('V7_P25_HISTORICAL_PARITY=PASS cases='+cases+' fixture=synthetic_reference no_independent_approval=true');
