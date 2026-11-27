@@ -1,5 +1,8 @@
 'use strict';
-const assert=require('node:assert/strict');
+const assert=require('node:assert/strict'),crypto=require('node:crypto');
+const {evaluateGovernedSourceBridge}=require('../../src/source-intelligence/governed-source-bridge');
+const {hashValue}=require('../../src/source-intelligence/source-provenance-governance');
+const {SOURCE_TIER,SOURCE_LICENSING_STATUS}=require('../../src/contracts/source-intelligence');
 const a=require('../../src/source-intelligence/governed-non-api-acquisition'),o=require('../../src/source-intelligence/governed-source-operational-readiness');
 const H='a'.repeat(64),asOf='2026-09-04',trustedRightsVerifierIds=['SYNTH-VERIFIER'];
 const draft={acquisitionId:'SYNTH-ACQ',profileId:'BALADY_OPEN_DATA_DOWNLOADS',sourceProvider:'BALADY_URBAN_MAPS',sourceUrl:'https://balady.gov.sa/data',acquisitionMethod:a.ACQUISITION_METHOD.OFFICIAL_OPEN_DATA_FILE_DOWNLOAD,automatedRetrieval:true,retrievedAt:'2026-09-02',sourceEffectiveAt:'2026-09-01',artifactMimeType:'text/csv',artifactFormat:'CSV',artifactHashSha256:H,extractionMethod:a.EXTRACTION_METHOD.STRUCTURED_FILE_PARSE,extractorVersion:'SYNTH-PARSER',extractedPayload:[{value:1000}],termsEvidenceRef:'SYNTH-TERMS',licenseReference:'SYNTH-LICENSE',attributionText:'SYNTH-ATTRIBUTION',rightsVerified:true,rightsVerifiedByRef:'SYNTH-VERIFIER',rightsVerifiedAt:'2026-09-01',rightsEvidenceRef:'SYNTH-RIGHTS'};
@@ -18,4 +21,14 @@ for(const patch of [{availability:o.AVAILABILITY.OUTAGE},{conflictDetected:true}
 assert.equal(evalO(p,r,'2099-01-01').preproductionSourceReady,false);
 const forged={...r,transactionAuthorized:true};forged.acquisitionRecordHashSha256=a.computeNonApiAcquisitionRecordHash(forged);assert.equal(a.verifyNonApiAcquisitionRecordIntegrity(forged),false);
 assert.equal(evalO(p,forged).preproductionSourceReady,false);
-console.log('C2N_C25_GOVERNED_SOURCE_RECOVERY=PASS synthetic=true live=false');
+const artifact=Buffer.from('synthetic source artifact'),artifactHashSha256=crypto.createHash('sha256').update(artifact).digest('hex');
+const bound=a.createGovernedNonApiAcquisitionRecord({...draft,artifactHashSha256,provenanceVerificationRef:'SYNTH-PROVENANCE'});
+const op=o.createSourceOperationalRecord({...od,artifactHashSha256,acquisitionRecordHashSha256:bound.acquisitionRecordHashSha256});
+const provenance={id:'SYNTH-PROVENANCE-RECORD',caseId:'SYNTH-CASE',scopeRef:'SYNTH-SCOPE',sourceProvider:bound.sourceProvider,sourceTier:SOURCE_TIER.A_OFFICIAL_AUTHORITATIVE,licensingStatus:SOURCE_LICENSING_STATUS.NOT_APPLICABLE_OFFICIAL,sourceUrl:bound.sourceUrl,originalSourceReference:bound.acquisitionId,methodologyVersion:bound.extractorVersion,retrievedAt:bound.retrievedAt,effectiveAt:bound.sourceEffectiveAt,validUntil:'2026-09-05',underlyingAuthority:bound.sourceProvider,provenanceVerified:true,provenanceVerifiedBy:'SYNTH-PROVENANCE-VERIFIER',provenanceVerificationReference:bound.provenanceVerificationRef,provenanceVerifiedAt:'2026-09-03',corroboratedBy:[],evidencePayload:bound.extractedPayload,evidenceHashSha256:hashValue(bound.extractedPayload)};
+const bridgeInput={artifactBytes:artifact,acquisitionRecord:bound,operationalRecord:op,provenanceRecord:provenance,caseId:provenance.caseId,scopeRef:provenance.scopeRef,asOf,trustedRightsVerifierIds,trustedProvenanceVerifierIds:['SYNTH-PROVENANCE-VERIFIER']};
+const bridge=patch=>evaluateGovernedSourceBridge({...bridgeInput,...patch});
+const ok=bridge({});assert.equal(ok.status,'PREPRODUCTION_SOURCE_CLASSIFICATION_MATCHED');assert.equal(ok.productionUseAuthorized,false);assert.equal(ok.decisionReady,false);
+assert.equal(bridge({artifactBytes:Buffer.from('wrong')}).reason,'SOURCE_BRIDGE_ARTIFACT_MISMATCH');
+for(const patch of [{caseId:'OTHER'},{sourceProvider:'OTHER'},{sourceUrl:'https://balady.gov.sa/other'},{validUntil:'2026-09-06'},{provenanceVerifiedAt:'2026-09-02'},{evidencePayload:[{value:999}],evidenceHashSha256:hashValue([{value:999}])}])assert.equal(bridge({provenanceRecord:{...provenance,...patch}}).preproductionClassificationReady,false);
+assert.equal(bridge({trustedProvenanceVerifierIds:[]}).preproductionClassificationReady,false);
+console.log('C2N_C25_C2S_GOVERNED_SOURCE_RECOVERY=PASS synthetic=true live=false');
