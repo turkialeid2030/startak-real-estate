@@ -347,6 +347,7 @@ function createControlledDrFailoverQualification({
       drillId: normalizedDrillId,
       recoveryObjectives: objectives,
       backupRestoreQualificationRef,
+      backupRestoreReviewedAt:backupRestoreComplete?backupRestoreQualification.resilienceEvidence.reviewedAt:null,
       executionOrder: ['preflight', 'failover', 'failoverVerification', 'failback', 'failbackVerification', 'resilienceEvidence'],
     };
     const plan = freeze({ ...planCore, planHashSha256: sha256Object(planCore) });
@@ -389,7 +390,7 @@ function createControlledDrFailoverQualification({
     } catch (_) {
       return makeResult({ status: DR_FAILOVER_STATUS.HOLD_PREFLIGHT, plan, authorization: auth });
     }
-    if (!preflight.ready || Date.parse(preflight.observedAt)>evidenceCutoff() || Date.parse(preflight.observedAt)<Math.max(Date.parse(auth.approvedAt),Date.parse(backupRestoreQualification.resilienceEvidence.reviewedAt),retrospective?-Infinity:assessed.millis) || Math.max(preflight.replicationLagSeconds,preflight.observedWatermarkLagSeconds)>objectives.maximumDataLossSeconds) {
+    if (!preflight.ready || Date.parse(preflight.observedAt)>evidenceCutoff() || Date.parse(preflight.observedAt)<Math.max(Date.parse(auth.approvedAt),Date.parse(plan.backupRestoreReviewedAt),retrospective?-Infinity:assessed.millis) || Math.max(preflight.replicationLagSeconds,preflight.observedWatermarkLagSeconds)>objectives.maximumDataLossSeconds) {
       return makeResult({ status: DR_FAILOVER_STATUS.HOLD_PREFLIGHT, plan, authorization: auth, preflight });
     }
 

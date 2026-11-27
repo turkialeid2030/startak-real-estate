@@ -170,9 +170,15 @@ function buildResult({
 function createControlledStagingApiSecurityQualification({
   requestExecutor = defaultRequestExecutor,
   adminInspector,
+  approvedApiTargets = [],
 } = {}) {
   if (typeof requestExecutor !== 'function') throw new TypeError('requestExecutor must be a function');
   if (typeof adminInspector !== 'function') throw new TypeError('adminInspector must be a function');
+  if(!Array.isArray(approvedApiTargets))throw new TypeError('approvedApiTargets must be an array');
+  // Host-owned configuration, never read from the per-request input.
+  const targets=approvedApiTargets.map(v=>Object.freeze({environment:normalizeEnvironment(v.environment),targetApiRef:requiredString(v.targetApiRef,'targetApiRef'),targetDatabaseRef:requiredString(v.targetDatabaseRef,'targetDatabaseRef'),apiBaseUrl:normalizeApiBaseUrl(v.apiBaseUrl)}));
+  const targetKeys=targets.map(v=>JSON.stringify([v.environment,v.targetApiRef,v.targetDatabaseRef]));
+  if(new Set(targetKeys).size!==targetKeys.length)throw new TypeError('duplicate approved API target scope');
 
   return async function qualify({
     postgresQualification,
@@ -192,6 +198,7 @@ function createControlledStagingApiSecurityQualification({
     const apiRef = requiredString(targetApiRef, 'targetApiRef');
     const databaseRef = requiredString(targetDatabaseRef, 'targetDatabaseRef');
     const baseUrl = normalizeApiBaseUrl(apiBaseUrl);
+    if(!targets.some(v=>v.environment===env&&v.targetApiRef===apiRef&&v.targetDatabaseRef===databaseRef&&v.apiBaseUrl===baseUrl))throw new Error('API_TARGET_NOT_APPROVED');
     const wsId = normalizeWorkspaceId(workspaceId);
     const tenantAHeader = requiredBearerHeader(tenantAAuthorizationHeader, 'tenantAAuthorizationHeader');
     const tenantBHeader = requiredBearerHeader(tenantBAuthorizationHeader, 'tenantBAuthorizationHeader');
@@ -304,6 +311,7 @@ function createControlledStagingApiSecurityQualification({
         workspaceId: wsId,
         operationId: `${opId}:admin`,
         occurredAt: timestamp,
+        environment:env,targetApiRef:apiRef,targetDatabaseRef:databaseRef,apiBaseUrl:baseUrl,
       });
       adminAllowed = Boolean(adminResult && adminResult.readOnly === true && adminResult.secretsExposed === false);
       const directTenant=tenantAResponse.body?.data?.tenantId,nestedTenant=tenantAResponse.body?.data?.workspace?.tenantId;
@@ -321,6 +329,7 @@ function createControlledStagingApiSecurityQualification({
         workspaceId: wsId,
         operationId: `${opId}:non-admin`,
         occurredAt: timestamp,
+        environment:env,targetApiRef:apiRef,targetDatabaseRef:databaseRef,apiBaseUrl:baseUrl,
       });
     } catch (error) {
       nonAdminFailureCode = sanitizeErrorCode(error);

@@ -347,7 +347,7 @@ function createControlledBackupRestoreQualification({
       return makeResult({ status: BACKUP_RESTORE_STATUS.HOLD_BACKUP, plan, authorization: auth });
     }
 
-    if (Date.parse(backup.startedAt) < Math.max(Date.parse(auth.approvedAt),Date.parse(apiSecurityQualification.apiEvidence.testedAt),retrospective ? -Infinity : assessed.millis) || Date.parse(backup.finishedAt)>evidenceCutoff()) {
+    if (Date.parse(backup.startedAt) < Math.max(Date.parse(auth.approvedAt),Date.parse(plan.apiSecurityTestedAt),retrospective ? -Infinity : assessed.millis) || Date.parse(backup.finishedAt)>evidenceCutoff()) {
       return makeResult({ status: BACKUP_RESTORE_STATUS.HOLD_BACKUP, plan, authorization: auth, backup });
     }
     let restore;
