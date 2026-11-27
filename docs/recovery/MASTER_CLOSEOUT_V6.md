@@ -144,3 +144,6 @@ Shared NOI aggregate arithmetic and stabilized period validation, direct cap pro
 
 ## V6.33 detailed income and expense trace
 V6.32 Release 716/716 and 17/17 required scripts; Wave12B 72 checks PASS. Forecast input revalidates nested constructors and scope; shared NOI verifier replays line arithmetic and checks review flags. 14 negative cases, 3 positive checks; 18 required scripts. Synthetic fixtures extended with explicit trace. Same PR #871. Exact-head CI required; no external source certification or deployment.
+
+## V6.34 DCF input integrity
+V6.33 Release 716/716, 18/18 mandatory scripts, NOI 60 checks PASS. DCF packet now verifies nested assumptions and rate trace consistency, chronology, scope, adjustment IDs, timing and authority. 14 negative cases and 2 positive roundtrips. No external source authentication or production release.

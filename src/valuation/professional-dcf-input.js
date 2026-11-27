@@ -73,7 +73,7 @@ function finitePositive(value, field) {
 function stableClone(value) {
   if (Array.isArray(value)) return value.map(stableClone);
   if (!value || typeof value !== 'object') return value;
-  return Object.keys(value).sort().reduce((out, key) => { out[key] = stableClone(value[key]); return out; }, {});
+  return Object.fromEntries(Object.keys(value).sort().map(key=>[key,stableClone(value[key])]));
 }
 function sha256(value) { return crypto.createHash('sha256').update(JSON.stringify(stableClone(value))).digest('hex'); }
 function deepFreeze(value) {
@@ -134,7 +134,7 @@ function createTerminalNoiInput({
 function verifyTerminalNoiInputIntegrity(input) {
   if (!input || !validSha(input.terminalNoiInputHashSha256)) return false;
   const { terminalNoiInputHashSha256, ...core } = input;
-  return sha256(core) === input.terminalNoiInputHashSha256.toLowerCase();
+  try{return sha256(core) === input.terminalNoiInputHashSha256.toLowerCase()&&createTerminalNoiInput(input).terminalNoiInputHashSha256===input.terminalNoiInputHashSha256;}catch{return false;}
 }
 
 function createDispositionCostInput({
@@ -181,7 +181,7 @@ function createDispositionCostInput({
 function verifyDispositionCostInputIntegrity(input) {
   if (!input || !validSha(input.dispositionCostInputHashSha256)) return false;
   const { dispositionCostInputHashSha256, ...core } = input;
-  return sha256(core) === input.dispositionCostInputHashSha256.toLowerCase();
+  try{return sha256(core) === input.dispositionCostInputHashSha256.toLowerCase()&&createDispositionCostInput(input).dispositionCostInputHashSha256===input.dispositionCostInputHashSha256;}catch{return false;}
 }
 
 function createDcfPeriodAdjustment({
@@ -243,7 +243,7 @@ function createDcfPeriodAdjustment({
 function verifyDcfPeriodAdjustmentIntegrity(input) {
   if (!input || !validSha(input.dcfPeriodAdjustmentHashSha256)) return false;
   const { dcfPeriodAdjustmentHashSha256, ...core } = input;
-  return sha256(core) === input.dcfPeriodAdjustmentHashSha256.toLowerCase();
+  try{return sha256(core) === input.dcfPeriodAdjustmentHashSha256.toLowerCase()&&createDcfPeriodAdjustment(input).dcfPeriodAdjustmentHashSha256===input.dcfPeriodAdjustmentHashSha256;}catch{return false;}
 }
 
 function hold(status, blockers, context = {}) {
@@ -456,6 +456,25 @@ function buildProfessionalDcfInputPacket({
 
 function verifyProfessionalDcfInputIntegrity(packet) {
   if (!packet || !validSha(packet.professionalDcfInputHashSha256)) return false;
+  try{
+  if(packet.schemaVersion!==1||packet.status!==PROFESSIONAL_DCF_INPUT_STATUS.READY_FOR_CANONICAL_DCF||packet.readyForCanonicalDcf!==true||!Array.isArray(packet.blockers)||packet.blockers.length||['automaticRateDerivation','automaticTerminalNoiDerivation','financingIncluded','debtServiceIncluded','incomeTaxCalculated','zakatCalculated','equityReturnAnalysisPerformed','reconciliationPerformed','finalValuationConclusionEstablished','certifiedValuationEstablished','transactionAuthorized'].some(k=>packet[k]!==false))return false;
+  if(!['packetId','caseId','propertyRef','preparedByRef','evidenceRef'].every(k=>nonEmpty(packet[k]))||!validSha(packet.professionalNoiCalculationHashSha256)||!validSha(packet.professionalNoiInputPacketHashSha256)||!Object.values(DCF_TIMING_CONVENTION).includes(packet.timingConvention)||packet.terminalTimingConvention!=='END_OF_FINAL_PERIOD'||!['BEFORE_REPLACEMENT_RESERVE','AFTER_REPLACEMENT_RESERVE'].includes(packet.noiConvention)||packet.periodAdjustmentsExplicitlyReviewed!==true)return false;
+  const vd=iso(packet.valuationDate,'valuationDate'),pa=iso(packet.preparedAt,'preparedAt');
+  if(Date.parse(pa)<Date.parse(vd)||!Array.isArray(packet.operatingNoiPeriods)||!packet.operatingNoiPeriods.length||!Array.isArray(packet.periodAdjustments))return false;
+  const pids=new Set(),aids=new Set();let last=Date.parse(vd),stabilized=0;
+  for(const [i,p] of packet.operatingNoiPeriods.entries()){
+   if(!p||!nonEmpty(p.periodId)||pids.has(p.periodId)||p.periodIndex!==i+1||!Number.isFinite(p.selectedNoiSar)||p.selectedNoiConvention!==packet.noiConvention||typeof p.isStabilized!=='boolean')return false;
+   const start=Date.parse(iso(p.startDate,'startDate')),end=Date.parse(iso(p.endDate,'endDate'));if(start<last||end<=start)return false;last=end;pids.add(p.periodId);if(p.isStabilized)stabilized++;
+  }
+  if(stabilized!==1)return false;
+  const scoped=x=>x?.caseId===packet.caseId&&x?.propertyRef===packet.propertyRef;
+  const reviewed=x=>Date.parse(x.reviewedAt)<=Date.parse(pa);
+  for(const a of packet.periodAdjustments){if(!scoped(a)||!verifyDcfPeriodAdjustmentIntegrity(a)||aids.has(a.adjustmentId)||a.periodIndex>packet.operatingNoiPeriods.length||!reviewed(a)||Date.parse(a.asOfDate)>Date.parse(vd))return false;aids.add(a.adjustmentId);}
+  for(const [trace,type,value] of [[packet.discountRateProvenance,RATE_INPUT_TYPE.DISCOUNT_RATE,packet.discountRate],[packet.exitCapRateProvenance,RATE_INPUT_TYPE.EXIT_CAP_RATE,packet.exitCapRate]]){
+   if(!trace||trace.type!==type||trace.value!==value||!Number.isFinite(value)||value<=0||value>1||!validSha(trace.rateInputHashSha256)||!nonEmpty(trace.rateId)||!nonEmpty(trace.reviewedByRef)||!nonEmpty(trace.reviewEvidenceRef)||!Array.isArray(trace.evidenceRefs)||!trace.evidenceRefs.length||!trace.evidenceRefs.every(nonEmpty)||!Number.isSafeInteger(trace.maximumAgeDays)||trace.maximumAgeDays<0||!Number.isSafeInteger(trace.ageDays)||trace.ageDays<0||trace.ageDays>trace.maximumAgeDays||trace.ageDays!==daysBetween(iso(trace.asOfDate,'rate.asOfDate'),vd)||Date.parse(trace.asOfDate)>Date.parse(vd)||!reviewed(trace))return false;
+  }
+  const n=packet.terminalNoiInput,c=packet.dispositionCostInput;
+  if(!scoped(n)||!scoped(c)||!verifyTerminalNoiInputIntegrity(n)||!verifyDispositionCostInputIntegrity(c)||!reviewed(n)||!reviewed(c)||Date.parse(n.asOfDate)>Date.parse(vd))return false;
   const core = { ...packet };
   [
     'professionalDcfInputHashSha256', 'status', 'blockers', 'readyForCanonicalDcf', 'automaticRateDerivation',
@@ -464,6 +483,7 @@ function verifyProfessionalDcfInputIntegrity(packet) {
     'certifiedValuationEstablished', 'transactionAuthorized', 'semantics',
   ].forEach((key) => delete core[key]);
   return sha256(core) === packet.professionalDcfInputHashSha256.toLowerCase();
+  }catch{return false;}
 }
 
 module.exports = {
