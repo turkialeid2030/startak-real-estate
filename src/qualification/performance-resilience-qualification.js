@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const {strictCalendarDateMs} = require('../validation/strict-calendar-instant');
 
 const QUALIFICATION_ENVIRONMENT = Object.freeze({
   CI_TEST: 'CI_TEST',
@@ -73,8 +74,8 @@ function requiredCommitSha(value, field) {
 
 function requiredTimestamp(value, field) {
   const normalized = requiredString(value, field);
-  const millis = Date.parse(normalized);
-  if (!Number.isFinite(millis)) throw new TypeError(`${field} must be an ISO-compatible timestamp`);
+  const millis = strictCalendarDateMs(normalized);
+  if (!Number.isFinite(millis)) throw new TypeError(`${field} must be a valid calendar date or explicit-zone ISO timestamp`);
   return Object.freeze({ value: normalized, millis });
 }
 
@@ -157,7 +158,7 @@ function verifyPerformanceSlo(slo) {
       reviewedBy: requiredString(slo.reviewedBy, 'reviewedBy'),
       reviewedAt: requiredTimestamp(slo.reviewedAt, 'reviewedAt').value,
     };
-    if(core.maxP95LatencyMs>core.maxP99LatencyMs||!Number.isSafeInteger(core.minimumSampleCount)||Date.parse(core.reviewedAt)<Date.parse(core.effectiveAt))return Object.freeze({valid:false,reasonCode:'SLO_THRESHOLD_OR_CHRONOLOGY_INVALID'});
+    if(core.maxP95LatencyMs>core.maxP99LatencyMs||!Number.isSafeInteger(core.minimumSampleCount)||strictCalendarDateMs(core.reviewedAt)<strictCalendarDateMs(core.effectiveAt))return Object.freeze({valid:false,reasonCode:'SLO_THRESHOLD_OR_CHRONOLOGY_INVALID'});
     const expectedHash = sha256Object(core);
     return Object.freeze({ valid: slo.sloHashSha256 === expectedHash, reasonCode: slo.sloHashSha256 === expectedHash ? null : 'SLO_HASH_MISMATCH', expectedHash });
   } catch (error) {
@@ -234,7 +235,7 @@ function verifyPerformanceRunEvidence(record) {
     };
     if(!Number.isSafeInteger(core.sampleCount)||!Number.isSafeInteger(core.concurrentUsers))return Object.freeze({valid:false,reasonCode:'RUN_COUNTS_MUST_BE_INTEGERS'});
     if (!(core.p50LatencyMs <= core.p95LatencyMs && core.p95LatencyMs <= core.p99LatencyMs)) return Object.freeze({ valid: false, reasonCode: 'LATENCY_PERCENTILE_ORDER_INVALID' });
-    if (Date.parse(core.finishedAt) < Date.parse(core.startedAt) || Date.parse(core.reviewedAt) < Date.parse(core.finishedAt)) return Object.freeze({ valid: false, reasonCode: 'RUN_TIME_ORDER_INVALID' });
+    if (strictCalendarDateMs(core.finishedAt) < strictCalendarDateMs(core.startedAt) || strictCalendarDateMs(core.reviewedAt) < strictCalendarDateMs(core.finishedAt)) return Object.freeze({ valid: false, reasonCode: 'RUN_TIME_ORDER_INVALID' });
     const expectedHash = sha256Object(core);
     return Object.freeze({ valid: record.runEvidenceHashSha256 === expectedHash, reasonCode: record.runEvidenceHashSha256 === expectedHash ? null : 'RUN_HASH_MISMATCH', expectedHash });
   } catch (error) {
@@ -250,7 +251,7 @@ function evaluatePerformanceRun({ slo, runEvidence } = {}) {
   if (slo.workloadClass !== runEvidence.workloadClass) throw new TypeError('slo and runEvidence workloadClass must match');
 
   const failures = [];
-  if(Date.parse(slo.effectiveAt)>Date.parse(runEvidence.startedAt)||Date.parse(slo.reviewedAt)>Date.parse(runEvidence.startedAt))failures.push('SLO_NOT_APPROVED_BEFORE_RUN');
+  if(strictCalendarDateMs(slo.effectiveAt)>strictCalendarDateMs(runEvidence.startedAt)||strictCalendarDateMs(slo.reviewedAt)>strictCalendarDateMs(runEvidence.startedAt))failures.push('SLO_NOT_APPROVED_BEFORE_RUN');
   if (runEvidence.sampleCount < slo.minimumSampleCount) failures.push('MINIMUM_SAMPLE_COUNT_NOT_MET');
   if (runEvidence.p95LatencyMs > slo.maxP95LatencyMs) failures.push('P95_LATENCY_EXCEEDED');
   if (runEvidence.p99LatencyMs > slo.maxP99LatencyMs) failures.push('P99_LATENCY_EXCEEDED');
@@ -330,7 +331,7 @@ function verifyResilienceEvidence(record) {
       status: requiredEnum(record.status, PERFORMANCE_STATUS, 'status'),
       failureCodes: Array.isArray(record.failureCodes) ? [...record.failureCodes] : [],
     };
-    if(typeof record.duplicateSideEffectsObserved!=='boolean'||typeof record.unreconciledDataCorruptionObserved!=='boolean'||Date.parse(core.reviewedAt)<Date.parse(core.observedAt))return Object.freeze({valid:false,reasonCode:'RESILIENCE_OBSERVATION_OR_TIME_INVALID'});
+    if(typeof record.duplicateSideEffectsObserved!=='boolean'||typeof record.unreconciledDataCorruptionObserved!=='boolean'||strictCalendarDateMs(core.reviewedAt)<strictCalendarDateMs(core.observedAt))return Object.freeze({valid:false,reasonCode:'RESILIENCE_OBSERVATION_OR_TIME_INVALID'});
     const rebuilt=createResilienceEvidence(core);
     if(rebuilt.status!==core.status||JSON.stringify(rebuilt.failureCodes)!==JSON.stringify(core.failureCodes))return Object.freeze({valid:false,reasonCode:'RESILIENCE_OUTCOME_REPLAY_MISMATCH'});
     const expectedHash = sha256Object(core);
@@ -373,8 +374,8 @@ function buildPerformanceResilienceQualification(input = {}) {
       issues.push(`RUN_SCOPE_MISMATCH:${record.runId}`);
     }
     // A recent review must not renew the age of old measured results.
-    const ageDays = (assessed.millis - Date.parse(record.finishedAt)) / 86400000;
-    if (ageDays < 0 || ageDays > maximumEvidenceAgeDays || Date.parse(record.reviewedAt) > assessed.millis) {
+    const ageDays = (assessed.millis - strictCalendarDateMs(record.finishedAt)) / 86400000;
+    if (ageDays < 0 || ageDays > maximumEvidenceAgeDays || strictCalendarDateMs(record.reviewedAt) > assessed.millis) {
       status = PERFORMANCE_QUALIFICATION_STATUS.HOLD_STALE_EVIDENCE;
       issues.push(`RUN_EVIDENCE_OUTSIDE_FRESHNESS:${record.runId}`);
     }
@@ -436,8 +437,8 @@ function buildPerformanceResilienceQualification(input = {}) {
       status = PERFORMANCE_QUALIFICATION_STATUS.HOLD_SCOPE_MISMATCH;
       issues.push(`RESILIENCE_SCOPE_MISMATCH:${record.resilienceEvidenceId}`);
     }
-    const ageDays = (assessed.millis - Date.parse(record.observedAt)) / 86400000;
-    if (ageDays < 0 || ageDays > maximumEvidenceAgeDays || Date.parse(record.reviewedAt) > assessed.millis) {
+    const ageDays = (assessed.millis - strictCalendarDateMs(record.observedAt)) / 86400000;
+    if (ageDays < 0 || ageDays > maximumEvidenceAgeDays || strictCalendarDateMs(record.reviewedAt) > assessed.millis) {
       status = PERFORMANCE_QUALIFICATION_STATUS.HOLD_STALE_EVIDENCE;
       issues.push(`RESILIENCE_EVIDENCE_OUTSIDE_FRESHNESS:${record.resilienceEvidenceId}`);
     }
