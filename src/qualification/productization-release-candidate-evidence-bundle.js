@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const {strictCalendarDateMs} = require('../validation/strict-calendar-instant');
 const {
   PRODUCTION_QUALIFICATION_STATUS,
 } = require('../runtime/production-qualification-service');
@@ -62,7 +63,7 @@ function requiredCommitSha(value, field = 'exactCommitSha') {
 
 function requiredTimestamp(value, field) {
   const normalized = requiredString(value, field);
-  const millis = Date.parse(normalized);
+  const millis = strictCalendarDateMs(normalized);
   if (!Number.isFinite(millis)) throw new TypeError(`${field} must be an ISO-compatible timestamp`);
   return Object.freeze({ value: normalized, millis });
 }
@@ -219,7 +220,7 @@ function safeSecurityUatSummary(value,verified) {
     uatScenarioCount: verified && Number.isSafeInteger(value.uat?.scenarioBinding?.scenarioCount) && value.uat.scenarioBinding.scenarioCount>0 ? value.uat.scenarioBinding.scenarioCount : null,
     uatScenarioPlanHashSha256: verified && isDigest(value.uat?.scenarioBinding?.planHashSha256) ? value.uat.scenarioBinding.planHashSha256 : null,
     uatScenarioResultsHashSha256:verified&&isDigest(value.uat?.scenarioBinding?.scenarioResultsHashSha256)?value.uat.scenarioBinding.scenarioResultsHashSha256:null,
-    observabilityCompletedAt:verified && typeof value.plan?.observabilityCompletedAt==='string'&&Number.isFinite(Date.parse(value.plan.observabilityCompletedAt))?new Date(Date.parse(value.plan.observabilityCompletedAt)).toISOString():null,
+    observabilityCompletedAt:verified && typeof value.plan?.observabilityCompletedAt==='string'&&Number.isFinite(strictCalendarDateMs(value.plan.observabilityCompletedAt))?new Date(strictCalendarDateMs(value.plan.observabilityCompletedAt)).toISOString():null,
   });
 }
 
@@ -320,7 +321,7 @@ function verifyReleaseCandidateManifest(manifest, sourceInput, asOf) {
   try {
     const at=requiredTimestamp(asOf,'asOf').millis;
     const expected=buildProductizationReleaseCandidateEvidenceBundle(sourceInput);
-    if(at>Date.now()||at<Date.parse(expected.reviewedAt))return false;
+    if(at>Date.now()||at<strictCalendarDateMs(expected.reviewedAt))return false;
     if(expected.status!==RELEASE_CANDIDATE_STATUS.READY_FOR_EXISTING_RELEASE_GOVERNANCE_REVIEW)return false;
     if(!securityUatReady(sourceInput.securityUatEvidence,expected,asOf))return false;
     // Exact normalized manifest including authority and non-claim flags.
