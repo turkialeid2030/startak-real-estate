@@ -151,4 +151,30 @@ check(negativeResult.periodResults[0].reviewFlags.includes('NON_POSITIVE_NOI_REV
 const tamperedPacket = { ...packet, noiConvention: NOI_CONVENTION.AFTER_REPLACEMENT_RESERVE };
 equal(calculateProfessionalNoi(tamperedPacket).status, PROFESSIONAL_NOI_RESULT_STATUS.INVALID_INPUT_PACKET, 'tampered canonical packet rejected');
 
+const {professionalNoiResultCore,verifyProfessionalNoiResultIntegrity}=require('../../src/valuation/direct-capitalization-input');
+const canon=v=>Array.isArray(v)?v.map(canon):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,canon(v[k])])):v;
+const digest=v=>require('crypto').createHash('sha256').update(JSON.stringify(canon(v))).digest('hex');
+equal(verifyProfessionalNoiResultIntegrity(JSON.parse(JSON.stringify(result))),true,'V633 actual engine detailed trace');
+equal(verifyProfessionalNoiResultIntegrity(negativeResult),true,'V633 negative NOI trace retained');
+const p=result.periodResults[0];
+for(const patch of [
+ {incomeTrace:[]},{incomeTrace:[{...p.incomeTrace[0],amountSar:1},...p.incomeTrace.slice(1)]},
+ {incomeTrace:[p.incomeTrace[0],p.incomeTrace[0]]},{vacancyCollectionLossTrace:{}},{vacancyCollectionLossTrace:{...p.vacancyCollectionLossTrace,inputValue:0.99}},
+ {operatingExpenseTrace:[]},{operatingExpenseTrace:[{...p.operatingExpenseTrace[0],calculatedAmountSar:1},...p.operatingExpenseTrace.slice(1)]},
+ {operatingExpenseTrace:[{...p.operatingExpenseTrace[0],category:'REPLACEMENT_RESERVE'},...p.operatingExpenseTrace.slice(1)]},
+ {reviewFlags:['UNSUPPORTED']}
+]){
+ const changed={...result,periodResults:[{...p,...patch},...result.periodResults.slice(1)]};
+ changed.calculationHashSha256=digest(professionalNoiResultCore(changed));
+ equal(verifyProfessionalNoiResultIntegrity(changed),false,'V633 rehashed trace rejected');
+}
+for(const patch of [{transactionAuthorized:true},{automaticMarketRentApplied:true},{stabilizedPeriodIndex:1},{forecastPeriods:[period2,period1]},{forecastPeriods:[{...period1,incomeLines:[{...period1.incomeLines[0],amountSar:1}]},period2]}]){
+ const changed={...packet,...patch},core={...changed};
+ for(const k of ['professionalIncomeForecastInputHashSha256','status','blockers','readyForCanonicalNoi','implicitVacancyAssumptionUsed','automaticLeaseOptionExercise','automaticMarketRentApplied','canonicalCalculationEngineRequired','capitalizationPerformed','dcfPerformed','financialAnalysisPerformed','certifiedValuationEstablished','transactionAuthorized','semantics'])delete core[k];
+ changed.professionalIncomeForecastInputHashSha256=digest(core);
+ equal(verifyProfessionalIncomeForecastInputIntegrity(changed),false,'V633 rehashed forecast contradiction rejected');
+ equal(calculateProfessionalNoi(changed).status,PROFESSIONAL_NOI_RESULT_STATUS.INVALID_INPUT_PACKET,'V633 engine rejects invalid forecast');
+}
+equal(calculateProfessionalNoi(JSON.parse(JSON.stringify(packet))).calculationHashSha256,result.calculationHashSha256,'V633 forecast roundtrip');
+console.log('W06_V633_DETAILED_NOI_TRACE=PASS negative_cases=14 positive_checks=3');
 console.log(`WAVE_12A_PROFESSIONAL_INCOME_NOI=PASS checks=${checks}`);

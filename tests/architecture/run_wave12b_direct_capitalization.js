@@ -48,7 +48,10 @@ function makeNoiResult(stabilizedNoiSar = 800000, overrides = {}) {
     operatingExpensesBeforeReserveSar: 950000-stabilizedNoiSar, replacementReserveSar: 20000,
     noiBeforeReplacementReserveSar: stabilizedNoiSar, noiAfterReplacementReserveSar: stabilizedNoiSar - 20000,
     selectedNoiConvention: 'BEFORE_REPLACEMENT_RESERVE', selectedNoiSar: stabilizedNoiSar,
-    incomeTrace: [], vacancyCollectionLossTrace: {}, operatingExpenseTrace: [], reviewFlags: [], annualizedAmounts: true,
+    incomeTrace:[{lineId:'INCOME-'+'STABILIZED',type:'OTHER_PROPERTY_INCOME',amountSar:1000000,source:'PROFESSIONAL_JUDGMENT',evidenceRefs:['SYNTHETIC-INCOME'],incomeForecastLineHashSha256:'a'.repeat(64)}],
+    vacancyCollectionLossTrace:{assumptionId:'LOSS-'+'STABILIZED',method:'AMOUNT_SAR',inputValue:50000,calculatedAmountSar:50000,source:'PROFESSIONAL_JUDGMENT',evidenceRefs:['SYNTHETIC-LOSS'],vacancyCollectionLossHashSha256:'b'.repeat(64)},
+    operatingExpenseTrace:[{expenseId:'OPEX-'+'STABILIZED',category:'OTHER_OPERATING_EXPENSE',method:'AMOUNT_SAR',inputValue:950000-stabilizedNoiSar,calculatedAmountSar:950000-stabilizedNoiSar,source:'PROFESSIONAL_JUDGMENT',evidenceRefs:['SYNTHETIC-OPEX'],operatingExpenseLineHashSha256:'c'.repeat(64)},{expenseId:'RESERVE-'+'STABILIZED',category:'REPLACEMENT_RESERVE',method:'AMOUNT_SAR',inputValue:20000,calculatedAmountSar:20000,source:'PROFESSIONAL_JUDGMENT',evidenceRefs:['SYNTHETIC-RESERVE'],operatingExpenseLineHashSha256:'d'.repeat(64)}],
+    reviewFlags:[...(stabilizedNoiSar<=0?['NON_POSITIVE_NOI_REVIEW_REQUIRED']:[]),...(stabilizedNoiSar<0?['OPERATING_EXPENSES_EXCEED_EGI_REVIEW_REQUIRED']:[])], annualizedAmounts: true,
     automaticLeaseOptionExercise: false, automaticMarketRentApplied: false,
   }];
   const core = {

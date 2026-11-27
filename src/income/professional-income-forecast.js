@@ -23,7 +23,7 @@ function assertNonEmpty(v, f) { if (!nonEmpty(v)) throw new TypeError(`${f} must
 function assertEnum(v, e, f) { if (!Object.values(e).includes(v)) throw new TypeError(`${f} is invalid`); }
 function iso(v, f) { assertNonEmpty(v, f); const d = new Date(v); if (Number.isNaN(d.getTime())) throw new TypeError(`${f} must be a valid date/time`); return d.toISOString(); }
 function finiteNonNegative(v, f) { if (typeof v !== 'number' || !Number.isFinite(v) || v < 0) throw new TypeError(`${f} must be a finite non-negative number`); }
-function stableClone(v) { if (Array.isArray(v)) return v.map(stableClone); if (!v || typeof v !== 'object') return v; return Object.keys(v).sort().reduce((o, k) => { o[k] = stableClone(v[k]); return o; }, {}); }
+function stableClone(v) { if (Array.isArray(v)) return v.map(stableClone); if (!v || typeof v !== 'object') return v; return Object.fromEntries(Object.keys(v).sort().map(k=>[k,stableClone(v[k])])); }
 function sha256(v) { return crypto.createHash('sha256').update(JSON.stringify(stableClone(v))).digest('hex'); }
 function deepFreeze(v) { if (!v || typeof v !== 'object' || Object.isFrozen(v)) return v; Object.values(v).forEach(deepFreeze); return Object.freeze(v); }
 function verifyHash(record, field) { if (!record || !/^[a-f0-9]{64}$/i.test(String(record[field] || ''))) return false; const p = { ...record }; delete p[field]; return sha256(p) === record[field].toLowerCase(); }
@@ -111,9 +111,29 @@ function buildProfessionalIncomeForecastInput({ packetId, caseId, propertyRef, v
 
 function verifyProfessionalIncomeForecastInputIntegrity(packet) {
   if (!packet || !/^[a-f0-9]{64}$/i.test(String(packet.professionalIncomeForecastInputHashSha256 || ''))) return false;
+  try {
+  if(packet.schemaVersion!==1||packet.status!==PROFESSIONAL_INCOME_FORECAST_STATUS.READY_FOR_CANONICAL_NOI||packet.readyForCanonicalNoi!==true||packet.canonicalCalculationEngineRequired!==true||!Array.isArray(packet.blockers)||packet.blockers.length||!Object.values(NOI_CONVENTION).includes(packet.noiConvention)||['implicitVacancyAssumptionUsed','automaticLeaseOptionExercise','automaticMarketRentApplied','capitalizationPerformed','dcfPerformed','financialAnalysisPerformed','certifiedValuationEstablished','transactionAuthorized'].some(k=>packet[k]!==false))return false;
+  if(!['packetId','caseId','propertyRef','preparedByRef','packetEvidenceRef'].every(k=>nonEmpty(packet[k]))||typeof packet.incomeEvidencePacketHashSha256!=='string'||!/^[a-f0-9]{64}$/i.test(packet.incomeEvidencePacketHashSha256))return false;
+  const vd=Date.parse(iso(packet.valuationDate,'valuationDate')),pa=Date.parse(iso(packet.preparedAt,'preparedAt'));
+  if(pa<vd||!Array.isArray(packet.forecastPeriods)||!packet.forecastPeriods.length)return false;
+  const equal=(a,b)=>JSON.stringify(stableClone(a))===JSON.stringify(stableClone(b));
+  const pids=new Set(),lids=new Set(),aids=new Set(),eids=new Set();let last=vd,stabilized=null;
+  for(const [i,p] of packet.forecastPeriods.entries()){
+    if(!p||p.caseId!==packet.caseId||p.propertyRef!==packet.propertyRef||p.periodIndex!==i+1||pids.has(p.periodId)||!equal(p,createIncomeForecastPeriod(p))||Date.parse(p.startDate)<last||Date.parse(p.reviewedAt)>pa)return false;
+    last=Date.parse(p.endDate);pids.add(p.periodId);
+    if(p.isStabilized){if(stabilized!==null)return false;stabilized=p.periodIndex;}
+    for(const [records,constructor,idKey,ids] of [[p.incomeLines,createIncomeForecastLine,'lineId',lids],[[p.vacancyCollectionLoss],createVacancyCollectionLossAssumption,'assumptionId',aids],[p.operatingExpenseLines,createOperatingExpenseForecastLine,'expenseId',eids]]){
+      for(const row of records){
+        if(!row||row.caseId!==packet.caseId||row.propertyRef!==packet.propertyRef||row.periodIndex!==p.periodIndex||ids.has(row[idKey])||!equal(row,constructor(row))||Date.parse(row.asOfDate)>vd||Date.parse(row.reviewedAt)>Date.parse(p.preparedAt))return false;
+        ids.add(row[idKey]);
+      }
+    }
+  }
+  if(stabilized===null||stabilized!==packet.stabilizedPeriodIndex)return false;
   const core = { ...packet };
   ['professionalIncomeForecastInputHashSha256', 'status', 'blockers', 'readyForCanonicalNoi', 'implicitVacancyAssumptionUsed', 'automaticLeaseOptionExercise', 'automaticMarketRentApplied', 'canonicalCalculationEngineRequired', 'capitalizationPerformed', 'dcfPerformed', 'financialAnalysisPerformed', 'certifiedValuationEstablished', 'transactionAuthorized', 'semantics'].forEach((k) => delete core[k]);
   return sha256(core) === packet.professionalIncomeForecastInputHashSha256.toLowerCase();
+  }catch{return false;}
 }
 
 module.exports = { INCOME_FORECAST_LINE_TYPE, INCOME_FORECAST_SOURCE, NOI_CALCULATION_METHOD, NOI_EXPENSE_CATEGORY, NOI_CONVENTION, PROFESSIONAL_INCOME_FORECAST_STATUS, createIncomeForecastLine, createVacancyCollectionLossAssumption, createOperatingExpenseForecastLine, createIncomeForecastPeriod, verifyIncomeEvidencePacketIntegrity, verifyIncomeForecastLineIntegrity, verifyVacancyCollectionLossIntegrity, verifyOperatingExpenseLineIntegrity, verifyIncomeForecastPeriodIntegrity, buildProfessionalIncomeForecastInput, verifyProfessionalIncomeForecastInputIntegrity };

@@ -141,3 +141,6 @@ V6.30 Release PASS 716/716, 15/15 named evidence; Wave12D 87 checks PASS and P27
 
 ## V6.32 W06/W09 NOI and direct capitalization integrity
 Shared NOI aggregate arithmetic and stabilized period validation, direct cap provenance chronology and closed authority checks. 18 negative cases and 2 roundtrips; Wave12B/C added to named evidence. Negative and zero NOI remain mathematically valid but cannot be capitalized. No private data, source authentication, credential rotation, merge or deploy. Exact-head CI required.
+
+## V6.33 detailed income and expense trace
+V6.32 Release 716/716 and 17/17 required scripts; Wave12B 72 checks PASS. Forecast input revalidates nested constructors and scope; shared NOI verifier replays line arithmetic and checks review flags. 14 negative cases, 3 positive checks; 18 required scripts. Synthetic fixtures extended with explicit trace. Same PR #871. Exact-head CI required; no external source certification or deployment.

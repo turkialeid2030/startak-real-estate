@@ -68,6 +68,7 @@ step('TEST_DISCOVERY_AND_REGRESSION', () => {
   const evidenceTargets = new Set([
     'tests/architecture/run_riai_ai_assist_client_v1.js',
     'tests/architecture/run_wave12d_investment_financing_metrics.js',
+    'tests/architecture/run_wave12a_professional_income_noi.js',
     'tests/architecture/run_wave12b_direct_capitalization.js',
     'tests/architecture/run_wave12c_professional_dcf.js',
     'tests/architecture/run_riai_ai_gateway_guardrails_unit_v1.js',
