@@ -37,4 +37,5 @@ jobs:
           PGPORT: ${{ job.services.postgres.ports[5432] }}
           PGDATABASE: startak_custody_ci
           PGUSER: postgres
+          STARTAK_CUSTODY_SERVICE_ID: ${{ job.services.postgres.id }}
         run: NODE_PATH="$RUNNER_TEMP/custody-pg-ci/node_modules" node tools/postgres-custody-live-ci.js

@@ -8,9 +8,10 @@ function next(l){const prev=l?.events.at(-1),event={sequence:(l?.events.length??
 let rows=new Map(),bypass=false,commitFail=false,discarded=0;
 const pool={connect:async()=>({query:async(sql,p=[])=>{
  if(sql==='BEGIN'||sql==='ROLLBACK')return {command:sql};
+ if(sql.startsWith('LOCK TABLE '))return {command:'LOCK'};
  if(sql==='COMMIT'){if(commitFail)throw Error('private internal error');return {command:sql};}
  if(sql.startsWith('SELECT current_user'))return {rowCount:1,rows:[{role_name:'custody_runtime',database_name:'synthetic_db',rolsuper:false,rolbypassrls:bypass,relrowsecurity:true,relforcerowsecurity:true,owner_member:false}]};
- if(sql.startsWith('SELECT (SELECT count(*)::int FROM pg_policy'))return {rowCount:1,rows:[{policy_count:1,expected_policy:true,can_delete:false,can_truncate:false}]};
+ if(sql.startsWith('SELECT (SELECT count(*)::int FROM pg_policy'))return {rowCount:1,rows:[{policy_count:1,expected_policy:true,using_expression:"((tenant_id = NULLIF(current_setting('startak.tenant_id'::text, true), ''::text)) AND (case_ref = NULLIF(current_setting('startak.case_ref'::text, true), ''::text)))",check_expression:"((tenant_id = NULLIF(current_setting('startak.tenant_id'::text, true), ''::text)) AND (case_ref = NULLIF(current_setting('startak.case_ref'::text, true), ''::text)))",can_delete:false,can_truncate:false}]};
  if(sql.startsWith('SELECT set_config'))return {rowCount:1,rows:[{tenant_id:p[0],case_ref:p[1]}]};
  const k=JSON.stringify(p.slice(0,3)),row=rows.get(k);
  if(sql.startsWith('SELECT content_sha256'))return {rowCount:row?1:0,rows:row?[row]:[]};

@@ -2,6 +2,8 @@
 // Disposable CI database only. No production credentials, data, or endpoint.
 const assert=require('node:assert/strict'),crypto=require('node:crypto'),fs=require('node:fs'),path=require('node:path');
 const {Pool}=require('pg');
+const {execFileSync}=require('node:child_process');
+const {VERSION:INVENTORY_VERSION,signedInventoryBytes,verifySignedRestoreInventory}=require('../src/market/signed-restore-inventory');
 const {makePostgresCustodyStore}=require('../src/market/postgres-custody-store');
 const {VERSION,custodyEventBytes,custodyEventHash,verifyCustodyChain}=require('../src/market/signed-evidence-custody');
 const database='startak_custody_ci',runtime='custody_ci_runtime';
@@ -52,6 +54,57 @@ async function main(){
   try{await assert.rejects(()=>a.loadLedger(scope),/TRANSACTION_FAILED/);}finally{await admin.query('REVOKE DELETE ON public.startak_evidence_custody FROM custody_ci_runtime');}
  });
  await check('connection restart and cryptographic replay',async()=>{await pool.end();pool=new Pool({...config,user:runtime,max:2});a=store();const actual=await a.loadLedger(scope);assert.deepEqual(actual,three);const verdict=await verifyCustodyChain(actual,{expectedScope:scope,checkpoint:{version:VERSION,scope,revision:3,headHashSha256:head(scope,three)},resolveSigner:async({tenantId,signerKeyRef})=>({tenantId,signerKeyRef,purpose:'EVIDENCE_CUSTODY_SIGNING',revoked:false,validFrom:'2026-01-01',validUntil:'2026-12-31',publicKey}),now:new Date('2026-09-04'),maxAgeSeconds:172800});assert.equal(verdict.integrityVerified,true);assert.equal((await pool.query('SELECT * FROM public.startak_evidence_custody')).rowCount,0);});
+ await check('same-name policy expression drift fails closed',async()=>{
+  await admin.query('ALTER POLICY startak_custody_scope ON public.startak_evidence_custody USING (true) WITH CHECK (true)');
+  try{await assert.rejects(()=>a.loadLedger(scope),/TRANSACTION_FAILED/);}
+  finally{await admin.query("ALTER POLICY startak_custody_scope ON public.startak_evidence_custody USING (tenant_id=nullif(current_setting('startak.tenant_id',true),'') AND case_ref=nullif(current_setting('startak.case_ref',true),'')) WITH CHECK (tenant_id=nullif(current_setting('startak.tenant_id',true),'') AND case_ref=nullif(current_setting('startak.case_ref',true),''))");}
+  assert.deepEqual(await a.loadLedger(scope),three);
+ });
+ await check('logical backup artifact and separate database restore',async()=>{
+  // Real PostgreSQL logical backup/restore via the exact disposable service.
+  // No shell interpolation, external endpoint, or production credential.
+  const containerId=process.env.STARTAK_CUSTODY_SERVICE_ID,restoreDb='startak_custody_restore_ci';
+  assert.equal(process.env.GITHUB_ACTIONS,'true');assert.match(containerId,/^[a-f0-9]{12,64}$/);
+  const docker=(args,input)=>execFileSync('docker',['exec','-i',containerId,...args],{input,timeout:90000,maxBuffer:16*1024*1024,stdio:['pipe','pipe','pipe']});
+  const sourceRows=(await admin.query('SELECT tenant_id,case_ref,evidence_ref,content_sha256,revision,head_sha256,ledger FROM public.startak_evidence_custody ORDER BY tenant_id,case_ref,evidence_ref')).rows;
+  assert.equal(sourceRows.length,3);
+  const started=Date.now();
+  const backup=docker(['pg_dump','-U','postgres','-d',database,'--format=custom','--no-owner','--no-acl']);
+  assert.ok(backup.length>100);assert.equal(backup.subarray(0,5).toString(),'PGDMP');
+  const artifactHash=crypto.createHash('sha256').update(backup).digest('hex');
+  assert.equal((await admin.query('SELECT datname FROM pg_database WHERE datname=$1',[restoreDb])).rowCount,0);
+  await admin.query('CREATE DATABASE startak_custody_restore_ci');
+  docker(['pg_restore','-U','postgres','-d',restoreDb,'--exit-on-error','--no-owner','--no-acl'],backup);
+  const restoredAdmin=new Pool({...config,database:restoreDb,user:'postgres',max:2});let restoredPool;
+  try{
+   const restoredRows=(await restoredAdmin.query('SELECT tenant_id,case_ref,evidence_ref,content_sha256,revision,head_sha256,ledger FROM public.startak_evidence_custody ORDER BY tenant_id,case_ref,evidence_ref')).rows;
+   assert.deepEqual(restoredRows,sourceRows);
+   // Grants are intentionally rebuilt, not imported from the backup.
+   await restoredAdmin.query('GRANT USAGE ON SCHEMA public TO custody_ci_runtime');
+   await restoredAdmin.query('GRANT SELECT, INSERT, UPDATE ON public.startak_evidence_custody TO custody_ci_runtime');
+   restoredPool=new Pool({...config,database:restoreDb,user:runtime,max:3});
+   const recovered=makePostgresCustodyStore({pool:restoredPool,expectedRole:runtime,expectedDatabase:restoreDb});
+   for(const row of sourceRows){
+    const x={tenantId:row.tenant_id,caseRef:row.case_ref,evidenceRef:row.evidence_ref,sha256:row.content_sha256};
+    const l=await recovered.loadLedger(x);assert.deepEqual(l,row.ledger);
+    const verdict=await verifyCustodyChain(l,{expectedScope:x,checkpoint:{version:VERSION,scope:x,revision:row.revision,headHashSha256:row.head_sha256},resolveSigner:async({tenantId,signerKeyRef})=>({tenantId,signerKeyRef,purpose:'EVIDENCE_CUSTODY_SIGNING',revoked:false,validFrom:'2026-01-01',validUntil:'2026-12-31',publicKey}),now:new Date('2026-09-04'),maxAgeSeconds:604800});
+    assert.equal(verdict.integrityVerified,true);
+   }
+   assert.equal((await restoredPool.query('SELECT * FROM public.startak_evidence_custody')).rowCount,0);
+   await assert.rejects(()=>restoredPool.query('DELETE FROM public.startak_evidence_custody'),e=>e.code==='42501');
+   // Signed inventory binds each expected document hash and backup artifact
+   // identifier. This inventory is synthetic; no external witness is claimed.
+   const kp=crypto.generateKeyPairSync('ed25519'),at=new Date().toISOString();
+   const inventory={version:INVENTORY_VERSION,tenantId:scope.tenantId,caseRef:scope.caseRef,inventoryRef:'CI-INVENTORY',backupRef:artifactHash,snapshotAt:at,signedAt:at,signerKeyRef:'CI-INVENTORY-SIGNER',entries:sourceRows.filter(x=>x.tenant_id===scope.tenantId&&x.case_ref===scope.caseRef).map(x=>({evidenceRef:x.evidence_ref,sha256:x.content_sha256}))};
+   const signature=crypto.sign(null,signedInventoryBytes(inventory),kp.privateKey).toString('base64');
+   const opts={tenantId:scope.tenantId,caseRef:scope.caseRef,inventoryRef:inventory.inventoryRef,now:new Date(),maxAgeSeconds:3600,resolveSigner:async()=>({tenantId:scope.tenantId,signerKeyRef:inventory.signerKeyRef,purpose:'BACKUP_INVENTORY_SIGNING',revoked:false,validFrom:'2026-01-01',validUntil:'2099-12-31',publicKey:kp.publicKey})};
+   assert.equal((await verifySignedRestoreInventory({inventory,signature},opts)).signatureVerified,true);
+   assert.equal((await verifySignedRestoreInventory({inventory:{...inventory,backupRef:'0'.repeat(64)},signature},opts)).signatureVerified,false);
+   const tampered=Buffer.from(backup);tampered[tampered.length-1]^=1;
+   assert.notEqual(crypto.createHash('sha256').update(tampered).digest('hex'),artifactHash);
+   console.log('POSTGRES_BACKUP_RESTORE_RESULT=PASS rows='+restoredRows.length+' artifact_sha256='+artifactHash+' bytes='+backup.length+' elapsed_ms='+(Date.now()-started)+' production=false');
+  }finally{if(restoredPool)await restoredPool.end();await restoredAdmin.end();backup.fill(0);}
+ });
  console.log('POSTGRES_LIVE_CUSTODY_RESULT=PASS checks='+checks+' real_database=true synthetic_data=true production=false');
 }
 main().catch(e=>{console.error('POSTGRES_LIVE_CUSTODY_RESULT=FAIL',e.message);process.exitCode=1;}).finally(async()=>{if(pool)await pool.end().catch(()=>{});await admin.end();});
