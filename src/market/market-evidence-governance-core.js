@@ -1,4 +1,15 @@
 'use strict';
+const {isPlainJson}=require('../validation/plain-json-boundary');
+const {strictCalendarDateMs}=require('../validation/strict-calendar-instant');
+// Validate record descriptors before reading fields; preserve optional undefined metadata.
+function safeRecord(record){
+  try{
+    if(!record||typeof record!=='object'||Array.isArray(record)||![Object.prototype,null].includes(Object.getPrototypeOf(record)))return false;
+    return Reflect.ownKeys(record).every(k=>typeof k==='string'&&!['__proto__','constructor','prototype','toJSON'].includes(k)&&(()=>{const d=Object.getOwnPropertyDescriptor(record,k);return d&&d.enumerable&&Object.hasOwn(d,'value');})());
+  }catch{return false;}
+}
+function snapshotValue(v){if(Array.isArray(v))return Object.freeze(v.map(snapshotValue));if(v&&typeof v==='object')return Object.freeze(Object.fromEntries(Object.keys(v).map(k=>[k,snapshotValue(v[k])])));return v;}
+
 
 function createMarketEvidenceGovernance(digest){
 const {
@@ -50,25 +61,11 @@ function cleanStringArray(value, name) {
 function toTimestamp(value) {
   const text = cleanString(value);
   if (!text) return null;
-  const ms = new Date(text).getTime();
+  const ms = strictCalendarDateMs(text);
   return Number.isFinite(ms) ? ms : null;
 }
 
-function isJsonSafe(value, seen = new Set()) {
-  if (value === null) return true;
-  if (typeof value === 'string' || typeof value === 'boolean') return true;
-  if (typeof value === 'number') return Number.isFinite(value);
-  if (typeof value !== 'object') return false;
-  if (seen.has(value)) return false;
-  const prototype = Object.getPrototypeOf(value);
-  if (!Array.isArray(value) && prototype !== Object.prototype && prototype !== null) return false;
-  seen.add(value);
-  const valid = Array.isArray(value)
-    ? value.every((item) => isJsonSafe(item, seen))
-    : Object.keys(value).every((key) => isJsonSafe(value[key], seen));
-  seen.delete(value);
-  return valid;
-}
+function isJsonSafe(value){return isPlainJson(value);}
 
 function canonicalize(value) {
   if (Array.isArray(value)) return value.map(canonicalize);
@@ -163,7 +160,7 @@ function validateMinimumPolicy(requiredEvidenceTypes, minimumCountPolicyId, gove
 function evaluateRecord(record, context) {
   const blockers = [];
   const warnings = [];
-  if (!record || typeof record !== 'object' || Array.isArray(record)) {
+  if (!safeRecord(record)) {
     return { authoritative: false, asking: false, blockers: ['C2_EVIDENCE_RECORD_OBJECT_REQUIRED'], warnings, normalized: null };
   }
 
@@ -282,7 +279,7 @@ function evaluateRecord(record, context) {
       assetType: assetType || null,
       evidenceType: evidenceType || null,
       evidenceClass: evidenceClass || null,
-      normalizedValue: hasNormalizedValue ? record.normalizedValue : null,
+      normalizedValue: normalizedValueHash ? snapshotValue(record.normalizedValue) : null,
       normalizedValueHash,
       semanticValueHash,
       sourceId: sourceId || null,
@@ -299,7 +296,7 @@ function evaluateRecord(record, context) {
       effectiveAt: effectiveAtIso,
       observedAt: observedAtMs === null ? null : new Date(observedAtMs).toISOString(),
       validUntil: validUntilMs === null ? null : new Date(validUntilMs).toISOString(),
-      comparableMetricSarSqm: authoritative ? deriveComparableMetric(evidenceType, record.normalizedValue) : null,
+      comparableMetricSarSqm: authoritative && normalizedValueHash ? deriveComparableMetric(evidenceType, record.normalizedValue) : null,
       blockers: Object.freeze([...blockers]),
       warnings: Object.freeze([...warnings]),
     }),
@@ -349,7 +346,7 @@ function evaluateMarketEvidenceBundle({
 
   const authoritativeEligible = findings.filter((item) => item.authoritative && item.blockers.length === 0);
   const supplemental = findings.filter((item) => item.asking && item.blockers.length === 0).map((item) => item.normalized);
-  findings.forEach((finding) => warnings.push(...finding.warnings));
+  findings.forEach((finding) => {warnings.push(...finding.warnings);if(!finding.normalized)decisionBlockers.push(...finding.blockers);});
 
   const conflictKeys = new Set();
   const groups = new Map();

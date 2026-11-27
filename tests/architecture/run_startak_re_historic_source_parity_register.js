@@ -67,8 +67,8 @@ for(const [index,entry] of entries.entries()) {
   priorities[entry.priority]=(priorities[entry.priority]||0)+1;
 }
 assert.deepEqual(statuses,{
-  MODERN_ANCHOR_EXISTS_PARITY_UNVERIFIED:37,
-  RESTORED_SOURCE_PARITY_UNVERIFIED:9,
+  MODERN_ANCHOR_EXISTS_PARITY_UNVERIFIED:36,
+  RESTORED_SOURCE_PARITY_UNVERIFIED:10,
   OLD_STAGING_CONTRACT_NOT_PRODUCTION_VAULT:10,
   SAFE_RETIREMENT_REVIEW:1,
 });
@@ -84,5 +84,5 @@ assert.equal(entries.find(x=>x.id==='LEG-022').modern_anchor,
 assert.equal(entries.find(x=>x.id==='LEG-023').modern_anchor,
  'src/title-intelligence/cross-document-consistency.js');
 assert.equal(entries.filter(x=>x.inspection==='LEGACY_API_INSPECTED').length,57);
-console.log('STARTAK_RE_HISTORIC_SOURCE_REGISTER=PASS rows=57 legacy_api_inspected=57 restored_unqualified=9 path_only=0;');
+console.log('STARTAK_RE_HISTORIC_SOURCE_REGISTER=PASS rows=57 legacy_api_inspected=57 restored_unqualified=10 path_only=0;');
 console.log('SOURCE_PATH_PARITY_CLAIM=FALSE FUNCTIONAL_PARITY_CLAIM=FALSE PRODUCTION_AUTHORITY=FALSE');
