@@ -11,7 +11,7 @@ const validRef=x=>typeof x==='string'&&REF.test(x);
 const validHash=x=>typeof x==='string'&&SHA.test(x);
 const held=reason=>Object.freeze({status:'HOLD_CUSTODY_APPEND',reason,revision:null,headHashSha256:null,productionVaultReady:false,releaseAuthorized:false});
 const scopeEqual=(a,b)=>exact(a,['tenantId','caseRef','evidenceRef','sha256'])&&['tenantId','caseRef','evidenceRef','sha256'].every(k=>a[k]===b[k]);
-function makeCustodyAppendCoordinator({authorizeActor,loadLedger,loadCheckpoint,resolveSigner,signEvent,compareAndAppend,advanceWitness,clock=()=>new Date()}={}){
+function makeCustodyAppendCoordinator({authorizeActor,loadLedger,loadCheckpoint,resolveSigner,signEvent,compareAndAppend,advanceWitness,authorizeReconciliation,clock=()=>new Date()}={}){
  if(![authorizeActor,loadLedger,loadCheckpoint,resolveSigner,signEvent,compareAndAppend,advanceWitness,clock].every(x=>typeof x==='function'))throw Error('CUSTODY_APPEND_TRUST_DEPENDENCIES_REQUIRED');
  async function append({actor,scope,kind,signerKeyRef,sourceBytes}={}){
   try{
@@ -57,6 +57,43 @@ function makeCustodyAppendCoordinator({authorizeActor,loadLedger,loadCheckpoint,
    return Object.freeze({status:'CUSTODY_APPEND_CONFIRMED_BY_PROVIDERS',reason:null,revision:next.revision,headHashSha256:newHead,revoked:kind==='REVOKED',productionVaultReady:false,releaseAuthorized:false});
   }catch{return held('CUSTODY_APPEND_FAILED_RECONCILIATION_REQUIRED');}
  }
- return Object.freeze({append});
+ // Recover only a single persisted, signed event beyond an independently
+ // trusted head. No signing, rollback, chain replacement or blind fast-forward.
+ async function reconcile({actor,scope,changeControlRef}={}){
+  try{
+   if(!exact(scope,['tenantId','caseRef','evidenceRef','sha256'])||![scope.tenantId,scope.caseRef,scope.evidenceRef,changeControlRef].every(validRef)||!validHash(scope.sha256)||typeof authorizeReconciliation!=='function')return held('CUSTODY_RECONCILIATION_APPROVAL_REQUIRED');
+   const s=Object.freeze({...scope});
+   const identity=await authorizeActor({requestActor:actor,tenantId:s.tenantId,caseRef:s.caseRef,action:'CUSTODY_RECONCILE'});
+   if(!isPlainJson(identity)||!identity||identity===actor||identity.verifiedByServer!==true||identity.tenantId!==s.tenantId||identity.role!=='DATA_ADMIN'||!validRef(identity.actorId)||!Array.isArray(identity.caseRefs)||!identity.caseRefs.includes(s.caseRef))return held('CUSTODY_APPEND_ACCESS_DENIED');
+   const actorId=identity.actorId;
+   const raw=await loadLedger(s),head=await loadCheckpoint(s);
+   if(!exact(raw,['version','scope','events'])||raw.version!==VERSION||!scopeEqual(raw.scope,s)||!Array.isArray(raw.events)||!raw.events.length||raw.events.length>1000)return held('CUSTODY_RECONCILIATION_LEDGER_INVALID');
+   const ledger=JSON.parse(JSON.stringify(raw));
+   if(head!==null&&(!exact(head,['version','scope','revision','headHashSha256'])||head.version!==VERSION||!scopeEqual(head.scope,s)||!Number.isSafeInteger(head.revision)||head.revision<1||!validHash(head.headHashSha256)))return held('CUSTODY_RECONCILIATION_HEAD_INVALID');
+   const revision=head?.revision??0,previous=head?.headHashSha256??null,now=clock().toISOString();
+   if(ledger.events.length!==revision+1)return held('CUSTODY_RECONCILIATION_EXACTLY_ONE_PENDING_REQUIRED');
+   if(revision){
+    const prefix=await verifyCustodyChain({...ledger,events:ledger.events.slice(0,revision)},{expectedScope:s,checkpoint:{version:VERSION,scope:s,revision,headHashSha256:previous},resolveSigner,now,maxAgeSeconds:31536000});
+    if(!prefix.integrityVerified)return held('CUSTODY_RECONCILIATION_PREFIX_INVALID');
+   }
+   const last=ledger.events.at(-1),newHead=custodyEventHash(s,last.event,last.signature);
+   const next={version:VERSION,scope:s,revision:revision+1,headHashSha256:newHead};
+   const verdict=await verifyCustodyChain(ledger,{expectedScope:s,checkpoint:next,resolveSigner,now,maxAgeSeconds:31536000});
+   if(!verdict.integrityVerified&&verdict.reason!=='CUSTODY_REVOKED')return held('CUSTODY_RECONCILIATION_PENDING_SIGNATURE_INVALID');
+   const approval=await authorizeReconciliation({scope:s,changeControlRef,actorId,expectedRevision:revision,expectedHeadHashSha256:previous,nextRevision:next.revision,nextHeadHashSha256:newHead});
+   if(!isPlainJson(approval)||!approval||approval.approved!==true||approval.changeControlRef!==changeControlRef||approval.actorId!==actorId||!validRef(approval.reviewerId)||approval.reviewerId===actorId||!scopeEqual(approval.scope,s)||approval.expectedRevision!==revision||approval.expectedHeadHashSha256!==previous||approval.nextRevision!==next.revision||approval.nextHeadHashSha256!==newHead||!Number.isFinite(strictCalendarDateMs(approval.approvedAt))||strictCalendarDateMs(approval.approvedAt)<strictCalendarDateMs(last.event.observedAt)||strictCalendarDateMs(approval.approvedAt)>strictCalendarDateMs(now))return held('CUSTODY_RECONCILIATION_APPROVAL_INVALID');
+   // Re-read the pending chain before advancing; append remains blocked while
+   // the old checkpoint is behind. A competing recovery loses witness CAS.
+   const check=await verifyCustodyChain(await loadLedger(s),{expectedScope:s,checkpoint:next,resolveSigner,now,maxAgeSeconds:31536000});
+   if(!check.integrityVerified&&check.reason!=='CUSTODY_REVOKED')return held('CUSTODY_RECONCILIATION_LEDGER_CHANGED');
+   if(await advanceWitness({scope:s,expectedRevision:revision,expectedHeadHashSha256:previous,nextCheckpoint:JSON.parse(JSON.stringify(next))})!==true)return held('CUSTODY_RECONCILIATION_WITNESS_PENDING');
+   const confirmed=await loadCheckpoint(s);
+   if(!exact(confirmed,['version','scope','revision','headHashSha256'])||confirmed.version!==VERSION||!scopeEqual(confirmed.scope,s)||confirmed.revision!==next.revision||confirmed.headHashSha256!==newHead)return held('CUSTODY_RECONCILIATION_WITNESS_NOT_CONFIRMED');
+   const verified=await verifyCustodyChain(await loadLedger(s),{expectedScope:s,checkpoint:confirmed,resolveSigner,now,maxAgeSeconds:31536000});
+   if(!verified.integrityVerified&&verified.reason!=='CUSTODY_REVOKED')return held('CUSTODY_RECONCILIATION_FINAL_CHAIN_INVALID');
+   return Object.freeze({status:'CUSTODY_RECONCILIATION_CONFIRMED_BY_PROVIDERS',reason:null,revision:next.revision,headHashSha256:newHead,revoked:verified.reason==='CUSTODY_REVOKED',productionVaultReady:false,releaseAuthorized:false});
+  }catch{return held('CUSTODY_RECONCILIATION_FAILED');}
+ }
+ return Object.freeze({append,reconcile});
 }
 module.exports={makeCustodyAppendCoordinator};
