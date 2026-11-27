@@ -58,6 +58,12 @@ function sha256(value) {
   return crypto.createHash('sha256').update(String(value), 'utf8').digest('hex');
 }
 
+const digest=v=>sha256(JSON.stringify(v));
+const isDigest=v=>typeof v==='string'&&/^[a-f0-9]{64}$/.test(v);
+const closedAuthority=v=>!!v&&Object.keys(v).length===Object.keys(AUTHORITY).length&&Object.keys(AUTHORITY).every(k=>Object.hasOwn(v,k)&&v[k]===false);
+function digestFields(record,keys){return digest(Object.fromEntries(keys.map(k=>[k,record[k]])));}
+const MIGRATION_PLAN_KEYS=['schemaVersion','environment','targetDatabaseRef','expectedDatabaseName','expectedMigrationRole','runtimeRole','schemaName','tableName','tenantSetting','schemaHashSha256','rlsHashSha256','executionOrder'];
+const PROBE_CORE_KEYS=['schemaVersion','status','environment','targetDatabaseRef','probeRunId','probeInstanceId','testedAt','tableRef','runtimeRole','tenantSetting','checks'];
 function normalizePrivilegedPathEvidence(value, { environment, targetDatabaseRef, runtimeRole, assessedAt }) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const evidenceRef = typeof value.evidenceRef === 'string' ? value.evidenceRef.trim() : '';
@@ -160,6 +166,7 @@ function createControlledStagingPostgresQualification({
     const normalizedRuntimeRole = requiredString(runtimeRole, 'runtimeRole');
     const timestamp = requiredString(testedAt, 'testedAt');
     if (!Number.isFinite(Date.parse(timestamp))) throw new TypeError('testedAt must be a valid timestamp');
+    if(Date.parse(timestamp)>Date.now())throw new TypeError('testedAt must not be in the future');
     if (execute === true && (!runtimePool || typeof runtimePool.connect !== 'function')) {
       throw new TypeError('runtimePool.connect is required before migration execution');
     }
@@ -182,10 +189,14 @@ function createControlledStagingPostgresQualification({
       && migration?.plan?.targetDatabaseRef === databaseRef
       && migration?.plan?.expectedDatabaseName === expectedDatabaseName
       && migration?.plan?.runtimeRole === normalizedRuntimeRole
-      && typeof migration?.plan?.planHashSha256 === 'string'
-      && /^[a-f0-9]{64}$/i.test(migration.plan.planHashSha256)
+      && migration.schemaVersion===1 && migration.plan.schemaVersion===1
+      && migration.plan.expectedMigrationRole===expectedMigrationRole
+      && migration.plan.schemaName===schemaName&&migration.plan.tableName===tableName&&migration.plan.tenantSetting===tenantSetting
+      && isDigest(migration.plan.schemaHashSha256)&&isDigest(migration.plan.rlsHashSha256)
+      && Array.isArray(migration.plan.executionOrder)
+      && isDigest(migration.plan.planHashSha256)&&digestFields(migration.plan,MIGRATION_PLAN_KEYS)===migration.plan.planHashSha256
       && migration.productionQualified === false
-      && migration.authority?.releaseAuthorized === false;
+      && closedAuthority(migration.authority);
     if (execute !== true) {
       return result({
         status: migrationPlanValid && migration.status === MIGRATION_STATUS.DRY_RUN_READY
@@ -199,7 +210,9 @@ function createControlledStagingPostgresQualification({
       });
     }
 
-    if (!migrationPlanValid || migration.status !== MIGRATION_STATUS.APPLIED_NOT_PRODUCTION_CERTIFIED) {
+    const execution=migration?.execution;
+    const committed=!!execution&&['mutationRequested','mutationExecuted','preflightPassed','schemaApplied','rlsApplied','postcheckPassed','mutationAttempted','transactionCommitted'].every(k=>execution[k]===true)&&execution.rollbackConfirmed===false&&execution.transactionOutcomeUnknown===false&&execution.actualDatabaseName===expectedDatabaseName&&execution.actualMigrationRole===expectedMigrationRole;
+    if (!migrationPlanValid || migration.status !== MIGRATION_STATUS.APPLIED_NOT_PRODUCTION_CERTIFIED || !committed) {
       return result({
         status: STAGING_QUALIFICATION_STATUS.HOLD_MIGRATION,
         environment: env,
@@ -234,12 +247,18 @@ function createControlledStagingPostgresQualification({
       && /^[a-f0-9]{64}$/i.test(rlsProbe.probeHashSha256)
       && rlsProbe.evidenceRef === `sha256:${rlsProbe.probeHashSha256}`
       && rlsProbe.productionSecurityVerifiedByThisModule === false
-      && rlsProbe.authority?.releaseAuthorized === false
+      && rlsProbe.schemaVersion===1&&rlsProbe.tableRef===`${schemaName}.${tableName}`&&rlsProbe.tenantSetting===tenantSetting
+      && typeof rlsProbe.probeInstanceId==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(rlsProbe.probeInstanceId)
+      && digestFields(rlsProbe,PROBE_CORE_KEYS)===rlsProbe.probeHashSha256
+      && rlsProbe.mutationExecuted===true&&rlsProbe.requiresIndependentRuntimeEvidence===true&&rlsProbe.privilegedPathSeparatelyTested===false
+      && closedAuthority(rlsProbe.authority)
       && rlsProbe.checks?.runtimeRoleMatchesExpected === true
       && rlsProbe.checks?.runtimeDatabaseMatchesExpected === true
       && rlsProbe.checks?.runtimeRoleIsSuperuser === false
       && rlsProbe.checks?.runtimeRoleBypassesRls === false
-      && rlsProbe.checks?.cleanupComplete === true;
+      && rlsProbe.checks?.cleanupComplete === true
+      && ['forceRlsEnabled','sameTenantCrudAllowed','crossTenantCrudDenied','missingTenantContextDenied','tenantContextResetBetweenRequests'].every(k=>rlsProbe.checks[k]===true)
+      && rlsProbe.checks.privilegedPathSeparatelyTested===false;
     if (!probeValid) {
       return result({
         status: STAGING_QUALIFICATION_STATUS.HOLD_RUNTIME_RLS,
@@ -284,7 +303,8 @@ function createControlledStagingPostgresQualification({
       checks,
     });
 
-    const status = runtimeRlsVerification?.status === VERIFICATION_STATUS.VERIFICATION_EVIDENCE_COMPLETE
+    const verified=runtimeRlsVerification?.status===VERIFICATION_STATUS.VERIFICATION_EVIDENCE_COMPLETE&&privileged?.accepted===true&&runtimeRlsVerification.productionSecurityVerifiedByThisModule===false&&runtimeRlsVerification.transactionAuthorized===false&&runtimeRlsVerification.environment===env&&runtimeRlsVerification.targetDatabaseRef===databaseRef&&runtimeRlsVerification.testedAt===timestamp&&Object.keys(checks).every(k=>runtimeRlsVerification.checks?.[k]===checks[k])&&JSON.stringify(runtimeRlsVerification.evidenceRefs)===JSON.stringify(evidenceRefs);
+    const status = verified
       ? STAGING_QUALIFICATION_STATUS.STAGING_EVIDENCE_COMPLETE_NOT_PRODUCTION_CERTIFIED
       : STAGING_QUALIFICATION_STATUS.HOLD_PRIVILEGED_PATH_EVIDENCE;
 
