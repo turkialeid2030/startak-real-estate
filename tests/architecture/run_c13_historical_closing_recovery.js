@@ -44,7 +44,7 @@ const oversized=run(fixture([evidence({settlementAmountSar:50000000000000}),evid
 assert.equal(oversized.knownSettlementTotalSar,null);
 const due=run(fixture([evidence({sourceReviewAfter:'2026-09-12T12:00:00Z'})]),S.HOLD_INTEGRITY);
 assert.ok(due.blockers.includes('C13_SOURCE_REVIEW_DUE_BEFORE_TARGET_CLOSING:M1'));
-run(fixture([evidence({sourceReviewAfter:targetClosing})]),S.READY_FOR_PROFESSIONAL_CLOSING_REVIEW);
+run(fixture([evidence({sourceReviewAfter:targetClosingDate})]),S.READY_FOR_PROFESSIONAL_CLOSING_REVIEW);
 const fractional={...evidence(),settlementAmountSar:0.001};
 fractional.closingEvidenceHashSha256=c.computeClosingEvidenceHash(fractional);
 run(fixture([fractional]),S.HOLD_INTEGRITY);

@@ -110,7 +110,17 @@ step('PRODUCTION_BUILD', () => {
 });
 
 step('VERIFY_PACKAGE', () => {
-  execFileSync('node', [path.join(ROOT, 'tests', 'verify_package.js')], { cwd: ROOT, stdio: 'pipe' });
+  // Publish only explicitly allowed summary lines, not arbitrary child output.
+  const report = output => {
+    const safe = /^(?:REGRESSION_TOTAL=\d+ PASSED=\d+ FAILED=\d+|HARD_CODED_UPLOAD_PATHS=\d+|RELEASE_MANIFEST_PRESENT=(?:true|false)|RELEASE_MANIFEST_VALID=(?:true|false)|FINAL_ASSET_MANIFEST=PASS assets=\d+|VERIFY_PACKAGE=(?:PASS|FAIL))$/;
+    for (const line of String(output || '').split(/\r?\n/)) if (safe.test(line)) console.log('  PACKAGE_'+line);
+  };
+  try {
+    report(execFileSync(process.execPath, [path.join(ROOT, 'tests', 'verify_package.js')], { cwd: ROOT, stdio: 'pipe' }));
+  } catch (error) {
+    report(error.stdout);
+    throw new Error('PACKAGE_VERIFICATION_FAILED');
+  }
 });
 
 step('NPM_AUDIT_RELEASE_THRESHOLD', () => {
