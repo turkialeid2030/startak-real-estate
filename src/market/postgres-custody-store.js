@@ -15,6 +15,9 @@ function makePostgresCustodyStore({pool,expectedRole,expectedDatabase}={}){
    const identity=await client.query("SELECT current_user AS role_name, current_database() AS database_name, r.rolsuper, r.rolbypassrls, c.relrowsecurity, c.relforcerowsecurity, pg_has_role(current_user,c.relowner,'MEMBER') AS owner_member FROM pg_roles r CROSS JOIN pg_class c WHERE r.rolname=current_user AND c.oid='public.startak_evidence_custody'::regclass");
    const i=identity.rows?.[0];
    if(identity.rowCount!==1||!i||i.role_name!==expectedRole||i.database_name!==expectedDatabase||i.rolsuper!==false||i.rolbypassrls!==false||i.relrowsecurity!==true||i.relforcerowsecurity!==true||i.owner_member!==false)throw Error();
+   // Reject unexpected permissive policies and destructive privileges; the trusted backend alone may set session scope.
+   const guard=await client.query("SELECT (SELECT count(*)::int FROM pg_policy WHERE polrelid='public.startak_evidence_custody'::regclass) AS policy_count, EXISTS(SELECT 1 FROM pg_policy WHERE polrelid='public.startak_evidence_custody'::regclass AND polname='startak_custody_scope' AND polcmd='*' AND polpermissive AND polroles=ARRAY[0::oid] AND polqual IS NOT NULL AND polwithcheck IS NOT NULL) AS expected_policy, has_table_privilege(current_user,'public.startak_evidence_custody','DELETE') AS can_delete, has_table_privilege(current_user,'public.startak_evidence_custody','TRUNCATE') AS can_truncate");
+   const g=guard.rows?.[0];if(guard.rowCount!==1||!g||g.policy_count!==1||g.expected_policy!==true||g.can_delete!==false||g.can_truncate!==false)throw Error();
    const context=await client.query("SELECT set_config('startak.tenant_id',$1,true) AS tenant_id, set_config('startak.case_ref',$2,true) AS case_ref",[s.tenantId,s.caseRef]);
    if(context.rowCount!==1||context.rows[0].tenant_id!==s.tenantId||context.rows[0].case_ref!==s.caseRef)throw Error();
    const result=await fn(client);

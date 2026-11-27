@@ -1,0 +1,57 @@
+'use strict';
+// Disposable CI database only. No production credentials, data, or endpoint.
+const assert=require('node:assert/strict'),crypto=require('node:crypto'),fs=require('node:fs'),path=require('node:path');
+const {Pool}=require('pg');
+const {makePostgresCustodyStore}=require('../src/market/postgres-custody-store');
+const {VERSION,custodyEventBytes,custodyEventHash,verifyCustodyChain}=require('../src/market/signed-evidence-custody');
+const database='startak_custody_ci',runtime='custody_ci_runtime';
+if(process.env.STARTAK_CUSTODY_DISPOSABLE_CI!=='true'||process.env.PGHOST!=='127.0.0.1'||process.env.PGDATABASE!==database||process.env.PGUSER!=='postgres'||!/^\d+$/.test(process.env.PGPORT||''))throw Error('DISPOSABLE_CI_DATABASE_REQUIRED');
+const config={host:'127.0.0.1',port:Number(process.env.PGPORT),database,connectionTimeoutMillis:5000,statement_timeout:10000};
+const admin=new Pool({...config,user:'postgres',max:2});
+let pool,checks=0;
+const {privateKey,publicKey}=crypto.generateKeyPairSync('ed25519');
+const scope={tenantId:'CI-TENANT-A',caseRef:'CI-CASE-A',evidenceRef:'CI-EVID-A',sha256:'a'.repeat(64)};
+function next(s,l,observedAt){
+ const prev=l?.events.at(-1),event={sequence:(l?.events.length??0)+1,kind:prev?'RECHECKED':'SEALED',actorRef:'CI-ACTOR',observedAt,signerKeyRef:'CI-SIGNER',previousHashSha256:prev?custodyEventHash(s,prev.event,prev.signature):null};
+ return {version:VERSION,scope:s,events:[...(l?.events??[]),{event,signature:crypto.sign(null,custodyEventBytes(s,event),privateKey).toString('base64')}]};
+}
+const head=(s,l)=>custodyEventHash(s,l.events.at(-1).event,l.events.at(-1).signature);
+async function check(label,fn){await fn();checks++;console.log('POSTGRES_LIVE_PASS '+label);}
+async function main(){
+ const identity=await admin.query('SELECT current_database() AS db, current_user AS role_name');
+ assert.equal(identity.rows[0].db,database);assert.equal(identity.rows[0].role_name,'postgres');
+ assert.equal((await admin.query("SELECT to_regclass('public.startak_evidence_custody') AS existing")).rows[0].existing,null);
+ await admin.query(fs.readFileSync(path.join(__dirname,'../docs/recovery/sql/controlled-custody-ledger-v1.sql'),'utf8'));
+ await admin.query('CREATE ROLE custody_ci_runtime LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOINHERIT');
+ await admin.query('GRANT USAGE ON SCHEMA public TO custody_ci_runtime');
+ await admin.query('GRANT SELECT, INSERT, UPDATE ON public.startak_evidence_custody TO custody_ci_runtime');
+ pool=new Pool({...config,user:runtime,max:5});
+ const store=()=>makePostgresCustodyStore({pool,expectedRole:runtime,expectedDatabase:database});
+ let a=store(),one=next(scope,null,'2026-09-01'),two=next(scope,one,'2026-09-02'),three=next(scope,two,'2026-09-03');
+ const append=(candidate,expectedRevision,expectedHeadHashSha256,s=scope)=>a.compareAndAppend({scope:s,expectedRevision,expectedHeadHashSha256,candidate});
+ await check('empty lookup and insert race',async()=>{assert.equal(await a.loadLedger(scope),null);const results=await Promise.all([append(one,0,null),append(one,0,null)]);assert.equal(results.filter(Boolean).length,1);});
+ await check('concurrent CAS append',async()=>{const results=await Promise.all([append(two,1,head(scope,one)),append(two,1,head(scope,one))]);assert.equal(results.filter(Boolean).length,1);assert.deepEqual(await a.loadLedger(scope),two);});
+ await check('exact prefix and monotonic revision',async()=>{const forged=JSON.parse(JSON.stringify(three));forged.events[0].event.actorRef='FORGED';assert.equal(await append(forged,2,head(scope,two)),false);assert.equal(await append(three,2,head(scope,two)),true);assert.equal(await append(two,1,head(scope,one)),false);});
+ await check('other case and tenant remain distinct',async()=>{for(const s of [{...scope,caseRef:'CI-CASE-B'},{...scope,tenantId:'CI-TENANT-B'}]){assert.equal(await a.loadLedger(s),null);assert.equal(await append(next(s,null,'2026-09-01'),0,null,s),true);}assert.deepEqual(await a.loadLedger(scope),three);});
+ await check('direct SQL without context sees no rows',async()=>{assert.equal((await pool.query('SELECT * FROM public.startak_evidence_custody')).rowCount,0);});
+ await check('RLS blocks cross-scope SQL read/update/insert',async()=>{
+  const client=await pool.connect();try{
+   await client.query('BEGIN');
+   await client.query("SELECT set_config('startak.tenant_id',$1,true),set_config('startak.case_ref',$2,true)",[scope.tenantId,scope.caseRef]);
+   assert.equal((await client.query('SELECT * FROM public.startak_evidence_custody')).rowCount,1);
+   assert.equal((await client.query("UPDATE public.startak_evidence_custody SET revision=7 WHERE tenant_id='CI-TENANT-B'")).rowCount,0);
+   await assert.rejects(()=>client.query("INSERT INTO public.startak_evidence_custody SELECT 'CI-TENANT-C',case_ref,evidence_ref,content_sha256,revision,head_sha256,ledger FROM public.startak_evidence_custody"),e=>e.code==='42501');
+  }finally{await client.query('ROLLBACK');client.release();}
+ });
+ await check('no DELETE or TRUNCATE privilege',async()=>{for(const q of ['DELETE FROM public.startak_evidence_custody','TRUNCATE public.startak_evidence_custody'])await assert.rejects(()=>pool.query(q),e=>e.code==='42501');});
+ await check('wrong role and database fail closed',async()=>{const bad=makePostgresCustodyStore({pool,expectedRole:'wrong',expectedDatabase:database});await assert.rejects(()=>bad.loadLedger(scope),/TRANSACTION_FAILED/);const wrong=makePostgresCustodyStore({pool,expectedRole:runtime,expectedDatabase:'wrong'});await assert.rejects(()=>wrong.loadLedger(scope),/TRANSACTION_FAILED/);});
+ await check('unexpected policy and DELETE grant fail closed',async()=>{
+  await admin.query('CREATE POLICY ci_extra ON public.startak_evidence_custody USING (true)');
+  try{await assert.rejects(()=>a.loadLedger(scope),/TRANSACTION_FAILED/);}finally{await admin.query('DROP POLICY ci_extra ON public.startak_evidence_custody');}
+  await admin.query('GRANT DELETE ON public.startak_evidence_custody TO custody_ci_runtime');
+  try{await assert.rejects(()=>a.loadLedger(scope),/TRANSACTION_FAILED/);}finally{await admin.query('REVOKE DELETE ON public.startak_evidence_custody FROM custody_ci_runtime');}
+ });
+ await check('connection restart and cryptographic replay',async()=>{await pool.end();pool=new Pool({...config,user:runtime,max:2});a=store();const actual=await a.loadLedger(scope);assert.deepEqual(actual,three);const verdict=await verifyCustodyChain(actual,{expectedScope:scope,checkpoint:{version:VERSION,scope,revision:3,headHashSha256:head(scope,three)},resolveSigner:async({tenantId,signerKeyRef})=>({tenantId,signerKeyRef,purpose:'EVIDENCE_CUSTODY_SIGNING',revoked:false,validFrom:'2026-01-01',validUntil:'2026-12-31',publicKey}),now:new Date('2026-09-04'),maxAgeSeconds:172800});assert.equal(verdict.integrityVerified,true);assert.equal((await pool.query('SELECT * FROM public.startak_evidence_custody')).rowCount,0);});
+ console.log('POSTGRES_LIVE_CUSTODY_RESULT=PASS checks='+checks+' real_database=true synthetic_data=true production=false');
+}
+main().catch(e=>{console.error('POSTGRES_LIVE_CUSTODY_RESULT=FAIL',e.message);process.exitCode=1;}).finally(async()=>{if(pool)await pool.end().catch(()=>{});await admin.end();});
