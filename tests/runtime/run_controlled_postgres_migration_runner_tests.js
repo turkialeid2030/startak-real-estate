@@ -43,21 +43,23 @@ function createMigrationPool({
   transactionTargetMismatch = false,
   commitFailure = false,
   rollbackFailure = false,
+  beginCommand='BEGIN',commitCommand='COMMIT',rollbackCommand='ROLLBACK',
 } = {}) {
   const calls = [];
-  let connections=0, identityChecks=0;
+  let connections=0, identityChecks=0, discarded=0;
   return {
     calls,
     get connections(){return connections;},
+    get discarded(){return discarded;},
     async connect() {
       connections++;
       return {
         async query(sql, params) {
           const text = String(sql);
           calls.push({ sql: text, params: params || null });
-          if (text==='BEGIN') return {rows:[]};
-          if (text==='COMMIT'){if(commitFailure)throw new Error('commit uncertain');return {rows:[]};}
-          if (text==='ROLLBACK'){if(rollbackFailure)throw new Error('rollback uncertain');return {rows:[]};}
+          if (text==='BEGIN') return {command:beginCommand,rows:[]};
+          if (text==='COMMIT'){if(commitFailure)throw new Error('commit uncertain');return {command:commitCommand,rows:[]};}
+          if (text==='ROLLBACK'){if(rollbackFailure)throw new Error('rollback uncertain');return {command:rollbackCommand,rows:[]};}
           if (text === 'SELECT current_database() AS database_name, current_user AS role_name') {
             identityChecks++;
             if(transactionTargetMismatch&&identityChecks>1)return {rows:[{database_name:'other_db',role_name:roleName}]};
@@ -77,7 +79,7 @@ function createMigrationPool({
           }
           throw new Error('UNEXPECTED_SQL');
         },
-        release() {},
+        release(discard) {if(discard===true)discarded++;},
       };
     },
   };
@@ -243,6 +245,18 @@ function assertAuthorityClosed(result) {
     assert.strictEqual(out.execution.mutationExecuted,false);
     assert.strictEqual(out.execution.transactionOutcomeUnknown,id!=='TX-TARGET');
     if(id==='TX-TARGET')assert.strictEqual(out.execution.mutationAttempted,false);
+    assertAuthorityClosed(out);
+  });
+  for(const [id,patch] of [['BEGIN-MISSING',{beginCommand:null}],['COMMIT-ROLLBACK',{commitCommand:'ROLLBACK'}],['COMMIT-MISSING',{commitCommand:null}],['ROLLBACK-MISMATCH',{rlsFailure:true,rollbackCommand:'COMMIT'}]])await test('P13-V624-'+id,async()=>{
+    const pool=createMigrationPool(patch);
+    const out=await runControlledCanonicalWorkspaceMigration(baseInput({migrationPool:pool,execute:true,authorization:approval()}));
+    assert.strictEqual(out.status,MIGRATION_STATUS.HOLD_TRANSACTION_OUTCOME);
+    assert.strictEqual(out.execution.transactionCommitted,false);
+    assert.strictEqual(out.execution.mutationExecuted,false);
+    assert.strictEqual(out.execution.rollbackConfirmed,false);
+    assert.strictEqual(out.execution.transactionOutcomeUnknown,true);
+    assert.strictEqual(pool.discarded,1);
+    if(id==='BEGIN-MISSING')assert.strictEqual(out.execution.mutationAttempted,false);
     assertAuthorityClosed(out);
   });
   const failed = results.filter((entry) => entry[1] !== 'PASS');

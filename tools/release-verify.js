@@ -71,7 +71,7 @@ step('TEST_DISCOVERY_AND_REGRESSION', () => {
     'tests/architecture/run_riai_qualitative_output.js',
     'tests/runtime/run_riai_openai_responses_adapter.js',
     'tests/runtime/run_riai_client_redirect_boundary.js',
-    ...['postgres_runtime_rls_probe','controlled_backup_restore_qualification','controlled_dr_failover_qualification','controlled_observability_incident_qualification','independent_security_uat_evidence_gate','productization_release_candidate_evidence_bundle'].map(name=>'tests/runtime/run_'+name+'_tests.js'),
+    ...['postgres_runtime_rls_probe','controlled_postgres_migration_runner','controlled_backup_restore_qualification','controlled_dr_failover_qualification','controlled_observability_incident_qualification','independent_security_uat_evidence_gate','productization_release_candidate_evidence_bundle'].map(name=>'tests/runtime/run_'+name+'_tests.js'),
   ]);
   const executedEvidence = new Set();
   for (const file of tests) {

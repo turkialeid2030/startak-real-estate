@@ -71,13 +71,14 @@ async function withClient(pool, fn) {
 }
 
 const confirmedStatementDenial = Symbol('confirmedStatementDenial');
+function confirmCommand(result,expected){if(!result||Array.isArray(result)||result.command!==expected)throw new Error('RUNTIME_TRANSACTION_COMMAND_UNCONFIRMED');}
 
 async function withTransaction(pool, tenantSetting, tenantId, fn) {
   const client=await pool.connect();
   if (!client || typeof client.query!=='function' || typeof client.release!=='function') throw new TypeError('invalid runtime client');
   let began=false, discard=false, phase='begin';
   try {
-    await client.query('BEGIN');
+    confirmCommand(await client.query('BEGIN'),'BEGIN');
     began=true;
     phase='identity';
     if(typeof pool.verifyTransactionIdentity==='function') await pool.verifyTransactionIdentity(client);
@@ -89,14 +90,14 @@ async function withTransaction(pool, tenantSetting, tenantId, fn) {
     phase='statement';
     const result=await fn(client);
     phase='commit';
-    await client.query('COMMIT');
+    confirmCommand(await client.query('COMMIT'),'COMMIT');
     began=false;
     return result;
   }catch(error){
     let rollbackConfirmed=false;
     if(phase==='begin'||phase==='commit')discard=true;
     if(began){
-      try{await client.query('ROLLBACK');rollbackConfirmed=true;}
+      try{confirmCommand(await client.query('ROLLBACK'),'ROLLBACK');rollbackConfirmed=true;}
       catch(_){discard=true;}
     }
     if(phase==='statement'&&rollbackConfirmed&&error?.code==='42501'){

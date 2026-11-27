@@ -39,6 +39,7 @@ function createFakePool({
   rollbackFailure = false,
   wrongContextResponse = false,
   denyCommit = false,
+  beginCommand = 'BEGIN', commitCommand = 'COMMIT', rollbackCommand = 'ROLLBACK',
   missingUpdateOnly = false,
   missingDeleteOnly = false,
 } = {}) {
@@ -65,19 +66,19 @@ function createFakePool({
       return {
         async query(sql, params = []) {
           state.queries.push({ sql, params });
-          if (sql === 'BEGIN') return { rowCount: null, rows: [] };
+          if (sql === 'BEGIN') return { command:beginCommand,rowCount: null, rows: [] };
           if (sql === 'COMMIT') {
             if(denyCommit&&txTenant?.startsWith('rls_probe_b:'))throw rlsDenied();
             if (leakContext) state.sessionTenant = txTenant;
             else state.sessionTenant = null;
             txTenant = leakContext ? state.sessionTenant : null;
-            return { rowCount: null, rows: [] };
+            return { command:commitCommand,rowCount: null, rows: [] };
           }
           if (sql === 'ROLLBACK') {
             if(rollbackFailure)throw new Error('rollback failed');
             if (!leakContext) state.sessionTenant = null;
             txTenant = leakContext ? state.sessionTenant : null;
-            return { rowCount: null, rows: [] };
+            return { command:rollbackCommand,rowCount: null, rows: [] };
           }
           if (sql === 'SELECT set_config($1, $2, true) AS tenant_context') {
             txTenant = params[1];
@@ -292,6 +293,15 @@ function probeInput(pool, overrides = {}) {
     assert.strictEqual(out.checks.crossTenantCrudDenied,false);
     if(id!=='CONTEXT-MISMATCH')assert.ok(pool.state.discarded>0);
     if(id==='CONTEXT-MISMATCH')assert.ok(!pool.state.queries.some(q=>q.sql.startsWith('INSERT')));
+  });
+  for(const [id,patch] of [['BEGIN-MISSING',{beginCommand:null}],['COMMIT-ROLLBACK',{commitCommand:'ROLLBACK'}],['COMMIT-MISSING',{commitCommand:undefined}],['ROLLBACK-MISMATCH',{rollbackCommand:'COMMIT'}]])await test('P12-V624-'+id,async()=>{
+    // Explicit null means missing/invalid command; undefined defaults to COMMIT.
+    const pool=createFakePool(id==='COMMIT-MISSING'?{commitCommand:null}:patch);
+    const out=await runPostgresRuntimeRlsProbe(probeInput(pool));
+    assert.notStrictEqual(out.status,RLS_PROBE_STATUS.PASS_NOT_PRODUCTION_CERTIFIED);
+    assert.strictEqual(out.checks.crossTenantCrudDenied,false);
+    assert.ok(pool.state.discarded>0);
+    if(id==='BEGIN-MISSING')assert.ok(!pool.state.queries.some(q=>q.sql.startsWith('INSERT')));
   });
   const failed = results.filter((entry) => entry[1] !== 'PASS');
   console.log(`PRODUCTIZATION_P12_POSTGRES_RLS_PROBE_RESULT=${failed.length === 0 ? 'PASS' : 'FAIL'} ${results.filter((entry) => entry[1] === 'PASS').length}/${results.length}`);
