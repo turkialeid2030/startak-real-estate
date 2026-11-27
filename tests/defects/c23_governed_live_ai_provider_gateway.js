@@ -496,5 +496,36 @@ function fixture() {
   for(const patch of [{caseSnapshot:{...caseSnapshot,resultHashSha256:HA}},{caseSnapshot:{...caseSnapshot,status:'READY'}},{workspaceAction:actionFor(session,{payload:{handoffHashSha256:HA}})},{workspaceAction:actionFor(session,{requestedAt:'2026-10-01T12:00:00Z'})}])assert.strictEqual(evaluateAiReportReviewAccess({...accessInput,...patch}).reviewAccessCandidate,false);
   console.log('V7_AI_REVIEW_HANDOFF=PASS synthetic_adapter=true no_report_export=true');
   console.log('V7_AI_OPERATOR_REVIEW_BINDING=PASS synthetic_identity=true no_report_export=true');
+  // Both public entry points enforce the gateway's hard deadline.
+  let deadlineChecks=0;
+  for(const run of [executeGovernedProviderGateway,executeProofGroundedProviderGateway]){
+    let signal,finish,called=0;
+    const held=await run({...f,adapter:{timeoutMs:20,invoke:(_packet,options)=>{called++;signal=options.signal;return new Promise(resolve=>{finish=resolve;});}}});
+    assert.strictEqual(held.status,STATUS.HOLD_PROVIDER);
+    assert.deepStrictEqual(held.blockers,['C23_PROVIDER_TIMEOUT']);
+    assert.strictEqual(held.providerCalled,true);
+    assert.strictEqual(held.providerResponse,null);
+    assert.strictEqual(held.draft,null);
+    assert.strictEqual(held.groundedDraftReviewReady,false);
+    assert.strictEqual(signal.aborted,true);
+    assert.strictEqual(called,1);
+    finish(f.providerResponse);await Promise.resolve();
+    assert.strictEqual(held.providerResponse,null);
+    deadlineChecks+=9;
+    for(const timeoutMs of [0,30001,NaN,'20']){
+      const denied=await run({...f,adapter:{timeoutMs,invoke:()=>{called++;return f.providerResponse;}}});
+      assert.strictEqual(denied.providerCalled,false);
+      assert.deepStrictEqual(denied.blockers,['C23_PROVIDER_TIMEOUT_CONFIG_INVALID']);
+      deadlineChecks+=2;
+    }
+    const getterAdapter={invoke:()=>{called++;return f.providerResponse;}};
+    Object.defineProperty(getterAdapter,'timeoutMs',{get(){called++;return 20;}});
+    const denied=await run({...f,adapter:getterAdapter});
+    assert.strictEqual(denied.providerCalled,false);assert.strictEqual(called,1);deadlineChecks+=2;
+    const recovered=await run({...f,adapter:{timeoutMs:1000,invoke:async(_packet,options)=>{assert.strictEqual(options.signal.aborted,false);return f.providerResponse;}}});
+    assert.strictEqual(recovered.groundedDraftReviewReady,true);
+    assert.strictEqual(recovered.transactionAuthorized,false);deadlineChecks+=2;
+  }
+  console.log('V7_AI_PROVIDER_DEADLINE=PASS checks='+deadlineChecks+' synthetic_adapter=true');
   console.log('C23_GOVERNED_LIVE_AI_PROVIDER_GATEWAY=PASS');
 })().catch((err)=>{ console.error(err); process.exit(1); });
