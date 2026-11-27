@@ -147,3 +147,6 @@ V6.32 Release 716/716 and 17/17 required scripts; Wave12B 72 checks PASS. Foreca
 
 ## V6.34 DCF input integrity
 V6.33 Release 716/716, 18/18 mandatory scripts, NOI 60 checks PASS. DCF packet now verifies nested assumptions and rate trace consistency, chronology, scope, adjustment IDs, timing and authority. 14 negative cases and 2 positive roundtrips. No external source authentication or production release.
+
+## V6.35 NOI–DCF–financing content binding
+V6.34 Release 716/716, 18/18 named evidence, DCF 91 checks PASS. Revalidate retained DCF assumptions and compare actual NOI values/period identities before financing, plus financing row invariants. Twelve negatives and three consistency checks. No production release, source certification or credential remediation.

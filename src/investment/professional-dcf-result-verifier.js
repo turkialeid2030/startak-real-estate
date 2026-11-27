@@ -6,6 +6,7 @@ const {
   PROFESSIONAL_DCF_RESULT_STATUS,
 } = require('../engines/valuation/professional-dcf');
 
+const {verifyTerminalNoiInputIntegrity,verifyDispositionCostInputIntegrity,DCF_PERIOD_ADJUSTMENT_TYPE,DCF_ADJUSTMENT_SOURCE}=require('../valuation/professional-dcf-input');
 function stableClone(value) {
   if (Array.isArray(value)) return value.map(stableClone);
   if (!value || typeof value !== 'object') return value;
@@ -53,12 +54,21 @@ function verifyProfessionalDcfArithmetic(result){
      !['END_OF_PERIOD','MID_YEAR'].includes(result.timingConvention)||result.terminalTimingConvention!=='END_OF_FINAL_PERIOD')return false;
   if(result.unleveredPropertyCashFlowBasis!==true||result.indicationType!=='PROFESSIONAL_DCF_VALUE_INDICATION'||!Array.isArray(result.blockers)||result.blockers.length!==0||
     ['financingIncluded','debtServiceIncluded','incomeTaxCalculated','zakatCalculated','equityReturnAnalysisPerformed','automaticRateDerivation','automaticTerminalNoiDerivation','reconciliationPerformed','finalValuationConclusionEstablished','certifiedValuationEstablished','transactionAuthorized'].some(k=>result[k]!==false))return false;
+  const nonEmpty=x=>typeof x==='string'&&x.trim().length>0;
+  const vd=Date.parse(result.valuationDate);
+  if(!Number.isFinite(vd)||!['BEFORE_REPLACEMENT_RESERVE','AFTER_REPLACEMENT_RESERVE'].includes(result.noiConvention))return false;
+  for(const [p,type,rate] of [[result.discountRateProvenance,'DISCOUNT_RATE',result.discountRate],[result.exitCapRateProvenance,'EXIT_CAP_RATE',result.exitCapRate]]){
+    if(!p||p.type!==type||p.value!==rate||!validSha(p.rateInputHashSha256)||!nonEmpty(p.rateId)||!nonEmpty(p.reviewedByRef)||!nonEmpty(p.reviewEvidenceRef)||!Array.isArray(p.evidenceRefs)||!p.evidenceRefs.length||!p.evidenceRefs.every(nonEmpty)||!Number.isSafeInteger(p.ageDays)||!Number.isSafeInteger(p.maximumAgeDays)||p.ageDays<0||p.ageDays>p.maximumAgeDays||p.ageDays!==Math.floor((vd-Date.parse(p.asOfDate))/86400000)||Date.parse(p.asOfDate)>vd||!Number.isFinite(Date.parse(p.reviewedAt)))return false;
+  }
+  const scoped=x=>x?.caseId===result.caseId&&x?.propertyRef===result.propertyRef;
+  if(!scoped(result.terminalNoiInput)||!scoped(result.dispositionCostInput)||!verifyTerminalNoiInputIntegrity(result.terminalNoiInput)||!verifyDispositionCostInputIntegrity(result.dispositionCostInput)||Date.parse(result.terminalNoiInput.asOfDate)>vd)return false;
   const flags=[],ids=new Set(),adjustments=new Set();let total=0;
   for(const [index,row] of result.operatingPresentValueTrace.entries()){
     if(!row||typeof row.periodId!=='string'||!row.periodId.trim()||ids.has(row.periodId)||row.periodIndex!==index+1||!Number.isFinite(row.selectedNoiSar)||!Array.isArray(row.adjustmentTrace))return false;
     ids.add(row.periodId);let inflows=0,outflows=0;
     for(const a of row.adjustmentTrace){
       if(!a||typeof a.adjustmentId!=='string'||!a.adjustmentId.trim()||adjustments.has(a.adjustmentId)||!validSha(a.dcfPeriodAdjustmentHashSha256)||!Number.isFinite(a.amountSar)||a.amountSar<0||!['INFLOW','OUTFLOW'].includes(a.direction))return false;
+      if(!Object.values(DCF_PERIOD_ADJUSTMENT_TYPE).includes(a.type)||!Object.values(DCF_ADJUSTMENT_SOURCE).includes(a.source)||!Array.isArray(a.evidenceRefs)||!a.evidenceRefs.length||!a.evidenceRefs.every(nonEmpty))return false;
       adjustments.add(a.adjustmentId);if(a.direction==='INFLOW')inflows+=a.amountSar;else outflows+=a.amountSar;
     }
     const cf=row.selectedNoiSar+inflows-outflows,exponent=result.timingConvention==='MID_YEAR'?row.periodIndex-0.5:row.periodIndex;

@@ -319,6 +319,9 @@ function buildInvestmentFinancingMetricsInputPacket({
   if (!verifyProfessionalNoiResultIntegrity(professionalNoiResult)) return hold(INVESTMENT_FINANCING_INPUT_STATUS.HOLD_INTEGRITY, ['PROFESSIONAL_NOI_RESULT_INTEGRITY_FAILED'], context);
   if (professionalNoiResult.calculationHashSha256 !== professionalDcfResult.professionalNoiCalculationHashSha256) return hold(INVESTMENT_FINANCING_INPUT_STATUS.HOLD_NOI, ['PROFESSIONAL_NOI_DCF_BINDING_MISMATCH'], context);
   if (iso(professionalNoiResult.valuationDate, 'professionalNoiResult.valuationDate') !== valuationDateIso) return hold(INVESTMENT_FINANCING_INPUT_STATUS.HOLD_NOI, ['PROFESSIONAL_NOI_VALUATION_DATE_MISMATCH'], context);
+  const trace=professionalDcfResult.operatingPresentValueTrace, periods=professionalNoiResult.periodResults;
+  if(professionalDcfResult.noiConvention!==professionalNoiResult.noiConvention||trace.length!==periods.length||trace.some((p,i)=>p.periodId!==periods[i].periodId||p.periodIndex!==periods[i].periodIndex||p.selectedNoiSar!==periods[i].selectedNoiSar))return hold(INVESTMENT_FINANCING_INPUT_STATUS.HOLD_NOI,['PROFESSIONAL_NOI_DCF_PERIOD_CONTENT_MISMATCH'],context);
+  if([professionalDcfResult.discountRateProvenance,professionalDcfResult.exitCapRateProvenance,professionalDcfResult.terminalNoiInput,professionalDcfResult.dispositionCostInput].some(x=>Date.parse(x.reviewedAt)>Date.parse(packetPreparedAtIso)))return hold(INVESTMENT_FINANCING_INPUT_STATUS.HOLD_DCF,['DCF_SOURCE_REVIEW_AFTER_FINANCING_PREPARATION'],context);
 
   if (!investmentBasisInput || investmentBasisInput.caseId !== caseId || investmentBasisInput.propertyRef !== propertyRef) throw new TypeError('CASE_OR_PROPERTY_ISOLATION_VIOLATION:investmentBasisInput');
   if (!verifyInvestmentBasisIntegrity(investmentBasisInput)) return hold(INVESTMENT_FINANCING_INPUT_STATUS.HOLD_INTEGRITY, ['INVESTMENT_BASIS_INTEGRITY_FAILED'], context);
@@ -429,6 +432,9 @@ function verifyInvestmentFinancingMetricsInputIntegrity(packet) {
   if(!['packetId','caseId','propertyRef','preparedByRef','evidenceRef'].every(k=>nonEmpty(packet[k])&&packet[k]===packet[k].trim())||!validSha(packet.professionalDcfCalculationHashSha256)||!validSha(packet.professionalNoiCalculationHashSha256))return false;
   const valuation=iso(packet.valuationDate,'valuationDate'),prepared=iso(packet.preparedAt,'preparedAt');
   if(valuation!==packet.valuationDate||prepared!==packet.preparedAt||Date.parse(prepared)<Date.parse(valuation))return false;
+  if(!['DCF_VALUE_INDICATION_READY','REVIEW_REQUIRED'].includes(packet.professionalDcfStatus)||![packet.professionalDcfValueIndicationSar,packet.stabilizedProfessionalNoiSar,packet.netTerminalValueSar].every(Number.isFinite)||!Array.isArray(packet.operatingPropertyCashFlows)||!packet.operatingPropertyCashFlows.length)return false;
+  const ids=new Set();
+  for(const [i,row] of packet.operatingPropertyCashFlows.entries()){if(!row||!nonEmpty(row.periodId)||ids.has(row.periodId)||row.periodIndex!==i+1||![row.selectedNoiSar,row.unleveredPropertyCashFlowSar].every(Number.isFinite))return false;ids.add(row.periodId);}
   const same=(a,b)=>JSON.stringify(stableClone(a))===JSON.stringify(stableClone(b));
   const check=(record,constructor,age)=>{
     if(!record||record.caseId!==packet.caseId||record.propertyRef!==packet.propertyRef||!same(record,constructor(record)))return false;
