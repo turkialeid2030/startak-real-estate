@@ -2,6 +2,7 @@
 
 const crypto = require('crypto');
 const {isPlainJson}=require('../validation/plain-json-boundary');
+const {strictCalendarDateMs}=require('../validation/strict-calendar-instant');
 const {normalizeNumericText}=require('../validation/numeric-text');
 const {
   verifyProfileIntegrity,
@@ -53,7 +54,7 @@ const nonEmpty = (v) => typeof v === 'string' && v.trim().length > 0;
 const clean = (v) => nonEmpty(v) ? v.trim() : '';
 
 function iso(value, field) {
-  if (!nonEmpty(value) || !Number.isFinite(Date.parse(value))) throw new TypeError(`${field} must be a valid date/time`);
+  if (!nonEmpty(value) || !Number.isFinite(strictCalendarDateMs(value))) throw new TypeError(`${field} must be a valid date/time`);
   return new Date(value).toISOString();
 }
 function stable(value) {
@@ -354,6 +355,7 @@ function baseBlockers({ modelProfile, request, groundingManifest, providerAuthor
   if (modelProfile.deploymentMode===DEPLOYMENT_MODE.SIMULATION_ONLY) blockers.push('C23_SECURITY_SIMULATION_ONLY_PROFILE');
   if (!modelProfile.allowedTaskClasses.includes(request.taskClass)) blockers.push('C23_SECURITY_TASK_CLASS_NOT_ALLOWED');
   const at = Date.parse(asOf);
+  if(at>Date.now())blockers.push('C23_WINDOW_AS_OF_FUTURE');
   const invocationStart=Date.parse(invocation.createdAt);
   if([modelProfile.reviewedAt,request.createdAt,groundingManifest.reviewedAt,providerAuthorization.reviewedAt].some(v=>Date.parse(v)>invocationStart))blockers.push('C23_WINDOW_INVOCATION_PREDATES_PREREQUISITES');
   if(Date.parse(modelProfile.reviewedAt)>Date.parse(request.createdAt)||Date.parse(request.createdAt)>Date.parse(groundingManifest.reviewedAt))blockers.push('C23_WINDOW_REVIEW_SEQUENCE_INVALID');
@@ -368,7 +370,9 @@ function baseBlockers({ modelProfile, request, groundingManifest, providerAuthor
     if(!item || typeof item !== 'object' || !HASH_RE.test(item.evidenceHashSha256 || '')){
       blockers.push('C23_INTEGRITY_RETRIEVAL_SCHEMA');continue;
     }
-    retrievalByHash.set(item.evidenceHashSha256.toLowerCase(),item);
+    const digest=item.evidenceHashSha256.toLowerCase();
+    if(retrievalByHash.has(digest))blockers.push('C23_INTEGRITY_RETRIEVAL_DIGEST_AMBIGUOUS');
+    else retrievalByHash.set(digest,item);
     if(!modelProfile.allowedDataClasses.includes(item.dataClass)) blockers.push('C23_SECURITY_RETRIEVAL_DATA_CLASS_NOT_ALLOWED:'+item.evidenceId);
     if(!Number.isFinite(Date.parse(item.knownAt)) || Date.parse(item.knownAt)>at)
       blockers.push('C23_WINDOW_RETRIEVAL_FUTURE_OR_INVALID:'+item.evidenceId);
@@ -506,12 +510,16 @@ async function executeGovernedProviderGateway(input = {}) {
   } catch {
     return freeze({capability:CAPABILITY,policyVersion:POLICY_VERSION,status:STATUS.HOLD_INTEGRITY,providerInvocationReady:false,groundedDraftReviewReady:false,blockers:['C23_INTEGRITY_INPUT_SNAPSHOT'],asOf:null,providerCalled:false,providerResponse:null,draft:null,claims:null,productionDeploymentAuthorized:false,publicAiAuthorized:false,transactionAuthorized:false,approvalAuthorized:false,commercialGoLive:'HOLD'});
   }
-  const readiness = evaluateProviderReadiness(packet);
+  let readiness;
+  try{readiness=evaluateProviderReadiness(packet);}catch{return freeze({capability:CAPABILITY,policyVersion:POLICY_VERSION,status:STATUS.HOLD_INTEGRITY,providerInvocationReady:false,groundedDraftReviewReady:false,blockers:['C23_INTEGRITY_INVALID_EVALUATION_TIME'],providerCalled:false,providerResponse:null,draft:null,claims:null,productionDeploymentAuthorized:false,publicAiAuthorized:false,transactionAuthorized:false,approvalAuthorized:false,commercialGoLive:'HOLD'});}
   if (!readiness.providerInvocationReady) return freeze({ ...readiness, providerCalled: false, providerResponse: null });
-  const adapter = input.adapter;
-  if (!adapter || typeof adapter.invoke !== 'function') return freeze({ ...readiness, status: STATUS.HOLD_PROVIDER, providerInvocationReady: false, blockers: ['C23_PROVIDER_ADAPTER_REQUIRED'], providerCalled: false, providerResponse: null });
+  const adapterDescriptor=Object.getOwnPropertyDescriptor(input,'adapter');
+  const adapter=adapterDescriptor&&Object.hasOwn(adapterDescriptor,'value')?adapterDescriptor.value:null;
+  const invokeDescriptor=adapter&&typeof adapter==='object'?Object.getOwnPropertyDescriptor(adapter,'invoke'):null;
+  const invoke=invokeDescriptor&&Object.hasOwn(invokeDescriptor,'value')?invokeDescriptor.value:null;
+  if (typeof invoke !== 'function') return freeze({ ...readiness, status: STATUS.HOLD_PROVIDER, providerInvocationReady: false, blockers: ['C23_PROVIDER_ADAPTER_REQUIRED'], providerCalled: false, providerResponse: null });
   try {
-    const raw = await adapter.invoke(freeze({ invocation: packet.invocation, request: packet.request, groundingManifest: packet.groundingManifest, modelProfile: packet.modelProfile }));
+    const raw = await invoke.call(adapter,freeze({ invocation: packet.invocation, request: packet.request, groundingManifest: packet.groundingManifest, modelProfile: packet.modelProfile }));
     if(!isPlainJson(raw))return freeze({...readiness,status:STATUS.HOLD_PROVIDER,providerInvocationReady:false,blockers:['C23_PROVIDER_SCHEMA_ERROR'],providerCalled:true,providerResponse:null});
     if (!raw || raw.providerResult !== PROVIDER_RESULT.SUCCESS) {
       const code = raw && Object.values(PROVIDER_RESULT).includes(raw.providerResult) ? raw.providerResult : PROVIDER_RESULT.SCHEMA_ERROR;
