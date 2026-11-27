@@ -89,6 +89,11 @@ function evaluateP25ResearchScenario({
   const deltas=Object.freeze(Object.fromEntries(METRICS.map(key=>[
     key,base[key]===null||whatIf[key]===null?null:whatIf[key]-base[key],
   ])));
+  // Finite operands can still produce a non-finite difference. Do not let
+  // JSON serialization silently turn overflow into missing evidence.
+  if (Object.values(deltas).some(value => value !== null && !Number.isFinite(value))) {
+    return deny(['P25_FINANCIAL_SCENARIO_DELTA_NOT_FINITE'],governance);
+  }
   return Object.freeze({
     schemaVersion:1,studyType,assumptionModelVersion:'V2',
     status:P25_WHAT_IF_STATUS.ANALYTICAL_HOLD,
