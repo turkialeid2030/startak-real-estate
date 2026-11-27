@@ -27,6 +27,10 @@ assert.equal(op.evaluateOperatorWorkspaceAction({session,workspaceAction:action,
 assert.throws(()=>op.createOperatorSession({...sessionDraft,issuedAt:'2026-02-30'}),/C26_ISSUED_AT_INVALID/);
 let reads=0;const getter=Object.defineProperty({},'request',{enumerable:true,get(){reads++;return {};}});
 assert.throws(()=>op.createOperatorSession(Object.defineProperty({...sessionDraft},'role',{enumerable:true,get(){reads++;return op.ROLE.VIEWER;}})));
+const badPayload=Object.defineProperty({},'note',{enumerable:true,get(){reads++;return 'bad';}});
+assert.throws(()=>op.createWorkspaceAction({...action,payload:badPayload}),/C26_PAYLOAD_/);
+const rejected=op.evaluateOperatorWorkspaceAction({session,workspaceAction:{...action,payload:badPayload},caseSnapshot,asOf:'2026-09-03'});
+assert.equal(rejected.status,op.STATUS.HOLD_INTEGRITY);assert.equal(rejected.actionAllowed,false);assert.equal(rejected.auditEvent,null);assert.equal(rejected.resultHashSha256,null);
 assert.equal(ai.evaluateProofGroundedProviderReadiness(getter).status,'HOLD_INTEGRITY');
 assert.equal(ai.validateProofGroundedProviderResponse(getter).status,'HOLD_INTEGRITY');
 (async()=>{const out=await ai.executeProofGroundedProviderGateway(getter);assert.equal(out.providerCalled,false);assert.equal(reads,0);console.log('V7_CROSS_LANE_HARDENING=PASS synthetic=true production=false');})().catch(e=>{console.error(e);process.exitCode=1;});

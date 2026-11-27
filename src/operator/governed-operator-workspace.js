@@ -181,7 +181,11 @@ function freezePayload(value){
   return value;
 }
 function createWorkspaceAction(input) {
-  if (!input || typeof input !== 'object'||Array.isArray(input)||!isPlainJson(input)) throw new Error('C26_ACTION_REQUIRED');
+  if (!input || typeof input !== 'object'||Array.isArray(input)) throw new Error('C26_ACTION_REQUIRED');
+  // Preserve the payload-specific rejection contract without reading accessors.
+  const payloadDescriptor=Object.getOwnPropertyDescriptor(input,'payload');
+  if(payloadDescriptor){if(!payloadDescriptor.enumerable||!Object.hasOwn(payloadDescriptor,'value'))throw Error('C26_PAYLOAD_JSON_REQUIRED');validatePayload(payloadDescriptor.value);}
+  if(!isPlainJson(input))throw Error('C26_ACTION_REQUIRED');
   if (!Object.values(ACTION).includes(input.action)) throw new Error('C26_ACTION_UNKNOWN');
   if(input.payload!==undefined)validatePayload(input.payload);
   if (hasForbiddenAuthorityKey(input.payload)) throw new Error('C26_AUTHORITY_INJECTION_FORBIDDEN');
@@ -223,7 +227,10 @@ function auditEvent({ status, blocker, session, workspaceAction, caseSnapshot, e
 }
 
 function evaluateOperatorWorkspaceAction(input) {
-  if(!isPlainJson(input)||!input||Array.isArray(input))throw Error('C26_EVALUATION_INPUT_REQUIRED');
+  if(!input||typeof input!=='object'||Array.isArray(input))throw Error('C26_EVALUATION_INPUT_REQUIRED');
+  // A malformed nested record must produce a closed decision, never a read
+  // of untrusted properties or a misleading audit hash of an invalid record.
+  if(!isPlainJson(input))return Object.freeze({status:STATUS.HOLD_INTEGRITY,blocker:'C26_INTEGRITY_AUTHORIZATION_OR_ACTION_TAMPERED',actionAllowed:false,role:null,action:null,caseId:null,propertyRef:null,deterministicStateBefore:null,deterministicStateAfter:null,deterministicStateOverrideApplied:false,transactionAuthorized:false,approvalAuthorized:false,publicAiAuthorized:false,productionDeploymentAuthorized:false,commercialGoLive:'HOLD',canonicalBaselineActivationAuthorized:false,autonomousActionExecuted:false,auditEvent:null,resultHashSha256:null});
   const {session,workspaceAction,caseSnapshot,asOf}=input;
   requireIso(asOf, 'C26_AS_OF_INVALID');
   if (!session || !workspaceAction || !caseSnapshot) throw new Error('C26_EVALUATION_INPUT_REQUIRED');

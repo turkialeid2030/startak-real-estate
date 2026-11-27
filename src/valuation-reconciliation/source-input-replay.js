@@ -24,9 +24,10 @@ function canonicalRecord(ctor,v,label){required(safe(v),label);const rebuilt=cto
 // Rebuild each nested forecast record, not just the outer period hash.
 function rebuildCanonicalForecastPeriod(p){
  required(safe(p)&&Array.isArray(p.incomeLines)&&p.incomeLines.length>0&&p.incomeLines.length<=1000&&Array.isArray(p.operatingExpenseLines)&&p.operatingExpenseLines.length>0&&p.operatingExpenseLines.length<=1000,'FORECAST_LINE_COLLECTION_INVALID');
- const incomeLines=p.incomeLines.map(x=>canonicalRecord(forecast.createIncomeForecastLine,x,'FORECAST_INCOME_LINE_CANONICAL_MISMATCH'));
- const vacancyCollectionLoss=canonicalRecord(forecast.createVacancyCollectionLossAssumption,p.vacancyCollectionLoss,'FORECAST_VACANCY_CANONICAL_MISMATCH');
- const operatingExpenseLines=p.operatingExpenseLines.map(x=>canonicalRecord(forecast.createOperatingExpenseForecastLine,x,'FORECAST_EXPENSE_LINE_CANONICAL_MISMATCH'));
+ const rebuild=(ctor,x,reason)=>{try{return canonicalRecord(ctor,x,reason);}catch{throw Error(reason);}};
+ const incomeLines=p.incomeLines.map(x=>rebuild(forecast.createIncomeForecastLine,x,'FORECAST_INCOME_LINE_CANONICAL_MISMATCH'));
+ const vacancyCollectionLoss=rebuild(forecast.createVacancyCollectionLossAssumption,p.vacancyCollectionLoss,'FORECAST_VACANCY_CANONICAL_MISMATCH');
+ const operatingExpenseLines=p.operatingExpenseLines.map(x=>rebuild(forecast.createOperatingExpenseForecastLine,x,'FORECAST_EXPENSE_LINE_CANONICAL_MISMATCH'));
  const rebuilt=forecast.createIncomeForecastPeriod({...p,incomeLines,vacancyCollectionLoss,operatingExpenseLines});
  required(equal(rebuilt,p),'FORECAST_PERIOD_CANONICAL_MISMATCH');
  return rebuilt;
