@@ -64,10 +64,16 @@ function createSecurityAuditEvent({ eventId, occurredAt, identity, action, resou
   // "__proto__" as a prototype setter; reserve prototype-related keys and
   // store only inert own fields in a null-prototype audit object.
   const safeMetadata = Object.create(null);
-  for (const [key, value] of Object.entries(metadata || {})) {
+  for (const key of Object.keys(metadata || {})) {
     const normalizedKey = key.toLowerCase().replace(/[^a-z0-9]/g, '');
     if (/token|password|secret|authorization|cookie|session|apikey|credential|privatekey|accesskey|clientkey|signingkey|encryptionkey|passphrase|bearer/.test(normalizedKey)
       || ['__proto__', 'prototype', 'constructor'].includes(key)) continue;
+    // Do not invoke getters or arbitrary object-to-string methods while auditing.
+    const descriptor = Object.getOwnPropertyDescriptor(metadata, key);
+    if (!descriptor || !Object.hasOwn(descriptor, 'value')) continue;
+    const value = descriptor.value;
+    if (value != null && typeof value !== 'string' && typeof value !== 'boolean'
+      && !(typeof value === 'number' && Number.isFinite(value))) continue;
     safeMetadata[key] = value == null ? null : String(value);
   }
   return Object.freeze({
