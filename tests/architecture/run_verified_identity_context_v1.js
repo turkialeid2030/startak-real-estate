@@ -110,4 +110,16 @@ const badAudience = createVerifiedIdentityContext({
 });
 check(() => assert.strictEqual(badAudience.status, IDENTITY_STATUS.HOLD_REQUIRED_CLAIMS));
 
+// Non-numeric, non-finite and negative verification clocks fail closed.
+for (const invalidClock of [NaN, Infinity, -Infinity, 'invalid', '2000000000', null, -1, {}, true]) {
+  const context = createVerifiedIdentityContext({
+    claims, tokenVerificationEvidence: {verified:true},
+    requiredTenantId: 'tenant-a', nowEpochSeconds: invalidClock,
+  });
+  check(() => assert.strictEqual(context.status, IDENTITY_STATUS.HOLD_TOKEN_VERIFICATION));
+  check(() => assert.strictEqual(context.authorizationReady, false));
+  check(() => assert.ok(context.reasonCodes.includes('TOKEN_VERIFICATION_CLOCK_INVALID')));
+  check(() => assert.strictEqual(isVerifiedIdentityContext(context), false));
+}
+
 console.log(`VERIFIED_IDENTITY_CONTEXT_V1: PASS (${checks} checks)`);

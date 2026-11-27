@@ -167,4 +167,27 @@ for (const key of operationalFields) {
 }
 check(() => assert.ok(!JSON.stringify(redactionEvent).includes('SYNTHETIC_SENSITIVE_PLACEHOLDER')));
 
+// Untrusted metadata must be inert: neither getters nor coercion hooks execute.
+let metadataCallbackCount = 0;
+const inertEvent = createSecurityAuditEvent({
+  eventId: 'EVT-INERT-METADATA', occurredAt: '2026-11-28T00:00:00Z',
+  identity: viewer, action: 'VIEW_CASE', resourceType: 'CASE', resourceId: 'C4',
+  decision: 'DENY', reason: 'SYNTHETIC_TEST',
+  metadata: {
+    get apiKey() { metadataCallbackCount++; return 'SYNTHETIC_CALLBACK'; },
+    get status() { metadataCallbackCount++; return 'SYNTHETIC_CALLBACK'; },
+    opaque: { toString() { metadataCallbackCount++; return 'SYNTHETIC_CALLBACK'; } },
+    list: [1], zero: 0, active: false, empty: null, missing: undefined,
+    bad: NaN, requestId: 'R4',
+  },
+});
+check(() => assert.strictEqual(metadataCallbackCount, 0));
+for (const key of ['apiKey', 'status', 'opaque', 'list', 'bad']) {
+  check(() => assert.strictEqual(Object.hasOwn(inertEvent.metadata, key), false, key));
+}
+for (const [key, value] of Object.entries({zero:'0', active:'false', empty:null, missing:null, requestId:'R4'})) {
+  check(() => assert.strictEqual(inertEvent.metadata[key], value, key));
+}
+check(() => assert.ok(!JSON.stringify(inertEvent).includes('SYNTHETIC_CALLBACK')));
+
 console.log(`AUTHORIZATION_AUDIT_SECURITY_V1: PASS (${checks} checks)`);
