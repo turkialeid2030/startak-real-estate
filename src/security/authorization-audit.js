@@ -65,7 +65,8 @@ function createSecurityAuditEvent({ eventId, occurredAt, identity, action, resou
   // store only inert own fields in a null-prototype audit object.
   const safeMetadata = Object.create(null);
   for (const [key, value] of Object.entries(metadata || {})) {
-    if (/token|password|secret|authorization|cookie|session/i.test(key)
+    const normalizedKey = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (/token|password|secret|authorization|cookie|session|apikey|credential|privatekey|accesskey|clientkey|signingkey|encryptionkey|passphrase|bearer/.test(normalizedKey)
       || ['__proto__', 'prototype', 'constructor'].includes(key)) continue;
     safeMetadata[key] = value == null ? null : String(value);
   }
