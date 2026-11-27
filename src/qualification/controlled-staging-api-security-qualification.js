@@ -3,6 +3,7 @@
 const crypto = require('crypto');
 const {
   STAGING_QUALIFICATION_STATUS,
+  verifyCompletedStagingPostgresQualification,
 } = require('./controlled-staging-postgres-qualification');
 
 const API_SECURITY_STATUS = Object.freeze({
@@ -97,6 +98,7 @@ function normalizeResponse(value) {
 function extractWorkspaceId(body) {
   const direct = body?.data?.workspaceId;
   const nested = body?.data?.workspace?.workspaceId;
+  if(direct!==undefined&&nested!==undefined&&direct!==nested)return null;
   if (typeof nested === 'string' && nested.trim()) return nested.trim();
   if (typeof direct === 'string' && direct.trim()) return direct.trim();
   return null;
@@ -197,6 +199,7 @@ function createControlledStagingApiSecurityQualification({
     const nonAdminHeader = requiredBearerHeader(nonAdminAuthorizationHeader, 'nonAdminAuthorizationHeader');
     const timestamp = requiredString(testedAt, 'testedAt');
     if (!Number.isFinite(Date.parse(timestamp))) throw new TypeError('testedAt must be a valid timestamp');
+    if(Date.parse(timestamp)>Date.now())throw new TypeError('testedAt must not be in the future');
     const credentialValues = [tenantAHeader, tenantBHeader, adminHeader, nonAdminHeader].map(header => header.replace(/^Bearer\s+/i, ''));
     if (new Set(credentialValues).size !== credentialValues.length) {
       throw new TypeError('qualification requires distinct role credentials');
@@ -211,7 +214,7 @@ function createControlledStagingApiSecurityQualification({
       && typeof postgresQualification.evidenceBundle?.bundleHashSha256 === 'string'
       && /^[a-f0-9]{64}$/i.test(postgresQualification.evidenceBundle.bundleHashSha256)
       && postgresQualification.productionQualified === false
-      && postgresQualification.authority?.releaseAuthorized === false,
+      && verifyCompletedStagingPostgresQualification(postgresQualification,timestamp),
     );
     const postgresQualificationRef = postgresComplete
       ? `sha256:${postgresQualification.evidenceBundle.bundleHashSha256.toLowerCase()}`
@@ -303,7 +306,8 @@ function createControlledStagingApiSecurityQualification({
         occurredAt: timestamp,
       });
       adminAllowed = Boolean(adminResult && adminResult.readOnly === true && adminResult.secretsExposed === false);
-      const tenantId = tenantAResponse.body?.data?.tenantId ?? tenantAResponse.body?.data?.workspace?.tenantId;
+      const directTenant=tenantAResponse.body?.data?.tenantId,nestedTenant=tenantAResponse.body?.data?.workspace?.tenantId;
+      const tenantId=directTenant!==undefined&&nestedTenant!==undefined&&directTenant!==nestedTenant?null:directTenant??nestedTenant;
       adminScopeMatched = Boolean(adminResult?.scope?.workspaceId === wsId
         && typeof tenantId === 'string' && tenantId.trim()
         && adminResult?.scope?.tenantId === tenantId);

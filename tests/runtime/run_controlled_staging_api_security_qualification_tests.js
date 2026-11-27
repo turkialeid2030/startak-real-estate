@@ -10,6 +10,9 @@ const {
 } = require('../../src/qualification/controlled-staging-api-security-qualification');
 
 const results = [];
+const crypto=require('node:crypto');
+const digest=v=>crypto.createHash('sha256').update(JSON.stringify(v)).digest('hex');
+const authority={releaseAuthorized:false,mergeAuthorized:false,deploymentAuthorized:false,goLiveAuthorized:false,transactionAuthorized:false,productionPersistenceValidated:false,productionSecurityValidated:false};
 
 async function test(id, fn) {
   try {
@@ -23,15 +26,17 @@ async function test(id, fn) {
 }
 
 function postgresQualification(overrides = {}) {
-  return {
-    status: STAGING_QUALIFICATION_STATUS.STAGING_EVIDENCE_COMPLETE_NOT_PRODUCTION_CERTIFIED,
-    environment: 'staging',
-    targetDatabaseRef: 'staging-db-ref',
-    evidenceBundle: { bundleHashSha256: 'a'.repeat(64) },
-    productionQualified: false,
-    authority: { releaseAuthorized: false },
-    ...overrides,
-  };
+ const environment='staging',targetDatabaseRef='staging-db-ref',runtimeRole='startak_runtime',testedAt='2026-09-09T15:45:00.000Z';
+ const planCore={schemaVersion:1,environment,targetDatabaseRef,expectedDatabaseName:'startak_staging',expectedMigrationRole:'startak_migrator',runtimeRole,schemaName:'public',tableName:'canonical_workspaces',tenantSetting:'app.tenant_id',schemaHashSha256:'b'.repeat(64),rlsHashSha256:'c'.repeat(64),executionOrder:['schema','rls']};
+ const plan={...planCore,planHashSha256:digest(planCore)};
+ const migration={schemaVersion:1,status:'APPLIED_NOT_PRODUCTION_CERTIFIED',plan,execution:{mutationRequested:true,mutationExecuted:true,preflightPassed:true,schemaApplied:true,rlsApplied:true,postcheckPassed:true,mutationAttempted:true,transactionCommitted:true,rollbackConfirmed:false,transactionOutcomeUnknown:false,actualDatabaseName:plan.expectedDatabaseName,actualMigrationRole:plan.expectedMigrationRole},productionQualified:false,authority:{...authority}};
+ const checks={runtimeRoleMatchesExpected:true,runtimeDatabaseMatchesExpected:true,runtimeRoleIsSuperuser:false,runtimeRoleBypassesRls:false,forceRlsEnabled:true,sameTenantCrudAllowed:true,crossTenantCrudDenied:true,missingTenantContextDenied:true,tenantContextResetBetweenRequests:true,privilegedPathSeparatelyTested:false,cleanupComplete:true};
+ const probeCore={schemaVersion:1,status:'PASS_NOT_PRODUCTION_CERTIFIED',environment,targetDatabaseRef,probeRunId:'probe-1',probeInstanceId:'8e1b4ce7-dcbe-4bc1-8c0a-d8bb98242691',testedAt,tableRef:'public.canonical_workspaces',runtimeRole,tenantSetting:plan.tenantSetting,checks};
+ const probeHashSha256=digest(probeCore),rlsProbe={...probeCore,probeHashSha256,evidenceRef:'sha256:'+probeHashSha256,mutationExecuted:true,productionSecurityVerifiedByThisModule:false,requiresIndependentRuntimeEvidence:true,privilegedPathSeparatelyTested:false,authority:{...authority}};
+ const privilegedPathEvidence={accepted:true,status:'PASS',evidenceRef:'SYNTH-PRIV',testedAt:'2026-09-09T15:40:00.000Z',reviewedBy:'SYNTH-REVIEWER'};
+ const runtimeRlsVerification={status:'VERIFICATION_EVIDENCE_COMPLETE',environment,targetDatabaseRef,testedAt,productionSecurityVerifiedByThisModule:false,transactionAuthorized:false,evidenceRefs:['sha256:'+plan.planHashSha256,rlsProbe.evidenceRef,privilegedPathEvidence.evidenceRef],checks:{...checks,privilegedPathSeparatelyTested:true}};
+ const core={schemaVersion:1,environment,targetDatabaseRef,migrationPlanRef:'sha256:'+plan.planHashSha256,rlsProbeRef:rlsProbe.evidenceRef,privilegedPathEvidenceRef:privilegedPathEvidence.evidenceRef,runtimeRlsVerificationStatus:runtimeRlsVerification.status};
+ return {schemaVersion:1,status:STAGING_QUALIFICATION_STATUS.STAGING_EVIDENCE_COMPLETE_NOT_PRODUCTION_CERTIFIED,environment,targetDatabaseRef,migration,rlsProbe,privilegedPathEvidence,runtimeRlsVerification,evidenceBundle:{...core,bundleHashSha256:digest(core)},productionQualified:false,authority:{...authority},...overrides};
 }
 
 function baseInput(overrides = {}) {
@@ -256,6 +261,35 @@ function assertAuthorityClosed(result) {
     const out=await qualify(baseInput());
     assert.strictEqual(out.status,API_SECURITY_STATUS.HOLD_ADMIN_APPLICATION_PATH);
     assert.strictEqual(out.adminApplicationPathEvidence.checks.adminScopeMatchesWorkspace,false);
+  });
+  const valid=postgresQualification();
+  for(const [id,patch] of [
+    ['STATUS-ONLY',{migration:undefined}],
+    ['COMMIT-UNKNOWN',{migration:{...valid.migration,execution:{...valid.migration.execution,transactionOutcomeUnknown:true}}}],
+    ['PROBE-DIGEST',{rlsProbe:{...valid.rlsProbe,probeHashSha256:'0'.repeat(64)}}],
+    ['PRIVILEGED-REF',{privilegedPathEvidence:{...valid.privilegedPathEvidence,evidenceRef:'OTHER'}}],
+    ['VERIFICATION-SCOPE',{runtimeRlsVerification:{...valid.runtimeRlsVerification,targetDatabaseRef:'OTHER'}}],
+    ['AUTHORITY',{authority:{...authority,mergeAuthorized:true}}],
+    ['BUNDLE-DIGEST',{evidenceBundle:{...valid.evidenceBundle,bundleHashSha256:'0'.repeat(64)}}]
+  ])await test('P15-V626-'+id,async()=>{
+    const {executor,calls}=successfulRequestExecutor();const {inspector,calls:adminCalls}=successfulAdminInspector();
+    const qualify=createControlledStagingApiSecurityQualification({requestExecutor:executor,adminInspector:inspector});
+    const out=await qualify(baseInput({postgresQualification:postgresQualification(patch)}));
+    assert.strictEqual(out.status,API_SECURITY_STATUS.HOLD_POSTGRES_QUALIFICATION);assert.strictEqual(out.postgresQualificationRef,null);assert.strictEqual(calls.length,0);assert.strictEqual(adminCalls.length,0);
+  });
+  await test('P15-V626-TIME-BOUNDARY',async()=>{
+    const {executor,calls}=successfulRequestExecutor();const {inspector}=successfulAdminInspector();
+    const qualify=createControlledStagingApiSecurityQualification({requestExecutor:executor,adminInspector:inspector});
+    assert.strictEqual((await qualify(baseInput({testedAt:'2026-09-09T15:44:00Z'}))).status,API_SECURITY_STATUS.HOLD_POSTGRES_QUALIFICATION);
+    await assert.rejects(()=>qualify(baseInput({testedAt:'2999-01-01T00:00:00Z'})),/future/);assert.strictEqual(calls.length,0);
+  });
+  for(const [id,data,status] of [
+    ['WORKSPACE-CONFLICT',{workspaceId:'other',workspace:{workspaceId:'workspace-1'},tenantId:'tenant-a'},API_SECURITY_STATUS.HOLD_API_IDOR_BOLA],
+    ['TENANT-CONFLICT',{workspace:{workspaceId:'workspace-1',tenantId:'tenant-b'},tenantId:'tenant-a'},API_SECURITY_STATUS.HOLD_ADMIN_APPLICATION_PATH]
+  ])await test('P15-V626-'+id,async()=>{
+    const {executor}=successfulRequestExecutor({tenantA:{statusCode:200,body:{data}}});const {inspector}=successfulAdminInspector();
+    const qualify=createControlledStagingApiSecurityQualification({requestExecutor:executor,adminInspector:inspector});
+    assert.strictEqual((await qualify(baseInput())).status,status);
   });
   const failed = results.filter((entry) => entry[1] !== 'PASS');
   console.log(`PRODUCTIZATION_P15_STAGING_API_SECURITY_QUALIFICATION_RESULT=${failed.length === 0 ? 'PASS' : 'FAIL'} ${results.filter((entry) => entry[1] === 'PASS').length}/${results.length}`);

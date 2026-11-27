@@ -320,6 +320,32 @@ function createControlledStagingPostgresQualification({
   };
 }
 
+// Recheck the completed handoff before any downstream API credential is sent.
+// Recomputed hashes establish structural consistency, not external authenticity.
+function verifyCompletedStagingPostgresQualification(value,asOf){
+ try{
+  if(value?.schemaVersion!==1||value.status!==STAGING_QUALIFICATION_STATUS.STAGING_EVIDENCE_COMPLETE_NOT_PRODUCTION_CERTIFIED||value.productionQualified!==false||!closedAuthority(value.authority))return false;
+  const {environment,targetDatabaseRef,migration:m,rlsProbe:p,privilegedPathEvidence:priv,runtimeRlsVerification:v,evidenceBundle:b}=value;
+  if(normalizeEnvironment(environment)!==environment||requiredString(targetDatabaseRef,'targetDatabaseRef')!==targetDatabaseRef)return false;
+  const plan=m?.plan,e=m?.execution;
+  if(m?.schemaVersion!==1||m.status!==MIGRATION_STATUS.APPLIED_NOT_PRODUCTION_CERTIFIED||m.productionQualified!==false||!closedAuthority(m.authority)||
+     plan?.schemaVersion!==1||plan.environment!==environment||plan.targetDatabaseRef!==targetDatabaseRef||!isDigest(plan.schemaHashSha256)||!isDigest(plan.rlsHashSha256)||!isDigest(plan.planHashSha256)||digestFields(plan,MIGRATION_PLAN_KEYS)!==plan.planHashSha256||
+     !Array.isArray(plan.executionOrder)||!e||!['mutationRequested','mutationExecuted','preflightPassed','schemaApplied','rlsApplied','postcheckPassed','mutationAttempted','transactionCommitted'].every(k=>e[k]===true)||e.rollbackConfirmed!==false||e.transactionOutcomeUnknown!==false||e.actualDatabaseName!==plan.expectedDatabaseName||e.actualMigrationRole!==plan.expectedMigrationRole)return false;
+  if(!['expectedDatabaseName','expectedMigrationRole','runtimeRole','schemaName','tableName'].every(k=>typeof plan[k]==='string'&&/^[a-z_][a-z0-9_]*$/.test(plan[k]))||plan.expectedMigrationRole===plan.runtimeRole||typeof plan.tenantSetting!=='string'||!/^[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)+$/.test(plan.tenantSetting))return false;
+  if(p?.schemaVersion!==1||p.status!==RLS_PROBE_STATUS.PASS_NOT_PRODUCTION_CERTIFIED||p.environment!==environment||p.targetDatabaseRef!==targetDatabaseRef||p.runtimeRole!==plan.runtimeRole||p.tableRef!==plan.schemaName+'.'+plan.tableName||p.tenantSetting!==plan.tenantSetting||
+     typeof p.probeInstanceId!=='string'||!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(p.probeInstanceId)||typeof p.probeRunId!=='string'||!p.probeRunId.trim()||!isDigest(p.probeHashSha256)||digestFields(p,PROBE_CORE_KEYS)!==p.probeHashSha256||p.evidenceRef!=='sha256:'+p.probeHashSha256||
+     p.productionSecurityVerifiedByThisModule!==false||p.requiresIndependentRuntimeEvidence!==true||p.mutationExecuted!==true||p.privilegedPathSeparatelyTested!==false||!closedAuthority(p.authority))return false;
+  const checks=p.checks;
+  if(!checks||!['runtimeRoleMatchesExpected','runtimeDatabaseMatchesExpected','cleanupComplete','forceRlsEnabled','sameTenantCrudAllowed','crossTenantCrudDenied','missingTenantContextDenied','tenantContextResetBetweenRequests'].every(k=>checks[k]===true)||!['runtimeRoleIsSuperuser','runtimeRoleBypassesRls','privilegedPathSeparatelyTested'].every(k=>checks[k]===false))return false;
+  const at=Date.parse(asOf),tested=Date.parse(p.testedAt),privAt=Date.parse(priv?.testedAt);
+  if(typeof asOf!=='string'||typeof p.testedAt!=='string'||typeof priv?.testedAt!=='string'||![at,tested,privAt].every(Number.isFinite)||at>Date.now()||tested>at||privAt>tested||priv?.accepted!==true||priv.status!=='PASS'||typeof priv.evidenceRef!=='string'||!priv.evidenceRef.trim()||typeof priv.reviewedBy!=='string'||!priv.reviewedBy.trim())return false;
+  const expectedChecks={runtimeRoleIsSuperuser:false,runtimeRoleBypassesRls:false,forceRlsEnabled:true,sameTenantCrudAllowed:true,crossTenantCrudDenied:true,missingTenantContextDenied:true,tenantContextResetBetweenRequests:true,privilegedPathSeparatelyTested:true};
+  const refs=['sha256:'+plan.planHashSha256,p.evidenceRef,priv.evidenceRef];
+  if(v?.status!==VERIFICATION_STATUS.VERIFICATION_EVIDENCE_COMPLETE||v.productionSecurityVerifiedByThisModule!==false||v.transactionAuthorized!==false||v.environment!==environment||v.targetDatabaseRef!==targetDatabaseRef||v.testedAt!==p.testedAt||!Object.keys(expectedChecks).every(k=>v.checks?.[k]===expectedChecks[k])||JSON.stringify(v.evidenceRefs)!==JSON.stringify(refs))return false;
+  const expected=buildBundle({environment,targetDatabaseRef,migrationResult:m,rlsProbeResult:p,privilegedPathEvidence:priv,verification:v});
+  return !!b&&Object.keys(expected).length===Object.keys(b).length&&Object.keys(expected).every(k=>Object.hasOwn(b,k)&&b[k]===expected[k]);
+ }catch{return false;}
+}
 const runControlledStagingPostgresQualification = createControlledStagingPostgresQualification();
 
 module.exports = {
@@ -328,4 +354,5 @@ module.exports = {
   ALLOWED_ENVIRONMENTS,
   createControlledStagingPostgresQualification,
   runControlledStagingPostgresQualification,
+  verifyCompletedStagingPostgresQualification,
 };
