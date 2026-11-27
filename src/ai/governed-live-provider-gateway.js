@@ -50,6 +50,9 @@ const PROVIDER_RESULT = Object.freeze({
 });
 
 const HASH_RE = /^[a-f0-9]{64}$/i;
+const MAX_PROVIDER_TIMEOUT_MS = 30_000;
+const MIN_PROVIDER_TIMEOUT_MS = 10;
+const PROVIDER_DEADLINE = Symbol('provider-deadline');
 const nonEmpty = (v) => typeof v === 'string' && v.trim().length > 0;
 const clean = (v) => nonEmpty(v) ? v.trim() : '';
 
@@ -518,8 +521,17 @@ async function executeGovernedProviderGateway(input = {}) {
   const invokeDescriptor=adapter&&typeof adapter==='object'?Object.getOwnPropertyDescriptor(adapter,'invoke'):null;
   const invoke=invokeDescriptor&&Object.hasOwn(invokeDescriptor,'value')?invokeDescriptor.value:null;
   if (typeof invoke !== 'function') return freeze({ ...readiness, status: STATUS.HOLD_PROVIDER, providerInvocationReady: false, blockers: ['C23_PROVIDER_ADAPTER_REQUIRED'], providerCalled: false, providerResponse: null });
+  // Adapter configuration is trusted server configuration, not proof content.
+  // A shorter timeout may be configured; it cannot extend the hard ceiling.
+  const timeoutDescriptor=Object.getOwnPropertyDescriptor(adapter,'timeoutMs');
+  const timeoutMs=timeoutDescriptor&&Object.hasOwn(timeoutDescriptor,'value')?timeoutDescriptor.value:MAX_PROVIDER_TIMEOUT_MS;
+  if ((timeoutDescriptor&&!Object.hasOwn(timeoutDescriptor,'value'))||!Number.isInteger(timeoutMs)||timeoutMs<MIN_PROVIDER_TIMEOUT_MS||timeoutMs>MAX_PROVIDER_TIMEOUT_MS)
+    return freeze({...readiness,status:STATUS.HOLD_PROVIDER,providerInvocationReady:false,groundedDraftReviewReady:false,blockers:['C23_PROVIDER_TIMEOUT_CONFIG_INVALID'],providerCalled:false,providerResponse:null,draft:null,claims:null});
+  const controller=new AbortController();
+  let timer;
   try {
-    const raw = await invoke.call(adapter,freeze({ invocation: packet.invocation, request: packet.request, groundingManifest: packet.groundingManifest, modelProfile: packet.modelProfile }));
+    const deadline=new Promise((_,reject)=>{timer=setTimeout(()=>{reject(PROVIDER_DEADLINE);controller.abort();},timeoutMs);});
+    const raw=await Promise.race([Promise.resolve().then(()=>invoke.call(adapter,freeze({ invocation: packet.invocation, request: packet.request, groundingManifest: packet.groundingManifest, modelProfile: packet.modelProfile }),{signal:controller.signal})),deadline]);
     if(!isPlainJson(raw))return freeze({...readiness,status:STATUS.HOLD_PROVIDER,providerInvocationReady:false,blockers:['C23_PROVIDER_SCHEMA_ERROR'],providerCalled:true,providerResponse:null});
     if (!raw || raw.providerResult !== PROVIDER_RESULT.SUCCESS) {
       const code = raw && Object.values(PROVIDER_RESULT).includes(raw.providerResult) ? raw.providerResult : PROVIDER_RESULT.SCHEMA_ERROR;
@@ -536,9 +548,9 @@ async function executeGovernedProviderGateway(input = {}) {
     }
     const canonical = createProviderResponseEnvelope(snapshot);
     return freeze({ ...readiness, ...checked, providerCalled: true, providerResponse: canonical });
-  } catch (_) {
-    return freeze({ ...readiness, status: STATUS.HOLD_PROVIDER, providerInvocationReady: false, blockers: ['C23_PROVIDER_NETWORK_ERROR'], providerCalled: true, providerResponse: null });
-  }
+  } catch (error) {
+    return freeze({ ...readiness, status: STATUS.HOLD_PROVIDER, providerInvocationReady: false, groundedDraftReviewReady:false, blockers: [error===PROVIDER_DEADLINE?'C23_PROVIDER_TIMEOUT':'C23_PROVIDER_NETWORK_ERROR'], providerCalled: true, providerResponse: null,draft:null,claims:null });
+  } finally { clearTimeout(timer); }
 }
 
 module.exports = Object.freeze({
