@@ -295,3 +295,21 @@ check(packet({minimumMeasurementSourcesByType:{LAND_AREA:1}}).status===PROPERTY_
 check(packet({inspection:{...goodInspection,reviewBindingSha256:undefined}}).status===PROPERTY_EVIDENCE_PACKET_STATUS.HOLD_INSPECTION,'legacy unbound review held');
 check(ready.inspectionReviewBindingSha256===goodInspection.reviewBindingSha256,'handoff preserves inspection review digest');
 console.log(`WAVE_8C_PROPERTY_EVIDENCE_BRIDGE=PASS checks=${checks}`);
+
+ // V6.54 — positive cost source chain using actual synthetic inspection and evidence fixture.
+ const cost54=require('../../src/cost/cost-approach-inputs');
+ const {calculateCostApproachIndication}=require('../../src/engines/valuation/cost-approach');
+ const {evaluateSourceInputReplay}=require('../../src/valuation-reconciliation/source-input-replay');
+ const scope54={caseId:CASE_ID,propertyRef:PROPERTY_REF,valuationDate:'2026-09-07T00:00:00Z'};
+ const propertyDraft54={caseId:CASE_ID,propertyRef:PROPERTY_REF,assignmentRef:'ASSIGNMENT-001',assignment:assignment(),inspection:goodInspection,evidenceRecords:goodEvidence,measurementRecords:goodMeasurements,materialPropertyKeys:['property.land_area'],materialMeasurementTypes:[MEASUREMENT_TYPE.LAND_AREA],evidenceToleranceByKey:{'property.land_area':{absolute:2}},measurementToleranceByType:{LAND_AREA:{absoluteSqm:2}},minimumPropertySourceRoles:2,minimumMeasurementSourcesByType:{LAND_AREA:2}};
+ const reviewed54={caseId:CASE_ID,propertyRef:PROPERTY_REF,rationale:'SYNTHETIC',evidenceRefs:['EVID'],preparedByRef:'V',preparedAt:'2026-09-07T09:10:00Z',reviewedByRef:'R',reviewedAt:'2026-09-07T09:20:00Z',reviewEvidenceRef:'REV'};
+ const costRecord54=cost54.createCostComponentRecord({...scope54,componentId:'COST54',componentClass:'STRUCTURE',description:'SYNTHETIC',quantity:1000,unit:'sqm',unitCostSar:2000,costBasis:'REPLACEMENT_COST_NEW',sourceClass:'VERIFIED_QUANTITY_SURVEY',sourceName:'SYNTHETIC',sourceRef:'QUOTE',sourceDate:'2026-09-01',capturedAt:'2026-09-02T09:00:00Z',verification:{status:'VERIFIED',verifiedByRef:'R',verifiedAt:'2026-09-02T10:00:00Z',verificationEvidenceRef:'REV'}});
+ const value54=cost54.createProfessionalLandValueInput({...reviewed54,valuationDate:scope54.valuationDate,landValueId:'LAND54',valueSar:1000000,methodReference:'SALES_COMPARISON'});
+ const dep54=cost54.createDepreciationRecord({...reviewed54,depreciationId:'DEP54',type:'PHYSICAL_INCURABLE',method:'PERCENT_OF_IMPROVEMENT_COST_NEW',magnitude:0.1});
+ const costDraft54={...scope54,packetId:'COST54',propertyEvidencePacket:ready,costComponents:[costRecord54],landValueInput:value54,depreciationRecords:[dep54],allowedCostSourceClasses:['VERIFIED_QUANTITY_SURVEY'],maxCostSourceAgeDays:365,preparedByRef:'V',preparedAt:'2026-09-07T10:00:00Z',packetEvidenceRef:'PACKET'};
+ const cp54=cost54.buildCostApproachInputPacket(costDraft54),cr54=calculateCostApproachIndication(cp54);
+ const replay54={...scope54,asOf:'2026-09-08T00:00:00Z',methodIndications:[{id:'C',sourceResult:cr54}],methodInputPacketsByIndicationId:{C:cp54},sourceRebuildsByIndicationId:{C:{methodInputDraft:costDraft54,propertyEvidenceDraft:propertyDraft54}}};
+ const out54=evaluateSourceInputReplay(replay54);check(out54.status==='READY_FOR_SOURCE_INPUT_REPLAY_REVIEW',JSON.stringify(out54.blockers));check(cr54.costApproachValueIndicationSar===2800000,'cost source replay 2.8m');check(out54.originalSourceInputsIndependentlyRebuilt===false,'external evidence remains unverified');
+ function reject54(draft,propertyDraft=propertyDraft54){const o=evaluateSourceInputReplay({...replay54,sourceRebuildsByIndicationId:{C:{methodInputDraft:draft,propertyEvidenceDraft:propertyDraft}}});check(o.status==='HOLD_SOURCE_INPUT_REPLAY'&&o.traces.length===0,JSON.stringify(o));}
+ reject54(costDraft54,null);reject54(costDraft54,{...propertyDraft54,propertyRef:'OTHER'});reject54(costDraft54,{...propertyDraft54,inspection:{...goodInspection,observations:[]}});reject54({...costDraft54,propertyEvidencePacket:{...ready,packetHashSha256:'a'.repeat(64)}});reject54({...costDraft54,costComponents:[{...costRecord54,unitCostSar:1}]});reject54({...costDraft54,landValueInput:{...value54,valueSar:1}});reject54({...costDraft54,depreciationRecords:[{...dep54,magnitude:0.9}]});
+ console.log('V654_COST_SOURCE_REPLAY=PASS synthetic=true sourceAuthority=false');

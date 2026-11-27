@@ -8,7 +8,11 @@ const {calculateProfessionalNoi}=require('../engines/valuation/professional-inco
 const rates=require('../valuation/professional-method-input-provenance');
 const dc=require('../valuation/direct-capitalization-input');
 const dcf=require('../valuation/professional-dcf-input');
-const {buildCostApproachInputPacket}=require('../cost/cost-approach-inputs');
+const cost=require('../cost/cost-approach-inputs');
+const {buildCostApproachInputPacket}=cost;
+const {buildPropertyEvidencePacket}=require('../property/property-evidence-bridge');
+const cmp=require('../market/comparable-evidence');
+const adj=require('../market/comparable-adjustments');
 const {buildLandSalesComparisonInputPacket}=require('../land/land-valuation-inputs');
 const {buildWholePropertySalesComparisonInputPacket}=require('../valuation/whole-property-sales-comparison-input');
 const {evaluateCanonicalMethodReplay}=require('./canonical-method-replay');
@@ -20,6 +24,44 @@ function canonicalRecord(ctor,v,label){required(safe(v),label);const rebuilt=cto
 function sameScope(x,ctx){return !!x&&x.caseId===ctx.caseId&&x.propertyRef===ctx.propertyRef;}
 function before(v,cutoff){const d=strictCalendarDateMs(v);return Number.isFinite(d)&&d<=cutoff;}
 function scopedDraft(d,ctx){required(safe(d)&&sameScope(d,ctx)&&strictCalendarDateMs(d.valuationDate)===ctx.date,'SOURCE_DRAFT_SCOPE_INVALID');return d;}
+function rebuildProperty(record,ctx,expected,limit){
+ const draft=record.propertyEvidenceDraft;
+ required(safe(draft)&&sameScope(draft,ctx)&&strictCalendarDateMs(draft.assignment?.valuation_date)===ctx.date,'PROPERTY_SOURCE_DRAFT_REQUIRED');
+ required(before(draft.assignment?.report_date,ctx.cutoff)&&before(draft.inspection?.completedAt,limit),'PROPERTY_SOURCE_WINDOW_INVALID');
+ required(Array.isArray(draft.evidenceRecords)&&draft.evidenceRecords.length>0&&draft.evidenceRecords.length<=1000&&Array.isArray(draft.measurementRecords)&&draft.measurementRecords.length>0&&draft.measurementRecords.length<=1000,'PROPERTY_SOURCE_COLLECTIONS_REQUIRED');
+ for(const e of draft.evidenceRecords)required(e.caseId===ctx.caseId&&[e.createdAt,e.fact?.capturedAt,e.fact?.verification?.verifiedAt,...(e.professionalReview?[e.professionalReview.reviewedAt]:[])].every(x=>before(x,limit)),'PROPERTY_EVIDENCE_WINDOW_INVALID');
+ for(const m of draft.measurementRecords)required(m.caseId===ctx.caseId&&before(m.measuredAt,limit),'PROPERTY_MEASUREMENT_WINDOW_INVALID');
+ const rebuilt=buildPropertyEvidencePacket(draft);
+ required(rebuilt.professionalValuationWorkflowReady===true&&equal(rebuilt,expected),'PROPERTY_REBUILT_PACKET_MISMATCH');
+ return rebuilt;
+}
+function rebuildLandAdjustment(record,ctx,d,limit){
+ const source=record.landMarketSource;
+ required(safe(source)&&Array.isArray(d.comparableRecords)&&d.comparableRecords.length>0&&d.comparableRecords.length<=500,'LAND_MARKET_SOURCE_REQUIRED');
+ const records=d.comparableRecords.map(v=>{
+   required(v.caseId===ctx.caseId&&v.assetType==='LAND'&&v.transactionType==='SALE'&&['OFFICIAL_REGISTERED_TRANSACTION','VERIFIED_TRANSACTION'].includes(v.evidenceLevel)&&v.verification?.status==='VERIFIED'&&v.abnormalTransaction===false,'LAND_COMPARABLE_SCOPE_OR_VERIFICATION_INVALID');
+   required([v.sourceDate,v.transactionDate,v.capturedAt,v.verification.verifiedAt].every(x=>before(x,ctx.date)),'LAND_COMPARABLE_AFTER_VALUATION');
+   const location={...v.location};if(location.lat===null)delete location.lat;if(location.long===null)delete location.long;
+   const rebuilt=cmp.createComparableEvidenceRecord({...v,location});
+   required(equal(rebuilt,v),'LAND_COMPARABLE_CANONICAL_MISMATCH');return rebuilt;
+ });
+ const q=source.qualityDraft,p=source.selectionDraft,a=source.adjustmentDraft;
+ required(safe(q)&&safe(p)&&safe(a)&&[q,p,a].every(x=>x.caseId===ctx.caseId),'LAND_REPLAY_DRAFTS_REQUIRED');
+ required(strictCalendarDateMs(q.asOfDate)===ctx.date&&q.targetAssetType==='LAND'&&q.targetTransactionType==='SALE'&&filled(q.targetCity)&&['OFFICIAL_REGISTERED_TRANSACTION','VERIFIED_TRANSACTION'].includes(q.minimumEvidenceLevel),'LAND_QUALITY_POLICY_REQUIRED');
+ required(!Object.hasOwn(q,'records')&&!Object.hasOwn(p,'records')&&!Object.hasOwn(p,'qualityGate')&&!Object.hasOwn(a,'records')&&!Object.hasOwn(a,'selection'),'LAND_DERIVED_DRAFT_FORBIDDEN');
+ required(before(p.selectedAt,limit)&&strictCalendarDateMs(p.selectedAt)>=ctx.date&&Array.isArray(a.adjustmentRecords)&&a.adjustmentRecords.length<=2000,'LAND_SELECTION_WINDOW_INVALID');
+ const qualityGate=cmp.evaluateComparableSetQuality({...q,records});
+ required(qualityGate.status===cmp.COMPARABLE_QUALITY_STATUS.QUALIFIED_FOR_PROFESSIONAL_SELECTION,'LAND_QUALITY_NOT_READY');
+ const selection=adj.recordProfessionalComparableSelection({...p,records,qualityGate});
+ required(selection.professionalSelectionRecorded===true,'LAND_SELECTION_NOT_READY');
+ const adjustmentRecords=a.adjustmentRecords.map(x=>{
+   required(x.caseId===ctx.caseId&&before(x.preparedAt,limit)&&before(x.reviewedAt,limit),'LAND_ADJUSTMENT_WINDOW_INVALID');
+   return canonicalRecord(adj.createComparableAdjustmentRecord,x,'LAND_ADJUSTMENT_CANONICAL_MISMATCH');
+ });
+ const analysis=adj.buildComparableAdjustmentAnalysis({...a,records,selection,adjustmentRecords});
+ required(analysis.reconciliationReady===true&&equal(analysis,d.adjustmentAnalysis),'LAND_REBUILT_ADJUSTMENT_MISMATCH');
+ return {records,analysis};
+}
 function rebuildIncome(source,ctx){
  required(safe(source)&&Array.isArray(source.leaseRecords)&&source.leaseRecords.length>0&&source.leaseRecords.length<=1000,'INCOME_LEASE_RECORDS_REQUIRED');
  const fd=scopedDraft(source.forecastDraft,ctx),prepared=strictCalendarDateMs(fd.preparedAt);
@@ -89,11 +131,31 @@ function evaluateSourceInputReplay(input={}){
          const periodAdjustments=d.periodAdjustments.map(x=>canonicalRecord(dcf.createDcfPeriodAdjustment,x,'DCF_ADJUSTMENT_CANONICAL_MISMATCH'));
          rebuilt=dcf.buildProfessionalDcfInputPacket({...d,professionalNoiResult:income.result,discountRateInput,exitCapRateInput,terminalNoiInput,dispositionCostInput,periodAdjustments});
        }
-     }else if(v==='COST_APPROACH_1.0')rebuilt=buildCostApproachInputPacket(d);
-     else if(v==='LAND_SALES_COMPARISON_1.0')rebuilt=buildLandSalesComparisonInputPacket(d);
-     else if(v==='WHOLE_PROPERTY_SALES_COMPARISON_1.0'){
+     }else if(v==='COST_APPROACH_1.0'){
+       const limit=strictCalendarDateMs(d.preparedAt);
+       required(Number.isFinite(limit)&&limit>=date&&limit<=cutoff,'COST_PREPARATION_WINDOW_INVALID');
+       const propertyEvidencePacket=rebuildProperty(record,ctx,d.propertyEvidencePacket,limit);
+       required(Array.isArray(d.costComponents)&&d.costComponents.length>0&&d.costComponents.length<=1000&&Array.isArray(d.depreciationRecords)&&d.depreciationRecords.length<=100,'COST_SOURCE_COLLECTIONS_REQUIRED');
+       const costComponents=d.costComponents.map(x=>{
+         required(sameScope(x,ctx)&&x.verification?.status==='VERIFIED'&&['OFFICIAL_COST_INDEX','VERIFIED_QUANTITY_SURVEY','VERIFIED_CONTRACTOR_QUOTE','VERIFIED_HISTORICAL_COST'].includes(x.sourceClass)&&before(x.sourceDate,date)&&before(x.capturedAt,limit)&&before(x.verification.verifiedAt,limit),'COST_SOURCE_SCOPE_OR_WINDOW_INVALID');
+         return canonicalRecord(cost.createCostComponentRecord,x,'COST_COMPONENT_CANONICAL_MISMATCH');
+       });
+       const landValueInput=canonicalRecord(cost.createProfessionalLandValueInput,d.landValueInput,'COST_LAND_VALUE_CANONICAL_MISMATCH');
+       required(sameScope(landValueInput,ctx)&&before(landValueInput.preparedAt,limit)&&before(landValueInput.reviewedAt,limit),'COST_LAND_VALUE_WINDOW_INVALID');
+       const depreciationRecords=d.depreciationRecords.map(x=>{required(sameScope(x,ctx)&&before(x.preparedAt,limit)&&before(x.reviewedAt,limit),'COST_DEPRECIATION_WINDOW_INVALID');return canonicalRecord(cost.createDepreciationRecord,x,'COST_DEPRECIATION_CANONICAL_MISMATCH');});
+       rebuilt=buildCostApproachInputPacket({...d,propertyEvidencePacket,costComponents,landValueInput,depreciationRecords});
+     }else if(v==='LAND_SALES_COMPARISON_1.0'){
+       const limit=strictCalendarDateMs(d.reconciledAt);
+       required(Number.isFinite(limit)&&limit>=date&&limit<=cutoff,'LAND_RECONCILIATION_WINDOW_INVALID');
+       const propertyEvidencePacket=rebuildProperty(record,ctx,d.propertyEvidencePacket,limit);
+       const market=rebuildLandAdjustment(record,ctx,d,limit);
+       rebuilt=buildLandSalesComparisonInputPacket({...d,propertyEvidencePacket,comparableRecords:market.records,adjustmentAnalysis:market.analysis});
+     }else if(v==='WHOLE_PROPERTY_SALES_COMPARISON_1.0'){
        required(strictCalendarDateMs(d.asOf)===cutoff,'MARKET_DRAFT_AS_OF_MISMATCH');
-       rebuilt=buildWholePropertySalesComparisonInputPacket(d);
+       const limit=strictCalendarDateMs(d.reconciledAt);
+       required(Number.isFinite(limit)&&limit>=date&&limit<=cutoff,'MARKET_RECONCILIATION_WINDOW_INVALID');
+       const subjectPropertyEvidencePacket=rebuildProperty(record,ctx,d.subjectPropertyEvidencePacket,limit);
+       rebuilt=buildWholePropertySalesComparisonInputPacket({...d,subjectPropertyEvidencePacket});
      }else throw Error('UNSUPPORTED_MODEL');
      required(equal(rebuilt,packets[id]),'SOURCE_REBUILT_PACKET_MISMATCH');
      traces.push(Object.freeze({indicationId:id,modelVersion:v,packetHashSha256:hashValue(rebuilt),noiResultHashSha256:income?hashValue(income.result):null,leaseEvidenceHashSha256:income?income.evidence.incomeEvidencePacketHashSha256:null,forecastInputHashSha256:income?income.forecastPacket.professionalIncomeForecastInputHashSha256:null,suppliedSourceDraftReplayed:true,sourceAuthenticityIndependentlyVerified:false}));
