@@ -359,6 +359,66 @@ function verify(token, overrides = {}) {
     assert.strictEqual(refreshResolvers.length, 2);
   });
 
+  // Rotation with an already-populated cache: readers join the refresh, not old keys.
+  let rotationCalls = 0;
+  let finishRotation;
+  const rotatedJwks = { keys: [{ ...trustedJwk, kid: 'rotated-test-key' }] };
+  const rotating = createRemoteJwksProvider({
+    issuer: ISSUER, jwksUri: 'https://issuer.example/jwks',
+    fetchImpl: async () => ++rotationCalls === 1 ? deferredResponse()
+      : new Promise(resolve => { finishRotation = resolve; }),
+  });
+  await checkAsync(async () => {
+    assert.strictEqual((await rotating.getJwks()).keys[0].kid, KID);
+    const refresh = rotating.getJwks({ forceRefresh: true });
+    const concurrent = rotating.getJwks();
+    finishRotation({ ...deferredResponse(), text: async () => JSON.stringify(rotatedJwks) });
+    assert.strictEqual((await refresh).keys[0].kid, 'rotated-test-key');
+    assert.strictEqual((await concurrent).keys[0].kid, 'rotated-test-key');
+    assert.strictEqual(rotationCalls, 2);
+  });
+  let timeoutCalls = 0;
+  let timedSignal;
+  const timeoutProvider = createRemoteJwksProvider({
+    issuer: ISSUER, jwksUri: 'https://issuer.example/jwks', requestTimeoutMs: 30,
+    fetchImpl: async (_url, options) => {
+      if (++timeoutCalls === 1) { timedSignal = options.signal; return new Promise(() => {}); }
+      return deferredResponse();
+    },
+  });
+  await checkAsync(async () => {
+    await assert.rejects(timeoutProvider.getJwks(), /JWKS_FETCH_TIMEOUT/);
+    assert.strictEqual(timedSignal.aborted, true);
+    assert.strictEqual((await timeoutProvider.getJwks()).keys[0].kid, KID);
+  });
+  const stalledBody = createRemoteJwksProvider({
+    issuer: ISSUER, jwksUri: 'https://issuer.example/jwks', requestTimeoutMs: 30,
+    fetchImpl: async () => ({ ...deferredResponse(), text: () => new Promise(() => {}) }),
+  });
+  await checkAsync(async () => assert.rejects(stalledBody.getJwks(), /JWKS_FETCH_TIMEOUT/));
+  let backwardsClock = 100;
+  const rollback = createRemoteJwksProvider({
+    issuer: ISSUER, jwksUri: 'https://issuer.example/jwks',
+    nowMs: () => backwardsClock, fetchImpl: async () => deferredResponse(),
+  });
+  await checkAsync(async () => {
+    await rollback.getJwks(); backwardsClock = 99;
+    await assert.rejects(rollback.getJwks(), /JWKS_CLOCK_REGRESSION/);
+    assert.strictEqual((await rollback.getJwks()).keys[0].kid, KID);
+  });
+  check(() => assert.throws(() => createRemoteJwksProvider({
+    issuer: ISSUER, jwksUri: 'https://issuer.example/jwks', requestTimeoutMs: 0,
+  }), /requestTimeoutMs/));
+  let failedRotationCalls = 0;
+  const failedRotation = createRemoteJwksProvider({
+    issuer: ISSUER, jwksUri: 'https://issuer.example/jwks',
+    fetchImpl: async () => { if (++failedRotationCalls > 1) throw Error('rotation unavailable'); return deferredResponse(); },
+  });
+  await checkAsync(async () => {
+    await failedRotation.getJwks();
+    await assert.rejects(failedRotation.getJwks({ forceRefresh: true }), /rotation unavailable/);
+    await assert.rejects(failedRotation.getJwks(), /rotation unavailable/);
+  });
   console.log(`OIDC_JWT_JWKS_AUTHENTICATION_V1: PASS (${checks} checks)`);
 })().catch((error) => {
   console.error(error);
