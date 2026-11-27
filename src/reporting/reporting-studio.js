@@ -5,6 +5,7 @@ const {VERSION:LAND_VERSION,reviewVacantLand}=require('./vacant-land-report-revi
 const {VERSION:HISTORY_VERSION,compareReportedHistory}=require('./property-lifecycle-review');
 const {VERSION:REDEVELOPMENT_VERSION,evaluateRedevelopment}=require('./owner-redevelopment-research');
 const {sha256Hex}=require('../crypto/sha256');
+const {isPlainJson}=require('../validation/plain-json-boundary');
 const {VERSION:ESG_VERSION,screenEsg}=require('./property-esg-screening');
 const {VERSION:RENT_VERSION,evaluateRentalIntelligence}=require('./saudi-rental-intelligence');
 const {specialistReview}=require('./rental-specialist-review');
@@ -64,6 +65,9 @@ function renderStudio({runtime=null,valuationCase=null,mode='OWNER',locale='ar-S
  return {html:wrap(label('دراسة عقارية بحثية','Real estate research study'),body,locale),report:r};
 }
 function renderExternalReview(inputs,{locale='ar-SA'}={}){
+ // Validate the shared browser dispatch boundary before reading a version
+ // selector; never invoke a getter or silently erase unsupported JSON fields.
+ if(!isPlainJson(inputs)||!inputs||typeof inputs!=='object'||Array.isArray(inputs))throw Error('REVIEW_INPUT_INVALID');
  if(inputs?.version===RENT_VERSION)return renderRentalIntelligence(inputs,{locale});
  if(inputs?.version===ESG_VERSION)return renderEsgScreening(inputs,{locale});
  if(inputs?.version===REDEVELOPMENT_VERSION)return renderRedevelopment(inputs,{locale});

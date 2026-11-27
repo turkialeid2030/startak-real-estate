@@ -3,6 +3,8 @@
 // changes to canonical valuation formulas. Source records remain local.
 const P=require('../engines/financial/precision');
 const {sha256Hex}=require('../crypto/sha256');
+const {isPlainJson}=require('../validation/plain-json-boundary');
+const {strictCalendarDateMs}=require('../validation/strict-calendar-instant');
 const VERSION='EXTERNAL_REPORT_REVIEW_V1';
 const plain=v=>v!==null&&typeof v==='object'&&Object.getPrototypeOf(v)===Object.prototype;
 const exact=(v,keys)=>plain(v)&&Object.keys(v).length===keys.length&&keys.every(k=>Object.hasOwn(v,k));
@@ -10,10 +12,13 @@ const money=v=>typeof v==='number'&&Number.isFinite(v)&&v>=0&&v<=1e12&&P.money(v
 const signed=v=>typeof v==='number'&&Number.isFinite(v)&&Math.abs(v)<=1&&P.fromRate(P.toRate(v))===v;
 const positive=v=>typeof v==='number'&&Number.isFinite(v)&&v>0&&v<=1e9&&P.fromRate(P.toRate(v))===v;
 const text=v=>typeof v==='string'&&v.trim().length>0&&v.length<=200;
-const day=v=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&Number.isFinite(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v;
+const day=v=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&Number.isFinite(strictCalendarDateMs(v));
+// IDs are evidence row keys: reject padded, invisible-control and noncanonical
+// spellings rather than silently merging or renaming independently supplied rows.
+const rowId=v=>text(v)&&v===v.trim()&&v===v.normalize('NFC')&&!/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff]/u.test(v);
 function fail(code){throw Error(code);}
 function reviewExternalReport(x){
- if(!exact(x,['reportRef','valuationDate','landAreaSqm','comparables','adoptedLandRateSar','roundingReason','components','declaredBuildingCostSar','effectiveAge','economicLife','declaredPhysicalRate','declaredDepreciationSar','declaredFinalValueSar','sourcePage','identityConflict','incomeEvidenceAvailable'])||
+ if(!isPlainJson(x)||!exact(x,['reportRef','valuationDate','landAreaSqm','comparables','adoptedLandRateSar','roundingReason','components','declaredBuildingCostSar','effectiveAge','economicLife','declaredPhysicalRate','declaredDepreciationSar','declaredFinalValueSar','sourcePage','identityConflict','incomeEvidenceAvailable'])||
  !text(x.reportRef)||!day(x.valuationDate)||!positive(x.landAreaSqm)||!money(x.adoptedLandRateSar)||x.adoptedLandRateSar===0||typeof x.roundingReason!=='string'||x.roundingReason.length>200||
  !['declaredBuildingCostSar','declaredDepreciationSar','declaredFinalValueSar'].every(k=>money(x[k]))||!Number.isInteger(x.effectiveAge)||x.effectiveAge<0||!Number.isInteger(x.economicLife)||x.economicLife<1||x.economicLife>200||x.effectiveAge>x.economicLife||!signed(x.declaredPhysicalRate)||x.declaredPhysicalRate<0||
  !Number.isInteger(x.sourcePage)||x.sourcePage<1||x.sourcePage>10000||typeof x.identityConflict!=='boolean'||typeof x.incomeEvidenceAvailable!=='boolean')fail('REVIEW_INPUT_INVALID');
@@ -23,7 +28,7 @@ function reviewExternalReport(x){
  if(!x.incomeEvidenceAvailable)add('INCOME_EVIDENCE_MISSING','WARNING','income');
  const ids=new Set();
  const comps=x.comparables.map(c=>{
-  if(!exact(c,['id','date','areaSqm','rawRateSar','firstAdjustment','secondAdjustment','weight','transactionStatus','page'])||!text(c.id)||ids.has(c.id)||!day(c.date)||!positive(c.areaSqm)||!money(c.rawRateSar)||c.rawRateSar<=0||!signed(c.firstAdjustment)||!signed(c.secondAdjustment)||!signed(c.weight)||c.weight<=0||!['EXECUTED','ASKING','UNKNOWN'].includes(c.transactionStatus)||!Number.isInteger(c.page)||c.page<1||c.page>10000)fail('REVIEW_COMPARABLE_INVALID');
+  if(!exact(c,['id','date','areaSqm','rawRateSar','firstAdjustment','secondAdjustment','weight','transactionStatus','page'])||!rowId(c.id)||ids.has(c.id)||!day(c.date)||!positive(c.areaSqm)||!money(c.rawRateSar)||c.rawRateSar<=0||!signed(c.firstAdjustment)||!signed(c.secondAdjustment)||!signed(c.weight)||c.weight<=0||!['EXECUTED','ASKING','UNKNOWN'].includes(c.transactionStatus)||!Number.isInteger(c.page)||c.page<1||c.page>10000)fail('REVIEW_COMPARABLE_INVALID');
   ids.add(c.id);
   const ageDays=(Date.parse(x.valuationDate)-Date.parse(c.date))/86400000,ratio=c.areaSqm/x.landAreaSqm;
   if(ageDays<0)add('FUTURE_COMPARABLE','CRITICAL',c.id);
@@ -31,6 +36,7 @@ function reviewExternalReport(x){
   if(ratio<.5||ratio>2)add('AREA_COMPARABILITY_REVIEW','WARNING',c.id);
   if(c.transactionStatus!=='EXECUTED')add('NOT_EXECUTED','WARNING',c.id);
   const first=P.moneyMulRate(c.rawRateSar,1+c.firstAdjustment),adjusted=P.moneyMulRate(first,1+c.secondAdjustment);
+  if(!money(first)||!money(adjusted))fail('REVIEW_RANGE_INVALID');
   return {...c,ageDays,areaRatio:ratio,firstRateSar:first,adjustedRateSar:adjusted,contributionSar:P.moneyMulRate(adjusted,c.weight)};
  });
  const weight=comps.reduce((s,c)=>s+P.toRate(c.weight),0n);
@@ -43,7 +49,7 @@ function reviewExternalReport(x){
  if(landDelta!==0)add(x.roundingReason.trim()?'ADOPTED_RATE_DIFF_DOCUMENTED_UNVERIFIED':'ADOPTED_RATE_DIFF_UNEXPLAINED',x.roundingReason.trim()?'WARNING':'CRITICAL','land');
  const componentIds=new Set();
  const components=x.components.map(c=>{
-  if(!exact(c,['id','kind','quantity','unit','unitCostSar','page'])||!text(c.id)||componentIds.has(c.id)||!['FLOOR','ANNEX','WALL','POOL','OTHER'].includes(c.kind)||!positive(c.quantity)||!['SQM','LINEAR_M','ITEM'].includes(c.unit)||!money(c.unitCostSar)||!Number.isInteger(c.page)||c.page<1||c.page>10000||(['FLOOR','ANNEX'].includes(c.kind)&&c.unit!=='SQM'))fail('REVIEW_COMPONENT_INVALID');
+  if(!exact(c,['id','kind','quantity','unit','unitCostSar','page'])||!rowId(c.id)||componentIds.has(c.id)||!['FLOOR','ANNEX','WALL','POOL','OTHER'].includes(c.kind)||!positive(c.quantity)||!['SQM','LINEAR_M','ITEM'].includes(c.unit)||!money(c.unitCostSar)||!Number.isInteger(c.page)||c.page<1||c.page>10000||(['FLOOR','ANNEX'].includes(c.kind)&&c.unit!=='SQM'))fail('REVIEW_COMPONENT_INVALID');
   componentIds.add(c.id);const costSar=P.moneyMulRate(c.unitCostSar,c.quantity);if(!money(costSar))fail('REVIEW_RANGE_INVALID');return {...c,costSar};
  });
  const cost=P.moneyAdd(...components.map(c=>c.costSar));
