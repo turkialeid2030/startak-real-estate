@@ -7,6 +7,7 @@ const {
   executeGovernedProviderGateway,
 } = require('./governed-live-provider-gateway');
 
+const {isPlainJson}=require('../validation/plain-json-boundary');
 const HASH_RE = /^[a-f0-9]{64}$/i;
 const freeze = (value) => {
   if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
@@ -16,7 +17,7 @@ const freeze = (value) => {
 
 function groundingSourceBindingBlockers(request, groundingManifest) {
   const validObject=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
-  if (!validObject(request)||!validObject(groundingManifest)||
+  if (!validObject(request)||!validObject(groundingManifest)||!isPlainJson(request)||!isPlainJson(groundingManifest)||
       !Array.isArray(groundingManifest.items)||!Array.isArray(request.retrievalItems)||
       !Array.isArray(request.deterministicOutputHashesSha256)||
       request.retrievalItems.some(i=>!validObject(i)||typeof i.evidenceHashSha256!=='string'||!HASH_RE.test(i.evidenceHashSha256))||

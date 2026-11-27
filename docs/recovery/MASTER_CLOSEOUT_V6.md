@@ -150,3 +150,6 @@ V6.33 Release 716/716, 18/18 mandatory scripts, NOI 60 checks PASS. DCF packet n
 
 ## V6.35 NOI–DCF–financing content binding
 V6.34 Release 716/716, 18/18 named evidence, DCF 91 checks PASS. Revalidate retained DCF assumptions and compare actual NOI values/period identities before financing, plus financing row invariants. Twelve negatives and three consistency checks. No production release, source certification or credential remediation.
+
+## V6.36 shared JSON boundary for AI and operator workflows
+V6.35 Release 716/716, 18/18 named evidence; financing 136 checks PASS. Shared validation rejects non-JSON ambiguity before hashing and provider snapshot, operator payload/session/action evaluation. C23/C26 required named evidence, 20 scripts. Synthetic tests only; live provider/IAM, history reconciliation and secret remediation remain open. Same PR #871.

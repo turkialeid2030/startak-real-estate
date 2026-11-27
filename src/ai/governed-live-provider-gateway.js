@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const {isPlainJson}=require('../validation/plain-json-boundary');
 const {normalizeNumericText}=require('../validation/numeric-text');
 const {
   verifyProfileIntegrity,
@@ -82,7 +83,7 @@ function requireHash(value, field) {
   return v;
 }
 function integrity(record, hashField) {
-  if (!record || typeof record !== 'object' || Array.isArray(record)) return false;
+  if (!record || typeof record !== 'object' || Array.isArray(record)||!isPlainJson(record)) return false;
   const h = clean(record[hashField]).toLowerCase();
   try{return HASH_RE.test(h) && sha256(without(record, [hashField])) === h;}
   catch{return false;}
@@ -498,8 +499,10 @@ async function executeGovernedProviderGateway(input = {}) {
   // asynchronous adapter may replace records between readiness and review.
   let packet;
   try {
-    const {modelProfile,request,groundingManifest,providerAuthorization,invocation,asOf}=input;
-    packet=freeze(structuredClone({modelProfile,request,groundingManifest,providerAuthorization,invocation,asOf}));
+    const recordKeys=['modelProfile','request','groundingManifest','providerAuthorization','invocation'];
+    const data=(key)=>{const descriptor=Object.getOwnPropertyDescriptor(input,key);return descriptor&&Object.hasOwn(descriptor,'value')?descriptor.value:null;};
+    const captured=Object.fromEntries(recordKeys.map(key=>{const value=data(key);return [key,isPlainJson(value)?structuredClone(value):null];}));
+    packet=freeze({...captured,asOf:data('asOf')});
   } catch {
     return freeze({capability:CAPABILITY,policyVersion:POLICY_VERSION,status:STATUS.HOLD_INTEGRITY,providerInvocationReady:false,groundedDraftReviewReady:false,blockers:['C23_INTEGRITY_INPUT_SNAPSHOT'],asOf:null,providerCalled:false,providerResponse:null,draft:null,claims:null,productionDeploymentAuthorized:false,publicAiAuthorized:false,transactionAuthorized:false,approvalAuthorized:false,commercialGoLive:'HOLD'});
   }
@@ -509,6 +512,7 @@ async function executeGovernedProviderGateway(input = {}) {
   if (!adapter || typeof adapter.invoke !== 'function') return freeze({ ...readiness, status: STATUS.HOLD_PROVIDER, providerInvocationReady: false, blockers: ['C23_PROVIDER_ADAPTER_REQUIRED'], providerCalled: false, providerResponse: null });
   try {
     const raw = await adapter.invoke(freeze({ invocation: packet.invocation, request: packet.request, groundingManifest: packet.groundingManifest, modelProfile: packet.modelProfile }));
+    if(!isPlainJson(raw))return freeze({...readiness,status:STATUS.HOLD_PROVIDER,providerInvocationReady:false,blockers:['C23_PROVIDER_SCHEMA_ERROR'],providerCalled:true,providerResponse:null});
     if (!raw || raw.providerResult !== PROVIDER_RESULT.SUCCESS) {
       const code = raw && Object.values(PROVIDER_RESULT).includes(raw.providerResult) ? raw.providerResult : PROVIDER_RESULT.SCHEMA_ERROR;
       return freeze({ ...readiness, status: STATUS.HOLD_PROVIDER, providerInvocationReady: false, blockers: [`C23_PROVIDER_${code}`], providerCalled: true, providerResponse: null });

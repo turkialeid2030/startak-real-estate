@@ -147,4 +147,16 @@ assert.strictEqual(immutable.payload.nested.note,'review');
 assert.ok(Object.isFrozen(immutable.payload.nested));
 assert.strictEqual(evaluateOperatorWorkspaceAction({session:analyst,workspaceAction:immutable,caseSnapshot:CASE,asOf:AS_OF}).status,STATUS.ALLOWED);
 console.log('C26_V611_OPERATOR_SESSION_ACTION_GUARDS=PASS synthetic_session=true');
+let getters=0;
+const cyclic={};cyclic.self=cyclic;
+for(const payload of [cyclic,Object.defineProperty({},'hidden',{value:true}),{[Symbol('x')]:true},Object.defineProperty({},'note',{enumerable:true,get(){getters++;return 'x';}}),Object.assign(['x'],{extra:true}),{toJSON:()=>({})}]){
+ assert.throws(()=>action(analyst,ACTION.SUBMIT_ANALYST_NOTE,payload),/C26_PAYLOAD_/);
+}
+assert.strictEqual(getters,0);
+for(const bad of [Object.defineProperty({...analyst},'hidden',{value:true}),{...analyst,unexpected:undefined},{...analyst,[Symbol('hidden')]:true}]){
+ assert.strictEqual(evaluateOperatorWorkspaceAction({session:bad,workspaceAction:action(analyst,ACTION.VIEW_CASE),caseSnapshot:CASE,asOf:AS_OF}).status,STATUS.HOLD_INTEGRITY);
+}
+const altered={...action(analyst,ACTION.VIEW_CASE),payload:Object.defineProperty({},'hidden',{value:true})};
+assert.strictEqual(evaluateOperatorWorkspaceAction({session:analyst,workspaceAction:altered,caseSnapshot:CASE,asOf:AS_OF}).status,STATUS.HOLD_INTEGRITY);
+console.log('C26_V636_PLAIN_JSON_BOUNDARY=PASS negative_cases=10 getter_calls=0 synthetic_session=true');
 console.log('C26_GOVERNED_OPERATOR_WORKSPACE_RBAC=PASS');
