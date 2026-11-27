@@ -75,7 +75,8 @@ function assessTitleCrossDocumentConsistency(input = {}) {
   for(const f of facts){
     if(!f||typeof f!=='object'||f.caseId!==caseId||f.propertyId!==propertyId)
       throw new TypeError('PROPERTY_OR_CASE_ISOLATION_VIOLATION');
-    const recordKey=JSON.stringify([f.key,f.sourceType,f.sourceRef,f.observedAt]);
+    const observedMs=dateMs(f.observedAt);
+    const recordKey=JSON.stringify([f.key,f.sourceType,f.sourceRef,Number.isFinite(observedMs)?observedMs:f.observedAt]);
     if(recordKeys.has(recordKey))malformed.push('TITLE_DUPLICATE_SOURCE_FACT');recordKeys.add(recordKey);
     if(typeof f.key!=='string'||!f.key.trim()||!Object.values(TITLE_FACT_STATUS).includes(f.status))
       malformed.push('TITLE_FACT_SCHEMA_INVALID');
