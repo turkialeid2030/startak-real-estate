@@ -305,6 +305,19 @@ async function main() {
     assert.strictEqual(await testAccess(token({exp:now+1}),[jwk],'AI_ACCESS_TOKEN_EXPIRED',true),1);
     assert.strictEqual(nonCertCalls,0);
     console.log('RIAI_V75_ACCESS_CERT_BOUNDARY=PASS cases=9 provider_calls=0 synthetic_identity=true');
+    for(const sub of [undefined,null,0,'','  ',' synthetic-subject','x'.repeat(257),'synthetic\u0000subject']){
+      assert.strictEqual(await testAccess(token({sub,email:'synthetic@example.invalid'}),[jwk],'AI_ACCESS_SUBJECT_INVALID'),0);
+    }
+    assert.strictEqual(await testAccess(token({iss:[issuer]}),[jwk],'AI_ACCESS_TOKEN_ISSUER_INVALID'),0);
+    assert.strictEqual(await testAccess(token({aud:[aud,null]}),[jwk],'AI_ACCESS_TOKEN_AUDIENCE_INVALID'),0);
+    assert.strictEqual(await testAccess(token({aud:[aud,'other-synthetic-audience']}),[jwk],'AI_PROVIDER_NOT_CONFIGURED'),1);
+    assert.strictEqual(await testAccess('x'.repeat(20001),[jwk],'AI_ACCESS_TOKEN_INVALID'),0);
+    // An explicit blank assertion may not fall through to public Turnstile.
+    global.fetch=async()=>{nonCertCalls++;throw Error('unexpected network call');};
+    const blankAccess=await onRequestPost({request:accessRequest(''),env:{...accessEnv(),RIAI_PUBLIC_AI_ENABLED:'true'}});
+    assert.strictEqual((await blankAccess.json()).code,'AI_ACCESS_REQUIRED');
+    assert.strictEqual(nonCertCalls,0);
+    console.log('RIAI_V76_STABLE_SUBJECT_BOUNDARY=PASS cases=13 provider_calls=0 synthetic_identity=true');
     console.log('RIAI_GPT6_MODEL_REFRESH=PASS mocked_provider_only=true');
     console.log('RIAI_OPENAI_RESPONSES_ADAPTER=PASS');
     console.log('OPENAI_RESPONSES_STRUCTURED_OUTPUT=PASS');
