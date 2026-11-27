@@ -1,4 +1,5 @@
 'use strict';
+const {toHalalas,fromHalalas,sumHalalas}=require('../validation/governed-sar-halala');
 
 function createLeaseEvidenceCore(digest){
 
@@ -236,6 +237,7 @@ function createLeaseEvidenceRecord({
   finitePositive(areaSqm, 'areaSqm');
   finiteNonNegative(baseAnnualRentSar, 'baseAnnualRentSar');
   finiteNonNegative(contractedAnnualRentSarAsOfDate, 'contractedAnnualRentSarAsOfDate');
+  if(toHalalas(baseAnnualRentSar)===null||toHalalas(contractedAnnualRentSarAsOfDate)===null)throw new TypeError('LEASE_RENT_HALALA_INVALID');
   const startDateIso = iso(startDate, 'startDate');
   const expiryDateIso = iso(expiryDate, 'expiryDate');
   if (Date.parse(expiryDateIso) <= Date.parse(startDateIso)) throw new TypeError('LEASE_EXPIRY_MUST_FOLLOW_START');
@@ -298,6 +300,7 @@ function createVerifiedRentRollSnapshot({
   finitePositive(totalLettableAreaSqm, 'totalLettableAreaSqm');
   finiteNonNegative(occupiedAreaSqm, 'occupiedAreaSqm');
   finiteNonNegative(annualContractRentSar, 'annualContractRentSar');
+  if(toHalalas(annualContractRentSar)===null)throw new TypeError('RENT_ROLL_AMOUNT_HALALA_INVALID');
   if (occupiedAreaSqm > totalLettableAreaSqm) throw new TypeError('RENT_ROLL_OCCUPIED_AREA_EXCEEDS_TOTAL');
   if (!Number.isInteger(activeLeaseCount) || activeLeaseCount < 0) throw new TypeError('activeLeaseCount must be non-negative integer');
   assertSha256(sourceDocumentHashSha256, 'sourceDocumentHashSha256');
@@ -347,6 +350,7 @@ function reconcileLeaseIncomeEvidence({
   if (!Array.isArray(leaseRecords)) throw new TypeError('leaseRecords must be an array');
   if (!rentRollSnapshot || typeof rentRollSnapshot !== 'object') throw new TypeError('rentRollSnapshot is required');
   finiteNonNegative(annualRentToleranceSar, 'annualRentToleranceSar');
+  if(toHalalas(annualRentToleranceSar)===null)throw new TypeError('RENT_ROLL_TOLERANCE_HALALA_INVALID');
   finiteNonNegative(occupiedAreaToleranceSqm, 'occupiedAreaToleranceSqm');
   if (typeof requireVerifiedActiveLeases !== 'boolean') throw new TypeError('requireVerifiedActiveLeases must be boolean');
   const asOfDateIso = iso(asOfDate, 'asOfDate');
@@ -376,12 +380,17 @@ function reconcileLeaseIncomeEvidence({
   }
 
   const occupiedAreaSqm = active.reduce((sum, record) => sum + record.areaSqm, 0);
-  const annualContractRentSar = active.reduce((sum, record) => sum + record.contractedAnnualRentSarAsOfDate, 0);
-  const rentDeltaSar = annualContractRentSar - rentRollSnapshot.annualContractRentSar;
+  const totalHalalas=sumHalalas(active.map(record=>toHalalas(record.contractedAnnualRentSarAsOfDate)));
+  const snapshotHalalas=toHalalas(rentRollSnapshot.annualContractRentSar);
+  const toleranceHalalas=toHalalas(annualRentToleranceSar);
+  const annualContractRentSar=fromHalalas(totalHalalas);
+  const deltaHalalas=totalHalalas===null||snapshotHalalas===null?null:totalHalalas-snapshotHalalas;
+  const rentDeltaSar=fromHalalas(deltaHalalas);
+  if(annualContractRentSar===null||rentDeltaSar===null||toleranceHalalas===null)blockers.push('RENT_ROLL_UNSAFE_HALALA_ARITHMETIC');
   const occupiedAreaDeltaSqm = occupiedAreaSqm - rentRollSnapshot.occupiedAreaSqm;
   const leaseCountDelta = active.length - rentRollSnapshot.activeLeaseCount;
 
-  if (Math.abs(rentDeltaSar) > annualRentToleranceSar) blockers.push(`RENT_ROLL_ANNUAL_RENT_MISMATCH:${rentDeltaSar}`);
+  if (deltaHalalas!==null&&toleranceHalalas!==null&&Math.abs(deltaHalalas)>toleranceHalalas) blockers.push(`RENT_ROLL_ANNUAL_RENT_MISMATCH:${rentDeltaSar}`);
   if (Math.abs(occupiedAreaDeltaSqm) > occupiedAreaToleranceSqm) blockers.push(`RENT_ROLL_OCCUPIED_AREA_MISMATCH:${occupiedAreaDeltaSqm}`);
   if (leaseCountDelta !== 0) blockers.push(`RENT_ROLL_ACTIVE_LEASE_COUNT_MISMATCH:${leaseCountDelta}`);
   if (occupiedAreaSqm > rentRollSnapshot.totalLettableAreaSqm + occupiedAreaToleranceSqm) blockers.push('ACTIVE_LEASE_AREA_EXCEEDS_TOTAL_LETTABLE_AREA');

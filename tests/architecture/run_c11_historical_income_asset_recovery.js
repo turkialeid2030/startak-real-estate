@@ -38,4 +38,16 @@ const forged={...valid.incomeEvidencePacket,annualContractRentSar:999};delete fo
 let reads=0;run(Object.defineProperty({...valid},'leaseRecords',{enumerable:true,get(){reads++;return valid.leaseRecords;}}),S.HOLD_INTEGRITY);assert.equal(reads,0);
 run(null,S.HOLD_INTEGRITY);
 assert.throws(()=>c.createGovernedTenantStrengthAssessment(Object.defineProperty({},'tenantRef',{enumerable:true,get(){reads++;return 'X';}})),/C11_INPUT_JSON_INVALID/);assert.equal(reads,0);
+// V6.46: original upstream rent reconciliation must not reject exact halala sums.
+const decimal=fixture([lease('A',{baseAnnualRentSar:0.1,contractedAnnualRentSarAsOfDate:0.1}),lease('B',{areaSqm:20,baseAnnualRentSar:0.2,contractedAnnualRentSarAsOfDate:0.2,expiryDate:future})],undefined,{}, {annualContractRentSar:0.3});
+assert.equal(decimal.incomeEvidencePacket.annualContractRentSar,0.3);
+assert.equal(decimal.incomeEvidencePacket.rentDeltaSar,0);
+assert.equal(run(decimal,READY).metrics.annualContractRentSar,0.3);
+const mismatch=fixture(decimal.leaseRecords,undefined,{}, {annualContractRentSar:0.31});
+assert.equal(mismatch.incomeEvidencePacket.rentDeltaSar,-0.01);run(mismatch,S.HOLD_UPSTREAM_EVIDENCE);
+const overflow=fixture([lease('A',{baseAnnualRentSar:50000000000000,contractedAnnualRentSarAsOfDate:50000000000000}),lease('B',{areaSqm:20,baseAnnualRentSar:50000000000000,contractedAnnualRentSarAsOfDate:50000000000000,expiryDate:future})],undefined,{}, {annualContractRentSar:1000});
+assert.equal(overflow.incomeEvidencePacket.annualContractRentSar,null);run(overflow,S.HOLD_UPSTREAM_EVIDENCE);
+assert.throws(()=>lease('A',{contractedAnnualRentSar:0.001,contractedAnnualRentSarAsOfDate:0.001}),/LEASE_RENT_HALALA_INVALID/);
+assert.throws(()=>fixture(undefined,undefined,{}, {annualContractRentSar:0.001}),/RENT_ROLL_AMOUNT_HALALA_INVALID/);
+assert.throws(()=>l.reconcileLeaseIncomeEvidence({...scope,asOfDate,leaseRecords:decimal.leaseRecords,rentRollSnapshot:decimal.rentRollSnapshot,annualRentToleranceSar:0.001}),/RENT_ROLL_TOLERANCE_HALALA_INVALID/);
 console.log('C11_HISTORICAL_INCOME_ASSET_RECOVERY=PASS cases='+checks+' synthetic=true financialAuthority=false');

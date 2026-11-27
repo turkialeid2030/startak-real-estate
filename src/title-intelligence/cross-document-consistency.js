@@ -7,6 +7,7 @@ const {
   TITLE_FACT_STATUS, TITLE_RESULT_STATUS, REQUIRED_TITLE_FACTS, LEGAL_SENSITIVE_FACTS, assessTitleFacts,
 } = require('./index');
 const { strictCalendarDateMs } = require('../validation/strict-calendar-instant');
+const {isPlainJson}=require('../validation/plain-json-boundary');
 
 const STATUS = Object.freeze({
   CANDIDATE_FOR_INDEPENDENT_REVIEW: 'CANDIDATE_FOR_INDEPENDENT_REVIEW',
@@ -47,9 +48,9 @@ function result(status, caseId, propertyId, asOf, blockers, checks) {
     semantics: 'Consistency check of self-reported deed/survey references only. Source authenticity, Saudi legal rights, professional approval and actual parcel identity require independent review.',
   });
 }
-function assessTitleCrossDocumentConsistency({
-  caseId, propertyId, facts, asOf, maxAgeDaysBySourceType,
-} = {}) {
+function assessTitleCrossDocumentConsistency(input = {}) {
+  if(!isPlainJson(input)||!input||typeof input!=='object'||Array.isArray(input))throw new TypeError('TITLE_INPUT_JSON_INVALID');
+  const {caseId,propertyId,facts,asOf,maxAgeDaysBySourceType}=input;
   if (typeof caseId !== 'string' || !caseId.trim() || typeof propertyId !== 'string' || !propertyId.trim()) {
     throw new TypeError('CASE_AND_PROPERTY_REQUIRED');
   }
@@ -61,7 +62,7 @@ function assessTitleCrossDocumentConsistency({
   }
   for (const role of ROLES) {
     const days = maxAgeDaysBySourceType[role];
-    if (typeof days !== 'number' || !Number.isFinite(days) || days < 0) {
+    if (!Object.hasOwn(maxAgeDaysBySourceType,role)||typeof days !== 'number' || !Number.isFinite(days*DAY_MS) || days < 0) {
       throw new TypeError('SOURCE_FRESHNESS_DAYS_INVALID:' + role);
     }
   }
