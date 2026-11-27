@@ -437,5 +437,26 @@ function fixture() {
   for(const flag of [undefined,null,'false',0])assert.throws(()=>response(f.invocation,{followedUntrustedInstructions:flag}),/C23_PROVIDER_UNSAFE_RESPONSE_FLAGS/);
   assert.throws(()=>profile({maxOutputTokens:Number.MAX_SAFE_INTEGER+1}),/C22_PROFILE_MAX_OUTPUT_TOKENS_INVALID/);
   console.log('C23_V611_PREINVOCATION_GUARDS=PASS cases=5 entrypoint_checks='+guardChecks+' adapter_calls='+guardCalls+' synthetic_adapter=true');
+  // Non-JSON properties must not disappear during snapshotting or hashing.
+  let boundaryCalls=0,getterCalls=0;
+  const malformedRecords=[
+    {...f.modelProfile,extra:undefined},
+    Object.defineProperty({...f.modelProfile},'hidden',{value:true}),
+    Object.assign({...f.modelProfile},{[Symbol('extra')]:true}),
+    Object.defineProperty({...f.modelProfile},'extra',{enumerable:true,get(){getterCalls++;return true;}}),
+    {...f.modelProfile,allowedTaskClasses:Object.assign([...f.modelProfile.allowedTaskClasses],{extra:true})}
+  ];
+  for(const modelProfile of malformedRecords)for(const run of [executeGovernedProviderGateway,executeProofGroundedProviderGateway]){
+    const out=await run({...f,modelProfile,adapter:{invoke:async()=>{boundaryCalls++;return f.providerResponse;}}});
+    assert.strictEqual(out.status,STATUS.HOLD_INTEGRITY);assert.strictEqual(out.providerCalled,false);assert.strictEqual(out.providerResponse,null);
+  }
+  assert.strictEqual(boundaryCalls,0);assert.strictEqual(getterCalls,0);
+  for(const run of [executeGovernedProviderGateway,executeProofGroundedProviderGateway]){
+    const badResponse=Object.defineProperty({...f.providerResponse},'extra',{enumerable:true,get(){getterCalls++;return true;}});
+    const out=await run({...f,adapter:{invoke:async()=>badResponse}});
+    assert.strictEqual(out.status,STATUS.HOLD_PROVIDER);assert.strictEqual(out.providerResponse,null);assert.strictEqual(out.providerCalled,true);
+  }
+  assert.strictEqual(getterCalls,0);
+  console.log('C23_V636_PLAIN_JSON_BOUNDARY=PASS preinvoke_cases=5 entrypoints=2 response_cases=2 adapter_calls_for_invalid_input=0 getter_calls=0');
   console.log('C23_GOVERNED_LIVE_AI_PROVIDER_GATEWAY=PASS');
 })().catch((err)=>{ console.error(err); process.exit(1); });

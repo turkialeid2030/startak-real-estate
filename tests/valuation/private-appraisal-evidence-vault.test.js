@@ -95,6 +95,10 @@ const read=(actor=makeActor('reviewer'),other={})=>v.read({actor,tenantId:'t1',
   try{
    const val=JSON.parse(old);val.envelopeAuthVersion=3;
    map.set(entry[0],JSON.stringify(val));
+   await assert.rejects(read(),/EVIDENCE_KEY_VERSION_INVALID/);
+   map.set(entry[0],JSON.stringify({...val,keyRef:'SYNTH-KEY'}));
+   await assert.rejects(read(),/EVIDENCE_DECRYPTION_OR_INTEGRITY_FAILED/);
+   map.set(entry[0],JSON.stringify({...val,envelopeAuthVersion:99}));
    await assert.rejects(read(),/LEGACY_ENVELOPE_REQUIRES_AUTHENTICATED_MIGRATION/);
   }finally{map.set(entry[0],old);}
  });

@@ -34,7 +34,7 @@ const entries=lines.map((line,index)=>{
 });
 assert.equal(entries.length,57,'10 historical family samples documented 57 unique missing exact paths on this snapshot');
 const seen=new Set(),statuses={},priorities={};
-const restored=Object.freeze({'LEG-002':'src/app/institutional-valuation-decision-boundary.js','LEG-014':'src/cost/depreciation-attribution-gate.js','LEG-054':'src/valuation-intelligence/market-rate-provenance.js'});
+const {RESTORED:restored}=require('../../tools/verify-legacy-57-manifest.cjs');
 for(const [index,entry] of entries.entries()) {
   assert.match(entry.id,/^LEG-\d{3}$/);
   assert.equal(entry.id,'LEG-'+String(index+1).padStart(3,'0'));
@@ -43,7 +43,9 @@ for(const [index,entry] of entries.entries()) {
   assert.ok(!seen.has(entry.old),'Duplicate historic source path');
   seen.add(entry.old);
   if(entry.status==='RESTORED_SOURCE_PARITY_UNVERIFIED'){
-    assert.equal(entry.old,restored[entry.id]);
+    assert.equal(entry.old,restored[entry.id]?.path);
+    assert.equal(entry.source_blob,restored[entry.id]?.sourceBlob);
+    assert.equal(entry.modern_anchor,restored[entry.id]?.modernAnchor);
     assert.ok(fs.existsSync(p.join(root,entry.old)),'Restored source missing: '+entry.old);
   }else{
     assert.ok(!Object.hasOwn(restored,entry.id));
@@ -65,12 +67,12 @@ for(const [index,entry] of entries.entries()) {
   priorities[entry.priority]=(priorities[entry.priority]||0)+1;
 }
 assert.deepEqual(statuses,{
-  MODERN_ANCHOR_EXISTS_PARITY_UNVERIFIED:43,
-  RESTORED_SOURCE_PARITY_UNVERIFIED:3,
+  MODERN_ANCHOR_EXISTS_PARITY_UNVERIFIED:25,
+  RESTORED_SOURCE_PARITY_UNVERIFIED:21,
   OLD_STAGING_CONTRACT_NOT_PRODUCTION_VAULT:10,
   SAFE_RETIREMENT_REVIEW:1,
 });
-assert.deepEqual(priorities,{P2:6,P1:28,P0:23});
+assert.deepEqual(priorities,{P2:5,P1:29,P0:23});
 assert.equal(entries.find(x=>x.id==='LEG-016').modern_anchor,
  'src/financing/quoted-financing-comparison.js');
 assert.equal(entries.find(x=>x.id==='LEG-026').modern_anchor,
@@ -82,5 +84,5 @@ assert.equal(entries.find(x=>x.id==='LEG-022').modern_anchor,
 assert.equal(entries.find(x=>x.id==='LEG-023').modern_anchor,
  'src/title-intelligence/cross-document-consistency.js');
 assert.equal(entries.filter(x=>x.inspection==='LEGACY_API_INSPECTED').length,57);
-console.log('STARTAK_RE_HISTORIC_SOURCE_REGISTER=PASS rows=57 legacy_api_inspected=57 restored_unqualified=3 path_only=0;');
+console.log('STARTAK_RE_HISTORIC_SOURCE_REGISTER=PASS rows=57 legacy_api_inspected=57 restored_unqualified=21 path_only=0;');
 console.log('SOURCE_PATH_PARITY_CLAIM=FALSE FUNCTIONAL_PARITY_CLAIM=FALSE PRODUCTION_AUTHORITY=FALSE');

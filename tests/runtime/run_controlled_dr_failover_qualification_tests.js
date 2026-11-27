@@ -28,20 +28,18 @@ async function test(id, fn) {
   }
 }
 
+const canonical=v=>Array.isArray(v)?v.map(canonical):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,canonical(v[k])])):v;
+const digest=v=>require('node:crypto').createHash('sha256').update(JSON.stringify(canonical(v))).digest('hex');
 function backupRestoreQualification(overrides = {}) {
-  return {
-    status: BACKUP_RESTORE_STATUS.BACKUP_RESTORE_EVIDENCE_COMPLETE_NOT_PRODUCTION_CERTIFIED,
-    bundleHashSha256: 'b'.repeat(64),
-    productionQualified:false,
-    authority:{releaseAuthorized:false},
-    plan: {
-      environment: 'staging',
-      sourceDatabaseRef: 'primary-ref',
-      sourceDatabaseName:'startak_primary',
-      exactCommitSha: COMMIT_SHA,
-    },
-    ...overrides,
-  };
+ const {createResilienceEvidence,QUALIFICATION_ENVIRONMENT}=require('../../src/qualification/performance-resilience-qualification');
+ const planCore={schemaVersion:1,environment:'staging',sourceDatabaseRef:'primary-ref',sourceDatabaseName:'startak_primary',restoreTargetDatabaseRef:'restore-ref',restoreTargetDatabaseName:'startak_restore',exactCommitSha:COMMIT_SHA,assessedAt:'2026-09-09T15:54:00Z',assessmentMode:'RETROSPECTIVE_CUTOFF',evidenceId:'SYNTH-BACKUP',recoveryObjectives:{maximumRecoveryTimeSeconds:600,maximumDataLossSeconds:60,objectiveSourceRef:'SYNTH-POLICY'},apiSecurityQualificationRef:'sha256:'+'a'.repeat(64),apiSecurityTestedAt:'2026-09-09T15:40:00Z',executionOrder:['backup','isolatedRestore','dataVerification','resilienceEvidence']};
+ const plan={...planCore,planHashSha256:digest(planCore)},authorization={accepted:true,approvedBy:'SYNTH-OPERATOR',reviewedBy:'SYNTH-REVIEWER',approvedAt:'2026-09-09T15:41:00Z',changeControlRef:'SYNTH-CHANGE'};
+ const backup={sourceDatabaseRef:plan.sourceDatabaseRef,sourceDatabaseName:plan.sourceDatabaseName,artifactId:'SYNTH-ARTIFACT',artifactHashSha256:'c'.repeat(64),artifactSizeBytes:1024,startedAt:'2026-09-09T15:42:00Z',finishedAt:'2026-09-09T15:43:00Z',sourceSnapshotAt:'2026-09-09T15:42:30Z'};
+ const restore={restoreTargetDatabaseRef:plan.restoreTargetDatabaseRef,restoreTargetDatabaseName:plan.restoreTargetDatabaseName,restoredArtifactHashSha256:backup.artifactHashSha256,artifactHashMatchesBackup:true,startedAt:'2026-09-09T15:44:00Z',finishedAt:'2026-09-09T15:45:00Z'};
+ const verification={sourceDatabaseRef:plan.sourceDatabaseRef,restoreTargetDatabaseRef:plan.restoreTargetDatabaseRef,observedAt:'2026-09-09T15:46:00Z',sourceRecordCount:100,restoredRecordCount:100,recordCountsMatch:true,sourceFingerprintSha256:FINGERPRINT,restoredFingerprintSha256:FINGERPRINT,fingerprintsMatch:true,latestSourceDataAt:backup.sourceSnapshotAt,latestRestoredDataAt:backup.sourceSnapshotAt,duplicateSideEffectsObserved:false,unreconciledDataCorruptionObserved:false};
+ const resilienceEvidence=createResilienceEvidence({resilienceEvidenceId:plan.evidenceId,scenario:RESILIENCE_SCENARIO.BACKUP_RESTORE,environment:QUALIFICATION_ENVIRONMENT.STAGING,exactCommitSha:COMMIT_SHA,targetRef:'primary-ref->restore-ref',maximumRecoveryTimeSeconds:600,observedRecoveryTimeSeconds:120,maximumDataLossSeconds:60,observedDataLossSeconds:0,duplicateSideEffectsObserved:false,unreconciledDataCorruptionObserved:false,objectiveSourceRef:'SYNTH-POLICY',sourceArtifactId:backup.artifactId,sourceArtifactHashSha256:backup.artifactHashSha256,observedAt:verification.observedAt,preparedBy:authorization.approvedBy,reviewedBy:authorization.reviewedBy,reviewedAt:plan.assessedAt,evidenceRefs:['sha256:'+plan.planHashSha256,plan.apiSecurityQualificationRef,'sha256:'+backup.artifactHashSha256]});
+ const core={schemaVersion:1,status:BACKUP_RESTORE_STATUS.BACKUP_RESTORE_EVIDENCE_COMPLETE_NOT_PRODUCTION_CERTIFIED,planHashSha256:plan.planHashSha256,apiSecurityQualificationRef:plan.apiSecurityQualificationRef,authorizationAccepted:true,backupArtifactRef:'sha256:'+backup.artifactHashSha256,resilienceEvidenceRef:'sha256:'+resilienceEvidence.resilienceEvidenceHashSha256,stageEvidenceHashSha256:digest({authorization,backup,restore,verification})};
+ return {...core,plan,authorization,backup,restore,verification,resilienceEvidence,bundleHashSha256:digest(core),productionQualified:false,authority:{releaseAuthorized:false,mergeAuthorized:false,deploymentAuthorized:false,goLiveAuthorized:false,transactionAuthorized:false,productionPersistenceValidated:false,productionSecurityValidated:false,productionResilienceValidated:false},semantics:'This controlled staging runner orchestrates host-injected backup, isolated restore, and verification adapters and can produce a BACKUP_RESTORE resilience evidence record. It does not contain database credentials, implement pg_dump/restore itself, certify production resilience, establish an SLA, or authorize release, merge, deployment, go-live, or transactions.',...overrides};
 }
 
 function authorization(overrides = {}) {
@@ -321,7 +319,7 @@ function assertAuthorityClosed(result) {
     const second = await qualify(input);
     assert.strictEqual(first.plan.planHashSha256, second.plan.planHashSha256);
     assert.strictEqual(first.executionHashSha256, second.executionHashSha256);
-    assert.strictEqual(first.plan.backupRestoreQualificationRef, `sha256:${'b'.repeat(64)}`);
+    assert.strictEqual(first.plan.backupRestoreQualificationRef, `sha256:${backupRestoreQualification().bundleHashSha256}`);
   });
 
   for(const [name,patch,status] of [
@@ -429,6 +427,10 @@ function assertAuthorityClosed(result) {
     const {qualify,calls}=harness();
     const out=await qualify(baseInput({execute:true,assessedAt:undefined}));
     assert.strictEqual(out.status,DR_FAILOVER_STATUS.HOLD_PREFLIGHT);assert.strictEqual(calls.failover,0);
+  });
+  for(const patch of [{backup:null},{restore:null},{verification:null},{resilienceEvidence:null},{authority:{...backupRestoreQualification().authority,mergeAuthorized:true}}])await test('P17-V628-UPSTREAM-'+Object.keys(patch)[0],async()=>{
+    const {qualify,calls}=harness();const out=await qualify(baseInput({execute:true,backupRestoreQualification:backupRestoreQualification(patch)}));
+    assert.strictEqual(out.status,DR_FAILOVER_STATUS.HOLD_BACKUP_RESTORE_QUALIFICATION);assert.strictEqual(calls.preflight,0);assertAuthorityClosed(out);
   });
   const failed = results.filter((entry) => entry[1] !== 'PASS');
   console.log(`PRODUCTIZATION_P17_CONTROLLED_DR_FAILOVER_RESULT=${failed.length === 0 ? 'PASS' : 'FAIL'} ${results.filter((entry) => entry[1] === 'PASS').length}/${results.length}`);

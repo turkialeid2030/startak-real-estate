@@ -268,9 +268,15 @@ nullPrototypeValue.areaSqm = 100;
 nullPrototypeValue.__proto__ = 'literal-key';
 const nullPrototype = threeSales();
 nullPrototype[0] = { ...nullPrototype[0], normalizedValue: nullPrototypeValue };
-const nullPrototypeReady = evaluate(nullPrototype);
+const reservedKeyHeld = evaluate(nullPrototype);
+assert.equal(reservedKeyHeld.status, MARKET_GATE_STATUS.HOLD_EVIDENCE);
+assert.ok(reservedKeyHeld.records[0].blockers.includes('C2_NORMALIZED_VALUE_JSON_REQUIRED:CLOSED_SALE_TRANSACTION'));
+assert.equal(reservedKeyHeld.records[0].normalizedValue,null);
+delete nullPrototypeValue.__proto__;
+const nullPrototypeReady=evaluate(nullPrototype);
 assert.equal(nullPrototypeReady.status, MARKET_GATE_STATUS.READY);
-assert.equal(typeof nullPrototypeReady.records[0].normalizedValueHash, 'string');
+assert.equal(typeof nullPrototypeReady.records[0].normalizedValueHash,'string');
+assert.equal(Object.getPrototypeOf(nullPrototypeValue),null);
 
 const conflict = threeSales();
 conflict.push(saleRecord(4, {

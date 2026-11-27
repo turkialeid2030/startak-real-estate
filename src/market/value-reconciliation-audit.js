@@ -5,6 +5,9 @@
 // location engine intentionally strips arbitrary commas/whitespace; using it
 // for financial audits silently reinterpreted "1,2" as 12 SAR or "1 2" as 12.
 const {parseNumericText}=require('../validation/numeric-text');
+// Preserve legacy optional undefined fields and numeric validation diagnostics,
+// while refusing getters, non-plain containers and unsafe own keys before reads.
+function safeOwnObject(v){try{return !!v&&typeof v==='object'&&!Array.isArray(v)&&[Object.prototype,null].includes(Object.getPrototypeOf(v))&&Reflect.ownKeys(v).every(k=>typeof k==='string'&&!['__proto__','prototype','constructor','toJSON'].includes(k)&&(()=>{const d=Object.getOwnPropertyDescriptor(v,k);return d&&d.enumerable&&Object.hasOwn(d,'value');})());}catch{return false;}}
 const valid=(v,min=0,max=1e15)=>{
   const parsed=parseNumericText(v);
   const n=parsed.ok?parsed.value:null;
@@ -13,9 +16,9 @@ const valid=(v,min=0,max=1e15)=>{
 const supplied=v=>v!==undefined&&v!==null&&v!=='';
 const money=v=>Math.round((v+Number.EPSILON)*100)/100;
 const gap=(a,b)=>a>=0&&b>=0&&Math.max(a,b)>0?Math.abs(a-b)/Math.max(a,b):null;
-function detailedReplacementCost({landArea,landPricePerSqm,components,
-  feeRatesPct={},effectiveAgeYears,buildingLifeYears,depreciationPct,
-  finalRoundingStep=1000}={}){
+function detailedReplacementCost(input={}){
+  if(!safeOwnObject(input))return {status:'INCOMPLETE',issues:['COST_INPUT_OBJECT_INVALID'],valueSar:null,certified:false};
+  const {landArea,landPricePerSqm,components,feeRatesPct={},effectiveAgeYears,buildingLifeYears,depreciationPct,finalRoundingStep=1000}=input;
   const errors=[],warnings=[];
   const land=valid(landArea,0.0001),landUnit=valid(landPricePerSqm,0.0001);
   if(land===null||landUnit===null)errors.push('LAND_COST_INPUTS_REQUIRED');
@@ -26,7 +29,7 @@ function detailedReplacementCost({landArea,landPricePerSqm,components,
   for(const [i,row] of componentRows.entries()){
     // A malformed row must produce a governed INCOMPLETE result rather than
     // an uncaught TypeError during customer-facing cost-study calculations.
-    if(!row||typeof row!=='object'||Array.isArray(row)){
+    if(!safeOwnObject(row)){
       errors.push('BUILDING_COMPONENT_INVALID_'+i);continue;
     }
     const area=valid(row.area,0.0001),rate=valid(row.ratePerSqm,0.0001);
@@ -34,7 +37,7 @@ function detailedReplacementCost({landArea,landPricePerSqm,components,
     buildingDirectCost+=area*rate;
   }
   const fees={};let totalExtraRate=0;
-  if(!feeRatesPct||typeof feeRatesPct!=='object'||Array.isArray(feeRatesPct))
+  if(!safeOwnObject(feeRatesPct))
     errors.push('FEES_INVALID');
   else for(const [k,v] of Object.entries(feeRatesPct)){
     const pct=valid(v,0,100);
@@ -87,10 +90,9 @@ function detailedReplacementCost({landArea,landPricePerSqm,components,
     finalRoundingStep:rounding,warnings,issues:[],certified:false,
   };
 }
-function reconcileValuationMethods({marketValueSar,costValueSar,incomeValueSar,
- annualNoiSar,capitalizationRatePct,marketRentPerSqmYear,rentableArea,
- annualRentFromValueSar,annualRentPctOfValue,baseValueSar,
- operatingExpenseRatio,fullBuildingArea,sourceStatus='UNVERIFIED'}={}){
+function reconcileValuationMethods(input={}){
+ if(!safeOwnObject(input))return {status:'RECONCILIATION_HOLD',methodsSar:{},differences:[],metrics:{},issues:['RECONCILIATION_INPUT_OBJECT_INVALID'],certified:false,independentSourceVerificationEstablished:false,automaticPrimaryValueSar:null};
+ const {marketValueSar,costValueSar,incomeValueSar,annualNoiSar,capitalizationRatePct,marketRentPerSqmYear,rentableArea,annualRentFromValueSar,annualRentPctOfValue,baseValueSar,operatingExpenseRatio,fullBuildingArea,sourceStatus='UNVERIFIED'}=input;
   const issues=[],metrics={}; const rawMethods={};
   const incoming={market:marketValueSar,cost:costValueSar,income:incomeValueSar};
   for(const [k,v] of Object.entries(incoming)){

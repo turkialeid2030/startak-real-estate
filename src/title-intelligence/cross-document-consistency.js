@@ -7,6 +7,7 @@ const {
   TITLE_FACT_STATUS, TITLE_RESULT_STATUS, REQUIRED_TITLE_FACTS, LEGAL_SENSITIVE_FACTS, assessTitleFacts,
 } = require('./index');
 const { strictCalendarDateMs } = require('../validation/strict-calendar-instant');
+const {isPlainJson}=require('../validation/plain-json-boundary');
 
 const STATUS = Object.freeze({
   CANDIDATE_FOR_INDEPENDENT_REVIEW: 'CANDIDATE_FOR_INDEPENDENT_REVIEW',
@@ -47,21 +48,22 @@ function result(status, caseId, propertyId, asOf, blockers, checks) {
     semantics: 'Consistency check of self-reported deed/survey references only. Source authenticity, Saudi legal rights, professional approval and actual parcel identity require independent review.',
   });
 }
-function assessTitleCrossDocumentConsistency({
-  caseId, propertyId, facts, asOf, maxAgeDaysBySourceType,
-} = {}) {
+function assessTitleCrossDocumentConsistency(input = {}) {
+  if(!isPlainJson(input)||!input||typeof input!=='object'||Array.isArray(input))throw new TypeError('TITLE_INPUT_JSON_INVALID');
+  const {caseId,propertyId,facts,asOf,maxAgeDaysBySourceType}=input;
   if (typeof caseId !== 'string' || !caseId.trim() || typeof propertyId !== 'string' || !propertyId.trim()) {
     throw new TypeError('CASE_AND_PROPERTY_REQUIRED');
   }
   if (!Array.isArray(facts)||facts.length>5000) throw new TypeError('TITLE_FACTS_ARRAY_REQUIRED_OR_LIMIT');
   const asOfMs = dateMs(asOf);
   if (!Number.isFinite(asOfMs)) throw new TypeError('VALUATION_DATE_REQUIRED');
+  if(asOfMs>Date.now())return result(STATUS.HOLD_TEMPORAL_EVIDENCE,caseId,propertyId,asOf,['TITLE_AS_OF_IN_FUTURE'],[]);
   if (!maxAgeDaysBySourceType || typeof maxAgeDaysBySourceType !== 'object' || Array.isArray(maxAgeDaysBySourceType)) {
     throw new TypeError('EXPLICIT_SOURCE_FRESHNESS_POLICY_REQUIRED');
   }
   for (const role of ROLES) {
     const days = maxAgeDaysBySourceType[role];
-    if (typeof days !== 'number' || !Number.isFinite(days) || days < 0) {
+    if (!Object.hasOwn(maxAgeDaysBySourceType,role)||typeof days !== 'number' || !Number.isFinite(days*DAY_MS) || days < 0) {
       throw new TypeError('SOURCE_FRESHNESS_DAYS_INVALID:' + role);
     }
   }
@@ -69,10 +71,12 @@ function assessTitleCrossDocumentConsistency({
   // parcel and area alone. This base check also fails on contradictory values.
   // A supplied legal finding must not be silently ignored because its value
   // is a string, unknown, or unverified. Absence of a finding is not clearance.
-  const malformed=[];
+  const malformed=[],recordKeys=new Set();
   for(const f of facts){
     if(!f||typeof f!=='object'||f.caseId!==caseId||f.propertyId!==propertyId)
       throw new TypeError('PROPERTY_OR_CASE_ISOLATION_VIOLATION');
+    const recordKey=JSON.stringify([f.key,f.sourceType,f.sourceRef,f.observedAt]);
+    if(recordKeys.has(recordKey))malformed.push('TITLE_DUPLICATE_SOURCE_FACT');recordKeys.add(recordKey);
     if(typeof f.key!=='string'||!f.key.trim()||!Object.values(TITLE_FACT_STATUS).includes(f.status))
       malformed.push('TITLE_FACT_SCHEMA_INVALID');
     if(f.sourceRef!=null&&(typeof f.sourceRef!=='string'||f.sourceRef.trim()!==f.sourceRef||!f.sourceRef||f.sourceRef.length>512))

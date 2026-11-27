@@ -154,6 +154,18 @@ assert.strictEqual(snapshotResult.decisionSnapshot.lifecycle.replacementCapexWit
 assert.strictEqual(snapshotResult.decisionSnapshot.lifecycle.replacementCapexWithin5y, 400000);
 assert.strictEqual(snapshotResult.decisionSnapshot.subdivision.checks, undefined);
 
+for(const mutate of [
+ x=>({...x,additionalOperatingInputs:[...x.additionalOperatingInputs,x.additionalOperatingInputs[0]]}),
+ x=>({...x,evidenceLineage:[...x.evidenceLineage,x.evidenceLineage[0]]}),
+ x=>({...x,evidenceLineage:x.evidenceLineage.map((a,i)=>i===0?{...a,kind:'HUMAN_IDENTITY'}:a)}),
+ x=>({...x,evidenceLineage:x.evidenceLineage.map((a,i)=>i===0?{...a,caseId:'OTHER'}:a)}),
+ x=>({...x,evidenceLineage:x.evidenceLineage.map((a,i)=>i===0?{...a,recordedAt:'2026-10-01'}:a)}),
+ x=>({...x,additionalOperatingInputs:x.additionalOperatingInputs.map((a,i)=>i===0?{...a,effectiveDate:'2026-02-30'}:a)}),
+ x=>({...x,additionalOperatingInputs:x.additionalOperatingInputs.map((a,i)=>i===0?{...a,unit:'SAR'}:a)}),
+ x=>({...x,additionalOperatingInputs:x.additionalOperatingInputs.map((a,i)=>i===0?{...a,confidence:2}:a)}),
+])assert.equal(calculateSubdivisionDueDiligenceGate(mutate(buildCase())).scenarioTestingEligible,false);
+let reads59=0;const unsafe59=Object.defineProperty(buildCase(),'evidenceLineage',{enumerable:true,get(){reads59++;return [];}});
+assert.equal(calculateSubdivisionDueDiligenceGate(unsafe59).scenarioTestingEligible,false);assert.equal(reads59,0);
 console.log('RIAI_SUBDIVISION_DUE_DILIGENCE_GATE_V1=PASS');
 console.log('ELEVEN_MANDATORY_CHECKS=PASS');
 console.log('VERIFIED_FACT_ONLY=PASS');

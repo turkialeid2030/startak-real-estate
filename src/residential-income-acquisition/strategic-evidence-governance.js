@@ -1,4 +1,22 @@
 'use strict';
+const {assertPlainJson}=require('../validation/plain-json-boundary');
+const {strictCalendarDateMs}=require('../validation/strict-calendar-instant');
+const {createEvidenceAwareValue,createEvidenceLineageRecord}=require('./contracts');
+const stable=v=>Array.isArray(v)?v.map(stable):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,stable(v[k])])):v;
+function sameCanonicalStrategicValue(a,b){try{assertPlainJson(a);assertPlainJson(b);return JSON.stringify(stable(a))===JSON.stringify(stable(b));}catch{return false;}}
+const same=sameCanonicalStrategicValue;
+function isSafeStrategicCase(x){try{assertPlainJson(x,{maxNodes:500000});return !!x&&typeof x==='object'&&!Array.isArray(x)&&typeof x.caseId==='string'&&!!x.caseId.trim()&&Array.isArray(x.additionalOperatingInputs)&&x.additionalOperatingInputs.length<=5000&&Array.isArray(x.evidenceLineage)&&x.evidenceLineage.length<=10000;}catch{return false;}}
+function lineageIssues(operatingCase){
+ const issues=[],seen=new Set(),cutoff=strictCalendarDateMs(operatingCase.asOfDate),canonical=operatingCase.contractType==='RESIDENTIAL_INCOME_OPERATING_CASE_V1';
+ if(!Number.isFinite(cutoff)||cutoff>Date.now())issues.push({code:'STRATEGIC_AS_OF_INVALID'});
+ for(const x of operatingCase.evidenceLineage){
+   if(!x||typeof x.refId!=='string'||!x.refId.trim()||seen.has(x.refId)){issues.push({code:'STRATEGIC_LINEAGE_DUPLICATE_OR_INVALID',refId:x?.refId??null});continue;}seen.add(x.refId);
+   if((canonical||Object.hasOwn(x,'caseId'))&&x.caseId!==operatingCase.caseId)issues.push({code:'STRATEGIC_LINEAGE_CASE_MISMATCH',refId:x.refId});
+   if(canonical||Object.hasOwn(x,'recordedAt')){const dt=strictCalendarDateMs(x.recordedAt);if(!Number.isFinite(dt)||dt>cutoff)issues.push({code:'STRATEGIC_LINEAGE_WINDOW_INVALID',refId:x.refId});}
+   if(canonical){try{if(!same(x,createEvidenceLineageRecord(x)))throw Error();}catch{issues.push({code:'STRATEGIC_LINEAGE_CANONICAL_MISMATCH',refId:x.refId});}}
+ }
+ return issues;
+}
 
 const STRATEGIC_EVIDENCE_STATUS = Object.freeze({
   NOT_ASSESSED: 'NOT_ASSESSED',
@@ -60,10 +78,11 @@ function groupByField(inputs) {
   return groups;
 }
 
-function assessAdoptedInput(input, lineageByRef, asOfDate, duplicate) {
+function assessAdoptedInput(input, lineageByRef, asOfDate, duplicate,canonical=false) {
   const issues = [];
   const field = input.field;
   if (duplicate) issues.push({ code: 'STRATEGIC_INPUT_DUPLICATE_FIELD', field });
+  if(canonical){try{if(!same(input,createEvidenceAwareValue(input)))throw Error();}catch{issues.push({code:'STRATEGIC_INPUT_CANONICAL_MISMATCH',field});}}
   if (!ADOPTABLE_STATUSES.has(input.verificationStatus)) {
     issues.push({ code: 'STRATEGIC_INPUT_VERIFICATION_STATUS_INVALID', field, verificationStatus: input.verificationStatus || null });
   }
@@ -87,17 +106,21 @@ function assessAdoptedInput(input, lineageByRef, asOfDate, duplicate) {
     }
   }
 
+  if(input.verificationStatus==='ASSUMED'){
+    const a=input.assumptionOverride;
+    if(!a||typeof a.reason!=='string'||!a.reason.trim()||lineageByRef.get(a.approvedByRef)?.kind!=='HUMAN_IDENTITY'||lineageByRef.get(a.policyRef)?.kind!=='POLICY')issues.push({code:'STRATEGIC_ASSUMPTION_REVIEW_REQUIRED',field});
+  }
   if (input.effectiveDate) {
-    const effectiveTime = new Date(input.effectiveDate).getTime();
+    const effectiveTime = strictCalendarDateMs(input.effectiveDate);
     if (!Number.isFinite(effectiveTime)) {
       issues.push({ code: 'STRATEGIC_EFFECTIVE_DATE_INVALID', field });
     } else if (asOfDate) {
-      const asOfTime = new Date(asOfDate).getTime();
+      const asOfTime = strictCalendarDateMs(asOfDate);
       if (Number.isFinite(asOfTime) && effectiveTime > asOfTime) {
         issues.push({ code: 'STRATEGIC_FUTURE_EFFECTIVE_EVIDENCE', field });
       }
     }
-  }
+  }else issues.push({code:'STRATEGIC_EFFECTIVE_DATE_REQUIRED',field});
 
   return {
     field,
@@ -111,7 +134,8 @@ function assessAdoptedInput(input, lineageByRef, asOfDate, duplicate) {
 }
 
 function assessStrategicEvidenceGovernance(operatingCase) {
-  if (!operatingCase || typeof operatingCase !== 'object') throw new TypeError('operatingCase must be an object');
+  if(!isSafeStrategicCase(operatingCase))return deepFreeze({schemaVersion:1,caseId:null,asOfDate:null,status:STRATEGIC_EVIDENCE_STATUS.REVIEW_REQUIRED,strategicInputCount:0,adoptedInputCount:0,usableAdoptedInputCount:0,evidenceCoverage:0,invalidInputFields:[],assessments:[],issues:[{code:'STRATEGIC_CASE_JSON_OR_SCOPE_INVALID'}],caseIntegrityReady:false,automaticFinancializationAllowed:false,legalConclusion:null,investmentRecommendation:null});
+  const globalIssues=lineageIssues(operatingCase);
   const inputs = (Array.isArray(operatingCase.additionalOperatingInputs) ? operatingCase.additionalOperatingInputs : [])
     .filter((input) => input && isStrategicField(input.field));
   if (!inputs.length) {
@@ -142,8 +166,10 @@ function assessStrategicEvidenceGovernance(operatingCase) {
     lineageByRef,
     operatingCase.asOfDate || null,
     (groups.get(input.field) || []).length > 1,
+    operatingCase.contractType==='RESIDENTIAL_INCOME_OPERATING_CASE_V1',
   ));
-  const issues = assessments.flatMap((assessment) => assessment.issues);
+  if(globalIssues.length)for(const a of assessments){a.usable=false;a.issues.push({code:'STRATEGIC_CASE_INTEGRITY_REQUIRED',field:a.field});}
+  const issues = [...globalIssues,...assessments.flatMap((assessment) => assessment.issues)];
   const usable = assessments.filter((assessment) => assessment.usable);
   const invalidInputFields = [...new Set(assessments.filter((assessment) => !assessment.usable).map((assessment) => assessment.field))];
 
@@ -154,6 +180,8 @@ function assessStrategicEvidenceGovernance(operatingCase) {
     status: issues.length === 0 && adoptedInputs.length > 0
       ? STRATEGIC_EVIDENCE_STATUS.COMPLIANT
       : STRATEGIC_EVIDENCE_STATUS.REVIEW_REQUIRED,
+    caseIntegrityReady:globalIssues.length===0,
+    sourceAuthenticityIndependentlyVerified:false,
     strategicInputCount: inputs.length,
     adoptedInputCount: adoptedInputs.length,
     usableAdoptedInputCount: usable.length,
@@ -168,7 +196,10 @@ function assessStrategicEvidenceGovernance(operatingCase) {
   });
 }
 
-function createEvidenceGovernedStrategicCase(operatingCase, governance = assessStrategicEvidenceGovernance(operatingCase)) {
+function createEvidenceGovernedStrategicCase(operatingCase, _claimedGovernance) {
+  // Recompute governance; no caller-provided COMPLIANT result can bypass checks.
+  const governance=assessStrategicEvidenceGovernance(operatingCase);
+  if(!isSafeStrategicCase(operatingCase))return {caseId:null,asOfDate:null,additionalOperatingInputs:[],evidenceLineage:[]};
   const invalid = new Set(governance.invalidInputFields || []);
   if (!invalid.size) return operatingCase;
   return {
@@ -184,6 +215,7 @@ function createEvidenceGovernedStrategicCase(operatingCase, governance = assessS
 module.exports = {
   STRATEGIC_EVIDENCE_STATUS,
   STRATEGIC_INPUT_PREFIXES,
+  isSafeStrategicCase,lineageIssues,sameCanonicalStrategicValue,
   assessStrategicEvidenceGovernance,
   createEvidenceGovernedStrategicCase,
 };

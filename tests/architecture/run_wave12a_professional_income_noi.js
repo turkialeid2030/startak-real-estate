@@ -33,6 +33,7 @@ const packetPreparedAt = '2026-09-04T09:00:00.000Z';
 function verification(ref) {
   return { status: LEASE_VERIFICATION_STATUS.VERIFIED, verifiedByRef: 'LEASE-REVIEWER', verifiedAt: '2026-08-30T10:00:00.000Z', evidenceRef: `VERIFY-${ref}` };
 }
+let originalLeaseRecords,originalRentRoll;
 function makeIncomeEvidencePacket() {
   const lease = createLeaseEvidenceRecord({
     leaseId: 'LEASE-001', caseId, propertyRef, unitRef: 'UNIT-001', tenantRef: 'TENANT-001', leaseInterestRef: 'LEASE-INTEREST-001',
@@ -47,6 +48,7 @@ function makeIncomeEvidencePacket() {
     annualContractRentSar: 1000000, activeLeaseCount: 1, sourceRef: 'RR-DOC-001', sourceDocumentHashSha256: 'b'.repeat(64),
     verification: verification('RR'), capturedAt: '2026-08-30T09:00:00.000Z',
   });
+  originalLeaseRecords=[lease];originalRentRoll=rentRoll;
   return reconcileLeaseIncomeEvidence({ caseId, propertyRef, leaseRecords: [lease], rentRollSnapshot: rentRoll, asOfDate: valuationDate });
 }
 function prov(source, ref, asOfDate = sourceAsOfDate) {
@@ -151,4 +153,55 @@ check(negativeResult.periodResults[0].reviewFlags.includes('NON_POSITIVE_NOI_REV
 const tamperedPacket = { ...packet, noiConvention: NOI_CONVENTION.AFTER_REPLACEMENT_RESERVE };
 equal(calculateProfessionalNoi(tamperedPacket).status, PROFESSIONAL_NOI_RESULT_STATUS.INVALID_INPUT_PACKET, 'tampered canonical packet rejected');
 
+const {professionalNoiResultCore,verifyProfessionalNoiResultIntegrity}=require('../../src/valuation/direct-capitalization-input');
+const canon=v=>Array.isArray(v)?v.map(canon):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,canon(v[k])])):v;
+const digest=v=>require('crypto').createHash('sha256').update(JSON.stringify(canon(v))).digest('hex');
+equal(verifyProfessionalNoiResultIntegrity(JSON.parse(JSON.stringify(result))),true,'V633 actual engine detailed trace');
+equal(verifyProfessionalNoiResultIntegrity(negativeResult),true,'V633 negative NOI trace retained');
+const p=result.periodResults[0];
+for(const patch of [
+ {incomeTrace:[]},{incomeTrace:[{...p.incomeTrace[0],amountSar:1},...p.incomeTrace.slice(1)]},
+ {incomeTrace:[p.incomeTrace[0],p.incomeTrace[0]]},{vacancyCollectionLossTrace:{}},{vacancyCollectionLossTrace:{...p.vacancyCollectionLossTrace,inputValue:0.99}},
+ {operatingExpenseTrace:[]},{operatingExpenseTrace:[{...p.operatingExpenseTrace[0],calculatedAmountSar:1},...p.operatingExpenseTrace.slice(1)]},
+ {operatingExpenseTrace:[{...p.operatingExpenseTrace[0],category:'REPLACEMENT_RESERVE'},...p.operatingExpenseTrace.slice(1)]},
+ {reviewFlags:['UNSUPPORTED']}
+]){
+ const changed={...result,periodResults:[{...p,...patch},...result.periodResults.slice(1)]};
+ changed.calculationHashSha256=digest(professionalNoiResultCore(changed));
+ equal(verifyProfessionalNoiResultIntegrity(changed),false,'V633 rehashed trace rejected');
+}
+for(const patch of [{transactionAuthorized:true},{automaticMarketRentApplied:true},{stabilizedPeriodIndex:1},{forecastPeriods:[period2,period1]},{forecastPeriods:[{...period1,incomeLines:[{...period1.incomeLines[0],amountSar:1}]},period2]}]){
+ const changed={...packet,...patch},core={...changed};
+ for(const k of ['professionalIncomeForecastInputHashSha256','status','blockers','readyForCanonicalNoi','implicitVacancyAssumptionUsed','automaticLeaseOptionExercise','automaticMarketRentApplied','canonicalCalculationEngineRequired','capitalizationPerformed','dcfPerformed','financialAnalysisPerformed','certifiedValuationEstablished','transactionAuthorized','semantics'])delete core[k];
+ changed.professionalIncomeForecastInputHashSha256=digest(core);
+ equal(verifyProfessionalIncomeForecastInputIntegrity(changed),false,'V633 rehashed forecast contradiction rejected');
+ equal(calculateProfessionalNoi(changed).status,PROFESSIONAL_NOI_RESULT_STATUS.INVALID_INPUT_PACKET,'V633 engine rejects invalid forecast');
+}
+equal(calculateProfessionalNoi(JSON.parse(JSON.stringify(packet))).calculationHashSha256,result.calculationHashSha256,'V633 forecast roundtrip');
+console.log('W06_V633_DETAILED_NOI_TRACE=PASS negative_cases=14 positive_checks=3');
 console.log(`WAVE_12A_PROFESSIONAL_INCOME_NOI=PASS checks=${checks}`);
+
+ // V6.53 — end-to-end supplied-source rebuild for both income methods.
+ const {evaluateSourceInputReplay}=require('../../src/valuation-reconciliation/source-input-replay');
+ const {createProfessionalRateInput}=require('../../src/valuation/professional-method-input-provenance');
+ const {buildDirectCapitalizationInputPacket}=require('../../src/valuation/direct-capitalization-input');
+ const {calculateDirectCapitalizationIndication}=require('../../src/engines/valuation/direct-capitalization');
+ const dcf=require('../../src/valuation/professional-dcf-input');
+ const {calculateProfessionalDcfIndication}=require('../../src/engines/valuation/professional-dcf');
+ const scope53={caseId,propertyRef,valuationDate},asOf53='2026-09-10T00:00:00Z',methodPrepared53='2026-09-05T00:00:00Z';
+ const source53={leaseRecords:originalLeaseRecords,rentRollSnapshot:originalRentRoll,forecastDraft:{...scope53,packetId:'INCOME-FORECAST-001',forecastPeriods:[period1,period2],noiConvention:NOI_CONVENTION.BEFORE_REPLACEMENT_RESERVE,preparedByRef:'VALUATION-TEAM',preparedAt:packetPreparedAt,packetEvidenceRef:'PACKET-EVID-INCOME-FORECAST-001'}};
+ function rate53(rateId,type,value){return createProfessionalRateInput({rateId,caseId,propertyRef,type,value,source:'VERIFIED_MARKET_ANALYSIS',sourceLabel:null,rationale:'SYNTHETIC',evidenceRefs:['EVID'],asOfDate:'2026-08-20',preparedByRef:'V',preparedAt:'2026-08-25',reviewedByRef:'R',reviewedAt:'2026-08-26',reviewEvidenceRef:'RE',confidence:'HIGH'});}
+ const methodBase53={...scope53,preparedByRef:'V',preparedAt:methodPrepared53,evidenceRef:'SYNTHETIC'};
+ const capDraft53={...methodBase53,packetId:'CAP53',marketCapRateInput:rate53('CAP','MARKET_CAP_RATE',0.08),maximumRateAgeDays:30};
+ const capPacket53=buildDirectCapitalizationInputPacket({...capDraft53,professionalNoiResult:result});
+ const capResult53=calculateDirectCapitalizationIndication(capPacket53);
+ const review53={caseId,propertyRef,rationale:'SYNTHETIC',evidenceRefs:['EVID'],preparedByRef:'V',preparedAt:'2026-08-25',reviewedByRef:'R',reviewedAt:'2026-08-26',reviewEvidenceRef:'RE'};
+ const dcfDraft53={...methodBase53,packetId:'DCF53',periodAdjustments:[],discountRateInput:rate53('DISC','DISCOUNT_RATE',0.1),exitCapRateInput:rate53('EXIT','EXIT_CAP_RATE',0.08),maximumDiscountRateAgeDays:30,maximumExitCapRateAgeDays:30,terminalNoiInput:dcf.createTerminalNoiInput({...review53,terminalNoiId:'T',amountSar:900000,source:'EXPLICIT_FORECAST',asOfDate:'2026-08-20'}),dispositionCostInput:dcf.createDispositionCostInput({...review53,dispositionCostId:'D',method:'PERCENT_OF_GROSS_TERMINAL_VALUE',value:0.02}),timingConvention:'END_OF_PERIOD'};
+ const dcfPacket53=dcf.buildProfessionalDcfInputPacket({...dcfDraft53,professionalNoiResult:result});
+ const dcfResult53=calculateProfessionalDcfIndication(dcfPacket53);
+ const replay53={...scope53,asOf:asOf53,methodIndications:[{id:'CAP',sourceResult:capResult53},{id:'DCF',sourceResult:dcfResult53}],methodInputPacketsByIndicationId:{CAP:capPacket53,DCF:dcfPacket53},sourceRebuildsByIndicationId:{CAP:{methodInputDraft:capDraft53,incomeSource:source53},DCF:{methodInputDraft:dcfDraft53,incomeSource:source53}}};
+ const ok53=evaluateSourceInputReplay(replay53);equal(ok53.status,'READY_FOR_SOURCE_INPUT_REPLAY_REVIEW',JSON.stringify(ok53.blockers));equal(ok53.traces.length,2,'two source rebuilt methods');equal(ok53.traces[0].noiResultHashSha256,ok53.traces[1].noiResultHashSha256,'common NOI result');equal(ok53.originalSourceInputsIndependentlyRebuilt,false,'no independent evidence claim');
+ equal(evaluateSourceInputReplay(JSON.parse(JSON.stringify(replay53))).status,'READY_FOR_SOURCE_INPUT_REPLAY_REVIEW','JSON roundtrip');
+ function reject53(source,methodDraft=capDraft53){const o=evaluateSourceInputReplay({...replay53,sourceRebuildsByIndicationId:{...replay53.sourceRebuildsByIndicationId,CAP:{methodInputDraft:methodDraft,incomeSource:source}}});equal(o.status,'HOLD_SOURCE_INPUT_REPLAY',JSON.stringify(o.blockers));equal(o.traces.length,0,'no partial source trace');}
+ reject53({...source53,leaseRecords:[]});reject53({...source53,leaseRecords:[{...originalLeaseRecords[0],contractedAnnualRentSarAsOfDate:1}]});reject53({...source53,rentRollSnapshot:{...originalRentRoll,annualContractRentSar:1}});reject53({...source53,forecastDraft:{...source53.forecastDraft,forecastPeriods:[period2]}});reject53(source53,{...capDraft53,professionalNoiResult:result});reject53(source53,{...capDraft53,preparedAt:'2026-09-03'});reject53(source53,{...capDraft53,marketCapRateInput:{...capDraft53.marketCapRateInput,value:0.5}});reject53({...source53,forecastDraft:{...source53.forecastDraft,incomeEvidencePacket:evidence}});
+ console.log('V653_INCOME_SOURCE_REPLAY=PASS synthetic=true sourceAuthority=false');

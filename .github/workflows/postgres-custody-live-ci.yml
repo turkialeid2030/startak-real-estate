@@ -1,0 +1,41 @@
+name: PostgreSQL Custody Live CI
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  real-postgres-custody:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: startak_custody_ci
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432/tcp
+        options: >-
+          --health-cmd "pg_isready -U postgres -d startak_custody_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+      - name: Install isolated pinned PostgreSQL test driver
+        run: npm install --prefix "$RUNNER_TEMP/custody-pg-ci" --ignore-scripts --no-package-lock --no-audit --no-fund pg@8.16.3
+      - name: Real PostgreSQL transaction, isolation and custody verification
+        env:
+          STARTAK_CUSTODY_DISPOSABLE_CI: 'true'
+          PGHOST: 127.0.0.1
+          PGPORT: ${{ job.services.postgres.ports[5432] }}
+          PGDATABASE: startak_custody_ci
+          PGUSER: postgres
+          STARTAK_CUSTODY_SERVICE_ID: ${{ job.services.postgres.id }}
+        run: NODE_PATH="$RUNNER_TEMP/custody-pg-ci/node_modules" node tools/postgres-custody-live-ci.js

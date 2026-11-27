@@ -138,7 +138,10 @@ test('UNVERIFIED_SOURCE_IDENTITY_HOLD',()=>{
  assert.equal(run({titleFacts:[...deedFacts,...surveyFacts.map(x=>({...x,status:'UNVERIFIED'}))]}).status,STATUS.HOLD_TITLE);
 });
 test('GEOMETRY_FRESHNESS_POLICY_REQUIRED',()=>{
- assert.throws(()=>run({geometryMaxAgeDays:undefined}),/EXPLICIT_GEOMETRY_FRESHNESS_POLICY_REQUIRED/);
+ const set=plan();
+ assert.throws(()=>assessGuardedPlotEnvelope({caseId,propertyRef,planningEvidenceSet:set,planningRecords:originalRecords.get(set),geometry,evaluatedAt,maxAreaDifferenceSqm:0.5,titleFacts,titleFreshnessPolicy}),/EXPLICIT_GEOMETRY_FRESHNESS_POLICY_REQUIRED/);
+ const rejected=run({geometryMaxAgeDays:undefined});
+ assert.equal(rejected.status,STATUS.HOLD_BINDING);assert.ok(rejected.blockers.includes('PLOT_INPUT_JSON_INVALID'));assert.equal(rejected.transactionAuthorized,false);
 });
 test('STALE_GEOMETRY_REJECTED',()=>{
  assert.equal(run({geometry:{...geometry,observedAt:'2025-11-03'}}).status,STATUS.HOLD_GEOMETRY);
@@ -205,5 +208,18 @@ test('DEED_REFERENCE_WHITESPACE_REJECTED',()=>{
 test('NO_LEGAL_CLEARANCE_INFERRED',()=>{
  const review=require('../../src/title-intelligence').assessTitleCrossDocumentConsistency({caseId,propertyId:propertyRef,facts:titleFacts,asOf:evaluatedAt,maxAgeDaysBySourceType:titleFreshnessPolicy});
  assert.equal(review.absenceOfEncumbrancesEstablished,false);assert.equal(review.professionalEvidenceChainIndependentlyVerified,false);
+});
+test('FUTURE_EVALUATION_HOLD',()=>{assert.equal(run({evaluatedAt:'2099-01-01'}).status,STATUS.HOLD_BINDING);});
+test('DUPLICATE_DEED_FACT_HOLD',()=>{assert.equal(run({titleFacts:[...titleFacts,deedFacts[0]]}).status,STATUS.HOLD_TITLE);});
+test('SURVEY_REFERENCE_MUST_NOT_PREDATE_GEOMETRY',()=>{
+ const old=surveyFacts.map(f=>({...f,observedAt:'2026-11-01'}));
+ const r=run({titleFacts:[...deedFacts,...old]});
+ assert.equal(r.status,STATUS.HOLD_GEOMETRY);assert.ok(r.blockers.includes('SURVEY_REFERENCE_PREDATES_GEOMETRY'));
+});
+test('TOLERANCE_NEVER_INCREASES_CAPACITY',()=>{
+ const r=run({geometry:{...geometry,landAreaSqm:2000.4}});
+ assert.equal(r.status,STATUS.CANDIDATE_FOR_INDEPENDENT_PLANNING_REVIEW);
+ assert.equal(r.calculations.governingAreaSqm,2000);assert.equal(r.calculations.farGrossFloorAreaCapSqm,4000);assert.equal(r.calculations.bcrFootprintCapSqm,1000);
+ assert.match(r.sourceRefs.find(x=>x.type==='SOURCE_INPUT_REPLAY_BINDING').sourceRef,/^[0-9a-f]{64}$/);
 });
 console.log('GUARDED_PLOT_ENVELOPE_V1=PASS checks='+count+' synthetic=true license_proven=false');

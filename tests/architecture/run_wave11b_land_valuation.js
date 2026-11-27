@@ -170,3 +170,9 @@ try {
 check(crossCaseRejected, 'cross-case land comparable evidence is rejected');
 
 console.log(`WAVE_11B_LAND_VALUATION=PASS checks=${checks}`);
+
+ // V6.54: a synthetic ready flag and digest cannot substitute for the source bridge.
+ const {evaluateSourceInputReplay}=require('../../src/valuation-reconciliation/source-input-replay');
+ const unsupported54=evaluateSourceInputReplay({caseId:CASE_ID,propertyRef:PROPERTY_REF,valuationDate:VALUATION_DATE,asOf:'2026-09-08',methodIndications:[{id:'L',sourceResult:result}],methodInputPacketsByIndicationId:{L:ready},sourceRebuildsByIndicationId:{L:{methodInputDraft:{caseId:CASE_ID,propertyRef:PROPERTY_REF,valuationDate:VALUATION_DATE,reconciledAt:'2026-09-07T10:00:00Z',propertyEvidencePacket:propertyPacket,comparableRecords:records,adjustmentAnalysis:analysis}}}});
+ check(unsupported54.status==='HOLD_SOURCE_INPUT_REPLAY'&&unsupported54.blockers.some(x=>x.includes('PROPERTY_SOURCE_DRAFT_REQUIRED')),'land rejects supplied synthetic ready evidence without original source draft');
+ console.log('V654_LAND_SOURCE_GATE=PASS synthetic=true sourceAuthority=false');

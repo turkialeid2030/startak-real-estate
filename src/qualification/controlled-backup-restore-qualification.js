@@ -3,6 +3,7 @@
 const crypto = require('crypto');
 const {
   API_SECURITY_STATUS,
+  verifyCompletedStagingApiSecurityQualification,
 } = require('./controlled-staging-api-security-qualification');
 const {
   QUALIFICATION_ENVIRONMENT,
@@ -80,10 +81,7 @@ function freeze(value) {
 function canonicalize(value) {
   if (Array.isArray(value)) return value.map(canonicalize);
   if (value && typeof value === 'object') {
-    return Object.keys(value).sort().reduce((result, key) => {
-      if (value[key] !== undefined) result[key] = canonicalize(value[key]);
-      return result;
-    }, {});
+    return Object.fromEntries(Object.keys(value).sort().filter(key=>value[key]!==undefined).map(key=>[key,canonicalize(value[key])]));
   }
   return value;
 }
@@ -288,7 +286,7 @@ function createControlledBackupRestoreQualification({
       && typeof apiSecurityQualification.bundleHashSha256 === 'string'
       && SHA256_RE.test(apiSecurityQualification.bundleHashSha256)
       && apiSecurityQualification.productionQualified === false
-      && apiSecurityQualification.authority?.releaseAuthorized === false,
+      && verifyCompletedStagingApiSecurityQualification(apiSecurityQualification,assessed.value),
     );
     const apiSecurityQualificationRef = apiSecurityComplete
       ? `sha256:${apiSecurityQualification.bundleHashSha256.toLowerCase()}`
@@ -307,6 +305,7 @@ function createControlledBackupRestoreQualification({
       evidenceId: normalizedEvidenceId,
       recoveryObjectives: objectives,
       apiSecurityQualificationRef,
+      apiSecurityTestedAt:apiSecurityComplete?apiSecurityQualification.apiEvidence.testedAt:null,
       executionOrder: ['backup', 'isolatedRestore', 'dataVerification', 'resilienceEvidence'],
     };
     const plan = freeze({ ...planCore, planHashSha256: sha256Object(planCore) });
@@ -348,7 +347,7 @@ function createControlledBackupRestoreQualification({
       return makeResult({ status: BACKUP_RESTORE_STATUS.HOLD_BACKUP, plan, authorization: auth });
     }
 
-    if (Date.parse(backup.startedAt) < Math.max(Date.parse(auth.approvedAt),retrospective ? -Infinity : assessed.millis) || Date.parse(backup.finishedAt)>evidenceCutoff()) {
+    if (Date.parse(backup.startedAt) < Math.max(Date.parse(auth.approvedAt),Date.parse(plan.apiSecurityTestedAt),retrospective ? -Infinity : assessed.millis) || Date.parse(backup.finishedAt)>evidenceCutoff()) {
       return makeResult({ status: BACKUP_RESTORE_STATUS.HOLD_BACKUP, plan, authorization: auth, backup });
     }
     let restore;
@@ -442,8 +441,35 @@ function createControlledBackupRestoreQualification({
   };
 }
 
+// Replay the retained normalized stages and recovery calculation, not a
+// self-reported PASS. External adapter observations remain unauthenticated.
+function verifyCompletedBackupRestoreQualification(value,asOf){
+ try{
+  const eq=(a,b)=>JSON.stringify(canonicalize(a))===JSON.stringify(canonicalize(b));
+  const isDigest=v=>typeof v==='string'&&/^[a-f0-9]{64}$/.test(v);
+  if(value?.schemaVersion!==1||value.status!==BACKUP_RESTORE_STATUS.BACKUP_RESTORE_EVIDENCE_COMPLETE_NOT_PRODUCTION_CERTIFIED||value.productionQualified!==false||!eq(value.authority,AUTHORITY))return false;
+  const {plan,authorization:auth,backup,restore,verification:v,resilienceEvidence:r}=value;
+  const {planHashSha256,...core}=plan;
+  if(plan.schemaVersion!==1||plan.environment!=='staging'||!isDigest(planHashSha256)||sha256Object(core)!==planHashSha256||
+     !['RETROSPECTIVE_CUTOFF','LIVE_CLOCK'].includes(plan.assessmentMode)||!eq(plan.executionOrder,['backup','isolatedRestore','dataVerification','resilienceEvidence'])||
+     typeof plan.apiSecurityQualificationRef!=='string'||!/^sha256:[a-f0-9]{64}$/.test(plan.apiSecurityQualificationRef)||value.apiSecurityQualificationRef!==plan.apiSecurityQualificationRef||value.planHashSha256!==planHashSha256)return false;
+  const sourceRef=requiredString(plan.sourceDatabaseRef,'sourceRef'),sourceName=requiredString(plan.sourceDatabaseName,'sourceName'),restoreRef=requiredString(plan.restoreTargetDatabaseRef,'restoreRef'),restoreName=requiredString(plan.restoreTargetDatabaseName,'restoreName');
+  if(sourceRef===restoreRef||sourceName===restoreName||requiredCommitSha(plan.exactCommitSha)!==plan.exactCommitSha||!eq(normalizeObjectives(plan.recoveryObjectives),plan.recoveryObjectives))return false;
+  if(auth?.accepted!==true||value.authorizationAccepted!==true||!['approvedBy','reviewedBy','changeControlRef'].every(k=>typeof auth[k]==='string'&&auth[k].trim())||auth.approvedBy===auth.reviewedBy)return false;
+  if(!eq(normalizeBackupResult(backup,sourceRef,sourceName),backup)||!eq(normalizeRestoreResult(restore,backup,restoreRef,restoreName),restore)||!eq(normalizeVerificationResult(v,sourceRef,restoreRef),v))return false;
+  const date=(x,k)=>requiredTimestamp(x,k).millis;
+  const at=date(asOf,'asOf'),assessed=date(plan.assessedAt,'assessedAt'),apiAt=date(plan.apiSecurityTestedAt,'apiSecurityTestedAt'),approved=date(auth.approvedAt,'approvedAt'),reviewed=date(r.reviewedAt,'reviewedAt');
+  if(at>Date.now()||assessed>reviewed||reviewed>at||apiAt>assessed||approved>assessed||(plan.assessmentMode==='RETROSPECTIVE_CUTOFF'&&r.reviewedAt!==plan.assessedAt))return false;
+  if(date(backup.startedAt,'backup.startedAt')<Math.max(apiAt,approved,plan.assessmentMode==='LIVE_CLOCK'?assessed:-Infinity)||date(restore.startedAt,'restore.startedAt')<date(backup.finishedAt,'backup.finishedAt')||date(v.observedAt,'observedAt')<date(restore.finishedAt,'restore.finishedAt')||date(v.observedAt,'observedAt')>reviewed||date(v.latestRestoredDataAt,'latestRestoredDataAt')>date(backup.sourceSnapshotAt,'snapshot')||!restore.artifactHashMatchesBackup||!v.recordCountsMatch||!v.fingerprintsMatch||v.duplicateSideEffectsObserved||v.unreconciledDataCorruptionObserved)return false;
+  const expected=createResilienceEvidence({resilienceEvidenceId:plan.evidenceId,scenario:RESILIENCE_SCENARIO.BACKUP_RESTORE,environment:QUALIFICATION_ENVIRONMENT.STAGING,exactCommitSha:plan.exactCommitSha,targetRef:sourceRef+'->'+restoreRef,maximumRecoveryTimeSeconds:plan.recoveryObjectives.maximumRecoveryTimeSeconds,observedRecoveryTimeSeconds:(date(v.observedAt,'observedAt')-date(restore.startedAt,'restore.startedAt'))/1000,maximumDataLossSeconds:plan.recoveryObjectives.maximumDataLossSeconds,observedDataLossSeconds:Math.max(0,(date(v.latestSourceDataAt,'source')-date(v.latestRestoredDataAt,'restored'))/1000),duplicateSideEffectsObserved:v.duplicateSideEffectsObserved,unreconciledDataCorruptionObserved:v.unreconciledDataCorruptionObserved,objectiveSourceRef:plan.recoveryObjectives.objectiveSourceRef,sourceArtifactId:backup.artifactId,sourceArtifactHashSha256:backup.artifactHashSha256,observedAt:v.observedAt,preparedBy:auth.approvedBy,reviewedBy:auth.reviewedBy,reviewedAt:r.reviewedAt,evidenceRefs:['sha256:'+planHashSha256,plan.apiSecurityQualificationRef,'sha256:'+backup.artifactHashSha256]});
+  if(expected.status!==PERFORMANCE_STATUS.PASS||!eq(expected,r))return false;
+  return eq(makeResult({status:value.status,plan:structuredClone(plan),authorization:structuredClone(auth),backup:structuredClone(backup),restore:structuredClone(restore),verification:structuredClone(v),resilienceEvidence:expected}),value);
+ }catch{return false;}
+}
+
 module.exports = {
   BACKUP_RESTORE_STATUS,
   AUTHORITY,
   createControlledBackupRestoreQualification,
+  verifyCompletedBackupRestoreQualification,
 };

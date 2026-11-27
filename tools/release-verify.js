@@ -67,14 +67,58 @@ step('TEST_DISCOVERY_AND_REGRESSION', () => {
   // Never forward arbitrary stdout from tests; it may contain sensitive fixture data.
   const evidenceTargets = new Set([
     'tests/architecture/run_riai_ai_assist_client_v1.js',
+    'tests/architecture/run_wave12d_investment_financing_metrics.js',
+    'tests/architecture/run_wave12a_professional_income_noi.js',
+    'tests/defects/c23_governed_live_ai_provider_gateway.js',
+    'tests/defects/c26_governed_operator_workspace_rbac.js',
+    'tests/architecture/run_c16_historical_auction_recovery.js',
+    'tests/architecture/run_c13_historical_closing_recovery.js',
+    'tests/architecture/run_c12_historical_regulatory_carry_recovery.js',
+    'tests/architecture/run_c14_shared_financing_precision.js',
+    'tests/architecture/run_c11_historical_income_asset_recovery.js',
+    'tests/architecture/run_c8_c9_input_boundary_hardening.js',
+    'tests/architecture/run_c17_c18_land_strategy_recovery.js',
+    'tests/architecture/run_c20_urban_growth_recovery.js',
+    'tests/architecture/run_c10_c19_market_scenario_recovery.js',
+    'tests/architecture/run_c3_sandbox_reconciliation_recovery.js',
+    'tests/architecture/run_c2s_source_provenance_recovery.js',
+    'tests/architecture/run_c3_c3i_reconciliation_recovery.js',
+    'tests/architecture/run_wave8c_property_evidence_bridge.js',
+    'tests/architecture/run_wave11b_land_valuation.js',
+    'tests/architecture/run_c21_listing_amenity_recovery.js',
+    'tests/architecture/run_c58_comparable_provenance_chain.js',
+    'tests/architecture/run_market_geospatial_record_boundary.js',
+    'tests/architecture/run_guarded_plot_envelope_v1.js',
+    'tests/architecture/run_title_cross_document_consistency_v1.js',
+    'tests/architecture/run_private_appraisal_vault_namespace_integrity.js',
+    'tests/architecture/run_private_appraisal_vault_versioned_keys_restore.js',
+    'tests/architecture/run_signed_restore_inventory.js',
+    'tests/architecture/run_signed_evidence_custody.js',
+    'tests/architecture/run_custody_append_coordinator.js',
+    'tests/architecture/run_governed_evidence_intake.js',
+    'tests/architecture/run_c49_c40_official_source_rights_recovery.js',
+    'tests/architecture/run_c2n_c25_governed_source_recovery.js',
+    'tests/architecture/run_structured_source_replay.js',
+    'tests/runtime/run_postgres_custody_store_tests.js',
+    'tests/valuation/private-appraisal-evidence-vault.test.js',
+    'tests/architecture/run_legacy_57_manifest_integrity.js',
+    'tests/architecture/run_startak_re_historic_source_parity_register.js',
+    'tests/architecture/run_wave12b_direct_capitalization.js',
+    'tests/architecture/run_wave12c_professional_dcf.js',
     'tests/architecture/run_riai_ai_gateway_guardrails_unit_v1.js',
     'tests/architecture/run_riai_qualitative_output.js',
+    'tests/architecture/run_riai_subdivision_gate_v1.js',
+    'tests/architecture/run_riai_strategic_evidence_governance_v1.js',
+    'tests/architecture/run_residential_income_lifecycle_location_upside_v1.js',
     'tests/runtime/run_riai_openai_responses_adapter.js',
     'tests/runtime/run_riai_client_redirect_boundary.js',
     ...['postgres_runtime_rls_probe','controlled_postgres_migration_runner','controlled_staging_postgres_qualification','controlled_staging_api_security_qualification','controlled_backup_restore_qualification','controlled_dr_failover_qualification','controlled_observability_incident_qualification','independent_security_uat_evidence_gate','productization_release_candidate_evidence_bundle'].map(name=>'tests/runtime/run_'+name+'_tests.js'),
   ]);
   const executedEvidence = new Set();
-  for (const file of tests) {
+  // Run named recovery/qualification evidence first, then all remaining tests exactly once.
+  // Failed early tests are still recorded; never skip the remaining regression suite.
+  const ordered=[...tests].sort((a,b)=>Number(evidenceTargets.has(b.split(path.sep).join('/')))-Number(evidenceTargets.has(a.split(path.sep).join('/'))));
+  for (const file of ordered) {
     try {
       execFileSync(process.execPath, [path.join(ROOT, file)], { cwd: ROOT, stdio: 'pipe' }); passed++;
       const normalized = file.split(path.sep).join('/');
@@ -99,7 +143,17 @@ step('PRODUCTION_BUILD', () => {
 });
 
 step('VERIFY_PACKAGE', () => {
-  execFileSync('node', [path.join(ROOT, 'tests', 'verify_package.js')], { cwd: ROOT, stdio: 'pipe' });
+  // Publish only explicitly allowed summary lines, not arbitrary child output.
+  const report = output => {
+    const safe = /^(?:REGRESSION_TOTAL=\d+ PASSED=\d+ FAILED=\d+|HARD_CODED_UPLOAD_PATHS=\d+|RELEASE_MANIFEST_PRESENT=(?:true|false)|RELEASE_MANIFEST_VALID=(?:true|false)|FINAL_ASSET_MANIFEST=PASS assets=\d+|VERIFY_PACKAGE=(?:PASS|FAIL))$/;
+    for (const line of String(output || '').split(/\r?\n/)) if (safe.test(line)) console.log('  PACKAGE_'+line);
+  };
+  try {
+    report(execFileSync(process.execPath, [path.join(ROOT, 'tests', 'verify_package.js')], { cwd: ROOT, stdio: 'pipe' }));
+  } catch (error) {
+    report(error.stdout);
+    throw new Error('PACKAGE_VERIFICATION_FAILED');
+  }
 });
 
 step('NPM_AUDIT_RELEASE_THRESHOLD', () => {

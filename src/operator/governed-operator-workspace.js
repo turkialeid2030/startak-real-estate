@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const {assertPlainJson,isPlainJson}=require('../validation/plain-json-boundary');
 
 const ROLE = Object.freeze({
   VIEWER: 'VIEWER',
@@ -171,20 +172,8 @@ function actionMaterial(input) {
 
 // Validate JSON payloads before hashing. Reject non-JSON values, ambiguous
 // numeric values and prototype-sensitive keys; detach and recursively freeze.
-function validatePayload(value,depth=0){
-  if(depth>32)throw new Error('C26_PAYLOAD_DEPTH_INVALID');
-  if(value===null||typeof value==='string'||typeof value==='boolean')return;
-  if(typeof value==='number'&&Number.isFinite(value)&&(!Number.isInteger(value)||Number.isSafeInteger(value)))return;
-  if(!value||typeof value!=='object')throw new Error('C26_PAYLOAD_JSON_REQUIRED');
-  if(Array.isArray(value)){
-    for(let i=0;i<value.length;i++){if(!Object.hasOwn(value,i))throw new Error('C26_PAYLOAD_JSON_REQUIRED');validatePayload(value[i],depth+1);}
-    return;
-  }
-  if(![Object.prototype,null].includes(Object.getPrototypeOf(value)))throw new Error('C26_PAYLOAD_JSON_REQUIRED');
-  for(const key of Object.keys(value)){
-    if(['__proto__','constructor','prototype'].includes(key))throw new Error('C26_PAYLOAD_KEY_FORBIDDEN');
-    validatePayload(value[key],depth+1);
-  }
+function validatePayload(value){
+ try{assertPlainJson(value);}catch{throw new Error('C26_PAYLOAD_JSON_REQUIRED');}
 }
 function freezePayload(value){
   if(value&&typeof value==='object'){Object.values(value).forEach(freezePayload);Object.freeze(value);}
@@ -247,8 +236,8 @@ function evaluateOperatorWorkspaceAction({ session, workspaceAction, caseSnapsho
     ? sha256(ROLE_PERMISSIONS[session.role].slice().sort()) : null;
   let canonicalSession=false,canonicalAction=false;
   try {
-    canonicalSession=stableJson(session)===stableJson(createOperatorSession(session));
-    canonicalAction=stableJson(workspaceAction)===stableJson(createWorkspaceAction(workspaceAction));
+    canonicalSession=isPlainJson(session)&&stableJson(session)===stableJson(createOperatorSession(session));
+    canonicalAction=isPlainJson(workspaceAction)&&stableJson(workspaceAction)===stableJson(createWorkspaceAction(workspaceAction));
   }catch{/* malformed records fail closed */}
 
 

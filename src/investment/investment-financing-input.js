@@ -70,7 +70,7 @@ function finiteRate(value, field) {
 function stableClone(value) {
   if (Array.isArray(value)) return value.map(stableClone);
   if (!value || typeof value !== 'object') return value;
-  return Object.keys(value).sort().reduce((out, key) => { out[key] = stableClone(value[key]); return out; }, {});
+  return Object.fromEntries(Object.keys(value).sort().map(key=>[key,stableClone(value[key])]));
 }
 function sha256(value) { return crypto.createHash('sha256').update(JSON.stringify(stableClone(value))).digest('hex'); }
 function deepFreeze(value) {
@@ -319,6 +319,9 @@ function buildInvestmentFinancingMetricsInputPacket({
   if (!verifyProfessionalNoiResultIntegrity(professionalNoiResult)) return hold(INVESTMENT_FINANCING_INPUT_STATUS.HOLD_INTEGRITY, ['PROFESSIONAL_NOI_RESULT_INTEGRITY_FAILED'], context);
   if (professionalNoiResult.calculationHashSha256 !== professionalDcfResult.professionalNoiCalculationHashSha256) return hold(INVESTMENT_FINANCING_INPUT_STATUS.HOLD_NOI, ['PROFESSIONAL_NOI_DCF_BINDING_MISMATCH'], context);
   if (iso(professionalNoiResult.valuationDate, 'professionalNoiResult.valuationDate') !== valuationDateIso) return hold(INVESTMENT_FINANCING_INPUT_STATUS.HOLD_NOI, ['PROFESSIONAL_NOI_VALUATION_DATE_MISMATCH'], context);
+  const trace=professionalDcfResult.operatingPresentValueTrace, periods=professionalNoiResult.periodResults;
+  if(professionalDcfResult.noiConvention!==professionalNoiResult.noiConvention||trace.length!==periods.length||trace.some((p,i)=>p.periodId!==periods[i].periodId||p.periodIndex!==periods[i].periodIndex||p.selectedNoiSar!==periods[i].selectedNoiSar))return hold(INVESTMENT_FINANCING_INPUT_STATUS.HOLD_NOI,['PROFESSIONAL_NOI_DCF_PERIOD_CONTENT_MISMATCH'],context);
+  if([professionalDcfResult.discountRateProvenance,professionalDcfResult.exitCapRateProvenance,professionalDcfResult.terminalNoiInput,professionalDcfResult.dispositionCostInput].some(x=>Date.parse(x.reviewedAt)>Date.parse(packetPreparedAtIso)))return hold(INVESTMENT_FINANCING_INPUT_STATUS.HOLD_DCF,['DCF_SOURCE_REVIEW_AFTER_FINANCING_PREPARATION'],context);
 
   if (!investmentBasisInput || investmentBasisInput.caseId !== caseId || investmentBasisInput.propertyRef !== propertyRef) throw new TypeError('CASE_OR_PROPERTY_ISOLATION_VIOLATION:investmentBasisInput');
   if (!verifyInvestmentBasisIntegrity(investmentBasisInput)) return hold(INVESTMENT_FINANCING_INPUT_STATUS.HOLD_INTEGRITY, ['INVESTMENT_BASIS_INTEGRITY_FAILED'], context);
@@ -423,6 +426,28 @@ function buildInvestmentFinancingMetricsInputPacket({
 
 function verifyInvestmentFinancingMetricsInputIntegrity(packet) {
   if (!packet || !validSha(packet.investmentFinancingMetricsInputHashSha256)) return false;
+  try {
+  const flags=['professionalValueUsedAsInvestmentBasisAutomatically','automaticDebtSizing','lenderApprovalEstablished','creditDecisionMade','valuationChangedByFinancing','finalValuationConclusionEstablished','certifiedValuationEstablished','transactionAuthorized'];
+  if(packet.schemaVersion!==1||packet.status!==INVESTMENT_FINANCING_INPUT_STATUS.READY_FOR_CANONICAL_INVESTMENT_FINANCING_METRICS||packet.readyForCanonicalInvestmentFinancingMetrics!==true||!Array.isArray(packet.blockers)||packet.blockers.length!==0||flags.some(k=>packet[k]!==false)||typeof packet.financingEnabled!=='boolean')return false;
+  if(!['packetId','caseId','propertyRef','preparedByRef','evidenceRef'].every(k=>nonEmpty(packet[k])&&packet[k]===packet[k].trim())||!validSha(packet.professionalDcfCalculationHashSha256)||!validSha(packet.professionalNoiCalculationHashSha256))return false;
+  const valuation=iso(packet.valuationDate,'valuationDate'),prepared=iso(packet.preparedAt,'preparedAt');
+  if(valuation!==packet.valuationDate||prepared!==packet.preparedAt||Date.parse(prepared)<Date.parse(valuation))return false;
+  if(!['DCF_VALUE_INDICATION_READY','REVIEW_REQUIRED'].includes(packet.professionalDcfStatus)||![packet.professionalDcfValueIndicationSar,packet.stabilizedProfessionalNoiSar,packet.netTerminalValueSar].every(Number.isFinite)||!Array.isArray(packet.operatingPropertyCashFlows)||!packet.operatingPropertyCashFlows.length)return false;
+  const ids=new Set();
+  for(const [i,row] of packet.operatingPropertyCashFlows.entries()){if(!row||!nonEmpty(row.periodId)||ids.has(row.periodId)||row.periodIndex!==i+1||![row.selectedNoiSar,row.unleveredPropertyCashFlowSar].every(Number.isFinite))return false;ids.add(row.periodId);}
+  const same=(a,b)=>JSON.stringify(stableClone(a))===JSON.stringify(stableClone(b));
+  const check=(record,constructor,age)=>{
+    if(!record||record.caseId!==packet.caseId||record.propertyRef!==packet.propertyRef||!same(record,constructor(record)))return false;
+    return Number.isInteger(age)&&age>=0&&age===daysBetween(record.asOfDate,valuation)&&Date.parse(record.asOfDate)<=Date.parse(valuation)&&Date.parse(record.reviewedAt)<=Date.parse(prepared);
+  };
+  if(!check(packet.investmentBasisInput,createInvestmentBasisInput,packet.investmentBasisAgeDays)||!check(packet.returnAnalysisRateInput,createReturnAnalysisRateInput,packet.returnRateAgeDays))return false;
+  if(packet.financingEnabled){
+    if(!check(packet.debtTermsInput,createDebtTermsInput,packet.debtTermsAgeDays)||!check(packet.collateralValueBasisInput,createCollateralValueBasisInput,packet.collateralValueAgeDays)||!Object.values(DSCR_NUMERATOR_BASIS).includes(packet.dscrNumeratorBasis))return false;
+    const uses=packet.investmentBasisInput.amountSar+packet.debtTermsInput.financingFeesSar;
+    if(!Number.isFinite(uses)||packet.debtTermsInput.principalSar>uses)return false;
+    const collateral=packet.collateralValueBasisInput;
+    if(collateral.type===COLLATERAL_VALUE_BASIS_TYPE.PROFESSIONAL_DCF_METHOD_INDICATION&&(collateral.professionalDcfCalculationHashSha256!==packet.professionalDcfCalculationHashSha256||collateral.amountSar!==packet.professionalDcfValueIndicationSar))return false;
+  }else if([packet.debtTermsInput,packet.debtTermsAgeDays,packet.collateralValueBasisInput,packet.collateralValueAgeDays,packet.dscrNumeratorBasis].some(v=>v!==null))return false;
   const core = { ...packet };
   [
     'investmentFinancingMetricsInputHashSha256', 'status', 'blockers', 'readyForCanonicalInvestmentFinancingMetrics',
@@ -431,6 +456,7 @@ function verifyInvestmentFinancingMetricsInputIntegrity(packet) {
     'certifiedValuationEstablished', 'transactionAuthorized', 'semantics',
   ].forEach((key) => delete core[key]);
   return sha256(core) === packet.investmentFinancingMetricsInputHashSha256.toLowerCase();
+  }catch{return false;}
 }
 
 module.exports = {

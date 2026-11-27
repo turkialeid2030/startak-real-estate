@@ -1,12 +1,12 @@
 'use strict';
 
 const {
-  SUBDIVISION_ASSESSMENT_STATUS,
+  SUBDIVISION_ASSESSMENT_STATUS,calculateSubdivisionDueDiligenceGate,
 } = require('./subdivision-gate');
 const {
   STRATEGIC_EVIDENCE_STATUS,
   assessStrategicEvidenceGovernance,
-  createEvidenceGovernedStrategicCase,
+  createEvidenceGovernedStrategicCase,isSafeStrategicCase,
 } = require('./strategic-evidence-governance');
 
 const INTELLIGENCE_STATUS = Object.freeze({
@@ -159,7 +159,8 @@ function collectDynamic(operatingCase, regex) {
     if (!match) continue;
     const id = match[1];
     const attribute = match[2];
-    if (!grouped.has(id)) grouped.set(id, {});
+    if (!grouped.has(id)) grouped.set(id, Object.create(null));
+    if(['__proto__','constructor','prototype','toJSON'].includes(attribute))continue;
     grouped.get(id)[attribute] = input;
   }
   return grouped;
@@ -559,13 +560,14 @@ function calculateUpsideIntelligence(operatingCase, { subdivisionGate = null } =
 }
 
 function calculateLifecycleLocationUpsideIntelligence(operatingCase, { subdivisionGate = null } = {}) {
-  if (!operatingCase || typeof operatingCase !== 'object') throw new TypeError('operatingCase must be an object');
+  if(!isSafeStrategicCase(operatingCase))operatingCase={caseId:null,asOfDate:null,additionalOperatingInputs:[],evidenceLineage:[]};
   const evidenceGovernance = assessStrategicEvidenceGovernance(operatingCase);
   const governedCase = createEvidenceGovernedStrategicCase(operatingCase, evidenceGovernance);
   const lifecycle = calculateLifecycleIntelligence(governedCase);
   const location = calculateLocationIntelligence(governedCase);
   const forwardAttraction = calculateForwardAttractionIntelligence(governedCase);
-  const upside = calculateUpsideIntelligence(governedCase, { subdivisionGate });
+  const actualGate=calculateSubdivisionDueDiligenceGate(operatingCase);
+  const upside = calculateUpsideIntelligence(governedCase, { subdivisionGate:actualGate });
   const statuses = [lifecycle.status, location.status, forwardAttraction.status, upside.status];
   const calculatedCount = statuses.filter((status) => status !== INTELLIGENCE_STATUS.NOT_CALCULABLE).length;
   const status = calculatedCount === 4
@@ -602,9 +604,9 @@ module.exports = {
   REGULATORY_STATUS,
   REGULATORY_CAP,
   LOCATION_DIMENSIONS,
-  calculateLifecycleIntelligence,
-  calculateLocationIntelligence,
-  calculateForwardAttractionIntelligence,
-  calculateUpsideIntelligence,
+  calculateLifecycleIntelligence:(x)=>calculateLifecycleIntelligence(createEvidenceGovernedStrategicCase(x)),
+  calculateLocationIntelligence:(x)=>calculateLocationIntelligence(createEvidenceGovernedStrategicCase(x)),
+  calculateForwardAttractionIntelligence:(x)=>calculateForwardAttractionIntelligence(createEvidenceGovernedStrategicCase(x)),
+  calculateUpsideIntelligence:(x)=>calculateUpsideIntelligence(createEvidenceGovernedStrategicCase(x),{subdivisionGate:calculateSubdivisionDueDiligenceGate(x)}),
   calculateLifecycleLocationUpsideIntelligence,
 };

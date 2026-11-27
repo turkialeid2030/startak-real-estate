@@ -63,10 +63,10 @@ function makeNoiResult(nois = [600000, 700000, 800000], tag = 'A') {
     noiAfterReplacementReserveSar: selectedNoiSar - 20000,
     selectedNoiConvention: 'BEFORE_REPLACEMENT_RESERVE',
     selectedNoiSar,
-    incomeTrace: [],
-    vacancyCollectionLossTrace: {},
-    operatingExpenseTrace: [],
-    reviewFlags: [],
+    incomeTrace:[{lineId:'INCOME-'+i,type:'OTHER_PROPERTY_INCOME',amountSar:selectedNoiSar+300000,source:'PROFESSIONAL_JUDGMENT',evidenceRefs:['SYNTHETIC-INCOME'],incomeForecastLineHashSha256:'a'.repeat(64)}],
+    vacancyCollectionLossTrace:{assumptionId:'LOSS-'+i,method:'AMOUNT_SAR',inputValue:50000,calculatedAmountSar:50000,source:'PROFESSIONAL_JUDGMENT',evidenceRefs:['SYNTHETIC-LOSS'],vacancyCollectionLossHashSha256:'b'.repeat(64)},
+    operatingExpenseTrace:[{expenseId:'OPEX-'+i,category:'OTHER_OPERATING_EXPENSE',method:'AMOUNT_SAR',inputValue:250000,calculatedAmountSar:250000,source:'PROFESSIONAL_JUDGMENT',evidenceRefs:['SYNTHETIC-OPEX'],operatingExpenseLineHashSha256:'c'.repeat(64)},{expenseId:'RESERVE-'+i,category:'REPLACEMENT_RESERVE',method:'AMOUNT_SAR',inputValue:20000,calculatedAmountSar:20000,source:'PROFESSIONAL_JUDGMENT',evidenceRefs:['SYNTHETIC-RESERVE'],operatingExpenseLineHashSha256:'d'.repeat(64)}],
+    reviewFlags:[...(selectedNoiSar<=0?['NON_POSITIVE_NOI_REVIEW_REQUIRED']:[]),...(selectedNoiSar<0?['OPERATING_EXPENSES_EXCEED_EGI_REVIEW_REQUIRED']:[])],
     annualizedAmounts: true,
     automaticLeaseOptionExercise: false,
     automaticMarketRentApplied: false,
@@ -278,4 +278,76 @@ const zeroEquity = calculateInvestmentFinancingMetrics(build({ id: 'ZERO-EQUITY'
 equal(zeroEquity.status, INVESTMENT_FINANCING_RESULT_STATUS.REVIEW_REQUIRED, 'zero initial equity review');
 check(zeroEquity.reviewFlags.includes('ZERO_INITIAL_EQUITY_REVIEW_REQUIRED'), 'zero equity flag explicit');
 
+// Recompute the packet hash independently; a self-consistent digest is not a semantic authorization.
+function rehashPacket(packet,patch){
+ const changed={...packet,...patch},core={...changed};
+ for(const key of ['investmentFinancingMetricsInputHashSha256','status','blockers','readyForCanonicalInvestmentFinancingMetrics','professionalValueUsedAsInvestmentBasisAutomatically','automaticDebtSizing','lenderApprovalEstablished','creditDecisionMade','valuationChangedByFinancing','finalValuationConclusionEstablished','certifiedValuationEstablished','transactionAuthorized','semantics'])delete core[key];
+ changed.investmentFinancingMetricsInputHashSha256=sha256(core);return changed;
+}
+for(const patch of [
+ {transactionAuthorized:true},{creditDecisionMade:true},{automaticDebtSizing:true},{blockers:['UNRESOLVED']},{financingEnabled:'true'},
+ {investmentBasisAgeDays:0},{returnRateAgeDays:-1},{dscrNumeratorBasis:'EBITDA'},
+ {debtTermsInput:{...financedInput.debtTermsInput,principalSar:1}},
+ {collateralValueBasisInput:externalCollateral(1),collateralValueAgeDays:0},
+ {caseId:'OTHER-CASE'},{financingEnabled:false}
+]){
+ const changed=rehashPacket(financedInput,patch);
+ equal(verifyInvestmentFinancingMetricsInputIntegrity(changed),false,'V630 rejects rehashed semantic conflict');
+ equal(calculateInvestmentFinancingMetrics(changed).status,INVESTMENT_FINANCING_RESULT_STATUS.INVALID_INPUT_PACKET,'V630 engine fails closed');
+}
+const foreignBasis={...financedInput.investmentBasisInput,propertyRef:'OTHER-PROPERTY'};
+delete foreignBasis.investmentBasisHashSha256;foreignBasis.investmentBasisHashSha256=sha256(foreignBasis);
+equal(verifyInvestmentFinancingMetricsInputIntegrity(rehashPacket(financedInput,{investmentBasisInput:foreignBasis})),false,'V630 rejects rehashed cross-property nested record');
+for(const [packet,expected] of [[allEquityInput,allEquity],[financedInput,financed]]){
+ const roundtrip=calculateInvestmentFinancingMetrics(JSON.parse(JSON.stringify(packet)));
+ equal(roundtrip.calculationHashSha256,expected.calculationHashSha256,'V630 JSON roundtrip preserves financial output');
+}
+console.log('W06_V630_FINANCIAL_PACKET_SEMANTICS=PASS negative_cases=13 positive_roundtrips=2');
+const {professionalDcfResultCore,verifyProfessionalDcfResultIntegrity}=require('../../src/investment/professional-dcf-result-verifier');
+const rehashDcf=patch=>{const out={...dcf,...patch};out.calculationHashSha256=sha256(professionalDcfResultCore(out));return out;};
+equal(verifyProfessionalDcfResultIntegrity(JSON.parse(JSON.stringify(dcf))),true,'V631 actual DCF roundtrip');
+for(const patch of [
+ {valueIndicationSar:dcf.valueIndicationSar+1000},
+ {operatingPresentValueSar:dcf.operatingPresentValueSar+1000},
+ {terminalPresentValueSar:dcf.terminalPresentValueSar+1000},
+ {netTerminalValueSar:dcf.netTerminalValueSar+1000},
+ {terminalDiscountFactor:1},
+ {terminalPeriodIndex:1},
+ {discountRate:0.20},
+ {exitCapRate:0.20},
+ {operatingPresentValueTrace:[{...dcf.operatingPresentValueTrace[0],presentValueSar:1},...dcf.operatingPresentValueTrace.slice(1)]},
+ {operatingPresentValueTrace:[{...dcf.operatingPresentValueTrace[0],adjustmentInflowsSar:1},...dcf.operatingPresentValueTrace.slice(1)]},
+ {transactionAuthorized:true},{financingIncluded:true},{reviewFlags:['FAKE']},{status:PROFESSIONAL_DCF_RESULT_STATUS.REVIEW_REQUIRED}
+]){
+ const changed=rehashDcf(patch);
+ equal(verifyProfessionalDcfResultIntegrity(changed),false,'V631 rehashed DCF conflict rejected');
+ equal(build({id:'DCF-REPLAY',dcfResult:changed}).status,INVESTMENT_FINANCING_INPUT_STATUS.HOLD_INTEGRITY,'V631 financing handoff blocked');
+}
+console.log('W06_V631_DCF_HANDOFF_REPLAY=PASS negative_cases=14 positive_roundtrips=1');
+// A self-consistent DCF calculation from altered NOI must not be paired with the original NOI.
+const alternativeNoi=makeNoiResult([610000,700000,800000],'D');
+const alternativeInput={...dcfInput,professionalNoiCalculationHashSha256:alternativeNoi.calculationHashSha256,professionalNoiInputPacketHashSha256:alternativeNoi.inputPacketHashSha256,operatingNoiPeriods:dcfInput.operatingNoiPeriods.map((row,i)=>({...row,selectedNoiSar:alternativeNoi.periodResults[i].selectedNoiSar}))};
+const altCore={...alternativeInput};for(const k of ['professionalDcfInputHashSha256','status','blockers','readyForCanonicalDcf','automaticRateDerivation','automaticTerminalNoiDerivation','financingIncluded','debtServiceIncluded','incomeTaxCalculated','zakatCalculated','equityReturnAnalysisPerformed','reconciliationPerformed','finalValuationConclusionEstablished','certifiedValuationEstablished','transactionAuthorized','semantics'])delete altCore[k];
+alternativeInput.professionalDcfInputHashSha256=sha256(altCore);
+const alternativeDcf=calculateProfessionalDcfIndication(alternativeInput);
+const forged={...alternativeDcf,professionalNoiCalculationHashSha256:noi.calculationHashSha256};
+forged.calculationHashSha256=sha256(professionalDcfResultCore(forged));
+equal(verifyProfessionalDcfResultIntegrity(forged),true,'V635 alternate arithmetic remains internally consistent');
+equal(build({id:'DCF-NOI-FORGED',dcfResult:forged}).status,INVESTMENT_FINANCING_INPUT_STATUS.HOLD_NOI,'V635 actual NOI period values bind');
+for(const patch of [{noiConvention:'AFTER_REPLACEMENT_RESERVE'},{operatingPresentValueTrace:dcf.operatingPresentValueTrace.map((p,i)=>i===0?{...p,periodId:'FOREIGN-PERIOD'}:p)}]){
+ const changed=rehashDcf(patch);equal(verifyProfessionalDcfResultIntegrity(changed),true,'V635 arithmetic consistent');equal(build({id:'DCF-NOI-SCOPE',dcfResult:changed}).status,INVESTMENT_FINANCING_INPUT_STATUS.HOLD_NOI,'V635 period identity and NOI convention bind');
+}
+for(const patch of [
+ {discountRateProvenance:{...dcf.discountRateProvenance,value:0.99}},
+ {exitCapRateProvenance:{...dcf.exitCapRateProvenance,ageDays:0}},
+ {discountRateProvenance:{...dcf.discountRateProvenance,evidenceRefs:[]}},
+ {terminalNoiInput:{...dcf.terminalNoiInput,propertyRef:'OTHER'}},
+ {dispositionCostInput:{...dcf.dispositionCostInput,automaticallyDerived:true}}
+]){
+ const changed=rehashDcf(patch);equal(verifyProfessionalDcfResultIntegrity(changed),false,'V635 retained assumptions invalid');equal(build({id:'DCF-SOURCE',dcfResult:changed}).status,INVESTMENT_FINANCING_INPUT_STATUS.HOLD_INTEGRITY,'V635 rejects invalid assumption record');
+}
+for(const patch of [{professionalDcfStatus:'UNKNOWN'},{operatingPropertyCashFlows:[]},{operatingPropertyCashFlows:[...financedInput.operatingPropertyCashFlows].reverse()},{operatingPropertyCashFlows:financedInput.operatingPropertyCashFlows.map((p,i)=>i===1?{...p,periodId:financedInput.operatingPropertyCashFlows[0].periodId}:p)}]){
+ equal(verifyInvestmentFinancingMetricsInputIntegrity(rehashPacket(financedInput,patch)),false,'V635 financing period boundary');
+}
+console.log('W06_V635_NOI_DCF_FINANCING_BINDING=PASS negative_cases=12 positive_consistency_checks=3');
 console.log(`WAVE_12D_INVESTMENT_FINANCING_METRICS=PASS checks=${checks}`);

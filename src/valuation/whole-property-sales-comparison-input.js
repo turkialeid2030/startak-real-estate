@@ -1,6 +1,8 @@
 'use strict';
 
 const crypto = require('crypto');
+const {isPlainJson,assertPlainJson}=require('../validation/plain-json-boundary');
+const {strictCalendarDateMs}=require('../validation/strict-calendar-instant');
 const {
   MARKET_EVIDENCE_TYPE,
   MARKET_GATE_STATUS,
@@ -41,7 +43,7 @@ function cleanStringArray(value, name) {
 function toTimestamp(value) {
   const text = cleanString(value);
   if (!text) return null;
-  const ms = new Date(text).getTime();
+  const ms = strictCalendarDateMs(text);
   return Number.isFinite(ms) ? ms : null;
 }
 function isPositiveFinite(value) {
@@ -52,7 +54,7 @@ function isNonNegativeFinite(value) {
 }
 function isValidBasisQuantity(value, unitOfComparison) {
   if (!isPositiveFinite(value)) return false;
-  return !COUNT_BASES.includes(unitOfComparison) || Number.isInteger(value);
+  return !COUNT_BASES.includes(unitOfComparison) || Number.isSafeInteger(value);
 }
 function isJsonSafe(value, seen = new Set()) {
   if (value === null) return true;
@@ -100,7 +102,7 @@ function daysApart(aMs, bMs) {
 }
 
 function verifyPropertyEvidencePacketIntegrity(packet) {
-  if (!packet || typeof packet !== 'object' || Array.isArray(packet)) return false;
+  if (!isPlainJson(packet)||!packet || typeof packet !== 'object' || Array.isArray(packet)) return false;
   if (!HASH_RE.test(cleanString(packet.packetHashSha256))) return false;
   const core = {
     schemaVersion: packet.schemaVersion,
@@ -123,6 +125,12 @@ function verifyPropertyEvidencePacketIntegrity(packet) {
     propertyDataGateStatus: packet.propertyDataGateStatus,
     measurementGateStatus: packet.measurementGateStatus,
   };
+  const modern=['inspectionReviewBindingSha256','measurementGateHashSha256','propertyDataGateHashSha256'];
+  const present=modern.filter(k=>Object.hasOwn(packet,k));
+  // Match the actual bridge digest, retaining the historic read-only format.
+  // A partial modern digest is never accepted.
+  if(present.length&&present.length!==modern.length)return false;
+  for(const k of present){if(!HASH_RE.test(cleanString(packet[k])))return false;core[k]=packet[k];}
   return sha256(core) === cleanString(packet.packetHashSha256).toLowerCase();
 }
 
@@ -344,7 +352,25 @@ function normalizeAdjustment(record, { selectedIds, valuationDateMs, asOfMs, tru
   return { blockers, normalized: Object.freeze({ ...core, adjustmentHashSha256: sha256(core) }) };
 }
 
-function buildWholePropertySalesComparisonInputPacket({
+function buildWholePropertySalesComparisonInputPacket(input={}) {
+  // Preserve the legacy Date asOf API, but never execute accessors on user input.
+  const fail=()=>hold(WHOLE_PROPERTY_SALES_INPUT_STATUS.HOLD_INTEGRITY,['C3M_INPUT_JSON_INVALID'],{packetId:null,caseId:null,propertyRef:null,valuationDate:null,unitOfComparison:null});
+  let checked;
+  try{
+    if(!input||typeof input!=='object'||Array.isArray(input)||![Object.prototype,null].includes(Object.getPrototypeOf(input)))return fail();
+    checked=Object.create(null);
+    for(const k of Reflect.ownKeys(input)){
+      if(typeof k!=='string'||['__proto__','constructor','prototype','toJSON'].includes(k))return fail();
+      const d=Object.getOwnPropertyDescriptor(input,k);if(!d||!d.enumerable||!Object.hasOwn(d,'value'))return fail();
+      if(d.value===undefined)continue;
+      if(k==='asOf'&&d.value&&Object.getPrototypeOf(d.value)===Date.prototype){if(Reflect.ownKeys(d.value).length)return fail();checked[k]=new Date(Date.prototype.getTime.call(d.value)).toISOString();}
+      else checked[k]=d.value;
+    }
+    assertPlainJson(checked,{maxNodes:500000});
+  }catch{return fail();}
+  return buildChecked(checked);
+}
+function buildChecked({
   packetId, caseId, propertyRef, valuationDate, asOf = new Date(), unitOfComparison,
   subjectMeasurementId, subjectPropertyEvidencePacket, marketEvidence, marketContextBinding,
   trustedMarketContextBinderIds = [], comparableMeasurements, trustedMeasurementVerifierIds = [],
@@ -357,14 +383,14 @@ function buildWholePropertySalesComparisonInputPacket({
   const caseKey = cleanString(caseId);
   const property = cleanString(propertyRef);
   const valuationDateMs = toTimestamp(valuationDate);
-  const asOfMs = new Date(asOf).getTime();
+  const asOfMs = asOf instanceof Date?Date.prototype.getTime.call(asOf):strictCalendarDateMs(asOf);
   const comparisonUnit = cleanString(unitOfComparison);
   const context = {
     packetId: packet || null, caseId: caseKey || null, propertyRef: property || null,
     valuationDate: valuationDateMs === null ? null : new Date(valuationDateMs).toISOString(),
     unitOfComparison: comparisonUnit || null,
   };
-  if (!Number.isFinite(asOfMs)) throw new TypeError('asOf must be a valid date');
+  if (!Number.isFinite(asOfMs)||asOfMs>Date.now()) return hold(WHOLE_PROPERTY_SALES_INPUT_STATUS.HOLD_INTEGRITY,['C3M_AS_OF_INVALID_OR_FUTURE'],context);
   const basicBlockers = [];
   if (!packet) basicBlockers.push('C3M_PACKET_ID_REQUIRED');
   if (!caseKey) basicBlockers.push('C3M_CASE_ID_REQUIRED');
@@ -414,8 +440,13 @@ function buildWholePropertySalesComparisonInputPacket({
   const subjectBlockers = [];
   if (!subjectMeasurement) subjectBlockers.push('C3M_SUBJECT_MEASUREMENT_NOT_FOUND');
   else {
-    if (cleanString(subjectMeasurement.type) !== expectedMeasurementType) subjectBlockers.push(`C3M_SUBJECT_MEASUREMENT_TYPE_MISMATCH:${cleanString(subjectMeasurement.type)}/${expectedMeasurementType}`);
-    if (cleanString(subjectMeasurement.unit) !== expectedMeasurementUnit) subjectBlockers.push(`C3M_SUBJECT_MEASUREMENT_UNIT_MISMATCH:${cleanString(subjectMeasurement.unit)}/${expectedMeasurementUnit}`);
+    const bridgeBound=['inspectionReviewBindingSha256','measurementGateHashSha256','propertyDataGateHashSha256'].every(k=>HASH_RE.test(cleanString(propertyPacket[k])));
+    const aliases=Object.freeze({GFA:'GROSS_BUILDING_AREA',GLA:'GROSS_LEASABLE_AREA',NLA:'NET_LEASABLE_AREA'});
+    const rawType=cleanString(subjectMeasurement.type),rawUnit=cleanString(subjectMeasurement.unit);
+    const normalizedType=bridgeBound&&Object.hasOwn(aliases,rawType)?aliases[rawType]:rawType;
+    const normalizedUnit=bridgeBound&&rawUnit==='SQM'?'sqm':bridgeBound&&rawUnit==='COUNT'?'count':rawUnit;
+    if (normalizedType !== expectedMeasurementType) subjectBlockers.push(`C3M_SUBJECT_MEASUREMENT_TYPE_MISMATCH:${cleanString(subjectMeasurement.type)}/${expectedMeasurementType}`);
+    if (normalizedUnit !== expectedMeasurementUnit) subjectBlockers.push(`C3M_SUBJECT_MEASUREMENT_UNIT_MISMATCH:${cleanString(subjectMeasurement.unit)}/${expectedMeasurementUnit}`);
     if (!isValidBasisQuantity(subjectMeasurement.value, comparisonUnit)) subjectBlockers.push('C3M_SUBJECT_MEASUREMENT_VALUE_INVALID');
     if (!HASH_RE.test(cleanString(subjectMeasurement.measurementHashSha256))) subjectBlockers.push('C3M_SUBJECT_MEASUREMENT_HASH_REQUIRED');
     const measuredAtMs = toTimestamp(subjectMeasurement.measuredAt);
@@ -425,7 +456,7 @@ function buildWholePropertySalesComparisonInputPacket({
   if (subjectBlockers.length) return hold(WHOLE_PROPERTY_SALES_INPUT_STATUS.HOLD_SUBJECT_MEASUREMENT, subjectBlockers, context);
 
   const measurementVerifiers = cleanStringArray(trustedMeasurementVerifierIds, 'trustedMeasurementVerifierIds');
-  if (!Array.isArray(comparableMeasurements)) throw new TypeError('comparableMeasurements must be an array');
+  if (!Array.isArray(comparableMeasurements)||comparableMeasurements.length>500) return hold(WHOLE_PROPERTY_SALES_INPUT_STATUS.HOLD_COMPARABLE_MEASUREMENT,['C3M_COMPARABLE_MEASUREMENTS_REQUIRED_OR_LIMIT'],context);
   const measurementFindings = comparableMeasurements.map((record) => normalizeComparableMeasurement(record, {
     assetType: marketAssetType, unitOfComparison: comparisonUnit, asOfMs, trustedMeasurementVerifierIds: measurementVerifiers,
   }));
@@ -441,7 +472,7 @@ function buildWholePropertySalesComparisonInputPacket({
   }
   if (comparableBlockers.length) return hold(WHOLE_PROPERTY_SALES_INPUT_STATUS.HOLD_COMPARABLE_MEASUREMENT, comparableBlockers, context);
 
-  if (!Array.isArray(selectedComparableIds)) throw new TypeError('selectedComparableIds must be an array');
+  if (!Array.isArray(selectedComparableIds)||selectedComparableIds.length>500) return hold(WHOLE_PROPERTY_SALES_INPUT_STATUS.HOLD_SELECTION,['C3M_SELECTION_REQUIRED_OR_LIMIT'],context);
   const selectedRaw = selectedComparableIds.map(cleanString);
   const selectedIds = selectedRaw.filter(Boolean);
   const selectionBlockers = [];
@@ -460,6 +491,8 @@ function buildWholePropertySalesComparisonInputPacket({
   else {
     if (selectedAtMs > asOfMs) selectionBlockers.push('C3M_COMPARABLE_SELECTED_AT_FUTURE');
     if (selectedAtMs < valuationDateMs) selectionBlockers.push('C3M_COMPARABLE_SELECTED_BEFORE_VALUATION_DATE');
+    if(toTimestamp(binding.normalized.boundAt)>selectedAtMs)selectionBlockers.push('C3M_SELECTION_BEFORE_MARKET_BINDING');
+    for(const id of selectedIds){const measurement=measurementById.get(id);if(measurement&&toTimestamp(measurement.verifiedAt)>selectedAtMs)selectionBlockers.push('C3M_SELECTION_BEFORE_MEASUREMENT_VERIFICATION:'+id);}
   }
   for (const id of selectedIds) {
     if (!measurementById.has(id)) selectionBlockers.push(`C3M_SELECTED_COMPARABLE_MEASUREMENT_NOT_FOUND:${id}`);
@@ -480,6 +513,7 @@ function buildWholePropertySalesComparisonInputPacket({
       saleBindingBlockers.push(`C3M_C2_CLOSED_SALE_NOT_FOUND:${id}:${measurement.transactionKey}`);
       continue;
     }
+    if(toTimestamp(c2Sale.observedAt)>selectedAtMs)saleBindingBlockers.push('C3M_SELECTION_BEFORE_SALE_OBSERVATION:'+id);
     const saleEffectiveAtMs = toTimestamp(c2Sale.effectiveAt);
     if (saleEffectiveAtMs === null) saleBindingBlockers.push(`C3M_C2_SALE_EFFECTIVE_AT_REQUIRED:${id}:${measurement.transactionKey}`);
     else if (saleEffectiveAtMs > valuationDateMs) saleBindingBlockers.push(`C3M_POST_VALUATION_DATE_SALE_NOT_ELIGIBLE:${id}:${measurement.transactionKey}`);
@@ -512,7 +546,7 @@ function buildWholePropertySalesComparisonInputPacket({
 
   const selectedSet = new Set(selectedIds);
   const adjustmentReviewers = cleanStringArray(trustedAdjustmentReviewerIds, 'trustedAdjustmentReviewerIds');
-  if (!Array.isArray(adjustmentRecords)) throw new TypeError('adjustmentRecords must be an array');
+  if (!Array.isArray(adjustmentRecords)||adjustmentRecords.length>2000) return hold(WHOLE_PROPERTY_SALES_INPUT_STATUS.HOLD_ADJUSTMENT,['C3M_ADJUSTMENTS_REQUIRED_OR_LIMIT'],context);
   const adjustmentFindings = adjustmentRecords.map((record) => normalizeAdjustment(record, {
     selectedIds: selectedSet, valuationDateMs, asOfMs, trustedAdjustmentReviewerIds: adjustmentReviewers,
   }));
@@ -521,6 +555,7 @@ function buildWholePropertySalesComparisonInputPacket({
   const seenAdjustmentIds = new Set();
   const byComparable = new Map(selectedIds.map((id) => [id, []]));
   for (const adjustment of normalizedAdjustments) {
+    if(toTimestamp(adjustment.reviewedAt)<selectedAtMs)adjustmentBlockers.push('C3M_ADJUSTMENT_REVIEW_BEFORE_SELECTION:'+adjustment.adjustmentId);
     if (seenAdjustmentIds.has(adjustment.adjustmentId)) adjustmentBlockers.push(`C3M_DUPLICATE_ADJUSTMENT_ID:${adjustment.adjustmentId}`);
     seenAdjustmentIds.add(adjustment.adjustmentId);
     if (byComparable.has(adjustment.comparableId)) byComparable.get(adjustment.comparableId).push(adjustment);
@@ -582,6 +617,7 @@ function buildWholePropertySalesComparisonInputPacket({
   else {
     if (reconciledAtMs > asOfMs) reconciliationBlockers.push('C3M_RECONCILED_AT_FUTURE');
     if (reconciledAtMs < valuationDateMs) reconciliationBlockers.push('C3M_RECONCILED_BEFORE_VALUATION_DATE');
+    if(reconciledAtMs<selectedAtMs||normalizedAdjustments.some(a=>toTimestamp(a.reviewedAt)>reconciledAtMs))reconciliationBlockers.push('C3M_RECONCILED_BEFORE_COMPLETED_REVIEW');
   }
 
   let weightSum = 0;
@@ -648,7 +684,7 @@ function buildWholePropertySalesComparisonInputPacket({
 }
 
 function verifyWholePropertySalesComparisonInputIntegrity(packet) {
-  if (!packet || packet.status !== WHOLE_PROPERTY_SALES_INPUT_STATUS.READY_FOR_CANONICAL_WHOLE_PROPERTY_SALES_CALCULATION) return false;
+  if (!isPlainJson(packet)||!packet || packet.status !== WHOLE_PROPERTY_SALES_INPUT_STATUS.READY_FOR_CANONICAL_WHOLE_PROPERTY_SALES_CALCULATION) return false;
   const digest = cleanString(packet.wholePropertySalesComparisonInputHashSha256);
   if (!HASH_RE.test(digest)) return false;
   const core = {

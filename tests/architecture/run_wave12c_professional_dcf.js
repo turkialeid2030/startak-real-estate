@@ -63,10 +63,10 @@ function makeNoiResult(nois = [600000, 700000, 800000]) {
     noiAfterReplacementReserveSar: selectedNoiSar - 20000,
     selectedNoiConvention: 'BEFORE_REPLACEMENT_RESERVE',
     selectedNoiSar,
-    incomeTrace: [],
-    vacancyCollectionLossTrace: {},
-    operatingExpenseTrace: [],
-    reviewFlags: selectedNoiSar <= 0 ? ['NON_POSITIVE_NOI_REVIEW_REQUIRED'] : [],
+    incomeTrace:[{lineId:'INCOME-'+i,type:'OTHER_PROPERTY_INCOME',amountSar:selectedNoiSar+300000,source:'PROFESSIONAL_JUDGMENT',evidenceRefs:['SYNTHETIC-INCOME'],incomeForecastLineHashSha256:'a'.repeat(64)}],
+    vacancyCollectionLossTrace:{assumptionId:'LOSS-'+i,method:'AMOUNT_SAR',inputValue:50000,calculatedAmountSar:50000,source:'PROFESSIONAL_JUDGMENT',evidenceRefs:['SYNTHETIC-LOSS'],vacancyCollectionLossHashSha256:'b'.repeat(64)},
+    operatingExpenseTrace:[{expenseId:'OPEX-'+i,category:'OTHER_OPERATING_EXPENSE',method:'AMOUNT_SAR',inputValue:250000,calculatedAmountSar:250000,source:'PROFESSIONAL_JUDGMENT',evidenceRefs:['SYNTHETIC-OPEX'],operatingExpenseLineHashSha256:'c'.repeat(64)},{expenseId:'RESERVE-'+i,category:'REPLACEMENT_RESERVE',method:'AMOUNT_SAR',inputValue:20000,calculatedAmountSar:20000,source:'PROFESSIONAL_JUDGMENT',evidenceRefs:['SYNTHETIC-RESERVE'],operatingExpenseLineHashSha256:'d'.repeat(64)}],
+    reviewFlags:[...(selectedNoiSar<=0?['NON_POSITIVE_NOI_REVIEW_REQUIRED']:[]),...(selectedNoiSar<0?['OPERATING_EXPENSES_EXCEED_EGI_REVIEW_REQUIRED']:[])],
     annualizedAmounts: true,
     automaticLeaseOptionExercise: false,
     automaticMarketRentApplied: false,
@@ -326,4 +326,23 @@ const negativePeriodResult = calculateProfessionalDcfIndication(build({ id: 'NEG
 equal(negativePeriodResult.status, PROFESSIONAL_DCF_RESULT_STATUS.REVIEW_REQUIRED, 'negative unlevered period cash flow remains visible and requires review');
 check(negativePeriodResult.reviewFlags.some((flag) => flag.startsWith('NEGATIVE_UNLEVERED_PROPERTY_CASH_FLOW_REVIEW_REQUIRED:')), 'negative property cash flow review flag explicit');
 
+const rehashDcfPacket=patch=>{const changed={...input,...patch},core={...changed};for(const k of ['professionalDcfInputHashSha256','status','blockers','readyForCanonicalDcf','automaticRateDerivation','automaticTerminalNoiDerivation','financingIncluded','debtServiceIncluded','incomeTaxCalculated','zakatCalculated','equityReturnAnalysisPerformed','reconciliationPerformed','finalValuationConclusionEstablished','certifiedValuationEstablished','transactionAuthorized','semantics'])delete core[k];changed.professionalDcfInputHashSha256=sha256(core);return changed;};
+const rehashRecord=(record,patch,key)=>{const changed={...record,...patch};delete changed[key];changed[key]=sha256(changed);return changed;};
+for(const patch of [
+ {transactionAuthorized:true},{financingIncluded:true},{timingConvention:'OTHER'},{periodAdjustmentsExplicitlyReviewed:false},
+ {discountRate:0.2},{discountRateProvenance:{...input.discountRateProvenance,ageDays:0}},
+ {exitCapRateProvenance:{...input.exitCapRateProvenance,type:'DISCOUNT_RATE'}},
+ {operatingNoiPeriods:[...input.operatingNoiPeriods].reverse()},
+ {operatingNoiPeriods:input.operatingNoiPeriods.map(p=>({...p,isStabilized:false}))},
+ {periodAdjustments:[input.periodAdjustments[0],input.periodAdjustments[0]]},
+ {periodAdjustments:[rehashRecord(input.periodAdjustments[0],{includedInNoi:true},'dcfPeriodAdjustmentHashSha256')]},
+ {terminalNoiInput:rehashRecord(input.terminalNoiInput,{automaticallyDerived:true},'terminalNoiInputHashSha256')},
+ {terminalNoiInput:rehashRecord(input.terminalNoiInput,{propertyRef:'FOREIGN'},'terminalNoiInputHashSha256')},
+ {dispositionCostInput:rehashRecord(input.dispositionCostInput,{value:1.5},'dispositionCostInputHashSha256')}
+]){
+ const changed=rehashDcfPacket(patch);equal(verifyProfessionalDcfInputIntegrity(changed),false,'V634 rehashed DCF input contradiction');equal(calculateProfessionalDcfIndication(changed).status,PROFESSIONAL_DCF_RESULT_STATUS.INVALID_INPUT_PACKET,'V634 DCF engine fails closed');
+}
+equal(calculateProfessionalDcfIndication(JSON.parse(JSON.stringify(input))).calculationHashSha256,result.calculationHashSha256,'V634 end-period roundtrip');
+equal(calculateProfessionalDcfIndication(JSON.parse(JSON.stringify(midYearInput))).calculationHashSha256,midYearResult.calculationHashSha256,'V634 mid-year roundtrip');
+console.log('W06_V634_DCF_INPUT_SEMANTICS=PASS negative_cases=14 positive_roundtrips=2');
 console.log(`WAVE_12C_PROFESSIONAL_DCF=PASS checks=${checks}`);

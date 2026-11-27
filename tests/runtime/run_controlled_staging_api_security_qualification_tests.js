@@ -6,9 +6,12 @@ const {
 } = require('../../src/qualification/controlled-staging-postgres-qualification');
 const {
   API_SECURITY_STATUS,
-  createControlledStagingApiSecurityQualification,
+  createControlledStagingApiSecurityQualification: createRawQualification,
+  verifyCompletedStagingApiSecurityQualification,
 } = require('../../src/qualification/controlled-staging-api-security-qualification');
 
+const approvedTarget={environment:'staging',targetApiRef:'staging-api-ref',targetDatabaseRef:'staging-db-ref',apiBaseUrl:'https://staging.example.test'};
+const createControlledStagingApiSecurityQualification=options=>createRawQualification({approvedApiTargets:[approvedTarget],...options});
 const results = [];
 const crypto=require('node:crypto');
 const digest=v=>crypto.createHash('sha256').update(JSON.stringify(v)).digest('hex');
@@ -290,6 +293,39 @@ function assertAuthorityClosed(result) {
     const {executor}=successfulRequestExecutor({tenantA:{statusCode:200,body:{data}}});const {inspector}=successfulAdminInspector();
     const qualify=createControlledStagingApiSecurityQualification({requestExecutor:executor,adminInspector:inspector});
     assert.strictEqual((await qualify(baseInput())).status,status);
+  });
+  await test('P15-V627-REVALIDATE-ACTUAL-RESULT',async()=>{
+    const {executor}=successfulRequestExecutor();const {inspector}=successfulAdminInspector();
+    const qualify=createControlledStagingApiSecurityQualification({requestExecutor:executor,adminInspector:inspector});
+    const out=await qualify(baseInput());
+    assert.strictEqual(verifyCompletedStagingApiSecurityQualification(JSON.parse(JSON.stringify(out)),baseInput().testedAt),true);
+    assert.strictEqual(verifyCompletedStagingApiSecurityQualification(out,'2026-09-09T15:49:00Z'),false);
+    for(const [field,patch] of [['apiEvidence',{observedStatusCodes:{...out.apiEvidence.observedStatusCodes,crossTenant:200}}],['apiEvidence',{checks:{...out.apiEvidence.checks,crossTenantReadDenied:false}}],['adminApplicationPathEvidence',{targetDatabaseRef:'other'}],['adminApplicationPathEvidence',{nonAdminFailureCode:'UNEXPECTED_ERROR'}],['adminApplicationPathEvidence',{databaseOwnerOrBypassRlsPathTestedHere:true}]]){
+      const stage={...out[field],...patch};const {evidenceRef,productionSecurityVerifiedByThisModule,...core}=stage;
+      stage.evidenceRef=(field==='apiEvidence'?'api-idor-bola':'admin-application-path')+':sha256:'+digest(core);
+      const changed={...out,[field]:stage,[field+'Ref']:stage.evidenceRef};
+      const bundleCore=Object.fromEntries(['schemaVersion','status','environment','targetApiRef','targetDatabaseRef','workspaceId','postgresQualificationRef','apiEvidenceRef','adminApplicationPathEvidenceRef'].map(k=>[k,changed[k]]));
+      changed.bundleHashSha256=digest(bundleCore);
+      assert.strictEqual(verifyCompletedStagingApiSecurityQualification(changed,baseInput().testedAt),false);
+    }
+  });
+  await test('P15-CONSOLIDATED-HOST-TARGET-BOUNDARY',async()=>{
+    const {executor,calls}=successfulRequestExecutor();const {inspector,calls:adminCalls}=successfulAdminInspector();
+    const qualify=createControlledStagingApiSecurityQualification({requestExecutor:executor,adminInspector:inspector});
+    for(const patch of [{apiBaseUrl:'https://other.example.test'},{apiBaseUrl:'https://staging.example.test/other'},{apiBaseUrl:'https://staging.example.test:8443'},{targetApiRef:'other-api'},{targetDatabaseRef:'other-db'}]){
+      await assert.rejects(()=>qualify(baseInput(patch)),/API_TARGET_NOT_APPROVED/);
+    }
+    const unconfigured=createRawQualification({requestExecutor:executor,adminInspector:inspector});
+    await assert.rejects(()=>unconfigured(baseInput({approvedApiTargets:[approvedTarget]})),/API_TARGET_NOT_APPROVED/);
+    assert.throws(()=>createRawQualification({requestExecutor:executor,adminInspector:inspector,approvedApiTargets:[approvedTarget,approvedTarget]}),/duplicate/);
+    assert.strictEqual(calls.length,0);assert.strictEqual(adminCalls.length,0);
+    const mutable={...approvedTarget};
+    const fixed=createRawQualification({requestExecutor:executor,adminInspector:inspector,approvedApiTargets:[mutable]});
+    mutable.apiBaseUrl='https://other.example.test';
+    await assert.rejects(()=>fixed(baseInput({apiBaseUrl:mutable.apiBaseUrl})),/API_TARGET_NOT_APPROVED/);
+    const out=await fixed(baseInput());assert.strictEqual(out.status,API_SECURITY_STATUS.STAGING_API_SECURITY_EVIDENCE_COMPLETE_NOT_PRODUCTION_CERTIFIED);
+    assert.strictEqual(calls.length,3);assert.strictEqual(adminCalls.length,2);
+    assert.ok(adminCalls.every(x=>x.apiBaseUrl===approvedTarget.apiBaseUrl&&x.targetApiRef===approvedTarget.targetApiRef&&x.targetDatabaseRef===approvedTarget.targetDatabaseRef&&x.environment===approvedTarget.environment));
   });
   const failed = results.filter((entry) => entry[1] !== 'PASS');
   console.log(`PRODUCTIZATION_P15_STAGING_API_SECURITY_QUALIFICATION_RESULT=${failed.length === 0 ? 'PASS' : 'FAIL'} ${results.filter((entry) => entry[1] === 'PASS').length}/${results.length}`);

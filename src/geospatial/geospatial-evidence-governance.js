@@ -1,4 +1,15 @@
 'use strict';
+const {isPlainJson}=require('../validation/plain-json-boundary');
+const {strictCalendarDateMs}=require('../validation/strict-calendar-instant');
+// Validate record descriptors before reading fields; preserve optional undefined metadata.
+function safeRecord(record){
+  try{
+    if(!record||typeof record!=='object'||Array.isArray(record)||![Object.prototype,null].includes(Object.getPrototypeOf(record)))return false;
+    return Reflect.ownKeys(record).every(k=>typeof k==='string'&&!['__proto__','constructor','prototype','toJSON'].includes(k)&&(()=>{const d=Object.getOwnPropertyDescriptor(record,k);return d&&d.enumerable&&Object.hasOwn(d,'value');})());
+  }catch{return false;}
+}
+function snapshotValue(v){if(Array.isArray(v))return Object.freeze(v.map(snapshotValue));if(v&&typeof v==='object')return Object.freeze(Object.fromEntries(Object.keys(v).map(k=>[k,snapshotValue(v[k])])));return v;}
+
 
 const crypto = require('crypto');
 const {
@@ -33,35 +44,16 @@ function cleanStringArray(value, name) {
 function toTimestamp(value) {
   const text = cleanString(value);
   if (!text) return null;
-  const ms = new Date(text).getTime();
+  const ms = strictCalendarDateMs(text);
   return Number.isFinite(ms) ? ms : null;
 }
 
-function isJsonSafe(value, seen = new Set()) {
-  if (value === null) return true;
-  if (typeof value === 'string' || typeof value === 'boolean') return true;
-  if (typeof value === 'number') return Number.isFinite(value);
-  if (typeof value !== 'object') return false;
-  if (seen.has(value)) return false;
-
-  const prototype = Object.getPrototypeOf(value);
-  if (!Array.isArray(value) && prototype !== Object.prototype && prototype !== null) return false;
-
-  seen.add(value);
-  const valid = Array.isArray(value)
-    ? value.every((item) => isJsonSafe(item, seen))
-    : Object.keys(value).every((key) => isJsonSafe(value[key], seen));
-  seen.delete(value);
-  return valid;
-}
+function isJsonSafe(value){return isPlainJson(value);}
 
 function canonicalize(value) {
   if (Array.isArray(value)) return value.map(canonicalize);
   if (value && typeof value === 'object') {
-    return Object.keys(value).sort().reduce((acc, key) => {
-      acc[key] = canonicalize(value[key]);
-      return acc;
-    }, {});
+    return Object.fromEntries(Object.keys(value).sort().map(k=>[k,canonicalize(value[k])]));
   }
   return value;
 }
@@ -88,6 +80,7 @@ function evaluateRecord(record, {
   trustedVerifierIds,
   governedFreshnessPolicyIds,
 }) {
+  if(!safeRecord(record))return {eligible:false,critical:true,evidenceType:null,blockers:['C1_EVIDENCE_RECORD_OBJECT_REQUIRED'],warnings:[],normalized:null};
   const evidenceType = cleanString(record && record.evidenceType);
   const critical = !!(record && record.critical === true) || requiredEvidenceTypes.includes(evidenceType);
   const blockers = [];
@@ -163,7 +156,7 @@ function evaluateRecord(record, {
     id: id || null,
     subjectId: subjectId || null,
     evidenceType: evidenceType || null,
-    normalizedValue: hasNormalizedValue ? record.normalizedValue : null,
+    normalizedValue: normalizedValueHash ? snapshotValue(record.normalizedValue) : null,
     normalizedValueHash,
     sourceId: sourceId || null,
     sourceReference: sourceReference || null,
