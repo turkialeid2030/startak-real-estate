@@ -2,6 +2,7 @@
 // Diagnostic only. Targeted runs never replace the complete release gate.
 const fs=require('node:fs'),path=require('node:path'),{spawnSync}=require('node:child_process');
 const {SUITES,discoverRegressionTests}=require('./regression-test-discovery');
+const {REGRESSION_TIMEOUT_MS}=require('./regression-process-boundary');
 const root=path.resolve(__dirname,'..');
 const norm=x=>x.split(path.sep).join('/');
 function selectTargetedTests(files,selectors){
@@ -47,7 +48,7 @@ function execute(args){
  if(args[0]==='--list-targeted'){for(const file of selected)console.log(norm(file));return 0;}
  let passed=0;const started=Date.now();
  for(const file of selected){
-  const result=spawnSync(process.execPath,[path.join(root,file)],{cwd:root,stdio:'ignore',timeout:180000});
+  const result=spawnSync(process.execPath,[path.join(root,file)],{cwd:root,stdio:'ignore',timeout:REGRESSION_TIMEOUT_MS,killSignal:'SIGKILL'});
   if(result.status===0&&!result.error&&!result.signal){passed++;console.log('TARGETED_PASS '+norm(file));}else console.log('TARGETED_FAIL '+norm(file));
  }
  console.log('V7_TARGETED_RESULT='+ (passed===selected.length?'PASS':'FAIL')+' selected='+selected.length+' passed='+passed+' elapsed_ms='+(Date.now()-started)+' release_authorized=false');
