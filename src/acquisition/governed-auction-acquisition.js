@@ -37,8 +37,9 @@ const BIDDER_REGISTRATION_STATUS = Object.freeze({
 const HASH_RE = /^[a-f0-9]{64}$/i;
 const nonEmpty = (v) => typeof v === 'string' && v.trim().length > 0;
 const clean = (v) => nonEmpty(v) ? v.trim() : '';
-const finiteNN = (v) => typeof v === 'number' && Number.isFinite(v) && v >= 0;
-const finitePositive = (v) => typeof v === 'number' && Number.isFinite(v) && v > 0;
+const {toHalalas,fromHalalas,sumHalalas}=require('../validation/governed-sar-halala');
+const finiteNN = (v) => toHalalas(v) !== null;
+const finitePositive = (v) => finiteNN(v) && v > 0;
 
 function iso(value, field) {
   if (!nonEmpty(value) || !Number.isFinite(Date.parse(value))) throw new TypeError(`${field} must be a valid date/time`);
@@ -86,6 +87,7 @@ function verifyRecord(r,key,ctor){
 function computeAuctionEvidenceHash(r) { return r && typeof r === 'object' && !Array.isArray(r) ? sha256(without(r, ['auctionEvidenceHashSha256'])) : null; }
 function verifyAuctionEvidenceIntegrity(r) { return verifyRecord(r,'auctionEvidenceHashSha256',createGovernedAuctionEvidence); }
 function createGovernedAuctionEvidence(x = {}) {
+  if (!isPlainJson(x) || !x || typeof x !== 'object' || Array.isArray(x)) throw new TypeError('C16_INPUT_JSON_INVALID');
   ['auctionEvidenceId','caseId','propertyRef','auctionId','auctionProvider','sourceRef','sourceEvidenceRef','verifiedByRef'].forEach((f) => {
     if (!nonEmpty(x[f])) throw new TypeError(`${f} must be a non-empty string`);
   });
@@ -125,6 +127,7 @@ function createGovernedAuctionEvidence(x = {}) {
 function computeBidderEvidenceHash(r) { return r && typeof r === 'object' && !Array.isArray(r) ? sha256(without(r, ['bidderEvidenceHashSha256'])) : null; }
 function verifyBidderEvidenceIntegrity(r) { return verifyRecord(r,'bidderEvidenceHashSha256',createGovernedAuctionBidderEvidence); }
 function createGovernedAuctionBidderEvidence(x = {}) {
+  if (!isPlainJson(x) || !x || typeof x !== 'object' || Array.isArray(x)) throw new TypeError('C16_INPUT_JSON_INVALID');
   ['bidderEvidenceId','caseId','propertyRef','auctionId','bidderRef','registrationEvidenceRef','verifiedByRef'].forEach((f) => {
     if (!nonEmpty(x[f])) throw new TypeError(`${f} must be a non-empty string`);
   });
@@ -147,6 +150,7 @@ function createGovernedAuctionBidderEvidence(x = {}) {
 function computeAcquisitionCeilingHash(r) { return r && typeof r === 'object' && !Array.isArray(r) ? sha256(without(r, ['acquisitionCeilingHashSha256'])) : null; }
 function verifyAcquisitionCeilingIntegrity(r) { return verifyRecord(r,'acquisitionCeilingHashSha256',createGovernedAuctionAcquisitionCeiling); }
 function createGovernedAuctionAcquisitionCeiling(x = {}) {
+  if (!isPlainJson(x) || !x || typeof x !== 'object' || Array.isArray(x)) throw new TypeError('C16_INPUT_JSON_INVALID');
   ['ceilingId','caseId','propertyRef','auctionId','instructionIssuerRef','instructionRef','rationaleRef'].forEach((f) => {
     if (!nonEmpty(x[f])) throw new TypeError(`${f} must be a non-empty string`);
   });
@@ -168,6 +172,7 @@ function createGovernedAuctionAcquisitionCeiling(x = {}) {
 function computeAuctionBidProposalHash(r) { return r && typeof r === 'object' && !Array.isArray(r) ? sha256(without(r, ['proposalHashSha256'])) : null; }
 function verifyAuctionBidProposalIntegrity(r) { return verifyRecord(r,'proposalHashSha256',createGovernedAuctionBidProposal); }
 function createGovernedAuctionBidProposal(x = {}) {
+  if (!isPlainJson(x) || !x || typeof x !== 'object' || Array.isArray(x)) throw new TypeError('C16_INPUT_JSON_INVALID');
   ['proposalId','caseId','propertyRef','auctionId','bidderRef','createdByRef','evidenceRef'].forEach((f) => {
     if (!nonEmpty(x[f])) throw new TypeError(`${f} must be a non-empty string`);
   });
@@ -185,6 +190,7 @@ function createGovernedAuctionBidProposal(x = {}) {
 
 function computeAuctionReviewPolicyHash(r) { return r && typeof r === 'object' && !Array.isArray(r) ? sha256(without(r, ['policyHashSha256'])) : null; }
 function createGovernedAuctionReviewPolicy(x = {}) {
+  if (!isPlainJson(x) || !x || typeof x !== 'object' || Array.isArray(x)) throw new TypeError('C16_INPUT_JSON_INVALID');
   ['policyId','caseId','propertyRef','auctionId','reviewedByRef','reviewEvidenceRef'].forEach((f) => {
     if (!nonEmpty(x[f])) throw new TypeError(`${f} must be a non-empty string`);
   });
@@ -222,7 +228,9 @@ function baseResult(status, blockers, context = {}, review = null, riskFlags = [
   });
 }
 
-function evaluateGovernedAuctionAcquisition({ auctionEvidence, bidderEvidence, acquisitionCeiling, bidProposal, reviewPolicy, asOf } = {}) {
+function evaluateGovernedAuctionAcquisition(input = {}) {
+  if (!isPlainJson(input) || !input || typeof input !== 'object' || Array.isArray(input)) return baseResult(AUCTION_REVIEW_STATUS.HOLD_INTEGRITY,['C16_INPUT_JSON_INVALID']);
+  const { auctionEvidence, bidderEvidence, acquisitionCeiling, bidProposal, reviewPolicy, asOf } = input;
   const safeAuction=isPlainJson(auctionEvidence)?auctionEvidence:null;
   const context = { caseId: clean(safeAuction?.caseId), propertyRef: clean(safeAuction?.propertyRef), auctionId: clean(safeAuction?.auctionId) };
   const integrity = [];
@@ -248,7 +256,7 @@ function evaluateGovernedAuctionAcquisition({ auctionEvidence, bidderEvidence, a
   if (reviewPolicy.proposalHashSha256 !== bidProposal.proposalHashSha256) evidence.push('C16_POLICY_PROPOSAL_HASH_MISMATCH');
   if (evidence.length) return baseResult(AUCTION_REVIEW_STATUS.HOLD_EVIDENCE, evidence, context);
 
-  const asOfMs = Date.parse(asOf || '');
+  const asOfMs = typeof asOf === 'string' ? Date.parse(asOf) : NaN;
   if (!Number.isFinite(asOfMs)||asOfMs>Date.now()) return baseResult(AUCTION_REVIEW_STATUS.HOLD_POLICY, ['C16_AS_OF_REQUIRED'], context);
   const policy = [];
   if (reviewPolicy.version !== POLICY_VERSION) policy.push('C16_POLICY_VERSION_MISMATCH');
@@ -279,22 +287,26 @@ function evaluateGovernedAuctionAcquisition({ auctionEvidence, bidderEvidence, a
   auctionEvidence.buyerAuctionCharges.forEach((charge) => { if (charge.treatment === AUCTION_CHARGE_TREATMENT.UNKNOWN) eligibility.push(`C16_CHARGE_TREATMENT_UNRESOLVED:${charge.chargeId}`); });
   if (eligibility.length) return baseResult(AUCTION_REVIEW_STATUS.HOLD_ELIGIBILITY, eligibility, context);
 
-  const currentReferenceBidSar = auctionEvidence.currentBidSar == null ? auctionEvidence.startingBidSar : auctionEvidence.currentBidSar;
-  const nextMinimumBidSar = auctionEvidence.currentBidSar == null ? auctionEvidence.startingBidSar : auctionEvidence.currentBidSar + auctionEvidence.minimumBidIncrementSar;
-  const proposedBidSar = bidProposal.proposedBidSar;
-  const maximumBidSar = acquisitionCeiling.maximumBidSar;
-  const headroomToMaximumBidSar = maximumBidSar - proposedBidSar;
-  const separateChargesSar = auctionEvidence.buyerAuctionCharges.filter((c) => c.treatment === AUCTION_CHARGE_TREATMENT.SEPARATE_FROM_PURCHASE_PRICE).reduce((s, c) => s + c.amountSar, 0);
-  const depositSeparateSar = auctionEvidence.depositTreatment === DEPOSIT_TREATMENT.SEPARATE_FROM_PURCHASE_PRICE ? auctionEvidence.bidderDepositSar : 0;
-  const knownCashExposureSar = proposedBidSar + separateChargesSar + depositSeparateSar;
-  let cashExposureHeadroomSar = null;
-  if (acquisitionCeiling.maximumKnownCashExposureSar != null) cashExposureHeadroomSar = acquisitionCeiling.maximumKnownCashExposureSar - knownCashExposureSar;
-  if (![currentReferenceBidSar,nextMinimumBidSar,proposedBidSar,maximumBidSar,headroomToMaximumBidSar,separateChargesSar,depositSeparateSar,knownCashExposureSar].every(Number.isFinite)) return baseResult(AUCTION_REVIEW_STATUS.HOLD_CALCULATION, ['C16_NONFINITE_AUCTION_ARITHMETIC'], context);
+  const current = toHalalas(auctionEvidence.currentBidSar == null ? auctionEvidence.startingBidSar : auctionEvidence.currentBidSar);
+  const next = auctionEvidence.currentBidSar == null ? current : sumHalalas([current,toHalalas(auctionEvidence.minimumBidIncrementSar)]);
+  const proposed = toHalalas(bidProposal.proposedBidSar);
+  const maximum = toHalalas(acquisitionCeiling.maximumBidSar);
+  const charges = sumHalalas(auctionEvidence.buyerAuctionCharges.filter(c=>c.treatment===AUCTION_CHARGE_TREATMENT.SEPARATE_FROM_PURCHASE_PRICE).map(c=>toHalalas(c.amountSar)));
+  const deposit = auctionEvidence.depositTreatment===DEPOSIT_TREATMENT.SEPARATE_FROM_PURCHASE_PRICE ? toHalalas(auctionEvidence.bidderDepositSar) : 0;
+  const cash = sumHalalas([proposed,charges,deposit]);
+  const cashMax = acquisitionCeiling.maximumKnownCashExposureSar == null ? null : toHalalas(acquisitionCeiling.maximumKnownCashExposureSar);
+  const amounts = [current,next,proposed,maximum,charges,deposit,cash];
+  if (amounts.some(v=>v===null||fromHalalas(v)===null)) return baseResult(AUCTION_REVIEW_STATUS.HOLD_CALCULATION,['C16_UNSAFE_HALALA_ARITHMETIC'],context);
+  const [currentReferenceBidSar,nextMinimumBidSar,proposedBidSar,maximumBidSar,separateChargesSar,depositSeparateSar,knownCashExposureSar]=amounts.map(fromHalalas);
+  const headroomToMaximumBidSar=fromHalalas(maximum-proposed);
+  const cashExposureHeadroomSar=cashMax===null?null:fromHalalas(cashMax-cash);
+  if (headroomToMaximumBidSar===null || (cashMax!==null&&cashExposureHeadroomSar===null)) return baseResult(AUCTION_REVIEW_STATUS.HOLD_CALCULATION,['C16_UNSAFE_HALALA_ARITHMETIC'],context);
 
   const envelope = [];
-  if (proposedBidSar < nextMinimumBidSar) envelope.push('C16_PROPOSED_BID_BELOW_NEXT_MINIMUM');
-  if (proposedBidSar > maximumBidSar) envelope.push('C16_PROPOSED_BID_EXCEEDS_EXTERNAL_MAXIMUM');
-  if (acquisitionCeiling.maximumKnownCashExposureSar != null && knownCashExposureSar > acquisitionCeiling.maximumKnownCashExposureSar) envelope.push('C16_KNOWN_CASH_EXPOSURE_EXCEEDS_EXTERNAL_MAXIMUM');
+  if (proposed < next) envelope.push('C16_PROPOSED_BID_BELOW_NEXT_MINIMUM');
+  if (proposed > maximum) envelope.push('C16_PROPOSED_BID_EXCEEDS_EXTERNAL_MAXIMUM');
+  if (cashMax !== null && cash > cashMax) envelope.push('C16_KNOWN_CASH_EXPOSURE_EXCEEDS_EXTERNAL_MAXIMUM');
+  if (auctionEvidence.depositTreatment === DEPOSIT_TREATMENT.CREDITABLE_TOWARD_PURCHASE_PRICE && toHalalas(auctionEvidence.bidderDepositSar)>proposed) envelope.push('C16_CREDITABLE_DEPOSIT_EXCEEDS_PROPOSED_BID');
   if (envelope.length) return baseResult(AUCTION_REVIEW_STATUS.HOLD_BID_ENVELOPE, envelope, context);
 
   const riskFlags = [];

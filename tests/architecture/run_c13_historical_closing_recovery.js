@@ -48,4 +48,7 @@ run(fixture([evidence({sourceReviewAfter:targetClosing})]),S.READY_FOR_PROFESSIO
 const fractional={...evidence(),settlementAmountSar:0.001};
 fractional.closingEvidenceHashSha256=c.computeClosingEvidenceHash(fractional);
 run(fixture([fractional]),S.HOLD_INTEGRITY);
+// V6.41 malformed policy cannot silently remove mandatory classes or throw.
+for(const value of [null,{},'MORTGAGE_OR_SECURITY_INTEREST',false])run(fixture([evidence()],{requiredEvidenceClasses:value}),S.HOLD_POLICY);
+let constructorReads=0;assert.throws(()=>c.createGovernedClosingEvidence(Object.defineProperty({},'caseId',{enumerable:true,get(){constructorReads++;return 'X';}})),/C13_INPUT_JSON_INVALID/);assert.equal(constructorReads,0);
 console.log('C13_HISTORICAL_CLOSING_RECOVERY=PASS cases='+checks+' synthetic=true transactionAuthority=false');

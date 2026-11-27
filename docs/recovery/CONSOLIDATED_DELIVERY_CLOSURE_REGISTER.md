@@ -53,3 +53,7 @@ V6.38 Release 45934489774 was running at inspection. Restored source blob a032ce
 
 ## V6.40 C13 monetary precision and closing-date freshness
 Exact integer-halala aggregation, sub-halala rejection, safe-integer overflow and round-trip guards; source review due before target closing now holds even if fresh at analysis time. Added five evaluator scenarios and two constructor rejection assertions. Conservative policy: no automatic refresh, legal clearance, transaction approval or production authorization. Same PR #871; exact-head CI required. V6.39 history secret scan failed; no secret rotation or deployment.
+
+
+## V6.41 W01/W05/W06/W09 — shared SAR arithmetic and input boundary
+C13 and C16 share exact halala conversion. C16 uses safe integer bid, charge, deposit, ceiling and cash arithmetic, rejecting sub-halala and non-round-trippable amounts, excess credited deposits, malformed root input and accessors before field reads. C13 rejects malformed required-class policy lists and constructor accessors. Seven C16 evaluator scenarios and four constructor assertions, plus four C13 evaluator cases and one constructor assertion added; synthetic only. LEG-015 C12 source inspected: schedule/accrual engine differs from modern official-source metadata; recovery remains open. Secret scan V6.39 failed at scan step; no key rotation, suppression, history rewrite, live external access, merge or deploy. Exact-head CI required.

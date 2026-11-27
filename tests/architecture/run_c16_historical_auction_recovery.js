@@ -40,4 +40,18 @@ for(const [field,key,patch,hash] of [
 }
 run({...valid,asOf:'invalid'},S.HOLD_POLICY);
 run({...valid,asOf:'2099-01-01T00:00:00Z'},S.HOLD_POLICY);
+// V6.41 shared monetary boundary, exact bid ceiling and safe input.
+const fractional=fixture({auction:{startingBidSar:0.1,currentBidSar:0.1,minimumBidIncrementSar:0.2,bidderDepositSar:0.1,buyerAuctionCharges:[{chargeId:'F',label:'fee',amountSar:0.2,treatment:'SEPARATE_FROM_PURCHASE_PRICE'}]},ceiling:{maximumBidSar:0.3,maximumKnownCashExposureSar:0.5},proposal:{proposedBidSar:0.3}});
+const exact=run(fractional,S.READY_FOR_PROFESSIONAL_AUCTION_REVIEW);
+assert.equal(exact.review.nextMinimumBidSar,0.3);assert.equal(exact.review.knownCashExposureSar,0.5);assert.equal(exact.review.cashExposureHeadroomSar,0);
+run(fixture({auction:{startingBidSar:0.1,currentBidSar:0.1,minimumBidIncrementSar:0.2,bidderDepositSar:0.1,buyerAuctionCharges:[]},proposal:{proposedBidSar:0.29}}),S.HOLD_BID_ENVELOPE);
+run(fixture({auction:{bidderDepositSar:1160000}}),S.HOLD_BID_ENVELOPE);
+run(fixture({auction:{startingBidSar:50000000000000,currentBidSar:50000000000000,minimumBidIncrementSar:50000000000000},ceiling:{maximumBidSar:50000000000000},proposal:{proposedBidSar:50000000000000}}),S.HOLD_CALCULATION);
+assert.throws(()=>fixture({proposal:{proposedBidSar:0.001}}),/C16_PROPOSED_BID_INVALID/);
+assert.throws(()=>fixture({auction:{bidderDepositSar:0.001}}),/C16_DEPOSIT_INVALID/);
+assert.throws(()=>fixture({ceiling:{maximumBidSar:Number.MAX_SAFE_INTEGER}}),/C16_MAXIMUM_BID_INVALID/);
+let reads=0;const accessor=Object.defineProperty({...valid},'auctionEvidence',{enumerable:true,get(){reads++;return valid.auctionEvidence;}});
+run(accessor,S.HOLD_INTEGRITY);assert.equal(reads,0);
+assert.throws(()=>a.createGovernedAuctionEvidence(Object.defineProperty({},'caseId',{enumerable:true,get(){reads++;return 'X';}})),/C16_INPUT_JSON_INVALID/);assert.equal(reads,0);
+run(null,S.HOLD_INTEGRITY);run({...valid,asOf:123},S.HOLD_POLICY);
 console.log('C16_HISTORICAL_AUCTION_RECOVERY=PASS cases='+checks+' synthetic=true liveBid=false');

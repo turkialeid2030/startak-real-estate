@@ -34,12 +34,7 @@ const nonEmpty = (v) => typeof v === 'string' && v.trim().length > 0;
 const clean = (v) => nonEmpty(v) ? v.trim() : '';
 const validSha = (v) => typeof v === 'string' && /^[a-f0-9]{64}$/i.test(v);
 const finiteNN = (v) => typeof v === 'number' && Number.isFinite(v) && v >= 0;
-// Convert explicit SAR amounts to integer halalas; never silently round sub-halalas.
-function toHalalas(v) {
-  if (!finiteNN(v)) return null;
-  const n = Math.round(v * 100);
-  return Number.isSafeInteger(n) && n / 100 === v ? n : null;
-}
+const {toHalalas}=require('../validation/governed-sar-halala');
 
 function iso(v, field) {
   if (!nonEmpty(v) || !Number.isFinite(Date.parse(v))) throw new TypeError(`${field} must be a valid date/time`);
@@ -83,6 +78,7 @@ function verifyClosingEvidenceIntegrity(record) {
 }
 
 function createGovernedClosingEvidence(x = {}) {
+  if (!isPlainJson(x) || !x || typeof x !== 'object' || Array.isArray(x)) throw new TypeError('C13_INPUT_JSON_INVALID');
   const requiredStrings = [
     'recordId', 'caseId', 'propertyRef', 'evidenceClass', 'professionalStatus',
     'sourceAuthority', 'sourceRef', 'sourceEvidenceRef',
@@ -185,6 +181,7 @@ function validatePolicy(policy, context) {
   const requiredClasses = Array.isArray(policy.requiredEvidenceClasses) ? [...new Set(policy.requiredEvidenceClasses)] : [];
   const unresolvedStatuses = Array.isArray(policy.unresolvedStatuses) ? [...new Set(policy.unresolvedStatuses)] : [];
   if (!allowedClasses.length || allowedClasses.some((x) => !Object.values(EVIDENCE_CLASS).includes(x))) blockers.push('C13_POLICY_ALLOWED_CLASSES_INVALID');
+  if (!Array.isArray(policy.requiredEvidenceClasses)) blockers.push('C13_POLICY_REQUIRED_CLASSES_INVALID');
   if (requiredClasses.some((x) => !allowedClasses.includes(x))) blockers.push('C13_POLICY_REQUIRED_CLASS_NOT_ALLOWED');
   if (!unresolvedStatuses.includes(PROFESSIONAL_STATUS.OPEN)||unresolvedStatuses.some((x) => !Object.values(PROFESSIONAL_STATUS).includes(x))) blockers.push('C13_POLICY_UNRESOLVED_STATUSES_INVALID');
   if (typeof policy.allowUnknownSettlementAmounts !== 'boolean') blockers.push('C13_POLICY_UNKNOWN_SETTLEMENT_RULE_REQUIRED');
