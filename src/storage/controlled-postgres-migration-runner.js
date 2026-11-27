@@ -148,6 +148,7 @@ async function withClient(pool, fn) {
 
 // Generated scripts each have one explicit outer transaction. Execute their bodies
 // in the same checked transaction; fail closed if the generator contract changes.
+function confirmCommand(result,expected){if(!result||Array.isArray(result)||result.command!==expected)throw new Error('MIGRATION_TRANSACTION_COMMAND_UNCONFIRMED');}
 function transactionBody(sql) {
   const lines = sql.split('\n');
   const begin = lines.map((line,i)=>line.trim()==='BEGIN;'?i:-1).filter(i=>i>=0);
@@ -273,8 +274,10 @@ async function runControlledCanonicalWorkspaceMigration({
       status = MIGRATION_STATUS.HOLD_TARGET_MISMATCH;
     } else {
       executionState.preflightPassed = true;
-      await client.query('BEGIN');
+      status=MIGRATION_STATUS.HOLD_TRANSACTION_OUTCOME;
+      confirmCommand(await client.query('BEGIN'),'BEGIN');
       began = true;
+      status=MIGRATION_STATUS.HOLD_PREFLIGHT;
       // Recheck the target inside the transaction (also protects transaction pooling).
       const bound = await client.query('SELECT current_database() AS database_name, current_user AS role_name');
       if(bound?.rows?.length!==1 || bound.rows[0].database_name!==databaseName || bound.rows[0].role_name!==migrationRole){
@@ -294,7 +297,7 @@ async function runControlledCanonicalWorkspaceMigration({
       const row = postcheck?.rows?.length===1 ? postcheck.rows[0] : null;
       if(!row || row.relrowsecurity!==true || row.relforcerowsecurity!==true) throw new Error('RLS_POSTCHECK_FAILED');
       status = MIGRATION_STATUS.HOLD_TRANSACTION_OUTCOME;
-      await client.query('COMMIT');
+      confirmCommand(await client.query('COMMIT'),'COMMIT');
       began=false;
       executionState.transactionCommitted=true;
       executionState.mutationExecuted=true;
@@ -309,7 +312,7 @@ async function runControlledCanonicalWorkspaceMigration({
     if(status===MIGRATION_STATUS.HOLD_TRANSACTION_OUTCOME) executionState.transactionOutcomeUnknown=true;
     if(began){
       try{
-        await client.query('ROLLBACK');
+        confirmCommand(await client.query('ROLLBACK'),'ROLLBACK');
         if(!executionState.transactionOutcomeUnknown) executionState.rollbackConfirmed=true;
       }catch(_){
         executionState.transactionOutcomeUnknown=true;
