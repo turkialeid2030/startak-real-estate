@@ -458,12 +458,18 @@ function fixture() {
   }
   assert.strictEqual(getterCalls,0);
   console.log('C23_V636_PLAIN_JSON_BOUNDARY=PASS preinvoke_cases=5 entrypoints=2 response_cases=2 adapter_calls_for_invalid_input=0 getter_calls=0');
-  const duplicateRequest=request(f.modelProfile,{retrievalItems:[...f.request.retrievalItems,{...f.request.retrievalItems[0],evidenceId:'DUPLICATE-SOURCE',sourceReference:'OTHER-SOURCE'}]});
+  const duplicateItems=[...f.request.retrievalItems,{...f.request.retrievalItems[0],evidenceId:'DUPLICATE-SOURCE',sourceReference:'OTHER-SOURCE'}];
+  assert.throws(()=>request(f.modelProfile,{retrievalItems:duplicateItems}),/C22_DUPLICATE_RETRIEVAL_EVIDENCE_HASH/);
+  // Bypass the constructor to simulate an untrusted, correctly rehashed packet.
+  // C23 canonical request replay must reject it before adapter invocation.
+  const stableDuplicate=x=>Array.isArray(x)?x.map(stableDuplicate):x&&typeof x==='object'?Object.fromEntries(Object.keys(x).sort().map(k=>[k,stableDuplicate(x[k])])):x;
+  const duplicateCore={...f.request,retrievalItems:duplicateItems};delete duplicateCore.requestHashSha256;
+  const duplicateRequest={...duplicateCore,requestHashSha256:require('node:crypto').createHash('sha256').update(JSON.stringify(stableDuplicate(duplicateCore))).digest('hex')};
   const duplicateManifest=manifest(duplicateRequest),duplicateInvocation=invocation(f.modelProfile,duplicateRequest,duplicateManifest,f.providerAuthorization);
   let unsafeCalls=0;
   for(const run of [executeGovernedProviderGateway,executeProofGroundedProviderGateway]){
     const out=await run({...f,request:duplicateRequest,groundingManifest:duplicateManifest,invocation:duplicateInvocation,adapter:{invoke:async()=>{unsafeCalls++;return f.providerResponse;}}});
-    assert.strictEqual(out.status,STATUS.HOLD_INTEGRITY);assert.ok(out.blockers.includes('C23_INTEGRITY_RETRIEVAL_DIGEST_AMBIGUOUS'));assert.strictEqual(out.providerCalled,false);
+    assert.strictEqual(out.status,STATUS.HOLD_INTEGRITY);assert.ok(out.blockers.includes('C23_INTEGRITY_C22_REQUEST'));assert.strictEqual(out.providerCalled,false);
     const badTime=await run({...f,asOf:'2026-02-30',adapter:{invoke:async()=>{unsafeCalls++;return f.providerResponse;}}});assert.strictEqual(badTime.providerCalled,false);
     const getterAdapter=Object.defineProperty({},'invoke',{get(){unsafeCalls++;return async()=>f.providerResponse;}});
     const denied=await run({...f,adapter:getterAdapter});assert.strictEqual(denied.providerCalled,false);
@@ -471,12 +477,24 @@ function fixture() {
     assert.strictEqual((await run(getterInput)).providerCalled,false);
   }
   assert.strictEqual(unsafeCalls,0);
-  const {createAiReportReviewHandoff}=require('../../src/ai/ai-report-review-handoff');
+  const {createAiReportReviewHandoff,evaluateAiReportReviewAccess}=require('../../src/ai/ai-report-review-handoff');
   const reviewRequest={reviewRef:'REVIEW-1',reviewerRef:'INDEPENDENT-REVIEWER',caseId:f.request.caseId,propertyRef:f.request.propertyRef,requestedAt:AS_OF};
   const handoff=createAiReportReviewHandoff({proofPacket:f,reviewRequest,asOf:AS_OF});
   assert.strictEqual(handoff.reviewCandidateReady,true);assert.strictEqual(handoff.reportExportAuthorized,false);assert.strictEqual(handoff.draft,null);assert.strictEqual(handoff.deterministicDecisionState,'HOLD');
   for(const patch of [{reviewerRef:f.groundingManifest.preparedByRef},{caseId:'OTHER'},{requestedAt:'2026-10-01T09:00:00Z'}])assert.strictEqual(createAiReportReviewHandoff({proofPacket:f,reviewRequest:{...reviewRequest,...patch},asOf:AS_OF}).reviewCandidateReady,false);
   assert.strictEqual(createAiReportReviewHandoff({proofPacket:{...f,providerResponse:{...f.providerResponse,claims:[]}},reviewRequest,asOf:AS_OF}).reviewCandidateReady,false);
+  const op=require('../../src/operator/governed-operator-workspace');
+  const sessionDraft={sessionId:'SYNTH-REVIEW-SESSION',userRef:reviewRequest.reviewerRef,role:op.ROLE.REVIEWER,caseId:reviewRequest.caseId,propertyRef:reviewRequest.propertyRef,issuedAt:'2026-10-01T10:00:00Z',validUntil:'2026-10-02T00:00:00Z',authenticationEvidenceRef:'SYNTH-SESSION-EVIDENCE',authenticationEvidenceHashSha256:HA,mfaVerified:true};
+  const session=op.createOperatorSession(sessionDraft);
+  const actionFor=(s,patch={})=>op.createWorkspaceAction({actionId:'SYNTH-REVIEW-ACCESS',sessionHashSha256:s.sessionHashSha256,caseId:reviewRequest.caseId,propertyRef:reviewRequest.propertyRef,action:op.ACTION.VIEW_EVIDENCE,payload:{handoffHashSha256:handoff.handoffHashSha256},requestedAt:AS_OF,...patch});
+  const caseSnapshot={caseId:reviewRequest.caseId,propertyRef:reviewRequest.propertyRef,status:'HOLD',resultHashSha256:H2};
+  const accessInput={proofPacket:f,reviewRequest,asOf:AS_OF,session,workspaceAction:actionFor(session),caseSnapshot};
+  const access=evaluateAiReportReviewAccess(accessInput);assert.strictEqual(access.reviewAccessCandidate,true);assert.strictEqual(access.operatorIdentityIndependentlyAuthenticated,false);assert.strictEqual(access.reportExportAuthorized,false);assert.strictEqual(access.reviewMetadata.draft,null);
+  for(const patch of [{role:op.ROLE.VIEWER},{userRef:'OTHER-REVIEWER'},{mfaVerified:false},{caseId:'OTHER-CASE'}]){
+   const other=op.createOperatorSession({...sessionDraft,...patch});assert.strictEqual(evaluateAiReportReviewAccess({...accessInput,session:other,workspaceAction:actionFor(other)}).reviewAccessCandidate,false);
+  }
+  for(const patch of [{caseSnapshot:{...caseSnapshot,resultHashSha256:HA}},{caseSnapshot:{...caseSnapshot,status:'READY'}},{workspaceAction:actionFor(session,{payload:{handoffHashSha256:HA}})},{workspaceAction:actionFor(session,{requestedAt:'2026-10-01T12:00:00Z'})}])assert.strictEqual(evaluateAiReportReviewAccess({...accessInput,...patch}).reviewAccessCandidate,false);
   console.log('V7_AI_REVIEW_HANDOFF=PASS synthetic_adapter=true no_report_export=true');
+  console.log('V7_AI_OPERATOR_REVIEW_BINDING=PASS synthetic_identity=true no_report_export=true');
   console.log('C23_GOVERNED_LIVE_AI_PROVIDER_GATEWAY=PASS');
 })().catch((err)=>{ console.error(err); process.exit(1); });
