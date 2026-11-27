@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const {assertPlainJson,isPlainJson}=require('../validation/plain-json-boundary');
 const {strictCalendarDateMs}=require('../validation/strict-calendar-instant');
 const {evaluateCanonicalMethodReplay}=require('./canonical-method-replay');
+const {evaluateSourceInputReplay}=require('./source-input-replay');
 function safeInput(v){try{assertPlainJson(v,{maxNodes:500000});return !!v&&typeof v==='object'&&!Array.isArray(v);}catch{return false;}}
 const {
   C3_VALUATION_RECONCILIATION_SCHEMA_VERSION,
@@ -420,10 +421,12 @@ function evaluateValuationReconciliation(input={}){
  if(!safeInput(input))return held(['C3_INPUT_JSON_INVALID']);
  const methodReplay=evaluateCanonicalMethodReplay({caseId:input.caseId??null,propertyRef:input.propertyRef??null,valuationDate:input.valuationDate??null,asOf:input.asOf??null,methodIndications:input.methodIndications??null,methodInputPacketsByIndicationId:input.methodInputPacketsByIndicationId??null});
  if(methodReplay.status!=='READY_FOR_ARITHMETIC_REPLAY_REVIEW')return held(['C3_CANONICAL_METHOD_REPLAY_REQUIRED',...methodReplay.blockers],methodReplay);
- let diagnostic;try{diagnostic=evaluateStructuralReconciliation(input);}catch{return held(['C3_STRUCTURAL_RECONCILIATION_FAILED'],methodReplay);}
+ const sourceReplay=evaluateSourceInputReplay({caseId:input.caseId,propertyRef:input.propertyRef,valuationDate:input.valuationDate,asOf:input.asOf,methodIndications:input.methodIndications,methodInputPacketsByIndicationId:input.methodInputPacketsByIndicationId,sourceRebuildsByIndicationId:input.sourceRebuildsByIndicationId??null});
+ if(sourceReplay.status!=='READY_FOR_SOURCE_INPUT_REPLAY_REVIEW')return deepFreeze({...held(['C3_SOURCE_INPUT_REPLAY_REQUIRED',...sourceReplay.blockers],methodReplay),sourceReplay});
+ let diagnostic;try{diagnostic=evaluateStructuralReconciliation(input);}catch{return deepFreeze({...held(['C3_STRUCTURAL_RECONCILIATION_FAILED'],methodReplay),sourceReplay});}
  const ready=diagnostic.status===RECONCILIATION_GATE_STATUS.READY;
  const blockers=[...diagnostic.blockers,'C3_INDEPENDENT_SOURCE_AUTHENTICATION_AND_ORIGINAL_INPUT_REPLAY_REQUIRED'];
- const core={...diagnostic,status:ready?RECONCILIATION_GATE_STATUS.HOLD_EVIDENCE:diagnostic.status,decisionReady:false,analyticalReviewReady:ready,hypotheticalWeightedValueSar:ready?diagnostic.analyticalValueIndicationSar:null,candidateWeightedValueSar:null,analyticalValueIndicationSar:null,analyticalRangeLowSar:null,analyticalRangeHighSar:null,spreadRatio:null,analyticalConfidenceClass:RECONCILIATION_CONFIDENCE_CLASS.NOT_ESTABLISHED,weightedTrace:ready?diagnostic.weightedTrace:[],sourceAuthenticityIndependentlyVerified:false,originalSourceInputsIndependentlyRebuilt:false,methodReplay,blockers,semantics:'Structural and arithmetic review only; source authenticity, rights and original source input replay remain external gates. No institutional value or decision authorization.'};
+ const core={...diagnostic,status:ready?RECONCILIATION_GATE_STATUS.HOLD_EVIDENCE:diagnostic.status,decisionReady:false,analyticalReviewReady:ready,hypotheticalWeightedValueSar:ready?diagnostic.analyticalValueIndicationSar:null,candidateWeightedValueSar:null,analyticalValueIndicationSar:null,analyticalRangeLowSar:null,analyticalRangeHighSar:null,spreadRatio:null,analyticalConfidenceClass:RECONCILIATION_CONFIDENCE_CLASS.NOT_ESTABLISHED,weightedTrace:ready?diagnostic.weightedTrace:[],sourceAuthenticityIndependentlyVerified:false,originalSourceInputsIndependentlyRebuilt:false,sourceReplay,methodReplay,blockers,semantics:'Structural and arithmetic review only; source authenticity, rights and original source input replay remain external gates. No institutional value or decision authorization.'};
  delete core.resultHashSha256;
  return deepFreeze({...core,resultHashSha256:sha256(core)});
 }

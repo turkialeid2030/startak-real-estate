@@ -14,4 +14,7 @@ assert.ok(c.evaluateValuationReconciliation(fake).blockers.includes('C3_CANONICA
 let reads=0;const malformed=Object.defineProperty({},'propertyRef',{enumerable:true,get(){reads++;return 'P';}});
 assert.equal(c.evaluateValuationReconciliation(malformed).status,'HOLD_EVIDENCE');assert.equal(i.evaluateC3IC2SGovernedReconciliation(malformed).status,'HOLD_EVIDENCE');assert.equal(r.evaluateCanonicalMethodReplay(malformed).status,'HOLD_METHOD_REPLAY');assert.equal(reads,0);
 assert.equal(i.evaluateC3IC2SGovernedReconciliation({...scope,sourceProvenance:{records:[]}}).status,'HOLD_EVIDENCE');
+const sr=require('../../src/valuation-reconciliation/source-input-replay');
+for(const v of [null,[],{},scope,fake,malformed]){const o=sr.evaluateSourceInputReplay(v);assert.equal(o.status,'HOLD_SOURCE_INPUT_REPLAY');assert.equal(o.decisionReady,false);assert.equal(o.traces.length,0);}
+assert.equal(reads,0);
 console.log('C3_C3I_RECONCILIATION_RECOVERY=PASS synthetic=true sourceAuthority=false');
