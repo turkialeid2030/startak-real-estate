@@ -6,12 +6,14 @@ const fs=require('node:fs');
 const path=require('node:path');
 const EXPECTED_HEADER='id,old,source_blob,versions,domain,modern_anchor,status,inspection,priority,acceptance';
 const STATUS={
- MODERN_ANCHOR_EXISTS_PARITY_UNVERIFIED:43,
- RESTORED_SOURCE_PARITY_UNVERIFIED:3,
+ MODERN_ANCHOR_EXISTS_PARITY_UNVERIFIED:42,
+ RESTORED_SOURCE_PARITY_UNVERIFIED:4,
  OLD_STAGING_CONTRACT_NOT_PRODUCTION_VAULT:10,
  SAFE_RETIREMENT_REVIEW:1,
 };
-const RESTORED=Object.freeze({'LEG-002':'src/app/institutional-valuation-decision-boundary.js','LEG-014':'src/cost/depreciation-attribution-gate.js','LEG-054':'src/valuation-intelligence/market-rate-provenance.js'});
+// Explicit reviewed restoration allowlist. Historic blob IDs identify
+// source origins, not byte identity or functional parity of modern code.
+const RESTORED=Object.freeze(Object.fromEntries(Object.entries({"LEG-001":{"path":"src/acquisition/governed-auction-acquisition.js","sourceBlob":"372ade6483fb93cbb0cced9ad7977ea49ec419ab","modernAnchor":"src/acquisition/governed-auction-acquisition.js"},"LEG-002":{"path":"src/app/institutional-valuation-decision-boundary.js","sourceBlob":"0476e599eecfeb760c739bad374bea90b3c4a873","modernAnchor":"src/market/valuation-decision-gate.js"},"LEG-014":{"path":"src/cost/depreciation-attribution-gate.js","sourceBlob":"7f5f4ec8709ae9e0a5a73760f701e84e7ee12a83","modernAnchor":"src/valuation-intelligence/cost-approach.js"},"LEG-054":{"path":"src/valuation-intelligence/market-rate-provenance.js","sourceBlob":"b1bcee33c3bb1d0ae59ed8a21b2eb244c2ba9e8b","modernAnchor":"src/market/comparable-provenance-chain.js"}}).map(([id,record])=>[id,Object.freeze(record)])));
 const MANIFEST='docs/recovery/STARTAK_RE_HISTORIC_SOURCE_CANDIDATES_20261114.csv';
 function fail(reason){throw Error('LEGACY_57_'+reason);}
 function csvFields(line){
@@ -50,7 +52,8 @@ function verifyLegacyManifest(csv,{fileExists}){
   // purported source manifest, even if the caller uses a real fs.existsSync.
   if(!/^src\/[A-Za-z0-9_./-]+\.(?:js|jsx)$/.test(old)||old.includes('..'))fail('OLD_PATH_NOT_ABSENT_OR_INVALID');
   if(status==='RESTORED_SOURCE_PARITY_UNVERIFIED'){
-   if(RESTORED[id]!==old||!fileExists(old))fail('RESTORED_PATH_MISMATCH');
+   if(RESTORED[id]?.path!==old||RESTORED[id]?.modernAnchor!==modernAnchor||!fileExists(old))fail('RESTORED_PATH_MISMATCH');
+   if(RESTORED[id].sourceBlob!==sourceBlob)fail('RESTORED_SOURCE_BLOB_MISMATCH');
   }else if(Object.hasOwn(RESTORED,id)||fileExists(old))fail('OLD_PATH_NOT_ABSENT_OR_INVALID');
   if(!Object.hasOwn(STATUS,status))fail('STATUS_UNRECOGNIZED');
   counts[status]=(counts[status]||0)+1;
@@ -81,4 +84,4 @@ if(require.main===module){
  const result=verifyLegacyManifest(text,{fileExists:p=>fs.existsSync(path.join(root,p))});
  console.log('LEGACY_57_MANIFEST_INTEGRITY=PASS '+JSON.stringify(result));
 }
-module.exports={verifyLegacyManifest,MANIFEST};
+module.exports={verifyLegacyManifest,MANIFEST,RESTORED};

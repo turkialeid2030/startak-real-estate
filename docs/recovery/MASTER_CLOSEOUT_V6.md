@@ -156,3 +156,6 @@ V6.35 Release 716/716, 18/18 named evidence; financing 136 checks PASS. Shared v
 
 ## V6.37 C16 historical auction recovery
 V6.36 Release 716/716 and 20/20 evidence PASS; AI/operator boundary tests PASS. Restored LEG-001 C16 source after comparing original blob with modern acquisition basis, hardened semantic integrity, causal review and registration window. Targeted synthetic suite added to required evidence. No real auction participation or UI activation. Same PR #871.
+
+## V6.38 historic inventory regression repair
+V6.37 715/717, C16 suite PASS, two manifest failures from outdated restoration allowlist/counts. Explicit fourth restoration, source blob and anchor validation; both inventory tests now mandatory evidence. Census 717 branches, 510 absent paths, 457 unregistered. LEG-008 scoped comparison only. Exact-head CI required; same PR #871, no release.
