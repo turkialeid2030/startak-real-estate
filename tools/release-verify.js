@@ -95,6 +95,8 @@ step('TEST_DISCOVERY_AND_REGRESSION', () => {
     'tests/architecture/run_wave12c_professional_dcf.js',
     'tests/architecture/run_riai_ai_gateway_guardrails_unit_v1.js',
     'tests/architecture/run_riai_qualitative_output.js',
+    'tests/architecture/run_riai_subdivision_gate_v1.js',
+    'tests/architecture/run_residential_income_lifecycle_location_upside_v1.js',
     'tests/runtime/run_riai_openai_responses_adapter.js',
     'tests/runtime/run_riai_client_redirect_boundary.js',
     ...['postgres_runtime_rls_probe','controlled_postgres_migration_runner','controlled_staging_postgres_qualification','controlled_staging_api_security_qualification','controlled_backup_restore_qualification','controlled_dr_failover_qualification','controlled_observability_incident_qualification','independent_security_uat_evidence_gate','productization_release_candidate_evidence_bundle'].map(name=>'tests/runtime/run_'+name+'_tests.js'),

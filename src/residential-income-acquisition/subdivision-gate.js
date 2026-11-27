@@ -1,4 +1,9 @@
 'use strict';
+const {strictCalendarDateMs}=require('../validation/strict-calendar-instant');
+const {isSafeStrategicCase,lineageIssues}=require('./strategic-evidence-governance');
+const {createEvidenceAwareValue}=require('./contracts');
+const {hashValue}=require('../source-intelligence/source-provenance-governance');
+const sourceKinds=new Set(['SOURCE_DOCUMENT','EVIDENCE_FACT','HUMAN_VERIFICATION','LEGAL_REVIEW']);
 
 const SUBDIVISION_CHECK_TYPE = Object.freeze({
   ZONING_PERMISSION: 'ZONING_PERMISSION',
@@ -80,7 +85,7 @@ function checkField(checkType) {
   return `subdivision.check.${checkType}.outcome`;
 }
 
-function assessCheck(checkType, input, lineageByRef, asOfDate) {
+function assessCheck(checkType, input, lineageByRef, asOfDate, canonical=false) {
   const field = checkField(checkType);
   const issues = [];
 
@@ -96,6 +101,8 @@ function assessCheck(checkType, input, lineageByRef, asOfDate) {
     };
   }
 
+  if(canonical){try{const digest=hashValue(input);if(!digest||digest!==hashValue(createEvidenceAwareValue(input)))throw Error();}catch{issues.push({code:'SUBDIVISION_CANONICAL_INPUT_REQUIRED',field,checkType});}}
+  if(input.unit!==null||!finite(input.confidence)||input.confidence<0||input.confidence>1)issues.push({code:'SUBDIVISION_UNIT_OR_CONFIDENCE_INVALID',field,checkType});
   if (input.field !== field) issues.push({ code: 'SUBDIVISION_CHECK_FIELD_MISMATCH', field, checkType });
   if (!Object.values(SUBDIVISION_CHECK_OUTCOME).includes(input.value)) {
     issues.push({ code: 'SUBDIVISION_CHECK_OUTCOME_INVALID', field, checkType });
@@ -111,7 +118,7 @@ function assessCheck(checkType, input, lineageByRef, asOfDate) {
   }
 
   const sourceRef = input.sourceRef || null;
-  if (!sourceRef || !lineageByRef.has(sourceRef)) {
+  if (!sourceRef || !sourceKinds.has(lineageByRef.get(sourceRef)?.kind)) {
     issues.push({ code: 'SUBDIVISION_SOURCE_LINEAGE_REQUIRED', field, checkType, refId: sourceRef });
   }
 
@@ -127,10 +134,11 @@ function assessCheck(checkType, input, lineageByRef, asOfDate) {
     }
   }
 
-  if (input.effectiveDate && asOfDate) {
-    const effectiveTime = new Date(input.effectiveDate).getTime();
-    const asOfTime = new Date(asOfDate).getTime();
-    if (Number.isFinite(effectiveTime) && Number.isFinite(asOfTime) && effectiveTime > asOfTime) {
+  {
+    const effectiveTime = strictCalendarDateMs(input.effectiveDate);
+    const asOfTime = strictCalendarDateMs(asOfDate);
+    if(!Number.isFinite(effectiveTime)||!Number.isFinite(asOfTime))issues.push({code:'SUBDIVISION_EFFECTIVE_DATE_INVALID',field,checkType});
+    else if (effectiveTime > asOfTime) {
       issues.push({ code: 'SUBDIVISION_FUTURE_EFFECTIVE_EVIDENCE', field, checkType });
     }
   }
@@ -176,17 +184,21 @@ function emptyResult(operatingCase) {
 }
 
 function calculateSubdivisionDueDiligenceGate(operatingCase) {
-  if (!operatingCase || typeof operatingCase !== 'object') throw new TypeError('operatingCase must be an object');
+  if(!isSafeStrategicCase(operatingCase))return emptyResult(null);
 
   const inputs = inputMap(operatingCase);
   const anySubdivisionInput = REQUIRED_SUBDIVISION_CHECK_TYPES.some((checkType) => inputs.has(checkField(checkType)));
   if (!anySubdivisionInput) return emptyResult(operatingCase);
 
   const lineageByRef = lineageMap(operatingCase);
+  const globalIssues=lineageIssues(operatingCase);
+  const fields=operatingCase.additionalOperatingInputs.filter(x=>typeof x?.field==='string'&&x.field.startsWith('subdivision.check.')).map(x=>x.field);
+  if(new Set(fields).size!==fields.length)globalIssues.push({code:'SUBDIVISION_DUPLICATE_CHECK_FIELD'});
   const checks = REQUIRED_SUBDIVISION_CHECK_TYPES.map((checkType) => (
-    assessCheck(checkType, inputs.get(checkField(checkType)), lineageByRef, operatingCase.asOfDate)
+    assessCheck(checkType, inputs.get(checkField(checkType)), lineageByRef, operatingCase.asOfDate,operatingCase.contractType==='RESIDENTIAL_INCOME_OPERATING_CASE_V1')
   ));
-  const issues = checks.flatMap((check) => check.issues);
+  if(globalIssues.length)for(const check of checks){check.usable=false;check.outcome=null;if(check.status!=='MISSING')check.status='DUE_DILIGENCE_REQUIRED';}
+  const issues = [...globalIssues,...checks.flatMap((check) => check.issues)];
   const verifiedChecks = checks.filter((check) => check.usable);
   const passed = verifiedChecks.filter((check) => check.outcome === SUBDIVISION_CHECK_OUTCOME.PASS);
   const failed = verifiedChecks.filter((check) => check.outcome === SUBDIVISION_CHECK_OUTCOME.FAIL);

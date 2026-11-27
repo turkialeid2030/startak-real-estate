@@ -121,7 +121,21 @@ const subdivisionGate = {
   status: SUBDIVISION_ASSESSMENT_STATUS.FEASIBLE_FOR_SCENARIO_TESTING,
   scenarioTestingEligible: true,
 };
-const bundle = calculateLifecycleLocationUpsideIntelligence(operatingCase, { subdivisionGate });
+const {REQUIRED_SUBDIVISION_CHECK_TYPES}=require('../../src/residential-income-acquisition/subdivision-gate');
+const subdivisionInputs=REQUIRED_SUBDIVISION_CHECK_TYPES.map(k=>adopted('subdivision.check.'+k+'.outcome','PASS'));
+const caseWithSubdivision={...operatingCase,additionalOperatingInputs:[...inputs,...subdivisionInputs],evidenceLineage:[...operatingCase.evidenceLineage,...subdivisionInputs.map(x=>({refId:x.sourceRef,kind:'SOURCE_DOCUMENT'}))]};
+const bundle = calculateLifecycleLocationUpsideIntelligence(caseWithSubdivision, { subdivisionGate });
+const spoofedSubdivision=calculateLifecycleLocationUpsideIntelligence(operatingCase,{subdivisionGate});
+assert.strictEqual(spoofedSubdivision.upside.catalysts.find(x=>x.catalystId==='split').effectiveProbability,0);
+const {calculateLocationIntelligence}=require('../../src/residential-income-acquisition/lifecycle-location-upside');
+const duplicateLineage={...operatingCase,evidenceLineage:[...operatingCase.evidenceLineage,operatingCase.evidenceLineage[0]]};
+assert.strictEqual(calculateLocationIntelligence(duplicateLineage).currentLocationScore,null);
+const foreignLineage={...operatingCase,evidenceLineage:operatingCase.evidenceLineage.map((x,i)=>i===0?{...x,caseId:'OTHER'}:x)};
+assert.strictEqual(calculateLocationIntelligence(foreignLineage).currentLocationScore,null);
+const lateLineage={...operatingCase,evidenceLineage:operatingCase.evidenceLineage.map((x,i)=>i===0?{...x,recordedAt:'2026-10-01'}:x)};
+assert.strictEqual(calculateLocationIntelligence(lateLineage).currentLocationScore,null);
+const {createEvidenceGovernedStrategicCase}=require('../../src/residential-income-acquisition/strategic-evidence-governance');
+assert.strictEqual(createEvidenceGovernedStrategicCase(duplicateLineage,{invalidInputFields:[]}).additionalOperatingInputs.some(x=>x.adoptedForUnderwriting),false);
 assert.strictEqual(bundle.status, INTELLIGENCE_STATUS.CALCULATED);
 assert.strictEqual(bundle.evidenceGovernance.status, STRATEGIC_EVIDENCE_STATUS.COMPLIANT);
 assert.strictEqual(bundle.evidenceGovernance.evidenceCoverage, 1);
