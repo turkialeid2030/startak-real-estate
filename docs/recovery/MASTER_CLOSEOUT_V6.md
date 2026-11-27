@@ -159,3 +159,6 @@ V6.36 Release 716/716 and 20/20 evidence PASS; AI/operator boundary tests PASS. 
 
 ## V6.38 historic inventory regression repair
 V6.37 715/717, C16 suite PASS, two manifest failures from outdated restoration allowlist/counts. Explicit fourth restoration, source blob and anchor validation; both inventory tests now mandatory evidence. Census 717 branches, 510 absent paths, 457 unregistered. LEG-008 scoped comparison only. Exact-head CI required; same PR #871, no release.
+
+## V6.39 C13 closing review recovery
+Restored LEG-008 original source with hardened evidence reconstruction, scope, review chronology, payoff validity, open status and duplicate monetary source controls. Added targeted synthetic cases and updated restoration allowlist/tests atomically. 5 restored sources within 57-row inventory; functional/live parity remains open. V6.38 CI running at inspection; same PR #871; no release.

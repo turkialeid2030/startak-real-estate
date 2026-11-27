@@ -72,6 +72,7 @@ step('TEST_DISCOVERY_AND_REGRESSION', () => {
     'tests/defects/c23_governed_live_ai_provider_gateway.js',
     'tests/defects/c26_governed_operator_workspace_rbac.js',
     'tests/architecture/run_c16_historical_auction_recovery.js',
+    'tests/architecture/run_c13_historical_closing_recovery.js',
     'tests/architecture/run_legacy_57_manifest_integrity.js',
     'tests/architecture/run_startak_re_historic_source_parity_register.js',
     'tests/architecture/run_wave12b_direct_capitalization.js',

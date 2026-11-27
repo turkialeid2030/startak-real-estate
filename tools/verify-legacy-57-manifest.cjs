@@ -6,14 +6,14 @@ const fs=require('node:fs');
 const path=require('node:path');
 const EXPECTED_HEADER='id,old,source_blob,versions,domain,modern_anchor,status,inspection,priority,acceptance';
 const STATUS={
- MODERN_ANCHOR_EXISTS_PARITY_UNVERIFIED:42,
- RESTORED_SOURCE_PARITY_UNVERIFIED:4,
+ MODERN_ANCHOR_EXISTS_PARITY_UNVERIFIED:41,
+ RESTORED_SOURCE_PARITY_UNVERIFIED:5,
  OLD_STAGING_CONTRACT_NOT_PRODUCTION_VAULT:10,
  SAFE_RETIREMENT_REVIEW:1,
 };
 // Explicit reviewed restoration allowlist. Historic blob IDs identify
 // source origins, not byte identity or functional parity of modern code.
-const RESTORED=Object.freeze(Object.fromEntries(Object.entries({"LEG-001":{"path":"src/acquisition/governed-auction-acquisition.js","sourceBlob":"372ade6483fb93cbb0cced9ad7977ea49ec419ab","modernAnchor":"src/acquisition/governed-auction-acquisition.js"},"LEG-002":{"path":"src/app/institutional-valuation-decision-boundary.js","sourceBlob":"0476e599eecfeb760c739bad374bea90b3c4a873","modernAnchor":"src/market/valuation-decision-gate.js"},"LEG-014":{"path":"src/cost/depreciation-attribution-gate.js","sourceBlob":"7f5f4ec8709ae9e0a5a73760f701e84e7ee12a83","modernAnchor":"src/valuation-intelligence/cost-approach.js"},"LEG-054":{"path":"src/valuation-intelligence/market-rate-provenance.js","sourceBlob":"b1bcee33c3bb1d0ae59ed8a21b2eb244c2ba9e8b","modernAnchor":"src/market/comparable-provenance-chain.js"}}).map(([id,record])=>[id,Object.freeze(record)])));
+const RESTORED=Object.freeze(Object.fromEntries(Object.entries({"LEG-008":{"path":"src/closing/governed-encumbrance-mortgage-closing.js","sourceBlob":"a032ce47f78eb77e788fec3bd74c1e73736768d8","modernAnchor":"src/closing/governed-encumbrance-mortgage-closing.js"},"LEG-001":{"path":"src/acquisition/governed-auction-acquisition.js","sourceBlob":"372ade6483fb93cbb0cced9ad7977ea49ec419ab","modernAnchor":"src/acquisition/governed-auction-acquisition.js"},"LEG-002":{"path":"src/app/institutional-valuation-decision-boundary.js","sourceBlob":"0476e599eecfeb760c739bad374bea90b3c4a873","modernAnchor":"src/market/valuation-decision-gate.js"},"LEG-014":{"path":"src/cost/depreciation-attribution-gate.js","sourceBlob":"7f5f4ec8709ae9e0a5a73760f701e84e7ee12a83","modernAnchor":"src/valuation-intelligence/cost-approach.js"},"LEG-054":{"path":"src/valuation-intelligence/market-rate-provenance.js","sourceBlob":"b1bcee33c3bb1d0ae59ed8a21b2eb244c2ba9e8b","modernAnchor":"src/market/comparable-provenance-chain.js"}}).map(([id,record])=>[id,Object.freeze(record)])));
 const MANIFEST='docs/recovery/STARTAK_RE_HISTORIC_SOURCE_CANDIDATES_20261114.csv';
 function fail(reason){throw Error('LEGACY_57_'+reason);}
 function csvFields(line){
