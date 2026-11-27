@@ -3,6 +3,7 @@
 const crypto = require('crypto');
 const {
   API_SECURITY_STATUS,
+  verifyCompletedStagingApiSecurityQualification,
 } = require('./controlled-staging-api-security-qualification');
 const {
   QUALIFICATION_ENVIRONMENT,
@@ -80,10 +81,7 @@ function freeze(value) {
 function canonicalize(value) {
   if (Array.isArray(value)) return value.map(canonicalize);
   if (value && typeof value === 'object') {
-    return Object.keys(value).sort().reduce((result, key) => {
-      if (value[key] !== undefined) result[key] = canonicalize(value[key]);
-      return result;
-    }, {});
+    return Object.fromEntries(Object.keys(value).sort().filter(key=>value[key]!==undefined).map(key=>[key,canonicalize(value[key])]));
   }
   return value;
 }
@@ -288,7 +286,7 @@ function createControlledBackupRestoreQualification({
       && typeof apiSecurityQualification.bundleHashSha256 === 'string'
       && SHA256_RE.test(apiSecurityQualification.bundleHashSha256)
       && apiSecurityQualification.productionQualified === false
-      && apiSecurityQualification.authority?.releaseAuthorized === false,
+      && verifyCompletedStagingApiSecurityQualification(apiSecurityQualification,assessed.value),
     );
     const apiSecurityQualificationRef = apiSecurityComplete
       ? `sha256:${apiSecurityQualification.bundleHashSha256.toLowerCase()}`
@@ -348,7 +346,7 @@ function createControlledBackupRestoreQualification({
       return makeResult({ status: BACKUP_RESTORE_STATUS.HOLD_BACKUP, plan, authorization: auth });
     }
 
-    if (Date.parse(backup.startedAt) < Math.max(Date.parse(auth.approvedAt),retrospective ? -Infinity : assessed.millis) || Date.parse(backup.finishedAt)>evidenceCutoff()) {
+    if (Date.parse(backup.startedAt) < Math.max(Date.parse(auth.approvedAt),Date.parse(apiSecurityQualification.apiEvidence.testedAt),retrospective ? -Infinity : assessed.millis) || Date.parse(backup.finishedAt)>evidenceCutoff()) {
       return makeResult({ status: BACKUP_RESTORE_STATUS.HOLD_BACKUP, plan, authorization: auth, backup });
     }
     let restore;

@@ -7,6 +7,7 @@ const {
 const {
   API_SECURITY_STATUS,
   createControlledStagingApiSecurityQualification,
+  verifyCompletedStagingApiSecurityQualification,
 } = require('../../src/qualification/controlled-staging-api-security-qualification');
 
 const results = [];
@@ -290,6 +291,21 @@ function assertAuthorityClosed(result) {
     const {executor}=successfulRequestExecutor({tenantA:{statusCode:200,body:{data}}});const {inspector}=successfulAdminInspector();
     const qualify=createControlledStagingApiSecurityQualification({requestExecutor:executor,adminInspector:inspector});
     assert.strictEqual((await qualify(baseInput())).status,status);
+  });
+  await test('P15-V627-REVALIDATE-ACTUAL-RESULT',async()=>{
+    const {executor}=successfulRequestExecutor();const {inspector}=successfulAdminInspector();
+    const qualify=createControlledStagingApiSecurityQualification({requestExecutor:executor,adminInspector:inspector});
+    const out=await qualify(baseInput());
+    assert.strictEqual(verifyCompletedStagingApiSecurityQualification(JSON.parse(JSON.stringify(out)),baseInput().testedAt),true);
+    assert.strictEqual(verifyCompletedStagingApiSecurityQualification(out,'2026-09-09T15:49:00Z'),false);
+    for(const [field,patch] of [['apiEvidence',{observedStatusCodes:{...out.apiEvidence.observedStatusCodes,crossTenant:200}}],['apiEvidence',{checks:{...out.apiEvidence.checks,crossTenantReadDenied:false}}],['adminApplicationPathEvidence',{targetDatabaseRef:'other'}],['adminApplicationPathEvidence',{nonAdminFailureCode:'UNEXPECTED_ERROR'}],['adminApplicationPathEvidence',{databaseOwnerOrBypassRlsPathTestedHere:true}]]){
+      const stage={...out[field],...patch};const {evidenceRef,productionSecurityVerifiedByThisModule,...core}=stage;
+      stage.evidenceRef=(field==='apiEvidence'?'api-idor-bola':'admin-application-path')+':sha256:'+digest(core);
+      const changed={...out,[field]:stage,[field+'Ref']:stage.evidenceRef};
+      const bundleCore=Object.fromEntries(['schemaVersion','status','environment','targetApiRef','targetDatabaseRef','workspaceId','postgresQualificationRef','apiEvidenceRef','adminApplicationPathEvidenceRef'].map(k=>[k,changed[k]]));
+      changed.bundleHashSha256=digest(bundleCore);
+      assert.strictEqual(verifyCompletedStagingApiSecurityQualification(changed,baseInput().testedAt),false);
+    }
   });
   const failed = results.filter((entry) => entry[1] !== 'PASS');
   console.log(`PRODUCTIZATION_P15_STAGING_API_SECURITY_QUALIFICATION_RESULT=${failed.length === 0 ? 'PASS' : 'FAIL'} ${results.filter((entry) => entry[1] === 'PASS').length}/${results.length}`);

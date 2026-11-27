@@ -26,17 +26,15 @@ async function test(id, fn) {
   }
 }
 
+const digest=v=>require('node:crypto').createHash('sha256').update(JSON.stringify(v)).digest('hex');
 function apiSecurityQualification(overrides = {}) {
-  return {
-    status: API_SECURITY_STATUS.STAGING_API_SECURITY_EVIDENCE_COMPLETE_NOT_PRODUCTION_CERTIFIED,
-    environment: 'staging',
-    targetApiRef: 'staging-api-ref',
-    targetDatabaseRef: 'staging-db-ref',
-    bundleHashSha256: 'b'.repeat(64),
-    productionQualified: false,
-    authority: { releaseAuthorized: false },
-    ...overrides,
-  };
+ const environment='staging',targetApiRef='staging-api-ref',targetDatabaseRef='staging-db-ref',workspaceId='workspace-1',testedAt='2026-09-09T15:50:00.000Z',postgresQualificationRef='sha256:'+'a'.repeat(64);
+ const apiCore={schemaVersion:1,environment,targetApiRef,workspaceId,testedAt,checks:{tenantAReadAllowed:true,crossTenantReadDenied:true,unauthenticatedReadDenied:true,objectReferenceNotDisclosedCrossTenant:true},observedStatusCodes:{tenantA:200,crossTenant:404,unauthenticated:401}};
+ const adminCore={schemaVersion:1,environment,targetApiRef,targetDatabaseRef,workspaceId,testedAt,checks:{adminReadOnlyInspectionAllowed:true,adminScopeMatchesWorkspace:true,nonAdminInspectionDenied:true,privilegedApplicationPathDoesNotClaimProduction:true},adminFailureCode:null,nonAdminFailureCode:'ROLE_NOT_AUTHORIZED',ownerOrAdminApplicationPathTested:true,databaseOwnerOrBypassRlsPathTestedHere:false};
+ const apiEvidence={...apiCore,evidenceRef:'api-idor-bola:sha256:'+digest(apiCore),productionSecurityVerifiedByThisModule:false};
+ const adminApplicationPathEvidence={...adminCore,evidenceRef:'admin-application-path:sha256:'+digest(adminCore),productionSecurityVerifiedByThisModule:false};
+ const core={schemaVersion:1,status:API_SECURITY_STATUS.STAGING_API_SECURITY_EVIDENCE_COMPLETE_NOT_PRODUCTION_CERTIFIED,environment,targetApiRef,targetDatabaseRef,workspaceId,postgresQualificationRef,apiEvidenceRef:apiEvidence.evidenceRef,adminApplicationPathEvidenceRef:adminApplicationPathEvidence.evidenceRef};
+ return {...core,apiEvidence,adminApplicationPathEvidence,bundleHashSha256:digest(core),productionQualified:false,authority:{releaseAuthorized:false,mergeAuthorized:false,deploymentAuthorized:false,goLiveAuthorized:false,transactionAuthorized:false,productionAuthenticationValidated:false,productionPersistenceValidated:false,productionSecurityValidated:false},semantics:'This controlled staging/preproduction qualification exercises read-only API object-isolation checks and an authenticated ADMIN-only application inspection path. It does not perform destructive testing, certify database owner/admin governance, replace penetration testing, establish production security, or authorize release, merge, deployment, go-live, or transactions.',...overrides};
 }
 
 function authorization(overrides = {}) {
@@ -329,6 +327,13 @@ function assertAuthorityClosed(result) {
   await test('P16-UNSAFE-COUNT',async()=>{
     const {qualify}=buildHarness({verificationValue:verificationResult({sourceRecordCount:Number.MAX_SAFE_INTEGER+1,restoredRecordCount:Number.MAX_SAFE_INTEGER+1})});
     assert.strictEqual((await qualify(baseInput())).status,BACKUP_RESTORE_STATUS.HOLD_VERIFICATION);
+  });
+  const source=apiSecurityQualification();
+  for(const [id,patch] of [['MISSING-API',{apiEvidence:null}],['MISSING-ADMIN',{adminApplicationPathEvidence:null}],['AUTHORITY',{authority:{...source.authority,mergeAuthorized:true}}],['BUNDLE',{bundleHashSha256:'0'.repeat(64)}],['REF',{postgresQualificationRef:'invalid'}]]){
+    await test('P16-V627-'+id,async()=>{const {qualify,calls}=buildHarness();const out=await qualify(baseInput({apiSecurityQualification:{...source,...patch}}));assert.strictEqual(out.status,BACKUP_RESTORE_STATUS.HOLD_API_SECURITY_QUALIFICATION);assert.strictEqual(calls.backup.length,0);});
+  }
+  await test('P16-V627-PREDECESSOR-TIME',async()=>{
+    const {qualify,calls}=buildHarness();const out=await qualify(baseInput({assessedAt:'2026-09-09T15:49:00Z'}));assert.strictEqual(out.status,BACKUP_RESTORE_STATUS.HOLD_API_SECURITY_QUALIFICATION);assert.strictEqual(calls.backup.length,0);
   });
   const failed = results.filter((entry) => entry[1] !== 'PASS');
   console.log(`PRODUCTIZATION_P16_BACKUP_RESTORE_QUALIFICATION_RESULT=${failed.length === 0 ? 'PASS' : 'FAIL'} ${results.filter((entry) => entry[1] === 'PASS').length}/${results.length}`);

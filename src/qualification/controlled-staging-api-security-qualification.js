@@ -369,10 +369,39 @@ function createControlledStagingApiSecurityQualification({
   };
 }
 
+// Structural revalidation of the P15 evidence envelope, not authentication
+// of the external API, role identities or the separately retained P14 source.
+function verifyCompletedStagingApiSecurityQualification(value,asOf){
+ try{
+  const exact=(v,keys)=>!!v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).length===keys.length&&keys.every(k=>Object.hasOwn(v,k));
+  const allTrue=(v,keys)=>exact(v,keys)&&keys.every(k=>v[k]===true);
+  if(value?.schemaVersion!==1||value.status!==API_SECURITY_STATUS.STAGING_API_SECURITY_EVIDENCE_COMPLETE_NOT_PRODUCTION_CERTIFIED||
+    value.productionQualified!==false||!exact(value.authority,Object.keys(AUTHORITY))||Object.keys(AUTHORITY).some(k=>value.authority[k]!==false))return false;
+  const {environment,targetApiRef,targetDatabaseRef,workspaceId,postgresQualificationRef,apiEvidence:a,adminApplicationPathEvidence:b}=value;
+  if(normalizeEnvironment(environment)!==environment||requiredString(targetApiRef,'targetApiRef')!==targetApiRef||requiredString(targetDatabaseRef,'targetDatabaseRef')!==targetDatabaseRef||normalizeWorkspaceId(workspaceId)!==workspaceId||typeof postgresQualificationRef!=='string'||!/^sha256:[a-f0-9]{64}$/.test(postgresQualificationRef))return false;
+  const apiKeys=['schemaVersion','environment','targetApiRef','workspaceId','testedAt','checks','observedStatusCodes'];
+  const adminKeys=['schemaVersion','environment','targetApiRef','targetDatabaseRef','workspaceId','testedAt','checks','adminFailureCode','nonAdminFailureCode','ownerOrAdminApplicationPathTested','databaseOwnerOrBypassRlsPathTestedHere'];
+  for(const [stage,keys,prefix] of [[a,apiKeys,'api-idor-bola'],[b,adminKeys,'admin-application-path']]){
+   if(!exact(stage,[...keys,'evidenceRef','productionSecurityVerifiedByThisModule'])||stage.schemaVersion!==1||stage.environment!==environment||stage.targetApiRef!==targetApiRef||stage.workspaceId!==workspaceId||stage.productionSecurityVerifiedByThisModule!==false)return false;
+   const core=Object.fromEntries(keys.map(k=>[k,stage[k]]));
+   if(stage.evidenceRef!==buildEvidenceRef(prefix,core))return false;
+  }
+  const at=Date.parse(asOf),tested=Date.parse(a.testedAt);
+  if(typeof asOf!=='string'||typeof a.testedAt!=='string'||!Number.isFinite(at)||!Number.isFinite(tested)||at>Date.now()||tested>at||b.testedAt!==a.testedAt||b.targetDatabaseRef!==targetDatabaseRef)return false;
+  if(!allTrue(a.checks,['tenantAReadAllowed','crossTenantReadDenied','unauthenticatedReadDenied','objectReferenceNotDisclosedCrossTenant'])||
+    !exact(a.observedStatusCodes,['tenantA','crossTenant','unauthenticated'])||a.observedStatusCodes.tenantA!==200||![403,404].includes(a.observedStatusCodes.crossTenant)||a.observedStatusCodes.unauthenticated!==401)return false;
+  if(!allTrue(b.checks,['adminReadOnlyInspectionAllowed','adminScopeMatchesWorkspace','nonAdminInspectionDenied','privilegedApplicationPathDoesNotClaimProduction'])||
+    b.adminFailureCode!==null||!['ROLE_NOT_AUTHORIZED','ACTION_NOT_IN_POLICY','FORBIDDEN'].includes(b.nonAdminFailureCode)||b.ownerOrAdminApplicationPathTested!==true||b.databaseOwnerOrBypassRlsPathTestedHere!==false)return false;
+  const expected=buildResult({status:value.status,environment,targetApiRef,targetDatabaseRef,workspaceId,postgresQualificationRef,apiEvidence:structuredClone(a),adminApplicationPathEvidence:structuredClone(b)});
+  return exact(value,Object.keys(expected))&&value.bundleHashSha256===expected.bundleHashSha256&&value.apiEvidenceRef===expected.apiEvidenceRef&&value.adminApplicationPathEvidenceRef===expected.adminApplicationPathEvidenceRef&&value.semantics===expected.semantics;
+ }catch{return false;}
+}
+
 module.exports = {
   API_SECURITY_STATUS,
   AUTHORITY,
   ALLOWED_ENVIRONMENTS,
   defaultRequestExecutor,
   createControlledStagingApiSecurityQualification,
+  verifyCompletedStagingApiSecurityQualification,
 };
