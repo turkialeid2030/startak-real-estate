@@ -153,3 +153,6 @@ V6.34 Release 716/716, 18/18 named evidence, DCF 91 checks PASS. Revalidate reta
 
 ## V6.36 shared JSON boundary for AI and operator workflows
 V6.35 Release 716/716, 18/18 named evidence; financing 136 checks PASS. Shared validation rejects non-JSON ambiguity before hashing and provider snapshot, operator payload/session/action evaluation. C23/C26 required named evidence, 20 scripts. Synthetic tests only; live provider/IAM, history reconciliation and secret remediation remain open. Same PR #871.
+
+## V6.37 C16 historical auction recovery
+V6.36 Release 716/716 and 20/20 evidence PASS; AI/operator boundary tests PASS. Restored LEG-001 C16 source after comparing original blob with modern acquisition basis, hardened semantic integrity, causal review and registration window. Targeted synthetic suite added to required evidence. No real auction participation or UI activation. Same PR #871.

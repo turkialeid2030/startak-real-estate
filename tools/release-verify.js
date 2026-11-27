@@ -71,6 +71,7 @@ step('TEST_DISCOVERY_AND_REGRESSION', () => {
     'tests/architecture/run_wave12a_professional_income_noi.js',
     'tests/defects/c23_governed_live_ai_provider_gateway.js',
     'tests/defects/c26_governed_operator_workspace_rbac.js',
+    'tests/architecture/run_c16_historical_auction_recovery.js',
     'tests/architecture/run_wave12b_direct_capitalization.js',
     'tests/architecture/run_wave12c_professional_dcf.js',
     'tests/architecture/run_riai_ai_gateway_guardrails_unit_v1.js',
