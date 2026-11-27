@@ -83,7 +83,7 @@ const OFFICIAL_SOURCE_REGISTRY = Object.freeze({
 });
 
 function getOfficialSource(sourceId) {
-  return OFFICIAL_SOURCE_REGISTRY[sourceId] || null;
+  return typeof sourceId==='string'&&Object.hasOwn(OFFICIAL_SOURCE_REGISTRY,sourceId)?OFFICIAL_SOURCE_REGISTRY[sourceId]:null;
 }
 
 function sourceSupportsEvidenceType(sourceId, evidenceType) {

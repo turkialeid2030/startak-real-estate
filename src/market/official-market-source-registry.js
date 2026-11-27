@@ -110,7 +110,7 @@ const OFFICIAL_MARKET_SOURCE_REGISTRY = Object.freeze({
 });
 
 function getOfficialMarketSource(sourceId) {
-  return OFFICIAL_MARKET_SOURCE_REGISTRY[sourceId] || null;
+  return typeof sourceId==='string'&&Object.hasOwn(OFFICIAL_MARKET_SOURCE_REGISTRY,sourceId)?OFFICIAL_MARKET_SOURCE_REGISTRY[sourceId]:null;
 }
 
 function marketSourceSupportsEvidenceType(sourceId, evidenceType) {
@@ -124,7 +124,7 @@ function officialMarketUrlMatchesSource(sourceId, urlText) {
   try {
     const parsed = new URL(urlText.trim());
     const hostname = parsed.hostname.toLowerCase();
-    return parsed.protocol === 'https:' && source.officialDomains.includes(hostname);
+    return parsed.protocol === 'https:' && !parsed.username && !parsed.password && !parsed.port && source.officialDomains.includes(hostname);
   } catch (_) {
     return false;
   }

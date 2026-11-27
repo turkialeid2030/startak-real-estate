@@ -153,7 +153,7 @@ const CANONICAL_SOURCE_PROVIDER_REGISTRY = Object.freeze({
 });
 
 function getCanonicalSourceProvider(sourceProvider) {
-  return CANONICAL_SOURCE_PROVIDER_REGISTRY[sourceProvider] || null;
+  return typeof sourceProvider==='string'&&Object.hasOwn(CANONICAL_SOURCE_PROVIDER_REGISTRY,sourceProvider)?CANONICAL_SOURCE_PROVIDER_REGISTRY[sourceProvider]:null;
 }
 
 function sourceUrlMatchesProvider(provider, urlText) {
