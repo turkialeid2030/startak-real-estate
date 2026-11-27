@@ -4,6 +4,7 @@
 const crypto=require('node:crypto');
 const {strictCalendarDateMs}=require('../validation/strict-calendar-instant');
 const {isPlainJson}=require('../validation/plain-json-boundary');
+const {verifySignedRestoreInventory}=require('./signed-restore-inventory');
 const MAX_BYTES=20*1024*1024;
 const VERSION='STARTAK_PRIVATE_APPRAISAL_VAULT_CONTRACT_V1';
 // New envelopes authenticate the immutable metadata with GCM AAD.
@@ -50,11 +51,12 @@ function versionedKey(record,tenant,expectedRef=null){
  if(!record||typeof record!=='object'||record.tenantId!==tenant||typeof record.keyRef!=='string'||!REF.test(record.keyRef)||!Buffer.isBuffer(record.keyBytes)||record.keyBytes.length!==32||(expectedRef!==null&&record.keyRef!==expectedRef))throw Error('EXTERNAL_KMS_KEY_SCOPE_OR_VERSION_INVALID');
  return {keyRef:record.keyRef,key:Buffer.from(record.keyBytes)};
 }
-function makePrivateAppraisalVault({adapter,keyProvider,keyring,authorizeActor,restoreInventoryProvider,clock=()=>new Date()}={}){
+function makePrivateAppraisalVault({adapter,keyProvider,keyring,authorizeActor,restoreInventoryProvider,restoreInventoryTrust,clock=()=>new Date()}={}){
  if(!adapter||typeof adapter.get!=='function'||typeof adapter.putIfAbsent!=='function'||
   (typeof keyProvider!=='function'&&!keyring)||typeof authorizeActor!=='function'||typeof clock!=='function'||
   (keyring!==undefined&&(!keyring||typeof keyring.activeKey!=='function'||typeof keyring.resolveKey!=='function'))||
-  (restoreInventoryProvider!==undefined&&typeof restoreInventoryProvider!=='function'))
+  (restoreInventoryProvider!==undefined&&typeof restoreInventoryProvider!=='function')||
+  (restoreInventoryTrust!==undefined&&(!restoreInventoryTrust||typeof restoreInventoryTrust.resolveSigner!=='function'||!Number.isSafeInteger(restoreInventoryTrust.maxAgeSeconds)||restoreInventoryTrust.maxAgeSeconds<1||restoreInventoryTrust.maxAgeSeconds>31536000)))
   throw Error('TRUSTED_ADAPTER_KMS_AND_SERVER_AUTHORIZER_REQUIRED');
  const idOf=storageId;
  async function writeKey(tenant){return keyring?versionedKey(await keyring.activeKey(tenant),tenant):{keyRef:null,key:keyFrom(keyProvider,tenant)};}
@@ -143,6 +145,12 @@ function makePrivateAppraisalVault({adapter,keyProvider,keyring,authorizeActor,r
   const held=(reason)=>Object.freeze({status:'HOLD_RESTORE_VERIFICATION',reason,verifiedCount:0,expectedCount:null,independentBackupAuthenticityEstablished:false,productionRecoveryVerified:false,releaseAuthorized:false});
   if(!restoreInventoryProvider)return held('TRUSTED_RESTORE_INVENTORY_PROVIDER_REQUIRED');
   let inventory;try{inventory=await restoreInventoryProvider({tenantId,caseRef,inventoryRef});}catch{return held('RESTORE_INVENTORY_UNAVAILABLE');}
+  let signedProof=null;
+  if(restoreInventoryTrust){
+   signedProof=await verifySignedRestoreInventory(inventory,{tenantId,caseRef,inventoryRef,resolveSigner:restoreInventoryTrust.resolveSigner,maxAgeSeconds:restoreInventoryTrust.maxAgeSeconds,now:clock()});
+   if(!signedProof.signatureVerified)return held(signedProof.reason);
+   inventory=signedProof.inventory;
+  }
   if(!isPlainJson(inventory)||!inventory||inventory.tenantId!==tenantId||inventory.caseRef!==caseRef||inventory.inventoryRef!==inventoryRef||!Array.isArray(inventory.entries)||!inventory.entries.length||inventory.entries.length>500)return held('RESTORE_INVENTORY_INVALID');
   const seen=new Set();
   for(const e of inventory.entries){
@@ -155,7 +163,7 @@ function makePrivateAppraisalVault({adapter,keyProvider,keyring,authorizeActor,r
    try{const result=await read({actor,tenantId,caseRef,evidenceRef:e.evidenceRef});try{if(result.found&&result.sha256===e.sha256)verified++;}finally{if(Buffer.isBuffer(result.sourceBytes))result.sourceBytes.fill(0);}}
    catch{/* Do not disclose individual storage or authorization failure details. */}
   }
-  return Object.freeze({status:verified===entries.length?'RESTORED_EXPECTED_INVENTORY_MATCHED':'HOLD_RESTORE_VERIFICATION',reason:verified===entries.length?null:'RESTORE_INVENTORY_MISMATCH_OR_ACCESS_DENIED',verifiedCount:verified,expectedCount:entries.length,inventoryBindingSha256:digest(Buffer.from(JSON.stringify([tenantId,caseRef,inventoryRef,entries]))),independentBackupAuthenticityEstablished:false,productionRecoveryVerified:false,releaseAuthorized:false});
+  return Object.freeze({status:verified===entries.length?(signedProof?'RESTORED_SIGNED_EXPECTED_INVENTORY_MATCHED':'RESTORED_EXPECTED_INVENTORY_MATCHED'):'HOLD_RESTORE_VERIFICATION',reason:verified===entries.length?null:'RESTORE_INVENTORY_MISMATCH_OR_ACCESS_DENIED',verifiedCount:verified,expectedCount:entries.length,inventorySignatureVerified:!!signedProof,verifiedSignedInventoryHashSha256:signedProof?.inventoryHashSha256??null,inventoryBindingSha256:digest(Buffer.from(JSON.stringify([tenantId,caseRef,inventoryRef,entries]))),independentBackupAuthenticityEstablished:false,productionRecoveryVerified:false,releaseAuthorized:false});
  }
  return Object.freeze({put,read,verifyRestoredInventory,version:VERSION,institutionalDeploymentVerified:false});
 }
