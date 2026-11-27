@@ -3,7 +3,9 @@
 const {
   FINANCIAL_TIMING_BASIS_VERSION,
   FINANCIAL_TIMING_CONVENTION,
+  buildFinancialTimingBasis,
 } = require('../contracts/financial-timing-basis');
+const { STUDY_TYPE } = require('../contracts/study-type');
 
 const FINANCIAL_TIMING_REPORT_SCHEMA_VERSION = 1;
 
@@ -59,7 +61,20 @@ function requireTimingBasis(result) {
   if (timing.version !== FINANCIAL_TIMING_BASIS_VERSION) {
     throw new TypeError(`Unsupported timing basis version: ${timing.version}`);
   }
-  return timing;
+  // A version label alone does not establish a consistent timing contract.
+  const candidates = [STUDY_TYPE.EXISTING_BUILDING, STUDY_TYPE.LAND_DEVELOPMENT];
+  const matches = candidates.filter(type => {
+    const expected = buildFinancialTimingBasis(type);
+    return Object.keys(expected).filter(key => key !== 'semantics').every(key => {
+      const descriptor = Object.getOwnPropertyDescriptor(timing, key);
+      return descriptor && Object.hasOwn(descriptor, 'value') && descriptor.value === expected[key];
+    });
+  });
+  if (matches.length !== 1 || (result.studyType != null && result.studyType !== matches[0])) {
+    throw new TypeError('Invalid or inconsistent financial timing basis');
+  }
+  // Return canonical immutable data, not a caller-controlled object.
+  return buildFinancialTimingBasis(matches[0]);
 }
 
 function row(code, label, value, applicable = true) {
