@@ -57,6 +57,7 @@ function assessTitleCrossDocumentConsistency(input = {}) {
   if (!Array.isArray(facts)||facts.length>5000) throw new TypeError('TITLE_FACTS_ARRAY_REQUIRED_OR_LIMIT');
   const asOfMs = dateMs(asOf);
   if (!Number.isFinite(asOfMs)) throw new TypeError('VALUATION_DATE_REQUIRED');
+  if(asOfMs>Date.now())return result(STATUS.HOLD_TEMPORAL_EVIDENCE,caseId,propertyId,asOf,['TITLE_AS_OF_IN_FUTURE'],[]);
   if (!maxAgeDaysBySourceType || typeof maxAgeDaysBySourceType !== 'object' || Array.isArray(maxAgeDaysBySourceType)) {
     throw new TypeError('EXPLICIT_SOURCE_FRESHNESS_POLICY_REQUIRED');
   }
@@ -70,10 +71,12 @@ function assessTitleCrossDocumentConsistency(input = {}) {
   // parcel and area alone. This base check also fails on contradictory values.
   // A supplied legal finding must not be silently ignored because its value
   // is a string, unknown, or unverified. Absence of a finding is not clearance.
-  const malformed=[];
+  const malformed=[],recordKeys=new Set();
   for(const f of facts){
     if(!f||typeof f!=='object'||f.caseId!==caseId||f.propertyId!==propertyId)
       throw new TypeError('PROPERTY_OR_CASE_ISOLATION_VIOLATION');
+    const recordKey=JSON.stringify([f.key,f.sourceType,f.sourceRef,f.observedAt]);
+    if(recordKeys.has(recordKey))malformed.push('TITLE_DUPLICATE_SOURCE_FACT');recordKeys.add(recordKey);
     if(typeof f.key!=='string'||!f.key.trim()||!Object.values(TITLE_FACT_STATUS).includes(f.status))
       malformed.push('TITLE_FACT_SCHEMA_INVALID');
     if(f.sourceRef!=null&&(typeof f.sourceRef!=='string'||f.sourceRef.trim()!==f.sourceRef||!f.sourceRef||f.sourceRef.length>512))

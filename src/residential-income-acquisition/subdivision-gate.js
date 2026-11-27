@@ -1,8 +1,7 @@
 'use strict';
 const {strictCalendarDateMs}=require('../validation/strict-calendar-instant');
-const {isSafeStrategicCase,lineageIssues}=require('./strategic-evidence-governance');
+const {isSafeStrategicCase,lineageIssues,sameCanonicalStrategicValue}=require('./strategic-evidence-governance');
 const {createEvidenceAwareValue}=require('./contracts');
-const {hashValue}=require('../source-intelligence/source-provenance-governance');
 const sourceKinds=new Set(['SOURCE_DOCUMENT','EVIDENCE_FACT','HUMAN_VERIFICATION','LEGAL_REVIEW']);
 
 const SUBDIVISION_CHECK_TYPE = Object.freeze({
@@ -101,7 +100,7 @@ function assessCheck(checkType, input, lineageByRef, asOfDate, canonical=false) 
     };
   }
 
-  if(canonical){try{const digest=hashValue(input);if(!digest||digest!==hashValue(createEvidenceAwareValue(input)))throw Error();}catch{issues.push({code:'SUBDIVISION_CANONICAL_INPUT_REQUIRED',field,checkType});}}
+  if(canonical){try{if(!sameCanonicalStrategicValue(input,createEvidenceAwareValue(input)))throw Error();}catch{issues.push({code:'SUBDIVISION_CANONICAL_INPUT_REQUIRED',field,checkType});}}
   if(input.unit!==null||!finite(input.confidence)||input.confidence<0||input.confidence>1)issues.push({code:'SUBDIVISION_UNIT_OR_CONFIDENCE_INVALID',field,checkType});
   if (input.field !== field) issues.push({ code: 'SUBDIVISION_CHECK_FIELD_MISMATCH', field, checkType });
   if (!Object.values(SUBDIVISION_CHECK_OUTCOME).includes(input.value)) {

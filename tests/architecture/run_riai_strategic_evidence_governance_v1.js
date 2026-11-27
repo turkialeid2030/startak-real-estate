@@ -126,7 +126,14 @@ const passedGate = {
   status: SUBDIVISION_ASSESSMENT_STATUS.FEASIBLE_FOR_SCENARIO_TESTING,
   scenarioTestingEligible: true,
 };
-const passedBundle = calculateLifecycleLocationUpsideIntelligence(subdivisionCase, { subdivisionGate: passedGate });
+const spoofedBundle=calculateLifecycleLocationUpsideIntelligence(subdivisionCase,{subdivisionGate:passedGate});
+assert.strictEqual(spoofedBundle.upside.catalysts[0].effectiveProbability,0);
+assert.strictEqual(spoofedBundle.upside.metrics.eligibleCatalystCount,0);
+const {REQUIRED_SUBDIVISION_CHECK_TYPES}=require('../../src/residential-income-acquisition/subdivision-gate');
+const verifiedChecks=REQUIRED_SUBDIVISION_CHECK_TYPES.map(k=>input('subdivision.check.'+k+'.outcome','PASS'));
+const verifiedInputs=[...subdivisionInputs,...verifiedChecks];
+const verifiedCase={...subdivisionCase,additionalOperatingInputs:verifiedInputs,evidenceLineage:lineageFor(verifiedInputs)};
+const passedBundle = calculateLifecycleLocationUpsideIntelligence(verifiedCase, { subdivisionGate: passedGate });
 assert.strictEqual(passedBundle.upside.catalysts[0].effectiveProbability, 0.8);
 assert.strictEqual(passedBundle.upside.metrics.eligibleCatalystCount, 1);
 assert.strictEqual(passedBundle.upside.catalysts[0].subdivisionScenarioTestingEligible, true);

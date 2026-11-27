@@ -96,6 +96,7 @@ step('TEST_DISCOVERY_AND_REGRESSION', () => {
     'tests/architecture/run_riai_ai_gateway_guardrails_unit_v1.js',
     'tests/architecture/run_riai_qualitative_output.js',
     'tests/architecture/run_riai_subdivision_gate_v1.js',
+    'tests/architecture/run_riai_strategic_evidence_governance_v1.js',
     'tests/architecture/run_residential_income_lifecycle_location_upside_v1.js',
     'tests/runtime/run_riai_openai_responses_adapter.js',
     'tests/runtime/run_riai_client_redirect_boundary.js',

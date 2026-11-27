@@ -52,6 +52,7 @@ function assessGuardedPlotEnvelope(input={}){
   if(typeof caseId!=='string'||!caseId.trim()||
      typeof propertyRef!=='string'||!propertyRef.trim())throw Error('CASE_PROPERTY_ID_REQUIRED');
   if(!validDate(evaluatedAt))throw Error('EVALUATION_DATE_REQUIRED');
+  if(strictCalendarDateMs(evaluatedAt)>Date.now())return output(STATUS.HOLD_BINDING,caseId,propertyRef,['EVALUATION_DATE_IN_FUTURE']);
   if(!nonnegative(maxAreaDifferenceSqm))throw Error('EXPLICIT_AREA_TOLERANCE_REQUIRED');
   if(!nonnegative(geometryMaxAgeDays)||!Number.isFinite(geometryMaxAgeDays*86400000))throw Error('EXPLICIT_GEOMETRY_FRESHNESS_POLICY_REQUIRED');
   const bad=(status,...reasons)=>output(status,caseId,propertyRef,reasons);
@@ -130,6 +131,8 @@ function assessGuardedPlotEnvelope(input={}){
   if(!surveyAreaRefs.has(geometry.sourceRef)||
      !surveyParcelRefs.has(geometry.sourceRef))
     return bad(STATUS.HOLD_GEOMETRY,'SURVEY_GEOMETRY_SOURCE_REFERENCE_MISMATCH');
+  const matchedSurvey=titleFacts.filter(f=>f.sourceType==='SURVEY'&&f.sourceRef===geometry.sourceRef&&f.status==='VERIFIED'&&['propertyAreaSqm','parcelOrPlotId'].includes(f.key));
+  if(matchedSurvey.some(f=>strictCalendarDateMs(f.observedAt)<strictCalendarDateMs(geometry.observedAt)))return bad(STATUS.HOLD_GEOMETRY,'SURVEY_REFERENCE_PREDATES_GEOMETRY');
   const titleAreas=titleFacts.filter(f=>f.key==='propertyAreaSqm'&&
       f.status==='VERIFIED').map(f=>f.value);
   if(titleAreas.length<2||!titleAreas.every(v=>positive(v)&&
@@ -158,12 +161,14 @@ function assessGuardedPlotEnvelope(input={}){
   const width=geometry.widthM-sb.left-sb.right;
   const depth=geometry.depthM-sb.front-sb.rear;
   const setbackFootprint=Math.max(0,width)*Math.max(0,depth);
-  const bcrFootprint=geometry.landAreaSqm*bcr.value;
+  // Tolerance permits review of minor differences, never an increase in capacity.
+  const conservativeArea=Math.min(area,geometry.landAreaSqm,...titleAreas);
+  const bcrFootprint=conservativeArea*bcr.value;
   const cappedFootprint=Math.min(setbackFootprint,bcrFootprint);
-  const farArea=geometry.landAreaSqm*far.value;
+  const farArea=conservativeArea*far.value;
   const values=[width,depth,setbackFootprint,bcrFootprint,cappedFootprint,farArea];
   if(!values.every(Number.isFinite))return bad(STATUS.HOLD_GEOMETRY,'NUMERIC_OVERFLOW');
-  const calculations={rectangleAreaSqm:area,declaredAreaSqm:geometry.landAreaSqm,
+  const calculations={rectangleAreaSqm:area,declaredAreaSqm:geometry.landAreaSqm,governingAreaSqm:conservativeArea,
     buildableWidthM:width,buildableDepthM:depth,setbackFootprintSqm:setbackFootprint,
     bcrFootprintCapSqm:bcrFootprint,governingFootprintSqm:cappedFootprint,
     farGrossFloorAreaCapSqm:farArea};
@@ -171,6 +176,6 @@ function assessGuardedPlotEnvelope(input={}){
     ?STATUS.CANDIDATE_FOR_INDEPENDENT_PLANNING_REVIEW:STATUS.INFEASIBLE;
   return output(resultStatus,caseId,propertyRef,
     resultStatus===STATUS.INFEASIBLE?['NO_POSITIVE_BUILDABLE_CAPACITY']:[],
-    calculations,[...sourceRefs,{type:'RECTANGULAR_GEOMETRY',sourceRef:geometry.sourceRef}]);
+    calculations,[...sourceRefs,{type:'RECTANGULAR_GEOMETRY',sourceRef:geometry.sourceRef},{type:'SOURCE_INPUT_REPLAY_BINDING',sourceRef:sha({caseId,propertyRef,evaluatedAt,planningEvidenceSetHashSha256,geometry,titleFacts,titleFreshnessPolicy,maxAreaDifferenceSqm,geometryMaxAgeDays})}]);
 }
 module.exports={STATUS,assessGuardedPlotEnvelope};

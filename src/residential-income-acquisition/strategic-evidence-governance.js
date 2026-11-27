@@ -2,8 +2,9 @@
 const {assertPlainJson}=require('../validation/plain-json-boundary');
 const {strictCalendarDateMs}=require('../validation/strict-calendar-instant');
 const {createEvidenceAwareValue,createEvidenceLineageRecord}=require('./contracts');
-const {hashValue}=require('../source-intelligence/source-provenance-governance');
-const same=(a,b)=>{const h=hashValue(a);return !!h&&h===hashValue(b);};
+const stable=v=>Array.isArray(v)?v.map(stable):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,stable(v[k])])):v;
+function sameCanonicalStrategicValue(a,b){try{assertPlainJson(a);assertPlainJson(b);return JSON.stringify(stable(a))===JSON.stringify(stable(b));}catch{return false;}}
+const same=sameCanonicalStrategicValue;
 function isSafeStrategicCase(x){try{assertPlainJson(x,{maxNodes:500000});return !!x&&typeof x==='object'&&!Array.isArray(x)&&typeof x.caseId==='string'&&!!x.caseId.trim()&&Array.isArray(x.additionalOperatingInputs)&&x.additionalOperatingInputs.length<=5000&&Array.isArray(x.evidenceLineage)&&x.evidenceLineage.length<=10000;}catch{return false;}}
 function lineageIssues(operatingCase){
  const issues=[],seen=new Set(),cutoff=strictCalendarDateMs(operatingCase.asOfDate),canonical=operatingCase.contractType==='RESIDENTIAL_INCOME_OPERATING_CASE_V1';
@@ -214,7 +215,7 @@ function createEvidenceGovernedStrategicCase(operatingCase, _claimedGovernance) 
 module.exports = {
   STRATEGIC_EVIDENCE_STATUS,
   STRATEGIC_INPUT_PREFIXES,
-  isSafeStrategicCase,lineageIssues,
+  isSafeStrategicCase,lineageIssues,sameCanonicalStrategicValue,
   assessStrategicEvidenceGovernance,
   createEvidenceGovernedStrategicCase,
 };
