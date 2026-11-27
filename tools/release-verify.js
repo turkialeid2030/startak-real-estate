@@ -79,6 +79,7 @@ step('TEST_DISCOVERY_AND_REGRESSION', () => {
     'tests/architecture/run_c8_c9_input_boundary_hardening.js',
     'tests/architecture/run_c17_c18_land_strategy_recovery.js',
     'tests/architecture/run_c20_urban_growth_recovery.js',
+    'tests/architecture/run_c10_c19_market_scenario_recovery.js',
     'tests/architecture/run_market_geospatial_record_boundary.js',
     'tests/architecture/run_guarded_plot_envelope_v1.js',
     'tests/architecture/run_legacy_57_manifest_integrity.js',
