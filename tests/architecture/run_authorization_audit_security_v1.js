@@ -137,4 +137,34 @@ check(() => assert.strictEqual(mismatchEvent.actorId, null));
 check(() => assert.strictEqual(mismatchEvent.tenantId, null));
 check(() => assert.throws(() => createSecurityAuditEvent({ eventId: 'X' }), /missing required fields/));
 
+// Credential aliases must not enter persisted authorization audit metadata.
+const sensitiveAliases = [
+  'apiKey', 'api_key', 'x-api-key', 'API.KEY', 'credential', 'credentials',
+  'privateKey', 'private_key', 'access_key', 'client-key', 'signing.key',
+  'encryptionKey', 'passphrase', 'Bearer', 'refreshToken', 'password',
+  'secret', 'authorization', 'cookie', 'session',
+];
+const operationalFields = ['requestId', 'keyId', 'status', 'attemptCount', 'durationMs', 'resourceVersion'];
+const redactionEvent = createSecurityAuditEvent({
+  eventId: 'EVT-ALIAS-REDACTION',
+  occurredAt: '2026-11-27T00:00:00Z',
+  identity: viewer,
+  action: 'VIEW_CASE',
+  resourceType: 'CASE',
+  resourceId: 'C3',
+  decision: 'DENY',
+  reason: 'SYNTHETIC_TEST',
+  metadata: Object.fromEntries([
+    ...sensitiveAliases.map(key => [key, 'SYNTHETIC_SENSITIVE_PLACEHOLDER']),
+    ...operationalFields.map(key => [key, 'SYNTHETIC_OPERATIONAL_VALUE']),
+  ]),
+});
+for (const key of sensitiveAliases) {
+  check(() => assert.strictEqual(Object.hasOwn(redactionEvent.metadata, key), false, key));
+}
+for (const key of operationalFields) {
+  check(() => assert.strictEqual(redactionEvent.metadata[key], 'SYNTHETIC_OPERATIONAL_VALUE', key));
+}
+check(() => assert.ok(!JSON.stringify(redactionEvent).includes('SYNTHETIC_SENSITIVE_PLACEHOLDER')));
+
 console.log(`AUTHORIZATION_AUDIT_SECURITY_V1: PASS (${checks} checks)`);
