@@ -20,7 +20,7 @@ const PROFESSIONAL_DCF_RESULT_STATUS = Object.freeze({
 function stableClone(value) {
   if (Array.isArray(value)) return value.map(stableClone);
   if (!value || typeof value !== 'object') return value;
-  return Object.keys(value).sort().reduce((out, key) => { out[key] = stableClone(value[key]); return out; }, {});
+  return Object.fromEntries(Object.keys(value).sort().map(key=>[key,stableClone(value[key])]));
 }
 function sha256(value) { return crypto.createHash('sha256').update(JSON.stringify(stableClone(value))).digest('hex'); }
 function deepFreeze(value) {

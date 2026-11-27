@@ -135,3 +135,6 @@ Baseline cac2fab56abc6f6516c5b6f93293e31c07c3ce77: Release 45927456872 job 14027
 
 ## V6.30 W06 financial input semantics and consolidated acceptance
 V6.29 exact-head Release 45928100513 PASS 716/716 and 14/14 named evidence; One Batch engineering PASS/HOLD_NOT_AUTHORIZED; both history and tracked snapshot secret scans HOLD. W06: reconstruct existing basis/rates/debt/collateral records and compare canonical content; reject inconsistent scope, age, hidden financing, review/authority flags and invalid uses; preserve finite debt and value outputs. Thirteen synthetic negatives and two roundtrips in existing Wave12D suite, added to named regression evidence. No private 17-case parity or professional certification. Same PR #871, no merge or deployment.
+
+## V6.31 W06/W09 DCF-to-financing handoff
+V6.30 Release PASS 716/716, 15/15 named evidence; Wave12D 87 checks PASS and P27 PASS. Recompute all DCF retained arithmetic and review flags at financing boundary; reject rehashed arithmetic/authority conflicts. Fourteen negative cases, one positive roundtrip. Same PR #871. No external source or professional approval, no credential rotation, merge or deploy.

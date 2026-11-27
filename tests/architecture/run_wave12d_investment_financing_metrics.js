@@ -303,4 +303,25 @@ for(const [packet,expected] of [[allEquityInput,allEquity],[financedInput,financ
  equal(roundtrip.calculationHashSha256,expected.calculationHashSha256,'V630 JSON roundtrip preserves financial output');
 }
 console.log('W06_V630_FINANCIAL_PACKET_SEMANTICS=PASS negative_cases=13 positive_roundtrips=2');
+const {professionalDcfResultCore,verifyProfessionalDcfResultIntegrity}=require('../../src/investment/professional-dcf-result-verifier');
+const rehashDcf=patch=>{const out={...dcf,...patch};out.calculationHashSha256=sha256(professionalDcfResultCore(out));return out;};
+equal(verifyProfessionalDcfResultIntegrity(JSON.parse(JSON.stringify(dcf))),true,'V631 actual DCF roundtrip');
+for(const patch of [
+ {valueIndicationSar:dcf.valueIndicationSar+1000},
+ {operatingPresentValueSar:dcf.operatingPresentValueSar+1000},
+ {terminalPresentValueSar:dcf.terminalPresentValueSar+1000},
+ {netTerminalValueSar:dcf.netTerminalValueSar+1000},
+ {terminalDiscountFactor:1},
+ {terminalPeriodIndex:1},
+ {discountRate:0.20},
+ {exitCapRate:0.20},
+ {operatingPresentValueTrace:[{...dcf.operatingPresentValueTrace[0],presentValueSar:1},...dcf.operatingPresentValueTrace.slice(1)]},
+ {operatingPresentValueTrace:[{...dcf.operatingPresentValueTrace[0],adjustmentInflowsSar:1},...dcf.operatingPresentValueTrace.slice(1)]},
+ {transactionAuthorized:true},{financingIncluded:true},{reviewFlags:['FAKE']},{status:PROFESSIONAL_DCF_RESULT_STATUS.REVIEW_REQUIRED}
+]){
+ const changed=rehashDcf(patch);
+ equal(verifyProfessionalDcfResultIntegrity(changed),false,'V631 rehashed DCF conflict rejected');
+ equal(build({id:'DCF-REPLAY',dcfResult:changed}).status,INVESTMENT_FINANCING_INPUT_STATUS.HOLD_INTEGRITY,'V631 financing handoff blocked');
+}
+console.log('W06_V631_DCF_HANDOFF_REPLAY=PASS negative_cases=14 positive_roundtrips=1');
 console.log(`WAVE_12D_INVESTMENT_FINANCING_METRICS=PASS checks=${checks}`);
