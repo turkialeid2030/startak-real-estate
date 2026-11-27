@@ -7,6 +7,7 @@ const {
 const {
   BACKUP_RESTORE_STATUS,
   createControlledBackupRestoreQualification,
+  verifyCompletedBackupRestoreQualification,
 } = require('../../src/qualification/controlled-backup-restore-qualification');
 const {
   PERFORMANCE_STATUS,
@@ -334,6 +335,14 @@ function assertAuthorityClosed(result) {
   }
   await test('P16-V627-PREDECESSOR-TIME',async()=>{
     const {qualify,calls}=buildHarness();const out=await qualify(baseInput({assessedAt:'2026-09-09T15:49:00Z'}));assert.strictEqual(out.status,BACKUP_RESTORE_STATUS.HOLD_API_SECURITY_QUALIFICATION);assert.strictEqual(calls.backup.length,0);
+  });
+  await test('P16-V628-COMPLETED-EVIDENCE-REPLAY',async()=>{
+    const out=await buildHarness().qualify(baseInput());
+    assert.strictEqual(verifyCompletedBackupRestoreQualification(JSON.parse(JSON.stringify(out)),baseInput().assessedAt),true);
+    for(const patch of [{backup:null},{restore:{...out.restore,artifactHashMatchesBackup:false}},{verification:{...out.verification,duplicateSideEffectsObserved:true}},{resilienceEvidence:{...out.resilienceEvidence,observedRecoveryTimeSeconds:0}},{authority:{...out.authority,mergeAuthorized:true}},{plan:{...out.plan,apiSecurityTestedAt:'2026-09-10T00:00:00Z'}}]){
+      assert.strictEqual(verifyCompletedBackupRestoreQualification({...out,...patch},baseInput().assessedAt),false);
+    }
+    assert.strictEqual(verifyCompletedBackupRestoreQualification(out,'2026-09-09T16:09:00Z'),false);
   });
   const failed = results.filter((entry) => entry[1] !== 'PASS');
   console.log(`PRODUCTIZATION_P16_BACKUP_RESTORE_QUALIFICATION_RESULT=${failed.length === 0 ? 'PASS' : 'FAIL'} ${results.filter((entry) => entry[1] === 'PASS').length}/${results.length}`);

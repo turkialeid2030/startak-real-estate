@@ -3,6 +3,7 @@
 const crypto = require('crypto');
 const {
   BACKUP_RESTORE_STATUS,
+  verifyCompletedBackupRestoreQualification,
 } = require('./controlled-backup-restore-qualification');
 const {
   QUALIFICATION_ENVIRONMENT,
@@ -82,10 +83,7 @@ function freeze(value) {
 function canonicalize(value) {
   if (Array.isArray(value)) return value.map(canonicalize);
   if (value && typeof value === 'object') {
-    return Object.keys(value).sort().reduce((result, key) => {
-      if (value[key] !== undefined) result[key] = canonicalize(value[key]);
-      return result;
-    }, {});
+    return Object.fromEntries(Object.keys(value).sort().filter(key=>value[key]!==undefined).map(key=>[key,canonicalize(value[key])]));
   }
   return value;
 }
@@ -330,7 +328,7 @@ function createControlledDrFailoverQualification({
       && backupRestoreQualification.plan?.sourceDatabaseName === primaryName
       && backupRestoreQualification.plan?.exactCommitSha === commitSha
       && backupRestoreQualification.productionQualified === false
-      && backupRestoreQualification.authority?.releaseAuthorized === false,
+      && verifyCompletedBackupRestoreQualification(backupRestoreQualification,assessed.value),
     );
     const backupRestoreQualificationRef = backupRestoreComplete
       ? `sha256:${backupRestoreQualification.bundleHashSha256.toLowerCase()}`
@@ -391,7 +389,7 @@ function createControlledDrFailoverQualification({
     } catch (_) {
       return makeResult({ status: DR_FAILOVER_STATUS.HOLD_PREFLIGHT, plan, authorization: auth });
     }
-    if (!preflight.ready || Date.parse(preflight.observedAt)>evidenceCutoff() || Date.parse(preflight.observedAt)<Math.max(Date.parse(auth.approvedAt),retrospective?-Infinity:assessed.millis) || Math.max(preflight.replicationLagSeconds,preflight.observedWatermarkLagSeconds)>objectives.maximumDataLossSeconds) {
+    if (!preflight.ready || Date.parse(preflight.observedAt)>evidenceCutoff() || Date.parse(preflight.observedAt)<Math.max(Date.parse(auth.approvedAt),Date.parse(backupRestoreQualification.resilienceEvidence.reviewedAt),retrospective?-Infinity:assessed.millis) || Math.max(preflight.replicationLagSeconds,preflight.observedWatermarkLagSeconds)>objectives.maximumDataLossSeconds) {
       return makeResult({ status: DR_FAILOVER_STATUS.HOLD_PREFLIGHT, plan, authorization: auth, preflight });
     }
 
