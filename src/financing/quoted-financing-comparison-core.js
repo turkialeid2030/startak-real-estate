@@ -1,4 +1,7 @@
 'use strict';
+const {assertPlainJson,isPlainJson}=require('../validation/plain-json-boundary');
+const {toHalalas,fromHalalas,sumHalalas}=require('../validation/governed-sar-halala');
+function safeComparisonInput(v){try{assertPlainJson(v,{maxNodes:500000});return !!v&&typeof v==='object'&&!Array.isArray(v);}catch{return false;}}
 
 // Shared calculation factory: callers provide native SHA-256.
 function createQuotedFinancingComparison(digest) {
@@ -94,7 +97,7 @@ function normalizePaymentSchedule(schedule) {
     if (seen.has(paymentId)) throw new TypeError(`C14_DUPLICATE_PAYMENT_ID:${paymentId}`);
     seen.add(paymentId);
     if (!Object.values(PAYMENT_KIND).includes(p.paymentKind)) throw new TypeError(`C14_PAYMENT_KIND_UNSUPPORTED:${paymentId}`);
-    if (!finitePositive(p.amountSar)) throw new TypeError(`C14_PAYMENT_AMOUNT_INVALID:${paymentId}`);
+    if (!finitePositive(p.amountSar)||toHalalas(p.amountSar)===null) throw new TypeError(`C14_PAYMENT_AMOUNT_INVALID:${paymentId}`);
     return {
       paymentId,
       paymentDate: iso(p.paymentDate, `repaymentSchedule.${paymentId}.paymentDate`),
@@ -107,18 +110,19 @@ function normalizePaymentSchedule(schedule) {
 }
 
 function computeFinancingOfferHash(offer) {
-  return offer && typeof offer === 'object' && !Array.isArray(offer)
+  return isPlainJson(offer) && offer && typeof offer === 'object' && !Array.isArray(offer)
     ? sha256(without(offer, ['financingOfferHashSha256']))
     : null;
 }
 
 function verifyFinancingOfferIntegrity(offer) {
-  return !!offer
+  return isPlainJson(offer) && !!offer
     && validSha(offer.financingOfferHashSha256)
     && computeFinancingOfferHash(offer) === offer.financingOfferHashSha256.toLowerCase();
 }
 
 function createGovernedFinancingOffer(x = {}) {
+  if(!isPlainJson(x)||!x||typeof x!=='object'||Array.isArray(x))throw new TypeError('C14_INPUT_JSON_INVALID');
   const requiredStrings = [
     'offerId', 'caseId', 'propertyRef', 'providerRef', 'structureLabel',
     'sourceAuthority', 'sourceRef', 'sourceEvidenceRef',
@@ -128,8 +132,8 @@ function createGovernedFinancingOffer(x = {}) {
     if (!nonEmpty(x[field])) throw new TypeError(`${field} must be a non-empty string`);
   });
   if ((x.currency || 'SAR') !== 'SAR') throw new TypeError('C14_PHASE0_REQUIRES_SAR');
-  if (!finitePositive(x.comparisonPrincipalSar)) throw new TypeError('C14_COMPARISON_PRINCIPAL_INVALID');
-  if (!finiteNN(x.upfrontFeesSar)) throw new TypeError('C14_UPFRONT_FEES_INVALID');
+  if (!finitePositive(x.comparisonPrincipalSar)||toHalalas(x.comparisonPrincipalSar)===null) throw new TypeError('C14_COMPARISON_PRINCIPAL_INVALID');
+  if (toHalalas(x.upfrontFeesSar)===null) throw new TypeError('C14_UPFRONT_FEES_INVALID');
   if (x.upfrontFeesOutsideRepaymentSchedule !== true) throw new TypeError('C14_UPFRONT_FEES_SCHEDULE_TREATMENT_REQUIRED');
   if (x.repaymentScheduleComplete !== true) throw new TypeError('C14_COMPLETE_REPAYMENT_SCHEDULE_REQUIRED');
   if (!validSha(x.sourceVersionHashSha256)) throw new TypeError('C14_SOURCE_VERSION_HASH_REQUIRED');
@@ -199,7 +203,7 @@ function financingOfferBindings(offers) {
 }
 
 function computeFinancingComparisonPolicyHash(policy) {
-  return policy && typeof policy === 'object' && !Array.isArray(policy)
+  return isPlainJson(policy) && policy && typeof policy === 'object' && !Array.isArray(policy)
     ? sha256(without(policy, ['policyHashSha256']))
     : null;
 }
@@ -289,20 +293,27 @@ function validatePolicy(policy, context) {
 }
 
 function metricsForOffer(offer, targetFundingDate) {
-  const totalScheduledPaymentsSar = offer.repaymentSchedule.reduce((sum, payment) => sum + payment.amountSar, 0);
-  const nominalFinancingCostSar = offer.upfrontFeesSar + totalScheduledPaymentsSar - offer.comparisonPrincipalSar;
-  const nominalFinancingCostRatio = nominalFinancingCostSar / offer.comparisonPrincipalSar;
-  const annual = new Map();
-  let balloonTotalSar = 0;
-  for (const payment of offer.repaymentSchedule) {
-    const year = new Date(payment.paymentDate).getUTCFullYear();
-    annual.set(year, (annual.get(year) || 0) + payment.amountSar);
-    if (payment.paymentKind === PAYMENT_KIND.BALLOON) balloonTotalSar += payment.amountSar;
+  const principal=toHalalas(offer.comparisonPrincipalSar),fees=toHalalas(offer.upfrontFeesSar);
+  const payments=offer.repaymentSchedule.map(p=>toHalalas(p.amountSar));
+  const total=sumHalalas(payments);
+  const gross=sumHalalas([fees,total]);
+  if(principal===null||principal===0||total===null||gross===null)return null;
+  const totalScheduledPaymentsSar=fromHalalas(total);
+  const nominalFinancingCostSar=fromHalalas(gross-principal);
+  const nominalFinancingCostRatio=(gross-principal)/principal;
+  if(totalScheduledPaymentsSar===null||nominalFinancingCostSar===null)return null;
+  const annual=new Map(),balloons=[];
+  for(const payment of offer.repaymentSchedule){
+    const year=new Date(payment.paymentDate).getUTCFullYear(),amount=toHalalas(payment.amountSar);
+    const sum=sumHalalas([annual.get(year)||0,amount]);
+    if(sum===null)return null;
+    annual.set(year,sum);
+    if(payment.paymentKind===PAYMENT_KIND.BALLOON)balloons.push(amount);
   }
-  const annualDebtService = [...annual.entries()]
-    .sort((a, b) => a[0] - b[0])
-    .map(([year, amountSar]) => ({ year, amountSar }));
-  const maxCalendarYearDebtServiceSar = annualDebtService.reduce((max, x) => Math.max(max, x.amountSar), 0);
+  const balloonTotalSar=fromHalalas(sumHalalas(balloons));
+  const annualDebtService=[...annual.entries()].sort((a,b)=>a[0]-b[0]).map(([year,amount])=>({year,amountSar:fromHalalas(amount)}));
+  if(balloonTotalSar===null||annualDebtService.some(x=>x.amountSar===null))return null;
+  const maxCalendarYearDebtServiceSar=annualDebtService.reduce((max,x)=>Math.max(max,x.amountSar),0);
   const tenorDays = (Date.parse(offer.maturityDate) - Date.parse(targetFundingDate)) / 86400000;
 
   const metrics = {
@@ -401,6 +412,7 @@ function result(status, blockers, context = {}, offers = [], analyticalOrdering 
 }
 
 function evaluateGovernedFinancingOptions(x = {}) {
+  if(!safeComparisonInput(x))return result(FINANCING_STATUS.HOLD_INTEGRITY,['C14_INPUT_JSON_INVALID']);
   const context = {
     caseId: clean(x.caseId) || null,
     propertyRef: clean(x.propertyRef) || null,
@@ -454,7 +466,7 @@ function evaluateGovernedFinancingOptions(x = {}) {
       evidenceBlockers.push(`C14_OFFER_DISCLOSURE_REFERENCES_INVALID:${id}`); continue;
     }
     if (offer.currency !== 'SAR') { evidenceBlockers.push(`C14_OFFER_CURRENCY_INVALID:${id}`); continue; }
-    if (!finitePositive(offer.comparisonPrincipalSar) || !finiteNN(offer.upfrontFeesSar)) {
+    if (!finitePositive(offer.comparisonPrincipalSar) || toHalalas(offer.comparisonPrincipalSar)===null || toHalalas(offer.upfrontFeesSar)===null) {
       evidenceBlockers.push(`C14_OFFER_ECONOMICS_INVALID:${id}`); continue;
     }
     if (offer.upfrontFeesOutsideRepaymentSchedule !== true) {
@@ -503,13 +515,14 @@ function evaluateGovernedFinancingOptions(x = {}) {
       const paymentId = clean(payment?.paymentId);
       if (!paymentId || paymentIds.has(paymentId)) { scheduleInvalid = true; break; }
       paymentIds.add(paymentId);
-      if (!Object.values(PAYMENT_KIND).includes(payment.paymentKind) || !finitePositive(payment.amountSar)) { scheduleInvalid = true; break; }
+      if (!Object.values(PAYMENT_KIND).includes(payment.paymentKind) || (!finitePositive(payment.amountSar)||toHalalas(payment.amountSar)===null)) { scheduleInvalid = true; break; }
       try { if(iso(payment.paymentDate,'paymentDate')!==payment.paymentDate) {scheduleInvalid=true;break;} } catch {scheduleInvalid=true;break;}
       const paymentDate = Date.parse(payment.paymentDate);
       if (!Number.isFinite(paymentDate) || paymentDate < targetFunding || paymentDate > maturity) { scheduleInvalid = true; break; }
     }
     if (scheduleInvalid) { evidenceBlockers.push(`C14_REPAYMENT_SCHEDULE_INVALID:${id}`); continue; }
 
+    try { if(createGovernedFinancingOffer(offer).financingOfferHashSha256!==offer.financingOfferHashSha256){evidenceBlockers.push(`C14_OFFER_CANONICAL_MISMATCH:${id}`);continue;} } catch {evidenceBlockers.push(`C14_OFFER_CANONICAL_MISMATCH:${id}`);continue;}
     const metrics = metricsForOffer(offer, context.targetFundingDate);
     if (!metrics) { evidenceBlockers.push(`C14_DERIVED_METRICS_INVALID:${id}`); continue; }
     validated.push({ offer, metrics });
