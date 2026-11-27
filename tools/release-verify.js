@@ -95,6 +95,7 @@ step('TEST_DISCOVERY_AND_REGRESSION', () => {
     'tests/architecture/run_signed_restore_inventory.js',
     'tests/architecture/run_signed_evidence_custody.js',
     'tests/architecture/run_custody_append_coordinator.js',
+    'tests/architecture/run_governed_evidence_intake.js',
     'tests/runtime/run_postgres_custody_store_tests.js',
     'tests/valuation/private-appraisal-evidence-vault.test.js',
     'tests/architecture/run_legacy_57_manifest_integrity.js',

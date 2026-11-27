@@ -7,6 +7,8 @@ const {VERSION:INVENTORY_VERSION,signedInventoryBytes,verifySignedRestoreInvento
 const {makePostgresCustodyStore}=require('../src/market/postgres-custody-store');
 const {makePostgresPrivateEnvelopeStore}=require('../src/market/postgres-private-envelope-store');
 const {makePrivateAppraisalVault}=require('../src/market/private-appraisal-evidence-vault');
+const {makeCustodyAppendCoordinator}=require('../src/market/custody-append-coordinator');
+const {makeGovernedEvidenceIntake}=require('../src/market/governed-evidence-intake');
 const {VERSION,custodyEventBytes,custodyEventHash,verifyCustodyChain}=require('../src/market/signed-evidence-custody');
 const database='startak_custody_ci',runtime='custody_ci_runtime';
 if(process.env.STARTAK_CUSTODY_DISPOSABLE_CI!=='true'||process.env.PGHOST!=='127.0.0.1'||process.env.PGDATABASE!==database||process.env.PGUSER!=='postgres'||!/^\d+$/.test(process.env.PGPORT||''))throw Error('DISPOSABLE_CI_DATABASE_REQUIRED');
@@ -79,14 +81,27 @@ async function main(){
   restoreInventoryProvider:async()=>documentInventory,restoreInventoryTrust:{resolveSigner:docTrust,maxAgeSeconds:3600},requireStrictCustody:true
  });}
  const vault=vaultFor(pool,database,a);
+ let witnessAvailable=true;
+ const coordinator=makeCustodyAppendCoordinator({authorizeActor:async({requestActor,tenantId,caseRef})=>requestActor===documentActor&&tenantId===scope.tenantId&&caseRef===scope.caseRef?{verifiedByServer:true,tenantId,caseRefs:[caseRef],actorId:documentActor.id,role:'DATA_ADMIN'}:null,loadLedger:a.loadLedger,compareAndAppend:a.compareAndAppend,loadCheckpoint:async s=>checkpoints.get(s.evidenceRef)??null,resolveSigner:async({tenantId,signerKeyRef})=>({tenantId,signerKeyRef,purpose:'EVIDENCE_CUSTODY_SIGNING',revoked:false,validFrom:'2026-01-01',validUntil:'2099-12-31',publicKey}),signEvent:async({bytes})=>crypto.sign(null,bytes,privateKey).toString('base64'),advanceWitness:async({scope:s,expectedRevision,expectedHeadHashSha256,nextCheckpoint})=>{const current=checkpoints.get(s.evidenceRef);if(!witnessAvailable||(current?.revision??0)!==expectedRevision||(current?.headHashSha256??null)!==expectedHeadHashSha256)return false;checkpoints.set(s.evidenceRef,nextCheckpoint);return true;},authorizeReconciliation:async x=>({...x,approved:true,reviewerId:'CI-INDEPENDENT-REVIEWER',approvedAt:reconciliationTime}),clock:()=>new Date(reconciliationTime??Date.now())});
+ let reconciliationTime=null;
+ const intake=makeGovernedEvidenceIntake({vault,custodyCoordinator:coordinator,signerKeyRef:'CI-SIGNER'});
  const envelopeStore=makePostgresPrivateEnvelopeStore({pool,expectedRole:runtime,expectedDatabase:database});
  await check('actual encrypted envelope insert rotation and custody binding',async()=>{
   for(const d of documents){
-   await vault.put({...d.scope,actor:documentActor,sourceBytes:d.bytes,expectedSha256:d.scope.sha256});
-   await assert.rejects(()=>vault.read({...d.scope,actor:documentActor}),/EVIDENCE_CUSTODY_NOT_QUALIFIED/);
-   const l=next(d.scope,null,new Date().toISOString());
-   assert.equal(await append(l,0,null,d.scope),true);
-   checkpoints.set(d.scope.evidenceRef,{version:VERSION,scope:d.scope,revision:1,headHashSha256:head(d.scope,l)});
+   const input={...d.scope,actor:documentActor,sourceBytes:d.bytes,expectedSha256:d.scope.sha256};
+   witnessAvailable=d.scope.evidenceRef==='CI-DOC-1';
+   const result=await intake.seal(input);
+   if(witnessAvailable)assert.equal(result.status,'INTAKE_WITNESSED_AND_READBACK_MATCHED');
+   else{
+    assert.equal(result.reason,'SEALED_ENVELOPE_CUSTODY_PENDING');
+    assert.equal((await a.loadLedger(d.scope)).events.length,1);
+    assert.equal(checkpoints.has(d.scope.evidenceRef),false);
+    await assert.rejects(()=>vault.read({...d.scope,actor:documentActor}),/EVIDENCE_CUSTODY_NOT_QUALIFIED/);
+    witnessAvailable=true;reconciliationTime=new Date().toISOString();
+    const recovered=await coordinator.reconcile({actor:documentActor,scope:d.scope,changeControlRef:'CI-CHG-REPAIR'});
+    assert.equal(recovered.status,'CUSTODY_RECONCILIATION_CONFIRMED_BY_PROVIDERS');
+    reconciliationTime=null;
+   }
    activeDocumentKey='DOC-KEY-2';
   }
   for(const d of documents){const read=await vault.read({...d.scope,actor:documentActor});assert.deepEqual(read.sourceBytes,d.bytes);assert.equal(read.custodyIntegrityVerified,true);read.sourceBytes.fill(0);}
