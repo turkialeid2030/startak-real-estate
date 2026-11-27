@@ -290,7 +290,8 @@ function evaluateWholePropertyMarketMethodBindings(input) {
       ['publicAiAuthorized', false],
     ];
     const mismatches = exactChecks.filter(([field, expected]) => supplied[field] !== expected).map(([field]) => field);
-    if(hashValue(supplied)!==hashValue(canonicalResult))mismatches.push('fullCanonicalResult');
+    const canonicalHash=hashValue(canonicalResult),suppliedHash=hashValue(supplied);
+    if(!canonicalHash||!suppliedHash||suppliedHash!==canonicalHash)mismatches.push('fullCanonicalResult');
     if (mismatches.length) {
       blockers.push(`C3I_C2S_C3M_CANONICAL_RESULT_MISMATCH:${methodId}:${mismatches.join(',')}`);
       continue;
@@ -381,7 +382,8 @@ function evaluateC3IC2SGovernedReconciliation(input = {}) {
     ], provenanceEvaluation, null);
   }
 
-  const bindingEvaluation = evaluateEvidenceBindings(input, provenanceEvaluation);
+  let bindingEvaluation;
+  try{bindingEvaluation=evaluateEvidenceBindings(input,provenanceEvaluation);}catch{return heldResult(input,['C3I_C2S_SOURCE_BINDING_EVALUATION_FAILED']);}
   if (bindingEvaluation.status !== 'READY') {
     return heldResult(input, [
       'C3I_C2S_SOURCE_PROVENANCE_BINDING_NOT_READY',
@@ -389,7 +391,8 @@ function evaluateC3IC2SGovernedReconciliation(input = {}) {
     ], provenanceEvaluation, bindingEvaluation);
   }
 
-  const marketMethodEvaluation = evaluateWholePropertyMarketMethodBindings(input);
+  let marketMethodEvaluation;
+  try{marketMethodEvaluation=evaluateWholePropertyMarketMethodBindings(input);}catch{return heldResult(input,['C3I_C2S_C3M_REPLAY_FAILED']);}
   if (marketMethodEvaluation.status === 'HOLD') {
     return heldResult(input, [
       'C3I_C2S_C3M_METHOD_BINDING_NOT_READY',

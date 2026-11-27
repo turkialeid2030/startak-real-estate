@@ -282,3 +282,15 @@ assert.ok(indexSource.includes("require('./lifecycle-location-upside')"));
 assert.ok(indexSource.includes("require('./decision-layer')"));
 
 console.log('RIAI lifecycle, location, forward attraction, upside, deterministic acquisition score, scenario-attribution review, and committee-pack boundary: PASS');
+
+// V7: safe aggregate bounds and invalid analytical score ranges.
+const overLifecycleInputs=inputs.map(x=>x.field.endsWith('.replacementCost')?adopted(x.field,50000000000000,'SAR'):x);
+const overLifecycleCase={...operatingCase,additionalOperatingInputs:overLifecycleInputs};
+const overLifecycle=calculateLifecycleLocationUpsideIntelligence(overLifecycleCase);
+assert.strictEqual(overLifecycle.lifecycle.status,INTELLIGENCE_STATUS.NOT_CALCULABLE);
+assert.strictEqual(overLifecycle.lifecycle.metrics,null);
+assert(overLifecycle.lifecycle.issues.some(x=>x.code==='LIFECYCLE_MONETARY_TOTAL_OUT_OF_RANGE'));
+const scoreInvalid=calculateAcquisitionAnalyticalScore({operatingMetrics:{...operatingMetrics,occupancy:{physicalOccupancyByArea:1.2},leaseTiming:{...operatingMetrics.leaseTiming,waleYears:-1}},propertyCosts,reverseUnderwriting,exitStrategyComparison,intelligenceBundle:{...bundle,lifecycle:{...bundle.lifecycle,metrics:{...bundle.lifecycle.metrics,weightedConditionScore:200}},location:{...bundle.location,currentLocationScore:120},forwardAttraction:{...bundle.forwardAttraction,forwardAttractionScore:101}}});
+for(const k of ['operatingStability','leaseDurability','lifecycleCondition','currentLocation','forwardAttraction'])assert.strictEqual(scoreInvalid.components.find(x=>x.key===k).score,null);
+assert.strictEqual(scoreInvalid.investmentDecision,null);
+console.log('V7_STRATEGIC_RANGE_GUARDS=PASS synthetic=true');

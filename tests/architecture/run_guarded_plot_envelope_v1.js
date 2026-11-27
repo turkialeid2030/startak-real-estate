@@ -222,4 +222,29 @@ test('TOLERANCE_NEVER_INCREASES_CAPACITY',()=>{
  assert.equal(r.calculations.governingAreaSqm,2000);assert.equal(r.calculations.farGrossFloorAreaCapSqm,4000);assert.equal(r.calculations.bcrFootprintCapSqm,1000);
  assert.match(r.sourceRefs.find(x=>x.type==='SOURCE_INPUT_REPLAY_BINDING').sourceRef,/^[0-9a-f]{64}$/);
 });
+test('REVIEWED_PROFILE_EXACT_SOURCE_REPLAY',()=>{
+ const {createReviewedPlotProfile,evaluateReviewedPlotProfile}=require('../../src/planning');
+ const set=plan(),input={caseId,propertyRef,planningEvidenceSet:set,planningRecords:originalRecords.get(set),geometry,evaluatedAt,maxAreaDifferenceSqm:0.5,titleFacts,titleFreshnessPolicy,geometryMaxAgeDays:90};
+ const review={profileId:'SYNTH-PROFILE',reviewedByRef:'SYNTH-REVIEWER',interpretationEvidenceRef:'SYNTH-INTERPRETATION',reviewedAt:'2026-11-21'};
+ const profile=createReviewedPlotProfile(input,review),result=evaluateReviewedPlotProfile(input,profile);
+ assert.equal(result.profileReplayVerified,true);assert.equal(result.calculations.farGrossFloorAreaCapSqm,4000);assert.equal(result.officialPlanningApproval,false);assert.equal(result.reviewerIndependentlyAuthenticated,false);
+ assert.throws(()=>createReviewedPlotProfile(input,{...review,reviewedAt:'2026-11-19'}),/CHRONOLOGY/);
+ assert.throws(()=>createReviewedPlotProfile(input,{...review,reviewedAt:'2026-11-24'}),/CHRONOLOGY/);
+ for(const patched of [{...profile,transactionAuthorized:true},{...profile,calculations:{...profile.calculations,farGrossFloorAreaCapSqm:9000}}]){
+  const raw={...patched};delete raw.profileHashSha256;
+  const stable=x=>Array.isArray(x)?x.map(stable):x&&typeof x==='object'?Object.fromEntries(Object.keys(x).sort().map(k=>[k,stable(x[k])])):x;
+  raw.profileHashSha256=require('node:crypto').createHash('sha256').update(JSON.stringify(stable(raw))).digest('hex');
+  assert.equal(evaluateReviewedPlotProfile(input,raw).profileReplayVerified,false);
+ }
+ assert.equal(evaluateReviewedPlotProfile({...input,geometry:{...geometry,sourceRef:'OTHER'}},profile).profileReplayVerified,false);
+});
+test('PLANNING_BOUNDARY_ACCESSOR_DENIED',()=>{
+ let reads=0;const evil=Object.defineProperty({...records()[0]},'value',{enumerable:true,get(){reads++;return 5;}});
+ assert.throws(()=>createPlanningEvidenceRecord(evil),/PLANNING_RECORD_JSON_INVALID/);
+ assert.throws(()=>plan([evil]),/PLANNING_SET_JSON_INVALID/);assert.equal(reads,0);
+});
+test('DUPLICATE_EQUIVALENT_TITLE_TIME_DENIED',()=>{
+ const dup={...deedFacts[0],observedAt:new Date(deedFacts[0].observedAt).toISOString()};
+ assert.equal(run({titleFacts:[...titleFacts,dup]}).status,STATUS.HOLD_TITLE);
+});
 console.log('GUARDED_PLOT_ENVELOPE_V1=PASS checks='+count+' synthetic=true license_proven=false');

@@ -2,6 +2,7 @@
 
 const crypto = require('crypto');
 const { strictCalendarDateMs } = require('../validation/strict-calendar-instant');
+const {isPlainJson}=require('../validation/plain-json-boundary');
 
 const PLANNING_CONSTRAINT_TYPE = Object.freeze({
   ZONING_CLASSIFICATION: 'ZONING_CLASSIFICATION',
@@ -85,7 +86,7 @@ function valuesEqual(a, b) {
 }
 
 function verifyPlanningEvidenceIntegrity(record) {
-  if (!record || typeof record !== 'object' || !/^[a-f0-9]{64}$/i.test(String(record.planningEvidenceHashSha256 || ''))) return false;
+  if (!isPlainJson(record)||!record || typeof record !== 'object' || !/^[a-f0-9]{64}$/i.test(String(record.planningEvidenceHashSha256 || ''))) return false;
   try{
     const {planningEvidenceHashSha256,...payload}=record;
     if(sha256(payload)!==planningEvidenceHashSha256.toLowerCase())return false;
@@ -93,7 +94,9 @@ function verifyPlanningEvidenceIntegrity(record) {
   }catch{return false;}
 }
 
-function createPlanningEvidenceRecord({
+function createPlanningEvidenceRecord(input={}) {
+  if(!isPlainJson(input)||!input||typeof input!=='object'||Array.isArray(input))throw TypeError('PLANNING_RECORD_JSON_INVALID');
+  const {
   evidenceId,
   caseId,
   propertyRef,
@@ -109,7 +112,7 @@ function createPlanningEvidenceRecord({
   validTo = null,
   verification,
   capturedAt,
-} = {}) {
+  }=input;
   for (const [field, item] of [
     ['evidenceId', evidenceId], ['caseId', caseId], ['propertyRef', propertyRef],
     ['sourceAuthority', sourceAuthority], ['sourceRef', sourceRef],
@@ -182,7 +185,9 @@ function isTemporallyValid(record, valuationDateIso) {
     && (!record.validTo || valueMs <= Date.parse(record.validTo));
 }
 
-function assessPlanningEvidenceSet({
+function assessPlanningEvidenceSet(input={}) {
+  if(!isPlainJson(input)||!input||typeof input!=='object'||Array.isArray(input))throw TypeError('PLANNING_SET_JSON_INVALID');
+  const {
   caseId,
   propertyRef,
   valuationDate,
@@ -190,11 +195,11 @@ function assessPlanningEvidenceSet({
   requiredConstraintTypes,
   allowedAuthorityClasses,
   cardinalityByType,
-} = {}) {
+  }=input;
   assertNonEmpty(caseId, 'caseId');
   assertNonEmpty(propertyRef, 'propertyRef');
   const valuationDateIso = iso(valuationDate, 'valuationDate');
-  if (!Array.isArray(records)) throw new TypeError('records must be an array');
+  if (!Array.isArray(records)||records.length>5000) throw new TypeError('records must be an array within limit');
   if (!Array.isArray(requiredConstraintTypes) || requiredConstraintTypes.length === 0) throw new TypeError('requiredConstraintTypes must be a non-empty array');
   if (!Array.isArray(allowedAuthorityClasses) || allowedAuthorityClasses.length === 0) throw new TypeError('allowedAuthorityClasses must be a non-empty array');
   if (!cardinalityByType || typeof cardinalityByType !== 'object' || Array.isArray(cardinalityByType)) throw new TypeError('cardinalityByType must be an object');
