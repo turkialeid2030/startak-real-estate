@@ -253,7 +253,8 @@ function assertAuthorityClosed(result) {
     assert.strictEqual(first.plan.planHashSha256, second.plan.planHashSha256);
     assert.strictEqual(first.bundleHashSha256, second.bundleHashSha256);
     assert.ok(!JSON.stringify(first).includes('password'));
-    assert.ok(first.resilienceEvidence.evidenceRefs.includes(`sha256:${'b'.repeat(64)}`));
+    assert.ok(first.resilienceEvidence.evidenceRefs.includes(`sha256:${apiSecurityQualification().bundleHashSha256}`));
+    assert.strictEqual(first.apiSecurityQualificationRef,`sha256:${apiSecurityQualification().bundleHashSha256}`);
   });
 
   for (const [id,overrides] of [
