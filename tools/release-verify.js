@@ -106,6 +106,8 @@ step('TEST_DISCOVERY_AND_REGRESSION', () => {
     'tests/architecture/run_v7_acceleration_contract.js',
     'tests/architecture/run_v7_candidate_diff_census.js',
     'tests/architecture/run_p25_historical_parity_v7.js',
+    'tests/architecture/run_performance_calendar_boundary_v7.js',
+    'tests/architecture/run_v7_release_calendar_boundaries.js',
     'tests/defects/financial_timing_basis_disclosure_p26.js',
     'tests/defects/financial_timing_basis_report_p26.js',
     'tests/defects/current_model_reference_corpus_p27_v2.js',
