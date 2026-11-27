@@ -1,6 +1,8 @@
 'use strict';
 
 const crypto = require('node:crypto');
+const {isPlainJson,assertPlainJson}=require('../validation/plain-json-boundary');
+const {strictCalendarDateMs}=require('../validation/strict-calendar-instant');
 const {
   BASIS_OF_VALUE, INPUT_STATUS, EVIDENCE_GRADE, createEvidenceRecord, createValuationIndication,
 } = require('../valuation-intelligence/contracts');
@@ -9,6 +11,7 @@ const {
 } = require('../valuation-intelligence/market-comparables');
 const {
   MARKET_TRANSACTION_TYPE, MARKET_EVIDENCE_LEVEL, MARKET_VERIFICATION_STATUS,
+  assertComparableRecordIntegrity,createComparableEvidenceRecord,
 } = require('./comparable-evidence');
 
 const VERSION = 'C58_COMPARABLE_PROVENANCE_CHAIN_V1';
@@ -24,9 +27,7 @@ function sha(v) {
   return crypto.createHash('sha256').update(JSON.stringify(stable(v))).digest('hex');
 }
 function validDate(v) {
-  return filled(v) && /^\d{4}-\d{2}-\d{2}(?:T.*)?$/.test(v) &&
-    Number.isFinite(Date.parse(v)) &&
-    new Date(v).toISOString().slice(0, 10) === v.slice(0, 10);
+  return Number.isFinite(strictCalendarDateMs(v));
 }
 function freeze(v) {
   if (v && typeof v === 'object' && !Object.isFrozen(v)) {
@@ -47,13 +48,15 @@ function blocked(blockers, details=[]) {
   });
 }
 function recordedIntegrity(record) {
-  if (!record || !HEX64.test(record.comparableHashSha256 || '')) return false;
-  const copy = { ...record };
-  delete copy.comparableHashSha256;
-  return sha(copy) === record.comparableHashSha256;
+  try{
+    if(!isPlainJson(record)||!record||!HEX64.test(record.comparableHashSha256||'')||!Number.isFinite(record.unitValueSarPerSqm)||record.unitValueSarPerSqm<=0)return false;
+    assertComparableRecordIntegrity(record);
+    const location={...record.location};if(location.lat===null)delete location.lat;if(location.long===null)delete location.long;
+    return createComparableEvidenceRecord({...record,location}).comparableHashSha256===record.comparableHashSha256;
+  }catch{return false;}
 }
 function receiptIntegrity(receipt) {
-  if (!receipt || !HEX64.test(receipt.receiptHashSha256 || '')) return false;
+  if (!isPlainJson(receipt)||!receipt || !HEX64.test(receipt.receiptHashSha256 || '')) return false;
   const copy = {...receipt};
   delete copy.receiptHashSha256;
   return sha(copy) === receipt.receiptHashSha256;
@@ -79,11 +82,9 @@ function sourceRightValid(right, sourceRef, date, asOf) {
  * really correspond to official transactions: independent evidence review is
  * an external gate and no caller assertion can override it here.
  */
-function evaluateComparableProvenanceChain({
-  caseId, basis, valuationDate, subjectAssetType, subjectCity,
-  comparables, evidenceRecords, sourceReceipts, sourceRights,
-  asOf,
-} = {}) {
+function evaluateComparableProvenanceChain(input = {}) {
+  try{assertPlainJson(input,{maxNodes:500000});if(!input||typeof input!=='object'||Array.isArray(input))throw Error('root');}catch{return blocked(['C58_INPUT_JSON_INVALID']);}
+  const {caseId,basis,valuationDate,subjectAssetType,subjectCity,comparables,evidenceRecords,sourceReceipts,sourceRights,asOf}=input;
   const blockers = [], details = [];
   if (!filled(caseId) || !filled(subjectAssetType) || !filled(subjectCity)) blockers.push('SUBJECT_CASE_ASSET_CITY_REQUIRED');
   if (!validDate(valuationDate) || !validDate(asOf) || (validDate(valuationDate) && validDate(asOf) &&
@@ -92,6 +93,7 @@ function evaluateComparableProvenanceChain({
   if (![comparables,evidenceRecords,sourceReceipts,sourceRights].every(Array.isArray)) {
     return blocked([...blockers,'COMPLETE_SOURCE_CHAIN_COLLECTIONS_REQUIRED']);
   }
+  if([comparables,evidenceRecords,sourceReceipts,sourceRights].some(x=>x.length>5000))return blocked([...blockers,'C58_COLLECTION_LIMIT']);
   const expectedStatus = basis === BASIS_OF_VALUE.MARKET_RENT
     ? TRANSACTION_STATUS.EXECUTED_LEASE : TRANSACTION_STATUS.EXECUTED_SALE;
   const expectedRecordTransaction = basis === BASIS_OF_VALUE.MARKET_RENT
@@ -135,14 +137,15 @@ function evaluateComparableProvenanceChain({
           record.verification?.status!==MARKET_VERIFICATION_STATUS.VERIFIED ||
           record.abnormalTransaction) reasons.push('EXECUTED_TRANSACTION_QUALITY_NOT_ESTABLISHED');
       if (!validDate(record.transactionDate) || !validDate(record.sourceDate) ||
-          !validDate(record.capturedAt) ||
+          !validDate(record.capturedAt) || !validDate(record.verification?.verifiedAt) ||
+          (validDate(asOf)&&Date.parse(record.verification?.verifiedAt)>Date.parse(asOf)) ||
           (validDate(valuationDate) && (Date.parse(record.transactionDate)>Date.parse(valuationDate) ||
           Date.parse(record.sourceDate)>Date.parse(valuationDate))) ||
           (validDate(asOf) && Date.parse(record.capturedAt)>Date.parse(asOf))) reasons.push('MARKET_CHRONOLOGY_INVALID');
       if (cmp && (cmp.sourceRef!==record.sourceRef ||
           !validDate(cmp.transactionDate) ||
           Date.parse(cmp.transactionDate)!==Date.parse(record.transactionDate) ||
-          !Number.isFinite(cmp.unitValue) ||
+          !Number.isFinite(cmp.unitValue) || !Number.isFinite(record.unitValueSarPerSqm) ||
           Math.abs(cmp.unitValue-record.unitValueSarPerSqm)>Math.max(0.000001,record.unitValueSarPerSqm*1e-10))) {
         reasons.push('C54_COMPARABLE_SOURCE_DATE_PRICE_MISMATCH');
       }

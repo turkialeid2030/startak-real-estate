@@ -163,6 +163,13 @@ const boundInvalid=calculateSourceBoundMarketIndication({
   provenance:{...base,sourceRights:[]},
 });
 assert.equal(boundInvalid.status,INDICATION_STATUS.HOLD_EVIDENCE_CONFLICT);
+// V6.50: a recalculated digest must not hide inconsistent economics or chronology.
+const forged={...a.record,unitValueSarPerSqm:123};delete forged.comparableHashSha256;forged.comparableHashSha256=hash(forged);
+checkHold({evidenceRecords:[forged,b.record]},'WAVE9A_RECORD_HASH_INVALID');
+const futureReview={...a.record,verification:{...a.record.verification,verifiedAt:'2026-10-09'}};delete futureReview.comparableHashSha256;futureReview.comparableHashSha256=hash(futureReview);
+checkHold({evidenceRecords:[futureReview,b.record]},'WAVE9A_RECORD_HASH_INVALID');
+let reads=0;const bad=Object.defineProperty({...base},'comparables',{enumerable:true,get(){reads++;return base.comparables;}});
+assert.equal(evaluateComparableProvenanceChain(bad).status,STATUS.HOLD);assert.equal(reads,0);
 console.log('C58_COMPARABLE_PROVENANCE_CHAIN=PASS');
 console.log('C58_INDEPENDENT_TRANSACTION_AUTHENTICITY_ESTABLISHED=FALSE');
 console.log('C58_RIGHTS_EXTERNAL_AUTHORIZATION_ESTABLISHED=FALSE');
