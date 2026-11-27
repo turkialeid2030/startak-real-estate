@@ -98,9 +98,14 @@ check('CALENDAR_INVALID_SOURCE_REJECTED',()=>{
 check('TIMESTAMP_REQUIRES_TIMEZONE',()=>{
  assert.throws(()=>run([...deed,...survey],{asOf:'2026-11-23T00:00:00'}),/VALUATION_DATE_REQUIRED/);
 });
-check('LEAP_DAY_ALLOWED',()=>{
- assert.equal(run([...deed,...survey],{asOf:'2028-02-29T00:00:00Z',
-  maxAgeDaysBySourceType:{DEED:1000,SURVEY:1000}}).status,STATUS.CANDIDATE_FOR_INDEPENDENT_REVIEW);
+check('LEAP_DAY_ALLOWED_AND_FUTURE_CUTOFF_HELD',()=>{
+ const {strictCalendarDateMs}=require('../../src/validation/strict-calendar-instant');
+ assert.ok(Number.isFinite(strictCalendarDateMs('2024-02-29T00:00:00Z')));
+ assert.ok(Number.isNaN(strictCalendarDateMs('2025-02-29T00:00:00Z')));
+ const historical=[...deed,...survey].map(x=>({...x,observedAt:'2024-02-28'}));
+ assert.equal(run(historical,{asOf:'2024-02-29T00:00:00Z'}).status,STATUS.CANDIDATE_FOR_INDEPENDENT_REVIEW);
+ assert.equal(run([...deed,...survey],{asOf:'2096-02-29T00:00:00Z',
+  maxAgeDaysBySourceType:{DEED:30000,SURVEY:30000}}).status,STATUS.HOLD_TEMPORAL_EVIDENCE);
 });
 check('OBSERVED_CORE_OWNER_NOT_VERIFIED_HOLD',()=>{
   const observedOwner=deed.map(x=>x.key==='ownerName'?f(x.key,x.value,{status:TITLE_FACT_STATUS.OBSERVED}):x);

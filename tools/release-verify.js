@@ -89,6 +89,8 @@ step('TEST_DISCOVERY_AND_REGRESSION', () => {
     'tests/architecture/run_c58_comparable_provenance_chain.js',
     'tests/architecture/run_market_geospatial_record_boundary.js',
     'tests/architecture/run_guarded_plot_envelope_v1.js',
+    'tests/architecture/run_title_cross_document_consistency_v1.js',
+    'tests/architecture/run_private_appraisal_vault_namespace_integrity.js',
     'tests/architecture/run_legacy_57_manifest_integrity.js',
     'tests/architecture/run_startak_re_historic_source_parity_register.js',
     'tests/architecture/run_wave12b_direct_capitalization.js',
