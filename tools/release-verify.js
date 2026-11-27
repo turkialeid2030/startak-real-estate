@@ -4,6 +4,7 @@
 // MUST invoke this script rather than reinventing its own checks.
 // Fail-closed: any mandatory step failing exits non-zero immediately.
 const { execFileSync } = require('child_process');
+const {runRegressionScript}=require('./regression-process-boundary');
 const fs = require('fs');
 const path = require('path');
 const {
@@ -108,6 +109,7 @@ step('TEST_DISCOVERY_AND_REGRESSION', () => {
     'tests/architecture/run_p25_historical_parity_v7.js',
     'tests/architecture/run_performance_calendar_boundary_v7.js',
     'tests/architecture/run_v7_release_calendar_boundaries.js',
+    'tests/architecture/run_regression_process_boundary_v7.js',
     'tests/defects/financial_timing_basis_disclosure_p26.js',
     'tests/defects/financial_timing_basis_report_p26.js',
     'tests/defects/current_model_reference_corpus_p27_v2.js',
@@ -140,12 +142,13 @@ step('TEST_DISCOVERY_AND_REGRESSION', () => {
   const ordered=[...tests].sort((a,b)=>Number(evidenceTargets.has(b.split(path.sep).join('/')))-Number(evidenceTargets.has(a.split(path.sep).join('/'))));
   for (const file of ordered) {
     try {
-      execFileSync(process.execPath, [path.join(ROOT, file)], { cwd: ROOT, stdio: 'pipe' }); passed++;
+      runRegressionScript(ROOT,file); passed++;
       const normalized = file.split(path.sep).join('/');
       if(evidenceTargets.has(normalized)){executedEvidence.add(normalized);console.log('  REGRESSION_EVIDENCE_PASS='+normalized);}
     }
     catch (e) {
       console.log(`  FAILING TEST: ${file}`);
+      if(e?.code==='ETIMEDOUT')console.log('  REGRESSION_TIMEOUT='+file.split(path.sep).join('/'));
       printFailureDiagnostic(e);
     }
   }
