@@ -70,7 +70,7 @@ function finiteRate(value, field) {
 function stableClone(value) {
   if (Array.isArray(value)) return value.map(stableClone);
   if (!value || typeof value !== 'object') return value;
-  return Object.keys(value).sort().reduce((out, key) => { out[key] = stableClone(value[key]); return out; }, {});
+  return Object.fromEntries(Object.keys(value).sort().map(key=>[key,stableClone(value[key])]));
 }
 function sha256(value) { return crypto.createHash('sha256').update(JSON.stringify(stableClone(value))).digest('hex'); }
 function deepFreeze(value) {
@@ -423,6 +423,25 @@ function buildInvestmentFinancingMetricsInputPacket({
 
 function verifyInvestmentFinancingMetricsInputIntegrity(packet) {
   if (!packet || !validSha(packet.investmentFinancingMetricsInputHashSha256)) return false;
+  try {
+  const flags=['professionalValueUsedAsInvestmentBasisAutomatically','automaticDebtSizing','lenderApprovalEstablished','creditDecisionMade','valuationChangedByFinancing','finalValuationConclusionEstablished','certifiedValuationEstablished','transactionAuthorized'];
+  if(packet.schemaVersion!==1||packet.status!==INVESTMENT_FINANCING_INPUT_STATUS.READY_FOR_CANONICAL_INVESTMENT_FINANCING_METRICS||packet.readyForCanonicalInvestmentFinancingMetrics!==true||!Array.isArray(packet.blockers)||packet.blockers.length!==0||flags.some(k=>packet[k]!==false)||typeof packet.financingEnabled!=='boolean')return false;
+  if(!['packetId','caseId','propertyRef','preparedByRef','evidenceRef'].every(k=>nonEmpty(packet[k])&&packet[k]===packet[k].trim())||!validSha(packet.professionalDcfCalculationHashSha256)||!validSha(packet.professionalNoiCalculationHashSha256))return false;
+  const valuation=iso(packet.valuationDate,'valuationDate'),prepared=iso(packet.preparedAt,'preparedAt');
+  if(valuation!==packet.valuationDate||prepared!==packet.preparedAt||Date.parse(prepared)<Date.parse(valuation))return false;
+  const same=(a,b)=>JSON.stringify(stableClone(a))===JSON.stringify(stableClone(b));
+  const check=(record,constructor,age)=>{
+    if(!record||record.caseId!==packet.caseId||record.propertyRef!==packet.propertyRef||!same(record,constructor(record)))return false;
+    return Number.isInteger(age)&&age>=0&&age===daysBetween(record.asOfDate,valuation)&&Date.parse(record.asOfDate)<=Date.parse(valuation)&&Date.parse(record.reviewedAt)<=Date.parse(prepared);
+  };
+  if(!check(packet.investmentBasisInput,createInvestmentBasisInput,packet.investmentBasisAgeDays)||!check(packet.returnAnalysisRateInput,createReturnAnalysisRateInput,packet.returnRateAgeDays))return false;
+  if(packet.financingEnabled){
+    if(!check(packet.debtTermsInput,createDebtTermsInput,packet.debtTermsAgeDays)||!check(packet.collateralValueBasisInput,createCollateralValueBasisInput,packet.collateralValueAgeDays)||!Object.values(DSCR_NUMERATOR_BASIS).includes(packet.dscrNumeratorBasis))return false;
+    const uses=packet.investmentBasisInput.amountSar+packet.debtTermsInput.financingFeesSar;
+    if(!Number.isFinite(uses)||packet.debtTermsInput.principalSar>uses)return false;
+    const collateral=packet.collateralValueBasisInput;
+    if(collateral.type===COLLATERAL_VALUE_BASIS_TYPE.PROFESSIONAL_DCF_METHOD_INDICATION&&(collateral.professionalDcfCalculationHashSha256!==packet.professionalDcfCalculationHashSha256||collateral.amountSar!==packet.professionalDcfValueIndicationSar))return false;
+  }else if([packet.debtTermsInput,packet.debtTermsAgeDays,packet.collateralValueBasisInput,packet.collateralValueAgeDays,packet.dscrNumeratorBasis].some(v=>v!==null))return false;
   const core = { ...packet };
   [
     'investmentFinancingMetricsInputHashSha256', 'status', 'blockers', 'readyForCanonicalInvestmentFinancingMetrics',
@@ -431,6 +450,7 @@ function verifyInvestmentFinancingMetricsInputIntegrity(packet) {
     'certifiedValuationEstablished', 'transactionAuthorized', 'semantics',
   ].forEach((key) => delete core[key]);
   return sha256(core) === packet.investmentFinancingMetricsInputHashSha256.toLowerCase();
+  }catch{return false;}
 }
 
 module.exports = {

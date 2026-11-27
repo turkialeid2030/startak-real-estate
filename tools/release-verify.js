@@ -67,6 +67,7 @@ step('TEST_DISCOVERY_AND_REGRESSION', () => {
   // Never forward arbitrary stdout from tests; it may contain sensitive fixture data.
   const evidenceTargets = new Set([
     'tests/architecture/run_riai_ai_assist_client_v1.js',
+    'tests/architecture/run_wave12d_investment_financing_metrics.js',
     'tests/architecture/run_riai_ai_gateway_guardrails_unit_v1.js',
     'tests/architecture/run_riai_qualitative_output.js',
     'tests/runtime/run_riai_openai_responses_adapter.js',

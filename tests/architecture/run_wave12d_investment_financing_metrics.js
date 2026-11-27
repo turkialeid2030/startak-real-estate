@@ -278,4 +278,29 @@ const zeroEquity = calculateInvestmentFinancingMetrics(build({ id: 'ZERO-EQUITY'
 equal(zeroEquity.status, INVESTMENT_FINANCING_RESULT_STATUS.REVIEW_REQUIRED, 'zero initial equity review');
 check(zeroEquity.reviewFlags.includes('ZERO_INITIAL_EQUITY_REVIEW_REQUIRED'), 'zero equity flag explicit');
 
+// Recompute the packet hash independently; a self-consistent digest is not a semantic authorization.
+function rehashPacket(packet,patch){
+ const changed={...packet,...patch},core={...changed};
+ for(const key of ['investmentFinancingMetricsInputHashSha256','status','blockers','readyForCanonicalInvestmentFinancingMetrics','professionalValueUsedAsInvestmentBasisAutomatically','automaticDebtSizing','lenderApprovalEstablished','creditDecisionMade','valuationChangedByFinancing','finalValuationConclusionEstablished','certifiedValuationEstablished','transactionAuthorized','semantics'])delete core[key];
+ changed.investmentFinancingMetricsInputHashSha256=sha256(core);return changed;
+}
+for(const patch of [
+ {transactionAuthorized:true},{creditDecisionMade:true},{automaticDebtSizing:true},{blockers:['UNRESOLVED']},{financingEnabled:'true'},
+ {investmentBasisAgeDays:0},{returnRateAgeDays:-1},{dscrNumeratorBasis:'EBITDA'},
+ {debtTermsInput:{...financedInput.debtTermsInput,principalSar:1}},
+ {collateralValueBasisInput:externalCollateral(1),collateralValueAgeDays:0},
+ {caseId:'OTHER-CASE'},{financingEnabled:false}
+]){
+ const changed=rehashPacket(financedInput,patch);
+ equal(verifyInvestmentFinancingMetricsInputIntegrity(changed),false,'V630 rejects rehashed semantic conflict');
+ equal(calculateInvestmentFinancingMetrics(changed).status,INVESTMENT_FINANCING_RESULT_STATUS.INVALID_INPUT_PACKET,'V630 engine fails closed');
+}
+const foreignBasis={...financedInput.investmentBasisInput,propertyRef:'OTHER-PROPERTY'};
+delete foreignBasis.investmentBasisHashSha256;foreignBasis.investmentBasisHashSha256=sha256(foreignBasis);
+equal(verifyInvestmentFinancingMetricsInputIntegrity(rehashPacket(financedInput,{investmentBasisInput:foreignBasis})),false,'V630 rejects rehashed cross-property nested record');
+for(const [packet,expected] of [[allEquityInput,allEquity],[financedInput,financed]]){
+ const roundtrip=calculateInvestmentFinancingMetrics(JSON.parse(JSON.stringify(packet)));
+ equal(roundtrip.calculationHashSha256,expected.calculationHashSha256,'V630 JSON roundtrip preserves financial output');
+}
+console.log('W06_V630_FINANCIAL_PACKET_SEMANTICS=PASS negative_cases=13 positive_roundtrips=2');
 console.log(`WAVE_12D_INVESTMENT_FINANCING_METRICS=PASS checks=${checks}`);

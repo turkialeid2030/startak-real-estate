@@ -21,7 +21,7 @@ const INVESTMENT_FINANCING_RESULT_STATUS = Object.freeze({
 function stableClone(value) {
   if (Array.isArray(value)) return value.map(stableClone);
   if (!value || typeof value !== 'object') return value;
-  return Object.keys(value).sort().reduce((out, key) => { out[key] = stableClone(value[key]); return out; }, {});
+  return Object.fromEntries(Object.keys(value).sort().map(key=>[key,stableClone(value[key])]));
 }
 function sha256(value) { return crypto.createHash('sha256').update(JSON.stringify(stableClone(value))).digest('hex'); }
 function deepFreeze(value) {
@@ -59,7 +59,7 @@ function equityMultiple(cashflows) {
     if (value > 0) distributions += value;
     else if (value < 0) contributions += -value;
   }
-  return contributions > 0 ? distributions / contributions : null;
+  return ratio(distributions,contributions);
 }
 function fail(status, blockers, packet = null) {
   return deepFreeze({
@@ -96,6 +96,7 @@ function calculateInvestmentFinancingMetrics(packet) {
   const investmentBasisSar = packet.investmentBasisInput.amountSar;
   if (!finite(investmentBasisSar) || investmentBasisSar <= 0) return fail(INVESTMENT_FINANCING_RESULT_STATUS.INVALID_ECONOMIC_CASE, ['INVESTMENT_BASIS_INVALID'], packet);
   if (!Array.isArray(packet.operatingPropertyCashFlows) || packet.operatingPropertyCashFlows.length === 0) return fail(INVESTMENT_FINANCING_RESULT_STATUS.INVALID_ECONOMIC_CASE, ['OPERATING_PROPERTY_CASH_FLOWS_REQUIRED'], packet);
+  if (!finite(packet.stabilizedProfessionalNoiSar)||!finite(packet.professionalDcfValueIndicationSar)) return fail(INVESTMENT_FINANCING_RESULT_STATUS.INVALID_ECONOMIC_CASE,['PROFESSIONAL_VALUE_OR_NOI_NON_FINITE'],packet);
   if (!finite(packet.netTerminalValueSar)) return fail(INVESTMENT_FINANCING_RESULT_STATUS.INVALID_ECONOMIC_CASE, ['NET_TERMINAL_VALUE_INVALID'], packet);
 
   const rates = packet.returnAnalysisRateInput;
@@ -169,6 +170,7 @@ function calculateInvestmentFinancingMetrics(packet) {
     } catch (_) {
       return fail(INVESTMENT_FINANCING_RESULT_STATUS.INVALID_ECONOMIC_CASE, ['DEBT_PLAN_CALCULATION_FAILED'], packet);
     }
+    if(!Array.isArray(debtPlan.annualSchedule)||debtPlan.annualSchedule.some(row=>!['payment','interest','principal','balloon','balance'].every(k=>finite(row[k]))))return fail(INVESTMENT_FINANCING_RESULT_STATUS.INVALID_ECONOMIC_CASE,['DEBT_SCHEDULE_NON_FINITE'],packet);
     const financingClassification = classifyFinancingModel(terms.financingModelLabel);
     const holdPeriods = packet.operatingPropertyCashFlows.length;
     const annualDebtTrace = [];
