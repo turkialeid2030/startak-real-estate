@@ -42,19 +42,34 @@ async function verifyTurnstile({ request, env = {}, token, fetchImpl = fetch } =
   }
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TURNSTILE_TIMEOUT_MS);
+  let timer;
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(new Error('TURNSTILE_DEADLINE_EXCEEDED'));
+    }, TURNSTILE_TIMEOUT_MS);
+  });
   let response;
   try {
     const form = new URLSearchParams();
     form.set('secret', secret);
     form.set('response', responseToken);
-    response = await fetchImpl(TURNSTILE_VERIFY_URL, {
+    const pending = Promise.resolve().then(() => fetchImpl(TURNSTILE_VERIFY_URL, {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
       body: form.toString(),
       signal: controller.signal,
       redirect: 'error',
+    })).then(result => {
+      // A non-cooperative adapter may finish after the request deadline.
+      // Discard its response rather than authorize a timed-out request.
+      if (controller.signal.aborted) {
+        void result?.body?.cancel().catch(() => {});
+        throw new Error('TURNSTILE_DEADLINE_EXCEEDED');
+      }
+      return result;
     });
+    response = await Promise.race([pending, deadline]);
   } catch (_) {
     clearTimeout(timer);
     return Object.freeze({ ok: false, status: 503, code: 'AI_TURNSTILE_UNAVAILABLE' });
@@ -66,7 +81,7 @@ async function verifyTurnstile({ request, env = {}, token, fetchImpl = fetch } =
   }
 
   let payload;
-  try { payload = JSON.parse(await readBoundedText(response, {maxBytes:16384,timeoutMs:TURNSTILE_TIMEOUT_MS,signal:controller.signal})); }
+  try { payload = JSON.parse(await Promise.race([readBoundedText(response, {maxBytes:16384,timeoutMs:TURNSTILE_TIMEOUT_MS,signal:controller.signal}), deadline])); }
   catch (_) { return Object.freeze({ ok: false, status: 503, code: 'AI_TURNSTILE_RESPONSE_INVALID' }); }
   finally { clearTimeout(timer); }
 

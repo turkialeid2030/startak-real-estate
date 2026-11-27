@@ -18,7 +18,8 @@ export async function reserveGatewayQuota(binding, input) {
     const result = await call(binding, '/reserve', input);
     if (result.allowed === true && result.replayed === false && result.id === input.id && result.reservedTokens === input.tokens
       && (!input.money || result.reservedUsdMicros === input.money.reservedUsdMicros)) return {...result,status:200};
-    const code = codes[result.code];
+    const code = typeof result?.code === 'string' && Object.hasOwn(codes, result.code)
+      ? codes[result.code] : null;
     return {allowed:false,status:code?429:503,code:code||'AI_ATOMIC_QUOTA_REJECTED'};
   } catch (_) { return {allowed:false,status:503,code:'AI_ATOMIC_QUOTA_UNAVAILABLE'}; }
 }
