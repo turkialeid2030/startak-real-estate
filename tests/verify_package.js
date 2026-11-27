@@ -2,7 +2,8 @@
 // Proves the package is fully self-contained: builds, runs every regression
 // test, confirms zero external /mnt/user-data dependency, and verifies the
 // source-bound release manifest emitted into the built artifact.
-const { execSync, execFileSync } = require('child_process');
+const { execSync } = require('child_process');
+const {runRegressionScript}=require('../tools/regression-process-boundary');
 const fs = require('fs');
 const path = require('path');
 const { createHash } = require('crypto');
@@ -28,8 +29,8 @@ const total = tests.length;
 let passed = 0;
 const failures = [];
 for (const file of tests) {
-  try { execFileSync(process.execPath, [path.join(ROOT, file)], { cwd: ROOT, stdio: 'pipe' }); passed++; }
-  catch (_) { failures.push(file); }
+  try { runRegressionScript(ROOT,file); passed++; }
+  catch (error) { failures.push(file); if(error?.code==='ETIMEDOUT')console.log('REGRESSION_TIMEOUT='+file.split(path.sep).join('/')); }
 }
 console.log(`REGRESSION_TOTAL=${total} PASSED=${passed} FAILED=${total - passed}`);
 if (failures.length) console.log('FAILED_FILES:', failures.join(', '));
