@@ -1,0 +1,13 @@
+'use strict';
+const assert=require('node:assert/strict');
+const t=require('../../src/observability/governed-operational-telemetry');
+const s={caseId:'SYNTH-C',propertyRef:'SYNTH-P'},asOf='2026-09-04';
+const e=t.createTelemetryEvent({...s,eventId:'EVENT-1',eventType:t.EVENT_TYPE.AI_GATEWAY,severity:t.SEVERITY.WARN,occurredAt:'2026-09-03',correlationRef:'CORR-1',sourceComponent:'AI',technicalHealth:t.TECHNICAL_HEALTH.HEALTHY,businessReadiness:'HOLD',payload:{blocked:true,count:1,email:'synthetic@example.invalid',message:'PRIVATE CONTENT',nested:{token:'SYNTHETIC'}}});
+assert.deepEqual(e.payload,{blocked:true,count:1});assert.equal(t.verifyTelemetryEvent(e).valid,true);
+const m=t.createMetricObservation({...s,metricId:'METRIC-1',metric:t.METRIC.KILL_SWITCH_ENGAGED,value:true,observedAt:'2026-09-03',correlationRef:'CORR-1',evidenceRef:'SYNTH-E',evidenceHashSha256:'a'.repeat(64)});
+const input={...s,asOf,events:[e],metrics:[m]},ok=t.summarizeOperationalState(input);
+assert.equal(ok.telemetryIntegrityReady,true);assert.equal(ok.technicalHealth,'DEGRADED');assert.equal(ok.technicalServiceHealthy,false);assert.equal(ok.productionMonitoringVerified,false);
+for(const patch of [{events:[]},{events:[e,e]},{caseId:'OTHER'},{metrics:[{...m,value:false}]},{asOf:'2026-09-01'},{asOf:'2099-01-01'},{events:[{...e,payload:{message:'PRIVATE CONTENT'}}]}])assert.equal(t.summarizeOperationalState({...input,...patch}).status,'HOLD_TELEMETRY');
+let reads=0;assert.throws(()=>t.createTelemetryEvent({...e,payload:Object.defineProperty({},'blocked',{enumerable:true,get(){reads++;return true;}})}));assert.equal(reads,0);
+assert.throws(()=>t.createTelemetryEvent({...e,transactionAuthorized:true}));assert.throws(()=>t.createMetricObservation({...m,value:'true'}));
+console.log('C27_GOVERNED_OPERATIONAL_TELEMETRY_RECOVERY=PASS synthetic=true live=false');

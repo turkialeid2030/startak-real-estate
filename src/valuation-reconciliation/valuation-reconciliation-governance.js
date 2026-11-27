@@ -355,6 +355,7 @@ function evaluateInstruction(instruction, {
   const weightEntries = Object.entries(weights);
   const weighted = [];
   let weightSum = 0;
+  const seenWeightIds=new Set();
 
   for (const [rawId, weight] of weightEntries) {
     const indicationId = cleanString(rawId);
@@ -362,6 +363,8 @@ function evaluateInstruction(instruction, {
       blockers.push(`C3_RECONCILIATION_WEIGHT_TARGET_INELIGIBLE:${indicationId || 'MISSING'}`);
       continue;
     }
+    if(rawId!==indicationId||seenWeightIds.has(indicationId)){blockers.push('C3_RECONCILIATION_WEIGHT_ID_AMBIGUOUS');continue;}
+    seenWeightIds.add(indicationId);
     if (!(typeof weight === 'number' && Number.isFinite(weight) && weight > 0 && weight <= 1)) {
       blockers.push(`C3_RECONCILIATION_WEIGHT_INVALID:${indicationId}`);
       continue;
