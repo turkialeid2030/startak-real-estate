@@ -2,6 +2,7 @@
 
 const DEFAULT_CACHE_TTL_MS = 5 * 60 * 1000;
 const MAX_JWKS_BYTES = 256 * 1024;
+const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
 
 function requiredString(value, field) {
   if (typeof value !== 'string' || value.trim() === '') throw new TypeError(`${field} must be a non-empty string`);
@@ -102,6 +103,7 @@ function createRemoteJwksProvider({
   cacheTtlMs = DEFAULT_CACHE_TTL_MS,
   nowMs = () => Date.now(),
   maxJwksBytes = MAX_JWKS_BYTES,
+  requestTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
 } = {}) {
   const configuredIssuer = validateHttpsUrl(issuer, 'issuer');
   const configuredJwksUri = validateHttpsUrl(jwksUri, 'jwksUri');
@@ -114,6 +116,10 @@ function createRemoteJwksProvider({
     throw new TypeError('maxJwksBytes must be an integer between 1024 and 1048576');
   }
 
+  if (!Number.isInteger(requestTimeoutMs) || requestTimeoutMs < 10 || requestTimeoutMs > 60_000) {
+    throw new TypeError('requestTimeoutMs must be an integer between 10 and 60000');
+  }
+
   let cached = null;
   let cachedAt = 0;
   let inFlight = null;
@@ -121,12 +127,13 @@ function createRemoteJwksProvider({
   // restoring keys after invalidation or an explicit key rotation refresh.
   let cacheEpoch = 0;
 
-  async function fetchJwks() {
+  async function fetchJwks(signal) {
     const response = await fetchImpl(configuredJwksUri, {
       method: 'GET',
       headers: { accept: 'application/json' },
       redirect: 'error',
       cache: 'no-store',
+      signal,
     });
     if (!response || response.ok !== true || response.status !== 200) throw new Error('JWKS_FETCH_FAILED');
 
@@ -148,20 +155,41 @@ function createRemoteJwksProvider({
     return normalizeJwks(parsed);
   }
 
+  // Bound both headers and body, including injected transports that ignore abort.
+  function fetchWithDeadline() {
+    const controller = new AbortController();
+    let timer;
+    const deadline = new Promise((_, reject) => {
+      timer = setTimeout(() => {
+        reject(new Error('JWKS_FETCH_TIMEOUT'));
+        controller.abort();
+      }, requestTimeoutMs);
+    });
+    return Promise.race([fetchJwks(controller.signal), deadline]).finally(() => clearTimeout(timer));
+  }
+
   async function getJwks({ forceRefresh = false } = {}) {
-    const current = Number(nowMs());
+    const current = nowMs();
     if (!Number.isFinite(current)) throw new Error('JWKS_CLOCK_INVALID');
-    if (!forceRefresh && cached && current - cachedAt < cacheTtlMs) return cached;
+    if (cached && current < cachedAt) {
+      invalidate();
+      throw new Error('JWKS_CLOCK_REGRESSION');
+    }
     if (!forceRefresh && inFlight) return inFlight;
+    if (!forceRefresh && cached && current - cachedAt < cacheTtlMs) return cached;
+    // Never serve the previous keyset while rotation is pending or has failed.
+    if (forceRefresh) { cached = null; cachedAt = 0; }
 
     const requestEpoch = ++cacheEpoch;
-    const request = fetchJwks()
+    const request = fetchWithDeadline()
       .then((jwks) => {
         if (cacheEpoch !== requestEpoch) {
           throw new Error('JWKS_FETCH_SUPERSEDED_OR_INVALIDATED');
         }
+        const completedAt = nowMs();
+        if (!Number.isFinite(completedAt) || completedAt < current) throw new Error('JWKS_CLOCK_INVALID');
         cached = jwks;
-        cachedAt = Number(nowMs());
+        cachedAt = completedAt;
         return jwks;
       })
       .finally(() => {
@@ -189,6 +217,7 @@ function createRemoteJwksProvider({
       pinnedJwksUri: true,
       redirectsAllowed: false,
       boundedCache: true,
+      boundedRequestDeadline: true,
       privateJwkMaterialRejected: true,
       productionJwksTrustValidated: false,
     }),
@@ -199,5 +228,6 @@ function createRemoteJwksProvider({
 module.exports = {
   DEFAULT_CACHE_TTL_MS,
   MAX_JWKS_BYTES,
+  DEFAULT_REQUEST_TIMEOUT_MS,
   createRemoteJwksProvider,
 };
