@@ -6,10 +6,11 @@ const {strictCalendarDateMs}=require('../validation/strict-calendar-instant');
 const {evaluateSourceOperationalReadiness}=require('./governed-source-operational-readiness');
 const {evaluateSourceProvenanceBundle,hashValue}=require('./source-provenance-governance');
 const {getCanonicalSourceProvider}=require('./source-provider-registry');
+const {replayStructuredSourceArtifact,VERSION:REPLAY_VERSION}=require('./structured-source-replay');
 const REF=/^[A-Za-z0-9_.:-]{2,128}$/;
 const validRef=x=>typeof x==='string'&&REF.test(x);
 function evaluateGovernedSourceBridge({artifactBytes,acquisitionRecord,operationalRecord,provenanceRecord,caseId,scopeRef,asOf,trustedRightsVerifierIds=[],trustedProvenanceVerifierIds=[],trustedLicenseVerifierIds=[]}={}){
- const hold=reason=>Object.freeze({status:'HOLD_SOURCE_BRIDGE',reason,preproductionClassificationReady:false,classification:null,sourceAuthenticityIndependentlyVerified:false,sourceRightsIndependentlyAuthenticated:false,productionUseAuthorized:false,decisionReady:false});
+ const hold=reason=>Object.freeze({status:'HOLD_SOURCE_BRIDGE',reason,preproductionClassificationReady:false,parserReplayVerified:false,classification:null,sourceAuthenticityIndependentlyVerified:false,sourceRightsIndependentlyAuthenticated:false,productionUseAuthorized:false,decisionReady:false});
  try{
   if(!validRef(caseId)||!validRef(scopeRef)||!Number.isFinite(strictCalendarDateMs(asOf))||strictCalendarDateMs(asOf)>Date.now()||!Buffer.isBuffer(artifactBytes)||!artifactBytes.length||artifactBytes.length>15*1024*1024||![acquisitionRecord,operationalRecord,provenanceRecord].every(x=>x&&isPlainJson(x)))return hold('SOURCE_BRIDGE_INPUT_INVALID');
   const a=acquisitionRecord,o=operationalRecord,p=provenanceRecord;
@@ -24,7 +25,22 @@ function evaluateGovernedSourceBridge({artifactBytes,acquisitionRecord,operation
   if(!a.provenanceVerificationRef||!p.evidencePayload||hashValue(p.evidencePayload)!==hashValue(a.extractedPayload)||p.evidenceHashSha256!==hashValue(a.extractedPayload))return hold('SOURCE_BRIDGE_PAYLOAD_MISMATCH');
   const classification=evaluateSourceProvenanceBundle({records:[p],asOf,caseId,scopeRef,trustedProvenanceVerifierIds,trustedLicenseVerifierIds});
   if(!classification.provenanceClassificationReady)return hold('SOURCE_BRIDGE_PROVENANCE_HOLD');
-  return Object.freeze({status:'PREPRODUCTION_SOURCE_CLASSIFICATION_MATCHED',reason:null,preproductionClassificationReady:true,caseId,scopeRef,artifactHashSha256,acquisitionRecordHashSha256:a.acquisitionRecordHashSha256,operationalRecordHashSha256:o.operationalRecordHashSha256,classification,sourceAuthenticityIndependentlyVerified:false,sourceRightsIndependentlyAuthenticated:false,productionUseAuthorized:false,decisionReady:false});
+  return Object.freeze({status:'PREPRODUCTION_SOURCE_CLASSIFICATION_MATCHED',reason:null,preproductionClassificationReady:true,parserReplayVerified:false,caseId,scopeRef,artifactHashSha256,acquisitionRecordHashSha256:a.acquisitionRecordHashSha256,operationalRecordHashSha256:o.operationalRecordHashSha256,classification,sourceAuthenticityIndependentlyVerified:false,sourceRightsIndependentlyAuthenticated:false,productionUseAuthorized:false,decisionReady:false});
  }catch{return hold('SOURCE_BRIDGE_VERIFICATION_FAILED');}
 }
-module.exports={evaluateGovernedSourceBridge};
+// Strict entry point. The contract must be supplied by a trusted server
+// schema registry, not accepted from a requesting client as authority.
+function evaluateReplayVerifiedSourceBridge(input={},trustedContract){
+ const hold=reason=>Object.freeze({status:'HOLD_SOURCE_BRIDGE',reason,preproductionClassificationReady:false,parserReplayVerified:false,classification:null,sourceAuthenticityIndependentlyVerified:false,sourceRightsIndependentlyAuthenticated:false,productionUseAuthorized:false,decisionReady:false});
+ try{
+  const a=input.acquisitionRecord,o=input.operationalRecord;
+  if(!a||!o||!isPlainJson(a)||!isPlainJson(o)||a.extractorVersion!==REPLAY_VERSION||o.parserVersion!==REPLAY_VERSION||a.extractionMethod!=='STRUCTURED_FILE_PARSE')return hold('SOURCE_BRIDGE_REPLAY_VERSION_REQUIRED');
+  const replay=replayStructuredSourceArtifact({artifactBytes:input.artifactBytes,artifactMimeType:a.artifactMimeType,artifactFormat:a.artifactFormat,contract:trustedContract});
+  if(!replay.parserReplayVerified)return hold(replay.reason);
+  if(replay.artifactHashSha256!==a.artifactHashSha256||replay.extractedPayloadHashSha256!==a.extractedPayloadHashSha256||replay.extractedPayloadHashSha256!==hashValue(a.extractedPayload)||replay.schemaFingerprintSha256!==o.schemaFingerprintSha256||replay.schemaFingerprintSha256!==o.expectedSchemaFingerprintSha256||replay.dataContractVersion!==o.dataContractVersion)return hold('SOURCE_BRIDGE_REPLAY_BINDING_MISMATCH');
+  const structural=evaluateGovernedSourceBridge(input);
+  if(!structural.preproductionClassificationReady)return structural;
+  return Object.freeze({...structural,status:'PREPRODUCTION_SOURCE_REPLAY_AND_CLASSIFICATION_MATCHED',parserReplayVerified:true,parserVersion:REPLAY_VERSION,schemaFingerprintSha256:replay.schemaFingerprintSha256,extractedPayloadHashSha256:replay.extractedPayloadHashSha256});
+ }catch{return hold('SOURCE_BRIDGE_REPLAY_FAILED');}
+}
+module.exports={evaluateGovernedSourceBridge,evaluateReplayVerifiedSourceBridge};

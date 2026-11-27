@@ -1,0 +1,31 @@
+'use strict';
+const assert=require('node:assert/strict'),crypto=require('node:crypto');
+const {VERSION,structuredSourceSchemaHash,replayStructuredSourceArtifact}=require('../../src/source-intelligence/structured-source-replay');
+const {evaluateReplayVerifiedSourceBridge}=require('../../src/source-intelligence/governed-source-bridge');
+const {hashValue}=require('../../src/source-intelligence/source-provenance-governance');
+const {SOURCE_TIER,SOURCE_LICENSING_STATUS}=require('../../src/contracts/source-intelligence');
+const a=require('../../src/source-intelligence/governed-non-api-acquisition'),o=require('../../src/source-intelligence/governed-source-operational-readiness');
+const contract={version:VERSION,dataContractVersion:'SYNTH-SCHEMA-V1',columns:[{name:'city',type:'TEXT'},{name:'count',type:'INTEGER'},{name:'price',type:'DECIMAL_STRING'},{name:'verified',type:'BOOLEAN'},{name:'date',type:'DATE'}]};
+const rows=[{city:'Riyadh, North',count:12,price:'1000.25',verified:true,date:'2026-09-01'}];
+const csv='city,count,price,verified,date\r\n"Riyadh, North",12,1000.25,true,2026-09-01\r\n';
+const bytes=Buffer.from(csv),replay=(text,format='CSV',c=contract)=>replayStructuredSourceArtifact({artifactBytes:Buffer.isBuffer(text)?text:Buffer.from(text),artifactFormat:format,artifactMimeType:format==='CSV'?'text/csv':'application/json',contract:c});
+const pass=replay(csv);assert.equal(pass.parserReplayVerified,true);assert.deepEqual(pass.payload,rows);
+assert.deepEqual(replay(JSON.stringify(rows),'JSON').payload,rows);
+for(const invalid of [csv.replace('city,count','city,city'),csv.replace(',12,',',012,'),csv.replace(',12,',',9007199254740993,'),csv.replace('1000.25','1e3'),csv.replace(',true,',',TRUE,'),csv.replace('2026-09-01','2026-02-30'),csv.replace('"Riyadh, North"','"Riyadh, North'),csv+'\n'])assert.equal(replay(invalid).parserReplayVerified,false);
+assert.equal(replay(Buffer.from([0xff])).parserReplayVerified,false);
+assert.equal(replay(JSON.stringify(rows).replace('"count":12','"count":99,"count":12'),'JSON').parserReplayVerified,false);
+assert.equal(replay(JSON.stringify(rows,null,2),'JSON').parserReplayVerified,false);
+assert.equal(replay(csv,'CSV',{...contract,columns:[...contract.columns,contract.columns[0]]}).parserReplayVerified,false);
+const H='a'.repeat(64),asOf='2026-09-04',trustedRightsVerifierIds=['SYNTH-VERIFIER'],schema=structuredSourceSchemaHash(contract);
+const draft={acquisitionId:'SYNTH-ACQ',profileId:'BALADY_OPEN_DATA_DOWNLOADS',sourceProvider:'BALADY_URBAN_MAPS',sourceUrl:'https://balady.gov.sa/data',acquisitionMethod:a.ACQUISITION_METHOD.OFFICIAL_OPEN_DATA_FILE_DOWNLOAD,automatedRetrieval:true,retrievedAt:'2026-09-02',sourceEffectiveAt:'2026-09-01',artifactMimeType:'text/csv',artifactFormat:'CSV',artifactHashSha256:crypto.createHash('sha256').update(bytes).digest('hex'),extractionMethod:a.EXTRACTION_METHOD.STRUCTURED_FILE_PARSE,extractorVersion:VERSION,extractedPayload:rows,termsEvidenceRef:'SYNTH-TERMS',licenseReference:'SYNTH-LICENSE',attributionText:'SYNTH-ATTRIBUTION',rightsVerified:true,rightsVerifiedByRef:'SYNTH-VERIFIER',rightsVerifiedAt:'2026-09-01',rightsEvidenceRef:'SYNTH-RIGHTS',provenanceVerificationRef:'SYNTH-PROVENANCE'};
+function input(payload=rows){
+ const acq=a.createGovernedNonApiAcquisitionRecord({...draft,extractedPayload:payload});
+ const op=o.createSourceOperationalRecord({operationalRecordId:'SYNTH-OP',profileId:acq.profileId,sourceProvider:acq.sourceProvider,acquisitionRecordHashSha256:acq.acquisitionRecordHashSha256,artifactHashSha256:acq.artifactHashSha256,rightsDisposition:o.RIGHTS_DISPOSITION.OPEN_DATA_LICENSE_VERIFIED,rightsEvidenceHashSha256:H,parserVersion:VERSION,parserValidated:true,schemaFingerprintSha256:schema,expectedSchemaFingerprintSha256:schema,dataContractVersion:contract.dataContractVersion,requiredFieldsValidated:true,acquiredAt:acq.retrievedAt,sourcePublishedAt:acq.sourceEffectiveAt,freshnessValidUntil:'2026-09-05',availability:o.AVAILABILITY.AVAILABLE,reviewedByRef:'SYNTH-REVIEWER',reviewEvidenceRef:'SYNTH-REVIEW',reviewedAt:'2026-09-03',validUntil:'2026-09-30'});
+ const provenance={id:'SYNTH-PROVENANCE-RECORD',caseId:'SYNTH-CASE',scopeRef:'SYNTH-SCOPE',sourceProvider:acq.sourceProvider,sourceTier:SOURCE_TIER.A_OFFICIAL_AUTHORITATIVE,licensingStatus:SOURCE_LICENSING_STATUS.NOT_APPLICABLE_OFFICIAL,sourceUrl:acq.sourceUrl,originalSourceReference:acq.acquisitionId,methodologyVersion:acq.extractorVersion,retrievedAt:acq.retrievedAt,effectiveAt:acq.sourceEffectiveAt,validUntil:'2026-09-05',underlyingAuthority:acq.sourceProvider,provenanceVerified:true,provenanceVerifiedBy:'SYNTH-PROVENANCE-VERIFIER',provenanceVerificationReference:acq.provenanceVerificationRef,provenanceVerifiedAt:'2026-09-03',corroboratedBy:[],evidencePayload:payload,evidenceHashSha256:hashValue(payload)};
+ return {artifactBytes:bytes,acquisitionRecord:acq,operationalRecord:op,provenanceRecord:provenance,caseId:provenance.caseId,scopeRef:provenance.scopeRef,asOf,trustedRightsVerifierIds,trustedProvenanceVerifierIds:['SYNTH-PROVENANCE-VERIFIER']};
+}
+const verified=evaluateReplayVerifiedSourceBridge(input(),contract);
+assert.equal(verified.status,'PREPRODUCTION_SOURCE_REPLAY_AND_CLASSIFICATION_MATCHED');assert.equal(verified.parserReplayVerified,true);assert.equal(verified.productionUseAuthorized,false);assert.equal(verified.sourceRightsIndependentlyAuthenticated,false);
+assert.equal(evaluateReplayVerifiedSourceBridge(input([{...rows[0],count:999}]),contract).reason,'SOURCE_BRIDGE_REPLAY_BINDING_MISMATCH');
+assert.equal(evaluateReplayVerifiedSourceBridge(input(),{...contract,dataContractVersion:'OTHER-VERSION'}).parserReplayVerified,false);
+console.log('STRUCTURED_SOURCE_REPLAY_AND_BRIDGE=PASS synthetic=true live=false');
