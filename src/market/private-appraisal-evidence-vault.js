@@ -79,7 +79,8 @@ function makePrivateAppraisalVault({adapter,keyProvider,keyring,authorizeActor,r
   if(typeof expectedSha256!=='string'||!SHA.test(expectedSha256)||expectedSha256.toLowerCase()!==sha)
    throw Error('EVIDENCE_SOURCE_DIGEST_MISMATCH');
   const storageKey=idOf(tenantId,evidenceRef);
-  if(await adapter.get(storageKey)!==null)throw Error('EVIDENCE_IMMUTABLE_REF_ALREADY_EXISTS');
+  const storageScope=Object.freeze({tenantId,caseRef,evidenceRef});
+  if(await adapter.get(storageKey,storageScope)!==null)throw Error('EVIDENCE_IMMUTABLE_REF_ALREADY_EXISTS');
   const uploadedAt=clock().toISOString();
   if(!Number.isFinite(strictCalendarDateMs(uploadedAt))||strictCalendarDateMs(uploadedAt)>Date.now())throw Error('EVIDENCE_CLOCK_INVALID');
   const active=await writeKey(tenantId);
@@ -97,7 +98,7 @@ function makePrivateAppraisalVault({adapter,keyProvider,keyring,authorizeActor,r
   const core={...metadata,iv:iv.toString('base64'),
    tag:cipher.getAuthTag().toString('base64'),ciphertext:enc.toString('base64')};
   // Atomic insert prevents parallel reviewers from silently overwriting the same immutable ref.
-  if(await adapter.putIfAbsent(storageKey,JSON.stringify(core))!==true)
+  if(await adapter.putIfAbsent(storageKey,JSON.stringify(core),storageScope)!==true)
    throw Error('EVIDENCE_IMMUTABLE_REF_ALREADY_EXISTS');
   return {tenantId,evidenceRef,caseRef,sha256:sha,status:'SEALED_UNVERIFIED',
     professionalValueReleaseAuthorized:false};
@@ -108,7 +109,7 @@ function makePrivateAppraisalVault({adapter,keyProvider,keyring,authorizeActor,r
   privateRef(caseRef,'CASE');
   await role(actor,tenantId,caseRef,['REVIEWER','DATA_ADMIN','AUDITOR'],
     authorizeActor,'APPRAISAL_EVIDENCE_READ');
-  const raw=await adapter.get(idOf(tenantId,evidenceRef));
+  const raw=await adapter.get(idOf(tenantId,evidenceRef),Object.freeze({tenantId,caseRef,evidenceRef}));
   if(raw===null){
    // Ambiguous historical colon-delimited keys cannot be safely adopted.
    // Explicit operator migration with authenticated old envelope is required.

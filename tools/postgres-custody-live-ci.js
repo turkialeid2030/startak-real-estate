@@ -5,6 +5,8 @@ const {Pool}=require('pg');
 const {execFileSync}=require('node:child_process');
 const {VERSION:INVENTORY_VERSION,signedInventoryBytes,verifySignedRestoreInventory}=require('../src/market/signed-restore-inventory');
 const {makePostgresCustodyStore}=require('../src/market/postgres-custody-store');
+const {makePostgresPrivateEnvelopeStore}=require('../src/market/postgres-private-envelope-store');
+const {makePrivateAppraisalVault}=require('../src/market/private-appraisal-evidence-vault');
 const {VERSION,custodyEventBytes,custodyEventHash,verifyCustodyChain}=require('../src/market/signed-evidence-custody');
 const database='startak_custody_ci',runtime='custody_ci_runtime';
 if(process.env.STARTAK_CUSTODY_DISPOSABLE_CI!=='true'||process.env.PGHOST!=='127.0.0.1'||process.env.PGDATABASE!==database||process.env.PGUSER!=='postgres'||!/^\d+$/.test(process.env.PGPORT||''))throw Error('DISPOSABLE_CI_DATABASE_REQUIRED');
@@ -24,9 +26,11 @@ async function main(){
  assert.equal(identity.rows[0].db,database);assert.equal(identity.rows[0].role_name,'postgres');
  assert.equal((await admin.query("SELECT to_regclass('public.startak_evidence_custody') AS existing")).rows[0].existing,null);
  await admin.query(fs.readFileSync(path.join(__dirname,'../docs/recovery/sql/controlled-custody-ledger-v1.sql'),'utf8'));
+ await admin.query(fs.readFileSync(path.join(__dirname,'../docs/recovery/sql/controlled-private-envelope-v1.sql'),'utf8'));
  await admin.query('CREATE ROLE custody_ci_runtime LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOINHERIT');
  await admin.query('GRANT USAGE ON SCHEMA public TO custody_ci_runtime');
  await admin.query('GRANT SELECT, INSERT, UPDATE ON public.startak_evidence_custody TO custody_ci_runtime');
+ await admin.query('GRANT SELECT, INSERT ON public.startak_private_evidence_envelopes TO custody_ci_runtime');
  pool=new Pool({...config,user:runtime,max:5});
  const store=()=>makePostgresCustodyStore({pool,expectedRole:runtime,expectedDatabase:database});
  let a=store(),one=next(scope,null,'2026-09-01'),two=next(scope,one,'2026-09-02'),three=next(scope,two,'2026-09-03');
@@ -60,6 +64,46 @@ async function main(){
   finally{await admin.query("ALTER POLICY startak_custody_scope ON public.startak_evidence_custody USING (tenant_id=nullif(current_setting('startak.tenant_id',true),'') AND case_ref=nullif(current_setting('startak.case_ref',true),'')) WITH CHECK (tenant_id=nullif(current_setting('startak.tenant_id',true),'') AND case_ref=nullif(current_setting('startak.case_ref',true),''))");}
   assert.deepEqual(await a.loadLedger(scope),three);
  });
+ // Two actual encrypted documents, separately generated synthetic keys and
+ // signed custody checkpoints. The witness and KMS remain fixtures.
+ const documentActor={id:'CI-DOCUMENT-ADMIN'},documentKeys=new Map([['DOC-KEY-1',crypto.randomBytes(32)],['DOC-KEY-2',crypto.randomBytes(32)]]),checkpoints=new Map();
+ let activeDocumentKey='DOC-KEY-1',documentInventory=null;
+ const documents=['CI-DOC-1','CI-DOC-2'].map((evidenceRef,i)=>{const bytes=Buffer.from('SYNTHETIC PRIVATE DOCUMENT '+i);return {scope:{tenantId:scope.tenantId,caseRef:scope.caseRef,evidenceRef,sha256:crypto.createHash('sha256').update(bytes).digest('hex')},bytes};});
+ const docSigner=crypto.generateKeyPairSync('ed25519');
+ const docTrust=async({tenantId,signerKeyRef})=>({tenantId,signerKeyRef,purpose:'BACKUP_INVENTORY_SIGNING',revoked:false,validFrom:'2026-01-01',validUntil:'2099-12-31',publicKey:docSigner.publicKey});
+ function vaultFor(dbPool,dbName,ledgerStore){return makePrivateAppraisalVault({
+  adapter:makePostgresPrivateEnvelopeStore({pool:dbPool,expectedRole:runtime,expectedDatabase:dbName}),
+  authorizeActor:async({requestActor,tenantId,caseRef})=>requestActor===documentActor&&tenantId===scope.tenantId&&caseRef===scope.caseRef?{verifiedByServer:true,tenantId,caseRefs:[caseRef],actorId:documentActor.id,role:'DATA_ADMIN'}:null,
+  keyring:{activeKey:async tenantId=>({tenantId,keyRef:activeDocumentKey,keyBytes:documentKeys.get(activeDocumentKey)}),resolveKey:async(tenantId,keyRef)=>({tenantId,keyRef,keyBytes:documentKeys.get(keyRef)})},
+  custodyTrust:{loadLedger:ledgerStore.loadLedger,loadCheckpoint:async s=>checkpoints.get(s.evidenceRef)??null,resolveSigner:async({tenantId,signerKeyRef})=>({tenantId,signerKeyRef,purpose:'EVIDENCE_CUSTODY_SIGNING',revoked:false,validFrom:'2026-01-01',validUntil:'2099-12-31',publicKey}),maxAgeSeconds:31536000},
+  restoreInventoryProvider:async()=>documentInventory,restoreInventoryTrust:{resolveSigner:docTrust,maxAgeSeconds:3600},requireStrictCustody:true
+ });}
+ const vault=vaultFor(pool,database,a);
+ const envelopeStore=makePostgresPrivateEnvelopeStore({pool,expectedRole:runtime,expectedDatabase:database});
+ await check('actual encrypted envelope insert rotation and custody binding',async()=>{
+  for(const d of documents){
+   await vault.put({...d.scope,actor:documentActor,sourceBytes:d.bytes,expectedSha256:d.scope.sha256});
+   await assert.rejects(()=>vault.read({...d.scope,actor:documentActor}),/EVIDENCE_CUSTODY_NOT_QUALIFIED/);
+   const l=next(d.scope,null,new Date().toISOString());
+   assert.equal(await append(l,0,null,d.scope),true);
+   checkpoints.set(d.scope.evidenceRef,{version:VERSION,scope:d.scope,revision:1,headHashSha256:head(d.scope,l)});
+   activeDocumentKey='DOC-KEY-2';
+  }
+  for(const d of documents){const read=await vault.read({...d.scope,actor:documentActor});assert.deepEqual(read.sourceBytes,d.bytes);assert.equal(read.custodyIntegrityVerified,true);read.sourceBytes.fill(0);}
+  const rows=(await admin.query('SELECT envelope FROM public.startak_private_evidence_envelopes ORDER BY evidence_ref')).rows;
+  assert.equal(rows.length,2);assert.deepEqual(rows.map(x=>JSON.parse(x.envelope).keyRef),['DOC-KEY-1','DOC-KEY-2']);
+  assert.ok(rows.every((x,i)=>!x.envelope.includes(documents[i].bytes.toString())));
+  await assert.rejects(()=>vault.put({...documents[0].scope,actor:documentActor,sourceBytes:documents[0].bytes,expectedSha256:documents[0].scope.sha256}),/IMMUTABLE_REF/);
+ });
+ await check('actual envelope access scope and immutable database privileges',async()=>{
+  const d=documents[0].scope,key='appraisal-evidence:v1:'+d.tenantId+':'+d.evidenceRef;
+  assert.equal(await envelopeStore.get(key,{tenantId:d.tenantId,caseRef:'OTHER-CASE',evidenceRef:d.evidenceRef}),null);
+  await assert.rejects(()=>vault.read({...d,caseRef:'OTHER-CASE',actor:documentActor}),/ACCESS_DENIED/);
+  assert.equal((await pool.query('SELECT * FROM public.startak_private_evidence_envelopes')).rowCount,0);
+  for(const q of ['UPDATE public.startak_private_evidence_envelopes SET envelope=envelope','DELETE FROM public.startak_private_evidence_envelopes','TRUNCATE public.startak_private_evidence_envelopes'])await assert.rejects(()=>pool.query(q),e=>e.code==='42501');
+  await admin.query('GRANT UPDATE(envelope) ON public.startak_private_evidence_envelopes TO custody_ci_runtime');
+  try{await assert.rejects(()=>vault.read({...d,actor:documentActor}),/ENVELOPE_DB_TRANSACTION_FAILED/);}finally{await admin.query('REVOKE UPDATE(envelope) ON public.startak_private_evidence_envelopes FROM custody_ci_runtime');}
+ });
  await check('logical backup artifact and separate database restore',async()=>{
   // Real PostgreSQL logical backup/restore via the exact disposable service.
   // No shell interpolation, external endpoint, or production credential.
@@ -67,7 +111,8 @@ async function main(){
   assert.equal(process.env.GITHUB_ACTIONS,'true');assert.match(containerId,/^[a-f0-9]{12,64}$/);
   const docker=(args,input)=>execFileSync('docker',['exec','-i',containerId,...args],{input,timeout:90000,maxBuffer:16*1024*1024,stdio:['pipe','pipe','pipe']});
   const sourceRows=(await admin.query('SELECT tenant_id,case_ref,evidence_ref,content_sha256,revision,head_sha256,ledger FROM public.startak_evidence_custody ORDER BY tenant_id,case_ref,evidence_ref')).rows;
-  assert.equal(sourceRows.length,3);
+  assert.equal(sourceRows.length,5);
+  const sourceEnvelopes=(await admin.query('SELECT * FROM public.startak_private_evidence_envelopes ORDER BY tenant_id,case_ref,evidence_ref')).rows;assert.equal(sourceEnvelopes.length,2);
   const started=Date.now();
   const backup=docker(['pg_dump','-U','postgres','-d',database,'--format=custom','--no-owner','--no-acl']);
   assert.ok(backup.length>100);assert.equal(backup.subarray(0,5).toString(),'PGDMP');
@@ -79,15 +124,17 @@ async function main(){
   try{
    const restoredRows=(await restoredAdmin.query('SELECT tenant_id,case_ref,evidence_ref,content_sha256,revision,head_sha256,ledger FROM public.startak_evidence_custody ORDER BY tenant_id,case_ref,evidence_ref')).rows;
    assert.deepEqual(restoredRows,sourceRows);
+   assert.deepEqual((await restoredAdmin.query('SELECT * FROM public.startak_private_evidence_envelopes ORDER BY tenant_id,case_ref,evidence_ref')).rows,sourceEnvelopes);
    // Grants are intentionally rebuilt, not imported from the backup.
    await restoredAdmin.query('GRANT USAGE ON SCHEMA public TO custody_ci_runtime');
    await restoredAdmin.query('GRANT SELECT, INSERT, UPDATE ON public.startak_evidence_custody TO custody_ci_runtime');
+   await restoredAdmin.query('GRANT SELECT, INSERT ON public.startak_private_evidence_envelopes TO custody_ci_runtime');
    restoredPool=new Pool({...config,database:restoreDb,user:runtime,max:3});
    const recovered=makePostgresCustodyStore({pool:restoredPool,expectedRole:runtime,expectedDatabase:restoreDb});
    for(const row of sourceRows){
     const x={tenantId:row.tenant_id,caseRef:row.case_ref,evidenceRef:row.evidence_ref,sha256:row.content_sha256};
     const l=await recovered.loadLedger(x);assert.deepEqual(l,row.ledger);
-    const verdict=await verifyCustodyChain(l,{expectedScope:x,checkpoint:{version:VERSION,scope:x,revision:row.revision,headHashSha256:row.head_sha256},resolveSigner:async({tenantId,signerKeyRef})=>({tenantId,signerKeyRef,purpose:'EVIDENCE_CUSTODY_SIGNING',revoked:false,validFrom:'2026-01-01',validUntil:'2026-12-31',publicKey}),now:new Date('2026-09-04'),maxAgeSeconds:604800});
+    const verdict=await verifyCustodyChain(l,{expectedScope:x,checkpoint:{version:VERSION,scope:x,revision:row.revision,headHashSha256:row.head_sha256},resolveSigner:async({tenantId,signerKeyRef})=>({tenantId,signerKeyRef,purpose:'EVIDENCE_CUSTODY_SIGNING',revoked:false,validFrom:'2026-01-01',validUntil:'2026-12-31',publicKey}),now:x.evidenceRef.startsWith('CI-DOC-')?new Date():new Date('2026-09-04'),maxAgeSeconds:604800});
     assert.equal(verdict.integrityVerified,true);
    }
    assert.equal((await restoredPool.query('SELECT * FROM public.startak_evidence_custody')).rowCount,0);
@@ -100,6 +147,15 @@ async function main(){
    const opts={tenantId:scope.tenantId,caseRef:scope.caseRef,inventoryRef:inventory.inventoryRef,now:new Date(),maxAgeSeconds:3600,resolveSigner:async()=>({tenantId:scope.tenantId,signerKeyRef:inventory.signerKeyRef,purpose:'BACKUP_INVENTORY_SIGNING',revoked:false,validFrom:'2026-01-01',validUntil:'2099-12-31',publicKey:kp.publicKey})};
    assert.equal((await verifySignedRestoreInventory({inventory,signature},opts)).signatureVerified,true);
    assert.equal((await verifySignedRestoreInventory({inventory:{...inventory,backupRef:'0'.repeat(64)},signature},opts)).signatureVerified,false);
+   const docManifest={version:INVENTORY_VERSION,tenantId:scope.tenantId,caseRef:scope.caseRef,inventoryRef:'CI-DOC-INVENTORY',backupRef:artifactHash,snapshotAt:at,signedAt:at,signerKeyRef:'CI-DOC-INVENTORY-SIGNER',entries:documents.map(d=>({evidenceRef:d.scope.evidenceRef,sha256:d.scope.sha256}))};
+   documentInventory={inventory:docManifest,signature:crypto.sign(null,signedInventoryBytes(docManifest),docSigner.privateKey).toString('base64')};
+   const restoredVault=vaultFor(restoredPool,restoreDb,recovered);
+   for(const d of documents){const read=await restoredVault.read({...d.scope,actor:documentActor});assert.deepEqual(read.sourceBytes,d.bytes);assert.equal(read.custodyIntegrityVerified,true);read.sourceBytes.fill(0);}
+   const verification=await restoredVault.verifyRestoredInventory({actor:documentActor,tenantId:scope.tenantId,caseRef:scope.caseRef,inventoryRef:docManifest.inventoryRef});
+   assert.equal(verification.status,'RESTORED_SIGNED_EXPECTED_INVENTORY_MATCHED');assert.equal(verification.verifiedCount,2);assert.equal(verification.productionRecoveryVerified,false);
+   const savedKey=documentKeys.get('DOC-KEY-1');documentKeys.delete('DOC-KEY-1');
+   try{assert.equal((await restoredVault.verifyRestoredInventory({actor:documentActor,tenantId:scope.tenantId,caseRef:scope.caseRef,inventoryRef:docManifest.inventoryRef})).status,'HOLD_RESTORE_VERIFICATION');}finally{documentKeys.set('DOC-KEY-1',savedKey);}
+   console.log('POSTGRES_ENCRYPTED_DOCUMENT_RESTORE_RESULT=PASS documents=2 ledger_rows='+restoredRows.length+' production=false');
    const tampered=Buffer.from(backup);tampered[tampered.length-1]^=1;
    assert.notEqual(crypto.createHash('sha256').update(tampered).digest('hex'),artifactHash);
    console.log('POSTGRES_BACKUP_RESTORE_RESULT=PASS rows='+restoredRows.length+' artifact_sha256='+artifactHash+' bytes='+backup.length+' elapsed_ms='+(Date.now()-started)+' production=false');
