@@ -2,7 +2,7 @@
 
 const crypto = require('node:crypto');
 const {strictCalendarDateMs}=require('../validation/strict-calendar-instant');
-const {isPlainJson}=require('../validation/plain-json-boundary');
+const {isPlainJson,assertPlainJson}=require('../validation/plain-json-boundary');
 
 const MEASUREMENT_TYPE = Object.freeze({
   LAND_AREA: 'LAND_AREA',
@@ -145,7 +145,12 @@ function withinTolerance(a, b, tolerance) {
   return delta <= scale * relative;
 }
 
-function reconcileMeasurementRecords({
+function reconcileMeasurementRecords(input={}) {
+  // Reject executable properties and non-JSON data before destructuring.
+  try{assertPlainJson(input,{maxNodes:500000});if(!input||typeof input!=='object'||Array.isArray(input))throw Error('root');}catch{throw TypeError('MEASUREMENT_INPUT_JSON_INVALID');}
+  return reconcileChecked(input);
+}
+function reconcileChecked({
   caseId,
   records,
   materialTypes,
@@ -183,7 +188,10 @@ function reconcileMeasurementRecords({
     const group = records.filter((record) => record.type === type);
     const sources = [...new Set(group.map((record) => record.source))];
     const minimumSources=policy.minimumIndependentSourcesByType[type];
-    const evidenceInsufficient = group.length === 0 || sources.length < minimumSources||duplicateIds||invalidIds.size>0||new Set(group.map(r=>r.sourceEvidenceRef)).size<minimumSources;
+    // For counts, require field inspection and independently referenced
+    // registered/approved documentary evidence, rather than two arbitrary roles.
+    const countEvidenceMissing=isCountType(type)&&!group.some(r=>r.source==='INSPECTION'&&r.inspectionId&&group.some(d=>['TITLE_DEED','REAL_ESTATE_REGISTRY','APPROVED_PLAN'].includes(d.source)&&d.sourceEvidenceRef!==r.sourceEvidenceRef));
+    const evidenceInsufficient = group.length === 0 || sources.length < minimumSources||duplicateIds||invalidIds.size>0||new Set(group.map(r=>r.sourceEvidenceRef)).size<minimumSources||countEvidenceMissing;
     if (evidenceInsufficient) insufficient.push({ type, sourceCount: sources.length, requiredSourceCount: minimumSources });
 
     let conflict = false;
@@ -237,6 +245,7 @@ function reconcileMeasurementRecords({
 
 function verifyMeasurementGate(gate,inputs){
  try{
+  if(!isPlainJson(gate))return false;
   const replay=reconcileMeasurementRecords(inputs);
   return replay.status===MEASUREMENT_RECONCILIATION_STATUS.CLEAR&&digest(gate)===digest(replay);
  }catch{return false;}

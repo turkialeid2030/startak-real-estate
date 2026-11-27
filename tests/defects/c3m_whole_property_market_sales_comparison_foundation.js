@@ -401,4 +401,19 @@ const engineHeld = calculateWholePropertySalesComparisonIndication(mutatedPacket
 assert.equal(engineHeld.status, WHOLE_PROPERTY_SALES_RESULT_STATUS.INVALID_INPUT_PACKET);
 assert.equal(engineHeld.valueIndicationSar, null);
 
+// V6.57 direct C3M input boundary and chronology, including legacy date API.
+const lateBinding57=build({marketContextBinding:marketContextBinding({boundAt:'2026-09-29T17:35:00Z'})});
+assert.ok(lateBinding57.blockers.includes('C3M_SELECTION_BEFORE_MARKET_BINDING'));
+const lateMeasurement57=build({comparableMeasurements:comparableMeasurements({0:{verifiedAt:'2026-09-29T17:35:00Z'}})});
+assert.ok(lateMeasurement57.blockers.includes('C3M_SELECTION_BEFORE_MEASUREMENT_VERIFICATION:comp-1'));
+const lateSale57=build({marketEvidence:marketEvidence([saleRecord(1,10000000,{observedAt:'2026-09-29T17:35:00Z'}),saleRecord(2,9600000),saleRecord(3,10200000)])});
+assert.ok(lateSale57.blockers.includes('C3M_SELECTION_BEFORE_SALE_OBSERVATION:comp-1'));
+assert.ok(build({adjustmentRecords:adjustmentRecords({0:{reviewedAt:'2026-09-29T17:20:00Z'}})}).blockers.includes('C3M_ADJUSTMENT_REVIEW_BEFORE_SELECTION:adj-comp-1-none'));
+assert.ok(build({reconciledAt:'2026-09-29T17:35:00Z'}).blockers.includes('C3M_RECONCILED_BEFORE_COMPLETED_REVIEW'));
+assert.ok(build({asOf:'2099-01-01'}).blockers.includes('C3M_AS_OF_INVALID_OR_FUTURE'));
+assert.ok(build({asOf:'2026-02-30'}).blockers.includes('C3M_AS_OF_INVALID_OR_FUTURE'));
+assert.equal(build({asOf:new Date(AS_OF)}).wholePropertySalesComparisonInputHashSha256,readyPacket.wholePropertySalesComparisonInputHashSha256);
+let reads57=0;const getter57=Object.defineProperty({},'packetId',{enumerable:true,get(){reads57++;return 'X';}});
+assert.ok(buildWholePropertySalesComparisonInputPacket(getter57).blockers.includes('C3M_INPUT_JSON_INVALID'));assert.equal(reads57,0);
+assert.equal(verifyWholePropertySalesComparisonInputIntegrity(getter57),false);assert.equal(reads57,0);
 console.log('C3M_WHOLE_PROPERTY_MARKET_SALES_COMPARISON_FOUNDATION=PASS');
