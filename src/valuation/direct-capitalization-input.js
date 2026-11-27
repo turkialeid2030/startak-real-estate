@@ -32,7 +32,7 @@ function iso(value, field) {
 function stableClone(value) {
   if (Array.isArray(value)) return value.map(stableClone);
   if (!value || typeof value !== 'object') return value;
-  return Object.keys(value).sort().reduce((out, key) => { out[key] = stableClone(value[key]); return out; }, {});
+  return Object.fromEntries(Object.keys(value).sort().map(key=>[key,stableClone(value[key])]));
 }
 function sha256(value) { return crypto.createHash('sha256').update(JSON.stringify(stableClone(value))).digest('hex'); }
 function deepFreeze(value) {
@@ -71,7 +71,27 @@ function verifyProfessionalNoiResultIntegrity(result) {
   if (!validSha(result.calculationHashSha256) || !validSha(result.inputPacketHashSha256) || !validSha(result.incomeEvidencePacketHashSha256)) return false;
   if (!Array.isArray(result.periodResults) || !Number.isInteger(result.stabilizedPeriodIndex) || result.stabilizedPeriodIndex < 1) return false;
   if (typeof result.stabilizedNoiSar !== 'number' || !Number.isFinite(result.stabilizedNoiSar)) return false;
-  return sha256(professionalNoiResultCore(result)) === result.calculationHashSha256.toLowerCase();
+  try {
+    const nonnegative=v=>Number.isFinite(v)&&v>=0;
+    if(result.schemaVersion!==1||!['BEFORE_REPLACEMENT_RESERVE','AFTER_REPLACEMENT_RESERVE'].includes(result.noiConvention)||
+      !['finalValuationConclusionEstablished','certifiedValuationEstablished','transactionAuthorized'].every(k=>result[k]===false)||
+      ['capitalizationPerformed','dcfPerformed','financingIncluded','debtServiceIncluded','depreciationIncluded','capitalExpenditureIncluded','incomeTaxCalculated'].some(k=>Object.hasOwn(result,k)&&result[k]!==false))return false;
+    if(![result.baselineAnnualContractRentSar,result.baselineOccupiedAreaSqm].every(nonnegative)||!Number.isSafeInteger(result.baselineActiveLeaseCount)||result.baselineActiveLeaseCount<0||result.periodResults.length===0)return false;
+    const ids=new Set();let lastEnd=null,stabilized=null;
+    for(const [i,p] of result.periodResults.entries()){
+      if(!p||!nonEmpty(p.periodId)||ids.has(p.periodId)||p.periodIndex!==i+1||typeof p.isStabilized!=='boolean'||p.selectedNoiConvention!==result.noiConvention||p.annualizedAmounts!==true||p.automaticLeaseOptionExercise!==false||p.automaticMarketRentApplied!==false)return false;
+      const start=Date.parse(p.startDate),end=Date.parse(p.endDate);
+      if(!Number.isFinite(start)||!Number.isFinite(end)||end<=start||(lastEnd!==null&&start<lastEnd))return false;
+      lastEnd=end;ids.add(p.periodId);
+      const {potentialGrossIncomeSar:g,vacancyCollectionLossSar:l,operatingExpensesBeforeReserveSar:o,replacementReserveSar:r}=p;
+      if(![g,l,o,r].every(nonnegative)||l>g)return false;
+      const e=g-l,b=e-o,a=b-r,selected=result.noiConvention==='BEFORE_REPLACEMENT_RESERVE'?b:a;
+      if(![e,b,a,selected].every(Number.isFinite)||p.effectiveGrossIncomeSar!==e||p.noiBeforeReplacementReserveSar!==b||p.noiAfterReplacementReserveSar!==a||p.selectedNoiSar!==selected)return false;
+      if(p.isStabilized){if(stabilized!==null||p.periodIndex!==result.stabilizedPeriodIndex)return false;stabilized=p;}
+    }
+    if(!stabilized||result.stabilizedNoiSar!==stabilized.selectedNoiSar||result.firstForecastPeriodNoiSar!==result.periodResults[0].selectedNoiSar)return false;
+    return sha256(professionalNoiResultCore(result)) === result.calculationHashSha256.toLowerCase();
+  }catch{return false;}
 }
 
 function hold(status, blockers, context = {}) {
@@ -211,6 +231,11 @@ function buildDirectCapitalizationInputPacket({
 
 function verifyDirectCapitalizationInputIntegrity(packet) {
   if (!packet || !validSha(packet.directCapitalizationInputHashSha256)) return false;
+  try {
+  if(packet.schemaVersion!==1||packet.status!==DIRECT_CAP_INPUT_STATUS.READY_FOR_CANONICAL_DIRECT_CAPITALIZATION||packet.readyForCanonicalDirectCapitalization!==true||!Array.isArray(packet.blockers)||packet.blockers.length||['automaticMethodSelection','automaticRateDerivation','capitalizationPerformed','reconciliationPerformed','valuationConclusionProduced','certifiedValuationEstablished','transactionAuthorized'].some(k=>packet[k]!==false))return false;
+  if(packet.selectedNoiBasis!==DIRECT_CAP_NOI_BASIS.STABILIZED_NOI||!['BEFORE_REPLACEMENT_RESERVE','AFTER_REPLACEMENT_RESERVE'].includes(packet.noiConvention)||!Number.isSafeInteger(packet.stabilizedPeriodIndex)||packet.stabilizedPeriodIndex<1||!validSha(packet.professionalNoiCalculationHashSha256)||!validSha(packet.professionalNoiInputPacketHashSha256))return false;
+  const provenance=packet.marketCapRateProvenance,valuation=iso(packet.valuationDate,'valuationDate'),prepared=iso(packet.preparedAt,'preparedAt');
+  if(!provenance||!validSha(provenance.rateInputHashSha256)||!Number.isSafeInteger(provenance.maximumAgeDays)||provenance.maximumAgeDays<0||!Number.isSafeInteger(provenance.ageDays)||provenance.ageDays<0||provenance.ageDays>provenance.maximumAgeDays||provenance.ageDays!==daysBetween(iso(provenance.asOfDate,'asOfDate'),valuation)||Date.parse(provenance.asOfDate)>Date.parse(valuation)||Date.parse(iso(provenance.reviewedAt,'reviewedAt'))>Date.parse(prepared)||Date.parse(prepared)<Date.parse(valuation))return false;
   const core = { ...packet };
   [
     'directCapitalizationInputHashSha256', 'status', 'blockers', 'readyForCanonicalDirectCapitalization',
@@ -218,6 +243,7 @@ function verifyDirectCapitalizationInputIntegrity(packet) {
     'valuationConclusionProduced', 'certifiedValuationEstablished', 'transactionAuthorized', 'semantics',
   ].forEach((key) => delete core[key]);
   return sha256(core) === packet.directCapitalizationInputHashSha256.toLowerCase();
+  }catch{return false;}
 }
 
 module.exports = {

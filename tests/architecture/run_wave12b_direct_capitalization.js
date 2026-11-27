@@ -14,6 +14,7 @@ const {
   DIRECT_CAP_NOI_BASIS,
   DIRECT_CAP_INPUT_STATUS,
   verifyProfessionalNoiResultIntegrity,
+  professionalNoiResultCore,
   buildDirectCapitalizationInputPacket,
   verifyDirectCapitalizationInputIntegrity,
 } = require('../../src/valuation/direct-capitalization-input');
@@ -44,7 +45,7 @@ function makeNoiResult(stabilizedNoiSar = 800000, overrides = {}) {
     periodId: 'STABILIZED', periodIndex: 1, label: 'Stabilized', startDate: valuationDate,
     endDate: '2027-09-01T00:00:00.000Z', isStabilized: true,
     potentialGrossIncomeSar: 1000000, vacancyCollectionLossSar: 50000, effectiveGrossIncomeSar: 950000,
-    operatingExpensesBeforeReserveSar: 150000, replacementReserveSar: 20000,
+    operatingExpensesBeforeReserveSar: 950000-stabilizedNoiSar, replacementReserveSar: 20000,
     noiBeforeReplacementReserveSar: stabilizedNoiSar, noiAfterReplacementReserveSar: stabilizedNoiSar - 20000,
     selectedNoiConvention: 'BEFORE_REPLACEMENT_RESERVE', selectedNoiSar: stabilizedNoiSar,
     incomeTrace: [], vacancyCollectionLossTrace: {}, operatingExpenseTrace: [], reviewFlags: [], annualizedAmounts: true,
@@ -159,4 +160,26 @@ equal(calculateDirectCapitalizationIndication(tamperedPacket).status, DIRECT_CAP
 throws(() => buildDirectCapitalizationInputPacket({ packetId: 'BAD-BASIS', caseId, propertyRef, valuationDate, professionalNoiResult: noi, marketCapRateInput: capRate, maximumRateAgeDays: 20, selectedNoiBasis: 'TRAILING_NOI', preparedByRef: 'X', preparedAt: inputPreparedAt, evidenceRef: 'X' }), /selectedNoiBasis is invalid/, 'unsupported NOI basis rejected');
 throws(() => buildDirectCapitalizationInputPacket({ packetId: 'NO-FRESHNESS', caseId, propertyRef, valuationDate, professionalNoiResult: noi, marketCapRateInput: capRate, selectedNoiBasis: DIRECT_CAP_NOI_BASIS.STABILIZED_NOI, preparedByRef: 'X', preparedAt: inputPreparedAt, evidenceRef: 'X' }), /maximumRateAgeDays/, 'explicit freshness policy required');
 
+const p=noi.periodResults[0];
+for(const patch of [
+ {stabilizedNoiSar:900000},{firstForecastPeriodNoiSar:900000},{stabilizedPeriodIndex:2},
+ {periodResults:[{...p,effectiveGrossIncomeSar:1}]},{periodResults:[{...p,vacancyCollectionLossSar:1100000}]},
+ {periodResults:[{...p,operatingExpensesBeforeReserveSar:-1}]},{periodResults:[{...p,noiAfterReplacementReserveSar:1}]},
+ {periodResults:[{...p,selectedNoiSar:1}]},{periodResults:[{...p,isStabilized:false}]},{periodResults:[{...p,periodIndex:2}]},
+ {periodResults:[{...p,endDate:p.startDate}]},{periodResults:[{...p,automaticMarketRentApplied:true}]},{transactionAuthorized:true}
+]){
+ const changed={...noi,...patch};changed.calculationHashSha256=sha256(professionalNoiResultCore(changed));
+ equal(verifyProfessionalNoiResultIntegrity(changed),false,'V632 rehashed NOI contradiction rejected');
+ equal(build(changed,capRate).status,DIRECT_CAP_INPUT_STATUS.HOLD_INTEGRITY,'V632 direct capitalization handoff blocked');
+}
+for(const patch of [{transactionAuthorized:true},{automaticRateDerivation:true},{selectedNoiBasis:'TRAILING_NOI'},{marketCapRateProvenance:{...input.marketCapRateProvenance,ageDays:0}},{marketCapRateProvenance:{...input.marketCapRateProvenance,maximumAgeDays:1}}]){
+ const changed={...input,...patch},core={...changed};
+ for(const k of ['directCapitalizationInputHashSha256','status','blockers','readyForCanonicalDirectCapitalization','automaticMethodSelection','automaticRateDerivation','capitalizationPerformed','reconciliationPerformed','valuationConclusionProduced','certifiedValuationEstablished','transactionAuthorized','semantics'])delete core[k];
+ changed.directCapitalizationInputHashSha256=sha256(core);
+ equal(verifyDirectCapitalizationInputIntegrity(changed),false,'V632 rehashed capitalization contradiction rejected');
+ equal(calculateDirectCapitalizationIndication(changed).status,DIRECT_CAPITALIZATION_RESULT_STATUS.INVALID_INPUT_PACKET,'V632 capitalization engine fails closed');
+}
+equal(verifyProfessionalNoiResultIntegrity(JSON.parse(JSON.stringify(noi))),true,'V632 NOI roundtrip');
+equal(calculateDirectCapitalizationIndication(JSON.parse(JSON.stringify(input))).calculationHashSha256,result.calculationHashSha256,'V632 capitalization roundtrip');
+console.log('W06_V632_NOI_AND_CAPITALIZATION=PASS negative_cases=18 positive_roundtrips=2');
 console.log(`WAVE_12B_DIRECT_CAPITALIZATION=PASS checks=${checks}`);

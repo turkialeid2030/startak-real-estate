@@ -138,3 +138,6 @@ V6.29 exact-head Release 45928100513 PASS 716/716 and 14/14 named evidence; One 
 
 ## V6.31 W06/W09 DCF-to-financing handoff
 V6.30 Release PASS 716/716, 15/15 named evidence; Wave12D 87 checks PASS and P27 PASS. Recompute all DCF retained arithmetic and review flags at financing boundary; reject rehashed arithmetic/authority conflicts. Fourteen negative cases, one positive roundtrip. Same PR #871. No external source or professional approval, no credential rotation, merge or deploy.
+
+## V6.32 W06/W09 NOI and direct capitalization integrity
+Shared NOI aggregate arithmetic and stabilized period validation, direct cap provenance chronology and closed authority checks. 18 negative cases and 2 roundtrips; Wave12B/C added to named evidence. Negative and zero NOI remain mathematically valid but cannot be capitalized. No private data, source authentication, credential rotation, merge or deploy. Exact-head CI required.
