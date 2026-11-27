@@ -21,6 +21,16 @@ function equal(a,b){const h=hashValue(a);return !!h&&h===hashValue(b);}
 const filled=v=>typeof v==='string'&&!!v.trim();
 function required(v,label){if(!v)throw Error(label);}
 function canonicalRecord(ctor,v,label){required(safe(v),label);const rebuilt=ctor(v);required(equal(rebuilt,v),label);return rebuilt;}
+// Rebuild each nested forecast record, not just the outer period hash.
+function rebuildCanonicalForecastPeriod(p){
+ required(safe(p)&&Array.isArray(p.incomeLines)&&p.incomeLines.length>0&&p.incomeLines.length<=1000&&Array.isArray(p.operatingExpenseLines)&&p.operatingExpenseLines.length>0&&p.operatingExpenseLines.length<=1000,'FORECAST_LINE_COLLECTION_INVALID');
+ const incomeLines=p.incomeLines.map(x=>canonicalRecord(forecast.createIncomeForecastLine,x,'FORECAST_INCOME_LINE_CANONICAL_MISMATCH'));
+ const vacancyCollectionLoss=canonicalRecord(forecast.createVacancyCollectionLossAssumption,p.vacancyCollectionLoss,'FORECAST_VACANCY_CANONICAL_MISMATCH');
+ const operatingExpenseLines=p.operatingExpenseLines.map(x=>canonicalRecord(forecast.createOperatingExpenseForecastLine,x,'FORECAST_EXPENSE_LINE_CANONICAL_MISMATCH'));
+ const rebuilt=forecast.createIncomeForecastPeriod({...p,incomeLines,vacancyCollectionLoss,operatingExpenseLines});
+ required(equal(rebuilt,p),'FORECAST_PERIOD_CANONICAL_MISMATCH');
+ return rebuilt;
+}
 function sameScope(x,ctx){return !!x&&x.caseId===ctx.caseId&&x.propertyRef===ctx.propertyRef;}
 function before(v,cutoff){const d=strictCalendarDateMs(v);return Number.isFinite(d)&&d<=cutoff;}
 function scopedDraft(d,ctx){required(safe(d)&&sameScope(d,ctx)&&strictCalendarDateMs(d.valuationDate)===ctx.date,'SOURCE_DRAFT_SCOPE_INVALID');return d;}
@@ -86,9 +96,10 @@ function rebuildIncome(source,ctx){
    if(p.periodIndex===1){
      const lines=p.incomeLines.filter(x=>x.type===forecast.INCOME_FORECAST_LINE_TYPE.CONTRACTUAL_RENT);
      const {toHalalas,sumHalalas}=require('../validation/governed-sar-halala');
-     required(lines.length>0&&sumHalalas(lines.map(x=>toHalalas(x.amountSar)))===toHalalas(evidence.annualContractRentSar),'FIRST_PERIOD_CONTRACTUAL_RENT_MISMATCH');
+     const expected=toHalalas(evidence.annualContractRentSar),actual=sumHalalas(lines.map(x=>toHalalas(x.amountSar)));
+     required(lines.length>0&&expected!==null&&actual!==null&&actual===expected,'FIRST_PERIOD_CONTRACTUAL_RENT_MISMATCH');
    }
-   return canonicalRecord(forecast.createIncomeForecastPeriod,p,'FORECAST_PERIOD_CANONICAL_MISMATCH');
+   return rebuildCanonicalForecastPeriod(p);
  });
  required(!Object.hasOwn(fd,'incomeEvidencePacket'),'FORECAST_DRAFT_MUST_NOT_SUPPLY_DERIVED_EVIDENCE');
  const forecastPacket=forecast.buildProfessionalIncomeForecastInput({...fd,forecastPeriods,incomeEvidencePacket:evidence});
@@ -173,4 +184,4 @@ function evaluateSourceInputReplay(input={}){
  if(Object.keys(drafts).some(k=>!ids.has(k)))blockers.push('SOURCE_REPLAY_ORPHANED_DRAFT');
  return out();
 }
-module.exports={evaluateSourceInputReplay};
+module.exports={evaluateSourceInputReplay,rebuildCanonicalForecastPeriod};

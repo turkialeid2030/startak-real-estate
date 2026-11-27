@@ -34,8 +34,10 @@ const {
 
 const ROOT = path.join(__dirname, '..');
 let failed = false;
+let canonicalBuildSucceeded=false;
 
 function step(name, fn) {
+  const started=Date.now();
   process.stdout.write(`\n=== ${name} ===\n`);
   try {
     const outcome = fn();
@@ -46,6 +48,8 @@ function step(name, fn) {
   } catch (e) {
     console.log(`${name}: FAIL -- ${e.message}`);
     failed = true;
+  } finally {
+    console.log('QUALIFICATION_STEP_ELAPSED_MS '+name+' '+(Date.now()-started));
   }
 }
 
@@ -99,6 +103,9 @@ step('TEST_DISCOVERY_AND_REGRESSION', () => {
     'tests/architecture/run_c49_c40_official_source_rights_recovery.js',
     'tests/architecture/run_c2n_c25_governed_source_recovery.js',
     'tests/architecture/run_structured_source_replay.js',
+    'tests/architecture/run_v7_acceleration_contract.js',
+    'tests/architecture/run_v7_cross_lane_hardening.js',
+    'tests/architecture/run_orphan_envelope_recovery.js',
     'tests/runtime/run_postgres_custody_store_tests.js',
     'tests/valuation/private-appraisal-evidence-vault.test.js',
     'tests/architecture/run_legacy_57_manifest_integrity.js',
@@ -140,6 +147,7 @@ step('PRODUCTION_BUILD', () => {
   if (fs.existsSync(path.join(ROOT, 'dist'))) fs.rmSync(path.join(ROOT, 'dist'), { recursive: true });
   execFileSync('npm', ['run', 'build'], { cwd: ROOT, stdio: 'pipe' });
   if (!fs.existsSync(path.join(ROOT, 'dist', 'assets'))) throw new Error('dist/assets not produced');
+  canonicalBuildSucceeded=true;
 });
 
 step('VERIFY_PACKAGE', () => {
@@ -149,7 +157,12 @@ step('VERIFY_PACKAGE', () => {
     for (const line of String(output || '').split(/\r?\n/)) if (safe.test(line)) console.log('  PACKAGE_'+line);
   };
   try {
-    report(execFileSync(process.execPath, [path.join(ROOT, 'tests', 'verify_package.js')], { cwd: ROOT, stdio: 'pipe' }));
+    // No external skip flag or cache. Reuse only the fresh build successfully
+    // created by this exact invocation; all post-build regressions and checks run.
+    const args=canonicalBuildSucceeded?['-e',"process.exit(require('./tests/verify_package.js').verifyPackage({reuseExistingBuild:true})?0:1)"]:[path.join(ROOT,'tests','verify_package.js')];
+    const output=execFileSync(process.execPath,args,{cwd:ROOT,stdio:'pipe'});
+    if(canonicalBuildSucceeded){if(!String(output).split(/\r?\n/).includes('PACKAGE_BUILD_REUSED_IN_CANONICAL_PROCESS=true'))throw Error('PACKAGE_BUILD_REUSE_EVIDENCE_MISSING');console.log('  CANONICAL_BUILD_REUSED=true');}
+    report(output);
   } catch (error) {
     report(error.stdout);
     throw new Error('PACKAGE_VERIFICATION_FAILED');

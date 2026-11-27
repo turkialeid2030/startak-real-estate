@@ -73,7 +73,8 @@ async function main(){
  const documents=['CI-DOC-1','CI-DOC-2'].map((evidenceRef,i)=>{const bytes=Buffer.from('SYNTHETIC PRIVATE DOCUMENT '+i);return {scope:{tenantId:scope.tenantId,caseRef:scope.caseRef,evidenceRef,sha256:crypto.createHash('sha256').update(bytes).digest('hex')},bytes};});
  const docSigner=crypto.generateKeyPairSync('ed25519');
  const docTrust=async({tenantId,signerKeyRef})=>({tenantId,signerKeyRef,purpose:'BACKUP_INVENTORY_SIGNING',revoked:false,validFrom:'2026-01-01',validUntil:'2099-12-31',publicKey:docSigner.publicKey});
- function vaultFor(dbPool,dbName,ledgerStore){return makePrivateAppraisalVault({
+ function vaultFor(dbPool,dbName,ledgerStore,orphanRecovery){return makePrivateAppraisalVault({
+  ...(orphanRecovery?{orphanRecovery}:{}),
   adapter:makePostgresPrivateEnvelopeStore({pool:dbPool,expectedRole:runtime,expectedDatabase:dbName}),
   authorizeActor:async({requestActor,tenantId,caseRef})=>requestActor===documentActor&&tenantId===scope.tenantId&&caseRef===scope.caseRef?{verifiedByServer:true,tenantId,caseRefs:[caseRef],actorId:documentActor.id,role:'DATA_ADMIN'}:null,
   keyring:{activeKey:async tenantId=>({tenantId,keyRef:activeDocumentKey,keyBytes:documentKeys.get(activeDocumentKey)}),resolveKey:async(tenantId,keyRef)=>({tenantId,keyRef,keyBytes:documentKeys.get(keyRef)})},
@@ -175,6 +176,22 @@ async function main(){
    assert.notEqual(crypto.createHash('sha256').update(tampered).digest('hex'),artifactHash);
    console.log('POSTGRES_BACKUP_RESTORE_RESULT=PASS rows='+restoredRows.length+' artifact_sha256='+artifactHash+' bytes='+backup.length+' elapsed_ms='+(Date.now()-started)+' production=false');
   }finally{if(restoredPool)await restoredPool.end();await restoredAdmin.end();backup.fill(0);}
+ });
+ await check('orphan envelope recovery on actual database',async()=>{
+  let approve=false;
+  const recoveryVault=vaultFor(pool,database,a,{coordinator,signerKeyRef:'CI-SIGNER',authorizeRecovery:async x=>({...x,approved:approve,reviewerId:'CI-INDEPENDENT-REVIEWER',approvedAt:new Date().toISOString()})});
+  const bytes=Buffer.from('CI ORPHAN ENVELOPE'),d={tenantId:scope.tenantId,caseRef:scope.caseRef,evidenceRef:'CI-ORPHAN',sha256:crypto.createHash('sha256').update(bytes).digest('hex')};
+  const request={...d,actor:documentActor,expectedSha256:d.sha256,changeControlRef:'CI-ORPHAN-CHG'};
+  await recoveryVault.put({...request,sourceBytes:bytes});
+  assert.equal(await a.loadLedger(d),null);
+  await assert.rejects(()=>recoveryVault.read(request),/EVIDENCE_CUSTODY_NOT_QUALIFIED/);
+  assert.equal((await recoveryVault.recoverOrphan(request)).reason,'ORPHAN_RECOVERY_APPROVAL_INVALID');
+  approve=true;
+  const result=await recoveryVault.recoverOrphan(request);
+  assert.equal(result.status,'ORPHAN_RECOVERY_CONFIRMED_BY_PROVIDERS');assert.equal(Object.hasOwn(result,'sourceBytes'),false);
+  assert.equal((await recoveryVault.recoverOrphan(request)).reason,'ORPHAN_RECOVERY_EXISTING_CUSTODY');
+  const read=await recoveryVault.read(request);assert.deepEqual(read.sourceBytes,bytes);read.sourceBytes.fill(0);
+  assert.equal((await a.loadLedger(d)).events.length,1);
  });
  console.log('POSTGRES_LIVE_CUSTODY_RESULT=PASS checks='+checks+' real_database=true synthetic_data=true production=false');
 }

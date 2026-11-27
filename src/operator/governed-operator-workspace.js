@@ -2,6 +2,7 @@
 
 const crypto = require('crypto');
 const {assertPlainJson,isPlainJson}=require('../validation/plain-json-boundary');
+const {strictCalendarDateMs}=require('../validation/strict-calendar-instant');
 
 const ROLE = Object.freeze({
   VIEWER: 'VIEWER',
@@ -96,7 +97,7 @@ function requireSha(value, code) {
 
 function requireIso(value, code) {
   requireText(value, code);
-  if (Number.isNaN(Date.parse(value))) throw new Error(code);
+  if (!Number.isFinite(strictCalendarDateMs(value))) throw new Error(code);
   return value;
 }
 
@@ -128,7 +129,7 @@ function sessionMaterial(input) {
 }
 
 function createOperatorSession(input) {
-  if (!input || typeof input !== 'object') throw new Error('C26_SESSION_REQUIRED');
+  if (!input || typeof input !== 'object'||Array.isArray(input)||!isPlainJson(input)) throw new Error('C26_SESSION_REQUIRED');
   if (!Object.values(ROLE).includes(input.role)) throw new Error('C26_ROLE_UNKNOWN');
   if (input.transactionAuthorized === true || input.approvalAuthorized === true ||
       input.publicAiAuthorized === true || input.productionDeploymentAuthorized === true ||
@@ -180,7 +181,7 @@ function freezePayload(value){
   return value;
 }
 function createWorkspaceAction(input) {
-  if (!input || typeof input !== 'object') throw new Error('C26_ACTION_REQUIRED');
+  if (!input || typeof input !== 'object'||Array.isArray(input)||!isPlainJson(input)) throw new Error('C26_ACTION_REQUIRED');
   if (!Object.values(ACTION).includes(input.action)) throw new Error('C26_ACTION_UNKNOWN');
   if(input.payload!==undefined)validatePayload(input.payload);
   if (hasForbiddenAuthorityKey(input.payload)) throw new Error('C26_AUTHORITY_INJECTION_FORBIDDEN');
@@ -221,7 +222,9 @@ function auditEvent({ status, blocker, session, workspaceAction, caseSnapshot, e
   return Object.freeze({ ...material, auditEventHashSha256: sha256(material) });
 }
 
-function evaluateOperatorWorkspaceAction({ session, workspaceAction, caseSnapshot, asOf }) {
+function evaluateOperatorWorkspaceAction(input) {
+  if(!isPlainJson(input)||!input||Array.isArray(input))throw Error('C26_EVALUATION_INPUT_REQUIRED');
+  const {session,workspaceAction,caseSnapshot,asOf}=input;
   requireIso(asOf, 'C26_AS_OF_INVALID');
   if (!session || !workspaceAction || !caseSnapshot) throw new Error('C26_EVALUATION_INPUT_REQUIRED');
   requireSha(caseSnapshot.resultHashSha256, 'C26_CASE_RESULT_HASH_INVALID');
@@ -246,7 +249,7 @@ function evaluateOperatorWorkspaceAction({ session, workspaceAction, caseSnapsho
       !canonicalSession || !canonicalAction) {
     status = STATUS.HOLD_INTEGRITY;
     blocker = 'C26_INTEGRITY_AUTHORIZATION_OR_ACTION_TAMPERED';
-  } else if (Date.parse(asOf) < Date.parse(session.issuedAt) || Date.parse(asOf) > Date.parse(session.validUntil) ||
+  } else if (strictCalendarDateMs(asOf)>Date.now() || Date.parse(asOf) < Date.parse(session.issuedAt) || Date.parse(asOf) > Date.parse(session.validUntil) ||
              Date.parse(workspaceAction.requestedAt) < Date.parse(session.issuedAt) || Date.parse(workspaceAction.requestedAt) > Date.parse(session.validUntil) || Date.parse(workspaceAction.requestedAt)>Date.parse(asOf)) {
     status = STATUS.HOLD_TEMPORAL;
     blocker = 'C26_TEMPORAL_SESSION_NOT_VALID';

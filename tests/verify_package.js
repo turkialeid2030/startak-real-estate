@@ -10,8 +10,16 @@ const pkg = require('../package.json');
 const ROOT = path.resolve(__dirname, '..');
 const { discoverRegressionTests } = require('../tools/regression-test-discovery');
 
+function verifyPackage({reuseExistingBuild=false}={}) {
+if(typeof reuseExistingBuild!=='boolean')throw Error('PACKAGE_BUILD_MODE_INVALID');
+// Standalone invocation always builds. Only the canonical release orchestrator
+// calls this internal function after its own successful fresh production build.
 console.log('=== STEP 1: build ===');
-execSync('npm run build', { stdio: 'inherit' });
+if(!reuseExistingBuild)execSync('npm run build', { cwd: ROOT, stdio: 'inherit' });
+else {
+ if(!fs.existsSync(path.join(ROOT,'dist','assets'))||!fs.existsSync(path.join(ROOT,'dist','release-manifest.json'))||!fs.existsSync(path.join(ROOT,'dist','asset-manifest.json')))throw Error('PACKAGE_EXISTING_BUILD_MISSING');
+ console.log('PACKAGE_BUILD_REUSED_IN_CANONICAL_PROCESS=true');
+}
 
 console.log('');
 console.log('=== STEP 2: full regression ===');
@@ -93,4 +101,7 @@ try {
 } catch (error) { console.log('FINAL_ASSET_MANIFEST=FAIL ' + error.message); }
 const ok = (total - passed === 0) && externalFiles === 0 && manifestOk && assetManifestOk;
 console.log(ok ? 'VERIFY_PACKAGE=PASS' : 'VERIFY_PACKAGE=FAIL');
-process.exit(ok ? 0 : 1);
+return ok;
+}
+if(require.main===module)process.exit(verifyPackage()?0:1);
+module.exports={verifyPackage};

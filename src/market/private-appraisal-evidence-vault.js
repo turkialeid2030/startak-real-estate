@@ -52,7 +52,7 @@ function versionedKey(record,tenant,expectedRef=null){
  if(!record||typeof record!=='object'||record.tenantId!==tenant||typeof record.keyRef!=='string'||!REF.test(record.keyRef)||!Buffer.isBuffer(record.keyBytes)||record.keyBytes.length!==32||(expectedRef!==null&&record.keyRef!==expectedRef))throw Error('EXTERNAL_KMS_KEY_SCOPE_OR_VERSION_INVALID');
  return {keyRef:record.keyRef,key:Buffer.from(record.keyBytes)};
 }
-function makePrivateAppraisalVault({adapter,keyProvider,keyring,authorizeActor,restoreInventoryProvider,restoreInventoryTrust,custodyTrust,requireStrictCustody=false,clock=()=>new Date()}={}){
+function makePrivateAppraisalVault({adapter,keyProvider,keyring,authorizeActor,restoreInventoryProvider,restoreInventoryTrust,custodyTrust,orphanRecovery,requireStrictCustody=false,clock=()=>new Date()}={}){
  if(!adapter||typeof adapter.get!=='function'||typeof adapter.putIfAbsent!=='function'||
   (typeof keyProvider!=='function'&&!keyring)||typeof authorizeActor!=='function'||typeof clock!=='function'||
   (keyring!==undefined&&(!keyring||typeof keyring.activeKey!=='function'||typeof keyring.resolveKey!=='function'))||
@@ -61,6 +61,8 @@ function makePrivateAppraisalVault({adapter,keyProvider,keyring,authorizeActor,r
   (custodyTrust!==undefined&&(!custodyTrust||typeof custodyTrust.loadLedger!=='function'||typeof custodyTrust.loadCheckpoint!=='function'||typeof custodyTrust.resolveSigner!=='function'||!Number.isSafeInteger(custodyTrust.maxAgeSeconds)||custodyTrust.maxAgeSeconds<1||custodyTrust.maxAgeSeconds>31536000)))
   throw Error('TRUSTED_ADAPTER_KMS_AND_SERVER_AUTHORIZER_REQUIRED');
  if(typeof requireStrictCustody!=='boolean'||(requireStrictCustody&&(!keyring||!custodyTrust||!restoreInventoryTrust||!restoreInventoryProvider)))throw Error('STRICT_CUSTODY_TRUST_DEPENDENCIES_REQUIRED');
+ if(orphanRecovery!==undefined&&(!requireStrictCustody||!orphanRecovery||typeof orphanRecovery.authorizeRecovery!=='function'||typeof orphanRecovery.coordinator?.append!=='function'||typeof orphanRecovery.signerKeyRef!=='string'||!REF.test(orphanRecovery.signerKeyRef)))throw Error('ORPHAN_RECOVERY_TRUST_DEPENDENCIES_REQUIRED');
+ const recoveryTrust=orphanRecovery?Object.freeze({authorizeRecovery:orphanRecovery.authorizeRecovery,append:orphanRecovery.coordinator.append.bind(orphanRecovery.coordinator),signerKeyRef:orphanRecovery.signerKeyRef}):null;
  const idOf=storageId;
  async function writeKey(tenant){return keyring?versionedKey(await keyring.activeKey(tenant),tenant):{keyRef:null,key:keyFrom(keyProvider,tenant)};}
  async function readKey(tenant,v){if(v.envelopeAuthVersion===VERSIONED_KEY_ENVELOPE_AUTH_VERSION){if(!keyring)throw Error('EXTERNAL_VERSIONED_KMS_REQUIRED');return versionedKey(await keyring.resolveKey(tenant,v.keyRef),tenant,v.keyRef).key;}if(typeof keyProvider!=='function')throw Error('EXPLICIT_LEGACY_KEY_PROVIDER_REQUIRED');return keyFrom(keyProvider,tenant);}
@@ -104,7 +106,8 @@ function makePrivateAppraisalVault({adapter,keyProvider,keyring,authorizeActor,r
     professionalValueReleaseAuthorized:false};
   }finally{snapshot.fill(0);}
  }
- async function read({actor,tenantId,evidenceRef,caseRef}={}){
+ // Only the closure can select the recovery branch; public read ignores extra arguments.
+ async function readCore({actor,tenantId,evidenceRef,caseRef}={},recover=null){
   privateRef(tenantId,'TENANT');privateRef(evidenceRef,'EVIDENCE_REF');
   privateRef(caseRef,'CASE');
   await role(actor,tenantId,caseRef,['REVIEWER','DATA_ADMIN','AUDITOR'],
@@ -137,6 +140,7 @@ function makePrivateAppraisalVault({adapter,keyProvider,keyring,authorizeActor,r
    try{const dec=crypto.createDecipheriv('aes-256-gcm',key,iv);dec.setAAD(authenticatedEnvelopeMetadata(v));dec.setAuthTag(tag);bytes=Buffer.concat([dec.update(encrypted),dec.final()]);}
    finally{key.fill(0);}
    if(digest(bytes)!==v.sha256){bytes.fill(0);throw Error('EVIDENCE_BYTES_DIGEST_TAMPERED');}
+   if(recover){try{return await recover({v,raw,bytes});}finally{bytes.fill(0);}}
    let custodyProof=null;
    if(custodyTrust){
     const expectedScope=Object.freeze({tenantId,caseRef,evidenceRef,sha256:v.sha256});
@@ -152,6 +156,39 @@ function makePrivateAppraisalVault({adapter,keyProvider,keyring,authorizeActor,r
     releaseAuthorized:false,professionalReviewVerified:false};
   }catch(e){if(['EVIDENCE_BYTES_DIGEST_TAMPERED','EVIDENCE_CUSTODY_NOT_QUALIFIED','STRICT_CUSTODY_VERSIONED_ENVELOPE_REQUIRED'].includes(e.message))throw e;
    throw Error('EVIDENCE_DECRYPTION_OR_INTEGRITY_FAILED');}
+ }
+ async function read(input){return readCore(input);}
+ // Recover a versioned, authenticated immutable envelope ONLY when no custody
+ // event or witness exists. A committed event with missing witness must use
+ // the separate reconciliation workflow. No plaintext is returned on this path.
+ async function recoverOrphan({actor,tenantId,caseRef,evidenceRef,expectedSha256,changeControlRef}={}){
+  const held=reason=>Object.freeze({status:'HOLD_ORPHAN_RECOVERY',reason,productionRecoveryVerified:false,releaseAuthorized:false});
+  if(!recoveryTrust)return held('ORPHAN_RECOVERY_NOT_CONFIGURED');
+  try{
+   privateRef(tenantId,'TENANT');privateRef(caseRef,'CASE');privateRef(evidenceRef,'EVIDENCE_REF');privateRef(changeControlRef,'CHANGE_CONTROL');
+   if(typeof expectedSha256!=='string'||! /^[a-f0-9]{64}$/.test(expectedSha256))return held('ORPHAN_RECOVERY_DIGEST_INVALID');
+   const identity=await role(actor,tenantId,caseRef,['DATA_ADMIN'],authorizeActor,'APPRAISAL_EVIDENCE_ORPHAN_RECOVER');
+   const actorId=identity.actorId,scope=Object.freeze({tenantId,caseRef,evidenceRef,sha256:expectedSha256}),storageScope=Object.freeze({tenantId,caseRef,evidenceRef});
+   const absent=async()=>await custodyTrust.loadLedger(scope)===null&&await custodyTrust.loadCheckpoint(scope)===null;
+   if(!await absent())return held('ORPHAN_RECOVERY_EXISTING_CUSTODY');
+   const outcome=await readCore({actor,tenantId,caseRef,evidenceRef},async({v,raw,bytes})=>{
+    if(v.sha256!==expectedSha256||v.envelopeAuthVersion!==VERSIONED_KEY_ENVELOPE_AUTH_VERSION)return held('ORPHAN_RECOVERY_ENVELOPE_MISMATCH');
+    const envelopeHashSha256=digest(Buffer.from(raw)),uploadedAt=v.uploadedAt,signerKeyRef=recoveryTrust.signerKeyRef;
+    const request=Object.freeze({scope,actorId,changeControlRef,envelopeHashSha256,uploadedAt,signerKeyRef});
+    const approval=await recoveryTrust.authorizeRecovery(request);
+    const now=strictCalendarDateMs(clock().toISOString()),at=strictCalendarDateMs(approval?.approvedAt);
+    if(!isPlainJson(approval)||!approval||approval.approved!==true||approval.actorId!==actorId||approval.changeControlRef!==changeControlRef||approval.envelopeHashSha256!==envelopeHashSha256||approval.uploadedAt!==uploadedAt||approval.signerKeyRef!==signerKeyRef||!approval.scope||Object.keys(approval.scope).length!==4||!Object.keys(scope).every(k=>approval.scope[k]===scope[k])||typeof approval.reviewerId!=='string'||!REF.test(approval.reviewerId)||approval.reviewerId===actorId||!Number.isFinite(now)||now>Date.now()||!Number.isFinite(at)||at<strictCalendarDateMs(uploadedAt)||at>now||now-at>86400000)return held('ORPHAN_RECOVERY_APPROVAL_INVALID');
+    if(!await absent()||await adapter.get(idOf(tenantId,evidenceRef),storageScope)!==raw)return held('ORPHAN_RECOVERY_STATE_CHANGED');
+    const appended=await recoveryTrust.append({actor,scope,kind:'SEALED',signerKeyRef,sourceBytes:bytes});
+    if(!appended||appended.status!=='CUSTODY_APPEND_CONFIRMED_BY_PROVIDERS'||appended.revision!==1||typeof appended.headHashSha256!=='string'||! /^[a-f0-9]{64}$/.test(appended.headHashSha256)||appended.revoked!==false)return held('ORPHAN_RECOVERY_CUSTODY_PENDING');
+    const confirmed=await read({actor,tenantId,caseRef,evidenceRef});
+    try{
+     if(!confirmed.found||confirmed.sha256!==expectedSha256||confirmed.custodyIntegrityVerified!==true||confirmed.custodyRevision!==1||confirmed.custodyHeadHashSha256!==appended.headHashSha256||!Buffer.isBuffer(confirmed.sourceBytes)||!confirmed.sourceBytes.equals(bytes))return held('ORPHAN_RECOVERY_READBACK_MISMATCH');
+     return Object.freeze({status:'ORPHAN_RECOVERY_CONFIRMED_BY_PROVIDERS',reason:null,revision:1,headHashSha256:appended.headHashSha256,envelopeHashSha256,productionRecoveryVerified:false,releaseAuthorized:false});
+    }finally{if(Buffer.isBuffer(confirmed.sourceBytes))confirmed.sourceBytes.fill(0);}
+   });
+   return outcome?.status?outcome:held('ORPHAN_RECOVERY_ENVELOPE_UNAVAILABLE');
+  }catch{return held('ORPHAN_RECOVERY_DENIED_OR_FAILED');}
  }
  // Verify a restored adapter against an inventory from a separately supplied
  // trusted server provider, not against a manifest submitted by the requester.
@@ -181,6 +218,6 @@ function makePrivateAppraisalVault({adapter,keyProvider,keyring,authorizeActor,r
   }
   return Object.freeze({status:verified===entries.length?(signedProof?'RESTORED_SIGNED_EXPECTED_INVENTORY_MATCHED':'RESTORED_EXPECTED_INVENTORY_MATCHED'):'HOLD_RESTORE_VERIFICATION',reason:verified===entries.length?null:'RESTORE_INVENTORY_MISMATCH_OR_ACCESS_DENIED',verifiedCount:verified,expectedCount:entries.length,inventorySignatureVerified:!!signedProof,verifiedSignedInventoryHashSha256:signedProof?.inventoryHashSha256??null,inventoryBindingSha256:digest(Buffer.from(JSON.stringify([tenantId,caseRef,inventoryRef,entries]))),independentBackupAuthenticityEstablished:false,productionRecoveryVerified:false,releaseAuthorized:false});
  }
- return Object.freeze({put,read,verifyRestoredInventory,version:VERSION,institutionalDeploymentVerified:false});
+ return Object.freeze({put,read,recoverOrphan,verifyRestoredInventory,version:VERSION,institutionalDeploymentVerified:false});
 }
 module.exports={VERSION,ENVELOPE_AUTH_VERSION,VERSIONED_KEY_ENVELOPE_AUTH_VERSION,makePrivateAppraisalVault};
