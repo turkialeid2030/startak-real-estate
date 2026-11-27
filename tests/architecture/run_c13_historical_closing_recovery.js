@@ -36,4 +36,16 @@ for(const patch of [{legalInterpretationPerformedBySoftware:true},{settlementAmo
  const changed={...evidence(),...patch};changed.closingEvidenceHashSha256=c.computeClosingEvidenceHash(changed);run(fixture([changed]),S.HOLD_INTEGRITY);
 }
 let reads=0;run(Object.defineProperty({...valid},'hidden',{enumerable:true,get(){reads++;return true;}}),S.HOLD_INTEGRITY);assert.equal(reads,0);
+// V6.40: exact monetary aggregation and source freshness through closing.
+assert.equal(run(fixture([evidence({settlementAmountSar:0.1}),evidence({recordId:'M2',sourceEvidenceRef:'PAYOFF-2',settlementAmountSar:0.2})]),S.READY_FOR_PROFESSIONAL_CLOSING_REVIEW).knownSettlementTotalSar,0.3);
+assert.throws(()=>evidence({settlementAmountSar:0.001}),/C13_SETTLEMENT_AMOUNT_SAR_INVALID/);
+assert.throws(()=>evidence({settlementAmountSar:Number.MAX_SAFE_INTEGER}),/C13_SETTLEMENT_AMOUNT_SAR_INVALID/);
+const oversized=run(fixture([evidence({settlementAmountSar:50000000000000}),evidence({recordId:'M2',sourceEvidenceRef:'PAYOFF-2',settlementAmountSar:50000000000000})]),S.HOLD_CALCULATION);
+assert.equal(oversized.knownSettlementTotalSar,null);
+const due=run(fixture([evidence({sourceReviewAfter:'2026-09-12T12:00:00Z'})]),S.HOLD_INTEGRITY);
+assert.ok(due.blockers.includes('C13_SOURCE_REVIEW_DUE_BEFORE_TARGET_CLOSING:M1'));
+run(fixture([evidence({sourceReviewAfter:targetClosing})]),S.READY_FOR_PROFESSIONAL_CLOSING_REVIEW);
+const fractional={...evidence(),settlementAmountSar:0.001};
+fractional.closingEvidenceHashSha256=c.computeClosingEvidenceHash(fractional);
+run(fixture([fractional]),S.HOLD_INTEGRITY);
 console.log('C13_HISTORICAL_CLOSING_RECOVERY=PASS cases='+checks+' synthetic=true transactionAuthority=false');

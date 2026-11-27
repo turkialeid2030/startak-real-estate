@@ -162,3 +162,7 @@ V6.37 715/717, C16 suite PASS, two manifest failures from outdated restoration a
 
 ## V6.39 C13 closing review recovery
 Restored LEG-008 original source with hardened evidence reconstruction, scope, review chronology, payoff validity, open status and duplicate monetary source controls. Added targeted synthetic cases and updated restoration allowlist/tests atomically. 5 restored sources within 57-row inventory; functional/live parity remains open. V6.38 CI running at inspection; same PR #871; no release.
+
+
+## V6.40 C13 monetary precision and closing-date freshness
+Exact integer-halala aggregation, sub-halala rejection, safe-integer overflow and round-trip guards; source review due before target closing now holds even if fresh at analysis time. Added five evaluator scenarios and two constructor rejection assertions. Conservative policy: no automatic refresh, legal clearance, transaction approval or production authorization. Same PR #871; exact-head CI required. V6.39 history secret scan failed; no secret rotation or deployment.

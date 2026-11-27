@@ -49,3 +49,7 @@ V6.37 exact head ff17757795caf32f5ced8194f7131ef8ebe3cd09 Release 45933802779 jo
 
 ### V6.39 W05/W06 — LEG-008 C13 closing review recovery
 V6.38 Release 45934489774 was running at inspection. Restored source blob a032ce47f78eb77e788fec3bd74c1e73736768d8 after comparing C13 settlement and closing evidence review with title fact assessment. Hardened canonical evidence, bounded JSON, causal review, cutoff, mandatory OPEN unresolved status, own registry entries, duplicate monetary source and known open payoff validity checks. Duplicate source amounts require professional review rather than silent addition; this does not establish that different source refs represent distinct obligations. Synthetic targeted tests (23 cases) added as required evidence (24 scripts), register and both manifest expectations updated together: 5 restored, 41 modern-only, 10 staging, 1 retirement. No UI or authenticated legal sources, mortgage release, transaction approval, secret rotation, merge or deploy. Exact-head CI required.
+
+
+## V6.40 C13 monetary precision and closing-date freshness
+Exact integer-halala aggregation, sub-halala rejection, safe-integer overflow and round-trip guards; source review due before target closing now holds even if fresh at analysis time. Added five evaluator scenarios and two constructor rejection assertions. Conservative policy: no automatic refresh, legal clearance, transaction approval or production authorization. Same PR #871; exact-head CI required. V6.39 history secret scan failed; no secret rotation or deployment.

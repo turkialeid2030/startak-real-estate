@@ -34,6 +34,12 @@ const nonEmpty = (v) => typeof v === 'string' && v.trim().length > 0;
 const clean = (v) => nonEmpty(v) ? v.trim() : '';
 const validSha = (v) => typeof v === 'string' && /^[a-f0-9]{64}$/i.test(v);
 const finiteNN = (v) => typeof v === 'number' && Number.isFinite(v) && v >= 0;
+// Convert explicit SAR amounts to integer halalas; never silently round sub-halalas.
+function toHalalas(v) {
+  if (!finiteNN(v)) return null;
+  const n = Math.round(v * 100);
+  return Number.isSafeInteger(n) && n / 100 === v ? n : null;
+}
 
 function iso(v, field) {
   if (!nonEmpty(v) || !Number.isFinite(Date.parse(v))) throw new TypeError(`${field} must be a valid date/time`);
@@ -101,7 +107,7 @@ function createGovernedClosingEvidence(x = {}) {
 
   let settlementAmountSar = null;
   if (x.settlementAmountSar != null) {
-    if (!finiteNN(x.settlementAmountSar)) throw new TypeError('C13_SETTLEMENT_AMOUNT_SAR_INVALID');
+    if (toHalalas(x.settlementAmountSar) === null) throw new TypeError('C13_SETTLEMENT_AMOUNT_SAR_INVALID');
     settlementAmountSar = x.settlementAmountSar;
   }
   let payoffValidUntil = null;
@@ -280,11 +286,12 @@ function evaluateGovernedClosingIntelligence(x = {}) {
     const vu = Date.parse(record.validUntil);
     if (![sv, sr, rv, vu].every(Number.isFinite)) { evidenceBlockers.push(`C13_EVIDENCE_DATES_INVALID:${id}`); continue; }
     if (sv > asOf || sr < asOf || sr < sv) { evidenceBlockers.push(`C13_SOURCE_STALE_OR_FUTURE:${id}`); continue; }
+    if (sr < targetClosing) { evidenceBlockers.push(`C13_SOURCE_REVIEW_DUE_BEFORE_TARGET_CLOSING:${id}`); continue; }
     if (rv > asOf) { evidenceBlockers.push(`C13_REVIEW_AFTER_AS_OF:${id}`); continue; }
     if (vu < targetClosing) { evidenceBlockers.push(`C13_EVIDENCE_EXPIRES_BEFORE_TARGET_CLOSING:${id}`); continue; }
     if (!validSha(record.sourceVersionHashSha256) || !validSha(record.reviewEvidenceHashSha256)) { evidenceBlockers.push(`C13_SOURCE_OR_REVIEW_HASH_INVALID:${id}`); continue; }
     if (record.statusExternallyDetermined !== true || record.legalTitleValidityEstablishedBySoftware !== false || record.lienPriorityDeterminedBySoftware !== false || record.releaseEffectivenessDeterminedBySoftware !== false) { evidenceBlockers.push(`C13_EVIDENCE_AUTHORITY_INVALID:${id}`); continue; }
-    if (record.settlementAmountSar != null && !finiteNN(record.settlementAmountSar)) { evidenceBlockers.push(`C13_SETTLEMENT_AMOUNT_INVALID:${id}`); continue; }
+    if (record.settlementAmountSar != null && toHalalas(record.settlementAmountSar) === null) { evidenceBlockers.push(`C13_SETTLEMENT_AMOUNT_INVALID:${id}`); continue; }
     if(record.professionalStatus===PROFESSIONAL_STATUS.OPEN&&record.settlementAmountSar!==null&&record.settlementAmountSar>0&&!record.payoffValidUntil){evidenceBlockers.push('C13_OPEN_SETTLEMENT_VALIDITY_REQUIRED');continue;}
     if (record.payoffValidUntil != null) {
       const pv = Date.parse(record.payoffValidUntil);
@@ -331,8 +338,15 @@ function evaluateGovernedClosingIntelligence(x = {}) {
   }
   if (policyRuleBlockers.length) return result(CLOSING_STATUS.HOLD_POLICY, policyRuleBlockers, context);
 
-  const knownSettlementTotalSar = records.reduce((sum, record) => sum + (record.settlementAmountSar == null ? 0 : record.settlementAmountSar), 0);
-  if (!finiteNN(knownSettlementTotalSar)) return result(CLOSING_STATUS.HOLD_CALCULATION, ['C13_KNOWN_SETTLEMENT_TOTAL_INVALID'], context);
+  let totalHalalas = 0;
+  for (const record of records) {
+    if (record.settlementAmountSar == null) continue;
+    const amount = toHalalas(record.settlementAmountSar);
+    if (amount === null || !Number.isSafeInteger(totalHalalas + amount)) return result(CLOSING_STATUS.HOLD_CALCULATION, ['C13_KNOWN_SETTLEMENT_TOTAL_INVALID'], context);
+    totalHalalas += amount;
+  }
+  const knownSettlementTotalSar = totalHalalas / 100;
+  if (toHalalas(knownSettlementTotalSar) !== totalHalalas) return result(CLOSING_STATUS.HOLD_CALCULATION, ['C13_KNOWN_SETTLEMENT_TOTAL_INVALID'], context);
 
   const riskFlags = records
     .filter((record) => policy.unresolvedStatuses.includes(record.professionalStatus))
