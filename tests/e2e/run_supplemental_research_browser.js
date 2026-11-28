@@ -58,9 +58,23 @@ const {chromium,firefox,webkit,expect}=require('@playwright/test');
    await load(portfolio);await expect(el('result')).toBeVisible();
    await el('passphrase').fill('synthetic-portfolio-passphrase');await el('consent').check();await el('encrypted-save').click();
    await expect(el('storage-notice')).toContainText(t('تم التحقق من الحفظ المحلي المشفر','Encrypted local save verified'),{timeout:15000});checks++;
+   // Portfolio custody must fail closed without altering the stored ciphertext.
+   const {NAMESPACE:portfolioNamespace}=require('../../src/storage/browser-local-storage-provider');
+   const portfolioKey=portfolioNamespace+'supplemental-portfolio-encrypted-draft:v1:SYNTH-PORTFOLIO';
+   const readPortfolio=()=>page.evaluate(k=>localStorage.getItem(k),portfolioKey);
+   const ciphertext=await readPortfolio();
+   assert.ok(ciphertext&&!ciphertext.includes('openingValue')&&!ciphertext.includes('cashDistributions'));checks++;
+   await el('passphrase').fill('incorrect-portfolio-passphrase');await el('encrypted-load').click();
+   await expect(el('storage-notice')).toContainText(t('تعذر الحفظ أو فتح المسودة','Save or unlock failed'),{timeout:15000});checks++;
+   await expect(el('result')).toHaveCount(0);checks++;
+   assert.equal(await readPortfolio(),ciphertext);checks++;
    await el('passphrase').fill('synthetic-portfolio-passphrase');await el('encrypted-load').click();
    await expect(el('storage-notice')).toContainText(t('استعيدت المدخلات وأعيد الحساب','Inputs restored and recalculated'),{timeout:15000});const savedReturn=await download('report');assert.equal(savedReturn.metrics[0].value,0.0025);checks++;
-   await el('passphrase').fill('synthetic-portfolio-passphrase');await el('delete-consent').check();await el('encrypted-delete').click();await expect(el('storage-notice')).toContainText(t('تم التحقق من حذف المسودة','Draft deletion verified'),{timeout:15000});checks++;
+   await el('passphrase').fill('synthetic-portfolio-passphrase');await expect(el('encrypted-delete')).toBeDisabled();checks++;await el('delete-consent').check();await el('encrypted-delete').click();await expect(el('storage-notice')).toContainText(t('تم التحقق من حذف المسودة','Draft deletion verified'),{timeout:15000});checks++;
+   assert.equal(await readPortfolio(),null);checks++;
+   await el('passphrase').fill('synthetic-portfolio-passphrase');await el('encrypted-load').click();
+   await expect(el('storage-notice')).toContainText(t('لا توجد مسودة محفوظة','No saved draft'),{timeout:15000});checks++;
+   await expect(el('result')).toHaveCount(0);checks++;
    await load(portfolio);await expect(el('result')).toBeVisible();
   }
   await el('assets').fill('A\nC');await expect(el('result')).toHaveCount(0);await load(portfolio);await expect(el('status')).toHaveAttribute('data-status','HOLD');checks+=2;
