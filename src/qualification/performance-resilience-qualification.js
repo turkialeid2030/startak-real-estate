@@ -505,6 +505,19 @@ function verifyPerformanceResilienceQualification(record) {
   const arrays=['requiredWorkloadClasses','requiredResilienceScenarios','performanceEvaluationHashesSha256','runEvidenceHashesSha256','resilienceEvidenceHashesSha256','issues'];
   if(arrays.some(key=>!Array.isArray(record[key])))return invalid('QUALIFICATION_SCHEMA_INVALID');
   try {
+    requiredString(record.qualificationId,'qualificationId');
+    requiredTimestamp(record.assessedAt,'assessedAt');
+    nonNegativeNumber(record.maximumEvidenceAgeDays,'maximumEvidenceAgeDays');
+    for (const [field, allowed] of [
+      ['requiredWorkloadClasses', WORKLOAD_CLASS],
+      ['requiredResilienceScenarios', RESILIENCE_SCENARIO],
+    ]) {
+      const values = Array.from(record[field]);
+      if (!values.length || new Set(values).size !== values.length ||
+          values.some(value => typeof value !== 'string' || !Object.values(allowed).includes(value))) {
+        return invalid('QUALIFICATION_REQUIRED_SCOPE_INVALID');
+      }
+    }
     requiredString(record.expectedTargetRef,'expectedTargetRef');
     requiredCommitSha(record.exactCommitSha,'exactCommitSha');
     requiredEnum(record.expectedEnvironment,QUALIFICATION_ENVIRONMENT,'expectedEnvironment');
@@ -514,6 +527,8 @@ function verifyPerformanceResilienceQualification(record) {
       return invalid('QUALIFICATION_AUTHORITY_INVALID');
     if(record.status===PERFORMANCE_QUALIFICATION_STATUS.READY_FOR_INDEPENDENT_PERFORMANCE_VALIDATION){
       if(record.issues.length||record.performanceEvaluationHashesSha256.length!==record.runEvidenceHashesSha256.length||
+         record.runEvidenceHashesSha256.length<record.requiredWorkloadClasses.length||
+         record.resilienceEvidenceHashesSha256.length<record.requiredResilienceScenarios.length||
          ['performanceEvaluationHashesSha256','runEvidenceHashesSha256','resilienceEvidenceHashesSha256'].some(key=>!record[key].length||record[key].some(hash=>typeof hash!=='string'||!SHA256_RE.test(hash))))
         return invalid('QUALIFICATION_READY_EVIDENCE_INVALID');
     }

@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const {strictCalendarDateMs}=require('../validation/strict-calendar-instant');
 
 const SECURITY_EVIDENCE_ENVIRONMENT = Object.freeze({
   CI_TEST: 'CI_TEST',
@@ -77,7 +78,7 @@ function requiredCommitSha(value, field) {
 
 function requiredTimestamp(value, field) {
   const normalized = requiredString(value, field);
-  const millis = Date.parse(normalized);
+  const millis = strictCalendarDateMs(normalized);
   if (!Number.isFinite(millis)) throw new TypeError(`${field} must be an ISO-compatible timestamp`);
   return Object.freeze({ value: normalized, millis });
 }
@@ -152,6 +153,13 @@ function createSecurityQualificationEvidence(input = {}) {
   });
 }
 
+function exactFlags(value, expected) {
+  return Object.entries(expected).every(([key, flag]) => {
+    const own = Object.getOwnPropertyDescriptor(value, key);
+    return own && Object.hasOwn(own, 'value') && own.value === flag;
+  });
+}
+
 function verifySecurityQualificationEvidence(record) {
   if (!record || typeof record !== 'object' || Array.isArray(record)) return Object.freeze({ valid: false, reasonCode: 'EVIDENCE_OBJECT_REQUIRED' });
   try {
@@ -177,11 +185,12 @@ function verifySecurityQualificationEvidence(record) {
       evidenceRefs: [...stringArray(record.evidenceRefs, 'evidenceRefs')],
       notes: record.notes == null ? null : requiredString(record.notes, 'notes'),
     };
-    if (Date.parse(core.verifiedAt) < Date.parse(core.observedAt) || Date.parse(core.reviewedAt) < Date.parse(core.verifiedAt)) {
+    if (strictCalendarDateMs(core.verifiedAt) < strictCalendarDateMs(core.observedAt) || strictCalendarDateMs(core.reviewedAt) < strictCalendarDateMs(core.verifiedAt)) {
       return Object.freeze({ valid: false, reasonCode: 'EVIDENCE_TIME_ORDER_INVALID' });
     }
     const expectedHash = sha256Object(core);
     if (record.evidenceHashSha256 !== expectedHash) return Object.freeze({ valid: false, reasonCode: 'EVIDENCE_HASH_MISMATCH', expectedHash });
+    if (!exactFlags(record, {"cryptographicSignatureVerifiedByThisModule":false,"externalSystemQueriedByThisModule":false,"productionSecurityValidated":false,"pdplComplianceEstablished":false,"penetrationTestEstablished":false,"certifiedSecurityEstablished":false,"mergeAuthorized":false,"deploymentAuthorized":false,"transactionAuthorized":false})) return Object.freeze({ valid: false, reasonCode: 'EVIDENCE_AUTHORITY_FLAGS_INVALID', expectedHash });
     return Object.freeze({ valid: true, reasonCode: null, expectedHash });
   } catch (error) {
     return Object.freeze({ valid: false, reasonCode: 'EVIDENCE_SCHEMA_INVALID', error: error.message });
@@ -263,7 +272,7 @@ function buildSecurityQualificationEnvelope(input = {}) {
         break;
       }
       const freshPassing = passing.filter((record) => {
-        const ageDays = (assessed.millis - Date.parse(record.verifiedAt)) / 86400000;
+        const ageDays = (assessed.millis - strictCalendarDateMs(record.verifiedAt)) / 86400000;
         return ageDays >= 0 && ageDays <= maximumAge[control];
       });
       if (freshPassing.length === 0) {
@@ -271,7 +280,7 @@ function buildSecurityQualificationEnvelope(input = {}) {
         issues.push(`NO_FRESH_PASSING_EVIDENCE:${control}`);
         break;
       }
-      const independentlyReviewed = freshPassing.filter((record) => record.preparedBy !== record.reviewedBy);
+      const independentlyReviewed = freshPassing.filter((record) => record.preparedBy !== record.reviewedBy && strictCalendarDateMs(record.reviewedAt) <= assessed.millis);
       if (independentlyReviewed.length === 0) {
         status = SECURITY_QUALIFICATION_STATUS.HOLD_REVIEW_EVIDENCE;
         issues.push(`NO_INDEPENDENT_REVIEW:${control}`);
@@ -343,6 +352,10 @@ function verifySecurityQualificationEnvelope(envelope) {
     };
     const expectedHash = sha256Object(core);
     if (envelope.qualificationHashSha256 !== expectedHash) return Object.freeze({ valid: false, reasonCode: 'QUALIFICATION_HASH_MISMATCH', expectedHash });
+    if (!exactFlags(envelope, {"evidenceEnvironmentIsExplicit":true,"testEvidenceCanQualifyProductionScope":false,"productionSecurityValidated":false,"pdplComplianceEstablished":false,"externalPenetrationTestEstablished":false,"certifiedSecurityEstablished":false,"independentSecurityValidationRequired":true,"humanSecurityApprovalRequired":true,"mergeAuthorized":false,"deploymentAuthorized":false,"transactionAuthorized":false})) return Object.freeze({ valid: false, reasonCode: 'QUALIFICATION_AUTHORITY_FLAGS_INVALID', expectedHash });
+    if (!Object.values(SECURITY_QUALIFICATION_STATUS).includes(core.status) || new Set(core.requiredControlClasses).size !== core.requiredControlClasses.length || core.requiredControlClasses.some(control => !Object.values(SECURITY_CONTROL_CLASS).includes(control))) return Object.freeze({ valid: false, reasonCode: 'QUALIFICATION_SCOPE_INVALID', expectedHash });
+    normalizeMaximumAgePolicy(core.maximumEvidenceAgeDaysByControl, core.requiredControlClasses);
+    if (core.status === SECURITY_QUALIFICATION_STATUS.READY_FOR_INDEPENDENT_SECURITY_VALIDATION && (core.upstreamSecurityAssessmentStatus !== READY_UPSTREAM_STATUS || core.issues.length !== 0 || core.evidenceHashesSha256.length < core.requiredControlClasses.length || new Set(core.evidenceHashesSha256).size !== core.evidenceHashesSha256.length || core.evidenceHashesSha256.some(hash => typeof hash !== 'string' || !SHA256_RE.test(hash)))) return Object.freeze({ valid: false, reasonCode: 'QUALIFICATION_READY_STRUCTURE_INVALID', expectedHash });
     return Object.freeze({ valid: true, reasonCode: null, expectedHash });
   } catch (error) {
     return Object.freeze({ valid: false, reasonCode: 'QUALIFICATION_SCHEMA_INVALID', error: error.message });

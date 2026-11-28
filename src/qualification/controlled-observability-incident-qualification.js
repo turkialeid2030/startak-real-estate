@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const {strictCalendarDateMs} = require('../validation/strict-calendar-instant');
 const {
   DR_FAILOVER_STATUS,
 } = require('./controlled-dr-failover-qualification');
@@ -45,7 +46,7 @@ function requiredCommitSha(value) {
 
 function requiredTimestamp(value, field) {
   const normalized = requiredString(value, field);
-  const millis = Date.parse(normalized);
+  const millis = strictCalendarDateMs(normalized);
   if (!Number.isFinite(millis)) throw new TypeError(`${field} must be an ISO-compatible timestamp`);
   return { value: normalized, millis };
 }
@@ -128,7 +129,7 @@ function normalizeAuthorization(value, target) {
     && normalized.reviewedBy
     && normalized.approvedBy !== normalized.reviewedBy
     && approvedAtValid
-    && Date.parse(normalized.approvedAt)<=target.assessedAtMillis
+    && strictCalendarDateMs(normalized.approvedAt)<=target.assessedAtMillis
     && normalized.changeControlRef
     && normalized.environment === target.environment
     && normalized.serviceRef === target.serviceRef
@@ -327,7 +328,7 @@ function createControlledObservabilityIncidentQualification({
       return makeResult({ status: OBSERVABILITY_STATUS.HOLD_METRICS, plan, authorization: auth });
     }
 
-    if (!metrics.queryHealthy || metrics.missingRequiredSignals.length > 0 || Date.parse(metrics.observedAt)<Math.max(Date.parse(auth.approvedAt),retrospective?-Infinity:assessed.millis) || Date.parse(metrics.observedAt)>evidenceCutoff()) {
+    if (!metrics.queryHealthy || metrics.missingRequiredSignals.length > 0 || strictCalendarDateMs(metrics.observedAt)<Math.max(strictCalendarDateMs(auth.approvedAt),retrospective?-Infinity:assessed.millis) || strictCalendarDateMs(metrics.observedAt)>evidenceCutoff()) {
       return makeResult({ status: OBSERVABILITY_STATUS.HOLD_METRICS, plan, authorization: auth, metrics });
     }
     if (metrics.freshnessSeconds > objectives.maximumMetricFreshnessSeconds) {
@@ -347,7 +348,7 @@ function createControlledObservabilityIncidentQualification({
       return makeResult({ status: OBSERVABILITY_STATUS.HOLD_ALERT_DELIVERY, plan, authorization: auth, metrics });
     }
 
-    if (!alert.deliveryConfirmed || Date.parse(alert.triggeredAt)<Date.parse(metrics.observedAt) || Date.parse(alert.deliveredAt)>evidenceCutoff()) {
+    if (!alert.deliveryConfirmed || strictCalendarDateMs(alert.triggeredAt)<strictCalendarDateMs(metrics.observedAt) || strictCalendarDateMs(alert.deliveredAt)>evidenceCutoff()) {
       return makeResult({ status: OBSERVABILITY_STATUS.HOLD_ALERT_DELIVERY, plan, authorization: auth, metrics, alert });
     }
     if (alert.deliverySeconds > objectives.maximumAlertDeliverySeconds) {
@@ -375,7 +376,7 @@ function createControlledObservabilityIncidentQualification({
       return makeResult({ status: OBSERVABILITY_STATUS.HOLD_OBJECTIVES, plan, authorization: auth, metrics, alert, incident });
     }
 
-    if (evidenceCutoff() < Date.parse(incident.resolvedAt)) {
+    if (evidenceCutoff() < strictCalendarDateMs(incident.resolvedAt)) {
       return makeResult({ status: OBSERVABILITY_STATUS.HOLD_INCIDENT_RESPONSE, plan, authorization: auth, metrics, alert, incident });
     }
 

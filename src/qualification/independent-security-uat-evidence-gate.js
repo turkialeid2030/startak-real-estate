@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const {strictCalendarDateMs} = require('../validation/strict-calendar-instant');
 const {
   OBSERVABILITY_STATUS,
   verifyCompletedObservabilityQualification,
@@ -52,7 +53,7 @@ function requiredSha256(value, field) {
 
 function requiredTimestamp(value, field) {
   const normalized = requiredString(value, field);
-  const millis = Date.parse(normalized);
+  const millis = strictCalendarDateMs(normalized);
   if (!Number.isFinite(millis)) throw new TypeError(`${field} must be an ISO-compatible timestamp`);
   return Object.freeze({ value: normalized, millis });
 }
@@ -228,7 +229,7 @@ function validateUatScenarioBinding(planInput, rawUat, uat, target) {
       return {issue:'UAT_SCENARIO_PLAN_HASH_MISMATCH'};
     if(plan.environment!==target.environment||plan.serviceRef!==target.serviceRef||plan.exactCommitSha!==target.exactCommitSha)
       return {issue:'UAT_SCENARIO_PLAN_SCOPE_MISMATCH'};
-    if(Date.parse(plan.preparedAt)>Date.parse(uat.startedAt)||Date.parse(plan.validUntil)<Date.parse(uat.completedAt))
+    if(strictCalendarDateMs(plan.preparedAt)>strictCalendarDateMs(uat.startedAt)||strictCalendarDateMs(plan.validUntil)<strictCalendarDateMs(uat.completedAt))
       return {issue:'UAT_SCENARIO_PLAN_WINDOW_MISMATCH'};
     if(!Array.isArray(rawUat.scenarioResults)||rawUat.scenarioResults.length!==plan.scenarios.length||uat.requiredScenarios!==plan.scenarios.length)
       return {issue:'UAT_SCENARIO_COVERAGE_MISMATCH'};
@@ -258,7 +259,7 @@ function verifyUatScenarioWitness(binding,uat,target){
   if(!exactKeys(p,['schemaVersion','environment','serviceRef','exactCommitSha','preparedAt','validUntil','scenarios'])||p.schemaVersion!==1||
     p.environment!==target.environment||p.serviceRef!==target.serviceRef||p.exactCommitSha!==target.exactCommitSha)return false;
   const prepared=requiredTimestamp(p.preparedAt,'preparedAt').millis,expires=requiredTimestamp(p.validUntil,'validUntil').millis;
-  if(prepared>expires||prepared>Date.parse(uat.startedAt)||expires<Date.parse(uat.completedAt))return false;
+  if(prepared>expires||prepared>strictCalendarDateMs(uat.startedAt)||expires<strictCalendarDateMs(uat.completedAt))return false;
   if(!Array.isArray(p.scenarios)||!Array.isArray(rows)||p.scenarios.length!==binding.scenarioCount||rows.length!==binding.scenarioCount||rows.length<1||rows.length>10000)return false;
   if(sha256Object(p)!==binding.planHashSha256||sha256Object(rows)!==binding.scenarioResultsHashSha256)return false;
   let previous='';
@@ -365,11 +366,13 @@ function createIndependentSecurityUatEvidenceGate() {
     const staleIssues = [];
     const maxAgeMs = maxAgeDays * 86400000;
     if(!Number.isFinite(maxAgeMs))return makeResult({status:SECURITY_UAT_STATUS.HOLD_STALE_EVIDENCE,plan,pentest,uat,issues:['EVIDENCE_FRESHNESS_WINDOW_INVALID']});
-    if(assessed.millis-Date.parse(plan.observabilityCompletedAt)>maxAgeMs)staleIssues.push('OBSERVABILITY_EVIDENCE_OUTSIDE_FRESHNESS');
+    const observedAt = strictCalendarDateMs(plan.observabilityCompletedAt);
+    const observedAge = assessed.millis - observedAt;
+    if (!Number.isFinite(observedAge) || observedAge < 0 || observedAge > maxAgeMs) staleIssues.push('OBSERVABILITY_EVIDENCE_OUTSIDE_FRESHNESS');
     // A later review does not refresh the date on which the tests ran.
     for (const [name, evidence] of [['PENTEST', pentest], ['UAT', uat]]) {
-      const age = assessed.millis - Date.parse(evidence.completedAt);
-      if (age < 0 || age > maxAgeMs || Date.parse(evidence.reviewedAt) > assessed.millis)
+      const age = assessed.millis - strictCalendarDateMs(evidence.completedAt);
+      if (age < 0 || age > maxAgeMs || strictCalendarDateMs(evidence.reviewedAt) > assessed.millis)
         staleIssues.push(`${name}_EVIDENCE_OUTSIDE_FRESHNESS`);
     }
     if (staleIssues.length > 0) return makeResult({ status: SECURITY_UAT_STATUS.HOLD_STALE_EVIDENCE, plan, pentest, uat, issues: staleIssues });

@@ -28,4 +28,21 @@ const result=q.buildPerformanceResilienceQualification(input);
 assert.equal(result.status,q.PERFORMANCE_QUALIFICATION_STATUS.READY_FOR_INDEPENDENT_PERFORMANCE_VALIDATION);checks++;
 assert.equal(result.deploymentAuthorized,false);checks++;
 assert.equal(q.verifyPerformanceResilienceQualification(result).valid,true);checks++;
+// Recompute the digest to test schema validity independently of stale-hash rejection.
+const crypto=require('node:crypto');
+const stable=value=>Array.isArray(value)?value.map(stable):value&&typeof value==='object'?Object.fromEntries(Object.keys(value).sort().map(key=>[key,stable(value[key])])):value;
+const digestFields=['qualificationId','expectedEnvironment','expectedTargetRef','exactCommitSha','assessedAt','maximumEvidenceAgeDays','requiredWorkloadClasses','requiredResilienceScenarios','performanceEvaluationHashesSha256','runEvidenceHashesSha256','resilienceEvidenceHashesSha256','status','issues'];
+const rehash=record=>({...record,qualificationHashSha256:crypto.createHash('sha256').update(JSON.stringify(stable(Object.fromEntries(digestFields.map(key=>[key,record[key]]))))).digest('hex')});
+assert.equal(q.verifyPerformanceResilienceQualification(rehash(result)).valid,true);checks++;
+for(const patch of [
+ {qualificationId:''},{assessedAt:'2026-02-30T00:00:00Z'},{assessedAt:'2026-03-05T00:00:00'},
+ {maximumEvidenceAgeDays:-1},{maximumEvidenceAgeDays:'3'},{requiredWorkloadClasses:[]},
+ {requiredWorkloadClasses:['UNKNOWN']},{requiredWorkloadClasses:['INTERACTIVE_READ','INTERACTIVE_READ']},
+ {requiredWorkloadClasses:['INTERACTIVE_READ','INTERACTIVE_WRITE']},{requiredResilienceScenarios:[]},
+ {requiredResilienceScenarios:['UNKNOWN']},{requiredResilienceScenarios:['BACKUP_RESTORE','BACKUP_RESTORE']},
+ {requiredResilienceScenarios:['BACKUP_RESTORE','PROCESS_RESTART']},
+]){
+ const invalidResult=rehash({...result,...patch});
+ assert.equal(q.verifyPerformanceResilienceQualification(invalidResult).valid,false);checks++;
+}
 console.log('V7_PERFORMANCE_CALENDAR_BOUNDARY=PASS checks='+checks+' synthetic_evidence=true');

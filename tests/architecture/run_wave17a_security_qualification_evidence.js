@@ -175,4 +175,36 @@ expectThrow(() => evidence(CONTROLS[0], { reviewedAt: '2026-09-08T05:00:00Z' }),
 expectThrow(() => envelope(records, { requiredControlClasses: [CONTROLS[0], CONTROLS[0]] }), /must not contain duplicates/);
 expectThrow(() => envelope(records, { maximumEvidenceAgeDaysByControl: { [CONTROLS[0]]: 1 } }), /finite non-negative number/);
 
+// Strict calendar and review cutoff regression.
+const futureReview=records.map((record,index)=>index===0?evidence(record.controlClass,{reviewedAt:'2026-09-09T07:00:00Z'}):record);
+check(()=>assert.strictEqual(envelope(futureReview).status,security.SECURITY_QUALIFICATION_STATUS.HOLD_REVIEW_EVIDENCE));
+for(const field of ['observedAt','verifiedAt','reviewedAt']){
+ for(const invalid of ['2026-02-30T00:00:00Z','2026-04-31T00:00:00Z','2026-09-08T06:00:00']){
+  expectThrow(()=>evidence(CONTROLS[0],{[field]:invalid}),/ISO-compatible timestamp/);
+ }
+}
+check(()=>assert.strictEqual(envelope(records).status,security.SECURITY_QUALIFICATION_STATUS.READY_FOR_INDEPENDENT_SECURITY_VALIDATION));
+
+// Derived authority flags are not authenticated by a content hash.
+for(const key of ['cryptographicSignatureVerifiedByThisModule','externalSystemQueriedByThisModule','productionSecurityValidated','pdplComplianceEstablished','penetrationTestEstablished','certifiedSecurityEstablished','mergeAuthorized','deploymentAuthorized','transactionAuthorized']){
+ check(()=>assert.strictEqual(security.verifySecurityQualificationEvidence({...records[0],[key]:!records[0][key]}).valid,false));
+}
+for(const key of ['evidenceEnvironmentIsExplicit','testEvidenceCanQualifyProductionScope','productionSecurityValidated','pdplComplianceEstablished','externalPenetrationTestEstablished','certifiedSecurityEstablished','independentSecurityValidationRequired','humanSecurityApprovalRequired','mergeAuthorized','deploymentAuthorized','transactionAuthorized']){
+ check(()=>assert.strictEqual(security.verifySecurityQualificationEnvelope({...ready,[key]:!ready[key]}).valid,false));
+}
+const absentFlag={...ready};delete absentFlag.mergeAuthorized;
+check(()=>assert.strictEqual(security.verifySecurityQualificationEnvelope(absentFlag).valid,false));
+let getterCalled=false;
+const accessorFlag={...ready};Object.defineProperty(accessorFlag,'deploymentAuthorized',{get(){getterCalled=true;return false;}});
+check(()=>assert.strictEqual(security.verifySecurityQualificationEnvelope(accessorFlag).valid,false));
+check(()=>assert.strictEqual(getterCalled,false));
+const envelopeKeys=['qualificationId','expectedEnvironment','exactCommitSha','upstreamSecurityAssessmentRef','upstreamSecurityAssessmentHashSha256','upstreamSecurityAssessmentStatus','assessedAt','requiredControlClasses','maximumEvidenceAgeDaysByControl','evidenceHashesSha256','status','issues'];
+const envelopeCanonical=v=>Array.isArray(v)?v.map(envelopeCanonical):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,envelopeCanonical(v[k])])):v;
+for(const patch of [{status:'UNKNOWN'},{requiredControlClasses:['UNKNOWN']},{requiredControlClasses:[CONTROLS[0],CONTROLS[0]]},{maximumEvidenceAgeDaysByControl:{}},{evidenceHashesSha256:[]},{evidenceHashesSha256:ready.evidenceHashesSha256.map(()=> 'a'.repeat(64))},{evidenceHashesSha256:ready.evidenceHashesSha256.map(()=>null)},{issues:['UNRESOLVED']},{upstreamSecurityAssessmentStatus:'HOLD'}]){
+ const modified={...ready,...patch};
+ modified.qualificationHashSha256=sha(JSON.stringify(envelopeCanonical(Object.fromEntries(envelopeKeys.map(k=>[k,modified[k]])))));
+ check(()=>assert.strictEqual(security.verifySecurityQualificationEnvelope(modified).valid,false));
+}
+check(()=>assert.strictEqual(security.verifySecurityQualificationEnvelope(JSON.parse(JSON.stringify(ready))).valid,true));
+
 console.log(`WAVE_17A_SECURITY_QUALIFICATION_EVIDENCE=PASS checks=${checks}`);
