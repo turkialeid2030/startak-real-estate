@@ -42,9 +42,12 @@ export default function LocalSupplementalResearchPanel(){
  }
  async function persist(action){
   if(!custodyReady||!ready||passphrase.length<12)return;
-  if(!browserStorage.isAvailable()){setNotice('failed');return;}
-  const token=++epoch.current;setBusy(true);setNotice('');
+  // Revoke stale output before attempting an unlock, even when storage is denied.
   if(action==='load'){setResult(null);setSource(null);}
+  if(!browserStorage.isAvailable()){
+   epoch.current++;setBusy(false);setPassphrase('');setConfirmed(false);setOverwrite(false);setConfirmDelete(false);setNotice('failed');return;
+  }
+  const token=++epoch.current;setBusy(true);setNotice('');
   try{
    const opts={storage:browserStorage,dealId:linkedCase?.caseId,propertyRef:property.trim(),asOfDate,method,portfolioId:portfolioId.trim(),assetIds,snapshotText,passphrase,isCurrent:()=>epoch.current===token};
    if(action==='save'){await saveEncryptedSupplementalDraft({...opts,text:source,confirmed,overwrite});if(epoch.current===token)setNotice('saved');}

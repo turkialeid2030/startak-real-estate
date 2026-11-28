@@ -103,6 +103,15 @@ const {chromium,firefox,webkit,expect}=require('@playwright/test');
    await el('passphrase').fill('incorrect-browser-passphrase');await el('encrypted-load').click();await expect(el('storage-notice')).toContainText(t('تعذر الحفظ أو فتح المسودة','Save or unlock failed'),{timeout:15000});await expect(el('result')).toHaveCount(0);checks++;
    assert.equal(await page.evaluate(k=>localStorage.getItem(k),key),raw);checks++;
    await el('passphrase').fill('synthetic-browser-finance-42');await el('encrypted-load').click();await expect(el('result')).toBeVisible({timeout:15000});const restored=await download('report');assert.equal(restored.metrics[0].value,0.08);checks++;
+   // A denied availability probe must not leave an earlier result exportable.
+   await page.evaluate(()=>{const original=Storage.prototype.setItem;window.__syntheticRestoreStorageProbe=()=>{Storage.prototype.setItem=original;delete window.__syntheticRestoreStorageProbe;};Storage.prototype.setItem=function(k,v){if(String(k).includes('__availability_probe__:'))throw new DOMException('Synthetic storage denial','SecurityError');return original.call(this,k,v);};});
+   try{
+    await el('passphrase').fill('synthetic-browser-finance-42');await el('encrypted-load').click();
+    await expect(el('storage-notice')).toContainText(t('تعذر الحفظ أو فتح المسودة','Save or unlock failed'));checks++;
+    await expect(el('result')).toHaveCount(0);await expect(el('report')).toHaveCount(0);await expect(el('passphrase')).toHaveValue('');checks+=3;
+    assert.equal(await page.evaluate(k=>localStorage.getItem(k),key),raw);checks++;
+   }finally{await page.evaluate(()=>window.__syntheticRestoreStorageProbe());}
+   await el('passphrase').fill('synthetic-browser-finance-42');await el('encrypted-load').click();await expect(el('result')).toBeVisible({timeout:15000});checks++;
    await el('passphrase').fill('synthetic-browser-finance-42');await expect(el('encrypted-delete')).toBeDisabled();await el('delete-consent').check();await el('encrypted-delete').click();await expect(el('storage-notice')).toContainText(t('تم التحقق من حذف المسودة','Draft deletion verified'),{timeout:15000});checks++;
    assert.equal(await page.evaluate(k=>localStorage.getItem(k),key),null);assert.deepEqual(await records(),before);checks+=2;
    await el('passphrase').fill('synthetic-browser-finance-42');await el('encrypted-load').click();
