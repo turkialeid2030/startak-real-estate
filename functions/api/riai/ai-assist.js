@@ -569,12 +569,23 @@ async function handleRequestPost(context) {
   const rates = resolveRateLimitConfig(env);
   const monetary = monetaryReservation(env,model,inputBound + outputBudget.value);
   if (!monetary.ok) return json({ok:false,code:monetary.code,aiModelUsed:false, providerRequestAttempted: false, automaticRetryAllowed: false},503);
+  const subjectHash = await sha256Hex(`${env.RIAI_AUDIT_SUBJECT_SALT || ''}:${access.subject}`);
+  // Stable per authenticated subject and explicit client request ID; do not bind
+  // to the mutable payload or time window, which would permit replay on changes.
+  // Audit invocation IDs remain unique per HTTP attempt. Legacy requests without
+  // a client ID keep the prior one-invocation reservation semantics.
+  const quotaReservationId = body.clientRequestId
+    ? await sha256Hex(JSON.stringify(['RIAI_QUOTA_REQUEST_V1', subjectHash, body.clientRequestId]))
+    : context.invocationId;
   const tokenBudget = await reserveGatewayQuota(env.RIAI_AI_QUOTA, {
-    id:context.invocationId, subjectHash:await sha256Hex(`${env.RIAI_AUDIT_SUBJECT_SALT || ''}:${access.subject}`), tokens:inputBound + outputBudget.value,
+    id:quotaReservationId, subjectHash, tokens:inputBound + outputBudget.value,
     limits:{minute:rates.perSubjectPerMinute,subjectDay:rates.perSubjectPerDay,globalDay:rates.globalPerDay,tokensDay:dailyTokens},
     money:monetary.money,
   });
   if (!tokenBudget.allowed) {
+    // The present HTTP attempt was denied, but a previous attempt with this
+    // reservation may already have reached the provider.
+    if (tokenBudget.code === 'AI_REQUEST_ALREADY_RESERVED') context.providerRequestAttempted = null;
     await recordAudit(context, {
       access,
       snapshot: body.decisionSnapshot,
@@ -585,7 +596,7 @@ async function handleRequestPost(context) {
       startedAt,
     });
     const headers = tokenBudget.retryAfterSeconds ? { 'retry-after': String(tokenBudget.retryAfterSeconds) } : undefined;
-    return json({ ok: false, code: tokenBudget.code, aiModelUsed: false, providerRequestAttempted: false, automaticRetryAllowed: false }, tokenBudget.status, headers);
+    return json({ ok: false, code: tokenBudget.code, aiModelUsed: false, providerRequestAttempted: context.providerRequestAttempted, automaticRetryAllowed: false }, tokenBudget.status, headers);
   }
 
   await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'PROVIDER_REQUEST_PENDING', model, tokenLimit: outputBudget.value, startedAt });
@@ -641,7 +652,7 @@ async function handleRequestPost(context) {
   }
   const actualTokens = verifiedUsage(providerPayload, protocol.value);
   if (actualTokens !== null) {
-    const settlement = await settleGatewayQuota(env.RIAI_AI_QUOTA, {id:context.invocationId,actualTokens});
+    const settlement = await settleGatewayQuota(env.RIAI_AI_QUOTA, {id:quotaReservationId,actualTokens});
     if (!settlement.ok) {
       await recordAudit(context, {access,snapshot:body.decisionSnapshot,outcome:'QUOTA_SETTLEMENT_FAILED',reasonCode:settlement.code,model,startedAt});
       return json({ok:false,code:settlement.code,providerRequestAttempted:true,automaticRetryAllowed:false},503);
