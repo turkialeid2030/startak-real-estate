@@ -186,4 +186,14 @@ check(()=>assert.strictEqual(q.verifyIndependentReviewRecord({...rev,reviewerCre
 check(()=>assert.strictEqual(q.verifyIndependentReleaseQualification({...ready,deploymentAuthorized:true}).valid,false));
 check(()=>assert.strictEqual(q.verifyIndependentReleaseQualification({...ready,issues:{}}).valid,false));
 check(()=>assert.strictEqual(q.verifyIndependentReleaseQualification({...ready,independentEngineeringReviewRecorded:false}).valid,false));
+// Calendar boundaries for independent review and canonical release evidence.
+for(const date of ['2026-02-30T00:00:00Z','2026-04-31T00:00:00Z','2026-02-28T24:00:00Z','2026-02-28T00:00:00','2026-02-28T00:00:00+15:00','02/28/2026']){
+ expectThrow(()=>releaseEvidence({testedAt:date}),/ISO-compatible timestamp/);
+ expectThrow(()=>releaseEvidence({reviewedAt:date}),/ISO-compatible timestamp/);
+ expectThrow(()=>independentReview({reviewedAt:date}),/ISO-compatible timestamp/);
+ check(()=>assert.strictEqual(q.verifyCanonicalReleaseEvidence({...rel,testedAt:date}).valid,false));
+ check(()=>assert.strictEqual(q.verifyIndependentReviewRecord({...rev,reviewedAt:date}).valid,false));
+}
+check(()=>assert.strictEqual(q.verifyIndependentReviewRecord(independentReview({reviewedAt:'2026-09-08T11:00:00+03:00'})).valid,true));
+
 console.log(`WAVE_17C_INDEPENDENT_RELEASE_QUALIFICATION=PASS checks=${checks}`);
