@@ -190,4 +190,18 @@ for (const [key, value] of Object.entries({zero:'0', active:'false', empty:null,
 }
 check(() => assert.ok(!JSON.stringify(inertEvent).includes('SYNTHETIC_CALLBACK')));
 
+// Non-string action and audit descriptors must never invoke coercion hooks.
+let actionCallbackCount=0;
+const forgedAction={toString(){actionCallbackCount++;return 'VIEW_CASE';}};
+for(const value of [forgedAction, ['VIEW_CASE'], 1, null, undefined, ' ']){
+  check(()=>assert.strictEqual(authorizeAction({identity:analyst,action:value,policy}).reason,'ACTION_INVALID'));
+}
+check(()=>assert.throws(()=>requireAuthorizedAction({identity:analyst,action:forgedAction,policy}),e=>e.code==='ACTION_INVALID'));
+check(()=>assert.throws(()=>normalizePolicy([['ADMIN']]),/policy is required/));
+const auditArgs={eventId:'EVT-STRICT',occurredAt:'2026-11-28T00:00:00Z',identity:viewer,action:'VIEW_CASE',resourceType:'CASE',resourceId:'C1',decision:'ALLOW',reason:'SYNTHETIC'};
+for(const field of ['eventId','occurredAt','action','resourceType','resourceId','decision','reason']){
+  check(()=>assert.throws(()=>createSecurityAuditEvent({...auditArgs,[field]:forgedAction}),/missing required fields/));
+}
+check(()=>assert.strictEqual(actionCallbackCount,0));
+check(()=>assert.strictEqual(createSecurityAuditEvent(auditArgs).action,'VIEW_CASE'));
 console.log(`AUTHORIZATION_AUDIT_SECURITY_V1: PASS (${checks} checks)`);
