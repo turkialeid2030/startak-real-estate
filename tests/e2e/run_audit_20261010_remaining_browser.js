@@ -44,6 +44,7 @@ async function textContrast(locator){return locator.evaluate(el=>{
  for(const[name,engine]of Object.entries({chromium,firefox,webkit})){
   const browser=await engine.launch({headless:true,...(name==='chromium'?{args:['--no-sandbox']}: {})});
   try{for(const viewport of [{width:1366,height:960},{width:390,height:844}]){
+   const checksBeforeContext=checks;
    const context=await browser.newContext({viewport,locale:'ar-SA',acceptDownloads:true,reducedMotion:'reduce'});const page=await context.newPage(),errors=[],external=[];
    page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(r.method()==='POST'&&!r.url().startsWith(BASE))external.push(r.url());});
    const seed={id:'audit-remaining',name:'SOURCE TEST / العقار',mode:'building',inputs:gold['RE-GOLD-002_existing_building'].inputs,savedAt:'2026-10-10T00:00:00Z'};
@@ -543,7 +544,7 @@ async function textContrast(locator){return locator.evaluate(el=>{
    ok(zeroZakat.financial.zakat.layer.annualZakatAmount===0,'explicit Persian zero is preserved');
    await captureDocument(page,`${DIR}/${name}-${viewport.width}`);
    ok(errors.length===0,`${name} pageerrors: ${errors.join(' | ')}`);ok(external.length===0,'document module sends no external POST uploads');
-   evidence.push({engine:name,viewport,checksCompleted:checks,pageErrors:errors.length,externalPosts:external.length,physicalDevice:false});await context.close();
+   evidence.push({engine:name,viewport,checks:checks-checksBeforeContext,checksCompleted:checks,pageErrors:errors.length,externalPosts:external.length,physicalDevice:false});await context.close();
   }}finally{await browser.close();}
  }
  await fs.writeFile(DIR+'/acceptance.json',JSON.stringify({sourceCommit:process.env.STARTAK_SOURCE_COMMIT||null,checks,browsers:evidence,physicalDevicesTested:false,screenReaderTested:false,marketDataVerified:false},null,2));
