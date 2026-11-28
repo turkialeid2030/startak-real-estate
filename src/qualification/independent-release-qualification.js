@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const {strictCalendarDateMs}=require('../validation/strict-calendar-instant');
 
 const INDEPENDENCE_TYPE = Object.freeze({
   INTERNAL_INDEPENDENT: 'INTERNAL_INDEPENDENT',
@@ -41,7 +42,7 @@ function requiredCommitSha(value, field) {
 }
 function requiredTimestamp(value, field) {
   const value2 = requiredString(value, field);
-  const millis = Date.parse(value2);
+  const millis = strictCalendarDateMs(value2);
   if (!Number.isFinite(millis)) throw new TypeError(`${field} must be an ISO-compatible timestamp`);
   return { value: value2, millis };
 }
@@ -117,7 +118,7 @@ function verifyCanonicalReleaseEvidence(record) {
     };
     if(record.releaseAuthorized!==false||record.deploymentAuthorized!==false)return {valid:false,reasonCode:'RELEASE_EVIDENCE_AUTHORITY_INVALID'};
     if (core.regressionPassed > core.regressionTotal) return { valid: false, reasonCode: 'REGRESSION_COUNTS_INVALID' };
-    if (Date.parse(core.reviewedAt) < Date.parse(core.testedAt)) return { valid: false, reasonCode: 'RELEASE_REVIEW_TIME_INVALID' };
+    if (strictCalendarDateMs(core.reviewedAt) < strictCalendarDateMs(core.testedAt)) return { valid: false, reasonCode: 'RELEASE_REVIEW_TIME_INVALID' };
     const expectedHash = hash(core);
     return { valid: record.releaseEvidenceHashSha256 === expectedHash, reasonCode: record.releaseEvidenceHashSha256 === expectedHash ? null : 'RELEASE_EVIDENCE_HASH_MISMATCH', expectedHash };
   } catch (error) { return { valid: false, reasonCode: 'RELEASE_EVIDENCE_SCHEMA_INVALID', error: error.message }; }
@@ -211,7 +212,7 @@ function buildIndependentReleaseQualification(input = {}) {
   } else if (releaseEvidence.preparedBy === releaseEvidence.reviewedBy) {
     status = RELEASE_QUALIFICATION_STATUS.HOLD_RELEASE_VERIFICATION;
     issues.push('RELEASE_EVIDENCE_NOT_INDEPENDENTLY_REVIEWED');
-  } else if (Date.parse(review.reviewedAt)<Date.parse(releaseEvidence.reviewedAt) || review.reviewerRef===releaseEvidence.preparedBy) {
+  } else if (strictCalendarDateMs(review.reviewedAt)<strictCalendarDateMs(releaseEvidence.reviewedAt) || review.reviewerRef===releaseEvidence.preparedBy) {
     status=RELEASE_QUALIFICATION_STATUS.HOLD_INDEPENDENT_REVIEW;
     issues.push('INDEPENDENT_REVIEW_TIME_OR_REVIEWER_INVALID');
   } else if (!REQUIRED_REVIEW_SCOPE.every(scope=>review.reviewedScope.includes(scope)) || new Set(review.reviewedScope).size!==review.reviewedScope.length) {
