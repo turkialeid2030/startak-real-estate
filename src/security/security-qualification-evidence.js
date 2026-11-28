@@ -153,6 +153,13 @@ function createSecurityQualificationEvidence(input = {}) {
   });
 }
 
+function exactFlags(value, expected) {
+  return Object.entries(expected).every(([key, flag]) => {
+    const own = Object.getOwnPropertyDescriptor(value, key);
+    return own && Object.hasOwn(own, 'value') && own.value === flag;
+  });
+}
+
 function verifySecurityQualificationEvidence(record) {
   if (!record || typeof record !== 'object' || Array.isArray(record)) return Object.freeze({ valid: false, reasonCode: 'EVIDENCE_OBJECT_REQUIRED' });
   try {
@@ -183,6 +190,7 @@ function verifySecurityQualificationEvidence(record) {
     }
     const expectedHash = sha256Object(core);
     if (record.evidenceHashSha256 !== expectedHash) return Object.freeze({ valid: false, reasonCode: 'EVIDENCE_HASH_MISMATCH', expectedHash });
+    if (!exactFlags(record, {"cryptographicSignatureVerifiedByThisModule":false,"externalSystemQueriedByThisModule":false,"productionSecurityValidated":false,"pdplComplianceEstablished":false,"penetrationTestEstablished":false,"certifiedSecurityEstablished":false,"mergeAuthorized":false,"deploymentAuthorized":false,"transactionAuthorized":false})) return Object.freeze({ valid: false, reasonCode: 'EVIDENCE_AUTHORITY_FLAGS_INVALID', expectedHash });
     return Object.freeze({ valid: true, reasonCode: null, expectedHash });
   } catch (error) {
     return Object.freeze({ valid: false, reasonCode: 'EVIDENCE_SCHEMA_INVALID', error: error.message });
@@ -344,6 +352,10 @@ function verifySecurityQualificationEnvelope(envelope) {
     };
     const expectedHash = sha256Object(core);
     if (envelope.qualificationHashSha256 !== expectedHash) return Object.freeze({ valid: false, reasonCode: 'QUALIFICATION_HASH_MISMATCH', expectedHash });
+    if (!exactFlags(envelope, {"evidenceEnvironmentIsExplicit":true,"testEvidenceCanQualifyProductionScope":false,"productionSecurityValidated":false,"pdplComplianceEstablished":false,"externalPenetrationTestEstablished":false,"certifiedSecurityEstablished":false,"independentSecurityValidationRequired":true,"humanSecurityApprovalRequired":true,"mergeAuthorized":false,"deploymentAuthorized":false,"transactionAuthorized":false})) return Object.freeze({ valid: false, reasonCode: 'QUALIFICATION_AUTHORITY_FLAGS_INVALID', expectedHash });
+    if (!Object.values(SECURITY_QUALIFICATION_STATUS).includes(core.status) || new Set(core.requiredControlClasses).size !== core.requiredControlClasses.length || core.requiredControlClasses.some(control => !Object.values(SECURITY_CONTROL_CLASS).includes(control))) return Object.freeze({ valid: false, reasonCode: 'QUALIFICATION_SCOPE_INVALID', expectedHash });
+    normalizeMaximumAgePolicy(core.maximumEvidenceAgeDaysByControl, core.requiredControlClasses);
+    if (core.status === SECURITY_QUALIFICATION_STATUS.READY_FOR_INDEPENDENT_SECURITY_VALIDATION && (core.upstreamSecurityAssessmentStatus !== READY_UPSTREAM_STATUS || core.issues.length !== 0 || core.evidenceHashesSha256.length < core.requiredControlClasses.length || new Set(core.evidenceHashesSha256).size !== core.evidenceHashesSha256.length || core.evidenceHashesSha256.some(hash => typeof hash !== 'string' || !SHA256_RE.test(hash)))) return Object.freeze({ valid: false, reasonCode: 'QUALIFICATION_READY_STRUCTURE_INVALID', expectedHash });
     return Object.freeze({ valid: true, reasonCode: null, expectedHash });
   } catch (error) {
     return Object.freeze({ valid: false, reasonCode: 'QUALIFICATION_SCHEMA_INVALID', error: error.message });
