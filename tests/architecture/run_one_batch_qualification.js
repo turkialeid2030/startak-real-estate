@@ -70,5 +70,17 @@ const assert=require('node:assert/strict');
  assert.throws(()=>validateBrowserMatrix('document-tables-browser',{...browserEvidence,financialAdoptionAuthorized:true},sha),/AUTHORITY_INVALID/);
  assert.throws(()=>validateBrowserMatrix('cross-browser',{...browserEvidence,browsers:contexts.slice(1)},sha),/MATRIX_INVALID/);
  console.log('SPLIT_QUALIFICATION_CONTRACT=PASS negative_cases=18 original_gate_preserved=true');
+ // These two workflows must trigger on the same pull-request events, without
+ // path or branch exclusions. Fail closed on a changed or ambiguous on block.
+ const fs=require('node:fs'),path=require('node:path');
+ const trigger=name=>{
+  const text=fs.readFileSync(path.resolve(__dirname,'../../.github/workflows',name),'utf8').replace(/\r\n/g,'\n');
+  const blocks=[...text.matchAll(/^on:\s*\n((?:[ \t]+[^\n]*\n)+)/gm)];
+  assert.equal(blocks.length,1,'one explicit workflow trigger required');
+  return blocks[0][1].trim();
+ };
+ assert.equal(trigger('one-batch-qualification.yml'),'pull_request:');
+ assert.equal(trigger('split-qualification-candidate.yml'),trigger('one-batch-qualification.yml'));
+ console.log('SPLIT_TRIGGER_PARITY=PASS unfiltered_pull_request=true');
  console.log('ONE_BATCH_ALL_STAGES_QUALIFICATION=PASS required_checks='+REQUIRED.length);
 })().catch(e=>{console.error(e);process.exitCode=1;});
