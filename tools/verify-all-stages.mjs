@@ -100,11 +100,13 @@ export async function command(id,cmd,args,outDir,timeoutMs=20*60*1000){
 }
 async function execute(){
  const args=process.argv.slice(2);
- if(args.some(a=>!a.startsWith('--out-dir=')&&!a.startsWith('--preview-url='))||new Set(args.map(a=>a.split('=')[0])).size!==args.length)throw Error('BATCH_ARGUMENTS_INVALID');
+ if(args.some(a=>!a.startsWith('--out-dir=')&&!a.startsWith('--preview-url=')&&a!=='--core-only')||new Set(args.map(a=>a.split('=')[0])).size!==args.length)throw Error('BATCH_ARGUMENTS_INVALID');
  const outDir=path.resolve(args.find(a=>a.startsWith('--out-dir='))?.slice(10)||'/tmp/startak-one-batch');
  const url=validatedProtectedPreviewUrl(args.find(a=>a.startsWith('--preview-url='))?.slice(14)||'https://feature-audit-findings-d01-d.startak-real-estate.pages.dev/');
  const sha=execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim();
  if(process.env.STARTAK_SOURCE_COMMIT&&process.env.STARTAK_SOURCE_COMMIT!==sha)throw Error('BATCH_SOURCE_MISMATCH');
+ const coreOnly=args.includes('--core-only');
+ if(coreOnly&&(process.env.GITHUB_ACTIONS!=='true'||!/^\d+$/.test(process.env.GITHUB_RUN_ID||'')||!/^\d+$/.test(process.env.GITHUB_RUN_ATTEMPT||'')||process.env.STARTAK_SOURCE_COMMIT!==sha))throw Error('SPLIT_CORE_CI_IDENTITY_REQUIRED');
  const browserConcurrency=parseConcurrency(process.env.STARTAK_BATCH_BROWSER_CONCURRENCY);
  const batchStarted=performance.now();
  await fs.mkdir(outDir,{recursive:true});const checks=[];
@@ -117,8 +119,8 @@ async function execute(){
   server=await preview({preview:{host:'127.0.0.1',port:4173,strictPort:true}});
   process.env.STARTAK_E2E_URL='http://127.0.0.1:4173/?ownerView=advanced';
   checks.push(...await runInitialPreviewStages((id,file)=>command(id,'node',['tests/e2e/'+file],outDir),browserConcurrency));
-  checks.push(...await runPreviewBrowserLanes((id,file)=>command(id,'node',['tests/e2e/'+file],outDir),browserConcurrency));
- }catch{for(const id of ['sectors-browser','owner-browser','export-browser','cross-browser','ocr-browser','document-tables-browser'])if(!checks.some(c=>c.id===id))checks.push({id,status:'FAIL',reason:'LOCAL_PREVIEW_UNAVAILABLE'});}
+  if(!coreOnly)checks.push(...await runPreviewBrowserLanes((id,file)=>command(id,'node',['tests/e2e/'+file],outDir),browserConcurrency));
+ }catch{for(const id of ['sectors-browser','owner-browser','export-browser',...(coreOnly?[]:['cross-browser','ocr-browser','document-tables-browser'])])if(!checks.some(c=>c.id===id))checks.push({id,status:'FAIL',reason:'LOCAL_PREVIEW_UNAVAILABLE'});}
  finally{if(server)await new Promise(resolve=>server.httpServer.close(resolve));}
  checks.push(await command('locale-browser','node',['tests/e2e/run_d04_locale_matrix_ci.mjs'],outDir));
  const observations=[];
@@ -128,6 +130,13 @@ async function execute(){
  observations.push(...await Promise.all([['ai-config','api/riai/public-config'],['ai-assist-method-guard','api/riai/ai-assist']].map(([id,route])=>observeEndpoint(id,new URL(route,url).href))));
  const pack=require('./qcr-evidence-acquisition.js').execute([]);
  await fs.writeFile(path.join(outDir,'external-evidence-requests.json'),JSON.stringify(pack,null,2)+'\n');
+ if(coreOnly){
+  const core={schemaVersion:1,sourceCommit:sha,runId:process.env.GITHUB_RUN_ID,runAttempt:process.env.GITHUB_RUN_ATTEMPT,kind:'core',checks,observations,requestCount:pack.requestCount,durationMs:Math.round(performance.now()-batchStarted),engineeringStatus:'NOT_EVALUATED',productionAuthorized:false};
+  await fs.writeFile(path.join(outDir,'core-evidence.json'),JSON.stringify(core,null,2)+'\n');
+  console.log('SPLIT_CORE_ONLY='+ (checks.every(c=>c.status==='PASS')?'PASS':'FAIL')+'; OVERALL_NOT_EVALUATED');
+  process.exitCode=checks.every(c=>c.status==='PASS')?0:1;
+  return;
+ }
  const report={...summarize({sha,checks,observations,requestCount:pack.requestCount}),browserConcurrency,batchDurationMs:Math.round(performance.now()-batchStarted)};
  await fs.writeFile(path.join(outDir,'all-stages.json'),JSON.stringify(report,null,2)+'\n');
  const md=markdown(report);await fs.writeFile(path.join(outDir,'all-stages.md'),md);

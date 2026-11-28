@@ -1,0 +1,112 @@
+name: Split Qualification Candidate
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/split-qualification-candidate.yml'
+      - 'tools/verify-split-qualification.mjs'
+      - 'tools/verify-all-stages.mjs'
+      - 'tests/architecture/run_one_batch_qualification.js'
+permissions:
+  contents: read
+concurrency:
+  group: split-qualification-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+env:
+  STARTAK_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha }}
+jobs:
+  core:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - name: Execute eleven core stages
+        run: node tools/verify-all-stages.mjs --core-only --out-dir=/tmp/startak-split/core
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: split-${{ github.run_id }}-${{ github.run_attempt }}-core
+          path: /tmp/startak-split/core/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: split-core-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: runtime-evidence/remaining-audit/
+          if-no-files-found: warn
+  heavy:
+    name: Isolated qualification (${{ matrix.lane }})
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e
+      options: --user 1001
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        lane: [cross-browser, ocr-browser, document-tables-browser]
+    env:
+      SPLIT_LANE: ${{ matrix.lane }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Verify pinned browser executables
+        run: |
+          node -e "const fs=require('node:fs');const p=require('playwright');if(require('playwright/package.json').version!=='1.62.1')throw Error('PLAYWRIGHT_VERSION_MISMATCH');for(const name of ['chromium','firefox','webkit'])if(!fs.existsSync(p[name].executablePath()))throw Error('BROWSER_UNAVAILABLE_'+name)"
+      - name: Execute isolated browser stage
+        run: node tools/verify-split-qualification.mjs heavy "$SPLIT_LANE" /tmp/startak-split/lane
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: split-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.lane }}
+          path: /tmp/startak-split/lane/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: split-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.lane }}
+          path: runtime-evidence/remaining-audit/
+          if-no-files-found: warn
+  aggregate:
+    needs: [core, heavy]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      SPLIT_DEPENDENCIES_OK: ${{ needs.core.result == 'success' && needs.heavy.result == 'success' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: split-${{ github.run_id }}-${{ github.run_attempt }}-*
+          path: /tmp/startak-split/incoming
+          merge-multiple: false
+      - name: Join same-run exact-head evidence; keep production HOLD
+        run: node tools/verify-split-qualification.mjs join /tmp/startak-split/incoming /tmp/startak-split/joined
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: split-aggregate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /tmp/startak-split/joined/
+          if-no-files-found: error

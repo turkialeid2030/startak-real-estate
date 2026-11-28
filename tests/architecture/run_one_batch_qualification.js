@@ -43,5 +43,32 @@ const assert=require('node:assert/strict');
  assert.deepEqual(malformed.map(r=>r.status),['FAIL','FAIL','FAIL']);
  await assert.rejects(()=>runInitialPreviewStages(()=>{},3),/INITIAL_LANES_INVALID/);
  console.log('INITIAL_PREVIEW_LANES=PASS bounded_concurrency=1,2 no_skipped_stages=true');
+ const {LANES,validateBrowserMatrix,aggregateSplit}=await import('../../tools/verify-split-qualification.mjs');
+ const expected={sourceCommit:sha,runId:'42',runAttempt:'1'};
+ const meta={schemaVersion:1,...expected,durationMs:1,engineeringStatus:'NOT_EVALUATED',productionAuthorized:false};
+ const pass=id=>({id,status:'PASS',exitCode:0,outputLimitExceeded:false,timedOut:false,logFile:id+'.log',durationMs:1});
+ const contexts=['chromium','firefox','webkit'].flatMap(engine=>[390,1366].map(width=>({engine,width,checks:1,checksCompleted:1,physicalDevice:false})));
+ const browserEvidence={sourceCommit:sha,checks:6,browsers:contexts,contexts,independentExtractionAccuracyQualified:false,sourceAuthenticationQualified:false,financialAdoptionAuthorized:false};
+ const lanes=Object.keys(LANES).map(kind=>({...meta,kind,check:pass(kind),matrix:validateBrowserMatrix(kind,browserEvidence,sha)}));
+ const core={...meta,kind:'core',checks:REQUIRED.filter(id=>!Object.hasOwn(LANES,id)).map(pass),observations:['preview','ai-config','ai-assist-method-guard'].map(id=>({id,status:'BLOCKED'})),requestCount:36};
+ const combined=aggregateSplit(core,lanes,expected);
+ assert.equal(combined.engineeringStatus,'PASS');assert.equal(combined.exitCode,2);assert.equal(combined.productionAuthorized,false);
+ assert.deepEqual(combined.checks.map(c=>c.id),REQUIRED);
+ for(const mutate of [
+  (c,l)=>l.pop(),(c,l)=>l.push(l[0]),(c,l)=>l[0].runId='43',(c,l)=>l[0].runAttempt='2',
+  (c,l)=>l[0].sourceCommit='b'.repeat(40),(c,l)=>l[0].check.status='FAIL',
+  (c,l)=>l[0].check.exitCode=1,(c,l)=>l[0].matrix.contexts.pop(),
+  (c,l)=>l[0].matrix.contexts[0].physicalDevice=true,(c,l)=>c.checks.pop(),
+  (c,l)=>c.checks.push(c.checks[0]),(c,l)=>c.requestCount=35,
+  (c,l)=>c.productionAuthorized=true,(c,l)=>c.observations[1].status='PASS',
+  (c,l)=>c.checks[0].timedOut=true
+ ]){
+  const c=structuredClone(core),l=structuredClone(lanes);mutate(c,l);
+  assert.throws(()=>aggregateSplit(c,l,expected),/SPLIT_/);
+ }
+ assert.throws(()=>validateBrowserMatrix('ocr-browser',{...browserEvidence,sourceCommit:'b'.repeat(40)},sha),/SOURCE_INVALID/);
+ assert.throws(()=>validateBrowserMatrix('document-tables-browser',{...browserEvidence,financialAdoptionAuthorized:true},sha),/AUTHORITY_INVALID/);
+ assert.throws(()=>validateBrowserMatrix('cross-browser',{...browserEvidence,browsers:contexts.slice(1)},sha),/MATRIX_INVALID/);
+ console.log('SPLIT_QUALIFICATION_CONTRACT=PASS negative_cases=18 original_gate_preserved=true');
  console.log('ONE_BATCH_ALL_STAGES_QUALIFICATION=PASS required_checks='+REQUIRED.length);
 })().catch(e=>{console.error(e);process.exitCode=1;});
