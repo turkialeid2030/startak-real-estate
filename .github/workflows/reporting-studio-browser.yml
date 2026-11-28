@@ -17,6 +17,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: startak-reporting-studio-browser-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   reporting:
     runs-on: ubuntu-24.04

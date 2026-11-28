@@ -30,6 +30,9 @@ jobs:
           node-version: '22'
           cache: npm
 
+      - name: Verify CI supersession and manual isolation
+        run: node tests/architecture/run_ci_supersession_scope.js
+
       - name: Install dependencies
         run: npm ci
 
