@@ -1,0 +1,72 @@
+name: Regression Shard Diagnostic Candidate
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/regression-shard-experiment.yml'
+      - 'tools/v7-regression-shard-experiment.js'
+      - 'tests/architecture/run_v7_regression_shard_experiment.js'
+permissions:
+  contents: read
+concurrency:
+  group: regression-shard-experiment-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+env:
+  STARTAK_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha }}
+jobs:
+  shards:
+    name: Regression shard (${{ matrix.index }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        index: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Run partition before and after clean production build
+        run: node tools/v7-regression-shard-experiment.js run ${{ matrix.index }} /tmp/shard/evidence.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: regression-shard-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.index }}
+          path: /tmp/shard/evidence.json
+          if-no-files-found: error
+  aggregate:
+    needs: [shards]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22'
+      - name: Verify evidence contract
+        run: node tests/architecture/run_v7_regression_shard_experiment.js
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: regression-shard-${{ github.run_id }}-${{ github.run_attempt }}-*
+          path: /tmp/shards
+          merge-multiple: false
+      - name: Require successful producer jobs and exact complete coverage
+        env:
+          PRODUCER_RESULT: ${{ needs.shards.result }}
+        run: |
+          test "$PRODUCER_RESULT" = success
+          node tools/v7-regression-shard-experiment.js join /tmp/shards /tmp/joined/evidence.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: regression-diagnostic-aggregate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /tmp/joined/evidence.json
+          if-no-files-found: error
