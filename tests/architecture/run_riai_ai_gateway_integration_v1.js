@@ -101,5 +101,19 @@ function provider(boundary='This output is advisory analysis only and does not c
  assert.equal(invalidBody.status,400);assert.equal((await invalidBody.json()).providerRequestAttempted,false);
  assert.equal(deniedCalls,0);
  console.log('RIAI_PRE_DISPATCH_DENIAL_CONTRACT=PASS scenarios=10 synthetic_only=true');
+ // Overrun must fail closed and block a subsequent provider call for the quota day.
+ const overrunEnv=env({RIAI_AI_QUOTA:require('../fixtures/riai-quota-binding')({fixedNow:fixedMinute})});
+ let overrunCalls=0;
+ global.fetch=async()=>{overrunCalls++;return Response.json({...provider(),usage:{prompt_tokens:50000,completion_tokens:10,total_tokens:50010}});};
+ const overrun=await onRequestPost({request:req(SNAPSHOT),env:overrunEnv});
+ const overrunBody=await overrun.json();
+ assert.equal(overrun.status,503);assert.equal(overrunBody.code,'AI_QUOTA_SETTLEMENT_REJECTED');
+ assert.equal(overrunBody.providerRequestAttempted,true);assert.equal(overrunBody.automaticRetryAllowed,false);
+ const blockedAfterOverrun=await onRequestPost({request:req(SNAPSHOT),env:overrunEnv});
+ const blockedAfterOverrunBody=await blockedAfterOverrun.json();
+ assert.equal(blockedAfterOverrun.status,503);assert.equal(blockedAfterOverrunBody.providerRequestAttempted,false);
+ assert.equal(overrunCalls,1);
+ assert.equal(Array.from(overrunEnv.RIAI_AI_QUOTA.state.data.entries()).find(([key])=>key.startsWith('blocked:'))[1],true);
+ console.log('RIAI_QUOTA_OVERRUN_FOLLOWUP_DENIAL=PASS synthetic_only=true');
  console.log('RIAI_GATEWAY_INTEGRATION=PASS');
 })().catch((e)=>{console.error(e);process.exit(1);});
