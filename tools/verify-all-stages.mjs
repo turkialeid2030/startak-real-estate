@@ -50,9 +50,19 @@ export async function command(id,cmd,args,outDir,timeoutMs=20*60*1000){
  if(!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>20*60*1000)throw TypeError('BATCH_STAGE_TIMEOUT_INVALID');
  const file=path.join(outDir,id+'.log'),stream=createWriteStream(file);let bytes=0,overflow=false,writeFailed=false,timedOut=false;
  stream.on('error',()=>{writeFailed=true;});
- const child=spawn(cmd,args,{cwd:root,env:process.env,stdio:['ignore','pipe','pipe']});
- const timer=setTimeout(()=>{timedOut=true;child.kill('SIGKILL');},timeoutMs);
- const capture=data=>{bytes+=data.length;if(bytes<=4*1024*1024)stream.write(data);else{overflow=true;child.kill('SIGKILL');}};
+ const group=process.platform!=='win32';
+ const child=spawn(cmd,args,{cwd:root,env:process.env,stdio:['ignore','pipe','pipe'],detached:group});
+ let stopping=false;
+ const stop=()=>{
+  if(stopping)return;stopping=true;
+  let groupKilled=false;
+  if(group&&Number.isSafeInteger(child.pid)&&child.pid>0){try{process.kill(-child.pid,'SIGKILL');groupKilled=true;}catch{}}
+  if(!groupKilled){try{child.kill('SIGKILL');}catch{}}
+  // Inherited pipes can outlive the direct child, even after it exits.
+  child.stdout.destroy();child.stderr.destroy();
+ };
+ const timer=setTimeout(()=>{timedOut=true;stop();},timeoutMs);
+ const capture=data=>{bytes+=data.length;if(bytes<=4*1024*1024)stream.write(data);else{overflow=true;stop();}};
  child.stdout.on('data',capture);child.stderr.on('data',capture);
  const code=await new Promise(resolve=>{child.once('error',()=>resolve(-1));child.once('close',code=>resolve(code));});
  clearTimeout(timer);await new Promise(resolve=>{stream.end(resolve);if(stream.destroyed)resolve();});
