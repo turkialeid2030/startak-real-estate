@@ -71,6 +71,31 @@ function normalizeRefs(values, field) {
   return [...new Set(values.map((value) => value.trim()))].sort();
 }
 
+// Optional explicit source-reported quantities; never infer currency or the surplus basis.
+function sourceReconciliation(record) {
+  const source = record.sourceReported;
+  if (!source || typeof source !== 'object' || Array.isArray(source)
+    || source.currency !== 'SAR'
+    || source.surplusBasis !== 'AFTER_FFE_BEFORE_FIXED_CHARGES'
+    || !Number.isSafeInteger(source.adrDecimals) || source.adrDecimals < 0 || source.adrDecimals > 2)
+    return {status:'HOLD', reasons:['SOURCE_CURRENCY_OR_BASIS_UNQUALIFIED']};
+  const safe = n => typeof n === 'number' && Number.isFinite(n) && Math.abs(n) <= Number.MAX_SAFE_INTEGER / 100;
+  const nonnegative = n => safe(n) && n >= 0;
+  if (!nonnegative(source.roomsRevenueSar) || !nonnegative(source.totalOperatingRevenueSar)
+    || !safe(source.operatingSurplusAfterFfeReserveSar)
+    || (record.occupiedRoomNights === 0 ? source.averageDailyRateSar !== null : !nonnegative(source.averageDailyRateSar)))
+    return {status:'HOLD', reasons:['SOURCE_REPORTED_VALUES_INCOMPLETE_OR_INVALID']};
+  const calculated = calculateMetrics(sumRecords([record]));
+  const reasons = [];
+  const near = (a,b,tolerance) => safe(a) && safe(b) && Math.abs(a-b) <= tolerance;
+  if (!near(source.roomsRevenueSar, calculated.roomsRevenueSar, 0.005)) reasons.push('SOURCE_ROOMS_REVENUE_MISMATCH');
+  if (record.occupiedRoomNights > 0 && !near(source.averageDailyRateSar, calculated.averageDailyRateSar, 0.5 * 10 ** (-source.adrDecimals) + 1e-10))
+    reasons.push('SOURCE_ADR_REVENUE_MISMATCH');
+  if (!near(source.totalOperatingRevenueSar, calculated.totalOperatingRevenueSar, 0.015)) reasons.push('SOURCE_TOTAL_REVENUE_MISMATCH');
+  if (!near(source.operatingSurplusAfterFfeReserveSar, calculated.operatingSurplusAfterFfeReserveSar, 0.025)) reasons.push('SOURCE_OPERATING_SURPLUS_MISMATCH');
+  return {status:reasons.length?'HOLD':'ARITHMETICALLY_CONSISTENT', reasons};
+}
+
 function createHospitalityOperatingPeriodRecord({
   recordId,
   caseId,
@@ -86,6 +111,7 @@ function createHospitalityOperatingPeriodRecord({
   undistributedOperatingExpensesSar,
   managementAndFranchiseFeesSar,
   ffeReserveSar,
+  sourceReported,
   sourceRef,
   sourceDocumentHashSha256,
   evidenceRefs,
@@ -138,6 +164,15 @@ function createHospitalityOperatingPeriodRecord({
     undistributedOperatingExpensesSar,
     managementAndFranchiseFeesSar,
     ffeReserveSar,
+    ...(sourceReported === undefined ? {} : {sourceReported: sourceReported && typeof sourceReported === 'object' && !Array.isArray(sourceReported) ? {
+      currency: sourceReported.currency ?? null,
+      surplusBasis: sourceReported.surplusBasis ?? null,
+      adrDecimals: sourceReported.adrDecimals ?? null,
+      averageDailyRateSar: sourceReported.averageDailyRateSar ?? null,
+      roomsRevenueSar: sourceReported.roomsRevenueSar ?? null,
+      totalOperatingRevenueSar: sourceReported.totalOperatingRevenueSar ?? null,
+      operatingSurplusAfterFfeReserveSar: sourceReported.operatingSurplusAfterFfeReserveSar ?? null,
+    } : null}),
     sourceRef: sourceRef.trim(),
     sourceDocumentHashSha256: sourceDocumentHashSha256.toLowerCase(),
     evidenceRefs: normalizeRefs(evidenceRefs, 'evidenceRefs'),
@@ -292,6 +327,10 @@ function buildHospitalityOperatingMetricsPacket({
     }
     if (ids.has(record.recordId)) blockers.push(`DUPLICATE_HOSPITALITY_OPERATING_RECORD_ID:${record.recordId}`);
     ids.add(record.recordId);
+    if (Object.hasOwn(record,'sourceReported')) {
+      const reconciliation = sourceReconciliation(record);
+      for (const reason of reconciliation.reasons) blockers.push(`HOSPITALITY_${reason}:${record.recordId}`);
+    }
     if (!QUALIFIED_RECORD_STATUSES.includes(record.status)) blockers.push(`HOSPITALITY_OPERATING_RECORD_NOT_QUALIFIED:${record.recordId}:${record.status}`);
     if (Date.parse(record.periodEnd) > valuationDateMs) blockers.push(`HOSPITALITY_OPERATING_PERIOD_AFTER_VALUATION_DATE:${record.recordId}`);
     if (Date.parse(record.reviewedAt) > Date.parse(reviewed)) blockers.push(`HOSPITALITY_RECORD_REVIEW_AFTER_METRICS_REVIEW:${record.recordId}`);
@@ -311,6 +350,7 @@ function buildHospitalityOperatingMetricsPacket({
     sourceRef: record.sourceRef,
     sourceDocumentHashSha256: record.sourceDocumentHashSha256,
     recordHashSha256: record.hospitalityOperatingRecordHashSha256,
+    ...(Object.hasOwn(record,'sourceReported') ? {sourceReconciliation:sourceReconciliation(record)} : {}),
     metrics: calculateMetrics(sumRecords([record])),
   }));
   const aggregateMetrics = calculateMetrics(sumRecords(sorted));
