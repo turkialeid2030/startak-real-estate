@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const {strictCalendarDateMs}=require('../validation/strict-calendar-instant');
 
 const OPERATING_MODE = 'UNLICENSED_DECISION_SUPPORT';
 const WAVE17_QUALIFIED_HEADS = Object.freeze({
@@ -64,7 +65,7 @@ function requiredCommitSha(value, field) {
 
 function requiredTimestamp(value, field) {
   const normalized = requiredString(value, field);
-  const millis = Date.parse(normalized);
+  const millis = strictCalendarDateMs(normalized);
   if (!Number.isFinite(millis)) throw new TypeError(`${field} must be an ISO-compatible timestamp`);
   return Object.freeze({ value: normalized, millis });
 }
@@ -215,6 +216,8 @@ function verifyFinalEngineeringReleaseCandidate(record) {
     };
     const expectedHash = sha256Object(core);
     if (record.manifestHashSha256 !== expectedHash) return Object.freeze({ valid: false, reasonCode: 'FINAL_CANDIDATE_HASH_MISMATCH', expectedHash });
+    const expected = createFinalEngineeringReleaseCandidate(core);
+    if (Object.keys(expected).some(key => !Object.hasOwn(record,key) || JSON.stringify(canonicalize(record[key])) !== JSON.stringify(canonicalize(expected[key])))) return Object.freeze({ valid: false, reasonCode: 'FINAL_CANDIDATE_SEMANTIC_MISMATCH', expectedHash });
     return Object.freeze({ valid: true, reasonCode: null, expectedHash });
   } catch (error) {
     return Object.freeze({ valid: false, reasonCode: 'FINAL_CANDIDATE_SCHEMA_INVALID', error: error.message });
