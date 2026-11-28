@@ -1,11 +1,6 @@
 name: Split Qualification Candidate
 on:
   pull_request:
-    paths:
-      - '.github/workflows/split-qualification-candidate.yml'
-      - 'tools/verify-split-qualification.mjs'
-      - 'tools/verify-all-stages.mjs'
-      - 'tests/architecture/run_one_batch_qualification.js'
 permissions:
   contents: read
 concurrency:
