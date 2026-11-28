@@ -6,7 +6,10 @@ const assert=require('node:assert/strict');
  assert.equal(qualitativeOutputError({observations:['يلزم التحقق من إيجار السوق ومصدر معدل الرسملة.']}),null);
  assert.equal(qualitativeOutputError({observations:['Review lease expiry and collection evidence.']}),null);
  const quantityVariants=["Value is twenty-five SAR","Rent is one riyal","Yield is five per cent","القيمة خمسة ريالات","العائد عشرون بالمئة","القيمة خَمْسَة ريالات","Rent is fi​ve SAR","القيمة خمـسة ريالات"];
+ quantityVariants.push(...["Yield is five","zero occupancy","six units","الإيجار خمسة","العائد واحد","القيمة ثلاث ريالات"]);
  for(const value of quantityVariants)assert.equal(qualitativeOutputError({observations:[value]}),'AI_UNSOURCED_NUMERIC_CLAIM',value);
+ const qualitativeControls=["Evidence coverage is incomplete in two material areas.","Three material issues require review.","توجد ثلاثة جوانب تحتاج مراجعة."];
+ for(const value of qualitativeControls)assert.equal(qualitativeOutputError({observations:[value]}),null,value);
  const {verifyTurnstile}=await import('../../functions/api/riai/_public-ai-security.mjs');
  const request=new Request('https://example.com');
  const oversized=await verifyTurnstile({request,env:{RIAI_TURNSTILE_SECRET_KEY:'synthetic'},token:'synthetic',fetchImpl:async()=>new Response('x'.repeat(16385))});
@@ -30,6 +33,7 @@ const assert=require('node:assert/strict');
  ];
  for(const patch of cases){const result=validate({...good,...patch});assert.equal(result.status,'INVALID');assert.equal(result.value,null);}
  for(const value of quantityVariants){const result=validate({...good,executiveObservations:[value]});assert.equal(result.status,'INVALID',value);assert.equal(result.reasonCode,'AI_UNSOURCED_NUMERIC_CLAIM',value);assert.equal(result.value,null);}
+ for(const value of qualitativeControls)assert.equal(validate({...good,executiveObservations:[value]}).status,'VALID',value);
  console.log('RIAI_SPELLED_QUANTITY_CLIENT_SERVER_PARITY=PASS variants='+quantityVariants.length);
  console.log('RIAI_V615_CLIENT_OUTPUT_BOUNDARY=PASS negative_cases=11 positive_cases=2');
  console.log('RIAI_QUALITATIVE_OUTPUT=PASS');
