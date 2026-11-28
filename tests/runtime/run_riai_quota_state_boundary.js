@@ -41,5 +41,38 @@ const assert = require('node:assert/strict');
   const before=structuredClone(s.data);
   assert.deepEqual(await settleQuota(s,{id:fixture.id,actualTokens:5}),{settled:true,replayed:true,overage:false});
   assert.deepEqual(s.data,before);checks++;
+  // Persisted null is corruption, not an absent counter or reservation.
+  const day=Math.floor(fixture.now/86400000),minute=Math.floor(fixture.now/60000);
+  for(const key of ['minute:'+minute+':'+fixture.subjectHash,'subject:'+day+':'+fixture.subjectHash,'global:'+day,'tokens:'+day]){
+    for(const value of [null,-1,'0',0.5]){
+      const t=storage();t.data.set(key,value);const snapshot=structuredClone(t.data);
+      assert.deepEqual(await reserveQuota(t,fixture),{allowed:false,code:'QUOTA_STORAGE_FAILED'});
+      assert.deepEqual(t.data,snapshot);checks++;
+    }
+  }
+  for(const value of [null,0,'false',{},[]]){
+    const t=storage();t.data.set('blocked:'+day,value);const snapshot=structuredClone(t.data);
+    assert.deepEqual(await reserveQuota(t,fixture),{allowed:false,code:'CORRUPT_QUOTA_STATE'});
+    assert.deepEqual(t.data,snapshot);checks++;
+  }
+  for(const value of [null,false,0,[],{id:fixture.id}]){
+    const t=storage();t.data.set('reservation:'+fixture.id,value);const snapshot=structuredClone(t.data);
+    assert.deepEqual(await reserveQuota(t,fixture),{allowed:false,code:'CORRUPT_RESERVATION_STATE'});
+    assert.deepEqual(await settleQuota(t,{id:fixture.id,actualTokens:0}),{settled:false,code:'CORRUPT_RESERVATION_STATE'});
+    assert.deepEqual(t.data,snapshot);checks++;
+  }
+  for(const patch of [{subjectHash:null},{state:'SETTLED',actualTokens:null},{state:'SETTLED'},{actualTokens:0},{reservedUsdMicros:null},{priceModel:'model'},{reservedUsdMicros:5,priceModel:' '} ]){
+    const t=storage();assert.equal((await reserveQuota(t,fixture)).allowed,true);
+    const key='reservation:'+fixture.id;t.data.set(key,{...t.data.get(key),...patch});
+    const snapshot=structuredClone(t.data);
+    assert.deepEqual(await reserveQuota(t,fixture),{allowed:false,code:'CORRUPT_RESERVATION_STATE'});
+    assert.deepEqual(await settleQuota(t,{id:fixture.id,actualTokens:0}),{settled:false,code:'CORRUPT_RESERVATION_STATE'});
+    assert.deepEqual(t.data,snapshot);checks++;
+  }
+  const t=storage();t.data.set('blocked:'+day,false);
+  assert.equal((await reserveQuota(t,fixture)).allowed,true);checks++;
+  t.data.set('tokens:'+day,null);const corruptSnapshot=structuredClone(t.data);
+  assert.deepEqual(await settleQuota(t,{id:fixture.id,actualTokens:0}),{settled:false,code:'QUOTA_STORAGE_FAILED'});
+  assert.deepEqual(t.data,corruptSnapshot);checks++;
   console.log('V7_AI_QUOTA_STATE_BOUNDARY=PASS checks='+checks+' synthetic_storage=true');
 })().catch(error=>{console.error(error);process.exit(1);});
