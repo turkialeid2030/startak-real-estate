@@ -133,6 +133,7 @@ function calculateInvestmentFinancingMetrics(packet) {
   }
   const unleveredIrr = irrDisclosure(unleveredCashflows, rates);
   const yieldOnCost = ratio(packet.stabilizedProfessionalNoiSar, investmentBasisSar);
+  if (yieldOnCost === null) return fail(INVESTMENT_FINANCING_RESULT_STATUS.INVALID_ECONOMIC_CASE, ['YIELD_ON_COST_NON_FINITE'], packet);
   const unlevered = {
     investmentBasisType: packet.investmentBasisInput.type,
     investmentBasisSar,
@@ -188,6 +189,11 @@ function calculateInvestmentFinancingMetrics(packet) {
         : property.unleveredPropertyCashFlowSar;
       const dscr = debtServiceSar > 0 ? ratio(dscrNumeratorSar, debtServiceSar) : null;
       const icr = interestExpenseSar > 0 ? ratio(property.selectedNoiSar, interestExpenseSar) : null;
+      // A positive denominator requires an actual finite ratio. Null is reserved
+      // for periods without debt service or interest, not numeric overflow.
+      if ((debtServiceSar > 0 && dscr === null) || (interestExpenseSar > 0 && icr === null)) {
+        return fail(INVESTMENT_FINANCING_RESULT_STATUS.INVALID_ECONOMIC_CASE, [`DEBT_COVERAGE_RATIO_NON_FINITE:${property.periodId}`], packet);
+      }
       if (dscr !== null) dscrValues.push(dscr);
       if (icr !== null) icrValues.push(icr);
       annualDebtTrace.push({
@@ -211,6 +217,9 @@ function calculateInvestmentFinancingMetrics(packet) {
     const ltv = ratio(terms.principalSar, collateral.amountSar);
     const ltc = ratio(terms.principalSar, investmentBasisSar);
     const debtYield = ratio(packet.stabilizedProfessionalNoiSar, terms.principalSar);
+    if ([ltv, ltc, debtYield].some(value => value === null)) {
+      return fail(INVESTMENT_FINANCING_RESULT_STATUS.INVALID_ECONOMIC_CASE, ['DEBT_RATIO_NON_FINITE'], packet);
+    }
     const minimumDscr = minimum(dscrValues);
     const minimumIcr = minimum(icrValues);
     initialEquitySar = investmentBasisSar + terms.financingFeesSar - terms.principalSar;
