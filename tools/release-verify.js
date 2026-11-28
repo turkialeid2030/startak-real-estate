@@ -110,6 +110,7 @@ step('TEST_DISCOVERY_AND_REGRESSION', () => {
     'tests/architecture/run_performance_calendar_boundary_v7.js',
     'tests/architecture/run_v7_release_calendar_boundaries.js',
     'tests/architecture/run_regression_process_boundary_v7.js',
+    'tests/architecture/run_batch_stage_timeout_v7.js',
     'tests/defects/financial_timing_basis_disclosure_p26.js',
     'tests/defects/financial_timing_basis_report_p26.js',
     'tests/defects/current_model_reference_corpus_p27_v2.js',
