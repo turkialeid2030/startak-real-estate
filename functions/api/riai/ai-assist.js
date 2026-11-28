@@ -606,13 +606,13 @@ async function handleRequestPost(context) {
     clearTimeout(timer);
     const code = error && error.name === 'AbortError' ? 'AI_PROVIDER_TIMEOUT' : 'AI_PROVIDER_UNREACHABLE';
     await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'PROVIDER_FAILED', reasonCode: code, model, tokenLimit: outputBudget.value, startedAt });
-    return json({ ok: false, code, aiModelUsed: false }, 502);
+    return json({ ok: false, code, aiModelUsed: false, providerRequestAttempted: true, automaticRetryAllowed: false }, 502);
   }
   if (!providerResponse.ok) {
     clearTimeout(timer);
     void providerResponse.body?.cancel().catch(() => {});
     await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'PROVIDER_FAILED', reasonCode: 'AI_PROVIDER_REJECTED_REQUEST', model, tokenLimit: outputBudget.value, startedAt });
-    return json({ ok: false, code: 'AI_PROVIDER_REJECTED_REQUEST', providerStatus: providerResponse.status, aiModelUsed: false }, 502);
+    return json({ ok: false, code: 'AI_PROVIDER_REJECTED_REQUEST', providerStatus: providerResponse.status, aiModelUsed: false, providerRequestAttempted: true, automaticRetryAllowed: false }, 502);
   }
   let providerText;
   try {
@@ -620,20 +620,20 @@ async function handleRequestPost(context) {
   } catch (error) {
     const code = error.code === 'BODY_TOO_LARGE' ? 'AI_PROVIDER_RESPONSE_TOO_LARGE' : ['BODY_READ_TIMEOUT', 'BODY_READ_ABORTED'].includes(error.code) ? 'AI_PROVIDER_TIMEOUT' : 'AI_PROVIDER_RESPONSE_READ_FAILED';
     await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'PROVIDER_FAILED', reasonCode: code, model, tokenLimit: outputBudget.value, startedAt });
-    return json({ ok: false, code, aiModelUsed: false }, 502);
+    return json({ ok: false, code, aiModelUsed: false, providerRequestAttempted: true, automaticRetryAllowed: false }, 502);
   } finally {
     clearTimeout(timer);
   }
   if (new TextEncoder().encode(providerText).length > MAX_PROVIDER_BYTES) {
     await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'PROVIDER_FAILED', reasonCode: 'AI_PROVIDER_RESPONSE_TOO_LARGE', model, tokenLimit: outputBudget.value, startedAt });
-    return json({ ok: false, code: 'AI_PROVIDER_RESPONSE_TOO_LARGE', aiModelUsed: false }, 502);
+    return json({ ok: false, code: 'AI_PROVIDER_RESPONSE_TOO_LARGE', aiModelUsed: false, providerRequestAttempted: true, automaticRetryAllowed: false }, 502);
   }
 
   let providerPayload;
   try { providerPayload = JSON.parse(providerText); }
   catch (_) {
     await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'PROVIDER_FAILED', reasonCode: 'AI_PROVIDER_RESPONSE_INVALID_JSON', model, tokenLimit: outputBudget.value, startedAt });
-    return json({ ok: false, code: 'AI_PROVIDER_RESPONSE_INVALID_JSON', aiModelUsed: false }, 502);
+    return json({ ok: false, code: 'AI_PROVIDER_RESPONSE_INVALID_JSON', aiModelUsed: false, providerRequestAttempted: true, automaticRetryAllowed: false }, 502);
   }
   if(modelPolicy.profile&&!matchesReportedModel(model,providerPayload?.model)){
     await recordAudit(context,{access,snapshot:body.decisionSnapshot,outcome:'PROVIDER_FAILED',reasonCode:'AI_PROVIDER_MODEL_MISMATCH',model,tokenLimit:outputBudget.value,startedAt});
@@ -654,12 +654,12 @@ async function handleRequestPost(context) {
   const extracted = extractProviderJson(providerPayload, protocol.value,Boolean(modelPolicy.profile));
   if (extracted.error) {
     await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'PROVIDER_FAILED', reasonCode: extracted.error, model, tokenLimit: outputBudget.value, startedAt });
-    return json({ ok: false, code: extracted.error, aiModelUsed: false }, 502);
+    return json({ ok: false, code: extracted.error, aiModelUsed: false, providerRequestAttempted: true, automaticRetryAllowed: false }, 502);
   }
   const sanitized = sanitizeProviderOutput(extracted.value);
   if (sanitized.error) {
     await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'OUTPUT_REJECTED', reasonCode: sanitized.error, model, tokenLimit: outputBudget.value, startedAt });
-    return json({ ok: false, code: sanitized.error, aiModelUsed: false }, 502);
+    return json({ ok: false, code: sanitized.error, aiModelUsed: false, providerRequestAttempted: true, automaticRetryAllowed: false }, 502);
   }
 
   const resultHashSha256=await sha256Hex(JSON.stringify(sanitized.value));
