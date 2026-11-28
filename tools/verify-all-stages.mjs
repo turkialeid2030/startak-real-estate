@@ -47,8 +47,27 @@ export function markdown(report){
   '', 'تُشغّل الدفعة جميع الفحوص دون توقف عند أول فشل. نجاح الحساب والمتصفح لا يثبت أصالة المصدر أو اعتمادًا مهنيًا أو تشغيل ذكاء حي أو عزل مستخدمين فعليًا.',
   '', '| الفحص المنفذ | الحالة |','|---|---|',...report.checks.map(c=>`| ${c.id} | ${c.status} |`),''].join('\n');
 }
+// These three suites use fresh browser contexts and distinct evidence paths.
+// Keep owner/export serial and never overlap this group with the OCR lanes.
+export async function runInitialPreviewStages(run,concurrency=2){
+ if(typeof run!=='function'||![1,2].includes(concurrency))throw TypeError('BATCH_INITIAL_LANES_INVALID');
+ const tasks=[['sectors-browser','run_all_13_asset_classes_public_smoke.js'],['owner-browser','run_audit_20261010_f03_f07_browser.js'],['export-browser','run_c75_real_chromium_personal_study.js']];
+ const results=new Map();
+ async function stage([id,file]){
+  try{
+   const r=await run(id,file);
+   if(!r||r.id!==id||!['PASS','FAIL'].includes(r.status))throw Error('INVALID_STAGE_RESULT');
+   results.set(id,r);
+  }catch{results.set(id,{id,status:'FAIL',reason:'BROWSER_STAGE_EXECUTION_FAILED'});}
+ }
+ async function serial(items){for(const item of items)await stage(item);}
+ if(concurrency===1)await serial(tasks);
+ else await Promise.all([stage(tasks[0]),serial(tasks.slice(1))]);
+ return tasks.map(([id])=>results.get(id));
+}
 export async function command(id,cmd,args,outDir,timeoutMs=20*60*1000){
  if(!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>20*60*1000)throw TypeError('BATCH_STAGE_TIMEOUT_INVALID');
+ const started=performance.now();
  const file=path.join(outDir,id+'.log'),stream=createWriteStream(file);let bytes=0,overflow=false,writeFailed=false,timedOut=false;
  stream.on('error',()=>{writeFailed=true;});
  const group=process.platform!=='win32';
@@ -77,7 +96,7 @@ export async function command(id,cmd,args,outDir,timeoutMs=20*60*1000){
    for(const line of tail.split(/\r?\n/))console.log('diagnostic['+id+'] '+line.replace(/[\r\u0000]/g,' '));
   }catch{console.log('diagnostic['+id+'] LOG_UNAVAILABLE');}
  }
- return {id,status,exitCode:code,outputLimitExceeded:overflow,timedOut,logFile:path.basename(file)};
+ return {id,status,exitCode:code,outputLimitExceeded:overflow,timedOut,logFile:path.basename(file),durationMs:Math.round(performance.now()-started)};
 }
 async function execute(){
  const args=process.argv.slice(2);
@@ -87,6 +106,7 @@ async function execute(){
  const sha=execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim();
  if(process.env.STARTAK_SOURCE_COMMIT&&process.env.STARTAK_SOURCE_COMMIT!==sha)throw Error('BATCH_SOURCE_MISMATCH');
  const browserConcurrency=parseConcurrency(process.env.STARTAK_BATCH_BROWSER_CONCURRENCY);
+ const batchStarted=performance.now();
  await fs.mkdir(outDir,{recursive:true});const checks=[];
  checks.push(await command('release','npm',['run','release:verify'],outDir));
  checks.push(await command('reference','python3',['tests/reference/build_d05_monthly_reference.py'],outDir));
@@ -96,7 +116,7 @@ async function execute(){
  try{
   server=await preview({preview:{host:'127.0.0.1',port:4173,strictPort:true}});
   process.env.STARTAK_E2E_URL='http://127.0.0.1:4173/?ownerView=advanced';
-  for(const [id,file] of [['sectors-browser','run_all_13_asset_classes_public_smoke.js'],['owner-browser','run_audit_20261010_f03_f07_browser.js'],['export-browser','run_c75_real_chromium_personal_study.js']])checks.push(await command(id,'node',['tests/e2e/'+file],outDir));
+  checks.push(...await runInitialPreviewStages((id,file)=>command(id,'node',['tests/e2e/'+file],outDir),browserConcurrency));
   checks.push(...await runPreviewBrowserLanes((id,file)=>command(id,'node',['tests/e2e/'+file],outDir),browserConcurrency));
  }catch{for(const id of ['sectors-browser','owner-browser','export-browser','cross-browser','ocr-browser','document-tables-browser'])if(!checks.some(c=>c.id===id))checks.push({id,status:'FAIL',reason:'LOCAL_PREVIEW_UNAVAILABLE'});}
  finally{if(server)await new Promise(resolve=>server.httpServer.close(resolve));}
@@ -105,10 +125,10 @@ async function execute(){
  const previewObservation=await observeEndpoint('preview',url);
  if(previewObservation.httpStatus===200){try{const assets=await verifyDeployedAssets({url,expectedSha:sha});previewObservation.status=assets.status==='PASS'?'PASS':'BLOCKED';previewObservation.reason=assets.status==='PASS'?'EXACT_SOURCE_AND_ASSET_HASHES_VERIFIED':'CDN_NOT_VERIFIED';}catch{previewObservation.reason='EXACT_SOURCE_OR_ASSET_HASHES_NOT_VERIFIED';}}
  observations.push(previewObservation);
- for(const [id,route] of [['ai-config','api/riai/public-config'],['ai-assist-method-guard','api/riai/ai-assist']])observations.push(await observeEndpoint(id,new URL(route,url).href));
+ observations.push(...await Promise.all([['ai-config','api/riai/public-config'],['ai-assist-method-guard','api/riai/ai-assist']].map(([id,route])=>observeEndpoint(id,new URL(route,url).href))));
  const pack=require('./qcr-evidence-acquisition.js').execute([]);
  await fs.writeFile(path.join(outDir,'external-evidence-requests.json'),JSON.stringify(pack,null,2)+'\n');
- const report={...summarize({sha,checks,observations,requestCount:pack.requestCount}),browserConcurrency};
+ const report={...summarize({sha,checks,observations,requestCount:pack.requestCount}),browserConcurrency,batchDurationMs:Math.round(performance.now()-batchStarted)};
  await fs.writeFile(path.join(outDir,'all-stages.json'),JSON.stringify(report,null,2)+'\n');
  const md=markdown(report);await fs.writeFile(path.join(outDir,'all-stages.md'),md);
  if(process.env.GITHUB_STEP_SUMMARY)await fs.appendFile(process.env.GITHUB_STEP_SUMMARY,md);
