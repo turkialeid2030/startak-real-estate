@@ -78,5 +78,28 @@ function provider(boundary='This output is advisory analysis only and does not c
    r=await onRequestPost({request:req(SNAPSHOT),env:env(overrides)});
    assert.ok([429,503].includes(r.status));assert.equal(moneyProviderCalls,0);
  }
+ // Prove that ordinary pre-dispatch denials cannot be mistaken for a potentially billed request.
+ const beforeProvider=[
+   {RIAI_AI_PROVIDER_KEY:undefined},
+   {RIAI_AI_MODEL:undefined},
+   {RIAI_AI_GLOBAL_TOKEN_BUDGET_PER_DAY:undefined},
+   {RIAI_AI_INPUT_TOKEN_UPPER_BOUND:undefined},
+   {RIAI_AI_PRICE_BOUND_MODEL:undefined},
+   {RIAI_AI_PRICE_BOUND_EXPIRES_AT:'2020-01-01T00:00:00Z'},
+   {RIAI_AI_GLOBAL_USD_MICROS_PER_DAY:'1'},
+   {RIAI_AI_QUOTA:undefined},
+   {RIAI_AUDIT_KV:undefined}
+ ];
+ let deniedCalls=0;global.fetch=async()=>{deniedCalls++;throw Error('unexpected provider call');};
+ for(const overrides of beforeProvider){
+   const denial=await onRequestPost({request:req(SNAPSHOT),env:env(overrides)});
+   const payload=await denial.json();assert.ok([429,503].includes(denial.status),payload.code);
+   assert.equal(payload.providerRequestAttempted,false,payload.code);
+   assert.equal(payload.automaticRetryAllowed,false,payload.code);assert.equal(payload.result,undefined);
+ }
+ const invalidBody=await onRequestPost({request:new Request('http://localhost/api/riai/ai-assist',{method:'POST',headers:{'content-type':'application/json'},body:'{bad'}),env:env()});
+ assert.equal(invalidBody.status,400);assert.equal((await invalidBody.json()).providerRequestAttempted,false);
+ assert.equal(deniedCalls,0);
+ console.log('RIAI_PRE_DISPATCH_DENIAL_CONTRACT=PASS scenarios=10 synthetic_only=true');
  console.log('RIAI_GATEWAY_INTEGRATION=PASS');
 })().catch((e)=>{console.error(e);process.exit(1);});
