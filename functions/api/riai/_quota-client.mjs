@@ -18,6 +18,10 @@ export async function reserveGatewayQuota(binding, input) {
     const result = await call(binding, '/reserve', input);
     if (result.allowed === true && result.replayed === false && result.id === input.id && result.reservedTokens === input.tokens
       && (!input.money || result.reservedUsdMicros === input.money.reservedUsdMicros)) return {...result,status:200};
+    // A repeated reservation is never permission to dispatch again.
+    if ((result?.allowed === true && result.replayed === true && result.id === input.id)
+      || (result?.allowed === false && result.code === 'RESERVATION_CONFLICT'))
+      return {allowed:false,status:409,code:'AI_REQUEST_ALREADY_RESERVED'};
     const code = typeof result?.code === 'string' && Object.hasOwn(codes, result.code)
       ? codes[result.code] : null;
     return {allowed:false,status:code?429:503,code:code||'AI_ATOMIC_QUOTA_REJECTED'};

@@ -520,61 +520,72 @@ async function handleRequestPost(context) {
   const startedAt = Date.now();
 
   const sameOrigin = validateSameOriginRequest(request);
-  if (!sameOrigin.ok) return json({ ok: false, code: sameOrigin.code, aiModelUsed: false }, sameOrigin.status);
+  if (!sameOrigin.ok) return json({ ok: false, code: sameOrigin.code, aiModelUsed: false, providerRequestAttempted: false, automaticRetryAllowed: false }, sameOrigin.status);
 
   const contentType = request.headers.get('content-type') || '';
-  if (!contentType.toLowerCase().includes('application/json')) return json({ ok: false, code: 'JSON_CONTENT_TYPE_REQUIRED', aiModelUsed: false }, 415);
+  if (!contentType.toLowerCase().includes('application/json')) return json({ ok: false, code: 'JSON_CONTENT_TYPE_REQUIRED', aiModelUsed: false, providerRequestAttempted: false, automaticRetryAllowed: false }, 415);
   const lengthHeader = Number(request.headers.get('content-length'));
-  if (Number.isFinite(lengthHeader) && lengthHeader > MAX_REQUEST_BYTES) return json({ ok: false, code: 'REQUEST_TOO_LARGE', aiModelUsed: false }, 413);
+  if (Number.isFinite(lengthHeader) && lengthHeader > MAX_REQUEST_BYTES) return json({ ok: false, code: 'REQUEST_TOO_LARGE', aiModelUsed: false, providerRequestAttempted: false, automaticRetryAllowed: false }, 413);
 
   let text;
   try { text = await readBoundedText(request, { maxBytes: MAX_REQUEST_BYTES, timeoutMs: 5000 }); }
-  catch (error) { return json({ ok: false, code: error.code === 'BODY_TOO_LARGE' ? 'REQUEST_TOO_LARGE' : 'REQUEST_READ_FAILED', aiModelUsed: false }, error.code === 'BODY_TOO_LARGE' ? 413 : 400); }
-  if (new TextEncoder().encode(text).length > MAX_REQUEST_BYTES) return json({ ok: false, code: 'REQUEST_TOO_LARGE', aiModelUsed: false }, 413);
+  catch (error) { return json({ ok: false, code: error.code === 'BODY_TOO_LARGE' ? 'REQUEST_TOO_LARGE' : 'REQUEST_READ_FAILED', aiModelUsed: false, providerRequestAttempted: false, automaticRetryAllowed: false }, error.code === 'BODY_TOO_LARGE' ? 413 : 400); }
+  if (new TextEncoder().encode(text).length > MAX_REQUEST_BYTES) return json({ ok: false, code: 'REQUEST_TOO_LARGE', aiModelUsed: false, providerRequestAttempted: false, automaticRetryAllowed: false }, 413);
 
   let body;
-  try { body = JSON.parse(text); } catch (_) { return json({ ok: false, code: 'INVALID_JSON', aiModelUsed: false }, 400); }
-  if(body&&Object.hasOwn(body,'clientRequestId')&&(typeof body.clientRequestId!=='string'||!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(body.clientRequestId)))return json({ok:false,code:'AI_CLIENT_REQUEST_ID_INVALID',aiModelUsed:false},400);
+  try { body = JSON.parse(text); } catch (_) { return json({ ok: false, code: 'INVALID_JSON', aiModelUsed: false, providerRequestAttempted: false, automaticRetryAllowed: false }, 400); }
+  if(body&&Object.hasOwn(body,'clientRequestId')&&(typeof body.clientRequestId!=='string'||!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(body.clientRequestId)))return json({ok:false,code:'AI_CLIENT_REQUEST_ID_INVALID',aiModelUsed:false, providerRequestAttempted: false, automaticRetryAllowed: false},400);
   const snapshotError = validateSnapshot(body && body.decisionSnapshot);
-  if (snapshotError) return json({ ok: false, code: snapshotError, aiModelUsed: false }, 400);
+  if (snapshotError) return json({ ok: false, code: snapshotError, aiModelUsed: false, providerRequestAttempted: false, automaticRetryAllowed: false }, 400);
   const disciplineResult = enforceSnapshotDataDiscipline(body.decisionSnapshot);
-  if (!disciplineResult.ok) return json({ ok: false, code: disciplineResult.code, aiModelUsed: false }, 400);
+  if (!disciplineResult.ok) return json({ ok: false, code: disciplineResult.code, aiModelUsed: false, providerRequestAttempted: false, automaticRetryAllowed: false }, 400);
 
   const schemaResult=enforceSnapshotSchema(body.decisionSnapshot);
-  if(!schemaResult.ok)return json({ok:false,code:schemaResult.code,aiModelUsed:false},400);
+  if(!schemaResult.ok)return json({ok:false,code:schemaResult.code,aiModelUsed:false, providerRequestAttempted: false, automaticRetryAllowed: false},400);
 
   const snapshotHashSha256=await sha256Hex(JSON.stringify(body.decisionSnapshot));
   const access = await resolveAccess(request, env, body);
-  if (!access.ok) return json({ ok: false, code: access.code, aiModelUsed: false }, access.status);
+  if (!access.ok) return json({ ok: false, code: access.code, aiModelUsed: false, providerRequestAttempted: false, automaticRetryAllowed: false }, access.status);
 
   const provider = allowedProviderUrl(env);
-  if (provider.error) return json({ ok: false, code: provider.error, aiModelUsed: false }, 503);
+  if (provider.error) return json({ ok: false, code: provider.error, aiModelUsed: false, providerRequestAttempted: false, automaticRetryAllowed: false }, 503);
   const protocol = resolveProviderProtocol(env);
-  if (protocol.error) return json({ ok: false, code: protocol.error, aiModelUsed: false }, 503);
+  if (protocol.error) return json({ ok: false, code: protocol.error, aiModelUsed: false, providerRequestAttempted: false, automaticRetryAllowed: false }, 503);
   const apiKey = trimText(env.RIAI_AI_PROVIDER_KEY, 4096);
   const model = trimText(env.RIAI_AI_MODEL, 200);
-  if (!apiKey || !model) return json({ ok: false, code: 'AI_PROVIDER_NOT_CONFIGURED', aiModelUsed: false }, 503);
+  if (!apiKey || !model) return json({ ok: false, code: 'AI_PROVIDER_NOT_CONFIGURED', aiModelUsed: false, providerRequestAttempted: false, automaticRetryAllowed: false }, 503);
   const outputBudget = providerOutputBudget(env);
-  if (outputBudget.error) return json({ ok: false, code: outputBudget.error, aiModelUsed: false }, 503);
+  if (outputBudget.error) return json({ ok: false, code: outputBudget.error, aiModelUsed: false, providerRequestAttempted: false, automaticRetryAllowed: false }, 503);
 
   const modelPolicy=resolveModernModel({env,model,protocol:protocol.value,url:provider.url});
-  if(modelPolicy.error)return json({ok:false,code:modelPolicy.error,aiModelUsed:false},503);
+  if(modelPolicy.error)return json({ok:false,code:modelPolicy.error,aiModelUsed:false, providerRequestAttempted: false, automaticRetryAllowed: false},503);
   const providerRequest = buildProviderRequest(protocol.value, model, body.decisionSnapshot, outputBudget,modelPolicy);
   const dailyTokens = resolveTokenBudgetConfig(env).globalPerDay;
-  if (!Number.isSafeInteger(dailyTokens) || dailyTokens <= 0) return json({ok:false,code:'AI_TOKEN_BUDGET_NOT_CONFIGURED',aiModelUsed:false},503);
+  if (!Number.isSafeInteger(dailyTokens) || dailyTokens <= 0) return json({ok:false,code:'AI_TOKEN_BUDGET_NOT_CONFIGURED',aiModelUsed:false, providerRequestAttempted: false, automaticRetryAllowed: false},503);
   // Operator must qualify this bound for the configured model/protocol, including hidden overhead.
   const inputBound = Number(env.RIAI_AI_INPUT_TOKEN_UPPER_BOUND);
   const requestBytes = new TextEncoder().encode(JSON.stringify(providerRequest)).length;
-  if (!Number.isSafeInteger(inputBound) || inputBound < requestBytes || !Number.isSafeInteger(inputBound + outputBudget.value)) return json({ok:false,code:'AI_INPUT_TOKEN_BOUND_NOT_QUALIFIED',aiModelUsed:false},503);
+  if (!Number.isSafeInteger(inputBound) || inputBound < requestBytes || !Number.isSafeInteger(inputBound + outputBudget.value)) return json({ok:false,code:'AI_INPUT_TOKEN_BOUND_NOT_QUALIFIED',aiModelUsed:false, providerRequestAttempted: false, automaticRetryAllowed: false},503);
   const rates = resolveRateLimitConfig(env);
   const monetary = monetaryReservation(env,model,inputBound + outputBudget.value);
-  if (!monetary.ok) return json({ok:false,code:monetary.code,aiModelUsed:false},503);
+  if (!monetary.ok) return json({ok:false,code:monetary.code,aiModelUsed:false, providerRequestAttempted: false, automaticRetryAllowed: false},503);
+  const subjectHash = await sha256Hex(`${env.RIAI_AUDIT_SUBJECT_SALT || ''}:${access.subject}`);
+  // Stable per authenticated subject and explicit client request ID; do not bind
+  // to the mutable payload or time window, which would permit replay on changes.
+  // Audit invocation IDs remain unique per HTTP attempt. Legacy requests without
+  // a client ID keep the prior one-invocation reservation semantics.
+  const quotaReservationId = body.clientRequestId
+    ? await sha256Hex(JSON.stringify(['RIAI_QUOTA_REQUEST_V1', subjectHash, body.clientRequestId]))
+    : context.invocationId;
   const tokenBudget = await reserveGatewayQuota(env.RIAI_AI_QUOTA, {
-    id:context.invocationId, subjectHash:await sha256Hex(`${env.RIAI_AUDIT_SUBJECT_SALT || ''}:${access.subject}`), tokens:inputBound + outputBudget.value,
+    id:quotaReservationId, subjectHash, tokens:inputBound + outputBudget.value,
     limits:{minute:rates.perSubjectPerMinute,subjectDay:rates.perSubjectPerDay,globalDay:rates.globalPerDay,tokensDay:dailyTokens},
     money:monetary.money,
   });
   if (!tokenBudget.allowed) {
+    // The present HTTP attempt was denied, but a previous attempt with this
+    // reservation may already have reached the provider.
+    if (tokenBudget.code === 'AI_REQUEST_ALREADY_RESERVED') context.providerRequestAttempted = null;
     await recordAudit(context, {
       access,
       snapshot: body.decisionSnapshot,
@@ -585,7 +596,7 @@ async function handleRequestPost(context) {
       startedAt,
     });
     const headers = tokenBudget.retryAfterSeconds ? { 'retry-after': String(tokenBudget.retryAfterSeconds) } : undefined;
-    return json({ ok: false, code: tokenBudget.code, aiModelUsed: false }, tokenBudget.status, headers);
+    return json({ ok: false, code: tokenBudget.code, aiModelUsed: false, providerRequestAttempted: context.providerRequestAttempted, automaticRetryAllowed: false }, tokenBudget.status, headers);
   }
 
   await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'PROVIDER_REQUEST_PENDING', model, tokenLimit: outputBudget.value, startedAt });
@@ -641,7 +652,7 @@ async function handleRequestPost(context) {
   }
   const actualTokens = verifiedUsage(providerPayload, protocol.value);
   if (actualTokens !== null) {
-    const settlement = await settleGatewayQuota(env.RIAI_AI_QUOTA, {id:context.invocationId,actualTokens});
+    const settlement = await settleGatewayQuota(env.RIAI_AI_QUOTA, {id:quotaReservationId,actualTokens});
     if (!settlement.ok) {
       await recordAudit(context, {access,snapshot:body.decisionSnapshot,outcome:'QUOTA_SETTLEMENT_FAILED',reasonCode:settlement.code,model,startedAt});
       return json({ok:false,code:settlement.code,providerRequestAttempted:true,automaticRetryAllowed:false},503);
