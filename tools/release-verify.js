@@ -111,6 +111,7 @@ step('TEST_DISCOVERY_AND_REGRESSION', () => {
     'tests/architecture/run_v7_release_calendar_boundaries.js',
     'tests/architecture/run_regression_process_boundary_v7.js',
     'tests/architecture/run_batch_stage_timeout_v7.js',
+    'tests/architecture/run_batch_browser_lanes_v7.js',
     'tests/architecture/run_wave17a_security_qualification_evidence.js',
     'tests/architecture/run_wave17c_independent_release_qualification.js',
     'tests/architecture/run_final_engineering_release_candidate.js',
