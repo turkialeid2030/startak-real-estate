@@ -9,7 +9,7 @@ const AUTHZ_STATUS = Object.freeze({
 });
 
 function normalizePolicy(policy) {
-  if (!policy || typeof policy !== 'object') throw new TypeError('policy is required');
+  if (!policy || typeof policy !== 'object' || Array.isArray(policy)) throw new TypeError('policy is required');
   // Never inherit Object.prototype methods (toString, constructor, etc.) as
   // authorization actions. JSON-derived policies may contain "__proto__",
   // which would otherwise mutate a plain object's prototype during assignment.
@@ -32,13 +32,15 @@ function authorizeAction({ identity, action, policy } = {}) {
   if (!normalizedIdentity) return Object.freeze({ status: AUTHZ_STATUS.HOLD_IDENTITY, allowed: false, reason: 'IDENTITY_MISSING' });
 
   const { actorId, tenantId, roles } = normalizedIdentity;
+  if (typeof action !== 'string' || !action.trim()) {
+    return Object.freeze({ status: AUTHZ_STATUS.DENY, allowed: false, reason: 'ACTION_INVALID', actorId, tenantId, action: null });
+  }
   const rules = normalizePolicy(policy);
-  const requiredRoles = Object.prototype.hasOwnProperty.call(rules, String(action))
-    ? rules[String(action)] : null;
-  if (!requiredRoles) return Object.freeze({ status: AUTHZ_STATUS.DENY, allowed: false, reason: 'ACTION_NOT_IN_POLICY', actorId, tenantId, action: String(action) });
+  const requiredRoles = Object.hasOwn(rules, action) ? rules[action] : null;
+  if (!requiredRoles) return Object.freeze({ status: AUTHZ_STATUS.DENY, allowed: false, reason: 'ACTION_NOT_IN_POLICY', actorId, tenantId, action });
   const matchedRoles = roles.filter((role) => requiredRoles.includes(role));
-  if (matchedRoles.length === 0) return Object.freeze({ status: AUTHZ_STATUS.DENY, allowed: false, reason: 'ROLE_NOT_AUTHORIZED', actorId, tenantId, action: String(action) });
-  return Object.freeze({ status: AUTHZ_STATUS.ALLOW, allowed: true, reason: 'ROLE_AUTHORIZED', actorId, tenantId, action: String(action), matchedRoles: Object.freeze(matchedRoles) });
+  if (matchedRoles.length === 0) return Object.freeze({ status: AUTHZ_STATUS.DENY, allowed: false, reason: 'ROLE_NOT_AUTHORIZED', actorId, tenantId, action });
+  return Object.freeze({ status: AUTHZ_STATUS.ALLOW, allowed: true, reason: 'ROLE_AUTHORIZED', actorId, tenantId, action, matchedRoles: Object.freeze(matchedRoles) });
 }
 
 function requireAuthorizedAction(args) {
@@ -53,13 +55,15 @@ function requireAuthorizedAction(args) {
 }
 
 function createSecurityAuditEvent({ eventId, occurredAt, identity, action, resourceType, resourceId, decision, reason, metadata = {} } = {}) {
-  const id = String(eventId || '').trim();
-  const timestamp = String(occurredAt || '').trim();
+  const required = [eventId, occurredAt, action, resourceType, resourceId, decision, reason];
+  if (required.some(value => typeof value !== 'string' || !value.trim())) throw new TypeError('security audit event missing required fields');
+  const id = eventId.trim();
+  const timestamp = occurredAt.trim();
   const normalizedIdentity = normalizeIdentity(identity);
   const actorId = normalizedIdentity?.actorId || '';
   const tenantId = normalizedIdentity?.tenantId || '';
   if (!id || !timestamp || !action || !resourceType || !resourceId || !decision || !reason) throw new TypeError('security audit event missing required fields');
-  if (!['ALLOW', 'DENY', 'HOLD_IDENTITY'].includes(String(decision))) throw new TypeError('invalid security audit decision');
+  if (!['ALLOW', 'DENY', 'HOLD_IDENTITY'].includes(decision)) throw new TypeError('invalid security audit decision');
   // Metadata may originate from parsed JSON. A plain {} would treat
   // "__proto__" as a prototype setter; reserve prototype-related keys and
   // store only inert own fields in a null-prototype audit object.
@@ -82,11 +86,11 @@ function createSecurityAuditEvent({ eventId, occurredAt, identity, action, resou
     occurredAt: timestamp,
     actorId: actorId || null,
     tenantId: tenantId || null,
-    action: String(action),
-    resourceType: String(resourceType),
-    resourceId: String(resourceId),
-    decision: String(decision),
-    reason: String(reason),
+    action,
+    resourceType,
+    resourceId,
+    decision,
+    reason,
     metadata: Object.freeze(safeMetadata),
   });
 }

@@ -74,4 +74,12 @@ check(() => assert.strictEqual(
   'T1',
 ));
 
+let actionCallbackCount=0;
+const forgedAction={toString(){actionCallbackCount++;return 'READ';}};
+for(const action of [forgedAction,['READ'],1,null,' ']){
+  check(()=>assert.strictEqual(assertTenantScopedAccess({identity:identityA,resourceTenantId:'T1',action}).reason,'ACTION_INVALID'));
+}
+check(()=>assert.throws(()=>requireTenantScopedAccess({identity:identityA,resourceTenantId:'T1',action:forgedAction}),e=>e.code==='ACTION_INVALID'));
+check(()=>assert.strictEqual(actionCallbackCount,0));
+check(()=>assert.strictEqual(assertTenantScopedAccess({identity:identityA,resourceTenantId:'T1',action:'READ'}).allowed,true));
 console.log(`TENANT_BOUNDARY_SECURITY_V1: PASS (${checks} checks)`);

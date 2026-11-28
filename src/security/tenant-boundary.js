@@ -44,6 +44,9 @@ function assertTenantScopedAccess({ identity, resourceTenantId, action = 'READ' 
   if (!normalized || !targetTenant) {
     return Object.freeze({ status: TENANT_SECURITY_STATUS.HOLD_IDENTITY, allowed: false, reason: 'IDENTITY_OR_RESOURCE_TENANT_MISSING' });
   }
+  if (typeof action !== 'string' || !action.trim()) {
+    return Object.freeze({ status: TENANT_SECURITY_STATUS.DENIED, allowed: false, reason: 'ACTION_INVALID' });
+  }
   if (normalized.tenantId !== targetTenant) {
     return Object.freeze({
       status: TENANT_SECURITY_STATUS.DENIED,
@@ -52,7 +55,7 @@ function assertTenantScopedAccess({ identity, resourceTenantId, action = 'READ' 
       actorId: normalized.actorId,
       actorTenantId: normalized.tenantId,
       resourceTenantId: targetTenant,
-      action: String(action),
+      action,
     });
   }
   return Object.freeze({
@@ -62,7 +65,7 @@ function assertTenantScopedAccess({ identity, resourceTenantId, action = 'READ' 
     actorId: normalized.actorId,
     actorTenantId: normalized.tenantId,
     resourceTenantId: targetTenant,
-    action: String(action),
+    action,
   });
 }
 
