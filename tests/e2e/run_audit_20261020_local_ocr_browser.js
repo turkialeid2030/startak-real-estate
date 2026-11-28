@@ -19,6 +19,7 @@ async function secureLoopbackPreview(){
  for(const[name,engine]of Object.entries({chromium,firefox,webkit})){
   const browser=await engine.launch({headless:true,...(name==='chromium'?{args:['--no-sandbox']}: {})});
   try{for(const width of [1366,390]){
+   const checksBeforeContext=checks;
    const context=await browser.newContext({viewport:{width,height:960},locale:'ar-SA',acceptDownloads:true,reducedMotion:'reduce',ignoreHTTPSErrors:localTlsPreview});
    await context.addInitScript(()=>{
     localStorage.setItem('startak.locale','ar-SA');
@@ -125,7 +126,7 @@ async function secureLoopbackPreview(){
    ok(await page.getByTestId('local-ocr-layout').count()===0,'replacing a case clears OCR layout controls');
    ok(resources.length>0&&resources.every(url=>url.startsWith(BASE+'/assets/ocr/')),'engine resources remain same-origin');
    ok(external.length===0,'OCR performs no external request or document upload');ok(violations.length===0,'real OCR runs under production CSP: '+violations.join(' | '));ok(errors.length===0,'no browser runtime errors: '+errors.join(' | '));
-   evidence.push({engine:name,width,checksCompleted:checks,workers,externalRequests:external,policyViolations:violations,physicalDevice:false});
+   evidence.push({engine:name,width,checks:checks-checksBeforeContext,checksCompleted:checks,workers,externalRequests:external,policyViolations:violations,physicalDevice:false});
    await context.close();
   }}finally{await browser.close();}
  }
