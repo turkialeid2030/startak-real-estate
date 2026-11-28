@@ -26,6 +26,11 @@ const fs=require('node:fs/promises'),os=require('node:os'),path=require('node:pa
   const missing=await command('missing',path.join(dir,'nonexistent-command'),[],dir,5000);
   assert.equal(missing.status,'FAIL');checks++;
   for(const ms of [0,-1,NaN,Infinity,1.5,'500',1200001]){await assert.rejects(()=>run('invalid','',ms),/BATCH_STAGE_TIMEOUT_INVALID/);checks++;}
+  const inheritedStart=Date.now();
+  const inherited=await run('inherited-pipe',"require('node:child_process').spawn(process.execPath,['-e','setTimeout(()=>{},5000)'],{stdio:['ignore','inherit','inherit']}).unref()",500);
+  assert.equal(inherited.status,'FAIL');checks++;
+  assert.equal(inherited.timedOut,true);checks++;
+  assert.ok(Date.now()-inheritedStart<3500);checks++;
   assert.equal((await run('after','process.exit(0)')).status,'PASS');checks++;
   console.log('V7_BATCH_STAGE_TIMEOUT=PASS checks='+checks+' native_child_process=true');
  }finally{await fs.rm(dir,{recursive:true,force:true});}
