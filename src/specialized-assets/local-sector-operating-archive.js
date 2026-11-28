@@ -50,7 +50,7 @@ function convert(values,fields){
 function calculateStudy(state){
  const s=normalizeStudy(state),inputs=convert(s.values,SCHEMAS[s.assetClass]);
  if(s.assetClass==='HOSPITALITY'&&hasSource(s.values)){
-  const read=k=>{const n=parseNumericText(s.values[k]);return n.ok?n.value:null;};
+  const read=k=>{const raw=s.values[k];if(raw==='')return null;const n=parseNumericText(raw);return n.ok?n.value:NaN;};
   inputs.sourceReported={
    currency:s.values.sourceCurrency,surplusBasis:s.values.sourceSurplusBasis,
    adrDecimals:read('sourceAdrDecimals'),averageDailyRateSar:read('sourceAverageDailyRateSar'),
