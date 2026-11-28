@@ -5,6 +5,8 @@ const assert=require('node:assert/strict');
  assert.equal(qualitativeOutputError({financialClaims:[]}),'AI_FINANCIAL_CLAIM_CHANNEL_UNSUPPORTED');
  assert.equal(qualitativeOutputError({observations:['يلزم التحقق من إيجار السوق ومصدر معدل الرسملة.']}),null);
  assert.equal(qualitativeOutputError({observations:['Review lease expiry and collection evidence.']}),null);
+ const quantityVariants=["Value is twenty-five SAR","Rent is one riyal","Yield is five per cent","القيمة خمسة ريالات","العائد عشرون بالمئة","القيمة خَمْسَة ريالات","Rent is fi​ve SAR","القيمة خمـسة ريالات"];
+ for(const value of quantityVariants)assert.equal(qualitativeOutputError({observations:[value]}),'AI_UNSOURCED_NUMERIC_CLAIM',value);
  const {verifyTurnstile}=await import('../../functions/api/riai/_public-ai-security.mjs');
  const request=new Request('https://example.com');
  const oversized=await verifyTurnstile({request,env:{RIAI_TURNSTILE_SECRET_KEY:'synthetic'},token:'synthetic',fetchImpl:async()=>new Response('x'.repeat(16385))});
@@ -27,6 +29,8 @@ const assert=require('node:assert/strict');
   {unexpected:'unknown'}
  ];
  for(const patch of cases){const result=validate({...good,...patch});assert.equal(result.status,'INVALID');assert.equal(result.value,null);}
+ for(const value of quantityVariants){const result=validate({...good,executiveObservations:[value]});assert.equal(result.status,'INVALID',value);assert.equal(result.reasonCode,'AI_UNSOURCED_NUMERIC_CLAIM',value);assert.equal(result.value,null);}
+ console.log('RIAI_SPELLED_QUANTITY_CLIENT_SERVER_PARITY=PASS variants='+quantityVariants.length);
  console.log('RIAI_V615_CLIENT_OUTPUT_BOUNDARY=PASS negative_cases=11 positive_cases=2');
  console.log('RIAI_QUALITATIVE_OUTPUT=PASS');
 })().catch(e=>{console.error(e);process.exitCode=1;});
