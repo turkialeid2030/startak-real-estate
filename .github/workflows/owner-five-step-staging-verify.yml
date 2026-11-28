@@ -77,13 +77,19 @@ on:
 permissions:
   contents: read
 jobs:
-  owner-five-step:
+  owner-lanes:
+    name: Owner acceptance (${{ matrix.lane }})
     runs-on: ubuntu-24.04
     container:
       image: mcr.microsoft.com/playwright:v1.62.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e
       options: --user 1001
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        lane: [core, chromium, firefox, webkit, legacy-diagnostics, legacy-ocr]
     env:
+      OWNER_LANE: ${{ matrix.lane }}
       STARTAK_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - name: Checkout
@@ -103,10 +109,13 @@ jobs:
       - name: Production build
         run: npm run build
       - name: Canonical regression and release verification
+        if: matrix.lane == 'core'
         run: npm run release:verify
       - name: Synthetic current valuation module replay
+        if: matrix.lane == 'core'
         run: node tests/defects/private_golden_current_valuation_module_replay.js
       - name: Assert private golden-case gate fails closed without the authorized source
+        if: matrix.lane == 'core'
         shell: bash
         run: |
           set +e
@@ -116,7 +125,8 @@ jobs:
           printf '%s\n' "$output"
           test "$status" -eq 2
           printf '%s\n' "$output" | grep -Fq 'STARTAK_PRIVATE_GOLDEN_SOURCE=BLOCKED_NOT_SUPPLIED'
-      - name: Owner five-step browser acceptance and screenshots
+      - name: Run independent owner browser lane
+        if: matrix.lane != 'core'
         shell: bash
         run: |
           set -euo pipefail
@@ -128,39 +138,50 @@ jobs:
             if curl --fail --silent http://127.0.0.1:4173/ -o /dev/null; then break; fi
             sleep 1
           done
-          STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_owner_five_step_staging.js 2>&1 | tee runtime-evidence/owner-five-step/acceptance.log
-          STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_owner_canonical_mode_parity.js 2>&1 | tee runtime-evidence/owner-five-step/parity.log
-          for browser in chromium firefox webkit; do
-            STARTAK_BROWSER="$browser" STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_owner_market_independent_evidence.js 2>&1 | tee "runtime-evidence/owner-five-step/independent-evidence-$browser.log"
-          done
-          for browser in chromium firefox webkit; do
-            STARTAK_BROWSER="$browser" STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_component_depreciation_browser.js 2>&1 | tee "runtime-evidence/owner-five-step/depreciation-$browser.log"
-          done
-          for browser in chromium firefox webkit; do
-            STARTAK_BROWSER="$browser" STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_quoted_financing_browser.js 2>&1 | tee "runtime-evidence/owner-five-step/financing-$browser.log"
-          done
-          for browser in chromium firefox webkit; do
-            STARTAK_BROWSER="$browser" STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_income_asset_review_browser.js 2>&1 | tee "runtime-evidence/owner-five-step/income-$browser.log"
-          done
-          for browser in chromium firefox webkit; do
-            STARTAK_BROWSER="$browser" STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_market_indicator_review_browser.js 2>&1 | tee "runtime-evidence/owner-five-step/market-indicators-$browser.log"
-          done
-          for browser in chromium firefox webkit; do
-            STARTAK_BROWSER="$browser" STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_policy_shock_review_browser.js 2>&1 | tee "runtime-evidence/owner-five-step/policy-shock-$browser.log"
-          done
-          for browser in chromium firefox webkit; do
-            STARTAK_BROWSER="$browser" STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_urban_growth_review_browser.js 2>&1 | tee "runtime-evidence/owner-five-step/urban-growth-$browser.log"
-          done
-          for browser in chromium firefox webkit; do
-            STARTAK_BROWSER="$browser" STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_asset_efficiency_browser.js 2>&1 | tee "runtime-evidence/owner-five-step/asset-efficiency-$browser.log"
-            STARTAK_BROWSER="$browser" STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_supplemental_research_browser.js 2>&1 | tee "runtime-evidence/owner-five-step/supplemental-research-$browser.log"
-          done
-          STARTAK_E2E_URL=http://127.0.0.1:4173/?ownerView=advanced node tests/e2e/run_audit_20261010_remaining_browser.js 2>&1 | tee runtime-evidence/owner-five-step/legacy-diagnostics.log
-          STARTAK_E2E_URL=http://127.0.0.1:4173/?ownerView=advanced node tests/e2e/run_audit_20261020_local_ocr_browser.js 2>&1 | tee runtime-evidence/owner-five-step/legacy-ocr.log
-      - name: Upload evidence and mobile screenshots
+          curl --fail --silent http://127.0.0.1:4173/ -o /dev/null
+          case "$OWNER_LANE" in
+            chromium|firefox|webkit)
+              if [ "$OWNER_LANE" = chromium ]; then
+                STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_owner_five_step_staging.js 2>&1 | tee runtime-evidence/owner-five-step/acceptance.log
+                STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_owner_canonical_mode_parity.js 2>&1 | tee runtime-evidence/owner-five-step/parity.log
+              fi
+              STARTAK_BROWSER="$OWNER_LANE" STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_owner_market_independent_evidence.js 2>&1 | tee "runtime-evidence/owner-five-step/independent-evidence-$OWNER_LANE.log"
+              STARTAK_BROWSER="$OWNER_LANE" STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_component_depreciation_browser.js 2>&1 | tee "runtime-evidence/owner-five-step/depreciation-$OWNER_LANE.log"
+              STARTAK_BROWSER="$OWNER_LANE" STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_quoted_financing_browser.js 2>&1 | tee "runtime-evidence/owner-five-step/financing-$OWNER_LANE.log"
+              STARTAK_BROWSER="$OWNER_LANE" STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_income_asset_review_browser.js 2>&1 | tee "runtime-evidence/owner-five-step/income-$OWNER_LANE.log"
+              STARTAK_BROWSER="$OWNER_LANE" STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_market_indicator_review_browser.js 2>&1 | tee "runtime-evidence/owner-five-step/market-indicators-$OWNER_LANE.log"
+              STARTAK_BROWSER="$OWNER_LANE" STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_policy_shock_review_browser.js 2>&1 | tee "runtime-evidence/owner-five-step/policy-shock-$OWNER_LANE.log"
+              STARTAK_BROWSER="$OWNER_LANE" STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_urban_growth_review_browser.js 2>&1 | tee "runtime-evidence/owner-five-step/urban-growth-$OWNER_LANE.log"
+              STARTAK_BROWSER="$OWNER_LANE" STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_asset_efficiency_browser.js 2>&1 | tee "runtime-evidence/owner-five-step/asset-efficiency-$OWNER_LANE.log"
+              STARTAK_BROWSER="$OWNER_LANE" STARTAK_E2E_URL=http://127.0.0.1:4173 node tests/e2e/run_supplemental_research_browser.js 2>&1 | tee "runtime-evidence/owner-five-step/supplemental-research-$OWNER_LANE.log"
+              ;;
+            legacy-diagnostics)
+              STARTAK_E2E_URL=http://127.0.0.1:4173/?ownerView=advanced node tests/e2e/run_audit_20261010_remaining_browser.js 2>&1 | tee runtime-evidence/owner-five-step/legacy-diagnostics.log
+              ;;
+            legacy-ocr)
+              STARTAK_E2E_URL=http://127.0.0.1:4173/?ownerView=advanced node tests/e2e/run_audit_20261020_local_ocr_browser.js 2>&1 | tee runtime-evidence/owner-five-step/legacy-ocr.log
+              ;;
+            *) exit 1 ;;
+          esac
+      - name: Upload lane evidence and mobile screenshots
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: owner-five-step-staging-evidence
-          path: runtime-evidence/owner-five-step
+          name: owner-five-step-staging-evidence-${{ matrix.lane }}
+          path: |
+            runtime-evidence/owner-five-step
+            runtime-evidence/remaining-audit
           if-no-files-found: warn
+  owner-five-step:
+    needs: [owner-lanes]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      OWNER_LANES_RESULT: ${{ needs.owner-lanes.result }}
+    steps:
+      - name: Require every owner acceptance lane to succeed
+        run: |
+          test "$OWNER_LANES_RESULT" = success
+          echo "OWNER_FIVE_STEP_DISTRIBUTED_ENGINEERING=PASS"
+          echo "OWNER_FIVE_STEP_PRODUCTION_AUTHORIZATION=NOT_GRANTED"
