@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const {strictCalendarDateMs}=require('../validation/strict-calendar-instant');
 
 const SECURITY_EVIDENCE_ENVIRONMENT = Object.freeze({
   CI_TEST: 'CI_TEST',
@@ -77,7 +78,7 @@ function requiredCommitSha(value, field) {
 
 function requiredTimestamp(value, field) {
   const normalized = requiredString(value, field);
-  const millis = Date.parse(normalized);
+  const millis = strictCalendarDateMs(normalized);
   if (!Number.isFinite(millis)) throw new TypeError(`${field} must be an ISO-compatible timestamp`);
   return Object.freeze({ value: normalized, millis });
 }
@@ -177,7 +178,7 @@ function verifySecurityQualificationEvidence(record) {
       evidenceRefs: [...stringArray(record.evidenceRefs, 'evidenceRefs')],
       notes: record.notes == null ? null : requiredString(record.notes, 'notes'),
     };
-    if (Date.parse(core.verifiedAt) < Date.parse(core.observedAt) || Date.parse(core.reviewedAt) < Date.parse(core.verifiedAt)) {
+    if (strictCalendarDateMs(core.verifiedAt) < strictCalendarDateMs(core.observedAt) || strictCalendarDateMs(core.reviewedAt) < strictCalendarDateMs(core.verifiedAt)) {
       return Object.freeze({ valid: false, reasonCode: 'EVIDENCE_TIME_ORDER_INVALID' });
     }
     const expectedHash = sha256Object(core);
@@ -263,7 +264,7 @@ function buildSecurityQualificationEnvelope(input = {}) {
         break;
       }
       const freshPassing = passing.filter((record) => {
-        const ageDays = (assessed.millis - Date.parse(record.verifiedAt)) / 86400000;
+        const ageDays = (assessed.millis - strictCalendarDateMs(record.verifiedAt)) / 86400000;
         return ageDays >= 0 && ageDays <= maximumAge[control];
       });
       if (freshPassing.length === 0) {
@@ -271,7 +272,7 @@ function buildSecurityQualificationEnvelope(input = {}) {
         issues.push(`NO_FRESH_PASSING_EVIDENCE:${control}`);
         break;
       }
-      const independentlyReviewed = freshPassing.filter((record) => record.preparedBy !== record.reviewedBy);
+      const independentlyReviewed = freshPassing.filter((record) => record.preparedBy !== record.reviewedBy && strictCalendarDateMs(record.reviewedAt) <= assessed.millis);
       if (independentlyReviewed.length === 0) {
         status = SECURITY_QUALIFICATION_STATUS.HOLD_REVIEW_EVIDENCE;
         issues.push(`NO_INDEPENDENT_REVIEW:${control}`);
