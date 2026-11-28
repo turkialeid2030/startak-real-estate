@@ -40,7 +40,7 @@ function provider(boundary='This output is advisory analysis only and does not c
  providerCalls=0;
  r=await onRequestPost({request:req(SNAPSHOT),env:env({RIAI_AI_INPUT_TOKEN_UPPER_BOUND:undefined})});assert.equal(r.status,503);assert.equal(providerCalls,0);
  const replayBinding={idFromName:()=>'',get:()=>({fetch:async(url,options)=>{const input=JSON.parse(options.body);return Response.json({allowed:true,replayed:true,id:input.id,reservedTokens:input.tokens});}})};
- r=await onRequestPost({request:req(SNAPSHOT),env:env({RIAI_AI_QUOTA:replayBinding})});assert.equal(r.status,503);assert.equal(providerCalls,0);
+ r=await onRequestPost({request:req(SNAPSHOT),env:env({RIAI_AI_QUOTA:replayBinding})});assert.equal(r.status,409);assert.equal(providerCalls,0);assert.equal((await r.json()).code,'AI_REQUEST_ALREADY_RESERVED');
  const settlementEnv=env(); const originalGet=settlementEnv.RIAI_AI_QUOTA.get;
  settlementEnv.RIAI_AI_QUOTA.get=()=>({fetch:async(url,options)=>url.endsWith('/settle')?Response.json({settled:false}):originalGet().fetch(url,options)});
  r=await onRequestPost({request:req(SNAPSHOT),env:settlementEnv});assert.equal(r.status,503);assert.equal((await r.json()).code,'AI_QUOTA_SETTLEMENT_REJECTED');
@@ -115,5 +115,25 @@ function provider(boundary='This output is advisory analysis only and does not c
  assert.equal(overrunCalls,1);
  assert.equal(Array.from(overrunEnv.RIAI_AI_QUOTA.state.data.entries()).find(([key])=>key.startsWith('blocked:'))[1],true);
  console.log('RIAI_QUOTA_OVERRUN_FOLLOWUP_DENIAL=PASS synthetic_only=true');
+ // A repeated client request ID cannot initiate a second provider call.
+ const replayEnv=env({RIAI_AI_RATE_PER_MINUTE:'20',RIAI_AI_QUOTA:require('../fixtures/riai-quota-binding')({fixedNow:fixedMinute})});
+ const requestId='12345678-1234-4123-8123-123456789abc';
+ const boundRequest=(snapshot,id=requestId)=>new Request('http://localhost/api/riai/ai-assist',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({decisionSnapshot:snapshot,clientRequestId:id})});
+ let boundCalls=0;
+ global.fetch=async()=>{boundCalls++;return Response.json({...provider(),usage:{prompt_tokens:10,completion_tokens:20,total_tokens:30}});};
+ const repeated=await Promise.all(Array.from({length:10},()=>onRequestPost({request:boundRequest(SNAPSHOT),env:replayEnv})));
+ assert.equal(boundCalls,1);
+ assert.equal(repeated.filter(x=>x.status===200).length,1);
+ for(const response of repeated.filter(x=>x.status!==200)){
+   assert.equal(response.status,409);
+   const body=await response.json();assert.equal(body.code,'AI_REQUEST_ALREADY_RESERVED');assert.equal(body.providerRequestAttempted,null);assert.equal(body.automaticRetryAllowed,false);
+ }
+ const changedSnapshot={...SNAPSHOT,asOfDate:'2026-09-04'};
+ const changedReplay=await onRequestPost({request:boundRequest(changedSnapshot),env:replayEnv});
+ assert.equal(changedReplay.status,409);assert.equal(boundCalls,1);
+ const fresh=await onRequestPost({request:boundRequest(SNAPSHOT,'12345678-1234-4123-8123-123456789abd'),env:replayEnv});
+ assert.equal(fresh.status,200);assert.equal(boundCalls,2);
+ assert.equal(Array.from(replayEnv.RIAI_AI_QUOTA.state.data.entries()).filter(([key])=>key.startsWith('reservation:')).length,2);
+ console.log('RIAI_BOUND_REQUEST_REPLAY=PASS concurrent=10 changed_snapshot=1 fresh_request=1 synthetic_only=true');
  console.log('RIAI_GATEWAY_INTEGRATION=PASS');
 })().catch((e)=>{console.error(e);process.exit(1);});
