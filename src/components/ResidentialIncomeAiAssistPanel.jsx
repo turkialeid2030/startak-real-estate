@@ -53,6 +53,7 @@ function ReviewSession({ viewModel, dir }) {
   const label = (arabic, english) => (ar ? arabic : english);
   const [state, setState] = React.useState({ status: 'IDLE', payload: null, reasonCode: null });
   const pending = React.useRef(null);
+  const [retryAcknowledged, setRetryAcknowledged] = React.useState(false);
   React.useEffect(() => () => {
     pending.current?.abort();
     pending.current = null;
@@ -61,12 +62,14 @@ function ReviewSession({ viewModel, dir }) {
   if (!viewModel || viewModel.apiStatus !== 'CASE_LOADED') return null;
 
   const loading = state.status === 'LOADING';
+  const retryRisk = state.status === 'ERROR' && state.potentialProviderCharge === true;
   const result = state.payload?.result || null;
 
   const runReview = async () => {
-    if (pending.current) return;
+    if (pending.current || (retryRisk && !retryAcknowledged)) return;
     const controller = new AbortController();
     pending.current = controller;
+    setRetryAcknowledged(false);
     setState({ status: 'LOADING', payload: null, reasonCode: null });
     try {
       const response = await requestResidentialIncomeAiAssist(viewModel, { signal: controller.signal });
@@ -74,11 +77,11 @@ function ReviewSession({ viewModel, dir }) {
       if (response.status === AI_ASSIST_CLIENT_STATUS.SUCCESS) {
         setState({ status: 'SUCCESS', payload: response, reasonCode: null });
       } else {
-        setState({ status: 'ERROR', payload: null, reasonCode: response.reasonCode || response.status });
+        setState({ status: 'ERROR', payload: null, reasonCode: response.reasonCode || response.status, potentialProviderCharge: response.potentialProviderCharge === true });
       }
     } catch (_) {
       if (pending.current === controller && !controller.signal.aborted) {
-        setState({ status: 'ERROR', payload: null, reasonCode: 'AI_ASSIST_NETWORK_FAILED' });
+        setState({ status: 'ERROR', payload: null, reasonCode: 'AI_ASSIST_NETWORK_FAILED', potentialProviderCharge: true });
       }
     } finally {
       if (pending.current === controller) pending.current = null;
@@ -106,7 +109,7 @@ function ReviewSession({ viewModel, dir }) {
           type="button"
           data-testid="riai-ai-assist-run"
           onClick={runReview}
-          disabled={loading}
+          disabled={loading || (retryRisk && !retryAcknowledged)}
           className="rounded-lg border border-indigo-700/60 bg-indigo-950/30 px-4 py-2 text-xs font-semibold text-indigo-100 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {loading
@@ -133,6 +136,16 @@ function ReviewSession({ viewModel, dir }) {
                 'The AI path is technically implemented and protected, but production activation is incomplete: Cloudflare Access and the AI provider must be configured in the environment. The deterministic analytical engine remains fully operational.',
               )
             : `${label('تعذر تنفيذ المراجعة المساندة في هذه المحاولة.', 'AI review could not be completed in this attempt.')} (${state.reasonCode})`}
+        </div>
+      ) : null}
+
+      {retryRisk ? (
+        <div className="mt-3 rounded-lg border border-amber-900/50 p-3 text-xs text-amber-200">
+          <p role="status">{label('ربما وصل الطلب السابق إلى المزود وترتبت عليه تكلفة رغم عدم ظهور نتيجة. تحقق من السجل قبل إعادة الطلب.', 'The previous request may have reached the provider and incurred a charge even without a result. Review the audit record before resubmitting.')}</p>
+          <label className="mt-2 flex items-center gap-2">
+            <input type="checkbox" data-testid="riai-ai-retry-acknowledge" checked={retryAcknowledged} onChange={e => setRetryAcknowledged(e.target.checked)} />
+            {label('أقر باحتمال تكلفة إضافية عند إعادة الطلب يدوياً.', 'I acknowledge a manual resubmission may incur an additional charge.')}
+          </label>
         </div>
       ) : null}
 
