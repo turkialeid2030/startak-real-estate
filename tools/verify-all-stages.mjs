@@ -46,16 +46,17 @@ export function markdown(report){
   '', 'تُشغّل الدفعة جميع الفحوص دون توقف عند أول فشل. نجاح الحساب والمتصفح لا يثبت أصالة المصدر أو اعتمادًا مهنيًا أو تشغيل ذكاء حي أو عزل مستخدمين فعليًا.',
   '', '| الفحص المنفذ | الحالة |','|---|---|',...report.checks.map(c=>`| ${c.id} | ${c.status} |`),''].join('\n');
 }
-async function command(id,cmd,args,outDir){
- const file=path.join(outDir,id+'.log'),stream=createWriteStream(file);let bytes=0,overflow=false,writeFailed=false;
+export async function command(id,cmd,args,outDir,timeoutMs=20*60*1000){
+ if(!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>20*60*1000)throw TypeError('BATCH_STAGE_TIMEOUT_INVALID');
+ const file=path.join(outDir,id+'.log'),stream=createWriteStream(file);let bytes=0,overflow=false,writeFailed=false,timedOut=false;
  stream.on('error',()=>{writeFailed=true;});
  const child=spawn(cmd,args,{cwd:root,env:process.env,stdio:['ignore','pipe','pipe']});
- const timer=setTimeout(()=>child.kill('SIGTERM'),20*60*1000);
- const capture=data=>{bytes+=data.length;if(bytes<=4*1024*1024)stream.write(data);else{overflow=true;child.kill('SIGTERM');}};
+ const timer=setTimeout(()=>{timedOut=true;child.kill('SIGKILL');},timeoutMs);
+ const capture=data=>{bytes+=data.length;if(bytes<=4*1024*1024)stream.write(data);else{overflow=true;child.kill('SIGKILL');}};
  child.stdout.on('data',capture);child.stderr.on('data',capture);
  const code=await new Promise(resolve=>{child.once('error',()=>resolve(-1));child.once('close',code=>resolve(code));});
  clearTimeout(timer);await new Promise(resolve=>{stream.end(resolve);if(stream.destroyed)resolve();});
- const status=code===0&&!overflow&&!writeFailed?'PASS':'FAIL';console.log(id+'='+status);
+ const status=code===0&&!overflow&&!writeFailed&&!timedOut?'PASS':'FAIL';console.log(id+'='+status);
  // Keep failed synthetic CI checks inspectable through the job log as well as
  // the artifact. Bound output and prefix each line so test text cannot become
  // a GitHub workflow command. No credentials are supplied to these PR checks.
@@ -65,7 +66,7 @@ async function command(id,cmd,args,outDir){
    for(const line of tail.split(/\r?\n/))console.log('diagnostic['+id+'] '+line.replace(/[\r\u0000]/g,' '));
   }catch{console.log('diagnostic['+id+'] LOG_UNAVAILABLE');}
  }
- return {id,status,exitCode:code,outputLimitExceeded:overflow,logFile:path.basename(file)};
+ return {id,status,exitCode:code,outputLimitExceeded:overflow,timedOut,logFile:path.basename(file)};
 }
 async function execute(){
  const args=process.argv.slice(2);
