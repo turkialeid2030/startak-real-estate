@@ -15,7 +15,7 @@ const hotelSource=[
  F('sourceAverageDailyRateSar','متوسط سعر الغرفة المبلّغ (ر.س)','Reported ADR SAR'),
  F('sourceRoomsRevenueSar','إيرادات الغرف المبلّغة (ر.س)','Reported room revenue SAR'),
  F('sourceTotalOperatingRevenueSar','إجمالي الإيرادات المبلّغ (ر.س)','Reported total revenue SAR'),
- F('sourceOperatingSurplusAfterFfeReserveSar','الفائض المبلّغ بعد FF&E وقبل التكاليف الثابتة (ر.س)','Reported surplus after FF&E before fixed charges SAR')];
+ F('sourceOperatingSurplusAfterFfeReserveSar','الفائض المبلّغ بعد احتياطي الأثاث والمعدات وقبل التكاليف الثابتة (ر.س)','Reported surplus after FF&E before fixed charges SAR')];
 const industrial=[
  F('assetId','مرجع الأصل','Asset reference','text'),F('subtype','النوع الصناعي','Industrial subtype','select',Object.values(INDUSTRIAL_SUBTYPE)),
  F('customSubtype','وصف النوع الآخر','Other subtype description','text'),F('landAreaSqm','مساحة الأرض م²','Land area sqm'),F('builtAreaSqm','مساحة البناء م²','Built area sqm'),F('netLeasableAreaSqm','المساحة التأجيرية م²','Leasable area sqm'),
