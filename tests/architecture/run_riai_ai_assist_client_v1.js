@@ -97,6 +97,34 @@ const fetchImpl = async (url, options) => {
     }});
     assert.strictEqual(bad.status,AI_ASSIST_CLIENT_STATUS.INVALID_RESPONSE);assert.strictEqual(bad.reasonCode,'AI_ASSIST_REQUEST_BINDING_INVALID');assert.strictEqual(bad.result,null);
   }
+  // Explicit gateway status is distinct from an ambiguous transport failure.
+  for(const attempted of [true,false,undefined,'false']){
+    let posts=0;
+    const failure=await requestResidentialIncomeAiAssist(viewModel,{turnstileToken:'synthetic',fetchImpl:async(url,options)=>{
+      if(options.method==='GET')return {ok:true,status:200,async json(){return {schemaVersion:1,publicAiEnabled:false};}};
+      posts++;return {ok:false,status:502,async json(){return {ok:false,code:'AI_PROVIDER_UNREACHABLE',providerRequestAttempted:attempted};}};
+    }});
+    assert.strictEqual(failure.status,AI_ASSIST_CLIENT_STATUS.UNAVAILABLE);
+    assert.strictEqual(failure.providerRequestAttempted,typeof attempted==='boolean'?attempted:null);
+    assert.strictEqual(failure.potentialProviderCharge,attempted!==false);
+    assert.strictEqual(failure.automaticRetryAllowed,false);assert.strictEqual(posts,1);
+  }
+  for(const failureMode of ['network','json','timeout']){
+    let posts=0;
+    const failure=await requestResidentialIncomeAiAssist(viewModel,{turnstileToken:'synthetic',timeoutMs:1000,fetchImpl:async(url,options)=>{
+      if(options.method==='GET')return {ok:true,status:200,async json(){return {schemaVersion:1,publicAiEnabled:false};}};
+      posts++;
+      if(failureMode==='network')throw Error('synthetic network failure');
+      if(failureMode==='timeout')return new Promise(()=>{});
+      return {ok:true,status:200,async json(){throw Error('synthetic invalid JSON');}};
+    }});
+    assert.strictEqual(failure.providerRequestAttempted,null);assert.strictEqual(failure.potentialProviderCharge,true);
+    assert.strictEqual(failure.automaticRetryAllowed,false);assert.strictEqual(posts,1);
+  }
+  const cancelled=new AbortController();cancelled.abort();
+  const beforeDispatch=await requestResidentialIncomeAiAssist(viewModel,{signal:cancelled.signal,fetchImpl:async()=>{throw Error('must not dispatch');}});
+  assert.strictEqual(beforeDispatch.providerRequestAttempted,false);assert.strictEqual(beforeDispatch.potentialProviderCharge,false);
+  console.log('RIAI_CLIENT_RETRY_RISK=PASS scenarios=8 synthetic_only=true');
   console.log('RIAI_V617_CLIENT_REQUEST_BINDING=PASS negative_cases=6 unique_request_check=1');
   console.log('RIAI_AI_ASSIST_CLIENT_V1=PASS');
   console.log('SAME_ORIGIN_AI_ENDPOINT_ONLY=PASS');
