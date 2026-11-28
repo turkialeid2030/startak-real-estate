@@ -1,7 +1,7 @@
 'use strict';
 // Personal operating diagnostics only. No transfer to property NOI, financial
 // cashflows, valuation, evidence certification or an external decision.
-const {calculateMetrics}=require('./hospitality-metrics-core');
+const {calculateMetrics,sourceReconciliation}=require('./hospitality-metrics-core');
 const {createIndustrialLogisticsAssetSpec,profileIndustrialLogisticsAsset,deriveAnnualRentPerSqm,
  INDUSTRIAL_SUBTYPE,LEASE_STRUCTURE,INTERNAL_INSPECTION_STATUS,BUILDING_PERMIT_STATUS}=require('../valuation-intelligence/adapters/industrial-logistics');
 const STATUS=Object.freeze({HOLD:'HOLD',READY:'OPERATING_RESEARCH_ONLY'});
@@ -25,6 +25,11 @@ function evaluateLocalSectorOperations({assetClass,inputs}={}){
   if(!HOTEL_FIELDS.every(k=>num(x[k]))||!pos(x.availableRoomNights)||!Number.isSafeInteger(x.availableRoomNights)||!Number.isSafeInteger(x.occupiedRoomNights)||x.occupiedRoomNights>x.availableRoomNights||(x.occupiedRoomNights===0&&x.roomsRevenueSar!==0))
    return result(assetClass,['HOTEL_OPERATING_INPUTS_INVALID']);
   metrics=calculateMetrics(Object.fromEntries(HOTEL_FIELDS.map(k=>[k,x[k]])));
+  if(Object.hasOwn(x,'sourceReported')){
+   const reconciliation=sourceReconciliation({...x,sourceReported:x.sourceReported});
+   if(reconciliation.status==='HOLD')return result(assetClass,reconciliation.reasons);
+   metrics={...metrics,sourceReconciliationStatus:reconciliation.status};
+  }
  }else if(assetClass==='INDUSTRIAL_LOGISTICS'){
   if(!filled(x.assetId)||!pos(x.landAreaSqm,1e9)||!pos(x.builtAreaSqm,1e9)||!pos(x.netLeasableAreaSqm,1e9)||x.netLeasableAreaSqm>x.builtAreaSqm||!pos(x.clearHeightMeters,1000)||!pos(x.powerCapacityKva,1e9)||!num(x.annualRentSar)||!num(x.landlordExpensesSar)||x.landlordExpensesSar>x.annualRentSar||
    !Object.values(INDUSTRIAL_SUBTYPE).includes(x.subtype)||!Object.values(LEASE_STRUCTURE).includes(x.leaseStructure)||x.leaseStructure===LEASE_STRUCTURE.UNKNOWN||
