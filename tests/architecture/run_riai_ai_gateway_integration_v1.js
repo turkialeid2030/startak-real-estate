@@ -49,6 +49,30 @@ function provider(boundary='This output is advisory analysis only and does not c
    global.fetch=async()=>Response.json(malicious);
    r=await onRequestPost({request:req(SNAPSHOT),env:env()});const blocked=await r.json();assert.equal(r.status,502);assert.equal(blocked.code,'AI_UNSOURCED_NUMERIC_CLAIM');assert.equal(blocked.result,undefined);
  }
+ // Once a provider request has been attempted, never represent the failure
+ // as safe for automatic retry: the upstream call may already be billable.
+ const upstreamFailures=[
+   ['AI_PROVIDER_UNREACHABLE',async()=>{throw new Error('synthetic network failure');}],
+   ['AI_PROVIDER_TIMEOUT',async()=>{const e=new Error('synthetic abort');e.name='AbortError';throw e;}],
+   ['AI_PROVIDER_REJECTED_REQUEST',async()=>new Response('synthetic rejection',{status:502})],
+   ['AI_PROVIDER_RESPONSE_TOO_LARGE',async()=>new Response('x'.repeat(65537))],
+   ['AI_PROVIDER_RESPONSE_READ_FAILED',async()=>new Response(new ReadableStream({start(c){c.error(new Error('synthetic stream failure'));}}))],
+   ['AI_PROVIDER_RESPONSE_INVALID_JSON',async()=>new Response('not-json')],
+   ['AI_PROVIDER_RESPONSE_UNSUPPORTED',async()=>Response.json({choices:[]})],
+   ['AI_PROVIDER_JSON_INVALID',async()=>Response.json({choices:[{message:{content:'not-json'}}]})],
+   ['AUTOMATIC_DECISION_LANGUAGE_PROHIBITED',async()=>Response.json(provider('Advisory only; proceed with the transaction.'))]
+ ];
+ for(const [code,transport] of upstreamFailures){
+   let attempts=0;global.fetch=async()=>{attempts++;return transport();};
+   const response=await onRequestPost({request:req(SNAPSHOT),env:env()});
+   const payload=await response.json();
+   assert.equal(response.status,502,code);assert.equal(payload.code,code);
+   assert.equal(payload.providerRequestAttempted,true,code);
+   assert.equal(payload.automaticRetryAllowed,false,code);
+   assert.equal(payload.aiModelUsed,false,code);assert.equal(payload.result,undefined,code);
+   assert.equal(attempts,1,code);
+ }
+ console.log('RIAI_POST_DISPATCH_FAILURE_CONTRACT=PASS cases='+upstreamFailures.length+' synthetic_only=true');
  let moneyProviderCalls=0;global.fetch=async()=>{moneyProviderCalls++;return Response.json(provider());};
  for(const overrides of [{RIAI_AI_PRICE_BOUND_MODEL:undefined},{RIAI_AI_PRICE_BOUND_EXPIRES_AT:'2020-01-01T00:00:00Z'},{RIAI_AI_GLOBAL_USD_MICROS_PER_DAY:'1'}]) {
    r=await onRequestPost({request:req(SNAPSHOT),env:env(overrides)});
