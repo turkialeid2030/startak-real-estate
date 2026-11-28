@@ -7,6 +7,7 @@ import {createRequire} from 'node:module';
 import {verifyDeployedAssets} from './verify-deployed-assets.mjs';
 import {validatedProtectedPreviewUrl} from './verify-protected-preview.mjs';
 const require=createRequire(import.meta.url),root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const {parseConcurrency,runPreviewBrowserLanes}=require('./batch-browser-lanes');
 export const REQUIRED=Object.freeze(['release','reference','reference-clean','market-browser','appraisal-browser','identity-browser','dated-browser','sectors-browser','owner-browser','export-browser','cross-browser','ocr-browser','document-tables-browser','locale-browser']);
 
 export function summarize({sha,checks,observations,requestCount}){
@@ -85,6 +86,7 @@ async function execute(){
  const url=validatedProtectedPreviewUrl(args.find(a=>a.startsWith('--preview-url='))?.slice(14)||'https://feature-audit-findings-d01-d.startak-real-estate.pages.dev/');
  const sha=execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim();
  if(process.env.STARTAK_SOURCE_COMMIT&&process.env.STARTAK_SOURCE_COMMIT!==sha)throw Error('BATCH_SOURCE_MISMATCH');
+ const browserConcurrency=parseConcurrency(process.env.STARTAK_BATCH_BROWSER_CONCURRENCY);
  await fs.mkdir(outDir,{recursive:true});const checks=[];
  checks.push(await command('release','npm',['run','release:verify'],outDir));
  checks.push(await command('reference','python3',['tests/reference/build_d05_monthly_reference.py'],outDir));
@@ -94,7 +96,8 @@ async function execute(){
  try{
   server=await preview({preview:{host:'127.0.0.1',port:4173,strictPort:true}});
   process.env.STARTAK_E2E_URL='http://127.0.0.1:4173/?ownerView=advanced';
-  for(const [id,file] of [['sectors-browser','run_all_13_asset_classes_public_smoke.js'],['owner-browser','run_audit_20261010_f03_f07_browser.js'],['export-browser','run_c75_real_chromium_personal_study.js'],['cross-browser','run_audit_20261010_remaining_browser.js'],['ocr-browser','run_audit_20261020_local_ocr_browser.js'],['document-tables-browser','run_audit_20261021_document_tables_browser.js']])checks.push(await command(id,'node',['tests/e2e/'+file],outDir));
+  for(const [id,file] of [['sectors-browser','run_all_13_asset_classes_public_smoke.js'],['owner-browser','run_audit_20261010_f03_f07_browser.js'],['export-browser','run_c75_real_chromium_personal_study.js']])checks.push(await command(id,'node',['tests/e2e/'+file],outDir));
+  checks.push(...await runPreviewBrowserLanes((id,file)=>command(id,'node',['tests/e2e/'+file],outDir),browserConcurrency));
  }catch{for(const id of ['sectors-browser','owner-browser','export-browser','cross-browser','ocr-browser','document-tables-browser'])if(!checks.some(c=>c.id===id))checks.push({id,status:'FAIL',reason:'LOCAL_PREVIEW_UNAVAILABLE'});}
  finally{if(server)await new Promise(resolve=>server.httpServer.close(resolve));}
  checks.push(await command('locale-browser','node',['tests/e2e/run_d04_locale_matrix_ci.mjs'],outDir));
@@ -105,7 +108,7 @@ async function execute(){
  for(const [id,route] of [['ai-config','api/riai/public-config'],['ai-assist-method-guard','api/riai/ai-assist']])observations.push(await observeEndpoint(id,new URL(route,url).href));
  const pack=require('./qcr-evidence-acquisition.js').execute([]);
  await fs.writeFile(path.join(outDir,'external-evidence-requests.json'),JSON.stringify(pack,null,2)+'\n');
- const report=summarize({sha,checks,observations,requestCount:pack.requestCount});
+ const report={...summarize({sha,checks,observations,requestCount:pack.requestCount}),browserConcurrency};
  await fs.writeFile(path.join(outDir,'all-stages.json'),JSON.stringify(report,null,2)+'\n');
  const md=markdown(report);await fs.writeFile(path.join(outDir,'all-stages.md'),md);
  if(process.env.GITHUB_STEP_SUMMARY)await fs.appendFile(process.env.GITHUB_STEP_SUMMARY,md);
