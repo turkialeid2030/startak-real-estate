@@ -29,6 +29,9 @@ jobs:
           - suite: remaining-audit
             script: tests/e2e/run_audit_20261010_remaining_browser.js
             evidence: acceptance.json
+          - suite: document-tables
+            script: tests/e2e/run_audit_20261021_document_tables_browser.js
+            evidence: document-tables-acceptance.json
     env:
       STARTAK_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
       STARTAK_E2E_URL: http://127.0.0.1:4173
@@ -63,7 +66,10 @@ jobs:
           done
           curl --fail --silent "$STARTAK_E2E_URL/" >/dev/null
           printf 'SOURCE_SHA=%s\n' "$STARTAK_SOURCE_COMMIT" | tee runtime-evidence/hidden-diagnostics/source.txt
+          started_ns="$(date +%s%N)"
           node "$DIAGNOSTIC_SCRIPT" 2>&1 | tee runtime-evidence/hidden-diagnostics/browser.log
+          ended_ns="$(date +%s%N)"
+          printf 'SUITE_DURATION_MS=%s\n' "$(( (ended_ns - started_ns) / 1000000 ))" | tee runtime-evidence/hidden-diagnostics/timing.txt
       - name: Require exact SHA and all six browser viewport combinations
         shell: bash
         run: |
@@ -73,11 +79,18 @@ jobs:
           const e = JSON.parse(fs.readFileSync('runtime-evidence/remaining-audit/' + process.env.DIAGNOSTIC_EVIDENCE, 'utf8'));
           assert.equal(e.sourceCommit, process.env.STARTAK_SOURCE_COMMIT);
           assert.ok(Number.isInteger(e.checks) && e.checks > 0);
-          assert.ok(Array.isArray(e.browsers));
-          const actual = e.browsers.map(b => b.engine + ':' + (b.width ?? b.viewport?.width)).sort();
+          const isTables = process.env.DIAGNOSTIC_EVIDENCE === 'document-tables-acceptance.json';
+          const rows = isTables ? e.contexts : e.browsers;
+          assert.ok(Array.isArray(rows));
+          const actual = rows.map(b => b.engine + ':' + (b.width ?? b.viewport?.width)).sort();
           const expected = ['chromium','firefox','webkit'].flatMap(b => [390,1366].map(w => b + ':' + w)).sort();
           assert.deepEqual(actual, expected);
-          assert.ok(e.browsers.every(b => Number.isInteger(b.checksCompleted) && b.checksCompleted > 0 && b.physicalDevice === false));
+          assert.ok(rows.every(b => Number.isInteger(isTables ? b.checks : b.checksCompleted) && (isTables ? b.checks : b.checksCompleted) > 0 && b.physicalDevice === false));
+          if(isTables){
+            assert.equal(e.independentExtractionAccuracyQualified,false);
+            assert.equal(e.sourceAuthenticationQualified,false);
+            assert.equal(e.financialAdoptionAuthorized,false);
+          }
           console.log('HISTORICAL_DIAGNOSTIC_EXACT_HEAD_MATRIX=PASS');
           NODE
       - name: Preserve exact suite logs and browser evidence
