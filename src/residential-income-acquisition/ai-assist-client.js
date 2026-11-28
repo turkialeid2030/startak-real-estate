@@ -57,6 +57,8 @@ async function performReview(viewModel, options = {}) {
   if (turnstile.token) requestBody.turnstileToken = turnstile.token;
 
   let response;
+  // The gateway may have reached the provider even if the browser never receives a response.
+  options.dispatchState.sent = true;
   try {
     response = await fetchImpl(AI_ASSIST_ENDPOINT, {
       method: 'POST',
@@ -72,6 +74,7 @@ async function performReview(viewModel, options = {}) {
     return Object.freeze({
       status: AI_ASSIST_CLIENT_STATUS.UNAVAILABLE,
       reasonCode: error && error.name === 'AbortError' ? 'AI_ASSIST_TIMEOUT' : 'AI_ASSIST_NETWORK_FAILED',
+      providerRequestAttempted: null, automaticRetryAllowed: false, potentialProviderCharge: true,
       aiModelUsed: false,
       result: null,
     });
@@ -80,29 +83,32 @@ async function performReview(viewModel, options = {}) {
   let payload;
   try { payload = await readBoundedJson(response, 65536, options.signal); }
   catch (_) {
-    return Object.freeze({ status: AI_ASSIST_CLIENT_STATUS.INVALID_RESPONSE, reasonCode: 'AI_ASSIST_RESPONSE_INVALID_JSON', aiModelUsed: false, result: null });
+    return Object.freeze({ status: AI_ASSIST_CLIENT_STATUS.INVALID_RESPONSE, reasonCode: 'AI_ASSIST_RESPONSE_INVALID_JSON', providerRequestAttempted: null, automaticRetryAllowed: false, potentialProviderCharge: true, aiModelUsed: false, result: null });
   }
 
   if (!response.ok || !payload || payload.ok !== true) {
     return Object.freeze({
       status: AI_ASSIST_CLIENT_STATUS.UNAVAILABLE,
       reasonCode: payload && payload.code || `AI_ASSIST_HTTP_${response.status}`,
+      providerRequestAttempted: payload?.providerRequestAttempted === true ? true : payload?.providerRequestAttempted === false ? false : null,
+      automaticRetryAllowed: false,
+      potentialProviderCharge: payload?.providerRequestAttempted !== false,
       aiModelUsed: false,
       result: null,
     });
   }
 
   if (payload.aiModelUsed !== true || payload.deterministicScoreRemainsAuthoritative !== true || payload.advisoryOnly !== true) {
-    return Object.freeze({ status: AI_ASSIST_CLIENT_STATUS.INVALID_RESPONSE, reasonCode: 'AI_ASSIST_GOVERNANCE_METADATA_INVALID', aiModelUsed: false, result: null });
+    return Object.freeze({ status: AI_ASSIST_CLIENT_STATUS.INVALID_RESPONSE, reasonCode: 'AI_ASSIST_GOVERNANCE_METADATA_INVALID', providerRequestAttempted: null, automaticRetryAllowed: false, potentialProviderCharge: true, aiModelUsed: false, result: null });
   }
 
   const binding=payload.requestBinding;
   let bindingValid=false;
   try{bindingValid=!!binding&&binding.version===1&&binding.clientRequestId===clientRequestId&&binding.snapshotHashSha256===snapshotHashSha256&&typeof binding.resultHashSha256==='string'&&binding.resultHashSha256===await hashJson(payload.result);}catch{}
-  if(!bindingValid)return Object.freeze({status:AI_ASSIST_CLIENT_STATUS.INVALID_RESPONSE,reasonCode:'AI_ASSIST_REQUEST_BINDING_INVALID',aiModelUsed:false,result:null});
+  if(!bindingValid)return Object.freeze({status:AI_ASSIST_CLIENT_STATUS.INVALID_RESPONSE,reasonCode:'AI_ASSIST_REQUEST_BINDING_INVALID',providerRequestAttempted: null, automaticRetryAllowed: false, potentialProviderCharge: true, aiModelUsed:false,result:null});
   const validated = validateResidentialIncomeAiAssistResponse(payload.result);
   if (validated.status !== AI_ASSIST_STATUS.VALID) {
-    return Object.freeze({ status: AI_ASSIST_CLIENT_STATUS.INVALID_RESPONSE, reasonCode: validated.reasonCode, aiModelUsed: false, result: null });
+    return Object.freeze({ status: AI_ASSIST_CLIENT_STATUS.INVALID_RESPONSE, reasonCode: validated.reasonCode, providerRequestAttempted: null, automaticRetryAllowed: false, potentialProviderCharge: true, aiModelUsed: false, result: null });
   }
 
   return Object.freeze({
@@ -122,13 +128,14 @@ async function performReview(viewModel, options = {}) {
 // also settles callers whose injected transport does not implement abort.
 async function requestResidentialIncomeAiAssist(viewModel, options = {}) {
   const controller = new AbortController();
+  const dispatchState = { sent: false };
   const timeoutMs = Number.isFinite(options.timeoutMs) ? Math.max(1000, Math.min(options.timeoutMs, 30000)) : CLIENT_TIMEOUT_MS;
   let timer;
   let onAbort;
   const stopped = new Promise((resolve) => {
     const stop = (reasonCode) => {
       controller.abort();
-      resolve(Object.freeze({ status: AI_ASSIST_CLIENT_STATUS.UNAVAILABLE, reasonCode, aiModelUsed: false, result: null }));
+      resolve(Object.freeze({ status: AI_ASSIST_CLIENT_STATUS.UNAVAILABLE, reasonCode, providerRequestAttempted: dispatchState.sent ? null : false, automaticRetryAllowed: false, potentialProviderCharge: dispatchState.sent, aiModelUsed: false, result: null }));
     };
     onAbort = () => stop('AI_ASSIST_CANCELLED');
     timer = setTimeout(() => stop('AI_ASSIST_TIMEOUT'), timeoutMs);
@@ -137,9 +144,9 @@ async function requestResidentialIncomeAiAssist(viewModel, options = {}) {
   });
   try {
     if (controller.signal.aborted) return await stopped;
-    return await Promise.race([stopped, performReview(viewModel, { ...options, signal: controller.signal })]);
+    return await Promise.race([stopped, performReview(viewModel, { ...options, signal: controller.signal, dispatchState })]);
   } catch (_) {
-    return Object.freeze({ status: AI_ASSIST_CLIENT_STATUS.UNAVAILABLE, reasonCode: 'AI_ASSIST_NETWORK_FAILED', aiModelUsed: false, result: null });
+    return Object.freeze({ status: AI_ASSIST_CLIENT_STATUS.UNAVAILABLE, reasonCode: 'AI_ASSIST_NETWORK_FAILED', providerRequestAttempted: dispatchState.sent ? null : false, automaticRetryAllowed: false, potentialProviderCharge: dispatchState.sent, aiModelUsed: false, result: null });
   } finally {
     clearTimeout(timer);
     options.signal?.removeEventListener('abort', onAbort);
