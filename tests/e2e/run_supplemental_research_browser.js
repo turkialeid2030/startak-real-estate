@@ -93,11 +93,22 @@ const {chromium,firefox,webkit,expect}=require('@playwright/test');
    const key=NAMESPACE+'supplemental-encrypted-draft:v1:'+scope.caseId+':gross';
    const raw=await page.evaluate(k=>localStorage.getItem(k),key);assert.ok(raw&&!raw.includes(scope.propertyRef)&&!raw.includes('annualGrossRent'));checks++;
    await bind(seeds[1]);await expect(el('result')).toHaveCount(0);checks++;
+   // An existing draft for another deal must not be unlocked by the same passphrase.
+   await el('method').selectOption('gross');await el('property').fill(scope.propertyRef);await el('date').fill(scope.asOfDate);
+   await el('passphrase').fill('synthetic-browser-finance-42');await el('encrypted-load').click();
+   await expect(el('storage-notice')).toContainText(t('لا توجد مسودة محفوظة','No saved draft'),{timeout:15000});checks++;
+   await expect(el('result')).toHaveCount(0);await expect(el('report')).toHaveCount(0);checks+=2;
+   assert.equal(await page.evaluate(k=>localStorage.getItem(k),key),raw);checks++;
    await page.reload();await bind(seeds[0]);await el('method').selectOption('gross');await el('property').fill(scope.propertyRef);await el('date').fill(scope.asOfDate);
    await el('passphrase').fill('incorrect-browser-passphrase');await el('encrypted-load').click();await expect(el('storage-notice')).toContainText(t('تعذر الحفظ أو فتح المسودة','Save or unlock failed'),{timeout:15000});await expect(el('result')).toHaveCount(0);checks++;
+   assert.equal(await page.evaluate(k=>localStorage.getItem(k),key),raw);checks++;
    await el('passphrase').fill('synthetic-browser-finance-42');await el('encrypted-load').click();await expect(el('result')).toBeVisible({timeout:15000});const restored=await download('report');assert.equal(restored.metrics[0].value,0.08);checks++;
    await el('passphrase').fill('synthetic-browser-finance-42');await expect(el('encrypted-delete')).toBeDisabled();await el('delete-consent').check();await el('encrypted-delete').click();await expect(el('storage-notice')).toContainText(t('تم التحقق من حذف المسودة','Draft deletion verified'),{timeout:15000});checks++;
    assert.equal(await page.evaluate(k=>localStorage.getItem(k),key),null);assert.deepEqual(await records(),before);checks+=2;
+   await el('passphrase').fill('synthetic-browser-finance-42');await el('encrypted-load').click();
+   await expect(el('storage-notice')).toContainText(t('لا توجد مسودة محفوظة','No saved draft'),{timeout:15000});checks++;
+   await expect(el('result')).toHaveCount(0);await expect(el('report')).toHaveCount(0);checks+=2;
+   assert.deepEqual(await records(),before);checks++;
   }
   assert.equal(errors.length,0,errors.join(';'));checks++;
   console.log('SUPPLEMENTAL_RESEARCH_CONFIGURATION=PASS browser='+name+' locale='+locale+' width='+width+' checks='+(checks-startChecks));await page.close();
