@@ -135,5 +135,35 @@ function provider(boundary='This output is advisory analysis only and does not c
  assert.equal(fresh.status,200);assert.equal(boundCalls,2);
  assert.equal(Array.from(replayEnv.RIAI_AI_QUOTA.state.data.entries()).filter(([key])=>key.startsWith('reservation:')).length,2);
  console.log('RIAI_BOUND_REQUEST_REPLAY=PASS concurrent=10 changed_snapshot=1 fresh_request=1 synthetic_only=true');
+ // Explicit fail-closed envelope for malformed media types, unsupported methods,
+ // and unexpected failures both before and after provider dispatch.
+ const {onRequest}=await import(path.join(__dirname,'..','..','functions/api/riai/ai-assist.js'));
+ let envelopeCalls=0;
+ global.fetch=async()=>{envelopeCalls++;return Response.json(provider());};
+ for(const mediaType of ['text/application/json','application/jsonp','application/json-invalid']){
+   const invalid=await onRequestPost({request:new Request('http://localhost/api/riai/ai-assist',{method:'POST',headers:{'content-type':mediaType},body:JSON.stringify({decisionSnapshot:SNAPSHOT})}),env:env()});
+   const payload=await invalid.json();assert.equal(invalid.status,415);assert.equal(payload.code,'JSON_CONTENT_TYPE_REQUIRED');
+   assert.equal(payload.providerRequestAttempted,false);assert.equal(payload.automaticRetryAllowed,false);assert.equal(payload.aiModelUsed,false);
+ }
+ const validMedia=await onRequestPost({request:new Request('http://localhost/api/riai/ai-assist',{method:'POST',headers:{'content-type':'Application/JSON; charset=utf-8'},body:JSON.stringify({decisionSnapshot:SNAPSHOT})}),env:env()});
+ assert.equal(validMedia.status,200);assert.equal(envelopeCalls,1);
+ const deniedMethod=await onRequest({request:new Request('http://localhost/api/riai/ai-assist'),env:env()});
+ const methodBody=await deniedMethod.json();assert.equal(deniedMethod.status,405);assert.equal(deniedMethod.headers.get('allow'),'POST');
+ assert.equal(methodBody.providerRequestAttempted,false);assert.equal(methodBody.automaticRetryAllowed,false);assert.equal(methodBody.aiModelUsed,false);
+ const deniedEnv=env();Object.defineProperty(deniedEnv,'RIAI_AI_PROVIDER_URL',{get(){throw Error('SYNTHETIC_INTERNAL_DETAIL_NOT_PUBLIC');}});
+ const beforeUnexpected=await onRequestPost({request:req(SNAPSHOT),env:deniedEnv});
+ assert.equal(envelopeCalls,1);
+ global.fetch=async()=>{envelopeCalls++;return null;}; // injected adapter contract fault
+ const afterUnexpected=await onRequestPost({request:req(SNAPSHOT),env:env()});
+ assert.equal(envelopeCalls,2);
+ for(const [response,attempted] of [[beforeUnexpected,false],[afterUnexpected,true]]){
+   const payload=await response.json();assert.equal(response.status,503);assert.equal(payload.code,'AI_GATEWAY_UNEXPECTED_FAILURE');
+   assert.equal(payload.providerRequestAttempted,attempted);assert.equal(payload.automaticRetryAllowed,false);assert.equal(payload.aiModelUsed,false);
+   assert.equal(payload.terminalAuditVerified,false);assert.equal(payload.result,undefined);
+   assert.ok(!JSON.stringify(payload).includes('SYNTHETIC_INTERNAL_DETAIL_NOT_PUBLIC'));
+ }
+ assert.equal(auditFailure.aiModelUsed,false);
+ assert.equal(overrunBody.aiModelUsed,false);
+ console.log('RIAI_GATEWAY_FAILURE_ENVELOPE=PASS scenarios=9 synthetic_only=true');
  console.log('RIAI_GATEWAY_INTEGRATION=PASS');
 })().catch((e)=>{console.error(e);process.exit(1);});

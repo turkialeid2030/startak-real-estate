@@ -523,7 +523,7 @@ async function handleRequestPost(context) {
   if (!sameOrigin.ok) return json({ ok: false, code: sameOrigin.code, aiModelUsed: false, providerRequestAttempted: false, automaticRetryAllowed: false }, sameOrigin.status);
 
   const contentType = request.headers.get('content-type') || '';
-  if (!contentType.toLowerCase().includes('application/json')) return json({ ok: false, code: 'JSON_CONTENT_TYPE_REQUIRED', aiModelUsed: false, providerRequestAttempted: false, automaticRetryAllowed: false }, 415);
+  if (contentType.split(';',1)[0].trim().toLowerCase() !== 'application/json') return json({ ok: false, code: 'JSON_CONTENT_TYPE_REQUIRED', aiModelUsed: false, providerRequestAttempted: false, automaticRetryAllowed: false }, 415);
   const lengthHeader = Number(request.headers.get('content-length'));
   if (Number.isFinite(lengthHeader) && lengthHeader > MAX_REQUEST_BYTES) return json({ ok: false, code: 'REQUEST_TOO_LARGE', aiModelUsed: false, providerRequestAttempted: false, automaticRetryAllowed: false }, 413);
 
@@ -655,7 +655,7 @@ async function handleRequestPost(context) {
     const settlement = await settleGatewayQuota(env.RIAI_AI_QUOTA, {id:quotaReservationId,actualTokens});
     if (!settlement.ok) {
       await recordAudit(context, {access,snapshot:body.decisionSnapshot,outcome:'QUOTA_SETTLEMENT_FAILED',reasonCode:settlement.code,model,startedAt});
-      return json({ok:false,code:settlement.code,providerRequestAttempted:true,automaticRetryAllowed:false},503);
+      return json({ok:false,code:settlement.code,aiModelUsed:false,providerRequestAttempted:true,automaticRetryAllowed:false},503);
     }
   }
   if(modelPolicy.profile&&actualTokens===null){
@@ -705,12 +705,15 @@ export async function onRequestPost(context) {
   const execution = { ...context, invocationId: crypto.randomUUID(), providerRequestAttempted: false };
   try { return await handleRequestPost(execution); }
   catch (error) {
-    if (!(error instanceof AuditPersistenceError)) throw error;
-    return json({ ok: false, code: error.code, auditPersisted: false, providerRequestAttempted: execution.providerRequestAttempted, automaticRetryAllowed: false }, 503);
+    // Preserve dispatch uncertainty on unexpected failures; never return raw error details.
+    if (!(error instanceof AuditPersistenceError)) {
+      return json({ ok: false, code: 'AI_GATEWAY_UNEXPECTED_FAILURE', aiModelUsed: false, providerRequestAttempted: execution.providerRequestAttempted, automaticRetryAllowed: false, terminalAuditVerified: false }, 503);
+    }
+    return json({ ok: false, code: error.code, aiModelUsed: false, auditPersisted: false, providerRequestAttempted: execution.providerRequestAttempted, automaticRetryAllowed: false }, 503);
   }
 }
 
 export async function onRequest(context) {
   if (context.request.method === 'POST') return onRequestPost(context);
-  return json({ ok: false, code: 'METHOD_NOT_ALLOWED' }, 405);
+  return json({ ok: false, code: 'METHOD_NOT_ALLOWED', aiModelUsed: false, providerRequestAttempted: false, automaticRetryAllowed: false }, 405, { allow: 'POST' });
 }
