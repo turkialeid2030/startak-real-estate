@@ -619,6 +619,10 @@ async function handleRequestPost(context) {
     await recordAudit(context, { access, snapshot: body.decisionSnapshot, outcome: 'PROVIDER_FAILED', reasonCode: code, model, tokenLimit: outputBudget.value, startedAt });
     return json({ ok: false, code, aiModelUsed: false, providerRequestAttempted: true, automaticRetryAllowed: false }, 502);
   }
+  if (!providerResponse || typeof providerResponse.ok !== 'boolean') {
+    clearTimeout(timer);
+    throw new Error('AI_PROVIDER_RESPONSE_CONTRACT_INVALID');
+  }
   if (!providerResponse.ok) {
     clearTimeout(timer);
     void providerResponse.body?.cancel().catch(() => {});
