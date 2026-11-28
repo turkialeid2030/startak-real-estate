@@ -2,9 +2,21 @@
 // fallback using standard window.localStorage. Namespaced to avoid collisions.
 const NAMESPACE = 'STARTAK_REAL_ESTATE:SAVED_DEALS:';
 function isAvailable() {
-  if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') return false;
-  try { const k = '__storage_test__'; window.localStorage.setItem(k, '1'); window.localStorage.removeItem(k); return true; }
-  catch { return false; }
+  try {
+    if (typeof window === 'undefined') return false;
+    const storage = window.localStorage;
+    if (!storage) return false;
+    // Never overwrite an existing key, even if another application uses it.
+    const prefix = NAMESPACE + '__availability_probe__:';
+    for (let i = 0; i < 8; i++) {
+      const key = prefix + i;
+      if (storage.getItem(key) !== null) continue;
+      storage.setItem(key, '1');
+      try { return storage.getItem(key) === '1'; }
+      finally { storage.removeItem(key); }
+    }
+    return false;
+  } catch { return false; }
 }
 async function get(key) {
   const v = window.localStorage.getItem(NAMESPACE + key);
