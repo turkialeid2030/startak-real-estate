@@ -166,11 +166,17 @@ function provider(boundary='This output is advisory analysis only and does not c
  assert.equal(overrunBody.aiModelUsed,false);
  console.log('RIAI_GATEWAY_FAILURE_ENVELOPE=PASS scenarios=9 synthetic_only=true');
  const quantityVariants=["Value is twenty-five SAR","Rent is one riyal","Yield is five per cent","القيمة خمسة ريالات","العائد عشرون بالمئة","القيمة خَمْسَة ريالات","Rent is fi​ve SAR","القيمة خمـسة ريالات"];
+ quantityVariants.push(...["Yield is five","zero occupancy","six units","الإيجار خمسة","العائد واحد","القيمة ثلاث ريالات"]);
  for(const value of quantityVariants){
    const output=provider();const narrative=JSON.parse(output.choices[0].message.content);narrative.executiveObservations=[value];output.choices[0].message.content=JSON.stringify(narrative);
    let calls=0;global.fetch=async()=>{calls++;return Response.json(output);};
    const response=await onRequestPost({request:req(SNAPSHOT),env:env()});const rejected=await response.json();
    assert.equal(response.status,502,value);assert.equal(rejected.code,'AI_UNSOURCED_NUMERIC_CLAIM',value);assert.equal(rejected.result,undefined);assert.equal(rejected.providerRequestAttempted,true);assert.equal(rejected.automaticRetryAllowed,false);assert.equal(calls,1);
+ }
+ for(const value of ["Evidence coverage is incomplete in two material areas.","Three material issues require review.","توجد ثلاثة جوانب تحتاج مراجعة."]){
+   const output=provider();const narrative=JSON.parse(output.choices[0].message.content);narrative.executiveObservations=[value];output.choices[0].message.content=JSON.stringify(narrative);
+   global.fetch=async()=>Response.json(output);
+   const response=await onRequestPost({request:req(SNAPSHOT),env:env()});assert.equal(response.status,200,value);
  }
  console.log('RIAI_SPELLED_QUANTITY_GATEWAY=PASS variants='+quantityVariants.length+' synthetic_only=true');
  console.log('RIAI_GATEWAY_INTEGRATION=PASS');
