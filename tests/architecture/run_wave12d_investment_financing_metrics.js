@@ -270,6 +270,22 @@ const highLtv = calculateInvestmentFinancingMetrics(build({ id: 'HIGH-LTV', fina
 equal(highLtv.status, INVESTMENT_FINANCING_RESULT_STATUS.REVIEW_REQUIRED, 'LTV > 100% review');
 check(highLtv.reviewFlags.includes('LTV_ABOVE_100_PERCENT_REVIEW_REQUIRED'), 'high LTV flag explicit');
 
+// A positive finite collateral value can still produce an infinite LTV.
+const overflowCollateral = build({id:'LTV-OVERFLOW',financingEnabled:true,debtTerms,collateral:externalCollateral(Number.MIN_VALUE),dscrBasis:DSCR_NUMERATOR_BASIS.PROFESSIONAL_NOI,maxDebtAge:20,maxCollateralAge:20});
+equal(overflowCollateral.status,INVESTMENT_FINANCING_INPUT_STATUS.READY_FOR_CANONICAL_INVESTMENT_FINANCING_METRICS,'positive tiny collateral accepted structurally');
+check(verifyInvestmentFinancingMetricsInputIntegrity(overflowCollateral),'overflow case is an intact packet');
+const overflowResult=calculateInvestmentFinancingMetrics(overflowCollateral);
+equal(overflowResult.status,INVESTMENT_FINANCING_RESULT_STATUS.INVALID_ECONOMIC_CASE,'non-finite LTV fails closed');
+check(overflowResult.blockers.includes('DEBT_RATIO_NON_FINITE'),'numeric blocker disclosed');
+equal(overflowResult.debtMetrics,null,'no partial debt results');
+equal(overflowResult.unleveredMetrics,null,'no partial investment results');
+equal(overflowResult.equityMetrics,null,'no partial equity results');
+equal(overflowResult.transactionAuthorized,false,'no authorization');
+const finiteExtreme=calculateInvestmentFinancingMetrics(build({id:'LTV-FINITE-EXTREME',financingEnabled:true,debtTerms,collateral:externalCollateral(1e-100),dscrBasis:DSCR_NUMERATOR_BASIS.PROFESSIONAL_NOI,maxDebtAge:20,maxCollateralAge:20}));
+equal(finiteExtreme.status,INVESTMENT_FINANCING_RESULT_STATUS.REVIEW_REQUIRED,'finite extreme LTV is review not overflow');
+check(Number.isFinite(finiteExtreme.debtMetrics.ltv),'finite LTV retained');
+check(finiteExtreme.reviewFlags.includes('LTV_ABOVE_100_PERCENT_REVIEW_REQUIRED'),'high LTV remains flagged');
+console.log('W06_FINANCING_RATIO_OVERFLOW_BOUNDARY=PASS checks=11');
 const highLtc = calculateInvestmentFinancingMetrics(build({ id: 'HIGH-LTC', financingEnabled: true, debtTerms: debt({ principalSar: 9000000, fees: 2000000 }), collateral: externalCollateral(12000000), dscrBasis: DSCR_NUMERATOR_BASIS.PROFESSIONAL_NOI, maxDebtAge: 20, maxCollateralAge: 20 }));
 equal(highLtc.status, INVESTMENT_FINANCING_RESULT_STATUS.REVIEW_REQUIRED, 'LTC > 100% review');
 check(highLtc.reviewFlags.includes('LTC_ABOVE_100_PERCENT_REVIEW_REQUIRED'), 'high LTC flag explicit');
