@@ -1,8 +1,18 @@
 const positive = value => Number.isSafeInteger(value) && value > 0;
 const deny = code => ({ allowed: false, code });
+function validReservation(value, id) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)
+    || value.id !== id || !Number.isSafeInteger(value.day) || value.day < 0
+    || typeof value.subjectHash !== 'string' || !/^[a-f0-9]{64}$/.test(value.subjectHash)
+    || !positive(value.tokens) || !['RESERVED', 'SETTLED'].includes(value.state)) return false;
+  if (value.state === 'SETTLED' && (!Number.isSafeInteger(value.actualTokens) || value.actualTokens < 0)) return false;
+  if (value.state === 'RESERVED' && value.actualTokens !== undefined) return false;
+  const monetary = value.reservedUsdMicros !== undefined || value.priceModel !== undefined;
+  return !monetary || (positive(value.reservedUsdMicros) && typeof value.priceModel === 'string' && !!value.priceModel.trim() && value.priceModel.length <= 200);
+}
 async function count(tx, key) {
   const value = await tx.get(key);
-  if (value === undefined || value === null) return 0;
+  if (value === undefined) return 0;
   if (!Number.isSafeInteger(value) || value < 0) throw new Error('CORRUPT_QUOTA_STATE');
   return value;
 }
@@ -21,7 +31,8 @@ export async function reserveQuota(storage, input) {
     return await storage.transaction(async tx => {
       const reservationKey = `reservation:${id}`;
       const existing = await tx.get(reservationKey);
-      if (existing) {
+      if (existing !== undefined) {
+        if (!validReservation(existing, id)) return deny('CORRUPT_RESERVATION_STATE');
         if (existing.subjectHash !== subjectHash || existing.tokens !== tokens || existing.day !== day
           || existing.reservedUsdMicros !== money?.reservedUsdMicros || existing.priceModel !== money?.model) return deny('RESERVATION_CONFLICT');
         return { allowed: true, replayed: true, id, reservedTokens: tokens, reservedUsdMicros:existing.reservedUsdMicros };
@@ -29,7 +40,9 @@ export async function reserveQuota(storage, input) {
       const keys = [`minute:${minute}:${subjectHash}`, `subject:${day}:${subjectHash}`, `global:${day}`, `tokens:${day}`];
       if (money) keys.push(`usd-micros:${day}`);
       const values = await Promise.all(keys.map(key => count(tx, key)));
-      if (await tx.get(`blocked:${day}`)) return deny('QUOTA_RECONCILIATION_REQUIRED');
+      const blocked = await tx.get(`blocked:${day}`);
+      if (blocked !== undefined && blocked !== true && blocked !== false) return deny('CORRUPT_QUOTA_STATE');
+      if (blocked === true) return deny('QUOTA_RECONCILIATION_REQUIRED');
       const ceilings = [limits.minute, limits.subjectDay, limits.globalDay, limits.tokensDay];
       const increments = [1, 1, 1, tokens];
       if (money) { ceilings.push(money.limitUsdMicros); increments.push(money.reservedUsdMicros); }
@@ -52,9 +65,8 @@ export async function settleQuota(storage, { id, actualTokens } = {}) {
     return await storage.transaction(async tx => {
       const key = `reservation:${id}`;
       const reservation = await tx.get(key);
-      if (!reservation) return { settled: false, code: 'RESERVATION_NOT_FOUND' };
-      if (reservation.id !== id || !Number.isSafeInteger(reservation.day) || reservation.day < 0 || !positive(reservation.tokens)
-        || (reservation.state !== 'RESERVED' && reservation.state !== 'SETTLED')) return { settled: false, code: 'CORRUPT_RESERVATION_STATE' };
+      if (reservation === undefined) return { settled: false, code: 'RESERVATION_NOT_FOUND' };
+      if (!validReservation(reservation, id)) return { settled: false, code: 'CORRUPT_RESERVATION_STATE' };
       if (reservation.state === 'SETTLED') return reservation.actualTokens === actualTokens
         ? { settled: true, replayed: true, overage: actualTokens > reservation.tokens }
         : { settled: false, code: 'SETTLEMENT_CONFLICT' };
