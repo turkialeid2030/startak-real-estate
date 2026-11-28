@@ -38,4 +38,25 @@ eq(run('SPECIAL_PURPOSE',cost).metrics.remainingImprovementCostSar,800000);
 for(const patch of [{physicalLossSar:1100000},{propertyRightRef:''},{functionalLossSar:-1},{lossCausesDistinct:false},{businessAssetsExcluded:false},{landValueSar:undefined}])run('SPECIAL_PURPOSE',{...cost,...patch},STATUS.HOLD);
 for(const c of SUPPORTED_SECTORS){run(c,{},STATUS.HOLD);run(c,null,STATUS.HOLD);}
 for(const c of ['OTHER','constructor','__proto__','OFFICE',null])run(c,{},STATUS.HOLD);
+const {calculateStudy,createInputArchive,createOperatingReport,restoreStudyFile}=require('../../src/specialized-assets/local-sector-operating-archive');
+const state={assetClass:'HOSPITALITY',segments:[],values:Object.fromEntries(Object.entries(hotel).map(([k,v])=>[k,String(v)]))};
+const extended={...state,values:{...state.values,sourceCurrency:'SAR',sourceSurplusBasis:'AFTER_FFE_BEFORE_FIXED_CHARGES',sourceAdrDecimals:'2',sourceAverageDailyRateSar:'500',sourceRoomsRevenueSar:'12775000',sourceTotalOperatingRevenueSar:'15000000',sourceOperatingSurplusAfterFfeReserveSar:'7000000'}};
+eq(createOperatingReport(state).version,'LOCAL_SECTOR_OPERATING_REPORT_V1');
+const report=createOperatingReport(extended);
+eq(report.version,'LOCAL_SECTOR_OPERATING_REPORT_V2');
+eq(report.result.metrics.sourceReconciliationStatus,'ARITHMETICALLY_CONSISTENT');
+eq(report.result.independentEvidenceVerified,false);
+eq(restoreStudyFile(report,{expectedAssetClass:'HOSPITALITY'}).resultsRestored,false);
+eq(restoreStudyFile(createInputArchive(extended),{expectedAssetClass:'HOSPITALITY'}).studyInputs.values.sourceAverageDailyRateSar,'500');
+for(const patch of [{sourceCurrency:'OTHER'},{sourceAverageDailyRateSar:'499'},{sourceOperatingSurplusAfterFfeReserveSar:'6999999'},{sourceTotalOperatingRevenueSar:''},{sourceAdrDecimals:'3'}]){
+ const conflict={...extended,values:{...extended.values,...patch}};
+ eq(calculateStudy(conflict).status,STATUS.HOLD);
+ eq(calculateStudy(conflict).metrics,null);
+ assert.throws(()=>createOperatingReport(conflict),/SPECIALIST_REPORT_NOT_READY/);checks++;
+}
+const zero={...extended,values:{...extended.values,occupiedRoomNights:'0',roomsRevenueSar:'0',sourceAverageDailyRateSar:'',sourceRoomsRevenueSar:'0',sourceTotalOperatingRevenueSar:'2225000',sourceOperatingSurplusAfterFfeReserveSar:'-5775000'}};
+eq(calculateStudy(zero).status,STATUS.READY);
+eq(calculateStudy({...zero,values:{...zero.values,sourceAverageDailyRateSar:'invalid'}}).status,STATUS.HOLD);
+const forged=structuredClone(report);forged.version='LOCAL_SECTOR_OPERATING_REPORT_V1';
+assert.throws(()=>restoreStudyFile(forged,{expectedAssetClass:'HOSPITALITY'}));checks++;
 console.log('LOCAL_SECTOR_OPERATING_RESEARCH=PASS scenarios='+cases+' checks='+checks+' personal_only=true');

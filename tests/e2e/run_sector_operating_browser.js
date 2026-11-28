@@ -84,6 +84,35 @@ const cases=[['HOSPITALITY',hotel,'revParSar','availableRoomNights','sar'],['IND
     await expect(exportReport).toBeDisabled();
     await calc.click();await expect(panel.getByTestId('specialist-metric-'+metric)).toHaveText(formatted);
     checks+=18;
+    if(assetClass==='HOSPITALITY'){
+     const source={sourceCurrency:'SAR',sourceSurplusBasis:'AFTER_FFE_BEFORE_FIXED_CHARGES',sourceAdrDecimals:2,
+      sourceAverageDailyRateSar:500,sourceRoomsRevenueSar:12775000,sourceTotalOperatingRevenueSar:15000000,sourceOperatingSurplusAfterFfeReserveSar:7000000};
+     await fill({...source,sourceAverageDailyRateSar:400});
+     await expect(panel.getByTestId('specialist-result')).toHaveCount(0);
+     await calc.click();await expect(panel.getByTestId('specialist-result')).toHaveAttribute('data-status',STATUS.HOLD);
+     await expect(panel.getByTestId('specialist-result')).toContainText(ar?'متوسط سعر الغرفة المبلّغ لا يطابق':'Reported ADR does not reconcile');
+     await expect(exportReport).toBeDisabled();
+     await expect(panel.getByTestId('specialist-metric-'+metric)).toHaveCount(0);
+     await fill(source);await calc.click();
+     await expect(panel.getByTestId('specialist-result')).toHaveAttribute('data-status',STATUS.READY);
+     await expect(panel.getByTestId('specialist-source-reconciliation')).toBeVisible();
+     const v2=await download(exportReport);
+     assert.equal(v2.version,'LOCAL_SECTOR_OPERATING_REPORT_V2');
+     assert.equal(v2.result.metrics.sourceReconciliationStatus,'ARITHMETICALLY_CONSISTENT');
+     assert.equal(v2.result.independentEvidenceVerified,false);
+     await importFile(v2);
+     await expect(panel.getByTestId('specialist-file-notice')).toContainText(ar?'طابقت إعادة الحساب':'Report recomputation matched');
+     await expect(panel.getByTestId('specialist-result')).toHaveCount(0);
+     await expect(exportReport).toBeDisabled();
+     await expect(panel.getByTestId('specialist-sourceAverageDailyRateSar')).toHaveValue('500');
+     await calc.click();await expect(panel.getByTestId('specialist-source-reconciliation')).toBeVisible();
+     await panel.getByTestId('specialist-clear-source').click();
+     await expect(panel.getByTestId('specialist-result')).toHaveCount(0);
+     await calc.click();
+     await expect(panel.getByTestId('specialist-source-reconciliation')).toHaveCount(0);
+     assert.equal((await download(exportReport)).version,'LOCAL_SECTOR_OPERATING_REPORT_V1');
+     checks+=17;
+    }
     await panel.getByTestId('specialist-'+invalidField).fill('0');
     await expect(panel.getByTestId('specialist-result')).toHaveCount(0);
     await calc.click();await expect(panel.getByTestId('specialist-result')).toHaveAttribute('data-status',STATUS.HOLD);

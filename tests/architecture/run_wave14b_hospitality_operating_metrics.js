@@ -310,4 +310,54 @@ throws(() => buildHospitalityOperatingMetricsPacket({
 throws(() => period({ recordId: 'BAD-OCC', occupiedRoomNights: 19000 }), /OCCUPIED_ROOM_NIGHTS_EXCEED_AVAILABLE/, 'occupied room nights cannot exceed available');
 throws(() => period({ recordId: 'BAD-REV', occupiedRoomNights: 0, roomsRevenueSar: 1 }), /ROOMS_REVENUE_WITH_ZERO_OCCUPIED_ROOM_NIGHTS/, 'rooms revenue cannot exist with zero occupied room nights');
 
+// Synthetic source reconciliation; no private report inputs or source amounts.
+const sourceReported={
+ currency:'SAR',surplusBasis:'AFTER_FFE_BEFORE_FIXED_CHARGES',adrDecimals:2,
+ averageDailyRateSar:1000,roomsRevenueSar:13575000,totalOperatingRevenueSar:18575000,
+ operatingSurplusAfterFfeReserveSar:1775000,
+};
+const buildSource=record=>buildHospitalityOperatingMetricsPacket({
+ metricsPacketId:'SYNTHETIC-SOURCE-RECONCILIATION',caseId:'CASE-14B',propertyRef:'PROP-14B',
+ specializedAssetPacket:hotel,operatingPeriodRecords:[record],
+ preparedByRef:'A',preparedAt:'2026-01-03',reviewedByRef:'R',reviewedAt:'2026-01-04',reviewEvidenceRef:'REV',
+});
+const verifiedSource=period({sourceReported});
+const matched=buildSource(verifiedSource);
+eq(matched.status,HOSPITALITY_OPERATING_METRICS_STATUS.READY,'reported source reconciles');
+eq(matched.periodMetrics[0].sourceReconciliation.status,'ARITHMETICALLY_CONSISTENT','explicit arithmetic status');
+check(verifyHospitalityOperatingMetricsPacketIntegrity(matched),'source reconciliation bound to metrics hash');
+check(!verifyHospitalityOperatingPeriodRecordIntegrity({...verifiedSource,sourceReported:{...sourceReported,averageDailyRateSar:999}}),'reported source tampering detected');
+for(const [patch,reason] of [
+ [{currency:'USD'},'SOURCE_CURRENCY_OR_BASIS_UNQUALIFIED'],
+ [{currency:null},'SOURCE_CURRENCY_OR_BASIS_UNQUALIFIED'],
+ [{surplusBasis:'NET_INCOME'},'SOURCE_CURRENCY_OR_BASIS_UNQUALIFIED'],
+ [{adrDecimals:3},'SOURCE_CURRENCY_OR_BASIS_UNQUALIFIED'],
+ [{averageDailyRateSar:null},'SOURCE_REPORTED_VALUES_INCOMPLETE_OR_INVALID'],
+ [{averageDailyRateSar:'1000'},'SOURCE_REPORTED_VALUES_INCOMPLETE_OR_INVALID'],
+ [{roomsRevenueSar:-1},'SOURCE_REPORTED_VALUES_INCOMPLETE_OR_INVALID'],
+ [{totalOperatingRevenueSar:Infinity},'SOURCE_REPORTED_VALUES_INCOMPLETE_OR_INVALID'],
+ [{operatingSurplusAfterFfeReserveSar:null},'SOURCE_REPORTED_VALUES_INCOMPLETE_OR_INVALID'],
+ [{averageDailyRateSar:900},'SOURCE_ADR_REVENUE_MISMATCH'],
+ [{roomsRevenueSar:13575001},'SOURCE_ROOMS_REVENUE_MISMATCH'],
+ [{totalOperatingRevenueSar:18000000},'SOURCE_TOTAL_REVENUE_MISMATCH'],
+ [{operatingSurplusAfterFfeReserveSar:1700000},'SOURCE_OPERATING_SURPLUS_MISMATCH'],
+]){
+ const conflict=buildSource(period({sourceReported:{...sourceReported,...patch}}));
+ eq(conflict.status,HOSPITALITY_OPERATING_METRICS_STATUS.HOLD_PERIOD_EVIDENCE,reason);
+ check(conflict.blockers.some(b=>b.includes(reason)),reason+' blocker');
+ eq(conflict.aggregateMetrics,null,reason+' no aggregate');
+ eq(conflict.valuationInputAdopted,false,reason+' no adoption');
+}
+const missing=buildSource(period({sourceReported:null}));
+eq(missing.status,HOSPITALITY_OPERATING_METRICS_STATUS.HOLD_PERIOD_EVIDENCE,'explicit null source holds');
+const zero=buildSource(period({occupiedRoomNights:0,roomsRevenueSar:0,sourceReported:{
+ ...sourceReported,averageDailyRateSar:null,roomsRevenueSar:0,totalOperatingRevenueSar:5000000,
+ operatingSurplusAfterFfeReserveSar:-11800000,
+}}));
+eq(zero.status,HOSPITALITY_OPERATING_METRICS_STATUS.READY,'zero room nights and signed loss reconcile without fabricated ADR');
+eq(zero.aggregateMetrics.averageDailyRateSar,null,'zero denominator yields null ADR');
+const rounding=buildSource(period({roomsRevenueSar:13575030,sourceReported:{
+ ...sourceReported,roomsRevenueSar:13575030,totalOperatingRevenueSar:18575030,operatingSurplusAfterFfeReserveSar:1775030,
+}}));
+eq(rounding.status,HOSPITALITY_OPERATING_METRICS_STATUS.READY,'ADR published to two decimals permits legitimate rounding');
 console.log(`WAVE_14B_HOSPITALITY_OPERATING_METRICS=PASS checks=${checks}`);

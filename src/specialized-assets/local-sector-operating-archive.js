@@ -4,6 +4,11 @@ const {parseNumericText}=require('../validation/numeric-text');
 const {HOTEL_FIELDS,SUPPORTED_SECTORS,STATUS,evaluateLocalSectorOperations}=require('./local-sector-operating-research');
 const CASE_VERSION='LOCAL_SECTOR_OPERATING_INPUTS_V1',REPORT_VERSION='LOCAL_SECTOR_OPERATING_REPORT_V1',MAX_BYTES=64*1024;
 const schema=(numbers=[],strings=[],booleans=[])=>Object.freeze(Object.fromEntries([...numbers,...strings].map(k=>[k,'string']).concat(booleans.map(k=>[k,'boolean']))));
+const SOURCE_CASE_VERSION='LOCAL_SECTOR_OPERATING_INPUTS_V2',SOURCE_REPORT_VERSION='LOCAL_SECTOR_OPERATING_REPORT_V2';
+const SOURCE_FIELDS=['sourceCurrency','sourceSurplusBasis','sourceAdrDecimals','sourceAverageDailyRateSar','sourceRoomsRevenueSar','sourceTotalOperatingRevenueSar','sourceOperatingSurplusAfterFfeReserveSar'];
+const HOTEL_SOURCE_SCHEMA=schema([...HOTEL_FIELDS,...SOURCE_FIELDS]);
+const hasSource=values=>SOURCE_FIELDS.some(k=>Object.hasOwn(values||{},k));
+const fieldsFor=(assetClass,values)=>assetClass==='HOSPITALITY'&&hasSource(values)?HOTEL_SOURCE_SCHEMA:SCHEMAS[assetClass];
 const CAP=schema(['capacity','usedCapacity','annualOperatingRevenueSar','annualOperatingExpensesSar']);
 const SCHEMAS=Object.freeze({
  HOSPITALITY:schema(HOTEL_FIELDS),
@@ -29,7 +34,7 @@ function canonicalFields(raw,fields,strict){
 }
 function normalizeStudy(state,{strict=false}={}){
  if(!exact(state,['assetClass','values','segments'])||typeof state.assetClass!=='string'||!SUPPORTED_SECTORS.includes(state.assetClass))fail('SPECIALIST_ARCHIVE_SECTOR_INVALID');
- const assetClass=state.assetClass,values=canonicalFields(state.values,SCHEMAS[assetClass],strict);
+ const assetClass=state.assetClass,values=canonicalFields(state.values,fieldsFor(assetClass,state.values),strict);
  if(!Array.isArray(state.segments))fail('SPECIALIST_ARCHIVE_SEGMENTS_INVALID');
  if(assetClass==='MIXED_USE'){
   if(state.segments.length<2||state.segments.length>20)fail('SPECIALIST_ARCHIVE_SEGMENTS_INVALID');
@@ -44,6 +49,15 @@ function convert(values,fields){
 }
 function calculateStudy(state){
  const s=normalizeStudy(state),inputs=convert(s.values,SCHEMAS[s.assetClass]);
+ if(s.assetClass==='HOSPITALITY'&&hasSource(s.values)){
+  const read=k=>{const raw=s.values[k];if(raw==='')return null;const n=parseNumericText(raw);return n.ok?n.value:NaN;};
+  inputs.sourceReported={
+   currency:s.values.sourceCurrency,surplusBasis:s.values.sourceSurplusBasis,
+   adrDecimals:read('sourceAdrDecimals'),averageDailyRateSar:read('sourceAverageDailyRateSar'),
+   roomsRevenueSar:read('sourceRoomsRevenueSar'),totalOperatingRevenueSar:read('sourceTotalOperatingRevenueSar'),
+   operatingSurplusAfterFfeReserveSar:read('sourceOperatingSurplusAfterFfeReserveSar'),
+  };
+ }
  if(s.assetClass==='MIXED_USE')inputs.segments=s.segments.map(v=>convert(v,SEGMENT));
  return evaluateLocalSectorOperations({assetClass:s.assetClass,inputs});
 }
@@ -51,23 +65,27 @@ function digest(body){return sha256Hex(JSON.stringify(body));}
 function bounded(v){let raw;try{raw=JSON.stringify(v);}catch{fail('SPECIALIST_ARCHIVE_INVALID');}if(typeof raw!=='string'||raw.length>MAX_BYTES||new TextEncoder().encode(raw).length>MAX_BYTES)fail('SPECIALIST_ARCHIVE_SIZE_INVALID');}
 function build(state,version,createdAt){
  const studyInputs=normalizeStudy(state);
+ const extended=studyInputs.assetClass==='HOSPITALITY'&&hasSource(studyInputs.values);
+ const isReport=[REPORT_VERSION,SOURCE_REPORT_VERSION].includes(version);
+ version=extended?(isReport?SOURCE_REPORT_VERSION:SOURCE_CASE_VERSION):(isReport?REPORT_VERSION:CASE_VERSION);
  if(!date(createdAt))fail('SPECIALIST_ARCHIVE_DATE_INVALID');
  const body={version,createdAt,studyInputs};
- if(version===REPORT_VERSION){const result=calculateStudy(studyInputs);if(result.status!==STATUS.READY)fail('SPECIALIST_REPORT_NOT_READY');Object.assign(body,{result,scope:'LOCAL_UNVERIFIED_OPERATING_RESEARCH_ONLY',professionalValuationCertified:false,transactionAuthorized:false});}
+ if(isReport){const result=calculateStudy(studyInputs);if(result.status!==STATUS.READY)fail('SPECIALIST_REPORT_NOT_READY');Object.assign(body,{result,scope:'LOCAL_UNVERIFIED_OPERATING_RESEARCH_ONLY',professionalValuationCertified:false,transactionAuthorized:false});}
  const file={...body,sha256:digest(body)};bounded(file);return file;
 }
 function createInputArchive(state,{createdAt=new Date().toISOString()}={}){return build(state,CASE_VERSION,createdAt);}
 function createOperatingReport(state,{createdAt=new Date().toISOString()}={}){return build(state,REPORT_VERSION,createdAt);}
 function restoreStudyFile(file,{expectedAssetClass}={}){
  bounded(file);
- if(!plain(file)||!SUPPORTED_SECTORS.includes(expectedAssetClass)||![CASE_VERSION,REPORT_VERSION].includes(file.version)||!date(file.createdAt)||typeof file.sha256!=='string'||!/^[a-f0-9]{64}$/.test(file.sha256))fail('SPECIALIST_ARCHIVE_INVALID');
- const isReport=file.version===REPORT_VERSION,keys=['version','createdAt','studyInputs','sha256',...(isReport?['result','scope','professionalValuationCertified','transactionAuthorized']:[])];
+ if(!plain(file)||!SUPPORTED_SECTORS.includes(expectedAssetClass)||![CASE_VERSION,REPORT_VERSION,SOURCE_CASE_VERSION,SOURCE_REPORT_VERSION].includes(file.version)||!date(file.createdAt)||typeof file.sha256!=='string'||!/^[a-f0-9]{64}$/.test(file.sha256))fail('SPECIALIST_ARCHIVE_INVALID');
+ const isReport=[REPORT_VERSION,SOURCE_REPORT_VERSION].includes(file.version),keys=['version','createdAt','studyInputs','sha256',...(isReport?['result','scope','professionalValuationCertified','transactionAuthorized']:[])];
  if(!exact(file,keys))fail('SPECIALIST_ARCHIVE_FIELDS_INVALID');
  const state=normalizeStudy(file.studyInputs,{strict:true});
  if(state.assetClass!==expectedAssetClass)fail('SPECIALIST_ARCHIVE_SECTOR_MISMATCH');
  const expected=build(state,file.version,file.createdAt);
+ if(file.version!==expected.version)fail('SPECIALIST_ARCHIVE_VERSION_MISMATCH');
  if(file.sha256!==expected.sha256)fail('SPECIALIST_ARCHIVE_DIGEST_MISMATCH');
  if(isReport&&(file.scope!==expected.scope||file.professionalValuationCertified!==false||file.transactionAuthorized!==false||JSON.stringify(file.result)!==JSON.stringify(expected.result)))fail('SPECIALIST_REPORT_RECOMPUTATION_MISMATCH');
  return {studyInputs:state,sourceKind:isReport?'RECOMPUTED_REPORT':'INPUT_ARCHIVE',resultsRestored:false,authorityRestored:false};
 }
-module.exports={CASE_VERSION,REPORT_VERSION,MAX_BYTES,normalizeStudy,calculateStudy,createInputArchive,createOperatingReport,restoreStudyFile};
+module.exports={CASE_VERSION,REPORT_VERSION,SOURCE_CASE_VERSION,SOURCE_REPORT_VERSION,SOURCE_FIELDS,MAX_BYTES,normalizeStudy,calculateStudy,createInputArchive,createOperatingReport,restoreStudyFile};
