@@ -151,4 +151,22 @@ expectThrow(() => candidate({ programScopeEvidence: [scopeEvidence(rc.PROGRAM_SC
 expectThrow(() => candidate({ programScopeEvidence: [scopeEvidence(rc.PROGRAM_SCOPE.FOUNDATION_AND_PROFESSIONAL_VALUATION, 0, { closeoutHashSha256: 'bad' })] }), /SHA-256/);
 expectThrow(() => candidate({ programScopeEvidence: [scopeEvidence(rc.PROGRAM_SCOPE.FOUNDATION_AND_PROFESSIONAL_VALUATION, 0, { exactHeadSha: 'bad' })] }), /git commit SHA/);
 
+// Derived authority flags and impossible calendar dates must not validate.
+for(const key of ['releaseAuthorized','mergeAuthorized','deploymentAuthorized','transactionAuthorized','productionSecurityValidated','engineeringScopeComplete','externalBlockersRemainOpen']){
+ check(()=>assert.strictEqual(rc.verifyFinalEngineeringReleaseCandidate({...ready,[key]:!ready[key]}).valid,false));
+}
+for(const field of ['assembledAt','reviewedAt']){
+ for(const invalid of ['2026-02-30T00:00:00Z','2026-04-31T00:00:00Z','2026-09-08T08:00:00']){
+  expectThrow(()=>candidate({[field]:invalid}),/ISO-compatible timestamp/);
+ }
+}
+const semanticCanonical=v=>Array.isArray(v)?v.map(semanticCanonical):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,semanticCanonical(v[k])])):v;
+const candidateCoreKeys=['candidateId','operatingMode','candidateParentSha','wave17QualifiedHeads','programScopeEvidence','canonicalReleaseEvidenceRef','canonicalReleaseEvidenceHashSha256','openExternalBlockers','assembledBy','reviewedBy','assembledAt','reviewedAt','status','issues'];
+for(const patch of [{openExternalBlockers:[]},{programScopeEvidence:[]},{operatingMode:'AUTHORIZED'},{reviewedBy:ready.assembledBy}]){
+ const modified={...ready,...patch};
+ modified.manifestHashSha256=sha(JSON.stringify(semanticCanonical(Object.fromEntries(candidateCoreKeys.map(k=>[k,modified[k]])))));
+ check(()=>assert.strictEqual(rc.verifyFinalEngineeringReleaseCandidate(modified).valid,false));
+}
+check(()=>assert.strictEqual(rc.verifyFinalEngineeringReleaseCandidate(JSON.parse(JSON.stringify(ready))).valid,true));
+
 console.log(`FINAL_ENGINEERING_RELEASE_CANDIDATE=PASS checks=${checks}`);
