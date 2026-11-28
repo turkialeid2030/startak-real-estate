@@ -175,4 +175,14 @@ expectThrow(() => evidence(CONTROLS[0], { reviewedAt: '2026-09-08T05:00:00Z' }),
 expectThrow(() => envelope(records, { requiredControlClasses: [CONTROLS[0], CONTROLS[0]] }), /must not contain duplicates/);
 expectThrow(() => envelope(records, { maximumEvidenceAgeDaysByControl: { [CONTROLS[0]]: 1 } }), /finite non-negative number/);
 
+// Strict calendar and review cutoff regression.
+const futureReview=records.map((record,index)=>index===0?evidence(record.controlClass,{reviewedAt:'2026-09-09T07:00:00Z'}):record);
+check(()=>assert.strictEqual(envelope(futureReview).status,security.SECURITY_QUALIFICATION_STATUS.HOLD_REVIEW_EVIDENCE));
+for(const field of ['observedAt','verifiedAt','reviewedAt']){
+ for(const invalid of ['2026-02-30T00:00:00Z','2026-04-31T00:00:00Z','2026-09-08T06:00:00']){
+  expectThrow(()=>evidence(CONTROLS[0],{[field]:invalid}),/ISO-compatible timestamp/);
+ }
+}
+check(()=>assert.strictEqual(envelope(records).status,security.SECURITY_QUALIFICATION_STATUS.READY_FOR_INDEPENDENT_SECURITY_VALIDATION));
+
 console.log(`WAVE_17A_SECURITY_QUALIFICATION_EVIDENCE=PASS checks=${checks}`);
