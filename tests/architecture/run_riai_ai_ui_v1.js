@@ -43,6 +43,13 @@ assert(client.includes("const AI_ASSIST_ENDPOINT = '/api/riai/ai-assist';"));
 assert(client.includes("credentials: 'same-origin'"));
 assert(client.includes("cache: 'no-store'"));
 
+// A potentially billable failed request requires fresh, explicit manual consent.
+assert(aiPanel.includes('data-testid="riai-ai-retry-acknowledge"'));
+assert(aiPanel.includes("state.status === 'ERROR' && state.potentialProviderCharge === true"));
+assert(aiPanel.includes('disabled={loading || (retryRisk && !retryAcknowledged)}'));
+assert(aiPanel.includes('if (pending.current || (retryRisk && !retryAcknowledged)) return;'));
+assert(aiPanel.includes('setRetryAcknowledged(false);'));
+console.log('RIAI_RETRY_ACKNOWLEDGEMENT_UI_CONTRACT=PASS static_only=true');
 console.log('RIAI_AI_UI_V1=PASS');
 console.log('MANUAL_OPT_IN_ONLY=PASS');
 console.log('AI_OUTPUT_EPHEMERAL_NOT_PERSISTED=PASS');
