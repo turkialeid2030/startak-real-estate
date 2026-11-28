@@ -65,6 +65,56 @@ async function withMockWindow(mockWindow, fn) {
     });
   });
 
+  await test('STORAGE-07', () => withMockWindow(Object.defineProperty({}, 'localStorage', {
+    get() { throw new Error('Synthetic denied storage getter'); },
+  }), () => {
+    assert.strictEqual(browserProvider.isAvailable(), false);
+    assert.throws(() => createStorageProvider(), PersistenceUnavailableError);
+  }));
+
+  await test('STORAGE-08', () => {
+    const prefix = browserProvider.NAMESPACE + '__availability_probe__:';
+    const store = new Map([['__storage_test__', 'external'], [prefix + '0', 'existing']]);
+    const before = [...store];
+    return withMockWindow({ localStorage: {
+      getItem: k => store.has(k) ? store.get(k) : null,
+      setItem: (k,v) => store.set(k,v),
+      removeItem: k => store.delete(k),
+    } }, () => {
+      assert.strictEqual(browserProvider.isAvailable(), true);
+      assert.deepStrictEqual([...store], before);
+    });
+  });
+
+  await test('STORAGE-09', () => {
+    const prefix = browserProvider.NAMESPACE + '__availability_probe__:';
+    const store = new Map(Array.from({length:8}, (_,i) => [prefix+i, 'existing-'+i]));
+    const before = [...store];
+    return withMockWindow({ localStorage: {
+      getItem: k => store.has(k) ? store.get(k) : null,
+      setItem: () => { throw new Error('Unexpected write'); },
+      removeItem: () => { throw new Error('Unexpected delete'); },
+    } }, () => {
+      assert.strictEqual(browserProvider.isAvailable(), false);
+      assert.deepStrictEqual([...store], before);
+    });
+  });
+
+  await test('STORAGE-10', () => withMockWindow({ localStorage: {
+    getItem: () => null, setItem: () => { throw new Error('Synthetic quota denial'); },
+    removeItem: () => { throw new Error('Unexpected delete'); },
+  } }, () => assert.strictEqual(browserProvider.isAvailable(), false)));
+
+  await test('STORAGE-11', () => {
+    let removed = false;
+    return withMockWindow({ localStorage: {
+      getItem: () => null, setItem: () => {}, removeItem: () => { removed = true; },
+    } }, () => {
+      assert.strictEqual(browserProvider.isAvailable(), false);
+      assert.strictEqual(removed, true);
+    });
+  });
+
   const failed = results.filter(r => r[1] !== 'PASS');
   console.log('');
   console.log('STORAGE_PROVIDER_TEST_CASES=' + results.length);
