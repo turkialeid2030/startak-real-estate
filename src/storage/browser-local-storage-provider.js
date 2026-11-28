@@ -6,14 +6,18 @@ function isAvailable() {
     if (typeof window === 'undefined') return false;
     const storage = window.localStorage;
     if (!storage) return false;
-    // Never overwrite an existing key, even if another application uses it.
+    // Fresh probe identities avoid shared cross-tab slots. localStorage has
+    // no atomic compare-and-delete; do not remove an observed changed value.
     const prefix = NAMESPACE + '__availability_probe__:';
     for (let i = 0; i < 8; i++) {
-      const key = prefix + i;
+      const nonce = Array.from(globalThis.crypto.getRandomValues(new Uint32Array(4)),
+        part => part.toString(16).padStart(8, '0')).join('');
+      const key = prefix + nonce;
       if (storage.getItem(key) !== null) continue;
-      storage.setItem(key, '1');
-      try { return storage.getItem(key) === '1'; }
-      finally { storage.removeItem(key); }
+      storage.setItem(key, nonce);
+      if (storage.getItem(key) !== nonce) return false;
+      storage.removeItem(key);
+      return storage.getItem(key) === null;
     }
     return false;
   } catch { return false; }

@@ -88,15 +88,17 @@ async function withMockWindow(mockWindow, fn) {
 
   await test('STORAGE-09', () => {
     const prefix = browserProvider.NAMESPACE + '__availability_probe__:';
-    const store = new Map(Array.from({length:8}, (_,i) => [prefix+i, 'existing-'+i]));
-    const before = [...store];
+    const observed = [];
+    let mutations = 0;
     return withMockWindow({ localStorage: {
-      getItem: k => store.has(k) ? store.get(k) : null,
-      setItem: () => { throw new Error('Unexpected write'); },
-      removeItem: () => { throw new Error('Unexpected delete'); },
+      getItem: k => { observed.push(k); return 'occupied'; },
+      setItem: () => { mutations++; },
+      removeItem: () => { mutations++; },
     } }, () => {
       assert.strictEqual(browserProvider.isAvailable(), false);
-      assert.deepStrictEqual([...store], before);
+      assert.strictEqual(observed.length, 8);
+      assert.ok(observed.every(k => k.startsWith(prefix)));
+      assert.strictEqual(mutations, 0);
     });
   });
 
@@ -111,7 +113,47 @@ async function withMockWindow(mockWindow, fn) {
       getItem: () => null, setItem: () => {}, removeItem: () => { removed = true; },
     } }, () => {
       assert.strictEqual(browserProvider.isAvailable(), false);
-      assert.strictEqual(removed, true);
+      assert.strictEqual(removed, false);
+    });
+  });
+
+  await test('STORAGE-12', () => {
+    const store = new Map();
+    let removals = 0;
+    return withMockWindow({localStorage:{
+      getItem: k => store.has(k) ? store.get(k) : null,
+      setItem: (k,v) => store.set(k,'SYNTHETIC_OTHER_WRITER'),
+      removeItem: k => { removals++;store.delete(k); },
+    }}, () => {
+      assert.strictEqual(browserProvider.isAvailable(),false);
+      assert.strictEqual(removals,0);
+      assert.deepStrictEqual([...store.values()],['SYNTHETIC_OTHER_WRITER']);
+    });
+  });
+
+  await test('STORAGE-13', () => {
+    const store = new Map(), keys = [];
+    return withMockWindow({localStorage:{
+      getItem: k => store.has(k) ? store.get(k) : null,
+      setItem: (k,v) => { keys.push(k);store.set(k,v); },
+      removeItem: k => store.delete(k),
+    }}, () => {
+      for(let i=0;i<12;i++)assert.strictEqual(browserProvider.isAvailable(),true);
+      assert.strictEqual(new Set(keys).size,12);
+      assert.ok(keys.every(k => /^[a-f0-9]{32}$/.test(k.split(':').pop())));
+      assert.strictEqual(store.size,0);
+    });
+  });
+
+  await test('STORAGE-14', () => {
+    const store = new Map();
+    return withMockWindow({localStorage:{
+      getItem: k => store.has(k) ? store.get(k) : null,
+      setItem: (k,v) => store.set(k,v),
+      removeItem: () => {}, // deletion denied/no-op
+    }}, () => {
+      assert.strictEqual(browserProvider.isAvailable(),false);
+      assert.strictEqual(store.size,1);
     });
   });
 
